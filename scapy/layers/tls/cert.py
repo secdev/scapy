@@ -15,12 +15,14 @@ of a Cert instance after its serial has been modified (for example).
 If you need to modify an import, just use the corresponding ASN1_Packet.
 
 For instance, here is what you could do in order to modify the serial of
-'cert' and then resign it with whatever 'key':
+'cert' and then resign it with whatever 'key'::
+
     f = open('cert.der')
     c = X509_Cert(f.read())
     c.tbsCertificate.serialNumber = 0x4B1D
     k = PrivKey('key.pem')
     new_x509_cert = k.resignCert(c)
+
 No need for obnoxious openssl tweaking anymore. :)
 """
 
@@ -33,13 +35,6 @@ import time
 from scapy.config import conf, crypto_validator
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-if conf.crypto_valid:
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa
-if conf.crypto_valid_recent:
-    from cryptography.hazmat.backends.openssl.ec import InvalidSignature
-
 from scapy.error import warning
 from scapy.utils import binrepr
 from scapy.asn1.asn1 import ASN1_BIT_STRING
@@ -49,11 +44,16 @@ from scapy.layers.x509 import (X509_SubjectPublicKeyInfo,
                                ECDSAPublicKey, ECDSAPrivateKey,
                                RSAPrivateKey_OpenSSL, ECDSAPrivateKey_OpenSSL,
                                X509_Cert, X509_CRL)
-from scapy.layers.tls.crypto.pkcs1 import (pkcs_os2ip, pkcs_i2osp, _get_hash,
-                                           _EncryptAndVerifyRSA,
-                                           _DecryptAndSignRSA)
+from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, _get_hash, \
+    _EncryptAndVerifyRSA, _DecryptAndSignRSA
+from scapy.compat import raw, bytes_encode
+if conf.crypto_valid:
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa, ec
+if conf.crypto_valid_recent:
+    from cryptography.hazmat.backends.openssl.ec import InvalidSignature
 
-from scapy.compat import *
 
 # Maximum allowed size in bytes for a certificate file, to avoid
 # loading huge file when importing a cert
@@ -134,7 +134,7 @@ class _PKIObjMaker(type):
 
         if obj_path is None:
             raise Exception(error_msg)
-        obj_path = raw(obj_path)
+        obj_path = bytes_encode(obj_path)
 
         if (b'\x00' not in obj_path) and os.path.isfile(obj_path):
             _size = os.path.getsize(obj_path)
@@ -144,7 +144,7 @@ class _PKIObjMaker(type):
                 f = open(obj_path, "rb")
                 _raw = f.read()
                 f.close()
-            except:
+            except Exception:
                 raise Exception(error_msg)
         else:
             _raw = obj_path
@@ -163,7 +163,7 @@ class _PKIObjMaker(type):
                     pem = der2pem(_raw, pem_marker)
                 # type identification may be needed for pem_marker
                 # in such case, the pem attribute has to be updated
-        except:
+        except Exception:
             raise Exception(error_msg)
 
         p = _PKIObj(frmt, der, pem)
@@ -223,13 +223,13 @@ class _PubKeyFactory(_PKIObjMaker):
             else:
                 raise
             marker = b"PUBLIC KEY"
-        except:
+        except Exception:
             try:
                 pubkey = RSAPublicKey(obj.der)
                 obj.__class__ = PubKeyRSA
                 obj.import_from_asn1pkt(pubkey)
                 marker = b"RSA PUBLIC KEY"
-            except:
+            except Exception:
                 # We cannot import an ECDSA public key without curve knowledge
                 raise Exception("Unable to import public key")
 
@@ -300,10 +300,11 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
 
     def encrypt(self, msg, t="pkcs", h="sha256", mgf=None, L=None):
         # no ECDSA encryption support, hence no ECDSA specific keywords here
-        return _EncryptAndVerifyRSA.encrypt(self, msg, t, h, mgf, L)
+        return _EncryptAndVerifyRSA.encrypt(self, msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
-        return _EncryptAndVerifyRSA.verify(self, msg, sig, t, h, mgf, L)
+        return _EncryptAndVerifyRSA.verify(
+            self, msg, sig, t=t, h=h, mgf=mgf, L=L)
 
 
 class PubKeyECDSA(PubKey):
@@ -376,24 +377,24 @@ class _PrivKeyFactory(_PKIObjMaker):
             privkey = privkey.privateKey
             obj.__class__ = PrivKeyRSA
             marker = b"PRIVATE KEY"
-        except:
+        except Exception:
             try:
                 privkey = ECDSAPrivateKey_OpenSSL(obj.der)
                 privkey = privkey.privateKey
                 obj.__class__ = PrivKeyECDSA
                 marker = b"EC PRIVATE KEY"
                 multiPEM = True
-            except:
+            except Exception:
                 try:
                     privkey = RSAPrivateKey(obj.der)
                     obj.__class__ = PrivKeyRSA
                     marker = b"RSA PRIVATE KEY"
-                except:
+                except Exception:
                     try:
                         privkey = ECDSAPrivateKey(obj.der)
                         obj.__class__ = PrivKeyECDSA
                         marker = b"EC PRIVATE KEY"
-                    except:
+                    except Exception:
                         raise Exception("Unable to import private key")
         try:
             obj.import_from_asn1pkt(privkey)
@@ -407,6 +408,13 @@ class _PrivKeyFactory(_PKIObjMaker):
             else:
                 obj.pem = der2pem(obj.der, marker)
         return obj
+
+
+class _Raw_ASN1_BIT_STRING(ASN1_BIT_STRING):
+    """A ASN1_BIT_STRING that ignores BER encoding"""
+    def __bytes__(self):
+        return self.val_readable
+    __str__ = __bytes__
 
 
 class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
@@ -435,7 +443,7 @@ class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
         c = X509_Cert()
         c.tbsCertificate = tbsCert
         c.signatureAlgorithm = sigAlg
-        c.signatureValue = ASN1_BIT_STRING(sigVal, readable=True)
+        c.signatureValue = _Raw_ASN1_BIT_STRING(sigVal, readable=True)
         return c
 
     def resignCert(self, cert):
@@ -505,10 +513,11 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
         # Let's copy this from PubKeyRSA instead of adding another baseclass :)
-        return _EncryptAndVerifyRSA.verify(self, msg, sig, t, h, mgf, L)
+        return _EncryptAndVerifyRSA.verify(
+            self, msg, sig, t=t, h=h, mgf=mgf, L=L)
 
     def sign(self, data, t="pkcs", h="sha256", mgf=None, L=None):
-        return _DecryptAndSignRSA.sign(self, data, t, h, mgf, L)
+        return _DecryptAndSignRSA.sign(self, data, t=t, h=h, mgf=mgf, L=L)
 
 
 class PrivKeyECDSA(PrivKey):
@@ -567,7 +576,7 @@ class _CertMaker(_PKIObjMaker):
         obj.__class__ = Cert
         try:
             cert = X509_Cert(obj.der)
-        except:
+        except Exception:
             raise Exception("Unable to import certificate")
         obj.import_from_asn1pkt(cert)
         return obj
@@ -606,8 +615,9 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         if notBefore[-1] == "Z":
             notBefore = notBefore[:-1]
         try:
-            self.notBefore = time.strptime(notBefore, "%y%m%d%H%M%S")
-        except:
+            _format = tbsCert.validity.not_before._format
+            self.notBefore = time.strptime(notBefore, _format)
+        except Exception:
             raise Exception(error_msg)
         self.notBefore_str_simple = time.strftime("%x", self.notBefore)
 
@@ -616,8 +626,9 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         if notAfter[-1] == "Z":
             notAfter = notAfter[:-1]
         try:
-            self.notAfter = time.strptime(notAfter, "%y%m%d%H%M%S")
-        except:
+            _format = tbsCert.validity.not_after._format
+            self.notAfter = time.strptime(notAfter, _format)
+        except Exception:
             raise Exception(error_msg)
         self.notAfter_str_simple = time.strftime("%x", self.notAfter)
 
@@ -661,10 +672,10 @@ class Cert(six.with_metaclass(_CertMaker, object)):
 
     def encrypt(self, msg, t="pkcs", h="sha256", mgf=None, L=None):
         # no ECDSA *encryption* support, hence only RSA specific keywords here
-        return self.pubKey.encrypt(msg, t, h, mgf, L)
+        return self.pubKey.encrypt(msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
-        return self.pubKey.verify(msg, sig, t, h, mgf, L)
+        return self.pubKey.verify(msg, sig, t=t, h=h, mgf=mgf, L=L)
 
     def remainingDays(self, now=None):
         """
@@ -694,7 +705,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
                     now = time.strptime(now, '%m/%d/%y')
                 else:
                     now = time.strptime(now, '%b %d %H:%M:%S %Y %Z')
-            except:
+            except Exception:
                 warning("Bad time string provided, will use localtime() instead.")  # noqa: E501
                 now = time.localtime()
 
@@ -763,7 +774,7 @@ class _CRLMaker(_PKIObjMaker):
         obj.__class__ = CRL
         try:
             crl = X509_CRL(obj.der)
-        except:
+        except Exception:
             raise Exception("Unable to import CRL")
         obj.import_from_asn1pkt(crl)
         return obj
@@ -798,7 +809,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
             lastUpdate = lastUpdate[:-1]
         try:
             self.lastUpdate = time.strptime(lastUpdate, "%y%m%d%H%M%S")
-        except:
+        except Exception:
             raise Exception(error_msg)
         self.lastUpdate_str_simple = time.strftime("%x", self.lastUpdate)
 
@@ -811,7 +822,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
                 nextUpdate = nextUpdate[:-1]
             try:
                 self.nextUpdate = time.strptime(nextUpdate, "%y%m%d%H%M%S")
-            except:
+            except Exception:
                 raise Exception(error_msg)
             self.nextUpdate_str_simple = time.strftime("%x", self.nextUpdate)
 
@@ -829,7 +840,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
                     date = date[:-1]
                 try:
                     time.strptime(date, "%y%m%d%H%M%S")
-                except:
+                except Exception:
                     raise Exception(error_msg)
                 revoked.append((serial, date))
         self.revoked_cert_serials = revoked
@@ -890,13 +901,13 @@ class Chain(list):
 
         if len(self) > 0:
             while certList:
-                l = len(self)
+                tmp_len = len(self)
                 for c in certList:
                     if c.isIssuerCert(self[-1]):
                         self.append(c)
                         certList.remove(c)
                         break
-                if len(self) == l:
+                if len(self) == tmp_len:
                     # no new certificate appended to self
                     break
 
@@ -932,7 +943,7 @@ class Chain(list):
             f = open(cafile, "rb")
             ca_certs = f.read()
             f.close()
-        except:
+        except Exception:
             raise Exception("Could not read from cafile")
 
         anchors = [Cert(c) for c in split_pem(ca_certs)]
@@ -943,7 +954,7 @@ class Chain(list):
                 f = open(untrusted_file, "rb")
                 untrusted_certs = f.read()
                 f.close()
-            except:
+            except Exception:
                 raise Exception("Could not read from untrusted_file")
             untrusted = [Cert(c) for c in split_pem(untrusted_certs)]
 
@@ -961,7 +972,7 @@ class Chain(list):
             anchors = []
             for cafile in os.listdir(capath):
                 anchors.append(Cert(open(os.path.join(capath, cafile), "rb").read()))  # noqa: E501
-        except:
+        except Exception:
             raise Exception("capath provided is not a valid cert path")
 
         untrusted = None
@@ -970,7 +981,7 @@ class Chain(list):
                 f = open(untrusted_file, "rb")
                 untrusted_certs = f.read()
                 f.close()
-            except:
+            except Exception:
                 raise Exception("Could not read from untrusted_file")
             untrusted = [Cert(c) for c in split_pem(untrusted_certs)]
 
@@ -994,26 +1005,3 @@ class Chain(list):
                 s += "\n"
             idx += 1
         return s
-
-
-##############################
-# Certificate export helpers #
-##############################
-
-def _create_ca_file(anchor_list, filename):
-    """
-    Concatenate all the certificates (PEM format for the export) in
-    'anchor_list' and write the result to file 'filename'. On success
-    'filename' is returned, None otherwise.
-
-    If you are used to OpenSSL tools, this function builds a CAfile
-    that can be used for certificate and CRL check.
-    """
-    try:
-        with open(filename, "w") as f:
-            for a in anchor_list:
-                s = a.output(fmt="PEM")
-                f.write(s)
-    except IOError:
-        return None
-    return filename

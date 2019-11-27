@@ -22,7 +22,11 @@
 
 = Simple tests
 
+assert LongField("test", None).addfield(None, b"", 0x44434241) == b'\x00\x00\x00\x00DCBA'
+assert SignedLongField("test", None).addfield(None, b"", -2) == b'\xff\xff\xff\xff\xff\xff\xff\xfe'
+
 assert LELongField("test", None).addfield(None, b"", 0x44434241) == b'ABCD\x00\x00\x00\x00'
+assert LESignedLongField("test", None).addfield(None, b"", -2) == b'\xfe\xff\xff\xff\xff\xff\xff\xff'
 
 = MACField class
 ~ core field
@@ -37,9 +41,11 @@ r = m.addfield(None, b"FOO", "c0:01:be:ef:ba:be")
 r
 assert(r == b"FOO\xc0\x01\xbe\xef\xba\xbe" )
 
-= SourceMACField, ARPSourceMACField
+= SourceMACField
 conf.route.add(net="1.2.3.4/32", dev=conf.iface)
 p = Ether() / ARP(pdst="1.2.3.4")
+assert p.src == p.hwsrc == p[ARP].hwsrc == get_if_hwaddr(conf.iface)
+p = Dot3() / LLC() / SNAP() / ARP(pdst="1.2.3.4")
 assert p.src == p.hwsrc == p[ARP].hwsrc == get_if_hwaddr(conf.iface)
 conf.route.delt(net="1.2.3.4/32")
 
@@ -83,6 +89,21 @@ assert IP(raw(IP(dst="0.0.0.0/31"))).src == defaddr
 #b.i2m("
 #b.getfield
 
+= ThreeBytesField
+~ field threebytesfield
+
+class TestThreeBytesField(Packet):
+    fields_desc = [ 
+        X3BytesField('test1', None),
+        ThreeBytesField('test2', None),
+        LEX3BytesField('test3', None),
+        LEThreeBytesField('test4', None),
+    ]
+
+p = TestThreeBytesField(test1=0x123456, test2=123456, test3=0xfedbca, test4=567890)
+assert(raw(p) == b'\x12\x34\x56\x01\xe2\x40\xca\xdb\xfe\x52\xaa\x08')
+print(p.sprintf('%test1% %test2% %test3% %test4%'))
+assert(p.sprintf('%test1% %test2% %test3% %test4%') == '0x123456 123456 0xfedbca 567890')
 
 ############
 ############
@@ -1143,10 +1164,10 @@ True
 = Raise exception - test data
 
 dnsf = DNSStrField("test", "")
-assert(dnsf.getfield("", b"\x01x\x00") == (b"", b"x."))
+assert(dnsf.getfield(None, b"\x01x\x00") == (b"", b"x."))
 
 try:
-    dnsf.getfield("", b"\xff")
+    dnsf.getfield(None, b"\xc0\xff")
     assert(False)
 except (Scapy_Exception, IndexError):
     pass
@@ -1233,3 +1254,665 @@ except FieldValueRangeException:
 = FlasgField - Python incompatible name
 
 assert Dot11().FCfield.to_DS is False
+
+########
+########
++ MultipleTypeField
+~ mtf
+
+= Test initialization order
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ByteEnumField("atyp", 0x1, {0x1: "IPv4", 0x3: "DNS", 0x4: "IPv6"}),
+        MultipleTypeField(
+            [
+                # IPv4
+                (IPField("addr", "0.0.0.0"), lambda pkt: pkt.atyp == 0x1),
+                # DNS
+                (DNSStrField("addr", ""), lambda pkt: pkt.atyp == 0x3),
+                # IPv6
+                (IP6Field("addr", "::"), lambda pkt: pkt.atyp == 0x4),
+            ],
+            StrField("addr", "")
+        ),
+    ]
+
+= Default order
+
+a = DebugPacket(atyp=0x3, addr="scapy.net")
+a = DebugPacket(raw(a))
+assert a.addr == b"scapy.net."
+
+= Reversed order
+
+a = DebugPacket(addr="scapy.net", atyp=0x3)
+a = DebugPacket(raw(a))
+assert a.addr == b"scapy.net."
+
+= Test default values auto-update
+
+class SweetPacket(Packet):
+    name = 'Sweet Celestian Packet'
+    fields_desc = [
+        IntField('switch', 0),
+        MultipleTypeField([
+            (XShortField('subfield', 0xDEAD), lambda pkt: pkt.switch == 1),
+            (XIntField('subfield',  0xBEEFBEEF), lambda pkt: pkt.switch == 2)],
+            XByteField('subfield', 0x88)
+        )
+    ]
+
+o = SweetPacket()
+assert o.subfield == 0x88
+
+o = SweetPacket(switch=1)
+assert o.subfield == 0xDEAD
+
+o = SweetPacket(switch=2)
+assert o.subfield == 0xBEEFBEEF
+
+o = SweetPacket()
+assert o.subfield == 0x88
+o.switch = 1
+assert o.subfield == 0xDEAD
+o.switch = 2
+assert o.subfield == 0xBEEFBEEF
+
+########
+########
++ FlagsField
+
+= Test Flags Field Iterator
+
+class FlagsTest(Packet):
+    fields_desc = [FlagsField("flags", 0, 8,
+                              ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"])]
+
+= Test upper nibble
+
+a = FlagsTest(b"\xf0")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f4" in flags
+assert "f5" in flags
+assert "f6" in flags
+assert "f7" in flags
+
+= Test lower nibble
+
+a = FlagsTest(b"\x0f")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f3" in flags
+assert "f2" in flags
+assert "f1" in flags
+assert "f0" in flags
+
+= Test single flag 1
+
+a = FlagsTest(b"\x01")
+flags = list(a.flags)
+
+assert len(flags) == 1
+assert "f0" in flags
+
+= Test single flag 2
+
+a = FlagsTest(b"\x02")
+flags = list(a.flags)
+
+assert len(flags) == 1
+assert "f1" in flags
+
+= Test single flag 0x80
+
+a = FlagsTest(b"\x80")
+flags = list(a.flags)
+
+assert len(flags) == 1
+assert "f7" in flags
+
+= Test pattern 0x55
+
+a = FlagsTest(b"\x55")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f6" in flags
+assert "f2" in flags
+assert "f4" in flags
+assert "f0" in flags
+
+= Test pattern 0xAA
+
+a = FlagsTest(b"\xAA")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f7" in flags
+assert "f3" in flags
+assert "f5" in flags
+assert "f1" in flags
+
+= Test pattern 0x00
+
+a = FlagsTest(b"\x00")
+flags = list(a.flags)
+
+assert len(flags) == 0
+
+= Test pattern 0xFF
+
+a = FlagsTest(b"\xFF")
+flags = list(a.flags)
+
+assert len(flags) == 8
+assert "f7" in flags
+assert "f3" in flags
+assert "f5" in flags
+assert "f1" in flags
+assert "f6" in flags
+assert "f2" in flags
+assert "f4" in flags
+assert "f0" in flags
+
+
+########
+########
++ ScalingField
+
+= ScalingField Test default behaviour
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0)
+    ]
+
+x = DebugPacket()
+assert len(x) == 1
+assert x.data == 0
+
+x.data = 1
+assert x.data == 1
+
+= ScalingField Test string assignment
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1)
+    ]
+
+x = DebugPacket()
+
+x.data = '\x01'
+assert x.data == 0.1
+x.data = 2.0
+assert x.data == 2.0
+assert bytes(x) == b"\x14"
+x.data = b'\xff'
+assert x.data == 25.5
+x.data = '\x7f'
+assert x.data == 12.7
+
+
+= ScalingField Test scaling
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 0.1
+x.data = 2.0
+assert x.data == 2.0
+assert bytes(x) == b"\x14"
+x.data = b'\xff'
+assert x.data == 25.5
+
+= ScalingField Test scaling signed
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, fmt="b")
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 0.1
+x.data = 12.7
+assert x.data == 12.7
+assert bytes(x) == b"\x7f"
+x.data = b'\x80'
+assert x.data == -12.8
+x.data = -0.1
+assert x.data == -0.1
+assert bytes(x) == b"\xff"
+
+= ScalingField Test scaling signed offset
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-1, fmt="b")
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == -0.9
+x.data = 11.7
+assert x.data == 11.7
+assert bytes(x) == b"\x7f"
+x.data = b'\x80'
+assert x.data == -13.8
+x.data = -1.1
+assert x.data == -1.1
+assert bytes(x) == b"\xff"
+
+= ScalingField Test scaling offset
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-1)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == -0.9
+x.data = 11.7
+assert x.data == 11.7
+assert bytes(x) == b"\x7f"
+x.data = b'\x80'
+assert x.data == 11.8
+x.data = 24.5
+assert x.data == 24.5
+assert bytes(x) == b"\xff"
+
+= ScalingField Test unit
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, unit="V")
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 1
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '1 V'
+
+= ScalingField Test unit and ndigits
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=1)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 0.1
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.1 V'
+
+= ScalingField Test unit and ndigits 2
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=3)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+print(x.__repr__())
+assert x.data == 0.123
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.123 V'
+
+= ScalingField Test unit and ndigits 3
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=5)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+print(x.__repr__())
+assert x.data == 0.12346
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.12346 V'
+
+= ScalingField randval byte
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-5)
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+val = r._fix()
+assert r.min == -5.0
+assert r.max == 20.5
+
+
+= ScalingField randval byte 2
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=-0.1, offset=-5)
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+val = r._fix()
+assert r.min == -30.5
+assert r.max == -5
+
+
+= ScalingField signed randval byte
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=-0.1, offset=-5, fmt="b")
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+val = r._fix()
+assert r.min == -17.7
+assert r.max == 7.8
+
+
+= ScalingField signed randval byte 2
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-5, fmt="b")
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+val = r._fix()
+assert r.min == -17.8
+assert r.max == 7.7
+
+
+= ScalingField signed randval short
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-5, fmt="h")
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+val = r._fix()
+assert r.min == -3281.8
+assert r.max == 3271.7
+
+
+= ScalingField signed randval int
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-5, fmt="i")
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+val = r._fix()
+assert r.min == -214748369.8
+assert r.max == 214748359.7
+
+
+= ScalingField signed randval long
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-5, fmt="q")
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+val = r._fix()
+assert r.min == -922337203685477585.8
+assert r.max == 922337203685477575.7
+
+= ScalingField signed randval long
+
+y = fuzz(x)
+assert bytes(y) != bytes(y)
+
+############
+############
++ BitExtendedField
+
+= BitExtendedField: simple test
+
+class DebugPacket(Packet):
+    fields_desc = [
+        BitExtendedField("val", None, extension_bit=0)
+    ]
+
+a = DebugPacket(val=1234)
+assert(a.val == 1234)
+
+= BitExtendedField i2m: corner values
+* 7 bits of data = 0
+import codecs
+for i in range(8):
+    m = BitExtendedField("foo", None, extension_bit=i)
+    r = m.i2m(None, 0)
+    r = int(codecs.encode(r, 'hex'), 16)
+    assert(r == 0)
+
+* 7 bits of data = 1
+for i in range(8):
+    m = BitExtendedField("foo", None, extension_bit=i)
+    r = m.i2m(None, 0b1111111)
+    r = int(codecs.encode(r, 'hex'), 16)
+    assert(r == 0xff - 2**i)
+
+= BitExtendedField i2m: field expansion
+* If there is 8 bits of data, we need to add a byte
+m = BitExtendedField("foo", None, extension_bit=0)
+r = m.i2m(None, 0b10000000)
+r = int(codecs.encode(r, 'hex'), 16)
+assert(r == 0x0300)
+
+= BitExtendedField i2m: test all FX bit positions
+* Data is 0b10000001 (129) and all str values are precomputed
+data_129 = {
+    "extended": 129,
+    "int_with_fx": [770, 769, 1281, 2305, 4353, 8449, 16641, 33025],
+    "str_with_fx" : []
+}
+for i in range(8):
+    m = BitExtendedField("foo", None, extension_bit=i)
+    r = m.i2m(None, data_129["extended"])
+    data_129["str_with_fx"].append(r)
+    r = int(codecs.encode(r, 'hex'), 16)
+    assert(r == data_129["int_with_fx"][i])
+
+= BitExtendedField m2i: test all FX bit positions
+* Data is 0b10000001 (129) and all str values are precomputed
+for i in range(8):
+    m = BitExtendedField("foo", None, extension_bit=i)
+    r = m.m2i(None, data_129["str_with_fx"][i])
+    assert(r == data_129["extended"])
+
+= BitExtendedField m2i: stop at FX zero
+* 1 byte of zeroes (FX stop) then 1 byte of ones : ignore 2nd byte
+for i in range(8):
+    m = BitExtendedField("foo", None, extension_bit=i)
+    r = m.m2i(None, b'\x00\xff')
+    assert(r == 0)
+
+= BitExtendedField m2i: multiple bytes
+* 0b00000011 0b11111110 --> 0xff
+data_254 = {
+    "extended": 0xff,
+    "str_with_fx" : [b'\x03\xfe', b'\x03\xfd', b'\x05\xfb', b'\x09\xf7', b'\x11\xef', b'\x21\xdf', b'\x41\xbf', b'\x81\x7f']
+}
+for i in range(len(data_254['str_with_fx'])):
+    m = BitExtendedField("foo", None, extension_bit=i)
+    r = m.m2i(None, data_254["str_with_fx"][i])
+    assert(r == data_254['extended'])
+
+= BitExtendedField m2i: invalid field with no stopping bit
+* 1 byte of one (no FX stop) shall return an error
+for i in range(8):
+    m = BitExtendedField("foo", None, extension_bit=i)
+    r = m.m2i(None, b'\xff')
+    assert(r == None)
+
+= LSBExtendedField
+* Test i2m and m2i
+data_129 = {
+    "extended": 129,
+    "int_with_fx": 770,
+    "str_with_fx" : None
+}
+m = LSBExtendedField("foo", None)
+r = m.i2m(None, data_129["extended"])
+data_129["str_with_fx"] = r
+r = int(codecs.encode(r, 'hex'), 16)
+assert(r == data_129["int_with_fx"])
+
+m = LSBExtendedField("foo", None)
+r = m.m2i(None, data_129["str_with_fx"])
+assert(r == data_129["extended"])
+
+= MSBExtendedField
+* Test i2m and m2i
+data_129 = {
+    "extended": 129,
+    "int_with_fx": 33025,
+    "str_with_fx" : None
+}
+m = MSBExtendedField("foo", None)
+r = m.i2m(None, data_129["extended"])
+data_129["str_with_fx"] = r
+r = int(codecs.encode(r, 'hex'), 16)
+assert(r == data_129["int_with_fx"])
+
+m = MSBExtendedField("foo", None)
+r = m.m2i(None, data_129["str_with_fx"])
+assert(r == data_129["extended"])
+
+
+############
+############
++ Deprecated fields in Packet
+~ deprecated
+
+= Field Deprecation test
+
+class TestPacket(Packet):
+    fields_desc = [
+        ByteField("a", 0),
+        LEShortField("b", 15),
+    ]
+    deprecated_fields = {
+        "dpr": ("a", "1.0"),
+        "B": ("b", "1.0"),
+    }
+
+pkt = TestPacket(a=2, B=3)
+assert pkt.B == 3
+assert pkt.b == 3
+assert pkt.a == 2
+
+import warnings
+
+with warnings.catch_warnings(record=True) as w:
+    warnings.simplefilter("always")
+    assert pkt.dpr == 2
+    assert len(w) == 1
+    assert issubclass(w[-1].category, DeprecationWarning)
+
+
+############
+############
++ FCSField
+
+= FCSField: basic test
+
+class TestPacket(Packet):
+    fields_desc = [
+        ByteField("a", 0),
+        LEShortField("b", 15),
+        LEIntField("c", 7),
+        FCSField("fcs", None),
+        IntField("bottom", 0)
+    ]
+
+bind_layers(TestPacket, Ether)
+
+pkt = TestPacket(a=12, fcs=0xbeef, bottom=123)/Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IP(src="127.0.0.1", dst="127.0.0.1")
+
+assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01\xbe\xef'
+# Test that it is consistent
+assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01\xbe\xef'
+
+pkt = TestPacket(raw(pkt))
+assert pkt.fcs == 0xbeef
+
+
+############
+############
++ PacketField
+
+= PacketField: randval()
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ShortField('short', 0),
+        ByteField('byte', 0),
+        LongField('long', 0)
+    ]
+
+p = PacketField('packet', b'', DebugPacket).randval()
+
+assert isinstance(p.short, RandShort)
+assert isinstance(p.byte, RandByte)
+assert isinstance(p.long, RandLong)
+
+
+= PacketField: randval(), PacketField in PacketField
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ShortField('short1', 0),
+        ByteField('byte', 0),
+        LongField('long', 0)
+    ]
+
+class DummyPacket(Packet):
+    fields_desc = [
+        PacketField('packet', b'', DebugPacket),
+        ShortField('short2', 0)
+    ]
+
+
+p = PacketField('packet', b'', DummyPacket).randval()
+
+assert isinstance(p.packet.short1, RandShort)
+assert isinstance(p.packet.byte, RandByte)
+assert isinstance(p.packet.long, RandLong)
+assert isinstance(p.short2, RandShort)

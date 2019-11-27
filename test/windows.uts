@@ -1,0 +1,126 @@
+% Regression tests on Windows only for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Mechanics tests
+
+= Automaton - SelectableSelector system timeout
+
+class TimeOutSelector(SelectableObject):
+    def check_recv(self):
+        return False
+
+assert select_objects([TimeOutSelector()], 0) == []
+assert select_objects([TimeOutSelector()], 1) == []
+
+############
+############
++ Windows arch unit tests
+
+= Test pcapname
+
+iface = conf.iface
+
+assert pcapname(iface.name) == iface.pcap_name
+assert pcapname(iface.description) == iface.pcap_name
+assert pcapname(iface.pcap_name) == iface.pcap_name
+
+= show_interfaces
+
+from scapy.arch import show_interfaces
+
+with ContextManagerCaptureOutput() as cmco:
+    show_interfaces()
+    lines = cmco.get_output().split("\n")[1:]
+    for l in lines:
+        if not l.strip():
+            continue
+        int(l[:2])
+
+= dev_from_pcapname
+
+from scapy.config import conf
+
+assert dev_from_pcapname(conf.iface.pcap_name).guid == conf.iface.guid
+
+= test pcap_service_status
+
+status = pcap_service_status()
+assert status
+
+= test pcap_service_stop
+~ appveyor_only require_gui
+
+pcap_service_stop()
+assert pcap_service_status()[2] == False
+
+= test pcap_service_start
+~ appveyor_only require_gui
+
+pcap_service_start()
+assert pcap_service_status()[2] == True
+
+= Test auto-pcap start UI
+
+@mock.patch("scapy.arch.windows.get_windows_if_list")
+def _test_autostart_ui(mocked_getiflist):
+    mocked_getiflist.side_effect = lambda: []
+    IFACES.reload()
+    assert all(x.win_index < 0 for x in IFACES.data.values())
+
+try:
+    old_ifaces = IFACES.data.copy()
+    _test_autostart_ui()
+finally:
+     IFACES.data = old_ifaces
+
+######### Native mode ###########
+
++ Test Windows Native sockets
+
+= Set up native mode
+
+conf.use_pcap = False
+assert conf.use_pcap == False
+
+= Prepare ping: open firewall & get current seq number
+~ netaccess needs_root
+
+# Note: this method is complicated, but allow us to perform a real test
+# it is discouraged otherwise. Npcap/Winpcap does NOT require such mechanics
+
+# output of this may vary, but it doesn't matter:
+# if it fails the teat below won't work
+open_icmp_firewall("www.google.com")
+
+seq = get_current_icmp_seq()
+assert seq > 0
+
+True
+
+= Ping
+~ netaccess needs_root
+
+with conf.L3socket() as a:
+    answer = a.sr1(IP(dst="www.google.com", ttl=128)/ICMP(id=1, seq=seq)/"abcdefghijklmnopqrstuvwabcdefghi", timeout=2)
+    answer.show()
+    assert ICMP in answer
+
+= DNS lookup
+~ netaccess needs_root require_gui
+% XXX currently disabled
+
+def _test():
+    answer = sr1(IP(dst="8.8.8.8")/UDP()/DNS(rd=1, qd=DNSQR(qname="www.google.com")), timeout=2)
+    answer.show()
+    assert DNS in answer
+    assert answer.qd.qname == b'www.google.com.'
+
+retry_test(_test)
+
+= Leave native mode
+
+conf.use_pcap = True
+assert conf.use_pcap == True

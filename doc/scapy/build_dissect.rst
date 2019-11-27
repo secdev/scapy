@@ -49,7 +49,7 @@ If your protocol is as simple as this, it is ready to use::
     >>> d.donald="cool" 
     >>> raw(d)
     ’\x00\x01\x03\x00\x00\x00\x02’ 
-    >>> Disney( ) 
+    >>> Disney(_) 
     <Disney mickey=1 minnie=0x3 donald=cool |> 
 
 
@@ -449,11 +449,11 @@ Changing the default behavior
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you do not like Scapy's  behavior for a given layer, you can either
-change or disable it through  the call to ``split_layer()``. For instance,
-if you do not want UDP/53 to be bound with ``DNS``, just add in your code:
-``
-split_layers(UDP, DNS, sport=53)
-``
+change or disable it through  a call to ``split_layers()``. For instance,
+if you do not want UDP/53 to be bound with ``DNS``, just add in your code::
+
+    split_layers(UDP, DNS, sport=53)
+
 Now every packet  with source port 53 will not be  handled as DNS, but
 whatever you specify instead.
 
@@ -868,7 +868,10 @@ Legend:
     LEShortField
     XShortField
     
-    X3BytesField        # three bytes (in hexad 
+    X3BytesField        # three bytes as hex
+    LEX3BytesField      # little endian three bytes as hex
+    ThreeBytesField     # three bytes as decimal
+    LEThreeBytesField   # little endian three bytes as decimal
     
     IntField
     SignedIntField
@@ -877,7 +880,9 @@ Legend:
     XIntField
     
     LongField
+    SignedLongField
     LELongField
+    LESignedLongField
     XLongField
     LELongField
     
@@ -1044,6 +1049,16 @@ Special
            # Add bytes after the proxified field so that it ends at
            # the specified alignment from its beginning
 
+    BitExtendedField(extension_bit)
+           # Field with a variable number of bytes. Each byte is made of:
+           # - 7 bits of data
+           # - 1 extension bit:
+           #    * 0 means that it is the last byte of the field ("stopping bit")
+           #    * 1 means that there is another byte after this one ("forwarding bit")
+           # extension_bit is the bit number [0-7] of the extension bit in the byte
+
+    MSBExtendedField, LSBExtendedField      # Special cases of BitExtendedField
+
 TCP/IP
 ------
 
@@ -1058,7 +1073,6 @@ TCP/IP
     MACField
     DestMACField(MACField)
     SourceMACField(MACField)
-    ARPSourceMACField(MACField)
     
     ICMPTimeStampField
 
@@ -1082,8 +1096,6 @@ DNS
     DNSRRCountField
     DNSRRField
     DNSQRField
-    RDataField
-    RDLenField
 
 ASN.1
 -----
@@ -1125,3 +1137,25 @@ The goal is to keep the writing of packets fluent and intuitive. The basic instr
 
 * Use inverted camel case and common abbreviations (e.g. len, src, dst, dstPort, srcIp).
 * Wherever it is either possible or relevant, prefer using the names from the specifications. This aims to help newcomers to easily forge packets.
+
+Add new protocols to Scapy
+--------------------------
+
+New protocols can go either in ``scapy/layers`` or to ``scapy/contrib``. Protocols in ``scapy/layers`` should be usually found on common networks, while protocols in ``scapy/contrib`` should be uncommon or specific.
+
+To be precise, ``scapy/layers`` protocols should not be importing ``scapy/contrib`` protocols, whereas ``scapy/contrib`` protocols may import both ``scapy/contrib`` and ``scapy/layers`` protocols.
+
+Scapy provides an ``explore()`` function, to search through the available layer/contrib modules. Therefore, modules contributed back to Scapy must provide information about them, knowingly:
+
+- A **contrib** module must have defined, near the top of the module (below the license header is a good place) **(without the brackets)** `Example <https://github.com/secdev/scapy/blob/0f6ac82ed66919a20226a3d8d164b810c8eb293c/scapy/contrib/openflow.py#L11-L12>`_ ::
+
+    # scapy.contrib.description = [...]
+    # scapy.contrib.status = [...]
+    # scapy.contrib.name = [...] (optional)
+
+- If the contrib module does not contain any packets, and should not be indexed in `explore()`, then you should instead set::
+
+    # scapy.contrib.status = skip 
+
+- A **layer** module must have a docstring, in which the first line shortly describes the module.
+

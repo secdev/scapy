@@ -1,0 +1,221 @@
+% Regression tests for obd_scan
+~ vcan_socket needs_root linux
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
++ Configuration
+~ conf
+
+= Imports
+load_layer("can")
+import six, subprocess
+from subprocess import call
+
+
+= Definition of constants, utility functions and mock classes
+iface0 = "vcan0"
+iface1 = "vcan1"
+
+# function to exit when the can-isotp kernel module is not available
+ISOTP_KERNEL_MODULE_AVAILABLE = False
+def exit_if_no_isotp_module():
+    if not ISOTP_KERNEL_MODULE_AVAILABLE:
+        err = "TEST SKIPPED: can-isotp not available"
+        subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
+        warning("Can't test ISOTP native socket because kernel module is not loaded")
+        exit(0)
+
+
+= Initialize a virtual CAN interface
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    # vcan0 is not enabled
+    if 0 != call("sudo modprobe vcan", shell=True):
+        raise Exception("modprobe vcan failed")
+    if 0 != call("sudo ip link add name %s type vcan" % iface0, shell=True):
+        print("add %s failed: Maybe it was already up?" % iface0)
+    if 0 != call("sudo ip link set dev %s up" % iface0, shell=True):
+        raise Exception("could not bring up %s" % iface0)
+
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    raise Exception("cansend doesn't work")
+
+if 0 != call("cansend %s 000#" % iface1, shell=True):
+    # vcan1 is not enabled
+    if 0 != call("sudo modprobe vcan", shell=True):
+        raise Exception("modprobe vcan failed")
+    if 0 != call("sudo ip link add name %s type vcan" % iface1, shell=True):
+        print("add %s failed: Maybe it was already up?" % iface1)
+    if 0 != call("sudo ip link set dev %s up" % iface1, shell=True):
+        raise Exception("could not bring up %s" % iface1)
+
+if 0 != call("cansend %s 000#" % iface1, shell=True):
+    raise Exception("cansend doesn't work")
+
+print("CAN should work now")
+
+
+if six.PY3:
+    from scapy.contrib.cansocket_native import *
+else:
+    from scapy.contrib.cansocket_python_can import *
+
+
+if "python_can" in CANSocket.__module__:
+    import can as python_can
+    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000))
+    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
+    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000), timeout=0.01)
+    can_socket_string = "-i socketcan -c %s -b 250000" % iface0
+else:
+    new_can_socket = lambda iface: CANSocket(iface)
+    new_can_socket0 = lambda: CANSocket(iface0)
+    new_can_socket1 = lambda: CANSocket(iface1)
+    can_socket_string = "-c %s" % iface0
+
+# utility function for draining a can interface, asserting that no packets are there
+def drain_bus(iface=iface0, assert_empty=True):
+    s = new_can_socket(iface)
+    pkts = s.sniff(timeout=0.1)
+    if assert_empty:
+        assert len(pkts) == 0
+    s.close()
+
+print("CAN sockets should work now")
+
+
+= Verify that a CAN socket can be created and closed
+s = new_can_socket(iface0)
+s.close()
+
+
+= Check if can-isotp and can-utils are installed on this system
+p = subprocess.Popen('lsmod | grep "^can_isotp"', stdout=subprocess.PIPE, shell=True)
+if p.wait() == 0:
+    if b"can_isotp" in p.stdout.read():
+        p = subprocess.Popen("isotpsend -s1 -d0 %s" % iface0, stdin=subprocess.PIPE, shell=True)
+        p.stdin.write(b"01")
+        p.stdin.close()
+        r = p.wait()
+        if r == 0:
+            ISOTP_KERNEL_MODULE_AVAILABLE = True
+
+
++ Syntax check
+
+= Import isotp
+conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+load_contrib("isotp")
+
+
+############
+############
++ Load general modules
+= Load contribution layer
+
+load_contrib('automotive.obd.obd')
+
++ Load OBD_scan
+= imports
+
+import queue
+from threading import Event
+from subprocess import call
+
+from scapy.contrib.automotive.obd.scanner import obd_scan
+from scapy.contrib.automotive.obd.scanner import _supported_id_numbers
+
+= Create answers
+
+s1_pid00 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID00(supported_pids="PID03+PID0B+PID0F")])
+s1_pid01 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID01()])
+s1_pid03 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID03(fuel_system1=0, fuel_system2=2)])
+s1_pid0B = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0B(data=100)])
+s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)])
+s1_queue = queue.Queue()
+s1_queue.put(s1_pid00)
+s1_queue.put(s1_pid00)
+s1_queue.put(s1_pid0F)
+s1_queue.put(s1_pid0B)
+s1_queue.put(s1_pid03)
+s1_queue.put(s1_pid01)
+
+s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
+s3_queue = queue.Queue()
+s3_queue.put(s3)
+
++ Simulate scanner
+~ linux needs_root
+
+= Create responder
+# Ensures the responder is running before sending the first request
+ready = Event()
+
+class MockResponder(Thread):
+    daemon = True
+    def __init__(self):
+        Thread.__init__(self)
+        self._stopped = Event()
+    def process_request(self, req, sock):
+        if req.service == 1:
+            resp = s1_queue.get()
+            sock.send(resp)
+        elif req.service == 3:
+            resp = s3_queue.get()
+            sock.send(resp)
+    def run(self):
+        with ISOTPSocket(new_can_socket(iface0), 0x7e8, 0x7e0, basecls=OBD, padding=True) as sock:
+            ready.set()
+            while not self._stopped.is_set() or not (s1_queue.empty() and s3_queue.empty()):
+                sniff(opened_socket=sock, timeout=0.2, store=False, prn=lambda p: self.process_request(p, sock))
+    def stop(self):
+        self._stopped.set()
+
+responder = MockResponder()
+responder.start()
+
+= Get ids
+with ISOTPSocket(new_can_socket(iface0), 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
+    all_ids_set = set(range(1, 256))
+    supported_ids = _supported_id_numbers(socket, 0.1, OBD_S01, 'pid', False)
+    unsupported_ids = all_ids_set - supported_ids
+
+= Run scanner
+# timeout to avoid a deadlock if the test which sets this event fails
+with ISOTPSocket(new_can_socket(iface0), 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
+    ready.wait(timeout=5)
+    data = obd_scan(socket, 0.1, True, True, False)
+    dtc = data[0]
+    supported = data[1]
+    unsupported = data[2]
+
+= Cleanup
+responder.stop()
+if 0 != call("sudo ip link delete vcan0", shell=True):
+        raise Exception("vcan0 could not be deleted")
+
++ Check results
+~ linux needs_root
+
+= Check supported ids
+supported_ids_set = set([3, 11, 15])
+assert supported_ids == supported_ids_set
+
+= Check unsupported ids
+unsupported_ids_set = all_ids_set - supported_ids_set
+assert unsupported_ids == unsupported_ids_set
+
+= Check service 1
+assert len(supported[1]) == 3
+
+= Check service 3
+assert dtc[3] == bytes(s3)
+
+= Check empty services
+assert len(supported[6]) == 0
+assert len(supported[8]) == 0
+assert len(supported[9]) == 0
+assert dtc[7] == None
+assert dtc[10] == None
+
+= Check unsupported service 1
+assert unsupported[1][1] == bytes(s1_pid01)

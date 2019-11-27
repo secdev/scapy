@@ -9,7 +9,7 @@ External link to programs
 
 import os
 import subprocess
-from scapy.error import *
+from scapy.error import log_loading
 
 # Notice: this file must not be called before main.py, if started
 # in interactive mode, because it needs to be called after the
@@ -19,7 +19,7 @@ from scapy.error import *
 
 try:
     from matplotlib import get_backend as matplotlib_get_backend
-    import matplotlib.pyplot as plt
+    from matplotlib import pyplot as plt
     MATPLOTLIB = 1
     if "inline" in matplotlib_get_backend():
         MATPLOTLIB_INLINED = 1
@@ -41,19 +41,20 @@ def _test_pyx():
     """Returns if PyX is correctly installed or not"""
     try:
         with open(os.devnull, 'wb') as devnull:
-            r = subprocess.check_call(["pdflatex", "--version"], stdout=devnull, stderr=subprocess.STDOUT)  # noqa: E501
-    except:
+            r = subprocess.check_call(["pdflatex", "--version"],
+                                      stdout=devnull, stderr=subprocess.STDOUT)
+    except (subprocess.CalledProcessError, OSError):
         return False
     else:
         return r == 0
 
 
 try:
-    import pyx
+    import pyx  # noqa: F401
     if _test_pyx():
         PYX = 1
     else:
-        log_loading.warning("PyX dependencies are not installed ! Please install TexLive or MikTeX.")  # noqa: E501
+        log_loading.info("PyX dependencies are not installed ! Please install TexLive or MikTeX.")  # noqa: E501
         PYX = 0
 except ImportError:
     log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump().")  # noqa: E501

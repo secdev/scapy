@@ -1,16 +1,16 @@
 import hashlib
 import hmac
-from io import BytesIO
 from struct import unpack, pack
 from zlib import crc32
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.hazmat.backends import default_backend
 
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-from scapy.compat import hex_bytes, orb
-from scapy.packet import Raw
+from scapy.compat import orb, chb
+from scapy.layers.dot11 import Dot11TKIP
+from scapy.utils import mac2str
 
 # ARC4
 
@@ -23,7 +23,7 @@ def ARC4_encrypt(key, data, skip=0):
     cipher = Cipher(algorithm, mode=None, backend=default_backend())
     encryptor = cipher.encryptor()
     if skip:
-        encryptor.update("\x00" * skip)
+        encryptor.update(b"\x00" * skip)
     return encryptor.update(data)
 
 
@@ -37,14 +37,14 @@ def ARC4_decrypt(key, data, skip=0):
 
 def customPRF512(key, amac, smac, anonce, snonce):
     """Source https://stackoverflow.com/questions/12018920/"""
-    A = "Pairwise key expansion"
-    B = "".join(sorted([amac, smac]) + sorted([anonce, snonce]))
+    A = b"Pairwise key expansion"
+    B = b"".join(sorted([amac, smac]) + sorted([anonce, snonce]))
 
     blen = 64
     i = 0
-    R = ''
+    R = b''
     while i <= ((blen * 8 + 159) / 160):
-        hmacsha1 = hmac.new(key, A + chr(0x00) + B + chr(i), hashlib.sha1)
+        hmacsha1 = hmac.new(key, A + chb(0x00) + B + chb(i), hashlib.sha1)
         i += 1
         R = R + hmacsha1.digest()
     return R[:blen]
@@ -211,7 +211,7 @@ def gen_TKIP_RC4_key(TSC, TA, TK):
 
     assert len(WEPSeed) == 16
 
-    return "".join([chr(x) for x in WEPSeed])
+    return b"".join(chb(x) for x in WEPSeed)
 
 # TKIP - Michael
 # Tested against cryptopy (crypto.keyedHash.michael: Michael)
@@ -230,17 +230,17 @@ def _XSWAP(value):
     return ((value & 0xFF00FF00) >> 8) | ((value & 0x00FF00FF) << 8)
 
 
-def _michael_b(l, r):
+def _michael_b(m_l, m_r):
     """Defined in 802.11i p.49"""
-    r = r ^ _rotate_left32(l, 17)
-    l = (l + r) % 2**32
-    r = r ^ _XSWAP(l)
-    l = (l + r) % 2**32
-    r = r ^ _rotate_left32(l, 3)
-    l = (l + r) % 2**32
-    r = r ^ _rotate_right32(l, 2)
-    l = (l + r) % 2**32
-    return l, r
+    m_r = m_r ^ _rotate_left32(m_l, 17)
+    m_l = (m_l + m_r) % 2**32
+    m_r = m_r ^ _XSWAP(m_l)
+    m_l = (m_l + m_r) % 2**32
+    m_r = m_r ^ _rotate_left32(m_l, 3)
+    m_l = (m_l + m_r) % 2**32
+    m_r = m_r ^ _rotate_right32(m_l, 2)
+    m_l = (m_l + m_r) % 2**32
+    return m_l, m_r
 
 
 def michael(key, to_hash):
@@ -249,16 +249,16 @@ def michael(key, to_hash):
     # Block size: 4
     nb_block, nb_extra_bytes = divmod(len(to_hash), 4)
     # Add padding
-    data = to_hash + chr(0x5a) + "\x00" * (7 - nb_extra_bytes)
+    data = to_hash + chb(0x5a) + b"\x00" * (7 - nb_extra_bytes)
 
     # Hash
-    l, r = unpack('<II', key)
+    m_l, m_r = unpack('<II', key)
     for i in range(nb_block + 2):
         # Convert i-th block to int
         block_i = unpack('<I', data[i * 4:i * 4 + 4])[0]
-        l ^= block_i
-        l, r = _michael_b(l, r)
-    return pack('<II', l, r)
+        m_l ^= block_i
+        m_l, m_r = _michael_b(m_l, m_r)
+    return pack('<II', m_l, m_r)
 
 # TKIP packet utils
 
@@ -266,26 +266,33 @@ def michael(key, to_hash):
 def parse_TKIP_hdr(pkt):
     """Extract TSCs, TA and encoded-data from a packet @pkt"""
     # Note: FCS bit is not handled
-    assert pkt.FCfield.wep
+    assert pkt.FCfield.protected
 
     # 802.11i - 8.3.2.2
-    payload = BytesIO(pkt[Raw].load)
-    TSC1, WEPseed, TSC0, bitfield = (orb(x) for x in payload.read(4))
-    if bitfield & (1 << 5):
-        # Extended IV
-        TSC2, TSC3, TSC4, TSC5 = (orb(x) for x in payload.read(4))
-    else:
-        TSC2, TSC3, TSC4, TSC5 = None, None, None, None
+    tkip_layer = pkt[Dot11TKIP]
+    payload = tkip_layer.data
+
+    # IV
+    if not tkip_layer.ext_iv:
         # 802.11i p. 46
         raise ValueError("Extended IV must be set for TKIP")
+    TSC0 = tkip_layer.TSC0
+    TSC1 = tkip_layer.TSC1
+    WEPseed = tkip_layer.WEPSeed
+
+    # Extended IV
+    TSC2 = tkip_layer.TSC2
+    TSC3 = tkip_layer.TSC3
+    TSC4 = tkip_layer.TSC4
+    TSC5 = tkip_layer.TSC5
 
     # 802.11i p. 46
     assert (TSC1 | 0x20) & 0x7f == WEPseed
 
-    TA = [orb(e) for e in hex_bytes(pkt.addr2.replace(':', ''))]
+    TA = [orb(e) for e in mac2str(pkt.addr2)]
     TSC = [TSC0, TSC1, TSC2, TSC3, TSC4, TSC5]
 
-    return TSC, TA, payload.read()
+    return TSC, TA, payload
 
 
 def build_TKIP_payload(data, iv, mac, tk):
@@ -301,10 +308,10 @@ def build_TKIP_payload(data, iv, mac, tk):
         iv & 0xFF
     )
     bitfield = 1 << 5  # Extended IV
-    TKIP_hdr = chr(TSC1) + chr((TSC1 | 0x20) & 0x7f) + chr(TSC0) + chr(bitfield)  # noqa: E501
-    TKIP_hdr += chr(TSC2) + chr(TSC3) + chr(TSC4) + chr(TSC5)
+    TKIP_hdr = chb(TSC1) + chb((TSC1 | 0x20) & 0x7f) + chb(TSC0) + chb(bitfield)  # noqa: E501
+    TKIP_hdr += chb(TSC2) + chb(TSC3) + chb(TSC4) + chb(TSC5)
 
-    TA = [orb(e) for e in hex_bytes(mac.replace(':', ''))]
+    TA = [orb(e) for e in mac2str(mac)]
     TSC = [TSC0, TSC1, TSC2, TSC3, TSC4, TSC5]
     TK = [orb(x) for x in tk]
 
@@ -346,10 +353,10 @@ def check_MIC_ICV(data, mic_key, source, dest):
     if expected_ICV != ICV:
         raise ICVError()
 
-    sa = hex_bytes(source.replace(":", ""))  # Source MAC
-    da = hex_bytes(dest.replace(":", ""))  # Dest MAC
+    sa = mac2str(source)  # Source MAC
+    da = mac2str(dest)  # Dest MAC
 
-    expected_MIC = michael(mic_key, da + sa + "\x00" + "\x00" * 3 + data_clear)
+    expected_MIC = michael(mic_key, da + sa + b"\x00" * 4 + data_clear)
     if expected_MIC != MIC:
         raise MICError()
 
@@ -361,9 +368,9 @@ def build_MIC_ICV(data, mic_key, source, dest):
     # DATA - MIC(DA - SA - Priority=0 - 0 - 0 - 0 - DATA) - ICV
     # 802.11i p.47
 
-    sa = hex_bytes(source.replace(":", ""))  # Source MAC
-    da = hex_bytes(dest.replace(":", ""))  # Dest MAC
-    MIC = michael(mic_key, da + sa + "\x00" + "\x00" * 3 + data)
+    sa = mac2str(source)  # Source MAC
+    da = mac2str(dest)  # Dest MAC
+    MIC = michael(mic_key, da + sa + b"\x00" + b"\x00" * 3 + data)
     ICV = pack("<I", crc32(data + MIC) & 0xFFFFFFFF)
 
     return data + MIC + ICV

@@ -10,11 +10,15 @@ TFTP (Trivial File Transfer Protocol).
 from __future__ import absolute_import
 import os
 import random
-from scapy.packet import *
-from scapy.fields import *
-from scapy.automaton import *
+
+from scapy.packet import Packet, bind_layers, split_bottom_up, bind_bottom_up
+from scapy.fields import PacketListField, ShortEnumField, ShortField, \
+    StrNullField
+from scapy.automaton import ATMT, Automaton
 from scapy.layers.inet import UDP, IP
 from scapy.modules.six.moves import range
+from scapy.config import conf
+from scapy.volatile import RandShort
 
 
 TFTP_operations = {1: "RRQ", 2: "WRQ", 3: "DATA", 4: "ACK", 5: "ERROR", 6: "OACK"}  # noqa: E501
@@ -143,9 +147,9 @@ class TFTP_read(Automaton):
         self.sport = sport
 
     def master_filter(self, pkt):
-        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
-                and pkt[UDP].dport == self.my_tid
-                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))  # noqa: E501
+        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt and
+                pkt[UDP].dport == self.my_tid and
+                (self.server_tid is None or pkt[UDP].sport == self.server_tid))
 
     # BEGIN
     @ATMT.state(initial=1)
@@ -154,7 +158,7 @@ class TFTP_read(Automaton):
         self.my_tid = self.sport or RandShort()._fix()
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         self.server_tid = None
-        self.res = ""
+        self.res = b""
 
         self.l3 = IP(dst=self.server) / UDP(sport=self.my_tid, dport=self.port) / TFTP()  # noqa: E501
         self.last_packet = self.l3 / TFTP_RRQ(filename=self.filename, mode="octet")  # noqa: E501
@@ -201,7 +205,7 @@ class TFTP_read(Automaton):
         if conf.raw_layer in pkt:
             recvd = pkt[conf.raw_layer].load
         else:
-            recvd = ""
+            recvd = b""
         self.res += recvd
         self.awaiting += 1
         if len(recvd) == self.blocksize:
@@ -232,15 +236,15 @@ class TFTP_write(Automaton):
         self.origdata = data
 
     def master_filter(self, pkt):
-        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
-                and pkt[UDP].dport == self.my_tid
-                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))  # noqa: E501
+        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt and
+                pkt[UDP].dport == self.my_tid and
+                (self.server_tid is None or pkt[UDP].sport == self.server_tid))
 
     # BEGIN
     @ATMT.state(initial=1)
     def BEGIN(self):
         self.data = [self.origdata[i * self.blocksize:(i + 1) * self.blocksize]
-                     for i in range(len(self.origdata) / self.blocksize + 1)]
+                     for i in range(len(self.origdata) // self.blocksize + 1)]
         self.my_tid = self.sport or RandShort()._fix()
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         self.server_tid = None
@@ -315,7 +319,7 @@ class TFTP_WRQ_server(Automaton):
     def BEGIN(self):
         self.blksize = 512
         self.blk = 1
-        self.filedata = ""
+        self.filedata = b""
         self.my_tid = self.sport or random.randint(10000, 65500)
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
 
@@ -374,8 +378,8 @@ class TFTP_WRQ_server(Automaton):
 
     @ATMT.state(final=1)
     def END(self):
-        return self.filename, self.filedata
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
+        return self.filename, self.filedata
 
 
 class TFTP_RRQ_server(Automaton):
@@ -413,7 +417,7 @@ class TFTP_RRQ_server(Automaton):
         ip = pkt[IP]
         options = pkt[TFTP_Options]
         self.l3 = IP(src=ip.dst, dst=ip.src) / UDP(sport=self.my_tid, dport=ip.sport) / TFTP()  # noqa: E501
-        self.filename = pkt[TFTP_RRQ].filename
+        self.filename = pkt[TFTP_RRQ].filename.decode("utf-8", "ignore")
         self.blk = 1
         self.data = None
         if self.filename in self.store:

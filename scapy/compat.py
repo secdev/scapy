@@ -11,50 +11,14 @@ Python 2 and 3 link classes.
 from __future__ import absolute_import
 import base64
 import binascii
+import gzip
+import struct
 
 import scapy.modules.six as six
 
 ###########
 # Python3 #
 ###########
-
-
-def cmp_to_key(mycmp):
-    # TODO remove me once all 'key=cmp_to_key(..)' has been fixed in utils6.py, automaton.py  # noqa: E501
-    """Convert a cmp= function into a key= function.
-    To use with sort()
-
-    e.g: def stg_cmp(a, b):
-            return a == b
-    list.sort(key=cmp_to_key(stg_cmp))
-    """
-    class K(object):
-        def __init__(self, obj, *args):
-            self.obj = obj
-
-        def __lt__(self, other):
-            return mycmp(self.obj, other.obj) < 0
-
-        def __gt__(self, other):
-            return mycmp(self.obj, other.obj) > 0
-
-        def __eq__(self, other):
-            return mycmp(self.obj, other.obj) == 0
-
-        def __le__(self, other):
-            return mycmp(self.obj, other.obj) <= 0
-
-        def __ge__(self, other):
-            return mycmp(self.obj, other.obj) >= 0
-
-        def __ne__(self, other):
-            return mycmp(self.obj, other.obj) != 0
-    return K
-
-
-def cmp(a, b):
-    """Old Python 2 function"""
-    return (a > b) - (a < b)
 
 
 def lambda_tuple_converter(func):
@@ -71,90 +35,115 @@ def lambda_tuple_converter(func):
 
 
 if six.PY2:
-    def orb(x):
-        """Return ord(x) when necessary."""
-        if isinstance(x, basestring):  # noqa: F821
-            return ord(x)
-        return x
-else:
-    def orb(x):
-        """Return ord(x) when necessary."""
-        if isinstance(x, (bytes, str)):
-            return ord(x)
-        return x
+    bytes_encode = plain_str = str
+    chb = lambda x: x if isinstance(x, str) else chr(x)
+    orb = ord
 
-
-if six.PY2:
     def raw(x):
-        """Convert a str, a packet to bytes"""
-        if x is None:
-            return None
+        """Builds a packet and returns its bytes representation.
+        This function is and always be cross-version compatible"""
         if hasattr(x, "__bytes__"):
             return x.__bytes__()
-        try:
-            return chr(x)
-        except (ValueError, TypeError):
-            return str(x)
-
-    def plain_str(x):
-        """Convert basic byte objects to str"""
-        return x if isinstance(x, basestring) else str(x)  # noqa: F821
-
-    def chb(x):
-        """Same than chr() but encode as bytes.
-
-        """
-        if isinstance(x, bytes):
-            return x
-        else:
-            if hasattr(x, "__int__") and not isinstance(x, int):
-                return bytes(chr(int(x)))
-            return bytes(chr(x))
+        return bytes(x)
 else:
     def raw(x):
-        """Convert a str, an int, a list of ints, a packet to bytes"""
-        try:
-            return bytes(x)
-        except TypeError:
-            return bytes(x, encoding="utf8")
+        """Builds a packet and returns its bytes representation.
+        This function is and always be cross-version compatible"""
+        return bytes(x)
+
+    def bytes_encode(x):
+        """Ensure that the given object is bytes.
+        If the parameter is a packet, raw() should be preferred.
+        """
+        if isinstance(x, str):
+            return x.encode()
+        return bytes(x)
 
     def plain_str(x):
         """Convert basic byte objects to str"""
         if isinstance(x, bytes):
-            return x.decode('utf8')
-        return x if isinstance(x, str) else str(x)
+            return x.decode(errors="ignore")
+        return str(x)
 
     def chb(x):
-        """Same than chr() but encode as bytes.
+        """Same than chr() but encode as bytes."""
+        return struct.pack("!B", x)
 
-        """
-        if isinstance(x, bytes):
+    def orb(x):
+        """Return ord(x) when not already an int."""
+        if isinstance(x, int):
             return x
-        else:
-            if hasattr(x, "__int__") and not isinstance(x, int):
-                return bytes([int(x)])
-            return bytes([x])
+        return ord(x)
 
 
 def bytes_hex(x):
     """Hexify a str or a bytes object"""
-    return binascii.b2a_hex(raw(x))
+    return binascii.b2a_hex(bytes_encode(x))
 
 
 def hex_bytes(x):
     """De-hexify a str or a byte object"""
-    return binascii.a2b_hex(raw(x))
+    return binascii.a2b_hex(bytes_encode(x))
 
 
 def base64_bytes(x):
     """Turn base64 into bytes"""
     if six.PY2:
         return base64.decodestring(x)
-    return base64.decodebytes(raw(x))
+    return base64.decodebytes(bytes_encode(x))
 
 
 def bytes_base64(x):
     """Turn bytes into base64"""
     if six.PY2:
         return base64.encodestring(x).replace('\n', '')
-    return base64.encodebytes(raw(x)).replace(b'\n', b'')
+    return base64.encodebytes(bytes_encode(x)).replace(b'\n', b'')
+
+
+if six.PY2:
+    from StringIO import StringIO
+
+    def gzip_decompress(x):
+        """Decompress using gzip"""
+        with gzip.GzipFile(fileobj=StringIO(x), mode='rb') as fdesc:
+            return fdesc.read()
+
+    def gzip_compress(x):
+        """Compress using gzip"""
+        buf = StringIO()
+        with gzip.GzipFile(fileobj=buf, mode='wb') as fdesc:
+            fdesc.write(x)
+        return buf.getvalue()
+else:
+    gzip_decompress = gzip.decompress
+    gzip_compress = gzip.compress
+
+# Typing compatibility
+
+try:
+    # Only required if using mypy-lang for static typing
+    from typing import Optional, List, Union, Callable, Any, AnyStr, Tuple, \
+        Sized, Dict, Pattern, cast
+except ImportError:
+    # Let's make some fake ones.
+
+    def cast(_type, obj):
+        return obj
+
+    class _FakeType(object):
+        # make the objects subscriptable indefinetly
+        def __getitem__(self, item):
+            return _FakeType()
+
+    Optional = _FakeType()
+    Union = _FakeType()
+    Callable = _FakeType()
+    List = _FakeType()
+    Dict = _FakeType()
+    Any = _FakeType()
+    AnyStr = _FakeType()
+    Tuple = _FakeType()
+    Pattern = _FakeType()
+
+    class Sized(object):
+        pass

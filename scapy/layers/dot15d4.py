@@ -11,16 +11,17 @@
 Wireless MAC according to IEEE 802.15.4.
 """
 
-import re
 import struct
 
-from scapy.compat import orb, raw
+from scapy.compat import orb, chb
 from scapy.error import warning
+from scapy.config import conf
 
 from scapy.data import DLT_IEEE802_15_4_WITHFCS, DLT_IEEE802_15_4_NOFCS
-from scapy.packet import *
-from scapy.fields import *
-
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    ConditionalField, Field, LELongField, PacketField, XByteField, \
+    XLEIntField, XLEShortField, FCSField, Emph
 
 # Fields #
 
@@ -71,7 +72,7 @@ class dot15d4AddressField(Field):
             try:
                 addrmode = pkttop.getfieldval(x)
                 break
-            except:
+            except Exception:
                 if pkttop.underlayer is None:
                     break
                 pkttop = pkttop.underlayer
@@ -144,7 +145,8 @@ class Dot15d4FCS(Dot15d4):
     that will validate the FCS/CRC in firmware, and add it automatically when transmitting.  # noqa: E501
     '''
     name = "802.15.4 - FCS"
-    fields_desc = Dot15d4.fields_desc + [XLEShortField("fcs", None)]  # Automatically moved to the end of the packet  # noqa: E501
+    match_subclass = True
+    fields_desc = Dot15d4.fields_desc + [FCSField("fcs", None, fmt="<H")]
 
     def compute_fcs(self, data):
         # Do a CRC-CCITT Kermit 16bit on the data given
@@ -161,17 +163,13 @@ class Dot15d4FCS(Dot15d4):
             crc = (crc // 16) ^ (q * 4225)
         return struct.pack('<H', crc)  # return as bytes in little endian order
 
-    def pre_dissect(self, s):
-        # Get the frame check sequence
-        return s[:3] + s[-2:] + s[3:-2]
-
-    def post_dissect(self, s):
-        self.raw_packet_cache = None  # Reset packet to allow post_build
-        return s
-
     def post_build(self, p, pay):
         # construct the packet with the FCS at the end
-        return Dot15d4.post_build(self, p[:-2], pay) + (p[-2:] if self.fcs is not None else self.compute_fcs(p[:-2] + pay))  # noqa: E501
+        p = Dot15d4.post_build(self, p, pay)
+        if self.fcs is None:
+            p = p[:-2]
+            p = p + self.compute_fcs(p)
+        return p
 
 
 class Dot15d4Ack(Packet):

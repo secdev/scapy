@@ -3,6 +3,8 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.status = skip
+
 """
 Package of contrib automotive gm specific modules
 that have to be loaded explicitly.

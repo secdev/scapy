@@ -15,7 +15,7 @@
 # scapy.contrib.description = VLAN Trunking Protocol (VTP)
 # scapy.contrib.status = loads
 
-"""
+r"""
     VTP Scapy Extension
     ~~~~~~~~~~~~~~~~~~~~~
 
@@ -34,29 +34,36 @@
         MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
         GNU General Public License for more details.
 
-    :TODO
+    :TODO:
 
         - Join messages
         - RE MD5 hash calculation
-        - Have a closer look at 8 byte padding in summary adv.
+        - Have a closer look at 8 byte padding in summary adv:
+
             "debug sw-vlan vtp packets" says the TLV length is invalid,
-            when I change the values
-            b'\x00\x00\x00\x01\x06\x01\x00\x02'
-                * \x00\x00 ?
-                * \x00\x01 tlvtype?
-                * \x06 length?
-                * \x00\x02 value?
+            when I change the values:
+
+            ``b'\x00\x00\x00\x01\x06\x01\x00\x02'``
+
+            * \x00\x00 ?
+            * \x00\x01 tlvtype?
+            * \x06 length?
+            * \x00\x02 value?
+
         - h2i function for VTPTimeStampField
 
     :References:
 
-        - Understanding VLAN Trunk Protocol (VTP)
-        http://www.cisco.com/en/US/tech/tk389/tk689/technologies_tech_note09186a0080094c52.shtml
+        - | Understanding VLAN Trunk Protocol (VTP)
+          | http://www.cisco.com/en/US/tech/tk389/tk689/technologies_tech_note09186a0080094c52.shtml  # noqa: E501
 """
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.l2 import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    FieldLenField, IPField, PacketListField, ShortField, SignedIntField, \
+    StrFixedLenField, StrLenField, XIntField
+from scapy.layers.l2 import SNAP
+from scapy.config import conf
 
 _VTP_VLAN_TYPE = {
     1: 'Ethernet',
@@ -112,13 +119,13 @@ class VTPVlanInfo(Packet):
         vlannamelen = 4 * ((len(self.vlanname) + 3) / 4)
 
         if self.len is None:
-            l = vlannamelen + 12
-            p = chr(l & 0xff) + p[1:]
+            tmp_len = vlannamelen + 12
+            p = chr(tmp_len & 0xff) + p[1:]
 
         # Pad vlan name with zeros if vlannamelen > len(vlanname)
-        l = vlannamelen - len(self.vlanname)
-        if l != 0:
-            p += b"\x00" * l
+        tmp_len = vlannamelen - len(self.vlanname)
+        if tmp_len != 0:
+            p += b"\x00" * tmp_len
 
         p += pay
 

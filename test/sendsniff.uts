@@ -226,7 +226,7 @@ with VEthPair('a_0', 'a_1') as veth_0:
 ############
 + Test arpleak() using a tap socket
 
-~ tap linux
+~ tap linux tcpdump
 
 = Create two tap interfaces
 
@@ -242,6 +242,7 @@ if LINUX:
     assert subprocess.check_call(["ip", "link", "set", "tap0", "up"]) == 0
 else:
     assert subprocess.check_call(["ifconfig", "tap0", "up"]) == 0
+
 
 def answer_arp_leak(pkt):
     mymac = b"\x00\x01\x02\x03\x04\x06"
@@ -298,7 +299,10 @@ ans, unans = test_arpleak(plen=4)
 assert len(ans) == 1
 assert len(unans) == 1
 
-t_answer.join()
+t_answer.join(15)
+
+if t_answer.isAlive():
+    raise Exception("Test timed out")
 
 if conf.use_pypy:
     # See https://pypy.readthedocs.io/en/latest/cpython_differences.html

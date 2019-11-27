@@ -14,19 +14,17 @@ import itertools
 import time
 import os
 import sys
-import socket
 import traceback
 from select import select
 from collections import deque
 import threading
 from scapy.config import conf
 from scapy.utils import do_graph
-from scapy.error import log_interactive
+from scapy.error import log_interactive, warning
 from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
-from scapy.compat import *
 import scapy.modules.six as six
 
 if WINDOWS:
@@ -71,7 +69,7 @@ else:
 """
 
 
-class SelectableObject:
+class SelectableObject(object):
     """DEV: to implement one of those, you need to add 2 things to your object:
     - add "check_recv" function
     - call "self.call_release" once you are ready to be read
@@ -80,6 +78,9 @@ class SelectableObject:
     force the handler to use fileno(). This may only be usable on sockets created using  # noqa: E501
     the builtin socket API."""
     __selectable_force_select__ = False
+
+    def __init__(self):
+        self.hooks = []
 
     def check_recv(self):
         """DEV: will be called only once (at beginning) to check if the object is ready."""  # noqa: E501
@@ -102,6 +103,10 @@ class SelectableObject:
         _t.setDaemon(True)
         _t.start()
 
+    def register_hook(self, hook):
+        """DEV: When call_release() will be called, the hook will also"""
+        self.hooks.append(hook)
+
     def call_release(self, arborted=False):
         """DEV: Must be call when the object becomes ready to read.
            Relesases the lock of _wait_non_ressources"""
@@ -110,6 +115,9 @@ class SelectableObject:
             self.trigger.release()
         except (threading.ThreadError, AttributeError):
             pass
+        # Trigger hooks
+        for hook in self.hooks:
+            hook()
 
 
 class SelectableSelector(object):
@@ -163,7 +171,7 @@ class SelectableSelector(object):
                     select_inputs.append(i)
                 elif not self.remain and i.check_recv():
                     self.results.append(i)
-                else:
+                elif self.remain:
                     i.wait_return(self._exit_door)
             if select_inputs:
                 # Use default select function
@@ -183,20 +191,24 @@ class SelectableSelector(object):
 def select_objects(inputs, remain):
     """
     Select SelectableObject objects. Same than:
-        select.select([inputs], [], [], remain)
+    ``select.select([inputs], [], [], remain)``
     But also works on Windows, only on SelectableObject.
 
-    inputs: objects to process
-    remain: timeout. If 0, return [].
+    :param inputs: objects to process
+    :param remain: timeout. If 0, return [].
     """
     handler = SelectableSelector(inputs, remain)
     return handler.process()
 
 
 class ObjectPipe(SelectableObject):
+    read_allowed_exceptions = ()
+
     def __init__(self):
+        self.closed = False
         self.rd, self.wr = os.pipe()
         self.queue = deque()
+        SelectableObject.__init__(self)
 
     def fileno(self):
         return self.rd
@@ -213,11 +225,33 @@ class ObjectPipe(SelectableObject):
         self.send(obj)
 
     def recv(self, n=0):
+        if self.closed:
+            if self.check_recv():
+                return self.queue.popleft()
+            return None
         os.read(self.rd, 1)
         return self.queue.popleft()
 
     def read(self, n=0):
         return self.recv(n)
+
+    def close(self):
+        if not self.closed:
+            self.closed = True
+            os.close(self.rd)
+            os.close(self.wr)
+            self.queue.clear()
+
+    @staticmethod
+    def select(sockets, remain=conf.recv_poll_rate):
+        # Only handle ObjectPipes
+        results = []
+        for s in sockets:
+            if s.closed:
+                results.append(s)
+        if results:
+            return results, None
+        return select_objects(sockets, remain), None
 
 
 class Message:
@@ -381,37 +415,43 @@ class _ATMT_Command:
     REJECT = "REJECT"
 
 
-class _ATMT_supersocket(SuperSocket):
-    def __init__(self, name, ioevent, automaton, proto, args, kargs):
+class _ATMT_supersocket(SuperSocket, SelectableObject):
+    def __init__(self, name, ioevent, automaton, proto, *args, **kargs):
+        SelectableObject.__init__(self)
         self.name = name
         self.ioevent = ioevent
         self.proto = proto
-        self.spa, self.spb = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)  # noqa: E501
-        kargs["external_fd"] = {ioevent: self.spb}
+        # write, read
+        self.spa, self.spb = ObjectPipe(), ObjectPipe()
+        # Register recv hook
+        self.spb.register_hook(self.call_release)
+        kargs["external_fd"] = {ioevent: (self.spa, self.spb)}
         self.atmt = automaton(*args, **kargs)
         self.atmt.runbg()
 
     def fileno(self):
-        return self.spa.fileno()
+        return self.spb.fileno()
 
     def send(self, s):
         if not isinstance(s, bytes):
             s = bytes(s)
         return self.spa.send(s)
 
+    def check_recv(self):
+        return self.spb.check_recv()
+
     def recv(self, n=MTU):
-        try:
-            r = self.spa.recv(n)
-        except recv_error:
-            if not WINDOWS:
-                raise
-            return None
+        r = self.spb.recv(n)
         if self.proto is not None:
             r = self.proto(r)
         return r
 
     def close(self):
         pass
+
+    @staticmethod
+    def select(sockets, remain=conf.recv_poll_rate):
+        return select_objects(sockets, remain), None
 
 
 class _ATMT_to_supersocket:
@@ -421,7 +461,10 @@ class _ATMT_to_supersocket:
         self.automaton = automaton
 
     def __call__(self, proto, *args, **kargs):
-        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, proto, args, kargs)  # noqa: E501
+        return _ATMT_supersocket(
+            self.name, self.ioevent, self.automaton,
+            proto, *args, **kargs
+        )
 
 
 class Automaton_metaclass(type):
@@ -480,21 +523,21 @@ class Automaton_metaclass(type):
                     cls.actions[c].append(m)
 
         for v in six.itervalues(cls.timeout):
-            v.sort(key=cmp_to_key(lambda t1_f1, t2_f2: cmp(t1_f1[0], t2_f2[0])))  # noqa: E501
+            v.sort(key=lambda x: x[0])
             v.append((None, None))
         for v in itertools.chain(six.itervalues(cls.conditions),
                                  six.itervalues(cls.recv_conditions),
                                  six.itervalues(cls.ioevents)):
-            v.sort(key=cmp_to_key(lambda c1, c2: cmp(c1.atmt_prio, c2.atmt_prio)))  # noqa: E501
+            v.sort(key=lambda x: x.atmt_prio)
         for condname, actlst in six.iteritems(cls.actions):
-            actlst.sort(key=cmp_to_key(lambda c1, c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname])))  # noqa: E501
+            actlst.sort(key=lambda x: x.atmt_cond[condname])
 
         for ioev in cls.iosupersockets:
             setattr(cls, ioev.atmt_as_supersocket, _ATMT_to_supersocket(ioev.atmt_as_supersocket, ioev.atmt_ioname, cls))  # noqa: E501
 
         return cls
 
-    def graph(self, **kargs):
+    def build_graph(self):
         s = 'digraph "%s" {\n' % self.__class__.__name__
 
         se = ""  # Keep initial nodes at the beginning for better rendering
@@ -518,21 +561,25 @@ class Automaton_metaclass(type):
             for f in v:
                 for n in f.__code__.co_names + f.__code__.co_consts:
                     if n in self.states:
-                        l = f.atmt_condname
+                        line = f.atmt_condname
                         for x in self.actions[f.atmt_condname]:
-                            l += "\\l>[%s]" % x.__name__
-                        s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, l, c)  # noqa: E501
+                            line += "\\l>[%s]" % x.__name__
+                        s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, line, c)  # noqa: E501
         for k, v in six.iteritems(self.timeout):
             for t, f in v:
                 if f is None:
                     continue
                 for n in f.__code__.co_names + f.__code__.co_consts:
                     if n in self.states:
-                        l = "%s/%.1fs" % (f.atmt_condname, t)
+                        line = "%s/%.1fs" % (f.atmt_condname, t)
                         for x in self.actions[f.atmt_condname]:
-                            l += "\\l>[%s]" % x.__name__
-                        s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k, n, l)  # noqa: E501
+                            line += "\\l>[%s]" % x.__name__
+                        s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k, n, line)  # noqa: E501
         s += "}\n"
+        return s
+
+    def graph(self, **kargs):
+        s = self.build_graph()
         return do_graph(s, **kargs)
 
 
@@ -551,35 +598,32 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     # Utility classes and exceptions
     class _IO_fdwrapper(SelectableObject):
         def __init__(self, rd, wr):
-            if WINDOWS:
-                # rd will be used for reading and sending
-                if isinstance(rd, ObjectPipe):
-                    self.rd = rd
-                else:
-                    raise OSError("On windows, only instances of ObjectPipe are externally available")  # noqa: E501
-            else:
-                if rd is not None and not isinstance(rd, int):
-                    rd = rd.fileno()
-                if wr is not None and not isinstance(wr, int):
-                    wr = wr.fileno()
-                self.rd = rd
-                self.wr = wr
+            if rd is not None and not isinstance(rd, (int, ObjectPipe)):
+                rd = rd.fileno()
+            if wr is not None and not isinstance(wr, (int, ObjectPipe)):
+                wr = wr.fileno()
+            self.rd = rd
+            self.wr = wr
+            SelectableObject.__init__(self)
 
         def fileno(self):
+            if isinstance(self.rd, ObjectPipe):
+                return self.rd.fileno()
             return self.rd
 
         def check_recv(self):
             return self.rd.check_recv()
 
         def read(self, n=65535):
-            if WINDOWS:
+            if isinstance(self.rd, ObjectPipe):
                 return self.rd.recv(n)
             return os.read(self.rd, n)
 
         def write(self, msg):
-            if WINDOWS:
-                self.rd.send(msg)
-                return self.call_release()
+            self.call_release()
+            if isinstance(self.wr, ObjectPipe):
+                self.wr.send(msg)
+                return
             return os.write(self.wr, msg)
 
         def recv(self, n=65535):
@@ -592,6 +636,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         def __init__(self, rd, wr):
             self.rd = rd
             self.wr = wr
+            SelectableObject.__init__(self)
 
         def fileno(self):
             if isinstance(self.rd, int):
@@ -699,15 +744,13 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             extfd = external_fd.get(n)
             if not isinstance(extfd, tuple):
                 extfd = (extfd, extfd)
-            elif WINDOWS:
-                raise OSError("Tuples are not allowed as external_fd on windows")  # noqa: E501
             ioin, ioout = extfd
             if ioin is None:
                 ioin = ObjectPipe()
             elif not isinstance(ioin, SelectableObject):
                 ioin = self._IO_fdwrapper(ioin, None)
             if ioout is None:
-                ioout = ioin if WINDOWS else ObjectPipe()
+                ioout = ObjectPipe()
             elif not isinstance(ioout, SelectableObject):
                 ioout = self._IO_fdwrapper(None, ioout)
 
@@ -801,8 +844,9 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                             c = Message(type=_ATMT_Command.SINGLESTEP, state=state)  # noqa: E501
                             self.cmdout.send(c)
                             break
-            except StopIteration as e:
-                c = Message(type=_ATMT_Command.END, result=e.args[0])
+            except (StopIteration, RuntimeError):
+                c = Message(type=_ATMT_Command.END,
+                            result=self.final_state_output)
                 self.cmdout.send(c)
             except Exception as e:
                 exc_info = sys.exc_info()
@@ -828,7 +872,8 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     raise self.ErrorState("Reached %s: [%r]" % (self.state.state, state_output),  # noqa: E501
                                           result=state_output, state=self.state.state)  # noqa: E501
                 if self.state.final:
-                    raise StopIteration(state_output)
+                    self.final_state_output = state_output
+                    return
 
                 if state_output is None:
                     state_output = ()

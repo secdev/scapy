@@ -1,0 +1,9 @@
+# This file registers all files that have already been processed as part of
+# https://github.com/secdev/scapy/issues/2158, and therefore will be enforced
+# with unit tests in future development.
+
+# Style cheet: https://mypy.readthedocs.io/en/latest/cheat_sheet.html
+
+scapy/__init__.py
+scapy/main.py
+scapy/contrib/http2.py

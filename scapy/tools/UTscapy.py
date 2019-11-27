@@ -18,16 +18,16 @@ import importlib
 import hashlib
 import copy
 import bz2
-import base64
 import os.path
 import time
 import traceback
 import warnings
 import zlib
+
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-
+from scapy.compat import base64_bytes, bytes_hex, plain_str
 
 #   Util class   #
 
@@ -60,7 +60,7 @@ def import_module(name):
         name = name[:-3]
     try:
         return importlib.import_module(name, package="scapy")
-    except:
+    except Exception:
         return importlib.import_module(name)
 
 
@@ -73,7 +73,7 @@ class File:
         self.URL = URL
 
     def get_local(self):
-        return bz2.decompress(base64.decodestring(self.local))
+        return bz2.decompress(base64_bytes(self.local))
 
     def get_URL(self):
         return self.URL
@@ -160,8 +160,9 @@ class TestClass:
 
     def add_keywords(self, kws):
         if isinstance(kws, six.string_types):
-            kws = [kws]
+            kws = [kws.lower()]
         for kwd in kws:
+            kwd = kwd.lower()
             if kwd.startswith('-'):
                 try:
                     self.keywords.remove(kwd[1:])
@@ -256,7 +257,7 @@ def parse_config_file(config_path, verb=3):
       "testfiles": [],
       "breakfailed": true,
       "onlyfailed": false,
-      "verb": 2,
+      "verb": 3,
       "dump": 0,
       "crc": true,
       "scapy": "scapy",
@@ -273,7 +274,6 @@ def parse_config_file(config_path, verb=3):
 
     """
     import json
-    import unicodedata
     with open(config_path) as config_file:
         data = json.load(config_file, encoding="utf8")
         if verb > 2:
@@ -323,6 +323,9 @@ def parse_campaign_file(campaign_file):
             test = UnitTest(l[1:].strip())
             test.num = testnb
             testnb += 1
+            if testset is None:
+                error_m = "Please create a test set (i.e. '+' section)."
+                raise getopt.GetoptError(error_m)
             testset.add_test(test)
         elif l[0] == "*":
             if test is not None:
@@ -406,28 +409,26 @@ def filter_tests_on_numbers(test_campaign, num):
                                   if ts.tests]
 
 
-def filter_tests_keep_on_keywords(test_campaign, kw):
+def _filter_tests_kw(test_campaign, kw, keep):
     def kw_match(lst, kw):
-        for k in lst:
-            if k in kw:
-                return True
-        return False
+        return any(k for k in lst if kw == k)
 
     if kw:
+        kw = kw.lower()
+        if keep:
+            cond = lambda x: x
+        else:
+            cond = lambda x: not x
         for ts in test_campaign:
-            ts.tests = [t for t in ts.tests if kw_match(t.keywords, kw)]
+            ts.tests = [t for t in ts.tests if cond(kw_match(t.keywords, kw))]
+
+
+def filter_tests_keep_on_keywords(test_campaign, kw):
+    return _filter_tests_kw(test_campaign, kw, True)
 
 
 def filter_tests_remove_on_keywords(test_campaign, kw):
-    def kw_match(lst, kw):
-        for k in kw:
-            if k in lst:
-                return True
-        return False
-
-    if kw:
-        for ts in test_campaign:
-            ts.tests = [t for t in ts.tests if not kw_match(t.keywords, kw)]
+    return _filter_tests_kw(test_campaign, kw, False)
 
 
 def remove_empty_testsets(test_campaign):
@@ -436,8 +437,9 @@ def remove_empty_testsets(test_campaign):
 
 #### RUN TEST #####
 
-def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
-    test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals)
+def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_globals=None):
+    """An internal UTScapy function to run a single test"""
+    test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals, verb=verb, my_globals=my_globals)
     test.result = "failed"
     try:
         if res is None or res:
@@ -449,6 +451,13 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
         test.output += "UTscapy: Error during result interpretation:\n"
         test.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
     finally:
+        if test.result == "failed":
+            from scapy.sendrecv import debug
+            # Add optional debugging data to log
+            if debug.crashed_on:
+                cls, val = debug.crashed_on
+                test.output += "\n\nPACKET DISSECTION FAILED ON:\n %s(hex_bytes('%s'))" % (cls.__name__, plain_str(bytes_hex(val)))
+                debug.crashed_on = None
         test.decode()
         if verb > 1:
             print("%(result)6s %(crc)s %(name)s" % test, file=sys.stderr)
@@ -457,14 +466,21 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
 
 #### RUN CAMPAIGN #####
 
+def import_UTscapy_tools(ses):
+    """Adds UTScapy tools directly to a session"""
+    ses["retry_test"] = retry_test
+    ses["Bunch"] = Bunch
+
 def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):  # noqa: E501
     passed = failed = 0
+    scapy_ses = importlib.import_module(".all", "scapy").__dict__
+    import_UTscapy_tools(scapy_ses)
     if test_campaign.preexec:
-        test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
+        test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals, my_globals=scapy_ses)[0]
     try:
         for i, testset in enumerate(test_campaign):
             for j, t in enumerate(testset):
-                if run_test(t, get_interactive_session, verb):
+                if run_test(t, get_interactive_session, verb, my_globals=scapy_ses):
                     passed += 1
                 else:
                     failed += 1
@@ -520,18 +536,7 @@ def campaign_to_TEXT(test_campaign):
 
 
 def campaign_to_ANSI(test_campaign):
-    output="%(title)s\n" % test_campaign
-    output += "-- "+info_line(test_campaign)+"\n\n"
-    output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
-
-    for testset in test_campaign:
-        if any(t.expand for t in testset):
-            output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
-            for t in testset:
-                if t.expand:
-                    output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t  # noqa: E501
-
-    return output
+    return campaign_to_TEXT(test_campaign)
 
 
 def campaign_to_xUNIT(test_campaign):
@@ -625,8 +630,9 @@ def pack_html_campaigns(runned_campaigns, data, local=False, title=None):
 """
     out_dict = {'data': data, 'title': title if title else "UTScapy tests"}
     if local:
-        External_Files.UTscapy_js.write(os.path.dirname(test_campaign.output_file.name))  # noqa: E501
-        External_Files.UTscapy_css.write(os.path.dirname(test_campaign.output_file.name))  # noqa: E501
+        dirname = os.path.dirname(test_campaign.output_file)
+        External_Files.UTscapy_js.write(dirname)
+        External_Files.UTscapy_css.write(dirname)
         out_dict.update(External_Files.get_local_dict())
     else:
         out_dict.update(External_Files.get_URL_dict())
@@ -689,7 +695,7 @@ def usage():
 -T\t\t: if -t is used with *, remove a specific file (can be used many times)
 -l\t\t: generate local .js and .css files
 -F\t\t: expand only failed tests
--b\t\t: stop at first failed campaign
+-b\t\t: don't stop at the first failed campaign
 -d\t\t: dump campaign
 -D\t\t: dump campaign and stop
 -C\t\t: don't calculate CRC and SHA
@@ -697,6 +703,7 @@ def usage():
 -c\t\t: load a .utsc config file
 -q\t\t: quiet mode
 -qq\t\t: [silent mode]
+-x\t\t: use pyannotate
 -n <testnum>\t: only tests whose numbers are given (eg. 1,3-7,12)
 -m <module>\t: additional module to put in the namespace
 -k <kw1>,<kw2>,...\t: include only tests with one of those keywords (can be used many times)
@@ -772,8 +779,9 @@ def resolve_testfiles(TESTFILES):
     return TESTFILES
 
 
-def main(argv):
-    ignore_globals = list(six.moves.builtins.__dict__.keys())
+def main():
+    argv = sys.argv[1:]
+    ignore_globals = list(six.moves.builtins.__dict__)
 
     # Parse arguments
 
@@ -793,13 +801,14 @@ def main(argv):
     SCAPY = "scapy"
     MODULES = []
     TESTFILES = []
+    ANNOTATIONS_MODE = False
     try:
-        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DdCFqP:s:")
+        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DdCFqP:s:x")
         for opt, optarg in opts[0]:
             if opt == "-h":
                 usage()
             elif opt == "-b":
-                BREAKFAILED =  True
+                BREAKFAILED = False
             elif opt == "-F":
                 ONLYFAILED = True
             elif opt == "-q":
@@ -810,6 +819,8 @@ def main(argv):
                 DUMP = 1
             elif opt == "-C":
                 CRC = False
+            elif opt == "-x":
+                ANNOTATIONS_MODE = True
             elif opt == "-s":
                 SCAPY = optarg
             elif opt == "-P":
@@ -839,15 +850,19 @@ def main(argv):
                 LOCAL = 1 if data.local else 0
                 NUM = data.num
                 MODULES = data.modules
-                KW_OK = [data.kw_ok]
-                KW_KO = [data.kw_ko]
+                KW_OK.extend(data.kw_ok)
+                KW_KO.extend(data.kw_ko)
                 try:
                     FORMAT = Format.from_string(data.format)
                 except KeyError as msg:
                     raise getopt.GetoptError("Unknown output format %s" % msg)
                 TESTFILES = resolve_testfiles(TESTFILES)
                 for testfile in resolve_testfiles(data.remove_testfiles):
-                    TESTFILES.remove(testfile)
+                    try:
+                        TESTFILES.remove(testfile)
+                    except ValueError:
+                        error_m = "Cannot remove %s from test files" % testfile
+                        raise getopt.GetoptError(error_m)
             elif opt == "-o":
                 OUTPUTFILE = optarg
                 if not os.access(os.path.dirname(os.path.abspath(OUTPUTFILE)), os.W_OK):
@@ -865,20 +880,30 @@ def main(argv):
             elif opt == "-m":
                 MODULES.append(optarg)
             elif opt == "-k":
-                KW_OK.append(optarg.split(","))
+                KW_OK.extend(optarg.split(","))
             elif opt == "-K":
-                KW_KO.append(optarg.split(","))
+                KW_KO.extend(optarg.split(","))
 
         # Discard Python3 tests when using Python2
         if six.PY2:
-            KW_KO.append(["python3_only"])
+            KW_KO.append("python3_only")
+
+        if ANNOTATIONS_MODE:
+            try:
+                from pyannotate_runtime import collect_types
+            except ImportError:
+                raise ImportError("Please install pyannotate !")
+            collect_types.init_types_collection()
+            collect_types.start()
 
         if VERB > 2:
             print("### Booting scapy...", file=sys.stderr)
         try:
             from scapy import all as scapy
-        except ImportError as e:
-            raise getopt.GetoptError("cannot import [%s]: %s" % (SCAPY, e))
+        except Exception as e:
+            print("[CRITICAL]: Cannot import Scapy: %s" % e, file=sys.stderr)
+            traceback.print_exc()
+            sys.exit(1)  # Abort the tests
 
         for m in MODULES:
             try:
@@ -950,17 +975,25 @@ def main(argv):
 
     if VERB > 2:
         print("### Writing output...", file=sys.stderr)
+
+    if ANNOTATIONS_MODE:
+        collect_types.stop()
+        collect_types.dump_stats("pyannotate_results")
+
     # Concenate outputs
     if FORMAT == Format.HTML:
         glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
 
+    # Write the final output
+    # Note: on Python 2, we force-encode to ignore ascii errors
+    # on Python 3, we need to detect the type of stream
     if OUTPUTFILE == sys.stdout:
         OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
-                         if 'b' in OUTPUTFILE.mode else glob_output)
+                         if 'b' in OUTPUTFILE.mode or six.PY2 else glob_output)
     else:
         with open(OUTPUTFILE, "wb") as f:
             f.write(glob_output.encode("utf8", "ignore")
-                    if 'b' in f.mode else glob_output)
+                    if 'b' in f.mode or six.PY2 else glob_output)
 
     # Delete scapy's test environment vars
     del os.environ['SCAPY_ROOT_DIR']
@@ -975,12 +1008,10 @@ if __name__ == "__main__":
             warnings.resetwarnings()
             # Let's discover the garbage waste
             warnings.simplefilter('error')
-            # TODO fix this: Scapy has too many StopIteration (deprecated)
-            warnings.filterwarnings('ignore', message=r'.*generator.*', category=DeprecationWarning)
             print("### Warning mode enabled ###")
-            res = main(sys.argv[1:])
+            res = main()
             if cw:
                 res = 1
         sys.exit(res)
     else:
-        sys.exit(main(sys.argv[1:]))
+        sys.exit(main())

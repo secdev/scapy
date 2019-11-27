@@ -14,7 +14,7 @@ from scapy.utils import strxor
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import _tls_hmac_algs
 from scapy.modules.six.moves import range
-from scapy.compat import *
+from scapy.compat import bytes_encode
 
 
 # Data expansion functions
@@ -38,12 +38,13 @@ def _tls_P_hash(secret, seed, req_len, hm):
     """
     hash_len = hm.hash_alg.hash_len
     n = (req_len + hash_len - 1) // hash_len
+    seed = bytes_encode(seed)
 
     res = b""
     a = hm(secret).digest(seed)  # A(1)
 
     while n > 0:
-        res += hm(secret).digest(a + raw(seed))
+        res += hm(secret).digest(a + seed)
         a = hm(secret).digest(a)
         n -= 1
 
@@ -137,9 +138,9 @@ def _tls_PRF(secret, label, seed, req_len):
     - seed: the seed used by the expansion functions.
     - req_len: amount of keystream to be generated
     """
-    l = (len(secret) + 1) // 2
-    S1 = secret[:l]
-    S2 = secret[-l:]
+    tmp_len = (len(secret) + 1) // 2
+    S1 = secret[:tmp_len]
+    S2 = secret[-tmp_len:]
 
     a1 = _tls_P_MD5(S1, label + seed, req_len)
     a2 = _tls_P_SHA1(S2, label + seed, req_len)
@@ -238,10 +239,12 @@ class PRF(object):
         Return verify_data based on handshake messages, connection end,
         master secret, and read_or_write position. See RFC 5246, section 7.4.9.
 
-        Every TLS 1.2 cipher suite has a verify_data of length 12. Note also:
-        "This PRF with the SHA-256 hash function is used for all cipher
-         suites defined in this document and in TLS documents published
-         prior to this document when TLS 1.2 is negotiated."
+        Every TLS 1.2 cipher suite has a verify_data of length 12. Note also::
+
+            "This PRF with the SHA-256 hash function is used for all cipher
+            suites defined in this document and in TLS documents published
+            prior to this document when TLS 1.2 is negotiated."
+
         Cipher suites using SHA-384 were defined later on.
         """
         if self.tls_version < 0x0300:

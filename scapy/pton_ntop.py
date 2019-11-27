@@ -15,7 +15,7 @@ import socket
 import re
 import binascii
 from scapy.modules.six.moves import range
-from scapy.compat import *
+from scapy.compat import plain_str, hex_bytes, bytes_encode, bytes_hex
 
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 _INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")
@@ -65,8 +65,8 @@ used when socket.inet_pton is not available.
     if joker_pos is not None:
         if len(result) == 16:
             raise _INET6_PTON_EXC
-        result = (result[:joker_pos] + b"\x00" * (16 - len(result))
-                  + result[joker_pos:])
+        result = (result[:joker_pos] + b"\x00" * (16 - len(result)) +
+                  result[joker_pos:])
     if len(result) != 16:
         raise _INET6_PTON_EXC
     return result
@@ -127,7 +127,7 @@ _INET_NTOP = {
 def inet_ntop(af, addr):
     """Convert an IP address from binary form into text representation."""
     # Use inet_ntop if available
-    addr = raw(addr)
+    addr = bytes_encode(addr)
     try:
         return socket.inet_ntop(af, addr)
     except AttributeError:

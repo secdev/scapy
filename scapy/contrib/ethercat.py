@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-#
 # scapy.contrib.description = EtherCat
 # scapy.contrib.status = loads
 
@@ -333,8 +331,6 @@ class EtherCatType12DLPDU(Packet):
                 '{}.guess_payload_class() - unknown or invalid '
                 'DLPDU type'.format(self.__class__.__name__))
             return Packet.guess_payload_class(self, payload)
-
-        return Packet.guess_payload_class(self, payload)
 
     # structure templates lacking leading cmd-attribute
     PHYSICAL_ADDRESSING_DESC = [

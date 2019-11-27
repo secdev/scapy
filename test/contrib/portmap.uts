@@ -1,0 +1,74 @@
+% Tests for portmap module
+############
+############
++  Packet Creation Tests
+
+= Create subpackets
+Map_Entry()
+
+= Create Portmap Packets
+NULL_Call()
+NULL_Reply()
+DUMP_Call()
+DUMP_Reply()
+GETPORT_Call()
+GETPORT_Reply()
+
++ Test Layer bindings
+
+= RPC Layer Bindings for Portmap calls
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Call()/NULL_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100000, 2, 0)
+pkt = RPC()/RPC_Call()/GETPORT_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100000, 2, 3)
+pkt = RPC()/RPC_Call()/DUMP_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100000, 2, 4)
+
+= RPC Layer Bindings for Portmap replies
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Reply()/NULL_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/GETPORT_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/DUMP_Reply()
+assert pkt.mtype == 1
+
++ Test Built Packets vs Raw Strings
+
+= Portmap calls vs Raw Strings
+pkt = GETPORT_Call(
+    prog=100003,
+    vers=3,
+    prot=6,
+    port=0
+)
+assert bytes(pkt) == b'\x00\x01\x86\xa3\x00\x00\x00\x03\x00\x00\x00\x06\x00\x00\x00\x00'
+
+= Portmap replies vs Raw Strings
+pkt = GETPORT_Reply(
+    port=2049
+)
+assert bytes(pkt) == b'\x00\x00\x08\x01'
+
+pkt = DUMP_Reply(
+    value_follows=1,
+    mappings=[
+        Map_Entry(
+            prog=1,
+            vers=2,
+            prot=3,
+            port=4,
+            value_follows=1
+        ),
+
+        Map_Entry(
+            prog=5,
+            vers=6,
+            prot=7,
+            port=8,
+            value_follows=0
+        )
+    ]
+)
+assert bytes(pkt) == b'\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x01\x00\x00\x00\x05\x00\x00\x00\x06\x00\x00\x00\x07\x00\x00\x00\x08\x00\x00\x00\x00'

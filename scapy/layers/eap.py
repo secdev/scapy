@@ -4,7 +4,7 @@
 # This program is published under a GPLv2 license
 
 """
-Classes related to the EAP protocol.
+Extensible Authentication Protocol (EAP)
 """
 
 from __future__ import absolute_import
@@ -78,8 +78,8 @@ class EAPOL(Packet):
     ASF = 4
 
     def extract_padding(self, s):
-        l = self.len
-        return s[:l], s[l:]
+        tmp_len = self.len
+        return s[:tmp_len], s[tmp_len:]
 
     def hashret(self):
         return chb(self.type) + self.payload.hashret()
@@ -280,8 +280,9 @@ class EAP(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:2] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[4:]
+            tmp_len = len(p) + len(pay)
+            tmp_p = p[:2] + chb((tmp_len >> 8) & 0xff) + chb(tmp_len & 0xff)
+            p = tmp_p + p[4:]
         return p + pay
 
     def guess_payload_class(self, _):

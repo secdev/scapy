@@ -1,0 +1,33 @@
+% Bundle Protocol tests
+
+############
+############
++ Bundle Protocol (BP) basic tests
+
+#TODO: no pcap have been found on Internet. Check that scapy correctly decode those too
+
+= Build packets & dissect
+
+from scapy.contrib.ltp import LTPex
+
+pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IP(src="192.168.0.1", dst="192.168.0.2")/UDP()/LTP(flags=7,\
+        SessionOriginator=2,
+        SessionNumber=113,
+        HeaderExtensions=[
+            LTPex(ExTag=1, ExData=b"\x00"),
+        ],
+        DATA_ClientServiceID=1,
+        DATA_PayloadOffset=0,
+        LTP_Payload=[
+            BP(ProcFlags=415)/\
+            BPBLOCK(ProcFlags=10, load="data")
+        ])
+
+pkt = Ether(raw(pkt))
+assert LTP in pkt
+bp = pkt[LTP].LTP_Payload[0]
+assert BP in bp
+assert BPBLOCK in bp
+assert bp.load == b"data"
+
+bp.mysummary()

@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-#
 # scapy.contrib.description = MACControl
 # scapy.contrib.status = loads
 

@@ -4,9 +4,6 @@
 
 + Basic tests
 
-= Import Bunch
-from scapy.tools.UTscapy import Bunch
-
 = Test default test case
 
 s = PeriodicSource("hello", 1, name="src")
@@ -18,7 +15,7 @@ d1 > tf
 try:
   t = TermSink(name="PipeToolsPeriodicTest", keepterm=False)
   tf > t
-except FileNotFoundError:
+except (IOError, OSError):
   pass
 
 p = PipeEngine(s)
@@ -26,11 +23,6 @@ p.start()
 time.sleep(3)
 s.msg = []
 p.stop()
-
-try:
-    os.remove("test.png")
-except OSError:
-    pass
 
 = Test add_pipe
 
@@ -170,6 +162,7 @@ p.start()
 
 p.wait_and_stop()
 assert c.recv() == "hello"
+assert c.recv(block=False) is None
 
 = Test UpDrain
 
@@ -237,17 +230,60 @@ mocked_l2listen.start()
 try:
     p = PipeEngine()
     s = SniffSource()
+    assert s.s is None
     d1 = Drain(name="d1")
     c = QueueSink(name="c")
     s > d1 > c
     p.add(s)
     p.start()
     assert c.q.get(2)
+    assert s.s is not None
     p.stop()
 finally:
     mocked_l2listen.stop()
     os.close(r)
     os.close(w)
+
+= Test SniffSource with socket
+
+r, w = os.pipe()
+os.write(w, b"X")
+
+class FakeSocket(object):
+    def __init__(self):
+        self.times = 0
+    def recv(self, x=None):
+        if self.times > 2:
+            return
+        self.times += 1
+        return Raw(b'hello')
+    def fileno(self):
+        return r
+
+try:
+    p = PipeEngine()
+    s = SniffSource(socket=FakeSocket())
+    assert s.s is not None
+    d = Drain()
+    c = QueueSink()
+    p.add(s > d > c)
+    p.start()
+    msg = c.q.get(timeout=1)
+    p.stop()
+    assert raw(msg) == b'hello'
+finally:
+    os.close(r)
+    os.close(w)
+
+= Test SniffSource with invalid args
+
+try:
+    s = SniffSource(iface='eth0', socket='not a socket')
+except ValueError:
+    pass
+else:
+    # expected ValueError
+    assert False
 
 = Test exhausted AutoSource and SniffSource
 
@@ -273,31 +309,110 @@ try:
 except:
     pass
 
+= Test WiresharkSink
+
+from io import BytesIO
+
+f = BytesIO()
+pkt = Ether()/IP()/ICMP()
+
+with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
+    p = PipeEngine()
+    src = CLIFeeder()
+    sink = WiresharkSink()
+    p.add(src > sink)
+    p.start()
+    src.send(pkt)
+    time.sleep(3)
+    # Prevent stop from closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        p.stop()
+
+popen.assert_called_once_with(
+    [conf.prog.wireshark, '-ki', '-'], stdin=subprocess.PIPE, stdout=None,
+    stderr=None)
+bytes_hex(f.getvalue())
+bytes_hex(raw(pkt))
+assert raw(pkt) in f.getvalue()
+
+= Test WiresharkSink with linktype
+
+f = BytesIO()
+pkt = Ether()/IP()/ICMP()
+linktype = scapy.data.DLT_EN3MB
+
+with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
+    p = PipeEngine()
+    src = CLIFeeder()
+    sink = WiresharkSink(linktype=linktype)
+    p.add(src > sink)
+    p.start()
+    src.send(pkt)
+    time.sleep(3)
+    # Prevent stop from closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        p.stop()
+
+popen.assert_called_once_with(
+    [conf.prog.wireshark, '-ki', '-'],
+    stdin=subprocess.PIPE, stdout=None, stderr=None)
+
+bytes_hex(f.getvalue())
+bytes_hex(raw(pkt))
+assert raw(pkt) in f.getvalue()
+
+# Check that the linktype was also correct
+f.seek(0) or None
+r = PcapReader(f)
+assert r.linktype == DLT_EN3MB
+
+= Test WiresharkSink with args
+
+f = BytesIO()
+pkt = Ether()/IP()/ICMP()
+
+with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
+    p = PipeEngine()
+    src = CLIFeeder()
+    sink = WiresharkSink(args=['-c', '1'])
+    p.add(src > sink)
+    p.start()
+    src.send(pkt)
+    time.sleep(3)
+    # Prevent stop from closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        p.stop()
+
+popen.assert_called_once_with(
+    [conf.prog.wireshark, '-ki', '-', '-c', '1'],
+    stdin=subprocess.PIPE, stdout=None, stderr=None)
+
 = Test RdpcapSource and WrpcapSink
-~ needs_root
+
+dname = get_temp_dir()
 
 req = Ether()/IP()/ICMP()
 rpy = Ether()/IP('E\x00\x00\x1c\x00\x00\x00\x004\x01\x1d\x04\xd8:\xd0\x83\xc0\xa8\x00w\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 
-wrpcap("t.pcap", [req, rpy])
+wrpcap(os.path.join(dname, "t.pcap"), [req, rpy])
 
 p = PipeEngine()
 
-s = RdpcapSource("t.pcap")
+s = RdpcapSource(os.path.join(dname, "t.pcap"))
 d1 = Drain(name="d1")
-c = WrpcapSink("t2.pcap", name="c")
+c = WrpcapSink(os.path.join(dname, "t2.pcap"), name="c")
 s > d1 > c
 p.add(s)
 p.start()
 p.wait_and_stop()
 
-results = rdpcap("t2.pcap")
+results = rdpcap(os.path.join(dname, "t2.pcap"))
 
 assert raw(results[0]) == raw(req)
 assert raw(results[1]) == raw(rpy)
 
-os.unlink("t.pcap")
-os.unlink("t2.pcap")
+os.unlink(os.path.join(dname, "t.pcap"))
+os.unlink(os.path.join(dname, "t2.pcap"))
 
 = Test InjectSink and Inject3Sink
 ~ needs_root
@@ -581,7 +696,7 @@ assert c.q.get(timeout=1) == "hello"
 p = PipeEngine()
 
 s = CLIFeeder()
-d1 = TCPConnectPipe(addr="www.google.fr", port=80)
+d1 = TCPConnectPipe(addr="www.secdev.org", port=80)
 c = QueueSink()
 
 s > d1 > c
@@ -589,8 +704,72 @@ s > d1 > c
 p.add(s)
 p.start()
 
-s.send(b"GET http://www.google.fr/search?q=scapy&start=1&num=1\n")
+s.send(b"GET / HTTP/1.1\nHost: www.secdev.org\n\n")
 result = c.q.get(timeout=10)
 p.stop()
 
-assert result.startswith(b"HTTP/1.0 200 OK")
+assert result.startswith(b"HTTP/1.1 200 OK")
+
+= Packet conversion (ConvertPipe)
+
+class PacketA(Packet):
+    fields_desc = [LEShortField('foo', None)]
+
+class PacketB(Packet):
+    fields_desc = [ShortField('bar', None)]
+    def convert_to(self, other_cls, **kwargs):
+        if other_cls is PacketA:
+            return PacketA(foo=self.bar)
+        return Packet.convert_to(self, other_cls, **kwargs)
+    @classmethod
+    def convert_packet(cls, pkt, **kwargs):
+        if isinstance(pkt, PacketA):
+            return cls(bar=pkt.foo)
+        return Packet.convert_packet(pkt, **kwargs)
+
+p = PipeEngine()
+s = CLIFeeder()
+sh = CLIHighFeeder()
+c = ConvertPipe(low_type=PacketA)
+d = QueueSink()
+
+s > c > d
+sh >> c >> d
+
+p.add(s)
+p.start()
+
+# QueueSink puts all packets in the same queue, and this can race on Windows
+s.send(PacketB(bar=1234))
+r0 = d.q.get(timeout=5)
+
+sh.send(PacketB(bar=1234))
+r1 = d.q.get(timeout=5)
+p.stop()
+
+# Debug info
+r0, raw(r0)
+r1, raw(r1)
+
+assert raw(r0) == b'\xd2\x04'
+assert raw(r1) == b'\x04\xd2'
+assert isinstance(r0, PacketA)
+assert isinstance(r1, PacketB)
+
+# Try converting on high
+c.high_type = PacketB
+c.low_type = None
+
+p.start()
+s.send(PacketA(foo=1234))
+r0 = d.q.get(timeout=5)
+sh.send(PacketA(foo=1234))
+r1 = d.q.get(timeout=5)
+p.stop()
+
+r0, raw(r0)
+r1, raw(r1)
+assert raw(r0) == b'\xd2\x04'
+assert raw(r1) == b'\x04\xd2'
+assert isinstance(r0, PacketA)
+assert isinstance(r1, PacketB)

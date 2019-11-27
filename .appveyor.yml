@@ -11,22 +11,53 @@ environment:
       PYTHON_VERSION: "2.7.x"
       PYTHON_ARCH: "64"
       TOXENV: "py27-windows"
-    - PYTHON: "C:\\Python36-x64"
-      PYTHON_VERSION: "3.6.x"
+      WINPCAP: "false"
+      UT_FLAGS: ""
+    - PYTHON: "C:\\Python37-x64"
+      PYTHON_VERSION: "3.7.x"
       PYTHON_ARCH: "64"
-      TOXENV: "py36-windows"
+      TOXENV: "py37-windows"
+      WINPCAP: "false"
+      UT_FLAGS: ""
+    - PYTHON: "C:\\Python37-x64"
+      PYTHON_VERSION: "3.7.x"
+      PYTHON_ARCH: "64"
+      TOXENV: "py37-windows"
+      WINPCAP: "true"
+      UT_FLAGS: "-K tcpdump"
 
 # There is no build phase for Scapy
 build: off
 
 install:
   # Install the npcap, windump and wireshark suites
-  - ps: .\.appveyor\InstallNpcap.ps1
-  - ps: .\.appveyor\InstallWindump.ps1
+  - ps: .\.config\appveyor\InstallNpcap.ps1
+  - ps: .\.config\appveyor\InstallWindumpNpcap.ps1
+  # Installs Wireshark 3.0 (and its dependencies)
+  # https://github.com/mkevenaar/chocolatey-packages/issues/16
+  - choco install -n KB3033929 KB2919355 kb2999226
   - choco install -y wireshark
   # Install Python modules
+  # https://github.com/tox-dev/tox/issues/791
+  - "%PYTHON%\\python -m pip install virtualenv --upgrade"
   - "%PYTHON%\\python -m pip install tox"
-  - set PATH=%PYTHON%\\Scripts\\;%PATH%
+
+# Compatibility run with Winpcap
+# XXX Remove me when wireshark stops using it as default
+for:
+  -
+    matrix:
+      only:
+        - WINPCAP: "true"
+    install:
+      # Install the winpcap and wireshark suites
+      - choco install -y winpcap
+      # See above for explanations
+      - choco install -n KB3033929 KB2919355 kb2999226
+      - choco install -y wireshark
+      # Install Python modules
+      - "%PYTHON%\\python -m pip install virtualenv --upgrade"
+      - "%PYTHON%\\python -m pip install tox"
 
 test_script:
   # Set environment variables
@@ -34,8 +65,8 @@ test_script:
   - set PATH=%APPVEYOR_BUILD_FOLDER%;C:\Program Files\Wireshark\;C:\Program Files\Windump\;%PATH%
   
   # Main unit tests
-  - "%PYTHON%\\python -m tox"
+  - "%PYTHON%\\python -m tox -- %UT_FLAGS%"
 
 after_test:
-  # Install & run codecov
-  - tox -e codecov
+  # Run codecov
+  - "%PYTHON%\\python -m tox -e codecov"

@@ -3,14 +3,17 @@
 # Copyright (C) Santiago Hernandez Ramos <shramos@protonmail.com>
 # This program is published under GPLv2 license
 
+# scapy.contrib.description = Message Queuing Telemetry Transport (MQTT)
+# scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import FieldLenField, BitEnumField, StrLenField, \
-    ShortField, ConditionalField, ByteEnumField, ByteField, StrNullField
+    ShortField, ConditionalField, ByteEnumField, ByteField, PacketListField
 from scapy.layers.inet import TCP
 from scapy.error import Scapy_Exception
 from scapy.compat import orb, chb
 from scapy.volatile import RandNum
+from scapy.config import conf
 
 
 # CUSTOM FIELDS
@@ -56,25 +59,30 @@ class RandVariableFieldLen(RandNum):
 
 
 # LAYERS
-CONTROL_PACKET_TYPE = {1: 'CONNECT',
-                       2: 'CONNACK',
-                       3: 'PUBLISH',
-                       4: 'PUBACK',
-                       5: 'PUBREC',
-                       6: 'PUBREL',
-                       7: 'PUBCOMP',
-                       8: 'SUBSCRIBE',
-                       9: 'SUBACK',
-                       10: 'UNSUBSCRIBE',
-                       11: 'UNSUBACK',
-                       12: 'PINGREQ',
-                       13: 'PINGRESP',
-                       14: 'DISCONNECT'}
+CONTROL_PACKET_TYPE = {
+    1: 'CONNECT',
+    2: 'CONNACK',
+    3: 'PUBLISH',
+    4: 'PUBACK',
+    5: 'PUBREC',
+    6: 'PUBREL',
+    7: 'PUBCOMP',
+    8: 'SUBSCRIBE',
+    9: 'SUBACK',
+    10: 'UNSUBSCRIBE',
+    11: 'UNSUBACK',
+    12: 'PINGREQ',
+    13: 'PINGRESP',
+    14: 'DISCONNECT',
+    15: 'AUTH'  # Added in v5.0
+}
 
 
-QOS_LEVEL = {0: 'At most once delivery',
-             1: 'At least once delivery',
-             2: 'Exactly once delivery'}
+QOS_LEVEL = {
+    0: 'At most once delivery',
+    1: 'At least once delivery',
+    2: 'Exactly once delivery'
+}
 
 
 # source: http://stackoverflow.com/a/43722441
@@ -95,13 +103,20 @@ class MQTT(Packet):
     ]
 
 
+PROTOCOL_LEVEL = {
+    3: 'v3.1',
+    4: 'v3.1.1',
+    5: 'v5.0'
+}
+
+
 class MQTTConnect(Packet):
     name = "MQTT connect"
     fields_desc = [
         FieldLenField("length", None, length_of="protoname"),
         StrLenField("protoname", "",
                     length_from=lambda pkt: pkt.length),
-        ByteField("protolevel", 0),
+        ByteEnumField("protolevel", 5, PROTOCOL_LEVEL),
         BitEnumField("usernameflag", 0, 1, {0: 'Disabled',
                                             1: 'Enabled'}),
         BitEnumField("passwordflag", 0, 1, {0: 'Disabled',
@@ -143,12 +158,14 @@ class MQTTConnect(Packet):
     ]
 
 
-RETURN_CODE = {0: 'Connection Accepted',
-               1: 'Unacceptable protocol version',
-               2: 'Identifier rejected',
-               3: 'Server unavailable',
-               4: 'Bad username/password',
-               5: 'Not authorized'}
+RETURN_CODE = {
+    0: 'Connection Accepted',
+    1: 'Unacceptable protocol version',
+    2: 'Identifier rejected',
+    3: 'Server unavailable',
+    4: 'Bad username/password',
+    5: 'Not authorized'
+}
 
 
 class MQTTConnack(Packet):
@@ -167,8 +184,8 @@ class MQTTPublish(Packet):
         StrLenField("topic", "",
                     length_from=lambda pkt: pkt.length),
         ConditionalField(ShortField("msgid", None),
-                         lambda pkt: (pkt.underlayer.QOS == 1
-                                      or pkt.underlayer.QOS == 2)),
+                         lambda pkt: (pkt.underlayer.QOS == 1 or
+                                      pkt.underlayer.QOS == 2)),
         StrLenField("value", "",
                     length_from=lambda pkt: (pkt.underlayer.len -
                                              pkt.length - 2)),
@@ -214,10 +231,12 @@ class MQTTSubscribe(Packet):
     ]
 
 
-ALLOWED_RETURN_CODE = {0: 'Success',
-                       1: 'Success',
-                       2: 'Success',
-                       128: 'Failure'}
+ALLOWED_RETURN_CODE = {
+    0: 'Success',
+    1: 'Success',
+    2: 'Success',
+    128: 'Failure'
+}
 
 
 class MQTTSuback(Packet):
@@ -228,11 +247,32 @@ class MQTTSuback(Packet):
     ]
 
 
+class MQTTTopic(Packet):
+    name = "MQTT topic"
+    fields_desc = [
+        FieldLenField("len", None, length_of="topic"),
+        StrLenField("topic", "", length_from=lambda pkt:pkt.len)
+    ]
+
+    def guess_payload_class(self, payload):
+        return conf.padding_layer
+
+
+def cb_topic(pkt, lst, cur, remain):
+    """
+    Decode the remaining bytes as a MQTT topic
+    """
+    if len(remain) > 3:
+        return MQTTTopic
+    else:
+        return conf.raw_layer
+
+
 class MQTTUnsubscribe(Packet):
     name = "MQTT unsubscribe"
     fields_desc = [
         ShortField("msgid", None),
-        StrNullField("payload", "")
+        PacketListField("topics", [], next_cls_cb=cb_topic)
     ]
 
 

@@ -19,20 +19,23 @@ from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_raw_hwaddr, in6_getifaddr
 from scapy.config import conf
 from scapy.data import EPOCH, ETHER_ANY
-from scapy.compat import *
+from scapy.compat import raw, orb, chb
 from scapy.error import warning
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     FlagsField, IntEnumField, IntField, MACField, PacketField, \
     PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
     StrLenField, UTCTimeField, X3BytesField, XIntField, XShortEnumField, \
-    PacketLenField
+    PacketLenField, UUIDField, FieldListField
+from scapy.data import IANA_ENTERPRISE_NUMBERS
 from scapy.layers.inet import UDP
-from scapy.layers.inet6 import DomainNameListField, IP6Field, IP6ListField, IPv6  # noqa: E501
+from scapy.layers.inet6 import DomainNameListField, IP6Field, IP6ListField, \
+    IPv6
 from scapy.packet import Packet, bind_bottom_up
 from scapy.pton_ntop import inet_pton
 from scapy.sendrecv import send
 from scapy.themes import Color
 from scapy.utils6 import in6_addrtovendor, in6_islladdr
+import scapy.modules.six as six
 
 #############################################################################
 # Helpers                                                                  ##
@@ -111,6 +114,16 @@ dhcp6opts = {1: "CLIENTID",
              37: "OPTION_REMOTE_ID",  # RFC4649
              38: "OPTION_SUBSCRIBER_ID",  # RFC4580
              39: "OPTION_CLIENT_FQDN",  # RFC4704
+             40: "OPTION_PANA_AGENT",  # RFC5192
+             41: "OPTION_NEW_POSIX_TIMEZONE",  # RFC4833
+             42: "OPTION_NEW_TZDB_TIMEZONE",  # RFC4833
+             48: "OPTION_LQ_CLIENT_LINK",  # RFC5007
+             59: "OPT_BOOTFILE_URL",  # RFC5970
+             60: "OPT_BOOTFILE_PARAM",  # RFC5970
+             61: "OPTION_CLIENT_ARCH_TYPE",  # RFC5970
+             62: "OPTION_NII",  # RFC5970
+             65: "OPTION_ERP_LOCAL_DOMAIN_NAME",  # RFC6440
+             66: "OPTION_RELAY_SUPPLIED_OPTIONS",  # RFC6422
              68: "OPTION_VSS",  # RFC6607
              79: "OPTION_CLIENT_LINKLAYER_ADDR"}  # RFC6939
 
@@ -151,15 +164,21 @@ dhcp6opts_by_code = {1: "DHCP6OptClientId",
                      37: "DHCP6OptRemoteID",  # RFC4649
                      38: "DHCP6OptSubscriberID",  # RFC4580
                      39: "DHCP6OptClientFQDN",  # RFC4704
-                     # 40: "DHCP6OptPANAAgent",          #RFC-ietf-dhc-paa-option-05.txt  # noqa: E501
-                     # 41: "DHCP6OptNewPOSIXTimeZone,    #RFC4833
-                     # 42: "DHCP6OptNewTZDBTimeZone,     #RFC4833
+                     40: "DHCP6OptPanaAuthAgent",  # RFC-ietf-dhc-paa-option-05.txt  # noqa: E501
+                     41: "DHCP6OptNewPOSIXTimeZone",  # RFC4833
+                     42: "DHCP6OptNewTZDBTimeZone",  # RFC4833
                      43: "DHCP6OptRelayAgentERO",  # RFC4994
                      # 44: "DHCP6OptLQQuery",            #RFC5007
                      # 45: "DHCP6OptLQClientData",       #RFC5007
                      # 46: "DHCP6OptLQClientTime",       #RFC5007
                      # 47: "DHCP6OptLQRelayData",        #RFC5007
-                     # 48: "DHCP6OptLQClientLink",       #RFC5007
+                     48: "DHCP6OptLQClientLink",  # RFC5007
+                     59: "DHCP6OptBootFileUrl",  # RFC5790
+                     60: "DHCP6OptBootFileParam",  # RFC5970
+                     61: "DHCP6OptClientArchType",  # RFC5970
+                     62: "DHCP6OptClientNetworkInterId",  # RFC5970
+                     65: "DHCP6OptERPDomain",  # RFC6440
+                     66: "DHCP6OptRelaySuppliedOpt",  # RFC6422
                      68: "DHCP6OptVSS",  # RFC6607
                      79: "DHCP6OptClientLinkLayerAddr",  # RFC6939
                      }
@@ -250,26 +269,10 @@ class DUID_LLT(Packet):  # sect 9.2 RFC 3315
                    _LLAddrField("lladdr", ETHER_ANY)]
 
 
-# In fact, IANA enterprise-numbers file available at
-# http://www.iana.org/assignments/enterprise-numbers
-# is simply huge (more than 2Mo and 600Ko in bz2). I'll
-# add only most common vendors, and encountered values.
-# -- arno
-iana_enterprise_num = {9: "ciscoSystems",
-                          35: "Nortel Networks",
-                          43: "3Com",
-                       311: "Microsoft",
-                       2636: "Juniper Networks, Inc.",
-                       4526: "Netgear",
-                       5771: "Cisco Systems, Inc.",
-                       5842: "Cisco Systems",
-                       16885: "Nortel Networks"}
-
-
 class DUID_EN(Packet):  # sect 9.3 RFC 3315
     name = "DUID - Assigned by Vendor Based on Enterprise Number"
     fields_desc = [ShortEnumField("type", 2, duidtypes),
-                   IntEnumField("enterprisenum", 311, iana_enterprise_num),
+                   IntEnumField("enterprisenum", 311, IANA_ENTERPRISE_NUMBERS),
                    StrField("id", "")]
 
 
@@ -283,7 +286,7 @@ class DUID_LL(Packet):  # sect 9.4 RFC 3315
 class DUID_UUID(Packet):  # RFC 6355
     name = "DUID - Based on UUID"
     fields_desc = [ShortEnumField("type", 4, duidtypes),
-                   StrFixedLenField("uuid", "", 16)]
+                   UUIDField("uuid", None, uuid_fmt=UUIDField.FORMAT_BE)]
 
 
 duid_cls = {1: "DUID_LLT",
@@ -297,12 +300,28 @@ duid_cls = {1: "DUID_LLT",
 
 
 class _DHCP6OptGuessPayload(Packet):
-    def guess_payload_class(self, payload):
+    @classmethod
+    def _just_guess_payload_class(cls, payload):
+        # try to guess what option is in the payload
         cls = conf.raw_layer
         if len(payload) > 2:
             opt = struct.unpack("!H", payload[:2])[0]
-            cls = get_cls(dhcp6opts_by_code.get(opt, "DHCP6OptUnknown"), DHCP6OptUnknown)  # noqa: E501
+            cls = get_cls(dhcp6opts_by_code.get(opt, "DHCP6OptUnknown"),
+                          DHCP6OptUnknown)
         return cls
+
+    def guess_payload_class(self, payload):
+        # this method is used in case of all derived classes
+        # from _DHCP6OptGuessPayload in this file
+        cls = _DHCP6OptGuessPayload._just_guess_payload_class(payload)
+        return cls
+
+    @classmethod
+    def dispatch_hook(cls, payload=None, *args, **kargs):
+        # this classmethod is used in case of list of different suboptions
+        # e.g. in ianaopts in DHCP6OptIA_NA
+        cls_ = cls._just_guess_payload_class(payload)
+        return cls_
 
 
 class DHCP6OptUnknown(_DHCP6OptGuessPayload):  # A generic DHCPv6 Option
@@ -331,8 +350,8 @@ class _DUIDField(PacketField):
         return cls(x)
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.length_from(pkt)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
 
 class DHCP6OptClientId(_DHCP6OptGuessPayload):     # RFC sect 22.2
@@ -367,28 +386,6 @@ class DHCP6OptIAAddress(_DHCP6OptGuessPayload):    # RFC sect 22.6
         return conf.padding_layer
 
 
-class _IANAOptField(PacketListField):
-    def i2len(self, pkt, z):
-        if z is None or z == []:
-            return 0
-        return sum(len(raw(x)) for x in z)
-
-    def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        lst = []
-        remain, payl = s[:l], s[l:]
-        while len(remain) > 0:
-            p = self.m2i(pkt, remain)
-            if conf.padding_layer in p:
-                pad = p[conf.padding_layer]
-                remain = pad.load
-                del(pad.underlayer.payload)
-            else:
-                remain = ""
-            lst.append(p)
-        return payl, lst
-
-
 class DHCP6OptIA_NA(_DHCP6OptGuessPayload):         # RFC sect 22.4
     name = "DHCP6 Identity Association for Non-temporary Addresses Option"
     fields_desc = [ShortEnumField("optcode", 3, dhcp6opts),
@@ -397,12 +394,8 @@ class DHCP6OptIA_NA(_DHCP6OptGuessPayload):         # RFC sect 22.4
                    XIntField("iaid", None),
                    IntField("T1", None),
                    IntField("T2", None),
-                   _IANAOptField("ianaopts", [], DHCP6OptIAAddress,
-                                 length_from=lambda pkt: pkt.optlen - 12)]
-
-
-class _IATAOptField(_IANAOptField):
-    pass
+                   PacketListField("ianaopts", [], _DHCP6OptGuessPayload,
+                                   length_from=lambda pkt: pkt.optlen - 12)]
 
 
 class DHCP6OptIA_TA(_DHCP6OptGuessPayload):         # RFC sect 22.5
@@ -411,8 +404,8 @@ class DHCP6OptIA_TA(_DHCP6OptGuessPayload):         # RFC sect 22.5
                    FieldLenField("optlen", None, length_of="iataopts",
                                  fmt="!H", adjust=lambda pkt, x: x + 4),
                    XIntField("iaid", None),
-                   _IATAOptField("iataopts", [], DHCP6OptIAAddress,
-                                 length_from=lambda pkt: pkt.optlen - 4)]
+                   PacketListField("iataopts", [], _DHCP6OptGuessPayload,
+                                   length_from=lambda pkt: pkt.optlen - 4)]
 
 
 #    DHCPv6 Option Request Option                                   #
@@ -598,9 +591,9 @@ class _UserClassDataField(PacketListField):
         return sum(len(raw(x)) for x in z)
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
         lst = []
-        remain, payl = s[:l], s[l:]
+        remain, payl = s[:tmp_len], s[tmp_len:]
         while len(remain) > 0:
             p = self.m2i(pkt, remain)
             if conf.padding_layer in p:
@@ -647,7 +640,8 @@ class DHCP6OptVendorClass(_DHCP6OptGuessPayload):  # RFC sect 22.16
     fields_desc = [ShortEnumField("optcode", 16, dhcp6opts),
                    FieldLenField("optlen", None, length_of="vcdata", fmt="!H",
                                  adjust=lambda pkt, x: x + 4),
-                   IntEnumField("enterprisenum", None, iana_enterprise_num),
+                   IntEnumField("enterprisenum", None,
+                                IANA_ENTERPRISE_NUMBERS),
                    _VendorClassDataField("vcdata", [], VENDOR_CLASS_DATA,
                                          length_from=lambda pkt: pkt.optlen - 4)]  # noqa: E501
 
@@ -672,7 +666,8 @@ class DHCP6OptVendorSpecificInfo(_DHCP6OptGuessPayload):  # RFC sect 22.17
     fields_desc = [ShortEnumField("optcode", 17, dhcp6opts),
                    FieldLenField("optlen", None, length_of="vso", fmt="!H",
                                  adjust=lambda pkt, x: x + 4),
-                   IntEnumField("enterprisenum", None, iana_enterprise_num),
+                   IntEnumField("enterprisenum", None,
+                                IANA_ENTERPRISE_NUMBERS),
                    _VendorClassDataField("vso", [], VENDOR_SPECIFIC_OPTION,
                                          length_from=lambda pkt: pkt.optlen - 4)]  # noqa: E501
 
@@ -771,11 +766,11 @@ class DHCP6OptIA_PD(_DHCP6OptGuessPayload):  # RFC3633
     name = "DHCP6 Option - Identity Association for Prefix Delegation"
     fields_desc = [ShortEnumField("optcode", 25, dhcp6opts),
                    FieldLenField("optlen", None, length_of="iapdopt",
-                                 adjust=lambda pkt, x: x + 12),
-                   IntField("iaid", 0),
-                   IntField("T1", 0),
-                   IntField("T2", 0),
-                   PacketListField("iapdopt", [], DHCP6OptIAPrefix,
+                                 fmt="!H", adjust=lambda pkt, x: x + 12),
+                   XIntField("iaid", None),
+                   IntField("T1", None),
+                   IntField("T2", None),
+                   PacketListField("iapdopt", [], _DHCP6OptGuessPayload,
                                    length_from=lambda pkt: pkt.optlen - 12)]
 
 
@@ -797,8 +792,8 @@ class DHCP6OptNISPServers(_DHCP6OptGuessPayload):  # RFC3898
 
 class DomainNameField(StrLenField):
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.length_from(pkt)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def i2len(self, pkt, x):
         return len(self.i2m(pkt, x))
@@ -806,9 +801,9 @@ class DomainNameField(StrLenField):
     def m2i(self, pkt, x):
         cur = []
         while x:
-            l = orb(x[0])
-            cur.append(x[1:1 + l])
-            x = x[l + 1:]
+            tmp_len = orb(x[0])
+            cur.append(x[1:1 + tmp_len])
+            x = x[tmp_len + 1:]
         return b".".join(cur)
 
     def i2m(self, pkt, x):
@@ -885,7 +880,8 @@ class DHCP6OptRemoteID(_DHCP6OptGuessPayload):  # RFC4649
     fields_desc = [ShortEnumField("optcode", 37, dhcp6opts),
                    FieldLenField("optlen", None, length_of="remoteid",
                                  adjust=lambda pkt, x: x + 4),
-                   IntEnumField("enterprisenum", None, iana_enterprise_num),
+                   IntEnumField("enterprisenum", None,
+                                IANA_ENTERPRISE_NUMBERS),
                    StrLenField("remoteid", "",
                                length_from=lambda pkt: pkt.optlen - 4)]
 
@@ -914,28 +910,92 @@ class DHCP6OptClientFQDN(_DHCP6OptGuessPayload):  # RFC4704
                                    length_from=lambda pkt: pkt.optlen - 1)]
 
 
-class DHCP6OptRelayAgentERO(_DHCP6OptGuessPayload):       # RFC4994
+class DHCP6OptPanaAuthAgent(_DHCP6OptGuessPayload):  # RFC5192
+    name = "DHCP6 PANA Authentication Agent Option"
+    fields_desc = [ShortEnumField("optcode", 40, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="paaaddr"),
+                   IP6ListField("paaaddr", [],
+                                length_from=lambda pkt: pkt.optlen)]
+
+
+class DHCP6OptNewPOSIXTimeZone(_DHCP6OptGuessPayload):  # RFC4833
+    name = "DHCP6 POSIX Timezone Option"
+    fields_desc = [ShortEnumField("optcode", 41, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="optdata"),
+                   StrLenField("optdata", "",
+                               length_from=lambda pkt: pkt.optlen)]
+
+
+class DHCP6OptNewTZDBTimeZone(_DHCP6OptGuessPayload):  # RFC4833
+    name = "DHCP6 TZDB Timezone Option"
+    fields_desc = [ShortEnumField("optcode", 42, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="optdata"),
+                   StrLenField("optdata", "",
+                               length_from=lambda pkt: pkt.optlen)]
+
+
+class DHCP6OptRelayAgentERO(_DHCP6OptGuessPayload):  # RFC4994
     name = "DHCP6 Option - RelayRequest Option"
     fields_desc = [ShortEnumField("optcode", 43, dhcp6opts),
-                   FieldLenField("optlen", None, length_of="reqopts", fmt="!H"),  # noqa: E501
+                   FieldLenField("optlen", None, length_of="reqopts",
+                                 fmt="!H"),
                    _OptReqListField("reqopts", [23, 24],
                                     length_from=lambda pkt: pkt.optlen)]
 
-# "Client link-layer address type.  The link-layer type MUST be a valid hardware  # noqa: E501
-# type assigned by the IANA, as described in [RFC0826]
+
+class DHCP6OptLQClientLink(_DHCP6OptGuessPayload):  # RFC5007
+    name = "DHCP6 Client Link Option"
+    fields_desc = [ShortEnumField("optcode", 48, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="linkaddress"),
+                   IP6ListField("linkaddress", [],
+                                length_from=lambda pkt: pkt.optlen)]
 
 
-class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
-    name = "DHCP6 Option - Client Link Layer address"
-    fields_desc = [ShortEnumField("optcode", 79, dhcp6opts),
-                   FieldLenField("optlen", None, length_of="clladdr",
-                                 adjust=lambda pkt, x: x + 1),
-                   ShortField("lltype", 1),  # ethernet
-                   _LLAddrField("clladdr", ETHER_ANY)]
+class DHCP6OptBootFileUrl(_DHCP6OptGuessPayload):  # RFC5970
+    name = "DHCP6 Boot File URL Option"
+    fields_desc = [ShortEnumField("optcode", 59, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="optdata"),
+                   StrLenField("optdata", "",
+                               length_from=lambda pkt: pkt.optlen)]
+
+
+class DHCP6OptClientArchType(_DHCP6OptGuessPayload):  # RFC5970
+    name = "DHCP6 Client System Architecture Type Option"
+    fields_desc = [ShortEnumField("optcode", 61, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="archtypes",
+                                 fmt="!H"),
+                   FieldListField("archtypes", [],
+                                  ShortField("archtype", 0),
+                                  length_from=lambda pkt: pkt.optlen)]
+
+
+class DHCP6OptClientNetworkInterId(_DHCP6OptGuessPayload):  # RFC5970
+    name = "DHCP6 Client Network Interface Identifier Option"
+    fields_desc = [ShortEnumField("optcode", 62, dhcp6opts),
+                   ShortField("optlen", 3),
+                   ByteField("iitype", 0),
+                   ByteField("iimajor", 0),
+                   ByteField("iiminor", 0)]
+
+
+class DHCP6OptERPDomain(_DHCP6OptGuessPayload):  # RFC6440
+    name = "DHCP6 Option - ERP Domain Name List"
+    fields_desc = [ShortEnumField("optcode", 65, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="erpdomain"),
+                   DomainNameListField("erpdomain", [],
+                                       length_from=lambda pkt: pkt.optlen)]
+
+
+class DHCP6OptRelaySuppliedOpt(_DHCP6OptGuessPayload):  # RFC6422
+    name = "DHCP6 Relay-Supplied Options Option"
+    fields_desc = [ShortEnumField("optcode", 66, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="relaysupplied",
+                                 fmt="!H"),
+                   PacketListField("relaysupplied", [], _DHCP6OptGuessPayload,
+                                   length_from=lambda pkt: pkt.optlen)]
+
 
 # Virtual Subnet selection
-
-
 class DHCP6OptVSS(_DHCP6OptGuessPayload):  # RFC6607
     name = "DHCP6 Option - Virtual Subnet Selection"
     fields_desc = [ShortEnumField("optcode", 68, dhcp6opts),
@@ -944,6 +1004,17 @@ class DHCP6OptVSS(_DHCP6OptGuessPayload):  # RFC6607
                    ByteField("type", 255),  # Default Global/default table
                    StrLenField("data", "",
                                length_from=lambda pkt: pkt.optlen)]
+
+
+# "Client link-layer address type.  The link-layer type MUST be a valid hardware  # noqa: E501
+# type assigned by the IANA, as described in [RFC0826]
+class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
+    name = "DHCP6 Option - Client Link Layer address"
+    fields_desc = [ShortEnumField("optcode", 79, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="clladdr",
+                                 adjust=lambda pkt, x: x + 2),
+                   ShortField("lltype", 1),  # ethernet
+                   _LLAddrField("clladdr", ETHER_ANY)]
 
 
 #####################################################################
@@ -1155,10 +1226,10 @@ class DHCP6_Reply(DHCP6):
 
     def answers(self, other):
 
-        types = (DHCP6_InfoRequest, DHCP6_Confirm, DHCP6_Rebind, DHCP6_Decline, DHCP6_Request, DHCP6_Release, DHCP6_Renew)  # noqa: E501
+        types = (DHCP6_Solicit, DHCP6_InfoRequest, DHCP6_Confirm, DHCP6_Rebind,
+                 DHCP6_Decline, DHCP6_Request, DHCP6_Release, DHCP6_Renew)
 
-        return (isinstance(other, types) and
-                self.trid == other.trid)
+        return (isinstance(other, types) and self.trid == other.trid)
 
 #####################################################################
 # Release Message
@@ -1367,8 +1438,8 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             if isinstance(val, list):
                 return val
             elif isinstance(val, str):
-                l = val.split(',')
-                return [x.strip() for x in l]
+                tmp_len = val.split(',')
+                return [x.strip() for x in tmp_len]
             else:
                 print("Bad '%s' parameter provided." % param_name)
                 self.usage()
@@ -1444,7 +1515,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
         # Find the source address we will use
         try:
             addr = next(x for x in in6_getifaddr() if x[2] == iface and in6_islladdr(x[0]))  # noqa: E501
-        except StopIteration:
+        except (StopIteration, RuntimeError):
             warning("Unable to get a Link-Local address")
             return
         else:
@@ -1534,13 +1605,13 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             it = p
             addrs = []
             while it:
-                l = []
+                lst = []
                 if isinstance(it, DHCP6OptIA_NA):
-                    l = it.ianaopts
+                    lst = it.ianaopts
                 elif isinstance(it, DHCP6OptIA_TA):
-                    l = it.iataopts
+                    lst = it.iataopts
 
-                addrs += [x.addr for x in l if isinstance(x, DHCP6OptIAAddress)]  # noqa: E501
+                addrs += [x.addr for x in lst if isinstance(x, DHCP6OptIAAddress)]  # noqa: E501
                 it = it.payload
 
             addrs = [bo + x + n for x in addrs]
@@ -1616,6 +1687,25 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
         msgtype = p.msgtype
         trid = p.trid
 
+        def _include_options(query, answer):
+            """
+            Include options from the DHCPv6 query
+            """
+
+            # See which options should be included
+            reqopts = []
+            if query.haslayer(DHCP6OptOptReq):  # add only asked ones
+                reqopts = query[DHCP6OptOptReq].reqopts
+                for o, opt in six.iteritems(self.dhcpv6_options):
+                    if o in reqopts:
+                        answer /= opt
+            else:
+                # advertise everything we have available
+                # Should not happen has clients MUST include
+                # and ORO in requests (sec 18.1.1)   -- arno
+                for o, opt in six.iteritems(self.dhcpv6_options):
+                    answer /= opt
+
         if msgtype == 1:  # SOLICIT (See Sect 17.1 and 17.2 of RFC 3315)
 
             # XXX We don't support address or prefix assignment
@@ -1658,16 +1748,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                     resp /= DHCP6OptClientId(duid=client_duid)
                     resp /= DHCP6OptReconfAccept()
 
-                    # See which options should be included
-                    reqopts = []
-                    if p.haslayer(DHCP6OptOptReq):  # add only asked ones
-                        reqopts = p[DHCP6OptOptReq].reqopts
-                        for o, opt in six.iteritems(self.dhcpv6_options):
-                            if o in reqopts:
-                                resp /= opt
-                    else:  # advertise everything we have available
-                        for o, opt in six.iteritems(self.dhcpv6_options):
-                            resp /= opt
+                    _include_options(p, resp)
 
             return resp
 
@@ -1679,19 +1760,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             resp /= DHCP6OptServerId(duid=self.duid)
             resp /= DHCP6OptClientId(duid=client_duid)
 
-            # See which options should be included
-            reqopts = []
-            if p.haslayer(DHCP6OptOptReq):  # add only asked ones
-                reqopts = p[DHCP6OptOptReq].reqopts
-                for o, opt in six.iteritems(self.dhcpv6_options):
-                    if o in reqopts:
-                        resp /= opt
-            else:
-                # advertise everything we have available.
-                # Should not happen has clients MUST include
-                # and ORO in requests (sec 18.1.1)   -- arno
-                for o, opt in six.iteritems(self.dhcpv6_options):
-                    resp /= opt
+            _include_options(p, resp)
 
             return resp
 
@@ -1776,9 +1845,6 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                 resp /= DHCP6OptClientId(duid=client_duid)
 
             # Stack requested options if available
-            reqopts = []
-            if p.haslayer(DHCP6OptOptReq):
-                reqopts = p[DHCP6OptOptReq].reqopts
             for o, opt in six.iteritems(self.dhcpv6_options):
                 resp /= opt
 

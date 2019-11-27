@@ -1,0 +1,182 @@
+% Scapy OPC DA layer tests
+
++ Test Request Packet
+= OpcDaRequest
+opcdaRequestPacket_Dissect = hex_bytes(b'050000830000000000640000000000150000003c000600050000c41d0a9c0000d7028c761299f7bf00000000')
+elem1 = raw(OpcDaMessage(opcdaRequestPacket_Dissect))
+
+opcdaRequestPacket_Build = OpcDaMessage(OpcDaMessage= \
+OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=0, \
+    pfc_flags = 131,integerRepresentation='bigEndian',\
+    characterRepresentation='ascii',floatingPointRepresentation='ieee',\
+    reservedForFutur=0)/ OpcDaHeaderN(fragLenght=100,authLenght=0,callID=21)\
+    / OpcDaRequest(allocHint=60,contextId=6,opNum=5,\
+    uuid=b'0000c41d-0a9c-0000-d702-8c761299f7bf',subData=RequestSubData(\
+    versionMajor=0,versionMinor=0,subdata='')))
+elem2 = raw(opcdaRequestPacket_Build)
+
+assert( elem1 == elem2 )
+
+= OpcDaRequestLE
+opcdaRequestLEPacket_Dissect = hex_bytes(b'050000831000000064000000150000003c000000060005001dc400009c0a0000d7028c761299f7bf000000000000000000000000512d4e34ab431449a2cf7784b21b3ea1')
+elem1 = raw(OpcDaMessage(opcdaRequestLEPacket_Dissect))
+
+opcdaRequestLEPacket_Build = OpcDaMessage(OpcDaMessage= \
+OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=0, \
+    pfc_flags = 131,integerRepresentation='littleEndian',\
+    characterRepresentation='ascii',floatingPointRepresentation='ieee',\
+    reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=100,authLenght=0,callID=21)\
+    / OpcDaRequestLE (allocHint=60,contextId=6,opNum=5,\
+    uuid=b'0000c41d-0a9c-0000-d702-8c761299f7bf',\
+    subData=RequestSubDataLE(versionMajor=0,versionMinor=0,flags=0,reserved=0,\
+    subUuid=b'344e2d51-43ab-4914-a2cf-7784b21b3ea1',subdata='')))
+elem2 = raw(opcdaRequestLEPacket_Build)
+
+assert( elem1 == elem2 )
+
+
++ Test Ping Packet
+= OpcDaPing
+opcdaPingPacket_Dissect = hex_bytes(b'0500010310000000640000001500000000')
+elem1 = raw(OpcDaMessage(opcdaPingPacket_Dissect))
+
+opcdaPingPacket_Build = OpcDaMessage(OpcDaMessage= \
+    OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=1, \
+    pfc_flags = 3,integerRepresentation='littleEndian',\
+    characterRepresentation='ascii',floatingPointRepresentation='ieee',\
+    reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=100,authLenght=0,callID=21)\
+    / OpcDaPing()) / '\x00'
+elem2 = raw(opcdaPingPacket_Build)
+
+assert( elem1 == elem2 )
+
+
++ Test Response Packets
+= OpcDaResponse
+opcDaResponsePacket_Dissect = hex_bytes(b'050002030000000000d4000000000015000000bc00060000303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030')
+elem1 = raw(OpcDaMessage(opcDaResponsePacket_Dissect))
+
+opcDaResponsePacket_Build = OpcDaMessage(OpcDaMessage= \
+    OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=2, \
+    pfc_flags = 3,integerRepresentation='bigEndian',\
+    characterRepresentation='ascii',floatingPointRepresentation='ieee',\
+    reservedForFutur=0)/ OpcDaHeaderN(fragLenght=212,authLenght=0,callID=21)\
+    / OpcDaResponse(allocHint=188,contextId=6,cancelCount=0,reserved=0,\
+        subData=b'0'*(212-32)))
+elem2 = raw(opcDaResponsePacket_Build)
+
+assert( elem1 == elem2 )
+
+= OpcDaResponseLE
+opcDaResponseLEPacket_Dissect = hex_bytes(b'0500020310000000d400000015000000bc00000006000000303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030')
+elem1 = raw(OpcDaMessage(opcDaResponseLEPacket_Dissect))
+
+opcDaResponseLEPacket_Build = OpcDaMessage(OpcDaMessage= \
+    OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=2, \
+    pfc_flags = 3,integerRepresentation='littleEndian',\
+    characterRepresentation='ascii',floatingPointRepresentation='ieee',\
+    reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=212,authLenght=0,callID=21)\
+    / OpcDaResponseLE(allocHint=188,contextId=6,cancelCount=0,reserved=0,\
+        subData=b'0'*(212-32)))
+elem2 = raw(opcDaResponseLEPacket_Build)
+
+assert( elem1 == elem2 )
+
+# + Test Fault Packet
+# No example yet
+# OpcDaFault
+# OpcDaFaultLE
+
+# + Test Working
+# No example yet
+# OpcDaWorking
+
+# + Test No Call Packet
+# No example yet
+# OpcDaNoCall
+# OpcDaNoCallLE
+
+# + Test Reject Packet
+# No example yet
+# OpcDaReject
+# OpcDaRejectLE
+
+# + Test Ack Packet
+# No example yet
+# OpcDaAck
+
+# + Test Cl_cancel Packet
+# No example yet
+# OpcDaCl_cancel
+# OpcDaCl_cancelLE
+
+# + Test Fack Packet
+# No example yet
+# OpcDaFack
+
+# + Test Cancel ack Packet
+# No example yet
+# OpcDaCancel_ack
+# OpcDaCancel_ackLE
+
+# + Test Bind Packet
+# OpcDaBind
+# OpcDaBindLE
+
+# + Test Bind ack Packet
+# OpcDaBind_ack
+
+# + Test Bind no ack Packet
+# No example yet
+# OpcDaBind_nack
+
+
++ Test Alter_context
+= OpcDaAlter_context
+opcDaAlter_contextPacket_Dissect = hex_bytes(b'05000e0300000000004800000000001716d016d00008294500000001070001000101000000000000c00000000000004600000000045d888aeb1cc9119fe808002b10486002000000')
+elem1 = raw(OpcDaMessage(opcDaAlter_contextPacket_Dissect))
+
+ocDaAlter_contextPacket_Build = OpcDaMessage(OpcDaMessage= \
+    OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=14, \
+    pfc_flags = 3,integerRepresentation='bigEndian',\
+    characterRepresentation='ascii',floatingPointRepresentation='ieee',\
+    reservedForFutur=0)/ OpcDaHeaderN(fragLenght=72,authLenght=0,callID=23)\
+    / OpcDaAlter_context(maxXmitFrag=5840,maxRecvtFrag=5840,\
+        assocGroupId=534853)) \
+    / '\x00\x00\x00\x01\x07\x00\x01\x00\x01\x01\x00\x00\x00\x00\x00\x00\xc0'\
+    '\x00\x00\x00\x00\x00\x00\x46\x00\x00\x00\x00\x04\x5d\x88\x8a\xeb\x1c\xc9'\
+    '\x11\x9f\xe8\x08\x00\x2b\x10\x48\x60\x02\x00\x00\x00'
+elem2 = raw(ocDaAlter_contextPacket_Build)
+
+= OpcDaAlter_contextLE
+opcDaAlter_contextLEPacket_Dissect = hex_bytes(b'05000e03100000004800000017000000d016d0164529080001000000070001000101000000000000c00000000000004600000000045d888aeb1cc9119fe808002b10486002000000')
+elem1 = raw(OpcDaMessage(opcDaAlter_contextLEPacket_Dissect))
+
+ocDaAlter_contextLEPacket_Build = OpcDaMessage(OpcDaMessage= \
+    OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=14, \
+    pfc_flags = 3,integerRepresentation='littleEndian',\
+    characterRepresentation='ascii',floatingPointRepresentation='ieee',\
+    reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=72,authLenght=0,callID=23)\
+    / OpcDaAlter_contextLE(maxXmitFrag=5840,maxRecvtFrag=5840,\
+        assocGroupId=534853)) \
+    / '\x01\x00\x00\x00\x07\x00\x01\x00\x01\x01\x00\x00\x00\x00\x00\x00\xc0'\
+    '\x00\x00\x00\x00\x00\x00\x46\x00\x00\x00\x00\x04\x5d\x88\x8a\xeb\x1c\xc9'\
+    '\x11\x9f\xe8\x08\x00\x2b\x10\x48\x60\x02\x00\x00\x00'
+elem2 = raw(ocDaAlter_contextLEPacket_Build)
+
++ Test Alter_context_Resp
+= OpcDaAlter_Context_Resp
+= OpcDaAlter_Context_RespLE
+
+# + Test Shutdown Packet
+# No example yet
+# OpcDaShutdown
+
+# + Test Co_cancel Packet
+# No example yet
+# OpcDaCo_cancel
+# OpcDaCo_cancelLE
+
+# + Test Orphaned Packet
+# No example yet
+# OpcDaOrphaned

@@ -1,13 +1,21 @@
-#! /usr/bin/env python
-# RFC 7348 - Virtual eXtensible Local Area Network (VXLAN):
-# A Framework for Overlaying Virtualized Layer 2 Networks over Layer 3 Networks
-# http://tools.ietf.org/html/rfc7348
-# https://www.ietf.org/id/draft-ietf-nvo3-vxlan-gpe-02.txt
-#
-# VXLAN Group Policy Option:
-# http://tools.ietf.org/html/draft-smith-vxlan-group-policy-00
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
-from scapy.packet import Packet, bind_layers
+"""
+Virtual eXtensible Local Area Network (VXLAN)
+- RFC 7348 -
+
+A Framework for Overlaying Virtualized Layer 2 Networks over Layer 3 Networks
+http://tools.ietf.org/html/rfc7348
+https://www.ietf.org/id/draft-ietf-nvo3-vxlan-gpe-02.txt
+
+VXLAN Group Policy Option:
+http://tools.ietf.org/html/draft-smith-vxlan-group-policy-00
+"""
+
+from scapy.packet import Packet, bind_layers, bind_bottom_up, bind_top_down
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6
@@ -69,6 +77,7 @@ bind_layers(UDP, VXLAN, dport=4789)  # RFC standard vxlan port
 bind_layers(UDP, VXLAN, dport=4790)  # RFC standard vxlan-gpe port
 bind_layers(UDP, VXLAN, dport=6633)  # New IANA assigned port for use with NSH
 bind_layers(UDP, VXLAN, dport=8472)  # Linux implementation port
+bind_layers(UDP, VXLAN, dport=48879)  # Cisco ACI
 bind_layers(UDP, VXLAN, sport=4789)
 bind_layers(UDP, VXLAN, sport=4790)
 bind_layers(UDP, VXLAN, sport=6633)
@@ -76,10 +85,14 @@ bind_layers(UDP, VXLAN, sport=8472)
 # By default, set both ports to the RFC standard
 bind_layers(UDP, VXLAN, sport=4789, dport=4789)
 
-bind_layers(VXLAN, Ether)
-bind_layers(VXLAN, IP, NextProtocol=1)
-bind_layers(VXLAN, IPv6, NextProtocol=2)
-bind_layers(VXLAN, Ether, flags=4, NextProtocol=0)
-bind_layers(VXLAN, IP, flags=4, NextProtocol=1)
-bind_layers(VXLAN, IPv6, flags=4, NextProtocol=2)
-bind_layers(VXLAN, Ether, flags=4, NextProtocol=3)
+# Dissection
+bind_bottom_up(VXLAN, Ether, NextProtocol=0)
+bind_bottom_up(VXLAN, IP, NextProtocol=1)
+bind_bottom_up(VXLAN, IPv6, NextProtocol=2)
+bind_bottom_up(VXLAN, Ether, NextProtocol=3)
+bind_bottom_up(VXLAN, Ether, NextProtocol=None)
+# Build
+bind_top_down(VXLAN, Ether, flags=12, NextProtocol=0)
+bind_top_down(VXLAN, IP, flags=12, NextProtocol=1)
+bind_top_down(VXLAN, IPv6, flags=12, NextProtocol=2)
+bind_top_down(VXLAN, Ether, flags=12, NextProtocol=3)

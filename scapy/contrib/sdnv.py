@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # This file is part of Scapy
 # Scapy is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +13,7 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 """
- Copyright 2012, The MITRE Corporation
+ Copyright 2012, The MITRE Corporation::
 
                               NOTICE
     This software/technical data was produced for the U.S. Government

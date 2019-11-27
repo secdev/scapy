@@ -1,5 +1,5 @@
 % Tests for TLS module
-# 
+#
 # Try me with :
 # bash test/run_tests -t test/tls.uts -F
 
@@ -15,7 +15,7 @@
 
 + Test HMACs
 
-= Crypto - Hmac_MD5 instantiation, parameter check 
+= Crypto - Hmac_MD5 instantiation, parameter check
 from scapy.layers.tls.crypto.h_mac import Hmac_MD5
 a = Hmac_MD5("somekey")
 a.key_len == 16 and a.hmac_len == 16
@@ -32,7 +32,7 @@ t7 = a(b'\xaa'*80).digest("Test Using Larger Than Block-Size Key and Larger Than
 t1 and t2 and t3 and t4 and t5 and t6 and t7
 
 
-= Crypto - Hmac_SHA instantiation, parameter check 
+= Crypto - Hmac_SHA instantiation, parameter check
 from scapy.layers.tls.crypto.h_mac import Hmac_SHA
 a = Hmac_SHA("somekey")
 a.key_len == 20 and a.hmac_len == 20
@@ -502,6 +502,7 @@ def _all_aes_cbc_tests():
 
 _all_aes_cbc_tests()
 
+from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp
 
 = Crypto - AES cipher in GCM mode, auth_encrypt() and auth_decrypt() checks
 #https://tools.ietf.org/html/draft-mcgrew-gcm-test-01
@@ -773,6 +774,7 @@ p7_data = b"\x17\x03\x03\x01\xf6\x00\x00\x00\x00\x00\x00\x00\x01?\x04iy\x00\x04 
 
 
 = Reading TLS test session - TLS parsing (no encryption) does not throw any error
+from scapy.layers.tls.record import TLS
 # We will need to distinguish between connection ends. See next XXX below.
 t1 = TLS(p1_ch)
 t2 = TLS(p2_sh, tls_session=t1.tls_session.mirror())
@@ -792,6 +794,7 @@ len(t1.msg) == 1
 
 
 = Reading TLS test session - TLS Record __getitem__
+from scapy.layers.tls.handshake import TLSClientHello
 TLSClientHello in t1
 
 = Reading TLS test session - ClientHello
@@ -811,6 +814,12 @@ assert(ch.comp == [0])
 
 
 = Reading TLS test session - ClientHello extensions
+from scapy.layers.tls.extensions import (TLS_Ext_ServerName,
+TLS_Ext_RenegotiationInfo, TLS_Ext_SupportedGroups,
+TLS_Ext_SupportedPointFormat, TLS_Ext_SessionTicket, TLS_Ext_NPN,
+TLS_Ext_ALPN, TLS_Ext_SignatureAlgorithms, TLS_Ext_CSR,
+OCSPStatusRequest)
+
 assert(ch.extlen == 146)
 ext = ch.ext
 assert(len(ext) == 9)
@@ -843,6 +852,8 @@ ext[8].sig_algs[-1] == 0x0202
 
 
 = Reading TLS test session - ServerHello
+from scapy.layers.tls.handshake import TLSServerHello
+
 assert(TLSServerHello in t2)
 sh = t2.msg[0]
 assert(isinstance(sh, TLSServerHello))
@@ -854,6 +865,7 @@ sh.ext[-1].protocols[-1].protocol == b"http/1.1"
 
 
 = Reading TLS test session - Certificate
+from scapy.layers.tls.cert import Cert
 cert = t3.msg[0]
 assert(cert.certslen == 2670)
 assert(len(cert.certs) == 2)
@@ -871,6 +883,7 @@ isinstance(t4.payload.payload.payload, NoPayload)
 
 
 = Reading TLS test session - CertificateStatus
+from scapy.layers.tls.handshake import TLSCertificateStatus
 assert(isinstance(cert_stat, TLSCertificateStatus))
 assert(cert_stat.responselen == 471)
 cert_stat.response[0].responseStatus == 0
@@ -878,6 +891,8 @@ cert_stat.response[0].responseStatus == 0
 
 
 = Reading TLS test session - ServerKeyExchange
+from scapy.layers.tls.handshake import TLSServerKeyExchange
+from scapy.layers.tls.keyexchange import ServerECDHNamedCurveParams
 assert(isinstance(ske, TLSServerKeyExchange))
 p = ske.params
 assert(isinstance(p, ServerECDHNamedCurveParams))
@@ -888,6 +903,7 @@ ske.sig.sig_val[:4] == b'y\x8aQ\x11' and ske.sig.sig_val[-4:] == b'`15\xef'
 
 
 = Reading TLS test session - ServerHelloDone
+from scapy.layers.tls.handshake import TLSServerHelloDone
 assert(isinstance(shd, TLSServerHelloDone))
 shd.msglen == 0
 
@@ -914,6 +930,8 @@ t5 = TLS(p5_cke_ccs_fin, tls_session=t4.tls_session.mirror())
 
 
 = Reading TLS test session - ClientKeyExchange
+from scapy.layers.tls.handshake import TLSClientKeyExchange
+from scapy.layers.tls.keyexchange import ClientECDiffieHellmanPublic
 cke = t5.msg[0]
 ccs = t5.payload.msg[0]
 rec_fin = t5.payload.payload
@@ -927,6 +945,7 @@ assert(k.ecdh_Yc[:4] == b'\x04\xd2\x07\xce' and k.ecdh_Yc[-4:] == b'\xdc\x86[\xe
 
 
 = Reading TLS test session - ChangeCipherSpec
+from scapy.layers.tls.record import TLSChangeCipherSpec
 assert(isinstance(ccs, TLSChangeCipherSpec))
 ccs.msgtype == 1
 
@@ -944,6 +963,7 @@ fin.load == b'\xd9\xcb,\x8cM\xfd\xbc9\xaa\x05\xf3\xd3\xf3Z\x8a-'
 
 
 = Reading TLS test session - Ticket, CCS & Finished
+from scapy.layers.tls.handshake import TLSNewSessionTicket
 t6 = TLS(p6_tick_ccs_fin, tls_session=t5.tls_session.mirror())
 tick = t6.msg[0]
 assert(isinstance(tick, TLSNewSessionTicket))
@@ -987,6 +1007,46 @@ assert isinstance(_TLSMsgListField.m2i(_TLSMsgListField("", []), TLS(type=0), '\
 
 
 ###############################################################################
+####### Read handshake with TLS_ECDHE_ECDSA_WITH_NULL_SHA #####################
+###############################################################################
+
++ Read handshake with NULL Cipher
+
+= Reading test session - Loading unparsed TLS records
+p1_ch = b'\x16\x03\x01\x00{\x01\x00\x00w\x03\x03\x86C\xf2\xe4x\xbaL\x9a`\xc3\x9aR\xa8\xb4\xac\xd0\r\xe2\xa3N\xe6\xa8]g5z$j\xb1(%\xe3\x00\x00\x08\xc0\x06\xc0#\xc0$\x00\xff\x01\x00\x00F\x00\x0b\x00\x04\x03\x00\x01\x02\x00\n\x00\n\x00\x08\x00\x1d\x00\x17\x00\x19\x00\x18\x00#\x00\x00\x00\x16\x00\x00\x00\x17\x00\x00\x00\r\x00 \x00\x1e\x06\x01\x06\x02\x06\x03\x05\x01\x05\x02\x05\x03\x04\x01\x04\x02\x04\x03\x03\x01\x03\x02\x03\x03\x02\x01\x02\x02\x02\x03'
+p2_sh = b'\x16\x03\x03\x006\x02\x00\x002\x03\x03C\nm.s\x07W\xef\x91\xf0\xc7\xd8\xaa\xc3NL}\xb0tw?\xd8\n\x8f\x8d\xc4\xee,fhY\x85\x00\xc0\x06\x00\x00\n\x00\x0b\x00\x02\x01\x00\x00\x17\x00\x00'
+p3_cert = b'\x16\x03\x03\x02\xca\x0b\x00\x02\xc6\x00\x02\xc3\x00\x02\xc00\x82\x02\xbc0\x82\x02\x1d\xa0\x03\x02\x01\x02\x02\x02\x04\xd20\n\x06\x08*\x86H\xce=\x04\x03\x020v1\x0b0\t\x06\x03U\x04\x06\x13\x02PL1\x0b0\t\x06\x03U\x04\x08\x0c\x02PL1\x0c0\n\x06\x03U\x04\x07\x0c\x03KTW1\x0c0\n\x06\x03U\x04\n\x0c\x03ORG1\x0e0\x0c\x06\x03U\x04\x0b\x0c\x05OUNIT1\x110\x0f\x06\x03U\x04\x03\x0c\x08SomeName1\x1b0\x19\x06\t*\x86H\x86\xf7\r\x01\t\x01\x16\x0cemail@adress0\x1e\x17\r190404065502Z\x17\r270621065502Z0\x81\x881\x0b0\t\x06\x03U\x04\x06\x13\x02PL1\x0b0\t\x06\x03U\x04\x08\x0c\x02PL1\x0c0\n\x06\x03U\x04\x07\x0c\x03KTW1\x0c0\n\x06\x03U\x04\n\x0c\x03ORG1\x110\x0f\x06\x03U\x04\x0b\x0c\x08SomeUnit1\x110\x0f\x06\x03U\x04\x03\x0c\x08SomeName1\r0\x0b\x06\x03U\x04\x05\x0c\x0412341\x1b0\x19\x06\t*\x86H\x86\xf7\r\x01\t\x01\x16\x0cemail@adress0Y0\x13\x06\x07*\x86H\xce=\x02\x01\x06\x08*\x86H\xce=\x03\x01\x07\x03B\x00\x04\x97\xfcij\xa2\xeeZh>\x94\n\xad\x1f\x16\x91\x80\x89\xc5\xb3\xc4\xb7\xd1A\xf0(\x96\x93UJ\xca\x98Y\xdec\xad\xa0\xbb\xd9\xebl\x15\xc7\xf2\xa9\xcfl\xbf\x0f\xed"\x08%\x8f\xaf\xd7\xf1K\x98\xf1\xf9\x04.\x05\x81\xa3\x81\x870\x81\x840\t\x06\x03U\x1d\x13\x04\x020\x000\x0e\x06\x03U\x1d\x0f\x01\x01\xff\x04\x04\x03\x02\x03\xa80\'\x06\x03U\x1d%\x04 0\x1e\x06\x08+\x06\x01\x05\x05\x07\x03\x04\x06\x08+\x06\x01\x05\x05\x07\x03\x02\x06\x08+\x06\x01\x05\x05\x07\x03\x010\x1d\x06\x03U\x1d\x0e\x04\x16\x04\x14\xb2\x12\x8c\xe4\x16\x17XjZ%+4G\xa0\xfd\x0b!\x91\xc7\xec0\x1f\x06\x03U\x1d#\x04\x180\x16\x80\x14\xe2\x17\xb1\xb1\xe1\xca3\xe8\xed\xfd\x86\x13\x10\xe7x5H\xdf1\xf50\n\x06\x08*\x86H\xce=\x04\x03\x02\x03\x81\x8c\x000\x81\x88\x02B\x01\xeb\xc9\xbe\xa1^\x12\x85\x10\x03\x9f$\xc6(\xce\xd7x\xc3w\x00\xd2\x8an\\r\xe8\xb3\xb9\x92Q\x8f\x9f\x81v\xa7*\xa0\xb2\xd8\x17\x12\xbe\xef\x04c\x97T\x8c;&B[\xda\xf8\x81c7\xd25\xfb\xae\x19\x81A\x9b\xc6\x02B\x012\xe9G\xd9;9\x97\x9c\xed_\xa19K\xef\x1b\xf1\x8f\x01\x86icw\r\xa1\x19\xb7\xa6\xe6\xc7\xef\xd6\x1bTr\xb1~\x8ae:4\xdb\xdb\x07\xcf&\xd4\xc0,\xf7\xf5\xa7\'m\xe1a\x06\xb5>\xec\xf1kDB\xf7\\'
+p4_ske = b'\x16\x03\x03\x00\x93\x0c\x00\x00\x8f\x03\x00\x17A\x04\xb4\xd4\xf6^\x87(\x97\xc4\xe5)\x19E\xe1\x9e\xfdPOf\x91\xa1PTdk\xdcU\n\xb9\x07\x93\xc8\xd1\xb0\tA\xce\xf9\xcd\x0e\xb6\xd7\xf0\r\xc7\xba\xaa\xd9zA\xe8\x8f(\xe1\x0fE[+&9\x90\xd4\n`O\x06\x03\x00F0D\x02 -\x04\xe5.g\x92\xca\xbe\xe4\x87\x9a\x88\x80~<\x10Q&v\xfa~\xf4h\x7f\xd0\xa1\x16\xf2\xfdN\x8b\xdf\x02 eI\xf0{E6mU0bRt\xb9\xc4\xcff\xf9\x87\xfdL\xdd\xa3d\xcf1\xab| ~"<\xcd'
+p5_shd = b'\x16\x03\x03\x00\x04\x0e\x00\x00\x00'
+p6_cke_ccs_cfin = b'\x16\x03\x03\x00F\x10\x00\x00BA\x04w_\xba\x8cX9\xab\x1f\x1drw\xaa\x08"\xe6\x05\x8eS\x8637\xb75\xe4\x1f\xc3H-\x12\xf4\xbb\x10\xf8\xb8.[?\x11sG\x0b\x18\x03}\x16n\n\xdb\x7f\x92\xear\xd1\x1a\x07.e;\xfc\xcer\x1f\xebA\x14\x03\x03\x00\x01\x01\x16\x03\x03\x00$\x14\x00\x00\x0cYX\xacX\xb81\x1fX\x8f\xbe\x1dJ\x10\xce\xca2\xb4\xc3m\xf1\x16c\xdb\xfc\x08\x16\x1d\x82\x83U\x8c\xe1'
+p7_ccs = b'\x14\x03\x03\x00\x01\x01'
+p8_sfin = b'\x17\x03\x03\x00$\x14\x00\x00\x0c8\x1f\x18\xb6f\x98\xe3\xc0\xa4\xe2\xf8\xba\n\xd7\xd0\xb93y]\x1a\n\xeb\xc39nd\xa5\xd7\x8c\xe5\xf9\x91'
+
+= Reading TLS test session
+t1 = TLS(p1_ch)
+t2 = TLS(p2_sh, tls_session=t1.tls_session.mirror())
+t3 = TLS(p3_cert, tls_session=t2.tls_session)
+t4 = TLS(p4_ske, tls_session=t3.tls_session)
+t5 = TLS(p5_shd, tls_session=t4.tls_session)
+t6 = TLS(p6_cke_ccs_cfin, tls_session=t5.tls_session.mirror())
+
+= Verify TLSClientKeyExchange
+cke = t6.msg[0]
+assert isinstance(cke, TLSClientKeyExchange)
+
+= Verify TLSChangeCipherSpec
+ccs = t6.payload.msg[0]
+assert isinstance(ccs, TLSChangeCipherSpec)
+
+= Verify TLSFinished
+from scapy.layers.tls.handshake import TLSFinished
+cfin = t6.payload.payload.msg[0]
+assert isinstance(cfin, TLSFinished)
+
+= Verify MAC - TLSFinished record
+assert (t6.payload.payload.mac == b'\x10\xce\xca2\xb4\xc3m\xf1\x16c\xdb\xfc\x08\x16\x1d\x82\x83U\x8c\xe1')
+
+###############################################################################
 ################## Reading TLS vulnerable test session ########################
 ###############################################################################
 
@@ -997,6 +1057,8 @@ assert isinstance(_TLSMsgListField.m2i(_TLSMsgListField("", []), TLS(type=0), '\
 + Read a vulnerable TLS session
 
 = Reading TLS vulnerable session - Decrypt data from using a compromised server key
+from scapy.layers.tls.cert import PrivKeyRSA
+from scapy.layers.tls.record import TLSApplicationData
 import os
 tmp = "/test/tls/pki/srv_key.pem"
 filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
@@ -1026,6 +1088,8 @@ t.getlayer(2).msg[0].data == b"To boldly go where no man has gone before...\n"
 + Build TLS packets
 
 = Building packets - Various default records
+from scapy.layers.tls.handshake import TLSCertificate
+from scapy.layers.tls.record import TLSAlert
 raw(TLS())
 raw(TLSClientHello())
 raw(TLSServerHello())
@@ -1038,6 +1102,16 @@ raw(TLSApplicationData()) == b""
 
 
 = Building packets - ClientHello with automatic length computation
+from scapy.layers.tls.crypto.suites import (TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+TLS_DHE_RSA_WITH_AES_256_CBC_SHA, TLS_RSA_WITH_AES_128_CBC_SHA,
+TLS_RSA_WITH_AES_256_CBC_SHA, TLS_RSA_WITH_3DES_EDE_CBC_SHA)
+
+from scapy.layers.tls.extensions import (ServerName, TLS_Ext_SupportedEllipticCurves,
+ProtocolName)
+
 ch = TLSClientHello()
 ch.msgtype = 'client_hello'
 ch.version = 'TLS 1.2'
@@ -1101,6 +1175,7 @@ assert a.haslayer(Raw)
 
 
 = Building packets - Perform dummy session update
+from scapy.layers.tls.handshake import TLSHelloRequest
 assert not TLSHelloRequest().tls_session_update(None)
 
 
@@ -1121,11 +1196,17 @@ def test_tls_without_cryptography(get_algs_from_ciphersuite_name_mock):
 
 test_tls_without_cryptography()
 
+= Truncated TCP segment
+
+pkt = Ether(hex_bytes('00155dfb587a00155dfb58430800450005dc54d3400070065564400410d40a00000d01bb044e8b86744e16063ac45010faf06ba9000016030317c30200005503035cb336a067d53a5d2cedbdfec666ac740afbd0637ddd13eddeab768c3c63abee20981a0000d245f1c905b329323ad67127cd4b907a49f775c331d0794149aca7cdc02800000d0005000000170000ff010001000b000ec6000ec300090530820901308206e9a00302010202132000036e72aded906765595fae000000036e72300d06092a864886f70d01010b050030818b310b30090603550406130255533113'))
+assert TLSServerHello in pkt
+
 ###############################################################################
 ########################### TLS Misc tests ####################################
 ###############################################################################
 
 = Test tlsSession
+from scapy.layers.tls.session import tlsSession
 s = tlsSession(ipsrc="216.58.201.227", ipdst="127.0.0.1", sport=443, dport=443, sid=1)
 assert s.__repr__() == "216.58.201.227:443 > 127.0.0.1:443"
 assert s == s
@@ -1139,7 +1220,7 @@ assert s.wcs.__repr__() == 'Connection end : SERVER\nCipher suite   : TLS_NULL_W
 = Test tls.tools
 def test_tls_tools():
     from scapy.layers.tls.crypto.compression import Comp_Deflate
-    from scapy.layers.tls.crypto.ciphers import CipherError
+    from scapy.layers.tls.crypto.common import CipherError
     from scapy.layers.tls.crypto.cipher_stream import Cipher_RC4_40
     from scapy.layers.tls.crypto.cipher_aead import (Cipher_AES_128_GCM,
                                                      Cipher_AES_128_GCM_TLS13)
@@ -1193,14 +1274,14 @@ def test_tls_tools():
     assert save_comp is not comp
     block_size = 8
     _tls_add_pad(comp, block_size)
-    assert isinstance(comp, TLSCompressed)    
+    assert isinstance(comp, TLSCompressed)
     assert comp.len == save_comp.len + -save_comp.len % block_size + 1
     had_pad = _tls_del_pad(comp)
     assert had_pad
     assert comp == save_comp
     block_size = save_comp.len // 2
     _tls_add_pad(comp, block_size)
-    assert isinstance(comp, TLSCompressed)    
+    assert isinstance(comp, TLSCompressed)
     assert comp.len == save_comp.len + -save_comp.len % block_size + 1
     had_pad = _tls_del_pad(comp)
     assert had_pad

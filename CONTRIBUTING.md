@@ -12,7 +12,7 @@ the commit history) as clean as possible.
 Since Scapy can be slow and memory consuming, we try to limit CPU and
 memory usage, particularly in parts of the code often called.
 
-## What to contribute?
+## What to contribute
 
 You want to spend time working on Scapy but have no (or little)
 idea what to do? You can look for open issues
@@ -64,14 +64,17 @@ First, Scapy "legacy" code contains a lot of code that do not comply
 with the following recommendations, but we try to comply with some
 guidelines for new code.
 
-  - The code should be PEP-8 compliant; you can check your code with
+-   The code should be PEP-8 compliant; you can check your code with
     [pep8](https://pypi.python.org/pypi/pep8).
-  - [Pylint](http://www.pylint.org/) can help you write good Python
+
+-   [Pylint](http://www.pylint.org/) can help you write good Python
     code (even if respecting Pylint rules is sometimes either too hard
     or even undesirable; human brain needed!).
-  - [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
+
+-   [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
     is a nice read!
-  - Avoid creating unnecessary `list` objects, particularly if they
+
+-   Avoid creating unnecessary `list` objects, particularly if they
     can be huge (e.g., when possible, use `scapy.modules.six.range()` instead of
     `range()`, `for line in fdesc` instead of `for line in
     fdesc.readlines()`; more generally prefer generators over lists).
@@ -93,6 +96,12 @@ New protocols can go either in `scapy/layers` or to
 on common networks, while protocols in `scapy/contrib` should be
 uncommon or specific.
 
+To be precise, `scapy/layers` protocols should not be importing `scapy/contrib`
+protocols, whereas `scapy/contrib` protocols may import both `scapy/contrib` and
+`scapy/layers` protocols.
+
+The detailed requirements are explained in [Design patterns](https://scapy.readthedocs.io/en/latest/build_dissect.html#design-patterns) on Scapy's doc.
+
 ### Features
 
 Protocol-related features should be implemented within the same module
@@ -109,7 +118,7 @@ If you contribute to Scapy's core (e.g., `scapy/base_classes.py`,
 memory footprint, as it is easy to write Python code that wastes
 memory or CPU cycles.
 
-As an example, Packet().__init__() is called each time a **layer** is
+As an example, `Packet().__init__()` is called each time a **layer** is
 parsed from a string (during a network capture or a PCAP file
 read). Adding inefficient code here will have a disastrous effect on
 Scapy's performances.
@@ -117,18 +126,21 @@ Scapy's performances.
 ### Python 2 and 3 compatibility
 
 The project aims to provide code that works both on Python 2 and Python 3. Therefore, some rules need to be applied to achieve compatibility:
-- byte-string must be defined as `b"\x00\x01\x02"`
-- exceptions must comply with the new Python 3 format: `except SomeError as e:`
-- lambdas must be written using a single argument when using tuples: use `lambda x, y: x + f(y)` instead of `lambda (x, y): x + f(y)`.
-- use int instead of long
-- use list comprehension instead of map() and filter()
-- use scapy.modules.six.moves.range instead of xrange and range
-- use scapy.modules.six.itervalues(dict) instead of dict.values() or dict.itervalues()
-- use scapy.modules.six.string_types instead of basestring
-- `__bool__ = __nonzero__` must be used when declaring `__nonzero__` methods
-- `io.BytesIO` must be used instead of `StringIO` when using bytes
-- `__cmp__` must not be used.
-- UserDict should be imported via `six.UserDict`
+
+-   byte-string must be defined as `b"\x00\x01\x02"`
+-   exceptions must comply with the new Python 3 format: `except SomeError as e:`
+-   lambdas must be written using a single argument when using tuples: use `lambda x, y: x + f(y)` instead of `lambda (x, y): x + f(y)`.
+-   use int instead of long
+-   use list comprehension instead of map() and filter()
+-   use scapy.modules.six.moves.range instead of xrange and range
+-   use scapy.modules.six.itervalues(dict) instead of dict.values() or dict.itervalues()
+-   use scapy.modules.six.string_types instead of basestring
+-   `__bool__ = __nonzero__` must be used when declaring `__nonzero__` methods
+-   `__next__ = next` must be used when declaring `next` methods in iterators
+-   `StopIteration` must NOT be used in generators (but it can still be used in iterators)
+-   `io.BytesIO` must be used instead of `StringIO` when using bytes
+-   `__cmp__` must not be used.
+-   UserDict should be imported via `six.UserDict`
 
 ### Code review
 

@@ -1,0 +1,653 @@
+% TZSP test campaign
+
+#
+# execute test:
+# > test/run_tests -P "load_contrib('tzsp')" -t test/contrib/tzsp.uts
+#
+
++ Basic layer handling
+
+= build basic TZSP frames
+
+== basic TZSP header - keepalive
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02')/ \
+      IP(src='1.1.1.1', dst='2.2.2.2')/ \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT)/ \
+      TZSP(type=TZSP.TYPE_KEEPALIVE, encapsulated_protocol=0)
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_KEEPALIVE)
+assert(not tzsp_lyr.payload)
+
+== basic TZSP header - keepalive + ignored end tag
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02')/ \
+      IP(src='1.1.1.1', dst='2.2.2.2')/ \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT)/ \
+      TZSP(type=TZSP.TYPE_KEEPALIVE, encapsulated_protocol=0)/ \
+      TZSPTagEnd()
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_KEEPALIVE)
+assert(tzsp_lyr.guess_payload_class(tzsp_lyr.payload) is scapy.packet.Raw)
+
+== basic TZSP header with RX Packet and EndTag
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_end = tzsp_lyr.payload
+assert(tzsp_tag_end.type == 1)
+
+encapsulated_payload = tzsp_lyr.get_encapsulated_payload()
+encapsulated_ether_lyr = encapsulated_payload.getlayer(Ether)
+assert(encapsulated_ether_lyr.src == '00:03:03:03:03:03')
+
+== basic TZSP header with RX Packet and Padding
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagPadding() / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_padding = tzsp_lyr.payload
+assert(tzsp_tag_padding.type == 0)
+
+tzsp_tag_end = tzsp_tag_padding.payload
+assert(tzsp_tag_end.type == 1)
+
+== basic TZSP header with RX Packet and RAWRSSI (byte, short)
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagRawRSSIByte(raw_rssi=42) / \
+      TZSPTagRawRSSIShort(raw_rssi=12345) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_raw_rssi_byte = tzsp_lyr.payload
+assert(tzsp_tag_raw_rssi_byte.type == 10)
+assert(tzsp_tag_raw_rssi_byte.raw_rssi == 42)
+
+tzsp_tag_raw_rssi_short = tzsp_tag_raw_rssi_byte.payload
+assert(tzsp_tag_raw_rssi_short.type == 10)
+assert(tzsp_tag_raw_rssi_short.raw_rssi == 12345)
+
+tzsp_tag_end = tzsp_tag_raw_rssi_short.payload
+assert(tzsp_tag_end.type == 1)
+
+== basic TZSP header with RX Packet and SNR (byte, short)
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagSNRByte(snr=23) / \
+      TZSPTagSNRShort(snr=54321) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_snr_byte = tzsp_lyr.payload
+assert(tzsp_tag_snr_byte.type == 11)
+assert(tzsp_tag_snr_byte.len == 1)
+assert(tzsp_tag_snr_byte.snr == 23)
+
+tzsp_tag_snr_short = tzsp_tag_snr_byte.payload
+assert(tzsp_tag_snr_short.type == 11)
+assert(tzsp_tag_snr_short.len == 2)
+assert(tzsp_tag_snr_short.snr == 54321)
+
+tzsp_tag_end = tzsp_tag_snr_short.payload
+assert(tzsp_tag_end.type == 1)
+
+== basic TZSP header with RX Packet and DATA Rate
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagDataRate(data_rate=TZSPTagDataRate.DATA_RATE_33) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_data_rate = tzsp_lyr.payload
+assert(tzsp_tag_data_rate.type == 12)
+assert(tzsp_tag_data_rate.len == 1)
+assert(tzsp_tag_data_rate.data_rate == TZSPTagDataRate.DATA_RATE_33)
+
+tzsp_tag_end = tzsp_tag_data_rate.payload
+assert(tzsp_tag_end.type == 1)
+
+== basic TZSP header with RX Packet and Timestamp
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagTimestamp(timestamp=0x11223344) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_timestamp = tzsp_lyr.payload
+assert(tzsp_tag_timestamp.type == 13)
+assert(tzsp_tag_timestamp.len == 4)
+assert(tzsp_tag_timestamp.timestamp == 0x11223344)
+
+tzsp_tag_end = tzsp_tag_timestamp.payload
+assert(tzsp_tag_end.type == 1)
+
+== basic TZSP header with RX Packet and ContentionFree
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagContentionFree(contention_free=TZSPTagContentionFree.NO) / \
+      TZSPTagContentionFree(contention_free=TZSPTagContentionFree.YES) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_contention_free_no = tzsp_lyr.payload
+assert(tzsp_tag_contention_free_no.type == 15)
+assert(tzsp_tag_contention_free_no.len == 1)
+assert(tzsp_tag_contention_free_no.contention_free == TZSPTagContentionFree.NO)
+
+tzsp_tag_contention_free_yes = tzsp_tag_contention_free_no.payload
+assert(tzsp_tag_contention_free_yes.type == 15)
+assert(tzsp_tag_contention_free_yes.len == 1)
+assert(tzsp_tag_contention_free_yes.contention_free == TZSPTagContentionFree.YES)
+
+tzsp_tag_end = tzsp_tag_contention_free_yes.payload
+assert(tzsp_tag_end.type == 1)
+
+== basic TZSP header with RX Packet and Decrypted
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagDecrypted(decrypted=TZSPTagDecrypted.NO) / \
+      TZSPTagDecrypted(decrypted=TZSPTagDecrypted.YES) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_decrypted_no = tzsp_lyr.payload
+assert(tzsp_tag_decrypted_no.type == 16)
+assert(tzsp_tag_decrypted_no.len == 1)
+assert(tzsp_tag_decrypted_no.decrypted == TZSPTagDecrypted.NO)
+
+tzsp_tag_decrypted_yes= tzsp_tag_decrypted_no.payload
+assert(tzsp_tag_decrypted_yes.type == 16)
+assert(tzsp_tag_decrypted_yes.len == 1)
+assert(tzsp_tag_decrypted_yes.decrypted == TZSPTagDecrypted.YES)
+
+tzsp_tag_end = tzsp_tag_decrypted_yes.payload
+assert(tzsp_tag_end.type == 1)
+
+== basic TZSP header with RX Packet and FCS error
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagError(fcs_error=TZSPTagError.NO) / \
+      TZSPTagError(fcs_error=TZSPTagError.YES) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_error_no = tzsp_lyr.payload
+assert(tzsp_tag_error_no.type == 17)
+assert(tzsp_tag_error_no.len == 1)
+assert(tzsp_tag_error_no.fcs_error == TZSPTagError.NO)
+
+tzsp_tag_error_yes = tzsp_tag_error_no.payload
+assert(tzsp_tag_error_yes.type == 17)
+assert(tzsp_tag_error_yes.len == 1)
+assert(tzsp_tag_error_yes.fcs_error == TZSPTagError.YES)
+
+tzsp_tag_end = tzsp_tag_error_yes.payload
+assert(tzsp_tag_end.type == 1)
+
+== basic TZSP header with RX Packet and RXChannel
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagRXChannel(rx_channel=123) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_rx_channel = tzsp_lyr.payload
+assert(tzsp_tag_rx_channel.type == 18)
+assert(tzsp_tag_rx_channel.len == 1)
+assert(tzsp_tag_rx_channel.rx_channel == 123)
+
+tzsp_tag_end = tzsp_tag_rx_channel.payload
+assert(tzsp_tag_end.type == 1)
+
+== basic TZSP header with RX Packet and Packet count
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagPacketCount(packet_count=0x44332211) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_packet_count = tzsp_lyr.payload
+assert(tzsp_tag_packet_count.type == 40)
+assert(tzsp_tag_packet_count.len == 4)
+assert(tzsp_tag_packet_count.packet_count == 0x44332211)
+
+tzsp_tag_end = tzsp_tag_packet_count.payload
+assert(tzsp_tag_end.type == 1)
+
+== basic TZSP header with RX Packet and RXFrameLength
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagRXFrameLength(rx_frame_length=0xbad0) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_frame_length = tzsp_lyr.payload
+assert(tzsp_tag_frame_length.type == 41)
+assert(tzsp_tag_frame_length.len == 2)
+assert(tzsp_tag_frame_length.rx_frame_length == 0xbad0)
+
+tzsp_tag_end = tzsp_tag_frame_length.payload
+assert(tzsp_tag_end.type == 1)
+
+== basic TZSP header with RX Packet and WLAN RADIO HDR SERIAL
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+SENSOR_ID = b'1E:AT:DE:AD:BE:EF'
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagWlanRadioHdrSerial(sensor_id=SENSOR_ID) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr.type == TZSP.TYPE_RX_PACKET)
+
+tzsp_tag_sensor_id = tzsp_lyr.payload
+assert(tzsp_tag_sensor_id.type == 60)
+assert(tzsp_tag_sensor_id.len == len(SENSOR_ID))
+assert(tzsp_tag_sensor_id.sensor_id == SENSOR_ID)
+
+tzsp_tag_end = tzsp_tag_sensor_id.payload
+assert(tzsp_tag_end.type == 1)
+
+== handling of unknown tag
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+SENSOR_ID = b'1E:AT:DE:AD:BE:EF'
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagUnknown(len=6, data=b'\x06\x05\x04\x03\x02\x01') / \
+      TZSPTagWlanRadioHdrSerial(sensor_id=SENSOR_ID) / \
+      TZSPTagEnd() / \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04') / \
+      Raw('foobar')
+
+frm = frm.build()
+frm = Ether(frm)
+
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr)
+tzsp_tag_unknown = tzsp_lyr.payload
+assert(type(tzsp_tag_unknown) is TZSPTagUnknown)
+
+= all layers stacked
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02')/ \
+      IP(src='1.1.1.1', dst='2.2.2.2')/ \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT)/ \
+      TZSP()/ \
+      TZSPTagRawRSSIByte(raw_rssi=12)/ \
+      TZSPTagRawRSSIShort(raw_rssi=1234)/ \
+      TZSPTagSNRByte(snr=12)/ \
+      TZSPTagSNRShort(snr=1234)/ \
+      TZSPTagDataRate(data_rate = TZSPTagDataRate.DATA_RATE_54)/ \
+      TZSPTagTimestamp(timestamp=12345)/ \
+      TZSPTagContentionFree(contention_free = TZSPTagContentionFree.NO)/ \
+      TZSPTagContentionFree(contention_free = TZSPTagContentionFree.YES)/ \
+      TZSPTagDecrypted(decrypted=TZSPTagDecrypted.NO)/ \
+      TZSPTagDecrypted(decrypted=TZSPTagDecrypted.YES)/ \
+      TZSPTagError(fcs_error = TZSPTagError.YES)/ \
+      TZSPTagError(fcs_error = TZSPTagError.NO)/ \
+      TZSPTagRXChannel(rx_channel = 42)/ \
+      TZSPTagPacketCount(packet_count = 987654)/ \
+      TZSPTagRXFrameLength(rx_frame_length = 0x0bad)/ \
+      TZSPTagWlanRadioHdrSerial(sensor_id = 'foobar')/ \
+      TZSPTagPadding()/ \
+      TZSPTagEnd()/ \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04')/ \
+      ARP()
+
+frm = frm.build()
+frm = Ether(frm)
+
+tzsp_lyr = frm.getlayer(TZSP)
+
+tzsp_raw_rssi_byte_lyr = tzsp_lyr.payload
+assert(tzsp_raw_rssi_byte_lyr.type == 10)
+
+tzsp_tag_raw_rssi_short = tzsp_raw_rssi_byte_lyr.payload
+assert(tzsp_tag_raw_rssi_short.type == 10)
+
+tzsp_tag_snr_byte = tzsp_tag_raw_rssi_short.payload
+assert(tzsp_tag_snr_byte.type == 11)
+
+tzsp_tag_snr_short = tzsp_tag_snr_byte.payload
+assert(tzsp_tag_snr_short.type == 11)
+
+tzsp_tag_data_rate = tzsp_tag_snr_short.payload
+assert(tzsp_tag_data_rate.type == 12)
+
+tzsp_tag_timestamp = tzsp_tag_data_rate.payload
+assert(tzsp_tag_timestamp.type == 13)
+
+tzsp_tag_contention_free_no = tzsp_tag_timestamp.payload
+assert(tzsp_tag_contention_free_no.type == 15)
+
+tzsp_tag_contention_free_yes = tzsp_tag_contention_free_no.payload
+assert(tzsp_tag_contention_free_yes.type == 15)
+
+tzsp_tag_decrypted_no = tzsp_tag_contention_free_yes.payload
+assert(tzsp_tag_decrypted_no.type == 16)
+
+tzsp_tag_decrypted_yes = tzsp_tag_decrypted_no.payload
+assert(tzsp_tag_decrypted_yes.type == 16)
+
+tzsp_tag_error_yes = tzsp_tag_decrypted_yes.payload
+assert(tzsp_tag_error_yes.type == 17)
+
+tzsp_tag_error_no = tzsp_tag_error_yes.payload
+assert(tzsp_tag_error_no.type == 17)
+
+tzsp_tag_rx_channel = tzsp_tag_error_no.payload
+assert(tzsp_tag_rx_channel.type == 18)
+
+tzsp_tag_packet_count = tzsp_tag_rx_channel.payload
+assert(tzsp_tag_packet_count.type == 40)
+
+tzsp_tag_frame_length = tzsp_tag_packet_count.payload
+assert(tzsp_tag_frame_length.type == 41)
+
+tzsp_tag_sensor_id = tzsp_tag_frame_length.payload
+assert(tzsp_tag_sensor_id.type == 60)
+
+tzsp_tag_padding = tzsp_tag_sensor_id.payload
+assert(tzsp_tag_padding.type == 0)
+
+tzsp_tag_end = tzsp_tag_padding.payload
+assert(tzsp_tag_end.type == 1)
+
+encapsulated_payload = tzsp_tag_end.payload
+encapsulated_ether_lyr = encapsulated_payload.getlayer(Ether)
+assert(encapsulated_ether_lyr.src == '00:03:03:03:03:03')
+
++ corner cases
+
+= state tags value range
+
+== TZSPTagContentionFree
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02')/ \
+      IP(src='1.1.1.1', dst='2.2.2.2')/ \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT)/ \
+      TZSP()/ \
+      TZSPTagContentionFree(contention_free = 0xff)/ \
+      TZSPTagEnd()
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_tag_contention_free = frm.getlayer(TZSPTagContentionFree)
+assert(tzsp_tag_contention_free)
+tzsp_tag_contention_free_attr = tzsp_tag_contention_free.get_field('contention_free')
+assert(tzsp_tag_contention_free_attr)
+symb_str = tzsp_tag_contention_free_attr.i2repr(tzsp_tag_contention_free, tzsp_tag_contention_free.contention_free)
+assert(symb_str == 'yes')
+
+== TZSPTagError
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02')/ \
+      IP(src='1.1.1.1', dst='2.2.2.2')/ \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT)/ \
+      TZSP()/ \
+      TZSPTagError(fcs_error=TZSPTagError.NO)/ \
+      TZSPTagEnd()
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_tag_error = frm.getlayer(TZSPTagError)
+assert(tzsp_tag_error)
+tzsp_tag_error_attr = tzsp_tag_error.get_field('fcs_error')
+assert(tzsp_tag_error_attr)
+symb_str = tzsp_tag_error_attr.i2repr(tzsp_tag_error, tzsp_tag_error.fcs_error)
+assert(symb_str == 'no')
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02')/ \
+      IP(src='1.1.1.1', dst='2.2.2.2')/ \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT)/ \
+      TZSP()/ \
+      TZSPTagError(fcs_error=TZSPTagError.YES + 1)/ \
+      TZSPTagEnd()
+
+frm = frm.build()
+frm = Ether(frm)
+tzsp_tag_error = frm.getlayer(TZSPTagError)
+assert(tzsp_tag_error)
+tzsp_tag_error_attr = tzsp_tag_error.get_field('fcs_error')
+assert(tzsp_tag_error_attr)
+symb_str = tzsp_tag_error_attr.i2repr(tzsp_tag_error, tzsp_tag_error.fcs_error)
+assert(symb_str == 'reserved')
+
+== missing TZSP header before end tag
+
+frm = TZSPTagEnd()/ \
+      Ether(src='00:03:03:03:03:03', dst='00:04:04:04:04:04')/ \
+      ARP()
+
+frm = frm.build()
+try:
+      frm = TZSPTagEnd(frm)
+      assert False
+except TZSPStructureException:
+      pass
+
+== invalid length field for given tag
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      TZSPTagRawRSSIByte(len=3) / \
+      TZSPTagEnd()
+
+frm = frm.build()
+frm = Ether(frm)
+
+tzsp_lyr = frm.getlayer(TZSP)
+assert(type(tzsp_lyr.payload) is Raw )
+
+== handling of unknown tag - payload to short
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+SENSOR_ID = '1E:AT:DE:AD:BE:EF'
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      Raw(b'\xff\x0a\x01\x02\x03\x04\x05')
+
+frm = frm.build()
+frm = Ether(frm)
+frm.show()
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr)
+raw_lyr = tzsp_lyr.payload
+assert(type(raw_lyr) is Raw)
+assert(raw_lyr.load == b'\xff\x0a\x01\x02\x03\x04\x05')
+
+== handling of unknown tag - no payload after tag type
+
+bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
+
+SENSOR_ID = '1E:AT:DE:AD:BE:EF'
+
+frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
+      IP(src='1.1.1.1', dst='2.2.2.2') / \
+      UDP(sport=12345, dport=TZSP_PORT_DEFAULT) / \
+      TZSP() / \
+      Raw(b'\xff')
+
+frm = frm.build()
+frm = Ether(frm)
+
+tzsp_lyr = frm.getlayer(TZSP)
+assert(tzsp_lyr)
+raw_lyr = tzsp_lyr.payload
+assert(type(raw_lyr) is Raw)
+assert(raw_lyr.load == b'\xff')

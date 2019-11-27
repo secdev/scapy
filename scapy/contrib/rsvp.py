@@ -14,13 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = RSVP
+# scapy.contrib.description = Resource Reservation Protocol (RSVP)
 # scapy.contrib.status = loads
 
 from scapy.compat import chb
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import IP
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
+    IPField, ShortField, StrLenField, XByteField, XShortField
+from scapy.layers.inet import IP, checksum
 
 rsvpmsgtypes = {0x01: "Path",
                 0x02: "Reservation request",
@@ -45,8 +46,9 @@ class RSVP(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.Length is None:
-            l = len(p)
-            p = p[:6] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[8:]
+            tmp_len = len(p)
+            tmp_p = p[:6] + chb((tmp_len >> 8) & 0xff) + chb(tmp_len & 0xff)
+            p = tmp_p + p[8:]
         if self.chksum is None:
             ck = checksum(p)
             p = p[:2] + chb(ck >> 8) + chb(ck & 0xff) + p[4:]

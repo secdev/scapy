@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # This file is part of Scapy
 # Scapy is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,8 +16,14 @@
 # scapy.contrib.status = loads
 
 from __future__ import absolute_import
-from scapy.packet import *
-from scapy.fields import *
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteEnumField, ByteField, \
+    ConditionalField, EnumField, FieldLenField, IntField, LEIntField, \
+    LELongField, LEShortField, MACField, PacketListField, ShortField, \
+    StrFixedLenField, StrLenField, X3BytesField, XByteField, XIntField, \
+    XLongField, XShortField, LEShortEnumField
 from scapy.layers.l2 import Ether
 from scapy.modules.six.moves import range
 
@@ -45,7 +49,7 @@ HPAVTypeList = {0xA000: "'Get Device/sw version Request'",
                 0xA024: "'Read Module Data Request'",
                 0xA025: "'Read Module Data Confirmation'",
                 0xA028: "'Write Module Data to NVM Request'",
-                0xA028: "'Write Module Data to NVM Confirmation'",
+                0xA029: "'Write Module Data to NVM Confirmation'",
                 0xA034: "'Sniffer Request'",
                 0xA035: "'Sniffer Confirmation'",
                 0xA036: "'Sniffer Indicates'",
@@ -56,7 +60,7 @@ HPAVTypeList = {0xA000: "'Get Device/sw version Request'",
                 0xA050: "'Set Encryption Key Request'",
                 0xA051: "'Set Encryption Key Request Confirmation'",
                 0xA058: "'Read Configuration Block Request'",
-                0xA058: "'Read Configuration Block Confirmation'",
+                0xA059: "'Read Configuration Block Confirmation'",
                 0xA062: "'Embedded Host Action Required Indication'"}
 
 HPAVversionList = {0x00: "1.0",
@@ -156,11 +160,10 @@ EofPadList = [0xA000, 0xA038]  # TODO: The complete list of Padding can help to 
 
 def FragmentCond(pkt):
     """
-        A fragementation field condition
+        A fragmentation field condition
         TODO: To complete
     """
-    fragTypeTable = [0xA038, 0xA039]
-    return ((pkt.version == 0x01) and (pkt.HPtype in fragTypeTable))
+    return pkt.version == 0x01
 
 
 class MACManagementHeader(Packet):
@@ -471,7 +474,102 @@ class ReadMACMemoryConfirmation(Packet):
                    ]
 
 ######################################################################
-# Read Module Datas
+# Module Operation (for newest chipset like 6410, 7000, 7420 and 7500)
+######################################################################
+
+
+OperationList = {0x0000: "Read",
+                 0x0011: "Write"}
+
+
+class ModuleOperationRequest(Packet):
+    name = "ModuleOperationRequest"
+    fields_desc = [XIntField("reserved", 0),
+                   XByteField("NumOpData", 0x01),
+                   LEShortEnumField("operation", 0x0000, OperationList),
+                   LEShortField("OPDataLength", None),
+                   XIntField("reserved_1", 0),
+                   ConditionalField(LEIntField("SessionID", 0),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   ConditionalField(XByteField("ModuleIDX", 0),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   LEShortField("ModuleID", 0x7002),
+                   LEShortField("ModuleSubID", 0x0000),
+                   ConditionalField(LEShortField("ReadDataLen", 0x0578),
+                                    lambda pkt:(0x0000 == pkt.operation)),
+                   ConditionalField(LEIntField("ReadOffset", 0x00000000),
+                                    lambda pkt:(0x0000 == pkt.operation)),
+                   ConditionalField(FieldLenField("WriteDataLen", None,
+                                                  count_of="ModuleData",
+                                                  fmt="<H"),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   ConditionalField(LEIntField("WriteOffset", 0x00000000),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   ConditionalField(StrLenField("ModuleData", b"\x00",
+                                                length_from=lambda pkt: pkt.WriteDataLen),  # noqa: E501
+                                    lambda pkt:(0x0011 == pkt.operation))]
+
+    def post_build(self, p, pay):
+        if self.operation == 0x0000:
+            if self.OPDataLength is None:
+                _len = 18
+                p = p[:7] + struct.pack('!H', _len) + p[9:]
+        if self.operation == 0x0011:
+            if self.OPDataLength is None:
+                _len = 23 + len(self.ModuleData)
+                p = p[:7] + struct.pack('!H', _len) + p[9:]
+            if self.WriteDataLen is None:
+                _len = len(self.ModuleData)
+                p = p[:22] + struct.pack('!H', _len) + p[24:]
+        return p + pay
+
+
+class ModuleOperationConfirmation(Packet):
+    name = "ModuleOperationConfirmation"
+    fields_desc = [LEShortField("Status", 0x0000),
+                   LEShortField("ErrorCode", 0x0000),
+                   XIntField("reserved", 0),
+                   XByteField("NumOpData", 0x01),
+                   LEShortEnumField("operation", 0x0000, OperationList),
+                   LEShortField("OPDataLength", 0x0012),
+                   XIntField("reserved_1", 0),
+                   ConditionalField(LEIntField("SessionID", 0),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   ConditionalField(XByteField("ModuleIDX", 0),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   LEShortField("ModuleID", 0x7002),
+                   LEShortField("ModuleSubID", 0x0000),
+                   ConditionalField(FieldLenField("ReadDataLen", None,
+                                                  count_of="ModuleData",
+                                                  fmt="<H"),
+                                    lambda pkt:(0x0000 == pkt.operation)),
+                   ConditionalField(LEIntField("ReadOffset", 0x00000000),
+                                    lambda pkt:(0x0000 == pkt.operation)),
+                   ConditionalField(StrLenField("ModuleData", b"\x00",
+                                                length_from=lambda pkt: pkt.ReadDataLen),  # noqa: E501
+                                    lambda pkt:(0x0000 == pkt.operation)),
+                   ConditionalField(LEShortField("WriteDataLen", 0),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   ConditionalField(LEIntField("WriteOffset", 0x00000000),
+                                    lambda pkt:(0x0011 == pkt.operation))]
+
+    def post_build(self, p, pay):
+        if self.operation == 0x0011:
+            if self.OPDataLength is None:
+                _len = 18 + len(self.ModuleData)
+                p = p[:7] + struct.pack('h', _len) + p[9:]
+        if self.operation == 0x0000:
+            if self.OPDataLength is None:
+                _len = 23 + len(self.ModuleData)
+                p = p[:7] + struct.pack('h', _len) + p[9:]
+            if self.WriteDataLen is None:
+                _len = len(self.ModuleData)
+                p = p[:17] + struct.pack('h', _len) + p[19:]
+        return p + pay
+
+
+######################################################################
+# Read Module Data
 ######################################################################
 
 
@@ -518,7 +616,7 @@ class ReadModuleDataConfirmation(Packet):
         return p + pay
 
 ######################################################################
-# Write Module Datas
+# Write Module Data
 ######################################################################
 
 
@@ -1279,8 +1377,12 @@ class HomePlugAV(Packet):
     """
     name = "HomePlugAV "
     fields_desc = [MACManagementHeader,
-                   ConditionalField(XShortField("FragmentInfo", 0x0), FragmentCond),  # Fragmentation Field  # noqa: E501
-                   VendorMME]
+                   ConditionalField(XShortField("FragmentInfo", 0x0),
+                                    FragmentCond),
+                   ConditionalField(PacketListField("VendorField", VendorMME(),
+                                                    VendorMME,
+                                                    length_from=lambda x: 3),
+                                    lambda pkt:(pkt.version == 0x00))]
 
     def answers(self, other):
         return (isinstance(self, HomePlugAV))
@@ -1291,36 +1393,38 @@ bind_layers(Ether, HomePlugAV, {"type": 0x88e1})
 #   +----------+------------+--------------------+
 #   | Ethernet | HomePlugAV | Elements + Payload |
 #   +----------+------------+--------------------+
-bind_layers(HomePlugAV, GetDeviceVersion, {"HPtype": 0xA001})
-bind_layers(HomePlugAV, StartMACRequest, {"HPtype": 0xA00C})
-bind_layers(HomePlugAV, StartMACConfirmation, {"HPtype": 0xA00D})
-bind_layers(HomePlugAV, ResetDeviceRequest, {"HPtype": 0xA01C})
-bind_layers(HomePlugAV, ResetDeviceConfirmation, {"HPtype": 0xA01D})
-bind_layers(HomePlugAV, NetworkInformationRequest, {"HPtype": 0xA038})
-bind_layers(HomePlugAV, ReadMACMemoryRequest, {"HPtype": 0xA008})
-bind_layers(HomePlugAV, ReadMACMemoryConfirmation, {"HPtype": 0xA009})
-bind_layers(HomePlugAV, ReadModuleDataRequest, {"HPtype": 0xA024})
-bind_layers(HomePlugAV, ReadModuleDataConfirmation, {"HPtype": 0xA025})
-bind_layers(HomePlugAV, WriteModuleDataRequest, {"HPtype": 0xA020})
-bind_layers(HomePlugAV, WriteModuleData2NVMRequest, {"HPtype": 0xA028})
-bind_layers(HomePlugAV, WriteModuleData2NVMConfirmation, {"HPtype": 0xA029})
-bind_layers(HomePlugAV, NetworkInfoConfirmationV10, {"HPtype": 0xA039, "version": 0x00})  # noqa: E501
-bind_layers(HomePlugAV, NetworkInfoConfirmationV11, {"HPtype": 0xA039, "version": 0x01})  # noqa: E501
-bind_layers(NetworkInfoConfirmationV10, NetworkInfoV10, {"HPtype": 0xA039, "version": 0x00})  # noqa: E501
-bind_layers(NetworkInfoConfirmationV11, NetworkInfoV11, {"HPtype": 0xA039, "version": 0x01})  # noqa: E501
-bind_layers(HomePlugAV, HostActionRequired, {"HPtype": 0xA062})
-bind_layers(HomePlugAV, LoopbackRequest, {"HPtype": 0xA048})
-bind_layers(HomePlugAV, LoopbackConfirmation, {"HPtype": 0xA049})
-bind_layers(HomePlugAV, SetEncryptionKeyRequest, {"HPtype": 0xA050})
-bind_layers(HomePlugAV, SetEncryptionKeyConfirmation, {"HPtype": 0xA051})
-bind_layers(HomePlugAV, ReadConfBlockRequest, {"HPtype": 0xA058})
-bind_layers(HomePlugAV, ReadConfBlockConfirmation, {"HPtype": 0xA059})
-bind_layers(HomePlugAV, QUAResetFactoryConfirm, {"HPtype": 0xA07D})
-bind_layers(HomePlugAV, GetNVMParametersRequest, {"HPtype": 0xA010})
-bind_layers(HomePlugAV, GetNVMParametersConfirmation, {"HPtype": 0xA011})
-bind_layers(HomePlugAV, SnifferRequest, {"HPtype": 0xA034})
-bind_layers(HomePlugAV, SnifferConfirmation, {"HPtype": 0xA035})
-bind_layers(HomePlugAV, SnifferIndicate, {"HPtype": 0xA036})
+bind_layers(HomePlugAV, GetDeviceVersion, HPtype=0xA001)
+bind_layers(HomePlugAV, StartMACRequest, HPtype=0xA00C)
+bind_layers(HomePlugAV, StartMACConfirmation, HPtype=0xA00D)
+bind_layers(HomePlugAV, ResetDeviceRequest, HPtype=0xA01C)
+bind_layers(HomePlugAV, ResetDeviceConfirmation, HPtype=0xA01D)
+bind_layers(HomePlugAV, NetworkInformationRequest, HPtype=0xA038)
+bind_layers(HomePlugAV, ReadMACMemoryRequest, HPtype=0xA008)
+bind_layers(HomePlugAV, ReadMACMemoryConfirmation, HPtype=0xA009)
+bind_layers(HomePlugAV, ReadModuleDataRequest, HPtype=0xA024)
+bind_layers(HomePlugAV, ReadModuleDataConfirmation, HPtype=0xA025)
+bind_layers(HomePlugAV, ModuleOperationRequest, HPtype=0xA0B0)
+bind_layers(HomePlugAV, ModuleOperationConfirmation, HPtype=0xA0B1)
+bind_layers(HomePlugAV, WriteModuleDataRequest, HPtype=0xA020)
+bind_layers(HomePlugAV, WriteModuleData2NVMRequest, HPtype=0xA028)
+bind_layers(HomePlugAV, WriteModuleData2NVMConfirmation, HPtype=0xA029)
+bind_layers(HomePlugAV, NetworkInfoConfirmationV10, HPtype=0xA039, version=0x00)  # noqa: E501
+bind_layers(HomePlugAV, NetworkInfoConfirmationV11, HPtype=0xA039, version=0x01)  # noqa: E501
+bind_layers(NetworkInfoConfirmationV10, NetworkInfoV10, HPtype=0xA039, version=0x00)  # noqa: E501
+bind_layers(NetworkInfoConfirmationV11, NetworkInfoV11, HPtype=0xA039, version=0x01)  # noqa: E501
+bind_layers(HomePlugAV, HostActionRequired, HPtype=0xA062)
+bind_layers(HomePlugAV, LoopbackRequest, HPtype=0xA048)
+bind_layers(HomePlugAV, LoopbackConfirmation, HPtype=0xA049)
+bind_layers(HomePlugAV, SetEncryptionKeyRequest, HPtype=0xA050)
+bind_layers(HomePlugAV, SetEncryptionKeyConfirmation, HPtype=0xA051)
+bind_layers(HomePlugAV, ReadConfBlockRequest, HPtype=0xA058)
+bind_layers(HomePlugAV, ReadConfBlockConfirmation, HPtype=0xA059)
+bind_layers(HomePlugAV, QUAResetFactoryConfirm, HPtype=0xA07D)
+bind_layers(HomePlugAV, GetNVMParametersRequest, HPtype=0xA010)
+bind_layers(HomePlugAV, GetNVMParametersConfirmation, HPtype=0xA011)
+bind_layers(HomePlugAV, SnifferRequest, HPtype=0xA034)
+bind_layers(HomePlugAV, SnifferConfirmation, HPtype=0xA035)
+bind_layers(HomePlugAV, SnifferIndicate, HPtype=0xA036)
 
 """
     Credit song : "Western Spaguetti - We are terrorists"

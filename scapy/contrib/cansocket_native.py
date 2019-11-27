@@ -3,6 +3,8 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = Native CANSocket
+# scapy.contrib.status = loads
 
 """
 Native CANSocket.
@@ -26,9 +28,11 @@ CAN_INV_FILTER = 0x20000000
 
 class CANSocket(SuperSocket):
     desc = "read/write packets at a given CAN interface using PF_CAN sockets"
+    nonblocking_socket = True
 
     def __init__(self, iface=None, receive_own_messages=False,
-                 can_filters=None, remove_padding=True):
+                 can_filters=None, remove_padding=True, basecls=CAN):
+        self.basecls = basecls
         self.remove_padding = remove_padding
         self.iface = conf.contribs['NativeCANSocket']['iface'] if \
             iface is None else iface
@@ -76,11 +80,11 @@ class CANSocket(SuperSocket):
             warning("Captured no data.")
             return None
 
-        # need to change the byteoder of the first four bytes,
-        # required by the underlaying Linux SocketCAN frame format
+        # need to change the byte order of the first four bytes,
+        # required by the underlying Linux SocketCAN frame format
         pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
         len = pkt[4]
-        canpkt = CAN(pkt[:len + 8])
+        canpkt = self.basecls(pkt[:len + 8])
         canpkt.time = get_last_packet_timestamp(self.ins)
         if self.remove_padding:
             return canpkt
@@ -92,8 +96,8 @@ class CANSocket(SuperSocket):
             if hasattr(x, "sent_time"):
                 x.sent_time = time.time()
 
-            # need to change the byteoder of the first four bytes,
-            # required by the underlaying Linux SocketCAN frame format
+            # need to change the byte order of the first four bytes,
+            # required by the underlying Linux SocketCAN frame format
             bs = bytes(x)
             bs = bs + b'\x00' * (CAN_FRAME_SIZE - len(bs))
             bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
@@ -104,18 +108,12 @@ class CANSocket(SuperSocket):
     def close(self):
         self.ins.close()
 
-    @staticmethod
-    def is_python_can_socket():
-        """Function used to determine if a socket is a python-can CANSocket.
-        This is used from sendrecv, to determine if a non standard _get_pkt()
-        and _select() function needs to be used."""
-        return False
-
 
 @conf.commands.register
 def srcan(pkt, iface=None, receive_own_messages=False,
-          canfilter=None, *args, **kargs):
-    s = CANSocket(iface, receive_own_messages, canfilter)
+          canfilter=None, basecls=CAN, *args, **kargs):
+    s = CANSocket(iface, receive_own_messages=receive_own_messages,
+                  can_filters=canfilter, basecls=basecls)
     a, b = s.sr(pkt, *args, **kargs)
     s.close()
     return a, b

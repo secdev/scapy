@@ -1,0 +1,19 @@
+% Regression tests for the avs module
+
++ Basic AVS test
+
+= Default build, storage and dissection
+
+pkt = AVSWLANHeader()/Dot11()/Dot11Auth()
+_filepath = get_temp_file(autoext=".pcap")
+wrpcap(_filepath, pkt)
+pkt1 = rdpcap(_filepath)[0]
+assert raw(pkt) == raw(pkt1)
+assert AVSWLANHeader in pkt
+assert Dot11 in pkt
+assert Dot11Auth in pkt
+
+try:
+    os.remove(_filepath)
+except Exception:
+    pass

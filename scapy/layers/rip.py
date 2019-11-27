@@ -7,8 +7,10 @@
 RIP (Routing Information Protocol).
 """
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    IPField, IntEnumField, IntField, ShortEnumField, ShortField, \
+    StrFixedLenField, StrLenField
 from scapy.layers.inet import UDP
 
 

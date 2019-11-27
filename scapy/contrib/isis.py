@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = ISIS
+# scapy.contrib.description = Intermediate System to Intermediate System (ISIS)
 # scapy.contrib.status = loads
 
 """
@@ -41,13 +41,13 @@
 
         Currently it (partially) supports the packaging/encoding
         requirements of the following RFCs:
-         * RFC 1195 (only the TCP/IP related part)
-         * RFC 3358 (optional checksums)
-         * RFC 5301 (dynamic hostname extension)
-         * RFC 5302 (domain-wide prefix distribution)
-         * RFC 5303 (three-way handshake)
-         * RFC 5304 (cryptographic authentication)
-         * RFC 5308 (routing IPv6 with IS-IS)
+        * RFC 1195 (only the TCP/IP related part)
+        * RFC 3358 (optional checksums)
+        * RFC 5301 (dynamic hostname extension)
+        * RFC 5302 (domain-wide prefix distribution)
+        * RFC 5303 (three-way handshake)
+        * RFC 5304 (cryptographic authentication)
+        * RFC 5308 (routing IPv6 with IS-IS)
 
     :TODO:
 
@@ -65,18 +65,20 @@ import struct
 import random
 
 from scapy.config import conf
-from scapy.fields import *
-from scapy.packet import *
+from scapy.fields import BitField, BitFieldLenField, BoundStrLenField, \
+    ByteEnumField, ByteField, ConditionalField, Field, FieldLenField, \
+    FieldListField, FlagsField, IEEEFloatField, IP6PrefixField, IPField, \
+    IPPrefixField, IntField, LongField, MACField, PacketListField, \
+    ShortField, ThreeBytesField, XIntField, XShortField
+from scapy.packet import bind_layers, Packet
 from scapy.layers.clns import network_layer_protocol_ids, register_cln_protocol
 from scapy.layers.inet6 import IP6ListField, IP6Field
 from scapy.utils import fletcher16_checkbytes
 from scapy.volatile import RandString, RandByte
 from scapy.modules.six.moves import range
-from scapy.compat import raw
+from scapy.compat import orb, hex_bytes
 
 EXT_VERSION = "v0.0.2"
-
-conf.debug_dissector = True
 
 
 #######################################################################
@@ -183,9 +185,9 @@ class ISIS_AreaIdField(Field):
     def i2len(self, pkt, x):
         if x is None:
             return 0
-        l = len(x)
+        tmp_len = len(x)
         # l/5 is the number of dots in the Area ID
-        return (l - (l // 5)) // 2
+        return (tmp_len - (tmp_len // 5)) // 2
 
     def addfield(self, pkt, s, val):
         sval = self.i2m(pkt, val)

@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
@@ -8,20 +6,16 @@
 from __future__ import print_function
 import os
 import subprocess
-import itertools
 import collections
 import time
 import scapy.modules.six as six
 from threading import Lock, Thread
-import scapy.utils
 
 from scapy.automaton import Message, select_objects, SelectableObject
 from scapy.consts import WINDOWS
 from scapy.error import log_interactive, warning
 from scapy.config import conf
 from scapy.utils import get_temp_file, do_graph
-
-import scapy.arch
 
 
 class PipeEngine(SelectableObject):
@@ -54,6 +48,7 @@ class PipeEngine(SelectableObject):
         self.__fd_queue = collections.deque()
         self.__fdr, self.__fdw = os.pipe()
         self.thread = None
+        SelectableObject.__init__(self)
 
     def __getattr__(self, attr):
         if attr.startswith("spawn_"):
@@ -176,7 +171,7 @@ class PipeEngine(SelectableObject):
                     self.thread.join()
                     try:
                         self.thread_lock.release()
-                    except:
+                    except Exception:
                         pass
                 else:
                     warning("Pipe engine thread not running")
@@ -332,6 +327,7 @@ class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
 class Source(Pipe, SelectableObject):
     def __init__(self, name=None):
         Pipe.__init__(self, name=name)
+        SelectableObject.__init__(self)
         self.is_exhausted = False
 
     def _read_message(self):
@@ -359,12 +355,15 @@ class Source(Pipe, SelectableObject):
 
 class Drain(Pipe):
     """Repeat messages from low/high entries to (resp.) low/high exits
-     +-------+
-  >>-|-------|->>
-     |       |
-   >-|-------|->
-     +-------+
-"""
+
+    .. code::
+
+         +-------+
+      >>-|-------|->>
+         |       |
+       >-|-------|->
+         +-------+
+    """
 
     def push(self, msg):
         self._send(msg)
@@ -395,6 +394,7 @@ class Sink(Pipe):
 
 class AutoSource(Source, SelectableObject):
     def __init__(self, name=None):
+        SelectableObject.__init__(self)
         Source.__init__(self, name=name)
         self.__fdr, self.__fdw = os.pipe()
         self._queue = collections.deque()
@@ -447,13 +447,16 @@ class ThreadGenSource(AutoSource):
 
 
 class ConsoleSink(Sink):
-    """Print messages on low and high entries
-     +-------+
-  >>-|--.    |->>
-     | print |
-   >-|--'    |->
-     +-------+
-"""
+    """Print messages on low and high entries:
+
+    .. code::
+
+         +-------+
+      >>-|--.    |->>
+         | print |
+       >-|--'    |->
+         +-------+
+    """
 
     def push(self, msg):
         print(">%r" % msg)
@@ -463,13 +466,16 @@ class ConsoleSink(Sink):
 
 
 class RawConsoleSink(Sink):
-    """Print messages on low and high entries, using os.write
-     +-------+
-  >>-|--.    |->>
-     | write |
-   >-|--'    |->
-     +-------+
-"""
+    """Print messages on low and high entries, using os.write:
+
+    .. code::
+
+         +-------+
+      >>-|--.    |->>
+         | write |
+       >-|--'    |->
+         +-------+
+    """
 
     def __init__(self, name=None, newlines=True):
         Sink.__init__(self, name=name)
@@ -488,13 +494,16 @@ class RawConsoleSink(Sink):
 
 
 class CLIFeeder(AutoSource):
-    """Send messages from python command line
-     +--------+
-  >>-|        |->>
-     | send() |
-   >-|   `----|->
-     +--------+
-"""
+    """Send messages from python command line:
+
+    .. code::
+
+         +--------+
+      >>-|        |->>
+         | send() |
+       >-|   `----|->
+         +--------+
+    """
 
     def send(self, msg):
         self._gen_data(msg)
@@ -504,26 +513,32 @@ class CLIFeeder(AutoSource):
 
 
 class CLIHighFeeder(CLIFeeder):
-    """Send messages from python command line to high output
-     +--------+
-  >>-|   .----|->>
-     | send() |
-   >-|        |->
-     +--------+
-"""
+    """Send messages from python command line to high output:
+
+    .. code::
+
+         +--------+
+      >>-|   .----|->>
+         | send() |
+       >-|        |->
+         +--------+
+    """
 
     def send(self, msg):
         self._gen_high_data(msg)
 
 
 class PeriodicSource(ThreadGenSource):
-    """Generage messages periodically on low exit
-     +-------+
-  >>-|       |->>
-     | msg,T |
-   >-|  `----|->
-     +-------+
-"""
+    """Generage messages periodically on low exit:
+
+    .. code::
+
+         +-------+
+      >>-|       |->>
+         | msg,T |
+       >-|  `----|->
+         +-------+
+    """
 
     def __init__(self, msg, period, period2=0, name=None):
         ThreadGenSource.__init__(self, name=name)
@@ -547,13 +562,16 @@ class PeriodicSource(ThreadGenSource):
 
 
 class TermSink(Sink):
-    """Print messages on low and high entries on a separate terminal
-     +-------+
-  >>-|--.    |->>
-     | print |
-   >-|--'    |->
-     +-------+
-"""
+    """Print messages on low and high entries on a separate terminal:
+
+    .. code::
+
+         +-------+
+      >>-|--.    |->>
+         | print |
+       >-|--'    |->
+         +-------+
+    """
 
     def __init__(self, name=None, keepterm=True, newlines=True, openearly=True):  # noqa: E501
         Sink.__init__(self, name=name)
@@ -638,13 +656,17 @@ class TermSink(Sink):
 
 
 class QueueSink(Sink):
-    """Collect messages from high and low entries and queue them. Messages are unqueued with the .recv() method.  # noqa: E501
-     +-------+
-  >>-|--.    |->>
-     | queue |
-   >-|--'    |->
-     +-------+
-"""
+    """Collect messages from high and low entries and queue them.
+    Messages are unqueued with the .recv() method:
+
+    .. code::
+
+         +-------+
+      >>-|--.    |->>
+         | queue |
+       >-|--'    |->
+         +-------+
+    """
 
     def __init__(self, name=None):
         Sink.__init__(self, name=name)
@@ -656,22 +678,24 @@ class QueueSink(Sink):
     def high_push(self, msg):
         self.q.put(msg)
 
-    def recv(self):
-        while True:
-            try:
-                return self.q.get(True, timeout=0.1)
-            except six.moves.queue.Empty:
-                pass
+    def recv(self, block=True, timeout=None):
+        try:
+            return self.q.get(block=block, timeout=timeout)
+        except six.moves.queue.Empty:
+            pass
 
 
 class TransformDrain(Drain):
-    """Apply a function to messages on low and high entry
-     +-------+
-  >>-|--[f]--|->>
-     |       |
-   >-|--[f]--|->
-     +-------+
-"""
+    """Apply a function to messages on low and high entry:
+
+    .. code::
+
+         +-------+
+      >>-|--[f]--|->>
+         |       |
+       >-|--[f]--|->
+         +-------+
+    """
 
     def __init__(self, f, name=None):
         Drain.__init__(self, name=name)
@@ -685,13 +709,16 @@ class TransformDrain(Drain):
 
 
 class UpDrain(Drain):
-    """Repeat messages from low entry to high exit
-     +-------+
-  >>-|    ,--|->>
-     |   /   |
-   >-|--'    |->
-     +-------+
-"""
+    """Repeat messages from low entry to high exit:
+
+    .. code::
+
+         +-------+
+      >>-|    ,--|->>
+         |   /   |
+       >-|--'    |->
+         +-------+
+    """
 
     def push(self, msg):
         self._high_send(msg)
@@ -701,13 +728,16 @@ class UpDrain(Drain):
 
 
 class DownDrain(Drain):
-    r"""Repeat messages from high entry to low exit
-     +-------+
-  >>-|--.    |->>
-     |   \   |
-   >-|    `--|->
-     +-------+
-"""
+    r"""Repeat messages from high entry to low exit:
+
+    .. code::
+
+         +-------+
+      >>-|--.    |->>
+         |   \   |
+       >-|    `--|->
+         +-------+
+    """
 
     def push(self, msg):
         pass

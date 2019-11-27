@@ -11,26 +11,24 @@ PacketList: holds several packets and allows to do operations on them.
 from __future__ import absolute_import
 from __future__ import print_function
 import os
-import subprocess
 from collections import defaultdict
 
 from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
-from scapy.consts import WINDOWS
-from scapy.base_classes import BasePacket, BasePacketList
+from scapy.base_classes import BasePacket, BasePacketList, _CanvasDumpExtended
 from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
-    make_tex_table, get_temp_file, issubtype, ContextManagerSubprocess
+    make_tex_table, issubtype
 from scapy.extlib import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
 import scapy.modules.six as six
 from scapy.modules.six.moves import range, zip
 
-
 #############
 #  Results  #
 #############
 
-class PacketList(BasePacketList):
+
+class PacketList(BasePacketList, _CanvasDumpExtended):
     __slots__ = ["stats", "res", "listname"]
 
     def __init__(self, res=None, name="PacketList", stats=None):
@@ -88,8 +86,10 @@ class PacketList(BasePacketList):
 
     def __getstate__(self):
         """
-        create a basic representation of the instance, used in conjunction with __setstate__() e.g. by pickle  # noqa: E501
-        :return: dict representing this instance
+        Creates a basic representation of the instance, used in
+        conjunction with __setstate__() e.g. by pickle
+
+        :returns: dict representing this instance
         """
         state = {
             'res': self.res,
@@ -100,7 +100,9 @@ class PacketList(BasePacketList):
 
     def __setstate__(self, state):
         """
-        set instance attributes to values given by state, used in conjunction with __getstate__() e.g. by pickle  # noqa: E501
+        Sets instance attributes to values given by state, used in
+        conjunction with __getstate__() e.g. by pickle
+
         :param state: dict representing this instance
         """
         self.res = state['res']
@@ -129,8 +131,12 @@ class PacketList(BasePacketList):
 
     def summary(self, prn=None, lfilter=None):
         """prints a summary of each packet
-prn:     function to apply to each packet instead of lambda x:x.summary()
-lfilter: truth function to apply to each packet to decide whether it will be displayed"""  # noqa: E501
+
+        :param prn: function to apply to each packet instead of
+                    lambda x:x.summary()
+        :param lfilter: truth function to apply to each packet to decide
+                        whether it will be displayed
+        """
         for r in self.res:
             if lfilter is not None:
                 if not lfilter(r):
@@ -142,8 +148,12 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def nsummary(self, prn=None, lfilter=None):
         """prints a summary of each packet with the packet's number
-prn:     function to apply to each packet instead of lambda x:x.summary()
-lfilter: truth function to apply to each packet to decide whether it will be displayed"""  # noqa: E501
+
+        :param prn: function to apply to each packet instead of
+                    lambda x:x.summary()
+        :param lfilter: truth function to apply to each packet to decide
+                        whether it will be displayed
+        """
         for i, res in enumerate(self.res):
             if lfilter is not None:
                 if not lfilter(res):
@@ -194,17 +204,17 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         # Get the list of packets
         if lfilter is None:
-            l = [f(*e) for e in self.res]
+            lst_pkts = [f(*e) for e in self.res]
         else:
-            l = [f(*e) for e in self.res if lfilter(*e)]
+            lst_pkts = [f(*e) for e in self.res if lfilter(*e)]
 
         # Mimic the default gnuplot output
         if kargs == {}:
             kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
         if plot_xy:
-            lines = plt.plot(*zip(*l), **kargs)
+            lines = plt.plot(*zip(*lst_pkts), **kargs)
         else:
-            lines = plt.plot(l, **kargs)
+            lines = plt.plot(lst_pkts, **kargs)
 
         # Call show() if matplotlib is not inlined
         if not MATPLOTLIB_INLINED:
@@ -221,17 +231,17 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         # Get the list of packets
         if lfilter is None:
-            l = [f(self.res[i], self.res[i + 1])
-                 for i in range(len(self.res) - delay)]
+            lst_pkts = [f(self.res[i], self.res[i + 1])
+                        for i in range(len(self.res) - delay)]
         else:
-            l = [f(self.res[i], self.res[i + 1])
-                 for i in range(len(self.res) - delay)
-                 if lfilter(self.res[i])]
+            lst_pkts = [f(self.res[i], self.res[i + 1])
+                        for i in range(len(self.res) - delay)
+                        if lfilter(self.res[i])]
 
         # Mimic the default gnuplot output
         if kargs == {}:
             kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
-        lines = plt.plot(l, **kargs)
+        lines = plt.plot(lst_pkts, **kargs)
 
         # Call show() if matplotlib is not inlined
         if not MATPLOTLIB_INLINED:
@@ -252,13 +262,13 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         # Get the list of packets
         if lfilter is None:
-            l = (f(*e) for e in self.res)
+            lst_pkts = (f(*e) for e in self.res)
         else:
-            l = (f(*e) for e in self.res if lfilter(*e))
+            lst_pkts = (f(*e) for e in self.res if lfilter(*e))
 
         # Apply the function f to the packets
         d = {}
-        for k, v in l:
+        for k, v in lst_pkts:
             d.setdefault(k, []).append(v)
 
         # Mimic the default gnuplot output
@@ -337,13 +347,17 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     def conversations(self, getsrcdst=None, **kargs):
         """Graphes a conversations between sources and destinations and display it
         (using graphviz and imagemagick)
-        getsrcdst: a function that takes an element of the list and
-                   returns the source, the destination and optionally
-                   a label. By default, returns the IP source and
-                   destination from IP and ARP layers
-        type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option  # noqa: E501
-        target: filename or redirect. Defaults pipe to Imagemagick's display program  # noqa: E501
-        prog: which graphviz program to use"""
+
+        :param getsrcdst: a function that takes an element of the list and
+            returns the source, the destination and optionally
+            a label. By default, returns the IP source and
+            destination from IP and ARP layers
+        :param type: output type (svg, ps, gif, jpg, etc.), passed to dot's
+            "-T" option
+        :param target: filename or redirect. Defaults pipe to Imagemagick's
+            display program
+        :param prog: which graphviz program to use
+        """
         if getsrcdst is None:
             def getsrcdst(pkt):
                 """Extract src and dst addresses"""
@@ -359,7 +373,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             p = self._elt2pkt(p)
             try:
                 c = getsrcdst(p)
-            except:
+            except Exception:
                 # No warning here: it's OK that getsrcdst() raises an
                 # exception, since it might be, for example, a
                 # function that expects a specific layer in each
@@ -395,29 +409,24 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             try:
                 s, e, d = src(i), event(i), dst(i)
                 if s in sl:
-                    n, l = sl[s]
+                    n, lst = sl[s]
                     n += 1
-                    if e not in l:
-                        l.append(e)
-                    sl[s] = (n, l)
+                    if e not in lst:
+                        lst.append(e)
+                    sl[s] = (n, lst)
                 else:
                     sl[s] = (1, [e])
                 if e in el:
-                    n, l = el[e]
+                    n, lst = el[e]
                     n += 1
-                    if d not in l:
-                        l.append(d)
-                    el[e] = (n, l)
+                    if d not in lst:
+                        lst.append(d)
+                    el[e] = (n, lst)
                 else:
                     el[e] = (1, [d])
                 dl[d] = dl.get(d, 0) + 1
-            except:
+            except Exception:
                 continue
-
-        import math
-
-        def normalize(n):
-            return 2 + math.log(n) / 4.0
 
         def minmax(x):
             m, M = reduce(lambda a, b: (min(a[0], b[0]), max(a[1], b[1])),
@@ -436,12 +445,12 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         gr += "# src nodes\n"
         for s in sl:
-            n, l = sl[s]
+            n, _ = sl[s]
             n = 1 + float(n - mins) / (maxs - mins)
             gr += '"src.%s" [label = "%s", shape=box, fillcolor="#FF0000", style=filled, fixedsize=1, height=%.2f,width=%.2f];\n' % (repr(s), repr(s), n, n)  # noqa: E501
         gr += "# event nodes\n"
         for e in el:
-            n, l = el[e]
+            n, _ = el[e]
             n = n = 1 + float(n - mine) / (maxe - mine)
             gr += '"evt.%s" [label = "%s", shape=circle, fillcolor="#00FFFF", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(e), repr(e), n, n)  # noqa: E501
         for d in dl:
@@ -451,65 +460,31 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         gr += "###\n"
         for s in sl:
-            n, l = sl[s]
-            for e in l:
+            n, lst = sl[s]
+            for e in lst:
                 gr += ' "src.%s" -> "evt.%s";\n' % (repr(s), repr(e))
         for e in el:
-            n, l = el[e]
-            for d in l:
+            n, lst = el[e]
+            for d in lst:
                 gr += ' "evt.%s" -> "dst.%s";\n' % (repr(e), repr(d))
 
         gr += "}"
         return do_graph(gr, **kargs)
 
-    def _dump_document(self, **kargs):
+    def canvas_dump(self, **kargs):
         import pyx
         d = pyx.document.document()
-        l = len(self.res)
+        len_res = len(self.res)
         for i, res in enumerate(self.res):
             c = self._elt2pkt(res).canvas_dump(**kargs)
             cbb = c.bbox()
-            c.text(cbb.left(), cbb.top() + 1, r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i, l), [pyx.text.size.LARGE])  # noqa: E501
+            c.text(cbb.left(), cbb.top() + 1, r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i, len_res), [pyx.text.size.LARGE])  # noqa: E501
             if conf.verb >= 2:
                 os.write(1, b".")
             d.append(pyx.document.page(c, paperformat=pyx.document.paperformat.A4,  # noqa: E501
                                        margin=1 * pyx.unit.t_cm,
                                        fittosize=1))
         return d
-
-    def psdump(self, filename=None, **kargs):
-        """Creates a multi-page postcript file with a psdump of every packet
-        filename: name of the file to write to. If empty, a temporary file is used and  # noqa: E501
-                  conf.prog.psreader is called"""
-        d = self._dump_document(**kargs)
-        if filename is None:
-            filename = get_temp_file(autoext=".ps")
-            d.writePSfile(filename)
-            if WINDOWS and conf.prog.psreader is None:
-                os.startfile(filename)
-            else:
-                with ContextManagerSubprocess("psdump()", conf.prog.psreader):
-                    subprocess.Popen([conf.prog.psreader, filename])
-        else:
-            d.writePSfile(filename)
-        print()
-
-    def pdfdump(self, filename=None, **kargs):
-        """Creates a PDF file with a psdump of every packet
-        filename: name of the file to write to. If empty, a temporary file is used and  # noqa: E501
-                  conf.prog.pdfreader is called"""
-        d = self._dump_document(**kargs)
-        if filename is None:
-            filename = get_temp_file(autoext=".pdf")
-            d.writePDFfile(filename)
-            if WINDOWS and conf.prog.pdfreader is None:
-                os.startfile(filename)
-            else:
-                with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):  # noqa: E501
-                    subprocess.Popen([conf.prog.pdfreader, filename])
-        else:
-            d.writePDFfile(filename)
-        print()
 
     def sr(self, multi=0):
         """sr([multi=1]) -> (SndRcvList, PacketList)
@@ -605,6 +580,75 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                             setattr(p[o], fld.name, new)
             x.append(p)
         return x
+
+    def getlayer(self, cls, nb=None, flt=None, name=None, stats=None):
+        """Returns the packet list from a given layer.
+
+        See ``Packet.getlayer`` for more info.
+
+        :param cls: search for a layer that is an instance of ``cls``
+        :type cls: Type[scapy.packet.Packet]
+
+        :param nb: return the nb^th layer that is an instance of ``cls``
+        :type nb: Optional[int]
+
+        :param flt: filter parameters for ``Packet.getlayer``
+        :type flt: Optional[Dict[str, Any]]
+
+        :param name: optional name for the new PacketList
+        :type name: Optional[str]
+
+        :param stats: optional list of protocols to give stats on; if not
+                      specified, inherits from this PacketList.
+        :type stats: Optional[List[Type[scapy.packet.Packet]]]
+        :rtype: scapy.plist.PacketList
+        """
+        if name is None:
+            name = "{} layer {}".format(self.listname, cls.__name__)
+        if stats is None:
+            stats = self.stats
+
+        getlayer_arg = {}
+        if flt is not None:
+            getlayer_arg.update(flt)
+        getlayer_arg['cls'] = cls
+        if nb is not None:
+            getlayer_arg['nb'] = nb
+
+        # Only return non-None getlayer results
+        return PacketList([
+            pc for pc in (p.getlayer(**getlayer_arg) for p in self.res)
+            if pc is not None],
+            name, stats
+        )
+
+    def convert_to(self, other_cls, name=None, stats=None):
+        """Converts all packets to another type.
+
+        See ``Packet.convert_to`` for more info.
+
+        :param other_cls: reference to a Packet class to convert to
+        :type other_cls: Type[scapy.packet.Packet]
+
+        :param name: optional name for the new PacketList
+        :type name: Optional[str]
+
+        :param stats: optional list of protocols to give stats on;
+                      if not specified, inherits from this PacketList.
+        :type stats: Optional[List[Type[scapy.packet.Packet]]]
+
+        :rtype: scapy.plist.PacketList
+        """
+        if name is None:
+            name = "{} converted to {}".format(
+                self.listname, other_cls.__name__)
+        if stats is None:
+            stats = self.stats
+
+        return PacketList(
+            [p.convert_to(other_cls) for p in self.res],
+            name, stats
+        )
 
 
 class SndRcvList(PacketList):

@@ -133,6 +133,7 @@ weDU+RsFxcyU/QxD9WYORzYarqxbcA==
 type(y) is PrivKeyECDSA
 
 = PrivKeyECDSA sign & verify
+~ crypto_advanced
 a = PrivKeyECDSA()
 a.fill_and_store()
 msg = b"Scapy test message"
@@ -141,6 +142,7 @@ assert a.verify(msg, data)
 assert not a.verify(b"Hello", data)
 
 = PubKeyECDSA verify
+~ crypto_advanced
 b = PubKeyECDSA()
 b.pubkey = a.pubkey
 assert b.verify(msg, data)
@@ -292,7 +294,7 @@ x.version == 3
 x.serial == 0xB45E7043E7090B71
 
 = Cert class : Checking signature algorithm
-x.sigAlg == 'sha1_with_rsa_signature' 
+x.sigAlg == 'sha1-with-rsa-signature'
 
 = Cert class : Checking issuer extraction in basic format (/C=FR ...)
 x.issuer_str == '/C=FR/ST=Paris/L=Paris/O=Mushroom Corp./OU=Mushroom VPN Services/CN=IKEv2 X.509 Test certificate/emailAddress=ikev2-test@mushroom.corp'
@@ -319,9 +321,28 @@ assert(x_pubNum.n == 19231328316532061413420367242571475005688288081144416166988
 x_pubNum.e == 0x10001
 
 = Cert class : Checking extensions
+x.show()
+x.tbsCertificate.show()
 assert(x.cA)
 assert(x.authorityKeyID == b'\xf3\xd8N\xde\x90\xf7\xe6]\xd2\xce3\xcd\\V\x8co\x97\x141K')
 not hasattr(x, "keyUsage")
+
+= Cert class : encrypt
+
+assert len(x.encrypt(b"Scapy")) == 256
+
+= Cert class : export
+
+import tempfile, os
+filename = tempfile.mktemp()
+x.export(filename)
+fstat = os.stat(filename)
+assert fstat.st_size == 1302
+os.remove(filename)
+
+= Cert class : isIssuerCert
+
+assert x.isIssuerCert(x)
 
 = Cert class : Importing another PEM-encoded X.509 Certificate
 y = Cert("""
@@ -349,7 +370,7 @@ assert(pubkey.curve.name == 'secp384r1')
 pubkey.public_numbers().x == 3987178688175281746349180015490646948656137448666005327832107126183726641822596270780616285891030558662603987311874
 
 = Cert class : Checking ECDSA signature
-y.signatureValue == b'0d\x020%\xa4\x81E\x02k\x12KutO\xc8#\xe3p\xf2ur\xde|\x89\xf0\xcf\x91ra\x9e^\x10\x92YV\xb9\x83\xc7\x10\xe78\xe9X&6}\xd5\xe44\x869\x020|6S\xf00\xe5bc:\x99\xe2\xb6\xa3;\x9b4\xfa\x1e\xda\x10\x92q^\x91\x13\xa7\xdd\xa4n\x92\xcc2\xd6\xf5!f\xc7/\xea\x96cjeE\x92\x95\x01\xb4'
+raw(y.signatureValue) == b'0d\x020%\xa4\x81E\x02k\x12KutO\xc8#\xe3p\xf2ur\xde|\x89\xf0\xcf\x91ra\x9e^\x10\x92YV\xb9\x83\xc7\x10\xe78\xe9X&6}\xd5\xe44\x869\x020|6S\xf00\xe5bc:\x99\xe2\xb6\xa3;\x9b4\xfa\x1e\xda\x10\x92q^\x91\x13\xa7\xdd\xa4n\x92\xcc2\xd6\xf5!f\xc7/\xea\x96cjeE\x92\x95\x01\xb4'
 
 = Cert class : Test show
 awaited = """
@@ -413,7 +434,7 @@ assert cx.isRevoked([x])
 = CRL class : Test show
 awaited = """
 Version: 1
-sigAlg: sha1_with_rsa_signature
+sigAlg: sha1-with-rsa-signature
 Issuer: /C=US/O=VeriSign, Inc./OU=Class 1 Public Primary Certification Authority
 lastUpdate: Nov 02 00:00:00 2006 GMT
 nextUpdate: Feb 17 23:59:59 2007 GMT
@@ -528,6 +549,13 @@ assert(len(Chain([c0, c1, c2])) == 3)
 assert(len(Chain([c0], c1)) == 2)
 len(Chain([c0], c2)) == 1
 
+= Chain class : repr
+
+expected_repr = """__ /C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./CN=Starfield Root Certificate Authority - G2 [Self Signed]
+  _ /C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./OU=http://certs.starfieldtech.com/repository//CN=Starfield Secure Certificate Authority - G2
+    _ /OU=Domain Control Validated/CN=*.tools.ietf.org"""
+assert str(Chain([c0, c1, c2])) == expected_repr
+
 = Chain class : Checking chain verification
 assert(Chain([], c0).verifyChain([c2], [c1]))
 not Chain([c1]).verifyChain([c0])
@@ -632,3 +660,16 @@ except:
 
 repr_str = Chain([], c0).__repr__()
 assert repr_str == '__ /OU=Domain Control Validated/CN=*.tools.ietf.org [Not Self Signed]\n'
+
+= Test GeneralizedTime
+
+data = b"MHAwXAIBADANBgkqhkiG9w0BAQ0FADAAMCIYDzIwMTExMDA2MDgzOTU2WhgPMjA0NjEwMDYwODM5NTZaMAAwHDANBgkqhkiG9w0BAQEFAAMLADAIAgEAAgMBAAGjAjAAMA0GCSqGSIb3DQEBDQUAAwEA"
+import tempfile, os
+_, filename = tempfile.mkstemp()
+fd = open(filename, "wb")
+fd.write(b"-----BEGIN CERTIFICATE-----\n")
+fd.write(data)
+fd.write(b"-----END CERTIFICATE-----\n")
+fd.close()
+cert = Cert(filename)
+assert "2011" in cert.notBefore_str and "2046" in cert.notAfter_str

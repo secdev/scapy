@@ -36,8 +36,8 @@ class TLS13_HKDF(object):
 
     def expand_label(self, secret, label, hash_value, length):
         hkdf_label = struct.pack("!H", length)
-        hkdf_label += struct.pack("B", 9 + len(label))
-        hkdf_label += b"TLS 1.3, "
+        hkdf_label += struct.pack("B", 6 + len(label))
+        hkdf_label += b"tls13 "
         hkdf_label += label
         hkdf_label += struct.pack("B", len(hash_value))
         hkdf_label += hash_value

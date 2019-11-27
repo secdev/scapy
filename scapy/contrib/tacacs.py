@@ -16,7 +16,7 @@
 
 # Based on tacacs+ v6 draft https://tools.ietf.org/html/draft-ietf-opsawg-tacacs-06  # noqa: E501
 
-# scapy.contrib.description = TACACS+ Protocol
+# scapy.contrib.description = Terminal Access Controller Access-Control System+
 # scapy.contrib.status = loads
 
 import struct

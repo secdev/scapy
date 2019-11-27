@@ -1,0 +1,21 @@
+# Readthedocs config file.
+
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html#supported-settings
+# Copied from https://github.com/pycontribs/jira/blob/master/.readthedocs.yml
+
+version: 2
+
+formats:
+  - epub
+  - pdf
+
+build:
+  image: latest
+
+python:
+  version: 3.7
+  install:
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs

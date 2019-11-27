@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # This file is part of Scapy
 # Scapy is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,15 +12,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = IGMPv3
+# scapy.contrib.description = Internet Group Management Protocol v3 (IGMPv3)
 # scapy.contrib.status = loads
 
 from __future__ import print_function
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
+    FieldListField, IPField, PacketListField, ShortField, XShortField
 from scapy.compat import orb
-from scapy.layers.inet import *
+from scapy.layers.inet import IP
 from scapy.contrib.igmp import IGMP
+from scapy.config import conf
 
 """ Based on the following references
  http://www.iana.org/assignments/igmp-type-numbers
@@ -47,10 +47,12 @@ class IGMPv3(IGMP):
     Fields 'type'  through 'qqic' are directly assignable.
     For 'numsrc', do not assign a value.
     Instead add to the 'srcaddrs' list to auto-set 'numsrc'. To
-    assign values to 'srcaddrs', use the following methods:
+    assign values to 'srcaddrs', use the following methods::
+
       c = IGMPv3()
       c.srcaddrs = ['1.2.3.4', '5.6.7.8']
       c.srcaddrs += ['192.168.10.24']
+
     At this point, 'c.numsrc' is three (3)
 
     'chksum' is automagically calculated before the packet is sent.
@@ -159,7 +161,7 @@ class IGMPv3mr(Packet):
 
 
 class IGMPv3mra(Packet):
-    """IGMP Multicas Router Advertisement extension for IGMPv3.
+    """IGMP Multicast Router Advertisement extension for IGMPv3.
     Payload of IGMPv3 when type=0x30"""
     name = "IGMPv3mra"
     fields_desc = [ShortField("qryIntvl", 0),

@@ -10,6 +10,7 @@ The _TLSAutomaton class provides methods common to both TLS client and server.
 import struct
 
 from scapy.automaton import Automaton
+from scapy.config import conf
 from scapy.error import log_interactive
 from scapy.packet import Raw
 from scapy.layers.tls.basefields import _tls_type
@@ -37,6 +38,16 @@ class _TLSAutomaton(Automaton):
 
     We call these successive groups of messages:
     ClientFlight1, ServerFlight1, ClientFlight2 and ServerFlight2.
+
+    With TLS 1.3, the handshake require only 1-RTT:
+
+    Client        Server
+      | --------->>> |    C1 - ClientHello
+      | <<<--------- |    S1 - ServerHello
+      | <<<--------- |    S1 - Certificate [encrypted]
+      | <<<--------- |    S1 - CertificateVerify [encrypted]
+      | <<<--------- |    S1 - Finished [encrypted]
+      | --------->>> |    C2 - Finished [encrypted]
 
     We want to send our messages from the same flight all at once through the
     socket. This is achieved by managing a list of records in 'buffer_out'.
@@ -103,8 +114,7 @@ class _TLSAutomaton(Automaton):
                 grablen = struct.unpack('!H', self.remain_in[3:5])[0] + 5
                 still_getting_len = False
             elif grablen == 2 and len(self.remain_in) >= 2:
-                byte0 = struct.unpack("B", self.remain_in[:1])[0]
-                byte1 = struct.unpack("B", self.remain_in[1:2])[0]
+                byte0, byte1 = struct.unpack("BB", self.remain_in[:2])
                 if (byte0 in _tls_type) and (byte1 == 3):
                     # Retry following TLS scheme. This will cause failure
                     # for SSLv2 packets with length 0x1{4-7}03.
@@ -129,7 +139,7 @@ class _TLSAutomaton(Automaton):
                     retry -= 1
                 else:
                     self.remain_in += tmp
-            except:
+            except Exception:
                 self.vprint("Could not join host ! Retrying...")
                 retry -= 1
 
@@ -137,20 +147,27 @@ class _TLSAutomaton(Automaton):
             # Remote peer is not willing to respond
             return
 
-        p = TLS(self.remain_in, tls_session=self.cur_session)
-        self.cur_session = p.tls_session
-        self.remain_in = b""
-        if isinstance(p, SSLv2) and not p.msg:
-            p.msg = Raw("")
-        if self.cur_session.tls_version is None or \
-           self.cur_session.tls_version < 0x0304:
-            self.buffer_in += p.msg
+        if (byte0 == 0x17 and
+                (self.cur_session.advertised_tls_version >= 0x0304 or
+                 self.cur_session.tls_version >= 0x0304)):
+            p = TLS13(self.remain_in, tls_session=self.cur_session)
+            self.remain_in = b""
+            self.buffer_in += p.inner.msg
         else:
-            if isinstance(p, TLS13):
-                self.buffer_in += p.inner.msg
-            else:
-                # should be TLS13ServerHello only
+            p = TLS(self.remain_in, tls_session=self.cur_session)
+            self.cur_session = p.tls_session
+            self.remain_in = b""
+            if isinstance(p, SSLv2) and not p.msg:
+                p.msg = Raw("")
+            if self.cur_session.tls_version is None or \
+               self.cur_session.tls_version < 0x0304:
                 self.buffer_in += p.msg
+            else:
+                if isinstance(p, TLS13):
+                    self.buffer_in += p.inner.msg
+                else:
+                    # should be TLS13ServerHello only
+                    self.buffer_in += p.msg
 
         while p.payload:
             if isinstance(p.payload, Raw):
@@ -173,8 +190,11 @@ class _TLSAutomaton(Automaton):
         # Maybe we already parsed the expected packet, maybe not.
         if get_next_msg:
             self.get_next_msg()
+        from scapy.layers.tls.handshake import TLSClientHello
         if (not self.buffer_in or
-                not isinstance(self.buffer_in[0], pkt_cls)):
+                (not isinstance(self.buffer_in[0], pkt_cls) and
+                 not (isinstance(self.buffer_in[0], TLSClientHello) and
+                 self.cur_session.advertised_tls_version == 0x0304))):
             return
         self.cur_pkt = self.buffer_in[0]
         self.buffer_in = self.buffer_in[1:]
@@ -222,4 +242,7 @@ class _TLSAutomaton(Automaton):
 
     def vprint(self, s=""):
         if self.verbose:
-            log_interactive.info("> %s", s)
+            if conf.interactive:
+                log_interactive.info("> %s", s)
+            else:
+                print("> %s" % s)

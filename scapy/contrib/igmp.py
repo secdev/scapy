@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # This file is part of Scapy
 # Scapy is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,7 +12,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = IGMP/IGMPv2
+# flake8: noqa: E501
+
+# scapy.contrib.description = Internet Group Management Protocol v1/v2 (IGMP/IGMPv2)
 # scapy.contrib.status = loads
 
 from __future__ import print_function
@@ -36,24 +36,23 @@ def isValidMCAddr(ip):
 class IGMP(Packet):
     """IGMP Message Class for v1 and v2.
 
-This class is derived from class Packet. You  need call "igmpize()"
-so the packet is transformed according the RFC when sent.
-a=Ether(src="00:01:02:03:04:05")
-b=IP(src="1.2.3.4")
-c=IGMP(type=0x12, gaddr="224.2.3.4")
-x = a/b/c
-x[IGMP].igmpize()
-sendp(a/b/c, iface="en0")
+    This class is derived from class Packet. You  need call "igmpize()"
+    so the packet is transformed according the RFC when sent.
+    a=Ether(src="00:01:02:03:04:05")
+    b=IP(src="1.2.3.4")
+    c=IGMP(type=0x12, gaddr="224.2.3.4")
+    x = a/b/c
+    x[IGMP].igmpize()
+    sendp(a/b/c, iface="en0")
 
-    Parameters:
-      type    IGMP type field, 0x11, 0x12, 0x16 or 0x17
-      mrcode  Maximum Response time (zero for v1)
-      gaddr   Multicast Group Address 224.x.x.x/4
+        Parameters:
+          type    IGMP type field, 0x11, 0x12, 0x16 or 0x17
+          mrcode  Maximum Response time (zero for v1)
+          gaddr   Multicast Group Address 224.x.x.x/4
 
-See RFC2236, Section 2. Introduction for definitions of proper
-IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
-
-  """
+    See RFC2236, Section 2. Introduction for definitions of proper
+    IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
+    """
     name = "IGMP"
 
     igmptypes = {0x11: "Group Membership Query",
@@ -67,7 +66,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
                    IPField("gaddr", "0.0.0.0")]
 
     def post_build(self, p, pay):
-        """Called implicitly before a packet is sent to compute and place IGMP checksum.  # noqa: E501
+        """Called implicitly before a packet is sent to compute and place IGMP checksum.
 
         Parameters:
           self    The instantiation of an IGMP class
@@ -94,17 +93,17 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
         """Called to explicitly fixup the packet according to the IGMP RFC
 
         The rules are:
-        General:
-            1.  the Max Response time is meaningful only in Membership Queries and should be zero  # noqa: E501
-        IP:
-            1. Send General Group Query to 224.0.0.1 (all systems)
-            2. Send Leave Group to 224.0.0.2 (all routers)
-            3a.Otherwise send the packet to the group address
-            3b.Send reports/joins to the group address
-            4. ttl = 1 (RFC 2236, section 2)
-            5. send the packet with the router alert IP option (RFC 2236, section 2)  # noqa: E501
-        Ether:
-            1. Recalculate destination
+        - General:
+        1.  the Max Response time is meaningful only in Membership Queries and should be zero
+        - IP:
+        1. Send General Group Query to 224.0.0.1 (all systems)
+        2. Send Leave Group to 224.0.0.2 (all routers)
+        3a.Otherwise send the packet to the group address
+        3b.Send reports/joins to the group address
+        4. ttl = 1 (RFC 2236, section 2)
+        5. send the packet with the router alert IP option (RFC 2236, section 2)
+        - Ether:
+        1. Recalculate destination
 
         Returns:
             True    The tuple ether/ip/self passed all check and represents
@@ -113,8 +112,8 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
                     were adjusted.
 
         The function will examine the IGMP message to assure proper format.
-        Corrections will be attempted if possible. The IP header is then properly  # noqa: E501
-        adjusted to ensure correct formatting and assignment. The Ethernet header  # noqa: E501
+        Corrections will be attempted if possible. The IP header is then properly
+        adjusted to ensure correct formatting and assignment. The Ethernet header
         is then adjusted to the proper IGMP packet format.
         """
         gaddr = self.gaddr if hasattr(self, "gaddr") and self.gaddr else "0.0.0.0"  # noqa: E501
@@ -139,6 +138,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
                 return False
             if not any(isinstance(x, IPOption_Router_Alert) for x in underlayer.options):  # noqa: E501
                 underlayer.options.append(IPOption_Router_Alert())
+            underlayer.ttl = 1                                         # IP rule 4
             _root = self.firstlayer()
             if _root.haslayer(Ether):
                 # Force recalculate Ether dst

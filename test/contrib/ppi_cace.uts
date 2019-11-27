@@ -1,0 +1,255 @@
+% PPI/PPI_CACE/PPI_GEOTAG Global Campaign
+# Test suite extracted from PPI_GEOLOCATION_SDK.zip\PPI_GEOLOCATION_SDK\pcaps\reference-pcaps\ppi_geo_examples.py
+
++ PPI Tests
+
+= Define test suite
+
+from scapy.contrib.ppi_cace import *
+from scapy.contrib.ppi_geotag import *
+
+
+
+def Pkt_10_1():
+    """GPS Only"""
+    pkt = PPI(headers=[
+            PPI_Hdr()/PPI_Geotag_GPS(Latitude=40.787743,Longitude=-73.971210)])/\
+        Dot11(addr1="FF:FF:FF:FF:FF:FF",addr2="00:01:02:03:04:05",addr3="00:01:02:09:01:01")/\
+        Dot11Beacon()/Dot11Elt(ID=0,info="Test-10.1")
+    return PPI(raw(pkt))
+
+def Pkt_10_2():
+    """GPS + VECTOR + ANTENNA + RADIOTAP""" #No radiotap support yet...
+    pkt = PPI(headers=[
+            PPI_Hdr()/PPI_Geotag_GPS(Latitude=40.787743, Longitude=-73.971210),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x02, VectorChars="Antenna", Pitch=90.0, Roll=0.0, Heading=0.0, DescString="Antenna-1 orientation"),
+            PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x02,Gain=8,HorizBw=360.0,ModelName="8dBi-MagMountOmni"),
+            PPI_Hdr()/PPI_Dot11Common(Antsignal=-80,Antnoise=-110,Ch_Freq=2437)])/\
+        Dot11(addr1="FF:FF:FF:FF:FF:FF",addr2="00:01:02:03:04:05",addr3="00:01:02:09:01:02")/\
+        Dot11Beacon()/Dot11Elt(ID=0,info="Test-10.2")
+    return PPI(raw(pkt))
+
+def Pkt_10_3():
+    """Direction of travel + one directional antenna, with Pitch in ForwardFrame"""
+    pkt = PPI(headers=[
+            PPI_Hdr()/PPI_Geotag_GPS(GPSFlags=0x02, Latitude=40.787743, Longitude=-73.971210),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x03, VectorChars=0x06, Pitch=10.0,  Heading=22.5, DescString="VehicleVec"),
+            PPI_Hdr()/PPI_Geotag_Sensor(SensorType="Velocity", Val_T=20.0),
+            PPI_Hdr()/PPI_Geotag_Vector(                  VectorChars=0x01,              Heading=90.0, DescString="AntennaVec"),
+            PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x02,Gain=9,HorizBw=120,ModelName="SA24-120-9"),
+            PPI_Hdr()/PPI_Dot11Common(Antsignal=-75,Antnoise=-110,Ch_Freq=2437)])/\
+        Dot11(addr1="FF:FF:FF:FF:FF:FF",addr2="00:01:02:03:04:05",addr3="00:01:02:09:01:03")/\
+        Dot11Beacon()/Dot11Elt(ID=0,info="Test-10.3")
+    return PPI(raw(pkt)) #Cause the fields to be built
+
+def Pkt_10_4():
+    """Two static directional antennas with offsets"""
+    pkt = PPI(headers=[
+            PPI_Hdr()/PPI_Geotag_GPS(GPSFlags=0x02, Latitude=40.787743, Longitude=-73.971210, Altitude_g=2.00),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x03, VectorChars=0x06, Pitch=10.0, Heading=22.5),
+            PPI_Hdr()/PPI_Geotag_Sensor(SensorType="Velocity", Val_T=8.5),
+            PPI_Hdr()/PPI_Geotag_Sensor(SensorType="Acceleration", Val_T=0.5),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x00, VectorChars=0x01, Heading=90.0, Off_X=0.75, Off_Y=0.6, Off_Z=-0.2, DescString="Antenna1Vec"),
+            PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x02,Gain=9,HorizBw=120,ModelName="SA24-120-9",DescString="RightAntenna"),
+            PPI_Hdr()/PPI_Dot11Common(Antsignal=-75,Antnoise=-110,Ch_Freq=2437),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x00, VectorChars=0x01, Heading=270.0, Off_X=-0.75, Off_Y=0.6, Off_Z=-0.2, DescString="Antenna2Vec"),
+            PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x02,Gain=9,HorizBw=120,ModelName="SA24-120-9",DescString="LeftAntenna"),
+            PPI_Hdr()/PPI_Dot11Common(Antsignal=-95,Antnoise=-110,Ch_Freq=2437)])/\
+        Dot11(addr1="FF:FF:FF:FF:FF:FF",addr2="00:01:02:03:04:05",addr3="00:01:02:09:01:04")/\
+        Dot11Beacon()/Dot11Elt(ID=0,info="Test-10.4")
+    return PPI(raw(pkt)) #Cause the fields to be built
+
+def Pkt_10_5():
+    """Similar to 10_3, but with a electronically steerable antenna"""
+    pkt = PPI(headers=[
+            PPI_Hdr()/PPI_Geotag_GPS(GPSFlags=0x02, Latitude=40.787743, Longitude=-73.971210),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x03, VectorChars=0x06, Pitch=00.0, Heading=22.5, DescString="VehicleVec"),
+            PPI_Hdr()/PPI_Geotag_Vector(                  VectorChars=0x01,             Heading=120.0, DescString="AntennaVec"),
+            PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x010002,Gain=12,HorizBw=60,BeamID=0xF1A1, ModelName="ElectronicallySteerableExAntenna", AppId=0x04030201),
+            PPI_Hdr()/PPI_Dot11Common(Antsignal=-75,Antnoise=-110,Ch_Freq=2437)])/\
+        Dot11(addr1="FF:FF:FF:FF:FF:FF",addr2="00:01:02:03:04:05",addr3="00:01:02:09:01:05")/\
+        Dot11Beacon()/Dot11Elt(ID=0,info="Test-10.5")
+    return PPI(raw(pkt)) #Cause the fields to be built
+
+def Pkt_10_6():
+    """Mechanically steerable antenna. Non-intuitive forward"""
+    pkt = PPI(headers=[
+            PPI_Hdr()/PPI_Geotag_GPS(GPSFlags=0x02, Latitude=40.787743, Longitude=-73.971210),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x02, VectorChars=0x06,  Heading=22.5, DescString="VehicleVec"),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x03, VectorChars=0x00,  Heading=202.5, DescString="ForwardVec"),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x00, VectorChars=0x01,  Heading=75.0, DescString="AntennaVec"),
+            PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x020002,Gain=12,HorizBw=60,ModelName="MechanicallySteerableAnt"),
+            PPI_Hdr()/PPI_Dot11Common(Antsignal=-77,Antnoise=-110,Ch_Freq=2437)])/\
+        Dot11(addr1="FF:FF:FF:FF:FF:FF",addr2="00:01:02:03:04:05",addr3="00:01:02:09:01:06")/\
+        Dot11Beacon()/Dot11Elt(ID=0,info="Test-10.6")
+    return PPI(raw(pkt)) #Cause the fields to be built
+
+def Pkt_10_7():
+    """Drifting boat."""
+    pkt = PPI(headers=[
+            PPI_Hdr()/PPI_Geotag_GPS(GPSFlags=0x02, Latitude= 41.876154,  Longitude=-87.608602),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x03, VectorChars=0x04,  Heading=50.0, DescString="VehicleVec"),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x00, VectorChars=0x02,  Heading=230.0, DescString="DOT-Vec"),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x00, VectorChars=0x01,  Heading=90.0, DescString="AntennaVec"),
+            PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x02,Gain=9,HorizBw=120,ModelName="SA24-120-9"),
+            PPI_Hdr()/PPI_Dot11Common(Antsignal=-77,Antnoise=-110,Ch_Freq=2437)])/\
+        Dot11(addr1="FF:FF:FF:FF:FF:FF",addr2="00:01:02:03:04:05",addr3="00:01:02:09:01:07")/\
+        Dot11Beacon()/Dot11Elt(ID=0,info="Test-10.7")
+    return PPI(raw(pkt)) #Cause the fields to be built
+
+def Pkt_10_8():
+    """Time of arrival analysis"""
+    pkt = PPI(headers=[
+            PPI_Hdr()/PPI_Geotag_GPS(GPSFlags="Manual Input", Latitude=41.861885, Longitude=-87.616926, GPSTime=1288720719, FractionalTime=0.20),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x02, VectorChars=0x01, Pitch=90.0, DescString="Antenna-1 orientation"),
+            PPI_Hdr()/PPI_Geotag_Sensor(SensorType="TDOA_Clock", ScaleFactor=-9, Val_T=60.8754, AppId=0x04030201),
+            PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x01,Gain=5,HorizBw=360.0,ModelName="8dBi-Omni", DescString="Signal 1"),
+            PPI_Hdr()/PPI_Dot11Common(Antsignal=-60),
+            PPI_Hdr()/PPI_Geotag_GPS(GPSFlags="Manual Input", Latitude=41.861904, Longitude=-87.616365, GPSTime=1288720719, FractionalTime=0.20),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x02, VectorChars=0x01, Pitch=90.0, DescString="Antenna-2 orientation"),
+            PPI_Hdr()/PPI_Geotag_Sensor(SensorType="TDOA_Clock", ScaleFactor=-9, Val_T=178.124, AppId=0x04030201),
+            PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x01,Gain=5,HorizBw=360.0,ModelName="8dBi-Omni", DescString="Signal 2"),
+            PPI_Hdr()/PPI_Dot11Common(Antsignal=-80)])/\
+        Dot11(addr1="FF:FF:FF:FF:FF:FF",addr2="00:01:02:03:04:05",addr3="00:01:02:09:01:08")/\
+        Dot11Beacon()/Dot11Elt(ID=0,info="Test-10.8")
+    return PPI(raw(pkt)) #Cause the fields to be built
+
+def Pkt_10_9():
+    """Time of arrival analysis(AOA)"""
+    pkt = PPI(headers=[
+            PPI_Hdr()/PPI_Geotag_GPS(GPSFlags="Manual Input", Latitude=41.861904, Longitude=-87.616365, GPSTime=1288720719, FractionalTime=0.20),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x02, VectorChars=0x01, Pitch=90.0, DescString="Antenna-2 orientation"),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x02, VectorChars=0x08, Heading=323.4, Err_Rot=10.0, DescString="AOA at Antenna-2", AppId=0x04030201),
+            PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x01,Gain=5,HorizBw=360.0,ModelName="8dBi-Omni", DescString="Signal 2"),
+            PPI_Hdr()/PPI_Dot11Common(Antsignal=-80)])/\
+        Dot11(addr1="FF:FF:FF:FF:FF:FF",addr2="00:01:02:03:04:05",addr3="00:01:02:09:01:098")/\
+        Dot11Beacon()/Dot11Elt(ID=0,info="Test-10.9")
+    return PPI(raw(pkt)) #Cause the fields to be built
+
+def Pkt_10_10():
+    """Transmitter Position/AOA example"""
+    pkt = PPI(headers=[
+            PPI_Hdr()/PPI_Geotag_GPS(GPSFlags="Manual Input", Latitude=41.861904, Longitude=-87.616365, GPSTime=1288720719, FractionalTime=0.20),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x02, VectorChars=0x01, Pitch=90.0, DescString="Antenna-2 orientation"),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x03, VectorChars=0x08, Heading=323.4, Err_Rot=10.0, DescString="AOA at Antenna-2", AppId=0x04030201),
+            PPI_Hdr()/PPI_Geotag_Vector(VectorFlags=0x00, VectorChars=0x10, Off_Y=40, Err_Off=2.0, DescString="Transmitter Position", AppId=0x4030201),
+            PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x01,Gain=5,HorizBw=360.0,ModelName="8dBi-Omni", DescString="Signal 2"),
+            PPI_Hdr()/PPI_Dot11Common(Antsignal=-80)])/\
+        Dot11(addr1="FF:FF:FF:FF:FF:FF",addr2="00:01:02:03:04:05",addr3="00:01:02:09:01:0A")/\
+        Dot11Beacon()/Dot11Elt(ID=0,info="Test-10.10")
+    return PPI(raw(pkt)) #Cause the fields to be built
+
+def TestPackets():
+    """Returns a list of test packets"""
+    return [
+    ("10.1", Pkt_10_1(), test_Pkt_10_1),
+    ("10.2", Pkt_10_2(), test_Pkt_10_2),
+    ("10.3", Pkt_10_3(), test_Pkt_10_3),
+    ("10.4", Pkt_10_4(), test_Pkt_10_4),
+    ("10.5", Pkt_10_5(), test_Pkt_10_5),
+    ("10.6", Pkt_10_6(), test_Pkt_10_6),
+    ("10.7", Pkt_10_7(), test_Pkt_10_7),
+    ("10.8", Pkt_10_8(), test_Pkt_10_8),
+    ("10.9", Pkt_10_9(), test_Pkt_10_9),
+    ("10.10", Pkt_10_10(), test_Pkt_10_10) ]
+
+= Pkt_10_1
+a = Pkt_10_1()
+raw(a)
+assert raw(a) == b'\x00\x00\x1c\x00i\x00\x00\x002u\x10\x00\x02\x00\x10\x00\x06\x00\x00\x006\x89\x99\x83\x9c\xb52?\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x01\x02\x03\x04\x05\x00\x01\x02\t\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x00\tTest-10.1'
+assert a.headers[0].present == 6
+assert a.headers[0].Latitude == 40.7877430
+assert a[Dot11Beacon].beacon_interval == 100
+assert a[Dot11Elt].info == b'Test-10.1'
+
+= Pkt_10_2
+a = Pkt_10_2()
+a.show()
+assert raw(a) == b'\x00\x00\xa9\x00i\x00\x00\x002u\x10\x00\x02\x00\x10\x00\x06\x00\x00\x006\x89\x99\x83\x9c\xb52?3u<\x00\x02\x00<\x00\x1f\x00\x00\x10\x02\x00\x00\x00\x01\x00\x00\x00\x80J]\x05\x00\x00\x00\x00\x00\x00\x00\x00Antenna-1 orientation\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x005u1\x00\x02\x001\x00\x07\x00\x00\x08\x02\x00\x00\x00\x08\x00*u\x158dBi-MagMountOmni\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x85\t\x00\x00\x00\x00\xb0\x92\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x01\x02\x03\x04\x05\x00\x01\x02\t\x01\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x00\tTest-10.2'
+assert isinstance(a.headers[0].payload, PPI_Geotag_GPS)
+assert a.headers[0].present == 6
+assert isinstance(a.headers[1].payload, PPI_Geotag_Vector)
+assert a.headers[2].present == 134217735
+assert isinstance(a.headers[2].payload, PPI_Geotag_Antenna)
+assert a.headers[2].HorizBw == 360.0
+assert isinstance(a.headers[3].payload, PPI_Dot11Common)
+
+= Pkt_10_3
+a = Pkt_10_3()
+assert raw(a) == b"\x00\x00\xef\x00i\x00\x00\x002u\x14\x00\x02\x00\x14\x00\x07\x00\x00\x00\x02\x00\x00\x006\x89\x99\x83\x9c\xb52?3u8\x00\x02\x008\x00\x17\x00\x00\x10\x03\x00\x00\x00\x06\x00\x00\x00\x80\x96\x98\x00\xa0RW\x01VehicleVec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x004u\x0e\x00\x02\x00\x0e\x00!\x00\x00\x00\x01\x00@\xdfLk3u0\x00\x02\x000\x00\x12\x00\x00\x10\x01\x00\x00\x00\x80J]\x05AntennaVec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x005u1\x00\x02\x001\x00\x07\x00\x00\x08\x02\x00\x00\x00\t\x00\x0e'\x07SA24-120-9\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x85\t\x00\x00\x00\x00\xb5\x92\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x01\x02\x03\x04\x05\x00\x01\x02\t\x01\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x00\tTest-10.3"
+
+= Pkt_10_4
+a = Pkt_10_4()
+assert raw(a) == b"\x00\x00\xc6\x01i\x00\x00\x002u\x18\x00\x02\x00\x18\x00\x17\x00\x00\x00\x02\x00\x00\x006\x89\x99\x83\x9c\xb52?  Jk3u\x18\x00\x02\x00\x18\x00\x17\x00\x00\x00\x03\x00\x00\x00\x06\x00\x00\x00\x80\x96\x98\x00\xa0RW\x014u\x0e\x00\x02\x00\x0e\x00!\x00\x00\x00\x01\x00\x08\x1eKk4u\x0e\x00\x02\x00\x0e\x00!\x00\x00\x00\x02\x00\x88\xe5Ik3u@\x00\x02\x00@\x00\xf3\x00\x00\x10\x00\x00\x00\x00\x01\x00\x00\x00\x80J]\x05L\xefIkp\xe9Ik0\xcaIkAntenna1Vec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x005uQ\x00\x02\x00Q\x00\x07\x00\x00\x18\x02\x00\x00\x00\t\x00\x0e'\x07SA24-120-9\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00RightAntenna\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x85\t\x00\x00\x00\x00\xb5\x923u@\x00\x02\x00@\x00\xf3\x00\x00\x10\x00\x00\x00\x00\x01\x00\x00\x00\x80\xdf\x17\x10\xb4\xb4Ikp\xe9Ik0\xcaIkAntenna2Vec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x005uQ\x00\x02\x00Q\x00\x07\x00\x00\x18\x02\x00\x00\x00\t\x00\x0e'\x07SA24-120-9\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00LeftAntenna\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x85\t\x00\x00\x00\x00\xa1\x92\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x01\x02\x03\x04\x05\x00\x01\x02\t\x01\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x00\tTest-10.4"
+
+= Pkt_10_5
+a = Pkt_10_5()
+a.show()
+assert isinstance(a, PPI)
+assert raw(a) == b"\x00\x00\xe3\x00i\x00\x00\x002u\x14\x00\x02\x00\x14\x00\x07\x00\x00\x00\x02\x00\x00\x006\x89\x99\x83\x9c\xb52?3u8\x00\x02\x008\x00\x17\x00\x00\x10\x03\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\xa0RW\x01VehicleVec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x003u0\x00\x02\x000\x00\x12\x00\x00\x10\x01\x00\x00\x00\x00\x0e'\x07AntennaVec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x005u7\x00\x02\x007\x00'\x00\x00(\x02\x00\x01\x00\x0c\x00\x87\x93\x03\xa1\xf1ElectronicallySteerableExAntenna\x01\x02\x03\x04\x02\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x85\t\x00\x00\x00\x00\xb5\x92\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x01\x02\x03\x04\x05\x00\x01\x02\t\x01\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x00\tTest-10.5"
+
+= Pkt_10_6
+a = Pkt_10_6()
+assert raw(a) == b'\x00\x00\x15\x01i\x00\x00\x002u\x14\x00\x02\x00\x14\x00\x07\x00\x00\x00\x02\x00\x00\x006\x89\x99\x83\x9c\xb52?3u4\x00\x02\x004\x00\x13\x00\x00\x10\x02\x00\x00\x00\x06\x00\x00\x00\xa0RW\x01VehicleVec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x003u4\x00\x02\x004\x00\x13\x00\x00\x10\x03\x00\x00\x00\x00\x00\x00\x00\xa0\xe7\x11\x0cForwardVec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x003u4\x00\x02\x004\x00\x13\x00\x00\x10\x00\x00\x00\x00\x01\x00\x00\x00\xc0hx\x04AntennaVec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x005u1\x00\x02\x001\x00\x07\x00\x00\x08\x02\x00\x02\x00\x0c\x00\x87\x93\x03MechanicallySteerableAnt\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x85\t\x00\x00\x00\x00\xb3\x92\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x01\x02\x03\x04\x05\x00\x01\x02\t\x01\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x00\tTest-10.6'
+
+= Pkt_10_7
+a = Pkt_10_7()
+assert raw(a) == b"\x00\x00\x15\x01i\x00\x00\x002u\x14\x00\x02\x00\x14\x00\x07\x00\x00\x00\x02\x00\x00\x00D\x9d?\x84\xfc\xce\x1173u4\x00\x02\x004\x00\x13\x00\x00\x10\x03\x00\x00\x00\x04\x00\x00\x00\x80\xf0\xfa\x02VehicleVec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x003u4\x00\x02\x004\x00\x13\x00\x00\x10\x00\x00\x00\x00\x02\x00\x00\x00\x80\x85\xb5\rDOT-Vec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x003u4\x00\x02\x004\x00\x13\x00\x00\x10\x00\x00\x00\x00\x01\x00\x00\x00\x80J]\x05AntennaVec\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x005u1\x00\x02\x001\x00\x07\x00\x00\x08\x02\x00\x00\x00\t\x00\x0e'\x07SA24-120-9\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x85\t\x00\x00\x00\x00\xb3\x92\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x01\x02\x03\x04\x05\x00\x01\x02\t\x01\x07\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x00\tTest-10.7"
+assert a.headers[5].Antnoise == -110
+assert isinstance(a[Dot11].payload, Dot11Beacon)
+
+= Pkt_10_8
+a = Pkt_10_8()
+a.show()
+assert raw(a) == b'\x00\x00\xc0\x01i\x00\x00\x002u\x1c\x00\x02\x00\x1c\x00g\x00\x00\x00\x80\x00\x00\x00\xe2o=\x84\xd4\x89\x107L\xd0QO\x00\xc2\xeb\x0b3u4\x00\x02\x004\x00\x07\x00\x00\x10\x02\x00\x00\x00\x01\x00\x00\x00\x80J]\x05Antenna-1 orientation\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x004u\x13\x00\x02\x00\x13\x00#\x00\x00 \xd0\x07\xf7\xf2\x1bSk\x01\x02\x03\x045uQ\x00\x02\x00Q\x00\x07\x00\x00\x18\x01\x00\x00\x00\x05\x00*u\x158dBi-Omni\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00Signal 1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xc4\x802u\x1c\x00\x02\x00\x1c\x00g\x00\x00\x00\x80\x00\x00\x00\xa0p=\x84\xbe\x9f\x107L\xd0QO\x00\xc2\xeb\x0b3u4\x00\x02\x004\x00\x07\x00\x00\x10\x02\x00\x00\x00\x01\x00\x00\x00\x80J]\x05Antenna-2 orientation\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x004u\x13\x00\x02\x00\x13\x00#\x00\x00 \xd0\x07\xf7\xf8\xffdk\x01\x02\x03\x045uQ\x00\x02\x00Q\x00\x07\x00\x00\x18\x01\x00\x00\x00\x05\x00*u\x158dBi-Omni\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00Signal 2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb0\x80\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x01\x02\x03\x04\x05\x00\x01\x02\t\x01\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x00\tTest-10.8'
+assert isinstance(a.headers[7].payload, PPI_Geotag_Sensor)
+assert a.headers[7].ScaleFactor == -9
+assert a.headers[7].pfh_length == 19
+
+= Pkt_10_9
+a = Pkt_10_9()
+assert raw(a) == b'\x00\x00\r\x01i\x00\x00\x002u\x1c\x00\x02\x00\x1c\x00g\x00\x00\x00\x80\x00\x00\x00\xa0p=\x84\xbe\x9f\x107L\xd0QO\x00\xc2\xeb\x0b3u4\x00\x02\x004\x00\x07\x00\x00\x10\x02\x00\x00\x00\x01\x00\x00\x00\x80J]\x05Antenna-2 orientation\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x003u<\x00\x02\x00<\x00\x13\x00\x010\x02\x00\x00\x00\x08\x00\x00\x00@\xb1F\x13\x80\x96\x98\x00AOA at Antenna-2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x045uQ\x00\x02\x00Q\x00\x07\x00\x00\x18\x01\x00\x00\x00\x05\x00*u\x158dBi-Omni\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00Signal 2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb0\x80\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x01\x02\x03\x04\x05\x00\x01\x02\t\x01\x98\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x00\tTest-10.9'
+assert a.headers[2].DescString == b'AOA at Antenna-2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= Pkt_10_10
+a = Pkt_10_10()
+assert raw(a) == b'\x00\x00M\x01i\x00\x00\x002u\x1c\x00\x02\x00\x1c\x00g\x00\x00\x00\x80\x00\x00\x00\xa0p=\x84\xbe\x9f\x107L\xd0QO\x00\xc2\xeb\x0b3u4\x00\x02\x004\x00\x07\x00\x00\x10\x02\x00\x00\x00\x01\x00\x00\x00\x80J]\x05Antenna-2 orientation\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x003u<\x00\x02\x00<\x00\x13\x00\x010\x03\x00\x00\x00\x08\x00\x00\x00@\xb1F\x13\x80\x96\x98\x00AOA at Antenna-2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x043u<\x00\x02\x00<\x00C\x00\x020\x00\x00\x00\x00\x10\x00\x00\x00\x80\xecOk  JkTransmitter Position\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x045uQ\x00\x02\x00Q\x00\x07\x00\x00\x18\x01\x00\x00\x00\x05\x00*u\x158dBi-Omni\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00Signal 2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb0\x80\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x01\x02\x03\x04\x05\x00\x01\x02\t\x01\n\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x00\nTest-10.10'
+assert a.headers[0].GPSTime == 1288720719
+assert a.headers[4].ModelName == b'8dBi-Omni\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+assert isinstance(a.headers[3].payload, PPI_Geotag_Vector)
+assert a.headers[3].pfh_type == 30003
+assert a.headers[3].Off_Y == 40.0
+assert a.headers[3].Err_Off == 2.0
+
+= All-in-one packet
+# Extracted from PPI_GEOLOCATION_SDK.zip\PPI_GEOLOCATION_SDK\pcaps\reference-pcaps\all-ppi-geo-fields.py
+a = hex_bytes(b'00008a02690000003275900002029000ff03007002000000368999839cb5323fa0584b6b406e4a6b4f51d04cffffffff40420f0080841e00005ed0b2416c6c4669656c64734750535061636b6574000000000000000000000000000004030201414243442e2e2e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003375900002029000ff000370ff0000000800000080969800002d3101e09da30110f9496b20204a6b0055496b80c3c90128604d6b46756c6c7946696c6c65644f7574566563746f720000000000000000000000000403020141424344000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000034757f0002027f007f0000700100ff4014596b8056686bc098776b00db866b50954a6b4d616465557056656c6f63697479730000000000000000000000000000000000010203044142434400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003575bb000102bb003f00007c0200000009000e2707002d310160f59000b2a13030303030310000000000000000000000000000000000000000000000000000534132342d3132302d39000000000000000000000000000000000000000000004c656674416e74656e6e610000000000000000000000000000000000000000000102030441424344000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002001400000000000000000000000000850900000000a19280000000ffffffffffff0001020304050001020901040000000000000000000064000000000b546573742d53656e736f72')
+pkt = PPI(a)
+assert isinstance(pkt.headers[0].payload, PPI_Geotag_GPS)
+assert pkt.headers[0].present == 1879049215
+assert isinstance(pkt.headers[1].payload, PPI_Geotag_Vector)
+assert pkt.headers[1].present == 1879245055
+assert isinstance(pkt.headers[3].payload, PPI_Geotag_Antenna)
+assert repr(pkt.headers[3].present) == "<Flag 2080374847 (AntennaFlags+Gain+HorizBw+VertBw+PrecisionGain+BeamID+SerialNumber+ModelName+DescString+AppId+AppData)>"
+assert isinstance(pkt.headers[4].payload, PPI_Dot11Common)
+assert isinstance(pkt[Dot11][Dot11Beacon].payload, Dot11Elt)
+assert pkt[Dot11Elt].info == b'Test-Sensor'
+assert pkt[Dot11Elt].ID == 0
+
+= All-wrong-data packet
+pkt = PPI(headers=[
+        PPI_Hdr()/PPI_Geotag_GPS(GPSFlags="Manual Input", Latitude=-181, Longitude=181, GPSTime=1288720719, FractionalTime=-1, ept=100, eph=-1, epv=1000, Altitude=-999999, Altitude_g=999999),
+        PPI_Hdr()/PPI_Geotag_Vector(VectorFlags="DefinesForward+RelativeToEarth", VectorChars=0x08, Heading=323.4, Err_Rot=10.0, DescString="AOA at Antenna-2", AppId=0x04030201),
+        PPI_Hdr()/PPI_Geotag_Antenna(AntennaFlags=0x01,Gain=5,HorizBw=360.0,ModelName="8dBi-Omni", DescString="Signal 2"),
+        PPI_Hdr()/PPI_Dot11Common(Antsignal=-80)])/\
+    Dot11(addr1="FF:FF:FF:FF:FF:FF",addr2="00:01:02:03:04:05",addr3="00:01:02:09:01:0A")/\
+    Dot11Beacon()/Dot11Elt(ID=0,info="Test-allwrong")
+pkt = PPI(raw(pkt))
+pkt.show()
+assert pkt.headers[0].Latitude == -180.0
+assert pkt.headers[0].Longitude == 180.0
+assert pkt.headers[0].Altitude == -180000.0
+assert pkt.headers[0].Altitude_g == 180000.0
+assert pkt.headers[0].epv < 1000
+assert pkt.headers[0].ept < 5
+assert pkt.headers[0].FractionalTime == 0.0

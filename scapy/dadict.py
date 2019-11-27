@@ -11,7 +11,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from scapy.error import Scapy_Exception
 import scapy.modules.six as six
-from scapy.compat import *
+from scapy.compat import plain_str
 
 ###############################
 #  Direct Access dictionary   #
@@ -21,7 +21,13 @@ from scapy.compat import *
 def fixname(x):
     if x and str(x[0]) in "0123456789":
         x = "n_" + x
-    return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")  # noqa: E501
+    return x.translate(
+        "________________________________________________"
+        "0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______"
+        "abcdefghijklmnopqrstuvwxyz____________________________"
+        "______________________________________________________"
+        "___________________________________________________"
+    )
 
 
 class DADict_Exception(Scapy_Exception):
@@ -55,7 +61,7 @@ class DADict:
                 print("%10s = %r" % (k, getattr(self, k)))
 
     def __repr__(self):
-        return "<%s/ %s>" % (self._name, " ".join(x for x in self.__dict__ if x and x[0] != "_"))  # noqa: E501
+        return "<%s - %s elements>" % (self._name, len(self.__dict__))
 
     def _branch(self, br, uniq=0):
         if uniq and br._name in self:
@@ -109,3 +115,8 @@ class DADict:
 
     def __len__(self):
         return len(self.__dict__)
+
+    def __nonzero__(self):
+        # Always has at least its name
+        return len(self.__dict__) > 1
+    __bool__ = __nonzero__

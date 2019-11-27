@@ -1,33 +1,38 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Cesar A. Bernardini <mesarpe@gmail.com>
+#               Intern at INRIA Grand Nancy Est
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>
-# Intern at INRIA Grand Nancy Est
 # This program is published under a GPLv2 license
 """
-
-This implementation follows the next documents:
-    * Transmission of IPv6 Packets over IEEE 802.15.4 Networks
-    * Compression Format for IPv6 Datagrams in Low Power and Lossy
-      networks (6LoWPAN): draft-ietf-6lowpan-hc-15
-    * RFC 4291
-
 6LoWPAN Protocol Stack
 ======================
 
-                            |-----------------------|
-Application                 | Application Protocols |
-                            |-----------------------|
-Transport                   |   UDP      |   TCP    |
-                            |-----------------------|
-Network                     |          IPv6         | (Only IPv6)
-                            |-----------------------|
-                            |         LoWPAN        | (in the middle between network and data link layer)  # noqa: E501
-                            |-----------------------|
-Data Link Layer             |   IEEE 802.15.4 MAC   |
-                            |-----------------------|
-Physical                    |   IEEE 802.15.4 PHY   |
-                            |-----------------------|
+This implementation follows the next documents:
+
+- Transmission of IPv6 Packets over IEEE 802.15.4 Networks
+- Compression Format for IPv6 Datagrams in Low Power and Lossy
+  networks (6LoWPAN): draft-ietf-6lowpan-hc-15
+- RFC 4291
+
++----------------------------+-----------------------+
+|  Application               | Application Protocols |
++----------------------------+------------+----------+
+|  Transport                 |   UDP      |   TCP    |
++----------------------------+------------+----------+
+|  Network                   |          IPv6         |
++----------------------------+-----------------------+
+|                            |         LoWPAN        |
++----------------------------+-----------------------+
+|  Data Link Layer           |   IEEE 802.15.4 MAC   |
++----------------------------+-----------------------+
+|  Physical                  |   IEEE 802.15.4 PHY   |
++----------------------------+-----------------------+
+
+Note that:
+
+ - Only IPv6 is supported
+ - LoWPAN is in the middle between network and data link layer
 
 The Internet Control Message protocol v6 (ICMPv6) is used for control
 messaging.
@@ -37,8 +42,6 @@ the edge of 6LoWPAN islands.
 
 A LoWPAN support addressing; a direct mapping between the link-layer address
 and the IPv6 address is used for achieving compression.
-
-
 
 Known Issues:
     * Unimplemented context information
@@ -53,22 +56,19 @@ import struct
 from scapy.compat import chb, orb, raw
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import BitField, ByteField, XBitField, LEShortField, \
-    LEIntField, StrLenField, BitEnumField, Field, ShortField, \
-    BitFieldLenField, XShortField, FlagsField, StrField, ConditionalField, \
-    FieldLenField
+from scapy.fields import BitField, ByteField, BitEnumField, BitFieldLenField, \
+    XShortField, FlagsField, ConditionalField, FieldLenField
 
-from scapy.layers.dot15d4 import Dot15d4, Dot15d4Data, Dot15d4FCS, dot15d4AddressField  # noqa: E501
-from scapy.layers.inet6 import IPv6, IP6Field, ICMPv6EchoRequest
+from scapy.layers.dot15d4 import Dot15d4Data
+from scapy.layers.inet6 import IPv6, IP6Field
 from scapy.layers.inet import UDP
-from scapy.utils6 import in6_or, in6_and, in6_xor
 
-from scapy.utils import lhex, hexdump
-
-from scapy.route6 import *
+from scapy.utils import lhex
+from scapy.config import conf
+from scapy.error import warning
 
 from scapy.packet import Raw
-from scapy.pton_ntop import *
+from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.volatile import RandShort
 
 LINK_LOCAL_PREFIX = b"\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"  # noqa: E501
@@ -83,18 +83,19 @@ class IP6FieldLenField(IP6Field):
 
     def addfield(self, pkt, s, val):
         """Add an internal value  to a string"""
-        l = self.length_of(pkt)
-        if l == 0:
+        tmp_len = self.length_of(pkt)
+        if tmp_len == 0:
             return s
-        internal = self.i2m(pkt, val)[-l:]
-        return s + struct.pack("!%ds" % l, internal)
+        internal = self.i2m(pkt, val)[-tmp_len:]
+        return s + struct.pack("!%ds" % tmp_len, internal)
 
     def getfield(self, pkt, s):
-        l = self.length_of(pkt)
-        assert l >= 0 and l <= 16
-        if l <= 0:
+        tmp_len = self.length_of(pkt)
+        assert tmp_len >= 0 and tmp_len <= 16
+        if tmp_len <= 0:
             return s, b""
-        return s[l:], self.m2i(pkt, b"\x00" * (16 - l) + s[:l])
+        return (s[tmp_len:],
+                self.m2i(pkt, b"\x00" * (16 - tmp_len) + s[:tmp_len]))
 
 
 class BitVarSizeField(BitField):
@@ -336,17 +337,6 @@ def flowlabel_len(pkt):
         return 0
 
 
-def _tf_lowpan(pkt):
-    if pkt.tf == 0:
-        return 32
-    elif pkt.tf == 1:
-        return 24
-    elif pkt.tf == 2:
-        return 8
-    else:
-        return 0
-
-
 def _tf_last_attempt(pkt):
     if pkt.tf == 0:
         return 2, 6, 4, 20
@@ -484,6 +474,7 @@ class LoWPAN_IPHC(Packet):
             # The Next Header field is compressed and the next header is
             # encoded using LOWPAN_NHC
 
+            packet.nh = 0x11  # UDP
             udp = UDP()
             if self.header_compression and \
                self.header_compression & 0x4 == 0x0:
@@ -752,11 +743,12 @@ MAX_SIZE = 96
 
 def sixlowpan_fragment(packet, datagram_tag=1):
     """Split a packet into different links to transmit as 6lowpan packets.
-        Usage example:
-          >>> ipv6 = ..... (very big packet)
-          >>> pkts = sixlowpan_fragment(ipv6, datagram_tag=0x17)
-          >>> send = [Dot15d4()/Dot15d4Data()/x for x in pkts]
-          >>> wireshark(send)
+    Usage example::
+
+      >>> ipv6 = ..... (very big packet)
+      >>> pkts = sixlowpan_fragment(ipv6, datagram_tag=0x17)
+      >>> send = [Dot15d4()/Dot15d4Data()/x for x in pkts]
+      >>> wireshark(send)
     """
     if not packet.haslayer(IPv6):
         raise Exception("SixLoWPAN only fragments IPv6 packets !")

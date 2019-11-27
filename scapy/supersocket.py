@@ -8,16 +8,17 @@ SuperSocket.
 """
 
 from __future__ import absolute_import
+from select import select, error as select_error
+import errno
 import os
 import socket
-import subprocess
 import struct
 import time
 
 from scapy.config import conf
-from scapy.consts import LINUX, OPENBSD, BSD, DARWIN, WINDOWS
-from scapy.data import *
-from scapy.compat import *
+from scapy.consts import LINUX, DARWIN, WINDOWS
+from scapy.data import MTU, ETH_P_IP
+from scapy.compat import raw, bytes_encode
 from scapy.error import warning, log_runtime
 import scapy.modules.six as six
 import scapy.packet
@@ -35,6 +36,8 @@ class _SuperSocket_metaclass(type):
 class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
     closed = 0
+    nonblocking_socket = False
+    read_allowed_exceptions = ()
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
         self.ins = socket.socket(family, type, proto)
@@ -43,8 +46,10 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
 
     def send(self, x):
         sx = raw(x)
-        if hasattr(x, "sent_time"):
+        try:
             x.sent_time = time.time()
+        except AttributeError:
+            pass
         return self.outs.send(sx)
 
     def recv_raw(self, x=MTU):
@@ -59,11 +64,14 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             pkt = cls(val)
         except KeyboardInterrupt:
             raise
-        except:
+        except Exception:
             if conf.debug_dissector:
+                from scapy.sendrecv import debug
+                debug.crashed_on = (cls, val)
                 raise
             pkt = conf.raw_layer(val)
-        pkt.time = ts
+        if ts:
+            pkt.time = ts
         return pkt
 
     def fileno(self):
@@ -73,12 +81,12 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         if self.closed:
             return
         self.closed = True
-        if hasattr(self, "outs"):
-            if not hasattr(self, "ins") or self.ins != self.outs:
-                if self.outs and self.outs.fileno() != -1:
+        if getattr(self, "outs", None):
+            if getattr(self, "ins", None) != self.outs:
+                if WINDOWS or self.outs.fileno() != -1:
                     self.outs.close()
-        if hasattr(self, "ins"):
-            if self.ins and self.ins.fileno() != -1:
+        if getattr(self, "ins", None):
+            if WINDOWS or self.ins.fileno() != -1:
                 self.ins.close()
 
     def sr(self, *args, **kargs):
@@ -96,6 +104,38 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     def sniff(self, *args, **kargs):
         from scapy import sendrecv
         return sendrecv.sniff(opened_socket=self, *args, **kargs)
+
+    def tshark(self, *args, **kargs):
+        from scapy import sendrecv
+        return sendrecv.tshark(opened_socket=self, *args, **kargs)
+
+    @staticmethod
+    def select(sockets, remain=conf.recv_poll_rate):
+        """This function is called during sendrecv() routine to select
+        the available sockets.
+
+        :param sockets: an array of sockets that need to be selected
+        :returns: an array of sockets that were selected and
+            the function to be called next to get the packets (i.g. recv)
+        """
+        try:
+            inp, _, _ = select(sockets, [], [], remain)
+        except (IOError, select_error) as exc:
+            # select.error has no .errno attribute
+            if exc.args[0] != errno.EINTR:
+                raise
+        return inp, None
+
+    def __del__(self):
+        """Close the socket"""
+        self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Close the socket"""
+        self.close()
 
 
 class L3RawSocket(SuperSocket):
@@ -127,7 +167,7 @@ class L3RawSocket(SuperSocket):
             pkt = cls(pkt)
         except KeyboardInterrupt:
             raise
-        except:
+        except Exception:
             if conf.debug_dissector:
                 raise
             pkt = conf.raw_layer(pkt)
@@ -158,6 +198,7 @@ class SimpleSocket(SuperSocket):
 
 class StreamSocket(SimpleSocket):
     desc = "transforms a stream socket into a layer 2"
+    nonblocking_socket = True
 
     def __init__(self, sock, basecls=None):
         if basecls is None:
@@ -169,7 +210,7 @@ class StreamSocket(SimpleSocket):
         pkt = self.ins.recv(x, socket.MSG_PEEK)
         x = len(pkt)
         if x == 0:
-            raise socket.error((100, "Underlying stream socket tore down"))
+            return None
         pkt = self.basecls(pkt)
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
@@ -195,7 +236,7 @@ class SSLStreamSocket(StreamSocket):
         if self._buf != b"":
             try:
                 pkt = self.basecls(self._buf)
-            except:
+            except Exception:
                 # We assume that the exception is generated by a buffer underflow  # noqa: E501
                 pass
 
@@ -264,18 +305,9 @@ class TunTapInterface(SuperSocket):
 
     def __init__(self, iface=None, mode_tun=None, *arg, **karg):
         self.iface = conf.iface if iface is None else iface
-        self.mode_tun = ("tun" in iface) if mode_tun is None else mode_tun
+        self.mode_tun = ("tun" in self.iface) if mode_tun is None else mode_tun
         self.closed = True
         self.open()
-
-    def __enter__(self):
-        return self
-
-    def __del__(self):
-        self.close()
-
-    def __exit__(self, *_):
-        self.close()
 
     def open(self):
         """Open the TUN or TAP device."""
@@ -292,7 +324,8 @@ class TunTapInterface(SuperSocket):
             # IFF_TAP = 0x0002
             # IFF_NO_PI = 0x1000
             ioctl(self.ins, 0x400454ca, struct.pack(
-                "16sH", raw(self.iface), 0x0001 if self.mode_tun else 0x1002,
+                "16sH", bytes_encode(self.iface),
+                0x0001 if self.mode_tun else 0x1002,
             ))
         self.closed = False
 
@@ -331,7 +364,3 @@ conf.L2listen, conf.L2socket or conf.L3socket.
             os.write(self.outs.fileno(), sx)
         except socket.error:
             log_runtime.error("%s send", self.__class__.__name__, exc_info=True)  # noqa: E501
-
-
-if conf.L3socket is None:
-    conf.L3socket = L3RawSocket

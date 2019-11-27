@@ -1,0 +1,99 @@
+% Tests for OpenFlow v1.0 with Scapy
+
++ Preparation
+= Be sure we have loaded OpenFlow v1
+load_contrib("openflow")
+
++ Usual OFv1.0 messages
+
+= OFPTHello(), simple hello message
+ofm = OFPTHello()
+raw(ofm) == b'\x01\x00\x00\x08\x00\x00\x00\x00'
+
+= OFPTEchoRequest(), echo request
+ofm = OFPTEchoRequest()
+raw(ofm) == b'\x01\x02\x00\x08\x00\x00\x00\x00'
+
+= OFPMatch(), check wildcard completion
+ofm = OFPMatch(in_port=1, nw_tos=8)
+ofm = OFPMatch(raw(ofm))
+assert(ofm.wildcards1 == 0x1)
+ofm.wildcards2 == 0xee
+
+= OpenFlow(), generic method test with OFPTEchoRequest()
+ofm = OFPTEchoRequest()
+s = raw(ofm)
+isinstance(OpenFlow(s), OFPTEchoRequest)
+
+= OFPTFlowMod(), check codes and defaults values
+ofm = OFPTFlowMod(cmd='OFPFC_DELETE', out_port='CONTROLLER', flags='CHECK_OVERLAP+EMERG')
+assert(ofm.cmd == 3)
+assert(ofm.buffer_id == 0xffffffff)
+assert(ofm.out_port == 0xfffd)
+ofm.flags == 6
+
++ Complex OFv1.0 messages
+
+= OFPTFlowMod(), complex flow_mod
+mtc = OFPMatch(dl_vlan=10, nw_src='192.168.42.0', nw_src_mask=8)
+act1 = OFPATSetNwSrc(nw_addr='192.168.42.1')
+act2 = OFPATOutput(port='CONTROLLER')
+act3 = OFPATSetDlSrc(dl_addr='1a:d5:cb:4e:3c:64')
+ofm = OFPTFlowMod(priority=1000, match=mtc, flags='CHECK_OVERLAP', actions=[act1,act2,act3])
+raw(ofm)
+s = b'\x01\x0e\x00h\x00\x00\x00\x00\x00?\xc8\xed\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x08\x00\x00\x00\x00\x00\xc0\xa8*\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\xe8\xff\xff\xff\xff\xff\xff\x00\x02\x00\x06\x00\x08\xc0\xa8*\x01\x00\x00\x00\x08\xff\xfd\xff\xff\x00\x04\x00\x10\x1a\xd5\xcbN<d\x00\x00\x00\x00\x00\x00'
+raw(ofm) == s
+
+= OFPETBadRequest() containing a flow_mod with wrong table_id
+flowmod = OFPTFlowMod(actions=OFPATOutput(port='LOCAL'))
+ofm = OFPETBadRequest(errcode='OFPBRC_EPERM', data=raw(flowmod))
+hexdump(ofm)
+s = b'\x01\x01\x00\\\x00\x00\x00\x00\x00\x01\x00\x05\x01\x0e\x00P\x00\x00\x00\x00\x00?\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x08\xff\xfe\xff\xff'
+raw(ofm) == s
+
+= OFPTPacketIn() containing an Ethernet frame
+ofm = OFPTPacketIn(data=Ether()/IP()/ICMP())
+p = OFPTPacketIn(raw(ofm))
+dat = p.data
+assert(isinstance(dat, Ether))
+assert(isinstance(dat.payload, IP))
+isinstance(dat.payload.payload, ICMP)
+
+= OFPTStatsReplyFlow()
+pkt = TCP()/OFPTStatsReplyFlow(flow_stats=[OFPFlowStats(actions=[OFPATSetTpSrc()])])
+pkt = TCP(raw(pkt))
+assert isinstance(pkt.flow_stats[0].actions[0], OFPATSetTpSrc)
+
+= OFPTQueueGetConfigReply()
+pkt = TCP()/OFPTQueueGetConfigReply(queues=[OFPPacketQueue(properties=[OFPQTMinRate(rate=123)])])
+pkt = TCP(raw(pkt))
+assert pkt.queues[0].properties[0].rate == 123
+
+= OFPETHelloFailed()
+pkt = OFPETHelloFailed(data=OFPTEchoRequest())
+pkt = OFPETHelloFailed(raw(pkt))
+assert isinstance(pkt.data, OFPTEchoRequest)
+
++ Layer bindings
+
+= TCP()/OFPTStatsRequestDesc(), check default sport
+p = TCP()/OFPTStatsRequestDesc()
+p[TCP].sport == 6653
+
+= TCP()/OFPETHelloFailed(), check default dport
+p = TCP()/OFPETHelloFailed()
+p[TCP].dport == 6653
+
+= TCP()/OFPTHello() dissection, check new TCP.guess_payload_class
+o = TCP(dport=6653)/OFPTHello()
+p = TCP(raw(o))
+p[TCP].sport == 6653
+isinstance(p[TCP].payload, OFPTHello)
+
+= complete Ether()/IP()/TCP()/OFPTFeaturesRequest()
+ofm = Ether(src='00:11:22:33:44:55',dst='01:23:45:67:89:ab')/IP(src='10.0.0.7',dst='192.168.0.42')/TCP(sport=6633, dport=6633)/OFPTFeaturesRequest(xid=23)
+s = b'\x01#Eg\x89\xab\x00\x11"3DU\x08\x00E\x00\x000\x00\x01\x00\x00@\x06\xaf\xee\n\x00\x00\x07\xc0\xa8\x00*\x19\xe9\x19\xe9\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x90\x0b\x00\x00\x01\x05\x00\x08\x00\x00\x00\x17'
+assert(raw(ofm) == s)
+e = Ether(s)
+e.show2()
+e[OFPTFeaturesRequest].xid == 23

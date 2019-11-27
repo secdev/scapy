@@ -23,13 +23,10 @@ Isn't reliable for all packets and for building
 """
 
 # TODO: namespace locally used fields
-import re
-import struct
 from scapy.packet import Packet, Raw, bind_layers
-from scapy.fields import Field, BitEnumField, ByteEnumField, ByteField, \
-    FlagsField, IntField, LenField, ShortField, XByteField, XShortField
-from scapy.volatile import RandField, RandNum, RandInt, RandShort, RandByte
-import scapy.modules.six
+from scapy.fields import BitEnumField, ByteEnumField, ByteField, \
+    FlagsField, IntField, LenField, ShortField, UUIDField, XByteField, \
+    XShortField
 
 
 # Fields
@@ -44,9 +41,14 @@ class EndiannessField(object):
     def set_endianess(self, pkt):
         """Add the endianness to the format"""
         end = self.endianess_from(pkt)
-        if isinstance(end, str) and len(end) > 0:
-            # fld.fmt should always start with a order specifier, cf field init
-            self.fld.fmt = end[0] + self.fld.fmt[1:]
+        if isinstance(end, str) and end:
+            if isinstance(self.fld, UUIDField):
+                self.fld.uuid_fmt = (UUIDField.FORMAT_LE if end == '<'
+                                     else UUIDField.FORMAT_BE)
+            else:
+                # fld.fmt should always start with a order specifier, cf field
+                # init
+                self.fld.fmt = end[0] + self.fld.fmt[1:]
 
     def getfield(self, pkt, buf):
         """retrieve the field with endianness"""
@@ -60,88 +62,6 @@ class EndiannessField(object):
 
     def __getattr__(self, attr):
         return getattr(self.fld, attr)
-
-
-class UUIDField(Field):
-    """UUID Field"""
-    __slots__ = ["reg"]
-
-    def __init__(self, name, default):
-        # create and compile the regex used to extract the uuid values from str
-        reg = r"^\s*{0}-{1}-{1}-{2}{2}-{2}{2}{2}{2}{2}{2}\s*$".format(
-            "([0-9a-f]{8})", "([0-9a-f]{4})", "([0-9a-f]{2})"
-        )
-        self.reg = re.compile(reg, re.I)
-
-        Field.__init__(self, name, default, fmt="I2H8B")
-
-    def i2m(self, pkt, val):
-        if val is None:
-            return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-
-        if isinstance(val, bytearray) or isinstance(val, str):  # py3 concern
-            # use the regex to extract the values
-            match = self.reg.match(val)
-            if match:
-                # we return a tuple of values after parsing them to integer
-                return tuple([int(i, 16) for i in match.groups()])
-            else:
-                return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        else:
-            return val
-
-    def m2i(self, pkt, val):
-        return ("%08x-%04x-%04x-%02x%02x-" + "%02x" * 6) % val
-
-    def any2i(self, pkt, val):
-        if isinstance(val, bytearray) and len(val) == 16:
-            return self.getfield(pkt, val)[1]
-        elif isinstance(val, bytearray):
-            return val.lower()
-        return val
-
-    def addfield(self, pkt, s, val):
-        return s + struct.pack(self.fmt, *self.i2m(pkt, val))
-
-    def getfield(self, pkt, s):
-        return s[16:], self.m2i(pkt, struct.unpack(self.fmt, s[:16]))
-
-    @staticmethod
-    def randval():
-        return RandUUID()
-
-
-class RandUUID(RandField):
-    """generate a random UUID"""
-    def __init__(self, template="*-*-*-**-******"):
-        base = "([0-9a-f]{{{0}}}|\\*|[0-9a-f]{{{0}}}:[0-9a-f]{{{0}}})"
-        reg = re.compile(
-            r"^\s*{0}-{1}-{1}-{2}{2}-{2}{2}{2}{2}{2}{2}\s*$".format(
-                base.format(8), base.format(4), base.format(2)
-            ),
-            re.I
-        )
-
-        tmp = reg.match(template)
-        if tmp:
-            template = tmp.groups()
-        else:
-            template = ["*"] * 11
-
-        rnd_f = [RandInt] + [RandShort] * 2 + [RandByte] * 8
-        self.uuid = ()
-        for i in scapy.modules.six.moves.range(11):
-            if template[i] == "*":
-                val = rnd_f[i]()
-            elif ":" in template[i]:
-                mini, maxi = template[i].split(":")
-                val = RandNum(int(mini, 16), int(maxi, 16))
-            else:
-                val = int(template[i], 16)
-            self.uuid += (val,)
-
-    def _fix(self):
-        return ("%08x-%04x-%04x-%02x%02x-" + "%02x" * 6) % self.uuid
 
 
 # DCE/RPC Packet

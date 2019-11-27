@@ -12,11 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = BIER
+# scapy.contrib.description = Bit Index Explicit Replication (BIER)
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitEnumField, BitField, BitFieldLenField, ByteField, \
+    ShortField, StrLenField
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6
 

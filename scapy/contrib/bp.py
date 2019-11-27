@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # This file is part of Scapy
 # Scapy is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +13,7 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 """
- Copyright 2012, The MITRE Corporation
+ Copyright 2012, The MITRE Corporation::
 
                               NOTICE
     This software/technical data was produced for the U.S. Government
@@ -28,11 +26,11 @@
 # scapy.contrib.description = Bundle Protocol (BP)
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import UDP
-from scapy.contrib.ltp import *
-from scapy.contrib.sdnv import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    StrLenField
+from scapy.contrib.sdnv import SDNV2FieldLenField, SDNV2LenField, SDNV2
+from scapy.contrib.ltp import LTP, ltp_bind_payload
 
 
 class BP(Packet):

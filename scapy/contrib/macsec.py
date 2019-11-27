@@ -3,6 +3,9 @@
 # Copyright (C) Sabrina Dubroca <sd@queasysnail.net>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = 802.1AE - IEEE MAC Security standard (MACsec)
+# scapy.contrib.status = loads
+
 """
 Classes and functions for MACsec.
 """
@@ -10,18 +13,22 @@ Classes and functions for MACsec.
 from __future__ import absolute_import
 from __future__ import print_function
 import struct
+import copy
 
 from scapy.config import conf
-from scapy.fields import *
+from scapy.fields import BitField, ConditionalField, IntField, PacketField, \
+    XShortEnumField
 from scapy.packet import Packet, Raw, bind_layers
 from scapy.layers.l2 import Ether, Dot1AD, Dot1Q
 from scapy.layers.eap import MACsecSCI
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
+from scapy.compat import raw
+from scapy.data import ETH_P_MACSEC, ETHER_TYPES, ETH_P_IP, ETH_P_IPV6
+from scapy.error import log_loading
 import scapy.modules.six as six
 
 if conf.crypto_valid:
-    from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives.ciphers import (
         Cipher,

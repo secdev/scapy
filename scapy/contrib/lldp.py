@@ -1,6 +1,4 @@
-#! /usr/bin/env python
-#
-# scapy.contrib.description = LLDP
+# scapy.contrib.description = Link Layer Discovery Protocol (LLDP)
 # scapy.contrib.status = loads
 
 """
@@ -28,29 +26,32 @@
             - IEEE 802.1AB 2016 - LLDP protocol, topology and MIB description
 
     :TODO:
-        - organization specific TLV e.g. ProfiNet (see LLDPDUGenericOrganisationSpecific for a starting point)  # noqa: E501
+        - | organization specific TLV e.g. ProfiNet
+          | (see LLDPDUGenericOrganisationSpecific for a starting point)
+        - Ignore everything after EndofLLDPDUTLV
 
     :NOTES:
         - you can find the layer configuration options at the end of this file
-        - default configuration enforces standard conform
-          - frame structure
-                (ChassisIDTLV/PortIDTLV/TimeToLiveTLV/.../EndofLLDPDUTLV)
-          - multiplicity of TLVs (if given by the standard)
-          - min sizes of strings used by the TLVs
+        - default configuration enforces standard conform:
+
+          * | frame structure
+            | (ChassisIDTLV/PortIDTLV/TimeToLiveTLV/...)
+          * multiplicity of TLVs (if given by the standard)
+          * min sizes of strings used by the TLVs
+
         - conf.contribs['LLDP'].strict_mode_disable() -> disable strict mode
-        - strict mode = True => conf.debug_dissector = True
 
 """
 from scapy.config import conf
-from scapy.error import log_runtime, Scapy_Exception
+from scapy.error import Scapy_Exception
 from scapy.layers.l2 import Ether, Dot1Q
 from scapy.fields import MACField, IPField, BitField, \
     StrLenField, ByteEnumField, BitEnumField, \
     EnumField, ThreeBytesField, BitFieldLenField, \
-    ShortField, XStrLenField, ByteField
-from scapy.packet import Packet, Padding, bind_layers
+    ShortField, XStrLenField, ByteField, ConditionalField, \
+    MultipleTypeField
+from scapy.packet import Packet, bind_layers
 from scapy.modules.six.moves import range
-import scapy.modules.six as six
 from scapy.data import ETHER_TYPES
 from scapy.compat import orb
 
@@ -66,13 +67,6 @@ class LLDPInvalidFrameStructure(Scapy_Exception):
     """
     basic frame structure not standard conform
     (missing TLV, invalid order or multiplicity)
-    """
-    pass
-
-
-class LLDPInvalidLastLayerException(Scapy_Exception):
-    """
-    in strict mode, last layer in frame must be of type LLDPDUEndOfLLDPDU
     """
     pass
 
@@ -151,14 +145,6 @@ class LLDPDU(Packet):
 
     def post_build(self, pkt, pay):
 
-        last_layer = not pay
-        if last_layer and conf.contribs['LLDP'].strict_mode() and \
-                type(self).__name__ != LLDPDUEndOfLLDPDU.__name__:
-            raise LLDPInvalidLastLayerException('Last layer must be instance '
-                                                'of LLDPDUEndOfLLDPDU - '
-                                                'got {}'.
-                                                format(type(self).__name__))
-
         under_layer = self.underlayer
 
         if under_layer is None:
@@ -196,10 +182,9 @@ class LLDPDU(Packet):
         standard_frame_structure = [LLDPDUChassisID.__name__,
                                     LLDPDUPortID.__name__,
                                     LLDPDUTimeToLive.__name__,
-                                    '<...>',
-                                    LLDPDUEndOfLLDPDU.__name__]
+                                    '<...>']
 
-        if len(structure_description) < 4:
+        if len(structure_description) < 3:
             raise LLDPInvalidFrameStructure(
                 'Invalid frame structure.\ngot: {}\nexpected: '
                 '{}'.format(' '.join(structure_description),
@@ -215,12 +200,6 @@ class LLDPDU(Packet):
                     '{}'.format(' '.join(structure_description),
                                 ' '.join(standard_frame_structure)))
 
-        if structure_description[-1] != standard_frame_structure[-1]:
-            raise LLDPInvalidFrameStructure(
-                'Invalid frame structure.\ngot: {}\nexpected: '
-                '{}'.format(' '.join(structure_description),
-                            ' '.join(standard_frame_structure)))
-
     @staticmethod
     def _tlv_multiplicities_check(tlv_type_count):
         """
@@ -230,7 +209,7 @@ class LLDPDU(Packet):
 
         # * : 0..n, 1 : one and only one.
         standard_multiplicities = {
-            LLDPDUEndOfLLDPDU.__name__: 1,
+            LLDPDUEndOfLLDPDU.__name__: '*',
             LLDPDUChassisID.__name__: 1,
             LLDPDUPortID.__name__: 1,
             LLDPDUTimeToLive.__name__: 1,
@@ -298,37 +277,16 @@ class LLDPDU(Packet):
         return super(LLDPDU, self).do_build()
 
 
-class _LLDPidField(StrLenField):
-    """Class that selects the type of the ID field depending
-    on the type of `subtype`"""
-    __slots__ = StrLenField.__slots__ + ["subtypes_dict"]
-
-    def __init__(self, name, default, subtypes_dict, *args, **kargs):
-        self.subtypes_dict = subtypes_dict
-        super(_LLDPidField, self).__init__(name, default, *args, **kargs)
-
-    def m2i(self, pkt, x):
-        cls = self.subtypes_dict.get(pkt.subtype, StrLenField)
-        try:
-            return (cls.m2i.__func__ if six.PY2 else cls.m2i)(self, pkt, x)
-        except:
-            log_runtime.exception("Failed to dissect " + self.name + " ! ")
-            return StrLenField.m2i(self, pkt, x)
-
-    def i2m(self, pkt, x):
-        cls = self.subtypes_dict.get(pkt.subtype, StrLenField)
-        try:
-            return (cls.i2m.__func__ if six.PY2 else cls.i2m)(self, pkt, x)
-        except:
-            log_runtime.exception("Failed to build " + self.name + " ! ")
-            return StrLenField.i2m(self, pkt, x)
-
-
 def _ldp_id_adjustlen(pkt, x):
     """Return the length of the `id` field,
     according to its real encoded type"""
     f, v = pkt.getfield_and_val('id')
-    return len(_LLDPidField.i2m(f, pkt, v)) + 1
+    length = f.i2len(pkt, v) + 1
+    if (isinstance(pkt, LLDPDUPortID) and pkt.subtype == 0x4) or \
+            (isinstance(pkt, LLDPDUChassisID) and pkt.subtype == 0x5):
+        # Take the ConditionalField into account
+        length += 1
+    return length
 
 
 class LLDPDUChassisID(LLDPDU):
@@ -347,11 +305,6 @@ class LLDPDUChassisID(LLDPDU):
         range(0x08, 0xff): 'reserved'
     }
 
-    LLDP_CHASSIS_ID_TLV_SUBTYPES_FIELDS = {
-        0x04: MACField,
-        0x05: IPField,
-    }
-
     SUBTYPE_RESERVED = 0x00
     SUBTYPE_CHASSIS_COMPONENT = 0x01
     SUBTYPE_INTERFACE_ALIAS = 0x02
@@ -366,7 +319,21 @@ class LLDPDUChassisID(LLDPDU):
         BitFieldLenField('_length', None, 9, length_of='id',
                          adjust=lambda pkt, x: _ldp_id_adjustlen(pkt, x)),
         ByteEnumField('subtype', 0x00, LLDP_CHASSIS_ID_TLV_SUBTYPES),
-        _LLDPidField('id', '', LLDP_CHASSIS_ID_TLV_SUBTYPES_FIELDS, length_from=lambda pkt: pkt._length - 1)  # noqa: E501
+        ConditionalField(
+            ByteField('family', 0),
+            lambda pkt: pkt.subtype == 0x05
+        ),
+        MultipleTypeField([
+            (
+                MACField('id', None),
+                lambda pkt: pkt.subtype == 0x04
+            ),
+            (
+                IPField('id', None),
+                lambda pkt: pkt.subtype == 0x05
+            ),
+        ], StrLenField('id', '', length_from=lambda pkt: pkt._length - 1)
+        )
     ]
 
     def _check(self):
@@ -393,11 +360,6 @@ class LLDPDUPortID(LLDPDU):
         range(0x08, 0xff): 'reserved'
     }
 
-    LLDP_PORT_ID_TLV_SUBTYPES_FIELDS = {
-        0x03: MACField,
-        0x04: IPField,
-    }
-
     SUBTYPE_RESERVED = 0x00
     SUBTYPE_INTERFACE_ALIAS = 0x01
     SUBTYPE_PORT_COMPONENT = 0x02
@@ -412,7 +374,21 @@ class LLDPDUPortID(LLDPDU):
         BitFieldLenField('_length', None, 9, length_of='id',
                          adjust=lambda pkt, x: _ldp_id_adjustlen(pkt, x)),
         ByteEnumField('subtype', 0x00, LLDP_PORT_ID_TLV_SUBTYPES),
-        _LLDPidField('id', '', LLDP_PORT_ID_TLV_SUBTYPES_FIELDS, length_from=lambda pkt: pkt._length - 1)  # noqa: E501
+        ConditionalField(
+            ByteField('family', 0),
+            lambda pkt: pkt.subtype == 0x04
+        ),
+        MultipleTypeField([
+            (
+                MACField('id', None),
+                lambda pkt: pkt.subtype == 0x03
+            ),
+            (
+                IPField('id', None),
+                lambda pkt: pkt.subtype == 0x04
+            ),
+        ], StrLenField('id', '', length_from=lambda pkt: pkt._length - 1)
+        )
     ]
 
     def _check(self):
@@ -548,14 +524,13 @@ class LLDPDUSystemCapabilities(LLDPDU):
 
 class LLDPDUManagementAddress(LLDPDU):
     """
-        ieee 802.1ab-2016 - sec. 8.5.9 / p. 32
+    ieee 802.1ab-2016 - sec. 8.5.9 / p. 32
 
-        currently only 0x00..0x1e are used by standards, no way to
-        use anything > 0xff as management address subtype is only
-        one octet wide
+    currently only 0x00..0x1e are used by standards, no way to
+    use anything > 0xff as management address subtype is only
+    one octet wide
 
-        see https://www.iana.org/assignments/
-        address-family-numbers/address-family-numbers.xhtml
+    see https://www.iana.org/assignments/address-family-numbers/address-family-numbers.xhtml  # noqa: E501
     """
     IANA_ADDRESS_FAMILY_NUMBERS = {
         0x00: 'other',
@@ -634,7 +609,8 @@ class LLDPDUManagementAddress(LLDPDU):
     SUBTYPE_INTERFACE_NUMBER_SYSTEM_PORT_NUMBER = 0x03
 
     '''
-        Note - calculation of _length field:
+    Note - calculation of _length field::
+
         _length = 1@_management_address_string_length +
                   1@management_address_subtype +
                   management_address.len +
@@ -738,14 +714,12 @@ class LLDPConfiguration(object):
         enable strict mode and dissector debugging
         """
         self._strict_mode = True
-        conf.debug_dissector = True
 
     def strict_mode_disable(self):
         """
         disable strict mode and dissector debugging
         """
         self._strict_mode = False
-        conf.debug_dissector = False
 
     def strict_mode(self):
         """

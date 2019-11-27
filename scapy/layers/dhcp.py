@@ -9,26 +9,31 @@ DHCP (Dynamic Host Configuration Protocol) and BOOTP
 
 from __future__ import absolute_import
 from __future__ import print_function
-from collections import Iterable
+try:
+    from collections.abc import Iterable
+except ImportError:
+    # For backwards compatibility.  This was removed in Python 3.8
+    from collections import Iterable
 import random
 import struct
 
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
-from scapy.data import chb, orb, raw
+from scapy.compat import chb, orb, bytes_encode
 from scapy.fields import ByteEnumField, ByteField, Field, FieldListField, \
     FlagsField, IntField, IPField, ShortField, StrField
 from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether
-from scapy.packet import bind_layers, bind_bottom_up
+from scapy.packet import bind_layers, bind_bottom_up, Packet
 from scapy.utils import atol, itom, ltoa, sane
 from scapy.volatile import RandBin, RandField, RandNum, RandNumExpo
 
 from scapy.arch import get_if_raw_hwaddr
-from scapy.sendrecv import *
+from scapy.sendrecv import srp1, sendp
 from scapy.error import warning
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from scapy.config import conf
 
 dhcpmagic = b"c\x82Sc"
 
@@ -67,7 +72,7 @@ class BOOTP(Packet):
             return b"", None
 
     def hashret(self):
-        return struct.pack("L", self.xid)
+        return struct.pack("!I", self.xid)
 
     def answers(self, other):
         if not isinstance(other, BOOTP):
@@ -107,7 +112,7 @@ DHCPTypes = {
 DHCPOptions = {
     0: "pad",
     1: IPField("subnet_mask", "0.0.0.0"),
-    2: "time_zone",
+    2: IntField("time_zone", 500),
     3: IPField("router", "0.0.0.0"),
     4: IPField("time_server", "0.0.0.0"),
     5: IPField("IEN_name_server", "0.0.0.0"),
@@ -115,27 +120,49 @@ DHCPOptions = {
     7: IPField("log_server", "0.0.0.0"),
     8: IPField("cookie_server", "0.0.0.0"),
     9: IPField("lpr_server", "0.0.0.0"),
+    10: IPField("impress-servers", "0.0.0.0"),
+    11: IPField("resource-location-servers", "0.0.0.0"),
     12: "hostname",
+    13: ShortField("boot-size", 1000),
     14: "dump_path",
     15: "domain",
+    16: IPField("swap-server", "0.0.0.0"),
     17: "root_disk_path",
-    22: "max_dgram_reass_size",
-    23: "default_ttl",
-    24: "pmtu_timeout",
+    18: "extensions-path",
+    19: ByteField("ip-forwarding", 0),
+    20: ByteField("non-local-source-routing", 0),
+    21: IPField("policy-filter", "0.0.0.0"),
+    22: ShortField("max_dgram_reass_size", 300),
+    23: ByteField("default_ttl", 50),
+    24: IntField("pmtu_timeout", 1000),
+    25: ShortField("path-mtu-plateau-table", 1000),
+    26: ShortField("interface-mtu", 50),
+    27: ByteField("all-subnets-local", 0),
     28: IPField("broadcast_address", "0.0.0.0"),
-    35: "arp_cache_timeout",
-    36: "ether_or_dot3",
-    37: "tcp_ttl",
-    38: "tcp_keepalive_interval",
-    39: "tcp_keepalive_garbage",
-    40: "NIS_domain",
+    29: ByteField("perform-mask-discovery", 0),
+    30: ByteField("mask-supplier", 0),
+    31: ByteField("router-discovery", 0),
+    32: IPField("router-solicitation-address", "0.0.0.0"),
+    33: IPField("static-routes", "0.0.0.0"),
+    34: ByteField("trailer-encapsulation", 0),
+    35: IntField("arp_cache_timeout", 1000),
+    36: ByteField("ieee802-3-encapsulation", 0),
+    37: ByteField("tcp_ttl", 100),
+    38: IntField("tcp_keepalive_interval", 1000),
+    39: ByteField("tcp_keepalive_garbage", 0),
+    40: StrField("NIS_domain", "www.example.com"),
     41: IPField("NIS_server", "0.0.0.0"),
     42: IPField("NTP_server", "0.0.0.0"),
     43: "vendor_specific",
     44: IPField("NetBIOS_server", "0.0.0.0"),
     45: IPField("NetBIOS_dist_server", "0.0.0.0"),
+    46: ByteField("static-routes", 100),
+    47: "netbios-scope",
+    48: IPField("font-servers", "0.0.0.0"),
+    49: IPField("x-display-manager", "0.0.0.0"),
     50: IPField("requested_addr", "0.0.0.0"),
     51: IntField("lease_time", 43200),
+    52: ByteField("dhcp-option-overload", 100),
     53: ByteEnumField("message-type", 1, DHCPTypes),
     54: IPField("server_id", "0.0.0.0"),
     55: _DHCPParamReqFieldListField("param_req_list", [], ByteField("opcode", 0), length_from=lambda x: 1),  # noqa: E501
@@ -143,11 +170,13 @@ DHCPOptions = {
     57: ShortField("max_dhcp_size", 1500),
     58: IntField("renewal_time", 21600),
     59: IntField("rebinding_time", 37800),
-    60: "vendor_class_id",
-    61: "client_id",
-
+    60: StrField("vendor_class_id", "id"),
+    61: StrField("client_id", ""),
+    62: "nwip-domain-name",
     64: "NISplus_domain",
     65: IPField("NISplus_server", "0.0.0.0"),
+    67: StrField("boot-file-name", ""),
+    68: IPField("mobile-ip-home-agent", "0.0.0.0"),
     69: IPField("SMTP_server", "0.0.0.0"),
     70: IPField("POP3_server", "0.0.0.0"),
     71: IPField("NNTP_server", "0.0.0.0"),
@@ -155,8 +184,45 @@ DHCPOptions = {
     73: IPField("Finger_server", "0.0.0.0"),
     74: IPField("IRC_server", "0.0.0.0"),
     75: IPField("StreetTalk_server", "0.0.0.0"),
-    76: "StreetTalk_Dir_Assistance",
-    82: "relay_agent_Information",
+    76: IPField("StreetTalk_Dir_Assistance", "0.0.0.0"),
+    78: "slp_service_agent",
+    79: "slp_service_scope",
+    81: "client_FQDN",
+    82: "relay_agent_information",
+    85: IPField("nds-server", "0.0.0.0"),
+    86: StrField("nds-tree-name", ""),
+    87: StrField("nds-context", ""),
+    88: "bcms-controller-namesi",
+    89: IPField("bcms-controller-address", "0.0.0.0"),
+    91: IntField("client-last-transaction-time", 1000),
+    92: IPField("associated-ip", "0.0.0.0"),
+    93: "pxe_client_architecture",
+    94: "pxe_client_network_interface",
+    97: "pxe_client_machine_identifier",
+    98: StrField("uap-servers", ""),
+    100: StrField("pcode", ""),
+    101: StrField("tcode", ""),
+    112: IPField("netinfo-server-address", "0.0.0.0"),
+    113: StrField("netinfo-server-tag", ""),
+    114: StrField("default-url", ""),
+    116: ByteField("auto-config", 0),
+    117: ShortField("name-service-search", 0,),
+    118: IPField("subnet-selection", "0.0.0.0"),
+    124: "vendor_class",
+    125: "vendor_specific_information",
+    136: IPField("pana-agent", "0.0.0.0"),
+    137: "v4-lost",
+    138: IPField("capwap-ac-v4", "0.0.0.0"),
+    141: "sip_ua_service_domains",
+    146: "rdnss-selection",
+    159: "v4-portparams",
+    160: StrField("v4-captive-portal", ""),
+    208: "pxelinux_magic",
+    209: "pxelinux_configuration_file",
+    210: "pxelinux_path_prefix",
+    211: "pxelinux_reboot_time",
+    212: "option-6rd",
+    213: "v4-access-domain",
     255: "end"
 }
 
@@ -182,7 +248,7 @@ class RandDHCPOptions(RandField):
         if rndstr is None:
             rndstr = RandBin(RandNum(0, 255))
         self.rndstr = rndstr
-        self._opts = list(DHCPOptions.values())
+        self._opts = list(six.itervalues(DHCPOptions))
         self._opts.remove("pad")
         self._opts.remove("end")
 
@@ -248,7 +314,7 @@ class DHCPOptionsField(StrField):
                         while left:
                             left, val = f.getfield(pkt, left)
                             lval.append(val)
-                    except:
+                    except Exception:
                         opt.append(x)
                         break
                     else:
@@ -275,7 +341,9 @@ class DHCPOptionsField(StrField):
                 elif name in DHCPRevOptions:
                     onum, f = DHCPRevOptions[name]
                     if f is not None:
-                        lval = [f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval]  # noqa: E501
+                        lval = (f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval)  # noqa: E501
+                    else:
+                        lval = (bytes_encode(x) for x in lval)
                     oval = b"".join(lval)
                 else:
                     warning("Unknown field option %s", name)
@@ -291,7 +359,7 @@ class DHCPOptionsField(StrField):
             elif isinstance(o, int):
                 s += chb(o) + b"\0"
             elif isinstance(o, (str, bytes)):
-                s += raw(o)
+                s += bytes_encode(o)
             else:
                 warning("Malformed option %s", o)
         return s
@@ -311,13 +379,15 @@ bind_layers(BOOTP, DHCP, options=b'c\x82Sc')
 @conf.commands.register
 def dhcp_request(iface=None, **kargs):
     """Send a DHCP discover request and return the answer"""
-    if conf.checkIPaddr != 0:
-        warning("conf.checkIPaddr is not 0, I may not be able to match the answer")  # noqa: E501
+    if conf.checkIPaddr:
+        warning(
+            "conf.checkIPaddr is enabled, may not be able to match the answer"
+        )
     if iface is None:
         iface = conf.iface
     fam, hw = get_if_raw_hwaddr(iface)
-    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff") / IP(src="0.0.0.0", dst="255.255.255.255") / UDP(sport=68, dport=67)  # noqa: E501
-                / BOOTP(chaddr=hw) / DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)  # noqa: E501
+    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff") / IP(src="0.0.0.0", dst="255.255.255.255") / UDP(sport=68, dport=67) /  # noqa: E501
+                BOOTP(chaddr=hw) / DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)  # noqa: E501
 
 
 class BOOTP_am(AnsweringMachine):
@@ -358,7 +428,7 @@ class BOOTP_am(AnsweringMachine):
         print("Reply %s to %s" % (reply.getlayer(IP).dst, reply.dst))
 
     def make_reply(self, req):
-        mac = req.src
+        mac = req[Ether].src
         if isinstance(self.pool, list):
             if mac not in self.leases:
                 self.leases[mac] = self.pool.pop()

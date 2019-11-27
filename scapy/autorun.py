@@ -12,7 +12,7 @@ import code
 import sys
 import importlib
 from scapy.config import conf
-from scapy.themes import *
+from scapy.themes import NoTheme, DefaultTheme, HTMLTheme2, LatexTheme2
 from scapy.error import Scapy_Exception
 from scapy.utils import tex_escape
 import scapy.modules.six as six
@@ -43,7 +43,7 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
         return code.InteractiveInterpreter.showtraceback(self, *args, **kargs)
 
 
-def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
+def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=None):
     sv = conf.verb
     try:
         try:
@@ -52,7 +52,8 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
                 if ignore_globals:
                     for ig in ignore_globals:
                         my_globals.pop(ig, None)
-            conf.verb = verb
+            if verb is not None:
+                conf.verb = verb
             interp = ScapyAutorunInterpreter(my_globals)
             cmd = ""
             cmds = cmds.splitlines()
@@ -65,9 +66,9 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
                 else:
                     sys.stderr.write(str(sys.__dict__.get("ps1", sys.ps1)))
 
-                l = cmds.pop()
-                print(l)
-                cmd += "\n" + l
+                line = cmds.pop()
+                print(line)
+                cmd += "\n" + line
                 if interp.runsource(cmd):
                     continue
                 if interp.error:
@@ -79,22 +80,35 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
             pass
     finally:
         conf.verb = sv
-    return _
+    return _  # noqa: F821
+
+
+class StringWriter(object):
+    """Util to mock sys.stdout and sys.stderr, and
+    store their output in a 's' var."""
+    def __init__(self, debug=None):
+        self.s = ""
+        self.debug = debug
+
+    def write(self, x):
+        if self.debug:
+            self.debug.write(x)
+        self.s += x
+
+    def flush(self):
+        if self.debug:
+            self.debug.flush()
 
 
 def autorun_get_interactive_session(cmds, **kargs):
-    class StringWriter:
-        def __init__(self):
-            self.s = ""
+    """Create an interactive session and execute the
+    commands passed as "cmds" and return all output
 
-        def write(self, x):
-            self.s += x
-
-        def flush(self):
-            pass
-
-    sw = StringWriter()
+    :param cmds: a list of commands to run
+    :returns: (output, returned) contains both sys.stdout and sys.stderr logs
+    """
     sstdout, sstderr = sys.stdout, sys.stderr
+    sw = StringWriter()
     try:
         try:
             sys.stdout = sys.stderr = sw

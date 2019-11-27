@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 from __future__ import print_function
 import getopt
 
@@ -47,7 +45,7 @@ def main(argv):
 
     from scapy.config import conf
     from scapy.utils import RawPcapReader, RawPcapWriter, hexdiff
-    from scapy.layers import all
+    from scapy.layers import all  # noqa: F401
 
     pcap = RawPcapReader(PCAP_IN)
     pcap_out = None
@@ -71,7 +69,7 @@ def main(argv):
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            print("Dissection error on packet %i" % i)
+            print("Dissection error on packet %i: %s" % (i, e))
             failed += 1
         else:
             if p1 == p2:

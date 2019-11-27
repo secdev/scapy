@@ -27,7 +27,7 @@ from scapy.error import warning
 from scapy.layers.inet import IP, TCP, UDP, ICMP, UDPerror, IPerror
 from scapy.packet import NoPayload
 from scapy.sendrecv import sr
-from scapy.compat import *
+from scapy.compat import plain_str, raw
 import scapy.modules.six as six
 
 

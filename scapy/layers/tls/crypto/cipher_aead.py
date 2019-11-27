@@ -17,7 +17,7 @@ import struct
 
 from scapy.config import conf
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
-from scapy.layers.tls.crypto.ciphers import CipherError
+from scapy.layers.tls.crypto.common import CipherError
 from scapy.utils import strxor
 import scapy.modules.six as six
 
@@ -28,7 +28,9 @@ if conf.crypto_valid:
 if conf.crypto_valid_advanced:
     from cryptography.hazmat.primitives.ciphers.aead import (AESCCM,
                                                              ChaCha20Poly1305)
-
+else:
+    class AESCCM:
+        pass
 
 _tls_aead_cipher_algs = {}
 
@@ -93,9 +95,15 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         super(_AEADCipher, self).__setattr__("nonce_explicit", nonce_explicit)
 
         if hasattr(self, "pc_cls"):
-            self._cipher = Cipher(self.pc_cls(key),
-                                  self.pc_cls_mode(self._get_nonce()),
-                                  backend=default_backend())
+            if isinstance(self.pc_cls, AESCCM):
+                self._cipher = Cipher(self.pc_cls(key),
+                                      self.pc_cls_mode(self._get_nonce()),
+                                      backend=default_backend(),
+                                      tag_length=self.tag_len)
+            else:
+                self._cipher = Cipher(self.pc_cls(key),
+                                      self.pc_cls_mode(self._get_nonce()),
+                                      backend=default_backend())
         else:
             self._cipher = self.cipher_cls(key)
 
@@ -147,11 +155,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
             res = encryptor.update(P) + encryptor.finalize()
             res += encryptor.tag
         else:
-            if isinstance(self._cipher, AESCCM):
-                res = self._cipher.encrypt(self._get_nonce(), P, A,
-                                           tag_length=self.tag_len)
-            else:
-                res = self._cipher.encrypt(self._get_nonce(), P, A)
+            res = self._cipher.encrypt(self._get_nonce(), P, A)
 
         nonce_explicit = pkcs_i2osp(self.nonce_explicit,
                                     self.nonce_explicit_len)
@@ -199,11 +203,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
                 raise AEADTagError(nonce_explicit_str, P, mac)
         else:
             try:
-                if isinstance(self._cipher, AESCCM):
-                    P = self._cipher.decrypt(self._get_nonce(), C + mac, A,
-                                             tag_length=self.tag_len)
-                else:
-                    P = self._cipher.decrypt(self._get_nonce(), C + mac, A)
+                P = self._cipher.decrypt(self._get_nonce(), C + mac, A)
             except InvalidTag:
                 raise AEADTagError(nonce_explicit_str,
                                    "<unauthenticated data>",
@@ -276,11 +276,21 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
         super(_AEADCipher_TLS13, self).__setattr__("fixed_iv", fixed_iv)
 
         if hasattr(self, "pc_cls"):
-            self._cipher = Cipher(self.pc_cls(key),
-                                  self.pc_cls_mode(fixed_iv),
-                                  backend=default_backend())
+            if isinstance(self.pc_cls, AESCCM):
+                self._cipher = Cipher(self.pc_cls(key),
+                                      self.pc_cls_mode(fixed_iv),
+                                      backend=default_backend(),
+                                      tag_length=self.tag_len)
+            else:
+                self._cipher = Cipher(self.pc_cls(key),
+                                      self.pc_cls_mode(fixed_iv),
+                                      backend=default_backend())
         else:
-            self._cipher = self.cipher_cls(key)
+            if self.cipher_cls == ChaCha20Poly1305:
+                # ChaCha20Poly1305 doesn't have a tag_length argument...
+                self._cipher = self.cipher_cls(key)
+            else:
+                self._cipher = self.cipher_cls(key, tag_length=self.tag_len)
 
     def __setattr__(self, name, val):
         if name == "key":
@@ -302,8 +312,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
     def auth_encrypt(self, P, A, seq_num):
         """
         Encrypt the data, and append the computed authentication code.
-        TLS 1.3 does not use additional data, but we leave this option to the
-        user nonetheless.
+        The additional data for TLS 1.3 is the record header.
 
         Note that the cipher's authentication tag must be None when encrypting.
         """
@@ -320,8 +329,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
         else:
             if (conf.crypto_valid_advanced and
                     isinstance(self._cipher, AESCCM)):
-                res = self._cipher.encrypt(self._get_nonce(seq_num), P, A,
-                                           tag_length=self.tag_len)
+                res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
             else:
                 res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
         return res
@@ -329,7 +337,6 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
     def auth_decrypt(self, A, C, seq_num):
         """
         Decrypt the data and verify the authentication code (in this order).
-        Note that TLS 1.3 is not supposed to use any additional data A.
         If the verification fails, an AEADTagError is raised. It is the user's
         responsibility to catch it if deemed useful. If we lack the key, we
         raise a CipherError which contains the encrypted input.
@@ -352,8 +359,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
             try:
                 if (conf.crypto_valid_advanced and
                         isinstance(self._cipher, AESCCM)):
-                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A,  # noqa: E501
-                                             tag_length=self.tag_len)
+                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
                 else:
                     if (conf.crypto_valid_advanced and
                             isinstance(self, Cipher_CHACHA20_POLY1305)):
@@ -406,6 +412,7 @@ if conf.crypto_valid_advanced:
         cipher_cls = AESCCM
         key_len = 16
         tag_len = 16
+        fixed_iv_len = 12
 
     class Cipher_AES_128_CCM_8_TLS13(Cipher_AES_128_CCM_TLS13):
         tag_len = 8

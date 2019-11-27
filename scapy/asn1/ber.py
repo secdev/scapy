@@ -11,10 +11,12 @@ Basic Encoding Rules (BER) for ASN.1
 
 from __future__ import absolute_import
 from scapy.error import warning
-from scapy.compat import *
+from scapy.compat import chb, orb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
-from scapy.asn1.asn1 import ASN1_Decoding_Error, ASN1_Encoding_Error, ASN1_BadTag_Decoding_Error, ASN1_Codecs, ASN1_Class_UNIVERSAL, ASN1_Error, ASN1_DECODING_ERROR, ASN1_BADTAG  # noqa: E501
-import scapy.modules.six as six
+from scapy.asn1.asn1 import ASN1_Decoding_Error, ASN1_Encoding_Error, \
+    ASN1_BadTag_Decoding_Error, ASN1_Codecs, ASN1_Class_UNIVERSAL, \
+    ASN1_Error, ASN1_DECODING_ERROR, ASN1_BADTAG
+from scapy.modules import six
 
 ##################
 #  BER encoding  #
@@ -60,44 +62,52 @@ class BER_Decoding_Error(ASN1_Decoding_Error):
         return s
 
 
-class BER_BadTag_Decoding_Error(BER_Decoding_Error, ASN1_BadTag_Decoding_Error):  # noqa: E501
+class BER_BadTag_Decoding_Error(BER_Decoding_Error,
+                                ASN1_BadTag_Decoding_Error):
     pass
 
 
-def BER_len_enc(l, size=0):
-    if l <= 127 and size == 0:
-        return chb(l)
+def BER_len_enc(ll, size=0):
+    if ll <= 127 and size == 0:
+        return chb(ll)
     s = b""
-    while l or size > 0:
-        s = chb(l & 0xff) + s
-        l >>= 8
+    while ll or size > 0:
+        s = chb(ll & 0xff) + s
+        ll >>= 8
         size -= 1
     if len(s) > 127:
-        raise BER_Exception("BER_len_enc: Length too long (%i) to be encoded [%r]" % (len(s), s))  # noqa: E501
+        raise BER_Exception(
+            "BER_len_enc: Length too long (%i) to be encoded [%r]" %
+            (len(s), s)
+        )
     return chb(len(s) | 0x80) + s
 
 
 def BER_len_dec(s):
-    l = orb(s[0])
-    if not l & 0x80:
-        return l, s[1:]
-    l &= 0x7f
-    if len(s) <= l:
-        raise BER_Decoding_Error("BER_len_dec: Got %i bytes while expecting %i" % (len(s) - 1, l), remaining=s)  # noqa: E501
+    tmp_len = orb(s[0])
+    if not tmp_len & 0x80:
+        return tmp_len, s[1:]
+    tmp_len &= 0x7f
+    if len(s) <= tmp_len:
+        raise BER_Decoding_Error(
+            "BER_len_dec: Got %i bytes while expecting %i" %
+            (len(s) - 1, tmp_len),
+            remaining=s
+        )
     ll = 0
-    for c in s[1:l + 1]:
+    for c in s[1:tmp_len + 1]:
         ll <<= 8
         ll |= orb(c)
-    return ll, s[l + 1:]
+    return ll, s[tmp_len + 1:]
 
 
-def BER_num_enc(l, size=1):
+def BER_num_enc(ll, size=1):
     x = []
-    while l or size > 0:
-        x.insert(0, l & 0x7f)
+    while ll or size > 0:
+        x.insert(0, ll & 0x7f)
         if len(x) > 1:
             x[0] |= 0x80
-        l >>= 7
+        ll >>= 7
         size -= 1
     return b"".join(chb(k) for k in x)
 
@@ -113,7 +123,8 @@ def BER_num_dec(s, cls_id=0):
         if not c & 0x80:
             break
     if c & 0x80:
-        raise BER_Decoding_Error("BER_num_dec: unfinished number description", remaining=s)  # noqa: E501
+        raise BER_Decoding_Error("BER_num_dec: unfinished number description",
+                                 remaining=s)
     return x, s[i + 1:]
 
 
@@ -200,7 +211,7 @@ class BERcodec_metaclass(type):
         c = super(BERcodec_metaclass, cls).__new__(cls, name, bases, dct)
         try:
             c.tag.register(c.codec, c)
-        except:
+        except Exception:
             warning("Error registering %r for %r" % (c.tag, c.codec))
         return c
 
@@ -216,16 +227,20 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
     @classmethod
     def check_string(cls, s):
         if not s:
-            raise BER_Decoding_Error("%s: Got empty object while expecting tag %r" %  # noqa: E501
-                                     (cls.__name__, cls.tag), remaining=s)
+            raise BER_Decoding_Error(
+                "%s: Got empty object while expecting tag %r" %
+                (cls.__name__, cls.tag), remaining=s
+            )
 
     @classmethod
     def check_type(cls, s):
         cls.check_string(s)
         tag, remainder = BER_id_dec(s)
-        if cls.tag != tag:
-            raise BER_BadTag_Decoding_Error("%s: Got tag [%i/%#x] while expecting %r" %  # noqa: E501
-                                            (cls.__name__, tag, tag, cls.tag), remaining=s)  # noqa: E501
+        if not isinstance(tag, int) or cls.tag != tag:
+            raise BER_BadTag_Decoding_Error(
+                "%s: Got tag [%i/%#x] while expecting %r" %
+                (cls.__name__, tag, tag, cls.tag), remaining=s
+            )
         return remainder
 
     @classmethod
@@ -249,13 +264,18 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
         if context is None:
             context = cls.tag.context
         cls.check_string(s)
-        p, _ = BER_id_dec(s)
+        p, remainder = BER_id_dec(s)
         if p not in context:
             t = s
             if len(t) > 18:
                 t = t[:15] + b"..."
-            raise BER_Decoding_Error("Unknown prefix [%02x] for [%r]" % (p, t), remaining=s)  # noqa: E501
+            raise BER_Decoding_Error("Unknown prefix [%02x] for [%r]" %
+                                     (p, t), remaining=s)
         codec = context[p].get_codec(ASN1_Codecs.BER)
+        if codec == BERcodec_Object:
+            # Value type defined as Unknown
+            l, s = BER_num_dec(remainder)
+            return ASN1_BADTAG(s[:l]), s[l:]
         return codec.dec(s, context, safe)
 
     @classmethod
@@ -278,7 +298,7 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
 
     @classmethod
     def enc(cls, s):
-        if isinstance(s, six.string_types):
+        if isinstance(s, six.string_types + (bytes,)):
             return BERcodec_STRING.enc(s)
         else:
             return BERcodec_INTEGER.enc(int(s))
@@ -339,24 +359,32 @@ class BERcodec_BIT_STRING(BERcodec_Object):
         if len(s) > 0:
             unused_bits = orb(s[0])
             if safe and unused_bits > 7:
-                raise BER_Decoding_Error("BERcodec_BIT_STRING: too many unused_bits advertised", remaining=s)  # noqa: E501
+                raise BER_Decoding_Error(
+                    "BERcodec_BIT_STRING: too many unused_bits advertised",
+                    remaining=s
+                )
             s = "".join(binrepr(orb(x)).zfill(8) for x in s[1:])
             if unused_bits > 0:
                 s = s[:-unused_bits]
             return cls.tag.asn1_object(s), t
         else:
-            raise BER_Decoding_Error("BERcodec_BIT_STRING found no content (not even unused_bits byte)", remaining=s)  # noqa: E501
+            raise BER_Decoding_Error(
+                "BERcodec_BIT_STRING found no content "
+                "(not even unused_bits byte)",
+                remaining=s
+            )
 
     @classmethod
     def enc(cls, s):
         # /!\ this is DER encoding (bit strings are only zero-bit padded)
-        s = raw(s)
+        s = bytes_encode(s)
         if len(s) % 8 == 0:
             unused_bits = 0
         else:
             unused_bits = 8 - len(s) % 8
             s += b"0" * unused_bits
-        s = b"".join(chb(int(b"".join(chb(y) for y in x), 2)) for x in zip(*[iter(s)] * 8))  # noqa: E501
+        s = b"".join(chb(int(b"".join(chb(y) for y in x), 2))
+                     for x in zip(*[iter(s)] * 8))
         s = chb(unused_bits) + s
         return chb(hash(cls.tag)) + BER_len_enc(len(s)) + s
 
@@ -366,8 +394,9 @@ class BERcodec_STRING(BERcodec_Object):
 
     @classmethod
     def enc(cls, s):
-        s = raw(s)
-        return chb(hash(cls.tag)) + BER_len_enc(len(s)) + s  # Be sure we are encoding bytes  # noqa: E501
+        s = bytes_encode(s)
+        # Be sure we are encoding bytes
+        return chb(hash(cls.tag)) + BER_len_enc(len(s)) + s
 
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
@@ -391,8 +420,11 @@ class BERcodec_OID(BERcodec_Object):
 
     @classmethod
     def enc(cls, oid):
-        oid = raw(oid)
-        lst = [int(x) for x in oid.strip(b".").split(b".")]
+        oid = bytes_encode(oid)
+        if oid:
+            lst = [int(x) for x in oid.strip(b".").split(b".")]
+        else:
+            lst = list()
         if len(lst) >= 2:
             lst[1] += 40 * lst[0]
             del(lst[0])
@@ -409,7 +441,10 @@ class BERcodec_OID(BERcodec_Object):
         if (len(lst) > 0):
             lst.insert(0, lst[0] // 40)
             lst[1] %= 40
-        return cls.asn1_object(b".".join(str(k).encode('ascii') for k in lst)), t  # noqa: E501
+        return (
+            cls.asn1_object(b".".join(str(k).encode('ascii') for k in lst)),
+            t,
+        )
 
 
 class BERcodec_ENUMERATED(BERcodec_INTEGER):
@@ -464,17 +499,17 @@ class BERcodec_SEQUENCE(BERcodec_Object):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
 
     @classmethod
-    def enc(cls, l):
-        if not isinstance(l, bytes):
-            l = b"".join(x.enc(cls.codec) for x in l)
-        return chb(hash(cls.tag)) + BER_len_enc(len(l)) + l
+    def enc(cls, ll):
+        if not isinstance(ll, bytes):
+            ll = b"".join(x.enc(cls.codec) for x in ll)
+        return chb(hash(cls.tag)) + BER_len_enc(len(ll)) + ll
 
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
         if context is None:
             context = cls.tag.context
-        l, st = cls.check_type_get_len(s)  # we may have len(s) < l
-        s, t = st[:l], st[l:]
+        ll, st = cls.check_type_get_len(s)  # we may have len(s) < ll
+        s, t = st[:ll], st[ll:]
         obj = []
         while s:
             try:
@@ -486,8 +521,9 @@ class BERcodec_SEQUENCE(BERcodec_Object):
                 err.decoded = obj
                 raise
             obj.append(o)
-        if len(st) < l:
-            raise BER_Decoding_Error("Not enough bytes to decode sequence", decoded=obj)  # noqa: E501
+        if len(st) < ll:
+            raise BER_Decoding_Error("Not enough bytes to decode sequence",
+                                     decoded=obj)
         return cls.asn1_object(obj), t
 
 
@@ -512,7 +548,8 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
         try:
             ipaddr_ascii = inet_ntoa(s)
         except Exception:
-            raise BER_Decoding_Error("IP address could not be decoded", remaining=s)  # noqa: E501
+            raise BER_Decoding_Error("IP address could not be decoded",
+                                     remaining=s)
         return cls.asn1_object(ipaddr_ascii), t
 
 

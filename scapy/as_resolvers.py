@@ -10,9 +10,8 @@ Resolve Autonomous Systems (AS).
 
 from __future__ import absolute_import
 import socket
-import errno
 from scapy.config import conf
-from scapy.compat import *
+from scapy.compat import plain_str
 
 
 class AS_resolver:
@@ -38,13 +37,13 @@ class AS_resolver:
 
     def _parse_whois(self, txt):
         asn, desc = None, b""
-        for l in txt.splitlines():
-            if not asn and l.startswith(b"origin:"):
-                asn = plain_str(l[7:].strip())
-            if l.startswith(b"descr:"):
+        for line in txt.splitlines():
+            if not asn and line.startswith(b"origin:"):
+                asn = plain_str(line[7:].strip())
+            if line.startswith(b"descr:"):
                 if desc:
-                    desc += r"\n"
-                desc += l[6:].strip()
+                    desc += b"\n"
+                desc += line[6:].strip()
             if asn is not None and desc:
                 break
         return asn, plain_str(desc.strip())
@@ -85,13 +84,17 @@ class AS_resolver_cymru(AS_resolver):
     def resolve(self, *ips):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((self.server, self.port))
-        s.send(b"begin\r\n" + b"\r\n".join(ip.encode("utf8") for ip in ips) + b"\r\nend\r\n")  # noqa: E501
+        s.send(
+            b"begin\r\n" +
+            b"\r\n".join(ip.encode() for ip in ips) +
+            b"\r\nend\r\n"
+        )
         r = b""
         while True:
-            l = s.recv(8192)
-            if l == b"":
+            line = s.recv(8192)
+            if line == b"":
                 break
-            r += l
+            r += line
         s.close()
 
         return self.parse(r)
@@ -100,11 +103,11 @@ class AS_resolver_cymru(AS_resolver):
         """Parse bulk cymru data"""
 
         ASNlist = []
-        for l in data.splitlines()[1:]:
-            l = plain_str(l)
-            if "|" not in l:
+        for line in data.splitlines()[1:]:
+            line = plain_str(line)
+            if "|" not in line:
                 continue
-            asn, ip, desc = [elt.strip() for elt in l.split('|')]
+            asn, ip, desc = [elt.strip() for elt in line.split('|')]
             if asn == "NA":
                 continue
             asn = "AS%s" % asn
@@ -113,7 +116,9 @@ class AS_resolver_cymru(AS_resolver):
 
 
 class AS_resolver_multi(AS_resolver):
-    resolvers_list = (AS_resolver_riswhois(), AS_resolver_radb(), AS_resolver_cymru())  # noqa: E501
+    resolvers_list = (AS_resolver_riswhois(), AS_resolver_radb(),
+                      AS_resolver_cymru())
+    resolvers_list = resolvers_list[1:]
 
     def __init__(self, *reslist):
         if reslist:
@@ -125,16 +130,12 @@ class AS_resolver_multi(AS_resolver):
         for ASres in self.resolvers_list:
             try:
                 res = ASres.resolve(*todo)
-            except socket.error as e:
-                if e[0] in [errno.ECONNREFUSED, errno.ETIMEDOUT, errno.ECONNRESET]:  # noqa: E501
-                    continue
-            resolved = [ip for ip, asn, desc in res]
-            todo = [ip for ip in todo if ip not in resolved]
+            except socket.error:
+                continue
+            todo = [ip for ip in todo if ip not in [r[0] for r in res]]
             ret += res
-            if len(todo) == 0:
+            if not todo:
                 break
-        if len(ips) != len(ret):
-            raise RuntimeError("Could not contact whois providers")
         return ret
 
 

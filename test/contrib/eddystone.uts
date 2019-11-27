@@ -1,0 +1,54 @@
+# Eddystone unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('eddystone')" -t test/contrib/eddystone.uts
+
++ Eddystone tests
+
+= Setup
+
+def expect_exception(e, c):
+    try:
+        c()
+        return False
+    except e:
+        return True
+
+= Eddystone URL (decode EIR)
+
+d = hex_bytes('0c16aafe10040373636170790a')
+p = EIR_Hdr(d)
+p.show()
+
+assert p[EIR_ServiceData16BitUUID].svc_uuid == 0xfeaa
+assert p[Eddystone_URL].to_url() == b'https://scapy.net'
+
+= Eddystone URL (decode LE Set Advertising Data)
+
+d = hex_bytes('01082020140201020303aafe0c16aafe10040373636170790a0000000000000000000000')
+p = HCI_Hdr(d)
+
+assert p[EIR_ServiceData16BitUUID].svc_uuid == 0xfeaa
+assert p[Eddystone_URL].to_url() == b'https://scapy.net'
+
+= Eddystone URL (encode frames)
+
+d = raw(Eddystone_URL.from_url('https://scapy.net'))
+assert d == hex_bytes('10000373636170790a')
+
+d = raw(Eddystone_URL.from_url('https://www.scapy.net'))
+assert d == hex_bytes('10000173636170790a')
+
+# Include some other .extensions in the path
+d = raw(Eddystone_URL.from_url('http://www.example.com/hello.info.html'))
+assert d == hex_bytes('1000006578616d706c650068656c6c6f0b2e68746d6c')
+
+= Eddystone URL (encode unsupported scheme)
+
+assert(expect_exception(Exception, lambda: Eddystone_URL.from_url('gopher://example.com')))
+
+= Eddystone URL (encode advertising report)
+
+p = Eddystone_URL.from_url('https://scapy.net').build_advertising_report()
+assert raw(p[EIR_ServiceData16BitUUID]) == hex_bytes('aafe10000373636170790a')
+

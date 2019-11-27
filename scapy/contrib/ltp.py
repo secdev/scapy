@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # This file is part of Scapy
 # Scapy is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +13,7 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 """
- Copyright 2012, The MITRE Corporation
+ Copyright 2012, The MITRE Corporation::
 
                               NOTICE
     This software/technical data was produced for the U.S. Government
@@ -30,10 +28,11 @@
 
 import scapy.modules.six as six
 from scapy.packet import Packet, bind_layers, bind_top_down
-from scapy.fields import *
+from scapy.fields import BitEnumField, BitField, BitFieldLenField, \
+    ByteEnumField, ConditionalField, PacketListField, StrLenField
 from scapy.layers.inet import UDP
 from scapy.config import conf
-from scapy.contrib.sdnv import *
+from scapy.contrib.sdnv import SDNV2, SDNV2FieldLenField
 
 # LTP https://tools.ietf.org/html/rfc5326
 
@@ -79,12 +78,11 @@ _ltp_payload_conditions = {}
 
 def ltp_bind_payload(cls, lambd):
     """Bind payload class to the LTP packets.
-    params:
-     - cls: the class to bind
-     - lambd: lambda that will be called to check
-              whether or not the cls should be used
 
-              lambda pkt: ...
+    :param cls: the class to bind
+    :param lambd: lambda that will be called to check
+        whether or not the cls should be used
+        ex: lambda pkt: ...
     """
     _ltp_payload_conditions[cls] = lambd
 

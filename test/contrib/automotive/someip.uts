@@ -1,0 +1,257 @@
+# MIT License
+
+# Copyright (c) 2018 Jose Amores
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# Copyright (C) Sebastian Baar <sebastian.baar@gmx.de>
+# This program is published under a GPLv2 license
+
+##########
+##########
+
+
++ Test MessageId
+
+= Load module
+
+load_contrib("automotive.someip")
+import binascii
+
+= Check MessageId with method_id
+
+p = SOMEIP().msg_id
+p.srv_id = 0x1111
+p.method_id = 0x0222
+p.event_id = 0x0333
+
+p.sub_id = 0
+
+assert(struct.unpack("!H", bytes(p)[:2])[0] == 0x1111)
+
+assert((struct.unpack("!B", bytes(p)[2:3])[0] & 0x80) == 0x00)
+
+assert((struct.unpack("!H", bytes(p)[2:4])[0] & ~0x8000) == 0x0222)
+
+assert(bytes(p) == b"\x11\x11\x02\x22")
+
+del(p)
+
+= Dissect MessageId with method_id
+
+
+p = SOMEIP(b'\x22\x22\x03\x33')
+
+assert(p.msg_id.srv_id == 0x2222)
+
+assert(p.msg_id.method_id == 0x0333)
+
+assert(p.msg_id.sub_id == 0)
+
+del(p)
+
+= Build MessageId with event_id
+
+p = SOMEIP().msg_id
+p.srv_id = 0x1111
+p.method_id = 0x0222
+p.event_id = 0x0333
+p.sub_id = 1
+
+assert(struct.unpack("!H", bytes(p)[:2])[0] == 0x1111)
+
+assert((struct.unpack("!B", bytes(p)[2:3])[0] & 0x80) == 0x80)
+
+assert((struct.unpack("!H", bytes(p)[2:4])[0] & ~0x8000) == 0x0333)
+
+assert(bytes(p) == b"\x11\x11\x83\x33")
+
+del(p)
+
+= Dissect MessageId with event_id
+
+p = SOMEIP(b'\x33\x33\x82\x22')
+
+assert(p.msg_id.srv_id == 0x3333)
+
+assert(p.msg_id.event_id == 0x0222)
+
+assert(p.msg_id.sub_id == 1)
+
+del(p)
+
++ Test RequestId
+
+= Request Id
+
+p = SOMEIP().req_id
+p.client_id = 0x1111
+p.session_id = 0x2222
+
+assert(struct.unpack("!H", bytes(p)[:2])[0] == 0x1111)
+
+assert(struct.unpack("!H", bytes(p)[2:4])[0] == 0x2222)
+
+assert(bytes(p) == b"\x11\x11\x22\x22")
+
+del(p)
+
+= Dissect RequestId
+
+method_id = b'\x22\x22\x03\x33'
+pktLen = b'\x11\x11\x11\x11'
+reqId = b'\x22\x22\x33\x33'
+p = SOMEIP(method_id + pktLen + reqId)
+
+assert(p.req_id.client_id == 0x2222)
+
+assert(p.req_id.session_id == 0x3333)
+
+del(p)
+
++ Test SOMEIP
+
+= Check SomeIp
+
+p = SOMEIP()
+pstr = binascii.hexlify(bytes(p))
+binstr = binascii.hexlify(b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00")
+assert(pstr == binstr)
+
+p.payload = Raw(binascii.unhexlify("DEADBEEF"))
+pstr = bytes(p)
+binstr = b"\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x00\x00\xde\xad\xbe\xef"
+assert(pstr == binstr)
+
+p.payload = Raw('')
+pstr = bytes(p)
+binstr = b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
+assert(pstr == binstr)
+
+del(p)
+
+= Dissect SomeIP packet
+
+p = SOMEIP(
+    b"\x11\x11\x81\x11\x00\x00\x00\x04\x33\x33\x44\x44\x02\x03\x04\x05")
+
+assert(p.msg_id.srv_id == 0x1111)
+
+assert(p.msg_id.event_id == 0x0111)
+
+assert(p.req_id.client_id == 0x3333)
+
+assert(p.req_id.session_id == 0x4444)
+
+assert(p.proto_ver == 0x02)
+
+assert(p.iface_ver == 0x03)
+
+assert(p.msg_type == 0x04)
+
+assert(p.retcode == 0x05)
+
+del(p)
+
++ Test SOMEIP_SubPackages
+
+= Check MessageId subpackage
+
+p = SOMEIP()
+p.msg_id.srv_id = 0x1111
+p.msg_id.method_id = 0x0222
+p.msg_id.event_id = 0x0333
+
+p.msg_id.sub_id = 0
+pstr = bytes(p)
+binstr = b"\x11\x11\x02\x22\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
+assert(pstr == binstr)
+
+p.msg_id.sub_id = 1
+pstr = bytes(p)
+binstr = b"\x11\x11\x83\x33\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
+assert(pstr == binstr)
+
+del(p)
+
+= Check RequestId subpackage
+
+p = SOMEIP()
+p.req_id.client_id = 0x1111
+p.req_id.session_id = 0x2222
+
+pstr = bytes(p)
+binstr = b"\x00\x00\x00\x00\x00\x00\x00\x08\x11\x11\x22\x22\x01\x01\x00\x00"
+assert(pstr == binstr)
+
++ Test SOMEIP_TP
+
+= Check TP
+p = SOMEIP()
+p.msg_type = 0x20
+
+
+pstr = bytes(p)
+print(pstr)
+binstr = b'\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x20\x00\x00\x00\x00\x00'
+assert(pstr == binstr)
+
+p.more_seg = 1
+pstr = bytes(p)
+binstr = b'\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x20\x00\x00\x00\x00\x01'
+assert(pstr == binstr)
+
+p.msg_type = 0x00
+pstr = bytes(p)
+binstr = b'\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00'
+assert(pstr == binstr)
+
+
+= Dissect TP
+
+p = SOMEIP(b'\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x21\x00\x00\x00\x00\x01')
+
+assert(p.msg_type == 0x21)
+assert(p.more_seg == 1)
+assert(p.len == 12)
+
+p.msg_type = 0x00
+
+pstr = bytes(p)
+binstr = b"\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x00\x00"
+assert(pstr == binstr)
+
++ Test SOMEIP-TP
+
+= Build TP fragmented
+
+p = SOMEIP()
+p.msg_type = 0x20
+p.add_payload(Raw("A"*1400))
+
+f = p.fragment()
+
+assert(f[0].len == 1404)
+assert(f[1].len == 20)
+assert(f[0].payload == Raw("A"*1392))
+assert(f[1].payload == Raw("A"*8))
+assert(f[0].more_seg == 1)
+assert(f[1].more_seg == 0)

@@ -1,0 +1,30 @@
+% Regression tests for the avs module
+
++ Basic AVS test
+
+= Default build, storage and dissection
+
+pkt = CHDLC()/SLARP()
+_filepath = get_temp_file(autoext=".pcap")
+wrpcap(_filepath, pkt)
+pkt1 = rdpcap(_filepath)[0]
+assert raw(pkt) == raw(pkt1)
+assert CHDLC in pkt
+assert SLARP in pkt
+
+try:
+    os.remove(_filepath)
+except Exception:
+    pass
+
+= Build request
+
+pkt = CHDLC()/SLARP(type=0, address="192.168.0.131", mask="255.255.0.0")
+pkt = CHDLC(raw(pkt))
+assert pkt[SLARP].address == "192.168.0.131"
+
+= Build keepalive
+
+pkt = CHDLC()/SLARP(type=2, mysequence=123, yoursequence=123456789, reliability=555)
+pkt = CHDLC(raw(pkt))
+assert pkt[SLARP].yoursequence == 123456789

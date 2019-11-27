@@ -23,6 +23,11 @@ assert Dot15d4CmdGTSReq in pkt.layers()
 assert Dot15d4Data in pkt.layers()
 assert Dot15d4FCS in pkt.layers()
 
+= Dot15d4FCS parent matching
+
+pkt = Ether()/IP()/Dot15d4FCS()
+assert pkt[Dot15d4]
+
 ###################
 #### SixLoWPAN ####
 ###################
@@ -77,21 +82,37 @@ assert p.destinyAddr == "aaaa::11:22ff:fe33:4455"
 q = LoWPAN_IPHC(tf=0x0)
 assert raw(q) == b'`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
-= Advanced packets - dissection
+= Advanced packets - dissection & FCS computation
 
 # SAMPLE PACKETSS!!! IEEE 802.15.4 containing
 
 ieee802_firstfrag = b"\x41\xcc\xa3\xcd\xab\x16\x15\x14\xfe\xff\x13\x12\x02\x55\x44\x33\xfe\xff\x22\x11\x02\xc3\x42\x00\x23\x78\xf6\x00\x06\x80\x00\x01\x00\x50\xc4\xf9\x00\x00\x02\x12\x77\x9b\x1a\x9a\x50\x18\x04\xc4\x12\xd5\x00\x00\x3c\x21\x44\x4f\x43\x54\x59\x50\x45\x20\x48\x54\x4d\x4c\x20\x50\x55\x42\x4c\x49\x43\x20\x22\x2d\x2f\x2f\x57\x33\x43\x2f\x2f\x44\x54\x44\x20\x48\x54\x4d\x4c\x20\x34\x2e\x30\x31\x20\x54\x72\x61\x6e\x73\x69\x74\x69\x6f\x6e\x61\x6c\x2f\x2f\x45\x4e\x22\x20\x22\x68\x74\x74\x70\x39\xb5"
 ieee = Dot15d4FCS(ieee802_firstfrag)
-ieee.show2()
+ieee.show()
+assert ieee.fcs == 0xb539
+
+del ieee.fcs
+ieee = Dot15d4FCS(raw(ieee))
+assert ieee.fcs == 0xb539
+
 
 ieee802_secfrag = b"\x41\xcc\x4d\xcd\xab\x55\x44\x33\xfe\xff\x22\x11\x02\x16\x15\x14\xfe\xff\x13\x12\x02\xe2\x39\x00\x17\x10\x69\x76\x65\x0d\x0a\x52\x65\x66\x65\x72\x65\x72\x3a\x20\x68\x74\x74\x70\x3a\x2f\x2f\x5b\x61\x61\x61\x61\x3a\x3a\x31\x31\x3a\x32\x32\x66\x66\x3a\x66\x65\x33\x33\x3a\x34\x34\x35\x35\x5d\x2f\x73\x65\x6e\x73\x6f\x72\x2e\x73\x68\x74\x6d\x6c\x0d\x0a\x55\x73\x65\x72\x2d\x41\x67\x65\x6e\x74\x3a\x20\x4d\x6f\x7a\x69\x6c\x6c\x61\x2f\x35\x2e\x30\x20\x28\x58\x31\x31\x3b\x20\x55\x3b\x20\x4c\x69\x66\xac"
 ieee = Dot15d4FCS(ieee802_secfrag)
-ieee.show2()
+ieee.show()
+assert ieee.fcs == 0xac66
+
+del ieee.fcs
+ieee = Dot15d4FCS(raw(ieee))
+assert ieee.fcs == 0xac66
 
 ieee802_iphc = b"\x41\xcc\xb5\xcd\xab\x16\x15\x14\xfe\xff\x13\x12\x02\x55\x44\x33\xfe\xff\x22\x11\x02\x78\xf6\x00\x06\x80\x00\x01\x00\x50\xc4\xfa\x00\x00\x01\xf7\x89\xf3\x02\x5f\x50\x18\x04\xc4\x48\x28\x00\x00\x43\x6f\x6e\x74\x65\x6e\x74\x2d\x74\x79\x70\x65\x3a\x20\x74\x65\x78\x74\x2f\x63\x73\x73\x0d\x0a\x0d\x0a\xc1\x16"
 ieee = Dot15d4FCS(ieee802_iphc)
-ieee.show2()
+ieee.show()
+assert ieee.fcs == 0x16c1
+
+del ieee.fcs
+ieee = Dot15d4FCS(raw(ieee))
+assert ieee.fcs == 0x16c1
 
 = Dot15d4AuxSecurityHeader - build & dissect
 
@@ -338,6 +359,32 @@ assert ZigbeeNWKCommandPayload in pkt.layers()
 assert ZigbeeNWKStub in pkt.layers()
 assert ZigbeeSecurityHeader in pkt.layers()
 
+= Zigbee - ZCLGeneralReadAttributesResponse 
+
+pkt = ZigbeeClusterLibrary()/ZCLGeneralReadAttributesResponse(read_attribute_status_record=[ZCLReadAttributeStatusRecord(attribute_data_type=0x08, attribute_value=b"\xee")])
+pkt = ZigbeeClusterLibrary(raw(pkt))
+assert ZCLGeneralReadAttributesResponse in pkt
+assert pkt.read_attribute_status_record[0].attribute_data_type == 0x08
+assert pkt.read_attribute_status_record[0].attribute_value == b'\xee'
+assert raw(pkt) == b'\x00\x00\x01\x00\x00\x00\x08\xee'
+
+= Zigbee - ZigbeeAppDataPayload
+
+pkt = ZigbeeAppDataPayload(b'@\x01\x00\x00\x04\x01\x01\r\x18 \x01\x00\x00\x00 \x01\x04\x00\x00B\x07sengled')
+
+assert ZigbeeClusterLibrary in pkt
+assert ZCLGeneralReadAttributesResponse in pkt
+assert pkt.command_identifier == 1
+assert len(pkt.read_attribute_status_record) == 2
+
+assert pkt.read_attribute_status_record[0].status == 0
+assert pkt.read_attribute_status_record[0].attribute_data_type == 0x20
+assert pkt.read_attribute_status_record[0].attribute_value == b'\x01'
+
+assert pkt.read_attribute_status_record[1].status == 0
+assert pkt.read_attribute_status_record[1].attribute_data_type == 0x42
+assert pkt.read_attribute_status_record[1].attribute_value == b'\x07sengled'
+
 = Zigbee - advanced dissection
 
 import os
@@ -391,9 +438,9 @@ assert Dot15d4FCS in pkt1
 assert ZigbeeNWK in pkt1
 assert ZigbeeAppDataPayload in pkt1
 assert ZigbeeAppCommandPayload in pkt1
-assert pkt1[ZigbeeAppCommandPayload].cmd_identifier == 1
+assert pkt1[ZigbeeAppCommandPayload].cmd_identifier == 5
 f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("cmd_identifier")
-assert f.i2repr(None, v) == "APS_CMD_SKKE_1"
+assert f.i2repr(None, v) == "APS_CMD_TRANSPORT_KEY"
 assert pkt1[ZigbeeAppCommandPayload].key == b"&Tkr;9jr{]RqQ}9/"
 assert pkt1[ZigbeeAppCommandPayload].key_seqnum == 0
 assert pkt1[ZigbeeAppCommandPayload].dest_addr == 4502500120025882

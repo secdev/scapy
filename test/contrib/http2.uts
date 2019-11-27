@@ -1,0 +1,2319 @@
+% HTTP/2 Campaign
+# Frames expressed as binary str were generated using the solicit and hpack-rs
+# Rust crates (https://github.com/mlalic/solicit, https://github.com/mlalic/hpack-rs)
+# except Continuation Frames, Priority Frames and Push Promise Frames that we generated
+# using Go x/net/http2 and x/net/http2/hpack modules.
+
++ Syntax check
+= Configuring Scapy
+~ http2 frame hpack build dissect data headers priority settings rststream pushpromise ping goaway winupdate continuation hpackhdrtable helpers
+
+import scapy.config
+scapy.config.conf.debug_dissector=True
+import scapy.packet
+import scapy.fields
+import scapy.contrib.http2 as h2
+import re
+flags_bit_pattern = re.compile(r'''^\s+flags\s+=\s+\[.*['"]bit [0-9]+['"].*\]$''', re.M)
+def expect_exception(e, c):
+    try:
+        eval(c)
+        return False
+    except e:
+        return True
+
++ HTTP/2 UVarIntField Test Suite
+
+= HTTP/2 UVarIntField.any2i
+~ http2 frame field uvarintfield
+
+f = h2.UVarIntField('value', 0, 5)
+expect_exception(AssertionError, 'f.any2i(None, None)')
+assert(f.any2i(None, 0) == 0)
+assert(f.any2i(None, 3) == 3)
+assert(f.any2i(None, 1<<5) == 1<<5)
+assert(f.any2i(None, 1<<16) == 1<<16)
+f = h2.UVarIntField('value', 0, 8)
+assert(f.any2i(None, b'\x1E') == 30)
+
+= HTTP/2 UVarIntField.m2i on full byte
+~ http2 frame field uvarintfield
+
+f = h2.UVarIntField('value', 0, 8)
+assert(f.m2i(None, b'\x00') == 0)
+assert(f.m2i(None, b'\x03') == 3)
+assert(f.m2i(None, b'\xFE') == 254)
+assert(f.m2i(None, b'\xFF\x00') == 255)
+assert(f.m2i(None, b'\xFF\xFF\x03') == 766) #0xFF + (0xFF ^ 0x80) + (3<<7)
+
+= HTTP/2 UVarIntField.m2i on partial byte
+~ http2 frame field uvarintfield
+
+f = h2.UVarIntField('value', 0, 5)
+assert(f.m2i(None, (b'\x00', 3)) == 0)
+assert(f.m2i(None, (b'\x03', 3)) == 3)
+assert(f.m2i(None, (b'\x1e', 3)) == 30)
+assert(f.m2i(None, (b'\x1f\x00', 3)) == 31)
+assert(f.m2i(None, (b'\x1f\xe1\xff\x03', 3)) == 65536)
+
+= HTTP/2 UVarIntField.getfield on full byte
+~ http2 frame field uvarintfield
+
+f = h2.UVarIntField('value', 0, 8)
+
+r = f.getfield(None, b'\x00\x00')
+assert(r[0] == b'\x00')
+assert(r[1] == 0)
+
+r = f.getfield(None, b'\x03\x00')
+assert(r[0] == b'\x00')
+assert(r[1] == 3)
+
+r = f.getfield(None, b'\xFE\x00')
+assert(r[0] == b'\x00')
+assert(r[1] == 254)
+
+r = f.getfield(None, b'\xFF\x00\x00')
+assert(r[0] == b'\x00')
+assert(r[1] == 255)
+
+r = f.getfield(None, b'\xFF\xFF\x03\x00')
+assert(r[0] == b'\x00')
+assert(r[1] == 766)
+
+= HTTP/2 UVarIntField.getfield on partial byte
+~ http2 frame field uvarintfield
+
+f = h2.UVarIntField('value', 0, 5)
+
+r = f.getfield(None, (b'\x00\x00', 3))
+assert(r[0] == b'\x00')
+assert(r[1] == 0)
+
+r = f.getfield(None, (b'\x03\x00', 3))
+assert(r[0] == b'\x00')
+assert(r[1] == 3)
+
+r = f.getfield(None, (b'\x1e\x00', 3))
+assert(r[0] == b'\x00')
+assert(r[1] == 30)
+
+r = f.getfield(None, (b'\x1f\x00\x00', 3))
+assert(r[0] == b'\x00')
+assert(r[1] == 31)
+
+r = f.getfield(None, (b'\x1f\xe1\xff\x03\x00', 3))
+assert(r[0] == b'\x00')
+assert(r[1] == 65536)
+
+= HTTP/2 UVarIntField.i2m on full byte
+~ http2 frame field uvarintfield
+
+f = h2.UVarIntField('value', 0, 8)
+assert(f.i2m(None, 0) == b'\x00')
+assert(f.i2m(None, 3) == b'\x03')
+assert(f.i2m(None, 254).lower() == b'\xfe')
+assert(f.i2m(None, 255).lower() == b'\xff\x00')
+assert(f.i2m(None, 766).lower() == b'\xff\xff\x03')
+
+= HTTP/2 UVarIntField.i2m on partial byte
+~ http2 frame field uvarintfield
+
+f = h2.UVarIntField('value', 0, 5)
+assert(f.i2m(None, 0) == b'\x00')
+assert(f.i2m(None, 3) == b'\x03')
+assert(f.i2m(None, 30).lower() == b'\x1e')
+assert(f.i2m(None, 31).lower() == b'\x1f\x00')
+assert(f.i2m(None, 65536).lower() == b'\x1f\xe1\xff\x03')
+
+= HTTP/2 UVarIntField.addfield on full byte
+~ http2 frame field uvarintfield
+
+f = h2.UVarIntField('value', 0, 8)
+
+assert(f.addfield(None, b'Toto', 0) == b'Toto\x00')
+assert(f.addfield(None, b'Toto', 3) == b'Toto\x03')
+assert(f.addfield(None, b'Toto', 254).lower() == b'toto\xfe')
+assert(f.addfield(None, b'Toto', 255).lower() == b'toto\xff\x00')
+assert(f.addfield(None, b'Toto', 766).lower() == b'toto\xff\xff\x03')
+
+= HTTP/2 UVarIntField.addfield on partial byte
+~ http2 frame field uvarintfield
+
+f = h2.UVarIntField('value', 0, 5)
+
+assert(f.addfield(None, (b'Toto', 3, 4), 0) == b'Toto\x80')
+assert(f.addfield(None, (b'Toto', 3, 4), 3) == b'Toto\x83')
+assert(f.addfield(None, (b'Toto', 3, 4), 30).lower() == b'toto\x9e')
+assert(f.addfield(None, (b'Toto', 3, 4), 31).lower() == b'toto\x9f\x00')
+assert(f.addfield(None, (b'Toto', 3, 4), 65536).lower() == b'toto\x9f\xe1\xff\x03')
+
+= HTTP/2 UVarIntField.i2len on full byte
+~ http2 frame field uvarintfield
+
+f = h2.UVarIntField('value', 0, 8)
+
+assert(f.i2len(None, 0) == 1)
+assert(f.i2len(None, 3) == 1)
+assert(f.i2len(None, 254) == 1)
+assert(f.i2len(None, 255) == 2)
+assert(f.i2len(None, 766) == 3)
+
+= HTTP/2 UVarIntField.i2len on partial byte
+~ http2 frame field uvarintfield
+
+f = h2.UVarIntField('value', 0, 5)
+
+assert(f.i2len(None, 0) == 1)
+assert(f.i2len(None, 3) == 1)
+assert(f.i2len(None, 30) == 1)
+assert(f.i2len(None, 31) == 2)
+assert(f.i2len(None, 65536) == 4)
+
++ HTTP/2 FieldUVarLenField Test Suite
+
+= HTTP/2 FieldUVarLenField.i2m without adjustment
+~ http2 frame field fielduvarlenfield
+
+
+f = h2.FieldUVarLenField('len', None, 8, length_of='data')
+class TrivialPacket(Packet):
+    name = 'Trivial Packet'
+    fields_desc= [
+        f,
+        StrField('data', '')
+    ]
+
+assert(f.i2m(TrivialPacket(data='a'*5), None) == b'\x05')
+assert(f.i2m(TrivialPacket(data='a'*255), None).lower() == b'\xff\x00')
+assert(f.i2m(TrivialPacket(data='a'), 2) == b'\x02')
+assert(f.i2m(None, 2) == b'\x02')
+assert(f.i2m(None, 0) == b'\x00')
+
+= HTTP/2 FieldUVarLenField.i2m with adjustment
+~ http2 frame field fielduvarlenfield
+
+class TrivialPacket(Packet):
+    name = 'Trivial Packet'
+    fields_desc= [
+        f,
+        StrField('data', '')
+    ]
+
+f = h2.FieldUVarLenField('value', None, 8, length_of='data', adjust=lambda x: x-1)
+assert(f.i2m(TrivialPacket(data='a'*5), None) == b'\x04')
+assert(f.i2m(TrivialPacket(data='a'*255), None).lower() == b'\xfe')
+#Adjustment does not affect non-None value!
+assert(f.i2m(TrivialPacket(data='a'*3), 2) == b'\x02')
+
++ HTTP/2 HPackZString Test Suite
+
+= HTTP/2 HPackZString Compression
+~ http2 hpack huffman
+
+string = 'Test'
+s = h2.HPackZString(string)
+assert(len(s) == 3)
+assert(raw(s) == b"\xdeT'")
+assert(s.origin() == string)
+
+string = 'a'*65535
+s = h2.HPackZString(string)
+assert(len(s) == 40960)
+assert(raw(s) == (b'\x18\xc61\x8cc' * 8191) + b'\x18\xc61\x8c\x7f')
+assert(s.origin() == string)
+
+= HTTP/2 HPackZString Decompression
+~ http2 hpack huffman
+
+s = b"\xdeT'"
+i, ibl = h2.HPackZString.huffman_conv2bitstring(s)
+assert(b'Test' == h2.HPackZString.huffman_decode(i, ibl))
+
+s = (b'\x18\xc61\x8cc' * 8191) + b'\x18\xc61\x8c\x7f'
+i, ibl = h2.HPackZString.huffman_conv2bitstring(s)
+assert(b'a'*65535 == h2.HPackZString.huffman_decode(i, ibl))
+
+assert(
+    expect_exception(h2.InvalidEncodingException,
+    'h2.HPackZString.huffman_decode(*h2.HPackZString.huffman_conv2bitstring(b"\\xdeT"))')
+)
+
++ HTTP/2 HPackStrLenField Test Suite
+
+= HTTP/2 HPackStrLenField.m2i
+~ http2 hpack field hpackstrlenfield
+
+f = h2.HPackStrLenField('data', h2.HPackLiteralString(''), length_from=lambda p: p.len, type_from='type')
+class TrivialPacket(Packet):
+    name = 'Trivial Packet'
+    fields_desc = [
+        IntField('type', None),
+        IntField('len', None),
+        f
+    ]
+
+s = f.m2i(TrivialPacket(type=0, len=4), b'Test')
+assert(isinstance(s, h2.HPackLiteralString))
+assert(s.origin() == 'Test')
+
+s = f.m2i(TrivialPacket(type=1, len=3), b"\xdeT'")
+assert(isinstance(s, h2.HPackZString))
+assert(s.origin() == 'Test')
+
+= HTTP/2 HPackStrLenField.any2i
+~ http2 hpack field hpackstrlenfield
+
+f = h2.HPackStrLenField('data', h2.HPackLiteralString(''), length_from=lambda p: p.len, type_from='type')
+class TrivialPacket(Packet):
+    name = 'Trivial Packet'
+    fields_desc = [
+        IntField('type', None),
+        IntField('len', None),
+        f
+    ]
+
+s = f.any2i(TrivialPacket(type=0, len=4), b'Test')
+assert(isinstance(s, h2.HPackLiteralString))
+assert(s.origin() == 'Test')
+
+s = f.any2i(TrivialPacket(type=1, len=3), b"\xdeT'")
+assert(isinstance(s, h2.HPackZString))
+assert(s.origin() == 'Test')
+
+s = h2.HPackLiteralString('Test')
+s2 = f.any2i(TrivialPacket(type=0, len=4), s)
+assert(s.origin() == s2.origin())
+
+s = h2.HPackZString('Test')
+s2 = f.any2i(TrivialPacket(type=1, len=3), s)
+assert(s.origin() == s2.origin())
+
+s = h2.HPackLiteralString('Test')
+s2 = f.any2i(None, s)
+assert(s.origin() == s2.origin())
+
+s = h2.HPackZString('Test')
+s2 = f.any2i(None, s)
+assert(s.origin() == s2.origin())
+
+# Verifies that one can fuzz
+s = h2.HPackLiteralString('Test')
+s2 = f.any2i(TrivialPacket(type=1, len=1), s)
+assert(s.origin() == s2.origin())
+
+= HTTP/2 HPackStrLenField.i2m
+~ http2 hpack field hpackstrlenfield
+
+f = h2.HPackStrLenField('data', h2.HPackLiteralString(''), length_from=lambda p: p.len, type_from='type')
+
+s = b'Test'
+s2 = f.i2m(None, h2.HPackLiteralString(s))
+assert(s == s2)
+
+s = b'Test'
+s2 = f.i2m(None, h2.HPackZString(s))
+assert(s2 == b"\xdeT'")
+
+= HTTP/2 HPackStrLenField.addfield
+~ http2 hpack field hpackstrlenfield
+
+f = h2.HPackStrLenField('data', h2.HPackLiteralString(''), length_from=lambda p: p.len, type_from='type')
+
+s = b'Test'
+s2 = f.addfield(None, b'Toto', h2.HPackLiteralString(s))
+assert(b'Toto' + s == s2)
+
+s = b'Test'
+s2 = f.addfield(None, b'Toto', h2.HPackZString(s))
+assert(s2 == b"Toto\xdeT'")
+
+= HTTP/2 HPackStrLenField.getfield
+~ http2 hpack field hpackstrlenfield
+
+f = h2.HPackStrLenField('data', h2.HPackLiteralString(''), length_from=lambda p: p.len, type_from='type')
+class TrivialPacket(Packet):
+    name = 'Trivial Packet'
+    fields_desc = [
+        IntField('type', None),
+        IntField('len', None),
+        f
+    ]
+
+r = f.getfield(TrivialPacket(type=0, len=4), b'TestToto')
+assert(isinstance(r, tuple))
+assert(r[0] == b'Toto')
+assert(isinstance(r[1], h2.HPackLiteralString))
+assert(r[1].origin() == 'Test')
+
+r = f.getfield(TrivialPacket(type=1, len=3), b"\xdeT'Toto")
+assert(isinstance(r, tuple))
+assert(r[0] == b'Toto')
+assert(isinstance(r[1], h2.HPackZString))
+assert(r[1].origin() == 'Test')
+
+= HTTP/2 HPackStrLenField.i2h / i2repr
+~ http2 hpack field hpackstrlenfield
+
+f = h2.HPackStrLenField('data', h2.HPackLiteralString(''), length_from=lambda p: p.len, type_from='type')
+
+s = b'Test'
+assert(f.i2h(None, h2.HPackLiteralString(s)) == 'HPackLiteralString(Test)')
+assert(f.i2repr(None, h2.HPackLiteralString(s)) == repr('HPackLiteralString(Test)'))
+
+assert(f.i2h(None, h2.HPackZString(s)) == 'HPackZString(Test)')
+assert(f.i2repr(None, h2.HPackZString(s)) == repr('HPackZString(Test)'))
+
+= HTTP/2 HPackStrLenField.i2len
+~ http2 hpack field hpackstrlenfield
+
+f = h2.HPackStrLenField('data', h2.HPackLiteralString(''), length_from=lambda p: p.len, type_from='type')
+
+s = b'Test'
+assert(f.i2len(None, h2.HPackLiteralString(s)) == 4)
+assert(f.i2len(None, h2.HPackZString(s)) == 3)
+
++ HTTP/2 HPackMagicBitField Test Suite
+# Magic bits are not supposed to be modified and if they are anyway, they must
+# be assigned the magic|default value only...
+
+= HTTP/2 HPackMagicBitField.addfield
+~ http2 hpack field hpackmagicbitfield
+
+f = h2.HPackMagicBitField('value', 3, 2)
+r = f.addfield(None, b'Toto', 3)
+assert(isinstance(r, tuple))
+assert(r[0] == b'Toto')
+assert(r[1] == 2)
+assert(r[2] == 3)
+
+r = f.addfield(None, (b'Toto', 2, 1) , 3)
+assert(isinstance(r, tuple))
+assert(r[0] == b'Toto')
+assert(r[1] == 4)
+assert(r[2] == 7)
+
+assert(expect_exception(AssertionError, 'f.addfield(None, "toto", 2)'))
+
+= HTTP/2 HPackMagicBitField.getfield
+~ http2 hpack field hpackmagicbitfield
+
+f = h2.HPackMagicBitField('value', 3, 2)
+
+r = f.getfield(None, b'\xc0')
+assert(isinstance(r, tuple))
+assert(len(r) == 2)
+assert(isinstance(r[0], tuple))
+assert(len(r[0]) == 2)
+assert(r[0][0] == b'\xc0')
+assert(r[0][1] == 2)
+assert(r[1] == 3)
+
+r = f.getfield(None, (b'\x03', 6))
+assert(isinstance(r, tuple))
+assert(len(r) == 2)
+assert(isinstance(r[0], bytes))
+assert(r[0] == b'')
+assert(r[1] == 3)
+
+expect_exception(AssertionError, 'f.getfield(None, b"\\x80")')
+
+= HTTP/2 HPackMagicBitField.h2i
+~ http2 hpack field hpackmagicbitfield
+
+f = h2.HPackMagicBitField('value', 3, 2)
+assert(f.h2i(None, 3) == 3)
+expect_exception(AssertionError, 'f.h2i(None, 2)')
+
+= HTTP/2 HPackMagicBitField.m2i
+~ http2 hpack field hpackmagicbitfield
+
+f = h2.HPackMagicBitField('value', 3, 2)
+assert(f.m2i(None, 3) == 3)
+expect_exception(AssertionError, 'f.m2i(None, 2)')
+
+= HTTP/2 HPackMagicBitField.i2m
+~ http2 hpack field hpackmagicbitfield
+
+f = h2.HPackMagicBitField('value', 3, 2)
+assert(f.i2m(None, 3) == 3)
+expect_exception(AssertionError, 'f.i2m(None, 2)')
+
+= HTTP/2 HPackMagicBitField.any2i
+~ http2 hpack field hpackmagicbitfield
+
+f = h2.HPackMagicBitField('value', 3, 2)
+assert(f.any2i(None, 3) == 3)
+expect_exception(AssertionError, 'f.any2i(None, 2)')
+
++ HTTP/2 HPackHdrString Test Suite
+
+= HTTP/2 Dissect HPackHdrString
+~ http2 pack dissect hpackhdrstring
+
+p = h2.HPackHdrString(b'\x04Test')
+assert(p.type == 0)
+assert(p.len == 4)
+assert(isinstance(p.getfieldval('data'), h2.HPackLiteralString))
+assert(p.getfieldval('data').origin() == 'Test')
+
+p = h2.HPackHdrString(b"\x83\xdeT'")
+assert(p.type == 1)
+assert(p.len == 3)
+assert(isinstance(p.getfieldval('data'), h2.HPackZString))
+assert(p.getfieldval('data').origin() == 'Test')
+
+= HTTP/2 Build HPackHdrString
+~ http2 hpack build hpackhdrstring
+
+p = h2.HPackHdrString(data=h2.HPackLiteralString('Test'))
+assert(raw(p) == b'\x04Test')
+
+p = h2.HPackHdrString(data=h2.HPackZString('Test'))
+assert(raw(p) == b"\x83\xdeT'")
+
+#Fuzzing-able tests
+p = h2.HPackHdrString(type=1, len=3, data=h2.HPackLiteralString('Test'))
+assert(raw(p) == b'\x83Test')
+
++ HTTP/2 HPackIndexedHdr Test Suite
+
+= HTTP/2 Dissect HPackIndexedHdr
+~ http2 hpack dissect hpackindexedhdr
+
+p = h2.HPackIndexedHdr(b'\x80')
+assert(p.magic == 1)
+assert(p.index == 0)
+
+p = h2.HPackIndexedHdr(b'\xFF\x00')
+assert(p.magic == 1)
+assert(p.index == 127)
+
+= HTTP/2 Build HPackIndexedHdr
+~ http2 hpack build hpackindexedhdr
+
+p = h2.HPackIndexedHdr(index=0)
+assert(raw(p) == b'\x80')
+
+p = h2.HPackIndexedHdr(index=127)
+assert(raw(p) == b'\xFF\x00')
+
++ HTTP/2 HPackLitHdrFldWithIncrIndexing Test Suite
+
+= HTTP/2 Dissect HPackLitHdrFldWithIncrIndexing without indexed name
+~ http2 hpack dissect hpacklithdrfldwithincrindexing
+
+p = h2.HPackLitHdrFldWithIncrIndexing(b'\x40\x04Test\x04Toto')
+assert(p.magic == 1)
+assert(p.index == 0)
+assert(isinstance(p.hdr_name, h2.HPackHdrString))
+assert(p.hdr_name.type == 0)
+assert(p.hdr_name.len == 4)
+assert(p.hdr_name.getfieldval('data').origin() == 'Test')
+assert(isinstance(p.hdr_value, h2.HPackHdrString))
+assert(p.hdr_value.type == 0)
+assert(p.hdr_value.len == 4)
+assert(p.hdr_value.getfieldval('data').origin() == 'Toto')
+
+= HTTP/2 Dissect HPackLitHdrFldWithIncrIndexing with indexed name
+~ http2 hpack dissect hpacklithdrfldwithincrindexing
+
+p = h2.HPackLitHdrFldWithIncrIndexing(b'\x41\x04Toto')
+assert(p.magic == 1)
+assert(p.index == 1)
+assert(p.hdr_name is None)
+assert(isinstance(p.hdr_value, h2.HPackHdrString))
+assert(p.hdr_value.type == 0)
+assert(p.hdr_value.len == 4)
+assert(p.hdr_value.getfieldval('data').origin() == 'Toto')
+
+
+= HTTP/2 Build HPackLitHdrFldWithIncrIndexing without indexed name
+~ http2 hpack build hpacklithdrfldwithincrindexing
+
+p = h2.HPackLitHdrFldWithIncrIndexing(
+    hdr_name=h2.HPackHdrString(data=h2.HPackLiteralString('Test')),
+    hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString(b'Toto'))
+)
+assert(raw(p) == b'\x40\x04Test\x04Toto')
+
+= HTTP/2 Build HPackLitHdrFldWithIncrIndexing with indexed name
+~ http2 hpack build hpacklithdrfldwithincrindexing
+
+p = h2.HPackLitHdrFldWithIncrIndexing(
+    index=1,
+    hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString(b'Toto'))
+)
+assert(raw(p) == b'\x41\x04Toto')
+
++ HTTP/2 HPackLitHdrFldWithoutIndexing Test Suite
+
+= HTTP/2 Dissect HPackLitHdrFldWithoutIndexing : don't index and no index
+~ http2 hpack dissect hpacklithdrfldwithoutindexing
+
+p = h2.HPackLitHdrFldWithoutIndexing(b'\x00\x04Test\x04Toto')
+assert(p.magic == 0)
+assert(p.never_index == 0)
+assert(p.index == 0)
+assert(isinstance(p.hdr_name, h2.HPackHdrString))
+assert(p.hdr_name.type == 0)
+assert(p.hdr_name.len == 4)
+assert(isinstance(p.hdr_name.getfieldval('data'), h2.HPackLiteralString))
+assert(p.hdr_name.getfieldval('data').origin() == 'Test')
+assert(isinstance(p.hdr_value, h2.HPackHdrString))
+assert(p.hdr_value.type == 0)
+assert(p.hdr_value.len == 4)
+assert(isinstance(p.hdr_value.getfieldval('data'), h2.HPackLiteralString))
+assert(p.hdr_value.getfieldval('data').origin() == 'Toto')
+
+= HTTP/2 Dissect HPackLitHdrFldWithoutIndexing : never index index and no index
+~ http2 hpack dissect hpacklithdrfldwithoutindexing
+
+p = h2.HPackLitHdrFldWithoutIndexing(b'\x10\x04Test\x04Toto')
+assert(p.magic == 0)
+assert(p.never_index == 1)
+assert(p.index == 0)
+assert(isinstance(p.hdr_name, h2.HPackHdrString))
+assert(p.hdr_name.type == 0)
+assert(p.hdr_name.len == 4)
+assert(isinstance(p.hdr_name.getfieldval('data'), h2.HPackLiteralString))
+assert(p.hdr_name.getfieldval('data').origin() == 'Test')
+assert(isinstance(p.hdr_value, h2.HPackHdrString))
+assert(p.hdr_value.type == 0)
+assert(p.hdr_value.len == 4)
+assert(isinstance(p.hdr_value.getfieldval('data'), h2.HPackLiteralString))
+assert(p.hdr_value.getfieldval('data').origin() == 'Toto')
+
+= HTTP/2 Dissect HPackLitHdrFldWithoutIndexing : never index and indexed name
+~ http2 hpack dissect hpacklithdrfldwithoutindexing
+
+p = h2.HPackLitHdrFldWithoutIndexing(b'\x11\x04Toto')
+assert(p.magic == 0)
+assert(p.never_index == 1)
+assert(p.index == 1)
+assert(p.hdr_name is None)
+assert(isinstance(p.hdr_value, h2.HPackHdrString))
+assert(p.hdr_value.type == 0)
+assert(p.hdr_value.len == 4)
+assert(isinstance(p.hdr_value.getfieldval('data'), h2.HPackLiteralString))
+assert(p.hdr_value.getfieldval('data').origin() == 'Toto')
+
+= HTTP/2 Build HPackLitHdrFldWithoutIndexing : don't index and no index
+~ http2 hpack build hpacklithdrfldwithoutindexing
+
+p = h2.HPackLitHdrFldWithoutIndexing(
+    hdr_name=h2.HPackHdrString(data=h2.HPackLiteralString('Test')),
+    hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString(b'Toto'))
+)
+assert(raw(p) == b'\x00\x04Test\x04Toto')
+
+= HTTP/2 Build HPackLitHdrFldWithoutIndexing : never index index and no index
+~ http2 hpack build hpacklithdrfldwithoutindexing
+
+p = h2.HPackLitHdrFldWithoutIndexing(
+    never_index=1,
+    hdr_name=h2.HPackHdrString(data=h2.HPackLiteralString('Test')),
+    hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString(b'Toto'))
+)
+assert(raw(p) == b'\x10\x04Test\x04Toto')
+
+= HTTP/2 Build HPackLitHdrFldWithoutIndexing : never index and indexed name
+~ http2 hpack build hpacklithdrfldwithoutindexing
+
+p = h2.HPackLitHdrFldWithoutIndexing(
+    never_index=1,
+    index=1,
+    hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString(b'Toto'))
+)
+assert(raw(p) == b'\x11\x04Toto')
+
++ HTTP/2 HPackDynamicSizeUpdate Test Suite
+
+= HTTP/2 Dissect HPackDynamicSizeUpdate
+~ http2 hpack dissect hpackdynamicsizeupdate
+
+p = h2.HPackDynamicSizeUpdate(b'\x25')
+assert(p.magic == 1)
+assert(p.max_size == 5)
+p = h2.HPackDynamicSizeUpdate(b'\x3F\x00')
+assert(p.magic == 1)
+assert(p.max_size == 31)
+
+= HTTP/2 Build HPackDynamicSizeUpdate
+~ http2 hpack build hpackdynamicsizeupdate
+
+p = h2.HPackDynamicSizeUpdate(max_size=5)
+assert(raw(p) == b'\x25')
+p = h2.HPackDynamicSizeUpdate(max_size=31)
+assert(raw(p) == b'\x3F\x00')
+
++ HTTP/2 Data Frame Test Suite
+
+= HTTP/2 Dissect Data Frame: Simple data frame
+~ http2 frame dissect data
+
+pkt = h2.H2Frame(b'\x00\x00\x04\x00\x00\x00\x00\x00\x01ABCD')
+assert(pkt.type == 0)
+assert(pkt.len == 4)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2DataFrame))
+assert(pkt[h2.H2DataFrame])
+assert(pkt.payload.data == b'ABCD')
+assert(isinstance(pkt.payload.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Data Frame: Simple data frame
+~ http2 frame build data
+
+pkt = h2.H2Frame(stream_id = 1)/h2.H2DataFrame(data='ABCD')
+assert(raw(pkt) == b'\x00\x00\x04\x00\x00\x00\x00\x00\x01ABCD')
+try:
+    pkt.show2(dump=True)
+    assert(True)
+except Exception:
+    assert(False)
+
+= HTTP/2 Dissect Data Frame: Simple data frame with padding
+~ http2 frame dissect data
+
+pkt = h2.H2Frame(b'\x00\x00\r\x00\x08\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00') #Padded data frame
+assert(pkt.type == 0)
+assert(pkt.len == 13)
+assert(len(pkt.flags) ==  1)
+assert('P' in pkt.flags)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2PaddedDataFrame))
+assert(pkt[h2.H2PaddedDataFrame])
+assert(pkt.payload.padlen == 8)
+assert(pkt.payload.data == b'ABCD')
+assert(pkt.payload.padding == b'\x00'*8)
+assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
+assert(isinstance(pkt.payload.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Data Frame: Simple data frame with padding
+~ http2 frame build data
+
+pkt = h2.H2Frame(flags = {'P'}, stream_id = 1)/h2.H2PaddedDataFrame(data='ABCD', padding=b'\x00'*8)
+assert(raw(pkt) == b'\x00\x00\r\x00\x08\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00')
+try:
+    pkt.show2(dump=True)
+    assert(True)
+except Exception:
+    assert(False)
+
+= HTTP/2 Dissect Data Frame: Simple data frame with padding and end stream flag
+~ http2 frame dissect data
+
+pkt = h2.H2Frame(b'\x00\x00\r\x00\t\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00') #Padded data frame with end stream flag
+assert(pkt.type == 0)
+assert(pkt.len == 13)
+assert(len(pkt.flags) == 2)
+assert('P' in pkt.flags)
+assert('ES' in pkt.flags)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2PaddedDataFrame))
+assert(pkt[h2.H2PaddedDataFrame])
+assert(pkt.payload.padlen == 8)
+assert(pkt.payload.data == b'ABCD')
+assert(pkt.payload.padding == b'\x00'*8)
+assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
+assert(isinstance(pkt.payload.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Data Frame: Simple data frame with padding and end stream flag
+~ http2 frame build data
+
+pkt = h2.H2Frame(flags = {'P', 'ES'}, stream_id=1)/h2.H2PaddedDataFrame(data='ABCD', padding=b'\x00'*8)
+assert(raw(pkt) == b'\x00\x00\r\x00\t\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x00\x00\x00\x00')
+try:
+    pkt.show2(dump=True)
+    assert(True)
+except Exception:
+    assert(False)
+
++ HTTP/2 Headers Frame Test Suite
+
+= HTTP/2 Dissect Headers Frame: Simple header frame
+~ http2 frame dissect headers
+
+pkt = h2.H2Frame(b'\x00\x00\x0e\x01\x00\x00\x00\x00\x01\x88\x0f\x10\ntext/plain') #Header frame
+assert(pkt.type == 1)
+assert(pkt.len == 14)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2HeadersFrame))
+assert(pkt[h2.H2HeadersFrame])
+hf = pkt[h2.H2HeadersFrame]
+assert(len(hf.hdrs) == 2)
+assert(isinstance(hf.hdrs[0], h2.HPackIndexedHdr))
+assert(hf.hdrs[0].magic == 1)
+assert(hf.hdrs[0].index == 8)
+assert(isinstance(hf.hdrs[1], h2.HPackLitHdrFldWithoutIndexing))
+assert(hf.hdrs[1].magic == 0)
+assert(hf.hdrs[1].never_index == 0)
+assert(hf.hdrs[1].index == 31)
+assert(hf.hdrs[1].hdr_name is None)
+assert(expect_exception(AttributeError, 'hf.hdrs[1].non_existant'))
+assert(isinstance(hf.hdrs[1].hdr_value, h2.HPackHdrString))
+s = hf.hdrs[1].hdr_value
+assert(s.type == 0)
+assert(s.len == 10)
+assert(s.getfieldval('data').origin() == 'text/plain')
+assert(isinstance(hf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Headers Frame: Simple header frame
+~ http2 frame build headers
+
+p = h2.H2Frame(stream_id=1)/h2.H2HeadersFrame(hdrs=[
+        h2.HPackIndexedHdr(index=8),
+        h2.HPackLitHdrFldWithoutIndexing(
+            index=31,
+            hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('text/plain'))
+        )
+    ]
+)
+assert(raw(p) == b'\x00\x00\x0e\x01\x00\x00\x00\x00\x01\x88\x0f\x10\ntext/plain')
+
+= HTTP/2 Dissect Headers Frame: Header frame with padding
+~ http2 frame dissect headers
+
+pkt = h2.H2Frame(b'\x00\x00\x17\x01\x08\x00\x00\x00\x01\x08\x88\x0f\x10\ntext/plain\x00\x00\x00\x00\x00\x00\x00\x00') #Header frame with padding
+assert(pkt.type == 1)
+assert(pkt.len == 23)
+assert(len(pkt.flags) == 1)
+assert('P' in pkt.flags)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2PaddedHeadersFrame))
+assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
+assert(pkt[h2.H2PaddedHeadersFrame])
+hf = pkt[h2.H2PaddedHeadersFrame]
+assert(hf.padlen == 8)
+assert(hf.padding == b'\x00' * 8)
+assert(len(hf.hdrs) == 2)
+assert(isinstance(hf.hdrs[0], h2.HPackIndexedHdr))
+assert(hf.hdrs[0].magic == 1)
+assert(hf.hdrs[0].index == 8)
+assert(isinstance(hf.hdrs[1], h2.HPackLitHdrFldWithoutIndexing))
+assert(hf.hdrs[1].magic == 0)
+assert(hf.hdrs[1].never_index == 0)
+assert(hf.hdrs[1].index == 31)
+assert(hf.hdrs[1].hdr_name is None)
+assert(expect_exception(AttributeError, 'hf.hdrs[1].non_existant'))
+assert(isinstance(hf.hdrs[1].hdr_value, h2.HPackHdrString))
+s = hf.hdrs[1].hdr_value
+assert(s.type == 0)
+assert(s.len == 10)
+assert(s.getfieldval('data').origin() == 'text/plain')
+assert(isinstance(hf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Headers Frame: Header frame with padding
+~ http2 frame build headers
+
+p = h2.H2Frame(flags={'P'}, stream_id=1)/h2.H2PaddedHeadersFrame(
+    hdrs=[
+        h2.HPackIndexedHdr(index=8),
+        h2.HPackLitHdrFldWithoutIndexing(
+            index=31,
+            hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('text/plain'))
+        )
+    ],
+    padding=b'\x00'*8,
+)
+assert(raw(p) == b'\x00\x00\x17\x01\x08\x00\x00\x00\x01\x08\x88\x0f\x10\ntext/plain\x00\x00\x00\x00\x00\x00\x00\x00')
+
+= HTTP/2 Dissect Headers Frame: Header frame with priority
+~ http2 frame dissect headers
+
+pkt = h2.H2Frame(b'\x00\x00\x13\x01 \x00\x00\x00\x01\x00\x00\x00\x02d\x88\x0f\x10\ntext/plain') #Header frame with priority
+assert(pkt.type == 1)
+assert(pkt.len == 19)
+assert(len(pkt.flags) == 1)
+assert('+' in pkt.flags)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2PriorityHeadersFrame))
+assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
+assert(pkt[h2.H2PriorityHeadersFrame])
+hf = pkt[h2.H2PriorityHeadersFrame]
+assert(hf.exclusive == 0)
+assert(hf.stream_dependency == 2)
+assert(hf.weight == 100)
+assert(len(hf.hdrs) == 2)
+assert(isinstance(hf.hdrs[0], h2.HPackIndexedHdr))
+assert(hf.hdrs[0].magic == 1)
+assert(hf.hdrs[0].index == 8)
+assert(isinstance(hf.hdrs[1], h2.HPackLitHdrFldWithoutIndexing))
+assert(hf.hdrs[1].magic == 0)
+assert(hf.hdrs[1].never_index == 0)
+assert(hf.hdrs[1].index == 31)
+assert(hf.hdrs[1].hdr_name is None)
+assert(expect_exception(AttributeError, 'hf.hdrs[1].non_existant'))
+assert(isinstance(hf.hdrs[1].hdr_value, h2.HPackHdrString))
+s = hf.hdrs[1].hdr_value
+assert(s.type == 0)
+assert(s.len == 10)
+assert(s.getfieldval('data').origin() == 'text/plain')
+assert(isinstance(hf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Headers Frame: Header frame with priority
+~ http2 frame build headers
+
+p = h2.H2Frame(flags={'+'}, stream_id=1)/h2.H2PriorityHeadersFrame(
+    exclusive=0,
+    stream_dependency=2,
+    weight=100,
+    hdrs=[
+        h2.HPackIndexedHdr(index=8),
+        h2.HPackLitHdrFldWithoutIndexing(
+            index=31,
+            hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('text/plain'))
+        )
+    ]
+)
+assert(raw(p) == b'\x00\x00\x13\x01 \x00\x00\x00\x01\x00\x00\x00\x02d\x88\x0f\x10\ntext/plain')
+
+= HTTP/2 Dissect Headers Frame: Header frame with priority and padding and flags
+~ http2 frame dissect headers
+
+pkt = h2.H2Frame(b'\x00\x00\x1c\x01-\x00\x00\x00\x01\x08\x00\x00\x00\x02d\x88\x0f\x10\ntext/plain\x00\x00\x00\x00\x00\x00\x00\x00') #Header frame with priority and padding and flags ES|EH
+assert(pkt.type == 1)
+assert(pkt.len == 28)
+assert(len(pkt.flags) == 4)
+assert('+' in pkt.flags)
+assert('P' in pkt.flags)
+assert('ES' in pkt.flags)
+assert('EH' in pkt.flags)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2PaddedPriorityHeadersFrame))
+assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
+assert(pkt[h2.H2PaddedPriorityHeadersFrame])
+hf = pkt[h2.H2PaddedPriorityHeadersFrame]
+assert(hf.padlen == 8)
+assert(hf.padding == b'\x00' * 8)
+assert(hf.exclusive == 0)
+assert(hf.stream_dependency == 2)
+assert(hf.weight == 100)
+assert(len(hf.hdrs) == 2)
+assert(isinstance(hf.hdrs[0], h2.HPackIndexedHdr))
+assert(hf.hdrs[0].magic == 1)
+assert(hf.hdrs[0].index == 8)
+assert(isinstance(hf.hdrs[1], h2.HPackLitHdrFldWithoutIndexing))
+assert(hf.hdrs[1].magic == 0)
+assert(hf.hdrs[1].never_index == 0)
+assert(hf.hdrs[1].index == 31)
+assert(hf.hdrs[1].hdr_name is None)
+assert(expect_exception(AttributeError, 'hf.hdrs[1].non_existant'))
+assert(isinstance(hf.hdrs[1].hdr_value, h2.HPackHdrString))
+s = hf.hdrs[1].hdr_value
+assert(s.type == 0)
+assert(s.len == 10)
+assert(s.getfieldval('data').origin() == 'text/plain')
+assert(isinstance(hf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Headers Frame: Header frame with priority and padding and flags
+~ http2 frame build headers
+
+p = h2.H2Frame(flags={'P', '+', 'ES', 'EH'}, stream_id=1)/h2.H2PaddedPriorityHeadersFrame(
+    exclusive=0,
+    stream_dependency=2,
+    weight=100,
+    padding=b'\x00'*8,
+    hdrs=[
+        h2.HPackIndexedHdr(index=8),
+        h2.HPackLitHdrFldWithoutIndexing(
+            index=31,
+            hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('text/plain'))
+        )
+    ]
+)
+
++ HTTP/2 Priority Frame Test Suite
+
+= HTTP/2 Dissect Priority Frame
+~ http2 frame dissect priority
+
+pkt = h2.H2Frame(b'\x00\x00\x05\x02\x00\x00\x00\x00\x03\x80\x00\x00\x01d')
+assert(pkt.type == 2)
+assert(pkt.len == 5)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 3)
+assert(isinstance(pkt.payload, h2.H2PriorityFrame))
+assert(pkt[h2.H2PriorityFrame])
+pp = pkt[h2.H2PriorityFrame]
+assert(pp.stream_dependency == 1)
+assert(pp.exclusive == 1)
+assert(pp.weight == 100)
+
+= HTTP/2 Build Priority Frame
+~ http2 frame build priority
+
+p = h2.H2Frame(stream_id=3)/h2.H2PriorityFrame(
+    exclusive=1,
+    stream_dependency=1,
+    weight=100
+)
+assert(raw(p) == b'\x00\x00\x05\x02\x00\x00\x00\x00\x03\x80\x00\x00\x01d')
+
++ HTTP/2 Reset Stream Frame Test Suite
+
+= HTTP/2 Dissect Reset Stream Frame: Protocol Error
+~ http2 frame dissect rststream
+
+pkt = h2.H2Frame(b'\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x00\x00\x01') #Reset stream with protocol error
+assert(pkt.type == 3)
+assert(pkt.len == 4)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2ResetFrame))
+assert(pkt[h2.H2ResetFrame])
+rf = pkt[h2.H2ResetFrame]
+assert(rf.error == 1)
+assert(isinstance(rf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Reset Stream Frame: Protocol Error
+~ http2 frame build rststream
+
+p = h2.H2Frame(stream_id=1)/h2.H2ResetFrame(error='Protocol error')
+assert(raw(p) == b'\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x00\x00\x01')
+
+p = h2.H2Frame(stream_id=1)/h2.H2ResetFrame(error=1)
+assert(raw(p) == b'\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x00\x00\x01')
+
+= HTTP/2 Dissect Reset Stream Frame: Raw 123456 error
+~ http2 frame dissect rststream
+
+pkt = h2.H2Frame(b'\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x01\xe2@') #Reset stream with raw error
+assert(pkt.type == 3)
+assert(pkt.len == 4)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2ResetFrame))
+assert(pkt[h2.H2ResetFrame])
+rf = pkt[h2.H2ResetFrame]
+assert(rf.error == 123456)
+assert(isinstance(rf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Dissect Reset Stream Frame: Raw 123456 error
+~ http2 frame dissect rststream
+
+p = h2.H2Frame(stream_id=1)/h2.H2ResetFrame(error=123456)
+assert(raw(p) == b'\x00\x00\x04\x03\x00\x00\x00\x00\x01\x00\x01\xe2@')
+
++ HTTP/2 Settings Frame Test Suite
+
+= HTTP/2 Dissect Settings Frame: Settings Frame
+~ http2 frame dissect settings
+
+pkt = h2.H2Frame(b'\x00\x00$\x04\x00\x00\x00\x00\x00\x00\x01\x07[\xcd\x15\x00\x02\x00\x00\x00\x01\x00\x03\x00\x00\x00{\x00\x04\x00\x12\xd6\x87\x00\x05\x00\x01\xe2@\x00\x06\x00\x00\x00{') #Settings frame
+assert(pkt.type == 4)
+assert(pkt.len == 36)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 0)
+assert(isinstance(pkt.payload, h2.H2SettingsFrame))
+assert(pkt[h2.H2SettingsFrame])
+sf = pkt[h2.H2SettingsFrame]
+assert(len(sf.settings) == 6)
+assert(isinstance(sf.settings[0], h2.H2Setting))
+assert(sf.settings[0].id == 1)
+assert(sf.settings[0].value == 123456789)
+assert(isinstance(sf.settings[1], h2.H2Setting))
+assert(sf.settings[1].id == 2)
+assert(sf.settings[1].value == 1)
+assert(isinstance(sf.settings[2], h2.H2Setting))
+assert(sf.settings[2].id == 3)
+assert(sf.settings[2].value == 123)
+assert(isinstance(sf.settings[3], h2.H2Setting))
+assert(sf.settings[3].id == 4)
+assert(sf.settings[3].value == 1234567)
+assert(isinstance(sf.settings[4], h2.H2Setting))
+assert(sf.settings[4].id == 5)
+assert(sf.settings[4].value == 123456)
+assert(isinstance(sf.settings[5], h2.H2Setting))
+assert(sf.settings[5].id == 6)
+assert(sf.settings[5].value == 123)
+assert(isinstance(sf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Settings Frame: Settings Frame
+~ http2 frame build settings
+
+p = h2.H2Frame()/h2.H2SettingsFrame(settings=[
+        h2.H2Setting(id='Header table size',value=123456789),
+        h2.H2Setting(id='Enable push', value=1),
+        h2.H2Setting(id='Max concurrent streams', value=123),
+        h2.H2Setting(id='Initial window size', value=1234567),
+        h2.H2Setting(id='Max frame size', value=123456),
+        h2.H2Setting(id='Max header list size', value=123)
+    ]
+)
+assert(raw(p) == b'\x00\x00$\x04\x00\x00\x00\x00\x00\x00\x01\x07[\xcd\x15\x00\x02\x00\x00\x00\x01\x00\x03\x00\x00\x00{\x00\x04\x00\x12\xd6\x87\x00\x05\x00\x01\xe2@\x00\x06\x00\x00\x00{')
+
+= HTTP/2 Dissect Settings Frame: Incomplete Settings Frame
+~ http2 frame dissect settings
+
+#We use here the decode('hex') method because null-bytes are rejected by eval()
+assert(expect_exception(AssertionError, 'h2.H2Frame(bytes_hex("0000240400000000000001075bcd1500020000000100030000007b00040012d68700050001e2400006000000"))'))
+
+= HTTP/2 Dissect Settings Frame: Settings Frame acknowledgement
+~ http2 frame dissect settings
+
+pkt = h2.H2Frame(b'\x00\x00\x00\x04\x01\x00\x00\x00\x00') #Settings frame w/ ack flag
+assert(pkt.type == 4)
+assert(pkt.len == 0)
+assert(len(pkt.flags) == 1)
+assert('A' in pkt.flags)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 0)
+assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
+assert(isinstance(pkt.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Settings Frame: Settings Frame acknowledgement
+~ http2 frame build settings
+
+p = h2.H2Frame(type=h2.H2SettingsFrame.type_id, flags={'A'})
+assert(raw(p) == b'\x00\x00\x00\x04\x01\x00\x00\x00\x00')
+
++ HTTP/2 Push Promise Frame Test Suite
+
+= HTTP/2 Dissect Push Promise Frame: no flag & headers with compression and hdr_name
+~ http2 frame dissect pushpromise
+
+pkt = h2.H2Frame(b'\x00\x00\x15\x05\x00\x00\x00\x00\x01\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+assert(pkt.type == 5)
+assert(pkt.len == 21)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2PushPromiseFrame))
+assert(pkt[h2.H2PushPromiseFrame])
+pf = pkt[h2.H2PushPromiseFrame]
+assert(pf.reserved == 0)
+assert(pf.stream_id == 3)
+assert(len(pf.hdrs) == 1)
+assert(isinstance(pf.payload, scapy.packet.NoPayload))
+hdr = pf.hdrs[0]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithIncrIndexing))
+assert(hdr.magic == 1)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.type == 1)
+assert(hdr.hdr_name.len == 12)
+assert(hdr.hdr_name.getfieldval('data').origin() == 'X-Requested-With')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.type == 0)
+assert(hdr.hdr_value.len == 2)
+assert(hdr.hdr_value.getfieldval('data').origin() == 'Me')
+
+= HTTP/2 Build Push Promise Frame: no flag & headers with compression and hdr_name
+~ http2 frame build pushpromise
+
+p = h2.H2Frame(stream_id=1)/h2.H2PushPromiseFrame(stream_id=3,hdrs=[
+    h2.HPackLitHdrFldWithIncrIndexing(
+        hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Requested-With')),
+        hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Me')),
+    )
+])
+assert(raw(p) == b'\x00\x00\x15\x05\x00\x00\x00\x00\x01\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+
+= HTTP/2 Dissect Push Promise Frame: with padding, the flag END_Header & headers with compression and hdr_name
+~ http2 frame dissect pushpromise
+
+pkt = h2.H2Frame(b'\x00\x00\x1e\x05\x0c\x00\x00\x00\x01\x08\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me\x00\x00\x00\x00\x00\x00\x00\x00')
+assert(pkt.type == 5)
+assert(pkt.len == 30)
+assert(len(pkt.flags) == 2)
+assert('P' in pkt.flags)
+assert('EH' in pkt.flags)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
+assert(isinstance(pkt.payload, h2.H2PaddedPushPromiseFrame))
+assert(pkt[h2.H2PaddedPushPromiseFrame])
+pf = pkt[h2.H2PaddedPushPromiseFrame]
+assert(pf.padlen == 8)
+assert(pf.padding == b'\x00'*8)
+assert(pf.stream_id == 3)
+assert(len(pf.hdrs) == 1)
+hdr = pf.hdrs[0]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithIncrIndexing))
+assert(hdr.magic == 1)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.type == 1)
+assert(hdr.hdr_name.len == 12)
+assert(hdr.hdr_name.getfieldval('data').origin() == 'X-Requested-With')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.type == 0)
+assert(hdr.hdr_value.len == 2)
+assert(hdr.hdr_value.getfieldval('data').origin() == 'Me')
+
+= HTTP/2 Build Push Promise Frame: with padding, the flag END_Header & headers with compression and hdr_name
+~ http2 frame build pushpromise
+
+p = h2.H2Frame(flags={'P', 'EH'}, stream_id=1)/h2.H2PaddedPushPromiseFrame(
+    stream_id=3,
+    hdrs=[
+        h2.HPackLitHdrFldWithIncrIndexing(
+            hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Requested-With')),
+            hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Me'))
+        )
+    ],
+    padding=b'\x00'*8
+)
+assert(raw(p) == b'\x00\x00\x1e\x05\x0c\x00\x00\x00\x01\x08\x00\x00\x00\x03@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me\x00\x00\x00\x00\x00\x00\x00\x00')
+
++ HTTP/2 Ping Frame Test Suite
+
+= HTTP/2 Dissect Ping Frame: Ping frame
+~ http2 frame dissect ping
+
+pkt = h2.H2Frame(b'\x00\x00\x08\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@') #Ping frame with payload
+assert(pkt.type == 6)
+assert(pkt.len == 8)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 0)
+assert(isinstance(pkt.payload, h2.H2PingFrame))
+assert(pkt[h2.H2PingFrame])
+pf = pkt[h2.H2PingFrame]
+assert(pf.opaque == 123456)
+assert(isinstance(pf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Ping Frame: Ping frame
+~ http2 frame build ping
+
+p = h2.H2Frame()/h2.H2PingFrame(opaque=123456)
+assert(raw(p) == b'\x00\x00\x08\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@')
+
+= HTTP/2 Dissect Ping Frame: Pong frame
+~ http2 frame dissect ping
+
+pkt = h2.H2Frame(b'\x00\x00\x08\x06\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@') #Pong frame
+assert(pkt.type == 6)
+assert(pkt.len == 8)
+assert(len(pkt.flags) == 1)
+assert('A' in pkt.flags)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 0)
+assert(isinstance(pkt.payload, h2.H2PingFrame))
+assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
+assert(pkt[h2.H2PingFrame])
+pf = pkt[h2.H2PingFrame]
+assert(pf.opaque == 123456)
+assert(isinstance(pf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Dissect Ping Frame: Pong frame
+~ http2 frame dissect ping
+
+p = h2.H2Frame(flags={'A'})/h2.H2PingFrame(opaque=123456)
+assert(raw(p) == b'\x00\x00\x08\x06\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@')
+
++ HTTP/2 Go Away Frame Test Suite
+
+= HTTP/2 Dissect Go Away Frame: No error
+~ http2 frame dissect goaway
+
+pkt = h2.H2Frame(b'\x00\x00\x08\x07\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00') #Go Away for no particular reason :)
+assert(pkt.type == 7)
+assert(pkt.len == 8)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 0)
+assert(isinstance(pkt.payload, h2.H2GoAwayFrame))
+assert(pkt[h2.H2GoAwayFrame])
+gf = pkt[h2.H2GoAwayFrame]
+assert(gf.reserved == 0)
+assert(gf.last_stream_id == 1)
+assert(gf.error == 0)
+assert(len(gf.additional_data) == 0)
+assert(isinstance(gf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Go Away Frame: No error
+~ http2 frame build goaway
+
+p = h2.H2Frame()/h2.H2GoAwayFrame(last_stream_id=1, error='No error')
+assert(raw(p) == b'\x00\x00\x08\x07\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00')
+
+= HTTP/2 Dissect Go Away Frame: Arbitrary error with additional data
+~ http2 frame dissect goaway
+
+pkt = h2.H2Frame(b'\x00\x00\x10\x07\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01\xe2@\x00\x00\x00\x00\x00\x00\x00\x00') #Go Away with debug data
+assert(pkt.type == 7)
+assert(pkt.len == 16)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 0)
+assert(isinstance(pkt.payload, h2.H2GoAwayFrame))
+assert(pkt[h2.H2GoAwayFrame])
+gf = pkt[h2.H2GoAwayFrame]
+assert(gf.reserved == 0)
+assert(gf.last_stream_id == 2)
+assert(gf.error == 123456)
+assert(gf.additional_data == 8*b'\x00')
+assert(isinstance(gf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Go Away Frame: Arbitrary error with additional data
+~ http2 frame build goaway
+
+p = h2.H2Frame()/h2.H2GoAwayFrame(
+    last_stream_id=2,
+    error=123456,
+    additional_data=b'\x00'*8
+)
+assert(raw(p) == b'\x00\x00\x10\x07\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01\xe2@\x00\x00\x00\x00\x00\x00\x00\x00')
+
++ HTTP/2 Window Update Frame Test Suite
+
+= HTTP/2 Dissect Window Update Frame: global
+~ http2 frame dissect winupdate
+
+pkt = h2.H2Frame(b'\x00\x00\x04\x08\x00\x00\x00\x00\x00\x00\x01\xe2@') #Window update with increment for connection
+assert(pkt.type == 8)
+assert(pkt.len == 4)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 0)
+assert(isinstance(pkt.payload, h2.H2WindowUpdateFrame))
+assert(pkt[h2.H2WindowUpdateFrame])
+wf = pkt[h2.H2WindowUpdateFrame]
+assert(wf.reserved == 0)
+assert(wf.win_size_incr == 123456)
+assert(isinstance(wf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Window Update Frame: global
+~ http2 frame build winupdate
+
+p = h2.H2Frame()/h2.H2WindowUpdateFrame(win_size_incr=123456)
+assert(raw(p) == b'\x00\x00\x04\x08\x00\x00\x00\x00\x00\x00\x01\xe2@')
+
+= HTTP/2 Dissect Window Update Frame: a stream
+~ http2 frame dissect winupdate
+
+pkt = h2.H2Frame(b'\x00\x00\x04\x08\x00\x00\x00\x00\x01\x00\x01\xe2@') #Window update with increment for a stream
+assert(pkt.type == 8)
+assert(pkt.len == 4)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2WindowUpdateFrame))
+assert(pkt[h2.H2WindowUpdateFrame])
+wf = pkt[h2.H2WindowUpdateFrame]
+assert(wf.reserved == 0)
+assert(wf.win_size_incr == 123456)
+assert(isinstance(wf.payload, scapy.packet.NoPayload))
+
+= HTTP/2 Build Window Update Frame: a stream
+~ http2 frame build winupdate
+
+p = h2.H2Frame(stream_id=1)/h2.H2WindowUpdateFrame(win_size_incr=123456)
+assert(raw(p) == b'\x00\x00\x04\x08\x00\x00\x00\x00\x01\x00\x01\xe2@')
+
++ HTTP/2 Continuation Frame Test Suite
+
+= HTTP/2 Dissect Continuation Frame: no flag & headers with compression and hdr_name
+~ http2 frame dissect continuation
+
+pkt = h2.H2Frame(b'\x00\x00\x11\t\x00\x00\x00\x00\x01@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+assert(pkt.type == 9)
+assert(pkt.len == 17)
+assert(len(pkt.flags) == 0)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(isinstance(pkt.payload, h2.H2ContinuationFrame))
+assert(pkt[h2.H2ContinuationFrame])
+hf = pkt[h2.H2ContinuationFrame]
+assert(len(hf.hdrs) == 1)
+assert(isinstance(hf.payload, scapy.packet.NoPayload))
+hdr = hf.hdrs[0]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithIncrIndexing))
+assert(hdr.magic == 1)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.type == 1)
+assert(hdr.hdr_name.len == 12)
+assert(hdr.hdr_name.getfieldval('data').origin() == 'X-Requested-With')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.type == 0)
+assert(hdr.hdr_value.len == 2)
+assert(hdr.hdr_value.getfieldval('data').origin() == 'Me')
+
+= HTTP/2 Build Continuation Frame: no flag & headers with compression and hdr_name
+~ http2 frame build continuation
+
+p = h2.H2Frame(stream_id=1)/h2.H2ContinuationFrame(
+    hdrs=[
+        h2.HPackLitHdrFldWithIncrIndexing(
+            hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Requested-With')),
+            hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Me'))
+        )
+    ]
+)
+assert(raw(p) == b'\x00\x00\x11\t\x00\x00\x00\x00\x01@\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+
+= HTTP/2 Dissect Continuation Frame: flag END_Header & headers with compression, sensitive flag and hdr_name
+~ http2 frame dissect continuation
+
+pkt = h2.H2Frame(b'\x00\x00\x11\t\x04\x00\x00\x00\x01\x10\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+assert(pkt.type == 9)
+assert(pkt.len == 17)
+assert(len(pkt.flags) == 1)
+assert('EH' in pkt.flags)
+assert(pkt.reserved == 0)
+assert(pkt.stream_id == 1)
+assert(flags_bit_pattern.search(pkt.show(dump=True)) is None)
+assert(isinstance(pkt.payload, h2.H2ContinuationFrame))
+assert(pkt[h2.H2ContinuationFrame])
+hf = pkt[h2.H2ContinuationFrame]
+assert(len(hf.hdrs) == 1)
+assert(isinstance(hf.payload, scapy.packet.NoPayload))
+hdr = hf.hdrs[0]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 1)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.type == 1)
+assert(hdr.hdr_name.len == 12)
+assert(hdr.hdr_name.getfieldval('data').origin() == 'X-Requested-With')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.type == 0)
+assert(hdr.hdr_value.len == 2)
+assert(hdr.hdr_value.getfieldval('data').origin() == 'Me')
+
+= HTTP/2 Build Continuation Frame: flag END_Header & headers with compression, sensitive flag and hdr_name
+~ http2 frame build continuation
+
+p = h2.H2Frame(flags={'EH'}, stream_id=1)/h2.H2ContinuationFrame(
+    hdrs=[
+        h2.HPackLitHdrFldWithoutIndexing(
+            never_index=1,
+            hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Requested-With')),
+            hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Me'))
+        )
+    ]
+)
+assert(raw(p) == b'\x00\x00\x11\t\x04\x00\x00\x00\x01\x10\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me')
+
++ HTTP/2 HPackHdrTable Test Suite
+
+= HTTP/2 HPackHdrEntry Tests
+~ http2 hpack hpackhdrtable
+
+n = 'X-Requested-With'
+v = 'Me'
+h = h2.HPackHdrEntry(n, v)
+assert(len(h) == 32 + len(n) + len(v))
+assert(h.name() == n.lower())
+assert(h.value() == v)
+assert(str(h) == '{}: {}'.format(n.lower(), v))
+
+n = ':status'
+v = '200'
+h = h2.HPackHdrEntry(n, v)
+assert(len(h) == 32 + len(n) + len(v))
+assert(h.name() == n.lower())
+assert(h.value() == v)
+assert(str(h) == '{} {}'.format(n.lower(), v))
+
+= HTTP/2 HPackHdrTable : Querying Static Entries
+~ http2 hpack hpackhdrtable
+
+# In RFC7541, the table is 1-based
+assert(expect_exception(KeyError, 'h2.HPackHdrTable()[0]'))
+
+h = h2.HPackHdrTable()
+assert(h[1].name() == ':authority')
+assert(h[7].name() == ':scheme')
+assert(h[7].value() == 'https')
+assert(str(h[14]) == ':status 500')
+assert(str(h[16]) == 'accept-encoding: gzip, deflate')
+
+assert(expect_exception(KeyError, 'h2.HPackHdrTable()[h2.HPackHdrTable._static_entries_last_idx+1]'))
+
+= HTTP/2 HPackHdrTable : Addind Dynamic Entries without overflowing the table
+~ http2 hpack hpackhdrtable
+
+tbl = h2.HPackHdrTable(dynamic_table_max_size=1<<32, dynamic_table_cap_size=1<<32)
+hdr = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString('PHPSESSID=abcdef0123456789'))
+)
+tbl.register(hdr)
+
+tbl = h2.HPackHdrTable(dynamic_table_max_size=1<<32, dynamic_table_cap_size=1<<32)
+hdr2 = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString('JSESSID=abcdef0123456789'))
+)
+tbl.register([hdr,hdr2])
+
+tbl = h2.HPackHdrTable(dynamic_table_max_size=1<<32, dynamic_table_cap_size=1<<32)
+hdr3 = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString('Test=abcdef0123456789'))
+)
+frm = h2.H2Frame(stream_id=1)/h2.H2HeadersFrame(hdrs=[hdr, hdr2, hdr3])
+tbl.register(frm)
+
+
+= HTTP/2 HPackHdrTable : Querying Dynamic Entries
+~ http2 hpack hpackhdrtable
+
+tbl = h2.HPackHdrTable(dynamic_table_max_size=1<<32, dynamic_table_cap_size=1<<32)
+hdrv = 'PHPSESSID=abcdef0123456789'
+hdr = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString(hdrv))
+)
+tbl.register(hdr)
+
+hdrv2 = 'JSESSID=abcdef0123456789'
+hdr2 = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString(hdrv2))
+)
+tbl.register(hdr2)
+
+hdr3 = h2.HPackLitHdrFldWithIncrIndexing(
+    index=0,
+    hdr_name=h2.HPackHdrString(data=h2.HPackLiteralString('x-requested-by')),
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString('me'))
+)
+tbl.register(hdr3)
+
+assert(tbl.get_idx_by_name('x-requested-by') == h2.HPackHdrTable._static_entries_last_idx+1)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+2].value() == hdrv2)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+3].value() == hdrv)
+
+= HTTP/2 HPackHdrTable : Addind already registered Dynamic Entries without overflowing the table
+~ http2 hpack hpackhdrtable
+
+tbl = h2.HPackHdrTable(dynamic_table_max_size=1<<32, dynamic_table_cap_size=1<<32)
+
+assert(len(tbl) == 0)
+
+hdrv = 'PHPSESSID=abcdef0123456789'
+hdr = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString(hdrv))
+)
+tbl.register(hdr)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv)
+
+hdr2v = 'JSESSID=abcdef0123456789'
+hdr2 = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString(hdr2v))
+)
+tbl.register(hdr2)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdr2v)
+
+l = len(tbl)
+tbl.register(hdr)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+2].value() == hdr2v)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+3].value() == hdrv)
+
+= HTTP/2 HPackHdrTable : Addind Dynamic Entries and overflowing the table
+~ http2 hpack hpackhdrtable
+
+tbl = h2.HPackHdrTable(dynamic_table_max_size=80, dynamic_table_cap_size=80)
+hdrv = 'PHPSESSID=abcdef0123456789'
+hdr = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString(hdrv))
+)
+tbl.register(hdr)
+assert(len(tbl) <= 80)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv)
+
+hdrv2 = 'JSESSID=abcdef0123456789'
+hdr2 = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString(hdrv2))
+)
+tbl.register(hdr2)
+assert(len(tbl) <= 80)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
+try:
+    tbl[h2.HPackHdrTable._static_entries_last_idx+2]
+    ret = False
+except Exception:
+    ret = True
+
+assert(ret)
+
+
+= HTTP/2 HPackHdrTable : Resizing
+~ http2 hpack hpackhdrtable
+
+tbl = h2.HPackHdrTable()
+hdrv = 'PHPSESSID=abcdef0123456789'
+hdr = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString(hdrv))
+)
+tbl.register(hdr)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv)
+
+hdrv2 = 'JSESSID=abcdef0123456789'
+hdr2 = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString(hdrv2))
+)
+tbl.register(hdr2)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+2].value() == hdrv)
+
+#Resizing to a value higher than cap (default:4096)
+try:
+    tbl.resize(8192)
+    ret = False
+except AssertionError:
+    ret = True
+
+assert(ret)
+#Resizing to a lower value by that is not small enough to cause eviction
+tbl.resize(1024)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+2].value() == hdrv)
+#Resizing to a higher value but thatt is lower than cap
+tbl.resize(2048)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+2].value() == hdrv)
+#Resizing to a lower value that causes eviction
+tbl.resize(80)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
+try:
+    tbl[h2.HPackHdrTable._static_entries_last_idx+2]
+    ret = False
+except Exception:
+    ret = True
+
+assert(ret)
+
+= HTTP/2 HPackHdrTable : Recapping
+~ http2 hpack hpackhdrtable
+
+tbl = h2.HPackHdrTable()
+hdrv = 'PHPSESSID=abcdef0123456789'
+hdr = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString(hdrv))
+)
+tbl.register(hdr)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv)
+
+hdrv2 = 'JSESSID=abcdef0123456789'
+hdr2 = h2.HPackLitHdrFldWithIncrIndexing(
+    index=32,
+    hdr_value=h2.HPackHdrString(data=h2.HPackZString(hdrv2))
+)
+tbl.register(hdr2)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+2].value() == hdrv)
+
+#Recapping to a higher value
+tbl.recap(8192)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+2].value() == hdrv)
+
+#Recapping to a low value but without causing eviction
+tbl.recap(1024)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+2].value() == hdrv)
+
+#Recapping to a low value that causes evictiontbl.recap(1024)
+tbl.recap(80)
+assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
+try:
+    tbl[h2.HPackHdrTable._static_entries_last_idx+2]
+    ret = False
+except Exception:
+    ret = True
+
+assert(ret)
+
+= HTTP/2 HPackHdrTable : Generating Textual Representation
+~ http2 hpack hpackhdrtable helpers
+
+h = h2.HPackHdrTable()
+h.register(h2.HPackLitHdrFldWithIncrIndexing(
+        hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Generation-Date')),
+        hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('2016-08-11'))
+))
+
+hdrs_lst = [
+    h2.HPackIndexedHdr(index=2), #Method Get
+    h2.HPackLitHdrFldWithIncrIndexing(
+        index=h.get_idx_by_name(':path'),
+        hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('/index.php'))
+    ),
+    h2.HPackIndexedHdr(index=7), #Scheme HTTPS
+    h2.HPackIndexedHdr(index=h2.HPackHdrTable._static_entries_last_idx+2),
+    h2.HPackLitHdrFldWithIncrIndexing(
+        index=58,
+        hdr_value=h2.HPackHdrString(data=h2.HPackZString('Mozilla/5.0 Generated by hand'))
+    ),
+    h2.HPackLitHdrFldWithoutIndexing(
+        hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Generated-By')),
+        hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('Me'))
+    )
+]
+
+p = h2.H2Frame(stream_id = 1)/h2.H2HeadersFrame(hdrs=hdrs_lst)
+
+expected_output = ''':method GET
+:path /index.php
+:scheme https
+x-generation-date: 2016-08-11
+user-agent: Mozilla/5.0 Generated by hand
+X-Generated-By: Me'''
+
+assert(h.gen_txt_repr(p) == expected_output)
+
+= HTTP/2 HPackHdrTable : Parsing Textual Representation
+~ http2 hpack hpackhdrtable helpers
+
+body = b'login=titi&passwd=toto'
+hdrs = ''':method POST
+:path /login.php
+:scheme https
+content-type: application/x-www-form-urlencoded
+content-length: {}
+user-agent: Mozilla/5.0 Generated by hand
+x-generated-by: Me
+x-generation-date: 2016-08-11
+x-generation-software: scapy
+'''.format(len(body)).encode()
+
+h = h2.HPackHdrTable()
+h.register(h2.HPackLitHdrFldWithIncrIndexing(
+        hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Generation-Date')),
+        hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('2016-08-11'))
+))
+seq = h.parse_txt_hdrs(
+    hdrs,
+    stream_id=1,
+    body=body,
+    should_index=lambda name: name in ['user-agent', 'x-generation-software'],
+    is_sensitive=lambda name, value: name in ['x-generated-by', ':path']
+)
+assert(isinstance(seq, h2.H2Seq))
+assert(len(seq.frames) == 2)
+p = seq.frames[0]
+assert(isinstance(p, h2.H2Frame))
+assert(p.type == 1)
+assert(len(p.flags) == 1)
+assert('EH' in p.flags)
+assert(p.stream_id == 1)
+assert(isinstance(p.payload, h2.H2HeadersFrame))
+hdrs_frm = p[h2.H2HeadersFrame]
+assert(len(p.hdrs) == 9)
+hdr = p.hdrs[0]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 3)
+hdr = p.hdrs[1]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 1)
+assert(hdr.index in [4, 5])
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(/login.php)')
+hdr = p.hdrs[2]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 7)
+hdr = p.hdrs[3]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 31)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(application/x-www-form-urlencoded)')
+hdr = p.hdrs[4]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 28)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackLiteralString(22)')
+hdr = p.hdrs[5]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithIncrIndexing))
+assert(hdr.magic == 1)
+assert(hdr.index == 58)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(Mozilla/5.0 Generated by hand)')
+hdr = p.hdrs[6]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 1)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-generated-by)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackLiteralString(Me)')
+hdr = p.hdrs[7]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 63)
+hdr = p.hdrs[8]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithIncrIndexing))
+assert(hdr.magic == 1)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-generation-software)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(scapy)')
+
+p = seq.frames[1]
+assert(isinstance(p, h2.H2Frame))
+assert(p.type == 0)
+assert(len(p.flags) == 1)
+assert('ES' in p.flags)
+assert(p.stream_id == 1)
+assert(isinstance(p.payload, h2.H2DataFrame))
+pay = p[h2.H2DataFrame]
+assert(pay.data == body)
+
+= HTTP/2 HPackHdrTable : Parsing Textual Representation without body
+~ http2 hpack hpackhdrtable helpers
+
+hdrs = b''':method POST
+:path /login.php
+:scheme https
+user-agent: Mozilla/5.0 Generated by hand
+x-generated-by: Me
+x-generation-date: 2016-08-11
+'''
+
+h = h2.HPackHdrTable()
+h.register(h2.HPackLitHdrFldWithIncrIndexing(
+        hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Generation-Date')),
+        hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('2016-08-11'))
+))
+
+# Without body
+seq = h.parse_txt_hdrs(hdrs, stream_id=1)
+assert(isinstance(seq, h2.H2Seq))
+#This is the first major difference with the first test
+assert(len(seq.frames) == 1)
+p = seq.frames[0]
+assert(isinstance(p, h2.H2Frame))
+assert(p.type == 1)
+assert(len(p.flags) == 2)
+assert('EH' in p.flags)
+#This is the second major difference with the first test
+assert('ES' in p.flags)
+assert(p.stream_id == 1)
+assert(isinstance(p.payload, h2.H2HeadersFrame))
+hdrs_frm = p[h2.H2HeadersFrame]
+assert(len(p.hdrs) == 6)
+hdr = p.hdrs[0]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 3)
+hdr = p.hdrs[1]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index in [4, 5])
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(/login.php)')
+hdr = p.hdrs[2]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 7)
+hdr = p.hdrs[3]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 58)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(Mozilla/5.0 Generated by hand)')
+hdr = p.hdrs[4]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-generated-by)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackLiteralString(Me)')
+hdr = p.hdrs[5]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 62)
+
+
+= HTTP/2 HPackHdrTable : Parsing Textual Representation with too small max frame
+~ http2 hpack hpackhdrtable helpers
+
+body = b'login=titi&passwd=toto'
+hdrs = ''':method POST
+:path /login.php
+:scheme https
+content-type: application/x-www-form-urlencoded
+content-length: {}
+user-agent: Mozilla/5.0 Generated by hand
+x-generated-by: Me
+x-generation-date: 2016-08-11
+x-long-header: {}
+'''.format(len(body), 'a'*5000).encode()
+
+h = h2.HPackHdrTable()
+h.register(h2.HPackLitHdrFldWithIncrIndexing(
+        hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Generation-Date')),
+        hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('2016-08-11'))
+))
+
+#x-long-header is too long to fit in any frames (whose default max size is 4096)
+expect_exception(Exception, "seq = h.parse_txt_hdrs('''{}''', stream_id=1".format(hdrs))
+
+= HTTP/2 HPackHdrTable : Parsing Textual Representation with very large header and a large authorized frame size
+~ http2 hpack hpackhdrtable helpers
+
+body = b'login=titi&passwd=toto'
+hdrs = ''':method POST
+:path /login.php
+:scheme https
+content-type: application/x-www-form-urlencoded
+content-length: {}
+user-agent: Mozilla/5.0 Generated by hand
+x-generated-by: Me
+x-generation-date: 2016-08-11
+x-long-header: {}
+'''.format(len(body), 'a'*5000).encode()
+
+h = h2.HPackHdrTable()
+h.register(h2.HPackLitHdrFldWithIncrIndexing(
+        hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Generation-Date')),
+        hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('2016-08-11'))
+))
+
+# Now trying to parse it with a max frame size large enough for x-long-header to
+# fit in a frame
+seq = h.parse_txt_hdrs(hdrs, stream_id=1, max_frm_sz=8192)
+assert(isinstance(seq, h2.H2Seq))
+assert(len(seq.frames) == 1)
+p = seq.frames[0]
+assert(isinstance(p, h2.H2Frame))
+assert(p.type == 1)
+assert(len(p.flags) == 2)
+assert('EH' in p.flags)
+assert('ES' in p.flags)
+assert(p.stream_id == 1)
+assert(isinstance(p.payload, h2.H2HeadersFrame))
+hdrs_frm = p[h2.H2HeadersFrame]
+assert(len(p.hdrs) == 9)
+hdr = p.hdrs[0]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 3)
+hdr = p.hdrs[1]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index in [4, 5])
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(/login.php)')
+hdr = p.hdrs[2]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 7)
+hdr = p.hdrs[3]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 31)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(application/x-www-form-urlencoded)')
+hdr = p.hdrs[4]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 28)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackLiteralString(22)')
+hdr = p.hdrs[5]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 58)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(Mozilla/5.0 Generated by hand)')
+hdr = p.hdrs[6]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-generated-by)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackLiteralString(Me)')
+hdr = p.hdrs[7]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 62)
+hdr = p.hdrs[8]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-long-header)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString({})'.format('a'*5000))
+
+= HTTP/2 HPackHdrTable : Parsing Textual Representation with two very large headers and a large authorized frame size
+~ http2 hpack hpackhdrtable helpers
+
+body = b'login=titi&passwd=toto'
+hdrs = ''':method POST
+:path /login.php
+:scheme https
+content-type: application/x-www-form-urlencoded
+content-length: {}
+user-agent: Mozilla/5.0 Generated by hand
+x-generated-by: Me
+x-generation-date: 2016-08-11
+x-long-header: {}
+x-long-header: {}
+'''.format(len(body), 'a'*5000, 'b'*5000).encode()
+
+h = h2.HPackHdrTable()
+h.register(h2.HPackLitHdrFldWithIncrIndexing(
+        hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Generation-Date')),
+        hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('2016-08-11'))
+))
+
+# Now trying to parse it with a max frame size large enough for x-long-header to
+# fit in a frame but a maximum header fragment size that is not large enough to
+# store two x-long-header
+seq = h.parse_txt_hdrs(hdrs, stream_id=1, max_frm_sz=8192)
+assert(isinstance(seq, h2.H2Seq))
+assert(len(seq.frames) == 2)
+p = seq.frames[0]
+assert(isinstance(p, h2.H2Frame))
+assert(p.type == 1)
+assert(len(p.flags) == 1)
+assert('ES' in p.flags)
+assert(p.stream_id == 1)
+assert(isinstance(p.payload, h2.H2HeadersFrame))
+hdrs_frm = p[h2.H2HeadersFrame]
+assert(len(p.hdrs) == 9)
+hdr = p.hdrs[0]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 3)
+hdr = p.hdrs[1]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index in [4, 5])
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(/login.php)')
+hdr = p.hdrs[2]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 7)
+hdr = p.hdrs[3]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 31)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(application/x-www-form-urlencoded)')
+hdr = p.hdrs[4]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 28)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackLiteralString(22)')
+hdr = p.hdrs[5]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 58)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(Mozilla/5.0 Generated by hand)')
+hdr = p.hdrs[6]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-generated-by)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackLiteralString(Me)')
+hdr = p.hdrs[7]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 62)
+hdr = p.hdrs[8]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-long-header)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString({})'.format('a'*5000))
+p = seq.frames[1]
+assert(isinstance(p, h2.H2Frame))
+assert(p.type == 9)
+assert(len(p.flags) == 1)
+assert('EH' in p.flags)
+assert(p.stream_id == 1)
+assert(isinstance(p.payload, h2.H2ContinuationFrame))
+hdrs_frm = p[h2.H2ContinuationFrame]
+assert(len(p.hdrs) == 1)
+hdr = p.hdrs[0]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-long-header)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString({})'.format('b'*5000))
+
+= HTTP/2 HPackHdrTable : Parsing Textual Representation with two very large headers, a large authorized frame size and a "small" max header list size
+~ http2 hpack hpackhdrtable helpers
+
+body = b'login=titi&passwd=toto'
+hdrs = ''':method POST
+:path /login.php
+:scheme https
+content-type: application/x-www-form-urlencoded
+content-length: {}
+user-agent: Mozilla/5.0 Generated by hand
+x-generated-by: Me
+x-generation-date: 2016-08-11
+x-long-header: {}
+x-long-header: {}
+'''.format(len(body), 'a'*5000, 'b'*5000).encode()
+
+h = h2.HPackHdrTable()
+h.register(h2.HPackLitHdrFldWithIncrIndexing(
+        hdr_name=h2.HPackHdrString(data=h2.HPackZString('X-Generation-Date')),
+        hdr_value=h2.HPackHdrString(data=h2.HPackLiteralString('2016-08-11'))
+))
+
+# Now trying to parse it with a max frame size large enough for x-long-header to
+# fit in a frame but and a max header list size that is large enough to fit one
+# but not two
+seq = h.parse_txt_hdrs(hdrs, stream_id=1, max_frm_sz=8192, max_hdr_lst_sz=5050)
+assert(isinstance(seq, h2.H2Seq))
+assert(len(seq.frames) == 3)
+p = seq.frames[0]
+assert(isinstance(p, h2.H2Frame))
+assert(p.type == 1)
+assert(len(p.flags) == 1)
+assert('ES' in p.flags)
+assert(p.stream_id == 1)
+assert(isinstance(p.payload, h2.H2HeadersFrame))
+hdrs_frm = p[h2.H2HeadersFrame]
+assert(len(p.hdrs) == 8)
+hdr = p.hdrs[0]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 3)
+hdr = p.hdrs[1]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index in [4, 5])
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(/login.php)')
+hdr = p.hdrs[2]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 7)
+hdr = p.hdrs[3]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 31)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(application/x-www-form-urlencoded)')
+hdr = p.hdrs[4]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 28)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackLiteralString(22)')
+hdr = p.hdrs[5]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 58)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(Mozilla/5.0 Generated by hand)')
+hdr = p.hdrs[6]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-generated-by)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackLiteralString(Me)')
+hdr = p.hdrs[7]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 62)
+p = seq.frames[1]
+assert(isinstance(p, h2.H2Frame))
+assert(p.type == 9)
+assert(len(p.flags) == 0)
+assert(p.stream_id == 1)
+assert(isinstance(p.payload, h2.H2ContinuationFrame))
+hdrs_frm = p[h2.H2ContinuationFrame]
+assert(len(p.hdrs) == 1)
+hdr = p.hdrs[0]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-long-header)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString({})'.format('a'*5000))
+p = seq.frames[2]
+assert(isinstance(p, h2.H2Frame))
+assert(p.type == 9)
+assert(len(p.flags) == 1)
+assert('EH' in p.flags)
+assert(p.stream_id == 1)
+assert(isinstance(p.payload, h2.H2ContinuationFrame))
+hdrs_frm = p[h2.H2ContinuationFrame]
+assert(len(p.hdrs) == 1)
+hdr = p.hdrs[0]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-long-header)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString({})'.format('b'*5000))
+
+= HTTP/2 HPackHdrTable : Parsing Textual Representation with sensitive headers and non-indexable ones
+~ http2 hpack hpackhdrtable helpers
+
+hdrs = ''':method POST
+:path /login.php
+:scheme https
+content-type: application/x-www-form-urlencoded
+content-length: {}
+user-agent: Mozilla/5.0 Generated by hand
+x-generated-by: Me
+x-generation-date: 2016-08-11
+'''.format(len(body)).encode()
+
+h = h2.HPackHdrTable()
+seq = h.parse_txt_hdrs(hdrs, stream_id=1, body=body, is_sensitive=lambda n,v: n in ['x-generation-date'], should_index=lambda x: x != 'x-generated-by')
+assert(isinstance(seq, h2.H2Seq))
+assert(len(seq.frames) == 2)
+p = seq.frames[0]
+assert(isinstance(p, h2.H2Frame))
+assert(p.type == 1)
+assert(len(p.flags) == 1)
+assert('EH' in p.flags)
+assert(p.stream_id == 1)
+assert(isinstance(p.payload, h2.H2HeadersFrame))
+hdrs_frm = p[h2.H2HeadersFrame]
+assert(len(p.hdrs) == 8)
+hdr = p.hdrs[0]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 3)
+hdr = p.hdrs[1]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithIncrIndexing))
+assert(hdr.magic == 1)
+assert(hdr.index in [4, 5])
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(/login.php)')
+hdr = p.hdrs[2]
+assert(isinstance(hdr, h2.HPackIndexedHdr))
+assert(hdr.magic == 1)
+assert(hdr.index == 7)
+hdr = p.hdrs[3]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithIncrIndexing))
+assert(hdr.magic == 1)
+assert(hdr.index == 31)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(application/x-www-form-urlencoded)')
+hdr = p.hdrs[4]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithIncrIndexing))
+assert(hdr.magic == 1)
+assert(hdr.index == 28)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackLiteralString(22)')
+hdr = p.hdrs[5]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithIncrIndexing))
+assert(hdr.magic == 1)
+assert(hdr.index == 58)
+assert(hdr.hdr_name is None)
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(Mozilla/5.0 Generated by hand)')
+hdr = p.hdrs[6]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 0)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-generated-by)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackLiteralString(Me)')
+hdr = p.hdrs[7]
+assert(isinstance(hdr, h2.HPackLitHdrFldWithoutIndexing))
+assert(hdr.magic == 0)
+assert(hdr.never_index == 1)
+assert(hdr.index == 0)
+assert(isinstance(hdr.hdr_name, h2.HPackHdrString))
+assert(hdr.hdr_name.data == 'HPackZString(x-generation-date)')
+assert(isinstance(hdr.hdr_value, h2.HPackHdrString))
+assert(hdr.hdr_value.data == 'HPackZString(2016-08-11)')
+p = seq.frames[1]
+assert(isinstance(p, h2.H2Frame))
+assert(p.type == 0)
+assert(len(p.flags) == 1)
+assert('ES' in p.flags)
+assert(p.stream_id == 1)
+assert(isinstance(p.payload, h2.H2DataFrame))
+pay = p[h2.H2DataFrame]
+assert(pay.data == body)

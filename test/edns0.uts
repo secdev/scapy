@@ -62,7 +62,7 @@ raw(tlv) == b'\x00\x02\x00\x00'
 
 = NSID - Live test
 ~ netaccess
-from scapy.tools.UTscapy import retry_test
+
 def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False

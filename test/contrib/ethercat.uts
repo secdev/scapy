@@ -1,0 +1,266 @@
+% EtherCat test campaign
+
+#
+# execute test:
+# $ test/run_tests -P "load_contrib('ethercat')" -t test/contrib/ethercat.uts
+#
+
++ LEBitFields
+= regression test
+
+TEST_SAMPLE_ENUM = {
+    0x01: 'one',
+    0x02: 'two',
+    0x03: 'three',
+    0x04: 'four',
+    0x05: 'five',
+    0x06: 'six',
+    0x07: 'seven'
+}
+
+class BitFieldUserExampleLE(Packet):
+
+    fields_desc = [
+        LEBitEnumField('a', 0, 2, TEST_SAMPLE_ENUM),
+        LEBitField('b', 0, 18),
+        LEBitField('c', 0, 5),
+        LEBitField('d', 0, 23),
+    ]
+
+class BitFieldUserExample(Packet):
+
+    fields_desc = [
+        BitEnumField('a', 0, 2, TEST_SAMPLE_ENUM),
+        BitField('b', 0, 18),
+        BitField('c', 0, 5),
+        BitField('d', 0, 23),
+    ]
+
+test_data = [
+    {
+        'a':0x01,
+        'b':0x00,
+        'c':0x00,
+        'd':0x123456
+    },
+    {
+        'a': 0x00,
+        'b': 0b111111111111111111,
+        'c': 0x00,
+        'd': 0x112233
+    },
+    {
+        'a': 0x00,
+        'b': 0x00,
+        'c': 0x01,
+        'd': 0x00
+    },
+]
+
+for data in test_data:
+    bf_le = BitFieldUserExampleLE(**data)
+    bf = BitFieldUserExample(**data)
+    # rebuild big-endian and little-endian bitfields from its own binary expressions
+    bf_le = BitFieldUserExampleLE(bf_le.do_build())
+    bf = BitFieldUserExample(bf.do_build())
+    ''' disabled as only required for 'visual debugging'
+    from scapy.compat import raw
+    # dump content for debugging
+    bitstr = ''
+    hexstr = ''
+    for i in bytearray(raw(bf)):
+        bitstr += '{:08b} '.format(i)
+        hexstr += '{:02x} '.format(i)
+    print('BE - BITS: {} HEX: {}  ({})'.format(bitstr, hexstr, data))
+    bitstr = ''
+    hexstr = ''
+    for i in bytearray(raw(bf_le)):
+        bitstr += '{:08b} '.format(i)
+        hexstr += '{:02x} '.format(i)
+    print('LE - BITS: {} HEX: {}  ({})'.format(bitstr, hexstr, data))
+    '''
+    # compare values
+    for key in data:
+        assert(getattr(bf,key) == data[key])
+        assert (getattr(bf_le, key) == data[key])
+
+= Avoid mix of LEBitFields and BitFields
+
+TEST_SAMPLE_ENUM = {
+    0x01: 'one',
+    0x02: 'two',
+    0x03: 'three',
+    0x04: 'four',
+    0x05: 'five',
+    0x06: 'six',
+    0x07: 'seven'
+}
+
+class MissingFieldSameLEFieldTypes(Packet):
+
+    fields_desc = [
+        LEBitEnumField('a', 0, 2, TEST_SAMPLE_ENUM),
+        LEBitField('b', 0, 18),
+    ]
+
+try:
+    frm = MissingFieldSameLEFieldTypes().build()
+    assert False
+except LEBitFieldSequenceException:
+    pass
+
+
+class MissingFieldDifferentLEFieldTypes(Packet):
+
+    fields_desc = [
+        LEBitEnumField('a', 0, 2, TEST_SAMPLE_ENUM),
+        LEBitField('b', 0, 18),
+    ]
+
+try:
+    frm = MissingFieldDifferentLEFieldTypes().build()
+    assert False
+except LEBitFieldSequenceException:
+    pass
+
+
+class MixedBitFieldTypesLEBE(Packet):
+
+    fields_desc = [
+        LEBitField('a', 0, 12),
+        BitField('b', 0, 4),
+    ]
+
+try:
+    frm = MixedBitFieldTypesLEBE().build()
+    assert False
+except LEBitFieldSequenceException:
+    pass
+
+
+class MixedBitFieldTypesBELE(Packet):
+
+    fields_desc = [
+        BitField('b', 0, 4),
+        LEBitField('a', 0, 12),
+    ]
+
+try:
+    frm = MixedBitFieldTypesBELE().build()
+    assert False
+except LEBitFieldSequenceException:
+    pass
+
+################################################
++ EtherCat header layer handling
+= EtherCat and padding
+
+frm = Ether() / EtherCat()
+# even with padding the length must be zero
+# the Ether(do_build()) forces the calculation of all (post_build generated) fields
+frm = Ether(frm.do_build())
+assert(frm[EtherCat].length == 0)
+assert(len(frm) == 60)
+frm = Ether()/Dot1Q()/Dot1Q()/EtherCat()
+frm = Ether()/EtherCat()
+assert(len(frm) == 60)
+frm = Ether(frm.do_build())
+assert(frm[EtherCat].length == 0)
+
+= EtherCat and RawPayload
+
+frm=Ether()/EtherCat()/Raw(b'0123456789')
+assert(len(frm) == 60)
+frm = Ether(frm.do_build())
+assert(frm[EtherCat].length == 10)
+frm = Ether()/EtherCat()/Raw(b'012345678901234567890123456789012345678901234567890123456789')
+frm = Ether(frm.do_build())
+assert(len(frm) == 76)
+assert(frm[EtherCat].length == 60)
+
+= EtherCat - test invalid length detection
+
+nums_11_bits = [random.randint(0, 65535) & 0b11111111111 for dummy in range(0, 23)]
+nums_4_bits = [random.randint(0, 16) & 0b1111 for dummy in range(0, 23)]
+
+frm = Ether()/EtherCat()/EtherCatAPRD(adp=0x1234, ado=0x5678, irq=0xbad0, wkc=0xbeef, data=[1]*2035, c=1)
+frm = Ether(frm.do_build())
+assert(frm[EtherCat].length == 2047)
+assert(len(frm[EtherCatAPRD].data) == 2035)
+assert(frm[EtherCatAPRD].c == 1)
+
+data_oversized = False
+try:
+    frm = Ether()/EtherCat()/EtherCatAPRD(adp=0x1234, ado=0x5678, irq=0xbad0, wkc=0xbeef, data=[2]*2048, c=1)
+    frm = Ether(frm.do_build())
+except ValueError as err:
+    data_oversized = True
+    assert('data size' in str(err))
+
+assert(data_oversized == True)
+dlpdu_oversized = False
+try:
+    frm = Ether()/EtherCat()/EtherCatAPRD(adp=0x1234, ado=0x5678, irq=0xbad0, wkc=0xbeef, data=[2]*2036, c=1)
+    frm = Ether(frm.do_build())
+except ValueError as err:
+    dlpdu_oversized = True
+    assert('EtherCat message' in str(err))
+
+assert(dlpdu_oversized == True)
+
+frm = Ether()/EtherCat(_reserved=1)/EtherCatAPRD(adp=0x1234, ado=0x5678, irq=0xbad0, wkc=0xbeef, data=[3], c=0)
+frm = Ether(frm.do_build())
+assert(frm[EtherCatAPRD].c == 0)
+
+
+assert(frm[EtherCat]._reserved == 0)
+
+= EtherCat and Type12 DLPDU layers
+
+for type_id in EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES:
+    data = [random.randint(0, 255) for dummy in range(random.randint(1, 10))]
+    frm = Ether() / EtherCat() / EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES[type_id](data= data)
+    frm = Ether(frm.do_build())
+    # expect to have one layer of current Type12 DLPDU type
+    dlpdu_lyr = frm[EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES[type_id]]
+    assert(dlpdu_lyr.data == data)
+
+= EtherCat and Type12 DLPDU layer using structure used for physical and broadcast addressing
+
+# the code is the same for all layer sharing this structure - no need to test em all
+test_data = [121,99,110,104,114,109,58,41]
+frm = Ether()/EtherCat()/EtherCatAPRD(adp=0x1234, ado=0x5678, irq=0xbad0, wkc=0xbeef, data=test_data)
+frm = Ether(frm.do_build())
+aprd_lyr = frm[EtherCatAPRD]
+assert(aprd_lyr.adp == 0x1234)
+assert(aprd_lyr.ado == 0x5678)
+assert(aprd_lyr.irq == 0xbad0)
+assert(aprd_lyr.wkc == 0xbeef)
+assert(aprd_lyr.data == test_data)
+
+= EtherCat and Type12 DLPDU layer using structure used for logical addressing
+
+test_data = [116,104,101,116,97,111,105,115,103,114,101,97,116]
+frm = Ether() / EtherCat() / EtherCatLRD(adr=0x11223344, irq=0xbad0, wkc=0xbeef, data=test_data)
+frm = Ether(frm.do_build())
+aprd_lyr = frm[EtherCatLRD]
+assert (aprd_lyr.adr == 0x11223344)
+assert (aprd_lyr.irq == 0xbad0)
+assert (aprd_lyr.wkc == 0xbeef)
+assert (aprd_lyr.data == test_data)
+
+= EtherCat and randomly stacked Type12 DLPDU layers
+
+for outer_dummy in range(10):
+    frm = Ether()/EtherCat()
+    layer_ids = []
+    for inner_dummy in range(random.randint(1, 20)):
+        layer_id = random.choice(list(EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES))
+        layer_ids.append(layer_id)
+        frm = frm / EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES[layer_id]()
+    # build frame and convert back
+    frm = Ether(frm.do_build())
+    idx = 0
+    for layer_id in layer_ids:
+        assert(type(EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES[layer_id]()) == type(frm[2 + idx]))
+        idx += 1

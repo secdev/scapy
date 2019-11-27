@@ -7,18 +7,20 @@
 Aggregate top level objects from all TLS modules.
 """
 
-from scapy.layers.tls.cert import *
+# flake8: noqa: F403
 
-from scapy.layers.tls.automaton_cli import *
-from scapy.layers.tls.automaton_srv import *
-from scapy.layers.tls.extensions import *
-from scapy.layers.tls.handshake import *
-from scapy.layers.tls.handshake_sslv2 import *
-from scapy.layers.tls.keyexchange import *
-from scapy.layers.tls.keyexchange_tls13 import *
-from scapy.layers.tls.record import *
-from scapy.layers.tls.record_sslv2 import *
-from scapy.layers.tls.record_tls13 import *
-from scapy.layers.tls.session import *
+from scapy.layers.tls.cert import *  # noqa: F401
 
-from scapy.layers.tls.crypto.all import *
+from scapy.layers.tls.automaton_cli import *  # noqa: F401
+from scapy.layers.tls.automaton_srv import *  # noqa: F401
+from scapy.layers.tls.extensions import *  # noqa: F401
+from scapy.layers.tls.handshake import *  # noqa: F401
+from scapy.layers.tls.handshake_sslv2 import *  # noqa: F401
+from scapy.layers.tls.keyexchange import *  # noqa: F401
+from scapy.layers.tls.keyexchange_tls13 import *  # noqa: F401
+from scapy.layers.tls.record import *  # noqa: F401
+from scapy.layers.tls.record_sslv2 import *  # noqa: F401
+from scapy.layers.tls.record_tls13 import *  # noqa: F401
+from scapy.layers.tls.session import *  # noqa: F401
+
+from scapy.layers.tls.crypto.all import *  # noqa: F401

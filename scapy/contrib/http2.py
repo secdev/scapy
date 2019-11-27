@@ -20,35 +20,34 @@
 """http2 Module
 Implements packets and fields required to encode/decode HTTP/2 Frames
 and HPack encoded headers
-
-scapy.contrib.status=loads
-scapy.contrib.description=HTTP/2 (RFC 7540, RFC 7541)
 """
+
+# scapy.contrib.status=loads
+# scapy.contrib.description=HTTP/2 (RFC 7540, RFC 7541)
+
+# base_classes triggers an unwanted import warning
+# flake8: noqa: F821
 
 from __future__ import absolute_import
 from __future__ import print_function
 import abc
-import types
 import re
+import sys
 from io import BytesIO
 import struct
 import scapy.modules.six as six
-from scapy.compat import *
-from scapy.modules.six.moves import range
+from scapy.compat import raw, plain_str, bytes_hex, orb, chb, bytes_encode
 
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
 # Sized must be one of the superclasses of a class implementing __len__
-try:
-    from typing import Optional, List, Union, Callable, Any, Tuple, Sized
-except ImportError:
-    class Sized(object):
-        pass
+from scapy.compat import Optional, List, Union, Callable, Any, \
+    Tuple, Sized, Pattern  # noqa: F401
+from scapy.base_classes import Packet_metaclass  # noqa: F401
 
 import scapy.fields as fields
 import scapy.packet as packet
 import scapy.config as config
-import scapy.base_classes as base_classes
 import scapy.volatile as volatile
 import scapy.error as error
 
@@ -69,11 +68,11 @@ class HPackMagicBitField(fields.BitField):
     def __init__(self, name, default, size):
         # type: (str, int, int) -> None
         """
-        @param str name: this field instance name.
-        @param int default: this field only valid value.
-        @param int size: this bitfield bitlength.
-        @return None
-        @raise AssertionError
+        :param str name: this field instance name.
+        :param int default: this field only valid value.
+        :param int size: this bitfield bitlength.
+        :return: None
+        :raises: AssertionError
         """
         assert(default >= 0)
         # size can be negative if encoding is little-endian (see rev property of bitfields)  # noqa: E501
@@ -84,12 +83,12 @@ class HPackMagicBitField(fields.BitField):
     def addfield(self, pkt, s, val):
         # type: (Optional[packet.Packet], Union[str, Tuple[str, int, int]], int) -> Union[str, Tuple[str, int, int]]  # noqa: E501
         """
-        @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
-        @param str|(str, int, long) s: either a str if 0 == size%8 or a tuple with the string to add this field to, the  # noqa: E501
+        :param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
+        :param str|(str, int, long) s: either a str if 0 == size%8 or a tuple with the string to add this field to, the  # noqa: E501
           number of bits already generated and the generated value so far.
-        @param int val: unused; must be equal to default value
-        @return str|(str, int, long): the s string extended with this field machine representation  # noqa: E501
-        @raise AssertionError
+        :param int val: unused; must be equal to default value
+        :return: str|(str, int, long): the s string extended with this field machine representation  # noqa: E501
+        :raises: AssertionError
         """
         assert val == self._magic, 'val parameter must value {}; received: {}'.format(self._magic, val)  # noqa: E501
         return super(HPackMagicBitField, self).addfield(pkt, s, self._magic)
@@ -97,18 +96,18 @@ class HPackMagicBitField(fields.BitField):
     def getfield(self, pkt, s):
         # type: (Optional[packet.Packet], Union[str, Tuple[str, int]]) -> Tuple[Union[Tuple[str, int], str], int]  # noqa: E501
         """
-        @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
-        @param str|(str, int) s: either a str if size%8==0 or a tuple with the string to parse from and the number of  # noqa: E501
+        :param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
+        :param str|(str, int) s: either a str if size%8==0 or a tuple with the string to parse from and the number of  # noqa: E501
           bits already consumed by previous bitfield-compatible fields.
-        @return (str|(str, int), int): Returns the remaining string and the parsed value. May return a tuple if there  # noqa: E501
+        :return: (str|(str, int), int): Returns the remaining string and the parsed value. May return a tuple if there  # noqa: E501
           are remaining bits to parse in the first byte. Returned value is equal to default value  # noqa: E501
-        @raise AssertionError
+        :raises: AssertionError
         """
         r = super(HPackMagicBitField, self).getfield(pkt, s)
         assert (
-            isinstance(r, tuple)
-            and len(r) == 2
-            and isinstance(r[1], six.integer_types)
+            isinstance(r, tuple) and
+            len(r) == 2 and
+            isinstance(r[1], six.integer_types)
         ), 'Second element of BitField.getfield return value expected to be an int or a long; API change detected'  # noqa: E501
         assert r[1] == self._magic, 'Invalid value parsed from s; error in class guessing detected!'  # noqa: E501
         return r
@@ -116,10 +115,10 @@ class HPackMagicBitField(fields.BitField):
     def h2i(self, pkt, x):
         # type: (Optional[packet.Packet], int) -> int
         """
-        @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused  # noqa: E501
-        @param int x: unused; must be equal to default value
-        @return int; default value
-        @raise AssertionError
+        :param packet.Packet|None pkt: the packet instance containing this field instance; probably unused  # noqa: E501
+        :param int x: unused; must be equal to default value
+        :return: int; default value
+        :raises: AssertionError
         """
         assert x == self._magic, \
             'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(self._magic)  # noqa: E501
@@ -128,10 +127,10 @@ class HPackMagicBitField(fields.BitField):
     def i2h(self, pkt, x):
         # type: (Optional[packet.Packet], int) -> int
         """
-        @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused  # noqa: E501
-        @param int x: unused; must be equal to default value
-        @return int; default value
-        @raise AssertionError
+        :param packet.Packet|None pkt: the packet instance containing this field instance; probably unused  # noqa: E501
+        :param int x: unused; must be equal to default value
+        :return: int; default value
+        :raises: AssertionError
         """
         assert x == self._magic, \
             'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(self._magic)  # noqa: E501
@@ -140,10 +139,10 @@ class HPackMagicBitField(fields.BitField):
     def m2i(self, pkt, x):
         # type: (Optional[packet.Packet], int) -> int
         """
-        @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused  # noqa: E501
-        @param int x: must be the machine representatino of the default value
-        @return int; default value
-        @raise AssertionError
+        :param packet.Packet|None pkt: the packet instance containing this field instance; probably unused  # noqa: E501
+        :param int x: must be the machine representatino of the default value
+        :return: int; default value
+        :raises: AssertionError
         """
         r = super(HPackMagicBitField, self).m2i(pkt, x)
         assert r == self._magic, 'Invalid value parsed from m2i; error in class guessing detected!'  # noqa: E501
@@ -152,10 +151,10 @@ class HPackMagicBitField(fields.BitField):
     def i2m(self, pkt, x):
         # type: (Optional[packet.Packet], int) -> int
         """
-        @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused  # noqa: E501
-        @param int x: unused; must be equal to default value
-        @return int; default value
-        @raise AssertionError
+        :param packet.Packet|None pkt: the packet instance containing this field instance; probably unused  # noqa: E501
+        :param int x: unused; must be equal to default value
+        :return: int; default value
+        :raises: AssertionError
         """
         assert x == self._magic, \
             'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(self._magic)  # noqa: E501
@@ -164,10 +163,10 @@ class HPackMagicBitField(fields.BitField):
     def any2i(self, pkt, x):
         # type: (Optional[packet.Packet], int) -> int
         """
-        @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused  # noqa: E501
-        @param int x: unused; must be equal to default value
-        @return int; default value
-        @raise AssertionError
+        :param packet.Packet|None pkt: the packet instance containing this field instance; probably unused  # noqa: E501
+        :param int x: unused; must be equal to default value
+        :return: int; default value
+        :raises: AssertionError
         """
         assert x == self._magic, \
             'EINVAL: x: This field is magic. Do not attempt to modify it. Expected value: {}'.format(self._magic)  # noqa: E501
@@ -181,24 +180,24 @@ class AbstractUVarIntField(fields.Field):
     __slots__ = ['_max_value', 'size', 'rev']
     """
     :var int size: the bit length of the prefix of this AbstractUVarIntField. It  # noqa: E501
-      represents the complement of the number of MSB that are used in the
-      current byte for other purposes by some other BitFields
+        represents the complement of the number of MSB that are used in the
+        current byte for other purposes by some other BitFields
     :var int _max_value: the maximum value that can be stored in the
-      sole prefix. If the integer equals or exceeds this value, the max prefix
-      value is assigned to the size first bits and the multibyte representation
-      is used
+        sole prefix. If the integer equals or exceeds this value, the max prefix
+        value is assigned to the size first bits and the multibyte representation
+        is used
     :var bool rev: is a fake property, also emulated for the sake of
-      compatibility with Bitfields
+        compatibility with Bitfields
     """
 
     def __init__(self, name, default, size):
         # type: (str, Optional[int], int) -> None
         """
-        @param str name: the name of this field instance
-        @param int|None default: positive, null or None default value for this field instance.  # noqa: E501
-        @param int size: the number of bits to consider in the first byte. Valid range is ]0;8]  # noqa: E501
-        @return None
-        @raise AssertionError
+        :param str name: the name of this field instance
+        :param int|None default: positive, null or None default value for this field instance.  # noqa: E501
+        :param int size: the number of bits to consider in the first byte. Valid range is ]0;8]  # noqa: E501
+        :return: None
+        :raises: AssertionError
         """
         assert(default is None or (isinstance(default, six.integer_types) and default >= 0))  # noqa: E501
         assert(0 < size <= 8)
@@ -213,10 +212,10 @@ class AbstractUVarIntField(fields.Field):
     def h2i(self, pkt, x):
         # type: (Optional[packet.Packet], Optional[int]) -> Optional[int]
         """
-        @param packet.Packet|None pkt: unused.
-        @param int|None x: the value to convert.
-        @return int|None: the converted value.
-        @raise AssertionError
+        :param packet.Packet|None pkt: unused.
+        :param int|None x: the value to convert.
+        :return: int|None: the converted value.
+        :raises: AssertionError
         """
         assert(not isinstance(x, six.integer_types) or x >= 0)
         return x
@@ -224,9 +223,9 @@ class AbstractUVarIntField(fields.Field):
     def i2h(self, pkt, x):
         # type: (Optional[packet.Packet], Optional[int]) -> Optional[int]
         """
-        @param packet.Packet|None pkt: unused.
-        @param int|None x: the value to convert.
-        @return: int|None: the converted value.
+        :param packet.Packet|None pkt: unused.
+        :param int|None x: the value to convert.
+        :return:: int|None: the converted value.
         """
         return x
 
@@ -237,9 +236,9 @@ class AbstractUVarIntField(fields.Field):
 
           A multibyte representation is indicated by all of the first size bits being set  # noqa: E501
 
-        @param str fb: first byte, as a character.
-        @return bool: True if multibyte repr detected, else False.
-        @raise AssertionError
+        :param str fb: first byte, as a character.
+        :return: bool: True if multibyte repr detected, else False.
+        :raises: AssertionError
         """
         assert(isinstance(fb, int) or len(fb) == 1)
         return (orb(fb) & self._max_value) == self._max_value
@@ -249,15 +248,15 @@ class AbstractUVarIntField(fields.Field):
         """ _parse_multi_byte parses x as a multibyte representation to get the
           int value of this AbstractUVarIntField.
 
-        @param str s: the multibyte string to parse.
-        @return int: The parsed int value represented by this AbstractUVarIntField.  # noqa: E501
-        @raise: AssertionError
-        @raise: Scapy_Exception if the input value encodes an integer larger than 1<<64  # noqa: E501
+        :param str s: the multibyte string to parse.
+        :return: int: The parsed int value represented by this AbstractUVarIntField.  # noqa: E501
+        :raises:: AssertionError
+        :raises:: Scapy_Exception if the input value encodes an integer larger than 1<<64  # noqa: E501
         """
 
         assert(len(s) >= 2)
 
-        l = len(s)
+        tmp_len = len(s)
 
         value = 0
         i = 1
@@ -269,10 +268,10 @@ class AbstractUVarIntField(fields.Field):
             value += (byte ^ 0x80) << (7 * (i - 1))
             if value > max_value:
                 raise error.Scapy_Exception(
-                    'out-of-bound value: the string encodes a value that is too large (>2^{64}): {}'.format(value)  # noqa: E501
+                    'out-of-bound value: the string encodes a value that is too large (>2^{{64}}): {}'.format(value)  # noqa: E501
                 )
             i += 1
-            assert i < l, 'EINVAL: x: out-of-bound read: the string ends before the AbstractUVarIntField!'  # noqa: E501
+            assert i < tmp_len, 'EINVAL: x: out-of-bound read: the string ends before the AbstractUVarIntField!'  # noqa: E501
             byte = orb(s[i])
         value += byte << (7 * (i - 1))
         value += self._max_value
@@ -287,9 +286,9 @@ class AbstractUVarIntField(fields.Field):
           were consumed by another field. This field consumes the remaining bits, therefore the int of the tuple must  # noqa: E501
           equal "size".
 
-        @param packet.Packet|None pkt: unused.
-        @param str|(str, int) x: the string to convert. If bits were consumed by a previous bitfield-compatible field.  # noqa: E501
-        @raise AssertionError
+        :param packet.Packet|None pkt: unused.
+        :param str|(str, int) x: the string to convert. If bits were consumed by a previous bitfield-compatible field.  # noqa: E501
+        :raises: AssertionError
         """
         assert(isinstance(x, bytes) or (isinstance(x, tuple) and x[1] >= 0))
 
@@ -311,10 +310,10 @@ class AbstractUVarIntField(fields.Field):
     def i2m(self, pkt, x):
         # type: (Optional[packet.Packet], int) -> str
         """
-        @param packet.Packet|None pkt: unused.
-        @param int x: the value to convert.
-        @return str: the converted value.
-        @raise AssertionError
+        :param packet.Packet|None pkt: unused.
+        :param int x: the value to convert.
+        :return: str: the converted value.
+        :raises: AssertionError
         """
         assert(x >= 0)
 
@@ -337,10 +336,10 @@ class AbstractUVarIntField(fields.Field):
           A "x" value as a string is parsed as a binary encoding of a UVarInt. An int is considered an internal value.  # noqa: E501
           None is returned as is.
 
-        @param packet.Packet|None pkt: the packet containing this field; probably unused.  # noqa: E501
-        @param str|int|None x: the value to convert.
-        @return int|None: the converted value.
-        @raise AssertionError
+        :param packet.Packet|None pkt: the packet containing this field; probably unused.  # noqa: E501
+        :param str|int|None x: the value to convert.
+        :return: int|None: the converted value.
+        :raises: AssertionError
         """
         if isinstance(x, type(None)):
             return x
@@ -358,26 +357,32 @@ class AbstractUVarIntField(fields.Field):
     def i2repr(self, pkt, x):
         # type: (Optional[packet.Packet], Optional[int]) -> str
         """
-        @param packet.Packet|None pkt: probably unused.
-        @param x: int|None: the positive, null or none value to convert.
-        @return str: the representation of the value.
+        :param packet.Packet|None pkt: probably unused.
+        :param x: int|None: the positive, null or none value to convert.
+        :return: str: the representation of the value.
         """
         return repr(self.i2h(pkt, x))
 
     def addfield(self, pkt, s, val):
         # type: (Optional[packet.Packet], Union[str, Tuple[str, int, int]], int) -> str  # noqa: E501
-        """ An AbstractUVarIntField prefix always consumes the remaining bits
+        """
+          An AbstractUVarIntField prefix always consumes the remaining bits
           of a BitField;if no current BitField is in use (no tuple in
           entry) then the prefix length is 8 bits and the whole byte is to
           be consumed
-        @param packet.Packet|None pkt: the packet containing this field. Probably unused.  # noqa: E501
-        @param str|(str, int, long) s: the string to append this field to. A tuple indicates that some bits were already  # noqa: E501
-          generated by another bitfield-compatible field. This MUST be the case if "size" is not 8. The int is the  # noqa: E501
-          number of bits already generated in the first byte of the str. The long is the value that was generated by the  # noqa: E501
-          previous bitfield-compatible fields.
-        @param int val: the positive or null value to be added.
-        @return str: s concatenated with the machine representation of this field.  # noqa: E501
-        @raise AssertionError
+
+        :param packet.Packet|None pkt: the packet containing this field.
+          Probably unused.
+        :param str|(str, int, long) s: the string to append this field to.
+          A tuple indicates that some bits were already generated by another
+          bitfield-compatible field. This MUST be the case if "size" is not 8.
+          The int is the number of bits already generated in the first byte of
+          the str. The long is the value that was generated by the previous
+          bitfield-compatible fields.
+        :param int val: the positive or null value to be added.
+        :return: str: s concatenated with the machine representation of this
+          field.
+        :raises: AssertionError
         """
         assert(val >= 0)
         if isinstance(s, bytes):
@@ -393,7 +398,7 @@ class AbstractUVarIntField(fields.Field):
             return s[0] + chb((s[2] << self.size) + self._max_value) + self.i2m(pkt, val)[1:]  # noqa: E501
         # This AbstractUVarIntField is only one byte long; setting the prefix value  # noqa: E501
         # and appending the resulting byte to the string
-        return chb(s[0]) + chb((s[2] << self.size) + orb(self.i2m(pkt, val)))
+        return s[0] + chb((s[2] << self.size) + orb(self.i2m(pkt, val)))
 
     @staticmethod
     def _detect_bytelen_from_str(s):
@@ -403,17 +408,17 @@ class AbstractUVarIntField(fields.Field):
           of s and which is assumed to expand over multiple bytes
           (value > _max_prefix_value).
 
-        @param str s: the string to parse. It is assumed that it is a multibyte int.  # noqa: E501
-        @return The bytelength of the AbstractUVarIntField.
-        @raise AssertionError
+        :param str s: the string to parse. It is assumed that it is a multibyte int.  # noqa: E501
+        :return: The bytelength of the AbstractUVarIntField.
+        :raises: AssertionError
         """
         assert(len(s) >= 2)
-        l = len(s)
+        tmp_len = len(s)
 
         i = 1
         while orb(s[i]) & 0x80 > 0:
             i += 1
-            assert i < l, 'EINVAL: s: out-of-bound read: unfinished AbstractUVarIntField detected'  # noqa: E501
+            assert i < tmp_len, 'EINVAL: s: out-of-bound read: unfinished AbstractUVarIntField detected'  # noqa: E501
         ret = i + 1
 
         assert(ret >= 0)
@@ -422,9 +427,9 @@ class AbstractUVarIntField(fields.Field):
     def i2len(self, pkt, x):
         # type: (Optional[packet.Packet], int) -> int
         """
-        @param packet.Packet|None pkt: unused.
-        @param int x: the positive or null value whose binary size if requested.  # noqa: E501
-        @raise AssertionError
+        :param packet.Packet|None pkt: unused.
+        :param int x: the positive or null value whose binary size if requested.  # noqa: E501
+        :raises: AssertionError
         """
         assert(x >= 0)
         if x < self._max_value:
@@ -446,12 +451,15 @@ class AbstractUVarIntField(fields.Field):
     def getfield(self, pkt, s):
         # type: (Optional[packet.Packet], Union[str, Tuple[str, int]]) -> Tuple[str, int]  # noqa: E501
         """
-        @param packet.Packet|None pkt: the packet instance containing this field; probably unused.  # noqa: E501
-        @param str|(str, int) s: the input value to get this field value from. If size is 8, s is a string, else  # noqa: E501
-        it is a tuple containing the value and an int indicating the number of bits already consumed in the first byte  # noqa: E501
-        of the str. The number of remaining bits to consume in the first byte must be equal to "size".  # noqa: E501
-        @return (str, int): the remaining bytes of s and the parsed value.
-        @raise AssertionError
+        :param packet.Packet|None pkt: the packet instance containing this
+          field; probably unused.
+        :param str|(str, int) s: the input value to get this field value from.
+          If size is 8, s is a string, else it is a tuple containing the value
+          and an int indicating the number of bits already consumed in the
+          first byte of the str. The number of remaining bits to consume in the
+          first byte must be equal to "size".
+        :return: (str, int): the remaining bytes of s and the parsed value.
+        :raises: AssertionError
         """
         if isinstance(s, tuple):
             assert(len(s) == 2)
@@ -465,18 +473,18 @@ class AbstractUVarIntField(fields.Field):
             val = s
 
         if self._detect_multi_byte(val[0]):
-            l = self._detect_bytelen_from_str(val)
+            tmp_len = self._detect_bytelen_from_str(val)
         else:
-            l = 1
+            tmp_len = 1
 
-        ret = val[l:], self.m2i(pkt, s)
+        ret = val[tmp_len:], self.m2i(pkt, s)
         assert(ret[1] >= 0)
         return ret
 
     def randval(self):
         # type: () -> volatile.VolatileValue
         """
-        @return volatile.VolatileValue: a volatile value for this field "long"-compatible internal value.  # noqa: E501
+        :return: volatile.VolatileValue: a volatile value for this field "long"-compatible internal value.  # noqa: E501
         """
         return volatile.RandLong()
 
@@ -485,9 +493,9 @@ class UVarIntField(AbstractUVarIntField):
     def __init__(self, name, default, size):
         # type: (str, int, int) -> None
         """
-        @param str name: the name of this field instance.
-        @param default: the default value for this field instance. default must be positive or null.  # noqa: E501
-        @raise AssertionError
+        :param str name: the name of this field instance.
+        :param default: the default value for this field instance. default must be positive or null.  # noqa: E501
+        :raises: AssertionError
         """
         assert(default >= 0)
         assert(0 < size <= 8)
@@ -504,10 +512,10 @@ class UVarIntField(AbstractUVarIntField):
         # type: (Optional[packet.Packet], int) -> int
         """ h2i is overloaded to restrict the acceptable x values (not None)
 
-        @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
-        @param int x: the value to convert.
-        @return int: the converted value.
-        @raise AssertionError
+        :param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
+        :param int x: the value to convert.
+        :return: int: the converted value.
+        :raises: AssertionError
         """
         ret = super(UVarIntField, self).h2i(pkt, x)
         assert(not isinstance(ret, type(None)) and ret >= 0)
@@ -517,10 +525,10 @@ class UVarIntField(AbstractUVarIntField):
         # type: (Optional[packet.Packet], int) -> int
         """ i2h is overloaded to restrict the acceptable x values (not None)
 
-        @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
-        @param int x: the value to convert.
-        @return int: the converted value.
-        @raise AssertionError
+        :param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
+        :param int x: the value to convert.
+        :return: int: the converted value.
+        :raises: AssertionError
         """
         ret = super(UVarIntField, self).i2h(pkt, x)
         assert(not isinstance(ret, type(None)) and ret >= 0)
@@ -530,10 +538,10 @@ class UVarIntField(AbstractUVarIntField):
         # type: (Optional[packet.Packet], Union[str, int]) -> int
         """ any2i is overloaded to restrict the acceptable x values (not None)
 
-        @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
-        @param str|int x: the value to convert.
-        @return int: the converted value.
-        @raise AssertionError
+        :param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
+        :param str|int x: the value to convert.
+        :return: int: the converted value.
+        :raises: AssertionError
         """
         ret = super(UVarIntField, self).any2i(pkt, x)
         assert(not isinstance(ret, type(None)) and ret >= 0)
@@ -543,9 +551,9 @@ class UVarIntField(AbstractUVarIntField):
         # type: (Optional[packet.Packet], int) -> str
         """ i2repr is overloaded to restrict the acceptable x values (not None)
 
-        @param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
-        @param int x: the value to convert.
-        @return str: the converted value.
+        :param packet.Packet|None pkt: the packet instance containing this field instance; probably unused.  # noqa: E501
+        :param int x: the value to convert.
+        :return: str: the converted value.
         """
         return super(UVarIntField, self).i2repr(pkt, x)
 
@@ -557,19 +565,19 @@ class FieldUVarLenField(AbstractUVarIntField):
         # type: (str, Optional[int], int, str, Callable[[int], int]) -> None
         """ Initializes a FieldUVarLenField
 
-        @param str name: The name of this field instance.
-        @param int|None default: the default value of this field instance.
-        @param int size: the number of bits that are occupied by this field in the first byte of a binary string.  # noqa: E501
+        :param str name: The name of this field instance.
+        :param int|None default: the default value of this field instance.
+        :param int size: the number of bits that are occupied by this field in the first byte of a binary string.  # noqa: E501
           size must be in the range ]0;8].
-        @param str length_of: The name of the field this field value is measuring/representing.  # noqa: E501
-        @param callable adjust: A function that modifies the value computed from the "length_of" field.  # noqa: E501
+        :param str length_of: The name of the field this field value is measuring/representing.  # noqa: E501
+        :param callable adjust: A function that modifies the value computed from the "length_of" field.  # noqa: E501
 
         adjust can be used for instance to add a constant to the length_of field  # noqa: E501
          length. For instance, let's say that i2len of the length_of field
          returns 2. If adjust is lambda x: x+1 In that case, this field will
          value 3 at build time.
-        @return None
-        @raise AssertionError
+        :return: None
+        :raises: AssertionError
         """
         assert(default is None or default >= 0)
         assert(0 < size <= 8)
@@ -581,15 +589,15 @@ class FieldUVarLenField(AbstractUVarIntField):
     def addfield(self, pkt, s, val):
         # type: (Optional[packet.Packet], Union[str, Tuple[str, int, int]], Optional[int]) -> str  # noqa: E501
         """
-        @param packet.Packet|None pkt: the packet instance containing this field instance. This parameter must not be  # noqa: E501
+        :param packet.Packet|None pkt: the packet instance containing this field instance. This parameter must not be  # noqa: E501
           None if the val parameter is.
-        @param str|(str, int, long) s: the string to append this field to. A tuple indicates that some bits were already  # noqa: E501
+        :param str|(str, int, long) s: the string to append this field to. A tuple indicates that some bits were already  # noqa: E501
           generated by another bitfield-compatible field. This MUST be the case if "size" is not 8. The int is the  # noqa: E501
           number of bits already generated in the first byte of the str. The long is the value that was generated by the  # noqa: E501
           previous bitfield-compatible fields.
-        @param int|None val: the positive or null value to be added. If None, the value is computed from pkt.  # noqa: E501
-        @return str: s concatenated with the machine representation of this field.  # noqa: E501
-        @raise AssertionError
+        :param int|None val: the positive or null value to be added. If None, the value is computed from pkt.  # noqa: E501
+        :return: str: s concatenated with the machine representation of this field.  # noqa: E501
+        :raises: AssertionError
         """
         if val is None:
             assert isinstance(pkt, packet.Packet), \
@@ -600,11 +608,11 @@ class FieldUVarLenField(AbstractUVarIntField):
     def i2m(self, pkt, x):
         # type: (Optional[packet.Packet], Optional[int]) -> str
         """
-        @param packet.Packet|None pkt: the packet instance containing this field instance. This parameter must not be  # noqa: E501
+        :param packet.Packet|None pkt: the packet instance containing this field instance. This parameter must not be  # noqa: E501
           None if the x parameter is.
-        @param int|None x: the positive or null value to be added. If None, the value is computed from pkt.  # noqa: E501
-        @return str
-        @raise AssertionError
+        :param int|None x: the positive or null value to be added. If None, the value is computed from pkt.  # noqa: E501
+        :return: str
+        :raises: AssertionError
         """
         if x is None:
             assert isinstance(pkt, packet.Packet), \
@@ -617,12 +625,12 @@ class FieldUVarLenField(AbstractUVarIntField):
         """ Computes the value of this field based on the provided packet and
         the length_of field and the adjust callback
 
-        @param packet.Packet pkt: the packet from which is computed this field value.  # noqa: E501
-        @return int: the computed value for this field.
-        @raise KeyError: the packet nor its payload do not contain an attribute
+        :param packet.Packet pkt: the packet from which is computed this field value.  # noqa: E501
+        :return: int: the computed value for this field.
+        :raises: KeyError: the packet nor its payload do not contain an attribute
           with the length_of name.
-        @raise AssertionError
-        @raise KeyError if _length_of is not one of pkt fields
+        :raises: AssertionError
+        :raises: KeyError if _length_of is not one of pkt fields
         """
         fld, fval = pkt.getfield_and_val(self._length_of)
         val = fld.i2len(pkt, fval)
@@ -634,15 +642,24 @@ class FieldUVarLenField(AbstractUVarIntField):
 #                                                HPACK String Fields          #
 ###############################################################################
 
+# Welcome the magic of Python inconsistencies !
+# https://stackoverflow.com/a/41622155
 
-class HPackStringsInterface(six.with_metaclass(abc.ABCMeta, Sized)):
+
+if sys.version_info >= (3, 4):
+    ABC = abc.ABC
+else:
+    ABC = abc.ABCMeta('ABC', (), {})
+
+
+class HPackStringsInterface(ABC, Sized):  # type: ignore
     @abc.abstractmethod
     def __str__(self):
         pass
 
     def __bytes__(self):
         r = self.__str__()
-        return r if isinstance(r, bytes) else raw(r)
+        return bytes_encode(r)
 
     @abc.abstractmethod
     def origin(self):
@@ -686,7 +703,7 @@ class HuffmanNode(object):
     HPack compressed HTTP/2 headers
     """
 
-    __slots__ = ['l', 'r']
+    __slots__ = ['left', 'right']
     """@var l: the left branch of this node
     @var r: the right branch of this Node
 
@@ -695,21 +712,21 @@ class HuffmanNode(object):
      EOS)
     """
 
-    def __init__(self, l, r):
+    def __init__(self, left, right):
         # type: (Union[None, HuffmanNode, EOS, str], Union[None, HuffmanNode, EOS, str]) -> None  # noqa: E501
-        self.l = l
-        self.r = r
+        self.left = left
+        self.right = right
 
     def __getitem__(self, b):
         # type: (int) -> Union[None, HuffmanNode, EOS, str]
-        return self.r if b else self.l
+        return self.right if b else self.left
 
     def __setitem__(self, b, val):
         # type: (int, Union[None, HuffmanNode, EOS, str]) -> None
         if b:
-            self.r = val
+            self.right = val
         else:
-            self.l = val
+            self.left = val
 
     def __str__(self):
         # type: () -> str
@@ -717,7 +734,7 @@ class HuffmanNode(object):
 
     def __repr__(self):
         # type: () -> str
-        return '({}, {})'.format(self.l, self.r)
+        return '({}, {})'.format(self.left, self.right)
 
 
 class InvalidEncodingException(Exception):
@@ -993,7 +1010,7 @@ class HPackZString(HPackStringsInterface):
         (0x3fffffff, 30)
     ]
 
-    static_huffman_tree = None
+    static_huffman_tree = None  # type: HuffmanNode
 
     @classmethod
     def _huffman_encode_char(cls, c):
@@ -1001,9 +1018,9 @@ class HPackZString(HPackStringsInterface):
         """ huffman_encode_char assumes that the static_huffman_tree was
         previously initialized
 
-        @param str|EOS c: a symbol to encode
-        @return (int, int): the bitstring of the symbol and its bitlength
-        @raise AssertionError
+        :param str|EOS c: a symbol to encode
+        :return: (int, int): the bitstring of the symbol and its bitlength
+        :raises: AssertionError
         """
         if isinstance(c, EOS):
             return cls.static_huffman_code[-1]
@@ -1017,9 +1034,9 @@ class HPackZString(HPackStringsInterface):
         """ huffman_encode returns the bitstring and the bitlength of the
         bitstring representing the string provided as a parameter
 
-        @param str s: the string to encode
-        @return (int, int): the bitstring of s and its bitlength
-        @raise AssertionError
+        :param str s: the string to encode
+        :return: (int, int): the bitstring of s and its bitlength
+        :raises: AssertionError
         """
         i = 0
         ibl = 0
@@ -1044,10 +1061,10 @@ class HPackZString(HPackStringsInterface):
         # type: (int, int) -> str
         """ huffman_decode decodes the bitstring provided as parameters.
 
-        @param int i: the bitstring to decode
-        @param int ibl: the bitlength of i
-        @return str: the string decoded from the bitstring
-        @raise AssertionError, InvalidEncodingException
+        :param int i: the bitstring to decode
+        :param int ibl: the bitlength of i
+        :return: str: the string decoded from the bitstring
+        :raises: AssertionError, InvalidEncodingException
         """
         assert(i >= 0)
         assert(ibl >= 0)
@@ -1103,10 +1120,10 @@ class HPackZString(HPackStringsInterface):
         """ huffman_conv2str converts a bitstring of bit_len bitlength into a
         binary string. It DOES NOT compress/decompress the bitstring!
 
-        @param int bit_str: the bitstring to convert.
-        @param int bit_len: the bitlength of bit_str.
-        @return str: the converted bitstring as a bytestring.
-        @raise AssertionError
+        :param int bit_str: the bitstring to convert.
+        :param int bit_len: the bitlength of bit_str.
+        :return: str: the converted bitstring as a bytestring.
+        :raises: AssertionError
         """
         assert(bit_str >= 0)
         assert(bit_len >= 0)
@@ -1133,9 +1150,9 @@ class HPackZString(HPackStringsInterface):
         representation. It returns a tuple: the bitstring and its bitlength.
         This function DOES NOT compress/decompress the string!
 
-        @param str s: the bytestring to convert.
-        @return (int, int): the bitstring of s, and its bitlength.
-        @raise AssertionError
+        :param str s: the bytestring to convert.
+        :return: (int, int): the bitstring of s, and its bitlength.
+        :raises: AssertionError
         """
         i = 0
         ibl = len(s) * 8
@@ -1152,8 +1169,8 @@ class HPackZString(HPackStringsInterface):
         # type: () -> None
         """ huffman_compute_decode_tree initializes/builds the static_huffman_tree
 
-        @return None
-        @raise InvalidEncodingException if there is an encoding problem
+        :return: None
+        :raises: InvalidEncodingException if there is an encoding problem
         """
         cls.static_huffman_tree = HuffmanNode(None, None)
         i = 0
@@ -1210,10 +1227,10 @@ class HPackStrLenField(fields.Field):
     def _parse(t, s):
         # type: (bool, str) -> HPackStringsInterface
         """
-        @param bool t: whether this string is a huffman compressed string.
-        @param str s: the string to parse.
-        @return HPackStringsInterface: either a HPackLiteralString or HPackZString, depending on t.  # noqa: E501
-        @raise InvalidEncodingException
+        :param bool t: whether this string is a huffman compressed string.
+        :param str s: the string to parse.
+        :return: HPackStringsInterface: either a HPackLiteralString or HPackZString, depending on t.  # noqa: E501
+        :raises: InvalidEncodingException
         """
         if t:
             i, ibl = HPackZString.huffman_conv2bitstring(s)
@@ -1223,16 +1240,16 @@ class HPackStrLenField(fields.Field):
     def getfield(self, pkt, s):
         # type: (packet.Packet, str) -> Tuple[str, HPackStringsInterface]
         """
-        @param packet.Packet pkt: the packet instance containing this field instance.  # noqa: E501
-        @param str s: the string to parse this field from.
-        @return (str, HPackStringsInterface): the remaining string after this field was carved out & the extracted  # noqa: E501
+        :param packet.Packet pkt: the packet instance containing this field instance.  # noqa: E501
+        :param str s: the string to parse this field from.
+        :return: (str, HPackStringsInterface): the remaining string after this field was carved out & the extracted  # noqa: E501
           value.
-        @raise KeyError if "type_from" is not a field of pkt or its payloads.
-        @raise InvalidEncodingException
+        :raises: KeyError if "type_from" is not a field of pkt or its payloads.
+        :raises: InvalidEncodingException
         """
-        l = self._length_from(pkt)
+        tmp_len = self._length_from(pkt)
         t = pkt.getfieldval(self._type_from) == 1
-        return s[l:], self._parse(t, s[:l])
+        return s[tmp_len:], self._parse(t, s[:tmp_len])
 
     def i2h(self, pkt, x):
         # type: (Optional[packet.Packet], HPackStringsInterface) -> str
@@ -1250,27 +1267,27 @@ class HPackStrLenField(fields.Field):
     def m2i(self, pkt, x):
         # type: (packet.Packet, str) -> HPackStringsInterface
         """
-        @param packet.Packet pkt: the packet instance containing this field instance.  # noqa: E501
-        @param str x: the string to parse.
-        @return HPackStringsInterface: the internal type of the value parsed from x.  # noqa: E501
-        @raise AssertionError
-        @raise InvalidEncodingException
-        @raise KeyError if _type_from is not one of pkt fields.
+        :param packet.Packet pkt: the packet instance containing this field instance.  # noqa: E501
+        :param str x: the string to parse.
+        :return: HPackStringsInterface: the internal type of the value parsed from x.  # noqa: E501
+        :raises: AssertionError
+        :raises: InvalidEncodingException
+        :raises: KeyError if _type_from is not one of pkt fields.
         """
         t = pkt.getfieldval(self._type_from)
-        l = self._length_from(pkt)
+        tmp_len = self._length_from(pkt)
 
-        assert t is not None and l is not None, 'Conversion from string impossible: no type or length specified'  # noqa: E501
+        assert t is not None and tmp_len is not None, 'Conversion from string impossible: no type or length specified'  # noqa: E501
 
-        return self._parse(t == 1, x[:l])
+        return self._parse(t == 1, x[:tmp_len])
 
     def any2i(self, pkt, x):
         # type: (Optional[packet.Packet], Union[str, HPackStringsInterface]) -> HPackStringsInterface  # noqa: E501
         """
-        @param packet.Packet|None pkt: the packet instance containing this field instance.  # noqa: E501
-        @param str|HPackStringsInterface x: the value to convert
-        @return HPackStringsInterface: the Scapy internal value for this field
-        @raise AssertionError, InvalidEncodingException
+        :param packet.Packet|None pkt: the packet instance containing this field instance.  # noqa: E501
+        :param str|HPackStringsInterface x: the value to convert
+        :return: HPackStringsInterface: the Scapy internal value for this field
+        :raises: AssertionError, InvalidEncodingException
         """
         if isinstance(x, bytes):
             assert(isinstance(pkt, packet.Packet))
@@ -1311,7 +1328,7 @@ class HPackHdrString(packet.Packet):
     ]
 
     def guess_payload_class(self, payload):
-        # type: (str) -> base_classes.Packet_metaclass
+        # type: (str) -> Packet_metaclass
         # Trick to tell scapy that the remaining bytes of the currently
         # dissected string is not a payload of this packet but of some other
         # underlayer packet
@@ -1334,7 +1351,7 @@ class HPackHeaders(packet.Packet):
     """
     @classmethod
     def dispatch_hook(cls, s=None, *_args, **_kwds):
-        # type: (Optional[str], *Any, **Any) -> base_classes.Packet_metaclass
+        # type: (Optional[str], *Any, **Any) -> Packet_metaclass
         """dispatch_hook returns the subclass of HPackHeaders that must be used
         to dissect the string.
         """
@@ -1350,7 +1367,7 @@ class HPackHeaders(packet.Packet):
         return HPackLitHdrFldWithoutIndexing
 
     def guess_payload_class(self, payload):
-        # type: (str) -> base_classes.Packet_metaclass
+        # type: (str) -> Packet_metaclass
         return config.conf.padding_layer
 
 
@@ -1463,8 +1480,8 @@ class H2PaddedDataFrame(H2DataFrame):
         To do this computation, the length of the padlen field and the actual
         padding is subtracted to the string that was provided to the pre_dissect  # noqa: E501
         fun of the pkt parameter
-        @return int; length of the data part of the HTTP/2 frame packet provided as parameter  # noqa: E501
-        @raise AssertionError
+        :return: int; length of the data part of the HTTP/2 frame packet provided as parameter  # noqa: E501
+        :raises: AssertionError
         """
         padding_len = self.getfieldval('padlen')
         fld, fval = self.getfield_and_val('padlen')
@@ -1544,8 +1561,8 @@ class H2PaddedHeadersFrame(H2AbstractHeadersFrame):
         To do this computation, the length of the padlen field and the actual
         padding is subtracted to the string that was provided to the pre_dissect  # noqa: E501
         fun of the pkt parameter.
-        @return int; length of the data part of the HTTP/2 frame packet provided as parameter  # noqa: E501
-        @raise AssertionError
+        :return: int; length of the data part of the HTTP/2 frame packet provided as parameter  # noqa: E501
+        :raises: AssertionError
         """
         padding_len = self.getfieldval('padlen')
         fld, fval = self.getfield_and_val('padlen')
@@ -1613,8 +1630,8 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         To do this computation, the length of the padlen field, the priority
         information fields and the actual padding is subtracted to the string
         that was provided to the pre_dissect fun of the pkt parameter.
-        @return int: the length of the hdrs field
-        @raise AssertionError
+        :return: int: the length of the hdrs field
+        :raises: AssertionError
         """
 
         padding_len = self.getfieldval('padlen')
@@ -1624,11 +1641,11 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         bit_cnt += self.get_field('stream_dependency').size
         fld, fval = self.getfield_and_val('weight')
         weight_len = fld.i2len(self, fval)
-        ret = int(self.s_len
-                  - padding_len_len
-                  - padding_len
-                  - (bit_cnt / 8)
-                  - weight_len
+        ret = int(self.s_len -
+                  padding_len_len -
+                  padding_len -
+                  (bit_cnt / 8) -
+                  weight_len
                   )
         assert(ret >= 0)
         return ret
@@ -1740,7 +1757,7 @@ class H2Setting(packet.Packet):
     ]
 
     def guess_payload_class(self, payload):
-        # type: (str) -> base_classes.Packet_metaclass
+        # type: (str) -> Packet_metaclass
         return config.conf.padding_layer
 
 
@@ -1767,14 +1784,14 @@ class H2SettingsFrame(H2FramePayload):
         This is possible because the underlayer packet (H2Frame) overrides
         extract_padding method to provided only the string that must be parsed
         by this packet!
-        @raise AssertionError
+        :raises: AssertionError
         """
 
         # RFC7540 par6.5 p36
         assert(
             len(args) == 0 or (
-                isinstance(args[0], bytes)
-                and len(args[0]) % 6 == 0
+                isinstance(args[0], bytes) and
+                len(args[0]) % 6 == 0
             )
         ), 'Invalid settings frame; length is not a multiple of 6'
         super(H2SettingsFrame, self).__init__(*args, **kwargs)
@@ -1828,18 +1845,18 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         To do this computation, the length of the padlen field, reserved,
         stream_id and the actual padding is subtracted to the string that was
         provided to the pre_dissect fun of the pkt parameter.
-        @return int: the length of the hdrs field
-        @raise AssertionError
+        :return: int: the length of the hdrs field
+        :raises: AssertionError
         """
         fld, padding_len = self.getfield_and_val('padlen')
         padding_len_len = fld.i2len(self, padding_len)
         bit_len = self.get_field('reserved').size
         bit_len += self.get_field('stream_id').size
 
-        ret = int(self.s_len
-                  - padding_len_len
-                  - padding_len
-                  - (bit_len / 8)
+        ret = int(self.s_len -
+                  padding_len_len -
+                  padding_len -
+                  (bit_len / 8)
                   )
         assert(ret >= 0)
         return ret
@@ -1875,14 +1892,14 @@ class H2PingFrame(H2FramePayload):
 
     def __init__(self, *args, **kwargs):
         """
-        @raise AssertionError
+        :raises: AssertionError
         """
         # RFC7540 par6.7 p42
         assert(
             len(args) == 0 or (
                 (isinstance(args[0], bytes) or
-                 isinstance(args[0], str))
-                and len(args[0]) == 8
+                 isinstance(args[0], str)) and
+                len(args[0]) == 8
             )
         ), 'Invalid ping frame; length is not 8'
         super(H2PingFrame, self).__init__(*args, **kwargs)
@@ -1919,14 +1936,14 @@ class H2WindowUpdateFrame(H2FramePayload):
 
     def __init__(self, *args, **kwargs):
         """
-        @raise AssertionError
+        :raises: AssertionError
         """
         # RFC7540 par6.9 p46
         assert(
             len(args) == 0 or (
                 (isinstance(args[0], bytes) or
-                 isinstance(args[0], str))
-                and len(args[0]) == 4
+                 isinstance(args[0], str)) and
+                len(args[0]) == 4
             )
         ), 'Invalid window update frame; length is not 4'
         super(H2WindowUpdateFrame, self).__init__(*args, **kwargs)
@@ -1950,6 +1967,18 @@ class H2ContinuationFrame(H2FramePayload):
 
 #                                          HTTP/2 Base Frame Packets                                                   #  # noqa: E501
 
+_HTTP2_types = {
+    0: 'DataFrm',
+    1: 'HdrsFrm',
+    2: 'PrioFrm',
+    3: 'RstFrm',
+    4: 'SetFrm',
+    5: 'PushFrm',
+    6: 'PingFrm',
+    7: 'GoawayFrm',
+    8: 'WinFrm',
+    9: 'ContFrm'
+}
 
 class H2Frame(packet.Packet):
     """ H2Frame implements the frame structure as defined in RFC 7540 par4.1
@@ -1960,18 +1989,7 @@ class H2Frame(packet.Packet):
     name = 'HTTP/2 Frame'
     fields_desc = [
         fields.X3BytesField('len', None),
-        fields.EnumField('type', None, {
-            0: 'DataFrm',
-            1: 'HdrsFrm',
-            2: 'PrioFrm',
-            3: 'RstFrm',
-            4: 'SetFrm',
-            5: 'PushFrm',
-            6: 'PingFrm',
-            7: 'GoawayFrm',
-            8: 'WinFrm',
-            9: 'ContFrm'
-        }, "b"),
+        fields.EnumField('type', None, _HTTP2_types, "b"),
         fields.MultiFlagsField('flags', set(), 8, {
             H2DataFrame.type_id: H2DataFrame.flags,
             H2HeadersFrame.type_id: H2HeadersFrame.flags,
@@ -1987,14 +2005,14 @@ class H2Frame(packet.Packet):
     ]
 
     def guess_payload_class(self, payload):
-        # type: (str) -> base_classes.Packet_metaclass
+        # type: (str) -> Packet_metaclass
         """ guess_payload_class returns the Class object to use for parsing a payload
         This function uses the H2Frame.type field value to decide which payload to parse. The implement cannot be  # noqa: E501
         performed using the simple bind_layers helper because sometimes the selection of which Class object to return  # noqa: E501
         also depends on the H2Frame.flags value.
 
-        @param payload:
-        @return:
+        :param payload:
+        :return::
         """
         if len(payload) == 0:
             return packet.NoPayload
@@ -2012,7 +2030,7 @@ class H2Frame(packet.Packet):
                 else:
                     return H2PaddedHeadersFrame
             elif H2HeadersFrame.flags[H2HeadersFrame.PRIORITY_FLAG].short in self.getfieldval('flags'):  # noqa: E501
-                    return H2PriorityHeadersFrame
+                return H2PriorityHeadersFrame
             return H2HeadersFrame
 
         if t == H2PriorityFrame.type_id:
@@ -2046,9 +2064,9 @@ class H2Frame(packet.Packet):
     def extract_padding(self, s):
         # type: (str) -> Tuple[str, str]
         """
-        @param str s: the string from which to tell the padding and the payload data apart  # noqa: E501
-        @return (str, str): the padding and the payload data strings
-        @raise AssertionError
+        :param str s: the string from which to tell the padding and the payload data apart  # noqa: E501
+        :return: (str, str): the padding and the payload data strings
+        :raises: AssertionError
         """
         assert isinstance(self.len, six.integer_types) and self.len >= 0, 'Invalid length: negative len?'  # noqa: E501
         assert len(s) >= self.len, 'Invalid length: string too short for this length'  # noqa: E501
@@ -2057,10 +2075,10 @@ class H2Frame(packet.Packet):
     def post_build(self, p, pay):
         # type: (str, str) -> str
         """
-        @param str p: the stringified packet
-        @param str pay: the stringified payload
-        @return str: the stringified packet and payload, with the packet length field "patched"  # noqa: E501
-        @raise AssertionError
+        :param str p: the stringified packet
+        :param str pay: the stringified payload
+        :return: str: the stringified packet and payload, with the packet length field "patched"  # noqa: E501
+        :raises: AssertionError
         """
         # This logic, while awkward in the post_build and more reasonable in
         # a self_build is implemented here for performance tricks reason
@@ -2081,7 +2099,7 @@ class H2Seq(packet.Packet):
     ]
 
     def guess_payload_class(self, payload):
-        # type: (str) -> base_classes.Packet_metaclass
+        # type: (str) -> Packet_metaclass
         return config.conf.padding_layer
 
 
@@ -2122,7 +2140,7 @@ class HPackHdrEntry(Sized):
     def __init__(self, name, value):
         # type: (str, str) -> None
         """
-        @raise AssertionError
+        :raises: AssertionError
         """
         assert(len(name) > 0)
 
@@ -2159,7 +2177,7 @@ class HPackHdrEntry(Sized):
             return "{}: {}".format(self._name, self._value)
 
     def __bytes__(self):
-        return raw(self.__str__())
+        return bytes_encode(self.__str__())
 
 
 class HPackHdrTable(Sized):
@@ -2175,14 +2193,15 @@ class HPackHdrTable(Sized):
         '_dynamic_table_cap_size',
         '_regexp'
     ]
-    """:var _dynamic_table: the list containing entries requested to be added by
-    the peer and registered with a register() call
+    """
+    :var _dynamic_table: the list containing entries requested to be added by
+        the peer and registered with a register() call
     :var _dynamic_table_max_size: the current maximum size of the dynamic table
-    in bytes. This value is updated with the Dynamic Table Size Update messages
-    defined in RFC 7541 par6.3
+        in bytes. This value is updated with the Dynamic Table Size Update messages
+        defined in RFC 7541 par6.3
     :var _dynamic_table_cap_size: the maximum size of the dynamic table in
-    bytes. This value is updated with the SETTINGS_HEADER_TABLE_SIZE HTTP/2
-    setting.
+        bytes. This value is updated with the SETTINGS_HEADER_TABLE_SIZE HTTP/2
+        setting.
     """
 
     # Manually imported from RFC 7541 Appendix A
@@ -2252,7 +2271,7 @@ class HPackHdrTable(Sized):
 
     # The value of this variable cannot be determined at declaration time. It is  # noqa: E501
     # initialized by an init_static_table call
-    _static_entries_last_idx = None
+    _static_entries_last_idx = None  # type: int
 
     @classmethod
     def init_static_table(cls):
@@ -2262,11 +2281,11 @@ class HPackHdrTable(Sized):
     def __init__(self, dynamic_table_max_size=4096, dynamic_table_cap_size=4096):  # noqa: E501
         # type: (int, int) -> None
         """
-        @param int dynamic_table_max_size: the current maximum size of the dynamic entry table in bytes  # noqa: E501
-        @param int dynamic_table_cap_size: the maximum-maximum size of the dynamic entry table in bytes  # noqa: E501
-        @raises AssertionError
+        :param int dynamic_table_max_size: the current maximum size of the dynamic entry table in bytes  # noqa: E501
+        :param int dynamic_table_cap_size: the maximum-maximum size of the dynamic entry table in bytes  # noqa: E501
+        :raises:s AssertionError
         """
-        self._regexp = None
+        self._regexp = None  # type: Pattern
         if isinstance(type(self)._static_entries_last_idx, type(None)):
             type(self).init_static_table()
 
@@ -2281,13 +2300,13 @@ class HPackHdrTable(Sized):
         # type: (int) -> HPackHdrEntry
         """Gets an element from the header tables (static or dynamic indifferently)
 
-        @param int idx: the index number of the entry to retrieve. If the index
+        :param int idx: the index number of the entry to retrieve. If the index
         value is superior to the last index of the static entry table, then the
         dynamic entry type is requested, following the procedure described in
         RFC 7541 par2.3.3
-        @return HPackHdrEntry: the entry defined at this requested index. If the entry does not exist, KeyError is  # noqa: E501
+        :return: HPackHdrEntry: the entry defined at this requested index. If the entry does not exist, KeyError is  # noqa: E501
           raised
-        @raise KeyError, AssertionError
+        :raises: KeyError, AssertionError
         """
         assert(idx >= 0)
         if idx > type(self)._static_entries_last_idx:
@@ -2304,8 +2323,8 @@ class HPackHdrTable(Sized):
         """Resize the dynamic table. If the new size (ns) must be between 0 and
         the cap size. If the new size is lower than the current size of the
         dynamic table, entries are evicted.
-        @param int ns: the new size of the dynamic table
-        @raise AssertionError
+        :param int ns: the new size of the dynamic table
+        :raises: AssertionError
         """
         assert 0 <= ns <= self._dynamic_table_cap_size, \
             'EINVAL: ns: out-of-range value; expected value is in the range [0;{}['.format(self._dynamic_table_cap_size)  # noqa: E501
@@ -2319,8 +2338,8 @@ class HPackHdrTable(Sized):
         # type: (int) -> None
         """recap changes the maximum size limit of the dynamic table. It also
         proceeds to a resize(), if the new size is lower than the previous one.
-        @param int nc: the new cap of the dynamic table (that is the maximum-maximum size)  # noqa: E501
-        @raise AssertionError
+        :param int nc: the new cap of the dynamic table (that is the maximum-maximum size)  # noqa: E501
+        :raises: AssertionError
         """
         assert(nc >= 0)
         t = self._dynamic_table_cap_size > nc
@@ -2337,9 +2356,9 @@ class HPackHdrTable(Sized):
         fits in less than the current size limit. The optional parameter,
         new_entry_size, allows the resize to happen so that a new entry of this
         size fits in.
-        @param int new_entry_size: if called before adding a new entry, the size of the new entry in bytes (following  # noqa: E501
+        :param int new_entry_size: if called before adding a new entry, the size of the new entry in bytes (following  # noqa: E501
         the RFC7541 definition of the size of an entry)
-        @raise AssertionError
+        :raises: AssertionError
         """
         assert(new_entry_size >= 0)
         cur_sz = len(self)
@@ -2358,8 +2377,8 @@ class HPackHdrTable(Sized):
         A H2Frame with a H2HeadersFrame payload can be provided, as much as a
         python list of HPackHeaders or a single HPackLitHdrFldWithIncrIndexing
         instance.
-        @param HPackLitHdrFldWithIncrIndexing|H2Frame|list of HPackHeaders hdrs: the header(s) to register  # noqa: E501
-        @raise AssertionError
+        :param HPackLitHdrFldWithIncrIndexing|H2Frame|list of HPackHeaders hdrs: the header(s) to register  # noqa: E501
+        :raises: AssertionError
         """
         if isinstance(hdrs, H2Frame):
             hdrs = [hdr for hdr in hdrs.payload.hdrs if isinstance(hdr, HPackLitHdrFldWithIncrIndexing)]  # noqa: E501
@@ -2442,25 +2461,27 @@ class HPackHdrTable(Sized):
 
     def gen_txt_repr(self, hdrs, register=True):
         # type: (Union[H2Frame, List[HPackHeaders]], Optional[bool]) -> str
-        """ gen_txt_repr returns a "textual" representation of the provided
+        """
+        gen_txt_repr returns a "textual" representation of the provided
         headers.
-
         The output of this function is compatible with the input of
         parse_txt_hdrs.
-        @param H2Frame|list of HPackHeaders hdrs: the list of headers to convert to textual representation  # noqa: E501
-        @param bool: whether incremental headers should be added to the dynamic table as we generate the text  # noqa: E501
-            representation
-        @return str: the textual representation of the provided headers
-        @raise AssertionError
+
+        :param H2Frame|list of HPackHeaders hdrs: the list of headers to
+          convert to textual representation.
+        :param bool: whether incremental headers should be added to the dynamic
+          table as we generate the text representation
+        :return: str: the textual representation of the provided headers
+        :raises: AssertionError
         """
-        l = []
+        lst = []
         if isinstance(hdrs, H2Frame):
             hdrs = hdrs.payload.hdrs
 
         for hdr in hdrs:
             try:
                 if isinstance(hdr, HPackIndexedHdr):
-                    l.append('{}'.format(self[hdr.index]))
+                    lst.append('{}'.format(self[hdr.index]))
                 elif isinstance(hdr, (
                     HPackLitHdrFldWithIncrIndexing,
                     HPackLitHdrFldWithoutIndexing
@@ -2470,14 +2491,14 @@ class HPackHdrTable(Sized):
                     else:
                         name = hdr.hdr_name.getfieldval('data').origin()
                     if name.startswith(':'):
-                        l.append(
+                        lst.append(
                             '{} {}'.format(
                                 name,
                                 hdr.hdr_value.getfieldval('data').origin()
                             )
                         )
                     else:
-                        l.append(
+                        lst.append(
                             '{}: {}'.format(
                                 name,
                                 hdr.hdr_value.getfieldval('data').origin()
@@ -2488,11 +2509,10 @@ class HPackHdrTable(Sized):
             except KeyError as e:  # raised when an index is out-of-bound
                 print(e)
                 continue
-        return '\n'.join(l)
+        return '\n'.join(lst)
 
     @staticmethod
     def _optimize_header_length_and_packetify(s):
-        # type: (str) -> HPackHdrString
         # type: (str) -> HPackHdrString
         zs = HPackZString(s)
         if len(zs) >= len(s):
@@ -2516,81 +2536,81 @@ class HPackHdrTable(Sized):
 
         # The value is not indexed for this headers
 
-        hdr_value = self._optimize_header_length_and_packetify(hdr_value)
+        _hdr_value = self._optimize_header_length_and_packetify(hdr_value)
 
         # Searching if the header name is indexed
         idx = self.get_idx_by_name(hdr_name)
         if idx is not None:
             if is_sensitive(
                 hdr_name,
-                hdr_value.getfieldval('data').origin()
+                _hdr_value.getfieldval('data').origin()
             ):
                 return HPackLitHdrFldWithoutIndexing(
                     never_index=1,
                     index=idx,
-                    hdr_value=hdr_value
+                    hdr_value=_hdr_value
                 ), len(
                     HPackHdrEntry(
                         self[idx].name(),
-                        hdr_value.getfieldval('data').origin()
+                        _hdr_value.getfieldval('data').origin()
                     )
                 )
             if should_index(hdr_name):
                 return HPackLitHdrFldWithIncrIndexing(
                     index=idx,
-                    hdr_value=hdr_value
+                    hdr_value=_hdr_value
                 ), len(
                     HPackHdrEntry(
                         self[idx].name(),
-                        hdr_value.getfieldval('data').origin()
+                        _hdr_value.getfieldval('data').origin()
                     )
                 )
             return HPackLitHdrFldWithoutIndexing(
                 index=idx,
-                hdr_value=hdr_value
+                hdr_value=_hdr_value
             ), len(
                 HPackHdrEntry(
                     self[idx].name(),
-                    hdr_value.getfieldval('data').origin()
+                    _hdr_value.getfieldval('data').origin()
                 )
             )
 
-        hdr_name = self._optimize_header_length_and_packetify(hdr_name)
+        _hdr_name = self._optimize_header_length_and_packetify(hdr_name)
 
         if is_sensitive(
-            hdr_name.getfieldval('data').origin(),
-            hdr_value.getfieldval('data').origin()
+            _hdr_name.getfieldval('data').origin(),
+            _hdr_value.getfieldval('data').origin()
         ):
             return HPackLitHdrFldWithoutIndexing(
                 never_index=1,
                 index=0,
-                hdr_name=hdr_name,
-                hdr_value=hdr_value
+                hdr_name=_hdr_name,
+                hdr_value=_hdr_value
             ), len(
                 HPackHdrEntry(
-                    hdr_name.getfieldval('data').origin(),
-                    hdr_value.getfieldval('data').origin()
+                    _hdr_name.getfieldval('data').origin(),
+                    _hdr_value.getfieldval('data').origin()
                 )
             )
-        if should_index(hdr_name.getfieldval('data').origin()):
+        if should_index(_hdr_name.getfieldval('data').origin()):
             return HPackLitHdrFldWithIncrIndexing(
                 index=0,
-                hdr_name=hdr_name,
-                hdr_value=hdr_value
+                hdr_name=_hdr_name,
+                hdr_value=_hdr_value
             ), len(
                 HPackHdrEntry(
-                    hdr_name.getfieldval('data').origin(),
-                    hdr_value.getfieldval('data').origin()
+                    _hdr_name.getfieldval('data').origin(),
+                    _hdr_value.getfieldval('data').origin()
                 )
             )
         return HPackLitHdrFldWithoutIndexing(
             index=0,
-            hdr_name=hdr_name,
-            hdr_value=hdr_value
+            hdr_name=_hdr_name,
+            hdr_value=_hdr_value
         ), len(
             HPackHdrEntry(
-                hdr_name.getfieldval('data').origin(),
-                hdr_value.getfieldval('data').origin()
+                _hdr_name.getfieldval('data').origin(),
+                _hdr_value.getfieldval('data').origin()
             )
         )
 
@@ -2629,26 +2649,33 @@ class HPackHdrTable(Sized):
         instead of the H2HeadersFrame/H2ContinuationFrame. The generated frames
         may respect max_frm_sz (SETTINGS_MAX_FRAME_SIZE) and
         max_hdr_lst_sz (SETTINGS_MAX_HEADER_LIST_SIZE) if provided. The headers
-        are split into multiple headers fragment (and H2Frames) to respect these  # noqa: E501
-        limits. Also, a callback can be provided to tell if a header should be
-        never indexed (sensitive headers, such as cookies), and another callback  # noqa: E501
-        say if the header should be registered into the index table at all.
+        are split into multiple headers fragment (and H2Frames) to respect
+        these limits. Also, a callback can be provided to tell if a header
+        should be never indexed (sensitive headers, such as cookies), and
+        another callback say if the header should be registered into the index
+        table at all.
         For an header to be registered, the is_sensitive callback must return
         False AND the should_index callback should return True. This is the
         default behavior.
 
-        @param str s: the string to parse for headers
-        @param int stream_id: the stream id to use in the generated H2Frames
-        @param str|None body: the eventual body of the request, that is added to the generated frames  # noqa: E501
-        @param int max_frm_sz: the maximum frame size. This is used to split the headers and data frames according to  # noqa: E501
-        the maximum frame size negotiated for this connection
-        @param int max_hdr_lst_sz: the maximum size of a "header fragment" as defined in RFC7540  # noqa: E501
-        @param callable is_sensitive: callback that returns True if the provided header is sensible and must be stored  # noqa: E501
-        in a header packet requesting this header never to be indexed
-        @param callable should_index: callback that returns True if the provided header should be stored in a header  # noqa: E501
-        packet requesting indexation in the dynamic header table.
-        @param bool register: whether to register new headers with incremental indexing as we parse them  # noqa: E501
-        @raise Exception
+        :param str s: the string to parse for headers
+        :param int stream_id: the stream id to use in the generated H2Frames
+        :param str|None body: the eventual body of the request, that is added
+          to the generated frames
+        :param int max_frm_sz: the maximum frame size. This is used to split
+          the headers and data frames according to the maximum frame size
+          negotiated for this connection.
+        :param int max_hdr_lst_sz: the maximum size of a "header fragment" as
+          defined in RFC7540
+        :param callable is_sensitive: callback that returns True if the
+          provided header is sensible and must be stored in a header packet
+          requesting this header never to be indexed
+        :param callable should_index: callback that returns True if the
+          provided header should be stored in a header packet requesting
+          indexation in the dynamic header table.
+        :param bool register: whether to register new headers with incremental
+          indexing as we parse them
+        :raises: Exception
         """
 
         sio = BytesIO(s)
@@ -2678,14 +2705,14 @@ class HPackHdrTable(Sized):
             # header entry length (as specified in RFC7540 par6.5.2) must not
             # exceed the maximum length of a header fragment or it will just
             # never fit
-            if (new_hdr_bin_len + base_frm_len > max_frm_sz
-                    or (max_hdr_lst_sz != 0 and new_hdr_len > max_hdr_lst_sz)):
+            if (new_hdr_bin_len + base_frm_len > max_frm_sz or
+                    (max_hdr_lst_sz != 0 and new_hdr_len > max_hdr_lst_sz)):
                 raise Exception('Header too long: {}'.format(hdr_name))
 
-            if (max_frm_sz < len(raw(cur_frm)) + base_frm_len + new_hdr_len
-                or (
-                    max_hdr_lst_sz != 0
-                    and max_hdr_lst_sz < cur_hdr_sz + new_hdr_len
+            if (max_frm_sz < len(raw(cur_frm)) + base_frm_len + new_hdr_len or
+                (
+                    max_hdr_lst_sz != 0 and
+                    max_hdr_lst_sz < cur_hdr_sz + new_hdr_len
             )
             ):
                 flags = set()

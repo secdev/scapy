@@ -1,0 +1,468 @@
+% Regression tests for ECU_am
+~ vcan_socket needs_root linux
+
+
++ Configuration
+~ conf
+
+= Imports
+load_layer("can")
+import threading, six, subprocess
+from subprocess import call
+
+from scapy.contrib.automotive.uds import *
+from scapy.contrib.automotive.ecu import *
+
+
+= Definition of constants, utility functions and mock classes
+iface0 = "vcan0"
+iface1 = "vcan1"
+
+# function to exit when the can-isotp kernel module is not available
+ISOTP_KERNEL_MODULE_AVAILABLE = False
+def exit_if_no_isotp_module():
+    if not ISOTP_KERNEL_MODULE_AVAILABLE:
+        err = "TEST SKIPPED: can-isotp not available"
+        subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
+        warning("Can't test ISOTP native socket because kernel module is not loaded")
+        exit(0)
+
+
+= Initialize a virtual CAN interface
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    # vcan0 is not enabled
+    if 0 != call("sudo modprobe vcan", shell=True):
+        raise Exception("modprobe vcan failed")
+    if 0 != call("sudo ip link add name %s type vcan" % iface0, shell=True):
+        print("add %s failed: Maybe it was already up?" % iface0)
+    if 0 != call("sudo ip link set dev %s up" % iface0, shell=True):
+        raise Exception("could not bring up %s" % iface0)
+
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    raise Exception("cansend doesn't work")
+
+if 0 != call("cansend %s 000#" % iface1, shell=True):
+    # vcan1 is not enabled
+    if 0 != call("sudo modprobe vcan", shell=True):
+        raise Exception("modprobe vcan failed")
+    if 0 != call("sudo ip link add name %s type vcan" % iface1, shell=True):
+        print("add %s failed: Maybe it was already up?" % iface1)
+    if 0 != call("sudo ip link set dev %s up" % iface1, shell=True):
+        raise Exception("could not bring up %s" % iface1)
+
+if 0 != call("cansend %s 000#" % iface1, shell=True):
+    raise Exception("cansend doesn't work")
+
+print("CAN should work now")
+
+
+if six.PY3:
+    from scapy.contrib.cansocket_native import *
+else:
+    from scapy.contrib.cansocket_python_can import *
+
+
+if "python_can" in CANSocket.__module__:
+    import can as python_can
+    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000))
+    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
+    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000), timeout=0.01)
+    can_socket_string = "-i socketcan -c %s -b 250000" % iface0
+else:
+    new_can_socket = lambda iface: CANSocket(iface)
+    new_can_socket0 = lambda: CANSocket(iface0)
+    new_can_socket1 = lambda: CANSocket(iface1)
+    can_socket_string = "-c %s" % iface0
+
+# utility function for draining a can interface, asserting that no packets are there
+def drain_bus(iface=iface0, assert_empty=True):
+    s = new_can_socket(iface)
+    pkts = s.sniff(timeout=0.1)
+    if assert_empty:
+        assert len(pkts) == 0
+    s.close()
+
+print("CAN sockets should work now")
+
+= Verify that a CAN socket can be created and closed
+s = new_can_socket(iface0)
+s.close()
+
+
+= Check if can-isotp and can-utils are installed on this system
+p = subprocess.Popen('lsmod | grep "^can_isotp"', stdout=subprocess.PIPE, shell=True)
+if p.wait() == 0:
+    if b"can_isotp" in p.stdout.read():
+        p = subprocess.Popen("isotpsend -s1 -d0 %s" % iface0, stdin=subprocess.PIPE, shell=True)
+        p.stdin.write(b"01")
+        p.stdin.close()
+        r = p.wait()
+        if r == 0:
+            ISOTP_KERNEL_MODULE_AVAILABLE = True
+
+
++ Syntax check
+
+= Import isotp
+conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+load_contrib("isotp")
+
+
++ Simulator tests
+
+= Simple check with RDBI and Negative Response
+drain_bus(iface0)
+
+example_responses = \
+    [ECUResponse(session=1, security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=0x1234) / Raw(b"deadbeef"))]
+
+
+
+with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 3})
+    sim.start()
+    try:
+        resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[0x123]), timeout=1, verbose=False)
+        assert resp.negativeResponseCode == 0x10
+        assert resp.requestServiceId == 34
+        resp = tester.sr1(UDS(service=0x22), timeout=1, verbose=False)
+        assert resp.negativeResponseCode == 0x10
+        assert resp.requestServiceId == 34
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[0x1234]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 0x1234
+        assert resp.load == b"deadbeef"
+    finally:
+        sim.join(timeout=10)
+
+
+= Simple check with different Sessions
+drain_bus(iface0)
+
+example_responses = \
+    [ECUResponse(session=2, security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"deadbeef1")),
+     ECUResponse(session=range(3,5), security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"deadbeef2")),
+     ECUResponse(session=[5,6,7], security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef3")),
+     ECUResponse(session=lambda x: 8 < x <= 10, security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=9) / Raw(b"deadbeef4"))]
+
+with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 5})
+    sim.start()
+    try:
+        resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.negativeResponseCode == 0x10
+        assert resp.requestServiceId == 34
+        answering_machine.ecu_state.current_session = 2
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 2
+        assert resp.load == b"deadbeef1"
+        answering_machine.ecu_state.current_session = 4
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 3
+        assert resp.load == b"deadbeef2"
+        answering_machine.ecu_state.current_session = 6
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 5
+        assert resp.load == b"deadbeef3"
+        answering_machine.ecu_state.current_session = 9
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 9
+        assert resp.load == b"deadbeef4"
+    finally:
+        sim.join(timeout=10)
+
+= Simple check with different Sessions and diagnosticSessionControl
+drain_bus(iface0)
+
+example_responses = \
+    [ECUResponse(session=2, security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"deadbeef1")),
+     ECUResponse(session=range(3,5), security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"deadbeef2")),
+     ECUResponse(session=[5,6,7], security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef3")),
+     ECUResponse(session=lambda x: 8 < x <= 10, security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=9) / Raw(b"deadbeef4")),
+     ECUResponse(session=range(0,8), security_level=lambda x: x==0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=1, sessionParameterRecord=b"dead")),
+     ECUResponse(session=range(0,8), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=2, sessionParameterRecord=b"dead")),
+     ECUResponse(session=range(0,8), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=3, sessionParameterRecord=b"dead")),
+     ECUResponse(session=range(0,8), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=4, sessionParameterRecord=b"dead")),
+     ECUResponse(session=range(0,8), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=5, sessionParameterRecord=b"dead")),
+     ECUResponse(session=range(0,8), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=6, sessionParameterRecord=b"dead")),
+     ECUResponse(session=range(0,8), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=7, sessionParameterRecord=b"dead")),
+     ECUResponse(session=range(0,8), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=8, sessionParameterRecord=b"dead")),
+     ECUResponse(session=range(8,10), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead1")),
+     ECUResponse(session=range(8,10), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead2")),
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
+
+     ]
+
+with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 10})
+    sim.start()
+    try:
+        resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.negativeResponseCode == 0x10
+        assert resp.requestServiceId == 34
+        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=2), timeout=1, verbose=False)
+        assert resp.service == 0x50
+        assert resp.diagnosticSessionType == 2
+        assert resp.sessionParameterRecord == b"dead"
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 2
+        assert resp.load == b"deadbeef1"
+        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=4), timeout=1, verbose=False)
+        assert resp.service == 0x50
+        assert resp.diagnosticSessionType == 4
+        assert resp.sessionParameterRecord == b"dead"
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 3
+        assert resp.load == b"deadbeef2"
+        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=6), timeout=1, verbose=False)
+        assert resp.service == 0x50
+        assert resp.diagnosticSessionType == 6
+        assert resp.sessionParameterRecord == b"dead"
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 5
+        assert resp.load == b"deadbeef3"
+        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=8), timeout=1, verbose=False)
+        assert resp.service == 0x50
+        assert resp.diagnosticSessionType == 8
+        assert resp.sessionParameterRecord == b"dead"
+        resp = tester.sr1(UDS() / UDS_DSC(diagnosticSessionType=9), timeout=1, verbose=False)
+        assert resp.service == 0x50
+        assert resp.diagnosticSessionType == 9
+        assert resp.sessionParameterRecord == b"dead1"
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 9
+        assert resp.load == b"deadbeef4"
+    finally:
+        sim.join(timeout=10)
+
+= Simple check with different Sessions and diagnosticSessionControl and answers hook
+drain_bus(iface0)
+
+def custom_answers(resp, req):
+    if req.service + 0x40 != resp.service:
+        return False
+    if hasattr(req, "diagnosticSessionType"):
+        if 0 < req.diagnosticSessionType <= 8:
+            resp.diagnosticSessionType = req.diagnosticSessionType
+            return resp.answers(req)
+    return False
+
+example_responses = \
+    [ECUResponse(session=2,                     security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"deadbeef1")),
+     ECUResponse(session=range(3,5),            security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"deadbeef2")),
+     ECUResponse(session=[5,6,7],               security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef3")),
+     ECUResponse(session=lambda x: 8 < x <= 10, security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=9) / Raw(b"deadbeef4")),
+     ECUResponse(session=range(0,8),            security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=1, sessionParameterRecord=b"dead"), answers=custom_answers),
+     ECUResponse(session=range(8,10),           security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead1")),
+     ECUResponse(session=range(8,10),           security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead2")),
+     ECUResponse(session=range(0,255),          security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
+
+     ]
+
+with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+    answering_machine = ECU_am(supported_responses=example_responses,
+                               main_socket=ecu, basecls=UDS)
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 10})
+    sim.start()
+    try:
+        resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.negativeResponseCode == 0x10
+        assert resp.requestServiceId == 34
+        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=2), timeout=1, verbose=False)
+        assert resp.service == 0x50
+        assert resp.diagnosticSessionType == 2
+        assert resp.sessionParameterRecord == b"dead"
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 2
+        assert resp.load == b"deadbeef1"
+        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=4), timeout=1, verbose=False)
+        assert resp.service == 0x50
+        assert resp.diagnosticSessionType == 4
+        assert resp.sessionParameterRecord == b"dead"
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 3
+        assert resp.load == b"deadbeef2"
+        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=6), timeout=1, verbose=False)
+        assert resp.service == 0x50
+        assert resp.diagnosticSessionType == 6
+        assert resp.sessionParameterRecord == b"dead"
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 5
+        assert resp.load == b"deadbeef3"
+        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=8), timeout=1, verbose=False)
+        assert resp.service == 0x50
+        assert resp.diagnosticSessionType == 8
+        assert resp.sessionParameterRecord == b"dead"
+        resp = tester.sr1(UDS() / UDS_DSC(diagnosticSessionType=9), timeout=1, verbose=False)
+        assert resp.service == 0x50
+        assert resp.diagnosticSessionType == 9
+        assert resp.sessionParameterRecord == b"dead1"
+        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+        assert resp.service == 0x62
+        assert resp.dataIdentifier == 9
+        assert resp.load == b"deadbeef4"
+    finally:
+        sim.join(timeout=10)
+
+
+= Simple check with security access and answers hook
+drain_bus(iface0)
+
+security_seed = b"abcd"
+
+def custom_answers(resp, req):
+    global security_seed
+    if req.service + 0x40 != resp.service or req.service != 0x27:
+        return False
+    if req.securityAccessType == 1:
+        resp.securitySeed = security_seed
+        return resp.answers(req)
+    elif req.securityAccessType == 2:
+        return resp.answers(req) and req.securityKey == security_seed + security_seed
+    return False
+
+example_responses = \
+    [ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234"), answers=custom_answers),
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_SAPR(securityAccessType=2), answers=custom_answers),
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
+     ]
+
+with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+    answering_machine = ECU_am(supported_responses=example_responses,
+                               main_socket=ecu, basecls=UDS)
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 10})
+    sim.start()
+    try:
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
+        assert resp.service == 0x67
+        assert resp.securitySeed == b"abcd"
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed), timeout=1, verbose=False)
+        assert resp.service == 0x7f
+        assert resp.negativeResponseCode == 0x35
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
+        assert resp.service == 0x67
+        assert resp.securitySeed == b"abcd"
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=1, verbose=False)
+        assert resp.service == 0x67
+    finally:
+        sim.join(timeout=10)
+
+
+= Simple check with security access and answers hook and request-correctly-received message
+drain_bus(iface0)
+
+security_seed = b"abcd"
+
+def custom_answers(resp, req):
+    global security_seed
+    if req.service + 0x40 != resp.service or req.service != 0x27:
+        return False
+    if req.securityAccessType == 1:
+        resp.securitySeed = security_seed
+        return resp.answers(req)
+    elif req.securityAccessType == 2:
+        return resp.answers(req) and req.securityKey == security_seed + security_seed
+    return False
+
+example_responses = \
+    [ECUResponse(session=range(0,255), security_level=0, responses=[UDS()/UDS_NR(negativeResponseCode=0x78, requestServiceId=0x27), UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234")], answers=custom_answers),
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_SAPR(securityAccessType=2), answers=custom_answers),
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
+     ]
+
+with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+    answering_machine = ECU_am(supported_responses=example_responses,
+                               main_socket=ecu, basecls=UDS)
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout': 10})
+    sim.start()
+    try:
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=2)
+        assert resp.service == 0x67
+        assert resp.securitySeed == b"abcd"
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed), timeout=2)
+        assert resp.service == 0x7f
+        assert resp.negativeResponseCode == 0x35
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=2)
+        assert resp.service == 0x67
+        assert resp.securitySeed == b"abcd"
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=2, verbose=False)
+        assert resp.service == 0x67
+    finally:
+        sim.join(timeout=10)
+
+
+= Simple check with security access and answers hook and request-correctly-received message 2
+drain_bus(iface0)
+
+security_seed = b"abcd"
+
+def custom_answers(resp, req):
+    global security_seed
+    if req.service + 0x40 != resp.service or req.service != 0x27:
+        return False
+    if req.securityAccessType == 1:
+        resp.securitySeed = security_seed
+        return resp.answers(req)
+    elif req.securityAccessType == 2:
+        return resp.answers(req) and req.securityKey == security_seed + security_seed
+    return False
+
+example_responses = \
+    [ECUResponse(session=range(0,255), security_level=0, responses=[UDS()/UDS_NR(negativeResponseCode=0x78, requestServiceId=0x27), UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234")], answers=custom_answers),
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_SAPR(securityAccessType=2), answers=custom_answers),
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
+     ]
+
+conf.contribs['UDS']['treat-response-pending-as-answer'] = True
+
+with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+    answering_machine = ECU_am(supported_responses=example_responses,
+                               main_socket=ecu, basecls=UDS)
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout':5})
+    sim.start()
+    try:
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
+        assert resp.service == 0x7f
+        assert resp.negativeResponseCode == 0x78
+        resp = tester.sniff(timeout=2, count=1, verbose=False)[0]
+        assert resp.service == 0x67
+        assert resp.securitySeed == b"abcd"
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed), timeout=3, verbose=False)
+        assert resp.service == 0x7f
+        assert resp.negativeResponseCode == 0x35
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
+        assert resp.service == 0x7f
+        assert resp.negativeResponseCode == 0x78
+        resp = tester.sniff(timeout=2, count=1, verbose=False)[0]
+        assert resp.service == 0x67
+        assert resp.securitySeed == b"abcd"
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=1, verbose=False)
+        assert resp.service == 0x67
+    finally:
+        sim.join(timeout=10)
+
+conf.contribs['UDS']['treat-response-pending-as-answer'] = False
