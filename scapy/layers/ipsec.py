@@ -587,7 +587,6 @@ class AuthAlgo(object):
         mac = self.new_mac(key)
 
         pkt_icv = 'not found'
-        computed_icv = 'not computed'
 
         if isinstance(pkt, ESP):
             pkt_icv = pkt.data[len(pkt.data) - self.icv_size:]

@@ -382,7 +382,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
 
         if conf.checkIPsrc and conf.checkIPaddr and not in6_ismaddr(sd):
             sd = inet_pton(socket.AF_INET6, sd)
-            ss = inet_pton(socket.AF_INET6, self.src)
+            ss = inet_pton(socket.AF_INET6, ss)
             return strxor(sd, ss) + struct.pack("B", nh) + self.payload.hashret()  # noqa: E501
         else:
             return struct.pack("B", nh) + self.payload.hashret()

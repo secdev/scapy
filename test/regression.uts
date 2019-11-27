@@ -2951,7 +2951,7 @@ a.otype == 0xC9 and a.optlen == 9 and a.hoa == "2001::ffff"
 = HAO - hashret
 
 p = IPv6()/IPv6ExtHdrDestOpt(options=HAO(hoa="2001:db8::1"))/ICMPv6EchoRequest()
-p.hashret() == b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\x00\x00\x00\x00"
+p.hashret() == b' \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\x00\x00\x00\x00'
 
 
 ############

@@ -1297,7 +1297,6 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
             )
         )
         vpython.scene.exit = True
-        start = vpython.box()
         rings = {}
         tr3d = {}
         for i in trace:

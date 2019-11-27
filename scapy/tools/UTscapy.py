@@ -690,7 +690,7 @@ def usage():
     print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
                [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
                [-l] [-b] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
-               [-s /path/to/scapy] [-c configfile]
+               [-c configfile]
 -t\t\t: provide test files (can be used many times)
 -T\t\t: if -t is used with *, remove a specific file (can be used many times)
 -l\t\t: generate local .js and .css files
@@ -699,7 +699,6 @@ def usage():
 -d\t\t: dump campaign
 -D\t\t: dump campaign and stop
 -C\t\t: don't calculate CRC and SHA
--s\t\t: path to scapy.py
 -c\t\t: load a .utsc config file
 -q\t\t: quiet mode
 -qq\t\t: [silent mode]
@@ -798,7 +797,6 @@ def main():
     VERB = 3
     GLOB_PREEXEC = ""
     PREEXEC_DICT = {}
-    SCAPY = "scapy"
     MODULES = []
     TESTFILES = []
     ANNOTATIONS_MODE = False
@@ -821,8 +819,6 @@ def main():
                 CRC = False
             elif opt == "-x":
                 ANNOTATIONS_MODE = True
-            elif opt == "-s":
-                SCAPY = optarg
             elif opt == "-P":
                 GLOB_PREEXEC += "\n" + optarg
             elif opt == "-f":
@@ -842,7 +838,6 @@ def main():
                 VERB = data.verb
                 DUMP = data.dump
                 CRC = data.crc
-                SCAPY = data.scapy
                 PREEXEC_DICT = data.preexec
                 GLOB_PREEXEC = data.global_preexec
                 OUTPUTFILE = data.outfile
