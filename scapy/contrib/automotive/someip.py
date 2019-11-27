@@ -216,8 +216,7 @@ class SOMEIP(Packet):
 
     def guess_payload_class(self, payload):
         """
-        Defines if next payload is SD layer or default layer
-        
+        Defines if next payload is SD layer or default layer   
         :param str payload: the layer's payload
         :return: the payload class
         """
