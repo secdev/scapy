@@ -37,6 +37,7 @@ from scapy.modules.six.moves import range
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ShortField, BitEnumField, ConditionalField, \
     BitField, PacketField, IntField, ByteField, ByteEnumField
+from scapy.contrib.automotive.someip_sd import SD
 
 
 class _SOMEIP_MessageId(Packet):
@@ -213,6 +214,19 @@ class SOMEIP(Packet):
 
         return lst
 
+    def guess_payload_class(self, payload):
+        """
+        Defines if next payload is SD layer or default layer
+        
+        :param str payload: the layer's payload
+        :return: the payload class
+        """
+        if self.getfieldval("msg_id").srv_id == 0xffff:
+            self.show()
+            print(payload)
+            return SD(payload)
+        else:
+            return self.default_payload_class(payload)
 
 def _bind_someip_layers():
     for i in range(15):
