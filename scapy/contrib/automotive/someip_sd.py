@@ -346,3 +346,17 @@ class SD(_SDPacketBase):
             return (p / self)
         else:
             return (p)
+       
+def _bind_sd_layer():
+    """
+    Bind SD to SOMEIP
+    """
+    #doesn't work, but it's a good start
+    
+    #Service Discovery messages shall use the Service-ID (16Bits) of 0xFFFF
+    bind_layers(SOMEIP, SD, msg_id.srv_id = 0xffff)
+    
+    #Service Discovery messages shall use the Method-ID (16Bits) of 0x8100
+    bind_layers(SOMEIP, SD, msg_id.method_id = 0x8100)
+    
+_bind_sd_layer()
