@@ -266,12 +266,12 @@ class L2bpfListenSocket(_L2bpfSocket):
 
         # Extract useful information from the BPF header
         if FREEBSD:
-            # Unless we set BIOCSTSTAMP to something different than BPF_T_MICROTIME
-            # we will get bpf_hdr on FreeBSD, which means that we'll get a
-            # struct timeval, which is time_t, suseconds_t.
-            # On i386 time_t still is 32bit so the bh_tstamp will only be 8 bytes.
-            # We really want to set BIOCSTSTAMP to BPF_T_NANOTIME and be done with this
-            # and it always be 16?
+            # Unless we set BIOCSTSTAMP to something different than
+            # BPF_T_MICROTIME, we will get bpf_hdr on FreeBSD, which means
+            # that we'll get a struct timeval, which is time_t, suseconds_t.
+            # On i386 time_t is 32bit so the bh_tstamp will only be 8 bytes.
+            # We really want to set BIOCSTSTAMP to BPF_T_NANOTIME and be
+            # done with this and it always be 16?
             if platform.machine() == "i386":
                 # struct bpf_hdr
                 bh_tstamp_offset = 8
