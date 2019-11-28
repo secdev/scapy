@@ -221,7 +221,7 @@ class SOMEIP(Packet):
         :return: the payload class
         """
         if self.getfieldval("msg_id").srv_id == 0xffff:
-            return SD(payload)
+            return SD
         else:
             return self.default_payload_class(payload)
 
