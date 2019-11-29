@@ -51,6 +51,40 @@ def issubtype(x, t):
     return isinstance(x, type) and issubclass(x, t)
 
 
+class EDecimal(Decimal):
+    """Extended Decimal
+
+    This implement comparison with float for backward compatibility
+    """
+
+    def __add__(self, other, **kwargs):
+        return EDecimal(Decimal.__add__(self, other, **kwargs))
+
+    def __sub__(self, other, **kwargs):
+        return EDecimal(Decimal.__sub__(self, other, **kwargs))
+
+    def __mul__(self, other, **kwargs):
+        return EDecimal(Decimal.__mul__(self, other, **kwargs))
+
+    def __truediv__(self, other, **kwargs):
+        return EDecimal(Decimal.__truediv__(self, other, **kwargs))
+
+    def __floordiv__(self, other, **kwargs):
+        return EDecimal(Decimal.__floordiv__(self, other, **kwargs))
+
+    def __mod__(self, other, **kwargs):
+        return EDecimal(Decimal.__mod__(self, other, **kwargs))
+
+    def __divmod__(self, other, **kwargs):
+        return EDecimal(Decimal.__divmod__(self, other, **kwargs))
+
+    def __pow__(self, other, **kwargs):
+        return EDecimal(Decimal.__pow__(self, other, **kwargs))
+
+    def __eq__(self, other, **kwargs):
+        return super(EDecimal, self).__eq__(other) or float(self) == other
+
+
 def get_temp_file(keep=False, autoext="", fd=False):
     """Creates a temporary file.
 
@@ -1064,7 +1098,7 @@ class PcapReader(RawPcapReader):
                 raise
             p = conf.raw_layer(s)
         power = Decimal(10) ** Decimal(-9 if self.nano else -6)
-        p.time = Decimal(pkt_info.sec + power * pkt_info.usec)
+        p.time = EDecimal(pkt_info.sec + power * pkt_info.usec)
         p.wirelen = pkt_info.wirelen
         return p
 
@@ -1230,7 +1264,7 @@ class PcapNgReader(RawPcapNgReader):
                 raise
             p = conf.raw_layer(s)
         if tshigh is not None:
-            p.time = float((tshigh << 32) + tslow) / tsresol
+            p.time = EDecimal((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
         return p
 
