@@ -72,6 +72,9 @@ class EDecimal(Decimal):
     def __floordiv__(self, other, **kwargs):
         return EDecimal(Decimal.__floordiv__(self, other, **kwargs))
 
+    def __div__(self, other, **kwargs):
+        return EDecimal(Decimal.__div__(self, other, **kwargs))
+
     def __mod__(self, other, **kwargs):
         return EDecimal(Decimal.__mod__(self, other, **kwargs))
 
@@ -1112,8 +1115,8 @@ class PcapReader(RawPcapReader):
 
 
 class RawPcapNgReader(RawPcapReader):
-    """A stateful pcapng reader. Each packet is returned as a
-    string.
+    """A stateful pcapng reader. Each packet is returned as
+    bytes.
 
     """
 
@@ -1128,6 +1131,9 @@ class RawPcapNgReader(RawPcapReader):
         self.f = fdesc
         # A list of (linktype, snaplen, tsresol); will be populated by IDBs.
         self.interfaces = []
+        self.default_options = {
+            "tsresol": 1000000
+        }
         self.blocktypes = {
             1: self.read_block_idb,
             2: self.read_block_pkt,
@@ -1146,6 +1152,12 @@ class RawPcapNgReader(RawPcapReader):
             self.endian = "<"
         else:
             raise Scapy_Exception("Not a pcapng capture file (bad magic)")
+        self.f.read(12)
+        blocklen = struct.unpack("!I", blocklen)[0]
+        # Read default options
+        self.default_options = self.read_options(
+            self.f.read(blocklen - 24)
+        )
         try:
             self.f.seek(0)
         except Exception:
@@ -1179,10 +1191,9 @@ class RawPcapNgReader(RawPcapReader):
             if res is not None:
                 return res
 
-    def read_block_idb(self, block, _):
-        """Interface Description Block"""
-        options = block[16:]
-        tsresol = 1000000
+    def read_options(self, options):
+        """Section Header Block"""
+        opts = self.default_options.copy()
         while len(options) >= 4:
             code, length = struct.unpack(self.endian + "HH", options[:4])
             # PCAP Next Generation (pcapng) Capture File Format
@@ -1190,7 +1201,9 @@ class RawPcapNgReader(RawPcapReader):
             # http://xml2rfc.tools.ietf.org/cgi-bin/xml2rfc.cgi?url=https://raw.githubusercontent.com/pcapng/pcapng/master/draft-tuexen-opsawg-pcapng.xml&modeAsFormat=html/ascii&type=ascii#rfc.section.4.2
             if code == 9 and length == 1 and len(options) >= 5:
                 tsresol = orb(options[4])
-                tsresol = (2 if tsresol & 128 else 10) ** (tsresol & 127)
+                opts["tsresol"] = (2 if tsresol & 128 else 10) ** (
+                    tsresol & 127
+                )
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option length %d for end-of-option" % length)  # noqa: E501
@@ -1198,8 +1211,13 @@ class RawPcapNgReader(RawPcapReader):
             if length % 4:
                 length += (4 - (length % 4))
             options = options[4 + length:]
+        return opts
+
+    def read_block_idb(self, block, _):
+        """Interface Description Block"""
+        options = self.read_options(block[16:])
         self.interfaces.append(struct.unpack(self.endian + "HxxI", block[:8]) +
-                               (tsresol,))
+                               (options["tsresol"],))
 
     def read_block_epb(self, block, size):
         """Enhanced Packet Block"""
