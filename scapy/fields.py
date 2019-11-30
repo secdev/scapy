@@ -867,6 +867,11 @@ class LEShortField(Field):
         Field.__init__(self, name, default, "<H")
 
 
+class LESignedShortField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "<h")
+
+
 class XShortField(ShortField):
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt, x))
