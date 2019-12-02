@@ -19,10 +19,10 @@ from scapy.config import conf
 from scapy.base_classes import BasePacket, BasePacketList, _CanvasDumpExtended
 from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
     make_tex_table, issubtype
-from scapy.extlib import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+from scapy.extlib import plt, MATPLOTLIB, \
+    MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
 import scapy.modules.six as six
-from matplotlib.lines import Line2D
 from scapy.modules.six.moves import range, zip
 from scapy.compat import Optional, List, Union, Tuple, Dict, Any, Callable
 from scapy.packet import Packet
@@ -211,7 +211,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return make_tex_table(self.res, *args, **kargs)
 
     def plot(self, f, lfilter=None, plot_xy=False, **kargs):
-        # type: (Callable, Optional[Callable], bool, Any) -> Line2D
+        # type: (Callable, Optional[Callable], bool, Any) -> MATPLOTLIB.lines.Line2D  # noqa: E501
         """Applies a function to each packet to get a value that will be plotted
         with matplotlib. A list of matplotlib.lines.Line2D is returned.
 
@@ -243,7 +243,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return lines
 
     def diffplot(self, f, delay=1, lfilter=None, **kargs):
-        # type: (Callable, int, Optional[Callable], Any) -> Line2D
+        # type: (Callable, int, Optional[Callable], Any) -> MATPLOTLIB.lines.Line2D  # noqa: E501
         """diffplot(f, delay=1, lfilter=None)
         Applies a function to couples (l[i],l[i+delay])
 
@@ -271,7 +271,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return lines
 
     def multiplot(self, f, lfilter=None, plot_xy=False, **kargs):
-        # type: (Callable, Optional[Callable], bool, Any) -> Line2D
+        # type: (Callable, Optional[Callable], bool, Any) -> MATPLOTLIB.lines.Line2D  # noqa: E501
         """Uses a function that returns a label and a value for this label, then
         plots all the values label by label.
 
