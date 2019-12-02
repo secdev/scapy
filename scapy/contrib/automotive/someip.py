@@ -221,16 +221,13 @@ class SOMEIP(Packet):
         return lst
 
     def guess_payload_class(self, payload):
-        """
-        Defines if next payload is SD layer or default layer   
-        :param str payload: the layer's payload
-        :return: the payload class
-        """
+        """Defines if next payload is SD layer or default layer"""
         if self.getfieldval("msg_id").srv_id == 0xffff:
             return SD
         else:
             return self.default_payload_class(payload)
 
+        
 def _bind_someip_layers():
     for i in range(15):
         bind_layers(UDP, SOMEIP, sport=30490 + i)
@@ -238,6 +235,7 @@ def _bind_someip_layers():
 
 
 _bind_someip_layers()
+
 
 class _SDPacketBase(Packet):
     """ base class to be used among all SD Packet definitions."""
