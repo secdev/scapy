@@ -13,6 +13,7 @@ from __future__ import print_function
 import os
 from collections import defaultdict
 
+
 from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
 from scapy.base_classes import BasePacket, BasePacketList, _CanvasDumpExtended
@@ -21,8 +22,10 @@ from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
 from scapy.extlib import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
 import scapy.modules.six as six
+from matplotlib.lines import Line2D
 from scapy.modules.six.moves import range, zip
-
+from scapy.compat import Optional, List, Union, Tuple, Dict, Any, Callable
+from scapy.packet import Packet
 #############
 #  Results  #
 #############
@@ -46,18 +49,23 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         self.listname = name
 
     def __len__(self):
+        # type: () -> int
         return len(self.res)
 
     def _elt2pkt(self, elt):
+        # type: (Packet) -> Packet
         return elt
 
     def _elt2sum(self, elt):
+        # type: (Packet) -> str
         return elt.summary()
 
     def _elt2show(self, elt):
+        # type: (Packet) -> str
         return self._elt2sum(elt)
 
     def __repr__(self):
+        # type: () -> str
         stats = {x: 0 for x in self.stats}
         other = 0
         for r in self.res:
@@ -85,6 +93,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
                                ct.punct(">"))
 
     def __getstate__(self):
+        # type: () -> Dict[str, Any]
         """
         Creates a basic representation of the instance, used in
         conjunction with __setstate__() e.g. by pickle
@@ -99,6 +108,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return state
 
     def __setstate__(self, state):
+        # type: (Dict[str, Any]) -> None
         """
         Sets instance attributes to values given by state, used in
         conjunction with __getstate__() e.g. by pickle
@@ -110,6 +120,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         self.listname = state['listname']
 
     def __getattr__(self, attr):
+        # type: (str) -> Any
         return getattr(self.res, attr)
 
     def __getitem__(self, item):
@@ -126,10 +137,12 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
                               name="mod %s" % self.listname)
 
     def __add__(self, other):
+        # type: (PacketList) -> PacketList
         return self.__class__(self.res + other.res,
                               name="%s+%s" % (self.listname, other.listname))
 
     def summary(self, prn=None, lfilter=None):
+        # type: (Optional[Callable], Optional[Callable]) -> None
         """prints a summary of each packet
 
         :param prn: function to apply to each packet instead of
@@ -147,6 +160,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
                 print(prn(r))
 
     def nsummary(self, prn=None, lfilter=None):
+        # type: (Optional[Callable], Optional[Callable]) -> None
         """prints a summary of each packet with the packet's number
 
         :param prn: function to apply to each packet instead of
@@ -169,29 +183,35 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         self.show()
 
     def show(self, *args, **kargs):
+        # type: (Any, Any) -> None
         """Best way to display the packet list. Defaults to nsummary() method"""  # noqa: E501
         return self.nsummary(*args, **kargs)
 
     def filter(self, func):
+        # type: (Callable) -> PacketList
         """Returns a packet list filtered by a truth function. This truth
         function has to take a packet as the only argument and return a boolean value."""  # noqa: E501
         return self.__class__([x for x in self.res if func(x)],
                               name="filtered %s" % self.listname)
 
     def make_table(self, *args, **kargs):
+        # type: (Any, Any) -> None
         """Prints a table using a function that returns for each packet its head column value, head row value and displayed value  # noqa: E501
         ex: p.make_table(lambda x:(x[IP].dst, x[TCP].dport, x[TCP].sprintf("%flags%")) """  # noqa: E501
         return make_table(self.res, *args, **kargs)
 
     def make_lined_table(self, *args, **kargs):
+        # type: (Any, Any) -> None
         """Same as make_table, but print a table with lines"""
         return make_lined_table(self.res, *args, **kargs)
 
     def make_tex_table(self, *args, **kargs):
+        # type: (Any, Any) -> None
         """Same as make_table, but print a table with LaTeX syntax"""
         return make_tex_table(self.res, *args, **kargs)
 
     def plot(self, f, lfilter=None, plot_xy=False, **kargs):
+        # type: (Callable, Optional[Callable], bool, Any) -> Line2D
         """Applies a function to each packet to get a value that will be plotted
         with matplotlib. A list of matplotlib.lines.Line2D is returned.
 
@@ -223,6 +243,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return lines
 
     def diffplot(self, f, delay=1, lfilter=None, **kargs):
+        # type: (Callable, int, Optional[Callable], Any) -> Line2D
         """diffplot(f, delay=1, lfilter=None)
         Applies a function to couples (l[i],l[i+delay])
 
@@ -250,6 +271,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return lines
 
     def multiplot(self, f, lfilter=None, plot_xy=False, **kargs):
+        # type: (Callable, Optional[Callable], bool, Any) -> Line2D
         """Uses a function that returns a label and a value for this label, then
         plots all the values label by label.
 
@@ -267,7 +289,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
             lst_pkts = (f(*e) for e in self.res if lfilter(*e))
 
         # Apply the function f to the packets
-        d = {}
+        d = {}  # type: Dict[str, List[float]]
         for k, v in lst_pkts:
             d.setdefault(k, []).append(v)
 
@@ -290,11 +312,13 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return lines
 
     def rawhexdump(self):
+        # type: (Optional[Callable]) -> None
         """Prints an hexadecimal dump of each packet in the list"""
         for p in self:
             hexdump(self._elt2pkt(p))
 
     def hexraw(self, lfilter=None):
+        # type: (Optional[Callable]) -> None
         """Same as nsummary(), except that if a packet has a Raw layer, it will be hexdumped  # noqa: E501
         lfilter: a truth function that decides whether a packet must be displayed"""  # noqa: E501
         for i, res in enumerate(self.res):
@@ -308,6 +332,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
                 hexdump(p.getlayer(conf.raw_layer).load)
 
     def hexdump(self, lfilter=None):
+        # type: (Optional[Callable]) -> None
         """Same as nsummary(), except that packets are also hexdumped
         lfilter: a truth function that decides whether a packet must be displayed"""  # noqa: E501
         for i, res in enumerate(self.res):
@@ -320,6 +345,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
             hexdump(p)
 
     def padding(self, lfilter=None):
+        # type: (Optional[Callable]) -> None
         """Same as hexraw(), for Padding layer"""
         for i, res in enumerate(self.res):
             p = self._elt2pkt(res)
@@ -331,6 +357,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
                     hexdump(p.getlayer(conf.padding_layer).load)
 
     def nzpadding(self, lfilter=None):
+        # type: (Optional[Callable]) -> None
         """Same as padding() but only non null padding"""
         for i, res in enumerate(self.res):
             p = self._elt2pkt(res)
@@ -393,6 +420,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return do_graph(gr, **kargs)
 
     def afterglow(self, src=None, event=None, dst=None, **kargs):
+        # type: (Optional[Callable], Optional[Callable], Optional[Callable], Any) -> None  # noqa: E501
         """Experimental clone attempt of http://sourceforge.net/projects/afterglow
         each datum is reduced as src -> event -> dst and the data are graphed.
         by default we have IP.src -> IP.dport -> IP.dst"""
@@ -402,9 +430,9 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
             event = lambda x: x['IP'].dport
         if dst is None:
             dst = lambda x: x['IP'].dst
-        sl = {}
-        el = {}
-        dl = {}
+        sl = {}  # type: Dict[Any, Tuple[int, Any]]
+        el = {}  # type: Dict[Any, Tuple[int, Any]]
+        dl = {}  # type: Dict[Any, Tuple[int, Any]]
         for i in self.res:
             try:
                 s, e, d = src(i), event(i), dst(i)
@@ -472,6 +500,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return do_graph(gr, **kargs)
 
     def canvas_dump(self, **kargs):
+        # type: (Any) -> Any  # Using Any since pyx is imported later
         import pyx
         d = pyx.document.document()
         len_res = len(self.res)
@@ -487,6 +516,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return d
 
     def sr(self, multi=0):
+        # type: (int) -> Tuple[SndRcvList, PacketList]
         """sr([multi=1]) -> (SndRcvList, PacketList)
         Matches packets in the list and return ( (matched couples), (unmatched packets) )"""  # noqa: E501
         remain = self.res[:]
@@ -549,6 +579,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return dict(sessions)
 
     def replace(self, *args, **kargs):
+        # type: (Any, Any) -> PacketList
         """
         lst.replace(<field>,[<oldvalue>,]<newvalue>)
         lst.replace( (fld,[ov],nv),(fld,[ov,]nv),...)
@@ -581,7 +612,13 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
             x.append(p)
         return x
 
-    def getlayer(self, cls, nb=None, flt=None, name=None, stats=None):
+    def getlayer(self, cls,  # type: Packet
+                 nb=None,  # type: Optional[int]
+                 flt=None,  # type: Optional[Dict[str, Any]]
+                 name=None,  # type: Optional[str]
+                 stats=None  # type: Optional[List[Packet]]
+                 ):
+        # type: (...) -> PacketList
         """Returns the packet list from a given layer.
 
         See ``Packet.getlayer`` for more info.
@@ -608,7 +645,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         if stats is None:
             stats = self.stats
 
-        getlayer_arg = {}
+        getlayer_arg = {}  # type: Dict[str, Any]
         if flt is not None:
             getlayer_arg.update(flt)
         getlayer_arg['cls'] = cls
@@ -623,6 +660,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         )
 
     def convert_to(self, other_cls, name=None, stats=None):
+        # type: (Packet, Optional[str], Optional[List[Packet]]) -> PacketList
         """Converts all packets to another type.
 
         See ``Packet.convert_to`` for more info.
@@ -652,13 +690,16 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
 
 
 class SndRcvList(PacketList):
-    __slots__ = []
+    __slots__ = []  # type: List[Any]
 
     def __init__(self, res=None, name="Results", stats=None):
+        # type: (Optional[Union[List[Packet], PacketList]], str, Optional[List[Packet]]) -> None  # noqa: E501
         PacketList.__init__(self, res, name, stats)
 
     def _elt2pkt(self, elt):
+        # type: (Tuple[Packet, Packet]) -> Packet
         return elt[1]
 
     def _elt2sum(self, elt):
+        # type: (Tuple[Packet, Packet]) -> str
         return "%s ==> %s" % (elt[0].summary(), elt[1].summary())
