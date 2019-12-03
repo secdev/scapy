@@ -17,9 +17,10 @@ from collections import defaultdict
 from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
 from scapy.base_classes import BasePacket, BasePacketList, _CanvasDumpExtended
+from scapy.fields import IPField, ShortEnumField, PacketField
 from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
     make_tex_table, issubtype
-from scapy.extlib import plt, MATPLOTLIB, \
+from scapy.extlib import plt, Line2D, \
     MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
 import scapy.modules.six as six
@@ -93,7 +94,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
                                ct.punct(">"))
 
     def __getstate__(self):
-        # type: () -> Dict[str, Any]
+        # type: () -> Dict[str, Union[List[PacketField], List[Packet], str]]
         """
         Creates a basic representation of the instance, used in
         conjunction with __setstate__() e.g. by pickle
@@ -108,7 +109,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return state
 
     def __setstate__(self, state):
-        # type: (Dict[str, Any]) -> None
+        # type: (Dict[str, Union[List[PacketField], List[Packet], str]]) -> None  # noqa: E501
         """
         Sets instance attributes to values given by state, used in
         conjunction with __getstate__() e.g. by pickle
@@ -211,7 +212,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return make_tex_table(self.res, *args, **kargs)
 
     def plot(self, f, lfilter=None, plot_xy=False, **kargs):
-        # type: (Callable, Optional[Callable], bool, Any) -> MATPLOTLIB.lines.Line2D  # noqa: E501
+        # type: (Callable, Optional[Callable], bool, Any) -> Line2D
         """Applies a function to each packet to get a value that will be plotted
         with matplotlib. A list of matplotlib.lines.Line2D is returned.
 
@@ -243,7 +244,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return lines
 
     def diffplot(self, f, delay=1, lfilter=None, **kargs):
-        # type: (Callable, int, Optional[Callable], Any) -> MATPLOTLIB.lines.Line2D  # noqa: E501
+        # type: (Callable, int, Optional[Callable], Any) -> Line2D
         """diffplot(f, delay=1, lfilter=None)
         Applies a function to couples (l[i],l[i+delay])
 
@@ -271,7 +272,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return lines
 
     def multiplot(self, f, lfilter=None, plot_xy=False, **kargs):
-        # type: (Callable, Optional[Callable], bool, Any) -> MATPLOTLIB.lines.Line2D  # noqa: E501
+        # type: (Callable, Optional[Callable], bool, Any) -> Line2D
         """Uses a function that returns a label and a value for this label, then
         plots all the values label by label.
 
@@ -430,9 +431,9 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
             event = lambda x: x['IP'].dport
         if dst is None:
             dst = lambda x: x['IP'].dst
-        sl = {}  # type: Dict[Any, Tuple[int, Any]]
-        el = {}  # type: Dict[Any, Tuple[int, Any]]
-        dl = {}  # type: Dict[Any, Tuple[int, Any]]
+        sl = {}  # type: Dict[IPField, Tuple[int, List[ShortEnumField]]]
+        el = {}  # type: Dict[ShortEnumField, Tuple[int, List[IPField]]]
+        dl = {}  # type: Dict[IPField, ShortEnumField]
         for i in self.res:
             try:
                 s, e, d = src(i), event(i), dst(i)
@@ -690,10 +691,14 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
 
 
 class SndRcvList(PacketList):
-    __slots__ = []  # type: List[Any]
+    __slots__ = []  # type: List[str]
 
-    def __init__(self, res=None, name="Results", stats=None):
-        # type: (Optional[Union[List[Packet], PacketList]], str, Optional[List[Packet]]) -> None  # noqa: E501
+    def __init__(self,
+                 res=None,  # type: Optional[Union[List[Packet], PacketList]]
+                 name="Results",  # type: str
+                 stats=None  # type: Optional[List[Packet]]
+                 ):
+        # type: (...) -> None
         PacketList.__init__(self, res, name, stats)
 
     def _elt2pkt(self, elt):

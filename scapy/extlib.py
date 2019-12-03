@@ -20,6 +20,7 @@ from scapy.error import log_loading
 try:
     from matplotlib import get_backend as matplotlib_get_backend
     from matplotlib import pyplot as plt
+    from matplotlib.lines import Line2D
     MATPLOTLIB = 1
     if "inline" in matplotlib_get_backend():
         MATPLOTLIB_INLINED = 1
@@ -29,6 +30,7 @@ try:
 # RuntimeError to catch gtk "Cannot open display" error
 except (ImportError, RuntimeError):
     plt = None
+    Line2D = None
     MATPLOTLIB = 0
     MATPLOTLIB_INLINED = 0
     MATPLOTLIB_DEFAULT_PLOT_KARGS = dict()
