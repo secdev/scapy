@@ -504,7 +504,7 @@ class SD(_SDPacketBase):
 
     def get_flag(self, name):
         name = name.upper()
-        if (name in self.FLAGSDEF):
+        if name in self.FLAGSDEF:
             return ((self.flags & self.FLAGSDEF[name].mask) >>
                     self.FLAGSDEF[name].offset)
         else:
