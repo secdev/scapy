@@ -9,12 +9,10 @@ from __future__ import print_function
 import getopt
 import sys
 import signal
-import logging
 
 import scapy.modules.six as six
 from scapy.config import conf
 from scapy.consts import LINUX
-from scapy.error import warning, log_runtime
 
 if six.PY2 or not LINUX:
     conf.contribs['CANSocket'] = {'use-python-can': True}
@@ -63,7 +61,8 @@ def usage():
     python2 -m scapy.tools.automotive.isotpscanner --interface vector --channel 0 --bitrate 250000 --start 0 --end 100
     python2 -m scapy.tools.automotive.isotpscanner --interface socketcan --channel=can0 --bitrate=250000 --start 0 --end 100\n
     Python3 on Linux:
-    python3 -m scapy.tools.automotive.isotpscanner --channel can0 --start 0 --end 100 \n''')  # noqa: E501
+    python3 -m scapy.tools.automotive.isotpscanner --channel can0 --start 0 --end 100 \n''',  # noqa: E501
+          file=sys.stderr)
 
 
 def main():
@@ -79,13 +78,9 @@ def main():
     interface = None
     bitrate = None
 
-    log_handler = logging.StreamHandler(sys.stdout)
-    log_handler.setLevel(logging.DEBUG)
-    log_runtime.addHandler(log_handler)
-
     options = getopt.getopt(
         sys.argv[1:],
-        'vxCt:n:i:c:b:s:e:hw',
+        'vxCt:n:i:c:b:s:e:h:w',
         ['verbose', 'noise_listen_time=', 'sniff_time=', 'interface=', 'piso',
          'channel=', 'bitrate=', 'start=', 'end=', 'help', 'extended',
          'extended_can_id'])
@@ -119,7 +114,7 @@ def main():
                 extended_can_id = True
     except getopt.GetoptError as msg:
         usage()
-        warning("ERROR: %s" % msg)
+        print("ERROR:", msg, file=sys.stderr)
         raise SystemExit
 
     if start is None or \
@@ -127,21 +122,23 @@ def main():
             channel is None or \
             (PYTHON_CAN and (bitrate is None or interface is None)):
         usage()
-        warning("\nPlease provide all required arguments.\n")
+        print("\nPlease provide all required arguments.\n", file=sys.stderr)
         sys.exit(-1)
 
     if end >= 2**29 or start >= 2**29:
-        warning("Argument 'start' and 'end' must be < " + hex(2**29))
+        print("Argument 'start' and 'end' must be < " + hex(2**29),
+              file=sys.stderr)
         sys.exit(-1)
 
     if not extended_can_id and (end >= 0x800 or start >= 0x800):
-        warning("Standard can identifiers must be < 0x800.\n"
-                "Use --extended_can_id option to scan with "
-                "extended CAN identifiers.")
+        print("Standard can identifiers must be < 0x800.\n"
+              "Use --extended_can_id option to scan with "
+              "extended CAN identifiers.",
+              file=sys.stderr)
         sys.exit(-1)
 
     if end < start:
-        warning("start must be equal or smaller than end.")
+        print("start must be equal or smaller than end.", file=sys.stderr)
         sys.exit(-1)
 
     if PYTHON_CAN:
@@ -156,8 +153,9 @@ def main():
                                (interface, channel, bitrate)
         except Exception as e:
             usage()
-            warning("\nCheck python-can interface assignment.\n")
-            warning(e)
+            print("\nCheck python-can interface assignment.\n",
+                  file=sys.stderr)
+            print(e, file=sys.stderr)
             sys.exit(-1)
     else:
         scan_interface = channel
@@ -167,8 +165,9 @@ def main():
         sock = CANSocket(iface=scan_interface)
     except Exception as e:
         usage()
-        warning("\nSocket couldn't be created. Check your arguments.\n")
-        warning(e)
+        print("\nSocket couldn't be created. Check your arguments.\n",
+              file=sys.stderr)
+        print(e, file=sys.stderr)
         sys.exit(-1)
 
     if verbose:
