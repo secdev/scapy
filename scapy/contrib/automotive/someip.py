@@ -222,7 +222,7 @@ class SOMEIP(Packet):
 
     def guess_payload_class(self, payload):
         """Defines if next payload is SD layer or default layer"""
-        if self.getfieldval("msg_id").srv_id == 0xffff:
+        if self.msg_id.srv_id == 0xffff:
             return SD
         else:
             return self.default_payload_class(payload)
@@ -392,7 +392,7 @@ class _SDOption_IP4(_SDOption):
 class _SDOption_IP6(_SDOption):
     fields_desc = [
         _SDOption_Header,
-        IP6Field("addr", "2001:cdba:0000:0000:0000:0000:3257:9652"),
+        IP6Field("addr", "2001:db8::1"),
         _SDOption_Tail
     ]
 
