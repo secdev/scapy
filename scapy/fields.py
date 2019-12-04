@@ -2379,7 +2379,7 @@ class ScalingField(Field):
         return x
 
     def i2repr(self, pkt, x):
-        return "%s%s" % (self.i2h(pkt, x), self.unit)
+        return "%s %s" % (self.i2h(pkt, x), self.unit)
 
     def randval(self):
         value = super(ScalingField, self).randval()
