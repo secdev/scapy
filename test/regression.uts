@@ -6783,7 +6783,7 @@ assert pktpcapng[0].time == 1454163407.666223
 pktpcapnano = rdpcap(pcapnanofile)
 assert pktpcapnano[0].time == 1454163407.666223049
 
-= Read a pcapng file with nanosecond presidion and defzult tsresol
+= Read a pcapng file with nanosecond precision and default tsresol
 pktpcapngdefaults = rdpcap(pcapngdefaults)
 assert pktpcapngdefaults[0].time == 1575115986.114775512
 assert Ether in pktpcapngdefaults[0]
