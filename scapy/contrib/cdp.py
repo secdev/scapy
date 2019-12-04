@@ -46,7 +46,6 @@ _cdp_tlv_cls = {0x0001: "CDPMsgDeviceID",
                 0x0004: "CDPMsgCapabilities",
                 0x0005: "CDPMsgSoftwareVersion",
                 0x0006: "CDPMsgPlatform",
-                0x0007: "CDPMsgIPPrefix",
                 0x0008: "CDPMsgProtoHello",
                 0x0009: "CDPMsgVTPMgmtDomain",  # CDPv2
                 0x000a: "CDPMsgNativeVLAN",    # CDPv2
@@ -99,7 +98,14 @@ def _CDPGuessPayloadClass(p, **kargs):
     cls = conf.raw_layer
     if len(p) >= 2:
         t = struct.unpack("!H", p[:2])[0]
-        clsname = _cdp_tlv_cls.get(t, "CDPMsgGeneric")
+        if t == 0x0007 and len(p) > 4:
+            tmp_len = struct.unpack("!H", p[2:4])[0]
+            if tmp_len == 8:
+                clsname = "CDPMsgIPGateway"
+            else:
+                clsname = "CDPMsgIPPrefix"
+        else:
+            clsname = _cdp_tlv_cls.get(t, "CDPMsgGeneric")
         cls = globals()[clsname]
 
     return cls(p, **kargs)
@@ -184,7 +190,8 @@ class CDPMsgAddr(CDPMsgGeneric):
     fields_desc = [XShortEnumField("type", 0x0002, _cdp_tlv_types),
                    ShortField("len", None),
                    FieldLenField("naddr", None, "addr", "!I"),
-                   PacketListField("addr", [], _CDPGuessAddrRecord, count_from=lambda x:x.naddr)]  # noqa: E501
+                   PacketListField("addr", [], _CDPGuessAddrRecord,
+                                   length_from=lambda x:x.len - 8)]
 
     def post_build(self, pkt, pay):
         if self.len is None:
@@ -233,12 +240,21 @@ _cdp_duplex = {0x00: "Half", 0x01: "Full"}
 # ODR Routing
 
 
-class CDPMsgIPPrefix(CDPMsgGeneric):
-    name = "IP Prefix"
+class CDPMsgIPGateway(CDPMsgGeneric):
+    name = "IP Gateway"
     type = 0x0007
     fields_desc = [XShortEnumField("type", 0x0007, _cdp_tlv_types),
                    ShortField("len", 8),
                    IPField("defaultgw", "192.168.0.1")]
+
+
+class CDPMsgIPPrefix(CDPMsgGeneric):
+    name = "IP Prefix"
+    type = 0x0007
+    fields_desc = [XShortEnumField("type", 0x0007, _cdp_tlv_types),
+                   ShortField("len", 9),
+                   IPField("prefix", "192.168.0.1"),
+                   ByteField("plen", 24)]
 
 
 class CDPMsgProtoHello(CDPMsgGeneric):
