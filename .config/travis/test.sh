@@ -25,10 +25,14 @@ then
   UT_FLAGS+=" -K FIXME_py3"
 fi
 
-if [[ ${TRAVIS_DIST:=trusty} == xenial ]]
+if [ "$TRAVIS_OS_NAME" = "linux" ] && [ "$TRAVIS_SUDO" == "true" ]
 then
-  # The vcan module is currently unavailable on Travis-CI xenial builds
-  UT_FLAGS+=" -K vcan_socket"
+  sudo modprobe -n -v vcan
+  if [[ $? -ne 0 ]]
+  then
+    # The vcan module is currently unavailable on Travis-CI xenial builds
+    UT_FLAGS+=" -K vcan_socket"
+  fi
 fi
 
 # Dump UT_FLAGS (the others were already dumped in install.sh)
