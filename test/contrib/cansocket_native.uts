@@ -761,7 +761,6 @@ threadSender.join()
 threadBridge.join()
 
 = Delete vcan interfaces
-~ vcan_socket
 
 if 0 != call("sudo ip link delete %s" % "vcan0", shell=True):
         raise Exception("%s could not be deleted" % "vcan0")

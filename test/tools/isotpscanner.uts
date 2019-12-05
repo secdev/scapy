@@ -7,7 +7,7 @@
 
 = Imports
 load_layer("can")
-import threading, time, six, subprocess, sys
+import threading, six, subprocess, sys
 from subprocess import call
 
 

@@ -67,7 +67,7 @@ def exit_if_no_isotp_module():
 
 
 = Initialize a virtual CAN interface
-~ vcan_socket
+~ vcan_socket needs_root linux
 if 0 != call("cansend %s 000#" % iface0, shell=True):
     # vcan0 is not enabled
     if 0 != call("sudo modprobe vcan", shell=True):
@@ -114,7 +114,7 @@ def drain_bus(iface=iface0, assert_empty=True):
 print("CAN sockets should work now")
 
 = Overwrite definition for vcan_socket systems python-can sockets
-~ vcan_socket
+~ vcan_socket needs_root linux
 if "python_can" in CANSocket.__module__:
     new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000), timeout=0.01)
     new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
@@ -705,7 +705,7 @@ assert(type(msg) == Raw)
 
 + Test sniffer
 = Test sniffer with multiple frames
-~ vcan_socket
+~ vcan_socket needs_root linux
 
 test_frames = [
     (0x241, "EA 10 28 01 02 03 04 05"),
@@ -1556,7 +1556,7 @@ with ISOTPSocket(new_can_socket0(), sid=0x641, did=0x241, padding=False) as s:
 
 
 + Compatibility with can-isotp linux kernel modules
-~ vcan_socket 
+~ vcan_socket needs_root linux
 
 = Compatibility with isotpsend
 exit_if_no_isotp_module()
@@ -1645,7 +1645,7 @@ assert(result_data == isotp.data)
 
 
 + ISOTPNativeSocket tests
-~ python3_only vcan_socket 
+~ python3_only vcan_socket needs_root linux
 
 
 = Overwrite definition for vcan_socket systems native sockets
@@ -1977,7 +1977,7 @@ rxThread.join()
 assert(succ)
 
 + ISOTPNativeSocket MITM attack tests
-~ python3_only vcan_socket 
+~ python3_only vcan_socket needs_root linux
 
 = bridge and sniff with isotp native sockets set up vcan0 and vcan1 for package forwarding vcan1
 exit_if_no_isotp_module()
@@ -2185,7 +2185,7 @@ assert(rSucc)
 s = None
 
 = Delete vcan interfaces
-~ vcan_socket 
+~ vcan_socket needs_root linux
 
 if 0 != call("sudo ip link delete %s" % iface0, shell=True):
         raise Exception("%s could not be deleted" % iface0)
