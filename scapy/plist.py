@@ -13,7 +13,6 @@ from __future__ import print_function
 import os
 from collections import defaultdict
 
-
 from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
 from scapy.base_classes import BasePacket, BasePacketList, _CanvasDumpExtended
