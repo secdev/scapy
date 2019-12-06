@@ -14,10 +14,27 @@
 #assert( _ == b"FOO\x12" )
 #Field("foo", None, fmt="I").getfield(None, b"\x12\x34\x56\x78ABCD")
 #assert( _ == ("ABCD",0x12345678) )
-#
-#= ConditionnalField class
-#~ core field
-#False
+
+
+= ConditionnalField class
+~ core field
+
+class TEST_COND(Packet):
+    fields_desc = [
+        IntField("A", 0),
+        ConditionalField(IntField("A0",0), lambda pkt:pkt.A == 0),
+        ConditionalField(IntField("A1",0), lambda pkt:pkt.A != 0),
+        IntField("B", 0),
+        ConditionalField(IntField("B0",0), lambda pkt:pkt.B == 0),
+        ConditionalField(IntField("B1",0), lambda pkt:pkt.B != 0),
+        ]
+
+print(TEST_COND(TEST_COND().build()).fields)
+
+a = TEST_COND()
+b = TEST_COND(raw(TEST_COND()))
+assert raw(a) == raw(b)
+assert a == b
 
 
 = Simple tests
