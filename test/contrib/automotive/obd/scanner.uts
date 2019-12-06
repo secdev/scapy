@@ -52,8 +52,6 @@ if 0 != call("cansend %s 000#" % iface1, shell=True):
 if 0 != call("cansend %s 000#" % iface1, shell=True):
     raise Exception("cansend doesn't work")
 
-print("CAN should work now")
-
 = Import CANSocket
 
 from scapy.contrib.cansocket_python_can import *
@@ -70,8 +68,6 @@ def drain_bus(iface=iface0, assert_empty=True):
     if assert_empty:
         assert len(pkts) == 0
     s.close()
-
-print("CAN sockets should work now")
 
 = Overwrite definition for vcan_socket systems native sockets
 ~ vcan_socket needs_root linux
@@ -227,12 +223,10 @@ assert unsupported_ids == unsupported_ids_set
 
 = Check service 1
 exit_if_no_isotp_module()
-print(data)
 assert len(supported[1]) == 3
 
 = Check service 3
 exit_if_no_isotp_module()
-print(data)
 assert dtc[3] == bytes(s3)
 
 = Check empty services

@@ -81,8 +81,6 @@ def drain_bus(iface=iface0, assert_empty=True):
         assert len(pkts) == 0
     s.close()
 
-print("CAN sockets should work now")
-
 
 = Verify that a CAN socket can be created and closed
 s = new_can_socket(iface0)
@@ -104,14 +102,16 @@ if p.wait() == 0:
 + Syntax check
 
 = Import isotp
-conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
 load_contrib("isotp")
 
 if ISOTP_KERNEL_MODULE_AVAILABLE:
     from scapy.contrib.isotp import ISOTPNativeSocket
+    ISOTPSocket = ISOTPNativeSocket
     assert ISOTPSocket == ISOTPNativeSocket
 else:
     from scapy.contrib.isotp import ISOTPSoftSocket
+    ISOTPSocket = ISOTPSoftSocket
     assert ISOTPSocket == ISOTPSoftSocket
 
 
@@ -225,8 +225,9 @@ responder.start()
 
 
 = Test DTC scan
-eprint("TODO: this test is currently failing. It has to be reworked")
-exit(0)
+
+exit_if_no_isotp_module()
+
 drain_bus(iface0)
 
 # Create answers for 'standard scan'
@@ -235,20 +236,15 @@ s3_queue.put(s3)
 
 result = subprocess.Popen("%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 returncode = result.wait()
-print(returncode)
 
 std_out, std_err = result.communicate()
-print(std_err)
 
 assert returncode == 0
 expected_output = bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8')
-print(std_out)
 assert plain_str(expected_output) in plain_str(std_out)
 
 
 = Test supported PIDs scan
-* TODO: this test is currently failing. It has to be reworked
-exit(0)
 
 exit_if_no_isotp_module()
 drain_bus(iface0)
@@ -259,30 +255,26 @@ s1_pid03 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID03(fuel_sys
 s1_pid0B = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0B(data=100)])
 s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)])
 s1_queue.put(s1_pid00)
-s1_queue.put(s1_pid0F)
-s1_queue.put(s1_pid0B)
 s1_queue.put(s1_pid03)
+s1_queue.put(s1_pid0B)
+s1_queue.put(s1_pid0F)
 s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
 s3_queue.put(s3)
 
 result = subprocess.Popen("%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000 -r" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 returncode = result.wait()
-print(returncode)
 
 std_out, std_err = result.communicate()
-print(std_err)
 
 assert returncode == 0
 expected_output = [bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8'),
-                   bytes("Service 1:\n{3: b'A\\x0fZ', 11: b'A\\x0bd', 15: b'A\\x03\\x00\\x02'}", 'utf-8')]
-print(std_out)
+                   bytes("Service 1:\n{3: b'A\\x03\\x00\\x02', 11: b'A\\x0bd', 15: b'A\\x0fZ'}", 'utf-8')]
+
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out)
 
 
 = Test full scan
-eprint("TODO: this test is currently failing. It has to be reworked")
-exit(0)
 exit_if_no_isotp_module()
 drain_bus(iface0)
 
@@ -294,25 +286,27 @@ s1_pid0B = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0B(data=100
 s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)])
 s1_queue = queue.Queue()
 s1_queue.put(s1_pid00)
-s1_queue.put(s1_pid0F)
-s1_queue.put(s1_pid0B)
 s1_queue.put(s1_pid03)
+s1_queue.put(s1_pid0B)
+s1_queue.put(s1_pid0F)
 s1_queue.put(s1_pid01)
 s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
 s3_queue.put(s3)
 
-result = subprocess.Popen("%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000 -t 0.01 -ruv" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-returncode = result.wait()
-print(returncode)
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000 -t 0.01 -ru" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 
-std_out, std_err = result.communicate()
-print(std_err)
+try:
+    std_out, std_err = result.communicate(timeout=120)
+except TimeoutExpired:
+    result.kill()
+    std_out, std_err = result.communicate()
 
-assert returncode == 0
+assert std_err == b''
+
 expected_output = [bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8'),
-                   bytes("Service 1:\n{3: b'A\\x0fZ', 11: b'A\\x0bd', 15: b'A\\x03\\x00\\x02'}", 'utf-8'),
+                   bytes("Service 1:\n{3: b'A\\x03\\x00\\x02', 11: b'A\\x0bd', 15: b'A\\x0fZ'}", 'utf-8'),
                    bytes("Service 1:\n{1: b'A\\x01\\x00\\x00\\x00\\x00'}", 'utf-8')]
-print(std_out)
+
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out)
 
