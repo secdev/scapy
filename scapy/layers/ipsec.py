@@ -177,7 +177,8 @@ if conf.crypto_valid:
 else:
     log_loading.info("Can't import python-cryptography v1.7+. "
                      "Disabled IPsec encryption/authentication.")
-    InvalidTag = default_backend = None
+    default_backend = None
+    InvalidTag = Exception
     Cipher = algorithms = modes = None
 
 ###############################################################################
@@ -586,7 +587,6 @@ class AuthAlgo(object):
         mac = self.new_mac(key)
 
         pkt_icv = 'not found'
-        computed_icv = 'not computed'
 
         if isinstance(pkt, ESP):
             pkt_icv = pkt.data[len(pkt.data) - self.icv_size:]

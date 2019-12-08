@@ -879,7 +879,6 @@ class TLSServerKeyExchange(_TLSHandshake):
                 except Exception:
                     if conf.debug_dissector:
                         raise
-                    pass
             else:
                 cls = Raw()
             self.params = cls

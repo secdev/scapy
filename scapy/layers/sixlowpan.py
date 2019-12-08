@@ -557,7 +557,7 @@ class LoWPAN_IPHC(Packet):
 
         if self.sac == 0:
             if self.sam == 0x0:
-                tmp_ip = tmp_ip
+                pass
             elif self.sam == 0x1:
                 tmp_ip = tmp_ip[8:16]
             elif self.sam == 0x2:
@@ -580,7 +580,7 @@ class LoWPAN_IPHC(Packet):
 
         if self.m == 0 and self.dac == 0:
             if self.dam == 0x0:
-                tmp_ip = tmp_ip
+                pass
             elif self.dam == 0x1:
                 tmp_ip = b"\x00" * 8 + tmp_ip[8:16]
             elif self.dam == 0x2:

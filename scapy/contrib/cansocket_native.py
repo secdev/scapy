@@ -44,8 +44,9 @@ class CANSocket(SuperSocket):
                                 socket.CAN_RAW_RECV_OWN_MSGS,
                                 struct.pack("i", receive_own_messages))
         except Exception as exception:
-            Scapy_Exception("Could not modify receive own messages (%s)",
-                            exception)
+            raise Scapy_Exception(
+                "Could not modify receive own messages (%s)", exception
+            )
 
         if can_filters is None:
             can_filters = [{

@@ -778,7 +778,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                 if fdump:
                     dt, target, last_shift, last_y = make_dump(fdump, last_shift, last_y, col, bkcol)  # noqa: E501
 
-                    dtb = dt.bbox()
                     dtb = target
                     vtb = vt.bbox()
                     bxvt = make_box(vtb)

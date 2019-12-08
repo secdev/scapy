@@ -620,9 +620,6 @@ class NetworkInterfaceDict(UserDict):
                         return True
                     elif _confir in ["no", "n"]:
                         return False
-                return False
-        _error_msg = ("No match between your pcap and windows "
-                      "network interfaces found. ")
         if _detect:
             # No action needed
             return
@@ -635,8 +632,7 @@ class NetworkInterfaceDict(UserDict):
                 if succeed:
                     log_loading.info("Pcap service started !")
                     return
-            _error_msg = "Could not start the pcap service ! "
-        warning(_error_msg +
+        warning("Could not start the pcap service ! "
                 "You probably won't be able to send packets. "
                 "Deactivating unneeded interfaces and restarting "
                 "Scapy might help. Check your winpcap/npcap installation "

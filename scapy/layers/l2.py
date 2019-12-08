@@ -728,7 +728,6 @@ class ARP_am(AnsweringMachine):
                 ARP_addr = get_if_hwaddr(iff)
             except Exception:
                 ARP_addr = "00:00:00:00:00:00"
-                pass
         else:
             ARP_addr = self.ARP_addr
         resp = Ether(dst=ether.src,

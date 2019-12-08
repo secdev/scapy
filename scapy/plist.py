@@ -121,10 +121,6 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
                                   name="mod %s" % self.listname)
         return self.res.__getitem__(item)
 
-    def __getslice__(self, *args, **kargs):
-        return self.__class__(self.res.__getslice__(*args, **kargs),
-                              name="mod %s" % self.listname)
-
     def __add__(self, other):
         return self.__class__(self.res + other.res,
                               name="%s+%s" % (self.listname, other.listname))
@@ -451,11 +447,11 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         gr += "# event nodes\n"
         for e in el:
             n, _ = el[e]
-            n = n = 1 + float(n - mine) / (maxe - mine)
+            n = 1 + float(n - mine) / (maxe - mine)
             gr += '"evt.%s" [label = "%s", shape=circle, fillcolor="#00FFFF", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(e), repr(e), n, n)  # noqa: E501
         for d in dl:
             n = dl[d]
-            n = n = 1 + float(n - mind) / (maxd - mind)
+            n = 1 + float(n - mind) / (maxd - mind)
             gr += '"dst.%s" [label = "%s", shape=triangle, fillcolor="#0000ff", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(d), repr(d), n, n)  # noqa: E501
 
         gr += "###\n"

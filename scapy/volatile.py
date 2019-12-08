@@ -117,17 +117,8 @@ class RandField(VolatileValue):
     pass
 
 
-class RandNum(RandField):
-    """Instances evaluate to random integers in selected range"""
-    min = 0
-    max = 0
-
-    def __init__(self, min, max):
-        self.min = min
-        self.max = max
-
-    def _fix(self):
-        return random.randrange(self.min, self.max + 1)
+class _RandNumeral(RandField):
+    """Implements integer management in RandField"""
 
     def __int__(self):
         return int(self._fix())
@@ -198,6 +189,19 @@ class RandNum(RandField):
         return other | self._fix()
 
 
+class RandNum(_RandNumeral):
+    """Instances evaluate to random integers in selected range"""
+    min = 0
+    max = 0
+
+    def __init__(self, min, max):
+        self.min = min
+        self.max = max
+
+    def _fix(self):
+        return random.randrange(self.min, self.max + 1)
+
+
 class RandFloat(RandNum):
     def _fix(self):
         return random.uniform(self.min, self.max)
@@ -208,7 +212,7 @@ class RandBinFloat(RandNum):
         return struct.unpack("!f", bytes(RandBin(4)))[0]
 
 
-class RandNumGamma(RandNum):
+class RandNumGamma(_RandNumeral):
     def __init__(self, alpha, beta):
         self.alpha = alpha
         self.beta = beta
@@ -217,7 +221,7 @@ class RandNumGamma(RandNum):
         return int(round(random.gammavariate(self.alpha, self.beta)))
 
 
-class RandNumGauss(RandNum):
+class RandNumGauss(_RandNumeral):
     def __init__(self, mu, sigma):
         self.mu = mu
         self.sigma = sigma
@@ -226,7 +230,7 @@ class RandNumGauss(RandNum):
         return int(round(random.gauss(self.mu, self.sigma)))
 
 
-class RandNumExpo(RandNum):
+class RandNumExpo(_RandNumeral):
     def __init__(self, lambd, base=0):
         self.lambd = lambd
         self.base = base
@@ -240,6 +244,7 @@ class RandEnum(RandNum):
 
     def __init__(self, min, max, seed=None):
         self.seq = RandomEnumeration(min, max, seed)
+        super(RandEnum, self).__init__(min, max)
 
     def _fix(self):
         return next(self.seq)
@@ -386,6 +391,7 @@ class RandTermString(RandBin):
 
 class RandIP(RandString):
     def __init__(self, iptemplate="0.0.0.0/0"):
+        RandString.__init__(self)
         self.ip = Net(iptemplate)
 
     def _fix(self):
@@ -394,6 +400,7 @@ class RandIP(RandString):
 
 class RandMAC(RandString):
     def __init__(self, template="*"):
+        RandString.__init__(self)
         template += ":*:*:*:*:*"
         template = template.split(":")
         self.mac = ()
@@ -413,6 +420,7 @@ class RandMAC(RandString):
 
 class RandIP6(RandString):
     def __init__(self, ip6template="**"):
+        RandString.__init__(self)
         self.tmpl = ip6template
         self.sp = self.tmpl.split(":")
         for i, v in enumerate(self.sp):
@@ -466,6 +474,7 @@ class RandIP6(RandString):
 
 class RandOID(RandString):
     def __init__(self, fmt=None, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):  # noqa: E501
+        RandString.__init__(self)
         self.ori_fmt = fmt
         if fmt is not None:
             fmt = fmt.split(".")
@@ -680,7 +689,7 @@ class RandSingNum(RandSingularity):
         for i in sing.copy():
             if not mn <= i <= mx:
                 sing.remove(i)
-        self._choice = list(sing)
+        super(RandSingNum, self).__init__(*sing)
         self._choice.sort()
 
 
@@ -726,7 +735,7 @@ class RandSingSLong(RandSingNum):
 
 class RandSingString(RandSingularity):
     def __init__(self):
-        self._choice = ["",
+        choices_list = ["",
                         "%x",
                         "%%",
                         "%s",
@@ -780,6 +789,7 @@ class RandSingString(RandSingularity):
                         r"\\myserver\share",
                         "foo.exe:",
                         "foo.exe\\", ]
+        super(RandSingString, self).__init__(*choices_list)
 
     def __str__(self):
         return str(self._fix())
@@ -930,9 +940,11 @@ class RandUUID(RandField):
 # Automatic timestamp
 
 
-class AutoTime(RandNum):
-    def __init__(self, base=None):
-        if base is None:
+class AutoTime(_RandNumeral):
+    def __init__(self, base=None, diff=None):
+        if diff is not None:
+            self.diff = diff
+        elif base is None:
             self.diff = 0
         else:
             self.diff = time.time() - base
@@ -948,7 +960,7 @@ class IntAutoTime(AutoTime):
 
 class ZuluTime(AutoTime):
     def __init__(self, diff=0):
-        self.diff = diff
+        super(ZuluTime, self).__init__(diff=diff)
 
     def _fix(self):
         return time.strftime("%y%m%d%H%M%SZ",
@@ -957,7 +969,7 @@ class ZuluTime(AutoTime):
 
 class GeneralizedTime(AutoTime):
     def __init__(self, diff=0):
-        self.diff = diff
+        super(GeneralizedTime, self).__init__(diff=diff)
 
     def _fix(self):
         return time.strftime("%Y%m%d%H%M%SZ",

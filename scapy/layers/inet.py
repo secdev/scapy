@@ -1173,7 +1173,7 @@ class TracerouteResult(SndRcvList):
                  "nloc"]
 
     def __init__(self, res=None, name="Traceroute", stats=None):
-        PacketList.__init__(self, res, name, stats)
+        SndRcvList.__init__(self, res, name, stats)
         self.graphdef = None
         self.graphASres = None
         self.padding = 0
@@ -1297,7 +1297,6 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
             )
         )
         vpython.scene.exit = True
-        start = vpython.box()
         rings = {}
         tr3d = {}
         for i in trace:

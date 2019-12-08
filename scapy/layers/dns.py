@@ -417,7 +417,6 @@ class DNS(Packet):
                 other.qr == 0)
 
     def mysummary(self):
-        type = ["Qry", "Ans"][self.qr]
         name = ""
         if self.qr:
             type = "Ans"

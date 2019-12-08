@@ -331,7 +331,7 @@ class ISOTPMessageBuilder:
     and the resulting ISOTP frames can be extracted using the pop() method.
     """
 
-    class Bucket:
+    class Bucket(object):
         def __init__(self, total_len, first_piece, ts=None):
             self.pieces = list()
             self.total_len = total_len
