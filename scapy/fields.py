@@ -197,11 +197,14 @@ class Emph(object):
     def __getattr__(self, attr):
         return getattr(self.fld, attr)
 
-    def __hash__(self):
-        return hash(self.fld)
-
     def __eq__(self, other):
         return self.fld == other
+
+    def __ne__(self, other):
+        # Python 2.7 compat
+        return not self == other
+
+    __hash__ = None
 
 
 class ActionField(object):

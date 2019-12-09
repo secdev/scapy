@@ -92,6 +92,12 @@ class VolatileValue(object):
             return False
         return x == y
 
+    def __ne__(self, other):
+        # Python 2.7 compat
+        return not self == other
+
+    __hash__ = None
+
     def __getattr__(self, attr):
         if attr in ["__setstate__", "__getstate__"]:
             raise AttributeError(attr)
@@ -157,12 +163,6 @@ class _RandNumeral(RandField):
 
     def __le__(self, other):
         return self._fix() <= other
-
-    def __eq__(self, other):
-        return self._fix() == other
-
-    def __ne__(self, other):
-        return self._fix() != other
 
     def __ge__(self, other):
         return self._fix() >= other
@@ -335,7 +335,7 @@ class RandEnumKeys(RandEnum):
 
     def __init__(self, enum, seed=None):
         self.enum = list(enum)
-        self.seq = RandomEnumeration(0, len(self.enum) - 1, seed)
+        RandEnum.__init__(self, 0, len(self.enum) - 1, seed)
 
     def _fix(self):
         return self.enum[next(self.seq)]

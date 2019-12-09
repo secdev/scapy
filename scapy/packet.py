@@ -1063,6 +1063,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    __hash__ = None
+
     def hashret(self):
         """DEV: returns a string that has the same value for a request
         and its answer."""
@@ -1459,13 +1461,6 @@ values.
         if pc:
             c += "/" + pc
         return c
-
-    def __hash__(self):
-        """Needed for Python 2 only: Packet() subclasses should not be
-hashable.
-
-        """
-        raise TypeError('unhashable type: %r' % self.__class__.__name__)
 
     def convert_to(self, other_cls, **kwargs):
         """Converts this Packet to another type.

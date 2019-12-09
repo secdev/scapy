@@ -252,8 +252,14 @@ class ECUResponse:
             self.__session == other.__session and \
             self.__security_level == other.__security_level and \
             len(self.responses) == len(other.responses) and \
-            all([bytes(x) == bytes(y) for x, y in zip(self.responses,
-                                                      other.responses)])
+            all(bytes(x) == bytes(y) for x, y in zip(self.responses,
+                                                     other.responses))
+
+    def __ne__(self, other):
+        # Python 2.7 compat
+        return not self == other
+
+    __hash__ = None
 
 
 class ECU_am(AnsweringMachine):

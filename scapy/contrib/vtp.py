@@ -102,21 +102,26 @@ class VTPVlanInfoTlv(Packet):
 class VTPVlanInfo(Packet):
     name = "VTP VLAN Info"
     fields_desc = [
-        ByteField("len", None),  # FIXME: compute length
+        ByteField("len", None),
         ByteEnumField("status", 0, {0: "active", 1: "suspended"}),
         ByteEnumField("type", 1, _VTP_VLAN_TYPE),
         FieldLenField("vlannamelen", None, "vlanname", "B"),
         ShortField("vlanid", 1),
         ShortField("mtu", 1500),
         XIntField("dot10index", None),
-        StrLenField("vlanname", "default", length_from=lambda pkt: 4 * ((pkt.vlannamelen + 3) / 4)),  # noqa: E501
-        ConditionalField(PacketListField("tlvlist", [], VTPVlanInfoTlv,
-                                         length_from=lambda pkt:pkt.len - 12 - (4 * ((pkt.vlannamelen + 3) / 4))),  # noqa: E501
-                         lambda pkt:pkt.type not in [1, 2])
+        StrLenField("vlanname", "default",
+                    length_from=lambda pkt: 4 * ((pkt.vlannamelen + 3) // 4)),
+        ConditionalField(
+            PacketListField(
+                "tlvlist", [], VTPVlanInfoTlv,
+                length_from=lambda pkt: pkt.len - 12 - (4 * ((pkt.vlannamelen + 3) // 4))  # noqa: E501
+            ),
+            lambda pkt:pkt.type not in [1, 2]
+        )
     ]
 
     def post_build(self, p, pay):
-        vlannamelen = 4 * ((len(self.vlanname) + 3) / 4)
+        vlannamelen = 4 * ((len(self.vlanname) + 3) // 4)
 
         if self.len is None:
             tmp_len = vlannamelen + 12

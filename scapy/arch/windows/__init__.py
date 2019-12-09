@@ -400,7 +400,7 @@ class NetworkInterface(object):
         _windows_title()  # Reset title of the window
         if code != 0:
             raise OSError(res.decode("utf8", errors="ignore"))
-        return (code == 0)
+        return True
 
     def _npcap_get(self, key):
         res, code = _exec_cmd(" ".join([_WlanHelper, self.guid[1:-1], key]))

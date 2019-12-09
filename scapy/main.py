@@ -336,7 +336,6 @@ def save_session(fname="", session=None, pickleProto=-1):
     f = gzip.open(fname, "wb")
     six.moves.cPickle.dump(to_be_saved, f, pickleProto)
     f.close()
-    del f
 
 
 def load_session(fname=None):

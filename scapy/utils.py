@@ -26,7 +26,7 @@ import tempfile
 import threading
 
 import scapy.modules.six as six
-from scapy.modules.six.moves import range
+from scapy.modules.six.moves import range, input
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS, WINDOWS_XP, OPENBSD

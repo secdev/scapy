@@ -12508,7 +12508,7 @@ test_conversations()
 
 = import_hexcap()
 
-@mock.patch("%s.input" % six.moves.builtins.__name__)
+@mock.patch("scapy.utils.input")
 def test_import_hexcap(mock_input):
     data = """
 0000  FF FF FF FF FF FF AA AA AA AA AA AA 08 00 45 00  ..............E.
