@@ -1,7 +1,5 @@
 % Regression tests for obd_scan
 
-* TODO: This unit tests need a bigger refactoring to work with ISOTPSoftSockets
-
 + Configuration
 ~ conf
 
@@ -107,6 +105,7 @@ if p.wait() == 0:
 + Syntax check
 
 = Import isotp
+
 conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
 load_contrib("isotp")
 
@@ -136,109 +135,111 @@ from subprocess import call
 
 from scapy.contrib.automotive.obd.scanner import obd_scan
 from scapy.contrib.automotive.obd.scanner import _supported_id_numbers
+from scapy.contrib.automotive.ecu import *
 
 = Create answers
 
+s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
+
 s1_pid00 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID00(supported_pids="PID03+PID0B+PID0F")])
+s6_mid00 = OBD() / OBD_S06_PR(data_records=[OBD_S06_PR_Record() / OBD_MID00(supported_mids="")])
+s8_tid00 = OBD() / OBD_S08_PR(data_records=[OBD_S08_PR_Record() / OBD_TID00(supported_tids="")])
+s9_iid00 = OBD() / OBD_S09_PR(data_records=[OBD_S09_PR_Record() / OBD_IID00(supported_iids="")])
+
+
 s1_pid01 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID01()])
 s1_pid03 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID03(fuel_system1=0, fuel_system2=2)])
 s1_pid0B = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0B(data=100)])
 s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)])
-s1_queue = queue.Queue()
-s1_queue.put(s1_pid00)
-s1_queue.put(s1_pid00)
-s1_queue.put(s1_pid03)
-s1_queue.put(s1_pid0B)
-s1_queue.put(s1_pid0F)
-s1_queue.put(s1_pid01)
 
-s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
-s3_queue = queue.Queue()
-s3_queue.put(s3)
+example_responses = \
+    [ECUResponse(session=range(0, 255), security_level=0, responses=s3),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid00),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s6_mid00),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s8_tid00),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s9_iid00),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid01),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid03),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid0B),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid0F)]
+
 
 + Simulate scanner
 
-= Create responder
-exit_if_no_isotp_module()
-# Ensures the responder is running before sending the first request
-ready = Event()
-
-class MockResponder(Thread):
-    daemon = True
-    def __init__(self):
-        Thread.__init__(self)
-        self._stopped = Event()
-    def process_request(self, req, sock):
-        if req.service == 1:
-            resp = s1_queue.get()
-            sock.send(resp)
-        elif req.service == 3:
-            resp = s3_queue.get()
-            sock.send(resp)
-    def run(self):
-        with ISOTPSocket(new_can_socket(iface0), 0x7e8, 0x7e0, basecls=OBD, padding=True) as sock:
-            while not self._stopped.is_set() or not (s1_queue.empty() and s3_queue.empty()):
-                sock.sniff(timeout=5, started_callback=ready.set, store=False, prn=lambda p: self.process_request(p, sock))
-    def stop(self):
-        self._stopped.set()
-
-responder = MockResponder()
-responder.start()
-
-= Get ids
-exit_if_no_isotp_module()
-drain_bus(iface0)
-with ISOTPSocket(new_can_socket(iface0), 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
-    ready.wait(timeout=5)
-    all_ids_set = set(range(1, 256))
-    supported_ids = _supported_id_numbers(socket, 0.1, OBD_S01, 'pid', False)
-    unsupported_ids = all_ids_set - supported_ids
-
 = Run scanner
-exit_if_no_isotp_module()
-drain_bus(iface0)
-# timeout to avoid a deadlock if the test which sets this event fails
-with ISOTPSocket(new_can_socket(iface0), 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
-    ready.wait(timeout=5)
-    data = obd_scan(socket, 0.1, True, True, verbose=False)
-    dtc = data[0]
-    supported = data[1]
-    unsupported = data[2]
 
-= Cleanup
 exit_if_no_isotp_module()
-responder.stop()
+
+drain_bus(iface0)
+
+with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
+    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD)
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 12})
+    sim.start()
+    try:
+        with ISOTPSocket(new_can_socket(iface0), 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
+            all_ids_set = set(range(1, 256))
+            supported_ids = _supported_id_numbers(socket, 0.1, OBD_S01, 'pid', False)
+            unsupported_ids = all_ids_set - supported_ids
+
+
+        drain_bus(iface0)
+        # timeout to avoid a deadlock if the test which sets this event fails
+        with ISOTPSocket(new_can_socket(iface0), 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
+            data = obd_scan(socket, 0.1, True, True, verbose=False)
+            dtc = data[0]
+            print(data)
+            supported = data[1]
+            unsupported = data[2]
+
+    finally:
+        sim.join(timeout=10)
+
 
 + Check results
 
 = Check supported ids
+
 exit_if_no_isotp_module()
+
 supported_ids_set = set([3, 11, 15])
 assert supported_ids == supported_ids_set
 
 = Check unsupported ids
+
 exit_if_no_isotp_module()
+
 unsupported_ids_set = all_ids_set - supported_ids_set
 assert unsupported_ids == unsupported_ids_set
 
 = Check service 1
+
 exit_if_no_isotp_module()
+
 assert len(supported[1]) == 3
 
 = Check service 3
+
 exit_if_no_isotp_module()
+
 assert dtc[3] == bytes(s3)
 
 = Check empty services
+
 exit_if_no_isotp_module()
+
 assert len(supported[6]) == 0
 assert len(supported[8]) == 0
 assert len(supported[9]) == 0
-assert dtc[7] == None
-assert dtc[10] == None
+
+print(dtc)
+assert dtc[7] == b'\x7f\x07\x10'
+assert dtc[10] == b'\x7f\n\x10'
 
 = Check unsupported service 1
+
 exit_if_no_isotp_module()
+
 assert unsupported[1][1] == bytes(s1_pid01)
 
 + Cleanup
