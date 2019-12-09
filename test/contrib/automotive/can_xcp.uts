@@ -1,0 +1,316 @@
+% Regression tests for the XCP_CAN
+~ python3_only vcan_socket needs_root linux
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ Configuration of CAN virtual sockets
+
+= Load module
+~ conf command
+
+conf.contribs['CAN'] = {'swap-bytes': False}
+load_layer("can")
+conf.contribs['CANSocket'] = {'use-python-can': False}
+from scapy.contrib.cansocket import CANSocket
+from scapy.contrib.can_xcp import *
+import can
+import time
+
+= Setup string for vcan
+~ conf command
+bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan loopback; sudo ip link set dev vcan0 up'"
+
+= Load os
+~ conf command
+
+import os
+import threading
+
+= Setup vcan0
+~ conf command
+
+0 == os.system(bashCommand)
+
++ Basic Packet Tests()
+= CAN Packet init
+
+canframe = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+bytes(canframe) == b'\x00\x00\x07\xff\x08\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08'
+
++ XCP Scanner tests
+= Sniff for XCP ports
+sock = CANSocket(iface="vcan0", receive_own_messages=True)
+sock.ins.settimeout(0.01)
+xcp_connect_response = CAN(identifier=0x123, length=8, data=b'\xff\x01\x02\x03\x04\x05\x06\x07')
+current_id_var = SHARED_ID()
+results = list()
+Console = Verbose(verbose=False)
+sniffer = XCP_SNIFF_THREAD(sock, current_id_var, results, list(), Console)
+sniffer.start()
+
+for i in [0x123, 0x14, 0x7FF]:
+	xcp_connect_response.identifier = i - 0x10
+	current_id_var.c.acquire()
+	current_id_var.id = i
+	current_id_var.c.release()
+	sock.send(xcp_connect_response)
+	time.sleep(0.1)
+
+sniffer.join()
+req_res_pairs = list()
+
+for res in results:
+	res_id = res.RESPONSE_ID()
+	req_id = res.REQUEST_ID()
+	req_res_pairs.append((res_id, req_id))
+
+assert ((0x4,0x14) in req_res_pairs),"0x14 is missing"
+assert ((0x113, 0x123) in req_res_pairs),"0x123 is missing"
+assert ((0x7EF, 0x7FF) in req_res_pairs),"0x7ff is missing"
+
+
+=Sniff for extended ids
+sock = CANSocket(iface="vcan0", receive_own_messages=True)
+sock.ins.settimeout(0.01)
+xcp_connect_response = CAN(identifier=0x17f0123, length=8, data=b'\xff\x01\x02\x03\x04\x05\x06\x07', flags=0x04)
+current_id_var = SHARED_ID()
+results = list()
+Console = Verbose(verbose=False)
+sniffer = XCP_SNIFF_THREAD(sock, current_id_var, results, list(), Console)
+sniffer.start()
+
+for i in [0x17f0010, 0x1bf0010, 0x610]:
+	xcp_connect_response.identifier = i - 0x10
+	current_id_var.c.acquire()
+	current_id_var.id = i
+	current_id_var.c.release()
+	sock.send(xcp_connect_response)
+	time.sleep(0.1)
+
+sniffer.join()
+req_res_pairs = list()
+
+for res in results:
+	res_id = res.RESPONSE_ID()
+	req_id = res.REQUEST_ID()
+	req_res_pairs.append((res_id, req_id))
+
+assert ((0x17f0000,0x17f0010) in req_res_pairs),"0x17f0010 is missing"
+assert ((0x1bf0000,0x1bf0010) in req_res_pairs),"0x1bf0010 is missing"
+assert ((0x600, 0x610) in req_res_pairs),"0x610 is missing"
+=Check assignment
+
+sock = CANSocket(iface="vcan0", receive_own_messages=True)
+sock.ins.settimeout(0.01)
+xcp_connect_response = CAN(identifier=0x123, length=8, data=b'\xff\x01\x02\x03\x04\x05\x06\x07')
+current_id_var = SHARED_ID()
+results = list()
+Console = Verbose(verbose=False)
+sniffer = XCP_SNIFF_THREAD(sock, current_id_var, results, list(), Console)
+sniffer.start()
+
+for i in [0x123]:
+	xcp_connect_response.identifier = i - 0x10
+	current_id_var.c.acquire()
+	current_id_var.id = i
+	current_id_var.c.release()
+	sock.send(xcp_connect_response)
+	time.sleep(0.1)
+
+sniffer.join()
+
+assert results[0].RESOURCE()==0x1, "Resource of XCP Connection not received correctly"
+assert results[0].COMM_MODE_BASIC()==0x02, "Comm_mode_basic not set correty"
+assert results[0].XCP_TRANSPORT_VERSION()==0x07, "XCP_TRANSPORT_VERSION not set correctly"
+assert results[0].XCP_PROTOCOL_VERSION()==0x06, "XCP_PROTOCOLL_VERSION not set correctly"
+assert results[0].MAX_CTO()==0x03, "MAX_CTO not set correctly " + hex(results[0].MAX_CTO()) + " != 0x03" 
+assert results[0].MAX_DTO()==0x0405, "MAX_DTO not set correcly"
+assert results[0].RESPONSE_ID()==0x113, "RESPONSE_ID not set correctly"
+assert results[0].REQUEST_ID()==0x123, "REQUEST_ID not set correctly"
+
+=Check known Ids
+sock = CANSocket(iface="vcan0", receive_own_messages=True)
+sock.ins.settimeout(0.01)
+xcp_connect_response = CAN(identifier=0x123, length=8, data=b'\xff\x01\x02\x03\x04\x05\x06\x07')
+current_id_var = SHARED_ID()
+results = list()
+Console = Verbose(verbose=False)
+known_ids= [0x123, 0x13, 0x0]
+current_id_var.id = 0x42
+sniffer = XCP_SNIFF_THREAD(sock, current_id_var, results, known_ids, Console)
+sniffer.start()
+
+for i in [0x123, 0x13, 0x0, 0x333, 0x7FF]:
+	xcp_connect_response.identifier = i
+	sock.send(xcp_connect_response)
+	time.sleep(0.1)
+
+sniffer.join()
+
+for res in results:
+	if res.RESPONSE_ID() in known_ids:
+		assert False, "Noise ID " + hex(res.RESPONSE_ID()) + " has been received and safed"
+	
+
+=Check lenght requirements
+
+sock = CANSocket(iface="vcan0", receive_own_messages=True)
+sock.ins.settimeout(0.01)
+xcp_connect_response = CAN(identifier=0x123, length=3, data=b'\xff\x01\x02')
+current_id_var = SHARED_ID()
+results = list()
+Console = Verbose(verbose=False)
+ids= [0x123]
+current_id_var.id = 0x42
+sniffer = XCP_SNIFF_THREAD(sock, current_id_var, results, known_ids, Console)
+sniffer.start()
+
+for i in ids:
+	xcp_connect_response.identifier = i
+	sock.send(xcp_connect_response)
+	time.sleep(0.1)
+
+sniffer.join()
+
+assert len(results) == 0, "Wrong message has been detected as XCP"
+
+= Check sending range
+sock = CANSocket(iface="vcan0", receive_own_messages=True)
+sock.ins.settimeout(0.75)
+current_id_var = SHARED_ID()
+results = list()
+Console = Verbose(verbose=False)
+ids= [0x123]
+current_id_var.id = 0x42
+start=0x0
+end=0x10
+xcp_connect = CAN(identifier=0x123, length=2, data=b'\xff\x00')
+Sender = XCP_SEND_THREAD(xcp_connect, start, end, sock, current_id_var, Console, cycle_time=0.05)
+received_ids = []
+received_messages = []
+Sender.start()
+
+msg = sock.recv()
+
+while msg:
+	received_ids.append(msg.identifier)
+	msg = sock.recv()
+
+Sender.join()
+
+for i in range(end, start):
+	assert i in received_ids, hex(i) + "has not been sent"
+
+
+
+= Check sending content
+	
+sock = CANSocket(iface="vcan0", receive_own_messages=True)
+sock.ins.settimeout(0.75)
+current_id_var = SHARED_ID()
+results = list()
+Console = Verbose(verbose=False)
+ids= [0x123]
+current_id_var.id = 0x42
+start=0x1
+end=0x1
+xcp_connect = CAN(identifier=0x123, length=2, data=b'\xff\x00')
+Sender = XCP_SEND_THREAD(xcp_connect, start, end, sock, current_id_var, Console, cycle_time=0.05)
+received_ids = []
+received_messages = []
+Sender.start()
+
+msg = sock.recv()
+
+while msg:
+	received_ids.append(msg.identifier)
+	prev = msg
+	msg = sock.recv()
+
+Sender.join()
+print(received_ids)
+assert len(received_ids) == 1, "To many mesages received"
+assert prev.data == b'\xff\x00', "Worng data sent"
+assert prev.identifier == 0x1, "Wrong identifier transmitted"
+ 
+= Check scanner known_ids
+import threading
+import time
+
+sock = CANSocket(iface="vcan0", receive_own_messages=True)
+sock.ins.settimeout(0.75)
+start=0x00
+end=0x20
+id1 = 0x1
+id2 = 0x100
+id3 = 0x7ff
+noise_msgs = [CAN(identifier=id1, length=2),
+		CAN(identifier=id2, length=2),
+		CAN(identifier=id3, length=2)]
+use_extended_can_id = False
+console = Verbose(verbose=False)
+scanner = XCP_CAN_SCANNER(sock, start, end, use_extended_can_id, Console)
+
+start_time = time.time()
+threading.Thread(target=scanner.start_scan).start()
+
+while time.time() - start_time < 0.8:
+	for msg in noise_msgs:
+		sock.send(msg)
+	time.sleep(0.05)
+
+time.sleep(1)
+result_ids = scanner.KNOWN_IDS()
+print(result_ids)
+assert id1 in result_ids and id2 in result_ids and id2 in result_ids, "Noise IDs are not recognized"
+
+= Check scanner funciton
+
+class stopper():
+	stop=False
+
+def xcp_slave_mock(socket, ids, stop):
+	response_msg = CAN(identifier=0xf, length=8, data=b'\xff\x01\x02\x03\x04\x05\x06\x07')
+	while not stop.stop:
+		rcv = socket.recv()
+		if rcv:
+			if rcv.identifier in ids:
+				response_msg.identifier = rcv.identifier + 0xf
+				socket.send(response_msg)
+
+
+import threading
+import time
+
+sock = CANSocket(iface="vcan0", receive_own_messages=True)
+sock2 = CANSocket(iface="vcan0", receive_own_messages=True)
+sock.ins.settimeout(0.75)
+sock2.ins.settimeout(0.75)
+start=0x00
+end=0x100
+id1 = 0xfd
+id2 = 0x2
+id3 = end
+id4 = start 
+ids = [id1, id2, id3, id4]
+use_extended_can_id = False
+console = Verbose(verbose=False)
+scanner = XCP_CAN_SCANNER(sock, start, end, use_extended_can_id, Console)
+stop = stopper()
+
+threading.Thread(target=xcp_slave_mock,args=(sock2,ids,stop)).start()
+
+scanner.start_scan()
+stop.stop = True
+results = scanner.get_results()
+res_ids = []
+for res in results:
+	res_ids.append((res.RESPONSE_ID(), res.REQUEST_ID()))
+
+assert (id1 + 0xf, id1) in res_ids, hex(id1) + " not detected"
+assert (id2 + 0xf, id2) in res_ids, hex(id2) + " not detected"
+assert (id3 + 0xf, id3) in res_ids, hex(id3) + " not detected"
+assert (id4 + 0xf, id4) in res_ids, hex(id4) + " not detected"
