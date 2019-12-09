@@ -133,6 +133,12 @@ class Net(Gen):
             p2, nm2 = self._parse_net(other)
         return self.parsed == p2
 
+    def __ne__(self, other):
+        # Python 2.7 compat
+        return not self == other
+
+    __hash__ = None
+
     def __contains__(self, other):
         if hasattr(other, "parsed"):
             p2 = other.parsed

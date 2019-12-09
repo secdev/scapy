@@ -317,7 +317,7 @@ class ISOTPMessageBuilderIter(object):
     next = __next__
 
 
-class ISOTPMessageBuilder:
+class ISOTPMessageBuilder(object):
     """
     Utility class to build ISOTP messages out of CAN frames, used by both
     ISOTP.defragment() and ISOTPSession.

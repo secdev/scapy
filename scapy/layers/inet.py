@@ -334,7 +334,6 @@ class TCPOptionsField(StrField):
             onum = orb(x[0])
             if onum == 0:
                 opt.append(("EOL", None))
-                x = x[1:]
                 break
             if onum == 1:
                 opt.append(("NOP", None))
@@ -425,7 +424,7 @@ class ICMPTimeStampField(IntField):
         if isinstance(val, str):
             hmsms = self.re_hmsm.match(val)
             if hmsms:
-                h, _, m, _, s, _, ms = hmsms = hmsms.groups()
+                h, _, m, _, s, _, ms = hmsms.groups()
                 ms = int(((ms or "") + "000")[:3])
                 val = ((int(h) * 60 + int(m or 0)) * 60 + int(s or 0)) * 1000 + ms  # noqa: E501
             else:

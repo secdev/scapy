@@ -166,9 +166,16 @@ class _ISIS_RandId(RandString):
 
 class _ISIS_RandAreaId(_ISIS_RandId):
     def __init__(self, bytecount=None):
-        super(_ISIS_RandAreaId, self).__init__()
-        self.bytecount = random.randint(1, 13) if bytecount is None else bytecount  # noqa: E501
-        self.format = "%02X" + (".%02X%02X" * ((self.bytecount - 1) // 2)) + ("" if ((self.bytecount - 1) % 2) == 0 else ".%02X")  # noqa: E501
+        template = "*" + (
+            ".**" * ((self.bytecount - 1) // 2)
+        ) + (
+            "" if ((self.bytecount - 1) % 2) == 0 else ".*"
+        )
+        super(_ISIS_RandAreaId, self).__init__(template)
+        if bytecount is None:
+            self.bytecount = random.randint(1, 13)
+        else:
+            self.bytecount = bytecount
 
 
 class ISIS_AreaIdField(Field):

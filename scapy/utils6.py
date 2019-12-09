@@ -898,7 +898,9 @@ class Net6(Gen):  # syntax ex. fec0::/126
         return str(other) == str(self)
 
     def __ne__(self, other):
-        return str(other) != str(self)
+        return not self == other
+
+    __hash__ = None
 
     def __repr__(self):
         return "Net6(%r)" % self.repr
