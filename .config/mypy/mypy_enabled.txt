@@ -7,3 +7,4 @@
 scapy/__init__.py
 scapy/main.py
 scapy/contrib/http2.py
+scapy/plist.py
