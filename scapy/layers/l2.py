@@ -21,14 +21,17 @@ from scapy.compat import chb, orb
 from scapy.config import conf
 from scapy import consts
 from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
-    DLT_LINUX_IRDA, DLT_LINUX_SLL, DLT_LOOP, DLT_NULL, ETHER_ANY, \
-    ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, ETH_P_MACSEC
+    DLT_ETHERNET_MPACKET, DLT_LINUX_IRDA, DLT_LINUX_SLL, DLT_LOOP, \
+    DLT_NULL, ETHER_ANY, ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, \
+    ETH_P_MACSEC
 from scapy.error import warning, ScapyNoDstMacException
 from scapy.fields import BCDFloatField, BitField, ByteField, \
-    ConditionalField, FieldLenField, IntEnumField, IntField, IP6Field, \
-    IPField, LenField, MACField, MultipleTypeField, ShortEnumField, \
-    ShortField, SourceIP6Field, SourceIPField, StrFixedLenField, StrLenField, \
-    X3BytesField, XByteField, XIntField, XShortEnumField, XShortField
+    ConditionalField, FieldLenField, FCSField, \
+    IntEnumField, IntField, IP6Field, IPField, \
+    LenField, MACField, MultipleTypeField, \
+    ShortEnumField, ShortField, SourceIP6Field, SourceIPField, \
+    StrFixedLenField, StrLenField, X3BytesField, XByteField, XIntField, \
+    XShortEnumField, XShortField
 from scapy.modules.six import viewitems
 from scapy.packet import bind_layers, Packet
 from scapy.plist import PacketList, SndRcvList
@@ -239,6 +242,13 @@ class CookedLinux(Packet):
                    ShortField("lladdrlen", 0),
                    StrFixedLenField("src", "", 8),
                    XShortEnumField("proto", 0x800, ETHER_TYPES)]
+
+
+class MPacketPreamble(Packet):
+    # IEEE 802.3br Figure 99-3
+    name = "MPacket Preamble"
+    fields_desc = [StrFixedLenField("preamble", b"", length=8),
+                   FCSField("fcs", 0, fmt="!I")]
 
 
 class SNAP(Packet):
@@ -547,7 +557,7 @@ class Dot1AD(Dot1Q):
     name = '802_1AD'
 
 
-bind_layers(Dot3, LLC,)
+bind_layers(Dot3, LLC)
 bind_layers(Ether, LLC, type=122)
 bind_layers(Ether, LLC, type=34928)
 bind_layers(Ether, Dot1Q, type=33024)
@@ -563,6 +573,7 @@ bind_layers(CookedLinux, Dot1Q, proto=33024)
 bind_layers(CookedLinux, Dot1AD, type=0x88a8)
 bind_layers(CookedLinux, Ether, proto=1)
 bind_layers(CookedLinux, ARP, proto=2054)
+bind_layers(MPacketPreamble, Ether)
 bind_layers(GRE, LLC, proto=122)
 bind_layers(GRE, Dot1Q, proto=33024)
 bind_layers(GRE, Dot1AD, type=0x88a8)
@@ -571,7 +582,7 @@ bind_layers(GRE, ARP, proto=2054)
 bind_layers(GRE, ERSPAN, proto=0x88be, seqnum_present=1)
 bind_layers(GRE, GRErouting, {"routing_present": 1})
 bind_layers(GRErouting, conf.raw_layer, {"address_family": 0, "SRE_len": 0})
-bind_layers(GRErouting, GRErouting, {})
+bind_layers(GRErouting, GRErouting)
 bind_layers(LLC, STP, dsap=66, ssap=66, ctrl=3)
 bind_layers(LLC, SNAP, dsap=170, ssap=170, ctrl=3)
 bind_layers(SNAP, Dot1Q, code=33024)
@@ -585,6 +596,7 @@ conf.l2types.register_num2layer(ARPHDR_METRICOM, Ether)
 conf.l2types.register_num2layer(ARPHDR_LOOPBACK, Ether)
 conf.l2types.register_layer2num(ARPHDR_ETHER, Dot3)
 conf.l2types.register(DLT_LINUX_SLL, CookedLinux)
+conf.l2types.register(DLT_ETHERNET_MPACKET, MPacketPreamble)
 conf.l2types.register_num2layer(DLT_LINUX_IRDA, CookedLinux)
 conf.l2types.register(DLT_LOOP, Loopback)
 conf.l2types.register_num2layer(DLT_NULL, Loopback)
