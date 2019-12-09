@@ -780,27 +780,38 @@ class CANReceiverThread(Thread):
         self.callback = callback
         self.exiting = False
         self._thread_started = Event()
+        self._forward_thread_started = Event()
         self.exception = None
+        self.can_queue = queue.Queue()
+        self.forward_thread = Thread(target=self.forward)
 
         Thread.__init__(self)
         self.name = "CANReceiver" + self.name
 
+    def forward(self):
+        self._forward_thread_started.set()
+        while 1:
+            try:
+                self.callback(self.can_queue.get(timeout=0.01))
+            except queue.Empty:
+                pass
+            if self.exiting:
+                return
+
     def start(self):
         Thread.start(self)
+        self.forward_thread.start()
         self._thread_started.wait()
+        self._forward_thread_started.wait()
 
     def run(self):
         self._thread_started.set()
         try:
-            def prn(msg):
-                if not self.exiting:
-                    self.callback(msg)
-
             while 1:
                 try:
                     sniff(store=False, timeout=1, count=1,
                           stop_filter=lambda x: self.exiting,
-                          prn=prn, opened_socket=self.socket)
+                          prn=self.can_queue.put, opened_socket=self.socket)
                 except ValueError as ex:
                     if not self.exiting:
                         raise ex
@@ -843,9 +854,9 @@ class TimeoutThread(Thread):
         try:
             while not self._killed:
                 self._busy_sem.acquire()
-                f = self._cancelled.wait(self._timeout)
+                cancelled = self._cancelled.wait(self._timeout)
                 self._ready_sem.release()
-                if f is False:
+                if not cancelled:
                     if self._callback is not None:
                         self._callback()
 
@@ -1897,9 +1908,8 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=100,
                                                   noise_ids, True, p,
                                                   verbose),
                        timeout=sniff_time * 3,
-                       started_callback=send_multiple_ext(sock, ext_isotp_id,
-                                                          pkt,
-                                                          scan_block_size))
+                       started_callback=lambda: send_multiple_ext(
+                           sock, ext_isotp_id, pkt, scan_block_size))
             # sleep to prevent flooding
             time.sleep(1)
 
