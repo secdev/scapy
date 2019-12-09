@@ -7,6 +7,7 @@
 A Sphinx Extension for Scapy's doc preprocessing
 """
 
+import subprocess
 from scapy.packet import Packet, _pkt_ls
 
 from sphinx.ext.autodoc import AttributeDocumenter
@@ -122,6 +123,11 @@ class AttrsDocumenter(AttributeDocumenter):
 
 # Setup
 
+def builder_inited_handler(app): 
+    """Generate API tree"""
+    subprocess.call(['tox', '-e', 'apitree'])
+
+
 def setup(app):
     """
     Entry point of the scapy_doc extension.
@@ -129,6 +135,7 @@ def setup(app):
     Called by sphinx while booting up.
     """
     app.add_autodocumenter(AttrsDocumenter, override=True)
+    app.connect('builder-inited', builder_inited_handler)
 
     # Dummy. We won't publish this
     return {

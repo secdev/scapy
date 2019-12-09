@@ -57,7 +57,8 @@ setup(
         ],
         'docs': [
             'sphinx>=2.2.0',
-            'sphinx_rtd_theme>=0.4.3'
+            'sphinx_rtd_theme>=0.4.3',
+            'tox>=3.0.0'
         ]
     },
     # We use __file__ in scapy/__init__.py, therefore Scapy isn't zip safe

@@ -48,10 +48,12 @@ This document is under a `Creative Commons Attribution - Non-Commercial
    troubleshooting
    development
    backmatter
- 
-.. toctree::
-   :maxdepth: 4
-   :caption: API Reference
 
-   api/scapy.rst
+.. only:: html
+
+    .. toctree::
+       :maxdepth: 4
+       :caption: API Reference
+
+       api/scapy.rst
  
