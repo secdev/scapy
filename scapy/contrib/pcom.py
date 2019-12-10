@@ -24,14 +24,15 @@
 #
 # See https://unitronicsplc.com/Download/SoftwareUtilities/Unitronics%20PCOM%20Protocol.pdf # noqa
 
+import struct
+
 from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import TCP
 from scapy.fields import XShortField, ByteEnumField, XByteField, \
     StrFixedLenField, StrLenField, LEShortField, \
     LEFieldLenField, LEX3BytesField, XLEShortField
 from scapy.volatile import RandShort
-from struct import pack
-from scapy.compat import bytes_encode
+from scapy.compat import bytes_encode, orb
 
 _protocol_modes = {0x65: "ascii", 0x66: "binary"}
 
@@ -91,28 +92,16 @@ class PCOM(Packet):
 
     def post_build(self, pkt, pay):
         if self.len is None and pay:
-            pkt = pkt[:4] + pack("H", len(pay))
+            pkt = pkt[:4] + struct.pack("H", len(pay))
         return pkt + pay
 
 
 class PCOMRequest(PCOM):
     name = "PCOM/TCP Request"
 
-    def guess_payload_class(self, payload):
-        if self.mode == 0x65:
-            return PCOMAsciiRequest
-        elif self.mode == 0x66:
-            return PCOMBinaryRequest
-
 
 class PCOMResponse(PCOM):
     name = "PCOM/TCP Response"
-
-    def guess_payload_class(self, payload):
-        if self.mode == 0x65:
-            return PCOMAsciiResponse
-        elif self.mode == 0x66:
-            return PCOMBinaryResponse
 
 
 class PCOMAscii(Packet):
@@ -121,8 +110,7 @@ class PCOMAscii(Packet):
         n = 0
         command = bytes_encode(command)
         for _, c in enumerate(command):
-            c = c if isinstance(c, int) else ord(c)  # python 2 fallback
-            n += c
+            n += orb(c)
         return list(map(ord, hex(n % 256)[2:].zfill(2).upper()))
 
 
@@ -152,7 +140,7 @@ class PCOMAsciiRequest(PCOMAscii):
     def post_build(self, pkt, pay):
         if self.chksum is None:
             chksum = PCOMAscii.pcom_ascii_checksum(pkt[1:-3])
-            pkt = pkt[:-3] + pack("2B", chksum[0], chksum[1]) + pkt[-1:]
+            pkt = pkt[:-3] + struct.pack("2B", chksum[0], chksum[1]) + pkt[-1:]
         return pkt + pay
 
 
@@ -170,7 +158,7 @@ class PCOMAsciiResponse(PCOMAscii):
     def post_build(self, pkt, pay):
         if self.chksum is None:
             chksum = PCOMAscii.pcom_ascii_checksum(pkt[2:-3])
-            pkt = pkt[:-3] + pack("2B", chksum[0], chksum[1]) + pkt[-1:]
+            pkt = pkt[:-3] + struct.pack("2B", chksum[0], chksum[1]) + pkt[-1:]
         return pkt + pay
 
 
@@ -191,10 +179,10 @@ class PCOMBinary(Packet):
     def post_build(self, pkt, pay):
         if self.headerChksum is None:
             chksum = PCOMBinaryRequest.pcom_binary_checksum(pkt[:21])
-            pkt = pkt[:22] + pack("2B", chksum[1], chksum[0]) + pkt[24:]
+            pkt = pkt[:22] + struct.pack("2B", chksum[1], chksum[0]) + pkt[24:]
         if self.footerChksum is None:
             chksum = PCOMBinaryRequest.pcom_binary_checksum(pkt[24:-3])
-            pkt = pkt[:-3] + pack("2B", chksum[1], chksum[0]) + pkt[-1:]
+            pkt = pkt[:-3] + struct.pack("2B", chksum[1], chksum[0]) + pkt[-1:]
         return pkt + pay
 
 
@@ -247,3 +235,7 @@ class PCOMBinaryResponse(PCOMBinary):
 
 bind_layers(TCP, PCOMRequest, dport=20256)
 bind_layers(TCP, PCOMResponse, sport=20256)
+bind_layers(PCOMRequest, PCOMAsciiRequest, mode=0x65)
+bind_layers(PCOMRequest, PCOMBinaryResponse, mode=0x66)
+bind_layers(PCOMResponse, PCOMAsciiResponse, mode=0x65)
+bind_layers(PCOMResponse, PCOMBinaryResponse, mode=0x66)
