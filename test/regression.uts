@@ -10602,7 +10602,7 @@ assert(radius_packet.len == 279)
 assert(radius_packet.authenticator == b'>k\xd4\xc4\x19V\x0b*1\x99\xc8D\xea\xc2\x94Z')
 assert(len(radius_packet.attributes) == 17)
 assert(radius_packet.attributes[0].type == 1)
-assert(type(radius_packet.attributes[0]) == RadiusAttribute)
+assert(type(radius_packet.attributes[0]) == RadiusAttr_User_Name)
 assert(radius_packet.attributes[0].len == 6)
 assert(radius_packet.attributes[0].value == b"leap")
 assert(radius_packet.attributes[1].type == 6)
@@ -10681,7 +10681,7 @@ assert(radius_packet.len == 324)
 assert(radius_packet.authenticator == b'C\xbe!J\x08\xdf\xcf\x9f\x00v~,\xfb\x8e`\xc8')
 assert(len(radius_packet.attributes) == 18)
 assert(radius_packet.attributes[0].type == 1)
-assert(type(radius_packet.attributes[0]) == RadiusAttribute)
+assert(type(radius_packet.attributes[0]) == RadiusAttr_User_Name)
 assert(radius_packet.attributes[0].len == 6)
 assert(radius_packet.attributes[0].value == b"leap")
 assert(radius_packet.attributes[1].type == 6)
@@ -10787,6 +10787,11 @@ r = raw(RadiusAttr_Framed_IP_Address())
 p = RadiusAttr_Framed_IP_Address(p)
 assert p.type == 8
 
+= RadiusAttr_User_Password
+
+r = b'\x01\x00\x00\x1c0x10x20x30x40x50\x02\x08geheim'
+p = Radius(r)
+assert isinstance(p.attributes[0], RadiusAttr_User_Password)
 
 ############
 ############
