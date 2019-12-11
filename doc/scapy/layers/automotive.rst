@@ -2,12 +2,15 @@
 Automotive Security
 *******************
 
+Overview
+========
+
 .. note::
     All automotive related features work best on Linux systems. CANSockets and ISOTPSockets in Scapy are based on Linux kernel modules.
     The python-can project is used to support CAN and CANSockets on other systems, besides Linux.
     This guide explains the hardware setup on a BeagleBone Black. The BeagleBone Black was chosen because of its two CAN interfaces on the main processor.
     The presence of two CAN interfaces in one device gives the possibility of CAN MITM attacks and session hijacking.
-    The Cannelloni framework turns a BeagleBone Black into a CAN-to-UDP interface, which gives you the freedom to run Scapy
+    The Cannelloni framework turns a single board computer into a CAN-to-UDP interface, which gives you the freedom to run Scapy
     on a more powerful machine.
 
 Protocols
@@ -45,18 +48,24 @@ function to get all information about one specific protocol.
 +---------------------+----------------------+--------------------------------------------------------+
 
 
-Hands-On
-^^^^^^^^
+CAN Layer
+=========
 
-Send a message over Linux SocketCAN::
+How-To
+--------
+
+Send and receive a message over Linux SocketCAN::
 
    load_layer('can')
    load_contrib('cansocket')
+
    socket = CANSocket(iface='can0')
    packet = CAN(identifier=0x123, data=b'01020304')
 
-   socket.sr1(packet, timeout=1)
+   socket.send(packet)
+   rx_packet = socket.recv()
 
+   socket.sr1(packet, timeout=1)
    srcan(packet, 'can0', timeout=1)
 
 Send a message over a Vector CAN-Interface::
@@ -66,48 +75,46 @@ Send a message over a Vector CAN-Interface::
    conf.contribs['CANSocket'] = {'use-python-can' : True}
    load_contrib('cansocket')
    from can.interfaces.vector import VectorBus
+
    socket = CANSocket(iface=VectorBus(0, bitrate=1000000))
    packet = CAN(identifier=0x123, data=b'01020304')
+
+   socket.send(packet)
+   rx_packet = socket.recv()
+
    socket.sr1(packet)
-
-   srcan(packet, VectorBus(0, bitrate=1000000))
-
-System compatibilities
-----------------------
-
-Dependent on your setup, different implementations have to be used.
-
-+---------------------+----------------------+-------------------------------------+----------------------------------------------------------+
-| Python \ OS         | Linux with can_isotp | Linux wo can_isotp                  | Windows / OSX                                            |
-+=====================+======================+=====================================+==========================================================+
-| Python 3            | ISOTPNativeSocket    | ISOTPSoftSocket                     | ISOTPSoftSocket                                          |
-|                     +----------------------+-------------------------------------+                                                          |
-|                     | ``conf.contribs['CANSocket'] = {'use-python-can': False}`` | ``conf.contribs['CANSocket'] = {'use-python-can': True}``|
-+---------------------+------------------------------------------------------------+----------------------------------------------------------+
-| Python 2            | ISOTPSoftSocket                                            | ISOTPSoftSocket                                          |
-|                     |                                                            |                                                          |
-|                     | ``conf.contribs['CANSocket'] = {'use-python-can': True}``  | ``conf.contribs['CANSocket'] = {'use-python-can': True}``|
-+---------------------+------------------------------------------------------------+----------------------------------------------------------+
-
-The class ``ISOTPSocket`` can be set to a ``ISOTPNativeSocket`` or a ``ISOTPSoftSocket``.
-The decision is made dependent on the configuration ``conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}`` (to select ``ISOTPNativeSocket``) or
-``conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}`` (to select ``ISOTPSoftSocket``).
-This will allow you to write platform independent code. Apply this configuration before loading the ISOTP layer
-with ``load_contrib("isotp")``.
-
-Another remark in respect to ISOTPSocket compatibility. Always use with for socket creation. Example::
-
-    with ISOTPSocket("vcan0", did=0x241, sid=0x641) as sock:
-        sock.send(...)
+   srcan(packet, VectorBus(0, bitrate=1000000), timeout=1)
 
 
-CAN Layer
+
+Tutorials
 ---------
 
-Setup
-^^^^^
+Linux SocketCAN
+^^^^^^^^^^^^^^^
 
-These commands enable a virtual CAN interface on a Linux machine::
+This subsection summarizes some basics about Linux SocketCAN. An excellent overview
+from Oliver Hartkopp can be found here: https://wiki.automotivelinux.org/_media/agl-distro/agl2017-socketcan-print.pdf
+
+Virtual CAN Setup
+^^^^^^^^^^^^^^^^^
+
+Linux SocketCAN supports virtual CAN interfaces. These interfaces are a easy way
+to do some first steps on a CAN-Bus without the requirement of special hardware.
+Besides that, virtual CAN interfaces are heavily used in Scapy unit test for automotive
+related contributions.
+
+Virtual CAN sockets require a special Linux kernel module. The following shell command loads the required module::
+
+    sudo modprobe vcan
+
+In order to use a virtual CAN interface some additional commands for setup are required.
+This snippet chooses the name ``vcan0`` for the virtual CAN interface. Any name can be choosen here::
+
+    sudo ip link add name vcan0 type vcan
+    sudo ip link set dev vcan0 up
+
+The same commands can be executed from Scapy like this::
 
    from scapy.layers.can import *
    import os
@@ -115,39 +122,89 @@ These commands enable a virtual CAN interface on a Linux machine::
    bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
    os.system(bashCommand)
 
-If it's required, the CAN interface can be set into a ``listen-only`` or ``loopback`` mode with `ip link set` commands::
+If it's required, a CAN interface can be set into a ``listen-only`` or ``loopback`` mode with ``ip link set`` commands::
 
    ip link set vcan0 type can help  # shows additional information
 
 
-This example shows a basic functions of Linux can-utils. These utilities are handy for
-quick checks or logging.
+Linux can-utils
+^^^^^^^^^^^^^^^
+
+As part of Linux SocketCAN, some very useful commandline tools are provided from Oliver Hartkopp: https://github.com/linux-can/can-utils
+
+The following example shows basic functions of Linux can-utils. These utilities are very handy for
+quick checks, dumping, sending or logging of CAN messages from the command line.
 
 .. image:: ../graphics/animations/animation-cansend.svg
 
 CAN Frame
 ^^^^^^^^^
 
-Creating a standard CAN frame::
+Basic information about CAN can be found here: https://en.wikipedia.org/wiki/CAN_bus
 
-   frame = CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+The following examples assume that CAN layer in your Scapy session is loaded. If it isn't,
+the CAN layer can be load with this command in your Scapy session::
 
-Creating an extended CAN frame::
+    >>> load_layer("can")
+
+Creation of a standard CAN frame::
+
+    >>> frame = CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+
+Creation of an extended CAN frame::
 
    frame = CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+   >>> frame.show()
+   ###[ CAN ]###
+     flags= extended
+     identifier= 0x10010000
+     length= 8
+     reserved= 0
+     data= '\x01\x02\x03\x04\x05\x06\x07\x08'
+
 
 .. image:: ../graphics/animations/animation-scapy-canframe.svg
 
-Writing and reading to pcap files::
+CAN Frame in- and export
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+CAN Frames can be written to and red from ``pcap`` files::
 
    x = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
    wrpcap('/tmp/scapyPcapTest.pcap', x, append=False)
    y = rdpcap('/tmp/scapyPcapTest.pcap', 1)
 
 .. image:: ../graphics/animations/animation-scapy-rdpcap.svg
+
+Additionally CAN Frames can be imported from ``candump`` output and log files.
+The ``CandumpReader`` class can be used in the same way as a ``socket`` object.
+This allows you to use ``sniff`` and other functions from Scapy::
+
+    with CandumpReader("candump.log") as sock:
+        can_msgs = sniff(count=50, opened_socket=sock)
+
 .. image:: ../graphics/animations/animation-scapy-rdcandump.svg
 
-CANSocket native
+Scapy CANSocket
+^^^^^^^^^^^^^^^
+
+In Scapy, two kind of CANSockets are implemented. One implementation is called **Native CANSocket**,
+the other implementation is called **Python-can CANSocket**.
+
+Since Python 3 supports ``PF_CAN`` sockets, **Native CANSockets** can be used on a
+Linux based system with Python 3 or higher. These sockets have a performance advantage
+because ``select`` is callable on them. This has a big effect in MITM scenarios.
+
+For compatibility reasons, **Python-can CANSockets** were add to Scapy.
+On Windows or OSX and on all systems without Python 3, CAN buses can be accessed
+through ``python-can``. ``python-can`` needs to be installed on the system: https://github.com/hardbyte/python-can/
+**Python-can CANSockets** are a wrapper of python-can interface objects for Scapy.
+Both CANSockets provide the same API which makes them exchangeable under most conditions.
+Nevertheless some unique behaviours of each CANSocket type has to be respected.
+Some CAN-interfaces, like Vector hardware is only supported on Windows.
+These interfaces can be use through **Python-can CANSockets**.
+
+Native CANSocket
 ^^^^^^^^^^^^^^^^
 
 Creating a simple native CANSocket::
@@ -402,6 +459,36 @@ command of our CRO object.
 
 ISOTP
 -----
+
+System compatibilities
+^^^^^^^^^^^^^^^^^^^^^^
+
+Dependent on your setup, different implementations have to be used.
+
++---------------------+----------------------+-------------------------------------+----------------------------------------------------------+
+| Python \ OS         | Linux with can_isotp | Linux wo can_isotp                  | Windows / OSX                                            |
++=====================+======================+=====================================+==========================================================+
+| Python 3            | ISOTPNativeSocket    | ISOTPSoftSocket                     | ISOTPSoftSocket                                          |
+|                     +----------------------+-------------------------------------+                                                          |
+|                     | ``conf.contribs['CANSocket'] = {'use-python-can': False}`` | ``conf.contribs['CANSocket'] = {'use-python-can': True}``|
++---------------------+------------------------------------------------------------+----------------------------------------------------------+
+| Python 2            | ISOTPSoftSocket                                            | ISOTPSoftSocket                                          |
+|                     |                                                            |                                                          |
+|                     | ``conf.contribs['CANSocket'] = {'use-python-can': True}``  | ``conf.contribs['CANSocket'] = {'use-python-can': True}``|
++---------------------+------------------------------------------------------------+----------------------------------------------------------+
+
+The class ``ISOTPSocket`` can be set to a ``ISOTPNativeSocket`` or a ``ISOTPSoftSocket``.
+The decision is made dependent on the configuration ``conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}`` (to select ``ISOTPNativeSocket``) or
+``conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}`` (to select ``ISOTPSoftSocket``).
+This will allow you to write platform independent code. Apply this configuration before loading the ISOTP layer
+with ``load_contrib("isotp")``.
+
+Another remark in respect to ISOTPSocket compatibility. Always use with for socket creation. Example::
+
+    with ISOTPSocket("vcan0", did=0x241, sid=0x641) as sock:
+        sock.send(...)
+
+
 
 ISOTP message
 ^^^^^^^^^^^^^
@@ -740,10 +827,10 @@ This example shows the logging mechanism of an ECU object. The log of an ECU is 
 
 Usage example::
 
-	ecu = ECU(verbose=False, store_supported_responses=False)
-	ecu.update(PacketList(msgs))
-	print(ecu.log)
-	timestamp, value = ecu.log["DiagnosticSessionControl"][0]
+    ecu = ECU(verbose=False, store_supported_responses=False)
+    ecu.update(PacketList(msgs))
+    print(ecu.log)
+    timestamp, value = ecu.log["DiagnosticSessionControl"][0]
 
 
 
@@ -754,9 +841,9 @@ This example shows the trace mechanism of an ECU object. Traces of the current s
 
 Usage example::
 
-	ecu = ECU(verbose=True, logging=False, store_supported_responses=False)
-	ecu.update(PacketList(msgs))
-	print(ecu.current_session)
+    ecu = ECU(verbose=True, logging=False, store_supported_responses=False)
+    ecu.update(PacketList(msgs))
+    print(ecu.current_session)
 
 
 
@@ -767,12 +854,12 @@ This example shows a mechanism to clone a real world ECU by analyzing a list of 
 
 Usage example::
 
-	ecu = ECU(verbose=False, logging=False, store_supported_responses=True)
-	ecu.update(PacketList(msgs))
-	supported_responses = ecu.supported_responses
-	unanswered_packets = ecu.unanswered_packets
-	print(supported_responses)
-	print(unanswered_packets)
+    ecu = ECU(verbose=False, logging=False, store_supported_responses=True)
+    ecu.update(PacketList(msgs))
+    supported_responses = ecu.supported_responses
+    unanswered_packets = ecu.unanswered_packets
+    print(supported_responses)
+    print(unanswered_packets)
 
 
 
@@ -783,15 +870,15 @@ This example shows how to load ``UDS`` messages from a ``.pcap`` file containing
 
 Usage example::
 
-	with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
-	     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
+    with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
+        udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
 
 
-	ecu = ECU()
-	ecu.update(udsmsgs)
-	print(ecu.log)
-	print(ecu.supported_responses)
-	assert len(ecu.log["TransferData"]) == 2
+    ecu = ECU()
+    ecu.update(udsmsgs)
+    print(ecu.log)
+    print(ecu.supported_responses)
+    assert len(ecu.log["TransferData"]) == 2
 
 
 
@@ -802,14 +889,14 @@ This example shows the usage of a ECUSession in sniff. An ISOTPSocket or any soc
 
 Usage example::
 
-	session = ECUSession()
+    session = ECUSession()
 
-	with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
-	     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
+    with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
+        udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
 
-	ecu = session.ecu
-	print(ecu.log)
-	print(ecu.supported_responses)
+    ecu = session.ecu
+    print(ecu.log)
+    print(ecu.supported_responses)
 
 
 
