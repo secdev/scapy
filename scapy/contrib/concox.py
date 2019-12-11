@@ -1,26 +1,11 @@
 import binascii
 
-from scapy.packet import Packet
-from scapy.packet import bind_layers
-from scapy.layers.inet import TCP
-from scapy.layers.inet import UDP
-from scapy.fields import BitField
-from scapy.fields import BitEnumField
-from scapy.fields import X3BytesField
-from scapy.fields import ShortField
-from scapy.fields import XShortField
-from scapy.fields import FieldLenField
-from scapy.fields import PacketLenField
-from scapy.fields import XByteField
-from scapy.fields import XByteEnumField
-from scapy.fields import ByteEnumField
-from scapy.fields import StrFixedLenField
-from scapy.fields import ConditionalField
-from scapy.fields import FlagsField
-from scapy.fields import ByteField
-from scapy.fields import IntField
-from scapy.fields import XIntField
-from scapy.fields import StrLenField
+from scapy.packet import Packet, bind_layers
+from scapy.layers.inet import TCP, UDP
+from scapy.fields import BitField, BitEnumField, X3BytesField, ShortField, \
+    XShortField, FieldLenField, PacketLenField, XByteField, XByteEnumField, \
+    ByteEnumField, StrFixedLenField, ConditionalField, FlagsField, ByteField, \
+    IntField, XIntField, StrLenField
 
 PROTOCOL_NUMBERS = {
     0x01: 'LOGIN MESSAGE',
@@ -148,8 +133,9 @@ class CRX1NewPacketContent(Packet):
             BitField('course_status_reserved', 0x00, 2), lambda pkt: len(
                 pkt.original) > 5 and pkt.protocol_number in (0x12, 0x16)),
         ConditionalField(
-            ByteField('lbs_length', 0x00), lambda pkt: len(pkt.original) > 5
-            and pkt.protocol_number in (0x16, )),
+            ByteField('lbs_length', 0x00),
+            lambda pkt: len(pkt.original) > 5 and \
+            pkt.protocol_number in (0x16, )),
         ConditionalField(
             XShortField('mcc', 0x00), lambda pkt: len(pkt.original) > 5 and pkt
             .protocol_number in (0x12, 0x16)),
@@ -160,8 +146,9 @@ class CRX1NewPacketContent(Packet):
             XShortField('lac', 0x00), lambda pkt: len(pkt.original) > 5 and pkt
             .protocol_number in (0x12, 0x16)),
         ConditionalField(
-            X3BytesField('cell_id', 0x00), lambda pkt: len(pkt.original) > 5
-            and pkt.protocol_number in (0x12, 0x16)),
+            X3BytesField('cell_id', 0x00),
+            lambda pkt: len(pkt.original) > 5 and \
+            pkt.protocol_number in (0x12, 0x16)),
         ConditionalField(
             IntField('mileage', 0x00), lambda pkt: len(pkt.original) > 5 and
             pkt.protocol_number in (0x12, ) and len(pkt.original) > 31),
