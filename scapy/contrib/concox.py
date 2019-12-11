@@ -310,5 +310,5 @@ class CRX1New(Packet):
     ]
 
 
-bind_layers(TCP, CRX1New)
-bind_layers(UDP, CRX1New)
+bind_layers(TCP, CRX1New, sport=8821, dport=8821)
+bind_layers(UDP, CRX1New, sport=8821, dport=8821)
