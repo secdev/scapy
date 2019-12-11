@@ -2,7 +2,7 @@
 
 + Syntax check
 = Import the pcom layer
-from scapy.contrib.pcom import *
+from scapy.contrib.scada.pcom import *
 
 + Test PCOM/TCP
 = PCOM/TCP Default values
