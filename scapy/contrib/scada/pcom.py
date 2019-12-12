@@ -236,6 +236,6 @@ class PCOMBinaryResponse(PCOMBinary):
 bind_layers(TCP, PCOMRequest, dport=20256)
 bind_layers(TCP, PCOMResponse, sport=20256)
 bind_layers(PCOMRequest, PCOMAsciiRequest, mode=0x65)
-bind_layers(PCOMRequest, PCOMBinaryResponse, mode=0x66)
+bind_layers(PCOMRequest, PCOMBinaryRequest, mode=0x66)
 bind_layers(PCOMResponse, PCOMAsciiResponse, mode=0x65)
 bind_layers(PCOMResponse, PCOMBinaryResponse, mode=0x66)
