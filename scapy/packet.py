@@ -67,8 +67,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         "direction", "sniffed_on",
         # handle snaplen Vs real length
         "wirelen",
-        # used while performing advanced dissection to handle padding
-        "_tmp_dissect_pos",
     ]
     name = None
     fields_desc = []
@@ -824,20 +822,15 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             s = bytes_encode(s)
         _raw = s
         self.raw_packet_cache_fields = {}
-        # Temporary value, used by getfield() in some advanced cases (eg: dot11)  # noqa: E501
-        _lr = len(_raw)
-        self._tmp_dissect_pos = 0  # How many bytes have already been dissected
         for f in self.fields_desc:
             if not s:
                 break
             s, fval = f.getfield(self, s)
-            self._tmp_dissect_pos = _lr - len(s)
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
             if f.islist or f.holds_packets or f.ismutable:
                 self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
-        del self._tmp_dissect_pos
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
         return s

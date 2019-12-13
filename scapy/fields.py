@@ -418,7 +418,7 @@ class ReversePadField(PadField):
 
     def getfield(self, pkt, s):
         # We need to get the length that has already been dissected
-        padlen = self.padlen(pkt._tmp_dissect_pos)
+        padlen = self.padlen(len(pkt.original) - len(s))
         remain, val = self._fld.getfield(pkt, s[padlen:])
         return remain, val
 
