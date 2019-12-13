@@ -818,8 +818,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return s
 
     def do_dissect(self, s):
-        if not isinstance(s, bytes):
-            s = bytes_encode(s)
         _raw = s
         self.raw_packet_cache_fields = {}
         for f in self.fields_desc:
@@ -1652,12 +1650,13 @@ class Raw(Packet):
     name = "Raw"
     fields_desc = [StrField("load", "")]
 
+    def __init__(self, _pkt=None, *args, **kwargs):
+        if _pkt and not isinstance(_pkt, bytes):
+            _pkt = bytes_encode(_pkt)
+        super(Raw, self).__init__(_pkt, *args, **kwargs)
+
     def answers(self, other):
         return 1
-#        s = raw(other)
-#        t = self.load
-#        l = min(len(s), len(t))
-#        return  s[:l] == t[:l]
 
     def mysummary(self):
         cs = conf.raw_summary

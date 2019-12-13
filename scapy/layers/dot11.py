@@ -484,9 +484,9 @@ class RadioTap(Packet):
         return Dot11
 
     def post_dissect(self, s):
-        l = max(self.len - len(self.original) + len(s), 0)
-        self.notdecoded = s[:l]
-        return s[l:]
+        length = max(self.len - len(self.original) + len(s), 0)
+        self.notdecoded = s[:length]
+        return s[length:]
 
     def post_build(self, p, pay):
         if self.len is None:

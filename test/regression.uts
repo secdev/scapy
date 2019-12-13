@@ -10780,11 +10780,11 @@ isinstance(Radius(s), Radius)
 = RADIUS - attributes with IPv4 addresses
 
 r = raw(RadiusAttr_NAS_IP_Address())
-p = RadiusAttr_NAS_IP_Address(p)
+p = RadiusAttr_NAS_IP_Address(r)
 assert p.type == 4
 
 r = raw(RadiusAttr_Framed_IP_Address())
-p = RadiusAttr_Framed_IP_Address(p)
+p = RadiusAttr_Framed_IP_Address(r)
 assert p.type == 8
 
 = RadiusAttr_User_Password

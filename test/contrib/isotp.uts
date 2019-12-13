@@ -345,12 +345,12 @@ assert(len(fragments) == 1)
 assert(fragments[0].data == b"\0")
 
 = Fragment another empty ISOTP message
-fragments = ISOTP("").fragment()
+fragments = ISOTP(b"").fragment()
 assert(len(fragments) == 1)
 assert(fragments[0].data == b"\0")
 
 = Fragment a 4 bytes long ISOTP message
-fragments = ISOTP("data", src=0x241).fragment()
+fragments = ISOTP(b"data", src=0x241).fragment()
 assert(len(fragments) == 1)
 assert(isinstance(fragments[0], CAN))
 fragment = CAN(bytes(fragments[0]))
@@ -360,31 +360,31 @@ assert(fragment.length == 5)
 assert(fragment.reserved == 0)
 
 = Fragment a 7 bytes long ISOTP message
-fragments = ISOTP("abcdefg").fragment()
+fragments = ISOTP(b"abcdefg").fragment()
 assert(len(fragments) == 1)
 assert(fragments[0].data == b"\x07abcdefg")
 
 = Fragment a 8 bytes long ISOTP message
-fragments = ISOTP("abcdefgh").fragment()
+fragments = ISOTP(b"abcdefgh").fragment()
 assert(len(fragments) == 2)
 assert(fragments[0].data == b"\x10\x08abcdef")
 assert(fragments[1].data == b"\x21gh")
 
 = Fragment an ISOTP message with extended addressing
-isotp = ISOTP("abcdef", exdst=ord('A'))
+isotp = ISOTP(b"abcdef", exdst=ord('A'))
 fragments = isotp.fragment()
 assert(len(fragments) == 1)
 assert(fragments[0].data == b"A\x06abcdef")
 
 = Fragment a 7 bytes ISOTP message with destination identifier
-isotp = ISOTP("abcdefg", dst=0x64f)
+isotp = ISOTP(b"abcdefg", dst=0x64f)
 fragments = isotp.fragment()
 assert(len(fragments)  == 1)
 assert(fragments[0].data == b"\x07abcdefg")
 assert(fragments[0].identifier == 0x64f)
 
 = Fragment a 16 bytes ISOTP message with extended addressing
-isotp = ISOTP("abcdefghijklmnop", dst=0x64f, exdst=ord('A'))
+isotp = ISOTP(b"abcdefghijklmnop", dst=0x64f, exdst=ord('A'))
 fragments = isotp.fragment()
 assert(len(fragments) == 3)
 assert(fragments[0].data == b"A\x10\x10abcde")
@@ -424,25 +424,25 @@ assert(isotp.dst == 0x641)
 assert(isotp.exdst == 0x41)
 
 = Check if fragmenting a message and defragmenting it back yields the original message
-isotp1 = ISOTP("abcdef", exdst=ord('A'))
+isotp1 = ISOTP(b"abcdef", exdst=ord('A'))
 fragments = isotp1.fragment()
 isotp2 = ISOTP.defragment(fragments)
 isotp2.show()
 assert(isotp1 == isotp2)
 
-isotp1 = ISOTP("abcdefghijklmnop")
+isotp1 = ISOTP(b"abcdefghijklmnop")
 fragments = isotp1.fragment()
 isotp2 = ISOTP.defragment(fragments)
 isotp2.show()
 assert(isotp1 == isotp2)
 
-isotp1 = ISOTP("abcdefghijklmnop", exdst=ord('A'))
+isotp1 = ISOTP(b"abcdefghijklmnop", exdst=ord('A'))
 fragments = isotp1.fragment()
 isotp2 = ISOTP.defragment(fragments)
 isotp2.show()
 assert(isotp1 == isotp2)
 
-isotp1 = ISOTP("T"*5000, exdst=ord('A'))
+isotp1 = ISOTP(b"T"*5000, exdst=ord('A'))
 fragments = isotp1.fragment()
 isotp2 = ISOTP.defragment(fragments)
 isotp2.show()
@@ -1343,7 +1343,7 @@ assert(succ)
 drain_bus(iface0)
 drain_bus(iface1)
 
-packet = ISOTP('Request')
+packet = ISOTP(b'Request')
 succ = False
 
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
@@ -1378,7 +1378,7 @@ drain_bus(iface1)
 drain_bus(iface0)
 drain_bus(iface1)
 
-packet = ISOTP('RequestASDF1234567890')
+packet = ISOTP(b'RequestASDF1234567890')
 N = 3
 T = 3
 
@@ -1420,7 +1420,7 @@ drain_bus(iface1)
 drain_bus(iface0)
 drain_bus(iface1)
 
-packet = ISOTP('Request')
+packet = ISOTP(b'Request')
 succ = False
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
      ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1, \
@@ -2001,7 +2001,7 @@ def bridge():
 def RequestOnBus0():
     global rSucc
     time.sleep(0.2)
-    packet = ISOTP('Request')
+    packet = ISOTP(b'Request')
     isoTpSocket0.send(packet)
     rSucc = True
 
@@ -2052,7 +2052,7 @@ def bridge():
 def RequestOnBus0():
     global rSucc
     time.sleep(0.2)
-    packet = ISOTP('Request')
+    packet = ISOTP(b'Request')
     isoTpSocket0.send(packet)
     rSucc = True
 
@@ -2099,8 +2099,8 @@ def bridge():
 def RequestBothVCans():
     global rSucc
     time.sleep(0.2)
-    packetVcan0 = ISOTP('RequestVcan0')
-    packetVcan1 = ISOTP('RequestVcan1')
+    packetVcan0 = ISOTP(b'RequestVcan0')
+    packetVcan1 = ISOTP(b'RequestVcan1')
     isoTpSocket0.send(packetVcan0)
     isoTpSocket1.send(packetVcan1)
     rSucc = True
@@ -2151,8 +2151,8 @@ def bridge():
 def RequestBothVCans():
     global rSucc
     time.sleep(0.2)
-    packetVcan0 = ISOTP('RequestVcan0')
-    packetVcan1 = ISOTP('RequestVcan1')
+    packetVcan0 = ISOTP(b'RequestVcan0')
+    packetVcan1 = ISOTP(b'RequestVcan1')
     isoTpSocket0.send(packetVcan0)
     isoTpSocket1.send(packetVcan1)
     rSucc = True

@@ -111,7 +111,7 @@ assert(pubrec.msgid == 1)
 
 = MQTTPublish, long value
 p = MQTT()/MQTTPublish(topic='test1',value='a'*200)
-assert(str(p))
+assert(bytes(p))
 assert(p.type == 3)
 assert(p.topic == b'test1')
 assert(p.value == b'a'*200)

@@ -22,6 +22,8 @@ A basic dissector for DCE/RPC.
 Isn't reliable for all packets and for building
 """
 
+import struct
+
 # TODO: namespace locally used fields
 from scapy.packet import Packet, Raw, bind_layers
 from scapy.fields import BitEnumField, ByteEnumField, ByteField, \
@@ -49,6 +51,7 @@ class EndiannessField(object):
                 # fld.fmt should always start with a order specifier, cf field
                 # init
                 self.fld.fmt = end[0] + self.fld.fmt[1:]
+                self.fld.struct = struct.Struct(self.fld.fmt)
 
     def getfield(self, pkt, buf):
         """retrieve the field with endianness"""
