@@ -16,9 +16,9 @@
 # scapy.contrib.status = loads
 
 from scapy.all import bind_layers
-from scapy.fields import BitField, ByteField, ByteEnumField, BitEnumField
-from scapy.fields import ShortField, X3BytesField, XIntField
-from scapy.fields import ConditionalField, PacketListField, BitFieldLenField
+from scapy.fields import BitField, ByteField, ByteEnumField, BitEnumField, \
+    ShortField, X3BytesField, XIntField, XStrFixedLenField, \
+    ConditionalField, PacketListField, BitFieldLenField
 from scapy.layers.inet import Ether, IP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.vxlan import VXLAN
@@ -37,11 +37,11 @@ class NSHTLV(Packet):
     "NSH MD-type 2 - Variable Length Context Headers"
     name = "NSHTLV"
     fields_desc = [
-        ShortField('Class', 0),
-        BitField('Type', 0, 8),
-        BitField('Reserved', 0, 1),
-        BitField('Len', 0, 7),
-        PacketListField('Metadata', None, XIntField, count_from='len')
+        ShortField('class', 0),
+        BitField('type', 0, 8),
+        BitField('reserved', 0, 1),
+        BitField('length', 0, 7),
+        PacketListField('metadata', None, XIntField, count_from='length')
     ]
 
 
@@ -51,49 +51,45 @@ class NSH(Packet):
     name = "NSH"
 
     fields_desc = [
-        BitField('Ver', 0, 2),
-        BitField('OAM', 0, 1),
-        BitField('Unused1', 0, 1),
-        BitField('TTL', 63, 6),
-        BitFieldLenField('Length', None, 6,
-                         count_of='VLCH',
-                         adjust=lambda pkt, x: 6 if pkt.MDType == 1 else x + 2),  # noqa: E501
-        BitField('Unused2', 0, 1),
-        BitField('Unused3', 0, 1),
-        BitField('Unused4', 0, 1),
-        BitField('Unused5', 0, 1),
-        BitEnumField('MDType', 1, 4, {0: 'Reserved MDType',
-                                    1: 'Fixed Length',
-                                    2: 'Variable Length',
-                                    0xF: 'Experimental MDType'}),
-        ByteEnumField('NextProto', 3, {1: 'IPv4',
+        BitField('ver', 0, 2),
+        BitField('oam', 0, 1),
+        BitField('unused1', 0, 1),
+        BitField('ttl', 63, 6),
+        BitFieldLenField('length', None, 6,
+                         count_of='vlch',
+                         adjust=lambda pkt, x: 6 if pkt.mdtype == 1
+                         else x + 2),
+        BitField('unused2', 0, 4),
+        BitEnumField('mdtype', 1, 4, {0: 'Reserved MDType',
+                                      1: 'Fixed Length',
+                                      2: 'Variable Length',
+                                      0xF: 'Experimental MDType'}),
+        ByteEnumField('nextproto', 3, {1: 'IPv4',
                                        2: 'IPv6',
                                        3: 'Ethernet',
                                        4: 'NSH',
                                        5: 'MPLS',
                                        0xFE: 'Experiment 1',
                                        0xFF: 'Experiment 2'}),
-        X3BytesField('SPI', 0),
-        ByteField('SI', 0xFF),
-        ConditionalField(XIntField('CH1', 0), lambda pkt: pkt.MDType == 1),
-        ConditionalField(XIntField('CH2', 0), lambda pkt: pkt.MDType == 1),
-        ConditionalField(XIntField('CH3', 0), lambda pkt: pkt.MDType == 1),
-        ConditionalField(XIntField('CH4', 0), lambda pkt: pkt.MDType == 1),
-        ConditionalField(PacketListField("VLCH", None, NSHTLV,
-                                         count_from="Length"),
-                         lambda pkt: pkt.MDType == 2)
+        X3BytesField('spi', 0),
+        ByteField('si', 0xFF),
+        ConditionalField(XStrFixedLenField("context_header", "", 16),
+                         lambda pkt: pkt.mdtype == 1),
+        ConditionalField(PacketListField("vlch", None, NSHTLV,
+                                         count_from="length"),
+                         lambda pkt: pkt.mdtype == 2)
     ]
 
     def mysummary(self):
-        return self.sprintf("SPI: %SPI% - SI: %SI%")
+        return self.sprintf("SPI: %spi% - SI: %si%")
 
 
 bind_layers(Ether, NSH, {'type': 0x894F}, type=0x894F)
-bind_layers(VXLAN, NSH, {'flags': 0xC, 'NextProtocol': 4}, NextProtocol=4)
+bind_layers(VXLAN, NSH, {'flags': 0xC, 'nextprotocol': 4}, nextprotocol=4)
 bind_layers(GRE, NSH, {'proto': 0x894F}, proto=0x894F)
 
-bind_layers(NSH, IP, {'NextProto': 1}, NextProto=1)
-bind_layers(NSH, IPv6, {'NextProto': 2}, NextProto=2)
-bind_layers(NSH, Ether, {'NextProto': 3}, NextProto=3)
-bind_layers(NSH, NSH, {'NextProto': 4}, NextProto=4)
-bind_layers(NSH, MPLS, {'NextProto': 5}, NextProto=5)
+bind_layers(NSH, IP, {'nextprotocol': 1}, nextprotocol=1)
+bind_layers(NSH, IPv6, {'nextprotocol': 2}, nextprotocol=2)
+bind_layers(NSH, Ether, {'nextprotocol': 3}, nextprotocol=3)
+bind_layers(NSH, NSH, {'nextprotocol': 4}, nextprotocol=4)
+bind_layers(NSH, MPLS, {'nextprotocol': 5}, nextprotocol=5)
