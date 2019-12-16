@@ -462,6 +462,9 @@ class GRErouting(Packet):
 
 class GRE(Packet):
     name = "GRE"
+    deprecated_fields = {
+        "seqence_number": ("sequence_number", "2.4.4"),
+    }
     fields_desc = [BitField("chksum_present", 0, 1),
                    BitField("routing_present", 0, 1),
                    BitField("key_present", 0, 1),
@@ -474,7 +477,7 @@ class GRE(Packet):
                    ConditionalField(XShortField("chksum", None), lambda pkt:pkt.chksum_present == 1 or pkt.routing_present == 1),  # noqa: E501
                    ConditionalField(XShortField("offset", None), lambda pkt:pkt.chksum_present == 1 or pkt.routing_present == 1),  # noqa: E501
                    ConditionalField(XIntField("key", None), lambda pkt:pkt.key_present == 1),  # noqa: E501
-                   ConditionalField(XIntField("seqence_number", None), lambda pkt:pkt.seqnum_present == 1),  # noqa: E501
+                   ConditionalField(XIntField("sequence_number", None), lambda pkt:pkt.seqnum_present == 1),  # noqa: E501
                    ]
 
     @classmethod
@@ -499,6 +502,9 @@ class GRE_PPTP(GRE):
     """
 
     name = "GRE PPTP"
+    deprecated_fields = {
+        "seqence_number": ("sequence_number", "2.4.4"),
+    }
     fields_desc = [BitField("chksum_present", 0, 1),
                    BitField("routing_present", 0, 1),
                    BitField("key_present", 1, 1),
@@ -511,7 +517,7 @@ class GRE_PPTP(GRE):
                    XShortEnumField("proto", 0x880b, ETHER_TYPES),
                    ShortField("payload_len", None),
                    ShortField("call_id", None),
-                   ConditionalField(XIntField("seqence_number", None), lambda pkt: pkt.seqnum_present == 1),  # noqa: E501
+                   ConditionalField(XIntField("sequence_number", None), lambda pkt: pkt.seqnum_present == 1),  # noqa: E501
                    ConditionalField(XIntField("ack_number", None), lambda pkt: pkt.acknum_present == 1)]  # noqa: E501
 
     def post_build(self, p, pay):
