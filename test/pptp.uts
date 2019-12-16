@@ -41,7 +41,7 @@ assert gre_pptp.version == 1
 assert gre_pptp.proto == 0x880b
 assert gre_pptp.payload_len == 28
 assert gre_pptp.call_id == 39925
-assert gre_pptp.seqence_number == 0x0
+assert gre_pptp.sequence_number == 0x0
 
 assert HDLC in pkt
 assert PPP in pkt
@@ -51,7 +51,7 @@ assert PPP_LCP_Configure in pkt
 ~ gre ip pptp ppp hdlc lcp lcp_echo
 
 pkt = IP(src='192.168.0.1', dst='192.168.0.2') /\
-      GRE_PPTP(seqnum_present=1, acknum_present=1, seqence_number=47, ack_number=42) /\
+      GRE_PPTP(seqnum_present=1, acknum_present=1, sequence_number=47, ack_number=42) /\
       HDLC() / PPP() / PPP_LCP_Echo(id=42, magic_number=4242, data='abcdef')
 pkt_data = raw(pkt)
 pkt_data_ref = hex_bytes('4500003600010000402ff944c0a80001c0a800023081880b001200000000002f000000'\
@@ -70,7 +70,7 @@ assert pkt[GRE_PPTP].routing_present == 0
 assert pkt[GRE_PPTP].key_present == 1
 assert pkt[GRE_PPTP].seqnum_present == 1
 assert pkt[GRE_PPTP].acknum_present == 1
-assert pkt[GRE_PPTP].seqence_number == 47
+assert pkt[GRE_PPTP].sequence_number == 47
 assert pkt[GRE_PPTP].ack_number == 42
 assert pkt[PPP].proto == 0xc021
 assert pkt[PPP_LCP_Echo].code == 9
