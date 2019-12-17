@@ -357,7 +357,7 @@ class _CDPChecksum:
         This padding is only used for checksum computation.  The original
         packet should not be altered."""
         if len(pkt) % 2:
-            last_chr = pkt[-1]
+            last_chr = pkt[len(pkt)-1:]
             if last_chr <= b'\x80':
                 return pkt[:-1] + b'\x00' + last_chr
             else:
