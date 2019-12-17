@@ -13,7 +13,7 @@ from scapy.layers.inet import TCP, UDP
 from scapy.fields import BitField, BitEnumField, X3BytesField, ShortField, \
     XShortField, FieldLenField, PacketLenField, XByteField, XByteEnumField, \
     ByteEnumField, StrFixedLenField, ConditionalField, FlagsField, ByteField, \
-    IntField, XIntField, StrLenField
+    IntField, XIntField, StrLenField, ScalingField
 
 PROTOCOL_NUMBERS = {
     0x01: 'LOGIN MESSAGE',
@@ -62,12 +62,6 @@ class BCDStrFixedLenField(StrFixedLenField):
         return binascii.a2b_hex(x)
 
 
-class CoordinateField(IntField):
-    def i2h(self, pkt, x):
-        value = super(CoordinateField, self).i2h(pkt, x)
-        return round(value / 1800000, 6)
-
-
 class CRX1NewPacketContent(Packet):
     name = "CRX1 New Packet Content"
     fields_desc = [
@@ -102,11 +96,15 @@ class CRX1NewPacketContent(Packet):
             BitField('positioning_satellite_number', 0x00, 4), lambda pkt: len(
                 pkt.original) > 5 and pkt.protocol_number in (0x12, 0x16)),
         ConditionalField(
-            CoordinateField('latitude', 0x00), lambda pkt: len(pkt.original) >
-            5 and pkt.protocol_number in (0x12, 0x16)),
+            ScalingField('latitude', 0x00,
+                         scaling=1 / 1800000, ndigits=6, fmt="!I"),
+            lambda pkt: len(pkt.original) > 5 and \
+            pkt.protocol_number in (0x12, 0x16)),
         ConditionalField(
-            CoordinateField('longitude', 0x00), lambda pkt: len(pkt.original) >
-            5 and pkt.protocol_number in (0x12, 0x16)),
+            ScalingField('longitude', 0x00,
+                         scaling=1 / 1800000, ndigits=6, fmt="!I"),
+            lambda pkt: len(pkt.original) > 5 and \
+            pkt.protocol_number in (0x12, 0x16)),
         ConditionalField(
             ByteField('speed', 0x00), lambda pkt: len(pkt.original) > 5 and pkt
             .protocol_number in (0x12, 0x16)),
