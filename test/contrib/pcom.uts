@@ -1,0 +1,68 @@
+% PCOM tests
+
++ Syntax check
+= Import the pcom layer
+from scapy.contrib.scada.pcom import *
+
++ Test PCOM/TCP
+= PCOM/TCP Default values
+raw(PCOMRequest())[2:] == b'\x65\x00\x00\x00'
+raw(PCOMResponse())[2:] == b'\x65\x00\x00\x00'
+
+= PCOM/TCP Len
+r = b'\x65\x00\x04\x00\x00\x00\x00\x00'
+raw(PCOMRequest() / b'\x00\x00\x00\x00')[2:] == r
+r =  b'\x65\x00\x04\x00\x00\x00\x00\x00'
+raw(PCOMResponse() / b'\x00\x00\x00\x00')[2:] == r
+
+= PCOM/TCP Guess Payload Class
+assert(isinstance(PCOMRequest(b'\x00\x00\x65\x00\x01\x00\x00\x00').payload,
+PCOMAsciiRequest))
+assert(isinstance(PCOMResponse(b'\x00\x00\x65\x00\x01\x00\x00\x00').payload,
+PCOMAsciiResponse))
+assert(isinstance(PCOMRequest(b'\x00\x00\x66\x00\x01\x00\x00\x00').payload,
+PCOMBinaryRequest))
+assert(isinstance(PCOMResponse(b'\x00\x00\x66\x00\x01\x00\x00\x00').payload,
+PCOMBinaryResponse))
+
++ Test PCOM/Ascii
+= PCOM/ASCII Default values
+r = b'\x65\x00\x06\x00\x2f\x30\x30\x36\x30\x0d'
+raw(PCOMRequest() / PCOMAsciiRequest())[2:] == r
+r = b'\x65\x00\x07\x00\x2f\x41\x30\x30\x36\x30\x0d'
+raw(PCOMResponse() / PCOMAsciiResponse())[2:] == r
+
+= PCOM/ASCII Checksum
+r = b'\x65\x00\x08\x00\x2f\x30\x30\x49\x44\x45\x44\x0d'
+raw(PCOMRequest() / PCOMAsciiRequest(unitId='00',command='ID'))[2:] == r
+r = b'\x65\x00\x09\x00\x2f\x41\x30\x30\x49\x44\x45\x44\x0d'
+raw(PCOMResponse() / PCOMAsciiResponse(unitId='00',command='ID'))[2:] == r
+
+= PCOM/ASCII Known Codes
+f = PCOMAsciiCommandField('command', '',  length_from= None)
+assert(f.i2repr(None, 'CCS') == 'Send Stop Command \'CCS\'')
+assert(f.i2repr(None, 'CC') == 'Reply of Admin Commands (CC*) \'CC\'')
+
++ Test PCOM/Binary
+= PCOM/Binary Default values
+r = b'\x66\x00\x1b\x00\x2f\x5f\x4f\x50\x4c\x43\x00\xfe\x01\x00\x00\x00\x00\x00\
+\x00\x00\x00\x00\x00\x00\x00\x00\x45\xfd\x00\x00\x5c'
+raw(PCOMRequest(mode=0x66) / PCOMBinaryRequest())[2:] == r
+r = b'\x66\x00\x1b\x00\x2f\x5f\x4f\x50\x4c\x43\xfe\x00\x01\x00\x00\x00\x00\x00\
+\x00\x00\x00\x00\x00\x00\x00\x00\x45\xfd\x00\x00\x5c'
+raw(PCOMResponse(mode=0x66) / PCOMBinaryResponse())[2:] == r
+
+= PCOM/Binary Checksum
+data = b'\x01\x00\x01\x01'
+r =  b'\x66\x00\x1f\x00\x2f\x5f\x4f\x50\x4c\x43\x00\xfe\x01\x01\x00\x00\x4d\x00\
+\x00\x00\x00\x00\x00\x01\x04\x00\xf2\xfc\x01\x00\x01\x01\xfd\xff\x5c'
+raw(PCOMRequest(mode=0x66) / PCOMBinaryRequest(command=0x4d,reserved3=0x01,
+commandSpecific='\x00\x00\x00\x00\x00\x01', len=4, data= data))[2:] == r
+r =  b'\x66\x00\x1f\x00\x2f\x5f\x4f\x50\x4c\x43\xfe\x00\x01\x01\x00\x00\x4d\x00\
+\x00\x00\x00\x00\x00\x01\x04\x00\xf2\xfc\x01\x00\x01\x01\xfd\xff\x5c'
+raw(PCOMResponse(mode=0x66) / PCOMBinaryResponse(command=0x4d,reserved3=0x01,
+commandSpecific='\x00\x00\x00\x00\x00\x01', len=4, data= data))[2:] == r
+
+= PCOM/Binary Known Codes
+f = PCOMBinaryCommandField('command', None)
+assert(f.i2repr(None, 0x4d) == 'Read Operands Request - 0x4d')
