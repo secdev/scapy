@@ -14,9 +14,6 @@ from __future__ import absolute_import
 import math
 import struct
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-
 from scapy.error import log_runtime, warning
 from scapy.fields import ByteEnumField, ByteField, EnumField, Field, \
     FieldLenField, IntField, PacketField, PacketListField, ShortField, \
@@ -32,10 +29,12 @@ from scapy.layers.tls.cert import Cert
 from scapy.layers.tls.basefields import (_tls_version, _TLSVersionField,
                                          _TLSClientVersionField)
 from scapy.layers.tls.extensions import (_ExtensionsLenField, _ExtensionsField,
-                                         _cert_status_type, TLS_Ext_SupportedVersion_CH,  # noqa: E501
+                                         _cert_status_type,
+                                         TLS_Ext_SupportedVersion_CH,
                                          TLS_Ext_SignatureAlgorithms,
                                          TLS_Ext_SupportedVersion_SH,
-                                         TLS_Ext_EarlyDataIndication)
+                                         TLS_Ext_EarlyDataIndication,
+                                         _tls_hello_retry_magic)
 from scapy.layers.tls.keyexchange import (_TLSSignature, _TLSServerParamsField,
                                           _TLSSignatureField, ServerRSAParams,
                                           SigAndHashAlgsField, _tls_hash_sig,
@@ -51,6 +50,11 @@ from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
                                             _GenericCipherSuite,
                                             _GenericCipherSuiteMetaclass)
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
+
+if conf.crypto_valid:
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import hashes
+
 
 ###############################################################################
 #   Generic TLS Handshake message                                             #
@@ -505,10 +509,7 @@ class TLS13ServerHello(_TLSHandshake):
             # If SHA-256("HelloRetryRequest") == server_random,
             # this message is a HelloRetryRequest
             random_bytes = _pkt[6:38]
-            digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-            digest.update(b"HelloRetryRequest")
-            digest_out = digest.finalize()
-            if random_bytes == digest_out:
+            if random_bytes == _tls_hello_retry_magic:
                 return TLS13HelloRetryRequest
         return TLS13ServerHello
 
@@ -582,9 +583,7 @@ class TLS13HelloRetryRequest(_TLSHandshake):
     def build(self):
         fval = self.getfieldval("random_bytes")
         if fval is None:
-            digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-            digest.update(b"HelloRetryRequest")
-            self.random_bytes = digest.finalize()
+            self.random_bytes = _tls_hello_retry_magic
         return _TLSHandshake.build(self)
 
     def tls_session_update(self, msg_str):
