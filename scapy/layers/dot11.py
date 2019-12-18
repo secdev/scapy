@@ -639,6 +639,7 @@ class _Dot11NetStats(Packet):
             elif isinstance(p, Dot11EltCountry):
                 summary["country"] = plain_str(p.country_string[:2])
                 country_descriptor_types = {
+                    b" ": "Any",
                     b"I": "Indoor",
                     b"O": "Outdoor",
                     b"X": "Non-country",
@@ -903,8 +904,8 @@ class Dot11EltCountry(Dot11Elt):
             )
         ),
         ConditionalField(
-            ByteField("pad", 0),
-            lambda pkt: (len(pkt.descriptors) + 1) % 2
+            StrLenField("pad", "", length_from=lambda pkt: pkt.len % 3),
+            lambda pkt: pkt.len % 3 != 0
         )
     ]
 
