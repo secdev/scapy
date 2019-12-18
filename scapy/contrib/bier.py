@@ -58,9 +58,9 @@ class BIER(Packet):
                    BitField("DSCP", 0, 6),
                    BitEnumField("Proto", 2, 6, BIERnhcls),
                    ShortField("BFRID", 0),
-                   StrLenField("BitString",
-                               "",
-                               length_from=lambda x:(8 << x.length))]
+                   XStrLenField("BitString",
+                                "",
+                                length_from=lambda x:(8 << x.length))]
 
 
 bind_layers(BIER, IP, Proto=4)
