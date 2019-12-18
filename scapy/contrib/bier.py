@@ -17,7 +17,7 @@
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitEnumField, BitField, BitFieldLenField, ByteField, \
-    ShortField, StrLenField
+    ShortField, StrLenField, XStrLenField
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6
 
