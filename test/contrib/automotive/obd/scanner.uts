@@ -168,8 +168,6 @@ example_responses = \
 
 = Run scanner
 
-exit_if_no_isotp_module()
-
 drain_bus(iface0)
 
 with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
@@ -181,8 +179,6 @@ with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
             all_ids_set = set(range(1, 256))
             supported_ids = _supported_id_numbers(socket, 0.1, OBD_S01, 'pid', False)
             unsupported_ids = all_ids_set - supported_ids
-
-
         drain_bus(iface0)
         # timeout to avoid a deadlock if the test which sets this event fails
         with ISOTPSocket(new_can_socket(iface0), 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
