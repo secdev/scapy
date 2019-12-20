@@ -97,12 +97,12 @@ class CRX1NewPacketContent(Packet):
                 pkt.original) > 5 and pkt.protocol_number in (0x12, 0x16)),
         ConditionalField(
             ScalingField('latitude', 0x00,
-                         scaling=1 / 1800000, ndigits=6, fmt="!I"),
+                         scaling=1.0 / 1800000, ndigits=6, fmt="!I"),
             lambda pkt: len(pkt.original) > 5 and \
             pkt.protocol_number in (0x12, 0x16)),
         ConditionalField(
             ScalingField('longitude', 0x00,
-                         scaling=1 / 1800000, ndigits=6, fmt="!I"),
+                         scaling=1.0 / 1800000, ndigits=6, fmt="!I"),
             lambda pkt: len(pkt.original) > 5 and \
             pkt.protocol_number in (0x12, 0x16)),
         ConditionalField(
