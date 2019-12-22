@@ -78,7 +78,7 @@ assert p.gw_addr == b"test"
 assert p.load == b"ing"
 
 = MQTTSNGwInfo, packet dissection - invalid length
-b = "\x01\x00\x01\x02\x14test"
+b = b"\x01\x00\x01\x02\x14test"
 p = MQTTSN(b)
 print(type(p), repr(p))
 assert p.len == 1
@@ -714,7 +714,7 @@ assert p.payload.payload.len is None
 assert p.payload.payload.type == CONNACK
 assert p.payload.payload.return_code == ACCEPTED
 b = bytes(p)
-p = MQTTSN(p)
+p = MQTTSN(b)
 assert p.len == 7
 assert p.type == ENCAPS_MSG
 assert p.radius == 1

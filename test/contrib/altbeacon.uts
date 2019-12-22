@@ -11,7 +11,7 @@
 = Setup
 
 def next_eir(p):
-   return EIR_Hdr(p[Padding])
+   return EIR_Hdr(p[Padding].load)
 
 = Presence check
 

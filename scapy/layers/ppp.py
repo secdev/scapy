@@ -275,6 +275,7 @@ class _PPPProtoField(EnumField):
         else:
             self.fmt = "!H"
             self.sz = 2
+        self.struct = struct.Struct(self.fmt)
         return super(_PPPProtoField, self).getfield(pkt, s)
 
     def addfield(self, pkt, s, val):
@@ -284,6 +285,7 @@ class _PPPProtoField(EnumField):
         else:
             self.fmt = "!H"
             self.sz = 2
+        self.struct = struct.Struct(self.fmt)
         return super(_PPPProtoField, self).addfield(pkt, s, val)
 
 
