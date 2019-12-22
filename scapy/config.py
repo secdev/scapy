@@ -569,6 +569,8 @@ class Conf(ConfClass):
         debug_tls: When 1, print some TLS session secrets
             when they are computed.
         recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
+        raise_no_dst_mac: When True, raise exception if no dst MAC found
+            otherwise broadcast. Default is False.
     """
     version = ReadOnlyAttribute("version", VERSION)
     session = ""
@@ -654,6 +656,7 @@ class Conf(ConfClass):
     fancy_prompt = True
     auto_crop_tables = True
     recv_poll_rate = 0.05
+    raise_no_dst_mac = False
 
     def __getattr__(self, attr):
         # Those are loaded on runtime to avoid import loops

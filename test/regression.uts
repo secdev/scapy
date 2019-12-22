@@ -44,8 +44,6 @@ assert not _version_checker(FakeModule2, (5, 143, 4))
 
 assert _version_checker(FakeModule3, (2, 4, 2))
 
-assert _version_checker(scapy, (2, 4, 2))
-
 = List layers
 ~ conf command
 ls()
@@ -682,18 +680,18 @@ from mock import MagicMock, patch
 bck_scapy_ext_lib = sys.modules.get("scapy.extlib", None)
 del(sys.modules["scapy.extlib"])
 
-matplotlib = MagicMock()
-matplotlib.get_backend.return_value = "inline"
-matplotlib.pyplot = MagicMock()
-matplotlib.pyplot.plt = None
-with patch.dict("sys.modules", matplotlib=matplotlib):
-    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+mock_matplotlib = MagicMock()
+mock_matplotlib.get_backend.return_value = "inline"
+mock_matplotlib.pyplot = MagicMock()
+mock_matplotlib.pyplot.plt = None
+with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib}):
+    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS, Line2D
     assert MATPLOTLIB == 1
     assert MATPLOTLIB_INLINED == 1
     assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
 
-matplotlib.get_backend.return_value = "ko"
-with patch.dict("sys.modules", matplotlib=matplotlib):
+mock_matplotlib.get_backend.return_value = "ko"
+with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib}):
     from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
     assert MATPLOTLIB == 1
     assert MATPLOTLIB_INLINED == 0
@@ -1352,6 +1350,12 @@ def _test():
     assert(len(tmp) == 1)
     
     tmp = sendp(Ether()/IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
+    assert(len(tmp) == 1)
+    
+    p = Ether()/IP(dst="8.8.8.8")/ICMP()
+    from decimal import Decimal
+    p.time = Decimal(p.time)
+    tmp = sendp(p, return_packets=True, realtime=True)
     assert(len(tmp) == 1)
 
 retry_test(_test)
@@ -2341,10 +2345,10 @@ assert( raw(p) == raw(q) )
 assert( q[PPP_ECP_Option].data == b"ABCDEFG" )
 
 
-= PPP_ (PPP with only one byte for protocol)
+= PPP with only one byte for protocol
 ~ ppp
 
-assert(len(raw(PPP_() / IP())) == 21)
+assert(len(raw(PPP() / IP())) == 21)
 
 p = PPP(b'!E\x00\x00<\x00\x00@\x008\x06\xa5\xce\x85wP)\xc0\xa8Va\x01\xbbd\x8a\xe2}r\xb8O\x95\xb5\x84\xa0\x12q \xc8\x08\x00\x00\x02\x04\x02\x18\x04\x02\x08\nQ\xdf\xd6\xb0\x00\x07LH\x01\x03\x03\x07Ao')
 assert(IP in p)
@@ -2947,7 +2951,7 @@ a.otype == 0xC9 and a.optlen == 9 and a.hoa == "2001::ffff"
 = HAO - hashret
 
 p = IPv6()/IPv6ExtHdrDestOpt(options=HAO(hoa="2001:db8::1"))/ICMPv6EchoRequest()
-p.hashret() == b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\x00\x00\x00\x00"
+p.hashret() == b' \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\x00\x00\x00\x00'
 
 
 ############
@@ -6750,6 +6754,12 @@ assert pkt3.scopes[0].scopeFieldType == 5
 assert pkt3.scopes[0].scopeFieldlength == 2
 assert pkt3[NetflowOptionsFlowset10].options[0].optionFieldType == 36
 
+# Templates with enterprise-specific Information Elements.
+s=b'\x01\x07\x00\x12\x01\n\x00\x04\x84\x0c\x00\x02\x00\x00\x00\t\x01\n\x00&\x00\x0b\x00\x02\x00\x07\x00\x02\x00\x04\x00\x01\x00\x0c\x00\x04\x00\x08\x00\x04\x00\xea\x00\x02\x01\n\x00\x01\x84\x10\x00\x06\x00\x00\x00\t\x84\x0e\x00\x06\x00\x00\x00\t\x84\x0f\x00\x06\x00\x00\x00\t\x00\x01\x00\x04\x00\x02\x00\x04\x00\xf3\x00\x02\x00\x06\x00\x01\x01\n\x00#'
+pkt4 = NetflowTemplateV9(s)
+assert len(pkt4.template_fields) == pkt4.fieldCount
+assert sum([template.fieldLength for template in pkt4.template_fields]) == 124
+
 ############
 ############
 + pcap / pcapng format support
@@ -6760,6 +6770,7 @@ pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x0
 pcapngfile = BytesIO(b'\n\r\r\n\\\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x01\x00,\x00File created by merging: \nFile1: test.pcap \n\x04\x00\x08\x00mergecap\x00\x00\x00\x00\\\x00\x00\x00\x01\x00\x00\x00\\\x00\x00\x00e\x00\x00\x00\xff\xff\x00\x00\x02\x006\x00Unknown/not available in original file format(libpcap)\x00\x00\t\x00\x01\x00\x06\x00\x00\x00\x00\x00\x00\x00\\\x00\x00\x00\x06\x00\x00\x00H\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00/\xfc[\xcd(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00H\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00\x1f\xff[\xcd\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r<\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00\xb9\x02\\\xcd\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00<\x00\x00\x00')
 pcapnanofile = BytesIO(b"M<\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacV\xc9\xc1\xb5'(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV-;\xc1'\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\x9aL\xcf'\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00")
 pcapwirelenfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x01\x00\x00\x00}\x87pZ.\xa2\x08\x00\x0f\x00\x00\x00\x10\x00\x00\x00\xff\xff\xff\xff\xff\xff GG\xee\xdd\xa8\x90\x00a')
+pcapngdefaults = BytesIO(base64_bytes(b'Cg0NChwAAABNPCsaAQAAAP//////////HAAAAAEAAAAgAAAAEgEAAP//AAAJAAEACUeZiQAAAAAgAAAAAQAAACAAAAASAQAA//8AAAkAAQAJAAAAAAAAACAAAAABAAAAIAAAABIBAAD//wAACQABAAkAAAAAAAAAIAAAAAEAAAAgAAAAEgEAAP//AAAJAAEACQAAAAAAAAAgAAAABgAAAIQBAAADAAAApO/bFdgJaeBiAQAAYgEAAFVVVVVVVVXV////////IMbr4D7PCABFAAFIlQkAAEAR5JwAAAAA/////wBEAEMBNJDsAQEGAFSpVwIACoAAAAAAAAAAAAAAAAAAAAAAACDG6+A+zwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABjglNjNQEB/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAsOs+bAAAhAEAAAYAAACAAQAAAwAAAKTv2xXIDYznYAEAAGABAABVVVVVVVVV1QEAXn//+iDG6+A+zwgARQABRgGPAAAEEal3qf5wqO////rhbgdsATJi0U5PVElGWSAqIEhUVFAvMS4xDQpIT1NUOiAyMzkuMjU1LjI1NS4yNTA6MTkwMA0KQ0FDSEUtQ09OVFJPTDogbWF4LWFnZT0xODAwDQpMT0NBVElPTjogaHR0cDovLzE2OS4yNTQuMTEyLjE2ODo1NTAwMC9ucmMvZGRkLnhtbA0KTlQ6IHV1aWQ6NEQ0NTQ5MzAtMDIwMC0xMDAwLTgwMDEtMjBDNkVCRTAzRUNGDQpOVFM6IHNzZHA6YWxpdmUNClNFUlZFUjogRnJlZUJTRC84LjAgVVBuUC8xLjAgUGFuYXNvbmljLU1JTC1ETE5BLVNWLzEuMA0KVVNOOiB1dWlkOjRENDU0OTMwLTAyMDAtMTAwMC04MDAxLTIwQzZFQkUwM0VDRg0KDQpcQcvWgAEAAAYAAAC4AQAAAwAAAKTv2xV4Ao3nlQEAAJUBAABVVVVVVVVV1QEAXn//+iDG6+A+zwgARQABewGQAAAEEalBqf5wqO////rhbgdsAWfu+k5PVElGWSAqIEhUVFAvMS4xDQpIT1NUOiAyMzkuMjU1LjI1NS4yNTA6MTkwMA0KQ0FDSEUtQ09OVFJPTDogbWF4LWFnZT0xODAwDQpMT0NBVElPTjogaHR0cDovLzE2OS4yNTQuMTEyLjE2ODo1NTAwMC9ucmMvZGRkLnhtbA0KTlQ6IHVybjpwYW5hc29uaWMtY29tOmRldmljZTpwMDBSZW1vdGVDb250cm9sbGVyOjENCk5UUzogc3NkcDphbGl2ZQ0KU0VSVkVSOiBGcmVlQlNELzguMCBVUG5QLzEuMCBQYW5hc29uaWMtTUlMLURMTkEtU1YvMS4wDQpVU046IHV1aWQ6NEQ0NTQ5MzAtMDIwMC0xMDAwLTgwMDEtMjBDNkVCRTAzRUNGOjp1cm46cGFuYXNvbmljLWNvbTpkZXZpY2U6cDAwUmVtb3RlQ29udHJvbGxlcjoxDQoNCrLVKmoAAAC4AQAABgAAAHgBAAADAAAApO/bFVjbjedXAQAAVwEAAFVVVVVVVVXVAQBef//6IMbr4D7PCABFAAE9AZEAAAQRqX6p/nCo7///+uFuB2wBKaZATk9USUZZICogSFRUUC8xLjENCkhPU1Q6IDIzOS4yNTUuMjU1LjI1MDoxOTAwDQpDQUNIRS1DT05UUk9MOiBtYXgtYWdlPTE4MDANCkxPQ0FUSU9OOiBodHRwOi8vMTY5LjI1NC4xMTIuMTY4OjU1MDAwL25yYy9kZGQueG1sDQpOVDogdXBucDpyb290ZGV2aWNlDQpOVFM6IHNzZHA6YWxpdmUNClNFUlZFUjogRnJlZUJTRC84LjAgVVBuUC8xLjAgUGFuYXNvbmljLU1JTC1ETE5BLVNWLzEuMA0KVVNOOiB1dWlkOjRENDU0OTMwLTAyMDAtMTAwMC04MDAxLTIwQzZFQkUwM0VDRjo6dXBucDpyb290ZGV2aWNlDQoNCjagXoUAeAEAAAYAAAC0AQAAAwAAAKTv2xXYw47nkwEAAJMBAABVVVVVVVVV1QEAXn//+iDG6+A+zwgARQABeQGSAAAEEalBqf5wqO////rhbgdsAWWV4E5PVElGWSAqIEhUVFAvMS4xDQpIT1NUOiAyMzkuMjU1LjI1NS4yNTA6MTkwMA0KQ0FDSEUtQ09OVFJPTDogbWF4LWFnZT0xODAwDQpMT0NBVElPTjogaHR0cDovLzE2OS4yNTQuMTEyLjE2ODo1NTAwMC9ucmMvZGRkLnhtbA0KTlQ6IHVybjpwYW5hc29uaWMtY29tOnNlcnZpY2U6cDAwTmV0d29ya0NvbnRyb2w6MQ0KTlRTOiBzc2RwOmFsaXZlDQpTRVJWRVI6IEZyZWVCU0QvOC4wIFVQblAvMS4wIFBhbmFzb25pYy1NSUwtRExOQS1TVi8xLjANClVTTjogdXVpZDo0RDQ1NDkzMC0wMjAwLTEwMDAtODAwMS0yMEM2RUJFMDNFQ0Y6OnVybjpwYW5hc29uaWMtY29tOnNlcnZpY2U6cDAwTmV0d29ya0NvbnRyb2w6MQ0KDQovXKFrALQBAAAGAAAAqAEAAAMAAACk79sVuJKP54cBAACHAQAAVVVVVVVVVdUBAF5///ogxuvgPs8IAEUAAW0BkwAABBGpTKn+cKjv///64W4HbAFZRNJOT1RJRlkgKiBIVFRQLzEuMQ0KSE9TVDogMjM5LjI1NS4yNTUuMjUwOjE5MDANCkNBQ0hFLUNPTlRST0w6IG1heC1hZ2U9MTgwMA0KTE9DQVRJT046IGh0dHA6Ly8xNjkuMjU0LjExMi4xNjg6NTUwMDAvbnJjL2RkZC54bWwNCk5UOiB1cm46ZGlhbC1tdWx0aXNjcmVlbi1vcmc6c2VydmljZTpkaWFsOjENCk5UUzogc3NkcDphbGl2ZQ0KU0VSVkVSOiBGcmVlQlNELzguMCBVUG5QLzEuMCBQYW5hc29uaWMtTUlMLURMTkEtU1YvMS4wDQpVU046IHV1aWQ6NEQ0NTQ5MzAtMDIwMC0xMDAwLTgwMDEtMjBDNkVCRTAzRUNGOjp1cm46ZGlhbC1tdWx0aXNjcmVlbi1vcmc6c2VydmljZTpkaWFsOjENCg0KLn5A6QCoAQAA'))
 
 = Read a pcap file
 pktpcap = rdpcap(pcapfile)
@@ -6770,7 +6781,12 @@ assert pktpcapng[0].time == 1454163407.666223
 
 = Read a pcap file with nanosecond precision
 pktpcapnano = rdpcap(pcapnanofile)
-assert pktpcapnano[0].time == Decimal('1454163407.666223049')
+assert pktpcapnano[0].time == 1454163407.666223049
+
+= Read a pcapng file with nanosecond precision and default tsresol
+pktpcapngdefaults = rdpcap(pcapngdefaults)
+assert pktpcapngdefaults[0].time == 1575115986.114775512
+assert Ether in pktpcapngdefaults[0]
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
@@ -6849,14 +6865,11 @@ import mock
 conf_prog_tcpdump = conf.prog.tcpdump
 conf.prog.tcpdump = "tcpdump_fake"
 
-from scapy.arch.common import _check_tcpdump
-
-@mock.patch("scapy.arch.common.TCPDUMP", _check_tcpdump())
 def _test_sniff_notcpdump():
     try:
         sniff(offline="fake.pcap", filter="tcp")
         assert False
-    except Scapy_Exception:
+    except:
         assert True
 
 _test_sniff_notcpdump()
@@ -6949,7 +6962,6 @@ assert r.linktype == DLT_EN10MB
 l = [ p for p in RawPcapReader(f) ]
 assert len(l) == 1
 
-
 = Check tcpdump()
 ~ tcpdump
 from io import BytesIO
@@ -6969,14 +6981,11 @@ import mock
 conf_prog_tcpdump = conf.prog.tcpdump
 conf.prog.tcpdump = "tcpdump_fake"
 
-from scapy.arch.common import _check_tcpdump
-
-@mock.patch("scapy.arch.common.TCPDUMP", _check_tcpdump())
 def _test_tcpdump_notcpdump():
     try:
         tcpdump(IP()/TCP())
         assert False
-    except Scapy_Exception:
+    except:
         assert True
 
 _test_tcpdump_notcpdump()
@@ -7331,6 +7340,30 @@ pkt = TCP()/HTTP()/HTTPRequest(Method=b'GET', Path=b'/download', Http_Version=b'
 raw_pkt = raw(pkt)
 raw_pkt
 assert raw_pkt == b'\x00P\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00GET /download HTTP/1.1\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-US,en;q=0.5\r\nCache-Control: max-age=0\r\nConnection: keep-alive\r\nHost: scapy.net\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0\r\n\r\n'
+
+= HTTP 1.1 -> HTTP 2.0 Upgrade (h2c)
+~ Test h2c
+
+conf.debug_dissector = True
+load_layer("http")
+from scapy.contrib.http2 import H2Frame
+
+import os
+
+tmp = "/test/pcaps/http2_h2c.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+pkts = sniff(offline=filename, session=TCPSession)
+
+assert HTTPResponse in pkts[1]
+assert pkts[1].Connection == b"Upgrade"
+assert H2Frame in pkts[1]
+assert pkts[1][H2Frame].settings[0].id == 3
+
+for i in range(3, 10):
+    assert HTTP not in pkts[i]
+    assert H2Frame in pkts[i]
 
 ############
 ############
@@ -10555,7 +10588,7 @@ RIPEntry in p and RIPAuth in p and p[RIPAuth].password.startswith(b"scapy")
 
 = IP/UDP/RADIUS - Build
 s = raw(IP()/UDP(sport=1812)/Radius(authenticator="scapy")/RadiusAttribute(value="scapy"))
-s == b'E\x00\x007\x00\x01\x00\x00@\x11|\xb3\x7f\x00\x00\x01\x7f\x00\x00\x01\x07\x14\x07\x15\x00#U\xb2\x01\x00\x00\x1bscapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x07scapy'
+s == b'E\x00\x007\x00\x01\x00\x00@\x11|\xb3\x7f\x00\x00\x01\x7f\x00\x00\x01\x07\x14\x07\x14\x00#U\xb3\x01\x00\x00\x1bscapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x07scapy'
 
 = IP/UDP/RADIUS - Dissection
 p = IP(s)
@@ -10569,7 +10602,7 @@ assert(radius_packet.len == 279)
 assert(radius_packet.authenticator == b'>k\xd4\xc4\x19V\x0b*1\x99\xc8D\xea\xc2\x94Z')
 assert(len(radius_packet.attributes) == 17)
 assert(radius_packet.attributes[0].type == 1)
-assert(type(radius_packet.attributes[0]) == RadiusAttribute)
+assert(type(radius_packet.attributes[0]) == RadiusAttr_User_Name)
 assert(radius_packet.attributes[0].len == 6)
 assert(radius_packet.attributes[0].value == b"leap")
 assert(radius_packet.attributes[1].type == 6)
@@ -10648,7 +10681,7 @@ assert(radius_packet.len == 324)
 assert(radius_packet.authenticator == b'C\xbe!J\x08\xdf\xcf\x9f\x00v~,\xfb\x8e`\xc8')
 assert(len(radius_packet.attributes) == 18)
 assert(radius_packet.attributes[0].type == 1)
-assert(type(radius_packet.attributes[0]) == RadiusAttribute)
+assert(type(radius_packet.attributes[0]) == RadiusAttr_User_Name)
 assert(radius_packet.attributes[0].len == 6)
 assert(radius_packet.attributes[0].value == b"leap")
 assert(radius_packet.attributes[1].type == 6)
@@ -10747,13 +10780,18 @@ isinstance(Radius(s), Radius)
 = RADIUS - attributes with IPv4 addresses
 
 r = raw(RadiusAttr_NAS_IP_Address())
-p = RadiusAttr_NAS_IP_Address(p)
+p = RadiusAttr_NAS_IP_Address(r)
 assert p.type == 4
 
 r = raw(RadiusAttr_Framed_IP_Address())
-p = RadiusAttr_Framed_IP_Address(p)
+p = RadiusAttr_Framed_IP_Address(r)
 assert p.type == 8
 
+= RadiusAttr_User_Password
+
+r = b'\x01\x00\x00\x1c0x10x20x30x40x50\x02\x08geheim'
+p = Radius(r)
+assert isinstance(p.attributes[0], RadiusAttr_User_Password)
 
 ############
 ############
@@ -11096,7 +11134,7 @@ assert a in ["True", "False"]
 = Various volatiles
 
 random.seed(0x2807)
-assert RandNumGamma(1, 42) == 8
+assert RandNumGamma(1, 42)._fix() in (8, 73)
 
 random.seed(0x2807)
 assert RandNumGauss(1, 42) == 8
@@ -11699,6 +11737,17 @@ data = hex_bytes('00001a002f48000017cd9f3100000000000c3c144001e000000080000000ff
 pkt = RadioTap(data)
 assert pkt[Dot11EltCountry].pad == 0
 assert pkt.getlayer(Dot11Elt, ID=11)
+
+* Country element: Secondary padding check
+erp_payload = b'\x1e\x2a\x01\x62'
+country_payload = b'\x07\x06\x55\x53\x20\x01\x0b'
+
+bare_country = Dot11EltCountry(country_payload)
+country_nested = Dot11EltCountry(country_payload + erp_payload)
+
+assert not bare_country.payload
+assert country_nested.payload
+assert country_nested.payload.ID == 42
 
 = RSNCipherSuite
 assert bytes(RSNCipherSuite()) == b'\x00\x0f\xac\x04'
@@ -12459,7 +12508,7 @@ test_conversations()
 
 = import_hexcap()
 
-@mock.patch("%s.input" % six.moves.builtins.__name__)
+@mock.patch("scapy.utils.input")
 def test_import_hexcap(mock_input):
     data = """
 0000  FF FF FF FF FF FF AA AA AA AA AA AA 08 00 45 00  ..............E.

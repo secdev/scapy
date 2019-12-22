@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 #############################################################################
 #                                                                           #
 #  inet6.py --- IPv6 support for Scapy                                      #
@@ -383,7 +382,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
 
         if conf.checkIPsrc and conf.checkIPaddr and not in6_ismaddr(sd):
             sd = inet_pton(socket.AF_INET6, sd)
-            ss = inet_pton(socket.AF_INET6, self.src)
+            ss = inet_pton(socket.AF_INET6, ss)
             return strxor(sd, ss) + struct.pack("B", nh) + self.payload.hashret()  # noqa: E501
         else:
             return struct.pack("B", nh) + self.payload.hashret()
@@ -1042,7 +1041,6 @@ def defragment6(packets):
     lst = [x for x in lst if x[IPv6ExtHdrFragment].id == id]
     if len(lst) != llen:
         warning("defragment6: some fragmented packets have been removed from list")  # noqa: E501
-    llen = len(lst)
 
     # reorder fragments
     res = []

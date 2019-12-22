@@ -283,11 +283,11 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
                 if realtime:
                     ct = time.time()
                     if dt0:
-                        st = dt0 + p.time - ct
+                        st = dt0 + float(p.time) - ct
                         if st > 0:
                             time.sleep(st)
                     else:
-                        dt0 = ct - p.time
+                        dt0 = ct - float(p.time)
                 s.send(p)
                 if return_packets:
                     sent_packets.append(p)
@@ -407,7 +407,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     argv.append(f)
     wrpcap(f, x)
     results = None
-    with ContextManagerSubprocess("sendpfast()", conf.prog.tcpreplay):
+    with ContextManagerSubprocess(conf.prog.tcpreplay):
         try:
             cmd = subprocess.Popen(argv, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
@@ -555,7 +555,8 @@ def srp1(*args, **kargs):
 
 # Append doc
 for sr_func in [srp, srp1, sr, sr1]:
-    sr_func.__doc__ += _DOC_SNDRCV_PARAMS
+    if sr_func.__doc__ is not None:
+        sr_func.__doc__ += _DOC_SNDRCV_PARAMS
 
 
 # SEND/RECV LOOP METHODS
@@ -837,10 +838,6 @@ class AsyncSniffer(object):
                 sniff_sockets[opened_socket] = "socket0"
         if offline is not None:
             flt = karg.get('filter')
-            from scapy.arch.common import TCPDUMP
-            if not TCPDUMP and flt is not None:
-                message = "tcpdump is not available. Cannot use filter!"
-                raise Scapy_Exception(message)
 
             if isinstance(offline, list) and \
                     all(isinstance(elt, str) for elt in offline):
@@ -963,6 +960,8 @@ class AsyncSniffer(object):
                             "Socket %s failed with '%s'." % (s, ex) + msg
                         )
                         dead_sockets.append(s)
+                        if conf.debug_dissector >= 2:
+                            raise
                         continue
                     if p is None:
                         continue

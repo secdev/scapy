@@ -10,9 +10,7 @@
   "remove_testfiles": [
     "test/linux.uts",
     "test/bpf.uts",
-    "test/windows.uts",
-    "test/contrib/cansocket_native.uts",
-    "test/contrib/cansocket_python_can.uts"
+    "test/windows.uts"
   ],
   "onlyfailed": true,
   "preexec": {

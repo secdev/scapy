@@ -484,14 +484,14 @@ assert rsdbpipr.answers(rsdbpi)
 
 dddi = UDS(b'\x2c\x12coffee')
 assert dddi.service == 0x2c
-assert dddi.definitionMode == 0x12
+assert dddi.subFunction == 0x12
 assert dddi.dataRecord == b'coffee'
 
 = Check UDS_DDDIPR
 
 dddipr = UDS(b'\x6c\x12\x44\x55')
 assert dddipr.service == 0x6c
-assert dddipr.definitionMode == 0x12
+assert dddipr.subFunction == 0x12
 assert dddipr.dynamicallyDefinedDataIdentifier == 0x4455
 
 assert dddipr.answers(dddi)

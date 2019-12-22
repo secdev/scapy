@@ -67,8 +67,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         "direction", "sniffed_on",
         # handle snaplen Vs real length
         "wirelen",
-        # used while performing advanced dissection to handle padding
-        "_tmp_dissect_pos",
     ]
     name = None
     fields_desc = []
@@ -778,7 +776,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                 if fdump:
                     dt, target, last_shift, last_y = make_dump(fdump, last_shift, last_y, col, bkcol)  # noqa: E501
 
-                    dtb = dt.bbox()
                     dtb = target
                     vtb = vt.bbox()
                     bxvt = make_box(vtb)
@@ -821,24 +818,17 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return s
 
     def do_dissect(self, s):
-        if not isinstance(s, bytes):
-            s = bytes_encode(s)
         _raw = s
         self.raw_packet_cache_fields = {}
-        # Temporary value, used by getfield() in some advanced cases (eg: dot11)  # noqa: E501
-        _lr = len(_raw)
-        self._tmp_dissect_pos = 0  # How many bytes have already been dissected
         for f in self.fields_desc:
             if not s:
                 break
             s, fval = f.getfield(self, s)
-            self._tmp_dissect_pos = _lr - len(s)
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
             if f.islist or f.holds_packets or f.ismutable:
                 self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
-        del self._tmp_dissect_pos
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
         return s
@@ -1063,6 +1053,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    __hash__ = None
 
     def hashret(self):
         """DEV: returns a string that has the same value for a request
@@ -1461,13 +1453,6 @@ values.
             c += "/" + pc
         return c
 
-    def __hash__(self):
-        """Needed for Python 2 only: Packet() subclasses should not be
-hashable.
-
-        """
-        raise TypeError('unhashable type: %r' % self.__class__.__name__)
-
     def convert_to(self, other_cls, **kwargs):
         """Converts this Packet to another type.
 
@@ -1660,12 +1645,13 @@ class Raw(Packet):
     name = "Raw"
     fields_desc = [StrField("load", "")]
 
+    def __init__(self, _pkt=None, *args, **kwargs):
+        if _pkt and not isinstance(_pkt, bytes):
+            _pkt = bytes_encode(_pkt)
+        super(Raw, self).__init__(_pkt, *args, **kwargs)
+
     def answers(self, other):
         return 1
-#        s = raw(other)
-#        t = self.load
-#        l = min(len(s), len(t))
-#        return  s[:l] == t[:l]
 
     def mysummary(self):
         cs = conf.raw_summary
@@ -1934,6 +1920,69 @@ def explore(layer=None):
     print(pretty_list(rtlst, [("Class", "Name")], borders=True))
 
 
+def _pkt_ls(obj, verbose=False):
+    """Internal function used to resolve `fields_desc` to display it.
+
+    :param obj: a packet object or class
+    :returns: a list containing tuples [(name, clsname, clsname_extras,
+        default, long_attrs)]
+    """
+    is_pkt = isinstance(obj, Packet)
+    if not issubtype(obj, Packet) and not is_pkt:
+        raise ValueError
+    fields = []
+    for f in obj.fields_desc:
+        cur_fld = f
+        attrs = []
+        long_attrs = []
+        while isinstance(cur_fld, (Emph, ConditionalField)):
+            if isinstance(cur_fld, ConditionalField):
+                attrs.append(cur_fld.__class__.__name__[:4])
+            cur_fld = cur_fld.fld
+        if verbose and isinstance(cur_fld, EnumField) \
+           and hasattr(cur_fld, "i2s"):
+            if len(cur_fld.i2s) < 50:
+                long_attrs.extend(
+                    "%s: %d" % (strval, numval)
+                    for numval, strval in
+                    sorted(six.iteritems(cur_fld.i2s))
+                )
+        elif isinstance(cur_fld, MultiEnumField):
+            fld_depend = cur_fld.depends_on(obj.__class__
+                                            if is_pkt else obj)
+            attrs.append("Depends on %s" % fld_depend.name)
+            if verbose:
+                cur_i2s = cur_fld.i2s_multi.get(
+                    cur_fld.depends_on(obj if is_pkt else obj()), {}
+                )
+                if len(cur_i2s) < 50:
+                    long_attrs.extend(
+                        "%s: %d" % (strval, numval)
+                        for numval, strval in
+                        sorted(six.iteritems(cur_i2s))
+                    )
+        elif verbose and isinstance(cur_fld, FlagsField):
+            names = cur_fld.names
+            long_attrs.append(", ".join(names))
+        cls = cur_fld.__class__
+        class_name_extras = "(%s)" % (
+            ", ".join(attrs)
+        ) if attrs else ""
+        if isinstance(cur_fld, BitField):
+            class_name_extras += " (%d bit%s)" % (
+                cur_fld.size,
+                "s" if cur_fld.size > 1 else ""
+            )
+        fields.append(
+            (f.name,
+             cls,
+             class_name_extras,
+             f.default,
+             long_attrs)
+        )
+    return fields
+
+
 @conf.commands.register
 def ls(obj=None, case_sensitive=False, verbose=False):
     """List  available layers, or infos on a given layer class or name.
@@ -1970,59 +2019,23 @@ def ls(obj=None, case_sensitive=False, verbose=False):
             print("\nTIP: You may use explore() to navigate through all "
                   "layers using a clear GUI")
     else:
-        is_pkt = isinstance(obj, Packet)
-        if issubtype(obj, Packet) or is_pkt:
-            for f in obj.fields_desc:
-                cur_fld = f
-                attrs = []
-                long_attrs = []
-                while isinstance(cur_fld, (Emph, ConditionalField)):
-                    if isinstance(cur_fld, ConditionalField):
-                        attrs.append(cur_fld.__class__.__name__[:4])
-                    cur_fld = cur_fld.fld
-                if verbose and isinstance(cur_fld, EnumField) \
-                   and hasattr(cur_fld, "i2s"):
-                    if len(cur_fld.i2s) < 50:
-                        long_attrs.extend(
-                            "%s: %d" % (strval, numval)
-                            for numval, strval in
-                            sorted(six.iteritems(cur_fld.i2s))
-                        )
-                elif isinstance(cur_fld, MultiEnumField):
-                    fld_depend = cur_fld.depends_on(obj.__class__
-                                                    if is_pkt else obj)
-                    attrs.append("Depends on %s" % fld_depend.name)
-                    if verbose:
-                        cur_i2s = cur_fld.i2s_multi.get(
-                            cur_fld.depends_on(obj if is_pkt else obj()), {}
-                        )
-                        if len(cur_i2s) < 50:
-                            long_attrs.extend(
-                                "%s: %d" % (strval, numval)
-                                for numval, strval in
-                                sorted(six.iteritems(cur_i2s))
-                            )
-                elif verbose and isinstance(cur_fld, FlagsField):
-                    names = cur_fld.names
-                    long_attrs.append(", ".join(names))
-                class_name = "%s (%s)" % (
-                    cur_fld.__class__.__name__,
-                    ", ".join(attrs)) if attrs else cur_fld.__class__.__name__
-                if isinstance(cur_fld, BitField):
-                    class_name += " (%d bit%s)" % (cur_fld.size,
-                                                   "s" if cur_fld.size > 1
-                                                   else "")
-                print("%-10s : %-35s =" % (f.name, class_name), end=' ')
+        try:
+            fields = _pkt_ls(obj, verbose=verbose)
+            is_pkt = isinstance(obj, Packet)
+            # Print
+            for fname, cls, clsne, dflt, long_attrs in fields:
+                cls = cls.__name__ + " " + clsne
+                print("%-10s : %-35s =" % (fname, cls), end=' ')
                 if is_pkt:
-                    print("%-15r" % (getattr(obj, f.name),), end=' ')
-                print("(%r)" % (f.default,))
+                    print("%-15r" % (getattr(obj, fname),), end=' ')
+                print("(%r)" % (dflt,))
                 for attr in long_attrs:
                     print("%-15s%s" % ("", attr))
+            # Restart for payload if any
             if is_pkt and not isinstance(obj.payload, NoPayload):
                 print("--")
                 ls(obj.payload)
-
-        else:
+        except ValueError:
             print("Not a packet class or name. Type 'ls()' to list packet classes.")  # noqa: E501
 
 

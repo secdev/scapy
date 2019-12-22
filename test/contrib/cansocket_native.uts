@@ -27,6 +27,7 @@ conf.contribs['CAN'] = {'swap-bytes': False}
 import os
 import threading
 from time import sleep
+from subprocess import call
 
 = Setup vcan0
 ~ conf command needs_root linux
@@ -760,7 +761,6 @@ threadSender.join()
 threadBridge.join()
 
 = Delete vcan interfaces
-~ needs_root linux vcan_socket
 
 if 0 != call("sudo ip link delete %s" % "vcan0", shell=True):
         raise Exception("%s could not be deleted" % "vcan0")

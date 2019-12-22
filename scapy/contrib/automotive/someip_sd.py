@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # MIT License
 
 # Copyright (c) 2018 Jose Amores
@@ -287,7 +285,6 @@ class SD(_SDPacketBase):
     SOMEIP_IFACE_VER = 0x01
     SOMEIP_MSG_TYPE = SOMEIP.TYPE_NOTIFICATION
 
-    name = "SD"
     _sdFlag = collections.namedtuple('Flag', 'mask offset')
     FLAGSDEF = {
         "REBOOT": _sdFlag(mask=0x80, offset=7),

@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-#
 # scapy.contrib.description = EtherCat
 # scapy.contrib.status = loads
 

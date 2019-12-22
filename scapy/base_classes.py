@@ -133,6 +133,12 @@ class Net(Gen):
             p2, nm2 = self._parse_net(other)
         return self.parsed == p2
 
+    def __ne__(self, other):
+        # Python 2.7 compat
+        return not self == other
+
+    __hash__ = None
+
     def __contains__(self, other):
         if hasattr(other, "parsed"):
             p2 = other.parsed
@@ -297,7 +303,7 @@ class _CanvasDumpExtended(object):
             if WINDOWS and conf.prog.psreader is None:
                 os.startfile(fname)
             else:
-                with ContextManagerSubprocess("psdump()", conf.prog.psreader):
+                with ContextManagerSubprocess(conf.prog.psreader):
                     subprocess.Popen([conf.prog.psreader, fname])
         else:
             canvas.writeEPSfile(filename)
@@ -321,8 +327,7 @@ class _CanvasDumpExtended(object):
             if WINDOWS and conf.prog.pdfreader is None:
                 os.startfile(fname)
             else:
-                with ContextManagerSubprocess("pdfdump()",
-                                              conf.prog.pdfreader):
+                with ContextManagerSubprocess(conf.prog.pdfreader):
                     subprocess.Popen([conf.prog.pdfreader, fname])
         else:
             canvas.writePDFfile(filename)
@@ -346,8 +351,7 @@ class _CanvasDumpExtended(object):
             if WINDOWS and conf.prog.svgreader is None:
                 os.startfile(fname)
             else:
-                with ContextManagerSubprocess("svgdump()",
-                                              conf.prog.svgreader):
+                with ContextManagerSubprocess(conf.prog.svgreader):
                     subprocess.Popen([conf.prog.svgreader, fname])
         else:
             canvas.writeSVGfile(filename)

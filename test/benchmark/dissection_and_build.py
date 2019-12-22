@@ -11,7 +11,7 @@ raw_packet = b'E\x00\x00(\x00\x01\x00\x00@\x11|\xc2\x7f\x00\x00\x01\x7f\x00\x00\
 
 start = time.time()
 for i in range(N):
-    p = IP() / UDP() / DNS()
+    p = IP(dst="127.0.0.1", src="127.0.0.1") / UDP() / DNS()
     assert raw(p) == raw_packet
 print("Build - %.2fs" % (time.time() - start))
 
@@ -23,7 +23,7 @@ print("Dissect - %.2fs" % (time.time() - start))
 
 start = time.time()
 for i in range(N):
-    p = IP() / UDP() / DNS()
+    p = IP(dst="127.0.0.1", src="127.0.0.1") / UDP() / DNS()
     s = raw(p)
     assert s == raw_packet
     p = IP(s)

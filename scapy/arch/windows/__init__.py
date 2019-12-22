@@ -400,7 +400,7 @@ class NetworkInterface(object):
         _windows_title()  # Reset title of the window
         if code != 0:
             raise OSError(res.decode("utf8", errors="ignore"))
-        return (code == 0)
+        return True
 
     def _npcap_get(self, key):
         res, code = _exec_cmd(" ".join([_WlanHelper, self.guid[1:-1], key]))
@@ -620,9 +620,6 @@ class NetworkInterfaceDict(UserDict):
                         return True
                     elif _confir in ["no", "n"]:
                         return False
-                return False
-        _error_msg = ("No match between your pcap and windows "
-                      "network interfaces found. ")
         if _detect:
             # No action needed
             return
@@ -635,8 +632,7 @@ class NetworkInterfaceDict(UserDict):
                 if succeed:
                     log_loading.info("Pcap service started !")
                     return
-            _error_msg = "Could not start the pcap service ! "
-        warning(_error_msg +
+        warning("Could not start the pcap service ! "
                 "You probably won't be able to send packets. "
                 "Deactivating unneeded interfaces and restarting "
                 "Scapy might help. Check your winpcap/npcap installation "

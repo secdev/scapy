@@ -12,7 +12,7 @@ import struct
 import hashlib
 import hmac
 from scapy.compat import orb, raw
-from scapy.packet import Packet, Padding, bind_layers
+from scapy.packet import Packet, Padding, bind_layers, bind_bottom_up
 from scapy.fields import ByteField, ByteEnumField, IntField, StrLenField,\
     XStrLenField, XStrFixedLenField, FieldLenField, PacketLenField,\
     PacketListField, IPField, MultiEnumField
@@ -294,7 +294,8 @@ class _SpecificRadiusAttr(RadiusAttribute):
             _pkt,
             post_transform,
             _internal,
-            _underlayer
+            _underlayer,
+            **fields
         )
         self.fields["type"] = self.val
         name_parts = self.__class__.__name__.split('RadiusAttr_')
@@ -319,6 +320,11 @@ class _RadiusAttrIntValue(_SpecificRadiusAttr):
         ByteField("len", 6),
         IntField("value", 0)
     ]
+
+
+class RadiusAttr_User_Name(_SpecificRadiusAttr):
+    """RFC 2865"""
+    val = 1
 
 
 class RadiusAttr_NAS_Port(_RadiusAttrIntValue):
@@ -503,7 +509,8 @@ class _RadiusAttrHexStringVal(_SpecificRadiusAttr):
             _pkt,
             post_transform,
             _internal,
-            _underlayer
+            _underlayer,
+            **fields
         )
         self.fields["type"] = self.val
         name_parts = self.__class__.__name__.split('RadiusAttr_')
@@ -524,6 +531,11 @@ class _RadiusAttrHexStringVal(_SpecificRadiusAttr):
         ),
         XStrLenField("value", "", length_from=lambda p: p.len - 2 if p.len else 0)  # noqa: E501
     ]
+
+
+class RadiusAttr_User_Password(_RadiusAttrHexStringVal):
+    """RFC 2865"""
+    val = 2
 
 
 class RadiusAttr_State(_RadiusAttrHexStringVal):
@@ -1150,7 +1162,10 @@ class Radius(Packet):
         return p
 
 
-bind_layers(UDP, Radius, sport=1812)
-bind_layers(UDP, Radius, dport=1812)
-bind_layers(UDP, Radius, sport=1813)
-bind_layers(UDP, Radius, dport=1813)
+bind_bottom_up(UDP, Radius, sport=1812)
+bind_bottom_up(UDP, Radius, dport=1812)
+bind_bottom_up(UDP, Radius, sport=1813)
+bind_bottom_up(UDP, Radius, dport=1813)
+bind_bottom_up(UDP, Radius, sport=3799)
+bind_bottom_up(UDP, Radius, dport=3799)
+bind_layers(UDP, Radius, sport=1812, dport=1812)

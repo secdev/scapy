@@ -334,7 +334,6 @@ class TCPOptionsField(StrField):
             onum = orb(x[0])
             if onum == 0:
                 opt.append(("EOL", None))
-                x = x[1:]
                 break
             if onum == 1:
                 opt.append(("NOP", None))
@@ -425,7 +424,7 @@ class ICMPTimeStampField(IntField):
         if isinstance(val, str):
             hmsms = self.re_hmsm.match(val)
             if hmsms:
-                h, _, m, _, s, _, ms = hmsms = hmsms.groups()
+                h, _, m, _, s, _, ms = hmsms.groups()
                 ms = int(((ms or "") + "000")[:3])
                 val = ((int(h) * 60 + int(m or 0)) * 60 + int(s or 0)) * 1000 + ms  # noqa: E501
             else:
@@ -1173,7 +1172,7 @@ class TracerouteResult(SndRcvList):
                  "nloc"]
 
     def __init__(self, res=None, name="Traceroute", stats=None):
-        PacketList.__init__(self, res, name, stats)
+        SndRcvList.__init__(self, res, name, stats)
         self.graphdef = None
         self.graphASres = None
         self.padding = 0
@@ -1297,7 +1296,6 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
             )
         )
         vpython.scene.exit = True
-        start = vpython.box()
         rings = {}
         tr3d = {}
         for i in trace:
@@ -1725,7 +1723,7 @@ class TCP_client(Automaton):
 
     def _transmit_packet(self, pkt):
         """Transmits a packet from TCPSession to the SuperSocket"""
-        self.oi.tcp.send(pkt[TCP].payload)
+        self.oi.tcp.send(raw(pkt[TCP].payload))
 
     def master_filter(self, pkt):
         return (IP in pkt and

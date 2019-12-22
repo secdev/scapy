@@ -10,20 +10,24 @@
 HTTP 1.0 layer.
 
 Load using:
->>> load_layer("http")
+
+    >>> load_layer("http")
+
 Note that this layer ISN'T loaded by default, as quite experimental for now.
 
 To follow HTTP packets streams = group packets together to get the
 whole request/answer, use `TCPSession` as:
->>> sniff(session=TCPSession)  # Live on-the-flow session
->>> sniff(offline="./http_chunk.pcap", session=TCPSession)  # pcap
+
+    >>> sniff(session=TCPSession)  # Live on-the-flow session
+    >>> sniff(offline="./http_chunk.pcap", session=TCPSession)  # pcap
 
 This will decode HTTP packets using `Content_Length` or chunks,
 and will also decompress the packets when needed.
 Note: on failure, decompression will be ignored.
 
 You can turn auto-decompression/auto-compression off with:
->>> conf.contribs["http"]["auto_compression"] = True
+
+    >>> conf.contribs["http"]["auto_compression"] = True
 """
 
 # This file is a modified version of the former scapy_http plugin.
@@ -33,6 +37,7 @@ You can turn auto-decompression/auto-compression off with:
 
 import os
 import re
+import struct
 import subprocess
 
 from scapy.compat import plain_str, bytes_encode, \
@@ -364,6 +369,14 @@ class _HTTPContent(Packet):
             p = f.addfield(self, p, b'\r\n')
         return p
 
+    def guess_payload_class(self, payload):
+        """Detect potential payloads
+        """
+        if self.Connection and b"Upgrade" in self.Connection:
+            from scapy.contrib.http2 import H2Frame
+            return H2Frame
+        return super(_HTTPContent, self).guess_payload_class(payload)
+
 
 class _HTTPHeaderField(StrField):
     """Modified StrField to handle HTTP Header names"""
@@ -486,9 +499,26 @@ class HTTP(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt and False:
-            # XXX TODO
-            from scapy.contrib.contrib.http2 import H2Frame
+        if _pkt and len(_pkt) >= 9:
+            from scapy.contrib.http2 import _HTTP2_types, H2Frame
+            # To detect a valid HTTP2, we check that the type is correct
+            # that the Reserved bit is set and length makes sense.
+            while _pkt:
+                if len(_pkt) < 9:
+                    # Invalid total length
+                    return cls
+                if ord(_pkt[3:4]) not in _HTTP2_types:
+                    # Invalid type
+                    return cls
+                length = struct.unpack("!I", b"\0" + _pkt[:3])[0] + 9
+                if length > len(_pkt):
+                    # Invalid length
+                    return cls
+                sid = struct.unpack("!I", _pkt[5:9])[0]
+                if sid >> 31 != 0:
+                    # Invalid Reserved bit
+                    return cls
+                _pkt = _pkt[length:]
             return H2Frame
         return cls
 
@@ -594,6 +624,9 @@ def http_request(host, path="/", port=80, timeout=3,
         tcp_client.close()
     if ans:
         if display:
+            if Raw not in ans:
+                warning("No HTTP content returned. Cannot display")
+                return ans
             # Write file
             file = get_temp_file(autoext=".html")
             with open(file, "wb") as fd:
@@ -602,11 +635,9 @@ def http_request(host, path="/", port=80, timeout=3,
             if WINDOWS:
                 os.startfile(file)
             else:
-                with ContextManagerSubprocess("http_request()",
-                                              conf.prog.universal_open):
+                with ContextManagerSubprocess(conf.prog.universal_open):
                     subprocess.Popen([conf.prog.universal_open, file])
-        else:
-            return ans
+        return ans
 
 
 # Bindings

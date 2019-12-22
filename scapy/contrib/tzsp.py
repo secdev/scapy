@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-#
 # scapy.contrib.description = TaZmen Sniffer Protocol (TZSP)
 # scapy.contrib.status = loads
 

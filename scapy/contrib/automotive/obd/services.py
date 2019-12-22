@@ -87,6 +87,9 @@ class OBD_S03_PR(Packet):
         PacketListField('dtcs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]
 
+    def answers(self, other):
+        return other.__class__ == OBD_S03
+
 
 class OBD_S04(Packet):
     name = "S4_ClearDTCs"
@@ -94,6 +97,9 @@ class OBD_S04(Packet):
 
 class OBD_S04_PR(Packet):
     name = "S4_ClearDTCsPositiveResponse"
+
+    def answers(self, other):
+        return other.__class__ == OBD_S04
 
 
 class OBD_S06(Packet):
@@ -113,6 +119,9 @@ class OBD_S07_PR(Packet):
         FieldLenField('count', None, count_of='dtcs', fmt='B'),
         PacketListField('dtcs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]
+
+    def answers(self, other):
+        return other.__class__ == OBD_S07
 
 
 class OBD_S08(Packet):
@@ -139,3 +148,6 @@ class OBD_S0A_PR(Packet):
         FieldLenField('count', None, count_of='dtcs', fmt='B'),
         PacketListField('dtcs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]
+
+    def answers(self, other):
+        return other.__class__ == OBD_S0A

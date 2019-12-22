@@ -78,7 +78,14 @@ class Field(six.with_metaclass(Field_metaclass, object)):
     http://www.secdev.org/projects/scapy/files/scapydoc.pdf
     chapter ``Adding a New Field``
     """
-    __slots__ = ["name", "fmt", "default", "sz", "owners"]
+    __slots__ = [
+        "name",
+        "fmt",
+        "default",
+        "sz",
+        "owners",
+        "struct"
+    ]
     islist = 0
     ismutable = False
     holds_packets = 0
@@ -89,6 +96,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
             self.fmt = fmt
         else:
             self.fmt = "!" + fmt
+        self.struct = struct.Struct(self.fmt)
         self.default = self.any2i(None, default)
         self.sz = struct.calcsize(self.fmt)
         self.owners = []
@@ -139,7 +147,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
         Copy the network representation of field `val` (belonging to layer
         `pkt`) to the raw string packet `s`, and return the new string packet.
         """
-        return s + struct.pack(self.fmt, self.i2m(pkt, val))
+        return s + self.struct.pack(self.i2m(pkt, val))
 
     def getfield(self, pkt, s):
         """Extract an internal value from a string
@@ -151,7 +159,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
         first the raw packet string after having removed the extracted field,
         second the extracted field itself in internal representation.
         """
-        return s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])  # noqa: E501
+        return s[self.sz:], self.m2i(pkt, self.struct.unpack(s[:self.sz])[0])
 
     def do_copy(self, x):
         if hasattr(x, "copy"):
@@ -167,7 +175,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
         return "<Field (%s).%s>" % (",".join(x.__name__ for x in self.owners), self.name)  # noqa: E501
 
     def copy(self):
-        return copy.deepcopy(self)
+        return copy.copy(self)
 
     def randval(self):
         """Return a volatile object whose value is both random and suitable for this field"""  # noqa: E501
@@ -197,11 +205,14 @@ class Emph(object):
     def __getattr__(self, attr):
         return getattr(self.fld, attr)
 
-    def __hash__(self):
-        return hash(self.fld)
-
     def __eq__(self, other):
         return self.fld == other
+
+    def __ne__(self, other):
+        # Python 2.7 compat
+        return not self == other
+
+    __hash__ = None
 
 
 class ActionField(object):
@@ -394,7 +405,7 @@ class PadField(object):
     def __init__(self, fld, align, padwith=None):
         self._fld = fld
         self._align = align
-        self._padwith = padwith or b""
+        self._padwith = padwith or b"\x00"
 
     def padlen(self, flen):
         return -flen % self._align
@@ -418,7 +429,7 @@ class ReversePadField(PadField):
 
     def getfield(self, pkt, s):
         # We need to get the length that has already been dissected
-        padlen = self.padlen(pkt._tmp_dissect_pos)
+        padlen = self.padlen(len(pkt.original) - len(s))
         remain, val = self._fld.getfield(pkt, s[padlen:])
         return remain, val
 
@@ -865,6 +876,11 @@ class SignedShortField(Field):
 class LEShortField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "<H")
+
+
+class LESignedShortField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "<h")
 
 
 class XShortField(ShortField):
@@ -2373,7 +2389,7 @@ class ScalingField(Field):
         return x
 
     def any2i(self, pkt, x):
-        if isinstance(x, str) or isinstance(x, bytes):
+        if isinstance(x, (str, bytes)):
             x = struct.unpack(self.fmt, bytes_encode(x))[0]
             x = self.m2i(pkt, x)
         return x

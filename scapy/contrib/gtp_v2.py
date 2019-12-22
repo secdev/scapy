@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # Copyright (C) 2017 Alessio Deiana <adeiana@gmail.com>
 # 2017 Alexis Sultan <alexis.sultan@sfr.com>
 
@@ -28,6 +26,7 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, IntField, IPField, LongField, PacketField, \
     PacketListField, ShortEnumField, ShortField, StrFixedLenField, \
     StrLenField, ThreeBytesField, XBitField, XIntField, XShortField
+from scapy.data import IANA_ENTERPRISE_NUMBERS
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.volatile import RandIP, RandShort
 
@@ -39,20 +38,149 @@ RATType = {
     6: "EUTRAN",
 }
 
-GTPmessageType = {1: "echo_request",
-                     2: "echo_response",
-                     32: "create_session_req",
-                     33: "create_session_res",
-                     34: "modify_bearer_req",
-                     35: "modify_bearer_res",
-                     36: "delete_session_req",
-                     37: "delete_session_res",
-                     70: "downlink_data_notif_failure_indic",
-                     170: "realease_bearers_req",
-                     171: "realease_bearers_res",
-                     176: "downlink_data_notif",
-                     177: "downlink_data_notif_ack",
-                  }
+# 3GPP TS 29.274 v16.1.0 table 6.1-1
+GTPmessageType = {
+    1: "echo_request",
+    2: "echo_response",
+    3: "version_not_supported",
+
+    # 4-16: S101 interface, TS 29.276.
+    # 17-24: S121 interface, TS 29.276.
+    # 25-31: Sv interface, TS 29.280.
+
+    # SGSN/MME/ TWAN/ePDG to PGW (S4/S11, S5/S8, S2a, S2b)
+    32: "create_session_req",
+    33: "create_session_res",
+    36: "delete_session_req",
+    37: "delete_session_res",
+
+    # SGSN/MME/ePDG to PGW (S4/S11, S5/S8, S2b)
+    34: "modify_bearer_req",
+    35: "modify_bearer_res",
+
+    # MME to PGW (S11, S5/S8)
+    40: "remote_ue_report_notif",
+    41: "remote_ue_report_ack",
+
+    # SGSN/MME to PGW (S4/S11, S5/S8)
+    38: "change_notif_req",
+    39: "change_notif_res",
+    # 42-46: For future use.
+    164: "resume_notif",
+    165: "resume_ack",
+
+    # Messages without explicit response
+    64: "modify_bearer_cmd",
+    65: "modify_bearer_failure_indic",
+    66: "delete_bearer_cmd",
+    67: "delete_bearer_failure_indic",
+    68: "bearer_resource_cmd",
+    69: "bearer_resource_failure_indic",
+    70: "downlink_data_notif_failure_indic",
+    71: "trace_session_activation",
+    72: "trace_session_deactivation",
+    73: "stop_paging_indic",
+    # 74-94: For future use.
+
+    # PGW to SGSN/MME/ TWAN/ePDG (S5/S8, S4/S11, S2a, S2b)
+    95: "create_bearer_req",
+    96: "create_bearer_res",
+    97: "update_bearer_req",
+    98: "update_bearer_res",
+    99: "delete_bearer_req",
+    100: "delete_bearer_res",
+
+    # PGW to MME, MME to PGW, SGW to PGW, SGW to MME, PGW to TWAN/ePDG,
+    # TWAN/ePDG to PGW (S5/S8, S11, S2a, S2b)
+    101: "delete_pdn_connection_set_req",
+    102: "delete_pdn_connection_set_res",
+
+    # PGW to SGSN/MME (S5, S4/S11)
+    103: "pgw_downlink_triggering_notif",
+    104: "pgw_downlink_triggering_ack",
+    # 105-127: For future use.
+
+    # MME to MME, SGSN to MME, MME to SGSN, SGSN to SGSN, MME to AMF,
+    # AMF to MME (S3/S10/S16/N26)
+    128: "identification_req",
+    129: "identification_res",
+    130: "context_req",
+    131: "context_res",
+    132: "context_ack",
+    133: "forward_relocation_req",
+    134: "forward_relocation_res",
+    135: "forward_relocation_complete_notif",
+    136: "forward_relocation_complete_ack",
+    137: "forward_access_context_notif",
+    138: "forward_access_context_ack",
+    139: "relocation_cancel_req",
+    140: "relocation_cancel_res",
+    141: "configuration_transfer_tunnel",
+    # 142-148: For future use.
+    152: "ran_information_relay",
+
+    # SGSN to MME, MME to SGSN (S3)
+    149: "detach_notif",
+    150: "detach_ack",
+    151: "cs_paging_indic",
+    153: "alert_mme_notif",
+    154: "alert_mme_ack",
+    155: "ue_activity_notif",
+    156: "ue_activity_ack",
+    157: "isr_status_indic",
+    158: "ue_registration_query_req",
+    159: "ue_registration_query_res",
+
+    # SGSN/MME to SGW, SGSN to MME (S4/S11/S3)
+    # SGSN to SGSN (S16), SGW to PGW (S5/S8)
+    162: "suspend_notif",
+    163: "suspend_ack",
+
+    # SGSN/MME to SGW (S4/S11)
+    160: "create_forwarding_tunnel_req",
+    161: "create_forwarding_tunnel_res",
+    166: "create_indirect_data_forwarding_tunnel_req",
+    167: "create_indirect_data_forwarding_tunnel_res",
+    168: "delete_indirect_data_forwarding_tunnel_req",
+    169: "delete_indirect_data_forwarding_tunnel_res",
+    170: "realease_bearers_req",
+    171: "realease_bearers_res",
+    # 172-175: For future use
+
+    # SGW to SGSN/MME (S4/S11)
+    176: "downlink_data_notif",
+    177: "downlink_data_notif_ack",
+    179: "pgw_restart_notif",
+    180: "pgw_restart_notif_ack",
+
+    # SGW to SGSN (S4)
+    # 178: Reserved. Allocated in earlier version of the specification.
+    # 181-199: For future use.
+
+    # SGW to PGW, PGW to SGW (S5/S8)
+    200: "update_pdn_connection_set_req",
+    201: "update_pdn_connection_set_res",
+    # 202-210: For future use.
+
+    # MME to SGW (S11)
+    211: "modify_access_bearers_req",
+    212: "modify_access_bearers_res",
+    # 213-230: For future use.
+
+    # MBMS GW to MME/SGSN (Sm/Sn)
+    231: "mbms_session_start_req",
+    232: "mbms_session_start_res",
+    233: "mbms_session_update_req",
+    234: "mbms_session_update_res",
+    235: "mbms_session_stop_req",
+    236: "mbms_session_stop_res",
+    # 237-239: For future use.
+
+    # Other
+    # 240-247: Reserved for Sv interface (see also types 25 to 31, and
+    #          TS 29.280).
+    # 248-255: For future use.
+}
 
 IEType = {1: "IMSI",
              2: "Cause",
@@ -79,12 +207,9 @@ IEType = {1: "IMSI",
              126: "Port Number",
              127: "APN Restriction",
              128: "Selection Mode",
-             161: "Max MBR/APN-AMBR (MMBR)"
+             161: "Max MBR/APN-AMBR (MMBR)",
+             255: "Private Extension",
           }
-
-CauseValues = {
-    16: "Request Accepted",
-}
 
 
 class GTPHeader(Packet):
@@ -99,7 +224,7 @@ class GTPHeader(Packet):
                    BitField("SPARE", 0, 1),
                    ByteEnumField("gtp_type", None, GTPmessageType),
                    ShortField("length", None),
-                   ConditionalField(IntField("teid", 0),
+                   ConditionalField(XIntField("teid", 0),
                                     lambda pkt:pkt.T == 1),
                    ThreeBytesField("seq", RandShort()),
                    ByteField("SPARE", 0)
@@ -181,64 +306,153 @@ class IE_ServingNetwork(gtp.IE_Base):
                    gtp.TBCDByteField("MNC", "", 1)]
 
 
-class ULI_RAI(gtp.IE_Base):
-    name = "IE Tracking Area Identity"
+# User Location Information IE and fields.
+# 3GPP TS 29.274 v16.1.0 section 8.21.
+
+
+class ULI_Field(Packet):
+    """Base class for ULI fields."""
+
+    def extract_padding(self, s):
+        return "", s
+
+
+class ULI_CGI(ULI_Field):
+    name = "Cell Global Identifier"
+    fields_desc = [
+        gtp.TBCDByteField("MCC", "", 2),
+        gtp.TBCDByteField("MNC", "", 1),
+        BitField("LAC", 0, 4),
+        BitField("CI", 0, 28),
+    ]
+
+
+class ULI_SAI(ULI_Field):
+    name = "Service Area Identity"
+    fields_desc = [
+        gtp.TBCDByteField("MCC", "", 2),
+        gtp.TBCDByteField("MNC", "", 1),
+        ShortField("LAC", 0),
+        ShortField("SAC", 0),
+    ]
+
+
+class ULI_RAI(ULI_Field):
+    name = "Routing Area Identity"
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         # MNC: if the third digit of MCC is 0xf, then the length of
         # MNC is 1 byte
         gtp.TBCDByteField("MNC", "", 1),
         ShortField("LAC", 0),
-        ShortField("RAC", 0)]
+        ShortField("RAC", 0),
+    ]
 
 
-class ULI_SAI(gtp.IE_Base):
-    name = "IE Tracking Area Identity"
+class ULI_TAI(ULI_Field):
+    name = "Tracking Area Identity"
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
-        ShortField("LAC", 0),
-        ShortField("SAC", 0)]
+        ShortField("TAC", 0),
+    ]
 
 
-class ULI_TAI(gtp.IE_Base):
-    name = "IE Tracking Area Identity"
-    fields_desc = [
-        gtp.TBCDByteField("MCC", "", 2),
-        gtp.TBCDByteField("MNC", "", 1),
-        ShortField("TAC", 0)]
-
-
-class ULI_ECGI(gtp.IE_Base):
-    name = "IE E-UTRAN Cell Identifier"
+class ULI_ECGI(ULI_Field):
+    name = "E-UTRAN Cell Global Identifier"
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
         BitField("SPARE", 0, 4),
-        BitField("ECI", 0, 28)]
+        BitField("ECI", 0, 28),
+    ]
+
+
+class ULI_LAI(ULI_Field):
+    name = "Location Area Identifier"
+    fields_desc = [
+        gtp.TBCDByteField("MCC", "", 2),
+        gtp.TBCDByteField("MNC", "", 1),
+        ShortField("LAC", 0),
+    ]
 
 
 class IE_ULI(gtp.IE_Base):
-    name = "IE ULI"
-    fields_desc = [ByteEnumField("ietype", 86, IEType),
-                   ShortField("length", 0),
-                   BitField("CR_flag", 0, 4),
-                   BitField("instance", 0, 4),
-                   BitField("SPARE", 0, 2),
-                   BitField("LAI_Present", 0, 1),
-                   BitField("ECGI_Present", 0, 1),
-                   BitField("TAI_Present", 0, 1),
-                   BitField("RAI_Present", 0, 1),
-                   BitField("SAI_Present", 0, 1),
-                   BitField("CGI_Present", 0, 1),
-                   ConditionalField(
-        PacketField("SAI", 0, ULI_SAI), lambda pkt: bool(pkt.SAI_Present)),
+    name = "IE User Location Information"
+    fields_desc = [
+        ByteEnumField("ietype", 86, IEType),
+        ShortField("length", 0),
+        BitField("CR_flag", 0, 4),
+        BitField("instance", 0, 4),
+        BitField("SPARE", 0, 2),
+        BitField("LAI_Present", 0, 1),
+        BitField("ECGI_Present", 0, 1),
+        BitField("TAI_Present", 0, 1),
+        BitField("RAI_Present", 0, 1),
+        BitField("SAI_Present", 0, 1),
+        BitField("CGI_Present", 0, 1),
         ConditionalField(
-        PacketField("RAI", 0, ULI_RAI), lambda pkt: bool(pkt.RAI_Present)),
+            PacketField("CGI", 0, ULI_CGI),
+            lambda pkt: bool(pkt.CGI_Present)),
         ConditionalField(
-        PacketField("TAI", 0, ULI_TAI), lambda pkt: bool(pkt.TAI_Present)),
-        ConditionalField(PacketField("ECGI", 0, ULI_ECGI),
-                         lambda pkt: bool(pkt.ECGI_Present))]
+            PacketField("SAI", 0, ULI_SAI),
+            lambda pkt: bool(pkt.SAI_Present)),
+        ConditionalField(
+            PacketField("RAI", 0, ULI_RAI),
+            lambda pkt: bool(pkt.RAI_Present)),
+        ConditionalField(
+            PacketField("TAI", 0, ULI_TAI),
+            lambda pkt: bool(pkt.TAI_Present)),
+        ConditionalField(
+            PacketField("ECGI", 0, ULI_ECGI),
+            lambda pkt: bool(pkt.ECGI_Present)),
+        ConditionalField(
+            PacketField("LAI", 0, ULI_LAI),
+            lambda pkt: bool(pkt.LAI_Present)),
+    ]
+
+
+# 3GPP TS 29.274 v12.12.0 section 8.22
+INTERFACE_TYPES = {
+    0: "S1-U eNodeB GTP-U interface",
+    1: "S1-U SGW GTP-U interface",
+    2: "S12 RNC GTP-U interface",
+    3: "S12 SGW GTP-U interface",
+    4: "S5/S8 SGW GTP-U interface",
+    5: "S5/S8 PGW GTP-U interface",
+    6: "S5/S8 SGW GTP-C interface",
+    7: "S5/S8 PGW GTP-C interface",
+    8: "S5/S8 SGW PMIPv6 interface",
+    9: "S5/S8 PGW PMIPv6 interface",
+    10: "S11 MME GTP-C interface",
+    11: "S11/S4 SGW GTP-C interface",
+    12: "S10 MME GTP-C interface",
+    13: "S3 MME GTP-C interface",
+    14: "S3 SGSN GTP-C interface",
+    15: "S4 SGSN GTP-U interface",
+    16: "S4 SGW GTP-U interface",
+    17: "S4 SGSN GTP-C interface",
+    18: "S16 SGSN GTP-C interface",
+    19: "eNodeB GTP-U interface for DL data forwarding",
+    20: "eNodeB GTP-U interface for UL data forwarding",
+    21: "RNC GTP-U interface for data forwarding",
+    22: "SGSN GTP-U interface for data forwarding",
+    23: "SGW GTP-U interface for DL data forwarding",
+    24: "Sm MBMS GW GTP-C interface",
+    25: "Sn MBMS GW GTP-C interface",
+    26: "Sm MME GTP-C interface",
+    27: "Sn SGSN GTP-C interface",
+    28: "SGW GTP-U interface for UL data forwarding",
+    29: "Sn SGSN GTP-U interface",
+    30: "S2b ePDG GTP-C interface",
+    31: "S2b-U ePDG GTP-U interface",
+    32: "S2b PGW GTP-C interface",
+    33: "S2b-U PGW GTP-U interface",
+    34: "S2a TWAN GTP-U interface",
+    35: "S2a TWAN GTP-C interface",
+    36: "S2a PGW GTP-C interface",
+    37: "S2a PGW GTP-U interface",
+}
 
 
 class IE_FTEID(gtp.IE_Base):
@@ -249,7 +463,7 @@ class IE_FTEID(gtp.IE_Base):
                    BitField("instance", 0, 4),
                    BitField("ipv4_present", 0, 1),
                    BitField("ipv6_present", 0, 1),
-                   BitField("InterfaceType", 0, 6),
+                   BitEnumField("InterfaceType", 0, 6, INTERFACE_TYPES),
                    XIntField("GRE_Key", 0),
                    ConditionalField(
         IPField("ipv4", RandIP()), lambda pkt: pkt.ipv4_present),
@@ -271,6 +485,8 @@ class IE_NotImplementedTLV(gtp.IE_Base):
     name = "IE not implemented"
     fields_desc = [ByteEnumField("ietype", 0, IEType),
                    ShortField("length", None),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
                    StrLenField("data", "", length_from=lambda x: x.length)]
 
 
@@ -284,13 +500,112 @@ class IE_IMSI(gtp.IE_Base):
                                      length_from=lambda x: x.length)]
 
 
+# 3GPP TS 29.274 v16.1.0 table 8.4-1
+CAUSE_VALUES = {
+    # 0: Reserved. Shall not be sent and if received the Cause shall be treated
+    #    as an invalid IE.
+    # 1: Reserved.
+    2: "Local Detach",
+    3: "Complete Detach",
+    4: "RAT changed from 3GPP to Non-3GPP",
+    5: "ISR deactivation",
+    6: "Error Indication received from RNC/eNodeB/S4-SGSN/MME",
+    7: "IMSI Detach Only",
+    8: "Reactivation Requested",
+    9: "PDN reconnection to this APN disallowed",
+    10: "Access changed from Non-3GPP to 3GPP",
+    11: "PDN connection inactivity timer expires",
+    12: "PGW not responding",
+    13: "Network Failure",
+    14: "QoS parameter mismatch",
+    15: "EPS to 5GS Mobility",
+    16: "Request accepted",
+    17: "Request accepted partially",
+    18: "New PDN type due to network preference",
+    19: "New PDN type due to single address bearer only",
+    # 20-63: Spare. This value range shall be used by Cause values in an
+    #        acceptance response/triggered message.
+    64: "Context Not Found",
+    65: "Invalid Message Format",
+    66: "Version not supported by next peer",
+    67: "Invalid length",
+    68: "Service not supported",
+    69: "Mandatory IE incorrect",
+    70: "Mandatory IE missing",
+    # 71: Shall not be used. See NOTE 2 and NOTE 3.
+    72: "System failure",
+    73: "No resources available",
+    74: "Semantic error in the TFT operation",
+    75: "Syntactic error in the TFT operation",
+    76: "Semantic errors in packet filter(s)",
+    77: "Syntactic errors in packet filter(s)",
+    78: "Missing or unknown APN",
+    # 79: Shall not be used. See NOTE 2 and NOTE 3.
+    80: "GRE key not found",
+    81: "Relocation failure",
+    82: "Denied in RAT",
+    83: "Preferred PDN type not supported",
+    84: "All dynamic addresses are occupied",
+    85: "UE context without TFT already activated",
+    86: "Protocol type not supported",
+    87: "UE not responding",
+    88: "UE refuses",
+    89: "Service denied",
+    90: "Unable to page UE",
+    91: "No memory available",
+    92: "User authentication failed",
+    93: "APN access denied - no subscription",
+    94: "Request rejected (reason not specified)",
+    95: "P-TMSI Signature mismatch",
+    96: "IMSI/IMEI not known",
+    97: "Semantic error in the TAD operation",
+    98: "Syntactic error in the TAD operation",
+    # 99: Shall not be used. See NOTE 2 and NOTE 3.
+    100: "Remote peer not responding",
+    101: "Collision with network initiated request",
+    102: "Unable to page UE due to Suspension",
+    103: "Conditional IE missing",
+    104: "APN Restriction type Incompatible with currently active PDN "
+         "connection",
+    105: "Invalid overall length of the triggered response message and a "
+         "piggybacked initial message",
+    106: "Data forwarding not supported",
+    107: "Invalid reply from remote peer",
+    108: "Fallback to GTPv1",
+    109: "Invalid peer",
+    110: "Temporarily rejected due to handover/TAU/RAU procedure in progress",
+    111: "Modifications not limited to S1-U bearers",
+    112: "Request rejected for a PMIPv6 reason",
+    113: "APN Congestion",
+    114: "Bearer handling not supported",
+    115: "UE already re-attached",
+    116: "Multiple PDN connections for a given APN not allowed",
+    117: "Target access restricted for the subscriber",
+    # 118: Shall not be used. See NOTE 2 and NOTE 3.
+    119: "MME/SGSN refuses due to VPLMN Policy",
+    120: "GTP-C Entity Congestion",
+    121: "Late Overlapping Request",
+    122: "Timed out Request",
+    123: "UE is temporarily not reachable due to power saving",
+    124: "Relocation failure due to NAS message redirection",
+    125: "UE not authorised by OCS or external AAA Server",
+    126: "Multiple accesses to a PDN connection not allowed",
+    127: "Request rejected due to UE capability",
+    128: "S1-U Path Failure",
+    129: "5GC not allowed",
+    # 130-239: Spare. For future use in a triggered/response message.
+    #          See NOTE 4.
+    # 240-255: Spare. For future use in an initial/request message. See NOTE 5.
+}
+
+
 class IE_Cause(gtp.IE_Base):
     name = "IE Cause"
     fields_desc = [ByteEnumField("ietype", 2, IEType),
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   ByteEnumField("Cause", 1, CauseValues),
+                   ByteEnumField("Cause", 1, CAUSE_VALUES),
                    BitField("SPARE", 0, 5),
                    BitField("PCE", 0, 1),
                    BitField("BCE", 0, 1),
@@ -337,7 +652,7 @@ class IE_MSISDN(gtp.IE_Base):
 
 
 class IE_Indication(gtp.IE_Base):
-    name = "IE Cause"
+    name = "IE Indication"
     fields_desc = [ByteEnumField("ietype", 77, IEType),
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
@@ -758,6 +1073,21 @@ class IE_MMBR(gtp.IE_Base):
                    IntField("downlink_rate", 0)]
 
 
+# 3GPP TS 29.274 v16.1.0 section 8.67.
+class IE_PrivateExtension(gtp.IE_Base):
+    name = "Private Extension"
+    fields_desc = [
+        ByteEnumField("ietype", 255, IEType),
+        ShortField("length", None),
+        BitField("SPARE", 0, 4),
+        BitField("instance", 0, 4),
+        ShortEnumField("enterprisenum", None, IANA_ENTERPRISE_NUMBERS),
+    ]
+
+    def extract_padding(self, s):
+        return s[:self.length], ''
+
+
 ietypecls = {1: IE_IMSI,
              2: IE_Cause,
              3: IE_RecoveryRestart,
@@ -783,7 +1113,8 @@ ietypecls = {1: IE_IMSI,
              126: IE_Port_Number,
              127: IE_APN_Restriction,
              128: IE_SelectionMode,
-             161: IE_MMBR}
+             161: IE_MMBR,
+             255: IE_PrivateExtension}
 
 #
 # GTPv2 Commands

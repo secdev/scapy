@@ -7,4 +7,6 @@ MANIFEST
 scapy/VERSION
 test/*.html
 .tox
+.mypy_cache
 doc/scapy/_build
+doc/scapy/api

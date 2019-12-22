@@ -26,7 +26,7 @@ import tempfile
 import threading
 
 import scapy.modules.six as six
-from scapy.modules.six.moves import range
+from scapy.modules.six.moves import range, input
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS, WINDOWS_XP, OPENBSD
@@ -49,6 +49,43 @@ def issubtype(x, t):
     is a shortcut for issubtype(X, A) or issubtype(X, B) or ... (etc.).
     """
     return isinstance(x, type) and issubclass(x, t)
+
+
+class EDecimal(Decimal):
+    """Extended Decimal
+
+    This implement comparison with float for backward compatibility
+    """
+
+    def __add__(self, other, **kwargs):
+        return EDecimal(Decimal.__add__(self, other, **kwargs))
+
+    def __sub__(self, other, **kwargs):
+        return EDecimal(Decimal.__sub__(self, other, **kwargs))
+
+    def __mul__(self, other, **kwargs):
+        return EDecimal(Decimal.__mul__(self, other, **kwargs))
+
+    def __truediv__(self, other, **kwargs):
+        return EDecimal(Decimal.__truediv__(self, other, **kwargs))
+
+    def __floordiv__(self, other, **kwargs):
+        return EDecimal(Decimal.__floordiv__(self, other, **kwargs))
+
+    def __div__(self, other, **kwargs):
+        return EDecimal(Decimal.__div__(self, other, **kwargs))
+
+    def __mod__(self, other, **kwargs):
+        return EDecimal(Decimal.__mod__(self, other, **kwargs))
+
+    def __divmod__(self, other, **kwargs):
+        return EDecimal(Decimal.__divmod__(self, other, **kwargs))
+
+    def __pow__(self, other, **kwargs):
+        return EDecimal(Decimal.__pow__(self, other, **kwargs))
+
+    def __eq__(self, other, **kwargs):
+        return super(EDecimal, self).__eq__(other) or float(self) == other
 
 
 def get_temp_file(keep=False, autoext="", fd=False):
@@ -533,29 +570,38 @@ def itom(x):
 
 class ContextManagerSubprocess(object):
     """
-    Context manager that eases checking for unknown command.
+    Context manager that eases checking for unknown command, without
+    crashing.
 
     Example:
-    >>> with ContextManagerSubprocess("my custom message", "unknown_command"):
-    >>>     subprocess.Popen(["unknown_command"])
+    >>> with ContextManagerSubprocess("tcpdump"):
+    >>>     subprocess.Popen(["tcpdump", "--version"])
+    ERROR: Could not execute tcpdump, is it installed?
 
     """
 
-    def __init__(self, name, prog):
-        self.name = name
+    def __init__(self, prog, suppress=True):
         self.prog = prog
+        self.suppress = suppress
 
     def __enter__(self):
         pass
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if isinstance(exc_value, (OSError, TypeError)):
-            msg = "%s: executing %r failed" % (self.name, self.prog) if self.prog else "Could not execute %s, is it installed ?" % self.name  # noqa: E501
-            if not conf.interactive:
-                raise OSError(msg)
-            else:
-                log_runtime.error(msg, exc_info=True)
-                return True  # Suppress the exception
+        if exc_value is None:
+            return
+        # Errored
+        if isinstance(exc_value, EnvironmentError):
+            msg = "Could not execute %s, is it installed?" % self.prog
+        else:
+            msg = "%s: execution failed (%s)" % (
+                self.prog,
+                exc_type.__class__.__name__
+            )
+        if not self.suppress:
+            raise exc_type(msg)
+        log_runtime.error(msg, exc_info=True)
+        return True  # Suppress the exception
 
 
 class ContextManagerCaptureOutput(object):
@@ -629,7 +675,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None,
             target = get_temp_file(autoext="." + format)
             start_viewer = True
         else:
-            with ContextManagerSubprocess("do_graph()", conf.prog.display):
+            with ContextManagerSubprocess(conf.prog.display):
                 target = subprocess.Popen([conf.prog.display],
                                           stdin=subprocess.PIPE).stdin
     if format is not None:
@@ -663,7 +709,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None,
             if conf.prog.display == conf.prog._default:
                 os.startfile(target.name)
             else:
-                with ContextManagerSubprocess("do_graph()", conf.prog.display):
+                with ContextManagerSubprocess(conf.prog.display):
                     subprocess.Popen([conf.prog.display, target.name])
 
 
@@ -1055,7 +1101,7 @@ class PcapReader(RawPcapReader):
                 raise
             p = conf.raw_layer(s)
         power = Decimal(10) ** Decimal(-9 if self.nano else -6)
-        p.time = Decimal(pkt_info.sec + power * pkt_info.usec)
+        p.time = EDecimal(pkt_info.sec + power * pkt_info.usec)
         p.wirelen = pkt_info.wirelen
         return p
 
@@ -1069,8 +1115,8 @@ class PcapReader(RawPcapReader):
 
 
 class RawPcapNgReader(RawPcapReader):
-    """A stateful pcapng reader. Each packet is returned as a
-    string.
+    """A stateful pcapng reader. Each packet is returned as
+    bytes.
 
     """
 
@@ -1085,6 +1131,9 @@ class RawPcapNgReader(RawPcapReader):
         self.f = fdesc
         # A list of (linktype, snaplen, tsresol); will be populated by IDBs.
         self.interfaces = []
+        self.default_options = {
+            "tsresol": 1000000
+        }
         self.blocktypes = {
             1: self.read_block_idb,
             2: self.read_block_pkt,
@@ -1103,6 +1152,12 @@ class RawPcapNgReader(RawPcapReader):
             self.endian = "<"
         else:
             raise Scapy_Exception("Not a pcapng capture file (bad magic)")
+        self.f.read(12)
+        blocklen = struct.unpack("!I", blocklen)[0]
+        # Read default options
+        self.default_options = self.read_options(
+            self.f.read(blocklen - 24)
+        )
         try:
             self.f.seek(0)
         except Exception:
@@ -1136,10 +1191,9 @@ class RawPcapNgReader(RawPcapReader):
             if res is not None:
                 return res
 
-    def read_block_idb(self, block, _):
-        """Interface Description Block"""
-        options = block[16:]
-        tsresol = 1000000
+    def read_options(self, options):
+        """Section Header Block"""
+        opts = self.default_options.copy()
         while len(options) >= 4:
             code, length = struct.unpack(self.endian + "HH", options[:4])
             # PCAP Next Generation (pcapng) Capture File Format
@@ -1147,7 +1201,9 @@ class RawPcapNgReader(RawPcapReader):
             # http://xml2rfc.tools.ietf.org/cgi-bin/xml2rfc.cgi?url=https://raw.githubusercontent.com/pcapng/pcapng/master/draft-tuexen-opsawg-pcapng.xml&modeAsFormat=html/ascii&type=ascii#rfc.section.4.2
             if code == 9 and length == 1 and len(options) >= 5:
                 tsresol = orb(options[4])
-                tsresol = (2 if tsresol & 128 else 10) ** (tsresol & 127)
+                opts["tsresol"] = (2 if tsresol & 128 else 10) ** (
+                    tsresol & 127
+                )
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option length %d for end-of-option" % length)  # noqa: E501
@@ -1155,8 +1211,13 @@ class RawPcapNgReader(RawPcapReader):
             if length % 4:
                 length += (4 - (length % 4))
             options = options[4 + length:]
+        return opts
+
+    def read_block_idb(self, block, _):
+        """Interface Description Block"""
+        options = self.read_options(block[16:])
         self.interfaces.append(struct.unpack(self.endian + "HxxI", block[:8]) +
-                               (tsresol,))
+                               (options["tsresol"],))
 
     def read_block_epb(self, block, size):
         """Enhanced Packet Block"""
@@ -1221,7 +1282,7 @@ class PcapNgReader(RawPcapNgReader):
                 raise
             p = conf.raw_layer(s)
         if tshigh is not None:
-            p.time = float((tshigh << 32) + tslow) / tsresol
+            p.time = EDecimal((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
         return p
 
@@ -1516,9 +1577,10 @@ def _guess_linktype_value(name):
 
 
 @conf.commands.register
-def tcpdump(pktlist, dump=False, getfd=False, args=None,
+def tcpdump(pktlist=None, dump=False, getfd=False, args=None,
             prog=None, getproc=False, quiet=False, use_tempfile=None,
-            read_stdin_opts=None, linktype=None, wait=True):
+            read_stdin_opts=None, linktype=None, wait=True,
+            _suppress=False):
     """Run tcpdump or tshark on a list of packets.
 
     When using ``tcpdump`` on OSX (``prog == conf.prog.tcpdump``), this uses a
@@ -1604,17 +1666,15 @@ def tcpdump(pktlist, dump=False, getfd=False, args=None,
     """
     getfd = getfd or getproc
     if prog is None:
+        if not conf.prog.tcpdump:
+            raise Scapy_Exception(
+                "tcpdump is not available"
+            )
         prog = [conf.prog.tcpdump]
-        _prog_name = "windump()" if WINDOWS else "tcpdump()"
     elif isinstance(prog, six.string_types):
-        _prog_name = "{}()".format(prog)
         prog = [prog]
     else:
         raise ValueError("prog must be a string")
-    from scapy.arch.common import TCPDUMP
-    if prog[0] == conf.prog.tcpdump and not TCPDUMP:
-        message = "tcpdump is not available. Cannot use tcpdump() !"
-        raise Scapy_Exception(message)
 
     if linktype is not None:
         # Tcpdump does not support integers in -y (yet)
@@ -1649,6 +1709,7 @@ def tcpdump(pktlist, dump=False, getfd=False, args=None,
 
     stdout = subprocess.PIPE if dump or getfd else None
     stderr = open(os.devnull) if quiet else None
+    proc = None
 
     if use_tempfile is None:
         # Apple's tcpdump cannot read from stdin, see:
@@ -1667,7 +1728,7 @@ def tcpdump(pktlist, dump=False, getfd=False, args=None,
 
     if pktlist is None:
         # sniff
-        with ContextManagerSubprocess(_prog_name, prog[0]):
+        with ContextManagerSubprocess(prog[0], suppress=_suppress):
             proc = subprocess.Popen(
                 prog + args,
                 stdout=stdout,
@@ -1675,7 +1736,7 @@ def tcpdump(pktlist, dump=False, getfd=False, args=None,
             )
     elif isinstance(pktlist, six.string_types):
         # file
-        with ContextManagerSubprocess(_prog_name, prog[0]):
+        with ContextManagerSubprocess(prog[0], suppress=_suppress):
             proc = subprocess.Popen(
                 prog + ["-r", pktlist] + args,
                 stdout=stdout,
@@ -1689,7 +1750,7 @@ def tcpdump(pktlist, dump=False, getfd=False, args=None,
             wrpcap(tmpfile, pktlist, linktype=linktype)
         else:
             tmpfile.close()
-        with ContextManagerSubprocess(_prog_name, prog[0]):
+        with ContextManagerSubprocess(prog[0], suppress=_suppress):
             proc = subprocess.Popen(
                 prog + ["-r", tmpfile.name] + args,
                 stdout=stdout,
@@ -1697,21 +1758,28 @@ def tcpdump(pktlist, dump=False, getfd=False, args=None,
             )
     else:
         # pass the packet stream
-        with ContextManagerSubprocess(_prog_name, prog[0]):
+        with ContextManagerSubprocess(prog[0], suppress=_suppress):
             proc = subprocess.Popen(
                 prog + read_stdin_opts + args,
                 stdin=subprocess.PIPE,
                 stdout=stdout,
                 stderr=stderr,
             )
+            if proc is None:
+                # An error has occurred
+                return
         try:
             proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
             wrpcap(proc.stdin, pktlist, linktype=linktype)
         except UnboundLocalError:
-            raise IOError("%s died unexpectedly !" % prog)
+            # The error was handled by ContextManagerSubprocess
+            pass
         else:
             proc.stdin.close()
+    if proc is None:
+        # An error has occurred
+        return
     if dump:
         return b"".join(iter(lambda: proc.stdout.read(1048576), b""))
     if getproc:
@@ -1727,7 +1795,7 @@ def hexedit(pktlist):
     """Run hexedit on a list of packets, then return the edited packets."""
     f = get_temp_file()
     wrpcap(f, pktlist)
-    with ContextManagerSubprocess("hexedit()", conf.prog.hexedit):
+    with ContextManagerSubprocess(conf.prog.hexedit):
         subprocess.call([conf.prog.hexedit, f])
     pktlist = rdpcap(f)
     os.unlink(f)

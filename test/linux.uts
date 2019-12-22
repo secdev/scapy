@@ -36,22 +36,6 @@ x is not None and ICMP in x and x[ICMP].type == 0
 #select.select([socket],[],[],2)
 #_flush_fd(socket.ins)
 
-= Test legacy attach_filter function
-~ tcpdump
-import mock
-from scapy.arch.common import get_bpf_pointer
-
-tcpdump_lines = ['12\n', '40 0 0 12\n', '21 0 5 34525\n', '48 0 0 20\n', '21 6 0 6\n', '21 0 6 44\n', '48 0 0 54\n', '21 3 4 6\n', '21 0 3 2048\n', '48 0 0 23\n', '21 0 1 6\n', '6 0 0 1600\n', '6 0 0 0\n']
-
-@mock.patch("scapy.arch.common.conf", Bunch(use_pypy=True))
-def _test_get_bpf_pointer():
-    pointer = get_bpf_pointer(tcpdump_lines)
-    assert isinstance(pointer, str)
-    assert len(pointer) > 1
-
-if six.PY2:
-    _test_get_bpf_pointer()
-
 = Interface aliases & sub-interfaces
 ~ linux needs_root
 
@@ -308,15 +292,6 @@ if six.PY3:
         l3ps.send(IP(dst="8.8.8.8")/ICMP())
         return True
     assert test_L3PacketSocket_sendto_python3()
-
-= Test _check_tcpdump()
-
-from scapy.arch.common import _check_tcpdump
-
-saved_conf_prog_tcpdump = conf.prog.tcpdump
-conf.prog.tcpdump = "does_not_exist"
-assert _check_tcpdump() == False
-conf.prog.tcpdump = saved_conf_prog_tcpdump
 
 = Test _interface_selection
 ~ netaccess linux needs_root

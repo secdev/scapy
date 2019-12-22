@@ -4,11 +4,23 @@ matrix:
     include:
         # PEP 8 checks, build doc and grammar spelling check
         - os: linux
-          python: 3.6
+          python: 3.8
           env:
-            - TOXENV=mypy,flake8,twine,docs,spell
-       
-        # Run as a regular user
+            - TOXENV=flake8,spell,twine
+
+        - os: linux
+          python: 3.8
+          env:
+            - TOXENV=docs
+
+        - os: linux
+          python: 3.8
+          env:
+            - TOXENV=mypy
+
+        # Tests that run without root.
+        # We only keep reduced because how similar to real tests they are
+
         - os: linux
           python: 2.7
           env:
@@ -20,25 +32,10 @@ matrix:
             - TOXENV=py27-linux_non_root_old-cryptography,codecov
 
         - os: linux
-          python: 3.4
-          env:
-            - TOXENV=py34-linux_non_root,codecov
-
-        - os: linux
-          python: 3.5
-          env:
-            - TOXENV=py35-linux_non_root,codecov
-
-        - os: linux
-          python: 3.6
-          env:
-            - TOXENV=py36-linux_non_root,codecov
-
-        - os: linux
           dist: xenial
-          python: 3.7
+          python: 3.8
           env:
-            - TOXENV=py37-linux_non_root,codecov
+            - TOXENV=py38-linux_non_root,codecov
 
         - os: linux
           python: pypy
@@ -56,7 +53,8 @@ matrix:
             - TOXENV=py27-bsd_non_root,codecov
 
         # Run as root
-        - os: linux
+        - language: python
+          dist: trusty
           python: 2.7
           env:
             - TOXENV=py27-linux_root,codecov
@@ -68,22 +66,26 @@ matrix:
 
 # Note: a bug in pypy3 <= 5.10.1 prevents from using Scapy to inject packets
 #       see https://bitbucket.org/pypy/pypy/issues/2787/pypy3-sockname-error
-#        - os: linux
-#          python: pypy3
-#          env:
-#            - TOXENV=pypy3-linux_root,codecov
 
         - os: linux
+          python: pypy3
+          env:
+            - TOXENV=pypy3-linux_root,codecov
+
+        - language: python
+          dist: trusty
           python: 3.4
           env:
             - TOXENV=py34-linux_root,codecov
 
-        - os: linux
+        - language: python
+          dist: trusty
           python: 3.5
           env:
             - TOXENV=py35-linux_root,codecov
 
-        - os: linux
+        - language: python
+          dist: trusty
           python: 3.6
           env:
             - TOXENV=py36-linux_root,codecov
@@ -94,6 +96,12 @@ matrix:
           env:
             - TOXENV=py37-linux_root,codecov
 
+        - language: python
+          dist: xenial
+          python: 3.8
+          env:
+            - TOXENV=py38-linux_root,codecov
+
         - os: linux
           python: 2.7
           virtualenv:
@@ -101,7 +109,8 @@ matrix:
           env:
             - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes TOXENV=py27-pcapdnet_root,codecov
         
-        - os: linux
+        - language: python
+          dist: trusty
           python: 3.6
           env:
             - SCAPY_SUDO=sudo TOXENV=py36-isotp_kernel_module,codecov

@@ -158,9 +158,6 @@ class ASN1F_field(ASN1F_element):
     def get_fields_list(self):
         return [self]
 
-    def __hash__(self):
-        return hash(self.name)
-
     def __str__(self):
         return repr(self)
 

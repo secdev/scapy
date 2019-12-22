@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
@@ -102,7 +100,7 @@ class UDS(ISOTP):
         if self.service == (other.service + 0x40):
             if isinstance(self.payload, NoPayload) or \
                     isinstance(other.payload, NoPayload):
-                return True
+                return len(self) <= len(other)
             else:
                 return self.payload.answers(other.payload)
         return False
@@ -115,13 +113,13 @@ class UDS(ISOTP):
 
 # ########################DSC###################################
 class UDS_DSC(Packet):
-    diagnosticSessionTypes = {
+    diagnosticSessionTypes = ObservableDict({
         0x00: 'ISOSAEReserved',
         0x01: 'defaultSession',
         0x02: 'programmingSession',
         0x03: 'extendedDiagnosticSession',
         0x04: 'safetySystemDiagnosticSession',
-        0x7F: 'ISOSAEReserved'}
+        0x7F: 'ISOSAEReserved'})
     name = 'DiagnosticSessionControl'
     fields_desc = [
         ByteEnumField('diagnosticSessionType', 0, diagnosticSessionTypes)
@@ -564,7 +562,7 @@ class UDS_RDBI(Packet):
     dataIdentifiers = ObservableDict()
     name = 'ReadDataByIdentifier'
     fields_desc = [
-        FieldListField("identifiers", [],
+        FieldListField("identifiers", [0],
                        XShortEnumField('dataIdentifier', 0,
                                        dataIdentifiers))
     ]
@@ -652,8 +650,9 @@ bind_layers(UDS, UDS_RMBAPR, service=0x63)
 # #########################RSDBI###################################
 class UDS_RSDBI(Packet):
     name = 'ReadScalingDataByIdentifier'
+    dataIdentifiers = ObservableDict()
     fields_desc = [
-        XShortField('dataIdentifier', 0)
+        XShortEnumField('dataIdentifier', 0, dataIdentifiers)
     ]
 
 
@@ -664,7 +663,7 @@ bind_layers(UDS, UDS_RSDBI, service=0x24)
 class UDS_RSDBIPR(Packet):
     name = 'ReadScalingDataByIdentifierPositiveResponse'
     fields_desc = [
-        XShortField('dataIdentifier', 0),
+        XShortEnumField('dataIdentifier', 0, UDS_RSDBI.dataIdentifiers),
         ByteField('scalingByte', 0),
         StrField('dataRecord', None, fmt="B")
     ]
@@ -718,8 +717,11 @@ bind_layers(UDS, UDS_RDBPIPR, service=0x6A)
 # instead of using just the dataRecord
 class UDS_DDDI(Packet):
     name = 'DynamicallyDefineDataIdentifier'
+    subFunctions = {0x1: "defineByIdentifier",
+                    0x2: "defineByMemoryAddress",
+                    0x3: "clearDynamicallyDefinedDataIdentifier"}
     fields_desc = [
-        ByteField('definitionMode', 0),
+        ByteEnumField('subFunction', 0, subFunctions),
         StrField('dataRecord', 0, fmt="B")
     ]
 
@@ -730,13 +732,13 @@ bind_layers(UDS, UDS_DDDI, service=0x2C)
 class UDS_DDDIPR(Packet):
     name = 'DynamicallyDefineDataIdentifierPositiveResponse'
     fields_desc = [
-        ByteField('definitionMode', 0),
+        ByteEnumField('subFunction', 0, UDS_DDDI.subFunctions),
         XShortField('dynamicallyDefinedDataIdentifier', 0)
     ]
 
     def answers(self, other):
         return other.__class__ == UDS_DDDI \
-            and other.definitionMode == self.definitionMode
+            and other.subFunction == self.subFunction
 
 
 bind_layers(UDS, UDS_DDDIPR, service=0x6C)
@@ -995,10 +997,11 @@ class UDS_RC(Packet):
         2: 'stopRoutine',
         3: 'requestRoutineResults'
     }
+    routineControlIdentifiers = ObservableDict()
     name = 'RoutineControl'
     fields_desc = [
         ByteEnumField('routineControlType', 0, routineControlTypes),
-        XShortField('routineIdentifier', 0),
+        XShortEnumField('routineIdentifier', 0, routineControlIdentifiers),
         StrField('routineControlOptionRecord', 0, fmt="B"),
     ]
 
@@ -1018,7 +1021,8 @@ class UDS_RCPR(Packet):
     fields_desc = [
         ByteEnumField('routineControlType', 0,
                       UDS_RC.routineControlTypes),
-        XShortField('routineIdentifier', 0),
+        XShortEnumField('routineIdentifier', 0,
+                        UDS_RC.routineControlIdentifiers),
         StrField('routineStatusRecord', 0, fmt="B"),
     ]
 
@@ -1039,9 +1043,9 @@ bind_layers(UDS, UDS_RCPR, service=0x71)
 
 # #########################RD###################################
 class UDS_RD(Packet):
-    dataFormatIdentifiers = {
+    dataFormatIdentifiers = ObservableDict({
         0: 'noCompressionNoEncryption'
-    }
+    })
     name = 'RequestDownload'
     fields_desc = [
         ByteEnumField('dataFormatIdentifier', 0, dataFormatIdentifiers),
@@ -1222,8 +1226,9 @@ bind_layers(UDS, UDS_RTEPR, service=0x77)
 # #########################IOCBI###################################
 class UDS_IOCBI(Packet):
     name = 'InputOutputControlByIdentifier'
+    dataIdentifiers = ObservableDict()
     fields_desc = [
-        XShortField('dataIdentifier', 0),
+        XShortEnumField('dataIdentifier', 0, dataIdentifiers),
         ByteField('controlOptionRecord', 0),
         StrField('controlEnableMaskRecord', 0, fmt="B")
     ]
@@ -1377,7 +1382,7 @@ def UDS_ServiceEnumerator(sock, session="DefaultSession",
     found_services = sock.sr(pkts, timeout=5, verbose=False)
     return [(session, p) for _, p in found_services[0] if
             p.service != 0x7f or
-            (p.negativeResponseCode not in [0x10, 0x11, 0x12] or not
+            (p.negativeResponseCode not in [0x10, 0x11] or not
             filter_responses)]
 
 

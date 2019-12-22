@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # This file is part of Scapy
 # Scapy is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -163,7 +161,7 @@ class IGMPv3mr(Packet):
 
 
 class IGMPv3mra(Packet):
-    """IGMP Multicas Router Advertisement extension for IGMPv3.
+    """IGMP Multicast Router Advertisement extension for IGMPv3.
     Payload of IGMPv3 when type=0x30"""
     name = "IGMPv3mra"
     fields_desc = [ShortField("qryIntvl", 0),

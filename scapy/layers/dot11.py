@@ -35,7 +35,8 @@ from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
     StrLenField, IntField, XByteField, LEIntField, StrFixedLenField, \
     LESignedIntField, ReversePadField, ConditionalField, PacketListField, \
     ShortField, BitEnumField, FieldLenField, LEFieldLenField, \
-    FieldListField, XStrFixedLenField, PacketField, FCSField
+    FieldListField, XStrFixedLenField, PacketField, FCSField, \
+    ScalingField
 from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
 from scapy.layers.l2 import Ether, LLC, MACField
@@ -115,26 +116,19 @@ class PrismHeader(Packet):
 
 class _RadiotapReversePadField(ReversePadField):
     def __init__(self, fld):
-        self._fld = fld
-        self._padwith = b"\x00"
         # Quote from https://www.radiotap.org/:
         # ""Radiotap requires that all fields in the radiotap header are aligned to natural boundaries.  # noqa: E501
         # For radiotap, that means all 8-, 16-, 32-, and 64-bit fields must begin on 8-, 16-, 32-, and 64-bit boundaries, respectively.""  # noqa: E501
-        if isinstance(self._fld, BitField):
-            self._align = int(math.ceil(self.i2len(None, None)))
+        if isinstance(fld, BitField):
+            _align = int(math.ceil(fld.i2len(None, None)))
         else:
-            self._align = struct.calcsize(self._fld.fmt)
-
-
-class _dbmField(ByteField):
-    def i2m(self, pkt, x):
-        return super(ByteField, self).i2m(pkt, x + 256)
-
-    def m2i(self, pkt, x):
-        return super(ByteField, self).m2i(pkt, x) - 256
-
-    def i2repr(self, pkt, x):
-        return "%sdBm" % x
+            _align = struct.calcsize(fld.fmt)
+        ReversePadField.__init__(
+            self,
+            fld,
+            _align,
+            padwith=b"\x00"
+        )
 
 
 def _next_radiotap_extpm(pkt, lst, cur, s):
@@ -292,13 +286,17 @@ class RadioTap(Packet):
         # dBm_AntSignal
         ConditionalField(
             _RadiotapReversePadField(
-                _dbmField("dBm_AntSignal", -256)
+                ScalingField("dBm_AntSignal", 0,
+                             offset=-256, unit="dBm",
+                             fmt="B")
              ),
             lambda pkt: pkt.present and pkt.present.dBm_AntSignal),
         # dBm_AntNoise
         ConditionalField(
             _RadiotapReversePadField(
-                _dbmField("dBm_AntNoise", -256)
+                ScalingField("dBm_AntNoise", 0,
+                             offset=-256, unit="dBm",
+                             fmt="B")
              ),
             lambda pkt: pkt.present and pkt.present.dBm_AntNoise),
         # Lock_Quality
@@ -477,15 +475,18 @@ class RadioTap(Packet):
             lambda pkt: pkt.present and pkt.present.L_SIG),
         # Remaining
         StrLenField('notdecoded', "",
-                    length_from=lambda pkt: max(
-                        pkt.len - pkt._tmp_dissect_pos, 0
-                    ))
+                    length_from=lambda pkt: 0)
     ]
 
     def guess_payload_class(self, payload):
         if self.present and self.present.Flags and self.Flags.FCS:
             return Dot11FCS
         return Dot11
+
+    def post_dissect(self, s):
+        length = max(self.len - len(self.original) + len(s), 0)
+        self.notdecoded = s[:length]
+        return s[length:]
 
     def post_build(self, p, pay):
         if self.len is None:
@@ -906,7 +907,7 @@ class Dot11EltCountry(Dot11Elt):
         ),
         ConditionalField(
             ByteField("pad", 0),
-            lambda pkt: (pkt.len + 1) % 2
+            lambda pkt: (len(pkt.descriptors) + 1) % 2
         )
     ]
 

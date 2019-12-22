@@ -345,7 +345,7 @@ def read_routes6():
 
     lifaddr = in6_getifaddr()
     for line in f.readlines():
-        d, dp, s, sp, nh, metric, rc, us, fl, dev = line.split()
+        d, dp, _, _, nh, metric, rc, us, fl, dev = line.split()
         metric = int(metric, 16)
         fl = int(fl, 16)
         dev = plain_str(dev)
@@ -357,8 +357,6 @@ def read_routes6():
 
         d = proc2r(d)
         dp = int(dp, 16)
-        s = proc2r(s)
-        sp = int(sp, 16)
         nh = proc2r(nh)
 
         cset = []  # candidate set (possible source addresses)

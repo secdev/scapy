@@ -9,8 +9,6 @@
     "contrib\\*.uts"
   ],
   "remove_testfiles": [
-    "contrib\\cansocket_native.uts",
-    "contrib\\cansocket_python_can.uts",
     "bpf.uts",
     "linux.uts"
   ],
