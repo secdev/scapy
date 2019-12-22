@@ -387,17 +387,6 @@ def isCryptographyValid():
     return _version_checker(cryptography, (1, 7))
 
 
-def isCryptographyRecent():
-    """
-    Check if the cryptography library is recent (2.0 and later)
-    """
-    try:
-        import cryptography
-    except ImportError:
-        return False
-    return _version_checker(cryptography, (2, 0))
-
-
 def isCryptographyAdvanced():
     """
     Check if the cryptography library is present, and if it supports X25519,
@@ -651,8 +640,7 @@ class Conf(ConfClass):
                    'tftp', 'vrrp', 'vxlan', 'x509', 'zigbee']
     contribs = dict()
     crypto_valid = isCryptographyValid()
-    crypto_valid_recent = isCryptographyRecent()
-    crypto_valid_advanced = crypto_valid_recent and isCryptographyAdvanced()
+    crypto_valid_advanced = isCryptographyAdvanced()
     fancy_prompt = True
     auto_crop_tables = True
     recv_poll_rate = 0.05
