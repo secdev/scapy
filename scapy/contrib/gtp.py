@@ -260,12 +260,13 @@ class GTP_U_Header(GTPHeader):
     def guess_payload_class(self, payload):
         # Snooped from Wireshark
         # https://github.com/boundary/wireshark/blob/07eade8124fd1d5386161591b52e177ee6ea849f/epan/dissectors/packet-gtp.c#L8195  # noqa: E501
+        if self.E == 1:
+            if self.next_ex == 0x85:
+                return GTPPDUSessionContainer
+            else
+                return GTPHeader.guess_payload_class(self, payload)
+
         if self.gtp_type == 255:
-            if self.E == 1:
-                if self.next_ex == 0x85:
-                    return GTPPDUSessionContainer
-                else:
-                    return GTPHeader.guess_payload_class(self, payload)
             sub_proto = orb(payload[0])
             if sub_proto >= 0x45 and sub_proto <= 0x4e:
                 return IP
@@ -273,6 +274,7 @@ class GTP_U_Header(GTPHeader):
                 return IPv6
             else:
                 return PPP
+
         return GTPHeader.guess_payload_class(self, payload)
 
 
