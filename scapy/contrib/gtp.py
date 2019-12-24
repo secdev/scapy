@@ -261,8 +261,7 @@ class GTP_U_Header(GTPHeader):
         if self.E == 1:
             if self.next_ex == 0x85:
                 return GTPPDUSessionContainer
-            else
-                return GTPHeader.guess_payload_class(self, payload)
+            return GTPHeader.guess_payload_class(self, payload)
 
         if self.gtp_type == 255:
             sub_proto = orb(payload[0])
@@ -272,7 +271,6 @@ class GTP_U_Header(GTPHeader):
                 return IPv6
             else:
                 return PPP
-
         return GTPHeader.guess_payload_class(self, payload)
 
 
@@ -300,15 +298,15 @@ class GTPPDUSessionContainer(Packet):
                    BitField("R", 0, 1),
                    BitField("QFI", 0, 6),
                    ConditionalField(XBitField("PPI", 0, 3),
-                   lambda pkt: pkt.P == 1),
+                                    lambda pkt: pkt.P == 1),
                    ConditionalField(XBitField("spare2", 0, 5),
-                   lambda pkt: pkt.P == 1),
+                                    lambda pkt: pkt.P == 1),
                    ConditionalField(ByteField("pad1", 0),
-                   lambda pkt: pkt.P == 1),
+                                    lambda pkt: pkt.P == 1),
                    ConditionalField(ByteField("pad2", 0),
-                   lambda pkt: pkt.P == 1),
+                                    lambda pkt: pkt.P == 1),
                    ConditionalField(ByteField("pad3", 0),
-                   lambda pkt: pkt.P == 1),
+                                    lambda pkt: pkt.P == 1),
                    ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes), ]
 
     def guess_payload_class(self, payload):
