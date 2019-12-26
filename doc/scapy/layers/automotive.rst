@@ -109,7 +109,7 @@ Virtual CAN sockets require a special Linux kernel module. The following shell c
     sudo modprobe vcan
 
 In order to use a virtual CAN interface some additional commands for setup are required.
-This snippet chooses the name ``vcan0`` for the virtual CAN interface. Any name can be choosen here::
+This snippet chooses the name ``vcan0`` for the virtual CAN interface. Any name can be chosen here::
 
     sudo ip link add name vcan0 type vcan
     sudo ip link set dev vcan0 up
