@@ -77,11 +77,25 @@ _DOC_SNDRCV_PARAMS = """
 
 
 class SndRcvHandler(object):
+    """
+    Util to send/receive packets, used by sr*().
+    Do not use directly.
+
+    This matches the requests and answers.
+
+    Notes::
+      - threaded mode: enabling threaded mode will likely
+        break packet timestamps, but might result in a speedup
+        when sending a big amount of packets. Disabled by default
+      - DEVS: store the outgoing timestamp right BEFORE sending the packet
+        to avoid races that could result in negative latency. We aren't Stadia
+    """
     def __init__(self, pks, pkt,
                  timeout=None, inter=0, verbose=None,
                  chainCC=False,
                  retry=0, multi=False, rcv_pks=None,
                  prebuild=False, _flood=None,
+                 threaded=False,
                  session=None):
         # Instantiate all arguments
         if verbose is None:
@@ -125,21 +139,24 @@ class SndRcvHandler(object):
         while retry >= 0:
             self.hsent = {}
 
-            # Send packets in thread.
-            # https://github.com/secdev/scapy/issues/1791
-            snd_thread = Thread(
-                target=self._sndrcv_snd
-            )
-            snd_thread.setDaemon(True)
+            if threaded or _flood:
+                # Send packets in thread.
+                # https://github.com/secdev/scapy/issues/1791
+                snd_thread = Thread(
+                    target=self._sndrcv_snd
+                )
+                snd_thread.setDaemon(True)
 
-            # Start routine with callback
-            self._sndrcv_rcv(snd_thread.start)
+                # Start routine with callback
+                self._sndrcv_rcv(snd_thread.start)
 
-            # Ended. Let's close gracefully
-            if _flood:
-                # Flood: stop send thread
-                _flood[1]()
-            snd_thread.join()
+                # Ended. Let's close gracefully
+                if _flood:
+                    # Flood: stop send thread
+                    _flood[1]()
+                snd_thread.join()
+            else:
+                self._sndrcv_rcv(self._sndrcv_snd)
 
             if multi:
                 remain = [

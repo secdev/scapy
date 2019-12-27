@@ -26,6 +26,12 @@ import scapy.modules.six as six
 ETHER_ANY = b"\x00" * 6
 ETHER_BROADCAST = b"\xff" * 6
 
+# From bits/socket.h
+SOL_PACKET = 263
+# From asm/socket.h
+SO_ATTACH_FILTER = 26
+SO_TIMESTAMPNS = 35
+
 ETH_P_ALL = 3
 ETH_P_IP = 0x800
 ETH_P_ARP = 0x806
