@@ -2521,7 +2521,7 @@ p = IP(raw(p))
 p
 
 sa = SecurityAssociation(AH, spi=0x222,
-                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key'
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key',
                          esn_en=True, esn=0x200)
 
 e = sa.encrypt(p)
@@ -3003,7 +3003,7 @@ p
 
 sa = SecurityAssociation(AH, spi=0x222,
                          auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key',
-                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22')
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'),
                          esn_en=True, esn=0x200)
 
 e = sa.encrypt(p)
