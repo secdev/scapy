@@ -983,9 +983,10 @@ class SecurityAssociation(object):
         else:
             ip_header.plen = len(ip_header.payload) + len(ah) + len(payload)
 
-        signed_pkt = self.auth_algo.sign(ip_header / ah / payload, self.auth_key,
-                                      esn_en=esn_en or self.esn_en,
-                                      esn=esn or self.esn) # noqa: E501
+        signed_pkt = self.auth_algo.sign(ip_header / ah / payload,
+                                         self.auth_key,
+                                         esn_en=esn_en or self.esn_en,
+                                         esn=esn or self.esn)  # noqa: E501
 
         # sequence number must always change, unless specified by the user
         if seq_num is None:
@@ -1018,7 +1019,8 @@ class SecurityAssociation(object):
                                      iv=iv, esn_en=esn_en,
                                      esn=esn)
         else:
-            return self._encrypt_ah(pkt, seq_num=seq_num, esn_en=esn_en, esn=esn)
+            return self._encrypt_ah(pkt, seq_num=seq_num,
+                                    esn_en=esn_en, esn=esn)
 
     def _decrypt_esp(self, pkt, verify=True, esn_en=None, esn=None):
 
@@ -1070,8 +1072,8 @@ class SecurityAssociation(object):
         if verify:
             self.check_spi(pkt)
             self.auth_algo.verify(pkt, self.auth_key,
-                                      esn_en=esn_en or self.esn_en,
-                                      esn=esn or self.esn)
+                                  esn_en=esn_en or self.esn_en,
+                                  esn=esn or self.esn)
 
         ah = pkt[AH]
         payload = ah.payload
