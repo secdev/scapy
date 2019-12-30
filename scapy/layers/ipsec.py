@@ -986,7 +986,7 @@ class SecurityAssociation(object):
         signed_pkt = self.auth_algo.sign(ip_header / ah / payload,
                                          self.auth_key,
                                          esn_en=esn_en or self.esn_en,
-                                         esn=esn or self.esn)  # noqa: E501
+                                         esn=esn or self.esn)
 
         # sequence number must always change, unless specified by the user
         if seq_num is None:
