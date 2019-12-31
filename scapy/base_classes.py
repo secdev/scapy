@@ -127,6 +127,8 @@ class Net(Gen):
         return "Net(%r)" % self.repr
 
     def __eq__(self, other):
+        if not other:
+            return False
         if hasattr(other, "parsed"):
             p2 = other.parsed
         else:

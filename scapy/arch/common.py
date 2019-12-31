@@ -11,6 +11,7 @@ import ctypes
 import os
 import socket
 import struct
+import sys
 import time
 from scapy.consts import WINDOWS
 from scapy.config import conf
@@ -133,8 +134,8 @@ def compile_filter(filter_exp, iface=None, linktype=None,
         raise Scapy_Exception(
             "Failed to compile filter expression %s (%s)" % (filter_exp, ret)
         )
-    if conf.use_pypy:
-        # XXX PyPy has a broken behavior.
+    if conf.use_pypy and sys.pypy_version_info <= (7, 3, 0):
+        # PyPy < 7.3.0 has a broken behavior
         # https://bitbucket.org/pypy/pypy/issues/3114
         return struct.pack(
             'HL',
