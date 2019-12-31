@@ -58,7 +58,7 @@ def check_output_for_data(out, err, expected_data):
     else:
         return (False, None)
 
-def run_tls_test_server(expected_data, q):
+def run_tls_test_server(expected_data, q, curve=None, cookie=False):
     correct = False
     print("Server started !")
     with captured_output() as (out, err):
@@ -74,6 +74,8 @@ def run_tls_test_server(expected_data, q):
         assert os.path.exists(mykey)
         t = TLSServerAutomaton(mycert=mycert,
                                mykey=mykey,
+                               curve=curve,
+                               cookie=cookie,
                                debug=5)
         # Sync threads
         q.put(True)
@@ -203,6 +205,41 @@ def test_tls_client(suite, version):
     return q_.get(timeout=5)
 
 
+def test_tls13_client(suite, retry=False):
+    msg = ("TestC_%s_data" % suite).encode()
+    # Run server
+    q_ = Queue()
+    print("Starting server...")
+    if retry:
+        # Run a server that support only secp256r1 and use cookie mechanism.
+        # It will send a HelloRetryRequest in response to a ClientHello
+        # with x25519 as default group.
+        curve = "secp256r1"
+        cookie = True
+        th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_, curve, cookie))
+    else:
+        th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_))
+    th_.setDaemon(True)
+    th_.start()
+    # Synchronise threads
+    print("Syncrhonising...")
+    assert q_.get(timeout=5) is True
+    time.sleep(1)
+    print("Thread synchronised")
+    # Run client
+    run_tls_test_client(msg, suite, "0304")
+    # Wait for server
+    print("Client running, waiting...")
+    th_.join(5)
+    if th_.is_alive():
+        raise RuntimeError("Test timed out")
+    # Return values
+    if q_.empty():
+        raise RuntimeError("Missing return value")
+    return q_.get(timeout=5)
+
+
+
 = Testing TLS server and client with SSLv2 and SSL_CK_DES_192_EDE3_CBC_WITH_MD5
 
 test_tls_client("0700c0", "0002")
@@ -240,3 +277,8 @@ test_tls_client("1303", "0304")
 ~ crypto_advanced
 
 test_tls_client("1305", "0304")
+
+= Testing TLS server and client with TLS 1.3 and a retry
+~ crypto_advanced
+
+test_tls13_client("1302", retry=True)

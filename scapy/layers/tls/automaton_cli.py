@@ -28,17 +28,19 @@ from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.basefields import _tls_version, _tls_version_options
 from scapy.layers.tls.session import tlsSession
 from scapy.layers.tls.extensions import TLS_Ext_SupportedGroups, \
-    TLS_Ext_SupportedVersion_CH, TLS_Ext_SignatureAlgorithms
+    TLS_Ext_SupportedVersion_CH, TLS_Ext_SignatureAlgorithms, \
+    TLS_Ext_SupportedVersion_SH
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, \
     TLSEncryptedExtensions, TLSFinished, TLSServerHello, TLSServerHelloDone, \
-    TLSServerKeyExchange, TLS13Certificate, TLS13ClientHello, TLS13ServerHello
+    TLSServerKeyExchange, TLS13Certificate, TLS13ClientHello,  \
+    TLS13ServerHello, TLS13HelloRetryRequest
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientHello, \
     SSLv2ServerHello, SSLv2ClientMasterKey, SSLv2ServerVerify, \
     SSLv2ClientFinished, SSLv2ServerFinished, SSLv2ClientCertificate, \
     SSLv2RequestCertificate
 from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_CH, \
-    KeyShareEntry
+    KeyShareEntry, TLS_Ext_KeyShare_HRR
 from scapy.layers.tls.record import TLSAlert, TLSChangeCipherSpec, \
     TLSApplicationData
 from scapy.layers.tls.crypto.suites import _tls_cipher_suites
@@ -912,13 +914,50 @@ class TLSClientAutomaton(_TLSAutomaton):
                              self.TLS13_HANDLED_SERVERHELLO)
 
     @ATMT.condition(TLS13_RECEIVED_SERVERFLIGHT1, prio=2)
+    def tls13_should_handle_HelloRetryRequest(self):
+        self.raise_on_packet(TLS13HelloRetryRequest,
+                             self.TLS13_HELLO_RETRY_REQUESTED)
+
+    @ATMT.condition(TLS13_RECEIVED_SERVERFLIGHT1, prio=3)
     def tls13_should_handle_AlertMessage_(self):
         self.raise_on_packet(TLSAlert,
                              self.CLOSE_NOTIFY)
 
-    @ATMT.condition(TLS13_RECEIVED_SERVERFLIGHT1, prio=3)
+    @ATMT.condition(TLS13_RECEIVED_SERVERFLIGHT1, prio=4)
     def tls13_missing_ServerHello(self):
         raise self.MISSING_SERVERHELLO()
+
+    @ATMT.state()
+    def TLS13_HELLO_RETRY_REQUESTED(self):
+        pass
+
+    @ATMT.condition(TLS13_HELLO_RETRY_REQUESTED)
+    def tls13_should_add_ClientHello_Retry(self):
+        s = self.cur_session
+        s.tls13_retry = True
+        # we have to use the legacy, plaintext TLS record here
+        self.add_record(is_tls13=False)
+        # We retrieve the group to be used and the selected version from the
+        # previous message
+        hrr = s.handshake_messages_parsed[-1]
+        if isinstance(hrr, TLS13HelloRetryRequest):
+            pass
+        ciphersuite = hrr.cipher
+        if hrr.ext:
+            for e in hrr.ext:
+                if isinstance(e, TLS_Ext_KeyShare_HRR):
+                    selected_group = e.selected_group
+                if isinstance(e, TLS_Ext_SupportedVersion_SH):
+                    selected_version = e.version
+        if not selected_group or not selected_version:
+            raise self.CLOSE_NOTIFY()
+        ext = [TLS_Ext_SupportedVersion_CH(versions=[_tls_version[selected_version]]),  # noqa: E501
+               TLS_Ext_SupportedGroups(groups=[_tls_named_groups[selected_group]]),  # noqa: E501
+               TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=selected_group)]),  # noqa: E501
+               TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsaepss"])]
+        p = TLS13ClientHello(ciphers=ciphersuite, ext=ext)
+        self.add_msg(p)
+        raise self.TLS13_ADDED_CLIENTHELLO()
 
     @ATMT.state()
     def TLS13_HANDLED_SERVERHELLO(self):
