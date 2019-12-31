@@ -40,13 +40,12 @@ for f in files:
             content[0] = "Scapy API reference\n"
             content[1] = "=" * (len(content[0]) - 1) + "\n"
             _e = True
-    else:
-        # File / module file
-        for name in ["package", "module"]:
-            if name in content[0]:
-                content[0] = content[0].replace(" " + name, "")
-                content[1] = "=" * (len(content[0]) - 1) + "\n"
-                _e = True
+    # File / module file
+    for name in ["package", "module"]:
+        if name in content[0]:
+            content[0] = content[0].replace(" " + name, "")
+            content[1] = "=" * (len(content[0]) - 1) + "\n"
+            _e = True
     if _e:
         print("Post-processed '%s'" % f)
         with open(f, "w") as fd:
