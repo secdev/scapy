@@ -8,21 +8,25 @@
 """
 Cisco NetFlow protocol v1, v5, v9 and v10 (IPFix)
 
-HowTo dissect NetflowV9/10 (IPFix) packets:
+HowTo dissect NetflowV9/10 (IPFix) packets
 
 # From a pcap / list of packets
 
-Using sniff and sessions:
->>> sniff(offline=open("my_great_pcap.pcap", "rb"), session=NetflowSession)
+Using sniff and sessions::
+
+    >>> sniff(offline=open("my_great_pcap.pcap", "rb"), session=NetflowSession)
 
 Using the netflowv9_defragment/ipfix_defragment commands:
+
 - get a list of packets containing NetflowV9/10 packets
 - call `netflowv9_defragment(plist)` to defragment the list
 
 (ipfix_defragment is an alias for netflowv9_defragment)
 
-# Live / on-the-flow / other: use NetflowSession
->>> sniff(session=NetflowSession, prn=[...])
+# Live / on-the-flow / other: use NetflowSession::
+
+    >>> sniff(session=NetflowSession, prn=[...])
+
 """
 
 import socket
