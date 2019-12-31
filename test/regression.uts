@@ -12127,6 +12127,9 @@ p = ARP(raw(ARP(plen=1, hwlen=1)))
 assert p.hwdst == p.hwsrc == p.pdst == p.psrc == b"\x00"
 assert isinstance(p.payload, NoPayload)
 
+p = ARP(pdst='192.168.178.0/24')
+assert "Net" in repr(p)
+
 
 ############
 ############
