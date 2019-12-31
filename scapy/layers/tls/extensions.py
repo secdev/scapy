@@ -21,6 +21,7 @@ from scapy.layers.tls.keyexchange import (SigAndHashAlgsLenField,
                                           SigAndHashAlgsField, _tls_hash_sig)
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.crypto.groups import _tls_named_groups
+from scapy.layers.tls.crypto.suites import _tls_cipher_suites
 from scapy.themes import AnsiColorTheme
 from scapy.compat import raw
 from scapy.config import conf
@@ -81,7 +82,8 @@ _tls_ext = {0: "server_name",             # RFC 4366
             0x33: "key_share",
             0x3374: "next_protocol_negotiation",
             # RFC-draft-agl-tls-nextprotoneg-03
-            0xff01: "renegotiation_info"   # RFC 5746
+            0xff01: "renegotiation_info",   # RFC 5746
+            0xffce: "encrypted_server_name"
             }
 
 
@@ -200,6 +202,27 @@ class TLS_Ext_ServerName(TLS_Ext_PrettyPacketList):                 # RFC 4366
                                   length_of="servernames"),
                    ServerListField("servernames", [], ServerName,
                                    length_from=lambda pkt: pkt.servernameslen)]
+
+
+class TLS_Ext_EncryptedServerName(TLS_Ext_PrettyPacketList):
+    name = "TLS Extension - Encrypted Server Name"
+    fields_desc = [ShortEnumField("type", 0xffce, _tls_ext),
+                   ShortField("len", None),
+                   EnumField("cipher", None, _tls_cipher_suites),
+                   ShortEnumField("key_exchange_group", None,
+                                  _tls_named_groups),
+                   FieldLenField("key_exchange_len", None,
+                                 length_of="key_exchange", fmt="H"),
+                   XStrLenField("key_exchange", "",
+                                length_from=lambda pkt: pkt.key_exchange_len),
+                   FieldLenField("record_digest_len",
+                                 None, length_of="record_digest"),
+                   XStrLenField("record_digest", "",
+                                length_from=lambda pkt: pkt.record_digest_len),
+                   FieldLenField("encrypted_sni_len", None,
+                                 length_of="encrypted_sni", fmt="H"),
+                   XStrLenField("encrypted_sni", "",
+                                length_from=lambda pkt: pkt.encrypted_sni_len)]
 
 
 class TLS_Ext_MaxFragLen(TLS_Ext_Unknown):                          # RFC 4366
@@ -695,7 +718,8 @@ _tls_ext_cls = {0: TLS_Ext_ServerName,
                 # 0x2f: TLS_Ext_CertificateAuthorities,       #XXX
                 # 0x30: TLS_Ext_OIDFilters,                   #XXX
                 0x3374: TLS_Ext_NPN,
-                0xff01: TLS_Ext_RenegotiationInfo
+                0xff01: TLS_Ext_RenegotiationInfo,
+                0xffce: TLS_Ext_EncryptedServerName
                 }
 
 
