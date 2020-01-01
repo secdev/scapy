@@ -1534,6 +1534,7 @@ class BitField(Field):
         Field.__init__(self, name, default)
         self.rev = size < 0
         self.size = abs(size)
+        self.sz = self.size / 8.
 
     def reverse(self, val):
         if self.size == 16:
