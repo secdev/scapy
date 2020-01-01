@@ -2107,6 +2107,82 @@ def ls(obj=None, case_sensitive=False, verbose=False):
             print("Not a packet class or name. Type 'ls()' to list packet classes.")  # noqa: E501
 
 
+def rfc(cls, ret=False, legend=True):
+    """
+    Generate an RFC-like representation of a packet def.
+
+    :param cls: the Packet class
+    :param ret: return the result instead of printing (def. False)
+    :param legend: show text under the diagram (default True)
+
+    Ex::
+
+        >>> rfc(Ether)
+
+    """
+    if not issubclass(cls, Packet):
+        raise TypeError("Packet class expected")
+    cur_len = 0
+    cur_line = []
+    lines = []
+    clsize = lambda x: 2 * x - 1
+    ident = 0
+    # Generate packet groups
+    for f in cls.fields_desc:
+        flen = int(f.sz * 8)
+        cur_len += flen
+        ident += 1
+        fname = f.name.capitalize().replace("_", " ")
+        while True:
+            over = max(0, cur_len - 32)
+            len1 = clsize(flen - over)
+            cur_line.append((fname[:len1], len1, ident))
+            if cur_len >= 32:
+                lines.append(cur_line)
+                cur_len = flen = over
+                fname = ""
+                cur_line = []
+                if not over:
+                     break
+            else:
+                break
+    if cur_line:
+        lines.append(cur_line)
+    # Calculate separations
+    seps = []
+    seps.append("+-" * 32 + "+\n")
+    for i in range(len(lines) - 1):
+        sep = "+-" * 32 + "+\n"
+        above, below = lines[i], lines[i + 1]
+        if above[-1][2] == below[0][2]:
+            pos_above = sum(x[1] for x in above[:-1])
+            pos_below = below[0][1]
+            if pos_above < pos_below:
+                pos_above = pos_above + pos_above % 2
+                sep = sep[:1 + pos_above] + " " * (pos_below - pos_above) + sep[1 + pos_below:]
+        seps.append(sep)
+    # Graph
+    result = ""
+    result += " " + (" " * 19).join(
+        str(x) for x in range(4)
+    ) + "\n"
+    result += " " + " ".join(
+        str(x % 10) for x in range(32)
+    ) + "\n"
+    for line, sep in zip(lines, seps):
+        result += sep
+        for elt, flen, _ in line:
+            result += "|" + elt.center(flen, " ")
+        result += "|\n"
+    result += "+-" * (cur_len or 32) + "+\n"
+    # Annotate
+    if legend:
+        result += "\n" + ("Fig. " + cls.__name__).center(66, " ")
+    if ret:
+        return result
+    print(result)
+
+
 #############
 #  Fuzzing  #
 #############
