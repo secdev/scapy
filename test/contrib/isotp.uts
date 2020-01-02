@@ -721,8 +721,9 @@ test_frames = [
 
 succ = False
 def sender(args=None):
+    tx_sock = new_can_socket(iface0)
     for f in test_frames:
-        call("cansend %s %3x#%s" % (iface0, f[0], "".join(f[1].split())), shell=True)
+        tx_sock.send(CAN(identifier=f[0], data=dhex(f[1])))
     global succ
     succ = True
 
