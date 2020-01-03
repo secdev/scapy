@@ -546,12 +546,15 @@ class AuthAlgo(object):
         else:
             return self.mac(key, self.digestmod(), default_backend())
 
-    def sign(self, pkt, key):
+    def sign(self, pkt, key, esn_en=False, esn=0):
         """
         Sign an IPsec (ESP or AH) packet with this algo.
 
         :param pkt:    a packet that contains a valid encrypted ESP or AH layer
         :param key:    the authentication key, a byte string
+        :param esn_en: extended sequence number enable which allows to use
+                       64-bit sequence number instead of 32-bit
+        :param esn: extended sequence number (32 MSB)
 
         :returns: the signed packet
         """
@@ -566,17 +569,24 @@ class AuthAlgo(object):
 
         elif pkt.haslayer(AH):
             clone = zero_mutable_fields(pkt.copy(), sending=True)
-            mac.update(raw(clone))
+            if esn_en:
+                temp = raw(clone) + struct.pack('!L', esn)
+            else:
+                temp = raw(clone)
+            mac.update(temp)
             pkt[AH].icv = mac.finalize()[:self.icv_size]
 
         return pkt
 
-    def verify(self, pkt, key):
+    def verify(self, pkt, key, esn_en=False, esn=0):
         """
         Check that the integrity check value (icv) of a packet is valid.
 
         :param pkt:    a packet that contains a valid encrypted ESP or AH layer
         :param key:    the authentication key, a byte string
+        :param esn_en: extended sequence number enable which allows to use
+                       64-bit sequence number instead of 32-bit
+        :param esn: extended sequence number (32 MSB)
 
         :raise scapy.layers.ipsec.IPSecIntegrityError: if the integrity check
             fails
@@ -592,6 +602,7 @@ class AuthAlgo(object):
             pkt_icv = pkt.data[len(pkt.data) - self.icv_size:]
             clone = pkt.copy()
             clone.data = clone.data[:len(clone.data) - self.icv_size]
+            temp = raw(clone)
 
         elif pkt.haslayer(AH):
             if len(pkt[AH].icv) != self.icv_size:
@@ -600,8 +611,12 @@ class AuthAlgo(object):
                 pkt[AH].icv = pkt[AH].icv[:self.icv_size]
             pkt_icv = pkt[AH].icv
             clone = zero_mutable_fields(pkt.copy(), sending=False)
+            if esn_en:
+                temp = raw(clone) + struct.pack('!L', esn)
+            else:
+                temp = raw(clone)
 
-        mac.update(raw(clone))
+        mac.update(temp)
         computed_icv = mac.finalize()[:self.icv_size]
 
         # XXX: Cannot use mac.verify because the ICV can be truncated
@@ -926,7 +941,7 @@ class SecurityAssociation(object):
 
         return ip_header / esp
 
-    def _encrypt_ah(self, pkt, seq_num=None):
+    def _encrypt_ah(self, pkt, seq_num=None, esn_en=False, esn=0):
 
         ah = AH(spi=self.spi, seq=seq_num or self.seq_num,
                 icv=b"\x00" * self.auth_algo.icv_size)
@@ -968,7 +983,10 @@ class SecurityAssociation(object):
         else:
             ip_header.plen = len(ip_header.payload) + len(ah) + len(payload)
 
-        signed_pkt = self.auth_algo.sign(ip_header / ah / payload, self.auth_key)  # noqa: E501
+        signed_pkt = self.auth_algo.sign(ip_header / ah / payload,
+                                         self.auth_key,
+                                         esn_en=esn_en or self.esn_en,
+                                         esn=esn or self.esn)
 
         # sequence number must always change, unless specified by the user
         if seq_num is None:
@@ -1001,7 +1019,8 @@ class SecurityAssociation(object):
                                      iv=iv, esn_en=esn_en,
                                      esn=esn)
         else:
-            return self._encrypt_ah(pkt, seq_num=seq_num)
+            return self._encrypt_ah(pkt, seq_num=seq_num,
+                                    esn_en=esn_en, esn=esn)
 
     def _decrypt_esp(self, pkt, verify=True, esn_en=None, esn=None):
 
@@ -1048,11 +1067,13 @@ class SecurityAssociation(object):
             # reassemble the ip_header with the ESP payload
             return ip_header / cls(esp.data)
 
-    def _decrypt_ah(self, pkt, verify=True):
+    def _decrypt_ah(self, pkt, verify=True, esn_en=None, esn=None):
 
         if verify:
             self.check_spi(pkt)
-            self.auth_algo.verify(pkt, self.auth_key)
+            self.auth_algo.verify(pkt, self.auth_key,
+                                  esn_en=esn_en or self.esn_en,
+                                  esn=esn or self.esn)
 
         ah = pkt[AH]
         payload = ah.payload
@@ -1100,6 +1121,6 @@ class SecurityAssociation(object):
             return self._decrypt_esp(pkt, verify=verify,
                                      esn_en=esn_en, esn=esn)
         elif self.proto is AH and pkt.haslayer(AH):
-            return self._decrypt_ah(pkt, verify=verify)
+            return self._decrypt_ah(pkt, verify=verify, esn_en=esn_en, esn=esn)
         else:
             raise TypeError('%s has no %s layer' % (pkt, self.proto.name))

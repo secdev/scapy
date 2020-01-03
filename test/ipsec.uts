@@ -2476,6 +2476,76 @@ try:
 except IPSecIntegrityError as err:
     err
 
+#######################################
+= IPv4 / AH - Transport - AES-CMAC-96 -- ESN
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key',
+                         esn_en=True, esn=0x200)
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+* the encrypted packet should have an AH layer
+assert(e.proto == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* alter mutable fields in the packet
+e.ttl = 2
+
+* integrity verification should pass
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet should be unaltered
+assert(d[TCP] == p[TCP])
+
+#######################################
+= IPv4 / AH - Transport - AES-CMAC-96 - altered packet -- ESN
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key',
+                         esn_en=True, esn=0x200)
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+* the encrypted packet should have an AH layer
+assert(e.proto == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* simulate the alteration of the packet before verification
+e[TCP].dport = 46
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
 ###############################################################################
 + IPv4 / AH - Tunnel
 
@@ -2865,6 +2935,76 @@ p
 sa = SecurityAssociation(AH, spi=0x222,
                          auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* simulate the alteration of the packet before verification
+e.dst = '4.4.4.4'
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / AH - Tunnel - AES-CMAC-96 -- ESN
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'),
+                         esn_en=True, esn=0x200)
+
+e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_AH)
+assert(e.haslayer(AH))
+assert(e.haslayer(TCP))
+assert(e[AH].spi == sa.spi)
+
+* alter mutable fields in the packet
+e.ttl = 2
+
+* integrity verification should pass
+d = sa.decrypt(e)
+d
+
+* after decryption the original packet should be unaltered
+assert(d == p)
+
+#######################################
+= IPv4 / AH - Tunnel - AES-CMAC-96 - altered packet -- ESN
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(AH, spi=0x222,
+                         auth_algo='AES-CMAC-96', auth_key=b'sixteenbytes key',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'),
+                         esn_en=True, esn=0x200)
 
 e = sa.encrypt(p)
 e
