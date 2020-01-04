@@ -60,10 +60,6 @@ of function calls, packet creations, etc.).
 
 ### Coding style & conventions
 
-First, Scapy "legacy" code contains a lot of code that do not comply
-with the following recommendations, but we try to comply with some
-guidelines for new code.
-
 -   The code should be PEP-8 compliant; you can check your code with
     [pep8](https://pypi.python.org/pypi/pep8).
 
