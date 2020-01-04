@@ -61,7 +61,7 @@ of function calls, packet creations, etc.).
 ### Coding style & conventions
 
 -   The code should be PEP-8 compliant; you can check your code with
-    [pep8](https://pypi.python.org/pypi/pep8).
+    [pep8](https://pypi.python.org/pypi/pep8) and the command `tox -e flake8`
 
 -   [Pylint](http://www.pylint.org/) can help you write good Python
     code (even if respecting Pylint rules is sometimes either too hard
