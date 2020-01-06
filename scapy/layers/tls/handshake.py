@@ -35,7 +35,6 @@ from scapy.layers.tls.extensions import (_ExtensionsLenField, _ExtensionsField,
                                          TLS_Ext_SupportedVersion_SH,
                                          TLS_Ext_EarlyDataIndication,
                                          _tls_hello_retry_magic,
-                                         TLS_Ext_SupportedVersions,
                                          TLS_Ext_ExtendedMasterSecret)
 from scapy.layers.tls.keyexchange import (_TLSSignature, _TLSServerParamsField,
                                           _TLSSignatureField, ServerRSAParams,
@@ -1206,9 +1205,6 @@ class TLSClientKeyExchange(_TLSHandshake):
             hash_object = self.tls_session.pwcs.hash
             to_hash = b''.join(self.tls_session.handshake_messages)
             self.tls_session.session_hash = hash_object.digest(to_hash)
-
-
-
 
 
 ###############################################################################
