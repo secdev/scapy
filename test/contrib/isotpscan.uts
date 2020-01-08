@@ -591,9 +591,10 @@ for s in result:
 = Test ISOTPScan(output_format=None) random IDs
 drain_bus(iface0)
 
-rnd = RandNum(0x0, 0x100)
+rnd = RandNum(0x0, 0x10)
 
-ids = set(rnd._fix() for _ in range(10))
+ids = set(rnd._fix() * 10 for _ in range(5))
+print(ids)
 
 def isotpserver(i):
     with ISOTPSocket(new_can_socket0(), sid=0x100+i, did=i) as s:
@@ -648,9 +649,9 @@ for s in result:
 = Test ISOTPScan(output_format=None) random IDs padding
 drain_bus(iface0)
 
-rnd = RandNum(0x0, 0x100)
+rnd = RandNum(0x0, 0x10)
 
-ids = set(rnd._fix() for _ in range(10))
+ids = set(rnd._fix() * 10 for _ in range(5))
 
 def isotpserver(i):
     with ISOTPSocket(new_can_socket0(), sid=0x100+i, did=i, padding=True) as s:
