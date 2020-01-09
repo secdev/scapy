@@ -914,13 +914,11 @@ with ISOTPSocket(cans, sid=0x641, did=0x241) as s:
 ss = new_can_socket(iface0)
 sr = new_can_socket(iface0)
 print("socket open")
-ss.send(CAN(identifier=0x111, data=b"\x01\x23\x45\x67"))
-time.sleep(0.02)
-p = sr.sniff(count=1, timeout=0.2)
+tx_func = lambda: ss.send(CAN(identifier=0x111, data=b"\x01\x23\x45\x67"))
+p = sr.sniff(count=1, timeout=0.2, started_callback=tx_func)
 assert(len(p)==1)
-ss.send(CAN(identifier=0x111, data=b"\x89\xab\xcd\xef"))
-time.sleep(0.02)
-p = sr.sniff(count=1, timeout=0.2)
+tx_func = lambda: ss.send(CAN(identifier=0x111, data=b"\x89\xab\xcd\xef"))
+p = sr.sniff(count=1, timeout=0.2, started_callback=tx_func)
 assert(len(p)==1)
 del ss
 del sr
@@ -1854,14 +1852,18 @@ rxSock = new_can_socket0()
 txmsg = ISOTP(b'\x11\x22\x33')
 rx2 = None
 
+receiver_up = Event()
+
 def sender():
-    time.sleep(0.1)
+    global receiver_up
+    receiver_up.wait()
     global txmsg
     global rx2
     rx2 = txSock.sr1(txmsg, timeout=1, verbose=True)
 
 def receiver():
-    rx = rxSock.sniff(timeout=1, count=1)[0]
+    global receiver_up
+    rx = rxSock.sniff(timeout=1, count=1, started_callback=receiver_up.set)[0]
     rxSock.send(CAN(identifier=0x321, length=4, data=b'\x03\x7f\x22\x33'))
     expectedrx = CAN(identifier=0x123, length=4, data=b'\x03\x11\x22\x33')
     assert(rx.length == expectedrx.length)
@@ -1884,13 +1886,16 @@ rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 rx2 = None
 
+receiver_up = Event()
+
 def sender():
-    time.sleep(0.1)
+    receiver_up.wait()
     global rx2
     rx2 = txSock.sr1(msg, timeout=1, verbose=True)
 
 def receiver():
     global rx
+    receiver_up.set()
     rx = rxSock.recv()
     rxSock.send(msg)
 
@@ -1911,14 +1916,17 @@ rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
 txSock = ISOTPNativeSocket(iface0, 0x123, 0x321)
 
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+
+receiver_up = Event()
+
 def receiver():
     global rx2, sent
-    rx2 = rxSock.sniff(count=1, timeout=1)
+    rx2 = rxSock.sniff(count=1, timeout=1, started_callback=receiver_up.set)
     sent = rxSock.send(msg)
 
 def sender():
     global rx
-    time.sleep(0.1)
+    receiver_up.wait()
     rx = txSock.sr1(msg, timeout=1,verbose=True)
 
 rx2 = None
@@ -1939,8 +1947,10 @@ rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
 txSock = ISOTPNativeSocket(iface0, 0x123, 0x321)
 succ = False
 
+receiver_up = Event()
+
 def receiver():
-    rx = rxSock.sniff(count=5, timeout=1)
+    rx = rxSock.sniff(count=5, timeout=1, started_callback=receiver_up.set)
     msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
     msg.data += b'0'
     assert(rx[0] == msg)
@@ -1956,7 +1966,7 @@ def receiver():
     succ = True
 
 def sender():
-    time.sleep(0.1)
+    receiver_up.wait()
     msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
     msg.data += b'0'
     assert(txSock.send(msg))
@@ -2000,7 +2010,6 @@ def bridge():
 
 def RequestOnBus0():
     global rSucc
-    time.sleep(0.2)
     packet = ISOTP(b'Request')
     isoTpSocket0.send(packet)
     rSucc = True
@@ -2051,7 +2060,6 @@ def bridge():
 
 def RequestOnBus0():
     global rSucc
-    time.sleep(0.2)
     packet = ISOTP(b'Request')
     isoTpSocket0.send(packet)
     rSucc = True
@@ -2098,7 +2106,6 @@ def bridge():
 
 def RequestBothVCans():
     global rSucc
-    time.sleep(0.2)
     packetVcan0 = ISOTP(b'RequestVcan0')
     packetVcan1 = ISOTP(b'RequestVcan1')
     isoTpSocket0.send(packetVcan0)
@@ -2150,7 +2157,6 @@ def bridge():
 
 def RequestBothVCans():
     global rSucc
-    time.sleep(0.2)
     packetVcan0 = ISOTP(b'RequestVcan0')
     packetVcan1 = ISOTP(b'RequestVcan1')
     isoTpSocket0.send(packetVcan0)
