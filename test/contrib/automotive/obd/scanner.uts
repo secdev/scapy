@@ -168,6 +168,8 @@ example_responses = \
 
 = Run scanner
 
+exit_if_no_isotp_module()
+
 drain_bus(iface0)
 
 with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
