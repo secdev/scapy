@@ -19,8 +19,8 @@ idea what to do? You can look for open issues
 [labeled "contributions wanted"](https://github.com/secdev/scapy/labels/contributions%20wanted), or look at the [contributions roadmap](https://github.com/secdev/scapy/issues/399)
 
 If you have any ideas of useful contributions that you cannot (or do
-not want to) do yourself, open an issue and use the label
-"contributions wanted".
+not want to) do yourself, open an issue and include
+"contributions wanted" in the title.
 
 Once you have chosen a contribution, open an issue to let other people
 know you're working on it (or assign the existing issue to yourself)
@@ -30,11 +30,6 @@ contribution rejected after a lot of work.
 
 ## Reporting issues
 
-### Questions
-
-It is OK so submit issues to ask questions (more than OK,
-encouraged). There is a label "question" that you can use for that.
-
 ### Bugs
 
 If you have installed Scapy through a package manager (from your Linux
@@ -42,16 +37,14 @@ or BSD system, from PyPI, etc.), please get and install the current
 development code, and check that the bug still exists before
 submitting an issue.
 
-Please label your issues "bug".
-
 If you're not sure whether a behavior is a bug or not, submit an issue
 and ask, don't be shy!
 
 ### Enhancements / feature requests
 
 If you want a feature in Scapy, but cannot implement it yourself or
-want some hints on how to do that, open an issue with label
-"enhancement".
+want some hints on how to do that, open an issue and include
+"enhancement" in the title.
 
 Explain if possible the API you would like to have (e.g., give examples
 of function calls, packet creations, etc.).
