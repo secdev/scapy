@@ -1,8 +1,6 @@
 % Regression tests for obdscanner
 ~ vcan_socket needs_root linux
 
-* TODO: This unit tests need a bigger refactoring to work with ISOTPSoftSockets
-
 + Configuration
 ~ conf
 
@@ -10,6 +8,7 @@
 load_layer("can")
 import six, subprocess, sys
 from subprocess import call
+from scapy.contrib.automotive.ecu import *
 
 def eprint(*args, **kwargs):
     subprocess.call("printf \"%s\r\n\" > /dev/stderr" % args, shell=True, **kwargs)
@@ -81,8 +80,6 @@ def drain_bus(iface=iface0, assert_empty=True):
         assert len(pkts) == 0
     s.close()
 
-print("CAN sockets should work now")
-
 
 = Verify that a CAN socket can be created and closed
 s = new_can_socket(iface0)
@@ -104,14 +101,16 @@ if p.wait() == 0:
 + Syntax check
 
 = Import isotp
-conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
 load_contrib("isotp")
 
 if ISOTP_KERNEL_MODULE_AVAILABLE:
     from scapy.contrib.isotp import ISOTPNativeSocket
+    ISOTPSocket = ISOTPNativeSocket
     assert ISOTPSocket == ISOTPNativeSocket
 else:
     from scapy.contrib.isotp import ISOTPSoftSocket
+    ISOTPSocket = ISOTPSoftSocket
     assert ISOTPSocket == ISOTPSoftSocket
 
 
@@ -187,140 +186,124 @@ from scapy.contrib.automotive.obd.scanner import _supported_id_numbers
 
 + Simulate scanner
 
-= create responder
-exit_if_no_isotp_module()
-#Response Queues
-s1_queue = queue.Queue()
-s3_queue = queue.Queue()
-
-# Ensures the responder is running before sending the first request
-ready = Event()
-
-class MockResponder(Thread):
-    daemon = True
-    # As a daemon the Thread terminates, as soon, as the calling program exits, not blocking the test
-    def __init__(self):
-        Thread.__init__(self)
-        self._stopped = Event()
-    def process_request(self, req, sock):
-        if req.service == 1:
-            resp = s1_queue.get()
-            sock.send(resp)
-        elif req.service == 3:
-            resp = s3_queue.get()
-            sock.send(resp)
-    def run(self):
-        with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as sock:
-            ready.set()
-            while not self._stopped.is_set() or not (s1_queue.empty() and s3_queue.empty()):
-                sniff(opened_socket=sock,
-                               timeout=0.1,
-                               store=False,
-                               prn=lambda p: self.process_request(p, sock))
-    def stop(self):
-        self._stopped.set()
-
-responder = MockResponder()
-responder.start()
-
-
 = Test DTC scan
-eprint("TODO: this test is currently failing. It has to be reworked")
-exit(0)
+
+exit_if_no_isotp_module()
+
 drain_bus(iface0)
 
-# Create answers for 'standard scan'
 s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
-s3_queue.put(s3)
 
-result = subprocess.Popen("%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-returncode = result.wait()
-print(returncode)
+example_responses = [ECUResponse(session=range(0,255), security_level=0, responses=s3)]
 
-std_out, std_err = result.communicate()
-print(std_err)
 
-assert returncode == 0
-expected_output = bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8')
-print(std_out)
-assert plain_str(expected_output) in plain_str(std_out)
+with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
+    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD)
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 3, 'timeout': 10})
+    sim.start()
+    try:
+        result = subprocess.Popen("%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000" % (
+        sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+
+        std_out, std_err = result.communicate()
+        assert std_err == b''
+
+        expected_output = bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8')
+        assert plain_str(expected_output) in plain_str(std_out)
+
+    finally:
+        sim.join(timeout=10)
 
 
 = Test supported PIDs scan
-* TODO: this test is currently failing. It has to be reworked
-exit(0)
 
 exit_if_no_isotp_module()
+
 drain_bus(iface0)
 
-# Create answers for 'supported PIDs scan'
 s1_pid00 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID00(supported_pids="PID03+PID0B+PID0F")])
+s6_mid00 = OBD()/OBD_S06_PR(data_records=[OBD_S06_PR_Record()/OBD_MID00(supported_mids="")])
+s8_tid00 = OBD()/OBD_S08_PR(data_records=[OBD_S08_PR_Record()/OBD_TID00(supported_tids="")])
+s9_iid00 = OBD()/OBD_S09_PR(data_records=[OBD_S09_PR_Record()/OBD_IID00(supported_iids="")])
+
 s1_pid03 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID03(fuel_system1=0, fuel_system2=2)])
 s1_pid0B = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0B(data=100)])
 s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)])
-s1_queue.put(s1_pid00)
-s1_queue.put(s1_pid0F)
-s1_queue.put(s1_pid0B)
-s1_queue.put(s1_pid03)
-s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
-s3_queue.put(s3)
 
-result = subprocess.Popen("%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000 -r" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-returncode = result.wait()
-print(returncode)
+# Create answers for 'supported PIDs scan'
+example_responses = \
+    [ECUResponse(session=range(0,255), security_level=0, responses=s3),
+     ECUResponse(session=range(0,255), security_level=0, responses=s1_pid00),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s6_mid00),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s8_tid00),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s9_iid00),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid03),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid0B),
+     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid0F)]
 
-std_out, std_err = result.communicate()
-print(std_err)
 
-assert returncode == 0
-expected_output = [bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8'),
-                   bytes("Service 1:\n{3: b'A\\x0fZ', 11: b'A\\x0bd', 15: b'A\\x03\\x00\\x02'}", 'utf-8')]
-print(std_out)
-for out in expected_output:
-    assert plain_str(out) in plain_str(std_out)
+
+with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
+    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD)
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 10, 'timeout': 10})
+    sim.start()
+    try:
+        result = subprocess.Popen("%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000 -r" % (
+        sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+
+        std_out, std_err = result.communicate()
+        assert std_err == b''
+
+        expected_output = [bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8'),
+                           bytes("Service 1:\n{3: b'A\\x03\\x00\\x02', 11: b'A\\x0bd', 15: b'A\\x0fZ'}", 'utf-8')]
+
+        for out in expected_output:
+            assert plain_str(out) in plain_str(std_out)
+    finally:
+        sim.join(timeout=10)
 
 
 = Test full scan
-eprint("TODO: this test is currently failing. It has to be reworked")
-exit(0)
+
 exit_if_no_isotp_module()
+
 drain_bus(iface0)
 
-# Create answers for 'full scan'
-s1_pid00 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID00(supported_pids="PID03+PID0B+PID0F")])
+# Add unsupported PID
 s1_pid01 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID01()])
-s1_pid03 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID03(fuel_system1=0, fuel_system2=2)])
-s1_pid0B = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0B(data=100)])
-s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)])
-s1_queue = queue.Queue()
-s1_queue.put(s1_pid00)
-s1_queue.put(s1_pid0F)
-s1_queue.put(s1_pid0B)
-s1_queue.put(s1_pid03)
-s1_queue.put(s1_pid01)
-s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
-s3_queue.put(s3)
+example_responses.append(ECUResponse(session=range(0,255), security_level=0, responses=s1_pid01))
 
-result = subprocess.Popen("%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000 -t 0.01 -ruv" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-returncode = result.wait()
-print(returncode)
+with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
+    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD)
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 11, 'timeout': 10})
+    sim.start()
+    try:
+        result = subprocess.Popen(
+            "%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000 -t 0.01 -ru" % (
+            sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 
-std_out, std_err = result.communicate()
-print(std_err)
+        std_out, std_err = result.communicate()
+        assert std_err == b''
 
-assert returncode == 0
-expected_output = [bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8'),
-                   bytes("Service 1:\n{3: b'A\\x0fZ', 11: b'A\\x0bd', 15: b'A\\x03\\x00\\x02'}", 'utf-8'),
-                   bytes("Service 1:\n{1: b'A\\x01\\x00\\x00\\x00\\x00'}", 'utf-8')]
-print(std_out)
-for out in expected_output:
-    assert plain_str(out) in plain_str(std_out)
+        expected_output = [bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8'),
+                           bytes("Service 1:\n{3: b'A\\x03\\x00\\x02', 11: b'A\\x0bd', 15: b'A\\x0fZ'}", 'utf-8'),
+                           bytes("Service 1:\n{1: b'A\\x01\\x00\\x00\\x00\\x00'}", 'utf-8')]
+
+        for out in expected_output:
+            assert plain_str(out) in plain_str(std_out)
+
+    finally:
+        sim.join(timeout=10)
+
+
+
 
 + Cleanup
 
 = Cleanup
+
 exit_if_no_isotp_module()
-responder.stop()
+
 if 0 != call("sudo ip link delete vcan0", shell=True):
         raise Exception("vcan0 could not be deleted")
 
