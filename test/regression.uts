@@ -1360,6 +1360,20 @@ def _test():
 
 retry_test(_test)
 
+= Latency check: localhost ICMP
+~ netaccess linux latency
+
+sock = conf.L3socket
+conf.L3socket = L3RawSocket
+
+def _test():
+    req = IP(dst="127.0.0.1")/ICMP()
+    ans = sr1(req)
+    assert (ans.time - req.sent_time) >= 0
+    assert (ans.time - req.sent_time) <= 1e-3
+
+conf.L3socket = sock
+
 = Sending an ICMP message 'forever' at layer 2 and layer 3
 ~ netaccess IP ICMP
 def _test():
