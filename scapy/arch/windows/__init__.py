@@ -796,7 +796,7 @@ if conf.use_pcap:
         if not isinstance(iface, NetworkInterface) and \
            iface_pcap_name is not None:
             iface = IFACES.dev_from_name(iface)
-        if iface.is_invalid():
+        if iface is None or iface.is_invalid():
             raise Scapy_Exception(
                 "Interface is invalid (no pcap match found) !"
             )
