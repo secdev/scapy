@@ -1825,6 +1825,132 @@ class TCP_client(Automaton):
         if pkt[TCP].flags.A:
             raise self.CLOSED()
 
+#############################
+#  Simple TCP server stack  #
+#############################
+
+
+class TCP_server(Automaton):
+    """
+    Creates a TCP Server Automaton.
+    This automaton will handle TCP 3-way handshake.
+    """
+    def parse_args(self, ip, dport, sport, *args, **kargs):
+        from scapy.sessions import TCPSession
+        self.dst = str(Net(ip))
+        self.dport = dport
+        self.sport = sport
+        self.l4 = IP(dst=ip) / TCP(sport=self.sport, dport=self.dport, flags=0,
+                                   seq=random.randrange(0, 2**32))
+        self.src = self.l4.src
+        self.sack = self.l4[TCP].ack
+        self.rel_seq = None
+        self.rcvbuf = TCPSession(self._transmit_packet, False)
+        bpf = "host %s  and host %s and port %i and port %i" % (self.src,
+                                                                self.dst,
+                                                                self.sport,
+                                                                self.dport)
+        Automaton.parse_args(self, filter=bpf, **kargs)
+
+    def _transmit_packet(self, pkt):
+        """Transmits a packet from TCPSession to the SuperSocket"""
+        self.oi.tcp.send(raw(pkt[TCP].payload))
+
+    def master_filter(self, pkt):
+        return (IP in pkt and
+                pkt[IP].src == self.dst and
+                pkt[IP].dst == self.src and
+                TCP in pkt and
+                pkt[TCP].sport == self.dport and
+                pkt[TCP].dport == self.sport and
+                self.l4[TCP].seq >= pkt[TCP].ack and  # XXX: seq/ack 2^32 wrap up  # noqa: E501
+                ((self.l4[TCP].ack == 0) or (self.sack <= pkt[TCP].seq <= self.l4[TCP].ack + pkt[TCP].window)))  # noqa: E501
+
+    @ATMT.state(initial=1)
+    def START(self):
+        pass
+
+    @ATMT.state()
+    def SYN_RECEIVED(self):
+        pass
+
+    @ATMT.state()
+    def ESTABLISHED(self):
+        pass
+
+    @ATMT.state()
+    def LAST_ACK(self):
+        pass
+
+    @ATMT.state(final=1)
+    def CLOSED(self):
+        pass
+
+    @ATMT.condition(START)
+    def connect(self, pkt):
+        if pkt[TCP].flags.S:
+            raise self.SYN_RECEIVED()
+
+    @ATMT.action(connect)
+    def send_synack(self):
+        self.l4[TCP].seq += 1
+        self.l4[TCP].flags = "SA"
+        self.send(self.l4)
+
+    @ATMT.receive_condition(SYN_RECEIVED)
+    def ack_received(self, pkt):
+        if pkt[TCP].flags.A:
+            raise self.ESTABLISHED().action_parameters(pkt)
+
+    @ATMT.receive_condition(ESTABLISHED)
+    def incoming_data_received(self, pkt):
+        if not isinstance(pkt[TCP].payload, (NoPayload, conf.padding_layer)):
+            raise self.ESTABLISHED().action_parameters(pkt)
+
+    @ATMT.action(incoming_data_received)
+    def receive_data(self, pkt):
+        data = raw(pkt[TCP].payload)
+        if data and self.l4[TCP].ack == pkt[TCP].seq:
+            self.sack = self.l4[TCP].ack
+            self.l4[TCP].ack += len(data)
+            self.l4[TCP].flags = "A"
+            # Answer with an Ack
+            self.send(self.l4)
+            # Process data - will be sent to the SuperSocket through this
+            self.rcvbuf.on_packet_received(pkt)
+
+    @ATMT.ioevent(ESTABLISHED, name="tcp", as_supersocket="tcplink")
+    def outgoing_data_received(self, fd):
+        raise self.ESTABLISHED().action_parameters(fd.recv())
+
+    @ATMT.action(outgoing_data_received)
+    def send_data(self, d):
+        self.l4[TCP].flags = "PA"
+        self.send(self.l4 / d)
+        self.l4[TCP].seq += len(d)
+
+    @ATMT.receive_condition(ESTABLISHED)
+    def reset_received(self, pkt):
+        if pkt[TCP].flags.R:
+            raise self.CLOSED()
+
+    @ATMT.receive_condition(ESTABLISHED)
+    def fin_received(self, pkt):
+        if pkt[TCP].flags.F:
+            raise self.LAST_ACK().action_parameters(pkt)
+
+    @ATMT.action(fin_received)
+    def send_finack(self, pkt):
+        self.l4[TCP].flags = "FA"
+        self.l4[TCP].ack = pkt[TCP].seq + 1
+        self.send(self.l4)
+        self.l4[TCP].seq += 1
+
+    @ATMT.receive_condition(LAST_ACK)
+    def ack_of_fin_received(self, pkt):
+        if pkt[TCP].flags.A:
+            raise self.CLOSED()
+
 
 #####################
 #  Reporting stuff  #
