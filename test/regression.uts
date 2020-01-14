@@ -7886,6 +7886,15 @@ p = DNS(raw(DNS(id=1,ra=1,an=DNSRR(rrname='secdev', type='TXT', rdata=["sweet", 
 assert p[DNS].an.rdata == [b"sweet", b"celestia"]
 assert raw(p) == b'\x00\x01\x01\x80\x00\x00\x00\x01\x00\x00\x00\x00\x06secdev\x00\x00\x10\x00\x01\x00\x00\x00\x01\x00\x0f\x05sweet\x08celestia'
 
+= DNS - Malformed DNS over TCP message
+
+try:
+    p = IP(raw(IP()/TCP()/DNS(length=24, qdcount=1)))
+    assert False
+except Scapy_Exception as e:
+    assert str(e) == "Malformed DNS message: invalid length!"
+   
+
 = Layer binding
 
 * Test DestMACField & DestIPField
