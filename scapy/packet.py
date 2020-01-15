@@ -1098,46 +1098,67 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         """Return the nb^th layer that is an instance of cls, matching flt
 values.
         """
-        if _subclass is None:
-            _subclass = self.match_subclass or None
-        if _subclass:
-            match = lambda cls1, cls2: issubclass(cls1, cls2)
-        else:
-            match = lambda cls1, cls2: cls1 == cls2
-        if isinstance(cls, int):
-            nb = cls + 1
-            cls = None
-        if isinstance(cls, str) and "." in cls:
-            ccls, fld = cls.split(".", 1)
-        else:
-            ccls, fld = cls, None
-        if cls is None or match(self.__class__, cls) \
-           or ccls in [self.__class__.__name__, self._name]:
-            if all(self.getfieldval(fldname) == fldvalue
-                   for fldname, fldvalue in six.iteritems(flt)):
-                if nb == 1:
-                    if fld is None:
-                        return self
+
+        def logic(packet, cls, nb=1, _track=None, _subclass=None, **flt):
+
+            # Define the classes matching function
+            if _subclass is None:
+                _subclass = packet.match_subclass or None
+            if _subclass:
+                match = lambda cls1, cls2: issubclass(cls1, cls2)
+            else:
+                match = lambda cls1, cls2: cls1 == cls2
+
+            # Define the class and the field that will be matched
+            if isinstance(cls, int):
+                nb = cls + 1
+                cls = None
+            if isinstance(cls, str) and "." in cls:
+                ccls, fld = cls.split(".", 1)
+            else:
+                ccls, fld = cls, None
+
+            # Retrieve the packet or the field value
+            if cls is None or match(packet.__class__, cls) \
+               or ccls in [packet.__class__.__name__, packet._name]:
+                if all(packet.getfieldval(fldname) == fldvalue
+                       for fldname, fldvalue in six.iteritems(flt)):
+                    if nb == 1:
+                        if fld is None:
+                            return packet, None, None
+                        else:
+                            return packet.getfieldval(fld), None, None
                     else:
-                        return self.getfieldval(fld)
-                else:
-                    nb -= 1
-        for f in self.packetfields:
-            fvalue_gen = self.getfieldval(f.name)
-            if fvalue_gen is None:
-                continue
-            if not f.islist:
-                fvalue_gen = SetGen(fvalue_gen, _iterpacket=0)
-            for fvalue in fvalue_gen:
-                if isinstance(fvalue, Packet):
-                    track = []
-                    ret = fvalue.getlayer(cls, nb=nb, _track=track,
-                                          _subclass=_subclass, **flt)
-                    if ret is not None:
-                        return ret
-                    nb = track[0]
-        return self.payload.getlayer(cls, nb=nb, _track=_track,
-                                     _subclass=_subclass, **flt)
+                        nb -= 1
+
+            # Retrieve the packet from a PacketField or a PacketListField
+            for f in packet.packetfields:
+                fvalue_gen = packet.getfieldval(f.name)
+                if fvalue_gen is None:
+                    continue
+                if not f.islist:
+                    fvalue_gen = SetGen(fvalue_gen, _iterpacket=0)
+                for fvalue in fvalue_gen:
+                    if isinstance(fvalue, Packet):
+                        if not isinstance(fvalue, NoPayload):
+                            ret, nb, payload = logic(fvalue, cls, nb=nb,
+                                                     _subclass=_subclass,
+                                                     **flt)
+                        if ret is not None:
+                            return ret, None, None
+
+            return None, nb, packet.payload
+
+        packet = self
+        value = None
+        while packet:
+            value, nb, payload = logic(packet, cls, nb=nb, _track=_track,
+                                       _subclass=_subclass, **flt)
+            if value is not None:
+                break
+            packet = payload
+
+        return value
 
     def firstlayer(self):
         q = self
