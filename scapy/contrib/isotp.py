@@ -30,7 +30,7 @@ import scapy.modules.six as six
 import scapy.automaton as automaton
 import six.moves.queue as queue
 from scapy.error import Scapy_Exception, warning, log_loading
-from scapy.supersocket import SuperSocket
+from scapy.supersocket import SuperSocket, SO_TIMESTAMPNS
 from scapy.config import conf
 from scapy.consts import LINUX
 from scapy.contrib.cansocket import PYTHON_CAN
@@ -1654,6 +1654,11 @@ if six.PY3 and LINUX:
             self.can_socket.setsockopt(SOL_CAN_ISOTP,
                                        CAN_ISOTP_LL_OPTS,
                                        self.__build_can_isotp_ll_options())
+            self.can_socket.setsockopt(
+                socket.SOL_SOCKET,
+                SO_TIMESTAMPNS,
+                1
+            )
 
             self.__bind_socket(self.can_socket, self.iface, sid, did)
             self.ins = self.can_socket
@@ -1668,7 +1673,7 @@ if six.PY3 and LINUX:
             (cls, pkt_data, time)
             """  # noqa: E501
             try:
-                pkt = self.can_socket.recvfrom(x)[0]
+                pkt, _, ts = self._recv_raw(self.ins, x)
             except BlockingIOError:  # noqa: F821
                 warning('Captured no data, socket in non-blocking mode.')
                 return None
@@ -1680,7 +1685,8 @@ if six.PY3 and LINUX:
                 warning("Captured no data.")
                 return None
 
-            ts = get_last_packet_timestamp(self.can_socket)
+            if ts is None:
+                ts = get_last_packet_timestamp(self.ins)
             return self.basecls, pkt, ts
 
         def recv(self, x=0xffff):
