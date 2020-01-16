@@ -30,7 +30,7 @@ import struct
 
 from scapy.config import conf
 from scapy.data import IP_PROTOS
-from scapy.error import warning
+from scapy.error import warning, Scapy_Exception
 from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
     FlagsField, IPField, IntField, MACField, \
     PacketListField, PadField, SecondsIntField, ShortEnumField, ShortField, \
@@ -1322,6 +1322,34 @@ def _GenNetflowRecordV9(cls, lengths_list):
     return NetflowRecordV9I
 
 
+def GetNetflowRecordV9(flowset, templateID=None):
+    """
+    Get a NetflowRecordV9/10 for a specific NetflowFlowsetV9/10.
+
+    Have a look at the doc online doc for examples.
+    """
+    definitions = {}
+    for ntv9 in flowset.templates:
+        llist = []
+        for tmpl in ntv9.template_fields:
+            llist.append((tmpl.fieldLength, tmpl.fieldType))
+        if llist:
+            cls = _GenNetflowRecordV9(NetflowRecordV9, llist)
+            definitions[ntv9.templateID] = cls
+    if not definitions:
+        raise Scapy_Exception(
+            "No template IDs detected"
+        )
+    if len(definitions) > 1:
+        if templateID is None:
+            raise Scapy_Exception(
+                "Multiple possible templates ! Specify templateID=.."
+            )
+        return definitions[templateID]
+    else:
+        return list(definitions.values())[0]
+
+
 class NetflowRecordV9(Packet):
     name = "Netflow DataFlowset Record V9/10"
     fields_desc = [StrField("fieldValue", "")]
@@ -1436,7 +1464,11 @@ def _netflowv9_defragment_packet(pkt, definitions, definitions_opts, ignored):
                 data = data[tot_len:]
             # Inject dissected data
             datafl.records = res
-            datafl.do_dissect_payload(data)
+            if data:
+                if len(data) <= 4:
+                    datafl.add_payload(conf.padding_layer(data))
+                else:
+                    datafl.do_dissect_payload(data)
         # Options
         elif tid in definitions_opts:
             (scope_len, scope_cls,
