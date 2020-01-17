@@ -7889,11 +7889,17 @@ assert raw(p) == b'\x00\x01\x01\x80\x00\x00\x00\x01\x00\x00\x00\x00\x06secdev\x0
 = DNS - Malformed DNS over TCP message
 
 try:
-    p = IP(raw(IP()/TCP()/DNS(length=24, qdcount=1)))
+    p = IP(IP(raw(IP()/TCP()/DNS(length=28))[:-13]))
+    assert False
+except Scapy_Exception as e:
+    assert str(e) == "Malformed DNS message: too small!"
+
+try:
+    p = IP(raw(IP()/TCP()/DNS(length=28, qdcount=1)))
     assert False
 except Scapy_Exception as e:
     assert str(e) == "Malformed DNS message: invalid length!"
-   
+
 
 = Layer binding
 

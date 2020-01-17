@@ -442,16 +442,21 @@ class DNS(Packet):
         Check that a valid DNS over TCP message can be decoded
         """
         if isinstance(self.underlayer, TCP):
+
             # Compute the length of the DNS packet
-            dns_len = 0
             if len(s) >= 2:
                 dns_len = struct.unpack("!H", s[:2])[0]
+            else:
+                message = "Malformed DNS message: too small!"
+                warning(message)
+                raise Scapy_Exception(message)
 
             # Check if the length is valid
             if dns_len < 14 or len(s) < dns_len:
                 message = "Malformed DNS message: invalid length!"
                 warning(message)
                 raise Scapy_Exception(message)
+
         return s
 
 
