@@ -35,7 +35,6 @@ needs_sphinx = '2.2.0'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.coverage',
     'sphinx.ext.napoleon',
     'scapy_doc'
 ]

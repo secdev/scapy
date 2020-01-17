@@ -2143,7 +2143,7 @@ def rfc(cls, ret=False, legend=True):
                 fname = ""
                 cur_line = []
                 if not over:
-                     break
+                    break
             else:
                 break
     if cur_line:
@@ -2159,7 +2159,11 @@ def rfc(cls, ret=False, legend=True):
             pos_below = below[0][1]
             if pos_above < pos_below:
                 pos_above = pos_above + pos_above % 2
-                sep = sep[:1 + pos_above] + " " * (pos_below - pos_above) + sep[1 + pos_below:]
+                sep = (
+                    sep[:1 + pos_above] +
+                    " " * (pos_below - pos_above) +
+                    sep[1 + pos_below:]
+                )
         seps.append(sep)
     # Graph
     result = ""
