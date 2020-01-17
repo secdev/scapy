@@ -73,11 +73,10 @@ else:
 
 # utility function for draining a can interface, asserting that no packets are there
 def drain_bus(iface=iface0, assert_empty=True):
-    s = new_can_socket(iface)
-    pkts = s.sniff(timeout=0.1)
-    if assert_empty:
-        assert len(pkts) == 0
-    s.close()
+    with new_can_socket(iface) as s:
+        pkts = s.sniff(timeout=0.1)
+        if assert_empty:
+            assert len(pkts) == 0
 
 print("CAN sockets should work now")
 
@@ -125,6 +124,7 @@ assert expected_output in plain_str(std_err)
 
 
 = Test show help
+
 result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py --help" % sys.executable, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 if result.wait() == 0:
     std_out, std_err = result.communicate()
@@ -135,6 +135,7 @@ if result.wait() == 0:
 
 
 = Test wrong socket for Python2 or Windows
+
 if six.PY2:
     version = subprocess.Popen("python --version", stdout=subprocess.PIPE, shell=True)
     if 0 == version.wait():
@@ -165,25 +166,26 @@ assert expected_output in plain_str(std_out)
 + Scan tests
 
 = Test standard scan
+
 drain_bus(iface0)
+started = threading.Event()
 
 def isotpserver():
-    with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600) as s:
-        s.sniff(timeout=100, count=1)
+    with new_can_socket(iface0) as isocan, ISOTPSocket(isocan, sid=0x700, did=0x600) as s:
+        s.sniff(timeout=100, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
 sniffer.start()
-time.sleep(0.1)
+started.wait(timeout=10)
 result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 0x600 -e 0x600" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 returncode = result.wait()
 std_out, std_err = result.communicate()
 
-print(std_out)
-print(std_err)
-
 send = subprocess.Popen(['cansend', 'vcan0', '600#01aa'])
 assert 0 == send.wait()
 assert returncode == 0
+
+sniffer.join(timeout=10)
 
 expected_output = [b'0x600', b'0x700']
 print(std_out)
@@ -192,14 +194,17 @@ for out in expected_output:
 
 
 = Test extended scan
+
 drain_bus(iface0)
+started = threading.Event()
+
 def isotpserver():
-    with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
-        s.sniff(timeout=100, count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
+        s.sniff(timeout=100, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
 sniffer.start()
-time.sleep(0.1)
+started.wait(timeout=10)
 result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 0x601 -e 0x601 -x" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, shell=True)
 returncode = result.wait()
 
@@ -209,21 +214,25 @@ assert returncode == 0
 
 expected_output = [b'0x601', b'0xbb', b'0x700', b'0xaa']
 std_out, std_err = result.communicate()
+sniffer.join(timeout=10)
+
 assert std_err == None
-print(std_out)
+
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out)
 
-
 = Test extended only scan
+
 drain_bus(iface0)
+started = threading.Event()
+
 def isotpserver():
-    with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
-        s.sniff(timeout=100, count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
+        s.sniff(timeout=100, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
 sniffer.start()
-time.sleep(0.1)
+started.wait(timeout=10)
 result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 0x601 -e 0x601 -x" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, shell=True)
 returncode = result.wait()
 
@@ -233,21 +242,26 @@ assert returncode == 0
 
 expected_output = [b'0x601', b'0xbb', b'0x700', b'0xaa']
 std_out, std_err = result.communicate()
+sniffer.join(timeout=10)
+
 assert std_err == None
-print(std_out)
+
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out)
 
 
 = Test scan with piso flag
+
 drain_bus(iface0)
+started = threading.Event()
+
 def isotpserver():
-    with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
-        s.sniff(timeout=100, count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
+        s.sniff(timeout=100, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
 sniffer.start()
-time.sleep(0.1)
+started.wait(timeout=10)
 result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 0x601 -e 0x601 -x -C" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, shell=True)
 returncode = result.wait()
 
@@ -257,7 +271,9 @@ assert returncode == 0
 
 expected_output = [b'sid=0x601', b'did=0x700', b'padding=False', b'extended_addr=0xbb', b'extended_rx_addr=0xaa']
 std_out, std_err = result.communicate()
+sniffer.join(timeout=10)
+
 assert std_err == None
-print(std_out)
+
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out)

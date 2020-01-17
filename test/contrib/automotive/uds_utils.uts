@@ -136,8 +136,8 @@ drain_bus(iface1)
 packet = ISOTP('Request')
 succ = False
 
-with ISOTPSocket(new_can_socket0(), sid=0x241, did=0x641, basecls=UDS) as sendSock, \
-     ISOTPSocket(new_can_socket0(), sid=0x641, did=0x241, basecls=UDS) as recvSock:
+with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x241, did=0x641, basecls=UDS) as sendSock, \
+     new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x641, did=0x241, basecls=UDS) as recvSock:
     def answer(pkt):
         pkt.service = pkt.service + 0x40
         recvSock.send(pkt)
@@ -163,8 +163,8 @@ drain_bus(iface1)
 packet = ISOTP('Request')
 succ = False
 
-with ISOTPSocket(new_can_socket0(), sid=0x241, did=0x641, basecls=UDS) as sendSock, \
-     ISOTPSocket(new_can_socket0(), sid=0x641, did=0x241, basecls=UDS) as recvSock:
+with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x241, did=0x641, basecls=UDS) as sendSock, \
+     new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x641, did=0x241, basecls=UDS) as recvSock:
     def answer(pkt):
         pkt.service = pkt.service + 0x40
         if pkt.service == 0x7f:

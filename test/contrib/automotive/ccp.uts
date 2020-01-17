@@ -967,8 +967,10 @@ sock1.basecls = CCP
 
 = CAN Socket sr1 with dto.ansers(cro) == True
 
+started = threading.Event()
+
 def ecu():
-    pkts = sock2.sniff(count=1, timeout=1)
+    pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
     if len(pkts) == 1:
         cro = CRO(pkts[0].data)
         assert cro.cmd == 0x22
@@ -978,7 +980,8 @@ def ecu():
 
 thread = threading.Thread(target=ecu)
 thread.start()
-time.sleep(0.1)
+
+started.wait(timeout=5)
 
 dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x53)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
 thread.join()
@@ -992,8 +995,10 @@ assert dto.MTA0_address == 0x34002006
 
 = CAN Socket sr1 with dto.ansers(cro) == False
 
+started = threading.Event()
+
 def ecu():
-    pkts = sock2.sniff(count=1, timeout=1)
+    pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
     if len(pkts) == 1:
         cro = CRO(pkts[0].data)
         assert cro.cmd == 0x22
@@ -1003,7 +1008,7 @@ def ecu():
 
 thread = threading.Thread(target=ecu)
 thread.start()
-time.sleep(0.1)
+started.wait(timeout=5)
 gotTimeout = False
 try:
     dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x54)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
@@ -1018,8 +1023,9 @@ thread.join()
 
 = CAN Socket sr1 with error code
 
+started = threading.Event()
 def ecu():
-    pkts = sock2.sniff(count=1, timeout=1)
+    pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
     if len(pkts) == 1:
         cro = CRO(pkts[0].data)
         assert cro.cmd == 0x22
@@ -1029,7 +1035,7 @@ def ecu():
 
 thread = threading.Thread(target=ecu)
 thread.start()
-time.sleep(0.1)
+started.wait(timeout=5)
 
 dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x55)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
 thread.join()
@@ -1045,6 +1051,9 @@ assert dto.MTA0_address == 0xffffffff
 
 = Delete vcan interfaces
 ~ vcan_socket needs_root linux
+
+sock1.close()
+sock2.close()
 
 if 0 != call("sudo ip link delete %s" % iface0, shell=True):
         raise Exception("%s could not be deleted" % iface0)

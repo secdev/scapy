@@ -113,7 +113,7 @@ def sender():
 thread = threading.Thread(target=sender)
 thread.start()
 rx = None
-rx = sock1.sr1(tx)
+rx = sock1.sr1(tx, verbose=False)
 rx == tx
 
 sock1.close()
@@ -122,14 +122,14 @@ thread.join()
 = CAN Socket sr1 time check
 
 
-tx.sent_time < rx.time and rx.time > 0
+assert tx.sent_time < rx.time and rx.time > 0
 
-= srcan
+= sr can
 
 
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
-= srcan check init time
+= sr can check init time
 
 
 assert tx.sent_time == None
@@ -140,12 +140,13 @@ def sender():
     sock2.send(tx)
     sock2.close()
 
+sock1 = CANSocket(iface="vcan0")
 thread = threading.Thread(target=sender)
 thread.start()
 rx = None
-rx = srcan(tx, "vcan0", timeout=1)
+rx = sock1.sr(tx, timeout=1, verbose=False)
 rx = rx[0][0][1]
-tx == rx
+assert tx == rx
 thread.join()
 
 = srcan check init time basecls
@@ -157,18 +158,19 @@ def sender():
     sock2.send(tx)
     sock2.close()
 
+sock1 = CANSocket(iface="vcan0", basecls=Raw)
 thread = threading.Thread(target=sender)
 thread.start()
 rx = None
-rx = srcan(tx, "vcan0", timeout=1, basecls=Raw)
+rx = sock1.sr(tx, timeout=1, verbose=False)
 rx = rx[0][0][1]
-Raw(bytes(tx)) == rx
+assert Raw(bytes(tx)) == rx
 thread.join()
 
-= srcan check rx and tx
+= sr can check rx and tx
 
 
-tx.sent_time > 0 and rx.time > 0 and tx.sent_time < rx.time
+assert tx.sent_time > 0 and rx.time > 0 and tx.sent_time < rx.time
 
 = sniff with filtermask 0x7ff
 
@@ -186,7 +188,7 @@ def sender():
     sock2.close()
 
 thread = threading.Thread(target=sender)
-packets = sock1.sniff(timeout=0.2, started_callback=thread.start)
+packets = sock1.sniff(timeout=0.2, started_callback=thread.start, verbose=False)
 len(packets) == 3
 
 sock1.close()
@@ -208,7 +210,7 @@ def sender():
     sock2.close()
 
 thread = threading.Thread(target=sender)
-packets = sock1.sniff(timeout=0.2, started_callback=thread.start)
+packets = sock1.sniff(timeout=0.2, started_callback=thread.start, verbose=False)
 len(packets) == 4
 
 sock1.close()
@@ -230,7 +232,7 @@ def sender():
     sock2.close()
 
 thread = threading.Thread(target=sender)
-packets = sock1.sniff(timeout=0.2, started_callback=thread.start)
+packets = sock1.sniff(timeout=0.2, started_callback=thread.start, verbose=False)
 len(packets) == 4
 
 sock1.close()
@@ -253,7 +255,7 @@ def sender():
     sock2.close()
 
 thread = threading.Thread(target=sender)
-packets = sock1.sniff(timeout=0.2, started_callback=thread.start)
+packets = sock1.sniff(timeout=0.2, started_callback=thread.start, verbose=False)
 len(packets) == 4
 
 sock1.close()
@@ -275,7 +277,7 @@ def sender():
     sock2.close()
 
 thread = threading.Thread(target=sender)
-packets = sock1.sniff(timeout=0.2, started_callback=thread.start)
+packets = sock1.sniff(timeout=0.2, started_callback=thread.start, verbose=False)
 len(packets) == 2
 
 sock1.close()
@@ -297,7 +299,7 @@ def sender():
     sock2.close()
 
 thread = threading.Thread(target=sender)
-packets = sock1.sniff(timeout=0.2, started_callback=thread.start)
+packets = sock1.sniff(timeout=0.2, started_callback=thread.start, verbose=False)
 len(packets) == 2
 
 sock1.close()
@@ -310,7 +312,7 @@ sock1 = CANSocket(iface='vcan0', can_filters=[{'can_id': 0x10000000 | CAN_INV_FI
 
 if six.PY3:
     thread = threading.Thread(target=sender)
-    packets = sock1.sniff(timeout=0.2, started_callback=thread.start)
+    packets = sock1.sniff(timeout=0.2, started_callback=thread.start, verbose=False)
     len(packets) == 4
 
 sock1.close()
@@ -321,18 +323,18 @@ sock1.close()
 sock1 = CANSocket(iface="vcan0", receive_own_messages=True)
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 rx = None
-rx = sock1.sr1(tx)
+rx = sock1.sr1(tx, verbose=False)
 tx == rx
 tx.sent_time < rx.time and tx == rx and rx.time > 0
 
 sock1.close()
 
-= srcan
+= sr can
 
-
+sock1 = CANSocket(iface="vcan0", receive_own_messages=True)
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 rx = None
-rx = srcan(tx, iface="vcan0", receive_own_messages=True, timeout=1)
+rx = sock1.sr(tx, timeout=1, verbose=False)
 tx == rx[0][0][1]
 
 + bridge and sniff tests
@@ -363,7 +365,7 @@ def bridge():
     def pnr(pkt):
         return pkt
     bridgeStarted.set()
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.2)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.2, verbose=False)
     bSock0.close()
     bSock1.close()
 
@@ -372,7 +374,7 @@ threadBridge.start()
 threadSender = threading.Thread(target=senderVCan0)
 bridgeStarted.wait()
 
-packetsVCan1 = sock1.sniff(timeout=0.2, started_callback=threadSender.start)
+packetsVCan1 = sock1.sniff(timeout=0.2, started_callback=threadSender.start, verbose=False)
 len(packetsVCan1) == 6
 
 threadSender.join()
@@ -402,7 +404,7 @@ def bridge():
     def pnr(pkt):
         return pkt
     bridgeStarted.set()
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.2)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.2, verbose=False)
     bSock0.close()
     bSock1.close()
 
@@ -411,7 +413,7 @@ threadBridge.start()
 threadSender = threading.Thread(target=senderVCan1)
 bridgeStarted.wait()
 
-packetsVCan0 = sock0.sniff(timeout=0.2, started_callback=threadSender.start)
+packetsVCan0 = sock0.sniff(timeout=0.2, started_callback=threadSender.start, verbose=False)
 len(packetsVCan0) == 4
 
 sock0.close()
@@ -447,7 +449,7 @@ def bridge():
     def pnr(pkt):
         return pkt
     bridgeStarted.set()
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.2)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.2, verbose=False)
     bSock0.close()
     bSock1.close()
 
@@ -457,8 +459,8 @@ threadSender = threading.Thread(target=senderBothVCans)
 
 bridgeStarted.wait()
 
-packetsVCan0 = sock0.sniff(timeout=0.1, count=6, started_callback=threadSender.start)
-packetsVCan1 = sock1.sniff(timeout=0.1)
+packetsVCan0 = sock0.sniff(timeout=0.1, count=6, started_callback=threadSender.start, verbose=False)
+packetsVCan1 = sock1.sniff(timeout=0.1, verbose=False)
 
 len(packetsVCan0) == 4
 len(packetsVCan1) == 6
@@ -495,7 +497,7 @@ def bridgeWithPackageChangeVCan0ToVCan1():
         pkt.identifier = 0x10010000
         return pkt
     bridgeStarted.set()
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, timeout=0.2)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, timeout=0.2, verbose=False)
     bSock0.close()
     bSock1.close()
 
@@ -505,7 +507,7 @@ threadSender = threading.Thread(target=senderVCan0)
 
 bridgeStarted.wait()
 
-packetsVCan1 = sock1.sniff(timeout=0.2,  started_callback=threadSender.start)
+packetsVCan1 = sock1.sniff(timeout=0.2,  started_callback=threadSender.start, verbose=False)
 len(packetsVCan1) == 6
 
 sock0.close()
@@ -538,7 +540,7 @@ def bridgeWithPackageChangeVCan1ToVCan0():
         pkt.identifier = 0x10010000
         return pkt
     bridgeStarted.set()
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm21=pnr, timeout=0.2)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm21=pnr, timeout=0.2, verbose=False)
     bSock0.close()
     bSock1.close()
 
@@ -548,7 +550,7 @@ threadSender = threading.Thread(target=senderVCan1)
 
 bridgeStarted.wait()
 
-packetsVCan0 = sock0.sniff(timeout=0.2,  started_callback=threadSender.start)
+packetsVCan0 = sock0.sniff(timeout=0.2,  started_callback=threadSender.start, verbose=False)
 len(packetsVCan0) == 4
 
 sock0.close()
@@ -586,7 +588,7 @@ def bridgeWithPackageChangeBothDirections():
         pkt.identifier = 0x10010000
         return pkt
     bridgeStarted.set()
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.2)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.2, verbose=False)
     bSock0.close()
     bSock1.close()
 
@@ -597,8 +599,8 @@ threadSender = threading.Thread(target=senderBothVCans)
 bridgeStarted.wait()
 threadSender.start()
 
-packetsVCan0 = sock0.sniff(timeout=0.1)
-packetsVCan1 = sock1.sniff(timeout=0.1)
+packetsVCan0 = sock0.sniff(timeout=0.1, verbose=False)
+packetsVCan1 = sock1.sniff(timeout=0.1, verbose=False)
 len(packetsVCan0) == 4
 len(packetsVCan1) == 6
 
@@ -635,7 +637,7 @@ def bridgeWithRemovePackageFromVCan0ToVCan1():
             pkt = pkt
         return pkt
     bridgeStarted.set()
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, timeout=0.2)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, timeout=0.2, verbose=False)
     bSock0.close()
     bSock1.close()
 
@@ -647,7 +649,7 @@ bridgeStarted.wait()
 
 threadSender.start()
 
-packetsVCan1 = sock1.sniff(timeout=0.2)
+packetsVCan1 = sock1.sniff(timeout=0.2, verbose=False)
 len(packetsVCan1) == 5
 
 sock0.close()
@@ -681,7 +683,7 @@ def bridgeWithRemovePackageFromVCan1ToVCan0():
             pkt = pkt
         return pkt
     bridgeStarted.set()
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm21=pnr, timeout=0.2)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm21=pnr, timeout=0.2, verbose=False)
     bSock0.close()
     bSock1.close()
 
@@ -692,7 +694,7 @@ bridgeStarted.wait()
 
 threadSender.start()
 
-packetsVCan0 = sock0.sniff(timeout=0.2)
+packetsVCan0 = sock0.sniff(timeout=0.2, verbose=False)
 len(packetsVCan0) == 3
 
 sock0.close()
@@ -738,7 +740,7 @@ def bridgeWithRemovePackageInBothDirections():
             pkt = pkt
         return pkt
     bridgeStarted.set()
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnrA, xfrm21=pnrB, timeout=0.2)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnrA, xfrm21=pnrB, timeout=0.2, verbose=False)
     bSock0.close()
     bSock1.close()
 
@@ -748,8 +750,8 @@ threadSender = threading.Thread(target=senderBothVCans)
 
 bridgeStarted.wait()
 
-packetsVCan0 = sock0.sniff(timeout=0.1, started_callback=threadSender.start)
-packetsVCan1 = sock1.sniff(timeout=0.1)
+packetsVCan0 = sock0.sniff(timeout=0.1, started_callback=threadSender.start, verbose=False)
+packetsVCan1 = sock1.sniff(timeout=0.1, verbose=False)
 
 len(packetsVCan0) == 3
 len(packetsVCan1) == 5
