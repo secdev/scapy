@@ -1326,7 +1326,7 @@ def GetNetflowRecordV9(flowset, templateID=None):
     """
     Get a NetflowRecordV9/10 for a specific NetflowFlowsetV9/10.
 
-    Have a look at the doc online doc for examples.
+    Have a look at the online doc for examples.
     """
     definitions = {}
     for ntv9 in flowset.templates:

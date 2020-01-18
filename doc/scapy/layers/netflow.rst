@@ -28,7 +28,7 @@ Netflow V5
 NetflowV9 / IPfix
 -----------------
 
-Netflow v9 and IPfix use a template based system. This means that records that are sent over the wire reauire a "Template" to be sent previously in a Flowset packet.
+Netflow v9 and IPfix use a template based system. This means that records that are sent over the wire require a "Template" to be sent previously in a Flowset packet.
 
 This template is required to understand thr format of the record, therefore needs to be provided when building or dissecting those.
 
