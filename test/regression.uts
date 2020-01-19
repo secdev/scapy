@@ -6698,6 +6698,46 @@ assert nfv9_defrag[0].records[0].IP_PROTOCOL_VERSION == 4
 assert nfv9_defrag[0].records[0].PROTOCOL == 17
 assert nfv9_defrag[0].records[0].IPV4_SRC_ADDR == "127.0.0.1"
 
+= NetflowV9 - build and dissection
+~ netflow
+
+header = Ether()/IP()/UDP()
+netflow_header = NetflowHeader()/NetflowHeaderV9()
+
+flowset = NetflowFlowsetV9(
+    templates=[NetflowTemplateV9(
+        template_fields=[
+            NetflowTemplateFieldV9(fieldType=1, fieldLength=1),  # IN_BYTES
+            NetflowTemplateFieldV9(fieldType=2, fieldLength=4),  # IN_PKTS
+            NetflowTemplateFieldV9(fieldType=4),  # PROTOCOL
+            NetflowTemplateFieldV9(fieldType=8),  # IPV4_SRC_ADDR
+            NetflowTemplateFieldV9(fieldType=12),  # IPV4_DST_ADDR
+        ],
+        templateID=256,
+        fieldCount=5)
+    ],
+    flowSetID=0
+)
+recordClass = GetNetflowRecordV9(flowset)
+dataFS = NetflowDataflowsetV9(
+    templateID=256,
+    records=[ # Some random data.
+        recordClass(
+            IN_BYTES=b"\x12",
+            IN_PKTS=b"\0\0\0\0",
+            PROTOCOL=6,
+            IPV4_SRC_ADDR="192.168.0.10",
+            IPV4_DST_ADDR="192.168.0.11"
+        ),
+    ],
+)
+pkt = header / netflow_header / flowset / dataFS
+pkt = netflowv9_defragment(Ether(raw(pkt)))[0]
+
+assert NetflowDataflowsetV9 in pkt
+assert len(pkt[NetflowDataflowsetV9].records) == 1
+assert pkt[NetflowDataflowsetV9].records[0].IPV4_DST_ADDR == "192.168.0.11"
+
 = NetflowV9 - advanced build
 ~ netflow
 
