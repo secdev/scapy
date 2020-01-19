@@ -119,21 +119,6 @@ s.set_nonblock(set_flag=True)
 s.set_nonblock(set_flag=False)
 s.close()
 
-= L2bpfListenSocket - recv as nonblocking
-~ needs_root
-
-s = L2bpfListenSocket()
-s.set_nonblock(set_flag=True)
-
-def test_nonblock_recv(s):
-    for i in range(1, 100):
-        a = s.recv()
-        if not a:
-            return True
-    return False
-
-assert test_nonblock_recv(s)
-
 = L2bpfListenSocket - get_*()
 ~ needs_root
 

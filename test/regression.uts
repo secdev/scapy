@@ -12534,21 +12534,6 @@ def test_hexdump():
 
 test_hexdump()
 
-= conversations()
-~ linux
-
-def test_conversations():
-    import tempfile
-    filename = tempfile.mktemp()
-    p = PacketList([IP()/Raw(str(i)) for i in range(2)])
-    p.conversations(prog="echo", target="> %s" % filename)
-    fd = open(filename)
-    assert "-Tsvg" in fd.read()
-    fd.close()
-    os.unlink(filename)
-
-test_conversations()
-
 = import_hexcap()
 
 @mock.patch("scapy.utils.input")
