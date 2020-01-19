@@ -9,6 +9,7 @@ SuperSocket.
 
 from __future__ import absolute_import
 from select import select, error as select_error
+import ctypes
 import errno
 import os
 import socket
@@ -17,13 +18,15 @@ import time
 
 from scapy.config import conf
 from scapy.consts import LINUX, DARWIN, WINDOWS
-from scapy.data import MTU, ETH_P_IP
+from scapy.data import MTU, ETH_P_IP, SOL_PACKET, SO_TIMESTAMPNS
 from scapy.compat import raw, bytes_encode
 from scapy.error import warning, log_runtime
 import scapy.modules.six as six
 import scapy.packet
 from scapy.utils import PcapReader, tcpdump
 
+
+# Utils
 
 class _SuperSocket_metaclass(type):
     def __repr__(self):
@@ -32,6 +35,26 @@ class _SuperSocket_metaclass(type):
         else:
             return "<%s>" % self.__name__
 
+
+# Used to get ancillary data
+PACKET_AUXDATA = 8
+ETH_P_8021Q = 0x8100
+TP_STATUS_VLAN_VALID = 1 << 4
+
+
+class tpacket_auxdata(ctypes.Structure):
+    _fields_ = [
+        ("tp_status", ctypes.c_uint),
+        ("tp_len", ctypes.c_uint),
+        ("tp_snaplen", ctypes.c_uint),
+        ("tp_mac", ctypes.c_ushort),
+        ("tp_net", ctypes.c_ushort),
+        ("tp_vlan_tci", ctypes.c_ushort),
+        ("tp_padding", ctypes.c_ushort),
+    ]
+
+
+# SuperSocket
 
 class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
@@ -51,6 +74,41 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         except AttributeError:
             pass
         return self.outs.send(sx)
+
+    if six.PY2:
+        def _recv_raw(self, sock, x):
+            """Internal function to receive a Packet"""
+            pkt, sa_ll = sock.recvfrom(x)
+            return pkt, sa_ll, None
+    else:
+        def _recv_raw(self, sock, x):
+            """Internal function to receive a Packet,
+            and process ancillary data.
+            """
+            flags_len = socket.CMSG_LEN(4096)
+            timestamp = None
+            pkt, ancdata, flags, sa_ll = sock.recvmsg(x, flags_len)
+            if not pkt:
+                return pkt, sa_ll
+            for cmsg_lvl, cmsg_type, cmsg_data in ancdata:
+                # Check available ancillary data
+                if (cmsg_lvl == SOL_PACKET and cmsg_type == PACKET_AUXDATA):
+                    # Parse AUXDATA
+                    auxdata = tpacket_auxdata.from_buffer_copy(cmsg_data)
+                    if auxdata.tp_vlan_tci != 0 or \
+                            auxdata.tp_status & TP_STATUS_VLAN_VALID:
+                        # Insert VLAN tag
+                        tag = struct.pack(
+                            "!HH",
+                            ETH_P_8021Q,
+                            auxdata.tp_vlan_tci
+                        )
+                        pkt = pkt[:12] + tag + pkt[12:]
+                elif cmsg_lvl == socket.SOL_SOCKET and \
+                        cmsg_type == SO_TIMESTAMPNS:
+                    tmp = struct.unpack("iiii", cmsg_data)
+                    timestamp = tmp[0] + tmp[2] * 1e-9
+            return pkt, sa_ll, timestamp
 
     def recv_raw(self, x=MTU):
         """Returns a tuple containing (cls, pkt_data, time)"""
@@ -147,9 +205,17 @@ class L3RawSocket(SuperSocket):
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         if iface is not None:
             self.ins.bind((iface, type))
+        if not six.PY2:
+            # Receive Auxiliary Data (VLAN tags)
+            self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
+            self.ins.setsockopt(
+                socket.SOL_SOCKET,
+                SO_TIMESTAMPNS,
+                1
+            )
 
     def recv(self, x=MTU):
-        pkt, sa_ll = self.ins.recvfrom(x)
+        pkt, sa_ll, ts = self._recv_raw(self.ins, x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None
         if sa_ll[3] in conf.l2types:
@@ -175,15 +241,17 @@ class L3RawSocket(SuperSocket):
             pkt = pkt.payload
 
         if pkt is not None:
-            from scapy.arch import get_last_packet_timestamp
-            pkt.time = get_last_packet_timestamp(self.ins)
+            if ts is None:
+                from scapy.arch import get_last_packet_timestamp
+                ts = get_last_packet_timestamp(self.ins)
+            pkt.time = ts
         return pkt
 
     def send(self, x):
         try:
             sx = raw(x)
             x.sent_time = time.time()
-            self.outs.sendto(sx, (x.dst, 0))
+            return self.outs.sendto(sx, (x.dst, 0))
         except socket.error as msg:
             log_runtime.error(msg)
 
@@ -347,8 +415,6 @@ conf.L2listen, conf.L2socket or conf.L3socket.
 
     def send(self, x):
         sx = raw(x)
-        if hasattr(x, "sent_time"):
-            x.sent_time = time.time()
         if self.mode_tun:
             try:
                 proto = conf.l3types[type(x)]
@@ -361,6 +427,10 @@ conf.L2listen, conf.L2socket or conf.L3socket.
                 proto = 0
             sx = struct.pack('!HH', 0, proto) + sx
         try:
-            os.write(self.outs.fileno(), sx)
+            try:
+                x.sent_time = time.time()
+            except AttributeError:
+                pass
+            return os.write(self.outs.fileno(), sx)
         except socket.error:
             log_runtime.error("%s send", self.__class__.__name__, exc_info=True)  # noqa: E501

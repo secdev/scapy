@@ -15,7 +15,7 @@ import time
 
 from scapy.automaton import SelectableObject
 from scapy.arch.common import _select_nonblock
-from scapy.compat import raw, plain_str, chb
+from scapy.compat import raw, plain_str
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
@@ -42,28 +42,29 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
 
     def __init__(self):
         SelectableObject.__init__(self)
+        self.cls = None
 
     def check_recv(self):
         return True
 
     def recv_raw(self, x=MTU):
         """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
-        ll = self.ins.datalink()
-        if ll in conf.l2types:
-            cls = conf.l2types[ll]
-        else:
-            cls = conf.default_l2
-            warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s",  # noqa: E501
-                    self.iface, ll, cls.name)
+        if self.cls is None:
+            ll = self.ins.datalink()
+            if ll in conf.l2types:
+                self.cls = conf.l2types[ll]
+            else:
+                self.cls = conf.default_l2
+                warning(
+                    "Unable to guess datalink type "
+                    "(interface=%s linktype=%i). Using %s",
+                    self.iface, ll, self.cls.name
+                )
 
-        pkt = None
-        while pkt is None:
-            pkt = self.ins.next()
-            if pkt is not None:
-                ts, pkt = pkt
-            if pkt is None:
-                return None, None, None
-        return cls, pkt, ts
+        ts, pkt = self.ins.next()
+        if pkt is None:
+            return None, None, None
+        return self.cls, pkt, ts
 
     def nonblock_recv(self):
         """Receives and dissect a packet in non-blocking mode.
@@ -223,12 +224,19 @@ if conf.use_pcap:
             self.bpf_program = bpf_program()
 
         def next(self):
-            """Return next packet (timestamp, raw_packet)"""
-            c = pcap_next_ex(self.pcap, byref(self.header), byref(self.pkt_data))  # noqa: E501
+            """
+            Returns the next packet as the tuple
+            (timestamp, raw_packet)
+            """
+            c = pcap_next_ex(
+                self.pcap,
+                byref(self.header),
+                byref(self.pkt_data)
+            )
             if not c > 0:
-                return
-            ts = self.header.contents.ts.tv_sec + float(self.header.contents.ts.tv_usec) / 1000000  # noqa: E501
-            pkt = b"".join(chb(i) for i in self.pkt_data[:self.header.contents.len])  # noqa: E501
+                return None, None
+            ts = self.header.contents.ts.tv_sec + float(self.header.contents.ts.tv_usec) / 1e6  # noqa: E501
+            pkt = bytes(bytearray(self.pkt_data[:self.header.contents.len]))
             return ts, pkt
         __next__ = next
 
@@ -347,9 +355,11 @@ if conf.use_pcap:
 
         def send(self, x):
             sx = raw(x)
-            if hasattr(x, "sent_time"):
+            try:
                 x.sent_time = time.time()
-            return self.outs.send(sx)
+            except AttributeError:
+                pass
+            self.outs.send(sx)
 
     class L3pcapSocket(L2pcapSocket):
         desc = "read/write packets at layer 3 using only libpcap"
@@ -368,9 +378,11 @@ if conf.use_pcap:
                 cls = conf.default_l2
                 warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)  # noqa: E501
             sx = raw(cls() / x)
-            if hasattr(x, "sent_time"):
+            try:
                 x.sent_time = time.time()
-            return self.ins.send(sx)
+            except AttributeError:
+                pass
+            self.outs.send(sx)
 else:
     # No libpcap installed
     get_if_list = lambda: []
