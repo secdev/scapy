@@ -7,6 +7,7 @@
 Packet sending and receiving libpcap/WinPcap.
 """
 
+import errno
 import os
 import platform
 import socket
@@ -90,7 +91,8 @@ if conf.use_pcap:
         from scapy.libs.winpcapy import pcap_setmintocopy
     else:
         from scapy.libs.winpcapy import pcap_get_selectable_fd
-    from ctypes import POINTER, byref, create_string_buffer, c_ubyte, cast
+    from ctypes import POINTER, byref, create_string_buffer, c_ubyte, cast, \
+        get_errno
 
     # Part of the Winpcapy integration was inspired by phaethon/scapy
     # but he destroyed the commit history, so there is no link to that
@@ -213,9 +215,11 @@ if conf.use_pcap:
                 self.pcap = pcap_open_live(self.iface,
                                            snaplen, promisc, to_ms,
                                            self.errbuf)
-                error = bytes(bytearray(self.errbuf)).strip(b"\x00")
-                if error:
-                    raise OSError(error)
+                # conflicted; WIP
+                # error = bytes(bytearray(self.errbuf)).strip(b"\x00")
+                # if error:
+                #     raise OSError(error)
+                self.assert_errno(device)
 
             if WINDOWS:
                 # Winpcap/Npcap exclusive: make every packet to be instantly
@@ -225,6 +229,19 @@ if conf.use_pcap:
             self.header = POINTER(pcap_pkthdr)()
             self.pkt_data = POINTER(c_ubyte)()
             self.bpf_program = bpf_program()
+
+        def assert_errno(self, iface):
+            # save C errno immediately; it might be changed in C code
+            tmp_errno = get_errno()
+            if tmp_errno == 0:
+                return
+            msg = "Could not open iface {}: {}".format(
+                iface, os.strerror(tmp_errno))
+            if tmp_errno == errno.EPERM:
+                msg += ' (needs sudo?)'
+            if tmp_errno == errno.ENXIO:
+                msg += ' ({} not exist?)'.format(iface)
+            raise OSError(msg)
 
         def next(self):
             """

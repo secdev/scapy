@@ -37,7 +37,7 @@ else:
     _lib_name = find_library("pcap")
     if not _lib_name:
         raise OSError("Cannot find libpcap.so library")
-    _lib = CDLL(_lib_name)
+    _lib = CDLL(_lib_name, use_errno=True)
 
 
 ##
