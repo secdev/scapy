@@ -63,6 +63,7 @@ from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
     FieldLenField, IPField, PacketListField, ShortField, SignedIntField, \
     StrFixedLenField, StrLenField, XIntField
 from scapy.layers.l2 import SNAP
+from scapy.compat import chb
 from scapy.config import conf
 
 _VTP_VLAN_TYPE = {
@@ -125,7 +126,7 @@ class VTPVlanInfo(Packet):
 
         if self.len is None:
             tmp_len = vlannamelen + 12
-            p = chr(tmp_len & 0xff) + p[1:]
+            p = chb(tmp_len & 0xff) + p[1:]
 
         # Pad vlan name with zeros if vlannamelen > len(vlanname)
         tmp_len = vlannamelen - len(self.vlanname)
@@ -189,7 +190,7 @@ class VTP(Packet):
     def post_build(self, p, pay):
         if self.domnamelen is None:
             domnamelen = len(self.domname.strip(b"\x00"))
-            p = p[:3] + chr(domnamelen & 0xff) + p[4:]
+            p = p[:3] + chb(domnamelen & 0xff) + p[4:]
 
         p += pay
 

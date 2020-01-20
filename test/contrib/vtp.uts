@@ -1,0 +1,11 @@
+# VP unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('vtp')" -t test/contrib/vtp.uts
+
+
++ VTP
+
+= VTP, basic instantiation
+pkt = VTP(vlaninfo=[VTPVlanInfo()])
+assert len(pkt) == 72
