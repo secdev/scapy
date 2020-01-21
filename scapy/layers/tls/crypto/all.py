@@ -7,6 +7,4 @@
 Aggregate some TLS crypto objects.
 """
 
-# flake8: noqa: F403
-
 from scapy.layers.tls.crypto.suites import *  # noqa: F401

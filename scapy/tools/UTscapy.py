@@ -3,8 +3,6 @@
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
-# flake8: noqa: E501
-
 """
 Unit testing infrastructure for Scapy
 """

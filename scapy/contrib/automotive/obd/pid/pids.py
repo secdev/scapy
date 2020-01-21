@@ -1,5 +1,3 @@
-# flake8: noqa: F405
-
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Andreas Korb <andreas.d.korb@gmail.com>

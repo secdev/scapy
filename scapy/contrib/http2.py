@@ -26,7 +26,6 @@ and HPack encoded headers
 # scapy.contrib.description=HTTP/2 (RFC 7540, RFC 7541)
 
 # base_classes triggers an unwanted import warning
-# flake8: noqa: F821
 
 from __future__ import absolute_import
 from __future__ import print_function
