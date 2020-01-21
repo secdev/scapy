@@ -354,7 +354,10 @@ class L3bpfSocket(L2bpfSocket):
         """Receive on layer 3"""
         r = SuperSocket.recv(self, x)
         if r:
-            return r.payload
+            ts = r.time
+            r = r.payload
+            r.time = ts
+        return r
 
     def send(self, pkt):
         """Send a packet"""

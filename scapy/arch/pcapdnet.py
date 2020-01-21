@@ -367,7 +367,10 @@ if conf.use_pcap:
         def recv(self, x=MTU):
             r = L2pcapSocket.recv(self, x)
             if r:
-                return r.payload
+                ts = r.time
+                r = r.payload
+                r.time = ts
+            return r
 
         def send(self, x):
             # Makes send detects when it should add Loopback(), Dot11... instead of Ether()  # noqa: E501
