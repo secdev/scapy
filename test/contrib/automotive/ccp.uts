@@ -48,9 +48,9 @@ print("CAN should work now")
 from scapy.contrib.cansocket_python_can import *
 
 import can as python_can
-new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface))
-new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface0), timeout=0.01)
-new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface1), timeout=0.01)
+new_can_socket = lambda iface: CANSocket(bustype='virtual', channel=iface)
+new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface0, timeout=0.01)
+new_can_socket1 = lambda: CANSocket(bustype='virtual', channel=iface1, timeout=0.01)
 
 # utility function for draining a can interface, asserting that no packets are there
 def drain_bus(iface=iface0, assert_empty=True):
@@ -75,9 +75,9 @@ if six.PY3 and LINUX:
 ~ vcan_socket needs_root linux
 
 if "python_can" in CANSocket.__module__:
-    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000), timeout=0.01)
-    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
-    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000), timeout=0.01)
+    new_can_socket = lambda iface: CANSocket(bustype='socketcan', channel=iface, bitrate=250000, timeout=0.01)
+    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, bitrate=250000, timeout=0.01)
+    new_can_socket1 = lambda: CANSocket(bustype='socketcan', channel=iface1, bitrate=250000, timeout=0.01)
 
 
 = Verify that a CAN socket can be created and closed
