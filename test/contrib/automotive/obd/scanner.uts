@@ -129,8 +129,6 @@ load_contrib('automotive.obd.obd')
 + Load OBD_scan
 = imports
 
-import six.moves.queue as queue
-from threading import Event
 from subprocess import call
 
 from scapy.contrib.automotive.obd.scanner import obd_scan
@@ -141,7 +139,7 @@ from scapy.contrib.automotive.ecu import *
 
 s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
 
-s1_pid00 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID00(supported_pids="PID03+PID0B+PID0F")])
+s1_pid00 = OBD() / OBD_S01_PR(data_records=[OBD_S01_PR_Record() / OBD_PID00(supported_pids="PID03+PID0B+PID0F")])
 s6_mid00 = OBD() / OBD_S06_PR(data_records=[OBD_S06_PR_Record() / OBD_MID00(supported_mids="")])
 s8_tid00 = OBD() / OBD_S08_PR(data_records=[OBD_S08_PR_Record() / OBD_TID00(supported_tids="")])
 s9_iid00 = OBD() / OBD_S09_PR(data_records=[OBD_S09_PR_Record() / OBD_IID00(supported_iids="")])
@@ -172,18 +170,18 @@ exit_if_no_isotp_module()
 
 drain_bus(iface0)
 
-with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
+with new_can_socket0() as isocan_ecu, ISOTPSocket(isocan_ecu, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD)
     sim = threading.Thread(target=answering_machine, kwargs={'count': 12})
     sim.start()
     try:
-        with ISOTPSocket(new_can_socket(iface0), 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
+        with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
             all_ids_set = set(range(1, 256))
             supported_ids = _supported_id_numbers(socket, 0.1, OBD_S01, 'pid', False)
             unsupported_ids = all_ids_set - supported_ids
         drain_bus(iface0)
         # timeout to avoid a deadlock if the test which sets this event fails
-        with ISOTPSocket(new_can_socket(iface0), 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
+        with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
             data = obd_scan(socket, 0.1, True, True, verbose=False)
             dtc = data[0]
             print(data)

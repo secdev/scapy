@@ -63,11 +63,10 @@ new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virt
 
 # utility function for draining a can interface, asserting that no packets are there
 def drain_bus(iface=iface0, assert_empty=True):
-    s = new_can_socket(iface)
-    pkts = s.sniff(timeout=0.1)
-    if assert_empty:
-        assert len(pkts) == 0
-    s.close()
+    with new_can_socket(iface) as s:
+        pkts = s.sniff(timeout=0.1)
+        if assert_empty:
+            assert len(pkts) == 0
 
 print("CAN sockets should work now")
 
@@ -139,10 +138,8 @@ drain_bus(iface0)
 example_responses = \
     [ECUResponse(session=1, security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=0x1234) / Raw(b"deadbeef"))]
 
-
-
-with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'count': 3})
     sim.start()
@@ -170,8 +167,8 @@ example_responses = \
      ECUResponse(session=[5,6,7], security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef3")),
      ECUResponse(session=lambda x: 8 < x <= 10, security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=9) / Raw(b"deadbeef4"))]
 
-with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'count': 5})
     sim.start()
@@ -224,8 +221,8 @@ example_responses = \
 
      ]
 
-with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'count': 10})
     sim.start()
@@ -296,8 +293,8 @@ example_responses = \
 
      ]
 
-with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'count': 10})
@@ -369,8 +366,8 @@ example_responses = \
      ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
      ]
 
-with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'count': 4})
@@ -414,8 +411,8 @@ example_responses = \
      ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
      ]
 
-with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout': 10})
@@ -461,8 +458,8 @@ example_responses = \
 
 conf.contribs['UDS']['treat-response-pending-as-answer'] = True
 
-with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
+with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
+        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout':5})

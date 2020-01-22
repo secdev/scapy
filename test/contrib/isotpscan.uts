@@ -65,11 +65,10 @@ new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virt
 
 # utility function for draining a can interface, asserting that no packets are there
 def drain_bus(iface=iface0, assert_empty=True):
-    s = new_can_socket(iface)
-    pkts = s.sniff(timeout=0.1)
-    if assert_empty:
-        assert len(pkts) == 0
-    s.close()
+    with new_can_socket0() as s:
+        pkts = s.sniff(timeout=0.1)
+        if assert_empty:
+            assert len(pkts) == 0
 
 print("CAN sockets should work now")
 
@@ -124,18 +123,22 @@ else:
     assert ISOTPSocket == ISOTPSoftSocket
 
 = Test send_multiple_ext()
+
 pkt = ISOTPHeaderEA(identifier=0x100, extended_address=1)/ISOTP_FF(message_size=100, data=b'\x00\x00\x00\x00\x00')
 number_of_packets = 100
 
 drain_bus(iface0)
 def sender():
-    send_multiple_ext(new_can_socket0(), 0, pkt, number_of_packets)
+    with new_can_socket0() as sock:
+        send_multiple_ext(sock, 0, pkt, number_of_packets)
 
 thread = threading.Thread(target=sender)
-pkts = new_can_socket0().sniff(timeout=4, count=number_of_packets, started_callback=thread.start)
-thread.join()
-assert len(pkts) == number_of_packets
 
+with new_can_socket0() as sock:
+    pkts = sock.sniff(timeout=4, count=number_of_packets, started_callback=thread.start)
+
+thread.join(timeout=10)
+assert len(pkts) == number_of_packets
 
 = Test filter_periodic_packets() with periodic packets
 pkt = CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
@@ -178,43 +181,65 @@ filter_periodic_packets(received_packets)
 assert len(received_packets) == 40
 
 = Test scan()
+
 drain_bus(iface0)
+
+semaphore = threading.Semaphore(0)
+
 def isotpserver(idx):
-    with ISOTPSocket(new_can_socket0(), sid=0x700+idx, did=0x600+idx) as sock:
-        sock.sniff(timeout=100 ,count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700+idx, did=0x600+idx) as sock:
+        sock.sniff(timeout=20 ,count=1, started_callback=semaphore.release)
 
 listen_sockets = list()
 for i in range(1, 4):
-    listen_sockets.append(threading.Thread(target=isotpserver, args=[i]))
+    listen_sockets.append(threading.Thread(target=isotpserver, args=(int(i*0x10),)))
     listen_sockets[-1].start()
 
-found_packets = scan(new_can_socket0(), range(0x5ff, 0x610), noise_ids=[0x701], sniff_time=0.1)
-cans = new_can_socket0()
-cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
+for _ in range(len(listen_sockets)):
+    semaphore.acquire()
+
+with new_can_socket0() as scansock:
+    found_packets = scan(scansock, range(0x5ff, 0x640), noise_ids=[0x710], sniff_time=0.3, verbose=True)
+
+with new_can_socket0() as cans:
+    for _ in range(5):
+        cans.send(CAN(identifier=0x610, data=b'\x01\xaa'))
+        cans.send(CAN(identifier=0x620, data=b'\x01\xaa'))
+        cans.send(CAN(identifier=0x630, data=b'\x01\xaa'))
+        time.sleep(0)
+
+print(len(listen_sockets))
 
 for thread in listen_sockets:
-    thread.join()
+    thread.join(timeout=1)
 
+print(len(found_packets))
 assert len(found_packets) == 2
 
 
 = Test scan_extended()
+
 recvpacket = CAN(flags=0, identifier=0x700, length=4, data=b'\xaa0\x00\x00')
 
+semaphore = threading.Semaphore(0)
 drain_bus(iface0)
+
 def isotpserver():
-    with ISOTPSocket(new_can_socket0(), sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
-        s.sniff(timeout=100, count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
+        s.sniff(timeout=100, count=1, started_callback=semaphore.release)
 
 thread = threading.Thread(target=isotpserver)
 thread.start()
-time.sleep(0.1)
-found_packets = scan_extended(new_can_socket0(), [0x601], sniff_time=0.1)
-cans = new_can_socket0()
-cans.send(CAN(identifier=0x601, data=b'\xbb\x01\xaa'))
-thread.join()
+
+semaphore.acquire()
+
+with new_can_socket0() as scansock:
+    found_packets = scan_extended(scansock, [0x601], sniff_time=0.1)
+
+with new_can_socket0() as cans:
+    cans.send(CAN(identifier=0x601, data=b'\xbb\x01\xaa'))
+    thread.join(timeout=10)
+
 fpkt = found_packets[list(found_packets.keys())[0]][0]
 rpkt = recvpacket
 
@@ -222,39 +247,47 @@ assert fpkt.length == rpkt.length
 assert fpkt.data == rpkt.data
 assert fpkt.identifier == rpkt.identifier
 
-
 = Test ISOTPScan(output_format=text)
 done = False
 
+semaphore = threading.Semaphore(0)
+
 drain_bus(iface0)
 def isotpserver(i):
-    with ISOTPSocket(new_can_socket0(), sid=0x700+i, did=0x600+i) as isotpsock1:
-        isotpsock1.sniff(timeout=100 ,count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700+i, did=0x600+i) as isotpsock1:
+        isotpsock1.sniff(timeout=100 ,count=1, started_callback=semaphore.release)
 
-def make_noise(pkt):
+def make_noise(p):
     global done
-    while not done:
-        new_can_socket0().send(pkt)
-        time.sleep(0.1)
+    with new_can_socket0() as sock:
+        while not done:
+            sock.send(p)
+            time.sleep(0.1)
 
 pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-thread_noise = threading.Thread(target=make_noise, args=(pkt))
+thread_noise = threading.Thread(target=make_noise, args=(pkt,))
 thread_noise.start()
 
-thread1 = threading.Thread(target=isotpserver, args=[2])
-thread2 = threading.Thread(target=isotpserver, args=[3])
+thread1 = threading.Thread(target=isotpserver, args=(2,))
+thread2 = threading.Thread(target=isotpserver, args=(3,))
 thread1.start()
 thread2.start()
-time.sleep(0.1)
-result = ISOTPScan(new_can_socket0(), range(0x5ff, 0x604+1), output_format="text", noise_listen_time=1, sniff_time=0.1)
-cans = new_can_socket0()
-cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
-thread1.join()
-thread2.join()
+
+semaphore.acquire()
+semaphore.acquire()
+
+with new_can_socket0() as scansock:
+    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), output_format="text", noise_listen_time=1, sniff_time=0.1)
+
+with new_can_socket0() as cans:
+    cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
+    cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
+    cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
+
+thread1.join(timeout=10)
+thread2.join(timeout=10)
 done = True
-thread_noise.join()
+thread_noise.join(timeout=10)
 
 text = "\nFound 2 ISOTP-FlowControl Packet(s):"
 assert text in result
@@ -267,35 +300,44 @@ assert "No Padding" in result
 = Test ISOTPScan(output_format=text) extended_can_id
 done = False
 
+semaphore = threading.Semaphore(0)
+
 drain_bus(iface0)
 def isotpserver(i):
-    with ISOTPSocket(new_can_socket0(), sid=0x1ffff700+i, did=0x1ffff600+i) as isotpsock1:
-        isotpsock1.sniff(timeout=100 ,count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x1ffff700+i, did=0x1ffff600+i) as isotpsock1:
+        isotpsock1.sniff(timeout=100 ,count=1, started_callback=semaphore.release)
 
 def make_noise(pkt):
     global done
-    while not done:
-        new_can_socket0().send(pkt)
-        time.sleep(0.1)
+    with new_can_socket0() as sock:
+        while not done:
+            sock.send(pkt)
+            time.sleep(0.1)
 
 pkt = CAN(identifier=0x1ffff701, flags="extended", length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-thread_noise = threading.Thread(target=make_noise, args=(pkt))
+thread_noise = threading.Thread(target=make_noise, args=(pkt,))
 thread_noise.start()
 
-thread1 = threading.Thread(target=isotpserver, args=[2])
-thread2 = threading.Thread(target=isotpserver, args=[3])
+thread1 = threading.Thread(target=isotpserver, args=(2,))
+thread2 = threading.Thread(target=isotpserver, args=(3,))
 thread1.start()
 thread2.start()
-time.sleep(0.1)
-result = ISOTPScan(new_can_socket0(), range(0x1ffff5ff, 0x1ffff604+1), output_format="text", noise_listen_time=1, sniff_time=0.1, extended_can_id=True)
-cans = new_can_socket0()
-cans.send(CAN(identifier=0x1ffff601, flags="extended", data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x1ffff602, flags="extended", data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x1ffff603, flags="extended", data=b'\x01\xaa'))
-thread1.join()
-thread2.join()
+semaphore.acquire()
+semaphore.acquire()
+
+with new_can_socket0() as scansock:
+    result = ISOTPScan(scansock, range(0x1ffff5ff, 0x1ffff604+1), output_format="text", noise_listen_time=1, sniff_time=0.1, extended_can_id=True)
+
+with new_can_socket0() as cans:
+    cans.send(CAN(identifier=0x1ffff601, flags="extended", data=b'\x01\xaa'))
+    cans.send(CAN(identifier=0x1ffff602, flags="extended", data=b'\x01\xaa'))
+    cans.send(CAN(identifier=0x1ffff603, flags="extended", data=b'\x01\xaa'))
+
+thread1.join(timeout=10)
+thread2.join(timeout=10)
 done = True
-thread_noise.join()
+thread_noise.join(timeout=10)
+
 print(result)
 text = "\nFound 2 ISOTP-FlowControl Packet(s):"
 assert text in result
@@ -309,35 +351,43 @@ assert "No Padding" in result
 = Test ISOTPScan(output_format=code)
 done = False
 
+semaphore = threading.Semaphore(0)
+
 drain_bus(iface0)
 def isotpserver(i):
-    with ISOTPSocket(new_can_socket0(), sid=0x700+i, did=0x600+i) as isotpsock1:
-        isotpsock1.sniff(timeout=100 ,count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700+i, did=0x600+i) as isotpsock1:
+        isotpsock1.sniff(timeout=100 ,count=1, started_callback=semaphore.release)
 
 def make_noise(pkt):
     global done
-    while not done:
-        new_can_socket0().send(pkt)
-        time.sleep(0.1)
+    with new_can_socket0() as sock:
+        while not done:
+            sock.send(pkt)
+            time.sleep(0.1)
 
 pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-thread_noise = threading.Thread(target=make_noise, args=pkt)
+thread_noise = threading.Thread(target=make_noise, args=(pkt,))
 thread_noise.start()
 
-thread1 = threading.Thread(target=isotpserver, args=[2])
-thread2 = threading.Thread(target=isotpserver, args=[3])
+thread1 = threading.Thread(target=isotpserver, args=(2,))
+thread2 = threading.Thread(target=isotpserver, args=(3,))
 thread1.start()
 thread2.start()
-time.sleep(0.1)
-result = ISOTPScan(new_can_socket0(), range(0x5ff, 0x604+1), output_format="code", noise_listen_time=1, sniff_time=0.1, can_interface="can0")
-cans = new_can_socket0()
-cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
-thread1.join()
-thread2.join()
+semaphore.acquire()
+semaphore.acquire()
+
+with new_can_socket0() as scansock:
+    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), output_format="code", noise_listen_time=1, sniff_time=0.1, can_interface="can0")
+
+with new_can_socket0() as cans:
+    cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
+    cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
+    cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
+
+thread1.join(timeout=10)
+thread2.join(timeout=10)
 done = True
-thread_noise.join()
+thread_noise.join(timeout=10)
 
 s1 = "ISOTPSocket(can0, sid=0x602, did=0x702, padding=False, basecls=ISOTP)\n"
 s2 = "ISOTPSocket(can0, sid=0x603, did=0x703, padding=False, basecls=ISOTP)\n"
@@ -350,34 +400,39 @@ assert s2 in result
 = Test extended ISOTPScan(output_format=code)
 drain_bus(iface0)
 
+semaphore = threading.Semaphore(0)
+
 def isotpserver(i):
-    with ISOTPSocket(new_can_socket0(), sid=0x700+i, did=0x600+i, extended_addr=0x11, extended_rx_addr=0x22) as s:
-        s.sniff(timeout=100 ,count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700+i, did=0x600+i, extended_addr=0x11, extended_rx_addr=0x22) as s:
+        s.sniff(timeout=100 ,count=1, started_callback=semaphore.release)
 
 def make_noise(pkt):
-    s = new_can_socket0()
-    for _ in range(20):
-        s.send(pkt)
-        time.sleep(0.1)
+    with new_can_socket0() as s:
+        for _ in range(20):
+            s.send(pkt)
+            time.sleep(0.1)
 
 pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-thread_noise = threading.Thread(target=make_noise, args=pkt)
+thread_noise = threading.Thread(target=make_noise, args=(pkt,))
 thread_noise.start()
 
-thread1 = threading.Thread(target=isotpserver, args=[2])
-thread2 = threading.Thread(target=isotpserver, args=[3])
+thread1 = threading.Thread(target=isotpserver, args=(2,))
+thread2 = threading.Thread(target=isotpserver, args=(3,))
 thread1.start()
 thread2.start()
-time.sleep(0.1)
 
-result = ISOTPScan(new_can_socket0(), range(0x5ff, 0x604+1), extended_addressing=True, sniff_time=0.1, noise_listen_time=1, output_format="code", can_interface="can0")
+semaphore.acquire()
+semaphore.acquire()
 
-cans = new_can_socket0()
-cans.send(CAN(identifier=0x602, data=b'\x22\x01\xaa'))
-cans.send(CAN(identifier=0x603, data=b'\x22\x01\xaa'))
-thread1.join()
-thread2.join()
-thread_noise.join()
+with new_can_socket0() as scansock:
+    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), extended_addressing=True, sniff_time=0.1, noise_listen_time=1, output_format="code", can_interface="can0")
+
+with new_can_socket0() as cans:
+    cans.send(CAN(identifier=0x602, data=b'\x22\x01\xaa'))
+    cans.send(CAN(identifier=0x603, data=b'\x22\x01\xaa'))
+    thread1.join(timeout=10)
+    thread2.join(timeout=10)
+    thread_noise.join(timeout=10)
 
 s1 = "ISOTPSocket(can0, sid=0x602, did=0x702, padding=False, extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
 s2 = "ISOTPSocket(can0, sid=0x603, did=0x703, padding=False, extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
@@ -385,38 +440,42 @@ print(result)
 assert s1 in result
 assert s2 in result
 
-
 = Test extended ISOTPScan(output_format=code) extended_can_id
 drain_bus(iface0)
 
+semaphore = threading.Semaphore(0)
+
 def isotpserver(i):
-    with ISOTPSocket(new_can_socket0(), sid=0x1ffff700+i, did=0x1ffff600+i, extended_addr=0x11, extended_rx_addr=0x22) as s:
-        s.sniff(timeout=100 ,count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x1ffff700+i, did=0x1ffff600+i, extended_addr=0x11, extended_rx_addr=0x22) as s:
+        s.sniff(timeout=100 ,count=1, started_callback=semaphore.release)
 
 def make_noise(pkt):
-    s = new_can_socket0()
-    for _ in range(20):
-        s.send(pkt)
-        time.sleep(0.1)
+    with new_can_socket0() as s:
+        for _ in range(20):
+            s.send(pkt)
+            time.sleep(0.1)
 
 pkt = CAN(identifier=0x1ffff701, flags="extended", length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-thread_noise = threading.Thread(target=make_noise, args=pkt)
+thread_noise = threading.Thread(target=make_noise, args=(pkt,))
 thread_noise.start()
 
-thread1 = threading.Thread(target=isotpserver, args=[2])
-thread2 = threading.Thread(target=isotpserver, args=[3])
+thread1 = threading.Thread(target=isotpserver, args=(2,))
+thread2 = threading.Thread(target=isotpserver, args=(3,))
 thread1.start()
 thread2.start()
-time.sleep(0.1)
 
-result = ISOTPScan(new_can_socket0(), range(0x1ffff5ff, 0x1ffff604+1), extended_can_id=True, extended_addressing=True, sniff_time=0.1, noise_listen_time=1, output_format="code", can_interface="can0")
+semaphore.acquire()
+semaphore.acquire()
 
-cans = new_can_socket0()
-cans.send(CAN(identifier=0x1ffff602, flags="extended", data=b'\x22\x01\xaa'))
-cans.send(CAN(identifier=0x1ffff603, flags="extended", data=b'\x22\x01\xaa'))
-thread1.join()
-thread2.join()
-thread_noise.join()
+with new_can_socket0() as scansock:
+    result = ISOTPScan(scansock, range(0x1ffff5ff, 0x1ffff604+1), extended_can_id=True, extended_addressing=True, sniff_time=0.1, noise_listen_time=1, output_format="code", can_interface="can0")
+
+with new_can_socket0() as cans:
+    cans.send(CAN(identifier=0x1ffff602, flags="extended", data=b'\x22\x01\xaa'))
+    cans.send(CAN(identifier=0x1ffff603, flags="extended", data=b'\x22\x01\xaa'))
+    thread1.join(timeout=10)
+    thread2.join(timeout=10)
+    thread_noise.join(timeout=10)
 
 s1 = "ISOTPSocket(can0, sid=0x1ffff602, did=0x1ffff702, padding=False, extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
 s2 = "ISOTPSocket(can0, sid=0x1ffff603, did=0x1ffff703, padding=False, extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
@@ -427,36 +486,45 @@ assert s2 in result
 
 = Test ISOTPScan(output_format=None)
 drain_bus(iface0)
+
+semaphore = threading.Semaphore(0)
+
 def isotpserver(i):
-    with ISOTPSocket(new_can_socket0(), sid=0x700+i, did=0x600+i) as s:
-        s.sniff(timeout=100 ,count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700+i, did=0x600+i) as s:
+        s.sniff(timeout=100 ,count=1, started_callback=semaphore.release)
 
 def make_noise(pkt):
-    s = new_can_socket0()
-    for _ in range(20):
-        s.send(pkt)
-        time.sleep(0.1)
+    with new_can_socket0() as s:
+        for _ in range(20):
+            s.send(pkt)
+            time.sleep(0.1)
 
 pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-thread_noise = threading.Thread(target=make_noise, args=pkt)
+thread_noise = threading.Thread(target=make_noise, args=(pkt,))
 thread_noise.start()
 
-thread1 = threading.Thread(target=isotpserver, args=[2])
-thread2 = threading.Thread(target=isotpserver, args=[3])
+thread1 = threading.Thread(target=isotpserver, args=(2,))
+thread2 = threading.Thread(target=isotpserver, args=(3,))
 thread1.start()
 thread2.start()
-time.sleep(0.1)
 
-result = ISOTPScan(new_can_socket0(), range(0x5ff, 0x604+1), can_interface=new_can_socket0(), sniff_time=0.1, noise_listen_time=1)
+semaphore.acquire()
+semaphore.acquire()
+
+socks_interface = new_can_socket0()
+
+with new_can_socket0() as scansock:
+    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), can_interface=socks_interface, sniff_time=0.1, noise_listen_time=1)
+
 result = sorted(result, key=lambda x:x.src)
 
-cans = new_can_socket0()
-cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
-thread1.join()
-thread2.join()
-thread_noise.join()
+with new_can_socket0() as cans:
+    cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
+    cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
+    cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
+    thread1.join(timeout=10)
+    thread2.join(timeout=10)
+    thread_noise.join(timeout=10)
 
 assert len(result) == 2
 assert 0x602 == result[0].src
@@ -464,51 +532,60 @@ assert 0x702 == result[0].dst
 assert 0x603 == result[1].src
 assert 0x703 == result[1].dst
 
-cans = new_can_socket0()
+with new_can_socket0() as cans:
+    for s in result:
+        # This helps to close ISOTPSoftSockets
+        cans.send(CAN(identifier=0x702, data=b'\x01\xaa'))
+        cans.send(CAN(identifier=0x703, data=b'\x01\xaa'))
+        s.close()
+        cans.send(CAN(identifier=0x702, data=b'\x01\xaa'))
+        cans.send(CAN(identifier=0x703, data=b'\x01\xaa'))
 
-for s in result:
-    # This helps to close ISOTPSoftSockets
-    cans.send(CAN(identifier=0x702, data=b'\x01\xaa'))
-    cans.send(CAN(identifier=0x703, data=b'\x01\xaa'))
-    s.close()
-    cans.send(CAN(identifier=0x702, data=b'\x01\xaa'))
-    cans.send(CAN(identifier=0x703, data=b'\x01\xaa'))
+socks_interface.close()
+time.sleep(0.1)
 
 for s in result:
     del s
 
 = Test ISOTPScan(output_format=None) 2
 drain_bus(iface0)
+
+semaphore = threading.Semaphore(0)
+
 def isotpserver(i):
-    with ISOTPSocket(new_can_socket0(), sid=0x700+i, did=0x600+i) as s:
-        s.sniff(timeout=100 ,count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700+i, did=0x600+i) as s:
+        s.sniff(timeout=100 ,count=1, started_callback=semaphore.release)
 
 def make_noise(pkt):
-    s = new_can_socket0()
-    for _ in range(20):
-        s.send(pkt)
-        time.sleep(0.1)
+    with new_can_socket0() as s:
+        for _ in range(20):
+            s.send(pkt)
+            time.sleep(0.1)
 
 pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-thread_noise = threading.Thread(target=make_noise, args=pkt)
+thread_noise = threading.Thread(target=make_noise, args=(pkt,))
 thread_noise.start()
 
 thread1 = threading.Thread(target=isotpserver, args=[9])
 thread2 = threading.Thread(target=isotpserver, args=[8])
 thread1.start()
 thread2.start()
-time.sleep(0.1)
 
-result = ISOTPScan(new_can_socket0(), range(0x5ff, 0x6A0), can_interface=new_can_socket0(), sniff_time=0.1, noise_listen_time=1)
+semaphore.acquire()
+semaphore.acquire()
+
+socks_interface = new_can_socket0()
+with new_can_socket0() as scansock:
+    result = ISOTPScan(scansock, range(0x5ff, 0x6A0), can_interface=socks_interface, sniff_time=0.1, noise_listen_time=1)
+
 result = sorted(result, key=lambda x:x.src)
 
-cans = new_can_socket0()
-cans.send(CAN(identifier=0x609, data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x608, data=b'\x01\xaa'))
-
-thread1.join()
-thread2.join()
-thread_noise.join()
+with new_can_socket0() as cans:
+    cans.send(CAN(identifier=0x609, data=b'\x01\xaa'))
+    cans.send(CAN(identifier=0x608, data=b'\x01\xaa'))
+    thread1.join(timeout=10)
+    thread2.join(timeout=10)
+    thread_noise.join(timeout=10)
 
 assert len(result) == 2
 assert 0x608 == result[0].src
@@ -516,54 +593,63 @@ assert 0x708 == result[0].dst
 assert 0x609 == result[1].src
 assert 0x709 == result[1].dst
 
-cans = new_can_socket0()
+with new_can_socket0() as cans:
+    for s in result:
+        # This helps to close ISOTPSoftSockets
+        cans.send(CAN(identifier=0x709, data=b'\x01\xaa'))
+        cans.send(CAN(identifier=0x708, data=b'\x01\xaa'))
+        s.close()
+        time.sleep(0)
+        cans.send(CAN(identifier=0x709, data=b'\x01\xaa'))
+        cans.send(CAN(identifier=0x708, data=b'\x01\xaa'))
 
-for s in result:
-    # This helps to close ISOTPSoftSockets
-    cans.send(CAN(identifier=0x709, data=b'\x01\xaa'))
-    cans.send(CAN(identifier=0x708, data=b'\x01\xaa'))
-    s.close()
-    cans.send(CAN(identifier=0x709, data=b'\x01\xaa'))
-    cans.send(CAN(identifier=0x708, data=b'\x01\xaa'))
+socks_interface.close()
+time.sleep(0.1)
 
 for s in result:
     del s
 
-
 = Test extended ISOTPScan(output_format=None)
 drain_bus(iface0)
 
+semaphore = threading.Semaphore(0)
+
 def isotpserver(i):
-    with ISOTPSocket(new_can_socket0(), sid=0x700+i, did=0x600+i, extended_addr=0x11, extended_rx_addr=0x22) as s:
-        s.sniff(timeout=100 ,count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700+i, did=0x600+i, extended_addr=0x11, extended_rx_addr=0x22) as s:
+        s.sniff(timeout=100 ,count=1, started_callback=semaphore.release)
 
 def make_noise(pkt):
-    s = new_can_socket0()
-    for _ in range(20):
-        s.send(pkt)
-        time.sleep(0.1)
+    with new_can_socket0() as s:
+        for _ in range(20):
+            s.send(pkt)
+            time.sleep(0.1)
 
 pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-thread_noise = threading.Thread(target=make_noise, args=pkt)
+thread_noise = threading.Thread(target=make_noise, args=(pkt,))
 thread_noise.start()
 
-thread1 = threading.Thread(target=isotpserver, args=[2])
-thread2 = threading.Thread(target=isotpserver, args=[3])
+thread1 = threading.Thread(target=isotpserver, args=(2,))
+thread2 = threading.Thread(target=isotpserver, args=(3,))
 thread1.start()
 thread2.start()
-time.sleep(0.1)
 
-result = ISOTPScan(new_can_socket0(), range(0x5ff, 0x604+1), extended_addressing=True, can_interface=new_can_socket0(), sniff_time=0.1, noise_listen_time=1)
+semaphore.acquire()
+semaphore.acquire()
+
+socks_interface = new_can_socket0()
+
+with new_can_socket0() as scansock:
+    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), extended_addressing=True, can_interface=socks_interface, sniff_time=0.1, noise_listen_time=1)
+
 result = sorted(result, key=lambda x:x.src)
 
-cans = new_can_socket0()
+with new_can_socket0() as cans:
+    cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
+    cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
 
-cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
-cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
-
-thread1.join()
-thread2.join()
-thread_noise.join()
+thread1.join(timeout=10)
+thread2.join(timeout=10)
+thread_noise.join(timeout=10)
 
 assert len(result) == 2
 assert 0x602 == result[0].src
@@ -575,15 +661,18 @@ assert 0x703 == result[1].dst
 assert 0x22 == result[1].exsrc
 assert 0x11 == result[1].exdst
 
-cans = new_can_socket0()
+with new_can_socket0() as cans:
+    for s in result:
+        # This helps to close ISOTPSoftSockets
+        cans.send(CAN(identifier=0x702, data=b'\x11\x01\xaa'))
+        cans.send(CAN(identifier=0x703, data=b'\x11\x01\xaa'))
+        s.close()
+        time.sleep(0)
+        cans.send(CAN(identifier=0x702, data=b'\x11\x01\xaa'))
+        cans.send(CAN(identifier=0x703, data=b'\x11\x01\xaa'))
 
-for s in result:
-    # This helps to close ISOTPSoftSockets
-    cans.send(CAN(identifier=0x702, data=b'\x11\x01\xaa'))
-    cans.send(CAN(identifier=0x703, data=b'\x11\x01\xaa'))
-    s.close()
-    cans.send(CAN(identifier=0x702, data=b'\x11\x01\xaa'))
-    cans.send(CAN(identifier=0x703, data=b'\x11\x01\xaa'))
+socks_interface.close()
+time.sleep(0.1)
 
 for s in result:
     del s
@@ -596,35 +685,40 @@ rnd = RandNum(0x0, 0x10)
 ids = set(rnd._fix() * 10 for _ in range(5))
 print(ids)
 
+semaphore = threading.Semaphore(0)
+
 def isotpserver(i):
-    with ISOTPSocket(new_can_socket0(), sid=0x100+i, did=i) as s:
-        s.sniff(timeout=100 ,count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x100+i, did=i) as s:
+        s.sniff(timeout=100 ,count=1, started_callback=semaphore.release)
 
 def make_noise(pkt):
-    s = new_can_socket0()
-    for _ in range(20):
-        s.send(pkt)
-        time.sleep(0.1)
+    with new_can_socket0() as s:
+        for _ in range(20):
+            s.send(pkt)
+            time.sleep(0.1)
 
 pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-thread_noise = threading.Thread(target=make_noise, args=pkt)
+thread_noise = threading.Thread(target=make_noise, args=(pkt,))
 thread_noise.start()
 
-threads = [threading.Thread(target=isotpserver, args=[x]) for x in ids]
+threads = [threading.Thread(target=isotpserver, args=(x,)) for x in ids]
 _ = [t.start() for t in threads]
-time.sleep(0.1)
 
-result = ISOTPScan(new_can_socket0(), range(0x000, 0x101), can_interface=new_can_socket0(), noise_listen_time=1, sniff_time=0.1, verbose=True)
-result = sorted(result, key=lambda x:x.src)
+for _ in range(len(threads)):
+    semaphore.acquire()
 
-cans = new_can_socket0()
+socks_interface = new_can_socket0()
 
-for i in ids:
-    # This helps to close ISOTPSoftSockets
-    cans.send(CAN(identifier=i, data=b'\x01\xaa'))
+with new_can_socket0() as scansock:
+    result = ISOTPScan(scansock, range(0x000, 0x101), can_interface=socks_interface, noise_listen_time=1, sniff_time=0.1, verbose=True)
+    result = sorted(result, key=lambda x:x.src)
 
-_ = [t.join() for t in threads]
-thread_noise.join()
+with new_can_socket0() as cans:
+    for i in ids:
+        # This helps to close ISOTPSoftSockets
+        cans.send(CAN(identifier=i, data=b'\x01\xaa'))
+    _ = [t.join(timeout=10) for t in threads]
+    thread_noise.join(timeout=10)
 
 assert len(result) == len(ids)
 ids = sorted(ids)
@@ -632,16 +726,18 @@ for i, s in zip(ids, result):
     assert i == s.src
     assert i+0x100 == s.dst
 
-cans = new_can_socket0()
+with new_can_socket0() as cans:
+    for s in result:
+        # This helps to close ISOTPSoftSockets
+        cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
+        cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
+        s.close()
+        time.sleep(0)
+        cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
+        cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
 
-for s in result:
-    # This helps to close ISOTPSoftSockets
-    cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
-    cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
-    s.close()
-    cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
-    cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
-
+socks_interface.close()
+time.sleep(0.1)
 for s in result:
     del s
 
@@ -653,35 +749,41 @@ rnd = RandNum(0x0, 0x10)
 
 ids = set(rnd._fix() * 10 for _ in range(5))
 
+semaphore = threading.Semaphore(0)
+
 def isotpserver(i):
-    with ISOTPSocket(new_can_socket0(), sid=0x100+i, did=i, padding=True) as s:
-        s.sniff(timeout=100 ,count=1)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x100+i, did=i, padding=True) as s:
+        s.sniff(timeout=100 ,count=1, started_callback=semaphore.release)
 
 def make_noise(pkt):
-    s = new_can_socket0()
-    for _ in range(20):
-        s.send(pkt)
-        time.sleep(0.1)
+    with new_can_socket0() as s:
+        for _ in range(20):
+            s.send(pkt)
+            time.sleep(0.1)
 
 pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-thread_noise = threading.Thread(target=make_noise, args=pkt)
+thread_noise = threading.Thread(target=make_noise, args=(pkt, ))
 thread_noise.start()
 
-threads = [threading.Thread(target=isotpserver, args=[x]) for x in ids]
+threads = [threading.Thread(target=isotpserver, args=(x,)) for x in ids]
 _ = [t.start() for t in threads]
-time.sleep(0.1)
 
-result = ISOTPScan(new_can_socket0(), range(0x000, 0x101), can_interface=new_can_socket0(), noise_listen_time=1, sniff_time=0.1, verbose=True)
-result = sorted(result, key=lambda x:x.src)
+for _ in range(len(threads)):
+    semaphore.acquire()
 
-cans = new_can_socket0()
+socks_interface = new_can_socket0()
 
-for i in ids:
-    # This helps to close ISOTPSoftSockets
-    cans.send(CAN(identifier=i, data=b'\x01\xaa'))
+with new_can_socket0() as scansock:
+    result = ISOTPScan(scansock, range(0x000, 0x101), can_interface=socks_interface, noise_listen_time=1, sniff_time=0.1, verbose=True)
+    result = sorted(result, key=lambda x:x.src)
 
-_ = [t.join() for t in threads]
-thread_noise.join()
+with new_can_socket0() as cans:
+    for i in ids:
+        # This helps to close ISOTPSoftSockets
+        cans.send(CAN(identifier=i, data=b'\x01\xaa'))
+
+_ = [t.join(timeout=10) for t in threads]
+thread_noise.join(timeout=10)
 
 assert len(result) == len(ids)
 ids = sorted(ids)
@@ -691,15 +793,17 @@ for i, s in zip(ids, result):
     if isinstance(s, ISOTPSoftSocket):
         assert s.impl.padding == True
 
-cans = new_can_socket0()
+with new_can_socket0() as cans:
+    for s in result:
+        # This helps to close ISOTPSoftSockets
+        cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
+        cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
+        s.close()
+        cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
+        cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
 
-for s in result:
-    # This helps to close ISOTPSoftSockets
-    cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
-    cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
-    s.close()
-    cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
-    cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
+socks_interface.close()
+time.sleep(0.1)
 
 for s in result:
     del s

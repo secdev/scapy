@@ -74,12 +74,10 @@ else:
 
 # utility function for draining a can interface, asserting that no packets are there
 def drain_bus(iface=iface0, assert_empty=True):
-    s = new_can_socket(iface)
-    pkts = s.sniff(timeout=0.1)
-    if assert_empty:
-        assert len(pkts) == 0
-    s.close()
-
+    with new_can_socket(iface) as s:
+        pkts = s.sniff(timeout=0.1)
+        if assert_empty:
+            assert len(pkts) == 0
 
 = Verify that a CAN socket can be created and closed
 s = new_can_socket(iface0)
@@ -160,10 +158,10 @@ if six.PY2:
 if six.PY2:
     result = subprocess.Popen("%s $PWD/scapy/tools/automotive/obdscanner.py -i socketcan -c vcan0 -s 0x600 -d 0x601 -b 250000 -v" % sys.executable, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     returncode = result.wait()
+    std_out, std_err = result.communicate()
     print(returncode)
     assert returncode == 0
     expected_output = plain_str(b'Starting OBD-Scan...')
-    std_out, std_err = result.communicate()
     print(std_out)
     print(expected_output)
     assert expected_output in plain_str(std_out)
@@ -176,19 +174,9 @@ load_contrib('automotive.obd.obd')
 conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
 load_contrib('isotp')
 
-
-= imports
-import six.moves.queue as queue
-from threading import Event
-
-from scapy.contrib.automotive.obd.scanner import obd_scan
-from scapy.contrib.automotive.obd.scanner import _supported_id_numbers
-
 + Simulate scanner
 
 = Test DTC scan
-
-exit_if_no_isotp_module()
 
 drain_bus(iface0)
 
@@ -196,8 +184,7 @@ s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
 
 example_responses = [ECUResponse(session=range(0,255), security_level=0, responses=s3)]
 
-
-with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
+with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD)
     sim = threading.Thread(target=answering_machine, kwargs={'count': 3, 'timeout': 10})
     sim.start()
@@ -206,18 +193,18 @@ with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
         sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 
         std_out, std_err = result.communicate()
-        assert std_err == b''
+        if six.PY2:
+            expected_output = b"Service 3:\nC\x01\x00\x00"
+        else:
+            expected_output = b"Service 3:\nb'C\\x01\\x00\\x00'"
 
-        expected_output = bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8')
-        assert plain_str(expected_output) in plain_str(std_out)
+        assert bytes_encode(expected_output) in bytes_encode(std_out)
 
     finally:
         sim.join(timeout=10)
 
 
 = Test supported PIDs scan
-
-exit_if_no_isotp_module()
 
 drain_bus(iface0)
 
@@ -243,7 +230,7 @@ example_responses = \
 
 
 
-with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
+with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD)
     sim = threading.Thread(target=answering_machine, kwargs={'count': 10, 'timeout': 10})
     sim.start()
@@ -254,18 +241,26 @@ with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
         std_out, std_err = result.communicate()
         assert std_err == b''
 
-        expected_output = [bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8'),
-                           bytes("Service 1:\n{3: b'A\\x03\\x00\\x02', 11: b'A\\x0bd', 15: b'A\\x0fZ'}", 'utf-8')]
+        if six.PY2:
+            expected_output = [b"Service 3:\nC\x01\x00\x00",
+                               b"Service 1:\n{",
+                               b"3: 'A\\x03\\x00\\x02'",
+                               b"11: 'A\\x0bd'",
+                               b"15: 'A\\x0fZ'"]
+        else:
+            expected_output = [b"Service 3:\nb'C\\x01\\x00\\x00'",
+                               b"Service 1:\n{",
+                               b"3: b'A\\x03\\x00\\x02'",
+                               b"11: b'A\\x0bd'",
+                               b"15: b'A\\x0fZ'"]
 
         for out in expected_output:
-            assert plain_str(out) in plain_str(std_out)
+            assert bytes_encode(out) in bytes_encode(std_out)
     finally:
         sim.join(timeout=10)
 
 
 = Test full scan
-
-exit_if_no_isotp_module()
 
 drain_bus(iface0)
 
@@ -273,36 +268,52 @@ drain_bus(iface0)
 s1_pid01 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID01()])
 example_responses.append(ECUResponse(session=range(0,255), security_level=0, responses=s1_pid01))
 
-with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
+with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD)
     sim = threading.Thread(target=answering_machine, kwargs={'count': 11, 'timeout': 10})
     sim.start()
     try:
         result = subprocess.Popen(
-            "%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000 -t 0.01 -ru" % (
+            "%s $PWD/scapy/tools/automotive/obdscanner.py %s -s 0x7e0 -d 0x7e8 -b 250000 -t 0.001 -ru" % (
             sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 
         std_out, std_err = result.communicate()
         assert std_err == b''
 
-        expected_output = [bytes("Service 3:\nb'C\\x01\\x00\\x00'", 'utf-8'),
-                           bytes("Service 1:\n{3: b'A\\x03\\x00\\x02', 11: b'A\\x0bd', 15: b'A\\x0fZ'}", 'utf-8'),
-                           bytes("Service 1:\n{1: b'A\\x01\\x00\\x00\\x00\\x00'}", 'utf-8')]
+        if six.PY2:
+            expected_output = [b"Service 3:\nC\x01\x00\x00",
+                               b"Service 1:\n{3: 'A\x03\x00\x02', 11: 'A\x0bd', 15: 'A\x0fZ'}",
+                               b"Service 1:\n{1: 'A\x01\x00\x00\x00\x00'}"]
+        else:
+            expected_output = [b"Service 3:\nb'C\\x01\\x00\\x00'",
+                               b"Service 1:\n{3: b'A\\x03\\x00\\x02', 11: b'A\\x0bd', 15: b'A\\x0fZ'}",
+                               b"Service 1:\n{1: b'A\\x01\\x00\\x00\\x00\\x00'}"]
+
+        if six.PY2:
+            expected_output = [b"Service 3:\nC\x01\x00\x00",
+                               b"Service 1:\n{",
+                               b"3: 'A\\x03\\x00\\x02'",
+                               b"11: 'A\\x0bd'",
+                               b"15: 'A\\x0fZ'",
+                               b"Service 1:\n{1: 'A\\x01\\x00\\x00\\x00\\x00'}"]
+        else:
+            expected_output = [b"Service 3:\nb'C\\x01\\x00\\x00'",
+                               b"Service 1:\n{",
+                               b"3: b'A\\x03\\x00\\x02'",
+                               b"11: b'A\\x0bd'",
+                               b"15: b'A\\x0fZ'",
+                               b"Service 1:\n{1: b'A\\x01\\x00\\x00\\x00\\x00'}"]
 
         for out in expected_output:
-            assert plain_str(out) in plain_str(std_out)
+            assert bytes_encode(out) in bytes_encode(std_out)
 
     finally:
         sim.join(timeout=10)
 
 
-
-
 + Cleanup
 
 = Cleanup
-
-exit_if_no_isotp_module()
 
 if 0 != call("sudo ip link delete vcan0", shell=True):
         raise Exception("vcan0 could not be deleted")
