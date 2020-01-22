@@ -61,11 +61,10 @@ new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virt
 
 # utility function for draining a can interface, asserting that no packets are there
 def drain_bus(iface=iface0, assert_empty=True):
-    s = new_can_socket(iface)
-    pkts = s.sniff(timeout=0.1)
-    if assert_empty:
-        assert len(pkts) == 0
-    s.close()
+    with new_can_socket(iface) as s:
+        pkts = s.sniff(timeout=0.1)
+        if assert_empty:
+            assert len(pkts) == 0
 
 = Overwrite definition for vcan_socket systems native sockets
 ~ vcan_socket needs_root linux

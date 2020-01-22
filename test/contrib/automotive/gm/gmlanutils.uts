@@ -63,11 +63,10 @@ new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virt
 
 # utility function for draining a can interface, asserting that no packets are there
 def drain_bus(iface=iface0, assert_empty=True):
-    s = new_can_socket(iface)
-    pkts = s.sniff(timeout=0.1)
-    if assert_empty:
-        assert len(pkts) == 0
-    s.close()
+    with new_can_socket(iface) as s:
+        pkts = s.sniff(timeout=0.1)
+        if assert_empty:
+            assert len(pkts) == 0
 
 print("CAN sockets should work now")
 
@@ -393,11 +392,11 @@ ecusimSuccessfullyExecuted = True
 started = threading.Event()
 def ecusim():
     global ecusimSuccessfullyExecuted
-    ecusimSuccessfullyExecuted= True
-    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x642, did=0x242, basecls=GMLAN) as isotpsock2:
-        requ = isotpsock2.sniff(count=1, timeout=1, started_callback=started.set)
-        pkt = GMLAN() / GMLAN_TD(startingAddress=0x4000,
-                                 dataRecord=payload)
+    ecusimSuccessfullyExecuted = True
+    with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x642, did=0x242, basecls=GMLAN) as isotpsock2:
+        time.sleep(0)
+        requ = isotpsock2.sniff(count=1, timeout=2, started_callback=started.set)
+        pkt = GMLAN() / GMLAN_TD(startingAddress=0x4000, dataRecord=payload)
         if bytes(requ[0]) != bytes(pkt):
             ecusimSuccessfullyExecuted = False
         ack = b"\x76"
@@ -406,8 +405,8 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 started.wait(timeout=5)
-with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferData(isotpsock, 0x4000, payload, timeout=1) == True
+with new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
+    assert GMLAN_TransferData(isotpsock, 0x4000, payload, timeout=2) == True
 
 thread.join(timeout=5)
 assert ecusimSuccessfullyExecuted == True

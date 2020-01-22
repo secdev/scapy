@@ -1864,7 +1864,19 @@ def scan(sock, scan_range=range(0x800), noise_ids=None, sniff_time=0.1,
                    timeout=sniff_time,
                    started_callback=lambda: sock.send(
                        get_isotp_packet(value, False, extended_can_id)))
-    return return_values
+
+    cleaned_ret_val = dict()
+    print("Testing %s" % return_values)
+    for tested_id in return_values.keys():
+        for value in range(tested_id - 5, tested_id + 5, 1):
+            sock.sniff(prn=lambda pkt: get_isotp_fc(value, cleaned_ret_val,
+                                                    noise_ids, False, pkt,
+                                                    verbose),
+                       timeout=sniff_time * 10,
+                       started_callback=lambda: sock.send(
+                       get_isotp_packet(value, False, extended_can_id)))
+
+    return cleaned_ret_val
 
 
 def scan_extended(sock, scan_range=range(0x800), scan_block_size=100,
@@ -1920,8 +1932,9 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=100,
                                                         return_values,
                                                         noise_ids, True,
                                                         pkt, verbose),
-                           timeout=sniff_time,
+                           timeout=sniff_time * 2,
                            started_callback=lambda: sock.send(pkt))
+
     return return_values
 
 

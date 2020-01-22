@@ -127,10 +127,9 @@ else:
 pkt = ISOTPHeaderEA(identifier=0x100, extended_address=1)/ISOTP_FF(message_size=100, data=b'\x00\x00\x00\x00\x00')
 number_of_packets = 100
 
-drain_bus(iface0)
 def sender():
-    with new_can_socket0() as sock:
-        send_multiple_ext(sock, 0, pkt, number_of_packets)
+    with new_can_socket0() as sock1:
+        send_multiple_ext(sock1, 0, pkt, number_of_packets)
 
 thread = threading.Thread(target=sender)
 
@@ -188,7 +187,7 @@ semaphore = threading.Semaphore(0)
 
 def isotpserver(idx):
     with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700+idx, did=0x600+idx) as sock:
-        sock.sniff(timeout=20 ,count=1, started_callback=semaphore.release)
+        sock.sniff(timeout=30 ,count=1, started_callback=semaphore.release)
 
 listen_sockets = list()
 for i in range(1, 4):
@@ -199,7 +198,7 @@ for _ in range(len(listen_sockets)):
     semaphore.acquire()
 
 with new_can_socket0() as scansock:
-    found_packets = scan(scansock, range(0x5ff, 0x640), noise_ids=[0x710], sniff_time=0.3, verbose=True)
+    found_packets = scan(scansock, range(0x5ff, 0x640), noise_ids=[0x710], sniff_time=0.05, verbose=True)
 
 with new_can_socket0() as cans:
     for _ in range(5):
@@ -234,7 +233,7 @@ thread.start()
 semaphore.acquire()
 
 with new_can_socket0() as scansock:
-    found_packets = scan_extended(scansock, [0x601], sniff_time=0.1)
+    found_packets = scan_extended(scansock, [0x601], sniff_time=0.05)
 
 with new_can_socket0() as cans:
     cans.send(CAN(identifier=0x601, data=b'\xbb\x01\xaa'))
@@ -277,7 +276,7 @@ semaphore.acquire()
 semaphore.acquire()
 
 with new_can_socket0() as scansock:
-    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), output_format="text", noise_listen_time=1, sniff_time=0.1)
+    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), output_format="text", noise_listen_time=1, sniff_time=0.05)
 
 with new_can_socket0() as cans:
     cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
@@ -326,7 +325,7 @@ semaphore.acquire()
 semaphore.acquire()
 
 with new_can_socket0() as scansock:
-    result = ISOTPScan(scansock, range(0x1ffff5ff, 0x1ffff604+1), output_format="text", noise_listen_time=1, sniff_time=0.1, extended_can_id=True)
+    result = ISOTPScan(scansock, range(0x1ffff5ff, 0x1ffff604+1), output_format="text", noise_listen_time=1, sniff_time=0.05, extended_can_id=True)
 
 with new_can_socket0() as cans:
     cans.send(CAN(identifier=0x1ffff601, flags="extended", data=b'\x01\xaa'))
@@ -377,7 +376,7 @@ semaphore.acquire()
 semaphore.acquire()
 
 with new_can_socket0() as scansock:
-    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), output_format="code", noise_listen_time=1, sniff_time=0.1, can_interface="can0")
+    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), output_format="code", noise_listen_time=1, sniff_time=0.05, can_interface="can0")
 
 with new_can_socket0() as cans:
     cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
@@ -425,7 +424,7 @@ semaphore.acquire()
 semaphore.acquire()
 
 with new_can_socket0() as scansock:
-    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), extended_addressing=True, sniff_time=0.1, noise_listen_time=1, output_format="code", can_interface="can0")
+    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), extended_addressing=True, sniff_time=0.05, noise_listen_time=1, output_format="code", can_interface="can0")
 
 with new_can_socket0() as cans:
     cans.send(CAN(identifier=0x602, data=b'\x22\x01\xaa'))
@@ -468,7 +467,7 @@ semaphore.acquire()
 semaphore.acquire()
 
 with new_can_socket0() as scansock:
-    result = ISOTPScan(scansock, range(0x1ffff5ff, 0x1ffff604+1), extended_can_id=True, extended_addressing=True, sniff_time=0.1, noise_listen_time=1, output_format="code", can_interface="can0")
+    result = ISOTPScan(scansock, range(0x1ffff5ff, 0x1ffff604+1), extended_can_id=True, extended_addressing=True, sniff_time=0.05, noise_listen_time=1, output_format="code", can_interface="can0")
 
 with new_can_socket0() as cans:
     cans.send(CAN(identifier=0x1ffff602, flags="extended", data=b'\x22\x01\xaa'))
@@ -514,7 +513,7 @@ semaphore.acquire()
 socks_interface = new_can_socket0()
 
 with new_can_socket0() as scansock:
-    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), can_interface=socks_interface, sniff_time=0.1, noise_listen_time=1)
+    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), can_interface=socks_interface, sniff_time=0.05, noise_listen_time=1)
 
 result = sorted(result, key=lambda x:x.src)
 
@@ -576,7 +575,7 @@ semaphore.acquire()
 
 socks_interface = new_can_socket0()
 with new_can_socket0() as scansock:
-    result = ISOTPScan(scansock, range(0x5ff, 0x6A0), can_interface=socks_interface, sniff_time=0.1, noise_listen_time=1)
+    result = ISOTPScan(scansock, range(0x5ff, 0x6A0), can_interface=socks_interface, sniff_time=0.05, noise_listen_time=1)
 
 result = sorted(result, key=lambda x:x.src)
 
@@ -639,7 +638,7 @@ semaphore.acquire()
 socks_interface = new_can_socket0()
 
 with new_can_socket0() as scansock:
-    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), extended_addressing=True, can_interface=socks_interface, sniff_time=0.1, noise_listen_time=1)
+    result = ISOTPScan(scansock, range(0x5ff, 0x604+1), extended_addressing=True, can_interface=socks_interface, sniff_time=0.05, noise_listen_time=1)
 
 result = sorted(result, key=lambda x:x.src)
 
@@ -710,7 +709,7 @@ for _ in range(len(threads)):
 socks_interface = new_can_socket0()
 
 with new_can_socket0() as scansock:
-    result = ISOTPScan(scansock, range(0x000, 0x101), can_interface=socks_interface, noise_listen_time=1, sniff_time=0.1, verbose=True)
+    result = ISOTPScan(scansock, range(0x000, 0x101), can_interface=socks_interface, noise_listen_time=1, sniff_time=0.05, verbose=True)
     result = sorted(result, key=lambda x:x.src)
 
 with new_can_socket0() as cans:
@@ -774,7 +773,7 @@ for _ in range(len(threads)):
 socks_interface = new_can_socket0()
 
 with new_can_socket0() as scansock:
-    result = ISOTPScan(scansock, range(0x000, 0x101), can_interface=socks_interface, noise_listen_time=1, sniff_time=0.1, verbose=True)
+    result = ISOTPScan(scansock, range(0x000, 0x101), can_interface=socks_interface, noise_listen_time=1, sniff_time=0.05, verbose=True)
     result = sorted(result, key=lambda x:x.src)
 
 with new_can_socket0() as cans:
