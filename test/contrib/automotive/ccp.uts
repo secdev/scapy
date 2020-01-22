@@ -54,11 +54,10 @@ new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virt
 
 # utility function for draining a can interface, asserting that no packets are there
 def drain_bus(iface=iface0, assert_empty=True):
-    s = new_can_socket(iface)
-    pkts = s.sniff(timeout=0.1)
-    if assert_empty:
-        assert len(pkts) == 0
-    s.close()
+    with new_can_socket(iface) as s:
+        pkts = s.sniff(timeout=0.1)
+        if assert_empty:
+            assert len(pkts) == 0
 
 print("CAN sockets should work now")
 
@@ -958,33 +957,23 @@ assert dto.hashret() == cro.hashret()
 
 + Tests on a virtual CAN-Bus
 
-= Create sockets
-
-sock1 = new_can_socket0()
-sock2 = new_can_socket0()
-
-sock1.basecls = CCP
-
 = CAN Socket sr1 with dto.ansers(cro) == True
 
-started = threading.Event()
-
-def ecu():
-    pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
-    if len(pkts) == 1:
-        cro = CRO(pkts[0].data)
-        assert cro.cmd == 0x22
-        assert cro.data == b"\x10\x11\x12\x10\x11\x12"
-        sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x53\x02\x34\x00\x20\x06'))
-
-
-thread = threading.Thread(target=ecu)
-thread.start()
-
-started.wait(timeout=5)
-
-dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x53)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
-thread.join()
+with new_can_socket0() as sock1, new_can_socket0() as sock2:
+    sock1.basecls = CCP
+    started = threading.Event()
+    def ecu():
+        pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
+        if len(pkts) == 1:
+            cro = CRO(pkts[0].data)
+            assert cro.cmd == 0x22
+            assert cro.data == b"\x10\x11\x12\x10\x11\x12"
+            sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x53\x02\x34\x00\x20\x06'))
+    thread = threading.Thread(target=ecu)
+    thread.start()
+    started.wait(timeout=5)
+    dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x53)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
+    thread.join(timeout=5)
 
 assert dto.ctr == 83
 assert dto.packet_id == 0xff
@@ -995,50 +984,44 @@ assert dto.MTA0_address == 0x34002006
 
 = CAN Socket sr1 with dto.ansers(cro) == False
 
-started = threading.Event()
-
-def ecu():
-    pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
-    if len(pkts) == 1:
-        cro = CRO(pkts[0].data)
-        assert cro.cmd == 0x22
-        assert cro.data == b"\x10\x11\x12\x10\x11\x12"
-        sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x55\x02\x34\x00\x20\x06'))
-
-
-thread = threading.Thread(target=ecu)
-thread.start()
-started.wait(timeout=5)
-gotTimeout = False
-try:
+with new_can_socket0() as sock1, new_can_socket0() as sock2:
+    sock1.basecls = CCP
+    started = threading.Event()
+    def ecu():
+        pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
+        if len(pkts) == 1:
+            cro = CRO(pkts[0].data)
+            assert cro.cmd == 0x22
+            assert cro.data == b"\x10\x11\x12\x10\x11\x12"
+            sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x55\x02\x34\x00\x20\x06'))
+    thread = threading.Thread(target=ecu)
+    thread.start()
+    started.wait(timeout=5)
+    gotTimeout = False
     dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x54)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
     print(dto)
     if dto is None:
         gotTimeout = True
-except CANSocketTimeoutElapsed as e:
-    gotTimeout = True
-
-assert gotTimeout
-thread.join()
+    assert gotTimeout
+    thread.join(timeout=5)
 
 = CAN Socket sr1 with error code
 
-started = threading.Event()
-def ecu():
-    pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
-    if len(pkts) == 1:
-        cro = CRO(pkts[0].data)
-        assert cro.cmd == 0x22
-        assert cro.data == b"\x10\x11\x12\x10\x11\x12"
-        sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x01\x55\xff\xff\xff\xff\xff'))
-
-
-thread = threading.Thread(target=ecu)
-thread.start()
-started.wait(timeout=5)
-
-dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x55)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
-thread.join()
+with new_can_socket0() as sock1, new_can_socket0() as sock2:
+    sock1.basecls = CCP
+    started = threading.Event()
+    def ecu():
+        pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
+        if len(pkts) == 1:
+            cro = CRO(pkts[0].data)
+            assert cro.cmd == 0x22
+            assert cro.data == b"\x10\x11\x12\x10\x11\x12"
+            sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x01\x55\xff\xff\xff\xff\xff'))
+    thread = threading.Thread(target=ecu)
+    thread.start()
+    started.wait(timeout=5)
+    dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x55)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
+    thread.join(timeout=5)
 
 assert dto.ctr == 85
 assert dto.packet_id == 0xff
@@ -1051,9 +1034,6 @@ assert dto.MTA0_address == 0xffffffff
 
 = Delete vcan interfaces
 ~ vcan_socket needs_root linux
-
-sock1.close()
-sock2.close()
 
 if 0 != call("sudo ip link delete %s" % iface0, shell=True):
         raise Exception("%s could not be deleted" % iface0)
