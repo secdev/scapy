@@ -197,6 +197,7 @@ routes6
 
 # Expected results:
 # - one route if there is only the loopback interface
+# - one route if IPv6 is supported but disabled on network interfaces
 # - three routes if there is a network interface
 # - on OpenBSD, only two routes on lo0 are expected
 
@@ -209,17 +210,18 @@ if routes6:
     elif iflist == [LOOPBACK_NAME]:
         len(routes6) == 1
     elif len(iflist) >= 2:
-        len(routes6) >= 3
+        len(routes6) >= 1
     else:
         False
 else:
     # IPv6 seems disabled. Force a route to ::1
     conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"], 1))
+    conf.route6.ipv6_ifaces = set([LOOPBACK_NAME])
     True
 
 = Test read_routes6() - check mandatory routes
 
-if len(routes6) and not WINDOWS:
+if len(routes6) > 1 and not WINDOWS:
     assert(sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1)
     if not OPENBSD and len(iflist) >= 2:
         assert sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) >= 1
@@ -4172,6 +4174,7 @@ not conf.route6.routes
 
 = Route6 - Route6.route
 conf.route6.flush()
+conf.route6.ipv6_ifaces = set(['lo', 'eth0'])
 conf.route6.routes=[
 (                               '::1', 128,                       '::',   'lo', ['::1'], 1), 
 (          'fe80::20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1'], 1), 
@@ -8755,10 +8758,10 @@ finally:
 
 = Mocked IPv6 routes calls
 
-old_routes = conf.route6.routes
 old_iface = conf.iface
 old_loopback = scapy.consts.LOOPBACK_INTERFACE
 try:
+    conf.route6.ipv6_ifaces = set(['enp3s0', 'wlan0', 'lo'])
     conf.iface = 'enp3s0'
     scapy.consts.LOOPBACK_INTERFACE = 'lo'
     conf.route6.invalidate_cache()
@@ -8782,8 +8785,17 @@ try:
 finally:
     scapy.consts.LOOPBACK_INTERFACE = old_loopback
     conf.iface = old_iface
-    conf.route6.routes = old_routes
-    conf.route6.invalidate_cache()
+    conf.route6.resync()
+
+= Find a link-local address when conf.iface does not support IPv6
+
+old_iface = conf.iface
+conf.route6.ipv6_ifaces = set(['eth1', 'lo'])
+conf.iface = "eth0"
+conf.route6.routes = [("fe80::", 64, "::", "eth1", ["fe80::a00:28ff:fe07:1980"], 256), ("::1", 128, "::", "lo", ["::1"], 0), ("fe80::a00:28ff:fe07:1980", 128, "::", "lo", ["::1"], 0)]
+assert(conf.route6.route("fe80::2807") == ("eth1", "fe80::a00:28ff:fe07:1980", "::"))
+conf.iface = old_iface
+conf.route6.resync()
 
 = Windows: reset routes properly
 
