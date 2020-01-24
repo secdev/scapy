@@ -679,9 +679,9 @@ for s in result:
 = Test ISOTPScan(output_format=None) random IDs
 drain_bus(iface0)
 
-rnd = RandNum(0x0, 0x10)
+rnd = RandNum(0x1, 0x100)
 
-ids = set(rnd._fix() * 10 for _ in range(5))
+ids = set(rnd._fix() for _ in range(10))
 print(ids)
 
 semaphore = threading.Semaphore(0)
@@ -744,9 +744,9 @@ for s in result:
 = Test ISOTPScan(output_format=None) random IDs padding
 drain_bus(iface0)
 
-rnd = RandNum(0x0, 0x10)
+rnd = RandNum(0x1, 0x100)
 
-ids = set(rnd._fix() * 10 for _ in range(5))
+ids = set(rnd._fix() for _ in range(10))
 
 semaphore = threading.Semaphore(0)
 
