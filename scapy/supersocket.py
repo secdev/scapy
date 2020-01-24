@@ -111,6 +111,9 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
                         tmp = struct.unpack("ll", cmsg_data)
                     elif length == 8:  # timespec
                         tmp = struct.unpack("ii", cmsg_data)
+                    else:
+                        log_runtime.warning("Unknown timespec format.. ?!")
+                        continue
                     timestamp = tmp[0] + tmp[1] * 1e-9
             return pkt, sa_ll, timestamp
 
