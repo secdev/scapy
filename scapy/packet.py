@@ -2135,7 +2135,7 @@ def rfc(cls, ret=False, legend=True):
         cur_len += flen
         ident += 1
         # Fancy field name
-        fname = f.name.capitalize().replace("_", " ")
+        fname = f.name.upper().replace("_", " ")
         # The field might exceed the current line or
         # take more than one line. Copy it as required
         while True:
