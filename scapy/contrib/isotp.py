@@ -1924,15 +1924,15 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=100,
         # remove duplicate IDs
         id_list = list(set(id_list))
         for ext_isotp_id in id_list:
-            for ext_id in range(ext_isotp_id, min(ext_isotp_id +
-                                                  scan_block_size, 256)):
+            for ext_id in range(ext_isotp_id - 5,
+                                min(ext_isotp_id + scan_block_size, 256) + 5):
                 pkt.extended_address = ext_id
                 full_id = (value << 8) + ext_id
                 sock.sniff(prn=lambda pkt: get_isotp_fc(full_id,
                                                         return_values,
                                                         noise_ids, True,
                                                         pkt, verbose),
-                           timeout=sniff_time * 10,
+                           timeout=sniff_time * 5,
                            started_callback=lambda: sock.send(pkt))
 
     return return_values
