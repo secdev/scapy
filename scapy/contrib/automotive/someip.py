@@ -35,19 +35,19 @@ from scapy.compat import raw
 from scapy.config import conf
 from scapy.modules.six.moves import range
 from scapy.packet import Packet, bind_layers
-from scapy.fields import ShortField, BitEnumField, ConditionalField, \
-    BitField, PacketField, IntField, ByteField, ByteEnumField
+from scapy.fields import XShortField, BitEnumField, ConditionalField, \
+    BitField, XBitField, PacketField, IntField, XByteField, ByteEnumField
 
 
 class _SOMEIP_MessageId(Packet):
     """ MessageId subpacket."""
     name = "MessageId"
     fields_desc = [
-        ShortField("srv_id", 0),
+        XShortField("srv_id", 0),
         BitEnumField("sub_id", 0, 1, {0: "METHOD_ID", 1: "EVENT_ID"}),
-        ConditionalField(BitField("method_id", 0, 15),
+        ConditionalField(XBitField("method_id", 0, 15),
                          lambda pkt: pkt.sub_id == 0),
-        ConditionalField(BitField("event_id", 0, 15),
+        ConditionalField(XBitField("event_id", 0, 15),
                          lambda pkt: pkt.sub_id == 1)
     ]
 
@@ -59,8 +59,8 @@ class _SOMEIP_RequestId(Packet):
     """ RequestId subpacket."""
     name = "RequestId"
     fields_desc = [
-        ShortField("client_id", 0),
-        ShortField("session_id", 0)
+        XShortField("client_id", 0),
+        XShortField("session_id", 0)
     ]
 
     def extract_padding(self, s):
@@ -111,8 +111,8 @@ class SOMEIP(Packet):
         IntField("len", None),
         PacketField("req_id", _SOMEIP_RequestId(),
                     _SOMEIP_RequestId),
-        ByteField("proto_ver", PROTOCOL_VERSION),
-        ByteField("iface_ver", INTERFACE_VERSION),
+        XByteField("proto_ver", PROTOCOL_VERSION),
+        XByteField("iface_ver", INTERFACE_VERSION),
         ByteEnumField("msg_type", TYPE_REQUEST, {
             TYPE_REQUEST: "REQUEST",
             TYPE_REQUEST_NO_RET: "REQUEST_NO_RETURN",
