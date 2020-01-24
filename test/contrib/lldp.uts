@@ -288,3 +288,17 @@ assert(org_spec_layer._type == 127)
 assert(org_spec_layer.org_code == LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO)
 assert(org_spec_layer.subtype == 0x42)
 assert(org_spec_layer._length == 34)
+
+l="A" * 24
+c=LLDPDUChassisID.SUBTYPE_CHASSIS_COMPONENT
+p=LLDPDUPortID.SUBTYPE_MAC_ADDRESS
+frm = Ether(dst=LLDP_NEAREST_BRIDGE_MAC)/  \
+    LLDPDUChassisID(subtype=c, id=l)/      \
+    LLDPDUPortID(subtype=p, id=l)/         \
+    LLDPDUTimeToLive(ttl=2)/               \
+    LLDPDUEndOfLLDPDU()
+
+try:
+    frm = frm.build()
+except:
+    assert False
