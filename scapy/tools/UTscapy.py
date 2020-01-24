@@ -29,8 +29,10 @@ from scapy.compat import base64_bytes, bytes_hex, plain_str
 
 #   Util class   #
 
+
 class Bunch:
     __init__ = lambda self, **kw: setattr(self, '__dict__', kw)
+
 
 def retry_test(func):
     """Retries the passed function 3 times before failing"""
@@ -184,11 +186,14 @@ class TestCampaign(TestClass):
         self.end_pos = 0
         self.interrupted = False
         self.duration = 0.0
+
     def add_testset(self, testset):
         self.campaign.append(testset)
         testset.keywords.update(self.keywords)
+
     def trunc(self, index):
         self.campaign = self.campaign[:index]
+
     def startNum(self, beginpos):
         for ts in self:
             for t in ts:
@@ -217,8 +222,10 @@ class TestSet(TestClass):
     def add_test(self, test):
         self.tests.append(test)
         test.keywords.update(self.keywords)
+
     def trunc(self, index):
         self.tests = self.tests[:index]
+
     def __iter__(self):
         return self.tests.__iter__()
 
@@ -228,7 +235,8 @@ class UnitTest(TestClass):
         self.name = name
         self.test = ""
         self.comments = ""
-        self.result = "passed" # make instance True at init to have a different truth value than None
+        self.result = "passed"
+        # make instance True at init to have a different truth value than None
         self.duration = 0
         self.output = ""
         self.num = -1
@@ -435,7 +443,7 @@ def remove_empty_testsets(test_campaign):
     test_campaign.campaign = [ts for ts in test_campaign.campaign if ts.tests]
 
 
-#### RUN TEST #####
+# RUN TEST #
 
 def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_globals=None):
     """An internal UTScapy function to run a single test"""
@@ -468,12 +476,14 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_glob
 
     return bool(test)
 
-#### RUN CAMPAIGN #####
+# RUN CAMPAIGN #
+
 
 def import_UTscapy_tools(ses):
     """Adds UTScapy tools directly to a session"""
     ses["retry_test"] = retry_test
     ses["Bunch"] = Bunch
+
 
 def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):  # noqa: E501
     passed = failed = 0
@@ -491,8 +501,8 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
                 test_campaign.duration += t.duration
     except KeyboardInterrupt:
         failed += 1
-        testset.trunc(j+1)
-        test_campaign.trunc(i+1)
+        testset.trunc(j + 1)
+        test_campaign.trunc(i + 1)
         test_campaign.interrupted = True
         if verb:
             print("Campaign interrupted!", file=sys.stderr)
@@ -529,8 +539,8 @@ def html_info_line(test_campaign):
 #    CAMPAIGN TO something    #
 
 def campaign_to_TEXT(test_campaign):
-    output="%(title)s\n" % test_campaign
-    output += "-- "+info_line(test_campaign)+"\n\n"
+    output = "%(title)s\n" % test_campaign
+    output += "-- " + info_line(test_campaign) + "\n\n"
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
 
     for testset in test_campaign:
@@ -570,7 +580,7 @@ def campaign_to_HTML(test_campaign):
 
     if test_campaign.crc is not None and test_campaign.sha is not None:
         output += "CRC=<span class=crc>%(crc)s</span> SHA=<span class=crc>%(sha)s</span><br>" % test_campaign
-    output += "<small><em>"+html_info_line(test_campaign)+"</em></small>"
+    output += "<small><em>" + html_info_line(test_campaign) + "</em></small>"
     output += "".join([
         test_campaign.headcomments,
         "\n<p>",
@@ -692,7 +702,7 @@ def campaign_to_LATEX(test_campaign):
     return output
 
 
-#### USAGE ####
+# USAGE #
 
 def usage():
     print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
