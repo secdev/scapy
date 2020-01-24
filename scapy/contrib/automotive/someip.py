@@ -34,7 +34,7 @@ from scapy.layers.inet import TCP, UDP
 from scapy.compat import raw
 from scapy.config import conf
 from scapy.modules.six.moves import range
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_top_down, bind_bottom_up
 from scapy.fields import XShortField, BitEnumField, ConditionalField, \
     BitField, XBitField, PacketField, IntField, XByteField, ByteEnumField
 
@@ -215,11 +215,12 @@ class SOMEIP(Packet):
 
 
 def _bind_someip_layers():
-    for i in range(15):
-        bind_layers(UDP, SOMEIP, sport=30490 + i)
-        bind_layers(TCP, SOMEIP, sport=30490 + i)
-        bind_layers(UDP, SOMEIP, dport=30490 + i)
-        bind_layers(TCP, SOMEIP, dport=30490 + i)
+    bind_top_down(UDP, SOMEIP, sport=30490, dport=30490)
 
+    for i in range(15):
+        bind_bottom_up(UDP, SOMEIP, sport=30490 + i)
+        bind_bottom_up(TCP, SOMEIP, sport=30490 + i)
+        bind_bottom_up(UDP, SOMEIP, dport=30490 + i)
+        bind_bottom_up(TCP, SOMEIP, dport=30490 + i)
 
 _bind_someip_layers()
