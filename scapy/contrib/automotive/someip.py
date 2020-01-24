@@ -218,6 +218,8 @@ def _bind_someip_layers():
     for i in range(15):
         bind_layers(UDP, SOMEIP, sport=30490 + i)
         bind_layers(TCP, SOMEIP, sport=30490 + i)
+        bind_layers(UDP, SOMEIP, dport=30490 + i)
+        bind_layers(TCP, SOMEIP, dport=30490 + i)
 
 
 _bind_someip_layers()
