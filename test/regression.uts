@@ -73,6 +73,41 @@ def test_list_contrib():
 
 test_list_contrib()
 
+= Test automatic doc generation
+~ command
+
+dat = rfc(IP, ret=True).split("\n")
+assert dat[0].replace(" ", "").strip() == "0123"
+assert "0123456789" in dat[1].replace(" ", "")
+for l in dat:
+    # only upper case and +-
+    assert re.match(r"[A-Z+-]*", l)
+
+# Add a space before each + to avoid conflicts with UTscapy !
+# They will be stripped below
+result = """
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |VERSION|  IHL  |      TOS      |              LEN              |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |               ID              |FLAGS|           FRAG          |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |      TTL      |     PROTO     |             CHKSUM            |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                              SRC                              |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                              DST                              |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |            OPTIONS            |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                             Fig. IP
+""".strip()
+result = [x.strip() for x in result.split("\n")]
+output = [x.strip() for x in rfc(IP, ret=True).strip().split("\n")]
+assert result == output
+
 = Check that all contrib modules are well-configured
 ~ command
 list_contrib(_debug=True)

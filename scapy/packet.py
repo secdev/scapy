@@ -2107,6 +2107,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
             print("Not a packet class or name. Type 'ls()' to list packet classes.")  # noqa: E501
 
 
+@conf.commands.register
 def rfc(cls, ret=False, legend=True):
     """
     Generate an RFC-like representation of a packet def.
