@@ -36,35 +36,7 @@ from scapy.config import conf
 from scapy.modules.six.moves import range
 from scapy.packet import Packet, bind_top_down, bind_bottom_up
 from scapy.fields import XShortField, BitEnumField, ConditionalField, \
-    BitField, XBitField, PacketField, IntField, XByteField, ByteEnumField
-
-
-class _SOMEIP_MessageId(Packet):
-    """ MessageId subpacket."""
-    name = "MessageId"
-    fields_desc = [
-        XShortField("srv_id", 0),
-        BitEnumField("sub_id", 0, 1, {0: "METHOD_ID", 1: "EVENT_ID"}),
-        ConditionalField(XBitField("method_id", 0, 15),
-                         lambda pkt: pkt.sub_id == 0),
-        ConditionalField(XBitField("event_id", 0, 15),
-                         lambda pkt: pkt.sub_id == 1)
-    ]
-
-    def extract_padding(self, s):
-        return "", s
-
-
-class _SOMEIP_RequestId(Packet):
-    """ RequestId subpacket."""
-    name = "RequestId"
-    fields_desc = [
-        XShortField("client_id", 0),
-        XShortField("session_id", 0)
-    ]
-
-    def extract_padding(self, s):
-        return "", s
+    BitField, XBitField, IntField, XByteField, ByteEnumField
 
 
 class SOMEIP(Packet):
@@ -106,11 +78,15 @@ class SOMEIP(Packet):
     name = "SOME/IP"
 
     fields_desc = [
-        PacketField("msg_id", _SOMEIP_MessageId(),
-                    _SOMEIP_MessageId),
+        XShortField("srv_id", 0),
+        BitEnumField("sub_id", 0, 1, {0: "METHOD_ID", 1: "EVENT_ID"}),
+        ConditionalField(XBitField("method_id", 0, 15),
+                         lambda pkt: pkt.sub_id == 0),
+        ConditionalField(XBitField("event_id", 0, 15),
+                         lambda pkt: pkt.sub_id == 1),
         IntField("len", None),
-        PacketField("req_id", _SOMEIP_RequestId(),
-                    _SOMEIP_RequestId),
+        XShortField("client_id", 0),
+        XShortField("session_id", 0),
         XByteField("proto_ver", PROTOCOL_VERSION),
         XByteField("iface_ver", INTERFACE_VERSION),
         ByteEnumField("msg_type", TYPE_REQUEST, {
