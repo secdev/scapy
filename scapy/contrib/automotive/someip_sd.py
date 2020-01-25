@@ -32,7 +32,7 @@ import ctypes
 import collections
 import struct
 
-from scapy.packet import Packet, Raw
+from scapy.packet import Packet, Raw, bind_layers
 from scapy.fields import ByteField, BitField, ShortField, \
     X3BytesField, IntField, ByteEnumField, StrField, IPField, \
     FieldLenField, PacketListField
@@ -345,3 +345,6 @@ class SD(_SDPacketBase):
             return (p / self)
         else:
             return (p)
+
+
+bind_layers(SOMEIP, SD, srv_id=0xffff)
