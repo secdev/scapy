@@ -449,9 +449,12 @@ class SD(_SDPacketBase):
     SOMEIP_MSGID_SRVID = 0xffff
     SOMEIP_MSGID_SUBID = 0x1
     SOMEIP_MSGID_EVENTID = 0x100
+    SOMEIP_CLIENT_ID = 0x0000
+    SOMEIP_MINIMUM_SESSION_ID = 0x0001
     SOMEIP_PROTO_VER = 0x01
     SOMEIP_IFACE_VER = 0x01
     SOMEIP_MSG_TYPE = SOMEIP.TYPE_NOTIFICATION
+    SOMEIP_RETCODE = SOMEIP.RET_E_OK
 
     _sdFlag = collections.namedtuple('Flag', 'mask offset')
     FLAGSDEF = {
@@ -500,19 +503,26 @@ class SD(_SDPacketBase):
         else:
             self.option_array = [option_list]
 
-    def get_someip(self, stacked=False):
-        p = SOMEIP()
-        p.msg_id.srv_id = SD.SOMEIP_MSGID_SRVID
-        p.msg_id.sub_id = SD.SOMEIP_MSGID_SUBID
-        p.msg_id.event_id = SD.SOMEIP_MSGID_EVENTID
-        p.proto_ver = SD.SOMEIP_PROTO_VER
-        p.iface_ver = SD.SOMEIP_IFACE_VER
-        p.msg_type = SD.SOMEIP_MSG_TYPE
 
-        if (stacked):
-            return (p / self)
-        else:
-            return (p)
+bind_top_down(SOMEIP, SD, \
+        srv_id=SD.SOMEIP_MSGID_SRVID, \
+        sub_id=SD.SOMEIP_MSGID_SUBID, \
+        client_id=SD.SOMEIP_CLIENT_ID, \
+        session_id=SD.SOMEIP_MINIMUM_SESSION_ID, \
+        event_id=SD.SOMEIP_MSGID_EVENTID, \
+        proto_ver=SD.SOMEIP_PROTO_VER, \
+        iface_ver=SD.SOMEIP_IFACE_VER, \
+        msg_type=SD.SOMEIP_MSG_TYPE, 
+        retcode=SD.SOMEIP_RETCODE)
+
+bind_bottom_up(SOMEIP, SD, \
+        srv_id=SD.SOMEIP_MSGID_SRVID, \
+        sub_id=SD.SOMEIP_MSGID_SUBID, \
+        client_id=SD.SOMEIP_CLIENT_ID, \
+        event_id=SD.SOMEIP_MSGID_EVENTID, \
+        proto_ver=SD.SOMEIP_PROTO_VER, \
+        iface_ver=SD.SOMEIP_IFACE_VER, \
+        msg_type=SD.SOMEIP_MSG_TYPE, 
+        retcode=SD.SOMEIP_RETCODE)
 
 
-bind_layers(SOMEIP, SD, srv_id=0xffff)
