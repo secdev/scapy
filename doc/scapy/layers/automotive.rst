@@ -928,8 +928,8 @@ Create SOME/IP package::
    sip.proto_ver = 1
    sip.msg_type = "REQUEST"
    sip.retcode = "E_OK"
-   sip.msg_id.srv_id = 0x1234
-   sip.msg_id.method_id = 0x421
+   sip.srv_id = 0x1234
+   sip.method_id = 0x421
 
 Add the payload::
 
@@ -948,7 +948,7 @@ In this example a SOME/IP SD offer service message is shown with an IPv4 endpoin
 
 Load the contribution::
 
-   load_contrib("automotive.someip_sd")
+   load_contrib("automotive.someip")
 
 Create UDP package::
 
@@ -986,13 +986,10 @@ Create the SD package and put in the inputs::
    sd = SD()
    sd.set_entryArray(ea)
    sd.set_optionArray(oa)
-   spsd = sd.get_someip(True)
-
-The get_someip method stacks the SOMEIP/SD message on top of a SOME/IP message, which has the desired SOME/IP values prefilled for the SOME/IP SD package transmission.
 
 Stack it and send it::
 
-   p = i/u/spsd
+   p = i/u/sd
    send(p)
 
 

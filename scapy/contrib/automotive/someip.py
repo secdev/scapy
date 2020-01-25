@@ -37,8 +37,7 @@ from scapy.layers.inet6 import IP6Field
 from scapy.compat import raw, orb
 from scapy.config import conf
 from scapy.modules.six.moves import range
-from scapy.packet import Packet, Raw, bind_layers, bind_top_down, \
-    bind_bottom_up
+from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up
 from scapy.fields import XShortField, BitEnumField, ConditionalField, \
     BitField, XBitField, IntField, XByteField, ByteEnumField, ByteField, \
     ShortField, X3BytesField, StrField, IPField, FieldLenField, \
@@ -504,25 +503,23 @@ class SD(_SDPacketBase):
             self.option_array = [option_list]
 
 
-bind_top_down(SOMEIP, SD, \
-        srv_id=SD.SOMEIP_MSGID_SRVID, \
-        sub_id=SD.SOMEIP_MSGID_SUBID, \
-        client_id=SD.SOMEIP_CLIENT_ID, \
-        session_id=SD.SOMEIP_MINIMUM_SESSION_ID, \
-        event_id=SD.SOMEIP_MSGID_EVENTID, \
-        proto_ver=SD.SOMEIP_PROTO_VER, \
-        iface_ver=SD.SOMEIP_IFACE_VER, \
-        msg_type=SD.SOMEIP_MSG_TYPE, 
-        retcode=SD.SOMEIP_RETCODE)
+bind_top_down(SOMEIP, SD,
+              srv_id=SD.SOMEIP_MSGID_SRVID,
+              sub_id=SD.SOMEIP_MSGID_SUBID,
+              client_id=SD.SOMEIP_CLIENT_ID,
+              session_id=SD.SOMEIP_MINIMUM_SESSION_ID,
+              event_id=SD.SOMEIP_MSGID_EVENTID,
+              proto_ver=SD.SOMEIP_PROTO_VER,
+              iface_ver=SD.SOMEIP_IFACE_VER,
+              msg_type=SD.SOMEIP_MSG_TYPE,
+              retcode=SD.SOMEIP_RETCODE)
 
-bind_bottom_up(SOMEIP, SD, \
-        srv_id=SD.SOMEIP_MSGID_SRVID, \
-        sub_id=SD.SOMEIP_MSGID_SUBID, \
-        client_id=SD.SOMEIP_CLIENT_ID, \
-        event_id=SD.SOMEIP_MSGID_EVENTID, \
-        proto_ver=SD.SOMEIP_PROTO_VER, \
-        iface_ver=SD.SOMEIP_IFACE_VER, \
-        msg_type=SD.SOMEIP_MSG_TYPE, 
-        retcode=SD.SOMEIP_RETCODE)
-
-
+bind_bottom_up(SOMEIP, SD,
+               srv_id=SD.SOMEIP_MSGID_SRVID,
+               sub_id=SD.SOMEIP_MSGID_SUBID,
+               client_id=SD.SOMEIP_CLIENT_ID,
+               event_id=SD.SOMEIP_MSGID_EVENTID,
+               proto_ver=SD.SOMEIP_PROTO_VER,
+               iface_ver=SD.SOMEIP_IFACE_VER,
+               msg_type=SD.SOMEIP_MSG_TYPE,
+               retcode=SD.SOMEIP_RETCODE)

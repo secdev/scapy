@@ -32,7 +32,7 @@
 
 =load module
 
-load_contrib("automotive.someip_sd")
+load_contrib("automotive.someip")
 
 = Check packet length
 
@@ -336,11 +336,7 @@ assert(p.flags == 0xc0)
 p_sd = SD()
 sd_len = bytes(p_sd)
 
-p_someip = p_sd.get_someip()
-
-assert(len(bytes(p_someip)) == SOMEIP._OVERALL_LEN_NOPAYLOAD)
-
-p = p_sd.get_someip(stacked=True)
+p = SOMEIP() / p_sd
 
 assert(len(bytes(p)) == SOMEIP._OVERALL_LEN_NOPAYLOAD + 12)
 
