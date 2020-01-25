@@ -262,10 +262,10 @@ class _SDEntry(_SDPacketBase):
     def guess_payload_class(self, payload):
         pl_type = orb(payload[_SDEntry.TYPE_PAYLOAD_I])
 
-        if (pl_type in _SDEntry.TYPE_SRV):
-            return (SDEntry_Service)
-        elif (pl_type in _SDEntry.TYPE_EVTGRP):
-            return (SDEntry_EventGroup)
+        if pl_type in _SDEntry.TYPE_SRV:
+            return SDEntry_Service
+        elif pl_type in _SDEntry.TYPE_EVTGRP:
+            return SDEntry_EventGroup
 
 
 class SDEntry_Service(_SDEntry):
@@ -380,10 +380,10 @@ class SDOption_Config(_SDOption):
 
     def post_build(self, pkt, pay):
         length = self.len
-        if (length is None):
+        if length is None:
             length = len(self.cfg_str) + self.LEN_OFFSET
             pkt = struct.pack("!H", length) + pkt[2:]
-        return (pkt + pay)
+        return pkt + pay
 
 
 class SDOption_LoadBalance(_SDOption):
@@ -477,7 +477,7 @@ class SD(_SDPacketBase):
 
     def get_flag(self, name):
         name = name.upper()
-        if (name in self.FLAGSDEF):
+        if name in self.FLAGSDEF:
             return ((self.flags & self.FLAGSDEF[name].mask) >>
                     self.FLAGSDEF[name].offset)
         else:
@@ -485,19 +485,19 @@ class SD(_SDPacketBase):
 
     def set_flag(self, name, value):
         name = name.upper()
-        if (name in self.FLAGSDEF):
+        if name in self.FLAGSDEF:
             self.flags = (self.flags &
                           (ctypes.c_ubyte(~self.FLAGSDEF[name].mask).value)) \
                 | ((value & 0x01) << self.FLAGSDEF[name].offset)
 
     def set_entryArray(self, entry_list):
-        if (isinstance(entry_list, list)):
+        if isinstance(entry_list, list):
             self.entry_array = entry_list
         else:
             self.entry_array = [entry_list]
 
     def set_optionArray(self, option_list):
-        if (isinstance(option_list, list)):
+        if isinstance(option_list, list):
             self.option_array = option_list
         else:
             self.option_array = [option_list]
