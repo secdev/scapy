@@ -39,7 +39,7 @@ from scapy.config import conf
 from scapy.modules.six.moves import range
 from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up
 from scapy.fields import XShortField, BitEnumField, ConditionalField, \
-    BitField, XBitField, IntField, XByteField, ByteEnumField, ByteField, \
+    BitField, XBitField, IntField, XByteField, ByteEnumField, \
     ShortField, X3BytesField, StrField, IPField, FieldLenField, \
     PacketListField, XIntField
 
@@ -232,62 +232,64 @@ class _SDPacketBase(Packet):
         super(_SDPacketBase, self).init_fields()
         self._set_defaults()
 
-
-# SD ENTRY
-# - Service
-# - EventGroup
-class _SDEntry(_SDPacketBase):
-    TYPE_FMT = ">B"
-    TYPE_PAYLOAD_I = 0
-    TYPE_SRV_FINDSERVICE = 0x00
-    TYPE_SRV_OFFERSERVICE = 0x01
-    TYPE_SRV = (TYPE_SRV_FINDSERVICE, TYPE_SRV_OFFERSERVICE)
-    TYPE_EVTGRP_SUBSCRIBE = 0x06
-    TYPE_EVTGRP_SUBSCRIBE_ACK = 0x07
-    TYPE_EVTGRP = (TYPE_EVTGRP_SUBSCRIBE, TYPE_EVTGRP_SUBSCRIBE_ACK)
-    OVERALL_LEN = 16
-
-    fields_desc = [
-        XByteField("type", 0),
-        XByteField("index_1", 0),
-        XByteField("index_2", 0),
-        XBitField("n_opt_1", 0, 4),
-        XBitField("n_opt_2", 0, 4),
-        XShortField("srv_id", 0),
-        XShortField("inst_id", 0),
-        XByteField("major_ver", 0),
-        X3BytesField("ttl", 0)
-    ]
-
-    def guess_payload_class(self, payload):
-        pl_type = orb(payload[_SDEntry.TYPE_PAYLOAD_I])
-
-        if pl_type in _SDEntry.TYPE_SRV:
-            return SDEntry_Service
-        elif pl_type in _SDEntry.TYPE_EVTGRP:
-            return SDEntry_EventGroup
+    def extract_padding(self, s):
+        return "", s
 
 
-class SDEntry_Service(_SDEntry):
-    _defaults = {"type": _SDEntry.TYPE_SRV_FINDSERVICE}
+SDENTRY_TYPE_FMT = ">B"
+SDENTRY_TYPE_SRV_FINDSERVICE = 0x00
+SDENTRY_TYPE_SRV_OFFERSERVICE = 0x01
+SDENTRY_TYPE_SRV = (SDENTRY_TYPE_SRV_FINDSERVICE,
+                    SDENTRY_TYPE_SRV_OFFERSERVICE)
+SDENTRY_TYPE_EVTGRP_SUBSCRIBE = 0x06
+SDENTRY_TYPE_EVTGRP_SUBSCRIBE_ACK = 0x07
+SDENTRY_TYPE_EVTGRP = (SDENTRY_TYPE_EVTGRP_SUBSCRIBE,
+                       SDENTRY_TYPE_EVTGRP_SUBSCRIBE_ACK)
+SDENTRY_OVERALL_LEN = 16
 
+_SDENTRY_COMMON_FIELDS_DESC = [
+    XByteField("index_1", 0),
+    XByteField("index_2", 0),
+    XBitField("n_opt_1", 0, 4),
+    XBitField("n_opt_2", 0, 4),
+    XShortField("srv_id", 0),
+    XShortField("inst_id", 0),
+    XByteField("major_ver", 0),
+    X3BytesField("ttl", 0)
+]
+
+
+class SDEntry_Service(_SDPacketBase):
     name = "Service Entry"
     fields_desc = [
-        _SDEntry,
+        XByteField("type", SDENTRY_TYPE_SRV_FINDSERVICE),
+    ] + _SDENTRY_COMMON_FIELDS_DESC + [
         XIntField("minor_ver", 0)
     ]
 
 
-class SDEntry_EventGroup(_SDEntry):
-    _defaults = {"type": _SDEntry.TYPE_EVTGRP_SUBSCRIBE}
-
+class SDEntry_EventGroup(_SDPacketBase):
     name = "Eventgroup Entry"
     fields_desc = [
-        _SDEntry,
+        XByteField("type", SDENTRY_TYPE_EVTGRP_SUBSCRIBE),
+    ] + _SDENTRY_COMMON_FIELDS_DESC + [
         XBitField("res", 0, 12),
         XBitField("cnt", 0, 4),
         XShortField("eventgroup_id", 0)
     ]
+
+
+def _sdentry_class(payload, **kargs):
+    TYPE_PAYLOAD_I = 0
+    pl_type = orb(payload[TYPE_PAYLOAD_I])
+    cls = None
+
+    if pl_type in SDENTRY_TYPE_SRV:
+        cls = SDEntry_Service
+    elif pl_type in SDENTRY_TYPE_EVTGRP:
+        cls = SDEntry_EventGroup
+
+    return cls(payload, **kargs)
 
 
 # SD Option
@@ -466,7 +468,7 @@ class SD(_SDPacketBase):
         X3BytesField("res", 0),
         FieldLenField("len_entry_array", None,
                       length_of="entry_array", fmt="!I"),
-        PacketListField("entry_array", None, cls=_SDEntry,
+        PacketListField("entry_array", None, cls=_sdentry_class,
                         length_from=lambda pkt: pkt.len_entry_array),
         FieldLenField("len_option_array", None,
                       length_of="option_array", fmt="!I"),

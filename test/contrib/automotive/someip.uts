@@ -134,34 +134,29 @@ assert(f[1].more_seg == 0)
 
 = Check packet length on empty build
 p = SDEntry_Service()
-assert(len(bytes(p)) == SDEntry_Service.OVERALL_LEN)
+assert(len(bytes(p)) == SDENTRY_OVERALL_LEN)
 
 = Build 1
-p = SDEntry_Service(type = SDEntry_Service.TYPE_SRV_OFFERSERVICE,
+p = SDEntry_Service(type = SDENTRY_TYPE_SRV_OFFERSERVICE,
 				    index_1 = 0x11, index_2 = 0x22, srv_id = 0x3333,
 					inst_id = 0x4444, major_ver = 0x55,
 					ttl = 0x666666, minor_ver = 0xdeadbeef)
 p_str = bytes(p)
 bin_str = b"\x01\x11\x22\x00\x33\x33\x44\x44\x55\x66\x66\x66\xde\xad\xbe\xef"
 assert(p_str == bin_str)
-assert(len(p_str) == SDEntry_Service.OVERALL_LEN)
+assert(len(p_str) == SDENTRY_OVERALL_LEN)
 
 = Build 2
 p = SDEntry_Service(n_opt_1 = 0xf1, n_opt_2 = 0xf2)
 p_str = bytes(p)
 bin_str = b"\x00\x00\x00\x12\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 assert(p_str == bin_str)
-assert(len(p_str) == SDEntry_Service.OVERALL_LEN)
-
-= Check payload guess
-p_entry_srv = SDEntry_Service()
-assert(SDEntry_Service().guess_payload_class(bytes(p_entry_srv)) ==
-       SDEntry_Service)
+assert(len(p_str) == SDENTRY_OVERALL_LEN)
 
 = Dissect
 p = SDEntry_Service(
     b"\x01\x22\x33\x00\x44\x44\x55\x55\x66\x77\x77\x77\xde\xad\xbe\xef")
-assert(p.type == SDEntry_Service.TYPE_SRV_OFFERSERVICE)
+assert(p.type == SDENTRY_TYPE_SRV_OFFERSERVICE)
 assert(p.index_1 == 0x22)
 assert(p.index_2 == 0x33)
 assert(p.srv_id == 0x4444)
@@ -174,7 +169,7 @@ assert(p.minor_ver == 0xdeadbeef)
 
 = Check packet length on empty build
 p = SDEntry_EventGroup()
-assert(len(bytes(p)) == SDEntry_EventGroup.OVERALL_LEN)
+assert(len(bytes(p)) == SDENTRY_OVERALL_LEN)
 
 = Build
 p = SDEntry_EventGroup(index_1 = 0x11, index_2 = 0x22, srv_id = 0x3333,
@@ -183,12 +178,7 @@ p = SDEntry_EventGroup(index_1 = 0x11, index_2 = 0x22, srv_id = 0x3333,
 p_str = bytes(p)
 bin_str = b"\x06\x11\x22\x00\x33\x33\x44\x44\x55\x66\x66\x66\x00\x07\x88\x88"
 assert(p_str == bin_str)
-assert(len(bytes(p)) == SDEntry_EventGroup.OVERALL_LEN)
-
-= Check payload guess
-p_entry_evtgrp = SDEntry_EventGroup()
-assert(SDEntry_EventGroup().guess_payload_class(
-    bytes(p_entry_evtgrp)) == SDEntry_EventGroup)
+assert(len(bytes(p)) == SDENTRY_OVERALL_LEN)
 
 + SD Option Config
 
@@ -416,3 +406,44 @@ p.set_optionArray([SDOption_IP4_EndPoint(), SDOption_IP4_EndPoint()])
 
 assert(struct.unpack("!L", bytes(p)[4:8])[0] == 32)
 assert(struct.unpack("!L", bytes(p)[40:44])[0] == 24)
+
+
++ Git issue 2348: SOME/IP-SD Entry-Array is broken by building it from RAW
+
+= Single SD entry
+# offer service
+ea1 = SDEntry_Service()
+ea1.type = 1
+ea1.srv_id = 0x1234
+ea1.inst_id = 0x5678
+ea1.ttl = 0x333333
+
+# find service
+ea2 = SDEntry_Service()
+ea2.type = 0
+ea2.srv_id = 0x8765
+ea2.inst_id = 0x4321
+ea2.ttl = 0x222222
+
+sd1 = SD()
+sd1.set_entryArray([ea1])
+# this is computed on build, but we need it sooner for the assert()
+sd1.len_entry_array = 16
+sd1.len_option_array = 0
+
+assert(sd1.show(dump=True) == SD(sd1.build()).show(dump=True))
+
+= Double SD entry
+sd2 = SD()
+sd2.set_entryArray([ea2,ea1])
+# this is computed on build, but we need it sooner for the assert()
+sd2.len_entry_array = 32
+sd2.len_option_array = 0
+
+assert(sd2.show(dump=True) == SD(sd2.build()).show(dump=True))
+
+= Flipped double SD entry
+# flip the order
+sd2.set_entryArray([ea1,ea2])
+assert(sd2.show(dump=True) == SD(sd2.build()).show(dump=True))
+
