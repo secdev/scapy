@@ -54,7 +54,8 @@ def issubtype(x, t):
 class EDecimal(Decimal):
     """Extended Decimal
 
-    This implements arithmetic and comparison with float for backward compatibility
+    This implements arithmetic and comparison with float for
+    backward compatibility
     """
 
     def __add__(self, other, **kwargs):
