@@ -29,63 +29,64 @@
 ##########
 
 
-+ Test MessageId
++ Basic operations
 
 = Load module
-
 load_contrib("automotive.someip")
-import binascii
 
-+ Test SOMEIP
++ SOME/IP operation
 
-= Check SomeIp
-
+= Basic build
 p = SOMEIP()
-pstr = binascii.hexlify(bytes(p))
-binstr = binascii.hexlify(b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00")
-assert(pstr == binstr)
-
-p.payload = Raw(binascii.unhexlify("DEADBEEF"))
-pstr = bytes(p)
-binstr = b"\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x00\x00\xde\xad\xbe\xef"
-assert(pstr == binstr)
-
-p.payload = Raw('')
 pstr = bytes(p)
 binstr = b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
 assert(pstr == binstr)
 
-del(p)
+= Build with empty payload
+p.payload = Raw(b"")
+pstr = bytes(p)
+binstr = b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
+assert(pstr == binstr)
 
-= Dissect SomeIP packet
+= Build with non-empty payload
+p.payload = Raw(b"\xde\xad\xbe\xef")
+pstr = bytes(p)
+binstr = b"\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x00\x00\xde\xad\xbe\xef"
+assert(pstr == binstr)
 
-p = SOMEIP(
-    b"\x11\x11\x81\x11\x00\x00\x00\x04\x33\x33\x44\x44\x02\x03\x04\x05")
+= Dissect EVENT_ID packet
+p = SOMEIP(b"\x11\x11\x81\x11\x00\x00\x00\x04\x33\x33\x44\x44\x02\x03\x04\x05")
 
 assert(p.srv_id == 0x1111)
-
+assert(p.sub_id == 0x1)
+assert(p.method_id == None)
 assert(p.event_id == 0x0111)
-
 assert(p.client_id == 0x3333)
-
 assert(p.session_id == 0x4444)
-
 assert(p.proto_ver == 0x02)
-
 assert(p.iface_ver == 0x03)
-
 assert(p.msg_type == 0x04)
-
 assert(p.retcode == 0x05)
 
-del(p)
+= Dissect METHOD_ID packet
+p = SOMEIP(b"\x11\x11\x01\x11\x00\x00\x00\x04\x33\x33\x44\x44\x02\x03\x04\x05")
 
-+ Test SOMEIP_TP
+assert(p.srv_id == 0x1111)
+assert(p.sub_id == 0x0)
+assert(p.method_id == 0x0111)
+assert(p.event_id == None)
+assert(p.client_id == 0x3333)
+assert(p.session_id == 0x4444)
+assert(p.proto_ver == 0x02)
+assert(p.iface_ver == 0x03)
+assert(p.msg_type == 0x04)
+assert(p.retcode == 0x05)
 
-= Check TP
++ SOME/IP-TP operation
+
+= Build TP
 p = SOMEIP()
 p.msg_type = 0x20
-
 
 pstr = bytes(p)
 print(pstr)
@@ -102,9 +103,7 @@ pstr = bytes(p)
 binstr = b'\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00'
 assert(pstr == binstr)
 
-
 = Dissect TP
-
 p = SOMEIP(b'\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x21\x00\x00\x00\x00\x01')
 
 assert(p.msg_type == 0x21)
@@ -117,10 +116,7 @@ pstr = bytes(p)
 binstr = b"\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x00\x00"
 assert(pstr == binstr)
 
-+ Test SOMEIP-TP
-
 = Build TP fragmented
-
 p = SOMEIP()
 p.msg_type = 0x20
 p.add_payload(Raw("A"*1400))
@@ -133,3 +129,290 @@ assert(f[0].payload == Raw("A"*1392))
 assert(f[1].payload == Raw("A"*8))
 assert(f[0].more_seg == 1)
 assert(f[1].more_seg == 0)
+
++ SD Entry Service
+
+= Check packet length on empty build
+p = SDEntry_Service()
+assert(len(bytes(p)) == SDEntry_Service.OVERALL_LEN)
+
+= Build 1
+p = SDEntry_Service(type = SDEntry_Service.TYPE_SRV_OFFERSERVICE,
+				    index_1 = 0x11, index_2 = 0x22, srv_id = 0x3333,
+					inst_id = 0x4444, major_ver = 0x55,
+					ttl = 0x666666, minor_ver = 0xdeadbeef)
+p_str = bytes(p)
+bin_str = b"\x01\x11\x22\x00\x33\x33\x44\x44\x55\x66\x66\x66\xde\xad\xbe\xef"
+assert(p_str == bin_str)
+assert(len(p_str) == SDEntry_Service.OVERALL_LEN)
+
+= Build 2
+p = SDEntry_Service(n_opt_1 = 0xf1, n_opt_2 = 0xf2)
+p_str = bytes(p)
+bin_str = b"\x00\x00\x00\x12\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+assert(p_str == bin_str)
+assert(len(p_str) == SDEntry_Service.OVERALL_LEN)
+
+= Check payload guess
+p_entry_srv = SDEntry_Service()
+assert(SDEntry_Service().guess_payload_class(bytes(p_entry_srv)) ==
+       SDEntry_Service)
+
+= Dissect
+p = SDEntry_Service(
+    b"\x01\x22\x33\x00\x44\x44\x55\x55\x66\x77\x77\x77\xde\xad\xbe\xef")
+assert(p.type == SDEntry_Service.TYPE_SRV_OFFERSERVICE)
+assert(p.index_1 == 0x22)
+assert(p.index_2 == 0x33)
+assert(p.srv_id == 0x4444)
+assert(p.inst_id == 0x5555)
+assert(p.major_ver == 0x66)
+assert(p.ttl == 0x777777)
+assert(p.minor_ver == 0xdeadbeef)
+
++ SD Entry Eventgroup
+
+= Check packet length on empty build
+p = SDEntry_EventGroup()
+assert(len(bytes(p)) == SDEntry_EventGroup.OVERALL_LEN)
+
+= Build
+p = SDEntry_EventGroup(index_1 = 0x11, index_2 = 0x22, srv_id = 0x3333,
+			           inst_id = 0x4444, major_ver = 0x55, ttl = 0x666666,
+					   cnt = 0x7, eventgroup_id = 0x8888)
+p_str = bytes(p)
+bin_str = b"\x06\x11\x22\x00\x33\x33\x44\x44\x55\x66\x66\x66\x00\x07\x88\x88"
+assert(p_str == bin_str)
+assert(len(bytes(p)) == SDEntry_EventGroup.OVERALL_LEN)
+
+= Check payload guess
+p_entry_evtgrp = SDEntry_EventGroup()
+assert(SDEntry_EventGroup().guess_payload_class(
+    bytes(p_entry_evtgrp)) == SDEntry_EventGroup)
+
++ SD Option Config
+
+= Check pkg type
+p = SDOption_Config()
+assert(p.type == 0x01)
+
+= Check length without payload
+assert(len(bytes(p)) == 4)
+
+= Check add payload and check length
+import binascii
+p.cfg_str = binascii.hexlify(b"5abc=x7def=1230")
+assert(bytes(p) == b"\x00\x1f\x01\x00" +
+       binascii.hexlify(b"5abc=x7def=1230"))
+
+= Check payload guess
+assert(SDOption_Config().guess_payload_class(bytes(p)) == SDOption_Config)
+
+= Dissect
+p = SDEntry_EventGroup(
+    b"\x06\x11\x22\x00\x33\x33\x44\x44\x55\x66\x66\x66\x00\x07\x88\x88")
+assert(p.index_1 == 0x11)
+assert(p.index_2 == 0x22)
+assert(p.srv_id == 0x3333)
+assert(p.inst_id == 0x4444)
+assert(p.major_ver == 0x55)
+assert(p.ttl == 0x666666)
+assert(p.cnt == 0x7)
+assert(p.eventgroup_id == 0x8888)
+
++ SD Option Load Balance
+
+= Check pkg type & lengths(static and overall)
+p = SDOption_LoadBalance()
+assert(p.type == 0x02)
+assert(p.len == 0x05)
+assert(len(bytes(p)) == 8)
+
+= Check payload guess
+assert(SDOption_LoadBalance().guess_payload_class(
+    bytes(p)) == SDOption_LoadBalance)
+
+= Dissect
+p = SDOption_LoadBalance(b'\x00\x05\x02\x01\x00\x02\x00\x03')
+assert(p.type == 0x02)
+assert(p.len == 0x05)
+assert(p.res_hdr == 0x01)
+assert(p.priority == 0x02)
+assert(p.weight == 0x03)
+
++ SD Option IP4 Endpoint
+
+= Check pkg type & length
+p = SDOption_IP4_EndPoint()
+assert(p.type == 0x04)
+assert(p.len == 0x0009)
+
+= Check payload guess
+assert(SDOption_IP4_EndPoint().guess_payload_class(
+    bytes(p)) == SDOption_IP4_EndPoint)
+
+= Dissect
+p = SDOption_IP4_EndPoint(b'\x00\x09\x04')
+assert(p.type == 0x04)
+assert(p.len == 0x0009)
+
++ SD Option IP4 Multicast
+
+= Check pkg type & length
+p = SDOption_IP4_Multicast()
+assert(p.type == 0x14)
+assert(p.len == 0x0009)
+
+= Payload guess
+assert(SDOption_IP4_Multicast().guess_payload_class(
+    bytes(p)) == SDOption_IP4_Multicast)
+
+= Dissect
+p = SDOption_IP4_Multicast(b'\x00\x09\x14')
+assert(p.type == 0x14)
+assert(p.len == 0x0009)
+
++ SD OPTION IP4 SD EndPoint
+
+= Check pkg type & length
+p = SDOption_IP4_SD_EndPoint()
+assert(p.type == 0x24)
+assert(p.len == 0x0009)
+
+= Check payload guess
+assert(SDOption_IP4_SD_EndPoint().guess_payload_class(
+    bytes(p)) == SDOption_IP4_SD_EndPoint)
+
+= Dissect
+p = SDOption_IP4_SD_EndPoint(b'\x00\x09\x24')
+assert(p.type == 0x24)
+assert(p.len == 0x0009)
+
++ SD Option IP6 End Point
+
+= Check pkg type & length
+p = SDOption_IP6_EndPoint()
+assert(p.type == 0x06)
+assert(p.len == 0x0015)
+
+= Check payload guess
+assert(SDOption_IP6_EndPoint().guess_payload_class(
+    bytes(p)) == SDOption_IP6_EndPoint)
+
+= Dissect
+p = SDOption_IP6_EndPoint(b'\x00\x15\x06')
+assert(p.type == 0x06)
+assert(p.len == 0x0015)
+
++ SD Option IP6 Multicast
+
+= Check pkg type & length
+p = SDOption_IP6_Multicast()
+assert(p.type == 0x16)
+assert(p.len == 0x0015)
+
+= Check payload guess
+assert(SDOption_IP6_Multicast().guess_payload_class(
+    bytes(p)) == SDOption_IP6_Multicast)
+
+= Dissect
+p = SDOption_IP6_Multicast(b'\x00\x15\x16')
+assert(p.type == 0x16)
+assert(p.len == 0x0015)
+
++ SD OPTION IP6 SD EndPoint
+
+= Check pkg type & length
+p = SDOption_IP6_SD_EndPoint()
+assert(p.type == 0x26)
+assert(p.len == 0x015)
+
+= Check payload guess
+assert(SDOption_IP6_SD_EndPoint().guess_payload_class(
+    bytes(p)) == SDOption_IP6_SD_EndPoint)
+
+= Dissect
+p = SDOption_IP6_SD_EndPoint(b'\x00\x15\x26')
+assert(p.type == 0x26)
+assert(p.len == 0x0015)
+
++ SD Flags
+
+= Build and check flags
+p = SD()
+p.set_flag("REBOOT", 1)
+assert(p.flags == 0x80)
+
+p.set_flag("REBOOT", 0)
+assert(p.flags == 0x00)
+
+p.set_flag("UNICAST", 1)
+assert(p.flags == 0x40)
+
+p.set_flag("UNICAST", 0)
+assert(p.flags == 0x00)
+
+p.set_flag("REBOOT", 1)
+p.set_flag("UNICAST", 1)
+assert(p.flags == 0xc0)
+
++ SD Get SOME/IP Packet
+
+= Build empty
+p = SOMEIP() / SD()
+assert(len(bytes(p)) == SOMEIP._OVERALL_LEN_NOPAYLOAD + 12)
+
+= Verify constants against spec TR_SOMEIP_00250
+assert(SD.SOMEIP_MSGID_SRVID == 0xffff)
+assert(SD.SOMEIP_MSGID_SUBID == 0x1)
+assert(SD.SOMEIP_MSGID_EVENTID == 0x0100)
+assert(SD.SOMEIP_CLIENT_ID == 0x0000)
+assert(SD.SOMEIP_MINIMUM_SESSION_ID == 0x0001)
+assert(SD.SOMEIP_PROTO_VER == 0x01)
+assert(SD.SOMEIP_IFACE_VER == 0x01)
+assert(SD.SOMEIP_MSG_TYPE == 0x02)
+assert(SD.SOMEIP_RETCODE == 0x00)
+
+= check that values are bound
+assert(p[SOMEIP].srv_id == SD.SOMEIP_MSGID_SRVID)
+assert(p[SOMEIP].sub_id == SD.SOMEIP_MSGID_SUBID)
+assert(p[SOMEIP].event_id == SD.SOMEIP_MSGID_EVENTID)
+assert(p[SOMEIP].client_id == SD.SOMEIP_CLIENT_ID)
+assert(p[SOMEIP].session_id != 0x0000)
+assert(p[SOMEIP].session_id >= SD.SOMEIP_MINIMUM_SESSION_ID)
+assert(p[SOMEIP].proto_ver == SD.SOMEIP_PROTO_VER)
+assert(p[SOMEIP].iface_ver == SD.SOMEIP_IFACE_VER)
+assert(p[SOMEIP].msg_type == SD.SOMEIP_MSG_TYPE)
+assert(p[SOMEIP].retcode == SD.SOMEIP_RETCODE)
+
+# FIXME: Service Discovery messages shell be transported over UDP
+# (TR_SOMEIP_00248)
+# FIXME: The port 30490 (UDP and TCP as well) shall be only used for SOME/IP-SD
+# and not used for applications communicating over SOME/IP (TR_SOMEIP_00020)
+
++ SD
+
+= Check length of package without entries nor options
+p = SD()
+assert(len(bytes(p)) == 12)
+
+= Check entries to array and size check
+p.set_entryArray([SDEntry_Service(), SDEntry_EventGroup()])
+assert(struct.unpack("!L", bytes(p)[4:8])[0] == 32)
+
+p.set_entryArray([])
+assert(struct.unpack("!L", bytes(p)[4:8])[0] == 0)
+
+= Check Options to array and size check
+p.set_optionArray([SDOption_IP4_EndPoint(), SDOption_IP4_EndPoint()])
+assert(struct.unpack("!L", bytes(p)[8:12])[0] == 24)
+
+p.set_optionArray([])
+assert(struct.unpack("!L", bytes(p)[8:12])[0] == 0)
+
+= Check Entries & Options to array and size check
+p.set_entryArray([SDEntry_Service(), SDEntry_EventGroup()])
+p.set_optionArray([SDOption_IP4_EndPoint(), SDOption_IP4_EndPoint()])
+
+assert(struct.unpack("!L", bytes(p)[4:8])[0] == 32)
+assert(struct.unpack("!L", bytes(p)[40:44])[0] == 24)

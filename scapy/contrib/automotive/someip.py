@@ -523,3 +523,9 @@ bind_bottom_up(SOMEIP, SD,
                iface_ver=SD.SOMEIP_IFACE_VER,
                msg_type=SD.SOMEIP_MSG_TYPE,
                retcode=SD.SOMEIP_RETCODE)
+
+# FIXME: Service Discovery messages shall be transported over UDP
+#        (TR_SOMEIP_00248)
+# FIXME: The port 30490 (UDP and TCP as well) shall be only used for SOME/IP-SD
+#        and not used for applications communicating over SOME/IP
+#        (TR_SOMEIP_00020)
