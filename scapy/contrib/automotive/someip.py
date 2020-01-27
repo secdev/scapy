@@ -41,7 +41,7 @@ from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up
 from scapy.fields import XShortField, BitEnumField, ConditionalField, \
     BitField, XBitField, IntField, XByteField, ByteEnumField, ByteField, \
     ShortField, X3BytesField, StrField, IPField, FieldLenField, \
-    PacketListField
+    PacketListField, XIntField
 
 
 class SOMEIP(Packet):
@@ -248,14 +248,14 @@ class _SDEntry(_SDPacketBase):
     OVERALL_LEN = 16
 
     fields_desc = [
-        ByteField("type", 0),
-        ByteField("index_1", 0),
-        ByteField("index_2", 0),
-        BitField("n_opt_1", 0, 4),
-        BitField("n_opt_2", 0, 4),
-        ShortField("srv_id", 0),
-        ShortField("inst_id", 0),
-        ByteField("major_ver", 0),
+        XByteField("type", 0),
+        XByteField("index_1", 0),
+        XByteField("index_2", 0),
+        XBitField("n_opt_1", 0, 4),
+        XBitField("n_opt_2", 0, 4),
+        XShortField("srv_id", 0),
+        XShortField("inst_id", 0),
+        XByteField("major_ver", 0),
         X3BytesField("ttl", 0)
     ]
 
@@ -274,7 +274,7 @@ class SDEntry_Service(_SDEntry):
     name = "Service Entry"
     fields_desc = [
         _SDEntry,
-        IntField("minor_ver", 0)
+        XIntField("minor_ver", 0)
     ]
 
 
@@ -284,9 +284,9 @@ class SDEntry_EventGroup(_SDEntry):
     name = "Eventgroup Entry"
     fields_desc = [
         _SDEntry,
-        BitField("res", 0, 12),
-        BitField("cnt", 0, 4),
-        ShortField("eventgroup_id", 0)
+        XBitField("res", 0, 12),
+        XBitField("cnt", 0, 4),
+        XShortField("eventgroup_id", 0)
     ]
 
 
@@ -338,14 +338,14 @@ class _SDOption(_SDPacketBase):
 class _SDOption_Header(_SDOption):
     fields_desc = [
         ShortField("len", None),
-        ByteField("type", 0),
-        ByteField("res_hdr", 0)
+        XByteField("type", 0),
+        XByteField("res_hdr", 0)
     ]
 
 
 class _SDOption_Tail(_SDOption):
     fields_desc = [
-        ByteField("res_tail", 0),
+        XByteField("res_tail", 0),
         ByteEnumField("l4_proto", 0x06, {0x06: "TCP", 0x11: "UDP"}),
         ShortField("port", 0)
     ]
@@ -462,7 +462,7 @@ class SD(_SDPacketBase):
 
     name = "SD"
     fields_desc = [
-        ByteField("flags", 0),
+        XByteField("flags", 0),
         X3BytesField("res", 0),
         FieldLenField("len_entry_array", None,
                       length_of="entry_array", fmt="!I"),
