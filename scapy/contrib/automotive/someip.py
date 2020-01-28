@@ -224,32 +224,35 @@ SDENTRY_TYPE_EVTGRP = (SDENTRY_TYPE_EVTGRP_SUBSCRIBE,
                        SDENTRY_TYPE_EVTGRP_SUBSCRIBE_ACK)
 SDENTRY_OVERALL_LEN = 16
 
-_SDENTRY_COMMON_FIELDS_DESC = [
-    XByteField("index_1", 0),
-    XByteField("index_2", 0),
-    XBitField("n_opt_1", 0, 4),
-    XBitField("n_opt_2", 0, 4),
-    XShortField("srv_id", 0),
-    XShortField("inst_id", 0),
-    XByteField("major_ver", 0),
-    X3BytesField("ttl", 0)
-]
+
+def _MAKE_SDENTRY_COMMON_FIELDS_DESC(type):
+    return [
+        XByteField("type", type),
+        XByteField("index_1", 0),
+        XByteField("index_2", 0),
+        XBitField("n_opt_1", 0, 4),
+        XBitField("n_opt_2", 0, 4),
+        XShortField("srv_id", 0),
+        XShortField("inst_id", 0),
+        XByteField("major_ver", 0),
+        X3BytesField("ttl", 0)
+    ]
 
 
 class SDEntry_Service(_SDPacketBase):
     name = "Service Entry"
-    fields_desc = [
-        XByteField("type", SDENTRY_TYPE_SRV_FINDSERVICE),
-    ] + _SDENTRY_COMMON_FIELDS_DESC + [
+    fields_desc = _MAKE_SDENTRY_COMMON_FIELDS_DESC(
+        SDENTRY_TYPE_SRV_FINDSERVICE)
+    fields_desc += [
         XIntField("minor_ver", 0)
     ]
 
 
 class SDEntry_EventGroup(_SDPacketBase):
     name = "Eventgroup Entry"
-    fields_desc = [
-        XByteField("type", SDENTRY_TYPE_EVTGRP_SUBSCRIBE),
-    ] + _SDENTRY_COMMON_FIELDS_DESC + [
+    fields_desc = _MAKE_SDENTRY_COMMON_FIELDS_DESC(
+        SDENTRY_TYPE_EVTGRP_SUBSCRIBE)
+    fields_desc += [
         XBitField("res", 0, 12),
         XBitField("cnt", 0, 4),
         XShortField("eventgroup_id", 0)
