@@ -185,6 +185,7 @@ class TestCampaign(TestClass):
         self.preexec_output = None
         self.end_pos = 0
         self.interrupted = False
+        self.duration = 0.0
     def add_testset(self, testset):
         self.campaign.append(testset)
         testset.keywords.update(self.keywords)
@@ -230,6 +231,7 @@ class UnitTest(TestClass):
         self.test = ""
         self.comments = ""
         self.result = "passed" # make instance True at init to have a different truth value than None
+        self.duration = 0
         self.output = ""
         self.num = -1
         self.keywords = set()
@@ -439,6 +441,7 @@ def remove_empty_testsets(test_campaign):
 
 def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_globals=None):
     """An internal UTScapy function to run a single test"""
+    start_time = time.time()
     test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals, verb=verb, my_globals=my_globals)
     test.result = "failed"
     try:
@@ -451,6 +454,7 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_glob
         test.output += "UTscapy: Error during result interpretation:\n"
         test.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
     finally:
+        test.duration = time.time() - start_time
         if test.result == "failed":
             from scapy.sendrecv import debug
             # Add optional debugging data to log
@@ -459,7 +463,9 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_glob
                 test.output += "\n\nPACKET DISSECTION FAILED ON:\n %s(hex_bytes('%s'))" % (cls.__name__, plain_str(bytes_hex(val)))
                 debug.crashed_on = None
         test.decode()
-        if verb > 1:
+        if verb > 2:
+            print("%(result)6s %(crc)s %(duration)06.2fs %(name)s" % test, file=sys.stderr)
+        elif verb > 1:
             print("%(result)6s %(crc)s %(name)s" % test, file=sys.stderr)
 
     return bool(test)
@@ -484,6 +490,7 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
                     passed += 1
                 else:
                     failed += 1
+                test_campaign.duration += t.duration
     except KeyboardInterrupt:
         failed += 1
         testset.trunc(j+1)
@@ -494,7 +501,10 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
 
     test_campaign.passed = passed
     test_campaign.failed = failed
-    if verb:
+    if verb > 2:
+        print("Campaign CRC=%(crc)s in %(duration)06.2fs SHA=%(sha)s" % test_campaign, file=sys.stderr)  # noqa: E501
+        print("PASSED=%i FAILED=%i" % (passed, failed), file=sys.stderr)
+    elif verb:
         print("Campaign CRC=%(crc)s  SHA=%(sha)s" % test_campaign, file=sys.stderr)  # noqa: E501
         print("PASSED=%i FAILED=%i" % (passed, failed), file=sys.stderr)
     return failed
