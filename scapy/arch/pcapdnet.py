@@ -367,9 +367,8 @@ if conf.use_pcap:
         def recv(self, x=MTU):
             r = L2pcapSocket.recv(self, x)
             if r:
-                ts = r.time
-                r = r.payload
-                r.time = ts
+                r.payload.time = r.time
+                return r.payload
             return r
 
         def send(self, x):
