@@ -151,6 +151,7 @@ class Format(EnumClass):
     HTML = 3
     LATEX = 4
     XUNIT = 5
+    LIVE = 6
 
 
 #    TEST CLASSES    #
@@ -712,7 +713,7 @@ def campaign_to_LATEX(test_campaign):
 # USAGE #
 
 def usage():
-    print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
+    print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX|live}] [-o output_file]
                [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
                [-l] [-b] [-d|-D] [-F] [-q[q]] [-i] [-P preexecute_python_code]
                [-c configfile]
@@ -792,6 +793,8 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
         output = campaign_to_LATEX(test_campaign)
     elif FORMAT == Format.XUNIT:
         output = campaign_to_xUNIT(test_campaign)
+    elif FORMAT == Format.LIVE:
+        output = ""
 
     return output, (result == 0), test_campaign
 
@@ -953,6 +956,7 @@ def main():
         Format.HTML: scapy.autorun_get_html_interactive_session,
         Format.LATEX: scapy.autorun_get_latex_interactive_session,
         Format.XUNIT: scapy.autorun_get_text_interactive_session,
+        Format.LIVE: scapy.autorun_get_live_interactive_session,
     }
 
     if VERB > 2:
