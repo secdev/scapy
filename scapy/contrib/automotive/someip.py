@@ -234,8 +234,8 @@ class _SDPacketBase(Packet):
 
 
 # SD ENTRY
-#  - Service
-#  - EventGroup
+# - Service
+# - EventGroup
 class _SDEntry(_SDPacketBase):
     TYPE_FMT = ">B"
     TYPE_PAYLOAD_I = 0
@@ -291,11 +291,10 @@ class SDEntry_EventGroup(_SDEntry):
 
 
 # SD Option
-#  - Configuration
-#  - LoadBalancing
+# - Configuration
+# - LoadBalancing
 # - IPv4 EndPoint
 # - IPv6 EndPoint
-
 # - IPv4 MultiCast
 # - IPv6 MultiCast
 # - IPv4 EndPoint
