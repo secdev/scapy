@@ -121,11 +121,42 @@ def autorun_get_interactive_session(cmds, **kargs):
     return sw.s, res
 
 
+def autorun_get_interactive_live_session(cmds, **kargs):
+    """Create an interactive session and execute the
+    commands passed as "cmds" and return all output
+
+    :param cmds: a list of commands to run
+    :returns: (output, returned) contains both sys.stdout and sys.stderr logs
+    """
+    sstdout, sstderr = sys.stdout, sys.stderr
+    sw = StringWriter(debug=sstdout)
+    try:
+        try:
+            sys.stdout = sys.stderr = sw
+            res = autorun_commands(cmds, **kargs)
+        except StopAutorun as e:
+            e.code_run = sw.s
+            raise
+    finally:
+        sys.stdout, sys.stderr = sstdout, sstderr
+    return sw.s, res
+
+
 def autorun_get_text_interactive_session(cmds, **kargs):
     ct = conf.color_theme
     try:
         conf.color_theme = NoTheme()
         s, res = autorun_get_interactive_session(cmds, **kargs)
+    finally:
+        conf.color_theme = ct
+    return s, res
+
+
+def autorun_get_live_interactive_session(cmds, **kargs):
+    ct = conf.color_theme
+    try:
+        conf.color_theme = DefaultTheme()
+        s, res = autorun_get_interactive_live_session(cmds, **kargs)
     finally:
         conf.color_theme = ct
     return s, res
