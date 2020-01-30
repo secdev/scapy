@@ -213,6 +213,9 @@ if conf.use_pcap:
                 self.pcap = pcap_open_live(self.iface,
                                            snaplen, promisc, to_ms,
                                            self.errbuf)
+                error = bytes(bytearray(self.errbuf)).strip(b"\x00")
+                if error:
+                    raise OSError(error)
 
             if WINDOWS:
                 # Winpcap/Npcap exclusive: make every packet to be instantly
