@@ -1307,6 +1307,12 @@ def test_tls_tools():
 
 test_tls_tools()
 
+= Dissect TLSCertificateVerify
+
+t = TLS(b'\x16\x03\x03\x00P\x0f\x00\x00L\x04\x03\x00H0F\x02!\x00\xcf\xf1\xd0:1\xb8\xe4JCU\x00\x8c\xcdg\xf9=g\x84\xa3h;V@\xfd\xd1\\\xf0\xc4f\xfa\x18\xdc\x02!\x00\x82\x1dF\xc1\xd1\xab\x86\xaa\xb9"\x0eA\xf2\xc3Rj\xd7\xf1\xe9\xaf\x9b\xa5?R\n\xca\x15\xfe)\xa9j\x84')
+assert TLSCertificateVerify in t
+assert t[TLSCertificateVerify].sig.sig_len == 72
+
 
 ###############################################################################
 ############################ Automaton behaviour ##############################
