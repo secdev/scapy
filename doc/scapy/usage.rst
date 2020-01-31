@@ -707,6 +707,9 @@ Asynchronous Sniffing
 .. note::
    Asynchronous sniffing is only available since **Scapy 2.4.3**
 
+.. warning::
+   Asynchronous sniffing does not necessarily improves performance (it's rather the opposite). If you want to sniff on multiple interfaces / socket, remember you can pass them all to a single `sniff()` call
+
 It is possible to sniff asynchronously. This allows to stop the sniffer programmatically, rather than with ctrl^C.
 It provides ``start()``, ``stop()`` and ``join()`` utils.
 
