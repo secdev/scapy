@@ -1083,7 +1083,10 @@ class TLSCertificateVerify(_TLSHandshake):
         if sig is None:
             s = self.tls_session
             m = b"".join(s.handshake_messages)
-            if s.tls_version >= 0x0304:
+            tls_version = s.tls_version
+            if tls_version is None:
+                tls_version = s.advertised_tls_version
+            if tls_version >= 0x0304:
                 if s.connection_end == "client":
                     context_string = b"TLS 1.3, client CertificateVerify"
                 elif s.connection_end == "server":
@@ -1100,7 +1103,10 @@ class TLSCertificateVerify(_TLSHandshake):
     def post_dissection(self, pkt):
         s = self.tls_session
         m = b"".join(s.handshake_messages)
-        if s.tls_version >= 0x0304:
+        tls_version = s.tls_version
+        if tls_version is None:
+            tls_version = s.advertised_tls_version
+        if tls_version >= 0x0304:
             if s.connection_end == "client":
                 context_string = b"TLS 1.3, server CertificateVerify"
             elif s.connection_end == "server":
@@ -1206,7 +1212,10 @@ class TLSFinished(_TLSHandshake):
             s = self.tls_session
             handshake_msg = b"".join(s.handshake_messages)
             con_end = s.connection_end
-            if s.tls_version < 0x0304:
+            tls_version = s.tls_version
+            if tls_version is None:
+                tls_version = s.advertised_tls_version
+            if tls_version < 0x0304:
                 ms = s.master_secret
                 self.vdata = s.wcs.prf.compute_verify_data(con_end, "write",
                                                            handshake_msg, ms)
@@ -1218,7 +1227,10 @@ class TLSFinished(_TLSHandshake):
         s = self.tls_session
         if not s.frozen:
             handshake_msg = b"".join(s.handshake_messages)
-            if s.tls_version < 0x0304 and s.master_secret is not None:
+            tls_version = s.tls_version
+            if tls_version is None:
+                tls_version = s.advertised_tls_version
+            if tls_version < 0x0304 and s.master_secret is not None:
                 ms = s.master_secret
                 con_end = s.connection_end
                 verify_data = s.rcs.prf.compute_verify_data(con_end, "read",
@@ -1226,7 +1238,7 @@ class TLSFinished(_TLSHandshake):
                 if self.vdata != verify_data:
                     pkt_info = pkt.firstlayer().summary()
                     log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)  # noqa: E501
-            elif s.tls_version >= 0x0304:
+            elif tls_version >= 0x0304:
                 con_end = s.connection_end
                 verify_data = s.compute_tls13_verify_data(con_end, "read")
                 if self.vdata != verify_data:
@@ -1236,7 +1248,10 @@ class TLSFinished(_TLSHandshake):
     def post_build_tls_session_update(self, msg_str):
         self.tls_session_update(msg_str)
         s = self.tls_session
-        if s.tls_version >= 0x0304:
+        tls_version = s.tls_version
+        if tls_version is None:
+            tls_version = s.advertised_tls_version
+        if tls_version >= 0x0304:
             s.pwcs = writeConnState(ciphersuite=type(s.wcs.ciphersuite),
                                     connection_end=s.connection_end,
                                     tls_version=s.tls_version)
@@ -1250,7 +1265,10 @@ class TLSFinished(_TLSHandshake):
     def post_dissection_tls_session_update(self, msg_str):
         self.tls_session_update(msg_str)
         s = self.tls_session
-        if s.tls_version >= 0x0304:
+        tls_version = s.tls_version
+        if tls_version is None:
+            tls_version = s.advertised_tls_version
+        if tls_version >= 0x0304:
             s.prcs = readConnState(ciphersuite=type(s.rcs.ciphersuite),
                                    connection_end=s.connection_end,
                                    tls_version=s.tls_version)

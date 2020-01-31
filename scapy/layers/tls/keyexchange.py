@@ -880,7 +880,10 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
     def pre_dissect(self, m):
         s = self.tls_session
         tbd = m
-        if s.tls_version >= 0x0301:
+        tls_version = s.tls_version
+        if tls_version is None:
+            tls_version = s.advertised_tls_version
+        if tls_version >= 0x0301:
             if len(m) < 2:      # Should not happen
                 return m
             tmp_len = struct.unpack("!H", m[:2])[0]
@@ -928,7 +931,10 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
             warning("No material to encrypt Pre Master Secret")
 
         tmp_len = b""
-        if s.tls_version >= 0x0301:
+        tls_version = s.tls_version
+        if tls_version is None:
+            tls_version = s.advertised_tls_version
+        if tls_version >= 0x0301:
             tmp_len = struct.pack("!H", len(enc))
         return tmp_len + enc + pay
 
