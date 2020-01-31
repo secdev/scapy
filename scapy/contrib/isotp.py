@@ -1879,7 +1879,7 @@ def scan(sock, scan_range=range(0x800), noise_ids=None, sniff_time=0.1,
     return cleaned_ret_val
 
 
-def scan_extended(sock, scan_range=range(0x800), scan_block_size=100,
+def scan_extended(sock, scan_range=range(0x800), scan_block_size=32,
                   noise_ids=None, sniff_time=0.1, extended_can_id=False,
                   verbose=False):
     """Scan with ISOTP extended addresses and return dictionary of detections
@@ -1914,12 +1914,12 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=100,
             sock.sniff(prn=lambda p: get_isotp_fc(ext_isotp_id, id_list,
                                                   noise_ids, True, p,
                                                   verbose),
-                       timeout=sniff_time * 3,
+                       timeout=sniff_time,
                        started_callback=send_multiple_ext(sock, ext_isotp_id,
                                                           pkt,
                                                           scan_block_size))
             # sleep to prevent flooding
-            time.sleep(1)
+            time.sleep(sniff_time)
 
         # remove duplicate IDs
         id_list = list(set(id_list))
@@ -1932,7 +1932,7 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=100,
                                                         return_values,
                                                         noise_ids, True,
                                                         pkt, verbose),
-                           timeout=sniff_time * 5,
+                           timeout=sniff_time * 2,
                            started_callback=lambda: sock.send(pkt))
 
     return return_values
