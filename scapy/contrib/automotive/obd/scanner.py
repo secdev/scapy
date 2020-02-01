@@ -7,6 +7,8 @@
 # scapy.contrib.description = OnBoardDiagnosticScanner
 # scapy.contrib.status = loads
 
+# XXX TODO This file contains illegal E501 issues D:
+
 from scapy.compat import chb
 from scapy.contrib.automotive.obd.obd import OBD, OBD_S03, OBD_S07, OBD_S0A, \
     OBD_S01, OBD_S06, OBD_S08, OBD_S09
