@@ -54,35 +54,57 @@ def issubtype(x, t):
 class EDecimal(Decimal):
     """Extended Decimal
 
-    This implement comparison with float for backward compatibility
+    This implements arithmetic and comparison with float for
+    backward compatibility
     """
 
     def __add__(self, other, **kwargs):
-        return EDecimal(Decimal.__add__(self, other, **kwargs))
+        return EDecimal(Decimal.__add__(self, Decimal(other), **kwargs))
+
+    def __radd__(self, other, **kwargs):
+        return EDecimal(Decimal.__add__(self, Decimal(other), **kwargs))
 
     def __sub__(self, other, **kwargs):
-        return EDecimal(Decimal.__sub__(self, other, **kwargs))
+        return EDecimal(Decimal.__sub__(self, Decimal(other), **kwargs))
+
+    def __rsub__(self, other, **kwargs):
+        return EDecimal(Decimal.__rsub__(self, Decimal(other), **kwargs))
 
     def __mul__(self, other, **kwargs):
-        return EDecimal(Decimal.__mul__(self, other, **kwargs))
+        return EDecimal(Decimal.__mul__(self, Decimal(other), **kwargs))
+
+    def __rmul__(self, other, **kwargs):
+        return EDecimal(Decimal.__mul__(self, Decimal(other), **kwargs))
 
     def __truediv__(self, other, **kwargs):
-        return EDecimal(Decimal.__truediv__(self, other, **kwargs))
+        return EDecimal(Decimal.__truediv__(self, Decimal(other), **kwargs))
 
     def __floordiv__(self, other, **kwargs):
-        return EDecimal(Decimal.__floordiv__(self, other, **kwargs))
+        return EDecimal(Decimal.__floordiv__(self, Decimal(other), **kwargs))
 
     def __div__(self, other, **kwargs):
-        return EDecimal(Decimal.__div__(self, other, **kwargs))
+        return EDecimal(Decimal.__div__(self, Decimal(other), **kwargs))
+
+    def __rdiv__(self, other, **kwargs):
+        return EDecimal(Decimal.__rdiv__(self, Decimal(other), **kwargs))
 
     def __mod__(self, other, **kwargs):
-        return EDecimal(Decimal.__mod__(self, other, **kwargs))
+        return EDecimal(Decimal.__mod__(self, Decimal(other), **kwargs))
+
+    def __rmod__(self, other, **kwargs):
+        return EDecimal(Decimal.__rmod__(self, Decimal(other), **kwargs))
 
     def __divmod__(self, other, **kwargs):
-        return EDecimal(Decimal.__divmod__(self, other, **kwargs))
+        return EDecimal(Decimal.__divmod__(self, Decimal(other), **kwargs))
+
+    def __rdivmod__(self, other, **kwargs):
+        return EDecimal(Decimal.__rdivmod__(self, Decimal(other), **kwargs))
 
     def __pow__(self, other, **kwargs):
-        return EDecimal(Decimal.__pow__(self, other, **kwargs))
+        return EDecimal(Decimal.__pow__(self, Decimal(other), **kwargs))
+
+    def __rpow__(self, other, **kwargs):
+        return EDecimal(Decimal.__rpow__(self, Decimal(other), **kwargs))
 
     def __eq__(self, other, **kwargs):
         return super(EDecimal, self).__eq__(other) or float(self) == other
