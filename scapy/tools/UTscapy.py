@@ -485,6 +485,7 @@ def import_UTscapy_tools(ses):
     ses["retry_test"] = retry_test
     ses["Bunch"] = Bunch
 
+
 def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=False, verb=3, ignore_globals=None):  # noqa: E501
     passed = failed = 0
     scapy_ses = importlib.import_module(".all", "scapy").__dict__
