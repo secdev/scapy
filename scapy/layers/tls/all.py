@@ -7,8 +7,6 @@
 Aggregate top level objects from all TLS modules.
 """
 
-# flake8: noqa: F403
-
 from scapy.layers.tls.cert import *  # noqa: F401
 
 from scapy.layers.tls.automaton_cli import *  # noqa: F401

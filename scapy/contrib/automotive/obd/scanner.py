@@ -1,5 +1,3 @@
-# flake8: noqa: F405
-
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Andreas Korb <andreas.korb@e-mundo.de>
@@ -8,6 +6,8 @@
 
 # scapy.contrib.description = OnBoardDiagnosticScanner
 # scapy.contrib.status = loads
+
+# XXX TODO This file contains illegal E501 issues D:
 
 from scapy.compat import chb
 from scapy.contrib.automotive.obd.obd import OBD, OBD_S03, OBD_S07, OBD_S0A, \
@@ -41,7 +41,7 @@ def _supported_id_numbers(socket, timeout, service_class, id_name, verbose):
     supported_prop = 'supported_' + id_name + 's'
 
     # ID 0x00 requests the first range of supported IDs in OBD
-    supported_ids_req = OBD()/service_class(b'\x00')
+    supported_ids_req = OBD() / service_class(b'\x00')
 
     while supported_ids_req is not None:
         resp = socket.sr1(supported_ids_req, timeout=timeout, verbose=verbose)
@@ -61,7 +61,7 @@ def _supported_id_numbers(socket, timeout, service_class, id_name, verbose):
 
             # send a new query if the next PID range is supported
             if id_number % 0x20 == 0:
-                supported_ids_req = OBD()/service_class(chb(id_number))
+                supported_ids_req = OBD() / service_class(chb(id_number))
 
     return supported_id_numbers
 
@@ -87,7 +87,7 @@ def _scan_id_service(socket, timeout, service_class, id_numbers, verbose):
     for id_number in id_numbers:
         id_byte = chb(id_number)
         # assemble request packet
-        pkt = OBD()/service_class(id_byte)
+        pkt = OBD() / service_class(id_byte)
         resp = socket.sr1(pkt, timeout=timeout, verbose=verbose)
 
         if resp is not None:
@@ -111,13 +111,14 @@ def _scan_dtc_service(socket, timeout, service_class, verbose):
     which is then returned.
     """
 
-    req = OBD()/service_class()
+    req = OBD() / service_class()
     resp = socket.sr1(req, timeout=timeout, verbose=verbose)
     if resp is not None:
         return bytes(resp)
 
 
-def obd_scan(socket, timeout=0.1, supported_ids=False, unsupported_ids=False, verbose=False):
+def obd_scan(socket, timeout=0.1, supported_ids=False,
+             unsupported_ids=False, verbose=False):
     """ Scans for all accessible information of each commonly used OBD service classes and prints the results
 
     Args:
@@ -148,7 +149,8 @@ def obd_scan(socket, timeout=0.1, supported_ids=False, unsupported_ids=False, ve
     print("\nScanning Diagnostic Trouble Codes:")
     # Emission-related DTCs
     dtc[3] = _scan_dtc_service(socket, timeout, OBD_S03, verbose)
-    # Emission-related DTCs detected during current or last completed driving cycle
+    # Emission-related DTCs detected during current or last completed driving
+    # cycle
     dtc[7] = _scan_dtc_service(socket, timeout, OBD_S07, verbose)
     # Permanent DTCs
     dtc[10] = _scan_dtc_service(socket, timeout, OBD_S0A, verbose)
@@ -163,20 +165,28 @@ def obd_scan(socket, timeout=0.1, supported_ids=False, unsupported_ids=False, ve
         return dtc
 
     # Powertrain
-    supported_ids_s01 = _supported_id_numbers(socket, timeout, OBD_S01, 'pid', verbose)
+    supported_ids_s01 = _supported_id_numbers(
+        socket, timeout, OBD_S01, 'pid', verbose)
     # On-board monitoring test results for non-continuously monitored systems
-    supported_ids_s06 = _supported_id_numbers(socket, timeout, OBD_S06, 'mid', verbose)
+    supported_ids_s06 = _supported_id_numbers(
+        socket, timeout, OBD_S06, 'mid', verbose)
     # Control of on-board system, test or component
-    supported_ids_s08 = _supported_id_numbers(socket, timeout, OBD_S08, 'tid', verbose)
+    supported_ids_s08 = _supported_id_numbers(
+        socket, timeout, OBD_S08, 'tid', verbose)
     # On-board monitoring test results for non-continuously monitored systems
-    supported_ids_s09 = _supported_id_numbers(socket, timeout, OBD_S09, 'iid', verbose)
+    supported_ids_s09 = _supported_id_numbers(
+        socket, timeout, OBD_S09, 'iid', verbose)
 
     if supported_ids:
         print("\nScanning supported Parameter IDs")
-        supported[1] = _scan_id_service(socket, timeout, OBD_S01, supported_ids_s01, verbose)
-        supported[6] = _scan_id_service(socket, timeout, OBD_S06, supported_ids_s06, verbose)
-        supported[8] = _scan_id_service(socket, timeout, OBD_S08, supported_ids_s08, verbose)
-        supported[9] = _scan_id_service(socket, timeout, OBD_S09, supported_ids_s09, verbose)
+        supported[1] = _scan_id_service(
+            socket, timeout, OBD_S01, supported_ids_s01, verbose)
+        supported[6] = _scan_id_service(
+            socket, timeout, OBD_S06, supported_ids_s06, verbose)
+        supported[8] = _scan_id_service(
+            socket, timeout, OBD_S08, supported_ids_s08, verbose)
+        supported[9] = _scan_id_service(
+            socket, timeout, OBD_S09, supported_ids_s09, verbose)
         print("\nSupported PIDs of Service 1:")
         print(supported[1])
         print("Supported PIDs of Service 6:")
@@ -186,11 +196,13 @@ def obd_scan(socket, timeout=0.1, supported_ids=False, unsupported_ids=False, ve
         print("Supported PIDs of Service 9:")
 
     # this option will slow down the test a lot, since it tests for seemingly unsupported ids
-    # the chances of those actually responding will be small, so a lot of timeouts can be expected
+    # the chances of those actually responding will be small, so a lot of
+    # timeouts can be expected
     if unsupported_ids:
         # the complete id range is from 1 to 255
         all_ids_set = set(range(1, 256))
-        # the unsupported id ranges are obtained by creating the compliment set excluding 0
+        # the unsupported id ranges are obtained by creating the compliment set
+        # excluding 0
         unsupported_ids_s01 = all_ids_set - supported_ids_s01
         unsupported_ids_s06 = all_ids_set - supported_ids_s06
         unsupported_ids_s08 = all_ids_set - supported_ids_s08
@@ -199,10 +211,14 @@ def obd_scan(socket, timeout=0.1, supported_ids=False, unsupported_ids=False, ve
         print("\nScanning unsupported Parameter IDs")
         if verbose:
             print("This may take a while...")
-        unsupported[1] = _scan_id_service(socket, timeout, OBD_S01, unsupported_ids_s01, verbose)
-        unsupported[6] = _scan_id_service(socket, timeout, OBD_S06, unsupported_ids_s06, verbose)
-        unsupported[8] = _scan_id_service(socket, timeout, OBD_S08, unsupported_ids_s08, verbose)
-        unsupported[9] = _scan_id_service(socket, timeout, OBD_S09, unsupported_ids_s09, verbose)
+        unsupported[1] = _scan_id_service(
+            socket, timeout, OBD_S01, unsupported_ids_s01, verbose)
+        unsupported[6] = _scan_id_service(
+            socket, timeout, OBD_S06, unsupported_ids_s06, verbose)
+        unsupported[8] = _scan_id_service(
+            socket, timeout, OBD_S08, unsupported_ids_s08, verbose)
+        unsupported[9] = _scan_id_service(
+            socket, timeout, OBD_S09, unsupported_ids_s09, verbose)
         print("\nUnsupported PIDs of Service 1:")
         print(unsupported[1])
         print("Unsupported PIDs of Service 6:")

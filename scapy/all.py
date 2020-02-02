@@ -7,8 +7,6 @@
 Aggregate top level objects from all Scapy modules.
 """
 
-# flake8: noqa: F403
-
 from scapy.base_classes import *
 from scapy.config import *
 from scapy.dadict import *

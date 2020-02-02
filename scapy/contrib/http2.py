@@ -26,7 +26,6 @@ and HPack encoded headers
 # scapy.contrib.description=HTTP/2 (RFC 7540, RFC 7541)
 
 # base_classes triggers an unwanted import warning
-# flake8: noqa: F821
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -1967,6 +1966,7 @@ class H2ContinuationFrame(H2FramePayload):
 
 #                                          HTTP/2 Base Frame Packets                                                   #  # noqa: E501
 
+
 _HTTP2_types = {
     0: 'DataFrm',
     1: 'HdrsFrm',
@@ -1979,6 +1979,7 @@ _HTTP2_types = {
     8: 'WinFrm',
     9: 'ContFrm'
 }
+
 
 class H2Frame(packet.Packet):
     """ H2Frame implements the frame structure as defined in RFC 7540 par4.1
@@ -2197,8 +2198,8 @@ class HPackHdrTable(Sized):
     :var _dynamic_table: the list containing entries requested to be added by
         the peer and registered with a register() call
     :var _dynamic_table_max_size: the current maximum size of the dynamic table
-        in bytes. This value is updated with the Dynamic Table Size Update messages
-        defined in RFC 7541 par6.3
+        in bytes. This value is updated with the Dynamic Table Size Update
+        messages defined in RFC 7541 par6.3
     :var _dynamic_table_cap_size: the maximum size of the dynamic table in
         bytes. This value is updated with the SETTINGS_HEADER_TABLE_SIZE HTTP/2
         setting.

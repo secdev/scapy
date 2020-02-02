@@ -1,5 +1,3 @@
-# flake8: noqa: E501
-
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
