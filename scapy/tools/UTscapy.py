@@ -724,7 +724,7 @@ def usage():
 -D\t\t: dump campaign and stop
 -C\t\t: don't calculate CRC and SHA
 -c\t\t: load a .utsc config file
--i\t\t: drop into python interpreter if test failed
+-i\t\t: drop into Python interpreter if test failed
 -q\t\t: quiet mode
 -qq\t\t: [silent mode]
 -x\t\t: use pyannotate
