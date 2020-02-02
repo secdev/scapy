@@ -213,6 +213,9 @@ if conf.use_pcap:
                 self.pcap = pcap_open_live(self.iface,
                                            snaplen, promisc, to_ms,
                                            self.errbuf)
+                error = bytes(bytearray(self.errbuf)).strip(b"\x00")
+                if error:
+                    raise OSError(error)
 
             if WINDOWS:
                 # Winpcap/Npcap exclusive: make every packet to be instantly
@@ -367,7 +370,9 @@ if conf.use_pcap:
         def recv(self, x=MTU):
             r = L2pcapSocket.recv(self, x)
             if r:
+                r.payload.time = r.time
                 return r.payload
+            return r
 
         def send(self, x):
             # Makes send detects when it should add Loopback(), Dot11... instead of Ether()  # noqa: E501

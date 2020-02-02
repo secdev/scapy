@@ -533,7 +533,8 @@ class L3PacketSocket(L2Socket):
     def recv(self, x=MTU):
         pkt = SuperSocket.recv(self, x)
         if pkt and self.lvl == 2:
-            pkt = pkt.payload
+            pkt.payload.time = pkt.time
+            return pkt.payload
         return pkt
 
     def send(self, x):

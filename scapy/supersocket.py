@@ -106,8 +106,15 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
                         pkt = pkt[:12] + tag + pkt[12:]
                 elif cmsg_lvl == socket.SOL_SOCKET and \
                         cmsg_type == SO_TIMESTAMPNS:
-                    tmp = struct.unpack("iiii", cmsg_data)
-                    timestamp = tmp[0] + tmp[2] * 1e-9
+                    length = len(cmsg_data)
+                    if length == 16:  # __kernel_timespec
+                        tmp = struct.unpack("ll", cmsg_data)
+                    elif length == 8:  # timespec
+                        tmp = struct.unpack("ii", cmsg_data)
+                    else:
+                        log_runtime.warning("Unknown timespec format.. ?!")
+                        continue
+                    timestamp = tmp[0] + tmp[1] * 1e-9
             return pkt, sa_ll, timestamp
 
     def recv_raw(self, x=MTU):
