@@ -1727,19 +1727,7 @@ def send_multiple_ext(sock, ext_id, packet, number_of_packets):
     This method is used in extended scan function.
     """
     end_id = min(ext_id + number_of_packets, 255)
-    for i in range(ext_id, end_id + 1, 4):
-        packet.extended_address = i
-        sock.send(packet)
-
-    for i in range(ext_id + 1, end_id + 1, 4):
-        packet.extended_address = i
-        sock.send(packet)
-
-    for i in range(ext_id + 2, end_id + 1, 4):
-        packet.extended_address = i
-        sock.send(packet)
-
-    for i in range(ext_id + 3, end_id + 1, 4):
+    for i in range(ext_id, end_id + 1):
         packet.extended_address = i
         sock.send(packet)
 
