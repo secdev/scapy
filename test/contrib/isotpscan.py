@@ -37,6 +37,10 @@ if "python_can" in CANSocket.__module__:
 from scapy.contrib.isotp import ISOTPSocket, ISOTPScan, scan, scan_extended, ISOTPSoftSocket  # noqa: E501, E402
 
 
+def check_loading():
+    return "Loaded"
+
+
 def make_noise(p):
     with new_can_socket0() as s:
         for _ in range(20):
