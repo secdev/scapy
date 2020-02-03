@@ -501,7 +501,12 @@ class MACField(Field):
     def i2m(self, pkt, x):
         if x is None:
             return b"\0\0\0\0\0\0"
-        return mac2str(x)
+        try:
+            x = mac2str(x)
+        except (struct.error, OverflowError):
+            x = bytes_encode(x)
+
+        return x
 
     def m2i(self, pkt, x):
         return str2mac(x)
