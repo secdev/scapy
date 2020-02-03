@@ -36,7 +36,7 @@ function to get all information about one specific protocol.
 |                     +----------------------+--------------------------------------------------------+
 |                     | CCP                  | CCP, DTO, CRO                                          |
 +---------------------+----------------------+--------------------------------------------------------+
-| Transportaion Layer | ISO-TP (ISO 15765-2) | ISOTPSocket, ISOTPNativeSocket, ISOTPSoftSocket        |
+| Transportation Layer| ISO-TP (ISO 15765-2) | ISOTPSocket, ISOTPNativeSocket, ISOTPSoftSocket        |
 |                     |                      |                                                        |
 |                     |                      | ISOTPSniffer, ISOTPMessageBuilder, ISOTPSession        |
 |                     |                      |                                                        |
@@ -99,7 +99,7 @@ from Oliver Hartkopp can be found here: https://wiki.automotivelinux.org/_media/
 Virtual CAN Setup
 ^^^^^^^^^^^^^^^^^
 
-Linux SocketCAN supports virtual CAN interfaces. These interfaces are a easy way
+Linux SocketCAN supports virtual CAN interfaces. These interfaces are an easy way
 to do some first steps on a CAN-Bus without the requirement of special hardware.
 Besides that, virtual CAN interfaces are heavily used in Scapy unit test for automotive
 related contributions.
@@ -143,7 +143,7 @@ CAN Frame
 Basic information about CAN can be found here: https://en.wikipedia.org/wiki/CAN_bus
 
 The following examples assume that CAN layer in your Scapy session is loaded. If it isn't,
-the CAN layer can be load with this command in your Scapy session::
+the CAN layer can be loaded with this command in your Scapy session::
 
     >>> load_layer("can")
 
@@ -168,7 +168,7 @@ Creation of an extended CAN frame::
 CAN Frame in- and export
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-CAN Frames can be written to and red from ``pcap`` files::
+CAN Frames can be written to and read from ``pcap`` files::
 
    x = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
    wrpcap('/tmp/scapyPcapTest.pcap', x, append=False)
@@ -195,14 +195,14 @@ Since Python 3 supports ``PF_CAN`` sockets, **Native CANSockets** can be used on
 Linux based system with Python 3 or higher. These sockets have a performance advantage
 because ``select`` is callable on them. This has a big effect in MITM scenarios.
 
-For compatibility reasons, **Python-can CANSockets** were add to Scapy.
+For compatibility reasons, **Python-can CANSockets** were added to Scapy.
 On Windows or OSX and on all systems without Python 3, CAN buses can be accessed
 through ``python-can``. ``python-can`` needs to be installed on the system: https://github.com/hardbyte/python-can/
 **Python-can CANSockets** are a wrapper of python-can interface objects for Scapy.
 Both CANSockets provide the same API which makes them exchangeable under most conditions.
 Nevertheless some unique behaviours of each CANSocket type has to be respected.
 Some CAN-interfaces, like Vector hardware is only supported on Windows.
-These interfaces can be use through **Python-can CANSockets**.
+These interfaces can be used through **Python-can CANSockets**.
 
 Native CANSocket
 ^^^^^^^^^^^^^^^^
@@ -349,7 +349,7 @@ DBC File Format and CAN Signals
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In order to support the DBC file format, ``SignalFields`` and the ``SignalPacket``
-class were added to Scapy. ``SignalFields`` should only be used inside a ``SignalPacket``.
+classes were added to Scapy. ``SignalFields`` should only be used inside a ``SignalPacket``.
 Multiplexer fields (MUX) can be created through ``ConditionalFields``. The following
 example demonstrates the usage::
 
@@ -371,7 +371,7 @@ example demonstrates the usage::
      SG_ floatSignal2 : 32|32@1- (1,0) [0|0] ""  CCL_TEST
      SG_ floatSignal1 : 7|32@0- (1,0) [0|0] ""  CCL_TEST
 
-Scapy implementation of this DBC descriptions::
+Scapy implementation of this DBC description::
 
     class muxTestFrame(SignalPacket):
         fields_desc = [
@@ -472,9 +472,9 @@ Dependent on your setup, different implementations have to be used.
 |                     +----------------------+-------------------------------------+                                                          |
 |                     | ``conf.contribs['CANSocket'] = {'use-python-can': False}`` | ``conf.contribs['CANSocket'] = {'use-python-can': True}``|
 +---------------------+------------------------------------------------------------+----------------------------------------------------------+
-| Python 2            | ISOTPSoftSocket                                            | ISOTPSoftSocket                                          |
-|                     |                                                            |                                                          |
-|                     | ``conf.contribs['CANSocket'] = {'use-python-can': True}``  | ``conf.contribs['CANSocket'] = {'use-python-can': True}``|
+| Python 2            | ISOTPSoftSocket                                                                                                       |
+|                     |                                                                                                                       |
+|                     | ``conf.contribs['CANSocket'] = {'use-python-can': True}``                                                             |
 +---------------------+------------------------------------------------------------+----------------------------------------------------------+
 
 The class ``ISOTPSocket`` can be set to a ``ISOTPNativeSocket`` or a ``ISOTPSoftSocket``.
@@ -532,11 +532,9 @@ Set up two vcans on Linux terminal::
    sudo ip link set dev vcan0 up
    sudo ip link set dev vcan1 up
 
-Set up ISOTP::
+Set up ISOTP:
 
-.. note::
-
-    First make sure you build an iso-tp kernel module.
+First make sure you installed an iso-tp kernel module.
 
 When the vcan core module is loaded with "sudo modprobe vcan" the iso-tp module can be loaded to the kernel.
 
@@ -615,7 +613,7 @@ ISOTPNativeSocket
 * Linux
 * Hartkopp's Linux kernel module: ``https://github.com/hartkopp/can-isotp.git``
 
-During pentests, the ISOTPNativeSockets do have a better performance and
+During pentests, the ISOTPNativeSockets has a better performance and
 reliability, usually. If you are working on Linux, consider this implementation::
 
    conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}
@@ -657,6 +655,7 @@ ISOTPScan and ISOTPScanner
 
 ISOTPScan is a utility function to find ISOTP-Endpoints on a CAN-Bus.
 ISOTPScanner is a commandline-utility for the identical function.
+
 .. image:: ../graphics/animations/animation-scapy-isotpscan.svg
 
 Commandline usage example::
@@ -742,7 +741,7 @@ Here are two usage examples:
 Customization of UDS_RDBI, UDS_WDBI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In real-world use-cases, the UDS layer is heavily customized. OEMs define there own substructure of packets.
+In real-world use-cases, the UDS layer is heavily customized. OEMs define their own substructure of packets.
 Especially the packets ReadDataByIdentifier or WriteDataByIdentifier have a very OEM or even ECU specific
 substructure. Therefore a ``StrField`` ``dataRecord`` is not added to the ``field_desc``.
 The intended usage is to create ECU or OEM specific description files, which extend the general UDS layer of
@@ -823,7 +822,7 @@ This utility depends heavily on the support of the used protocol. ``UDS`` is sup
 Log all commands applied to an ECU
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This example shows the logging mechanism of an ECU object. The log of an ECU is a dictionary of applied UDS commands. The key for this dictionary the UDS service name. The value consists of a list of tuples, containing a timestamp and a log value
+This example shows the logging mechanism of an ECU object. The log of an ECU is a dictionary of applied UDS commands. The key for this dictionary is the UDS service name. The value consists of a list of tuples, containing a timestamp and a log value
 
 Usage example::
 
@@ -837,7 +836,7 @@ Usage example::
 Trace all commands applied to an ECU
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This example shows the trace mechanism of an ECU object. Traces of the current state of the ECU object and the received message are print on stdout. Some messages, depending on the protocol, will change the internal state of the ECU.
+This example shows the trace mechanism of an ECU object. Traces of the current state of the ECU object and the received message are printed on stdout. Some messages, depending on the protocol, will change the internal state of the ECU.
 
 Usage example::
 
@@ -866,7 +865,7 @@ Usage example::
 Analyze multiple UDS messages
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This example shows how to load ``UDS`` messages from a ``.pcap`` file containing ``CAN`` messages A ``PcapReader`` object is used as socket and an ``ISOTPSession`` parses ``CAN`` frames to ``ISOTP`` frames which are then casted to ``UDS`` objects through the ``basecls`` parameter
+This example shows how to load ``UDS`` messages from a ``.pcap`` file containing ``CAN`` messages. A ``PcapReader`` object is used as socket and an ``ISOTPSession`` parses ``CAN`` frames to ``ISOTP`` frames which are then casted to ``UDS`` objects through the ``basecls`` parameter
 
 Usage example::
 
@@ -885,7 +884,7 @@ Usage example::
 Analyze on the fly with ECUSession
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This example shows the usage of a ECUSession in sniff. An ISOTPSocket or any socket like object which returns entire messages of the right protocol can be used. A ``ECUSession`` is used as supersession in an ``ISOTPSession``. To obtain the ``ECU`` object from a ``ECUSession``, the ``ECUSession`` has to be created outside of sniff.
+This example shows the usage of an ECUSession in sniff. An ISOTPSocket or any socket like object which returns entire messages of the right protocol can be used. An ``ECUSession`` is used as supersession in an ``ISOTPSession``. To obtain the ``ECU`` object from an ``ECUSession``, the ``ECUSession`` has to be created outside of sniff.
 
 Usage example::
 
@@ -998,7 +997,7 @@ Stack it and send it::
 OBD message
 -------------
 
-OBD is implemented on top of ISOTP. Use an ISOTPSocket for the communication with a ECU. 
+OBD is implemented on top of ISOTP. Use an ISOTPSocket for the communication with an ECU. 
 You should set the parameters ``basecls=OBD`` and ``padding=True`` in your ISOTPSocket init call.
 
 OBD is split into different service groups. Here are some example requests:
@@ -1041,9 +1040,9 @@ Service 01 and Service 02 support Parameter Identifiers (pid).
 Service 03, 07 and 0A support Diagnostic Trouble codes (dtc).
 Service 04 doesn't require a payload.
 Service 05 is not implemented on OBD over CAN.
-Service 06 support Monitoring Identifiers (mid).
-Service 08 support Test Identifiers (tid).
-Service 09 support Information Identifiers (iid).
+Service 06 supports Monitoring Identifiers (mid).
+Service 08 supports Test Identifiers (tid).
+Service 09 supports Information Identifiers (iid).
 
 Examples:
 ^^^^^^^^^
