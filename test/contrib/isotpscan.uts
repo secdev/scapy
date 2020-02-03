@@ -199,6 +199,8 @@ def test_dynamic(f):
     for t in [1, 3, 10]:
         try:
             drain_bus(iface0)
+            err = "Starting test with sniff_time multiplicator %d" % t
+            subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
             f(0.02 * t)
             return True
         except AssertionError as e:

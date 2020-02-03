@@ -19,8 +19,8 @@ from scapy.contrib.cansocket_python_can import *  # noqa: F401, F403
 import can as python_can  # noqa: E402
 
 new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface))  # noqa: E501
-new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface0), timeout=0.01)  # noqa: E501
-new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface1), timeout=0.01)  # noqa: E501
+new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface0))  # noqa: E501
+new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface1))  # noqa: E501
 
 if six.PY3 and LINUX:
     from scapy.contrib.cansocket_native import CANSocket  # noqa: F811
@@ -29,9 +29,9 @@ if six.PY3 and LINUX:
     new_can_socket1 = lambda: CANSocket(iface1)
 
 if "python_can" in CANSocket.__module__:
-    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface), timeout=0.01)  # noqa: E501
-    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0), timeout=0.01)  # noqa: E501
-    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1), timeout=0.01)  # noqa: E501
+    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface))  # noqa: E501
+    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0))  # noqa: E501
+    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1))  # noqa: E501
 
 
 from scapy.contrib.isotp import ISOTPSocket, ISOTPScan, scan, scan_extended, ISOTPSoftSocket  # noqa: E501, E402
@@ -638,7 +638,7 @@ def test_isotpscan_none_random_ids_padding(sniff_time=0.02):
 
     pkt = CAN(identifier=0x701, length=8,
               data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-    thread_noise = threading.Thread(target=make_noise, args=(pkt, sniff_time, ))
+    thread_noise = threading.Thread(target=make_noise, args=(pkt, sniff_time,))
 
     threads = [threading.Thread(target=isotpserver, args=(x,)) for x in ids]
     [t.start() for t in threads]
