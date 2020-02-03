@@ -196,19 +196,18 @@ assert len(received_packets) == 40
 = Define helper function for dynamic sniff time tests
 
 def test_dynamic(f):
-    drain_bus(iface0)
-    for t in range(1, 4):
+    for t in [1, 3, 10]:
         try:
+            drain_bus(iface0)
             f(0.02 * t)
-            return
+            return True
         except AssertionError as e:
-            if t < 3:
+            if t < 10:
                 err = "Test failed. Automatically increase sniff time and retry."
-                subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err,
-                                shell=True)
-                continue
+                subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
             else:
                 raise e
+    return False
 
 = Test loading of isotpscan_tests
 
