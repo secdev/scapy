@@ -784,7 +784,8 @@ class CANReceiverThread(Thread):
 
     def start(self):
         Thread.start(self)
-        self._thread_started.wait()
+        if not self._thread_started.wait(5):
+            raise Scapy_Exception("CAN RX thread not started in 5s.")
 
     def run(self):
         self._thread_started.set()
@@ -1486,7 +1487,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.begin_send(p)
 
             # Wait until the tx callback is called
-            self.tx_done.wait()
+            if not self.tx_done.wait(30):
+                raise Scapy_Exception("ISOTP send not completed in 30s")
             if self.tx_exception is not None:
                 raise Scapy_Exception(self.tx_exception)
             return
