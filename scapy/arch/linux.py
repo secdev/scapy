@@ -461,12 +461,18 @@ class L2Socket(SuperSocket):
         )
         if not six.PY2:
             # Receive Auxiliary Data (VLAN tags)
-            self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
-            self.ins.setsockopt(
-                socket.SOL_SOCKET,
-                SO_TIMESTAMPNS,
-                1
-            )
+            try:
+                self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
+                self.ins.setsockopt(
+                    socket.SOL_SOCKET,
+                    SO_TIMESTAMPNS,
+                    1
+                )
+                self.auxdata_available = True
+            except OSError:
+                # Note: Auxiliary Data is only supported since
+                #       Linux 2.6.21
+                warning("Your Linux Kernel does not support Auxiliary Data!")
         if isinstance(self, L2ListenSocket):
             self.outs = None
         else:
