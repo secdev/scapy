@@ -616,7 +616,7 @@ def http_request(host, path="/", port=80, timeout=3,
     }
     http_headers.update(headers)
     req = HTTP() / HTTPRequest(**http_headers)
-    tcp_client = TCP_client.tcplink(HTTP, host, 80)
+    tcp_client = TCP_client.tcplink(HTTP, host, port)
     ans = None
     try:
         ans = tcp_client.sr1(req, timeout=timeout, verbose=verbose)
