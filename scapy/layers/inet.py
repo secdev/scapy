@@ -216,6 +216,28 @@ class IPOption_Traceroute(IPOption):
                    IPField("originator_ip", "0.0.0.0")]
 
 
+class IPOption_Timestamp(IPOption):
+    name = "IP Option Timestamp"
+    optclass = 2
+    option = 4
+    fields_desc = [_IPOption_HDR,
+                   ByteField("length", None),
+                   ByteField("pointer", 9),
+                   BitField("oflw", 0, 4),
+                   BitEnumField("flg", 1, 4,
+                                {0: "timestamp_only",
+                                 1: "timestamp_and_ip_addr",
+                                 3: "prespecified_ip_addr"}),
+                   ConditionalField(IPField("internet_address", "0.0.0.0"),
+                                    lambda pkt: pkt.flg != 0),
+                   IntField('timestamp', 0)]
+
+    def post_build(self, p, pay):
+        if self.length is None:
+            p = p[:1] + struct.pack("!B", len(p)) + p[2:]
+        return p + pay
+
+
 class IPOption_Address_Extension(IPOption):
     name = "IP Option Address Extension"
     copy_flag = 1

@@ -2409,6 +2409,12 @@ assert(r == b'\x00')
 r = raw(IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]))
 r
 assert(r == b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08')
+r = raw(IPOption_Timestamp(internet_address='192.168.15.7', timestamp=11223344))
+r
+assert(r == b'D\x0c\t\x01\xc0\xa8\x0f\x07\x00\xabA0')
+r = raw(IPOption_Timestamp(flg=0, length=8))
+r
+assert(r == b'D\x08\t\x00\x00\x00\x00\x00')
 
 = IP options individual dissection
 ~ IP options
@@ -8081,6 +8087,10 @@ assert bpkt.chksum == 0x70bc and bpkt.payload.chksum == 0x4b2c
 pkt = IP(len=54, ihl=6, options=[IPOption_RR()]) / TCP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x70bc and bpkt.payload.chksum == 0x4b2c
+
+pkt = IP(options=[IPOption_Timestamp()]) / TCP() / ("A" * 10)
+bpkt = IP(raw(pkt))
+assert bpkt.chksum == 0x2caa and bpkt.payload.chksum == 0x4b2c
 
 pkt = IP() / UDP()
 bpkt = IP(raw(pkt))
