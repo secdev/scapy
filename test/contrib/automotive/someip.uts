@@ -284,12 +284,13 @@ ea1.srv_id = 0x1234
 ea1.inst_id = 0x5678
 ea1.ttl = 0x333333
 
-# find service
-ea2 = SDEntry_Service()
-ea2.type = 0
+# subscribe eventgroup
+ea2 = SDEntry_EventGroup()
+ea2.type = 0x6
 ea2.srv_id = 0x8765
 ea2.inst_id = 0x4321
 ea2.ttl = 0x222222
+ea2.eventgroup_id = 0x1357
 
 sd1 = SD()
 sd1.set_entryArray([ea1])
