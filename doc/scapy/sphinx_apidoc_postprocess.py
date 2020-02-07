@@ -39,6 +39,9 @@ for f in files:
         if f.endswith("scapy.rst"):
             content[0] = "Scapy API reference\n"
             content[1] = "=" * (len(content[0]) - 1) + "\n"
+            for i, line in enumerate(content):
+                if "toctree" in line:
+                    content[i] = line + "   :titlesonly:\n"
             _e = True
     # File / module file
     for name in ["package", "module"]:
