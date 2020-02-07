@@ -337,21 +337,19 @@ class SDOption_Config(_SDPacketBase):
 
     @staticmethod
     def make_string(data):
-        """
-        Build a valid null-terminated configuration string from a dict or a
-        list with key-value pairs.
-
-        Example:
-            >>> SDOption_Config.make_string({ "hello": "world" })
-            b'\x0bhello=world\x00'
-
-            >>> SDOption_Config.make_string([
-            ...     ("x", "y"),
-            ...     ("abc", "def"),
-            ...     ("123", "456")
-            ... ])
-            b'\x03x=y\x07abc=def\x07123=456\x00'
-        """
+        # Build a valid null-terminated configuration string from a dict or a
+        # list with key-value pairs.
+        #
+        # Example:
+        #    >>> SDOption_Config.make_string({ "hello": "world" })
+        #    b'\x0bhello=world\x00'
+        #
+        #    >>> SDOption_Config.make_string([
+        #    ...     ("x", "y"),
+        #    ...     ("abc", "def"),
+        #    ...     ("123", "456")
+        #    ... ])
+        #    b'\x03x=y\x07abc=def\x07123=456\x00'
 
         if isinstance(data, dict):
             data = data.items()
