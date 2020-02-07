@@ -353,15 +353,13 @@ class SDOption_Config(_SDPacketBase):
             b'\x03x=y\x07abc=def\x07123=456\x00'
         """
 
-        if type(data) == dict:
-            data = list(data.items())
-
-        assert(type(data) == list)
+        if isinstance(data, dict):
+            data = data.items()
 
         # combine entries
-        data = ["{}={}".format(k, v) for (k, v) in data]
+        data = ("{}={}".format(k, v) for k, v in data)
         # prepend length
-        data = ["{}{}".format(chr(len(v)), v) for v in data]
+        data = ("{}{}".format(chr(len(v)), v) for v in data)
         # concatenate
         data = "".join(data)
         data += "\x00"

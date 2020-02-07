@@ -705,15 +705,15 @@ def _opts_check(opts):
 
 # options are built and reparsed, to make sure all is calculated
 opts = [
-			SDOption_Config(SDOption_Config(cfg_str="hello world").build()),
-			SDOption_LoadBalance(SDOption_LoadBalance().build()),
-			SDOption_IP4_EndPoint(SDOption_IP4_EndPoint().build()),
-			SDOption_IP4_Multicast(SDOption_IP4_Multicast().build()),
-			SDOption_IP4_SD_EndPoint(SDOption_IP4_SD_EndPoint().build()),
-			SDOption_IP6_EndPoint(SDOption_IP6_EndPoint().build()),
-			SDOption_IP6_Multicast(SDOption_IP6_Multicast().build()),
-			SDOption_IP6_SD_EndPoint(SDOption_IP6_SD_EndPoint().build()),
-		]
+	SDOption_Config(SDOption_Config(cfg_str="hello world").build()),
+	SDOption_LoadBalance(SDOption_LoadBalance().build()),
+	SDOption_IP4_EndPoint(SDOption_IP4_EndPoint().build()),
+	SDOption_IP4_Multicast(SDOption_IP4_Multicast().build()),
+	SDOption_IP4_SD_EndPoint(SDOption_IP4_SD_EndPoint().build()),
+	SDOption_IP6_EndPoint(SDOption_IP6_EndPoint().build()),
+	SDOption_IP6_Multicast(SDOption_IP6_Multicast().build()),
+	SDOption_IP6_SD_EndPoint(SDOption_IP6_SD_EndPoint().build()),
+]
 _opts_check(opts[0:0])
 _opts_check(opts[0:2])
 _opts_check(opts)
