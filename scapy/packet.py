@@ -1873,19 +1873,23 @@ def explore(layer=None):
                       for x, y in values]
         # Build tree
         if action == "contribs":
+            # A tree is a dictionary. Each layer contains a keyword
+            # _l which contains the files in the layer, and a _name
+            # argument which is its name. The other keys are the subfolders,
+            # which are similar dictionaries
             tree = defaultdict(list)
             for name, desc in values:
                 if "." in name:  # Folder detected
                     parts = name.split(".")
-                    q = tree
+                    subtree = tree
                     for pa in parts[:-1]:
-                        if pa not in q:
-                            q[pa] = {}
-                        q = q[pa]
-                        q["_name"] = pa
-                    if "_l" not in q:
-                        q["_l"] = []
-                    q["_l"].append((parts[-1], desc))
+                        if pa not in subtree:
+                            subtree[pa] = {}
+                        subtree = subtree[pa]  # one layer deeper
+                        subtree["_name"] = pa
+                    if "_l" not in subtree:
+                        subtree["_l"] = []
+                    subtree["_l"].append((parts[-1], desc))
                 else:
                     tree["_l"].append((name, desc))
         elif action == "layers":
