@@ -39,24 +39,17 @@
           forwarding 101 messages to a 104 network)
 """
 
+from scapy.contrib.scada.iec104.iec104_fields import *  # noqa F403,F401
+from scapy.contrib.scada.iec104.iec104_information_elements import *  # noqa F403,F401
+from scapy.contrib.scada.iec104.iec104_information_objects import *  # noqa F403,F401
+
 from scapy.compat import orb
-
-from scapy.contrib.scada.iec104.iec104_fields import LEThreeBytesField, \
-    IEC104SequenceNumber
-from scapy.contrib.scada.iec104.iec104_information_objects import \
-    IEC104_IO_NAMES, IEC104_IO_WITH_IOA_CLASSES, \
-    IEC104_IO_CLASSES, IEC104_IO_ID_C_RD_NA_1, IEC104_IO_C_RD_NA_1
-
 from scapy.config import conf
-from scapy.contrib.scada.iec104.iec104_information_objects import \
-    IEC104_IO_Packet
 from scapy.error import warning, Scapy_Exception
 from scapy.fields import ByteField, BitField, ByteEnumField, PacketListField, \
     BitEnumField, XByteField, FieldLenField, LEShortField, BitFieldLenField
-
 from scapy.layers.inet import TCP
-from scapy.packet import Raw
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Raw, Packet, bind_layers
 
 IEC_104_IANA_PORT = 2404
 
