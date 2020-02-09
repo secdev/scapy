@@ -39,9 +39,9 @@ from scapy.config import conf
 from scapy.modules.six.moves import range
 from scapy.packet import Packet, Raw, bind_top_down, bind_bottom_up
 from scapy.fields import XShortField, BitEnumField, ConditionalField, \
-    BitField, XBitField, IntField, XByteField, ByteEnumField, ByteField, \
-    ShortField, X3BytesField, StrField, IPField, FieldLenField, \
-    PacketListField
+    BitField, XBitField, IntField, XByteField, ByteEnumField, \
+    ShortField, X3BytesField, StrLenField, IPField, FieldLenField, \
+    PacketListField, XIntField
 
 
 class SOMEIP(Packet):
@@ -210,226 +210,223 @@ _bind_someip_layers()
 
 class _SDPacketBase(Packet):
     """ base class to be used among all SD Packet definitions."""
-    # use this dictionary to set default values for desired fields (mostly on
-    # subclasses where not all fields are defined locally)
-    # - key : field_name, value : desired value
-    # - it will be used from 'init_fields' function, upon packet initialization
-    #
-    # example : _defaults =
-    #  {'field_1_name':field_1_value,'field_2_name':field_2_value}
-    _defaults = {}
-
-    def _set_defaults(self):
-        for key in self._defaults:
-            try:
-                self.get_field(key)
-            except KeyError:
-                pass
-            else:
-                self.setfieldval(key, self._defaults[key])
-
-    def init_fields(self):
-        super(_SDPacketBase, self).init_fields()
-        self._set_defaults()
+    def extract_padding(self, s):
+        return "", s
 
 
-# SD ENTRY
-# - Service
-# - EventGroup
-class _SDEntry(_SDPacketBase):
-    TYPE_FMT = ">B"
-    TYPE_PAYLOAD_I = 0
-    TYPE_SRV_FINDSERVICE = 0x00
-    TYPE_SRV_OFFERSERVICE = 0x01
-    TYPE_SRV = (TYPE_SRV_FINDSERVICE, TYPE_SRV_OFFERSERVICE)
-    TYPE_EVTGRP_SUBSCRIBE = 0x06
-    TYPE_EVTGRP_SUBSCRIBE_ACK = 0x07
-    TYPE_EVTGRP = (TYPE_EVTGRP_SUBSCRIBE, TYPE_EVTGRP_SUBSCRIBE_ACK)
-    OVERALL_LEN = 16
+SDENTRY_TYPE_SRV_FINDSERVICE = 0x00
+SDENTRY_TYPE_SRV_OFFERSERVICE = 0x01
+SDENTRY_TYPE_SRV = (SDENTRY_TYPE_SRV_FINDSERVICE,
+                    SDENTRY_TYPE_SRV_OFFERSERVICE)
+SDENTRY_TYPE_EVTGRP_SUBSCRIBE = 0x06
+SDENTRY_TYPE_EVTGRP_SUBSCRIBE_ACK = 0x07
+SDENTRY_TYPE_EVTGRP = (SDENTRY_TYPE_EVTGRP_SUBSCRIBE,
+                       SDENTRY_TYPE_EVTGRP_SUBSCRIBE_ACK)
+SDENTRY_OVERALL_LEN = 16
 
-    fields_desc = [
-        ByteField("type", 0),
-        ByteField("index_1", 0),
-        ByteField("index_2", 0),
-        BitField("n_opt_1", 0, 4),
-        BitField("n_opt_2", 0, 4),
-        ShortField("srv_id", 0),
-        ShortField("inst_id", 0),
-        ByteField("major_ver", 0),
+
+def _MAKE_SDENTRY_COMMON_FIELDS_DESC(type):
+    return [
+        XByteField("type", type),
+        XByteField("index_1", 0),
+        XByteField("index_2", 0),
+        XBitField("n_opt_1", 0, 4),
+        XBitField("n_opt_2", 0, 4),
+        XShortField("srv_id", 0),
+        XShortField("inst_id", 0),
+        XByteField("major_ver", 0),
         X3BytesField("ttl", 0)
     ]
 
-    def guess_payload_class(self, payload):
-        pl_type = orb(payload[_SDEntry.TYPE_PAYLOAD_I])
 
-        if pl_type in _SDEntry.TYPE_SRV:
-            return SDEntry_Service
-        elif pl_type in _SDEntry.TYPE_EVTGRP:
-            return SDEntry_EventGroup
-
-
-class SDEntry_Service(_SDEntry):
-    _defaults = {"type": _SDEntry.TYPE_SRV_FINDSERVICE}
-
+class SDEntry_Service(_SDPacketBase):
     name = "Service Entry"
-    fields_desc = [
-        _SDEntry,
-        IntField("minor_ver", 0)
+    fields_desc = _MAKE_SDENTRY_COMMON_FIELDS_DESC(
+        SDENTRY_TYPE_SRV_FINDSERVICE)
+    fields_desc += [
+        XIntField("minor_ver", 0)
     ]
 
 
-class SDEntry_EventGroup(_SDEntry):
-    _defaults = {"type": _SDEntry.TYPE_EVTGRP_SUBSCRIBE}
-
+class SDEntry_EventGroup(_SDPacketBase):
     name = "Eventgroup Entry"
-    fields_desc = [
-        _SDEntry,
-        BitField("res", 0, 12),
-        BitField("cnt", 0, 4),
-        ShortField("eventgroup_id", 0)
+    fields_desc = _MAKE_SDENTRY_COMMON_FIELDS_DESC(
+        SDENTRY_TYPE_EVTGRP_SUBSCRIBE)
+    fields_desc += [
+        XBitField("res", 0, 12),
+        XBitField("cnt", 0, 4),
+        XShortField("eventgroup_id", 0)
     ]
+
+
+def _sdentry_class(payload, **kargs):
+    TYPE_PAYLOAD_I = 0
+    pl_type = orb(payload[TYPE_PAYLOAD_I])
+    cls = None
+
+    if pl_type in SDENTRY_TYPE_SRV:
+        cls = SDEntry_Service
+    elif pl_type in SDENTRY_TYPE_EVTGRP:
+        cls = SDEntry_EventGroup
+
+    return cls(payload, **kargs)
+
+
+def _sdoption_class(payload, **kargs):
+    pl_type = orb(payload[2])
+
+    cls = {
+        SDOPTION_CFG_TYPE: SDOption_Config,
+        SDOPTION_LOADBALANCE_TYPE: SDOption_LoadBalance,
+        SDOPTION_IP4_ENDPOINT_TYPE: SDOption_IP4_EndPoint,
+        SDOPTION_IP4_MCAST_TYPE: SDOption_IP4_Multicast,
+        SDOPTION_IP4_SDENDPOINT_TYPE: SDOption_IP4_SD_EndPoint,
+        SDOPTION_IP6_ENDPOINT_TYPE: SDOption_IP6_EndPoint,
+        SDOPTION_IP6_MCAST_TYPE: SDOption_IP6_Multicast,
+        SDOPTION_IP6_SDENDPOINT_TYPE: SDOption_IP6_SD_EndPoint
+    }.get(pl_type, Raw)
+
+    return cls(payload, **kargs)
 
 
 # SD Option
-# - Configuration
-# - LoadBalancing
-# - IPv4 EndPoint
-# - IPv6 EndPoint
-# - IPv4 MultiCast
-# - IPv6 MultiCast
-# - IPv4 EndPoint
-# - IPv6 EndPoint
-class _SDOption(_SDPacketBase):
-    CFG_TYPE = 0x01
-    CFG_OVERALL_LEN = 4
-    LOADBALANCE_TYPE = 0x02
-    LOADBALANCE_LEN = 0x05
-    LOADBALANCE_OVERALL_LEN = 8
-    IP4_ENDPOINT_TYPE = 0x04
-    IP4_ENDPOINT_LEN = 0x0009
-    IP4_MCAST_TYPE = 0x14
-    IP4_MCAST_LEN = 0x0009
-    IP4_SDENDPOINT_TYPE = 0x24
-    IP4_SDENDPOINT_LEN = 0x0009
-    IP4_OVERALL_LEN = 12
-    IP6_ENDPOINT_TYPE = 0x06
-    IP6_ENDPOINT_LEN = 0x0015
-    IP6_MCAST_TYPE = 0x16
-    IP6_MCAST_LEN = 0x0015
-    IP6_SDENDPOINT_TYPE = 0x26
-    IP6_SDENDPOINT_LEN = 0x0015
-    IP6_OVERALL_LEN = 24
-
-    def guess_payload_class(self, payload):
-        pl_type = orb(payload[2])
-
-        return {
-            _SDOption.CFG_TYPE: SDOption_Config,
-            self.LOADBALANCE_TYPE: SDOption_LoadBalance,
-            self.IP4_ENDPOINT_TYPE: SDOption_IP4_EndPoint,
-            self.IP4_MCAST_TYPE: SDOption_IP4_Multicast,
-            self.IP4_SDENDPOINT_TYPE: SDOption_IP4_SD_EndPoint,
-            self.IP6_ENDPOINT_TYPE: SDOption_IP6_EndPoint,
-            self.IP6_MCAST_TYPE: SDOption_IP6_Multicast,
-            self.IP6_SDENDPOINT_TYPE: SDOption_IP6_SD_EndPoint
-        }.get(pl_type, Raw)
+SDOPTION_CFG_TYPE = 0x01
+SDOPTION_LOADBALANCE_TYPE = 0x02
+SDOPTION_LOADBALANCE_LEN = 0x05
+SDOPTION_IP4_ENDPOINT_TYPE = 0x04
+SDOPTION_IP4_ENDPOINT_LEN = 0x0009
+SDOPTION_IP4_MCAST_TYPE = 0x14
+SDOPTION_IP4_MCAST_LEN = 0x0009
+SDOPTION_IP4_SDENDPOINT_TYPE = 0x24
+SDOPTION_IP4_SDENDPOINT_LEN = 0x0009
+SDOPTION_IP6_ENDPOINT_TYPE = 0x06
+SDOPTION_IP6_ENDPOINT_LEN = 0x0015
+SDOPTION_IP6_MCAST_TYPE = 0x16
+SDOPTION_IP6_MCAST_LEN = 0x0015
+SDOPTION_IP6_SDENDPOINT_TYPE = 0x26
+SDOPTION_IP6_SDENDPOINT_LEN = 0x0015
 
 
-class _SDOption_Header(_SDOption):
-    fields_desc = [
-        ShortField("len", None),
-        ByteField("type", 0),
-        ByteField("res_hdr", 0)
+def _MAKE_COMMON_SDOPTION_FIELDS_DESC(type, length=None):
+    return [
+        ShortField("len", length),
+        XByteField("type", type),
+        XByteField("res_hdr", 0)
     ]
 
 
-class _SDOption_Tail(_SDOption):
-    fields_desc = [
-        ByteField("res_tail", 0),
-        ByteEnumField("l4_proto", 0x06, {0x06: "TCP", 0x11: "UDP"}),
+def _MAKE_COMMON_IP_SDOPTION_FIELDS_DESC():
+    return [
+        XByteField("res_tail", 0),
+        ByteEnumField("l4_proto", 0x11, {0x06: "TCP", 0x11: "UDP"}),
         ShortField("port", 0)
     ]
 
 
-class _SDOption_IP4(_SDOption):
-    fields_desc = [
-        _SDOption_Header,
-        IPField("addr", "0.0.0.0"),
-        _SDOption_Tail
-    ]
-
-
-class _SDOption_IP6(_SDOption):
-    fields_desc = [
-        _SDOption_Header,
-        IP6Field("addr", "2001:cdba:0000:0000:0000:0000:3257:9652"),
-        _SDOption_Tail
-    ]
-
-
-class SDOption_Config(_SDOption):
-    LEN_OFFSET = 0x01
-
+class SDOption_Config(_SDPacketBase):
     name = "Config Option"
-    _defaults = {'type': _SDOption.CFG_TYPE}
-    fields_desc = [
-        _SDOption_Header,
-        StrField("cfg_str", "")
+    fields_desc = _MAKE_COMMON_SDOPTION_FIELDS_DESC(SDOPTION_CFG_TYPE) + [
+        StrLenField("cfg_str", "\x00", length_from=lambda pkt: pkt.len - 1)
     ]
 
     def post_build(self, pkt, pay):
-        length = self.len
-        if length is None:
-            length = len(self.cfg_str) + self.LEN_OFFSET
+        if self.len is None:
+            length = len(self.cfg_str) + 1  # res_hdr field takes 1 byte
             pkt = struct.pack("!H", length) + pkt[2:]
         return pkt + pay
 
+    @staticmethod
+    def make_string(data):
+        # Build a valid null-terminated configuration string from a dict or a
+        # list with key-value pairs.
+        #
+        # Example:
+        #    >>> SDOption_Config.make_string({ "hello": "world" })
+        #    b'\x0bhello=world\x00'
+        #
+        #    >>> SDOption_Config.make_string([
+        #    ...     ("x", "y"),
+        #    ...     ("abc", "def"),
+        #    ...     ("123", "456")
+        #    ... ])
+        #    b'\x03x=y\x07abc=def\x07123=456\x00'
 
-class SDOption_LoadBalance(_SDOption):
+        if isinstance(data, dict):
+            data = data.items()
+
+        # combine entries
+        data = ("{}={}".format(k, v) for k, v in data)
+        # prepend length
+        data = ("{}{}".format(chr(len(v)), v) for v in data)
+        # concatenate
+        data = "".join(data)
+        data += "\x00"
+
+        return data.encode("utf8")
+
+
+class SDOption_LoadBalance(_SDPacketBase):
     name = "LoadBalance Option"
-    _defaults = {'type': _SDOption.LOADBALANCE_TYPE,
-                 'len': _SDOption.LOADBALANCE_LEN}
-    fields_desc = [
-        _SDOption_Header,
+    fields_desc = _MAKE_COMMON_SDOPTION_FIELDS_DESC(
+        SDOPTION_LOADBALANCE_TYPE, SDOPTION_LOADBALANCE_LEN)
+    fields_desc += [
         ShortField("priority", 0),
         ShortField("weight", 0)
     ]
 
 
-class SDOption_IP4_EndPoint(_SDOption_IP4):
+class SDOption_IP4_EndPoint(_SDPacketBase):
     name = "IP4 EndPoint Option"
-    _defaults = {'type': _SDOption.IP4_ENDPOINT_TYPE,
-                 'len': _SDOption.IP4_ENDPOINT_LEN}
+    fields_desc = _MAKE_COMMON_SDOPTION_FIELDS_DESC(
+        SDOPTION_IP4_ENDPOINT_TYPE, SDOPTION_IP4_ENDPOINT_LEN)
+    fields_desc += [
+        IPField("addr", "0.0.0.0"),
+    ] + _MAKE_COMMON_IP_SDOPTION_FIELDS_DESC()
 
 
-class SDOption_IP4_Multicast(_SDOption_IP4):
+class SDOption_IP4_Multicast(_SDPacketBase):
     name = "IP4 Multicast Option"
-    _defaults = {'type': _SDOption.IP4_MCAST_TYPE,
-                 'len': _SDOption.IP4_MCAST_LEN}
+    fields_desc = _MAKE_COMMON_SDOPTION_FIELDS_DESC(
+        SDOPTION_IP4_MCAST_TYPE, SDOPTION_IP4_MCAST_LEN)
+    fields_desc += [
+        IPField("addr", "0.0.0.0"),
+    ] + _MAKE_COMMON_IP_SDOPTION_FIELDS_DESC()
 
 
-class SDOption_IP4_SD_EndPoint(_SDOption_IP4):
+class SDOption_IP4_SD_EndPoint(_SDPacketBase):
     name = "IP4 SDEndPoint Option"
-    _defaults = {'type': _SDOption.IP4_SDENDPOINT_TYPE,
-                 'len': _SDOption.IP4_SDENDPOINT_LEN}
+    fields_desc = _MAKE_COMMON_SDOPTION_FIELDS_DESC(
+        SDOPTION_IP4_SDENDPOINT_TYPE, SDOPTION_IP4_SDENDPOINT_LEN)
+    fields_desc += [
+        IPField("addr", "0.0.0.0"),
+    ] + _MAKE_COMMON_IP_SDOPTION_FIELDS_DESC()
 
 
-class SDOption_IP6_EndPoint(_SDOption_IP6):
+class SDOption_IP6_EndPoint(_SDPacketBase):
     name = "IP6 EndPoint Option"
-    _defaults = {'type': _SDOption.IP6_ENDPOINT_TYPE,
-                 'len': _SDOption.IP6_ENDPOINT_LEN}
+    fields_desc = _MAKE_COMMON_SDOPTION_FIELDS_DESC(
+        SDOPTION_IP6_ENDPOINT_TYPE, SDOPTION_IP6_ENDPOINT_LEN)
+    fields_desc += [
+        IP6Field("addr", "::"),
+    ] + _MAKE_COMMON_IP_SDOPTION_FIELDS_DESC()
 
 
-class SDOption_IP6_Multicast(_SDOption_IP6):
+class SDOption_IP6_Multicast(_SDPacketBase):
     name = "IP6 Multicast Option"
-    _defaults = {'type': _SDOption.IP6_MCAST_TYPE,
-                 'len': _SDOption.IP6_MCAST_LEN}
+    fields_desc = _MAKE_COMMON_SDOPTION_FIELDS_DESC(
+        SDOPTION_IP6_MCAST_TYPE, SDOPTION_IP6_MCAST_LEN)
+    fields_desc += [
+        IP6Field("addr", "::"),
+    ] + _MAKE_COMMON_IP_SDOPTION_FIELDS_DESC()
 
 
-class SDOption_IP6_SD_EndPoint(_SDOption_IP6):
+class SDOption_IP6_SD_EndPoint(_SDPacketBase):
     name = "IP6 SDEndPoint Option"
-    _defaults = {'type': _SDOption.IP6_SDENDPOINT_TYPE,
-                 'len': _SDOption.IP6_SDENDPOINT_LEN}
+    fields_desc = _MAKE_COMMON_SDOPTION_FIELDS_DESC(
+        SDOPTION_IP6_SDENDPOINT_TYPE, SDOPTION_IP6_SDENDPOINT_LEN)
+    fields_desc += [
+        IP6Field("addr", "::"),
+    ] + _MAKE_COMMON_IP_SDOPTION_FIELDS_DESC()
 
 
 ##
@@ -462,15 +459,15 @@ class SD(_SDPacketBase):
 
     name = "SD"
     fields_desc = [
-        ByteField("flags", 0),
+        XByteField("flags", 0),
         X3BytesField("res", 0),
         FieldLenField("len_entry_array", None,
                       length_of="entry_array", fmt="!I"),
-        PacketListField("entry_array", None, cls=_SDEntry,
+        PacketListField("entry_array", None, cls=_sdentry_class,
                         length_from=lambda pkt: pkt.len_entry_array),
         FieldLenField("len_option_array", None,
                       length_of="option_array", fmt="!I"),
-        PacketListField("option_array", None, cls=_SDOption,
+        PacketListField("option_array", None, cls=_sdoption_class,
                         length_from=lambda pkt: pkt.len_option_array)
     ]
 
@@ -516,7 +513,6 @@ bind_top_down(SOMEIP, SD,
 bind_bottom_up(SOMEIP, SD,
                srv_id=SD.SOMEIP_MSGID_SRVID,
                sub_id=SD.SOMEIP_MSGID_SUBID,
-               client_id=SD.SOMEIP_CLIENT_ID,
                event_id=SD.SOMEIP_MSGID_EVENTID,
                proto_ver=SD.SOMEIP_PROTO_VER,
                iface_ver=SD.SOMEIP_IFACE_VER,
