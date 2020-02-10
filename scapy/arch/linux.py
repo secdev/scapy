@@ -31,7 +31,7 @@ from scapy.data import MTU, ETH_P_ALL, SOL_PACKET, SO_ATTACH_FILTER, \
     SO_TIMESTAMPNS
 from scapy.supersocket import SuperSocket
 from scapy.error import warning, Scapy_Exception, \
-    ScapyInvalidPlatformException
+    ScapyInvalidPlatformException, log_runtime
 from scapy.arch.common import get_if, compile_filter
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -472,7 +472,8 @@ class L2Socket(SuperSocket):
             except OSError:
                 # Note: Auxiliary Data is only supported since
                 #       Linux 2.6.21
-                warning("Your Linux Kernel does not support Auxiliary Data!")
+                msg = "Your Linux Kernel does not support Auxiliary Data!"
+                log_runtime.info(msg)
         if isinstance(self, L2ListenSocket):
             self.outs = None
         else:

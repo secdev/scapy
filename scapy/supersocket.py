@@ -236,7 +236,8 @@ class L3RawSocket(SuperSocket):
             except OSError:
                 # Note: Auxiliary Data is only supported since
                 #       Linux 2.6.21
-                warning("Your Linux Kernel does not support Auxiliary Data!")
+                msg = "Your Linux Kernel does not support Auxiliary Data!"
+                log_runtime.info(msg)
 
     def recv(self, x=MTU):
         pkt, sa_ll, ts = self._recv_raw(self.ins, x)
