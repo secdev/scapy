@@ -22,19 +22,11 @@ from scapy.config import conf
 from scapy.supersocket import SuperSocket
 from scapy.layers.can import CAN
 from scapy.automaton import SelectableObject
-import scapy.modules.six as six
+from scapy.modules.six.moves import queue
 from can import Message as can_Message
 from can import CanError as can_CanError
 from can import BusABC as can_BusABC
 from can.interface import Bus as can_Bus
-
-if six.PY2:
-    import Queue as queue
-else:
-    import queue as queue
-
-CAN_FRAME_SIZE = 16
-CAN_INV_FILTER = 0x20000000
 
 
 class SocketMapper:
@@ -109,7 +101,6 @@ class SocketsPool(object):
     def unregister(self, socket):
         with self.pool_mutex:
             t = self.pool[socket.name]
-            assert socket in t.sockets  # TODO remove
             t.sockets.remove(socket)
             if not t.sockets:
                 t.bus.shutdown()
@@ -169,8 +160,10 @@ class PythonCANSocket(SuperSocket, SelectableObject):
                           arbitration_id=x.identifier,
                           dlc=x.length,
                           data=bytes(x)[8:])
-        if hasattr(x, "sent_time"):
+        try:
             x.sent_time = time.time()
+        except AttributeError:
+            pass
         self.iface.send(msg)
 
     @staticmethod
