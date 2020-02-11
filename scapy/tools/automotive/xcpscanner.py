@@ -13,7 +13,7 @@ from scapy.consts import LINUX
 if six.PY2 or not LINUX:
     conf.contribs['CANSocket'] = {'use-python-can': True}
 from scapy.contrib.cansocket import CANSocket, PYTHON_CAN  # noqa: F401
-from scapy.contrib.automotive.xcp import XCP_CAN_SCANNER  # noqa: F401 E501
+from scapy.contrib.automotive.xcp import XCP_SCANNER as XCP_CAN_SCANNER  # noqa: F401 E501
 
 
 def usage():
@@ -120,20 +120,24 @@ def parse_inputs():
 
 def main():
     ret = parse_inputs()
+    try:
+        if ret["can_channel"] is None or\
+                ret["end"] is None or\
+                ret["start"] is None:
+            print("Please set channel, end and start")
+            usage()
+            sys.exit()
 
-    if ret["can_channel"] is None or\
-            ret["end"] is None or\
-            ret["start"] is None:
-        print("Please set channel, end and start")
+        if ret["end"] < ret["start"]:
+            print("end must be higher than start")
+            sys.exit()
+
+        if ret["end"] > 0x7FF and not ret["extended"]:
+            print("Please use -x option for extended CAN-IDs")
+            sys.exit()
+
+    except KeyError:
         usage()
-        sys.exit()
-
-    if ret["end"] < ret["start"]:
-        print("end must be higher than start")
-        sys.exit()
-
-    if ret["end"] > 0x7FF and not ret["extended"]:
-        print("Please use -x option for extended CAN-IDs")
         sys.exit()
 
     extended_can_id = ret["extended"]

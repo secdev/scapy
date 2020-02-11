@@ -9,7 +9,7 @@
 import scapy.modules.six as six
 from scapy.config import LINUX
 from scapy.layers.can import CAN
-from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ShortField, ByteField,\
     FlagsField, XBitField, ThreeBytesField, StrFixedLenField
 
@@ -25,44 +25,6 @@ class CAN_XCP(Packet):
         ThreeBytesField('reserved', 0),
     ]
 
-    def extract_padding(self, p):
-        return p, None
-
-
-class CRO(Packet):
-    commands = {
-        0x01: "CONNECT",
-        0x1B: "GET_CCP_VERSION",
-        0x17: "EXCHANGE_ID",
-        0x12: "GET_SEED",
-        0x13: "UNLOCK",
-        0x02: "SET_MTA",
-        0x03: "DNLOAD",
-        0x23: "DNLOAD_6",
-        0x04: "UPLOAD",
-        0x0F: "SHORT_UP",
-        0x11: "SELECT_CAL_PAGE",
-        0x14: "GET_DAQ_SIZE",
-        0x15: "SET_DAQ_PTR",
-        0x16: "WRITE_DAQ",
-        0x06: "START_STOP",
-        0x07: "DISCONNECT",
-        0x0C: "SET_S_STATUS",
-        0x0D: "GET_S_STATUS",
-        0x0E: "BUILD_CHKSUM",
-        0x10: "CLEAR_MEMORY",
-        0x18: "PROGRAM",
-        0x22: "PROGRAM_6",
-        0x19: "MOVE",
-        0x05: "TEST",
-        0x09: "GET_ACTIVE_CAL_PAGE",
-        0x08: "START_STOP_ALL",
-        0x20: "DIAG_SERVICE",
-        0x21: "ACTION_SERVICE"
-    }
-    name = 'Command Receive Object'
-
-
 
 class CTO(Packet):
     commands = {
@@ -70,36 +32,35 @@ class CTO(Packet):
         0xFE: "DISCONNECT",
         0xFD: "GET_STATUS",
         0xF0: "DOWNLOAD",
-        0xEF: "DDOWNLOAD_NEXT",
+        0xEF: "DOWNLOAD_NEXT",
         0xEE: "DOWNLOAD_MAX",
-        0xED: "DSHORT_DOWNLOAD",
-        0xEC: "DMODIFY_BITS",
-        0xEB: "DSET_CAL_PAGE",
-        0xEA: "DGET_CAL_PAGE",
-        0xE9: "DGET_PAG_PROCESSOR_INFO",
-        0xE8: "DGET_SEGMENT_INFO",
-        0xE7: "DGET_PAGE_INFO",
-        0xE6: "DSET_SEGMENT_MODE",
-        0xE5: "DGET_SEGMENT_MODE",
-        0xE4: "DCOPY_CAL_PAGE",
-        0xE2: "DSET_DAQ_PTR",
-        0xE1: "DWRITE_DAQ",
-        0xE0: "DSET_DAQ_LIST_MODE",
-        0xDE: "DSTART_STOP_DAQ_LIST",
-        0xDD: "DSTART_STOP_SYNCH",
-        0xC7: "DWRITE_DAQ_MULTIPLE",
-        0xDB: "DREAD_DAQ",
-        0xDC: "DGET_DAQ_CLOCK",
-        0xDA: "DGET_DAQ_PROCESSOR_INFO",
-        0xD9: "DGET_DAQ_RESOLUTION_INFO",
-        0xD8: "DGET_DAQ_LIST_INFO",
-        0xD7: "DGET_DAQ_EVENT_INFO",
-        0xE3: "DCLEAR_DAQ_LIST",
-        0xD8: "DGET_DAQ_LIST_INFO",
-        0xD6: "DFREE_DAQ",
-        0xD5: "DALLOC_DAQ",
-        0xD4: "DALLOC_ODT",
-        0xD3: "DALLOC_ODT_ENTRY",
+        0xED: "SHORT_DOWNLOAD",
+        0xEC: "MODIFY_BITS",
+        0xEB: "SET_CAL_PAGE",
+        0xEA: "GET_CAL_PAGE",
+        0xE9: "GET_PAG_PROCESSOR_INFO",
+        0xE8: "GET_SEGMENT_INFO",
+        0xE7: "GET_PAGE_INFO",
+        0xE6: "SET_SEGMENT_MODE",
+        0xE5: "GET_SEGMENT_MODE",
+        0xE4: "COPY_CAL_PAGE",
+        0xE2: "SET_DAQ_PTR",
+        0xE1: "WRITE_DAQ",
+        0xE0: "SET_DAQ_LIST_MODE",
+        0xDE: "START_STOP_DAQ_LIST",
+        0xDD: "START_STOP_SYNCH",
+        0xC7: "WRITE_DAQ_MULTIPLE",
+        0xDB: "READ_DAQ",
+        0xDC: "GET_DAQ_CLOCK",
+        0xDA: "GET_DAQ_PROCESSOR_INFO",
+        0xD9: "GET_DAQ_RESOLUTION_INFO",
+        0xD8: "GET_DAQ_LIST_INFO",
+        0xD7: "GET_DAQ_EVENT_INFO",
+        0xE3: "CLEAR_DAQ_LIST",
+        0xD6: "FREE_DAQ",
+        0xD5: "ALLOC_DAQ",
+        0xD4: "ALLOC_ODT",
+        0xD3: "ALLOC_ODT_ENTRY",
         0xD2: "PROGRAM_START",
         0xD1: "PROGRAM_CLEAR",
         0xD0: "PROGRAM",
@@ -120,20 +81,19 @@ class CTO(Packet):
     ]
 
 
-
 # ##### CTO COMMANDS ######
 
 # STANDARD COMMANDS
 
 
-class CONNECT(Packet):
+class XCP_CONNECT(Packet):
     commands = {0x00: 'NORMAL', 0x01: 'USER_DEFINED'}
     fields_desc = [
         ByteEnumField('connection_mode', 0x1, commands),
     ]
 
 
-bind_layers(CTO, CONNECT, cmd=0xFF)
+bind_layers(CTO, XCP_CONNECT, cmd=0xFF)
 
 
 class DISCONNECT(Packet):
@@ -290,7 +250,7 @@ class MODIFY_BITS(Packet):
 bind_layers(CTO, MODIFY_BITS, cmd=0xEC)
 
 
-# Page Switchting commands
+# Page Switching commands
 
 
 class SET_CAL_PAGE(Packet):
@@ -361,7 +321,7 @@ bind_layers(CTO, COPY_CAL_PAGE, cmd=0xE4)
 
 
 class SET_DAQ_PTR(Packet):
-    # TOOD implement from ASAM Standard
+    # TODO implement from ASAM Standard
     pass
 
 
@@ -465,14 +425,6 @@ class CLEAR_DAQ_LIST(Packet):
 
 
 bind_layers(CTO, CLEAR_DAQ_LIST, cmd=0xE3)
-
-
-class GET_DAQ_LIST_INFO(Packet):
-    # TODO implement from ASAM Standard
-    pass
-
-
-bind_layers(CTO, GET_DAQ_LIST_INFO, cmd=0xD8)
 
 
 # Cyclic Data transfer - dynamic configuration commands
@@ -713,7 +665,7 @@ class XCP_SCANNER():
         :param end: Last ID for scanning
         :param use_extended_can_id: True if extended IDs are used
         :param verbose: Select verbosing
-        :param timeout: Timeout for receiveing messiages
+        :param timeout: Timeout for receiving messages
         """
         self.__socket = can_socket
         self.__start = start
@@ -774,7 +726,7 @@ class XCP_SCANNER():
         # Craft connect packet
         sent = CAN(identifier=self.__start, length=2, flags=self.__flags)
         sent = sent / CTO(cmd="CONNECT")
-        sent = sent / CONNECT(connection_mode="NORMAL")
+        sent = sent / XCP_CONNECT(connection_mode="NORMAL")
 
         recv_callback = lambda recv: self.__add_answers_to_list(sent, recv)
         lsend = lambda: self.__socket.send(sent)

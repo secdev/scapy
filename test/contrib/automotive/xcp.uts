@@ -120,7 +120,7 @@ def ecu():
 thread = threading.Thread(target=ecu)
 thread.start()
 time.sleep(0.1)
-pkt = CAN_XCP(identifier=0x700) / CTO(cmd="CONNECT") / CONNECT(connection_mode="NORMAL")
+pkt = CAN_XCP(identifier=0x700) / CTO(cmd="CONNECT") / XCP_CONNECT(connection_mode="NORMAL")
 ans = sock1.sr1(pkt, timeout=3)
 thread.join()
 
