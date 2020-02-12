@@ -28,6 +28,12 @@ jobs:
           env:
             - TOXENV=py38-linux_root,codecov
 
+        - language: python
+          python: 3.8
+          arch: arm64
+          env:
+            - TOXENV=py38-linux_root,codecov
+
         # run OSX
         - os: osx
           osx_image: xcode9.3
