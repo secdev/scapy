@@ -18,7 +18,9 @@ from ctypes.util import find_library
 import struct
 import socket
 import time
-from threading import Thread, Event, Lock, Semaphore
+import traceback
+import heapq
+from threading import Thread, Event, Lock
 
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
@@ -29,7 +31,7 @@ from scapy.layers.can import CAN
 import scapy.modules.six as six
 import scapy.automaton as automaton
 import six.moves.queue as queue
-from scapy.error import Scapy_Exception, warning, log_loading
+from scapy.error import Scapy_Exception, warning, log_loading, log_runtime
 from scapy.supersocket import SuperSocket, SO_TIMESTAMPNS
 from scapy.config import conf
 from scapy.consts import LINUX
@@ -596,23 +598,18 @@ class ISOTPSoftSocket(SuperSocket):
     A thread is needed for receiving CAN frames in the background, and since
     the lower layer CAN implementation is not guaranteed to have a functioning
     POSIX select(), each ISOTP socket needs its own CAN receiver thread.
-    Additionally, 2 timers are necessary to keep track of the timeouts and
-    frame separation times, and each timer is implemented in its own thread.
-    In total, each ISOTPSoftSocket spawns 3 background threads when
-    constructed, which must be terminated afterwards by calling the close()
-    method.
     SuperSocket automatically calls the close() method when the GC destroys an
     ISOTPSoftSocket. However, note that if any thread holds a reference to
     an ISOTPSoftSocket object, it will not be collected by the GC.
 
     The implementation of the ISOTP protocol, along with the necessary
-    threads, are stored in the ISOTPSocketImplementation class, and therefore:
+    thread, are stored in the ISOTPSocketImplementation class, and therefore:
 
     * There no reference from ISOTPSocketImplementation to ISOTPSoftSocket
     * ISOTPSoftSocket can be normally garbage collected
     * Upon destruction, ISOTPSoftSocket.close() will be called
     * ISOTPSoftSocket.close() will call ISOTPSocketImplementation.close()
-    * All background threads can be stopped by the garbage collector
+    * RX background thread can be stopped by the garbage collector
     """
 
     nonblocking_socket = True
@@ -787,7 +784,8 @@ class CANReceiverThread(Thread):
 
     def start(self):
         Thread.start(self)
-        self._thread_started.wait()
+        if not self._thread_started.wait(5):
+            raise Scapy_Exception("CAN RX thread not started in 5s.")
 
     def run(self):
         self._thread_started.set()
@@ -813,82 +811,199 @@ class CANReceiverThread(Thread):
         self.exiting = True
 
 
-class TimeoutThread(Thread):
-    """
-    Utility class implementing a timer, useful for both timeouts and
-    waiting between sent CAN frames.
-    Contrary to the threading.Timer implementation, this timer thread can be
-    reused for multiple timeouts. This avoids the overhead of creating a new
-    pthread every time a timeout is planned.
-    """
+class TimeoutScheduler:
+    """A timeout scheduler which uses a single thread for all timeouts, unlike
+    python's own Timer objects which use a thread each."""
+    VERBOSE = False
+    GRACE = .1
+    _mutex = Lock()
+    _event = Event()
+    _thread = None
+    _handles = []  # must use heapq functions!
 
-    def __init__(self):
-        Thread.__init__(self)
+    @staticmethod
+    def schedule(timeout, callback):
+        """Schedules the execution of a timeout.
 
-        self._thread_started = Event()
-        self._cancelled = Event()
-        self._ready_sem = Semaphore(1)
-        self._busy_sem = Semaphore(0)
-        self._timeout = 1
-        self._callback = None
-        self._exception = None
-        self._killed = False
-        self._dead = False
+        The function `callback` will be called in `timeout` seconds.
 
-        self.name = "ISOTP Timer " + self.name
+        Returns a handle that can be used to remove the timeout."""
+        when = TimeoutScheduler._time() + timeout
+        handle = TimeoutScheduler.Handle(when, callback)
+        handles = TimeoutScheduler._handles
 
-    def run(self):
-        self._thread_started.set()
+        with TimeoutScheduler._mutex:
+            # Add the handler to the heap, keeping the invariant
+            # Time complexity is O(log n)
+            heapq.heappush(handles, handle)
+            must_interrupt = (handles[0] == handle)
+
+            # Start the scheduling thread if it is not started already
+            if TimeoutScheduler._thread is None:
+                t = Thread(target=TimeoutScheduler._task)
+                must_interrupt = False
+                TimeoutScheduler._thread = t
+                TimeoutScheduler._event.clear()
+                t.start()
+
+        if must_interrupt:
+            # if the new timeout got in front of the one we are currently
+            # waiting on, the current wait operation must be aborted and
+            # updated with the new timeout
+            TimeoutScheduler._event.set()
+
+        # Return the handle to the timeout so that the user can cancel it
+        return handle
+
+    @staticmethod
+    def cancel(handle):
+        """Provided its handle, cancels the execution of a timeout."""
+
+        handles = TimeoutScheduler._handles
+        with TimeoutScheduler._mutex:
+            if handle in handles:
+                # Time complexity is O(n)
+                handle._cb = None
+                handles.remove(handle)
+                heapq.heapify(handles)
+
+                if len(handles) == 0:
+                    # set the event to stop the wait - this kills the thread
+                    TimeoutScheduler._event.set()
+            else:
+                Exception("Handle not found")
+
+    @staticmethod
+    def clear():
+        """Cancels the execution of all timeouts."""
+        with TimeoutScheduler._mutex:
+            TimeoutScheduler._handles.clear()
+
+        # set the event to stop the wait - this kills the thread
+        TimeoutScheduler._event.set()
+
+    @staticmethod
+    def _peek_next():
+        """Returns the next timeout to execute, or `None` if list is empty,
+        without modifying the list"""
+        with TimeoutScheduler._mutex:
+            handles = TimeoutScheduler._handles
+            if len(handles) == 0:
+                return None
+            else:
+                return handles[0]
+
+    @staticmethod
+    def _wait(handle):
+        """Waits until it is time to execute the provided handle, or until
+        another thread calls _event.set()"""
+
+        if handle is None:
+            when = TimeoutScheduler.GRACE
+        else:
+            when = handle._when
+
+        # Check how much time until the next timeout
+        now = TimeoutScheduler._time()
+        to_wait = when - now
+
+        # Wait until the next timeout,
+        # or until event.set() gets called in another thread.
+        if to_wait > 0:
+            log_runtime.debug("TimeoutScheduler Thread going to sleep @ %f " +
+                              "for %fs", now, to_wait)
+            interrupted = TimeoutScheduler._event.wait(to_wait)
+            new = TimeoutScheduler._time()
+            log_runtime.debug("TimeoutScheduler Thread awake @ %f, slept for" +
+                              " %f, interrupted=%d", new, new - now,
+                              interrupted)
+
+        # Clear the event so that we can wait on it again,
+        # Must be done before doing the callbacks to avoid losing a set().
+        TimeoutScheduler._event.clear()
+
+    @staticmethod
+    def _task():
+        """Executed in a background thread, this thread will automatically
+        start when the first timeout is added and stop when the last timeout
+        is removed or executed."""
+
+        log_runtime.debug("TimeoutScheduler Thread spawning @ %f",
+                          TimeoutScheduler._time())
+
+        time_empty = None
 
         try:
-            while not self._killed:
-                self._busy_sem.acquire()
-                f = self._cancelled.wait(self._timeout)
-                self._ready_sem.release()
-                if f is False:
-                    if self._callback is not None:
-                        self._callback()
-
-        except Exception as ex:
-            self._exception = ex
-            warning(self.name + " is now stopped")
-            raise ex
+            while 1:
+                handle = TimeoutScheduler._peek_next()
+                if handle is None:
+                    now = TimeoutScheduler._time()
+                    if time_empty is None:
+                        time_empty = now
+                    # 100 ms of grace time before killing the thread
+                    if TimeoutScheduler.GRACE < now - time_empty:
+                        return
+                TimeoutScheduler._wait(handle)
+                TimeoutScheduler._poll()
 
         finally:
-            self._dead = True
+            # Worst case scenario: if this thread dies, the next scheduled
+            # timeout will start a new one
+            log_runtime.debug("TimeoutScheduler Thread dying @ %f",
+                              TimeoutScheduler._time())
+            TimeoutScheduler._thread = None
 
-    def start(self):
-        """Start the thread, and make sure it is running"""
-        Thread.start(self)
-        self._thread_started.wait()
+    @staticmethod
+    def _poll():
+        """Execute all the callbacks that were due until now"""
 
-    def set_timeout(self, timeout, callback):
-        """Call 'callback' in 'timeout' seconds, unless cancelled."""
-        if not self._ready_sem.acquire(False):
-            raise Scapy_Exception("Timer was already started")
+        handles = TimeoutScheduler._handles
+        handle = None
+        while 1:
+            with TimeoutScheduler._mutex:
+                now = TimeoutScheduler._time()
+                if len(handles) == 0 or handles[0]._when > now:
+                    # There is nothing to execute yet
+                    return
 
-        self._callback = callback
-        self._timeout = timeout
-        self._cancelled.clear()
-        self._busy_sem.release()
+                # Time complexity is O(log n)
+                handle = heapq.heappop(handles)
 
-    def cancel(self):
-        """Stop the timer without executing the callback."""
-        self._cancelled.set()
-        if not self._dead:
-            self._ready_sem.acquire()
-            self._ready_sem.release()
+            # Call the callback here, outside of the mutex
+            callback = handle._cb if handle is not None else None
+            if callback is not None:
+                try:
+                    callback()
+                except Exception:
+                    traceback.print_exc()
 
-    def stop(self):
-        """Stop the thread, making this object unusable."""
-        if not self._dead:
-            self._killed = True
-            self._cancelled.set()
-            self._busy_sem.release()
-            self.join()
-            if not self._ready_sem.acquire(False):
-                warning("ISOTP Timer thread may not have stopped "
-                        "correctly")
+    @staticmethod
+    def _time():
+        if six.PY2:
+            return time.time()
+        return time.monotonic()
+
+    class Handle:
+        """Handle for a timeout, consisting of a callback and a time when it
+        should be executed."""
+        __slots__ = '_when', '_cb'
+
+        def __init__(self, when, cb):
+            self._when = when
+            self._cb = cb
+
+        def cancel(self):
+            """Cancels this timeout, preventing it from executing its
+            callback"""
+            self._cb = None
+            return TimeoutScheduler.cancel(self)
+
+        def __cmp__(self, other):
+            diff = self._when - other._when
+            return 0 if diff == 0 else (1 if diff > 0 else -1)
+
+        def __lt__(self, other):
+            return self._when < other._when
 
 
 """ISOTPSoftSocket definitions."""
@@ -914,7 +1029,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
     https://github.com/hartkopp/can-isotp/blob/master/net/can/isotp.c
 
     This class is separated from ISOTPSoftSocket to make sure the background
-    threads can't hold a reference to ISOTPSoftSocket, allowing it to be
+    thread can't hold a reference to ISOTPSoftSocket, allowing it to be
     collected by the GC.
     """
 
@@ -992,8 +1107,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         self.rx_ll_dl = 0
         self.tx_state = ISOTP_IDLE
 
-        self.tx_timer = TimeoutThread()
-        self.rx_timer = TimeoutThread()
+        self.tx_timeout_handle = None
+        self.rx_timeout_handle = None
         self.rx_thread = CANReceiverThread(can_socket, self.on_can_recv)
 
         self.tx_mutex = Lock()
@@ -1006,8 +1121,6 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         self.tx_callbacks = []
         self.rx_callbacks = []
 
-        self.tx_timer.start()
-        self.rx_timer.start()
         self.rx_thread.start()
 
     def __del__(self):
@@ -1034,8 +1147,6 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.on_recv(p)
 
     def close(self):
-        self.rx_timer.stop()
-        self.tx_timer.stop()
         self.rx_thread.stop()
 
     def _rx_timer_handler(self):
@@ -1089,15 +1200,15 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                     if self.txfc_bs != 0 and self.tx_bs >= self.txfc_bs:
                         # stop and wait for FC
                         self.tx_state = ISOTP_WAIT_FC
-                        self.tx_timer.set_timeout(self.fc_timeout,
-                                                  self._tx_timer_handler)
+                        self.tx_timeout_handle = TimeoutScheduler.schedule(
+                            self.fc_timeout, self._tx_timer_handler)
                         return
 
                     if self.tx_gap == 0:
                         continue
                     else:
-                        self.tx_timer.set_timeout(self.tx_gap,
-                                                  self._tx_timer_handler)
+                        self.tx_timeout_handle = TimeoutScheduler.schedule(
+                            self.tx_gap, self._tx_timer_handler)
 
     def on_recv(self, cf):
         """Function that must be called every time a CAN frame is received, to
@@ -1137,7 +1248,9 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 self.tx_state != ISOTP_WAIT_FIRST_FC):
             return 0
 
-        self.tx_timer.cancel()
+        if self.tx_timeout_handle is not None:
+            self.tx_timeout_handle.cancel()
+            self.tx_timeout_handle = None
 
         if len(data) < 3:
             self.tx_state = ISOTP_IDLE
@@ -1170,11 +1283,13 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.tx_bs = 0
             self.tx_state = ISOTP_SENDING
             # start cyclic timer for sending CF frame
-            self.tx_timer.set_timeout(self.tx_gap, self._tx_timer_handler)
+            self.tx_timeout_handle = TimeoutScheduler.schedule(
+                self.tx_gap, self._tx_timer_handler)
         elif isotp_fc == ISOTP_FC_WT:
             # start timer to wait for next FC frame
             self.tx_state = ISOTP_WAIT_FC
-            self.tx_timer.set_timeout(self.fc_timeout, self._tx_timer_handler)
+            self.tx_timeout_handle = TimeoutScheduler.schedule(
+                self.fc_timeout, self._tx_timer_handler)
         elif isotp_fc == ISOTP_FC_OVFLW:
             # overflow in receiver side
             self.tx_state = ISOTP_IDLE
@@ -1191,7 +1306,10 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
 
     def _recv_sf(self, data):
         """Process a received 'Single Frame' frame"""
-        self.rx_timer.cancel()
+        if self.rx_timeout_handle is not None:
+            self.rx_timeout_handle.cancel()
+            self.rx_timeout_handle = None
+
         if self.rx_state != ISOTP_IDLE:
             warning("RX state was reset because single frame was received")
             self.rx_state = ISOTP_IDLE
@@ -1209,7 +1327,10 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
 
     def _recv_ff(self, data):
         """Process a received 'First Frame' frame"""
-        self.rx_timer.cancel()
+        if self.rx_timeout_handle is not None:
+            self.rx_timeout_handle.cancel()
+            self.rx_timeout_handle = None
+
         if self.rx_state != ISOTP_IDLE:
             warning("RX state was reset because first frame was received")
             self.rx_state = ISOTP_IDLE
@@ -1250,7 +1371,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
 
         # wait for a CF
         self.rx_bs = 0
-        self.rx_timer.set_timeout(self.cf_timeout, self._rx_timer_handler)
+        self.rx_timeout_handle = TimeoutScheduler.schedule(
+            self.cf_timeout, self._rx_timer_handler)
 
         return 0
 
@@ -1259,7 +1381,9 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         if self.rx_state != ISOTP_WAIT_DATA:
             return 0
 
-        self.rx_timer.cancel()
+        if self.rx_timeout_handle is not None:
+            self.rx_timeout_handle.cancel()
+            self.rx_timeout_handle = None
 
         # CFs are never longer than the FF
         if len(data) > self.rx_ll_dl:
@@ -1307,7 +1431,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 self.can_send(load)
 
         # wait for another CF
-        self.rx_timer.set_timeout(self.cf_timeout, self._rx_timer_handler)
+        self.rx_timeout_handle = TimeoutScheduler.schedule(
+            self.cf_timeout, self._rx_timer_handler)
         return 0
 
     def begin_send(self, x):
@@ -1352,7 +1477,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.tx_idx = len(load)
 
             self.tx_state = ISOTP_WAIT_FIRST_FC
-            self.tx_timer.set_timeout(self.fc_timeout, self._tx_timer_handler)
+            self.tx_timeout_handle = TimeoutScheduler.schedule(
+                self.fc_timeout, self._tx_timer_handler)
 
     def send(self, p):
         """Send an ISOTP frame and block until the message is sent or an error
@@ -1361,7 +1487,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.begin_send(p)
 
             # Wait until the tx callback is called
-            self.tx_done.wait()
+            if not self.tx_done.wait(30):
+                raise Scapy_Exception("ISOTP send not completed in 30s")
             if self.tx_exception is not None:
                 raise Scapy_Exception(self.tx_exception)
             return

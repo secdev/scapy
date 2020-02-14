@@ -865,10 +865,8 @@ assert(succ.is_set())
 with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
     assert(s.impl.rx_thread.is_alive())
     s.close()
-    s.impl.rx_thread.join(5)
+    assert(not s.impl.rx_thread.join(5))
     assert(not s.impl.rx_thread.is_alive())
-    assert(not s.impl.rx_timer.is_alive())
-    assert(not s.impl.tx_timer.is_alive())
 
 
 = Verify that all threads will die when GC collects the socket
@@ -880,8 +878,6 @@ s = None
 r = gc.collect()
 impl.rx_thread.join(10)  # hope that the GC has made a pass
 assert(not impl.rx_thread.is_alive())
-assert(not impl.rx_timer.is_alive())
-assert(not impl.tx_timer.is_alive())
 
 = Test on_recv function with single frame
 with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
