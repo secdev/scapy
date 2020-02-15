@@ -34,7 +34,6 @@ from scapy.compat import plain_str
 from scapy.supersocket import SuperSocket
 
 conf.use_pcap = True
-conf.use_dnet = False
 
 # These import must appear after setting conf.use_* variables
 from scapy.arch import pcapdnet  # noqa: E402
