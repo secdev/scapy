@@ -729,7 +729,7 @@ Here are two usage examples:
 
 
 Customization of UDS_RDBI, UDS_WDBI
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------------
 
 In real-world use-cases, the UDS layer is heavily customized. OEMs define their own substructure of packets.
 Especially the packets ReadDataByIdentifier or WriteDataByIdentifier have a very OEM or even ECU specific
@@ -810,7 +810,7 @@ The ECU utility can be used to analyze the internal states of an ECU under inves
 This utility depends heavily on the support of the used protocol. ``UDS`` is supported.
 
 Log all commands applied to an ECU
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------
 
 This example shows the logging mechanism of an ECU object. The log of an ECU is a dictionary of applied UDS commands. The key for this dictionary is the UDS service name. The value consists of a list of tuples, containing a timestamp and a log value
 
@@ -824,7 +824,7 @@ Usage example::
 
 
 Trace all commands applied to an ECU
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------------------
 
 This example shows the trace mechanism of an ECU object. Traces of the current state of the ECU object and the received message are printed on stdout. Some messages, depending on the protocol, will change the internal state of the ECU.
 
@@ -837,7 +837,7 @@ Usage example::
 
 
 Generate supported responses of an ECU
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------------
 
 This example shows a mechanism to clone a real world ECU by analyzing a list of Packets.
 
@@ -853,7 +853,7 @@ Usage example::
 
 
 Analyze multiple UDS messages
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 This example shows how to load ``UDS`` messages from a ``.pcap`` file containing ``CAN`` messages. A ``PcapReader`` object is used as socket and an ``ISOTPSession`` parses ``CAN`` frames to ``ISOTP`` frames which are then casted to ``UDS`` objects through the ``basecls`` parameter
 
@@ -872,7 +872,7 @@ Usage example::
 
 
 Analyze on the fly with ECUSession
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------
 
 This example shows the usage of an ECUSession in sniff. An ISOTPSocket or any socket like object which returns entire messages of the right protocol can be used. An ``ECUSession`` is used as supersession in an ``ISOTPSession``. To obtain the ``ECU`` object from an ``ECUSession``, the ``ECUSession`` has to be created outside of sniff.
 
@@ -893,7 +893,7 @@ SOME/IP and SOME/IP SD messages
 ===============================
 
 Creating a SOME/IP message
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 This example shows a SOME/IP message which requests a service 0x1234 with the method 0x421. Different types of SOME/IP messages follow the same procedure and their specifications can be seen here ``http://www.some-ip.com/papers/cache/AUTOSAR_TR_SomeIpExample_4.2.1.pdf``.
 
@@ -931,7 +931,7 @@ Stack it and send it::
 
 
 Creating a SOME/IP SD message
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-----------------------------
 
 In this example a SOME/IP SD offer service message is shown with an IPv4 endpoint. Different entries and options basically follow the same procedure as shown here and can be seen at ``https://www.autosar.org/fileadmin/user_upload/standards/classic/4-3/AUTOSAR_SWS_ServiceDiscovery.pdf``.
 
