@@ -1068,7 +1068,7 @@ Hardware Setup
 --------------
 
 Beagle Bone Black Operating System Setup
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 #. | **Download an Image**
    | The latest Debian Linux image can be found at the website
@@ -1126,7 +1126,7 @@ Beagle Bone Black Operating System Setup
 
 
 Dual-CAN Setup
-~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 #. | **Device tree setup**
    | You'll need to follow this section only if you want to use two CAN
@@ -1351,7 +1351,7 @@ Software Setup
 --------------
 
 Cannelloni Framework Installation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Cannelloni framework is a small application written in C++ to
 transfer CAN data over UDP. In this way, a researcher can map the CAN
