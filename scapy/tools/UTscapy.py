@@ -285,7 +285,7 @@ def parse_config_file(config_path, verb=3):
     """
     import json
     with open(config_path) as config_file:
-        data = json.load(config_file, encoding="utf8")
+        data = json.load(config_file)
         if verb > 2:
             print("### Loaded config file", config_path, file=sys.stderr)
 
@@ -914,6 +914,16 @@ def main():
         # Discard Python3 tests when using Python2
         if six.PY2:
             KW_KO.append("python3_only")
+            if VERB > 2:
+                print("### Python 2 mode ###")
+        try:
+            if os.getuid() != 0:  # Non root
+                # Discard root tests
+                KW_KO.append("netaccess")
+                KW_KO.append("needs_root")
+                print("### Non-root mode ###")
+        except AttributeError:
+            pass
 
         if ANNOTATIONS_MODE:
             try:
