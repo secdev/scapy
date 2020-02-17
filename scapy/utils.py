@@ -185,6 +185,9 @@ def restart():
 
 
 def lhex(x):
+    from scapy.volatile import VolatileValue
+    if isinstance(x, VolatileValue):
+        return repr(x)
     if type(x) in six.integer_types:
         return hex(x)
     elif isinstance(x, tuple):
