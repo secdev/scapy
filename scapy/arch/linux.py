@@ -463,17 +463,13 @@ class L2Socket(SuperSocket):
             # Receive Auxiliary Data (VLAN tags)
             try:
                 self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
+                self.ins.setsockopt(
+                    socket.SOL_SOCKET,
+                    SO_TIMESTAMPNS,
+                    1
+                )
                 self.auxdata_available = True
             except OSError:
-                pass
-
-            try:
-                self.ins.setsockopt(socket.SOL_SOCKET, SO_TIMESTAMPNS, 1)
-                self.auxdata_available = True
-            except OSError:
-                pass
-
-            if not self.auxdata_available:
                 # Note: Auxiliary Data is only supported since
                 #       Linux 2.6.21
                 msg = "Your Linux Kernel does not support Auxiliary Data!"
