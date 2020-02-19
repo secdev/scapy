@@ -1583,6 +1583,7 @@ if six.PY3 and LINUX:
         can_isotp_fc_options_fmt = "@3B"
         can_isotp_ll_options_fmt = "@3B"
         sockaddr_can_fmt = "@H3I"
+        auxdata_available = True
 
         def __build_can_isotp_options(
                 self,
