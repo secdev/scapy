@@ -1078,6 +1078,61 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s
 
 cans.close()
 
+= Send two-frame ISOTP message with bs
+cans = new_can_socket(iface0)
+acker_ready = threading.Event()
+def acker():
+    acks = new_can_socket(iface0)
+    acker_ready.set()
+    can_pkt = acks.sniff(timeout=1, count=1)
+    can = can_pkt[0]
+    acks.send(CAN(identifier = 0x241, data=dhex("30 20 00")))
+    acks.close()
+
+Thread(target=acker).start()
+acker_ready.wait(timeout=5)
+with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s:
+    s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
+    can = cans.sniff(timeout=1, count=1)[0] 
+    assert(can.identifier == 0x641)
+    assert(can.data == dhex("10 08 01 02 03 04 05 06"))
+    can = cans.sniff(timeout=1, count=1)[0] 
+    assert(can.identifier == 0x241)
+    assert(can.data == dhex("30 20 00"))
+    can = cans.sniff(timeout=1, count=1)[0] 
+    assert(can.identifier == 0x641)
+    assert(can.data == dhex("21 07 08"))
+
+cans.close()
+
+
+= Send two-frame ISOTP message with ST
+cans = new_can_socket(iface0)
+acker_ready = threading.Event()
+def acker():
+    acks = new_can_socket(iface0)
+    acker_ready.set()
+    can_pkt = acks.sniff(timeout=1, count=1)
+    can = can_pkt[0]
+    acks.send(CAN(identifier = 0x241, data=dhex("30 00 10")))
+    acks.close()
+
+Thread(target=acker).start()
+acker_ready.wait(timeout=5)
+with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s:
+    s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
+    can = cans.sniff(timeout=1, count=1)[0] 
+    assert(can.identifier == 0x641)
+    assert(can.data == dhex("10 08 01 02 03 04 05 06"))
+    can = cans.sniff(timeout=1, count=1)[0] 
+    assert(can.identifier == 0x241)
+    assert(can.data == dhex("30 00 10"))
+    can = cans.sniff(timeout=1, count=1)[0] 
+    assert(can.identifier == 0x641)
+    assert(can.data == dhex("21 07 08"))
+
+cans.close()
+
 = Receive a single frame ISOTP message
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s:
     cans = new_can_socket(iface0)
