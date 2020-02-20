@@ -501,7 +501,7 @@ class L2Socket(SuperSocket):
         try:
             if self.promisc and self.ins:
                 set_promisc(self.ins, self.iface, 0)
-        except AttributeError:
+        except (AttributeError, OSError):
             pass
         SuperSocket.close(self)
 
