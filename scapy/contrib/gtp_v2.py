@@ -36,10 +36,10 @@ from scapy.contrib import gtp
 
 RATType = {
     1: "UTRAN",
-    2: "GERAN"
-    3: "WLAN"
-    4: "GAN"
-    5: "HSPA Evolution"
+    2: "GERAN",
+    3: "WLAN",
+    4: "GAN",
+    5: "HSPA Evolution",
     6: "EUTRAN",
     7: "Virtual",
     8: "EUTRAN-NB-IoT",
