@@ -1,0 +1,23 @@
+% Regression tests for Scapy
+
++Syntax check
+= Import the loraphy2wan layer
+
+from scapy.contrib.loraphy2wan import *
+#from scapy.all import 
+
+# LoRa PHY to WAN
+
+############
+############
++ Basic tests
+
+* Those test are here mainly to check nothing has been broken
+
+= Packet decoding
+~ field
+
+p = b'\x00\x00\x00\x00lovecafemeeetoo\x00iiS\x02LI'
+pkt = LoRa(p)
+assert pkt.Join_Request_Field[0].DevEUI == b'meeetoo\x00'
+assert pkt.Join_Request_Field[0].DevNonce == 26985
