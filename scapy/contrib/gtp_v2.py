@@ -25,7 +25,8 @@ from scapy.compat import orb
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, IntField, IPField, LongField, PacketField, \
     PacketListField, ShortEnumField, ShortField, StrFixedLenField, \
-    StrLenField, ThreeBytesField, XBitField, XIntField, XShortField
+    StrLenField, ThreeBytesField, XBitField, XIntField, XShortField, \
+    FieldLenField
 from scapy.data import IANA_ENTERPRISE_NUMBERS
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.volatile import RandIP, RandShort
@@ -602,7 +603,7 @@ CAUSE_VALUES = {
 class IE_Cause(gtp.IE_Base):
     name = "IE Cause"
     fields_desc = [ByteEnumField("ietype", 2, IEType),
-                   ShortField("length", None),
+                   ShortField("length", 6),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    ByteEnumField("Cause", 1, CAUSE_VALUES),
@@ -615,7 +616,7 @@ class IE_Cause(gtp.IE_Base):
 class IE_RecoveryRestart(gtp.IE_Base):
     name = "IE Recovery Restart"
     fields_desc = [ByteEnumField("ietype", 3, IEType),
-                   ShortField("length", None),
+                   ShortField("length", 5),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    ByteField("restart_counter", 0)]
@@ -624,7 +625,8 @@ class IE_RecoveryRestart(gtp.IE_Base):
 class IE_APN(gtp.IE_Base):
     name = "IE APN"
     fields_desc = [ByteEnumField("ietype", 71, IEType),
-                   ShortField("length", None),
+                   FieldLenField("length", None, length_of="APN",
+                                 adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    gtp.APNStrLenField("APN", "internet",
@@ -634,7 +636,7 @@ class IE_APN(gtp.IE_Base):
 class IE_AMBR(gtp.IE_Base):
     name = "IE AMBR"
     fields_desc = [ByteEnumField("ietype", 72, IEType),
-                   ShortField("length", None),
+                   ShortField("length", 12),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    IntField("AMBR_Uplink", 0),
@@ -644,7 +646,8 @@ class IE_AMBR(gtp.IE_Base):
 class IE_MSISDN(gtp.IE_Base):
     name = "IE MSISDN"
     fields_desc = [ByteEnumField("ietype", 76, IEType),
-                   ShortField("length", None),
+                   FieldLenField("length", None, length_of="digits",
+                                 adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    gtp.TBCDByteField("digits", "33123456789",
