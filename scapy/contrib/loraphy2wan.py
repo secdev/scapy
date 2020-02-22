@@ -66,8 +66,9 @@ class DevAddrElem(Packet):
     fields_desc = [XByteField("NwkID", 0x0),
                    LEX3BytesField("NwkAddr", b"\x00"*3)]
 
+
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 CIDs_up = {0x01: "ResetInd",
