@@ -67,10 +67,6 @@ class DevAddrElem(Packet):
                    LEX3BytesField("NwkAddr", b"\x00"*3)]
 
 
-    def extract_padding(self, p):
-        return b"", p
-
-
 CIDs_up = {0x01: "ResetInd",
            0x02: "LinkCheckReq",
            0x03: "LinkADRReq",
