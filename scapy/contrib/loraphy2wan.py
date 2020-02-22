@@ -602,14 +602,13 @@ class Join_Accept(Packet):
                        ConditionalField(StrFixedLenField("CFList", b"\x00" * 16 , 16),
                                         lambda pkt:(Join_Accept.dcflist is True))]
 
-    def extract_padding(self, p):
-        return "", p
-
     def __init__(self, packet=""): # CFlist calculated with on rest packet len
         if len(packet) > 18:
             Join_Accept.dcflist = True
         super(Join_Accept, self).__init__(packet)
 
+    def extract_padding(self, p):
+        return "", p
 
 RejoinType = {0: "NetID+DevEUI",
               1: "JoinEUI+DevEUI",
@@ -642,7 +641,11 @@ class FRMPayload(Packet):
                                     lambda pkt:(pkt.MType == 0b001
                                         and LoRa.encrypted is False)),
                    ConditionalField(StrField("Join_Accept_Encrypted", 0),
-                                    lambda pkt:(pkt.MType == 0b001 and LoRa.encrypted is True))]
+                                    lambda pkt:(pkt.MType == 0b001 and LoRa.encrypted is True)),
+                   ConditionalField(PacketListField("ReJoin_Request_Field", b"",
+                                                    RejoinReq,
+                                                    length_from=lambda pkt:14),
+                                    lambda pkt:(pkt.MType == 0b111))]
 
 
 class MACPayload(Packet):
@@ -651,7 +654,7 @@ class MACPayload(Packet):
                    ConditionalField(ByteEnumField("FPort", 0, FPorts),
                                     lambda pkt:(pkt.MType >= 0b010 and pkt.MType <= 0b101)),
                    FRMPayload]
- 
+
 
 MTypes = {0b000: "Join-request",
           0b001: "Join-accept",
