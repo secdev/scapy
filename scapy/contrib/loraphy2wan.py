@@ -171,11 +171,12 @@ class DutyCycleAns(Packet):
     fields_desc = []
 
 
-class DLsettings(Packet):
-    name = "DLsettings"
-    fields_desc = [BitField("RFU", 0, 1),
-                   BitField("RX1DRoffset", 0, 3),
-                   BitField("RX2DataRate", 0, 4)]
+# old spec
+#class DLsettings(Packet):
+#    name = "DLsettings"
+#    fields_desc = [BitField("RFU", 0, 1),
+#                   BitField("RX1DRoffset", 0, 3),
+#                   BitField("RX2DataRate", 0, 4)]
 
 
 class RXParamSetupReq(Packet):
@@ -536,7 +537,7 @@ def FOptsShow(pkt):
         elif pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 1 and pkt.MType <= 0b101: 
             return True    
         return False
-    except:
+    except Exception:
         return False
 
 
@@ -562,11 +563,11 @@ class FHDR(Packet):
                    ConditionalField(PacketListField("FOpts_up", b"",
                                                     MACCommand_up,
                                                     length_from=lambda pkt:pkt.FCtrl[0].FOptsLen),
-                                    lambda pkt:FOptsShow(pkt)),
+                                    FOptsShow),
                    ConditionalField(PacketListField("FOpts_down", b"", 
                                                     MACCommand_down, 
                                                     length_from=lambda pkt:pkt.FCtrl[0].FOptsLen),
-                                    lambda pkt:FOptsShow(pkt))]
+                                    FOptsShow)]
 
 
 FPorts = {0: "NwkSKey"} # anything else is AppSKey
@@ -609,7 +610,7 @@ class Join_Accept(Packet):
     def __init__(self, packet=""): # CFlist calculated with on rest packet len
         if len(packet) > 18:
             Join_Accept.dcflist = True
-        return super(Join_Accept, self).__init__(packet)
+        super(Join_Accept, self).__init__(packet)
 
 
 RejoinType = {0: "NetID+DevEUI",
