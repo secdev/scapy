@@ -515,9 +515,6 @@ class MACCommand_down(Packet):
                                                     length_from=lambda pkt:1),
                                     lambda pkt:(pkt.CID == 0x0F))]
 
-    def extract_padding(self, p):
-        return "", p
-
 
 class FOpts(Packet):
     name = "FOpts"
