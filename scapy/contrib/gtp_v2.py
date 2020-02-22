@@ -35,7 +35,16 @@ from scapy.contrib import gtp
 
 
 RATType = {
+    1: "UTRAN",
+    2: "GERAN",
+    3: "WLAN",
+    4: "GAN",
+    5: "HSPA Evolution",
     6: "EUTRAN",
+    7: "Virtual",
+    8: "EUTRAN-NB-IoT",
+    9: "LTE-M",
+    10: "NR",
 }
 
 # 3GPP TS 29.274 v16.1.0 table 6.1-1
@@ -207,6 +216,7 @@ IEType = {1: "IMSI",
              126: "Port Number",
              127: "APN Restriction",
              128: "Selection Mode",
+             145: "UCI",
              161: "Max MBR/APN-AMBR (MMBR)",
              255: "Private Extension",
           }
@@ -454,6 +464,22 @@ INTERFACE_TYPES = {
     37: "S2a PGW GTP-U interface",
 }
 
+
+class IE_UCI(gtp.IE_Base):
+    name = "IE UCI"
+    fields_desc = [ByteEnumField("ietype", 145, IEType),
+                   ShortField("length", 0),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   gtp.TBCDByteField("MCC", "", 2),
+                   gtp.TBCDByteField("MNC", "", 1),
+                   BitField("SPARE", 0, 5),
+                   BitField("CSG_ID", 0, 27),
+                   BitField("AccessMode", 0, 2),
+                   BitField("SPARE", 0, 4),
+                   BitField("LCSG", 0, 1),
+                   BitField("CMI", 0, 1)]
+    
 
 class IE_FTEID(gtp.IE_Base):
     name = "IE F-TEID"
@@ -707,6 +733,54 @@ class IE_Indication(gtp.IE_Base):
         BitField("CLII", 0, 1), lambda pkt: pkt.length > 3),
         ConditionalField(
         BitField("CPSR", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("NSI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("UASI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("DTCI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("BDWI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("PSCI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("PCRI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("AOSI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("AOPI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("ROAAI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("EPCOSI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("CPOPCI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("PMTSMI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("S11TF", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("PNSI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("UNACCSI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("WPMSI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("5GSNN26", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("REPREFI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("5GSIWKI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("EEVRSI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("LTEMUI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("LTEMPI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("ENBCRSI", 0, 1), lambda pkt: pkt.length > 3),
+        ConditionalField(
+        BitField("TSPCMI", 0, 1), lambda pkt: pkt.length > 3),
 
     ]
 
@@ -1113,6 +1187,7 @@ ietypecls = {1: IE_IMSI,
              126: IE_Port_Number,
              127: IE_APN_Restriction,
              128: IE_SelectionMode,
+             145: IE_UCI,
              161: IE_MMBR,
              255: IE_PrivateExtension}
 
