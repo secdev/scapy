@@ -615,7 +615,7 @@ RejoinType = {0: "NetID+DevEUI",
               2: "NetID+DevEUI"}
 
 
-def RejoinReq(Packet): # LoRa 1.1 specs
+class RejoinReq(Packet): # LoRa 1.1 specs
     name = "RejoinReq"
     fields_desc = [ByteField("Type", 0),
                    X3BytesField("NetID", 0),
