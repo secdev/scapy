@@ -607,8 +607,6 @@ class Join_Accept(Packet):
             Join_Accept.dcflist = True
         super(Join_Accept, self).__init__(packet)
 
-    def extract_padding(self, p):
-        return "", p
 
 RejoinType = {0: "NetID+DevEUI",
               1: "JoinEUI+DevEUI",
