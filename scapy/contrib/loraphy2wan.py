@@ -171,12 +171,17 @@ class DutyCycleAns(Packet):
     fields_desc = []
 
 
-# old spec
+# old specs
 #class DLsettings(Packet):
 #    name = "DLsettings"
 #    fields_desc = [BitField("RFU", 0, 1),
 #                   BitField("RX1DRoffset", 0, 3),
 #                   BitField("RX2DataRate", 0, 4)]
+class DLsettings(Packet):
+    name = "DLsettings"
+    fields_desc = [BitField("OptNeg", 0, 1),
+                   XBitField("RX1DRoffset", 0, 3),
+                   XBitField("RX2_Data_rate", 0, 4)]
 
 
 class RXParamSetupReq(Packet):
@@ -322,7 +327,7 @@ class DevLoraWANversion(Packet):
 class RekeyInd(Packet):
     name = "RekeyInd"
     fields_desc = [PacketListField("LoRaWANversion", b"",
-                            DevLoraWANversion, length_from=lambda pkt:1)] 
+                            DevLoraWANversion, length_from=lambda pkt:1)]
 
 
 class RekeyConf(Packet):
@@ -517,13 +522,13 @@ class MACCommand_down(Packet):
 class FOpts(Packet):
     name = "FOpts"
     fields_desc = [ConditionalField(PacketListField("FOpts_up", b"",
-                                                    MACCommand_up, # piggybacked MAC Command for uplink
+                                                    MACCommand_up,# piggybacked MAC Command for uplink
                                                     length_from=lambda pkt:pkt.FCtrl[0].FOptsLen),
                                     lambda pkt:(pkt.FCtrl[0].FOptsLen > 0
                                                 and pkt.MType & 0b1 == 0
                                                 and pkt.MType >= 0b010)),
                    ConditionalField(PacketListField("FOpts_down", b"",
-                                                    MACCommand_down, # piggybacked MAC Command for downlink
+                                                    MACCommand_down,# piggybacked MAC Command for downlink
                                                     length_from=lambda pkt:pkt.FCtrl[0].FOptsLen),
                                     lambda pkt:(pkt.FCtrl[0].FOptsLen > 0
                                                 and pkt.MType & 0b1 == 1
@@ -534,8 +539,8 @@ def FOptsShow(pkt):
     try:
         if pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 0 and pkt.MType >= 0b010:
             return True
-        elif pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 1 and pkt.MType <= 0b101: 
-            return True    
+        elif pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 1 and pkt.MType <= 0b101:
+            return True
         return False
     except Exception:
         return False
@@ -552,7 +557,7 @@ class FHDR(Packet):
                                                     length_from=lambda pkt:1),
                                     lambda pkt:(pkt.MType & 0b1 == 1
                                                 and pkt.MType <= 0b101)),
-                   ConditionalField(PacketListField("FCtrl", b"", 
+                   ConditionalField(PacketListField("FCtrl", b"",
                                                     FCtrl_UpLink,
                                                     length_from=lambda pkt:1),
                                     lambda pkt:(pkt.MType & 0b1 == 0
@@ -564,8 +569,8 @@ class FHDR(Packet):
                                                     MACCommand_up,
                                                     length_from=lambda pkt:pkt.FCtrl[0].FOptsLen),
                                     FOptsShow),
-                   ConditionalField(PacketListField("FOpts_down", b"", 
-                                                    MACCommand_down, 
+                   ConditionalField(PacketListField("FOpts_down", b"",
+                                                    MACCommand_down,
                                                     length_from=lambda pkt:pkt.FCtrl[0].FOptsLen),
                                     FOptsShow)]
 
@@ -584,13 +589,6 @@ class Join_Request(Packet):
     fields_desc = [StrFixedLenField("AppEUI", b"\x00" * 8, 8),
                    StrFixedLenField("DevEUI", b"\00" * 8, 8),
                    LEShortField("DevNonce", 0x0000)]
-
-
-class DLsettings(Packet):
-    name = "DLsettings"
-    fields_desc = [BitField("OptNeg", 0, 1),
-                   XBitField("RX1DRoffset", 0, 3),
-                   XBitField("RX2_Data_rate", 0, 4)]
 
 
 class Join_Accept(Packet):
@@ -641,7 +639,7 @@ class FRMPayload(Packet):
                    ConditionalField(PacketListField("Join_Accept_Field", b"",
                                                     Join_Accept,
                                                     count_from=lambda pkt:1),
-                                    lambda pkt:(pkt.MType == 0b001 
+                                    lambda pkt:(pkt.MType == 0b001
                                         and LoRa.encrypted is False)),
                    ConditionalField(StrField("Join_Accept_Encrypted", 0),
                                     lambda pkt:(pkt.MType == 0b001 and LoRa.encrypted is True))]
@@ -653,7 +651,7 @@ class MACPayload(Packet):
                    ConditionalField(ByteEnumField("FPort", 0, FPorts),
                                     lambda pkt:(pkt.MType >= 0b010 and pkt.MType <= 0b101)),
                    FRMPayload]
-    
+ 
 
 MTypes = {0b000: "Join-request",
           0b001: "Join-accept",
