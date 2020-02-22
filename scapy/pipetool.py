@@ -459,10 +459,10 @@ class ConsoleSink(Sink):
     """
 
     def push(self, msg):
-        print(">%r" % msg)
+        print(">" + repr(msg))
 
     def high_push(self, msg):
-        print(">>%r" % msg)
+        print(">>" + repr(msg))
 
 
 class RawConsoleSink(Sink):

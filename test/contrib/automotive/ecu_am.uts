@@ -141,8 +141,9 @@ example_responses = \
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 3})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[0x123]), timeout=1, verbose=False)
         assert resp.negativeResponseCode == 0x10
@@ -155,6 +156,7 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, ba
         assert resp.dataIdentifier == 0x1234
         assert resp.load == b"deadbeef"
     finally:
+        tester.send(UDS(service=0xff))
         sim.join(timeout=10)
 
 
@@ -170,8 +172,9 @@ example_responses = \
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 5})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
         assert resp.negativeResponseCode == 0x10
@@ -224,8 +227,9 @@ example_responses = \
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 10})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 20, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
         assert resp.negativeResponseCode == 0x10
@@ -297,8 +301,9 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, ba
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 10})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 20, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
         assert resp.negativeResponseCode == 0x10
@@ -370,8 +375,9 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, ba
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 4})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
         assert resp.service == 0x67
@@ -415,8 +421,9 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, ba
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout': 10})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=2)
         assert resp.service == 0x67
@@ -462,8 +469,9 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, ba
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout':5})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout':5, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
         assert resp.service == 0x7f

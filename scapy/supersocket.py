@@ -61,6 +61,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     closed = 0
     nonblocking_socket = False
     read_allowed_exceptions = ()
+    auxdata_available = False
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
         self.ins = socket.socket(family, type, proto)
@@ -85,16 +86,26 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             """Internal function to receive a Packet,
             and process ancillary data.
             """
-            flags_len = socket.CMSG_LEN(4096)
             timestamp = None
+            if not self.auxdata_available:
+                pkt, _, _, sa_ll = sock.recvmsg(x)
+                return pkt, sa_ll, timestamp
+            flags_len = socket.CMSG_LEN(4096)
             pkt, ancdata, flags, sa_ll = sock.recvmsg(x, flags_len)
             if not pkt:
-                return pkt, sa_ll
+                return pkt, sa_ll, timestamp
             for cmsg_lvl, cmsg_type, cmsg_data in ancdata:
                 # Check available ancillary data
                 if (cmsg_lvl == SOL_PACKET and cmsg_type == PACKET_AUXDATA):
                     # Parse AUXDATA
-                    auxdata = tpacket_auxdata.from_buffer_copy(cmsg_data)
+                    try:
+                        auxdata = tpacket_auxdata.from_buffer_copy(cmsg_data)
+                    except ValueError:
+                        # Note: according to Python documentation, recvmsg()
+                        #       can return a truncated message. A ValueError
+                        #       exception likely indicates that Auxiliary
+                        #       Data is not supported by the Linux kernel.
+                        return pkt, sa_ll, timestamp
                     if auxdata.tp_vlan_tci != 0 or \
                             auxdata.tp_status & TP_STATUS_VLAN_VALID:
                         # Insert VLAN tag
@@ -213,13 +224,20 @@ class L3RawSocket(SuperSocket):
         if iface is not None:
             self.ins.bind((iface, type))
         if not six.PY2:
-            # Receive Auxiliary Data (VLAN tags)
-            self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
-            self.ins.setsockopt(
-                socket.SOL_SOCKET,
-                SO_TIMESTAMPNS,
-                1
-            )
+            try:
+                # Receive Auxiliary Data (VLAN tags)
+                self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
+                self.ins.setsockopt(
+                    socket.SOL_SOCKET,
+                    SO_TIMESTAMPNS,
+                    1
+                )
+                self.auxdata_available = True
+            except OSError:
+                # Note: Auxiliary Data is only supported since
+                #       Linux 2.6.21
+                msg = "Your Linux Kernel does not support Auxiliary Data!"
+                log_runtime.info(msg)
 
     def recv(self, x=MTU):
         pkt, sa_ll, ts = self._recv_raw(self.ins, x)

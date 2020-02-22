@@ -13,6 +13,9 @@ from scapy.fields import IntField, ShortEnumField, XByteField
 from scapy.layers.inet import TCP
 from scapy.supersocket import StreamSocket
 from scapy.contrib.automotive.uds import UDS
+from scapy.contrib.isotp import ISOTP
+from scapy.error import Scapy_Exception
+from scapy.data import MTU
 
 
 """
@@ -65,6 +68,28 @@ bind_layers(ENET, UDS)
 
 class ENETSocket(StreamSocket):
     def __init__(self, ip='127.0.0.1', port=6801):
+        self.ip = ip
+        self.port = port
         s = socket.socket()
-        s.connect((ip, port))
+        s.connect((self.ip, self.port))
         StreamSocket.__init__(self, s, ENET)
+
+
+class ISOTP_ENETSocket(ENETSocket):
+    def __init__(self, src, dst, ip='127.0.0.1', port=6801, basecls=ISOTP):
+        super(ISOTP_ENETSocket, self).__init__(ip, port)
+        self.src = src
+        self.dst = dst
+        self.basecls = ENET
+        self.outputcls = basecls
+
+    def send(self, x):
+        if not isinstance(x, ISOTP):
+            raise Scapy_Exception("Please provide a packet class based on "
+                                  "ISOTP")
+        super(ISOTP_ENETSocket, self).send(
+            ENET(src=self.src, dst=self.dst) / x)
+
+    def recv(self, x=MTU):
+        pkt = super(ISOTP_ENETSocket, self).recv(x)
+        return self.outputcls(bytes(pkt[1]))
