@@ -45,9 +45,6 @@ class FCtrl_DownLink(Packet):
                    BitField("FPending", 0, 1),
                    BitFieldLenField("FOptsLen", 0, 4)]
 
-    def extract_padding(self, p):
-        return "", p
-
 
 class FCtrl_UpLink(Packet):
     name = "FCtrl_UpLink"
@@ -56,9 +53,6 @@ class FCtrl_UpLink(Packet):
                    BitField("ACK", 0, 1),
                    BitField("ClassB", 0, 1),
                    BitFieldLenField("FOptsLen", 0, 4)]
-
-    def extract_padding(self, p):
-        return "", p
 
 
 class DevAddrElem(Packet):
