@@ -13,7 +13,7 @@ from __future__ import absolute_import
 import struct
 
 
-from scapy.compat import chb, orb
+from scapy.compat import chb, orb, bytes_encode
 from scapy.error import warning
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, FieldLenField, FieldListField, FlagsField, IntField, \
@@ -167,18 +167,22 @@ class TBCDByteField(StrFixedLenField):
             if left == 0xf:
                 ret.append(TBCD_TO_ASCII[right:right + 1])
             else:
-                ret += [TBCD_TO_ASCII[right:right + 1], TBCD_TO_ASCII[left:left + 1]]  # noqa: E501
+                ret += [
+                    TBCD_TO_ASCII[right:right + 1],
+                    TBCD_TO_ASCII[left:left + 1]
+                ]
         return b"".join(ret)
 
     def i2m(self, pkt, val):
-        val = str(val)
-        ret_string = ""
+        if not isinstance(val, bytes):
+            val = bytes_encode(val)
+        ret_string = b""
         for i in range(0, len(val), 2):
             tmp = val[i:i + 2]
             if len(tmp) == 2:
-                ret_string += chr(int(tmp[1] + tmp[0], 16))
+                ret_string += chb(int(tmp[::-1], 16))
             else:
-                ret_string += chr(int("F" + tmp[0], 16))
+                ret_string += chb(int(b"F" + tmp[:1], 16))
         return ret_string
 
 
@@ -495,7 +499,9 @@ class APNStrLenField(StrLenField):
         return s
 
     def i2m(self, pkt, s):
-        s = b"".join(chb(len(x)) + x for x in s.split("."))
+        if not isinstance(s, bytes):
+            s = bytes_encode(s)
+        s = b"".join(chb(len(x)) + x for x in s.split(b"."))
         return s
 
 
