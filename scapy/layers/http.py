@@ -551,8 +551,11 @@ class HTTP(Packet):
                 # It's not Content-Length based. It could be chunked
                 encodings = http_packet[HTTP].payload._get_encodings()
                 chunked = ("chunked" in encodings)
-                if chunked:
+                # HTTP Requests can be that do not have any content, end with a double CRLF
+                if chunked or isinstance(http_packet.payload, HTTPRequest):
                     detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
+                    # If it's a HTTPRequest, we still can't be sure there's no content, we want the data to be assessed again
+                    metadata["detect_unknown"] = isinstance(http_packet.payload, HTTPRequest)
                 else:
                     # If neither Content-Length nor chunked is specified,
                     # it means it's the TCP packet that contains the data,
