@@ -629,7 +629,7 @@ CAUSE_VALUES = {
 class IE_Cause(gtp.IE_Base):
     name = "IE Cause"
     fields_desc = [ByteEnumField("ietype", 2, IEType),
-                   ShortField("length", 6),
+                   ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    ByteEnumField("Cause", 1, CAUSE_VALUES),
@@ -642,7 +642,7 @@ class IE_Cause(gtp.IE_Base):
 class IE_RecoveryRestart(gtp.IE_Base):
     name = "IE Recovery Restart"
     fields_desc = [ByteEnumField("ietype", 3, IEType),
-                   ShortField("length", 5),
+                   ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    ByteField("restart_counter", 0)]
@@ -662,7 +662,7 @@ class IE_APN(gtp.IE_Base):
 class IE_AMBR(gtp.IE_Base):
     name = "IE AMBR"
     fields_desc = [ByteEnumField("ietype", 72, IEType),
-                   ShortField("length", 12),
+                   ShortField("length", 8),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    IntField("AMBR_Uplink", 0),
@@ -672,8 +672,7 @@ class IE_AMBR(gtp.IE_Base):
 class IE_MSISDN(gtp.IE_Base):
     name = "IE MSISDN"
     fields_desc = [ByteEnumField("ietype", 76, IEType),
-                   FieldLenField("length", None, length_of="digits",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    gtp.TBCDByteField("digits", "33123456789",
@@ -737,53 +736,69 @@ class IE_Indication(gtp.IE_Base):
         ConditionalField(
         BitField("CPSR", 0, 1), lambda pkt: pkt.length > 3),
         ConditionalField(
-        BitField("NSI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("NSI", 0, 1), lambda pkt: pkt.length > 4),
         ConditionalField(
-        BitField("UASI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("UASI", 0, 1), lambda pkt: pkt.length > 4),
         ConditionalField(
-        BitField("DTCI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("DTCI", 0, 1), lambda pkt: pkt.length > 4),
         ConditionalField(
-        BitField("BDWI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("BDWI", 0, 1), lambda pkt: pkt.length > 4),
         ConditionalField(
-        BitField("PSCI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("PSCI", 0, 1), lambda pkt: pkt.length > 4),
         ConditionalField(
-        BitField("PCRI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("PCRI", 0, 1), lambda pkt: pkt.length > 4),
         ConditionalField(
-        BitField("AOSI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("AOSI", 0, 1), lambda pkt: pkt.length > 4),
         ConditionalField(
-        BitField("AOPI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("AOPI", 0, 1), lambda pkt: pkt.length > 4),
         ConditionalField(
-        BitField("ROAAI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("ROAAI", 0, 1), lambda pkt: pkt.length > 5),
         ConditionalField(
-        BitField("EPCOSI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("EPCOSI", 0, 1), lambda pkt: pkt.length > 5),
         ConditionalField(
-        BitField("CPOPCI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("CPOPCI", 0, 1), lambda pkt: pkt.length > 5),
         ConditionalField(
-        BitField("PMTSMI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("PMTSMI", 0, 1), lambda pkt: pkt.length > 5),
         ConditionalField(
-        BitField("S11TF", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("S11TF", 0, 1), lambda pkt: pkt.length > 5),
         ConditionalField(
-        BitField("PNSI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("PNSI", 0, 1), lambda pkt: pkt.length > 5),
         ConditionalField(
-        BitField("UNACCSI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("UNACCSI", 0, 1), lambda pkt: pkt.length > 5),
         ConditionalField(
-        BitField("WPMSI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("WPMSI", 0, 1), lambda pkt: pkt.length > 5),
         ConditionalField(
-        BitField("5GSNN26", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("5GSNN26", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
-        BitField("REPREFI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("REPREFI", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
-        BitField("5GSIWKI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("5GSIWKI", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
-        BitField("EEVRSI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("EEVRSI", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
-        BitField("LTEMUI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("LTEMUI", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
-        BitField("LTEMPI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("LTEMPI", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
-        BitField("ENBCRSI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("ENBCRSI", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
-        BitField("TSPCMI", 0, 1), lambda pkt: pkt.length > 3),
+        BitField("TSPCMI", 0, 1), lambda pkt: pkt.length > 6),
+        ConditionalField(
+        BitField("Spare", 0, 1), lambda pkt: pkt.length > 7),
+        ConditionalField(
+        BitField("Spare", 0, 1), lambda pkt: pkt.length > 7),
+        ConditionalField(
+        BitField("Spare", 0, 1), lambda pkt: pkt.length > 7),
+        ConditionalField(
+        BitField("N5GNMI", 0, 1), lambda pkt: pkt.length > 7),
+        ConditionalField(
+        BitField("5GCNRS", 0, 1), lambda pkt: pkt.length > 7),
+        ConditionalField(
+        BitField("5GCNRI", 0, 1), lambda pkt: pkt.length > 7),
+        ConditionalField(
+        BitField("5SRHOI", 0, 1), lambda pkt: pkt.length > 7),
+        ConditionalField(
+        BitField("ETHPDN", 0, 1), lambda pkt: pkt.length > 7),
 
     ]
 
