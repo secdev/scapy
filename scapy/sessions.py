@@ -244,7 +244,8 @@ class TCPSession(IPSession):
         if pkt[TCP].flags.F or pkt[TCP].flags.R:
             metadata["tcp_end"] = True
 
-        # In case any app layer protocols requires it, allow them to inspect TCP PSH flag
+        # In case any app layer protocol requires it,
+        # allow the parser to inspect TCP PSH flag
         if pkt[TCP].flags.P:
             metadata["tcp_psh"] = True
         # XXX TODO: check that no empty space is missing in the buffer.
