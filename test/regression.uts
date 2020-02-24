@@ -7396,6 +7396,21 @@ pkts[2].show()
 assert HTTPResponse in pkts[2]
 assert pkts[2].load == b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><head><title></title></head><body style="background-color: transparent"><img src=\'https://pixel.mathtag.com/event/img?mt_id=151466&mt_adid=106144&v1=&v2=&v3=&s1=&s2=&s3=&ord=2047279765\' width=\'1\' height=\'1\' /><img src="https://adservice.google.com/ddm/fls/z/src=3656617;type=hpvisit;cat=homep198;u2=;u6=;u5=;u4=;u3=;u9=;u10=;u7=;u13=;u14=;u11=;u17=;u18=unknown;u20=;ord=1956603866265.9536"/></body></html>'
 
+= HTTP PSH bug fix
+
+tmp = "/test/pcaps/http_tcp_psh.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+pkts = sniff(offline=filename, session=TCPSession)
+
+assert len(pkts) == 15
+# Verify a split header exists in the packet
+assert pkts[5].User_Agent == b'example_user_agent'
+
+# Verify all of the resonse data exists in the packet
+assert int(pkts[7][HTTP].Content_Length.decode()) == len(pkts[7][Raw].load)
+
 = HTTP build
 
 pkt = TCP()/HTTP()/HTTPRequest(Method=b'GET', Path=b'/download', Http_Version=b'HTTP/1.1', Accept=b'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', Accept_Encoding=b'gzip, deflate', Accept_Language=b'en-US,en;q=0.5', Cache_Control=b'max-age=0', Connection=b'keep-alive', Host=b'scapy.net', User_Agent=b'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0')
