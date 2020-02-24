@@ -575,8 +575,8 @@ class HTTP(Packet):
                     # to handle requests with a body (POST)
                     metadata["detect_unknown"] = True
                 elif is_response and http_packet.Status_Code == b"101":
-                    # If it's an upgrade response, it may also hold a 
-                    # different protocol data. 
+                    # If it's an upgrade response, it may also hold a
+                    # different protocol data.
                     # make sure all headers are present
                     detect_end = lambda dat: dat.find(b"\r\n\r\n")
                 else:
