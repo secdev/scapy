@@ -480,7 +480,6 @@ class IE_UCI(gtp.IE_Base):
                    BitField("SPARE", 0, 4),
                    BitField("LCSG", 0, 1),
                    BitField("CMI", 0, 1)]
-    
 
 class IE_FTEID(gtp.IE_Base):
     name = "IE F-TEID"
