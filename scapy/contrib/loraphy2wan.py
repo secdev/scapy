@@ -46,6 +46,7 @@ class FCtrl_DownLink(Packet):
                    BitField("FPending", 0, 1),
                    BitFieldLenField("FOptsLen", 0, 4)]
 
+    # pylint: disable=R0201
     def extract_padding(self, p):
         return "", p
 
@@ -58,6 +59,7 @@ class FCtrl_UpLink(Packet):
                    BitField("ClassB", 0, 1),
                    BitFieldLenField("FOptsLen", 0, 4)]
 
+    # pylint: disable=R0201
     def extract_padding(self, p):
         return "", p
 
@@ -447,6 +449,7 @@ class MACCommand_up(Packet):
                                                     length_from=lambda pkt:1),
                                     lambda pkt:(pkt.CID == 0x0F))]
 
+    # pylint: disable=R0201
     def extract_padding(self, p):
         return "", p
 
@@ -600,6 +603,7 @@ class Join_Accept(Packet):
             Join_Accept.dcflist = True
         super(Join_Accept, self).__init__(packet)
 
+    # pylint: disable=R0201
     def extract_padding(self, p):
         return "", p
 
