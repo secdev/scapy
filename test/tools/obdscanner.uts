@@ -61,10 +61,9 @@ else:
 
 
 if "python_can" in CANSocket.__module__:
-    import can as python_can
-    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000))
-    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
-    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000), timeout=0.01)
+    new_can_socket = lambda iface: CANSocket(bustype='socketcan', channel=iface, bitrate=250000)
+    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, bitrate=250000, timeout=0.01)
+    new_can_socket1 = lambda: CANSocket(bustype='socketcan', channel=iface1, bitrate=250000, timeout=0.01)
     can_socket_string = "-i socketcan -c %s -b 250000" % iface0
 else:
     new_can_socket = lambda iface: CANSocket(iface)

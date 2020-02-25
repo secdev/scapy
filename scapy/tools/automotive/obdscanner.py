@@ -123,24 +123,19 @@ def main():
         print("The timeout must be a positive value")
         sys.exit(-1)
 
-    if PYTHON_CAN:
-        import can
-        try:
-            can.rc['interface'] = interface
-            can.rc['channel'] = channel
-            can.rc['bitrate'] = bitrate
-            scan_interface = can.interface.Bus()
-        except Exception as e:
-            usage()
-            print("\nCheck python-can interface assignment.\n",
-                  file=sys.stderr)
-            print(e, file=sys.stderr)
-            sys.exit(-1)
-    else:
-        scan_interface = channel
-
+    csock = None
     try:
-        csock = CANSocket(iface=scan_interface)
+        if PYTHON_CAN:
+            csock = CANSocket(bustype='socketcan', channel=channel,
+                              bitrate=bitrate,)
+        else:
+            csock = CANSocket(channel)
+
+        with ISOTPSocket(csock, source, destination, basecls=OBD,
+                         padding=True) as isock:
+            signal.signal(signal.SIGINT, signal_handler)
+            obd_scan(isock, timeout, supported, unsupported, verbose)
+
     except Exception as e:
         usage()
         print("\nSocket couldn't be created. Check your arguments.\n",
@@ -148,12 +143,9 @@ def main():
         print(e, file=sys.stderr)
         sys.exit(-1)
 
-    with ISOTPSocket(csock, source, destination, basecls=OBD, padding=True)\
-            as isock:
-        signal.signal(signal.SIGINT, signal_handler)
-        obd_scan(isock, timeout, supported, unsupported, verbose)
-
-    csock.close()
+    finally:
+        if csock is not None:
+            csock.close()
 
 
 if __name__ == '__main__':
