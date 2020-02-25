@@ -26,7 +26,8 @@ from scapy.fields import BitField, ByteEnumField, ByteField, \
     ConditionalField, EnumField, FieldLenField, IntField, LEIntField, \
     LELongField, LEShortField, MACField, PacketListField, ShortField, \
     StrFixedLenField, StrLenField, X3BytesField, XByteField, XIntField, \
-    XLongField, XShortField, LEShortEnumField
+    XLongField, XShortField, LEShortEnumField, BitFieldLenField, \
+    LEX3BytesField, XBitField, BitEnumField, XLEIntField, StrField
 
 ###############################################################################
 # Followed Specifications                                                     #
@@ -45,6 +46,9 @@ class FCtrl_DownLink(Packet):
                    BitField("FPending", 0, 1),
                    BitFieldLenField("FOptsLen", 0, 4)]
 
+    def extract_padding(self, p):
+        return "", p
+
 
 class FCtrl_UpLink(Packet):
     name = "FCtrl_UpLink"
@@ -54,6 +58,8 @@ class FCtrl_UpLink(Packet):
                    BitField("ClassB", 0, 1),
                    BitFieldLenField("FOptsLen", 0, 4)]
 
+    def extract_padding(self, p):
+        return "", p
 
 class DevAddrElem(Packet):
     name = "DevAddrElem"
@@ -69,13 +75,13 @@ CIDs_up = {0x01: "ResetInd",
            0x06: "DevStatusReq",
            0x07: "NewChannelReq",
            0x08: "RXTimingSetupReq",
-           0x09: "TxParamSetupReq", # LoRa 1.1 specs from here
+           0x09: "TxParamSetupReq", # LoRa 1.1 specs
            0x0A: "DlChannelReq",
            0x0B: "RekeyInd",
            0x0C: "ADRParamSetupReq",
            0x0D: "DeviceTimeReq",
            0x0E: "ForceRejoinReq",
-           0x0F: "RejoinParamSetupReq"} # end of LoRa 1.1 specs
+           0x0F: "RejoinParamSetupReq"} # end of LoRa 1.1 specs
 
 
 CIDs_down = {0x01: "ResetConf",
@@ -86,12 +92,12 @@ CIDs_down = {0x01: "ResetConf",
              0x06: "DevStatusAns",
              0x07: "NewChannelAns",
              0x08: "RXTimingSetupAns",
-             0x09: "TxParamSetupAns", # LoRa 1.1 specs from here
+             0x09: "TxParamSetupAns", # LoRa 1.1 specs here
              0x0A: "DlChannelAns",
              0x0B: "RekeyConf",
              0x0C: "ADRParamSetupAns",
              0x0D: "DeviceTimeAns",
-             0x0F: "RejoinParamSetupAns"} # end of LoRa 1.1 specs
+             0x0F: "RejoinParamSetupAns"} # end of LoRa 1.1 specs
 
 
 class ResetInd(Packet):
@@ -255,8 +261,7 @@ class RXTimingSetupAns(Packet):
     fields_desc = []
 
 
-# Specific commands for LoRa 1.1 here
-
+# Specific commands for LoRa 1.1 here
 
 MaxEIRPs = {0: "8 dbm",
             1: "10 dbm",
@@ -442,6 +447,9 @@ class MACCommand_up(Packet):
                                                     length_from=lambda pkt:1),
                                     lambda pkt:(pkt.CID == 0x0F))]
 
+    def extract_padding(self, p):
+        return "", p
+
 
 class MACCommand_down(Packet):
     name = "MACCommand_down"
@@ -587,18 +595,20 @@ class Join_Accept(Packet):
                        ConditionalField(StrFixedLenField("CFList", b"\x00" * 16 , 16),
                                         lambda pkt:(Join_Accept.dcflist is True))]
 
-    def __init__(self, packet=""): # CFlist calculated with on rest packet len
+    def __init__(self, packet=""): # CFList calculated with rest of packet len
         if len(packet) > 18:
             Join_Accept.dcflist = True
         super(Join_Accept, self).__init__(packet)
 
+    def extract_padding(self, p):
+        return "", p
 
 RejoinType = {0: "NetID+DevEUI",
               1: "JoinEUI+DevEUI",
               2: "NetID+DevEUI"}
 
 
-class RejoinReq(Packet): # LoRa 1.1 specs
+class RejoinReq(Packet): # LoRa 1.1 specs
     name = "RejoinReq"
     fields_desc = [ByteField("Type", 0),
                    X3BytesField("NetID", 0),
@@ -608,10 +618,10 @@ class RejoinReq(Packet): # LoRa 1.1 specs
 
 class FRMPayload(Packet):
     name = "FRMPayload"
-    fields_desc = [ConditionalField(StrField("DataPayload", 0, remain=4), # Downlink
+    fields_desc = [ConditionalField(StrField("DataPayload", 0, remain=4), # Downlink
                                     lambda pkt:(pkt.MType == 0b101
                                         or pkt.MType == 0b011)),
-                   ConditionalField(StrField("DataPayload", 0, remain=6), # Uplink
+                   ConditionalField(StrField("DataPayload", 0, remain=6), # Uplink
                                     lambda pkt:(pkt.MType == 0b100
                                         or pkt.MType == 0b010)),
                    ConditionalField(PacketListField("Join_Request_Field", b"",
@@ -649,7 +659,7 @@ MTypes = {0b000: "Join-request",
           0b111: "Proprietary"}
 
 
-class MHDR(Packet): # same for 1.0 and 1.1
+class MHDR(Packet): # Same for 1.0 as for 1.1
     name = "MHDR"
     fields_desc = [BitEnumField("MType", 0b000, 3, MTypes),
                    BitField("RFU", 0b000, 3),
@@ -667,7 +677,7 @@ class PHYPayload(Packet):
 
 class LoRa(Packet): # default frame (unclear specs => taken from https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5677147/)
     name = "LoRa"
-    version = "1.1" # default version to parse
+    version = "1.1" # default version to parse
     encrypted = True
     fields_desc = [XBitField("Preamble", 0, 4),
                    XBitField("PHDR", 0, 16),
