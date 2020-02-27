@@ -97,7 +97,7 @@ The ``/`` operator has been used as a composition operator between two layers. W
 .. image:: graphics/fieldsmanagement.png
    :scale: 90
 
-Each packet can be build or dissected (note: in Python ``_`` (underscore) is the latest result)::
+Each packet can be built or dissected (note: in Python ``_`` (underscore) is the latest result)::
 
     >>> raw(IP())
     'E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01'
