@@ -586,14 +586,14 @@ class Join_Accept(Packet):
                    ConditionalField(StrFixedLenField("CFList", b"\x00" * 16, 16),  # noqa: E501
                                     lambda pkt:(Join_Accept.dcflist is True))]
 
+    # pylint: disable=R0201
+    def extract_padding(self, p):
+        return "", p
+
     def __init__(self, packet=""):  # CFList calculated with rest of packet len
         if len(packet) > 18:
             Join_Accept.dcflist = True
         super(Join_Accept, self).__init__(packet)
-
-    # pylint: disable=R0201
-    def extract_padding(self, p):
-        return "", p
 
 
 RejoinType = {0: "NetID+DevEUI",
