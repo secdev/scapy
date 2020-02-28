@@ -531,7 +531,10 @@ class IE_GSNAddress(IE_Base):
     name = "GSN Address"
     fields_desc = [ByteEnumField("ietype", 133, IEType),
                    ShortField("length", 4),
-                   IPField("address", RandIP())]
+                   ConditionalField(IPField("ipv4_address", RandIP()),
+                                    lambda pkt: pkt.length == 4),
+                   ConditionalField(IP6Field("ipv6_address", '::1'),
+                                    lambda pkt: pkt.length == 16)]
 
 
 class IE_MSInternationalNumber(IE_Base):
@@ -939,7 +942,7 @@ class GTPPDUNotificationRequest(Packet):
                                                IE_TEICP(TEICI=RandInt()),
                                                IE_EndUserAddress(PDPTypeNumber=0x21),  # noqa: E501
                                                IE_AccessPointName(),
-                                               IE_GSNAddress(address="127.0.0.1"),  # noqa: E501
+                                               IE_GSNAddress(ipv4_address="127.0.0.1"),  # noqa: E501
                                                ], IE_Dispatcher)]
 
 
