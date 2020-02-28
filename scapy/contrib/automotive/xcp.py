@@ -760,7 +760,7 @@ class DEFAULT_DTO(Packet):
     ]
 
 
-class CONNECT_DTO(Packet):
+class POS_CONNECT_DTO(Packet):
     resource = {}
     comm_mode_basic = {}
     fields_desc = [
@@ -774,7 +774,7 @@ class CONNECT_DTO(Packet):
     ]
 
 
-class GET_STATUS_DTO(Packet):
+class POS_GET_STATUS_DTO(Packet):
     pass
 
 
@@ -795,20 +795,31 @@ class DTO(Packet):
         Packet.__init__(self, *args, **kwargs)
 
     @staticmethod
-    def get_dto_cls(sent_cmd):
+    def get_dto_cls(sent_cmd, response_code):
         try:
-            return {
-                0xFF: CONNECT_DTO,
-                0xFD: GET_STATUS_DTO
-            }[sent_cmd]
+            response = {0xFF: 'POSITIVE', 0xFE: 'NEGATIVE'}[response_code]
         except KeyError:
+            return DEFAULT_DTO
+        if response == 'POSITIVE':
+            try:
+                return {
+                    0xFF: POS_CONNECT_DTO,
+                    0xFD: POS_GET_STATUS_DTO
+                }[sent_cmd]
+            except KeyError:
+                return DEFAULT_DTO
+        else:  # negative
             return DEFAULT_DTO
 
     def answers(self, other):
         if not hasattr(other, "cmd"):
             return 0
-
-        payload_cls = self.get_dto_cls(other.cmd)
+        try:
+            response_code = self.load[0]
+        except (KeyError, TypeError) as e:
+            print(e.msg)
+            response_code = 0x00
+        payload_cls = self.get_dto_cls(other.cmd, response_code)
         if self.payload_cls != payload_cls:
             data = bytes(self.load)
             self.remove_payload()
@@ -911,7 +922,7 @@ class XCP_SCANNER():
             self.__known_ids.append(recv.identifier)
             return
         try:
-            recv_cto = CONNECT_DTO(bytes(recv.payload))
+            recv_cto = POS_CONNECT_DTO(bytes(recv.payload))
         except IOError:
             self.__known_ids.append(recv.identifier)
             return
