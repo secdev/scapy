@@ -484,6 +484,7 @@ class IE_UCI(gtp.IE_Base):
                    BitField("LCSG", 0, 1),
                    BitField("CMI", 0, 1)]
 
+
 class IE_FTEID(gtp.IE_Base):
     name = "IE F-TEID"
     fields_desc = [ByteEnumField("ietype", 87, IEType),
@@ -681,7 +682,8 @@ class IE_BearerTFT(gtp.IE_Base):
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   StrLenField("Bearer TFT", "", length_from=lambda x: x.length)]
+                   StrLenField("Bearer TFT", "",
+                               length_from=lambda x: x.length)]
 
 
 class IE_AMBR(gtp.IE_Base):
