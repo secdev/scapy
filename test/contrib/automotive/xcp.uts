@@ -106,7 +106,7 @@ load_contrib("automotive.xcp")
 sock1 = new_can_socket0()
 sock2 = new_can_socket0()
 
-sock1.basecls = CAN_XCP 
+sock1.basecls = XCP 
 
 
 def ecu():
@@ -114,13 +114,13 @@ def ecu():
     print(pkts)
     if len(pkts) == 1:
         a = CAN(b'\x00\x00\x07\x00\x08\x00\x00\x00\xFF\xFF\xAA\x1A\x5B\xC3\x33\x06')
-        #a = CAN_XCP(identifier=0x700) / DTO(packet_id="POSITIVE") / CONNECT_DTO(b'\xff\xAA\x1a\x5b\xc3\x33\x06')
+        #a = XCP(identifier=0x700) / DTO(packet_id="POSITIVE") / CONNECT_DTO(b'\xff\xAA\x1a\x5b\xc3\x33\x06')
         sock2.send(a)
 
 thread = threading.Thread(target=ecu)
 thread.start()
 time.sleep(0.1)
-pkt = CAN_XCP(identifier=0x700) / CTO(cmd="CONNECT") / XCP_CONNECT(connection_mode="NORMAL")
+pkt = XCP(identifier=0x700) / CTO(cmd="CONNECT") / XCP_CONNECT(connection_mode="NORMAL")
 ans = sock1.sr1(pkt, timeout=3)
 thread.join()
 
