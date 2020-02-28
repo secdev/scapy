@@ -22,11 +22,12 @@
 
 from __future__ import absolute_import
 
+from scapy.packet import Packet
 from scapy.fields import BitField, ByteEnumField, ByteField, \
     ConditionalField, IntField, LEShortField, PacketListField, \
     StrFixedLenField, X3BytesField, XByteField, XIntField, \
     XShortField, BitFieldLenField, LEX3BytesField, XBitField, \
-    BitEnumField, XLEIntField, StrField, Packet
+    BitEnumField, XLEIntField, StrField
 
 
 class FCtrl_DownLink(Packet):
@@ -348,7 +349,7 @@ class DeviceTimeAns(Packet):
 
 
 class ForceRejoinReq(Packet):
-    name ="ForceRejoinReq"
+    name = "ForceRejoinReq"
     fields_desc = [BitField("RFU", 0, 2),
                    BitField("Period", 0, 3),
                    BitField("Max_Retries", 0, 3),
@@ -407,7 +408,7 @@ class MACCommand_up(Packet):
                                                     RXTimingSetupReq,
                                                     length_from=lambda pkt:1),
                                     lambda pkt:(pkt.CID == 0x08)),
-                   ConditionalField(PacketListField("TxParamSetup", b"",  # specific to 1.1 from here
+                   ConditionalField(PacketListField("TxParamSetup", b"",  # specific to 1.1 from here  # noqa: E501
                                                     TxParamSetupReq,
                                                     length_from=lambda pkt:1),
                                     lambda pkt:(pkt.CID == 0x09)),
@@ -507,15 +508,15 @@ class FOpts(Packet):
     fields_desc = [ConditionalField(PacketListField("FOpts_up", b"",
                                                     MACCommand_up,  # piggybacked MAC Command for uplink  # noqa: E501
                                                     length_from=lambda pkt:pkt.FCtrl[0].FOptsLen),  # noqa: E501
-                                    lambda pkt:(pkt.FCtrl[0].FOptsLen > 0
-                                                and pkt.MType & 0b1 == 0
-                                                and pkt.MType >= 0b010)),
+                                    lambda pkt:(pkt.FCtrl[0].FOptsLen > 0 and
+                                                pkt.MType & 0b1 == 0 and
+                                                pkt.MType >= 0b010)),
                    ConditionalField(PacketListField("FOpts_down", b"",
                                                     MACCommand_down,  # piggybacked MAC Command for downlink  # noqa: E501
                                                     length_from=lambda pkt:pkt.FCtrl[0].FOptsLen),  # noqa: E501
-                                    lambda pkt:(pkt.FCtrl[0].FOptsLen > 0
-                                                and pkt.MType & 0b1 == 1
-                                                and pkt.MType <= 0b101))]
+                                    lambda pkt:(pkt.FCtrl[0].FOptsLen > 0 and
+                                                pkt.MType & 0b1 == 1 and
+                                                pkt.MType <= 0b101))]
 
 
 def FOptsShow(pkt):
@@ -533,21 +534,21 @@ class FHDR(Packet):
     name = "FHDR"
     fields_desc = [ConditionalField(PacketListField("DevAddr", b"", DevAddrElem,  # noqa: E501
                                                     length_from=lambda pkt:4),
-                                    lambda pkt:(pkt.MType >= 0b010
-                                                and pkt.MType <= 0b101)),
+                                    lambda pkt:(pkt.MType >= 0b010 and
+                                                pkt.MType <= 0b101)),
                    ConditionalField(PacketListField("FCtrl", b"",
                                                     FCtrl_DownLink,
                                                     length_from=lambda pkt:1),
-                                    lambda pkt:(pkt.MType & 0b1 == 1
-                                                and pkt.MType <= 0b101)),
+                                    lambda pkt:(pkt.MType & 0b1 == 1 and
+                                                pkt.MType <= 0b101)),
                    ConditionalField(PacketListField("FCtrl", b"",
                                                     FCtrl_UpLink,
                                                     length_from=lambda pkt:1),
-                                    lambda pkt:(pkt.MType & 0b1 == 0
-                                                and pkt.MType >= 0b010)),
+                                    lambda pkt:(pkt.MType & 0b1 == 0 and
+                                                pkt.MType >= 0b010)),
                    ConditionalField(LEShortField("FCnt", 0),
-                                    lambda pkt:(pkt.MType >= 0b010
-                                                and pkt.MType <= 0b101)),
+                                    lambda pkt:(pkt.MType >= 0b010 and
+                                                pkt.MType <= 0b101)),
                    ConditionalField(PacketListField("FOpts_up", b"",
                                                     MACCommand_up,
                                                     length_from=lambda pkt:pkt.FCtrl[0].FOptsLen),  # noqa: E501
@@ -582,7 +583,7 @@ class Join_Accept(Packet):
                    XLEIntField("DevAddr", 0),
                    DLsettings,
                    XByteField("RxDelay", 0),
-                   ConditionalField(StrFixedLenField("CFList", b"\x00" * 16 , 16),  # noqa: E501
+                   ConditionalField(StrFixedLenField("CFList", b"\x00" * 16, 16),  # noqa: E501
                                     lambda pkt:(Join_Accept.dcflist is True))]
 
     def __init__(self, packet=""):  # CFList calculated with rest of packet len
@@ -593,6 +594,7 @@ class Join_Accept(Packet):
     # pylint: disable=R0201
     def extract_padding(self, p):
         return "", p
+
 
 RejoinType = {0: "NetID+DevEUI",
               1: "JoinEUI+DevEUI",
@@ -610,11 +612,11 @@ class RejoinReq(Packet):  # LoRa 1.1 specs
 class FRMPayload(Packet):
     name = "FRMPayload"
     fields_desc = [ConditionalField(StrField("DataPayload", 0, remain=4),  # Downlink  # noqa: E501
-                                    lambda pkt:(pkt.MType == 0b101
-                                        or pkt.MType == 0b011)),
+                                    lambda pkt:(pkt.MType == 0b101 or
+                                                pkt.MType == 0b011)),
                    ConditionalField(StrField("DataPayload", 0, remain=6),  # Uplink  # noqa: E501
-                                    lambda pkt:(pkt.MType == 0b100
-                                        or pkt.MType == 0b010)),
+                                    lambda pkt:(pkt.MType == 0b100 or
+                                                pkt.MType == 0b010)),
                    ConditionalField(PacketListField("Join_Request_Field", b"",
                                                     Join_Request,
                                                     length_from=lambda pkt:18),
@@ -622,11 +624,11 @@ class FRMPayload(Packet):
                    ConditionalField(PacketListField("Join_Accept_Field", b"",
                                                     Join_Accept,
                                                     count_from=lambda pkt:1),
-                                    lambda pkt:(pkt.MType == 0b001
-                                        and LoRa.encrypted is False)),
+                                    lambda pkt:(pkt.MType == 0b001 and
+                                                LoRa.encrypted is False)),
                    ConditionalField(StrField("Join_Accept_Encrypted", 0),
                                     lambda pkt:(pkt.MType == 0b001 and LoRa.encrypted is True)),  # noqa: E501
-                   ConditionalField(PacketListField("ReJoin_Request_Field", b"",
+                   ConditionalField(PacketListField("ReJoin_Request_Field", b"",  # noqa: E501
                                                     RejoinReq,
                                                     length_from=lambda pkt:14),
                                     lambda pkt:(pkt.MType == 0b111))]
@@ -636,7 +638,8 @@ class MACPayload(Packet):
     name = "MACPayload"
     fields_desc = [FHDR,
                    ConditionalField(ByteEnumField("FPort", 0, FPorts),
-                                    lambda pkt:(pkt.MType >= 0b010 and pkt.MType <= 0b101)),  # noqa: E501
+                                    lambda pkt:(pkt.MType >= 0b010 and
+                                                pkt.MType <= 0b101)),
                    FRMPayload]
 
 
@@ -662,8 +665,8 @@ class PHYPayload(Packet):
     fields_desc = [MHDR,
                    MACPayload,
                    ConditionalField(XIntField("MIC", 0),
-                                    lambda pkt:(pkt.MType != 0b001
-                                        or LoRa.encrypted is False))]
+                                    lambda pkt:(pkt.MType != 0b001 or
+                                                LoRa.encrypted is False))]
 
 
 class LoRa(Packet):  # default frame (unclear specs => taken from https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5677147/)  # noqa: E501
