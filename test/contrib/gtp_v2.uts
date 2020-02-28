@@ -228,6 +228,26 @@ ie.CSG_ID == 22 and ie.AccessMode == 0 and ie.LCSG == 1 and ie.CMI == 0 and ie.M
 ie = IE_UCI(ietype='UCI', length=8, CR_flag=0, instance=0, MCC=b'123', MNC=b'45', SPARE=0, CSG_ID=22, AccessMode=0, LCSG=1, CMI=0)
 ie.ietype == 145 and ie.CSG_ID == 22 and ie.AccessMode == 0 and ie.LCSG == 1 and ie.CMI == 0 and ie.MCC == b'123' and ie.MNC == b'45'
 
+= IE_BearerFlags, dissection
+h = "0026f126c100000c29b131dd81004d040800450000d8a6010000401118680a2180350a212735084b138800c47f8248210011000023f2000001005d006200610001000a"
+gtp = Ether(hex_bytes(h))
+ie = gtp.IE_list[0].IE_list[0]
+ie.ASI == 1 and ie.Vind == 0 and ie.VB == 1 and ie.PPC == 0
+
+= IE_BearerFlags, basic instantiation
+ie = IE_BearerFlags(ietype='Bearer Flags', length=1, CR_flag=0, instance=0, SPARE=0, ASI=1, Vind=0, VB=1, PPC=0)
+ie.ietype == 97 and ie.ASI == 1 and ie.Vind == 0 and ie.VB == 1 and ie.PPC == 0
+
+= IE_UPF_SelInd_Flags, dissection
+h = "000c29b131dd0026f126c10081000d04080045000112608940003f111ea60a2127350a2180351388084b00fe0ec44820000d0000000000000100ca00010000"
+gtp = Ether(hex_bytes(h))
+ie = gtp.IE_list[0]
+ie.DCNR == 0
+
+= IE_UPF_SelInd_Flags, basic instantiation
+ie = IE_UPF_SelInd_Flags(ietype='UP Function Selection Indication Flags', length=1, CR_flag=0, instance=0, SPARE=0, DCNR=0)
+ie.ietype == 202 and ie.DCNR == 0
+
 = IE_FTEID, dissection
 h = "3333333333332222222222228100a384080045b800ed00000000fc1193430a2a00010a2a00027f61084b00d91c47482000cd140339f4d99f66000100080002081132547600004b000800000000000001e24056000d001832f420303932f4200001e2405300030032f4205200010006570009008a000010927f0000025700090187000010927f00000247001a00196161616161616161616161616161616161616161616161616163000100014f000500017f0000034d0004000808000048000800000017000000a4105d002c0049000100e55700090385000010927f00000250001600580700000000000000000000000000000000000000007200020014005311004c"
 gtp = Ether(hex_bytes(h))

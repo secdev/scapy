@@ -207,11 +207,13 @@ IEType = {1: "IMSI",
              80: "Bearer QoS",
              82: "RAT",
              83: "Serving Network",
+             84: "Bearer TFT",
              86: "ULI",
              87: "F-TEID",
              93: "Bearer Context",
              94: "Charging ID",
              95: "Charging Characteristics",
+             97: "Bearer Flags",
              99: "PDN Type",
              114: "UE Time zone",
              126: "Port Number",
@@ -219,6 +221,7 @@ IEType = {1: "IMSI",
              128: "Selection Mode",
              145: "UCI",
              161: "Max MBR/APN-AMBR (MMBR)",
+             202: "UP Function Selection Indication Flags",
              255: "Private Extension",
           }
 
@@ -507,6 +510,19 @@ class IE_BearerContext(gtp.IE_Base):
                                    length_from=lambda pkt: pkt.length)]
 
 
+class IE_BearerFlags(gtp.IE_Base):
+    name = "IE Bearer Flags"
+    fields_desc = [ByteEnumField("ietype", 97, IEType),
+                   ShortField("length", None),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),                   
+                   BitField("SPARE", 0, 4),
+                   BitField("ASI", 0, 1),
+                   BitField("Vind", 0, 1),
+                   BitField("VB", 0, 1),
+                   BitField("PPC", 0, 1)]
+
+
 class IE_NotImplementedTLV(gtp.IE_Base):
     name = "IE not implemented"
     fields_desc = [ByteEnumField("ietype", 0, IEType),
@@ -656,6 +672,16 @@ class IE_APN(gtp.IE_Base):
                    BitField("instance", 0, 4),
                    gtp.APNStrLenField("APN", "internet",
                                       length_from=lambda x: x.length)]
+
+
+class IE_BearerTFT(gtp.IE_Base):
+    name = "IE Bearer TFT"
+    fields_desc = [ByteEnumField("ietype", 84, IEType),
+                   FieldLenField("length", None, length_of="Bearer TFT",
+                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   StrLenField("Bearer TFT", "", length_from=lambda x: x.length)]
 
 
 class IE_AMBR(gtp.IE_Base):
@@ -1156,12 +1182,22 @@ class IE_SelectionMode(gtp.IE_Base):
 
 class IE_MMBR(gtp.IE_Base):
     name = "IE Max MBR/APN-AMBR (MMBR)"
-    fields_desc = [ByteEnumField("ietype", 72, IEType),
+    fields_desc = [ByteEnumField("ietype", 161, IEType),
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    IntField("uplink_rate", 0),
                    IntField("downlink_rate", 0)]
+
+
+class IE_UPF_SelInd_Flags(gtp.IE_Base):
+    name = "IE UP Function Selection Indication Flags"
+    fields_desc = [ByteEnumField("ietype", 202, IEType),
+                   ShortField("length", 0),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),                   
+                   BitField("SPARE", 0, 7),
+                   BitField("DCNR", 0, 1)]
 
 
 # 3GPP TS 29.274 v16.1.0 section 8.67.
@@ -1194,11 +1230,13 @@ ietypecls = {1: IE_IMSI,
              80: IE_Bearer_QoS,
              82: IE_RAT,
              83: IE_ServingNetwork,
+             84: IE_BearerTFT,
              86: IE_ULI,
              87: IE_FTEID,
              93: IE_BearerContext,
              94: IE_ChargingID,
              95: IE_ChargingCharacteristics,
+             97: IE_BearerFlags,
              99: IE_PDN_type,
              114: IE_UE_Timezone,
              126: IE_Port_Number,
@@ -1206,6 +1244,7 @@ ietypecls = {1: IE_IMSI,
              128: IE_SelectionMode,
              145: IE_UCI,
              161: IE_MMBR,
+             202: IE_UPF_SelInd_Flags,
              255: IE_PrivateExtension}
 
 #
