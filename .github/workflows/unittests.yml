@@ -1,0 +1,63 @@
+name: Scapy unit tests
+
+on: [push, pull_request]
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Install tox
+        run: pip install tox
+      - name: Run flake8 tests
+        run: tox -e flake8
+      - name: Run codespell
+        run: tox -e spell
+      - name: Run twine check
+        run: tox -e twine
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Install tox
+        run: pip install tox
+      - name: Build docs
+        run: tox -e docs
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Install tox
+        run: pip install tox
+      - name: Run mypy
+        run: tox -e mypy
+
+# Github Actions block ICMP. We can still use it for non root tests
+
+#  utscapy:
+#    runs-on: ubuntu-latest
+#    strategy:
+#      matrix:
+#        python: [2.7, pypy2, pypy3, 3.5, 3.6, 3.7, 3.8]
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Setup Python
+#        uses: actions/setup-python@v1
+#        with:
+#          python-version: ${{ matrix.python }}
+#      - name: Install Tox and any other packages
+#        run: ./.config/ghci/install.sh
+#      - name: Run Tox
+#        run: ./.config/ghci/test.sh ${{ matrix.python }} non_root

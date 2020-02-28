@@ -942,6 +942,8 @@ def main():
                 print("### libpcap mode ###")
 
         # Process extras
+        if six.PY3:
+            KW_KO.append("FIXME_py3")
 
         if ANNOTATIONS_MODE:
             try:
