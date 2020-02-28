@@ -753,6 +753,34 @@ class PROGRAM_VERIFY(Packet):
 bind_layers(CTO, PROGRAM_VERIFY, cmd=0xC8)
 
 
+class ERROR_PACKET(Packet):
+    """ Error Packet """
+    error_code = {
+        0x00: "ERR_CMD_SYNCH",
+        0x10: "ERR_CMD_BUSY",
+        0x11: "ERR_DAQ_ACTIVE",
+        0x12: "ERR_PGM_ACTIVE",
+        0x20: "ERR_CMD_UNKNOWN",
+        0x21: "ERR_CMD_SYNTAX",
+        0x22: "ERR_OUT_OF_RANGE",
+        0x23: "ERR_WRITE_PROTECTED",
+        0x24: "ERR_ACCESS_DENIED",
+        0x25: "ERR_ACCESS_LOCKED",
+        0x26: "ERR_PAGE_NOT_VALID",
+        0x27: "ERR_MODE_NOT_VALID",
+        0x28: "ERR_SEGMENT_NOT_VALID",
+        0x29: "ERR_SEQUENCE",
+        0x2A: "ERR_DAQ_CONFIG",
+        0x30: "ERR_MEMORY_OVERFLOW",
+        0x31: "ERR_GENERIC",
+        0x32: "ERR_VERIFY"
+    }
+    fields_desc = [
+        ByteEnumField("error_code", 0, error_code),
+        StrLenField("error_info", 0, length_from=0, max_length=MAX_CTO-1)
+    ]
+
+
 # ##### DTOs #####
 class DEFAULT_DTO(Packet):
     fields_desc = [
@@ -794,10 +822,9 @@ class DTO(Packet):
             del kwargs["payload_cls"]
         Packet.__init__(self, *args, **kwargs)
 
-    @staticmethod
-    def get_dto_cls(sent_cmd, response_code):
+    def get_dto_cls(self, sent_cmd, response_code):
         try:
-            response = {0xFF: 'POSITIVE', 0xFE: 'NEGATIVE'}[response_code]
+            response = self.packet_ids[response_code]
         except KeyError:
             return DEFAULT_DTO
         if response == 'POSITIVE':
