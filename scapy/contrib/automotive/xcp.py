@@ -11,10 +11,14 @@ from scapy.config import LINUX
 from scapy.layers.can import CAN
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ShortField, ByteField,\
-    FlagsField, XBitField, ThreeBytesField, StrFixedLenField
+    FlagsField, XBitField, ThreeBytesField, StrFixedLenField, \
+    StrLenField, IntField
+
+MAX_CTO = 0xffff
+MAX_DTO = 0xffff
 
 
-class CAN_XCP(Packet):
+class XCP(Packet):
     name = "Universal calibration and measurement protocol"
     fields_desc = [
         FlagsField('flags', 0, 3, ['error',
@@ -97,7 +101,7 @@ bind_layers(CTO, XCP_CONNECT, cmd=0xFF)
 
 
 class DISCONNECT(Packet):
-    # DISCONNECT has not data
+    # DISCONNECT has no data
     pass
 
 
@@ -105,7 +109,7 @@ bind_layers(CTO, DISCONNECT, cmd=0xFE)
 
 
 class GET_STATUS(Packet):
-    # GET_STATU has not data
+    # GET_STATU has no data
     pass
 
 
@@ -113,8 +117,8 @@ bind_layers(CTO, GET_STATUS, cmd=0xFD)
 
 
 class SYNCH(Packet):
+    # SYNCH has no data
     pass
-    # TODO implement SYNCH
 
 
 bind_layers(CTO, SYNCH, cmd=0xFC)
@@ -129,80 +133,116 @@ bind_layers(CTO, GET_COMM_MODE_INFO, cmd=0xFB)
 
 
 class GET_ID(Packet):
-    # TODO Implement GET ID from ASAM Standard
-    pass
+    """Get identification from slave """
+    types = {0x00: 'ASCII',
+             0x01: "file_name_without_path_and_extension",
+             0x02: "file_name_with_path_and_extension",
+             0x03: "URL",
+             0x04: "File"
+             }
+    fields_desc = [ByteEnumField("identification_type", 0x00, types)]
 
 
 bind_layers(CTO, GET_ID, cmd=0xFA)
 
 
 class SET_REQUEST(Packet):
-    # TODO Implement SET_REQUEST from ASAM Standard
-    pass
+    """Request to save to non-volatile memory"""
+    fields_desc = [
+        XBitField("store_cal_req", 0, 1),
+        XBitField("reserved1", 0, 1),
+        XBitField("store_daq_req", 0, 1),
+        XBitField("clear_daq_req", 0, 1),
+        XBitField("reserved2", 0, 4),
+        ShortField("session_configuration_id", 0x00)
+    ]
 
 
 bind_layers(CTO, SET_REQUEST, cmd=0xF9)
 
 
 class GET_SEED(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Get seed for unlocking a protected resource
+    mode = {0x00: "first", 0x01: "remaining"}
+    res = {0x00: "resource", 0x01: "ignore"}
+    fields_desc = [
+        ByteEnumField("mode", 0, mode),
+        ByteEnumField("resource", 0, res)
+    ]
 
 
 bind_layers(CTO, GET_SEED, cmd=0xF8)
 
 
 class UNLOCK(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Send key for unlocking a protected resource
+    fields_desc = [ByteField("len", 0), StrLenField(0, MAX_CTO) - 1]
 
 
 bind_layers(CTO, UNLOCK, cmd=0xF7)
 
 
 class SET_MTA(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Set Memory Transfer Address in slave
+    fields_desc = [
+        ShortField("Reserved", 0),
+        ByteField("dress_extension", 0),
+        IntField("address", 0)
+    ]
 
 
 bind_layers(CTO, SET_MTA, cmd=0xF6)
 
 
 class UPLOAD(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Upload from slave to master
+    fields_desc = [ByteField("len", 0)]
 
 
 bind_layers(CTO, UPLOAD, cmd=0xF5)
 
 
 class SHORT_UPLOAD(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Upload from slave to master (short version)
+    fields_desc = [
+        ByteField("len", 0),
+        ByteField("reserved", 0),
+        ByteField("address_extension", 0),
+        IntField("address", 0)
+    ]
 
 
 bind_layers(CTO, SHORT_UPLOAD, cmd=0xF4)
 
 
 class BUILD_CHECKSUM(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Build checksum over memory range
+    fields_desc = [
+        ThreeBytesField("reserved", 0),
+        IntField("block_size", 0)
+    ]
 
 
 bind_layers(CTO, BUILD_CHECKSUM, cmd=0xF3)
 
 
 class TRANSPORT_LAYER_CMD(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Refer to transport layer specific command
+    fields_desc = [
+        ByteField("sub_command_code", 0),
+        StrLenField("parameters", MAX_CTO - 1)
+    ]
 
 
 bind_layers(CTO, TRANSPORT_LAYER_CMD, cmd=0xF2)
 
 
 class USER_CMD(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Refer to user defined command
+    fields_desc = [
+        ByteField("sub_command_code", 0),
+        StrLenField("parameters", MAX_CTO - 1)
+    ]
 
 
 bind_layers(CTO, USER_CMD, cmd=0xF1)
@@ -618,7 +658,7 @@ class DTO(Packet):
         return 1
 
 
-bind_layers(CAN_XCP, DTO)
+bind_layers(XCP, DTO)
 # ##### DTOs ######
 
 
