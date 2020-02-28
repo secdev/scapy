@@ -7,7 +7,7 @@
 # scapy.contrib.status = loads
 
 """
-Native CANSocket.
+NativeCANSocket.
 """
 
 import struct
@@ -20,22 +20,29 @@ from scapy.layers.can import CAN
 from scapy.packet import Padding
 from scapy.arch.linux import get_last_packet_timestamp
 
-conf.contribs['NativeCANSocket'] = {'iface': "can0"}
+conf.contribs['NativeCANSocket'] = {'channel': "can0"}
 
 CAN_FRAME_SIZE = 16
 CAN_INV_FILTER = 0x20000000
 
 
-class CANSocket(SuperSocket):
+class NativeCANSocket(SuperSocket):
     desc = "read/write packets at a given CAN interface using PF_CAN sockets"
     nonblocking_socket = True
 
-    def __init__(self, iface=None, receive_own_messages=False,
-                 can_filters=None, remove_padding=True, basecls=CAN):
+    def __init__(self, channel=None, receive_own_messages=False,
+                 can_filters=None, remove_padding=True, basecls=CAN, **kwargs):
+        bustype = kwargs.pop("bustype", None)
+        if bustype and bustype != "socketcan":
+            warning("You created a NativeCANSocket. "
+                    "If you're providing the argument 'bustype', please use "
+                    "the correct one to achieve compatibility with python-can"
+                    "/PythonCANSocket. \n'bustype=socketcan'")
+
         self.basecls = basecls
         self.remove_padding = remove_padding
-        self.iface = conf.contribs['NativeCANSocket']['iface'] if \
-            iface is None else iface
+        self.channel = conf.contribs['NativeCANSocket']['channel'] if \
+            channel is None else channel
         self.ins = socket.socket(socket.PF_CAN,
                                  socket.SOCK_RAW,
                                  socket.CAN_RAW)
@@ -64,7 +71,7 @@ class CANSocket(SuperSocket):
                             socket.CAN_RAW_FILTER,
                             struct.pack(can_filter_fmt, *filter_data))
 
-        self.ins.bind((self.iface,))
+        self.ins.bind((self.channel,))
         self.outs = self.ins
 
     def recv(self, x=CAN_FRAME_SIZE):
@@ -83,7 +90,9 @@ class CANSocket(SuperSocket):
 
         # need to change the byte order of the first four bytes,
         # required by the underlying Linux SocketCAN frame format
-        pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
+        if not conf.contribs['CAN']['swap-bytes']:
+            pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
+
         len = pkt[4]
         canpkt = self.basecls(pkt[:len + 8])
         canpkt.time = get_last_packet_timestamp(self.ins)
@@ -100,8 +109,9 @@ class CANSocket(SuperSocket):
             # need to change the byte order of the first four bytes,
             # required by the underlying Linux SocketCAN frame format
             bs = bytes(x)
-            bs = bs + b'\x00' * (CAN_FRAME_SIZE - len(bs))
-            bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
+            if not conf.contribs['CAN']['swap-bytes']:
+                bs = bs + b'\x00' * (CAN_FRAME_SIZE - len(bs))
+                bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
             return SuperSocket.send(self, bs)
         except socket.error as msg:
             raise msg
@@ -110,11 +120,4 @@ class CANSocket(SuperSocket):
         self.ins.close()
 
 
-@conf.commands.register
-def srcan(pkt, iface=None, receive_own_messages=False,
-          canfilter=None, basecls=CAN, *args, **kargs):
-    s = CANSocket(iface, receive_own_messages=receive_own_messages,
-                  can_filters=canfilter, basecls=basecls)
-    a, b = s.sr(pkt, *args, **kargs)
-    s.close()
-    return a, b
+CANSocket = NativeCANSocket

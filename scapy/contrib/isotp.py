@@ -2042,10 +2042,9 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=32,
             sock.sniff(prn=lambda p: get_isotp_fc(ext_isotp_id, id_list,
                                                   noise_ids, True, p,
                                                   verbose),
-                       timeout=sniff_time,
-                       started_callback=send_multiple_ext(sock, ext_isotp_id,
-                                                          pkt,
-                                                          scan_block_size))
+                       timeout=sniff_time * 3,
+                       started_callback=lambda: send_multiple_ext(
+                           sock, ext_isotp_id, pkt, scan_block_size))
             # sleep to prevent flooding
             time.sleep(sniff_time)
 
