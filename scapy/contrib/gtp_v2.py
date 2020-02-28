@@ -515,7 +515,7 @@ class IE_BearerFlags(gtp.IE_Base):
     fields_desc = [ByteEnumField("ietype", 97, IEType),
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
-                   BitField("instance", 0, 4),                   
+                   BitField("instance", 0, 4),
                    BitField("SPARE", 0, 4),
                    BitField("ASI", 0, 1),
                    BitField("Vind", 0, 1),
@@ -1195,7 +1195,7 @@ class IE_UPF_SelInd_Flags(gtp.IE_Base):
     fields_desc = [ByteEnumField("ietype", 202, IEType),
                    ShortField("length", 0),
                    BitField("CR_flag", 0, 4),
-                   BitField("instance", 0, 4),                   
+                   BitField("instance", 0, 4),
                    BitField("SPARE", 0, 7),
                    BitField("DCNR", 0, 1)]
 
