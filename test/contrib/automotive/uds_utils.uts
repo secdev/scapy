@@ -96,7 +96,7 @@ s.close()
 p = subprocess.Popen('lsmod | grep "^can_isotp"', stdout = subprocess.PIPE, shell=True)
 if p.wait() == 0:
     if b"can_isotp" in p.stdout.read():
-        p = subprocess.Popen("isotpsend -s1 -d0 %s" % iface0, stdin = subprocess.PIPE, shell=True)
+        p = subprocess.Popen(["isotpsend", "-s1", "-d0", iface0], stdin = subprocess.PIPE)
         p.stdin.write(b"01")
         p.stdin.close()
         r = p.wait()
