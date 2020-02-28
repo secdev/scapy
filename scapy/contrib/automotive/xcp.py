@@ -51,6 +51,7 @@ class CTO(Packet):
         0xE2: "SET_DAQ_PTR",
         0xE1: "WRITE_DAQ",
         0xE0: "SET_DAQ_LIST_MODE",
+        0xDF: "GET_DAQ_LIST_MODE",
         0xDE: "START_STOP_DAQ_LIST",
         0xDD: "START_STOP_SYNCH",
         0xC7: "WRITE_DAQ_MULTIPLE",
@@ -176,7 +177,10 @@ bind_layers(CTO, GET_SEED, cmd=0xF8)
 
 class UNLOCK(Packet):
     # Send key for unlocking a protected resource
-    fields_desc = [ByteField("len", 0), StrLenField(0, MAX_CTO) - 1]
+    fields_desc = [
+        ByteField("len", 0),
+        StrLenField(0, "", length_from=0, max_length=MAX_CTO - 1)
+    ]
 
 
 bind_layers(CTO, UNLOCK, cmd=0xF7)
@@ -230,7 +234,7 @@ class TRANSPORT_LAYER_CMD(Packet):
     # Refer to transport layer specific command
     fields_desc = [
         ByteField("sub_command_code", 0),
-        StrLenField("parameters", MAX_CTO - 1)
+        StrLenField("parameters", "", length_from=0, max_length=MAX_CTO - 1)
     ]
 
 
@@ -241,7 +245,7 @@ class USER_CMD(Packet):
     # Refer to user defined command
     fields_desc = [
         ByteField("sub_command_code", 0),
-        StrLenField("parameters", MAX_CTO - 1)
+        StrLenField("parameters", "", length_from=0, max_length=MAX_CTO - 1)
     ]
 
 
@@ -251,7 +255,11 @@ bind_layers(CTO, USER_CMD, cmd=0xF1)
 # Calibration Commands
 
 class DOWNLOAD(Packet):
-    # TODO implement from ASAM Standard
+    # Download from master to slave
+    fields_desc = [
+        ByteField("len", 0),
+        StrLenField("data", "", length_from=0, max_length=MAX_CTO - 1)
+    ]
     pass
 
 
@@ -259,32 +267,47 @@ bind_layers(CTO, DOWNLOAD, cmd=0xF0)
 
 
 class DOWNLOAD_NEXT(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Download from master to slave (Block Mode)
+    fields_desc = [
+        ByteField("len", 0),
+        StrLenField("data", "", length_from=0, max_length=MAX_CTO - 1)
+    ]
 
 
 bind_layers(CTO, DOWNLOAD_NEXT, cmd=0xEF)
 
 
 class DOWNLOAD_MAX(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Download from master to slave (fixed size)
+    fields_desc = [
+        StrLenField("data", "", length_from=0, max_length=MAX_CTO - 1)
+    ]
 
 
 bind_layers(CTO, DOWNLOAD_MAX, cmd=0xEE)
 
 
 class SHORT_DOWNLOAD(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Download from master to slave (short version)
+    field_desc = [
+        ByteField("len", 0),
+        ByteField("reserved", 0),
+        ByteField("addres_extension", 0),
+        IntField("address", 0),
+        StrLenField("data_elements", "", length_from=0, max_length=MAX_CTO - 1)
+    ]
 
 
 bind_layers(CTO, SHORT_DOWNLOAD, cmd=0xED)
 
 
 class MODIFY_BITS(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    # Modify  bits
+    field_desc = [
+        ByteField("shift_value", 0),
+        ShortField("and_mask", 0),
+        ShortField("xor_mask", 0)
+    ]
 
 
 bind_layers(CTO, MODIFY_BITS, cmd=0xEC)
@@ -294,23 +317,37 @@ bind_layers(CTO, MODIFY_BITS, cmd=0xEC)
 
 
 class SET_CAL_PAGE(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Set calibration page"""
+    field_desc = [
+        FlagsField('flags', 0, 8, ['ECU',
+                                   'XCP',
+                                   'reserved1',
+                                   'reserved2',
+                                   'reserved3',
+                                   'reserved4',
+                                   'reserved5'
+                                   'all']),
+        ByteField("data_segment_num", 0),
+        ByteField("data_page_num", 0)
+    ]
 
 
 bind_layers(CTO, SET_CAL_PAGE, cmd=0xEB)
 
 
 class GET_CAL_PAGE(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Get calibration page"""
+    fields_desc = [
+        ByteField("access_mode", 0),
+        ByteField("data_segment_num", 0)
+    ]
 
 
 bind_layers(CTO, GET_CAL_PAGE, cmd=0xEA)
 
 
 class GET_PAG_PROCESSOR_INFO(Packet):
-    # TODO implement from ASAM Standard
+    """Get general information on PAG processor"""
     pass
 
 
@@ -318,40 +355,76 @@ bind_layers(CTO, GET_PAG_PROCESSOR_INFO, cmd=0xE9)
 
 
 class GET_SEGMENT_INFO(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Get specific information for a SEGMENT"""
+    mode = {
+        0x00: "get_basic_address_info",
+        0x01: "get_standard_info",
+        0x02: "get_address_mapping_info"
+    }
+
+    field_desc = [
+        ByteEnumField("mode", 0, mode),
+        ByteField("segment_number", 0),
+        ByteField("segment_info", 0),
+        ByteField("mapping_index", 0)
+
+    ]
 
 
 bind_layers(CTO, GET_SEGMENT_INFO, cmd=0xE8)
 
 
 class GET_PAGE_INFO(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """ Get specific information for a PAGE """
+    field_desc = [
+        ByteField("reserved", 0),
+        ByteField("segment_number", 0),
+        ByteField("page_number", 0)
+    ]
 
 
 bind_layers(CTO, GET_PAGE_INFO, cmd=0xE7)
 
 
 class SET_SEGMENT_MODE(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Set mode for a SEGMENT"""
+    field_desc = [
+        FlagsField('flags', 0, 8, ['FREEZE',
+                                   'reserved1',
+                                   'reserved2',
+                                   'reserved3',
+                                   'reserved4',
+                                   'reserved5',
+                                   'reserved6',
+                                   'reserved7']),
+        ByteField("segment_number", 0)
+    ]
 
 
 bind_layers(CTO, SET_SEGMENT_MODE, cmd=0xE6)
 
 
 class GET_SEGMENT_MODE(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Get mode for a SEGMENT """
+    fields_desc = [
+        ByteField("reserverd", 0),
+        ByteField("segment_number", 0)
+    ]
 
 
 bind_layers(CTO, GET_SEGMENT_MODE, cmd=0xE5)
 
 
 class COPY_CAL_PAGE(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """This command forces the slave to copy one calibration page to another.
+    This command is only available if more than one calibration page is defined
+    """
+    fields_desc = [
+        ByteField("segment_num_src", 0),
+        ByteField("page_num_src", 0),
+        ByteField("segment_num_dst", 0),
+        ByteField("page_num_dst", 0)
+    ]
 
 
 bind_layers(CTO, COPY_CAL_PAGE, cmd=0xE4)
@@ -361,55 +434,88 @@ bind_layers(CTO, COPY_CAL_PAGE, cmd=0xE4)
 
 
 class SET_DAQ_PTR(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Data acquisition and stimulation, static, mandatory"""
+    fields_desc = [
+        ByteField("reserved", 0),
+        ShortField("daq_list_num", 0),
+        ByteField("odt_num", 0),
+        ByteField("odt_entry_num", 0)
+    ]
 
 
 bind_layers(CTO, SET_DAQ_PTR, cmd=0xE2)
 
 
 class WRITE_DAQ(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Data acquisition and stimulation, static, mandatory """
+    fields_desc = [
+        ByteField("bit_offset", 0),
+        ByteField("size_of_daq", 0),
+        ByteField("address_extension", 0),
+        IntField("address", 0)
+    ]
 
 
 bind_layers(CTO, WRITE_DAQ, cmd=0xE1)
 
 
 class SET_DAQ_LIST_MODE(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Set mode for DAQ list """
+    fields_desc = [
+        FlagsField('flags', 0, 8, ['reserved1',
+                                   'direction',
+                                   'reserved2',
+                                   'reserved3',
+                                   'timestamp',
+                                   'pid_off',
+                                   'reserved4',
+                                   'reserved5']),
+        ShortField("daq_list_num", 0),
+        ShortField("event_channel_num", 0),
+        ByteField("transmission_rate_prescaler", 0),
+        ByteField("daq_list_prio", 0)
+    ]
 
 
 bind_layers(CTO, SET_DAQ_LIST_MODE, cmd=0xE0)
 
 
+class GET_DAQ_LIST_MODE(Packet):
+    """Get mode from DAQ list"""
+    fields_desc = [
+        ByteField("reserverd", 0),
+        ShortField("daq_list_number", 0)
+    ]
+
+
+bind_layers(CTO, GET_DAQ_LIST_MODE, cmd=0xDF)
+
+
 class START_STOP_DAQ_LIST(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Start /stop/select DAQ list"""
+    mode = {0x00: "stop", 0x01: "start", 0x02: "select"}
+    field_desc = [
+        ByteEnumField("mode", 0, mode),
+        ShortField("daq_list_number", 0)
+    ]
 
 
 bind_layers(CTO, START_STOP_DAQ_LIST, cmd=0xDE)
 
 
 class START_STOP_SYNCH(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Start/stop DAQ lists (synchronously)"""
+    mode = {0x00: "stop", 0x01: "start", 0x02: "select"}
+    fields = [
+        ByteEnumField("mode", 0, mode)
+    ]
 
 
 bind_layers(CTO, START_STOP_SYNCH, cmd=0xDD)
 
 
-class WRITE_DAQ_MULTIPLE(Packet):
-    # TODO implement from ASAM Standard
-    pass
-
-
-bind_layers(CTO, WRITE_DAQ_MULTIPLE, cmd=0xC7)
-
-
 class READ_DAQ(Packet):
-    # TODO implement from ASAM Standard
+    """Read element from ODT entry"""
     pass
 
 
@@ -417,7 +523,7 @@ bind_layers(CTO, READ_DAQ, cmd=0xDB)
 
 
 class GET_DAQ_CLOCK(Packet):
-    # TODO implement from ASAM Standard
+    """ Get DAQ clock from slave """
     pass
 
 
@@ -425,7 +531,7 @@ bind_layers(CTO, GET_DAQ_CLOCK, cmd=0xDC)
 
 
 class GET_DAQ_PROCESSOR_INFO(Packet):
-    # TODO implement from ASAM Standard
+    """Get general information on DAQ processor"""
     pass
 
 
@@ -433,7 +539,7 @@ bind_layers(CTO, GET_DAQ_PROCESSOR_INFO, cmd=0xDA)
 
 
 class GET_DAQ_RESOLUTION_INFO(Packet):
-    # TODO implement from ASAM Standard
+    """Get general information on DAQ processing resolutioin"""
     pass
 
 
@@ -441,16 +547,22 @@ bind_layers(CTO, GET_DAQ_RESOLUTION_INFO, cmd=0xD9)
 
 
 class GET_DAQ_LIST_INFO(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """ Get specific information for a DAQ list """
+    fields_desc = [
+        ByteField("reserved", 0),
+        ShortField("daq_list_num", 0)
+    ]
 
 
 bind_layers(CTO, GET_DAQ_LIST_INFO, cmd=0xD8)
 
 
 class GET_DAQ_EVENT_INFO(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Get specific information for an event channel """
+    fields_desc = [
+        ByteField("reserved", 0),
+        ShortField("event_channel_num", 0)
+    ]
 
 
 bind_layers(CTO, GET_DAQ_EVENT_INFO, cmd=0xD7)
@@ -460,8 +572,11 @@ bind_layers(CTO, GET_DAQ_EVENT_INFO, cmd=0xD7)
 
 
 class CLEAR_DAQ_LIST(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Clear DAQ list configuration"""
+    fields_desc = [
+        ByteField("reserverd", 0),
+        ShortField("daq_list_num", 0)
+    ]
 
 
 bind_layers(CTO, CLEAR_DAQ_LIST, cmd=0xE3)
@@ -471,7 +586,7 @@ bind_layers(CTO, CLEAR_DAQ_LIST, cmd=0xE3)
 
 
 class FREE_DAQ(Packet):
-    # TODO implement from ASAM Standard
+    """Clear dynamic DAQ configuration"""
     pass
 
 
@@ -479,24 +594,36 @@ bind_layers(CTO, FREE_DAQ, cmd=0xD6)
 
 
 class ALLOC_DAQ(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """ Allocate DAQ lists """
+    fields_desc = [
+        ByteField("reserved", 0),
+        ShortField("daq_count", 0)
+    ]
 
 
 bind_layers(CTO, ALLOC_DAQ, cmd=0xD5)
 
 
 class ALLOC_ODT(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Allocate ODTs to a DAQ list"""
+    fields_desc = [
+        ByteField("reserved", 0),
+        ShortField("daq_list_num", 0),
+        ByteField("odt_cnt", 0)
+    ]
 
 
 bind_layers(CTO, ALLOC_ODT, cmd=0xD4)
 
 
 class ALLOC_ODT_ENTRY(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Allocate ODT entries to an ODT """
+    fields_desc = [
+        ByteField("reserved", 0),
+        ShortField("daq_list_num", 0),
+        ByteField("odt_num", 0),
+        ByteField("odt_entries_cnt", 0)
+    ]
 
 
 bind_layers(CTO, ALLOC_ODT_ENTRY, cmd=0xD3)
@@ -506,7 +633,7 @@ bind_layers(CTO, ALLOC_ODT_ENTRY, cmd=0xD3)
 
 
 class PROGRAM_START(Packet):
-    # TDOD implement from ASAM Standard
+    """Indicate the beginning of a programming sequence"""
     pass
 
 
@@ -514,23 +641,31 @@ bind_layers(CTO, PROGRAM_START, cmd=0xD2)
 
 
 class PROGRAM_CLEAR(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Clear a part of non-volatile memory """
+    mode = {0x00: "absolute_access", 0x01: "functional_access"}
+    fields_desc = [
+        ByteEnumField("mode", 0, mode),
+        ShortField("reserved", 0),
+        IntField("clear_range", 0)
+    ]
 
 
 bind_layers(CTO, PROGRAM_CLEAR, cmd=0xD1)
 
 
 class PROGRAM(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Program a non-volatile memory segment"""
+    fields_desc = [
+        ByteField("len", 0),
+        StrLenField("data", "", length_from=0, max_length=MAX_CTO - 2)
+    ]
 
 
 bind_layers(CTO, PROGRAM, cmd=0xD0)
 
 
 class PROGRAM_RESET(Packet):
-    # TODO implement from ASAM Standard
+    """Indicate the end of a programming sequence"""
     pass
 
 
@@ -538,7 +673,7 @@ bind_layers(CTO, PROGRAM_RESET, cmd=0xCF)
 
 
 class GET_PGM_PROCESSOR_INFO(Packet):
-    # TODO implement from ASAM Standard
+    """Get general information on PGM processor"""
     pass
 
 
@@ -546,48 +681,73 @@ bind_layers(CTO, GET_PGM_PROCESSOR_INFO, cmd=0xCE)
 
 
 class GET_SECTOR_INFO(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Get specific information for a SECTOR"""
+    mode = {0x00: "get_address", 0x01: "get_length"}
+    fields_desc = [
+        ByteEnumField("mode", 0, mode),
+        ByteField("sector_number", 0)
+    ]
 
 
 bind_layers(CTO, GET_SECTOR_INFO, cmd=0xCD)
 
 
 class PROGRAM_PREPARE(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Prepare non-volatile memory programming"""
+    fields_desc = [
+        ByteField("not_used", 0),
+        ShortField("code_size", 0)
+    ]
 
 
 bind_layers(CTO, PROGRAM_PREPARE, cmd=0xCC)
 
 
 class PROGRAM_FORMAT(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Set data format before programming"""
+    fields_desc = [
+        ByteField("compression_method", 0),
+        ByteField("encryption_mode", 0),
+        ByteField("programming_method", 0),
+        ByteField("access_method", 0)
+    ]
 
 
 bind_layers(CTO, PROGRAM_FORMAT, cmd=0xCB)
 
 
 class PROGRAM_NEXT(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Program a non-volatile memory segment (Block Mode) """
+    fields_desc = [
+        ByteField("len", 0),
+        StrLenField("data", "", length_from=0, max_length=MAX_CTO - 2)
+    ]
 
 
 bind_layers(CTO, PROGRAM_NEXT, cmd=0xCA)
 
 
 class PROGRAM_MAX(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """ Program a non-volatile memory segment (fixed size) """
+    fields_desc = [
+        StrLenField("data", "", length_from=0, max_length=MAX_CTO - 1)
+    ]
 
 
 bind_layers(CTO, PROGRAM_MAX, cmd=0xC9)
 
 
 class PROGRAM_VERIFY(Packet):
-    # TODO implement from ASAM Standard
-    pass
+    """Program  Verify"""
+    mode = {
+        0x00: "request_to_start_internal_routine",
+        0x01: "sending_verification_value"
+    }
+    fields_desc = [
+        ByteEnumField("verification_mode", 0, mode),
+        ShortField("verification_type", 0),
+        IntField("verification_value", 0)
+    ]
 
 
 bind_layers(CTO, PROGRAM_VERIFY, cmd=0xC8)
