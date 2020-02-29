@@ -2,6 +2,7 @@
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Massimo Ciani (2009)
 #               Gabriel Potter (2016-2019)
+#               Wataru Ashihara (2020)
 # This program is published under a GPLv2 license
 
 # Modified for scapy's usage - To support Npcap/Monitor mode
@@ -9,6 +10,7 @@
 
 from ctypes import *
 from ctypes.util import find_library
+import errno
 import sys
 import os
 
@@ -29,7 +31,7 @@ if WINDOWS:
         cdll.LoadLibrary(npcap_folder + "\\Packet.dll")
         _lib = cdll.LoadLibrary(npcap_folder + "\\wpcap.dll")
     else:
-        _lib = CDLL("wpcap.dll")
+        _lib = CDLL("wpcap.dll", use_errno=True)
     del npcap_folder
 else:
     # Try to load libpcap
@@ -37,7 +39,7 @@ else:
     _lib_name = find_library("pcap")
     if not _lib_name:
         raise OSError("Cannot find libpcap.so library")
-    _lib = CDLL(_lib_name)
+    _lib = CDLL(_lib_name, use_errno=True)
 
 
 ##
@@ -262,21 +264,91 @@ pcap_handler = CFUNCTYPE(
     POINTER(c_ubyte)
 )
 
+
+# Exceptions corresponding to C-errno not listed in
+# https://docs.python.org/3/library/exceptions.html .
+# Named `(C-errno symbol)Error` and sorted lexicographically.
+
+
+class E2BIGError(Exception):
+    pass
+
+
+class ENODEVError(Exception):
+    pass
+
+
+class CFuncWrapper:
+    """
+    Decorates ctypes.CDLL.<C-functions>.
+
+    If the C-function sets non-zero C-errno, corresponding Exception listed in
+    https://docs.python.org/3/library/exceptions.html is raised.
+    """
+
+    # https://github.com/python/cpython/blob/v3.8.2/Objects/exceptions.c#L2595-L2615
+    _dic_errno = {
+        errno.EAGAIN: BlockingIOError,
+        errno.EALREADY: BlockingIOError,
+        errno.EINPROGRESS: BlockingIOError,
+        errno.EWOULDBLOCK: BlockingIOError,
+        errno.EPIPE: BrokenPipeError,
+        errno.ESHUTDOWN: BrokenPipeError,
+        errno.ECHILD: ChildProcessError,
+        errno.ECONNABORTED: ConnectionAbortedError,
+        errno.ECONNREFUSED: ConnectionRefusedError,
+        errno.ECONNRESET: ConnectionResetError,
+        errno.EEXIST: FileExistsError,
+        errno.ENOENT: FileNotFoundError,
+        errno.EISDIR: IsADirectoryError,
+        errno.ENOTDIR: NotADirectoryError,
+        errno.EINTR: InterruptedError,
+        errno.EACCES: PermissionError,
+        errno.EPERM: PermissionError,
+        errno.ESRCH: ProcessLookupError,
+        errno.ETIMEDOUT: TimeoutError,
+        # If you want to catch exceptions other than above, list below
+        # in a lexicographically order.
+        errno.E2BIG: E2BIGError,  # not used, just as an example
+        errno.ENODEV: ENODEVError,  # not used, just as an example
+    }
+
+    def __init__(self, cfunc, errbuf=False):
+        # equivalent to `self.fn = cfunc` except for not calling
+        # self.__setattr__(), which raises  AttributeError
+        self.__dict__['fn'] = cfunc
+
+    def __call__(self, *args, **kwargs):
+        self.fn(*args, **kwargs)
+        # Save C errno immediately -- it might be changed in C code.
+        # This may be paranoid, but let's prefer safety.
+        errno_saved = get_errno()
+
+        if errno_saved == 0:
+            return
+        if errno_saved in self._dic_errno:
+            raise self._dic_errno[errno_saved]()
+        raise OSError(os.strerror(errno_saved))
+
+    def __setattr__(self, key, value):
+        self.fn.key = value
+
+
 # pcap_t *   pcap_open_live (const char *device, int snaplen, int promisc, int to_ms, char *ebuf)
 #   Open a live capture from the network.
-pcap_open_live = _lib.pcap_open_live
+pcap_open_live = CFuncWrapper(_lib.pcap_open_live)
 pcap_open_live.restype = POINTER(pcap_t)
 pcap_open_live.argtypes = [STRING, c_int, c_int, c_int, STRING]
 
 # pcap_t *   pcap_open_dead (int linktype, int snaplen)
 #   Create a pcap_t structure without starting a capture.
-pcap_open_dead = _lib.pcap_open_dead
+pcap_open_dead = CFuncWrapper(_lib.pcap_open_dead)
 pcap_open_dead.restype = POINTER(pcap_t)
 pcap_open_dead.argtypes = [c_int, c_int]
 
 # pcap_t *   pcap_open_offline (const char *fname, char *errbuf)
 #   Open a savefile in the tcpdump/libpcap format to read packets.
-pcap_open_offline = _lib.pcap_open_offline
+pcap_open_offline = CFuncWrapper(_lib.pcap_open_offline)
 pcap_open_offline.restype = POINTER(pcap_t)
 pcap_open_offline.argtypes = [STRING, STRING]
 
@@ -285,37 +357,37 @@ try:
     # int pcap_set_rfmon (pcap_t *p)
     # sets whether monitor mode should be set on a capture handle when the
     # handle is activated.
-    pcap_set_rfmon = _lib.pcap_set_rfmon
+    pcap_set_rfmon = CFuncWrapper(_lib.pcap_set_rfmon)
     pcap_set_rfmon.restype = c_int
     pcap_set_rfmon.argtypes = [POINTER(pcap_t), c_int]
 
     # int pcap_create (pcap_t *p)
     #   create a packet capture handle to look at packets on the network.
-    pcap_create = _lib.pcap_create
+    pcap_create = CFuncWrapper(_lib.pcap_create)
     pcap_create.restype = POINTER(pcap_t)
     pcap_create.argtypes = [STRING, STRING]
 
     # int pcap_set_snaplen(pcap_t *p, int snaplen)
     #   set the snapshot length for a not-yet-activated capture handle
-    pcap_set_snaplen = _lib.pcap_set_snaplen
+    pcap_set_snaplen = CFuncWrapper(_lib.pcap_set_snaplen)
     pcap_set_snaplen.restype = c_int
     pcap_set_snaplen.argtypes = [POINTER(pcap_t), c_int]
 
     # int pcap_set_promisc(pcap_t *p, int promisc)
     #   set promiscuous mode for a not-yet-activated capture handle
-    pcap_set_promisc = _lib.pcap_set_promisc
+    pcap_set_promisc = CFuncWrapper(_lib.pcap_set_promisc)
     pcap_set_promisc.restype = c_int
     pcap_set_promisc.argtypes = [POINTER(pcap_t), c_int]
 
     # int pcap_set_timeout(pcap_t *p, int to_ms)
     #   set the packet buffer timeout for a not-yet-activated capture handle
-    pcap_set_timeout = _lib.pcap_set_timeout
+    pcap_set_timeout = CFuncWrapper(_lib.pcap_set_timeout)
     pcap_set_timeout.restype = c_int
     pcap_set_timeout.argtypes = [POINTER(pcap_t), c_int]
 
     # int pcap_activate(pcap_t *p)
     #   activate a capture handle
-    pcap_activate = _lib.pcap_activate
+    pcap_activate = CFuncWrapper(_lib.pcap_activate)
     pcap_activate.restype = c_int
     pcap_activate.argtypes = [POINTER(pcap_t)]
 except AttributeError:
@@ -323,44 +395,44 @@ except AttributeError:
 
 # pcap_dumper_t *   pcap_dump_open (pcap_t *p, const char *fname)
 #   Open a file to write packets.
-pcap_dump_open = _lib.pcap_dump_open
+pcap_dump_open = CFuncWrapper(_lib.pcap_dump_open)
 pcap_dump_open.restype = POINTER(pcap_dumper_t)
 pcap_dump_open.argtypes = [POINTER(pcap_t), STRING]
 
 # int pcap_setnonblock (pcap_t *p, int nonblock, char *errbuf)
 #   Switch between blocking and nonblocking mode.
-pcap_setnonblock = _lib.pcap_setnonblock
+pcap_setnonblock = CFuncWrapper(_lib.pcap_setnonblock)
 pcap_setnonblock.restype = c_int
 pcap_setnonblock.argtypes = [POINTER(pcap_t), c_int, STRING]
 
 # int pcap_getnonblock (pcap_t *p, char *errbuf)
 #   Get the "non-blocking" state of an interface.
-pcap_getnonblock = _lib.pcap_getnonblock
+pcap_getnonblock = CFuncWrapper(_lib.pcap_getnonblock)
 pcap_getnonblock.restype = c_int
 pcap_getnonblock.argtypes = [POINTER(pcap_t), STRING]
 
 # int pcap_findalldevs (pcap_if_t **alldevsp, char *errbuf)
 # Construct a list of network devices that can be opened with
 # pcap_open_live().
-pcap_findalldevs = _lib.pcap_findalldevs
+pcap_findalldevs = CFuncWrapper(_lib.pcap_findalldevs)
 pcap_findalldevs.restype = c_int
 pcap_findalldevs.argtypes = [POINTER(POINTER(pcap_if_t)), STRING]
 
 # void pcap_freealldevs (pcap_if_t *alldevsp)
 #   Free an interface list returned by pcap_findalldevs().
-pcap_freealldevs = _lib.pcap_freealldevs
+pcap_freealldevs = CFuncWrapper(_lib.pcap_freealldevs)
 pcap_freealldevs.restype = None
 pcap_freealldevs.argtypes = [POINTER(pcap_if_t)]
 
 #char *   pcap_lookupdev (char *errbuf)
 #   Return the first valid device in the system.
-pcap_lookupdev = _lib.pcap_lookupdev
+pcap_lookupdev = CFuncWrapper(_lib.pcap_lookupdev)
 pcap_lookupdev.restype = STRING
 pcap_lookupdev.argtypes = [STRING]
 
 # int pcap_lookupnet (const char *device, bpf_u_int32 *netp, bpf_u_int32 *maskp, char *errbuf)
 #   Return the subnet and netmask of an interface.
-pcap_lookupnet = _lib.pcap_lookupnet
+pcap_lookupnet = CFuncWrapper(_lib.pcap_lookupnet)
 pcap_lookupnet.restype = c_int
 pcap_lookupnet.argtypes = [
     STRING,
@@ -371,7 +443,7 @@ pcap_lookupnet.argtypes = [
 
 # int pcap_dispatch (pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 #   Collect a group of packets.
-pcap_dispatch = _lib.pcap_dispatch
+pcap_dispatch = CFuncWrapper(_lib.pcap_dispatch)
 pcap_dispatch.restype = c_int
 pcap_dispatch.argtypes = [
     POINTER(pcap_t),
@@ -382,19 +454,19 @@ pcap_dispatch.argtypes = [
 
 # int pcap_loop (pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 #   Collect a group of packets.
-pcap_loop = _lib.pcap_loop
+pcap_loop = CFuncWrapper(_lib.pcap_loop)
 pcap_loop.restype = c_int
 pcap_loop.argtypes = [POINTER(pcap_t), c_int, pcap_handler, POINTER(u_char)]
 
 # u_char *   pcap_next (pcap_t *p, struct pcap_pkthdr *h)
 #   Return the next available packet.
-pcap_next = _lib.pcap_next
+pcap_next = CFuncWrapper(_lib.pcap_next)
 pcap_next.restype = POINTER(u_char)
 pcap_next.argtypes = [POINTER(pcap_t), POINTER(pcap_pkthdr)]
 
 # int pcap_next_ex (pcap_t *p, struct pcap_pkthdr **pkt_header, const u_char **pkt_data)
 #   Read a packet from an interface or from an offline capture.
-pcap_next_ex = _lib.pcap_next_ex
+pcap_next_ex = CFuncWrapper(_lib.pcap_next_ex)
 pcap_next_ex.restype = c_int
 pcap_next_ex.argtypes = [
     POINTER(pcap_t),
@@ -409,20 +481,20 @@ pcap_next_ex.argtypes = [
 # void pcap_breakloop (pcap_t *)
 # set a flag that will force pcap_dispatch() or pcap_loop() to return
 # rather than looping.
-pcap_breakloop = _lib.pcap_breakloop
+pcap_breakloop = CFuncWrapper(_lib.pcap_breakloop)
 pcap_breakloop.restype = None
 pcap_breakloop.argtypes = [POINTER(pcap_t)]
 
 # int pcap_sendpacket (pcap_t *p, u_char *buf, int size)
 #   Send a raw packet.
-pcap_sendpacket = _lib.pcap_sendpacket
+pcap_sendpacket = CFuncWrapper(_lib.pcap_sendpacket)
 pcap_sendpacket.restype = c_int
 #pcap_sendpacket.argtypes = [POINTER(pcap_t), POINTER(u_char), c_int]
 pcap_sendpacket.argtypes = [POINTER(pcap_t), c_void_p, c_int]
 
 # void pcap_dump (u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 #   Save a packet to disk.
-pcap_dump = _lib.pcap_dump
+pcap_dump = CFuncWrapper(_lib.pcap_dump)
 pcap_dump.restype = None
 pcap_dump.argtypes = [
     POINTER(pcap_dumper_t),
@@ -432,7 +504,7 @@ pcap_dump.argtypes = [
 
 # long pcap_dump_ftell (pcap_dumper_t *)
 #   Return the file position for a "savefile".
-pcap_dump_ftell = _lib.pcap_dump_ftell
+pcap_dump_ftell = CFuncWrapper(_lib.pcap_dump_ftell)
 pcap_dump_ftell.restype = c_long
 pcap_dump_ftell.argtypes = [POINTER(pcap_dumper_t)]
 
@@ -440,7 +512,7 @@ pcap_dump_ftell.argtypes = [POINTER(pcap_dumper_t)]
 # Compile a packet filter, converting an high level filtering expression
 # (see Filtering expression syntax) in a program that can be interpreted
 # by the kernel-level filtering engine.
-pcap_compile = _lib.pcap_compile
+pcap_compile = CFuncWrapper(_lib.pcap_compile)
 pcap_compile.restype = c_int
 pcap_compile.argtypes = [
     POINTER(pcap_t),
@@ -454,7 +526,7 @@ pcap_compile.argtypes = [
 # function converts an high level filtering expression (see Filtering
 # expression syntax) in a program that can be interpreted by the
 # kernel-level filtering engine.
-pcap_compile_nopcap = _lib.pcap_compile_nopcap
+pcap_compile_nopcap = CFuncWrapper(_lib.pcap_compile_nopcap)
 pcap_compile_nopcap.restype = c_int
 pcap_compile_nopcap.argtypes = [
     c_int,
@@ -467,32 +539,32 @@ pcap_compile_nopcap.argtypes = [
 
 # int pcap_setfilter (pcap_t *p, struct bpf_program *fp)
 #   Associate a filter to a capture.
-pcap_setfilter = _lib.pcap_setfilter
+pcap_setfilter = CFuncWrapper(_lib.pcap_setfilter)
 pcap_setfilter.restype = c_int
 pcap_setfilter.argtypes = [POINTER(pcap_t), POINTER(bpf_program)]
 
 # void pcap_freecode (struct bpf_program *fp)
 #   Free a filter.
-pcap_freecode = _lib.pcap_freecode
+pcap_freecode = CFuncWrapper(_lib.pcap_freecode)
 pcap_freecode.restype = None
 pcap_freecode.argtypes = [POINTER(bpf_program)]
 
 # int pcap_datalink (pcap_t *p)
 #   Return the link layer of an adapter.
-pcap_datalink = _lib.pcap_datalink
+pcap_datalink = CFuncWrapper(_lib.pcap_datalink)
 pcap_datalink.restype = c_int
 pcap_datalink.argtypes = [POINTER(pcap_t)]
 
 # int pcap_list_datalinks (pcap_t *p, int **dlt_buf)
 #   list datalinks
-pcap_list_datalinks = _lib.pcap_list_datalinks
+pcap_list_datalinks = CFuncWrapper(_lib.pcap_list_datalinks)
 pcap_list_datalinks.restype = c_int
 #pcap_list_datalinks.argtypes = [POINTER(pcap_t), POINTER(POINTER(c_int))]
 
 # int pcap_set_datalink (pcap_t *p, int dlt)
 # Set the current data link type of the pcap descriptor to the type
 # specified by dlt. -1 is returned on failure.
-pcap_set_datalink = _lib.pcap_set_datalink
+pcap_set_datalink = CFuncWrapper(_lib.pcap_set_datalink)
 pcap_set_datalink.restype = c_int
 pcap_set_datalink.argtypes = [POINTER(pcap_t), c_int]
 
@@ -500,80 +572,80 @@ pcap_set_datalink.argtypes = [POINTER(pcap_t), c_int]
 # Translates a data link type name, which is a DLT_ name with the DLT_
 # removed, to the corresponding data link type value. The translation is
 # case-insensitive. -1 is returned on failure.
-pcap_datalink_name_to_val = _lib.pcap_datalink_name_to_val
+pcap_datalink_name_to_val = CFuncWrapper(_lib.pcap_datalink_name_to_val)
 pcap_datalink_name_to_val.restype = c_int
 pcap_datalink_name_to_val.argtypes = [STRING]
 
 # const char *   pcap_datalink_val_to_name (int dlt)
 # Translates a data link type value to the corresponding data link type
 # name. NULL is returned on failure.
-pcap_datalink_val_to_name = _lib.pcap_datalink_val_to_name
+pcap_datalink_val_to_name = CFuncWrapper(_lib.pcap_datalink_val_to_name)
 pcap_datalink_val_to_name.restype = STRING
 pcap_datalink_val_to_name.argtypes = [c_int]
 
 # const char *   pcap_datalink_val_to_description (int dlt)
 # Translates a data link type value to a short description of that data
 # link type. NULL is returned on failure.
-pcap_datalink_val_to_description = _lib.pcap_datalink_val_to_description
+pcap_datalink_val_to_description = CFuncWrapper(_lib.pcap_datalink_val_to_description)
 pcap_datalink_val_to_description.restype = STRING
 pcap_datalink_val_to_description.argtypes = [c_int]
 
 # int pcap_snapshot (pcap_t *p)
 # Return the dimension of the packet portion (in bytes) that is delivered
 # to the application.
-pcap_snapshot = _lib.pcap_snapshot
+pcap_snapshot = CFuncWrapper(_lib.pcap_snapshot)
 pcap_snapshot.restype = c_int
 pcap_snapshot.argtypes = [POINTER(pcap_t)]
 
 # int pcap_is_swapped (pcap_t *p)
 # returns true if the current savefile uses a different byte order than
 # the current system.
-pcap_is_swapped = _lib.pcap_is_swapped
+pcap_is_swapped = CFuncWrapper(_lib.pcap_is_swapped)
 pcap_is_swapped.restype = c_int
 pcap_is_swapped.argtypes = [POINTER(pcap_t)]
 
 # int pcap_major_version (pcap_t *p)
 # return the major version number of the pcap library used to write the
 # savefile.
-pcap_major_version = _lib.pcap_major_version
+pcap_major_version = CFuncWrapper(_lib.pcap_major_version)
 pcap_major_version.restype = c_int
 pcap_major_version.argtypes = [POINTER(pcap_t)]
 
 # int pcap_minor_version (pcap_t *p)
 # return the minor version number of the pcap library used to write the
 # savefile.
-pcap_minor_version = _lib.pcap_minor_version
+pcap_minor_version = CFuncWrapper(_lib.pcap_minor_version)
 pcap_minor_version.restype = c_int
 pcap_minor_version.argtypes = [POINTER(pcap_t)]
 
 #FILE *   pcap_file (pcap_t *p)
 #   Return the standard stream of an offline capture.
-pcap_file = _lib.pcap_file
+pcap_file = CFuncWrapper(_lib.pcap_file)
 pcap_file.restype = FILE
 pcap_file.argtypes = [POINTER(pcap_t)]
 
 # int pcap_stats (pcap_t *p, struct pcap_stat *ps)
 #   Return statistics on current capture.
-pcap_stats = _lib.pcap_stats
+pcap_stats = CFuncWrapper(_lib.pcap_stats)
 pcap_stats.restype = c_int
 pcap_stats.argtypes = [POINTER(pcap_t), POINTER(pcap_stat)]
 
 # void pcap_perror (pcap_t *p, char *prefix)
 # print the text of the last pcap library error on stderr, prefixed by
 # prefix.
-pcap_perror = _lib.pcap_perror
+pcap_perror = CFuncWrapper(_lib.pcap_perror)
 pcap_perror.restype = None
 pcap_perror.argtypes = [POINTER(pcap_t), STRING]
 
 #char *   pcap_geterr (pcap_t *p)
 #   return the error text pertaining to the last pcap library error.
-pcap_geterr = _lib.pcap_geterr
+pcap_geterr = CFuncWrapper(_lib.pcap_geterr)
 pcap_geterr.restype = STRING
 pcap_geterr.argtypes = [POINTER(pcap_t)]
 
 # char *   pcap_strerror (int error)
 #   Provided in case strerror() isn't available.
-pcap_strerror = _lib.pcap_strerror
+pcap_strerror = CFuncWrapper(_lib.pcap_strerror)
 pcap_strerror.restype = STRING
 pcap_strerror.argtypes = [c_int]
 
@@ -581,20 +653,20 @@ pcap_strerror.argtypes = [c_int]
 # Returns a pointer to a string giving information about the version of
 # the libpcap library being used; note that it contains more information
 # than just a version number.
-pcap_lib_version = _lib.pcap_lib_version
+pcap_lib_version = CFuncWrapper(_lib.pcap_lib_version)
 pcap_lib_version.restype = STRING
 pcap_lib_version.argtypes = []
 
 # void pcap_close (pcap_t *p)
 #   close the files associated with p and deallocates resources.
-pcap_close = _lib.pcap_close
+pcap_close = CFuncWrapper(_lib.pcap_close)
 pcap_close.restype = None
 pcap_close.argtypes = [POINTER(pcap_t)]
 
 #FILE *   pcap_dump_file (pcap_dumper_t *p)
 # return the standard I/O stream of the 'savefile' opened by
 # pcap_dump_open().
-pcap_dump_file = _lib.pcap_dump_file
+pcap_dump_file = CFuncWrapper(_lib.pcap_dump_file)
 pcap_dump_file.restype = FILE
 pcap_dump_file.argtypes = [POINTER(pcap_dumper_t)]
 
@@ -602,13 +674,13 @@ pcap_dump_file.argtypes = [POINTER(pcap_dumper_t)]
 # Flushes the output buffer to the ``savefile,'' so that any packets
 # written with pcap_dump() but not yet written to the ``savefile'' will be
 # written. -1 is returned on error, 0 on success.
-pcap_dump_flush = _lib.pcap_dump_flush
+pcap_dump_flush = CFuncWrapper(_lib.pcap_dump_flush)
 pcap_dump_flush.restype = c_int
 pcap_dump_flush.argtypes = [POINTER(pcap_dumper_t)]
 
 # void pcap_dump_close (pcap_dumper_t *p)
 #   Closes a savefile.
-pcap_dump_close = _lib.pcap_dump_close
+pcap_dump_close = CFuncWrapper(_lib.pcap_dump_close)
 pcap_dump_close.restype = None
 pcap_dump_close.argtypes = [POINTER(pcap_dumper_t)]
 
@@ -617,7 +689,7 @@ if not WINDOWS:
     # Returns, on UNIX, a file descriptor number for a file descriptor on
     # which one can do a select(), poll(). -1 is returned if no such
     # descriptor exists.
-    pcap_get_selectable_fd = _lib.pcap_get_selectable_fd
+    pcap_get_selectable_fd = CFuncWrapper(_lib.pcap_get_selectable_fd)
     pcap_get_selectable_fd.restype = c_int
     pcap_get_selectable_fd.argtypes = [POINTER(pcap_t)]
 
@@ -731,7 +803,7 @@ if WINDOWS:
 
     # bool pcap_offline_filter (struct bpf_program *prog, const struct pcap_pkthdr *header, const u_char *pkt_data)
     #   Returns if a given filter applies to an offline packet.
-    pcap_offline_filter = _lib.pcap_offline_filter
+    pcap_offline_filter = CFuncWrapper(_lib.pcap_offline_filter)
     pcap_offline_filter.restype = c_bool
     pcap_offline_filter.argtypes = [
         POINTER(bpf_program),
@@ -741,62 +813,62 @@ if WINDOWS:
 
     # int pcap_live_dump (pcap_t *p, char *filename, int maxsize, int maxpacks)
     #   Save a capture to file.
-    pcap_live_dump = _lib.pcap_live_dump
+    pcap_live_dump = CFuncWrapper(_lib.pcap_live_dump)
     pcap_live_dump.restype = c_int
     pcap_live_dump.argtypes = [POINTER(pcap_t), POINTER(c_char), c_int, c_int]
 
     # int pcap_live_dump_ended (pcap_t *p, int sync)
     # Return the status of the kernel dump process, i.e. tells if one of the
     # limits defined with pcap_live_dump() has been reached.
-    pcap_live_dump_ended = _lib.pcap_live_dump_ended
+    pcap_live_dump_ended = CFuncWrapper(_lib.pcap_live_dump_ended)
     pcap_live_dump_ended.restype = c_int
     pcap_live_dump_ended.argtypes = [POINTER(pcap_t), c_int]
 
     # struct pcap_stat *  pcap_stats_ex (pcap_t *p, int *pcap_stat_size)
     #   Return statistics on current capture.
-    pcap_stats_ex = _lib.pcap_stats_ex
+    pcap_stats_ex = CFuncWrapper(_lib.pcap_stats_ex)
     pcap_stats_ex.restype = POINTER(pcap_stat)
     pcap_stats_ex.argtypes = [POINTER(pcap_t), POINTER(c_int)]
 
     # int pcap_setbuff (pcap_t *p, int dim)
     #   Set the size of the kernel buffer associated with an adapter.
-    pcap_setbuff = _lib.pcap_setbuff
+    pcap_setbuff = CFuncWrapper(_lib.pcap_setbuff)
     pcap_setbuff.restype = c_int
     pcap_setbuff.argtypes = [POINTER(pcap_t), c_int]
 
     # int pcap_setmode (pcap_t *p, int mode)
     #   Set the working mode of the interface p to mode.
-    pcap_setmode = _lib.pcap_setmode
+    pcap_setmode = CFuncWrapper(_lib.pcap_setmode)
     pcap_setmode.restype = c_int
     pcap_setmode.argtypes = [POINTER(pcap_t), c_int]
 
     # int pcap_setmintocopy (pcap_t *p, int size)
     #   Set the minimum amount of data received by the kernel in a single call.
-    pcap_setmintocopy = _lib.pcap_setmintocopy
+    pcap_setmintocopy = CFuncWrapper(_lib.pcap_setmintocopy)
     pcap_setmintocopy.restype = c_int
     pcap_setmintocopy.argtype = [POINTER(pcap_t), c_int]
 
     # HANDLE pcap_getevent (pcap_t *p)
     #   Return the handle of the event associated with the interface p.
-    pcap_getevent = _lib.pcap_getevent
+    pcap_getevent = CFuncWrapper(_lib.pcap_getevent)
     pcap_getevent.restype = HANDLE
     pcap_getevent.argtypes = [POINTER(pcap_t)]
 
     # pcap_send_queue *  pcap_sendqueue_alloc (u_int memsize)
     #   Allocate a send queue.
-    pcap_sendqueue_alloc = _lib.pcap_sendqueue_alloc
+    pcap_sendqueue_alloc = CFuncWrapper(_lib.pcap_sendqueue_alloc)
     pcap_sendqueue_alloc.restype = POINTER(pcap_send_queue)
     pcap_sendqueue_alloc.argtypes = [c_uint]
 
     # void pcap_sendqueue_destroy (pcap_send_queue *queue)
     #   Destroy a send queue.
-    pcap_sendqueue_destroy = _lib.pcap_sendqueue_destroy
+    pcap_sendqueue_destroy = CFuncWrapper(_lib.pcap_sendqueue_destroy)
     pcap_sendqueue_destroy.restype = None
     pcap_sendqueue_destroy.argtypes = [POINTER(pcap_send_queue)]
 
     # int pcap_sendqueue_queue (pcap_send_queue *queue, const struct pcap_pkthdr *pkt_header, const u_char *pkt_data)
     #   Add a packet to a send queue.
-    pcap_sendqueue_queue = _lib.pcap_sendqueue_queue
+    pcap_sendqueue_queue = CFuncWrapper(_lib.pcap_sendqueue_queue)
     pcap_sendqueue_queue.restype = c_int
     pcap_sendqueue_queue.argtypes = [
         POINTER(pcap_send_queue),
@@ -806,14 +878,14 @@ if WINDOWS:
 
     # u_int pcap_sendqueue_transmit (pcap_t *p, pcap_send_queue *queue, int sync)
     #   Send a queue of raw packets to the network.
-    pcap_sendqueue_transmit = _lib.pcap_sendqueue_transmit
+    pcap_sendqueue_transmit = CFuncWrapper(_lib.pcap_sendqueue_transmit)
     pcap_sendqueue_transmit.retype = u_int
     pcap_sendqueue_transmit.argtypes = [
         POINTER(pcap_t), POINTER(pcap_send_queue), c_int]
 
     # int pcap_findalldevs_ex (char *source, struct pcap_rmtauth *auth, pcap_if_t **alldevs, char *errbuf)
     #   Create a list of network devices that can be opened with pcap_open().
-    pcap_findalldevs_ex = _lib.pcap_findalldevs_ex
+    pcap_findalldevs_ex = CFuncWrapper(_lib.pcap_findalldevs_ex)
     pcap_findalldevs_ex.retype = c_int
     pcap_findalldevs_ex.argtypes = [
         STRING,
@@ -828,7 +900,7 @@ if WINDOWS:
     # Accept a set of strings (host name, port, ...), and it returns the
     # complete source string according to the new format (e.g.
     # 'rpcap://1.2.3.4/eth0').
-    pcap_createsrcstr = _lib.pcap_createsrcstr
+    pcap_createsrcstr = CFuncWrapper(_lib.pcap_createsrcstr)
     pcap_createsrcstr.restype = c_int
     pcap_createsrcstr.argtypes = [
         STRING, c_int, STRING, STRING, STRING, STRING
@@ -837,7 +909,7 @@ if WINDOWS:
     # int pcap_parsesrcstr (const char *source, int *type, char *host, char *port, char *name, char *errbuf)
     # Parse the source string and returns the pieces in which the source can
     # be split.
-    pcap_parsesrcstr = _lib.pcap_parsesrcstr
+    pcap_parsesrcstr = CFuncWrapper(_lib.pcap_parsesrcstr)
     pcap_parsesrcstr.retype = c_int
     pcap_parsesrcstr.argtypes = [
         STRING,
@@ -850,7 +922,7 @@ if WINDOWS:
 
     # pcap_t *   pcap_open (const char *source, int snaplen, int flags, int read_timeout, struct pcap_rmtauth *auth, char *errbuf)
     # Open a generic source in order to capture / send (WinPcap only) traffic.
-    pcap_open = _lib.pcap_open
+    pcap_open = CFuncWrapper(_lib.pcap_open)
     pcap_open.restype = POINTER(pcap_t)
     pcap_open.argtypes = [
         STRING,
@@ -863,13 +935,13 @@ if WINDOWS:
 
     # struct pcap_samp *  pcap_setsampling (pcap_t *p)
     #   Define a sampling method for packet capture.
-    pcap_setsampling = _lib.pcap_setsampling
+    pcap_setsampling = CFuncWrapper(_lib.pcap_setsampling)
     pcap_setsampling.restype = POINTER(pcap_samp)
     pcap_setsampling.argtypes = [POINTER(pcap_t)]
 
     # SOCKET pcap_remoteact_accept (const char *address, const char *port, const char *hostlist, char *connectinghost, struct pcap_rmtauth *auth, char *errbuf)
     #   Block until a network connection is accepted (active mode only).
-    pcap_remoteact_accept = _lib.pcap_remoteact_accept
+    pcap_remoteact_accept = CFuncWrapper(_lib.pcap_remoteact_accept)
     pcap_remoteact_accept.restype = SOCKET
     pcap_remoteact_accept.argtypes = [
         STRING,
@@ -882,19 +954,19 @@ if WINDOWS:
 
     # int pcap_remoteact_close (const char *host, char *errbuf)
     #   Drop an active connection (active mode only).
-    pcap_remoteact_close = _lib.pcap_remoteact_close
+    pcap_remoteact_close = CFuncWrapper(_lib.pcap_remoteact_close)
     pcap_remoteact_close.restypes = c_int
     pcap_remoteact_close.argtypes = [STRING, STRING]
 
     # void pcap_remoteact_cleanup ()
     #   Clean the socket that is currently used in waiting active connections.
-    pcap_remoteact_cleanup = _lib.pcap_remoteact_cleanup
+    pcap_remoteact_cleanup = CFuncWrapper(_lib.pcap_remoteact_cleanup)
     pcap_remoteact_cleanup.restypes = None
     pcap_remoteact_cleanup.argtypes = []
 
     # int pcap_remoteact_list (char *hostlist, char sep, int size, char *errbuf)
     # Return the hostname of the host that have an active connection with us
     # (active mode only).
-    pcap_remoteact_list = _lib.pcap_remoteact_list
+    pcap_remoteact_list = CFuncWrapper(_lib.pcap_remoteact_list)
     pcap_remoteact_list.restype = c_int
     pcap_remoteact_list.argtypes = [STRING, c_char, c_int, STRING]
