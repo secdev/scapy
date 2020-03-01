@@ -67,7 +67,7 @@ def drain_bus(iface=iface0, assert_empty=True):
             assert len(pkts) == 0
 
 = Overwrite definition for vcan_socket systems native sockets
-~ vcan_socket needs_root linux
+~ vcan_socket not_pypy needs_root linux
 
 if six.PY3 and LINUX:
     from scapy.contrib.cansocket_native import *

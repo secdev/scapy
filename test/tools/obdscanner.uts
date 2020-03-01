@@ -54,7 +54,7 @@ if 0 != call("cansend %s 000#" % iface1, shell=True):
 print("CAN should work now")
 
 
-if six.PY3:
+if six.PY3 and not conf.use_pypy:
     from scapy.contrib.cansocket_native import *
 else:
     from scapy.contrib.cansocket_python_can import *
