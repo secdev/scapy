@@ -7,7 +7,7 @@
 Scapy: create, send, sniff, dissect and manipulate network packets.
 
 Usable either from an interactive console or as a Python library.
-http://www.secdev.org/projects/scapy
+https://scapy.net
 """
 
 import os

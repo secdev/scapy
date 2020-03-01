@@ -1534,6 +1534,7 @@ class BitField(Field):
         Field.__init__(self, name, default)
         self.rev = size < 0
         self.size = abs(size)
+        self.sz = self.size / 8.
 
     def reverse(self, val):
         if self.size == 16:
@@ -1739,6 +1740,7 @@ class BitEnumField(BitField, _EnumField):
         _EnumField.__init__(self, name, default, enum)
         self.rev = size < 0
         self.size = abs(size)
+        self.sz = self.size / 8.
 
     def any2i(self, pkt, x):
         return _EnumField.any2i(self, pkt, x)
@@ -1849,6 +1851,7 @@ class BitMultiEnumField(BitField, _MultiEnumField):
         _MultiEnumField.__init__(self, name, default, enum, depends_on)
         self.rev = size < 0
         self.size = abs(size)
+        self.sz = self.size / 8.
 
     def any2i(self, pkt, x):
         return _MultiEnumField.any2i(self, pkt, x)
