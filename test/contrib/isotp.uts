@@ -142,6 +142,8 @@ if p.wait() == 0:
 conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
 load_contrib("isotp")
 
+ISOTPSocket = ISOTPSoftSocket
+
 + ISOTP packet check
 
 = Creation of an empty ISOTP packet
