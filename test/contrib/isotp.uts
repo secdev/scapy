@@ -1283,33 +1283,33 @@ assert (isotp.dst == 0x241)
 
 = Receive a two-frame ISOTP message
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s:
-    cans = new_can_socket(iface0)
-    cans.send(CAN(identifier = 0x241, data = dhex("10 0B 01 02 03 04 05 06")))
-    cans.send(CAN(identifier = 0x241, data = dhex("21 07 08 09 10 11")))
+    with new_can_socket(iface0) as cans:
+        cans.send(CAN(identifier = 0x241, data = dhex("10 0B 01 02 03 04 05 06")))
+        cans.send(CAN(identifier = 0x241, data = dhex("21 07 08 09 10 11")))
     isotp = s.recv()
     assert(isotp.data == dhex("01 02 03 04 05 06 07 08 09 10 11"))
 
 = Check what happens when a CAN frame with wrong identifier gets received
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s:
-    cans = new_can_socket(iface0)
-    cans.send(CAN(identifier = 0x141, data = dhex("05 01 02 03 04 05")))
+    with new_can_socket(iface0) as cans:
+        cans.send(CAN(identifier = 0x141, data = dhex("05 01 02 03 04 05")))
     assert(s.ins.rx_queue.empty())
 
 + Testing ISOTPSocket timeouts
 
 = Check if not sending the last CF will make the socket timeout
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s:
-    cans = new_can_socket(iface0)
-    cans.send(CAN(identifier = 0x241, data = dhex("10 11 01 02 03 04 05 06")))
-    cans.send(CAN(identifier = 0x241, data = dhex("21 07 08 09 0A 0B 0C 0D")))
+    with new_can_socket(iface0) as cans:
+        cans.send(CAN(identifier = 0x241, data = dhex("10 11 01 02 03 04 05 06")))
+        cans.send(CAN(identifier = 0x241, data = dhex("21 07 08 09 0A 0B 0C 0D")))
     isotp = s.sniff(timeout=1)
 
 assert(len(isotp) == 0)
 
 = Check if not sending the first CF will make the socket timeout
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s:
-    cans = new_can_socket(iface0)
-    cans.send(CAN(identifier = 0x241, data = dhex("10 11 01 02 03 04 05 06")))
+    with new_can_socket(iface0) as cans:
+        cans.send(CAN(identifier = 0x241, data = dhex("10 11 01 02 03 04 05 06")))
     isotp = s.sniff(timeout=1)
 
 assert(len(isotp) == 0)
@@ -1647,9 +1647,9 @@ with new_can_socket0() as cs1, ISOTPSocket(cs1, sid=0x641, did=0x241) as s1, \
 
 = Send a single frame ISOTP message with padding
 with new_can_socket0() as cs1, ISOTPSocket(cs1, sid=0x641, did=0x241, padding=True) as s:
-    cans = new_can_socket(iface0)
-    s.send(ISOTP(data=dhex("01")))
-    res = cans.sniff(timeout=1, count=1)[0]
+    with new_can_socket(iface0) as cans:
+        s.send(ISOTP(data=dhex("01")))
+        res = cans.sniff(timeout=1, count=1)[0]
     assert(res.length == 8)
 
 
