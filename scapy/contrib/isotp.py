@@ -1487,10 +1487,11 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.begin_send(p)
 
             # Wait until the tx callback is called
-            if not self.tx_done.wait(30):
-                raise Scapy_Exception("ISOTP send not completed in 30s")
+            send_done = self.tx_done.wait(30)
             if self.tx_exception is not None:
                 raise Scapy_Exception(self.tx_exception)
+            if not send_done:
+                raise Scapy_Exception("ISOTP send not completed in 30s")
             return
 
     def recv(self, timeout=None):
