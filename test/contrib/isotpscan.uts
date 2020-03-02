@@ -250,6 +250,7 @@ def test_scan_extended(sniff_time=0.02):
     semaphore.acquire()
     with new_can_socket0() as scansock:
         found_packets = scan_extended(scansock, [0x600, 0x601],
+                                      extended_scan_range=range(0xb0, 0xc0),
                                       sniff_time=sniff_time)
     with new_can_socket0() as cans:
         cans.send(CAN(identifier=0x601, data=b'\xbb\x01\xaa'))
@@ -406,6 +407,7 @@ def test_extended_isotpscan_code(sniff_time=0.02):
     thread_noise.start()
     with new_can_socket0() as scansock:
         result = ISOTPScan(scansock, range(0x5ff, 0x603 + 1),
+                           extended_scan_range=range(0x20, 0x30),
                            extended_addressing=True, sniff_time=sniff_time,
                            noise_listen_time=sniff_time * 6,
                            output_format="code",
@@ -449,6 +451,7 @@ def test_extended_isotpscan_code_extended_can_id(sniff_time=0.02):
     with new_can_socket0() as scansock:
         result = ISOTPScan(scansock, range(0x1ffff5ff, 0x1ffff604 + 1),
                            extended_can_id=True,
+                           extended_scan_range=range(0x20, 0x30),
                            extended_addressing=True,
                            sniff_time=sniff_time,
                            noise_listen_time=sniff_time * 6,
@@ -526,7 +529,7 @@ def test_isotpscan_none_2(sniff_time=0.02):
     def isotpserver(i):
         with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700 + i,
                                                       did=0x600 + i) as s:
-            s.sniff(timeout=1500 * sniff_time, count=1,
+            s.sniff(timeout=1000 * sniff_time, count=1,
                     started_callback=semaphore.release)
     pkt = CAN(identifier=0x701, length=8,
               data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
@@ -540,7 +543,7 @@ def test_isotpscan_none_2(sniff_time=0.02):
     thread_noise.start()
     with new_can_socket0() as socks_interface:
         with new_can_socket0() as scansock:
-            result = ISOTPScan(scansock, range(0x607, 0x6A0),
+            result = ISOTPScan(scansock, range(0x607, 0x60A),
                                can_interface=socks_interface,
                                sniff_time=sniff_time,
                                noise_listen_time=sniff_time * 6,
@@ -575,7 +578,7 @@ def test_extended_isotpscan_none(sniff_time=0.02):
         with new_can_socket0() as isocan, \
                 ISOTPSocket(isocan, sid=0x700 + i, did=0x600 + i,
                             extended_addr=0x11, extended_rx_addr=0x22) as s:
-            s.sniff(timeout=1500 * sniff_time, count=1,
+            s.sniff(timeout=500 * sniff_time, count=1,
                     started_callback=semaphore.release)
     pkt = CAN(identifier=0x701, length=8,
               data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
@@ -590,6 +593,7 @@ def test_extended_isotpscan_none(sniff_time=0.02):
         thread_noise.start()
         with new_can_socket0() as scansock:
             result = ISOTPScan(scansock, range(0x5ff, 0x603 + 1),
+                               extended_scan_range=range(0x20, 0x30),
                                extended_addressing=True,
                                can_interface=socks_interface,
                                sniff_time=sniff_time,
@@ -597,14 +601,14 @@ def test_extended_isotpscan_none(sniff_time=0.02):
                                verbose=True)
         result = sorted(result, key=lambda x: x.src)
         with new_can_socket0() as cans:
-            cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
-            cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
+            cans.send(CAN(identifier=0x602, data=b'\x22\x01\xaa'))
+            cans.send(CAN(identifier=0x603, data=b'\x22\x01\xaa'))
             time.sleep(0.00)
-            cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
-            cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
+            cans.send(CAN(identifier=0x602, data=b'\x22\x01\xaa'))
+            cans.send(CAN(identifier=0x603, data=b'\x22\x01\xaa'))
             time.sleep(0.00)
-            cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
-            cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
+            cans.send(CAN(identifier=0x602, data=b'\x22\x01\xaa'))
+            cans.send(CAN(identifier=0x603, data=b'\x22\x01\xaa'))
             for s in result:
                 # This helps to close ISOTPSoftSockets
                 cans.send(CAN(identifier=0x702, data=b'\x11\x01\xaa'))
@@ -630,14 +634,14 @@ def test_extended_isotpscan_none(sniff_time=0.02):
 
 
 def test_isotpscan_none_random_ids(sniff_time=0.02):
-    rnd = RandNum(0x1, 0x100)
+    rnd = RandNum(0x1, 0x50)
     ids = set(rnd._fix() for _ in range(10))
     print(ids)
     semaphore = threading.Semaphore(0)
     def isotpserver(i):
         with new_can_socket0() as isocan, \
                 ISOTPSocket(isocan, sid=0x100 + i, did=i) as s:
-            s.sniff(timeout=1500 * sniff_time, count=1,
+            s.sniff(timeout=700 * sniff_time, count=1,
                     started_callback=semaphore.release)
     pkt = CAN(identifier=0x701, length=8,
               data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
@@ -649,7 +653,7 @@ def test_isotpscan_none_random_ids(sniff_time=0.02):
     with new_can_socket0() as socks_interface:
         thread_noise.start()
         with new_can_socket0() as scansock:
-            result = ISOTPScan(scansock, range(0x000, 0x101),
+            result = ISOTPScan(scansock, range(0x000, 0x51),
                                can_interface=socks_interface,
                                noise_listen_time=sniff_time * 6,
                                sniff_time=sniff_time,
@@ -659,8 +663,10 @@ def test_isotpscan_none_random_ids(sniff_time=0.02):
             for i in ids:
                 # This helps to close ISOTPSoftSockets
                 cans.send(CAN(identifier=i, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=0x100 + i, data=b'\x01\xaa'))
                 time.sleep(0)
                 cans.send(CAN(identifier=i, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=0x100 + i, data=b'\x01\xaa'))
             for s in result:
                 # This helps to close ISOTPSoftSockets
                 cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
@@ -681,13 +687,13 @@ def test_isotpscan_none_random_ids(sniff_time=0.02):
 
 
 def test_isotpscan_none_random_ids_padding(sniff_time=0.02):
-    rnd = RandNum(0x1, 0x100)
+    rnd = RandNum(0x1, 0x50)
     ids = set(rnd._fix() for _ in range(10))
     semaphore = threading.Semaphore(0)
     def isotpserver(i):
         with new_can_socket0() as isocan, \
                 ISOTPSocket(isocan, sid=0x100 + i, did=i, padding=True) as s:
-            s.sniff(timeout=1500 * sniff_time, count=1,
+            s.sniff(timeout=700 * sniff_time, count=1,
                     started_callback=semaphore.release)
     pkt = CAN(identifier=0x701, length=8,
               data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
@@ -699,7 +705,7 @@ def test_isotpscan_none_random_ids_padding(sniff_time=0.02):
     with new_can_socket0() as socks_interface:
         thread_noise.start()
         with new_can_socket0() as scansock:
-            result = ISOTPScan(scansock, range(0x000, 0x101),
+            result = ISOTPScan(scansock, range(0x000, 0x51),
                                can_interface=socks_interface,
                                noise_listen_time=sniff_time * 6,
                                sniff_time=sniff_time,
@@ -709,8 +715,10 @@ def test_isotpscan_none_random_ids_padding(sniff_time=0.02):
             for i in ids:
                 # This helps to close ISOTPSoftSockets
                 cans.send(CAN(identifier=i, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=0x100 + i, data=b'\x01\xaa'))
                 time.sleep(0)
                 cans.send(CAN(identifier=i, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=0x100 + i, data=b'\x01\xaa'))
             for s in result:
                 # This helps to close ISOTPSoftSockets
                 cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
