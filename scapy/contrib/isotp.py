@@ -2008,8 +2008,8 @@ def scan(sock, scan_range=range(0x800), noise_ids=None, sniff_time=0.1,
 
 
 def scan_extended(sock, scan_range=range(0x800), scan_block_size=32,
-                  noise_ids=None, sniff_time=0.1, extended_can_id=False,
-                  verbose=False):
+                  extended_scan_range=range(0x100), noise_ids=None,
+                  sniff_time=0.1, extended_can_id=False, verbose=False):
     """Scan with ISOTP extended addresses and return dictionary of detections
 
     Args:
@@ -2017,6 +2017,7 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=32,
             scan_range: hexadecimal range of IDs to scan.
                         Default is 0x0 - 0x7ff
             scan_block_size: count of packets send at once
+            extended_scan_range: range to search for extended ISOTP adresses
             noise_ids: list of packet IDs which will not be considered when
                        received during scan
             sniff_time: time the scan waits for isotp flow control responses
@@ -2037,8 +2038,8 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=32,
         pkt = get_isotp_packet(value, extended=True,
                                extended_can_id=extended_can_id)
         id_list = []
-
-        for ext_isotp_id in range(0, 256, scan_block_size):
+        r = list(extended_scan_range)
+        for ext_isotp_id in range(r[0], r[-1], scan_block_size):
             sock.sniff(prn=lambda p: get_isotp_fc(ext_isotp_id, id_list,
                                                   noise_ids, True, p,
                                                   verbose),
@@ -2065,7 +2066,10 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=32,
     return return_values
 
 
-def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
+def ISOTPScan(sock,
+              scan_range=range(0x7ff + 1),
+              extended_addressing=False,
+              extended_scan_range=range(0x100),
               noise_listen_time=2,
               sniff_time=0.1,
               output_format=None,
@@ -2080,6 +2084,7 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
         scan_range: hexadecimal range of CAN-Identifiers to scan.
                     Default is 0x0 - 0x7ff
         extended_addressing: scan with ISOTP extended addressing
+        extended_scan_range: range for ISOTP extended addressing values
         noise_listen_time: seconds to listen for default
                            communication on the bus
         sniff_time: time the scan waits for isotp flow control responses
@@ -2115,12 +2120,15 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
     noise_ids = list(set(pkt.identifier for pkt in background_pkts))
 
     if extended_addressing:
-        found_packets = scan_extended(sock, scan_range, noise_ids=noise_ids,
+        found_packets = scan_extended(sock, scan_range,
+                                      extended_scan_range=extended_scan_range,
+                                      noise_ids=noise_ids,
                                       sniff_time=sniff_time,
                                       extended_can_id=extended_can_id,
                                       verbose=verbose)
     else:
-        found_packets = scan(sock, scan_range, noise_ids=noise_ids,
+        found_packets = scan(sock, scan_range,
+                             noise_ids=noise_ids,
                              sniff_time=sniff_time,
                              extended_can_id=extended_can_id,
                              verbose=verbose)
