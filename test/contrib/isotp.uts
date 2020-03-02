@@ -1326,7 +1326,7 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s
         exception = ex
 
 print(exception)
-assert(str(exception) == "TX state was reset due to timeout")
+assert(str(exception) == "TX state was reset due to timeout" or str(exception) == "ISOTP send not completed in 30s")
 
 = Check if not sending the second FC will make the socket timeout
 exception = None
