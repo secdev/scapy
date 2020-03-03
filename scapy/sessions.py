@@ -213,7 +213,7 @@ class TCPSession(IPSession):
         to follow the TCP streams, and orders the fragments.
         """
         from scapy.layers.inet import IP, TCP
-        if TCP not in pkt:
+        if not pkt or TCP not in pkt:
             return pkt
         pay = pkt[TCP].payload
         if isinstance(pay, (NoPayload, conf.padding_layer)):
