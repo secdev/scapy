@@ -2018,7 +2018,7 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=32,
             scan_range: hexadecimal range of IDs to scan.
                         Default is 0x0 - 0x7ff
             scan_block_size: count of packets send at once
-            extended_scan_range: range to search for extended ISOTP adresses
+            extended_scan_range: range to search for extended ISOTP addresses
             noise_ids: list of packet IDs which will not be considered when
                        received during scan
             sniff_time: time the scan waits for isotp flow control responses
