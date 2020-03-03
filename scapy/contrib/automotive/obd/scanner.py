@@ -48,7 +48,7 @@ def _supported_id_numbers(socket, timeout, service_class, id_name, verbose):
 
         # If None, the device did not respond.
         # Usually only occurs, if device is off.
-        if resp is None:
+        if resp is None or resp.service == 0x7f:
             break
 
         supported_ids_req = None
