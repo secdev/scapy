@@ -244,6 +244,18 @@ ie = IE_ProtocolConfigurationOptions(
     length=29, Protocol_Configuration=b'\x80\xc0#\x06\x01\x01\x00\x06\x00\x00\x80!\x10\x01\x01\x00\x10\x81\x06\x00\x00\x00\x00\x83\x06\x00\x00\x00\x00')
 ie.ietype == 132 and ie.Protocol_Configuration == b'\x80\xc0#\x06\x01\x01\x00\x06\x00\x00\x80!\x10\x01\x01\x00\x10\x81\x06\x00\x00\x00\x00\x83\x06\x00\x00\x00\x00'
 
+= IE_GSNAddress(), simple build/dissect IPv4
+r = raw(IE_GSNAddress(ipv4_address='10.42.0.1'))
+assert r == b'\x85\x00\x04\x0a\x2a\x00\x01'
+ie = IE_GSNAddress(r)
+ie.ietype == 133 and ie.ipv4_address == '10.42.0.1'
+
+= IE_GSNAddress(), simple build/dissect IPv6
+r = raw(IE_GSNAddress(length=16, ipv6_address='fd01:1::1'))
+assert r == b'\x85\x00\x10\xfd\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+ie = IE_GSNAddress(r)
+ie.ietype == 133 and ie.ipv6_address == 'fd01:1::1'
+
 = IE_GSNAddress(), dissect IPv4
 h = "3333333333332222222222228100838408004588005400000000fd1182850a2a00010a2a0002084b084b00406b463213003031146413c18000000180109181ba027fcf701a8c8500040a2a00018500040a2a000187000f0213921f7396d1fe7482ffff004a00f7a71e0a"
 gtp = Ether(hex_bytes(h))
@@ -261,7 +273,7 @@ ie = IE_GSNAddress(ipv4_address='10.42.0.1')
 ie.ietype == 133 and ie.ipv4_address == '10.42.0.1'
 
 = IE_GSNAddress(), basic instantiation IPv6
-ie = IE_GSNAddress(ipv6_address='fd01:1::1')
+ie = IE_GSNAddress(length=16, ipv6_address='fd01:1::1')
 ie.ietype == 133 and ie.ipv6_address == 'fd01:1::1'
 
 = IE_MSInternationalNumber(), dissect

@@ -536,12 +536,6 @@ class IE_GSNAddress(IE_Base):
                    ConditionalField(IP6Field("ipv6_address", '::1'),
                                     lambda pkt: pkt.length == 16)]
 
-    def post_build(self, p, pay):
-        if self.length == 4:
-            tmp_len = len(p) - 3
-            p = p[:1] + struct.pack("!H", tmp_len) + p[3:]
-        return p
-
 
 class IE_MSInternationalNumber(IE_Base):
     name = "MS International Number"
