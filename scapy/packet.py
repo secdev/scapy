@@ -2233,7 +2233,6 @@ def fuzz(p, _inplace=0):
         for f in q.fields_desc:
             if isinstance(f, PacketListField):
                 for r in getattr(q, f.name):
-                    print("fuzzing", repr(r))
                     fuzz(r, _inplace=1)
             elif isinstance(f, MultipleTypeField):
                 # the type of the field will depend on others

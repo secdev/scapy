@@ -436,7 +436,7 @@ def _set_conf_sockets():
             "Scapy only supports libpcap on Solaris !"
         )
     # we are already in an Interceptor hook, use Interceptor.set_from_hook
-    if conf.use_pcap or conf.use_dnet:
+    if conf.use_pcap:
         try:
             from scapy.arch.pcapdnet import L2pcapListenSocket, L2pcapSocket, \
                 L3pcapSocket
@@ -619,8 +619,6 @@ class Conf(ConfClass):
         os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y"),
         _socket_changer
     )
-    # XXX use_dnet is deprecated
-    use_dnet = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
     use_bpf = Interceptor("use_bpf", False, _socket_changer)
     use_npcap = False
     ipv6_enabled = socket.has_ipv6

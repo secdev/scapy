@@ -1835,6 +1835,8 @@ class _MultiEnumField(_EnumField):
 
     def i2repr_one(self, pkt, x):
         v = self.depends_on(pkt)
+        if isinstance(v, VolatileValue):
+            return repr(v)
         if v in self.i2s_multi:
             return self.i2s_multi[v].get(x, x)
         return x

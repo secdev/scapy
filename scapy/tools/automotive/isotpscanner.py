@@ -17,7 +17,7 @@ import scapy.modules.six as six
 from scapy.config import conf
 from scapy.consts import LINUX
 
-if six.PY2 or not LINUX:
+if six.PY2 or not LINUX or conf.use_pypy:
     conf.contribs['CANSocket'] = {'use-python-can': True}
 
 from scapy.contrib.cansocket import CANSocket, PYTHON_CAN   # noqa: E402

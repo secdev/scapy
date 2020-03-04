@@ -142,6 +142,8 @@ if p.wait() == 0:
 conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
 load_contrib("isotp")
 
+ISOTPSocket = ISOTPSoftSocket
+
 + ISOTP packet check
 
 = Creation of an empty ISOTP packet
@@ -1822,7 +1824,7 @@ assert(result_data == isotp.data)
 
 
 + ISOTPNativeSocket tests
-~ python3_only vcan_socket needs_root linux
+~ python3_only not_pypy vcan_socket needs_root linux
 
 
 = Overwrite definition for vcan_socket systems native sockets
