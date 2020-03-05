@@ -1656,25 +1656,22 @@ def acker():
         can = acks.sniff(timeout=1, count=1)[0]
         acks.send(CAN(identifier = 0x241, data=dhex("30 00 00")))
 
-ack_thread = Thread(target=acker)
-ack_thread.start()
-acker_ready.wait(timeout=5)
-
-with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241, padding=True) as s:
-    s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
-
 with new_can_socket(iface0) as cans:
-    can = cans.sniff(timeout=1, count=1)[0]
-    assert(can.identifier == 0x641)
-    assert(can.data == dhex("10 08 01 02 03 04 05 06"))
-    can = cans.sniff(timeout=1, count=1)[0]
-    assert(can.identifier == 0x241)
-    assert(can.data == dhex("30 00 00"))
-    can = cans.sniff(timeout=1, count=1)[0]
-    assert(can.identifier == 0x641)
-    assert(can.data == dhex("21 07 08 00 00 00 00 00"))
-
-ack_thread.join(timeout=5)
+    ack_thread = Thread(target=acker)
+    ack_thread.start()
+    acker_ready.wait(timeout=5)
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241, padding=True) as s:
+        s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
+        can = cans.sniff(timeout=1, count=1)[0]
+        assert(can.identifier == 0x641)
+        assert(can.data == dhex("10 08 01 02 03 04 05 06"))
+        can = cans.sniff(timeout=1, count=1)[0]
+        assert(can.identifier == 0x241)
+        assert(can.data == dhex("30 00 00"))
+        can = cans.sniff(timeout=1, count=1)[0]
+        assert(can.identifier == 0x641)
+        assert(can.data == dhex("21 07 08 00 00 00 00 00"))
+    ack_thread.join(timeout=5)
 
 
 = Receive a padded single frame ISOTP message with padding disabled
@@ -1910,13 +1907,11 @@ def acker():
         can = acks.sniff(timeout=1, count=1)[0]
         acks.send(CAN(identifier = 0x241, data=dhex("30 00 00")))
 
-Thread(target=acker).start()
-acker_ready.wait(timeout=5)
-
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241, padding=True)
-s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
-
 with new_can_socket(iface0) as cans:
+    Thread(target=acker).start()
+    acker_ready.wait(timeout=5)
+    s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241, padding=True)
+    s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
     can = cans.sniff(timeout=1, count=1)[0]
     assert(can.identifier == 0x641)
     assert(can.data == dhex("10 08 01 02 03 04 05 06"))
