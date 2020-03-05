@@ -1833,18 +1833,22 @@ class TestPacket(Packet):
         "B": ("b", "1.0"),
     }
 
-pkt = TestPacket(a=2, B=3)
-assert pkt.B == 3
-assert pkt.b == 3
-assert pkt.a == 2
-
-import warnings
-
-with warnings.catch_warnings(record=True) as w:
-    warnings.simplefilter("always")
-    assert pkt.dpr == 2
-    assert len(w) == 1
-    assert issubclass(w[-1].category, DeprecationWarning)
+try:
+    pkt = TestPacket(a=2, B=3)
+    assert pkt.B == 3
+    assert pkt.b == 3
+    assert pkt.a == 2
+    
+    import warnings
+    
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        assert pkt.dpr == 2
+        assert len(w) == 1
+        assert issubclass(w[-1].category, DeprecationWarning)
+except DeprecationWarning:
+    # -Werror is used
+    pass
 
 
 ############

@@ -26,6 +26,7 @@ import zlib
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
 
 #   Util class   #
@@ -285,7 +286,7 @@ def parse_config_file(config_path, verb=3):
     """
     import json
     with open(config_path) as config_file:
-        data = json.load(config_file, encoding="utf8")
+        data = json.load(config_file)
         if verb > 2:
             print("### Loaded config file", config_path, file=sys.stderr)
 
@@ -493,6 +494,15 @@ def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=Fal
     import_UTscapy_tools(scapy_ses)
     if test_campaign.preexec:
         test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals, my_globals=scapy_ses)[0]
+    # Drop
+
+    def drop(scapy_ses):
+        code.interact(banner="Test '%s' failed. "
+                             "exit() to stop, Ctrl-D to leave "
+                             "this interpreter and continue "
+                             "with the current test campaign"
+                             % t.name, local=scapy_ses)
+
     try:
         for i, testset in enumerate(test_campaign):
             for j, t in enumerate(testset):
@@ -501,11 +511,7 @@ def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=Fal
                 else:
                     failed += 1
                     if drop_to_interpreter:
-                        code.interact(banner="Test '%s' failed. "
-                                             "exit() to stop, Ctrl-D to leave "
-                                             "this interpreter and continue "
-                                             "with the current test campaign"
-                                             % t.name, local=scapy_ses)
+                        drop(scapy_ses)
                 test_campaign.duration += t.duration
     except KeyboardInterrupt:
         failed += 1
@@ -514,6 +520,8 @@ def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=Fal
         test_campaign.interrupted = True
         if verb:
             print("Campaign interrupted!", file=sys.stderr)
+            if drop_to_interpreter:
+                drop(scapy_ses)
 
     test_campaign.passed = passed
     test_campaign.failed = failed
@@ -911,9 +919,29 @@ def main():
             elif opt == "-K":
                 KW_KO.extend(optarg.split(","))
 
+        # Disable tests if needed
+
         # Discard Python3 tests when using Python2
         if six.PY2:
             KW_KO.append("python3_only")
+            if VERB > 2:
+                print("### Python 2 mode ###")
+        try:
+            if os.getuid() != 0:  # Non root
+                # Discard root tests
+                KW_KO.append("netaccess")
+                KW_KO.append("needs_root")
+                if VERB > 2:
+                    print("### Non-root mode ###")
+        except AttributeError:
+            pass
+
+        if conf.use_pcap:
+            KW_KO.append("not_pcapdnet")
+            if VERB > 2:
+                print("### libpcap mode ###")
+
+        # Process extras
 
         if ANNOTATIONS_MODE:
             try:

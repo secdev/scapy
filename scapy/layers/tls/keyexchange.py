@@ -617,10 +617,14 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
 
         curve_name = _tls_named_curves[self.named_curve]
         curve = ec._CURVE_TYPES[curve_name]()
-        import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
-        pubnum = import_point(curve, self.point)
         s = self.tls_session
-        s.server_kx_pubkey = pubnum.public_key(default_backend())
+        try:  # cryptography >= 2.5
+            import_point = ec.EllipticCurvePublicKey.from_encoded_point
+            s.server_kx_pubkey = import_point(curve, self.point)
+        except AttributeError:
+            import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
+            pubnum = import_point(curve, self.point)
+            s.server_kx_pubkey = pubnum.public_key(default_backend())
 
         if not s.client_kx_ecdh_params:
             s.client_kx_ecdh_params = curve
@@ -836,9 +840,14 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
 
         # if there are kx params and keys, we assume the crypto library is ok
         if s.client_kx_ecdh_params:
-            import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
-            pub_num = import_point(s.client_kx_ecdh_params, self.ecdh_Yc)
-            s.client_kx_pubkey = pub_num.public_key(default_backend())
+            try:  # cryptography >= 2.5
+                import_point = ec.EllipticCurvePublicKey.from_encoded_point
+                s.client_kx_pubkey = import_point(s.client_kx_ecdh_params,
+                                                  self.ecdh_Yc)
+            except AttributeError:
+                import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
+                pub_num = import_point(s.client_kx_ecdh_params, self.ecdh_Yc)
+                s.client_kx_pubkey = pub_num.public_key(default_backend())
 
         if s.server_kx_privkey and s.client_kx_pubkey:
             ZZ = s.server_kx_privkey.exchange(ec.ECDH(), s.client_kx_pubkey)

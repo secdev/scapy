@@ -116,8 +116,8 @@ assert(exit_status == 0)
 = IPv6 link-local address selection
 
 from mock import patch
-bck_conf_route6_routes = conf.route6.routes
 conf.route6.routes =  [('fe80::', 64, '::', 'scapy0', ['fe80::e039:91ff:fe79:1910'], 256)]
+conf.route6.ipv6_ifaces = set(['scapy0'])
 bck_conf_iface = conf.iface
 conf.iface = "scapy0"
 with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
@@ -131,8 +131,8 @@ with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
     print(p[Ether].src, mac_address)
     assert p[Ether].src == mac_address
 
-conf.route6.routes = bck_conf_route6_routes
 conf.iface = bck_conf_iface
+conf.route6.resync()
 
 = IPv6
 ~ linux
@@ -142,7 +142,7 @@ if len(addrs) == 0:
     assert True
 else:
     assert all([in6_isvalid(addr[0]) for addr in in6_getifaddr()])
-    assert set([addr[2] for addr in in6_getifaddr()]) == set(get_if_list())
+    assert set([addr[2] for addr in in6_getifaddr()]) == conf.route6.ipv6_ifaces
 
 
 = veth interface error handling

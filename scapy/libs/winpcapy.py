@@ -9,7 +9,6 @@
 
 from ctypes import *
 from ctypes.util import find_library
-import sys
 import os
 
 from scapy.libs.structures import bpf_program
@@ -166,6 +165,8 @@ pcap_stat._fields_ = _tmpList
 
 class pcap_addr(Structure):
     pass
+
+
 pcap_addr._fields_ = [('next', POINTER(pcap_addr)),
                       ('addr', POINTER(sockaddr)),
                       ('netmask', POINTER(sockaddr)),
@@ -178,6 +179,8 @@ pcap_addr._fields_ = [('next', POINTER(pcap_addr)),
 
 class pcap_if(Structure):
     pass
+
+
 pcap_if._fields_ = [('next', POINTER(pcap_if)),
                     ('name', STRING),
                     ('description', STRING),
@@ -352,7 +355,7 @@ pcap_freealldevs = _lib.pcap_freealldevs
 pcap_freealldevs.restype = None
 pcap_freealldevs.argtypes = [POINTER(pcap_if_t)]
 
-#char *   pcap_lookupdev (char *errbuf)
+# char *   pcap_lookupdev (char *errbuf)
 #   Return the first valid device in the system.
 pcap_lookupdev = _lib.pcap_lookupdev
 pcap_lookupdev.restype = STRING
@@ -417,7 +420,7 @@ pcap_breakloop.argtypes = [POINTER(pcap_t)]
 #   Send a raw packet.
 pcap_sendpacket = _lib.pcap_sendpacket
 pcap_sendpacket.restype = c_int
-#pcap_sendpacket.argtypes = [POINTER(pcap_t), POINTER(u_char), c_int]
+# pcap_sendpacket.argtypes = [POINTER(pcap_t), POINTER(u_char), c_int]
 pcap_sendpacket.argtypes = [POINTER(pcap_t), c_void_p, c_int]
 
 # void pcap_dump (u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
@@ -487,7 +490,7 @@ pcap_datalink.argtypes = [POINTER(pcap_t)]
 #   list datalinks
 pcap_list_datalinks = _lib.pcap_list_datalinks
 pcap_list_datalinks.restype = c_int
-#pcap_list_datalinks.argtypes = [POINTER(pcap_t), POINTER(POINTER(c_int))]
+# pcap_list_datalinks.argtypes = [POINTER(pcap_t), POINTER(POINTER(c_int))]
 
 # int pcap_set_datalink (pcap_t *p, int dlt)
 # Set the current data link type of the pcap descriptor to the type
@@ -546,7 +549,7 @@ pcap_minor_version = _lib.pcap_minor_version
 pcap_minor_version.restype = c_int
 pcap_minor_version.argtypes = [POINTER(pcap_t)]
 
-#FILE *   pcap_file (pcap_t *p)
+# FILE *   pcap_file (pcap_t *p)
 #   Return the standard stream of an offline capture.
 pcap_file = _lib.pcap_file
 pcap_file.restype = FILE
@@ -565,7 +568,7 @@ pcap_perror = _lib.pcap_perror
 pcap_perror.restype = None
 pcap_perror.argtypes = [POINTER(pcap_t), STRING]
 
-#char *   pcap_geterr (pcap_t *p)
+# char *   pcap_geterr (pcap_t *p)
 #   return the error text pertaining to the last pcap library error.
 pcap_geterr = _lib.pcap_geterr
 pcap_geterr.restype = STRING
@@ -591,8 +594,8 @@ pcap_close = _lib.pcap_close
 pcap_close.restype = None
 pcap_close.argtypes = [POINTER(pcap_t)]
 
-#FILE *   pcap_dump_file (pcap_dumper_t *p)
-# return the standard I/O stream of the 'savefile' opened by
+# FILE *   pcap_dump_file (pcap_dumper_t *p)
+#   return the standard I/O stream of the 'savefile' opened by
 # pcap_dump_open().
 pcap_dump_file = _lib.pcap_dump_file
 pcap_dump_file.restype = FILE
