@@ -35,7 +35,7 @@ if PYTHON_CAN:
                      "{'use-python-can': False}' to enable native CANSockets.")
     from scapy.contrib.cansocket_python_can import (PythonCANSocket, CANSocket, CAN_FRAME_SIZE, CAN_INV_FILTER)  # noqa: E501 F401
 
-elif LINUX and six.PY3:
+elif LINUX and six.PY3 and not conf.use_pypy:
     log_loading.info("Using native CANSocket.")
     log_loading.info("Specify 'conf.contribs['CANSocket'] = "
                      "{'use-python-can': True}' "

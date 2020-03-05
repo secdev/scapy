@@ -2107,6 +2107,110 @@ def ls(obj=None, case_sensitive=False, verbose=False):
             print("Not a packet class or name. Type 'ls()' to list packet classes.")  # noqa: E501
 
 
+@conf.commands.register
+def rfc(cls, ret=False, legend=True):
+    """
+    Generate an RFC-like representation of a packet def.
+
+    :param cls: the Packet class
+    :param ret: return the result instead of printing (def. False)
+    :param legend: show text under the diagram (default True)
+
+    Ex::
+
+        >>> rfc(Ether)
+
+    """
+    if not issubclass(cls, Packet):
+        raise TypeError("Packet class expected")
+    cur_len = 0
+    cur_line = []
+    lines = []
+    # Get the size (width) that a field will take
+    # when formatted, from its length in bits
+    clsize = lambda x: 2 * x - 1
+    ident = 0  # Fields UUID
+    # Generate packet groups
+    for f in cls.fields_desc:
+        flen = int(f.sz * 8)
+        cur_len += flen
+        ident += 1
+        # Fancy field name
+        fname = f.name.upper().replace("_", " ")
+        # The field might exceed the current line or
+        # take more than one line. Copy it as required
+        while True:
+            over = max(0, cur_len - 32)  # Exceed
+            len1 = clsize(flen - over)  # What fits
+            cur_line.append((fname[:len1], len1, ident))
+            if cur_len >= 32:
+                # Current line is full. start a new line
+                lines.append(cur_line)
+                cur_len = flen = over
+                fname = ""  # do not repeat the field
+                cur_line = []
+                if not over:
+                    # there is no data left
+                    break
+            else:
+                # End of the field
+                break
+    # Add the last line if un-finished
+    if cur_line:
+        lines.append(cur_line)
+    # Calculate separations between lines
+    seps = []
+    seps.append("+-" * 32 + "+\n")
+    for i in range(len(lines) - 1):
+        # Start with a full line
+        sep = "+-" * 32 + "+\n"
+        # Get the line above and below the current
+        # separation
+        above, below = lines[i], lines[i + 1]
+        # The last field of above is shared with below
+        if above[-1][2] == below[0][2]:
+            # where the field in "above" starts
+            pos_above = sum(x[1] for x in above[:-1])
+            # where the field in "below" ends
+            pos_below = below[0][1]
+            if pos_above < pos_below:
+                # they are overlapping.
+                # Now crop the space between those pos
+                # and fill it with " "
+                pos_above = pos_above + pos_above % 2
+                sep = (
+                    sep[:1 + pos_above] +
+                    " " * (pos_below - pos_above) +
+                    sep[1 + pos_below:]
+                )
+        # line is complete
+        seps.append(sep)
+    # Graph
+    result = ""
+    # Bytes markers
+    result += " " + (" " * 19).join(
+        str(x) for x in range(4)
+    ) + "\n"
+    # Bits markers
+    result += " " + " ".join(
+        str(x % 10) for x in range(32)
+    ) + "\n"
+    # Add fields and their separations
+    for line, sep in zip(lines, seps):
+        result += sep
+        for elt, flen, _ in line:
+            result += "|" + elt.center(flen, " ")
+        result += "|\n"
+    result += "+-" * (cur_len or 32) + "+\n"
+    # Annotate with the figure name
+    if legend:
+        result += "\n" + ("Fig. " + cls.__name__).center(66, " ")
+    # return if asked for, else print
+    if ret:
+        return result
+    print(result)
+
+
 #############
 #  Fuzzing  #
 #############
@@ -2129,7 +2233,6 @@ def fuzz(p, _inplace=0):
         for f in q.fields_desc:
             if isinstance(f, PacketListField):
                 for r in getattr(q, f.name):
-                    print("fuzzing", repr(r))
                     fuzz(r, _inplace=1)
             elif isinstance(f, MultipleTypeField):
                 # the type of the field will depend on others

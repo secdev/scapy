@@ -1287,8 +1287,24 @@ class GTPV2ModifyBearerCommand(GTPV2Command):
     name = "GTPv2 Modify Bearer Command"
 
 
-class GTPV2ModifyBearerFailureNotification(GTPV2Command):
-    name = "GTPv2 Modify Bearer Command"
+class GTPV2ModifyBearerFailureIndication(GTPV2Command):
+    name = "GTPv2 Modify Bearer Failure Indication"
+
+
+class GTPV2DeleteBearerCommand(GTPV2Command):
+    name = "GTPv2 Delete Bearer Command"
+
+
+class GTPV2DeleteBearerFailureIndication(GTPV2Command):
+    name = "GTPv2 Delete Bearer Failure Indication"
+
+
+class GTPV2BearerResourceCommand(GTPV2Command):
+    name = "GTPv2 Bearer Resource Command"
+
+
+class GTPV2BearerResourceFailureIndication(GTPV2Command):
+    name = "GTPv2 Bearer Resource Failure Indication"
 
 
 class GTPV2DownlinkDataNotifFailureIndication(GTPV2Command):
@@ -1301,6 +1317,14 @@ class GTPV2ModifyBearerRequest(GTPV2Command):
 
 class GTPV2ModifyBearerResponse(GTPV2Command):
     name = "GTPv2 Modify Bearer Response"
+
+
+class GTPV2CreateBearerRequest(GTPV2Command):
+    name = "GTPv2 Create Bearer Request"
+
+
+class GTPV2CreateBearerResponse(GTPV2Command):
+    name = "GTPv2 Create Bearer Response"
 
 
 class GTPV2UpdateBearerRequest(GTPV2Command):
@@ -1376,8 +1400,14 @@ bind_layers(GTPHeader, GTPV2ModifyBearerResponse, gtp_type=35)
 bind_layers(GTPHeader, GTPV2DeleteSessionRequest, gtp_type=36)
 bind_layers(GTPHeader, GTPV2DeleteSessionResponse, gtp_type=37)
 bind_layers(GTPHeader, GTPV2ModifyBearerCommand, gtp_type=64)
-bind_layers(GTPHeader, GTPV2ModifyBearerFailureNotification, gtp_type=65)
+bind_layers(GTPHeader, GTPV2ModifyBearerFailureIndication, gtp_type=65)
+bind_layers(GTPHeader, GTPV2DeleteBearerCommand, gtp_type=66)
+bind_layers(GTPHeader, GTPV2DeleteBearerFailureIndication, gtp_type=67)
+bind_layers(GTPHeader, GTPV2BearerResourceCommand, gtp_type=68)
+bind_layers(GTPHeader, GTPV2BearerResourceFailureIndication, gtp_type=69)
 bind_layers(GTPHeader, GTPV2DownlinkDataNotifFailureIndication, gtp_type=70)
+bind_layers(GTPHeader, GTPV2CreateBearerRequest, gtp_type=95)
+bind_layers(GTPHeader, GTPV2CreateBearerResponse, gtp_type=96)
 bind_layers(GTPHeader, GTPV2UpdateBearerRequest, gtp_type=97)
 bind_layers(GTPHeader, GTPV2UpdateBearerResponse, gtp_type=98)
 bind_layers(GTPHeader, GTPV2DeleteBearerRequest, gtp_type=99)
