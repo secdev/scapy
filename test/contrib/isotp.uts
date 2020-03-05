@@ -1870,12 +1870,13 @@ def acker():
         can = cans.sniff(timeout=1, count=1)[0]
         cans.send(CAN(identifier = 0x241, data=dhex("30 00 00")))
 
-Thread(target=acker).start()
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
-evt.wait(timeout=5)
-s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
 
 with new_can_socket(iface0) as cans:
+    t = Thread(target=acker)
+    t.start()
+    s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
+    evt.wait(timeout=5)
+    s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
     can = cans.sniff(timeout=1, count=1)[0]
     assert(can.identifier == 0x641)
     assert(can.data == dhex("10 08 01 02 03 04 05 06"))
@@ -1885,7 +1886,7 @@ with new_can_socket(iface0) as cans:
     can = cans.sniff(timeout=1, count=1)[0]
     assert(can.identifier == 0x641)
     assert(can.data == dhex("21 07 08"))
-
+    t.join(timeout=5)
 
 = Send a single frame ISOTP message with padding
 exit_if_no_isotp_module()
