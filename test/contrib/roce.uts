@@ -1,0 +1,34 @@
+# RoCE unit tests
+# run with:
+#   test/run_tests  -P "load_contrib('roce')" -t test/contrib/roce.uts -F
+
+% Regression tests for the RoCE layer
+
+################
+##### RoCE #####
+################
+
++ RoCE tests
+
+= RoCE layer
+
+# an example UC packet 
+pkt = Ether(dst='24:8a:07:a8:fa:22', src='24:8a:07:a8:fa:22')/ \
+      IP(version=4, ihl=5, tos=0x1, id=1144, flags='DF', frag=0, \
+         ttl=64, src='192.168.0.7', dst='192.168.0.7', len=64)/ \
+      UDP(sport=49152, dport=4791, len=44)/ \
+      BTH(opcode='UC_SEND_ONLY', migreq=1, padcount=2, pkey=0xffff, dqpn=211, psn=13571856)/ \
+      Raw(b'F0\x81\x8b\xe2\x895\xd9\x0e\x9a\x95PT\x01\xbe\x88^P\x00\x00')
+
+# include ICRC placeholder
+pkt = Ether(pkt.build() + b'\x00' * 4)
+
+assert IP in pkt.layers()
+print(hex(pkt[IP].chksum))
+assert pkt[IP].chksum == 0xb4d5
+assert UDP in pkt.layers()
+print(hex(pkt[UDP].chksum))
+assert pkt[UDP].chksum == 0xaca2
+assert BTH in pkt.layers()
+assert pkt[BTH].icrc == 0x78f353f3
+
