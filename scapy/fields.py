@@ -501,7 +501,12 @@ class MACField(Field):
     def i2m(self, pkt, x):
         if x is None:
             return b"\0\0\0\0\0\0"
-        return mac2str(x)
+        try:
+            x = mac2str(x)
+        except (struct.error, OverflowError):
+            x = bytes_encode(x)
+
+        return x
 
     def m2i(self, pkt, x):
         return str2mac(x)
@@ -1529,6 +1534,7 @@ class BitField(Field):
         Field.__init__(self, name, default)
         self.rev = size < 0
         self.size = abs(size)
+        self.sz = self.size / 8.
 
     def reverse(self, val):
         if self.size == 16:
@@ -1734,6 +1740,7 @@ class BitEnumField(BitField, _EnumField):
         _EnumField.__init__(self, name, default, enum)
         self.rev = size < 0
         self.size = abs(size)
+        self.sz = self.size / 8.
 
     def any2i(self, pkt, x):
         return _EnumField.any2i(self, pkt, x)
@@ -1828,6 +1835,8 @@ class _MultiEnumField(_EnumField):
 
     def i2repr_one(self, pkt, x):
         v = self.depends_on(pkt)
+        if isinstance(v, VolatileValue):
+            return repr(v)
         if v in self.i2s_multi:
             return self.i2s_multi[v].get(x, x)
         return x
@@ -1844,6 +1853,7 @@ class BitMultiEnumField(BitField, _MultiEnumField):
         _MultiEnumField.__init__(self, name, default, enum, depends_on)
         self.rev = size < 0
         self.size = abs(size)
+        self.sz = self.size / 8.
 
     def any2i(self, pkt, x):
         return _MultiEnumField.any2i(self, pkt, x)

@@ -26,7 +26,6 @@ and HPack encoded headers
 # scapy.contrib.description=HTTP/2 (RFC 7540, RFC 7541)
 
 # base_classes triggers an unwanted import warning
-# flake8: noqa: F821
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -1967,6 +1966,7 @@ class H2ContinuationFrame(H2FramePayload):
 
 #                                          HTTP/2 Base Frame Packets                                                   #  # noqa: E501
 
+
 _HTTP2_types = {
     0: 'DataFrm',
     1: 'HdrsFrm',
@@ -1979,6 +1979,7 @@ _HTTP2_types = {
     8: 'WinFrm',
     9: 'ContFrm'
 }
+
 
 class H2Frame(packet.Packet):
     """ H2Frame implements the frame structure as defined in RFC 7540 par4.1
@@ -2197,8 +2198,8 @@ class HPackHdrTable(Sized):
     :var _dynamic_table: the list containing entries requested to be added by
         the peer and registered with a register() call
     :var _dynamic_table_max_size: the current maximum size of the dynamic table
-        in bytes. This value is updated with the Dynamic Table Size Update messages
-        defined in RFC 7541 par6.3
+        in bytes. This value is updated with the Dynamic Table Size Update
+        messages defined in RFC 7541 par6.3
     :var _dynamic_table_cap_size: the maximum size of the dynamic table in
         bytes. This value is updated with the SETTINGS_HEADER_TABLE_SIZE HTTP/2
         setting.
@@ -2643,24 +2644,25 @@ class HPackHdrTable(Sized):
                        register=True,  # type: bool
                        ):
         # type: (...) -> H2Seq
-        """ parse_txt_hdrs parses headers expressed in text and converts them
-        into a series of H2Frames with the "correct" flags. A body can be provided  # noqa: E501
-        in which case, the data frames are added, bearing the End Stream flag,
-        instead of the H2HeadersFrame/H2ContinuationFrame. The generated frames
-        may respect max_frm_sz (SETTINGS_MAX_FRAME_SIZE) and
-        max_hdr_lst_sz (SETTINGS_MAX_HEADER_LIST_SIZE) if provided. The headers
-        are split into multiple headers fragment (and H2Frames) to respect
-        these limits. Also, a callback can be provided to tell if a header
-        should be never indexed (sensitive headers, such as cookies), and
-        another callback say if the header should be registered into the index
-        table at all.
+        """
+        parse_txt_hdrs parses headers expressed in text and converts them
+        into a series of H2Frames with the "correct" flags. A body can be
+        provided in which case, the data frames are added, bearing the End
+        Stream flag, instead of the H2HeadersFrame/H2ContinuationFrame.
+        The generated frames may respect max_frm_sz (SETTINGS_MAX_FRAME_SIZE)
+        and max_hdr_lst_sz (SETTINGS_MAX_HEADER_LIST_SIZE) if provided.
+        The headers are split into multiple headers fragment (and H2Frames)
+        to respect these limits. Also, a callback can be provided to tell if
+        a header should be never indexed (sensitive headers, such as cookies),
+        and another callback say if the header should be registered into the
+        index table at all.
         For an header to be registered, the is_sensitive callback must return
         False AND the should_index callback should return True. This is the
         default behavior.
 
         :param str s: the string to parse for headers
         :param int stream_id: the stream id to use in the generated H2Frames
-        :param str|None body: the eventual body of the request, that is added
+        :param str/None body: the eventual body of the request, that is added
           to the generated frames
         :param int max_frm_sz: the maximum frame size. This is used to split
           the headers and data frames according to the maximum frame size

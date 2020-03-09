@@ -44,24 +44,27 @@ exit_status = os.system("ip link add name scapy0 type dummy")
 exit_status = os.system("ip addr add 192.0.2.1/24 dev scapy0")
 exit_status = os.system("ip link set scapy0 up")
 exit_status = os.system("ifconfig scapy0:0 inet 198.51.100.1/24 up")
-exit_status = os.system("ip addr show scapy0")
-print(get_if_list())
-conf.route.resync()
-print(conf.route.routes)
-assert(conf.route.route("198.51.100.254") == ("scapy0", "198.51.100.1", "0.0.0.0"))
-route_alias = (3325256704, 4294967040, "0.0.0.0", "scapy0", "198.51.100.1", 0)
-assert(route_alias in conf.route.routes)
-exit_status = os.system("ip link add link scapy0 name scapy0.42 type vlan id 42")
-exit_status = os.system("ip addr add 203.0.113.42/24 dev scapy0.42")
-exit_status = os.system("ip link set scapy0.42 up")
-exit_status = os.system("ip route add 192.0.2.43/32 via 203.0.113.41")
-print(get_if_list())
-conf.route.resync()
-print(conf.route.routes)
-assert(conf.route.route("192.0.2.43") == ("scapy0.42", "203.0.113.42", "203.0.113.41"))
-route_specific = (3221226027, 4294967295, "203.0.113.41", "scapy0.42", "203.0.113.42", 0)
-assert(route_specific in conf.route.routes)
-exit_status = os.system("ip link del name dev scapy0")
+if exit_status == 0:
+    exit_status = os.system("ip addr show scapy0")
+    print(get_if_list())
+    conf.route.resync()
+    print(conf.route.routes)
+    assert(conf.route.route("198.51.100.254") == ("scapy0", "198.51.100.1", "0.0.0.0"))
+    route_alias = (3325256704, 4294967040, "0.0.0.0", "scapy0", "198.51.100.1", 0)
+    assert(route_alias in conf.route.routes)
+    exit_status = os.system("ip link add link scapy0 name scapy0.42 type vlan id 42")
+    exit_status = os.system("ip addr add 203.0.113.42/24 dev scapy0.42")
+    exit_status = os.system("ip link set scapy0.42 up")
+    exit_status = os.system("ip route add 192.0.2.43/32 via 203.0.113.41")
+    print(get_if_list())
+    conf.route.resync()
+    print(conf.route.routes)
+    assert(conf.route.route("192.0.2.43") == ("scapy0.42", "203.0.113.42", "203.0.113.41"))
+    route_specific = (3221226027, 4294967295, "203.0.113.41", "scapy0.42", "203.0.113.42", 0)
+    assert(route_specific in conf.route.routes)
+    exit_status = os.system("ip link del name dev scapy0")
+else:
+    assert True
 
 = catch loopback device missing
 ~ linux needs_root
@@ -113,8 +116,8 @@ assert(exit_status == 0)
 = IPv6 link-local address selection
 
 from mock import patch
-bck_conf_route6_routes = conf.route6.routes
 conf.route6.routes =  [('fe80::', 64, '::', 'scapy0', ['fe80::e039:91ff:fe79:1910'], 256)]
+conf.route6.ipv6_ifaces = set(['scapy0'])
 bck_conf_iface = conf.iface
 conf.iface = "scapy0"
 with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
@@ -128,8 +131,8 @@ with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
     print(p[Ether].src, mac_address)
     assert p[Ether].src == mac_address
 
-conf.route6.routes = bck_conf_route6_routes
 conf.iface = bck_conf_iface
+conf.route6.resync()
 
 = IPv6
 ~ linux
@@ -139,7 +142,7 @@ if len(addrs) == 0:
     assert True
 else:
     assert all([in6_isvalid(addr[0]) for addr in in6_getifaddr()])
-    assert set([addr[2] for addr in in6_getifaddr()]) == set(get_if_list())
+    assert set([addr[2] for addr in in6_getifaddr()]) == conf.route6.ipv6_ifaces
 
 
 = veth interface error handling

@@ -10,8 +10,8 @@
 
 #### Brief description
 
-> describe the main issue in one sentence
-> if possible, describe what components / protocols could be affected by the issue (e.g. wrpcap() + IPv6, it is likely this also affects XXX)
+<!-- describe the main issue in one sentence -->
+<!-- if possible, describe what components / protocols could be affected by the issue (e.g. wrpcap() + IPv6, it is likely this also affects XXX) -->
 
 #### Environment
 
@@ -19,20 +19,20 @@
 -   Python version: `e.g. 3.5`
 -   Operating System: `e.g. Minix 3.4`
 
-> if needed - further information to get a picture of your setup (e.g. a sketch of your network setup)
+<!-- if needed - further information to get a picture of your setup (e.g. a sketch of your network setup) -->
 
 #### How to reproduce
 
-> step-by-step explanation or a short script, may reference section 'Related resources'
+<!-- step-by-step explanation or a short script, may reference section 'Related resources' -->
 
 #### Actual result
 
-> dump results that outline the issue, please format your code
+<!-- dump results that outline the issue, please format your code -->
 
 #### Expected result
 
-> describe the expected result and outline the difference to the actual one, could also be a screen shot (e.g. wireshark)
+<!-- describe the expected result and outline the difference to the actual one, could also be a screen shot (e.g. wireshark) -->
 
 #### Related resources
 
-> traces / sample pcaps (stripped to the relevant frames), related standards, RFCs or other resources
+<!-- traces / sample pcaps (stripped to the relevant frames), related standards, RFCs or other resources -->

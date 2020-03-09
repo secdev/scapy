@@ -31,7 +31,7 @@ from scapy.data import MTU, ETH_P_ALL, SOL_PACKET, SO_ATTACH_FILTER, \
     SO_TIMESTAMPNS
 from scapy.supersocket import SuperSocket
 from scapy.error import warning, Scapy_Exception, \
-    ScapyInvalidPlatformException
+    ScapyInvalidPlatformException, log_runtime
 from scapy.arch.common import get_if, compile_filter
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -461,12 +461,19 @@ class L2Socket(SuperSocket):
         )
         if not six.PY2:
             # Receive Auxiliary Data (VLAN tags)
-            self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
-            self.ins.setsockopt(
-                socket.SOL_SOCKET,
-                SO_TIMESTAMPNS,
-                1
-            )
+            try:
+                self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
+                self.ins.setsockopt(
+                    socket.SOL_SOCKET,
+                    SO_TIMESTAMPNS,
+                    1
+                )
+                self.auxdata_available = True
+            except OSError:
+                # Note: Auxiliary Data is only supported since
+                #       Linux 2.6.21
+                msg = "Your Linux Kernel does not support Auxiliary Data!"
+                log_runtime.info(msg)
         if isinstance(self, L2ListenSocket):
             self.outs = None
         else:
@@ -494,7 +501,7 @@ class L2Socket(SuperSocket):
         try:
             if self.promisc and self.ins:
                 set_promisc(self.ins, self.iface, 0)
-        except AttributeError:
+        except (AttributeError, OSError):
             pass
         SuperSocket.close(self)
 
@@ -533,7 +540,8 @@ class L3PacketSocket(L2Socket):
     def recv(self, x=MTU):
         pkt = SuperSocket.recv(self, x)
         if pkt and self.lvl == 2:
-            pkt = pkt.payload
+            pkt.payload.time = pkt.time
+            return pkt.payload
         return pkt
 
     def send(self, x):

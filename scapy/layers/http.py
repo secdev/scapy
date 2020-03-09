@@ -619,7 +619,7 @@ def http_request(host, path="/", port=80, timeout=3,
     }
     http_headers.update(headers)
     req = HTTP() / HTTPRequest(**http_headers)
-    tcp_client = TCP_client.tcplink(HTTP, host, 80, debug=verbose)
+    tcp_client = TCP_client.tcplink(HTTP, host, port, debug=verbose)
     ans = None
     if iptables:
         ip = tcp_client.atmt.dst

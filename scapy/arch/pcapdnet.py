@@ -18,9 +18,8 @@ from scapy.arch.common import _select_nonblock
 from scapy.compat import raw, plain_str
 from scapy.config import conf
 from scapy.consts import WINDOWS
-from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
+from scapy.data import MTU, ETH_P_ALL
 from scapy.pton_ntop import inet_ntop
-from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
 import scapy.consts
@@ -213,6 +212,9 @@ if conf.use_pcap:
                 self.pcap = pcap_open_live(self.iface,
                                            snaplen, promisc, to_ms,
                                            self.errbuf)
+                error = bytes(bytearray(self.errbuf)).strip(b"\x00")
+                if error:
+                    raise OSError(error)
 
             if WINDOWS:
                 # Winpcap/Npcap exclusive: make every packet to be instantly
@@ -367,7 +369,9 @@ if conf.use_pcap:
         def recv(self, x=MTU):
             r = L2pcapSocket.recv(self, x)
             if r:
+                r.payload.time = r.time
                 return r.payload
+            return r
 
         def send(self, x):
             # Makes send detects when it should add Loopback(), Dot11... instead of Ether()  # noqa: E501
@@ -388,90 +392,3 @@ else:
     get_if_list = lambda: []
     if WINDOWS:
         NPCAP_PATH = ""
-
-##########
-#  DNET  #
-##########
-
-# DEPRECATED
-
-if conf.use_dnet:
-    warning("dnet usage with scapy is deprecated, and will be removed in a future version.")  # noqa: E501
-    try:
-        try:
-            # First try to import dnet
-            import dnet
-        except ImportError:
-            # Then, try to import dumbnet as dnet
-            import dumbnet as dnet
-    except ImportError as e:
-        if conf.interactive:
-            log_loading.error("Unable to import dnet module: %s", e)
-            conf.use_dnet = False
-
-            def get_if_raw_hwaddr(iff):
-                "dummy"
-                return (0, b"\0\0\0\0\0\0")
-
-            def get_if_raw_addr(iff):  # noqa: F811
-                "dummy"
-                return b"\0\0\0\0"
-
-            def get_if_list():
-                "dummy"
-                return {}
-        else:
-            raise
-    else:
-        def get_if_raw_hwaddr(iff):
-            """Return a tuple containing the link type and the raw hardware
-               address corresponding to the interface 'iff'"""
-
-            if iff == scapy.arch.LOOPBACK_NAME:
-                return (ARPHDR_LOOPBACK, b'\x00' * 6)
-
-            # Retrieve interface information
-            try:
-                tmp_intf = dnet.intf().get(iff)
-                link_addr = tmp_intf["link_addr"]
-            except Exception:
-                raise Scapy_Exception("Error in attempting to get hw address"
-                                      " for interface [%s]" % iff)
-
-            if hasattr(link_addr, "type"):
-                # Legacy dnet module
-                return link_addr.type, link_addr.data
-
-            else:
-                # dumbnet module
-                mac = mac2str(str(link_addr))
-
-                # Adjust the link type
-                if tmp_intf["type"] == 6:  # INTF_TYPE_ETH from dnet
-                    return (ARPHDR_ETHER, mac)
-
-                return (tmp_intf["type"], mac)
-
-        def get_if_raw_addr(ifname):  # noqa: F811
-            i = dnet.intf()
-            try:
-                return i.get(ifname)["addr"].data
-            except (OSError, KeyError):
-                warning("No MAC address found on %s !" % ifname)
-                return b"\0\0\0\0"
-
-        def get_if_list():
-            """Returns all dnet names"""
-            return [i.get("name", None) for i in dnet.intf()]
-
-        def get_working_if():
-            """Returns the first interface than can be used with dnet"""
-
-            if_iter = iter(dnet.intf())
-
-            try:
-                intf = next(if_iter)
-            except (StopIteration, RuntimeError):
-                return scapy.consts.LOOPBACK_NAME
-
-            return intf.get("name", scapy.consts.LOOPBACK_NAME)

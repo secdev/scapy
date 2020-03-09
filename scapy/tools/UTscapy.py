@@ -3,8 +3,6 @@
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
-# flake8: noqa: E501
-
 """
 Unit testing infrastructure for Scapy
 """
@@ -17,6 +15,7 @@ import glob
 import importlib
 import hashlib
 import copy
+import code
 import bz2
 import os.path
 import time
@@ -27,12 +26,15 @@ import zlib
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
 
 #   Util class   #
 
+
 class Bunch:
     __init__ = lambda self, **kw: setattr(self, '__dict__', kw)
+
 
 def retry_test(func):
     """Retries the passed function 3 times before failing"""
@@ -150,6 +152,7 @@ class Format(EnumClass):
     HTML = 3
     LATEX = 4
     XUNIT = 5
+    LIVE = 6
 
 
 #    TEST CLASSES    #
@@ -185,11 +188,15 @@ class TestCampaign(TestClass):
         self.preexec_output = None
         self.end_pos = 0
         self.interrupted = False
+        self.duration = 0.0
+
     def add_testset(self, testset):
         self.campaign.append(testset)
         testset.keywords.update(self.keywords)
+
     def trunc(self, index):
         self.campaign = self.campaign[:index]
+
     def startNum(self, beginpos):
         for ts in self:
             for t in ts:
@@ -218,8 +225,10 @@ class TestSet(TestClass):
     def add_test(self, test):
         self.tests.append(test)
         test.keywords.update(self.keywords)
+
     def trunc(self, index):
         self.tests = self.tests[:index]
+
     def __iter__(self):
         return self.tests.__iter__()
 
@@ -229,7 +238,9 @@ class UnitTest(TestClass):
         self.name = name
         self.test = ""
         self.comments = ""
-        self.result = "passed" # make instance True at init to have a different truth value than None
+        self.result = "passed"
+        # make instance True at init to have a different truth value than None
+        self.duration = 0
         self.output = ""
         self.num = -1
         self.keywords = set()
@@ -259,6 +270,7 @@ def parse_config_file(config_path, verb=3):
       "onlyfailed": false,
       "verb": 3,
       "dump": 0,
+      "docs": 0,
       "crc": true,
       "scapy": "scapy",
       "preexec": {},
@@ -275,7 +287,7 @@ def parse_config_file(config_path, verb=3):
     """
     import json
     with open(config_path) as config_file:
-        data = json.load(config_file, encoding="utf8")
+        data = json.load(config_file)
         if verb > 2:
             print("### Loaded config file", config_path, file=sys.stderr)
 
@@ -287,6 +299,7 @@ def parse_config_file(config_path, verb=3):
                  onlyfailed=get_if_exist("onlyfailed", False),
                  verb=get_if_exist("verb", 3),
                  dump=get_if_exist("dump", 0), crc=get_if_exist("crc", 1),
+                 docs=get_if_exist("docs", 0),
                  scapy=get_if_exist("scapy", "scapy"),
                  preexec=get_if_exist("preexec", {}),
                  global_preexec=get_if_exist("global_preexec", ""),
@@ -369,6 +382,33 @@ def dump_campaign(test_campaign):
                 print("    %s%s" % (c, k))
 
 
+def docs_campaign(test_campaign):
+    print("%(title)s" % test_campaign)
+    print("=" * (len(test_campaign.title)))
+    print()
+    if len(test_campaign.headcomments):
+        print("%s" % test_campaign.headcomments.strip().replace("\n", ""))
+        print()
+    for ts in test_campaign:
+        print("%s" % ts.name)
+        print("-" * len(ts.name))
+        print()
+        if len(ts.comments):
+            print("%s" % ts.comments.strip().replace("\n", ""))
+            print()
+        for t in ts:
+            print("%s" % t.name)
+            print("^" * len(t.name))
+            print()
+            if len(t.comments):
+                print("%s" % t.comments.strip().replace("\n", ""))
+                print()
+            print("Usage example::")
+            for l in t.test.split('\n'):
+                if not l.rstrip().endswith('# no_docs'):
+                    print("\t%s" % l)
+
+
 #    COMPUTE CAMPAIGN DIGESTS    #
 if six.PY2:
     def crc32(x):
@@ -435,10 +475,11 @@ def remove_empty_testsets(test_campaign):
     test_campaign.campaign = [ts for ts in test_campaign.campaign if ts.tests]
 
 
-#### RUN TEST #####
+# RUN TEST #
 
 def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_globals=None):
     """An internal UTScapy function to run a single test"""
+    start_time = time.time()
     test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals, verb=verb, my_globals=my_globals)
     test.result = "failed"
     try:
@@ -451,6 +492,7 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_glob
         test.output += "UTscapy: Error during result interpretation:\n"
         test.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
     finally:
+        test.duration = time.time() - start_time
         if test.result == "failed":
             from scapy.sendrecv import debug
             # Add optional debugging data to log
@@ -459,24 +501,37 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_glob
                 test.output += "\n\nPACKET DISSECTION FAILED ON:\n %s(hex_bytes('%s'))" % (cls.__name__, plain_str(bytes_hex(val)))
                 debug.crashed_on = None
         test.decode()
-        if verb > 1:
+        if verb > 2:
+            print("%(result)6s %(crc)s %(duration)06.2fs %(name)s" % test, file=sys.stderr)
+        elif verb > 1:
             print("%(result)6s %(crc)s %(name)s" % test, file=sys.stderr)
 
     return bool(test)
 
-#### RUN CAMPAIGN #####
+# RUN CAMPAIGN #
+
 
 def import_UTscapy_tools(ses):
     """Adds UTScapy tools directly to a session"""
     ses["retry_test"] = retry_test
     ses["Bunch"] = Bunch
 
-def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):  # noqa: E501
+
+def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=False, verb=3, ignore_globals=None):  # noqa: E501
     passed = failed = 0
     scapy_ses = importlib.import_module(".all", "scapy").__dict__
     import_UTscapy_tools(scapy_ses)
     if test_campaign.preexec:
         test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals, my_globals=scapy_ses)[0]
+    # Drop
+
+    def drop(scapy_ses):
+        code.interact(banner="Test '%s' failed. "
+                             "exit() to stop, Ctrl-D to leave "
+                             "this interpreter and continue "
+                             "with the current test campaign"
+                             % t.name, local=scapy_ses)
+
     try:
         for i, testset in enumerate(test_campaign):
             for j, t in enumerate(testset):
@@ -484,17 +539,25 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
                     passed += 1
                 else:
                     failed += 1
+                    if drop_to_interpreter:
+                        drop(scapy_ses)
+                test_campaign.duration += t.duration
     except KeyboardInterrupt:
         failed += 1
-        testset.trunc(j+1)
-        test_campaign.trunc(i+1)
+        testset.trunc(j + 1)
+        test_campaign.trunc(i + 1)
         test_campaign.interrupted = True
         if verb:
             print("Campaign interrupted!", file=sys.stderr)
+            if drop_to_interpreter:
+                drop(scapy_ses)
 
     test_campaign.passed = passed
     test_campaign.failed = failed
-    if verb:
+    if verb > 2:
+        print("Campaign CRC=%(crc)s in %(duration)06.2fs SHA=%(sha)s" % test_campaign, file=sys.stderr)  # noqa: E501
+        print("PASSED=%i FAILED=%i" % (passed, failed), file=sys.stderr)
+    elif verb:
         print("Campaign CRC=%(crc)s  SHA=%(sha)s" % test_campaign, file=sys.stderr)  # noqa: E501
         print("PASSED=%i FAILED=%i" % (passed, failed), file=sys.stderr)
     return failed
@@ -521,8 +584,8 @@ def html_info_line(test_campaign):
 #    CAMPAIGN TO something    #
 
 def campaign_to_TEXT(test_campaign):
-    output="%(title)s\n" % test_campaign
-    output += "-- "+info_line(test_campaign)+"\n\n"
+    output = "%(title)s\n" % test_campaign
+    output += "-- " + info_line(test_campaign) + "\n\n"
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
 
     for testset in test_campaign:
@@ -562,7 +625,7 @@ def campaign_to_HTML(test_campaign):
 
     if test_campaign.crc is not None and test_campaign.sha is not None:
         output += "CRC=<span class=crc>%(crc)s</span> SHA=<span class=crc>%(sha)s</span><br>" % test_campaign
-    output += "<small><em>"+html_info_line(test_campaign)+"</em></small>"
+    output += "<small><em>" + html_info_line(test_campaign) + "</em></small>"
     output += "".join([
         test_campaign.headcomments,
         "\n<p>",
@@ -684,12 +747,12 @@ def campaign_to_LATEX(test_campaign):
     return output
 
 
-#### USAGE ####
+# USAGE #
 
 def usage():
-    print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
+    print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX|live}] [-o output_file]
                [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
-               [-l] [-b] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
+               [-l] [-b] [-d|-D] [-F] [-q[q]] [-i] [-P preexecute_python_code]
                [-c configfile]
 -t\t\t: provide test files (can be used many times)
 -T\t\t: if -t is used with *, remove a specific file (can be used many times)
@@ -698,8 +761,10 @@ def usage():
 -b\t\t: don't stop at the first failed campaign
 -d\t\t: dump campaign
 -D\t\t: dump campaign and stop
+-R\t\t: dump campaign as reStructuredText
 -C\t\t: don't calculate CRC and SHA
 -c\t\t: load a .utsc config file
+-i\t\t: drop into Python interpreter if test failed
 -q\t\t: quiet mode
 -qq\t\t: [silent mode]
 -x\t\t: use pyannotate
@@ -714,8 +779,8 @@ def usage():
 
 #    MAIN    #
 
-def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
-                     FORMAT, VERB, ONLYFAILED, CRC, autorun_func, pos_begin=0, ignore_globals=None):  # noqa: E501
+def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOCS,
+                     FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER, autorun_func, pos_begin=0, ignore_globals=None):  # noqa: E501
     # Parse test file
     test_campaign = parse_campaign_file(TESTFILE)
 
@@ -742,9 +807,14 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
         if DUMP > 1:
             sys.exit()
 
+    # Dump campaign as reStructuredText
+    if DOCS:
+        docs_campaign(test_campaign)
+        sys.exit()
+
     # Run tests
     test_campaign.output_file = OUTPUTFILE
-    result = run_campaign(test_campaign, autorun_func[FORMAT], verb=VERB, ignore_globals=None)  # noqa: E501
+    result = run_campaign(test_campaign, autorun_func[FORMAT], drop_to_interpreter=INTERPRETER, verb=VERB, ignore_globals=None)  # noqa: E501
 
     # Shrink passed
     if ONLYFAILED:
@@ -766,6 +836,8 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
         output = campaign_to_LATEX(test_campaign)
     elif FORMAT == Format.XUNIT:
         output = campaign_to_xUNIT(test_campaign)
+    elif FORMAT == Format.LIVE:
+        output = ""
 
     return output, (result == 0), test_campaign
 
@@ -791,6 +863,7 @@ def main():
     KW_OK = []
     KW_KO = []
     DUMP = 0
+    DOCS = 0
     CRC = True
     BREAKFAILED = True
     ONLYFAILED = False
@@ -800,8 +873,9 @@ def main():
     MODULES = []
     TESTFILES = []
     ANNOTATIONS_MODE = False
+    INTERPRETER = False
     try:
-        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DdCFqP:s:x")
+        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DRdCiFqP:s:x")
         for opt, optarg in opts[0]:
             if opt == "-h":
                 usage()
@@ -813,10 +887,14 @@ def main():
                 VERB -= 1
             elif opt == "-D":
                 DUMP = 2
+            elif opt == "-R":
+                DOCS = 1
             elif opt == "-d":
                 DUMP = 1
             elif opt == "-C":
                 CRC = False
+            elif opt == "-i":
+                INTERPRETER = True
             elif opt == "-x":
                 ANNOTATIONS_MODE = True
             elif opt == "-P":
@@ -879,9 +957,29 @@ def main():
             elif opt == "-K":
                 KW_KO.extend(optarg.split(","))
 
+        # Disable tests if needed
+
         # Discard Python3 tests when using Python2
         if six.PY2:
             KW_KO.append("python3_only")
+            if VERB > 2:
+                print("### Python 2 mode ###")
+        try:
+            if os.getuid() != 0:  # Non root
+                # Discard root tests
+                KW_KO.append("netaccess")
+                KW_KO.append("needs_root")
+                if VERB > 2:
+                    print("### Non-root mode ###")
+        except AttributeError:
+            pass
+
+        if conf.use_pcap:
+            KW_KO.append("not_pcapdnet")
+            if VERB > 2:
+                print("### libpcap mode ###")
+
+        # Process extras
 
         if ANNOTATIONS_MODE:
             try:
@@ -924,6 +1022,7 @@ def main():
         Format.HTML: scapy.autorun_get_html_interactive_session,
         Format.LATEX: scapy.autorun_get_latex_interactive_session,
         Format.XUNIT: scapy.autorun_get_text_interactive_session,
+        Format.LIVE: scapy.autorun_get_live_interactive_session,
     }
 
     if VERB > 2:
@@ -955,8 +1054,8 @@ def main():
         with open(TESTFILE) as testfile:
             output, result, campaign = execute_campaign(testfile, OUTPUTFILE,
                                                         PREEXEC, NUM, KW_OK, KW_KO,
-                                                        DUMP, FORMAT, VERB, ONLYFAILED,
-                                                        CRC, autorun_func, pos_begin,
+                                                        DUMP, DOCS, FORMAT, VERB, ONLYFAILED,
+                                                        CRC, INTERPRETER, autorun_func, pos_begin,
                                                         ignore_globals)
         runned_campaigns.append(campaign)
         pos_begin = campaign.end_pos

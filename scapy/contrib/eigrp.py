@@ -12,8 +12,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# flake8: noqa: E501
-
 # scapy.contrib.description = Enhanced Interior Gateway Routing Protocol (EIGRP)
 # scapy.contrib.status = loads
 

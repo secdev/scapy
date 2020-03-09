@@ -72,7 +72,10 @@ class KeyShareEntry(Packet):
                     privkey = x25519.X25519PrivateKey.generate()
                     self.privkey = privkey
                     pubkey = privkey.public_key()
-                    self.key_exchange = pubkey.public_bytes()
+                    self.key_exchange = pubkey.public_bytes(
+                        serialization.Encoding.Raw,
+                        serialization.PublicFormat.Raw
+                    )
             elif _tls_named_curves[self.group] != "x448":
                 curve = ec._CURVE_TYPES[_tls_named_curves[self.group]]()
                 privkey = ec.generate_private_key(curve, default_backend())
@@ -119,9 +122,13 @@ class KeyShareEntry(Packet):
                     self.pubkey = import_point(self.key_exchange)
             elif _tls_named_curves[self.group] != "x448":
                 curve = ec._CURVE_TYPES[_tls_named_curves[self.group]]()
-                import_point = ec.EllipticCurvePublicKey.from_encoded_point
-                public_numbers = import_point(curve, self.key_exchange).public_numbers()  # noqa: E501
-                self.pubkey = public_numbers.public_key(default_backend())
+                try:  # cryptography >= 2.5
+                    import_point = ec.EllipticCurvePublicKey.from_encoded_point  # noqa: E501
+                    self.pubkey = import_point(curve, self.key_exchange)
+                except AttributeError:
+                    import_point = ec.EllipticCurvePublicNumbers.from_encoded_point  # noqa: E501
+                    pub_num = import_point(curve, self.key_exchange).public_numbers()  # noqa: E501
+                    self.pubkey = pub_num.public_key(default_backend())
 
     def post_dissection(self, r):
         try:

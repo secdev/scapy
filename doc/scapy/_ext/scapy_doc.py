@@ -8,7 +8,8 @@ A Sphinx Extension for Scapy's doc preprocessing
 """
 
 import subprocess
-from scapy.packet import Packet, _pkt_ls
+import os
+from scapy.packet import Packet, _pkt_ls, rfc
 
 from sphinx.ext.autodoc import AttributeDocumenter
 
@@ -71,6 +72,18 @@ def get_fields_desc(obj):
         output.insert(0, ".. table:: %s fields" % obj.__name__)
         output.insert(1, "   :widths: grid")
         output.insert(2, "   ")
+        # Add RFC-like graph
+        try:
+            graph = list(tab(rfc(obj, ret=True).split("\n")))
+        except AttributeError:
+            return output
+        s = "Display RFC-like schema"
+        graph.insert(0, ".. raw:: html")
+        graph.insert(1, "")
+        graph.insert(2, "   <details><summary>%s</summary><code><pre>" % s)
+        graph.append("   </pre></code></details>")
+        graph.append("")
+        return graph + output
     return output
 
 # Documenter
@@ -125,7 +138,8 @@ class AttrsDocumenter(AttributeDocumenter):
 
 def builder_inited_handler(app): 
     """Generate API tree"""
-    subprocess.call(['tox', '-e', 'apitree'])
+    if int(os.environ.get("SCAPY_APITREE", True)):
+        subprocess.call(['tox', '-e', 'apitree'])
 
 
 def setup(app):

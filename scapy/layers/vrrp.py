@@ -10,7 +10,7 @@ VRRP (Virtual Router Redundancy Protocol).
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitField, ByteField, FieldLenField, FieldListField, \
-    IPField, IntField, XShortField
+    IPField, IP6Field, IntField, MultipleTypeField, StrField, XShortField
 from scapy.compat import chb, orb
 from scapy.layers.inet import IP, in4_chksum, checksum
 from scapy.layers.inet6 import IPv6, in6_chksum
@@ -62,9 +62,18 @@ class VRRPv3(Packet):
         BitField("res", 0, 4),
         BitField("adv", 100, 12),
         XShortField("chksum", None),
-        # FIXME: addrlist should also allow IPv6 addresses :/
-        FieldListField("addrlist", [], IPField("", "0.0.0.0"),
-                       count_from=lambda pkt: pkt.ipcount)]
+        MultipleTypeField(
+            [
+                (FieldListField("addrlist", [], IPField("", "0.0.0.0"),
+                                count_from=lambda pkt: pkt.ipcount),
+                 lambda p: isinstance(p.underlayer, IP)),
+                (FieldListField("addrlist", [], IP6Field("", "::"),
+                                count_from=lambda pkt: pkt.ipcount),
+                 lambda p: isinstance(p.underlayer, IPv6)),
+            ],
+            StrField("addrlist", "")
+        )
+    ]
 
     def post_build(self, p, pay):
         if self.chksum is None:

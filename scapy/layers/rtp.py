@@ -5,6 +5,12 @@
 
 """
 RTP (Real-time Transport Protocol).
+
+Remember to use::
+
+    bind_layers(UDP, RTP, dport=XXX)
+
+To register the port you are using
 """
 
 from scapy.packet import Packet, bind_layers

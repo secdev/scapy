@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
@@ -11,9 +9,9 @@
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteField, ShortField, ByteEnumField, X3BytesField, \
-    StrField
+    StrField, StrFixedLenField, LEIntField, LEThreeBytesField, PacketListField
 from scapy.contrib.automotive.uds import UDS, UDS_RDBI, UDS_DSC, UDS_IOCBI, \
-    UDS_RC, UDS_RD, UDS_RSDBI
+    UDS_RC, UDS_RD, UDS_RSDBI, UDS_RDBIPR
 
 
 BMW_specific_enum = {
@@ -243,6 +241,111 @@ class UDS2S_REQ(Packet):
 
 bind_layers(UDS, UDS2S_REQ, service=0xa5)
 UDS.services[0xa5] = 'UnpackDS2Service'
+
+
+class SVK_DateField(LEThreeBytesField):
+    def i2repr(self, pkt, x):
+        x = self.addfield(pkt, b"", x)
+        return "%02X.%02X.20%02X" % (x[0], x[1], x[2])
+
+
+class SVK_Entry(Packet):
+    fields_desc = [
+        ByteEnumField("processClass", 0, {1: "HWEL", 2: "HWAP", 4: "GWTB",
+                                          5: "CAFD", 6: "BTLD", 7: "FLSL",
+                                          8: "SWFL"}),
+        StrFixedLenField("svk_id", b"", length=4),
+        ByteField("mainVersion", 0),
+        ByteField("subVersion", 0),
+        ByteField("patchVersion", 0)]
+
+    def extract_padding(self, p):
+        return b"", p
+
+
+class SVK(Packet):
+    prog_status_enum = {
+        1: "signature check and programming-dependencies check passed",
+        2: "software entry invalid or programming-dependencies check failed",
+        3: "software entry incompatible to hardware entry",
+        4: "software entry incompatible with other software entry"}
+
+    fields_desc = [
+        ByteEnumField("prog_status1", 0, prog_status_enum),
+        ByteEnumField("prog_status2", 0, prog_status_enum),
+        ShortField("entries_count", 0),
+        SVK_DateField("prog_date", b'\x00\x00\x00'),
+        ByteField("pad1", 0),
+        LEIntField("prog_milage", 0),
+        StrFixedLenField("pad2", 0, length=5),
+        PacketListField("entries", [], cls=SVK_Entry,
+                        count_from=lambda x: x.entries_count)]
+
+
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf101)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf102)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf103)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf104)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf105)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf106)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf107)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf108)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf109)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf10a)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf10b)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf10c)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf10d)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf10e)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf10f)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf110)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf111)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf112)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf113)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf114)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf115)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf116)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf117)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf118)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf119)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf11a)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf11b)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf11c)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf11d)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf11e)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf11f)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf120)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf121)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf122)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf123)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf124)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf125)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf126)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf127)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf128)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf129)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf12a)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf12b)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf12c)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf12d)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf12e)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf12f)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf130)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf131)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf132)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf133)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf134)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf135)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf136)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf137)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf138)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf139)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf13a)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf13b)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf13c)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf13d)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf13e)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf13f)
+bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf140)
 
 
 UDS_RDBI.dataIdentifiers[0x0014] = "RDBCI_IS_LESEN_DETAIL_REQ"

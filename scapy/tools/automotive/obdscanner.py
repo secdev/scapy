@@ -4,6 +4,7 @@
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Andreas Korb <andreas.korb@e-mundo.de>
 # Copyright (C) Friedrich Feigel <friedrich.feigel@e-mundo.de>
+# Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
 from __future__ import print_function
@@ -11,12 +12,15 @@ from __future__ import print_function
 import getopt
 import sys
 import signal
+import re
+
+from ast import literal_eval
 
 import scapy.modules.six as six
 from scapy.config import conf
 from scapy.consts import LINUX
 
-if six.PY2 or not LINUX:
+if six.PY2 or not LINUX or conf.use_pypy:
     conf.contribs['CANSocket'] = {'use-python-can': True}
 
 from scapy.contrib.isotp import ISOTPSocket                 # noqa: E402
@@ -31,12 +35,14 @@ def signal_handler(sig, frame):
 
 
 def usage():
-    print('''usage:\tobdscanner [-i|--interface] [-c|--channel] [-b|--bitrate] [-h|--help] [-s|--source]
-                                [-d|--destination] [-t|--timeout] [-r|--supported] [-u|--unsupported] [-v|--verbose]\n
+    print('''usage:\tobdscanner [-i|--interface] [-c|--channel] [-b|--bitrate]
+                                [-a|--python-can_args] [-h|--help]
+                                [-s|--source] [-d|--destination]
+                                [-t|--timeout] [-r|--supported]
+                                [-u|--unsupported] [-v|--verbose]\n
     Scan for all possible obd service classes and their subfunctions.\n
     optional arguments:
-    -c, --channel               python-can channel or Linux SocketCAN interface name
-    -b, --bitrate               python-can bitrate.\n
+    -c, --channel               python-can channel or Linux SocketCAN interface name\n
     additional required arguments for WINDOWS or Python 2:
     -i, --interface             python-can interface for the scan.
                                 Depends on used interpreter and system,
@@ -45,6 +51,7 @@ def usage():
                                 https://python-can.readthedocs.io for
                                 further interface examples.
     optional arguments:
+    -a, --python-can_args       Additional arguments for a python-can Bus object.
     -h, --help                  show this help message and exit
     -s, --source                ISOTP-socket source id (hex)
     -d, --destination           ISOTP-socket destination id (hex)
@@ -54,9 +61,10 @@ def usage():
     -v, --verbose               Display information during scan\n
     Example of use:\n
     Python2 or Windows:
-    python2 -m scapy.tools.automotive.obdscanner --interface=pcan --channel=PCAN_USBBUS1 --source=0x070 --destination 0x034 --bitrate 250000
-    python2 -m scapy.tools.automotive.obdscanner --interface vector --channel 0 --source 0x000 --destination 0x734 --bitrate 500000
-    python2 -m scapy.tools.automotive.obdscanner --interface socketcan --channel=can0 --source 0x089 --destination 0x234  --bitrate=250000\n
+    python2 -m scapy.tools.automotive.obdscanner --interface=pcan --channel=PCAN_USBBUS1 --source=0x070 --destination 0x034
+    python2 -m scapy.tools.automotive.obdscanner --interface vector --channel 0 --source 0x000 --destination 0x734
+    python2 -m scapy.tools.automotive.obdscanner --interface socketcan --channel=can0 --source 0x089 --destination 0x234
+    python2 -m scapy.tools.automotive.obdscanner --interface vector --channel 0 --python-can_args 'bitrate=500000, poll_interval=1' --source=0x070 --destination 0x034\n
     Python3 on Linux:
     python3 -m scapy.tools.automotive.obdscanner --channel can0 --source 0x123 --destination 0x456 \n''',  # noqa: E501
           file=sys.stderr)
@@ -68,17 +76,18 @@ def main():
     interface = None
     source = 0x7e0
     destination = 0x7df
-    bitrate = None
     timeout = 0.1
     supported = False
     unsupported = False
     verbose = False
+    python_can_args = None
 
     options = getopt.getopt(
         sys.argv[1:],
-        'i:c:s:d:b:t:hruv',
-        ['interface=', 'channel=', 'source=', 'destination=', 'bitrate=',
-         'help', 'timeout=', 'supported', 'unsupported', 'verbose'])
+        'i:c:s:d:a:t:hruv',
+        ['interface=', 'channel=', 'source=', 'destination=',
+         'help', 'timeout=', 'python-can_args=', 'supported', 'unsupported',
+         'verbose'])
 
     try:
         for opt, arg in options[0]:
@@ -86,15 +95,17 @@ def main():
                 interface = arg
             elif opt in ('-c', '--channel'):
                 channel = arg
+            elif opt in ('-a', '--python-can_args'):
+                python_can_args = arg
             elif opt in ('-s', '--source'):
                 source = int(arg, 16)
             elif opt in ('-d', '--destination'):
                 destination = int(arg, 16)
-            elif opt in ('-b', '--bitrate'):
-                bitrate = int(arg)
             elif opt in ('-h', '--help'):
                 usage()
                 sys.exit(-1)
+            elif opt in ('-t', '--timeout'):
+                timeout = float(arg)
             elif opt in ('-r', '--supported'):
                 supported = True
             elif opt in ('-u', '--unsupported'):
@@ -107,7 +118,7 @@ def main():
         raise SystemExit
 
     if channel is None or \
-            (PYTHON_CAN and (bitrate is None or interface is None)):
+            (PYTHON_CAN and interface is None):
         usage()
         print("\nPlease provide all required arguments.\n",
               file=sys.stderr)
@@ -123,24 +134,25 @@ def main():
         print("The timeout must be a positive value")
         sys.exit(-1)
 
-    if PYTHON_CAN:
-        import can
-        try:
-            can.rc['interface'] = interface
-            can.rc['channel'] = channel
-            can.rc['bitrate'] = bitrate
-            scan_interface = can.interface.Bus()
-        except Exception as e:
-            usage()
-            print("\nCheck python-can interface assignment.\n",
-                  file=sys.stderr)
-            print(e, file=sys.stderr)
-            sys.exit(-1)
-    else:
-        scan_interface = channel
-
+    csock = None
     try:
-        csock = CANSocket(iface=scan_interface)
+        if PYTHON_CAN:
+            if python_can_args:
+                arg_dict = dict((k, literal_eval(v)) for k, v in
+                                (pair.split('=') for pair in
+                                 re.split(', | |,', python_can_args)))
+                csock = CANSocket(bustype=interface, channel=channel,
+                                  **arg_dict)
+            else:
+                csock = CANSocket(bustype=interface, channel=channel)
+        else:
+            csock = CANSocket(channel=channel)
+
+        with ISOTPSocket(csock, source, destination,
+                         basecls=OBD, padding=True) as isock:
+            signal.signal(signal.SIGINT, signal_handler)
+            obd_scan(isock, timeout, supported, unsupported, verbose)
+
     except Exception as e:
         usage()
         print("\nSocket couldn't be created. Check your arguments.\n",
@@ -148,12 +160,9 @@ def main():
         print(e, file=sys.stderr)
         sys.exit(-1)
 
-    with ISOTPSocket(csock, source, destination, basecls=OBD, padding=True)\
-            as isock:
-        signal.signal(signal.SIGINT, signal_handler)
-        obd_scan(isock, timeout, supported, unsupported, verbose)
-
-    csock.close()
+    finally:
+        if csock is not None:
+            csock.close()
 
 
 if __name__ == '__main__':

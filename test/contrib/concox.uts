@@ -1,0 +1,24 @@
+# Concox CRX1 unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('concox')" -t test/contrib/concox.uts
+
++ Concox CRX1
+
+= Basic tests
+
+r = raw(CRX1New(default_packet_length=5, default_packet_content=CRX1NewPacketContent()))
+assert r == b'xx\x05\x12\x00\x00\x00\x00\r\n'
+c = CRX1New(r)
+assert CRX1NewPacketContent in c
+
+r = raw(CRX1New(start_bit=0x7979, extended_packet_length=5, extended_packet_content=CRX1NewPacketContent()))
+assert r == b'yy\x00\x05\x12\x00\x00\x00\x00\r\n'
+c = CRX1New(r)
+assert CRX1NewPacketContent in c
+
+p = CRX1NewPacketContent(b'\x01\x41\x42\x43\x44\x45\x46\x47\x48\x02\x03\x04\x05')
+assert p.terminal_id == b'4142434445464748'
+
+p = CRX1NewPacketContent(b'\x12\x41\x42\x43\x44\x45\x46\x47\x48\x02\x03\x04\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04')
+assert p.crc == 0x304 and p.latitude

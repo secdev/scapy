@@ -56,10 +56,9 @@ print("CAN should work now")
 
 from scapy.contrib.cansocket_python_can import *
 
-import can as python_can
-new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface))
-new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface0), timeout=0.01)
-new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface1), timeout=0.01)
+new_can_socket = lambda iface: CANSocket(bustype='virtual', channel=iface)
+new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface0, timeout=0.01)
+new_can_socket1 = lambda: CANSocket(bustype='virtual', channel=iface1, timeout=0.01)
 
 # utility function for draining a can interface, asserting that no packets are there
 def drain_bus(iface=iface0, assert_empty=True):
@@ -71,7 +70,7 @@ def drain_bus(iface=iface0, assert_empty=True):
 print("CAN sockets should work now")
 
 = Overwrite definition for vcan_socket systems native sockets
-~ vcan_socket needs_root linux
+~ vcan_socket not_pypy needs_root linux
 
 if six.PY3 and LINUX:
     from scapy.contrib.cansocket_native import *
@@ -83,9 +82,9 @@ if six.PY3 and LINUX:
 = Overwrite definition for vcan_socket systems python-can sockets
 ~ vcan_socket needs_root linux
 if "python_can" in CANSocket.__module__:
-    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000), timeout=0.01)
-    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
-    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000), timeout=0.01)
+    new_can_socket = lambda iface: CANSocket(bustype='socketcan', channel=iface, bitrate=250000, timeout=0.01)
+    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, bitrate=250000, timeout=0.01)
+    new_can_socket1 = lambda: CANSocket(bustype='socketcan', channel=iface1, bitrate=250000, timeout=0.01)
 
 = Verify that a CAN socket can be created and closed
 s = new_can_socket(iface0)
@@ -126,8 +125,8 @@ else:
 
 = Load contribution layer
 
-from scapy.contrib.automotive.uds import *
-from scapy.contrib.automotive.ecu import *
+load_contrib('automotive.uds')
+load_contrib('automotive.ecu')
 
 
 + Simulator tests
@@ -138,11 +137,14 @@ drain_bus(iface0)
 example_responses = \
     [ECUResponse(session=1, security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=0x1234) / Raw(b"deadbeef"))]
 
+success = False
+
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 3})
+    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS, verbose=False)
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[0x123]), timeout=1, verbose=False)
         assert resp.negativeResponseCode == 0x10
@@ -154,9 +156,14 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, ba
         assert resp.service == 0x62
         assert resp.dataIdentifier == 0x1234
         assert resp.load == b"deadbeef"
+        success = True
+    except Exception as ex:
+        print(ex)
     finally:
+        tester.send(UDS(service=0xff))
         sim.join(timeout=10)
 
+assert success
 
 = Simple check with different Sessions
 drain_bus(iface0)
@@ -167,11 +174,14 @@ example_responses = \
      ECUResponse(session=[5,6,7], security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef3")),
      ECUResponse(session=lambda x: 8 < x <= 10, security_level=0, responses=UDS() / UDS_RDBIPR(dataIdentifier=9) / Raw(b"deadbeef4"))]
 
+success = False
+
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 5})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
         assert resp.negativeResponseCode == 0x10
@@ -196,8 +206,14 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, ba
         assert resp.service == 0x62
         assert resp.dataIdentifier == 9
         assert resp.load == b"deadbeef4"
+        success = True
+    except Exception as ex:
+        print(ex)
     finally:
+        tester.send(UDS(service=0xff))
         sim.join(timeout=10)
+
+assert success
 
 = Simple check with different Sessions and diagnosticSessionControl
 drain_bus(iface0)
@@ -217,15 +233,16 @@ example_responses = \
      ECUResponse(session=range(0,8), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=8, sessionParameterRecord=b"dead")),
      ECUResponse(session=range(8,10), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead1")),
      ECUResponse(session=range(8,10), security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead2")),
-     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
 
-     ]
+success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 10})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
         assert resp.negativeResponseCode == 0x10
@@ -266,8 +283,14 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, ba
         assert resp.service == 0x62
         assert resp.dataIdentifier == 9
         assert resp.load == b"deadbeef4"
+        success = True
+    except Exception as ex:
+        print(ex)
     finally:
+        tester.send(UDS(service=0xff))
         sim.join(timeout=10)
+
+assert success
 
 = Simple check with different Sessions and diagnosticSessionControl and answers hook
 drain_bus(iface0)
@@ -289,16 +312,17 @@ example_responses = \
      ECUResponse(session=range(0,8),            security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=1, sessionParameterRecord=b"dead"), answers=custom_answers),
      ECUResponse(session=range(8,10),           security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead1")),
      ECUResponse(session=range(8,10),           security_level=0, responses=UDS() / UDS_DSCPR(diagnosticSessionType=9, sessionParameterRecord=b"dead2")),
-     ECUResponse(session=range(0,255),          security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
+     ECUResponse(session=range(0,255),          security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
 
-     ]
+success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 10})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
         assert resp.negativeResponseCode == 0x10
@@ -339,9 +363,14 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, ba
         assert resp.service == 0x62
         assert resp.dataIdentifier == 9
         assert resp.load == b"deadbeef4"
+        success = True
+    except Exception as ex:
+        print(ex)
     finally:
+        tester.send(UDS(service=0xff))
         sim.join(timeout=10)
 
+assert success
 
 = Simple check with security access and answers hook
 drain_bus(iface0)
@@ -363,15 +392,17 @@ example_responses = \
     [ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234"), answers=custom_answers),
      ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_SAPR(securityAccessType=2), answers=custom_answers),
      ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
-     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
-     ]
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
+
+success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 4})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
         assert resp.service == 0x67
@@ -384,9 +415,14 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, ba
         assert resp.securitySeed == b"abcd"
         resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=1, verbose=False)
         assert resp.service == 0x67
+        success = True
+    except Exception as ex:
+        print(ex)
     finally:
+        tester.send(UDS(service=0xff))
         sim.join(timeout=10)
 
+assert success
 
 = Simple check with security access and answers hook and request-correctly-received message
 drain_bus(iface0)
@@ -408,30 +444,37 @@ example_responses = \
     [ECUResponse(session=range(0,255), security_level=0, responses=[UDS()/UDS_NR(negativeResponseCode=0x78, requestServiceId=0x27), UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234")], answers=custom_answers),
      ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_SAPR(securityAccessType=2), answers=custom_answers),
      ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
-     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
-     ]
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
+
+success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout': 10})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=2)
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=2, verbose=False)
         assert resp.service == 0x67
         assert resp.securitySeed == b"abcd"
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed), timeout=2)
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed), timeout=2, verbose=False)
         assert resp.service == 0x7f
         assert resp.negativeResponseCode == 0x35
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=2)
+        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=2, verbose=False)
         assert resp.service == 0x67
         assert resp.securitySeed == b"abcd"
         resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=2, verbose=False)
         assert resp.service == 0x67
+        success = True
+    except Exception as ex:
+        print(ex)
     finally:
+        tester.send(UDS(service=0xff))
         sim.join(timeout=10)
 
+assert success
 
 = Simple check with security access and answers hook and request-correctly-received message 2
 drain_bus(iface0)
@@ -453,17 +496,19 @@ example_responses = \
     [ECUResponse(session=range(0,255), security_level=0, responses=[UDS()/UDS_NR(negativeResponseCode=0x78, requestServiceId=0x27), UDS() / UDS_SAPR(securityAccessType=1, securitySeed=b"1234")], answers=custom_answers),
      ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_SAPR(securityAccessType=2), answers=custom_answers),
      ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x35, requestServiceId=0x27)),
-     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10)),
-     ]
+     ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))]
 
 conf.contribs['UDS']['treat-response-pending-as-answer'] = True
+
+success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout':5})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout':5, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
+    time.sleep(0.1)
     try:
         resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
         assert resp.service == 0x7f
@@ -482,8 +527,14 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, ba
         assert resp.securitySeed == b"abcd"
         resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=1, verbose=False)
         assert resp.service == 0x67
+        success = True
+    except Exception as ex:
+        print(ex)
     finally:
+        tester.send(UDS(service=0xff))
         sim.join(timeout=10)
+
+assert success
 
 conf.contribs['UDS']['treat-response-pending-as-answer'] = False
 

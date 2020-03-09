@@ -9,12 +9,12 @@ then
   fi
 fi
 
-# Install wireshark data
+# Install wireshark data, ifconfig & vcan
 if [ "$TRAVIS_OS_NAME" = "linux" ] && [ "$TRAVIS_SUDO" = "true" ]
 then
   sudo apt-get update
-  sudo apt-get -qy install tshark
-  sudo apt-get -qy install can-utils build-essential linux-headers-$(uname -r);
+  sudo apt-get -qy install tshark net-tools
+  sudo apt-get -qy install can-utils build-essential linux-headers-$(uname -r) linux-modules-extra-$(uname -r);
 fi
 
 # Install pcap & dnet

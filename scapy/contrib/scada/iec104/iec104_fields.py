@@ -3,8 +3,7 @@
 # Copyright (C) Thomas Tannhaeuser <hecke@naberius.de>
 # This program is published under a GPLv2 license
 
-# scapy.contrib.description = IEC-60870-5-104 layer specific fields
-# scapy.contrib.status = loads
+# scapy.contrib.status = skip
 
 """
     field type definitions used by iec 60870-5-104 layer (iec104)

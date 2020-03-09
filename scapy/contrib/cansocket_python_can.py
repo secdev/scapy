@@ -12,38 +12,141 @@ Python-CAN CANSocket Wrapper.
 
 import time
 import struct
+import threading
+import copy
+
+from functools import reduce
+from operator import add
+
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
-from scapy.error import warning
 from scapy.layers.can import CAN
-from can import BusABC as can_BusABC
+from scapy.automaton import SelectableObject
+from scapy.modules.six.moves import queue
 from can import Message as can_Message
-from can import CanError as can_Error
+from can import CanError as can_CanError
+from can import BusABC as can_BusABC
+from can.interface import Bus as can_Bus
+
 
 CAN_FRAME_SIZE = 16
 CAN_INV_FILTER = 0x20000000
 
 
-class CANSocket(SuperSocket):
-    nonblocking_socket = True
+class SocketMapper:
+    def __init__(self, bus, sockets):
+        self.bus = bus
+        self.sockets = sockets
+
+    def mux(self):
+        while True:
+            try:
+                msg = self.bus.recv(timeout=0)
+                if msg is None:
+                    return
+            except Exception:
+                return
+            for sock in self.sockets:
+                if sock._matches_filters(msg):
+                    sock.rx_queue.put(copy.copy(msg))
+
+
+class SocketsPool(object):
+    __instance = None
+
+    def __new__(cls):
+        if SocketsPool.__instance is None:
+            SocketsPool.__instance = object.__new__(cls)
+            SocketsPool.__instance.pool = dict()
+            SocketsPool.__instance.pool_mutex = threading.Lock()
+        return SocketsPool.__instance
+
+    def internal_send(self, sender, msg):
+        with self.pool_mutex:
+            try:
+                t = self.pool[sender.name]
+            except KeyError:
+                return
+
+            try:
+                t.bus.send(msg)
+                for sock in t.sockets:
+                    if sock != sender and sock._matches_filters(msg):
+                        m = copy.copy(msg)
+                        m.timestamp = time.time()
+                        sock.rx_queue.put(m)
+            except can_CanError:
+                pass
+
+    def multiplex_rx_packets(self):
+        with self.pool_mutex:
+            for _, t in self.pool.items():
+                t.mux()
+
+    def register(self, socket, *args, **kwargs):
+        k = str(
+            str(kwargs.get("bustype", "unknown_bustype")) + "_" +
+            str(kwargs.get("channel", "unknown_channel"))
+        )
+        with self.pool_mutex:
+            if k in self.pool:
+                t = self.pool[k]
+                t.sockets.append(socket)
+                filters = [s.filters for s in t.sockets
+                           if s.filters is not None]
+                if filters:
+                    t.bus.set_filters(reduce(add, filters))
+                socket.name = k
+            else:
+                bus = can_Bus(*args, **kwargs)
+                socket.name = k
+                self.pool[k] = SocketMapper(bus, [socket])
+
+    def unregister(self, socket):
+        with self.pool_mutex:
+            t = self.pool[socket.name]
+            t.sockets.remove(socket)
+            if not t.sockets:
+                t.bus.shutdown()
+                del self.pool[socket.name]
+
+
+class SocketWrapper(can_BusABC):
+    """Socket for specific Bus or Interface.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(SocketWrapper, self).__init__(*args, **kwargs)
+        self.rx_queue = queue.Queue()  # type: queue.Queue[can_Message]
+        self.name = None
+        SocketsPool().register(self, *args, **kwargs)
+
+    def _recv_internal(self, timeout):
+        SocketsPool().multiplex_rx_packets()
+        try:
+            return self.rx_queue.get(block=True, timeout=timeout), True
+        except queue.Empty:
+            return None, True
+
+    def send(self, msg, timeout=None):
+        SocketsPool().internal_send(self, msg)
+
+    def shutdown(self):
+        SocketsPool().unregister(self)
+
+
+class PythonCANSocket(SuperSocket, SelectableObject):
     desc = "read/write packets at a given CAN interface " \
            "using a python-can bus object"
+    nonblocking_socket = True
 
-    def __init__(self, iface=None, timeout=1.0, basecls=CAN):
-
-        if issubclass(type(iface), can_BusABC):
-            self.basecls = basecls
-            self.iface = iface
-            self.ins = None
-            self.outs = None
-            self.timeout = timeout
-        else:
-            warning("Provide a python-can interface")
+    def __init__(self, **kwargs):
+        self.basecls = kwargs.pop("basecls", CAN)
+        self.iface = SocketWrapper(**kwargs)
 
     def recv_raw(self, x=0xffff):
-        msg = self.iface.recv(timeout=self.timeout)
-        if msg is None:
-            return None, None, None
+        msg = self.iface.recv()
+
         hdr = msg.is_extended_id << 31 | msg.is_remote_frame << 30 | \
             msg.is_error_frame << 29 | msg.arbitration_id
 
@@ -55,38 +158,29 @@ class CANSocket(SuperSocket):
         return self.basecls, pkt_data, msg.timestamp
 
     def send(self, x):
+        msg = can_Message(is_remote_frame=x.flags == 0x2,
+                          is_extended_id=x.flags == 0x4,
+                          is_error_frame=x.flags == 0x1,
+                          arbitration_id=x.identifier,
+                          dlc=x.length,
+                          data=bytes(x)[8:])
         try:
-            msg = can_Message(is_remote_frame=x.flags == 0x2,
-                              is_extended_id=x.flags == 0x4,
-                              is_error_frame=x.flags == 0x1,
-                              arbitration_id=x.identifier,
-                              dlc=x.length,
-                              data=bytes(x)[8:])
-            if hasattr(x, "sent_time"):
-                x.sent_time = time.time()
-            return self.iface.send(msg)
-        except can_Error as ex:
-            raise ex
+            x.sent_time = time.time()
+        except AttributeError:
+            pass
+        self.iface.send(msg)
 
     @staticmethod
-    def select(sockets, remain=None):
-        """This function is called during sendrecv() routine to select
-        the available sockets.
-        """
-        if remain is not None:
-            max_timeout = remain / len(sockets)
-            for s in sockets:
-                if s.timeout > max_timeout:
-                    s.timeout = max_timeout
+    def select(sockets, *args, **kwargs):
+        SocketsPool().multiplex_rx_packets()
+        return [s for s in sockets if isinstance(s, PythonCANSocket) and
+                not s.iface.rx_queue.empty()], PythonCANSocket.recv
 
-        # python-can sockets aren't selectable, so we return all of them
-        # sockets, None (means use the socket's recv() )
-        return sockets, None
+    def close(self):
+        if self.closed:
+            return
+        super(PythonCANSocket, self).close()
+        self.iface.shutdown()
 
 
-@conf.commands.register
-def srcan(pkt, iface=None, basecls=CAN, *args, **kargs):
-    s = CANSocket(iface, basecls=basecls)
-    a, b = s.sr(pkt, *args, **kargs)
-    s.close()
-    return a, b
+CANSocket = PythonCANSocket

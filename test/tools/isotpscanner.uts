@@ -53,18 +53,17 @@ if 0 != call("cansend %s 000#" % iface1, shell=True):
 print("CAN should work now")
 
 
-if six.PY3:
+if six.PY3 and not conf.use_pypy:
     from scapy.contrib.cansocket_native import *
 else:
     from scapy.contrib.cansocket_python_can import *
 
 
 if "python_can" in CANSocket.__module__:
-    import can as python_can
-    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000))
-    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
-    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000), timeout=0.01)
-    can_socket_string = "-i socketcan -c %s -b 250000" % iface0
+    new_can_socket = lambda iface: CANSocket(bustype='socketcan', channel=iface)
+    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, timeout=0.01)
+    new_can_socket1 = lambda: CANSocket(bustype='socketcan', channel=iface1, timeout=0.01)
+    can_socket_string = "-i socketcan -c %s -a bitrate=250000" % iface0
 else:
     new_can_socket = lambda iface: CANSocket(iface)
     new_can_socket0 = lambda: CANSocket(iface0)
@@ -108,7 +107,7 @@ load_contrib("isotp")
 + Usage tests
 
 = Test wrong usage
-print(sys.executable)
+
 result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py" % sys.executable, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 returncode = result.wait()
 
@@ -140,7 +139,7 @@ if six.PY2:
     version = subprocess.Popen("python --version", stdout=subprocess.PIPE, shell=True)
     if 0 == version.wait():
         print(version.communicate())
-    result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py -c vcan0 -s 0x600 -e 0x600" % sys.executable, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py -c %s -s 0x600 -e 0x600" % (sys.executable, iface0), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     if result.wait() == 0:
         expected_output = plain_str(b'Wrong interface')
         std_out, std_err = result.communicate()
@@ -152,14 +151,55 @@ if six.PY2:
 
 = Test Python2 call
 
-result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py -i socketcan -c vcan0 -b 250000 -s 0x600 -e 0x600 -v" % sys.executable, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py -i socketcan -c %s -s 0x600 -e 0x600 -v" % (sys.executable, iface0), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 returncode = result.wait()
 print(returncode)
-assert returncode == 0
 expected_output = plain_str(b'Start scan')
 std_out, std_err = result.communicate()
 print(std_out)
+print("%s" % std_err)
 print(expected_output)
+assert returncode == 0
+assert expected_output in plain_str(std_out)
+
+= Test Python2 call with one python-can arg
+
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py -i socketcan -c %s -a bitrate=500000 -s 0x600 -e 0x600 -v" % (sys.executable, iface0), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+returncode = result.wait()
+print(returncode)
+expected_output = plain_str(b'Start scan')
+std_out, std_err = result.communicate()
+print(std_out)
+print("%s" % std_err)
+print(expected_output)
+assert returncode == 0
+assert expected_output in plain_str(std_out)
+
+
+= Test Python2 call with multiple python-can args
+
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py -i socketcan -c %s -a 'bitrate=500000 receive_own_messages=True' -s 0x600 -e 0x600 -v" % (sys.executable, iface0), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+returncode = result.wait()
+print(returncode)
+expected_output = plain_str(b'Start scan')
+std_out, std_err = result.communicate()
+print(std_out)
+print("%s" % std_err)
+print(expected_output)
+assert returncode == 0
+assert expected_output in plain_str(std_out)
+
+= Test Python2 call with multiple python-can args 2
+
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py -i socketcan -c %s --python-can_args 'bitrate=500000, receive_own_messages=True' -s 0x600 -e 0x600 -v" % (sys.executable, iface0), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+returncode = result.wait()
+print(returncode)
+expected_output = plain_str(b'Start scan')
+std_out, std_err = result.communicate()
+print(std_out)
+print("%s" % std_err)
+print(expected_output)
+assert returncode == 0
 assert expected_output in plain_str(std_out)
 
 
@@ -181,7 +221,7 @@ result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 
 returncode = result.wait()
 std_out, std_err = result.communicate()
 
-send = subprocess.Popen(['cansend', 'vcan0', '600#01aa'])
+send = subprocess.Popen(['cansend', iface0, '600#01aa'])
 assert 0 == send.wait()
 assert returncode == 0
 
@@ -208,7 +248,7 @@ started.wait(timeout=10)
 result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 0x601 -e 0x601 -x" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, shell=True)
 returncode = result.wait()
 
-send = subprocess.Popen(['cansend', 'vcan0', '601#BB01aa'])
+send = subprocess.Popen(['cansend', iface0, '601#BB01aa'])
 assert 0 == send.wait()
 assert returncode == 0
 
@@ -236,7 +276,7 @@ started.wait(timeout=10)
 result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 0x601 -e 0x601 -x" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, shell=True)
 returncode = result.wait()
 
-send = subprocess.Popen(['cansend', 'vcan0', '601#BB01aa'])
+send = subprocess.Popen(['cansend', iface0, '601#BB01aa'])
 assert 0 == send.wait()
 assert returncode == 0
 
@@ -265,7 +305,7 @@ started.wait(timeout=10)
 result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 0x601 -e 0x601 -x -C" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, shell=True)
 returncode = result.wait()
 
-send = subprocess.Popen(['cansend', 'vcan0', '601#BB01aa'])
+send = subprocess.Popen(['cansend', iface0, '601#BB01aa'])
 assert 0 == send.wait()
 assert returncode == 0
 
@@ -277,3 +317,15 @@ assert std_err == None
 
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out)
+
+
++ Cleanup
+
+= Cleanup
+
+if 0 != call("sudo ip link delete vcan0", shell=True):
+        raise Exception("vcan0 could not be deleted")
+
+if 0 != call("sudo ip link delete vcan1", shell=True):
+        raise Exception("vcan1 could not be deleted")
+

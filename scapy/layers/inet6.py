@@ -178,8 +178,8 @@ ipv6nhcls = {0: "IPv6ExtHdrHopByHop",
              17: "UDP",
              43: "IPv6ExtHdrRouting",
              44: "IPv6ExtHdrFragment",
-             # 50: "IPv6ExtHrESP",
-             # 51: "IPv6ExtHdrAH",
+             50: "ESP",
+             51: "AH",
              58: "ICMPv6Unknown",
              59: "Raw",
              60: "IPv6ExtHdrDestOpt"}
@@ -1165,48 +1165,6 @@ def fragment6(pkt, fragSize):
             res.append(tempo)
             break
     return res
-
-
-#                               AH Header                                   #
-
-# class _AHFieldLenField(FieldLenField):
-#     def getfield(self, pkt, s):
-#         l = getattr(pkt, self.fld)
-#         l = (l*8)-self.shift
-#         i = self.m2i(pkt, s[:l])
-#         return s[l:],i
-
-# class _AHICVStrLenField(StrLenField):
-#     def i2len(self, pkt, x):
-
-
-# class IPv6ExtHdrAH(_IPv6ExtHdr):
-#     name = "IPv6 Extension Header - AH"
-#     fields_desc = [ ByteEnumField("nh", 59, ipv6nh),
-#                     _AHFieldLenField("len", None, "icv"),
-#                     ShortField("res", 0),
-#                     IntField("spi", 0),
-#                     IntField("sn", 0),
-#                     _AHICVStrLenField("icv", None, "len", shift=2) ]
-#     overload_fields = {IPv6: { "nh": 51 }}
-
-#     def post_build(self, pkt, pay):
-#         if self.len is None:
-#             pkt = pkt[0]+struct.pack("!B", 2*len(self.addresses))+pkt[2:]
-#         if self.segleft is None:
-#             pkt = pkt[:3]+struct.pack("!B", len(self.addresses))+pkt[4:]
-#         return _IPv6ExtHdr.post_build(self, pkt, pay)
-
-
-#                               ESP Header                                  #
-
-# class IPv6ExtHdrESP(_IPv6extHdr):
-#     name = "IPv6 Extension Header - ESP"
-#     fields_desc = [ IntField("spi", 0),
-#                     IntField("sn", 0),
-#                     # there is things to extract from IKE work
-#                     ]
-#     overloads_fields = {IPv6: { "nh": 50 }}
 
 
 #############################################################################

@@ -4,11 +4,18 @@
 # This program is published under a GPLv2 license
 
 """
-Packet class. Binding mechanism. fuzz() method.
+Packet class
+
+Provides:
+ - the default Packet classes
+ - binding mechanisms
+ - fuzz() method
+ - exploration methods: explore() / ls()
 """
 
 from __future__ import absolute_import
 from __future__ import print_function
+from collections import defaultdict
 import re
 import time
 import itertools
@@ -1844,40 +1851,101 @@ def explore(layer=None):
         # 2 - Retrieve list of Packets
         if action == "layers":
             # Get all loaded layers
-            _radio_values = conf.layers.layers()
+            values = conf.layers.layers()
             # Restrict to layers-only (not contribs) + packet.py and asn1*.py
-            _radio_values = [x for x in _radio_values if ("layers" in x[0] or
-                                                          "packet" in x[0] or
-                                                          "asn1" in x[0])]
+            values = [x for x in values if ("layers" in x[0] or
+                                            "packet" in x[0] or
+                                            "asn1" in x[0])]
         elif action == "contribs":
             # Get all existing contribs
             from scapy.main import list_contrib
-            _radio_values = list_contrib(ret=True)
-            _radio_values = [(x['name'], x['description'])
-                             for x in _radio_values]
+            values = list_contrib(ret=True)
+            values = [(x['name'], x['description'])
+                      for x in values]
             # Remove very specific modules
-            _radio_values = [x for x in _radio_values if not ("can" in x[0])]
+            values = [x for x in values if "can" not in x[0]]
         else:
             # Escape/Cancel was pressed
             return
         # Python 2 compat
         if six.PY2:
-            _radio_values = [(six.text_type(x), six.text_type(y))
-                             for x, y in _radio_values]
+            values = [(six.text_type(x), six.text_type(y))
+                      for x, y in values]
+        # Build tree
+        if action == "contribs":
+            # A tree is a dictionary. Each layer contains a keyword
+            # _l which contains the files in the layer, and a _name
+            # argument which is its name. The other keys are the subfolders,
+            # which are similar dictionaries
+            tree = defaultdict(list)
+            for name, desc in values:
+                if "." in name:  # Folder detected
+                    parts = name.split(".")
+                    subtree = tree
+                    for pa in parts[:-1]:
+                        if pa not in subtree:
+                            subtree[pa] = {}
+                        subtree = subtree[pa]  # one layer deeper
+                        subtree["_name"] = pa
+                    if "_l" not in subtree:
+                        subtree["_l"] = []
+                    subtree["_l"].append((parts[-1], desc))
+                else:
+                    tree["_l"].append((name, desc))
+        elif action == "layers":
+            tree = {"_l": values}
         # 3 - Ask for the layer/contrib module to explore
-        rd_diag = radiolist_dialog(
-            values=_radio_values,
-            title=six.text_type("Scapy v%s" % conf.version),
-            text=HTML(
-                six.text_type(
-                    '<style bg="white" fg="red">Please select a layer among'
-                    ' the following, to see all packets contained in'
-                    ' it:</style>'
+        current = tree
+        previous = []
+        while True:
+            # Generate tests & form
+            folders = list(current.keys())
+            _radio_values = [
+                ("$" + name, six.text_type('[+] ' + name.capitalize()))
+                for name in folders if not name.startswith("_")
+            ] + current.get("_l", [])
+            cur_path = ""
+            if previous:
+                cur_path = ".".join(
+                    itertools.chain(
+                        (x["_name"] for x in previous[1:]),
+                        (current["_name"],)
+                    )
                 )
-            ))
-        result = call_ptk(rd_diag)
-        if result is None:
-            return  # User pressed "Cancel"
+            extra_text = (
+                '\n<style bg="white" fg="green">> scapy.%s</style>'
+            ) % (action + ("." + cur_path if cur_path else ""))
+            # Show popup
+            rd_diag = radiolist_dialog(
+                values=_radio_values,
+                title=six.text_type(
+                    "Scapy v%s" % conf.version
+                ),
+                text=HTML(
+                    six.text_type((
+                        '<style bg="white" fg="red">Please select a file'
+                        'among the following, to see all layers contained in'
+                        ' it:</style>'
+                    ) + extra_text)
+                ),
+                cancel_text="Back" if previous else "Cancel"
+            )
+            result = call_ptk(rd_diag)
+            if result is None:
+                # User pressed "Cancel/Back"
+                if previous:  # Back
+                    current = previous.pop()
+                    continue
+                else:  # Cancel
+                    return
+            if result.startswith("$"):
+                previous.append(current)
+                current = current[result[1:]]
+            else:
+                # Enter on layer
+                if previous:  # In subfolder
+                    result = cur_path + "." + result
+                break
         # 4 - (Contrib only): load contrib
         if action == "contribs":
             from scapy.main import load_contrib
@@ -2039,6 +2107,110 @@ def ls(obj=None, case_sensitive=False, verbose=False):
             print("Not a packet class or name. Type 'ls()' to list packet classes.")  # noqa: E501
 
 
+@conf.commands.register
+def rfc(cls, ret=False, legend=True):
+    """
+    Generate an RFC-like representation of a packet def.
+
+    :param cls: the Packet class
+    :param ret: return the result instead of printing (def. False)
+    :param legend: show text under the diagram (default True)
+
+    Ex::
+
+        >>> rfc(Ether)
+
+    """
+    if not issubclass(cls, Packet):
+        raise TypeError("Packet class expected")
+    cur_len = 0
+    cur_line = []
+    lines = []
+    # Get the size (width) that a field will take
+    # when formatted, from its length in bits
+    clsize = lambda x: 2 * x - 1
+    ident = 0  # Fields UUID
+    # Generate packet groups
+    for f in cls.fields_desc:
+        flen = int(f.sz * 8)
+        cur_len += flen
+        ident += 1
+        # Fancy field name
+        fname = f.name.upper().replace("_", " ")
+        # The field might exceed the current line or
+        # take more than one line. Copy it as required
+        while True:
+            over = max(0, cur_len - 32)  # Exceed
+            len1 = clsize(flen - over)  # What fits
+            cur_line.append((fname[:len1], len1, ident))
+            if cur_len >= 32:
+                # Current line is full. start a new line
+                lines.append(cur_line)
+                cur_len = flen = over
+                fname = ""  # do not repeat the field
+                cur_line = []
+                if not over:
+                    # there is no data left
+                    break
+            else:
+                # End of the field
+                break
+    # Add the last line if un-finished
+    if cur_line:
+        lines.append(cur_line)
+    # Calculate separations between lines
+    seps = []
+    seps.append("+-" * 32 + "+\n")
+    for i in range(len(lines) - 1):
+        # Start with a full line
+        sep = "+-" * 32 + "+\n"
+        # Get the line above and below the current
+        # separation
+        above, below = lines[i], lines[i + 1]
+        # The last field of above is shared with below
+        if above[-1][2] == below[0][2]:
+            # where the field in "above" starts
+            pos_above = sum(x[1] for x in above[:-1])
+            # where the field in "below" ends
+            pos_below = below[0][1]
+            if pos_above < pos_below:
+                # they are overlapping.
+                # Now crop the space between those pos
+                # and fill it with " "
+                pos_above = pos_above + pos_above % 2
+                sep = (
+                    sep[:1 + pos_above] +
+                    " " * (pos_below - pos_above) +
+                    sep[1 + pos_below:]
+                )
+        # line is complete
+        seps.append(sep)
+    # Graph
+    result = ""
+    # Bytes markers
+    result += " " + (" " * 19).join(
+        str(x) for x in range(4)
+    ) + "\n"
+    # Bits markers
+    result += " " + " ".join(
+        str(x % 10) for x in range(32)
+    ) + "\n"
+    # Add fields and their separations
+    for line, sep in zip(lines, seps):
+        result += sep
+        for elt, flen, _ in line:
+            result += "|" + elt.center(flen, " ")
+        result += "|\n"
+    result += "+-" * (cur_len or 32) + "+\n"
+    # Annotate with the figure name
+    if legend:
+        result += "\n" + ("Fig. " + cls.__name__).center(66, " ")
+    # return if asked for, else print
+    if ret:
+        return result
+    print(result)
+
+
 #############
 #  Fuzzing  #
 #############
@@ -2061,7 +2233,6 @@ def fuzz(p, _inplace=0):
         for f in q.fields_desc:
             if isinstance(f, PacketListField):
                 for r in getattr(q, f.name):
-                    print("fuzzing", repr(r))
                     fuzz(r, _inplace=1)
             elif isinstance(f, MultipleTypeField):
                 # the type of the field will depend on others
