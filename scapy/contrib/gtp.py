@@ -865,7 +865,7 @@ class GTPCreatePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Create PDP Context Request"
     fields_desc = [PacketListField("IE_list", [IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(length=4, ipv4_address=RandIP()),  # noqa: E501
-                                               IE_GSNAddress(length=4, ipv4_address=RandIP()), # noqa: E501
+                                               IE_GSNAddress(length=4, ipv4_address=RandIP()),  # noqa: E501
                                                IE_NotImplementedTLV(ietype=135, length=15, data=RandString(15))],  # noqa: E501
                                    IE_Dispatcher)]
 
