@@ -1,0 +1,86 @@
+% Regression tests for Packet Viewer is_valid_packet
+
++ Configuration
+
+= Imports
+from scapy.modules.packet_viewer.main_window import MainWindow
+from scapy.layers.can import CAN
+from scapy.layers.l2 import Ether
+from scapy.packet import Raw
+is_valid_packet = MainWindow.is_valid_packet
+
+globals_dict=globals()
+
++ Whitelist
+
+= list with different value types but all valid #1
+res, classes = is_valid_packet("CAN(identifier=0x123, data=[1, 2, 3, 'test'])", globals_dict)
+assert res is True
+assert set(classes) <= set([CAN])
+
+= list with different value types but all valid #2
+res, classes = is_valid_packet("CAN(identifier=0x123, data=[1, 2, 3, b'\x01\x02'])", globals_dict)
+assert res is True
+assert set(classes) <= set([CAN])
+
+res, classes = is_valid_packet("CAN(identifier=0x123, data=[1, 2, 3, 5])", globals_dict)
+assert res is True
+assert set(classes) <= set([CAN])
+
+= list with different value types but one invalid
+res, classes = is_valid_packet("CAN(identifier=0x123, data=[1, 2, 3, test])", globals_dict)
+assert res is False
+assert set(classes) <= set([CAN])
+
+= Connecting layers
+res, classes = is_valid_packet("CAN(identifier=0x123, data=[1, 2, 3, 5]) / Raw(b'\x42') / Ether()", globals_dict)
+assert res is True
+assert set(classes) <= set([CAN, Raw, Ether])
+
++ Blacklist
+
+= Second function via binary operator
+res, classes = is_valid_packet("CAN(identifier=0x123, data=[1, 2, 3, b'\x01\x02']) and print('p')", globals_dict)
+assert res is False
+assert set(classes) <= set([CAN])
+
+= Call of random function
+res, classes = is_valid_packet("Test()", globals_dict)
+assert res is False
+assert set(classes) == set()
+
+= Printing Py3 style
+res, classes = is_valid_packet("print('test')", globals_dict)
+assert res is False
+assert set(classes) == set()
+
+= Printing Py2 style
+res, classes = is_valid_packet("print 'test'", globals_dict)
+assert res is False
+assert set(classes) == set()
+
+= Random letters
+res, classes = is_valid_packet("asdfadgdsg", globals_dict)
+assert res is False
+assert set(classes) == set()
+
+= if keywords exist is not important for validity
+res, classes = is_valid_packet("CAN(idhfghdf=0x123)", globals_dict)
+assert res is True
+assert set(classes) <= set([CAN])
+
+= Injection
+res, classes = is_valid_packet("self._emit('info_popup', 'Injected')", globals_dict)
+assert res is False
+assert set(classes) == set()
+
+= Even worse injection
+res, classes = is_valid_packet("__import__('subprocess').getoutput('rm –rf *')", globals_dict)
+assert res is False
+assert set(classes) == set()
+
+= Security vulnerability
+# https://realpython.com/python-eval-function/#minimizing-the-security-issues-of-eval
+res, classes = is_valid_packet("''.__class__.__base__", globals_dict)
+assert res is False
+assert set(classes) == set()

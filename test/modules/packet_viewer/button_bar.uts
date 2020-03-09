@@ -1,0 +1,197 @@
+% Regression tests for Packet Viewer ButtonBar
+
++ Configuration
+~ conf
+
+= Imports
+from collections import OrderedDict
+from scapy.modules.packet_viewer.button_bar import ButtonBar, Action
+
++ Action Tests
+
+= Basic function test
+global_var = 0
+
+def fun1():
+    global global_var
+    global_var = 1
+
+def fun2():
+    global global_var
+    global_var = 2
+
+def fun3():
+    global global_var
+    global_var = 3
+
+a = Action(["fun1", "fun2", "fun3"], [fun1, fun2, fun3])
+
+assert "fun1" in a.text
+assert global_var == 0
+a.execute()
+
+assert "fun2" in a.text
+assert global_var == 1
+a.execute()
+
+assert "fun3" in a.text
+assert global_var == 2
+a.execute()
+
+assert "fun1" in a.text
+assert global_var == 3
+a.execute()
+
+assert "fun2" in a.text
+assert global_var == 1
+a.execute()
+
+= Invalid init test 1
+
+exception_catched = False
+
+def fun1():
+    pass
+
+try:
+    a = Action(["1", "2"], [fun1])
+except AssertionError:
+    exception_catched = True
+
+assert exception_catched
+
+= Invalid init test 2
+
+exception_catched = False
+
+def fun1():
+    pass
+
+try:
+    a = Action(["1"], [fun1, fun1, fun1])
+except AssertionError:
+    exception_catched = True
+
+assert exception_catched
+
+
+= Invalid init test 3
+
+exception_catched = False
+
+def fun1():
+    pass
+
+try:
+    a = Action(["1"], [fun1], state_index=3)
+except AssertionError:
+    exception_catched = True
+
+assert exception_catched
+
++ ButtonBar tests
+
+= Basic function test
+
+global_var = 0
+
+def fun1():
+    global global_var
+    global_var = 1
+
+def fun2():
+    global global_var
+    global_var = 2
+
+def fun3():
+    global global_var
+    global_var = 3
+
+a = Action(["fun1", "fun2", "fun3"], [fun1, fun2, fun3])
+
+b = ButtonBar({"f1": a})
+
+assert "fun1" in b.widget_list[0].get_label()
+assert global_var == 0
+b.keypress(0, "f1")
+
+assert "fun2" in b.widget_list[0].get_label()
+assert global_var == 1
+b.keypress(0, "f1")
+
+assert "fun3" in b.widget_list[0].get_label()
+assert global_var == 2
+b.keypress(0, "f1")
+
+assert "fun1" in b.widget_list[0].get_label()
+assert global_var == 3
+b.keypress(0, "f1")
+
+assert "fun2" in b.widget_list[0].get_label()
+assert global_var == 1
+b.keypress(0, "f1")
+
+= Basic function test 2
+
+global_var = 0
+
+def fun1():
+    global global_var
+    global_var = 1
+
+def fun2():
+    global global_var
+    global_var = 2
+
+def fun3():
+    global global_var
+    global_var = 3
+
+a = Action(["fun1", "fun2", "fun3"], [fun1, fun2, fun3])
+c = Action(["foo1", "foo2", "foo3"], [fun1, fun2, fun3])
+
+cmds = OrderedDict()
+cmds["f1"] = a
+cmds["f2"] = c
+
+b = ButtonBar(cmds)
+
+assert global_var == 0
+assert "fun1" in b.widget_list[0].get_label()
+assert "foo1" in b.widget_list[1].get_label()
+
+b.keypress(0, "f1")
+assert global_var == 1
+assert "fun2" in b.widget_list[0].get_label()
+assert "foo1" in b.widget_list[1].get_label()
+
+b.keypress(0, "f1")
+assert global_var == 2
+assert "fun3" in b.widget_list[0].get_label()
+assert "foo1" in b.widget_list[1].get_label()
+
+b.keypress(0, "f2")
+assert global_var == 1
+assert "fun3" in b.widget_list[0].get_label()
+assert "foo2" in b.widget_list[1].get_label()
+
+b.keypress(0, "f1")
+assert global_var == 3
+assert "fun1" in b.widget_list[0].get_label()
+assert "foo2" in b.widget_list[1].get_label()
+
+b.keypress(0, "f2")
+assert global_var == 2
+assert "fun1" in b.widget_list[0].get_label()
+assert "foo3" in b.widget_list[1].get_label()
+
+b.keypress(0, "f2")
+assert global_var == 3
+assert "fun1" in b.widget_list[0].get_label()
+assert "foo1" in b.widget_list[1].get_label()
+
+b.keypress(0, "f1")
+b.keypress(0, "f2")
+assert global_var == 1
+assert "fun2" in b.widget_list[0].get_label()
+assert "foo2" in b.widget_list[1].get_label()

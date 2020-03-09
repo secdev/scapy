@@ -8,6 +8,7 @@
     "test/contrib/automotive/gm/*.uts",
     "test/contrib/automotive/bmw/*.uts",
     "test/tools/*.uts",
+    "test/modules/packet_viewer/*.uts",
     "test/tls/tests_tls_netaccess.uts"
   ],
   "remove_testfiles": [
