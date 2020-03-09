@@ -594,7 +594,8 @@ class HTTP(Packet):
 
 
 def http_request(host, path="/", port=80, timeout=3,
-                 display=False, verbose=None, **headers):
+                 display=False, verbose=0,
+                 iptables=False, **headers):
     """Util to perform an HTTP request, using the TCP_client.
 
     :param host: the host to connect to
@@ -602,6 +603,8 @@ def http_request(host, path="/", port=80, timeout=3,
     :param port: the port (default 80)
     :param timeout: timeout before None is returned
     :param display: display the resullt in the default browser (default False)
+    :param iptables: temporarily prevents the kernel from
+      answering with a TCP RESET message.
     :param headers: any additional headers passed to the request
 
     :returns: the HTTPResponse packet
@@ -616,12 +619,18 @@ def http_request(host, path="/", port=80, timeout=3,
     }
     http_headers.update(headers)
     req = HTTP() / HTTPRequest(**http_headers)
-    tcp_client = TCP_client.tcplink(HTTP, host, port)
+    tcp_client = TCP_client.tcplink(HTTP, host, port, debug=verbose)
     ans = None
+    if iptables:
+        ip = tcp_client.atmt.dst
+        iptables_rule = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
+        assert(os.system(iptables_rule % ('A', ip)) == 0)
     try:
         ans = tcp_client.sr1(req, timeout=timeout, verbose=verbose)
     finally:
         tcp_client.close()
+        if iptables:
+            assert(os.system(iptables_rule % ('D', ip)) == 0)
     if ans:
         if display:
             if Raw not in ans:

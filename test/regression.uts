@@ -2236,7 +2236,7 @@ def _tcp_client_test():
     assert response.Reason_Phrase == b'OK'
 
 def _http_request_test():
-    response = http_request("www.kame.net", path="/")
+    response = http_request("www.kame.net", path="/", iptables=LINUX)
     assert response.Http_Version == b'HTTP/1.1'
     assert response.Status_Code == b'200'
     assert response.Reason_Phrase == b'OK'
@@ -2245,11 +2245,11 @@ def _http_request_test():
 if not BSD:
     try:
         retry_test(_tcp_client_test)
-        retry_test(_http_request_test)
     finally:
         if LINUX:
             # Remove the iptables rule
             assert(os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0)
+    retry_test(_http_request_test)
 
 ############
 ############
