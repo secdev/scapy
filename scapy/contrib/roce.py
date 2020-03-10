@@ -11,8 +11,8 @@ RoCE: RDMA over Converged Ethernet
 """
 
 from scapy.packet import Packet, bind_layers, Raw
-from scapy.fields import ByteEnumField, XByteField, XShortField, \
-    BitField, FCSField
+from scapy.fields import ByteEnumField, XShortField, \
+    XLongField, BitField, FCSField
 from scapy.layers.inet import IP, UDP
 from scapy.compat import raw
 from scapy.error import warning
@@ -49,6 +49,9 @@ _ops = {
     'COMPARE_SWAP': 0x13,
     'FETCH_ADD': 0x14,
 }
+
+
+CNP_OPCODE = 0x81
 
 
 def opcode(transport, op):
@@ -116,7 +119,7 @@ _bth_opcodes = dict([
     opcode('UD', 'SEND_ONLY'),
     opcode('UD', 'SEND_ONLY_WITH_IMMEDIATE'),
 
-    (0x81, 'CNP'),
+    (CNP_OPCODE, 'CNP'),
 ])
 
 
@@ -129,7 +132,9 @@ class BTH(Packet):
         BitField("padcount", 0, 2),
         BitField("version", 0, 4),
         XShortField("pkey", 0xffff),
-        XByteField("resv8", 0),
+        BitField("fecn", 0, 1),
+        BitField("becn", 0, 1),
+        BitField("resv6", 0, 6),
         BitField("dqpn", 0, 24),
         BitField("ackreq", 0, 1),
         BitField("resv7", 0, 7),
@@ -155,7 +160,9 @@ class BTH(Packet):
             pshdr.ttl = 0xff
             pshdr.tos = 0xff
             pshdr[UDP].chksum = 0xffff
-            pshdr[BTH].resv8 = 0xff
+            pshdr[BTH].fecn = 1
+            pshdr[BTH].becn = 1
+            pshdr[BTH].resv6 = 0xff
             bth = pshdr[BTH].self_build()
             payload = raw(pshdr[BTH].payload)
             # add ICRC placeholder just to get the right IP.totlen and
@@ -179,5 +186,19 @@ class BTH(Packet):
             p = p[:-4] + self.compute_icrc(p)
         return p
 
+
+class CNPPadding(Packet):
+    name = "CNPPadding"
+    fields_desc = [
+        XLongField("reserved1", 0),
+        XLongField("reserved2", 0),
+    ]
+
+
+def cnp(dqpn):
+    return BTH(opcode=CNP_OPCODE, becn=1, dqpn=dqpn) / CNPPadding()
+
+
+bind_layers(BTH, CNPPadding, opcode=CNP_OPCODE)
 
 bind_layers(UDP, BTH, dport=4791)
