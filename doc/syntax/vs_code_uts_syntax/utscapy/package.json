@@ -1,0 +1,25 @@
+{
+    "name": "utscapy",
+    "displayName": "UTScapy",
+    "description": "",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.42.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "utscapy",
+            "aliases": ["UTScapy", "utscapy"],
+            "extensions": [".uts"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "utscapy",
+            "scopeName": "source.uts",
+            "path": "./syntaxes/utscapy.tmLanguage.json"
+        }]
+    }
+}

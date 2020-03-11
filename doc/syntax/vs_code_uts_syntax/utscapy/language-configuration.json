@@ -1,0 +1,55 @@
+{
+    "information_for_contributors": [
+        "This file has been taken from https://github.com/Microsoft/vscode/blob/master/extensions/python/language-configuration.json",
+        "If you want to provide a fix or improvement, please create a pull request against the original repository.",
+		"Once accepted there, we are happy to receive an update request."
+	],
+	"comments": {
+		"lineComment": "#",
+		"blockComment": [ "\"\"\"", "\"\"\"" ]
+	},
+	"brackets": [
+		["{", "}"],
+		["[", "]"],
+		["(", ")"]
+	],
+	"autoClosingPairs": [
+		{ "open": "{", "close": "}" },
+		{ "open": "[", "close": "]" },
+		{ "open": "(", "close": ")" },
+		{ "open": "\"", "close": "\"", "notIn": ["string"] },
+		{ "open": "r\"", "close": "\"", "notIn": ["string", "comment"] },
+		{ "open": "R\"", "close": "\"", "notIn": ["string", "comment"] },
+		{ "open": "u\"", "close": "\"", "notIn": ["string", "comment"] },
+		{ "open": "U\"", "close": "\"", "notIn": ["string", "comment"] },
+		{ "open": "f\"", "close": "\"", "notIn": ["string", "comment"] },
+		{ "open": "F\"", "close": "\"", "notIn": ["string", "comment"] },
+		{ "open": "b\"", "close": "\"", "notIn": ["string", "comment"] },
+		{ "open": "B\"", "close": "\"", "notIn": ["string", "comment"] },
+		{ "open": "'", "close": "'", "notIn": ["string", "comment"] },
+		{ "open": "r'", "close": "'", "notIn": ["string", "comment"] },
+		{ "open": "R'", "close": "'", "notIn": ["string", "comment"] },
+		{ "open": "u'", "close": "'", "notIn": ["string", "comment"] },
+		{ "open": "U'", "close": "'", "notIn": ["string", "comment"] },
+		{ "open": "f'", "close": "'", "notIn": ["string", "comment"] },
+		{ "open": "F'", "close": "'", "notIn": ["string", "comment"] },
+		{ "open": "b'", "close": "'", "notIn": ["string", "comment"] },
+		{ "open": "B'", "close": "'", "notIn": ["string", "comment"] },
+		{ "open": "`", "close": "`", "notIn": ["string"] }
+	],
+	"surroundingPairs": [
+		["{", "}"],
+		["[", "]"],
+		["(", ")"],
+		["\"", "\""],
+		["'", "'"],
+		["`", "`"]
+	],
+	"folding": {
+		"offSide": true,
+		"markers": {
+			"start": "^\\s*#\\s*region\\b",
+			"end": "^\\s*#\\s*endregion\\b"
+		}
+	}
+}
