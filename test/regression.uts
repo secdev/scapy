@@ -7443,6 +7443,40 @@ pkts[2].show()
 assert HTTPResponse in pkts[2]
 assert pkts[2].load == b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><head><title></title></head><body style="background-color: transparent"><img src=\'https://pixel.mathtag.com/event/img?mt_id=151466&mt_adid=106144&v1=&v2=&v3=&s1=&s2=&s3=&ord=2047279765\' width=\'1\' height=\'1\' /><img src="https://adservice.google.com/ddm/fls/z/src=3656617;type=hpvisit;cat=homep198;u2=;u6=;u5=;u4=;u3=;u9=;u10=;u7=;u13=;u14=;u11=;u17=;u18=unknown;u20=;ord=1956603866265.9536"/></body></html>'
 
+= HTTP decompression (brotli)
+
+conf.debug_dissector = True
+load_layer("http")
+
+import os
+import brotli
+
+tmp = "/test/pcaps/http_compressed-brotli.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+# First without auto decompression
+
+conf.contribs["http"]["auto_compression"] = False
+pkts = sniff(offline=filename, session=TCPSession)
+
+data = b'\x1f\x41\x00\xe0\xc5\x6d\xec\x77\x56\xf7\xb5\x8b\x1c\x52\x10\x48\xe0\x90\x03\xf6\x6f\x97\x30\xd0\x40\x24\xb8\x01\x9b\xdb\xa0\xf4\x5c\x92\x4c\xc4\x6f\x89\x58\xf7\x4b\xf7\x4b\x6f\x8c\x2e\x2c\x28\x64\x06\x1d\x03'
+
+pkts[0].show()
+assert HTTPResponse in pkts[0]
+assert pkts[0].Content_Encoding == b'br'
+assert pkts[0].Content_Type == b'text/plain'
+assert pkts[0].load == data
+
+# Now with auto decompression
+
+conf.contribs["http"]["auto_compression"] = True
+pkts = sniff(offline=filename, session=TCPSession)
+
+pkts[0].show()
+assert HTTPResponse in pkts[0]
+assert pkts[0].load == b'This is a test file for testing brotli decompression in Wireshark\n'
+
 = HTTP build
 
 pkt = TCP()/HTTP()/HTTPRequest(Method=b'GET', Path=b'/download', Http_Version=b'HTTP/1.1', Accept=b'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', Accept_Encoding=b'gzip, deflate', Accept_Language=b'en-US,en;q=0.5', Cache_Control=b'max-age=0', Connection=b'keep-alive', Host=b'scapy.net', User_Agent=b'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0')

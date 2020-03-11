@@ -44,7 +44,7 @@ from scapy.compat import plain_str, bytes_encode, \
     gzip_compress, gzip_decompress
 from scapy.config import conf
 from scapy.consts import WINDOWS
-from scapy.error import warning
+from scapy.error import warning, log_loading
 from scapy.fields import StrField
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
 from scapy.utils import get_temp_file, ContextManagerSubprocess
@@ -52,6 +52,14 @@ from scapy.utils import get_temp_file, ContextManagerSubprocess
 from scapy.layers.inet import TCP, TCP_client
 
 from scapy.modules import six
+
+try:
+    import brotli
+    is_brotli_available = True
+except ImportError:
+    is_brotli_available = False
+    log_loading.info("Can't import brotli. Won't be able to decompress "
+                     "data streams compressed with brotli.")
 
 if "http" not in conf.contribs:
     conf.contribs["http"] = {}
@@ -298,6 +306,8 @@ class _HTTPContent(Packet):
             elif "compress" in encodings:
                 import lzw
                 s = lzw.decompress(s)
+            elif "br" in encodings and is_brotli_available:
+                s = brotli.decompress(s)
         except Exception:
             # Cannot decompress - probably incomplete data
             pass
@@ -316,6 +326,8 @@ class _HTTPContent(Packet):
         elif "compress" in encodings:
             import lzw
             pay = lzw.compress(pay)
+        elif "br" in encodings and is_brotli_available:
+            pay = brotli.compress(pay)
         return pkt + pay
 
     def self_build(self, field_pos_list=None):
