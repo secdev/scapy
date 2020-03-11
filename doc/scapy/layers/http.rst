@@ -27,6 +27,7 @@ Moreover, each frame may be aditionnally compressed, depending on the algorithm 
 
 - ``compress``: compressed using *LZW*
 - ``deflate``: compressed using *ZLIB*
+- ``br``: compressed using *Brotli*
 - ``gzip``
 
 Let's have a look at what happens when you perform an HTTPRequest using Scapy's ``TCP_client`` (explained below):
