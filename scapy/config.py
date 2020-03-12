@@ -660,6 +660,9 @@ class Conf(ConfClass):
         if attr == "services_tcp":
             from scapy.data import TCP_SERVICES
             return TCP_SERVICES
+        if attr == "iface6":
+            warning("conf.iface6 is deprecated in favor of conf.iface")
+            attr = "iface"
         return object.__getattribute__(self, attr)
 
 
