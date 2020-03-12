@@ -260,7 +260,6 @@ class DOWNLOAD(Packet):
         ByteField("len", 0),
         StrLenField("data", "", length_from=0, max_length=MAX_CTO - 1)
     ]
-    pass
 
 
 bind_layers(CTO, DOWNLOAD, cmd=0xF0)
@@ -777,7 +776,7 @@ class ERROR_PACKET(Packet):
     }
     fields_desc = [
         ByteEnumField("error_code", 0, error_code),
-        StrLenField("error_info", 0, length_from=0, max_length=MAX_CTO-1)
+        StrLenField("error_info", 0, length_from=0, max_length=MAX_CTO - 1)
     ]
 
 
@@ -803,7 +802,17 @@ class POS_CONNECT_DTO(Packet):
 
 
 class POS_GET_STATUS_DTO(Packet):
-    pass
+    fields_desc = [
+        FlagsField('current_session_status', 0, 8 (
+            'resume', 'daq_running', 'x', 'x1',
+            'clear_daq_request', 'store_daq_req', 'x3',
+            'store_cal_req')),
+        FlagsField('resource_protection_status', 0, 8,
+                   ('x1', 'x2', 'x3', 'pgm', 'stim',
+                    'daq', 'x4', 'cal_pag')),
+        ByteField('reserved', 0),
+        ShortField('session_configuration_id', 0)
+    ]
 
 
 class DTO(Packet):
