@@ -1,6 +1,6 @@
 #!/bin/bash
 # Install on osx
-if [ "$TRAVIS_OS_NAME" = "osx" ]
+if [ "$OSTYPE" = "darwin"* ] || [ "$TRAVIS_OS_NAME" = "osx" ]
 then
   if [ ! -z $SCAPY_USE_PCAPDNET ]
   then
@@ -10,17 +10,17 @@ then
 fi
 
 # Install wireshark data, ifconfig & vcan
-if [ "$TRAVIS_OS_NAME" = "linux" ] && [ "$TRAVIS_SUDO" = "true" ]
+if [ "$OSTYPE" = "linux-gnu" ] || [ "$TRAVIS_OS_NAME" = "linux" ]
 then
   sudo apt-get update
   sudo apt-get -qy install tshark net-tools
   sudo apt-get -qy install can-utils build-essential linux-headers-$(uname -r) linux-modules-extra-$(uname -r);
 fi
 
-# Install pcap & dnet
-if [ ! -z $SCAPY_USE_PCAPDNET ] && [ "$TRAVIS_OS_NAME" = "linux" ]
+# Make sure libpcap is installed
+if [ ! -z $SCAPY_USE_PCAPDNET ]
 then
-  $SCAPY_SUDO apt-get -qy install libdumbnet-dev libpcap-dev
+  $SCAPY_SUDO apt-get -qy install libpcap-dev
 fi
 
 # Update pip & setuptools (tox uses those)
