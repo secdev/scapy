@@ -48,7 +48,7 @@ Other parameters such as ``conf.prompt`` can also provide some customization. No
 Interactive tutorial
 ====================
 
-This section will show you several of Scapy's features.
+This section will show you several of Scapy's features with Python 2.
 Just open a Scapy session as shown above and try the examples yourself.
 
 

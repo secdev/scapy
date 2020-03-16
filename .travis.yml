@@ -1,23 +1,11 @@
 language: python
+cache:
+  directories:
+  - $HOME/.cache/pip
+  - .tox
 
 jobs:
     include:
-        # PEP 8 checks, build doc and grammar spelling check
-        - os: linux
-          python: 3.8
-          env:
-            - TOXENV=flake8,spell,twine
-
-        - os: linux
-          python: 3.8
-          env:
-            - TOXENV=docs
-
-        - os: linux
-          python: 3.8
-          env:
-            - TOXENV=mypy
-
         # Run as root
         - os: linux
           python: 2.7
@@ -83,7 +71,7 @@ jobs:
       - env: SCAPY_PY_OPTS="-Werror -X tracemalloc=25" TOXENV=py38-linux_root
 
 install:
-  - bash .config/travis/install.sh
+  - bash .config/ci/install.sh
   - python -c "from scapy.all import conf; print(repr(conf))"
 
-script: bash .config/travis/test.sh
+script: bash .config/ci/test.sh

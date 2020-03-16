@@ -187,32 +187,31 @@ assert len(ecu.log["TransferData"]) == 2  # no_docs
 
 session = ECUSession()
 
-sock =  CandumpReader("test/contrib/automotive/gmlan_trace.candump")
-gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=2, opened_socket=sock)
-ecu = session.ecu
-print("Check 1 after change to diagnostic mode")
-assert len(ecu.supported_responses) == 1
-assert ecu.current_session == 3
-assert ecu.current_security_level == 0
-gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=8, opened_socket=sock)
-ecu = session.ecu
-print("Check 2 after some more messages were read")
-assert len(ecu.supported_responses) == 4
-assert ecu.current_session == 3
-assert ecu.current_security_level == 0
-gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=10, opened_socket=sock)
-ecu = session.ecu
-print("Check 3 after change to programming mode (bootloader)")
-assert len(ecu.supported_responses) == 5
-assert ecu.current_session == 2
-assert ecu.current_security_level == 0
-gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=16, opened_socket=sock)
-ecu = session.ecu
-print("Check 4 after gaining security access")
-assert len(ecu.supported_responses) == 7
-assert ecu.current_session == 2
-assert ecu.current_security_level == 2
-del sock
+with CandumpReader("test/contrib/automotive/gmlan_trace.candump") as sock:
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=2, opened_socket=sock)
+    ecu = session.ecu
+    print("Check 1 after change to diagnostic mode")
+    assert len(ecu.supported_responses) == 1
+    assert ecu.current_session == 3
+    assert ecu.current_security_level == 0
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=8, opened_socket=sock)
+    ecu = session.ecu
+    print("Check 2 after some more messages were read")
+    assert len(ecu.supported_responses) == 4
+    assert ecu.current_session == 3
+    assert ecu.current_security_level == 0
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=10, opened_socket=sock)
+    ecu = session.ecu
+    print("Check 3 after change to programming mode (bootloader)")
+    assert len(ecu.supported_responses) == 5
+    assert ecu.current_session == 2
+    assert ecu.current_security_level == 0
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=16, opened_socket=sock)
+    ecu = session.ecu
+    print("Check 4 after gaining security access")
+    assert len(ecu.supported_responses) == 7
+    assert ecu.current_session == 2
+    assert ecu.current_security_level == 2
 
 = Analyze on the fly with ECUSession GMLAN logging test
 
