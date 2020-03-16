@@ -219,8 +219,10 @@ IEType = {1: "IMSI",
              126: "Port Number",
              127: "APN Restriction",
              128: "Selection Mode",
+             132: "FQ-CSID",
              145: "UCI",
              161: "Max MBR/APN-AMBR (MMBR)",
+             172: "RAN/NAS Cause",
              202: "UP Function Selection Indication Flags",
              255: "Private Extension",
           }
@@ -400,7 +402,8 @@ class IE_ULI(gtp.IE_Base):
     name = "IE User Location Information"
     fields_desc = [
         ByteEnumField("ietype", 86, IEType),
-        FieldLenField("length", None, length_of="User Location Information",
+        FieldLenField("length", None,
+                      length_of="User Location Information",
                       adjust=lambda pkt, x: x + 4, fmt="H"),
         BitField("CR_flag", 0, 4),
         BitField("instance", 0, 4),
@@ -1232,6 +1235,31 @@ class IE_UPF_SelInd_Flags(gtp.IE_Base):
                    BitField("DCNR", 0, 1)]
 
 
+class IE_FQCSID(gtp.IE_Base):
+    name = "IE FQ-CSID"
+    fields_desc = [ByteEnumField("ietype", 132, IEType),
+                   FieldLenField("length", None, length_of="FQ-CSID",
+                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   BitField("nodeid_type", 0, 4),
+                   BitField("num_csid", 0, 4),
+                   ByteField("node_id", 0),
+                   ByteField("csids", 0)]
+
+
+class IE_Ran_Nas_Cause(gtp.IE_Base):
+    name = "IE RAN/NAS Cause"
+    fields_desc = [ByteEnumField("ietype", 172, IEType),
+                   FieldLenField("length", None, length_of="RAN/NAS Cause",
+                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   BitField("protocol_type", 0, 4),
+                   BitField("cause_type", 0, 4),
+                   ByteField("cause_value", 0)]
+
+
 # 3GPP TS 29.274 v16.1.0 section 8.67.
 class IE_PrivateExtension(gtp.IE_Base):
     name = "Private Extension"
@@ -1275,8 +1303,10 @@ ietypecls = {1: IE_IMSI,
              126: IE_Port_Number,
              127: IE_APN_Restriction,
              128: IE_SelectionMode,
+             132: IE_FQCSID,
              145: IE_UCI,
              161: IE_MMBR,
+             172: IE_Ran_Nas_Cause,
              202: IE_UPF_SelInd_Flags,
              255: IE_PrivateExtension}
 
