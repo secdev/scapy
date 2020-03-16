@@ -1997,7 +1997,7 @@ def scan(sock, scan_range=range(0x800), noise_ids=None, sniff_time=0.1,
     cleaned_ret_val = dict()
 
     for tested_id in return_values.keys():
-        for value in range(tested_id - 2, tested_id + 2, 1):
+        for value in range(max(0, tested_id - 2), tested_id + 2, 1):
             sock.sniff(prn=lambda pkt: get_isotp_fc(value, cleaned_ret_val,
                                                     noise_ids, False, pkt,
                                                     verbose),

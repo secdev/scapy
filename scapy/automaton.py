@@ -447,7 +447,11 @@ class _ATMT_supersocket(SuperSocket, SelectableObject):
         return r
 
     def close(self):
-        pass
+        if not self.closed:
+            self.atmt.stop()
+            self.spa.close()
+            self.spb.close()
+            self.closed = True
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
@@ -855,6 +859,9 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 self.cmdout.send(m)
             self.debug(3, "Stopping control thread (tid=%i)" % self.threadid)
             self.threadid = None
+            # Close sockets
+            self.listen_sock.close()
+            self.send_sock.close()
 
     def _do_iter(self):
         while True:
