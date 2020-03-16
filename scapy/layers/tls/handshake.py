@@ -412,8 +412,7 @@ class TLSServerHello(_TLSHandshake):
                    _ExtensionsField("ext", None,
                                     length_from=lambda pkt: (pkt.msglen -
                                                              (pkt.sidlen or 0) -  # noqa: E501
-                                                             38))]
-    # 40)) ]
+                                                             40))]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
