@@ -401,7 +401,7 @@ class IE_ULI(gtp.IE_Base):
     fields_desc = [
         ByteEnumField("ietype", 86, IEType),
         FieldLenField("length", None, length_of="User Location Information",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                       adjust=lambda pkt, x: x + 4, fmt="H"),
         BitField("CR_flag", 0, 4),
         BitField("instance", 0, 4),
         BitField("SPARE", 0, 2),
@@ -1147,7 +1147,8 @@ class IE_ChargingID(gtp.IE_Base):
 class IE_ChargingCharacteristics(gtp.IE_Base):
     name = "IE Charging Characteristics"
     fields_desc = [ByteEnumField("ietype", 95, IEType),
-                   FieldLenField("length", None, length_of="Charging Characteristics",
+                   FieldLenField("length", None, length_of=
+                                 "Charging Characteristics",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -1221,7 +1222,8 @@ class IE_MMBR(gtp.IE_Base):
 class IE_UPF_SelInd_Flags(gtp.IE_Base):
     name = "IE UP Function Selection Indication Flags"
     fields_desc = [ByteEnumField("ietype", 202, IEType),
-                   FieldLenField("length", None, length_of="UP Function Selection Indication Flags",
+                   FieldLenField("length", None, length_of=
+                                 "UP Function Selection Indication Flags",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -1235,7 +1237,7 @@ class IE_PrivateExtension(gtp.IE_Base):
     fields_desc = [
         ByteEnumField("ietype", 255, IEType),
         FieldLenField("length", None, length_of="Private Extension",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                       adjust=lambda pkt, x: x + 4, fmt="H"),
         BitField("SPARE", 0, 4),
         BitField("instance", 0, 4),
         ShortEnumField("enterprisenum", None, IANA_ENTERPRISE_NUMBERS),
