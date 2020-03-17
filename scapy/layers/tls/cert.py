@@ -140,9 +140,8 @@ class _PKIObjMaker(type):
             if _size > obj_max_size:
                 raise Exception(error_msg)
             try:
-                f = open(obj_path, "rb")
-                _raw = f.read()
-                f.close()
+                with open(obj_path, "rb") as f:
+                    _raw = f.read()
             except Exception:
                 raise Exception(error_msg)
         else:
@@ -727,12 +726,11 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         """
         Export certificate in 'fmt' format (DER or PEM) to file 'filename'
         """
-        f = open(filename, "wb")
-        if fmt == "DER":
-            f.write(self.der)
-        elif fmt == "PEM":
-            f.write(self.pem)
-        f.close()
+        with open(filename, "wb") as f:
+            if fmt == "DER":
+                f.write(self.der)
+            elif fmt == "PEM":
+                f.write(self.pem)
 
     def show(self):
         print("Serial: %s" % self.serial)
@@ -924,9 +922,8 @@ class Chain(list):
         certificates can be passed (as a file, this time).
         """
         try:
-            f = open(cafile, "rb")
-            ca_certs = f.read()
-            f.close()
+            with open(cafile, "rb") as f:
+                ca_certs = f.read()
         except Exception:
             raise Exception("Could not read from cafile")
 
@@ -935,9 +932,8 @@ class Chain(list):
         untrusted = None
         if untrusted_file:
             try:
-                f = open(untrusted_file, "rb")
-                untrusted_certs = f.read()
-                f.close()
+                with open(untrusted_file, "rb") as f:
+                    untrusted_certs = f.read()
             except Exception:
                 raise Exception("Could not read from untrusted_file")
             untrusted = [Cert(c) for c in split_pem(untrusted_certs)]
@@ -955,16 +951,16 @@ class Chain(list):
         try:
             anchors = []
             for cafile in os.listdir(capath):
-                anchors.append(Cert(open(os.path.join(capath, cafile), "rb").read()))  # noqa: E501
+                with open(os.path.join(capath, cafile), "rb") as fd:
+                    anchors.append(Cert(fd.read()))
         except Exception:
             raise Exception("capath provided is not a valid cert path")
 
         untrusted = None
         if untrusted_file:
             try:
-                f = open(untrusted_file, "rb")
-                untrusted_certs = f.read()
-                f.close()
+                with open(untrusted_file, "rb") as f:
+                    untrusted_certs = f.read()
             except Exception:
                 raise Exception("Could not read from untrusted_file")
             untrusted = [Cert(c) for c in split_pem(untrusted_certs)]

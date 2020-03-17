@@ -139,8 +139,8 @@ def load_mib(filenames):
         filenames = [filenames]
     for fnames in filenames:
         for fname in glob(fnames):
-            f = open(fname)
-            text = f.read()
+            with open(fname) as f:
+                text = f.read()
             cleantext = " ".join(_mib_re_strings.split(" ".join(_mib_re_comments.split(text))))  # noqa: E501
             for m in _mib_re_oiddecl.finditer(cleantext):
                 gr = m.groups()
