@@ -130,12 +130,13 @@ def get_working_if():
 
 
 def attach_filter(sock, bpf_filter, iface):
-    # XXX We generate the filter on the interface conf.iface
-    # because tcpdump open the "any" interface and ppp interfaces
-    # in cooked mode. As we use them in raw mode, the filter will not
-    # work... one solution could be to use "any" interface and translate
-    # the filter from cooked mode to raw mode
-    # mode
+    """
+    Compile bpf filter and attach it to a socket
+
+    :param sock: the python socket
+    :param bpf_filter: the bpf string filter to compile
+    :param iface: the interface used to compile
+    """
     bp = compile_filter(bpf_filter, iface)
     sock.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
 
@@ -449,7 +450,10 @@ class L2Socket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self.ins, filter, iface)
+                try:
+                    attach_filter(self.ins, filter, iface)
+                except ImportError as ex:
+                    warning("Cannot set filter: %s" % ex)
         if self.promisc:
             set_promisc(self.ins, self.iface)
         self.ins.bind((self.iface, type))
