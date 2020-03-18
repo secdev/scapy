@@ -715,7 +715,7 @@ class IE_AMBR(gtp.IE_Base):
 class IE_MSISDN(gtp.IE_Base):
     name = "IE MSISDN"
     fields_desc = [ByteEnumField("ietype", 76, IEType),
-                   FieldLenField("length", None, length_of="MSISDN",
+                   FieldLenField("length", None, length_of="digits",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
