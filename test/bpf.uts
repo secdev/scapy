@@ -145,6 +145,18 @@ guessed = s.guess_cls()
 issubclass(guessed, Packet)
 s.close()
 
+= L2bpfListenSocket - read failure
+~ needs_root
+
+import mock
+
+@mock.patch("scapy.arch.bpf.supersocket.os.read")
+def _test_osread(osread):
+    osread.side_effect = OSError()
+    s = L2bpfListenSocket()
+    assert s.recv_raw() == (None, None, None)
+
+_test_osread()
 
 = L2bpfSocket - nonblock_recv()
 ~ needs_root
