@@ -96,9 +96,8 @@ p2 = subprocess.Popen(['grep', '^can_isotp'], stdout = subprocess.PIPE, stdin=p1
 p1.stdout.close()
 if p1.wait() == 0 and p2.wait() == 0 and b"can_isotp" in p2.stdout.read():
     p = subprocess.Popen(["isotpsend", "-s1", "-d0", iface0], stdin = subprocess.PIPE)
-    p.stdin.write(b"01")
-    p.stdin.close()
-    if p.wait() == 0:
+    p.communicate(b"01")
+    if p.returncode == 0:
         ISOTP_KERNEL_MODULE_AVAILABLE = True
 
 

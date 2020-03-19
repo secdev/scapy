@@ -90,10 +90,8 @@ p2 = subprocess.Popen(['grep', '^can_isotp'], stdout = subprocess.PIPE, stdin=p1
 p1.stdout.close()
 if p1.wait() == 0 and p2.wait() == 0 and b"can_isotp" in p2.stdout.read():
     p = subprocess.Popen(["isotpsend", "-s1", "-d0", iface0], stdin = subprocess.PIPE)
-    p.stdin.write(b"01")
-    p.stdin.close()
-    r = p.wait()
-    if r == 0:
+    p.communicate(b"01")
+    if p.returncode == 0:
         ISOTP_KERNEL_MODULE_AVAILABLE = True
 
 
@@ -111,14 +109,13 @@ ISOTPSocket = ISOTPSoftSocket
 = Test wrong usage
 
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-returncode = result.wait()
 
 std_out, std_err = result.communicate()
-if returncode:
+if result.returncode:
     print(std_out)
     print(std_err)
 
-assert returncode != 0
+assert result.returncode != 0
 
 expected_output = plain_str(b'usage:')
 assert expected_output in plain_str(std_err)
@@ -220,8 +217,8 @@ result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.
 returncode = result.wait()
 std_out, std_err = result.communicate()
 
-send = subprocess.Popen(['cansend', iface0, '600#01aa'])
-assert 0 == send.wait()
+send_returncode = subprocess.call(['cansend', iface0, '600#01aa'])
+assert 0 == send_returncode
 assert returncode == 0
 
 sniffer.join(timeout=10)
@@ -247,8 +244,8 @@ started.wait(timeout=10)
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"] + can_socket_string_list + ["-s", "0x601", "-e", "0x601", "-x"], stdout=subprocess.PIPE)
 returncode = result.wait()
 
-send = subprocess.Popen(['cansend', iface0, '601#BB01aa'])
-assert 0 == send.wait()
+send_returncode = subprocess.call(['cansend', iface0, '601#BB01aa'])
+assert 0 == send_returncode
 assert returncode == 0
 
 expected_output = [b'0x601', b'0xbb', b'0x700', b'0xaa']
@@ -275,8 +272,8 @@ started.wait(timeout=10)
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"] + can_socket_string_list + ["-s", "0x601", "-e", "0x601", "-x"], stdout=subprocess.PIPE)
 returncode = result.wait()
 
-send = subprocess.Popen(['cansend', iface0, '601#BB01aa'])
-assert 0 == send.wait()
+send_returncode = subprocess.call(['cansend', iface0, '601#BB01aa'])
+assert 0 == send_returncode
 assert returncode == 0
 
 expected_output = [b'0x601', b'0xbb', b'0x700', b'0xaa']
@@ -304,8 +301,8 @@ started.wait(timeout=10)
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"] + can_socket_string_list + ["-s", "0x601", "-e", "0x601", "-x", "-C"], stdout=subprocess.PIPE)
 returncode = result.wait()
 
-send = subprocess.Popen(['cansend', iface0, '601#BB01aa'])
-assert 0 == send.wait()
+send_returncode = subprocess.call(['cansend', iface0, '601#BB01aa'])
+assert 0 == send_returncode
 assert returncode == 0
 
 expected_output = [b'sid=0x601', b'did=0x700', b'padding=False', b'extended_addr=0xbb', b'extended_rx_addr=0xaa']
