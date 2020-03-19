@@ -6,12 +6,9 @@
 
 = Imports
 load_layer("can")
-import six, subprocess, sys
+import os, six, subprocess, sys
 from subprocess import call
 from scapy.contrib.automotive.ecu import *
-
-def eprint(*args, **kwargs):
-    subprocess.call("printf \"%s\r\n\" > /dev/stderr" % args, shell=True, **kwargs)
 
 = Definition of constants, utility functions and mock classes
 iface0 = "vcan0"
@@ -21,7 +18,7 @@ iface1 = "vcan1"
 ISOTP_KERNEL_MODULE_AVAILABLE = False
 def exit_if_no_isotp_module():
     if not ISOTP_KERNEL_MODULE_AVAILABLE:
-        eprint("TEST SKIPPED: can-isotp not available")
+        sys.stderr.write("TEST SKIPPED: can-isotp not available" + os.linesep)
         warning("Can't test ISOTP native socket because kernel module is not loaded")
         exit(0)
 

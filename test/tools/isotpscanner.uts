@@ -7,7 +7,7 @@
 
 = Imports
 load_layer("can")
-import threading, six, subprocess, sys
+import os, threading, six, subprocess, sys
 from subprocess import call
 
 
@@ -19,8 +19,7 @@ iface1 = "vcan1"
 ISOTP_KERNEL_MODULE_AVAILABLE = False
 def exit_if_no_isotp_module():
     if not ISOTP_KERNEL_MODULE_AVAILABLE:
-        err = "TEST SKIPPED: can-isotp not available"
-        subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
+        sys.stderr.write("TEST SKIPPED: can-isotp not available" + os.linesep)
         warning("Can't test ISOTP native socket because kernel module is not loaded")
         exit(0)
 

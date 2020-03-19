@@ -6,7 +6,7 @@
 = Imports
 load_layer("can")
 conf.contribs['CAN']['swap-bytes'] = False
-import threading, six, subprocess
+import os, threading, six, subprocess, sys
 from subprocess import call
 from scapy.contrib.isotp import send_multiple_ext, filter_periodic_packets, scan, scan_extended
 from scapy.consts import LINUX
@@ -20,8 +20,7 @@ iface1 = "vcan1"
 ISOTP_KERNEL_MODULE_AVAILABLE = False
 def exit_if_no_isotp_module():
     if not ISOTP_KERNEL_MODULE_AVAILABLE:
-        err = "TEST SKIPPED: can-isotp not available"
-        subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
+        sys.stderr.write("TEST SKIPPED: can-isotp not available" + os.linesep)
         warning("Can't test ISOTP native socket because kernel module is not loaded")
         exit(0)
 
@@ -189,8 +188,7 @@ def test_dynamic(f):
             return True
         except AssertionError as e:
             if t < 10:
-                err = "Test failed. Automatically increase sniff time and retry."
-                subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
+                sys.stderr.write("Test failed. Automatically increase sniff time and retry." + os.linesep)
             else:
                 raise e
     return False
@@ -788,8 +786,8 @@ test_dynamic(test_isotpscan_none_random_ids_padding)
 = Delete vcan interfaces
 ~ vcan_socket needs_root linux
 
-if 0 != call("sudo ip link delete %s" % iface0, shell=True):
+if 0 != call(["sudo", "ip", "link", "delete", iface0]):
         raise Exception("%s could not be deleted" % iface0)
 
-if 0 != call("sudo ip link delete %s" % iface1, shell=True):
+if 0 != call(["sudo", "ip", "link", "delete", iface1]):
         raise Exception("%s could not be deleted" % iface1)
