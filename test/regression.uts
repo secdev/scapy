@@ -2457,6 +2457,8 @@ s == b'E\x00\x00f\x00\x01\x00\x00@/|f\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00eX\
 p = IP(s)
 GRE in p and p[GRE:1].proto == 0x6558 and p[GRE:2].proto == 0x86DD and IPv6 in p
 
+= IPv6 ma_addr coverage on hashret
+IPv6(dst="ff00::1:ff28:9c5a", src="::").hashret() == b';'
 
 ########### IPv6ExtHdrRouting Class ###########################
 

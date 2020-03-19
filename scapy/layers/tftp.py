@@ -426,7 +426,8 @@ class TFTP_RRQ_server(Automaton):
             fn = os.path.abspath(os.path.join(self.dir, self.filename))
             if fn.startswith(self.dir):  # Check we're still in the server's directory  # noqa: E501
                 try:
-                    self.data = open(fn).read()
+                    with open(fn) as fd:
+                        self.data = fd.read()
                 except IOError:
                     pass
         if self.data is None:
