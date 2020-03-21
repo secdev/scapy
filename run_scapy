@@ -1,4 +1,17 @@
 #! /bin/sh
-DIR=$(dirname $0)
-PYTHON=${PYTHON:-python3}
-PYTHONPATH=$DIR exec $PYTHON -m scapy $@
+DIR=$(dirname "$0")
+if [ -z "$PYTHON" ]
+then
+  ARGS=$(getopt 23 "$*")
+  for arg in $ARGS
+  do
+    case $arg
+    in
+      -2) PYTHON=python2; shift;;
+      -3) PYTHON=python3; shift;;
+      --) shift; break;;
+    esac
+  done
+  PYTHON=${PYTHON:-python3}
+fi
+PYTHONPATH=$DIR exec "$PYTHON" -m scapy "$@"
