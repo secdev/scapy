@@ -1677,7 +1677,7 @@ class ICMPv6NDOptPrefixInfo(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Prefix Information"
     fields_desc = [ByteField("type", 3),
                    ByteField("len", 4),
-                   ByteField("prefixlen", None),
+                   ByteField("prefixlen", 64),
                    BitField("L", 1, 1),
                    BitField("A", 1, 1),
                    BitField("R", 0, 1),
