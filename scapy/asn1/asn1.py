@@ -396,7 +396,8 @@ class ASN1_OID(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.OID
 
     def __init__(self, val):
-        val = conf.mib._oid(plain_str(val))
+        val = plain_str(val)
+        val = conf.mib._oid(val)
         ASN1_Object.__init__(self, val)
         self.oidname = conf.mib._oidname(val)
 

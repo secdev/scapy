@@ -6,63 +6,52 @@ cache:
 
 jobs:
     include:
-        # Run as root
+        # Run linux as root (non root tested by github ci)
         - os: linux
           python: 2.7
           env:
-            - TOXENV=py27-linux_non_root,py27-linux_root,codecov
+            - TOXENV=py27-linux_root,codecov
 
         - os: linux
           python: pypy
           env:
-            - TOXENV=pypy-linux_non_root,pypy-linux_root,codecov
+            - TOXENV=pypy-linux_root,codecov
 
         - os: linux
           python: pypy3
           env:
-            - TOXENV=pypy3-linux_non_root,pypy3-linux_root,codecov
-
-        - os: linux
-          python: 3.5
-          env:
-            - TOXENV=py35-linux_root,codecov
-
-        - os: linux
-          python: 3.6
-          env:
-            - TOXENV=py36-linux_root,codecov
-
-        - os: linux
-          python: 3.7
-          env:
-            - TOXENV=py37-linux_root,codecov
+            - TOXENV=pypy3-linux_root,codecov
 
         - os: linux
           python: 3.8
           env:
-            - TOXENV=py38-linux_non_root,py38-linux_root,codecov
+            - TOXENV=py38-linux_root,codecov
 
+        # run OSX
         - os: osx
           language: generic
           env:
             - TOXENV=py27-bsd_non_root,py27-bsd_root,codecov
+
         - os: osx
           language: generic
           env:
             - TOXENV=py36-bsd_non_root,py36-bsd_root,codecov
 
+        # run custom root tests
+        # isotp
         - os: linux
           python: 3.8
           env:
             - TOXENV=py38-isotp_kernel_module,codecov
 
+        # libpcap
         - os: linux
           python: 3.8
           env:
             - SCAPY_USE_PCAPDNET=yes TOXENV=py38-linux_root,codecov
 
-        # Other root tests
-        # Test scapy against all warnings
+        # warnings/deprecations
         - os: linux
           python: 3.8
           env:

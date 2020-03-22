@@ -4,6 +4,7 @@ on: [push, pull_request]
 
 jobs:
   health:
+    name: Code health check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -20,6 +21,7 @@ jobs:
       - name: Run twine check
         run: tox -e twine
   docs:
+    name: Build doc
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -32,6 +34,7 @@ jobs:
       - name: Build docs
         run: tox -e docs
   mypy:
+    name: Type hints check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -44,20 +47,20 @@ jobs:
       - name: Run mypy
         run: tox -e mypy
 
-# Github Actions block ICMP. We can still use it for non root tests
-
-#  utscapy:
-#    runs-on: ubuntu-latest
-#    strategy:
-#      matrix:
-#        python: [2.7, pypy2, pypy3, 3.5, 3.6, 3.7, 3.8]
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Setup Python
-#        uses: actions/setup-python@v1
-#        with:
-#          python-version: ${{ matrix.python }}
-#      - name: Install Tox and any other packages
-#        run: ./.config/ghci/install.sh
-#      - name: Run Tox
-#        run: ./.config/ghci/test.sh ${{ matrix.python }} non_root
+  # Github Actions block ICMP. We can still use it for non root tests
+  utscapy:
+    name: Non-sudo unit tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: [2.7, pypy2, pypy3, 3.5, 3.6, 3.7, 3.8]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Tox and any other packages
+        run: ./.config/ci/install.sh
+      - name: Run Tox
+        run: ./.config/ci/test.sh ${{ matrix.python }} non_root

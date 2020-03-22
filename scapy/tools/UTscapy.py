@@ -769,6 +769,7 @@ def usage():
 -qq\t\t: [silent mode]
 -x\t\t: use pyannotate
 -n <testnum>\t: only tests whose numbers are given (eg. 1,3-7,12)
+-N\t\t: force non root
 -m <module>\t: additional module to put in the namespace
 -k <kw1>,<kw2>,...\t: include only tests with one of those keywords (can be used many times)
 -K <kw1>,<kw2>,...\t: remove tests with one of those keywords (can be used many times)
@@ -860,6 +861,7 @@ def main():
     OUTPUTFILE = sys.stdout
     LOCAL = 0
     NUM = None
+    NON_ROOT = False
     KW_OK = []
     KW_KO = []
     DUMP = 0
@@ -875,7 +877,7 @@ def main():
     ANNOTATIONS_MODE = False
     INTERPRETER = False
     try:
-        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DRdCiFqP:s:x")
+        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DRdCiFqNP:s:x")
         for opt, optarg in opts[0]:
             if opt == "-h":
                 usage()
@@ -950,6 +952,8 @@ def main():
                     except ValueError:
                         v1, v2 = [int(e) for e in v.split('-', 1)]
                         NUM.extend(range(v1, v2 + 1))
+            elif opt == "-N":
+                NON_ROOT = True
             elif opt == "-m":
                 MODULES.append(optarg)
             elif opt == "-k":
@@ -965,7 +969,7 @@ def main():
             if VERB > 2:
                 print("### Python 2 mode ###")
         try:
-            if os.getuid() != 0:  # Non root
+            if NON_ROOT or os.getuid() != 0:  # Non root
                 # Discard root tests
                 KW_KO.append("netaccess")
                 KW_KO.append("needs_root")
