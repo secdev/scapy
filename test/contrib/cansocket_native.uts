@@ -764,8 +764,8 @@ threadBridge.join(timeout=5)
 
 = Delete vcan interfaces
 
-if 0 != call("sudo ip link delete %s" % "vcan0", shell=True):
-        raise Exception("%s could not be deleted" % "vcan0")
+if 0 != call(["sudo", "ip", "link", "delete", "vcan0"]):
+        raise Exception("vcan0 could not be deleted")
 
-if 0 != call("sudo ip link delete %s" % "vcan1", shell=True):
-        raise Exception("%s could not be deleted" % "vcan1")
+if 0 != call(["sudo", "ip", "link", "delete", "vcan1"]):
+        raise Exception("vcan1 could not be deleted")

@@ -6,7 +6,7 @@
 = Imports
 load_layer("can")
 conf.contribs['CAN']['swap-bytes'] = False
-import threading, six, subprocess
+import os, threading, six, subprocess, sys
 from six.moves.queue import Queue
 from subprocess import call
 from io import BytesIO
@@ -60,36 +60,35 @@ else:
 ISOTP_KERNEL_MODULE_AVAILABLE = False
 def exit_if_no_isotp_module():
     if not ISOTP_KERNEL_MODULE_AVAILABLE:
-        err = "TEST SKIPPED: can-isotp not available"
-        subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
+        sys.stderr.write("TEST SKIPPED: can-isotp not available" + os.linesep)
         warning("Can't test ISOTP native socket because kernel module is not loaded")
         exit(0)
 
 
 = Initialize a virtual CAN interface
 ~ vcan_socket needs_root linux
-if 0 != call("cansend %s 000#" % iface0, shell=True):
+if 0 != call(["cansend", iface0,  "000#"]):
     # vcan0 is not enabled
-    if 0 != call("sudo modprobe vcan", shell=True):
+    if 0 != call(["sudo", "modprobe", "vcan"]):
         raise Exception("modprobe vcan failed")
-    if 0 != call("sudo ip link add name %s type vcan" % iface0, shell=True):
+    if 0 != call(["sudo", "ip", "link", "add", "name", iface0, "type", "vcan"]):
         print("add %s failed: Maybe it was already up?" % iface0)
-    if 0 != call("sudo ip link set dev %s up" % iface0, shell=True):
+    if 0 != call(["sudo", "ip", "link", "set", "dev", iface0, "up"]):
         raise Exception("could not bring up %s" % iface0)
 
-if 0 != call("cansend %s 000#" % iface0, shell=True):
+if 0 != call(["cansend", iface0,  "000#"]):
     raise Exception("cansend doesn't work")
 
-if 0 != call("cansend %s 000#" % iface1, shell=True):
+if 0 != call(["cansend", iface1,  "000#"]):
     # vcan1 is not enabled
-    if 0 != call("sudo modprobe vcan", shell=True):
+    if 0 != call(["sudo", "modprobe", "vcan"]):
         raise Exception("modprobe vcan failed")
-    if 0 != call("sudo ip link add name %s type vcan" % iface1, shell=True):
+    if 0 != call(["sudo", "ip", "link", "add", "name", iface1, "type", "vcan"]):
         print("add %s failed: Maybe it was already up?" % iface1)
-    if 0 != call("sudo ip link set dev %s up" % iface1, shell=True):
+    if 0 != call(["sudo", "ip", "link", "set", "dev", iface1, "up"]):
         raise Exception("could not bring up %s" % iface1)
 
-if 0 != call("cansend %s 000#" % iface1, shell=True):
+if 0 != call(["cansend", iface1,  "000#"]):
     raise Exception("cansend doesn't work")
 
 print("CAN should work now")
@@ -125,15 +124,14 @@ s.close()
 
 = Check if can-isotp and can-utils are installed on this system
 ~ linux
-p = subprocess.Popen('lsmod | grep "^can_isotp"', stdout = subprocess.PIPE, shell=True)
-if p.wait() == 0:
-    if b"can_isotp" in p.stdout.read():
-        p = subprocess.Popen("isotpsend -s1 -d0 %s" % iface0, stdin = subprocess.PIPE, shell=True)
-        p.stdin.write(b"01")
-        p.stdin.close()
-        r = p.wait()
-        if r == 0:
-            ISOTP_KERNEL_MODULE_AVAILABLE = True
+p1 = subprocess.Popen(['lsmod'], stdout = subprocess.PIPE)
+p2 = subprocess.Popen(['grep', '^can_isotp'], stdout = subprocess.PIPE, stdin=p1.stdout)
+p1.stdout.close()
+if p1.wait() == 0 and p2.wait() == 0 and b"can_isotp" in p2.stdout.read():
+    p = subprocess.Popen(["isotpsend", "-s1", "-d0", iface0], stdin = subprocess.PIPE)
+    p.communicate(b"01")
+    if p.returncode == 0:
+        ISOTP_KERNEL_MODULE_AVAILABLE = True
 
 
 + Syntax check
@@ -1728,9 +1726,9 @@ exit_if_no_isotp_module()
 message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14"
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x642, did=0x242) as s:
-    cmd = "echo \"%s\" | isotpsend -s 242 -d 642 %s" % (message, iface0)
-    print(cmd)
-    r = subprocess.call(cmd, shell=True)
+    p = subprocess.Popen(["isotpsend", "-s", "242", "-d", "642", iface0], stdin=subprocess.PIPE, universal_newlines=True)
+    p.communicate(message)
+    r = p.returncode
     print("returncode is %d" % r)
     assert(r == 0)
     isotp = s.recv()
@@ -1742,9 +1740,9 @@ exit_if_no_isotp_module()
 message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14"
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x644, did=0x244, extended_addr=0xaa, extended_rx_addr=0xee) as s:
-    cmd = "echo \"%s\" | isotpsend -s 244 -d 644 %s -x ee:aa" % (message, iface0)
-    print(cmd)
-    r = subprocess.call(cmd, shell=True)
+    p = subprocess.Popen(["isotpsend", "-s", "244", "-d", "644", "-x", "ee:aa", iface0], stdin=subprocess.PIPE, universal_newlines=True)
+    p.communicate(message)
+    r = p.returncode
     print("returncode is %d" % r)
     assert(r == 0)
     isotp = s.recv()
@@ -1755,9 +1753,9 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x644, did=0x244, exte
 exit_if_no_isotp_module()
 
 isotp = ISOTP(data=bytearray(range(1,20)))
-cmd = "isotprecv -s 243 -d 643 -b 3 %s" % iface0
-print(cmd)
-p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+cmd = ["isotprecv", "-s", "243", "-d", "643", "-b", "3", iface0]
+print(" ".join(cmd))
+p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 time.sleep(0.1)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x643, did=0x243) as s:
     s.send(isotp)
@@ -1783,9 +1781,9 @@ assert(result_data == isotp.data)
 = Compatibility with isotprecv - extended addresses
 exit_if_no_isotp_module()
 isotp = ISOTP(data=bytearray(range(1,20)))
-cmd = "isotprecv -s 245 -d 645 -b 3 %s -x ee:aa" % iface0
-print(cmd)
-p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+cmd = ["isotprecv", "-s245", "-d645", "-b3", "-x", "ee:aa", iface0]
+print(" ".join(cmd))
+p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 time.sleep(0.1)  # Give some time for starting reception
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x645, did=0x245, extended_addr=0xaa, extended_rx_addr=0xee) as s:
     s.send(isotp)
@@ -2364,8 +2362,8 @@ s = None
 = Delete vcan interfaces
 ~ vcan_socket needs_root linux
 
-if 0 != call("sudo ip link delete %s" % iface0, shell=True):
+if 0 != call(["sudo", "ip", "link", "delete", iface0]):
         raise Exception("%s could not be deleted" % iface0)
 
-if 0 != call("sudo ip link delete %s" % iface1, shell=True):
+if 0 != call(["sudo", "ip", "link", "delete", iface1]):
         raise Exception("%s could not be deleted" % iface1)
