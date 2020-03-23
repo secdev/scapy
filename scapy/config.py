@@ -661,7 +661,7 @@ class Conf(ConfClass):
         if attr == "services_tcp":
             from scapy.data import TCP_SERVICES
             return TCP_SERVICES
-        return object.__getattr__(self, attr)
+        return object.__getattribute__(self, attr)
 
 
 if not Conf.ipv6_enabled:
