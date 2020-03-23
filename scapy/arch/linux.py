@@ -103,7 +103,10 @@ def get_if_list():
     try:
         f = open("/proc/net/dev", "rb")
     except IOError:
-        f.close()
+        try:
+            f.close()
+        except Exception:
+            pass
         warning("Can't open /proc/net/dev !")
         return []
     lst = []
