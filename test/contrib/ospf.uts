@@ -63,3 +63,20 @@ assert (p[OSPF_LSUpd][OSPF_Area_Scope_Opaque_LSA].chksum == 0xabd9)
 assert (p[OSPF_LSUpd][OSPF_Area_Scope_Opaque_LSA].len == 132)
 assert (p[OSPF_LSUpd][OSPF_Area_Scope_Opaque_LSA].opaqueid() == 0)
 assert (p[OSPF_LSUpd][OSPF_Area_Scope_Opaque_LSA].opaquetype() == 1)
+
+opaque_data=b'\x00\x01\x00\x04\x11\x03\x03\x03\x00\x02\x00d\x00\x01\x00\x01\x02\x00\x00\x00\x00\x02\x00\x04\xd2\x00\x00\x02\x00\x03\x00\x04\xd2\x00\x00\x01\x00\x04\x00\x04\xd2\x00\x00\x02\x00\x05\x00\x04\x00\x00\x03\xe8\x00\x06\x00\x04I\x98\x96\x80\x00\x07\x00\x04I\x98\x96\x80\x00\x08\x00 I\x18\x96\x80I\x18\x96\x80I\x18\x96\x80I\x18\x96\x80I\x18\x96\x80I\x18\x96\x80I\x18\x96\x80I\x18\x96\x80\x00\t\x00\x04\x00\x00\x00\x00'
+
+p = OSPF_Link_Scope_Opaque_LSA(seq=0x80000003,data=opaque_data)
+assert (p.type == 9)
+assert (p.seq == 0x80000003)
+assert (len(p) == 132)
+
+p = OSPF_Area_Scope_Opaque_LSA(seq=0x80000004,data=opaque_data)
+assert (p.type == 10)
+assert (p.seq == 0x80000004)
+assert (len(p) == 132)
+
+p = OSPF_AS_Scope_Opaque_LSA(seq=0x80000005,data=opaque_data)
+assert (p.type == 11)
+assert (p.seq == 0x80000005)
+assert (len(p) == 132)
