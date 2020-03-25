@@ -30,8 +30,8 @@ from scapy.modules.six.moves import range
 from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
 
-#   Util class   #
 
+#   Util class   #
 
 class Bunch:
     __init__ = lambda self, **kw: setattr(self, '__dict__', kw)
@@ -522,14 +522,14 @@ def import_UTscapy_tools(ses):
         ses["conf"].route6.routes = conf.route6.routes
 
 
-def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=False, verb=3, ignore_globals=None):  # noqa: E501
+def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=False, verb=3, ignore_globals=None, scapy_ses=None):  # noqa: E501
     passed = failed = 0
-    scapy_ses = importlib.import_module(".all", "scapy").__dict__
-    import_UTscapy_tools(scapy_ses)
     if test_campaign.preexec:
-        test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals, my_globals=scapy_ses)[0]
-    # Drop
+        test_campaign.preexec_output = get_interactive_session(
+            test_campaign.preexec.strip(), ignore_globals=ignore_globals,
+            my_globals=scapy_ses)[0]
 
+    # Drop
     def drop(scapy_ses):
         code.interact(banner="Test '%s' failed. "
                              "exit() to stop, Ctrl-D to leave "
@@ -786,7 +786,7 @@ def usage():
 #    MAIN    #
 
 def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOCS,
-                     FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER, autorun_func, pos_begin=0, ignore_globals=None):  # noqa: E501
+                     FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER, autorun_func, pos_begin=0, ignore_globals=None, scapy_ses=None):  # noqa: E501
     # Parse test file
     test_campaign = parse_campaign_file(TESTFILE)
 
@@ -820,7 +820,7 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOC
 
     # Run tests
     test_campaign.output_file = OUTPUTFILE
-    result = run_campaign(test_campaign, autorun_func[FORMAT], drop_to_interpreter=INTERPRETER, verb=VERB, ignore_globals=None)  # noqa: E501
+    result = run_campaign(test_campaign, autorun_func[FORMAT], drop_to_interpreter=INTERPRETER, verb=VERB, ignore_globals=None, scapy_ses=scapy_ses)  # noqa: E501
 
     # Shrink passed
     if ONLYFAILED:
@@ -1055,17 +1055,20 @@ def main():
     pos_begin = 0
 
     runned_campaigns = []
+
+    scapy_ses = importlib.import_module(".all", "scapy").__dict__
+    import_UTscapy_tools(scapy_ses)
+
     # Execute all files
     for TESTFILE in TESTFILES:
         if VERB > 2:
             print("### Loading:", TESTFILE, file=sys.stderr)
         PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC
         with open(TESTFILE) as testfile:
-            output, result, campaign = execute_campaign(testfile, OUTPUTFILE,
-                                                        PREEXEC, NUM, KW_OK, KW_KO,
-                                                        DUMP, DOCS, FORMAT, VERB, ONLYFAILED,
-                                                        CRC, INTERPRETER, autorun_func, pos_begin,
-                                                        ignore_globals)
+            output, result, campaign = execute_campaign(
+                testfile, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOCS,
+                FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER, autorun_func,
+                pos_begin, ignore_globals, copy.copy(scapy_ses))
         runned_campaigns.append(campaign)
         pos_begin = campaign.end_pos
         if UNIQUE:

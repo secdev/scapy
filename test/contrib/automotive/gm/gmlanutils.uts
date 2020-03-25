@@ -4,7 +4,7 @@
 ~ conf
 
 = Imports
-load_layer("can")
+load_layer("can", globals_dict=globals())
 conf.contribs['CAN']['swap-bytes'] = False
 import subprocess, sys
 import scapy.modules.six as six
@@ -57,7 +57,6 @@ print("CAN should work now")
 
 from scapy.contrib.cansocket_python_can import *
 
-import can as python_can
 new_can_socket = lambda iface: CANSocket(bustype='virtual', channel=iface, timeout=0.01)
 new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface0, timeout=0.01)
 new_can_socket1 = lambda: CANSocket(bustype='virtual', channel=iface1, timeout=0.01)
@@ -92,7 +91,6 @@ if "python_can" in CANSocket.__module__:
 s = new_can_socket(iface0)
 s.close()
 
-
 = Check if can-isotp and can-utils are installed on this system
 ~ linux
 p1 = subprocess.Popen(['lsmod'], stdout = subprocess.PIPE)
@@ -109,15 +107,17 @@ if p1.wait() == 0 and p2.wait() == 0 and b"can_isotp" in p2.stdout.read():
 
 = Import isotp
 conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
-load_contrib("isotp")
+
+if six.PY3:
+    import importlib
+    if "scapy.contrib.isotp" in sys.modules:
+        importlib.reload(scapy.contrib.isotp)
+
+load_contrib("isotp", globals_dict=globals())
 
 if six.PY3 and ISOTP_KERNEL_MODULE_AVAILABLE:
-    from scapy.contrib.isotp import ISOTPNativeSocket
-    ISOTPSocket = ISOTPNativeSocket
     assert ISOTPSocket == ISOTPNativeSocket
 else:
-    from scapy.contrib.isotp import ISOTPSoftSocket
-    ISOTPSocket = ISOTPSoftSocket
     assert ISOTPSocket == ISOTPSoftSocket
 
 ############
@@ -126,8 +126,8 @@ else:
 
 = Load contribution layer
 
-load_contrib("automotive.gm.gmlan")
-load_contrib("automotive.gm.gmlanutils")
+load_contrib("automotive.gm.gmlan", globals_dict=globals())
+load_contrib("automotive.gm.gmlanutils", globals_dict=globals())
 
 ##############################################################################
 + GMLAN_RequestDownload Tests

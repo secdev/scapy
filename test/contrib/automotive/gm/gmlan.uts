@@ -7,17 +7,14 @@
 
 + Configuration of scapy
 = Load gmlan layer
-~ conf command
-
-from scapy.contrib.automotive.ecu import ECU
-
-load_contrib('automotive.gm.gmlan')
+~ conf
+load_contrib("automotive.ecu", globals_dict=globals())
+load_contrib("automotive.gm.gmlan", globals_dict=globals())
 
 + Basic Packet Tests()
 = Set GMLAN ECU AddressingScheme
 
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 2
-
 assert conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] == 2
 
 = Craft Packet

@@ -9,13 +9,12 @@
 + Configuration of CAN virtual sockets
 
 = Load module
-~ conf command
-
+~ conf
+ 
 conf.contribs['CAN'] = {'swap-bytes': False}
-load_layer("can")
+load_layer("can", globals_dict=globals())
 conf.contribs['CANSocket'] = {'use-python-can': True}
 from scapy.contrib.cansocket_python_can import *
-import can
 
 = Setup string for vcan
 ~ conf command

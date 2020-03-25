@@ -4,9 +4,9 @@
 ~ conf
 
 = Imports
-load_layer("can")
+load_layer("can", globals_dict=globals())
 conf.contribs['CAN']['swap-bytes'] = False
-import threading, six
+import scapy.modules.six as six
 from subprocess import call
 from scapy.consts import LINUX
 
@@ -47,7 +47,6 @@ print("CAN should work now")
 
 from scapy.contrib.cansocket_python_can import *
 
-import can as python_can
 new_can_socket = lambda iface: CANSocket(bustype='virtual', channel=iface)
 new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface0, timeout=0.01)
 new_can_socket1 = lambda: CANSocket(bustype='virtual', channel=iface1, timeout=0.01)
@@ -91,9 +90,7 @@ s.close()
 + Basic operations
 
 = Load module
-
-load_contrib("automotive.ccp")
-from scapy.contrib.automotive.ccp import CONNECT, DISCONNECT
+load_contrib("automotive.ccp", globals_dict=globals())
 
 = Build CRO CONNECT
 
