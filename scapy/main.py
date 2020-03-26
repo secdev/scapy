@@ -31,11 +31,9 @@ import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS
 
-from scapy.compat import cast, Any, Dict, List, Optional, Union
+from scapy.compat import cast, Any, Dict, List, Optional, Tuple, Union
 
 IGNORED = list(six.moves.builtins.__dict__)
-
-GLOBKEYS = []  # type: List[str]
 
 LAYER_ALIASES = {
     "tls": "tls.all"
@@ -120,7 +118,6 @@ def _validate_local(x):
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".scapy_prestart.py")
 DEFAULT_STARTUP_FILE = _probe_config_file(".scapy_startup.py")
-SESSION = {}  # type: Dict[str, Any]
 
 
 def _usage():
@@ -394,10 +391,10 @@ def update_session(fname=None):
 def init_session(session_name,  # type: Optional[Union[str, None]]
                  mydict=None  # type: Optional[Union[Dict[str, Any], None]]
                  ):
-    # type: (...) -> None
+    # type: (...) -> Tuple[Dict[str, Any], List[str]]
     from scapy.config import conf
-    global SESSION
-    global GLOBKEYS
+    SESSION = {}  # type: Dict[str, Any]
+    GLOBKEYS = []  # type: List[str]
 
     scapy_builtins = {k: v
                       for k, v in six.iteritems(
@@ -446,6 +443,7 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
         six.moves.builtins.__dict__["scapy_session"].update(mydict)
         update_ipython_session(mydict)
         GLOBKEYS.extend(mydict)
+    return SESSION, GLOBKEYS
 
 ################
 #     Main     #
@@ -493,9 +491,6 @@ to be used in the fancy prompt.
 def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     # type: (Optional[Any], Optional[Any], Optional[Any], int) -> None
     """Starts Scapy's console."""
-    global SESSION
-    global GLOBKEYS
-
     try:
         if WINDOWS:
             # colorama is bundled within IPython.
@@ -570,7 +565,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     # Reset sys.argv, otherwise IPython thinks it is for him
     sys.argv = sys.argv[:1]
 
-    init_session(session_name, mydict)
+    SESSION, GLOBKEYS = init_session(session_name, mydict)
 
     if STARTUP_FILE:
         _read_config_file(STARTUP_FILE, interactive=True)
