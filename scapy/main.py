@@ -700,6 +700,9 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
             if int(IPython.__version__[0]) >= 6:
                 cfg.TerminalInteractiveShell.term_title_format = ("Scapy v%s" %
                                                                   conf.version)
+                # As of IPython 6-7, the jedi completion module is a dumpster
+                # of fire that should be scrapped never to be seen again.
+                cfg.Completer.use_jedi = False
             else:
                 cfg.TerminalInteractiveShell.term_title = False
             cfg.HistoryAccessor.hist_file = conf.histfile
