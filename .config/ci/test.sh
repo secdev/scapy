@@ -68,7 +68,7 @@ echo UT_FLAGS=$UT_FLAGS
 echo TOXENV=$TOXENV
 
 # Launch Scapy unit tests
-tox -- ${UT_FLAGS} || exit 1;
+tox -- ${UT_FLAGS} || exit 1
 
 # Start Scapy in interactive mode
 TEMPFILE=$(mktemp)
@@ -76,5 +76,5 @@ cat << EOF > "${TEMPFILE}"
 print("Scapy on %s" % sys.version)
 sys.exit()
 EOF
-./run_scapy -H -c "${TEMPFILE}" || exit 1;
+./run_scapy -H -c "${TEMPFILE}" || exit 1
 rm ${TEMPFILE}
