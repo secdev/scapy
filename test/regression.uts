@@ -12037,6 +12037,9 @@ assert a.src == '00:00:00:00:00:00'
 = MIB
 ~ mib
 
+import copy
+old_mib = copy.copy(conf.mib)
+
 import tempfile
 fd, fname = tempfile.mkstemp()
 os.write(fd, b"-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
@@ -12067,6 +12070,10 @@ def get_mib_graph(do_graph):
     conf.mib._make_graph()
 
 get_mib_graph()
+
+= Restore conf.mib
+~ mib
+conf.mib = old_mib
 
 = DADict tests
 
