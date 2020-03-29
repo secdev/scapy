@@ -1028,9 +1028,6 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     if isinstance(conf.iface, NetworkInterface):
         if conf.iface.name == scapy.consts.LOOPBACK_NAME:
             conf.iface = adapter
-    if isinstance(conf.iface6, NetworkInterface):
-        if conf.iface6.name == scapy.consts.LOOPBACK_NAME:
-            conf.iface6 = adapter
     conf.netcache.arp_cache["127.0.0.1"] = "ff:ff:ff:ff:ff:ff"
     conf.netcache.in6_neighbor["::1"] = "ff:ff:ff:ff:ff:ff"
     # Build the packed network addresses

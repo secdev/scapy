@@ -185,7 +185,7 @@ get_if_list()
 
 get_working_if()
 
-get_if_raw_addr6(conf.iface6)
+get_if_raw_addr6(conf.iface)
 
 = Test read_routes6() - default output
 

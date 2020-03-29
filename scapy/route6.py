@@ -308,7 +308,7 @@ class Route6:
         #  - dst is unicast global. Check if it is 6to4 and we have a source
         #    6to4 address in those available
         #  - dst is link local (unicast or multicast) and multiple output
-        #    interfaces are available. Take main one (conf.iface6)
+        #    interfaces are available. Take main one (conf.iface)
         #  - if none of the previous or ambiguity persists, be lazy and keep
         #    first one
 
@@ -320,7 +320,7 @@ class Route6:
                 tmp = [x for x in res if in6_isaddr6to4(x[2][1])]
             elif in6_ismaddr(dst) or in6_islladdr(dst):
                 # TODO : I'm sure we are not covering all addresses. Check that
-                tmp = [x for x in res if x[2][0] == conf.iface6]
+                tmp = [x for x in res if x[2][0] == conf.iface]
 
             if tmp:
                 res = tmp
@@ -335,7 +335,3 @@ class Route6:
 
 
 conf.route6 = Route6()
-try:
-    conf.iface6 = conf.route6.route(None)[0]
-except Exception:
-    pass
