@@ -1696,10 +1696,10 @@ if conf.default_l2 is None:
 
 
 def bind_bottom_up(lower, upper, __fval=None, **fval):
-    """Bind 2 layers for dissection.
+    r"""Bind 2 layers for dissection.
     The upper layer will be chosen for dissection on top of the lower layer, if
-    ALL the passed arguments are validated. If multiple calls are made with the same  # noqa: E501
-    layers, the last one will be used as default.
+    ALL the passed arguments are validated. If multiple calls are made with
+    the same layers, the last one will be used as default.
 
     ex:
         >>> bind_bottom_up(Ether, SNAP, type=0x1234)
@@ -1714,8 +1714,8 @@ def bind_bottom_up(lower, upper, __fval=None, **fval):
 
 def bind_top_down(lower, upper, __fval=None, **fval):
     """Bind 2 layers for building.
-    When the upper layer is added as a payload of the lower layer, all the arguments  # noqa: E501
-    will be applied to them.
+    When the upper layer is added as a payload of the lower layer, all the
+    arguments will be applied to them.
 
     ex:
         >>> bind_top_down(Ether, SNAP, type=0x1234)
