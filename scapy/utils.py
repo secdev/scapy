@@ -969,7 +969,8 @@ class PcapReader_metaclass(type):
                         i.f.seek(-4, 1)
                     except Exception:
                         pass
-                    raise Scapy_Exception("Not a supported capture file")
+                    raise Scapy_Exception(
+                        "Not a supported capture file, or invalid filter")
 
         return i
 
