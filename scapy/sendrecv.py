@@ -765,8 +765,9 @@ class AsyncSniffer(object):
         lfilter: Python function applied to each packet to determine if
                  further action may be done.
                  --Ex: lfilter = lambda x: x.haslayer(Padding)
-        offline: PCAP file (or list of PCAP files) to read packets from,
-                 instead of sniffing them
+        offline: PCAP file, list of PCAP files, `Packet` instance,
+                 `PacketList` instance or a list of `Packet` instances
+                 to read packets from, instead of sniffing them
         timeout: stop sniffing after a given time (default: None).
         L2socket: use the provided L2socket (default: use conf.L2listen).
         opened_socket: provide an object (or a list of objects) ready to use
@@ -868,22 +869,28 @@ class AsyncSniffer(object):
                     tcpdump(fname, args=["-w", "-", flt], getfd=True)
                 ), label) for fname, label in six.iteritems(offline))
             else:
-                # Write Scapy Packet objects to a pcap file
-                def _write_to_pcap(packets_list):
+                def _write_to_pcap(packets):
                     filename = get_temp_file(autoext=".pcap")
-                    wrpcap(filename, offline)
-                    return filename, filename
+                    wrpcap(filename, packets)
+                    return filename
 
-                if isinstance(offline, Packet):
-                    tempfile_written, offline = _write_to_pcap([offline])
-                elif isinstance(offline, list) and \
-                        all(isinstance(elt, Packet) for elt in offline):
-                    tempfile_written, offline = _write_to_pcap(offline)
+                if isinstance(offline, Packet) or \
+                    isinstance(offline, PacketList) or \
+                    (isinstance(offline, list) and
+                     all(isinstance(elt, Packet) for elt in offline)):
+                    pcap_file = _write_to_pcap(offline)
+                else:
+                    # We probably got a handle/path to a pcap file/s from
+                    # `offline`. Later on we'll validate if it is a valid
+                    # capture file.
+                    pcap_file = offline
 
                 sniff_sockets[PcapReader(
-                    offline if flt is None else
-                    tcpdump(offline, args=["-w", "-", flt], getfd=True)
-                )] = offline
+                    pcap_file if flt is None else
+                    tcpdump(pcap_file,
+                            args=["-w", "-", flt],
+                            getfd=True)
+                )] = pcap_file
         if not sniff_sockets or iface is not None:
             if L2socket is None:
                 L2socket = conf.L2listen
