@@ -746,6 +746,8 @@ class ISOTPSoftSocket(SuperSocket):
                     s.ins.rx_callbacks.remove(my_cb)
                 except ValueError:
                     pass
+                except AttributeError:
+                    pass
 
         ready_sockets = find_ready_sockets()
         return ready_sockets, None
