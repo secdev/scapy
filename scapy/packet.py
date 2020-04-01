@@ -1083,10 +1083,19 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             lyr = lyr.payload.getlayer(0, _subclass=True)
         return layers
 
-    def haslayer(self, cls):
-        """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""  # noqa: E501
-        if self.__class__ == cls or cls in [self.__class__.__name__,
-                                            self._name]:
+    def haslayer(self, cls, _subclass=None):
+        """
+        true if self has a layer that is an instance of cls.
+        Superseded by "cls in self" syntax.
+        """
+        if _subclass is None:
+            _subclass = self.match_subclass or None
+        if _subclass:
+            match = lambda cls1, cls2: issubclass(cls1, cls2)
+        else:
+            match = lambda cls1, cls2: cls1 == cls2
+        if cls is None or match(self.__class__, cls) \
+           or cls in [self.__class__.__name__, self._name]:
             return True
         for f in self.packetfields:
             fvalue_gen = self.getfieldval(f.name)
@@ -1096,10 +1105,10 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                 fvalue_gen = SetGen(fvalue_gen, _iterpacket=0)
             for fvalue in fvalue_gen:
                 if isinstance(fvalue, Packet):
-                    ret = fvalue.haslayer(cls)
+                    ret = fvalue.haslayer(cls, _subclass=_subclass)
                     if ret:
                         return ret
-        return self.payload.haslayer(cls)
+        return self.payload.haslayer(cls, _subclass=_subclass)
 
     def getlayer(self, cls, nb=1, _track=None, _subclass=None, **flt):
         """Return the nb^th layer that is an instance of cls, matching flt
@@ -1607,7 +1616,7 @@ class NoPayload(Packet):
     def answers(self, other):
         return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)  # noqa: E501
 
-    def haslayer(self, cls):
+    def haslayer(self, cls, _subclass=None):
         return 0
 
     def getlayer(self, cls, nb=1, _track=None, **flt):
