@@ -35,7 +35,6 @@ from scapy.fields import (Field, BitField, BitEnumField, XBitField, ByteField,
                           MultiEnumField)
 from scapy.layers.inet import TCP
 from scapy.layers.inet6 import IP6Field
-from scapy.utils import issubtype
 from scapy.config import conf, ConfClass
 from scapy.compat import orb, chb
 from scapy.error import log_runtime
@@ -604,21 +603,6 @@ class BGPCapability(six.with_metaclass(_BGPCapability_metaclass, Packet)):
             raise _BGPInvalidDataException(err)
         return s
 
-    # Every BGP capability object inherits from BGPCapability.
-    def haslayer(self, cls):
-        if cls == "BGPCapability":
-            if isinstance(self, BGPCapability):
-                return True
-        elif issubtype(cls, BGPCapability):
-            if isinstance(self, cls):
-                return True
-        return super(BGPCapability, self).haslayer(cls)
-
-    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
-        return super(BGPCapability, self).getlayer(
-            cls, nb=nb, _track=_track, _subclass=True, **flt
-        )
-
     def post_build(self, p, pay):
         length = 0
         if self.length is None:
@@ -635,6 +619,7 @@ class BGPCapGeneric(BGPCapability):
     """
 
     name = "BGP Capability"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("code", 0, _capabilities),
         FieldLenField("length", None, fmt="B", length_of="cap_data"),
@@ -655,6 +640,7 @@ class BGPCapMultiprotocol(BGPCapability):
     """
 
     name = "Multiprotocol Extensions for BGP-4"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("code", 1, _capabilities),
         ByteField("length", 4),
@@ -763,6 +749,7 @@ class BGPCapORF(BGPCapability):
     """
 
     name = "Outbound Route Filtering Capability"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("code", 3, _capabilities),
         ByteField("length", None),
@@ -800,6 +787,7 @@ class BGPCapGracefulRestart(BGPCapability):
                        ByteEnumField("flags", 0, gr_address_family_flags)]
 
     name = "Graceful Restart Capability"
+    match_subclass = True
     fields_desc = [ByteEnumField("code", 64, _capabilities),
                    ByteField("length", None),
                    BitField("restart_flags", 0, 4),
@@ -819,6 +807,7 @@ class BGPCapFourBytesASN(BGPCapability):
     """
 
     name = "Support for 4-octet AS number capability"
+    match_subclass = True
     fields_desc = [ByteEnumField("code", 65, _capabilities),
                    ByteField("length", 4),
                    IntField("asn", 0)]

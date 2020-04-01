@@ -18,7 +18,6 @@ from scapy.fields import BitField, ByteField, XByteField,\
     PacketField, PacketListField, ConditionalField, PadField
 from scapy.packet import Packet, Padding, bind_layers
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
-from scapy.utils import issubtype
 from scapy.config import conf
 from scapy.compat import orb, chb
 
@@ -243,19 +242,6 @@ class EAP(Packet):
                 return cls.registered_methods.get(t, cls)
         return cls
 
-    def haslayer(self, cls):
-        if cls == "EAP":
-            if isinstance(self, EAP):
-                return True
-        elif issubtype(cls, EAP):
-            if isinstance(self, cls):
-                return True
-        return super(EAP, self).haslayer(cls)
-
-    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
-        return super(EAP, self).getlayer(cls, nb=nb, _track=_track,
-                                         _subclass=True, **flt)
-
     def answers(self, other):
         if isinstance(other, EAP):
             if self.code == self.REQUEST:
@@ -295,6 +281,7 @@ class EAP_MD5(EAP):
     """
 
     name = "EAP-MD5"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("code", 1, eap_codes),
         ByteField("id", 0),
@@ -313,6 +300,7 @@ class EAP_TLS(EAP):
     """
 
     name = "EAP-TLS"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("code", 1, eap_codes),
         ByteField("id", 0),
@@ -335,6 +323,7 @@ class EAP_TTLS(EAP):
     """
 
     name = "EAP-TTLS"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("code", 1, eap_codes),
         ByteField("id", 0),
@@ -357,6 +346,7 @@ class EAP_PEAP(EAP):
     """
 
     name = "PEAP"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("code", 1, eap_codes),
         ByteField("id", 0),
@@ -380,6 +370,7 @@ class EAP_FAST(EAP):
     """
 
     name = "EAP-FAST"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("code", 1, eap_codes),
         ByteField("id", 0),
@@ -403,6 +394,7 @@ class LEAP(EAP):
     """
 
     name = "Cisco LEAP"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("code", 1, eap_codes),
         ByteField("id", 0),

@@ -48,7 +48,11 @@ def issubtype(x, t):
     When using a tuple as the second argument issubtype(X, (A, B, ...)),
     is a shortcut for issubtype(X, A) or issubtype(X, B) or ... (etc.).
     """
-    return isinstance(x, type) and issubclass(x, t)
+    if isinstance(t, str):
+        return t in (z.__name__ for z in x.__bases__)
+    if isinstance(x, type) and issubclass(x, t):
+        return True
+    return False
 
 
 class EDecimal(Decimal):

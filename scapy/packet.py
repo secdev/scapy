@@ -1091,7 +1091,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         if _subclass is None:
             _subclass = self.match_subclass or None
         if _subclass:
-            match = lambda cls1, cls2: issubclass(cls1, cls2)
+            match = issubtype
         else:
             match = lambda cls1, cls2: cls1 == cls2
         if cls is None or match(self.__class__, cls) \
@@ -1117,7 +1117,7 @@ values.
         if _subclass is None:
             _subclass = self.match_subclass or None
         if _subclass:
-            match = lambda cls1, cls2: issubclass(cls1, cls2)
+            match = issubtype
         else:
             match = lambda cls1, cls2: cls1 == cls2
         if isinstance(cls, int):
