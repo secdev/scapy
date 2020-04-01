@@ -146,8 +146,8 @@ class SMBNegociate_Protocol_Request_Header_Generic(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt and len(pkt) >= 4:
-            if pkt[:4] == "\xffSMB":
+        if _pkt and len(_pkt) >= 4:
+            if _pkt[:4] == b'\xffSMB':
                 return SMBNegociate_Protocol_Request_Header
         return cls
 
