@@ -12,6 +12,7 @@ from scapy.fields import BitField, ByteEnumField, ByteField, FlagsField, \
     LEFieldLenField, LEIntField, LELongField, LEShortField, ShortField, \
     StrFixedLenField, StrLenField, StrNullField
 from scapy.layers.netbios import NBTSession
+from scapy.layers.smb2 import SMB2_Header
 
 
 # SMB NetLogon Response Header
@@ -158,6 +159,8 @@ class SMBNegociate_Protocol_Request_Header_Generic(Packet):
         if _pkt and len(_pkt) >= 4:
             if _pkt[:4] == b'\xffSMB':
                 return SMBNegociate_Protocol_Request_Header
+            if _pkt[:4] == b'\xfeSMB':
+                return SMB2_Header
         return cls
 
 # SMB Negotiate Protocol Request Tail
