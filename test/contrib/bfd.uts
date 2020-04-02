@@ -1,0 +1,10 @@
++ BFD
+
+= BFD, basic instantiation
+
+a = UDP()/BFD()
+assert raw(a) == b'\x0e\xc8\x0e\xc8\x00 \x00\x00 \xc0\x03\x18\x11\x11\x11\x11"""";\x9a\xca\x00;\x9a\xca\x00;\x9a\xca\x00'
+
+= BFD - dissection
+
+assert BFD in UDP(raw(a))

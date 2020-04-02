@@ -43,7 +43,6 @@ from scapy.layers.l2 import Ether, LLC, MACField
 from scapy.layers.inet import IP, TCP
 from scapy.error import warning, log_loading
 from scapy.sendrecv import sniff, sendp
-from scapy.utils import issubtype
 
 
 if conf.crypto_valid:
@@ -755,19 +754,6 @@ class Dot11Elt(Packet):
                 return cls.registered_ies.get(_id, cls)
         return cls
 
-    def haslayer(self, cls):
-        if cls == "Dot11Elt":
-            if isinstance(self, Dot11Elt):
-                return True
-        elif issubtype(cls, Dot11Elt):
-            if isinstance(self, cls):
-                return True
-        return super(Dot11Elt, self).haslayer(cls)
-
-    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
-        return super(Dot11Elt, self).getlayer(cls, nb=nb, _track=_track,
-                                              _subclass=True, **flt)
-
     def pre_dissect(self, s):
         # Backward compatibility: add info to all elements
         # This allows to introduce new Dot11Elt classes without breaking
@@ -835,6 +821,7 @@ class PMKIDListPacket(Packet):
 
 class Dot11EltRSN(Dot11Elt):
     name = "802.11 RSN information"
+    match_subclass = True
     fields_desc = [
         ByteField("ID", 48),
         ByteField("len", None),
@@ -893,6 +880,7 @@ class Dot11EltCountryConstraintTriplet(Packet):
 
 class Dot11EltCountry(Dot11Elt):
     name = "802.11 Country"
+    match_subclass = True
     fields_desc = [
         ByteField("ID", 7),
         ByteField("len", None),
@@ -914,6 +902,7 @@ class Dot11EltCountry(Dot11Elt):
 
 class Dot11EltMicrosoftWPA(Dot11Elt):
     name = "802.11 Microsoft WPA"
+    match_subclass = True
     fields_desc = [
         ByteField("ID", 221),
         ByteField("len", None),
@@ -948,6 +937,7 @@ class Dot11EltMicrosoftWPA(Dot11Elt):
 
 class Dot11EltRates(Dot11Elt):
     name = "802.11 Rates"
+    match_subclass = True
     fields_desc = [
         ByteField("ID", 1),
         ByteField("len", None),
@@ -962,6 +952,7 @@ class Dot11EltRates(Dot11Elt):
 
 class Dot11EltVendorSpecific(Dot11Elt):
     name = "802.11 Vendor Specific"
+    match_subclass = True
     fields_desc = [
         ByteField("ID", 221),
         ByteField("len", None),
