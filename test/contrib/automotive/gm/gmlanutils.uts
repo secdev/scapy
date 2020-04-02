@@ -196,7 +196,7 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, base
 thread.join(timeout=5)
 
 = Positive, hold response pending for several messages
-tout = 0.3
+tout = 0.8
 repeats = 4
 started = threading.Event()
 def ecusim():
@@ -215,9 +215,13 @@ started.wait(timeout=5)
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
     starttime = time.time() # may be inaccurate -> on some systems only seconds precision
-    assert GMLAN_RequestDownload(isotpsock, 4, timeout=repeats*tout+0.5) == True
+    result = GMLAN_RequestDownload(isotpsock, 4, timeout=repeats*tout+0.5)
+    print(result)
+    assert result
     endtime = time.time()
-    assert (endtime - starttime) >= tout*repeats
+    print(endtime - starttime)
+    print(tout * (repeats - 1))
+    assert (endtime - starttime) >= tout * (repeats - 1)
 
 thread.join(timeout=5)
 

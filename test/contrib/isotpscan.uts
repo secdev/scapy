@@ -639,10 +639,15 @@ def test_isotpscan_none_random_ids(sniff_time=0.02):
     print(ids)
     semaphore = threading.Semaphore(0)
     def isotpserver(i):
-        with new_can_socket0() as isocan, \
-                ISOTPSocket(isocan, sid=0x100 + i, did=i) as s:
-            s.sniff(timeout=700 * sniff_time, count=1,
-                    started_callback=semaphore.release)
+        try:
+            with new_can_socket0() as isocan, \
+                    ISOTPSocket(isocan, sid=0x100 + i, did=i) as s:
+                s.sniff(timeout=1400 * sniff_time, count=1,
+                        started_callback=semaphore.release)
+            warning("ISOTPServer 0x%x finished" % i)
+        except Exception as e:
+            warning("ERROR in isotpserver 0x%x" % i)
+            warning(e)
     pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
     thread_noise = threading.Thread(target=make_noise, args=(pkt, sniff_time,))
     threads = [threading.Thread(target=isotpserver, args=(x,)) for x in ids]
@@ -690,10 +695,13 @@ def test_isotpscan_none_random_ids_padding(sniff_time=0.02):
     ids = set(rnd._fix() for _ in range(10))
     semaphore = threading.Semaphore(0)
     def isotpserver(i):
-        with new_can_socket0() as isocan, \
-                ISOTPSocket(isocan, sid=0x100 + i, did=i, padding=True) as s:
-            s.sniff(timeout=700 * sniff_time, count=1,
-                    started_callback=semaphore.release)
+        try:
+            with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x100 + i, did=i, padding=True) as s:
+                s.sniff(timeout=1400 * sniff_time, count=1, started_callback=semaphore.release)
+            warning("ISOTPServer 0x%x finished" % i)
+        except Exception as e:
+            warning("ERROR in isotpserver 0x%x" % i)
+            warning(e)
     pkt = CAN(identifier=0x701, length=8,
               data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
     thread_noise = threading.Thread(target=make_noise, args=(pkt, sniff_time,))

@@ -1175,7 +1175,8 @@ candump_fd = BytesIO(b'''  vcan0  541   [8]  10 0A DE AD BE EF AA AA
   vcan0  541   [5]  21 AA AA AA AA''')
 
 with ISOTPSocket(CandumpReader(candump_fd), sid=0x241, did=0x541, listen_only=True) as s:
-    pkts = s.sniff(timeout=1, count=6)
+    pkts = s.sniff(timeout=2, count=6)
+    print(len(pkts))
     assert(len(pkts) == 6)
     isotp = pkts[0]
     print(repr(isotp))
