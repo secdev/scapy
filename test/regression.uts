@@ -276,6 +276,10 @@ assert gzip_decompress(gziped_data) == monty_data
 data = b"sweet celestia"
 assert gzip_decompress(gzip_compress(data)) == data
 
+= orb/chb
+
+assert orb(b"\x01"[0]) == 1
+assert chb(1) == b"\x01"
 
 ############
 ############
@@ -472,6 +476,13 @@ assert GTPHeader.__module__ == "scapy.contrib.gtp_v2"
 
 load_contrib("gtp")
 assert GTPHeader.__module__ == "scapy.contrib.gtp"
+
+= Test load_contrib failure
+try:
+    load_contrib("doesnotexist")
+    assert False
+except:
+    pass
 
 = Test sane function
 sane("A\x00\xFFB") == "A..B"
@@ -676,6 +687,9 @@ assert(ret == ("<span class=prompt>&gt;&gt;&gt; </span>IP().src\n'127.0.0.1'\n",
 ret = autorun_get_latex_interactive_session("IP().src")
 assert(ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP().src\n'127.0.0.1'\n", '127.0.0.1'))
 
+ret = autorun_get_text_interactive_session("scapy_undefined")
+assert "NameError" in ret[0]
+
 = Test utility TEX functions
 
 assert tex_escape("{scapy}\\^$~#_&%|><") == "{\\tt\\char123}scapy{\\tt\\char125}{\\tt\\char92}\\^{}\\${\\tt\\char126}\\#\\_\\&\\%{\\tt\\char124}{\\tt\\char62}{\\tt\\char60}"
@@ -700,6 +714,11 @@ from scapy.main import _read_config_file
 _read_config_file(fname, globals(), locals())
 assert(conf.verb == 42)
 conf.verb = saved_conf_verb
+
+= Test config file functions failures
+
+from scapy.main import _probe_config_file
+assert _probe_config_file("filethatdoesnotexistnorwillever.tsppajfsrdrr") is None
 
 = Test CacheInstance repr
 
@@ -3077,7 +3096,8 @@ a.type == 133 and a.code == 0 and a.cksum == 0 and a.res == 0
 
 = ICMPv6ND_RS - Basic instantiation with empty dst in IPv6 underlayer
 a=IPv6(b'`\x00\x00\x00\x00\x08:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x85\x00M\xfe\x00\x00\x00\x00')
-isinstance(a, IPv6) and a.nh == 58 and a.hlim == 255 and isinstance(a.payload, ICMPv6ND_RS) and a.payload.type == 133 and a.payload.code == 0 and a.payload.cksum == 0x4dfe and a.payload.res == 0
+assert isinstance(a, IPv6) and a.nh == 58 and a.hlim == 255 and isinstance(a.payload, ICMPv6ND_RS) and a.payload.type == 133 and a.payload.code == 0 and a.payload.cksum == 0x4dfe and a.payload.res == 0
+assert a.hashret() == b":"
 
 
 ############
@@ -3123,7 +3143,8 @@ a.code==0 and a.res==0 and a.tgt=="::"
 
 = ICMPv6ND_NS - Dissection with specific values
 a=ICMPv6ND_NS(b'\x87\x11\x00\x00\xe0\x00\x00\x01\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
-a.code==0x11 and a.res==3758096385 and a.tgt=="ffff::1111"
+assert a.code==0x11 and a.res==3758096385 and a.tgt=="ffff::1111"
+assert a.hashret() == b"ffff::1111"
 
 = ICMPv6ND_NS - IPv6 layer fields overloading
 a=IPv6(raw(IPv6()/ICMPv6ND_NS()))
@@ -4128,6 +4149,10 @@ a.nh == 59 and a.res1 == 0 and a.offset == 0 and a.res2 == 0 and a.m == 0 and a.
 a=IPv6ExtHdrFragment(b'\xff\xee\xff\xfb\x11\x11\x11\x11')
 a.nh == 0xff and a.res1 == 0xee and a.offset==0x1fff and a.res2==1 and a.m == 1 and a.id == 0x11111111
 
+= IPv6 - IPv6ExtHdrFragment hashret
+a=IPv6()/IPv6ExtHdrFragment(b'\xff\xee\xff\xfb\x11\x11\x11\x11')
+a.hashret() == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff'
+
 
 ############
 ############
@@ -4248,6 +4273,7 @@ answer.answers(query) == True
 # Test _ICMPv6Error
 from scapy.layers.inet6 import _ICMPv6Error
 assert _ICMPv6Error().guess_payload_class(None) == IPerror6
+assert _ICMPv6Error().hashret() == b''
 
 = Windows: reset routes properly
 
@@ -12125,6 +12151,14 @@ else:
     ret = False
 
 assert(ret)
+
+= BER trigger failures
+
+try:
+    BERcodec_INTEGER.do_dec(b"\x02\x01")
+    assert False
+except BER_Decoding_Error:
+    pass
 
 ############
 ############
