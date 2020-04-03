@@ -76,6 +76,14 @@ from mock import patch
 with patch('scapy.consts.LOOPBACK_NAME', 'scapy_lo_x'):
     routes = read_routes()
 
+= catch get_working_if only loopback
+~ linux
+
+from mock import patch
+
+with patch('scapy.arch.linux.get_if_list', side_effect=lambda: [LOOPBACK_NAME]):
+    assert get_working_if() == LOOPBACK_NAME
+
 = catch loopback device no address assigned
 ~ linux needs_root
 

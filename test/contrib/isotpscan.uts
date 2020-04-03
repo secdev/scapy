@@ -790,3 +790,28 @@ if 0 != call(["sudo", "ip", "link", "delete", iface0]):
 
 if 0 != call(["sudo", "ip", "link", "delete", iface1]):
         raise Exception("%s could not be deleted" % iface1)
+
++ Coverage stability tests
+
+= empty tests
+
+from scapy.contrib.isotp import generate_code_output, generate_text_output
+
+assert generate_code_output("", None) == ""
+assert generate_text_output("") == "No packets found."
+
+= get_isotp_fc
+
+from scapy.contrib.isotp import get_isotp_fc
+
+# to trigger "noise_ids.append(packet.identifier)"
+a = []
+get_isotp_fc(
+    1, [], a, False,
+    Bunch(
+        flags="extended",
+        identifier=1,
+        data=b"\x00"
+    )
+)
+assert 1 in a

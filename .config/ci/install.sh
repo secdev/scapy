@@ -20,7 +20,7 @@ fi
 # Make sure libpcap is installed
 if [ ! -z $SCAPY_USE_PCAPDNET ]
 then
-  $SCAPY_SUDO apt-get -qy install libpcap-dev  || exit 1
+  sudo apt-get -qy install libpcap-dev  || exit 1
 fi
 
 # On Travis, "osx" dependencies are installed in .travis.yml
