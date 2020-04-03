@@ -13,14 +13,14 @@ fi
 if [ "$OSTYPE" = "linux-gnu" ] || [ "$TRAVIS_OS_NAME" = "linux" ]
 then
   sudo apt-get update
-  sudo apt-get -qy install tshark net-tools
-  sudo apt-get -qy install can-utils build-essential linux-headers-$(uname -r) linux-modules-extra-$(uname -r);
+  sudo apt-get -qy install tshark net-tools || exit 1
+  sudo apt-get -qy install can-utils build-essential linux-headers-$(uname -r) linux-modules-extra-$(uname -r) || exit 1
 fi
 
 # Make sure libpcap is installed
 if [ ! -z $SCAPY_USE_PCAPDNET ]
 then
-  $SCAPY_SUDO apt-get -qy install libpcap-dev
+  $SCAPY_SUDO apt-get -qy install libpcap-dev  || exit 1
 fi
 
 # On Travis, "osx" dependencies are installed in .travis.yml
