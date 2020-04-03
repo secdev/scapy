@@ -36,7 +36,7 @@ from scapy.fields import BitField, ByteEnumField, ByteField, \
     ShortField, StrLenField, X3BytesField, XIntField, XLongField, XShortField
 from scapy.layers.inet import IP, DestIPField
 from scapy.layers.inet6 import IPv6, in6_chksum
-from scapy.utils import fletcher16_checkbytes, checksum
+from scapy.utils import fletcher16_checkbytes, checksum, inet_aton
 from scapy.compat import orb
 from scapy.config import conf
 
@@ -202,14 +202,20 @@ _OSPF_LStypes = {1: "router",
                  3: "summaryIP",
                  4: "summaryASBR",
                  5: "external",
-                 7: "NSSAexternal"}
+                 7: "NSSAexternal",
+                 9: "linkScopeOpaque",
+                 10: "areaScopeOpaque",
+                 11: "asScopeOpaque"}
 
 _OSPF_LSclasses = {1: "OSPF_Router_LSA",
                    2: "OSPF_Network_LSA",
                    3: "OSPF_SummaryIP_LSA",
                    4: "OSPF_SummaryASBR_LSA",
                    5: "OSPF_External_LSA",
-                   7: "OSPF_NSSA_External_LSA"}
+                   7: "OSPF_NSSA_External_LSA",
+                   9: "OSPF_Link_Scope_Opaque_LSA",
+                   10: "OSPF_Area_Scope_Opaque_LSA",
+                   11: "OSPF_AS_Scope_Opaque_LSA"}
 
 
 def ospf_lsa_checksum(lsa):
@@ -365,6 +371,38 @@ class OSPF_External_LSA(OSPF_BaseLSA):
 class OSPF_NSSA_External_LSA(OSPF_External_LSA):
     name = "OSPF NSSA External LSA"
     type = 7
+
+
+class OSPF_Link_Scope_Opaque_LSA(OSPF_BaseLSA):
+    name = "OSPF Link Scope External LSA"
+    type = 9
+    fields_desc = [ShortField("age", 1),
+                   OSPFOptionsField(),
+                   ByteField("type", 9),
+                   IPField("id", "192.0.2.1"),
+                   IPField("adrouter", "198.51.100.100"),
+                   XIntField("seq", 0x80000001),
+                   XShortField("chksum", None),
+                   ShortField("len", None),
+                   StrLenField("data", "data",
+                               length_from=lambda pkt: pkt.len - 20)
+                   ]
+
+    def opaqueid(self):
+        return struct.unpack('>I', inet_aton(self.id))[0] & 0xFFFFFF
+
+    def opaquetype(self):
+        return (struct.unpack('>I', inet_aton(self.id))[0] >> 24) & 0xFF
+
+
+class OSPF_Area_Scope_Opaque_LSA(OSPF_Link_Scope_Opaque_LSA):
+    name = "OSPF Area Scope External LSA"
+    type = 10
+
+
+class OSPF_AS_Scope_Opaque_LSA(OSPF_Link_Scope_Opaque_LSA):
+    name = "OSPF AS Scope External LSA"
+    type = 11
 
 
 class OSPF_DBDesc(Packet):
