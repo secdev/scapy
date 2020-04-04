@@ -37,7 +37,6 @@ from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.base_classes import Gen
 from scapy.compat import chb, orb, raw, plain_str, bytes_encode
 from scapy.config import conf
-import scapy.consts
 from scapy.data import DLT_IPV6, DLT_RAW, DLT_RAW_ALT, ETHER_ANY, ETH_P_IPV6, \
     MTU
 from scapy.error import warning
@@ -71,7 +70,7 @@ if not hasattr(socket, "IPPROTO_IPIP"):
 
 if conf.route6 is None:
     # unused import, only to initialize conf.route6
-    import scapy.route6
+    import scapy.route6  # noqa: F401
 
 ##########################
 #  Neighbor cache stuff  #
@@ -126,7 +125,7 @@ def getmacbyip6(ip6, chainCC=0):
 
     iff, a, nh = conf.route6.route(ip6)
 
-    if iff == scapy.consts.LOOPBACK_INTERFACE:
+    if iff == conf.loopback_name:
         return "ff:ff:ff:ff:ff:ff"
 
     if nh != '::':

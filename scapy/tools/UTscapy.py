@@ -1012,8 +1012,8 @@ def main():
                 raise getopt.GetoptError("cannot import [%s]: %s" % (m, e))
 
         if WINDOWS:
-            from scapy.arch.windows import route_add_loopback
-            route_add_loopback()
+            from scapy.arch.windows import _route_add_loopback
+            _route_add_loopback()
 
         # Add SCAPY_ROOT_DIR environment variable, used for tests
         os.environ['SCAPY_ROOT_DIR'] = os.environ.get("PWD", os.getcwd())

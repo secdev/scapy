@@ -642,6 +642,7 @@ class Conf(ConfClass):
     #: When True, raise exception if no dst MAC found otherwise broadcast.
     #: Default is False.
     raise_no_dst_mac = False
+    loopback_name = "lo" if LINUX else "lo0"
 
     def __getattr__(self, attr):
         # Those are loaded on runtime to avoid import loops

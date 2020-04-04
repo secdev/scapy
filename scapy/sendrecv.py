@@ -310,7 +310,7 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
                     sent_packets.append(p)
                 n += 1
                 if verbose:
-                    os.write(1, b".")
+                    os.write(1, ".")
                 time.sleep(inter)
             if loop < 0:
                 loop += 1

@@ -18,7 +18,6 @@ import time
 import re
 
 from scapy.config import conf
-import scapy.consts
 from scapy.base_classes import Gen
 from scapy.data import IPV6_ADDR_GLOBAL, IPV6_ADDR_LINKLOCAL, \
     IPV6_ADDR_SITELOCAL, IPV6_ADDR_LOOPBACK, IPV6_ADDR_UNICAST,\
@@ -68,7 +67,7 @@ def construct_source_candidate_set(addr, plen, laddr):
         cset = (x for x in laddr if x[1] == IPV6_ADDR_SITELOCAL)
     elif in6_ismaddr(addr):
         if in6_ismnladdr(addr):
-            cset = [('::1', 16, scapy.consts.LOOPBACK_INTERFACE)]
+            cset = [('::1', 16, conf.loopback_name)]
         elif in6_ismgladdr(addr):
             cset = (x for x in laddr if x[1] == IPV6_ADDR_GLOBAL)
         elif in6_ismlladdr(addr):

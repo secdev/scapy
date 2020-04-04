@@ -20,7 +20,7 @@ def expect_exception(e, c):
 conf
 
 IP().src
-scapy.consts.LOOPBACK_INTERFACE
+conf.loopback_name
 
 = Test module version detection
 ~ conf
@@ -173,9 +173,9 @@ def get_dummy_interface():
         data["ipv6_metric"] = 1
         data["mac"] = "00:00:00:00:00:00"
         data["ips"] = ["127.0.0.1", "::1"]
-        dummy_int = NetworkInterface(data)
-        dummy_int.pcap_name = "\\Device\\NPF_" + data["guid"]
-        return dummy_int
+        data["pcap_name"] = "\\Device\\NPF_" + data["guid"]
+        data["flags"] = 0
+        return NetworkInterface(data)
     else:
         return "dummy0"
 
@@ -191,7 +191,8 @@ get_if_raw_addr6(conf.iface)
 
 routes6 = read_routes6()
 if WINDOWS:
-    route_add_loopback(routes6, True)
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback(routes6, True)
 
 routes6
 
@@ -204,10 +205,11 @@ routes6
 if routes6:
     iflist = get_if_list()
     if WINDOWS:
-        route_add_loopback(ipv6=True, iflist=iflist)
+        from scapy.arch.windows import _route_add_loopback
+        _route_add_loopback(ipv6=True, iflist=iflist)
     if OPENBSD:
         len(routes6) >= 2
-    elif iflist == [LOOPBACK_NAME]:
+    elif iflist == [conf.loopback_name]:
         len(routes6) == 1
     elif len(iflist) >= 2:
         len(routes6) >= 1
@@ -215,8 +217,8 @@ if routes6:
         False
 else:
     # IPv6 seems disabled. Force a route to ::1
-    conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"], 1))
-    conf.route6.ipv6_ifaces = set([LOOPBACK_NAME])
+    conf.route6.routes.append(("::1", 128, "::", conf.loopback_name, ["::1"], 1))
+    conf.route6.ipv6_ifaces = set([conf.loopback_name])
     True
 
 = Test read_routes6() - check mandatory routes
@@ -229,13 +231,13 @@ if len(routes6) > 1 and not WINDOWS:
             assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]) >= 1
         except:
             # IPv6 is not available, but we still check the loopback
-            assert conf.route6.route("::/0") == (scapy.consts.LOOPBACK_NAME, "::", "::")
+            assert conf.route6.route("::/0") == (conf.loopback_name, "::", "::")
             assert sum(1 for r in routes6 if r[1] == 128 and r[4] == ["::1"]) >= 1
 else:
     True
 
 = Test ifchange()
-conf.route6.ifchange(LOOPBACK_NAME, "::1/128")
+conf.route6.ifchange(conf.loopback_name, "::1/128")
 if WINDOWS:
     conf.netcache.in6_neighbor["::1"] = "ff:ff:ff:ff:ff:ff"  # Restore fake cache
 
@@ -4222,13 +4224,16 @@ conf.iface = conf_iface
 conf.route6.resync()
 if not len(conf.route6.routes):
     # IPv6 seems disabled. Force a route to ::1
-    conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"], 1))
+    conf.route6.routes.append(("::1", 128, "::", conf.loopback_name, ["::1"], 1))
     True
 
 = Route6 - Route6.make_route
 
 r6 = Route6()
-r6.make_route("2001:db8::1", dev=LOOPBACK_NAME) == ("2001:db8::1", 128, "::", LOOPBACK_NAME, [], 1)
+r6.make_route("2001:db8::1", dev=conf.loopback_name) in [
+    ("2001:db8::1", 128, "::", conf.loopback_name, [], 1),
+    ("2001:db8::1", 128, "::", conf.loopback_name, ["::1"], 1)
+]
 len_r6 = len(r6.routes)
 
 = Route6 - Route6.add & Route6.delt
@@ -4278,7 +4283,8 @@ assert _ICMPv6Error().hashret() == b''
 = Windows: reset routes properly
 
 if WINDOWS:
-    route_add_loopback()
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback()
 
 ############
 ############
@@ -7301,6 +7307,7 @@ assert len(conf.temp_files) == tempfile_count
 tshark(count=1, timeout=3)
 
 = Check wireshark()
+~ wireshark
 
 f = BytesIO()
 pkt = Ether()/IP()/ICMP()
@@ -8840,10 +8847,10 @@ import scapy
 
 old_routes = conf.route.routes
 old_iface = conf.iface
-old_loopback = scapy.consts.LOOPBACK_INTERFACE
+old_loopback = conf.loopback_name
 try:
     conf.iface = 'enp3s0'
-    scapy.consts.LOOPBACK_INTERFACE = 'lo'
+    conf.loopback_name = 'lo'
     conf.route.invalidate_cache()
     conf.route.routes = [
         (4294967295, 4294967295, '0.0.0.0', 'wlan0', '', 281),
@@ -8863,7 +8870,7 @@ try:
     assert conf.route.route("255.255.255.255") == ('enp3s0', '192.168.0.119', '0.0.0.0')
     assert conf.route.route("*") == ('enp3s0', '192.168.0.119', '192.168.0.254')
 finally:
-    scapy.consts.LOOPBACK_INTERFACE = old_loopback
+    conf.loopback_name = old_loopback
     conf.iface = old_iface
     conf.route.routes = old_routes
     conf.route.invalidate_cache()
@@ -8872,11 +8879,11 @@ finally:
 = Mocked IPv6 routes calls
 
 old_iface = conf.iface
-old_loopback = scapy.consts.LOOPBACK_INTERFACE
+old_loopback = conf.loopback_name
 try:
     conf.route6.ipv6_ifaces = set(['enp3s0', 'wlan0', 'lo'])
     conf.iface = 'enp3s0'
-    scapy.consts.LOOPBACK_INTERFACE = 'lo'
+    conf.loopback_name = 'lo'
     conf.route6.invalidate_cache()
     conf.route6.routes = [
         ('fe80::dd17:1fa6:a123:ab4', 128, '::', 'lo', ['fe80::dd17:1fa6:a123:ab4'], 291),
@@ -8896,7 +8903,7 @@ try:
     assert conf.route6.route("fe80::1") == ('enp3s0', 'fe80::7101:5678:1234:da65', '::')
     assert conf.route6.route("fe80::1", dev='lo') == ('lo', 'fe80::dd17:1fa6:a123:ab4', '::')
 finally:
-    scapy.consts.LOOPBACK_INTERFACE = old_loopback
+    conf.loopback_name = old_loopback
     conf.iface = old_iface
     conf.route6.resync()
 
@@ -8913,7 +8920,8 @@ conf.route6.resync()
 = Windows: reset routes properly
 
 if WINDOWS:
-    route_add_loopback()
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback()
 
 ############
 ############

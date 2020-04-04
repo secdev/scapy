@@ -177,7 +177,7 @@ if conf.use_pcap:
                             "Please use Npcap instead")
             elif b"npcap" in version.lower():
                 conf.use_npcap = True
-                LOOPBACK_NAME = scapy.consts.LOOPBACK_NAME = "Npcap Loopback Adapter"  # noqa: E501
+                conf.loopback_name = conf.loopback_name = "Npcap Loopback Adapter"  # noqa: E501
 
 if conf.use_pcap:
     def get_if_list():

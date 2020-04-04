@@ -8,7 +8,6 @@ Customization for the Solaris operation system.
 """
 
 import socket
-import scapy.consts
 
 from scapy.config import conf
 conf.use_pcap = True
@@ -32,5 +31,5 @@ def get_working_if():
         iface = min(conf.route.routes, key=lambda x: x[1])[3]
     except ValueError:
         # no route
-        iface = scapy.consts.LOOPBACK_INTERFACE
+        iface = conf.loopback_name
     return iface

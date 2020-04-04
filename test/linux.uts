@@ -73,7 +73,7 @@ from mock import patch
 
 # can't remove the lo device (or its address without causing trouble) - use some pseudo dummy instead
 
-with patch('scapy.consts.LOOPBACK_NAME', 'scapy_lo_x'):
+with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo_x'):
     routes = read_routes()
 
 = catch get_working_if only loopback
@@ -81,8 +81,8 @@ with patch('scapy.consts.LOOPBACK_NAME', 'scapy_lo_x'):
 
 from mock import patch
 
-with patch('scapy.arch.linux.get_if_list', side_effect=lambda: [LOOPBACK_NAME]):
-    assert get_working_if() == LOOPBACK_NAME
+with patch('scapy.arch.linux.get_if_list', side_effect=lambda: [conf.loopback_name]):
+    assert get_working_if() == conf.loopback_name
 
 = catch loopback device no address assigned
 ~ linux needs_root
@@ -95,13 +95,13 @@ assert(exit_status == 0)
 exit_status = os.system("ip link set dev scapy_lo up")
 assert(exit_status == 0)
 
-with patch('scapy.consts.LOOPBACK_NAME', 'scapy_lo'):
+with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
     routes = read_routes()
 
 exit_status = os.system("ip addr add dev scapy_lo 10.10.0.1/24")
 assert(exit_status == 0)
 
-with patch('scapy.consts.LOOPBACK_NAME', 'scapy_lo'):
+with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
     routes = read_routes()
 
 got_lo_device = False
