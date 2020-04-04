@@ -57,6 +57,12 @@ h = "fa163e7da573fa163e43f8e708004500008400000000fd119f520a0a05010a0a05020868086
 gtp = Ether(hex_bytes(h))
 gtp[GTP_U_Header].ExtHdrLen == 2 and gtp[GTP_U_Header].extraPadding == b'\x00\x00\x00\x00' and gtp[GTP_U_Header][IP].src == '10.10.8.2' and gtp[GTP_U_Header][IP][ICMP].type == 0
 
+= GTPEchoResponse matches GTPEchoRequest by seq
+req = GTPHeader(seq=12345)/GTPEchoRequest()
+res = GTPHeader(seq=12345)/GTPEchoResponse()
+assert req.hashret() == res.hashret()
+assert res.answers(req)
+
 = GTPCreatePDPContextRequest(), basic instantiation
 gtp = IP(src="127.0.0.1", dst="127.0.0.1")/UDP(dport=2123, sport=2123)/GTPHeader(teid=2807)/GTPCreatePDPContextRequest()
 gtp.dport == 2123 and gtp.teid == 2807 and len(gtp.IE_list) == 5

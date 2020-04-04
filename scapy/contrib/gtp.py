@@ -341,7 +341,7 @@ class GTPPDUSessionContainer(Packet):
         return p
 
     def hashret(self):
-        return struct.pack("H", self.seq)
+        return struct.pack("H", getattr(self.underlayer, "seq"))
 
 
 class GTPEchoRequest(Packet):
@@ -349,7 +349,7 @@ class GTPEchoRequest(Packet):
     name = "GTP Echo Request"
 
     def hashret(self):
-        return struct.pack("H", self.seq)
+        return struct.pack("H", getattr(self.underlayer, "seq"))
 
 
 class IE_Base(Packet):
@@ -869,10 +869,11 @@ class GTPEchoResponse(Packet):
     fields_desc = [PacketListField("IE_list", [], IE_Dispatcher)]
 
     def hashret(self):
-        return struct.pack("H", self.seq)
+        return struct.pack("H", getattr(self.underlayer, "seq"))
 
     def answers(self, other):
-        return self.seq == other.seq
+        return getattr(self.underlayer, "seq") == getattr(other.underlayer,
+                                                          "seq")
 
 
 class GTPCreatePDPContextRequest(Packet):
@@ -884,7 +885,7 @@ class GTPCreatePDPContextRequest(Packet):
                                    IE_Dispatcher)]
 
     def hashret(self):
-        return struct.pack("H", self.seq)
+        return struct.pack("H", getattr(self.underlayer, "seq"))
 
 
 class GTPCreatePDPContextResponse(Packet):
@@ -893,10 +894,11 @@ class GTPCreatePDPContextResponse(Packet):
     fields_desc = [PacketListField("IE_list", [], IE_Dispatcher)]
 
     def hashret(self):
-        return struct.pack("H", self.seq)
+        return struct.pack("H", getattr(self.underlayer, "seq"))
 
     def answers(self, other):
-        return self.seq == other.seq
+        return getattr(self.underlayer, "seq") == getattr(other.underlayer,
+                                                          "seq")
 
 
 class GTPUpdatePDPContextRequest(Packet):
@@ -925,7 +927,7 @@ class GTPUpdatePDPContextRequest(Packet):
         IE_Dispatcher)]
 
     def hashret(self):
-        return struct.pack("H", self.seq)
+        return struct.pack("H", getattr(self.underlayer, "seq"))
 
 
 class GTPUpdatePDPContextResponse(Packet):
@@ -934,7 +936,11 @@ class GTPUpdatePDPContextResponse(Packet):
     fields_desc = [PacketListField("IE_list", None, IE_Dispatcher)]
 
     def hashret(self):
-        return struct.pack("H", self.seq)
+        return struct.pack("H", getattr(self.underlayer, "seq"))
+
+    def answers(self, other):
+        return getattr(self.underlayer, "seq") == getattr(other.underlayer,
+                                                          "seq")
 
 
 class GTPErrorIndication(Packet):
