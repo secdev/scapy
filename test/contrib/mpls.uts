@@ -7,7 +7,8 @@
 
 = Build & dissect - IPv4
 if WINDOWS:
-    route_add_loopback()
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback()
 
 s = raw(Ether(src="00:01:02:04:05")/MPLS()/IP())
 assert(s == b'\xff\xff\xff\xff\xff\xff\x00\x01\x02\x04\x05\x00\x88G\x00\x00\x01\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01')

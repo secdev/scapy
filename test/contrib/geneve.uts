@@ -7,7 +7,8 @@
 
 = Build & dissect - GENEVE encapsulates Ether
 if WINDOWS:
-    route_add_loopback()
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback()
 
 s = raw(IP()/UDP(sport=10000)/GENEVE()/Ether(dst='00:01:00:11:11:11',src='00:02:00:22:22:22'))
 assert(s == b'E\x00\x002\x00\x01\x00\x00@\x11|\xb8\x7f\x00\x00\x01\x7f\x00\x00\x01\'\x10\x17\xc1\x00\x1e\x9a\x1c\x00\x00eX\x00\x00\x00\x00\x00\x01\x00\x11\x11\x11\x00\x02\x00"""\x90\x00')

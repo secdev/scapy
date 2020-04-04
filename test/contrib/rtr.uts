@@ -2,7 +2,8 @@
 
 from scapy.consts import WINDOWS
 if WINDOWS:
-    route_add_loopback()
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback()
 
 = default instantiation
 
