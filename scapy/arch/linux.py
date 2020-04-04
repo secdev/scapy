@@ -22,7 +22,7 @@ import re
 import subprocess
 
 from scapy.compat import raw, plain_str
-from scapy.consts import LOOPBACK_NAME, LINUX
+from scapy.consts import LINUX
 import scapy.utils
 import scapy.utils6
 from scapy.packet import Packet, Padding
@@ -124,12 +124,12 @@ def get_working_if():
     Return the name of the first network interfcace that is up.
     """
     for i in get_if_list():
-        if i == LOOPBACK_NAME:
+        if i == conf.loopback_name:
             continue
         ifflags = struct.unpack("16xH14x", get_if(i, SIOCGIFFLAGS))[0]
         if ifflags & IFF_UP:
             return i
-    return LOOPBACK_NAME
+    return conf.loopback_name
 
 
 def attach_filter(sock, bpf_filter, iface):
@@ -213,21 +213,21 @@ def read_routes():
     routes = []
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", scapy.consts.LOOPBACK_NAME.encode("utf8")))  # noqa: E501
+        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", conf.loopback_name.encode("utf8")))  # noqa: E501
         addrfamily = struct.unpack("h", ifreq[16:18])[0]
         if addrfamily == socket.AF_INET:
-            ifreq2 = ioctl(s, SIOCGIFNETMASK, struct.pack("16s16x", scapy.consts.LOOPBACK_NAME.encode("utf8")))  # noqa: E501
+            ifreq2 = ioctl(s, SIOCGIFNETMASK, struct.pack("16s16x", conf.loopback_name.encode("utf8")))  # noqa: E501
             msk = socket.ntohl(struct.unpack("I", ifreq2[20:24])[0])
             dst = socket.ntohl(struct.unpack("I", ifreq[20:24])[0]) & msk
             ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
-            routes.append((dst, msk, "0.0.0.0", scapy.consts.LOOPBACK_NAME, ifaddr, 1))  # noqa: E501
+            routes.append((dst, msk, "0.0.0.0", conf.loopback_name, ifaddr, 1))  # noqa: E501
         else:
-            warning("Interface %s: unknown address family (%i)" % (scapy.consts.LOOPBACK_NAME, addrfamily))  # noqa: E501
+            warning("Interface %s: unknown address family (%i)" % (conf.loopback_name, addrfamily))  # noqa: E501
     except IOError as err:
         if err.errno == 99:
-            warning("Interface %s: no address assigned" % scapy.consts.LOOPBACK_NAME)  # noqa: E501
+            warning("Interface %s: no address assigned" % conf.loopback_name)  # noqa: E501
         else:
-            warning("Interface %s: failed to get address config (%s)" % (scapy.consts.LOOPBACK_NAME, str(err)))  # noqa: E501
+            warning("Interface %s: failed to get address config (%s)" % (conf.loopback_name, str(err)))  # noqa: E501
 
     for line in f.readlines()[1:]:
         line = plain_str(line)
@@ -343,7 +343,7 @@ def read_routes6():
         nh = proc2r(nh)
 
         cset = []  # candidate set (possible source addresses)
-        if dev == LOOPBACK_NAME:
+        if dev == conf.loopback_name:
             if d == '::':
                 continue
             cset = ['::1']

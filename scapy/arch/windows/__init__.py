@@ -11,13 +11,12 @@ Customizations needed to support Microsoft Windows.
 from __future__ import absolute_import
 from __future__ import print_function
 import os
+import platform as platform_lib
 import socket
 import subprocess as sp
 from glob import glob
 import struct
 
-import scapy
-import scapy.consts
 from scapy.arch.windows.structures import _windows_title, \
     GetAdaptersAddresses, GetIpForwardTable, GetIpForwardTable2, \
     get_service_status
@@ -38,6 +37,19 @@ conf.use_pcap = True
 # These import must appear after setting conf.use_* variables
 from scapy.arch import pcapdnet  # noqa: E402
 from scapy.arch.pcapdnet import NPCAP_PATH, get_if_list  # noqa: E402
+
+# Detection happens after pcapdnet import (NPcap detection)
+NPCAP_LOOPBACK_NAME = r"\Device\NPF_Loopback"
+if conf.use_npcap:
+    conf.loopback_name = NPCAP_LOOPBACK_NAME
+else:
+    try:
+        if float(platform_lib.release()) >= 8.1:
+            conf.loopback_name = "Microsoft KM-TEST Loopback Adapter"
+        else:
+            conf.loopback_name = "Microsoft Loopback Adapter"
+    except ValueError:
+        conf.loopback_name = "Microsoft Loopback Adapter"
 
 # hot-patching socket for missing variables on Windows
 if not hasattr(socket, 'IPPROTO_IPIP'):
@@ -305,6 +317,7 @@ class NetworkInterface(object):
     def __init__(self, data=None):
         self.name = None
         self.ip = None
+        self.ip6 = None
         self.mac = None
         self.pcap_name = None
         self.description = None
@@ -324,6 +337,7 @@ class NetworkInterface(object):
         """
         self.data = data
         self.name = data['name']
+        self.pcap_name = data['pcap_name']
         self.description = data['description']
         self.win_index = data['win_index']
         self.guid = data['guid']
@@ -331,51 +345,42 @@ class NetworkInterface(object):
         self.ipv4_metric = data['ipv4_metric']
         self.ipv6_metric = data['ipv6_metric']
         self.ips = data['ips']
-        if 'invalid' in data:
-            self.invalid = data['invalid']
-        # Other attributes are optional
-        self._update_pcapdata()
+        self.flags = data['flags']
+        self.invalid = data['invalid']
 
         try:
             # Npcap loopback interface
-            if conf.use_npcap:
-                pcap_name_loopback = _get_npcap_config("LoopbackAdapter")
-                if pcap_name_loopback:  # May not be defined
-                    guid = _pcapname_to_guid(pcap_name_loopback)
-                    if self.guid == guid:
-                        # https://nmap.org/npcap/guide/npcap-devguide.html
-                        self.mac = "00:00:00:00:00:00"
-                        self.ip = "127.0.0.1"
-                        return
+            if conf.use_npcap and self.pcap_name == NPCAP_LOOPBACK_NAME:
+                # https://nmap.org/npcap/guide/npcap-devguide.html
+                self.mac = "00:00:00:00:00:00"
+                self.ip = "127.0.0.1"
+                self.ip6 = "::1"
+                return
         except KeyError:
             pass
 
-        try:
-            self.ip = next(x for x in self.ips if ":" not in x)
-        except StopIteration:
-            pass
+        # Chose main IPv4
+        if self.ips:
+            try:
+                self.ip = next(x for x in self.ips if ":" not in x)
+            except StopIteration:
+                pass
+            try:
+                self.ip6 = next(x for x in self.ips if ":" in x)
+            except IndexError:
+                pass
+            if not self.ip and not self.ip6:
+                self.invalid = True
 
-        try:
-            # Windows native loopback interface
-            if not self.ip and self.name == scapy.consts.LOOPBACK_NAME:
-                self.ip = "127.0.0.1"
-        except (KeyError, AttributeError, NameError) as e:
-            print(e)
+    def __hash__(self):
+        return hash(self.guid)
 
-    def _update_pcapdata(self):
-        # https://github.com/nmap/nmap/issues/1422
-        # Lookup for the Winpcap/Npcap pcap_name according to the GUID
-        if self.is_invalid():
-            return
-        for pcap_name, if_data in six.iteritems(conf.cache_iflist):
-            _, ips, flags = if_data
-            if pcap_name.endswith(self.guid):
-                self.pcap_name = pcap_name
-                self.flags = flags
-                self.ips.extend(x for x in ips if x not in self.ips)
-                return
-        # No matching pcap_name found: won't be able to sniff on it
-        self.invalid = True
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.name == other or self.pcap_name == other
+        if isinstance(other, NetworkInterface):
+            return self.data == other.data
+        return object.__eq__(self, other)
 
     def is_invalid(self):
         return self.invalid
@@ -384,8 +389,6 @@ class NetworkInterface(object):
         if not conf.use_npcap:
             raise OSError("This operation requires Npcap.")
         if self.raw80211 is None:
-            # The Dot11Adapters is not officially supported anymore.
-            # we just try/except, and check that it exists globally
             val = _get_npcap_config("Dot11Support")
             self.raw80211 = bool(int(val)) if val else False
         if not self.raw80211:
@@ -642,45 +645,45 @@ class NetworkInterfaceDict(UserDict):
             # Try a restart
             NetworkInterfaceDict._pcap_check()
 
+        windows_interfaces = dict()
         for i in get_windows_if_list():
-            try:
-                interface = NetworkInterface(i)
-                self.data[interface.guid] = interface
-            except KeyError:
-                pass
+            # Detect Loopback interface
+            if "Loopback" in i['name']:
+                i['name'] = conf.loopback_name
+            if i['guid']:
+                if conf.use_npcap and i['name'] == conf.loopback_name:
+                    i['guid'] = NPCAP_LOOPBACK_NAME
+                windows_interfaces[i['guid']] = i
 
-        # Remove invalid loopback interfaces (not usable)
-        for key, iface in self.data.copy().items():
-            if iface.ip == "127.0.0.1" and iface.is_invalid():
-                del self.data[key]
-
-        # Replace LOOPBACK_INTERFACE
-        try:
-            scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(
-                scapy.consts.LOOPBACK_NAME,
-            )
-        except ValueError:
-            pass
-        # Support non-windows cards (e.g. Napatech)
         index = 0
         for pcap_name, if_data in six.iteritems(conf.cache_iflist):
-            name, _, _ = if_data
+            name, ips, flags = if_data
             guid = _pcapname_to_guid(pcap_name)
-            if guid not in self.data:
+            data = windows_interfaces.get(guid, None)
+            if data:
+                # Exists in Windows registry
+                data['pcap_name'] = pcap_name
+                data['ips'].extend(ips)
+                data['flags'] = flags
+                data['invalid'] = False
+            else:
+                # Only in [Wi]npcap
                 index -= 1
-                dummy_data = {
+                data = {
                     'name': name,
-                    'description': "[Unknown] %s" % name,
+                    'pcap_name': pcap_name,
+                    'description': name,
                     'win_index': index,
                     'guid': guid,
                     'invalid': False,
-                    'mac': 'ff:ff:ff:ff:ff:ff',
+                    'mac': '00:00:00:00:00:00',
                     'ipv4_metric': 0,
                     'ipv6_metric': 0,
-                    'ips': []
+                    'ips': ips,
+                    'flags': flags
                 }
-                # No KeyError will happen here, as we get it from cache
-                self.data[guid] = NetworkInterface(dummy_data)
+            # No KeyError will happen here, as we get it from cache
+            self.data[guid] = NetworkInterface(data)
 
     def dev_from_name(self, name):
         """Return the first pcap device name for a given Windows
@@ -708,9 +711,7 @@ class NetworkInterfaceDict(UserDict):
                         if iface.win_index == if_index)
         except (StopIteration, RuntimeError):
             if str(if_index) == "1":
-                # Test if the loopback interface is set up
-                if isinstance(scapy.consts.LOOPBACK_INTERFACE, NetworkInterface):  # noqa: E501
-                    return scapy.consts.LOOPBACK_INTERFACE
+                return IFACES.dev_from_pcapname(conf.loopback_name)
             raise ValueError("Unknown network interface index %r" % if_index)
 
     def reload(self):
@@ -739,9 +740,13 @@ class NetworkInterfaceDict(UserDict):
                 str(dev.description)
             )
             index = str(dev.win_index)
-            res.append((index, description, str(dev.ip), mac))
+            res.append((index, description, str(dev.ip), str(dev.ip6), mac))
 
-        res = pretty_list(res, [("INDEX", "IFACE", "IP", "MAC")], sortBy=2)
+        res = pretty_list(
+            res,
+            [("INDEX", "IFACE", "IPv4", "IPv6", "MAC")],
+            sortBy=2
+        )
         if print_result:
             print(res)
         else:
@@ -833,7 +838,7 @@ def _read_routes_c_v1():
         # Build route
         try:
             iface = dev_from_index(ifIndex)
-            if iface.ip == "0.0.0.0":
+            if not iface.ip or iface.ip == "0.0.0.0":
                 continue
         except ValueError:
             continue
@@ -876,7 +881,7 @@ def _read_routes_c(ipv6=False):
         # Build route
         try:
             iface = dev_from_index(ifIndex)
-            if iface.ip == "0.0.0.0":
+            if not iface.ip or iface.ip == "0.0.0.0":
                 continue
         except ValueError:
             continue
@@ -898,8 +903,9 @@ def read_routes():
         if WINDOWS_XP:
             routes = _read_routes_c_v1()
         else:
-            routes = _read_routes_c(False)
+            routes = _read_routes_c(ipv6=False)
     except Exception as e:
+        raise
         warning("Error building scapy IPv4 routing table : %s", e)
     else:
         if not routes:
@@ -924,14 +930,14 @@ def in6_getifaddr():
             scope = in6_getscope(ip)
             ifaddrs.append((ip, scope, iface))
     # Appends Npcap loopback if available
-    if conf.use_npcap and scapy.consts.LOOPBACK_INTERFACE:
-        ifaddrs.append(("::1", 0, scapy.consts.LOOPBACK_INTERFACE))
+    if conf.use_npcap and conf.loopback_name:
+        ifaddrs.append(("::1", 0, conf.loopback_name))
     return ifaddrs
 
 
 def _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric):
     cset = []  # candidate set (possible source addresses)
-    if iface.name == scapy.consts.LOOPBACK_NAME:
+    if iface.name == conf.loopback_name:
         if dpref == '::':
             return
         cset = ['::1']
@@ -963,8 +969,8 @@ def get_working_if():
         iface = min(conf.route.routes, key=lambda x: x[1])[3]
     except ValueError:
         # no route
-        iface = scapy.consts.LOOPBACK_INTERFACE
-    if iface.is_invalid():
+        iface = conf.loopback_name
+    if isinstance(iface, NetworkInterface) and iface.is_invalid():
         # Backup mode: try them all
         for iface in six.itervalues(IFACES):
             if not iface.is_invalid():
@@ -974,14 +980,14 @@ def get_working_if():
 
 
 def _get_valid_guid():
-    if scapy.consts.LOOPBACK_INTERFACE:
-        return scapy.consts.LOOPBACK_INTERFACE.guid
+    if conf.loopback_name:
+        return conf.loopback_name.guid
     else:
         return next((i.guid for i in six.itervalues(IFACES)
                      if not i.is_invalid()), None)
 
 
-def route_add_loopback(routes=None, ipv6=False, iflist=None):
+def _route_add_loopback(routes=None, ipv6=False, iflist=None):
     """Add a route to 127.0.0.1 and ::1 to simplify unit tests on Windows"""
     if not WINDOWS:
         warning("Not available")
@@ -995,7 +1001,8 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
         if not conf.route.routes:
             return
     data = {
-        'name': scapy.consts.LOOPBACK_NAME,
+        'name': conf.loopback_name,
+        'pcap_name': "\\Device\\NPF_{0XX00000-X000-0X0X-X00X-00XXXX000XXX}",
         'description': "Loopback",
         'win_index': -1,
         'guid': "{0XX00000-X000-0X0X-X00X-00XXXX000XXX}",
@@ -1003,30 +1010,27 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
         'mac': '00:00:00:00:00:00',
         'ipv4_metric': 0,
         'ipv6_metric': 0,
-        'ips': ["127.0.0.1", "::"]
+        'ips': ["127.0.0.1", "::"],
+        'flags': 0
     }
-    adapter = NetworkInterface()
-    adapter.pcap_name = "\\Device\\NPF_{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"
-    adapter.update(data)
-    adapter.invalid = False
-    adapter.ip = "127.0.0.1"
+    adapter = NetworkInterface(data)
     if iflist:
         iflist.append(adapter.pcap_name)
         return
-    # Remove all LOOPBACK_NAME routes
+    # Remove all conf.loopback_name routes
     for route in list(conf.route.routes):
         iface = route[3]
-        if iface.name == scapy.consts.LOOPBACK_NAME:
+        if iface.pcap_name == conf.loopback_name:
             conf.route.routes.remove(route)
-    # Remove LOOPBACK_NAME interface
+    # Remove conf.loopback_name interface
     for devname, iface in list(IFACES.items()):
-        if iface.name == scapy.consts.LOOPBACK_NAME:
+        if iface.pcap_name == conf.loopback_name:
             IFACES.pop(devname)
     # Inject interface
     IFACES["{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"] = adapter
-    scapy.consts.LOOPBACK_INTERFACE = adapter
+    conf.loopback_name = adapter.pcap_name
     if isinstance(conf.iface, NetworkInterface):
-        if conf.iface.name == scapy.consts.LOOPBACK_NAME:
+        if conf.iface.pcap_name == conf.loopback_name:
             conf.iface = adapter
     conf.netcache.arp_cache["127.0.0.1"] = "ff:ff:ff:ff:ff:ff"
     conf.netcache.in6_neighbor["::1"] = "ff:ff:ff:ff:ff:ff"
