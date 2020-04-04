@@ -64,3 +64,5 @@ jobs:
         run: ./.config/ci/install.sh
       - name: Run Tox
         run: ./.config/ci/test.sh ${{ matrix.python }} non_root
+      - name: Codecov
+        uses: codecov/codecov-action@v1
