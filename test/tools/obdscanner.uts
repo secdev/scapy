@@ -25,6 +25,13 @@ def exit_if_no_isotp_module():
         exit(0)
 
 
+def temporary_skip_unstable_test():
+    err = "TEST SKIPPED: Unstable unit test. Stabilize me!\n"
+    sys.__stderr__.write(err)
+    warning("Unstable unit test. FIXME!")
+    exit(0)
+
+
 = Initialize a virtual CAN interface
 if 0 != call(["cansend", iface0,  "000#"]):
     # vcan0 is not enabled
@@ -180,6 +187,7 @@ load_contrib('automotive.obd.obd')
 + Simulate scanner
 
 = Test DTC scan
+temporary_skip_unstable_test()
 
 drain_bus(iface0)
 
@@ -207,6 +215,7 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD,
 
 
 = Test supported PIDs scan
+temporary_skip_unstable_test()
 
 drain_bus(iface0)
 
@@ -262,6 +271,7 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD,
 
 
 = Test full scan
+temporary_skip_unstable_test()
 
 drain_bus(iface0)
 
