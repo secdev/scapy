@@ -18,7 +18,7 @@ from scapy.layers.dns import DNSStrField
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.inet6 import IP6Field
 from scapy.fields import ByteField, ByteEnumField, ShortField, IPField, \
-    StrField, MultipleTypeField
+    StrField, MultipleTypeField, FieldLenField, FieldListField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 
 # TODO: support the 3 different authentication exchange procedures for SOCKS5  # noqa: E501
@@ -107,8 +107,43 @@ class SOCKS4Reply(Packet):
         ByteEnumField("cd", 90, _socks4_cd_reply),
     ] + SOCKS4Request.fields_desc[1:-2]  # Re-use dstport, dst and userid
 
-# SOCKS v5 - TCP
 
+# SOCKS v5
+
+_socks5_auth_methods = {
+    0x00: "No Authentication",
+    0x01: "GSSAPI",
+    0x02: "Username-Password",
+    0x03: "Challenge-Handshake",
+    0x04: "Unassigned",
+    0x05: "Challenge-Response",
+    0x06: "Secure Sockets Layer",
+    0x07: "NDS",
+    0x08: "Multi-Authentication Framework",
+    0x09: "JSON Parameter Block",
+    0xFF: "No Acceptable Methods"
+}
+_socks5_auth_methods.update({m: "Unassigned" for m in range(0xA, 0xFF)})
+
+
+class SOCKS5ClientGreating(Packet):
+    name = "SOCKS 5 - Client Greeting"
+    overload_fields = {SOCKS: {"vn": 0x5}}
+    fields_desc = [
+        FieldLenField("nauth", None, count_of="auth", fmt='B'),
+        FieldListField("auth", [], ByteEnumField("", 0, _socks5_auth_methods), count_from=lambda pkt: pkt.nauth)
+    ]
+
+
+class SOCKS5ServerChoice(Packet):
+    name = "SOCKS 5 - Server Choice"
+    overload_fields = {SOCKS: {"vn": 0x5}}
+    fields_desc = [
+        ByteEnumField("cauth", None, _socks5_auth_methods)
+    ]
+
+
+# SOCKS v5 - TCP
 
 _socks5_cdtypes = {
     1: "Connect",
