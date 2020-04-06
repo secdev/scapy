@@ -1031,6 +1031,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
             self.endian + "HHIIII", hdr
         )
         self.linktype = linktype
+        self.snaplen = snaplen
 
     def __iter__(self):
         return self
@@ -1331,7 +1332,7 @@ class RawPcapWriter:
     """A stream PCAP writer with more control than wrpcap()"""
 
     def __init__(self, filename, linktype=None, gz=False, endianness="",
-                 append=False, sync=False, nano=False):
+                 append=False, sync=False, nano=False, snaplen=MTU):
         """
         :param filename: the name of the file to write packets to, or an open,
             writable file-like object.
@@ -1348,6 +1349,7 @@ class RawPcapWriter:
         """
 
         self.linktype = linktype
+        self.snaplen = snaplen
         self.header_present = 0
         self.append = append
         self.gz = gz
@@ -1381,7 +1383,7 @@ class RawPcapWriter:
                 return
 
         self.f.write(struct.pack(self.endian + "IHHIIII", 0xa1b23c4d if self.nano else 0xa1b2c3d4,  # noqa: E501
-                                 2, 4, 0, 0, MTU, self.linktype))
+                                 2, 4, 0, 0, self.snaplen, self.linktype))
         self.f.flush()
 
     def write(self, pkt):
