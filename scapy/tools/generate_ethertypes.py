@@ -4,8 +4,8 @@
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>
 # This program is published under a GPLv2 license
 
-"""Generate the ethertypes file (/etc/ethertypes)
-based on the OpenBSD source.
+"""Generate the ethertypes file (/etc/ethertypes) based on the OpenBSD source
+https://github.com/openbsd/src/blob/master/sys/net/ethertypes.h
 
 It allows to have a file with the format of
 http://git.netfilter.org/ebtables/plain/ethertypes
@@ -33,10 +33,16 @@ COMPILED = b"""#
 # <name>    <hexnumber> <alias1>...<alias35> #Comment
 #
 """
+ALIASES = {
+    b"IP": b"IPv4",
+    b"IPV6": b"IPv6"
+}
+
 for line in DATA.split(b"\n"):
     match = re.match(reg, line)
     if match:
-        name = match.group(1).ljust(16)
+        name = match.group(1)
+        name = ALIASES.get(name, name).ljust(16)
         number = match.group(2).upper()
         comment = match.group(3).strip()
         compiled_line = (b"%b%b" + b" " * 25 + b"# %b\n") % (
@@ -44,5 +50,10 @@ for line in DATA.split(b"\n"):
         )
         COMPILED += compiled_line
 
-with open("ethertypes", "wb") as output:
-    print("Written: %s" % output.write(COMPILED))
+with open("../libs/ethertypes.py", "rb") as inp:
+    data = inp.read()
+
+with open("../libs/ethertypes.py", "wb") as out:
+    ini, sep, _ = data.partition(b"DATA = b\"\"\"")
+    COMPILED = ini + sep + b"\n" + COMPILED + b"\"\"\"\n"
+    print("Written: %s" % out.write(COMPILED))
