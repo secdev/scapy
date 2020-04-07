@@ -272,7 +272,6 @@ def parse_config_file(config_path, verb=3):
       "dump": 0,
       "docs": 0,
       "crc": true,
-      "scapy": "scapy",
       "preexec": {},
       "global_preexec": "",
       "outputfile": null,
@@ -300,7 +299,6 @@ def parse_config_file(config_path, verb=3):
                  verb=get_if_exist("verb", 3),
                  dump=get_if_exist("dump", 0), crc=get_if_exist("crc", 1),
                  docs=get_if_exist("docs", 0),
-                 scapy=get_if_exist("scapy", "scapy"),
                  preexec=get_if_exist("preexec", {}),
                  global_preexec=get_if_exist("global_preexec", ""),
                  outfile=get_if_exist("outputfile", sys.stdout),
@@ -515,6 +513,12 @@ def import_UTscapy_tools(ses):
     """Adds UTScapy tools directly to a session"""
     ses["retry_test"] = retry_test
     ses["Bunch"] = Bunch
+    if WINDOWS:
+        from scapy.arch.windows import _route_add_loopback, IFACES
+        _route_add_loopback()
+        ses["IFACES"] = IFACES
+        ses["conf"].route.routes = conf.route.routes
+        ses["conf"].route6.routes = conf.route6.routes
 
 
 def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=False, verb=3, ignore_globals=None):  # noqa: E501
@@ -1010,10 +1014,6 @@ def main():
                 six.moves.builtins.__dict__.update(mod.__dict__)
             except ImportError as e:
                 raise getopt.GetoptError("cannot import [%s]: %s" % (m, e))
-
-        if WINDOWS:
-            from scapy.arch.windows import _route_add_loopback
-            _route_add_loopback()
 
         # Add SCAPY_ROOT_DIR environment variable, used for tests
         os.environ['SCAPY_ROOT_DIR'] = os.environ.get("PWD", os.getcwd())
