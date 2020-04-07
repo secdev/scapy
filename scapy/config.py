@@ -514,72 +514,44 @@ def _loglevel_changer(attr, val):
 class Conf(ConfClass):
     """
     This object contains the configuration of Scapy.
-
-    Attributes:
-        session: filename where the session will be saved
-        interactive_shell : can be "ipython", "python" or "auto". Default: Auto
-        stealth: if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
-        checkIPID: if 0, doesn't check that IPID matches between IP sent and
-            ICMP IP citation received
-            if 1, checks that they either are equal or byte swapped
-            equals (bug in some IP stacks)
-            if 2, strictly checks that they are equals
-        checkIPsrc: if 1, checks IP src in IP and ICMP IP citation match
-            (bug in some NAT stacks)
-        checkIPinIP: if True, checks that IP-in-IP layers match. If False, do
-            not check IP layers that encapsulates another IP layer
-        check_TCPerror_seqack: if 1, also check that TCP seq and ack match the
-            ones in ICMP citation
-        iff: selects the default output interface for srp() and sendp().
-        verb: level of verbosity, from 0 (almost mute) to 3 (verbose)
-        promisc: default mode for listening socket (to get answers if you
-            spoof on a lan)
-        sniff_promisc: default mode for sniff()
-        filter: bpf filter added to every sniffing socket to exclude traffic
-            from analysis
-        histfile: history file
-        padding: includes padding in disassembled packets
-        except_filter : BPF filter for packets to ignore
-        debug_match: when 1, store received packet that are not matched into
-            `debug.recv`
-        route: holds the Scapy routing table and provides methods to
-            manipulate it
-        warning_threshold : how much time between warnings from the same place
-        ASN1_default_codec: Codec used by default for ASN1 objects
-        mib: holds MIB direct access dictionary
-        resolve: holds list of fields for which resolution should be done
-        noenum: holds list of enum fields for which conversion to string
-            should NOT be done
-        AS_resolver: choose the AS resolver class to use
-        extensions_paths: path or list of paths where extensions are to be
-                           looked for
-        contribs: a dict which can be used by contrib layers to store local
-            configuration
-        debug_tls: When 1, print some TLS session secrets
-            when they are computed.
-        recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
-        raise_no_dst_mac: When True, raise exception if no dst MAC found
-            otherwise broadcast. Default is False.
     """
     version = ReadOnlyAttribute("version", VERSION)
-    session = ""
+    session = ""  #: filename where the session will be saved
     interactive = False
+    #: can be "ipython", "python" or "auto". Default: Auto
     interactive_shell = ""
+    #: if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
     stealth = "not implemented"
+    #: selects the default output interface for srp() and sendp().
     iface = None
     layers = LayersList()
     commands = CommandsList()
+    ASN1_default_codec = None  #: Codec used by default for ASN1 objects
+    AS_resolver = None  #: choose the AS resolver class to use
     dot15d4_protocol = None  # Used in dot15d4.py
     logLevel = Interceptor("logLevel", log_scapy.level, _loglevel_changer)
+    #: if 0, doesn't check that IPID matches between IP sent and
+    #: ICMP IP citation received
+    #: if 1, checks that they either are equal or byte swapped
+    #: equals (bug in some IP stacks)
+    #: if 2, strictly checks that they are equals
     checkIPID = False
+    #: if 1, checks IP src in IP and ICMP IP citation match
+    #: (bug in some NAT stacks)
     checkIPsrc = True
     checkIPaddr = True
+    #: if True, checks that IP-in-IP layers match. If False, do
+    #: not check IP layers that encapsulates another IP layer
     checkIPinIP = True
+    #: if 1, also check that TCP seq and ack match the
+    #: ones in ICMP citation
     check_TCPerror_seqack = False
-    verb = 2
+    verb = 2  #: level of verbosity, from 0 (almost mute) to 3 (verbose)
     prompt = Interceptor("prompt", ">>> ", _prompt_changer)
+    #: default mode for listening socket (to get answers if you
+    #: spoof on a lan)
     promisc = True
-    sniff_promisc = 1
+    sniff_promisc = 1  #: default mode for sniff()
     raw_layer = None
     raw_summary = False
     default_l2 = None
@@ -592,27 +564,48 @@ class Conf(ConfClass):
     BTsocket = None
     USBsocket = None
     min_pkt_size = 60
+    mib = None  #: holds MIB direct access dictionary
     bufsize = 2**16
+    #: history file
     histfile = os.getenv('SCAPY_HISTFILE',
                          os.path.join(os.path.expanduser("~"),
                                       ".scapy_history"))
+    #: includes padding in disassembled packets
     padding = 1
+    #: BPF filter for packets to ignore
     except_filter = ""
+    #: bpf filter added to every sniffing socket to exclude traffic
+    #: from analysis
+    filter = ""
+    #: when 1, store received packet that are not matched into `debug.recv`
     debug_match = False
+    #: When 1, print some TLS session secrets when they are computed.
     debug_tls = False
     wepkey = ""
     cache_iflist = {}
+    #: holds the Scapy IPv4 routing table and provides methods to
+    #: manipulate it
     route = None  # Filed by route.py
+    #: holds the Scapy IPv6 routing table and provides methods to
+    #: manipulate it
     route6 = None  # Filed by route6.py
     auto_fragment = True
+    #: raise exception when a packet dissector raises an exception
     debug_dissector = False
     color_theme = Interceptor("color_theme", NoTheme(), _prompt_changer)
+    #: how much time between warnings from the same place
     warning_threshold = 5
     prog = ProgPath()
+    #: holds list of fields for which resolution should be done
     resolve = Resolve()
+    #: holds list of enum fields for which conversion to string
+    #: should NOT be done
     noenum = Resolve()
     emph = Emphasize()
+    #: read only attribute to show if PyPy is in use
     use_pypy = ReadOnlyAttribute("use_pypy", isPyPy())
+    #: use libpcap integration or not. Changing this value will update
+    #: the conf.L[2/3] sockets
     use_pcap = Interceptor(
         "use_pcap",
         os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y"),
@@ -621,6 +614,7 @@ class Conf(ConfClass):
     use_bpf = Interceptor("use_bpf", False, _socket_changer)
     use_npcap = False
     ipv6_enabled = socket.has_ipv6
+    #: path or list of paths where extensions are to be looked for
     extensions_paths = "."
     stats_classic_protocols = []
     stats_dot11_protocols = []
@@ -635,12 +629,18 @@ class Conf(ConfClass):
                    'netflow', 'ntp', 'ppi', 'ppp', 'pptp', 'radius', 'rip',
                    'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'snmp',
                    'tftp', 'vrrp', 'vxlan', 'x509', 'zigbee']
+    #: a dict which can be used by contrib layers to store local
+    #: configuration
     contribs = dict()
     crypto_valid = isCryptographyValid()
     crypto_valid_advanced = isCryptographyAdvanced()
     fancy_prompt = True
     auto_crop_tables = True
+    #: how often to check for new packets.
+    #: Defaults to 0.05s.
     recv_poll_rate = 0.05
+    #: When True, raise exception if no dst MAC found otherwise broadcast.
+    #: Default is False.
     raise_no_dst_mac = False
 
     def __getattr__(self, attr):
