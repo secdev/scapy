@@ -55,6 +55,7 @@ if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes
 
+
 ###############################################################################
 #   Generic TLS Handshake message                                             #
 ###############################################################################
@@ -295,6 +296,10 @@ class TLSClientHello(_TLSHandshake):
 
         s = self.tls_session
         s.advertised_tls_version = self.version
+        # This ClientHello could be a 1.3 one. Let's store the sid
+        # in all cases
+        if self.sidlen and self.sidlen > 0:
+            s.sid = self.sid
         self.random_bytes = msg_str[10:38]
         s.client_random = (struct.pack('!I', self.gmt_unix_time) +
                            self.random_bytes)
@@ -306,7 +311,6 @@ class TLSClientHello(_TLSHandshake):
             for e in self.ext:
                 if isinstance(e, TLS_Ext_SupportedVersion_CH):
                     s.advertised_tls_version = e.versions[0]
-
                 if isinstance(e, TLS_Ext_SignatureAlgorithms):
                     s.advertised_sig_algs = e.sig_algs
 
@@ -1059,6 +1063,7 @@ class TLS13CertificateRequest(_TLSHandshake):
 ###############################################################################
 #   ServerHelloDone                                                           #
 ###############################################################################
+
 
 class TLSServerHelloDone(_TLSHandshake):
     name = "TLS Handshake - Server Hello Done"

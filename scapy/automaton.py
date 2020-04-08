@@ -698,7 +698,10 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     # Services
     def debug(self, lvl, msg):
         if self.debug_level >= lvl:
-            log_interactive.debug(msg)
+            if conf.interactive:
+                log_interactive.debug(msg)
+            else:
+                print(msg)
 
     def send(self, pkt):
         if self.state.state in self.interception_points:

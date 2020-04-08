@@ -7,6 +7,7 @@
 ############
 ############
 + TLS server automaton tests
+~ server
 
 ### DISCLAIMER: Those tests are slow ###
 
@@ -60,15 +61,17 @@ def check_output_for_data(out, err, expected_data):
     else:
         return (False, None)
 
+def get_file(filename):
+    return os.getenv("SCAPY_ROOT_DIR")+filename if not os.path.exists(filename) else filename
+
+
 def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=False):
     correct = False
     print("Server started !")
     with captured_output() as (out, err):
         # Prepare automaton
-        filename = "/test/tls/pki/srv_cert.pem"
-        mycert = os.getenv("SCAPY_ROOT_DIR")+filename if not os.path.exists(filename) else filename
-        filename = "/test/tls/pki/srv_key.pem"
-        mykey = os.getenv("SCAPY_ROOT_DIR")+filename if not os.path.exists(filename) else filename
+        mycert = get_file("/test/tls/pki/srv_cert.pem")
+        mykey = get_file("/test/tls/pki/srv_key.pem")
         print(os.environ["SCAPY_ROOT_DIR"])
         print(mykey)
         print(mycert)
@@ -100,18 +103,27 @@ def test_tls_server(suite="", version="", tls13=False, client_auth=False):
     q_.get()
     time.sleep(1)
     # Run client
-    filename = "/test/tls/pki/ca_cert.pem"
-    filename = os.getenv("SCAPY_ROOT_DIR")+filename if not os.path.exists(filename) else filename
-    CA_f = os.path.abspath(filename)
+    CA_f = get_file("/test/tls/pki/ca_cert.pem")
+    mycert = get_file("/test/tls/pki/cli_cert.pem")
+    mykey = get_file("/test/tls/pki/cli_key.pem")
+    args = [
+        "openssl", "s_client",
+        "-connect", "127.0.0.1:4433", "-debug",
+        "-ciphersuites" if tls13 else "-cipher", suite,
+        version,
+        "-CAfile", CA_f
+    ]
+    if client_auth:
+        args.extend(["-cert", mycert, "-key", mykey])
     p = subprocess.Popen(
-        ["openssl", "s_client", "-connect", "127.0.0.1:4433", "-debug", "-ciphersuites" if tls13 else "-cipher", suite, version, "-CAfile", CA_f],
+        args,
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     msg += b"\nstop_server\n"
     out = p.communicate(input=msg)[0]
     print(out.decode())
     if p.returncode != 0:
-        raise RuntimeError("OpenSSL returned with error code")
+        raise RuntimeError("OpenSSL returned with error code %s" % p.returncode)
     else:
         p = re.compile(br'verify return:(\d+)')
         _failed = False
@@ -165,6 +177,7 @@ test_tls_server("TLS_AES_256_GCM_SHA384", "-tls1_3", tls13=True)
 test_tls_server("TLS_AES_256_GCM_SHA384", "-tls1_3", tls13=True, client_auth=True)
 
 + TLS client automaton tests
+~ client
 
 = Load client utils functions
 
@@ -177,16 +190,18 @@ from scapy.modules.six.moves.queue import Queue
 
 send_data = cipher_suite_code = version = None
 
-def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None):
+def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None, client_auth=False):
     print("Loading client...")
+    mycert = get_file("/test/tls/pki/cli_cert.pem") if client_auth else None
+    mykey = get_file("/test/tls/pki/cli_key.pem") if client_auth else None
     if version == "0002":
-        t = TLSClientAutomaton(data=[send_data, b"stop_server", b"quit"], version="sslv2", debug=5)
+        t = TLSClientAutomaton(data=[send_data, b"stop_server", b"quit"], version="sslv2", debug=5, mycert=mycert, mykey=mykey)
     elif version == "0304":
         ch = TLS13ClientHello(ciphers=int(cipher_suite_code, 16))
-        t = TLSClientAutomaton(client_hello=ch, data=[send_data, b"stop_server", b"quit"], version="tls13", debug=5)
+        t = TLSClientAutomaton(client_hello=ch, data=[send_data, b"stop_server", b"quit"], version="tls13", debug=5, mycert=mycert, mykey=mykey)
     else:
         ch = TLSClientHello(version=int(version, 16), ciphers=int(cipher_suite_code, 16))
-        t = TLSClientAutomaton(client_hello=ch, data=[send_data, b"stop_server", b"quit"], debug=5)
+        t = TLSClientAutomaton(client_hello=ch, data=[send_data, b"stop_server", b"quit"], debug=5, mycert=mycert, mykey=mykey)
     print("Running client...")
     t.run()
 
@@ -204,7 +219,7 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False)
     time.sleep(1)
     print("Thread synchronised")
     # Run client
-    run_tls_test_client(msg, suite, version)
+    run_tls_test_client(msg, suite, version, client_auth)
     # Wait for server
     print("Client running, waiting...")
     th_.join(5)
