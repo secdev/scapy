@@ -879,7 +879,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                 c = 0x1301
             else:
                 c = self.ciphersuite
-            p = TLS13ClientHello(ciphers=self.ciphersuite, ext=ext)
+            p = TLS13ClientHello(ciphers=c, ext=ext)
         self.add_msg(p)
         raise self.TLS13_ADDED_CLIENTHELLO()
 
@@ -1097,7 +1097,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     def TLS13_ADDED_CERTIFICATEVERIFY(self):
         return self.tls13_should_add_ClientFinished()
 
-    @ATMT.condition(TLS13_PREPARE_CLIENTFLIGHT2)
+    @ATMT.condition(TLS13_PREPARE_CLIENTFLIGHT2, prio=2)
     def tls13_should_add_ClientFinished(self):
         self.add_msg(TLSFinished())
         raise self.TLS13_ADDED_CLIENTFINISHED()

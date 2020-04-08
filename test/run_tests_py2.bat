@@ -9,4 +9,3 @@ if [%1]==[] (
 ) else (
   python "%MYDIR%\scapy\tools\UTscapy.py" %*
 )
-PAUSE

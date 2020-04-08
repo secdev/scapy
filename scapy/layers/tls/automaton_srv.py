@@ -641,6 +641,27 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.condition(tls13_ADDED_SERVERFINISHED)
     def tls13_should_send_ServerFlight1(self):
         self.flush_records()
+        raise self.tls13_HANDLED_SERVERFLIGHT1()
+
+    @ATMT.state()
+    def tls13_HANDLED_SERVERFLIGHT1(self):
+        pass
+
+    @ATMT.condition(tls13_HANDLED_SERVERFLIGHT1, prio=1)
+    def tls13_should_handle_ChangeCipherSpec(self):
+        self.raise_on_packet(TLSChangeCipherSpec,
+                             self.tls13_HANDLED_CHANGECIPHERSPEC)
+
+    @ATMT.state()
+    def tls13_HANDLED_CHANGECIPHERSPEC(self):
+        pass
+
+    @ATMT.condition(tls13_HANDLED_SERVERFLIGHT1, prio=2)
+    def tls13_missing_ChangeCipherSpec(self):
+        raise self.tls13_WAITING_CLIENTFLIGHT2()
+
+    @ATMT.condition(tls13_HANDLED_CHANGECIPHERSPEC)
+    def tls13_should_wait_ClientFlight2(self):
         raise self.tls13_WAITING_CLIENTFLIGHT2()
 
     @ATMT.state()
@@ -650,19 +671,19 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def tls13_RECEIVED_CLIENTFLIGHT2(self):
-        print("tls13_RECEIVED_CLIENTFLIGHT2")
         pass
 
     @ATMT.condition(tls13_RECEIVED_CLIENTFLIGHT2, prio=1)
     def tls13_should_handle_ClientFlight2(self):
-        print("tls13_should_handle_ClientFinished")
+        self.raise_on_packet(TLS13Certificate,
+                             self.TLS13_HANDLED_CLIENTCERTIFICATE)
+
+    @ATMT.condition(tls13_RECEIVED_CLIENTFLIGHT2, prio=2)
+    def tls13_no_ClientCertificate(self):
         if self.client_auth:
-            print("raise_on_packet(TLS13Certificate")
-            self.raise_on_packet(TLS13Certificate,
-                                 self.TLS13_HANDLED_CLIENTCERTIFICATE)
-        else:
-            self.raise_on_packet(TLSFinished,
-                                 self.TLS13_HANDLED_CLIENTFINISHED)
+            raise self.TLS13_MISSING_CLIENTCERTIFICATE()
+        self.raise_on_packet(TLSFinished,
+                             self.TLS13_HANDLED_CLIENTFINISHED)
 
     # RFC8446, section 4.4.2.4 :
     # "If the client does not send any certificates (i.e., it sends an empty
@@ -674,9 +695,9 @@ class TLSServerAutomaton(_TLSAutomaton):
     def TLS13_HANDLED_CLIENTCERTIFICATE(self):
         if self.client_auth:
             self.vprint("Received client certificate chain...")
-            self.vprint(self.cur_pkt.show())
             if isinstance(self.cur_pkt, TLS13Certificate):
                 if self.cur_pkt.certslen == 0:
+                    self.vprint("but it's empty !")
                     raise self.TLS13_MISSING_CLIENTCERTIFICATE()
 
     @ATMT.condition(TLS13_HANDLED_CLIENTCERTIFICATE)
@@ -699,11 +720,15 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.raise_on_packet(TLSFinished,
                              self.TLS13_HANDLED_CLIENTFINISHED)
 
-    # TODO : change alert code
     @ATMT.state()
     def TLS13_MISSING_CLIENTCERTIFICATE(self):
         self.vprint("Missing ClientCertificate!")
-        raise self.CLOSE_NOTIFY()
+        self.add_record()
+        self.add_msg(TLSAlert(level=2, descr=0x74))
+        self.flush_records()
+        self.vprint("Sending TLSAlert 116")
+        self.socket.close()
+        raise self.WAITING_CLIENT()
 
     @ATMT.state()
     def TLS13_HANDLED_CLIENTFINISHED(self):
