@@ -14,7 +14,9 @@
 
 from __future__ import print_function
 
-import sys, os, re, time, multiprocessing, subprocess
+import sys, os, re, time, subprocess
+from scapy.modules.six.moves.queue import Queue
+import threading
 
 from ast import literal_eval
 import os
@@ -58,7 +60,7 @@ def check_output_for_data(out, err, expected_data):
     else:
         return (False, None)
 
-def run_tls_test_server(expected_data, q, curve=None, cookie=False):
+def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=False):
     correct = False
     print("Server started !")
     with captured_output() as (out, err):
@@ -76,6 +78,7 @@ def run_tls_test_server(expected_data, q, curve=None, cookie=False):
                                mykey=mykey,
                                curve=curve,
                                cookie=cookie,
+                               client_auth=client_auth,
                                debug=5)
         # Sync threads
         q.put(True)
@@ -86,11 +89,12 @@ def run_tls_test_server(expected_data, q, curve=None, cookie=False):
     # Return data
     q.put(res)
 
-def test_tls_server(suite="", version=""):
+def test_tls_server(suite="", version="", tls13=False, client_auth=False):
     msg = ("TestS_%s_data" % suite).encode()
     # Run server
-    q_ = multiprocessing.Manager().Queue()
-    th_ = multiprocessing.Process(target=run_tls_test_server, args=(msg, q_))
+    q_ = Queue()
+    th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_, None, False, client_auth))
+    th_.setDaemon(True)
     th_.start()
     # Synchronise threads
     q_.get()
@@ -100,14 +104,13 @@ def test_tls_server(suite="", version=""):
     filename = os.getenv("SCAPY_ROOT_DIR")+filename if not os.path.exists(filename) else filename
     CA_f = os.path.abspath(filename)
     p = subprocess.Popen(
-        ["openssl", "s_client", "-connect", "127.0.0.1:4433", "-debug", "-cipher", suite, version, "-CAfile", CA_f],
+        ["openssl", "s_client", "-connect", "127.0.0.1:4433", "-debug", "-ciphersuites" if tls13 else "-cipher", suite, version, "-CAfile", CA_f],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     msg += b"\nstop_server\n"
     out = p.communicate(input=msg)[0]
     print(out.decode())
     if p.returncode != 0:
-        th_.terminate()
         raise RuntimeError("OpenSSL returned with error code")
     else:
         p = re.compile(br'verify return:(\d+)')
@@ -120,12 +123,10 @@ def test_tls_server(suite="", version=""):
             else:
                 _one_success = True
         if _failed or not _one_success:
-            th_.terminate()
             raise RuntimeError("OpenSSL returned unexpected values")
     # Wait for server
     th_.join(5)
     if th_.is_alive():
-        th_.terminate()
         raise RuntimeError("Test timed out")
     # Analyse values
     if q_.empty():
@@ -133,25 +134,35 @@ def test_tls_server(suite="", version=""):
     print(q_.get())
 
 
-#= Testing TLS server with TLS 1.0 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
-#~ open_ssl_client
+= Testing TLS server with TLS 1.0 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+~ open_ssl_client
 
-#test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1")
+test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1")
 
-#= Testing TLS server with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
-#~ open_ssl_client
+= Testing TLS server with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+~ open_ssl_client
 
-#test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1_1")
+test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1_1")
 
-#= Testing TLS server with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_CBC_SHA256
-#~ open_ssl_client
+= Testing TLS server with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_CBC_SHA256
+~ open_ssl_client
 
-#test_tls_server("DHE-RSA-AES128-SHA256", "-tls1_2")
+test_tls_server("DHE-RSA-AES128-SHA256", "-tls1_2")
 
-#= Testing TLS server with TLS 1.2 and TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-#~ open_ssl_client
+= Testing TLS server with TLS 1.2 and TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+~ open_ssl_client
 
-#test_tls_server("ECDHE-RSA-AES256-GCM-SHA384", "-tls1_2")
+test_tls_server("ECDHE-RSA-AES256-GCM-SHA384", "-tls1_2")
+
+= Testing TLS server with TLS 1.3 and TLS_AES_256_GCM_SHA384
+~ open_ssl_client
+
+test_tls_server("TLS_AES_256_GCM_SHA384", "-tls1_3", tls13=True)
+
+= Testing TLS server with TLS 1.3 and TLS_AES_256_GCM_SHA384 and client auth
+~ open_ssl_client
+
+test_tls_server("TLS_AES_256_GCM_SHA384", "-tls1_3", tls13=True, client_auth=True)
 
 + TLS client automaton tests
 
@@ -179,12 +190,12 @@ def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None):
     print("Running client...")
     t.run()
 
-def test_tls_client(suite, version):
+def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False):
     msg = ("TestC_%s_data" % suite).encode()
     # Run server
     q_ = Queue()
     print("Starting server...")
-    th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_))
+    th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_, curve, cookie, client_auth))
     th_.setDaemon(True)
     th_.start()
     # Synchronise threads
@@ -203,42 +214,6 @@ def test_tls_client(suite, version):
     if q_.empty():
         raise RuntimeError("Missing return value")
     return q_.get(timeout=5)
-
-
-def test_tls13_client(suite, retry=False):
-    msg = ("TestC_%s_data" % suite).encode()
-    # Run server
-    q_ = Queue()
-    print("Starting server...")
-    if retry:
-        # Run a server that support only secp256r1 and use cookie mechanism.
-        # It will send a HelloRetryRequest in response to a ClientHello
-        # with x25519 as default group.
-        curve = "secp256r1"
-        cookie = True
-        th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_, curve, cookie))
-    else:
-        th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_))
-    th_.setDaemon(True)
-    th_.start()
-    # Synchronise threads
-    print("Syncrhonising...")
-    assert q_.get(timeout=5) is True
-    time.sleep(1)
-    print("Thread synchronised")
-    # Run client
-    run_tls_test_client(msg, suite, "0304")
-    # Wait for server
-    print("Client running, waiting...")
-    th_.join(5)
-    if th_.is_alive():
-        raise RuntimeError("Test timed out")
-    # Return values
-    if q_.empty():
-        raise RuntimeError("Missing return value")
-    return q_.get(timeout=5)
-
-
 
 = Testing TLS server and client with SSLv2 and SSL_CK_DES_192_EDE3_CBC_WITH_MD5
 
@@ -281,4 +256,9 @@ test_tls_client("1305", "0304")
 = Testing TLS server and client with TLS 1.3 and a retry
 ~ crypto_advanced
 
-test_tls13_client("1302", retry=True)
+test_tls_client("1302", "0304", curve="secp256r1", cookie=True)
+
+= Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256 and client auth
+~ crypto_advanced
+
+test_tls_client("1305", "0304", client_auth=True)
