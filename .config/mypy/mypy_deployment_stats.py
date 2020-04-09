@@ -45,7 +45,7 @@ for f in ALL_FILES:
     l.append(f)
     MODULES[mod] = (e, l)
 
-print("*The numbers correspond to the ammount of files processed*")
+print("*The numbers correspond to the amount of files processed*")
 print("**MyPy Support: %.2f%%**" % (ENABLED / TOTAL * 100))
 for mod, dat in MODULES.items():
     print("- `%s`: %.2f%%" % (mod, dat[0] / len(dat[1]) * 100))
