@@ -6,8 +6,9 @@
 = Imports
 load_layer("can")
 conf.contribs['CAN']['swap-bytes'] = False
-import os, threading, six, subprocess, sys
+import os, subprocess, sys
 from subprocess import call
+import scapy.modules.six as six
 from scapy.contrib.isotp import send_multiple_ext, filter_periodic_packets, scan, scan_extended
 from scapy.consts import LINUX
 
@@ -20,7 +21,8 @@ iface1 = "vcan1"
 ISOTP_KERNEL_MODULE_AVAILABLE = False
 def exit_if_no_isotp_module():
     if not ISOTP_KERNEL_MODULE_AVAILABLE:
-        sys.stderr.write("TEST SKIPPED: can-isotp not available" + os.linesep)
+        err = "TEST SKIPPED: can-isotp not available\n"
+        sys.__stderr__.write(err)
         warning("Can't test ISOTP native socket because kernel module is not loaded")
         exit(0)
 
