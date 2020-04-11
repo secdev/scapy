@@ -1,4 +1,5 @@
 language: python
+dist: bionic  # OpenSSL 1.1.1
 cache:
   directories:
   - $HOME/.cache/pip
