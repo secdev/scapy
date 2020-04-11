@@ -14,7 +14,7 @@ jobs:
             - TOXENV=py27-linux_root,codecov
 
         - os: linux
-          python: pypy
+          python: pypy2
           env:
             - TOXENV=pypy-linux_root,codecov
 
