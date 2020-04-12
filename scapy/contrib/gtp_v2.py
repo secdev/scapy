@@ -23,10 +23,9 @@ import struct
 
 from scapy.compat import orb
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    ConditionalField, IntField, IPField, LongField, PacketField, \
+    ConditionalField, IntField, IPField, PacketField, FieldLenField, \
     PacketListField, ShortEnumField, ShortField, StrFixedLenField, \
-    StrLenField, ThreeBytesField, XBitField, XIntField, XShortField, \
-    FieldLenField
+    StrLenField, ThreeBytesField, XBitField, XIntField, XShortField
 from scapy.data import IANA_ENTERPRISE_NUMBERS
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.volatile import RandIP, RandShort
