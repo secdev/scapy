@@ -279,7 +279,8 @@ class IE_MEI(gtp.IE_Base):
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   LongField("MEI", 0)]
+                   gtp.TBCDByteField("MEI", "175675478970685",
+                                     length_from=lambda x: x.length)]
 
 
 def IE_Dispatcher(s):
@@ -733,28 +734,41 @@ class IE_MSISDN(gtp.IE_Base):
 class IE_Indication(gtp.IE_Base):
     name = "IE Indication"
     fields_desc = [ByteEnumField("ietype", 77, IEType),
-                   FieldLenField("length", None, length_of="length",
-                                 adjust=lambda pkt, x: len(pkt.payload) +
-                                 4, fmt="H"),
+                   FieldLenField("length", 8),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   BitField("DAF", 0, 1),
-                   BitField("DTF", 0, 1),
-                   BitField("HI", 0, 1),
-                   BitField("DFI", 0, 1),
-                   BitField("OI", 0, 1),
-                   BitField("ISRSI", 0, 1),
-                   BitField("ISRAI", 0, 1),
-                   BitField("SGWCI", 0, 1),
-                   BitField("SQCI", 0, 1),
-                   BitField("UIMSI", 0, 1),
-                   BitField("CFSI", 0, 1),
-                   BitField("CRSI", 0, 1),
-                   BitField("PS", 0, 1),
-                   BitField("PT", 0, 1),
-                   BitField("SI", 0, 1),
-                   BitField("MSV", 0, 1),
-
+                   ConditionalField(
+                       BitField("DAF", 0, 1), lambda pkt: pkt.length > 0),
+                   ConditionalField(
+                       BitField("DTF", 0, 1), lambda pkt: pkt.length > 0),
+                   ConditionalField(
+                       BitField("HI", 0, 1), lambda pkt: pkt.length > 0),
+                   ConditionalField(
+                       BitField("DFI", 0, 1), lambda pkt: pkt.length > 0),
+                   ConditionalField(
+                       BitField("OI", 0, 1), lambda pkt: pkt.length > 0),
+                   ConditionalField(
+                       BitField("ISRSI", 0, 1), lambda pkt: pkt.length > 0),
+                   ConditionalField(
+                       BitField("ISRAI", 0, 1), lambda pkt: pkt.length > 0),
+                   ConditionalField(
+                       BitField("SGWCI", 0, 1), lambda pkt: pkt.length > 0),
+                   ConditionalField(
+                       BitField("SQCI", 0, 1), lambda pkt: pkt.length > 1),
+                   ConditionalField(
+                       BitField("UIMSI", 0, 1), lambda pkt: pkt.length > 1),
+                   ConditionalField(
+                       BitField("CFSI", 0, 1), lambda pkt: pkt.length > 1),
+                   ConditionalField(
+                       BitField("CRSI", 0, 1), lambda pkt: pkt.length > 1),
+                   ConditionalField(
+                       BitField("PS", 0, 1), lambda pkt: pkt.length > 1),
+                   ConditionalField(
+                       BitField("PT", 0, 1), lambda pkt: pkt.length > 1),
+                   ConditionalField(
+                       BitField("SI", 0, 1), lambda pkt: pkt.length > 1),
+                   ConditionalField(
+                       BitField("MSV", 0, 1), lambda pkt: pkt.length > 1),
                    ConditionalField(
                        BitField("RetLoc", 0, 1), lambda pkt: pkt.length > 2),
                    ConditionalField(
@@ -1172,8 +1186,9 @@ class IE_ChargingCharacteristics(gtp.IE_Base):
 class IE_PDN_type(gtp.IE_Base):
     name = "IE PDN Type"
     fields_desc = [ByteEnumField("ietype", 99, IEType),
-                   FieldLenField("length", None, length_of="PDN_type",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    BitField("SPARE", 0, 5),
@@ -1215,8 +1230,9 @@ class IE_APN_Restriction(gtp.IE_Base):
 class IE_SelectionMode(gtp.IE_Base):
     name = "IE Selection Mode"
     fields_desc = [ByteEnumField("ietype", 128, IEType),
-                   FieldLenField("length", None, length_of="SelectionMode",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    BitField("SPARE", 0, 6),
