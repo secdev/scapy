@@ -160,7 +160,7 @@ class Route:
             aa = atol(a)
             if aa == atol_dst:
                 paths.append(
-                    (0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE, a, "0.0.0.0"))  # noqa: E501
+                    (0xffffffff, 1, (conf.loopback_name, a, "0.0.0.0"))  # noqa: E501
                 )
             if (atol_dst & m) == (d & m):
                 paths.append((m, me, (i, a, gw)))
@@ -168,7 +168,7 @@ class Route:
         if not paths:
             if verbose:
                 warning("No route found (no default route?)")
-            return scapy.consts.LOOPBACK_INTERFACE, "0.0.0.0", "0.0.0.0"
+            return conf.loopback_name, "0.0.0.0", "0.0.0.0"
         # Choose the more specific route
         # Sort by greatest netmask and use metrics as a tie-breaker
         paths.sort(key=lambda x: (-x[0], x[1]))
@@ -195,10 +195,7 @@ conf.route = Route()
 
 iface = conf.route.route(None, verbose=0)[0]
 
-# Warning: scapy.consts.LOOPBACK_INTERFACE must always be used statically, because it  # noqa: E501
-# may be changed by scapy/arch/windows during execution
-
-if getattr(iface, "name", iface) == scapy.consts.LOOPBACK_INTERFACE:
+if getattr(iface, "name", iface) == conf.loopback_name:
     from scapy.arch import get_working_if
     conf.iface = get_working_if()
 else:

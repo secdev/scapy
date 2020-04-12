@@ -114,6 +114,7 @@ class IGMP(Packet):
         adjusted to ensure correct formatting and assignment. The Ethernet header
         is then adjusted to the proper IGMP packet format.
         """
+        from scapy.contrib.igmpv3 import IGMPv3
         gaddr = self.gaddr if hasattr(self, "gaddr") and self.gaddr else "0.0.0.0"  # noqa: E501
         underlayer = self.underlayer
         if self.type not in [0x11, 0x30]:                               # General Rule 1  # noqa: E501
@@ -131,6 +132,8 @@ class IGMP(Packet):
                 underlayer.dst = "224.0.0.2"                           # IP rule 2  # noqa: E501
             elif ((self.type == 0x12) or (self.type == 0x16)) and (isValidMCAddr(gaddr)):  # noqa: E501
                 underlayer.dst = gaddr                                 # IP rule 3b  # noqa: E501
+            elif (self.type in [0x11, 0x22, 0x30, 0x31, 0x32] and isinstance(self, IGMPv3)):
+                pass
             else:
                 warning("Invalid IGMP Type detected !")
                 return False
@@ -141,7 +144,6 @@ class IGMP(Packet):
             if _root.haslayer(Ether):
                 # Force recalculate Ether dst
                 _root[Ether].dst = getmacbyip(underlayer.dst)          # Ether rule 1  # noqa: E501
-        from scapy.contrib.igmpv3 import IGMPv3
         if isinstance(self, IGMPv3):
             self.encode_maxrespcode()
         return True

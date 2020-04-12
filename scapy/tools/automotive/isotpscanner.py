@@ -29,7 +29,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-def usage():
+def usage(is_error):
     print('''usage:\tisotpscanner [-i interface] [-c channel]
                 [-a python-can_args] [-n NOISE_LISTEN_TIME] [-t SNIFF_TIME]
                 [-x|--extended] [-C|--piso] [-v|--verbose] [-h|--help]
@@ -68,7 +68,7 @@ def usage():
     python2 -m scapy.tools.automotive.isotpscanner --interface socketcan --channel=can0 --start 0 --end 100\n
     Python3 on Linux:
     python3 -m scapy.tools.automotive.isotpscanner --channel can0 --start 0 --end 100 \n''',  # noqa: E501
-          file=sys.stderr)
+          file=sys.stderr if is_error else sys.stdout)
 
 
 def main():
@@ -100,8 +100,8 @@ def main():
             elif opt in ('-C', '--piso'):
                 piso = True
             elif opt in ('-h', '--help'):
-                usage()
-                sys.exit(-1)
+                usage(False)
+                sys.exit(0)
             elif opt in ('-t', '--sniff_time'):
                 sniff_time = int(arg)
             elif opt in ('-n', '--noise_listen_time'):
@@ -119,7 +119,7 @@ def main():
             elif opt in '--extended_can_id':
                 extended_can_id = True
     except getopt.GetoptError as msg:
-        usage()
+        usage(True)
         print("ERROR:", msg, file=sys.stderr)
         raise SystemExit
 
@@ -127,25 +127,25 @@ def main():
             end is None or \
             channel is None or \
             (PYTHON_CAN and interface is None):
-        usage()
+        usage(True)
         print("\nPlease provide all required arguments.\n", file=sys.stderr)
-        sys.exit(-1)
+        sys.exit(1)
 
     if end >= 2**29 or start >= 2**29:
         print("Argument 'start' and 'end' must be < " + hex(2**29),
               file=sys.stderr)
-        sys.exit(-1)
+        sys.exit(1)
 
     if not extended_can_id and (end >= 0x800 or start >= 0x800):
         print("Standard can identifiers must be < 0x800.\n"
               "Use --extended_can_id option to scan with "
               "extended CAN identifiers.",
               file=sys.stderr)
-        sys.exit(-1)
+        sys.exit(1)
 
     if end < start:
         print("start must be equal or smaller than end.", file=sys.stderr)
-        sys.exit(-1)
+        sys.exit(1)
 
     sock = None
 
@@ -187,11 +187,11 @@ def main():
         print("Scan: \n%s" % result)
 
     except Exception as e:
-        usage()
+        usage(True)
         print("\nSocket couldn't be created. Check your arguments.\n",
               file=sys.stderr)
         print(e, file=sys.stderr)
-        sys.exit(-1)
+        sys.exit(1)
 
     finally:
         if sock is not None:

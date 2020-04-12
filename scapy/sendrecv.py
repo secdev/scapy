@@ -962,6 +962,10 @@ class AsyncSniffer(object):
                         p = read_func(s)
                     except EOFError:
                         # End of stream
+                        try:
+                            s.close()
+                        except Exception:
+                            pass
                         dead_sockets.append(s)
                         continue
                     except read_allowed_exceptions:

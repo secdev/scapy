@@ -16,7 +16,6 @@ Routing and network interface handling for IPv6.
 
 from __future__ import absolute_import
 import socket
-import scapy.consts
 from scapy.config import conf
 from scapy.utils6 import in6_ptop, in6_cidr2mask, in6_and, \
     in6_islladdr, in6_ismlladdr, in6_isincluded, in6_isgladdr, \
@@ -251,7 +250,7 @@ class Route6:
                     dev = ll_routes[0][3]
                 else:
                     # Fallback #3 - the loopback
-                    dev = scapy.consts.LOOPBACK_INTERFACE
+                    dev = conf.loopback_name
 
                 warning("The conf.iface interface (%s) does not support IPv6! "
                         "Using %s instead for routing!" % (conf.iface, dev))
@@ -279,12 +278,12 @@ class Route6:
 
         if not paths:
             if dst == "::1":
-                return (scapy.consts.LOOPBACK_INTERFACE, "::1", "::")
+                return (conf.loopback_name, "::1", "::")
             else:
                 if verbose:
                     warning("No route found for IPv6 destination %s "
                             "(no default route?)", dst)
-                return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
+                return (conf.loopback_name, "::", "::")
 
         # Sort with longest prefix first then use metrics as a tie-breaker
         paths.sort(key=lambda x: (-x[0], x[1]))
@@ -301,14 +300,14 @@ class Route6:
 
         if res == []:
             warning("Found a route for IPv6 destination '%s', but no possible source address.", dst)  # noqa: E501
-            return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
+            return (conf.loopback_name, "::", "::")
 
         # Symptom  : 2 routes with same weight (our weight is plen)
         # Solution :
         #  - dst is unicast global. Check if it is 6to4 and we have a source
         #    6to4 address in those available
         #  - dst is link local (unicast or multicast) and multiple output
-        #    interfaces are available. Take main one (conf.iface6)
+        #    interfaces are available. Take main one (conf.iface)
         #  - if none of the previous or ambiguity persists, be lazy and keep
         #    first one
 
@@ -320,7 +319,7 @@ class Route6:
                 tmp = [x for x in res if in6_isaddr6to4(x[2][1])]
             elif in6_ismaddr(dst) or in6_islladdr(dst):
                 # TODO : I'm sure we are not covering all addresses. Check that
-                tmp = [x for x in res if x[2][0] == conf.iface6]
+                tmp = [x for x in res if x[2][0] == conf.iface]
 
             if tmp:
                 res = tmp
@@ -335,7 +334,3 @@ class Route6:
 
 
 conf.route6 = Route6()
-try:
-    conf.iface6 = conf.route6.route(None)[0]
-except Exception:
-    pass

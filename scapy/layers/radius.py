@@ -18,7 +18,6 @@ from scapy.fields import ByteField, ByteEnumField, IntField, StrLenField,\
     PacketListField, IPField, MultiEnumField
 from scapy.layers.inet import UDP
 from scapy.layers.eap import EAP
-from scapy.utils import issubtype
 from scapy.config import conf
 from scapy.error import Scapy_Exception
 
@@ -257,19 +256,6 @@ class RadiusAttribute(Packet):
             return cls.registered_attributes.get(attr_type, cls)
         return cls
 
-    def haslayer(self, cls):
-        if cls == "RadiusAttribute":
-            if isinstance(self, RadiusAttribute):
-                return True
-        elif issubtype(cls, RadiusAttribute):
-            if isinstance(self, cls):
-                return True
-        return super(RadiusAttribute, self).haslayer(cls)
-
-    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
-        return super(RadiusAttribute, self).getlayer(cls, nb=nb, _track=_track,
-                                                     _subclass=True, **flt)
-
     def post_build(self, p, pay):
         length = self.len
         if length is None:
@@ -288,6 +274,7 @@ class _SpecificRadiusAttr(RadiusAttribute):
     """
 
     __slots__ = ["val"]
+    match_subclass = True
 
     def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):  # noqa: E501
         super(_SpecificRadiusAttr, self).__init__(
@@ -1031,6 +1018,7 @@ class RadiusAttr_EAP_Message(RadiusAttribute):
     """
 
     name = "EAP-Message"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("type", 79, _radius_attribute_types),
         FieldLenField(
@@ -1050,6 +1038,7 @@ class RadiusAttr_Vendor_Specific(RadiusAttribute):
     """
 
     name = "Vendor-Specific"
+    match_subclass = True
     fields_desc = [
         ByteEnumField("type", 26, _radius_attribute_types),
         FieldLenField(

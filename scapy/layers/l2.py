@@ -79,7 +79,7 @@ def getmacbyip(ip, chainCC=0):
     if (tmp[0] & 0xf0) == 0xe0:  # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1] & 0x7f, tmp[2], tmp[3])
     iff, _, gw = conf.route.route(ip)
-    if ((iff == consts.LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff))):  # noqa: E501
+    if ((iff == conf.loopback_name) or (ip == conf.route.get_if_bcast(iff))):  # noqa: E501
         return "ff:ff:ff:ff:ff:ff"
     if gw != "0.0.0.0":
         ip = gw
@@ -438,19 +438,6 @@ def l2_register_l3_arp(l2, l3):
 conf.neighbor.register_l3(Ether, ARP, l2_register_l3_arp)
 
 
-class ERSPAN(Packet):
-    name = "ERSPAN"
-    fields_desc = [BitField("ver", 0, 4),
-                   BitField("vlan", 0, 12),
-                   BitField("cos", 0, 3),
-                   BitField("en", 0, 2),
-                   BitField("t", 0, 1),
-                   BitField("session_id", 0, 10),
-                   BitField("reserved", 0, 12),
-                   BitField("index", 0, 20),
-                   ]
-
-
 class GRErouting(Packet):
     name = "GRE routing information"
     fields_desc = [ShortField("address_family", 0),
@@ -571,7 +558,6 @@ bind_layers(Ether, Dot1AD, type=0x88a8)
 bind_layers(Dot1AD, Dot1AD, type=0x88a8)
 bind_layers(Dot1AD, Dot1Q, type=0x8100)
 bind_layers(Dot1Q, Dot1AD, type=0x88a8)
-bind_layers(ERSPAN, Ether)
 bind_layers(Ether, Ether, type=1)
 bind_layers(Ether, ARP, type=2054)
 bind_layers(CookedLinux, LLC, proto=122)
@@ -585,7 +571,6 @@ bind_layers(GRE, Dot1Q, proto=33024)
 bind_layers(GRE, Dot1AD, type=0x88a8)
 bind_layers(GRE, Ether, proto=0x6558)
 bind_layers(GRE, ARP, proto=2054)
-bind_layers(GRE, ERSPAN, proto=0x88be, seqnum_present=1)
 bind_layers(GRE, GRErouting, {"routing_present": 1})
 bind_layers(GRErouting, conf.raw_layer, {"address_family": 0, "SRE_len": 0})
 bind_layers(GRErouting, GRErouting)

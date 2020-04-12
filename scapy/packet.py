@@ -1083,10 +1083,19 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             lyr = lyr.payload.getlayer(0, _subclass=True)
         return layers
 
-    def haslayer(self, cls):
-        """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""  # noqa: E501
-        if self.__class__ == cls or cls in [self.__class__.__name__,
-                                            self._name]:
+    def haslayer(self, cls, _subclass=None):
+        """
+        true if self has a layer that is an instance of cls.
+        Superseded by "cls in self" syntax.
+        """
+        if _subclass is None:
+            _subclass = self.match_subclass or None
+        if _subclass:
+            match = issubtype
+        else:
+            match = lambda cls1, cls2: cls1 == cls2
+        if cls is None or match(self.__class__, cls) \
+           or cls in [self.__class__.__name__, self._name]:
             return True
         for f in self.packetfields:
             fvalue_gen = self.getfieldval(f.name)
@@ -1096,10 +1105,10 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                 fvalue_gen = SetGen(fvalue_gen, _iterpacket=0)
             for fvalue in fvalue_gen:
                 if isinstance(fvalue, Packet):
-                    ret = fvalue.haslayer(cls)
+                    ret = fvalue.haslayer(cls, _subclass=_subclass)
                     if ret:
                         return ret
-        return self.payload.haslayer(cls)
+        return self.payload.haslayer(cls, _subclass=_subclass)
 
     def getlayer(self, cls, nb=1, _track=None, _subclass=None, **flt):
         """Return the nb^th layer that is an instance of cls, matching flt
@@ -1108,7 +1117,7 @@ values.
         if _subclass is None:
             _subclass = self.match_subclass or None
         if _subclass:
-            match = lambda cls1, cls2: issubclass(cls1, cls2)
+            match = issubtype
         else:
             match = lambda cls1, cls2: cls1 == cls2
         if isinstance(cls, int):
@@ -1607,7 +1616,7 @@ class NoPayload(Packet):
     def answers(self, other):
         return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)  # noqa: E501
 
-    def haslayer(self, cls):
+    def haslayer(self, cls, _subclass=None):
         return 0
 
     def getlayer(self, cls, nb=1, _track=None, **flt):
@@ -1696,10 +1705,10 @@ if conf.default_l2 is None:
 
 
 def bind_bottom_up(lower, upper, __fval=None, **fval):
-    """Bind 2 layers for dissection.
+    r"""Bind 2 layers for dissection.
     The upper layer will be chosen for dissection on top of the lower layer, if
-    ALL the passed arguments are validated. If multiple calls are made with the same  # noqa: E501
-    layers, the last one will be used as default.
+    ALL the passed arguments are validated. If multiple calls are made with
+    the same layers, the last one will be used as default.
 
     ex:
         >>> bind_bottom_up(Ether, SNAP, type=0x1234)
@@ -1714,8 +1723,8 @@ def bind_bottom_up(lower, upper, __fval=None, **fval):
 
 def bind_top_down(lower, upper, __fval=None, **fval):
     """Bind 2 layers for building.
-    When the upper layer is added as a payload of the lower layer, all the arguments  # noqa: E501
-    will be applied to them.
+    When the upper layer is added as a payload of the lower layer, all the
+    arguments will be applied to them.
 
     ex:
         >>> bind_top_down(Ether, SNAP, type=0x1234)

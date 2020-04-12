@@ -860,8 +860,10 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             self.debug(3, "Stopping control thread (tid=%i)" % self.threadid)
             self.threadid = None
             # Close sockets
-            self.listen_sock.close()
-            self.send_sock.close()
+            if self.listen_sock:
+                self.listen_sock.close()
+            if self.send_sock:
+                self.send_sock.close()
 
     def _do_iter(self):
         while True:

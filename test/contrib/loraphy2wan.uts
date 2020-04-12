@@ -1,0 +1,66 @@
+% Regression tests for Scapy
+
++Syntax check
+= Import the loraphy2wan layer
+
+from scapy.contrib.loraphy2wan import *
+from scapy.compat import raw
+
+# LoRa PHY to WAN
+
+############
+############
++ Basic tests
+
+* Those test are here mainly to check nothing has been broken
+
+= Packet decoding
+~ field
+
+p = b'\x00\x00\x00\x00lovecafemeeetoo\x00iiS\x02LI'
+pkt = LoRa(p)
+assert pkt.Join_Request_Field[0].DevEUI == b'meeetoo\x00'
+assert pkt.Join_Request_Field[0].DevNonce == 26985
+
+p = b'\x0f0P@\xad\x15\x00`\x80\x06\x00\t\xca\xfe\x0c\x1d\x8d\x04\\\xb5'
+pkt = LoRa(p)
+assert pkt.MType == 2
+assert pkt.DataPayload == b'\xca\xfe'
+assert pkt.FCnt == 6
+assert pkt.FPort == 9
+assert pkt.FCtrl[0].ADR == 1
+assert pkt.DevAddr[0].NwkID == 0xad
+assert pkt.DevAddr[0].NwkAddr == 0x600015
+
+p = b'\x0f0P\x80\xad\x15\x00`\x00\x01\x00\t\xca\xfe:\x98\x89|\x8f\xd4'
+pkt = LoRa(p)
+assert pkt.MType == 4
+
+= Decoding piggyback MAC Commands
+
+p = b'\r0\xc0\x80\xad\x15\x00`\x01\x01\x00\x02\xc0\xe3N\xb7\xc7\xae'
+pkt = LoRa(p)
+assert pkt.FOpts_up[0].CID == 2
+assert pkt.CRC == 0xc7ae
+
+= Decoding an encrypted JA packet
+
+LoRa.encrypted = True
+p = b'\x00\x00\x00 \x086\xe2\x87\xa9\x80\\\xb7\xee\x9e_\xff|\x9e\xe9z'
+pkt = LoRa(p)
+assert pkt.Join_Accept_Encrypted == b'6\xe2\x87\xa9\x80\\\xb7\xee\x9e_\xff|\x9e\xe9z'
+
+= Packet crafting: generating an unencrypted JA frame
+
+ja = Join_Accept()
+ja.JoinAppNonce=0x6fe14a
+ja.NetID = 0x10203
+ja.DevAddr = 0x68e8cb1
+assert raw(ja) == b'J\xe1o\x03\x02\x01\xb1\x8c\x8e\x06\x00\x00'
+
+= Generating an unencrypted LoRa JA packet
+
+LoRa.encrypted = False
+pkt = LoRa(MType=0b001)
+pkt.Join_Accept_Field = [ja]
+assert raw(pkt) == b'\x00\x00\x00 J\xe1o\x03\x02\x01\xb1\x8c\x8e\x06\x00\x00\x00\x00\x00\x00' 
