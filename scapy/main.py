@@ -418,6 +418,9 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
                 except IOError:
                     SESSION = six.moves.cPickle.load(open(session_name, "rb"))
                 log_loading.info("Using session [%s]" % session_name)
+            except ValueError:
+                msg = "Error opening Python3 pickled session on Python2 [%s]"
+                log_loading.error(msg % session_name)
             except EOFError:
                 log_loading.error("Error opening session [%s]" % session_name)
             except AttributeError:
