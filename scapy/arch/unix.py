@@ -14,7 +14,7 @@ import scapy.config
 import scapy.utils
 from scapy.arch import get_if_addr
 from scapy.config import conf
-from scapy.consts import FREEBSD, NETBSD, OPENBSD, SOLARIS, LOOPBACK_NAME
+from scapy.consts import FREEBSD, NETBSD, OPENBSD, SOLARIS
 from scapy.error import warning, log_interactive
 from scapy.pton_ntop import inet_pton
 from scapy.utils6 import in6_getscope, construct_source_candidate_set
@@ -339,7 +339,7 @@ def read_routes6():
             # Note: multicast routing is handled in Route6.route()
             continue
 
-        if LOOPBACK_NAME in dev:
+        if conf.loopback_name in dev:
             # Handle ::1 separately
             cset = ["::1"]
             next_hop = "::"

@@ -114,7 +114,10 @@ class _L2bpfSocket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self.ins, filter, self.iface)
+                try:
+                    attach_filter(self.ins, filter, self.iface)
+                except ImportError as ex:
+                    warning("Cannot set filter: %s" % ex)
 
         # Set the guessed packet class
         self.guessed_cls = self.guess_cls()

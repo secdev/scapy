@@ -272,7 +272,6 @@ def parse_config_file(config_path, verb=3):
       "dump": 0,
       "docs": 0,
       "crc": true,
-      "scapy": "scapy",
       "preexec": {},
       "global_preexec": "",
       "outputfile": null,
@@ -300,7 +299,6 @@ def parse_config_file(config_path, verb=3):
                  verb=get_if_exist("verb", 3),
                  dump=get_if_exist("dump", 0), crc=get_if_exist("crc", 1),
                  docs=get_if_exist("docs", 0),
-                 scapy=get_if_exist("scapy", "scapy"),
                  preexec=get_if_exist("preexec", {}),
                  global_preexec=get_if_exist("global_preexec", ""),
                  outfile=get_if_exist("outputfile", sys.stdout),
@@ -515,6 +513,12 @@ def import_UTscapy_tools(ses):
     """Adds UTScapy tools directly to a session"""
     ses["retry_test"] = retry_test
     ses["Bunch"] = Bunch
+    if WINDOWS:
+        from scapy.arch.windows import _route_add_loopback, IFACES
+        _route_add_loopback()
+        ses["IFACES"] = IFACES
+        ses["conf"].route.routes = conf.route.routes
+        ses["conf"].route6.routes = conf.route6.routes
 
 
 def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=False, verb=3, ignore_globals=None):  # noqa: E501
@@ -769,6 +773,7 @@ def usage():
 -qq\t\t: [silent mode]
 -x\t\t: use pyannotate
 -n <testnum>\t: only tests whose numbers are given (eg. 1,3-7,12)
+-N\t\t: force non root
 -m <module>\t: additional module to put in the namespace
 -k <kw1>,<kw2>,...\t: include only tests with one of those keywords (can be used many times)
 -K <kw1>,<kw2>,...\t: remove tests with one of those keywords (can be used many times)
@@ -860,6 +865,7 @@ def main():
     OUTPUTFILE = sys.stdout
     LOCAL = 0
     NUM = None
+    NON_ROOT = False
     KW_OK = []
     KW_KO = []
     DUMP = 0
@@ -875,7 +881,7 @@ def main():
     ANNOTATIONS_MODE = False
     INTERPRETER = False
     try:
-        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DRdCiFqP:s:x")
+        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DRdCiFqNP:s:x")
         for opt, optarg in opts[0]:
             if opt == "-h":
                 usage()
@@ -950,6 +956,8 @@ def main():
                     except ValueError:
                         v1, v2 = [int(e) for e in v.split('-', 1)]
                         NUM.extend(range(v1, v2 + 1))
+            elif opt == "-N":
+                NON_ROOT = True
             elif opt == "-m":
                 MODULES.append(optarg)
             elif opt == "-k":
@@ -965,7 +973,7 @@ def main():
             if VERB > 2:
                 print("### Python 2 mode ###")
         try:
-            if os.getuid() != 0:  # Non root
+            if NON_ROOT or os.getuid() != 0:  # Non root
                 # Discard root tests
                 KW_KO.append("netaccess")
                 KW_KO.append("needs_root")
@@ -1006,10 +1014,6 @@ def main():
                 six.moves.builtins.__dict__.update(mod.__dict__)
             except ImportError as e:
                 raise getopt.GetoptError("cannot import [%s]: %s" % (m, e))
-
-        if WINDOWS:
-            from scapy.arch.windows import route_add_loopback
-            route_add_loopback()
 
         # Add SCAPY_ROOT_DIR environment variable, used for tests
         os.environ['SCAPY_ROOT_DIR'] = os.environ.get("PWD", os.getcwd())

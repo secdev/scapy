@@ -1,9 +1,5 @@
 + RTR Serial Notify
 
-from scapy.consts import WINDOWS
-if WINDOWS:
-    route_add_loopback()
-
 = default instantiation
 
 pkt = IP()/TCP(dport=323)/RTRSerialNotify()

@@ -59,11 +59,19 @@ else:
             return x.encode()
         return bytes(x)
 
-    def plain_str(x):
-        """Convert basic byte objects to str"""
-        if isinstance(x, bytes):
-            return x.decode(errors="ignore")
-        return str(x)
+    if six.PY34:
+        def plain_str(x):
+            """Convert basic byte objects to str"""
+            if isinstance(x, bytes):
+                return x.decode(errors="ignore")
+            return str(x)
+    else:
+        # Python 3.5+
+        def plain_str(x):
+            """Convert basic byte objects to str"""
+            if isinstance(x, bytes):
+                return x.decode(errors="backslashreplace")
+            return str(x)
 
     def chb(x):
         """Same than chr() but encode as bytes."""

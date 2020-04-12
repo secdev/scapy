@@ -20,7 +20,6 @@ from scapy.arch.bpf.consts import BIOCSETF, SIOCGIFFLAGS, BIOCSETIF
 from scapy.arch.common import get_if, compile_filter
 from scapy.compat import plain_str
 from scapy.config import conf
-from scapy.consts import LOOPBACK_NAME
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
 from scapy.error import Scapy_Exception, warning
 from scapy.modules.six.moves import range
@@ -71,7 +70,7 @@ def get_if_raw_hwaddr(ifname):
     NULL_MAC_ADDRESS = b'\x00' * 6
 
     # Handle the loopback interface separately
-    if ifname == LOOPBACK_NAME:
+    if ifname == conf.loopback_name:
         return (ARPHDR_LOOPBACK, NULL_MAC_ADDRESS)
 
     # Get ifconfig output
@@ -164,7 +163,7 @@ def get_working_ifaces():
     for ifname in get_if_list():
 
         # Unlike pcap_findalldevs(), we do not care of loopback interfaces.
-        if ifname == LOOPBACK_NAME:
+        if ifname == conf.loopback_name:
             continue
 
         # Get interface flags
@@ -208,5 +207,5 @@ def get_working_if():
     ifaces = get_working_ifaces()
     if not ifaces:
         # A better interface will be selected later using the routing table
-        return LOOPBACK_NAME
+        return conf.loopback_name
     return ifaces[0]

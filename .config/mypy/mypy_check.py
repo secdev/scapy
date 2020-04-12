@@ -25,7 +25,9 @@ from mypy.main import main as mypy_main
 
 # Load files
 
-with io.open("./.config/mypy/mypy_enabled.txt") as fd:
+localdir = os.path.split(__file__)[0]
+
+with io.open(os.path.join(localdir, "mypy_enabled.txt")) as fd:
     FILES = [l.strip() for l in fd.readlines() if l.strip() and l[0] != "#"]
 
 if not FILES:
@@ -39,7 +41,7 @@ ARGS = [
     "--follow-imports=skip",
     "--config-file=" + os.path.abspath(
         os.path.join(
-            os.path.split(__file__)[0],
+            localdir,
             "mypy.ini"
         )
     )

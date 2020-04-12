@@ -323,10 +323,10 @@ with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
     p.add(src > sink)
     p.start()
     src.send(pkt)
-    time.sleep(3)
+    src.close()
     # Prevent stop from closing the BytesIO
     with mock.patch.object(f, 'close'):
-        p.stop()
+        p.wait_and_stop()
 
 popen.assert_called_once_with(
     [conf.prog.wireshark, '-ki', '-'], stdin=subprocess.PIPE, stdout=None,
@@ -348,10 +348,10 @@ with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
     p.add(src > sink)
     p.start()
     src.send(pkt)
-    time.sleep(3)
+    src.close()
     # Prevent stop from closing the BytesIO
     with mock.patch.object(f, 'close'):
-        p.stop()
+        p.wait_and_stop()
 
 popen.assert_called_once_with(
     [conf.prog.wireshark, '-ki', '-'],
@@ -378,10 +378,10 @@ with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
     p.add(src > sink)
     p.start()
     src.send(pkt)
-    time.sleep(3)
+    src.close()
     # Prevent stop from closing the BytesIO
     with mock.patch.object(f, 'close'):
-        p.stop()
+        p.wait_and_stop()
 
 popen.assert_called_once_with(
     [conf.prog.wireshark, '-ki', '-', '-c', '1'],
@@ -696,7 +696,7 @@ assert c.q.get(timeout=1) == "hello"
 p = PipeEngine()
 
 s = CLIFeeder()
-d1 = TCPConnectPipe(addr="www.secdev.org", port=80)
+d1 = TCPConnectPipe(addr="www.google.com", port=80)
 c = QueueSink()
 
 s > d1 > c
@@ -704,7 +704,8 @@ s > d1 > c
 p.add(s)
 p.start()
 
-s.send(b"GET / HTTP/1.1\nHost: www.secdev.org\n\n")
+from scapy.layers.http import HTTPRequest, HTTP
+s.send(bytes(HTTPRequest(Host="www.google.com")))
 result = c.q.get(timeout=10)
 p.stop()
 

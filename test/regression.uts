@@ -20,7 +20,7 @@ def expect_exception(e, c):
 conf
 
 IP().src
-scapy.consts.LOOPBACK_INTERFACE
+conf.loopback_name
 
 = Test module version detection
 ~ conf
@@ -173,9 +173,9 @@ def get_dummy_interface():
         data["ipv6_metric"] = 1
         data["mac"] = "00:00:00:00:00:00"
         data["ips"] = ["127.0.0.1", "::1"]
-        dummy_int = NetworkInterface(data)
-        dummy_int.pcap_name = "\\Device\\NPF_" + data["guid"]
-        return dummy_int
+        data["pcap_name"] = "\\Device\\NPF_" + data["guid"]
+        data["flags"] = 0
+        return NetworkInterface(data)
     else:
         return "dummy0"
 
@@ -185,13 +185,14 @@ get_if_list()
 
 get_working_if()
 
-get_if_raw_addr6(conf.iface6)
+get_if_raw_addr6(conf.iface)
 
 = Test read_routes6() - default output
 
 routes6 = read_routes6()
 if WINDOWS:
-    route_add_loopback(routes6, True)
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback(routes6, True)
 
 routes6
 
@@ -204,10 +205,11 @@ routes6
 if routes6:
     iflist = get_if_list()
     if WINDOWS:
-        route_add_loopback(ipv6=True, iflist=iflist)
+        from scapy.arch.windows import _route_add_loopback
+        _route_add_loopback(ipv6=True, iflist=iflist)
     if OPENBSD:
         len(routes6) >= 2
-    elif iflist == [LOOPBACK_NAME]:
+    elif iflist == [conf.loopback_name]:
         len(routes6) == 1
     elif len(iflist) >= 2:
         len(routes6) >= 1
@@ -215,8 +217,8 @@ if routes6:
         False
 else:
     # IPv6 seems disabled. Force a route to ::1
-    conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"], 1))
-    conf.route6.ipv6_ifaces = set([LOOPBACK_NAME])
+    conf.route6.routes.append(("::1", 128, "::", conf.loopback_name, ["::1"], 1))
+    conf.route6.ipv6_ifaces = set([conf.loopback_name])
     True
 
 = Test read_routes6() - check mandatory routes
@@ -229,13 +231,13 @@ if len(routes6) > 1 and not WINDOWS:
             assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]) >= 1
         except:
             # IPv6 is not available, but we still check the loopback
-            assert conf.route6.route("::/0") == (scapy.consts.LOOPBACK_NAME, "::", "::")
+            assert conf.route6.route("::/0") == (conf.loopback_name, "::", "::")
             assert sum(1 for r in routes6 if r[1] == 128 and r[4] == ["::1"]) >= 1
 else:
     True
 
 = Test ifchange()
-conf.route6.ifchange(LOOPBACK_NAME, "::1/128")
+conf.route6.ifchange(conf.loopback_name, "::1/128")
 if WINDOWS:
     conf.netcache.in6_neighbor["::1"] = "ff:ff:ff:ff:ff:ff"  # Restore fake cache
 
@@ -276,6 +278,10 @@ assert gzip_decompress(gziped_data) == monty_data
 data = b"sweet celestia"
 assert gzip_decompress(gzip_compress(data)) == data
 
+= orb/chb
+
+assert orb(b"\x01"[0]) == 1
+assert chb(1) == b"\x01"
 
 ############
 ############
@@ -472,6 +478,13 @@ assert GTPHeader.__module__ == "scapy.contrib.gtp_v2"
 
 load_contrib("gtp")
 assert GTPHeader.__module__ == "scapy.contrib.gtp"
+
+= Test load_contrib failure
+try:
+    load_contrib("doesnotexist")
+    assert False
+except:
+    pass
 
 = Test sane function
 sane("A\x00\xFFB") == "A..B"
@@ -676,6 +689,9 @@ assert(ret == ("<span class=prompt>&gt;&gt;&gt; </span>IP().src\n'127.0.0.1'\n",
 ret = autorun_get_latex_interactive_session("IP().src")
 assert(ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP().src\n'127.0.0.1'\n", '127.0.0.1'))
 
+ret = autorun_get_text_interactive_session("scapy_undefined")
+assert "NameError" in ret[0]
+
 = Test utility TEX functions
 
 assert tex_escape("{scapy}\\^$~#_&%|><") == "{\\tt\\char123}scapy{\\tt\\char125}{\\tt\\char92}\\^{}\\${\\tt\\char126}\\#\\_\\&\\%{\\tt\\char124}{\\tt\\char62}{\\tt\\char60}"
@@ -700,6 +716,11 @@ from scapy.main import _read_config_file
 _read_config_file(fname, globals(), locals())
 assert(conf.verb == 42)
 conf.verb = saved_conf_verb
+
+= Test config file functions failures
+
+from scapy.main import _probe_config_file
+assert _probe_config_file("filethatdoesnotexistnorwillever.tsppajfsrdrr") is None
 
 = Test CacheInstance repr
 
@@ -2457,6 +2478,8 @@ s == b'E\x00\x00f\x00\x01\x00\x00@/|f\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00eX\
 p = IP(s)
 GRE in p and p[GRE:1].proto == 0x6558 and p[GRE:2].proto == 0x86DD and IPv6 in p
 
+= IPv6 ma_addr coverage on hashret
+IPv6(dst="ff00::1:ff28:9c5a", src="::").hashret() == b';'
 
 ########### IPv6ExtHdrRouting Class ###########################
 
@@ -3075,7 +3098,8 @@ a.type == 133 and a.code == 0 and a.cksum == 0 and a.res == 0
 
 = ICMPv6ND_RS - Basic instantiation with empty dst in IPv6 underlayer
 a=IPv6(b'`\x00\x00\x00\x00\x08:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x85\x00M\xfe\x00\x00\x00\x00')
-isinstance(a, IPv6) and a.nh == 58 and a.hlim == 255 and isinstance(a.payload, ICMPv6ND_RS) and a.payload.type == 133 and a.payload.code == 0 and a.payload.cksum == 0x4dfe and a.payload.res == 0
+assert isinstance(a, IPv6) and a.nh == 58 and a.hlim == 255 and isinstance(a.payload, ICMPv6ND_RS) and a.payload.type == 133 and a.payload.code == 0 and a.payload.cksum == 0x4dfe and a.payload.res == 0
+assert a.hashret() == b":"
 
 
 ############
@@ -3121,7 +3145,8 @@ a.code==0 and a.res==0 and a.tgt=="::"
 
 = ICMPv6ND_NS - Dissection with specific values
 a=ICMPv6ND_NS(b'\x87\x11\x00\x00\xe0\x00\x00\x01\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
-a.code==0x11 and a.res==3758096385 and a.tgt=="ffff::1111"
+assert a.code==0x11 and a.res==3758096385 and a.tgt=="ffff::1111"
+assert a.hashret() == b"ffff::1111"
 
 = ICMPv6ND_NS - IPv6 layer fields overloading
 a=IPv6(raw(IPv6()/ICMPv6ND_NS()))
@@ -3225,7 +3250,7 @@ a.type == 2 and a.len == 2 and a.lladdr == "11:11:11:11:11:11"
 + ICMPv6NDOptPrefixInfo Class Test
 
 = ICMPv6NDOptPrefixInfo - Basic Instantiation
-raw(ICMPv6NDOptPrefixInfo()) == b'\x03\x04\x00\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+raw(ICMPv6NDOptPrefixInfo()) == b'\x03\x04@\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 = ICMPv6NDOptPrefixInfo - Instantiation with specific values
 raw(ICMPv6NDOptPrefixInfo(len=5, prefixlen=64, L=0, A=0, R=1, res1=1, validlifetime=0x11111111, preferredlifetime=0x22222222, res2=0x33333333, prefix="2001:db8::1")) == b'\x03\x05@!\x11\x11\x11\x11""""3333 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
@@ -4126,6 +4151,10 @@ a.nh == 59 and a.res1 == 0 and a.offset == 0 and a.res2 == 0 and a.m == 0 and a.
 a=IPv6ExtHdrFragment(b'\xff\xee\xff\xfb\x11\x11\x11\x11')
 a.nh == 0xff and a.res1 == 0xee and a.offset==0x1fff and a.res2==1 and a.m == 1 and a.id == 0x11111111
 
+= IPv6 - IPv6ExtHdrFragment hashret
+a=IPv6()/IPv6ExtHdrFragment(b'\xff\xee\xff\xfb\x11\x11\x11\x11')
+a.hashret() == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff'
+
 
 ############
 ############
@@ -4195,13 +4224,16 @@ conf.iface = conf_iface
 conf.route6.resync()
 if not len(conf.route6.routes):
     # IPv6 seems disabled. Force a route to ::1
-    conf.route6.routes.append(("::1", 128, "::", LOOPBACK_NAME, ["::1"], 1))
+    conf.route6.routes.append(("::1", 128, "::", conf.loopback_name, ["::1"], 1))
     True
 
 = Route6 - Route6.make_route
 
 r6 = Route6()
-r6.make_route("2001:db8::1", dev=LOOPBACK_NAME) == ("2001:db8::1", 128, "::", LOOPBACK_NAME, [], 1)
+r6.make_route("2001:db8::1", dev=conf.loopback_name) in [
+    ("2001:db8::1", 128, "::", conf.loopback_name, [], 1),
+    ("2001:db8::1", 128, "::", conf.loopback_name, ["::1"], 1)
+]
 len_r6 = len(r6.routes)
 
 = Route6 - Route6.add & Route6.delt
@@ -4246,11 +4278,13 @@ answer.answers(query) == True
 # Test _ICMPv6Error
 from scapy.layers.inet6 import _ICMPv6Error
 assert _ICMPv6Error().guess_payload_class(None) == IPerror6
+assert _ICMPv6Error().hashret() == b''
 
 = Windows: reset routes properly
 
 if WINDOWS:
-    route_add_loopback()
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback()
 
 ############
 ############
@@ -6011,15 +6045,15 @@ p = IPv6(s)
 p[ICMPv6MPSol].cksum == 0x2808 and p[ICMPv6MPSol].id == 8
 
 = ICMPv6MPAdv - build (default values)
-s = b'`\x00\x00\x00\x00(:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x93\x00\xe8\xd6\x00\x00\x80\x00\x03\x04\x00\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+s = b'`\x00\x00\x00\x00(:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x93\x00\xa8\xd6\x00\x00\x80\x00\x03\x04@\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 raw(IPv6()/ICMPv6MPAdv()/ICMPv6NDOptPrefixInfo()) == s
 
 = ICMPv6MPAdv - dissection (default values)
 p = IPv6(s)
-p[ICMPv6MPAdv].type == 147 and p[ICMPv6MPAdv].cksum == 0xe8d6 and p[ICMPv6NDOptPrefixInfo].prefix == '::'
+p[ICMPv6MPAdv].type == 147 and p[ICMPv6MPAdv].cksum == 0xa8d6 and p[ICMPv6NDOptPrefixInfo].prefix == '::'
 
 = ICMPv6MPAdv - build
-s = b'`\x00\x00\x00\x00(:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x93\x00(\x07\x00*@\x00\x03\x04\x00@\xff\xff\xff\xff\x00\x00\x00\x0c\x00\x00\x00\x00 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+s = b'`\x00\x00\x00\x00(:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x93\x00(\x07\x00*@\x00\x03\x04@@\xff\xff\xff\xff\x00\x00\x00\x0c\x00\x00\x00\x00 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 raw(IPv6()/ICMPv6MPAdv(cksum=0x2807, flags=1, id=42)/ICMPv6NDOptPrefixInfo(prefix='2001:db8::1', L=0, preferredlifetime=12)) == s
 
 = ICMPv6MPAdv - dissection
@@ -6685,6 +6719,9 @@ raw(NetflowRecordV5(dst="192.168.0.1")) == b'\x7f\x00\x00\x01\xc0\xa8\x00\x01\x0
 
 raw(NetflowHeader()/NetflowHeaderV5(count=1)/NetflowRecordV5(dst="192.168.0.1")) == b'\x00\x05\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
+raw(NetflowHeader()/NetflowHeaderV5()/NetflowRecordV5(dst="192.168.0.1")/NetflowRecordV5(dst="172.16.0.1")) == b'\x00\x05\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\xac\x10\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+
 = NetflowHeaderV5 - UDP bindings
 
 s = raw(IP(src="127.0.0.1")/UDP()/NetflowHeader()/NetflowHeaderV5())
@@ -6790,6 +6827,10 @@ dataFS = NetflowDataflowsetV9(
         ),
     ],
 )
+
+pkt = netflow_header / flowset / dataFS
+assert raw(pkt) == b'\x00\t\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x01\x00\x00\x05\x00\x01\x00\x01\x00\x02\x00\x04\x00\x04\x00\x01\x00\x08\x00\x04\x00\x0c\x00\x04\x01\x00\x00\x14\x12\x00\x00\x00\x00\x06\xc0\xa8\x00\n\xc0\xa8\x00\x0b\x00\x00'
+
 pkt = header / netflow_header / flowset / dataFS
 pkt = netflowv9_defragment(Ether(raw(pkt)))[0]
 
@@ -6866,6 +6907,43 @@ s=b'\x01\x07\x00\x12\x01\n\x00\x04\x84\x0c\x00\x02\x00\x00\x00\t\x01\n\x00&\x00\
 pkt4 = NetflowTemplateV9(s)
 assert len(pkt4.template_fields) == pkt4.fieldCount
 assert sum([template.fieldLength for template in pkt4.template_fields]) == 124
+
+= NetflowV10/IPFIX - build
+
+netflow_header = NetflowHeader()/NetflowHeaderV10()
+
+flowset = NetflowFlowsetV9(
+    templates=[NetflowTemplateV9(
+        template_fields=[
+            NetflowTemplateFieldV9(fieldType=1, fieldLength=1),  # IN_BYTES
+            NetflowTemplateFieldV9(fieldType=2, fieldLength=4),  # IN_PKTS
+            NetflowTemplateFieldV9(fieldType=4),  # PROTOCOL
+            NetflowTemplateFieldV9(fieldType=8),  # IPV4_SRC_ADDR
+            NetflowTemplateFieldV9(fieldType=12),  # IPV4_DST_ADDR
+        ],
+        templateID=256,
+        fieldCount=5)
+    ],
+    flowSetID=0
+)
+recordClass = GetNetflowRecordV9(flowset)
+dataFS = NetflowDataflowsetV9(
+    templateID=256,
+    records=[ # Some random data.
+        recordClass(
+            IN_BYTES=b"\x12",
+            IN_PKTS=b"\0\0\0\0",
+            PROTOCOL=6,
+            IPV4_SRC_ADDR="192.168.0.10",
+            IPV4_DST_ADDR="192.168.0.11"
+        ),
+    ],
+)
+
+pkt = netflow_header / flowset / dataFS
+assert raw(pkt) == b'\x00\n\x00>\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x01\x00\x00\x05\x00\x01\x00\x01\x00\x02\x00\x04\x00\x04\x00\x01\x00\x08\x00\x04\x00\x0c\x00\x04\x01\x00\x00\x14\x12\x00\x00\x00\x00\x06\xc0\xa8\x00\n\xc0\xa8\x00\x0b\x00\x00'
+
+
 
 ############
 ############
@@ -7229,6 +7307,7 @@ assert len(conf.temp_files) == tempfile_count
 tshark(count=1, timeout=3)
 
 = Check wireshark()
+~ wireshark
 
 f = BytesIO()
 pkt = Ether()/IP()/ICMP()
@@ -7440,6 +7519,40 @@ pkts = sniff(offline=filename, session=TCPSession)
 pkts[2].show()
 assert HTTPResponse in pkts[2]
 assert pkts[2].load == b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><head><title></title></head><body style="background-color: transparent"><img src=\'https://pixel.mathtag.com/event/img?mt_id=151466&mt_adid=106144&v1=&v2=&v3=&s1=&s2=&s3=&ord=2047279765\' width=\'1\' height=\'1\' /><img src="https://adservice.google.com/ddm/fls/z/src=3656617;type=hpvisit;cat=homep198;u2=;u6=;u5=;u4=;u3=;u9=;u10=;u7=;u13=;u14=;u11=;u17=;u18=unknown;u20=;ord=1956603866265.9536"/></body></html>'
+
+= HTTP decompression (brotli)
+
+conf.debug_dissector = True
+load_layer("http")
+
+import os
+import brotli
+
+tmp = "/test/pcaps/http_compressed-brotli.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+# First without auto decompression
+
+conf.contribs["http"]["auto_compression"] = False
+pkts = sniff(offline=filename, session=TCPSession)
+
+data = b'\x1f\x41\x00\xe0\xc5\x6d\xec\x77\x56\xf7\xb5\x8b\x1c\x52\x10\x48\xe0\x90\x03\xf6\x6f\x97\x30\xd0\x40\x24\xb8\x01\x9b\xdb\xa0\xf4\x5c\x92\x4c\xc4\x6f\x89\x58\xf7\x4b\xf7\x4b\x6f\x8c\x2e\x2c\x28\x64\x06\x1d\x03'
+
+pkts[0].show()
+assert HTTPResponse in pkts[0]
+assert pkts[0].Content_Encoding == b'br'
+assert pkts[0].Content_Type == b'text/plain'
+assert pkts[0].load == data
+
+# Now with auto decompression
+
+conf.contribs["http"]["auto_compression"] = True
+pkts = sniff(offline=filename, session=TCPSession)
+
+pkts[0].show()
+assert HTTPResponse in pkts[0]
+assert pkts[0].load == b'This is a test file for testing brotli decompression in Wireshark\n'
 
 = HTTP build
 
@@ -8734,10 +8847,10 @@ import scapy
 
 old_routes = conf.route.routes
 old_iface = conf.iface
-old_loopback = scapy.consts.LOOPBACK_INTERFACE
+old_loopback = conf.loopback_name
 try:
     conf.iface = 'enp3s0'
-    scapy.consts.LOOPBACK_INTERFACE = 'lo'
+    conf.loopback_name = 'lo'
     conf.route.invalidate_cache()
     conf.route.routes = [
         (4294967295, 4294967295, '0.0.0.0', 'wlan0', '', 281),
@@ -8757,7 +8870,7 @@ try:
     assert conf.route.route("255.255.255.255") == ('enp3s0', '192.168.0.119', '0.0.0.0')
     assert conf.route.route("*") == ('enp3s0', '192.168.0.119', '192.168.0.254')
 finally:
-    scapy.consts.LOOPBACK_INTERFACE = old_loopback
+    conf.loopback_name = old_loopback
     conf.iface = old_iface
     conf.route.routes = old_routes
     conf.route.invalidate_cache()
@@ -8766,11 +8879,11 @@ finally:
 = Mocked IPv6 routes calls
 
 old_iface = conf.iface
-old_loopback = scapy.consts.LOOPBACK_INTERFACE
+old_loopback = conf.loopback_name
 try:
     conf.route6.ipv6_ifaces = set(['enp3s0', 'wlan0', 'lo'])
     conf.iface = 'enp3s0'
-    scapy.consts.LOOPBACK_INTERFACE = 'lo'
+    conf.loopback_name = 'lo'
     conf.route6.invalidate_cache()
     conf.route6.routes = [
         ('fe80::dd17:1fa6:a123:ab4', 128, '::', 'lo', ['fe80::dd17:1fa6:a123:ab4'], 291),
@@ -8790,7 +8903,7 @@ try:
     assert conf.route6.route("fe80::1") == ('enp3s0', 'fe80::7101:5678:1234:da65', '::')
     assert conf.route6.route("fe80::1", dev='lo') == ('lo', 'fe80::dd17:1fa6:a123:ab4', '::')
 finally:
-    scapy.consts.LOOPBACK_INTERFACE = old_loopback
+    conf.loopback_name = old_loopback
     conf.iface = old_iface
     conf.route6.resync()
 
@@ -8807,7 +8920,8 @@ conf.route6.resync()
 = Windows: reset routes properly
 
 if WINDOWS:
-    route_add_loopback()
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback()
 
 ############
 ############
@@ -12001,6 +12115,9 @@ assert a.src == '00:00:00:00:00:00'
 = MIB
 ~ mib
 
+import copy
+old_mib = copy.copy(conf.mib)
+
 import tempfile
 fd, fname = tempfile.mkstemp()
 os.write(fd, b"-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
@@ -12031,6 +12148,10 @@ def get_mib_graph(do_graph):
     conf.mib._make_graph()
 
 get_mib_graph()
+
+= Restore conf.mib
+~ mib
+conf.mib = old_mib
 
 = DADict tests
 
@@ -12082,6 +12203,14 @@ else:
     ret = False
 
 assert(ret)
+
+= BER trigger failures
+
+try:
+    BERcodec_INTEGER.do_dec(b"\x02\x01")
+    assert False
+except BER_Decoding_Error:
+    pass
 
 ############
 ############

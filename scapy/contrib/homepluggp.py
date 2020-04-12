@@ -158,7 +158,7 @@ class SLAC_varfield_cnf(Packet):
                    StrFixedLenField("RunID", b"\x00" * 8, 8),
                    StrFixedLenField("RSVD", b"\x00" * 8, 8),
                    StrFixedLenField("NetworkID", b"\x00" * 7, 7),
-                   ShortField("Reserved", 0),
+                   ByteField("Reserved", 0x0),
                    StrFixedLenField("NMK", b"\x00" * 16, 16)]
 
 

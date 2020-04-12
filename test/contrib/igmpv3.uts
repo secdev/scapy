@@ -15,6 +15,15 @@ assert x.mrcode == 131
 assert x[IP].dst == "224.0.0.1"
 assert isinstance(IGMP(raw(x[IGMPv3])), IGMPv3)
 
+= Build IGMPv3 - igmpize
+
+a=Ether(src="00:01:02:03:04:05")
+b=IP(src="1.2.3.4")
+c=IGMPv3()/IGMPv3mr(records = [IGMPv3gr(maddr = "232.1.1.10", srcaddrs = ["10.0.0.10"])])
+x = a/b/c
+ret = x[IGMPv3].igmpize()
+assert ret
+
 = Dissect IGMPv3 - IGMPv3mq
 
 x = Ether(b'\x14\x0cv\x8f\xfe(\x00\x01\x02\x03\x04\x05\x08\x00F\xc0\x00$\x00\x01\x00\x00\x01\x02\xe4h\xc0\xa8\x00\x01\xe0\x00\x00\x16\x94\x04\x00\x00\x11\x14\x0e\xe9\xe6\x00\x00\x02\x00\x00\x00\x00')

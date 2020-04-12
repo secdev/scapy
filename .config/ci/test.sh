@@ -32,6 +32,7 @@ fi
 
 # Create version tag (github actions)
 PY_VERSION="py${1//./}"
+PY_VERSION=${PY_VERSION/pypypy/pypy}
 TESTVER="$PY_VERSION-$OSTOX"
 
 # Chose whether to run root or non_root
@@ -51,13 +52,13 @@ if [ -z $TOXENV ]
 then
   case ${SCAPY_TOX_CHOSEN} in
     both)
-      TOXENV="${TESTVER}_non_root,${TESTVER}_root"
+      export TOXENV="${TESTVER}_non_root,${TESTVER}_root"
       ;;
     root)
-      TOXENV="${TESTVER}_root"
+      export TOXENV="${TESTVER}_root"
       ;;
     *)
-      TOXENV="${TESTVER}_non_root"
+      export TOXENV="${TESTVER}_non_root"
       ;;
   esac
 fi
@@ -66,4 +67,5 @@ fi
 echo UT_FLAGS=$UT_FLAGS
 echo TOXENV=$TOXENV
 
-tox -- $UT_FLAGS
+# Launch Scapy unit tests
+tox -- ${UT_FLAGS} || exit 1

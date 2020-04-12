@@ -82,8 +82,8 @@ def compile_filter(filter_exp, iface=None, linktype=None,
             pcap_close
         )
         from scapy.libs.structures import bpf_program
-    except ImportError:
-        raise Scapy_Exception(
+    except OSError:
+        raise ImportError(
             "libpcap is not available. Cannot compile filter !"
         )
     from ctypes import create_string_buffer

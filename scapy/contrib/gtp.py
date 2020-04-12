@@ -530,8 +530,17 @@ class IE_ProtocolConfigurationOptions(IE_Base):
 class IE_GSNAddress(IE_Base):
     name = "GSN Address"
     fields_desc = [ByteEnumField("ietype", 133, IEType),
-                   ShortField("length", 4),
-                   IPField("address", RandIP())]
+                   ShortField("length", None),
+                   ConditionalField(IPField("ipv4_address", RandIP()),
+                                    lambda pkt: pkt.length == 4),
+                   ConditionalField(IP6Field("ipv6_address", '::1'),
+                                    lambda pkt: pkt.length == 16)]
+
+    def post_build(self, p, pay):
+        if self.length is None:
+            tmp_len = len(p) - 3
+            p = p[:2] + struct.pack("!B", tmp_len) + p[3:]
+        return p
 
 
 class IE_MSInternationalNumber(IE_Base):
@@ -855,8 +864,8 @@ class GTPEchoResponse(Packet):
 class GTPCreatePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Create PDP Context Request"
-    fields_desc = [PacketListField("IE_list", [IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(),  # noqa: E501
-                                               IE_GSNAddress(),
+    fields_desc = [PacketListField("IE_list", [IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(length=4, ipv4_address=RandIP()),  # noqa: E501
+                                               IE_GSNAddress(length=4, ipv4_address=RandIP()),  # noqa: E501
                                                IE_NotImplementedTLV(ietype=135, length=15, data=RandString(15))],  # noqa: E501
                                    IE_Dispatcher)]
 
@@ -939,7 +948,7 @@ class GTPPDUNotificationRequest(Packet):
                                                IE_TEICP(TEICI=RandInt()),
                                                IE_EndUserAddress(PDPTypeNumber=0x21),  # noqa: E501
                                                IE_AccessPointName(),
-                                               IE_GSNAddress(address="127.0.0.1"),  # noqa: E501
+                                               IE_GSNAddress(ipv4_address="127.0.0.1"),  # noqa: E501
                                                ], IE_Dispatcher)]
 
 

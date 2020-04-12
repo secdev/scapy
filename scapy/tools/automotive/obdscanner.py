@@ -34,7 +34,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-def usage():
+def usage(is_error):
     print('''usage:\tobdscanner [-i|--interface] [-c|--channel] [-b|--bitrate]
                                 [-a|--python-can_args] [-h|--help]
                                 [-s|--source] [-d|--destination]
@@ -67,7 +67,7 @@ def usage():
     python2 -m scapy.tools.automotive.obdscanner --interface vector --channel 0 --python-can_args 'bitrate=500000, poll_interval=1' --source=0x070 --destination 0x034\n
     Python3 on Linux:
     python3 -m scapy.tools.automotive.obdscanner --channel can0 --source 0x123 --destination 0x456 \n''',  # noqa: E501
-          file=sys.stderr)
+          file=sys.stderr if is_error else sys.stdout)
 
 
 def main():
@@ -102,8 +102,8 @@ def main():
             elif opt in ('-d', '--destination'):
                 destination = int(arg, 16)
             elif opt in ('-h', '--help'):
-                usage()
-                sys.exit(-1)
+                usage(False)
+                sys.exit(0)
             elif opt in ('-t', '--timeout'):
                 timeout = float(arg)
             elif opt in ('-r', '--supported'):
@@ -113,26 +113,26 @@ def main():
             elif opt in ('-v', '--verbose'):
                 verbose = True
     except getopt.GetoptError as msg:
-        usage()
+        usage(True)
         print("ERROR:", msg, file=sys.stderr)
         raise SystemExit
 
     if channel is None or \
             (PYTHON_CAN and interface is None):
-        usage()
+        usage(True)
         print("\nPlease provide all required arguments.\n",
               file=sys.stderr)
-        sys.exit(-1)
+        sys.exit(1)
 
     if 0 > source >= 0x800 or 0 > destination >= 0x800\
             or source == destination:
         print("The ids must be >= 0 and < 0x800 and not equal.",
               file=sys.stderr)
-        sys.exit(-1)
+        sys.exit(1)
 
     if 0 > timeout:
         print("The timeout must be a positive value")
-        sys.exit(-1)
+        sys.exit(1)
 
     csock = None
     try:
@@ -154,11 +154,11 @@ def main():
             obd_scan(isock, timeout, supported, unsupported, verbose)
 
     except Exception as e:
-        usage()
+        usage(True)
         print("\nSocket couldn't be created. Check your arguments.\n",
               file=sys.stderr)
         print(e, file=sys.stderr)
-        sys.exit(-1)
+        sys.exit(1)
 
     finally:
         if csock is not None:

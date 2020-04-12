@@ -16,9 +16,9 @@ get_if_raw_addr(conf.iface)
 
 get_if_raw_hwaddr(conf.iface)
 
-= Get the packed MAC address of LOOPBACK_NAME
+= Get the packed MAC address of conf.loopback_name
 
-get_if_raw_hwaddr(LOOPBACK_NAME) == (ARPHDR_LOOPBACK, b'\x00'*6) 
+get_if_raw_hwaddr(conf.loopback_name) == (ARPHDR_LOOPBACK, b'\x00'*6) 
 
 
 ############
@@ -145,6 +145,18 @@ guessed = s.guess_cls()
 issubclass(guessed, Packet)
 s.close()
 
+= L2bpfListenSocket - read failure
+~ needs_root
+
+import mock
+
+@mock.patch("scapy.arch.bpf.supersocket.os.read")
+def _test_osread(osread):
+    osread.side_effect = OSError()
+    s = L2bpfListenSocket()
+    assert s.recv_raw() == (None, None, None)
+
+_test_osread()
 
 = L2bpfSocket - nonblock_recv()
 ~ needs_root
@@ -164,5 +176,5 @@ s = L3bpfSocket()
 s.send(IP(dst="8.8.8.8")/ICMP())
                               
 s = L3bpfSocket()             
-s.assigned_interface = LOOPBACK_NAME
+s.assigned_interface = conf.loopback_name
 s.send(IP(dst="8.8.8.8")/ICMP())

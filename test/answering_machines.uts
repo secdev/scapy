@@ -66,7 +66,7 @@ a = DHCPv6_am()
 a.usage()
 
 a.parse_options(dns="2001:500::1035", domain="localdomain, local", duid=None,
-        iface=conf.iface6, advpref=255, sntpservers=None, 
+        iface=conf.iface, advpref=255, sntpservers=None,
         sipdomains=None, sipservers=None, 
         nisdomain=None, nisservers=None, 
         nispdomain=None, nispservers=None,

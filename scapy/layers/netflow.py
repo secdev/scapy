@@ -67,10 +67,16 @@ bind_layers(UDP, NetflowHeader, dport=2055, sport=2055)
 
 class NetflowHeaderV1(Packet):
     name = "Netflow Header v1"
-    fields_desc = [ShortField("count", 0),
+    fields_desc = [ShortField("count", None),
                    IntField("sysUptime", 0),
                    UTCTimeField("unixSecs", 0),
                    UTCTimeField("unixNanoSeconds", 0, use_nano=True)]
+
+    def post_build(self, pkt, pay):
+        if self.count is None:
+            count = len(self.layers()) - 1
+            pkt = struct.pack("!H", count) + pkt[2:]
+        return pkt + pay
 
 
 class NetflowRecordV1(Packet):
@@ -105,7 +111,7 @@ bind_layers(NetflowRecordV1, NetflowRecordV1)
 
 class NetflowHeaderV5(Packet):
     name = "Netflow Header v5"
-    fields_desc = [ShortField("count", 0),
+    fields_desc = [ShortField("count", None),
                    IntField("sysUptime", 0),
                    UTCTimeField("unixSecs", 0),
                    UTCTimeField("unixNanoSeconds", 0, use_nano=True),
@@ -113,6 +119,12 @@ class NetflowHeaderV5(Packet):
                    ByteField("engineType", 0),
                    ByteField("engineID", 0),
                    ShortField("samplingInterval", 0)]
+
+    def post_build(self, pkt, pay):
+        if self.count is None:
+            count = len(self.layers()) - 1
+            pkt = struct.pack("!H", count) + pkt[2:]
+        return pkt + pay
 
 
 class NetflowRecordV5(Packet):
@@ -1245,6 +1257,12 @@ class NetflowHeaderV10(Packet):
                    UTCTimeField("ExportTime", 0),
                    IntField("flowSequence", 0),
                    IntField("ObservationDomainID", 0)]
+
+    def post_build(self, pkt, pay):
+        if self.length is None:
+            length = len(pkt) + len(pay)
+            pkt = struct.pack("!H", length) + pkt[2:]
+        return pkt + pay
 
 
 class NetflowTemplateFieldV9(Packet):

@@ -178,7 +178,7 @@ You can then inspect the response:
 
    >>> # ans[0] = Answered packet #0
    >>> # ans[0][1] = The response packet
-   >>> ans[0][1]
+   >>> p = ans[0][1]
    >>> p.show()
    ###[ HCI header ]###
      type= Event

@@ -140,6 +140,26 @@ class SMBNegociate_Protocol_Request_Header(Packet):
                    ByteField("WordCount", 0),
                    LEShortField("ByteCount", 12)]
 
+# Generic version of SMBNegociate Protocol Request Header
+
+
+class SMBNegociate_Protocol_Request_Header_Generic(Packet):
+    name = "SMBNegociate Protocol Request Header Generic"
+    fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4)]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        """
+            Depending on the first 4 bytes of the packet,
+            dispatch to the correct version of Header
+            (either SMB or SMB2)
+
+        """
+        if _pkt and len(_pkt) >= 4:
+            if _pkt[:4] == b'\xffSMB':
+                return SMBNegociate_Protocol_Request_Header
+        return cls
+
 # SMB Negotiate Protocol Request Tail
 
 
@@ -367,7 +387,7 @@ class SMBSession_Setup_AndX_Response(Packet):
                    StrNullField("NativeFileSystem", "")]
 
 
-bind_layers(NBTSession, SMBNegociate_Protocol_Request_Header, )
+bind_layers(NBTSession, SMBNegociate_Protocol_Request_Header_Generic, )
 bind_layers(NBTSession, SMBNegociate_Protocol_Response_Advanced_Security, ExtendedSecurity=1)  # noqa: E501
 bind_layers(NBTSession, SMBNegociate_Protocol_Response_No_Security, ExtendedSecurity=0, EncryptionKeyLength=8)  # noqa: E501
 bind_layers(NBTSession, SMBNegociate_Protocol_Response_No_Security_No_Key, ExtendedSecurity=0, EncryptionKeyLength=0)  # noqa: E501

@@ -10,7 +10,6 @@ Operating system specific functionality.
 from __future__ import absolute_import
 import socket
 
-import scapy.consts
 from scapy.consts import LINUX, SOLARIS, WINDOWS, BSD
 from scapy.error import Scapy_Exception
 from scapy.config import conf, _set_conf_sockets
@@ -68,7 +67,7 @@ elif WINDOWS:
     from scapy.arch.windows.native import *  # noqa F403
 
 if conf.iface is None:
-    conf.iface = scapy.consts.LOOPBACK_INTERFACE
+    conf.iface = conf.loopback_name
 
 _set_conf_sockets()  # Apply config
 
