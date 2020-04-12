@@ -265,7 +265,7 @@ class GTPHeader(Packet):
 class IE_IPv4(gtp.IE_Base):
     name = "IE IPv4"
     fields_desc = [ByteEnumField("ietype", 74, IEType),
-                   FieldLenField("length", None, length_of="IPv4",
+                   FieldLenField("length", None, length_of="address",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -299,7 +299,7 @@ def IE_Dispatcher(s):
 class IE_EPSBearerID(gtp.IE_Base):
     name = "IE EPS Bearer ID"
     fields_desc = [ByteEnumField("ietype", 73, IEType),
-                   FieldLenField("length", None, length_of="EPS Bearer ID",
+                   FieldLenField("length", None, length_of="EBI",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -309,7 +309,7 @@ class IE_EPSBearerID(gtp.IE_Base):
 class IE_RAT(gtp.IE_Base):
     name = "IE RAT"
     fields_desc = [ByteEnumField("ietype", 82, IEType),
-                   FieldLenField("length", None, length_of="RAT",
+                   FieldLenField("length", None, length_of="RAT_type",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -319,8 +319,9 @@ class IE_RAT(gtp.IE_Base):
 class IE_ServingNetwork(gtp.IE_Base):
     name = "IE Serving Network"
     fields_desc = [ByteEnumField("ietype", 83, IEType),
-                   FieldLenField("length", None, length_of="Serving Network",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    gtp.TBCDByteField("MCC", "", 2),
@@ -402,9 +403,9 @@ class IE_ULI(gtp.IE_Base):
     name = "IE User Location Information"
     fields_desc = [
         ByteEnumField("ietype", 86, IEType),
-        FieldLenField("length", None,
-                      length_of="User Location Information",
-                      adjust=lambda pkt, x: x + 4, fmt="H"),
+        FieldLenField("length", None, length_of="length",
+                      adjust=lambda pkt, x: len(pkt.payload) +
+                      4 , fmt="H"),
         BitField("CR_flag", 0, 4),
         BitField("instance", 0, 4),
         BitField("SPARE", 0, 2),
@@ -481,8 +482,9 @@ INTERFACE_TYPES = {
 class IE_UCI(gtp.IE_Base):
     name = "IE UCI"
     fields_desc = [ByteEnumField("ietype", 145, IEType),
-                   FieldLenField("length", None, length_of="UCI",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    gtp.TBCDByteField("MCC", "", 2),
@@ -498,8 +500,9 @@ class IE_UCI(gtp.IE_Base):
 class IE_FTEID(gtp.IE_Base):
     name = "IE F-TEID"
     fields_desc = [ByteEnumField("ietype", 87, IEType),
-                   FieldLenField("length", None, length_of="F-TEID",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    BitField("ipv4_present", 0, 1),
@@ -515,7 +518,7 @@ class IE_FTEID(gtp.IE_Base):
 class IE_BearerContext(gtp.IE_Base):
     name = "IE Bearer Context"
     fields_desc = [ByteEnumField("ietype", 93, IEType),
-                   FieldLenField("length", None, length_of="Bearer Context",
+                   FieldLenField("length", None, length_of="IE_list",
                                  adjust=lambda pkt, x: x, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -526,8 +529,9 @@ class IE_BearerContext(gtp.IE_Base):
 class IE_BearerFlags(gtp.IE_Base):
     name = "IE Bearer Flags"
     fields_desc = [ByteEnumField("ietype", 97, IEType),
-                   FieldLenField("length", None, length_of="Bearer Flags",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    BitField("SPARE", 0, 4),
@@ -540,7 +544,9 @@ class IE_BearerFlags(gtp.IE_Base):
 class IE_NotImplementedTLV(gtp.IE_Base):
     name = "IE not implemented"
     fields_desc = [ByteEnumField("ietype", 0, IEType),
-                   ShortField("length", None),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    StrLenField("data", "", length_from=lambda x: x.length)]
@@ -659,8 +665,9 @@ CAUSE_VALUES = {
 class IE_Cause(gtp.IE_Base):
     name = "IE Cause"
     fields_desc = [ByteEnumField("ietype", 2, IEType),
-                   FieldLenField("length", None, length_of="Cause",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    ByteEnumField("Cause", 1, CAUSE_VALUES),
@@ -673,7 +680,7 @@ class IE_Cause(gtp.IE_Base):
 class IE_RecoveryRestart(gtp.IE_Base):
     name = "IE Recovery Restart"
     fields_desc = [ByteEnumField("ietype", 3, IEType),
-                   FieldLenField("length", None, length_of="Recovery Restart",
+                   FieldLenField("length", None, length_of="restart_counter",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -694,11 +701,11 @@ class IE_APN(gtp.IE_Base):
 class IE_BearerTFT(gtp.IE_Base):
     name = "IE Bearer TFT"
     fields_desc = [ByteEnumField("ietype", 84, IEType),
-                   FieldLenField("length", None, length_of="Bearer TFT",
+                   FieldLenField("length", None, length_of="Bearer_TFT",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   StrLenField("Bearer TFT", "",
+                   StrLenField("Bearer_TFT", "",
                                length_from=lambda x: x.length)]
 
 
@@ -726,8 +733,9 @@ class IE_MSISDN(gtp.IE_Base):
 class IE_Indication(gtp.IE_Base):
     name = "IE Indication"
     fields_desc = [ByteEnumField("ietype", 77, IEType),
-                   FieldLenField("length", None, length_of="Indication",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    BitField("DAF", 0, 1),
@@ -1087,8 +1095,9 @@ def PCO_protocol_dispatcher(s):
 class IE_PCO(gtp.IE_Base):
     name = "IE Protocol Configuration Options"
     fields_desc = [ByteEnumField("ietype", 78, IEType),
-                   FieldLenField("length", None, length_of="PCO",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    BitField("Extension", 0, 1),
@@ -1101,8 +1110,9 @@ class IE_PCO(gtp.IE_Base):
 class IE_PAA(gtp.IE_Base):
     name = "IE PAA"
     fields_desc = [ByteEnumField("ietype", 79, IEType),
-                   FieldLenField("length", None, length_of="PAA",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    BitField("SPARE", 0, 5),
@@ -1121,8 +1131,9 @@ class IE_PAA(gtp.IE_Base):
 class IE_Bearer_QoS(gtp.IE_Base):
     name = "IE Bearer Quality of Service"
     fields_desc = [ByteEnumField("ietype", 80, IEType),
-                   FieldLenField("length", None, length_of="Bearer QoS",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    BitField("SPARE", 0, 1),
@@ -1140,7 +1151,7 @@ class IE_Bearer_QoS(gtp.IE_Base):
 class IE_ChargingID(gtp.IE_Base):
     name = "IE Charging ID"
     fields_desc = [ByteEnumField("ietype", 94, IEType),
-                   FieldLenField("length", None, length_of="Charging ID",
+                   FieldLenField("length", None, length_of="ChargingID",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -1151,7 +1162,7 @@ class IE_ChargingCharacteristics(gtp.IE_Base):
     name = "IE Charging Characteristics"
     fields_desc = [ByteEnumField("ietype", 95, IEType),
                    FieldLenField("length", None,
-                                 length_of="Charging Characteristics",
+                                 length_of="ChargingCharacteristric",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -1161,7 +1172,7 @@ class IE_ChargingCharacteristics(gtp.IE_Base):
 class IE_PDN_type(gtp.IE_Base):
     name = "IE PDN Type"
     fields_desc = [ByteEnumField("ietype", 99, IEType),
-                   FieldLenField("length", None, length_of="PDN Type",
+                   FieldLenField("length", None, length_of="PDN_type",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -1172,8 +1183,9 @@ class IE_PDN_type(gtp.IE_Base):
 class IE_UE_Timezone(gtp.IE_Base):
     name = "IE UE Time zone"
     fields_desc = [ByteEnumField("ietype", 114, IEType),
-                   FieldLenField("length", None, length_of="UE Time zone",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    ByteField("Timezone", 0),
@@ -1183,7 +1195,7 @@ class IE_UE_Timezone(gtp.IE_Base):
 class IE_Port_Number(gtp.IE_Base):
     name = "IE Port Number"
     fields_desc = [ByteEnumField("ietype", 126, IEType),
-                   FieldLenField("length", None, length_of="Port Number",
+                   FieldLenField("length", None, length_of="PortNumber",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -1193,7 +1205,7 @@ class IE_Port_Number(gtp.IE_Base):
 class IE_APN_Restriction(gtp.IE_Base):
     name = "IE APN Restriction"
     fields_desc = [ByteEnumField("ietype", 127, IEType),
-                   FieldLenField("length", None, length_of="APN Restriction",
+                   FieldLenField("length", None, length_of="APN_Restriction",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -1203,7 +1215,7 @@ class IE_APN_Restriction(gtp.IE_Base):
 class IE_SelectionMode(gtp.IE_Base):
     name = "IE Selection Mode"
     fields_desc = [ByteEnumField("ietype", 128, IEType),
-                   FieldLenField("length", None, length_of="Selection Mode",
+                   FieldLenField("length", None, length_of="SelectionMode",
                                  adjust=lambda pkt, x: x + 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
@@ -1214,8 +1226,9 @@ class IE_SelectionMode(gtp.IE_Base):
 class IE_MMBR(gtp.IE_Base):
     name = "IE Max MBR/APN-AMBR (MMBR)"
     fields_desc = [ByteEnumField("ietype", 161, IEType),
-                   FieldLenField("length", None, length_of="MMBR",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    IntField("uplink_rate", 0),
@@ -1225,10 +1238,9 @@ class IE_MMBR(gtp.IE_Base):
 class IE_UPF_SelInd_Flags(gtp.IE_Base):
     name = "IE UP Function Selection Indication Flags"
     fields_desc = [ByteEnumField("ietype", 202, IEType),
-                   FieldLenField("length", None,
-                                 length_of="UP Function Selection" +
-                                 "Indication Flags",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    BitField("SPARE", 0, 7),
@@ -1238,8 +1250,9 @@ class IE_UPF_SelInd_Flags(gtp.IE_Base):
 class IE_FQCSID(gtp.IE_Base):
     name = "IE FQ-CSID"
     fields_desc = [ByteEnumField("ietype", 132, IEType),
-                   FieldLenField("length", None, length_of="FQ-CSID",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    BitField("nodeid_type", 0, 4),
@@ -1251,8 +1264,9 @@ class IE_FQCSID(gtp.IE_Base):
 class IE_Ran_Nas_Cause(gtp.IE_Base):
     name = "IE RAN/NAS Cause"
     fields_desc = [ByteEnumField("ietype", 172, IEType),
-                   FieldLenField("length", None, length_of="RAN/NAS Cause",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4 , fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    BitField("protocol_type", 0, 4),
@@ -1265,7 +1279,7 @@ class IE_PrivateExtension(gtp.IE_Base):
     name = "Private Extension"
     fields_desc = [
         ByteEnumField("ietype", 255, IEType),
-        FieldLenField("length", None, length_of="Private Extension",
+        FieldLenField("length", None, length_of="enterprisenum",
                       adjust=lambda pkt, x: x + 4, fmt="H"),
         BitField("SPARE", 0, 4),
         BitField("instance", 0, 4),
