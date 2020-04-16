@@ -239,7 +239,7 @@ _rt_hemuother_per_user_known = {
 
 
 class RadioTap(Packet):
-    name = "RadioTap dummy"
+    name = "RadioTap"
     deprecated_fields = {
         "Channel": ("ChannelFrequency", "2.4.3"),
         "ChannelFlags2": ("ChannelPlusFlags", "2.4.3"),
@@ -580,7 +580,7 @@ class Dot11FCS(Dot11):
     def post_build(self, p, pay):
         p += pay
         if self.fcs is None:
-            p = p[:-4] + self.compute_fcs(p)
+            p = p[:-4] + self.compute_fcs(p[:-4])
         return p
 
 
