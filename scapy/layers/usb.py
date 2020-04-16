@@ -17,11 +17,12 @@ import subprocess
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.compat import chb, plain_str
-from scapy.data import MTU, DLT_USBPCAP
+from scapy.data import MTU, DLT_USBPCAP, DLT_USB_LINUX
 from scapy.error import warning
 from scapy.fields import ByteField, XByteField, ByteEnumField, LEShortField, \
     LEShortEnumField, LEIntField, LEIntEnumField, XLELongField, \
-    LenField
+    LenField, LESignedLongField, LESignedIntField, \
+    MultipleTypeField, StrFixedLenField, XLEIntField
 from scapy.packet import Packet, bind_top_down
 from scapy.supersocket import SuperSocket
 from scapy.utils import PcapReader
@@ -121,6 +122,86 @@ class USBpcap(Packet):
         return conf.raw_layer
 
 
+_usbmon_xfer_types = {
+    0x00: "ISO",
+    0x01: "Intr",
+    0x02: "Control",
+    0x03: "Bulk",
+    0xFF: "Unknown"
+}
+
+
+class USBmon(Packet):
+    name = "USBmon URB"
+    # https://github.com/torvalds/linux/blob/master/Documentation/usb/usbmon.rst#raw-binary-format-and-api
+    fields_desc = [
+        XLELongField("id", 0),
+        XByteField("type", 0),  # should be charfield?
+        # ByteEnumField("xfer_type", 0xFF, _usbmon_xfer_types),
+        XByteField("xfer_type", 0),
+        XByteField("epnum", 0),
+        ByteField("devnum", 0),
+        LEShortField("busnum", 0),
+        XByteField("flag_setup", 0),
+        XByteField("flag_data", 0),
+        LESignedLongField("ts_sec", 0),
+        LESignedIntField("ts_usec", 0),
+        LESignedIntField("status", 0),  # could be intEnum with negative Errno
+        LEIntField("length", 0),
+        LEIntField("len_cap", 0),
+        MultipleTypeField([
+            (StrFixedLenField("setup", 0, 8),
+             lambda pkt: pkt.xfer_type == 0x2),
+            # iso_rec = actually another struct containing two fields,
+            # how do I do that?
+            (StrFixedLenField("iso_rec", 0, 8),
+             lambda pkt: pkt.xfer_type == 0x0)
+        ], StrFixedLenField("unused", 0, 8)),
+        # present on all packets but only used for Intr and ISO
+        LESignedIntField("interval", 0),
+        LESignedIntField("start_frame", 0),  # only used on ISO
+        XLEIntField("xfer_flags", 0),
+        LEIntField("ndesc", 0)
+    ]
+
+    def post_build(self, p, pay):
+        if self.headerLen is None:
+            headerLen = len(p)
+            if isinstance(self.payload, (USBmonTransferIsochronous,
+                                         USBmonTransferInterrupt,
+                                         USBmonTransferControl)):
+                headerLen += len(self.payload) - len(self.payload.payload)
+            p = chb(headerLen) + p[1:]
+        return p + pay
+
+    def guess_payload_class(self, payload):
+        if self.xfer_type == 0:
+            return USBmonTransferIsochronous
+        elif self.xfer_type == 1:
+            return USBmonTransferInterrupt
+        elif self.xfer_type == 2:
+            return USBmonTransferControl
+        elif self.xfer_type == 3:
+            return USBmonTransferBulk
+        return conf.raw_layer
+
+
+class USBmonTransferIsochronous(Packet):
+    name = "USBmon Transfer Isochronous"
+
+
+class USBmonTransferInterrupt(Packet):
+    name = "USBmon Transfer Interrupt"
+
+
+class USBmonTransferControl(Packet):
+    name = "USBmon Transfer Control"
+
+
+class USBmonTransferBulk(Packet):
+    name = "USBmon Transfer Bulk"
+
+
 class USBpcapTransferIsochronous(Packet):
     name = "USBpcap Transfer Isochronous"
     fields_desc = [
@@ -146,11 +227,17 @@ class USBpcapTransferControl(Packet):
     ]
 
 
+bind_top_down(USBmon, USBmonTransferIsochronous, xfer_type=0)
+bind_top_down(USBmon, USBmonTransferInterrupt, xfer_type=1)
+bind_top_down(USBmon, USBmonTransferControl, xfer_type=2)
+bind_top_down(USBmon, USBmonTransferBulk, xfer_type=3)
+
 bind_top_down(USBpcap, USBpcapTransferIsochronous, transfer=0)
 bind_top_down(USBpcap, USBpcapTransferInterrupt, transfer=1)
 bind_top_down(USBpcap, USBpcapTransferControl, transfer=2)
 
 conf.l2types.register(DLT_USBPCAP, USBpcap)
+conf.l2types.register(DLT_USB_LINUX, USBmon)
 
 
 def _extcap_call(prog, args, keyword, values):
