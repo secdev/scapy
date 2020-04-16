@@ -1145,6 +1145,11 @@ pkt = RadioTap(data)
 w_payload = hex_bytes('00002000ae4000a0200800a02008000010028509a000e2006400000000000001a0403a0100c0caa47d504c6641ace4b300c0caa47d50000300200820000000000f291dd4d4391f3e34eb')
 assert raw(pkt) == w_payload
 
+= Dot11FCS computation
+
+pkt = RadioTap() / Dot11FCS() / Dot11Beacon()
+assert raw(pkt) == b'\x00\x00\t\x00\x02\x00\x00\x00\x10\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00e\xd9=\xb9'
+
 = WEP tests
 ~ wifi crypto Dot11 LLC SNAP IP TCP
 conf.wepkey = ""
