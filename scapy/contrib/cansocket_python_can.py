@@ -1,6 +1,7 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
+# Copyright (C) Johannes Stark <johannes.stark.js@gmail.com>
 # This program is published under a GPLv2 license
 
 # scapy.contrib.description = Python-Can CANSocket
@@ -141,8 +142,12 @@ class PythonCANSocket(SuperSocket, SelectableObject):
     nonblocking_socket = True
 
     def __init__(self, **kwargs):
+        self.initparams = copy.deepcopy(kwargs)
         self.basecls = kwargs.pop("basecls", CAN)
         self.iface = SocketWrapper(**kwargs)
+
+    def command(self):
+        return self._command(self.initparams)
 
     def recv_raw(self, x=0xffff):
         msg = self.iface.recv()

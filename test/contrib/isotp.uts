@@ -8,6 +8,7 @@ load_layer("can")
 conf.contribs['CAN']['swap-bytes'] = False
 import scapy.modules.six as six
 import subprocess, sys
+import ast
 from six.moves.queue import Queue
 from subprocess import call
 from io import BytesIO
@@ -17,6 +18,7 @@ from scapy.consts import LINUX
 = Definition of constants, utility functions and mock classes
 iface0 = "vcan0"
 iface1 = "vcan1"
+PYTHON_CAN_WITH_VCAN = False 
 
 class MockCANSocket(SuperSocket):
     nonblocking_socket = True
@@ -55,7 +57,6 @@ if six.PY2:
     dhex = lambda s: "".join(s.split()).decode('hex')
 else:
     dhex = bytes.fromhex
-
 
 # function to exit when the can-isotp kernel module is not available
 ISOTP_KERNEL_MODULE_AVAILABLE = False
@@ -115,6 +116,7 @@ print("CAN sockets should work now")
 = Overwrite definition for vcan_socket systems python-can sockets
 ~ vcan_socket needs_root linux
 if "python_can" in CANSocket.__module__:
+    PYTHON_CAN_WITH_VCAN = True
     new_can_socket = lambda iface: CANSocket(bustype='socketcan', channel=iface, bitrate=250000, timeout=0.01)
     new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, bitrate=250000, timeout=0.01)
     new_can_socket1 = lambda: CANSocket(bustype='socketcan', channel=iface1, bitrate=250000, timeout=0.01)
@@ -1290,6 +1292,68 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s
         cans.send(CAN(identifier = 0x141, data = dhex("05 01 02 03 04 05")))
     assert(s.ins.rx_queue.empty())
 
+= Serialize ISOTPSoftSocket and verify
+with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x644, did=0x244, extended_addr=0xaa, extended_rx_addr=0xee) as s:
+    if PYTHON_CAN_WITH_VCAN:
+        can_params = "bustype='socketcan',\
+                        channel='%s',\
+                        bitrate=250000,\
+                        timeout=0.01" % iface0
+    else:
+        can_params = "bustype='virtual',\
+                        channel='%s',\
+                        timeout=0.01" % iface0
+    expected = "ISOTPSoftSocket(\
+                    can_socket=PythonCANSocket(%s),\
+                    sid=1604,\
+                    did=580,\
+                    extended_addr=0xaa,\
+                    extended_rx_addr=0xee,\
+                    rx_block_size=0,\
+                    rx_separation_time_min=0,\
+                    padding=False,\
+                    listen_only=False,\
+                    basecls=ISOTP\
+                )" % can_params
+    sc = s.command()
+    e = ast.parse(sc, mode='eval')
+    e_expected = ast.parse(expected, mode='eval')
+    assert sorted(ast.dump(e)) == sorted(ast.dump(e_expected)), "Order and whitespaces irrelevant; command() output: %s \n expected: %s" % (sc, expected)
+
+= Serialize ISOTPSoftSocket, then recreate ISOTPSoftSocket and send + receive single-framed ISOTP message
+with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x644, did=0x244) as s:
+    if PYTHON_CAN_WITH_VCAN:
+        can_params = "bustype='socketcan',\
+                        channel='%s',\
+                        bitrate=250000,\
+                        timeout=0.01" % iface0
+    else:
+        can_params = "bustype='virtual',\
+                        channel='%s',\
+                        timeout=0.01" % iface0
+    expected = "ISOTPSoftSocket(\
+                    can_socket=PythonCANSocket(%s),\
+                    sid=1604,\
+                    did=580,\
+                    rx_block_size=0,\
+                    rx_separation_time_min=0,\
+                    padding=False,\
+                    listen_only=False,\
+                    basecls=ISOTP\
+                )" % can_params
+    sc = s.command()
+    e = ast.parse(sc, mode='eval')
+    e_expected = ast.parse(expected, mode='eval')
+    assert sorted(ast.dump(e)) == sorted(ast.dump(e_expected)), "Order and whitespaces irrelevant; command() output: %s \n expected: %s" % (sc, expected)
+
+# recreate isotpsocket without use of exec()
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x644, did=0x244, rx_block_size=0, rx_separation_time_min=0, padding=False, listen_only=False, basecls=ISOTP) as s_recreated:
+    with new_can_socket(iface0) as cans:
+        cans.send(CAN(identifier = 0x244, data = dhex("10 0B 01 02 03 04 05 06")))
+        cans.send(CAN(identifier = 0x244, data = dhex("21 07 08 09 10 11")))
+    isotp = s_recreated.recv()
+    assert(isotp.data == dhex("01 02 03 04 05 06 07 08 09 10 11"))
+
 + Testing ISOTPSocket timeouts
 
 = Check if not sending the last CF will make the socket timeout
@@ -2157,6 +2221,68 @@ sender()
 rxThread.join(timeout=5)
 
 assert(succ)
+
+= Serialize ISOTPNativeSocket and verify
+exit_if_no_isotp_module()
+
+s = ISOTPNativeSocket(iface0, sid=0x241, did=0x641, extended_addr=0xaa, extended_rx_addr=0xee, transmit_time=150)
+
+expected = "ISOTPNativeSocket(\
+                iface='%s',\
+                sid=0x241,\
+                did=0x641,\
+                extended_addr=0xaa,\
+                extended_rx_addr=0xee,\
+                transmit_time=150,\
+                padding=False,\
+                listen_only=False,\
+                basecls=ISOTP\
+            )" % iface0
+
+sc = s.command()
+e = ast.parse(sc, mode='eval')
+e_expected = ast.parse(expected, mode='eval')
+s.close()
+assert sorted(ast.dump(e)) == sorted(ast.dump(e_expected)), "Order and whitespaces irrelevant; command() output: %s \n expected: %s" % (sc, expected)
+
+= Serialize ISOTPNativeSocket, then recreate ISOTPNativeSocket and send + receive single-framed ISOTP message
+exit_if_no_isotp_module()
+
+s = ISOTPNativeSocket(iface0, sid=0x644, did=0x244, transmit_time=100)
+
+expected = "ISOTPNativeSocket(\
+                iface='%s',\
+                sid=0x644,\
+                did=0x244,\
+                transmit_time=100,\
+                padding=False,\
+                listen_only=False,\
+                basecls=ISOTP\
+            )" % iface0
+
+sc = s.command()
+e = ast.parse(sc, mode='eval')
+e_expected = ast.parse(expected, mode='eval')
+assert sorted(ast.dump(e)) == sorted(ast.dump(e_expected)), "Order and whitespaces irrelevant; command() output: %s \n expected: %s" % (sc, expected)
+s.close()
+
+# recreate socket without use of exec()
+# we know that expected is correct, so we use it in a static form here
+s_recreated = ISOTPNativeSocket(
+                iface=iface0,
+                sid=0x644,
+                did=0x244,
+                transmit_time=100,
+                padding=False,
+                listen_only=False,
+                basecls=ISOTP)
+
+assert isinstance(s_recreated, ISOTPNativeSocket)
+with new_can_socket(iface0) as cans:
+    s_recreated.send(ISOTP(data=dhex("01 02 03 04 05")))
+    can = cans.sniff(timeout=1, count=1)
+    assert(can[0].identifier == 0x644)
+    assert(can[0].data == dhex("05 01 02 03 04 05"))
 
 + ISOTPNativeSocket MITM attack tests
 ~ python3_only vcan_socket needs_root linux

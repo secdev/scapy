@@ -964,15 +964,15 @@ with new_can_socket0() as sock1, new_can_socket0() as sock2:
     started = threading.Event()
     def ecu():
         pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
-        if len(pkts) == 1:
-            cro = CRO(pkts[0].data)
-            assert cro.cmd == 0x22
-            assert cro.data == b"\x10\x11\x12\x10\x11\x12"
-            sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x53\x02\x34\x00\x20\x06'))
+        assert len(pkts) == 1, "packets received: %s" % len(pkts)
+        cro = CRO(pkts[0].data)
+        assert cro.cmd == 0x22
+        assert cro.data == b"\x10\x11\x12\x10\x11\x12"
+        sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x53\x02\x34\x00\x20\x06'))
     thread = threading.Thread(target=ecu)
     thread.start()
-    started.wait(timeout=5)
-    dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x53)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
+    assert started.wait(timeout=5), "timeout reached"
+    dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x53)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1, verbose=True)
     thread.join(timeout=5)
 
 assert dto.ctr == 83
@@ -989,16 +989,16 @@ with new_can_socket0() as sock1, new_can_socket0() as sock2:
     started = threading.Event()
     def ecu():
         pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
-        if len(pkts) == 1:
-            cro = CRO(pkts[0].data)
-            assert cro.cmd == 0x22
-            assert cro.data == b"\x10\x11\x12\x10\x11\x12"
-            sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x55\x02\x34\x00\x20\x06'))
+        assert len(pkts) == 1, "packets received: %s" % len(pkts)
+        cro = CRO(pkts[0].data)
+        assert cro.cmd == 0x22
+        assert cro.data == b"\x10\x11\x12\x10\x11\x12"
+        sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x55\x02\x34\x00\x20\x06'))
     thread = threading.Thread(target=ecu)
     thread.start()
-    started.wait(timeout=5)
+    assert started.wait(timeout=5), "timeout reached"
     gotTimeout = False
-    dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x54)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
+    dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x54)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1, verbose=True)
     print(dto)
     if dto is None:
         gotTimeout = True
@@ -1012,15 +1012,15 @@ with new_can_socket0() as sock1, new_can_socket0() as sock2:
     started = threading.Event()
     def ecu():
         pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
-        if len(pkts) == 1:
-            cro = CRO(pkts[0].data)
-            assert cro.cmd == 0x22
-            assert cro.data == b"\x10\x11\x12\x10\x11\x12"
-            sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x01\x55\xff\xff\xff\xff\xff'))
+        assert len(pkts) == 1, "packets received: %s" % len(pkts)
+        cro = CRO(pkts[0].data)
+        assert cro.cmd == 0x22
+        assert cro.data == b"\x10\x11\x12\x10\x11\x12"
+        sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x01\x55\xff\xff\xff\xff\xff'))
     thread = threading.Thread(target=ecu)
     thread.start()
-    started.wait(timeout=5)
-    dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x55)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
+    assert started.wait(timeout=5), "timeout reached"
+    dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x55)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1, verbose=True)
     thread.join(timeout=5)
 
 assert dto.ctr == 85

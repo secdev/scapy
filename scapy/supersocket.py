@@ -185,6 +185,46 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         from scapy import sendrecv
         return sendrecv.tshark(opened_socket=self, *args, **kargs)
 
+    def _command(self, d):
+        """Internal helper function for implementing the command() method.
+
+        :param d: a dict with all parameters passed to the constructor
+            of the class, where a key is the name of the parameter
+            in the constructor and the value is its value
+        """
+
+        nv = []
+        for n, v in six.iteritems(d):
+            if v is None:
+                continue
+            elif hasattr(v, "__iter__"):
+                try:
+                    c = len(v) == 0
+                except TypeError:
+                    c = False
+                if c:
+                    continue
+
+            if n == "basecls":
+                v = (
+                    v.__name__
+                    if hasattr(v, "__name__")
+                    else v.__class__.__name__
+                )
+            elif hasattr(v, "command"):
+                v = v.command()
+            else:
+                v = repr(v)
+            nv.append("%s=%s" % (n, v))
+
+        return "%s(%s)" % (type(self).__name__, ", ".join(nv))
+
+    def command(self):
+        """Returns a string representing the command you have to type to
+        obtain the same socket.
+        """
+        raise NotImplementedError()
+
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
         """This function is called during sendrecv() routine to select

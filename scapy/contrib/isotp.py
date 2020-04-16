@@ -3,6 +3,7 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # Copyright (C) Enrico Pozzobon <enricopozzobon@gmail.com>
 # Copyright (C) Alexander Schroeder <alexander1.schroeder@st.othr.de>
+# Copyright (C) Johannes Stark <johannes.stark.js@gmail.com>
 # This program is published under a GPLv2 license
 
 # scapy.contrib.description = ISO-TP (ISO 15765-2)
@@ -655,6 +656,11 @@ class ISOTPSoftSocket(SuperSocket):
         self.exdst = extended_rx_addr
         self.src = sid
         self.dst = did
+        self.rxfc_bs = rx_block_size
+        self.rxfc_stmin = rx_separation_time_min
+        self.padding = padding
+        self.listen_only = listen_only
+        self.can_socket = can_socket
 
         impl = ISOTPSocketImplementation(
             can_socket,
@@ -675,6 +681,22 @@ class ISOTPSoftSocket(SuperSocket):
         if basecls is None:
             warning('Provide a basecls ')
         self.basecls = basecls
+
+    def command(self):
+        d = dict(
+            can_socket=self.can_socket,
+            sid=self.src,
+            did=self.dst,
+            extended_addr=self.exsrc,
+            extended_rx_addr=self.exdst,
+            rx_block_size=self.rxfc_bs,
+            rx_separation_time_min=self.rxfc_stmin,
+            padding=self.padding,
+            listen_only=self.listen_only,
+            basecls=self.basecls
+        )
+
+        return self._command(d)
 
     def close(self):
         if not self.closed:
@@ -1778,6 +1800,9 @@ if six.PY3 and LINUX:
             self.dst = did
             self.exsrc = extended_addr
             self.exdst = extended_rx_addr
+            self.padding = padding
+            self.listen_only = listen_only
+            self.trmt = transmit_time
 
             self.can_socket.setsockopt(SOL_CAN_ISOTP,
                                        CAN_ISOTP_RECV_FC,
@@ -1797,6 +1822,21 @@ if six.PY3 and LINUX:
             if basecls is None:
                 warning('Provide a basecls ')
             self.basecls = basecls
+
+        def command(self):
+            d = dict(
+                iface=self.iface,
+                sid=self.src,
+                did=self.dst,
+                extended_addr=self.exsrc,
+                extended_rx_addr=self.exdst,
+                transmit_time=self.trmt,
+                padding=self.padding,
+                listen_only=self.listen_only,
+                basecls=self.basecls
+            )
+
+            return self._command(d)
 
         def recv_raw(self, x=0xffff):
             """

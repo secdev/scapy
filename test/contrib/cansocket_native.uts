@@ -26,6 +26,7 @@ conf.contribs['CAN'] = {'swap-bytes': False}
 
 import os
 import threading
+import ast
 from time import sleep
 from subprocess import call
 
@@ -336,6 +337,60 @@ tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 rx = None
 rx = sock1.sr(tx, timeout=1, verbose=False)
 tx == rx[0][0][1]
+
+= Serialize CAN Socket and verify
+
+
+filters = [
+    {
+        "can_id": 10,
+        "can_mask": 0x7F
+    },
+    {
+        "can_id": 0x700,
+        "can_mask": 0x780
+    }
+]
+s = CANSocket(channel="vcan0", can_filters=filters)
+
+sc = s.command()
+sc_expected = "NativeCANSocket(channel='vcan0', can_filters=%s, receive_own_messages=False, remove_padding=True, basecls=CAN)" % filters
+
+e = ast.parse(sc, mode='eval')
+e_expected = ast.parse(sc_expected, mode='eval')
+
+s.close()
+assert sorted(ast.dump(e)) == sorted(ast.dump(e_expected)), "(Order of params irrelevant); expected: %s\ngot: %s" % (sc_expected, sc)
+
+
+= Serialize CAN Socket, then recreate CANSocket and send recv
+
+
+s = CANSocket(channel="vcan0")
+sc = s.command()
+sc_expected = "NativeCANSocket(channel='vcan0', receive_own_messages=False, remove_padding=True, basecls=CAN)"
+e = ast.parse(sc, mode='eval')
+e_expected = ast.parse(sc_expected, mode='eval')
+
+s.close()
+assert sorted(ast.dump(e)) == sorted(ast.dump(e_expected)), "(Order of params irrelevant); expected: %s\ngot: %s" % (sc_expected, sc)
+
+# recreate socket without use of exec()
+s_recreated = NativeCANSocket(channel='vcan0', receive_own_messages=False, remove_padding=True, basecls=CAN)
+
+def sender():
+    sleep(0.1)
+    sock2 = CANSocket(channel="vcan0")
+    sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
+    sock2.close()
+
+thread = threading.Thread(target=sender)
+thread.start()
+rx = s_recreated.recv()
+s.close()
+s_recreated.close()
+assert rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
+thread.join(timeout=5)
 
 + bridge and sniff tests
 

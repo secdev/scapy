@@ -26,6 +26,7 @@ bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 typ
 
 import os
 import threading
+import ast
 from subprocess import call
 
 = Setup vcan0
@@ -251,6 +252,54 @@ with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x1
     packets = sock1.sniff(timeout=0.1)
     assert len(packets) == 2
 
+= Serialize CAN Socket and verify
+
+filters = [
+    {
+        "can_id": 10,
+        "can_mask": 0x7F
+    },
+    {
+        "can_id": 0x700,
+        "can_mask": 0x780
+    }
+]
+s = CANSocket(bustype='socketcan', channel='vcan0', can_filters=filters)
+
+sc = s.command()
+sc_expected = "PythonCANSocket(bustype='socketcan', channel='vcan0', can_filters=%s)" % filters
+
+e = ast.parse(sc, mode='eval')
+e_expected = ast.parse(sc_expected, mode='eval')
+
+s.close()
+assert sorted(ast.dump(e)) == sorted(ast.dump(e_expected)), "(Order of params irrelevant); expected: %s\ngot: %s" % (sc_expected, sc)
+
+= Serialize CAN Socket, then recreate CANSocket and send recv
+s = CANSocket(bustype="socketcan", channel="vcan0")
+
+sc = s.command()
+sc_expected = "PythonCANSocket(bustype='socketcan', channel='vcan0')"
+
+e = ast.parse(sc, mode='eval')
+e_expected = ast.parse(sc_expected, mode='eval')
+
+s.close()
+assert sorted(ast.dump(e)) == sorted(ast.dump(e_expected)), "(Order of params irrelevant); expected: %s\ngot: %s" % (sc_expected, sc)
+
+# recreate socket without use of exec()
+s_recreated=PythonCANSocket(bustype='socketcan', channel='vcan0')
+
+sr = CANSocket(bustype='socketcan', channel="vcan0")
+
+thread = threading.Thread(target=sender, args=(s_recreated, CAN(identifier=0x7ff,length=1,data=b'\x01'), ))
+thread.start()
+send_done.wait(timeout=1)
+send_done.clear()
+rx = sr.recv()
+s_recreated.close()
+sr.close()
+assert rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 
 + bridge and sniff tests
 = bridge and sniff setup vcan1 package forwarding

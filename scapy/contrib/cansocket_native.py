@@ -1,6 +1,7 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
+# Copyright (C) Johannes Stark <johannes.stark.js@gmail.com>
 # This program is published under a GPLv2 license
 
 # scapy.contrib.description = Native CANSocket
@@ -13,6 +14,7 @@ NativeCANSocket.
 import struct
 import socket
 import time
+
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, warning
@@ -46,6 +48,7 @@ class NativeCANSocket(SuperSocket):
         self.ins = socket.socket(socket.PF_CAN,
                                  socket.SOCK_RAW,
                                  socket.CAN_RAW)
+        self.receive_own_messages = receive_own_messages
         try:
             self.ins.setsockopt(socket.SOL_CAN_RAW,
                                 socket.CAN_RAW_RECV_OWN_MSGS,
@@ -55,6 +58,7 @@ class NativeCANSocket(SuperSocket):
                 "Could not modify receive own messages (%s)", exception
             )
 
+        self.can_filters = can_filters
         if can_filters is None:
             can_filters = [{
                 "can_id": 0,
@@ -73,6 +77,17 @@ class NativeCANSocket(SuperSocket):
 
         self.ins.bind((self.channel,))
         self.outs = self.ins
+
+    def command(self):
+        d = dict(
+            channel=self.channel,
+            receive_own_messages=self.receive_own_messages,
+            can_filters=self.can_filters,
+            remove_padding=self.remove_padding,
+            basecls=self.basecls
+        )
+
+        return self._command(d)
 
     def recv(self, x=CAN_FRAME_SIZE):
         try:
