@@ -20,7 +20,7 @@ from collections import deque
 import threading
 from scapy.config import conf
 from scapy.utils import do_graph
-from scapy.error import log_interactive, warning
+from scapy.error import log_runtime, warning
 from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
@@ -698,10 +698,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     # Services
     def debug(self, lvl, msg):
         if self.debug_level >= lvl:
-            if conf.interactive:
-                log_interactive.debug(msg)
-            else:
-                print(msg)
+            log_runtime.debug(msg)
 
     def send(self, pkt):
         if self.state.state in self.interception_points:
