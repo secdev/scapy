@@ -180,6 +180,8 @@ class _TLSAutomaton(Automaton):
                     self.buffer_in += p.msg
                 else:
                     self.buffer_in += p.inner.msg
+            else:
+                p = p.payload
 
     def raise_on_packet(self, pkt_cls, state, get_next_msg=True):
         """
