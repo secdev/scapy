@@ -32,7 +32,7 @@ from scapy.layers.tls.automaton_srv import TLSServerAutomaton
 
 conf.verb = 4
 conf.debug_tls = True  
-conf.debug_dissector = True
+conf.debug_dissector = 2
 load_layer("tls")
 
 @contextmanager
