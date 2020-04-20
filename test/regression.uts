@@ -1442,6 +1442,8 @@ def _test():
     assert (ans.time - req.sent_time) >= 0
     assert (ans.time - req.sent_time) <= 1e-3
 
+retry_test(_test)
+
 conf.L3socket = sock
 
 = Sending an ICMP message 'forever' at layer 2 and layer 3
@@ -1780,6 +1782,24 @@ def send_and_sniff(pkt, timeout=2, flt=None, opened_socket=None):
 retry_test(lambda: send_and_sniff(IP(dst="secdev.org")/ICMP()))
 retry_test(lambda: send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp"))
 retry_test(lambda: send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP()))
+
+= Test SuperSocket.select
+~ select
+
+import mock
+
+@mock.patch("scapy.supersocket.select")
+def _test_select(select):
+    def f(a, b, c, d):
+        raise IOError
+    select.side_effect = f
+    try:
+        SuperSocket.select([])
+        return False
+    except:
+        return True
+
+assert _test_select()
 
 = Test L2ListenTcpdump socket
 ~ netaccess FIXME_py3
@@ -3079,6 +3099,9 @@ raw(IPv6ExtHdrHopByHop(options=[HAO(), Jumbo(), RouterAlert()])) == b';\x04\x01\
 
 = IPv6ExtHdrHopByHop - Instantiation with RouterAlert, HAO, Jumbo
 raw(IPv6ExtHdrHopByHop(options=[RouterAlert(), HAO(), Jumbo()])) == b';\x03\x05\x02\x00\x00\xc9\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\xc2\x04\x00\x00\x00\x00'
+
+= IPv6ExtHdrHopByHop - Hashret
+(IPv6(src="::1", dst="::1")/IPv6ExtHdrHopByHop()).hashret() == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00;'
 
 = IPv6ExtHdrHopByHop - Basic Dissection
 a=IPv6ExtHdrHopByHop(b';\x00\x01\x04\x00\x00\x00\x00')
@@ -7050,6 +7073,9 @@ assert(all(UDP in p for p in l))
 
 l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
 assert len(l) == 0
+
+= Check offline sniff with lfilter
+assert len(sniff(offline=[IP()/UDP(), IP()/TCP()], lfilter=lambda x: TCP in x)) == 1
 
 = Check offline sniff() without a tcpdump binary
 ~ tcpdump
@@ -13009,8 +13035,24 @@ dname = get_temp_dir()
 assert os.path.isdir(dname)
 
 = test fragleak functions
-~ netaccess linux
+~ netaccess linux fragleak
 
-fragleak("8.8.8.8", count=1)
-fragleak2("8.8.8.8", count=1)
-assert True
+import mock
+
+@mock.patch("scapy.layers.inet.conf.L3socket")
+@mock.patch("scapy.layers.inet.select.select")
+@mock.patch("scapy.layers.inet.sr1")
+def _test_fragleak(func, sr1, select, L3socket):
+    packets = [IP(src="4.4.4.4")/ICMP()/IPerror(dst="8.8.8.8")/conf.padding_layer(load=b"greatdata")]
+    iterator = iter(packets)
+    ne = lambda *args, **kwargs: next(iterator)
+    L3socket.side_effect = lambda: Bunch(recv=ne, send=lambda x: None)
+    sr1.side_effect = ne
+    select.side_effect = lambda a, b, c, d: a+b+c
+    with ContextManagerCaptureOutput() as cmco:
+        func("8.8.8.8", count=1)
+        out = cmco.get_output()
+        return "greatdata" in out
+
+assert _test_fragleak(fragleak)
+assert _test_fragleak(fragleak2)
