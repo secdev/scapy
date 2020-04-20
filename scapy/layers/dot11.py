@@ -780,7 +780,8 @@ class RSNCipherSuite(Packet):
             0x02: "TKIP",
             0x03: "Reserved",
             0x04: "CCMP",
-            0x05: "WEP-104"
+            0x05: "WEP-104",
+            0x06: "BIP-CMAC-128"
         })
     ]
 
@@ -862,6 +863,10 @@ class Dot11EltRSN(Dot11Elt):
                 0 if pkt.len is None else
                 pkt.len - (12 + (pkt.nb_pairwise_cipher_suites * 4) +
                                 (pkt.nb_akm_suites * 4)) >= 18)
+        ),
+        ConditionalField(
+            PacketField("group_management_cipher_suite", RSNCipherSuite(cipher=0x6), RSNCipherSuite),
+            lambda pkt: pkt.mfp_capable == 1
         )
     ]
 
