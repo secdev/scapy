@@ -1900,7 +1900,7 @@ def fragleak(target, sport=123, dport=123, timeout=0.2, onlyasc=0, count=None):
                 if ans.payload.payload.dst != target:
                     continue
                 if ans.src != target:
-                    print("leak from", ans.src, end=' ')
+                    print("leak from", ans.src)
                 if not ans.haslayer(conf.padding_layer):
                     continue
                 leak = ans.getlayer(conf.padding_layer).load

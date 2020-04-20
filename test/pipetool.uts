@@ -216,6 +216,14 @@ p.start()
 p.wait_and_stop()
 assert test_val == "hello"
 
+= Test PeriodicSource exhaustion
+
+s = PeriodicSource("", 1)
+s.msg = []
+p = PipeEngine(s)
+p.start()
+p.wait_and_stop()
+
 + Advanced ScapyPipes pipetools tests
 
 = Test SniffSource
@@ -316,7 +324,7 @@ from io import BytesIO
 f = BytesIO()
 pkt = Ether()/IP()/ICMP()
 
-with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
     p = PipeEngine()
     src = CLIFeeder()
     sink = WiresharkSink()
@@ -341,7 +349,7 @@ f = BytesIO()
 pkt = Ether()/IP()/ICMP()
 linktype = scapy.data.DLT_EN3MB
 
-with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
     p = PipeEngine()
     src = CLIFeeder()
     sink = WiresharkSink(linktype=linktype)
@@ -371,7 +379,7 @@ assert r.linktype == DLT_EN3MB
 f = BytesIO()
 pkt = Ether()/IP()/ICMP()
 
-with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
     p = PipeEngine()
     src = CLIFeeder()
     sink = WiresharkSink(args=['-c', '1'])
