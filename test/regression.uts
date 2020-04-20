@@ -254,11 +254,18 @@ assert (ARP(ptype=0, pdst="hello. this isn't a valid IP")).route()[0] is None
 
 = plain_str test
 
+data = b"\xffsweet\xef celestia\xab"
 if not six.PY2:
     # Only Python 3 has to deal with Str/Bytes conversion,
     # as we don't use Python 2's unicode
-    data = b"\xffsweet\xef celestia\xab"
-    assert plain_str(data) == "sweet celestia"
+    if sys.version_info[0:2] <= (3, 4):
+        # Python3.4 can only ignore unknown special characters
+        assert plain_str(data) == "sweet celestia"
+    else:
+        # Python >3.4 can replace them with a backslash representation
+        assert plain_str(data) == "\\xffsweet\\xef celestia\\xab"
+else:
+    assert plain_str(data) == "\xffsweet\xef celestia\xab"
 
 ############
 ############
