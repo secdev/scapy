@@ -559,10 +559,15 @@ class L3PacketSocket(L2Socket):
         self.outs.bind(sdto)
         sn = self.outs.getsockname()
         ll = lambda x: x
-        if type(x) in conf.l3types:
-            sdto = (iff, conf.l3types[type(x)])
+        type_x = type(x)
+        if type_x in conf.l3types:
+            sdto = (iff, conf.l3types[type_x])
         if sn[3] in conf.l2types:
             ll = lambda x: conf.l2types[sn[3]]() / x
+        if self.lvl == 3 and type_x != self.LL:
+            warning("Incompatible L3 types detected using %s instead of %s !",
+                    type_x, self.LL)
+            self.LL = type_x
         sx = raw(ll(x))
         x.sent_time = time.time()
         try:
