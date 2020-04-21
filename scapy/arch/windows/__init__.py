@@ -857,7 +857,6 @@ def _read_routes_c(ipv6=False):
     sock_addr_name = 'Ipv6' if ipv6 else 'Ipv4'
     sin_addr_name = 'sin6_addr' if ipv6 else 'sin_addr'
     metric_name = 'ipv6_metric' if ipv6 else 'ipv4_metric'
-    ip_len = 16 if ipv6 else 4
     if ipv6:
         lifaddr = in6_getifaddr()
     routes = []
@@ -879,7 +878,7 @@ def _read_routes_c(ipv6=False):
         # Build route
         try:
             iface = dev_from_index(ifIndex)
-            if iface.ip == "0.0.0.0":
+            if not iface.ip or iface.ip == "0.0.0.0":
                 continue
         except ValueError:
             continue
