@@ -862,26 +862,24 @@ def _read_routes_c(ipv6=False):
         lifaddr = in6_getifaddr()
     routes = []
 
-    def _extract_ip_netmask(obj):
+    def _extract_ip(obj):
         ip = obj[sock_addr_name][sin_addr_name]
         ip = bytes(bytearray(ip['byte']))
-        # Extract netmask
-        netmask = (ip_len - (len(ip) - len(ip.rstrip(b"\x00")))) * 8
         # Build IP
         ip = inet_ntop(af, ip)
-        return ip, netmask
+        return ip
 
     for route in GetIpForwardTable2(af):
         # Extract data
         ifIndex = route['InterfaceIndex']
-        _dest = route['DestinationPrefix']
-        dest, netmask = _extract_ip_netmask(_dest['Prefix'])
-        nexthop, _ = _extract_ip_netmask(route['NextHop'])
+        dest = _extract_ip(route['DestinationPrefix']['Prefix'])
+        netmask = route['DestinationPrefix']['PrefixLength']
+        nexthop = _extract_ip(route['NextHop'])
         metric = route['Metric']
         # Build route
         try:
             iface = dev_from_index(ifIndex)
-            if not iface.ip or iface.ip == "0.0.0.0":
+            if iface.ip == "0.0.0.0":
                 continue
         except ValueError:
             continue
