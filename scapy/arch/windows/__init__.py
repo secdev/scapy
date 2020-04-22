@@ -905,7 +905,6 @@ def read_routes():
         else:
             routes = _read_routes_c(ipv6=False)
     except Exception as e:
-        raise
         warning("Error building scapy IPv4 routing table : %s", e)
     else:
         if not routes:
