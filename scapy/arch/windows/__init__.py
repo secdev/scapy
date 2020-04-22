@@ -857,26 +857,23 @@ def _read_routes_c(ipv6=False):
     sock_addr_name = 'Ipv6' if ipv6 else 'Ipv4'
     sin_addr_name = 'sin6_addr' if ipv6 else 'sin_addr'
     metric_name = 'ipv6_metric' if ipv6 else 'ipv4_metric'
-    ip_len = 16 if ipv6 else 4
     if ipv6:
         lifaddr = in6_getifaddr()
     routes = []
 
-    def _extract_ip_netmask(obj):
+    def _extract_ip(obj):
         ip = obj[sock_addr_name][sin_addr_name]
         ip = bytes(bytearray(ip['byte']))
-        # Extract netmask
-        netmask = (ip_len - (len(ip) - len(ip.rstrip(b"\x00")))) * 8
         # Build IP
         ip = inet_ntop(af, ip)
-        return ip, netmask
+        return ip
 
     for route in GetIpForwardTable2(af):
         # Extract data
         ifIndex = route['InterfaceIndex']
-        _dest = route['DestinationPrefix']
-        dest, netmask = _extract_ip_netmask(_dest['Prefix'])
-        nexthop, _ = _extract_ip_netmask(route['NextHop'])
+        dest = _extract_ip(route['DestinationPrefix']['Prefix'])
+        netmask = route['DestinationPrefix']['PrefixLength']
+        nexthop = _extract_ip(route['NextHop'])
         metric = route['Metric']
         # Build route
         try:
