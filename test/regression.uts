@@ -12828,6 +12828,18 @@ assert pkt[Ether].dst == "ff:ff:ff:ff:ff:ff"
 assert pkt[IP].dst == "127.0.0.1"
 assert ICMP in pkt
 
+= import_hexcap(input_string)
+data = """
+0000  FF FF FF FF FF FF AA AA AA AA AA AA 08 00 45 00  ..............E.
+0010  00 1C 00 01 00 00 40 01 7C DE 7F 00 00 01 7F 00  ......@.|.......
+0020  00 01 08 00 F7 FF 00 00 00 00                    ..........
+"""[1:]
+pkt = import_hexcap(data)
+pkt = Ether(pkt)
+assert pkt[Ether].dst == "ff:ff:ff:ff:ff:ff"
+assert pkt[IP].dst == "127.0.0.1"
+assert ICMP in pkt
+
 = padding()
 
 def test_padding():

@@ -1538,16 +1538,23 @@ class PcapWriter(RawPcapWriter):
 
 
 @conf.commands.register
-def import_hexcap():
+def import_hexcap(input_string=None):
     """Imports a tcpdump like hexadecimal view
 
     e.g: exported via hexdump() or tcpdump or wireshark's "export as hex"
+
+    :param input_string: String containing the hexdump input to parse. If None,
+        read from standard input.
     """
     re_extract_hexcap = re.compile(r"^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")  # noqa: E501
     p = ""
     try:
+        if input_string:
+            input_function = six.StringIO(input_string).readline
+        else:
+            input_function = input
         while True:
-            line = input().strip()
+            line = input_function().strip()
             if not line:
                 break
             try:
