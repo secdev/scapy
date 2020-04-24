@@ -1532,7 +1532,7 @@ def _test():
 retry_test(_test)
 
 = AS resolvers
-~ netaccess IP
+~ netaccess IP as_resolvers
 * This test retries on failure because it often fails
 
 def _test():
@@ -1542,10 +1542,10 @@ def _test():
 
 retry_test(_test)
 
-def _test():
-    ret = AS_resolver_riswhois().resolve("8.8.8.8")
-    assert (len(ret) == 1)
-    assert all(x[1] == "AS15169" for x in ret)
+riswhois_data = b"route:      8.8.8.0/24\ndescr:      Google\norigin:     AS15169\nnotify:     radb-contact@google.com\nmnt-by:     MAINT-AS15169\nchanged:    radb-contact@google.com 20150728\nsource:     RADB\n\nroute:         8.0.0.0/9\ndescr:         Proxy-registered route object\norigin:        AS3356\nremarks:       auto-generated route object\nremarks:       this next line gives the robot something to recognize\nremarks:       L'enfer, c'est les autres\nremarks:       \nremarks:       This route object is for a Level 3 customer route\nremarks:       which is being exported under this origin AS.\nremarks:       \nremarks:       This route object was created because no existing\nremarks:       route object with the same origin was found, and\nremarks:       since some Level 3 peers filter based on these objects\nremarks:       this route may be rejected if this object is not created.\nremarks:       \nremarks:       Please contact routing@Level3.net if you have any\nremarks:       questions regarding this object.\nmnt-by:        LEVEL3-MNT\nchanged:       roy@Level3.net 20060203\nsource:        LEVEL3\n\n\n"
+
+ret = AS_resolver_riswhois()._parse_whois(riswhois_data)
+assert ret == ('AS15169', 'Google')
 
 retry_test(_test)
 
