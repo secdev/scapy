@@ -571,7 +571,7 @@ class HTTP(Packet):
                 elif isinstance(http_packet.payload, HTTPRequest):
                     detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
                     # In case we are handling a HTTP Request,
-                    # we want to continue assesing the data,
+                    # we want to continue assessing the data,
                     # to handle requests with a body (POST)
                     metadata["detect_unknown"] = True
                 elif is_response and http_packet.Status_Code == b"101":
