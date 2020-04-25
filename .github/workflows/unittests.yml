@@ -7,7 +7,8 @@ jobs:
     name: Code health check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout Scapy
+        uses: actions/checkout@v2
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -24,7 +25,8 @@ jobs:
     name: Build doc
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout Scapy
+        uses: actions/checkout@v2
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -37,7 +39,8 @@ jobs:
     name: Type hints check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout Scapy
+        uses: actions/checkout@v2
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -55,7 +58,8 @@ jobs:
       matrix:
         python: [2.7, pypy2, pypy3, 3.5, 3.6, 3.7, 3.8]
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout Scapy
+        uses: actions/checkout@v2
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
