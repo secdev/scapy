@@ -453,17 +453,6 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
 ################
 
 
-def scapy_delete_temp_files():
-    # type: () -> None
-    from scapy.config import conf
-    for f in conf.temp_files:
-        try:
-            os.unlink(f)
-        except Exception:
-            pass
-    del(conf.temp_files[:])
-
-
 def _prepare_quote(quote, author, max_len=78):
     # type: (str, str, int) -> List[str]
     """This function processes a quote and returns a string that is ready
