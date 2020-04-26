@@ -687,10 +687,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None,
     """
 
     if format is None:
-        if WINDOWS:
-            format = "png"  # use common format to make sure a viewer is installed  # noqa: E501
-        else:
-            format = "svg"
+        format = "svg"
     if string:
         return graph
     if type is not None:
@@ -717,11 +714,17 @@ def do_graph(graph, prog=None, format=None, target=None, type=None,
             target = open(target[1:].lstrip(), "wb")
         else:
             target = open(os.path.abspath(target), "wb")
-    proc = subprocess.Popen("\"%s\" %s %s" % (prog, options or "", format or ""),  # noqa: E501
-                            shell=True, stdin=subprocess.PIPE, stdout=target)
-    proc.stdin.write(bytes_encode(graph))
-    proc.stdin.close()
-    proc.wait()
+    proc = subprocess.Popen(
+        "\"%s\" %s %s" % (prog, options or "", format or ""),
+        shell=True, stdin=subprocess.PIPE, stdout=target,
+        stderr=subprocess.PIPE
+    )
+    _, stderr = proc.communicate(bytes_encode(graph))
+    if proc.returncode != 0:
+        raise OSError(
+            "GraphViz call failed (is it installed?):\n" +
+            plain_str(stderr)
+        )
     try:
         target.close()
     except Exception:

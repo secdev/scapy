@@ -337,7 +337,7 @@ with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)
         p.wait_and_stop()
 
 popen.assert_called_once_with(
-    [conf.prog.wireshark, '-ki', '-'], stdin=subprocess.PIPE, stdout=None,
+    [conf.prog.wireshark, '-Slki', '-'], stdin=subprocess.PIPE, stdout=None,
     stderr=None)
 bytes_hex(f.getvalue())
 bytes_hex(raw(pkt))
@@ -362,7 +362,7 @@ with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)
         p.wait_and_stop()
 
 popen.assert_called_once_with(
-    [conf.prog.wireshark, '-ki', '-'],
+    [conf.prog.wireshark, '-Slki', '-'],
     stdin=subprocess.PIPE, stdout=None, stderr=None)
 
 bytes_hex(f.getvalue())
@@ -392,7 +392,7 @@ with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)
         p.wait_and_stop()
 
 popen.assert_called_once_with(
-    [conf.prog.wireshark, '-ki', '-', '-c', '1'],
+    [conf.prog.wireshark, '-Slki', '-', '-c', '1'],
     stdin=subprocess.PIPE, stdout=None, stderr=None)
 
 = Test RdpcapSource and WrpcapSink
@@ -713,7 +713,7 @@ p.add(s)
 p.start()
 
 from scapy.layers.http import HTTPRequest, HTTP
-s.send(bytes(HTTPRequest(Host="www.google.com")))
+s.send(bytes(HTTP()/HTTPRequest(Host="www.google.com")))
 result = c.q.get(timeout=10)
 p.stop()
 

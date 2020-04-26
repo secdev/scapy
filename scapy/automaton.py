@@ -27,11 +27,6 @@ from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 
-if WINDOWS:
-    from scapy.error import Scapy_Exception
-    recv_error = Scapy_Exception
-else:
-    recv_error = ()
 
 """ In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionality  # noqa: E501
 # Passive way: using no-ressources locks
@@ -924,18 +919,14 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                         if fd == self.cmdin:
                             yield self.CommandMessage("Received command message")  # noqa: E501
                         elif fd == self.listen_sock:
-                            try:
-                                pkt = self.listen_sock.recv(MTU)
-                            except recv_error:
-                                pass
-                            else:
-                                if pkt is not None:
-                                    if self.master_filter(pkt):
-                                        self.debug(3, "RECVD: %s" % pkt.summary())  # noqa: E501
-                                        for rcvcond in self.recv_conditions[self.state.state]:  # noqa: E501
-                                            self._run_condition(rcvcond, pkt, *state_output)  # noqa: E501
-                                    else:
-                                        self.debug(4, "FILTR: %s" % pkt.summary())  # noqa: E501
+                            pkt = self.listen_sock.recv(MTU)
+                            if pkt is not None:
+                                if self.master_filter(pkt):
+                                    self.debug(3, "RECVD: %s" % pkt.summary())  # noqa: E501
+                                    for rcvcond in self.recv_conditions[self.state.state]:  # noqa: E501
+                                        self._run_condition(rcvcond, pkt, *state_output)  # noqa: E501
+                                else:
+                                    self.debug(4, "FILTR: %s" % pkt.summary())  # noqa: E501
                         else:
                             self.debug(3, "IOEVENT on %s" % fd.ioname)
                             for ioevt in self.ioevents[self.state.state]:
