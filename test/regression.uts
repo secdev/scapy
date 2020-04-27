@@ -1798,7 +1798,7 @@ import mock
 @mock.patch("scapy.supersocket.select")
 def _test_select(select):
     def f(a, b, c, d):
-        raise IOError
+        raise IOError(0)
     select.side_effect = f
     try:
         SuperSocket.select([])

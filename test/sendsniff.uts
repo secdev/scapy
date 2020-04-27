@@ -301,7 +301,7 @@ assert len(unans) == 1
 
 t_answer.join(15)
 
-if t_answer.isAlive():
+if t_answer.is_alive():
     raise Exception("Test timed out")
 
 if conf.use_pypy:

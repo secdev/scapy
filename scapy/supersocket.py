@@ -198,7 +198,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             inp, _, _ = select(sockets, [], [], remain)
         except (IOError, select_error) as exc:
             # select.error has no .errno attribute
-            if exc.args[0] != errno.EINTR:
+            if not exc.args or exc.args[0] != errno.EINTR:
                 raise
         return inp, None
 
