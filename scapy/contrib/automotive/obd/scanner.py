@@ -168,11 +168,13 @@ class OBD_S01_Enumerator(OBD_Service_Enumerator):
 
     @staticmethod
     def get_table_entry(tup):
-        _, req, res = tup
+        _, _, res = tup
         label = OBD_Enumerator.get_label(
             res,
             positive_case=lambda: OBD_Service_Enumerator.print_payload(res))
-        return "Service 01", "0x%02x" % req.pid[0], label
+        return ("Service 01",
+                "%s" % res.data_records[0].lastlayer().name,
+                label)
 
 
 class OBD_S02_Enumerator(OBD_Service_Enumerator):
@@ -184,11 +186,13 @@ class OBD_S02_Enumerator(OBD_Service_Enumerator):
 
     @staticmethod
     def get_table_entry(tup):
-        _, req, res = tup
+        _, _, res = tup
         label = OBD_Enumerator.get_label(
             res,
             positive_case=lambda: OBD_Service_Enumerator.print_payload(res))
-        return "Service 02", "0x%02x" % req.pid[0], label
+        return ("Service 02",
+                "%s" % res.data_records[0].lastlayer().name,
+                label)
 
 
 class OBD_S06_Enumerator(OBD_Service_Enumerator):
@@ -203,7 +207,11 @@ class OBD_S06_Enumerator(OBD_Service_Enumerator):
         label = OBD_Enumerator.get_label(
             res,
             positive_case=lambda: OBD_Service_Enumerator.print_payload(res))
-        return "Service 06", "0x%02x" % req.mid[0], label
+        return ("Service 06",
+                "0x%02x %s" % (
+                    req.mid[0],
+                    res.data_records[0].sprintf("%OBD_S06_PR_Record.mid%")),
+                label)
 
 
 class OBD_S08_Enumerator(OBD_Service_Enumerator):
@@ -218,7 +226,10 @@ class OBD_S08_Enumerator(OBD_Service_Enumerator):
         label = OBD_Enumerator.get_label(
             res,
             positive_case=lambda: OBD_Service_Enumerator.print_payload(res))
-        return "Service 08", "0x%02x" % req.tid[0], label
+        return ("Service 08",
+                "0x%02x %s" % (req.tid[0],
+                               res.data_records[0].lastlayer().name),
+                label)
 
 
 class OBD_S09_Enumerator(OBD_Service_Enumerator):
@@ -233,7 +244,10 @@ class OBD_S09_Enumerator(OBD_Service_Enumerator):
         label = OBD_Enumerator.get_label(
             res,
             positive_case=lambda: OBD_Service_Enumerator.print_payload(res))
-        return "Service 09", "0x%02x" % req.iid[0], label
+        return ("Service 09",
+                "0x%02x %s" % (req.iid[0],
+                               res.data_records[0].lastlayer().name),
+                label)
 
 
 class OBD_Scanner(Scanner):
