@@ -322,7 +322,7 @@ except:
 from io import BytesIO
 
 f = BytesIO()
-pkt = Ether()/IP()/ICMP()
+pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="aa:aa:aa:aa:aa:aa")/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
 
 with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
     p = PipeEngine()
@@ -339,6 +339,7 @@ with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)
 popen.assert_called_once_with(
     [conf.prog.wireshark, '-Slki', '-'], stdin=subprocess.PIPE, stdout=None,
     stderr=None)
+
 bytes_hex(f.getvalue())
 bytes_hex(raw(pkt))
 assert raw(pkt) in f.getvalue()
@@ -346,7 +347,7 @@ assert raw(pkt) in f.getvalue()
 = Test WiresharkSink with linktype
 
 f = BytesIO()
-pkt = Ether()/IP()/ICMP()
+pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="aa:aa:aa:aa:aa:aa")/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
 linktype = scapy.data.DLT_EN3MB
 
 with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
@@ -373,11 +374,12 @@ assert raw(pkt) in f.getvalue()
 f.seek(0) or None
 r = PcapReader(f)
 assert r.linktype == DLT_EN3MB
+r.close()
 
 = Test WiresharkSink with args
 
 f = BytesIO()
-pkt = Ether()/IP()/ICMP()
+pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="aa:aa:aa:aa:aa:aa")/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
 
 with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
     p = PipeEngine()
@@ -395,12 +397,16 @@ popen.assert_called_once_with(
     [conf.prog.wireshark, '-Slki', '-', '-c', '1'],
     stdin=subprocess.PIPE, stdout=None, stderr=None)
 
+bytes_hex(f.getvalue())
+bytes_hex(raw(pkt))
+assert raw(pkt) in f.getvalue()
+
 = Test RdpcapSource and WrpcapSink
 
 dname = get_temp_dir()
 
-req = Ether()/IP()/ICMP()
-rpy = Ether()/IP(b'E\x00\x00\x1c\x00\x00\x00\x004\x01\x1d\x04\xd8:\xd0\x83\xc0\xa8\x00w\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+req = Ether(b'E\x00\x00\x1c\x00\x00\x00\x004\x01\x1d\x04\xd8:\xd0\x83\xc0\xa8\x00w\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+rpy = Ether(b'\x8c\xf8\x13C5P\xdcS`\xeb\x80H\x08\x00E\x00\x00\x1c\x00\x00\x00\x004\x01\x1d\x04\xd8:\xd0\x83\xc0\xa8\x00w\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 
 wrpcap(os.path.join(dname, "t.pcap"), [req, rpy])
 

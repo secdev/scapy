@@ -795,11 +795,11 @@ Two methods are hooks to be overloaded:
 PipeTools
 =========
 
-Pipetool is a smart piping system allowing to perform complex stream data management. There are various differences between PipeTools and Automatons:
+Scapy's ``pipetool`` is a smart piping system allowing to perform complex stream data management.
 
-- PipeTools have no states: data is always sent following the same pattern
-- PipeTools are not based on sockets but can handle more varied sources of data (and outputs) such as user input, pcap input (but also sniffing)
-- PipeTools are not class-based, but rather implemented by manually linking all their parts. That has drawbacks but allows to dynamically add a Source, Drain while running, and set multiple drains for the same source
+The goal is to create a sequence of steps with one or several inputs and one or several outputs, with a bunch of blocks in between.
+PipeTools can handle varied sources of data (and outputs) such as user input, pcap input, sniffing, wireshark...
+A pipe system is implemented by manually linking all its parts. It is possible to dynamically add an element while running or set multiple drains for the same source.
 
 .. note:: Pipetool default objects are located inside ``scapy.pipetool``
 
@@ -846,7 +846,7 @@ They are executed and handled by a :class:`~scapy.pipetool.PipeEngine` object.
 When running, a pipetool engine waits for any available data from the Source, and send it in the Drains linked to it.
 The data then goes from Drains to Drains until it arrives in a Sink, the final state of this data.
 
-Here is a basic demo of what the PipeTool system can do
+Let's see with a basic demo how to build a pipetool system.
 
 .. image:: graphics/pipetool_engine.png
 
@@ -874,13 +874,13 @@ For instance, this engine was generated with this code:
     >>> p.add(s2)
     >>> p.graph(target="> the_above_image.png")
 
-Let's start our PipeEngine:
+``start()`` is used to start the :class:`~scapy.pipetool.PipeEngine`:
 
 .. code:: pycon
 
     >>> p.start()
 
-Now, let's play with it:
+Now, let's play with it by sending some input data
 
 .. code:: pycon
 
@@ -895,10 +895,10 @@ Now, let's play with it:
 
 Let's study what happens here:
 
-- there are two canals in a PipeEngine, a lower one and a higher one. Some Sources write on the lower one, some on the higher one and some on both.
-- most sources can be linked to any drain, on both lower and higher canals. The use of `>` indicates a link on the low canal, and `>>` on the higher one.
-- when we send some data in `s`, which is on the lower canal, as shown above, it goes through the `Drain` then is sent to the `QueueSink` and to the `ConsoleSink`
-- when we send some data in `s2`, it goes through the Drain, then the TransformDrain where the data is reversed (see the lambda), before being sent to `ConsoleSink` only. This explains why we only have the data of the lower sources inside the QueueSink: the higher one has not been linked.
+- there are **two canals** in a :class:`~scapy.pipetool.PipeEngine`, a lower one and a higher one. Some Sources write on the lower one, some on the higher one and some on both.
+- most sources can be linked to any drain, on both lower and higher canals. The use of ``>`` indicates a link on the low canal, and ``>>`` on the higher one.
+- when we send some data in ``s``, which is on the lower canal, as shown above, it goes through the :class:`~scapy.pipetool.Drain` then is sent to the :class:`~.scapy.pipetool.QueueSink` and to the :class:`~scapy.pipetool.ConsoleSink`
+- when we send some data in ``s2``, it goes through the Drain, then the TransformDrain where the data is reversed (see the lambda), before being sent to :class:`~scapy.pipetool.ConsoleSink` only. This explains why we only have the data of the lower sources inside the QueueSink: the higher one has not been linked.
 
 Most of the sinks receive from both lower and upper canals. This is verifiable using the `help(ConsoleSink)`
 
