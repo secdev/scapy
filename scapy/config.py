@@ -378,8 +378,8 @@ def _version_checker(module, minver):
 
 def isCryptographyValid():
     """
-    Check if the cryptography library is present, and if it is recent enough
-    for most usages in scapy (v1.7 or later).
+    Check if the cryptography module >= 1.7 is present. This is the minimum
+    version for most usages in Scapy.
     """
     try:
         import cryptography
@@ -390,8 +390,12 @@ def isCryptographyValid():
 
 def isCryptographyAdvanced():
     """
-    Check if the cryptography library is present, and if it supports X25519,
-    ChaCha20Poly1305 and such (v2.0 or later).
+    Check if the cryptography module is present, and if it supports X25519,
+    ChaCha20Poly1305 and such.
+
+    Notes:
+    - cryptography >= 2.0 is required
+    - OpenSSL >= 1.1.0 is required
     """
     try:
         from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey  # noqa: E501
