@@ -9,8 +9,6 @@
 + TLS server automaton tests
 ~ server
 
-### DISCLAIMER: Those tests are slow ###
-
 = Load server util functions
 
 from __future__ import print_function
@@ -65,10 +63,11 @@ def check_output_for_data(out, err, expected_data):
         return (False, None)
 
 def get_file(filename):
-    return os.getenv("SCAPY_ROOT_DIR")+filename if not os.path.exists(filename) else filename
+    return os.path.abspath(os.getenv("SCAPY_ROOT_DIR")+filename if not os.path.exists(filename) else filename)
 
 
-def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=False, psk=None):
+def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=False,
+                        psk=None, handle_session_ticket=False):
     correct = False
     print("Server started !")
     with captured_output() as (out, err):
@@ -89,6 +88,7 @@ def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=
                                curve=curve,
                                cookie=cookie,
                                client_auth=client_auth,
+                               handle_session_ticket=handle_session_ticket,
                                debug=5,
                                **kwargs)
         # Sync threads
@@ -100,17 +100,8 @@ def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=
     # Return data
     q.put(res)
 
-def test_tls_server(suite="", version="", tls13=False, client_auth=False, psk=None):
-    msg = ("TestS_%s_data" % suite).encode()
-    # Run server
-    q_ = Queue()
-    th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_),
-                           kwargs={"curve": None, "cookie": False, "client_auth": client_auth, "psk": psk})
-    th_.setDaemon(True)
-    th_.start()
-    # Synchronise threads
-    q_.get()
-    time.sleep(1)
+def run_openssl_client(msg, suite="", version="", tls13=False, client_auth=False,
+                       psk=None, sess_out=None):
     # Run client
     CA_f = get_file("/test/tls/pki/ca_cert.pem")
     mycert = get_file("/test/tls/pki/cli_cert.pem")
@@ -126,6 +117,8 @@ def test_tls_server(suite="", version="", tls13=False, client_auth=False, psk=No
         args.extend(["-cert", mycert, "-key", mykey])
     if psk:
         args.extend(["-psk", str(psk)])
+    if sess_out:
+        args.extend(["-sess_out", sess_out])
     p = subprocess.Popen(
         args,
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
@@ -148,6 +141,20 @@ def test_tls_server(suite="", version="", tls13=False, client_auth=False, psk=No
                 break
         if _failed or not _one_success:
             raise RuntimeError("OpenSSL returned unexpected values")
+
+def test_tls_server(suite="", version="", tls13=False, client_auth=False, psk=None):
+    msg = ("TestS_%s_data" % suite).encode()
+    # Run server
+    q_ = Queue()
+    th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_),
+                           kwargs={"curve": None, "cookie": False, "client_auth": client_auth, "psk": psk})
+    th_.setDaemon(True)
+    th_.start()
+    # Synchronise threads
+    q_.get()
+    time.sleep(1)
+    # Run openssl client
+    run_openssl_client(msg, suite=suite, version=version, tls13=tls13, client_auth=client_auth, psk=psk)
     # Wait for server
     th_.join(5)
     if th_.is_alive():
@@ -210,32 +217,45 @@ from scapy.modules.six.moves.queue import Queue
 send_data = cipher_suite_code = version = None
 
 def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None,
-                        client_auth=False, key_update=False):
+                        client_auth=False, key_update=False, stop_server=True,
+                        session_ticket_file_out=None, session_ticket_file_in=None):
     print("Loading client...")
     mycert = get_file("/test/tls/pki/cli_cert.pem") if client_auth else None
     mykey = get_file("/test/tls/pki/cli_key.pem") if client_auth else None
     commands = [send_data]
     if key_update:
-        commands += ["key_update"]
-    commands.extend([b"stop_server", b"quit"])
+        commands.append(b"key_update")
+    if stop_server:
+        commands.append(b"stop_server")
+    if session_ticket_file_out:
+        commands.append(b"wait")
+    commands.append(b"quit")
     if version == "0002":
-        t = TLSClientAutomaton(data=commands, version="sslv2", debug=5, mycert=mycert, mykey=mykey)
+        t = TLSClientAutomaton(data=commands, version="sslv2", debug=5, mycert=mycert, mykey=mykey,
+                               session_ticket_file_in=session_ticket_file_in,
+                               session_ticket_file_out=session_ticket_file_out)
     elif version == "0304":
         ch = TLS13ClientHello(ciphers=int(cipher_suite_code, 16))
-        t = TLSClientAutomaton(client_hello=ch, data=commands, version="tls13", debug=5, mycert=mycert, mykey=mykey)
+        t = TLSClientAutomaton(client_hello=ch, data=commands, version="tls13", debug=5, mycert=mycert, mykey=mykey,
+                               session_ticket_file_in=session_ticket_file_in,
+                               session_ticket_file_out=session_ticket_file_out)
     else:
         ch = TLSClientHello(version=int(version, 16), ciphers=int(cipher_suite_code, 16))
-        t = TLSClientAutomaton(client_hello=ch, data=commands, debug=5, mycert=mycert, mykey=mykey)
+        t = TLSClientAutomaton(client_hello=ch, data=commands, debug=5, mycert=mycert, mykey=mykey,
+                               session_ticket_file_in=session_ticket_file_in,
+                               session_ticket_file_out=session_ticket_file_out)
     print("Running client...")
     t.run()
 
-def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False, key_update=False):
+def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
+                    key_update=False, sess_in_out=False):
     msg = ("TestC_%s_data" % suite).encode()
     # Run server
     q_ = Queue()
     print("Starting server...")
     th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_),
-                           kwargs={"curve": None, "cookie": False, "client_auth": client_auth})
+                           kwargs={"curve": None, "cookie": False, "client_auth": client_auth,
+                                   "handle_session_ticket": sess_in_out})
     th_.setDaemon(True)
     th_.start()
     # Synchronise threads
@@ -244,7 +264,14 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
     time.sleep(1)
     print("Thread synchronised")
     # Run client
-    run_tls_test_client(msg, suite, version, client_auth, key_update)
+    if sess_in_out:
+        file_sess = get_file("/test/session")
+        run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_out=file_sess,
+                            stop_server=False)
+        run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_in=file_sess,
+                            stop_server=True)
+    else:
+        run_tls_test_client(msg, suite, version, client_auth, key_update)
     # Wait for server
     print("Client running, waiting...")
     th_.join(5)
@@ -309,3 +336,8 @@ test_tls_client("1305", "0304", client_auth=True)
 ~ crypto_advanced
 
 test_tls_client("1305", "0304", key_update=True)
+
+= Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256 and session resumption
+~ crypto_advanced
+
+test_tls_client("1305", "0304", client_auth=True, sess_in_out=True)

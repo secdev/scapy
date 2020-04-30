@@ -562,6 +562,9 @@ class TLSClientAutomaton(_TLSAutomaton):
             data = self.data_to_send.pop()
         if data == b"quit":
             return
+        # Command to skip sending
+        elif data == b"wait":
+            raise self.WAITING_SERVERDATA()
         # Command to perform a key_update (for a TLS 1.3 session)
         elif data == b"key_update":
             if self.cur_session.tls_version >= 0x0304:

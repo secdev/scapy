@@ -25,7 +25,7 @@ import time
 from scapy.config import conf
 from scapy.packet import Raw
 from scapy.pton_ntop import inet_pton
-from scapy.utils import randstring, repr_hex
+from scapy.utils import get_temp_file, randstring, repr_hex
 from scapy.automaton import ATMT
 from scapy.error import warning
 from scapy.layers.tls.automaton import _TLSAutomaton
@@ -92,6 +92,7 @@ class TLSServerAutomaton(_TLSAutomaton):
                    client_auth=False,
                    is_echo_server=True,
                    max_client_idle_time=60,
+                   handle_session_ticket=None,
                    session_ticket_file=None,
                    curve=None,
                    cookie=False,
@@ -126,7 +127,11 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.cookie = cookie
         self.psk_secret = psk
         self.psk_mode = psk_mode
-        self.handle_session_ticket = (session_ticket_file is not None)
+        if handle_session_ticket is None:
+            handle_session_ticket = (session_ticket_file is not None)
+        if handle_session_ticket:
+            session_ticket_file = session_ticket_file or get_temp_file()
+        self.handle_session_ticket = handle_session_ticket
         self.session_ticket_file = session_ticket_file
         for (group_id, ng) in _tls_named_groups.items():
             if ng == curve:
@@ -1025,7 +1030,6 @@ class TLSServerAutomaton(_TLSAutomaton):
             # flush_records() call. Other way to build this message before ?
             for p in reversed(self.cur_session.handshake_messages_parsed):
                 if isinstance(p, TLS13NewSessionTicket):
-                    p.show()
                     self.save_ticket(p)
                     break
         raise self.SENT_SERVERDATA()
