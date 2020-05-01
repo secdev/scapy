@@ -340,7 +340,7 @@ class TFTP_WRQ_server(Automaton):
             self.last_packet = self.l3 / TFTP_ACK(block=0)
             self.send(self.last_packet)
         else:
-            opt = [x for x in options.options if x.oname.upper() == "BLKSIZE"]
+            opt = [x for x in options.options if x.oname.upper() == b"BLKSIZE"]
             if opt:
                 self.blksize = int(opt[0].value)
                 self.debug(2, "Negotiated new blksize at %i" % self.blksize)
@@ -434,7 +434,7 @@ class TFTP_RRQ_server(Automaton):
             self.data = self.joker
 
         if options:
-            opt = [x for x in options.options if x.oname.upper() == "BLKSIZE"]
+            opt = [x for x in options.options if x.oname.upper() == b"BLKSIZE"]
             if opt:
                 self.blksize = int(opt[0].value)
                 self.debug(2, "Negotiated new blksize at %i" % self.blksize)

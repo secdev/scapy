@@ -20,7 +20,7 @@ from collections import deque
 import threading
 from scapy.config import conf
 from scapy.utils import do_graph
-from scapy.error import log_interactive, warning
+from scapy.error import log_runtime, warning
 from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
@@ -698,7 +698,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     # Services
     def debug(self, lvl, msg):
         if self.debug_level >= lvl:
-            log_interactive.debug(msg)
+            log_runtime.debug(msg)
 
     def send(self, pkt):
         if self.state.state in self.interception_points:
@@ -859,11 +859,6 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 self.cmdout.send(m)
             self.debug(3, "Stopping control thread (tid=%i)" % self.threadid)
             self.threadid = None
-            # Close sockets
-            if self.listen_sock:
-                self.listen_sock.close()
-            if self.send_sock:
-                self.send_sock.close()
 
     def _do_iter(self):
         while True:

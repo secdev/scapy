@@ -154,7 +154,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
     #XXX 'sig_alg' should be set in __init__ depending on the context.
     """
     name = "TLS Digital Signature"
-    fields_desc = [SigAndHashAlgField("sig_alg", 0x0401, _tls_hash_sig),
+    fields_desc = [SigAndHashAlgField("sig_alg", 0x0804, _tls_hash_sig),
                    SigLenField("sig_len", None, fmt="!H",
                                length_of="sig_val"),
                    SigValField("sig_val", None,

@@ -25,12 +25,15 @@ parser = ArgumentParser(description='Simple TLS Server')
 parser.add_argument("--curve", help="ECC curve to advertise (ex: secp256r1...")
 parser.add_argument("--cookie", action="store_true",
                     help="Send cookie extension in HelloRetryRequest message")
+parser.add_argument("--client_auth", action="store_true",
+                    help="Require client authentication")
 args = parser.parse_args()
 
 pcs = None
 t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
                        mykey=basedir+'/test/tls/pki/srv_key.pem',
                        preferred_ciphersuite=pcs,
+                       client_auth=args.client_auth,
                        curve=args.curve,
                        cookie=args.cookie)
 t.run()
