@@ -345,8 +345,8 @@ class ULI_CGI(ULI_Field):
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
-        BitField("LAC", 0, 4),
-        BitField("CI", 0, 28),
+        BitField("LAC", 0, 16),
+        BitField("CI", 0, 16),
     ]
 
 
@@ -355,8 +355,8 @@ class ULI_SAI(ULI_Field):
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
-        ShortField("LAC", 0),
-        ShortField("SAC", 0),
+        BitField("LAC", 0, 16),
+        BitField("SAC", 0, 16),
     ]
 
 
@@ -367,8 +367,8 @@ class ULI_RAI(ULI_Field):
         # MNC: if the third digit of MCC is 0xf, then the length of
         # MNC is 1 byte
         gtp.TBCDByteField("MNC", "", 1),
-        ShortField("LAC", 0),
-        ShortField("RAC", 0),
+        BitField("LAC", 0, 16),
+        BitField("RAC", 0, 16),
     ]
 
 
@@ -377,7 +377,7 @@ class ULI_TAI(ULI_Field):
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
-        ShortField("TAC", 0),
+        BitField("TAC", 0, 16),
     ]
 
 
@@ -396,7 +396,7 @@ class ULI_LAI(ULI_Field):
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
-        ShortField("LAC", 0),
+        BitField("LAC", 0, 16),
     ]
 
 
