@@ -1,0 +1,79 @@
+# RoCE unit tests
+# run with:
+#   test/run_tests  -P "load_contrib('roce')" -t test/contrib/roce.uts -F
+
+% Regression tests for the RoCE layer
+
+################
+##### RoCE #####
+################
+
++ RoCE tests
+
+= RoCE layer
+
+# an example UC packet 
+pkt = Ether(dst='24:8a:07:a8:fa:22', src='24:8a:07:a8:fa:22')/ \
+      IP(version=4, ihl=5, tos=0x1, id=1144, flags='DF', frag=0, \
+         ttl=64, src='192.168.0.7', dst='192.168.0.7', len=64)/ \
+      UDP(sport=49152, dport=4791, len=44)/ \
+      BTH(opcode='UC_SEND_ONLY', migreq=1, padcount=2, pkey=0xffff, dqpn=211, psn=13571856)/ \
+      Raw(b'F0\x81\x8b\xe2\x895\xd9\x0e\x9a\x95PT\x01\xbe\x88^P\x00\x00')
+
+# include ICRC placeholder
+pkt = Ether(pkt.build() + b'\x00' * 4)
+
+assert IP in pkt.layers()
+print(hex(pkt[IP].chksum))
+assert pkt[IP].chksum == 0xb4d5
+assert UDP in pkt.layers()
+print(hex(pkt[UDP].chksum))
+assert pkt[UDP].chksum == 0xaca2
+assert BTH in pkt.layers()
+assert pkt[BTH].icrc == 0x78f353f3
+
+= RoCE CNP packet
+
+# based on this example packet:
+# https://community.mellanox.com/s/article/rocev2-cnp-packet-format-example
+
+pkt = Ether()/IP(src='22.22.22.8', dst='22.22.22.7', id=0x98c6, flags='DF',
+                 ttl=0x20, tos=0x89)/ \
+      UDP(sport=56238, dport=4791, chksum=0)/ \
+      cnp(dqpn=0xd2)
+pkt = Ether(pkt.build())
+
+assert pkt[IP].len == 60
+assert pkt[UDP].len == 40
+assert pkt[BTH].opcode == 0x81
+assert pkt[BTH].becn
+assert not pkt[BTH].fecn
+assert pkt[BTH].resv6 == 0
+assert pkt[BTH].resv7 == 0
+assert pkt[BTH].dqpn == 0xd2
+assert pkt[BTH].version == 0
+assert not pkt[BTH].solicited
+assert not pkt[BTH].migreq
+assert pkt[BTH].padcount == 0
+assert pkt[BTH].pkey == 0xffff
+assert not pkt[BTH].ackreq
+assert pkt[BTH].psn == 0
+assert pkt[CNPPadding].reserved1 == 0
+assert pkt[CNPPadding].reserved2 == 0
+# assert pkt[BTH].icrc == 0xe42dad81 TODO - does not match example
+
+= RoCE CNP captured on ConnectX-4 Lx
+
+pkt = Ether(import_hexcap('''0x0000:  e41d 2dab 2bc2 7cfe 9064 3b32 0800 45c2
+0x0010:  003c 718c 4000 4011 9161 0a00 1101 0a00
+0x0020:  1201 0000 12b7 0028 0000 8100 ffff 4000
+0x0030:  0118 0000 0000 0000 0000 0000 0000 0000
+0x0040:  0000 0000 0000 82fd 002a
+'''))
+
+assert BTH in pkt.layers()
+assert pkt.opcode == CNP_OPCODE
+del pkt.icrc
+pkt = Ether(pkt.build())
+assert pkt.icrc == 0x82fd002a
+

@@ -539,8 +539,6 @@ def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     s.close()
     if len(ans) > 0:
         return ans[0][1]
-    else:
-        return None
 
 
 @conf.commands.register
@@ -566,8 +564,6 @@ def srp1(*args, **kargs):
     ans, _ = srp(*args, **kargs)
     if len(ans) > 0:
         return ans[0][1]
-    else:
-        return None
 
 
 # Append doc
@@ -706,8 +702,6 @@ def sr1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **karg
     s.close()
     if len(ans) > 0:
         return ans[0][1]
-    else:
-        return None
 
 
 @conf.commands.register
@@ -743,8 +737,6 @@ def srp1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kar
     s.close()
     if len(ans) > 0:
         return ans[0][1]
-    else:
-        return None
 
 # SNIFF METHODS
 

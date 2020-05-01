@@ -7,17 +7,18 @@
 Unit testing infrastructure for Scapy
 """
 
-from __future__ import absolute_import
 from __future__ import print_function
-import sys
-import getopt
-import glob
-import importlib
-import hashlib
+import bz2
 import copy
 import code
-import bz2
+import getopt
+import glob
+import hashlib
+import importlib
+import json
+import logging
 import os.path
+import sys
 import time
 import traceback
 import warnings
@@ -284,7 +285,6 @@ def parse_config_file(config_path, verb=3):
     }
 
     """
-    import json
     with open(config_path) as config_file:
         data = json.load(config_file)
         if verb > 2:
@@ -857,6 +857,8 @@ def resolve_testfiles(TESTFILES):
 
 def main():
     argv = sys.argv[1:]
+    logger = logging.getLogger("scapy")
+    logger.addHandler(logging.StreamHandler())
     ignore_globals = list(six.moves.builtins.__dict__)
 
     # Parse arguments

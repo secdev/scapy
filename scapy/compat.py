@@ -13,6 +13,7 @@ import base64
 import binascii
 import gzip
 import struct
+import sys
 
 import scapy.modules.six as six
 
@@ -59,7 +60,7 @@ else:
             return x.encode()
         return bytes(x)
 
-    if six.PY34:
+    if sys.version_info[0:2] <= (3, 4):
         def plain_str(x):
             """Convert basic byte objects to str"""
             if isinstance(x, bytes):

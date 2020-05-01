@@ -140,6 +140,8 @@ class _TLSMsgListField(PacketListField):
             if (((pkt.tls_session.tls_version or 0x0303) > 0x0200) and
                     hasattr(pkt, "type") and pkt.type == 23):
                 return ret, [TLSApplicationData(data=b"")]
+            elif hasattr(pkt, "type") and pkt.type == 20:
+                return ret, [TLSChangeCipherSpec()]
             else:
                 return ret, [Raw(load=b"")]
 

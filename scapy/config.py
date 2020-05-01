@@ -15,6 +15,7 @@ import re
 import time
 import socket
 import sys
+import atexit
 
 from scapy import VERSION, base_classes
 from scapy.consts import DARWIN, WINDOWS, LINUX, BSD, SOLARIS
@@ -687,3 +688,16 @@ def crypto_validator(func):
                               "Please install python-cryptography v1.7 or later.")  # noqa: E501
         return func(*args, **kwargs)
     return func_in
+
+
+def scapy_delete_temp_files():
+    # type: () -> None
+    for f in conf.temp_files:
+        try:
+            os.unlink(f)
+        except Exception:
+            pass
+    del conf.temp_files[:]
+
+
+atexit.register(scapy_delete_temp_files)
