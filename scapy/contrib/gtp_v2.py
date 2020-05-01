@@ -222,6 +222,7 @@ IEType = {1: "IMSI",
              145: "UCI",
              161: "Max MBR/APN-AMBR (MMBR)",
              172: "RAN/NAS Cause",
+             197: "Extended Protocol Configuration Options",
              202: "UP Function Selection Indication Flags",
              255: "Private Extension",
           }
@@ -926,12 +927,22 @@ class PCO_Secondary_NBNS(PCO_Option):
 
 PCO_PROTOCOL_TYPES = {
     0x0001: 'P-CSCF IPv6 Address Request',
+    0x0002: 'IM CN Subsystem Signaling Flag',
     0x0003: 'DNS Server IPv6 Address Request',
     0x0005: 'MS Support of Network Requested Bearer Control indicator',
     0x000a: 'IP Allocation via NAS',
     0x000d: 'DNS Server IPv4 Address Request',
     0x000c: 'P-CSCF IPv4 Address Request',
     0x0010: 'IPv4 Link MTU Request',
+    0x0012: 'P-CSCF Re-selection Support',
+    0x001a: 'PDU session ID',
+    0x0022: '5GSM Cause Value',
+    0x0023: 'QoS Rules With Support Indicator',
+    0x0024: 'QoS Flow Descriptions With Support Indicator',
+    0x001b: 'S-NSSAI',
+    0x001c: 'QoS Rules',
+    0x001d: 'Session-AMBR',
+    0x001f: 'QoS Flow Descriptions',
     0x8021: 'IPCP',
     0xc023: 'Password Authentication Protocol',
     0xc223: 'Challenge Handshake Authentication Protocol',
@@ -965,6 +976,14 @@ class PCO_P_CSCF_IPv6_Address_Request(PCO_Option):
                    ConditionalField(XBitField("address",
                                               "2001:db8:0:42::", 128),
                                     lambda pkt: pkt.length)]
+
+
+class PCO_IM_CN_Subsystem_Signaling_Flag(PCO_Option):
+    name = "PCO IM CN Subsystem Signaling Flag"
+    fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
+                   ByteField("length", 0),
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
 
 
 class PCO_DNS_Server_IPv6(PCO_Option):
@@ -1027,6 +1046,78 @@ class PCO_IPv4_Link_MTU_Request(PCO_Option):
                                     lambda pkt: pkt.length)]
 
 
+class PCO_P_CSCF_Re_selection_Support(PCO_Option):
+    name = "PCO P-CSCF Re-selection Support"
+    fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
+                   ByteField("length", 0),
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
+
+
+class PCO_PDU_Session_Id(PCO_Option):
+    name = "PCO PDU session ID"
+    fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
+                   ByteField("length", 0),
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
+
+
+class PCO_5GSM_Cause_Value(PCO_Option):
+    name = "PCO 5GSM Cause Value"
+    fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
+                   ByteField("length", 0),
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
+
+
+class PCO_QoS_Rules_With_Support_Indicator(PCO_Option):
+    name = "PCO QoS Rules With Support Indicator"
+    fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
+                   ByteField("length", 0),
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
+
+
+class PCO_QoS_Flow_Descriptions_With_Support_Indicator(PCO_Option):
+    name = "PCO QoS Flow Descriptions With Support Indicator"
+    fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
+                   ByteField("length", 0),
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
+
+
+class PCO_S_Nssai(PCO_Option):
+    name = "PCO S-NSSAI"
+    fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
+                   ByteField("length", 0),
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
+
+
+class PCO_Qos_Rules(PCO_Option):
+    name = "PCO QoS Rules"
+    fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
+                   ByteField("length", 0),
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
+
+
+class PCO_Session_AMBR(PCO_Option):
+    name = "PCO Session AMBR"
+    fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
+                   ByteField("length", 0),
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
+
+
+class PCO_QoS_Flow_Descriptions(PCO_Option):
+    name = "PCO QoS Flow Descriptions"
+    fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
+                   ByteField("length", 0),
+                   PacketListField("Options", None, PCO_option_dispatcher,
+                                   length_from=len_options)]
+
+
 class PCO_IPCP(PCO_Option):
     name = "PCO Internet Protocol Control Protocol"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
@@ -1086,12 +1177,22 @@ class PCO_ChallengeHandshakeAuthenticationProtocol(PCO_Option):
 
 PCO_PROTOCOL_CLASSES = {
     0x0001: PCO_P_CSCF_IPv6_Address_Request,
+    0x0002: PCO_IM_CN_Subsystem_Signaling_Flag,
     0x0003: PCO_DNS_Server_IPv6,
     0x0005: PCO_SOF,
     0x000a: PCO_IP_Allocation_via_NAS,
     0x000c: PCO_P_CSCF_IPv4_Address_Request,
     0x000d: PCO_DNS_Server_IPv4,
     0x0010: PCO_IPv4_Link_MTU_Request,
+    0x0012: PCO_P_CSCF_Re_selection_Support,
+    0x001a: PCO_PDU_Session_Id,
+    0x0022: PCO_5GSM_Cause_Value,
+    0x0023: PCO_QoS_Rules_With_Support_Indicator,
+    0x0024: PCO_QoS_Flow_Descriptions_With_Support_Indicator,
+    0x001b: PCO_S_Nssai,
+    0x001c: PCO_Qos_Rules,
+    0x001d: PCO_Session_AMBR,
+    0x001f: PCO_QoS_Flow_Descriptions,
     0x8021: PCO_IPCP,
     0xc023: PCO_PasswordAuthentificationProtocol,
     0xc223: PCO_ChallengeHandshakeAuthenticationProtocol,
@@ -1108,6 +1209,21 @@ def PCO_protocol_dispatcher(s):
 class IE_PCO(gtp.IE_Base):
     name = "IE Protocol Configuration Options"
     fields_desc = [ByteEnumField("ietype", 78, IEType),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4, fmt="H"),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   BitField("Extension", 0, 1),
+                   BitField("SPARE", 0, 4),
+                   BitField("PPP", 0, 3),
+                   PacketListField("Protocols", None, PCO_protocol_dispatcher,
+                                   length_from=lambda pkt: pkt.length - 1)]
+
+
+class IE_EPCO(gtp.IE_Base):
+    name = "IE Extended Protocol Configuration Options"
+    fields_desc = [ByteEnumField("ietype", 197, IEType),
                    FieldLenField("length", None, length_of="length",
                                  adjust=lambda pkt, x: len(pkt.payload) +
                                  4, fmt="H"),
@@ -1336,6 +1452,7 @@ ietypecls = {1: IE_IMSI,
              145: IE_UCI,
              161: IE_MMBR,
              172: IE_Ran_Nas_Cause,
+             197: IE_EPCO,
              202: IE_UPF_SelInd_Flags,
              255: IE_PrivateExtension}
 
