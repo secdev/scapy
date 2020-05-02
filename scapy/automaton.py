@@ -237,6 +237,9 @@ class ObjectPipe(SelectableObject):
             os.close(self.wr)
             self.queue.clear()
 
+    def __del__(self):
+        self.close()
+
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
         # Only handle ObjectPipes
