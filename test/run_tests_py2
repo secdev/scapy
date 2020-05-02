@@ -1,3 +1,0 @@
-#! /bin/sh
-PYTHON=python2
-. $(dirname $0)/run_tests "$@"
