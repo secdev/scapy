@@ -14,6 +14,7 @@ import sys
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
 
+from scapy.utils import inet_aton
 from scapy.layers.tls.automaton_cli import TLSClientAutomaton
 from scapy.layers.tls.basefields import _tls_version_options
 from scapy.layers.tls.handshake import TLSClientHello, TLS13ClientHello
@@ -34,6 +35,10 @@ parser.add_argument("--ticket_out", dest='session_ticket_file_out',
                     help="File to write a ticket to (for TLS 1.3)")
 parser.add_argument("--res_master",
                     help="Resumption master secret (for TLS 1.3)")
+parser.add_argument("server", nargs="?",
+                    help="The server to connect to")
+parser.add_argument("port", nargs="?", type=int,
+                    help="The TCP destination port")
 
 args = parser.parse_args()
 
@@ -47,8 +52,6 @@ v = _tls_version_options.get(args.version, None)
 if not v:
     sys.exit("Unrecognized TLS version option.")
 
-
-
 if args.ciphersuite:
     ciphers = int(args.ciphersuite, 16)
     if ciphers not in list(range(0x1301, 0x1306)):
@@ -58,7 +61,16 @@ if args.ciphersuite:
 else:
     ch = None
 
-t = TLSClientAutomaton(client_hello=ch,
+server_name = None
+if args.server:
+    try:
+        inet_aton(args.server)
+    except socket.error:
+        server_name = args.server
+
+t = TLSClientAutomaton(server=args.server, dport=args.port,
+                       server_name=server_name,
+                       client_hello=ch,
                        version=args.version,
                        mycert=basedir+"/test/tls/pki/cli_cert.pem",
                        mykey=basedir+"/test/tls/pki/cli_key.pem",

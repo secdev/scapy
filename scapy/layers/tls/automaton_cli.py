@@ -33,7 +33,8 @@ from scapy.layers.tls.basefields import _tls_version, _tls_version_options
 from scapy.layers.tls.session import tlsSession
 from scapy.layers.tls.extensions import TLS_Ext_SupportedGroups, \
     TLS_Ext_SupportedVersion_CH, TLS_Ext_SignatureAlgorithms, \
-    TLS_Ext_SupportedVersion_SH, TLS_Ext_PSKKeyExchangeModes
+    TLS_Ext_SupportedVersion_SH, TLS_Ext_PSKKeyExchangeModes, \
+    TLS_Ext_ServerName, ServerName
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, \
     TLSEncryptedExtensions, TLSFinished, TLSServerHello, TLSServerHelloDone, \
@@ -278,9 +279,16 @@ class TLSClientAutomaton(_TLSAutomaton):
             p = self.client_hello
         else:
             p = TLSClientHello()
+        ext = []
         # Add TLS_Ext_SignatureAlgorithms for TLS 1.2 ClientHello
         if self.cur_session.advertised_tls_version == 0x0303:
-            p.ext = TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsa"])
+            ext += [TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsa"])]
+        # Add TLS_Ext_ServerName
+        if self.remote_name:
+            ext += TLS_Ext_ServerName(
+                servernames=[ServerName(servername=self.remote_name)]
+            )
+        p.ext = ext
         self.add_msg(p)
         raise self.ADDED_CLIENTHELLO()
 
@@ -1049,6 +1057,11 @@ class TLSClientAutomaton(_TLSAutomaton):
             )
             ext += TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsaepss",
                                                          "sha256+rsa"])
+        # Add TLS_Ext_ServerName
+        if self.remote_name:
+            ext += TLS_Ext_ServerName(
+                servernames=[ServerName(servername=self.remote_name)]
+            )
         p.ext = ext
         self.add_msg(p)
         raise self.TLS13_ADDED_CLIENTHELLO()
