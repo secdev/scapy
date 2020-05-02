@@ -378,14 +378,14 @@ def _version_checker(module, minver):
 
 def isCryptographyValid():
     """
-    Check if the cryptography module >= 1.7 is present. This is the minimum
+    Check if the cryptography module >= 2.0.0 is present. This is the minimum
     version for most usages in Scapy.
     """
     try:
         import cryptography
     except ImportError:
         return False
-    return _version_checker(cryptography, (1, 7))
+    return _version_checker(cryptography, (2, 0, 0))
 
 
 def isCryptographyAdvanced():
