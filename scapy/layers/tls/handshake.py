@@ -446,7 +446,7 @@ class TLS13ClientHello(_TLSHandshake):
                         # RFC 8701: GREASE of TLS will send unknown versions
                         # here. We have to ignore them
                         if ver in _tls_version:
-                            s.advertised_tls_version = ver
+                            self.tls_session.advertised_tls_version = ver
                             break
                 if isinstance(e, TLS_Ext_SignatureAlgorithms):
                     s.advertised_sig_algs = e.sig_algs

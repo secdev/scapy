@@ -253,6 +253,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         pass
 
     #                           TLS handshake                                 #
+
     @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=1)
     def tls13_should_handle_ClientHello(self):
         self.raise_on_packet(TLS13ClientHello,
@@ -410,6 +411,7 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.state()
     def HANDLED_ALERT_FROM_CLIENTCERTIFICATE(self):
         self.vprint("Received Alert message instead of ClientKeyExchange!")
+        self.cur_pkt.show()
         raise self.CLOSE_NOTIFY()
 
     @ATMT.condition(HANDLED_CLIENTCERTIFICATE, prio=3)

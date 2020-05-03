@@ -93,8 +93,8 @@ class TLSClientAutomaton(_TLSAutomaton):
         super(TLSClientAutomaton, self).parse_args(mycert=mycert,
                                                    mykey=mykey,
                                                    **kargs)
-        tmp = socket.getaddrinfo(server, dport)
         self.remote_name = None
+        tmp = socket.getaddrinfo(server, dport)
         try:
             if ':' in server:
                 inet_pton(socket.AF_INET6, server)
