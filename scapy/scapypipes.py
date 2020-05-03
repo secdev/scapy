@@ -252,6 +252,9 @@ class WiresharkSink(WrpcapSink):
                 stdout=None,
                 stderr=None,
             )
+            from scapy.error import log_runtime
+            log_runtime.warning(repr(subprocess.Popen))
+            log_runtime.warning(repr(proc))
 
         self.fname = proc.stdin
         WrpcapSink.start(self)
