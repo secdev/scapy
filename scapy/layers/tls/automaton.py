@@ -200,11 +200,11 @@ class _TLSAutomaton(Automaton):
         self.buffer_in = self.buffer_in[1:]
         raise state()
 
-    def add_record(self, is_sslv2=None, is_tls13=None):
+    def add_record(self, is_sslv2=None, is_tls13=None, is_tls12=None):
         """
         Add a new TLS or SSLv2 or TLS 1.3 record to the packets buffered out.
         """
-        if is_sslv2 is None and is_tls13 is None:
+        if is_sslv2 is None and is_tls13 is None and is_tls12 is None:
             v = (self.cur_session.tls_version or
                  self.cur_session.advertised_tls_version)
             if v in [0x0200, 0x0002]:
@@ -215,6 +215,11 @@ class _TLSAutomaton(Automaton):
             self.buffer_out.append(SSLv2(tls_session=self.cur_session))
         elif is_tls13:
             self.buffer_out.append(TLS13(tls_session=self.cur_session))
+        # For TLS 1.3 middlebox compatibility, TLS record version must
+        # be 0x0303
+        elif is_tls12:
+            self.buffer_out.append(TLS(version="TLS 1.2",
+                                       tls_session=self.cur_session))
         else:
             self.buffer_out.append(TLS(tls_session=self.cur_session))
 
