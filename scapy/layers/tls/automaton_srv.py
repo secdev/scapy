@@ -460,6 +460,7 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.state()
     def HANDLED_ALERT_FROM_CLIENTKEYEXCHANGE(self):
         self.vprint("Received Alert message instead of ChangeCipherSpec!")
+        self.cur_pkt.show()
         raise self.CLOSE_NOTIFY()
 
     @ATMT.condition(HANDLED_CERTIFICATEVERIFY, prio=3)
@@ -844,17 +845,28 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.raise_on_packet(TLS13Certificate,
                              self.TLS13_HANDLED_CLIENTCERTIFICATE)
 
+    @ATMT.condition(tls13_RECEIVED_CLIENTFLIGHT2, prio=2)
+    def tls13_should_handle_Alert_from_ClientCertificate(self):
+        self.raise_on_packet(TLSAlert,
+                             self.TLS13_HANDLED_ALERT_FROM_CLIENTCERTIFICATE)
+
+    @ATMT.state()
+    def TLS13_HANDLED_ALERT_FROM_CLIENTCERTIFICATE(self):
+        self.vprint("Received Alert message instead of ClientKeyExchange!")
+        self.cur_pkt.show()
+        raise self.CLOSE_NOTIFY()
+
     # For Middlebox compatibility (see RFC8446, appendix D.4)
     # a dummy ChangeCipherSpec record can be send. In this case,
     # this function just read the ChangeCipherSpec message and
     # go back in a previous state continuing with the next TLS 1.3
     # record
-    @ATMT.condition(tls13_RECEIVED_CLIENTFLIGHT2, prio=2)
+    @ATMT.condition(tls13_RECEIVED_CLIENTFLIGHT2, prio=3)
     def tls13_should_handle_ClientCCS(self):
         self.raise_on_packet(TLSChangeCipherSpec,
                              self.tls13_RECEIVED_CLIENTFLIGHT2)
 
-    @ATMT.condition(tls13_RECEIVED_CLIENTFLIGHT2, prio=3)
+    @ATMT.condition(tls13_RECEIVED_CLIENTFLIGHT2, prio=4)
     def tls13_no_ClientCertificate(self):
         if self.client_auth:
             raise self.TLS13_MISSING_CLIENTCERTIFICATE()
