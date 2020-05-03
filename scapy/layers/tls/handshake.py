@@ -311,7 +311,12 @@ class TLSClientHello(_TLSHandshake):
         if self.ext:
             for e in self.ext:
                 if isinstance(e, TLS_Ext_SupportedVersion_CH):
-                    s.advertised_tls_version = e.versions[0]
+                    for ver in e.versions:
+                        # RFC 8701: GREASE of TLS will send unknown versions
+                        # here. We have to ignore them
+                        if ver in _tls_version:
+                            s.advertised_tls_version = ver
+                            break
                     if s.sid:
                         s.middlebox_compatibility = True
 
@@ -437,7 +442,12 @@ class TLS13ClientHello(_TLSHandshake):
         if self.ext:
             for e in self.ext:
                 if isinstance(e, TLS_Ext_SupportedVersion_CH):
-                    self.tls_session.advertised_tls_version = e.versions[0]
+                    for ver in e.versions:
+                        # RFC 8701: GREASE of TLS will send unknown versions
+                        # here. We have to ignore them
+                        if ver in _tls_version:
+                            s.advertised_tls_version = ver
+                            break
                 if isinstance(e, TLS_Ext_SignatureAlgorithms):
                     s.advertised_sig_algs = e.sig_algs
 
