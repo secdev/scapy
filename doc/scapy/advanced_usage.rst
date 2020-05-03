@@ -900,7 +900,7 @@ Let's study what happens here:
 - when we send some data in ``s``, which is on the lower canal, as shown above, it goes through the :class:`~scapy.pipetool.Drain` then is sent to the :class:`~.scapy.pipetool.QueueSink` and to the :class:`~scapy.pipetool.ConsoleSink`
 - when we send some data in ``s2``, it goes through the Drain, then the TransformDrain where the data is reversed (see the lambda), before being sent to :class:`~scapy.pipetool.ConsoleSink` only. This explains why we only have the data of the lower sources inside the QueueSink: the higher one has not been linked.
 
-Most of the sinks receive from both lower and upper canals. This is verifiable using the `help(ConsoleSink)`
+Most of the sinks receive from both lower and upper canals. This is verifiable using the ``help(ConsoleSink)``
 
 .. code:: pycon
 
@@ -1056,7 +1056,7 @@ This wouldn't link the high entries, so something like this would do nothing:
     >>> a2 >> b
     >>> a2.send("hello")
 
-Because ``b`` (:py:class:`~scapy.pipetool.Drain`) and ``c`` (:py:class:`scapy.pipetool.ConsoleSink`) are not
+Because ``b`` (:py:class:`~scapy.pipetool.Drain`) and ``c`` (:py:class:`~scapy.pipetool.ConsoleSink`) are not
 linked on the high entry.
 
 However, using a :py:class:`~scapy.pipetool.DownDrain` would bring the high messages from
