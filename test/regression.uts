@@ -7597,7 +7597,7 @@ assert pkts[0].load == b'This is a test file for testing brotli decompression in
 
 = HTTP PSH bug fix
 
-tmp = "/test/pcaps/http_tcp_psh.pcap"
+tmp = "/test/pcaps/http_tcp_psh.pcap.gz"
 filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
 filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
 
