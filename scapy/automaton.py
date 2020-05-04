@@ -219,6 +219,9 @@ class ObjectPipe(SelectableObject):
     def write(self, obj):
         self.send(obj)
 
+    def flush(self):
+        pass
+
     def recv(self, n=0):
         if self.closed:
             if self.check_recv():

@@ -318,88 +318,61 @@ except:
     pass
 
 = Test WiresharkSink
+~ wiresharksink
 
-from io import BytesIO
+q = ObjectPipe()
+pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-f = BytesIO()
-pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="aa:aa:aa:aa:aa:aa")/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
-
-with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
-    p = PipeEngine()
-    src = CLIFeeder()
+import mock
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink()
-    p.add(src > sink)
-    p.start()
-    src.send(pkt)
-    src.close()
-    # Prevent stop from closing the BytesIO
-    with mock.patch.object(f, 'close'):
-        p.wait_and_stop()
+    sink.start()
+
+sink.push(pkt)
+
+q.recv()
+q.recv()
+assert raw(pkt) in q.recv()
 
 popen.assert_called_once_with(
     [conf.prog.wireshark, '-Slki', '-'], stdin=subprocess.PIPE, stdout=None,
     stderr=None)
 
-bytes_hex(f.getvalue())
-bytes_hex(raw(pkt))
-assert raw(pkt) in f.getvalue()
-
 = Test WiresharkSink with linktype
+~ wiresharksink
 
-f = BytesIO()
-pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="aa:aa:aa:aa:aa:aa")/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
 linktype = scapy.data.DLT_EN3MB
+q = ObjectPipe()
+pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
-    p = PipeEngine()
-    src = CLIFeeder()
+import mock
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink(linktype=linktype)
-    p.add(src > sink)
-    p.start()
-    src.send(pkt)
-    src.close()
-    # Prevent stop from closing the BytesIO
-    with mock.patch.object(f, 'close'):
-        p.wait_and_stop()
+    sink.start()
 
-popen.assert_called_once_with(
-    [conf.prog.wireshark, '-Slki', '-'],
-    stdin=subprocess.PIPE, stdout=None, stderr=None)
+sink.push(pkt)
 
-bytes_hex(f.getvalue())
-bytes_hex(raw(pkt))
-assert raw(pkt) in f.getvalue()
-
-# Check that the linktype was also correct
-f.seek(0) or None
-r = PcapReader(f)
-assert r.linktype == DLT_EN3MB
-r.close()
+chb(linktype) in q.recv()
+q.recv()
+assert raw(pkt) in q.recv()
 
 = Test WiresharkSink with args
+~ wiresharksink
 
-f = BytesIO()
-pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="aa:aa:aa:aa:aa:aa")/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
+linktype = scapy.data.DLT_EN3MB
+q = ObjectPipe()
+pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
-    p = PipeEngine()
-    src = CLIFeeder()
+import mock
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink(args=['-c', '1'])
-    p.add(src > sink)
-    p.start()
-    src.send(pkt)
-    src.close()
-    # Prevent stop from closing the BytesIO
-    with mock.patch.object(f, 'close'):
-        p.wait_and_stop()
+    sink.start()
+
+sink.push(pkt)
 
 popen.assert_called_once_with(
     [conf.prog.wireshark, '-Slki', '-', '-c', '1'],
     stdin=subprocess.PIPE, stdout=None, stderr=None)
-
-bytes_hex(f.getvalue())
-bytes_hex(raw(pkt))
-assert raw(pkt) in f.getvalue()
 
 = Test RdpcapSource and WrpcapSink
 
