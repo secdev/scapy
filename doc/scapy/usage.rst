@@ -1253,7 +1253,7 @@ The fastest way to discover hosts on a local ethernet network is to use the ARP 
 
 Answers can be reviewed with the following command::
 
-    >>> ans.summary(lambda (s,r): r.sprintf("%Ether.src% %ARP.psrc%") )
+    >>> ans.summary(lambda sr: sr[1].sprintf("%Ether.src% %ARP.psrc%") )
 
 Scapy also includes a built-in arping() function which performs similar to the above two commands:
 
