@@ -403,7 +403,7 @@ In order to quickly review responses simply request a summary of collected packe
 
 The above will display stimulus/response pairs for answered probes. We can display only the information we are interested in by using a simple loop:
 
-    >>> ans.summary( lambda(s,r): r.sprintf("%TCP.sport% \t %TCP.flags%") )
+    >>> ans.summary( lambda sr: sr[1].sprintf("%TCP.sport% \t %TCP.flags%") )
     440      RA
     441      RA
     442      RA
