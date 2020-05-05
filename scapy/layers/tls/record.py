@@ -52,7 +52,7 @@ def _tls_version_check(version, min):
 ###############################################################################
 
 
-class _TLSEncryptedContent(Raw):
+class _TLSEncryptedContent(Raw, _GenericTLSSessionInheritance):
     """
     When the content of a TLS record (more precisely, a TLSCiphertext) could
     not be deciphered, we use this class to represent the encrypted data.
@@ -61,6 +61,12 @@ class _TLSEncryptedContent(Raw):
     version), the nonce_explicit, IV and/or padding will also be parsed.
     """
     name = "Encrypted Content"
+    match_subclass = True
+
+    def mysummary(self):
+        s = _GenericTLSSessionInheritance.mysummary(self)
+        s += " / " + self.name
+        return s
 
 
 class _TLSMsgListField(PacketListField):
@@ -219,6 +225,16 @@ class _TLSMsgListField(PacketListField):
         return hdr + res
 
 
+def _ssl_looks_like_sslv2(dat):
+    """
+    This is a copycat of wireshark's `packet-tls.c` ssl_looks_like_sslv2
+    """
+    if len(dat) < 3:
+        return
+    from scapy.layers.tls.handshake_sslv2 import _sslv2_handshake_type
+    return ord(dat[:1]) >= 0x80 and ord(dat[2:3]) in _sslv2_handshake_type
+
+
 class TLS(_GenericTLSSessionInheritance):
     """
     The generic TLS Record message, based on section 6.2 of RFC 5246.
@@ -303,10 +319,20 @@ class TLS(_GenericTLSSessionInheritance):
             plen = len(_pkt)
             if plen >= 2:
                 byte0, byte1 = struct.unpack("BB", _pkt[:2])
-                if (byte0 not in _tls_type) or (byte1 != 3):
-                    from scapy.layers.tls.record_sslv2 import SSLv2
-                    return SSLv2
                 s = kargs.get("tls_session", None)
+                if byte0 not in _tls_type or byte1 != 3:  # Unknown type
+                    # Check SSLv2: either the session is already SSLv2,
+                    # either the packet looks like one. As said above, this
+                    # isn't 100% reliable, but Wireshark does the same
+                    if s and (s.tls_version == 0x0002 or
+                              s.advertised_tls_version == 0x0002) or \
+                             (_ssl_looks_like_sslv2(_pkt) and (not s or
+                              s.tls_version is None)):
+                        from scapy.layers.tls.record_sslv2 import SSLv2
+                        return SSLv2
+                    # Not SSLv2: continuation
+                    return _TLSEncryptedContent
+                # Check TLS 1.3
                 if s and _tls_version_check(s.tls_version, 0x0304):
                     if (s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL) and
                             byte0 == 0x17):
@@ -315,7 +341,7 @@ class TLS(_GenericTLSSessionInheritance):
             if plen < 5:
                 # Layer detected as TLS but too small to be a
                 # parsed. Scapy should not try to decode them
-                return conf.raw_layer
+                return _TLSEncryptedContent
         return TLS
 
     # Parsing methods
@@ -694,10 +720,17 @@ class TLS(_GenericTLSSessionInheritance):
 
         return hdr + efrag + pay
 
+    def mysummary(self):
+        s = super(TLS, self).mysummary()
+        if self.msg:
+            s += " / "
+            s += " / ".join(x.name for x in self.msg)
+        return s
 
 ###############################################################################
 #   TLS ChangeCipherSpec                                                      #
 ###############################################################################
+
 
 _tls_changecipherspec_type = {1: "change_cipher_spec"}
 

@@ -15,7 +15,10 @@ from scapy.compat import raw
 import scapy.modules.six as six
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
+from scapy.pton_ntop import inet_pton
+from scapy.sessions import DefaultSession
 from scapy.utils import repr_hex, strxor
+from scapy.layers.inet import TCP
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.layers.tls.crypto.prf import PRF
@@ -806,8 +809,8 @@ class tlsSession(object):
         family = socket.AF_INET
         if ':' in self.ipsrc:
             family = socket.AF_INET6
-        s1 += socket.inet_pton(family, self.ipsrc)
-        s2 += socket.inet_pton(family, self.ipdst)
+        s1 += inet_pton(family, self.ipsrc)
+        s2 += inet_pton(family, self.ipdst)
         return strxor(s1, s2)
 
     def eq(self, other):
@@ -859,14 +862,41 @@ class _GenericTLSSessionInheritance(Packet):
         except Exception:
             setme = True
 
+        newses = False
         if setme:
             if tls_session is None:
+                newses = True
                 self.tls_session = tlsSession()
             else:
                 self.tls_session = tls_session
 
         self.rcs_snap_init = self.tls_session.rcs.snapshot()
         self.wcs_snap_init = self.tls_session.wcs.snapshot()
+
+        if isinstance(_underlayer, TCP):
+            tcp = _underlayer
+            self.tls_session.sport = tcp.sport
+            self.tls_session.dport = tcp.dport
+            try:
+                self.tls_session.ipsrc = tcp.underlayer.src
+                self.tls_session.ipdst = tcp.underlayer.dst
+            except AttributeError:
+                pass
+            if conf.tls_session_enable:
+                if newses:
+                    s = conf.tls_sessions.find(self.tls_session)
+                    if s:
+                        if s.dport == self.tls_session.dport:
+                            self.tls_session = s
+                        else:
+                            self.tls_session = s.mirror()
+                    else:
+                        conf.tls_sessions.add(self.tls_session)
+            if self.tls_session.connection_end == "server":
+                srk = conf.tls_sessions.server_rsa_key
+                if not self.tls_session.server_rsa_key and \
+                        srk:
+                    self.tls_session.server_rsa_key = srk
 
         Packet.__init__(self, _pkt=_pkt, post_transform=post_transform,
                         _internal=_internal, _underlayer=_underlayer,
@@ -967,9 +997,8 @@ class _GenericTLSSessionInheritance(Packet):
         s.rcs = rcs_snap
         s.wcs = wcs_snap
 
-    # Uncomment this when the automata update IPs and ports properly
-    # def mysummary(self):
-    #    return "TLS %s" % repr(self.tls_session)
+    def mysummary(self):
+        return "TLS %s" % repr(self.tls_session)
 
 
 ###############################################################################
@@ -979,6 +1008,7 @@ class _GenericTLSSessionInheritance(Packet):
 class _tls_sessions(object):
     def __init__(self):
         self.sessions = {}
+        self.server_rsa_key = None
 
     def add(self, session):
         s = self.find(session)
@@ -1002,7 +1032,10 @@ class _tls_sessions(object):
         self.sessions[h].remove(session)
 
     def find(self, session):
-        h = session.hash()
+        try:
+            h = session.hash()
+        except Exception:
+            return None
         if h in self.sessions:
             for k in self.sessions[h]:
                 if k.eq(session):
@@ -1023,10 +1056,25 @@ class _tls_sessions(object):
                 if len(sid) > 12:
                     sid = sid[:11] + "..."
                 res.append((src, dst, sid))
-        colwidth = (max([len(y) for y in x]) for x in zip(*res))
+        colwidth = (max(len(y) for y in x) for x in zip(*res))
         fmt = "  ".join(map(lambda x: "%%-%ds" % x, colwidth))
         return "\n".join(map(lambda x: fmt % x, res))
 
 
+class TLSSession(DefaultSession):
+    def __init__(self, *args, **kwargs):
+        server_rsa_key = kwargs.pop("server_rsa_key", None)
+        super(TLSSession, self).__init__(*args, **kwargs)
+        self._old_conf_status = conf.tls_session_enable
+        conf.tls_session_enable = True
+        if server_rsa_key:
+            conf.tls_sessions.server_rsa_key = server_rsa_key
+
+    def toPacketList(self):
+        conf.tls_session_enable = self._old_conf_status
+        return super(TLSSession, self).toPacketList()
+
+
 conf.tls_sessions = _tls_sessions()
+conf.tls_session_enable = False
 conf.tls_verbose = False

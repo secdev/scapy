@@ -760,6 +760,7 @@ Available by default:
 
 - ``IPSession`` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``.
 - ``TCPSession`` -> *defragment certain TCP protocols**. Only **HTTP 1.0** currently uses this functionality.
+- ``TLSSession`` -> *matches TLS sessions* on the flow.
 - ``NetflowSession`` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
 
 Those sessions can be used using the ``session=`` parameter of ``sniff()``. Examples::
