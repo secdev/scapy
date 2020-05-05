@@ -213,7 +213,7 @@ class TCPSession(IPSession):
         to follow the TCP streams, and orders the fragments.
         """
         from scapy.layers.inet import IP, TCP
-        if TCP not in pkt:
+        if not pkt or TCP not in pkt:
             return pkt
         pay = pkt[TCP].payload
         if isinstance(pay, (NoPayload, conf.padding_layer)):
@@ -241,8 +241,13 @@ class TCPSession(IPSession):
         # Note that this take care of retransmission packets.
         data.append(new_data, seq)
         # Check TCP FIN or TCP RESET
-        if pkt[TCP].flags.F or pkt[TCP].flags.R or pkt[TCP].flags.P:
+        if pkt[TCP].flags.F or pkt[TCP].flags.R:
             metadata["tcp_end"] = True
+
+        # In case any app layer protocol requires it,
+        # allow the parser to inspect TCP PSH flag
+        if pkt[TCP].flags.P:
+            metadata["tcp_psh"] = True
         # XXX TODO: check that no empty space is missing in the buffer.
         # XXX Currently, if a TCP fragment was missing, we won't notice it.
         packet = None

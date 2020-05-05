@@ -7595,6 +7595,21 @@ pkts[0].show()
 assert HTTPResponse in pkts[0]
 assert pkts[0].load == b'This is a test file for testing brotli decompression in Wireshark\n'
 
+= HTTP PSH bug fix
+
+tmp = "/test/pcaps/http_tcp_psh.pcap.gz"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+pkts = sniff(offline=filename, session=TCPSession)
+
+assert len(pkts) == 15
+# Verify a split header exists in the packet
+assert pkts[5].User_Agent == b'example_user_agent'
+
+# Verify all of the resonse data exists in the packet
+assert int(pkts[7][HTTP].Content_Length.decode()) == len(pkts[7][Raw].load)
+
 = HTTP build
 
 pkt = TCP()/HTTP()/HTTPRequest(Method=b'GET', Path=b'/download', Http_Version=b'HTTP/1.1', Accept=b'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', Accept_Encoding=b'gzip, deflate', Accept_Language=b'en-US,en;q=0.5', Cache_Control=b'max-age=0', Connection=b'keep-alive', Host=b'scapy.net', User_Agent=b'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0')
