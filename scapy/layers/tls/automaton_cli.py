@@ -202,7 +202,7 @@ class TLSClientAutomaton(_TLSAutomaton):
             self.advertised_tls_version = default_version
 
         if s.advertised_tls_version >= 0x0304:
-            # For out of band PSK, the PSK is given as argument
+            # For out of band PSK, the PSK is given as an argument
             # to the automaton
             if self.tls13_psk_secret:
                 s.tls13_psk_secret = binascii.unhexlify(self.tls13_psk_secret)
@@ -223,9 +223,11 @@ class TLSClientAutomaton(_TLSAutomaton):
                     tmp = f.read(client_ticket_age_len)
                     s.client_ticket_age = struct.unpack("!I", tmp)[0]
 
-                    client_ticket_age_add_len = struct.unpack("!H", f.read(2))[0]  # noqa: E501
+                    client_ticket_age_add_len = struct.unpack(
+                        "!H", f.read(2))[0]
                     tmp = f.read(client_ticket_age_add_len)
-                    s.client_session_ticket_age_add = struct.unpack("!I", tmp)[0]  # noqa: E501
+                    s.client_session_ticket_age_add = struct.unpack(
+                        "!I", tmp)[0]
 
                     ticket_len = struct.unpack("!H", f.read(2))[0]
                     s.client_session_ticket = f.read(ticket_len)
@@ -617,7 +619,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         elif isinstance(p, TLS13NewSessionTicket):
             print("> Received: %r " % p)
             # If arg session_ticket_file_out is set, we save
-            # Save the ticket for resumption...
+            # the ticket for resumption...
             if self.session_ticket_file_out:
                 # Struct of ticket file :
                 #  * ciphersuite_len (1 byte)
@@ -639,7 +641,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                 #  * ticket (ticket_len bytes)
                 with open(self.session_ticket_file_out, 'wb') as f:
                     f.write(struct.pack("B", 2))
-                    # we choose wcs arbitrary...
+                    # we choose wcs arbitrarily...
                     f.write(struct.pack("!H",
                                         self.cur_session.wcs.ciphersuite.val))
                     f.write(struct.pack("B", p.noncelen))

@@ -128,7 +128,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.psk_secret = psk
         self.psk_mode = psk_mode
         if handle_session_ticket is None:
-            handle_session_ticket = (session_ticket_file is not None)
+            handle_session_ticket = session_ticket_file is not None
         if handle_session_ticket:
             session_ticket_file = session_ticket_file or get_temp_file()
         self.handle_session_ticket = handle_session_ticket
