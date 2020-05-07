@@ -370,9 +370,26 @@ class TLS13ClientHello(_TLSHandshake):
         if self.ext:
             for e in self.ext:
                 if isinstance(e, TLS_Ext_PreSharedKey_CH):
-                    hkdf = TLS13_HKDF("sha256")
-                    hash_len = hkdf.hash.digest_size
-                    s.compute_tls13_early_secrets(external=True)
+                    if s.client_session_ticket:
+                        # For a resumed PSK, the hash function use
+                        # to compute the binder must be the same
+                        # as the one used to establish the original
+                        # conntection. For that, we assume that
+                        # the ciphersuite associate with the ticket
+                        # is given as argument to tlsSession
+                        # (see layers/tls/automaton_cli.py for an
+                        # example)
+                        res_suite = s.tls13_ticket_ciphersuite
+                        cs_cls = _tls_cipher_suites_cls[res_suite]
+                        hkdf = TLS13_HKDF(cs_cls.hash_alg.name.lower())
+                        hash_len = hkdf.hash.digest_size
+                        s.compute_tls13_early_secrets(external=False)
+                    else:
+                        # For out of band PSK, SHA-256 is used as default
+                        # hash functions for HKDF
+                        hkdf = TLS13_HKDF("sha256")
+                        hash_len = hkdf.hash.digest_size
+                        s.compute_tls13_early_secrets(external=True)
 
                     # RFC8446 4.2.11.2
                     # "Each entry in the binders list is computed as an HMAC

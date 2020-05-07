@@ -28,6 +28,12 @@ parser.add_argument("--no_pfs", action="store_true",
                     help="Disable (EC)DHE exchange with PFS")
 parser.add_argument("--ciphersuite", help="Ciphersuite preference")
 parser.add_argument("--version", help="TLS Version", default="tls13")
+parser.add_argument("--ticket_in", dest='session_ticket_file_in',
+                    help="File to read a ticket from (for TLS 1.3)")
+parser.add_argument("--ticket_out", dest='session_ticket_file_out',
+                    help="File to write a ticket to (for TLS 1.3)")
+parser.add_argument("--res_master",
+                    help="Resumption master secret (for TLS 1.3)")
 
 args = parser.parse_args()
 
@@ -58,6 +64,9 @@ t = TLSClientAutomaton(client_hello=ch,
                        mykey=basedir+"/test/tls/pki/cli_key.pem",
                        psk=args.psk,
                        psk_mode=psk_mode,
+                       resumption_master_secret=args.res_master,
+                       session_ticket_file_in=args.session_ticket_file_in,
+                       session_ticket_file_out=args.session_ticket_file_out,
                       )
 t.run()
 

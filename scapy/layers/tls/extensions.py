@@ -760,7 +760,12 @@ class _ExtensionsLenField(FieldLenField):
 
                 i = self.adjust(pkt, f)
                 if i == 0:  # for correct build if no ext and not explicitly 0
-                    return s
+                    v = pkt.tls_session.tls_version
+                    # Xith TLS 1.3, zero lengths are always explicit.
+                    if v is None or v < 0x0304:
+                        return s
+                    else:
+                        return s + struct.pack(self.fmt, i)
         return s + struct.pack(self.fmt, i)
 
 
