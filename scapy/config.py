@@ -632,7 +632,7 @@ class Conf(ConfClass):
                    'inet6', 'ipsec', 'ir', 'isakmp', 'l2', 'l2tp',
                    'llmnr', 'lltd', 'mgcp', 'mobileip', 'netbios',
                    'netflow', 'ntp', 'ppi', 'ppp', 'pptp', 'radius', 'rip',
-                   'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'snmp',
+                   'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'smb2', 'snmp',
                    'tftp', 'vrrp', 'vxlan', 'x509', 'zigbee']
     #: a dict which can be used by contrib layers to store local
     #: configuration

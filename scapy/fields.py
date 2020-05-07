@@ -38,6 +38,7 @@ from scapy.base_classes import BasePacket, Gen, Net, Field_metaclass
 from scapy.error import warning
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from scapy.modules.six import integer_types
 
 
 """
@@ -744,6 +745,46 @@ class LEX3BytesField(LEThreeBytesField, XByteField):
         return XByteField.i2repr(self, pkt, x)
 
 
+class NBytesField(ByteField, Field):
+    def __init__(self, name, default, sz):
+        Field.__init__(self, name, default, "<" + "B" * sz)
+
+    def i2m(self, pkt, x):
+        x2m = list()
+        for _ in range(self.sz):
+            x2m.append(x % 256)
+            x //= 256
+        return x2m[::-1]
+
+    def m2i(self, pkt, x):
+        if isinstance(x, int):
+            return x
+        # x can be a tuple when coming from struct.unpack  (from getfield)
+        if isinstance(x, (list, tuple)):
+            return sum(d * (256 ** i) for i, d in enumerate(x))
+
+    def i2repr(self, pkt, x):
+        if isinstance(x, integer_types):
+            return '%i' % x
+        return super(NBytesField, self).i2repr(pkt, x)
+
+    def addfield(self, pkt, s, val):
+        return s + self.struct.pack(*self.i2m(pkt, val))
+
+    def getfield(self, pkt, s):
+        return s[self.sz:], self.m2i(pkt, self.struct.unpack(s[:self.sz]))
+
+
+class XNBytesField(NBytesField):
+    def i2repr(self, pkt, x):
+        if isinstance(x, integer_types):
+            return '0x%x' % x
+        # x can be a tuple when coming from struct.unpack (from getfield)
+        if isinstance(x, (list, tuple)):
+            return "0x" + "".join("%02x" % b for b in x)
+        return super(XNBytesField, self).i2repr(pkt, x)
+
+
 class SignedByteField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "b")
@@ -1007,6 +1048,22 @@ class StrField(Field):
 
     def randval(self):
         return RandBin(RandNum(0, 1200))
+
+
+class StrFieldUtf16(StrField):
+    def h2i(self, pkt, x):
+        return plain_str(x).encode('utf-16')[2:]
+
+    def any2i(self, pkt, x):
+        if isinstance(x, six.text_type):
+            return self.h2i(pkt, x)
+        return super(StrFieldUtf16, self).any2i(pkt, x)
+
+    def i2repr(self, pkt, x):
+        return x
+
+    def i2h(self, pkt, x):
+        return bytes_encode(x).decode('utf-16')
 
 
 class PacketField(StrField):
@@ -1369,8 +1426,16 @@ class StrLenFieldUtf16(StrLenField):
     def h2i(self, pkt, x):
         return plain_str(x).encode('utf-16')[2:]
 
+    def any2i(self, pkt, x):
+        if isinstance(x, six.text_type):
+            return self.h2i(pkt, x)
+        return super(StrLenFieldUtf16, self).any2i(pkt, x)
+
+    def i2repr(self, pkt, x):
+        return x
+
     def i2h(self, pkt, x):
-        return x.decode('utf-16')
+        return bytes_encode(x).decode('utf-16')
 
 
 class BoundStrLenField(StrLenField):
