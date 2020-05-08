@@ -69,7 +69,7 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     _'mycert' and 'mykey' may be provided as filenames. They will be used in
     the handshake, should the server ask for client authentication.
-    _'server_name' does not need to be set.
+    _'server_name' is the SNI. It does not need to be set.
     _'client_hello' may hold a TLSClientHello or SSLv2ClientHello to be sent
     to the server. This is particularly useful for extensions tweaking.
     _'version' is a quicker way to advertise a protocol version ("sslv2",
@@ -93,7 +93,6 @@ class TLSClientAutomaton(_TLSAutomaton):
         super(TLSClientAutomaton, self).parse_args(mycert=mycert,
                                                    mykey=mykey,
                                                    **kargs)
-        self.remote_name = None
         tmp = socket.getaddrinfo(server, dport)
         try:
             if ':' in server:
@@ -101,12 +100,11 @@ class TLSClientAutomaton(_TLSAutomaton):
             else:
                 inet_pton(socket.AF_INET, server)
         except Exception:
-            self.remote_name = socket.getfqdn(server)
-            if self.remote_name != server:
-                tmp = socket.getaddrinfo(self.remote_name, dport)
+            remote_name = socket.getfqdn(server)
+            if remote_name != server:
+                tmp = socket.getaddrinfo(remote_name, dport)
 
-        if server_name:
-            self.remote_name = server_name
+        self.remote_name = server_name
         self.remote_family = tmp[0][0]
         self.remote_ip = tmp[0][4][0]
         self.remote_port = dport

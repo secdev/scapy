@@ -8,9 +8,10 @@ Basic TLS client. A ciphersuite may be commanded via a first argument.
 Default protocol version is TLS 1.3.
 """
 
-import os
-import sys
 import logging
+import os
+import socket
+import sys
 
 logger = logging.getLogger("scapy")
 logger.addHandler(logging.StreamHandler())
@@ -40,6 +41,8 @@ parser.add_argument("--ticket_out", dest='session_ticket_file_out',
                     help="File to write a ticket to (for TLS 1.3)")
 parser.add_argument("--res_master",
                     help="Resumption master secret (for TLS 1.3)")
+parser.add_argument("--sni",
+                    help="Server Name Indication")
 parser.add_argument("--debug", action="store_const", const=5, default=0,
                     help="Enter debug mode")
 parser.add_argument("server", nargs="?", default="127.0.0.1",
@@ -68,8 +71,9 @@ if args.ciphersuite:
 else:
     ch = None
 
-server_name = None
-if args.server:
+server_name = args.sni
+# If server name is unknown, try server
+if not server_name and args.server:
     try:
         inet_aton(args.server)
     except socket.error:

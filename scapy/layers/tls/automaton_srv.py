@@ -411,7 +411,7 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.state()
     def HANDLED_ALERT_FROM_CLIENTCERTIFICATE(self):
         self.vprint("Received Alert message instead of ClientKeyExchange!")
-        self.cur_pkt.show()
+        self.vprint(self.cur_pkt.mysummary())
         raise self.CLOSE_NOTIFY()
 
     @ATMT.condition(HANDLED_CLIENTCERTIFICATE, prio=3)
@@ -460,7 +460,7 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.state()
     def HANDLED_ALERT_FROM_CLIENTKEYEXCHANGE(self):
         self.vprint("Received Alert message instead of ChangeCipherSpec!")
-        self.cur_pkt.show()
+        self.vprint(self.cur_pkt.mysummary())
         raise self.CLOSE_NOTIFY()
 
     @ATMT.condition(HANDLED_CERTIFICATEVERIFY, prio=3)
@@ -853,7 +853,7 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.state()
     def TLS13_HANDLED_ALERT_FROM_CLIENTCERTIFICATE(self):
         self.vprint("Received Alert message instead of ClientKeyExchange!")
-        self.cur_pkt.show()
+        self.vprint(self.cur_pkt.mysummary())
         raise self.CLOSE_NOTIFY()
 
     # For Middlebox compatibility (see RFC8446, appendix D.4)
