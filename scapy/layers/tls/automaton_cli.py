@@ -33,7 +33,8 @@ from scapy.layers.tls.basefields import _tls_version, _tls_version_options
 from scapy.layers.tls.session import tlsSession
 from scapy.layers.tls.extensions import TLS_Ext_SupportedGroups, \
     TLS_Ext_SupportedVersion_CH, TLS_Ext_SignatureAlgorithms, \
-    TLS_Ext_SupportedVersion_SH, TLS_Ext_PSKKeyExchangeModes
+    TLS_Ext_SupportedVersion_SH, TLS_Ext_PSKKeyExchangeModes, \
+    TLS_Ext_ServerName, ServerName
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, \
     TLSEncryptedExtensions, TLSFinished, TLSServerHello, TLSServerHelloDone, \
@@ -68,7 +69,7 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     _'mycert' and 'mykey' may be provided as filenames. They will be used in
     the handshake, should the server ask for client authentication.
-    _'server_name' does not need to be set.
+    _'server_name' is the SNI. It does not need to be set.
     _'client_hello' may hold a TLSClientHello or SSLv2ClientHello to be sent
     to the server. This is particularly useful for extensions tweaking.
     _'version' is a quicker way to advertise a protocol version ("sslv2",
@@ -93,19 +94,17 @@ class TLSClientAutomaton(_TLSAutomaton):
                                                    mykey=mykey,
                                                    **kargs)
         tmp = socket.getaddrinfo(server, dport)
-        self.remote_name = None
         try:
             if ':' in server:
                 inet_pton(socket.AF_INET6, server)
             else:
                 inet_pton(socket.AF_INET, server)
         except Exception:
-            self.remote_name = socket.getfqdn(server)
-            if self.remote_name != server:
-                tmp = socket.getaddrinfo(self.remote_name, dport)
+            remote_name = socket.getfqdn(server)
+            if remote_name != server:
+                tmp = socket.getaddrinfo(remote_name, dport)
 
-        if server_name:
-            self.remote_name = server_name
+        self.remote_name = server_name
         self.remote_family = tmp[0][0]
         self.remote_ip = tmp[0][4][0]
         self.remote_port = dport
@@ -278,9 +277,16 @@ class TLSClientAutomaton(_TLSAutomaton):
             p = self.client_hello
         else:
             p = TLSClientHello()
+        ext = []
         # Add TLS_Ext_SignatureAlgorithms for TLS 1.2 ClientHello
         if self.cur_session.advertised_tls_version == 0x0303:
-            p.ext = TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsa"])
+            ext += [TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsa"])]
+        # Add TLS_Ext_ServerName
+        if self.remote_name:
+            ext += TLS_Ext_ServerName(
+                servernames=[ServerName(servername=self.remote_name)]
+            )
+        p.ext = ext
         self.add_msg(p)
         raise self.ADDED_CLIENTHELLO()
 
@@ -1049,6 +1055,11 @@ class TLSClientAutomaton(_TLSAutomaton):
             )
             ext += TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsaepss",
                                                          "sha256+rsa"])
+        # Add TLS_Ext_ServerName
+        if self.remote_name:
+            ext += TLS_Ext_ServerName(
+                servernames=[ServerName(servername=self.remote_name)]
+            )
         p.ext = ext
         self.add_msg(p)
         raise self.TLS13_ADDED_CLIENTHELLO()

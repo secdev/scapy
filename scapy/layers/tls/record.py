@@ -63,11 +63,6 @@ class _TLSEncryptedContent(Raw, _GenericTLSSessionInheritance):
     name = "Encrypted Content"
     match_subclass = True
 
-    def mysummary(self):
-        s = _GenericTLSSessionInheritance.mysummary(self)
-        s += " / " + self.name
-        return s
-
 
 class _TLSMsgListField(PacketListField):
     """
@@ -724,7 +719,7 @@ class TLS(_GenericTLSSessionInheritance):
         s = super(TLS, self).mysummary()
         if self.msg:
             s += " / "
-            s += " / ".join(x.name for x in self.msg)
+            s += " / ".join(getattr(x, "_name", x.name) for x in self.msg)
         return s
 
 ###############################################################################
@@ -782,6 +777,9 @@ class TLSAlert(_GenericTLSSessionInheritance):
     name = "TLS Alert"
     fields_desc = [ByteEnumField("level", None, _tls_alert_level),
                    ByteEnumField("descr", None, _tls_alert_description)]
+
+    def mysummary(self):
+        return self.sprintf("Alert %level%: %desc%")
 
     def post_dissection_tls_session_update(self, msg_str):
         pass

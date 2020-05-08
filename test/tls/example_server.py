@@ -13,10 +13,15 @@ will be preferred to any other suite the client might propose.
 
 import os
 import sys
+import logging
+
+logger = logging.getLogger("scapy")
+logger.addHandler(logging.StreamHandler())
 
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
 
+from scapy.config import conf
 from scapy.layers.tls.automaton_srv import TLSServerAutomaton
 from argparse import ArgumentParser
 
@@ -35,6 +40,8 @@ parser.add_argument("--handle_session_ticket", action="store_true",
                     help="Use session tickets. Auto enabled if file provided (for TLS 1.3)")  # noqa: E501
 parser.add_argument("--ticket_file", dest='session_ticket_file',
                     help="File to write/read a ticket to (for TLS 1.3)")
+parser.add_argument("--debug", action="store_const", const=5, default=0,
+                    help="Enter debug mode")
 args = parser.parse_args()
 
 pcs = None
@@ -43,6 +50,11 @@ if args.no_pfs and args.psk:
     psk_mode = "psk_ke"
 else:
     psk_mode = "psk_dhe_ke"
+
+if args.debug == 5:
+    conf.logLevel = 10
+    conf.warning_threshold = 0
+
 t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
                        mykey=basedir+'/test/tls/pki/srv_key.pem',
                        preferred_ciphersuite=pcs,
@@ -52,6 +64,7 @@ t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
                        handle_session_ticket=args.handle_session_ticket,
                        session_ticket_file=args.session_ticket_file,
                        psk=args.psk,
-                       psk_mode=psk_mode)
+                       psk_mode=psk_mode,
+                       debug=args.debug)
 t.run()
 

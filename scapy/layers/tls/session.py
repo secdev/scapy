@@ -998,7 +998,8 @@ class _GenericTLSSessionInheritance(Packet):
         s.wcs = wcs_snap
 
     def mysummary(self):
-        return "TLS %s" % repr(self.tls_session)
+        return "TLS %s / %s" % (repr(self.tls_session),
+                                getattr(self, "_name", self.name))
 
 
 ###############################################################################

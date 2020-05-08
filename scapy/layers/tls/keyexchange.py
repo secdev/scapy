@@ -880,7 +880,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if 'tls_session' in kargs:
+        if _pkt and 'tls_session' in kargs:
             s = kargs['tls_session']
             if s.server_tmp_rsa_key is None and s.server_rsa_key is None:
                 return _UnEncryptedPreMasterSecret
