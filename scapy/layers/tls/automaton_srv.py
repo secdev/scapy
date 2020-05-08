@@ -1,14 +1,14 @@
 # This file is part of Scapy
 # Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
 #               2015, 2016, 2017 Maxence Tury
+#               2019 Romain Perez
 # This program is published under a GPLv2 license
 
 """
 TLS server automaton. This makes for a primitive TLS stack.
 Obviously you need rights for network access.
 
-We support versions SSLv2 to TLS 1.2, along with many features.
-There is no session resumption mechanism for now.
+We support versions SSLv2 to TLS 1.3, along with many features.
 
 In order to run a server listening on tcp/4433:
 > from scapy.all import *
