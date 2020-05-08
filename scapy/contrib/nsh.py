@@ -85,11 +85,11 @@ class NSH(Packet):
 
 
 bind_layers(Ether, NSH, {'type': 0x894F}, type=0x894F)
-bind_layers(VXLAN, NSH, {'flags': 0xC, 'nextprotocol': 4}, nextprotocol=4)
+bind_layers(VXLAN, NSH, {'flags': 0xC, 'nextproto': 4}, nextproto=4)
 bind_layers(GRE, NSH, {'proto': 0x894F}, proto=0x894F)
 
-bind_layers(NSH, IP, {'nextprotocol': 1}, nextprotocol=1)
-bind_layers(NSH, IPv6, {'nextprotocol': 2}, nextprotocol=2)
-bind_layers(NSH, Ether, {'nextprotocol': 3}, nextprotocol=3)
-bind_layers(NSH, NSH, {'nextprotocol': 4}, nextprotocol=4)
-bind_layers(NSH, MPLS, {'nextprotocol': 5}, nextprotocol=5)
+bind_layers(NSH, IP, nextproto=1)
+bind_layers(NSH, IPv6, nextproto=2)
+bind_layers(NSH, Ether, nextproto=3)
+bind_layers(NSH, NSH, nextproto=4)
+bind_layers(NSH, MPLS, nextproto=5)
