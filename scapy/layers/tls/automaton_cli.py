@@ -1,14 +1,14 @@
 # This file is part of Scapy
 # Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
 #               2015, 2016, 2017 Maxence Tury
+#               2019 Romain Perez
 # This program is published under a GPLv2 license
 
 """
 TLS client automaton. This makes for a primitive TLS stack.
 Obviously you need rights for network access.
 
-We support versions SSLv2 to TLS 1.2, along with many features.
-There is no session resumption mechanism for now.
+We support versions SSLv2 to TLS 1.3, along with many features.
 
 In order to run a client to tcp/50000 with one cipher suite of your choice:
 > from scapy.all import *
@@ -981,7 +981,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.condition(TLS13_START)
     def tls13_should_add_ClientHello(self):
         # we have to use the legacy, plaintext TLS record here
-        supported_groups = ["secp256r1", "secp384r1"]
+        supported_groups = ["secp256r1", "secp384r1", "x448"]
         if conf.crypto_valid_advanced:
             supported_groups.append("x25519")
         self.add_record(is_tls13=False)
