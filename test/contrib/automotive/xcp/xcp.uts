@@ -1,0 +1,823 @@
+% Regression tests for the XCP
+~ vcan_socket needs_root linux
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
+
++ Basic operations
+= Imports
+
+from scapy.config import conf
+from scapy.contrib.automotive.xcp.cto_commands_master import Connect, GetCommModeInfo, GetStatus, GetSeed, Unlock, GetId, Upload, GetCalPage, SetMta, BuildChecksum, Download, ShortUpload, CopyCalPage, GetDaqProcessorInfo, GetDaqResolutionInfo, GetDaqEventInfo, GetDaqListInfo, ClearDaqList, AllocDaq, AllocOdt, AllocOdtEntry, SetDaqPtr, WriteDaq, SetDaqListMode, StartStopDaqList, GetDaqClock, StartStopSynch, ProgramStart, ProgramClear, Program
+from scapy.contrib.automotive.xcp.xcp import CTORequest, XCPOnCAN, CTOResponse, ConnectPositiveResponse
+from scapy.main import load_layer
+
+
+= Load module
+
+load_layer("can")
+load_contrib("automotive.xcp.xcp",  globals_dict=globals())
+
+= test_get_com_mode_info
+
+cto_request = CTORequest(pid="GET_COMM_MODE_INFO") / GetCommModeInfo()
+assert cto_request.pid == 0xfb
+assert bytes(cto_request) == b'\xfb'
+
+cto_response = CTOResponse(b'\xff\x00\x01\x00\x02\x00\x00\x64')
+assert cto_response.packet_code == 0xFF
+
+assert cto_response.answers(cto_request)
+
+get_comm_mode_info_response = cto_response["CommonModeInfoPositiveResponse"]
+assert "master_block_mode" in get_comm_mode_info_response.comm_mode_optional
+assert get_comm_mode_info_response.max_bs == 0x02
+assert get_comm_mode_info_response.min_st == 0x00
+assert get_comm_mode_info_response.xcp_driver_version_number == 0x64
+
+= test_get_status
+
+cto_request = CTORequest(pid="GET_STATUS") / GetStatus()
+assert cto_request.pid == 0xfd
+assert bytes(cto_request) == b'\xfd'
+
+cto_response = CTOResponse(b'\xff\x00\x15\x00\x00\x00')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+get_comm_mode_info_response = cto_response["StatusPositiveResponse"]
+assert get_comm_mode_info_response.current_session_status == 0x00
+assert "cal_pag" in get_comm_mode_info_response.current_resource_protection_status
+assert "x1" not in get_comm_mode_info_response.current_resource_protection_status
+assert "daq" in get_comm_mode_info_response.current_resource_protection_status
+assert "stim" not in get_comm_mode_info_response.current_resource_protection_status
+assert "pgm" in get_comm_mode_info_response.current_resource_protection_status
+assert "x5" not in get_comm_mode_info_response.current_resource_protection_status
+assert "x6" not in get_comm_mode_info_response.current_resource_protection_status
+assert "x7" not in get_comm_mode_info_response.current_resource_protection_status
+
+assert get_comm_mode_info_response.session_configuration_id == 0x0000
+
+= test_get_seed
+
+conf.contribs['XCP']['MAX_CTO'] = 8
+cto_request = CTORequest(pid="GET_SEED") / GetSeed(b'\x00\x01')
+assert cto_request.pid == 0xf8
+assert bytes(cto_request) == b'\xf8\x00\x01'
+
+cto_response = CTOResponse(b'\xff\x06\x00\x01\x02\x03\x04\x05')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+get_seed_response = cto_response["SeedPositiveResponse"]
+assert get_seed_response.seed_length == 0x06
+assert get_seed_response.seed == b'\x00\x01\x02\x03\x04\x05'
+
+= test_unlock
+
+conf.contribs['XCP']['MAX_CTO'] = 8
+cto_request = CTORequest(pid="UNLOCK") / Unlock(b'\x06\x69\xAB\xA6\x00\x00\x00')
+assert cto_request.pid == 0xf7
+assert cto_request['Unlock'].len == 0x06
+assert cto_request['Unlock'].seed == b'\x69\xAB\xA6\x00\x00\x00'
+assert bytes(cto_request) == b'\xf7\x06\x69\xAB\xA6\x00\x00\x00'
+
+cto_response = CTOResponse(b'\xff\x14')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+unlock_response = cto_response["UnlockPositiveResponse"]
+assert unlock_response.current_resource_protection_status == 0x14
+assert "cal_pag" not in unlock_response.current_resource_protection_status
+assert "x1" not in unlock_response.current_resource_protection_status
+assert "daq" in unlock_response.current_resource_protection_status
+assert "stim" not in unlock_response.current_resource_protection_status
+assert "pgm" in unlock_response.current_resource_protection_status
+assert "x5" not in unlock_response.current_resource_protection_status
+assert "x6" not in unlock_response.current_resource_protection_status
+assert "x7" not in unlock_response.current_resource_protection_status
+
+= test_get_id
+
+conf.contribs['XCP']['byte_order'] = 0
+cto_request = CTORequest(pid="GET_ID") / GetId(b'\x01')
+assert cto_request.pid == 0xfa
+assert bytes(cto_request) == b'\xfa\x01'
+assert cto_request['GetId'].identification_type == 0x01
+
+cto_response = CTOResponse(b'\xff\x00\x00\x00\x06\x00\x00\x00')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+get_id_response = cto_response["IdPositiveResponse"]
+assert get_id_response.mode == 0x00
+assert get_id_response.length == 6
+
+
+= test_upload
+
+conf.contribs['XCP']['MAX_CTO'] = 8
+conf.contribs['XCP']['Address_Granularity_Byte'] = 1
+
+cto_request = CTORequest(pid="UPLOAD") / Upload(b'\x06')
+assert cto_request.pid == 0xf5
+assert bytes(cto_request) == b'\xf5\x06'
+assert cto_request['Upload'].nr_of_data_elements == 0x06
+
+cto_response = CTOResponse(b'\xff\x58\x43\x50\x53\x49\x4D')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+upload_response = cto_response["UploadPositiveResponse"]
+assert upload_response.element == b'\x58\x43\x50\x53\x49\x4D'
+
+= test_cal_page
+
+cto_request = CTORequest(pid="GET_CAL_PAGE") / GetCalPage(b'\x01\x00')
+assert cto_request.pid == 0xea
+assert bytes(cto_request) == b'\xea\x01\x00'
+
+cto_response = CTOResponse(b'\xff\x00\x00\x01')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+get_cal_page_response = cto_response["CalPagePositiveResponse"]
+assert get_cal_page_response.logical_data_page_number == 0x01
+
+= test_set_mta
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="SET_MTA") / SetMta(b'\xff\xff\x00\x3c\x00\x00\x00')
+assert cto_request.pid == 0xf6
+assert bytes(cto_request) == b'\xf6\xff\xff\x00\x3c\x00\x00\x00'
+assert cto_request['SetMta'].address_extension == 0x00
+assert cto_request['SetMta'].address == 0x3C
+
+cto_response = CTOResponse(b'\xff')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_build_checksum
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="BUILD_CHECKSUM") / BuildChecksum(b'\xff\xff\xff\xad\x0d\x00\x00')
+assert cto_request.pid == 0xf3
+assert bytes(cto_request) == b'\xf3\xff\xff\xff\xad\x0d\x00\x00'
+assert hex(cto_request['BuildChecksum'].block_size) == '0xdad'
+
+cto_response = CTOResponse(b'\xff\x02\xff\xff\x2C\x87\x00\x00')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+build_checksum_response = cto_response["ChecksumPositiveResponse"]
+assert build_checksum_response.checksum_type == 0x02
+assert hex(build_checksum_response.checksum) == '0x872c'
+
+= test_download
+
+conf.contribs['XCP']['byte_order'] = 0
+conf.contribs['XCP']['MAX_CTO'] = 8
+conf.contribs['XCP']['Address_Granularity_Byte'] = 1
+
+cto_request = CTORequest(pid="DOWNLOAD") / Download(b'\x04\x00\x00\x80\x3f')
+assert cto_request.pid == 0xf0
+assert bytes(cto_request) == b'\xf0\x04\x00\x00\x80\x3f'
+assert cto_request['Download'].nr_of_data_elements == 0x04
+assert cto_request['Download'].data_elements == b'\x00\x00\x80\x3f'
+
+cto_response = CTOResponse(b'\xff')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_short_upload
+
+conf.contribs['XCP']['byte_order'] = 0
+conf.contribs['XCP']['MAX_CTO'] = 8
+conf.contribs['XCP']['Address_Granularity_Byte'] = 1
+
+cto_request = CTORequest(pid="SHORT_UPLOAD") / ShortUpload(b'\04\xff\x00\x60\x00\x00\x00')
+assert cto_request.pid == 0xf4
+assert bytes(cto_request) == b'\xf4\x04\xff\x00\x60\x00\x00\x00'
+assert cto_request['ShortUpload'].nr_of_data_elements == 0x04
+assert cto_request['ShortUpload'].address_extension == 0x00
+assert hex(cto_request['ShortUpload'].address) == '0x60'
+
+cto_response = CTOResponse(b'\xff\x00\x00\x80\x3F')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+upload_response = cto_response["ShortUploadPositiveResponse"]
+assert upload_response.element == b'\x00\x00\x80\x3F'
+
+= test_copy_cal_page
+
+cto_request = CTORequest(pid="COPY_CAL_PAGE") / CopyCalPage(b'\00\x01\x02\x03')
+assert cto_request.pid == 0xe4
+assert bytes(cto_request) == b'\xe4\00\x01\x02\x03'
+assert cto_request['CopyCalPage'].segment_num_src == 0x00
+assert cto_request['CopyCalPage'].page_num_src == 0x01
+assert cto_request['CopyCalPage'].segment_num_dst == 0x02
+assert cto_request['CopyCalPage'].page_num_dst == 0x03
+
+cto_response = CTOResponse(b'\xff')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_get_daq_processor_info
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="GET_DAQ_PROCESSOR_INFO") / GetDaqProcessorInfo()
+assert cto_request.pid == 0xda
+assert bytes(cto_request) == b'\xda'
+cto_response = CTOResponse(b'\xff\x11\x00\x00\x01\x00\x00\x40')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+processor_info_response = cto_response["DAQProcessorInfoPositiveResponse"]
+assert processor_info_response.daq_properties == 0x11
+assert "daq_config_type" in processor_info_response.daq_properties
+assert "timestamp_supported" in processor_info_response.daq_properties
+
+assert "prescaler_supported" not in processor_info_response.daq_properties
+assert "resume_supported" not in processor_info_response.daq_properties
+assert "bit_stim_supported" not in processor_info_response.daq_properties
+assert "pid_off_supported" not in processor_info_response.daq_properties
+assert "overload_msb" not in processor_info_response.daq_properties
+assert "overload_event" not in processor_info_response.daq_properties
+
+assert processor_info_response.max_daq == 0x0000
+assert processor_info_response.max_event_channel == 0x0001
+assert processor_info_response.min_daq == 0x00
+assert processor_info_response.daq_key_byte == 0x40
+assert "optimisation_type_0" not in processor_info_response.daq_key_byte
+assert "optimisation_type_1" not in processor_info_response.daq_key_byte
+assert "optimisation_type_2" not in processor_info_response.daq_key_byte
+assert "optimisation_type_3" not in processor_info_response.daq_key_byte
+assert "identification_field_type_0" in processor_info_response.daq_key_byte
+assert "identification_field_type_1" not in processor_info_response.daq_key_byte
+
+assert "address_extension_odt" not in processor_info_response.daq_key_byte
+assert "address_extension_daq" not in processor_info_response.daq_key_byte
+assert "address_extension_daq" not in processor_info_response.daq_key_byte
+
+= test_daq_resolution_info
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="GET_DAQ_RESOLUTION_INFO") / GetDaqResolutionInfo()
+assert cto_request.pid == 0xd9
+assert bytes(cto_request) == b'\xd9'
+
+cto_response = CTOResponse(b'\xff\x02\xfd\xff\xff\x62\x0a\x00')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+resolution_info_response = cto_response["DAQResolutionInfoPositiveResponse"]
+assert resolution_info_response.granularity_odt_entry_size_daq == 0x02
+assert resolution_info_response.max_odt_entry_size_daq == 0xfd
+assert resolution_info_response.granularity_odt_entry_size_stim == 0xff
+assert resolution_info_response.max_odt_entry_size_stim == 0xff
+assert resolution_info_response.timestamp_mode == 0x62
+assert "size_0" not in resolution_info_response.timestamp_mode
+assert "size_1" in resolution_info_response.timestamp_mode
+assert "size_2" not in resolution_info_response.timestamp_mode
+assert "timestamp_fixed" not in resolution_info_response.timestamp_mode
+assert "unit_0" not in resolution_info_response.timestamp_mode
+assert "unit_1" in resolution_info_response.timestamp_mode
+assert "unit_2" in resolution_info_response.timestamp_mode
+assert "unit_3" not in resolution_info_response.timestamp_mode
+
+assert resolution_info_response.timestamp_ticks == 0x000A
+
+= test_daq_event_info
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="GET_DAQ_EVENT_INFO") / GetDaqEventInfo(b'\xff\x00\x00')
+assert cto_request.pid == 0xd7
+assert bytes(cto_request) == b'\xd7\xff\x00\x00'
+assert cto_request['GetDaqEventInfo'].event_channel_num == 0x0000
+
+cto_response = CTOResponse(b'\xFF\x04\x01\x05\x0A\x60\x00')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+event_info_response = cto_response["DAQEventInfoPositiveResponse"]
+assert event_info_response.daq_event_properties == 0x04
+assert "x_0" not in event_info_response.daq_event_properties
+assert "x_1" not in event_info_response.daq_event_properties
+assert "daq" in event_info_response.daq_event_properties
+assert "stim" not in event_info_response.daq_event_properties
+assert "x_4" not in event_info_response.daq_event_properties
+assert "x_5" not in event_info_response.daq_event_properties
+assert "x_6" not in event_info_response.daq_event_properties
+assert "x_7" not in event_info_response.daq_event_properties
+
+assert event_info_response.max_daq_list == 0x01
+assert event_info_response.event_channel_name_length == 0x05
+assert event_info_response.event_channel_time_cycle == 0x0a
+assert event_info_response.event_channel_time_unit == 0x60
+assert event_info_response.event_channel_priority == 0x00
+
+= test_daq_list_info
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="GET_DAQ_LIST_INFO") / GetDaqListInfo(b'\xff\x00\x00')
+assert cto_request.pid == 0xd8
+assert bytes(cto_request) == b'\xd8\xff\x00\x00'
+assert cto_request['GetDaqListInfo'].daq_list_num == 0x0000
+
+cto_response = CTOResponse(b'\xFF\x04\x03\x0a')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+list_info_response = cto_response["DAQListInfoPositiveResponse"]
+assert list_info_response.daq_list_properties == 0x04
+assert "predefined" not in list_info_response.daq_list_properties
+assert "event_fixed" not in list_info_response.daq_list_properties
+assert "daq" in list_info_response.daq_list_properties
+assert "stim" not in list_info_response.daq_list_properties
+assert "x_4" not in list_info_response.daq_list_properties
+assert "x_5" not in list_info_response.daq_list_properties
+assert "x_6" not in list_info_response.daq_list_properties
+assert "x_7" not in list_info_response.daq_list_properties
+
+assert list_info_response.max_odt == 0x03
+assert list_info_response.max_odt_entries == 0x0a
+assert list_info_response.fixed_event == 0x00
+
+= test_clear_daq_list
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="CLEAR_DAQ_LIST") / ClearDaqList(b'\xff\x00\x00')
+assert cto_request.pid == 0xe3
+assert bytes(cto_request) == b'\xe3\xff\x00\x00'
+assert cto_request['ClearDaqList'].daq_list_num == 0x0000
+
+cto_response = CTOResponse(b'\xFF')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_alloc_daq
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="ALLOC_DAQ") / AllocDaq(b'\xff\x01\x00')
+assert cto_request.pid == 0xd5
+assert bytes(cto_request) == b'\xd5\xff\x01\x00'
+assert cto_request['AllocDaq'].daq_count == 0x0001
+
+cto_response = CTOResponse(b'\xFF')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_alloc_odt
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="ALLOC_ODT") / AllocOdt(b'\xff\x00\x00\x01')
+assert cto_request.pid == 0xd4
+assert bytes(cto_request) == b'\xd4\xff\x00\x00\x01'
+assert cto_request['AllocOdt'].daq_list_num == 0x0000
+assert cto_request['AllocOdt'].odt_count == 0x01
+
+cto_response = CTOResponse(b'\xFF')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_alloc_odt_entry
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="ALLOC_ODT_ENTRY") / AllocOdtEntry(b'\xff\x00\x00\x00\x02')
+assert cto_request.pid == 0xd3
+assert bytes(cto_request) == b'\xd3\xff\x00\x00\x00\x02'
+assert cto_request['AllocOdtEntry'].daq_list_num == 0x0000
+assert cto_request['AllocOdtEntry'].odt_num == 0x00
+assert cto_request['AllocOdtEntry'].odt_entries_count == 0x02
+
+cto_response = CTOResponse(b'\xFF')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_set_daq_ptr
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="SET_DAQ_PTR") / SetDaqPtr(b'\xff\x00\x00\x00\x00')
+assert cto_request.pid == 0xe2
+assert bytes(cto_request) == b'\xe2\xff\x00\x00\x00\x00'
+assert cto_request['SetDaqPtr'].daq_list_num == 0x0000
+assert cto_request['SetDaqPtr'].odt_num == 0x00
+assert cto_request['SetDaqPtr'].odt_entry_num == 0x00
+
+cto_response = CTOResponse(b'\xFF')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_write_daq
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="WRITE_DAQ") / WriteDaq(b'\xFF\x04\x00\x08\x55\x0C\x00')
+assert cto_request.pid == 0xe1
+assert bytes(cto_request) == b'\xe1\xFF\x04\x00\x08\x55\x0C\x00'
+assert cto_request['WriteDaq'].bit_offset == 0xff
+assert cto_request['WriteDaq'].size_of_daq_element == 0x04
+assert cto_request['WriteDaq'].address_extension == 0x00
+assert cto_request['WriteDaq'].address == 0x000C5508
+
+cto_response = CTOResponse(b'\xFF')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_set_daq_list_mode(self):
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="SET_DAQ_LIST_MODE") / SetDaqListMode(b'\x10\x00\x00\x00\x00\x01\x00')
+assert cto_request.pid == 0xe0
+assert bytes(cto_request) == b'\xe0\x10\x00\x00\x00\x00\x01\x00'
+set_daq_list_mode_request = cto_request['SetDaqListMode']
+assert set_daq_list_mode_request.mode == 0x10
+assert "x0" not in set_daq_list_mode_request.mode
+assert "direction" not in set_daq_list_mode_request.mode
+assert "x2" not in set_daq_list_mode_request.mode
+assert "x3" not in set_daq_list_mode_request.mode
+assert "timestamp" in set_daq_list_mode_request.mode
+assert "pid_off" not in set_daq_list_mode_request.mode
+assert "x6" not in set_daq_list_mode_request.mode
+assert "x7" not in set_daq_list_mode_request.mode
+
+assert set_daq_list_mode_request.daq_list_num == 0x0000
+assert set_daq_list_mode_request.event_channel_num == 0x0000
+assert set_daq_list_mode_request.transmission_rate_prescaler == 0x01
+assert set_daq_list_mode_request.daq_list_prio == 0x00
+
+cto_response = CTOResponse(b'\xFF')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_start_stop_daq_list
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="START_STOP_DAQ_LIST") / StartStopDaqList(b'\x02\x00\x00')
+assert cto_request.pid == 0xde
+assert bytes(cto_request) == b'\xde\x02\x00\x00'
+assert cto_request['StartStopDaqList'].mode == 0x02
+assert cto_request['StartStopDaqList'].daq_list_number == 0x0000
+
+cto_response = CTOResponse(b'\xFF\xbb')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+assert cto_response['StartStopDAQListPositiveResponse'].first_pid == 0xbb
+
+= test_get_daq_clock
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="GET_DAQ_CLOCK") / GetDaqClock()
+assert cto_request.pid == 0xdc
+assert bytes(cto_request) == b'\xdc'
+
+cto_response = CTOResponse(b'\xFF\xFF\xFF\xFF\xAA\xC5\x00\x00')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+get_daq_clock_response = cto_response["DAQClockListPositiveResponse"]
+
+assert get_daq_clock_response.receive_timestamp == 0x0000C5AA
+
+= test_start_stop_synch
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="START_STOP_SYNCH") / StartStopSynch(b'\x01')
+assert cto_request.pid == 0xdd
+assert bytes(cto_request) == b'\xdd\x01'
+assert cto_request['StartStopSynch'].mode == 0x01
+
+cto_response = CTOResponse(b'\xFF')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_program_start
+
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="PROGRAM_START") / ProgramStart()
+assert cto_request.pid == 0xd2
+assert bytes(cto_request) == b'\xd2'
+
+cto_response = CTOResponse(b'\xFF\xff\x01\x08\x2A\xFF\xdd')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+program_start_response = cto_response['ProgramStartPositiveResponse']
+
+assert program_start_response.comm_mode_pgm == 0x01
+assert "master_block_mode" in program_start_response.comm_mode_pgm
+assert "interleaved_mode" not in program_start_response.comm_mode_pgm
+assert "x2" not in program_start_response.comm_mode_pgm
+assert "x3" not in program_start_response.comm_mode_pgm
+assert "x4" not in program_start_response.comm_mode_pgm
+assert "x5" not in program_start_response.comm_mode_pgm
+assert "slave_block_mode" not in program_start_response.comm_mode_pgm
+assert "x7" not in program_start_response.comm_mode_pgm
+
+assert program_start_response.max_cto_pgm == 0x08
+assert program_start_response.max_bs_pgm == 0x2a
+assert program_start_response.min_bs_pgm == 0xff
+assert program_start_response.queue_size_pgm == 0xdd
+
+= test_program_clear(self):
+conf.contribs['XCP']['byte_order'] = 0
+
+cto_request = CTORequest(pid="PROGRAM_CLEAR") / ProgramClear(b'\x00\xff\xff\x00\x01\x00\x00')
+assert cto_request.pid == 0xd1
+assert bytes(cto_request) == b'\xd1\x00\xff\xff\x00\x01\x00\x00'
+
+assert cto_request['ProgramClear'].mode == 0x00
+assert cto_request['ProgramClear'].clear_range == 0x00000100
+
+cto_response = CTOResponse(b'\xff')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+= test_program
+
+conf.contribs['XCP']['byte_order'] = 0
+conf.contribs['XCP']['MAX_CTO'] = 8
+conf.contribs['XCP']['Address_Granularity_Byte'] = 1
+
+cto_request = CTORequest(pid="PROGRAM") / Program(b'\x06\x00\x01\x02\x03\x04\x05')
+assert cto_request.pid == 0xd0
+assert bytes(cto_request) == b'\xd0\x06\x00\x01\x02\x03\x04\x05'
+
+assert cto_request['Program'].nr_data_element == 0x06
+assert cto_request['Program'].data_elements == b"\x00\x01\x02\x03\x04\x05"
+
+cto_response = CTOResponse(b'\xff')
+assert cto_response.packet_code == 0xFF
+assert cto_response.answers(cto_request)
+
+
++ Tests on a virtual CAN-Bus
+= Imports
+
+import threading
+import time
+from subprocess import call
+
+import six
+
+from scapy.consts import LINUX
+from scapy.contrib.automotive.xcp.cto_commands_master import Connect, TransportLayerCmd, TransportLayerCmdGetSlaveId
+from scapy.contrib.automotive.xcp.scanner import XCPOnCANScanner
+from scapy.contrib.automotive.xcp.xcp import CTORequest, XCPOnCAN, CTOResponse, ConnectPositiveResponse, TransportLayerCmdGetSlaveIdResponse, GenericResponse
+from scapy.contrib.cansocket_python_can import CANSocket
+from scapy.main import load_layer
+
+= Load module
+
+load_layer("can")
+load_contrib("automotive.xcp.xcp",  globals_dict=globals())
+
+= Global variables
+
+iface0 = "vcan0"
+
+= Initialize a virtual CAN interface
+
+def set_up_virtual_python_can_socket(iface):
+    return CANSocket(bustype='virtual', channel=iface, timeout=0.01)
+
+print('setting up CAN')
+
+if 0 != call(["cansend", iface0,  "000#"]):
+    # vcan0 is not enabled
+    if 0 != call(["sudo", "modprobe", "vcan"]):
+        raise Exception("modprobe vcan failed")
+    if 0 != call(["sudo", "ip", "link", "add", "name", iface0, "type", "vcan"]):
+        print("add %s failed: Maybe it was already up?" % iface0)
+    if 0 != call(["sudo", "ip", "link", "set", "dev", iface0, "up"]):
+        raise Exception("could not bring up %s" % iface0)
+
+if 0 != call(["cansend", iface0,  "000#"]):
+    raise Exception("cansend doesn't work")
+
+print("CAN should work now")
+
+new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface0, timeout=0.01)
+
+if six.PY3 and LINUX:
+    new_can_socket0 = lambda: CANSocket(iface0)
+
+if "python_can" in CANSocket.__module__:
+    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, bitrate=250000, timeout=0.01)
+
+
+= verify CAN Socket creation works
+s = new_can_socket0()
+s.close()
+
+
+
+= CONNECT
+sock1 = new_can_socket0()
+sock2 = new_can_socket0()
+
+sock1.basecls = XCPOnCAN
+sock2.basecls = XCPOnCAN
+
+def ecu():
+    pkts = sock2.sniff(count=1, timeout=5)
+    if len(pkts) == 1:
+        response = XCPOnCAN(identifier=0x700) / CTOResponse(packet_code="RES") / ConnectPositiveResponse(
+            b'\x15\xC0\x08\x08\x00\x10\x10')
+        sock2.send(response)
+
+thread = threading.Thread(target=ecu)
+thread.start()
+time.sleep(0.1)
+pkt = XCPOnCAN(identifier=0x700) / CTORequest(pid="CONNECT") / Connect(connection_mode="NORMAL")
+ans = sock1.sr1(pkt, timeout=3)
+thread.join()
+
+assert ans.identifier == 0x700
+cto_response = ans["CTOResponse"]
+assert cto_response.packet_code == 0xff
+
+connect_response = cto_response["ConnectPositiveResponse"]
+
+assert connect_response.resource == 0x15
+assert connect_response.comm_mode_basic == 0xC0
+assert connect_response.max_cto == 8
+assert connect_response.max_cto == 8
+
+assert connect_response.xcp_protocol_layer_version_number_msb == 0x10
+assert connect_response.xcp_transport_layer_version_number_msb == 0x10
+
+
+cto_request = XCPOnCAN(identifier=0x700) / CTORequest(pid="CONNECT") / Connect(connection_mode="NORMAL")
+
+assert cto_request.identifier == 0x700
+assert cto_request.pid == 0xFF
+assert cto_request.connection_mode == 0
+assert bytes(cto_request) == b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00'
+
+xcp_on_can = XCPOnCAN(b'\x00\x00\x05\x00\x08\x00\x00\x00\xff\x15\xC0\x08\x08\x00\x10\x10')
+assert xcp_on_can.identifier == 0x500
+assert xcp_on_can.answers(cto_request)
+
+cto_response = xcp_on_can["CTOResponse"]
+assert cto_response.packet_code == 0xFF
+
+connect_response = cto_response["ConnectPositiveResponse"]
+assert connect_response.resource == 0x15
+assert connect_response.comm_mode_basic == 0xC0
+assert connect_response.max_cto == 8
+assert connect_response.max_cto == 8
+
+assert connect_response.xcp_protocol_layer_version_number_msb == 0x10
+assert connect_response.xcp_transport_layer_version_number_msb == 0x10
+
+assert conf.contribs['XCP']['byte_order'] == 0
+assert conf.contribs['XCP']['MAX_CTO'] == 8
+assert conf.contribs['XCP']['MAX_DTO'] == 8
+assert conf.contribs['XCP']['Address_Granularity_Byte'] == 1
+
++ Cleanup VCAN
+= Delete vcan interfaces
+~ vcan_socket needs_root linux
+
+if 0 != call(["sudo", "ip", "link", "delete", iface0]):
+    raise Exception("%s could not be deleted" % iface0)
+
++ Test for XCPonUDP
+= Imports
+
+from scapy.config import conf
+
+from scapy.contrib.automotive.xcp.cto_commands_master import Connect
+from scapy.contrib.automotive.xcp.xcp import CTORequest, XCPOnUDP
+from scapy.main import load_layer
+
+= Load module
+
+load_layer("can")
+load_layer("automotive.xcp.xcp",  globals_dict=globals())
+
+= CONNECT
+
+cto_request = XCPOnUDP(length=2, ctr=0, sport=1, dport=1) / CTORequest(pid="CONNECT") / Connect(connection_mode="NORMAL")
+
+assert cto_request.length == 2
+assert cto_request.ctr == 0
+
+assert cto_request.pid == 0xFF
+assert cto_request.connection_mode == 0
+assert bytes(cto_request).endswith(b'\x00\x02\x00\x00\xff\x00')
+print(XCPOnUDP(length=2, ctr=0, sport=1, dport=1))
+xcp_on_udp = XCPOnUDP(b'\x00\x01\x00\x01\x00\x0c\x00\x00\x00\x08\x00\x01\xff\x15\xC0\x08\x08\x00\x10\x10')
+assert xcp_on_udp.length == 8
+assert xcp_on_udp.ctr == 1
+
+assert xcp_on_udp.answers(cto_request)
+cto_response = xcp_on_udp["CTOResponse"]
+assert cto_response.packet_code == 0xFF
+
+connect_response = cto_response["ConnectPositiveResponse"]
+assert connect_response.resource == 0x15
+assert connect_response.comm_mode_basic == 0xC0
+assert connect_response.max_cto == 8
+assert connect_response.max_cto == 8
+
+assert connect_response.xcp_protocol_layer_version_number_msb == 0x10
+assert connect_response.xcp_transport_layer_version_number_msb == 0x10
+
+assert conf.contribs['XCP']['byte_order'] == 0
+assert conf.contribs['XCP']['MAX_CTO'] == 8
+assert conf.contribs['XCP']['MAX_DTO'] == 8
+assert conf.contribs['XCP']['Address_Granularity_Byte'] == 1
+
+
++ Tests XCPonUDP
+= Imports
+from scapy.contrib.automotive.xcp.xcp import XCPOnUDP
+
+= CONNECT
+
+prt1, prt2 = 12345, 54321
+xcp_on_udp_request = XCPOnUDP(sport=prt1, dport=prt2, length=2, ctr=0) / CTORequest(pid="CONNECT") / Connect(connection_mode="NORMAL")
+
+assert xcp_on_udp_request.length == 2
+assert xcp_on_udp_request.ctr == 0
+assert xcp_on_udp_request.pid == 0xFF
+assert xcp_on_udp_request.connection_mode == 0
+assert bytes(xcp_on_udp_request).endswith(b'\x00\x02\x00\x00\xff\x00')
+
+xcp_on_udp_response = XCPOnUDP(b'\xd4109\x00\x0c\x00\x00\x00\x08\x00\x01\xff\x15\xC0\x08\x08\x00\x10\x10')
+assert xcp_on_udp_response.length == 8
+assert xcp_on_udp_response.ctr == 1
+assert xcp_on_udp_response.answers(xcp_on_udp_request)
+
+cto_response = xcp_on_udp_response["CTOResponse"]
+assert cto_response.packet_code == 0xFF
+
+connect_response = cto_response["ConnectPositiveResponse"]
+assert connect_response.resource == 0x15
+assert connect_response.comm_mode_basic == 0xC0
+assert connect_response.max_cto == 8
+assert connect_response.max_cto == 8
+assert connect_response.xcp_protocol_layer_version_number_msb == 0x10
+assert connect_response.xcp_transport_layer_version_number_msb == 0x10
+assert conf.contribs['XCP']['byte_order'] == 0
+assert conf.contribs['XCP']['MAX_CTO'] == 8
+assert conf.contribs['XCP']['MAX_DTO'] == 8
+assert conf.contribs['XCP']['Address_Granularity_Byte'] == 1
+
+
++ Tests XCPonTCP
+= Imports
+from scapy.contrib.automotive.xcp.xcp import XCPOnTCP
+
+= CONNECT
+
+prt1, prt2 = 12345, 54321
+
+xcp_on_tcp_request = XCPOnTCP(sport=prt1, dport=prt2, length=2, ctr=0) / CTORequest(pid="CONNECT") / Connect(
+    connection_mode="NORMAL")
+assert xcp_on_tcp_request.length == 2
+assert xcp_on_tcp_request.ctr == 0
+assert xcp_on_tcp_request.pid == 0xFF
+assert xcp_on_tcp_request.connection_mode == 0
+assert bytes(xcp_on_tcp_request).endswith(b'\x00\x02\x00\x00\xff\x00')
+
+xcp_on_tcp_response = XCPOnTCP(b'\xd4109\x00\x00\x00\x00\x00\x00\x00\x00P\x12 \x00\x00\x00\x00\x00\x00\x08\x00\x01\xff\x15\xC0\x08\x08\x00\x10\x10')
+assert xcp_on_tcp_response.length == 8
+assert xcp_on_tcp_response.ctr == 1
+assert xcp_on_tcp_response.answers(xcp_on_tcp_request)
+
+cto_response = xcp_on_tcp_response["CTOResponse"]
+assert cto_response.packet_code == 0xFF
+
+connect_response = cto_response["ConnectPositiveResponse"]
+assert connect_response.resource == 0x15
+assert connect_response.comm_mode_basic == 0xC0
+assert connect_response.max_cto == 8
+assert connect_response.max_cto == 8
+assert connect_response.xcp_protocol_layer_version_number_msb == 0x10
+assert connect_response.xcp_transport_layer_version_number_msb == 0x10
+assert conf.contribs['XCP']['byte_order'] == 0
+assert conf.contribs['XCP']['MAX_CTO'] == 8
+assert conf.contribs['XCP']['MAX_DTO'] == 8
+assert conf.contribs['XCP']['Address_Granularity_Byte'] == 1
