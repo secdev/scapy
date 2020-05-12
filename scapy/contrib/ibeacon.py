@@ -18,8 +18,8 @@ Packet format documentation can be found at at:
 
 """
 
-from scapy.fields import ByteEnumField, LenField, PacketListField, \
-    ShortField, SignedByteField, UUIDField
+from scapy.fields import ByteEnumField, ConditionalField, LenField, \
+    PacketListField, ShortField, SignedByteField, UUIDField
 from scapy.layers.bluetooth import EIR_Hdr, EIR_Manufacturer_Specific_Data, \
     LowEnergyBeaconHelper
 from scapy.packet import bind_layers, Packet
@@ -35,6 +35,7 @@ class Apple_BLE_Submessage(Packet, LowEnergyBeaconHelper):
     name = "Apple BLE submessage"
     fields_desc = [
         ByteEnumField("subtype", None, {
+            0x01: "overflow",
             0x02: "ibeacon",
             0x05: "airdrop",
             0x07: "airpods",
@@ -43,11 +44,18 @@ class Apple_BLE_Submessage(Packet, LowEnergyBeaconHelper):
             0x0c: "handoff",
             0x10: "nearby",
         }),
-        LenField("len", None, fmt="B")
+        ConditionalField(
+            # "overflow" messages omit `len` field
+            LenField("len", None, fmt="B"),
+            lambda pkt: pkt.subtype != 0x01
+        ),
     ]
 
     def extract_padding(self, s):
         # Needed to end each EIR_Element packet and make PacketListField work.
+        if self.subtype == 0x01:
+            # Overflow messages are always 16 bytes.
+            return s[:16], s[16:]
         return s[:self.len], s[self.len:]
 
     # These methods are here in case you only want to send 1 submessage.
