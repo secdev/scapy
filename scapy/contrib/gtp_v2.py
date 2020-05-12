@@ -1058,7 +1058,8 @@ class PCO_PDU_Session_Id(PCO_Option):
     name = "PCO PDU session ID"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
-                   ShortField("PduSessionId", 1)]
+                   ConditionalField(ShortField("PduSessionId", 1),
+                                    lambda pkt: pkt.length)]
 
 
 class PCO_5GSM_Cause_Value(PCO_Option):
