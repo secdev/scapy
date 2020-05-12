@@ -563,8 +563,22 @@ class HTTP(Packet):
                 # It's not Content-Length based. It could be chunked
                 encodings = http_packet[HTTP].payload._get_encodings()
                 chunked = ("chunked" in encodings)
+                is_response = isinstance(http_packet.payload, HTTPResponse)
                 if chunked:
                     detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
+                # HTTP Requests that do not have any content,
+                # end with a double CRLF
+                elif isinstance(http_packet.payload, HTTPRequest):
+                    detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
+                    # In case we are handling a HTTP Request,
+                    # we want to continue assessing the data,
+                    # to handle requests with a body (POST)
+                    metadata["detect_unknown"] = True
+                elif is_response and http_packet.Status_Code == b"101":
+                    # If it's an upgrade response, it may also hold a
+                    # different protocol data.
+                    # make sure all headers are present
+                    detect_end = lambda dat: dat.find(b"\r\n\r\n")
                 else:
                     # If neither Content-Length nor chunked is specified,
                     # it means it's the TCP packet that contains the data,

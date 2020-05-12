@@ -323,9 +323,8 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
 
 
 @conf.commands.register
-def send(x, inter=0, loop=0, count=None,
-         verbose=None, realtime=None,
-         return_packets=False, socket=None, *args, **kargs):
+def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None,
+         return_packets=False, socket=None, iface=None, *args, **kargs):
     """
     Send packets at layer 3
 
@@ -342,6 +341,7 @@ def send(x, inter=0, loop=0, count=None,
     :returns: None
     """
     need_closing = socket is None
+    kargs["iface"] = _interface_selection(iface, x)
     socket = socket or conf.L3socket(*args, **kargs)
     results = __gen_send(socket, x, inter=inter, loop=loop,
                          count=count, verbose=verbose,

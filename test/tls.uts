@@ -1061,8 +1061,11 @@ assert (t6.payload.payload.mac == b'\x10\xce\xca2\xb4\xc3m\xf1\x16c\xdb\xfc\x08\
 # suite does not provide PFS, we are able to break the data confidentiality.
 
 + Read a vulnerable TLS session
+~ server_rsa_key
 
 = Reading TLS vulnerable session - Decrypt data from using a compromised server key
+load_layer("tls")
+
 from scapy.layers.tls.cert import PrivKeyRSA
 from scapy.layers.tls.record import TLSApplicationData
 import os
@@ -1084,7 +1087,26 @@ t = TLS(data, tls_session=t.tls_session.mirror())
 assert(len(t.msg) == 1)
 assert(isinstance(t.msg[0], TLSApplicationData))
 assert(t.msg[0].data == b"")
-t.getlayer(2).msg[0].data == b"To boldly go where no man has gone before...\n"
+t.getlayer(TLS, 2).msg[0].data == b"To boldly go where no man has gone before...\n"
+
+= Auto provide the session
+
+conf.debug_dissector = 2
+client = "192.168.0.1"
+server = "1.2.3.4"
+bc = Ether()/IP(src=client, dst=server)/TCP(sport=51478, dport=443, seq=1)
+bs = Ether()/IP(src=server, dst=client)/TCP(sport=443, dport=51478, seq=1)
+pcap = [
+    bc/ch,
+    bs/sh,
+    bc/ck,
+    bs/fin,
+    bc/data
+]
+res = sniff(offline=pcap, session=TLSSession(server_rsa_key=key))
+
+res[4].show()
+assert res[4].getlayer(TLS, 2).msg[0].data == b"To boldly go where no man has gone before...\n"
 
 
 ###############################################################################
@@ -1165,7 +1187,7 @@ raw(t) == b'\xde\xad\xbe\xef\xff\x01'
 
 = Building packets - TLS record with bad data
 a = TLS(b'\x17\x03\x03\x00\x03data')
-assert a.haslayer(Raw)
+assert a[Raw]
 
 
 = Building packets - _CipherSuitesField with no cipher

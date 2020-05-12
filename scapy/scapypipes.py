@@ -12,8 +12,6 @@ from scapy.pipetool import Source, Drain, Sink
 from scapy.config import conf
 from scapy.compat import raw
 from scapy.utils import ContextManagerSubprocess, PcapReader, PcapWriter
-from scapy.automaton import recv_error
-from scapy.consts import WINDOWS
 
 
 class SniffSource(Source):
@@ -64,10 +62,11 @@ class SniffSource(Source):
 
     def deliver(self):
         try:
-            self._send(self.s.recv())
-        except recv_error:
-            if not WINDOWS:
-                raise
+            pkt = self.s.recv()
+            if pkt is not None:
+                self._send(pkt)
+        except EOFError:
+            self.is_exhausted = True
 
 
 class RdpcapSource(Source):
@@ -142,7 +141,15 @@ class Inject3Sink(InjectSink):
 
 
 class WrpcapSink(Sink):
-    """Packets received on low input are written to PCAP file
+    """
+    Writes :py:class:`Packet` on the low entry to a ``pcap`` file.
+    Ignores all messages on the high entry.
+
+    .. note::
+
+        Due to limitations of the ``pcap`` format, all packets **must** be of
+        the same link type. This class will not mutate packets to conform with
+        the expected link type.
 
     .. code::
 
@@ -151,6 +158,24 @@ class WrpcapSink(Sink):
          |          |
        >-|--[pcap]  |->
          +----------+
+
+    :param fname: Filename to write packets to.
+    :type fname: str
+    :param linktype: See :py:attr:`linktype`.
+    :type linktype: None or int
+
+    .. py:attribute:: linktype
+
+        Set an explicit link-type (``DLT_``) for packets.  This must be an
+        ``int`` or ``None``.
+
+        This is the same as the :py:func:`wrpcap` ``linktype`` parameter.
+
+        If ``None`` (the default), the linktype will be auto-detected on the
+        first packet. This field will *not* be updated with the result of this
+        auto-detection.
+
+        This attribute has no effect after calling :py:meth:`PipeEngine.start`.
     """
 
     def __init__(self, fname, name=None, linktype=None):
@@ -173,7 +198,17 @@ class WrpcapSink(Sink):
 
 
 class WiresharkSink(WrpcapSink):
-    """Packets received on low input are pushed to Wireshark.
+    """
+    Streams :py:class:`Packet` from the low entry to Wireshark.
+
+    Packets are written into a ``pcap`` stream (like :py:class:`WrpcapSink`),
+    and streamed to a new Wireshark process on its ``stdin``.
+
+    Wireshark is run with the ``-ki -`` arguments, which cause it to treat
+    ``stdin`` as a capture device.  Arguments in :py:attr:`args` will be
+    appended after this.
+
+    Extends :py:mod:`WrpcapSink`.
 
     .. code::
 
@@ -182,6 +217,21 @@ class WiresharkSink(WrpcapSink):
          |          |
        >-|--[pcap]  |->
          +----------+
+
+    :param linktype: See :py:attr:`WrpcapSink.linktype`.
+    :type linktype: None or int
+    :param args: See :py:attr:`args`.
+    :type args: None or list[str]
+
+    .. py:attribute:: args
+
+        Additional arguments for the Wireshark process.
+
+        This must be either ``None`` (the default), or a ``list`` of ``str``.
+
+        This attribute has no effect after calling :py:meth:`PipeEngine.start`.
+
+        See :manpage:`wireshark(1)` for more details.
     """
 
     def __init__(self, name=None, linktype=None, args=None):
@@ -192,7 +242,7 @@ class WiresharkSink(WrpcapSink):
         # Wireshark must be running first, because PcapWriter will block until
         # data has been read!
         with ContextManagerSubprocess(conf.prog.wireshark):
-            args = [conf.prog.wireshark, "-ki", "-"]
+            args = [conf.prog.wireshark, "-Slki", "-"]
             if self.args:
                 args.extend(self.args)
 

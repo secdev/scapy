@@ -378,20 +378,24 @@ def _version_checker(module, minver):
 
 def isCryptographyValid():
     """
-    Check if the cryptography library is present, and if it is recent enough
-    for most usages in scapy (v1.7 or later).
+    Check if the cryptography module >= 2.0.0 is present. This is the minimum
+    version for most usages in Scapy.
     """
     try:
         import cryptography
     except ImportError:
         return False
-    return _version_checker(cryptography, (1, 7))
+    return _version_checker(cryptography, (2, 0, 0))
 
 
 def isCryptographyAdvanced():
     """
-    Check if the cryptography library is present, and if it supports X25519,
-    ChaCha20Poly1305 and such (v2.0 or later).
+    Check if the cryptography module is present, and if it supports X25519,
+    ChaCha20Poly1305 and such.
+
+    Notes:
+    - cryptography >= 2.0 is required
+    - OpenSSL >= 1.1.0 is required
     """
     try:
         from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey  # noqa: E501
@@ -628,7 +632,7 @@ class Conf(ConfClass):
                    'inet6', 'ipsec', 'ir', 'isakmp', 'l2', 'l2tp',
                    'llmnr', 'lltd', 'mgcp', 'mobileip', 'netbios',
                    'netflow', 'ntp', 'ppi', 'ppp', 'pptp', 'radius', 'rip',
-                   'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'snmp',
+                   'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'smb2', 'snmp',
                    'tftp', 'vrrp', 'vxlan', 'x509', 'zigbee']
     #: a dict which can be used by contrib layers to store local
     #: configuration

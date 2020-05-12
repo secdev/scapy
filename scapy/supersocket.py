@@ -221,8 +221,9 @@ class L3RawSocket(SuperSocket):
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)  # noqa: E501
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
+        self.iface = iface
         if iface is not None:
-            self.ins.bind((iface, type))
+            self.ins.bind((self.iface, type))
         if not six.PY2:
             try:
                 # Receive Auxiliary Data (VLAN tags)
@@ -359,16 +360,16 @@ class L2ListenTcpdump(SuperSocket):
                  prog=None, *arg, **karg):
         self.outs = None
         args = ['-w', '-', '-s', '65535']
+        if iface is None and (WINDOWS or DARWIN):
+            iface = conf.iface
+        if WINDOWS:
+            try:
+                iface = iface.pcap_name
+            except AttributeError:
+                pass
+        self.iface = iface
         if iface is not None:
-            if WINDOWS:
-                try:
-                    args.extend(['-i', iface.pcap_name])
-                except AttributeError:
-                    args.extend(['-i', iface])
-            else:
-                args.extend(['-i', iface])
-        elif WINDOWS or DARWIN:
-            args.extend(['-i', conf.iface.pcap_name if WINDOWS else conf.iface])  # noqa: E501
+            args.extend(['-i', self.iface])
         if not promisc:
             args.append('-p')
         if not nofilter:
@@ -388,6 +389,12 @@ class L2ListenTcpdump(SuperSocket):
     def close(self):
         SuperSocket.close(self)
         self.tcpdump_proc.kill()
+
+    @staticmethod
+    def select(sockets, remain=None):
+        if (WINDOWS or DARWIN):
+            return sockets, None
+        return SuperSocket.select(sockets, remain=remain)
 
 
 class TunTapInterface(SuperSocket):
