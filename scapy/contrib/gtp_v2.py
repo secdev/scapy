@@ -1057,9 +1057,8 @@ class PCO_P_CSCF_Re_selection_Support(PCO_Option):
 class PCO_PDU_Session_Id(PCO_Option):
     name = "PCO PDU session ID"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
-                   ByteField("length", 0),
-                   PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                   ByteField("length", 1),
+                   ByteField("PduSessionId", 1)]
 
 
 class PCO_5GSM_Cause_Value(PCO_Option):
