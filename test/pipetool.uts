@@ -318,89 +318,68 @@ except:
     pass
 
 = Test WiresharkSink
+~ wiresharksink
 
-from io import BytesIO
+q = ObjectPipe()
+pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-f = BytesIO()
-pkt = Ether()/IP()/ICMP()
-
-with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
-    p = PipeEngine()
-    src = CLIFeeder()
+import mock
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink()
-    p.add(src > sink)
-    p.start()
-    src.send(pkt)
-    src.close()
-    # Prevent stop from closing the BytesIO
-    with mock.patch.object(f, 'close'):
-        p.wait_and_stop()
+    sink.start()
+
+sink.push(pkt)
+
+q.recv()
+q.recv()
+assert raw(pkt) in q.recv()
 
 popen.assert_called_once_with(
-    [conf.prog.wireshark, '-ki', '-'], stdin=subprocess.PIPE, stdout=None,
+    [conf.prog.wireshark, '-Slki', '-'], stdin=subprocess.PIPE, stdout=None,
     stderr=None)
-bytes_hex(f.getvalue())
-bytes_hex(raw(pkt))
-assert raw(pkt) in f.getvalue()
 
 = Test WiresharkSink with linktype
+~ wiresharksink
 
-f = BytesIO()
-pkt = Ether()/IP()/ICMP()
 linktype = scapy.data.DLT_EN3MB
+q = ObjectPipe()
+pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
-    p = PipeEngine()
-    src = CLIFeeder()
+import mock
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink(linktype=linktype)
-    p.add(src > sink)
-    p.start()
-    src.send(pkt)
-    src.close()
-    # Prevent stop from closing the BytesIO
-    with mock.patch.object(f, 'close'):
-        p.wait_and_stop()
+    sink.start()
 
-popen.assert_called_once_with(
-    [conf.prog.wireshark, '-ki', '-'],
-    stdin=subprocess.PIPE, stdout=None, stderr=None)
+sink.push(pkt)
 
-bytes_hex(f.getvalue())
-bytes_hex(raw(pkt))
-assert raw(pkt) in f.getvalue()
-
-# Check that the linktype was also correct
-f.seek(0) or None
-r = PcapReader(f)
-assert r.linktype == DLT_EN3MB
+chb(linktype) in q.recv()
+q.recv()
+assert raw(pkt) in q.recv()
 
 = Test WiresharkSink with args
+~ wiresharksink
 
-f = BytesIO()
-pkt = Ether()/IP()/ICMP()
+linktype = scapy.data.DLT_EN3MB
+q = ObjectPipe()
+pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
-    p = PipeEngine()
-    src = CLIFeeder()
+import mock
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink(args=['-c', '1'])
-    p.add(src > sink)
-    p.start()
-    src.send(pkt)
-    src.close()
-    # Prevent stop from closing the BytesIO
-    with mock.patch.object(f, 'close'):
-        p.wait_and_stop()
+    sink.start()
+
+sink.push(pkt)
 
 popen.assert_called_once_with(
-    [conf.prog.wireshark, '-ki', '-', '-c', '1'],
+    [conf.prog.wireshark, '-Slki', '-', '-c', '1'],
     stdin=subprocess.PIPE, stdout=None, stderr=None)
 
 = Test RdpcapSource and WrpcapSink
 
 dname = get_temp_dir()
 
-req = Ether()/IP()/ICMP()
-rpy = Ether()/IP(b'E\x00\x00\x1c\x00\x00\x00\x004\x01\x1d\x04\xd8:\xd0\x83\xc0\xa8\x00w\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+req = Ether(b'E\x00\x00\x1c\x00\x00\x00\x004\x01\x1d\x04\xd8:\xd0\x83\xc0\xa8\x00w\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+rpy = Ether(b'\x8c\xf8\x13C5P\xdcS`\xeb\x80H\x08\x00E\x00\x00\x1c\x00\x00\x00\x004\x01\x1d\x04\xd8:\xd0\x83\xc0\xa8\x00w\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 
 wrpcap(os.path.join(dname, "t.pcap"), [req, rpy])
 
@@ -713,7 +692,7 @@ p.add(s)
 p.start()
 
 from scapy.layers.http import HTTPRequest, HTTP
-s.send(bytes(HTTPRequest(Host="www.google.com")))
+s.send(bytes(HTTP()/HTTPRequest(Host="www.google.com")))
 result = c.q.get(timeout=10)
 p.stop()
 

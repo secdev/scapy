@@ -104,6 +104,74 @@ p = TestThreeBytesField(test1=0x123456, test2=123456, test3=0xfedbca, test4=5678
 assert(raw(p) == b'\x12\x34\x56\x01\xe2\x40\xca\xdb\xfe\x52\xaa\x08')
 print(p.sprintf('%test1% %test2% %test3% %test4%'))
 assert(p.sprintf('%test1% %test2% %test3% %test4%') == '0x123456 123456 0xfedbca 567890')
+assert(repr(p.test1) == '1193046')
+
+
+= NBytesField
+~ field nbytesfield
+
+class TestNBytesField(Packet):
+    fields_desc = [
+        NBytesField('test1', None, 7),
+        XNBytesField('test2', None, 5),
+        XNBytesField('test3', None, 11),
+        NBytesField('test4', None, 11),
+    ]
+
+p = TestNBytesField(test1=0x00112233445566, test2=824650445619, test3=0xffeeddccbbaa9988776655, test4=0xffeeddccbbaa9988776655)
+print(raw(p))
+assert(raw(p) == b'\x00\x11\x22\x33\x44\x55\x66\xc0\x00\xff\x33\x33\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x77\x66\x55\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x77\x66\x55')
+print(p.sprintf('%test1% %test2% %test3% %test4%'))
+assert(p.sprintf('%test1% %test2% %test3% %test4%') == '18838586676582 0xc000ff3333 0xffeeddccbbaa9988776655 309404098707666285700277845')
+assert(p.test1 == 0x112233445566)
+assert(p.test2 == 0xc000ff3333)
+assert(p.test3 == 0xffeeddccbbaa9988776655)
+assert(p.test4 == 309404098707666285700277845)
+
+
+= StrField
+~ field strfield
+~ field strlenfield
+
+class TestStrField(Packet):
+    fields_desc = [
+        LEFieldLenField('slen', None, length_of="s1"),
+        StrLenField('s1', None, length_from=lambda pkt: pkt.slen),
+        StrField('s2', None),
+    ]
+
+p = TestStrField(s1="cafe", s2="deadbeef")
+assert(raw(p) == b'\x04\x00cafedeadbeef')
+print(p.sprintf("%s1% %s2%"))
+assert(p.sprintf("%s1% %s2%") == "'cafe' 'deadbeef'")
+
+
+= StrFieldUtf16
+~ field strfieldutf16
+~ field strlenfieldutf16
+
+class TestStrLenFieldUtf16(Packet):
+    fields_desc = [
+        LEFieldLenField('slen', None, length_of="s1"),
+        StrLenFieldUtf16('s1', None, length_from=lambda pkt: pkt.slen),
+    ]
+
+p = TestStrLenFieldUtf16(s1='cafe')
+assert(raw(p) == b'\x08\x00c\x00a\x00f\x00e\x00')
+assert(p.sprintf("%s1%") == 'cafe')
+
+= StrFieldUtf16
+~ field strfieldutf16
+~ field strlenfieldutf16
+
+class TestStrFieldUtf16(Packet):
+    fields_desc = [
+        StrFieldUtf16('s1', None),
+    ]
+
+p = TestStrFieldUtf16(s1='cafe')
+assert(raw(p) == b'c\x00a\x00f\x00e\x00')
+assert(p.sprintf("%s1%") == 'cafe')
 
 ############
 ############

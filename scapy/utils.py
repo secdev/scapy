@@ -687,10 +687,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None,
     """
 
     if format is None:
-        if WINDOWS:
-            format = "png"  # use common format to make sure a viewer is installed  # noqa: E501
-        else:
-            format = "svg"
+        format = "svg"
     if string:
         return graph
     if type is not None:
@@ -717,11 +714,17 @@ def do_graph(graph, prog=None, format=None, target=None, type=None,
             target = open(target[1:].lstrip(), "wb")
         else:
             target = open(os.path.abspath(target), "wb")
-    proc = subprocess.Popen("\"%s\" %s %s" % (prog, options or "", format or ""),  # noqa: E501
-                            shell=True, stdin=subprocess.PIPE, stdout=target)
-    proc.stdin.write(bytes_encode(graph))
-    proc.stdin.close()
-    proc.wait()
+    proc = subprocess.Popen(
+        "\"%s\" %s %s" % (prog, options or "", format or ""),
+        shell=True, stdin=subprocess.PIPE, stdout=target,
+        stderr=subprocess.PIPE
+    )
+    _, stderr = proc.communicate(bytes_encode(graph))
+    if proc.returncode != 0:
+        raise OSError(
+            "GraphViz call failed (is it installed?):\n" +
+            plain_str(stderr)
+        )
     try:
         target.close()
     except Exception:
@@ -1028,6 +1031,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
             self.endian + "HHIIII", hdr
         )
         self.linktype = linktype
+        self.snaplen = snaplen
 
     def __iter__(self):
         return self
@@ -1328,7 +1332,7 @@ class RawPcapWriter:
     """A stream PCAP writer with more control than wrpcap()"""
 
     def __init__(self, filename, linktype=None, gz=False, endianness="",
-                 append=False, sync=False, nano=False):
+                 append=False, sync=False, nano=False, snaplen=MTU):
         """
         :param filename: the name of the file to write packets to, or an open,
             writable file-like object.
@@ -1345,6 +1349,7 @@ class RawPcapWriter:
         """
 
         self.linktype = linktype
+        self.snaplen = snaplen
         self.header_present = 0
         self.append = append
         self.gz = gz
@@ -1378,7 +1383,7 @@ class RawPcapWriter:
                 return
 
         self.f.write(struct.pack(self.endian + "IHHIIII", 0xa1b23c4d if self.nano else 0xa1b2c3d4,  # noqa: E501
-                                 2, 4, 0, 0, MTU, self.linktype))
+                                 2, 4, 0, 0, self.snaplen, self.linktype))
         self.f.flush()
 
     def write(self, pkt):
