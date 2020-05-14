@@ -195,23 +195,45 @@ class TCPSession(IPSession):
             return None
 
     A (hard to understand) example can be found in scapy/layers/http.py
+
+    :param app: Whether the socket is on application layer = has no TCP
+                layer. Default to False
     """
 
     fmt = ('TCP {IP:%IP.src%}{IPv6:%IPv6.src%}:%r,TCP.sport% > ' +
            '{IP:%IP.dst%}{IPv6:%IPv6.dst%}:%r,TCP.dport%')
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, app=False, *args, **kwargs):
         super(TCPSession, self).__init__(*args, **kwargs)
-        # The StringBuffer() is used to build a global
-        # string from fragments and their seq nulber
-        self.tcp_frags = defaultdict(
-            lambda: (StringBuffer(), {})
-        )
+        self.app = app
+        if app:
+            self.data = b""
+            self.metadata = {}
+        else:
+            # The StringBuffer() is used to build a global
+            # string from fragments and their seq nulber
+            self.tcp_frags = defaultdict(
+                lambda: (StringBuffer(), {})
+            )
 
     def _process_packet(self, pkt):
         """Process each packet: matches the TCP seq/ack numbers
         to follow the TCP streams, and orders the fragments.
         """
+        if self.app:
+            # Special mode: Application layer. Use on top of TCP
+            pay_class = pkt.__class__
+            if not hasattr(pay_class, "tcp_reassemble"):
+                # Cannot tcp-reassemble
+                return pkt
+            self.data += bytes(pkt)
+            pkt = pay_class.tcp_reassemble(self.data, self.metadata)
+            if pkt:
+                self.data = b""
+                self.metadata = {}
+                return pkt
+            return
+
         from scapy.layers.inet import IP, TCP
         if not pkt or TCP not in pkt:
             return pkt

@@ -210,6 +210,10 @@ class TLSServerAutomaton(_TLSAutomaton):
         raise self.WAITING_CLIENT()
 
     @ATMT.state()
+    def SOCKET_CLOSED(self):
+        raise self.WAITING_CLIENT()
+
+    @ATMT.state()
     def WAITING_CLIENT(self):
         self.buffer_out = []
         self.buffer_in = []

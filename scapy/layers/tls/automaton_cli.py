@@ -10,11 +10,29 @@ Obviously you need rights for network access.
 
 We support versions SSLv2 to TLS 1.3, along with many features.
 
-In order to run a client to tcp/50000 with one cipher suite of your choice:
-> from scapy.all import *
-> ch = TLSClientHello(ciphers=<int code of the cipher suite>)
-> t = TLSClientAutomaton(dport=50000, client_hello=ch)
-> t.run()
+In order to run a client to tcp/50000 with one cipher suite of your choice::
+
+    from scapy.layers.tls import *
+    ch = TLSClientHello(ciphers=<int code of the cipher suite>)
+    t = TLSClientAutomaton(dport=50000, client_hello=ch)
+    t.run()
+
+You can also use it as a SuperSocket using the ``tlslink`` io::
+
+    from scapy.layers.tls import *
+    a = TLSClientAutomaton.tlslink(Raw, server="scapy.net", dport=443)
+    a.send(HTTP()/HTTPRequest())
+    while True:
+        a.recv()
+
+You can also use the io with a TCPSession, e.g. to get an HTTPS answer::
+
+    from scapy.all import *
+    from scapy.layers.http import *
+    from scapy.layers.tls import *
+    a = TLSClientAutomaton.tlslink(HTTP, server="www.google.com", dport=443)
+    pkt = a.sr1(HTTP()/HTTPRequest(), session=TCPSession(app=True),
+                timeout=2)
 """
 
 from __future__ import print_function
@@ -26,7 +44,7 @@ import time
 from scapy.config import conf
 from scapy.pton_ntop import inet_pton
 from scapy.utils import randstring, repr_hex
-from scapy.automaton import ATMT
+from scapy.automaton import ATMT, select_objects
 from scapy.error import warning
 from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.basefields import _tls_version, _tls_version_options
@@ -186,6 +204,10 @@ class TLSClientAutomaton(_TLSAutomaton):
     def INITIAL(self):
         self.vprint("Starting TLS client automaton.")
         raise self.INIT_TLS_SESSION()
+
+    @ATMT.ioevent(INITIAL, name="tls", as_supersocket="tlslink")
+    def _socket(self, fd):
+        pass
 
     @ATMT.state()
     def INIT_TLS_SESSION(self):
@@ -565,7 +587,16 @@ class TLSClientAutomaton(_TLSAutomaton):
         Special characters are handled so that it becomes a valid HTTP request.
         """
         if not self.data_to_send:
-            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()  # noqa: E501
+            if self.is_atmt_socket:
+                # Socket mode
+                fd = select_objects([self.ioin["tls"]], 0)
+                if fd:
+                    self.add_record()
+                    self.add_msg(TLSApplicationData(data=fd[0].recv()))
+                    raise self.ADDED_CLIENTDATA()
+                raise self.WAITING_SERVERDATA()
+            else:
+                data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()  # noqa: E501
         else:
             data = self.data_to_send.pop()
         if data == b"quit":
@@ -618,7 +649,11 @@ class TLSClientAutomaton(_TLSAutomaton):
             raise self.WAIT_CLIENTDATA()
         p = self.buffer_in[0]
         if isinstance(p, TLSApplicationData):
-            print("> Received: %r" % p.data)
+            if self.is_atmt_socket:
+                # Socket mode
+                self.oi.tls.send(p.data)
+            else:
+                print("> Received: %r" % p.data)
         elif isinstance(p, TLSAlert):
             print("> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
@@ -1356,6 +1391,10 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.vprint_sessioninfo()
         self.vprint("You may send data or use 'quit'.")
         raise self.WAIT_CLIENTDATA()
+
+    @ATMT.state()
+    def SOCKET_CLOSED(self):
+        raise self.FINAL()
 
     @ATMT.state(final=True)
     def FINAL(self):

@@ -826,7 +826,8 @@ class AsyncSniffer(object):
         # instantiate session
         if not isinstance(session, DefaultSession):
             session = session or DefaultSession
-            session = session(prn, store, *session_args, **session_kwargs)
+            session = session(prn=prn, store=store,
+                              *session_args, **session_kwargs)
         else:
             session.prn = prn
             session.store = store

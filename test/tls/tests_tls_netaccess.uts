@@ -346,3 +346,22 @@ test_tls_client("1305", "0304", key_update=True)
 ~ crypto_advanced
 
 test_tls_client("1305", "0304", client_auth=True, sess_in_out=True)
+
+# Automaton as Socket tests
+
++ TLSAutomatonClient socket tests
+~ netaccess
+
+= Connect to google.com
+
+load_layer("tls")
+load_layer("http")
+
+def _test_connection():
+    a = TLSClientAutomaton.tlslink(HTTP, server="www.google.com", dport=443,
+                                   server_name="www.google.com")
+    pkt = a.sr1(HTTP()/HTTPRequest(), session=TCPSession(app=True), timeout=2, retry=3)
+    assert HTTPResponse in pkt
+    assert b"</html>" in pkt[HTTPResponse].load
+
+retry_test(_test_connection)

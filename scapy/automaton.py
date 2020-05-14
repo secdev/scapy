@@ -427,6 +427,7 @@ class _ATMT_supersocket(SuperSocket, SelectableObject):
         # Register recv hook
         self.spb.register_hook(self.call_release)
         kargs["external_fd"] = {ioevent: (self.spa, self.spb)}
+        kargs["is_atmt_socket"] = True
         self.atmt = automaton(*args, **kargs)
         self.atmt.runbg()
 
@@ -730,6 +731,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         external_fd = kargs.pop("external_fd", {})
         self.send_sock_class = kargs.pop("ll", conf.L3socket)
         self.recv_sock_class = kargs.pop("recvsock", conf.L2listen)
+        self.is_atmt_socket = kargs.pop("is_atmt_socket", False)
         self.started = threading.Lock()
         self.threadid = None
         self.breakpointed = None
