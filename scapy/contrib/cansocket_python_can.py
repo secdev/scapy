@@ -142,12 +142,12 @@ class PythonCANSocket(SuperSocket, SelectableObject):
     nonblocking_socket = True
 
     def __init__(self, **kwargs):
-        self.initparams = copy.deepcopy(kwargs)
+        self.ctor_params = copy.deepcopy(kwargs)
         self.basecls = kwargs.pop("basecls", CAN)
         self.iface = SocketWrapper(**kwargs)
 
     def command(self):
-        return self._command(self.initparams)
+        return self._command(self.ctor_params)
 
     def recv_raw(self, x=0xffff):
         msg = self.iface.recv()

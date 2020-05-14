@@ -79,7 +79,7 @@ class NativeCANSocket(SuperSocket):
         self.outs = self.ins
 
     def command(self):
-        d = dict(
+        ctor_params = dict(
             channel=self.channel,
             receive_own_messages=self.receive_own_messages,
             can_filters=self.can_filters,
@@ -87,7 +87,7 @@ class NativeCANSocket(SuperSocket):
             basecls=self.basecls
         )
 
-        return self._command(d)
+        return self._command(ctor_params)
 
     def recv(self, x=CAN_FRAME_SIZE):
         try:

@@ -185,37 +185,37 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         from scapy import sendrecv
         return sendrecv.tshark(opened_socket=self, *args, **kargs)
 
-    def _command(self, d):
+    def _command(self, ctor_params):
         """Internal helper function for implementing the command() method.
 
-        :param d: a dict with all parameters passed to the constructor
-            of the class, where a key is the name of the parameter
-            in the constructor and the value is its value
+        :param ctor_params: a dict with all parameters passed to the
+            constructor of the class, where a key is the name of the
+            parameter in the constructor and the value is its value
         """
 
         nv = []
-        for n, v in six.iteritems(d):
-            if v is None:
+        for name, value in six.iteritems(ctor_params):
+            if value is None:
                 continue
-            elif hasattr(v, "__iter__"):
+            elif hasattr(value, "__iter__"):
                 try:
-                    c = len(v) == 0
+                    empty = len(value) == 0
                 except TypeError:
-                    c = False
-                if c:
+                    empty = False
+                if empty:
                     continue
 
-            if n == "basecls":
-                v = (
-                    v.__name__
-                    if hasattr(v, "__name__")
-                    else v.__class__.__name__
+            if name == "basecls":
+                value = (
+                    value.__name__
+                    if hasattr(value, "__name__")
+                    else value.__class__.__name__
                 )
-            elif hasattr(v, "command"):
-                v = v.command()
+            elif hasattr(value, "command"):
+                value = value.command()
             else:
-                v = repr(v)
-            nv.append("%s=%s" % (n, v))
+                value = repr(value)
+            nv.append("%s=%s" % (name, value))
 
         return "%s(%s)" % (type(self).__name__, ", ".join(nv))
 

@@ -683,7 +683,7 @@ class ISOTPSoftSocket(SuperSocket):
         self.basecls = basecls
 
     def command(self):
-        d = dict(
+        ctor_params = dict(
             can_socket=self.can_socket,
             sid=self.src,
             did=self.dst,
@@ -696,7 +696,7 @@ class ISOTPSoftSocket(SuperSocket):
             basecls=self.basecls
         )
 
-        return self._command(d)
+        return self._command(ctor_params)
 
     def close(self):
         if not self.closed:
@@ -1824,7 +1824,7 @@ if six.PY3 and LINUX:
             self.basecls = basecls
 
         def command(self):
-            d = dict(
+            ctor_params = dict(
                 iface=self.iface,
                 sid=self.src,
                 did=self.dst,
@@ -1836,7 +1836,7 @@ if six.PY3 and LINUX:
                 basecls=self.basecls
             )
 
-            return self._command(d)
+            return self._command(ctor_params)
 
         def recv_raw(self, x=0xffff):
             """
