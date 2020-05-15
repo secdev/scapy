@@ -319,38 +319,39 @@ def parse_campaign_file(campaign_file):
     test = None
     testnb = 0
 
-    for l in campaign_file.readlines():
-        if l[0] == '#':
+    for line in campaign_file.readlines():
+        if line[0] == '#':
             continue
-        if l[0] == "~":
-            (test or testset or test_campaign).add_keywords(l[1:].split())
-        elif l[0] == "%":
-            test_campaign.title = l[1:].strip()
-        elif l[0] == "+":
-            testset = TestSet(l[1:].strip())
+        if line[0] == "~":
+            (test or testset or test_campaign).add_keywords(line[1:].split())
+        elif line[0] == "%":
+            test_campaign.title = line[1:].strip()
+        elif line[0] == "+":
+            testset = TestSet(line[1:].strip())
             test_campaign.add_testset(testset)
             test = None
-        elif l[0] == "=":
-            test = UnitTest(l[1:].strip())
+        elif line[0] == "=":
+            test = UnitTest(line[1:].strip())
             test.num = testnb
             testnb += 1
             if testset is None:
                 error_m = "Please create a test set (i.e. '+' section)."
                 raise getopt.GetoptError(error_m)
             testset.add_test(test)
-        elif l[0] == "*":
+        elif line[0] == "*":
             if test is not None:
-                test.comments += l[1:]
+                test.comments += line[1:]
             elif testset is not None:
-                testset.comments += l[1:]
+                testset.comments += line[1:]
             else:
-                test_campaign.headcomments += l[1:]
+                test_campaign.headcomments += line[1:]
         else:
             if test is None:
-                if l.strip():
-                    print("Unknown content [%s]" % l.strip(), file=sys.stderr)
+                if line.strip():
+                    print("Unknown content [%s]" % line.strip(),
+                          file=sys.stderr)
             else:
-                test.test += l
+                test.test += line
     return test_campaign
 
 
@@ -402,9 +403,9 @@ def docs_campaign(test_campaign):
                 print("%s" % t.comments.strip().replace("\n", ""))
                 print()
             print("Usage example::")
-            for l in t.test.split('\n'):
-                if not l.rstrip().endswith('# no_docs'):
-                    print("\t%s" % l)
+            for line in t.test.split('\n'):
+                if not line.rstrip().endswith('# no_docs'):
+                    print("\t%s" % line)
 
 
 #    COMPUTE CAMPAIGN DIGESTS    #

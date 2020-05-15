@@ -758,8 +758,8 @@ def sixlowpan_fragment(packet, datagram_tag=1):
     if len(str_packet) <= MAX_SIZE:
         return [packet]
 
-    def chunks(l, n):
-        return [l[i:i + n] for i in range(0, len(l), n)]
+    def chunks(li, n):
+        return [li[i:i + n] for i in range(0, len(li), n)]
 
     new_packet = chunks(str_packet, MAX_SIZE)
 
