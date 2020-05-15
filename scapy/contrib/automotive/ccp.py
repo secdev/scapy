@@ -530,6 +530,10 @@ class DTO(Packet):
             del kwargs["payload_cls"]
         Packet.__init__(self, *args, **kwargs)
 
+    def __eq__(self, other):
+        return super(DTO, self).__eq__(other) and \
+            self.payload_cls == other.payload_cls
+
     def guess_payload_class(self, payload):
         return self.payload_cls
 
