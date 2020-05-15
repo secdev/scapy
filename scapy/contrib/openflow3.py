@@ -2103,7 +2103,7 @@ class OFPTFlowMod(_ofp_header):
                    XShortField("pad", 0),
                    MatchField("match"),
                    PacketListField("instructions", [], OFPIT,
-                                              length_from=lambda pkt:pkt.len - 48 - (pkt.match.len + (8 - pkt.match.len % 8) % 8))]  # noqa: E501
+                                   length_from=lambda pkt:pkt.len - 48 - (pkt.match.len + (8 - pkt.match.len % 8) % 8))]  # noqa: E501
     # include match padding to match.len
 
 

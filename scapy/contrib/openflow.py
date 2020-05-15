@@ -494,7 +494,7 @@ class OFPPacketQueue(Packet):
                    ShortField("len", None),
                    XShortField("pad", 0),
                    PacketListField("properties", [], OFPQT,
-                                    length_from=lambda pkt:pkt.len - 8)]  # noqa: E501
+                                   length_from=lambda pkt:pkt.len - 8)]
 
     def extract_padding(self, s):
         return b"", s

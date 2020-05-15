@@ -2615,13 +2615,13 @@ class HPackHdrTable(Sized):
             )
         )
 
-    def _parse_header_line(self, l):
+    def _parse_header_line(self, line):
         # type: (str) -> Union[Tuple[None, None], Tuple[str, str]]
 
         if self._regexp is None:
             self._regexp = re.compile(br'^(?::([a-z\-0-9]+)|([a-z\-0-9]+):)\s+(.+)$')  # noqa: E501
 
-        hdr_line = l.rstrip()
+        hdr_line = line.rstrip()
         grp = self._regexp.match(hdr_line)
 
         if grp is None or len(grp.groups()) != 3:

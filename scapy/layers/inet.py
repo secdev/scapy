@@ -1198,9 +1198,9 @@ class TracerouteResult(SndRcvList):
                 m = min(x for x, y in six.iteritems(k) if y[1])
             except ValueError:
                 continue
-            for l in list(k):  # use list(): k is modified in the loop
-                if l > m:
-                    del k[l]
+            for li in list(k):  # use list(): k is modified in the loop
+                if li > m:
+                    del k[li]
         return trace
 
     def trace3D(self, join=True):

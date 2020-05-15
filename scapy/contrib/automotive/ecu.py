@@ -94,15 +94,15 @@ class ECU(object):
         self._update_internal_state(pkt)
 
     def _update_log(self, pkt):
-        for l in pkt.layers():
-            if hasattr(l, "get_log"):
-                log_key, log_value = l.get_log(pkt)
+        for layer in pkt.layers():
+            if hasattr(layer, "get_log"):
+                log_key, log_value = layer.get_log(pkt)
                 self.log[log_key].append((pkt.time, log_value))
 
     def _update_internal_state(self, pkt):
-        for l in pkt.layers():
-            if hasattr(l, "modifies_ecu_state"):
-                l.modifies_ecu_state(pkt, self)
+        for layer in pkt.layers():
+            if hasattr(layer, "modifies_ecu_state"):
+                layer.modifies_ecu_state(pkt, self)
 
     def _update_supported_responses(self, pkt):
         self._unanswered_packets += PacketList([pkt])
@@ -328,9 +328,9 @@ class ECU_am(AnsweringMachine):
                     continue
 
                 for r in resp.responses:
-                    for l in r.layers():
-                        if hasattr(l, "modifies_ecu_state"):
-                            l.modifies_ecu_state(r, self.ecu_state)
+                    for layer in r.layers():
+                        if hasattr(layer, "modifies_ecu_state"):
+                            layer.modifies_ecu_state(r, self.ecu_state)
 
                 return resp.responses
 
