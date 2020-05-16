@@ -1004,13 +1004,18 @@ class TimeoutScheduler:
         def cancel(self):
             """Cancels this timeout, preventing it from executing its
             callback"""
-            if self._cb is not None and not isinstance(self._cb, bool):
-                self._cb = None
-                TimeoutScheduler.cancel(self)
-                return True
             if self._cb is None:
-                raise Scapy_Exception("cancel() called on canceled Handle")
-            return False
+                raise Scapy_Exception("cancel() called on "
+                                      "previous canceled Handle")
+            else:
+                if isinstance(self._cb, bool):
+                    # Handle was already executed.
+                    # We don't need to cancel anymore
+                    return False
+                else:
+                    self._cb = None
+                    TimeoutScheduler.cancel(self)
+                    return True
 
         def __cmp__(self, other):
             diff = self._when - other._when
