@@ -1007,6 +1007,10 @@ class TimeoutScheduler:
             if self._cb is not None and not isinstance(self._cb, bool):
                 self._cb = None
                 TimeoutScheduler.cancel(self)
+                return True
+            if self._cb is None:
+                raise Scapy_Exception("cancel() called on canceled Handle")
+            return False
 
         def __cmp__(self, other):
             diff = self._when - other._when
