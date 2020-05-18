@@ -403,7 +403,7 @@ In order to quickly review responses simply request a summary of collected packe
 
 The above will display stimulus/response pairs for answered probes. We can display only the information we are interested in by using a simple loop:
 
-    >>> ans.summary( lambda(s,r): r.sprintf("%TCP.sport% \t %TCP.flags%") )
+    >>> ans.summary( lambda s,r: r.sprintf("%TCP.sport% \t %TCP.flags%") )
     440      RA
     441      RA
     442      RA
@@ -417,7 +417,7 @@ Even better, a table can be built using the ``make_table()`` function to display
     **.*.*..*..................
     Received 362 packets, got 8 answers, remaining 1 packets
     >>> ans.make_table(
-    ...    lambda(s,r): (s.dst, s.dport,
+    ...    lambda s,r: (s.dst, s.dport,
     ...    r.sprintf("{TCP:%TCP.flags%}{ICMP:%IP.src% - %ICMP.type%}")))
         66.35.250.150                192.168.1.1 216.109.112.135 
     22  66.35.250.150 - dest-unreach RA          -               
@@ -428,17 +428,17 @@ The above example will even print the ICMP error type if the ICMP packet was rec
 
 For larger scans, we could be interested in displaying only certain responses. The example below will only display packets with the “SA” flag set::
 
-    >>> ans.nsummary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") == "SA")
+    >>> ans.nsummary(lfilter = lambda s,r: r.sprintf("%TCP.flags%") == "SA")
     0003 IP / TCP 192.168.1.100:ftp_data > 192.168.1.1:https S ======> IP / TCP 192.168.1.1:https > 192.168.1.100:ftp_data SA
 
 In case we want to do some expert analysis of responses, we can use the following command to indicate which ports are open::
 
-    >>> ans.summary(lfilter = lambda (s,r): r.sprintf("%TCP.flags%") == "SA",prn=lambda(s,r):r.sprintf("%TCP.sport% is open"))
+    >>> ans.summary(lfilter = lambda s,r: r.sprintf("%TCP.flags%") == "SA",prn=lambda s,r: r.sprintf("%TCP.sport% is open"))
     https is open
 
 Again, for larger scans we can build a table of open ports::
 
-    >>> ans.filter(lambda (s,r):TCP in r and r[TCP].flags&2).make_table(lambda (s,r): 
+    >>> ans.filter(lambda s,r: TCP in r and r[TCP].flags&2).make_table(lambda s,r:
     ...             (s.dst, s.dport, "X"))
         66.35.250.150 192.168.1.1 216.109.112.135 
     80  X             -           X               
@@ -980,7 +980,7 @@ Here we can see a multi-parallel traceroute (Scapy already has a multi TCP trace
 
     >>> ans, unans = sr(IP(dst="www.test.fr/30", ttl=(1,6))/TCP())
     Received 49 packets, got 24 answers, remaining 0 packets
-    >>> ans.make_table( lambda (s,r): (s.dst, s.ttl, r.src) )
+    >>> ans.make_table( lambda s,r: (s.dst, s.ttl, r.src) )
       216.15.189.192  216.15.189.193  216.15.189.194  216.15.189.195  
     1 192.168.8.1     192.168.8.1     192.168.8.1     192.168.8.1     
     2 81.57.239.254   81.57.239.254   81.57.239.254   81.57.239.254   
@@ -995,7 +995,7 @@ Here is a more complex example to distinguish machines or their IP stacks from t
 
     >>> ans, unans = sr(IP(dst="172.20.80.192/28")/TCP(dport=[20,21,22,25,53,80]))
     Received 142 packets, got 25 answers, remaining 71 packets
-    >>> ans.make_table(lambda (s,r): (s.dst, s.dport, r.sprintf("%IP.id%")))
+    >>> ans.make_table(lambda s,r: (s.dst, s.dport, r.sprintf("%IP.id%")))
        172.20.80.196 172.20.80.197 172.20.80.198 172.20.80.200 172.20.80.201 
     20 0             4203          7021          -             11562             
     21 0             4204          7022          -             11563             
@@ -1254,7 +1254,7 @@ The fastest way to discover hosts on a local ethernet network is to use the ARP 
 
 Answers can be reviewed with the following command::
 
-    >>> ans.summary(lambda (s,r): r.sprintf("%Ether.src% %ARP.psrc%") )
+    >>> ans.summary(lambda s,r: r.sprintf("%Ether.src% %ARP.psrc%") )
 
 Scapy also includes a built-in arping() function which performs similar to the above two commands:
 
@@ -1270,7 +1270,7 @@ Classical ICMP Ping can be emulated using the following command::
 
 Information on live hosts can be collected with the following request::
 
-    >>> ans.summary(lambda (s,r): r.sprintf("%IP.src% is alive") )
+    >>> ans.summary(lambda s,r: r.sprintf("%IP.src% is alive") )
 
 
 TCP Ping
@@ -1282,7 +1282,7 @@ In cases where ICMP echo requests are blocked, we can still use various TCP Ping
 
 Any response to our probes will indicate a live host. We can collect results with the following command::
 
-    >>> ans.summary( lambda(s,r) : r.sprintf("%IP.src% is alive") )
+    >>> ans.summary( lambda s,r : r.sprintf("%IP.src% is alive") )
 
 
 UDP Ping
@@ -1292,9 +1292,9 @@ If all else fails there is always UDP Ping which will produce ICMP Port unreacha
 
     >>> ans, unans = sr( IP(dst="192.168.*.1-10")/UDP(dport=0) )
 
-Once again, results can be collected with this command:
+Once again, results can be collected with this command::
 
-    >>> ans.summary( lambda(s,r) : r.sprintf("%IP.src% is alive") )
+    >>> ans.summary( lambda s,r : r.sprintf("%IP.src% is alive") )
 
 
 DNS Requests
@@ -1377,7 +1377,7 @@ Possible result visualization: open ports
 
 ::
 
-    >>> res.nsummary( lfilter=lambda (s,r): (r.haslayer(TCP) and (r.getlayer(TCP).flags & 2)) )
+    >>> res.nsummary( lfilter=lambda s,r: (r.haslayer(TCP) and (r.getlayer(TCP).flags & 2)) )
     
     
 IKE Scanning
@@ -1393,7 +1393,7 @@ and receiving the answers::
 
 Visualizing the results in a list::
 
-    >>> res.nsummary(prn=lambda (s,r): r.src, lfilter=lambda (s,r): r.haslayer(ISAKMP) ) 
+    >>> res.nsummary(prn=lambda s,r: r.src, lfilter=lambda s,r: r.haslayer(ISAKMP) ) 
     
   
 
@@ -1409,7 +1409,7 @@ TCP SYN traceroute
 
 Results would be::
 
-    >>> ans.summary( lambda(s,r) : r.sprintf("%IP.src%\t{ICMP:%ICMP.type%}\t{TCP:%TCP.flags%}"))
+    >>> ans.summary( lambda s,r: r.sprintf("%IP.src%\t{ICMP:%ICMP.type%}\t{TCP:%TCP.flags%}"))
     192.168.1.1     time-exceeded
     68.86.90.162    time-exceeded
     4.79.43.134     time-exceeded
@@ -1431,7 +1431,7 @@ NTP, etc.) to deserve an answer::
 
 We can visualize the results as a list of routers::
 
-    >>> res.make_table(lambda (s,r): (s.dst, s.ttl, r.src)) 
+    >>> res.make_table(lambda s,r: (s.dst, s.ttl, r.src))
 
 
 DNS traceroute
