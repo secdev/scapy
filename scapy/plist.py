@@ -146,14 +146,18 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         :param lfilter: truth function to apply to each packet to decide
                         whether it will be displayed
         """
+        # Python 2 backward compatibility
+        prn = lambda_tuple_converter(prn)
+        lfilter = lambda_tuple_converter(lfilter)
+
         for r in self.res:
             if lfilter is not None:
-                if not lfilter(r):
+                if not lfilter(*r):
                     continue
             if prn is None:
                 print(self._elt2sum(r))
             else:
-                print(prn(r))
+                print(prn(*r))
 
     def nsummary(self, prn=None, lfilter=None):
         # type: (Optional[Callable], Optional[Callable]) -> None
@@ -164,15 +168,19 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         :param lfilter: truth function to apply to each packet to decide
                         whether it will be displayed
         """
+        # Python 2 backward compatibility
+        prn = lambda_tuple_converter(prn)
+        lfilter = lambda_tuple_converter(lfilter)
+
         for i, res in enumerate(self.res):
             if lfilter is not None:
-                if not lfilter(res):
+                if not lfilter(*res):
                     continue
             print(conf.color_theme.id(i, fmt="%04i"), end=' ')
             if prn is None:
                 print(self._elt2sum(res))
             else:
-                print(prn(res))
+                print(prn(*res))
 
     def display(self):  # Deprecated. Use show()
         """deprecated. is show()"""
@@ -187,7 +195,10 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         # type: (Callable) -> PacketList
         """Returns a packet list filtered by a truth function. This truth
         function has to take a packet as the only argument and return a boolean value."""  # noqa: E501
-        return self.__class__([x for x in self.res if func(x)],
+        # Python 2 backward compatibility
+        func = lambda_tuple_converter(func)
+
+        return self.__class__([x for x in self.res if func(*x)],
                               name="filtered %s" % self.listname)
 
     def make_table(self, *args, **kargs):
