@@ -198,13 +198,11 @@ class EAP(Packet):
         ConditionalField(ByteEnumField("type", 0, eap_types),
                          lambda pkt:pkt.code not in [
                              EAP.SUCCESS, EAP.FAILURE]),
-        ConditionalField(FieldListField(
-                            "desired_auth_types",
-                            [],
-                            ByteEnumField("auth_type", 0, eap_types),
-                            length_from=lambda pkt: pkt.len - 4
-                         ),
-                         lambda pkt:pkt.code == EAP.RESPONSE and pkt.type == 3),  # noqa: E501
+        ConditionalField(
+            FieldListField("desired_auth_types", [],
+                           ByteEnumField("auth_type", 0, eap_types),
+                           length_from=lambda pkt: pkt.len - 4),
+            lambda pkt:pkt.code == EAP.RESPONSE and pkt.type == 3),
         ConditionalField(
             StrLenField("identity", '', length_from=lambda pkt: pkt.len - 5),
             lambda pkt: pkt.code == EAP.RESPONSE and hasattr(pkt, 'type') and pkt.type == 1),  # noqa: E501

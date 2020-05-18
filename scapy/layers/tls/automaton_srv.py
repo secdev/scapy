@@ -989,8 +989,8 @@ class TLSServerAutomaton(_TLSAutomaton):
             print("> Received: %r" % p.data)
             recv_data = p.data
             lines = recv_data.split(b"\n")
-            for l in lines:
-                if l.startswith(b"stop_server"):
+            for line in lines:
+                if line.startswith(b"stop_server"):
                     raise self.CLOSE_NOTIFY_FINAL()
         elif isinstance(p, TLSAlert):
             print("> Received: %r" % p)
@@ -1318,8 +1318,8 @@ class TLSServerAutomaton(_TLSAutomaton):
             print("> Received: %r" % p)
 
         lines = cli_data.split(b"\n")
-        for l in lines:
-            if l.startswith(b"stop_server"):
+        for line in lines:
+            if line.startswith(b"stop_server"):
                 raise self.SSLv2_CLOSE_NOTIFY_FINAL()
 
         if cli_data.startswith(b"GET / HTTP/1.1"):

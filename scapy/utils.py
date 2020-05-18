@@ -482,18 +482,20 @@ def str2mac(s):
     return ("%02x:" * 6)[:-1] % tuple(s)
 
 
-def randstring(l):
+def randstring(length):
     """
-    Returns a random string of length l (l >= 0)
+    Returns a random string of length (length >= 0)
     """
-    return b"".join(struct.pack('B', random.randint(0, 255)) for _ in range(l))
+    return b"".join(struct.pack('B', random.randint(0, 255))
+                    for _ in range(length))
 
 
-def zerofree_randstring(l):
+def zerofree_randstring(length):
     """
-    Returns a random string of length l (l >= 0) without zero in it.
+    Returns a random string of length (length >= 0) without zero in it.
     """
-    return b"".join(struct.pack('B', random.randint(1, 255)) for _ in range(l))
+    return b"".join(struct.pack('B', random.randint(1, 255))
+                    for _ in range(length))
 
 
 def strxor(s1, s2):

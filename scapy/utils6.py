@@ -872,14 +872,14 @@ class Net6(Gen):  # syntax ex. fec0::/126
     def __iter__(self):
         self._parse()
 
-        def rec(n, l):
+        def rec(n, li):
             sep = ':' if n and n % 2 == 0 else ''
             if n == 16:
-                return l
+                return li
             return rec(n + 1, [y + sep + '%.2x' % i
                                # faster than '%s%s%.2x' % (y, sep, i)
                                for i in range(*self.parsed[n])
-                               for y in l])
+                               for y in li])
 
         return (in6_ptop(addr) for addr in iter(rec(0, [''])))
 

@@ -249,15 +249,15 @@ def list_contrib(name=None,  # type: Optional[str]
             mod = mod[:-3]
         desc = {"description": None, "status": None, "name": mod}
         with io.open(f, errors="replace") as fd:
-            for l in fd:
-                if l[0] != "#":
+            for line in fd:
+                if line[0] != "#":
                     continue
-                p = l.find("scapy.contrib.")
+                p = line.find("scapy.contrib.")
                 if p >= 0:
                     p += 14
-                    q = l.find("=", p)
-                    key = l[p:q].strip()
-                    value = l[q + 1:].strip()
+                    q = line.find("=", p)
+                    key = line[p:q].strip()
+                    value = line[q + 1:].strip()
                     desc[key] = value
                 if desc["status"] == "skip":
                     break

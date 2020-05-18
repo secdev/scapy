@@ -345,8 +345,8 @@ class ULI_CGI(ULI_Field):
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
-        BitField("LAC", 0, 16),
-        BitField("CI", 0, 16),
+        ShortField("LAC", 0),
+        ShortField("CI", 0),
     ]
 
 
@@ -355,8 +355,8 @@ class ULI_SAI(ULI_Field):
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
-        BitField("LAC", 0, 16),
-        BitField("SAC", 0, 16),
+        ShortField("LAC", 0),
+        ShortField("SAC", 0),
     ]
 
 
@@ -367,8 +367,8 @@ class ULI_RAI(ULI_Field):
         # MNC: if the third digit of MCC is 0xf, then the length of
         # MNC is 1 byte
         gtp.TBCDByteField("MNC", "", 1),
-        BitField("LAC", 0, 16),
-        BitField("RAC", 0, 16),
+        ShortField("LAC", 0),
+        ShortField("RAC", 0),
     ]
 
 
@@ -377,7 +377,7 @@ class ULI_TAI(ULI_Field):
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
-        BitField("TAC", 0, 16),
+        ShortField("TAC", 0),
     ]
 
 
@@ -396,7 +396,7 @@ class ULI_LAI(ULI_Field):
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
-        BitField("LAC", 0, 16),
+        ShortField("LAC", 0),
     ]
 
 
@@ -1387,8 +1387,16 @@ class IE_FQCSID(gtp.IE_Base):
                    BitField("instance", 0, 4),
                    BitField("nodeid_type", 0, 4),
                    BitField("num_csid", 0, 4),
-                   ByteField("node_id", 0),
-                   ByteField("csids", 0)]
+                   ConditionalField(
+                       IPField("nodeid_v4", 0),
+                       lambda pkt: pkt.nodeid_type is 0),
+                   ConditionalField(
+                       XBitField("nodeid_v6", "2001:db8:0:42::", 128),
+                       lambda pkt: pkt.nodeid_type is 1),
+                   ConditionalField(
+                       BitField("nodeid_nonip", 0, 32),
+                       lambda pkt: pkt.nodeid_type is 2),
+                   ShortField("csid", 0)]
 
 
 class IE_Ran_Nas_Cause(gtp.IE_Base):

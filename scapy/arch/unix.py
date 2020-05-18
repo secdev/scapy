@@ -212,9 +212,9 @@ def in6_getifaddr():
 
         # Get the list of network interfaces
         splitted_line = []
-        for l in f:
-            if "flags" in l:
-                iface = l.split()[0].rstrip(':')
+        for line in f:
+            if "flags" in line:
+                iface = line.split()[0].rstrip(':')
                 splitted_line.append(iface)
 
     else:  # FreeBSD, NetBSD or Darwin

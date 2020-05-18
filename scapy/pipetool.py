@@ -89,11 +89,11 @@ class PipeEngine(SelectableObject):
             self.active_sinks.add(pipe)
 
     def get_pipe_list(self, pipe):
-        def flatten(p, l):
-            l.add(p)
+        def flatten(p, li):
+            li.add(p)
             for q in p.sources | p.sinks | p.high_sources | p.high_sinks:
-                if q not in l:
-                    flatten(q, l)
+                if q not in li:
+                    flatten(q, li)
         pl = set()
         flatten(pipe, pl)
         return pl

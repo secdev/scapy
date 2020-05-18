@@ -68,3 +68,18 @@ assert p[HCI_LE_Meta_Advertising_Report].addr == 'd6:ee:d4:16:ed:fc'
 assert len(p[Apple_BLE_Frame].plist) == 1
 assert p[IBeacon_Data].uuid == UUID('b9407f30-f5f8-466e-aff9-25556b57fe6d')
 
++ Overflow area
+
+= Basic overflow area packet
+
+d = hex_bytes('14ff4c000100000000000000000000000000000080')
+p = EIR_Hdr(d)
+
+assert raw(p) == d
+assert len(p[Apple_BLE_Frame].plist) == 1
+assert p[Apple_BLE_Submessage].subtype == 0x01
+assert p[Apple_BLE_Submessage].len == None
+
+payload = p[Apple_BLE_Submessage].payload
+assert isinstance(payload, Raw)
+assert raw(payload) == hex_bytes('00000000000000000000000000000080')
