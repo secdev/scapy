@@ -734,7 +734,9 @@ class IE_MSISDN(gtp.IE_Base):
 class IE_Indication(gtp.IE_Base):
     name = "IE Indication"
     fields_desc = [ByteEnumField("ietype", 77, IEType),
-                   FieldLenField("length", 8),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    ConditionalField(
