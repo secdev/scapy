@@ -193,7 +193,8 @@ class LayersList(list):
         self.ldict = {}
 
     def __repr__(self):
-        return "\n".join("%-20s: %s" % (l.__name__, l.name) for l in self)
+        return "\n".join("%-20s: %s" % (layer.__name__, layer.name)
+                         for layer in self)
 
     def register(self, layer):
         self.append(layer)
@@ -214,9 +215,9 @@ class LayersList(list):
 class CommandsList(list):
     def __repr__(self):
         s = []
-        for l in sorted(self, key=lambda x: x.__name__):
-            doc = l.__doc__.split("\n")[0] if l.__doc__ else "--"
-            s.append("%-20s: %s" % (l.__name__, doc))
+        for li in sorted(self, key=lambda x: x.__name__):
+            doc = li.__doc__.split("\n")[0] if li.__doc__ else "--"
+            s.append("%-20s: %s" % (li.__name__, doc))
         return "\n".join(s)
 
     def register(self, cmd):

@@ -567,9 +567,11 @@ also advertised within their manufacturer-specific data field, including:
  * AirPods
  * `Handoff`__
  * Nearby
+ * `Overflow area`__
 
 __ https://en.wikipedia.org/wiki/AirDrop
 __ https://en.wikipedia.org/wiki/OS_X_Yosemite#Continuity
+__ https://developer.apple.com/documentation/corebluetooth/cbperipheralmanager/1393252-startadvertising
 
 For compatibility with these other broadcasts, Apple BLE frames in Scapy are
 layered on top of ``Apple_BLE_Submessage`` and ``Apple_BLE_Frame``:

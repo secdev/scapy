@@ -858,7 +858,7 @@ class IPv6ExtHdrHopByHop(_IPv6ExtHdr):
                                  adjust=lambda pkt, x: (x + 2 + 7) // 8 - 1),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], HBHOptUnknown, 2,
-                                         length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]  # noqa: E501
+                                 length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]  # noqa: E501
     overload_fields = {IPv6: {"nh": 0}}
 
 
@@ -871,7 +871,7 @@ class IPv6ExtHdrDestOpt(_IPv6ExtHdr):
                                  adjust=lambda pkt, x: (x + 2 + 7) // 8 - 1),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], HBHOptUnknown, 2,
-                                         length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]  # noqa: E501
+                                 length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]  # noqa: E501
     overload_fields = {IPv6: {"nh": 60}}
 
 
@@ -3005,7 +3005,7 @@ class MIP6MH_BRR(_MobilityHeader):
                    ShortField("res2", None),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], MIP6OptUnknown, 8,
-                                   length_from=lambda pkt: 8 * pkt.len)]
+                                 length_from=lambda pkt: 8 * pkt.len)]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3026,7 +3026,7 @@ class MIP6MH_HoTI(_MobilityHeader):
                    StrFixedLenField("cookie", b"\x00" * 8, 8),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], MIP6OptUnknown, 16,
-                                 length_from=lambda pkt: 8 * (pkt.len - 1))]  # noqa: E501
+                                 length_from=lambda pkt: 8 * (pkt.len - 1))]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3053,7 +3053,7 @@ class MIP6MH_HoT(_MobilityHeader):
                    StrFixedLenField("token", b"\x00" * 8, 8),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], MIP6OptUnknown, 24,
-                                   length_from=lambda pkt: 8 * (pkt.len - 2))]  # noqa: E501
+                                 length_from=lambda pkt: 8 * (pkt.len - 2))]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3098,7 +3098,7 @@ class MIP6MH_BU(_MobilityHeader):
                    LifetimeField("mhtime", 3),  # unit == 4 seconds
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], MIP6OptUnknown, 12,
-                                   length_from=lambda pkt: 8 * pkt.len - 4)]  # noqa: E501
+                                 length_from=lambda pkt: 8 * pkt.len - 4)]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):  # Hack: see comment in MIP6MH_BRR.hashret()
@@ -3124,7 +3124,7 @@ class MIP6MH_BA(_MobilityHeader):
                    XShortField("mhtime", 0),  # unit == 4 seconds
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], MIP6OptUnknown, 12,
-                                   length_from=lambda pkt: 8 * pkt.len - 4)]  # noqa: E501
+                                 length_from=lambda pkt: 8 * pkt.len - 4)]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):  # Hack: see comment in MIP6MH_BRR.hashret()
@@ -3157,7 +3157,7 @@ class MIP6MH_BE(_MobilityHeader):
                    ByteField("reserved", 0),
                    IP6Field("ha", "::"),
                    _OptionsField("options", [], MIP6OptUnknown, 24,
-                                  length_from=lambda pkt: 8 * (pkt.len - 2))]  # noqa: E501
+                                 length_from=lambda pkt: 8 * (pkt.len - 2))]
     overload_fields = {IPv6: {"nh": 135}}
 
 
@@ -3237,9 +3237,9 @@ class TracerouteResult6(TracerouteResult):
                 m = min(x for x, y in six.iteritems(k) if y[1])
             except ValueError:
                 continue
-            for l in list(k):  # use list(): k is modified in the loop
-                if l > m:
-                    del k[l]
+            for li in list(k):  # use list(): k is modified in the loop
+                if li > m:
+                    del k[li]
 
         return trace
 

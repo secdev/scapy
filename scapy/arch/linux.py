@@ -17,7 +17,6 @@ from select import select
 import socket
 import struct
 import time
-import re
 
 import subprocess
 
@@ -384,54 +383,6 @@ def _flush_fd(fd):
             break
 
 
-def get_iface_mode(iface):
-    """Return the interface mode.
-    params:
-     - iface: the iwconfig interface
-    """
-    p = subprocess.Popen(["iwconfig", iface], stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT)
-    output, err = p.communicate()
-    match = re.search(br"mode:([a-zA-Z]*)", output.lower())
-    if match:
-        return plain_str(match.group(1))
-    return "unknown"
-
-
-def set_iface_monitor(iface, monitor):
-    """Sets the monitor mode (or remove it) from an interface.
-    params:
-     - iface: the iwconfig interface
-     - monitor: True if the interface should be set in monitor mode,
-                False if it should be in managed mode
-    """
-    mode = get_iface_mode(iface)
-    if mode == "unknown":
-        warning("Could not parse iwconfig !")
-    current_monitor = mode == "monitor"
-    if monitor == current_monitor:
-        # Already correct
-        return True
-    s_mode = "monitor" if monitor else "managed"
-
-    def _check_call(commands):
-        p = subprocess.Popen(commands,
-                             stderr=subprocess.PIPE,
-                             stdout=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-        if p.returncode != 0:
-            warning("%s failed !" % " ".join(commands))
-            return False
-        return True
-    if not _check_call(["ifconfig", iface, "down"]):
-        return False
-    if not _check_call(["iwconfig", iface, "mode", s_mode]):
-        return False
-    if not _check_call(["ifconfig", iface, "up"]):
-        return False
-    return True
-
-
 class L2Socket(SuperSocket):
     desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
 
@@ -441,9 +392,8 @@ class L2Socket(SuperSocket):
         self.type = type
         self.promisc = conf.sniff_promisc if promisc is None else promisc
         if monitor is not None:
-            warning(
-                "The monitor argument is ineffective on native linux sockets."
-                " Use set_iface_monitor instead."
+            log_runtime.info(
+                "The 'monitor' argument has no effect on native linux sockets."
             )
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         if not nofilter:

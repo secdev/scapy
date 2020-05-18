@@ -1490,9 +1490,10 @@ Wireless sniffing
 
 The following command will display information similar to most wireless sniffers::
 
->>> sniff(iface="ath0", monitor=True, prn=lambda x:x.sprintf("{Dot11Beacon:%Dot11.addr3%\t%Dot11Beacon.info%\t%PrismHeader.channel%\t%Dot11Beacon.cap%}"))
+>>> sniff(iface="ath0", prn=lambda x:x.sprintf("{Dot11Beacon:%Dot11.addr3%\t%Dot11Beacon.info%\t%PrismHeader.channel%\t%Dot11Beacon.cap%}"))
 
-Note the `monitor=True` argument, which only work from scapy>2.4.0 (2.4.0dev+), that is cross-platform. It will in work in most cases (Windows, OSX), but might require you to manually toggle monitor mode.
+.. note::
+    On Windows and OSX, you will need to also use `monitor=True`, which only works on scapy>2.4.0 (2.4.0dev+). This might require you to manually toggle monitor mode.
 
 The above command will produce output similar to the one below::
 
