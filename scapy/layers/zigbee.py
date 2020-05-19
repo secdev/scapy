@@ -776,9 +776,6 @@ class ZigbeeAppCommandPayload(Packet):
             ByteEnumField("key_type", 0, _RequestKeyKeyTypes),
             lambda pkt: pkt.cmd_identifier == 8),
         ConditionalField(
-            StrFixedLenField("key", None, 16),
-            lambda pkt: pkt.cmd_identifier == 8),
-        ConditionalField(
             dot15d4AddressField("partner_addr", 0, adjust=lambda pkt, x: 8),
             lambda pkt: (pkt.cmd_identifier == 8 and pkt.key_type == 0x02)),
         # Switch-Key Command
