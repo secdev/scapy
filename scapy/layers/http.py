@@ -621,7 +621,8 @@ class HTTP(Packet):
 
 def http_request(host, path="/", port=80, timeout=3,
                  display=False, verbose=0,
-                 iptables=False, **headers):
+                 iptables=False, iface=None,
+                 **headers):
     """Util to perform an HTTP request, using the TCP_client.
 
     :param host: the host to connect to
@@ -629,6 +630,7 @@ def http_request(host, path="/", port=80, timeout=3,
     :param port: the port (default 80)
     :param timeout: timeout before None is returned
     :param display: display the resullt in the default browser (default False)
+    :param iface: interface to use. default: conf.iface
     :param iptables: temporarily prevents the kernel from
       answering with a TCP RESET message.
     :param headers: any additional headers passed to the request
@@ -645,7 +647,8 @@ def http_request(host, path="/", port=80, timeout=3,
     }
     http_headers.update(headers)
     req = HTTP() / HTTPRequest(**http_headers)
-    tcp_client = TCP_client.tcplink(HTTP, host, port, debug=verbose)
+    tcp_client = TCP_client.tcplink(HTTP, host, port, debug=verbose,
+                                    iface=iface)
     ans = None
     if iptables:
         ip = tcp_client.atmt.dst
