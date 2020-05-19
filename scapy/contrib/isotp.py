@@ -200,6 +200,10 @@ class ISOTP(Packet):
 
         return results[0]
 
+    def __eq__(self, other):
+        # Don't compare src, dst, exsrc and exdst.
+        return super(ISOTP, self).__eq__(other)
+
 
 class ISOTPHeader(CAN):
     name = 'ISOTPHeader'
@@ -646,8 +650,8 @@ class ISOTPSoftSocket(SuperSocket):
         """
 
         if six.PY3 and LINUX and isinstance(can_socket, six.string_types):
-            from scapy.contrib.cansocket import CANSocket
-            can_socket = CANSocket(can_socket)
+            from scapy.contrib.cansocket_native import NativeCANSocket
+            can_socket = NativeCANSocket(can_socket)
         elif isinstance(can_socket, six.string_types):
             raise Scapy_Exception("Provide a CANSocket object instead")
 
@@ -873,7 +877,7 @@ class TimeoutScheduler:
                     # set the event to stop the wait - this kills the thread
                     TimeoutScheduler._event.set()
             else:
-                Exception("Handle not found")
+                raise Scapy_Exception("Handle not found")
 
     @staticmethod
     def clear():
@@ -970,9 +974,12 @@ class TimeoutScheduler:
 
                 # Time complexity is O(log n)
                 handle = heapq.heappop(handles)
+                callback = None
+                if handle is not None:
+                    callback = handle._cb
+                    handle._cb = True
 
             # Call the callback here, outside of the mutex
-            callback = handle._cb if handle is not None else None
             if callback is not None:
                 try:
                     callback()
@@ -997,8 +1004,18 @@ class TimeoutScheduler:
         def cancel(self):
             """Cancels this timeout, preventing it from executing its
             callback"""
-            self._cb = None
-            return TimeoutScheduler.cancel(self)
+            if self._cb is None:
+                raise Scapy_Exception("cancel() called on "
+                                      "previous canceled Handle")
+            else:
+                if isinstance(self._cb, bool):
+                    # Handle was already executed.
+                    # We don't need to cancel anymore
+                    return False
+                else:
+                    self._cb = None
+                    TimeoutScheduler.cancel(self)
+                    return True
 
         def __cmp__(self, other):
             diff = self._when - other._when
@@ -1006,6 +1023,15 @@ class TimeoutScheduler:
 
         def __lt__(self, other):
             return self._when < other._when
+
+        def __le__(self, other):
+            return self._when <= other._when
+
+        def __gt__(self, other):
+            return self._when > other._when
+
+        def __ge__(self, other):
+            return self._when >= other._when
 
 
 """ISOTPSoftSocket definitions."""
