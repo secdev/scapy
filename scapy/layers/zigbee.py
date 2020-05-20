@@ -4,7 +4,6 @@
 # Copyright (C) Ryan Speers <ryan@rmspeers.com> 2011-2012
 # Copyright (C) Roger Meyer <roger.meyer@csus.edu>: 2012-03-10 Added frames
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>: 2018
-# Intern at INRIA Grand Nancy Est
 # Copyright (C) 2020 Dimitrios-Georgios Akestoridis <akestoridis@cmu.edu>
 # This program is published under a GPLv2 license
 
@@ -591,10 +590,10 @@ class ZigbeeAppDataPayload(Packet):
         # Destination endpoint (0/1 octet)
         ConditionalField(
             ByteField("dst_endpoint", 10),
-            lambda pkt: ((pkt.aps_frametype == 0
-                          and pkt.delivery_mode in [0, 2])
-                         or (pkt.aps_frametype == 2
-                             and not pkt.frame_control.ack_format))
+            lambda pkt: ((pkt.aps_frametype == 0 and
+                          pkt.delivery_mode in [0, 2]) or
+                         (pkt.aps_frametype == 2 and not
+                          pkt.frame_control.ack_format))
         ),
         # Group address (0/2 octets)
         ConditionalField(
@@ -605,23 +604,23 @@ class ZigbeeAppDataPayload(Packet):
         ConditionalField(
             # unsigned short (little-endian)
             EnumField("cluster", 0, _zcl_cluster_identifier, fmt="<H"),
-            lambda pkt: (pkt.aps_frametype == 0
-                         or (pkt.aps_frametype == 2
-                             and not pkt.frame_control.ack_format))
+            lambda pkt: ((pkt.aps_frametype == 0) or
+                         (pkt.aps_frametype == 2 and not
+                          pkt.frame_control.ack_format))
         ),
         # Profile identifier (0/2 octets)
         ConditionalField(
             EnumField("profile", 0, _zcl_profile_identifier, fmt="<H"),
-            lambda pkt: (pkt.aps_frametype == 0
-                         or (pkt.aps_frametype == 2
-                             and not pkt.frame_control.ack_format))
+            lambda pkt: ((pkt.aps_frametype == 0) or
+                         (pkt.aps_frametype == 2 and not
+                          pkt.frame_control.ack_format))
         ),
         # Source endpoint (0/1 octets)
         ConditionalField(
             ByteField("src_endpoint", 10),
-            lambda pkt: (pkt.aps_frametype == 0
-                         or (pkt.aps_frametype == 2
-                             and not pkt.frame_control.ack_format))
+            lambda pkt: ((pkt.aps_frametype == 0) or
+                         (pkt.aps_frametype == 2 and not
+                          pkt.frame_control.ack_format))
         ),
         # APS counter (1 octet)
         ByteField("counter", 0),
@@ -631,18 +630,18 @@ class ZigbeeAppDataPayload(Packet):
             ByteEnumField(
                 "fragmentation", 0,
                 {0: "none", 1: "first_block", 2: "middle_block"}),
-            lambda pkt: (pkt.aps_frametype in [0, 2]
-                         and pkt.frame_control.extended_hdr)
+            lambda pkt: (pkt.aps_frametype in [0, 2] and
+                         pkt.frame_control.extended_hdr)
         ),
         ConditionalField(
             ByteField("block_number", 0),
-            lambda pkt: (pkt.aps_frametype in [0, 2]
-                         and pkt.fragmentation in [1, 2])
+            lambda pkt: (pkt.aps_frametype in [0, 2] and
+                         pkt.fragmentation in [1, 2])
         ),
         ConditionalField(
             ByteField("ack_bitfield", 0),
-            lambda pkt: (pkt.aps_frametype == 2
-                         and pkt.fragmentation in [1, 2])
+            lambda pkt: (pkt.aps_frametype == 2 and
+                         pkt.fragmentation in [1, 2])
         ),
         # variable length frame payload:
         # 3 frame types: data, APS command, and acknowledgement
@@ -741,24 +740,24 @@ class ZigbeeAppCommandPayload(Packet):
             lambda pkt: pkt.cmd_identifier == 5),
         ConditionalField(
             ByteField("key_seqnum", 0),
-            lambda pkt: (pkt.cmd_identifier == 5
-                         and pkt.key_type in [0x01, 0x05])),
+            lambda pkt: (pkt.cmd_identifier == 5 and
+                         pkt.key_type in [0x01, 0x05])),
         ConditionalField(
             dot15d4AddressField("dest_addr", 0, adjust=lambda pkt, x: 8),
-            lambda pkt: (pkt.cmd_identifier == 5
-                         and pkt.key_type not in [0x02, 0x03])),
+            lambda pkt: (pkt.cmd_identifier == 5 and
+                         pkt.key_type not in [0x02, 0x03])),
         ConditionalField(
             dot15d4AddressField("src_addr", 0, adjust=lambda pkt, x: 8),
-            lambda pkt: (pkt.cmd_identifier == 5
-                         and pkt.key_type not in [0x02, 0x03])),
+            lambda pkt: (pkt.cmd_identifier == 5 and
+                         pkt.key_type not in [0x02, 0x03])),
         ConditionalField(
             dot15d4AddressField("partner_addr", 0, adjust=lambda pkt, x: 8),
-            lambda pkt: (pkt.cmd_identifier == 5
-                         and pkt.key_type in [0x02, 0x03])),
+            lambda pkt: (pkt.cmd_identifier == 5 and
+                         pkt.key_type in [0x02, 0x03])),
         ConditionalField(
             ByteField("initiator_flag", 0),
-            lambda pkt: (pkt.cmd_identifier == 5
-                         and pkt.key_type in [0x02, 0x03])),
+            lambda pkt: (pkt.cmd_identifier == 5 and
+                         pkt.key_type in [0x02, 0x03])),
         # Update-Device Command
         ConditionalField(dot15d4AddressField("address", 0,
                                              adjust=lambda pkt, x: 8),
@@ -783,8 +782,8 @@ class ZigbeeAppCommandPayload(Packet):
                          lambda pkt: pkt.cmd_identifier == 9),
         # Un-implemented: 10-13 (+?)
         ConditionalField(StrField("data", ""),
-                         lambda pkt: (pkt.cmd_identifier >= 10
-                                      and pkt.cmd_identifier <= 13)),
+                         lambda pkt: (pkt.cmd_identifier >= 10 and
+                                      pkt.cmd_identifier <= 13)),
         # Tunnel Command
         ConditionalField(
             dot15d4AddressField("dest_addr", 0, adjust=lambda pkt, x: 8),
