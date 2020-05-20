@@ -1691,6 +1691,34 @@ Discussion
 __ https://www.wireshark.org
 __ https://wiki.wireshark.org/ProtocolReference
 
+Performance of Scapy
+--------------------
+
+Problem
+^^^^^^^
+
+Scapy dissects slowly and/or misses packets under heavy loads.
+
+.. note::
+
+    Please bare in mind that Scapy is not designed to be blazing fast, but rather easily hackable & extensible. The packet model makes it VERY easy to create new layers, compared to pretty much all other alternatives, but comes with a performance cost. Of course, we still do our best to make Scapy as fast as possible, but it's not the absolute main goal.
+
+Solution
+^^^^^^^^
+
+There are quite a few ways of speeding up scapy's dissection. You can use all of them
+
+- **Using a BPF filter**: The OS is faster than Scapy. If you make the OS filter the packets instead of Scapy, it will only handle a fraction of the load. Use the ``filter=`` argument of the :py:func:`~scapy.sendrecv.sniff` function.
+- **By disabling layers you don't use**: If you are not using some layers, why dissect them? You can let Scapy know which layers to dissect and all the others will simply be parsed as ``Raw``. This comes with a great performance boost but requires you to know what you're doing.
+
+.. code:: python
+
+    # Enable filtering: only Ether, IP and ICMP will be dissected
+    conf.layers.filter([Ether, IP, ICMP])
+    # Disable filtering: restore everything to normal
+    conf.layers.unfilter()
+
+
 OS Fingerprinting
 -----------------
 

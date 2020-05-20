@@ -138,6 +138,17 @@ except:
 
 assert not conf.use_bpf
 
+= Test layer filtering
+~ filter
+
+pkt = NetflowHeader()/NetflowHeaderV5()/NetflowRecordV5()
+
+conf.layers.filter([NetflowHeader, NetflowHeaderV5])
+assert NetflowRecordV5 not in NetflowHeader(bytes(pkt))
+
+conf.layers.unfilter()
+assert NetflowRecordV5 in NetflowHeader(bytes(pkt))
+
 
 ###########
 ###########

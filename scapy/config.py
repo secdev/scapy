@@ -191,6 +191,8 @@ class LayersList(list):
     def __init__(self):
         list.__init__(self)
         self.ldict = {}
+        self.filtered = False
+        self._backup_dict = {}
 
     def __repr__(self):
         return "\n".join("%-20s: %s" % (layer.__name__, layer.name)
@@ -210,6 +212,29 @@ class LayersList(list):
             doc = eval(lay).__doc__
             result.append((lay, doc.strip().split("\n")[0] if doc else lay))
         return result
+
+    def filter(self, items):
+        """Disable dissection of unused layers to speed up dissection"""
+        if self.filtered:
+            raise ValueError("Already filtered. Please disable it first")
+        for lay in six.itervalues(self.ldict):
+            for cls in lay:
+                if cls not in self._backup_dict:
+                    self._backup_dict[cls] = cls.payload_guess[:]
+                    cls.payload_guess = [
+                        y for y in cls.payload_guess if y[1] in items
+                    ]
+        self.filtered = True
+
+    def unfilter(self):
+        """Re-enable dissection for all layers"""
+        if not self.filtered:
+            raise ValueError("Not filtered. Please filter first")
+        for lay in six.itervalues(self.ldict):
+            for cls in lay:
+                cls.payload_guess = self._backup_dict[cls]
+        self._backup_dict.clear()
+        self.filtered = False
 
 
 class CommandsList(list):
