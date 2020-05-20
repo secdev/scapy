@@ -4,6 +4,7 @@
 # Copyright (C) Ryan Speers <ryan@rmspeers.com> 2011-2012
 # Copyright (C) Roger Meyer <roger.meyer@csus.edu>: 2012-03-10 Added frames
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>: 2018
+# Copyright (C) 2020 Dimitrios-Georgios Akestoridis <akestoridis@cmu.edu>
 # This program is published under a GPLv2 license
 
 """
@@ -20,7 +21,7 @@ from scapy.data import DLT_IEEE802_15_4_WITHFCS, DLT_IEEE802_15_4_NOFCS
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, Field, LELongField, PacketField, XByteField, \
-    XLEIntField, XLEShortField, FCSField, Emph
+    XLEIntField, XLEShortField, FCSField, Emph, FieldListField
 
 # Fields #
 
@@ -274,12 +275,17 @@ class Dot15d4Beacon(Packet):
 
         # Pending Address Fields:
         #  Pending Address Specification (1 byte)
-        BitField("pa_num_short", 0, 3),  # number of short addresses pending
         BitField("pa_reserved_1", 0, 1),
         BitField("pa_num_long", 0, 3),  # number of long addresses pending
         BitField("pa_reserved_2", 0, 1),
+        BitField("pa_num_short", 0, 3),  # number of short addresses pending
         #  Address List (var length)
-        # TODO add a FieldListField of the pending short addresses, followed by the pending long addresses, with max 7 addresses  # noqa: E501
+        FieldListField("pa_short_addresses", [],
+                       XLEShortField("", 0x0000),
+                       count_from=lambda pkt: pkt.pa_num_short),
+        FieldListField("pa_long_addresses", [],
+                       dot15d4AddressField("", 0, adjust=lambda pkt, x: 8),
+                       count_from=lambda pkt: pkt.pa_num_long),
         # TODO beacon payload
     ]
 
@@ -347,12 +353,23 @@ class Dot15d4CmdCoordRealign(Packet):
         ByteField("channel", 0),
         # Short Address (2 octets)
         XLEShortField("dev_address", 0xFFFF),
-        # Channel page (0/1 octet) TODO optional
-        # ByteField("channel_page", 0),
     ]
 
     def mysummary(self):
         return self.sprintf("802.15.4 Coordinator Realign Payload ( PAN ID: %Dot15dCmdCoordRealign.pan_id% : channel %Dot15d4CmdCoordRealign.channel% )")  # noqa: E501
+
+    def guess_payload_class(self, payload):
+        if len(payload) == 1:
+            return Dot15d4CmdCoordRealignPage
+        else:
+            return Packet.guess_payload_class(self, payload)
+
+
+class Dot15d4CmdCoordRealignPage(Packet):
+    name = "802.15.4 Coordinator Realign Page"
+    fields_desc = [
+        ByteField("channel_page", 0),
+    ]
 
 
 # Utility Functions #
