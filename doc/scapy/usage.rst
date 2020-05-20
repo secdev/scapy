@@ -1700,7 +1700,7 @@ Scapy dissects slowly and/or misses packets under heavy loads.
 
 .. note::
 
-    Please bare in mind that Scapy is not designed to be blazing fast, but rather easily hackable & extensible. The packet model makes it VERY easy to create new layers, compared to pretty much all other alternatives, but comes with a performance cost. Of course, we still do our best to make Scapy as fast as possible, but it's not the absolute main goal. Just a quick disclaimer
+    Please bare in mind that Scapy is not designed to be blazing fast, but rather easily hackable & extensible. The packet model makes it VERY easy to create new layers, compared to pretty much all other alternatives, but comes with a performance cost. Of course, we still do our best to make Scapy as fast as possible, but it's not the absolute main goal.
 
 Solution
 ^^^^^^^^
