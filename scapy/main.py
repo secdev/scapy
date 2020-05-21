@@ -34,7 +34,15 @@ import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS
 
-from scapy.compat import cast, Any, Dict, List, Optional, Tuple, Union
+from scapy.compat import (
+    cast,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union
+)
 
 IGNORED = list(six.moves.builtins.__dict__)
 

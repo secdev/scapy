@@ -36,7 +36,7 @@ from scapy.fields import ConditionalField, IPField, BitField, BitEnumField, \
 from scapy.packet import Packet, bind_layers, bind_bottom_up, NoPayload
 from scapy.volatile import RandShort, RandInt, RandBin, RandNum, VolatileValue
 from scapy.sendrecv import sr, sr1
-from scapy.plist import PacketList, SndRcvList
+from scapy.plist import _PacketList, PacketList, SndRcvList
 from scapy.automaton import Automaton, ATMT
 from scapy.error import log_runtime, warning
 from scapy.pton_ntop import inet_pton
@@ -1205,7 +1205,7 @@ def _packetlist_timeskew_graph(self, ip, **kargs):
     return lines
 
 
-PacketList.timeskew_graph = _packetlist_timeskew_graph
+_PacketList.timeskew_graph = _packetlist_timeskew_graph
 
 
 # Create a new packet list

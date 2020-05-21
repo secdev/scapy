@@ -37,6 +37,10 @@ from scapy.compat import orb, raw, plain_str, chb, bytes_base64,\
 from scapy.error import log_runtime, Scapy_Exception, warning
 from scapy.pton_ntop import inet_pton
 
+from scapy.compat import (
+    Any,
+)
+
 ###########
 #  Tools  #
 ###########
@@ -190,6 +194,7 @@ def restart():
 
 
 def lhex(x):
+    # type: (Any) -> str
     from scapy.volatile import VolatileValue
     if isinstance(x, VolatileValue):
         return repr(x)
@@ -200,7 +205,7 @@ def lhex(x):
     elif isinstance(x, list):
         return "[%s]" % ", ".join(map(lhex, x))
     else:
-        return x
+        return str(x)
 
 
 @conf.commands.register

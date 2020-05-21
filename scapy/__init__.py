@@ -14,14 +14,11 @@ import os
 import re
 import subprocess
 
-from scapy.compat import AnyStr
-
-
 _SCAPY_PKG_DIR = os.path.dirname(__file__)
 
 
 def _version_from_git_describe():
-    # type: () -> AnyStr
+    # type: () -> str
     """
     Read the version from ``git describe``. It returns the latest tag with an
     optional suffix if the current directory is not exactly on the tag.
@@ -49,6 +46,7 @@ def _version_from_git_describe():
         raise ValueError('not in scapy git repo')
 
     def _git(cmd):
+        # type: (str) -> str
         process = subprocess.Popen(
             cmd.split(),
             cwd=_SCAPY_PKG_DIR,

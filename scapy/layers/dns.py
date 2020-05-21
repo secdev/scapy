@@ -15,8 +15,8 @@ import warnings
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    ConditionalField, FieldLenField, FlagsField, IntField, \
-    PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
+    ConditionalField, Field, FieldLenField, FlagsField, IntField, \
+    PacketListField, ShortEnumField, ShortField, StrField, \
     StrLenField, MultipleTypeField, UTCTimeField
 from scapy.compat import orb, raw, chb, bytes_encode
 from scapy.ansmachine import AnsweringMachine
@@ -239,7 +239,6 @@ class DNSStrField(StrLenField):
     It will also handle DNS decompression.
     (may be StrLenField if a length_from is passed),
     """
-
     def h2i(self, pkt, x):
         if not x:
             return b"."
@@ -254,7 +253,7 @@ class DNSStrField(StrLenField):
     def getfield(self, pkt, s):
         remain = b""
         if self.length_from:
-            remain, s = StrLenField.getfield(self, pkt, s)
+            remain, s = super(DNSStrField, self).getfield(pkt, s)
         # Decode the compressed DNS message
         decoded, _, left = dns_get_str(s, 0, pkt)
         # returns (remaining, decoded)
@@ -820,9 +819,9 @@ tsig_algo_sizes = {"HMAC-MD5.SIG-ALG.REG.INT": 16,
                    "hmac-sha1": 20}
 
 
-class TimeSignedField(StrFixedLenField):
+class TimeSignedField(Field[int, bytes]):
     def __init__(self, name, default):
-        StrFixedLenField.__init__(self, name, default, 6)
+        Field.__init__(self, name, default, fmt="6s")
 
     def _convert_seconds(self, packed_seconds):
         """Unpack the internal representation."""
@@ -830,7 +829,7 @@ class TimeSignedField(StrFixedLenField):
         seconds += struct.unpack("!I", packed_seconds[2:])[0]
         return seconds
 
-    def h2i(self, pkt, seconds):
+    def i2m(self, pkt, seconds):
         """Convert the number of seconds since 1-Jan-70 UTC to the packed
            representation."""
 
@@ -842,7 +841,7 @@ class TimeSignedField(StrFixedLenField):
 
         return struct.pack("!HI", tmp_short, tmp_int)
 
-    def i2h(self, pkt, packed_seconds):
+    def m2i(self, pkt, packed_seconds):
         """Convert the internal representation to the number of seconds
            since 1-Jan-70 UTC."""
 
@@ -854,7 +853,7 @@ class TimeSignedField(StrFixedLenField):
     def i2repr(self, pkt, packed_seconds):
         """Convert the internal representation to a nice one using the RFC
            format."""
-        time_struct = time.gmtime(self._convert_seconds(packed_seconds))
+        time_struct = time.gmtime(packed_seconds)
         return time.strftime("%a %b %d %H:%M:%S %Y", time_struct)
 
 

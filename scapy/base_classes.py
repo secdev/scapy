@@ -22,6 +22,7 @@ import socket
 import subprocess
 import types
 
+from scapy.compat import FAKE_TYPING
 from scapy.consts import WINDOWS
 from scapy.modules.six.moves import range
 
@@ -267,11 +268,20 @@ class Packet_metaclass(type):
         return i
 
 
+# Note: see compat.py for an explanation
+
 class Field_metaclass(type):
     def __new__(cls, name, bases, dct):
         dct.setdefault("__slots__", [])
         newcls = super(Field_metaclass, cls).__new__(cls, name, bases, dct)
         return newcls
+
+    if FAKE_TYPING:
+        def __getitem__(self, type):
+            return self
+
+
+PacketList_metaclass = Field_metaclass
 
 
 class BasePacket(Gen):

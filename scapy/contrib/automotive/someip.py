@@ -463,11 +463,11 @@ class SD(_SDPacketBase):
         X3BytesField("res", 0),
         FieldLenField("len_entry_array", None,
                       length_of="entry_array", fmt="!I"),
-        PacketListField("entry_array", None, cls=_sdentry_class,
+        PacketListField("entry_array", None, _sdentry_class,
                         length_from=lambda pkt: pkt.len_entry_array),
         FieldLenField("len_option_array", None,
                       length_of="option_array", fmt="!I"),
-        PacketListField("option_array", None, cls=_sdoption_class,
+        PacketListField("option_array", None, _sdoption_class,
                         length_from=lambda pkt: pkt.len_option_array)
     ]
 

@@ -63,6 +63,7 @@ from scapy.fields import (
     X3BytesField,
     XByteField,
     XStrFixedLenField,
+    _BitField,
 )
 from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList

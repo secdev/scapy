@@ -37,14 +37,29 @@ if not FILES:
 # Generate mypy arguments
 
 ARGS = [
-    "--py2",
-    "--follow-imports=skip",
+    # strictness: same as --strict minus --disallow-subclassing-any
+    "--warn-unused-configs",
+    "--disallow-any-generics",
+    "--disallow-untyped-calls",
+    "--disallow-untyped-defs",
+    "--disallow-incomplete-defs",
+    "--check-untyped-defs",
+    "--disallow-untyped-decorators",
+    "--no-implicit-optional",
+    "--warn-redundant-casts",
+    "--warn-unused-ignores",
+    "--warn-return-any",
+    "--no-implicit-reexport",
+    "--strict-equality",
+    "--ignore-missing-imports",
+    # config
+    "--follow-imports=skip",  # Remove eventually
     "--config-file=" + os.path.abspath(
         os.path.join(
             localdir,
             "mypy.ini"
         )
-    )
+    ),
 ] + [os.path.abspath(f) for f in FILES]
 
 # Run mypy over the files
