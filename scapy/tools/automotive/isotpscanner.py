@@ -83,6 +83,7 @@ def main():
     channel = None
     interface = None
     python_can_args = None
+    conf.verb = -1
 
     options = getopt.getopt(
         sys.argv[1:],

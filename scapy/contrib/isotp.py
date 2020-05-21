@@ -727,7 +727,10 @@ class ISOTPSoftSocket(SuperSocket):
         blocking = remain is None or remain > 0
 
         def find_ready_sockets():
-            return list(filter(lambda x: not x.ins.rx_queue.empty(), sockets))
+            return list(filter(lambda x: (x.ins is not None) and
+                                         (x.ins.rx_queue is not None) and
+                                         (not x.ins.rx_queue.empty()),
+                               sockets))
 
         ready_sockets = find_ready_sockets()
         if len(ready_sockets) > 0 or not blocking:

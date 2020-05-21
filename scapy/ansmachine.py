@@ -38,6 +38,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
 
     def __init__(self, **kargs):
         self.mode = 0
+        self.verbose = kargs.get("verbose", conf.verb >= 0)
         if self.filter:
             kargs.setdefault("filter", self.filter)
         kargs.setdefault("prn", self.reply)
@@ -108,7 +109,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
             return
         reply = self.make_reply(pkt)
         self.send_reply(reply)
-        if conf.verb >= 0:
+        if self.verbose:
             self.print_reply(pkt, reply)
 
     def run(self, *args, **kargs):

@@ -1941,7 +1941,7 @@ def pretty_list(rtlst, header, sortBy=0, borders=False):
     return rt
 
 
-def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None, seplinefunc=None):  # noqa: E501
+def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None, seplinefunc=None, dump=False):  # noqa: E501
     """Core function of the make_table suite, which generates the table"""
     vx = {}
     vy = {}
@@ -1982,39 +1982,49 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
             except Exception:
                 vyk.sort()
 
+    s = ""
     if seplinefunc:
         sepline = seplinefunc(tmp_len, [vx[x] for x in vxk])
-        print(sepline)
+        s += sepline + "\n"
 
     fmt = yfmtfunc(tmp_len)
-    print(fmt % "", end=' ')
+    s += fmt % ""
+    s += ' '
     for x in vxk:
         vxf[x] = fmtfunc(vx[x])
-        print(vxf[x] % x, end=' ')
-    print(endline)
+        s += vxf[x] % x
+        s += ' '
+    s += endline + "\n"
     if seplinefunc:
-        print(sepline)
+        s += sepline + "\n"
     for y in vyk:
-        print(fmt % y, end=' ')
+        s += fmt % y
+        s += ' '
         for x in vxk:
-            print(vxf[x] % vz.get((x, y), "-"), end=' ')
-        print(endline)
+            s += vxf[x] % vz.get((x, y), "-")
+            s += ' '
+        s += endline + "\n"
     if seplinefunc:
-        print(sepline)
+        s += sepline + "\n"
+
+    if dump:
+        return s
+    else:
+        print(s, end="")
 
 
 def make_table(*args, **kargs):
-    __make_table(lambda l: "%%-%is" % l, lambda l: "%%-%is" % l, "", *args, **kargs)  # noqa: E501
+    return __make_table(lambda l: "%%-%is" % l, lambda l: "%%-%is" % l, "", *args, **kargs)  # noqa: E501
 
 
 def make_lined_table(*args, **kargs):
-    __make_table(lambda l: "%%-%is |" % l, lambda l: "%%-%is |" % l, "",
-                 seplinefunc=lambda a, x: "+".join('-' * (y + 2) for y in [a - 1] + x + [-2]),  # noqa: E501
-                 *args, **kargs)
+    return __make_table(lambda l: "%%-%is |" % l, lambda l: "%%-%is |" % l, "",
+                        seplinefunc=lambda a, x: "+".join('-' * (y + 2) for y in [a - 1] + x + [-2]),  # noqa: E501
+                        *args, **kargs)
 
 
 def make_tex_table(*args, **kargs):
-    __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a, x: "\\hline", *args, **kargs)  # noqa: E501
+    return __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a, x: "\\hline", *args, **kargs)  # noqa: E501
 
 ####################
 #   WHOIS CLIENT   #
@@ -2076,3 +2086,28 @@ class PeriodicSenderThread(threading.Thread):
 
     def stop(self):
         self._stopped.set()
+
+
+class SingleConversationSocket(object):
+    def __init__(self, o):
+        self._inner = o
+        self._tx_mutex = threading.RLock()
+
+    @property
+    def __dict__(self):
+        return self._inner.__dict__
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    def sr1(self, *args, **kargs):
+        with self._tx_mutex:
+            return self._inner.sr1(*args, **kargs)
+
+    def sr(self, *args, **kargs):
+        with self._tx_mutex:
+            return self._inner.sr(*args, **kargs)
+
+    def send(self, x):
+        with self._tx_mutex:
+            return self._inner.send(x)
