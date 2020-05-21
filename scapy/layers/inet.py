@@ -1703,6 +1703,9 @@ class TCP_client(Automaton):
         >>> a = TCP_client.tcplink(HTTP, "www.google.com", 80)
         >>> a.send(HTTPRequest())
         >>> a.recv()
+
+    :param ip: the ip to connect to
+    :param port:
     """
     def parse_args(self, ip, port, *args, **kargs):
         from scapy.sessions import TCPSession
@@ -1714,7 +1717,7 @@ class TCP_client(Automaton):
         self.src = self.l4.src
         self.sack = self.l4[TCP].ack
         self.rel_seq = None
-        self.rcvbuf = TCPSession(self._transmit_packet, False)
+        self.rcvbuf = TCPSession(prn=self._transmit_packet, store=False)
         bpf = "host %s  and host %s and port %i and port %i" % (self.src,
                                                                 self.dst,
                                                                 self.sport,
