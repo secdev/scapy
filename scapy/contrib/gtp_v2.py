@@ -1391,13 +1391,13 @@ class IE_FQCSID(gtp.IE_Base):
                    BitField("num_csid", 0, 4),
                    ConditionalField(
                        IPField("nodeid_v4", 0),
-                       lambda pkt: pkt.nodeid_type is 0),
+                       lambda pkt: pkt.nodeid_type == 0),
                    ConditionalField(
                        XBitField("nodeid_v6", "2001:db8:0:42::", 128),
-                       lambda pkt: pkt.nodeid_type is 1),
+                       lambda pkt: pkt.nodeid_type == 1),
                    ConditionalField(
                        BitField("nodeid_nonip", 0, 32),
-                       lambda pkt: pkt.nodeid_type is 2),
+                       lambda pkt: pkt.nodeid_type == 2),
                    ShortField("csid", 0)]
 
 
