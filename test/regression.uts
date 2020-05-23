@@ -881,7 +881,7 @@ r in ['0x800 64 0x07b 4', 'IPv4 64 0x07b 4']
 
 = sprintf() function 
 ~ basic sprintf IP TCP SNAP LLC Dot11
-* This test is on the conditionnal substring feature of <tt>sprintf()</tt>
+* This test is on the conditional substring feature of <tt>sprintf()</tt>
 a=Dot11()/LLC()/SNAP()/IP()/TCP()
 r = a.sprintf("{IP:{TCP:flags=%TCP.flags%}{UDP:port=%UDP.ports%} %IP.src%}")
 r
@@ -7618,7 +7618,7 @@ assert len(pkts) == 15
 # Verify a split header exists in the packet
 assert pkts[5].User_Agent == b'example_user_agent'
 
-# Verify all of the resonse data exists in the packet
+# Verify all of the response data exists in the packet
 assert int(pkts[7][HTTP].Content_Length.decode()) == len(pkts[7][Raw].load)
 
 = HTTP build

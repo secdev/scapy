@@ -279,8 +279,9 @@ class ShortVersionField(ShortField):
 
     def h2i(self, pkt, x):
         """The field accepts string values like v12.1, v1.1 or integer values.
-           String values have to start with a "v" folled by a floating point number.
-           Valid numbers are between 0 and 255.
+           String values have to start with a "v" followed by a
+           floating point number. Valid numbers are between 0 and 255.
+
         """
 
         if isinstance(x, str) and x.startswith("v") and len(x) <= 8:
