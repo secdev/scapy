@@ -714,7 +714,7 @@ if WINDOWS:
                     ("buffer", c_char_p)]
 
     # struct   pcap_rmtauth
-    # This structure keeps the information needed to autheticate the user on a
+    # This structure keeps the information needed to authenticate the user on a
     # remote machine
     class pcap_rmtauth(Structure):
         _fields_ = [("type", c_int),

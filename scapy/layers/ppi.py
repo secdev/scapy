@@ -22,7 +22,7 @@ CACE Per-Packet Information (PPI) header.
 
 A method for adding metadata to link-layer packets.
 
-For example, one can tag an 802.11 packet with GPS co-ordinates of where it
+For example, one can tag an 802.11 packet with GPS coordinates of where it
 was captured, and include it in the PCAP file.
 
 New PPI types should:
