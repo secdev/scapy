@@ -35,7 +35,7 @@ import sys
 from io import BytesIO
 import struct
 import scapy.modules.six as six
-from scapy.compat import raw, plain_str, bytes_hex, orb, chb, bytes_encode
+from scapy.compat import raw, plain_str, hex_bytes, orb, chb, bytes_encode
 
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
@@ -2123,7 +2123,7 @@ packet.bind_layers(H2Frame, H2ContinuationFrame, {'type': H2ContinuationFrame.ty
 
 #                                          HTTP/2 Connection Preface                                                   #  # noqa: E501
 # From RFC 7540 par3.5
-H2_CLIENT_CONNECTION_PREFACE = bytes_hex('505249202a20485454502f322e300d0a0d0a534d0d0a0d0a')  # noqa: E501
+H2_CLIENT_CONNECTION_PREFACE = hex_bytes('505249202a20485454502f322e300d0a0d0a534d0d0a0d0a')  # noqa: E501
 
 
 ###############################################################################
