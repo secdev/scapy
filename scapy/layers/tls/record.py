@@ -781,7 +781,7 @@ class TLSAlert(_GenericTLSSessionInheritance):
                    ByteEnumField("descr", None, _tls_alert_description)]
 
     def mysummary(self):
-        return self.sprintf("Alert %level%: %desc%")
+        return self.sprintf("Alert %level%: %descr%")
 
     def post_dissection_tls_session_update(self, msg_str):
         pass
