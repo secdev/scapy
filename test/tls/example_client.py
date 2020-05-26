@@ -63,6 +63,11 @@ v = _tls_version_options.get(args.version, None)
 if not v:
     sys.exit("Unrecognized TLS version option.")
 
+try:
+    socket.getaddrinfo(args.server, args.port)
+except socket.error as ex:
+    sys.exit("Could not resolve host server: %s" % ex)
+
 if args.ciphersuite:
     ciphers = int(args.ciphersuite, 16)
     if ciphers not in list(range(0x1301, 0x1306)):
