@@ -7808,8 +7808,8 @@ payloadlen, fragsize = 100, 8
 assert fragsize % 8 == 0
 packet = Ether()/IP()/("X" * payloadlen)
 frags = fragment(packet, fragsize)
-for i,fragment in enumerate(frags):
-    fragment.time -= 100 + i
+for i,frag in enumerate(frags):
+    frag.time -= 100 + i
 
 last_time = max(frag.time for frag in frags)
 defrags = defragment(frags)
