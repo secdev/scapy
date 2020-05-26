@@ -360,7 +360,8 @@ load_layer("http")
 def _test_connection():
     a = TLSClientAutomaton.tlslink(HTTP, server="www.google.com", dport=443,
                                    server_name="www.google.com")
-    pkt = a.sr1(HTTP()/HTTPRequest(), session=TCPSession(app=True), timeout=2, retry=3)
+    pkt = a.sr1(HTTP()/HTTPRequest(Host="www.google.com"),
+                session=TCPSession(app=True), timeout=2, retry=3)
     assert HTTPResponse in pkt
     assert b"</html>" in pkt[HTTPResponse].load
 
