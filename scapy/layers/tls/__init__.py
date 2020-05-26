@@ -62,6 +62,10 @@ TODO list (may it be carved away by good souls):
 
     - About the automatons:
 
+        - Allow upgrade from TLS 1.2 to TLS 1.3 in the Automaton client.
+          Currently we'll use TLS 1.3 only if the automaton client was given
+          version="tls13".
+
         - Add various checks for discrepancies between client and server.
           Is the ServerHello ciphersuite ok? What about the SKE params? Etc.
 
