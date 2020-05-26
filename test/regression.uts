@@ -7817,6 +7817,10 @@ assert defrags[0].time == last_time
 nonfrag, defrags, badfrag = defrag(frags)
 assert defrags[0].time == last_time
 
+= defragment() - Missing fragments
+
+pkts = fragment(IP(dst="10.0.0.5")/ICMP()/("X"*1500))
+assert len(defragment(pkts[1:])) == 1
 
 = defrag() / defragment() - Real DNS packets
 
