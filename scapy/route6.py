@@ -71,7 +71,6 @@ class Route6:
     # Unlike Scapy's Route.make_route() function, we do not have 'host' and 'net'  # noqa: E501
     # parameters. We only have a 'dst' parameter that accepts 'prefix' and
     # 'prefix/prefixlen' values.
-    # WARNING: Providing a specific device will at the moment not work correctly.  # noqa: E501
     def make_route(self, dst, gw=None, dev=None):
         """Internal function : create a route for 'dst' via 'gw'.
         """
@@ -83,8 +82,6 @@ class Route6:
         if dev is None:
             dev, ifaddr, x = self.route(gw)
         else:
-            # TODO: do better than that
-            # replace that unique address by the list of all addresses
             lifaddr = in6_getifaddr()
             devaddrs = [x for x in lifaddr if x[2] == dev]
             ifaddr = construct_source_candidate_set(prefix, plen, devaddrs)
