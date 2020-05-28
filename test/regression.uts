@@ -11521,6 +11521,9 @@ random.seed(0x2807)
 rex = RandRegExp("[g-v]* @? [0-9]{3} . (g|v)")
 bytes(rex) == ('vmuvr @ 906 \x9e g' if six.PY2 else b'irrtv @ 517 \xc2\xb8 v')
 
+rex = RandRegExp("[:digit:][:space:][:word:]")
+assert re.match(b"\\d\\s\\w", bytes(rex))
+
 = Corrupted(Bytes|Bits)
 
 random.seed(0x2807)
