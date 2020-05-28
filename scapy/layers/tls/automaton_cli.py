@@ -42,7 +42,6 @@ import struct
 import time
 
 from scapy.config import conf
-from scapy.pton_ntop import inet_pton
 from scapy.utils import randstring, repr_hex
 from scapy.automaton import ATMT, select_objects
 from scapy.error import warning
@@ -112,20 +111,10 @@ class TLSClientAutomaton(_TLSAutomaton):
                                                    mykey=mykey,
                                                    **kargs)
         tmp = socket.getaddrinfo(server, dport)
-        try:
-            if ':' in server:
-                inet_pton(socket.AF_INET6, server)
-            else:
-                inet_pton(socket.AF_INET, server)
-        except Exception:
-            remote_name = socket.getfqdn(server)
-            if remote_name != server:
-                tmp = socket.getaddrinfo(remote_name, dport)
-
-        self.remote_name = server_name
         self.remote_family = tmp[0][0]
         self.remote_ip = tmp[0][4][0]
         self.remote_port = dport
+        self.server_name = server_name
         self.local_ip = None
         self.local_port = None
         self.socket = None
@@ -304,9 +293,9 @@ class TLSClientAutomaton(_TLSAutomaton):
         if self.cur_session.advertised_tls_version == 0x0303:
             ext += [TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsa"])]
         # Add TLS_Ext_ServerName
-        if self.remote_name:
+        if self.server_name:
             ext += TLS_Ext_ServerName(
-                servernames=[ServerName(servername=self.remote_name)]
+                servernames=[ServerName(servername=self.server_name)]
             )
         p.ext = ext
         self.add_msg(p)
@@ -1091,9 +1080,9 @@ class TLSClientAutomaton(_TLSAutomaton):
             ext += TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsaepss",
                                                          "sha256+rsa"])
         # Add TLS_Ext_ServerName
-        if self.remote_name:
+        if self.server_name:
             ext += TLS_Ext_ServerName(
-                servernames=[ServerName(servername=self.remote_name)]
+                servernames=[ServerName(servername=self.server_name)]
             )
         p.ext = ext
         self.add_msg(p)
@@ -1146,7 +1135,13 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.condition(TLS13_RECEIVED_SERVERFLIGHT1, prio=3)
     def tls13_should_handle_AlertMessage_(self):
         self.raise_on_packet(TLSAlert,
-                             self.CLOSE_NOTIFY)
+                             self.TLS13_HANDLED_ALERT_FROM_SERVERFLIGHT1)
+
+    @ATMT.state()
+    def TLS13_HANDLED_ALERT_FROM_SERVERFLIGHT1(self):
+        self.vprint("Received Alert message !")
+        self.vprint(self.cur_pkt.mysummary())
+        raise self.CLOSE_NOTIFY()
 
     @ATMT.condition(TLS13_RECEIVED_SERVERFLIGHT1, prio=4)
     def tls13_missing_ServerHello(self):
