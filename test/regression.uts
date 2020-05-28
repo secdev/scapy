@@ -4921,7 +4921,7 @@ raw(DHCP6OptIAAddress()) == b'\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x
 
 = DHCP6OptIAAddress - Basic Dissection
 a = DHCP6OptIAAddress(b'\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-a.optcode == 5 and a.optlen == 24 and a.addr == "::" and a.preflft == 0 and a. validlft == 0 and a.iaaddropts == b""
+a.optcode == 5 and a.optlen == 24 and a.addr == "::" and a.preflft == 0 and a. validlft == 0 and a.iaaddropts == []
 
 = DHCP6OptIAAddress - Instantiation with specific values
 raw(DHCP6OptIAAddress(optlen=0x1111, addr="2222:3333::5555", preflft=0x66666666, validlft=0x77777777, iaaddropts="somestring")) == b'\x00\x05\x11\x11""33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00UUffffwwwwsomestring'
@@ -4931,7 +4931,7 @@ raw(DHCP6OptIAAddress(addr="2222:3333::5555", preflft=0x66666666, validlft=0x777
 
 = DHCP6OptIAAddress - Dissection with specific values 
 a = DHCP6OptIAAddress(b'\x00\x05\x00"""33\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00UUffffwwwwsomerawing')
-a.optcode == 5 and a.optlen == 34 and a.addr == "2222:3333::5555" and a.preflft == 0x66666666 and a. validlft == 0x77777777 and a.iaaddropts == b"somerawing"
+a.optcode == 5 and a.optlen == 34 and a.addr == "2222:3333::5555" and a.preflft == 0x66666666 and a. validlft == 0x77777777 and a.iaaddropts[0].load == b"somerawing"
 
 
 ############
@@ -5426,18 +5426,18 @@ a.optcode == 28 and a.optlen == 32 and len(a.nispservers) == 2 and a.nispservers
 + Test DHCP6 Option - NIS Domain Name
 
 = DHCP6OptNISDomain - Basic Instantiation
-raw(DHCP6OptNISDomain()) == b'\x00\x1d\x00\x00'
+raw(DHCP6OptNISDomain()) == b'\x00\x1d\x00\x01\x00'
 
 = DHCP6OptNISDomain - Basic Dissection
 a = DHCP6OptNISDomain(b'\x00\x1d\x00\x00')
-a.optcode == 29 and a.optlen == 0 and a.nisdomain == b""
+a.optcode == 29 and a.optlen == 0 and a.nisdomain == b"."
 
 = DHCP6OptNISDomain - Instantiation with one domain name
-raw(DHCP6OptNISDomain(nisdomain="toto.example.org")) == b'\x00\x1d\x00\x11\x04toto\x07example\x03org'
+raw(DHCP6OptNISDomain(nisdomain="toto.example.org")) == b'\x00\x1d\x00\x12\x04toto\x07example\x03org\x00'
 
 = DHCP6OptNISDomain - Dissection with one domain name
 a = DHCP6OptNISDomain(b'\x00\x1d\x00\x11\x04toto\x07example\x03org\x00')
-a.optcode == 29 and a.optlen == 17 and a.nisdomain == b"toto.example.org"
+a.optcode == 29 and a.optlen == 17 and a.nisdomain == b"toto.example.org."
 
 = DHCP6OptNISDomain - Instantiation with one domain with trailing dot
 raw(DHCP6OptNISDomain(nisdomain="toto.example.org.")) == b'\x00\x1d\x00\x12\x04toto\x07example\x03org\x00'
@@ -5448,18 +5448,18 @@ raw(DHCP6OptNISDomain(nisdomain="toto.example.org.")) == b'\x00\x1d\x00\x12\x04t
 + Test DHCP6 Option - NIS+ Domain Name
 
 = DHCP6OptNISPDomain - Basic Instantiation
-raw(DHCP6OptNISPDomain()) == b'\x00\x1e\x00\x00'
+raw(DHCP6OptNISPDomain()) == b'\x00\x1e\x00\x01\x00'
 
 = DHCP6OptNISPDomain - Basic Dissection
 a = DHCP6OptNISPDomain(b'\x00\x1e\x00\x00')
-a.optcode == 30 and a.optlen == 0 and a.nispdomain == b""
+a.optcode == 30 and a.optlen == 0 and a.nispdomain == b"."
 
 = DHCP6OptNISPDomain - Instantiation with one domain name
-raw(DHCP6OptNISPDomain(nispdomain="toto.example.org")) == b'\x00\x1e\x00\x11\x04toto\x07example\x03org'
+raw(DHCP6OptNISPDomain(nispdomain="toto.example.org")) == b'\x00\x1e\x00\x12\x04toto\x07example\x03org\x00'
 
 = DHCP6OptNISPDomain - Dissection with one domain name
-a = DHCP6OptNISPDomain(b'\x00\x1e\x00\x11\x04toto\x07example\x03org\x00')
-a.optcode == 30 and a.optlen == 17 and a.nispdomain == b"toto.example.org"
+a = DHCP6OptNISPDomain(b'\x00\x1e\x00\x12\x04toto\x07example\x03org\x00')
+a.optcode == 30 and a.optlen == 18 and a.nispdomain == b"toto.example.org."
 
 = DHCP6OptNISPDomain - Instantiation with one domain with trailing dot
 raw(DHCP6OptNISPDomain(nispdomain="toto.example.org.")) == b'\x00\x1e\x00\x12\x04toto\x07example\x03org\x00'
@@ -5599,21 +5599,21 @@ a.optcode == 38 and a.optlen == 6 and a.subscriberid == b"someid"
 + Test DHCP6 Option - Client FQDN
 
 = DHCP6OptClientFQDN - Basic Instantiation
-raw(DHCP6OptClientFQDN()) == b"\x00'\x00\x01\x00"
+raw(DHCP6OptClientFQDN()) == b"\x00'\x00\x02\x00\x00"
 
 = DHCP6OptClientFQDN - Basic Dissection
 a = DHCP6OptClientFQDN(b"\x00'\x00\x01\x00")
-a.optcode == 39 and a.optlen == 1 and a.res == 0 and a.flags == 0 and a.fqdn == b""
+a.optcode == 39 and a.optlen == 1 and a.res == 0 and a.flags == 0 and a.fqdn == b"."
 
 = DHCP6OptClientFQDN - Instantiation with various flags combinations
-raw(DHCP6OptClientFQDN(flags="S")) == b"\x00'\x00\x01\x01" and raw(DHCP6OptClientFQDN(flags="O")) == b"\x00'\x00\x01\x02" and raw(DHCP6OptClientFQDN(flags="N")) == b"\x00'\x00\x01\x04" and raw(DHCP6OptClientFQDN(flags="SON")) == b"\x00'\x00\x01\x07" and raw(DHCP6OptClientFQDN(flags="ON")) == b"\x00'\x00\x01\x06"
+raw(DHCP6OptClientFQDN(flags="S")) == b"\x00'\x00\x02\x01\x00" and raw(DHCP6OptClientFQDN(flags="O")) == b"\x00'\x00\x02\x02\x00" and raw(DHCP6OptClientFQDN(flags="N")) == b"\x00'\x00\x02\x04\x00" and raw(DHCP6OptClientFQDN(flags="SON")) == b"\x00'\x00\x02\x07\x00" and raw(DHCP6OptClientFQDN(flags="ON")) == b"\x00'\x00\x02\x06\x00"
 
 = DHCP6OptClientFQDN - Instantiation with one fqdn 
-raw(DHCP6OptClientFQDN(fqdn="toto.example.org")) == b"\x00'\x00\x12\x00\x04toto\x07example\x03org"
+raw(DHCP6OptClientFQDN(fqdn="toto.example.org")) == b"\x00'\x00\x13\x00\x04toto\x07example\x03org\x00"
 
 = DHCP6OptClientFQDN - Dissection with one fqdn 
 a = DHCP6OptClientFQDN(b"\x00'\x00\x12\x00\x04toto\x07example\x03org\x00")
-a.optcode == 39 and a.optlen == 18 and a.res == 0 and a.flags == 0 and a.fqdn == b"toto.example.org"
+a.optcode == 39 and a.optlen == 18 and a.res == 0 and a.flags == 0 and a.fqdn == b"toto.example.org."
 
 
 ############
