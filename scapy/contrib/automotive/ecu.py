@@ -403,6 +403,7 @@ class ECU_am(AnsweringMachine):
 
     def send_reply(self, reply):
         for p in reply:
+            time.sleep(0.002)
             if len(reply) > 1:
                 time.sleep(random.uniform(0.01, 0.5))
             self.main_socket.send(p)
