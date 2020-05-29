@@ -79,7 +79,7 @@ def getmacbyip(ip, chainCC=0):
     if (tmp[0] & 0xf0) == 0xe0:  # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1] & 0x7f, tmp[2], tmp[3])
     iff, _, gw = conf.route.route(ip)
-    if ((iff == conf.loopback_name) or (ip == conf.route.get_if_bcast(iff))):  # noqa: E501
+    if (iff == conf.loopback_name) or (ip in conf.route.get_if_bcast(iff)):
         return "ff:ff:ff:ff:ff:ff"
     if gw != "0.0.0.0":
         ip = gw

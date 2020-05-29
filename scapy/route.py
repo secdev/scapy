@@ -178,17 +178,22 @@ class Route:
         return ret
 
     def get_if_bcast(self, iff):
+        bcast_list = []
         for net, msk, gw, iface, addr, metric in self.routes:
             if net == 0:
-                continue
+                continue    # Ignore default route "0.0.0.0"
+            elif msk == 0xffffffff:
+                continue    # Ignore host-specific routes
             if scapy.consts.WINDOWS:
                 if iff.guid != iface.guid:
                     continue
             elif iff != iface:
                 continue
-            bcast = atol(addr) | (~msk & 0xffffffff)  # FIXME: check error in atol()  # noqa: E501
-            return ltoa(bcast)
-        warning("No broadcast address found for iface %s\n", iff)
+            bcast = net | (~msk & 0xffffffff)
+            bcast_list.append(ltoa(bcast))
+        if not bcast_list:
+            warning("No broadcast address found for iface %s\n", iff)
+        return bcast_list
 
 
 conf.route = Route()
