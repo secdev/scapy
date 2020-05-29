@@ -138,6 +138,17 @@ except:
 
 assert not conf.use_bpf
 
+= Test layer filtering
+~ filter
+
+pkt = NetflowHeader()/NetflowHeaderV5()/NetflowRecordV5()
+
+conf.layers.filter([NetflowHeader, NetflowHeaderV5])
+assert NetflowRecordV5 not in NetflowHeader(bytes(pkt))
+
+conf.layers.unfilter()
+assert NetflowRecordV5 in NetflowHeader(bytes(pkt))
+
 
 ###########
 ###########
@@ -870,7 +881,7 @@ r in ['0x800 64 0x07b 4', 'IPv4 64 0x07b 4']
 
 = sprintf() function 
 ~ basic sprintf IP TCP SNAP LLC Dot11
-* This test is on the conditionnal substring feature of <tt>sprintf()</tt>
+* This test is on the conditional substring feature of <tt>sprintf()</tt>
 a=Dot11()/LLC()/SNAP()/IP()/TCP()
 r = a.sprintf("{IP:{TCP:flags=%TCP.flags%}{UDP:port=%UDP.ports%} %IP.src%}")
 r
@@ -7607,7 +7618,7 @@ assert len(pkts) == 15
 # Verify a split header exists in the packet
 assert pkts[5].User_Agent == b'example_user_agent'
 
-# Verify all of the resonse data exists in the packet
+# Verify all of the response data exists in the packet
 assert int(pkts[7][HTTP].Content_Length.decode()) == len(pkts[7][Raw].load)
 
 = HTTP build
@@ -7797,8 +7808,8 @@ payloadlen, fragsize = 100, 8
 assert fragsize % 8 == 0
 packet = Ether()/IP()/("X" * payloadlen)
 frags = fragment(packet, fragsize)
-for i,fragment in enumerate(frags):
-    fragment.time -= 100 + i
+for i,frag in enumerate(frags):
+    frag.time -= 100 + i
 
 last_time = max(frag.time for frag in frags)
 defrags = defragment(frags)
@@ -7806,6 +7817,10 @@ assert defrags[0].time == last_time
 nonfrag, defrags, badfrag = defrag(frags)
 assert defrags[0].time == last_time
 
+= defragment() - Missing fragments
+
+pkts = fragment(IP(dst="10.0.0.5")/ICMP()/("X"*1500))
+assert len(defragment(pkts[1:])) == 1
 
 = defrag() / defragment() - Real DNS packets
 
@@ -11358,6 +11373,20 @@ r4.get_if_bcast(get_dummy_interface()) == "1.2.3.255"
 r4.ifdel(get_dummy_interface())
 len(r4.routes) == len_r4
 
+dummy_interface = get_dummy_interface()
+
+conf.route.routes = [
+    (0, 0, '172.21.230.1', dummy_interface, '172.21.230.10', 1),                # 0.0.0.0         / 0.0.0.0         == 255.255.255.255
+    (2851995648, 4294901760, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 169.254.0.0     / 255.255.0.0     == 169.254.255.255
+    (2887116288, 4294967040, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 172.21.230.0    / 255.255.255.0   == 172.21.230.255
+    (2887116289, 4294967295, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 172.21.230.1    / 255.255.255.255 == 172.21.230.1
+    (3758096384, 4026531840, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 224.0.0.0       / 240.0.0.0       == 239.255.255.255
+    (3758096635, 4294967295, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 224.0.0.251     / 255.255.255.255 == 224.0.0.251
+    (4294967295, 4294967295, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 255.255.255.255 / 255.255.255.255 == 255.255.255.255
+    ]
+
+assert sorted(conf.route.get_if_bcast(dummy_interface)) == sorted(['169.254.255.255', '172.21.230.255', '239.255.255.255'])
+conf.route.resync()
 
 ############
 ############
@@ -12038,6 +12067,18 @@ assert nstats == {
    'country': 'US',
    'country_desc_type': 'Indoor'
 }
+
+data = b'\x00\x00\x16\x00\x0f\x00\x00\x00|P\xb1\x82\xae\x86\x05\x00\x00\x02l\t\xa0\x00\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x02\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00:Q\xb1\x82\xae\x86\x05\x00d\x00\x11\x04\x00\x0cWPA3-Network\x01\x08\x82\x84\x8b\x96\x0c\x12\x18$\x03\x01\x01\x05\x04\x00\x02\x00\x00*\x01\x042\x040H`l0\x14\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x08\xc0\x00;\x02Q\x00\x7f\x08\x04\x00\x00\x00\x00\x00\x00@'
+pkt = RadioTap(data)
+nstats = pkt[Dot11Beacon].network_stats()
+nstats
+assert nstats == {
+   'ssid': 'WPA3-Network',
+   'rates': [130, 132, 139, 150, 12, 18, 24, 36],
+   'channel': 1,
+   'crypto': {'WPA3/SAE'}
+}
+
 
 = Dot11EltCountry dissection
 

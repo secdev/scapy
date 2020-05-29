@@ -4,11 +4,14 @@ archtypes
 ba
 cace
 cas
+cros
 doas
 doubleclick
 eventtypes
 fo
+gost
 iff
+inout
 mitre
 nd
 negociate
@@ -23,4 +26,3 @@ vas
 wan
 wanna
 webp
-gost

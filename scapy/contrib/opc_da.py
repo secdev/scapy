@@ -684,7 +684,7 @@ class AttributeName(Packet):
         return b"", p
 
 
-# Next version adapte the type with one PDU
+# Next version adapts the type with one PDU
 class AttributeNameLE(Packet):
     name = "Attribute"
     fields_desc = [

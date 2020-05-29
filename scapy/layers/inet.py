@@ -1024,7 +1024,7 @@ def _defrag_list(lst, defrag, missfrag):
     p = lst[0]
     lastp = lst[-1]
     if p.frag > 0 or lastp.flags.MF:  # first or last fragment missing
-        missfrag.append(lst)
+        missfrag.extend(lst)
         return
     p = p.copy()
     if conf.padding_layer in p:
@@ -1039,7 +1039,7 @@ def _defrag_list(lst, defrag, missfrag):
         if clen != q.frag << 3:  # Wrong fragmentation offset
             if clen > q.frag << 3:
                 warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag << 3, p, txt, q))  # noqa: E501
-            missfrag.append(lst)
+            missfrag.extend(lst)
             break
         if q[IP].len is None or q[IP].ihl is None:
             clen += len(q[IP].payload)
@@ -1703,6 +1703,9 @@ class TCP_client(Automaton):
         >>> a = TCP_client.tcplink(HTTP, "www.google.com", 80)
         >>> a.send(HTTPRequest())
         >>> a.recv()
+
+    :param ip: the ip to connect to
+    :param port:
     """
     def parse_args(self, ip, port, *args, **kargs):
         from scapy.sessions import TCPSession
@@ -1714,7 +1717,7 @@ class TCP_client(Automaton):
         self.src = self.l4.src
         self.sack = self.l4[TCP].ack
         self.rel_seq = None
-        self.rcvbuf = TCPSession(self._transmit_packet, False)
+        self.rcvbuf = TCPSession(prn=self._transmit_packet, store=False)
         bpf = "host %s  and host %s and port %i and port %i" % (self.src,
                                                                 self.dst,
                                                                 self.sport,

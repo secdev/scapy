@@ -759,6 +759,8 @@ class AsyncSniffer(object):
                  --Ex: lfilter = lambda x: x.haslayer(Padding)
         offline: PCAP file (or list of PCAP files) to read packets from,
                  instead of sniffing them
+        quiet:   when set to True, the process stderr is discarded
+                 (default: False).
         timeout: stop sniffing after a given time (default: None).
         L2socket: use the provided L2socket (default: use conf.L2listen).
         opened_socket: provide an object (or a list of objects) ready to use
@@ -816,7 +818,7 @@ class AsyncSniffer(object):
 
     def _run(self,
              count=0, store=True, offline=None,
-             prn=None, lfilter=None,
+             quiet=False, prn=None, lfilter=None,
              L2socket=None, timeout=None, opened_socket=None,
              stop_filter=None, iface=None, started_callback=None,
              session=None, session_args=[], session_kwargs={},
@@ -826,7 +828,8 @@ class AsyncSniffer(object):
         # instantiate session
         if not isinstance(session, DefaultSession):
             session = session or DefaultSession
-            session = session(prn, store, *session_args, **session_kwargs)
+            session = session(prn=prn, store=store,
+                              *session_args, **session_kwargs)
         else:
             session.prn = prn
             session.store = store
@@ -874,7 +877,10 @@ class AsyncSniffer(object):
 
                 sniff_sockets[PcapReader(
                     offline if flt is None else
-                    tcpdump(offline, args=["-w", "-", flt], getfd=True)
+                    tcpdump(offline,
+                            args=["-w", "-", flt],
+                            getfd=True,
+                            quiet=quiet)
                 )] = offline
         if not sniff_sockets or iface is not None:
             if L2socket is None:

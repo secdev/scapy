@@ -4,7 +4,7 @@
 # Copyright (C) Ryan Speers <ryan@rmspeers.com> 2011-2012
 # Copyright (C) Roger Meyer <roger.meyer@csus.edu>: 2012-03-10 Added frames
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>: 2018
-# Intern at INRIA Grand Nancy Est
+# Copyright (C) 2020 Dimitrios-Georgios Akestoridis <akestoridis@cmu.edu>
 # This program is published under a GPLv2 license
 
 """
@@ -277,6 +277,7 @@ class ZigbeeNWK(Packet):
 
 class LinkStatusEntry(Packet):
     name = "ZigBee Link Status Entry"
+
     fields_desc = [
         # Neighbor network address (2 octets)
         XLEShortField("neighbor_network_address", 0x0000),
@@ -286,6 +287,9 @@ class LinkStatusEntry(Packet):
         BitField("reserved2", 0, 1),
         BitField("incoming_cost", 0, 3),
     ]
+
+    def extract_padding(self, p):
+        return b"", p
 
 
 class ZigbeeNWKCommandPayload(Packet):
@@ -301,8 +305,10 @@ class ZigbeeNWKCommandPayload(Packet):
             7: "rejoin response",
             8: "link status",
             9: "network report",
-            10: "network update"
-            # 0x0b - 0xff reserved
+            10: "network update",
+            11: "end device timeout request",
+            12: "end device timeout response"
+            # 0x0d - 0xff reserved
         }),
 
         # - Route Request Command - #
@@ -453,6 +459,51 @@ class ZigbeeNWKCommandPayload(Packet):
         ConditionalField(XLEShortField("new_PAN_ID", 0x0000),
                          lambda pkt: (pkt.cmd_identifier == 10 and pkt.update_command_identifier == 0)),  # noqa: E501
 
+        # - End Device Timeout Request Command - #
+        # Requested Timeout (1 octet)
+        ConditionalField(
+            ByteEnumField("req_timeout", 3, {
+                0: "10 seconds",
+                1: "2 minutes",
+                2: "4 minutes",
+                3: "8 minutes",
+                4: "16 minutes",
+                5: "32 minutes",
+                6: "64 minutes",
+                7: "128 minutes",
+                8: "256 minutes",
+                9: "512 minutes",
+                10: "1024 minutes",
+                11: "2048 minutes",
+                12: "4096 minutes",
+                13: "8192 minutes",
+                14: "16384 minutes"
+            }),
+            lambda pkt: pkt.cmd_identifier == 11),
+        # End Device Configuration (1 octet)
+        ConditionalField(
+            ByteField("ed_conf", 0),
+            lambda pkt: pkt.cmd_identifier == 11),
+
+        # - End Device Timeout Response Command - #
+        # Status (1 octet)
+        ConditionalField(
+            ByteEnumField("status", 0, {
+                0: "Success",
+                1: "Incorrect Value"
+            }),
+            lambda pkt: pkt.cmd_identifier == 12),
+        # Parent Information (1 octet)
+        ConditionalField(
+            BitField("reserved", 0, 6),
+            lambda pkt: pkt.cmd_identifier == 12),
+        ConditionalField(
+            BitField("ed_timeout_req_keepalive", 0, 1),
+            lambda pkt: pkt.cmd_identifier == 12),
+        ConditionalField(
+            BitField("mac_data_poll_keepalive", 0, 1),
+            lambda pkt: pkt.cmd_identifier == 12)
+
         # StrField("data", ""),
     ]
 
@@ -530,7 +581,7 @@ class ZigbeeAppDataPayload(Packet):
     fields_desc = [
         # Frame control (1 octet)
         FlagsField("frame_control", 2, 4,
-                   ['reserved1', 'security', 'ack_req', 'extended_hdr']),
+                   ['ack_format', 'security', 'ack_req', 'extended_hdr']),
         BitEnumField("delivery_mode", 0, 2,
                      {0: 'unicast', 1: 'indirect',
                       2: 'broadcast', 3: 'group_addressing'}),
@@ -539,24 +590,37 @@ class ZigbeeAppDataPayload(Packet):
         # Destination endpoint (0/1 octet)
         ConditionalField(
             ByteField("dst_endpoint", 10),
-            lambda pkt: (pkt.frame_control.ack_req or pkt.aps_frametype == 2)
+            lambda pkt: ((pkt.aps_frametype == 0 and
+                          pkt.delivery_mode in [0, 2]) or
+                         (pkt.aps_frametype == 2 and not
+                          pkt.frame_control.ack_format))
         ),
-        # Group address (0/2 octets) TODO
+        # Group address (0/2 octets)
+        ConditionalField(
+            XLEShortField("group_addr", 0x0000),
+            lambda pkt: (pkt.aps_frametype == 0 and pkt.delivery_mode == 3)
+        ),
         # Cluster identifier (0/2 octets)
         ConditionalField(
             # unsigned short (little-endian)
             EnumField("cluster", 0, _zcl_cluster_identifier, fmt="<H"),
-            lambda pkt: (pkt.frame_control.ack_req or pkt.aps_frametype == 2)
+            lambda pkt: ((pkt.aps_frametype == 0) or
+                         (pkt.aps_frametype == 2 and not
+                          pkt.frame_control.ack_format))
         ),
         # Profile identifier (0/2 octets)
         ConditionalField(
             EnumField("profile", 0, _zcl_profile_identifier, fmt="<H"),
-            lambda pkt: (pkt.frame_control.ack_req or pkt.aps_frametype == 2)
+            lambda pkt: ((pkt.aps_frametype == 0) or
+                         (pkt.aps_frametype == 2 and not
+                          pkt.frame_control.ack_format))
         ),
         # Source endpoint (0/1 octets)
         ConditionalField(
             ByteField("src_endpoint", 10),
-            lambda pkt: (pkt.frame_control.ack_req or pkt.aps_frametype == 2)
+            lambda pkt: ((pkt.aps_frametype == 0) or
+                         (pkt.aps_frametype == 2 and not
+                          pkt.frame_control.ack_format))
         ),
         # APS counter (1 octet)
         ByteField("counter", 0),
@@ -566,10 +630,19 @@ class ZigbeeAppDataPayload(Packet):
             ByteEnumField(
                 "fragmentation", 0,
                 {0: "none", 1: "first_block", 2: "middle_block"}),
-            lambda pkt: pkt.frame_control.extended_hdr
+            lambda pkt: (pkt.aps_frametype in [0, 2] and
+                         pkt.frame_control.extended_hdr)
         ),
-        ConditionalField(ByteField("block_number", 0),
-                         lambda pkt: pkt.fragmentation),
+        ConditionalField(
+            ByteField("block_number", 0),
+            lambda pkt: (pkt.aps_frametype in [0, 2] and
+                         pkt.fragmentation in [1, 2])
+        ),
+        ConditionalField(
+            ByteField("ack_bitfield", 0),
+            lambda pkt: (pkt.aps_frametype == 2 and
+                         pkt.fragmentation in [1, 2])
+        ),
         # variable length frame payload:
         # 3 frame types: data, APS command, and acknowledgement
         # ConditionalField(StrField("data", ""), lambda pkt:pkt.aps_frametype == 0),  # noqa: E501
@@ -579,7 +652,10 @@ class ZigbeeAppDataPayload(Packet):
         if self.frame_control & 0x02:  # we have a security header
             return ZigbeeSecurityHeader
         elif self.aps_frametype == 0:  # data
-            return ZigbeeClusterLibrary  # TODO might also be another frame
+            if self.profile == 0x0000:
+                return ZigbeeDeviceProfile
+            else:
+                return ZigbeeClusterLibrary
         elif self.aps_frametype == 1:  # command
             return ZigbeeAppCommandPayload
         else:
@@ -596,6 +672,34 @@ _TransportKeyKeyTypes = {
 }
 
 
+_RequestKeyKeyTypes = {
+    0x02: "Application Link Key",
+    0x04: "Trust Center Link Key",
+}
+
+
+_ApsStatusValues = {
+    0x00: "SUCCESS",
+    0xa0: "ASDU_TOO_LONG",
+    0xa1: "DEFRAG_DEFERRED",
+    0xa2: "DEFRAG_UNSUPPORTED",
+    0xa3: "ILLEGAL_REQUEST",
+    0xa4: "INVALID_BINDING",
+    0xa5: "INVALID_GROUP",
+    0xa6: "INVALID_PARAMETER",
+    0xa7: "NO_ACK",
+    0xa8: "NO_BOUND_DEVICE",
+    0xa9: "NO_SHORT_ADDRESS",
+    0xaa: "NOT_SUPPORTED",
+    0xab: "SECURED_LINK_KEY",
+    0xac: "SECURED_NWK_KEY",
+    0xad: "SECURITY_FAIL",
+    0xae: "TABLE_FULL",
+    0xaf: "UNSECURED",
+    0xb0: "UNSUPPORTED_ATTRIBUTE"
+}
+
+
 class ZigbeeAppCommandPayload(Packet):
     name = "Zigbee Application Layer Command Payload"
     fields_desc = [
@@ -609,12 +713,14 @@ class ZigbeeAppCommandPayload(Packet):
             7: "APS_CMD_REMOVE_DEVICE",
             8: "APS_CMD_REQUEST_KEY",
             9: "APS_CMD_SWITCH_KEY",
-            # TODO: implement 10 to 14
+            # TODO: implement 10 to 13
             10: "APS_CMD_EA_INIT_CHLNG",
             11: "APS_CMD_EA_RSP_CHLNG",
             12: "APS_CMD_EA_INIT_MAC_DATA",
             13: "APS_CMD_EA_RSP_MAC_DATA",
-            14: "APS_CMD_TUNNEL"
+            14: "APS_CMD_TUNNEL",
+            15: "APS_CMD_VERIFY_KEY",
+            16: "APS_CMD_CONFIRM_KEY"
         }),
         # SKKE Commands
         ConditionalField(dot15d4AddressField("initiator", 0,
@@ -626,19 +732,32 @@ class ZigbeeAppCommandPayload(Packet):
         ConditionalField(StrFixedLenField("data", 0, length=16),
                          lambda pkt: pkt.cmd_identifier in [1, 2, 3, 4]),
         # Transport-key Command
-        ConditionalField(ByteEnumField("key_type", 0, _TransportKeyKeyTypes),
-                         lambda pkt: pkt.cmd_identifier == 5),
-        ConditionalField(StrFixedLenField("key", None, 16),
-                         lambda pkt: pkt.cmd_identifier == 5),
-        ConditionalField(ByteField("key_seqnum", 0),
-                         lambda pkt: (pkt.cmd_identifier == 5 and
-                                      pkt.key_type in [0x01, 0x05])),
-        ConditionalField(dot15d4AddressField("dest_addr", 0,
-                                             adjust=lambda pkt, x: 8),
-                         lambda pkt: pkt.cmd_identifier == 5),
-        ConditionalField(dot15d4AddressField("src_addr", 0,
-                                             adjust=lambda pkt, x: 8),
-                         lambda pkt: pkt.cmd_identifier == 5),
+        ConditionalField(
+            ByteEnumField("key_type", 0, _TransportKeyKeyTypes),
+            lambda pkt: pkt.cmd_identifier == 5),
+        ConditionalField(
+            StrFixedLenField("key", None, 16),
+            lambda pkt: pkt.cmd_identifier == 5),
+        ConditionalField(
+            ByteField("key_seqnum", 0),
+            lambda pkt: (pkt.cmd_identifier == 5 and
+                         pkt.key_type in [0x01, 0x05])),
+        ConditionalField(
+            dot15d4AddressField("dest_addr", 0, adjust=lambda pkt, x: 8),
+            lambda pkt: (pkt.cmd_identifier == 5 and
+                         pkt.key_type not in [0x02, 0x03])),
+        ConditionalField(
+            dot15d4AddressField("src_addr", 0, adjust=lambda pkt, x: 8),
+            lambda pkt: (pkt.cmd_identifier == 5 and
+                         pkt.key_type not in [0x02, 0x03])),
+        ConditionalField(
+            dot15d4AddressField("partner_addr", 0, adjust=lambda pkt, x: 8),
+            lambda pkt: (pkt.cmd_identifier == 5 and
+                         pkt.key_type in [0x02, 0x03])),
+        ConditionalField(
+            ByteField("initiator_flag", 0),
+            lambda pkt: (pkt.cmd_identifier == 5 and
+                         pkt.key_type in [0x02, 0x03])),
         # Update-Device Command
         ConditionalField(dot15d4AddressField("address", 0,
                                              adjust=lambda pkt, x: 8),
@@ -652,18 +771,77 @@ class ZigbeeAppCommandPayload(Packet):
                                              adjust=lambda pkt, x: 8),
                          lambda pkt: pkt.cmd_identifier == 7),
         # Request-Key Command
-        ConditionalField(ByteEnumField("key_type", 0, _TransportKeyKeyTypes),
-                         lambda pkt: pkt.cmd_identifier == 8),
-        ConditionalField(StrFixedLenField("key", None, 16),
-                         lambda pkt: pkt.cmd_identifier == 8),
+        ConditionalField(
+            ByteEnumField("key_type", 0, _RequestKeyKeyTypes),
+            lambda pkt: pkt.cmd_identifier == 8),
+        ConditionalField(
+            dot15d4AddressField("partner_addr", 0, adjust=lambda pkt, x: 8),
+            lambda pkt: (pkt.cmd_identifier == 8 and pkt.key_type == 0x02)),
         # Switch-Key Command
         ConditionalField(StrFixedLenField("seqnum", None, 8),
                          lambda pkt: pkt.cmd_identifier == 9),
-        # Un-implemented: 10-14 (+?)
+        # Un-implemented: 10-13 (+?)
         ConditionalField(StrField("data", ""),
-                         lambda pkt: (pkt.cmd_identifier < 0 or
-                                      pkt.cmd_identifier > 9))
+                         lambda pkt: (pkt.cmd_identifier >= 10 and
+                                      pkt.cmd_identifier <= 13)),
+        # Tunnel Command
+        ConditionalField(
+            dot15d4AddressField("dest_addr", 0, adjust=lambda pkt, x: 8),
+            lambda pkt: pkt.cmd_identifier == 14),
+        ConditionalField(
+            FlagsField("frame_control", 2, 4, [
+                "ack_format",
+                "security",
+                "ack_req",
+                "extended_hdr"
+            ]),
+            lambda pkt: pkt.cmd_identifier == 14),
+        ConditionalField(
+            BitEnumField("delivery_mode", 0, 2, {
+                0: "unicast",
+                1: "indirect",
+                2: "broadcast",
+                3: "group_addressing"
+            }),
+            lambda pkt: pkt.cmd_identifier == 14),
+        ConditionalField(
+            BitEnumField("aps_frametype", 1, 2, {
+                0: "data",
+                1: "command",
+                2: "ack"
+            }),
+            lambda pkt: pkt.cmd_identifier == 14),
+        ConditionalField(
+            ByteField("counter", 0),
+            lambda pkt: pkt.cmd_identifier == 14),
+        # Verify-Key Command
+        ConditionalField(
+            ByteEnumField("key_type", 0, _TransportKeyKeyTypes),
+            lambda pkt: pkt.cmd_identifier == 15),
+        ConditionalField(
+            dot15d4AddressField("address", 0, adjust=lambda pkt, x: 8),
+            lambda pkt: pkt.cmd_identifier == 15),
+        ConditionalField(
+            StrFixedLenField("key_hash", None, 16),
+            lambda pkt: pkt.cmd_identifier == 15),
+        # Confirm-Key Command
+        ConditionalField(
+            ByteEnumField("status", 0, _ApsStatusValues),
+            lambda pkt: pkt.cmd_identifier == 16),
+        ConditionalField(
+            ByteEnumField("key_type", 0, _TransportKeyKeyTypes),
+            lambda pkt: pkt.cmd_identifier == 16),
+        ConditionalField(
+            dot15d4AddressField("address", 0, adjust=lambda pkt, x: 8),
+            lambda pkt: pkt.cmd_identifier == 16)
     ]
+
+    def guess_payload_class(self, payload):
+        if self.cmd_identifier == 14:
+            # Tunneled APS Auxiliary Header
+            return ZigbeeSecurityHeader
+        else:
+            return Packet.guess_payload_class(self, payload)
 
 
 class ZigBeeBeacon(Packet):
@@ -732,6 +910,20 @@ class ZigbeeAppDataPayloadStub(Packet):
             lambda pkt: pkt.frametype == 3
         ),
     ]
+
+
+# Zigbee Device Profile #
+
+
+class ZigbeeDeviceProfile(Packet):
+    name = "Zigbee Device Profile (ZDP) Frame"
+    fields_desc = [
+        # Transaction Sequence Number (1 octet)
+        ByteField("trans_seqnum", 0),
+
+        # TODO: Transaction Data (variable)
+    ]
+
 
 # ZigBee Cluster Library #
 

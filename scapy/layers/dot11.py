@@ -592,22 +592,16 @@ status_code = {0: "success", 1: "failure", 10: "cannot-support-all-cap",
                16: "timeout", 17: "AP-full", 18: "rate-unsupported"}
 
 
-class _Dot11NetStats(Packet):
-    fields_desc = [LELongField("timestamp", 0),
-                   LEShortField("beacon_interval", 0x0064),
-                   FlagsField("cap", 0, 16, capability_list)]
-
+class _Dot11EltUtils(Packet):
+    """
+    Contains utils for classes that have Dot11Elt as payloads
+    """
     def network_stats(self):
         """Return a dictionary containing a summary of the Dot11
         elements fields
         """
         summary = {}
         crypto = set()
-        akmsuite_types = {
-            0x00: "Reserved",
-            0x01: "802.1X",
-            0x02: "PSK"
-        }
         p = self.payload
         while isinstance(p, Dot11Elt):
             if p.ID == 0:
@@ -628,16 +622,40 @@ class _Dot11NetStats(Packet):
             elif isinstance(p, Dot11EltRates):
                 summary["rates"] = p.rates
             elif isinstance(p, Dot11EltRSN):
+                wpa_version = "WPA2"
+                # WPA3-only:
+                # - AP shall at least enable AKM suite selector 00-0F-AC:8
+                # - AP shall not enable AKM suite selector 00-0F-AC:2 and
+                #   00-0F-AC:6
+                # - AP shall set MFPC and MFPR to 1
+                # - AP shall not enable WEP and TKIP
+                # WPA3-transition:
+                # - AP shall at least enable AKM suite selector 00-0F-AC:2
+                #   and 00-0F-AC:8
+                # - AP shall set MFPC to 1 and MFPR to 0
+                if any(x.suite == 8 for x in p.akm_suites) and \
+                        all(x.suite not in [2, 6] for x in p.akm_suites) and \
+                        p.mfp_capable and p.mfp_required and \
+                        all(x.cipher not in [1, 2, 5]
+                            for x in p.pairwise_cipher_suites):
+                    # WPA3 only mode
+                    wpa_version = "WPA3"
+                elif any(x.suite == 8 for x in p.akm_suites) and \
+                        any(x.suite == 2 for x in p.akm_suites) and \
+                        p.mfp_capable and not p.mfp_required:
+                    # WPA3 transition mode
+                    wpa_version = "WPA3-transition"
+                # Append suite
                 if p.akm_suites:
-                    auth = akmsuite_types.get(p.akm_suites[0].suite)
-                    crypto.add("WPA2/%s" % auth)
+                    auth = p.akm_suites[0].sprintf("%suite%")
+                    crypto.add(wpa_version + "/%s" % auth)
                 else:
-                    crypto.add("WPA2")
+                    crypto.add(wpa_version)
             elif p.ID == 221:
                 if isinstance(p, Dot11EltMicrosoftWPA) or \
                         p.info.startswith(b'\x00P\xf2\x01\x01\x00'):
                     if p.akm_suites:
-                        auth = akmsuite_types.get(p.akm_suites[0].suite)
+                        auth = p.akm_suites[0].sprintf("%suite%")
                         crypto.add("WPA/%s" % auth)
                     else:
                         crypto.add("WPA")
@@ -651,8 +669,11 @@ class _Dot11NetStats(Packet):
         return summary
 
 
-class Dot11Beacon(_Dot11NetStats):
+class Dot11Beacon(_Dot11EltUtils):
     name = "802.11 Beacon"
+    fields_desc = [LELongField("timestamp", 0),
+                   LEShortField("beacon_interval", 0x0064),
+                   FlagsField("cap", 0, 16, capability_list)]
 
 
 _dot11_info_elts_ids = {
@@ -754,9 +775,17 @@ class RSNCipherSuite(Packet):
             0x00: "Use group cipher suite",
             0x01: "WEP-40",
             0x02: "TKIP",
-            0x03: "Reserved",
+            0x03: "OCB",
             0x04: "CCMP",
-            0x05: "WEP-104"
+            0x05: "WEP-104",
+            0x06: "BIP-128",
+            0x07: "Group addressed traffic not allowed",
+            0x08: "GCMP-128",
+            0x09: "GCMP-256",
+            0x0A: "CCMP-256",
+            0x0B: "BIP-GMAC-128",
+            0x0C: "BIP-GMAC-256",
+            0x0D: "BIP-CMAC-256"
         })
     ]
 
@@ -770,8 +799,24 @@ class AKMSuite(Packet):
         X3BytesField("oui", 0x000fac),
         ByteEnumField("suite", 0x01, {
             0x00: "Reserved",
-            0x01: "IEEE 802.1X / PMKSA caching",
-            0x02: "PSK"
+            0x01: "802.1X",
+            0x02: "PSK",
+            0x03: "FT-802.1X",
+            0x04: "FT-PSK",
+            0x05: "WPA-SHA256",
+            0x06: "PSK-SHA256",
+            0x07: "TDLS",
+            0x08: "SAE",
+            0x09: "FT-SAE",
+            0x0A: "AP-PEER-KEY",
+            0x0B: "WPA-SHA256-SUITE-B",
+            0x0C: "WPA-SHA384-SUITE-B",
+            0x0D: "FT-802.1X-SHA384",
+            0x0E: "FILS-SHA256",
+            0x0F: "FILS-SHA384",
+            0x10: "FT-FILS-SHA256",
+            0x11: "FT-FILS-SHA384",
+            0x12: "OWE"
         })
     ]
 
@@ -946,20 +991,20 @@ class Dot11Disas(Packet):
     fields_desc = [LEShortEnumField("reason", 1, reason_code)]
 
 
-class Dot11AssoReq(Packet):
+class Dot11AssoReq(_Dot11EltUtils):
     name = "802.11 Association Request"
     fields_desc = [FlagsField("cap", 0, 16, capability_list),
                    LEShortField("listen_interval", 0x00c8)]
 
 
-class Dot11AssoResp(Packet):
+class Dot11AssoResp(_Dot11EltUtils):
     name = "802.11 Association Response"
     fields_desc = [FlagsField("cap", 0, 16, capability_list),
                    LEShortField("status", 0),
                    LEShortField("AID", 0)]
 
 
-class Dot11ReassoReq(Packet):
+class Dot11ReassoReq(_Dot11EltUtils):
     name = "802.11 Reassociation Request"
     fields_desc = [FlagsField("cap", 0, 16, capability_list),
                    LEShortField("listen_interval", 0x00c8),
@@ -970,15 +1015,18 @@ class Dot11ReassoResp(Dot11AssoResp):
     name = "802.11 Reassociation Response"
 
 
-class Dot11ProbeReq(Packet):
+class Dot11ProbeReq(_Dot11EltUtils):
     name = "802.11 Probe Request"
 
 
-class Dot11ProbeResp(_Dot11NetStats):
+class Dot11ProbeResp(_Dot11EltUtils):
     name = "802.11 Probe Response"
+    fields_desc = [LELongField("timestamp", 0),
+                   LEShortField("beacon_interval", 0x0064),
+                   FlagsField("cap", 0, 16, capability_list)]
 
 
-class Dot11Auth(Packet):
+class Dot11Auth(_Dot11EltUtils):
     name = "802.11 Authentication"
     fields_desc = [LEShortEnumField("algo", 0, ["open", "sharedkey"]),
                    LEShortField("seqnum", 0),

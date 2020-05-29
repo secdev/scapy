@@ -9,7 +9,7 @@
 = Dot15D4 layers
 
 # a crazy packet with all classes in it!
-pkt = Dot15d4()/Dot15d4Ack()/Dot15d4AuxSecurityHeader()/Dot15d4Beacon()/Dot15d4Cmd()/Dot15d4CmdAssocReq()/Dot15d4CmdAssocResp()/Dot15d4CmdCoordRealign()/Dot15d4CmdDisassociation()/Dot15d4CmdGTSReq()/Dot15d4Data()/Dot15d4FCS()
+pkt = Dot15d4()/Dot15d4Ack()/Dot15d4AuxSecurityHeader()/Dot15d4Beacon()/Dot15d4Cmd()/Dot15d4CmdAssocReq()/Dot15d4CmdAssocResp()/Dot15d4CmdCoordRealign()/Dot15d4CmdCoordRealignPage()/Dot15d4CmdDisassociation()/Dot15d4CmdGTSReq()/Dot15d4Data()/Dot15d4FCS()
 assert Dot15d4 in pkt.layers()
 assert Dot15d4Ack in pkt.layers()
 assert Dot15d4AuxSecurityHeader in pkt.layers()
@@ -18,6 +18,7 @@ assert Dot15d4Cmd in pkt.layers()
 assert Dot15d4CmdAssocReq in pkt.layers()
 assert Dot15d4CmdAssocResp in pkt.layers()
 assert Dot15d4CmdCoordRealign in pkt.layers()
+assert Dot15d4CmdCoordRealignPage in pkt.layers()
 assert Dot15d4CmdDisassociation in pkt.layers()
 assert Dot15d4CmdGTSReq in pkt.layers()
 assert Dot15d4Data in pkt.layers()
@@ -27,6 +28,126 @@ assert Dot15d4FCS in pkt.layers()
 
 pkt = Ether()/IP()/Dot15d4FCS()
 assert pkt[Dot15d4]
+
+= Dot15d4FCS - Beacon (without pending addresses)
+
+pkt = Dot15d4FCS(b'\x00\x80\x89\xaa\x99\x00\x00\xff\xcf\x00\x00\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00X\xa4')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == False
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0
+assert pkt[Dot15d4FCS].fcf_framever == 0
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 2
+assert pkt[Dot15d4FCS].seqnum == 137
+assert Dot15d4Beacon in pkt.layers()
+assert pkt[Dot15d4Beacon].src_panid == 0x99aa
+assert pkt[Dot15d4Beacon].src_addr == 0x0000
+assert pkt[Dot15d4Beacon].sf_beaconorder == 15
+assert pkt[Dot15d4Beacon].sf_sforder == 15
+assert pkt[Dot15d4Beacon].sf_finalcapslot == 15
+assert pkt[Dot15d4Beacon].sf_battlifeextend == False
+assert pkt[Dot15d4Beacon].sf_pancoord == True
+assert pkt[Dot15d4Beacon].sf_assocpermit == True
+assert pkt[Dot15d4Beacon].gts_spec_permit == False
+assert pkt[Dot15d4Beacon].gts_spec_reserved == 0
+assert pkt[Dot15d4Beacon].gts_spec_desccount == 0
+assert pkt[Dot15d4Beacon].pa_num_short == 0
+assert pkt[Dot15d4Beacon].pa_num_long == 0
+assert pkt[Dot15d4Beacon].pa_short_addresses == []
+assert pkt[Dot15d4Beacon].pa_long_addresses == []
+assert raw(pkt[Dot15d4Beacon].payload) == b'\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00'
+assert pkt[Dot15d4FCS].fcs == 0xa458
+
+= Dot15d4FCS - Beacon (with pending addresses)
+
+pkt = Dot15d4FCS(b'\x00\x80\x89\xaa\x99\x00\x00\xff\xcf\x00\x124\x12xV\x88wfUD3"\x11\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00\x96\xd3')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == False
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0
+assert pkt[Dot15d4FCS].fcf_framever == 0
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 2
+assert pkt[Dot15d4FCS].seqnum == 137
+assert Dot15d4Beacon in pkt.layers()
+assert pkt[Dot15d4Beacon].src_panid == 0x99aa
+assert pkt[Dot15d4Beacon].src_addr == 0x0000
+assert pkt[Dot15d4Beacon].sf_beaconorder == 15
+assert pkt[Dot15d4Beacon].sf_sforder == 15
+assert pkt[Dot15d4Beacon].sf_finalcapslot == 15
+assert pkt[Dot15d4Beacon].sf_battlifeextend == False
+assert pkt[Dot15d4Beacon].sf_pancoord == True
+assert pkt[Dot15d4Beacon].sf_assocpermit == True
+assert pkt[Dot15d4Beacon].gts_spec_permit == False
+assert pkt[Dot15d4Beacon].gts_spec_reserved == 0
+assert pkt[Dot15d4Beacon].gts_spec_desccount == 0
+assert pkt[Dot15d4Beacon].pa_num_short == 2
+assert pkt[Dot15d4Beacon].pa_num_long == 1
+assert pkt[Dot15d4Beacon].pa_short_addresses == [0x1234, 0x5678]
+assert pkt[Dot15d4Beacon].pa_long_addresses == [0x1122334455667788]
+assert raw(pkt[Dot15d4Beacon].payload) == b'\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00'
+assert pkt[Dot15d4FCS].fcs == 0xd396
+
+= Dot15d4FCS - Coordinator Realignment (without the channel page)
+
+pkt = Dot15d4FCS(b'#\xcc\x89\xff\xff\x88wfUD3"\x11\xaa\x99\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x08\xaa\x99\xde\xc0\x14\xad\xde\\!')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 3
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == True
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 3
+assert pkt[Dot15d4FCS].fcf_framever == 0
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 3
+assert pkt[Dot15d4FCS].seqnum == 137
+assert Dot15d4Cmd in pkt.layers()
+assert pkt[Dot15d4Cmd].dest_panid == 0xffff
+assert pkt[Dot15d4Cmd].dest_addr == 0x1122334455667788
+assert pkt[Dot15d4Cmd].src_panid == 0x99aa
+assert pkt[Dot15d4Cmd].src_addr == 0x8899aabbccddeeff
+assert pkt[Dot15d4Cmd].cmd_id == 0x08
+assert Dot15d4CmdCoordRealign in pkt.layers()
+assert pkt[Dot15d4CmdCoordRealign].panid == 0x99aa
+assert pkt[Dot15d4CmdCoordRealign].coord_address == 0xc0de
+assert pkt[Dot15d4CmdCoordRealign].channel == 20
+assert pkt[Dot15d4CmdCoordRealign].dev_address == 0xdead
+assert raw(pkt[Dot15d4CmdCoordRealign].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0x215c
+
+= Dot15d4FCS - Coordinator Realignment (with the channel page)
+
+pkt = Dot15d4FCS(b'#\xcc\x89\xff\xff\x88wfUD3"\x11\xaa\x99\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x08\xaa\x99\xde\xc0\x14\xad\xde\x00\xc8\x98')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 3
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == True
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 3
+assert pkt[Dot15d4FCS].fcf_framever == 0
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 3
+assert pkt[Dot15d4FCS].seqnum == 137
+assert Dot15d4Cmd in pkt.layers()
+assert pkt[Dot15d4Cmd].dest_panid == 0xffff
+assert pkt[Dot15d4Cmd].dest_addr == 0x1122334455667788
+assert pkt[Dot15d4Cmd].src_panid == 0x99aa
+assert pkt[Dot15d4Cmd].src_addr == 0x8899aabbccddeeff
+assert pkt[Dot15d4Cmd].cmd_id == 0x08
+assert Dot15d4CmdCoordRealign in pkt.layers()
+assert pkt[Dot15d4CmdCoordRealign].panid == 0x99aa
+assert pkt[Dot15d4CmdCoordRealign].coord_address == 0xc0de
+assert pkt[Dot15d4CmdCoordRealign].channel == 20
+assert pkt[Dot15d4CmdCoordRealign].dev_address == 0xdead
+assert Dot15d4CmdCoordRealignPage in pkt.layers()
+assert pkt[Dot15d4CmdCoordRealignPage].channel_page == 0
+assert raw(pkt[Dot15d4CmdCoordRealignPage].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0x98c8
 
 ###################
 #### SixLoWPAN ####
@@ -348,12 +469,13 @@ conf.dot15d4_protocol = "zigbee"
 = Zigbee - layers
 
 # a crazy packet with all classes in it!
-pkt = ZigBeeBeacon()/ZigbeeAppCommandPayload()/ZigbeeAppDataPayload()/ZigbeeAppDataPayloadStub()/ZigbeeClusterLibrary()/ZigbeeNWK()/ZigbeeNWKCommandPayload()/ZigbeeNWKStub()/ZigbeeSecurityHeader()
+pkt = ZigBeeBeacon()/ZigbeeAppCommandPayload()/ZigbeeAppDataPayload()/ZigbeeAppDataPayloadStub()/ZigbeeClusterLibrary()/ZigbeeDeviceProfile()/ZigbeeNWK()/ZigbeeNWKCommandPayload()/ZigbeeNWKStub()/ZigbeeSecurityHeader()
 assert ZigBeeBeacon in pkt.layers()
 assert ZigbeeAppCommandPayload in pkt.layers()
 assert ZigbeeAppDataPayload in pkt.layers()
 assert ZigbeeAppDataPayloadStub in pkt.layers()
 assert ZigbeeClusterLibrary in pkt.layers()
+assert ZigbeeDeviceProfile in pkt.layers()
 assert ZigbeeNWK in pkt.layers()
 assert ZigbeeNWKCommandPayload in pkt.layers()
 assert ZigbeeNWKStub in pkt.layers()
@@ -449,3 +571,148 @@ assert f.i2repr(None, v) == "00:0f:ff:00:00:41:5b:1a"
 assert pkt1[ZigbeeAppCommandPayload].src_addr == 18446744073709551615
 f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("src_addr")
 assert f.i2repr(None, v) == "ff:ff:ff:ff:ff:ff:ff:ff"
+
+= Zigbee - Link Status
+
+pkt = ZigbeeNWKCommandPayload(b'\x08c\x00\x00\x11\xad\xde\x11\xde\xc0\x11')
+assert ZigbeeNWKCommandPayload in pkt.layers()
+assert pkt[ZigbeeNWKCommandPayload].cmd_identifier == 0x08
+assert pkt[ZigbeeNWKCommandPayload].entry_count == 3
+assert pkt[ZigbeeNWKCommandPayload].first_frame == 1
+assert pkt[ZigbeeNWKCommandPayload].last_frame == 1
+assert len(pkt[ZigbeeNWKCommandPayload].link_status_list) == 3
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[0].neighbor_network_address == 0x0000
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[0].incoming_cost == 1
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[0].outgoing_cost == 1
+assert raw(pkt[ZigbeeNWKCommandPayload].link_status_list[0].payload) == b''
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[1].neighbor_network_address == 0xdead
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[1].incoming_cost == 1
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[1].outgoing_cost == 1
+assert raw(pkt[ZigbeeNWKCommandPayload].link_status_list[1].payload) == b''
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[2].neighbor_network_address == 0xc0de
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[2].incoming_cost == 1
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[2].outgoing_cost == 1
+assert raw(pkt[ZigbeeNWKCommandPayload].link_status_list[2].payload) == b''
+assert raw(pkt[ZigbeeNWKCommandPayload].payload) == b''
+
+= Zigbee - End Device Timeout Request
+
+pkt = ZigbeeNWKCommandPayload(b'\x0b\x03\x00')
+assert ZigbeeNWKCommandPayload in pkt.layers()
+assert pkt[ZigbeeNWKCommandPayload].cmd_identifier == 0x0b
+assert pkt[ZigbeeNWKCommandPayload].req_timeout == 3
+assert pkt[ZigbeeNWKCommandPayload].ed_conf == 0
+assert raw(pkt[ZigbeeNWKCommandPayload].payload) == b''
+
+= Zigbee - End Device Timeout Response
+
+pkt = ZigbeeNWKCommandPayload(b'\x0c\x00\x03')
+assert ZigbeeNWKCommandPayload in pkt.layers()
+assert pkt[ZigbeeNWKCommandPayload].cmd_identifier == 0x0c
+assert pkt[ZigbeeNWKCommandPayload].status == 0
+assert pkt[ZigbeeNWKCommandPayload].mac_data_poll_keepalive == 1
+assert pkt[ZigbeeNWKCommandPayload].ed_timeout_req_keepalive == 1
+assert raw(pkt[ZigbeeNWKCommandPayload].payload) == b''
+
+= Zigbee - Transport Key
+
+pkt = ZigbeeAppCommandPayload(b'\x05\x01\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x00\x88wfUD3"\x11\xff\xee\xdd\xcc\xbb\xaa\x99\x88')
+assert ZigbeeAppCommandPayload in pkt.layers()
+assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x05
+assert pkt[ZigbeeAppCommandPayload].key_type == 1
+assert pkt[ZigbeeAppCommandPayload].key == b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f'
+assert pkt[ZigbeeAppCommandPayload].key_seqnum == 0
+assert pkt[ZigbeeAppCommandPayload].dest_addr == 0x1122334455667788
+assert pkt[ZigbeeAppCommandPayload].src_addr == 0x8899aabbccddeeff
+assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
+
+= Zigbee - Request Key
+
+pkt = ZigbeeAppCommandPayload(b'\x08\x04')
+assert ZigbeeAppCommandPayload in pkt.layers()
+assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x08
+assert pkt[ZigbeeAppCommandPayload].key_type == 0x04
+assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
+
+= Zigbee - Tunnel
+
+pkt = ZigbeeAppCommandPayload(b'\x0e\x88wfUD3"\x11!\xe20\x0bP\x00\x00\xff\xee\xdd\xcc\xbb\xaa\x99\x88\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc')
+assert ZigbeeAppCommandPayload in pkt.layers()
+assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x0e
+assert pkt[ZigbeeAppCommandPayload].dest_addr == 0x1122334455667788
+assert pkt[ZigbeeAppCommandPayload].aps_frametype == 1
+assert pkt[ZigbeeAppCommandPayload].delivery_mode == 0
+assert pkt[ZigbeeAppCommandPayload].frame_control == 0b0010
+assert ZigbeeSecurityHeader in pkt.layers()
+assert raw(pkt[ZigbeeSecurityHeader]) == b'0\x0bP\x00\x00\xff\xee\xdd\xcc\xbb\xaa\x99\x88\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc'
+
+= Zigbee - Verify Key
+
+pkt = ZigbeeAppCommandPayload(b'\x0f\x04\x88wfUD3"\x11\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f')
+assert ZigbeeAppCommandPayload in pkt.layers()
+assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x0f
+assert pkt[ZigbeeAppCommandPayload].key_type == 0x04
+assert pkt[ZigbeeAppCommandPayload].address == 0x1122334455667788
+assert pkt[ZigbeeAppCommandPayload].key_hash == b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f'
+assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
+
+= Zigbee - Confirm Key
+
+pkt = ZigbeeAppCommandPayload(b'\x10\x00\x04\x88wfUD3"\x11')
+assert ZigbeeAppCommandPayload in pkt.layers()
+assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x10
+assert pkt[ZigbeeAppCommandPayload].status == 0
+assert pkt[ZigbeeAppCommandPayload].key_type == 0x04
+assert pkt[ZigbeeAppCommandPayload].address == 0x1122334455667788
+assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
+
+= Zigbee - APS acknowledgment (with the Acknowledgment Format enabled)
+pkt = ZigbeeAppDataPayload(b'\x12\xa8')
+assert ZigbeeAppDataPayload in pkt.layers()
+assert pkt[ZigbeeAppDataPayload].aps_frametype == 2
+assert pkt[ZigbeeAppDataPayload].delivery_mode == 0
+assert pkt[ZigbeeAppDataPayload].frame_control == 0b0001
+assert pkt[ZigbeeAppDataPayload].counter == 168
+assert raw(pkt[ZigbeeAppDataPayload].payload) == b''
+
+= Zigbee - APS acknowledgment (with the Acknowledgment Format disabled)
+pkt = ZigbeeAppDataPayload(b'\x02\x00\x02\x00\x00\x00\x00\xa6')
+assert ZigbeeAppDataPayload in pkt.layers()
+pkt.show()
+assert pkt[ZigbeeAppDataPayload].aps_frametype == 2
+assert pkt[ZigbeeAppDataPayload].delivery_mode == 0
+assert pkt[ZigbeeAppDataPayload].frame_control == 0b0000
+assert pkt[ZigbeeAppDataPayload].dst_endpoint == 0
+assert pkt[ZigbeeAppDataPayload].cluster == 0x0002
+assert pkt[ZigbeeAppDataPayload].profile == 0x0000
+assert pkt[ZigbeeAppDataPayload].src_endpoint == 0
+assert pkt[ZigbeeAppDataPayload].counter == 166
+assert raw(pkt[ZigbeeAppDataPayload].payload) == b''
+
+= Zigbee - ZDP command
+pkt = ZigbeeAppDataPayload(b'\x08\x006\x00\x00\x00\x00\xb5\x01\x14\x01')
+assert ZigbeeAppDataPayload in pkt.layers()
+assert pkt[ZigbeeAppDataPayload].aps_frametype == 0
+assert pkt[ZigbeeAppDataPayload].delivery_mode == 2
+assert pkt[ZigbeeAppDataPayload].frame_control == 0b0000
+assert pkt[ZigbeeAppDataPayload].dst_endpoint == 0
+assert pkt[ZigbeeAppDataPayload].cluster == 0x0036
+assert pkt[ZigbeeAppDataPayload].profile == 0x0000
+assert pkt[ZigbeeAppDataPayload].src_endpoint == 0
+assert pkt[ZigbeeAppDataPayload].counter == 181
+assert ZigbeeDeviceProfile in pkt.layers()
+assert raw(pkt[ZigbeeDeviceProfile]) == b'\x01\x14\x01'
+
+= Zigbee - ZCL command
+pkt = ZigbeeAppDataPayload(b'@\x01\n\x00\x04\x01\x01\x9d\x00\x00\x00\x00\x00')
+assert ZigbeeAppDataPayload in pkt.layers()
+assert pkt[ZigbeeAppDataPayload].aps_frametype == 0
+assert pkt[ZigbeeAppDataPayload].delivery_mode == 0
+assert pkt[ZigbeeAppDataPayload].frame_control == 0b0100
+assert pkt[ZigbeeAppDataPayload].dst_endpoint == 1
+assert pkt[ZigbeeAppDataPayload].cluster == 0x000a
+assert pkt[ZigbeeAppDataPayload].profile == 0x0104
+assert pkt[ZigbeeAppDataPayload].src_endpoint == 1
+assert pkt[ZigbeeAppDataPayload].counter == 157
+assert ZigbeeClusterLibrary in pkt.layers()
+assert raw(pkt[ZigbeeClusterLibrary]) == b'\x00\x00\x00\x00\x00'

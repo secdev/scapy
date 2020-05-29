@@ -7,6 +7,8 @@
 The _TLSAutomaton class provides methods common to both TLS client and server.
 """
 
+import select
+import socket
 import struct
 
 from scapy.automaton import Automaton
@@ -63,6 +65,8 @@ class _TLSAutomaton(Automaton):
 
     def parse_args(self, mycert=None, mykey=None, **kargs):
 
+        self.verbose = kargs.pop("verbose", True)
+
         super(_TLSAutomaton, self).parse_args(**kargs)
 
         self.socket = None
@@ -82,8 +86,6 @@ class _TLSAutomaton(Automaton):
             self.mykey = PrivKey(mykey)
         else:
             self.mykey = None
-
-        self.verbose = kargs.get("verbose", True)
 
     def get_next_msg(self, socket_timeout=2, retry=2):
         """
@@ -105,7 +107,6 @@ class _TLSAutomaton(Automaton):
             # A message is already available.
             return
 
-        self.socket.settimeout(socket_timeout)
         is_sslv2_msg = False
         still_getting_len = True
         grablen = 2
@@ -133,15 +134,27 @@ class _TLSAutomaton(Automaton):
             if grablen == len(self.remain_in):
                 break
 
+            final = False
             try:
-                tmp = self.socket.recv(grablen - len(self.remain_in))
+                tmp, _, _ = select.select([self.socket], [], [],
+                                          socket_timeout)
                 if not tmp:
                     retry -= 1
                 else:
-                    self.remain_in += tmp
-            except Exception:
-                self.vprint("Could not join host ! Retrying...")
+                    data = tmp[0].recv(grablen - len(self.remain_in))
+                    if not data:
+                        # Socket peer was closed
+                        self.vprint("Peer socket closed !")
+                        final = True
+                    else:
+                        self.remain_in += data
+            except Exception as ex:
+                if not isinstance(ex, socket.timeout):
+                    self.vprint("Could not join host (%s) ! Retrying..." % ex)
                 retry -= 1
+            else:
+                if final:
+                    raise self.SOCKET_CLOSED()
 
         if len(self.remain_in) < 2 or len(self.remain_in) != grablen:
             # Remote peer is not willing to respond

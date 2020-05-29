@@ -1547,8 +1547,8 @@ class NetflowSession(IPSession):
     """Session used to defragment NetflowV9/10 packets on the flow.
     See help(scapy.layers.netflow) for more infos.
     """
-    def __init__(self, *args):
-        IPSession.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        IPSession.__init__(self, *args, **kwargs)
         self.definitions = {}
         self.definitions_opts = {}
         self.ignored = set()
