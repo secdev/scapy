@@ -131,6 +131,8 @@ else:
 load_contrib("automotive.uds", globals_dict=globals())
 load_contrib("automotive.ecu", globals_dict=globals())
 
+print("Set delay to lower utilization")
+conf.contribs['ECU_am']['send_delay'] = 0.004
 
 + Simulator tests
 

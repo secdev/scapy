@@ -11,6 +11,8 @@ import subprocess, sys
 from subprocess import call
 from scapy.contrib.automotive.ecu import *
 
+print("Set delay to lower utilization")
+conf.contribs['ECU_am']['send_delay'] = 0.004
 = Definition of constants, utility functions and mock classes
 iface0 = "vcan0"
 iface1 = "vcan1"
