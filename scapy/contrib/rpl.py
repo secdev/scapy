@@ -21,18 +21,22 @@
 # scapy.contrib.status = loads
 
 """
+RPL
+===
+
 RFC 6550 - Routing Protocol for Low-Power and Lossy Networks (RPL)
 draft-ietf-roll-efficient-npdao-17 - Efficient Route Invalidation
 
 +----------------------------------------------------------------------+
-| RPL Options = Pad1/PadN/TIO/RIO/PIO/Tgt/TgtDesc/DODAGConfig/DAGMC/.. |
-|----------------------------------------------------------------------|
-| RPL Msgs = DIS/DIO/DAO/DAOACK/DCO/DCOACK                             |
-|----------------------------------------------------------------------|
-| ICMPv6 - type 155 = RPL                                              |
+| RPL Options : Pad1 PadN TIO RIO PIO Tgt TgtDesc DODAGConfig DAGMC ...|
++----------------------------------------------------------------------+
+| RPL Msgs : DIS DIO DAO DAOACK DCO DCOACK                             |
++----------------------------------------------------------------------+
+| ICMPv6 : type 155 RPL                                                |
 +----------------------------------------------------------------------+
 
 """
+
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ByteField, IP6Field, ShortField, \
