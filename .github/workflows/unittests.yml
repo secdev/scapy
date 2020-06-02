@@ -70,3 +70,5 @@ jobs:
         run: ./.config/ci/test.sh ${{ matrix.python }} non_root
       - name: Codecov
         uses: codecov/codecov-action@v1
+        with:
+            file: /home/runner/work/scapy/scapy/.coverage
