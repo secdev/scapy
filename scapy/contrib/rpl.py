@@ -20,15 +20,19 @@
 # scapy.contrib.description = Routing Protocol for LLNs (RPL)
 # scapy.contrib.status = loads
 
-from scapy.packet import Packet
+"""
+RFC 6550 - Routing Protocol for Low-Power and Lossy Networks (RPL)
+draft-ietf-roll-efficient-npdao-17 - Efficient Route Invalidation
+"""
+
+from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ByteField, IP6Field, ShortField, \
-    XShortField, BitField, BitEnumField, FieldLenField, StrLenField, IntField
-from scapy.layers.inet6 import icmp6rplcodes, RPL, icmp6ndraprefs, \
-    _IP6PrefixField
+    BitField, BitEnumField, FieldLenField, StrLenField, IntField
+from scapy.layers.inet6 import RPL, icmp6ndraprefs, _IP6PrefixField
 
 
 # https://www.iana.org/assignments/rpl/rpl.xhtml#mop
-rplmop = {0: "No Downward routes",
+RPLMOP = {0: "No Downward routes",
           1: "Non-Storing",
           2: "Storing with no multicast support",
           3: "Storing with multicast support",
@@ -36,7 +40,7 @@ rplmop = {0: "No Downward routes",
 
 
 # https://www.iana.org/assignments/rpl/rpl.xhtml#control-message-options
-rploptsstr = {0: "Pad1",
+RPLOPTSSTR = {0: "Pad1",
               1: "PadN",
               2: "DAG Metric Container",
               3: "Routing Information",
@@ -49,21 +53,16 @@ rploptsstr = {0: "Pad1",
               10: "P2P Route Discovery"}
 
 
-rplopts = {
-}
-
-
-class RPLGuessOption:
+class _RPLGuessOption(Packet):
     name = "Dummy RPL Option class that implements guess_payload_class()"
 
-    def guess_payload_class(self, p):
-        if len(p) > 0:
-            return rplopts.get(ord(p[0]))
 
-
-class OptRIO(Packet):
+class OptRIO(_RPLGuessOption):
+    """
+    Control Option: Routing Information Option (RIO)
+    """
     name = "Routing Information"
-    fields_desc = [ByteEnumField("otype", 3, rploptsstr),
+    fields_desc = [ByteEnumField("otype", 3, RPLOPTSSTR),
                    FieldLenField("len", None, length_of="prefix", fmt="B",
                                  adjust=lambda pkt, x: x + 6),
                    ByteField("plen", None),
@@ -74,9 +73,12 @@ class OptRIO(Packet):
                    _IP6PrefixField("prefix", None)]
 
 
-class OptDODAGConfig(Packet):
+class OptDODAGConfig(_RPLGuessOption):
+    """
+    Control Option: DODAG Configuration
+    """
     name = "DODAG Configuration"
-    fields_desc = [ByteEnumField("otype", 4, rploptsstr),
+    fields_desc = [ByteEnumField("otype", 4, RPLOPTSSTR),
                    ByteField("len", 14),
                    BitField("flags", 0, 4),
                    BitField("A", 0, 1),
@@ -92,19 +94,25 @@ class OptDODAGConfig(Packet):
                    ShortField("LifetimeUnit", 0xffff)]
 
 
-class OptTgt(Packet):
+class OptTgt(_RPLGuessOption):
+    """
+    Control Option: RPL Target
+    """
     name = "RPL Target"
-    fields_desc = [ByteEnumField("otype", 5, rploptsstr),
+    fields_desc = [ByteEnumField("otype", 5, RPLOPTSSTR),
                    FieldLenField("len", None, length_of="prefix", fmt="B",
                                  adjust=lambda pkt, x: x + 2),
                    ByteField("flags", 0),
-                   ByteField("plen", None),
+                   ByteField("plen", 0),
                    _IP6PrefixField("prefix", None)]
 
 
-class OptTIO(Packet):
+class OptTIO(_RPLGuessOption):
+    """
+    Control Option: Transit Information Option (TIO)
+    """
     name = "Transit Information"
-    fields_desc = [ByteEnumField("otype", 6, rploptsstr),
+    fields_desc = [ByteEnumField("otype", 6, RPLOPTSSTR),
                    FieldLenField("len", None, length_of="parentaddr", fmt="B",
                                  adjust=lambda pkt, x: x + 4),
                    BitField("E", 0, 1),
@@ -115,9 +123,12 @@ class OptTIO(Packet):
                    _IP6PrefixField("parentaddr", None)]
 
 
-class OptSolInfo(Packet):
+class OptSolInfo(_RPLGuessOption):
+    """
+    Control Option: Solicited Information
+    """
     name = "Solicited Information"
-    fields_desc = [ByteEnumField("otype", 7, rploptsstr),
+    fields_desc = [ByteEnumField("otype", 7, RPLOPTSSTR),
                    ByteField("len", 19),
                    ByteField("RPLInstanceID", 0),
                    BitField("V", 0, 1),
@@ -128,9 +139,12 @@ class OptSolInfo(Packet):
                    ByteField("ver", 0)]
 
 
-class OptPIO(Packet):
+class OptPIO(_RPLGuessOption):
+    """
+    Control Option: Prefix Information Option (PIO)
+    """
     name = "Prefix Information"
-    fields_desc = [ByteEnumField("otype", 8, rploptsstr),
+    fields_desc = [ByteEnumField("otype", 8, RPLOPTSSTR),
                    ByteField("len", 30),
                    ByteField("plen", 64),
                    BitField("L", 0, 1),
@@ -143,68 +157,74 @@ class OptPIO(Packet):
                    IP6Field("prefix", "::1")]
 
 
-class OptTgtDesc(Packet):
+class OptTgtDesc(_RPLGuessOption):
+    """
+    Control Option: RPL Target Descriptor
+    """
     name = "RPL Target Descriptor"
-    fields_desc = [ByteEnumField("otype", 9, rploptsstr),
+    fields_desc = [ByteEnumField("otype", 9, RPLOPTSSTR),
                    ByteField("len", 4),
                    IntField("descriptor", 0)]
 
 
-class Pad1(Packet):
+class Pad1(_RPLGuessOption):
+    """
+    Control Option: Pad 1 byte
+    """
     name = "Pad1"
-    fields_desc = [ByteEnumField("otype", 0x00, rploptsstr)]
-
-    def alignment_delta(self, curpos):  # No alignment requirement
-        return 0
-
-    def extract_padding(self, p):
-        return b"", p
+    fields_desc = [ByteEnumField("otype", 0x00, RPLOPTSSTR)]
 
 
-class PadN(Packet):
+class PadN(_RPLGuessOption):
+    """
+    Control Option: Pad N bytes
+    """
     name = "PadN"
-    fields_desc = [ByteEnumField("otype", 0x01, rploptsstr),
+    fields_desc = [ByteEnumField("otype", 0x01, RPLOPTSSTR),
                    FieldLenField("optlen", None, length_of="optdata", fmt="B"),
                    StrLenField("optdata", "",
                                length_from=lambda pkt: pkt.optlen)]
-
-    def alignment_delta(self, curpos):  # No alignment requirement
-        return 0
-
-    def extract_padding(self, p):
-        return b"", p
 
 
 # RPL Control Message Handling
 
 
-class DIS(RPLGuessOption, Packet):
+class DIS(_RPLGuessOption, Packet):
+    """
+    Control Message: DODAG Information Solicitation (DIS)
+    """
     name = "DODAG Information Solicitation"
-    fields_desc = [XShortField("cksum", None),
-                   # DIS Base Object
-                   ByteField("flags", 0),
+    fields_desc = [ByteField("flags", 0),
                    ByteField("reserved", 0)]
 
 
-class DIO(RPLGuessOption, Packet):
+class DIO(_RPLGuessOption, Packet):
+    """
+    Control Message: DODAG Information Object (DIO)
+    """
     name = "DODAG Information Object"
-    fields_desc = [XShortField("cksum", None),
-                   # DIO Base Object
-                   ByteField("RPLInstanceID", 50),
+    fields_desc = [ByteField("RPLInstanceID", 50),
                    ByteField("ver", 0),
                    ShortField("rank", 1),
                    BitField("G", 1, 1),
                    BitField("unused1", 0, 1),
-                   BitEnumField("mop", 1, 3, rplmop),
+                   BitEnumField("mop", 1, 3, RPLMOP),
                    BitField("prf", 0, 3),
                    ByteField("dtsn", 240),
                    ByteField("flags", 0),
                    ByteField("reserved", 0),
                    IP6Field("dodagid", "::1")]
-    overload_fields = {RPL: {"code": 1}}
 
 
 class _OptDODAGIDField(IP6Field):
+    """
+    Handle Optional DODAG ID field in DAO
+    """
+    def getfield(self, pkt, s):
+        if pkt.D == 0:
+            return s, None
+        return s[16:], self.m2i(pkt, s[:16])
+
     def addfield(self, pkt, s, val):
         if pkt.D == 1:
             return s + self.i2m(pkt, val)
@@ -213,82 +233,80 @@ class _OptDODAGIDField(IP6Field):
         return s
 
 
-class DAO(RPLGuessOption, Packet):
+class DAO(_RPLGuessOption, Packet):
+    """
+    Control Message: Destination Advertisement Object (DAO)
+    """
     name = "Destination Advertisement Object"
-    fields_desc = [XShortField("cksum", None),
-                   # Base Object
-                   ByteField("RPLInstanceID", 50),
+    fields_desc = [ByteField("RPLInstanceID", 50),
                    BitField("K", 0, 1),
                    BitField("D", 0, 1),
                    BitField("flags", 0, 6),
                    ByteField("reserved", 0),
                    ByteField("daoseq", 1),
                    _OptDODAGIDField("dodagid", None)]
-    overload_fields = {RPL: {"code": 2}}
 
 
-class DAOACK(RPLGuessOption, Packet):
+class DAOACK(_RPLGuessOption, Packet):
+    """
+    Control Message: Destination Advertisement Object Acknowledgement (DAOACK)
+    """
     name = "Destination Advertisement Object Acknowledgement"
-    fields_desc = [XShortField("cksum", None),
-                   # Base Object
-                   ByteField("RPLInstanceID", 50),
+    fields_desc = [ByteField("RPLInstanceID", 50),
                    BitField("D", 0, 1),
                    BitField("reserved", 0, 7),
                    ByteField("daoseq", 1),
                    ByteField("status", 0),
                    _OptDODAGIDField("dodagid", None)]
-    overload_fields = {RPL: {"code": 3}}
 
 
 # https://datatracker.ietf.org/doc/draft-ietf-roll-efficient-npdao/
-class DCO(RPLGuessOption, Packet):
+class DCO(_RPLGuessOption, Packet):
+    """
+    Control Message: Destination Cleanup Object (DCO)
+    """
     name = "Destination Cleanup Object"
-    fields_desc = [XShortField("cksum", None),
-                   # Base Object
-                   ByteField("RPLInstanceID", 50),
+    fields_desc = [ByteField("RPLInstanceID", 50),
                    BitField("K", 0, 1),
                    BitField("D", 0, 1),
                    BitField("flags", 0, 6),
                    ByteField("status", 0),
                    ByteField("dcoseq", 1),
                    _OptDODAGIDField("dodagid", None)]
-    overload_fields = {RPL: {"code": 7}}
 
 
 # https://datatracker.ietf.org/doc/draft-ietf-roll-efficient-npdao/
-class DCOACK(RPLGuessOption, Packet):
+class DCOACK(_RPLGuessOption, Packet):
+    """
+    Control Message: Destination Cleanup Object Acknowledgement (DCOACK)
+    """
     name = "Destination Cleanup Object Acknowledgement"
-    fields_desc = [XShortField("cksum", None),
-                   # Base Object
-                   ByteField("RPLInstanceID", 50),
+    fields_desc = [ByteField("RPLInstanceID", 50),
                    BitField("D", 0, 1),
                    BitField("flags", 0, 7),
                    ByteField("dcoseq", 1),
                    ByteField("status", 0),
                    _OptDODAGIDField("dodagid", None)]
-    overload_fields = {RPL: {"code": 8}}
 
 
 # https://www.iana.org/assignments/rpl/rpl.xhtml#control-codes
-icmp6rplcodes.update({0: DIS,
-                      1: DIO,
-                      2: DAO,
-                      3: DAOACK,
-                      # 4: "P2P-DRO",
-                      # 5: "P2P-DRO-ACK",
-                      # 6: "Measurement",
-                      7: DCO,
-                      8: DCOACK})
+bind_layers(RPL, DIS, code=0)
+bind_layers(RPL, DIO, code=1)
+bind_layers(RPL, DAO, code=2)
+bind_layers(RPL, DAOACK, code=3)
+bind_layers(RPL, DCO, code=7)
+bind_layers(RPL, DCOACK, code=8)
 
 
 # https://www.iana.org/assignments/rpl/rpl.xhtml#control-message-options
-rplopts.update({0: Pad1,
-                1: PadN,
-                # 2: OptDAGMC # Handled in rpl_metrics.py
-                3: OptRIO,  # Routing Information
-                4: OptDODAGConfig,  # DODAG Configuration
-                5: OptTgt,  # RPL Target
-                6: OptTIO,  # Transit Information
-                7: OptSolInfo,  # Solicited Information
-                8: OptPIO,  # Prefix Information Option
-                9: OptTgtDesc})  # Target Descriptor
+for msg in [DIS, DIO, DAO, DAOACK, DCO, DCOACK]:
+    bind_layers(msg, Pad1, otype=0)
+    bind_layers(msg, PadN, otype=1)
+    # OptDAGMC, otype=2 defined in rpl_metric.py
+    bind_layers(msg, OptRIO, otype=3)
+    bind_layers(msg, OptDODAGConfig, otype=4)
+    bind_layers(msg, OptTgt, otype=5)
+    bind_layers(msg, OptTIO, otype=6)
+    bind_layers(msg, OptSolInfo, otype=7)
+    bind_layers(msg, OptPIO, otype=8)
+    bind_layers(msg, OptTgtDesc, otype=9)

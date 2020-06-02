@@ -20,13 +20,17 @@
 # scapy.contrib.description = Routing Metrics used for Path Calc in LLNs
 # scapy.contrib.status = loads
 
+"""
+RFC 6551 - Routing Metrics Used for Path Calculation in LLNs
+"""
+
 import struct
 from scapy.compat import orb
-from scapy.packet import Packet
+from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ByteField, ShortField, BitField, \
     BitEnumField, FieldLenField, StrLenField, IntField
 from scapy.layers.inet6 import _PhantomAutoPadField, _OptionsField
-from scapy.contrib.rpl import rploptsstr, rplopts
+from scapy.contrib.rpl import rploptsstr, DIS, DIO, DAO, DAOACK, DCO, DCOACK
 
 
 class _DAGMetricContainer(Packet):
@@ -41,39 +45,48 @@ class _DAGMetricContainer(Packet):
         return p
 
 
-_dagmcobjtypes = {1: "Node State and Attributes",
-                  2: "Node Energy",
-                  3: "Hop Count",
-                  4: "Link Throughput",
-                  5: "Link Latency",
-                  6: "Link Quality Level",
-                  7: "Link ETX",
-                  8: "Link Color"}
+DAGMC_OBJTYPE = {1: "Node State and Attributes",
+                 2: "Node Energy",
+                 3: "Hop Count",
+                 4: "Link Throughput",
+                 5: "Link Latency",
+                 6: "Link Quality Level",
+                 7: "Link ETX",
+                 8: "Link Color"}
 
 
 class DAGMCObjUnknown(Packet):
+    """
+    Dummy unknown metric/constraint
+    """
     name = 'Unknown DAGMC Object Option'
-    fields_desc = [ByteEnumField("otype", 3, _dagmcobjtypes),
+    fields_desc = [ByteEnumField("otype", 3, DAGMC_OBJTYPE),
                    FieldLenField("olen", None, length_of="odata", fmt="B"),
                    StrLenField("odata", "",
                                length_from=lambda pkt: pkt.olen)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
+        """
+        Dispatch hook for DAGMC sub-fields
+        """
         if _pkt:
-            o = orb(_pkt[0])  # Option type
-            if o in dagmcobjcls:
-                return dagmcobjcls[o]
+            opt_type = orb(_pkt[0])  # Option type
+            if opt_type in DAGMC_CLS:
+                return DAGMC_CLS[opt_type]
         return cls
 
 
-aggroutmetric = {0: "additive",
-                 1: "maximum",
-                 2: "minimum",
-                 3: "multiplicative"}  # RFC 6551
+AGG_RTMETRIC = {0: "additive",
+                1: "maximum",
+                2: "minimum",
+                3: "multiplicative"}  # RFC 6551
 
 
 class DAGMCObj(Packet):
+    """
+    Set the length field in DAG Metric Constraint Control Option
+    """
     name = 'Dummy DAG MC Object'
 
     def post_build(self, p, pay):
@@ -86,14 +99,17 @@ class DAGMCObj(Packet):
 
 
 class NSA(DAGMCObj):
+    """
+    DAG Metric: Node State and Attributes
+    """
     name = "Node State and Attributes"
-    fields_desc = [ByteEnumField("otype", 1, _dagmcobjtypes),
+    fields_desc = [ByteEnumField("otype", 1, DAGMC_OBJTYPE),
                    BitField("resflags", 0, 5),
                    BitField("P", 0, 1),
                    BitField("C", 0, 1),
                    BitField("O", 0, 1),
                    BitField("R", 0, 1),
-                   BitEnumField("A", 0, 3, aggroutmetric),
+                   BitEnumField("A", 0, 3, AGG_RTMETRIC),
                    BitField("prec", 0, 4),
                    ByteField("len", None),
                    # NSA Object Body Format
@@ -104,14 +120,17 @@ class NSA(DAGMCObj):
 
 
 class NodeEnergy(DAGMCObj):
+    """
+    DAG Metric: Node Energy
+    """
     name = "Node Energy"
-    fields_desc = [ByteEnumField("otype", 2, _dagmcobjtypes),
+    fields_desc = [ByteEnumField("otype", 2, DAGMC_OBJTYPE),
                    BitField("resflags", 0, 5),
                    BitField("P", 0, 1),
                    BitField("C", 0, 1),
                    BitField("O", 0, 1),
                    BitField("R", 0, 1),
-                   BitEnumField("A", 0, 3, aggroutmetric),
+                   BitEnumField("A", 0, 3, AGG_RTMETRIC),
                    BitField("prec", 0, 4),
                    ByteField("len", None),
                    # NE Sub-Object Format
@@ -123,14 +142,17 @@ class NodeEnergy(DAGMCObj):
 
 
 class HopCount(DAGMCObj):
+    """
+    DAG Metric: Hop Count
+    """
     name = "Hop Count"
-    fields_desc = [ByteEnumField("otype", 3, _dagmcobjtypes),
+    fields_desc = [ByteEnumField("otype", 3, DAGMC_OBJTYPE),
                    BitField("resflags", 0, 5),
                    BitField("P", 0, 1),
                    BitField("C", 0, 1),
                    BitField("O", 0, 1),
                    BitField("R", 0, 1),
-                   BitEnumField("A", 0, 3, aggroutmetric),
+                   BitEnumField("A", 0, 3, AGG_RTMETRIC),
                    BitField("prec", 0, 4),
                    ByteField("len", None),
                    # Sub-Object Format
@@ -140,14 +162,17 @@ class HopCount(DAGMCObj):
 
 
 class LinkThroughput(DAGMCObj):
+    """
+    DAG Metric: Link Throughput
+    """
     name = "Link Throughput"
-    fields_desc = [ByteEnumField("otype", 4, _dagmcobjtypes),
+    fields_desc = [ByteEnumField("otype", 4, DAGMC_OBJTYPE),
                    BitField("resflags", 0, 5),
                    BitField("P", 0, 1),
                    BitField("C", 0, 1),
                    BitField("O", 0, 1),
                    BitField("R", 0, 1),
-                   BitEnumField("A", 0, 3, aggroutmetric),
+                   BitEnumField("A", 0, 3, AGG_RTMETRIC),
                    BitField("prec", 0, 4),
                    ByteField("len", None),
                    # Sub-Object Format
@@ -155,14 +180,17 @@ class LinkThroughput(DAGMCObj):
 
 
 class LinkLatency(DAGMCObj):
+    """
+    DAG Metric: Link Latency
+    """
     name = "Link Latency"
-    fields_desc = [ByteEnumField("otype", 5, _dagmcobjtypes),
+    fields_desc = [ByteEnumField("otype", 5, DAGMC_OBJTYPE),
                    BitField("resflags", 0, 5),
                    BitField("P", 0, 1),
                    BitField("C", 0, 1),
                    BitField("O", 0, 1),
                    BitField("R", 0, 1),
-                   BitEnumField("A", 0, 3, aggroutmetric),
+                   BitEnumField("A", 0, 3, AGG_RTMETRIC),
                    BitField("prec", 0, 4),
                    ByteField("len", None),
                    # NE Sub-Object Format
@@ -170,14 +198,17 @@ class LinkLatency(DAGMCObj):
 
 
 class LinkQualityLevel(DAGMCObj):
+    """
+    DAG Metric: Link Quality Level (LQL)
+    """
     name = "Link Quality Level"
-    fields_desc = [ByteEnumField("otype", 6, _dagmcobjtypes),
+    fields_desc = [ByteEnumField("otype", 6, DAGMC_OBJTYPE),
                    BitField("resflags", 0, 5),
                    BitField("P", 0, 1),
                    BitField("C", 0, 1),
                    BitField("O", 0, 1),
                    BitField("R", 0, 1),
-                   BitEnumField("A", 0, 3, aggroutmetric),
+                   BitEnumField("A", 0, 3, AGG_RTMETRIC),
                    BitField("prec", 0, 4),
                    ByteField("len", None),
                    # Sub-Object Format
@@ -187,14 +218,17 @@ class LinkQualityLevel(DAGMCObj):
 
 
 class LinkETX(DAGMCObj):
+    """
+    DAG Metric: Link ETX
+    """
     name = "Link ETX"
-    fields_desc = [ByteEnumField("otype", 7, _dagmcobjtypes),
+    fields_desc = [ByteEnumField("otype", 7, DAGMC_OBJTYPE),
                    BitField("resflags", 0, 5),
                    BitField("P", 0, 1),
                    BitField("C", 0, 1),
                    BitField("O", 0, 1),
                    BitField("R", 0, 1),
-                   BitEnumField("A", 0, 3, aggroutmetric),
+                   BitEnumField("A", 0, 3, AGG_RTMETRIC),
                    BitField("prec", 0, 4),
                    ByteField("len", None),
                    # Sub-Object Format
@@ -204,14 +238,17 @@ class LinkETX(DAGMCObj):
 # Note: Wireshark shows warning decoding LinkColor.
 # This seems to be wireshark issue!
 class LinkColor(DAGMCObj):
+    """
+    DAG Metric: Link Color
+    """
     name = "Link Color"
-    fields_desc = [ByteEnumField("otype", 8, _dagmcobjtypes),
+    fields_desc = [ByteEnumField("otype", 8, DAGMC_OBJTYPE),
                    BitField("resflags", 0, 5),
                    BitField("P", 0, 1),
                    BitField("C", 0, 1),
                    BitField("O", 0, 1),
                    BitField("R", 0, 1),
-                   BitEnumField("A", 0, 3, aggroutmetric),
+                   BitEnumField("A", 0, 3, AGG_RTMETRIC),
                    BitField("prec", 0, 4),
                    ByteField("len", None),
                    # Sub-Object Format
@@ -220,17 +257,20 @@ class LinkColor(DAGMCObj):
                    BitField("counter", 1, 6)]
 
 
-dagmcobjcls = {1: NSA,
-               2: NodeEnergy,
-               3: HopCount,
-               4: LinkThroughput,
-               5: LinkLatency,
-               6: LinkQualityLevel,
-               7: LinkETX,
-               8: LinkColor}
+DAGMC_CLS = {1: NSA,
+             2: NodeEnergy,
+             3: HopCount,
+             4: LinkThroughput,
+             5: LinkLatency,
+             6: LinkQualityLevel,
+             7: LinkETX,
+             8: LinkColor}
 
 
 class OptDAGMC(_DAGMetricContainer):
+    """
+    Control Option: DAG Metric Container
+    """
     name = "DAG Metric Container"
     fields_desc = [ByteEnumField("otype", 2, rploptsstr),
                    ByteField("len", None),
@@ -240,4 +280,5 @@ class OptDAGMC(_DAGMetricContainer):
 
 
 # https://www.iana.org/assignments/rpl/rpl.xhtml#control-message-options
-rplopts.update({2: OptDAGMC})
+for msg in [DIS, DIO, DAO, DAOACK, DCO, DCOACK]:
+    bind_layers(msg, OptDAGMC, otype=2)

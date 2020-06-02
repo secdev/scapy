@@ -2610,35 +2610,23 @@ def _niquery_guesser(p):
 #############################################################################
 #############################################################################
 
-icmp6rplcodes = {
-}  # filled in contrib/rpl.py
-
-
-class _RPLGuessPayload:
-    name = "Dummy RPL class that implements guess_payload_class()"
-
-    def guess_payload_class(self, p):
-        if len(p) > 1:
-            return icmp6rplcodes.get(self.code, Raw)
-
-
 # https://www.iana.org/assignments/rpl/rpl.xhtml#control-codes
 rplcodes = {0: "DIS",
             1: "DIO",
             2: "DAO",
             3: "DAO-ACK",
-            4: "P2P-DRO",
-            5: "P2P-DRO-ACK",
-            6: "Measurement",
+            # 4: "P2P-DRO",
+            # 5: "P2P-DRO-ACK",
+            # 6: "Measurement",
             7: "DCO",
             8: "DCO-ACK"}
 
 
-class RPL(_RPLGuessPayload, _ICMPv6):   # RFC 6550
+class RPL(_ICMPv6):   # RFC 6550
     name = 'RPL'
     fields_desc = [ByteEnumField("type", 155, icmp6types),
-                   ByteEnumField("code", 0, rplcodes)]
-    overload_fields = {IPv6: {"nh": 58, "dst": "ff02::1a"}}
+                   ByteEnumField("code", 0, rplcodes),
+                   XShortField("cksum", None)]
 
 
 #############################################################################
@@ -4007,7 +3995,6 @@ def _load_dict(d):
         d[k] = _get_cls(v)
 
 
-_load_dict(icmp6rplcodes)
 _load_dict(icmp6ndoptscls)
 _load_dict(icmp6typescls)
 _load_dict(ipv6nhcls)
@@ -4037,3 +4024,4 @@ bind_layers(IP, IPv6, proto=socket.IPPROTO_IPV6)
 bind_layers(IPv6, IPv6, nh=socket.IPPROTO_IPV6)
 bind_layers(IPv6, IP, nh=socket.IPPROTO_IPIP)
 bind_layers(IPv6, GRE, nh=socket.IPPROTO_GRE)
+bind_layers(IPv6, RPL, {"nh": 58, "dst": "ff02::1a"})
