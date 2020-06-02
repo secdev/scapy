@@ -23,11 +23,21 @@
 """
 RFC 6550 - Routing Protocol for Low-Power and Lossy Networks (RPL)
 draft-ietf-roll-efficient-npdao-17 - Efficient Route Invalidation
+
++----------------------------------------------------------------------+
+| RPL Options = Pad1/PadN/TIO/RIO/PIO/Tgt/TgtDesc/DODAGConfig/DAGMC/.. |
+|----------------------------------------------------------------------|
+| RPL Msgs = DIS/DIO/DAO/DAOACK/DCO/DCOACK                             |
+|----------------------------------------------------------------------|
+| ICMPv6 - type 155 = RPL                                              |
++----------------------------------------------------------------------+
+
 """
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ByteField, IP6Field, ShortField, \
-    BitField, BitEnumField, FieldLenField, StrLenField, IntField
+    BitField, BitEnumField, FieldLenField, StrLenField, IntField, \
+    ConditionalField
 from scapy.layers.inet6 import RPL, icmp6ndraprefs, _IP6PrefixField
 
 
@@ -53,8 +63,12 @@ RPLOPTSSTR = {0: "Pad1",
               10: "P2P Route Discovery"}
 
 
+class _RPLGuessMsgType(Packet):
+    name = "Dummy RPL Message class"
+
+
 class _RPLGuessOption(Packet):
-    name = "Dummy RPL Option class that implements guess_payload_class()"
+    name = "Dummy RPL Option class"
 
 
 class OptRIO(_RPLGuessOption):
@@ -189,7 +203,7 @@ class PadN(_RPLGuessOption):
 # RPL Control Message Handling
 
 
-class DIS(_RPLGuessOption, Packet):
+class DIS(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: DODAG Information Solicitation (DIS)
     """
@@ -198,7 +212,7 @@ class DIS(_RPLGuessOption, Packet):
                    ByteField("reserved", 0)]
 
 
-class DIO(_RPLGuessOption, Packet):
+class DIO(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: DODAG Information Object (DIO)
     """
@@ -216,24 +230,7 @@ class DIO(_RPLGuessOption, Packet):
                    IP6Field("dodagid", "::1")]
 
 
-class _OptDODAGIDField(IP6Field):
-    """
-    Handle Optional DODAG ID field in DAO
-    """
-    def getfield(self, pkt, s):
-        if pkt.D == 0:
-            return s, None
-        return s[16:], self.m2i(pkt, s[:16])
-
-    def addfield(self, pkt, s, val):
-        if pkt.D == 1:
-            return s + self.i2m(pkt, val)
-        if val:
-            print("RPL DAO 'D' flag is not set but dodagid is given.")
-        return s
-
-
-class DAO(_RPLGuessOption, Packet):
+class DAO(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: Destination Advertisement Object (DAO)
     """
@@ -244,10 +241,11 @@ class DAO(_RPLGuessOption, Packet):
                    BitField("flags", 0, 6),
                    ByteField("reserved", 0),
                    ByteField("daoseq", 1),
-                   _OptDODAGIDField("dodagid", None)]
+                   ConditionalField(IP6Field("dodagid", None),
+                                    lambda pkt: pkt.D == 1)]
 
 
-class DAOACK(_RPLGuessOption, Packet):
+class DAOACK(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: Destination Advertisement Object Acknowledgement (DAOACK)
     """
@@ -257,11 +255,12 @@ class DAOACK(_RPLGuessOption, Packet):
                    BitField("reserved", 0, 7),
                    ByteField("daoseq", 1),
                    ByteField("status", 0),
-                   _OptDODAGIDField("dodagid", None)]
+                   ConditionalField(IP6Field("dodagid", None),
+                                    lambda pkt: pkt.D == 1)]
 
 
 # https://datatracker.ietf.org/doc/draft-ietf-roll-efficient-npdao/
-class DCO(_RPLGuessOption, Packet):
+class DCO(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: Destination Cleanup Object (DCO)
     """
@@ -272,11 +271,12 @@ class DCO(_RPLGuessOption, Packet):
                    BitField("flags", 0, 6),
                    ByteField("status", 0),
                    ByteField("dcoseq", 1),
-                   _OptDODAGIDField("dodagid", None)]
+                   ConditionalField(IP6Field("dodagid", None),
+                                    lambda pkt: pkt.D == 1)]
 
 
 # https://datatracker.ietf.org/doc/draft-ietf-roll-efficient-npdao/
-class DCOACK(_RPLGuessOption, Packet):
+class DCOACK(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: Destination Cleanup Object Acknowledgement (DCOACK)
     """
@@ -286,7 +286,8 @@ class DCOACK(_RPLGuessOption, Packet):
                    BitField("flags", 0, 7),
                    ByteField("dcoseq", 1),
                    ByteField("status", 0),
-                   _OptDODAGIDField("dodagid", None)]
+                   ConditionalField(IP6Field("dodagid", None),
+                                    lambda pkt: pkt.D == 1)]
 
 
 # https://www.iana.org/assignments/rpl/rpl.xhtml#control-codes
@@ -298,15 +299,13 @@ bind_layers(RPL, DCO, code=7)
 bind_layers(RPL, DCOACK, code=8)
 
 
-# https://www.iana.org/assignments/rpl/rpl.xhtml#control-message-options
-for msg in [DIS, DIO, DAO, DAOACK, DCO, DCOACK]:
-    bind_layers(msg, Pad1, otype=0)
-    bind_layers(msg, PadN, otype=1)
-    # OptDAGMC, otype=2 defined in rpl_metric.py
-    bind_layers(msg, OptRIO, otype=3)
-    bind_layers(msg, OptDODAGConfig, otype=4)
-    bind_layers(msg, OptTgt, otype=5)
-    bind_layers(msg, OptTIO, otype=6)
-    bind_layers(msg, OptSolInfo, otype=7)
-    bind_layers(msg, OptPIO, otype=8)
-    bind_layers(msg, OptTgtDesc, otype=9)
+bind_layers(_RPLGuessMsgType, Pad1, otype=0)
+bind_layers(_RPLGuessMsgType, PadN, otype=1)
+# OptDAGMC, otype=2 defined in rpl_metric.py
+bind_layers(_RPLGuessMsgType, OptRIO, otype=3)
+bind_layers(_RPLGuessMsgType, OptDODAGConfig, otype=4)
+bind_layers(_RPLGuessMsgType, OptTgt, otype=5)
+bind_layers(_RPLGuessMsgType, OptTIO, otype=6)
+bind_layers(_RPLGuessMsgType, OptSolInfo, otype=7)
+bind_layers(_RPLGuessMsgType, OptPIO, otype=8)
+bind_layers(_RPLGuessMsgType, OptTgtDesc, otype=9)
