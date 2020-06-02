@@ -30,7 +30,7 @@ from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ByteField, ShortField, BitField, \
     BitEnumField, FieldLenField, StrLenField, IntField
 from scapy.layers.inet6 import _PhantomAutoPadField, _OptionsField
-from scapy.contrib.rpl import rploptsstr, DIS, DIO, DAO, DAOACK, DCO, DCOACK
+from scapy.contrib.rpl import RPLOPTSSTR, DIS, DIO, DAO, DAOACK, DCO, DCOACK
 
 
 class _DAGMetricContainer(Packet):
@@ -272,7 +272,7 @@ class OptDAGMC(_DAGMetricContainer):
     Control Option: DAG Metric Container
     """
     name = "DAG Metric Container"
-    fields_desc = [ByteEnumField("otype", 2, rploptsstr),
+    fields_desc = [ByteEnumField("otype", 2, RPLOPTSSTR),
                    ByteField("len", None),
                    _PhantomAutoPadField("autopad", 0),
                    _OptionsField("options", [], DAGMCObjUnknown, 8,
