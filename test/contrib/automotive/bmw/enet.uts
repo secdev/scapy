@@ -1,8 +1,7 @@
 + ENET Contrib tests
 
 = Load Contrib Layer
-
-load_contrib("automotive.bmw.enet")
+load_contrib("automotive.bmw.enet", globals_dict=globals())
 
 = Basic Test 1
 

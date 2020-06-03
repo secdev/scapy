@@ -10,20 +10,16 @@
 ~ conf
 
 = Load module
-
-load_layer("can")
+load_layer("can", globals_dict=globals())
 from scapy.contrib.cansocket_python_can import PythonCANSocket
 from scapy.contrib.cansocket_native import NativeCANSocket
 
 conf.contribs['CAN'] = {'swap-bytes': False}
 
 = Setup string for vcan
-~ conf command
-
 bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
 
 = Load os
-
 import os
 import threading
 from subprocess import call

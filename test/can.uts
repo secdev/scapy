@@ -15,7 +15,7 @@ import random
 
 random.seed()
 
-load_layer("can")
+load_layer("can", globals_dict=globals())
 
 = Build a packet
 

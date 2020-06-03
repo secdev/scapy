@@ -5,10 +5,10 @@
 ~ conf
 
 = Imports
-load_layer("can")
+load_layer("can", globals_dict=globals())
+import scapy.modules.six as six
 import subprocess, sys
 from subprocess import call
-import scapy.modules.six as six
 from scapy.contrib.automotive.ecu import *
 
 = Definition of constants, utility functions and mock classes
@@ -104,17 +104,18 @@ if p1.wait() == 0 and p2.wait() == 0 and b"can_isotp" in p2.stdout.read():
 
 = Import isotp
 conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
-load_contrib("isotp")
+
+if six.PY3:
+    import importlib
+    if "scapy.contrib.isotp" in sys.modules:
+        importlib.reload(scapy.contrib.isotp)
+
+load_contrib("isotp", globals_dict=globals())
 
 if six.PY3 and ISOTP_KERNEL_MODULE_AVAILABLE:
-    from scapy.contrib.isotp import ISOTPNativeSocket
-    ISOTPSocket = ISOTPNativeSocket
     assert ISOTPSocket == ISOTPNativeSocket
 else:
-    from scapy.contrib.isotp import ISOTPSoftSocket
-    ISOTPSocket = ISOTPSoftSocket
     assert ISOTPSocket == ISOTPSoftSocket
-
 
 + Usage tests
 
