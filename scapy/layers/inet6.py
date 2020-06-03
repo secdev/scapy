@@ -1023,6 +1023,12 @@ class IPv6ExtHdrFragment(_IPv6ExtHdr):
                    IntField("id", None)]
     overload_fields = {IPv6: {"nh": 44}}
 
+    def guess_payload_class(self, p):
+        if self.offset > 0:
+            return Raw
+        else:
+            return super(IPv6ExtHdrFragment, self).guess_payload_class(p)
+
 
 def defragment6(packets):
     """
