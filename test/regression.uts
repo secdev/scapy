@@ -4061,6 +4061,10 @@ a.nh == 0xff and a.res1 == 0xee and a.offset==0x1fff and a.res2==1 and a.m == 1 
 l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*40000), 1280) 
 len(l) == 33 and len(raw(l[-1])) == 644
 
+= fragment6 - test against a long TCP packet with a 1280 MTU without fragment header
+l=fragment6(IPv6()/TCP()/Raw(load="A"*40000), 1280)
+len(l) == 33 and len(raw(l[-1])) == 644
+
 
 ############
 ############

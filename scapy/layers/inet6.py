@@ -1090,21 +1090,31 @@ def defragment6(packets):
 
 def fragment6(pkt, fragSize):
     """
-    Performs fragmentation of an IPv6 packet. Provided packet ('pkt') must
-    already contain an IPv6ExtHdrFragment() class. 'fragSize' argument is the
-    expected maximum size of fragments (MTU). The list of packets is returned.
+    Performs fragmentation of an IPv6 packet. 'fragSize' argument is the
+    expected maximum size of fragment data (MTU). The list of packets is
+    returned.
 
-    If packet does not contain an IPv6ExtHdrFragment class, it is returned in
-    result list.
+    If packet does not contain an IPv6ExtHdrFragment class, it is added to
+    first IPv6 layer found. If no IPv6 layer exists packet is returned in
+    result list unmodified.
     """
 
     pkt = pkt.copy()
 
     if IPv6ExtHdrFragment not in pkt:
-        # TODO : automatically add a fragment before upper Layer
-        #        at the moment, we do nothing and return initial packet
-        #        as single element of a list
-        return [pkt]
+        if IPv6 not in pkt:
+            return [pkt]
+
+        layer3 = pkt[IPv6]
+        data = layer3.payload
+        frag = IPv6ExtHdrFragment(nh=layer3.nh)
+
+        layer3.remove_payload()
+        del(layer3.nh)
+        del(layer3.plen)
+
+        frag.add_payload(data)
+        layer3.add_payload(frag)
 
     # If the payload is bigger than 65535, a Jumbo payload must be used, as
     # an IPv6 packet can't be bigger than 65535 bytes.
