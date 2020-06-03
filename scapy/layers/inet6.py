@@ -1073,7 +1073,7 @@ def defragment6(packets):
         fragmentable += raw(q.payload)
 
     # Regenerate the unfragmentable part.
-    q = res[0]
+    q = res[0].copy()
     nh = q[IPv6ExtHdrFragment].nh
     q[IPv6ExtHdrFragment].underlayer.nh = nh
     q[IPv6ExtHdrFragment].underlayer.plen = len(fragmentable)
@@ -1081,7 +1081,11 @@ def defragment6(packets):
     q /= conf.raw_layer(load=fragmentable)
     del(q.plen)
 
-    return IPv6(raw(q))
+    if q[IPv6].underlayer:
+        q[IPv6] = IPv6(raw(q[IPv6]))
+    else:
+        q = IPv6(raw(q))
+    return q
 
 
 def fragment6(pkt, fragSize):
