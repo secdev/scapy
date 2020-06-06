@@ -1203,7 +1203,7 @@ icmp6typescls = {1: "ICMPv6DestUnreach",
                  152: "ICMPv6MRD_Solicitation",
                  153: "ICMPv6MRD_Termination",
                  # 154: Do Me - FMIPv6 Messages - RFC 5568
-                 155: "RPL",  # RFC 6550
+                 155: "ICMPv6RPL",  # RFC 6550
                  }
 
 icmp6typesminhdrlen = {1: 8,
@@ -2622,11 +2622,12 @@ rplcodes = {0: "DIS",
             8: "DCO-ACK"}
 
 
-class RPL(_ICMPv6):   # RFC 6550
+class ICMPv6RPL(_ICMPv6):   # RFC 6550
     name = 'RPL'
     fields_desc = [ByteEnumField("type", 155, icmp6types),
                    ByteEnumField("code", 0, rplcodes),
                    XShortField("cksum", None)]
+    overload_fields = {IPv6: {"nh": 58, "dst": "ff02::1a"}}
 
 
 #############################################################################
@@ -4024,4 +4025,3 @@ bind_layers(IP, IPv6, proto=socket.IPPROTO_IPV6)
 bind_layers(IPv6, IPv6, nh=socket.IPPROTO_IPV6)
 bind_layers(IPv6, IP, nh=socket.IPPROTO_IPIP)
 bind_layers(IPv6, GRE, nh=socket.IPPROTO_GRE)
-bind_layers(IPv6, RPL, nh=58, dst="ff02::1a")

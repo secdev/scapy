@@ -42,7 +42,7 @@ from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ByteField, IP6Field, ShortField, \
     BitField, BitEnumField, FieldLenField, StrLenField, IntField, \
     ConditionalField
-from scapy.layers.inet6 import RPL, icmp6ndraprefs, _IP6PrefixField
+from scapy.layers.inet6 import ICMPv6RPL, icmp6ndraprefs, _IP6PrefixField
 
 
 # https://www.iana.org/assignments/rpl/rpl.xhtml#mop
@@ -67,15 +67,11 @@ RPLOPTSSTR = {0: "Pad1",
               10: "P2P Route Discovery"}
 
 
-class _RPLGuessMsgType(Packet):
-    name = "Dummy RPL Message class"
-
-
 class _RPLGuessOption(Packet):
     name = "Dummy RPL Option class"
 
 
-class OptRIO(_RPLGuessOption):
+class RPLOptRIO(_RPLGuessOption):
     """
     Control Option: Routing Information Option (RIO)
     """
@@ -91,7 +87,7 @@ class OptRIO(_RPLGuessOption):
                    _IP6PrefixField("prefix", None)]
 
 
-class OptDODAGConfig(_RPLGuessOption):
+class RPLOptDODAGConfig(_RPLGuessOption):
     """
     Control Option: DODAG Configuration
     """
@@ -112,7 +108,7 @@ class OptDODAGConfig(_RPLGuessOption):
                    ShortField("LifetimeUnit", 0xffff)]
 
 
-class OptTgt(_RPLGuessOption):
+class RPLOptTgt(_RPLGuessOption):
     """
     Control Option: RPL Target
     """
@@ -125,7 +121,7 @@ class OptTgt(_RPLGuessOption):
                    _IP6PrefixField("prefix", None)]
 
 
-class OptTIO(_RPLGuessOption):
+class RPLOptTIO(_RPLGuessOption):
     """
     Control Option: Transit Information Option (TIO)
     """
@@ -141,7 +137,7 @@ class OptTIO(_RPLGuessOption):
                    _IP6PrefixField("parentaddr", None)]
 
 
-class OptSolInfo(_RPLGuessOption):
+class RPLOptSolInfo(_RPLGuessOption):
     """
     Control Option: Solicited Information
     """
@@ -157,7 +153,7 @@ class OptSolInfo(_RPLGuessOption):
                    ByteField("ver", 0)]
 
 
-class OptPIO(_RPLGuessOption):
+class RPLOptPIO(_RPLGuessOption):
     """
     Control Option: Prefix Information Option (PIO)
     """
@@ -175,7 +171,7 @@ class OptPIO(_RPLGuessOption):
                    IP6Field("prefix", "::1")]
 
 
-class OptTgtDesc(_RPLGuessOption):
+class RPLOptTgtDesc(_RPLGuessOption):
     """
     Control Option: RPL Target Descriptor
     """
@@ -185,7 +181,7 @@ class OptTgtDesc(_RPLGuessOption):
                    IntField("descriptor", 0)]
 
 
-class Pad1(_RPLGuessOption):
+class RPLOptPad1(_RPLGuessOption):
     """
     Control Option: Pad 1 byte
     """
@@ -193,7 +189,7 @@ class Pad1(_RPLGuessOption):
     fields_desc = [ByteEnumField("otype", 0x00, RPLOPTSSTR)]
 
 
-class PadN(_RPLGuessOption):
+class RPLOptPadN(_RPLGuessOption):
     """
     Control Option: Pad N bytes
     """
@@ -204,10 +200,34 @@ class PadN(_RPLGuessOption):
                                length_from=lambda pkt: pkt.optlen)]
 
 
+# https://www.iana.org/assignments/rpl/rpl.xhtml#control-message-options
+RPLOPTS = {0: RPLOptPad1,
+           1: RPLOptPadN,
+           # 2: RPLOptDAGMC, defined in rpl_metrics.py
+           3: RPLOptRIO,
+           4: RPLOptDODAGConfig,
+           5: RPLOptTgt,
+           6: RPLOptTIO,
+           7: RPLOptSolInfo,
+           8: RPLOptPIO,
+           9: RPLOptTgtDesc}
+
+
 # RPL Control Message Handling
 
 
-class DIS(_RPLGuessMsgType, _RPLGuessOption):
+class _RPLGuessMsgType(Packet):
+    name = "Dummy RPL Message class"
+
+    def guess_payload_class(self, payload):
+        if isinstance(payload, str):
+            otype = ord(payload[0])
+        else:
+            otype = payload[0]
+        return RPLOPTS.get(otype)
+
+
+class RPLDIS(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: DODAG Information Solicitation (DIS)
     """
@@ -216,7 +236,7 @@ class DIS(_RPLGuessMsgType, _RPLGuessOption):
                    ByteField("reserved", 0)]
 
 
-class DIO(_RPLGuessMsgType, _RPLGuessOption):
+class RPLDIO(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: DODAG Information Object (DIO)
     """
@@ -234,7 +254,7 @@ class DIO(_RPLGuessMsgType, _RPLGuessOption):
                    IP6Field("dodagid", "::1")]
 
 
-class DAO(_RPLGuessMsgType, _RPLGuessOption):
+class RPLDAO(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: Destination Advertisement Object (DAO)
     """
@@ -249,7 +269,7 @@ class DAO(_RPLGuessMsgType, _RPLGuessOption):
                                     lambda pkt: pkt.D == 1)]
 
 
-class DAOACK(_RPLGuessMsgType, _RPLGuessOption):
+class RPLDAOACK(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: Destination Advertisement Object Acknowledgement (DAOACK)
     """
@@ -264,7 +284,7 @@ class DAOACK(_RPLGuessMsgType, _RPLGuessOption):
 
 
 # https://datatracker.ietf.org/doc/draft-ietf-roll-efficient-npdao/
-class DCO(_RPLGuessMsgType, _RPLGuessOption):
+class RPLDCO(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: Destination Cleanup Object (DCO)
     """
@@ -280,7 +300,7 @@ class DCO(_RPLGuessMsgType, _RPLGuessOption):
 
 
 # https://datatracker.ietf.org/doc/draft-ietf-roll-efficient-npdao/
-class DCOACK(_RPLGuessMsgType, _RPLGuessOption):
+class RPLDCOACK(_RPLGuessMsgType, _RPLGuessOption):
     """
     Control Message: Destination Cleanup Object Acknowledgement (DCOACK)
     """
@@ -295,21 +315,9 @@ class DCOACK(_RPLGuessMsgType, _RPLGuessOption):
 
 
 # https://www.iana.org/assignments/rpl/rpl.xhtml#control-codes
-bind_layers(RPL, DIS, code=0)
-bind_layers(RPL, DIO, code=1)
-bind_layers(RPL, DAO, code=2)
-bind_layers(RPL, DAOACK, code=3)
-bind_layers(RPL, DCO, code=7)
-bind_layers(RPL, DCOACK, code=8)
-
-
-bind_layers(_RPLGuessMsgType, Pad1, otype=0)
-bind_layers(_RPLGuessMsgType, PadN, otype=1)
-# OptDAGMC, otype=2 defined in rpl_metric.py
-bind_layers(_RPLGuessMsgType, OptRIO, otype=3)
-bind_layers(_RPLGuessMsgType, OptDODAGConfig, otype=4)
-bind_layers(_RPLGuessMsgType, OptTgt, otype=5)
-bind_layers(_RPLGuessMsgType, OptTIO, otype=6)
-bind_layers(_RPLGuessMsgType, OptSolInfo, otype=7)
-bind_layers(_RPLGuessMsgType, OptPIO, otype=8)
-bind_layers(_RPLGuessMsgType, OptTgtDesc, otype=9)
+bind_layers(ICMPv6RPL, RPLDIS, code=0)
+bind_layers(ICMPv6RPL, RPLDIO, code=1)
+bind_layers(ICMPv6RPL, RPLDAO, code=2)
+bind_layers(ICMPv6RPL, RPLDAOACK, code=3)
+bind_layers(ICMPv6RPL, RPLDCO, code=7)
+bind_layers(ICMPv6RPL, RPLDCOACK, code=8)

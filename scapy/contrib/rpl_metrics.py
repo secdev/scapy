@@ -34,23 +34,23 @@ RFC 6551 - Routing Metrics Used for Path Calculation in LLNs
 
 import struct
 from scapy.compat import orb
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet
 from scapy.fields import ByteEnumField, ByteField, ShortField, BitField, \
     BitEnumField, FieldLenField, StrLenField, IntField
 from scapy.layers.inet6 import _PhantomAutoPadField, _OptionsField
-from scapy.contrib.rpl import RPLOPTSSTR, _RPLGuessMsgType
+from scapy.contrib.rpl import RPLOPTSSTR, RPLOPTS
 
 
 class _DAGMetricContainer(Packet):
     name = 'Dummy DAG Metric container'
 
-    def post_build(self, p, pay):
-        p += pay
+    def post_build(self, pkt, pay):
+        pkt += pay
         tmp_len = self.len
         if self.len is None:
-            tmp_len = len(p) - 2
-        p = p[:1] + struct.pack("B", tmp_len) + p[2:]
-        return p
+            tmp_len = len(pkt) - 2
+        pkt = pkt[:1] + struct.pack("B", tmp_len) + pkt[2:]
+        return pkt
 
 
 DAGMC_OBJTYPE = {1: "Node State and Attributes",
@@ -97,16 +97,16 @@ class DAGMCObj(Packet):
     """
     name = 'Dummy DAG MC Object'
 
-    def post_build(self, p, pay):
-        p += pay
+    def post_build(self, pkt, pay):
+        pkt += pay
         tmp_len = self.len
         if self.len is None:
-            tmp_len = len(p) - 4
-        p = p[:3] + struct.pack("B", tmp_len) + p[4:]
-        return p
+            tmp_len = len(pkt) - 4
+        pkt = pkt[:3] + struct.pack("B", tmp_len) + pkt[4:]
+        return pkt
 
 
-class NSA(DAGMCObj):
+class RPLDAGMCNSA(DAGMCObj):
     """
     DAG Metric: Node State and Attributes
     """
@@ -127,7 +127,7 @@ class NSA(DAGMCObj):
                    BitField("O", 0, 1)]
 
 
-class NodeEnergy(DAGMCObj):
+class RPLDAGMCNodeEnergy(DAGMCObj):
     """
     DAG Metric: Node Energy
     """
@@ -149,7 +149,7 @@ class NodeEnergy(DAGMCObj):
                    ByteField("E_E", 0)]
 
 
-class HopCount(DAGMCObj):
+class RPLDAGMCHopCount(DAGMCObj):
     """
     DAG Metric: Hop Count
     """
@@ -169,7 +169,7 @@ class HopCount(DAGMCObj):
                    ByteField("HopCount", 1)]
 
 
-class LinkThroughput(DAGMCObj):
+class RPLDAGMCLinkThroughput(DAGMCObj):
     """
     DAG Metric: Link Throughput
     """
@@ -187,7 +187,7 @@ class LinkThroughput(DAGMCObj):
                    IntField("Throughput", 1)]
 
 
-class LinkLatency(DAGMCObj):
+class RPLDAGMCLinkLatency(DAGMCObj):
     """
     DAG Metric: Link Latency
     """
@@ -205,7 +205,7 @@ class LinkLatency(DAGMCObj):
                    IntField("Latency", 1)]
 
 
-class LinkQualityLevel(DAGMCObj):
+class RPLDAGMCLinkQualityLevel(DAGMCObj):
     """
     DAG Metric: Link Quality Level (LQL)
     """
@@ -225,7 +225,7 @@ class LinkQualityLevel(DAGMCObj):
                    BitField("counter", 0, 5)]
 
 
-class LinkETX(DAGMCObj):
+class RPLDAGMCLinkETX(DAGMCObj):
     """
     DAG Metric: Link ETX
     """
@@ -245,7 +245,7 @@ class LinkETX(DAGMCObj):
 
 # Note: Wireshark shows warning decoding LinkColor.
 # This seems to be wireshark issue!
-class LinkColor(DAGMCObj):
+class RPLDAGMCLinkColor(DAGMCObj):
     """
     DAG Metric: Link Color
     """
@@ -265,17 +265,17 @@ class LinkColor(DAGMCObj):
                    BitField("counter", 1, 6)]
 
 
-DAGMC_CLS = {1: NSA,
-             2: NodeEnergy,
-             3: HopCount,
-             4: LinkThroughput,
-             5: LinkLatency,
-             6: LinkQualityLevel,
-             7: LinkETX,
-             8: LinkColor}
+DAGMC_CLS = {1: RPLDAGMCNSA,
+             2: RPLDAGMCNodeEnergy,
+             3: RPLDAGMCHopCount,
+             4: RPLDAGMCLinkThroughput,
+             5: RPLDAGMCLinkLatency,
+             6: RPLDAGMCLinkQualityLevel,
+             7: RPLDAGMCLinkETX,
+             8: RPLDAGMCLinkColor}
 
 
-class OptDAGMC(_DAGMetricContainer):
+class RPLOptDAGMC(_DAGMetricContainer):
     """
     Control Option: DAG Metric Container
     """
@@ -288,4 +288,4 @@ class OptDAGMC(_DAGMetricContainer):
 
 
 # https://www.iana.org/assignments/rpl/rpl.xhtml#control-message-options
-bind_layers(_RPLGuessMsgType, OptDAGMC, otype=2)
+RPLOPTS.update({2: RPLOptDAGMC})
