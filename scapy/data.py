@@ -323,6 +323,15 @@ class EtherDA(DADict):
             )
         super(EtherDA, self).__setitem__(attr, val)
 
+    def __getitem__(self, attr):
+        if isinstance(attr, str):
+            warnings.warn(
+                "Please use 'ETHER_TYPES.%s'" % attr,
+                DeprecationWarning
+            )
+            return super(EtherDA, self).__getattr__(attr)
+        return super(EtherDA, self).__getitem__(attr)
+
 
 def load_ethertypes(filename):
     """"Parse /etc/ethertypes and return values as a dictionary.
@@ -351,10 +360,21 @@ def load_services(filename):
                     lt = tuple(re.split(spaces, line))
                     if len(lt) < 2 or not lt[0]:
                         continue
+                    dtct = None
                     if lt[1].endswith(b"/tcp"):
-                        tdct[int(lt[1].split(b'/')[0])] = fixname(lt[0])
+                        dtct = tdct
                     elif lt[1].endswith(b"/udp"):
-                        udct[int(lt[1].split(b'/')[0])] = fixname(lt[0])
+                        dtct = udct
+                    else:
+                        continue
+                    port = lt[1].split(b'/')[0]
+                    name = fixname(lt[0])
+                    if b"-" in port:
+                        sport, eport = port.split(b"-")
+                        for i in range(int(sport), int(eport) + 1):
+                            dtct[i] = name
+                    else:
+                        dtct[int(port)] = name
                 except Exception as e:
                     log_loading.warning(
                         "Couldn't parse file [%s]: line [%r] (%s)",
