@@ -18,6 +18,7 @@ from scapy.plist import PacketList
 from scapy.error import Scapy_Exception
 from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
+from scapy.config import conf
 
 __all__ = ["ECU_State", "ECU", "ECUResponse", "ECUSession", "ECU_am"]
 
@@ -327,6 +328,9 @@ class ECUResponse:
     __hash__ = None
 
 
+conf.contribs['ECU_am'] = {'send_delay': 0}
+
+
 class ECU_am(AnsweringMachine):
     """AnsweringMachine which emulates the basic behaviour of a real world ECU.
     Provide a list of ``ECUResponse`` objects to configure the behaviour of this
@@ -403,6 +407,7 @@ class ECU_am(AnsweringMachine):
 
     def send_reply(self, reply):
         for p in reply:
+            time.sleep(conf.contribs['ECU_am']['send_delay'])
             if len(reply) > 1:
                 time.sleep(random.uniform(0.01, 0.5))
             self.main_socket.send(p)
