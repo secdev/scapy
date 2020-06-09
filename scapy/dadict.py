@@ -40,7 +40,7 @@ class DADict_Exception(Scapy_Exception):
 
 class DADict(object):
     """
-    Direct Access dictionary
+    Direct Access Dictionary
 
     This acts like a dict, but it provides a direct attribute access
     to its keys through its values. This is used to store protocols,
