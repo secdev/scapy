@@ -1027,7 +1027,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return length
 
     def iterpayloads(self):
-        """Used to iter through the paylods of a Packet.
+        """Used to iter through the payloads of a Packet.
         Useful for DNS or 802.11 for instance.
         """
         yield self
