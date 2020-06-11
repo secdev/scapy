@@ -9,9 +9,7 @@
 + Basic operations
 
 = Load module
-
-load_contrib("automotive.obd.obd")
-
+load_contrib("automotive.obd.obd", globals_dict=globals())
 
 = Check if positive response answers
 

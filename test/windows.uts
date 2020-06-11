@@ -2,6 +2,12 @@
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
++ Configuration
+
+= Imports
+
+import mock
+
 ############
 ############
 + Mechanics tests

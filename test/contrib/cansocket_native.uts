@@ -7,48 +7,37 @@
 ############
 ############
 + Configuration of CAN virtual sockets
+~ conf
 
 = Load module
-~ conf command needs_root linux
-
-load_layer("can")
+load_layer("can", globals_dict=globals())
 conf.contribs['CANSocket'] = {'use-python-can': False}
 from scapy.contrib.cansocket_native import *
 conf.contribs['CAN'] = {'swap-bytes': False}
 
 
 = Setup string for vcan
-~ conf command
-    bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
+bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
 
 = Load os
-~ conf command needs_root linux
-
 import os
 import threading
 from time import sleep
 from subprocess import call
 
 = Setup vcan0
-~ conf command needs_root linux
-
 0 == os.system(bashCommand)
 
 + Basic Packet Tests()
 = CAN Packet init
-
-
 canframe = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 bytes(canframe) == b'\x00\x00\x07\xff\x08\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08'
 
 + Basic Socket Tests()
 = CAN Socket Init
-
-
 sock1 = CANSocket(channel="vcan0")
 
 = CAN Socket send recv small packet
-
 def sender():
     sleep(0.1)
     sock2 = CANSocket(channel="vcan0")
@@ -62,8 +51,6 @@ rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 thread.join(timeout=5)
 
 = CAN Socket send recv
-
-
 def sender():
     sleep(0.1)
     sock2 = CANSocket(channel="vcan0")
@@ -77,8 +64,6 @@ rx == CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 thread.join(timeout=5)
 
 = CAN Socket basecls test
-
-
 def sender():
     sleep(0.1)
     sock2 = CANSocket(channel="vcan0")
@@ -95,13 +80,9 @@ thread.join(timeout=5)
 
 + Advanced Socket Tests()
 = CAN Socket sr1
-
-
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 = CAN Socket sr1 init time
-
-
 tx.sent_time == None
 
 def sender():
@@ -120,18 +101,12 @@ sock1.close()
 thread.join(timeout=5)
 
 = CAN Socket sr1 time check
-
-
 assert tx.sent_time < rx.time and rx.time > 0
 
 = sr can
-
-
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 = sr can check init time
-
-
 assert tx.sent_time == None
 
 def sender():

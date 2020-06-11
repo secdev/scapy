@@ -9,16 +9,15 @@
 ~ conf command
 
 = Load modules
-
-load_contrib('isotp')
-load_contrib("automotive.uds")
-load_contrib("automotive.gm.gmlan")
-load_layer("can")
+load_contrib("isotp", globals_dict=globals())
+load_contrib("automotive.uds", globals_dict=globals())
+load_contrib("automotive.gm.gmlan", globals_dict=globals())
+load_layer("can", globals_dict=globals())
 conf.contribs["CAN"]["swap-bytes"] = True
 
 = Load ECU module
 
-load_contrib("automotive.ecu")
+load_contrib("automotive.ecu", globals_dict=globals())
 
 + Basic checks
 

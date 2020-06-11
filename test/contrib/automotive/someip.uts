@@ -32,7 +32,7 @@
 + Basic operations
 
 = Load module
-load_contrib("automotive.someip")
+load_contrib("automotive.someip", globals_dict=globals())
 
 + SOME/IP operation
 

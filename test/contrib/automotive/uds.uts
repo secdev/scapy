@@ -9,10 +9,8 @@
 + Basic operations
 
 = Load module
-
-load_contrib("automotive.uds")
-
-from scapy.contrib.automotive.ecu import ECU
+load_contrib("automotive.uds", globals_dict=globals())
+load_contrib("automotive.ecu", globals_dict=globals())
 
 = Check if positive response answers
 
