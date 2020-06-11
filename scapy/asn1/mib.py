@@ -88,12 +88,21 @@ class MIBDict(DADict):
         do_graph(s, **kargs)
 
 
-def _mib_register(ident, value, the_mib, unresolved):
-    """Internal function used to register an OID and its name in a MIBDict"""
-    if ident in the_mib or ident in unresolved:
-        return ident in the_mib
+def _mib_register(ident, value, the_mib, unresolved, alias):
+    """
+    Internal function used to register an OID and its name in a MIBDict
+    """
+    if ident in the_mib:
+        # We have already resolved this one. Store the alias
+        alias[".".join(value)] = ident
+        return True
+    if ident in unresolved:
+        # We know we can't resolve this one
+        return False
     resval = []
     not_resolved = 0
+    # Resolve the OID
+    # (e.g. 2.basicConstraints.3 -> 2.2.5.29.19.3)
     for v in value:
         if _mib_re_integer.match(v):
             resval.append(v)
@@ -110,15 +119,20 @@ def _mib_register(ident, value, the_mib, unresolved):
             else:
                 resval.append(v)
     if not_resolved:
+        # Unresolved
         unresolved[ident] = resval
         return False
     else:
+        # Fully resolved
         the_mib[ident] = resval
         keys = list(unresolved)
         i = 0
+        # Go through the unresolved to update the ones that
+        # depended on the one we just did
         while i < len(keys):
             k = keys[i]
-            if _mib_register(k, unresolved[k], the_mib, {}):
+            if _mib_register(k, unresolved[k], the_mib, {}, alias):
+                # Now resolved: we can remove it from unresolved
                 del(unresolved[k])
                 del(keys[i])
                 i = 0
@@ -129,19 +143,26 @@ def _mib_register(ident, value, the_mib, unresolved):
 
 
 def load_mib(filenames):
-    """Load the conf.mib dict from a list of filenames"""
+    """
+    Load the conf.mib dict from a list of filenames
+    """
     the_mib = {'iso': ['1']}
     unresolved = {}
+    alias = {}
+    # Export the current MIB to a working dictionary
     for k in six.iterkeys(conf.mib):
-        _mib_register(conf.mib[k], k.split("."), the_mib, unresolved)
+        _mib_register(conf.mib[k], k.split("."), the_mib, unresolved, alias)
 
+    # Read the files
     if isinstance(filenames, (str, bytes)):
         filenames = [filenames]
     for fnames in filenames:
         for fname in glob(fnames):
             with open(fname) as f:
                 text = f.read()
-            cleantext = " ".join(_mib_re_strings.split(" ".join(_mib_re_comments.split(text))))  # noqa: E501
+            cleantext = " ".join(
+                _mib_re_strings.split(" ".join(_mib_re_comments.split(text)))
+            )
             for m in _mib_re_oiddecl.finditer(cleantext):
                 gr = m.groups()
                 ident, oid = gr[0], gr[-1]
@@ -151,13 +172,19 @@ def load_mib(filenames):
                     m = _mib_re_both.match(elt)
                     if m:
                         oid[i] = m.groups()[1]
-                _mib_register(ident, oid, the_mib, unresolved)
+                _mib_register(ident, oid, the_mib, unresolved, alias)
 
+    # Create the new MIB
     newmib = MIBDict(_name="MIB")
+    # Add resolved values
     for oid, key in six.iteritems(the_mib):
         newmib[".".join(key)] = oid
+    # Add unresolved values
     for oid, key in six.iteritems(unresolved):
         newmib[".".join(key)] = oid
+    # Add aliases
+    for key, oid in six.iteritems(alias):
+        newmib[key] = oid
 
     conf.mib = newmib
 

@@ -134,6 +134,9 @@ from subprocess import call
 load_contrib("automotive.obd.scanner", globals_dict=globals())
 load_contrib("automotive.ecu", globals_dict=globals())
 
+print("Set delay to lower utilization")
+conf.contribs['ECU_am']['send_delay'] = 0.004
+
 = Create answers
 
 responses = [

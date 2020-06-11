@@ -100,7 +100,7 @@ if p1.wait() == 0 and p2.wait() == 0 and b"can_isotp" in p2.stdout.read():
 + Syntax check
 
 = Import isotp
-conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
 load_contrib("isotp", globals_dict=globals())
 
 ISOTPSocket = ISOTPSoftSocket
@@ -126,11 +126,11 @@ assert expected_output in plain_str(std_err)
 = Test show help
 
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py", "--help"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-assert result.wait() == 0
 std_out, std_err = result.communicate()
-assert not std_err
 expected_output = plain_str(b'Scan for open ISOTP-Sockets.')
-print(std_out)
+
+assert not std_err
+assert result.wait() == 0
 assert expected_output in plain_str(std_out)
 
 
@@ -141,9 +141,9 @@ if six.PY2:
     if 0 == version.wait():
         print(version.communicate())
     result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py", "-c", iface0, "-s", "0x600", "-e", "0x600"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    assert result.wait() == 1
     expected_output = plain_str(b'Please provide all required arguments.')
     std_out, std_err = result.communicate()
+    assert result.wait() == 1
     assert expected_output in plain_str(std_err)
 
 
@@ -151,12 +151,13 @@ if six.PY2:
 
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py", "-i", "socketcan", "-c", iface0, "-s", "0x600", "-e", "0x600", "-v"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 returncode = result.wait()
-print(returncode)
 expected_output = plain_str(b'Start scan')
 std_out, std_err = result.communicate()
+
 print(std_out)
 print("%s" % std_err)
 print(expected_output)
+
 assert returncode == 0
 assert expected_output in plain_str(std_out)
 
@@ -170,6 +171,7 @@ std_out, std_err = result.communicate()
 print(std_out)
 print("%s" % std_err)
 print(expected_output)
+
 assert returncode == 0
 assert expected_output in plain_str(std_out)
 
@@ -184,6 +186,7 @@ std_out, std_err = result.communicate()
 print(std_out)
 print("%s" % std_err)
 print(expected_output)
+
 assert returncode == 0
 assert expected_output in plain_str(std_out)
 
@@ -197,6 +200,7 @@ std_out, std_err = result.communicate()
 print(std_out)
 print("%s" % std_err)
 print(expected_output)
+
 assert returncode == 0
 assert expected_output in plain_str(std_out)
 
@@ -210,25 +214,30 @@ started = threading.Event()
 
 def isotpserver():
     with new_can_socket(iface0) as isocan, ISOTPSocket(isocan, sid=0x700, did=0x600) as s:
-        s.sniff(timeout=100, count=1, started_callback=started.set)
+        s.sniff(timeout=200, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
 sniffer.start()
 started.wait(timeout=10)
+
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"] + can_socket_string_list + ["-s", "0x600", "-e", "0x600"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-returncode = result.wait()
-std_out, std_err = result.communicate()
+returncode1 = result.wait()
+std_out1, std_err1 = result.communicate()
+result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"] + can_socket_string_list + ["-s", "0x600", "-e", "0x600"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+returncode2 = result.wait()
+std_out2, std_err2 = result.communicate()
 
 send_returncode = subprocess.call(['cansend', iface0, '600#01aa'])
-assert 0 == send_returncode
-assert returncode == 0
-
 sniffer.join(timeout=10)
 
+assert 0 == send_returncode
+assert returncode1 == 0
+assert returncode2 == 0
+
+
 expected_output = [b'0x600', b'0x700']
-print(std_out)
 for out in expected_output:
-    assert plain_str(out) in plain_str(std_out)
+    assert plain_str(out) in plain_str(std_out1 + std_out2)
 
 
 = Test extended scan
@@ -238,26 +247,32 @@ started = threading.Event()
 
 def isotpserver():
     with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
-        s.sniff(timeout=100, count=1, started_callback=started.set)
+        s.sniff(timeout=200, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
 sniffer.start()
 started.wait(timeout=10)
+
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"] + can_socket_string_list + ["-s", "0x601", "-e", "0x601", "-x"], stdout=subprocess.PIPE)
-returncode = result.wait()
+returncode1 = result.wait()
+std_out1, std_err1 = result.communicate()
+result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"] + can_socket_string_list + ["-s", "0x601", "-e", "0x601", "-x"], stdout=subprocess.PIPE)
+returncode2 = result.wait()
+std_out2, std_err2 = result.communicate()
 
 send_returncode = subprocess.call(['cansend', iface0, '601#BB01aa'])
-assert 0 == send_returncode
-assert returncode == 0
-
-expected_output = [b'0x601', b'0xbb', b'0x700', b'0xaa']
-std_out, std_err = result.communicate()
 sniffer.join(timeout=10)
 
-assert std_err == None
+expected_output = [b'0x601', b'0xbb', b'0x700', b'0xaa']
+assert 0 == send_returncode
+assert returncode1 == 0
+assert returncode2 == 0
+
+assert std_err1 == None
+assert std_err2 == None
 
 for out in expected_output:
-    assert plain_str(out) in plain_str(std_out)
+    assert plain_str(out) in plain_str(std_out1 + std_out2)
 
 = Test extended only scan
 
@@ -266,26 +281,32 @@ started = threading.Event()
 
 def isotpserver():
     with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
-        s.sniff(timeout=100, count=1, started_callback=started.set)
+        s.sniff(timeout=200, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
 sniffer.start()
 started.wait(timeout=10)
+
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"] + can_socket_string_list + ["-s", "0x601", "-e", "0x601", "-x"], stdout=subprocess.PIPE)
-returncode = result.wait()
+returncode1 = result.wait()
+std_out1, std_err1 = result.communicate()
+result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"] + can_socket_string_list + ["-s", "0x601", "-e", "0x601", "-x"], stdout=subprocess.PIPE)
+returncode2 = result.wait()
+std_out2, std_err2 = result.communicate()
 
 send_returncode = subprocess.call(['cansend', iface0, '601#BB01aa'])
-assert 0 == send_returncode
-assert returncode == 0
-
-expected_output = [b'0x601', b'0xbb', b'0x700', b'0xaa']
-std_out, std_err = result.communicate()
 sniffer.join(timeout=10)
 
-assert std_err == None
+expected_output = [b'0x601', b'0xbb', b'0x700', b'0xaa']
+assert 0 == send_returncode
+assert returncode1 == 0
+assert returncode2 == 0
+
+assert std_err1 == None
+assert std_err2 == None
 
 for out in expected_output:
-    assert plain_str(out) in plain_str(std_out)
+    assert plain_str(out) in plain_str(std_out1 + std_out2)
 
 
 = Test scan with piso flag
@@ -295,26 +316,33 @@ started = threading.Event()
 
 def isotpserver():
     with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
-        s.sniff(timeout=100, count=1, started_callback=started.set)
+        s.sniff(timeout=200, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
 sniffer.start()
 started.wait(timeout=10)
+
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"] + can_socket_string_list + ["-s", "0x601", "-e", "0x601", "-x", "-C"], stdout=subprocess.PIPE)
-returncode = result.wait()
+returncode1 = result.wait()
+std_out1, std_err1 = result.communicate()
+
+result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py"] + can_socket_string_list + ["-s", "0x601", "-e", "0x601", "-x", "-C"], stdout=subprocess.PIPE)
+returncode2 = result.wait()
+std_out2, std_err2 = result.communicate()
 
 send_returncode = subprocess.call(['cansend', iface0, '601#BB01aa'])
-assert 0 == send_returncode
-assert returncode == 0
-
-expected_output = [b'sid=0x601', b'did=0x700', b'padding=False', b'extended_addr=0xbb', b'extended_rx_addr=0xaa']
-std_out, std_err = result.communicate()
 sniffer.join(timeout=10)
 
-assert std_err == None
+assert 0 == send_returncode
+assert returncode1 == 0 == returncode2
+
+expected_output = [b'sid=0x601', b'did=0x700', b'padding=False', b'extended_addr=0xbb', b'extended_rx_addr=0xaa']
+
+assert std_err1 == None
+assert std_err2 == None
 
 for out in expected_output:
-    assert plain_str(out) in plain_str(std_out)
+    assert plain_str(out) in plain_str(std_out1 + std_out2)
 
 
 + Cleanup

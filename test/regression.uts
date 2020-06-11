@@ -12212,9 +12212,6 @@ assert a.src == '00:00:00:00:00:00'
 = MIB
 ~ mib
 
-import copy
-old_mib = copy.copy(conf.mib)
-
 import tempfile
 fd, fname = tempfile.mkstemp()
 os.write(fd, b"-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
@@ -12246,9 +12243,11 @@ def get_mib_graph(do_graph):
 
 get_mib_graph()
 
-= Restore conf.mib
+= MIB - test aliases
 ~ mib
-conf.mib = old_mib
+
+# https://github.com/secdev/scapy/issues/2542
+assert conf.mib._oidname("2.5.29.19") == "basicConstraints"
 
 = DADict tests
 
