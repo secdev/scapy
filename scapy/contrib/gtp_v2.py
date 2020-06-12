@@ -197,7 +197,7 @@ IEType = {1: "IMSI",
              71: "APN",
              72: "AMBR",
              73: "EPS Bearer ID",
-             74: "IPv4",
+             74: "IP Address",
              75: "MEI",
              76: "MSISDN",
              77: "Indication",
@@ -214,11 +214,14 @@ IEType = {1: "IMSI",
              95: "Charging Characteristics",
              97: "Bearer Flags",
              99: "PDN Type",
+             107: "MM Context (EPS Security Context and Quadruplets)",
+             109: "PDN Connection",
              114: "UE Time zone",
              126: "Port Number",
              127: "APN Restriction",
              128: "Selection Mode",
              132: "FQ-CSID",
+             136: "FQDN",
              145: "UCI",
              161: "Max MBR/APN-AMBR (MMBR)",
              172: "RAN/NAS Cause",
@@ -262,14 +265,18 @@ class GTPHeader(Packet):
                 self.payload.answers(other.payload))
 
 
-class IE_IPv4(gtp.IE_Base):
-    name = "IE IPv4"
+class IE_IP_Address(gtp.IE_Base):
+    name = "IE IP Address"
     fields_desc = [ByteEnumField("ietype", 74, IEType),
-                   FieldLenField("length", None, length_of="address",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   IPField("address", RandIP())]
+                   ConditionalField(IPField("address", RandIP()),
+                                    lambda pkt: pkt.length == 4),
+                   ConditionalField(XBitField("address6", "2001::", 128),
+                                    lambda pkt: pkt.length == 16)]
 
 
 class IE_MEI(gtp.IE_Base):
@@ -540,6 +547,56 @@ class IE_BearerFlags(gtp.IE_Base):
                    BitField("Vind", 0, 1),
                    BitField("VB", 0, 1),
                    BitField("PPC", 0, 1)]
+
+
+class IE_MMContext_EPS(gtp.IE_Base):
+    name = "IE MM Context (EPS Security Context and Quadruplets)"
+    fields_desc = [ByteEnumField("ietype", 107, IEType),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4, fmt="H"),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   BitField("Sec_Mode", 0, 3),
+                   BitField("Nhi", 0, 1),
+                   BitField("Drxi", 0, 1),
+                   BitField("Ksi", 0, 3),
+                   BitField("Num_quint", 0, 3),
+                   BitField("Num_Quad", 0, 3),
+                   BitField("Uambri", 0, 1),
+                   BitField("Osci", 0, 1),
+                   BitField("Sambri", 0, 1),
+                   BitField("Nas_algo", 0, 3),
+                   BitField("Nas_cipher", 0, 4),
+                   ThreeBytesField("Nas_dl_count", 0),
+                   ThreeBytesField("Nas_ul_count", 0),
+                   BitField("Kasme", 0, 256),
+                   ConditionalField(StrLenField("fields", "",
+                                    length_from=lambda x: x.length - 41),
+                                    lambda pkt: pkt.length > 40)]
+
+
+class IE_PDNConnection(gtp.IE_Base):
+    name = "IE PDN Connection"
+    fields_desc = [ByteEnumField("ietype", 109, IEType),
+                   FieldLenField("length", None, length_of="IE_list",
+                                 adjust=lambda pkt, x: x, fmt="H"),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   PacketListField("IE_list", None, IE_Dispatcher,
+                                   length_from=lambda pkt: pkt.length)]
+
+
+class IE_FQDN(gtp.IE_Base):
+    name = "IE FQDN"
+    fields_desc = [ByteEnumField("ietype", 136, IEType),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4, fmt="H"),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   ByteField("fqdn_tr_bit", 0),
+                   StrLenField("fqdn", "", length_from=lambda x: x.length - 1)]
 
 
 class IE_NotImplementedTLV(gtp.IE_Base):
@@ -1076,7 +1133,7 @@ class PCO_QoS_Rules_With_Support_Indicator(PCO_Option):
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
                    PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                                   length_from=lambda pkt: pkt.length)]
 
 
 class PCO_QoS_Flow_Descriptions_With_Support_Indicator(PCO_Option):
@@ -1084,39 +1141,51 @@ class PCO_QoS_Flow_Descriptions_With_Support_Indicator(PCO_Option):
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
                    PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                                   length_from=lambda pkt: pkt.length)]
 
 
 class PCO_S_Nssai(PCO_Option):
     name = "PCO S-NSSAI"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
-                   PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                   ConditionalField(
+                       ByteField("SST", 0), lambda pkt: pkt.length > 0),
+                   ConditionalField(
+                       ShortField("SD", 0), lambda pkt: pkt.length > 1),
+                   ConditionalField(
+                       ByteField("Hplmn_Sst", 0), lambda pkt: pkt.length >= 4),
+                   ConditionalField(
+                       ShortField("Hplmn_Sd", 0), lambda pkt: pkt.length > 4)]
 
 
 class PCO_Qos_Rules(PCO_Option):
     name = "PCO QoS Rules"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
-                   ByteField("length", 0),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 2, fmt="H"),
                    PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                                   length_from=lambda pkt: pkt.length)]
 
 
 class PCO_Session_AMBR(PCO_Option):
     name = "PCO Session AMBR"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
-                   ByteField("length", 0),
-                   PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                   ByteField("length", 6),
+                   ByteField("dlunit", 0),
+                   ShortField("dlambr", 0),
+                   ByteField("ulunit", 0),
+                   ShortField("ulambr", 0)]
 
 
 class PCO_QoS_Flow_Descriptions(PCO_Option):
     name = "PCO QoS Flow Descriptions"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
-                   ByteField("length", 0),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 2, fmt="H"),
                    PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                                   length_from=lambda pkt: pkt.length)]
 
 
 class PCO_IPCP(PCO_Option):
@@ -1436,7 +1505,7 @@ ietypecls = {1: IE_IMSI,
              71: IE_APN,
              72: IE_AMBR,
              73: IE_EPSBearerID,
-             74: IE_IPv4,
+             74: IE_IP_Address,
              75: IE_MEI,
              76: IE_MSISDN,
              77: IE_Indication,
@@ -1453,11 +1522,14 @@ ietypecls = {1: IE_IMSI,
              95: IE_ChargingCharacteristics,
              97: IE_BearerFlags,
              99: IE_PDN_type,
+             107: IE_MMContext_EPS,
+             109: IE_PDNConnection,
              114: IE_UE_Timezone,
              126: IE_Port_Number,
              127: IE_APN_Restriction,
              128: IE_SelectionMode,
              132: IE_FQCSID,
+             136: IE_FQDN,
              145: IE_UCI,
              161: IE_MMBR,
              172: IE_Ran_Nas_Cause,
@@ -1575,6 +1647,18 @@ class GTPV2DeleteBearerResponse(GTPV2Command):
     name = "GTPv2 Delete Bearer Response"
 
 
+class GTPV2ContextRequest(GTPV2Command):
+    name = "GTPv2 Context Request"
+
+
+class GTPV2ContextResponse(GTPV2Command):
+    name = "GTPv2 Context Response"
+
+
+class GTPV2ContextAcknowledge(GTPV2Command):
+    name = "GTPv2 Context Acknowledge"
+
+
 class GTPV2CreateIndirectDataForwardingTunnelRequest(GTPV2Command):
     name = "GTPv2 Create Indirect Data Forwarding Tunnel Request"
 
@@ -1628,6 +1712,9 @@ bind_layers(GTPHeader, GTPV2UpdateBearerRequest, gtp_type=97)
 bind_layers(GTPHeader, GTPV2UpdateBearerResponse, gtp_type=98)
 bind_layers(GTPHeader, GTPV2DeleteBearerRequest, gtp_type=99)
 bind_layers(GTPHeader, GTPV2DeleteBearerResponse, gtp_type=100)
+bind_layers(GTPHeader, GTPV2ContextRequest, gtp_type=130)
+bind_layers(GTPHeader, GTPV2ContextResponse, gtp_type=131)
+bind_layers(GTPHeader, GTPV2ContextAcknowledge, gtp_type=132)
 bind_layers(GTPHeader, GTPV2SuspendNotification, gtp_type=162)
 bind_layers(GTPHeader, GTPV2SuspendAcknowledge, gtp_type=163)
 bind_layers(GTPHeader, GTPV2ResumeNotification, gtp_type=164)
