@@ -684,6 +684,29 @@ b.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporatio
 
 scapy_delete_temp_files()
 
+= Test load_services
+
+data_services = """
+cvsup		5999/udp			# CVSup
+x11		6000-6063/tcp			# X Window System
+x11		6000-6063/udp			# X Window System
+ndl-ahp-svc	6064/tcp			# NDL-AHP-SVC
+"""
+
+services = get_temp_file()
+with open(services, "w") as w:
+    w.write(data_services)
+
+tcp, udp = load_services(services)
+assert tcp[6002] == "x11"
+assert tcp.ndl_ahp_svc == 6064
+assert tcp.x11 in range(6000, 6093)
+assert udp[6002] == "x11"
+assert udp.x11 in range(6000, 6093)
+assert udp.cvsup == 5999
+
+scapy_delete_temp_files()
+
 = Test ARPingResult output
 ~ manufdb
 
@@ -12222,12 +12245,6 @@ assert(sum(1 for k in six.itervalues(conf.mib.__dict__) if "scapy" in k) == 1)
 
 assert(sum(1 for oid in conf.mib) > 100)
 
-assert(conf.mib._my_find("MIB", "keyUsage"))
-
-assert(len(conf.mib._find("MIB", "keyUsage")))
-
-assert(len(conf.mib._recurs_find_all((), "MIB", "keyUsage")))
-
 = MIB - graph
 ~ mib
 
@@ -12252,30 +12269,33 @@ assert conf.mib._oidname("2.5.29.19") == "basicConstraints"
 = DADict tests
 
 a = DADict("test")
-a.test_value = "scapy"
+a[0] = "test_value1"
+a["scapy"] = "test_value2"
+
+assert a.test_value1 == 0
+assert a.test_value2 == "scapy"
+
 with ContextManagerCaptureOutput() as cmco:
     a._show()
-    assert(cmco.get_output() == "test_value = 'scapy'\n")
+    outp = cmco.get_output()
 
-b = DADict("test2")
-b.test_value_2 = "hello_world"
+assert "scapy = 'test_value2'" in outp
+assert "0 = 'test_value1'" in outp
 
-a._branch(b, 1)
+= Test ETHER_TYPES
+
+assert ETHER_TYPES.IPv4 == 2048
 try:
-    a._branch(b, 1)
-    assert False
-except DADict_Exception:
+    import warnings
+    
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        ETHER_TYPES["BAOBAB"] = 0xffff
+        assert ETHER_TYPES.BAOBAB == 0xffff
+        assert issubclass(w[-1].category, DeprecationWarning)
+except DeprecationWarning:
+    # -Werror is used
     pass
-
-assert(len(a._find("test2")))
-
-assert(len(a._find(test_value_2="hello_world")))
-
-assert(len(a._find_all("test2")))
-
-assert(not a._recurs_find((a,)))
-
-assert(not a._recurs_find_all((a,)))
 
 = BER tests
 

@@ -10,9 +10,10 @@ Global variables and functions for handling external data sets.
 import calendar
 import os
 import re
+import warnings
 
 
-from scapy.dadict import DADict
+from scapy.dadict import DADict, fixname
 from scapy.consts import FREEBSD, NETBSD, OPENBSD, WINDOWS
 from scapy.error import log_loading
 from scapy.compat import plain_str
@@ -272,10 +273,10 @@ IANA_ENTERPRISE_NUMBERS = {
 }
 
 
-def load_protocols(filename, _fallback=None, _integer_base=10):
+def load_protocols(filename, _fallback=None, _integer_base=10, _cls=DADict):
     """"Parse /etc/protocols and return values as a dictionary."""
     spaces = re.compile(b"[ \t]+|\n")
-    dct = DADict(_name=filename)
+    dct = _cls(_name=filename)
 
     def _process_data(fdesc):
         for line in fdesc:
@@ -289,7 +290,7 @@ def load_protocols(filename, _fallback=None, _integer_base=10):
                 lt = tuple(re.split(spaces, line))
                 if len(lt) < 2 or not lt[0]:
                     continue
-                dct[lt[0]] = int(lt[1], _integer_base)
+                dct[int(lt[1], _integer_base)] = fixname(lt[0])
             except Exception as e:
                 log_loading.info(
                     "Couldn't parse file [%s]: line [%r] (%s)",
@@ -310,11 +311,36 @@ def load_protocols(filename, _fallback=None, _integer_base=10):
     return dct
 
 
+class EtherDA(DADict):
+    # Backward compatibility: accept
+    # ETHER_TYPES["MY_GREAT_TYPE"] = 12
+    def __setitem__(self, attr, val):
+        if isinstance(attr, str):
+            attr, val = val, attr
+            warnings.warn(
+                "ETHER_TYPES now uses the integer value as key !",
+                DeprecationWarning
+            )
+        super(EtherDA, self).__setitem__(attr, val)
+
+    def __getitem__(self, attr):
+        if isinstance(attr, str):
+            warnings.warn(
+                "Please use 'ETHER_TYPES.%s'" % attr,
+                DeprecationWarning
+            )
+            return super(EtherDA, self).__getattr__(attr)
+        return super(EtherDA, self).__getitem__(attr)
+
+
 def load_ethertypes(filename):
     """"Parse /etc/ethertypes and return values as a dictionary.
     If unavailable, use the copy bundled with Scapy."""
     from scapy.libs.ethertypes import DATA
-    return load_protocols(filename, _fallback=DATA, _integer_base=16)
+    return load_protocols(filename or "Scapy's backup ETHER_TYPES",
+                          _fallback=DATA,
+                          _integer_base=16,
+                          _cls=EtherDA)
 
 
 def load_services(filename):
@@ -334,10 +360,21 @@ def load_services(filename):
                     lt = tuple(re.split(spaces, line))
                     if len(lt) < 2 or not lt[0]:
                         continue
+                    dtct = None
                     if lt[1].endswith(b"/tcp"):
-                        tdct[lt[0]] = int(lt[1].split(b'/')[0])
+                        dtct = tdct
                     elif lt[1].endswith(b"/udp"):
-                        udct[lt[0]] = int(lt[1].split(b'/')[0])
+                        dtct = udct
+                    else:
+                        continue
+                    port = lt[1].split(b'/')[0]
+                    name = fixname(lt[0])
+                    if b"-" in port:
+                        sport, eport = port.split(b"-")
+                        for i in range(int(sport), int(eport) + 1):
+                            dtct[i] = name
+                    else:
+                        dtct[int(port)] = name
                 except Exception as e:
                     log_loading.warning(
                         "Couldn't parse file [%s]: line [%r] (%s)",
@@ -351,11 +388,8 @@ def load_services(filename):
 
 
 class ManufDA(DADict):
-    def fixname(self, val):
-        return plain_str(val)
-
-    def __dir__(self):
-        return ["lookup", "reverse_lookup"]
+    def ident(self, v):
+        return fixname(v[0] if isinstance(v, tuple) else v)
 
     def _get_manuf_couple(self, mac):
         oui = ":".join(mac.split(":")[:3]).upper()
@@ -394,6 +428,15 @@ class ManufDA(DADict):
         return {k: v for k, v in six.iteritems(self.__dict__)
                 if filtr(name, v)}
 
+    def __dir__(self):
+        return [
+            "_get_manuf",
+            "_get_short_manuf",
+            "_resolve_MAC",
+            "loopkup",
+            "reverse_lookup",
+        ] + super(ManufDA, self).__dir__()
+
 
 def load_manuf(filename):
     """
@@ -410,9 +453,10 @@ def load_manuf(filename):
                 if not line or line.startswith(b"#"):
                     continue
                 parts = line.split(None, 2)
-                oui, shrt = parts[:2]
-                lng = parts[2].lstrip(b"#").strip() if len(parts) > 2 else ""
+                ouib, shrt = parts[:2]
+                lng = parts[2].lstrip(b"#").strip() if len(parts) > 2 else b""
                 lng = lng or shrt
+                oui = plain_str(ouib)
                 manufdb[oui] = plain_str(shrt), plain_str(lng)
             except Exception:
                 log_loading.warning("Couldn't parse one line from [%s] [%r]",
