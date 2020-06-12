@@ -1106,9 +1106,11 @@ class PCO_Qos_Rules(PCO_Option):
 class PCO_Session_AMBR(PCO_Option):
     name = "PCO Session AMBR"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
-                   ByteField("length", 0),
-                   PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                   ByteField("length", 6),
+                   ByteField("dlunit", 0),
+                   ShortField("dlambr", 0),
+                   ByteField("ulunit", 0),
+                   ShortField("ulambr", 0)]
 
 
 class PCO_QoS_Flow_Descriptions(PCO_Option):
@@ -1116,7 +1118,7 @@ class PCO_QoS_Flow_Descriptions(PCO_Option):
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
                    PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                                   length_from=lambda pkt: pkt.length)]
 
 
 class PCO_IPCP(PCO_Option):
