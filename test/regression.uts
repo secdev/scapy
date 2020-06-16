@@ -1433,6 +1433,27 @@ raw(RandASN1Object())
 random.seed(1873503288)
 raw(RandASN1Object())
 
+= SSID is parsed properly even with the presence of RSN Information
+~ SSID RSN Information
+# A regression test for https://github.com/secdev/scapy/pull/2685.
+# https://github.com/secdev/scapy/issues/2683 describes a packet with
+# RSN Information that isn't parsed properly,
+# causing the SSID to be overridden.
+# This test checks the SSID is parsed properly.
+print(os.path.dirname(__file__))
+filename = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "test",
+        "pcaps",
+        "bad_rsn_parsing_overrides_ssid.pcap"
+    ))
+frame = rdpcap(filename)[0]
+beacon = frame.getlayer(5)
+ssid = beacon.network_stats()['ssid']
+assert ssid == "ROUTE-821E295"
+
 
 ############
 ############

@@ -604,7 +604,10 @@ class _Dot11EltUtils(Packet):
         crypto = set()
         p = self.payload
         while isinstance(p, Dot11Elt):
-            if p.ID == 0:
+            # Avoid overriding already-set SSID values because it is not part
+            # of the standard and it protects from parsing bugs,
+            # see https://github.com/secdev/scapy/issues/2683
+            if p.ID == 0 and "ssid" not in summary:
                 summary["ssid"] = plain_str(p.info)
             elif p.ID == 3:
                 summary["channel"] = ord(p.info)
