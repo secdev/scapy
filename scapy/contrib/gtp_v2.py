@@ -1082,17 +1082,25 @@ class PCO_QoS_Rules_With_Support_Indicator(PCO_Option):
 class PCO_QoS_Flow_Descriptions_With_Support_Indicator(PCO_Option):
     name = "PCO QoS Flow Descriptions With Support Indicator"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
-                   ByteField("length", 0),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 2, fmt="H"),
                    PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                                   length_from=lambda pkt: pkt.length)]
 
 
 class PCO_S_Nssai(PCO_Option):
     name = "PCO S-NSSAI"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
-                   PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                   ConditionalField(
+                       ByteField("SST", 0), lambda pkt: pkt.length > 0),
+                   ConditionalField(
+                       ShortField("SD", 0), lambda pkt: pkt.length > 1),
+                   ConditionalField(
+                       ByteField("Hplmn_Sst", 0), lambda pkt: pkt.length >= 4),
+                   ConditionalField(
+                       ShortField("Hplmn_Sd", 0), lambda pkt: pkt.length > 4)]
 
 
 class PCO_Qos_Rules(PCO_Option):
@@ -1116,7 +1124,9 @@ class PCO_Session_AMBR(PCO_Option):
 class PCO_QoS_Flow_Descriptions(PCO_Option):
     name = "PCO QoS Flow Descriptions"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
-                   ByteField("length", 0),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 2, fmt="H"),
                    PacketListField("Options", None, PCO_option_dispatcher,
                                    length_from=lambda pkt: pkt.length)]
 
