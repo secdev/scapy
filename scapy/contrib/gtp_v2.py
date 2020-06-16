@@ -1082,9 +1082,13 @@ class PCO_QoS_Rules_With_Support_Indicator(PCO_Option):
 class PCO_QoS_Flow_Descriptions_With_Support_Indicator(PCO_Option):
     name = "PCO QoS Flow Descriptions With Support Indicator"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
-                   ByteField("length", 0),
-                   PacketListField("Options", None, PCO_option_dispatcher,
-                                   length_from=len_options)]
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 2, fmt="H"),
+                   ConditionalField(
+                       PacketListField("Options", None, PCO_option_dispatcher,
+                                       lambda pkt: pkt.length),
+                                       lambda pkt: pkt.length > 0)]
 
 
 class PCO_S_Nssai(PCO_Option):
