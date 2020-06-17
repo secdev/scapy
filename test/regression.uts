@@ -4236,6 +4236,10 @@ a.hashret() == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0
 l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*40000), 1280) 
 len(l) == 33 and len(raw(l[-1])) == 644
 
+= fragment6 - test against a long TCP packet with a 1280 MTU without fragment header
+l=fragment6(IPv6()/TCP()/Raw(load="A"*40000), 1280)
+len(l) == 33 and len(raw(l[-1])) == 644
+
 
 ############
 ############
@@ -4244,6 +4248,11 @@ len(l) == 33 and len(raw(l[-1])) == 644
 = defragment6 - test against a long TCP packet fragmented with a 1280 MTU
 l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*40000), 1280) 
 raw(defragment6(l)) == (b'`\x00\x00\x00\x9cT\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xe92\x00\x00' + b'A'*40000)
+
+
+= defragment6 - test against packets with L2 header
+l=defragment6(fragment6(Ether()/IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*2000), 1280))
+Ether in l
 
 
 = defragment6 - test against a large TCP packet fragmented with a 1280 bytes MTU and missing fragments
