@@ -19,6 +19,10 @@ from scapy.compat import plain_str
 
 
 def fixname(x):
+    """
+    Modifies a string to make sure it can be used as an attribute name.
+    """
+    x = plain_str(x)
     if x and str(x[0]) in "0123456789":
         x = "n_" + x
     return x.translate(
@@ -34,89 +38,81 @@ class DADict_Exception(Scapy_Exception):
     pass
 
 
-class DADict:
+class DADict(object):
+    """
+    Direct Access Dictionary
+
+    This acts like a dict, but it provides a direct attribute access
+    to its keys through its values. This is used to store protocols,
+    manuf...
+
+    For instance, scapy fields will use a DADict as an enum::
+
+        ETHER_TYPES[2048] -> IPv4
+
+    Whereas humans can access::
+
+        ETHER_TYPES.IPv4 -> 2048
+    """
     def __init__(self, _name="DADict", **kargs):
         self._name = _name
         self.update(kargs)
 
-    def fixname(self, val):
-        return fixname(plain_str(val))
-
-    def __contains__(self, val):
-        return val in self.__dict__
-
-    def __getitem__(self, attr):
-        return getattr(self, attr)
-
-    def __setitem__(self, attr, val):
-        return setattr(self, self.fixname(attr), val)
-
-    def __iter__(self):
-        return (value for key, value in six.iteritems(self.__dict__)
-                if key and key[0] != '_')
-
-    def _show(self):
-        for k in self.__dict__:
-            if k and k[0] != "_":
-                print("%10s = %r" % (k, getattr(self, k)))
-
-    def __repr__(self):
-        return "<%s - %s elements>" % (self._name, len(self.__dict__))
-
-    def _branch(self, br, uniq=0):
-        if uniq and br._name in self:
-            raise DADict_Exception("DADict: [%s] already branched in [%s]" % (br._name, self._name))  # noqa: E501
-        self[br._name] = br
-
-    def _my_find(self, *args, **kargs):
-        if args and self._name not in args:
-            return False
-        return all(k in self and self[k] == v for k, v in six.iteritems(kargs))
+    def ident(self, v):
+        """
+        Return value that is used as key for the direct access
+        """
+        return fixname(v)
 
     def update(self, *args, **kwargs):
         for k, v in six.iteritems(dict(*args, **kwargs)):
             self[k] = v
 
-    def _find(self, *args, **kargs):
-        return self._recurs_find((), *args, **kargs)
-
-    def _recurs_find(self, path, *args, **kargs):
-        if self in path:
-            return None
-        if self._my_find(*args, **kargs):
-            return self
-        for o in self:
-            if isinstance(o, DADict):
-                p = o._recurs_find(path + (self,), *args, **kargs)
-                if p is not None:
-                    return p
-        return None
-
-    def _find_all(self, *args, **kargs):
-        return self._recurs_find_all((), *args, **kargs)
-
-    def _recurs_find_all(self, path, *args, **kargs):
-        r = []
-        if self in path:
-            return r
-        if self._my_find(*args, **kargs):
-            r.append(self)
-        for o in self:
-            if isinstance(o, DADict):
-                p = o._recurs_find_all(path + (self,), *args, **kargs)
-                r += p
-        return r
+    def iterkeys(self):
+        for x in six.iterkeys(self.__dict__):
+            if not isinstance(x, str) or x[0] != "_":
+                yield x
 
     def keys(self):
         return list(self.iterkeys())
 
-    def iterkeys(self):
-        return (x for x in self.__dict__ if x and x[0] != "_")
+    def __iter__(self):
+        return self.iterkeys()
+
+    def itervalues(self):
+        return six.itervalues(self.__dict__)
+
+    def values(self):
+        return list(self.itervalues())
+
+    def _show(self):
+        for k in self.iterkeys():
+            print("%10s = %r" % (k, self[k]))
+
+    def __repr__(self):
+        return "<%s - %s elements>" % (self._name, len(self))
+
+    def __getitem__(self, attr):
+        return self.__dict__[attr]
+
+    def __setitem__(self, attr, val):
+        self.__dict__[attr] = val
 
     def __len__(self):
         return len(self.__dict__)
 
     def __nonzero__(self):
         # Always has at least its name
-        return len(self.__dict__) > 1
+        return len(self) > 1
     __bool__ = __nonzero__
+
+    def __getattr__(self, attr):
+        try:
+            return object.__getattribute__(self, attr)
+        except AttributeError:
+            for k, v in six.iteritems(self.__dict__):
+                if self.ident(v) == attr:
+                    return k
+
+    def __dir__(self):
+        return [self.ident(x) for x in self.itervalues()]

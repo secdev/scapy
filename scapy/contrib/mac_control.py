@@ -45,7 +45,7 @@ from scapy.layers.dot11 import Packet
 from scapy.layers.l2 import Ether, Dot1Q, bind_layers
 
 MAC_CONTROL_ETHER_TYPE = 0x8808
-ETHER_TYPES['MAC_CONTROL'] = MAC_CONTROL_ETHER_TYPE
+ETHER_TYPES[MAC_CONTROL_ETHER_TYPE] = 'MAC_CONTROL'
 
 ETHER_SPEED_MBIT_10 = 0x01
 ETHER_SPEED_MBIT_100 = 0x02

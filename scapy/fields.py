@@ -1726,8 +1726,8 @@ class _EnumField(Field):
                 keys = enum.keys()
             else:
                 keys = list(enum)
-            if any(isinstance(x, str) for x in keys):
-                i2s, s2i = s2i, i2s
+                if any(isinstance(x, str) for x in keys):
+                    i2s, s2i = s2i, i2s
             for k in keys:
                 i2s[k] = enum[k]
                 s2i[enum[k]] = k

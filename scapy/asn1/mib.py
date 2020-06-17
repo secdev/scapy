@@ -29,10 +29,6 @@ _mib_re_comments = re.compile(r'--.*(\r|\n)')
 
 
 class MIBDict(DADict):
-    def fixname(self, val):
-        # We overwrite DADict fixname method as we want to keep - in names
-        return val
-
     def _findroot(self, x):
         """Internal MIBDict function used to find a partial OID"""
         if x.startswith("."):
@@ -546,7 +542,7 @@ certicomCurve_oids = {
 #       policies       #
 
 certPolicy_oids = {
-    "anyPolicy": "2.5.29.32.0"
+    "2.5.29.32.0": "anyPolicy"
 }
 
 # from Chromium source code (ev_root_ca_metadata.cc)
