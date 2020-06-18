@@ -830,7 +830,7 @@ class AKMSuite(Packet):
 class PMKIDListPacket(Packet):
     name = "PMKIDs"
     fields_desc = [
-        LEFieldLenField("nb_pmkids", 0, count_of="pmk_id_list"),
+        LEFieldLenField("nb_pmkids", None, count_of="pmkid_list"),
         FieldListField(
             "pmkid_list",
             None,
@@ -853,7 +853,7 @@ class Dot11EltRSN(Dot11Elt):
         PacketField("group_cipher_suite", RSNCipherSuite(), RSNCipherSuite),
         LEFieldLenField(
             "nb_pairwise_cipher_suites",
-            1,
+            None,
             count_of="pairwise_cipher_suites"
         ),
         PacketListField(
@@ -864,7 +864,7 @@ class Dot11EltRSN(Dot11Elt):
         ),
         LEFieldLenField(
             "nb_akm_suites",
-            1,
+            None,
             count_of="akm_suites"
         ),
         PacketListField(
@@ -936,7 +936,7 @@ class Dot11EltMicrosoftWPA(Dot11Elt):
         PacketField("group_cipher_suite", RSNCipherSuite(), RSNCipherSuite),
         LEFieldLenField(
             "nb_pairwise_cipher_suites",
-            1,
+            None,
             count_of="pairwise_cipher_suites"
         ),
         PacketListField(
@@ -947,7 +947,7 @@ class Dot11EltMicrosoftWPA(Dot11Elt):
         ),
         LEFieldLenField(
             "nb_akm_suites",
-            1,
+            None,
             count_of="akm_suites"
         ),
         PacketListField(
