@@ -30,13 +30,35 @@ from scapy.data import ETHER_ANY, DLT_IEEE802_11, DLT_PRISM_HEADER, \
     DLT_IEEE802_11_RADIO
 from scapy.compat import raw, plain_str, orb, chb
 from scapy.packet import Packet, bind_layers, bind_top_down, NoPayload
-from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
-    ByteEnumField, X3BytesField, FlagsField, LELongField, StrField, \
-    StrLenField, IntField, XByteField, LEIntField, StrFixedLenField, \
-    LESignedIntField, ReversePadField, ConditionalField, PacketListField, \
-    ShortField, BitEnumField, FieldLenField, LEFieldLenField, \
-    FieldListField, XStrFixedLenField, PacketField, FCSField, \
-    ScalingField
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    FCSField,
+    FieldLenField,
+    FieldListField,
+    FlagsField,
+    IntField,
+    LEFieldLenField,
+    LEIntField,
+    LELongField,
+    LEShortEnumField,
+    LEShortField,
+    LESignedIntField,
+    PacketField,
+    PacketListField,
+    ReversePadField,
+    ScalingField,
+    ShortField,
+    StrField,
+    StrFixedLenField,
+    StrLenField,
+    X3BytesField,
+    XByteField,
+    XStrFixedLenField,
+)
 from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
 from scapy.layers.l2 import Ether, LLC, MACField
@@ -655,8 +677,7 @@ class _Dot11EltUtils(Packet):
                 else:
                     crypto.add(wpa_version)
             elif p.ID == 221:
-                if isinstance(p, Dot11EltMicrosoftWPA) or \
-                        p.info.startswith(b'\x00P\xf2\x01\x01\x00'):
+                if isinstance(p, Dot11EltMicrosoftWPA):
                     if p.akm_suites:
                         auth = p.akm_suites[0].sprintf("%suite%")
                         crypto.add("WPA/%s" % auth)
@@ -704,7 +725,7 @@ _dot11_info_elts_ids = {
     107: "Interworking",
     127: "ExtendendCapatibilities",
     191: "VHTCapabilities",
-    221: "vendor"
+    221: "Vendor"
 }
 
 
@@ -730,28 +751,18 @@ class Dot11Elt(Packet):
 
     @classmethod
     def register_variant(cls):
-        cls.registered_ies[cls.ID.default] = cls
+        if cls.ID.default not in cls.registered_ies:
+            cls.registered_ies[cls.ID.default] = cls
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            _id = orb(_pkt[0])
-            if _id == 221:
-                oui_a = orb(_pkt[2])
-                oui_b = orb(_pkt[3])
-                oui_c = orb(_pkt[4])
-                if oui_a == 0x00 and oui_b == 0x50 and oui_c == 0xf2:
-                    # MS OUI
-                    type_ = orb(_pkt[5])
-                    if type_ == 0x01:
-                        # MS WPA IE
-                        return Dot11EltMicrosoftWPA
-                    else:
-                        return Dot11EltVendorSpecific
-                else:
-                    return Dot11EltVendorSpecific
-            else:
-                return cls.registered_ies.get(_id, cls)
+            _id = ord(_pkt[:1])
+            idcls = cls.registered_ies.get(_id, cls)
+            if idcls.dispatch_hook != cls.dispatch_hook:
+                # Vendor has its own dispatch_hook
+                return idcls.dispatch_hook(_pkt=_pkt, *args, **kargs)
+            cls = idcls
         return cls
 
     def pre_dissect(self, s):
@@ -847,7 +858,7 @@ class Dot11EltRSN(Dot11Elt):
     name = "802.11 RSN information"
     match_subclass = True
     fields_desc = [
-        ByteField("ID", 48),
+        ByteEnumField("ID", 48, _dot11_info_elts_ids),
         ByteField("len", None),
         LEShortField("version", 1),
         PacketField("group_cipher_suite", RSNCipherSuite(), RSNCipherSuite),
@@ -884,8 +895,17 @@ class Dot11EltRSN(Dot11Elt):
             PacketField("pmkids", None, PMKIDListPacket),
             lambda pkt: (
                 0 if pkt.len is None else
-                pkt.len - (12 + (pkt.nb_pairwise_cipher_suites * 4) +
-                                (pkt.nb_akm_suites * 4)) >= 18)
+                pkt.len - (
+                    12 +
+                    pkt.nb_pairwise_cipher_suites * 4 +
+                    pkt.nb_akm_suites * 4
+                ) >= 2
+            )
+        ),
+        ConditionalField(
+            PacketField("group_management_cipher_suite",
+                        RSNCipherSuite(cipher=0x6), RSNCipherSuite),
+            lambda pkt: pkt.mfp_capable == 1
         )
     ]
 
@@ -906,7 +926,7 @@ class Dot11EltCountry(Dot11Elt):
     name = "802.11 Country"
     match_subclass = True
     fields_desc = [
-        ByteField("ID", 7),
+        ByteEnumField("ID", 7, _dot11_info_elts_ids),
         ByteField("len", None),
         StrFixedLenField("country_string", b"\0\0\0", length=3),
         PacketListField(
@@ -924,46 +944,11 @@ class Dot11EltCountry(Dot11Elt):
     ]
 
 
-class Dot11EltMicrosoftWPA(Dot11Elt):
-    name = "802.11 Microsoft WPA"
-    match_subclass = True
-    fields_desc = [
-        ByteField("ID", 221),
-        ByteField("len", None),
-        X3BytesField("oui", 0x0050f2),
-        XByteField("type", 0x01),
-        LEShortField("version", 1),
-        PacketField("group_cipher_suite", RSNCipherSuite(), RSNCipherSuite),
-        LEFieldLenField(
-            "nb_pairwise_cipher_suites",
-            None,
-            count_of="pairwise_cipher_suites"
-        ),
-        PacketListField(
-            "pairwise_cipher_suites",
-            RSNCipherSuite(),
-            RSNCipherSuite,
-            count_from=lambda p: p.nb_pairwise_cipher_suites
-        ),
-        LEFieldLenField(
-            "nb_akm_suites",
-            None,
-            count_of="akm_suites"
-        ),
-        PacketListField(
-            "akm_suites",
-            AKMSuite(),
-            AKMSuite,
-            count_from=lambda p: p.nb_akm_suites
-        )
-    ]
-
-
 class Dot11EltRates(Dot11Elt):
     name = "802.11 Rates"
     match_subclass = True
     fields_desc = [
-        ByteField("ID", 1),
+        ByteEnumField("ID", 1, _dot11_info_elts_ids),
         ByteField("len", None),
         FieldListField(
             "rates",
@@ -978,11 +963,43 @@ class Dot11EltVendorSpecific(Dot11Elt):
     name = "802.11 Vendor Specific"
     match_subclass = True
     fields_desc = [
-        ByteField("ID", 221),
+        ByteEnumField("ID", 221, _dot11_info_elts_ids),
         ByteField("len", None),
         X3BytesField("oui", 0x000000),
         StrLenField("info", "", length_from=lambda x: x.len - 3)
     ]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            oui = struct.unpack("!I", b"\x00" + _pkt[2:5])[0]
+            if oui == 0x0050f2:  # Microsoft
+                type_ = orb(_pkt[5])
+                if type_ == 0x01:
+                    # MS WPA IE
+                    return Dot11EltMicrosoftWPA
+                elif type_ == 0x02:
+                    # MS WME IE TODO
+                    # return Dot11EltMicrosoftWME
+                    pass
+                elif type_ == 0x04:
+                    # MS WPS IE TODO
+                    # return Dot11EltWPS
+                    pass
+                return Dot11EltVendorSpecific
+        return cls
+
+
+class Dot11EltMicrosoftWPA(Dot11EltVendorSpecific):
+    name = "802.11 Microsoft WPA"
+    match_subclass = True
+    ID = 221
+    # It appears many WPA implementations ignore the fact
+    # that this IE should only have a single cipher and auth suite
+    fields_desc = Dot11EltRSN.fields_desc[:2] + [
+        X3BytesField("oui", 0x0050f2),
+        XByteField("type", 0x01)
+    ] + Dot11EltRSN.fields_desc[2:8]
 
 
 class Dot11ATIM(Packet):
