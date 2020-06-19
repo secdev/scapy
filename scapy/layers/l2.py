@@ -157,8 +157,8 @@ class SourceMACField(MACField):
 
 # Layers
 
-ETHER_TYPES['802_AD'] = 0x88a8
-ETHER_TYPES['802_1AE'] = ETH_P_MACSEC
+ETHER_TYPES[0x88a8] = '802_AD'
+ETHER_TYPES[ETH_P_MACSEC] = '802_1AE'
 
 
 class Ether(Packet):

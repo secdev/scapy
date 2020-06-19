@@ -21,7 +21,7 @@ from scapy.layers.l2 import Ether
 from scapy.data import ETHER_TYPES
 
 
-ETHER_TYPES['SlowProtocol'] = 0x8809
+ETHER_TYPES[0x8809] = 'SlowProtocol'
 SLOW_SUB_TYPES = {
     'Unused': 0,
     'LACP': 1,
