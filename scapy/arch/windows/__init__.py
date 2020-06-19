@@ -367,7 +367,7 @@ class NetworkInterface(object):
                 pass
             try:
                 self.ip6 = next(x for x in self.ips if ":" in x)
-            except IndexError:
+            except StopIteration:
                 pass
             if not self.ip and not self.ip6:
                 self.invalid = True
