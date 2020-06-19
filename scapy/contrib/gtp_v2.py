@@ -214,6 +214,8 @@ IEType = {1: "IMSI",
              95: "Charging Characteristics",
              97: "Bearer Flags",
              99: "PDN Type",
+             107: "MM Context (EPS Security Context and Quadruplets)",
+             109: "PDN Connection",
              114: "UE Time zone",
              126: "Port Number",
              127: "APN Restriction",
@@ -540,6 +542,57 @@ class IE_BearerFlags(gtp.IE_Base):
                    BitField("Vind", 0, 1),
                    BitField("VB", 0, 1),
                    BitField("PPC", 0, 1)]
+
+
+class IE_MMContext_EPS(gtp.IE_Base):
+    name = "IE MM Context (EPS Security Context and Quadruplets)"
+    fields_desc = [ByteEnumField("ietype", 107, IEType),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4, fmt="H"),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   BitField("Sec_Mode", 0, 3),
+                   BitField("Nhi", 0, 1),
+                   BitField("Drxi", 0, 1),
+                   BitField("Ksi", 0, 3),
+                   BitField("Num_quint", 0, 3),
+                   BitField("Num_Quad", 0, 3),
+                   BitField("Uambri", 0, 1),
+                   BitField("Osci", 0, 1),
+                   BitField("Sambri", 0, 1),
+                   BitField("Nas_algo", 0, 3),
+                   BitField("Nas_cipher", 0, 4),
+                   ThreeBytesField("Nas_dl_count", 0),
+                   ThreeBytesField("Nas_ul_count", 0),
+                   BitField("Kasme", 0, 256),
+                   ConditionalField(
+                        StrLenField("fields", "",
+                                    length_from=lambda x: x.length-41),
+                        lambda pkt: pkt.length > 40)]
+
+
+class IE_PDNConnection(gtp.IE_Base):
+    name = "IE PDN Connection"
+    fields_desc = [ByteEnumField("ietype", 109, IEType),
+                   FieldLenField("length", None, length_of="IE_list",
+                                 adjust=lambda pkt, x: x, fmt="H"),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   PacketListField("IE_list", None, IE_Dispatcher,
+                                   length_from=lambda pkt: pkt.length)]
+
+
+class IE_FQDN(gtp.IE_Base):
+    name = "IE FQDN"
+    fields_desc = [ByteEnumField("ietype", 136, IEType),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4, fmt="H"),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   ByteField("fqdn_tr_bit", 0),
+                   StrLenField("fqdn", "", length_from=lambda x: x.length-1)]
 
 
 class IE_NotImplementedTLV(gtp.IE_Base):
@@ -1465,6 +1518,8 @@ ietypecls = {1: IE_IMSI,
              95: IE_ChargingCharacteristics,
              97: IE_BearerFlags,
              99: IE_PDN_type,
+             107: IE_MMContext_EPS,
+             109: IE_PDNConnection,
              114: IE_UE_Timezone,
              126: IE_Port_Number,
              127: IE_APN_Restriction,
@@ -1587,6 +1642,18 @@ class GTPV2DeleteBearerResponse(GTPV2Command):
     name = "GTPv2 Delete Bearer Response"
 
 
+class GTPV2ContextRequest(GTPV2Command):
+    name = "GTPv2 Context Request"
+
+
+class GTPV2ContextResponse(GTPV2Command):
+    name = "GTPv2 Context Response"
+
+
+class GTPV2ContextAcknowledge(GTPV2Command):
+    name = "GTPv2 Context Acknowledge"
+
+
 class GTPV2CreateIndirectDataForwardingTunnelRequest(GTPV2Command):
     name = "GTPv2 Create Indirect Data Forwarding Tunnel Request"
 
@@ -1640,6 +1707,9 @@ bind_layers(GTPHeader, GTPV2UpdateBearerRequest, gtp_type=97)
 bind_layers(GTPHeader, GTPV2UpdateBearerResponse, gtp_type=98)
 bind_layers(GTPHeader, GTPV2DeleteBearerRequest, gtp_type=99)
 bind_layers(GTPHeader, GTPV2DeleteBearerResponse, gtp_type=100)
+bind_layers(GTPHeader, GTPV2ContextRequest, gtp_type=130)
+bind_layers(GTPHeader, GTPV2ContextResponse, gtp_type=131)
+bind_layers(GTPHeader, GTPV2ContextAcknowledge, gtp_type=132)
 bind_layers(GTPHeader, GTPV2SuspendNotification, gtp_type=162)
 bind_layers(GTPHeader, GTPV2SuspendAcknowledge, gtp_type=163)
 bind_layers(GTPHeader, GTPV2ResumeNotification, gtp_type=164)
