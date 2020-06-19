@@ -566,10 +566,9 @@ class IE_MMContext_EPS(gtp.IE_Base):
                    ThreeBytesField("Nas_dl_count", 0),
                    ThreeBytesField("Nas_ul_count", 0),
                    BitField("Kasme", 0, 256),
-                   ConditionalField(
-                        StrLenField("fields", "",
-                                    length_from=lambda x: x.length-41),
-                        lambda pkt: pkt.length > 40)]
+                   ConditionalField(StrLenField("fields", "",
+                                    length_from=lambda x: x.length - 41),
+                                    lambda pkt: pkt.length > 40)]
 
 
 class IE_PDNConnection(gtp.IE_Base):
@@ -592,7 +591,7 @@ class IE_FQDN(gtp.IE_Base):
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    ByteField("fqdn_tr_bit", 0),
-                   StrLenField("fqdn", "", length_from=lambda x: x.length-1)]
+                   StrLenField("fqdn", "", length_from=lambda x: x.length - 1)]
 
 
 class IE_NotImplementedTLV(gtp.IE_Base):
