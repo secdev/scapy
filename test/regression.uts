@@ -7843,6 +7843,15 @@ for p in ffrags:
 
 assert plen == payloadlen
 
+= fragment() with non-multiple-of-8 MTU
+paylen = 1400 + 1
+frags1 = fragment(IP() / ("X" * paylen), paylen)
+assert len(frags1) == 1
+frags2 = fragment(IP() / ("X" * (paylen + 1)), paylen)
+assert len(frags2) == 2
+assert len(frags2[0]) == 20 + paylen - paylen % 8
+assert len(frags2[1]) == 20 + 1 + paylen % 8
+
 = defrag()
 nonfrag, unfrag, badfrag = defrag(frags)
 assert not nonfrag
