@@ -1315,6 +1315,26 @@ assert raw(pkt) == b'\x00\x00\x10\x00\x00\x00\x00\x80\x01\x10\x00\xa0\x01 \x00H'
 for i in range(10):
     assert isinstance(raw(fuzz(Dot11Elt())), bytes)
 
+= PMKIDListPacket - Check computation of nb_pmkids
+assert PMKIDListPacket(raw(PMKIDListPacket())).nb_pmkids == 0
+assert PMKIDListPacket(raw(PMKIDListPacket(pmkid_list=["AZEDFREZSDERFGTY"]))).nb_pmkids == 1
+assert PMKIDListPacket(raw(PMKIDListPacket(pmkid_list=["0123456789ABDEFX", "AZEDFREZSDERFGTY"]))).nb_pmkids == 2
+
+= Dot11EltRSN - Check computation of nb_pairwise_cipher_suites and nb_akm_suites 
+assert Dot11EltRSN(raw(Dot11EltRSN())).nb_pairwise_cipher_suites == 1 
+assert Dot11EltRSN(raw(Dot11EltRSN(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP")]))).nb_pairwise_cipher_suites == 1 
+assert Dot11EltRSN(raw(Dot11EltRSN(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP"), RSNCipherSuite(cipher="CCMP")]))).nb_pairwise_cipher_suites == 2 
+assert Dot11EltRSN(raw(Dot11EltRSN())).nb_akm_suites == 1
+assert Dot11EltRSN(raw(Dot11EltRSN(akm_suites=[AKMSuite(suite="PSK")]))).nb_akm_suites == 1
+assert Dot11EltRSN(raw(Dot11EltRSN(akm_suites=[AKMSuite(suite="PSK"), AKMSuite(suite="802.1X")]))).nb_akm_suites == 2
+
+= Dot11EltMicrosoftWPA - Check computation of nb_pairwise_cipher_suites and nb_akm_suites 
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA())).nb_pairwise_cipher_suites == 1
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP")]))).nb_pairwise_cipher_suites == 1
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP"), RSNCipherSuite(cipher="CCMP")]))).nb_pairwise_cipher_suites == 2
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA())).nb_akm_suites == 1
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(akm_suites=[AKMSuite(suite="PSK")]))).nb_akm_suites == 1
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(akm_suites=[AKMSuite(suite="PSK"), AKMSuite(suite="802.1X")]))).nb_akm_suites == 2
 
 ############
 ############
