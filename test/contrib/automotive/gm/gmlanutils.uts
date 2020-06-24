@@ -216,11 +216,8 @@ started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
     starttime = time.time() # may be inaccurate -> on some systems only seconds precision
     result = GMLAN_RequestDownload(isotpsock, 4, timeout=repeats*tout+0.5)
-    print(result)
     assert result
     endtime = time.time()
-    print(endtime - starttime)
-    print(tout * (repeats - 1))
     assert (endtime - starttime) >= tout * (repeats - 1)
 
 thread.join(timeout=5)
