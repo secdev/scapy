@@ -273,8 +273,8 @@ class IE_IP_Address(gtp.IE_Base):
                                  4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   ConditionalField(IPField("address", RandIP(),
-                                   lambda pkt: pkt.length == 4),
+                   ConditionalField(IPField("address", RandIP()),
+                                            lambda pkt: pkt.length == 4),
                    ConditionalField(XBitField("address", "2001::", 128),
                                     lambda pkt: pkt.length == 16)]
 
