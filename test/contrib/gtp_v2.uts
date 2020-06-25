@@ -109,14 +109,14 @@ ie.EBI == 50
 ie = IE_EPSBearerID(ietype='EPS Bearer ID', length=1, EBI=50)
 ie.ietype == 73 and ie.EBI == 50
 
-= IE_IPv4, dissection
+= IE_IP_Address, dissection
 h = "3333333333332222222222228100838408004580006d00000000f31180d20a2a00010a2a0002084b85930059e49a4823004d84530d5a4cdee2000200020010004c00060011111111111149000100b248000800000061a8000249f07f000100005d00130049000100da0200020010005e00040039004f454a0004007f00000436f73a63"
 gtp = Ether(hex_bytes(h))
 ie = gtp.IE_list[6]
 ie.address == '127.0.0.4'
 
-= IE_IPv4, basic instantiation
-ie = IE_IPv4(ietype='IPv4', length=4, address='127.0.0.4')
+= IE_IP_Address, basic instantiation
+ie = IE_IP_Address(ietype='IP Address', length=4, address='127.0.0.4')
 ie.ietype == 74 and ie.address == '127.0.0.4'
 
 = IE_MEI, dissection

@@ -197,7 +197,7 @@ IEType = {1: "IMSI",
              71: "APN",
              72: "AMBR",
              73: "EPS Bearer ID",
-             74: "IPv4",
+             74: "IP Address",
              75: "MEI",
              76: "MSISDN",
              77: "Indication",
@@ -265,14 +265,18 @@ class GTPHeader(Packet):
                 self.payload.answers(other.payload))
 
 
-class IE_IPv4(gtp.IE_Base):
-    name = "IE IPv4"
+class IE_IP_Address(gtp.IE_Base):
+    name = "IE IP Address"
     fields_desc = [ByteEnumField("ietype", 74, IEType),
-                   FieldLenField("length", None, length_of="address",
-                                 adjust=lambda pkt, x: x + 4, fmt="H"),
+                   FieldLenField("length", None, length_of="length",
+                                 adjust=lambda pkt, x: len(pkt.payload) +
+                                 4, fmt="H"),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   IPField("address", RandIP())]
+                   ConditionalField(IPField("address", RandIP()),
+                                    lambda pkt: pkt.length == 4),
+                   ConditionalField(XBitField("address", "2001::", 128),
+                                    lambda pkt: pkt.length == 16)]
 
 
 class IE_MEI(gtp.IE_Base):
@@ -1501,7 +1505,7 @@ ietypecls = {1: IE_IMSI,
              71: IE_APN,
              72: IE_AMBR,
              73: IE_EPSBearerID,
-             74: IE_IPv4,
+             74: IE_IP_Address,
              75: IE_MEI,
              76: IE_MSISDN,
              77: IE_Indication,
