@@ -315,7 +315,7 @@ class GTPPDUSessionContainer(Packet):
                        "extraPadding",
                        "",
                        length_from=lambda pkt: 4 * (pkt.ExtHdrLen) - 4),
-                       lambda pkt: pkt.ExtHdrLen > 1),
+                       lambda pkt: pkt.ExtHdrLen and pkt.ExtHdrLen > 1),
                    ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes), ]
 
     def guess_payload_class(self, payload):
