@@ -8,7 +8,6 @@ SSLv2 handshake fields & logic.
 
 import struct
 
-from scapy.config import conf
 from scapy.error import log_runtime, warning
 from scapy.utils import randstring
 from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
@@ -142,8 +141,8 @@ class _SSLv2CertDataField(StrLenField):
         try:
             certdata = Cert(s[:tmp_len])
         except Exception:
-            if conf.debug_dissector:
-                raise
+            # Packets are sometimes wrongly interpreted as SSLv2
+            # (see record.py). We ignore failures silently
             certdata = s[:tmp_len]
         return s[tmp_len:], certdata
 
