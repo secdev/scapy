@@ -52,6 +52,11 @@ assert isinstance(d[GTP_U_Header].payload, IP)
 a = IP(raw(IP()/UDP()/GTP_U_Header()/PPP()))
 assert isinstance(a[GTP_U_Header].payload, PPP)
 
+= GTPPDUSessionContainer(), dissect
+h = "fa163e7da573fa163e43f8e708004500008400000000fd119f520a0a05010a0a0502086808680070000034ff006000000010fa163e85020044000000000045000054cd4e000040015a440a0a08020a0a370100001aca0046000142cff45e00000000e2ed0c0000000000101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637"
+gtp = Ether(hex_bytes(h))
+gtp[GTP_U_Header].ExtHdrLen == 2 and gtp[GTP_U_Header].extraPadding == b'\x00\x00\x00\x00' and gtp[GTP_U_Header][IP].src == '10.10.8.2' and gtp[GTP_U_Header][IP][ICMP].type == 0
+
 = GTPCreatePDPContextRequest(), basic instantiation
 gtp = IP(src="127.0.0.1", dst="127.0.0.1")/UDP(dport=2123, sport=2123)/GTPHeader(teid=2807)/GTPCreatePDPContextRequest()
 gtp.dport == 2123 and gtp.teid == 2807 and len(gtp.IE_list) == 5
