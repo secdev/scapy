@@ -275,7 +275,7 @@ class IE_IP_Address(gtp.IE_Base):
                    BitField("instance", 0, 4),
                    ConditionalField(IPField("address", RandIP()),
                                     lambda pkt: pkt.length == 4),
-                   ConditionalField(XBitField("address", "2001::", 128),
+                   ConditionalField(XBitField("address6", "2001::", 128),
                                     lambda pkt: pkt.length == 16)]
 
 
