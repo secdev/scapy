@@ -551,7 +551,8 @@ class IP(Packet, IPTools):
 
     def fragment(self, fragsize=1480):
         """Fragment IP datagrams"""
-        fragsize = (fragsize + 7) // 8 * 8
+        lastfragsz = fragsize
+        fragsize -= fragsize % 8
         lst = []
         fnb = 0
         fl = self
@@ -561,7 +562,11 @@ class IP(Packet, IPTools):
 
         for p in fl:
             s = raw(p[fnb].payload)
-            nb = (len(s) + fragsize - 1) // fragsize
+            if len(s) <= lastfragsz:
+                lst.append(p)
+                continue
+
+            nb = (len(s) - lastfragsz + fragsize - 1) // fragsize + 1
             for i in range(nb):
                 q = p.copy()
                 del(q[fnb].payload)
@@ -569,8 +574,11 @@ class IP(Packet, IPTools):
                 del(q[fnb].len)
                 if i != nb - 1:
                     q[fnb].flags |= 1
+                    fragend = (i + 1) * fragsize
+                else:
+                    fragend = i * fragsize + lastfragsz
                 q[fnb].frag += i * fragsize // 8
-                r = conf.raw_layer(load=s[i * fragsize:(i + 1) * fragsize])
+                r = conf.raw_layer(load=s[i * fragsize:fragend])
                 r.overload_fields = p[fnb].payload.overload_fields.copy()
                 q.add_payload(r)
                 lst.append(q)
@@ -979,11 +987,12 @@ conf.neighbor.register_l3(Dot3, IP, inet_register_l3)
 @conf.commands.register
 def fragment(pkt, fragsize=1480):
     """Fragment a big IP datagram"""
-    fragsize = (fragsize + 7) // 8 * 8
+    lastfragsz = fragsize
+    fragsize -= fragsize % 8
     lst = []
     for p in pkt:
         s = raw(p[IP].payload)
-        nb = (len(s) + fragsize - 1) // fragsize
+        nb = (len(s) - lastfragsz + fragsize - 1) // fragsize + 1
         for i in range(nb):
             q = p.copy()
             del(q[IP].payload)
@@ -991,8 +1000,11 @@ def fragment(pkt, fragsize=1480):
             del(q[IP].len)
             if i != nb - 1:
                 q[IP].flags |= 1
+                fragend = (i + 1) * fragsize
+            else:
+                fragend = i * fragsize + lastfragsz
             q[IP].frag += i * fragsize // 8
-            r = conf.raw_layer(load=s[i * fragsize:(i + 1) * fragsize])
+            r = conf.raw_layer(load=s[i * fragsize:fragend])
             r.overload_fields = p[IP].payload.overload_fields.copy()
             q.add_payload(r)
             lst.append(q)
