@@ -655,7 +655,7 @@ class Conf(ConfClass):
     # can, tls, http are not loaded by default
     load_layers = ['bluetooth', 'bluetooth4LE', 'dhcp', 'dhcp6', 'dns',
                    'dot11', 'dot15d4', 'eap', 'gprs', 'hsrp', 'inet',
-                   'inet6', 'ipsec', 'ir', 'isakmp', 'l2', 'l2tp',
+                   'inet6', 'ipsec', 'ir', 'isakmp', 'l2', 'l2tp','l2f',
                    'llmnr', 'lltd', 'mgcp', 'mobileip', 'netbios',
                    'netflow', 'ntp', 'ppi', 'ppp', 'pptp', 'radius', 'rip',
                    'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'smb2', 'snmp',
