@@ -68,6 +68,7 @@ __all__ = [
 
 try:
     import typing  # noqa: F401
+    from typing import TYPE_CHECKING
     if sys.version_info[0:2] <= (3, 6):
         # Generic is messed up before Python 3.7
         # https://github.com/python/typing/issues/449
@@ -75,6 +76,7 @@ try:
     FAKE_TYPING = False
 except ImportError:
     FAKE_TYPING = True
+    TYPE_CHECKING = False
 
 if not FAKE_TYPING:
     # Only required if using mypy-lang for static typing
@@ -152,6 +154,12 @@ def lambda_tuple_converter(func):
         return func
 
 
+# This is ugly, but we don't want to move raw() out of compat.py
+# and it makes it much clearer
+if TYPE_CHECKING:
+    from scapy.packet import Packet, RawVal
+
+
 if six.PY2:
     bytes_encode = plain_str = str  # type: Callable[[Any], bytes]
     orb = ord  # type: Callable[[bytes], int]
@@ -163,17 +171,21 @@ if six.PY2:
         return chr(x)
 
     def raw(x):
-        # type: (Any) -> bytes
-        """Builds a packet and returns its bytes representation.
-        This function is and always be cross-version compatible"""
+        # type: (Union[Packet, RawVal]) -> bytes
+        """
+        Builds a packet and returns its bytes representation.
+        This function is and will always be cross-version compatible
+        """
         if hasattr(x, "__bytes__"):
             return x.__bytes__()
         return bytes(x)
 else:
     def raw(x):
-        # type: (Any) -> bytes
-        """Builds a packet and returns its bytes representation.
-        This function is and always be cross-version compatible"""
+        # type: (Union[Packet, RawVal]) -> bytes
+        """
+        Builds a packet and returns its bytes representation.
+        This function is and will always be cross-version compatible
+        """
         return bytes(x)
 
     def bytes_encode(x):
