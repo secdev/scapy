@@ -16,18 +16,18 @@ from scapy.fields import FieldLenField, IntField, PacketField, \
     StrLenField
 from scapy.packet import Packet, Padding
 from scapy.layers.tls.extensions import TLS_Ext_Unknown, _tls_ext
-from scapy.layers.tls.crypto.groups import _tls_named_ffdh_groups, \
-    _tls_named_curves, _ffdh_groups, \
-    _tls_named_groups
+from scapy.layers.tls.crypto.groups import (
+    _tls_named_curves,
+    _tls_named_ffdh_groups,
+    _tls_named_groups,
+    _tls_named_groups_generate,
+    _tls_named_groups_import,
+    _tls_named_groups_pubbytes,
+)
 import scapy.modules.six as six
 
 if conf.crypto_valid:
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import dh, ec
-if conf.crypto_valid_advanced:
-    from cryptography.hazmat.primitives.asymmetric import x25519
-    from cryptography.hazmat.primitives.asymmetric import x448
+    from cryptography.hazmat.primitives.asymmetric import ec
 
 
 class KeyShareEntry(Packet):
@@ -62,39 +62,8 @@ class KeyShareEntry(Packet):
         """
         This is called by post_build() for key creation.
         """
-        if self.group in _tls_named_ffdh_groups:
-            params = _ffdh_groups[_tls_named_ffdh_groups[self.group]][0]
-            privkey = params.generate_private_key()
-            self.privkey = privkey
-            pubkey = privkey.public_key()
-            self.key_exchange = pubkey.public_numbers().y
-        elif self.group in _tls_named_curves:
-            if _tls_named_curves[self.group] in ["x25519", "x448"]:
-                if conf.crypto_valid_advanced:
-                    if _tls_named_curves[self.group] == "x25519":
-                        privkey = x25519.X25519PrivateKey.generate()
-                    else:
-                        privkey = x448.X448PrivateKey.generate()
-                    self.privkey = privkey
-                    pubkey = privkey.public_key()
-                    self.key_exchange = pubkey.public_bytes(
-                        serialization.Encoding.Raw,
-                        serialization.PublicFormat.Raw
-                    )
-            else:
-                curve = ec._CURVE_TYPES[_tls_named_curves[self.group]]()
-                privkey = ec.generate_private_key(curve, default_backend())
-                self.privkey = privkey
-                pubkey = privkey.public_key()
-                try:
-                    # cryptography >= 2.5
-                    self.key_exchange = pubkey.public_bytes(
-                        serialization.Encoding.X962,
-                        serialization.PublicFormat.UncompressedPoint
-                    )
-                except TypeError:
-                    # older versions
-                    self.key_exchange = pubkey.public_numbers().encode_point()
+        self.privkey = _tls_named_groups_generate(self.group)
+        self.key_exchange = _tls_named_groups_pubbytes(self.privkey)
 
     def post_build(self, pkt, pay):
         if self.group is None:
@@ -115,28 +84,10 @@ class KeyShareEntry(Packet):
 
     @crypto_validator
     def register_pubkey(self):
-        if self.group in _tls_named_ffdh_groups:
-            params = _ffdh_groups[_tls_named_ffdh_groups[self.group]][0]
-            pn = params.parameter_numbers()
-            public_numbers = dh.DHPublicNumbers(self.key_exchange, pn)
-            self.pubkey = public_numbers.public_key(default_backend())
-        elif self.group in _tls_named_curves:
-            if _tls_named_curves[self.group] in ["x25519", "x448"]:
-                if conf.crypto_valid_advanced:
-                    if _tls_named_curves[self.group] == "x25519":
-                        import_point = x25519.X25519PublicKey.from_public_bytes
-                    else:
-                        import_point = x448.X448PublicKey.from_public_bytes
-                    self.pubkey = import_point(self.key_exchange)
-            else:
-                curve = ec._CURVE_TYPES[_tls_named_curves[self.group]]()
-                try:  # cryptography >= 2.5
-                    import_point = ec.EllipticCurvePublicKey.from_encoded_point  # noqa: E501
-                    self.pubkey = import_point(curve, self.key_exchange)
-                except AttributeError:
-                    import_point = ec.EllipticCurvePublicNumbers.from_encoded_point  # noqa: E501
-                    pub_num = import_point(curve, self.key_exchange).public_numbers()  # noqa: E501
-                    self.pubkey = pub_num.public_key(default_backend())
+        self.pubkey = _tls_named_groups_import(
+            self.group,
+            self.key_exchange
+        )
 
     def post_dissection(self, r):
         try:

@@ -23,12 +23,17 @@ from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
-from scapy.layers.tls.crypto.groups import _ffdh_groups, _tls_named_curves
-import scapy.modules.six as six
+from scapy.layers.tls.crypto.groups import (
+    _ffdh_groups,
+    _tls_named_curves,
+    _tls_named_groups_generate,
+    _tls_named_groups_import,
+    _tls_named_groups_pubbytes,
+)
+
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import dh, ec
 
 
@@ -568,43 +573,25 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             self.curve_type = _tls_ec_curve_types["named_curve"]
 
         if self.named_curve is None:
-            curve = ec.SECP256R1()
-            s.server_kx_privkey = ec.generate_private_key(curve,
-                                                          default_backend())
-            self.named_curve = next((cid for cid, name in six.iteritems(_tls_named_curves)  # noqa: E501
-                                     if name == curve.name), 0)
-        else:
-            curve_name = _tls_named_curves.get(self.named_curve)
-            if curve_name is None:
-                # this fallback is arguable
-                curve = ec.SECP256R1()
-            else:
-                curve_cls = ec._CURVE_TYPES.get(curve_name)
-                if curve_cls is None:
-                    # this fallback is arguable
-                    curve = ec.SECP256R1()
-                else:
-                    curve = curve_cls()
-            s.server_kx_privkey = ec.generate_private_key(curve,
-                                                          default_backend())
+            self.named_curve = 23
+
+        curve_group = self.named_curve
+        if curve_group not in _tls_named_curves:
+            # this fallback is arguable
+            curve_group = 23  # default to secp256r1
+        s.server_kx_privkey = _tls_named_groups_generate(curve_group)
 
         if self.point is None:
-            pubkey = s.server_kx_privkey.public_key()
-            try:
-                # cryptography >= 2.5
-                self.point = pubkey.public_bytes(
-                    serialization.Encoding.X962,
-                    serialization.PublicFormat.UncompressedPoint
-                )
-            except TypeError:
-                # older versions
-                self.key_exchange = pubkey.public_numbers().encode_point()
+            self.point = _tls_named_groups_pubbytes(
+                s.server_kx_privkey
+            )
+
         # else, we assume that the user wrote the server_kx_privkey by himself
         if self.pointlen is None:
             self.pointlen = len(self.point)
 
         if not s.client_kx_ecdh_params:
-            s.client_kx_ecdh_params = curve
+            s.client_kx_ecdh_params = curve_group
 
     @crypto_validator
     def register_pubkey(self):
@@ -616,19 +603,14 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
         # if self.point[0] in [b'\x02', b'\x03']:
         #    point_format = 1
 
-        curve_name = _tls_named_curves[self.named_curve]
-        curve = ec._CURVE_TYPES[curve_name]()
         s = self.tls_session
-        try:  # cryptography >= 2.5
-            import_point = ec.EllipticCurvePublicKey.from_encoded_point
-            s.server_kx_pubkey = import_point(curve, self.point)
-        except AttributeError:
-            import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
-            pubnum = import_point(curve, self.point)
-            s.server_kx_pubkey = pubnum.public_key(default_backend())
+        s.server_kx_pubkey = _tls_named_groups_import(
+            self.named_curve,
+            self.point
+        )
 
         if not s.client_kx_ecdh_params:
-            s.client_kx_ecdh_params = curve
+            s.client_kx_ecdh_params = self.named_curve
 
     def post_dissection(self, r):
         try:
@@ -753,8 +735,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
     @crypto_validator
     def fill_missing(self):
         s = self.tls_session
-        params = s.client_kx_ffdh_params
-        s.client_kx_privkey = params.generate_private_key()
+        s.client_kx_privkey = s.client_kx_ffdh_params.generate_private_key()
         pubkey = s.client_kx_privkey.public_key()
         y = pubkey.public_numbers().y
         self.dh_Yc = pkcs_i2osp(y, pubkey.key_size // 8)
@@ -811,15 +792,15 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
     @crypto_validator
     def fill_missing(self):
         s = self.tls_session
-        params = s.client_kx_ecdh_params
-        s.client_kx_privkey = ec.generate_private_key(params,
-                                                      default_backend())
+        s.client_kx_privkey = _tls_named_groups_generate(
+            s.client_kx_ecdh_params
+        )
         pubkey = s.client_kx_privkey.public_key()
         x = pubkey.public_numbers().x
         y = pubkey.public_numbers().y
         self.ecdh_Yc = (b"\x04" +
-                        pkcs_i2osp(x, params.key_size // 8) +
-                        pkcs_i2osp(y, params.key_size // 8))
+                        pkcs_i2osp(x, pubkey.key_size // 8) +
+                        pkcs_i2osp(y, pubkey.key_size // 8))
 
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(ec.ECDH(), s.server_kx_pubkey)
@@ -841,14 +822,10 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
 
         # if there are kx params and keys, we assume the crypto library is ok
         if s.client_kx_ecdh_params:
-            try:  # cryptography >= 2.5
-                import_point = ec.EllipticCurvePublicKey.from_encoded_point
-                s.client_kx_pubkey = import_point(s.client_kx_ecdh_params,
-                                                  self.ecdh_Yc)
-            except AttributeError:
-                import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
-                pub_num = import_point(s.client_kx_ecdh_params, self.ecdh_Yc)
-                s.client_kx_pubkey = pub_num.public_key(default_backend())
+            s.client_kx_pubkey = _tls_named_groups_import(
+                s.client_kx_ecdh_params,
+                self.ecdh_Yc
+            )
 
         if s.server_kx_privkey and s.client_kx_pubkey:
             ZZ = s.server_kx_privkey.exchange(ec.ECDH(), s.client_kx_pubkey)
