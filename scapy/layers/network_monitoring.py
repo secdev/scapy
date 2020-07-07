@@ -1,6 +1,8 @@
 import os
 from yattag import Doc, indent
+from pathlib import Path
 
+from scapy.config import conf
 from scapy.sendrecv import send, sniff
 from scapy.layers.inet import IP, TCP
 
@@ -18,17 +20,14 @@ class PktTCP(object):
 
 
 class NetworkMonitoring(object):
-    def __init__(self, interface="eth0", protocol="tcp"):
-        self.interface = interface
+    def __init__(self, protocol="tcp", timeout=10):
         self.protocol = protocol
-        self.timeout = 10
+        self.timeout = timeout
         self.packages = []
-        self.path_file = '/home/eliane'
+        self.path_file = str(Path.home())
         self.name_file = '{}/index.html'.format(self.path_file)
 
     def get_packages(self, pkt):
-        """Checa se o valor do opcode dentro do protocolo arp é igual a 2."""
-
         new_pkt = PktTCP(
             pkt.src,
             pkt.dst,
@@ -46,7 +45,6 @@ class NetworkMonitoring(object):
         sniff(
            prn=self.get_packages,
            filter=self.protocol,
-           iface=self.interface,
            timeout=self.timeout
         )
         self.generate_file()
@@ -101,10 +99,14 @@ class NetworkMonitoring(object):
             newline = '\r\n',
             indent_text = True
         )
-        print(result)
         arq = open(self.name_file, 'w')
         arq.write(result)
         arq.close()
+
+@conf.commands.register
+def monitoring_network(protocol="tcp", timeout=10):
+    net = NetworkMonitoring(protocol, timeout)
+    net.get_sniff()
 
 if __name__ == '__main__':
     net = NetworkMonitoring("wlp2s0")
