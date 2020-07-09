@@ -979,6 +979,10 @@ assert(rec_fin.mac == b'\xecguD\xa8\x87$<7+\n\x94\x1e9\x96\xfa')
 assert(isinstance(rec_fin.msg[0], _TLSEncryptedContent))
 rec_fin.msg[0].load == b'7\\)`\xaa`\x7ff\xcd\x10\xa9v\xa3*\x17\x1a'
 
+###
+### Other/bug tests
+###
+
 = Reading TLS test session - Full TLSNewSessionTicket captured
 import os
 tmp = "/test/pcaps/tls_new-session-ticket.pcap"
@@ -1011,6 +1015,20 @@ conf.debug_dissector = False
 # not even bytes to make it crash
 assert isinstance(_TLSMsgListField.m2i(_TLSMsgListField("", []), TLS(type=20), 1), Raw)
 conf.debug_dissector = old_debug_dissector
+
+= Test x25519 dissection in ServerKeyExchange
+
+import binascii
+
+session = tlsSession(connection_end="client")
+# Raw hex data of a TLS Handshake - Server Key Exchange with x25519 elliptic curve
+hex_data = "160303012c0c00012803001d202f19b3f5defbd65cfdcbb3583d4760ef74dde4144e01049a43d8a036df38ca15080401008e4e4afc21f612d2f024bb489940a733ea606ed36cba9c60b8479264dcb5f4a0f839d85fa02f0a4be087243e69e575af48917ba6dfda9b485311cd8fe0d7616ece9b216b7b878588c03d3ab90b9dc981f758588905307541c7d3ccb6655baf7bfb0628f3a0ac181729da6b7fcba3efdd43f5bbaec53cfa4dd512941ee1204a42cba8a989e724bd42ac2cb1373ddb54acba29ae45fd58047176e4cb623a9b301711b926d15103f5251f6a0288b04a644834a9843752bbe2f8554beffdbf412983456fcc38b9caabdf7cf9ea2c30bd72dc00cf2cf48f22cd7f17b2d22fb651facb772507cc2fb83301c0c8dd1c3b4f24f38f0c4c82d21d0fa5d1e0b260d545e701"
+packet = TLS(binascii.unhexlify(hex_data), tls_session=session)
+
+assert isinstance(packet.msg[0], TLSServerKeyExchange)
+assert packet.msg[0].params[0].sprintf("%named_curve%") == "x25519"
+assert packet.msg[0].params[0].point == b'/\x19\xb3\xf5\xde\xfb\xd6\\\xfd\xcb\xb3X=G`\xeft\xdd\xe4\x14N\x01\x04\x9aC\xd8\xa06\xdf8\xca\x15'
+
 
 ###############################################################################
 ####### Read handshake with TLS_ECDHE_ECDSA_WITH_NULL_SHA #####################
