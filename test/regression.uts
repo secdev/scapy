@@ -1349,7 +1349,7 @@ assert r.MCS_index == 5
 assert r.Ness_LSB == 0
 
 = RadioTap RX/TX Flags dissection
-data = b'\x00\x00\x0c\x00\x00\xc0\x00\x00\x02\x00\x1f\x00'
+data = b'\x00\x00\x0c\x00\x00\xc0\x00\x00\x02\x00\x3f\x00'
 r = RadioTap(data)
 r.show()
 assert r.present.TXFlags
@@ -1358,6 +1358,7 @@ assert r.TXFlags.CTS
 assert r.TXFlags.RTS
 assert r.TXFlags.NOACK
 assert r.TXFlags.NOSEQ
+assert r.TXFlags.ORDER
 assert r.present.RXFlags
 assert r.RXFlags.BAD_PLCP
 

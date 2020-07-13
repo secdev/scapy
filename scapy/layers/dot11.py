@@ -211,7 +211,7 @@ _rt_channelflags = ['res1', 'res2', 'res3', 'res4', 'Turbo', 'CCK',
 
 _rt_rxflags = ["res1", "BAD_PLCP", "res2"]
 
-_rt_txflags = ["TX_FAIL", "CTS", "RTS", "NOACK", "NOSEQ"]
+_rt_txflags = ["TX_FAIL", "CTS", "RTS", "NOACK", "NOSEQ", "ORDER"]
 
 _rt_channelflags2 = ['res1', 'res2', 'res3', 'res4', 'Turbo', 'CCK',
                      'OFDM', '2GHz', '5GHz', 'Passive', 'Dynamic_CCK_OFDM',
