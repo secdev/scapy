@@ -11,9 +11,22 @@ from __future__ import print_function
 import os
 import struct
 
-from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
-    FieldListField, IntField, PacketField, PacketListField, ShortEnumField, \
-    ShortField, StrFixedLenField, StrLenField, XStrLenField
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    EnumField,
+    FieldLenField,
+    FieldListField,
+    IntField,
+    PacketField,
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    StrFixedLenField,
+    StrLenField,
+    XStrLenField,
+)
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.x509 import X509_Extensions
 from scapy.layers.tls.basefields import _tls_version
@@ -351,22 +364,21 @@ _cert_status_type = {1: "ocsp"}
 _cert_status_req_cls = {1: OCSPStatusRequest}
 
 
-class _StatusReqField(PacketListField):
-    def m2i(self, pkt, m):
-        idtype = pkt.stype
-        cls = self.cls
-        if idtype in _cert_status_req_cls:
-            cls = _cert_status_req_cls[idtype]
-        return cls(m)
-
-
 class TLS_Ext_CSR(TLS_Ext_Unknown):                                 # RFC 4366
     name = "TLS Extension - Certificate Status Request"
     fields_desc = [ShortEnumField("type", 5, _tls_ext),
                    ShortField("len", None),
-                   ByteEnumField("stype", None, _cert_status_type),
-                   _StatusReqField("req", [], Raw,
-                                   length_from=lambda pkt: pkt.len - 1)]
+                   ConditionalField(
+                       ByteEnumField("stype", None, _cert_status_type),
+                       lambda pkt: pkt.len),
+                   ConditionalField(
+                       PacketListField(
+                           "req", [], Raw,
+                           next_cls_cb=lambda pkt, lst, cur, s: (
+                               _cert_status_req_cls.get(pkt.stype, Raw)
+                           ),
+                           length_from=lambda pkt: pkt.len - 1
+                       ), lambda pkt: pkt.len)]
 
 
 class TLS_Ext_UserMapping(TLS_Ext_Unknown):                         # RFC 4681

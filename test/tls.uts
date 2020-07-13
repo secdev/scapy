@@ -1362,6 +1362,14 @@ assert TLSCertificateVerify in t
 assert t[TLSCertificateVerify].sig.sig_len == 72
 
 
+= Test TLS_Ext_CSR with only 4 bytes
+* see https://github.com/secdev/scapy/issues/1721
+
+ext_csr = TLS_Ext_CSR(b'\x00\x05\x00\x00')
+assert ext_csr.len == 0
+assert raw(ext_csr) == b'\x00\x05\x00\x00'
+
+
 ###############################################################################
 ############################ Automaton behaviour ##############################
 ###############################################################################
