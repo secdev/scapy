@@ -21,7 +21,7 @@ from operator import add
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
 from scapy.layers.can import CAN
-from scapy.automaton import SelectableObject
+from scapy.error import warning
 from scapy.modules.six.moves import queue
 from can import Message as can_Message
 from can import CanError as can_CanError
@@ -35,8 +35,8 @@ CAN_INV_FILTER = 0x20000000
 
 class SocketMapper:
     def __init__(self, bus, sockets):
-        self.bus = bus
-        self.sockets = sockets
+        self.bus = bus           # type: can_BusABC
+        self.sockets = sockets   # type: list[SocketWrapper]
 
     def mux(self):
         while True:
@@ -44,11 +44,11 @@ class SocketMapper:
                 msg = self.bus.recv(timeout=0)
                 if msg is None:
                     return
-            except Exception:
-                return
-            for sock in self.sockets:
-                if sock._matches_filters(msg):
-                    sock.rx_queue.put(copy.copy(msg))
+                for sock in self.sockets:
+                    if sock._matches_filters(msg):
+                        sock.rx_queue.put(copy.copy(msg))
+            except Exception as e:
+                warning("[MUX] python-can exception caught: %s" % e)
 
 
 class SocketsPool(object):
@@ -64,19 +64,21 @@ class SocketsPool(object):
     def internal_send(self, sender, msg):
         with self.pool_mutex:
             try:
-                t = self.pool[sender.name]
-            except KeyError:
-                return
+                mapper = self.pool[sender.name]
+                mapper.bus.send(msg)
+                for sock in mapper.sockets:
+                    if sock == sender:
+                        continue
+                    if not sock._matches_filters(msg):
+                        continue
 
-            try:
-                t.bus.send(msg)
-                for sock in t.sockets:
-                    if sock != sender and sock._matches_filters(msg):
-                        m = copy.copy(msg)
-                        m.timestamp = time.time()
-                        sock.rx_queue.put(m)
-            except can_CanError:
-                pass
+                    m = copy.copy(msg)
+                    m.timestamp = time.time()
+                    sock.rx_queue.put(m)
+            except KeyError:
+                warning("[SND] Socket %s not found in pool" % sender.name)
+            except can_CanError as e:
+                warning("[SND] python-can exception caught: %s" % e)
 
     def multiplex_rx_packets(self):
         with self.pool_mutex:
@@ -104,11 +106,14 @@ class SocketsPool(object):
 
     def unregister(self, socket):
         with self.pool_mutex:
-            t = self.pool[socket.name]
-            t.sockets.remove(socket)
-            if not t.sockets:
-                t.bus.shutdown()
-                del self.pool[socket.name]
+            try:
+                t = self.pool[socket.name]
+                t.sockets.remove(socket)
+                if not t.sockets:
+                    t.bus.shutdown()
+                    del self.pool[socket.name]
+            except KeyError:
+                warning("Socket %s already removed from pool" % socket.name)
 
 
 class SocketWrapper(can_BusABC):
@@ -135,7 +140,7 @@ class SocketWrapper(can_BusABC):
         SocketsPool().unregister(self)
 
 
-class PythonCANSocket(SuperSocket, SelectableObject):
+class PythonCANSocket(SuperSocket):
     desc = "read/write packets at a given CAN interface " \
            "using a python-can bus object"
     nonblocking_socket = True

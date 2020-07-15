@@ -28,7 +28,6 @@ CAN_INV_FILTER = 0x20000000
 
 class NativeCANSocket(SuperSocket):
     desc = "read/write packets at a given CAN interface using PF_CAN sockets"
-    nonblocking_socket = True
 
     def __init__(self, channel=None, receive_own_messages=False,
                  can_filters=None, remove_padding=True, basecls=CAN, **kwargs):
