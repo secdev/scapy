@@ -269,7 +269,7 @@ class _IPv6GuessPayload:
 class IPv6(_IPv6GuessPayload, Packet, IPTools):
     name = "IPv6"
     fields_desc = [BitField("version", 6, 4),
-                   BitField("tc", 0, 8),  # TODO: IPv6, ByteField ?
+                   BitField("tc", 0, 8),
                    BitField("fl", 0, 20),
                    ShortField("plen", None),
                    ByteEnumField("nh", 59, ipv6nh),

@@ -545,7 +545,6 @@ class ASN1F_CHOICE(ASN1F_field):
             # we don't want to import ASN1_Packet in this module...
             return self.extract_packet(choice, s)
         elif isinstance(choice, type):
-            # XXX find a way not to instantiate the ASN1F_field
             return choice(self.name, b"").m2i(pkt, s)
         else:
             # XXX check properly if this is an ASN1F_PACKET

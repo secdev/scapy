@@ -513,8 +513,25 @@ class RandRegExp(RandField):
         self._regexp = regexp
         self._lambda = lambda_
 
+    special_sets = {
+        "[:alnum:]": "[a-zA-Z0-9]",
+        "[:alpha:]": "[a-zA-Z]",
+        "[:ascii:]": "[\x00-\x7F]",
+        "[:blank:]": "[ \t]",
+        "[:cntrl:]": "[\x00-\x1F\x7F]",
+        "[:digit:]": "[0-9]",
+        "[:graph:]": "[\x21-\x7E]",
+        "[:lower:]": "[a-z]",
+        "[:print:]": "[\x20-\x7E]",
+        "[:punct:]": "[!\"\\#$%&'()*+,\\-./:;<=>?@\\[\\\\\\]^_{|}~]",
+        "[:space:]": "[ \t\r\n\v\f]",
+        "[:upper:]": "[A-Z]",
+        "[:word:]": "[A-Za-z0-9_]",
+        "[:xdigit:]": "[A-Fa-f0-9]",
+    }
+
     @staticmethod
-    def choice_expand(s):  # XXX does not support special sets like (ex ':alnum:')  # noqa: E501
+    def choice_expand(s):
         m = ""
         invert = s and s[0] == "^"
         while True:
@@ -580,10 +597,13 @@ class RandRegExp(RandField):
         index = []
         current = stack
         i = 0
-        ln = len(self._regexp)
+        regexp = self._regexp
+        for k, v in self.special_sets.items():
+            regexp = regexp.replace(k, v)
+        ln = len(regexp)
         interp = True
         while i < ln:
-            c = self._regexp[i]
+            c = regexp[i]
             i += 1
 
             if c == '(':
@@ -632,7 +652,7 @@ class RandRegExp(RandField):
                     current.append(e)
                 interp = True
             elif c == '\\':
-                c = self._regexp[i]
+                c = regexp[i]
                 if c == "s":
                     c = RandChoice(" ", "\t")
                 elif c in "0123456789":

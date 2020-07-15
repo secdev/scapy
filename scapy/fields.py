@@ -1543,7 +1543,7 @@ class StrNullField(StrField):
     def getfield(self, pkt, s):
         len_str = s.find(b"\x00")
         if len_str < 0:
-            # XXX \x00 not found
+            # \x00 not found: return empty
             return b"", s
         return s[len_str + 1:], self.m2i(pkt, s[:len_str])
 
