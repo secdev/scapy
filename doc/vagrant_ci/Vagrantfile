@@ -19,7 +19,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define "netbsd" do |bsd|
-    bsd.vm.box = "generic/netbsd8"
+    bsd.vm.box = "generic/netbsd9"
     bsd.vm.provision "shell", path: "provision_netbsd.sh"
   end
 
