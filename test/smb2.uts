@@ -1,7 +1,3 @@
-############
-############
-~ SMB2
-
 + SMB2 Header
 
 = SMB2 Header dissecting
@@ -58,15 +54,6 @@ pkt = IP() / TCP() / NBTSession() / SMB2_Header()
 assert pkt[NBTSession].TYPE == 0x00         # session message
 smb2 = pkt[SMB2_Header]
 assert smb2.Start == b'\xfeSMB'
-
-
-
-
-
-
-
-
-
 
 + SMB2 Negociate Procotol Request Header dissecting
 
@@ -146,28 +133,6 @@ assert netname.DataLength == 28
 assert netname.NetName == '192.168.178.21'
 
 
-
-
-
-
-
-
-
-
-+ test SMB2 Negociate Protocol Request Header - assembling
-
-pkt = IP() / TCP() / NBTSession() / SMB2_Header() / SMB2_Negociate_Protocol_Request_Header()
-assert SMB2_Negociate_Protocol_Request_Header in pkt
-
-
-
-
-
-
-
-
-
-
 + SMB2 Negociate Protocol Response Header dissecting
 
 = Common fields in header
@@ -229,16 +194,3 @@ assert comp.CompressionAlgorithmCount == 1
 assert len(comp.CompressionAlgorithms) == 1
 assert comp.CompressionAlgorithms[0] == 1
 
-
-
-
-
-
-
-
-
-
-+ SMB2 Negociate Protocol Response Header assembling
-
-pkt = IP() / TCP() / NBTSession() / SMB2_Header() / SMB2_Negociate_Protocol_Response_Header()
-assert SMB2_Negociate_Protocol_Response_Header in pkt

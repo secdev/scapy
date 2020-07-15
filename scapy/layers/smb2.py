@@ -9,11 +9,30 @@ SMB (Server Message Block), also known as CIFS - version 2
 
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers
-from scapy.fields import StrFixedLenField, LEIntField, LEShortEnumField, \
-    ShortEnumField, XLEIntField, LEShortField, FlagsField, LELongField, \
-    XLELongField, XNBytesField, FieldLenField, IntField, FieldListField, \
-    XStrLenField, ShortField, IntEnumField, StrFieldUtf16, XLEShortField, \
-    UUIDField, XLongField, PacketListField, PadField
+from scapy.fields import (
+    FieldLenField,
+    FieldListField,
+    FlagsField,
+    IntEnumField,
+    IntField,
+    LEIntField,
+    LELongField,
+    LEShortEnumField,
+    LEShortField,
+    PacketListField,
+    PadField,
+    ShortEnumField,
+    ShortField,
+    StrFieldUtf16,
+    StrFixedLenField,
+    UUIDField,
+    XLEIntField,
+    XLELongField,
+    XLEShortField,
+    XLongField,
+    XNBytesField,
+    XStrLenField,
+)
 
 
 # EnumField
@@ -35,13 +54,13 @@ SMB2_NEGOCIATE_CONTEXT_TYPES = {
 
 # FlagField
 SMB2_CAPABILITIES = {
-    30: "CapabilitiesEncryption",
-    29: "CapabilitiesDirectoryLeasing",
-    28: "CapabilitiesPersistentHandles",
-    27: "CapabilitiesMultiChannel",
-    26: "CapabilitiesLargeMTU",
-    25: "CapabilitiesLeasing",
-    24: "CapabilitiesDFS",
+    30: "Encryption",
+    29: "DirectoryLeasing",
+    28: "PersistentHandles",
+    27: "MultiChannel",
+    26: "LargeMTU",
+    25: "Leasing",
+    24: "DFS",
 }
 
 # EnumField
@@ -75,6 +94,13 @@ class SMB2_Header(Packet):
         XLELongField("SessionID", 0),
         XNBytesField("Signature", 0, 16),
     ]
+
+    def guess_payload_class(self, payload):
+        if self.Command == 0x0000:
+            if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
+                return SMB2_Negociate_Protocol_Response_Header
+            return SMB2_Negociate_Protocol_Request_Header
+        return super(SMB2_Header, self).guess_payload_class(payload)
 
 
 class SMB2_Compression_Transform_Header(Packet):
@@ -270,18 +296,6 @@ bind_layers(SMB2_Preauth_Integrity_Capabilities, conf.padding_layer)
 bind_layers(SMB2_Encryption_Capabilities, conf.padding_layer)
 bind_layers(SMB2_Compression_Capabilities, conf.padding_layer)
 bind_layers(SMB2_Netname_Negociate_Context_ID, conf.padding_layer)
-bind_layers(
-    SMB2_Header,
-    SMB2_Negociate_Protocol_Request_Header,
-    Command=0x0000,
-    Flags=lambda f: (f >> 24) & 1 == 0
-)
-bind_layers(
-    SMB2_Header,
-    SMB2_Negociate_Protocol_Response_Header,
-    Command=0x0000,
-    Flags=lambda f: (f >> 24) & 1 == 1
-)
 bind_layers(
     SMB2_Negociate_Context,
     SMB2_Preauth_Integrity_Capabilities,
