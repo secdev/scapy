@@ -382,6 +382,15 @@ packet = SixLoWPAN(raw(packet))
 assert packet.sourceAddr == "aaaa::1"
 assert packet.destinyAddr == "ff02::1a"
 
+= SixLoWPAN over Ethernet
+# See https://github.com/secdev/scapy/issues/2716
+packet = Ether(b'\xff\xff\xff\xff\xff\xffPQRg\x15i\xa0\xed~;\x02\xf0\x1f\x90\x1f\x90\x03Qtesttext2')
+assert LoWPAN_IPHC in packet
+assert packet[LoWPAN_IPHC].src == "fe80::5051:52ff:fe67:1569"
+assert packet[LoWPAN_IPHC].dst == "ff02::2"
+assert packet[UDP].dport == packet[UDP].sport == 8080
+
+
 + Dot15d4 with SixLoWPAN - Advanced dissection
 
 = Compressed SixLoWPAN - real packets with ZEP2
