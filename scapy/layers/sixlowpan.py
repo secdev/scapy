@@ -54,6 +54,7 @@ import socket
 import struct
 
 from scapy.compat import chb, orb, raw
+from scapy.data import ETHER_TYPES
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitField, ByteField, BitEnumField, BitFieldLenField, \
@@ -62,14 +63,17 @@ from scapy.fields import BitField, ByteField, BitEnumField, BitFieldLenField, \
 from scapy.layers.dot15d4 import Dot15d4Data
 from scapy.layers.inet6 import IPv6, IP6Field
 from scapy.layers.inet import UDP
+from scapy.layers.l2 import Ether
 
-from scapy.utils import lhex
+from scapy.utils import lhex, mac2str
 from scapy.config import conf
 from scapy.error import warning
 
 from scapy.packet import Raw
 from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.volatile import RandShort
+
+ETHER_TYPES[0xA0ED] = "6LoWPAN"
 
 LINK_LOCAL_PREFIX = b"\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"  # noqa: E501
 
@@ -348,38 +352,52 @@ def _tf_last_attempt(pkt):
         return 0, 0, 0, 0
 
 
-def _extract_dot15d4address(pkt, source=True):
+def _extract_upperaddress(pkt, source=True):
     """This function extracts the source/destination address of a 6LoWPAN
-    from its upper Dot15d4Data (802.15.4 data) layer.
+    from its upper layer.
+
+    (Upper layer could be 802.15.4 data, Ethernet...)
 
     params:
      - source: if True, the address is the source one. Otherwise, it is the
                destination.
     returns: the packed & processed address
     """
+    # https://tools.ietf.org/html/rfc6282#section-3.2.2
+    SUPPORTED_LAYERS = (Ether, Dot15d4Data)
     underlayer = pkt.underlayer
-    while underlayer is not None and not isinstance(underlayer, Dot15d4Data):  # noqa: E501
+    while underlayer and not isinstance(underlayer, SUPPORTED_LAYERS):
         underlayer = underlayer.underlayer
-    if type(underlayer) == Dot15d4Data:
+    # Extract and process address
+    if type(underlayer) == Ether:
+        addr = mac2str(underlayer.src if source else underlayer.dst)
+        # https://tools.ietf.org/html/rfc2464#section-4
+        return LINK_LOCAL_PREFIX[:8] + addr[:3] + b"\xff\xfe" + addr[3:]
+    elif type(underlayer) == Dot15d4Data:
         addr = underlayer.src_addr if source else underlayer.dest_addr
-        if underlayer.underlayer.fcf_destaddrmode == 3:
-            tmp_ip = LINK_LOCAL_PREFIX[0:8] + struct.pack(">Q", addr)  # noqa: E501
+        addr = struct.pack(">Q", addr)
+        if underlayer.underlayer.fcf_destaddrmode == 3:  # Extended/long
+            tmp_ip = LINK_LOCAL_PREFIX[0:8] + addr
             # Turn off the bit 7.
-            tmp_ip = tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
-        elif underlayer.underlayer.fcf_destaddrmode == 2:
-            tmp_ip = LINK_LOCAL_PREFIX[0:8] + \
-                b"\x00\x00\x00\xff\xfe\x00" + \
-                struct.pack(">Q", addr)[6:]
-        return tmp_ip
+            return tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
+        elif underlayer.underlayer.fcf_destaddrmode == 2:  # Short
+            return (
+                LINK_LOCAL_PREFIX[0:8] +
+                b"\x00\x00\x00\xff\xfe\x00" +
+                addr[6:]
+            )
     else:
-        # Most of the times, it's necessary the IEEE 802.15.4 data to extract this address  # noqa: E501
-        raise Exception('Unimplemented: IP Header is contained into IEEE 802.15.4 frame, in this case it\'s not available.')  # noqa: E501
+        # Most of the times, it's necessary the IEEE 802.15.4 data to extract
+        # this address, sometimes another layer.
+        raise Exception(
+            'Unimplemented: Unsupported upper layer: %s' % type(underlayer)
+        )
 
 
 class LoWPAN_IPHC(Packet):
     """6LoWPAN IPv6 header compressed packets
 
-    It follows the implementation of draft-ietf-6lowpan-hc-15.
+    It follows the implementation of RFC6282
     """
     # the LOWPAN_IPHC encoding utilizes 13 bits, 5 dispatch type
     name = "LoWPAN IP Header Compression Packet"
@@ -523,13 +541,13 @@ class LoWPAN_IPHC(Packet):
             elif self.dam == 3:
                 # TODO May need some extra changes, we are copying
                 # (self.m == 0 and self.dac == 1)
-                tmp_ip = _extract_dot15d4address(self, source=False)
+                tmp_ip = _extract_upperaddress(self, source=False)
 
         elif self.m == 0 and self.dac == 1:
             if self.dam == 0:
                 raise Exception('Reserved')
             elif self.dam == 0x3:
-                tmp_ip = _extract_dot15d4address(self, source=False)
+                tmp_ip = _extract_upperaddress(self, source=False)
             elif self.dam not in [0x1, 0x2]:
                 warning("Unknown destiny address compression mode !")
         elif self.m == 1 and self.dac == 0:
@@ -545,6 +563,7 @@ class LoWPAN_IPHC(Packet):
                 tmp_ip = b"\xff\x02" + b"\x00" * 13 + tmp_ip[-1:]
         elif self.m == 1 and self.dac == 1:
             if self.dam == 0x0:
+                # See https://tools.ietf.org/html/rfc6282#page-9
                 raise Exception("Unimplemented: I didn't understand the 6lowpan specification")  # noqa: E501
             else:  # all the others values
                 raise Exception("Reserved value by specification.")
@@ -617,7 +636,7 @@ class LoWPAN_IPHC(Packet):
                 tmp = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00"
                 tmp_ip = tmp + tmp_ip[16 - source_addr_mode2(self):16]
             elif self.sam == 0x3:  # EXTRACT ADDRESS FROM Dot15d4
-                tmp_ip = _extract_dot15d4address(self, source=True)
+                tmp_ip = _extract_upperaddress(self, source=True)
             else:
                 warning("Unknown source address compression mode !")
         else:  # self.sac == 1:
@@ -792,6 +811,9 @@ bind_layers(SixLoWPAN, LoWPANMesh,)
 bind_layers(SixLoWPAN, LoWPAN_IPHC,)
 bind_layers(LoWPANMesh, LoWPANFragmentationFirst,)
 bind_layers(LoWPANMesh, LoWPANFragmentationSubsequent,)
+
+bind_layers(Ether, SixLoWPAN, type=0xA0ED)
+
 # TODO: I have several doubts about the Broadcast LoWPAN
 # bind_layers( LoWPANBroadcast,   LoWPANHC1CompressedIPv6,            )
 # bind_layers( SixLoWPAN,         LoWPANBroadcast,                    )
