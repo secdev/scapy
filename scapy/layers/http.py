@@ -9,19 +9,23 @@
 """
 HTTP 1.0 layer.
 
-Load using:
+Load using::
+
+    from scapy.layers.http import *
+
+Or (console only)::
 
     >>> load_layer("http")
 
 Note that this layer ISN'T loaded by default, as quite experimental for now.
 
 To follow HTTP packets streams = group packets together to get the
-whole request/answer, use `TCPSession` as:
+whole request/answer, use ``TCPSession`` as:
 
     >>> sniff(session=TCPSession)  # Live on-the-flow session
     >>> sniff(offline="./http_chunk.pcap", session=TCPSession)  # pcap
 
-This will decode HTTP packets using `Content_Length` or chunks,
+This will decode HTTP packets using ``Content_Length`` or chunks,
 and will also decompress the packets when needed.
 Note: on failure, decompression will be ignored.
 
