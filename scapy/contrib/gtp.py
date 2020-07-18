@@ -14,6 +14,7 @@ import struct
 
 
 from scapy.compat import chb, orb, bytes_encode
+from scapy.config import conf
 from scapy.error import warning
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, FieldLenField, FieldListField, FlagsField, IntField, \
@@ -311,6 +312,11 @@ class GTPPDUSessionContainer(Packet):
                                     lambda pkt: pkt.P == 1),
                    ConditionalField(ByteField("pad3", 0),
                                     lambda pkt: pkt.P == 1),
+                   ConditionalField(StrLenField(
+                       "extraPadding",
+                       "",
+                       length_from=lambda pkt: 4 * (pkt.ExtHdrLen) - 4),
+                       lambda pkt: pkt.ExtHdrLen and pkt.ExtHdrLen > 1),
                    ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes), ]
 
     def guess_payload_class(self, payload):
@@ -347,9 +353,17 @@ class GTPEchoRequest(Packet):
 
 
 class IE_Base(Packet):
-
     def extract_padding(self, pkt):
         return "", pkt
+
+    def post_build(self, p, pay):
+        if self.fields_desc[1].name == "length":
+            if self.length is None:
+                tmp_len = len(p)
+                if isinstance(self.payload, conf.padding_layer):
+                    tmp_len += len(self.payload.load)
+                p = p[:1] + struct.pack("!H", tmp_len - 2) + p[3:]
+        return p + pay
 
 
 class IE_Cause(IE_Base):
