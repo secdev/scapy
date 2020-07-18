@@ -1572,6 +1572,9 @@ class StrStopField(StrField):
 
 
 class LenField(Field):
+    """
+    If None, will be filled with the size of the payload
+    """
     __slots__ = ["adjust"]
 
     def __init__(self, name, default, fmt="H", adjust=lambda x: x):
