@@ -479,8 +479,9 @@ def _set_conf_sockets():
             conf.L3socket6 = functools.partial(L3pcapSocket, filter="ip6")
             conf.L2socket = L2pcapSocket
             conf.L2listen = L2pcapListenSocket
-            # Update globals
-            _load("scapy.arch.pcapdnet")
+            if conf.interactive:
+                # Update globals
+                _load("scapy.arch.pcapdnet")
             return
     if conf.use_bpf:
         from scapy.arch.bpf.supersocket import L2bpfListenSocket, \
@@ -489,8 +490,9 @@ def _set_conf_sockets():
         conf.L3socket6 = functools.partial(L3bpfSocket, filter="ip6")
         conf.L2socket = L2bpfSocket
         conf.L2listen = L2bpfListenSocket
-        # Update globals
-        _load("scapy.arch.bpf")
+        if conf.interactive:
+            # Update globals
+            _load("scapy.arch.bpf")
         return
     if LINUX:
         from scapy.arch.linux import L3PacketSocket, L2Socket, L2ListenSocket
@@ -498,8 +500,9 @@ def _set_conf_sockets():
         conf.L3socket6 = functools.partial(L3PacketSocket, filter="ip6")
         conf.L2socket = L2Socket
         conf.L2listen = L2ListenSocket
-        # Update globals
-        _load("scapy.arch.linux")
+        if conf.interactive:
+            # Update globals
+            _load("scapy.arch.linux")
         return
     if WINDOWS:
         from scapy.arch.windows import _NotAvailableSocket

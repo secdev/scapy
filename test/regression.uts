@@ -127,6 +127,15 @@ except:
 
 assert not conf.use_bpf
 
+if not conf.use_pcap:
+    a = six.moves.builtins.__dict__
+    conf.interactive = True
+    conf.use_pcap = True
+    assert a["get_if_list"] == scapy.arch.pcapdnet.get_if_list
+    conf.use_pcap = False
+    assert a["get_if_list"] == scapy.arch.linux.get_if_list
+    conf.interactive = False
+
 = Configuration conf.use_* WINDOWS
 ~ windows
 
