@@ -247,7 +247,7 @@ IEType = {1: "IMSI",
           }
 
 
-class GTPHeader(Packet):
+class GTPHeader(gtp.GTPHeader):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     # without the version
     name = "GTP v2 Header"
@@ -264,21 +264,6 @@ class GTPHeader(Packet):
                    ThreeBytesField("seq", RandShort()),
                    ByteField("SPARE", 0)
                    ]
-
-    def post_build(self, p, pay):
-        p += pay
-        if self.length is None:
-            tmp_len = len(p) - 8
-            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
-        return p
-
-    def hashret(self):
-        return struct.pack("B", self.version) + self.payload.hashret()
-
-    def answers(self, other):
-        return (isinstance(other, GTPHeader) and
-                self.version == other.version and
-                self.payload.answers(other.payload))
 
 
 class IE_IP_Address(gtp.IE_Base):
@@ -1530,6 +1515,9 @@ class GTPV2EchoRequest(GTPV2Command):
 class GTPV2EchoResponse(GTPV2Command):
     name = "GTPv2 Echo Response"
 
+    def answers(self, other):
+        return isinstance(other, GTPV2EchoRequest)
+
 
 class GTPV2CreateSessionRequest(GTPV2Command):
     name = "GTPv2 Create Session Request"
@@ -1538,6 +1526,9 @@ class GTPV2CreateSessionRequest(GTPV2Command):
 class GTPV2CreateSessionResponse(GTPV2Command):
     name = "GTPv2 Create Session Response"
 
+    def answers(self, other):
+        return isinstance(other, GTPV2CreateSessionRequest)
+
 
 class GTPV2DeleteSessionRequest(GTPV2Command):
     name = "GTPv2 Delete Session Request"
@@ -1545,6 +1536,9 @@ class GTPV2DeleteSessionRequest(GTPV2Command):
 
 class GTPV2DeleteSessionResponse(GTPV2Command):
     name = "GTPv2 Delete Session Request"
+
+    def answers(self, other):
+        return isinstance(other, GTPV2DeleteSessionRequest)
 
 
 class GTPV2ModifyBearerCommand(GTPV2Command):
@@ -1582,6 +1576,9 @@ class GTPV2ModifyBearerRequest(GTPV2Command):
 class GTPV2ModifyBearerResponse(GTPV2Command):
     name = "GTPv2 Modify Bearer Response"
 
+    def answers(self, other):
+        return isinstance(other, GTPV2ModifyBearerRequest)
+
 
 class GTPV2CreateBearerRequest(GTPV2Command):
     name = "GTPv2 Create Bearer Request"
@@ -1590,6 +1587,9 @@ class GTPV2CreateBearerRequest(GTPV2Command):
 class GTPV2CreateBearerResponse(GTPV2Command):
     name = "GTPv2 Create Bearer Response"
 
+    def answers(self, other):
+        return isinstance(other, GTPV2CreateBearerRequest)
+
 
 class GTPV2UpdateBearerRequest(GTPV2Command):
     name = "GTPv2 Update Bearer Request"
@@ -1597,6 +1597,9 @@ class GTPV2UpdateBearerRequest(GTPV2Command):
 
 class GTPV2UpdateBearerResponse(GTPV2Command):
     name = "GTPv2 Update Bearer Response"
+
+    def answers(self, other):
+        return isinstance(other, GTPV2UpdateBearerRequest)
 
 
 class GTPV2DeleteBearerRequest(GTPV2Command):
@@ -1630,6 +1633,9 @@ class GTPV2ContextRequest(GTPV2Command):
 class GTPV2ContextResponse(GTPV2Command):
     name = "GTPv2 Context Response"
 
+    def answers(self, other):
+        return isinstance(other, GTPV2ContextRequest)
+
 
 class GTPV2ContextAcknowledge(GTPV2Command):
     name = "GTPv2 Context Acknowledge"
@@ -1642,6 +1648,12 @@ class GTPV2CreateIndirectDataForwardingTunnelRequest(GTPV2Command):
 class GTPV2CreateIndirectDataForwardingTunnelResponse(GTPV2Command):
     name = "GTPv2 Create Indirect Data Forwarding Tunnel Response"
 
+    def answers(self, other):
+        return isinstance(
+            other,
+            GTPV2CreateIndirectDataForwardingTunnelRequest
+        )
+
 
 class GTPV2DeleteIndirectDataForwardingTunnelRequest(GTPV2Command):
     name = "GTPv2 Delete Indirect Data Forwarding Tunnel Request"
@@ -1650,6 +1662,12 @@ class GTPV2DeleteIndirectDataForwardingTunnelRequest(GTPV2Command):
 class GTPV2DeleteIndirectDataForwardingTunnelResponse(GTPV2Command):
     name = "GTPv2 Delete Indirect Data Forwarding Tunnel Response"
 
+    def answers(self, other):
+        return isinstance(
+            other,
+            GTPV2DeleteIndirectDataForwardingTunnelRequest
+        )
+
 
 class GTPV2ReleaseBearerRequest(GTPV2Command):
     name = "GTPv2 Release Bearer Request"
@@ -1657,6 +1675,9 @@ class GTPV2ReleaseBearerRequest(GTPV2Command):
 
 class GTPV2ReleaseBearerResponse(GTPV2Command):
     name = "GTPv2 Release Bearer Response"
+
+    def answers(self, other):
+        return isinstance(other, GTPV2ReleaseBearerRequest)
 
 
 class GTPV2DownlinkDataNotif(GTPV2Command):

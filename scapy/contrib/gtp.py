@@ -222,9 +222,16 @@ class GTPHeader(Packet):
                    ByteEnumField("gtp_type", None, GTPmessageType),
                    ShortField("length", None),
                    IntField("teid", 0),
-                   ConditionalField(XBitField("seq", 0, 16), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),  # noqa: E501
-                   ConditionalField(ByteField("npdu", 0), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),  # noqa: E501
-                   ConditionalField(ByteEnumField("next_ex", 0, ExtensionHeadersTypes), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1), ]  # noqa: E501
+                   ConditionalField(
+                       XBitField("seq", 0, 16),
+                       lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
+                   ConditionalField(
+                       ByteField("npdu", 0),
+                       lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
+                   ConditionalField(
+                       ByteEnumField("next_ex", 0, ExtensionHeadersTypes),
+                       lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
+                   ]
 
     def post_build(self, p, pay):
         p += pay
