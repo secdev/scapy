@@ -234,11 +234,15 @@ class GTPHeader(Packet):
         return p
 
     def hashret(self):
-        return struct.pack("B", self.version) + self.payload.hashret()
+        hsh = struct.pack("B", self.version)
+        if self.seq:
+            hsh += struct.pack("H", self.seq)
+        return hsh + self.payload.hashret()
 
     def answers(self, other):
         return (isinstance(other, GTPHeader) and
                 self.version == other.version and
+                (not self.seq or self.seq == other.seq) and
                 self.payload.answers(other.payload))
 
     @classmethod
@@ -340,16 +344,10 @@ class GTPPDUSessionContainer(Packet):
             p = struct.pack("!B", hdr_len) + p[1:]
         return p
 
-    def hashret(self):
-        return struct.pack("H", self.seq)
-
 
 class GTPEchoRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Echo Request"
-
-    def hashret(self):
-        return struct.pack("H", self.seq)
 
 
 class IE_Base(Packet):
@@ -868,11 +866,8 @@ class GTPEchoResponse(Packet):
     name = "GTP Echo Response"
     fields_desc = [PacketListField("IE_list", [], IE_Dispatcher)]
 
-    def hashret(self):
-        return struct.pack("H", self.seq)
-
     def answers(self, other):
-        return self.seq == other.seq
+        return isinstance(other, GTPEchoRequest)
 
 
 class GTPCreatePDPContextRequest(Packet):
@@ -883,20 +878,14 @@ class GTPCreatePDPContextRequest(Packet):
                                                IE_NotImplementedTLV(ietype=135, length=15, data=RandString(15))],  # noqa: E501
                                    IE_Dispatcher)]
 
-    def hashret(self):
-        return struct.pack("H", self.seq)
-
 
 class GTPCreatePDPContextResponse(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Create PDP Context Response"
     fields_desc = [PacketListField("IE_list", [], IE_Dispatcher)]
 
-    def hashret(self):
-        return struct.pack("H", self.seq)
-
     def answers(self, other):
-        return self.seq == other.seq
+        return isinstance(other, GTPCreatePDPContextRequest)
 
 
 class GTPUpdatePDPContextRequest(Packet):
@@ -924,17 +913,14 @@ class GTPUpdatePDPContextRequest(Packet):
         IE_PrivateExtension()],
         IE_Dispatcher)]
 
-    def hashret(self):
-        return struct.pack("H", self.seq)
-
 
 class GTPUpdatePDPContextResponse(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Update PDP Context Response"
     fields_desc = [PacketListField("IE_list", None, IE_Dispatcher)]
 
-    def hashret(self):
-        return struct.pack("H", self.seq)
+    def answers(self, other):
+        return isinstance(other, GTPUpdatePDPContextRequest)
 
 
 class GTPErrorIndication(Packet):
