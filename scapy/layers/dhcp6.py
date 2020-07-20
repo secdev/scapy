@@ -1533,6 +1533,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
 
         ####
         # Find the source address we will use
+        self.src_addr = None
         try:
             addr = next(x for x in in6_getifaddr() if x[2] == iface and in6_islladdr(x[0]))  # noqa: E501
         except (StopIteration, RuntimeError):
