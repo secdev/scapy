@@ -891,7 +891,7 @@ def load_object(fname):
 
 @conf.commands.register
 def corrupt_bytes(s, p=0.01, n=None):
-    """Corrupt a given percentage or number of bytes from a string"""
+    """Corrupt a given percentage (at least one byte) or number of bytes from a string"""
     s = array.array("B", bytes_encode(s))
     s_len = len(s)
     if n is None:
@@ -903,7 +903,7 @@ def corrupt_bytes(s, p=0.01, n=None):
 
 @conf.commands.register
 def corrupt_bits(s, p=0.01, n=None):
-    """Flip a given percentage or number of bits from a string"""
+    """Flip a given percentage (at least one bit) or number of bits from a string"""
     s = array.array("B", bytes_encode(s))
     s_len = len(s) * 8
     if n is None:
