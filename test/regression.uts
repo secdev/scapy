@@ -11476,6 +11476,7 @@ len(r4.routes) == len_r4
 
 dummy_interface = get_dummy_interface()
 
+bck_conf_route_routes = conf.route.routes
 conf.route.routes = [
     (0, 0, '172.21.230.1', dummy_interface, '172.21.230.10', 1),                # 0.0.0.0         / 0.0.0.0         == 255.255.255.255
     (2851995648, 4294901760, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 169.254.0.0     / 255.255.0.0     == 169.254.255.255
@@ -11487,7 +11488,7 @@ conf.route.routes = [
     ]
 
 assert sorted(conf.route.get_if_bcast(dummy_interface)) == sorted(['169.254.255.255', '172.21.230.255', '239.255.255.255'])
-conf.route.resync()
+conf.route.routes = bck_conf_route_routes
 
 ############
 ############
