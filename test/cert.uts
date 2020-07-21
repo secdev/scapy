@@ -69,9 +69,9 @@ z.pubkey.public_numbers().x == 1047486561747694969523700054215665182527042630001
 
 = PubKeyRSA class : Generate without modulus
 t = PubKeyRSA()
-t.fill_and_store(modulus=None, pubExp=32769, modulusLen=1024)
+t.fill_and_store(modulus=None, pubExp=65537, modulusLen=1024)
 assert t.pubkey.key_size == 1024
-assert t.pubkey.public_numbers().e == 32769
+assert t.pubkey.public_numbers().e == 65537
 
 ########### PrivKey class ###############################################
 
