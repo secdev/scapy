@@ -7180,6 +7180,16 @@ assert(all(UDP in p for p in l))
 l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
 assert len(l) == 0
 
+= Check offline sniff() with Packets, tcpdump and a bad filter
+~ tcpdump
+
+try:
+    sniff(offline=IP()/UDP(), filter="bad filter")
+except Scapy_Exception:
+    pass
+else:
+    assert False
+
 = Check offline sniff with lfilter
 assert len(sniff(offline=[IP()/UDP(), IP()/TCP()], lfilter=lambda x: TCP in x)) == 1
 

@@ -855,12 +855,12 @@ class AsyncSniffer(object):
                     all(isinstance(elt, str) for elt in offline):
                 sniff_sockets.update((PcapReader(
                     fname if flt is None else
-                    tcpdump(fname, args=["-w", "-", flt], getfd=True)
+                    tcpdump(fname, args=["-w", "-"], flt=flt, getfd=True)
                 ), fname) for fname in offline)
             elif isinstance(offline, dict):
                 sniff_sockets.update((PcapReader(
                     fname if flt is None else
-                    tcpdump(fname, args=["-w", "-", flt], getfd=True)
+                    tcpdump(fname, args=["-w", "-"], flt=flt, getfd=True)
                 ), label) for fname, label in six.iteritems(offline))
             else:
                 # Write Scapy Packet objects to a pcap file
@@ -878,7 +878,8 @@ class AsyncSniffer(object):
                 sniff_sockets[PcapReader(
                     offline if flt is None else
                     tcpdump(offline,
-                            args=["-w", "-", flt],
+                            args=["-w", "-"],
+                            flt=flt,
                             getfd=True,
                             quiet=quiet)
                 )] = offline
