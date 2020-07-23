@@ -452,10 +452,10 @@ class NTPHeader(NTP):
         """
         plen = len(payload)
 
-        if plen > _NTP_AUTH_MD5_TAIL_SIZE:
-            return NTPExtensions
-        elif plen == _NTP_AUTH_MD5_TAIL_SIZE:
+        if plen - 4 in [16, 20, 32, 64]:  # length of MD5, SHA1, SHA256, SHA512
             return NTPAuthenticator
+        elif plen > _NTP_AUTH_MD5_TAIL_SIZE:
+            return NTPExtensions
 
         return Packet.guess_payload_class(self, payload)
 
