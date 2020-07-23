@@ -1311,7 +1311,7 @@ assert Dot11FCS in radiotap
 assert radiotap.fcs == 0xdbc04908
 
 assert Dot11EltRates in radiotap
-assert radiotap[Dot11EltRates].rates == [0x82, 0x84, 0x8b, 0x96, 0x24, 0x30, 0x48, 0x6c]
+assert [x.label for x in radiotap[Dot11EltRates].rates] == [1.0, 2.0, 5.5, 11.0, 18.0, 24.0, 36.0, 54.0]
 
 = RadioTap - Build with Extended presence mask
 
@@ -1332,7 +1332,7 @@ assert PMKIDListPacket(raw(PMKIDListPacket(pmkid_list=["0123456789ABDEFX", "AZED
 = Dot11EltRSN - Check computation of nb_pairwise_cipher_suites and nb_akm_suites 
 assert Dot11EltRSN(raw(Dot11EltRSN())).nb_pairwise_cipher_suites == 1 
 assert Dot11EltRSN(raw(Dot11EltRSN(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP")]))).nb_pairwise_cipher_suites == 1 
-assert Dot11EltRSN(raw(Dot11EltRSN(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP"), RSNCipherSuite(cipher="CCMP")]))).nb_pairwise_cipher_suites == 2 
+assert Dot11EltRSN(raw(Dot11EltRSN(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP"), RSNCipherSuite(cipher="CCMP-128")]))).nb_pairwise_cipher_suites == 2 
 assert Dot11EltRSN(raw(Dot11EltRSN())).nb_akm_suites == 1
 assert Dot11EltRSN(raw(Dot11EltRSN(akm_suites=[AKMSuite(suite="PSK")]))).nb_akm_suites == 1
 assert Dot11EltRSN(raw(Dot11EltRSN(akm_suites=[AKMSuite(suite="PSK"), AKMSuite(suite="802.1X")]))).nb_akm_suites == 2
@@ -1340,7 +1340,7 @@ assert Dot11EltRSN(raw(Dot11EltRSN(akm_suites=[AKMSuite(suite="PSK"), AKMSuite(s
 = Dot11EltMicrosoftWPA - Check computation of nb_pairwise_cipher_suites and nb_akm_suites 
 assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA())).nb_pairwise_cipher_suites == 1
 assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP")]))).nb_pairwise_cipher_suites == 1
-assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP"), RSNCipherSuite(cipher="CCMP")]))).nb_pairwise_cipher_suites == 2
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP"), RSNCipherSuite(cipher="CCMP-128")]))).nb_pairwise_cipher_suites == 2
 assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA())).nb_akm_suites == 1
 assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(akm_suites=[AKMSuite(suite="PSK")]))).nb_akm_suites == 1
 assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(akm_suites=[AKMSuite(suite="PSK"), AKMSuite(suite="802.1X")]))).nb_akm_suites == 2
@@ -12067,7 +12067,7 @@ s == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 = Dot11 - dissection
 p = Dot11(s)
 Dot11 in p and p.addr3 == "00:00:00:00:00:00"
-p.mysummary() == '802.11 Management 0 00:00:00:00:00:00 > 00:00:00:00:00:00'
+p.mysummary() == '802.11 Management Association Request 00:00:00:00:00:00 > 00:00:00:00:00:00'
 
 = Dot11QoS - build
 s = raw(Dot11()/Dot11QoS(Ack_Policy=1))
@@ -12106,7 +12106,7 @@ assert Dot11Elt(ID=1).mysummary() == ""
 assert Dot11(b'\x84\x00\x00\x00\x00\x11\x22\x33\x44\x55\x00\x11\x22\x33\x44\x55').addr2 == '00:11:22:33:44:55'
 
 = Multiple Dot11Elt layers
-pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID="Rates") / Dot11Elt(ID="SSID", info="Scapy")
+pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID="Supported Rates") / Dot11Elt(ID="SSID", info="Scapy")
 assert pkt[Dot11Elt::{"ID": 0}].info == b"Scapy"
 assert pkt.getlayer(Dot11Elt, ID=0).info == b"Scapy"
 
@@ -12173,7 +12173,7 @@ nstats
 assert nstats == {
    'channel': 8,
    'crypto': {'WPA2/PSK'},
-   'rates': [130, 132, 12, 18, 24, 36, 48, 72, 96, 108],
+   'rates': [1.0, 2.0, 6.0, 9.0, 12.0, 18.0, 24.0, 36.0, 48.0, 54.0],
    'ssid': 'SSID76',
    'country': 'US',
    'country_desc_type': 'Indoor'
@@ -12185,7 +12185,7 @@ nstats = pkt[Dot11Beacon].network_stats()
 nstats
 assert nstats == {
    'ssid': 'WPA3-Network',
-   'rates': [130, 132, 139, 150, 12, 18, 24, 36],
+   'rates': [1.0, 2.0, 5.5, 11.0, 6.0, 9.0, 12.0, 18.0, 24.0, 36.0, 48.0, 54.0],
    'channel': 1,
    'crypto': {'WPA3/SAE'}
 }
@@ -12248,9 +12248,10 @@ assert Dot11Elt in rsn_ie
 
 pkt = RadioTap(b"\x00\x000\x00/@\x00\xa0 \x08\x00\xa0 \x08\x00\xa0 \x08\x00\x00\x00\x00\x00\x00\x0bpin;%\xedN\x10\x0cl\t\xc0\x00\xce\x00\x00\x00\xb2\x00\xbd\x01\xce\x02\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\xec\x17/\x82\x1e)\xec\x17/\x82\x1e)\x10p\x81a\xa1\x08\x00\x00\x00\x00d\x001\x04\x00\rROUTE-821E295\x01\x01\x8c\x03\x01\x01\x05\x04\x00\x02\x00\x00\x07$IL \x01\x01\x14\x02\x01\x14\x03\x01\x14\x04\x01\x14\x05\x01\x14\x06\x01\x14\x07\x01\x14\x08\x01\x14\t\x01\x14\n\x01\x14\x0b\x01\x14;\x12QQRSTstuvwxyz{}~\x7f\x80*\x01\x000\x1a\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x02\x8c\x00\x00\x00\x00\x0f\xac\x06-\x1a\x8d\x01\x1f\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00=\x16\x01\x00\x15\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xdd\x18\x00P\xf2\x02\x01\x01\x81\x00\x03\xa4\x00\x00'\xa4\x00\x00BT^\x00a2/\x00\x7f\x01\x04\xdd\x07\x00\xa0\xc6\x02\x02\x03\x00\xdd\x17\xec\x17/RRRRRRRRRRRRRRRRRRRRR\x9e[\xf2")
 assert Dot11EltRSN in pkt
+pkt[Dot11Beacon].network_stats()
 assert pkt[Dot11Beacon].network_stats() == {
     'ssid': 'ROUTE-821E295',
-    'rates': [140],
+    'rates': [6.0],
     'channel': 1,
     'country': 'IL',
     'country_desc_type': None,
@@ -12298,6 +12299,117 @@ assert f[Dot11EltMicrosoftWPA].nb_pairwise_cipher_suites == 0x01
 assert f[Dot11EltMicrosoftWPA].pairwise_cipher_suites[0].cipher == 0x04
 assert f[Dot11EltMicrosoftWPA].nb_akm_suites == 0x01
 assert f[Dot11EltMicrosoftWPA].akm_suites[0].suite == 0x01
+
+= HT Capabilities
+f = RadioTap(b"\x00\x00&\x00/@\x00\xa0 \x08\x00\xa0 \x08\x00\x00\x9dt\xc3\xf1\x18\x00\x00\x00\x10\x02l\t\xa0\x00\xd9\x00\x00\x00\xd3\x00\xd7\x01@\x00\x00\x00\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xff\xff\xff\xff\xff\xffP'\x00\x00\x01\x04\x02\x04\x0b\x162\x08\x0c\x12\x18$0H`l\x03\x01\x01-\x1a-@\x17\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x08\x00\x00\x08\x04\x00\x00\x00@Y\xb7T\x13")
+assert Dot11EltHTCapabilities in f
+assert f.L_SIG_TXOP_Protection == 0
+assert f.Forty_Mhz_Intolerant == 1
+assert f.PSMP == 0
+assert f.DSSS_CCK == 0
+assert f.Max_A_MSDU == 0
+assert f.Delayed_BlockAck == 0
+assert f.Rx_STBC == 0
+assert f.Tx_STBC == 0
+assert f.Short_GI_40Mhz == 0
+assert f.Short_GI_20Mhz == 1
+assert f.Green_Field == 0
+assert f.SM_Power_Save == 3
+assert f.Supported_Channel_Width == 0
+assert f.LDPC_Coding_Capability == 1
+assert f.res == 0
+assert f.Min_MPDCU_Start_Spacing == 5
+assert f.Max_A_MPDU_Length_Exponent == 3
+assert f.TX_Unequal_Modulation == 0
+assert f.TX_Max_Spatial_Streams == 0
+assert f.TX_RX_MCS_Set_Not_Equal == 0
+assert f.TX_MCS_Set_Defined == 0
+assert f.RX_Highest_Supported_Data_Rate == 0
+assert f.RX_MSC_Bitmask == 255
+assert f.RD_Responder == 0
+assert f.HTC_HT_Support == 0
+assert f.MCS_Feedback == 0
+assert f.PCO_Transition_Time == 0
+assert f.PCO == 0
+assert f.Channel_Estimation_Capability == 0
+assert f.CSI_max_n_Rows_Beamformer_Supported == 0
+assert f.Compressed_Steering_n_Beamformer_Antennas_Supported == 0
+assert f.Noncompressed_Steering_n_Beamformer_Antennas_Supported == 0
+assert f.CSI_n_Beamformer_Antennas_Supported == 0
+assert f.Minimal_Grouping == 0
+assert f.Explicit_Compressed_Beamforming_Feedback == 0
+assert f.Explicit_Noncompressed_Beamforming_Feedback == 0
+assert f.Explicit_Transmit_Beamforming_CSI_Feedback == 0
+assert f.Explicit_Compressed_Steering == 0
+assert f.Explicit_Noncompressed_Steering == 0
+assert f.Explicit_CSI_Transmit_Beamforming == 0
+assert f.Calibration == 0
+assert f.Implicit_Trasmit_Beamforming == 0
+assert f.Transmit_NDP == 0
+assert f.Receive_NDP == 0
+assert f.Transmit_Staggered_Sounding == 0
+assert f.Receive_Staggered_Sounding == 0
+assert f.Implicit_Transmit_Beamforming_Receiving == 0
+assert f.ASEL == 0
+
+= HT Capabilities with fuzzed values
+# Those were checked with Wireshark !
+f = RadioTap(b'\x00\x00\t\x00\x02\x00\x00\x00\x10@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00-\x1a\xecH\xbf\x85!\x02\xd0m\x91\xa8\xd9\xf0\xa9\xb8\x15\xae\x00\x00\x00,Y\x86\xb3H\xa7?Z\xd2\xa8\xc2')
+assert Dot11EltHTCapabilities in f
+assert f.L_SIG_TXOP_Protection == 0
+assert f.Forty_Mhz_Intolerant == 1
+assert f.PSMP == 0
+assert f.DSSS_CCK == 0
+assert f.Max_A_MSDU == 1
+assert f.Delayed_BlockAck == 0
+assert f.Rx_STBC == 0
+assert f.Tx_STBC == 1
+assert f.Short_GI_40Mhz == 1
+assert f.Short_GI_20Mhz == 1
+assert f.Green_Field == 0
+assert f.SM_Power_Save == 3
+assert f.Supported_Channel_Width == 0
+assert f.LDPC_Coding_Capability == 0
+assert f.res == 5
+assert f.Min_MPDCU_Start_Spacing == 7
+assert f.Max_A_MPDU_Length_Exponent == 3
+assert f.TX_Unequal_Modulation == 0
+assert f.TX_Max_Spatial_Streams == 3
+assert f.TX_RX_MCS_Set_Not_Equal == 1
+assert f.TX_MCS_Set_Defined == 0
+assert f.RX_Highest_Supported_Data_Rate == 440
+assert f.RX_MSC_Bitmask == 46944200869120244326789
+assert f.RD_Responder == 1
+assert f.HTC_HT_Support == 0
+assert f.MCS_Feedback == 1
+assert f.PCO_Transition_Time == 2
+assert f.PCO == 0
+assert f.Channel_Estimation_Capability == 0
+assert f.CSI_max_n_Rows_Beamformer_Supported == 3
+assert f.Compressed_Steering_n_Beamformer_Antennas_Supported == 2
+assert f.Noncompressed_Steering_n_Beamformer_Antennas_Supported == 2
+assert f.CSI_n_Beamformer_Antennas_Supported == 1
+assert f.Minimal_Grouping == 0
+assert f.Explicit_Compressed_Beamforming_Feedback == 1
+assert f.Explicit_Noncompressed_Beamforming_Feedback == 1
+assert f.Explicit_Transmit_Beamforming_CSI_Feedback == 2
+assert f.Explicit_Compressed_Steering == 0
+assert f.Explicit_Noncompressed_Steering == 1
+assert f.Explicit_CSI_Transmit_Beamforming == 1
+assert f.Calibration == 2
+assert f.Implicit_Trasmit_Beamforming == 0
+assert f.Transmit_NDP == 0
+assert f.Receive_NDP == 0
+assert f.Transmit_Staggered_Sounding == 1
+assert f.Receive_Staggered_Sounding == 1
+assert f.Implicit_Transmit_Beamforming_Receiving == 0
+assert f.ASEL.resTransmit_Sounding_PPDUs
+assert f.ASEL.Receive_ASEL
+assert f.ASEL.Antenna_Indices_Feedback
+assert f.ASEL.Explicit_CSI_Feedback
+assert f.ASEL.Explicit_CSI_Feedback_Based_Transmit_ASEL
+assert f.ASEL.Antenna_Selection
+assert f.ASEL == 63
 
 = Reassociation request
 f = Dot11(b' \x00:\x01@\xe3\xd6\x7f*\x00\x00\x10\x18\xa9l.@\xe3\xd6\x7f*\x00 \t1\x04\n\x00@\xe3\xd6\x7f*\x00\x00\x064.2.12\x01\x08\x82\x84\x0b\x16$0Hl!\x02\x08\x1a$\x02\x01\x0b0&\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01\x00\x00\x01\x00LD\xfe\xf2l\xdcV\xce\x0b7\xab\xc62\x02O\x112\x04\x0c\x12\x18`\x7f\x08\x01\x00\x00\x00\x00\x00\x00@\xdd\t\x00\x10\x18\x02\x00\x00\x10\x00\x00')
