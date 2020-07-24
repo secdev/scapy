@@ -59,7 +59,7 @@ Send and receive a message over Linux SocketCAN::
    load_layer('can')
    load_contrib('cansocket')
 
-   socket = CANSocket(iface='can0')
+   socket = CANSocket(channel='can0')
    packet = CAN(identifier=0x123, data=b'01020304')
 
    socket.send(packet)
@@ -75,7 +75,7 @@ Send a message over a Vector CAN-Interface::
    load_contrib('cansocket')
    from can.interfaces.vector import VectorBus
 
-   socket = CANSocket(iface=VectorBus(0, bitrate=1000000))
+   socket = CANSocket(channel=VectorBus(0, bitrate=1000000))
    packet = CAN(identifier=0x123, data=b'01020304')
 
    socket.send(packet)
