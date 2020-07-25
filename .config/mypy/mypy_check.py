@@ -1,6 +1,5 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) Philippe Biondi <phil@secdev.org>
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>
 # This program is published under a GPLv2 license
 
@@ -60,6 +59,7 @@ ARGS = [
             "mypy.ini"
         )
     ),
+    "--show-traceback",
 ] + [os.path.abspath(f) for f in FILES]
 
 # Run mypy over the files

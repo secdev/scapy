@@ -180,8 +180,10 @@ class _PacketList(Generic[_Inner]):
                         whether it will be displayed
         """
         # Python 2 backward compatibility
-        prn = lambda_tuple_converter(prn)
-        lfilter = lambda_tuple_converter(lfilter)
+        if prn is not None:
+            prn = lambda_tuple_converter(prn)
+        if lfilter is not None:
+            lfilter = lambda_tuple_converter(lfilter)
 
         for r in self.res:
             if lfilter is not None:
@@ -205,8 +207,10 @@ class _PacketList(Generic[_Inner]):
                         whether it will be displayed
         """
         # Python 2 backward compatibility
-        prn = lambda_tuple_converter(prn)
-        lfilter = lambda_tuple_converter(lfilter)
+        if prn is not None:
+            prn = lambda_tuple_converter(prn)
+        if lfilter is not None:
+            lfilter = lambda_tuple_converter(lfilter)
 
         for i, res in enumerate(self.res):
             if lfilter is not None:
@@ -239,17 +243,17 @@ class _PacketList(Generic[_Inner]):
         # type: (Any, Any) -> Optional[str]
         """Prints a table using a function that returns for each packet its head column value, head row value and displayed value  # noqa: E501
         ex: p.make_table(lambda x:(x[IP].dst, x[TCP].dport, x[TCP].sprintf("%flags%")) """  # noqa: E501
-        return make_table(self.res, *args, **kargs)  # type: ignore
+        return make_table(self.res, *args, **kargs)
 
     def make_lined_table(self, *args, **kargs):
         # type: (Any, Any) -> Optional[str]
         """Same as make_table, but print a table with lines"""
-        return make_lined_table(self.res, *args, **kargs)  # type: ignore
+        return make_lined_table(self.res, *args, **kargs)
 
     def make_tex_table(self, *args, **kargs):
         # type: (Any, Any) -> Optional[str]
         """Same as make_table, but print a table with LaTeX syntax"""
-        return make_tex_table(self.res, *args, **kargs)  # type: ignore
+        return make_tex_table(self.res, *args, **kargs)
 
     def plot(self,
              f,  # type: Callable[..., Any]
@@ -266,7 +270,8 @@ class _PacketList(Generic[_Inner]):
 
         # Python 2 backward compatibility
         f = lambda_tuple_converter(f)
-        lfilter = lambda_tuple_converter(lfilter)
+        if lfilter is not None:
+            lfilter = lambda_tuple_converter(lfilter)
 
         # Get the list of packets
         if lfilter is None:
@@ -336,7 +341,8 @@ class _PacketList(Generic[_Inner]):
 
         # Python 2 backward compatibility
         f = lambda_tuple_converter(f)
-        lfilter = lambda_tuple_converter(lfilter)
+        if lfilter is not None:
+            lfilter = lambda_tuple_converter(lfilter)
 
         # Get the list of packets
         if lfilter is None:

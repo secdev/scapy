@@ -31,7 +31,7 @@ from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended, Field_metaclass
 from scapy.volatile import RandField, VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
-    pretty_list
+    pretty_list, EDecimal
 from scapy.error import Scapy_Exception, log_runtime, warning
 from scapy.extlib import PYX
 import scapy.modules.six as six
@@ -137,8 +137,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                  **fields  # type: Any
                  ):
         # type: (...) -> None
-        self.time = time.time()
-        self.sent_time = None  # type: Union[None, float]
+        self.time = time.time()  # type: Union[EDecimal, float]
+        self.sent_time = None  # type: Union[EDecimal, float, None]
         self.name = (self.__class__.__name__
                      if self._name is None else
                      self._name)
@@ -190,8 +190,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
 
     _PickleType = Tuple[
         bytes,
-        float,
-        Optional[float],
+        Union[EDecimal, float],
+        Optional[Union[EDecimal, float, None]],
         Optional[int],
         Optional[str],
         Optional[int]
@@ -727,7 +727,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         return self.payload.build_done(p)
 
     def do_build_ps(self):
-        # type: () -> Tuple[bytes, List[Tuple[Packet, List[Tuple[Any, Any, bytes]]]]]  # noqa: E501
+        # type: () -> Tuple[bytes, List[Tuple[Packet, List[Tuple[Field[Any, Any], str, bytes]]]]]  # noqa: E501
         p = b""
         pl = []
         q = b""
@@ -876,7 +876,14 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             bkcol = next(backcolor)
             proto, fields = t.pop()
             y += 0.5
-            pt = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(proto.name), [pyx.text.size.Large])  # noqa: E501
+            pt = pyx.text.text(
+                XSTART,
+                (YTXT - y) * YMUL,
+                r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(
+                    str(proto.name)
+                ),
+                [pyx.text.size.Large]
+            )
             y += 1
             ptbb = pt.bbox()
             ptbb.enlarge(pyx.unit.u_pt * 2)
@@ -1241,7 +1248,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         if _subclass:
             match = issubtype
         else:
-            match = lambda cls1, cls2: cls1 == cls2
+            match = lambda cls1, cls2: bool(cls1 == cls2)
         if cls is None or match(self.__class__, cls) \
            or cls in [self.__class__.__name__, self._name]:
             return True
@@ -1274,7 +1281,7 @@ values.
         if _subclass:
             match = issubtype
         else:
-            match = lambda cls1, cls2: cls1 == cls2
+            match = lambda cls1, cls2: bool(cls1 == cls2)
         if isinstance(cls, int):
             nb = cls + 1
             cls = None
@@ -1559,7 +1566,10 @@ values.
                 raise Scapy_Exception("Bad format string [%%%s%s]" % (fmt[:25], fmt[25:] and "..."))  # noqa: E501
             else:
                 if fld == "time":
-                    val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time - int(self.time)) * 1000000)  # noqa: E501
+                    val = time.strftime(
+                        "%H:%M:%S.%%06i",
+                        time.localtime(float(self.time))
+                    ) % int((self.time - int(self.time)) * 1000000)
                 elif cls == self.__class__.__name__ and hasattr(self, fld):
                     if num > 1:
                         val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f, cls, num - 1, fld), relax)  # noqa: E501
@@ -2275,6 +2285,7 @@ def explore(layer=None):
         raise Scapy_Exception("Unknown scapy module '%s'" % layer)
     # Print
     print(conf.color_theme.layer_name("Packets contained in %s:" % result))
+    rtlst = []  # type: List[Tuple[Union[str, List[str]], ...]]
     rtlst = [(lay.__name__ or "", lay._name or "") for lay in all_layers]
     print(pretty_list(rtlst, [("Class", "Name")], borders=True))
 

@@ -31,6 +31,7 @@ from scapy.themes import NoTheme, apply_ipython_style
 from scapy.compat import (
     Any,
     Callable,
+    DecoratorCallable,
     Dict,
     Iterator,
     List,
@@ -123,6 +124,7 @@ ReadOnlyAttribute.__doc__ = "Read-only class attribute"
 
 
 class ProgPath(ConfClass):
+    _default = "<System default>"
     universal_open = "open" if DARWIN else "xdg-open"
     pdfreader = universal_open
     psreader = universal_open
@@ -294,7 +296,7 @@ class LayersList(List[Packet_metaclass]):
         self.filtered = False
 
 
-class CommandsList(List[Callable]):  # type: ignore
+class CommandsList(List[Callable[..., Any]]):
     def __repr__(self):
         # type: () -> str
         s = []
@@ -304,7 +306,7 @@ class CommandsList(List[Callable]):  # type: ignore
         return "\n".join(s)
 
     def register(self, cmd):
-        # type: (Callable[..., Any]) -> Callable[..., Any]
+        # type: (DecoratorCallable) -> DecoratorCallable
         self.append(cmd)
         return cmd  # return cmd so that method can be used as a decorator
 
@@ -845,7 +847,7 @@ conf = Conf()
 
 
 def crypto_validator(func):
-    # type: (Callable[..., Any]) -> Callable[..., Any]
+    # type: (DecoratorCallable) -> DecoratorCallable
     """
     This a decorator to be used for any method relying on the cryptography library.  # noqa: E501
     Its behaviour depends on the 'crypto_valid' attribute of the global 'conf'.
@@ -856,7 +858,7 @@ def crypto_validator(func):
             raise ImportError("Cannot execute crypto-related method! "
                               "Please install python-cryptography v1.7 or later.")  # noqa: E501
         return func(*args, **kwargs)
-    return func_in
+    return func_in  # type: ignore
 
 
 def scapy_delete_temp_files():

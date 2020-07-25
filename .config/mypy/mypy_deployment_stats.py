@@ -23,16 +23,16 @@ with io.open(os.path.join(localdir, "mypy_enabled.txt")) as fd:
 
 ALL_FILES = [
      "".join(x.partition("scapy/")[1:]) for x in
-     glob.iglob('../../scapy/**/*.py', recursive=True)
+     glob.iglob(os.path.join(localdir, '../../scapy/**/*.py'), recursive=True)
 ]
 
 # Process
 
-TOTAL = len(ALL_FILES)
-ENABLED = 0
-MODULES = defaultdict(lambda: (0, []))
+MODULES = defaultdict(lambda: (0, 0))
 
 for f in ALL_FILES:
+    with open(os.path.join(localdir, '../../', f)) as fd:
+        lines = len(fd.read().split("\n"))
     parts = f.split("/")
     if len(parts) > 2:
         mod = parts[1]
@@ -40,12 +40,14 @@ for f in ALL_FILES:
         mod = "[main]"
     e, l = MODULES[mod]
     if f in FILES:
-        ENABLED += 1
-        e += 1
-    l.append(f)
+        e += lines
+    l += lines
     MODULES[mod] = (e, l)
 
-print("*The numbers correspond to the amount of files processed*")
+ENABLED = sum(x[0] for x in MODULES.values())
+TOTAL = sum(x[1] for x in MODULES.values())
+
+print("*The numbers correspond to the amount of lines per files processed*")
 print("**MyPy Support: %.2f%%**" % (ENABLED / TOTAL * 100))
 for mod, dat in MODULES.items():
-    print("- `%s`: %.2f%%" % (mod, dat[0] / len(dat[1]) * 100))
+    print("- `%s`: %.2f%%" % (mod, dat[0] / dat[1] * 100))

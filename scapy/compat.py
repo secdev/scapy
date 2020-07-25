@@ -28,17 +28,22 @@ __all__ = [
     'Dict',
     'Generic',
     'Iterator',
+    'IO',
     'List',
+    'Literal',
     'NoReturn',
     'Optional',
     'Pattern',
+    'Sequence',
     'Set',
     'Sized',
     'Tuple',
+    'Type',
     'TypeVar',
     'Union',
     'cast',
     'FAKE_TYPING',
+    'TYPE_CHECKING',
     # compat
     'base64_bytes',
     'bytes_base64',
@@ -78,6 +83,32 @@ except ImportError:
     FAKE_TYPING = True
     TYPE_CHECKING = False
 
+# Import or create fake types
+
+
+def _FakeType(name, cls=object):
+    # type: (str, Optional[type]) -> Any
+    class _FT(object):
+        def __init__(self, name):
+            # type: (str) -> None
+            self.name = name
+
+        # make the objects subscriptable indefinetly
+        def __getitem__(self, item):  # type: ignore
+            return cls
+
+        def __call__(self, *args, **kargs):
+            # type: (*Any, **Any) -> Any
+            if isinstance(args[0], str):
+                self.name = args[0]
+            return self
+
+        def __repr__(self):
+            # type: () -> str
+            return "<Fake typing.%s>" % self.name
+    return _FT(name)
+
+
 if not FAKE_TYPING:
     # Only required if using mypy-lang for static typing
     from typing import (
@@ -88,13 +119,16 @@ if not FAKE_TYPING:
         Dict,
         Generic,
         Iterator,
+        IO,
         List,
         NoReturn,
         Optional,
         Pattern,
+        Sequence,
         Set,
         Sized,
         Tuple,
+        Type,
         TypeVar,
         Union,
         cast,
@@ -104,14 +138,6 @@ else:
     def cast(_type, obj):  # type: ignore
         return obj
 
-    def _FakeType(name, cls=object):
-        # type: (str, Optional[type]) -> Any
-        class _FT(object):
-            # make the objects subscriptable indefinetly
-            def __getitem__(self, item):  # type: ignore
-                return cls
-        return _FT()
-
     Any = _FakeType("Any")
     AnyStr = _FakeType("AnyStr")  # type: ignore
     Callable = _FakeType("Callable")
@@ -120,28 +146,38 @@ else:
     Dict = _FakeType("Dict", dict)  # type: ignore
     Generic = _FakeType("Generic")
     Iterator = _FakeType("Iterator")  # type: ignore
+    IO = _FakeType("IO")  # type: ignore
     List = _FakeType("List", list)  # type: ignore
     NoReturn = _FakeType("NoReturn")  # type: ignore
     Optional = _FakeType("Optional")
     Pattern = _FakeType("Pattern")  # type: ignore
+    Sequence = _FakeType("Sequence")  # type: ignore
     Set = _FakeType("Set", set)  # type: ignore
     Tuple = _FakeType("Tuple")
-    TypeVar = lambda x, *args: _FakeType("TypeVar %s" % x)
+    Type = _FakeType("Type", type)
+    TypeVar = _FakeType("TypeVar")
     Union = _FakeType("Union")
 
     class Sized(object):  # type: ignore
         pass
+
+# Python 3.8 Only
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    Literal = _FakeType("Literal")
 
 
 ###########
 # Python3 #
 ###########
 
-_CallTupl = TypeVar("_CallTupl", Callable[Ellipsis, Any], None)  # type: ignore
+# https://mypy.readthedocs.io/en/stable/generics.html#declaring-decorators
+DecoratorCallable = TypeVar("DecoratorCallable", bound=Callable[..., Any])
 
 
 def lambda_tuple_converter(func):
-    # type: (_CallTupl) -> _CallTupl
+    # type: (DecoratorCallable) -> DecoratorCallable
     """
     Converts a Python 2 function as
       lambda (x,y): x + y
@@ -149,7 +185,9 @@ def lambda_tuple_converter(func):
       lambda x,y : x + y
     """
     if func is not None and func.__code__.co_argcount == 1:
-        return lambda *args: func(args[0] if len(args) == 1 else args)
+        return lambda *args: func(  # type: ignore
+            args[0] if len(args) == 1 else args
+        )
     else:
         return func
 
@@ -219,7 +257,7 @@ else:
         return struct.pack("!B", x)
 
     def orb(x):
-        # type: (Union[int, bytes]) -> int
+        # type: (Union[int, str, bytes]) -> int
         """Return ord(x) when not already an int."""
         if isinstance(x, int):
             return x
