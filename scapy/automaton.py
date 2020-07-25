@@ -11,7 +11,7 @@ TODO:
     - add documentation for ioevent, as_supersocket...
 """
 
-
+import io
 import itertools
 import logging
 import os
@@ -202,9 +202,10 @@ def select_objects(inputs, remain):
     return handler.process()
 
 
-class ObjectPipe(SelectableObject):
+class ObjectPipe(SelectableObject, io.BufferedIOBase):
+
     def __init__(self):
-        self.closed = False
+        self._closed = False
         self.rd, self.wr = os.pipe()
         self.queue = deque()
         SelectableObject.__init__(self)
@@ -227,7 +228,7 @@ class ObjectPipe(SelectableObject):
         pass
 
     def recv(self, n=0):
-        if self.closed:
+        if self._closed:
             if self.check_recv():
                 return self.queue.popleft()
             return None
@@ -238,8 +239,8 @@ class ObjectPipe(SelectableObject):
         return self.recv(n)
 
     def close(self):
-        if not self.closed:
-            self.closed = True
+        if not self._closed:
+            self._closed = True
             os.close(self.rd)
             os.close(self.wr)
             self.queue.clear()

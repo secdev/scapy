@@ -22,7 +22,7 @@ from scapy.arch.windows.structures import _windows_title, \
     GetAdaptersAddresses, GetIpForwardTable, GetIpForwardTable2, \
     get_service_status
 from scapy.consts import WINDOWS, WINDOWS_XP
-from scapy.config import conf, ConfClass
+from scapy.config import conf, ProgPath
 from scapy.error import (
     Scapy_Exception,
     log_interactive,
@@ -152,9 +152,7 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     return path
 
 
-class WinProgPath(ConfClass):
-    _default = "<System default>"
-
+class WinProgPath(ProgPath):
     def __init__(self):
         self._reload()
 

@@ -594,7 +594,7 @@ class FCSField(Field[int, int]):
 
     def i2repr(self, pkt, x):
         # type: (BasePacket, int) -> str
-        return lhex(self.i2h(pkt, x))  # type: ignore
+        return lhex(self.i2h(pkt, x))
 
 
 class DestField(Field[str, bytes]):
@@ -638,11 +638,11 @@ class MACField(Field[str, bytes]):
             y = mac2str(x)
         except (struct.error, OverflowError):
             y = bytes_encode(x)
-        return y  # type: ignore
+        return y
 
     def m2i(self, pkt, x):
         # type: (Optional[BasePacket], bytes) -> str
-        return str2mac(x)  # type: ignore
+        return str2mac(x)
 
     def any2i(self, pkt, x):
         # type: (BasePacket, Any) -> str
@@ -700,11 +700,11 @@ class IPField(Field[str, bytes]):
         # type: (Optional[BasePacket], Optional[str]) -> bytes
         if x is None:
             return b'\x00\x00\x00\x00'
-        return inet_aton(plain_str(x))  # type: ignore
+        return inet_aton(plain_str(x))
 
     def m2i(self, pkt, x):
         # type: (Optional[BasePacket], bytes) -> str
-        return inet_ntoa(x)  # type: ignore
+        return inet_ntoa(x)
 
     def any2i(self, pkt, x):
         # type: (Optional[BasePacket], Any) -> Any
@@ -877,7 +877,7 @@ class ByteField(Field[int, int]):
 class XByteField(ByteField):
     def i2repr(self, pkt, x):
         # type: (Optional[BasePacket], int) -> str
-        return lhex(self.i2h(pkt, x))  # type: ignore
+        return lhex(self.i2h(pkt, x))
 
 
 # XXX Unused field: at least add some tests
@@ -1133,7 +1133,7 @@ class LESignedShortField(Field[int, int]):
 class XShortField(ShortField):
     def i2repr(self, pkt, x):
         # type: (Optional[BasePacket], int) -> str
-        return lhex(self.i2h(pkt, x))  # type: ignore
+        return lhex(self.i2h(pkt, x))
 
 
 class IntField(Field[int, int]):
@@ -1163,7 +1163,7 @@ class LESignedIntField(Field[int, int]):
 class XIntField(IntField):
     def i2repr(self, pkt, x):
         # type: (Optional[BasePacket], int) -> str
-        return lhex(self.i2h(pkt, x))  # type: ignore
+        return lhex(self.i2h(pkt, x))
 
 
 class XLEIntField(LEIntField, XIntField):
@@ -1205,7 +1205,7 @@ class LESignedLongField(Field[int, int]):
 class XLongField(LongField):
     def i2repr(self, pkt, x):
         # type: (Optional[BasePacket], int) -> str
-        return lhex(self.i2h(pkt, x))  # type: ignore
+        return lhex(self.i2h(pkt, x))
 
 
 class XLELongField(LELongField, XLongField):
@@ -2207,7 +2207,7 @@ class BitFieldLenField(BitField):
 class XBitField(BitField):
     def i2repr(self, pkt, x):
         # type: (Optional[BasePacket], int) -> str
-        return lhex(self.i2h(pkt, x))  # type: ignore
+        return lhex(self.i2h(pkt, x))
 
 
 class _EnumField(Field[Union[List[I], I], I]):
@@ -2406,7 +2406,7 @@ class XByteEnumField(ByteEnumField):
                 ret = self.i2s_cb(x)
                 if ret is not None:
                     return ret
-        return lhex(x)  # type: ignore
+        return lhex(x)
 
 
 class IntEnumField(EnumField[int]):
@@ -2440,7 +2440,7 @@ class XShortEnumField(ShortEnumField):
                 ret = self.i2s_cb(x)
                 if ret is not None:
                     return ret
-        return lhex(x)  # type: ignore
+        return lhex(x)
 
 
 class _MultiEnumField(_EnumField[I]):

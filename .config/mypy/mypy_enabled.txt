@@ -4,13 +4,19 @@
 
 # Style cheet: https://mypy.readthedocs.io/en/latest/cheat_sheet.html
 
+# CORE
 scapy/__init__.py
 scapy/main.py
-# Need fixes that mypy is in strict mode :/
-#scapy/contrib/http2.py
 scapy/compat.py
 scapy/config.py
 scapy/fields.py
 scapy/packet.py
 scapy/plist.py
+scapy/utils.py
+
+# LAYERS
+
+
+# CONTRIB
+#scapy/contrib/http2.py  # needs to be fixed
 scapy/contrib/roce.py
