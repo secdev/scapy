@@ -136,7 +136,6 @@ assert expected_output in plain_str(std_err)
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/obdscanner.py", "--help"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 assert result.wait() == 0
 std_out, std_err = result.communicate()
-assert not std_err
 expected_output = plain_str(b'Scan for all possible obd service classes and their subfunctions.')
 assert expected_output in plain_str(std_out)
 
@@ -245,7 +244,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD,
         tester.send(b"\x01\xff\xff\xff\xff")
         sim.join(timeout=10)
     expected_output = ["5 requests were sent, 4 answered", "2 requests were sent, 1 answered", "1 requests were sent, 1 answered"]
-    assert std_err1 == b'' and std_err2 == b''
     for out in expected_output:
         assert bytes_encode(out) in bytes_encode(std_out1) or bytes_encode(out) in bytes_encode(std_out2)  
 
@@ -291,7 +289,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD,
         tester.send(b"\x01\xff\xff\xff\xff")
         sim.join(timeout=10)
     expected_output = ["5 requests were sent, 4 answered"]
-    assert std_err1 == b'' and std_err2 == b''
     for out in expected_output:
         assert bytes_encode(out) in bytes_encode(std_out1) or bytes_encode(out) in bytes_encode(std_out2)
 
@@ -319,7 +316,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD,
     finally:
         tester.send(b"\x01\xff\xff\xff\xff")
         sim.join(timeout=10)
-    assert std_err1 == b'' and std_err2 == b''
     expected_output = ["256 requests were sent", "1 requests were sent, 1 answered"]
     for out in expected_output:
         assert bytes_encode(out) in bytes_encode(std_out1) or bytes_encode(out) in bytes_encode(std_out2)

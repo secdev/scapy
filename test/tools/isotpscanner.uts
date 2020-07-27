@@ -126,10 +126,9 @@ assert expected_output in plain_str(std_err)
 = Test show help
 
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py", "--help"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-std_out, std_err = result.communicate()
+std_out, _ = result.communicate()
 expected_output = plain_str(b'Scan for open ISOTP-Sockets.')
 
-assert not std_err
 assert result.wait() == 0
 assert expected_output in plain_str(std_out)
 
@@ -268,9 +267,6 @@ assert 0 == send_returncode
 assert returncode1 == 0
 assert returncode2 == 0
 
-assert std_err1 == None
-assert std_err2 == None
-
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out1 + std_out2)
 
@@ -301,9 +297,6 @@ expected_output = [b'0x601', b'0xbb', b'0x700', b'0xaa']
 assert 0 == send_returncode
 assert returncode1 == 0
 assert returncode2 == 0
-
-assert std_err1 == None
-assert std_err2 == None
 
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out1 + std_out2)
@@ -337,9 +330,6 @@ assert 0 == send_returncode
 assert returncode1 == 0 == returncode2
 
 expected_output = [b'sid=0x601', b'did=0x700', b'padding=False', b'extended_addr=0xbb', b'extended_rx_addr=0xaa']
-
-assert std_err1 == None
-assert std_err2 == None
 
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out1 + std_out2)
