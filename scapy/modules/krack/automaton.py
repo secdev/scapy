@@ -12,8 +12,8 @@ from scapy.automaton import ATMT, Automaton
 from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.compat import raw, chb
-from scapy.consts import WINDOWS
-from scapy.error import log_runtime, Scapy_Exception
+from scapy.consts import LINUX
+from scapy.error import log_runtime
 from scapy.layers.dot11 import RadioTap, Dot11, Dot11AssoReq, Dot11AssoResp, \
     Dot11Auth, Dot11Beacon, Dot11Elt, Dot11EltRates, Dot11EltRSN, \
     Dot11ProbeReq, Dot11ProbeResp, RSNCipherSuite, AKMSuite
@@ -66,7 +66,8 @@ class KrackAP(Automaton):
 
     def __init__(self, *args, **kargs):
         kargs.setdefault("ll", conf.L2socket)
-        kargs.setdefault("monitor", True)
+        if not LINUX:
+            kargs.setdefault("monitor", True)
         super(KrackAP, self).__init__(*args, **kargs)
 
     def parse_args(self, ap_mac, ssid, passphrase,
@@ -111,13 +112,7 @@ class KrackAP(Automaton):
         self.ssid = ssid
         self.passphrase = passphrase
         if channel is None:
-            if WINDOWS:
-                try:
-                    channel = kwargs.get("iface", conf.iface).channel()
-                except (Scapy_Exception, AttributeError):
-                    channel = 6
-            else:
-                channel = 6
+            channel = 6
         self.channel = channel
 
         # Internal structures

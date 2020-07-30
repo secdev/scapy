@@ -1596,22 +1596,65 @@ class BCDFloatField(Field):
 
 
 class BitField(Field):
-    __slots__ = ["rev", "size"]
+    """
+    Field to handle bits.
 
-    def __init__(self, name, default, size):
+    :param name: name of the field
+    :param default: default value
+    :param size: size (in bits). If negative, Low endian
+    :param tot_size: size of the total group of bits (in bytes) the bitfield
+                     is in. If negative, Low endian.
+    :param end_tot_size: same but for the BitField ending a group.
+
+    Example - normal usage::
+
+         0                   1                   2                   3
+         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+        |             A             |               B               | C |
+        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                                 Fig. TestPacket
+
+        class TestPacket(Packet):
+            fields_desc = [
+                BitField("a", 0, 14),
+                BitField("b", 0, 16),
+                BitField("c", 0, 2),
+            ]
+
+    Example - Low endian stored as 16 bits on the network::
+
+        x x x x x x x x x x x x x x x x
+        a [b] [   c   ] [      a      ]
+
+        Will first get reversed during dissecion:
+
+        x x x x x x x x x x x x x x x x
+        [      a        ] [b] [   c   ]
+
+        class TestPacket(Packet):
+            fields_desc = [
+                BitField("a", 0, 9, tot_size=-16),
+                BitField("b", 0, 2),
+                BitField("c", 0, 5, end_tot_size=-16)
+            ]
+
+    """
+    __slots__ = ["rev", "size", "tot_size", "end_tot_size"]
+
+    def __init__(self, name, default, size,
+                 tot_size=0, end_tot_size=0):
         Field.__init__(self, name, default)
-        self.rev = size < 0
+        self.rev = size < 0 or tot_size < 0 or end_tot_size < 0
         self.size = abs(size)
+        if not tot_size:
+            tot_size = self.size // 8
+        self.tot_size = abs(tot_size)
+        if not end_tot_size:
+            end_tot_size = self.size // 8
+        self.end_tot_size = abs(end_tot_size)
         self.sz = self.size / 8.
-
-    def reverse(self, val):
-        if self.size == 16:
-            # Replaces socket.ntohs (but work on both little/big endian)
-            val = struct.unpack('>H', struct.pack('<H', int(val)))[0]
-        elif self.size == 32:
-            # Same here but for socket.ntohl
-            val = struct.unpack('>I', struct.pack('<I', int(val)))[0]
-        return val
 
     def addfield(self, pkt, s, val):
         val = self.i2m(pkt, val)
@@ -1620,8 +1663,6 @@ class BitField(Field):
         else:
             bitsdone = 0
             v = 0
-        if self.rev:
-            val = self.reverse(val)
         v <<= self.size
         v |= val & ((1 << self.size) - 1)
         bitsdone += self.size
@@ -1632,6 +1673,9 @@ class BitField(Field):
         if bitsdone:
             return s, bitsdone, v
         else:
+            # Apply LE if necessary
+            if self.rev and self.end_tot_size > 1:
+                s = s[:-self.end_tot_size] + s[-self.end_tot_size:][::-1]
             return s
 
     def getfield(self, pkt, s):
@@ -1639,6 +1683,10 @@ class BitField(Field):
             s, bn = s
         else:
             bn = 0
+            # Apply LE if necessary
+            if self.rev and self.tot_size > 1:
+                s = s[:self.tot_size][::-1] + s[self.tot_size:]
+
         # we don't want to process all the string
         nb_bytes = (self.size + bn - 1) // 8 + 1
         w = s[:nb_bytes]
@@ -1655,9 +1703,6 @@ class BitField(Field):
 
         # remove low order bits
         b = b >> (nb_bytes * 8 - self.size - bn)
-
-        if self.rev:
-            b = self.reverse(b)
 
         bn += self.size
         s = s[bn // 8:]
@@ -2120,7 +2165,7 @@ class FlagsField(BitField):
 
    :param name: field's name
    :param default: default value for the field
-   :param size: number of bits in the field
+   :param size: number of bits in the field (in bits)
    :param names: (list or dict) label for each flag, Least Significant Bit tag's name is written first  # noqa: E501
    """
     ismutable = True
@@ -2402,7 +2447,50 @@ class SecondsIntField(IntField):
         return "%s sec" % x
 
 
-class ScalingField(Field):
+class _ScalingField(object):
+    def __init__(self, name, default, scaling=1, unit="",
+                 offset=0, ndigits=3, fmt="B"):
+        self.scaling = scaling
+        self.unit = unit
+        self.offset = offset
+        self.ndigits = ndigits
+        Field.__init__(self, name, default, fmt)
+
+    def i2m(self, pkt, x):
+        if x is None:
+            x = 0
+        x = (x - self.offset) / self.scaling
+        if isinstance(x, float) and self.fmt[-1] != "f":
+            x = int(round(x))
+        return x
+
+    def m2i(self, pkt, x):
+        x = x * self.scaling + self.offset
+        if isinstance(x, float) and self.fmt[-1] != "f":
+            x = round(x, self.ndigits)
+        return x
+
+    def any2i(self, pkt, x):
+        if isinstance(x, (str, bytes)):
+            x = struct.unpack(self.fmt, bytes_encode(x))[0]
+            x = self.m2i(pkt, x)
+        return x
+
+    def i2repr(self, pkt, x):
+        return "%s %s" % (self.i2h(pkt, x), self.unit)
+
+    def randval(self):
+        value = super(_ScalingField, self).randval()
+        if value is not None:
+            min_val = round(value.min * self.scaling + self.offset,
+                            self.ndigits)
+            max_val = round(value.max * self.scaling + self.offset,
+                            self.ndigits)
+
+            return RandFloat(min(min_val, max_val), max(min_val, max_val))
+
+
+class ScalingField(_ScalingField, Field):
     """ Handle physical values which are scaled and/or offset for communication
 
        Example:
@@ -2442,48 +2530,15 @@ class ScalingField(Field):
        :param ndigits: number of fractional digits for the internal conversion
        :param fmt: struct.pack format used to parse and serialize the internal value from and to machine representation # noqa: E501
        """
-    __slots__ = ["scaling", "unit", "offset", "ndigits"]
 
-    def __init__(self, name, default, scaling=1, unit="",
-                 offset=0, ndigits=3, fmt="B"):
-        self.scaling = scaling
-        self.unit = unit
-        self.offset = offset
-        self.ndigits = ndigits
-        Field.__init__(self, name, default, fmt)
 
-    def i2m(self, pkt, x):
-        if x is None:
-            x = 0
-        x = (x - self.offset) / self.scaling
-        if isinstance(x, float) and self.fmt[-1] != "f":
-            x = int(round(x))
-        return x
-
-    def m2i(self, pkt, x):
-        x = x * self.scaling + self.offset
-        if isinstance(x, float) and self.fmt[-1] != "f":
-            x = round(x, self.ndigits)
-        return x
-
-    def any2i(self, pkt, x):
-        if isinstance(x, (str, bytes)):
-            x = struct.unpack(self.fmt, bytes_encode(x))[0]
-            x = self.m2i(pkt, x)
-        return x
-
-    def i2repr(self, pkt, x):
-        return "%s %s" % (self.i2h(pkt, x), self.unit)
-
-    def randval(self):
-        value = super(ScalingField, self).randval()
-        if value is not None:
-            min_val = round(value.min * self.scaling + self.offset,
-                            self.ndigits)
-            max_val = round(value.max * self.scaling + self.offset,
-                            self.ndigits)
-
-            return RandFloat(min(min_val, max_val), max(min_val, max_val))
+class BitScalingField(_ScalingField, BitField):
+    """
+    A ScalingField that is a BitField
+    """
+    def __init__(self, name, default, size, *args, **kwargs):
+        _ScalingField.__init__(self, name, default, *args, **kwargs)
+        BitField.__init__(self, name, default, size)
 
 
 class UUIDField(Field):
