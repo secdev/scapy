@@ -971,6 +971,10 @@ class PcapReader_metaclass(type):
         """
         i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
         filename, fdesc, magic = cls.open(filename)
+        if not magic:
+            raise Scapy_Exception(
+                "No data could be read!"
+            )
         try:
             i.__init__(filename, fdesc, magic)
         except Scapy_Exception:
@@ -1626,7 +1630,7 @@ def _guess_linktype_value(name):
 
 
 @conf.commands.register
-def tcpdump(pktlist=None, dump=False, getfd=False, args=None,
+def tcpdump(pktlist=None, dump=False, getfd=False, args=None, flt=None,
             prog=None, getproc=False, quiet=False, use_tempfile=None,
             read_stdin_opts=None, linktype=None, wait=True,
             _suppress=False):
@@ -1654,7 +1658,7 @@ def tcpdump(pktlist=None, dump=False, getfd=False, args=None,
         Packet instances. Can also be a filename (as a string), an open
         file-like object that must be a file format readable by
         tshark (Pcap, PcapNg, etc.) or None (to sniff)
-
+    :param flt: a filter to use with tcpdump
     :param dump:    when set to True, returns a string instead of displaying it.
     :param getfd:   when set to True, returns a file-like object to read data
         from tcpdump or tshark from.
@@ -1755,6 +1759,12 @@ def tcpdump(pktlist=None, dump=False, getfd=False, args=None,
     else:
         # Make a copy of args
         args = list(args)
+
+    if flt is not None:
+        # Check the validity of the filter
+        from scapy.arch.common import compile_filter
+        compile_filter(flt)
+        args.append(flt)
 
     stdout = subprocess.PIPE if dump or getfd else None
     stderr = open(os.devnull) if quiet else None
