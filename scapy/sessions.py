@@ -240,7 +240,7 @@ class TCPSession(IPSession):
         pay = pkt[TCP].payload
         if isinstance(pay, (NoPayload, conf.padding_layer)):
             return pkt
-        new_data = raw(pay)
+        new_data = pay.original
         # Match packets by a uniqute TCP identifier
         seq = pkt[TCP].seq
         ident = pkt.sprintf(self.fmt)
@@ -256,7 +256,7 @@ class TCPSession(IPSession):
             pay_class = metadata["pay_class"]
         # Get a relative sequence number for a storage purpose
         relative_seq = metadata.get("relative_seq", None)
-        if not relative_seq:
+        if relative_seq is None:
             relative_seq = metadata["relative_seq"] = seq - 1
         seq = seq - relative_seq
         # Add the data to the buffer
