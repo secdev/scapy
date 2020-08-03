@@ -31,7 +31,9 @@ Note: on failure, decompression will be ignored.
 
 You can turn auto-decompression/auto-compression off with:
 
-    >>> conf.contribs["http"]["auto_compression"] = True
+    >>> conf.contribs["http"]["auto_compression"] = False
+
+(Defaults to True)
 """
 
 # This file is a modified version of the former scapy_http plugin.
@@ -59,11 +61,9 @@ from scapy.modules import six
 
 try:
     import brotli
-    is_brotli_available = True
+    _is_brotli_available = True
 except ImportError:
-    is_brotli_available = False
-    log_loading.info("Can't import brotli. Won't be able to decompress "
-                     "data streams compressed with brotli.")
+    _is_brotli_available = False
 
 if "http" not in conf.contribs:
     conf.contribs["http"] = {}
@@ -310,8 +310,14 @@ class _HTTPContent(Packet):
             elif "compress" in encodings:
                 import lzw
                 s = lzw.decompress(s)
-            elif "br" in encodings and is_brotli_available:
-                s = brotli.decompress(s)
+            elif "br" in encodings:
+                if _is_brotli_available:
+                    s = brotli.decompress(s)
+                else:
+                    log_loading.info(
+                        "Can't import brotli. brotli decompression "
+                        "will be ignored !"
+                    )
         except Exception:
             # Cannot decompress - probably incomplete data
             pass
@@ -330,8 +336,14 @@ class _HTTPContent(Packet):
         elif "compress" in encodings:
             import lzw
             pay = lzw.compress(pay)
-        elif "br" in encodings and is_brotli_available:
-            pay = brotli.compress(pay)
+        elif "br" in encodings:
+            if _is_brotli_available:
+                pay = brotli.compress(pay)
+            else:
+                log_loading.info(
+                    "Can't import brotli. brotli compression will "
+                    "be ignored !"
+                )
         return pkt + pay
 
     def self_build(self, field_pos_list=None):
@@ -569,7 +581,7 @@ class HTTP(Packet):
                 chunked = ("chunked" in encodings)
                 is_response = isinstance(http_packet.payload, HTTPResponse)
                 if chunked:
-                    detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
+                    detect_end = lambda dat: dat.endswith(b"0\r\n\r\n")
                 # HTTP Requests that do not have any content,
                 # end with a double CRLF
                 elif isinstance(http_packet.payload, HTTPRequest):
