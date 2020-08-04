@@ -1127,8 +1127,10 @@ class PcapReader(RawPcapReader):
             self.LLcls = conf.l2types[self.linktype]
         except KeyError:
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype, self.linktype))  # noqa: E501
-            from scapy.packet import Raw
-            self.LLcls = conf.raw_layer or Raw
+            if conf.raw_layer is None:
+                # conf.raw_layer is set on import
+                import scapy.packet  # noqa: F401
+            self.LLcls = conf.raw_layer
 
     def read_packet(self, size=MTU):
         rp = super(PcapReader, self).read_packet(size=size)
@@ -1145,8 +1147,10 @@ class PcapReader(RawPcapReader):
                 from scapy.sendrecv import debug
                 debug.crashed_on = (self.LLcls, s)
                 raise
-            from scapy.packet import Raw
-            p = (conf.raw_layer or Raw)(s)
+            if conf.raw_layer is None:
+                # conf.raw_layer is set on import
+                import scapy.packet  # noqa: F401
+            p = conf.raw_layer(s)
         power = Decimal(10) ** Decimal(-9 if self.nano else -6)
         p.time = EDecimal(pkt_info.sec + power * pkt_info.usec)
         p.wirelen = pkt_info.wirelen
@@ -1327,8 +1331,10 @@ class PcapNgReader(RawPcapNgReader):
         except Exception:
             if conf.debug_dissector:
                 raise
-            from scapy.packet import Raw
-            p = (conf.raw_layer or Raw)(s)
+            if conf.raw_layer is None:
+                # conf.raw_layer is set on import
+                import scapy.packet  # noqa: F401
+            p = conf.raw_layer(s)
         if tshigh is not None:
             p.time = EDecimal((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
