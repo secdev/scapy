@@ -8,7 +8,7 @@ SMB (Server Message Block), also known as CIFS - version 2
 """
 
 from scapy.config import conf
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import (
     FieldLenField,
     FieldListField,
@@ -296,6 +296,18 @@ bind_layers(SMB2_Preauth_Integrity_Capabilities, conf.padding_layer)
 bind_layers(SMB2_Encryption_Capabilities, conf.padding_layer)
 bind_layers(SMB2_Compression_Capabilities, conf.padding_layer)
 bind_layers(SMB2_Netname_Negociate_Context_ID, conf.padding_layer)
+bind_top_down(
+    SMB2_Header,
+    SMB2_Negociate_Protocol_Request_Header,
+    Command=0x0000,
+    Flags=0
+)
+bind_top_down(
+    SMB2_Header,
+    SMB2_Negociate_Protocol_Response_Header,
+    Command=0x0000,
+    Flags=2 ** 24  # SMB2_FLAGS_SERVER_TO_REDIR
+)
 bind_layers(
     SMB2_Negociate_Context,
     SMB2_Preauth_Integrity_Capabilities,
