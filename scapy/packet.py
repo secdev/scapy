@@ -886,14 +886,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
                 try:
-                    for k, v in six.iteritems(fval):
-                        # case where v is a function
-                        if callable(v):
-                            if not v(self.getfieldval(k)):
-                                break
-                        elif v != self.getfieldval(k):
-                            break
-                    else:
+                    if all(v == self.getfieldval(k)
+                           for k, v in six.iteritems(fval)):
                         return cls
                 except AttributeError:
                     pass
