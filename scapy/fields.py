@@ -2152,27 +2152,54 @@ class FlagsField(BitField):
 
    Make sure all your flags have a label
 
-   Example:
+   Example (list):
        >>> from scapy.packet import Packet
        >>> class FlagsTest(Packet):
                fields_desc = [FlagsField("flags", 0, 8, ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"])]  # noqa: E501
        >>> FlagsTest(flags=9).show2()
        ###[ FlagsTest ]###
          flags     = f0+f3
-       >>> FlagsTest(flags=0).show2().strip()
+
+    Example (str):
+       >>> from scapy.packet import Packet
+       >>> class TCPTest(Packet):
+               fields_desc = [
+                   BitField("reserved", 0, 7),
+                   FlagsField("flags", 0x2, 9, "FSRPAUECN")
+               ]
+       >>> TCPTest(flags=3).show2()
        ###[ FlagsTest ]###
-         flags     =
+         reserved  = 0
+         flags     = FS
+
+    Example (dict):
+       >>> from scapy.packet import Packet
+       >>> class FlagsTest2(Packet):
+               fields_desc = [
+                   FlagsField("flags", 0x2, 16, {
+                       1: "1",  # 1st bit
+                       8: "2"   # 8th bit
+                   })
+               ]
 
    :param name: field's name
    :param default: default value for the field
    :param size: number of bits in the field (in bits)
-   :param names: (list or dict) label for each flag, Least Significant Bit tag's name is written first  # noqa: E501
+   :param names: (list or str or dict) label for each flag
+       If it's a str or a list, the least Significant Bit tag's name
+       is written first.
    """
     ismutable = True
-    __slots__ = ["multi", "names"]
+    __slots__ = ["names"]
 
     def __init__(self, name, default, size, names):
-        self.multi = isinstance(names, list)
+        # Convert the dict to a list
+        if isinstance(names, dict):
+            tmp = ["bit_%d" % i for i in range(size)]
+            for i, v in six.viewitems(names):
+                tmp[i] = v
+            names = tmp
+        # Store the names as str or list
         self.names = names
         BitField.__init__(self, name, default, size)
 

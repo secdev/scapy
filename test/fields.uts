@@ -1487,6 +1487,35 @@ assert "f2" in flags
 assert "f4" in flags
 assert "f0" in flags
 
+= FlagsField with str
+
+class TCPTest(Packet):
+    fields_desc = [
+        BitField("reserved", 0, 7),
+        FlagsField("flags", 0x2, 9, "FSRPAUECN")
+    ]
+
+a = TCPTest(flags=3)
+assert a.flags.F
+assert a.flags.S
+assert a.sprintf("%flags%") == "FS"
+
+= FlagsField with dict
+
+class FlagsTest2(Packet):
+    fields_desc = [
+        FlagsField("flags", 0x2, 16, {
+            0: "A",  # 0 bit
+            7: "B"   # 7 bit
+        })
+    ]
+
+a = FlagsTest2(flags=255)
+a.sprintf("%flags%")
+assert a.flags.A
+assert a.flags.B
+assert a.sprintf("%flags%") == "A+bit_1+bit_2+bit_3+bit_4+bit_5+bit_6+B"
+
 
 ########
 ########
