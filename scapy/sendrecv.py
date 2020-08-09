@@ -1047,24 +1047,20 @@ sniff.__doc__ = AsyncSniffer.__doc__
 def bridge_and_sniff(if1, if2, xfrm12=None, xfrm21=None, prn=None, L2socket=None,  # noqa: E501
                      *args, **kargs):
     """Forward traffic between interfaces if1 and if2, sniff and return
-the exchanged packets.
+    the exchanged packets.
 
-Arguments:
+    :param if1: the interfaces to use (interface names or opened sockets).
+    :param if2:
+    :param xfrm12: a function to call when forwarding a packet from if1 to
+        if2. If it returns True, the packet is forwarded as it. If it
+        returns False or None, the packet is discarded. If it returns a
+        packet, this packet is forwarded instead of the original packet
+        one.
+    :param xfrm21: same as xfrm12 for packets forwarded from if2 to if1.
 
-  if1, if2: the interfaces to use (interface names or opened sockets).
-
-  xfrm12: a function to call when forwarding a packet from if1 to
-      if2. If it returns True, the packet is forwarded as it. If it
-      returns False or None, the packet is discarded. If it returns a
-      packet, this packet is forwarded instead of the original packet
-      one.
-
-  xfrm21: same as xfrm12 for packets forwarded from if2 to if1.
-
-  The other arguments are the same than for the function sniff(),
-      except for offline, opened_socket and iface that are ignored.
-      See help(sniff) for more.
-
+    The other arguments are the same than for the function sniff(),
+    except for offline, opened_socket and iface that are ignored.
+    See help(sniff) for more.
     """
     for arg in ['opened_socket', 'offline', 'iface']:
         if arg in kargs:
