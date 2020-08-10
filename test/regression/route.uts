@@ -1,0 +1,87 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Test Route class
+
+= Define Helpers
+
+def get_dummy_interface():
+    """Returns a dummy network interface"""
+    if WINDOWS:
+        data = {}
+        data["name"] = "dummy0"
+        data["description"] = "Does not exist"
+        data["win_index"] = -1
+        data["guid"] = "{1XX00000-X000-0X0X-X00X-00XXXX000XXX}"
+        data["invalid"] = True
+        data["ipv4_metric"] = 1
+        data["ipv6_metric"] = 1
+        data["mac"] = "00:00:00:00:00:00"
+        data["ips"] = ["127.0.0.1", "::1"]
+        data["pcap_name"] = "\\Device\\NPF_" + data["guid"]
+        data["flags"] = 0
+        return NetworkInterface(data)
+    else:
+        return "dummy0"
+
+= make_route()
+
+r4 = Route()
+tmp_route = r4.make_route(host="10.12.13.14")
+(tmp_route[0], tmp_route[1], tmp_route[2]) == (168561934, 4294967295, '0.0.0.0')
+
+tmp_route = r4.make_route(net="10.12.13.0/24")
+(tmp_route[0], tmp_route[1], tmp_route[2]) == (168561920, 4294967040, '0.0.0.0')
+
+= add() & delt()
+
+r4 = Route()
+len_r4 = len(r4.routes)
+r4.add(net="192.168.1.0/24", gw="1.2.3.4")
+len(r4.routes) == len_r4 + 1
+r4.delt(net="192.168.1.0/24", gw="1.2.3.4")
+len(r4.routes) == len_r4
+
+= ifchange()
+
+r4.add(net="192.168.1.0/24", gw="1.2.3.4", dev=get_dummy_interface())
+r4.ifchange(get_dummy_interface(), "5.6.7.8")
+r4.routes[-1][4] == "5.6.7.8"
+
+= ifdel()
+
+r4.ifdel(get_dummy_interface())
+len(r4.routes) == len_r4
+
+= ifadd() & get_if_bcast()
+
+r4 = Route()
+len_r4 = len(r4.routes)
+
+r4.ifadd(get_dummy_interface(), "1.2.3.4/24")
+len(r4.routes) == len_r4 +1 
+
+r4.get_if_bcast(get_dummy_interface()) == "1.2.3.255"
+
+r4.ifdel(get_dummy_interface())
+len(r4.routes) == len_r4
+
+dummy_interface = get_dummy_interface()
+
+bck_conf_route_routes = conf.route.routes
+conf.route.routes = [
+    (0, 0, '172.21.230.1', dummy_interface, '172.21.230.10', 1),                # 0.0.0.0         / 0.0.0.0         == 255.255.255.255
+    (2851995648, 4294901760, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 169.254.0.0     / 255.255.0.0     == 169.254.255.255
+    (2887116288, 4294967040, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 172.21.230.0    / 255.255.255.0   == 172.21.230.255
+    (2887116289, 4294967295, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 172.21.230.1    / 255.255.255.255 == 172.21.230.1
+    (3758096384, 4026531840, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 224.0.0.0       / 240.0.0.0       == 239.255.255.255
+    (3758096635, 4294967295, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 224.0.0.251     / 255.255.255.255 == 224.0.0.251
+    (4294967295, 4294967295, '0.0.0.0', dummy_interface, '172.21.230.10', 1),   # 255.255.255.255 / 255.255.255.255 == 255.255.255.255
+    ]
+
+assert sorted(conf.route.get_if_bcast(dummy_interface)) == sorted(['169.254.255.255', '172.21.230.255', '239.255.255.255'])
+conf.route.routes = bck_conf_route_routes
+

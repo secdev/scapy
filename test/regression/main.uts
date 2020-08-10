@@ -1,0 +1,501 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Main.py tests
+
+= Pickle and unpickle a packet
+
+import scapy.modules.six as six
+
+a = IP(dst="192.168.0.1")/UDP()
+
+b = six.moves.cPickle.dumps(a)
+c = six.moves.cPickle.loads(b)
+
+assert c[IP].dst == "192.168.0.1"
+assert raw(c) == raw(a)
+
+= Usage test
+
+from scapy.main import _usage
+try:
+    _usage()
+    assert False
+except SystemExit:
+    assert True
+
+= Session test
+
+# This is automatic when using the console
+def get_var(var):
+    return six.moves.builtins.__dict__["scapy_session"][var]
+
+def set_var(var, value):
+    six.moves.builtins.__dict__["scapy_session"][var] = value
+
+def del_var(var):
+    del(six.moves.builtins.__dict__["scapy_session"][var])
+
+init_session(None, {"init_value": 123})
+set_var("test_value", "8.8.8.8") # test_value = "8.8.8.8"
+save_session()
+del_var("test_value")
+load_session()
+update_session()
+assert get_var("test_value") == "8.8.8.8" #test_value == "8.8.8.8"
+assert get_var("init_value") == 123
+ 
+= Session test with fname
+
+session_name = tempfile.mktemp()
+init_session(session_name)
+set_var("test_value", IP(dst="192.168.0.1")) # test_value = IP(dst="192.168.0.1")
+save_session(fname="%s.dat" % session_name)
+del_var("test_value")
+
+set_var("z", True) #z = True
+load_session(fname="%s.dat" % session_name)
+try:
+    get_var("z")
+    assert False
+except:
+    pass
+
+set_var("z", False) #z = False
+update_session(fname="%s.dat" % session_name)
+assert get_var("test_value").dst == "192.168.0.1" #test_value.dst == "192.168.0.1"
+assert not get_var("z")
+
+= Clear session files
+
+os.remove("%s.dat" % session_name)
+
+= Test temporary file creation
+~ appveyor_only
+
+scapy_delete_temp_files()
+
+tmpfile = get_temp_file(autoext=".ut")
+tmpfile
+if WINDOWS:
+    assert("scapy" in tmpfile and tmpfile.lower().startswith('c:\\users\\appveyor\\appdata\\local\\temp'))
+else:
+    import platform
+    BYPASS_TMP = platform.python_implementation().lower() == "pypy" or DARWIN
+    assert("scapy" in tmpfile and (BYPASS_TMP == True or "/tmp/" in tmpfile))
+
+assert(conf.temp_files[0].endswith(".ut"))
+scapy_delete_temp_files()
+assert(len(conf.temp_files) == 0)
+
+= Emulate interact()
+import mock, sys
+from scapy.main import interact
+# Detect IPython
+try:
+    import IPython
+except:
+    code_interact_import = "scapy.main.code.interact"
+else:
+    code_interact_import = "IPython.start_ipython"
+
+@mock.patch(code_interact_import)
+def interact_emulator(code_int, extra_args=[]):
+    try:
+        code_int.side_effect = lambda *args, **kwargs: lambda *args, **kwargs: None
+        interact(argv=["-s scapy1"] + extra_args, mybanner="What a test")
+    finally:
+        sys.ps1 = ">>> "
+
+interact_emulator()  # Default
+
+try:
+    interact_emulator(extra_args=["-?"])  # Failing
+    assert False
+except:
+    pass
+
+interact_emulator(extra_args=["-d"])  # Extended
+
+= Test explore() with GUI mode
+~ command
+
+import mock
+
+def test_explore_gui(is_layer, layer):
+    prompt_toolkit_mocked_module = Bunch(
+                                       shortcuts=Bunch(
+                                           dialogs=Bunch(
+                                               radiolist_dialog=(lambda *args, **kargs: layer),
+                                               button_dialog=(lambda *args, **kargs: "layers" if is_layer else "contribs")
+                                           )
+                                       ),
+                                       formatted_text=Bunch(HTML=lambda x: x),
+                                       __version__="2.0.0"
+                                   )
+    # a mock.patch isn't enough to mock a module. Let's roll sys.modules
+    modules_patched = {
+        "prompt_toolkit": prompt_toolkit_mocked_module,
+        "prompt_toolkit.shortcuts": prompt_toolkit_mocked_module.shortcuts,
+        "prompt_toolkit.shortcuts.dialogs": prompt_toolkit_mocked_module.shortcuts.dialogs,
+        "prompt_toolkit.formatted_text": prompt_toolkit_mocked_module.formatted_text,
+    }
+    with mock.patch.dict("sys.modules", modules_patched):
+        with ContextManagerCaptureOutput() as cmco:
+            explore()
+            result_explore = cmco.get_output()
+        return result_explore
+
+conf.interactive = True
+explore_dns = test_explore_gui(True, "scapy.layers.dns")
+assert "DNS" in explore_dns
+assert "DNS Question Record" in explore_dns
+assert "DNSRRNSEC3" in explore_dns
+assert "DNS TSIG Resource Record" in explore_dns
+
+explore_avs = test_explore_gui(False, "avs")
+assert "AVSWLANHeader" in explore_avs
+assert "AVS WLAN Monitor Header" in explore_avs
+
+= Test explore() with non-GUI mode
+~ command
+
+def test_explore_non_gui(layer):
+    with ContextManagerCaptureOutput() as cmco:
+        explore(layer)
+        result_explore = cmco.get_output()
+    return result_explore
+
+explore_dns = test_explore_non_gui("scapy.layers.dns")
+assert "DNS" in explore_dns
+assert "DNS Question Record" in explore_dns
+assert "DNSRRNSEC3" in explore_dns
+assert "DNS TSIG Resource Record" in explore_dns
+
+explore_avs = test_explore_non_gui("avs")
+assert "AVSWLANHeader" in explore_avs
+assert "AVS WLAN Monitor Header" in explore_avs
+
+assert test_explore_non_gui("scapy.layers.dns") == test_explore_non_gui("dns")
+assert test_explore_non_gui("scapy.contrib.avs") == test_explore_non_gui("avs")
+
+try:
+    explore("unknown_module")
+    assert False  # The previous should have raised an exception
+except Scapy_Exception:
+    pass
+
+= Test load_contrib overwrite
+load_contrib("gtp")
+assert GTPHeader.__module__ == "scapy.contrib.gtp"
+
+load_contrib("gtp_v2")
+assert GTPHeader.__module__ == "scapy.contrib.gtp_v2"
+
+load_contrib("gtp")
+assert GTPHeader.__module__ == "scapy.contrib.gtp"
+
+= Test load_contrib failure
+try:
+    load_contrib("doesnotexist")
+    assert False
+except:
+    pass
+
+= Test sane function
+sane("A\x00\xFFB") == "A..B"
+
+= Test lhex function
+assert(lhex(42) == "0x2a")
+assert(lhex((28,7)) == "(0x1c, 0x7)")
+assert(lhex([28,7]) == "[0x1c, 0x7]")
+
+= Test restart function
+import mock
+conf.interactive = True
+
+try:
+    from scapy.utils import restart
+    import os
+    @mock.patch("os.execv")
+    @mock.patch("subprocess.call")
+    @mock.patch("os._exit")
+    def _test(e, m, m2):
+        def check(x, y=[]):
+            z = [x] + y if not isinstance(x, list) else x + y
+            assert os.path.isfile(z[0])
+            assert os.path.isfile(z[1])
+            return 0
+        m2.side_effect = check
+        m.side_effect = check
+        e.side_effect = lambda x: None
+        restart()
+    _test()
+finally:
+    conf.interactive = False
+
+= Test linehexdump function
+conf_color_theme = conf.color_theme
+conf.color_theme = BlackAndWhite()
+assert linehexdump(Ether(src="00:01:02:03:04:05"), dump=True) == 'FF FF FF FF FF FF 00 01 02 03 04 05 90 00  ..............'
+conf.color_theme = conf_color_theme
+
+= Test chexdump function
+chexdump(Ether(src="00:01:02:02:04:05"), dump=True) == "0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x01, 0x02, 0x02, 0x04, 0x05, 0x90, 0x00"
+
+= Test repr_hex function
+repr_hex("scapy") == "7363617079"
+
+= Test hexstr function
+hexstr(b"A\x00\xFFB") == "41 00 FF 42  A..B"
+
+= Test fletcher16 functions
+assert(fletcher16_checksum(b"\x28\x07") == 22319)
+assert(fletcher16_checkbytes(b"\x28\x07", 1) == b"\xaf(")
+
+= Test hexdiff function
+~ not_pypy
+def test_hexdiff():
+    conf_color_theme = conf.color_theme
+    conf.color_theme = BlackAndWhite()
+    with ContextManagerCaptureOutput() as cmco:
+        hexdiff("abcde", "abCde")
+        result_hexdiff = cmco.get_output()
+    conf.interactive = True
+    conf.color_theme = conf_color_theme
+    expected  = "0000        61 62 63 64 65                                     abcde\n"
+    expected += "     0000   61 62 43 64 65                                     abCde\n"
+    assert(result_hexdiff == expected)
+
+test_hexdiff()
+
+= Test mysummary functions - Ether
+
+p = Ether(dst="ff:ff:ff:ff:ff:ff", src="ff:ff:ff:ff:ff:ff", type=0x9000)
+p
+assert p.mysummary() in ['ff:ff:ff:ff:ff:ff > ff:ff:ff:ff:ff:ff (%s)' % loop
+                         for loop in ['0x9000', 'LOOP']]
+
+= Test zerofree_randstring function
+random.seed(0x2807)
+zerofree_randstring(4) in [b"\xd2\x12\xe4\x5b", b'\xd3\x8b\x13\x12']
+
+= Test strand function
+assert strand("AC", "BC") == b'@C'
+
+= Test export_object and import_object functions
+import mock
+def test_export_import_object():
+    with ContextManagerCaptureOutput() as cmco:
+        export_object(2807)
+        result_export_object = cmco.get_output(eval_bytes=True)
+    assert(result_export_object.startswith("eNprYPL9zqUHAAdrAf8="))
+    assert(import_object(result_export_object) == 2807)
+
+test_export_import_object()
+
+= Test tex_escape function
+tex_escape("$#_") == "\\$\\#\\_"
+
+= Test colgen function
+f = colgen(range(3))
+assert(len([next(f) for i in range(2)]) == 2)
+
+= Test incremental_label function
+f = incremental_label()
+assert([next(f) for i in range(2)] == ["tag00000", "tag00001"])
+
+= Test corrupt_* functions
+import random
+random.seed(0x2807)
+assert(corrupt_bytes("ABCDE") in [b"ABCDW", b"ABCDX"])
+assert(sane(corrupt_bytes("ABCDE", n=3)) in ["A.8D4", ".2.DE"])
+
+assert(corrupt_bits("ABCDE") in [b"EBCDE", b"ABCDG"])
+assert(sane(corrupt_bits("ABCDE", n=3)) in ["AF.EE", "QB.TE"])
+
+= Test save_object and load_object functions
+import tempfile
+fd, fname = tempfile.mkstemp()
+save_object(fname, 2807)
+assert(load_object(fname) == 2807)
+
+= Test whois function
+~ netaccess
+
+if not WINDOWS:
+    result = whois("193.0.6.139")
+    assert(b"inetnum" in result and b"Amsterdam" in result)
+
+= Test manuf DB methods
+~ manufdb
+assert(conf.manufdb._resolve_MAC("00:00:0F:01:02:03") == "Next:01:02:03")
+assert(conf.manufdb._get_short_manuf("00:00:0F:01:02:03") == "Next")
+assert(in6_addrtovendor("fe80::0200:0fff:fe01:0203").lower().startswith("next"))
+
+assert conf.manufdb.lookup("00:00:0F:01:02:03") == ('Next', 'Next, Inc.')
+assert "00:00:0F" in conf.manufdb.reverse_lookup("Next")
+
+= Test multiple wireshark's manuf formats
+~ manufdb
+
+new_format = """
+# comment
+00:00:00    JokyIsland    Joky Insland Corp SA
+00:01:12    SecdevCorp    Secdev Corporation SA LLC
+EE:05:01    Scapy         Scapy CO LTD & CIE
+FF:00:11    NoName
+"""
+old_format = """
+# comment
+00:00:00    JokyIsland  #  Joky Insland Corp SA
+00:01:12    SecdevCorp  #  Secdev Corporation SA LLC
+EE:05:01    Scapy       #  Scapy CO LTD & CIE
+FF:00:11    NoName
+"""
+
+manuf1 = get_temp_file()
+manuf2 = get_temp_file()
+
+with open(manuf1, "w") as w:
+    w.write(old_format)
+
+with open(manuf2, "w") as w:
+    w.write(new_format)
+
+a = load_manuf(manuf1)
+b = load_manuf(manuf2)
+
+a.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA'),
+a.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
+a.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
+a.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
+
+
+b.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA'),
+b.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
+b.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
+b.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
+
+scapy_delete_temp_files()
+
+= Test load_services
+
+data_services = """
+cvsup		5999/udp			# CVSup
+x11		6000-6063/tcp			# X Window System
+x11		6000-6063/udp			# X Window System
+ndl-ahp-svc	6064/tcp			# NDL-AHP-SVC
+"""
+
+services = get_temp_file()
+with open(services, "w") as w:
+    w.write(data_services)
+
+tcp, udp = load_services(services)
+assert tcp[6002] == "x11"
+assert tcp.ndl_ahp_svc == 6064
+assert tcp.x11 in range(6000, 6093)
+assert udp[6002] == "x11"
+assert udp.x11 in range(6000, 6093)
+assert udp.cvsup == 5999
+
+scapy_delete_temp_files()
+
+= Test ARPingResult output
+~ manufdb
+
+ar = ARPingResult([(None, Ether(src='70:ee:50:50:ee:70')/ARP(psrc='192.168.0.1'))])
+with ContextManagerCaptureOutput() as cmco:
+    ar.show()
+    result_ar = cmco.get_output()
+
+assert result_ar.startswith("  70:ee:50:50:ee:70 Netatmo 192.168.0.1")
+
+= Test utility functions - network related
+~ netaccess
+
+atol("www.secdev.org") == 3642339845
+
+= Test autorun functions
+
+ret = autorun_get_text_interactive_session("IP().src")
+assert(ret == (">>> IP().src\n'127.0.0.1'\n", '127.0.0.1'))
+
+ret = autorun_get_html_interactive_session("IP().src")
+assert(ret == ("<span class=prompt>&gt;&gt;&gt; </span>IP().src\n'127.0.0.1'\n", '127.0.0.1'))
+
+ret = autorun_get_latex_interactive_session("IP().src")
+assert(ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP().src\n'127.0.0.1'\n", '127.0.0.1'))
+
+ret = autorun_get_text_interactive_session("scapy_undefined")
+assert "NameError" in ret[0]
+
+= Test utility TEX functions
+
+assert tex_escape("{scapy}\\^$~#_&%|><") == "{\\tt\\char123}scapy{\\tt\\char125}{\\tt\\char92}\\^{}\\${\\tt\\char126}\\#\\_\\&\\%{\\tt\\char124}{\\tt\\char62}{\\tt\\char60}"
+
+a = colgen(1, 2, 3)
+assert next(a) == (1, 2, 2)
+assert next(a) == (1, 3, 3)
+assert next(a) == (2, 2, 1)
+assert next(a) == (2, 3, 2)
+assert next(a) == (2, 1, 3)
+assert next(a) == (3, 3, 1)
+assert next(a) == (3, 1, 2)
+assert next(a) == (3, 2, 3)
+
+= Test config file functions
+
+saved_conf_verb = conf.verb
+fd, fname = tempfile.mkstemp()
+os.write(fd, b"conf.verb = 42\n")
+os.close(fd)
+from scapy.main import _read_config_file
+_read_config_file(fname, globals(), locals())
+assert(conf.verb == 42)
+conf.verb = saved_conf_verb
+
+= Test config file functions failures
+
+from scapy.main import _probe_config_file
+assert _probe_config_file("filethatdoesnotexistnorwillever.tsppajfsrdrr") is None
+
+= Test CacheInstance repr
+
+conf.netcache
+
+= Test pyx detection functions
+
+from scapy.extlib import _test_pyx
+assert _test_pyx() == False
+
+= Test matplotlib detection functions
+
+from mock import MagicMock, patch
+
+bck_scapy_ext_lib = sys.modules.get("scapy.extlib", None)
+del(sys.modules["scapy.extlib"])
+
+mock_matplotlib = MagicMock()
+mock_matplotlib.get_backend.return_value = "inline"
+mock_matplotlib.pyplot = MagicMock()
+mock_matplotlib.pyplot.plt = None
+with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib}):
+    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS, Line2D
+    assert MATPLOTLIB == 1
+    assert MATPLOTLIB_INLINED == 1
+    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+
+mock_matplotlib.get_backend.return_value = "ko"
+with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib}):
+    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+    assert MATPLOTLIB == 1
+    assert MATPLOTLIB_INLINED == 0
+    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+
+if bck_scapy_ext_lib:
+    sys.modules["scapy.extlib"] = bck_scapy_ext_lib

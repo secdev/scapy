@@ -1,0 +1,28 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+######################################
+# More PPI tests in contrib/ppi_cace #
+######################################
+
+############
+############
++ 802.3
+
+= Test detection
+
+assert isinstance(Dot3(raw(Ether())),Ether)
+assert isinstance(Ether(raw(Dot3())),Dot3)
+
+a = Ether(b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00')
+assert isinstance(a,Dot3)
+assert a.dst == 'ff:ff:ff:ff:ff:ff'
+assert a.src == '00:00:00:00:00:00'
+
+a = Dot3(b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x90\x00')
+assert isinstance(a,Ether)
+assert a.dst == 'ff:ff:ff:ff:ff:ff'
+assert a.src == '00:00:00:00:00:00'
+
+

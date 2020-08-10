@@ -1,0 +1,102 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+# RTP
+############
+
++ RTP tests
+
+= test rtp with extension header
+~ rtp
+
+data = b'\x90o\x14~YY\xf5h\xcc#\xd7\xcfUH\x00\x03\x167116621 \x000\x00'
+pkt = RTP(data)
+assert "RTP" in pkt
+parsed = pkt["RTP"]
+assert parsed.version == 2
+assert parsed.extension
+assert parsed.numsync == 0
+assert not parsed.marker
+assert parsed.payload_type == 111
+assert parsed.sequence == 5246
+assert parsed.timestamp == 1499067752
+assert parsed.sourcesync == 0xcc23d7cf
+assert "RTPExtension" in parsed, parsed.show()
+assert parsed["RTPExtension"].header_id == 0x5548
+assert parsed["RTPExtension"].header == [0x16373131,0x36363231,0x20003000]
+
+= test layer creation
+
+created = RTP(extension=True, payload_type="PCMA", sequence=0x1234, timestamp=12345678, sourcesync=0xabcdef01)
+created /= RTPExtension(header_id=0x4321, header=[0x11223344])
+assert raw(created) == b'\x90\x08\x124\x00\xbcaN\xab\xcd\xef\x01C!\x00\x01\x11"3D'
+parsed = RTP(raw(created))
+assert parsed.payload_type == 8
+assert "RTPExtension" in parsed, parsed.show()
+assert parsed["RTPExtension"].header == [0x11223344]
+
+= test RTP without extension
+
+created = RTP(extension=False, payload_type="DVI4", sequence=0x1234, timestamp=12345678, sourcesync=0xabcdef01)
+assert raw(created) == b'\x80\x11\x124\x00\xbcaN\xab\xcd\xef\x01'
+parsed = RTP(raw(created))
+assert parsed.sourcesync == 0xabcdef01
+assert "RTPExtension" not in parsed
+
+= UTscapy HTML output
+
+import tempfile, os
+from scapy.tools.UTscapy import TestCampaign, pack_html_campaigns
+test_campaign = TestCampaign("test")
+test_campaign.output_file = tempfile.mktemp()
+html = pack_html_campaigns([test_campaign], None, local=True)
+dirname = os.path.dirname(test_campaign.output_file)
+filename_js = "%s/UTscapy.js" % dirname
+filename_css = "%s/UTscapy.css" % dirname
+assert os.path.isfile(filename_js)
+assert os.path.isfile(filename_css)
+os.remove(filename_js)
+os.remove(filename_css)
+
+#= Test snmpwalk()
+#
+#~ netaccess
+#def test_snmpwalk(dst):
+#    with ContextManagerCaptureOutput() as cmco:
+#        snmpwalk(dst=dst)
+#        output = cmco.get_output()
+#    expected = "No answers\n"
+#    assert(output == expected)
+#
+#test_snmpwalk("secdev.org")
+
+= test get_temp_dir
+
+dname = get_temp_dir()
+assert os.path.isdir(dname)
+
+= test fragleak functions
+~ netaccess linux fragleak
+
+import mock
+
+@mock.patch("scapy.layers.inet.conf.L3socket")
+@mock.patch("scapy.layers.inet.select.select")
+@mock.patch("scapy.layers.inet.sr1")
+def _test_fragleak(func, sr1, select, L3socket):
+    packets = [IP(src="4.4.4.4")/ICMP()/IPerror(dst="8.8.8.8")/conf.padding_layer(load=b"greatdata")]
+    iterator = iter(packets)
+    ne = lambda *args, **kwargs: next(iterator)
+    L3socket.side_effect = lambda: Bunch(recv=ne, send=lambda x: None)
+    sr1.side_effect = ne
+    select.side_effect = lambda a, b, c, d: a+b+c
+    with ContextManagerCaptureOutput() as cmco:
+        func("8.8.8.8", count=1)
+        out = cmco.get_output()
+        return "greatdata" in out
+
+assert _test_fragleak(fragleak)
+assert _test_fragleak(fragleak2)
+

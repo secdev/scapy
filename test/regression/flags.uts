@@ -1,0 +1,123 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Flags
+
+= IP flags
+~ IP
+
+pkt = IP(flags="MF")
+assert pkt.flags.MF
+assert not pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 1 (MF)>'
+pkt.flags.MF = 0
+pkt.flags.DF = 1
+assert not pkt.flags.MF
+assert pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 2 (DF)>'
+pkt.flags |= 'evil+MF'
+pkt.flags &= 'DF+MF'
+assert pkt.flags.MF
+assert pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 3 (MF+DF)>'
+
+pkt = IP(flags=3)
+assert pkt.flags.MF
+assert pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 3 (MF+DF)>'
+pkt.flags = 6
+assert not pkt.flags.MF
+assert pkt.flags.DF
+assert pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 6 (DF+evil)>'
+
+assert len({IP().flags, IP().flags}) == 1
+
+pkt = IP()
+pkt.flags = ""
+assert pkt.flags == 0
+
+= TCP flags
+~ TCP
+
+pkt = TCP(flags="SA")
+assert pkt.flags == 18
+assert pkt.flags.S
+assert pkt.flags.A
+assert pkt.flags.SA
+assert not any(getattr(pkt.flags, f) for f in 'FRPUECN')
+assert repr(pkt.flags) == '<Flag 18 (SA)>'
+pkt.flags.U = True
+pkt.flags.S = False
+assert pkt.flags.A
+assert pkt.flags.U
+assert pkt.flags.AU
+assert not any(getattr(pkt.flags, f) for f in 'FSRPECN')
+assert repr(pkt.flags) == '<Flag 48 (AU)>'
+pkt.flags &= 'SFA'
+pkt.flags |= 'P'
+assert pkt.flags.P
+assert pkt.flags.A
+assert pkt.flags.PA
+assert not any(getattr(pkt.flags, f) for f in 'FSRUECN')
+
+pkt = TCP(flags=56)
+assert all(getattr(pkt.flags, f) for f in 'PAU')
+assert pkt.flags.PAU
+assert not any(getattr(pkt.flags, f) for f in 'FSRECN')
+assert repr(pkt.flags) == '<Flag 56 (PAU)>'
+pkt.flags = 50
+assert all(getattr(pkt.flags, f) for f in 'SAU')
+assert pkt.flags.SAU
+assert not any(getattr(pkt.flags, f) for f in 'FRPECN')
+assert repr(pkt.flags) == '<Flag 50 (SAU)>'
+
+= Flag values mutation with .raw_packet_cache
+~ IP TCP
+
+pkt = IP(raw(IP(flags="MF")/TCP(flags="SA")))
+assert pkt.raw_packet_cache is not None
+assert pkt[TCP].raw_packet_cache is not None
+assert pkt.flags.MF
+assert not pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 1 (MF)>'
+assert pkt[TCP].flags.S
+assert pkt[TCP].flags.A
+assert pkt[TCP].flags.SA
+assert not any(getattr(pkt[TCP].flags, f) for f in 'FRPUECN')
+assert repr(pkt[TCP].flags) == '<Flag 18 (SA)>'
+pkt.flags.MF = 0
+pkt.flags.DF = 1
+pkt[TCP].flags.U = True
+pkt[TCP].flags.S = False
+pkt = IP(raw(pkt))
+assert not pkt.flags.MF
+assert pkt.flags.DF
+assert not pkt.flags.evil
+assert repr(pkt.flags) == '<Flag 2 (DF)>'
+assert pkt[TCP].flags.A
+assert pkt[TCP].flags.U
+assert pkt[TCP].flags.AU
+assert not any(getattr(pkt[TCP].flags, f) for f in 'FSRPECN')
+assert repr(pkt[TCP].flags) == '<Flag 48 (AU)>'
+
+= Operations on flag values
+~ TCP
+
+p1, p2 = TCP(flags="SU"), TCP(flags="AU")
+assert (p1.flags & p2.flags).U
+assert not any(getattr(p1.flags & p2.flags, f) for f in 'FSRPAECN')
+assert all(getattr(p1.flags | p2.flags, f) for f in 'SAU')
+assert (p1.flags | p2.flags).SAU
+assert not any(getattr(p1.flags | p2.flags, f) for f in 'FRPECN')
+
+assert TCP(flags="SA").flags & TCP(flags="S").flags == TCP(flags="S").flags
+assert TCP(flags="SA").flags | TCP(flags="S").flags == TCP(flags="SA").flags

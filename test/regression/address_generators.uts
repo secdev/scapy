@@ -1,0 +1,198 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Addresses generators
+
+= Net
+
+n1 = Net("192.168.0.0/31")
+[ip for ip in n1] == ["192.168.0.0", "192.168.0.1"]
+
+n2 = Net("192.168.0.*")
+sum(1 for ip in n2) == 256
+assert n2.__iterlen__() == 256
+
+n3 = Net("192.168.0.1-5")
+sum(1 for ip in n3) == 5
+assert n3.__iterlen__() == 5
+
+(n1 == n3) == False
+
+(n3 in n2) == True
+
+= Net using web address
+~ netaccess
+
+ip = IP(dst="www.google.com")
+n1 = ip.dst
+assert isinstance(n1, Net)
+assert n1.ip_regex.match(str(n1))
+ip.show()
+
+= Multiple IP addresses test
+~ netaccess
+
+ip = IP(dst=['192.168.0.1', 'www.google.fr'],ihl=(1,5))
+assert ip.dst[0] == '192.168.0.1'
+assert isinstance(ip.dst[1], Net)
+src = ip.src
+assert src
+assert isinstance(src, str)
+
+= OID
+
+oid = OID("1.2.3.4.5.6-8")
+sum(1 for o in oid) == 3
+assert oid.__iterlen__() == 3
+
+= Net6
+
+n1 = Net6("2001:db8::/127")
+sum(1 for ip in n1) == 2
+
+n2 = Net6("fec0::/110")
+#len([x for x in n2]) returns 262144 (very slow)
+assert n2.__iterlen__() == 262144
+
+= Net6 using web address
+~ netaccess ipv6
+
+ip = IPv6(dst="www.google.com")
+n1 = ip.dst
+assert isinstance(n1, Net6)
+assert n1.ip_regex.match(str(n1))
+ip.show()
+
+ip = IPv6(dst="www.yahoo.com")
+addrs = [ip.dst, IPv6(raw(ip)).dst, [p.dst for p in ip][0]]
+assert addrs[0] == addrs[1] == addrs[2]
+
+= Multiple IPv6 addresses test
+~ netaccess ipv6
+
+ip = IPv6(dst=['2001:db8::1', 'www.google.fr'],hlim=(1,5))
+assert ip.dst[0] == '2001:db8::1'
+assert isinstance(ip.dst[1], Net6)
+src = ip.src
+assert src
+assert isinstance(src, str)
+
+= Test repr on Net
+~ netaccess
+
+conf.color_theme = BlackAndWhite()
+assert "Net('www.google.com')" in repr(IP(src="www.google.com"))
+
+= Test repr on Net
+~ netaccess ipv6
+
+conf.color_theme = BlackAndWhite()
+assert "Net6('www.google.com')" in repr(IPv6(src="www.google.com"))
+
+############
+############
++ IPv6 helpers
+
+= in6_getLocalUniquePrefix()
+
+p = in6_getLocalUniquePrefix()
+len(inet_pton(socket.AF_INET6, p)) == 16 and p.startswith("fd")
+
+= Misc addresses manipulation functions
+
+teredoAddrExtractInfo("2001:0:0a0b:0c0d:0028:f508:f508:08f5") == ("10.11.12.13", 40, "10.247.247.10", 2807)
+
+ip6 = IP6Field("test", None)
+ip6.i2repr("", "2001:0:0a0b:0c0d:0028:f508:f508:08f5") == "2001:0:0a0b:0c0d:0028:f508:f508:08f5 [Teredo srv: 10.11.12.13 cli: 10.247.247.10:2807]"
+ip6.i2repr("", "2002:0102:0304::1") == "2002:0102:0304::1 [6to4 GW: 1.2.3.4]"
+
+in6_iseui64("fe80::bae8:58ff:fed4:e5f6") == True
+
+in6_isanycast("2001:db8::fdff:ffff:ffff:ff80") == True
+
+a = inet_pton(socket.AF_INET6, "2001:db8::2807")
+in6_xor(a, a) == b"\x00" * 16
+
+a = inet_pton(socket.AF_INET6, "fe80::bae8:58ff:fed4:e5f6")
+r = inet_ntop(socket.AF_INET6, in6_getnsma(a)) 
+r == "ff02::1:ffd4:e5f6"
+
+in6_isllsnmaddr(r) == True
+
+in6_isdocaddr("2001:db8::2807") == True
+
+in6_isaddrllallnodes("ff02::1") == True
+
+in6_isaddrllallservers("ff02::2") == True
+
+= in6_getscope()
+
+assert in6_getscope("2001:db8::2807") == IPV6_ADDR_GLOBAL
+assert in6_getscope("fec0::2807") == IPV6_ADDR_SITELOCAL
+assert in6_getscope("fe80::2807") == IPV6_ADDR_LINKLOCAL
+assert in6_getscope("ff02::2807") == IPV6_ADDR_LINKLOCAL
+assert in6_getscope("ff0e::2807") == IPV6_ADDR_GLOBAL
+assert in6_getscope("ff05::2807") == IPV6_ADDR_SITELOCAL
+assert in6_getscope("ff01::2807") == IPV6_ADDR_LOOPBACK
+assert in6_getscope("::1") == IPV6_ADDR_LOOPBACK
+
+= construct_source_candidate_set()
+
+dev_addresses = [('fe80::', IPV6_ADDR_LINKLOCAL, "linklocal"),('fec0::', IPV6_ADDR_SITELOCAL, "sitelocal"),('ff0e::', IPV6_ADDR_GLOBAL, "global")]
+
+assert construct_source_candidate_set("2001:db8::2807", 0, dev_addresses) == ["ff0e::"]
+assert construct_source_candidate_set("fec0::2807", 0, dev_addresses) == ["fec0::"]
+assert construct_source_candidate_set("fe80::2807", 0, dev_addresses) == ["fe80::"]
+assert construct_source_candidate_set("ff02::2807", 0, dev_addresses) == ["fe80::"]
+assert construct_source_candidate_set("ff0e::2807", 0, dev_addresses) == ["ff0e::"]
+assert construct_source_candidate_set("ff05::2807", 0, dev_addresses) == ["fec0::"]
+assert construct_source_candidate_set("ff01::2807", 0, dev_addresses) == ["::1"]
+assert construct_source_candidate_set("::", 0, dev_addresses) == ["ff0e::"]
+
+= inet_pton()
+
+from scapy.pton_ntop import _inet6_pton, inet_pton
+import socket
+
+ip6_bad_addrs = ["fe80::2e67:ef2d:7eca::ed8a",
+                 "fe80:1234:abcd::192.168.40.12:abcd",
+                 "fe80:1234:abcd::192.168.40",
+                 "fe80:1234:abcd::192.168.400.12",
+                 "1234:5678:9abc:def0:1234:5678:9abc:def0:",
+                 "1234:5678:9abc:def0:1234:5678:9abc:def0:1234"]
+for ip6 in ip6_bad_addrs:
+    rc = False
+    exc1 = None
+    try:
+        res1 = inet_pton(socket.AF_INET6, ip6)
+    except Exception as e:
+        rc = True
+        exc1 = e
+    assert rc
+    rc = False
+    try:
+        res2 = _inet6_pton(ip6)
+    except Exception as exc2:
+        rc = isinstance(exc2, type(exc1))
+    assert rc
+
+ip6_good_addrs = [("fe80:1234:abcd::192.168.40.12",
+                   b'\xfe\x80\x124\xab\xcd\x00\x00\x00\x00\x00\x00\xc0\xa8(\x0c'),
+                  ("fe80:1234:abcd::fe06",
+                   b'\xfe\x80\x124\xab\xcd\x00\x00\x00\x00\x00\x00\x00\x00\xfe\x06'),
+                  ("fe80::2e67:ef2d:7ece:ed8a",
+                   b'\xfe\x80\x00\x00\x00\x00\x00\x00.g\xef-~\xce\xed\x8a'),
+                  ("::ffff",
+                   b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff'),
+                  ("ffff::",
+                   b'\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'),
+                  ('::', b'\x00' * 16)]
+for ip6, res in ip6_good_addrs:
+    res1 = inet_pton(socket.AF_INET6, ip6)
+    res2 = _inet6_pton(ip6)
+    assert res == res1 == res2
+
+

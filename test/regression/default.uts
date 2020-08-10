@@ -1,0 +1,22 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Tests on default value changes mechanism
+
+= Creation of an IPv3 class from IP class with different default values
+class IPv3(IP):
+    version = 3
+    ttl = 32
+
+= Test of IPv3 class
+a = IPv3()
+v,t = a.version, a.ttl
+v,t
+assert((v,t) == (3,32))
+r = raw(a)
+r
+assert(r == b'5\x00\x00\x14\x00\x01\x00\x00 \x00\xac\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01')
+

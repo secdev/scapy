@@ -1,0 +1,115 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Random objects
+
+= RandomEnumeration
+
+ren = RandomEnumeration(0, 7, seed=0x2807, forever=False)
+[x for x in ren] == ([3, 4, 2, 5, 1, 6, 0, 7] if six.PY2 else [5, 0, 2, 7, 6, 3, 1, 4])
+
+= RandIP6
+
+random.seed(0x2807)
+r6 = RandIP6()
+assert(r6 == ("d279:1205:e445:5a9f:db28:efc9:afd7:f594" if six.PY2 else
+              "240b:238f:b53f:b727:d0f9:bfc4:2007:e265"))
+
+random.seed(0x2807)
+r6 = RandIP6("2001:db8::-") 
+assert(r6 == ("2001:0db8::e445" if six.PY2 else "2001:0db8::b53f"))
+
+r6 = RandIP6("2001:db8::*")
+assert(r6 == ("2001:0db8::efc9" if six.PY2 else "2001:0db8::bfc4"))
+
+= RandMAC
+
+random.seed(0x2807)
+rm = RandMAC() 
+assert(rm == ("d2:12:e4:5a:db:ef" if six.PY2 else "24:23:b5:b7:d0:bf"))
+
+rm = RandMAC("00:01:02:03:04:0-7")
+assert(rm == ("00:01:02:03:04:05" if six.PY2 else "00:01:02:03:04:01"))
+
+
+= RandOID
+
+random.seed(0x2807)
+ro = RandOID()
+assert(ro == "7.222.44.194.276.116.320.6.84.97.31.5.25.20.13.84.104.18")
+
+ro = RandOID("1.2.3.*")
+assert(ro == "1.2.3.41")
+
+ro = RandOID("1.2.3.0-28")
+assert(ro == ("1.2.3.11" if six.PY2 else "1.2.3.12"))
+
+= RandRegExp
+
+random.seed(0x2807)
+rex = RandRegExp("[g-v]* @? [0-9]{3} . (g|v)")
+bytes(rex) == ('vmuvr @ 906 \x9e g' if six.PY2 else b'irrtv @ 517 \xc2\xb8 v')
+
+rex = RandRegExp("[:digit:][:space:][:word:]")
+assert re.match(b"\\d\\s\\w", bytes(rex))
+
+= Corrupted(Bytes|Bits)
+
+random.seed(0x2807)
+cb = CorruptedBytes("ABCDE", p=0.5)
+assert(sane(raw(cb)) in [".BCD)", "&BCDW"])
+
+cb = CorruptedBits("ABCDE", p=0.2)
+assert(sane(raw(cb)) in ["ECk@Y", "QB.P."])
+
+= RandEnumKeys
+random.seed(0x2807)
+rek = RandEnumKeys({'a': 1, 'b': 2, 'c': 3}, seed=0x2807)
+rek.enum.sort()
+r = str(rek)
+r
+assert(r == ('c' if six.PY2 else 'a'))
+
+= RandSingNum
+random.seed(0x2807)
+rs = RandSingNum(-28, 7)._fix()
+rs
+assert(rs in [2, 3])
+
+= Rand*
+random.seed(0x2807)
+rss = RandSingString()
+assert(rss == ("CON:" if six.PY2 else "foo.exe:"))
+
+random.seed(0x2807)
+rts = RandTermString(4, "scapy")
+assert(sane(raw(rts)) in ["...Zscapy", "$#..scapy"])
+
+= RandInt (test __bool__)
+a = "True" if RandNum(False, True) else "False"
+assert a in ["True", "False"]
+
+= Various volatiles
+
+random.seed(0x2807)
+assert RandNumGamma(1, 42)._fix() in (8, 73)
+
+random.seed(0x2807)
+assert RandNumGauss(1, 42) == 8
+
+print("RandEnum()", RandEnum(1, 42, seed=0x2807)._fix())
+assert RandEnum(1, 42, seed=0x2807) == (13 if six.PY2 else 37)
+
+print("RandPool()", RandPool((IncrementalValue(), 42), (IncrementalValue(), 0))._fix())
+assert RandPool((IncrementalValue(), 42), (IncrementalValue(), 0)) == 0
+
+print("DelayedEval()", DelayedEval("3 + 1")._fix())
+assert DelayedEval("3 + 1") == 4
+
+v = IncrementalValue(restart=2)
+assert v == 0 and v == 1 and v == 2 and v == 0
+
+

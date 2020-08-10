@@ -1,0 +1,67 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Test IP options
+
+= IP options individual assembly
+~ IP options
+r = raw(IPOption())
+r
+assert(r == b'\x00\x02')
+r = raw(IPOption_NOP())
+r
+assert(r == b'\x01')
+r = raw(IPOption_EOL())
+r
+assert(r == b'\x00')
+r = raw(IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]))
+r
+assert(r == b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08')
+r = raw(IPOption_Timestamp(internet_address='192.168.15.7', timestamp=11223344))
+r
+assert(r == b'D\x0c\t\x01\xc0\xa8\x0f\x07\x00\xabA0')
+r = raw(IPOption_Timestamp(flg=0, length=8))
+r
+assert(r == b'D\x08\t\x00\x00\x00\x00\x00')
+
+= IP options individual dissection
+~ IP options
+io = IPOption(b"\x00")
+io
+assert(io.option == 0 and isinstance(io, IPOption_EOL))
+io = IPOption(b"\x01")
+io
+assert(io.option == 1 and isinstance(io, IPOption_NOP))
+lsrr=b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08'
+p=IPOption_LSRR(lsrr)
+p
+q=IPOption(lsrr)
+q
+assert(p == q)
+
+= IP assembly and dissection with options
+~ IP options
+p = IP(src="9.10.11.12",dst="13.14.15.16",options=IPOption_SDBM(addresses=["1.2.3.4","5.6.7.8"]))/TCP()
+r = raw(p)
+r
+assert(r == b'H\x00\x004\x00\x01\x00\x00@\x06\xa2q\t\n\x0b\x0c\r\x0e\x0f\x10\x95\n\x01\x02\x03\x04\x05\x06\x07\x08\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+q=IP(r)
+q
+assert( isinstance(q.options[0],IPOption_SDBM) )
+assert( q[IPOption_SDBM].addresses[1] == "5.6.7.8" )
+p.options[0].addresses[0] = '5.6.7.8'
+assert( IP(raw(p)).options[0].addresses[0] == '5.6.7.8' )
+p = IP(src="9.10.11.12", dst="13.14.15.16", options=[IPOption_NOP(),IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]),IPOption_Security(transmission_control_code="XYZ")])/TCP()
+p
+r = raw(p)
+r
+assert(r == b'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+q = IP(r)
+q
+assert(q[IPOption_LSRR].get_current_router() == "1.2.3.4")
+assert(q[IPOption_Security].transmission_control_code == b"XYZ")
+assert(q[TCP].flags == 2)
+

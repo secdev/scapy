@@ -1,0 +1,59 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Test correct conversion from binary to rawing of IPv6 addresses
+
+= IPv6 bin to rawing conversion
+from scapy.pton_ntop import _inet6_ntop, inet_ntop
+import socket
+for binfrm, address in [
+        (b'\x00' * 16, '::'),
+        (b'\x11\x11\x22\x22\x33\x33\x44\x44\x55\x55\x66\x66\x77\x77\x88\x88',
+         '1111:2222:3333:4444:5555:6666:7777:8888'),
+        (b'\x11\x11\x22\x22\x33\x33\x44\x44\x55\x55\x00\x00\x00\x00\x00\x00',
+         '1111:2222:3333:4444:5555::'),
+        (b'\x00\x00\x00\x00\x00\x00\x44\x44\x55\x55\x66\x66\x77\x77\x88\x88',
+         '::4444:5555:6666:7777:8888'),
+        (b'\x00\x00\x00\x00\x33\x33\x44\x44\x00\x00\x00\x00\x00\x00\x88\x88',
+         '0:0:3333:4444::8888'),
+        (b'\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+         '1::'),
+        (b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01',
+         '::1'),
+        (b'\x11\x11\x00\x00\x00\x00\x44\x44\x00\x00\x00\x00\x77\x77\x88\x88',
+         '1111::4444:0:0:7777:8888'),
+        (b'\x10\x00\x02\x00\x00\x30\x00\x04\x00\x05\x00\x60\x07\x00\x80\x00',
+         '1000:200:30:4:5:60:700:8000'),
+]:
+    addr1 = inet_ntop(socket.AF_INET6, binfrm)
+    addr2 = _inet6_ntop(binfrm)
+    assert address == addr1 == addr2
+
+= IPv6 bin to rawing conversion - Zero-block of length 1
+binfrm = b'\x11\x11\x22\x22\x33\x33\x44\x44\x55\x55\x66\x66\x00\x00\x88\x88'
+addr1, addr2 = inet_ntop(socket.AF_INET6, binfrm), _inet6_ntop(binfrm)
+# On Mac OS socket.inet_ntop is not fully compliant with RFC 5952 and
+# shortens the single zero block to '::'. This is a valid IPv6 address
+# representation anyway.
+assert(addr1 in ['1111:2222:3333:4444:5555:6666:0:8888',
+                 '1111:2222:3333:4444:5555:6666::8888'])
+assert(addr2 == '1111:2222:3333:4444:5555:6666:0:8888')
+
+= IPv6 bin to rawing conversion - Illegal sizes
+for binfrm in ["\x00" * 15, b"\x00" * 17]:
+    rc = False
+    try:
+        inet_ntop(socket.AF_INET6, binfrm)
+    except Exception as exc1:
+        _exc1 = exc1
+        rc = True
+    assert rc
+    try:
+        _inet6_ntop(binfrm)
+    except Exception as exc2:
+        rc = isinstance(exc2, type(_exc1))
+    assert rc
+

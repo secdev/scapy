@@ -1,0 +1,22 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ ManuFDB tests
+
+= __repr__
+
+if conf.manufdb:
+    len(conf.manufdb)
+else:
+    True
+
+= check _resolve_MAC
+
+if conf.manufdb:
+    assert conf.manufdb._resolve_MAC("00:00:17") == "Oracle"
+else:
+    True
+

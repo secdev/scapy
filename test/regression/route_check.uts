@@ -1,0 +1,12 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+###########
+###########
+= UTscapy route check
+* Check that UTscapy has correctly replaced the routes. Many tests won't work otherwise
+
+p = IP().src
+p
+assert p == "127.0.0.1"

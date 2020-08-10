@@ -1,5 +1,6 @@
 {
   "testfiles": [
+    "test\\regression\\*.uts",
     "*.uts",
     "test\\contrib\\automotive\\obd\\*.uts",
     "test\\contrib\\automotive\\gm\\*.uts",

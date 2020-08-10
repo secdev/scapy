@@ -1,0 +1,9 @@
+
+def expect_exception(e, c):
+    try:
+        c()
+        return False
+    except e:
+        return True
+
+

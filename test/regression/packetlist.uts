@@ -1,0 +1,236 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ PacketList methods
+
+= plot()
+
+import mock
+@mock.patch("scapy.plist.plt")
+def test_plot(mock_plt):
+    def fake_plot(data, **kwargs):
+        return data
+    mock_plt.plot = fake_plot
+    plist = PacketList([IP(id=i)/TCP() for i in range(10)])
+    lines = plist.plot(lambda p: (p.time, p.id))
+    assert(len(lines) == 10)
+
+test_plot()
+
+= diffplot()
+
+import mock
+@mock.patch("scapy.plist.plt")
+def test_diffplot(mock_plt):
+    def fake_plot(data, **kwargs):
+        return data
+    mock_plt.plot = fake_plot
+    plist = PacketList([IP(id=i)/TCP() for i in range(10)])
+    lines = plist.diffplot(lambda x,y: (x.time, y.id-x.id))
+    assert(len(lines) == 9)
+
+test_diffplot()
+
+= multiplot()
+
+import mock
+@mock.patch("scapy.plist.plt")
+def test_multiplot(mock_plt):
+    def fake_plot(data, **kwargs):
+        return data
+    mock_plt.plot = fake_plot
+    tmp = [IP(id=i)/TCP() for i in range(10)]
+    plist = PacketList([tuple(tmp[i-2:i]) for i in range(2, 10, 2)])
+    lines = plist.multiplot(lambda x: (x[1][IP].src, (x[1].time, x[1][IP].id)))
+    assert(len(lines) == 1)
+    assert(len(lines[0]) == 4)
+
+test_multiplot()
+
+= rawhexdump()
+
+def test_rawhexdump():
+    with ContextManagerCaptureOutput() as cmco:
+        p = PacketList([IP()/TCP() for i in range(2)])
+        p.rawhexdump()
+        result_pl_rawhexdump = cmco.get_output()
+    assert(len(result_pl_rawhexdump.split('\n')) == 7)
+    assert(result_pl_rawhexdump.startswith("0000  45 00 00 28"))
+
+test_rawhexdump()
+
+= hexraw()
+
+def test_hexraw():
+    with ContextManagerCaptureOutput() as cmco:
+        p = PacketList([IP()/Raw(str(i)) for i in range(2)])
+        p.hexraw()
+        result_pl_hexraw = cmco.get_output()
+    assert(len(result_pl_hexraw.split('\n')) == 5)
+    assert("0000  30" in result_pl_hexraw)
+
+test_hexraw()
+
+= hexdump()
+
+def test_hexdump():
+    with ContextManagerCaptureOutput() as cmco:
+        p = PacketList([IP()/Raw(str(i)) for i in range(2)])
+        p.hexdump()
+        result_pl_hexdump = cmco.get_output()
+    assert(len(result_pl_hexdump.split('\n')) == 7)
+    assert("0010  7F 00 00 01 31" in result_pl_hexdump)
+
+test_hexdump()
+
+= import_hexcap()
+
+@mock.patch("scapy.utils.input")
+def test_import_hexcap(mock_input):
+    data = """
+0000  FF FF FF FF FF FF AA AA AA AA AA AA 08 00 45 00  ..............E.
+0010  00 1C 00 01 00 00 40 01 7C DE 7F 00 00 01 7F 00  ......@.|.......
+0020  00 01 08 00 F7 FF 00 00 00 00                    ..........
+"""[1:].split("\n")
+    lines = iter(data)
+    mock_input.side_effect = lambda: next(lines)
+    return import_hexcap()
+
+pkt = test_import_hexcap()
+pkt = Ether(pkt)
+assert pkt[Ether].dst == "ff:ff:ff:ff:ff:ff"
+assert pkt[IP].dst == "127.0.0.1"
+assert ICMP in pkt
+
+= import_hexcap(input_string)
+data = """
+0000  FF FF FF FF FF FF AA AA AA AA AA AA 08 00 45 00  ..............E.
+0010  00 1C 00 01 00 00 40 01 7C DE 7F 00 00 01 7F 00  ......@.|.......
+0020  00 01 08 00 F7 FF 00 00 00 00                    ..........
+"""[1:]
+pkt = import_hexcap(data)
+pkt = Ether(pkt)
+assert pkt[Ether].dst == "ff:ff:ff:ff:ff:ff"
+assert pkt[IP].dst == "127.0.0.1"
+assert ICMP in pkt
+
+= padding()
+
+def test_padding():
+    with ContextManagerCaptureOutput() as cmco:
+        p = PacketList([IP()/conf.padding_layer(str(i)) for i in range(2)])
+        p.padding()
+        result_pl_padding = cmco.get_output()
+    assert(len(result_pl_padding.split('\n')) == 5)
+    assert("0000  30" in result_pl_padding)
+
+test_padding()
+
+= nzpadding()
+
+def test_nzpadding():
+    with ContextManagerCaptureOutput() as cmco:
+        p = PacketList([IP()/conf.padding_layer("A%s" % i) for i in range(2)])
+        p.nzpadding()
+        result_pl_nzpadding = cmco.get_output()
+    assert(len(result_pl_nzpadding.split('\n')) == 5)
+    assert("0000  41 30" in result_pl_nzpadding)
+
+test_nzpadding()
+
+= conversations()
+
+import mock
+@mock.patch("scapy.plist.do_graph")
+def test_conversations(mock_do_graph):
+    def fake_do_graph(graph, **kwargs):
+        return graph
+    mock_do_graph.side_effect = fake_do_graph
+    plist = PacketList([IP(dst="127.0.0.2")/TCP(dport=i) for i in range(2)])
+    plist.extend([IP(src="127.0.0.2")/TCP(sport=i) for i in range(2)])
+    plist.extend([IPv6(dst="::2", src="::1")/TCP(sport=i) for i in range(2)])
+    plist.extend([IPv6(src="::2", dst="::1")/TCP(sport=i) for i in range(2)])
+    plist.extend([Ether()/ARP(pdst="127.0.0.1")])
+    result_conversations = plist.conversations()
+    assert(len(result_conversations.split('\n')) == 8)
+    assert(result_conversations.startswith('digraph "conv" {'))
+    assert("127.0.0.1" in result_conversations)
+    assert("::1" in result_conversations)
+
+test_conversations()
+
+= sessions()
+
+pl = PacketList([Ether()/IPv6()/ICMPv6EchoRequest(), Ether()/IPv6()/IPv6()])
+pl.extend([Ether()/IP()/IP(), Ether()/ARP()])
+pl.extend([Ether()/Ether()/IP()])
+assert(len(pl.sessions().keys()) == 5)
+
+= afterglow()
+
+import mock
+@mock.patch("scapy.plist.do_graph")
+def test_afterglow(mock_do_graph):
+    def fake_do_graph(graph, **kwargs):
+        return graph
+    mock_do_graph.side_effect = fake_do_graph
+    plist = PacketList([IP(dst="127.0.0.2")/TCP(dport=i) for i in range(2)])
+    plist.extend([IP(src="127.0.0.2")/TCP(sport=i) for i in range(2)])
+    result_afterglow = plist.afterglow()
+    assert(len(result_afterglow.split('\n')) == 19)
+    assert(result_afterglow.startswith('digraph "afterglow" {'))
+
+test_afterglow()
+
+= psdump()
+
+print("PYX: %d" % PYX)
+if PYX:
+    import tempfile
+    import os
+    filename = tempfile.mktemp(suffix=".eps")
+    plist = PacketList([IP()/TCP()])
+    plist.psdump(filename)
+    assert(os.path.exists(filename))
+    os.unlink(filename)
+
+= pdfdump()
+
+print("PYX: %d" % PYX)
+if PYX:
+    import tempfile
+    import os
+    filename = tempfile.mktemp(suffix=".pdf")
+    plist = PacketList([IP()/TCP()])
+    plist.pdfdump(filename)
+    assert(os.path.exists(filename))
+    os.unlink(filename)
+
+= svgdump()
+
+print("PYX: %d" % PYX)
+if PYX and not six.PY2:
+    import tempfile
+    import os
+    filename = tempfile.mktemp(suffix=".svg")
+    plist = PacketList([IP()/TCP()])
+    plist.svgdump(filename)
+    assert(os.path.exists(filename))
+    os.unlink(filename)
+
+= __getstate__ / __setstate__ (used by pickle)
+
+import pickle
+
+frm = Ether(src='00:11:22:33:44:55', dst='00:22:33:44:55:66')/Raw()
+pl = PacketList(res=[frm, frm], name='WhatAGreatName')
+pickled = pickle.dumps(pl)
+pl = pickle.loads(pickled)
+assert(pl.listname == "WhatAGreatName")
+assert(len(pl) == 2)
+assert(pl[0][Ether].src == '00:11:22:33:44:55')
+assert(pl[1][Ether].dst == '00:22:33:44:55:66')
+

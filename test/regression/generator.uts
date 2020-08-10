@@ -1,0 +1,39 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Generator tests
+
+= Implicit logic 1
+~ IP TCP
+a = Ether() / IP(ttl=(5, 10)) / TCP(dport=[80, 443])
+ls(a)
+ls(a, verbose=True)
+l = [p for p in a]
+len(l) == 12
+
+= Implicit logic 2
+~ IP
+a = IP(ttl=[1,2,(5,9)])
+ls(a)
+ls(a, verbose=True)
+l = [p for p in a]
+len(l) == 7
+
+= Implicit logic 3
+
+# In case there's a single option: __iter__ should return self
+a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
+for i in a:
+    i.sent_time = 1
+
+assert a.sent_time == 1
+
+# In case they are several, self should never be returned
+a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP(seq=(0, 5))
+for i in a:
+    i.sent_time = 1
+
+assert a.sent_time is None

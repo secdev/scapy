@@ -1,0 +1,104 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ ASN.1
+
+= MIB
+~ mib
+
+import tempfile
+fd, fname = tempfile.mkstemp()
+os.write(fd, b"-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
+os.close(fd)
+
+load_mib(fname)
+assert(sum(1 for k in six.itervalues(conf.mib.__dict__) if "scapy" in k) == 1)
+
+assert(sum(1 for oid in conf.mib) > 100)
+
+= MIB - graph
+~ mib
+
+import mock
+
+@mock.patch("scapy.asn1.mib.do_graph")
+def get_mib_graph(do_graph):
+    def store_graph(graph, **kargs):
+        assert graph.startswith("""digraph "mib" {""")
+        assert """"test.2807" [ label="scapy"  ];""" in graph
+    do_graph.side_effect = store_graph
+    conf.mib._make_graph()
+
+get_mib_graph()
+
+= MIB - test aliases
+~ mib
+
+# https://github.com/secdev/scapy/issues/2542
+assert conf.mib._oidname("2.5.29.19") == "basicConstraints"
+
+= DADict tests
+
+a = DADict("test")
+a[0] = "test_value1"
+a["scapy"] = "test_value2"
+
+assert a.test_value1 == 0
+assert a.test_value2 == "scapy"
+
+with ContextManagerCaptureOutput() as cmco:
+    a._show()
+    outp = cmco.get_output()
+
+assert "scapy = 'test_value2'" in outp
+assert "0 = 'test_value1'" in outp
+
+= Test ETHER_TYPES
+
+assert ETHER_TYPES.IPv4 == 2048
+try:
+    import warnings
+    
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        ETHER_TYPES["BAOBAB"] = 0xffff
+        assert ETHER_TYPES.BAOBAB == 0xffff
+        assert issubclass(w[-1].category, DeprecationWarning)
+except DeprecationWarning:
+    # -Werror is used
+    pass
+
+= BER tests
+
+BER_id_enc(42) == '*'
+BER_id_enc(2807) == b'\xbfw'
+
+b = BERcodec_IPADDRESS()
+r1 = b.enc("8.8.8.8")
+r1 == b'@\x04\x08\x08\x08\x08'
+
+r2 = b.dec(r1)[0]
+r2.val == '8.8.8.8'
+
+a = b'\x1f\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\xfe\x01\x01\x00C\x02\x01U0\x0f0\r\x06\x08+\x06\x01\x02\x01\x02\x01\x00\x02\x01!'
+ret = False
+try:
+    BERcodec_Object.check_type(a)
+except BER_BadTag_Decoding_Error:
+    ret = True
+else:
+    ret = False
+
+assert(ret)
+
+= BER trigger failures
+
+try:
+    BERcodec_INTEGER.do_dec(b"\x02\x01")
+    assert False
+except BER_Decoding_Error:
+    pass
+

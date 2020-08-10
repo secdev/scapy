@@ -1,0 +1,123 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Scapy functions tests
+
+= Interface related functions
+
+conf.iface
+
+get_if_raw_hwaddr(conf.iface)
+
+bytes_hex(get_if_raw_addr(conf.iface))
+
+def get_dummy_interface():
+    """Returns a dummy network interface"""
+    if WINDOWS:
+        data = {}
+        data["name"] = "dummy0"
+        data["description"] = "Does not exist"
+        data["win_index"] = -1
+        data["guid"] = "{1XX00000-X000-0X0X-X00X-00XXXX000XXX}"
+        data["invalid"] = True
+        data["ipv4_metric"] = 1
+        data["ipv6_metric"] = 1
+        data["mac"] = "00:00:00:00:00:00"
+        data["ips"] = ["127.0.0.1", "::1"]
+        data["pcap_name"] = "\\Device\\NPF_" + data["guid"]
+        data["flags"] = 0
+        return NetworkInterface(data)
+    else:
+        return "dummy0"
+
+get_if_raw_addr(get_dummy_interface())
+
+get_if_list()
+
+get_working_if()
+
+get_if_raw_addr6(conf.iface)
+
+= Test read_routes6() - default output
+
+routes6 = read_routes6()
+if WINDOWS:
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback(routes6, True)
+
+routes6
+
+# Expected results:
+# - one route if there is only the loopback interface
+# - one route if IPv6 is supported but disabled on network interfaces
+# - three routes if there is a network interface
+# - on OpenBSD, only two routes on lo0 are expected
+
+if routes6:
+    iflist = get_if_list()
+    if WINDOWS:
+        from scapy.arch.windows import _route_add_loopback
+        _route_add_loopback(ipv6=True, iflist=iflist)
+    if OPENBSD:
+        len(routes6) >= 2
+    elif iflist == [conf.loopback_name]:
+        len(routes6) == 1
+    elif len(iflist) >= 2:
+        len(routes6) >= 1
+    else:
+        False
+else:
+    # IPv6 seems disabled. Force a route to ::1
+    conf.route6.routes.append(("::1", 128, "::", conf.loopback_name, ["::1"], 1))
+    conf.route6.ipv6_ifaces = set([conf.loopback_name])
+    True
+
+= Test read_routes6() - check mandatory routes
+
+conf.route6
+
+# Doesn't pass on Travis Bionic XXX
+if len(routes6) > 2 and not WINDOWS:
+    assert(sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1)
+    if not OPENBSD and len(iflist) >= 2:
+        assert sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) >= 1
+        try:
+            assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]) >= 1
+        except:
+            # IPv6 is not available, but we still check the loopback
+            assert conf.route6.route("::/0") == (conf.loopback_name, "::", "::")
+            assert sum(1 for r in routes6 if r[1] == 128 and r[4] == ["::1"]) >= 1
+else:
+    True
+
+= Test ifchange()
+conf.route6.ifchange(conf.loopback_name, "::1/128")
+if WINDOWS:
+    conf.netcache.in6_neighbor["::1"] = "ff:ff:ff:ff:ff:ff"  # Restore fake cache
+
+True
+
+= Packet.route()
+assert (Ether() / ARP()).route()[0] is not None
+assert (Ether() / ARP()).payload.route()[0] is not None
+assert (ARP(ptype=0, pdst="hello. this isn't a valid IP")).route()[0] is None
+
+
+= plain_str test
+
+data = b"\xffsweet\xef celestia\xab"
+if not six.PY2:
+    # Only Python 3 has to deal with Str/Bytes conversion,
+    # as we don't use Python 2's unicode
+    if sys.version_info[0:2] <= (3, 4):
+        # Python3.4 can only ignore unknown special characters
+        assert plain_str(data) == "sweet celestia"
+    else:
+        # Python >3.4 can replace them with a backslash representation
+        assert plain_str(data) == "\\xffsweet\\xef celestia\\xab"
+else:
+    assert plain_str(data) == "\xffsweet\xef celestia\xab"
+

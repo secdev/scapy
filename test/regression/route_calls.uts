@@ -1,0 +1,783 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ Mocked read_routes() calls
+
+= Truncated netstat -rn output on OS X
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.get_if_addr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_netstat_truncated(mock_os, mock_get_if_addr):
+    """Test read_routes() on OS X 10.? with a long interface name"""
+    # netstat & ifconfig outputs from https://github.com/secdev/scapy/pull/119
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags        Refs      Use   Netif Expire
+default            192.168.1.1        UGSc          460        0     en1
+default            link#11            UCSI            1        0 bridge1
+127                127.0.0.1          UCS             1        0     lo0
+127.0.0.1          127.0.0.1          UH             10  2012351     lo0
+"""
+    ifconfig_output = u"lo0 en1 bridge10\n"
+    # Mocked file descriptors
+    def se_popen(command):
+        """Perform specific side effects"""
+        if command.startswith("netstat -rn"):
+            return StringIO(netstat_output)
+        elif command == "ifconfig -l":
+            ret = StringIO(ifconfig_output)
+            def unit():
+                return ret
+            ret.__call__ = unit
+            ret.__enter__ = unit
+            ret.__exit__ = lambda x,y,z: None
+            return ret
+        raise Exception("Command not mocked: %s" % command)
+    mock_os.popen.side_effect = se_popen
+    # Mocked get_if_addr() behavior
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        if iface == "bridge1":
+            oserror_exc = OSError()
+            oserror_exc.message = "Device not configured"
+            raise oserror_exc
+        return "1.2.3.4"
+    mock_get_if_addr.side_effect = se_get_if_addr
+    # Test the function
+    from scapy.arch.unix import read_routes
+    scapy.arch.unix.DARWIN = True
+    scapy.arch.unix.FREEBSD = False
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
+    routes = read_routes()
+    assert(len(routes) == 4)
+    assert([r for r in routes if r[3] == "bridge10"])
+
+
+test_osx_netstat_truncated()
+
+
+= macOS 10.13
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.get_if_addr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_13_ipv4(mock_os, mock_get_if_addr):
+    """Test read_routes() on OS X 10.13"""
+    # 'netstat -rn -f inet' output
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags        Refs      Use   Netif Expire
+default            192.168.28.1       UGSc           82        0     en0
+127                127.0.0.1          UCS             0        0     lo0
+127.0.0.1          127.0.0.1          UH              1      878     lo0
+169.254            link#5             UCS             0        0     en0
+192.168.28         link#5             UCS             4        0     en0
+192.168.28.1/32    link#5             UCS             2        0     en0
+192.168.28.1       88:32:9c:f5:4e:ea  UHLWIir        40       37     en0   1177
+192.168.28.2       62:aa:56:4b:51:54  UHLWI           0        0     en0    619
+192.168.28.4       38:17:ed:9a:58:28  UHLWIi          1        6     en0    428
+192.168.28.18/32   link#5             UCS             1        0     en0
+192.168.28.18      88:32:9c:f5:4e:eb  UHLWI           0        1     lo0
+192.168.28.28      04:0e:eb:11:74:a7  UHLWI           0        0     en0    576
+224.0.0/4          link#5             UmCS            1        0     en0
+224.0.0.251        1:0:5e:0:0:fb      UHmLWI          0        0     en0
+255.255.255.255/32 link#5             UCS             0        0     en0
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked get_if_addr() output
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        import socket
+        if iface == "en0":
+            return "192.168.28.18"
+        return "127.0.0.1"
+    mock_get_if_addr.side_effect = se_get_if_addr
+    # Test the function
+    from scapy.arch.unix import read_routes
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
+    routes = read_routes()
+    for r in routes:
+        print(r)
+    assert(len(routes) == 15)
+    default_route = [r for r in routes if r[0] == 0][0]
+    assert default_route[3] == "en0" and default_route[4] == "192.168.28.18"
+
+test_osx_10_13_ipv4()
+
+
+= macOS 10.15
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.get_if_addr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_15_ipv4(mock_os, mock_get_if_addr):
+    """Test read_routes() on OS X 10.15"""
+    # 'netstat -rn -f inet' output
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags        Netif Expire
+default            192.168.122.1      UGSc           en0       
+127                127.0.0.1          UCS            lo0       
+127.0.0.1          127.0.0.1          UH             lo0       
+169.254            link#8             UCS            en0      !
+192.168.122        link#8             UCS            en0      !
+192.168.122.1/32   link#8             UCS            en0      !
+192.168.122.1      52:54:0:c0:b7:af   UHLWIir        en0   1169
+192.168.122.63/32  link#8             UCS            en0      !
+224.0.0/4          link#8             UmCS           en0      !
+224.0.0.251        1:0:5e:0:0:fb      UHmLWI         en0       
+255.255.255.255/32 link#8             UCS            en0      !
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked get_if_addr() output
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        import socket
+        if iface == "en0":
+            return "192.168.122.42"
+        return "127.0.0.1"
+    mock_get_if_addr.side_effect = se_get_if_addr
+    # Test the function
+    from scapy.arch.unix import read_routes
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
+    routes = read_routes()
+    for r in routes:
+        print(r)
+    assert len(routes) == 11
+    default_route = [r for r in routes if r[0] == 0][0]
+    assert default_route[3] == "en0" and default_route[4] == "192.168.122.42"
+
+test_osx_10_15_ipv4()
+
+
+= OpenBSD 6.3
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.OPENBSD")
+@mock.patch("scapy.arch.unix.os")
+def test_openbsd_6_3(mock_os, mock_openbsd):
+    """Test read_routes() on OpenBSD 6.3"""
+    # 'netstat -rn -f inet' output
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags   Refs      Use   Mtu  Prio Iface
+default            10.0.1.254         UGS        0        0     -     8 bge0 
+224/4              127.0.0.1          URS        0       23 32768     8 lo0  
+10.0.1/24          10.0.1.26          UCn        4      192     -     4 bge0 
+10.0.1.1           00:30:48:57:ed:0b  UHLc       2      338     -     3 bge0 
+10.0.1.2           00:03:ba:0c:0b:52  UHLc       1      186     -     3 bge0 
+10.0.1.26          00:30:48:62:b3:f4  UHLl       0    47877     -     1 bge0 
+10.0.1.135         link#1             UHLch      1      194     -     3 bge0 
+10.0.1.254         link#1             UHLch      1      190     -     3 bge0 
+10.0.1.255         10.0.1.26          UHb        0        0     -     1 bge0 
+10.188.6/24        10.188.6.17        Cn         0        0     -     4 tap3 
+10.188.6.17        fe:e1:ba:d7:ff:32  UHLl       0       25     -     1 tap3 
+10.188.6.255       10.188.6.17        Hb         0        0     -     1 tap3 
+10.188.135/24      10.0.1.135         UGS        0        0  1350 L   8 bge0 
+127/8              127.0.0.1          UGRS       0        0 32768     8 lo0  
+127.0.0.1          127.0.0.1          UHhl       1  3835230 32768     1 lo0  
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    
+    # Mocked OpenBSD parsing behavior
+    mock_openbsd = True
+    # Test the function
+    from scapy.arch.unix import read_routes
+    return read_routes()
+
+routes = test_openbsd_6_3()
+
+for r in routes:
+    print(ltoa(r[0]), ltoa(r[1]), r)
+    # check that default route exists in parsed data structure
+    if ltoa(r[0]) == "0.0.0.0":
+        default = r
+    # check that route with locked mtu exists in parsed data structure
+    if ltoa(r[0]) == "10.188.135.0":
+        locked = r
+
+assert len(routes) == 11
+assert default[2] == "10.0.1.254"
+assert default[3] == "bge0"
+assert locked[2] == "10.0.1.135"
+assert locked[3] == "bge0"
+
+= Solaris 11.1
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+# Mocked Solaris 11.1 parsing behavior
+
+@mock.patch("scapy.arch.unix.SOLARIS", True)
+@mock.patch("scapy.arch.unix.os")
+def test_solaris_111(mock_os):
+    """Test read_routes() on Solaris 11.1"""
+    # 'netstat -rvn -f inet' output
+    netstat_output = u"""
+IRE Table: IPv4
+  Destination             Mask           Gateway          Device  MTU  Ref Flg  Out  In/Fwd 
+-------------------- --------------- -------------------- ------ ----- --- --- ----- ------ 
+default              0.0.0.0         10.0.2.2             net0    1500   2 UG       5      0 
+10.0.2.0             255.255.255.0   10.0.2.15            net0    1500   3 U        0      0 
+127.0.0.1            255.255.255.255 127.0.0.1            lo0     8232   2 UH    1517   1517
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    print(scapy.arch.unix.SOLARIS)
+    
+    # Test the function
+    from scapy.arch.unix import read_routes
+    return read_routes()
+
+routes = test_solaris_111()
+print(routes)
+assert len(routes) == 3
+assert routes[0][:4] == (0, 0, '10.0.2.2', 'net0')
+assert routes[1][:4] == (167772672, 4294967040, '0.0.0.0', 'net0')
+assert routes[2][:4] == (2130706433, 4294967295, '0.0.0.0', 'lo0')
+
+
+############
+############
++ Mocked _parse_tcpreplay_result(stdout, stderr, argv, results_dict)
+~ mock_parse_tcpreplay_result
+
+= Test mocked _parse_tcpreplay_result
+
+from scapy.sendrecv import _parse_tcpreplay_result
+
+stdout = """Actual: 1024 packets (198929 bytes) sent in 67.88 seconds.
+Rated: 2930.6 bps, 0.02 Mbps, 15.09 pps
+Statistics for network device: mon0
+        Attempted packets:         1024
+        Successful packets:        1024
+        Failed packets:            0
+        Retried packets (ENOBUFS): 0
+        Retried packets (EAGAIN):  0"""
+
+stderr = """Warning in sendpacket.c:sendpacket_open_pf() line 669:
+Unsupported physical layer type 0x0323 on mon0.  Maybe it works, maybe it won't.  See tickets #123/318
+sending out mon0
+processing file: replay-example.pcap"""
+
+argv = ['tcpreplay', '--intf1=mon0', '--multiplier=1.00', '--timer=nano', 'replay-example.pcap']
+results_dict = _parse_tcpreplay_result(stdout, stderr, argv)
+
+results_dict
+
+assert(results_dict["packets"] == 1024)
+assert(results_dict["bytes"] == 198929)
+assert(results_dict["time"] == 67.88)
+assert(results_dict["bps"] == 2930.6)
+assert(results_dict["mbps"] == 0.02)
+assert(results_dict["pps"] == 15.09)
+assert(results_dict["attempted"] == 1024)
+assert(results_dict["successful"] == 1024)
+assert(results_dict["failed"] == 0)
+assert(results_dict["retried_enobufs"] == 0)
+assert(results_dict["retried_eagain"] == 0)
+assert(results_dict["command"] == " ".join(argv))
+assert(len(results_dict["warnings"]) == 3)
+
+= Test more recent version with flows
+
+data = """Actual: 1 packets (42 bytes) sent in 0.000278 seconds
+Rated: 151079.1 Bps, 1.20 Mbps, 3597.12 pps
+Flows: 1 flows, 3597.12 fps, 1 flow packets, 0 non-flow
+Statistics for network device: enp0s3
+        Successful packets:        1
+        Failed packets:            0
+        Truncated packets:         0
+        Retried packets (ENOBUFS): 0
+        Retried packets (EAGAIN):  0
+"""
+
+results_dict = _parse_tcpreplay_result(data, "", [])
+results_dict
+
+expected = {
+    'bps': 151079.1,
+    'bytes': 42,
+    'command': '',
+    'failed': 0,
+    'flow_packets': 1,
+    'flows': 1,
+    'fps': 3597.12,
+    'mbps': 1.2,
+    'non_flow': 0,
+    'packets': 1,
+    'pps': 3597.12,
+    'retried_eagain': 0,
+    'retried_enobufs': 0,
+    'successful': 1,
+    'time': 0.000278,
+    'truncated': 0,
+    'warnings': []
+}
+
+assert results_dict == expected
+
+############
+############
++ Mocked read_routes6() calls
+
+= Preliminary definitions
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+def valid_output_read_routes6(routes):
+    """"Return True if 'routes' contains correctly formatted entries, False otherwise"""
+    for destination, plen, next_hop, dev, cset, me  in routes:
+        if not in6_isvalid(destination) or not type(plen) == int:
+            return False
+        if not in6_isvalid(next_hop) or not isinstance(dev, six.string_types):
+            return False
+        for address in cset:
+            if not in6_isvalid(address):
+                return False
+    return True
+
+def check_mandatory_ipv6_routes(routes6):
+    """Ensure that mandatory IPv6 routes are present"""
+    if sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) < 1:
+        return False
+    if sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) < 1:
+        return False
+    if sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and \
+           r[4] == ["::1"]) < 1:
+        return False
+    return True
+
+
+= Mac OS X 10.9.5
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_9_5(mock_os, mock_in6_getifaddr):
+    """Test read_routes6() on OS X 10.9.5"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = u"""
+Routing tables
+
+Internet6:
+Destination                             Gateway                         Flags         Netif Expire
+::1                                     ::1                             UHL             lo0
+fe80::%lo0/64                           fe80::1%lo0                     UcI             lo0
+fe80::1%lo0                             link#1                          UHLI            lo0
+fe80::%en0/64                           link#4                          UCI             en0
+fe80::ba26:6cff:fe5f:4eee%en0           b8:26:6c:5f:4e:ee               UHLWIi          en0
+fe80::bae8:56ff:fe45:8ce6%en0           b8:e8:56:45:8c:e6               UHLI            lo0
+ff01::%lo0/32                           ::1                             UmCI            lo0
+ff01::%en0/32                           link#4                          UmCI            en0
+ff02::%lo0/32                           ::1                             UmCI            lo0
+ff02::%en0/32                           link#4                          UmCI            en0
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
+                                       ("fe80::ba26:6cff:fe5f:4eee", IPV6_ADDR_LINKLOCAL, "en0")]
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
+    routes = read_routes6()
+    for r in routes:
+        print(r)
+    assert(len(routes) == 6)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_osx_10_9_5()
+
+
+= Mac OS X 10.9.5 with global IPv6 connectivity
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_9_5_global(mock_os, mock_in6_getifaddr):
+    """Test read_routes6() on OS X 10.9.5 with an IPv6 connectivity"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = u"""
+Routing tables
+
+Internet6:
+Destination                             Gateway                         Flags         Netif Expire
+default                                 fe80::ba26:8aff:fe5f:4eef%en0   UGc             en0
+::1                                     ::1                             UHL             lo0
+2a01:ab09:7d:1f01::/64                  link#4                          UC              en0
+2a01:ab09:7d:1f01:420:205c:9fab:5be7    b8:e9:55:44:7c:e5               UHL             lo0
+2a01:ab09:7d:1f01:ba26:8aff:fe5f:4eef   b8:26:8a:5f:4e:ef               UHLWI           en0
+2a01:ab09:7d:1f01:bae9:55ff:fe44:7ce5   b8:e9:55:44:7c:e5               UHL             lo0
+fe80::%lo0/64                           fe80::1%lo0                     UcI             lo0
+fe80::1%lo0                             link#1                          UHLI            lo0
+fe80::%en0/64                           link#4                          UCI             en0
+fe80::5664:d9ff:fe79:4e00%en0           54:64:d9:79:4e:0                UHLWI           en0
+fe80::6ead:f8ff:fe74:945a%en0           6c:ad:f8:74:94:5a               UHLWI           en0
+fe80::a2f3:c1ff:fec4:5b50%en0           a0:f3:c1:c4:5b:50               UHLWI           en0
+fe80::ba26:8aff:fe5f:4eef%en0           b8:26:8a:5f:4e:ef               UHLWIir         en0
+fe80::bae9:55ff:fe44:7ce5%en0           b8:e9:55:44:7c:e5               UHLI            lo0
+ff01::%lo0/32                           ::1                             UmCI            lo0
+ff01::%en0/32                           link#4                          UmCI            en0
+ff02::%lo0/32                           ::1                             UmCI            lo
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
+                                       ("fe80::ba26:6cff:fe5f:4eee", IPV6_ADDR_LINKLOCAL, "en0")]
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    routes = read_routes6()
+    print(routes)
+    assert(valid_output_read_routes6(routes))
+    for r in routes:
+        print(r)
+    assert(len(routes) == 11)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_osx_10_9_5_global()
+
+
+= Mac OS X 10.10.4
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_10_4(mock_os, mock_in6_getifaddr):
+    """Test read_routes6() on OS X 10.10.4"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = u"""
+Routing tables
+
+Internet6:
+Destination                             Gateway                         Flags         Netif Expire
+::1                                     ::1                             UHL             lo0
+fe80::%lo0/64                           fe80::1%lo0                     UcI             lo0
+fe80::1%lo0                             link#1                          UHLI            lo0
+fe80::%en0/64                           link#4                          UCI             en0
+fe80::a00:27ff:fe9b:c965%en0            8:0:27:9b:c9:65                 UHLI            lo0
+ff01::%lo0/32                           ::1                             UmCI            lo0
+ff01::%en0/32                           link#4                          UmCI            en0
+ff02::%lo0/32                           ::1                             UmCI            lo0
+ff02::%en0/32                           link#4                          UmCI            en0
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
+                                       ("fe80::a00:27ff:fe9b:c965", IPV6_ADDR_LINKLOCAL, "en0")]
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    routes = read_routes6()
+    for r in routes:
+        print(r)
+    assert(len(routes) == 5)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_osx_10_10_4()
+
+
+= FreeBSD 10.2
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_freebsd_10_2(mock_os, mock_in6_getifaddr):
+    """Test read_routes6() on FreeBSD 10.2"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = u"""
+Routing tables
+
+Internet6:
+Destination                       Gateway                       Flags      Netif Expire
+::/96                             ::1                           UGRS        lo0
+::1                               link#2                        UH          lo0
+::ffff:0.0.0.0/96                 ::1                           UGRS        lo0
+fe80::/10                         ::1                           UGRS        lo0
+fe80::%lo0/64                     link#2                        U           lo0
+fe80::1%lo0                       link#2                        UHS         lo0
+ff01::%lo0/32                     ::1                           U           lo0
+ff02::/16                         ::1                           UGRS        lo0
+ff02::%lo0/32                     ::1                           U           lo0
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0")]
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    routes = read_routes6()
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
+    for r in routes:
+        print(r)
+    assert(len(routes) == 3)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_freebsd_10_2()
+
+
+= OpenBSD 5.5
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.OPENBSD")
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_openbsd_5_5(mock_os, mock_in6_getifaddr, mock_openbsd):
+    """Test read_routes6() on OpenBSD 5.5"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = u"""
+Routing tables
+
+Internet6:
+Destination                        Gateway                        Flags   Refs      Use   Mtu  Prio Iface
+::/104                             ::1                            UGRS       0        0     -     8 lo0  
+::/96                              ::1                            UGRS       0        0     -     8 lo0  
+::1                                ::1                            UH        14        0 33144     4 lo0  
+::127.0.0.0/104                    ::1                            UGRS       0        0     -     8 lo0  
+::224.0.0.0/100                    ::1                            UGRS       0        0     -     8 lo0  
+::255.0.0.0/104                    ::1                            UGRS       0        0     -     8 lo0  
+::ffff:0.0.0.0/96                  ::1                            UGRS       0        0     -     8 lo0  
+2002::/24                          ::1                            UGRS       0        0     -     8 lo0  
+2002:7f00::/24                     ::1                            UGRS       0        0     -     8 lo0  
+2002:e000::/20                     ::1                            UGRS       0        0     -     8 lo0  
+2002:ff00::/24                     ::1                            UGRS       0        0     -     8 lo0  
+fe80::/10                          ::1                            UGRS       0        0     -     8 lo0  
+fe80::%em0/64                      link#1                         UC         0        0     -     4 em0  
+fe80::a00:27ff:fe04:59bf%em0       08:00:27:04:59:bf              UHL        0        0     -     4 lo0  
+fe80::%lo0/64                      fe80::1%lo0                    U          0        0     -     4 lo0  
+fe80::1%lo0                        link#3                         UHL        0        0     -     4 lo0  
+fec0::/10                          ::1                            UGRS       0        0     -     8 lo0  
+ff01::/16                          ::1                            UGRS       0        0     -     8 lo0  
+ff01::%em0/32                      link#1                         UC         0        0     -     4 em0  
+ff01::%lo0/32                      fe80::1%lo0                    UC         0        0     -     4 lo0  
+ff02::/16                          ::1                            UGRS       0        0     -     8 lo0  
+ff02::%em0/32                      link#1                         UC         0        0     -     4 em0  
+ff02::%lo0/32                      fe80::1%lo0                    UC         0        0     -     4 lo0 
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
+                                       ("fe80::a00:27ff:fe04:59bf", IPV6_ADDR_LINKLOCAL, "em0")]
+    # Mocked OpenBSD parsing behavior
+    mock_openbsd = True
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    routes = read_routes6()
+    for r in routes:
+        print(r)
+    assert(len(routes) == 5)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_openbsd_5_5()
+
+
+= NetBSD 7.0
+~ mock_read_routes_bsd
+
+@mock.patch("scapy.arch.unix.NETBSD")
+@mock.patch("scapy.arch.unix.in6_getifaddr")
+@mock.patch("scapy.arch.unix.os")
+def test_netbsd_7_0(mock_os, mock_in6_getifaddr, mock_netbsd):
+    """Test read_routes6() on NetBSD 7.0"""
+    # 'netstat -rn -f inet6' output
+    netstat_output = u"""
+Routing tables
+
+Internet6:
+Destination                        Gateway                        Flags    Refs      Use    Mtu Interface
+::/104                             ::1                            UGRS        -        -      -  lo0
+::/96                              ::1                            UGRS        -        -      -  lo0
+::1                                ::1                            UH          -        -  33648  lo0
+::127.0.0.0/104                    ::1                            UGRS        -        -      -  lo0
+::224.0.0.0/100                    ::1                            UGRS        -        -      -  lo0
+::255.0.0.0/104                    ::1                            UGRS        -        -      -  lo0
+::ffff:0.0.0.0/96                  ::1                            UGRS        -        -      -  lo0
+2001:db8::/32                      ::1                            UGRS        -        -      -  lo0
+2002::/24                          ::1                            UGRS        -        -      -  lo0
+2002:7f00::/24                     ::1                            UGRS        -        -      -  lo0
+2002:e000::/20                     ::1                            UGRS        -        -      -  lo0
+2002:ff00::/24                     ::1                            UGRS        -        -      -  lo0
+fe80::/10                          ::1                            UGRS        -        -      -  lo0
+fe80::%wm0/64                      link#1                         UC          -        -      -  wm0
+fe80::acd1:3989:180e:fde0          08:00:27:a1:64:d8              UHL         -        -      -  lo0
+fe80::%lo0/64                      fe80::1                        U           -        -      -  lo0
+fe80::1                            link#2                         UHL         -        -      -  lo0
+ff01:1::/32                        link#1                         UC          -        -      -  wm0
+ff01:2::/32                        ::1                            UC          -        -      -  lo0
+ff02::%wm0/32                      link#1                         UC          -        -      -  wm0
+ff02::%lo0/32                      ::1                            UC          -        -      -  lo0
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked in6_getifaddr() output
+    mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
+                                       ("fe80::acd1:3989:180e:fde0", IPV6_ADDR_LINKLOCAL, "wm0")]
+    # Test the function
+    from scapy.arch.unix import read_routes6
+    routes = read_routes6()
+    for r in routes:
+        print(r)
+    assert(len(routes) == 5)
+    assert(check_mandatory_ipv6_routes(routes))
+
+test_netbsd_7_0()
+
+
+############
+############
++ Mocked route() calls
+
+= Mocked IPv4 routes calls
+
+import scapy
+
+old_routes = conf.route.routes
+old_iface = conf.iface
+old_loopback = conf.loopback_name
+try:
+    conf.iface = 'enp3s0'
+    conf.loopback_name = 'lo'
+    conf.route.invalidate_cache()
+    conf.route.routes = [
+        (4294967295, 4294967295, '0.0.0.0', 'wlan0', '', 281),
+        (4294967295, 4294967295, '0.0.0.0', 'lo', '', 291),
+        (4294967295, 4294967295, '0.0.0.0', 'enp3s0', '192.168.0.119', 281),
+        (3758096384, 4026531840, '0.0.0.0', 'lo', '', 291),
+        (3758096384, 4026531840, '0.0.0.0', 'wlan0', '', 281),
+        (3758096384, 4026531840, '0.0.0.0', 'enp3s0', '1.1.1.1', 281),
+        (3232235775, 4294967295, '0.0.0.0', 'enp3s0', '2.2.2.2', 281),
+        (3232235639, 4294967295, '0.0.0.0', 'enp3s0', '3.3.3.3', 281),
+        (3232235520, 4294967040, '0.0.0.0', 'enp3s0', '4.4.4.4', 281),
+        (0, 0, '192.168.0.254', 'enp3s0', '192.168.0.119', 25)
+    ]
+    assert conf.route.route("192.168.0.0-10") == ('enp3s0', '4.4.4.4', '0.0.0.0')
+    assert conf.route.route("192.168.0.119") == ('lo', '192.168.0.119', '0.0.0.0')
+    assert conf.route.route("224.0.0.0") == ('enp3s0', '1.1.1.1', '0.0.0.0')
+    assert conf.route.route("255.255.255.255") == ('enp3s0', '192.168.0.119', '0.0.0.0')
+    assert conf.route.route("*") == ('enp3s0', '192.168.0.119', '192.168.0.254')
+finally:
+    conf.loopback_name = old_loopback
+    conf.iface = old_iface
+    conf.route.routes = old_routes
+    conf.route.invalidate_cache()
+
+
+= Mocked IPv6 routes calls
+
+old_iface = conf.iface
+old_loopback = conf.loopback_name
+try:
+    conf.route6.ipv6_ifaces = set(['enp3s0', 'wlan0', 'lo'])
+    conf.iface = 'enp3s0'
+    conf.loopback_name = 'lo'
+    conf.route6.invalidate_cache()
+    conf.route6.routes = [
+        ('fe80::dd17:1fa6:a123:ab4', 128, '::', 'lo', ['fe80::dd17:1fa6:a123:ab4'], 291),
+        ('fe80::7101:5678:1234:da65', 128, '::', 'enp3s0', ['fe80::7101:5678:1234:da65'], 281),
+        ('fe80::1f:ae12:4d2c:abff', 128, '::', 'wlan0', ['fe80::1f:ae12:4d2c:abff'], 281),
+        ('fe80::', 64, '::', 'wlan0', ['fe80::1f:ae12:4d2c:abff'], 281),
+        ('fe80::', 64, '::', 'lo', ['fe80::dd17:1fa6:a123:ab4'], 291),
+        ('fe80::', 64, '::', 'enp3s0', ['fe80::7101:5678:1234:da65'], 281),
+        ('2a01:e35:1e06:ab56:7010:6548:9646:fa77', 128, '::', 'enp3s0', ['2a01:e35:1e06:ab56:7010:6548:9646:fa77', '2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8'], 281),
+        ('2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8', 128, '::', 'enp3s0', ['2a01:e35:1e06:ab56:7010:6548:9646:fa77', '2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8'], 281),
+        ('2a01:e35:1e06:ab56::', 64, '::', 'enp3s0', ['2a01:e35:1e06:ab56:7010:6548:9646:fa77', '2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8'], 281),
+        ('::', 0, 'fe80::160c:64aa:ef6f:fe14', 'enp3s0', ['2a01:e35:1e06:ab56:7010:6548:9646:fa77', '2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8'], 281)
+    ]
+    assert conf.route6.route("2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8") == ('enp3s0', '2a01:e35:1e06:ab56:7010:6548:9646:fa77', '::')
+    assert conf.route6.route("::1") == ('enp3s0', '2a01:e35:1e06:ab56:7010:6548:9646:fa77', 'fe80::160c:64aa:ef6f:fe14')
+    assert conf.route6.route("ff02::1") == ('enp3s0', 'fe80::7101:5678:1234:da65', '::')
+    assert conf.route6.route("fe80::1") == ('enp3s0', 'fe80::7101:5678:1234:da65', '::')
+    assert conf.route6.route("fe80::1", dev='lo') == ('lo', 'fe80::dd17:1fa6:a123:ab4', '::')
+finally:
+    conf.loopback_name = old_loopback
+    conf.iface = old_iface
+    conf.route6.resync()
+
+= Find a link-local address when conf.iface does not support IPv6
+
+old_iface = conf.iface
+conf.route6.ipv6_ifaces = set(['eth1', 'lo'])
+conf.iface = "eth0"
+conf.route6.routes = [("fe80::", 64, "::", "eth1", ["fe80::a00:28ff:fe07:1980"], 256), ("::1", 128, "::", "lo", ["::1"], 0), ("fe80::a00:28ff:fe07:1980", 128, "::", "lo", ["::1"], 0)]
+assert(conf.route6.route("fe80::2807") == ("eth1", "fe80::a00:28ff:fe07:1980", "::"))
+conf.iface = old_iface
+conf.route6.resync()
+
+= Windows: reset routes properly
+
+if WINDOWS:
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback()

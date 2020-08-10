@@ -1,0 +1,234 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Real usages
+
+= Port scan
+~ netaccess IP TCP
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]),timeout=2)
+    conf.debug_dissector = old_debug_dissector
+    
+    # Backward compatibility: Python 2 only
+    if six.PY2:
+        exec("""ans.make_table(lambda (s, r): (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))""")
+    
+    # New format: all Python versions
+    ans.make_table(lambda s, r: (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))
+
+retry_test(_test)
+
+= Send & receive with debug_match
+~ netaccess IP ICMP
+def _test():
+    old_debug_match = conf.debug_match
+    conf.debug_match = True
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    ans, unans = sr(IP(dst="www.google.fr") / ICMP(), timeout=2)
+    conf.debug_match = old_debug_match
+    conf.debug_dissector = old_debug_dissector
+    assert ans and not unans
+
+retry_test(_test)
+
+= Send & receive with retry
+~ netaccess IP ICMP
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / ICMP(), timeout=2, retry=1)
+    conf.debug_dissector = old_debug_dissector
+    len(ans) == 1 and len(unans) == 1
+
+retry_test(_test)
+
+= Send & receive with multi
+~ netaccess IP ICMP
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / ICMP(), timeout=2, multi=1)
+    conf.debug_dissector = old_debug_dissector
+    len(ans) == 1 and len(unans) == 1
+
+retry_test(_test)
+
+= Traceroute function
+~ netaccess tcpdump
+* Let's test traceroute
+ans, unans = traceroute("www.slashdot.org")
+ans.nsummary()
+s,r=ans[0]
+s.show()
+s.show(2)
+
+= DNS packet manipulation
+~ netaccess IP UDP DNS
+dns_ans.show()
+dns_ans.show2()
+dns_ans[DNS].an.show()
+dns_ans2 = IP(raw(dns_ans))
+DNS in dns_ans2
+assert(raw(dns_ans2) == raw(dns_ans))
+dns_ans2.qd.qname = "www.secdev.org."
+* We need to recalculate these values
+del(dns_ans2[IP].len)
+del(dns_ans2[IP].chksum)
+del(dns_ans2[UDP].len)
+del(dns_ans2[UDP].chksum)
+assert(b"\x03www\x06secdev\x03org\x00" in raw(dns_ans2))
+assert(DNS in IP(raw(dns_ans2)))
+assert raw(DNSRR(type='A', rdata='1.2.3.4')) == b'\x00\x00\x01\x00\x01\x00\x00\x00\x00\x00\x04\x01\x02\x03\x04'
+
+= Arping
+~ netaccess tcpdump
+* This test assumes the local network is a /24. This is bad.
+def _test():
+    ip_address = conf.route.route("0.0.0.0")[2]
+    ip_address
+    arping(ip_address+"/24")
+
+retry_test(_test)
+
+= send() and sniff()
+~ netaccess tcpdump
+import time
+import os
+
+from scapy.modules.six.moves.queue import Queue
+
+def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None, opened_socket=None):
+    assert pid != -1
+    if pid == 0:
+        time.sleep(1)
+        (sendp if isinstance(pkt, (Ether, Dot3)) else send)(pkt)
+        if fork:
+            os._exit(0)
+        else:
+            return
+    else:
+        spkt = raw(pkt)
+        # We do not want to crash when a packet cannot be parsed
+        old_debug_dissector = conf.debug_dissector
+        conf.debug_dissector = False
+        pkts = sniff(
+            timeout=timeout, filter=flt, opened_socket=opened_socket,
+            stop_filter=lambda p: pkt.__class__ in p and raw(p[pkt.__class__]) == spkt
+        )
+        conf.debug_dissector = old_debug_dissector
+        if fork:
+            os.waitpid(pid, 0)
+        else:
+            t_other.join()
+    assert raw(pkt) in (raw(p[pkt.__class__]) for p in pkts if pkt.__class__ in p)
+
+def send_and_sniff(pkt, timeout=2, flt=None, opened_socket=None):
+    """Send a packet, sniff, and check the packet has been seen"""
+    if hasattr(os, "fork"):
+        _send_or_sniff(pkt, timeout, flt, os.fork(), True)
+    else:
+        from threading import Thread
+        def run_function(pkt, timeout, flt, pid, thread, results, opened_socket):
+            _send_or_sniff(pkt, timeout, flt, pid, False, t_other=thread, opened_socket=opened_socket)
+            results.put(True)
+        results = Queue()
+        t_parent = Thread(target=run_function, args=(pkt, timeout, flt, 0, None, results, None))
+        t_child = Thread(target=run_function, args=(pkt, timeout, flt, 1, t_parent, results, opened_socket))
+        t_parent.start()
+        t_child.start()
+        t_parent.join()
+        t_child.join()
+        assert results.qsize() >= 2
+        while not results.empty():
+            assert results.get()
+
+retry_test(lambda: send_and_sniff(IP(dst="secdev.org")/ICMP()))
+retry_test(lambda: send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp"))
+retry_test(lambda: send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP()))
+
+= Test SuperSocket.select
+~ select
+
+import mock
+
+@mock.patch("scapy.supersocket.select")
+def _test_select(select):
+    def f(a, b, c, d):
+        raise IOError(0)
+    select.side_effect = f
+    try:
+        SuperSocket.select([])
+        return False
+    except:
+        return True
+
+assert _test_select()
+
+= Test L2ListenTcpdump socket
+~ netaccess FIXME_py3
+
+# Needs to be fixed. Fails randomly
+#import time
+#for i in range(10):
+#    read_s = L2ListenTcpdump(iface=conf.iface)
+#    out_s = conf.L2socket(iface=conf.iface)
+#    time.sleep(5)  # wait for read_s to be ready
+#    icmp_r = Ether()/IP(dst="secdev.org")/ICMP()
+#    res = sndrcv(out_s, icmp_r, timeout=5, rcv_pks=read_s)[0]
+#    read_s.close()
+#    out_s.close()
+#    time.sleep(5)
+#    if res:
+#        break
+#
+#response = res[0][1]
+#assert response[ICMP].type == 0
+
+True
+
+= Test set of sent_time by sr
+~ netaccess IP ICMP
+def _test():
+    packet = IP(dst="8.8.8.8")/ICMP()
+    r = sr(packet, timeout=2)
+    assert packet.sent_time is not None
+
+retry_test(_test)
+
+= Test set of sent_time by sr (multiple packets)
+~ netaccess IP ICMP
+def _test():
+    packet1 = IP(dst="8.8.8.8")/ICMP()
+    packet2 = IP(dst="8.8.4.4")/ICMP()
+    r = sr([packet1, packet2], timeout=2)
+    assert packet1.sent_time is not None
+    assert packet2.sent_time is not None
+
+retry_test(_test)
+
+= Test set of sent_time by srflood
+~ netaccess IP ICMP
+def _test():
+    packet = IP(dst="8.8.8.8")/ICMP()
+    r = srflood(packet, timeout=2)
+    assert packet.sent_time is not None
+
+retry_test(_test)
+
+= Test set of sent_time by srflood (multiple packets)
+~ netaccess IP ICMP
+def _test():
+    packet1 = IP(dst="8.8.8.8")/ICMP()
+    packet2 = IP(dst="8.8.4.4")/ICMP()
+    r = srflood([packet1, packet2], timeout=2)
+    assert packet1.sent_time is not None
+    assert packet2.sent_time is not None
+
+retry_test(_test)
+

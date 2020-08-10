@@ -1,0 +1,179 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Tests of StreamSocket
+
+= Test with DNS over TCP
+~ netaccess
+
+import socket
+sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sck.connect(("8.8.8.8", 53))
+
+class DNSTCP(Packet):
+    name = "DNS over TCP"
+    fields_desc = [ FieldLenField("len", None, fmt="!H", length_of="dns"),
+                    PacketLenField("dns", 0, DNS, length_from=lambda p: p.len)]
+
+ssck = StreamSocket(sck)
+ssck.basecls = DNSTCP
+
+r = ssck.sr1(DNSTCP(dns=DNS(rd=1, qd=DNSQR(qname="www.example.com"))))
+sck.close()
+assert(DNSTCP in r and len(r.dns.an))
+
+############
++ Tests of SSLStreamContext
+
+= Test with recv() calls that return exact packet-length rawings
+~ sslraweamsocket
+
+import socket
+class MockSocket(object):
+    def __init__(self):
+        self.l = [ b'\x00\x00\x00\x01', b'\x00\x00\x00\x02', b'\x00\x00\x00\x03' ]
+    def recv(self, x):
+        if len(self.l) == 0:
+            raise socket.error(100, 'EOF')
+        return self.l.pop(0)
+    def fileno(self):
+        return -1
+    def close(self):
+        return
+
+
+class TestPacket(Packet):
+    name = 'TestPacket'
+    fields_desc = [
+        IntField('data', 0)
+    ]
+    def guess_payload_class(self, p):
+        return conf.padding_layer
+
+s = MockSocket()
+ss = SSLStreamSocket(s, basecls=TestPacket)
+
+p = ss.recv()
+assert(p.data == 1)
+p = ss.recv()
+assert(p.data == 2)
+p = ss.recv()
+assert(p.data == 3)
+try:
+    ss.recv()
+    ret = False
+except socket.error:
+    ret = True
+
+assert(ret)
+
+= Test with recv() calls that return twice as much data as the exact packet-length
+~ sslraweamsocket
+
+import socket
+class MockSocket(object):
+    def __init__(self):
+        self.l = [ b'\x00\x00\x00\x01\x00\x00\x00\x02', b'\x00\x00\x00\x03\x00\x00\x00\x04' ]
+    def recv(self, x):
+        if len(self.l) == 0:
+            raise socket.error(100, 'EOF')
+        return self.l.pop(0)
+    def fileno(self):
+        return -1
+    def close(self):
+        return
+
+
+class TestPacket(Packet):
+    name = 'TestPacket'
+    fields_desc = [
+        IntField('data', 0)
+    ]
+    def guess_payload_class(self, p):
+        return conf.padding_layer
+
+s = MockSocket()
+ss = SSLStreamSocket(s, basecls=TestPacket)
+
+p = ss.recv()
+assert(p.data == 1)
+p = ss.recv()
+assert(p.data == 2)
+p = ss.recv()
+assert(p.data == 3)
+p = ss.recv()
+assert(p.data == 4)
+try:
+    ss.recv()
+    ret = False
+except socket.error:
+    ret = True
+
+assert(ret)
+
+= Test with recv() calls that return not enough data
+~ sslraweamsocket
+
+import socket
+class MockSocket(object):
+    def __init__(self):
+        self.l = [ b'\x00\x00', b'\x00\x01', b'\x00\x00\x00', b'\x02', b'\x00\x00', b'\x00', b'\x03' ]
+    def recv(self, x):
+        if len(self.l) == 0:
+            raise socket.error(100, 'EOF')
+        return self.l.pop(0)
+    def fileno(self):
+        return -1
+    def close(self):
+        return
+
+
+class TestPacket(Packet):
+    name = 'TestPacket'
+    fields_desc = [
+        IntField('data', 0)
+    ]
+    def guess_payload_class(self, p):
+        return conf.padding_layer
+
+s = MockSocket()
+ss = SSLStreamSocket(s, basecls=TestPacket)
+
+try:
+    p = ss.recv()
+    ret = False
+except:
+    ret = True
+
+assert(ret)
+p = ss.recv()
+assert(p.data == 1)
+try:
+    p = ss.recv()
+    ret = False
+except:
+    ret = True
+
+assert(ret)
+p = ss.recv()
+assert(p.data == 2)
+try:
+    p = ss.recv()
+    ret = False
+except:
+    ret = True
+
+assert(ret)
+try:
+    p = ss.recv()
+    ret = False
+except:
+    ret = True
+
+assert(ret)
+p = ss.recv()
+assert(p.data == 3)
+

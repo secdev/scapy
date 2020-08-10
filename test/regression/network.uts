@@ -1,0 +1,206 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Network tests
+
+* Those tests need network access
+
+= Sending and receiving an ICMP
+~ netaccess IP ICMP
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
+    conf.debug_dissector = old_debug_dissector
+    x
+    assert x[IP].ottl() in [32, 64, 128, 255]
+    assert 0 <= x[IP].hops() <= 126
+    x is not None and ICMP in x and x[ICMP].type == 0
+
+retry_test(_test)
+
+= Sending an ICMP message at layer 2 and layer 3
+~ netaccess IP ICMP
+def _test():
+    tmp = send(IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
+    assert(len(tmp) == 1)
+    
+    tmp = sendp(Ether()/IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
+    assert(len(tmp) == 1)
+    
+    p = Ether()/IP(dst="8.8.8.8")/ICMP()
+    from decimal import Decimal
+    p.time = Decimal(p.time)
+    tmp = sendp(p, return_packets=True, realtime=True)
+    assert(len(tmp) == 1)
+
+retry_test(_test)
+
+= Latency check: localhost ICMP
+~ netaccess linux latency
+
+sock = conf.L3socket
+conf.L3socket = L3RawSocket
+
+def _test():
+    req = IP(dst="127.0.0.1")/ICMP()
+    ans = sr1(req)
+    assert (ans.time - req.sent_time) >= 0
+    assert (ans.time - req.sent_time) <= 1e-3
+
+retry_test(_test)
+
+conf.L3socket = sock
+
+= Sending an ICMP message 'forever' at layer 2 and layer 3
+~ netaccess IP ICMP
+def _test():
+    tmp = srloop(IP(dst="8.8.8.8")/ICMP(), count=1)
+    assert(type(tmp) == tuple and len(tmp[0]) == 1)
+    
+    tmp = srploop(Ether()/IP(dst="8.8.8.8")/ICMP(), count=1)
+    assert(type(tmp) == tuple and len(tmp[0]) == 1)
+
+retry_test(_test)
+
+= Sending and receiving an ICMP with flooding methods
+~ netaccess IP ICMP
+from functools import partial
+# flooding methods do not support timeout. Packing the test for security
+def _test_flood(flood_function, add_ether=False):
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    p = IP(dst="www.google.com")/ICMP()
+    if add_ether:
+        p = Ether()/p
+    x = flood_function(p, timeout=2)
+    conf.debug_dissector = old_debug_dissector
+    if type(x) == tuple:
+        x = x[0][0][1]
+    x
+    assert x[IP].ottl() in [32, 64, 128, 255]
+    assert 0 <= x[IP].hops() <= 126
+    x is not None and ICMP in x and x[ICMP].type == 0
+
+_test_srflood = partial(_test_flood, srflood)
+retry_test(_test_srflood)
+
+_test_sr1flood = partial(_test_flood, sr1flood)
+retry_test(_test_sr1flood)
+
+_test_srpflood = partial(_test_flood, srpflood, True)
+retry_test(_test_srpflood)
+
+_test_srp1flood = partial(_test_flood, srp1flood, True)
+retry_test(_test_srp1flood)
+
+= Sending and receiving an ICMPv6EchoRequest
+~ netaccess ipv6
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
+    conf.debug_dissector = old_debug_dissector
+    x
+    assert x[IPv6].ottl() in [32, 64, 128, 255]
+    assert 0 <= x[IPv6].hops() <= 126
+    x is not None and ICMPv6EchoReply in x and x[ICMPv6EchoReply].type == 129
+
+retry_test(_test)
+
+= DNS request
+~ netaccess IP UDP DNS
+* A possible cause of failure could be that the open DNS (resolver1.opendns.com)
+* is not reachable or down.
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    dns_ans = sr1(IP(dst="resolver1.opendns.com")/UDP()/DNS(rd=1,qd=DNSQR(qname="www.slashdot.com")),timeout=5)
+    conf.debug_dissector = old_debug_dissector
+    DNS in dns_ans
+    return dns_ans
+
+dns_ans = retry_test(_test)
+
+= Whois request
+~ netaccess IP
+* This test retries on failure because it often fails
+def _test():
+    IP(src="8.8.8.8").whois()
+
+retry_test(_test)
+
+= AS resolvers
+~ netaccess IP as_resolvers
+* This test retries on failure because it often fails
+
+def _test():
+    ret = conf.AS_resolver.resolve("8.8.8.8", "8.8.4.4")
+    assert (len(ret) == 2)
+    all(x[1] == "AS15169" for x in ret)
+
+retry_test(_test)
+
+riswhois_data = b"route:      8.8.8.0/24\ndescr:      Google\norigin:     AS15169\nnotify:     radb-contact@google.com\nmnt-by:     MAINT-AS15169\nchanged:    radb-contact@google.com 20150728\nsource:     RADB\n\nroute:         8.0.0.0/9\ndescr:         Proxy-registered route object\norigin:        AS3356\nremarks:       auto-generated route object\nremarks:       this next line gives the robot something to recognize\nremarks:       L'enfer, c'est les autres\nremarks:       \nremarks:       This route object is for a Level 3 customer route\nremarks:       which is being exported under this origin AS.\nremarks:       \nremarks:       This route object was created because no existing\nremarks:       route object with the same origin was found, and\nremarks:       since some Level 3 peers filter based on these objects\nremarks:       this route may be rejected if this object is not created.\nremarks:       \nremarks:       Please contact routing@Level3.net if you have any\nremarks:       questions regarding this object.\nmnt-by:        LEVEL3-MNT\nchanged:       roy@Level3.net 20060203\nsource:        LEVEL3\n\n\n"
+
+ret = AS_resolver_riswhois()._parse_whois(riswhois_data)
+assert ret == ('AS15169', 'Google')
+
+retry_test(_test)
+
+# This test is too buggy, and is simulated below
+#def _test():
+#    ret = AS_resolver_cymru().resolve("8.8.8.8")
+#    assert (len(ret) == 1)
+#    all(x[1] == "AS15169" for x in ret)
+#
+#retry_test(_test)
+
+cymru_bulk_data = """
+Bulk mode; whois.cymru.com [2017-10-03 08:38:08 +0000]
+24776   | 217.25.178.5     | INFOCLIP-AS, FR
+36459   | 192.30.253.112   | GITHUB - GitHub, Inc., US
+26496   | 68.178.213.61    | AS-26496-GO-DADDY-COM-LLC - GoDaddy.com, LLC, US
+"""
+tmp = AS_resolver_cymru().parse(cymru_bulk_data)
+assert(len(tmp) == 3)
+assert([l[1] for l in tmp] == ['AS24776', 'AS36459', 'AS26496'])
+
+= AS resolver - IPv6
+~ netaccess IP
+* This test retries on failure because it often fails
+
+def _test():
+    as_resolver6 = AS_resolver6()
+    ret = as_resolver6.resolve("2001:4860:4860::8888", "2001:4860:4860::4444")
+    assert (len(ret) == 2)
+    assert all(x[1] == 15169 for x in ret)
+
+retry_test(_test)
+
+= AS resolver - socket error
+~ IP
+* This test checks that a failing resolver will not crash a script
+
+class MockAS_resolver(object):
+  def resolve(self, *ips):
+    raise socket.error
+
+asrm = AS_resolver_multi(MockAS_resolver())
+assert len(asrm.resolve(["8.8.8.8", "8.8.4.4"])) == 0
+
+= sendpfast
+
+old_interactive = conf.interactive
+conf.interactive = False
+try:
+    sendpfast([])
+    assert False
+except Exception:
+    assert True
+
+conf.interactive = old_interactive
+assert True

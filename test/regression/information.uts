@@ -1,0 +1,148 @@
+############
+############
++ Information on Scapy
+
+= Get conf
+~ conf command
+* Dump the current configuration
+conf
+
+IP().src
+conf.loopback_name
+
+= Test module version detection
+~ conf
+
+class FakeModule(object):
+    __version__ = "v1.12"
+
+class FakeModule2(object):
+    __version__ = "5.143.3.12"
+
+class FakeModule3(object):
+    __version__ = "v2.4.2.dev42"
+
+from scapy.config import _version_checker
+
+assert _version_checker(FakeModule, (1,11,5))
+assert not _version_checker(FakeModule, (1,13))
+
+assert _version_checker(FakeModule2, (5, 1))
+assert not _version_checker(FakeModule2, (5, 143, 4))
+
+assert _version_checker(FakeModule3, (2, 4, 2))
+
+= List layers
+~ conf command
+ls()
+
+= List layers - advanced
+~ conf command
+
+with ContextManagerCaptureOutput() as cmco:
+    ls("IP", case_sensitive=True)
+    result_ls = cmco.get_output().split("\n")
+
+assert all("IP" in x for x in result_ls if x.strip())
+assert len(result_ls) >= 3
+
+= List commands
+~ conf command
+lsc()
+
+= List contribs
+~ command
+def test_list_contrib():
+    with ContextManagerCaptureOutput() as cmco:
+        list_contrib()
+        result_list_contrib = cmco.get_output()
+    assert("http2               : HTTP/2 (RFC 7540, RFC 7541)              status=loads" in result_list_contrib)
+    assert(len(result_list_contrib.split('\n')) > 40)
+
+test_list_contrib()
+
+= Test automatic doc generation
+~ command
+
+dat = rfc(IP, ret=True).split("\n")
+assert dat[0].replace(" ", "").strip() == "0123"
+assert "0123456789" in dat[1].replace(" ", "")
+for l in dat:
+    # only upper case and +-
+    assert re.match(r"[A-Z+-]*", l)
+
+# Add a space before each + to avoid conflicts with UTscapy !
+# They will be stripped below
+result = """
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |VERSION|  IHL  |      TOS      |              LEN              |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |               ID              |FLAGS|           FRAG          |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |      TTL      |     PROTO     |             CHKSUM            |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                              SRC                              |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                              DST                              |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |            OPTIONS            |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                             Fig. IP
+""".strip()
+result = [x.strip() for x in result.split("\n")]
+output = [x.strip() for x in rfc(IP, ret=True).strip().split("\n")]
+assert result == output
+
+= Check that all contrib modules are well-configured
+~ command
+list_contrib(_debug=True)
+
+= Configuration
+~ conf
+conf.debug_dissector = True
+
+= Configuration conf.use_* LINUX
+~ linux
+
+try:
+    conf.use_bpf = True
+    assert False
+except:
+    True
+
+assert not conf.use_bpf
+
+if not conf.use_pcap:
+    a = six.moves.builtins.__dict__
+    conf.interactive = True
+    conf.use_pcap = True
+    assert a["get_if_list"] == scapy.arch.pcapdnet.get_if_list
+    conf.use_pcap = False
+    assert a["get_if_list"] == scapy.arch.linux.get_if_list
+    conf.interactive = False
+
+= Configuration conf.use_* WINDOWS
+~ windows
+
+try:
+    conf.use_bpf = True
+    assert False
+except:
+    True
+
+assert not conf.use_bpf
+
+= Test layer filtering
+~ filter
+
+pkt = NetflowHeader()/NetflowHeaderV5()/NetflowRecordV5()
+
+conf.layers.filter([NetflowHeader, NetflowHeaderV5])
+assert NetflowRecordV5 not in NetflowHeader(bytes(pkt))
+
+conf.layers.unfilter()
+assert NetflowRecordV5 in NetflowHeader(bytes(pkt))
+

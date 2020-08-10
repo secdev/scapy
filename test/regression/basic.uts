@@ -1,0 +1,263 @@
+% Regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ Basic tests
+
+* Those test are here mainly to check nothing has been broken
+* and to catch Exceptions
+
+= Packet class methods
+p = IP()/ICMP()
+ret = p.do_build_ps()                                                                                                                             
+assert(ret[0] == b"@\x00\x00\x00\x00\x01\x00\x00@\x01\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\x00\x00\x00\x00\x00\x00")
+assert(len(ret[1]) == 2)
+
+assert(p[ICMP].firstlayer() == p)
+
+assert(p.command() == "IP()/ICMP()")
+
+p.decode_payload_as(UDP)
+assert(p.sport == 2048 and p.dport == 63487)
+
+= hide_defaults
+conf_color_theme = conf.color_theme
+conf.color_theme = BlackAndWhite()
+p = IP(ttl=64)/ICMP()
+assert(repr(p) in ["<IP  frag=0 ttl=64 proto=icmp |<ICMP  |>>", "<IP  frag=0 ttl=64 proto=1 |<ICMP  |>>"])
+p.hide_defaults()
+assert(repr(p) in ["<IP  frag=0 proto=icmp |<ICMP  |>>", "<IP  frag=0 proto=1 |<ICMP  |>>"])
+conf.color_theme = conf_color_theme
+
+= split_layers
+p = IP()/ICMP()
+s = raw(p)
+split_layers(IP, ICMP, proto=1)
+assert(Raw in IP(s))
+bind_layers(IP, ICMP, frag=0, proto=1)
+
+= fuzz
+
+r = fuzz(IP(tos=2)/ICMP())
+assert r.tos == 2
+z = r.ttl
+assert r.ttl != z
+assert r.ttl != z
+
+
+= fuzz a Packet with MultipleTypeField
+
+fuzz(ARP(pdst="127.0.0.1"))
+fuzz(IP()/ARP(pdst='10.0.0.254'))
+
+= fuzz on packets with advanced RandNum
+
+x = IP(dst="8.8.8.8")/fuzz(UDP()/NTP(version=4))
+x.show2()
+x = IP(raw(x))
+assert NTP in x
+
+= fuzz on packets with FlagsField
+assert isinstance(fuzz(TCP()).flags, VolatileValue)
+
+= Building some packets
+~ basic IP TCP UDP NTP LLC SNAP Dot11
+IP()/TCP()
+Ether()/IP()/UDP()/NTP()
+Dot11()/LLC()/SNAP()/IP()/TCP()/"XXX"
+IP(ttl=25)/TCP(sport=12, dport=42)
+IP().summary()
+
+= Manipulating some packets
+~ basic IP TCP
+a=IP(ttl=4)/TCP()
+a.ttl
+a.ttl=10
+del(a.ttl)
+a.ttl
+TCP in a
+a[TCP]
+a[TCP].dport=[80,443]
+a
+assert(a.copy().time == a.time)
+a=3
+
+
+= Checking overloads
+~ basic IP TCP Ether
+a=Ether()/IP()/TCP()
+r = a.proto
+r
+r == 6
+
+
+= sprintf() function
+~ basic sprintf Ether IP UDP NTP
+a=Ether()/IP()/IP(ttl=4)/UDP()/NTP()
+r = a.sprintf("%type% %IP.ttl% %#05xr,UDP.sport% %IP:2.ttl%")
+r
+r in ['0x800 64 0x07b 4', 'IPv4 64 0x07b 4']
+
+
+= sprintf() function 
+~ basic sprintf IP TCP SNAP LLC Dot11
+* This test is on the conditional substring feature of <tt>sprintf()</tt>
+a=Dot11()/LLC()/SNAP()/IP()/TCP()
+r = a.sprintf("{IP:{TCP:flags=%TCP.flags%}{UDP:port=%UDP.ports%} %IP.src%}")
+r
+r == 'flags=S 127.0.0.1'
+
+
+= haslayer function
+~ basic haslayer IP TCP ICMP ISAKMP
+x=IP(id=1)/ISAKMP_payload_SA(prop=ISAKMP_payload_SA(prop=IP()/ICMP()))/TCP()
+r = (TCP in x, ICMP in x, IP in x, UDP in x)
+r
+r == (True,True,True,False)
+
+= getlayer function
+~ basic getlayer IP ISAKMP UDP
+x=IP(id=1)/ISAKMP_payload_SA(prop=IP(id=2)/UDP(dport=1))/IP(id=3)/UDP(dport=2)
+x[IP]
+x[IP:2]
+x[IP:3]
+x.getlayer(IP,3)
+x.getlayer(IP,4)
+x[UDP]
+x[UDP:1]
+x[UDP:2]
+assert(x[IP].id == 1 and x[IP:2].id == 2 and x[IP:3].id == 3 and 
+       x.getlayer(IP).id == 1 and x.getlayer(IP,3).id == 3 and
+       x.getlayer(IP,4) == None and
+       x[UDP].dport == 1 and x[UDP:2].dport == 2)
+try:
+    x[IP:4]
+except IndexError:
+    True
+else:
+    False
+
+= getlayer / haslayer with name
+~ basic getlayer IP ICMP IPerror TCPerror
+x = IP() / ICMP() / IPerror()
+assert x.getlayer(ICMP) is not None
+assert x.getlayer(IPerror) is not None
+assert x.getlayer("IP in ICMP") is not None
+assert x.getlayer(TCPerror) is None
+assert x.getlayer("TCP in ICMP") is None
+assert x.haslayer(ICMP)
+assert x.haslayer(IPerror)
+assert x.haslayer("IP in ICMP")
+assert not x.haslayer(TCPerror)
+assert not x.haslayer("TCP in ICMP")
+
+= getlayer with a filter
+~ getlayer IP
+pkt = IP() / IP(ttl=3) / IP()
+assert pkt[IP::{"ttl":3}].ttl == 3
+assert pkt.getlayer(IP, ttl=3).ttl == 3
+assert IPv6ExtHdrHopByHop(options=[HBHOptUnknown()]).getlayer(HBHOptUnknown, otype=42) is None
+
+= specific haslayer and getlayer implementations for NTP
+~ haslayer getlayer NTP
+pkt = IP() / UDP() / NTPHeader()
+assert NTP in pkt
+assert pkt.haslayer(NTP)
+assert isinstance(pkt[NTP], NTPHeader)
+assert isinstance(pkt.getlayer(NTP), NTPHeader)
+
+= specific haslayer and getlayer implementations for EAP
+~ haslayer getlayer EAP
+pkt = Ether() / EAPOL() / EAP_MD5()
+assert EAP in pkt
+assert pkt.haslayer(EAP)
+assert isinstance(pkt[EAP], EAP_MD5)
+assert isinstance(pkt.getlayer(EAP), EAP_MD5)
+
+= specific haslayer and getlayer implementations for RadiusAttribute
+~ haslayer getlayer RadiusAttribute
+pkt = RadiusAttr_EAP_Message()
+assert RadiusAttribute in pkt
+assert pkt.haslayer(RadiusAttribute)
+assert isinstance(pkt[RadiusAttribute], RadiusAttr_EAP_Message)
+assert isinstance(pkt.getlayer(RadiusAttribute), RadiusAttr_EAP_Message)
+
+
+= equality
+~ basic
+w=Ether()/IP()/UDP(dport=53)
+x=Ether()/IP(version=4)/UDP()
+y=Ether()/IP()/UDP(dport=4)
+z=Ether()/IP()/UDP()/NTP()
+t=Ether()/IP()/TCP()
+assert x != y and x != z and x != t and y != z and y != t and z != t and w == x
+
+= answers
+~ basic
+a1, a2 = "1.2.3.4", "5.6.7.8"
+p1 = IP(src=a1, dst=a2)/ICMP(type=8)
+p2 = IP(src=a2, dst=a1)/ICMP(type=0)
+assert p1.hashret() == p2.hashret()
+assert not p1.answers(p2)
+assert p2.answers(p1)
+assert p1 > p2
+assert p2 < p1
+assert p1 == p1
+conf_back = conf.checkIPinIP
+conf.checkIPinIP = True
+px = [IP()/p1, IPv6()/p1]
+assert not any(p.hashret() == p2.hashret() for p in px)
+assert not any(p.answers(p2) for p in px)
+assert not any(p2.answers(p) for p in px)
+conf.checkIPinIP = False
+assert all(p.hashret() == p2.hashret() for p in px)
+assert not any(p.answers(p2) for p in px)
+assert all(p2.answers(p) for p in px)
+conf.checkIPinIP = conf_back
+
+= answers - Net
+~ netaccess
+
+a1, a2 = Net("www.google.com"), Net("www.secdev.org")
+prt1, prt2 = 12345, 54321
+s1, s2 = 2767216324, 3845532842
+p1 = IP(src=a1, dst=a2)/TCP(flags='SA', seq=s1, ack=s2, sport=prt1, dport=prt2)
+p2 = IP(src=a2, dst=a1)/TCP(flags='R', seq=s2, ack=0, sport=prt2, dport=prt1)
+assert p2.answers(p1)
+assert not p1.answers(p2)
+# Not available yet because of IPv6
+# a1, a2 = Net6("www.google.com"), Net6("www.secdev.org")
+p1 = IP(src=a1, dst=a2)/TCP(flags='S', seq=s1, ack=0, sport=prt1, dport=prt2)
+p2 = IP(src=a2, dst=a1)/TCP(flags='RA', seq=0, ack=s1+1, sport=prt2, dport=prt1)
+assert p2.answers(p1)
+assert not p1.answers(p2)
+p1 = IP(src=a1, dst=a2)/TCP(flags='S', seq=s1, ack=0, sport=prt1, dport=prt2)
+p2 = IP(src=a2, dst=a1)/TCP(flags='SA', seq=s2, ack=s1+1, sport=prt2, dport=prt1)
+assert p2.answers(p1)
+assert not p1.answers(p2)
+p1 = IP(src=a1, dst=a2)/TCP(flags='A', seq=s1, ack=s2+1, sport=prt1, dport=prt2)
+assert not p2.answers(p1)
+assert p1.answers(p2)
+p1 = IP(src=a1, dst=a2)/TCP(flags='S', seq=s1, ack=0, sport=prt1, dport=prt2)
+p2 = IP(src=a2, dst=a1)/TCP(flags='SA', seq=s2, ack=s1+10, sport=prt2, dport=prt1)
+assert not p2.answers(p1)
+assert not p1.answers(p2)
+p1 = IP(src=a1, dst=a2)/TCP(flags='A', seq=s1, ack=s2+1, sport=prt1, dport=prt2)
+assert not p2.answers(p1)
+assert not p1.answers(p2)
+p1 = IP(src=a1, dst=a2)/TCP(flags='A', seq=s1+9, ack=s2+10, sport=prt1, dport=prt2)
+assert not p2.answers(p1)
+assert not p1.answers(p2)
+
+= conf.checkIPsrc
+
+conf_checkIPsrc = conf.checkIPsrc
+conf.checkIPsrc = 0
+query = IP(id=42676, src='10.128.0.7', dst='192.168.0.1')/ICMP(id=26)
+answer = IP(src='192.168.48.19', dst='10.128.0.7')/ICMP(type=11)/IPerror(id=42676, src='192.168.51.23', dst='192.168.0.1')/ICMPerror(id=26)
+assert answer.answers(query)
+conf.checkIPsrc = conf_checkIPsrc
+

@@ -1,5 +1,6 @@
 {
   "testfiles": [
+    "test/regression/*.uts",
     "test/*.uts",
     "test/contrib/automotive/*.uts",
     "test/contrib/automotive/obd/*.uts",
