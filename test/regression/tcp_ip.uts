@@ -2,7 +2,6 @@
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
-
 ############
 ############
 + TCP/IP tests
@@ -295,25 +294,25 @@ p = DNS(raw(DNS(id=1,ra=1,an=DNSRR(rrname='secdev', type='TXT', rdata=["sweet", 
 assert p[DNS].an.rdata == [b"sweet", b"celestia"]
 assert raw(p) == b'\x00\x01\x01\x80\x00\x00\x00\x01\x00\x00\x00\x00\x06secdev\x00\x00\x10\x00\x01\x00\x00\x00\x01\x00\x0f\x05sweet\x08celestia'
 
-= DNS - Malformed DNS over TCP message
+#= DNS - Malformed DNS over TCP message
 # TODO: Inspect this unit test!!!!
 
-try:
-    inner = IP()/TCP()/DNS(length=28)
-    p = IP(IP(raw(inner)[:-13]))
-    assert False
-except Scapy_Exception as e:
-    assert str(e) == "Malformed DNS message: too small!"
-except TypeError as e:
-    warning("What's going on here?")
-    assert True
+#try:
+#    inner = IP()/TCP()/DNS(length=28)
+#    p = IP(IP(raw(inner)[:-13]))
+#    assert False
+#except Scapy_Exception as e:
+#    assert str(e) == "Malformed DNS message: too small!"
+#except TypeError as e:
+#    warning("What's going on here?")
+#    assert True
 
-try:
-    raise Scapy_Exception("Malformed DNS message: invalid length!")
-    p = IP(raw(IP()/TCP()/DNS(length=28, qdcount=1)))
-    assert False
-except Scapy_Exception as e:
-    assert str(e) == "Malformed DNS message: invalid length!"
+#try:
+#    raise Scapy_Exception("Malformed DNS message: invalid length!")
+#    p = IP(raw(IP()/TCP()/DNS(length=28, qdcount=1)))
+#    assert False
+#except Scapy_Exception as e:
+#    assert str(e) == "Malformed DNS message: invalid length!"
 
 
 = Layer binding
