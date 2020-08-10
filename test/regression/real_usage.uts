@@ -68,6 +68,20 @@ s,r=ans[0]
 s.show()
 s.show(2)
 
+= Define dns_ans
+~ netaccess IP UDP DNS
+* A possible cause of failure could be that the open DNS (resolver1.opendns.com)
+* is not reachable or down.
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    dns_ans = sr1(IP(dst="resolver1.opendns.com")/UDP()/DNS(rd=1,qd=DNSQR(qname="www.slashdot.com")),timeout=5)
+    conf.debug_dissector = old_debug_dissector
+    DNS in dns_ans
+    return dns_ans
+
+dns_ans = retry_test(_test)
+
 = DNS packet manipulation
 ~ netaccess IP UDP DNS
 dns_ans.show()
