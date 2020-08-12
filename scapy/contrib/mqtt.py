@@ -219,15 +219,33 @@ class MQTTPubcomp(Packet):
         ShortField("msgid", None),
     ]
 
+class MQTTTopic(Packet):
+    name = "MQTT topic"
+    fields_desc = [
+        FieldLenField("len", None, length_of="topic"),
+        StrLenField("topic", "", length_from=lambda pkt:pkt.len)
+    ]
+
+    def guess_payload_class(self, payload):
+        return conf.padding_layer
+
+class MQTTTopicQOS(MQTTTopic):
+    fields_desc = MQTTTopic.fields_desc + [ByteEnumField("QOS", 0, QOS_LEVEL)]
+
+def cb_topic_qos(pkt, lst, cur, remain):
+    """
+    Decode the remaining bytes as a MQTT topic
+    """
+    if len(remain) > 3:
+        return MQTTTopicQOS
+    else:
+        return conf.raw_layer
 
 class MQTTSubscribe(Packet):
     name = "MQTT subscribe"
     fields_desc = [
         ShortField("msgid", None),
-        FieldLenField("length", None, length_of="topic"),
-        StrLenField("topic", "",
-                    length_from=lambda pkt: pkt.length),
-        ByteEnumField("QOS", 0, QOS_LEVEL),
+        PacketListField("topics", [], next_cls_cb=cb_topic_qos)
     ]
 
 
@@ -245,17 +263,6 @@ class MQTTSuback(Packet):
         ShortField("msgid", None),
         ByteEnumField("retcode", None, ALLOWED_RETURN_CODE)
     ]
-
-
-class MQTTTopic(Packet):
-    name = "MQTT topic"
-    fields_desc = [
-        FieldLenField("len", None, length_of="topic"),
-        StrLenField("topic", "", length_from=lambda pkt:pkt.len)
-    ]
-
-    def guess_payload_class(self, payload):
-        return conf.padding_layer
 
 
 def cb_topic(pkt, lst, cur, remain):
