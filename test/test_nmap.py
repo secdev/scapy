@@ -43,7 +43,7 @@ def test_Fetchdatabase():
 
     url = 'https://raw.githubusercontent.com/nmap/nmap/9efe1892/nmap-os-fingerprints'  # noqa: E501
 
-    for i in range(10):
+    for _ in range(10):
         try:
             open('nmap-os-fingerprints', 'wb').write(urlopen(url).read())
             break
