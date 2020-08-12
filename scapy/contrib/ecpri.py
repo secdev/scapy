@@ -46,6 +46,7 @@ class ECPRI(Packet):
                    ShortField("size", None),
                    ConditionalField(ShortField("pcid", 0), lambda pkt:pkt.type == 0),
                    ConditionalField(ShortField("rtcid", 0), lambda pkt:pkt.type == 2),
+                   ConditionalField(ShortField("mstid", 0), lambda pkt:pkt.type == 5),
                    ConditionalField(ShortField("seqid", 0), lambda pkt:pkt.type in [0, 2])
                    ]
 
