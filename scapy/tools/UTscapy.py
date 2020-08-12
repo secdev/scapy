@@ -461,6 +461,24 @@ def docs_campaign(test_campaign):
                     print("\t%s" % line)
 
 
+def pytest_campaign(test_campaign):
+    print("import pytest")
+    print("from scapy.all import *\n\n")
+    for ts in test_campaign:
+        for t in ts:
+            n = "".join([c for c in t.name if c.isalnum()])
+            for k in t.keywords:
+                print("@pytest.mark.%s" % k)
+            print("def test_%s():" % n)
+            print('    """\n    %s\n    """' % t.name)
+            for line in t.test.split('\n'):
+                if line.strip() == "\n" or len(line.strip()) < 1:
+                    continue
+                print("    %s" % line)
+            print("\n")
+        print("\n")
+
+
 #    COMPUTE CAMPAIGN DIGESTS    #
 if six.PY2:
     def crc32(x):
@@ -870,7 +888,7 @@ def usage():
     print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX|xUnit|live}] [-o output_file]
                [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
                [-l] [-b] [-d|-D] [-F] [-q[q]] [-i] [-P preexecute_python_code]
-               [-c configfile]
+               [-c configfile] [-R] [-p]
 -t\t\t: provide test files (can be used many times)
 -T\t\t: if -t is used with *, remove a specific file (can be used many times)
 -l\t\t: generate local .js and .css files
@@ -879,6 +897,7 @@ def usage():
 -d\t\t: dump campaign
 -D\t\t: dump campaign and stop
 -R\t\t: dump campaign as reStructuredText
+-p\t\t: dump campaign as pytest file
 -C\t\t: don't calculate CRC and SHA
 -c\t\t: load a .utsc config file
 -i\t\t: drop into Python interpreter if test failed
@@ -898,7 +917,7 @@ def usage():
 #    MAIN    #
 
 def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOCS,
-                     FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER,
+                     PYTEST, FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER,
                      autorun_func, theme, pos_begin=0,
                      scapy_ses=None):  # noqa: E501
     # Parse test file
@@ -936,6 +955,11 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOC
     # Dump campaign as reStructuredText
     if DOCS:
         docs_campaign(test_campaign)
+        sys.exit()
+
+    # Dump campaign as pytest file
+    if PYTEST:
+        pytest_campaign(test_campaign)
         sys.exit()
 
     # Run tests
@@ -1002,6 +1026,7 @@ def main():
     KW_KO = []
     DUMP = 0
     DOCS = 0
+    PYTEST = 0
     CRC = True
     BREAKFAILED = True
     ONLYFAILED = False
@@ -1013,7 +1038,7 @@ def main():
     ANNOTATIONS_MODE = False
     INTERPRETER = False
     try:
-        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DRdCiFqNP:s:x")
+        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DpRdCiFqNP:s:x")
         for opt, optarg in opts[0]:
             if opt == "-h":
                 usage()
@@ -1027,6 +1052,8 @@ def main():
                 DUMP = 2
             elif opt == "-R":
                 DOCS = 1
+            elif opt == "-p":
+                PYTEST = 1
             elif opt == "-d":
                 DUMP = 1
             elif opt == "-C":
@@ -1200,7 +1227,7 @@ def main():
         with open(TESTFILE) as testfile:
             output, result, campaign = execute_campaign(
                 testfile, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOCS,
-                FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER,
+                PYTEST, FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER,
                 autorun_func, theme,
                 pos_begin=pos_begin,
                 scapy_ses=copy.copy(scapy_ses)
