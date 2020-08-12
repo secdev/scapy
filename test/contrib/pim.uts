@@ -1,0 +1,128 @@
+# PIM Related regression tests
+# 
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('pim')" -t test/contrib/pim.uts
+
++ pim
+
+= PIMv2 Hello - instantiation
+
+hello_data = b'\x01\x00^\x00\x00\r\x00\xd0\xcb\x00\xba\xe4\x08\x00E\xc0\x00BY\xf9\x00\x00\x01gTe\x15\x15\x15\x15\xe0\x00\x00\r \x00\xa55\x00\x01\x00\x02\x00i\x00\x13\x00\x04\x00\x00\x00\x00\x00\x02\x00\x04\x01\xf4\t\xc4\x00\x14\x00\x04'
+
+hello_pkt = Ether(hello_data)
+
+assert (hello_pkt[PIMv2Hdr].version == 2)
+assert (hello_pkt[PIMv2Hdr].type == 0)
+assert (len(hello_pkt[PIMv2Hello].option) == 4)
+assert (hello_pkt[PIMv2Hello].option[0][PIMv2HelloHoldtime].type == 1)
+assert (hello_pkt[PIMv2Hello].option[0][PIMv2HelloHoldtime].holdtime == 105)
+assert (hello_pkt[PIMv2Hello].option[1][PIMv2HelloDRPriority].type == 19)
+assert (hello_pkt[PIMv2Hello].option[1][PIMv2HelloDRPriority].dr_priority == 0)
+assert (hello_pkt[PIMv2Hello].option[2][PIMv2HelloLANPruneDelay].type == 2)
+assert (hello_pkt[PIMv2Hello].option[2][PIMv2HelloLANPruneDelay].value[0][PIMv2HelloLANPruneDelayValue].t == 0)
+assert (hello_pkt[PIMv2Hello].option[2][PIMv2HelloLANPruneDelay].value[0][PIMv2HelloLANPruneDelayValue].propagation_delay == 500)
+assert (hello_pkt[PIMv2Hello].option[2][PIMv2HelloLANPruneDelay].value[0][PIMv2HelloLANPruneDelayValue].override_interval == 2500)
+assert (hello_pkt[PIMv2Hello].option[3][PIMv2HelloGenerationID].type == 20)
+
+= PIMv2 Join/Prune - instantiation
+
+jp_data = b'\x01\x00^\x00\x00\r\x00\xd0\xcb\x00\xba\xe4\x08\x00E\xc0\x00rY\xfb\x00\x00\x01gT3\x15\x15\x15\x15\xe0\x00\x00\r#\x00\x1b\x18\x01\x00\x15\x15\x15\x16\x00\x04\x00\xd2\x01\x00\x00 \xef\x01\x01\x0b\x00\x01\x00\x00\x01\x00\x07 \x16\x16\x16\x15\x01\x00\x00 \xef\x01\x01\x0c\x00\x01\x00\x00\x01\x00\x07 \x16\x16\x16\x15\x01\x00\x00 \xef\x01\x01\x0b\x00\x00\x00\x01\x01\x00\x07 \x16\x16\x16\x15\x01\x00\x00 \xef\x01\x01\x0c\x00\x00\x00\x01\x01\x00\x07 \x16\x16\x16\x15'
+
+jp_pkt = Ether(jp_data)
+
+assert (jp_pkt[PIMv2Hdr].version == 2)
+assert (jp_pkt[PIMv2Hdr].type == 3)
+assert (jp_pkt[PIMv2JoinPrune].up_addr_family == 1)
+assert (jp_pkt[PIMv2JoinPrune].up_encoding_type == 0)
+assert (jp_pkt[PIMv2JoinPrune].up_neighbor_ip == "21.21.21.22")
+assert (jp_pkt[PIMv2JoinPrune].reserved == 0)
+assert (jp_pkt[PIMv2JoinPrune].num_group == 4)
+assert (jp_pkt[PIMv2JoinPrune].holdtime == 210)
+assert (jp_pkt[PIMv2JoinPrune].num_group == len(jp_pkt[PIMv2JoinPrune].jp_ips))
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].addr_family == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].encoding_type == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].bidirection == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].reserved == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].admin_scope_zone == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].mask_len == 32)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].gaddr == "239.1.1.11")
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].num_joins == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].num_joins == len(jp_pkt[PIMv2JoinPrune].jp_ips[0].join_ips))
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].addr_family == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].encoding_type == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].rsrvd == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].sparse == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].wildcard == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].rpt == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].mask_len == 32)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].join_ips[0][PIMv2JoinAddrs].src_ip == "22.22.22.21")
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].num_prunes == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[0].num_prunes == len(jp_pkt[PIMv2JoinPrune].jp_ips[0].prune_ips))
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].addr_family == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].encoding_type == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].bidirection == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].reserved == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].admin_scope_zone == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].mask_len == 32)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].gaddr == "239.1.1.11")
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].num_joins == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].num_joins == len(jp_pkt[PIMv2JoinPrune].jp_ips[2].join_ips))
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].num_prunes == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].num_prunes == len(jp_pkt[PIMv2JoinPrune].jp_ips[2].prune_ips))
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].prune_ips[0][PIMv2PruneAddrs].addr_family == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].prune_ips[0][PIMv2PruneAddrs].encoding_type == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].prune_ips[0][PIMv2PruneAddrs].rsrvd == 0)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].prune_ips[0][PIMv2PruneAddrs].sparse == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].prune_ips[0][PIMv2PruneAddrs].wildcard == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].prune_ips[0][PIMv2PruneAddrs].rpt == 1)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].prune_ips[0][PIMv2PruneAddrs].mask_len == 32)
+assert (jp_pkt[PIMv2JoinPrune].jp_ips[2].prune_ips[0][PIMv2PruneAddrs].src_ip == "22.22.22.21")
+
+= PIMv2 Hello - build
+
+hello_delay_pkt = Ether(dst="01:00:5e:00:00:0d", src="00:d0:cb:00:ba:e4")/IP(version=4, ihl=5, tos=0xc0, id=23037, ttl=1, proto=103, src="21.21.21.21", dst="224.0.0.13")/\
+                       PIMv2Hdr(version=2, type=0, reserved=0)/\
+                       PIMv2Hello(option=[PIMv2HelloHoldtime(type=1, holdtime=105), PIMv2HelloDRPriority(type=19, dr_priority=0), 
+                                                 PIMv2HelloLANPruneDelay(type=2, value=[PIMv2HelloLANPruneDelayValue(t=0, propagation_delay=500, override_interval=2500)]),
+                                                 PIMv2HelloGenerationID(type=20, generation_id=459007194)])
+
+assert raw(hello_delay_pkt) == b'\x01\x00^\x00\x00\r\x00\xd0\xcb\x00\xba\xe4\x08\x00E\xc0\x006Y\xfd\x00\x00\x01gTm\x15\x15\x15\x15\xe0\x00\x00\r \x00\xd3p\x00\x01\x00\x02\x00i\x00\x13\x00\x04\x00\x00\x00\x00\x00\x02\x00\x04\x01\xf4\t\xc4\x00\x14\x00\x04\x1b[\xe4\xda'
+
+hello_refresh_pkt = Ether(dst="01:00:5e:00:00:0d", src="c2:01:52:72:00:00")/IP(version=4, ihl=5, tos=0xc0, id=121, ttl=1, proto=103, src="10.0.0.1", dst="224.0.0.13")/\
+                         PIMv2Hdr(version=2, type=0, reserved=0)/\
+                         PIMv2Hello(option=[PIMv2HelloHoldtime(type=1, holdtime=105), PIMv2HelloGenerationID(type=20, generation_id=3613938422),
+                                                  PIMv2HelloDRPriority(type=19, dr_priority=1), 
+                                                  PIMv2HelloStateRefresh(type=21, value=[PIMv2HelloStateRefreshValue(version=1, interval=0, reserved=0)])])
+
+assert raw(hello_refresh_pkt) == b'\x01\x00^\x00\x00\r\xc2\x01Rr\x00\x00\x08\x00E\xc0\x006\x00y\x00\x00\x01g\xce\x1a\n\x00\x00\x01\xe0\x00\x00\r \x00\xb3\xeb\x00\x01\x00\x02\x00i\x00\x14\x00\x04\xd7hR\xf6\x00\x13\x00\x04\x00\x00\x00\x01\x00\x15\x00\x04\x01\x00\x00\x00'
+
+= PIMv2 Join/Prune - build
+
+join_pkt = Ether(dst="01:00:5e:00:00:0d", src="c2:02:3d:80:00:01")/IP(version=4, ihl=5, tos=0xc0, id=139, ttl=1, proto=103, src="10.0.0.14", dst="224.0.0.13")/\
+             PIMv2Hdr(version=2, type=3, reserved=0)/\
+             PIMv2JoinPrune(up_addr_family=1, up_encoding_type=0, up_neighbor_ip="10.0.0.13", reserved=0, num_group=1, holdtime=210,
+                                 jp_ips=[PIMv2GroupAddrs(addr_family=1, encoding_type=0, bidirection=0, reserved=0, admin_scope_zone=0,
+                                                                  mask_len=32, gaddr="239.123.123.123", 
+                                                                  join_ips=[PIMv2JoinAddrs(addr_family=1, encoding_type=0, rsrvd=0, sparse=1, wildcard=1,
+                                                                                                  rpt=1, mask_len=32, src_ip="1.1.1.1")], 
+                                                                  prune_ips=[])
+                                           ]
+                                  )
+     
+
+assert raw(join_pkt) == b'\x01\x00^\x00\x00\r\xc2\x02=\x80\x00\x01\x08\x00E\xc0\x006\x00\x8b\x00\x00\x01g\xcd\xfb\n\x00\x00\x0e\xe0\x00\x00\r#\x00Z\xe5\x01\x00\n\x00\x00\r\x00\x01\x00\xd2\x01\x00\x00 \xef{{{\x00\x01\x00\x00\x01\x00\x07 \x01\x01\x01\x01'
+
+
+
+prune_pkt = Ether(dst="01:00:5e:00:00:0d", src="c2:02:3d:80:00:01")/IP(version=4, ihl=5, tos=0xc0, id=139, ttl=1, proto=103, src="10.0.0.2", dst="224.0.0.13")/\
+                PIMv2Hdr(version=2, type=3, reserved=0)/\
+                PIMv2JoinPrune(up_addr_family=1, up_encoding_type=0, up_neighbor_ip="10.0.0.1", reserved=0, num_group=1, holdtime=210,
+                                    jp_ips=[PIMv2GroupAddrs(addr_family=1, encoding_type=0, bidirection=0, reserved=0, admin_scope_zone=0,
+                                                                     mask_len=32, gaddr="239.123.123.123",
+                                                                     prune_ips=[PIMv2PruneAddrs(addr_family=1, encoding_type=0, rsrvd=0, sparse=0, wildcard=0, rpt=0,
+                                                                                                          mask_len=32, src_ip="172.16.40.10")])
+                                              ]
+                                    )
+
+assert raw(prune_pkt) == b'\x01\x00^\x00\x00\r\xc2\x02=\x80\x00\x01\x08\x00E\xc0\x006\x00\x8b\x00\x00\x01g\xce\x07\n\x00\x00\x02\xe0\x00\x00\r#\x00\x8f\xd8\x01\x00\n\x00\x00\x01\x00\x01\x00\xd2\x01\x00\x00 \xef{{{\x00\x00\x00\x01\x01\x00\x00 \xac\x10(\n'
+
