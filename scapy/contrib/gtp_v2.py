@@ -240,6 +240,7 @@ IEType = {1: "IMSI",
              136: "FQDN",
              145: "UCI",
              161: "Max MBR/APN-AMBR (MMBR)",
+             163: "Additional Protocol Configuration Options",
              172: "RAN/NAS Cause",
              197: "Extended Protocol Configuration Options",
              202: "UP Function Selection Indication Flags",
@@ -1291,6 +1292,19 @@ class IE_EPCO(gtp.IE_Base):
                                    length_from=lambda pkt: pkt.length - 1)]
 
 
+class IE_APCO(gtp.IE_Base):
+    name = "IE Additional Protocol Configuration Options"
+    fields_desc = [ByteEnumField("ietype", 163, IEType),
+                   ShortField("length", None),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
+                   BitField("Extension", 0, 1),
+                   BitField("SPARE", 0, 4),
+                   BitField("PPP", 0, 3),
+                   PacketListField("Protocols", None, PCO_protocol_dispatcher,
+                                   length_from=lambda pkt: pkt.length - 1)]
+
+
 class IE_PAA(gtp.IE_Base):
     name = "IE PAA"
     fields_desc = [ByteEnumField("ietype", 79, IEType),
@@ -1454,10 +1468,7 @@ class IE_PrivateExtension(gtp.IE_Base):
         BitField("SPARE", 0, 4),
         BitField("instance", 0, 4),
         ShortEnumField("enterprisenum", None, IANA_ENTERPRISE_NUMBERS),
-    ]
-
-    def extract_padding(self, s):
-        return s[:self.length], ''
+        StrLenField("proprietaryvalue", "", length_from=lambda x: x.length-2)]
 
 
 ietypecls = {1: IE_IMSI,
@@ -1493,6 +1504,7 @@ ietypecls = {1: IE_IMSI,
              136: IE_FQDN,
              145: IE_UCI,
              161: IE_MMBR,
+             163: IE_APCO,
              172: IE_Ran_Nas_Cause,
              197: IE_EPCO,
              202: IE_UPF_SelInd_Flags,
