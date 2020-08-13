@@ -222,8 +222,8 @@ class MQTTPubcomp(Packet):
 class MQTTTopic(Packet):
     name = "MQTT topic"
     fields_desc = [
-        FieldLenField("len", None, length_of="topic"),
-        StrLenField("topic", "", length_from=lambda pkt:pkt.len)
+        FieldLenField("length", None, length_of="topic"),
+        StrLenField("topic", "", length_from=lambda pkt:pkt.length)
     ]
 
     def guess_payload_class(self, payload):
