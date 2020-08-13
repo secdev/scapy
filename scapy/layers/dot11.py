@@ -38,7 +38,6 @@ from scapy.fields import (
     BitEnumField,
     BitField,
     BitMultiEnumField,
-    BitScalingField,
     ByteEnumField,
     ByteField,
     ConditionalField,
@@ -752,7 +751,7 @@ class _Dot11EltUtils(Packet):
                     p.country_string[-1:]
                 )
             elif isinstance(p, Dot11EltRates):
-                rates = [x.label for x in p.rates]
+                rates = [(x & 0x7f) / 2. for x in p.rates]
                 if "rates" in summary:
                     summary["rates"].extend(rates)
                 else:
@@ -843,6 +842,31 @@ _dot11_info_elts_ids = {
     221: "Vendor Specific"
 }
 
+# Backward compatibility
+_dot11_elt_deprecated_names = {
+    "Rates": 1,
+    "DSset": 3,
+    "CFset": 4,
+    "IBSSset": 6,
+    "challenge": 16,
+    "PowerCapability": 33,
+    "Channels": 36,
+    "ERPinfo": 42,
+    "HTinfo": 45,
+    "RSNinfo": 48,
+    "ESRates": 50,
+    "ExtendendCapatibilities": 127,
+    "VHTCapabilities": 191,
+    "Vendor": 221,
+}
+
+_dot11_info_elts_ids_rev = {v: k for k, v in _dot11_info_elts_ids.items()}
+_dot11_info_elts_ids_rev.update(_dot11_elt_deprecated_names)
+_dot11_id_enum = (
+    lambda x: _dot11_info_elts_ids.get(x, x),
+    lambda x: _dot11_info_elts_ids_rev.get(x, x)
+)
+
 
 class Dot11Elt(Packet):
     """
@@ -850,7 +874,7 @@ class Dot11Elt(Packet):
     """
     __slots__ = ["info"]
     name = "802.11 Information Element"
-    fields_desc = [ByteEnumField("ID", 0, _dot11_info_elts_ids),
+    fields_desc = [ByteEnumField("ID", 0, _dot11_id_enum),
                    FieldLenField("len", None, "info", "B"),
                    StrLenField("info", "", length_from=lambda x: x.len,
                                max_length=255)]
@@ -977,7 +1001,7 @@ class Dot11EltRSN(Dot11Elt):
     name = "802.11 RSN information"
     match_subclass = True
     fields_desc = [
-        ByteEnumField("ID", 48, _dot11_info_elts_ids),
+        ByteEnumField("ID", 48, _dot11_id_enum),
         ByteField("len", None),
         LEShortField("version", 1),
         PacketField("group_cipher_suite", RSNCipherSuite(), RSNCipherSuite),
@@ -1045,7 +1069,7 @@ class Dot11EltCountry(Dot11Elt):
     name = "802.11 Country"
     match_subclass = True
     fields_desc = [
-        ByteEnumField("ID", 7, _dot11_info_elts_ids),
+        ByteEnumField("ID", 7, _dot11_id_enum),
         ByteField("len", None),
         StrFixedLenField("country_string", b"\0\0\0", length=3),
         PacketListField(
@@ -1063,28 +1087,27 @@ class Dot11EltCountry(Dot11Elt):
     ]
 
 
-class RateElement(Packet):
-    name = "Rate element"
-    fields_desc = [
-        BitField("mandatory", 0, 1),
-        BitScalingField("label", 0, 7, scaling=0.5, unit="Mbps"),
-    ]
-
-    def extract_padding(self, s):
-        return b'', s
+class _RateField(ByteField):
+    def i2repr(self, pkt, val):
+        if val is None:
+            return ""
+        s = str((val & 0x7f) / 2.)
+        if val & 0x80:
+            s += "(B)"
+        return s + " Mbps"
 
 
 class Dot11EltRates(Dot11Elt):
     name = "802.11 Rates"
     match_subclass = True
     fields_desc = [
-        ByteEnumField("ID", 1, _dot11_info_elts_ids),
+        ByteEnumField("ID", 1, _dot11_id_enum),
         ByteField("len", None),
-        PacketListField(
+        FieldListField(
             "rates",
-            [],
-            RateElement,
-            count_from=lambda p: p.len
+            [0x82],
+            _RateField("", 0),
+            length_from=lambda p: p.len
         )
     ]
 
@@ -1096,7 +1119,7 @@ class Dot11EltHTCapabilities(Dot11Elt):
     name = "HT Capabilities"
     match_subclass = True
     fields_desc = [
-        ByteEnumField("ID", 45, _dot11_info_elts_ids),
+        ByteEnumField("ID", 45, _dot11_id_enum),
         ByteField("len", None),
         # HT Capabilities Info: 2B
         BitField("L_SIG_TXOP_Protection", 0, 1, tot_size=-2),
@@ -1177,7 +1200,7 @@ class Dot11EltVendorSpecific(Dot11Elt):
     name = "802.11 Vendor Specific"
     match_subclass = True
     fields_desc = [
-        ByteEnumField("ID", 221, _dot11_info_elts_ids),
+        ByteEnumField("ID", 221, _dot11_id_enum),
         ByteField("len", None),
         X3BytesField("oui", 0x000000),
         StrLenField("info", "", length_from=lambda x: x.len - 3)
