@@ -1479,7 +1479,8 @@ class IE_PrivateExtension(gtp.IE_Base):
         BitField("SPARE", 0, 4),
         BitField("instance", 0, 4),
         ShortEnumField("enterprisenum", None, IANA_ENTERPRISE_NUMBERS),
-        StrLenField("proprietaryvalue", "", length_from=lambda x: x.length - 2)]
+        StrLenField("proprietaryvalue", "",
+                    length_from=lambda x: x.length - 2)]
 
 
 ietypecls = {1: IE_IMSI,
