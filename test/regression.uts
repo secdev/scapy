@@ -1311,7 +1311,7 @@ assert Dot11FCS in radiotap
 assert radiotap.fcs == 0xdbc04908
 
 assert Dot11EltRates in radiotap
-assert [x.label for x in radiotap[Dot11EltRates].rates] == [1.0, 2.0, 5.5, 11.0, 18.0, 24.0, 36.0, 54.0]
+assert radiotap[Dot11EltRates].rates == [130, 132, 139, 150, 36, 48, 72, 108]
 
 = RadioTap - Build with Extended presence mask
 
@@ -12439,6 +12439,12 @@ assert Dot11EltRSN in f
 assert f[Dot11EltRSN].pmkids.nb_pmkids == 1
 assert len(f[Dot11EltRSN].pmkids.pmkid_list) == 1
 assert f[Dot11EltRSN].pmkids.pmkid_list[0] == b'LD\xfe\xf2l\xdcV\xce\x0b7\xab\xc62\x02O\x11'
+
+= Backward compatibility of Dot11Elt
+
+# Old naming scheme
+assert Dot11Elt(ID="DSset").sprintf("%ID%") == 'DSSS Set'
+assert Dot11Elt(ID="RSNinfo").sprintf("%ID%") == 'RSN'
 
 
 ######################################
