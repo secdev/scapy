@@ -241,6 +241,7 @@ IEType = {1: "IMSI",
              145: "UCI",
              161: "Max MBR/APN-AMBR (MMBR)",
              163: "Additional Protocol Configuration Options",
+             170: "ULI Timestamp",
              172: "RAN/NAS Cause",
              197: "Extended Protocol Configuration Options",
              202: "UP Function Selection Indication Flags",
@@ -443,6 +444,16 @@ class IE_ULI(gtp.IE_Base):
             PacketField("LAI", 0, ULI_LAI),
             lambda pkt: bool(pkt.LAI_Present)),
     ]
+
+
+class IE_ULI_Timestamp(gtp.IE_Base):
+    name = "IE ULI Timestamp"
+    fields_desc = [
+        ByteEnumField("ietype", 170, IEType),
+        ShortField("length", None),
+        BitField("CR_flag", 0, 4),
+        BitField("instance", 0, 4),
+        BitField("Timestamp", 0, 32)]
 
 
 # 3GPP TS 29.274 v12.12.0 section 8.22
@@ -1505,6 +1516,7 @@ ietypecls = {1: IE_IMSI,
              145: IE_UCI,
              161: IE_MMBR,
              163: IE_APCO,
+             170: IE_ULI_Timestamp,
              172: IE_Ran_Nas_Cause,
              197: IE_EPCO,
              202: IE_UPF_SelInd_Flags,
