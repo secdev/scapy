@@ -232,22 +232,12 @@ class MQTTTopic(Packet):
 class MQTTTopicQOS(MQTTTopic):
     fields_desc = MQTTTopic.fields_desc + [ByteEnumField("QOS", 0, QOS_LEVEL)]
 
-def cb_topic_qos(pkt, lst, cur, remain):
-    """
-    Decode the remaining bytes as a MQTT topic
-    """
-    if len(remain) > 3:
-        return MQTTTopicQOS
-    else:
-        return conf.raw_layer
-
 class MQTTSubscribe(Packet):
     name = "MQTT subscribe"
     fields_desc = [
         ShortField("msgid", None),
-        PacketListField("topics", [], next_cls_cb=cb_topic_qos)
+        PacketListField("topics", [], cls=MQTTTopicQOS)
     ]
-
 
 ALLOWED_RETURN_CODE = {
     0: 'Success',
@@ -264,22 +254,11 @@ class MQTTSuback(Packet):
         ByteEnumField("retcode", None, ALLOWED_RETURN_CODE)
     ]
 
-
-def cb_topic(pkt, lst, cur, remain):
-    """
-    Decode the remaining bytes as a MQTT topic
-    """
-    if len(remain) > 3:
-        return MQTTTopic
-    else:
-        return conf.raw_layer
-
-
 class MQTTUnsubscribe(Packet):
     name = "MQTT unsubscribe"
     fields_desc = [
         ShortField("msgid", None),
-        PacketListField("topics", [], next_cls_cb=cb_topic)
+        PacketListField("topics", [], cls=MQTTTopic)
     ]
 
 
