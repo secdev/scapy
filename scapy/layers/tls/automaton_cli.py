@@ -84,15 +84,21 @@ class TLSClientAutomaton(_TLSAutomaton):
     Rather than with an interruption, the best way to stop this client is by
     typing 'quit'. This won't be a message sent to the server.
 
-    _'mycert' and 'mykey' may be provided as filenames. They will be used in
-    the handshake, should the server ask for client authentication.
-    _'server_name' is the SNI. It does not need to be set.
-    _'client_hello' may hold a TLSClientHello or SSLv2ClientHello to be sent
-    to the server. This is particularly useful for extensions tweaking.
-    _'version' is a quicker way to advertise a protocol version ("sslv2",
-    "tls1", "tls12", etc.) It may be overridden by the previous 'client_hello'.
-    _'data' is a list of raw data to be sent to the server once the handshake
-    has been completed. Both 'stop_server' and 'quit' will work this way.
+    :param server: the server IP or hostname. defaults to 127.0.0.1
+    :param dport: the server port. defaults to 4433
+    :param server_name: the SNI to use. It does not need to be set
+    :param mycert:
+    :param mykey: may be provided as filenames. They will be used in
+        the handshake, should the server ask for client authentication.
+    :param client_hello: may hold a TLSClientHello or SSLv2ClientHello to be
+        sent to the server. This is particularly useful for extensions
+        tweaking.
+    :param version: is a quicker way to advertise a protocol version ("sslv2",
+        "tls1", "tls12", etc.) It may be overridden by the previous
+        'client_hello'.
+    :param data: is a list of raw data to be sent to the server once the
+        handshake has been completed. Both 'stop_server' and 'quit' will
+        work this way.
     """
 
     def parse_args(self, server="127.0.0.1", dport=4433, server_name=None,
