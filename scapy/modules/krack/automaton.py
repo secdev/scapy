@@ -14,9 +14,22 @@ from scapy.config import conf
 from scapy.compat import raw, chb
 from scapy.consts import LINUX
 from scapy.error import log_runtime
-from scapy.layers.dot11 import RadioTap, Dot11, Dot11AssoReq, Dot11AssoResp, \
-    Dot11Auth, Dot11Beacon, Dot11Elt, Dot11EltRates, Dot11EltRSN, \
-    Dot11ProbeReq, Dot11ProbeResp, RSNCipherSuite, AKMSuite
+from scapy.layers.dot11 import (
+    AKMSuite,
+    Dot11,
+    Dot11AssoReq,
+    Dot11AssoResp,
+    Dot11Auth,
+    Dot11Beacon,
+    Dot11Elt,
+    Dot11EltDSSSet,
+    Dot11EltRSN,
+    Dot11EltRates,
+    Dot11ProbeReq,
+    Dot11ProbeResp,
+    RSNCipherSuite,
+    RadioTap,
+)
 from scapy.layers.eap import EAPOL
 from scapy.layers.l2 import ARP, LLC, SNAP, Ether
 from scapy.layers.dhcp import DHCP_am
@@ -83,27 +96,33 @@ class KrackAP(Automaton):
                    **kwargs):
         """
         Mandatory arguments:
-        @iface: interface to use (must be in monitor mode)
-        @ap_mac: AP's MAC
-        @ssid: AP's SSID
-        @passphrase: AP's Passphrase (min 8 char.)
+
+        :param iface: interface to use (must be in monitor mode)
+        :param ap_mac: AP's MAC
+        :param ssid: AP's SSID
+        :param passphrase: AP's Passphrase (min 8 char.)
 
         Optional arguments:
-        @channel: used by the interface. Default 6, autodetected on windows
+
+        :param channel: used by the interface. Default 6
 
         Krack attacks options:
 
          - Msg 3/4 handshake replay:
-        double_3handshake: double the 3/4 handshake message
-        encrypt_3handshake: encrypt the second 3/4 handshake message
-        wait_3handshake: time to wait (in sec.) before sending the second 3/4
-         - double GTK rekeying:
-        double_gtk_refresh: double the 1/2 GTK rekeying message
-        wait_gtk: time to wait (in sec.) before sending the GTK rekeying
-        arp_target_ip: Client IP to use in ARP req. (to detect attack success)
-                       If None, use a DHCP server
-        arp_source_ip: Server IP to use in ARP req. (to detect attack success)
-                       If None, use the DHCP server gateway address
+
+        :param double_3handshake: double the 3/4 handshake message
+        :param encrypt_3handshake: encrypt the second 3/4 handshake message
+        :param wait_3handshake: time to wait (in sec.) before sending the
+            second 3/4
+
+        - double GTK rekeying:
+
+        :param double_gtk_refresh: double the 1/2 GTK rekeying message
+        :param wait_gtk: time to wait (in sec.) before sending the GTK rekeying
+        :param arp_target_ip: Client IP to use in ARP req. (to detect attack
+            success). If None, use a DHCP server
+        :param arp_source_ip: Server IP to use in ARP req. (to detect attack
+            success). If None, use the DHCP server gateway address
         """
         super(KrackAP, self).parse_args(**kwargs)
 
@@ -215,13 +234,14 @@ class KrackAP(Automaton):
         """Build a packet with info describing the current AP
         For beacon / proberesp use
         """
+        ts = int(time.time() * 1e6) & 0xffffffffffffffff
         return RadioTap() \
             / Dot11(addr1=dest, addr2=self.mac, addr3=self.mac) \
-            / layer_cls(timestamp=0, beacon_interval=100,
+            / layer_cls(timestamp=ts, beacon_interval=100,
                         cap='ESS+privacy') \
             / Dot11Elt(ID="SSID", info=self.ssid) \
             / Dot11EltRates(rates=[130, 132, 139, 150, 12, 18, 24, 36]) \
-            / Dot11Elt(ID="DSset", info=chb(self.channel)) \
+            / Dot11EltDSSSet(channel=self.channel) \
             / Dot11EltRSN(group_cipher_suite=RSNCipherSuite(cipher=0x2),
                           pairwise_cipher_suites=[RSNCipherSuite(cipher=0x2)],
                           akm_suites=[AKMSuite(suite=0x2)])
@@ -481,7 +501,7 @@ class KrackAP(Automaton):
         log_runtime.warning("Client %s connected!", self.client)
 
         # Launch DHCP Server
-        self.dhcp_server.run()
+        self.dhcp_server()
 
         rep = RadioTap()
         rep /= Dot11(addr1=self.client, addr2=self.mac, addr3=self.mac)

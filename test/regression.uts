@@ -12100,11 +12100,14 @@ s == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 = Dot11 - dissection
 p = Dot11(s)
 Dot11 in p and p.addr3 == "00:00:00:00:00:00"
-p.mysummary() == '802.11 Management Association Request 00:00:00:00:00:00 > 00:00:00:00:00:00'
+assert p.mysummary() == '802.11 Management Association Request 00:00:00:00:00:00 (TA=SA) > 00:00:00:00:00:00 (RA=DA)'
+assert "DA" in p.address_meaning(1)
+assert "SA" in p.address_meaning(2)
+assert "BSSID" in p.address_meaning(3)
 
 = Dot11QoS - build
 s = raw(Dot11()/Dot11QoS(Ack_Policy=1))
-assert s == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00'
+assert s == b'\xc8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00'
 
 s = raw(Dot11(type=2, subtype=8)/Dot11QoS(TID=4))
 assert s == b'\x88\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00'
@@ -12127,7 +12130,11 @@ assert pkt[Dot11Elt::{"ID": 0}].summary() in [
 
 = Dot11QoS - dissection
 p = Dot11(s)
-Dot11QoS in p
+assert Dot11QoS in p
+assert p.TID == 4
+assert "DA" in p.address_meaning(1)
+assert "SA" in p.address_meaning(2)
+assert "BSSID" in p.address_meaning(3)
 
 = Dot11 - answers
 query = Dot11(type=0, subtype=0)
@@ -12171,6 +12178,10 @@ assert pkt[Dot11TKIP].TSC2 == 1
 assert pkt[Dot11TKIP].TSC3 == 33
 assert pkt[Dot11TKIP].TSC4 == 0
 assert pkt[Dot11TKIP].TSC5 == 160
+
+assert "DA" in pkt[Dot11].address_meaning(1)
+assert "TA=BSSID" in pkt[Dot11].address_meaning(2)
+assert "SA" in pkt[Dot11].address_meaning(3)
 
 = Dot11CCMP - dissection
 

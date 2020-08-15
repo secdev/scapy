@@ -70,6 +70,7 @@ from scapy.layers.l2 import Ether, LLC, MACField
 from scapy.layers.inet import IP, TCP
 from scapy.error import warning, log_loading
 from scapy.sendrecv import sniff, sendp
+from scapy.utils import str2mac
 
 
 if conf.crypto_valid:
@@ -525,6 +526,7 @@ class RadioTap(Packet):
 
 # 802.11-2016 9.2
 
+# 802.11-2016 9.2.4.1.3
 _dot11_subtypes = {
     0: {  # Management
         0: "Association Request",
@@ -573,7 +575,7 @@ _dot11_subtypes = {
         14: "QoS CF-Poll (no data)",
         15: "QoS CF-Ack+CF-Poll (no data)"
     },
-    4: {  # Extension
+    3: {  # Extension
         0: "DMG Beacon"
     }
 }
@@ -591,13 +593,52 @@ _dot11_cfe = {
 }
 
 
+_dot11_addr_meaning = [
+    [  # Management: 802.11-2016 9.3.3.2
+        "RA=DA", "TA=SA", "BSSID/STA", None,
+    ],
+    [  # Control
+        "RA", "TA", None, None
+    ],
+    [  # Data: 802.11-2016 9.3.2.1: Table 9-26
+        [["RA=DA", "RA=DA"], ["RA=BSSID", "RA"]],
+        [["TA=SA", "TA=BSSID"], ["TA=SA", "TA"]],
+        [["BSSID", "SA"], ["DA", "DA"]],
+        [[None, None], ["SA", "BSSID"]],
+    ],
+    [  # Extension
+        "BSSID", None, None, None
+    ],
+]
+
+
+class _Dot11MacField(MACField):
+    """
+    A MACField that displays the address type depending on the
+    802.11 flags
+    """
+    __slots__ = ["index"]
+
+    def __init__(self, name, default, index):
+        self.index = index
+        super(_Dot11MacField, self).__init__(name, default)
+
+    def i2repr(self, pkt, val):
+        s = super(_Dot11MacField, self).i2repr(pkt, val)
+        meaning = pkt.address_meaning(self.index)
+        if meaning:
+            return "%s (%s)" % (s, meaning)
+        return s
+
+
+# 802.11-2016 9.2.4.1.1
 class Dot11(Packet):
     name = "802.11"
     fields_desc = [
         BitMultiEnumField("subtype", 0, 4, _dot11_subtypes,
                           lambda pkt: pkt.type),
         BitEnumField("type", 0, 2, ["Management", "Control", "Data",
-                                    "Reserved"]),
+                                    "Extension"]),
         BitField("proto", 0, 2),
         ConditionalField(
             BitEnumField("cfe", 0, 4, _dot11_cfe),
@@ -616,19 +657,19 @@ class Dot11(Packet):
                         "pw-mgt", "MD", "protected", "order"])
         ),
         ShortField("ID", 0),
-        MACField("addr1", ETHER_ANY),
+        _Dot11MacField("addr1", ETHER_ANY, 1),
         ConditionalField(
-            MACField("addr2", ETHER_ANY),
+            _Dot11MacField("addr2", ETHER_ANY, 2),
             lambda pkt: (pkt.type != 1 or
                          pkt.subtype in [0x8, 0x9, 0xa, 0xb, 0xe, 0xf]),
         ),
         ConditionalField(
-            MACField("addr3", ETHER_ANY),
+            _Dot11MacField("addr3", ETHER_ANY, 3),
             lambda pkt: pkt.type in [0, 2],
         ),
         ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type != 1),
         ConditionalField(
-            MACField("addr4", ETHER_ANY),
+            _Dot11MacField("addr4", ETHER_ANY, 4),
             lambda pkt: (pkt.type == 2 and
                          pkt.FCfield & 3 == 3),  # from-DS+to-DS
         )
@@ -639,7 +680,8 @@ class Dot11(Packet):
         return self.sprintf("802.11 %%%s.type%% %%%s.subtype%% %%%s.addr2%% > %%%s.addr1%%" % ((self.__class__.__name__,) * 4))  # noqa: E501
 
     def guess_payload_class(self, payload):
-        if self.type == 0x02 and (0x08 <= self.subtype <= 0xF and self.subtype != 0xD):  # noqa: E501
+        if self.type == 0x02 and (
+                0x08 <= self.subtype <= 0xF and self.subtype != 0xD):
             return Dot11QoS
         elif self.FCfield.protected:
             # When a frame is handled by encryption, the Protected Frame bit
@@ -665,6 +707,31 @@ class Dot11(Packet):
             elif self.type == 3:  # reserved
                 return 0
         return 0
+
+    def address_meaning(self, index):
+        """
+        Return the meaning of the address[index] considering the context
+        """
+        if index not in [1, 2, 3, 4]:
+            raise ValueError("Wrong index: should be [1, 2, 3, 4]")
+        index = index - 1
+        if self.type == 0:  # Management
+            return _dot11_addr_meaning[0][index]
+        elif self.type == 1:  # Control
+            return _dot11_addr_meaning[1][index]
+        elif self.type == 2:  # Data
+            meaning = _dot11_addr_meaning[2][index][
+                self.FCfield.to_DS
+            ][self.FCfield.from_DS]
+            if meaning and index in [2, 3]:  # Address 3-4
+                if isinstance(self.payload, Dot11QoS):
+                    # MSDU and Short A-MSDU
+                    if self.payload.A_MSDU_Present:
+                        meaning = "BSSID"
+            return meaning
+        elif self.type == 3:  # Extension
+            return _dot11_addr_meaning[3][index]
+        return None
 
     def unwep(self, key=None, warn=1):
         if self.FCfield & 0x40 == 0:
@@ -699,11 +766,11 @@ class Dot11FCS(Dot11):
 
 class Dot11QoS(Packet):
     name = "802.11 QoS"
-    fields_desc = [BitField("Reserved", None, 1),
-                   BitField("Ack_Policy", None, 2),
-                   BitField("EOSP", None, 1),
-                   BitField("TID", None, 4),
-                   ByteField("TXOP", None)]
+    fields_desc = [BitField("A_MSDU_Present", 0, 1),
+                   BitField("Ack_Policy", 0, 2),
+                   BitField("EOSP", 0, 1),
+                   BitField("TID", 0, 4),
+                   ByteField("TXOP", 0)]
 
     def guess_payload_class(self, payload):
         if isinstance(self.underlayer, Dot11):
@@ -889,6 +956,15 @@ class Dot11Elt(Packet):
                                max_length=255)]
     show_indent = 0
 
+    def __setattr__(self, attr, val):
+        if attr == "info":
+            # Will be caught by __slots__: we need an extra call
+            try:
+                self.setfieldval(attr, val)
+            except AttributeError:
+                pass
+        super(Dot11Elt, self).__setattr__(attr, val)
+
     def mysummary(self):
         if self.ID == 0:
             ssid = repr(self.info)
@@ -933,10 +1009,44 @@ class Dot11Elt(Packet):
         return p + pay
 
 
+class _OUIField(X3BytesField):
+    def i2repr(self, pkt, val):
+        by_val = struct.pack("!I", val or 0)[1:]
+        oui = str2mac(by_val + b"\0" * 3)[:8]
+        if conf.manufdb:
+            fancy = conf.manufdb._get_manuf(oui)
+            if fancy != oui:
+                return "%s (%s)" % (fancy, oui)
+        return oui
+
+
+class Dot11EltDSSSet(Dot11Elt):
+    name = "802.11 DSSS Parameter Set"
+    match_subclass = True
+    fields_desc = [
+        ByteEnumField("ID", 3, _dot11_id_enum),
+        ByteField("len", 1),
+        ByteField("channel", 0),
+    ]
+
+
+class Dot11EltERP(Dot11Elt):
+    name = "802.11 ERP"
+    match_subclass = True
+    fields_desc = [
+        ByteEnumField("ID", 42, _dot11_id_enum),
+        ByteField("len", 1),
+        BitField("NonERP_Present", 0, 1),
+        BitField("Use_Protection", 0, 1),
+        BitField("Barker_Preamble_Mode", 0, 1),
+        BitField("res", 0, 5),
+    ]
+
+
 class RSNCipherSuite(Packet):
     name = "Cipher suite"
     fields_desc = [
-        X3BytesField("oui", 0x000fac),
+        _OUIField("oui", 0x000fac),
         ByteEnumField("cipher", 0x04, {
             0x00: "Use group cipher suite",
             0x01: "WEP-40",
@@ -962,7 +1072,7 @@ class RSNCipherSuite(Packet):
 class AKMSuite(Packet):
     name = "AKM suite"
     fields_desc = [
-        X3BytesField("oui", 0x000fac),
+        _OUIField("oui", 0x000fac),
         ByteEnumField("suite", 0x01, {
             0x00: "Reserved",
             0x01: "802.1X",
@@ -1049,8 +1159,8 @@ class Dot11EltRSN(Dot11Elt):
                 0 if pkt.len is None else
                 pkt.len - (
                     12 +
-                    pkt.nb_pairwise_cipher_suites * 4 +
-                    pkt.nb_akm_suites * 4
+                    (pkt.nb_pairwise_cipher_suites or 0) * 4 +
+                    (pkt.nb_akm_suites or 0) * 4
                 ) >= 2
             )
         ),
@@ -1125,7 +1235,7 @@ Dot11EltRates.register_variant(50)  # Extended rates
 
 
 class Dot11EltHTCapabilities(Dot11Elt):
-    name = "HT Capabilities"
+    name = "802.11 HT Capabilities"
     match_subclass = True
     fields_desc = [
         ByteEnumField("ID", 45, _dot11_id_enum),
@@ -1211,7 +1321,7 @@ class Dot11EltVendorSpecific(Dot11Elt):
     fields_desc = [
         ByteEnumField("ID", 221, _dot11_id_enum),
         ByteField("len", None),
-        X3BytesField("oui", 0x000000),
+        _OUIField("oui", 0x000000),
         StrLenField("info", "", length_from=lambda x: x.len - 3)
     ]
 
@@ -1240,10 +1350,10 @@ class Dot11EltMicrosoftWPA(Dot11EltVendorSpecific):
     name = "802.11 Microsoft WPA"
     match_subclass = True
     ID = 221
+    oui = 0x0050f2
     # It appears many WPA implementations ignore the fact
     # that this IE should only have a single cipher and auth suite
-    fields_desc = Dot11EltRSN.fields_desc[:2] + [
-        X3BytesField("oui", 0x0050f2),
+    fields_desc = Dot11EltVendorSpecific.fields_desc[:3] + [
         XByteField("type", 0x01)
     ] + Dot11EltRSN.fields_desc[2:8]
 
@@ -1437,7 +1547,7 @@ class Dot11TKIP(Dot11Encrypted):
 
 
 class Dot11CCMP(Dot11Encrypted):
-    name = "802.11 TKIP packet"
+    name = "802.11 CCMP packet"
     fields_desc = [
         # iv - 8 bytes
         ByteField("PN0", 0),
@@ -1461,6 +1571,7 @@ class Dot11CCMP(Dot11Encrypted):
 
 
 bind_top_down(RadioTap, Dot11FCS, present=2, Flags=16)
+bind_top_down(Dot11, Dot11QoS, type=2, subtype=0xc)
 
 bind_layers(PrismHeader, Dot11,)
 bind_layers(Dot11, LLC, type=2)
