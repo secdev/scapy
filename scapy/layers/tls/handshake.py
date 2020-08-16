@@ -17,9 +17,21 @@ import os
 import struct
 
 from scapy.error import log_runtime, warning
-from scapy.fields import ByteEnumField, ByteField, EnumField, Field, \
-    FieldLenField, IntField, PacketField, PacketListField, ShortField, \
-    StrFixedLenField, StrLenField, ThreeBytesField, UTCTimeField
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    Field,
+    FieldLenField,
+    IntField,
+    PacketField,
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    StrFixedLenField,
+    StrLenField,
+    ThreeBytesField,
+    UTCTimeField,
+)
 
 from scapy.compat import hex_bytes, orb, raw
 from scapy.config import conf
@@ -481,7 +493,7 @@ class TLSServerHello(_TLSHandshake):
                    _SessionIDField("sid", "",
                                    length_from=lambda pkt: pkt.sidlen),
 
-                   EnumField("cipher", None, _tls_cipher_suites),
+                   ShortEnumField("cipher", None, _tls_cipher_suites),
                    _CompressionMethodsField("comp", [0],
                                             _tls_compression_algs,
                                             itemfmt="B",
@@ -562,7 +574,7 @@ _tls_13_server_hello_fields = [
     FieldLenField("sidlen", None, length_of="sid", fmt="B"),
     _SessionIDField("sid", "",
                     length_from=lambda pkt: pkt.sidlen),
-    EnumField("cipher", None, _tls_cipher_suites),
+    ShortEnumField("cipher", None, _tls_cipher_suites),
     _CompressionMethodsField("comp", [0],
                              _tls_compression_algs,
                              itemfmt="B",
@@ -1125,7 +1137,7 @@ class TLSCertificateRequest(_TLSHandshake):
                    SigAndHashAlgsLenField("sig_algs_len", None,
                                           length_of="sig_algs"),
                    SigAndHashAlgsField("sig_algs", [0x0403, 0x0401, 0x0201],
-                                       EnumField("hash_sig", None, _tls_hash_sig),  # noqa: E501
+                                       ShortEnumField("hash_sig", None, _tls_hash_sig),  # noqa: E501
                                        length_from=lambda pkt: pkt.sig_algs_len),  # noqa: E501
                    FieldLenField("certauthlen", None, fmt="!H",
                                  length_of="certauth"),

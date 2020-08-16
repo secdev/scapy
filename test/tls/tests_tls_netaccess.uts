@@ -10,6 +10,7 @@
 ~ server
 
 = Load server util functions
+~ client
 
 from __future__ import print_function
 
