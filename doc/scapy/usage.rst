@@ -758,10 +758,12 @@ Advanced Sniffing - Sniffing Sessions
 Scapy includes some basic Sessions, but it is possible to implement your own.
 Available by default:
 
-- ``IPSession`` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``.
-- ``TCPSession`` -> *defragment certain TCP protocols**. Only **HTTP 1.0** currently uses this functionality.
-- ``TLSSession`` -> *matches TLS sessions* on the flow.
-- ``NetflowSession`` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
+- :py:class:`~scapy.sessions.IPSession` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``.
+- :py:class:`~scapy.sessions.TCPSession` -> *defragment certain TCP protocols*. Currently supports:
+   - HTTP 1.0
+   - TLS
+- :py:class:`~scapy.sessions.TLSSession` -> *matches TLS sessions* on the flow.
+- :py:class:`~scapy.sessions.NetflowSession` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
 
 Those sessions can be used using the ``session=`` parameter of ``sniff()``. Examples::
 
@@ -771,7 +773,34 @@ Those sessions can be used using the ``session=`` parameter of ``sniff()``. Exam
 
 .. note::
    To implement your own Session class, in order to support another flow-based protocol, start by copying a sample from `scapy/sessions.py <https://github.com/secdev/scapy/blob/master/scapy/sessions.py>`_
-   Your custom ``Session`` class only needs to extend the ``DefaultSession`` class, and implement a ``on_packet_received`` function, such as in the example.
+   Your custom ``Session`` class only needs to extend the :py:class:`~scapy.sessions.DefaultSession` class, and implement a ``on_packet_received`` function, such as in the example.
+
+.. note:: Would you need it, you can use: ``class TLS_over_TCP(TLSSession, TCPSession): pass`` to sniff TLS packets that are defragmented.
+
+How to use TCPSession to defragment TCP packets
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The layer on which the decompression is applied must be immediately following the TCP layer. You need to implement a class function called ``tcp_reassemble`` that accepts the binary data and a metada dictionary as argument and returns, when full, a packet. Let's study the (pseudo) example of TLS:
+
+.. code::
+
+    class TLS(Packet):
+        [...]
+
+        @classmethod
+        def tcp_reassemble(cls, data, metadata):
+            length = struct.unpack("!H", data[3:5])[0] + 5
+            if len(data) == length:
+                return TLS(data)
+
+
+In this example, we first get the total length of the TLS payload announced by the TLS header, and we compare it to the length of the data. When the data reaches this length, the packet is complete and can be returned. When implementing ``tcp_reassemble``, it's usually a matter of detecting when a packet isn't missing anything else.
+
+The ``data`` argument is bytes and the ``metadata`` argument is a dictionary which keys are as follow:
+
+- ``metadata["pay_class"]``: the TCP payload class (here TLS)
+- ``metadata.get("tcp_psh", False)``: will be present if the PUSH flag is set
+- ``metadata.get("tcp_end", False)``: will be present if the END or RESET flag is set
 
 Filters
 -------

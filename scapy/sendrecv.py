@@ -752,7 +752,8 @@ class AsyncSniffer(object):
              is displayed.
              --Ex: prn = lambda x: x.summary()
         session: a session = a flow decoder used to handle stream of packets.
-                 e.g: IPSession (to defragment on-the-flow) or NetflowSession
+                 --Ex: session=TCPSession
+                 See below for more details.
         filter: BPF filter to apply.
         lfilter: Python function applied to each packet to determine if
                  further action may be done.
@@ -777,6 +778,9 @@ class AsyncSniffer(object):
     The iface, offline and opened_socket parameters can be either an
     element, a list of elements, or a dict object mapping an element to a
     label (see examples below).
+
+    For more information about the session argument, see
+    https://scapy.rtfd.io/en/latest/usage.html#advanced-sniffing-sniffing-sessions
 
     Examples: synchronous
       >>> sniff(filter="arp")

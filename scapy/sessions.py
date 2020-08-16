@@ -194,10 +194,12 @@ class TCPSession(IPSession):
             # as you need additional data.
             return None
 
-    A (hard to understand) example can be found in scapy/layers/http.py
+    For more details and a real example, see:
+    https://scapy.readthedocs.io/en/latest/usage.html#how-to-use-tcpsession-to-defragment-tcp-packets
 
     :param app: Whether the socket is on application layer = has no TCP
-                layer. Default to False
+                layer. This is used for instance if you are using a native
+                TCP socket. Default to False
     """
 
     fmt = ('TCP {IP:%IP.src%}{IPv6:%IPv6.src%}:%r,TCP.sport% > ' +
