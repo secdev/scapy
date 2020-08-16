@@ -224,7 +224,8 @@ class TCPSession(IPSession):
             # Special mode: Application layer. Use on top of TCP
             pay_class = pkt.__class__
             if not hasattr(pay_class, "tcp_reassemble"):
-                # Cannot tcp-reassemble
+                # Being on top of TCP, we have no way of knowing
+                # when a packet ends.
                 return pkt
             self.data += bytes(pkt)
             pkt = pay_class.tcp_reassemble(self.data, self.metadata)
@@ -248,12 +249,16 @@ class TCPSession(IPSession):
         # Let's guess which class is going to be used
         if "pay_class" not in metadata:
             pay_class = pay.__class__
-            if not hasattr(pay_class, "tcp_reassemble"):
-                # Cannot tcp-reassemble
+            if hasattr(pay_class, "tcp_reassemble"):
+                tcp_reassemble = pay_class.tcp_reassemble
+            else:
+                # We can't know for sure when a packet ends.
+                # Ignore.
                 return pkt
             metadata["pay_class"] = pay_class
+            metadata["tcp_reassemble"] = tcp_reassemble
         else:
-            pay_class = metadata["pay_class"]
+            tcp_reassemble = metadata["tcp_reassemble"]
         # Get a relative sequence number for a storage purpose
         relative_seq = metadata.get("relative_seq", None)
         if relative_seq is None:
@@ -275,10 +280,11 @@ class TCPSession(IPSession):
         packet = None
         if data.full():
             # Reassemble using all previous packets
-            packet = pay_class.tcp_reassemble(bytes(data), metadata)
+            packet = tcp_reassemble(bytes(data), metadata)
         # Stack the result on top of the previous frames
         if packet:
             data.clear()
+            metadata.clear()
             del self.tcp_frags[ident]
             pay.underlayer.remove_payload()
             if IP in pkt:

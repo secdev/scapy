@@ -1002,6 +1002,25 @@ class _GenericTLSSessionInheritance(Packet):
         return "TLS %s / %s" % (repr(self.tls_session),
                                 getattr(self, "_name", self.name))
 
+    @classmethod
+    def tcp_reassemble(cls, data, metadata):
+        # Used with TLSSession
+        from scapy.layers.tls.record import TLS
+        from scapy.layers.tls.record_tls13 import TLS13
+        if cls in (TLS, TLS13):
+            length = struct.unpack("!H", data[3:5])[0] + 5
+            if len(data) == length:
+                return cls(data)
+            elif len(data) > length:
+                pkt = cls(data)
+                if hasattr(pkt.payload, "tcp_reassemble"):
+                    if pkt.payload.tcp_reassemble(data[length:], metadata):
+                        return pkt
+                else:
+                    return pkt
+        else:
+            return cls(data)
+
 
 ###############################################################################
 #   Multiple TLS sessions                                                     #

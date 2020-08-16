@@ -489,10 +489,9 @@ class TLSServerHello(_TLSHandshake):
 
                    _ExtensionsLenField("extlen", None, length_of="ext"),
                    _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: (pkt.msglen -
-                                                             (pkt.sidlen or 0) -  # noqa: E501
-                                                             38))]
-    # 40)) ]
+                                    length_from=lambda pkt: (
+                                        pkt.msglen - (pkt.sidlen or 0) - 40
+                                    ))]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -1020,7 +1019,7 @@ class TLSServerKeyExchange(_TLSHandshake):
         fval = self.getfieldval("sig")
         if fval is None:
             s = self.tls_session
-            if s.pwcs:
+            if s.pwcs and s.client_random:
                 if not s.pwcs.key_exchange.anonymous:
                     p = self.params
                     if p is None:
