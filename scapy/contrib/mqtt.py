@@ -219,6 +219,7 @@ class MQTTPubcomp(Packet):
         ShortField("msgid", None),
     ]
 
+
 class MQTTTopic(Packet):
     name = "MQTT topic"
     fields_desc = [
@@ -229,8 +230,10 @@ class MQTTTopic(Packet):
     def guess_payload_class(self, payload):
         return conf.padding_layer
 
+
 class MQTTTopicQOS(MQTTTopic):
     fields_desc = MQTTTopic.fields_desc + [ByteEnumField("QOS", 0, QOS_LEVEL)]
+
 
 class MQTTSubscribe(Packet):
     name = "MQTT subscribe"
@@ -238,6 +241,7 @@ class MQTTSubscribe(Packet):
         ShortField("msgid", None),
         PacketListField("topics", [], MQTTTopicQOS)
     ]
+
 
 ALLOWED_RETURN_CODE = {
     0: 'Success',
@@ -253,6 +257,7 @@ class MQTTSuback(Packet):
         ShortField("msgid", None),
         ByteEnumField("retcode", None, ALLOWED_RETURN_CODE)
     ]
+
 
 class MQTTUnsubscribe(Packet):
     name = "MQTT unsubscribe"
