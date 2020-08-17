@@ -327,7 +327,6 @@ def rdcandump(filename, count=-1, interface=None):
 class CandumpReader:
     """A stateful candump reader. Each packet is returned as a CAN packet"""
 
-    read_allowed_exceptions = ()  # emulate SuperSocket
     nonblocking_socket = True
 
     def __init__(self, filename, interface=None):

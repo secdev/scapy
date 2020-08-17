@@ -151,7 +151,10 @@ class L3WinSocket(SuperSocket, SelectableObject):
         self.outs.sendto(data, (dst_ip, 0))
 
     def nonblock_recv(self, x=MTU):
-        return self.recv()
+        try:
+            return self.recv()
+        except IOError:
+            return None
 
     # https://docs.microsoft.com/en-us/windows/desktop/winsock/tcp-ip-raw-sockets-2  # noqa: E501
     # - For IPv4 (address family of AF_INET), an application receives the IP
