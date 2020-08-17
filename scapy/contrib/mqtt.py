@@ -236,7 +236,7 @@ class MQTTSubscribe(Packet):
     name = "MQTT subscribe"
     fields_desc = [
         ShortField("msgid", None),
-        PacketListField("topics", [], cls=MQTTTopicQOS)
+        PacketListField("topics", [], MQTTTopicQOS)
     ]
 
 ALLOWED_RETURN_CODE = {
@@ -258,7 +258,7 @@ class MQTTUnsubscribe(Packet):
     name = "MQTT unsubscribe"
     fields_desc = [
         ShortField("msgid", None),
-        PacketListField("topics", [], cls=MQTTTopic)
+        PacketListField("topics", [], MQTTTopic)
     ]
 
 
