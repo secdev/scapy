@@ -103,18 +103,16 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         for lower, fval in six.iteritems(self._overload_fields):
             print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))  # noqa: E501
 
-    def _unpickle(self, dlist):
-        """Used to unpack pickling"""
-        self.__init__(b"".join(dlist))
-        return self
-
     def __reduce__(self):
         """Used by pickling methods"""
-        return (self.__class__, (), (self.build(),))
-
-    def __reduce_ex__(self, proto):
-        """Used by pickling methods"""
-        return self.__reduce__()
+        return (self.__class__, (), (
+            self.build(),
+            self.time,
+            self.sent_time,
+            self.direction,
+            self.sniffed_on,
+            self.wirelen,
+        ))
 
     def __getstate__(self):
         """Mark object as pickable"""
@@ -122,7 +120,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
 
     def __setstate__(self, state):
         """Rebuild state using pickable methods"""
-        return self._unpickle(state)
+        self.__init__(state[0])
+        self.time = state[1]
+        self.sent_time = state[2]
+        self.direction = state[3]
+        self.sniffed_on = state[4]
+        self.wirelen = state[5]
+        return self
 
     def __deepcopy__(self, memo):
         """Used by copy.deepcopy"""
@@ -148,6 +152,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         self.raw_packet_cache = None
         self.raw_packet_cache_fields = None
         self.wirelen = None
+        self.direction = None
+        self.sniffed_on = None
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
