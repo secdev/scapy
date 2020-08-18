@@ -1423,7 +1423,13 @@ class RawPcapWriter:
             # Import here to avoid a circular dependency
             from scapy.plist import SndRcvList
             if isinstance(pkt, SndRcvList):
-                pkt = (p for t in pkt for p in t)
+                def _iter(pkt=pkt):
+                    for s, r in pkt:
+                        if s.sent_time:
+                            s.time = s.sent_time
+                        yield s
+                        yield r
+                pkt = _iter()
             else:
                 pkt = pkt.__iter__()
             for p in pkt:

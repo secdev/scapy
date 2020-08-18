@@ -7138,6 +7138,17 @@ assert newpktpcapwirelen[0].wirelen is not None
 assert len(newpktpcapwirelen[0]) < newpktpcapwirelen[0].wirelen
 assert newpktpcapwirelen[0].wirelen == pktpcapwirelen[0].wirelen
 
+= Check wrpcap() then rdpcap() with sent_time on SndRcvList
+f = get_temp_file()
+s = Ether()/IP()
+r = Ether()/IP()
+s.sent_time = 1
+r.time = 2
+wrpcap(f, SndRcvList([(s, r)]))
+pcap = rdpcap(f)
+assert pcap[0].time == 1
+assert pcap[1].time == 2
+
 = Check wrpcap()
 fdesc, filename = tempfile.mkstemp()
 fdesc = os.fdopen(fdesc, "wb")
