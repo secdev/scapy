@@ -13279,13 +13279,19 @@ if PYX and not six.PY2:
 import pickle
 
 frm = Ether(src='00:11:22:33:44:55', dst='00:22:33:44:55:66')/Raw()
+frm.time = EDecimal(123.45)
+frm.sniffed_on = "iface"
+frm.wirelen = 1
 pl = PacketList(res=[frm, frm], name='WhatAGreatName')
 pickled = pickle.dumps(pl)
 pl = pickle.loads(pickled)
-assert(pl.listname == "WhatAGreatName")
-assert(len(pl) == 2)
-assert(pl[0][Ether].src == '00:11:22:33:44:55')
-assert(pl[1][Ether].dst == '00:22:33:44:55:66')
+assert pl.listname == "WhatAGreatName"
+assert len(pl) == 2
+assert pl[0].time == 123.45
+assert pl[0].sniffed_on == "iface"
+assert pl[0].wirelen == 1
+assert pl[0][Ether].src == '00:11:22:33:44:55'
+assert pl[1][Ether].dst == '00:22:33:44:55:66'
 
 
 ############
