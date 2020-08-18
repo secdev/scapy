@@ -17,9 +17,21 @@ import os
 import struct
 
 from scapy.error import log_runtime, warning
-from scapy.fields import ByteEnumField, ByteField, EnumField, Field, \
-    FieldLenField, IntField, PacketField, PacketListField, ShortField, \
-    StrFixedLenField, StrLenField, ThreeBytesField, UTCTimeField
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    Field,
+    FieldLenField,
+    IntField,
+    PacketField,
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    StrFixedLenField,
+    StrLenField,
+    ThreeBytesField,
+    UTCTimeField,
+)
 
 from scapy.compat import hex_bytes, orb, raw
 from scapy.config import conf
@@ -481,7 +493,7 @@ class TLSServerHello(_TLSHandshake):
                    _SessionIDField("sid", "",
                                    length_from=lambda pkt: pkt.sidlen),
 
-                   EnumField("cipher", None, _tls_cipher_suites),
+                   ShortEnumField("cipher", None, _tls_cipher_suites),
                    _CompressionMethodsField("comp", [0],
                                             _tls_compression_algs,
                                             itemfmt="B",
@@ -489,10 +501,9 @@ class TLSServerHello(_TLSHandshake):
 
                    _ExtensionsLenField("extlen", None, length_of="ext"),
                    _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: (pkt.msglen -
-                                                             (pkt.sidlen or 0) -  # noqa: E501
-                                                             38))]
-    # 40)) ]
+                                    length_from=lambda pkt: (
+                                        pkt.msglen - (pkt.sidlen or 0) - 40
+                                    ))]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -563,7 +574,7 @@ _tls_13_server_hello_fields = [
     FieldLenField("sidlen", None, length_of="sid", fmt="B"),
     _SessionIDField("sid", "",
                     length_from=lambda pkt: pkt.sidlen),
-    EnumField("cipher", None, _tls_cipher_suites),
+    ShortEnumField("cipher", None, _tls_cipher_suites),
     _CompressionMethodsField("comp", [0],
                              _tls_compression_algs,
                              itemfmt="B",
@@ -1020,7 +1031,7 @@ class TLSServerKeyExchange(_TLSHandshake):
         fval = self.getfieldval("sig")
         if fval is None:
             s = self.tls_session
-            if s.pwcs:
+            if s.pwcs and s.client_random:
                 if not s.pwcs.key_exchange.anonymous:
                     p = self.params
                     if p is None:
@@ -1126,7 +1137,7 @@ class TLSCertificateRequest(_TLSHandshake):
                    SigAndHashAlgsLenField("sig_algs_len", None,
                                           length_of="sig_algs"),
                    SigAndHashAlgsField("sig_algs", [0x0403, 0x0401, 0x0201],
-                                       EnumField("hash_sig", None, _tls_hash_sig),  # noqa: E501
+                                       ShortEnumField("hash_sig", None, _tls_hash_sig),  # noqa: E501
                                        length_from=lambda pkt: pkt.sig_algs_len),  # noqa: E501
                    FieldLenField("certauthlen", None, fmt="!H",
                                  length_of="certauth"),

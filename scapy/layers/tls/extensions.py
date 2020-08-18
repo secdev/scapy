@@ -761,7 +761,7 @@ class _ExtensionsLenField(FieldLenField):
                 i = self.adjust(pkt, f)
                 if i == 0:  # for correct build if no ext and not explicitly 0
                     v = pkt.tls_session.tls_version
-                    # Xith TLS 1.3, zero lengths are always explicit.
+                    # With TLS 1.3, zero lengths are always explicit.
                     if v is None or v < 0x0304:
                         return s
                     else:
@@ -779,8 +779,8 @@ class _ExtensionsField(StrLenField):
         return len(self.i2m(pkt, i))
 
     def getfield(self, pkt, s):
-        tmp_len = self.length_from(pkt)
-        if tmp_len is None:
+        tmp_len = self.length_from(pkt) or 0
+        if tmp_len <= 0:
             return s, []
         return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
