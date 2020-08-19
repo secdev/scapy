@@ -182,7 +182,7 @@ ie = gtp.IE_list[0]
 ie.Protocols[0].type == 12 and ie.Protocols[1].type == 18 and ie.Protocols[2].type == 13
 
 = IE_APCO, basic instantiation
-ie = IE_APCO(Protocols=[PCO_P_CSCF_IPv4_Address_Request(address=None, type=12, length=0),PCO_P_CSCF_Re_selection_Support(type=18, length=0),PCO_DNS_Server_IPv4(address=None, type=13, length=0)], ietype=163, length=10, CR_flag=0, instance=0, Extension=1, SPARE=0, PPP=0)
+ie = IE_APCO(Protocols=[PCO_P_CSCF_IPv4_Address_Request(address=None, type=12, length=0),PCO_P_CSCF_Re_selection_Support(type=18, length=0),PCO_DNS_Server_IPv4(address=None, type=13, length=0)], ietype=163, length=10, CR_flag=0, instance=0, extension=1, SPARE=0, PPP=0)
 ie.extension == 1 and ie.ietype == 163 and ie.length == 10 and ie.Protocols[0].type == 12 and ie.Protocols[1].type == 18 and ie.Protocols[2].type == 13
 
 = IE_MMContext_EPS, dissection
