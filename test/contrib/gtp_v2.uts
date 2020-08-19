@@ -183,7 +183,7 @@ ie.Protocols[0].type == 12 and ie.Protocols[1].type == 18 and ie.Protocols[2].ty
 
 = IE_APCO, basic instantiation
 ie = IE_APCO(Protocols=[PCO_P_CSCF_IPv4_Address_Request(address=None, type=12, length=0),PCO_P_CSCF_Re_selection_Support(type=18, length=0),PCO_DNS_Server_IPv4(address=None, type=13, length=0)], ietype=163, length=10, CR_flag=0, instance=0, Extension=1, SPARE=0, PPP=0)
-ie.Extension == 1 and ie.ietype == 163 and ie.length == 10 and ie.Protocols[0].type == 12 and ie.Protocols[1].type == 18 and ie.Protocols[2].type == 13
+ie.extension == 1 and ie.ietype == 163 and ie.length == 10 and ie.Protocols[0].type == 12 and ie.Protocols[1].type == 18 and ie.Protocols[2].type == 13
 
 = IE_MMContext_EPS, dissection
 h = "d89ef3da40e2fa163e956dce08004500007f0001000040114bbd0a0a0f3d0a0f0b5b084b084b006b5a234883005f0000180f76d163006b0046008800910000020000021890aa80be385102083701a2907066f8bd9f2a28b717671c71c71c71c71c71c70100003d090002625a00028040000812345678900000000000000000006d000900880005000470677731"

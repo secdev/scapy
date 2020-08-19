@@ -453,7 +453,7 @@ class IE_ULI_Timestamp(gtp.IE_Base):
         ShortField("length", None),
         BitField("CR_flag", 0, 4),
         BitField("instance", 0, 4),
-        BitField("Timestamp", 0, 32)]
+        XIntField("timestamp", 0)]
 
 
 # 3GPP TS 29.274 v12.12.0 section 8.22
@@ -1309,7 +1309,7 @@ class IE_APCO(gtp.IE_Base):
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   BitField("Extension", 0, 1),
+                   BitField("extension", 0, 1),
                    BitField("SPARE", 0, 4),
                    BitField("PPP", 0, 3),
                    PacketListField("Protocols", None, PCO_protocol_dispatcher,
