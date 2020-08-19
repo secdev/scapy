@@ -239,7 +239,7 @@ class MQTTSubscribe(Packet):
     name = "MQTT subscribe"
     fields_desc = [
         ShortField("msgid", None),
-        PacketListField("topics", [], MQTTTopicQOS)
+        PacketListField("topics", [], cls=MQTTTopicQOS)
     ]
 
 
@@ -263,7 +263,7 @@ class MQTTUnsubscribe(Packet):
     name = "MQTT unsubscribe"
     fields_desc = [
         ShortField("msgid", None),
-        PacketListField("topics", [], MQTTTopic)
+        PacketListField("topics", [], cls=MQTTTopic)
     ]
 
 
