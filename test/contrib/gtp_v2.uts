@@ -175,6 +175,16 @@ ie.Protocols[0].type == 27
 ie = IE_EPCO(Protocols=[PCO_S_Nssai(type=27, length=0)], ietype=197, length=4, CR_flag=0, instance=0, Extension=1, SPARE=0, PPP=0)
 ie.Extension == 1 and ie.ietype == 197 and ie.Protocols[0].type == 27 and ie.Protocols[0].length == 0
 
+= IE_APCO, dissection
+h = "d89ef3da40e2fa163e956dce0800450000360001000040115d650a0f0f3d01020304084b084b00220000482000160000000100000100a3000a0080000c00001200000d00"
+gtp = Ether(hex_bytes(h))
+ie = gtp.IE_list[0]
+ie.Protocols[0].type == 12 and ie.Protocols[1].type == 18 and ie.Protocols[2].type == 13
+
+= IE_APCO, basic instantiation
+ie = IE_APCO(Protocols=[PCO_P_CSCF_IPv4_Address_Request(address=None, type=12, length=0),PCO_P_CSCF_Re_selection_Support(type=18, length=0),PCO_DNS_Server_IPv4(address=None, type=13, length=0)], ietype=163, length=10, CR_flag=0, instance=0, extension=1, SPARE=0, PPP=0)
+ie.extension == 1 and ie.ietype == 163 and ie.length == 10 and ie.Protocols[0].type == 12 and ie.Protocols[1].type == 18 and ie.Protocols[2].type == 13
+
 = IE_MMContext_EPS, dissection
 h = "d89ef3da40e2fa163e956dce08004500007f0001000040114bbd0a0a0f3d0a0f0b5b084b084b006b5a234883005f0000180f76d163006b0046008800910000020000021890aa80be385102083701a2907066f8bd9f2a28b717671c71c71c71c71c71c70100003d090002625a00028040000812345678900000000000000000006d000900880005000470677731"
 gtp = Ether(hex_bytes(h))
@@ -440,10 +450,16 @@ gtp = Ether(hex_bytes(h))
 isinstance(gtp.IE_list[0], IE_NotImplementedTLV)
 isinstance(gtp.IE_list[0].payload, NoPayload)
 
-= IE_PrivateExtension
-h = "5001003500303900ff0031002b79deadbeef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678"
-gtp = GTPHeader(hex_bytes(h))
-gtp.show2()
-(ie,) = gtp.IE_list
-ie.enterprisenum == 11129
-bytes_hex(ie.payload) == b"deadbeef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678"
+= IE_PrivateExtension, dissection
+h = "d89ef3da40e2fa163e956dce08004500005b0001000040115d400a0f0f3d01020304084b084b00470000482000620000000100000100ff0015000137020046462d46462d46462d46462d46462d4646ff00160001370100000100000000000000000000000000000000"
+gtp = Ether(hex_bytes(h))
+ie1 = gtp.IE_list[0]
+ie2 = gtp.IE_list[1]
+ie1.enterprisenum == 311 and bytes_hex(ie1.proprietaryvalue) == b'020046462d46462d46462d46462d46462d4646'
+ie2.enterprisenum == 311 and bytes_hex(ie2.proprietaryvalue) == b'0100000100000000000000000000000000000000'
+
+= IE_PrivateExtension, basic instantiation
+ie1 = IE_PrivateExtension(ietype=255, length=21, SPARE=0, instance=0, enterprisenum=311, proprietaryvalue=hex_bytes('020046462d46462d46462d46462d46462d4646'))
+ie2 = IE_PrivateExtension(ietype=255, length=22, SPARE=0, instance=0, enterprisenum=311, proprietaryvalue=hex_bytes('0100000100000000000000000000000000000000'))
+ie1.enterprisenum == 311 and bytes_hex(ie1.proprietaryvalue) == b'020046462d46462d46462d46462d46462d4646'
+ie2.enterprisenum == 311 and bytes_hex(ie2.proprietaryvalue) == b'0100000100000000000000000000000000000000'
