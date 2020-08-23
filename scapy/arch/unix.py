@@ -49,7 +49,7 @@ def read_routes():
     if SOLARIS:
         f = os.popen("netstat -rvn -f inet")
     elif FREEBSD:
-        f = os.popen("netstat -rnW")  # -W to handle long interface names
+        f = os.popen("netstat -rnW -f inet")  # -W to show long interface names
     else:
         f = os.popen("netstat -rn -f inet")
     ok = 0
@@ -71,7 +71,7 @@ def read_routes():
                 mtu_present = "mtu" in line
                 prio_present = "prio" in line
                 refs_present = "ref" in line  # There is no s on Solaris
-                use_present = "use" in line
+                use_present = "use" in line or "nhop" in line
             continue
         if not line:
             break
