@@ -908,7 +908,6 @@ class AsyncSniffer(object):
 
         # Get select information from the sockets
         _main_socket = next(iter(sniff_sockets))
-        read_allowed_exceptions = _main_socket.read_allowed_exceptions
         select_func = _main_socket.select
         _backup_read_func = _main_socket.__class__.recv
         nonblocking_socket = _main_socket.nonblocking_socket
@@ -917,10 +916,6 @@ class AsyncSniffer(object):
             warning("Warning: inconsistent socket types ! "
                     "The used select function "
                     "will be the one of the first socket")
-
-        # Fill if empty
-        if not read_allowed_exceptions:
-            read_allowed_exceptions = (IOError,)
 
         if nonblocking_socket:
             # select is non blocking
@@ -970,8 +965,6 @@ class AsyncSniffer(object):
                         except Exception:
                             pass
                         dead_sockets.append(s)
-                        continue
-                    except read_allowed_exceptions:
                         continue
                     except Exception as ex:
                         msg = " It was closed."

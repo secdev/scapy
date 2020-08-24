@@ -197,8 +197,6 @@ def select_objects(inputs, remain):
 
 
 class ObjectPipe(SelectableObject):
-    read_allowed_exceptions = ()
-
     def __init__(self):
         self.closed = False
         self.rd, self.wr = os.pipe()

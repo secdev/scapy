@@ -60,7 +60,6 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
     closed = 0
     nonblocking_socket = False
-    read_allowed_exceptions = ()
     auxdata_available = False
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
