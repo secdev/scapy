@@ -7366,7 +7366,7 @@ with mock.patch('subprocess.Popen', return_value=Bunch(
         tcpdump([pkt], linktype="DLT_EN3MB", use_tempfile=False)
 
 popen.assert_called_once_with(
-    [conf.prog.tcpdump, '-y', 'EN3MB', '-r', '-'],
+    [conf.prog.tcpdump, '-y', 'EN3MB', '-U', '-r', '-'],
     stdin=subprocess.PIPE, stdout=None, stderr=None)
 
 print(bytes_hex(f.getvalue()))
@@ -7387,7 +7387,7 @@ with mock.patch('subprocess.Popen', return_value=Bunch(
         tcpdump([pkt], linktype=scapy.data.DLT_EN10MB, use_tempfile=False)
 
 popen.assert_called_once_with(
-    [conf.prog.tcpdump, '-y', 'EN10MB', '-r', '-'],
+    [conf.prog.tcpdump, '-y', 'EN10MB', '-U', '-r', '-'],
     stdin=subprocess.PIPE, stdout=None, stderr=None)
 
 print(bytes_hex(f.getvalue()))
