@@ -8928,6 +8928,44 @@ ff02::%lo0/32                     ::1                           U           lo0
 test_freebsd_10_2()
 
 
+= FreeBSD 13.0
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.os")
+def test_freebsd_13(mock_os):
+    """Test read_routes() on FreeBSD 13"""
+    # 'netstat -rnW -f inet' output
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags   Nhop#    Mtu      Netif Expire
+default            10.0.0.1           UGS         3   1500     vtnet0
+10.0.0.0/24        link#1             U           2   1500     vtnet0
+10.0.0.8           link#2             UHS         1  16384        lo0
+127.0.0.1          link#2             UH          1  16384        lo0
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Test the function
+    from scapy.arch.unix import read_routes
+    routes = read_routes()
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
+    for r in routes:
+        print(r)
+        assert(r[3] in ["vtnet0", "lo0"])
+    assert(len(routes) == 4)
+
+test_freebsd_13()
+
+
 = OpenBSD 5.5
 ~ mock_read_routes_bsd
 
