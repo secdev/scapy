@@ -70,20 +70,20 @@ assert(connack.retcode == 0)
 
 
 = MQTTSubscribe, packet instantiation
-sb = MQTT()/MQTTSubscribe(msgid=1,topic='newtopic',QOS=0,length=0)
+sb = MQTT()/MQTTSubscribe(msgid=1, topics=[MQTTTopicQOS(topic='newtopic', QOS=1, length=0)])
 assert(sb.type == 8)
 assert(sb.msgid == 1)
-assert(sb.topic == b'newtopic')
-assert(sb.length == 0)
-assert(sb[MQTTSubscribe].QOS == 0)
+assert(sb.topics[0].topic == b'newtopic')
+assert(sb.topics[0].length == 0)
+assert(sb[MQTTSubscribe][MQTTTopicQOS].QOS == 1)
 
 = MQTTSubscribe, packet dissection
-s = b'\x82\t\x00\x01\x00\x04test\x00'
+s = b'\x82\t\x00\x01\x00\x04test\x01'
 subscribe = MQTT(s)
 assert(subscribe.msgid == 1)
-assert(subscribe.length == 4)
-assert(subscribe.topic == b'test')
-assert(subscribe.QOS == 1)
+assert(subscribe.topics[0].length == 4)
+assert(subscribe.topics[0].topic == b'test')
+assert(subscribe.topics[0].QOS == 1)
 
 
 = MQTTSuback, packet instantiation
@@ -98,6 +98,30 @@ suback = MQTT(s)
 assert(suback.msgid == 1)
 assert(suback.retcode == 0)
 
+= MQTTUnsubscribe, packet instantiation
+unsb = MQTT()/MQTTUnsubscribe(msgid=1, topics=[MQTTTopic(topic='newtopic',length=0)])
+assert(unsb.type == 10)
+assert(unsb.msgid == 1)
+assert(unsb.topics[0].topic == b'newtopic')
+assert(unsb.topics[0].length == 0)
+
+= MQTTUnsubscribe, packet dissection
+u = b'\xA2\x09\x00\x01\x00\x03\x61\x2F\x62'
+unsubscribe = MQTT(u)
+assert(unsubscribe.msgid == 1)
+assert(unsubscribe.topics[0].length == 3)
+assert(unsubscribe.topics[0].topic == b'a/b')
+
+= MQTTUnsuback, packet instantiation
+unsk = MQTT()/MQTTUnsuback(msgid=1)
+assert(unsk.type == 11)
+assert(unsk.msgid == 1)
+
+= MQTTUnsuback, packet dissection
+u = b'\xb0\x02\x00\x01'
+unsuback = MQTT(u)
+assert(unsuback.type == 11)
+assert(unsuback.msgid == 1)
 
 = MQTTPubrec, packet instantiation
 pc = MQTT()/MQTTPubrec(msgid=1)
@@ -129,3 +153,7 @@ assert(type(MQTT().fieldtype['len'].randval() + 0) == int)
 = MQTTUnsubscribe
 u = MQTT(b'\xA2\x0C\x00\x01\x00\x03\x61\x2F\x62\x00\x03\x63\x2F\x64')
 assert MQTTUnsubscribe in u and len(u.topics) == 2 and u.topics[1].topic == b"c/d"
+
+= MQTTSubscribe
+u = MQTT(b'\x82\x10\x00\x01\x00\x03\x61\x2F\x62\x02\x00\x03\x63\x2F\x64\x00')
+assert MQTTSubscribe in u and len(u.topics) == 2 and u.topics[1].topic == b"c/d"
