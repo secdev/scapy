@@ -256,15 +256,20 @@ class GTPHeader(gtp.GTPHeader):
     fields_desc = [BitField("version", 2, 3),
                    BitField("P", 1, 1),
                    BitField("T", 1, 1),
-                   BitField("SPARE", 0, 1),
-                   BitField("SPARE", 0, 1),
-                   BitField("SPARE", 0, 1),
+                   BitField("MP", 0, 1),
+                   BitField("SPARE1", 0, 1),
+                   BitField("SPARE2", 0, 1),
                    ByteEnumField("gtp_type", None, GTPmessageType),
                    ShortField("length", None),
                    ConditionalField(XIntField("teid", 0),
                                     lambda pkt:pkt.T == 1),
                    ThreeBytesField("seq", RandShort()),
-                   ByteField("SPARE", 0)
+                   ConditionalField(BitField("msg_priority", 0, 4),
+                                    lambda pkt:pkt.MP == 1),
+                   ConditionalField(BitField("SPARE3", 0, 4),
+                                    lambda pkt:pkt.MP == 1),
+                   ConditionalField(ByteField("SPARE3", 0),
+                                    lambda pkt:pkt.MP == 0)
                    ]
 
 
