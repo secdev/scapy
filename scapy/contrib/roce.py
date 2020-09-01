@@ -11,9 +11,10 @@ RoCE: RDMA over Converged Ethernet
 """
 
 from scapy.packet import Packet, bind_layers, Raw
-from scapy.fields import ByteEnumField, XShortField, \
-    XLongField, BitField, FCSField
+from scapy.fields import ByteEnumField, ByteField, XByteField, \
+    ShortField, XShortField, XLongField, BitField, XBitField, FCSField
 from scapy.layers.inet import IP, UDP
+from scapy.layers.l2 import Ether
 from scapy.compat import raw
 from scapy.error import warning
 from zlib import crc32
@@ -199,6 +200,21 @@ def cnp(dqpn):
     return BTH(opcode=CNP_OPCODE, becn=1, dqpn=dqpn) / CNPPadding()
 
 
+class GRH(Packet):
+    name = "GRH"
+    fields_desc = [
+        BitField("ipver", 6, 4),
+        BitField("tclass", 0, 8),
+        BitField("flowlabel", 6, 20),
+        ShortField("paylen", 0),
+        ByteField("nexthdr", 0),
+        ByteField("hoplmt", 0),
+        XBitField("sgid", 0, 128),
+        XBitField("dgid", 0, 128),
+    ]
+
 bind_layers(BTH, CNPPadding, opcode=CNP_OPCODE)
 
+bind_layers(Ether, GRH, type=0x8915)
+bind_layers(GRH, BTH)
 bind_layers(UDP, BTH, dport=4791)
