@@ -2,16 +2,17 @@
 DIR=$(dirname "$0")/..
 if [ -z "$PYTHON" ]
 then
-  ARGS=$(getopt 23 "$*" 2> /dev/null)
-  for arg in $ARGS
+  ARGS=""
+  for arg in "$@"
   do
     case $arg
     in
-      -2) PYTHON=python2; shift;;
-      -3) PYTHON=python3; shift;;
-      --) PYTHON=python3; break;;
+      -2) PYTHON=python2;;
+      -3) PYTHON=python3;;
+       *) ARGS="$ARGS $arg";;
     esac
   done
+  PYTHON=${PYTHON:-python3}
 fi
 $PYTHON --version > /dev/null 2>&1
 if [ ! $? -eq 0 ]
