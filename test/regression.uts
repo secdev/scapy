@@ -7269,6 +7269,12 @@ assert isinstance(pkt, Padding) and pkt.load == b'\xeay$\xf6'
 pkt = pkt.payload
 assert isinstance(pkt, NoPayload)
 
+= Invalid pcapng file
+
+from io import BytesIO
+invalid_pcapngfile = BytesIO(b'\n\r\r\n\r\x00\x00\x00M<+\x1a\xb2<\xb2\xa1\x01\x00\x00\x00\r\x00\x00\x00M<+\x1a\x80\xaa\xb2\x02')
+assert(len(rdpcap(invalid_pcapngfile)) == 0)
+
 = Check PcapWriter on null write
 
 f = BytesIO()

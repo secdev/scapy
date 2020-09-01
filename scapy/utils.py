@@ -1234,6 +1234,7 @@ class RawPcapNgReader(RawPcapReader):
                 if (blocklen,) != struct.unpack(self.endian + 'I',
                                                 self.f.read(4)):
                     warning("PcapNg: Invalid pcapng block (bad blocklen)")
+                    raise EOFError
             except struct.error:
                 raise EOFError
             res = self.blocktypes.get(blocktype,
