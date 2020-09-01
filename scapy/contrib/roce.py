@@ -213,8 +213,19 @@ class GRH(Packet):
         XBitField("dgid", 0, 128),
     ]
 
+
+class AETH(Packet):
+    name = "AETH"
+    fields_desc = [
+        XByteField("syndrome", 0),
+        XBitField("msn", 0, 24),
+    ]
+
+
 bind_layers(BTH, CNPPadding, opcode=CNP_OPCODE)
 
 bind_layers(Ether, GRH, type=0x8915)
 bind_layers(GRH, BTH)
+bind_layers(BTH, AETH, opcode=opcode('RC', 'ACKNOWLEDGE')[0])
+bind_layers(BTH, AETH, opcode=opcode('RD', 'ACKNOWLEDGE')[0])
 bind_layers(UDP, BTH, dport=4791)
