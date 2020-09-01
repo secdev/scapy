@@ -1,7 +1,7 @@
 # Install Npcap on the machine.
 
 # Config:
-$npcap_oem_file = "npcap-0.99-r9-oem.exe"
+$npcap_oem_file = "npcap-0.9997-oem.exe"
 
 # Note: because we need the /S option (silent), this script has two cases:
 #  - The script is runned from a master build, then use the secure variable 'npcap_oem_key' which will be available
@@ -9,9 +9,9 @@ $npcap_oem_file = "npcap-0.99-r9-oem.exe"
 #  - The script is runned from a PR, then use the provided archived 0.96 version, which is the last public one to
 #    provide support for the /S option
 
-Try
-{
-    # Check that the key is defined (build mode)
+if (Test-Path Env:npcap_oem_key){  # Key is here: on master
+    echo "Using Npcap OEM version"
+    # Unpack the key
     $user, $pass = (Get-ChildItem Env:npcap_oem_key).Value.replace("`"", "").split(",")
     if(!$user -Or !$pass){
         Throw (New-Object System.Exception)
@@ -25,9 +25,8 @@ Try
     $secpasswd = ConvertTo-SecureString $pass -AsPlainText -Force
     $credential = New-Object System.Management.Automation.PSCredential($user, $secpasswd)
     Invoke-WebRequest -uri (-join("https://nmap.org/npcap/oem/dist/",$npcap_oem_file)) -OutFile $file -Headers $headers -Credential $credential
-}
-Catch
-{
+} else {  # No key: PRs
+    echo "Using backup 0.96"
     $file = $PSScriptRoot+"\npcap-0.96.exe"
     # Download the 0.96 file from nmap servers
     wget "https://nmap.org/npcap/dist/npcap-0.96.exe" -UseBasicParsing -OutFile $file
@@ -40,9 +39,10 @@ Catch
         echo "Checksums matches !"
     }
 }
-echo "Installing:"
-echo $file
+echo ('Installing: ' + $file)
 
 # Run installer
 Start-Process $file -ArgumentList "/loopback_support=yes /S" -wait
-echo "Npcap installation completed"
+if($?) {
+    echo "Npcap installation completed"
+}
