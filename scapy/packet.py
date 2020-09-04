@@ -129,41 +129,6 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         for lower, fval in six.iteritems(self._overload_fields):
             print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))  # noqa: E501
 
-    def __reduce__(self):
-        # type: () -> Tuple[Packet_metaclass, Tuple[()], Tuple[bytes]]
-        """Used by pickling methods"""
-        return (self.__class__, (), (
-            self.build(),
-            self.time,
-            self.sent_time,
-            self.direction,
-            self.sniffed_on,
-            self.wirelen,
-        ))
-
-    def __getstate__(self):
-        # type: () -> Tuple[bytes]
-        """Mark object as pickable"""
-        return self.__reduce__()[2]
-
-    def __setstate__(self, state):
-        # type: (Tuple[bytes]) -> Packet
-        """Rebuild state using pickable methods"""
-        self.__init__(state[0])
-        self.time = state[1]
-        self.sent_time = state[2]
-        self.direction = state[3]
-        self.sniffed_on = state[4]
-        self.wirelen = state[5]
-        return self
-
-    def __deepcopy__(self,
-                     memo,  # type: Any
-                     ):
-        # type: (...) -> Packet
-        """Used by copy.deepcopy"""
-        return self.copy()
-
     def __init__(self,
                  _pkt=b"",  # type: bytes
                  post_transform=None,  # type: Any
@@ -190,9 +155,9 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.explicit = 0
         self.raw_packet_cache = None  # type: Optional[bytes]
         self.raw_packet_cache_fields = None  # type: Optional[Dict[str, Any]]  # noqa: E501
-        self.wirelen = None
-        self.direction = None
-        self.sniffed_on = None
+        self.wirelen = None  # type: Optional[int]
+        self.direction = None  # type: Optional[int]
+        self.sniffed_on = None  # type: Optional[str]
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -222,6 +187,50 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.post_transforms = []
         else:
             self.post_transforms = [post_transform]
+
+    _PickleType = Tuple[
+        bytes,
+        float,
+        Optional[float],
+        Optional[int],
+        Optional[str],
+        Optional[int]
+    ]
+
+    def __reduce__(self):
+        # type: () -> Tuple[Packet_metaclass, Tuple[()], Packet._PickleType]
+        """Used by pickling methods"""
+        return (self.__class__, (), (
+            self.build(),
+            self.time,
+            self.sent_time,
+            self.direction,
+            self.sniffed_on,
+            self.wirelen,
+        ))
+
+    def __getstate__(self):
+        # type: () -> Packet._PickleType
+        """Mark object as pickable"""
+        return self.__reduce__()[2]
+
+    def __setstate__(self, state):
+        # type: (Packet._PickleType) -> Packet
+        """Rebuild state using pickable methods"""
+        self.__init__(state[0])  # type: ignore
+        self.time = state[1]
+        self.sent_time = state[2]
+        self.direction = state[3]
+        self.sniffed_on = state[4]
+        self.wirelen = state[5]
+        return self
+
+    def __deepcopy__(self,
+                     memo,  # type: Any
+                     ):
+        # type: (...) -> Packet
+        """Used by copy.deepcopy"""
+        return self.copy()
 
     def init_fields(self):
         # type: () -> None
@@ -2524,7 +2533,7 @@ def fuzz(p,  # type: Packet
     q = p
     while not isinstance(q, NoPayload):
         new_default_fields = {}
-        multiple_type_fields = []
+        multiple_type_fields = []  # type: List[str]
         for f in q.fields_desc:
             if isinstance(f, PacketListField):
                 for r in getattr(q, f.name):

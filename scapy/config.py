@@ -26,7 +26,7 @@ from scapy.base_classes import Packet_metaclass
 from scapy.consts import DARWIN, WINDOWS, LINUX, BSD, SOLARIS
 from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
 from scapy.modules import six
-from scapy.themes import ColorTheme, NoTheme, apply_ipython_style
+from scapy.themes import NoTheme, apply_ipython_style
 
 from scapy.compat import (
     Any,
@@ -543,7 +543,7 @@ def isPyPy():
 
 
 def _prompt_changer(attr, val, old):
-    # type: (str, Any, Any) -> None
+    # type: (str, Any, Any) -> Any
     """Change the current prompt theme"""
     Interceptor.set_from_hook(conf, attr, val)
     try:
@@ -624,7 +624,7 @@ def _set_conf_sockets():
 
 
 def _socket_changer(attr, val, old):
-    # type: (str, bool, bool) -> None
+    # type: (str, bool, bool) -> Any
     if not isinstance(val, bool):
         raise TypeError("This argument should be a boolean")
     Interceptor.set_from_hook(conf, attr, val)
@@ -648,13 +648,14 @@ def _socket_changer(attr, val, old):
 
 
 def _loglevel_changer(attr, val, old):
-    # type: (str, int, int) -> None
+    # type: (str, int, int) -> int
     """Handle a change of conf.logLevel"""
     log_scapy.setLevel(val)
     return val
 
 
 def _iface_changer(attr, val, old):
+    # type: (str, Any, Any) -> 'scapy.interfaces.NetworkInterfaceDict'
     """Resolves the interface in conf.iface"""
     if isinstance(val, str):
         from scapy.interfaces import resolve_iface
@@ -741,7 +742,7 @@ class Conf(ConfClass):
     debug_tls = False
     wepkey = ""
     #: holds the Scapy interface list and manager
-    ifaces = None
+    ifaces = None  # type: 'scapy.interfaces.NetworkInterfaceDict'
     #: holds the cache of interfaces loaded from Libpcap
     cache_iflist = {}  # type: Dict[str, Tuple[str, List[str], int]]
     #: holds the Scapy IPv4 routing table and provides methods to

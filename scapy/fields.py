@@ -2151,15 +2151,29 @@ class BitField(_BitField[int]):
 class BitFixedLenField(BitField):
     __slots__ = ["length_from"]
 
-    def __init__(self, name, default, length_from):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: int
+                 length_from  # type: Callable[[BasePacket], int]
+                 ):
+        # type: (...) -> None
         self.length_from = length_from
         super(BitFixedLenField, self).__init__(name, default, 0)
 
-    def getfield(self, pkt, s):
+    def getfield(self,  # type: ignore
+                 pkt,  # type: BasePacket
+                 s,  # type: Union[Tuple[bytes, int], bytes]
+                 ):
+        # type: (...) -> Union[Tuple[Tuple[bytes, int], int], Tuple[bytes, int]]  # noqa: E501
         self.size = self.length_from(pkt)
         return super(BitFixedLenField, self).getfield(pkt, s)
 
-    def addfield(self, pkt, s, val):
+    def addfield(self,  # type: ignore
+                 pkt,  # type: BasePacket
+                 s,  # type: Union[Tuple[bytes, int, int], bytes]
+                 val  # type: int
+                 ):
+        # type: (...) -> Union[Tuple[bytes, int, int], bytes]
         self.size = self.length_from(pkt)
         return super(BitFixedLenField, self).addfield(pkt, s, val)
 
@@ -3164,7 +3178,7 @@ class _ScalingField(object):
         self.unit = unit
         self.offset = offset
         self.ndigits = ndigits
-        Field.__init__(self, name, default, fmt)
+        Field.__init__(self, name, default, fmt)  # type: ignore
 
     def i2m(self,
             pkt,  # type: Optional[BasePacket]
@@ -3174,21 +3188,21 @@ class _ScalingField(object):
         if x is None:
             x = 0
         x = (x - self.offset) / self.scaling
-        if isinstance(x, float) and self.fmt[-1] != "f":
+        if isinstance(x, float) and self.fmt[-1] != "f":  # type: ignore
             x = int(round(x))
         return x
 
     def m2i(self, pkt, x):
         # type: (Optional[BasePacket], Union[int, float]) -> Union[int, float]
         x = x * self.scaling + self.offset
-        if isinstance(x, float) and self.fmt[-1] != "f":
+        if isinstance(x, float) and self.fmt[-1] != "f":  # type: ignore
             x = round(x, self.ndigits)
         return x
 
     def any2i(self, pkt, x):
         # type: (Optional[BasePacket], Any) -> Union[int, float]
         if isinstance(x, (str, bytes)):
-            x = struct.unpack(self.fmt, bytes_encode(x))[0]
+            x = struct.unpack(self.fmt, bytes_encode(x))[0]  # type: ignore
             x = self.m2i(pkt, x)
         if not isinstance(x, (int, float)):
             raise ValueError("Unknown type")
@@ -3196,11 +3210,14 @@ class _ScalingField(object):
 
     def i2repr(self, pkt, x):
         # type: (Optional[BasePacket], Union[int, float]) -> str
-        return "%s %s" % (self.i2h(pkt, x), self.unit)
+        return "%s %s" % (
+            self.i2h(pkt, x),  # type: ignore
+            self.unit
+        )
 
     def randval(self):
         # type: () -> RandFloat
-        value = super(ScalingField, self).randval()
+        value = Field.randval(self)  # type: ignore
         if value is not None:
             min_val = round(value.min * self.scaling + self.offset,
                             self.ndigits)
@@ -3252,13 +3269,15 @@ class ScalingField(_ScalingField,
        :param fmt: struct.pack format used to parse and serialize the internal value from and to machine representation # noqa: E501
        """
 
-class BitScalingField(_ScalingField, BitField):
+
+class BitScalingField(_ScalingField, BitField):  # type: ignore
     """
     A ScalingField that is a BitField
     """
     def __init__(self, name, default, size, *args, **kwargs):
+        # type: (str, int, int, *Any, **Any) -> None
         _ScalingField.__init__(self, name, default, *args, **kwargs)
-        BitField.__init__(self, name, default, size)
+        BitField.__init__(self, name, default, size)  # type: ignore
 
 
 class UUIDField(Field[UUID, bytes]):
