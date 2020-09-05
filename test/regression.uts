@@ -12124,6 +12124,14 @@ assert p3[DHCP].options[4] == ("max_dgram_reass_size", 120)
 assert p3[DHCP].options[5] == ("pxelinux_path_prefix", b'/some/path')
 assert p3[DHCP].options[6] == "end"
 
+= DHCPOptions
+
+# Issue #2786
+
+assert DHCPOptions[33].name == "static-routes"
+assert DHCPOptions[46].name == "NetBIOS_node_type"
+assert DHCPRevOptions['static-routes'][0] == 33
+
 ############
 ############
 + 802.11

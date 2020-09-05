@@ -156,7 +156,7 @@ DHCPOptions = {
     43: "vendor_specific",
     44: IPField("NetBIOS_server", "0.0.0.0"),
     45: IPField("NetBIOS_dist_server", "0.0.0.0"),
-    46: ByteField("static-routes", 100),
+    46: ByteField("NetBIOS_node_type", 100),
     47: "netbios-scope",
     48: IPField("font-servers", "0.0.0.0"),
     49: IPField("x-display-manager", "0.0.0.0"),
