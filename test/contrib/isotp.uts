@@ -185,6 +185,14 @@ assert(p.exsrc == 3)
 assert(p.data == b"eee")
 assert(bytes(p) == b"eee")
 
+= ISOTP answers test
+p = ISOTP()
+r = ISOTP()
+assert(p.data == b"")
+assert(p.answers(r))
+assert(not p.answers(Raw()))
+
+
 = Creation of a simple ISOTP packet with src validation error
 ex = False
 try:
@@ -433,6 +441,21 @@ assert(fragment.length == 5)
 assert(fragment.reserved == 0)
 assert(fragment.flags == 4)
 
+= Fragment a 8 bytes long ISOTP message extended
+fragments = ISOTP(b"datadata", dst=0x1fff0000).fragment()
+assert(len(fragments) == 2)
+assert(isinstance(fragments[0], CAN))
+fragment = CAN(bytes(fragments[0]))
+assert(fragment.data == b"\x10\x08datada")
+assert(fragment.length == 8)
+assert(fragment.reserved == 0)
+assert(fragment.flags == 4)
+fragment = CAN(bytes(fragments[1]))
+assert(fragment.data == b"\x21ta")
+assert(fragment.length == 3)
+assert(fragment.reserved == 0)
+assert(fragment.flags == 4)
+
 = Fragment a 7 bytes long ISOTP message
 fragments = ISOTP(b"abcdefg").fragment()
 assert(len(fragments) == 1)
@@ -490,12 +513,27 @@ fragments = [CAN(identifier=0x641, data=b"\xa4test")]
 isotp = ISOTP.defragment(fragments)
 assert isotp is None
 
+= Defragment ISOTP message with warning
+fragments = [CAN(identifier=0x641, data=b"\x04test"), CAN(identifier=0x642, data=b"\x04test")]
+isotp = ISOTP.defragment(fragments)
+assert(isotp.data == b"test")
+assert(isotp.dst == 0x641)
+
 = Defragment exception
 fragments = []
 ex = False
 try:
     isotp = ISOTP.defragment(fragments)
     isotp.show()
+except Scapy_Exception:
+    ex = True
+
+assert ex
+
+= Fragment exception
+ex = False
+try:
+    fragments = ISOTP(b"a" * (1 << 32)).fragment()
 except Scapy_Exception:
     ex = True
 
@@ -1275,6 +1313,13 @@ assert (isotp.dst == 0x541)
 isotp = pkts[0]
 assert(isotp.data == dhex(""))
 assert (isotp.dst == 0x241)
+
+= ISOTPSession tests
+
+ses = ISOTPSession()
+ses.on_packet_received(None)
+ses.on_packet_received([None, None])
+assert True
 
 = Receive a two-frame ISOTP message
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s:
