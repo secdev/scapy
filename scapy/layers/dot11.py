@@ -827,6 +827,44 @@ public_act_field = {0: "BSS-coexist-mgmt", 1: "DSE-Enablement", 2: "DSE-Denablem
                9: "Vend-Spec", 10: "GAS-Init-Req", 11: "GAS-Init-Resp",
                12: "GAS-Cbk-Req", 13: "GAS-Cbk-Resp", 14: "TDLS-Disc-Resp",
                15: "Loc-Track-Not", 16: "reserved"}
+
+# Remote ID
+msg_type_field = {0: "Basic ID Msg", 1: "Location Msg", 2: "Authentication Msg",
+                3: "Self-ID Msg", 4: "System Msg", 5: "Operator ID Msg",
+                15: "Message Pack"}
+
+uas_id_type_field = {1: "Serial Number", 2: "Registration ID", 3: "UTM UUID"}
+
+uas_type_field = {0: "Not Declared", 1: "fixed wing", 2: "Multirotor",
+                3: "Gyroplane", 4: "Hybrid Lift", 5: "Ornithopter",
+                6: "Glider", 7: "Kite", 8: "Free Balloon", 9: "Captive Balloon",
+                10: "Airship", 11: "Free Fall", 12: "Rocket",13: "Tethered Powered Aircraft",
+                14: "Ground Obstacle", 15: "Other"}
+
+uas_category_field = {0: "Undefined", 1: "Open", 2: "Specific", 3: "Certified", 4: "Reserved"}
+
+uas_class_field = {0: "Undefined", 1: "Class 0", 2: "Class 1", 3: "Class 2", 4: "Class 3",
+                5: "Class 4", 6: "Class 5", 7: "Class 6", 8: "Reserved"}
+
+operation_status_field = {0: "Undeclared", 1: "Ground", 2: "Airborne", 
+                        3: "Emergency", 4: "Reserved"}
+
+operator_loc_type = {0: "Take-Off", 1: "Live GNSS", 2: "Fixed Location"}
+
+height_type_field = {0: "Above takeoff", 1: "AGL"}
+
+east_west_dir_type_field = {0: "< 180", 1: ">= 180"}
+
+hori_acc_field = {0: "≥ 18.52 km (10NM) or Unknown", 1: "< 18.52 km (10NM)", 2: "< 7.408 km (4NM)",
+                3: "< 3.704 km (2NM)", 4: "< 1,852 m (1NM)", 5: "< 926 m (0.5NM)",
+                6: "< 555.6 m (0.3NM)", 7: "< 185.2 m (0.1NM)", 8: "< 92.6 m (0.05NM)",
+                9: "< 30 m", 10: "< 10 m", 11: "< 3 m", 12: "< 1m", 13: "Reserved"}
+
+vert_acc_field = {0: "≥150m or Unknown", 1: "<150m", 2: "<45m", 3: "<25m", 4: "<10m",
+                5: "<3m", 6: "<1m", 7: "Reserved"}
+
+speed_acc_field = {0: "≥10m/s or Unknown", 1: "<10m/s", 2: "<3m/s",
+                3: "<1m/s", 4: "<0.3m/s", 5: "Reserved"}
 # WINGTRA END
 
 class _Dot11EltUtils(Packet):
@@ -1468,6 +1506,76 @@ class Dot11Ack(Packet):
     name = "802.11 Ack packet"
 
 # Wingtra
+# TODO: Add custom 20 byte field and finish packet
+# class DRIBasicID(Packet):
+#     name = "DRI Basic ID packet"
+#     fields_desc = [ByteEnumField("uas_id_type_field", 4, uas_type_field), # TODO: Separate into 2 4-bit fields
+#     ]
+
+class DRILocationMsg(Packet):
+    name = "DRI Location/Vector packet"
+    fields_desc = [ByteEnumField("op_st_ht_dir_spd_mult_field", 1, operation_status_field), # TODO: Separate into 2 4-bit fields
+                ByteField("track_direction", 0),
+                ByteField("speed", 0),
+                ByteField("vert_speed", 0), # TODO: Signed?
+                LESignedIntField("Latitude", 0),
+                LESignedIntField("Longitude", 0),
+                LEShortField("Pressure_Alt", 0),
+                LEShortField("Geodetic_Alt", 0),
+                LEShortField("Height", 0),
+                ByteEnumField("hor_vert_acc_field", 1, hori_acc_field), # TODO: Separate into 2 4-bit fields
+                ByteEnumField("alt_speed_acc_field", 1, speed_acc_field), # TODO: Separate into 2 4-bit fields
+                LEShortField("Timestamp", 0),
+                ByteField("time_accuracy", 0),
+                ByteField("reserved", 0)]
+
+class DRISystemMsg(Packet):
+    name = "DRI System packet"
+    fields_desc = [ByteEnumField("operator_loc_type", 0, operator_loc_type),
+                LESignedIntField("remote_pilot_lat", 0),
+                LESignedIntField("remote_pilot_lon", 0),
+                LEShortField("Area_count", 1),
+                ByteField("Area_radius", 0),
+                LEShortField("Area_ceiling", 0),
+                LEShortField("Area_floor", 0),
+                LELongField("Reserved", 0)]
+
+class DirectRemoteId(Packet):
+    name = "Direct RemoteID packet"
+    fields_desc = [ByteEnumField("msg_type_ver", 4, msg_type_field), # TODO: Separate into 2 4-bit fields
+                    ConditionalField(
+                        PacketField("DRILocationMsg", DRILocationMsg(), DRILocationMsg),
+                        lambda pkt: pkt.msg_type_ver == 1),
+                    ConditionalField(
+                        PacketField("DRISystemMsg", DRISystemMsg(), DRISystemMsg),
+                        lambda pkt: pkt.msg_type_ver == 4) # TODO: Add others
+                ]
+
+class DirectRemoteIdMsgPack(Packet):
+    name = "Direct RemoteID packet"
+    fields_desc = [ByteEnumField("msg_type_ver", 15, msg_type_field), # TODO: Separate into 2 4-bit fields
+                    XByteField("msg_size", 0x19),
+                    FieldLenField("num_msgs_pack", None, count_of="message"),
+                    PacketListField(
+                        "message",
+                        [DirectRemoteId()],
+                        DirectRemoteId,
+                        count_from=lambda p: p.num_msgs_pack
+                    )]
+
+class NANServiceDescripAttr(Packet):
+    name = "NAN Service Descriptor Attribute"
+    fields_desc = [XByteField("attribute_id", 0x03),
+                    FieldLenField("len", None, length_of="msg_pack", adjust=lambda x: 14 + x),
+                    X3BytesField("service_id_0", 0x886919), # TODO: merge into one service_id 6 byte field
+                    X3BytesField("service_id_1", 0x9d9209), # TODO: merge into one service_id 6 byte field
+                    XByteField("instance_id", 0x01),
+                    XByteField("req_instance_id", 0x00),
+                    XByteField("service_control", 0x10),
+                    FieldLenField("service_info_len", None, length_of="msg_pack", adjust=lambda x: 4 + x),
+                    XByteField("msg_control", 0x00),
+                    PacketField("msg_pack", DirectRemoteIdMsgPack(), DirectRemoteIdMsgPack)]
+
 class Dot11Action(_Dot11EltUtils):
     name = "802.11 Action"
     fields_desc = [ByteEnumField("category", 4, action_category),
@@ -1501,8 +1609,9 @@ class Dot11Action(_Dot11EltUtils):
     ConditionalField(
             XByteField("oui_type", 0x13),
             lambda pkt: pkt.category == 4),
-        ]
-
+    ConditionalField(
+            PacketField("nan_attribute", NANServiceDescripAttr(), NANServiceDescripAttr),
+            lambda pkt: (pkt.category == 4) and (pkt.oui == 0x506f9a) and (pkt.oui_type == 0x13))]
 # Wingtra End
 
 ###################
