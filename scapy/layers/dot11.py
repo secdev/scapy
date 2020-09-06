@@ -53,6 +53,7 @@ from scapy.fields import (
     LESignedIntField,
     MultipleTypeField,
     PacketField,
+    PacketLenField,
     PacketListField,
     ReversePadField,
     ScalingField,
@@ -1555,7 +1556,7 @@ class DirectRemoteIdMsgPack(Packet):
     name = "Direct RemoteID MsgPack"
     fields_desc = [ByteEnumField("msg_type_ver", 15, msg_type_field), # TODO: Separate into 2 4-bit fields
                     XByteField("msg_size", 0x19),
-                    FieldLenField("num_msgs_pack", None, count_of="message"),
+                    FieldLenField("num_msgs_pack", None, fmt='B', count_of="message"), # TODO: None or 1?, check endian-ness
                     PacketListField(
                         "message",
                         [DirectRemoteId()],
@@ -1563,18 +1564,18 @@ class DirectRemoteIdMsgPack(Packet):
                         count_from=lambda p: p.num_msgs_pack
                     )]
 
-class NANServiceDescripAttr(Packet):
+class NANServiceDiscoveryAttr(Packet):
     name = "NAN Service Discovery Attribute"
     fields_desc = [XByteField("attribute_id", 0x03),
-                    FieldLenField("len", None, length_of="msg_pack", adjust=lambda x: 14 + x),
+                    FieldLenField("len", None, length_of="msg_pack", adjust=lambda pkt,x: 11 + x), # check endian-ness
                     X3BytesField("service_id_0", 0x886919), # TODO: merge into one service_id 6 byte field
                     X3BytesField("service_id_1", 0x9d9209), # TODO: merge into one service_id 6 byte field
                     XByteField("instance_id", 0x01),
                     XByteField("req_instance_id", 0x00),
                     XByteField("service_control", 0x10),
-                    FieldLenField("service_info_len", None, length_of="msg_pack", adjust=lambda x: 4 + x),
+                    FieldLenField("service_info_len", None, fmt='B', length_of="msg_pack", adjust=lambda pkt,x: 1 + x), # check endian-ness
                     XByteField("msg_control", 0x00),
-                    PacketField("msg_pack", DirectRemoteIdMsgPack(), DirectRemoteIdMsgPack)]
+                    PacketLenField("msg_pack", DirectRemoteIdMsgPack(), DirectRemoteIdMsgPack, length_from=lambda p: p.len)]
 
 class Dot11Action(_Dot11EltUtils):
     name = "802.11 Action"
@@ -1610,7 +1611,7 @@ class Dot11Action(_Dot11EltUtils):
             XByteField("oui_type", 0x13),
             lambda pkt: pkt.category == 4),
     ConditionalField(
-            PacketField("nan_attribute", NANServiceDescripAttr(), NANServiceDescripAttr),
+            PacketField("nan_attribute", NANServiceDiscoveryAttr(), NANServiceDiscoveryAttr),
             lambda pkt: (pkt.category == 4) and (pkt.oui == 0x506f9a) and (pkt.oui_type == 0x13))]
 # Wingtra End
 
