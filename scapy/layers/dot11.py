@@ -795,6 +795,39 @@ status_code = {0: "success", 1: "failure", 10: "cannot-support-all-cap",
                14: "bad-seq-num", 15: "challenge-failure",
                16: "timeout", 17: "AP-full", 18: "rate-unsupported"}
 
+# WINGTRA
+action_category = {0: "Spectrum-Management", 1: "QoS", 2: "DLS",
+               3: "Block-Ack",
+               4: "Public", 5: "Radio-Measurement", 6: "Fast-BSS-Transition",
+               7: "HT", 8: "SA-Query",
+               9: "Protected-Dult-Of-Public-Action", 10: "WNM", 11: "Unprotected-WNM",
+               12: "TDLS", 13: "Mesh", 14: "MultiHop", 15: "Self-Protected",
+               16: "Reserved", 17: "Reserved-WFA", 126: "Vendor-specific-Protected",
+               127: "Vendor-specific", 128: "Error", 255: "Error"}
+
+spec_mgmt_act_field = {0: "Meas-Req", 1: "Meas-Report", 2: "TPC-Req",
+               3: "TPC_Report", 4: "Chan-Switch-Announcement", 5: "reserved"}
+
+qos_act_field = {0: "ADDTS-Req", 1: "ADDTS-Resp", 2: "DELTS",
+               3: "Schedule", 4: "QoS-map-configure", 5: "reserved"}
+
+dls_act_field = {0: "DLS-Req", 1: "DLS-Resp", 2: "DLS-Teardown",
+               3: "reserved"}
+
+block_ack_act_field = {0: "ADDBA-Req", 1: "ADDBA-Resp", 2: "DELBA",
+               3: "reserved"}
+
+radio_meas_act_field = {0: "Radio-meas-Req", 1: "Radio-meas-Report", 2: "Link-meas-Req",
+               3: "Link-meas-report", 4: "Neigh-Report-Req", 5: "Neigh-Report-Resp",
+               6: "reserved"}
+
+public_act_field = {0: "BSS-coexist-mgmt", 1: "DSE-Enablement", 2: "DSE-Denablement",
+               3: "DSE-Reg-Loc-Ann", 4: "Ext-Chan-Sw-Ann", 5: "DSE-Meas-Req",
+               6: "DSE-Meas-Report", 7: "Meas-Pilot", 8: "DSE-Pow-Const",
+               9: "Vend-Spec", 10: "GAS-Init-Req", 11: "GAS-Init-Resp",
+               12: "GAS-Cbk-Req", 13: "GAS-Cbk-Resp", 14: "TDLS-Disc-Resp",
+               15: "Loc-Track-Not", 16: "reserved"}
+# WINGTRA END
 
 class _Dot11EltUtils(Packet):
     """
@@ -1426,7 +1459,6 @@ class Dot11Auth(_Dot11EltUtils):
             return 1
         return 0
 
-
 class Dot11Deauth(Packet):
     name = "802.11 Deauthentication"
     fields_desc = [LEShortEnumField("reason", 1, reason_code)]
@@ -1435,6 +1467,43 @@ class Dot11Deauth(Packet):
 class Dot11Ack(Packet):
     name = "802.11 Ack packet"
 
+# Wingtra
+class Dot11Action(_Dot11EltUtils):
+    name = "802.11 Action"
+    fields_desc = [ByteEnumField("category", 4, action_category),
+    ConditionalField(
+            ByteEnumField("spec_mgmt_act_field", 0, spec_mgmt_act_field),
+            lambda pkt: pkt.category == 0),
+    ConditionalField(
+            ByteField("diag_token", None),
+            lambda pkt: (pkt.category == 0) and (ptk.spec_mgmt_act_field < 4)),
+    ConditionalField(
+            ByteEnumField("qos_act_field", 0, qos_act_field),
+            lambda pkt: pkt.category == 1),
+    ConditionalField(
+            ByteEnumField("dls_act_field", 0, dls_act_field),
+            lambda pkt: pkt.category == 1),
+    ConditionalField(
+            ByteEnumField("block_ack_act_field", 0, block_ack_act_field),
+            lambda pkt: pkt.category == 3),
+    ConditionalField(
+            _OUIField("oui", 0x000fac),
+            lambda pkt: pkt.category == 127),
+    ConditionalField(
+            ByteEnumField("radio_meas_act_field", 0, radio_meas_act_field),
+            lambda pkt: pkt.category == 5),
+    ConditionalField(
+            ByteEnumField("public_act_field", 9, public_act_field),
+            lambda pkt: pkt.category == 4),
+    ConditionalField(
+            _OUIField("oui", 0x506f9a),
+            lambda pkt: pkt.category == 4),
+    ConditionalField(
+            XByteField("oui_type", 0x13),
+            lambda pkt: pkt.category == 4),
+        ]
+
+# Wingtra End
 
 ###################
 # 802.11 Security #
@@ -1587,6 +1656,7 @@ bind_layers(Dot11, Dot11ATIM, subtype=9, type=0)
 bind_layers(Dot11, Dot11Disas, subtype=10, type=0)
 bind_layers(Dot11, Dot11Auth, subtype=11, type=0)
 bind_layers(Dot11, Dot11Deauth, subtype=12, type=0)
+bind_layers(Dot11, Dot11Action, subtype=13, type=0)
 bind_layers(Dot11, Dot11Ack, subtype=13, type=1)
 bind_layers(Dot11Beacon, Dot11Elt,)
 bind_layers(Dot11AssoReq, Dot11Elt,)
@@ -1595,6 +1665,7 @@ bind_layers(Dot11ReassoReq, Dot11Elt,)
 bind_layers(Dot11ReassoResp, Dot11Elt,)
 bind_layers(Dot11ProbeReq, Dot11Elt,)
 bind_layers(Dot11ProbeResp, Dot11Elt,)
+bind_layers(Dot11Action, Dot11Elt,)
 bind_layers(Dot11Auth, Dot11Elt,)
 bind_layers(Dot11Elt, Dot11Elt,)
 bind_layers(Dot11TKIP, conf.raw_layer)
