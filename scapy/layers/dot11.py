@@ -1542,7 +1542,7 @@ class DRISystemMsg(Packet):
 
 class DirectRemoteId(Packet):
     name = "Direct RemoteID packet"
-    fields_desc = [ByteEnumField("msg_type_ver", 4, msg_type_field), # TODO: Separate into 2 4-bit fields
+    fields_desc = [ByteEnumField("msg_type_ver", 1, msg_type_field), # TODO: Separate into 2 4-bit fields
                     ConditionalField(
                         PacketField("DRILocationMsg", DRILocationMsg(), DRILocationMsg),
                         lambda pkt: pkt.msg_type_ver == 1),
@@ -1552,7 +1552,7 @@ class DirectRemoteId(Packet):
                 ]
 
 class DirectRemoteIdMsgPack(Packet):
-    name = "Direct RemoteID packet"
+    name = "Direct RemoteID MsgPack"
     fields_desc = [ByteEnumField("msg_type_ver", 15, msg_type_field), # TODO: Separate into 2 4-bit fields
                     XByteField("msg_size", 0x19),
                     FieldLenField("num_msgs_pack", None, count_of="message"),
@@ -1564,7 +1564,7 @@ class DirectRemoteIdMsgPack(Packet):
                     )]
 
 class NANServiceDescripAttr(Packet):
-    name = "NAN Service Descriptor Attribute"
+    name = "NAN Service Discovery Attribute"
     fields_desc = [XByteField("attribute_id", 0x03),
                     FieldLenField("len", None, length_of="msg_pack", adjust=lambda x: 14 + x),
                     X3BytesField("service_id_0", 0x886919), # TODO: merge into one service_id 6 byte field
