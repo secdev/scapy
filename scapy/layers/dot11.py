@@ -856,15 +856,15 @@ height_type_field = {0: "Above takeoff", 1: "AGL"}
 
 east_west_dir_type_field = {0: "< 180", 1: ">= 180"}
 
-hori_acc_field = {0: "≥ 18.52 km (10NM) or Unknown", 1: "< 18.52 km (10NM)", 2: "< 7.408 km (4NM)",
+hori_acc_field = {0: ">= 18.52 km (10NM) or Unknown", 1: "< 18.52 km (10NM)", 2: "< 7.408 km (4NM)",
                 3: "< 3.704 km (2NM)", 4: "< 1,852 m (1NM)", 5: "< 926 m (0.5NM)",
                 6: "< 555.6 m (0.3NM)", 7: "< 185.2 m (0.1NM)", 8: "< 92.6 m (0.05NM)",
                 9: "< 30 m", 10: "< 10 m", 11: "< 3 m", 12: "< 1m", 13: "Reserved"}
 
-vert_acc_field = {0: "≥150m or Unknown", 1: "<150m", 2: "<45m", 3: "<25m", 4: "<10m",
+vert_acc_field = {0: ">=150m or Unknown", 1: "<150m", 2: "<45m", 3: "<25m", 4: "<10m",
                 5: "<3m", 6: "<1m", 7: "Reserved"}
 
-speed_acc_field = {0: "≥10m/s or Unknown", 1: "<10m/s", 2: "<3m/s",
+speed_acc_field = {0: ">=10m/s or Unknown", 1: "<10m/s", 2: "<3m/s",
                 3: "<1m/s", 4: "<0.3m/s", 5: "Reserved"}
 # WINGTRA END
 
