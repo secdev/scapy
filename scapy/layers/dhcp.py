@@ -211,7 +211,7 @@ DHCPOptions = {
     118: IPField("subnet-selection", "0.0.0.0"),
     124: "vendor_class",
     125: "vendor_specific_information",
-    128: IPField("tftp-server-ip-address", "0.0.0.0"),
+    128: IPField("tftp_server_ip_address", "0.0.0.0"),
     136: IPField("pana-agent", "0.0.0.0"),
     137: "v4-lost",
     138: IPField("capwap-ac-v4", "0.0.0.0"),
