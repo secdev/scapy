@@ -410,7 +410,7 @@ class TCPListenPipe(TCPConnectPipe):
                     break
 
 
-class UDPClientPipe(Source):
+class UDPClientPipe(TCPConnectPipe):
     """UDP send packets to addr:port and use it as source and sink
     Start trying to receive only once a packet has been send
 
@@ -422,29 +422,18 @@ class UDPClientPipe(Source):
        >-|-[addr:port]-|->
          +-------------+
     """
-    __selectable_force_select__ = True
 
     def __init__(self, addr="", port=0, name=None):
-        Source.__init__(self, name=name)
-        self.addr = addr
-        self.port = port
+        TCPConnectPipe.__init__(self, addr, port, name)
         self._has_sent = False
-        self.fd = None
 
     def start(self):
         self.fd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.fd.connect((self.addr, self.port))
 
-    def stop(self):
-        if self.fd:
-            self.fd.close()
-
     def push(self, msg):
         self.fd.sendto(msg, (self.addr, self.port))
         self._has_sent = True
-
-    def fileno(self):
-        return self.fd.fileno()
 
     def deliver(self):
         if not self._has_sent:
@@ -458,7 +447,7 @@ class UDPClientPipe(Source):
             self._send(msg)
 
 
-class UDPServerPipe(Source):
+class UDPServerPipe(TCPListenPipe):
     """UDP bind to [addr:]port and use as source and sink
     Use (ip, port) from first received IP packet as destination for all data
 
@@ -470,15 +459,10 @@ class UDPServerPipe(Source):
        >-|-[addr:port]-|->
          +-------------+
     """
-    __selectable_force_select__ = True
 
     def __init__(self, addr="", port=0, name=None):
-        Source.__init__(self, name=name)
-        self.addr = addr
-        self.port = port
+        TCPListenPipe.__init__(self, addr, port, name)
         self._destination = None
-        self.fd = None
-        self.q = Queue()
 
     def start(self):
         self.fd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -489,9 +473,6 @@ class UDPServerPipe(Source):
             self.fd.sendto(msg, self._destination)
         else:
             self.q.put(msg)
-
-    def fileno(self):
-        return self.fd.fileno()
 
     def deliver(self):
         if self._destination:
