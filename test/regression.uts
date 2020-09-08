@@ -12072,7 +12072,7 @@ assert BOOTP().hashret() == b"\x00\x00\x00\x00"
 
 import random
 random.seed(0x2809)
-assert str(RandDHCPOptions(size=1)) in [r"[('NIS_server', '0.45.231.69')]", r"[('ieee802-3-encapsulation', 229)]"]
+assert str(RandDHCPOptions(size=1)) in [r"[('NIS_server', '0.45.231.69')]", r"[('tcp_ttl', 229)]"]
 
 = DHCPOptionsField
 
