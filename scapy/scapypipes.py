@@ -410,6 +410,94 @@ class TCPListenPipe(TCPConnectPipe):
                     break
 
 
+class UDPClientPipe(TCPConnectPipe):
+    """UDP send packets to addr:port and use it as source and sink
+    Start trying to receive only once a packet has been send
+
+    .. code::
+
+         +-------------+
+      >>-|             |->>
+         |             |
+       >-|-[addr:port]-|->
+         +-------------+
+    """
+
+    def __init__(self, addr="", port=0, name=None):
+        TCPConnectPipe.__init__(self, addr, port, name)
+        self._has_sent = False
+
+    def start(self):
+        self.fd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.fd.connect((self.addr, self.port))
+
+    def push(self, msg):
+        self.fd.sendto(msg, (self.addr, self.port))
+        self._has_sent = True
+
+    def deliver(self):
+        if not self._has_sent:
+            return
+        try:
+            msg = self.fd.recv(65536)
+        except socket.error:
+            self.stop()
+            raise
+        if msg:
+            self._send(msg)
+
+
+class UDPServerPipe(TCPListenPipe):
+    """UDP bind to [addr:]port and use as source and sink
+    Use (ip, port) from first received IP packet as destination for all data
+
+    .. code::
+
+         +------^------+
+      >>-|    +-[peer]-|->>
+         |   /         |
+       >-|-[addr:port]-|->
+         +-------------+
+    """
+
+    def __init__(self, addr="", port=0, name=None):
+        TCPListenPipe.__init__(self, addr, port, name)
+        self._destination = None
+
+    def start(self):
+        self.fd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.fd.bind((self.addr, self.port))
+
+    def push(self, msg):
+        if self._destination:
+            self.fd.sendto(msg, self._destination)
+        else:
+            self.q.put(msg)
+
+    def deliver(self):
+        if self._destination:
+            try:
+                msg = self.fd.recv(65536)
+            except socket.error:
+                self.stop()
+                raise
+            if msg:
+                self._send(msg)
+        else:
+            msg, dest = self.fd.recvfrom(65536)
+            if msg:
+                self._send(msg)
+            self._destination = dest
+            self._trigger(dest)
+            self._high_send(dest)
+            while True:
+                try:
+                    msg = self.q.get(block=False)
+                    self.fd.sendto(msg, self._destination)
+                except Empty:
+                    break
+
+
 class TriggeredMessage(Drain):
     """Send a preloaded message when triggered and trigger in chain
 

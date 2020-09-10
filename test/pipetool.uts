@@ -677,6 +677,29 @@ s.push("data")
 s.deliver()
 assert c.q.get(timeout=1) == "hello"
 
+= UDPClientPipe and UDPServerPipe
+~ networking needs_root
+
+p = PipeEngine()
+
+s = CLIFeeder()
+srv = UDPServerPipe(name="srv", port=10000)
+cli = UDPClientPipe(name="cli", addr="127.0.0.1", port=10000)
+c = QueueSink(name="c")
+
+s > cli
+srv > c
+
+p.add(s, c)
+p.start()
+import time
+time.sleep(1)
+
+s.send(b"hello")
+p.start()
+assert c.recv() == b"hello"
+p.stop()
+
 = TCPConnectPipe networking test
 ~ networking needs_root
 
