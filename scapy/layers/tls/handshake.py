@@ -324,7 +324,7 @@ class TLSClientHello(_TLSHandshake):
         if self.ext:
             for e in self.ext:
                 if isinstance(e, TLS_Ext_SupportedVersion_CH):
-                    for ver in e.versions:
+                    for ver in sorted(e.versions, reverse=True):
                         # RFC 8701: GREASE of TLS will send unknown versions
                         # here. We have to ignore them
                         if ver in _tls_version:
@@ -455,7 +455,7 @@ class TLS13ClientHello(_TLSHandshake):
         if self.ext:
             for e in self.ext:
                 if isinstance(e, TLS_Ext_SupportedVersion_CH):
-                    for ver in e.versions:
+                    for ver in sorted(e.versions, reverse=True):
                         # RFC 8701: GREASE of TLS will send unknown versions
                         # here. We have to ignore them
                         if ver in _tls_version:
@@ -530,12 +530,15 @@ class TLSServerHello(_TLSHandshake):
         """
         super(TLSServerHello, self).tls_session_update(msg_str)
 
-        self.tls_session.tls_version = self.version
-        self.random_bytes = msg_str[10:38]
-        self.tls_session.server_random = (struct.pack('!I',
-                                                      self.gmt_unix_time) +
-                                          self.random_bytes)
-        self.tls_session.sid = self.sid
+        s = self.tls_session
+        s.tls_version = self.version
+        if hasattr(self, 'gmt_unix_time'):
+            self.random_bytes = msg_str[10:38]
+            s.server_random = (struct.pack('!I', self.gmt_unix_time) +
+                               self.random_bytes)
+        else:
+            s.server_random = self.random_bytes
+        s.sid = self.sid
 
         cs_cls = None
         if self.cipher:
@@ -555,15 +558,15 @@ class TLSServerHello(_TLSHandshake):
                 comp_val = 0
             comp_cls = _tls_compression_algs_cls[comp_val]
 
-        connection_end = self.tls_session.connection_end
-        self.tls_session.pwcs = writeConnState(ciphersuite=cs_cls,
-                                               compression_alg=comp_cls,
-                                               connection_end=connection_end,
-                                               tls_version=self.version)
-        self.tls_session.prcs = readConnState(ciphersuite=cs_cls,
-                                              compression_alg=comp_cls,
-                                              connection_end=connection_end,
-                                              tls_version=self.version)
+        connection_end = s.connection_end
+        s.pwcs = writeConnState(ciphersuite=cs_cls,
+                                compression_alg=comp_cls,
+                                connection_end=connection_end,
+                                tls_version=self.version)
+        s.prcs = readConnState(ciphersuite=cs_cls,
+                               compression_alg=comp_cls,
+                               connection_end=connection_end,
+                               tls_version=self.version)
 
 
 _tls_13_server_hello_fields = [
@@ -586,7 +589,7 @@ _tls_13_server_hello_fields = [
 ]
 
 
-class TLS13ServerHello(_TLSHandshake):
+class TLS13ServerHello(TLSServerHello):
     """ TLS 1.3 ServerHello """
     name = "TLS 1.3 Handshake - Server Hello"
     fields_desc = _tls_13_server_hello_fields
@@ -615,16 +618,23 @@ class TLS13ServerHello(_TLSHandshake):
         cipher suite (if recognized), and finally we instantiate the write and
         read connection states.
         """
-        super(TLS13ServerHello, self).tls_session_update(msg_str)
-
         s = self.tls_session
+        s.server_random = self.random_bytes
+        s.ciphersuite = self.cipher
+        s.tls_version = self.version
+        # Check extensions
         if self.ext:
             for e in self.ext:
                 if isinstance(e, TLS_Ext_SupportedVersion_SH):
                     s.tls_version = e.version
                     break
-        s.server_random = self.random_bytes
-        s.ciphersuite = self.cipher
+
+        if s.tls_version < 0x304:
+            # This means that the server does not support TLS 1.3 and ignored
+            # the initial TLS 1.3 ClientHello. tls_version has been updated
+            return TLSServerHello.tls_session_update(self, msg_str)
+        else:
+            _TLSHandshake.tls_session_update(self, msg_str)
 
         cs_cls = None
         if self.cipher:
