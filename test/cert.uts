@@ -384,6 +384,22 @@ with ContextManagerCaptureOutput() as cmco:
     y.show()
     assert cmco.get_output().strip() == awaited.strip()
 
+= Cert: Check split_pem on chained certs with missing end \n
+from scapy.layers.tls.cert import split_pem
+ks = split_pem(b"""
+-----BEGIN EC PRIVATE KEY-----
+MHQCAQEEIMiRlFoy6046m1NXu911ukXyjDLVgmOXWCKWdQMd8gCRoAcGBSuBBAAK
+oUQDQgAE55WjbZjS/88K1kYagsO9wtKifw0IKLp4Jd5qtmDF2Zu+xrwrBRT0HBnP
+weDU+RsFxcyU/QxD9WYORzYarqxbcA==
+-----END EC PRIVATE KEY-----
+-----BEGIN EC PRIVATE KEY-----
+MHQCAQEEIMiRlFoy6046m1NXu911ukXyjDLVgmOXWCKWdQMd8gCRoAcGBSuBBAAK
+oUQDQgAE55WjbZjS/88K1kYagsO9wtKifw0IKLp4Jd5qtmDF2Zu+xrwrBRT0HBnP
+weDU+RsFxcyU/QxD9WYORzYarqxbcA==
+-----END EC PRIVATE KEY-----""")
+assert ks[0][:-1] == ks[1]
+
+
 ########### CRL class ###############################################
 
 + CRL class tests
