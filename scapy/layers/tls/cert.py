@@ -102,7 +102,12 @@ def split_pem(s):
         if start_idx == -1:
             break
         end_idx = s.find(b"-----END")
+        if end_idx == -1:
+            raise Exception("Invalid PEM object (missing END tag)")
         end_idx = s.find(b"\n", end_idx) + 1
+        if end_idx == 0:
+            # There is no final \n
+            end_idx = len(s)
         pem_strings.append(s[start_idx:end_idx])
         s = s[end_idx:]
     return pem_strings
