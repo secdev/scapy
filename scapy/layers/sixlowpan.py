@@ -226,6 +226,7 @@ class LoWPAN_HC1(Packet):
                     (PacketField("hc2Field", LoWPAN_HC2_UDP(),
                                  LoWPAN_HC2_UDP),
                         lambda pkt: pkt.nh == 1),
+                    # TODO: ICMP & TCP not implemented yet for HC1
                     # (PacketField("hc2Field", LoWPAN_HC2_ICMP(),
                     #              LoWPAN_HC2_ICMP),
                     #     lambda pkt: pkt.nh == 2),

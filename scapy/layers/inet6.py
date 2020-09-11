@@ -3044,12 +3044,6 @@ class MIP6MH_Generic(_MobilityHeader):  # Mainly for decoding of unknown msg
                    StrLenField("msg", b"\x00" * 2,
                                length_from=lambda pkt: 8 * pkt.len - 6)]
 
-    @classmethod
-    def dispatch_hook(cls, _pkt=None, *_, **kargs):
-        if _pkt and len(_pkt) >= 3:
-            return _mip6_mhtype2cls.get(ord(_pkt[2:3]), cls)
-        return cls
-
 
 class MIP6MH_BRR(_MobilityHeader):
     name = "IPv6 Mobility Header - Binding Refresh Request"
