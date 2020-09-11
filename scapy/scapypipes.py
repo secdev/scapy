@@ -425,18 +425,18 @@ class UDPClientPipe(TCPConnectPipe):
 
     def __init__(self, addr="", port=0, name=None):
         TCPConnectPipe.__init__(self, addr, port, name)
-        self._has_sent = False
+        self.connected = False
 
     def start(self):
         self.fd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.fd.connect((self.addr, self.port))
+        self.connected = True
 
     def push(self, msg):
-        self.fd.sendto(msg, (self.addr, self.port))
-        self._has_sent = True
+        self.fd.send(msg)
 
     def deliver(self):
-        if not self._has_sent:
+        if not self.connected:
             return
         try:
             msg = self.fd.recv(65536)

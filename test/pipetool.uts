@@ -692,13 +692,12 @@ srv > c
 
 p.add(s, c)
 p.start()
-import time
-time.sleep(1)
 
 s.send(b"hello")
 p.start()
 assert c.recv() == b"hello"
 p.stop()
+srv.stop()
 
 = TCPConnectPipe networking test
 ~ networking needs_root
