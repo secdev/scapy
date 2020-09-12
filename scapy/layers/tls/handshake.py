@@ -49,7 +49,8 @@ from scapy.layers.tls.extensions import (_ExtensionsLenField, _ExtensionsField,
                                          TLS_Ext_SupportedVersion_SH,
                                          TLS_Ext_EarlyDataIndication,
                                          _tls_hello_retry_magic,
-                                         TLS_Ext_ExtendedMasterSecret)
+                                         TLS_Ext_ExtendedMasterSecret,
+                                         TLS_Ext_EncryptThenMAC)
 from scapy.layers.tls.keyexchange import (_TLSSignature, _TLSServerParamsField,
                                           _TLSSignatureField, ServerRSAParams,
                                           SigAndHashAlgsField, _tls_hash_sig,
@@ -542,12 +543,12 @@ class TLSServerHello(_TLSHandshake):
             s.server_random = self.random_bytes
         s.sid = self.sid
 
-        # EXTMS
         if self.ext:
             for e in self.ext:
                 if isinstance(e, TLS_Ext_ExtendedMasterSecret):
                     self.tls_session.extms = True
-                    break
+                if isinstance(e, TLS_Ext_EncryptThenMAC):
+                    self.tls_session.encrypt_then_mac = True
 
         cs_cls = None
         if self.cipher:

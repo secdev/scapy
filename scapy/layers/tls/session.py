@@ -457,6 +457,8 @@ class tlsSession(object):
         self.extms = False
         self.session_hash = None
 
+        self.encrypt_then_mac = False
+
         # All exchanged TLS packets.
         # XXX no support for now
         # self.exchanged_pkts = []
