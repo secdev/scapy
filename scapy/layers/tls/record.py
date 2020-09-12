@@ -445,8 +445,31 @@ class TLS(_GenericTLSSessionInheritance):
 
         cipher_type = self.tls_session.rcs.cipher.type
 
+        def extract_mac(data):
+            """Extract MAC."""
+            tmp_len = self.tls_session.rcs.mac_len
+            if tmp_len != 0:
+                frag, mac = data[:-tmp_len], data[-tmp_len:]
+            else:
+                frag, mac = data, b""
+            return frag, mac
+
+        def verify_mac(hdr, cfrag, mac):
+            """Verify integrity."""
+            chdr = hdr[:3] + struct.pack('!H', len(cfrag))
+            is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
+            if not is_mac_ok:
+                pkt_info = self.firstlayer().summary()
+                log_runtime.info(
+                    "TLS: record integrity check failed [%s]", pkt_info,
+                )
+
         if cipher_type == 'block':
             version = struct.unpack("!H", s[1:3])[0]
+
+            if self.tls_session.encrypt_then_mac:
+                efrag, mac = extract_mac(efrag)
+                verify_mac(hdr, efrag, mac)
 
             # Decrypt
             try:
@@ -481,19 +504,11 @@ class TLS(_GenericTLSSessionInheritance):
                 mfrag, pad = pfrag[:-padlen], pfrag[-padlen:]
                 self.padlen = padlen
 
-                # Extract MAC
-                tmp_len = self.tls_session.rcs.mac_len
-                if tmp_len != 0:
-                    cfrag, mac = mfrag[:-tmp_len], mfrag[-tmp_len:]
+                if self.tls_session.encrypt_then_mac:
+                    cfrag = mfrag
                 else:
-                    cfrag, mac = mfrag, b""
-
-                # Verify integrity
-                chdr = hdr[:3] + struct.pack('!H', len(cfrag))
-                is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
-                if not is_mac_ok:
-                    pkt_info = self.firstlayer().summary()
-                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
+                    cfrag, mac = extract_mac(mfrag)
+                    verify_mac(hdr, cfrag, mac)
 
         elif cipher_type == 'stream':
             # Decrypt
@@ -504,21 +519,8 @@ class TLS(_GenericTLSSessionInheritance):
                 cfrag = e.args[0]
             else:
                 decryption_success = True
-                mfrag = pfrag
-
-                # Extract MAC
-                tmp_len = self.tls_session.rcs.mac_len
-                if tmp_len != 0:
-                    cfrag, mac = mfrag[:-tmp_len], mfrag[-tmp_len:]
-                else:
-                    cfrag, mac = mfrag, b""
-
-                # Verify integrity
-                chdr = hdr[:3] + struct.pack('!H', len(cfrag))
-                is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
-                if not is_mac_ok:
-                    pkt_info = self.firstlayer().summary()
-                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
+                cfrag, mac = extract_mac(pfrag)
+                verify_mac(hdr, cfrag, mac)
 
         elif cipher_type == 'aead':
             # Authenticated encryption
@@ -671,7 +673,8 @@ class TLS(_GenericTLSSessionInheritance):
 
         if cipher_type == 'block':
             # Integrity
-            mfrag = self._tls_hmac_add(hdr, cfrag)
+            if not self.tls_session.encrypt_then_mac:
+                cfrag = self._tls_hmac_add(hdr, cfrag)
 
             # Excerpt below better corresponds to TLS 1.1 IV definition,
             # but the result is the same as with TLS 1.2 anyway.
@@ -681,7 +684,7 @@ class TLS(_GenericTLSSessionInheritance):
             #    mfrag = iv + mfrag
 
             # Add padding
-            pfrag = self._tls_pad(mfrag)
+            pfrag = self._tls_pad(cfrag)
 
             # Encryption
             if self.version >= 0x0302:
@@ -694,6 +697,9 @@ class TLS(_GenericTLSSessionInheritance):
             else:
                 # Implicit IV for SSLv3 and TLS 1.0
                 efrag = self._tls_encrypt(pfrag)
+
+            if self.tls_session.encrypt_then_mac:
+                efrag = self._tls_hmac_add(hdr, efrag)
 
         elif cipher_type == "stream":
             # Integrity
