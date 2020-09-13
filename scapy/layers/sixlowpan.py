@@ -10,9 +10,9 @@
 
 This implementation follows the next documents:
 
-- Transmission of IPv6 Packets over IEEE 802.15.4 Networks
+- Transmission of IPv6 Packets over IEEE 802.15.4 Networks: RFC 4944
 - Compression Format for IPv6 Datagrams in Low Power and Lossy
-  networks (6LoWPAN): draft-ietf-6lowpan-hc-15
+  networks (6LoWPAN): RFC 6282
 - RFC 4291
 
 +----------------------------+-----------------------+
@@ -45,9 +45,7 @@ and the IPv6 address is used for achieving compression.
 
 Known Issues:
     * Unimplemented context information
-    * Next header compression techniques
-    * Unimplemented LoWPANBroadcast
-
+    * Unimplemented IPv6 extensions fields
 """
 
 import socket
@@ -56,16 +54,36 @@ import struct
 from scapy.compat import chb, orb, raw
 from scapy.data import ETHER_TYPES
 
-from scapy.packet import Packet, bind_layers
-from scapy.fields import BitField, ByteField, BitEnumField, BitFieldLenField, \
-    XShortField, FlagsField, ConditionalField, FieldLenField
+from scapy.packet import Packet, bind_layers, bind_top_down
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    BitFixedLenField,
+    BitScalingField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    FieldLenField,
+    MultipleTypeField,
+    PacketField,
+    PacketListField,
+    StrFixedLenField,
+    XBitField,
+    XLongField,
+    XShortField,
+)
 
 from scapy.layers.dot15d4 import Dot15d4Data
-from scapy.layers.inet6 import IPv6, IP6Field
+from scapy.layers.inet6 import (
+    IP6Field,
+    IPv6,
+    _IPv6ExtHdr,
+    ipv6nh,
+)
 from scapy.layers.inet import UDP
 from scapy.layers.l2 import Ether
 
-from scapy.utils import lhex, mac2str
+from scapy.utils import mac2str
 from scapy.config import conf
 from scapy.error import warning
 
@@ -78,10 +96,15 @@ ETHER_TYPES[0xA0ED] = "6LoWPAN"
 LINK_LOCAL_PREFIX = b"\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"  # noqa: E501
 
 
+##########
+# Fields #
+##########
+
+
 class IP6FieldLenField(IP6Field):
     __slots__ = ["length_of"]
 
-    def __init__(self, name, default, size, length_of=None):
+    def __init__(self, name, default, length_of=None):
         IP6Field.__init__(self, name, default)
         self.length_of = length_of
 
@@ -102,96 +125,256 @@ class IP6FieldLenField(IP6Field):
                 self.m2i(pkt, b"\x00" * (16 - tmp_len) + s[:tmp_len]))
 
 
-class BitVarSizeField(BitField):
-    __slots__ = ["length_f"]
-
-    def __init__(self, name, default, calculate_length=None):
-        BitField.__init__(self, name, default, 0)
-        self.length_f = calculate_length
-
-    def addfield(self, pkt, s, val):
-        self.size = self.length_f(pkt)
-        return BitField.addfield(self, pkt, s, val)
-
-    def getfield(self, pkt, s):
-        self.size = self.length_f(pkt)
-        return BitField.getfield(self, pkt, s)
-
-
-class SixLoWPANAddrField(FieldLenField):
-    """Special field to store 6LoWPAN addresses
-
-    6LoWPAN Addresses have a variable length depending on other parameters.
-    This special field allows to save them, and encode/decode no matter which
-    encoding parameters they have.
-    """
-
-    def i2repr(self, pkt, x):
-        return lhex(self.i2h(pkt, x))
-
-    def addfield(self, pkt, s, val):
-        """Add an internal value to a string"""
-        if self.length_of(pkt) == 8:
-            return s + struct.pack(self.fmt[0] + "B", val)
-        if self.length_of(pkt) == 16:
-            return s + struct.pack(self.fmt[0] + "H", val)
-        if self.length_of(pkt) == 32:
-            return s + struct.pack(self.fmt[0] + "2H", val)  # TODO: fix!
-        if self.length_of(pkt) == 48:
-            return s + struct.pack(self.fmt[0] + "3H", val)  # TODO: fix!
-        elif self.length_of(pkt) == 64:
-            return s + struct.pack(self.fmt[0] + "Q", val)
-        elif self.length_of(pkt) == 128:
-            # TODO: FIX THE PACKING!!
-            return s + struct.pack(self.fmt[0] + "16s", raw(val))
-        else:
-            return s
-
-    def getfield(self, pkt, s):
-        if self.length_of(pkt) == 8:
-            return s[1:], self.m2i(pkt, struct.unpack(self.fmt[0] + "B", s[:1])[0])  # noqa: E501
-        elif self.length_of(pkt) == 16:
-            return s[2:], self.m2i(pkt, struct.unpack(self.fmt[0] + "H", s[:2])[0])  # noqa: E501
-        elif self.length_of(pkt) == 32:
-            return s[4:], self.m2i(pkt, struct.unpack(self.fmt[0] + "2H", s[:2], s[2:4])[0])  # noqa: E501
-        elif self.length_of(pkt) == 48:
-            return s[6:], self.m2i(pkt, struct.unpack(self.fmt[0] + "3H", s[:2], s[2:4], s[4:6])[0])  # noqa: E501
-        elif self.length_of(pkt) == 64:
-            return s[8:], self.m2i(pkt, struct.unpack(self.fmt[0] + "Q", s[:8])[0])  # noqa: E501
-        elif self.length_of(pkt) == 128:
-            return s[16:], self.m2i(pkt, struct.unpack(self.fmt[0] + "16s", s[:16])[0])  # noqa: E501
+#################
+# Basic 6LoWPAN #
+#################
+# https://tools.ietf.org/html/rfc4944
 
 
 class LoWPANUncompressedIPv6(Packet):
     name = "6LoWPAN Uncompressed IPv6"
     fields_desc = [
-        BitField("_type", 0x0, 8)
+        BitField("_type", 0x41, 8)
     ]
 
     def default_payload_class(self, pay):
         return IPv6
 
+# https://tools.ietf.org/html/rfc4944#section-5.2
+
 
 class LoWPANMesh(Packet):
     name = "6LoWPAN Mesh Packet"
+    deprecated_fields = {
+        "_v": ("v", "2.4.4"),
+        "_f": ("f", "2.4.4"),
+        "_sourceAddr": ("src", "2.4.4"),
+        "_destinyAddr": ("dst", "2.4.4"),
+    }
     fields_desc = [
         BitField("reserved", 0x2, 2),
-        BitEnumField("_v", 0x0, 1, [False, True]),
-        BitEnumField("_f", 0x0, 1, [False, True]),
-        BitField("_hopsLeft", 0x0, 4),
-        SixLoWPANAddrField("_sourceAddr", 0x0, length_of=lambda pkt: pkt._v and 2 or 8),  # noqa: E501
-        SixLoWPANAddrField("_destinyAddr", 0x0, length_of=lambda pkt: pkt._f and 2 or 8),  # noqa: E501
+        BitEnumField("v", 0x0, 1, ["EUI-64", "Short"]),
+        BitEnumField("f", 0x0, 1, ["EUI-64", "Short"]),
+        BitField("hopsLeft", 0x0, 4),
+        MultipleTypeField(
+            [(XShortField("src", 0x0), lambda pkt: pkt.v == 1)],
+            XLongField("src", 0x0)
+        ),
+        MultipleTypeField(
+            [(XShortField("dst", 0x0), lambda pkt: pkt.v == 1)],
+            XLongField("dst", 0x0)
+        )
     ]
 
-    def guess_payload_class(self, payload):
-        # check first 2 bytes if they are ZERO it's not a 6LoWPAN packet
-        pass
 
-###############################################################################
-# Fragmentation
-#
-# Section 5.3 - September 2007
-###############################################################################
+# https://tools.ietf.org/html/rfc4944#section-10.1
+# This implementation is NOT RECOMMENDED according to RFC 6282
+
+
+class LoWPAN_HC2_UDP(Packet):
+    name = "6LoWPAN HC1 UDP encoding"
+    fields_desc = [
+        BitEnumField("sc", 0, 1, ["In-line", "Compressed"]),
+        BitEnumField("dc", 0, 1, ["In-line", "Compressed"]),
+        BitEnumField("lc", 0, 1, ["In-line", "Compressed"]),
+        BitField("res", 0, 5),
+    ]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
+
+def _get_hc1_pad(pkt):
+    """
+    Get LoWPAN_HC1 padding
+
+    LoWPAN_HC1 is not recommended for several reasons, one
+    of them being that padding is a mess (not 8-bit regular)
+    We therefore add padding bits that are not in the spec to restore
+    8-bit parity. Wireshark seems to agree
+    """
+    length = 0  # in bits, of the fields that are not //8
+    if not pkt.tc_fl:
+        length += 20
+    if pkt.hc2:
+        if pkt.nh == 1:
+            length += pkt.hc2Field.sc * 4
+            length += pkt.hc2Field.dc * 4
+    return (-length) % 8
+
+
+class LoWPAN_HC1(Packet):
+    name = "LoWPAN_HC1 Compressed IPv6"
+    fields_desc = [
+        # https://tools.ietf.org/html/rfc4944#section-10.1
+        ByteField("reserved", 0x42),
+        BitEnumField("sp", 0, 1, ["In-line", "Compressed"]),
+        BitEnumField("si", 0, 1, ["In-line", "Elided"]),
+        BitEnumField("dp", 0, 1, ["In-line", "Compressed"]),
+        BitEnumField("di", 0, 1, ["In-line", "Elided"]),
+        BitEnumField("tc_fl", 0, 1, ["Not compressed", "zero"]),
+        BitEnumField("nh", 0, 2, {0: "not compressed",
+                                  1: "UDP",
+                                  2: "ICMP",
+                                  3: "TCP"}),
+        BitEnumField("hc2", 0, 1, ["No more header compression bits",
+                                   "HC2 Present"]),
+        # https://tools.ietf.org/html/rfc4944#section-10.2
+        ConditionalField(
+            MultipleTypeField(
+                [
+                    (PacketField("hc2Field", LoWPAN_HC2_UDP(),
+                                 LoWPAN_HC2_UDP),
+                        lambda pkt: pkt.nh == 1),
+                    # TODO: ICMP & TCP not implemented yet for HC1
+                    # (PacketField("hc2Field", LoWPAN_HC2_ICMP(),
+                    #              LoWPAN_HC2_ICMP),
+                    #     lambda pkt: pkt.nh == 2),
+                    # (PacketField("hc2Field", LoWPAN_HC2_TCP(),
+                    #              LoWPAN_HC2_TCP),
+                    #     lambda pkt: pkt.nh == 3),
+                ],
+                StrFixedLenField("hc2Field", b"", 0),
+            ),
+            lambda pkt: pkt.hc2
+        ),
+        # IPv6 header fields
+        # https://tools.ietf.org/html/rfc4944#section-10.3.1
+        ByteField("hopLimit", 0x0),
+        IP6FieldLenField("src", "::",
+                         lambda pkt: (0 if pkt.sp else 8) +
+                                     (0 if pkt.si else 8)),
+        IP6FieldLenField("dst", "::",
+                         lambda pkt: (0 if pkt.dp else 8) +
+                                     (0 if pkt.di else 8)),
+        ConditionalField(
+            ByteField("traffic_class", 0),
+            lambda pkt: not pkt.tc_fl
+        ),
+        ConditionalField(
+            BitField("flow_label", 0, 20),
+            lambda pkt: not pkt.tc_fl
+        ),
+        # Other fields
+        # https://tools.ietf.org/html/rfc4944#section-10.3.2
+        ConditionalField(
+            MultipleTypeField(
+                [(BitScalingField("udpSourcePort", 0, 4, offset=0xF0B0),
+                    lambda pkt: getattr(pkt.hc2Field, "sc", 0))],
+                BitField("udpSourcePort", 0, 16)
+            ),
+            lambda pkt: pkt.nh == 1 and pkt.hc2
+        ),
+        ConditionalField(
+            MultipleTypeField(
+                [(BitScalingField("udpDestPort", 0, 4, offset=0xF0B0),
+                    lambda pkt: getattr(pkt.hc2Field, "dc", 0))],
+                BitField("udpDestPort", 0, 16)
+            ),
+            lambda pkt: pkt.nh == 1 and pkt.hc2
+        ),
+        ConditionalField(
+            BitField("udpLength", 0, 16),
+            lambda pkt: pkt.nh == 1 and pkt.hc2 and not pkt.hc2Field.lc
+        ),
+        ConditionalField(
+            XBitField("udpChecksum", 0, 16),
+            lambda pkt: pkt.nh == 1 and pkt.hc2
+        ),
+        # Out of spec
+        BitFixedLenField("pad", 0, _get_hc1_pad)
+    ]
+
+    def post_dissect(self, data):
+        # uncompress payload
+        packet = IPv6()
+        packet.version = IPHC_DEFAULT_VERSION
+        packet.tc = self.traffic_class
+        packet.fl = self.flow_label
+        nh_match = {
+            1: socket.IPPROTO_UDP,
+            2: socket.IPPROTO_ICMP,
+            3: socket.IPPROTO_TCP
+        }
+        if self.nh:
+            packet.nh = nh_match.get(self.nh)
+        packet.hlim = self.hopLimit
+
+        packet.src = self.decompressSourceAddr()
+        packet.dst = self.decompressDestAddr()
+
+        if self.hc2 and self.nh == 1:  # UDP
+            udp = UDP()
+            udp.sport = self.udpSourcePort
+            udp.dport = self.udpDestPort
+            udp.len = self.udpLength or None
+            udp.chksum = self.udpChecksum
+            udp.add_payload(data)
+            packet.add_payload(udp)
+        else:
+            packet.add_payload(data)
+        data = raw(packet)
+        return Packet.post_dissect(self, data)
+
+    def decompressSourceAddr(self):
+        if not self.sp and not self.si:
+            # Prefix & Interface
+            return self.src
+        elif not self.si:
+            # Only interface
+            addr = inet_pton(socket.AF_INET6, self.src)[-8:]
+            addr = LINK_LOCAL_PREFIX[:8] + addr
+        else:
+            # Interface not provided
+            addr = _extract_upperaddress(self, source=True)
+        self.src = inet_ntop(socket.AF_INET6, addr)
+        return self.src
+
+    def decompressDestAddr(self):
+        if not self.dp and not self.di:
+            # Prefix & Interface
+            return self.dst
+        elif not self.di:
+            # Only interface
+            addr = inet_pton(socket.AF_INET6, self.dst)[-8:]
+            addr = LINK_LOCAL_PREFIX[:8] + addr
+        else:
+            # Interface not provided
+            addr = _extract_upperaddress(self, source=False)
+        self.dst = inet_ntop(socket.AF_INET6, addr)
+        return self.dst
+
+    def do_build(self):
+        if not isinstance(self.payload, IPv6):
+            return Packet.do_build(self)
+        # IPv6
+        ipv6 = self.payload
+        self.src = ipv6.src
+        self.dst = ipv6.dst
+        self.flow_label = ipv6.fl
+        self.traffic_class = ipv6.tc
+        self.hopLimit = ipv6.hlim
+        if isinstance(ipv6.payload, UDP):
+            self.nh = 1
+            self.hc2 = 1
+            udp = ipv6.payload
+            self.udpSourcePort = udp.sport
+            self.udpDestPort = udp.dport
+            if not udp.len or not udp.chksum:
+                udp = UDP(raw(udp))
+            self.udpLength = udp.len
+            self.udpChecksum = udp.chksum
+        return Packet.do_build(self)
+
+    def do_build_payload(self):
+        # Elide the IPv6 and UDP payload
+        if isinstance(self.payload, IPv6):
+            if isinstance(self.payload.payload, UDP):
+                return raw(self.payload.payload.payload)
+            return raw(self.payload.payload)
+        return Packet.do_build_payload(self)
+
+# https://tools.ietf.org/html/rfc4944#section-5.3
 
 
 class LoWPANFragmentationFirst(Packet):
@@ -213,13 +396,28 @@ class LoWPANFragmentationSubsequent(Packet):
     ]
 
 
+# https://tools.ietf.org/html/rfc4944#section-11.1
+
+class LoWPANBroadcast(Packet):
+    name = "6LoWPAN Broadcast"
+    fields_desc = [
+        ByteField("reserved", 0x50),
+        ByteField("seq", 0)
+    ]
+
+
+#########################
+# LoWPAN_IPHC (RFC6282) #
+#########################
+
+
 IPHC_DEFAULT_VERSION = 6
 IPHC_DEFAULT_TF = 0
 IPHC_DEFAULT_FL = 0
 
 
-def source_addr_mode2(pkt):
-    """source_addr_mode
+def source_addr_size(pkt):
+    """Source address size
 
     This function depending on the arguments returns the amount of bits to be
     used by the source address.
@@ -247,11 +445,11 @@ def source_addr_mode2(pkt):
             return 0
 
 
-def destiny_addr_mode(pkt):
-    """destiny_addr_mode
+def dest_addr_size(pkt):
+    """Destination address size
 
     This function depending on the arguments returns the amount of bits to be
-    used by the destiny address.
+    used by the destination address.
 
     Keyword arguments:
     pkt -- packet object instance
@@ -267,7 +465,8 @@ def destiny_addr_mode(pkt):
             return 0
     elif pkt.m == 0 and pkt.dac == 1:
         if pkt.dam == 0x0:
-            raise Exception('reserved')
+            # reserved
+            return 0
         elif pkt.dam == 0x1:
             return 8
         elif pkt.dam == 0x2:
@@ -287,69 +486,14 @@ def destiny_addr_mode(pkt):
         if pkt.dam == 0x0:
             return 6
         elif pkt.dam == 0x1:
-            raise Exception('reserved')
+            # reserved
+            return 0
         elif pkt.dam == 0x2:
-            raise Exception('reserved')
+            # reserved
+            return 0
         elif pkt.dam == 0x3:
-            raise Exception('reserved')
-
-
-def nhc_port(pkt):
-    if not pkt.nh:
-        return 0, 0
-    if pkt.header_compression & 0x3 == 0x3:
-        return 4, 4
-    elif pkt.header_compression & 0x2 == 0x2:
-        return 8, 16
-    elif pkt.header_compression & 0x1 == 0x1:
-        return 16, 8
-    else:
-        return 16, 16
-
-
-def pad_trafficclass(pkt):
-    """
-    This function depending on the arguments returns the amount of bits to be
-    used by the padding of the traffic class.
-
-    Keyword arguments:
-    pkt -- packet object instance
-    """
-    if pkt.tf == 0x0:
-        return 4
-    elif pkt.tf == 0x1:
-        return 2
-    elif pkt.tf == 0x2:
-        return 0
-    else:
-        return 0
-
-
-def flowlabel_len(pkt):
-    """
-    This function depending on the arguments returns the amount of bits to be
-    used by the padding of the traffic class.
-
-    Keyword arguments:
-    pkt -- packet object instance
-    """
-    if pkt.tf == 0x0:
-        return 20
-    elif pkt.tf == 0x1:
-        return 20
-    else:
-        return 0
-
-
-def _tf_last_attempt(pkt):
-    if pkt.tf == 0:
-        return 2, 6, 4, 20
-    elif pkt.tf == 1:
-        return 2, 0, 2, 20
-    elif pkt.tf == 2:
-        return 2, 6, 0, 0
-    else:
-        return 0, 0, 0, 0
+            # reserved
+            return 0
 
 
 def _extract_upperaddress(pkt, source=True):
@@ -361,7 +505,7 @@ def _extract_upperaddress(pkt, source=True):
     params:
      - source: if True, the address is the source one. Otherwise, it is the
                destination.
-    returns: the packed & processed address
+    returns: (upper_address, ipv6_address)
     """
     # https://tools.ietf.org/html/rfc6282#section-3.2.2
     SUPPORTED_LAYERS = (Ether, Dot15d4Data)
@@ -389,9 +533,10 @@ def _extract_upperaddress(pkt, source=True):
     else:
         # Most of the times, it's necessary the IEEE 802.15.4 data to extract
         # this address, sometimes another layer.
-        raise Exception(
+        warning(
             'Unimplemented: Unsupported upper layer: %s' % type(underlayer)
         )
+        return b"\x00" * 16
 
 
 class LoWPAN_IPHC(Packet):
@@ -399,65 +544,77 @@ class LoWPAN_IPHC(Packet):
 
     It follows the implementation of RFC6282
     """
+    __slots__ = ["_ipv6"]
     # the LOWPAN_IPHC encoding utilizes 13 bits, 5 dispatch type
     name = "LoWPAN IP Header Compression Packet"
-    _address_modes = ["Unspecified", "1", "16-bits inline", "Compressed"]
-    _state_mode = ["Stateless", "Stateful"]
+    _address_modes = ["Unspecified (0)", "1", "16-bits inline (3)",
+                      "Compressed (3)"]
+    _state_mode = ["Stateless (0)", "Stateful (1)"]
+    deprecated_fields = {
+        "_nhField": ("nhField", "2.4.4"),
+        "_hopLimit": ("hopLimit", "2.4.4"),
+        "sourceAddr": ("src", "2.4.4"),
+        "destinyAddr": ("dst", "2.4.4"),
+        "udpDestinyPort": ("udpDestPort", "2.4.4"),
+    }
     fields_desc = [
-        # dispatch
+        # Base Format https://tools.ietf.org/html/rfc6282#section-3.1.2
         BitField("_reserved", 0x03, 3),
         BitField("tf", 0x0, 2),
         BitEnumField("nh", 0x0, 1, ["Inline", "Compressed"]),
-        BitField("hlim", 0x0, 2),
-        BitEnumField("cid", 0x0, 1, [False, True]),
+        BitEnumField("hlim", 0x0, 2, {0: "Inline",
+                                      1: "Compressed/HL1",
+                                      2: "Compressed/HL64",
+                                      3: "Compressed/HL255"}),
+        BitEnumField("cid", 0x0, 1, {1: "Present (1)"}),
         BitEnumField("sac", 0x0, 1, _state_mode),
         BitEnumField("sam", 0x0, 2, _address_modes),
-        BitEnumField("m", 0x0, 1, [False, True]),
+        BitEnumField("m", 0x0, 1, {1: "multicast (1)"}),
         BitEnumField("dac", 0x0, 1, _state_mode),
         BitEnumField("dam", 0x0, 2, _address_modes),
+        # https://tools.ietf.org/html/rfc6282#section-3.1.2
+        # Context Identifier Extension
         ConditionalField(
-            ByteField("_contextIdentifierExtension", 0x0),
+            BitField("sci", 0, 4),
             lambda pkt: pkt.cid == 0x1
         ),
-        # TODO: THIS IS WRONG!!!!!
-        BitVarSizeField("tc_ecn", 0, calculate_length=lambda pkt: _tf_last_attempt(pkt)[0]),  # noqa: E501
-        BitVarSizeField("tc_dscp", 0, calculate_length=lambda pkt: _tf_last_attempt(pkt)[1]),  # noqa: E501
-        BitVarSizeField("_padd", 0, calculate_length=lambda pkt: _tf_last_attempt(pkt)[2]),  # noqa: E501
-        BitVarSizeField("flowlabel", 0, calculate_length=lambda pkt: _tf_last_attempt(pkt)[3]),  # noqa: E501
-
-        # NH
         ConditionalField(
-            ByteField("_nhField", 0x0),
-            lambda pkt: not pkt.nh
+            BitField("dci", 0, 4),
+            lambda pkt: pkt.cid == 0x1
         ),
-        # HLIM: Hop Limit: if it's 0
+        # https://tools.ietf.org/html/rfc6282#section-3.2.1
         ConditionalField(
-            ByteField("_hopLimit", 0x0),
+            BitField("tc_ecn", 0, 2),
+            lambda pkt: pkt.tf in [0, 1, 2]
+        ),
+        ConditionalField(
+            BitField("tc_dscp", 0, 6),
+            lambda pkt: pkt.tf in [0, 2],
+        ),
+        ConditionalField(
+            MultipleTypeField(
+                [(BitField("rsv", 0, 4), lambda pkt: pkt.tf == 0)],
+                BitField("rsv", 0, 2),
+            ),
+            lambda pkt: pkt.tf in [0, 1]
+        ),
+        ConditionalField(
+            BitField("flowlabel", 0, 20),
+            lambda pkt: pkt.tf in [0, 1]
+        ),
+        # Inline fields https://tools.ietf.org/html/rfc6282#section-3.1.1
+        ConditionalField(
+            ByteEnumField("nhField", 0x0, ipv6nh),
+            lambda pkt: pkt.nh == 0x0
+        ),
+        ConditionalField(
+            ByteField("hopLimit", 0x0),
             lambda pkt: pkt.hlim == 0x0
         ),
-        IP6FieldLenField("sourceAddr", "::", 0, length_of=source_addr_mode2),
-        IP6FieldLenField("destinyAddr", "::", 0, length_of=destiny_addr_mode),  # problem when it's 0  # noqa: E501
-
-        # LoWPAN_UDP Header Compression ########################################  # noqa: E501
-        # TODO: IMPROVE!!!!!
-        ConditionalField(
-            FlagsField("header_compression", 0, 8, ["A", "B", "C", "D", "E", "C", "PS", "PD"]),  # noqa: E501
-            lambda pkt: pkt.nh
-        ),
-        ConditionalField(
-            BitFieldLenField("udpSourcePort", 0x0, 16, length_of=lambda pkt: nhc_port(pkt)[0]),  # noqa: E501
-            # ShortField("udpSourcePort", 0x0),
-            lambda pkt: pkt.nh and pkt.header_compression & 0x2 == 0x0
-        ),
-        ConditionalField(
-            BitFieldLenField("udpDestinyPort", 0x0, 16, length_of=lambda pkt: nhc_port(pkt)[1]),  # noqa: E501
-            lambda pkt: pkt.nh and pkt.header_compression & 0x1 == 0x0
-        ),
-        ConditionalField(
-            XShortField("udpChecksum", 0x0),
-            lambda pkt: pkt.nh and pkt.header_compression & 0x4 == 0x0
-        ),
-
+        # The src and dst fields are filled up or removed in the
+        # pre_dissect and post_build, depending on the other options.
+        IP6FieldLenField("src", "::", length_of=source_addr_size),
+        IP6FieldLenField("dst", "::", length_of=dest_addr_size),  # problem when it's 0  # noqa: E501
     ]
 
     def post_dissect(self, data):
@@ -469,109 +626,89 @@ class LoWPAN_IPHC(Packet):
 
         # uncompress payload
         packet = IPv6()
-        packet.version = IPHC_DEFAULT_VERSION
         packet.tc, packet.fl = self._getTrafficClassAndFlowLabel()
         if not self.nh:
-            packet.nh = self._nhField
+            packet.nh = self.nhField
         # HLIM: Hop Limit
         if self.hlim == 0:
-            packet.hlim = self._hopLimit
+            packet.hlim = self.hopLimit
         elif self.hlim == 0x1:
             packet.hlim = 1
         elif self.hlim == 0x2:
             packet.hlim = 64
         else:
             packet.hlim = 255
-        # TODO: Payload length can be inferred from lower layers from either the  # noqa: E501
-        # 6LoWPAN Fragmentation header or the IEEE802.15.4 header
 
         packet.src = self.decompressSourceAddr(packet)
-        packet.dst = self.decompressDestinyAddr(packet)
+        packet.dst = self.decompressDestAddr(packet)
 
-        if self.nh == 1:
-            # The Next Header field is compressed and the next header is
-            # encoded using LOWPAN_NHC
-
-            packet.nh = 0x11  # UDP
-            udp = UDP()
-            if self.header_compression and \
-               self.header_compression & 0x4 == 0x0:
-                udp.chksum = self.udpChecksum
-
-            s, d = nhc_port(self)
-            if s == 16:
-                udp.sport = self.udpSourcePort
-            elif s == 8:
-                udp.sport = 0xF000 + s
-            elif s == 4:
-                udp.sport = 0xF0B0 + s
-            if d == 16:
-                udp.dport = self.udpDestinyPort
-            elif d == 8:
-                udp.dport = 0xF000 + d
-            elif d == 4:
-                udp.dport = 0xF0B0 + d
-
-            packet.payload = udp / data
+        pay_cls = self.guess_payload_class(data)
+        if pay_cls == IPv6:
+            packet.add_payload(data)
             data = raw(packet)
-        # else self.nh == 0 not necessary
-        elif self._nhField & 0xE0 == 0xE0:  # IPv6 Extension Header Decompression  # noqa: E501
-            warning('Unimplemented: IPv6 Extension Header decompression')  # noqa: E501
-            packet.payload = conf.raw_layer(data)
-            data = raw(packet)
-        else:
-            packet.payload = conf.raw_layer(data)
-            data = raw(packet)
-
+        elif pay_cls == LoWPAN_NHC:
+            self._ipv6 = packet
         return Packet.post_dissect(self, data)
 
-    def decompressDestinyAddr(self, packet):
+    def decompressDestAddr(self, packet):
+        # https://tools.ietf.org/html/rfc6282#section-3.1.1
         try:
-            tmp_ip = inet_pton(socket.AF_INET6, self.destinyAddr)
+            tmp_ip = inet_pton(socket.AF_INET6, self.dst)
         except socket.error:
             tmp_ip = b"\x00" * 16
 
         if self.m == 0 and self.dac == 0:
             if self.dam == 0:
+                # Address fully carried
                 pass
             elif self.dam == 1:
                 tmp_ip = LINK_LOCAL_PREFIX[0:8] + tmp_ip[-8:]
             elif self.dam == 2:
                 tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00" + tmp_ip[-2:]  # noqa: E501
             elif self.dam == 3:
-                # TODO May need some extra changes, we are copying
-                # (self.m == 0 and self.dac == 1)
                 tmp_ip = _extract_upperaddress(self, source=False)
 
         elif self.m == 0 and self.dac == 1:
             if self.dam == 0:
-                raise Exception('Reserved')
+                # reserved
+                pass
             elif self.dam == 0x3:
+                # should use context IID + encapsulating header
                 tmp_ip = _extract_upperaddress(self, source=False)
             elif self.dam not in [0x1, 0x2]:
-                warning("Unknown destiny address compression mode !")
+                # https://tools.ietf.org/html/rfc6282#page-9
+                # Should use context information: unimplemented
+                pass
         elif self.m == 1 and self.dac == 0:
             if self.dam == 0:
-                raise Exception("unimplemented")
+                # Address fully carried
+                pass
             elif self.dam == 1:
-                tmp = b"\xff" + chb(tmp_ip[16 - destiny_addr_mode(self)])
+                tmp = b"\xff" + chb(tmp_ip[16 - dest_addr_size(self)])
                 tmp_ip = tmp + b"\x00" * 9 + tmp_ip[-5:]
             elif self.dam == 2:
-                tmp = b"\xff" + chb(tmp_ip[16 - destiny_addr_mode(self)])
+                tmp = b"\xff" + chb(tmp_ip[16 - dest_addr_size(self)])
                 tmp_ip = tmp + b"\x00" * 11 + tmp_ip[-3:]
             else:  # self.dam == 3:
                 tmp_ip = b"\xff\x02" + b"\x00" * 13 + tmp_ip[-1:]
         elif self.m == 1 and self.dac == 1:
             if self.dam == 0x0:
-                # See https://tools.ietf.org/html/rfc6282#page-9
-                raise Exception("Unimplemented: I didn't understand the 6lowpan specification")  # noqa: E501
-            else:  # all the others values
-                raise Exception("Reserved value by specification.")
+                # https://tools.ietf.org/html/rfc6282#page-10
+                # https://github.com/wireshark/wireshark/blob/f54611d1104d85a425e52c7318c522ed249916b6/epan/dissectors/packet-6lowpan.c#L2149-L2166
+                # Format: ffXX:XXLL:PPPP:PPPP:PPPP:PPPP:XXXX:XXXX
+                # P and L should be retrieved from context
+                P = b"\x00" * 16
+                L = b"\x00"
+                X = tmp_ip[-6:]
+                tmp_ip = b"\xff" + X[:2] + L + P[:8] + X[2:6]
+            else:  # all the others values: reserved
+                pass
 
-        self.destinyAddr = inet_ntop(socket.AF_INET6, tmp_ip)
-        return self.destinyAddr
+        self.dst = inet_ntop(socket.AF_INET6, tmp_ip)
+        return self.dst
 
     def compressSourceAddr(self, ipv6):
+        # https://tools.ietf.org/html/rfc6282#section-3.1.1
         tmp_ip = inet_pton(socket.AF_INET6, ipv6.src)
 
         if self.sac == 0:
@@ -591,10 +728,11 @@ class LoWPAN_IPHC(Packet):
             elif self.sam == 0x2:
                 tmp_ip = tmp_ip[14:16]
 
-        self.sourceAddr = inet_ntop(socket.AF_INET6, b"\x00" * (16 - len(tmp_ip)) + tmp_ip)  # noqa: E501
-        return self.sourceAddr
+        self.src = inet_ntop(socket.AF_INET6, b"\x00" * (16 - len(tmp_ip)) + tmp_ip)  # noqa: E501
+        return self.src
 
-    def compressDestinyAddr(self, ipv6):
+    def compressDestAddr(self, ipv6):
+        # https://tools.ietf.org/html/rfc6282#section-3.1.1
         tmp_ip = inet_pton(socket.AF_INET6, ipv6.dst)
 
         if self.m == 0 and self.dac == 0:
@@ -610,6 +748,8 @@ class LoWPAN_IPHC(Packet):
             elif self.dam == 0x2:
                 tmp_ip = b"\x00" * 14 + tmp_ip[14:16]
         elif self.m == 1 and self.dac == 0:
+            if self.dam == 0x0:
+                pass
             if self.dam == 0x1:
                 tmp_ip = b"\x00" * 10 + tmp_ip[1:2] + tmp_ip[11:16]
             elif self.dam == 0x2:
@@ -617,51 +757,63 @@ class LoWPAN_IPHC(Packet):
             elif self.dam == 0x3:
                 tmp_ip = b"\x00" * 15 + tmp_ip[15:16]
         elif self.m == 1 and self.dac == 1:
-            raise Exception('Unimplemented')
+            if self.dam == 0:
+                tmp_ip = b"\x00" * 10 + tmp_ip[1:3] + tmp_ip[12:16]
 
-        self.destinyAddr = inet_ntop(socket.AF_INET6, tmp_ip)
+        self.dst = inet_ntop(socket.AF_INET6, tmp_ip)
 
     def decompressSourceAddr(self, packet):
+        # https://tools.ietf.org/html/rfc6282#section-3.1.1
         try:
-            tmp_ip = inet_pton(socket.AF_INET6, self.sourceAddr)
+            tmp_ip = inet_pton(socket.AF_INET6, self.src)
         except socket.error:
             tmp_ip = b"\x00" * 16
 
         if self.sac == 0:
             if self.sam == 0x0:
+                # Full address is carried in-line
                 pass
             elif self.sam == 0x1:
-                tmp_ip = LINK_LOCAL_PREFIX[0:8] + tmp_ip[16 - source_addr_mode2(self):16]  # noqa: E501
+                tmp_ip = LINK_LOCAL_PREFIX[0:8] + tmp_ip[16 - source_addr_size(self):16]  # noqa: E501
             elif self.sam == 0x2:
                 tmp = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00"
-                tmp_ip = tmp + tmp_ip[16 - source_addr_mode2(self):16]
-            elif self.sam == 0x3:  # EXTRACT ADDRESS FROM Dot15d4
+                tmp_ip = tmp + tmp_ip[16 - source_addr_size(self):16]
+            elif self.sam == 0x3:
+                # Taken from encapsulating header
                 tmp_ip = _extract_upperaddress(self, source=True)
-            else:
-                warning("Unknown source address compression mode !")
         else:  # self.sac == 1:
             if self.sam == 0x0:
+                # Unspecified address ::
+                pass
+            elif self.sam == 0x1:
+                # should use context IID
                 pass
             elif self.sam == 0x2:
-                # TODO: take context IID
+                # should use context IID
                 tmp = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00"
-                tmp_ip = tmp + tmp_ip[16 - source_addr_mode2(self):16]
+                tmp_ip = tmp + tmp_ip[16 - source_addr_size(self):16]
             elif self.sam == 0x3:
-                tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00" * 8  # TODO: CONTEXT ID  # noqa: E501
-            else:
-                raise Exception('Unimplemented')
-        self.sourceAddr = inet_ntop(socket.AF_INET6, tmp_ip)
-        return self.sourceAddr
+                # should use context IID
+                tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00" * 8
+        self.src = inet_ntop(socket.AF_INET6, tmp_ip)
+        return self.src
 
     def guess_payload_class(self, payload):
-        if self.underlayer and isinstance(self.underlayer, (LoWPANFragmentationFirst, LoWPANFragmentationSubsequent)):  # noqa: E501
+        if self.nh:
+            return LoWPAN_NHC
+        u = self.underlayer
+        if u and isinstance(u, (LoWPANFragmentationFirst,
+                                LoWPANFragmentationSubsequent)):
             return Raw
         return IPv6
 
     def do_build(self):
-        if not isinstance(self.payload, IPv6):
+        _cur = self
+        if isinstance(_cur.payload, LoWPAN_NHC):
+            _cur = _cur.payload
+        if not isinstance(_cur.payload, IPv6):
             return Packet.do_build(self)
-        ipv6 = self.payload
+        ipv6 = _cur.payload
 
         self._reserved = 0x03
 
@@ -684,15 +836,14 @@ class LoWPAN_IPHC(Packet):
 
         # 2. Next Header
         if self.nh == 0x0:
-            self.nh = 0  # ipv6.nh
-        elif self.nh == 0x1:
-            self.nh = 0  # disable compression
-            # The Next Header field is compressed and the next header is encoded using LOWPAN_NHC, which is discussed in Section 4.1.  # noqa: E501
-            warning('Next header compression is not implemented yet ! Will be ignored')  # noqa: E501
+            self.nhField = ipv6.nh
+        elif self.nh == 1:
+            # This will be handled in LoWPAN_NHC
+            pass
 
         # 3. HLim
         if self.hlim == 0x0:
-            self._hopLimit = ipv6.hlim
+            self.hopLimit = ipv6.hlim
         else:  # if hlim is 1, 2 or 3, there are nothing to do!
             pass
 
@@ -700,21 +851,20 @@ class LoWPAN_IPHC(Packet):
         if self.cid == 0x0:
             pass
         else:
-            # TODO: Context Unimplemented yet in my class
-            self._contextIdentifierExtension = 0
+            # TODO: Context Unimplemented yet
+            pass
 
         # 5. Compress Source Addr
         self.compressSourceAddr(ipv6)
-        self.compressDestinyAddr(ipv6)
+        self.compressDestAddr(ipv6)
 
         return Packet.do_build(self)
 
     def do_build_payload(self):
-        if self.header_compression and\
-           self.header_compression & 240 == 240:  # TODO: UDP header IMPROVE
-            return raw(self.payload)[40 + 16:]
-        else:
-            return raw(self.payload)[40:]
+        # Elide the IPv6 payload
+        if isinstance(self.payload, IPv6):
+            return raw(self.payload.payload)
+        return Packet.do_build_payload(self)
 
     def _getTrafficClassAndFlowLabel(self):
         """Page 6, draft feb 2011 """
@@ -727,34 +877,249 @@ class LoWPAN_IPHC(Packet):
         else:
             return 0, 0
 
-# Old compression (deprecated)
+##############
+# LOWPAN_NHC #
+##############
+
+# https://tools.ietf.org/html/rfc6282#section-4
 
 
-class LoWPAN_HC1(Raw):
-    name = "LoWPAN_HC1 Compressed IPv6 (Not supported)"
+class LoWPAN_NHC_Hdr(Packet):
+    @classmethod
+    def get_next_cls(cls, s):
+        if s and len(s) >= 2:
+            fb = ord(s[:1])
+            if fb >> 3 == 0x1e:
+                return LoWPAN_NHC_UDP
+            if fb >> 4 == 0xe:
+                return LoWPAN_NHC_IPv6Ext
+        return None
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=b"", *args, **kargs):
+        return LoWPAN_NHC_Hdr.get_next_cls(_pkt) or LoWPAN_NHC_Hdr
+
+    def extract_padding(self, s):
+        return b"", s
+
+
+class LoWPAN_NHC_UDP(LoWPAN_NHC_Hdr):
+    fields_desc = [
+        BitField("res", 0x1e, 5),
+        BitField("C", 0, 1),
+        BitField("P", 0, 2),
+        MultipleTypeField(
+            [(BitField("udpSourcePort", 0, 16),
+                lambda pkt: pkt.P in [0, 1]),
+             (BitField("udpSourcePort", 0, 8),
+                 lambda pkt: pkt.P == 2),
+             (BitField("udpSourcePort", 0, 4),
+                 lambda pkt: pkt.P == 3)],
+            BitField("udpSourcePort", 0x0, 16),
+        ),
+        MultipleTypeField(
+            [(BitField("udpDestPort", 0, 16),
+                lambda pkt: pkt.P in [0, 2]),
+             (BitField("udpDestPort", 0, 8),
+                 lambda pkt: pkt.P == 1),
+             (BitField("udpDestPort", 0, 4),
+                 lambda pkt: pkt.P == 3)],
+            BitField("udpDestPort", 0x0, 16),
+        ),
+        ConditionalField(
+            XShortField("udpChecksum", 0x0),
+            lambda pkt: pkt.C == 0
+        ),
+    ]
+
+
+_lowpan_nhc_ipv6ext_eid = {
+    0: "Hop-by-hop Options Header",
+    1: "IPv6 Routing Header",
+    2: "IPv6 Fragment Header",
+    3: "IPv6 Destination Options Header",
+    4: "IPv6 Mobility Header",
+    7: "IPv6 Header",
+}
+
+
+class LoWPAN_NHC_IPv6Ext(LoWPAN_NHC_Hdr):
+    fields_desc = [
+        BitField("res", 0xe, 4),
+        BitEnumField("eid", 0, 3, _lowpan_nhc_ipv6ext_eid),
+        BitField("nh", 0, 1),
+        ConditionalField(
+            ByteField("nhField", 0),
+            lambda pkt: pkt.nh == 0
+        ),
+        FieldLenField("len", None, length_of="data", fmt="B"),
+        StrFixedLenField("data", b"", length_from=lambda pkt: pkt.len)
+    ]
+
+    def post_build(self, p, pay):
+        if self.len is None:
+            offs = (not self.nh) + 1
+            p = p[:offs] + struct.pack("!B", len(p) - offs) + p[offs + 1:]
+        return p + pay
+
+
+class LoWPAN_NHC(Packet):
+    name = "LOWPAN_NHC"
+    fields_desc = [
+        PacketListField(
+            "exts", [], cls=LoWPAN_NHC_Hdr,
+            next_cls_cb=lambda *s: LoWPAN_NHC_Hdr.get_next_cls(s[3])
+        )
+    ]
+
+    def post_dissect(self, data):
+        if not self.underlayer or not hasattr(self.underlayer, "_ipv6"):
+            return data
+        if self.guess_payload_class(data) != IPv6:
+            return data
+        # Underlayer is LoWPAN_IPHC
+        packet = self.underlayer._ipv6
+        try:
+            ipv6_hdr = next(
+                x for x in self.exts if isinstance(x, LoWPAN_NHC_IPv6Ext)
+            )
+        except StopIteration:
+            ipv6_hdr = None
+        if ipv6_hdr:
+            # XXX todo: implement: append the IPv6 extension
+            # packet = packet / ipv6extension
+            pass
+        try:
+            udp_hdr = next(
+                x for x in self.exts if isinstance(x, LoWPAN_NHC_UDP)
+            )
+        except StopIteration:
+            udp_hdr = None
+        if udp_hdr:
+            packet.nh = 0x11  # UDP
+            udp = UDP()
+            # https://tools.ietf.org/html/rfc6282#section-4.3.3
+            if udp_hdr.C == 0:
+                udp.chksum = udp_hdr.udpChecksum
+            if udp_hdr.P == 0:
+                udp.sport = udp_hdr.udpSourcePort
+                udp.dport = udp_hdr.udpDestPort
+            elif udp_hdr.P == 1:
+                udp.sport = udp_hdr.udpSourcePort
+                udp.dport = 0xF000 + udp_hdr.udpDestPort
+            elif udp_hdr.P == 2:
+                udp.sport = 0xF000 + udp_hdr.udpSourcePort
+                udp.dport = udp_hdr.udpDestPort
+            elif udp_hdr.P == 3:
+                udp.sport = 0xF0B0 + udp_hdr.udpSourcePort
+                udp.dport = 0xF0B0 + udp_hdr.udpDestPort
+            packet.lastlayer().add_payload(udp / data)
+        else:
+            packet.lastlayer().add_payload(data)
+        data = raw(packet)
+        return Packet.post_dissect(self, data)
+
+    def do_build(self):
+        if not isinstance(self.payload, IPv6):
+            return Packet.do_build(self)
+        pay = self.payload.payload
+        while pay and isinstance(pay.payload, _IPv6ExtHdr):
+            # XXX todo: populate a LoWPAN_NHC_IPv6Ext
+            pay = pay.payload
+        if isinstance(pay, UDP):
+            try:
+                udp_hdr = next(
+                    x for x in self.exts if isinstance(x, LoWPAN_NHC_UDP)
+                )
+            except StopIteration:
+                udp_hdr = LoWPAN_NHC_UDP()
+                # Guess best compression
+                if pay.sport >> 4 == 0xf0b and pay.dport >> 4 == 0xf0b:
+                    udp_hdr.P = 3
+                elif pay.sport >> 8 == 0xf0:
+                    udp_hdr.P = 2
+                elif pay.dport >> 8 == 0xf0:
+                    udp_hdr.P = 1
+                self.exts.insert(0, udp_hdr)
+            # https://tools.ietf.org/html/rfc6282#section-4.3.3
+            if udp_hdr.P == 0:
+                udp_hdr.udpSourcePort = pay.sport
+                udp_hdr.udpDestPort = pay.dport
+            elif udp_hdr.P == 1:
+                udp_hdr.udpSourcePort = pay.sport
+                udp_hdr.udpDestPort = pay.dport & 255
+            elif udp_hdr.P == 2:
+                udp_hdr.udpSourcePort = pay.sport & 255
+                udp_hdr.udpDestPort = pay.dport
+            elif udp_hdr.P == 3:
+                udp_hdr.udpSourcePort = pay.sport & 15
+                udp_hdr.udpDestPort = pay.dport & 15
+            if udp_hdr.C == 0:
+                if pay.chksum:
+                    udp_hdr.udpChecksum = pay.chksum
+                else:
+                    udp_hdr.udpChecksum = UDP(raw(pay)).chksum
+        return Packet.do_build(self)
+
+    def do_build_payload(self):
+        # Elide IPv6 payload, extensions and UDP
+        if isinstance(self.payload, IPv6):
+            cur = self.payload
+            while cur and isinstance(cur, (IPv6, UDP)):
+                cur = cur.payload
+            return raw(cur)
+        return Packet.do_build_payload(self)
+
+    def guess_payload_class(self, payload):
+        if self.underlayer:
+            u = self.underlayer.underlayer
+            if isinstance(u, (LoWPANFragmentationFirst,
+                              LoWPANFragmentationSubsequent)):
+                return Raw
+        return IPv6
+
+
+######################
+# 6LowPan Dispatcher #
+######################
+
+# https://tools.ietf.org/html/rfc4944#section-5.1
+
+class SixLoWPAN_ESC(Packet):
+    name = "SixLoWPAN Dispatcher ESC"
+    fields_desc = [ByteField("dispatch", 0)]
 
 
 class SixLoWPAN(Packet):
-    name = "SixLoWPAN(Packet)"
+    name = "SixLoWPAN Dispatcher"
 
     @classmethod
     def dispatch_hook(cls, _pkt=b"", *args, **kargs):
         """Depending on the payload content, the frame type we should interpretate"""  # noqa: E501
         if _pkt and len(_pkt) >= 1:
-            if orb(_pkt[0]) == 0x41:
+            fb = ord(_pkt[:1])
+            if fb == 0x41:
                 return LoWPANUncompressedIPv6
-            if orb(_pkt[0]) == 0x42:
+            if fb == 0x42:
                 return LoWPAN_HC1
-            if orb(_pkt[0]) >> 3 == 0x18:
+            if fb == 0x50:
+                return LoWPANBroadcast
+            if fb == 0x7f:
+                return SixLoWPAN_ESC
+            if fb >> 3 == 0x18:
                 return LoWPANFragmentationFirst
-            elif orb(_pkt[0]) >> 3 == 0x1C:
+            if fb >> 3 == 0x1C:
                 return LoWPANFragmentationSubsequent
-            elif orb(_pkt[0]) >> 6 == 0x02:
+            if fb >> 6 == 0x02:
                 return LoWPANMesh
-            elif orb(_pkt[0]) >> 6 == 0x01:
+            if fb >> 6 == 0x01:
                 return LoWPAN_IPHC
         return cls
 
+
+#################
+# Fragmentation #
+#################
 
 # fragmentate IPv6
 MAX_SIZE = 96
@@ -804,23 +1169,16 @@ def sixlowpan_defragment(packet_list):
             results[tag] = results.get(tag, b"") + p[cls].payload.load  # noqa: E501
     return {tag: SixLoWPAN(x) for tag, x in results.items()}
 
+############
+# Bindings #
+############
 
-bind_layers(SixLoWPAN, LoWPANFragmentationFirst,)
-bind_layers(SixLoWPAN, LoWPANFragmentationSubsequent,)
-bind_layers(SixLoWPAN, LoWPANMesh,)
-bind_layers(SixLoWPAN, LoWPAN_IPHC,)
-bind_layers(LoWPANMesh, LoWPANFragmentationFirst,)
-bind_layers(LoWPANMesh, LoWPANFragmentationSubsequent,)
+
+bind_layers(LoWPAN_HC1, IPv6)
+
+bind_top_down(LoWPAN_IPHC, LoWPAN_NHC, nh=1)
+bind_layers(LoWPANFragmentationFirst, SixLoWPAN)
+bind_layers(LoWPANMesh, SixLoWPAN)
+bind_layers(LoWPANBroadcast, SixLoWPAN)
 
 bind_layers(Ether, SixLoWPAN, type=0xA0ED)
-
-# TODO: I have several doubts about the Broadcast LoWPAN
-# bind_layers( LoWPANBroadcast,   LoWPANHC1CompressedIPv6,            )
-# bind_layers( SixLoWPAN,         LoWPANBroadcast,                    )
-# bind_layers( LoWPANMesh,        LoWPANBroadcast,                    )
-# bind_layers( LoWPANBroadcast,   LoWPANFragmentationFirst,           )
-# bind_layers( LoWPANBroadcast,   LoWPANFragmentationSubsequent,      )
-
-# TODO: find a way to chose between ZigbeeNWK and SixLoWPAN (cf. dot15d4.py)
-# Currently: use conf.dot15d4_protocol value
-# bind_layers(Dot15d4Data, SixLoWPAN)

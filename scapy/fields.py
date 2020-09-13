@@ -92,6 +92,8 @@ class Field(six.with_metaclass(Field_metaclass, object)):
     holds_packets = 0
 
     def __init__(self, name, default, fmt="H"):
+        if not isinstance(name, str):
+            raise ValueError("name should be a string")
         self.name = name
         if fmt[0] in "@=<>!":
             self.fmt = fmt
@@ -1259,6 +1261,8 @@ class PacketListField(PacketField):
         if self.next_cls_cb is not None:
             cls = self.next_cls_cb(pkt, [], None, s)
             c = 1
+            if cls is None:
+                c = 0
 
         lst = []
         ret = b""
@@ -1718,6 +1722,22 @@ class BitField(Field):
 
     def i2len(self, pkt, x):
         return float(self.size) / 8
+
+
+class BitFixedLenField(BitField):
+    __slots__ = ["length_from"]
+
+    def __init__(self, name, default, length_from):
+        self.length_from = length_from
+        super(BitFixedLenField, self).__init__(name, default, 0)
+
+    def getfield(self, pkt, s):
+        self.size = self.length_from(pkt)
+        return super(BitFixedLenField, self).getfield(pkt, s)
+
+    def addfield(self, pkt, s, val):
+        self.size = self.length_from(pkt)
+        return super(BitFixedLenField, self).addfield(pkt, s, val)
 
 
 class BitFieldLenField(BitField):

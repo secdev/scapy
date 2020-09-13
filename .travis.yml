@@ -64,9 +64,9 @@ jobs:
         - os: linux
           python: 3.8
           env:
-            - SCAPY_PY_OPTS="-Werror -X tracemalloc=25" TOXENV=py38-linux_root
+            - SCAPY_PY_OPTS="-Werror -X tracemalloc" TOXENV=py38-linux_root
     allow_failures:
-      - env: SCAPY_PY_OPTS="-Werror -X tracemalloc=25" TOXENV=py38-linux_root
+      - env: SCAPY_PY_OPTS="-Werror -X tracemalloc" TOXENV=py38-linux_root
 
 install:
   - bash .config/ci/install.sh

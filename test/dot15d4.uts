@@ -176,7 +176,7 @@ assert LoWPANUncompressedIPv6 in pkt.layers()
 lowpan_frag_first = b'\xc29\x00\x17`\x00\x00\x00\x00\x00\x00\x00 \x02\r\xb8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01 \x02\r\xb8\x00\x00\x00\x00\x00\x11"\xff\xfe3DU\xc4\xf9\x00Pw\x9b\x18\x9d\x00\x00\x01\xa2P\x18\x13X\x08\x10\x00\x00GET / HTTP/1.1\r\nHost: [aaaa::11:22ff'
 lowpan_frag_first_packet = SixLoWPAN(lowpan_frag_first)
 
-assert lowpan_frag_first_packet.load == b'`\x00\x00\x00\x00\x00\x00\x00 \x02\r\xb8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01 \x02\r\xb8\x00\x00\x00\x00\x00\x11"\xff\xfe3DU\xc4\xf9\x00Pw\x9b\x18\x9d\x00\x00\x01\xa2P\x18\x13X\x08\x10\x00\x00GET / HTTP/1.1\r\nHost: [aaaa::11:22ff'
+assert lowpan_frag_first_packet.load == b'\xc4\xf9\x00Pw\x9b\x18\x9d\x00\x00\x01\xa2P\x18\x13X\x08\x10\x00\x00GET / HTTP/1.1\r\nHost: [aaaa::11:22ff'
 
 = Frag second dissection
 
@@ -202,6 +202,84 @@ assert p.destinyAddr == "aaaa::11:22ff:fe33:4455"
 
 q = LoWPAN_IPHC(tf=0x0)
 assert raw(q) == b'`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= LoWPAN_IPHC - M=1, DAC=1, DAM=0
+
+p = Dot15d4(b'a\x88\x10"\x00\x13\x00\x16Pw\x9cB\xe6\x87`\x12\xe1\x08~\x04\x08\x00\x00\x00\xf0Q\xc7\x1bX\x9e\xf3\x00\x00\x00\x1c\xfa\xfa\xfa\xfa\xe7k')
+
+assert p.m == 1
+assert p.dac == 1
+assert p.dam == 0
+assert p.dst == "ff00::f0:51c7"
+
+p = Dot15d4(raw(p))
+assert p.dst == "ff00::f0:51c7"
+
+assert raw(p) == b'a\x88\x10"\x00\x13\x00\x16Pw\x9cB\xe6\x87`\x12\xe1\x08~\x04\x08\x00\x00\x00\xf0Q\xc7\x1bX\x9e\xf3\x00\x00\x00\x1c\xfa\xfa\xfa\xfa\xe7k'
+
+= LoWPAN_NHC - NHC_UDP
+
+p = Dot15d4(b'A\x88\x00"\x00\xff\xff\x13\x00};\x01\xf0\xda\xc9\xda\xc9\x85\x80\xc8\x00\x00\x00\x00\x00\x00\x00\xf2\xeb')
+
+assert LoWPAN_NHC in p
+assert p[LoWPAN_NHC].exts[0].udpSourcePort == 56009
+assert p[LoWPAN_NHC].exts[0].udpDestPort == 56009
+assert p[LoWPAN_NHC].exts[0].udpChecksum == 0x8580
+assert p[UDP].sport == 56009
+assert p[UDP].dport == 56009
+
+p.clear_cache()
+
+assert raw(p) == b'A\x88\x00"\x00\xff\xff\x13\x00};\x01\xf0\xda\xc9\xda\xc9\x85\x80\xc8\x00\x00\x00\x00\x00\x00\x00\xf2\xeb'
+
+= LoWPAN_NHC - compute UDP NHC_UDP
+
+p = Dot15d4()/Dot15d4Data()/LoWPAN_IPHC()/LoWPAN_NHC()/IPv6()/UDP(sport=61618, dport=61621)
+assert raw(p) == b'\x01\x08\x01\xff\xff\xff\xffd\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xf3%\x1et'
+
+assert p.exts[0].udpSourcePort == 2
+assert p.exts[0].udpDestPort == 5
+assert p.exts[0].udpChecksum == 0x1e74
+
+= LoWPAN_NHC - NHC_IPv6Ext
+
+p = Dot15d4(b'a\x88\x07"\x00\x16\x00\x13\x00|f\x10\x00\x13\x00\x12\xe1\x08~\x04\n\x00\x00\x00\xf0Q\xc7\x1bX\x9f\t\x00\x00\x00\t\xfa\xfa\xfa\xfa\xf0\xeb')
+
+assert LoWPAN_NHC in p
+assert p[LoWPAN_NHC].exts[0].eid == 0
+assert p[LoWPAN_NHC].exts[0].len == 8
+assert p[LoWPAN_NHC].exts[0].data == b'~\x04\n\x00\x00\x00\xf0Q'
+
+= LoWPAN_HC1 dissection & build
+
+dat = b'\x00"\x19\x100\xe5\x00\x1c\xda\x00\x00\x01\x08\x00E\x00\x00m\xc7\xf3\x00\x00@\x11W\x0f\xac\x10\x02)\xac\x10\x014EZEZ\x00Y\x8f\xaaEX\x02\x01\x00\x00\x01\x01\xff\x00\x0c\xd14\x7f\xc1H4\x00\x05\xc68\x00\x00\x00\x00\x00\x00\x00\x00\x00\x001A\xcc\xa5\xff\xff\x8a\x18\x00\xff\xff\xda\x1c\x00\x88\x18\x00\xff\xff\xda\x1c\x00B\xfb`@\x04\x01\x1f\x88\xc0Hello 005 0x626B\n\xa5\x0b'
+p = Ether(dat)
+p.clear_cache()
+
+assert p[LoWPAN_HC1].src == p[IPv6].src == 'fe80::21c:daff:ff00:1888'
+assert p[LoWPAN_HC1].dst == p[IPv6].dst == 'fe80::21c:daff:ff00:188a'
+assert p[LoWPAN_HC1].hopLimit == p[IPv6].hlim == 64
+assert p[LoWPAN_HC1].hc2Field.sc == 0
+assert p[LoWPAN_HC1].hc2Field.dc == 1
+assert p[LoWPAN_HC1].hc2Field.lc == 1
+assert p[IPv6].nh == socket.IPPROTO_UDP
+assert p[LoWPAN_HC1].udpSourcePort == p.getlayer(UDP, 2).sport == 1025
+assert p[LoWPAN_HC1].udpDestPort == p.getlayer(UDP, 2).dport == 61617
+assert p[LoWPAN_HC1].udpChecksum == p.getlayer(UDP, 2).chksum == 0xf88c
+assert p.getlayer(UDP, 2).len == 27
+
+assert raw(p) == dat
+
+= LoWPAN_HC1 build from scratch
+
+a = Dot15d4()/Dot15d4Data()/LoWPAN_HC1()/IPv6()/UDP()
+assert raw(a) == b'\x01\x08\x01\xff\xff\xff\xffB\x03\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x03P\x03P\x00\x8f\xf7 '
+
+a = Dot15d4(raw(a))
+assert a[LoWPAN_HC1].nh == 1
+assert a[LoWPAN_HC1].hc2 == 1
+assert a[LoWPAN_HC1].udpDestPort
+assert a[LoWPAN_HC1].udpSourcePort
 
 = Advanced packets - dissection & FCS computation
 
@@ -230,6 +308,8 @@ ieee802_iphc = b"\x41\xcc\xb5\xcd\xab\x16\x15\x14\xfe\xff\x13\x12\x02\x55\x44\x3
 ieee = Dot15d4FCS(ieee802_iphc)
 ieee.show()
 assert ieee.fcs == 0x16c1
+
+assert ieee[LoWPAN_IPHC].dst == '::1'
 
 del ieee.fcs
 ieee = Dot15d4FCS(raw(ieee))
@@ -328,9 +408,9 @@ assert LoWPANUncompressedIPv6 in packet
 # extracted from 6lowpan-test.pcap
 udp = Ether()/IP()/UDP()/ZEP2()/Dot15d4()/Dot15d4Data()/b"\x7e\xf7\x00\xf0\x22\x3d\x16\x2e\x8e\x60\x10\x03\x00\x00\xaa\xaa\x00\x00\x00\x00\x00\x00\x48\x65\x6c\x6c\x6f\x20\x31\x20\x66\x72\x6f\x6d\x20\x74\x68\x65\x20\x63\x6c\x69\x65\x6e\x74\x2e\x2d\x2e\x2d\x2e\x2d\x20\x30\x20\x33\x34\x35\x36\x37\x38\x39\x20\x31\x20\x33\x34\x35\x36\x37\x38\x39\x20\x32\x20\x33\x34\x35\x36\x37\x38\x39\x20\x33\x20\x33\x34\x35\x36\x37\x38\x39\x20\x34\x20\x33\x34\x35\x36"
 packet = Ether(raw(udp))
-assert packet.udpSourcePort == 8765
-assert packet.udpDestinyPort == 5678
-assert packet.udpChecksum == 0x8e60
+assert packet.exts[0].udpSourcePort == 8765
+assert packet.exts[0].udpDestPort == 5678
+assert packet.exts[0].udpChecksum == 0x8e60
 assert packet[IPv6].nh == 0x11 # the ipv6 header
 assert packet[IPv6][UDP].sport == 8765 #udp decompressed header
 assert packet[IPv6][UDP].dport == 5678 #udp decompressed header
@@ -353,10 +433,10 @@ assert packet.tc_ecn == 0 and packet.flowlabel == 467
 
 packet = SixLoWPAN()/LoWPAN_IPHC(tf=2)/IPv6(tc = 12, fl=467)
 packet = SixLoWPAN(raw(packet))
-assert (packet.tc_ecn << 6) + packet.tc_dscp == 12 and packet.flowlabel == 0
+assert (packet.tc_ecn << 6) + packet.tc_dscp == 12 and packet.flowlabel is None
 packet = SixLoWPAN()/LoWPAN_IPHC(tf=3)/IPv6(tc = 12, fl=467)
 packet = SixLoWPAN(raw(packet))
-assert (packet.tc_ecn << 6) + packet.tc_dscp == 0 and packet.flowlabel == 0
+assert packet.tc_ecn is None and packet.tc_dscp is None and packet.flowlabel is None
 
 #TODO: Next Header Test
 
