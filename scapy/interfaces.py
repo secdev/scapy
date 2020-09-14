@@ -181,13 +181,7 @@ class NetworkInterfaceDict(UserDict):
         # Can only be called after conf.route is populated
         if not conf.route:
             raise ValueError("Error: conf.route isn't populated !")
-        iface = conf.route.route(verbose=0)[0]
-        if iface == conf.loopback_name:
-            conf.iface = get_working_if()
-        else:
-            conf.iface = resolve_iface(iface)
-            if not conf.iface.is_valid():
-                conf.iface = get_working_if()
+        conf.iface = get_working_if()
 
     def _reload_provs(self):
         self.clear()
@@ -312,6 +306,11 @@ def get_working_if():
             return iface
     # There is no hope left
     return conf.loopback_name
+
+
+def get_working_ifaces():
+    """Return all interfaces that work"""
+    return [iface for iface in conf.ifaces.values() if iface.is_valid()]
 
 
 def dev_from_networkname(network_name):
