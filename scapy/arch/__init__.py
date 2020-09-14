@@ -18,15 +18,23 @@ from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, IPV6_ADDR_GLOBAL
 from scapy.compat import orb
 
 
+# Duplicated from scapy/utils.py for import reasons
+
 def str2mac(s):
     return ("%02x:" * 6)[:-1] % tuple(orb(x) for x in s)
 
 
 def get_if_addr(iff):
+    """
+    Returns the IPv4 of an interface or "0.0.0.0" if not available
+    """
     return inet_ntop(socket.AF_INET, get_if_raw_addr(iff))  # noqa: F405
 
 
 def get_if_hwaddr(iff):
+    """
+    Returns the MAC (hardware) address of an interface
+    """
     addrfamily, mac = get_if_raw_hwaddr(iff)  # noqa: F405
     if addrfamily in [ARPHDR_ETHER, ARPHDR_LOOPBACK]:
         return str2mac(mac)

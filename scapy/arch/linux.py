@@ -95,6 +95,10 @@ PACKET_FASTROUTE = 6  # Fastrouted frame
 
 
 def get_if_raw_addr(iff):
+    r"""
+    Return the raw IPv4 address of an interface.
+    If unavailable, returns b"\0\0\0\0"
+    """
     try:
         return get_if(iff, SIOCGIFADDR)[20:24]
     except IOError:
@@ -367,6 +371,8 @@ class LinuxInterfaceProvider(InterfaceProvider):
                 get_if_raw_hwaddr(i, siocgifhwaddr=SIOCGIFHWADDR)[1]
             )
             ip = inet_ntop(socket.AF_INET, get_if_raw_addr(i))
+            if ip == "0.0.0.0":
+                ip = None
             ifflags = FlagValue(ifflags, _iff_flags)
             if_data = {
                 "name": i,
@@ -375,7 +381,7 @@ class LinuxInterfaceProvider(InterfaceProvider):
                 "flags": ifflags,
                 "index": index,
                 "ip": ip,
-                "ips": [x[0] for x in ips if x[2] == i] + [ip],
+                "ips": [x[0] for x in ips if x[2] == i] + [ip] if ip else [],
                 "mac": mac
             }
             data[i] = NetworkInterface(self, if_data)
