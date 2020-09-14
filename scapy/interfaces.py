@@ -50,7 +50,7 @@ class InterfaceProvider(object):
 
     def _is_valid(self, dev):
         """Returns whether an interface is valid or not"""
-        return bool((self.ip or self.ip6) and self.mac)
+        return bool((dev.ips[4] or dev.ips[6]) and dev.mac)
 
     def _format(self, dev, **kwargs):
         """Returns the elements used by show()
@@ -76,7 +76,6 @@ class NetworkInterface(object):
         self.network_name = ""
         self.index = -1
         self.ip = None
-        self.ip6 = None
         self.ips = defaultdict(list)
         self.mac = None
         self.dummy = False
@@ -92,7 +91,6 @@ class NetworkInterface(object):
         self.network_name = data.get('network_name', "")
         self.index = data.get('index', 0)
         self.ip = data.get('ip', "")
-        self.ip6 = data.get('ip6', "")
         self.mac = data.get('mac', "")
         self.flags = data.get('flags', 0)
         self.dummy = data.get('dummy', False)
@@ -103,14 +101,10 @@ class NetworkInterface(object):
             else:
                 self.ips[4].append(ip)
 
-        # An interface may have multiple IPv4 or IPv6
-        # "ip" and "ip6" should contain the "main" one
+        # An interface often has multiple IPv6 so we don't store
+        # a "main" one, unlike IPv4.
         if self.ips[4] and not self.ip:
             self.ip = self.ips[4][0]
-        if self.ips[6] and not self.ip6:
-            # TODO XXX
-            # What should we consider the main IPv6 ? @guedou
-            self.ip6 = self.ips[6][0]
 
     def __eq__(self, other):
         if isinstance(other, str):
