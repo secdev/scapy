@@ -1313,9 +1313,13 @@ class TLSClientKeyExchange(_TLSHandshake):
 
         if self.tls_session.extms:
             to_hash = b''.join(self.tls_session.handshake_messages)
+            # https://tools.ietf.org/html/rfc7627#section-3
             if self.tls_session.tls_version >= 0x303:
-                # TLS 1.2 uses the default hash from cipher suite
-                hash_object = self.tls_session.pwcs.hash
+                # TLS 1.2 uses the same Hash as the PRF
+                from scapy.layers.tls.crypto.hash import _tls_hash_algs
+                hash_object = _tls_hash_algs.get(
+                    self.tls_session.prcs.prf.hash_name
+                )()
                 self.tls_session.session_hash = hash_object.digest(to_hash)
             else:
                 # Previous TLS version use concatenation of MD5 & SHA1

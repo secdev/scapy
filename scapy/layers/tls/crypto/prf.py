@@ -203,6 +203,8 @@ class PRF(object):
             elif hash_name == "SHA512":
                 self.prf = _tls12_SHA512PRF
             else:
+                if hash_name in ["MD5", "SHA"]:
+                    self.hash_name = "SHA256"
                 self.prf = _tls12_SHA256PRF
         else:
             warning("Unknown TLS version")
@@ -293,10 +295,7 @@ class PRF(object):
                 s2 = _tls_hash_algs["SHA"]().digest(handshake_msg)
                 verify_data = self.prf(master_secret, label, s1 + s2, 12)
             else:
-                if self.hash_name in ["MD5", "SHA"]:
-                    h = _tls_hash_algs["SHA256"]()
-                else:
-                    h = _tls_hash_algs[self.hash_name]()
+                h = _tls_hash_algs[self.hash_name]()
                 s = h.digest(handshake_msg)
                 verify_data = self.prf(master_secret, label, s, 12)
 
