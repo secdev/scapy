@@ -9,10 +9,10 @@ from logging import warning
 
 from scapy.config import conf
 from scapy.contrib.automotive.xcp.utils import get_max_cto, get_ag, \
-    XCPEndiannessField
+    XCPEndiannessField, StrVarLenField
 from scapy.fields import ByteEnumField, ByteField, ShortField, StrLenField, \
     FlagsField, IntField, ThreeBytesField, ConditionalField, XByteField, \
-    StrField, LEShortField, XIntField
+    StrField, LEShortField, XIntField, FieldLenField
 from scapy.packet import Packet
 
 
@@ -21,7 +21,7 @@ from scapy.packet import Packet
 # STANDARD COMMANDS
 
 class NegativeResponse(Packet):
-    """ Error Packet """
+    """Error Packet"""
     error_code = {
         0x00: "ERR_CMD_SYNCH",
         0x10: "ERR_CMD_BUSY",
@@ -49,7 +49,7 @@ class NegativeResponse(Packet):
 
 
 class GenericResponse(Packet):
-    """ Command Response packet  """
+    """Command Response packet """
     fields_desc = [
         StrField("command_response_data", "")
     ]
@@ -58,18 +58,16 @@ class GenericResponse(Packet):
 class ConnectPositiveResponse(Packet):
     fields_desc = [
         FlagsField("resource", 0, 8,
-                   ["cal_pag", "x1", "daq", "stim", "pgm", "x5", "x6", "x7",
-                    "cal_pag"]),
+                   ["cal_pag", "x1", "daq", "stim", "pgm", "x5", "x6", "x7"]),
         FlagsField("comm_mode_basic", 0, 8,
                    ["byte_order", "address_granularity_0",
                     "address_granularity_1", "x3", "x4", "x5",
                     "slave_block_mode", "optional"]),
         ByteField("max_cto", 0),
         ConditionalField(ShortField("max_dto", 0),
-                         lambda p: hasattr(p.comm_mode_basic, "byte_order")),
-        ConditionalField(LEShortField("max_dto", 0),
-                         lambda p: not hasattr(p.comm_mode_basic,
-                                               "byte_order")),
+                         lambda p: p.comm_mode_basic.byte_order),
+        ConditionalField(LEShortField("max_dto_le", 0),
+                         lambda p: not p.comm_mode_basic.byte_order),
         ByteField("xcp_protocol_layer_version_number_msb", 1),
         ByteField("xcp_transport_layer_version_number_msb", 1)
     ]
@@ -86,7 +84,7 @@ class ConnectPositiveResponse(Packet):
 
         if conf.contribs["XCP"]["allow_cto_and_dto_change"]:
             conf.contribs["XCP"]["MAX_CTO"] = self.max_cto
-            conf.contribs["XCP"]["MAX_DTO"] = self.max_dto
+            conf.contribs["XCP"]["MAX_DTO"] = self.max_dto or self.max_dto_le
 
     def get_address_granularity(self):
         comm_mode_basic = self.comm_mode_basic
@@ -135,17 +133,18 @@ class IdPositiveResponse(Packet):
     fields_desc = [
         ByteField("mode", 0),
         XCPEndiannessField(ShortField("reserved", 0)),
-        XCPEndiannessField(IntField("length", 0)),
-        ConditionalField(
-            StrLenField("element", "", length_from=lambda pkt: get_ag()),
-            lambda pkt: pkt.length > 0),
+        XCPEndiannessField(FieldLenField("length", None, length_of="element",
+                                         fmt="I")),
+        StrVarLenField("element", b"", length_from=lambda p: p.length,
+                       max_length=lambda pkt: get_ag())
     ]
 
 
 class SeedPositiveResponse(Packet):
     fields_desc = [
-        ByteField("seed_length", 0),
-        StrLenField("seed", "", length_from=lambda _: get_max_cto() - 2)
+        FieldLenField("seed_length", None, length_of="seed", fmt="B"),
+        StrVarLenField("seed", b"", length_from=lambda p: p.seed_length,
+                       max_length=lambda: get_max_cto() - 2)
     ]
 
 
@@ -177,7 +176,7 @@ class ShortUploadPositiveResponse(Packet):
 
 
 class ChecksumPositiveResponse(Packet):
-    checksum_type = {
+    checksum_type_dict = {
         0x01: "XCP_ADD_11",
         0x02: "XCP_ADD_12",
         0x03: "XCP_ADD_14",
@@ -190,9 +189,9 @@ class ChecksumPositiveResponse(Packet):
         0xFF: "XCP_USER_DEFINED"
     }
     fields_desc = [
-        ByteEnumField("checksum_type", 0, checksum_type),
+        ByteEnumField("checksum_type", 0, checksum_type_dict),
         # specification says: position 2,3 type byte (not WORD) The example(
-        # Part 5 Example Communication Sequences ) shows 2 bytes for
+        # Part 5 Example Communication Sequences) shows 2 bytes for
         # "reserved"
         # http://read.pudn.com/downloads192/doc/comm/903802/XCP%20-Part%205-%20Example%20Communication%20Sequences%20-1.0.pdf # noqa: E501
         # --> 2 bytes
@@ -441,7 +440,7 @@ class SectorInfoPositiveResponse(Packet):
 
 
 class EvPacket(Packet):
-    """ Event packet """
+    """Event packet"""
     event_code = {
         0x00: "EV_RESUME_MODE",
         0x01: "EV_CLEAR_DAQ",
@@ -461,7 +460,7 @@ class EvPacket(Packet):
 
 
 class ServPacket(Packet):
-    """ Service Request packet """
+    """Service Request packet"""
     service_request_code = {
         0x00: "SERV_RESET",
         0x01: "SERV_TEXT",

@@ -458,33 +458,33 @@ Universal calibration and measurement protocol (XCP)
 XCP is the successor of CCP. It is usable with several protocols. Scapy includes CAN, UDP and TCP.
 XCP has two types of message types: Command Transfer Object (CTO) and Data Transmission Object (DTO).
 CTOs send to an ECU are requests (commands) and the ECU has to reply with a positive response or an error.
-Additionally, the ECU can send a CTO to inform the master about an asynchronous event(EV) or request a service execution(SERV).
-DTOs sent by the ECU are called DAQ(Data AcQuisition) and include measured values.
-DTOs received by the ECU are used for a periodic stimulation and are called STIM(Stimulation).
+Additionally, the ECU can send a CTO to inform the master about an asynchronous event (EV) or request a service execution (SERV).
+DTOs sent by the ECU are called DAQ (Data AcQuisition) and include measured values.
+DTOs received by the ECU are used for a periodic stimulation and are called STIM (Stimulation).
 
 
 Creating a CTO message::
 
-    CTORequest(pid="CONNECT") / Connect(connection_mode="NORMAL")
-    CTORequest(pid="GET_DAQ_RESOLUTION_INFO") / GetDaqResolutionInfo()
-    CTORequest(pid="GET_SEED") / GetSeed(mode=0x01,resource=0x00)
+    CTORequest() / Connect()
+    CTORequest() / GetDaqResolutionInfo()
+    CTORequest() / GetSeed(mode=0x01, resource=0x00)
 
 To send the message over CAN a header has to be added
 
-    pkt = XCPOnCAN(identifier=0x700) / CTORequest(pid="CONNECT") / Connect(connection_mode="NORMAL")
-    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
+    pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
+    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0'))
     sock.send(pkt)
 
 If we are interested in the response of an ECU, we need to set the basecls parameter of the
 CANSocket to XCPonCAN and we need to use sr1:
 Sending a CTO message::
 
-    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000), basecls=CCP)
+    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0'), basecls=XCPonCAN)
     dto = sock.sr1(pkt)
 
 Since sr1 calls the answers function, our payload of the XCP-response objects gets interpreted with the
 command of our CTO object. Otherwise it could not be interpreted.
-The first message should always be the "CONNECT" Message, the response of the ECU determines how the messages are read. E.g.: byte order.
+The first message should always be the "CONNECT" message, the response of the ECU determines how the messages are read. E.g.: byte order.
 Otherwise, one must set the address granularity, and max size of the DTOs and CTOs per hand in the contrib config::
 
     conf.contribs['XCP']['Address_Granularity_Byte'] = 1  # Can be 1, 2 or 4
@@ -501,11 +501,11 @@ To send a pkt over TCP or UDP another header must be used.
 TCP::
 
     prt1, prt2 = 12345, 54321
-    XCPOnTCP(sport=prt1, dport=prt2, length=2, ctr=0) / CTORequest(pid="CONNECT") / Connect( connection_mode="NORMAL")
+    XCPOnTCP(sport=prt1, dport=prt2) / CTORequest() / Connect()
 
 UDP::
 
-    XCPOnUDP(sport=prt1, dport=prt2, length=2, ctr=0) / CTORequest(pid="CONNECT") / Connect( connection_mode="NORMAL")
+    XCPOnUDP(sport=prt1, dport=prt2) / CTORequest() / Connect()
 
 
 
@@ -788,12 +788,12 @@ Commandline usage example::
       --broadcast_id BROADCAST_ID, -b BROADCAST_ID
                             XCP Broadcast CAN identifier (in hex)
       --start START, -s START
-                            Start XCP Broadcast CAN identifier Start ID (in hex)
+                            Start XCP Broadcast CAN identifier Start ID (in hex).
                             If actual ID is unknown the scan will test broadcast
-                            ids between --start and --end
-      --end END, -e END     End XCP Broadcast CAN identifier End ID (in hex) If
-                            actual ID is unknown the scan will test broadcast ids
-                            between --start and --end
+                            ids between --start and --end (inclusive)
+      --end END, -e END     End XCP Broadcast CAN identifier End ID (in hex).
+                            If actual ID is unknown the scan will test
+                            broadcast ids between --start and --end (inclusive)
       --extended_can_ids EXTENDED_CAN_IDS, -x EXTENDED_CAN_IDS
                             Use extended CAN identifiers
       --verbose VERBOSE, -v VERBOSE

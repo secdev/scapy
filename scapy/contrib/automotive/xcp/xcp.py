@@ -6,8 +6,23 @@
 
 # scapy.contrib.description = Universal calibration and measurement protocol (XCP) # noqa: E501
 # scapy.contrib.status = loads
+import struct
 
-
+from scapy.config import conf
+from scapy.contrib.automotive.xcp.cto_commands_master import Connect, \
+    Disconnect, GetStatus, Synch, GetCommModeInfo, GetId, SetRequest, \
+    GetSeed, Unlock, SetMta, Upload, ShortUpload, BuildChecksum, \
+    TransportLayerCmd, TransportLayerCmdGetSlaveId, \
+    TransportLayerCmdGetDAQId, TransportLayerCmdSetDAQId, UserCmd, Download, \
+    DownloadNext, DownloadMax, ShortDownload, ModifyBits, SetCalPage, \
+    GetCalPage, GetPagProcessorInfo, GetSegmentInfo, GetPageInfo, \
+    SetSegmentMode, GetSegmentMode, CopyCalPage, SetDaqPtr, WriteDaq, \
+    SetDaqListMode, GetDaqListMode, StartStopDaqList, StartStopSynch, \
+    ReadDaq, GetDaqClock, GetDaqProcessorInfo, GetDaqResolutionInfo, \
+    GetDaqListInfo, GetDaqEventInfo, ClearDaqList, FreeDaq, AllocDaq, \
+    AllocOdt, AllocOdtEntry, ProgramStart, ProgramClear, Program, \
+    ProgramReset, GetPgmProcessorInfo, GetSectorInfo, ProgramPrepare, \
+    ProgramFormat, ProgramNext, ProgramMax, ProgramVerify
 from scapy.contrib.automotive.xcp.cto_commands_slave import \
     GenericResponse, NegativeResponse, EvPacket, ServPacket, \
     TransportLayerCmdGetSlaveIdResponse, TransportLayerCmdGetDAQIdResponse, \
@@ -24,45 +39,30 @@ from scapy.contrib.automotive.xcp.cto_commands_slave import \
     DAQResolutionInfoPositiveResponse, DAQListInfoPositiveResponse, \
     DAQEventInfoPositiveResponse, ProgramStartPositiveResponse, \
     PgmProcessorPositiveResponse, SectorInfoPositiveResponse
-from scapy.config import conf
-from scapy.contrib.automotive.xcp.cto_commands_master import Connect, \
-    Disconnect, GetStatus, Synch, GetCommModeInfo, GetId, SetRequest, \
-    GetSeed, Unlock, SetMta, Upload, ShortUpload, BuildChecksum, \
-    TransportLayerCmd, TransportLayerCmdGetSlaveId, \
-    TransportLayerCmdGetDAQId, TransportLayerCmdSetDAQId, UserCmd, Download, \
-    DownloadNext, DownloadMax, ShortDownload, ModifyBits, SetCalPage, \
-    GetCalPage, GetPagProcessorInfo, GetSegmentInfo, GetPageInfo, \
-    SetSegmentMode, GetSegmentMode, CopyCalPage, SetDaqPtr, WriteDaq, \
-    SetDaqListMode, GetDaqListMode, StartStopDaqList, StartStopSynch, \
-    ReadDaq, GetDaqClock, GetDaqProcessorInfo, GetDaqResolutionInfo, \
-    GetDaqListInfo, GetDaqEventInfo, ClearDaqList, FreeDaq, AllocDaq, \
-    AllocOdt, AllocOdtEntry, ProgramStart, ProgramClear, Program, \
-    ProgramReset, GetPgmProcessorInfo, GetSectorInfo, ProgramPrepare, \
-    ProgramFormat, ProgramNext, ProgramMax, ProgramVerify
 from scapy.contrib.automotive.xcp.utils import get_timestamp_length, \
-    identification_filed_needs_alignment, get_daq_length, \
+    identification_field_needs_alignment, get_daq_length, \
     get_daq_data_field_length
-from scapy.data import UDP_SERVICES, TCP_SERVICES
 from scapy.fields import ByteEnumField, ShortField, XBitField, \
-    ShortEnumField, XShortField, BitField, FlagsField, ByteField, \
-    ThreeBytesField, IntField, StrField, ConditionalField, XByteField, \
-    StrLenField
+    FlagsField, ByteField, ThreeBytesField, StrField, ConditionalField, \
+    XByteField, StrLenField
 from scapy.layers.can import CAN
-from scapy.layers.inet import UDP, TCP, TCPOptionsField
-from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.layers.inet import UDP, TCP
+from scapy.packet import Packet, bind_layers, bind_bottom_up, bind_top_down
 
-if 'XCP' not in conf.contribs:
-    conf.contribs['XCP'] = {}
+if "XCP" not in conf.contribs:
+    conf.contribs["XCP"] = {}
 
 # 0 stands for Intel/little-endian format, 1 for Motorola/big-endian format
-conf.contribs['XCP']['byte_order'] = 1
-conf.contribs['XCP']['allow_byte_order_change'] = True
-conf.contribs['XCP']['Address_Granularity_Byte'] = None  # Can be 1, 2 or 4
-conf.contribs['XCP']['allow_ag_change'] = True
+conf.contribs["XCP"]["byte_order"] = 1
+conf.contribs["XCP"]["allow_byte_order_change"] = True
+conf.contribs["XCP"]["Address_Granularity_Byte"] = None  # Can be 1, 2 or 4
+conf.contribs["XCP"]["allow_ag_change"] = True
 
-conf.contribs['XCP']['MAX_CTO'] = None
-conf.contribs['XCP']['MAX_DTO'] = None
-conf.contribs['XCP']['allow_cto_and_dto_change'] = True
+conf.contribs["XCP"]["MAX_CTO"] = None
+conf.contribs["XCP"]["MAX_DTO"] = None
+conf.contribs["XCP"]["allow_cto_and_dto_change"] = True
+
+conf.contribs['XCP']['timestamp_size'] = 0
 
 
 # Specifications from:
@@ -75,66 +75,69 @@ conf.contribs['XCP']['allow_cto_and_dto_change'] = True
 # XCP on USB is left out because it has "no practical meaning"
 # XCP on Lin is left out because it has no official specification
 class XCPOnCAN(CAN):
-    name = 'Universal calibration and measurement protocol on CAN'
+    name = "Universal calibration and measurement protocol on CAN"
     fields_desc = [
-        FlagsField('flags', 0, 3, ['error',
-                                   'remote_transmission_request',
-                                   'extended']),
-        XBitField('identifier', 0, 29),
-        ByteField('length', 8),
-        ThreeBytesField('reserved', 0),
+        FlagsField("flags", 0, 3, ["error",
+                                   "remote_transmission_request",
+                                   "extended"]),
+        XBitField("identifier", 0, 29),
+        ByteField("length", None),
+        ThreeBytesField("reserved", 0),
     ]
+
+    def post_build(self, pkt, pay):
+        if self.length is None:
+            tmp_len = len(pay)
+            pkt = pkt[:4] + struct.pack("B", tmp_len) + pkt[5:]
+        return super(XCPOnCAN, self).post_build(pkt, pay)
 
     def extract_padding(self, p):
         return p, None
 
 
 class XCPOnUDP(UDP):
-    name = 'Universal calibration and measurement protocol on Ethernet'
-    fields_desc = [
-        ShortEnumField("sport", 53, UDP_SERVICES),
-        ShortEnumField("dport", 53, UDP_SERVICES),
-        ShortField("len", None),
-        XShortField("chksum", None),
-        #  XCP Header
-        ShortField('length', None),
-        ShortField('ctr', 0),  # counter
+    name = "Universal calibration and measurement protocol on Ethernet"
+    fields_desc = UDP.fields_desc + [
+        ShortField("length", None),
+        ShortField("ctr", 0),  # counter
     ]
+
+    def post_build(self, pkt, pay):
+        if self.length is None:
+            tmp_len = len(pay)
+            pkt = pkt[:8] + struct.pack("!H", tmp_len) + pkt[10:]
+        return super(XCPOnUDP, self).post_build(pkt, pay)
 
 
 class XCPOnTCP(TCP):
-    name = 'Universal calibration and measurement protocol on Ethernet'
+    name = "Universal calibration and measurement protocol on Ethernet"
 
-    fields_desc = [
-        ShortEnumField("sport", 20, TCP_SERVICES),
-        ShortEnumField("dport", 80, TCP_SERVICES),
-        IntField("seq", 0),
-        IntField("ack", 0),
-        BitField("dataofs", None, 4),
-        BitField("reserved", 0, 3),
-        FlagsField("flags", 0x2, 9, "FSRPAUECN"),
-        ShortField("window", 8192),
-        XShortField("chksum", None),
-        ShortField("urgptr", 0),
-        TCPOptionsField("options", ""),
-        #  XCP Header
-        ShortField('length', None),
-        ShortField('ctr', 0),  # counter
+    fields_desc = TCP.fields_desc + [
+        ShortField("length", None),
+        ShortField("ctr", 0),  # counter
     ]
 
     def answers(self, other):
-        if other.__class__ != self.__class__:
+        if not isinstance(other, XCPOnTCP):
             return 0
         if isinstance(other.payload, CTORequest) and isinstance(self.payload,
                                                                 CTOResponse):
             return self.payload.answers(other.payload)
 
+    def post_build(self, pkt, pay):
+        if self.length is None:
+            len_offset = 20 + len(self.options)
+            tmp_len = len(pay)
+            tmp_len = struct.pack("!H", tmp_len)
+            pkt = pkt[:len_offset] + tmp_len + pkt[len_offset + 2:]
+        return super(XCPOnTCP, self).post_build(pkt, pay)
+
 
 class XCPOnCANTail(Packet):
-    name = 'XCP Tail on CAN'
+    name = "XCP Tail on CAN"
 
     fields_desc = [
-        StrField('control_field', "")
+        StrField("control_field", "")
     ]
 
 
@@ -206,12 +209,12 @@ class CTORequest(Packet):
         0xC8: "PROGRAM_VERIFY",
     }
 
-    for pid in range(0, 200):
-        pids[pid] = "DTO"
-    name = 'Command Transfer Object Request'
+    for pid in range(0, 192):
+        pids[pid] = "STIM"
+    name = "Command Transfer Object Request"
 
     fields_desc = [
-        ByteEnumField('pid', 0x01, pids),
+        ByteEnumField("pid", 0x01, pids),
     ]
 
 
@@ -294,12 +297,14 @@ bind_layers(CTORequest, ProgramMax, pid=0xC9)
 bind_layers(CTORequest, ProgramVerify, pid=0xC8)
 
 
-# ##### DTOs(STIMs) #####
+# ##### DTOs #####
+# Master -> Slave:  STIM (Stimulation)
+# Slave  -> Master: DAQ (Data AcQuisition)
 class DTO(Packet):
     name = "Data transfer object"
     fields_desc = [
-        ConditionalField(XByteField('fill', 0x00),
-                         lambda _: identification_filed_needs_alignment()),
+        ConditionalField(XByteField("fill", 0x00),
+                         lambda _: identification_field_needs_alignment()),
         ConditionalField(
             StrLenField("daq", "", length_from=lambda _: get_daq_length()),
             lambda _: get_daq_length() > 0),
@@ -310,53 +315,34 @@ class DTO(Packet):
         ConditionalField(
             StrLenField("data", "",
                         length_from=lambda _: get_daq_data_field_length()),
-            lambda _: get_daq_data_field_length())
+            lambda _: get_daq_data_field_length() > 0)
     ]
 
 
-for pid in range(0, 200):
+for pid in range(0, 0xBF + 1):
     bind_layers(CTORequest, DTO, pid=pid)
 
 
 class CTOResponse(Packet):
-    __slots__ = Packet.__slots__ + ["payload_cls"]
-
     packet_codes = {
         0xFF: "RES",
         0xFE: "ERR",
         0xFD: "EV",
         0xFC: "SERV",
     }
-    name = 'Command Transfer Object Response'
+    name = "Command Transfer Object Response"
 
     fields_desc = [
-        ByteEnumField('packet_code', 0xFF, packet_codes),
+        ByteEnumField("packet_code", 0, packet_codes),
     ]
 
-    def __init__(self, *args, **kwargs):
-        self.payload_cls = GenericResponse
-        if "payload_cls" in kwargs:
-            self.payload_cls = kwargs["payload_cls"]
-            del kwargs["payload_cls"]
-        Packet.__init__(self, *args, **kwargs)
-
-    def guess_payload_class(self, payload):
-        return self.payload_cls
-
-    def get_cto_cls(self, request):
+    @staticmethod
+    def get_positive_response_cls(request):
+        # The pid of the request this packet is the response for
         request_pid = request.pid
-        try:
-            if self.packet_code == "ERR" or self.packet_code == 254:
-                return NegativeResponse
-            if self.packet_code == "EV" or self.packet_code == 253:
-                return EvPacket
-            if self.packet_code == "SERV" or self.packet_code == 252:
-                return ServPacket
-            if self.packet_code != "RES" and self.packet_code != 255:
-                return DTO
-        except KeyError:
-            return GenericResponse
-        # positive response
+        # First check the special cases with sub commands
+        # They can't be fit in a simple dictionary,
+        # so deal with them separately
         if request_pid == 0xF2:
             if request.sub_command_code == 255:
                 return TransportLayerCmdGetSlaveIdResponse
@@ -369,49 +355,103 @@ class CTOResponse(Packet):
                 return SegmentInfoMode1PositiveResponse
             if request.mode == "get_address_mapping_info":
                 return SegmentInfoMode2PositiveResponse
-        try:
-            return {0xFF: ConnectPositiveResponse,
-                    0xFD: StatusPositiveResponse,
-                    0xFB: CommonModeInfoPositiveResponse,
-                    0xFA: IdPositiveResponse,
-                    0xF8: SeedPositiveResponse,
-                    0xF7: UnlockPositiveResponse,
-                    0xF5: UploadPositiveResponse,
-                    0xF4: ShortUploadPositiveResponse,
-                    0xF3: ChecksumPositiveResponse,
-                    0xEA: CalPagePositiveResponse,
-                    0xE9: PagProcessorInfoPositiveResponse,
-                    0xE7: PageInfoPositiveResponse,
-                    0xE5: SegmentModePositiveResponse,
-                    0xDF: DAQListModePositiveResponse,
-                    0xDE: StartStopDAQListPositiveResponse,
-                    0xDC: DAQClockListPositiveResponse,
-                    0xDB: ReadDAQPositiveResponse,
-                    0xDA: DAQProcessorInfoPositiveResponse,
-                    0xD9: DAQResolutionInfoPositiveResponse,
-                    0xD8: DAQListInfoPositiveResponse,
-                    0xD7: DAQEventInfoPositiveResponse,
-                    0xD2: ProgramStartPositiveResponse,
-                    0xCE: PgmProcessorPositiveResponse,
-                    0xCD: SectorInfoPositiveResponse,
-                    }[request_pid]
-        except KeyError:
-            return GenericResponse
+        return {0xFF: ConnectPositiveResponse,
+                0xFD: StatusPositiveResponse,
+                0xFB: CommonModeInfoPositiveResponse,
+                0xFA: IdPositiveResponse,
+                0xF8: SeedPositiveResponse,
+                0xF7: UnlockPositiveResponse,
+                0xF5: UploadPositiveResponse,
+                0xF4: ShortUploadPositiveResponse,
+                0xF3: ChecksumPositiveResponse,
+                0xEA: CalPagePositiveResponse,
+                0xE9: PagProcessorInfoPositiveResponse,
+                0xE7: PageInfoPositiveResponse,
+                0xE5: SegmentModePositiveResponse,
+                0xDF: DAQListModePositiveResponse,
+                0xDE: StartStopDAQListPositiveResponse,
+                0xDC: DAQClockListPositiveResponse,
+                0xDB: ReadDAQPositiveResponse,
+                0xDA: DAQProcessorInfoPositiveResponse,
+                0xD9: DAQResolutionInfoPositiveResponse,
+                0xD8: DAQListInfoPositiveResponse,
+                0xD7: DAQEventInfoPositiveResponse,
+                0xD2: ProgramStartPositiveResponse,
+                0xCE: PgmProcessorPositiveResponse,
+                0xCD: SectorInfoPositiveResponse,
+                }.get(request_pid, GenericResponse)
 
     def answers(self, request):
         """In XCP, the payload of a response packet is dependent on the pid
-        field of the corresponding request. """
-        if not hasattr(request, "pid") or not hasattr(self, "packet_code"):
-            return 0
-        payload_cls = self.get_cto_cls(request)
-        if self.payload_cls != payload_cls and \
-                self.payload_cls == GenericResponse:
+        field of the corresponding request.
+        This method changes the class of the payload to the class
+        which is expected for the given request."""
+        if not isinstance(request, CTORequest) or \
+                not isinstance(self, CTOResponse):
+            return False
+
+        if isinstance(self.payload, NegativeResponse) or \
+                isinstance(self.payload, EvPacket) or \
+                isinstance(self.payload, ServPacket):
+            return True
+
+        payload_cls = self.get_positive_response_cls(request)
+
+        minimum_expected_byte_count = len(payload_cls())
+        given_byte_count = len(self.payload)
+
+        if given_byte_count < minimum_expected_byte_count:
+            return False
+
+        # Even if there are enough bytes, we can't be sure that they align
+        # correctly to the fields. Then a struct.error exception is thrown.
+        # For example
+        # Fields: byte, byte, short
+        # Packet: 01 02 03
+        # This would fail because there are enough bytes that scapy starts
+        # to parse the short field, but there are actually not enough bytes
+        # to fill it.
+        try:
             data = bytes(self.payload)
             self.remove_payload()
             self.add_payload(payload_cls(data))
-            self.payload_cls = payload_cls
-        return 1
+        except struct.error:
+            return False
+        return True
 
+
+for pid in range(0, 0xFB + 1):
+    bind_layers(CTOResponse, DTO, pid=pid)
+
+positive_response_classes = [ConnectPositiveResponse,
+                             StatusPositiveResponse,
+                             CommonModeInfoPositiveResponse,
+                             IdPositiveResponse,
+                             SeedPositiveResponse,
+                             UnlockPositiveResponse,
+                             UploadPositiveResponse,
+                             ShortUploadPositiveResponse,
+                             ChecksumPositiveResponse,
+                             CalPagePositiveResponse,
+                             PagProcessorInfoPositiveResponse,
+                             PageInfoPositiveResponse,
+                             SegmentModePositiveResponse,
+                             DAQListModePositiveResponse,
+                             StartStopDAQListPositiveResponse,
+                             DAQClockListPositiveResponse,
+                             ReadDAQPositiveResponse,
+                             DAQProcessorInfoPositiveResponse,
+                             DAQResolutionInfoPositiveResponse,
+                             DAQListInfoPositiveResponse,
+                             DAQEventInfoPositiveResponse,
+                             ProgramStartPositiveResponse,
+                             PgmProcessorPositiveResponse,
+                             SectorInfoPositiveResponse]
+
+for cls in positive_response_classes:
+    bind_top_down(CTOResponse, cls, packet_code=0xFF)
+
+bind_layers(CTOResponse, NegativeResponse, pid=0xFE)
 
 # Asynchronous Event/request messages from the slave
 bind_layers(CTOResponse, EvPacket, packet_code=0xFD)

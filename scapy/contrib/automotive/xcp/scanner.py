@@ -25,24 +25,24 @@ class XCPOnCANScanner:
     Scans for XCP Slave on CAN
     """
 
-    def __init__(self, can_socket, use_extended_can_id=False,
-                 broadcast_id=None, broadcast_id_range=None, verbose=False):
-        # type: (CANSocket, Optional[bool], Optional[int], Optional[Tuple[int, int]], Optional[bool]) -> None # noqa: E501
+    def __init__(self, can_socket,
+                 broadcast_id=None, broadcast_id_range=None,
+                 sniff_time=0.1, verbose=False):
+        # type: (CANSocket, Optional[int], Optional[Tuple[int, int]], Optional[float], Optional[bool]) -> None # noqa: E501
 
         """
         Constructor
         :param can_socket: Can Socket with XCPonCAN as basecls for scan
-        :param use_extended_can_id: True if extended IDs are used
         :param broadcast_id: XCP broadcast Id in network (if known)
+        :param sniff_time: time the scan waits for a response
+                           after sending a request
         """
         self.__socket = can_socket
         self.broadcast_id = broadcast_id
         self.broadcast_id_range = broadcast_id_range
-        self.__use_extended_can_id = use_extended_can_id
         self.__flags = 0
+        self.__sniff_time = sniff_time
         self.__verbose = verbose
-        if use_extended_can_id:
-            self.__flags = "extended"
 
     def broadcast_get_slave_id(self, identifier):
         # type: (int) -> List[XCPScannerResult]
@@ -51,13 +51,16 @@ class XCPOnCANScanner:
         """
 
         self.log_verbose("Scan for broadcast id: " + str(identifier))
-        cto_request = XCPOnCAN(identifier=identifier,
-                               flags=self.__flags) / CTORequest(
-            pid="TRANSPORT_LAYER_CMD") / TransportLayerCmd(
-            sub_command_code=0xFF) / TransportLayerCmdGetSlaveId()
+        cto_request = \
+            XCPOnCAN(identifier=identifier,
+                     flags=self.__flags) \
+            / CTORequest() \
+            / TransportLayerCmd() \
+            / TransportLayerCmdGetSlaveId()
 
-        cto_responses, _unanswered = self.__socket.sr(cto_request, timeout=3,
-                                                      verbose=True, multi=True)
+        cto_responses, _unanswered = \
+            self.__socket.sr(cto_request, timeout=self.__sniff_time,
+                             verbose=self.__verbose, multi=True)
         all_slaves = []
         if len(cto_responses) == 0:
             self.log_verbose(
@@ -75,13 +78,13 @@ class XCPOnCANScanner:
             if answer.position_1 != 0x58 or answer.position_2 != 0x43 or \
                     answer.position_3 != 0x50:
                 continue
-                # Identifier that the master must use to send pkts to the
-                # slave, identifier the slave will answer with
 
+            # Identifier that the master must use to send packets to the slave
+            # and the slave will answer with
             slave_id = \
-                answer["TransportLayerCmdGetSlaveIdResponse"].can_identifier,
+                answer["TransportLayerCmdGetSlaveIdResponse"].can_identifier
 
-            result = XCPScannerResult(int(slave_id[0]), answer.identifier)
+            result = XCPScannerResult(slave_id, answer.identifier)
             all_slaves.append(result)
             self.log_verbose(
                 "Detected XCP slave for broadcast identifier: " + str(
@@ -97,13 +100,13 @@ class XCPOnCANScanner:
                 self.broadcast_id))
             return self.broadcast_get_slave_id(self.broadcast_id)
 
-        broadcast_id_range = self.broadcast_id_range if \
-            self.broadcast_id_range else (0, 2048)
+        broadcast_id_range = self.broadcast_id_range or (0, 0x7ff)
 
         self.log_verbose("Start scan with broadcast id in range: " + str(
-            self.broadcast_id_range))
+            broadcast_id_range))
 
-        for identifier in range(broadcast_id_range[0], broadcast_id_range[1]):
+        for identifier in range(broadcast_id_range[0],
+                                broadcast_id_range[1] + 1):
             ids = self.broadcast_get_slave_id(identifier)
             if len(ids) > 0:
                 return ids
