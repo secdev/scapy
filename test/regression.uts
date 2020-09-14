@@ -204,7 +204,7 @@ conf.iface = conf.iface.name
 assert conf.iface == old
 
 assert isinstance(conf.iface, NetworkInterface)
-assert conf.iface.valid
+assert conf.iface.is_valid()
 
 import mock
 @mock.patch("scapy.interfaces.conf.route.routes", [])

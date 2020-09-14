@@ -50,7 +50,7 @@ class InterfaceProvider(object):
 
     def _is_valid(self, dev):
         """Returns whether an interface is valid or not"""
-        return dev.valid
+        return bool((self.ip or self.ip6) and self.mac)
 
     def _format(self, dev, **kwargs):
         """Returns the elements used by show()
@@ -79,7 +79,6 @@ class NetworkInterface(object):
         self.ip6 = None
         self.ips = defaultdict(list)
         self.mac = None
-        self.valid = True
         self.dummy = False
         if data is not None:
             self.update(data)
@@ -96,7 +95,6 @@ class NetworkInterface(object):
         self.ip6 = data.get('ip6', "")
         self.mac = data.get('mac', "")
         self.flags = data.get('flags', 0)
-        self.valid = data.get('valid', True)
         self.dummy = data.get('dummy', False)
 
         for ip in data.get('ips', []):
@@ -113,8 +111,6 @@ class NetworkInterface(object):
             # TODO XXX
             # What should we consider the main IPv6 ? @guedou
             self.ip6 = self.ips[6][0]
-        if (not self.ip and not self.ip6) or not self.mac:
-            self.valid = False
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -130,6 +126,8 @@ class NetworkInterface(object):
         return hash(self.network_name)
 
     def is_valid(self):
+        if self.dummy:
+            return False
         return self.provider._is_valid(self)
 
     def l2socket(self):
@@ -240,7 +238,7 @@ class NetworkInterfaceDict(UserDict):
             'description': ifname,
             'network_name': ifname,
             'index': -1000,
-            'valid': False,
+            'dummy': True,
             'mac': '00:00:00:00:00:00',
             'flags': 0,
             'ips': ["127.0.0.1", "::"],
