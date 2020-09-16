@@ -1387,6 +1387,9 @@ assert o.subfield == 0xDEAD
 o.switch = 2
 assert o.subfield == 0xBEEFBEEF
 
+o = SweetPacket(switch=1, subfield=0x88)
+assert o.subfield == 0x88
+
 ########
 ########
 + FlagsField
