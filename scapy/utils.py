@@ -1794,6 +1794,9 @@ def tcpdump(pktlist=None, dump=False, getfd=False, args=None, flt=None,
         if prog[0] == conf.prog.wireshark:
             # Start capturing immediately (-k) from stdin (-i -)
             read_stdin_opts = ["-ki", "-"]
+        elif prog[0] == conf.prog.tcpdump:
+            # Capture in packet-buffered mode (-U) from stdin (-r -)
+            read_stdin_opts = ["-U", "-r", "-"]
         else:
             read_stdin_opts = ["-r", "-"]
     else:
@@ -1831,26 +1834,37 @@ def tcpdump(pktlist=None, dump=False, getfd=False, args=None, flt=None,
                 stderr=stderr,
             )
     else:
-        # pass the packet stream
-        with ContextManagerSubprocess(prog[0], suppress=_suppress):
-            proc = subprocess.Popen(
-                prog + read_stdin_opts + args,
-                stdin=subprocess.PIPE,
-                stdout=stdout,
-                stderr=stderr,
-            )
+        try:
+            pktlist.fileno()
+            # pass the packet stream
+            with ContextManagerSubprocess(prog[0], suppress=_suppress):
+                proc = subprocess.Popen(
+                    prog + read_stdin_opts + args,
+                    stdin=pktlist,
+                    stdout=stdout,
+                    stderr=stderr,
+                )
+        except (AttributeError, ValueError):
+            # write the packet stream to stdin
+            with ContextManagerSubprocess(prog[0], suppress=_suppress):
+                proc = subprocess.Popen(
+                    prog + read_stdin_opts + args,
+                    stdin=subprocess.PIPE,
+                    stdout=stdout,
+                    stderr=stderr,
+                )
             if proc is None:
                 # An error has occurred
                 return
-        try:
-            proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
-        except AttributeError:
-            wrpcap(proc.stdin, pktlist, linktype=linktype)
-        except UnboundLocalError:
-            # The error was handled by ContextManagerSubprocess
-            pass
-        else:
-            proc.stdin.close()
+            try:
+                proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
+            except AttributeError:
+                wrpcap(proc.stdin, pktlist, linktype=linktype)
+            except UnboundLocalError:
+                # The error was handled by ContextManagerSubprocess
+                pass
+            else:
+                proc.stdin.close()
     if proc is None:
         # An error has occurred
         return
