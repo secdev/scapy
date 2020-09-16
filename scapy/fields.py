@@ -288,11 +288,12 @@ use.
 
     """
 
-    __slots__ = ["flds", "dflt", "name"]
+    __slots__ = ["flds", "dflt", "name", "default"]
 
     def __init__(self, flds, dflt):
         self.flds = flds
         self.dflt = dflt
+        self.default = None  # So that we can detect changes in defaults
         self.name = self.dflt.name
 
     def _iterate_fields_cond(self, pkt, val, use_val):
@@ -301,6 +302,8 @@ use.
         for fld, cond in self.flds:
             if isinstance(cond, tuple):
                 if use_val:
+                    if val is None:
+                        val = self.dflt.default
                     if cond[1](pkt, val):
                         return fld
                     continue
@@ -324,10 +327,7 @@ returns the Field subclass to be used, and the updated `val` if necessary.
 
         """
         fld = self._iterate_fields_cond(pkt, val, True)
-        # Default ? (in this case, let's make sure it's up-do-date)
-        dflts_pkt = pkt.default_fields
-        if val == dflts_pkt[self.name] and self.name not in pkt.fields:
-            dflts_pkt[self.name] = fld.default
+        if val is None:
             val = fld.default
         return fld, val
 
