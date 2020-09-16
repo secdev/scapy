@@ -24,7 +24,7 @@ import scapy.modules.six as six
 class InterfaceProvider(object):
     name = "Unknown"
     headers = ("Index", "Name", "MAC", "IPv4", "IPv6")
-    header_sort = 4
+    header_sort = 1
     libpcap = False
 
     def load(self):
@@ -249,13 +249,18 @@ class NetworkInterfaceDict(UserDict):
         else:
             self.data[ifname] = NetworkInterface(InterfaceProvider(), data)
 
-    def show(self, print_result=True, **kwargs):
+    def show(self, print_result=True, hidden=False, **kwargs):
         """
         Print list of available network interfaces in human readable form
+
+        :param print_result: print the results if True, else return it
+        :param hidden: if True, also displays invalid interfaces
         """
         res = defaultdict(list)
         for iface_name in sorted(self.data):
             dev = self.data[iface_name]
+            if not hidden and not dev.is_valid():
+                continue
             prov = dev.provider
             res[prov].append(
                 (prov.name,) + prov._format(dev, **kwargs)
