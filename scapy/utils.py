@@ -1836,10 +1836,6 @@ def tcpdump(pktlist=None, dump=False, getfd=False, args=None, flt=None,
     else:
         try:
             pktlist.fileno()
-            pipe = True
-        except Exception:
-            pipe = False
-        if pipe:
             # pass the packet stream
             with ContextManagerSubprocess(prog[0], suppress=_suppress):
                 proc = subprocess.Popen(
@@ -1848,7 +1844,7 @@ def tcpdump(pktlist=None, dump=False, getfd=False, args=None, flt=None,
                     stdout=stdout,
                     stderr=stderr,
                 )
-        else:
+        except (AttributeError, ValueError):
             # write the packet stream to stdin
             with ContextManagerSubprocess(prog[0], suppress=_suppress):
                 proc = subprocess.Popen(
@@ -1857,9 +1853,9 @@ def tcpdump(pktlist=None, dump=False, getfd=False, args=None, flt=None,
                     stdout=stdout,
                     stderr=stderr,
                 )
-                if proc is None:
-                    # An error has occurred
-                    return
+            if proc is None:
+                # An error has occurred
+                return
             try:
                 proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
             except AttributeError:
