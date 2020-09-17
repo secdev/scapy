@@ -17,7 +17,6 @@ from __future__ import print_function
 import warnings
 
 from scapy.config import conf
-from scapy.error import log_interactive
 from scapy.sendrecv import send, sniff
 
 import scapy.modules.six as six

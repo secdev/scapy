@@ -13,7 +13,7 @@ from threading import Lock, Thread
 
 from scapy.automaton import Message, select_objects, SelectableObject
 from scapy.consts import WINDOWS
-from scapy.error import log_interactive, warning
+from scapy.error import log_runtime, warning
 from scapy.config import conf
 from scapy.utils import get_temp_file, do_graph
 
@@ -108,7 +108,7 @@ class PipeEngine(SelectableObject):
         return pl
 
     def run(self):
-        log_interactive.info("Pipe engine thread started.")
+        log_runtime.debug("Pipe engine thread started.")
         try:
             for p in self.active_pipes:
                 p.start()
@@ -136,7 +136,7 @@ class PipeEngine(SelectableObject):
                         try:
                             fd.deliver()
                         except Exception as e:
-                            log_interactive.exception("piping from %s failed: %s" % (fd.name, e))  # noqa: E501
+                            log_runtime.exception("piping from %s failed: %s" % (fd.name, e))  # noqa: E501
                         else:
                             if fd.exhausted():
                                 exhausted.add(fd)
@@ -149,7 +149,7 @@ class PipeEngine(SelectableObject):
                     p.stop()
             finally:
                 self.thread_lock.release()
-                log_interactive.info("Pipe engine thread stopped.")
+                log_runtime.debug("Pipe engine thread stopped.")
 
     def start(self):
         if self.thread_lock.acquire(0):
@@ -158,7 +158,7 @@ class PipeEngine(SelectableObject):
             _t.start()
             self.thread = _t
         else:
-            warning("Pipe engine already running")
+            log_runtime.debug("Pipe engine already running")
 
     def wait_and_stop(self):
         self.stop(_cmd="B")
@@ -174,7 +174,7 @@ class PipeEngine(SelectableObject):
                     except Exception:
                         pass
                 else:
-                    warning("Pipe engine thread not running")
+                    log_runtime.debug("Pipe engine thread not running")
         except KeyboardInterrupt:
             print("Interrupted by user.")
 

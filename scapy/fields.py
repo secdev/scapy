@@ -2113,7 +2113,7 @@ class FlagValue(object):
 
     def flagrepr(self):
         warnings.warn(
-            "obj.flagrepr() is obsolete. Use str(obj) instead."
+            "obj.flagrepr() is obsolete. Use str(obj) instead.",
             DeprecationWarning
         )
         return str(self)

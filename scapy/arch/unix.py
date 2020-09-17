@@ -15,7 +15,7 @@ import scapy.utils
 from scapy.arch import get_if_addr
 from scapy.config import conf
 from scapy.consts import FREEBSD, NETBSD, OPENBSD, SOLARIS
-from scapy.error import warning, log_interactive
+from scapy.error import log_runtime, warning
 from scapy.pton_ntop import inet_pton
 from scapy.utils6 import in6_getscope, construct_source_candidate_set
 from scapy.utils6 import in6_isvalid, in6_ismlladdr, in6_ismnladdr
@@ -119,7 +119,10 @@ def read_routes():
                         ifaddr = get_if_addr(guessed_netif)
                         routes.append((dest, netmask, gw, guessed_netif, ifaddr, metric))  # noqa: E501
                     else:
-                        warning("Could not guess partial interface name: %s", netif)  # noqa: E501
+                        log_runtime.info(
+                            "Could not guess partial interface name: %s",
+                            netif
+                        )
                 else:
                     raise
         else:
@@ -161,7 +164,7 @@ def _in6_getifaddr(ifname):
     try:
         f = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
     except OSError:
-        log_interactive.warning("Failed to execute ifconfig.")
+        log_runtime.warning("Failed to execute ifconfig.")
         return []
 
     # Iterate over lines and extract IPv6 addresses
@@ -207,7 +210,7 @@ def in6_getifaddr():
         try:
             f = os.popen(cmd % conf.prog.ifconfig)
         except OSError:
-            log_interactive.warning("Failed to execute ifconfig.")
+            log_runtime.warning("Failed to execute ifconfig.")
             return []
 
         # Get the list of network interfaces
@@ -221,7 +224,7 @@ def in6_getifaddr():
         try:
             f = os.popen("%s -l" % conf.prog.ifconfig)
         except OSError:
-            log_interactive.warning("Failed to execute ifconfig.")
+            log_runtime.warning("Failed to execute ifconfig.")
             return []
 
         # Get the list of network interfaces

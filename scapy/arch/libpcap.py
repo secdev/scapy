@@ -19,7 +19,12 @@ from scapy.compat import raw, plain_str
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.data import MTU, ETH_P_ALL
-from scapy.error import Scapy_Exception, log_loading, warning
+from scapy.error import (
+    Scapy_Exception,
+    log_loading,
+    log_runtime,
+    warning,
+)
 from scapy.interfaces import network_name, InterfaceProvider, NetworkInterface
 from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
@@ -244,7 +249,7 @@ if conf.use_pcap:
                 pcap_set_promisc(self.pcap, promisc)
                 pcap_set_timeout(self.pcap, to_ms)
                 if pcap_set_rfmon(self.pcap, 1) != 0:
-                    warning("Could not set monitor mode")
+                    log_runtime.error("Could not set monitor mode")
                 if pcap_activate(self.pcap) != 0:
                     raise OSError("Could not activate the pcap handler")
             else:
@@ -289,7 +294,7 @@ if conf.use_pcap:
 
         def fileno(self):
             if WINDOWS:
-                log_loading.error("Cannot get selectable PCAP fd on Windows")
+                log_runtime.error("Cannot get selectable PCAP fd on Windows")
                 return -1
             else:
                 # This does not exist under Windows
@@ -298,11 +303,11 @@ if conf.use_pcap:
         def setfilter(self, f):
             filter_exp = create_string_buffer(f.encode("utf8"))
             if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:  # noqa: E501
-                log_loading.error("Could not compile filter expression %s", f)
+                log_runtime.error("Could not compile filter expression %s", f)
                 return False
             else:
                 if pcap_setfilter(self.pcap, byref(self.bpf_program)) == -1:
-                    log_loading.error("Could not install filter %s", f)
+                    log_runtime.error("Could not set filter %s", f)
                     return False
             return True
 

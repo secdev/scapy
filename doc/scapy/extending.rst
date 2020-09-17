@@ -22,19 +22,12 @@ This first example takes an IP or a name as first parameter, send an ICMP echo r
     if p:
         p.show()
 
-.. note::
-
-  It's recommended to use the real files instead of the "all" shortcut
-  when importing Scapy. In this case, one would rather use
-  ``from scapy.sendrecv import sr1`` and ``from scapy.layers.l2 import IP,ICMP``
-
-
 Configuring Scapy's logger
 --------------------------
 
 Scapy configures a logger automatically using Python's ``logging`` module. This
 logger is custom to support things like colors and frequency filters. By
-default, it is set to WARNING (when not in interactive mode), but you can
+default, it is set to ``WARNING`` (when not in interactive mode), but you can
 change that using for instance::
 
     import logging
@@ -42,6 +35,8 @@ change that using for instance::
 
 To disable almost all logs. (Scapy simply won't work properly if a CRITICAL
 failure occurs)
+
+.. note:: On interactive mode, the default log level is ``INFO``
 
 More examples
 -------------

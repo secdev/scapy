@@ -25,8 +25,11 @@ from random import choice
 
 # Never add any global import, in main.py, that would trigger a
 # warning message before the console handlers gets added in interact()
-from scapy.error import log_interactive, log_loading, log_scapy, \
-    Scapy_Exception, ScapyColoredFormatter
+from scapy.error import (
+    log_interactive,
+    log_loading,
+    Scapy_Exception,
+)
 import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS

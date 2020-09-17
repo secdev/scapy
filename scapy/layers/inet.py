@@ -38,7 +38,7 @@ from scapy.volatile import RandShort, RandInt, RandBin, RandNum, VolatileValue
 from scapy.sendrecv import sr, sr1
 from scapy.plist import PacketList, SndRcvList
 from scapy.automaton import Automaton, ATMT
-from scapy.error import warning
+from scapy.error import log_runtime, warning
 from scapy.pton_ntop import inet_pton
 
 import scapy.as_resolvers
@@ -346,7 +346,9 @@ class TCPOptionsField(StrField):
     def getfield(self, pkt, s):
         opsz = (pkt.dataofs - 5) * 4
         if opsz < 0:
-            warning("bad dataofs (%i). Assuming dataofs=5" % pkt.dataofs)
+            log_runtime.info(
+                "bad dataofs (%i). Assuming dataofs=5" % pkt.dataofs
+            )
             opsz = 0
         return s[opsz:], self.m2i(pkt, s[:opsz])
 
@@ -366,7 +368,9 @@ class TCPOptionsField(StrField):
             except IndexError:
                 olen = 0
             if olen < 2:
-                warning("Malformed TCP option (announced length is %i)" % olen)
+                log_runtime.info(
+                    "Malformed TCP option (announced length is %i)" % olen
+                )
                 olen = 2
             oval = x[2:olen]
             if onum in TCPOptions[0]:
@@ -411,7 +415,7 @@ class TCPOptionsField(StrField):
                             oval = (oval,)
                         oval = struct.pack(ofmt, *oval)
                 else:
-                    warning("option [%s] unknown. Skipped.", oname)
+                    warning("Option [%s] unknown. Skipped.", oname)
                     continue
             else:
                 onum = oname
@@ -419,7 +423,7 @@ class TCPOptionsField(StrField):
                     warning("Invalid option number [%i]" % onum)
                     continue
                 if not isinstance(oval, (bytes, str)):
-                    warning("option [%i] is not bytes." % onum)
+                    warning("Option [%i] is not bytes." % onum)
                     continue
             if isinstance(oval, str):
                 oval = bytes_encode(oval)
@@ -666,7 +670,9 @@ class TCP(Packet):
                 ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_TCP, self.underlayer, p)  # noqa: E501
                 p = p[:16] + struct.pack("!H", ck) + p[18:]
             else:
-                warning("No IP underlayer to compute checksum. Leaving null.")
+                log_runtime.info(
+                    "No IP underlayer to compute checksum. Leaving null."
+                )
         return p
 
     def hashret(self):
@@ -742,7 +748,9 @@ class UDP(Packet):
                     ck = 0xFFFF
                 p = p[:6] + struct.pack("!H", ck) + p[8:]
             else:
-                warning("No IP underlayer to compute checksum. Leaving null.")
+                log_runtime.info(
+                    "No IP underlayer to compute checksum. Leaving null."
+                )
         return p
 
     def extract_padding(self, s):
@@ -1408,30 +1416,41 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
             import geoip2.database
             import geoip2.errors
         except ImportError:
-            warning("Cannot import geoip2. Won't be able to plot the world.")
+            log_runtime.error(
+                "Cannot import geoip2. Won't be able to plot the world."
+            )
             return []
         # Check availability of database
         if not conf.geoip_city:
-            warning("Cannot import the geolite2 CITY database.\n"
-                    "Download it from http://dev.maxmind.com/geoip/geoip2/geolite2/"  # noqa: E501
-                    " then set its path to conf.geoip_city")
+            log_runtime.error(
+                "Cannot import the geolite2 CITY database.\n"
+                "Download it from http://dev.maxmind.com/geoip/geoip2/geolite2/"  # noqa: E501
+                " then set its path to conf.geoip_city"
+            )
             return []
         # Check availability of plotting devices
         try:
             import cartopy.crs as ccrs
         except ImportError:
-            warning("Cannot import cartopy.\n"
-                    "More infos on http://scitools.org.uk/cartopy/docs/latest/installing.html")  # noqa: E501
+            log_runtime.error(
+                "Cannot import cartopy.\n"
+                "More infos on http://scitools.org.uk/cartopy/docs/latest/installing.html"  # noqa: E501
+            )
             return []
         if not MATPLOTLIB:
-            warning("Matplotlib is not installed. Won't be able to plot the world.")  # noqa: E501
+            log_runtime.error(
+                "Matplotlib is not installed. Won't be able to plot the world."
+            )
             return []
 
         # Open & read the GeoListIP2 database
         try:
             db = geoip2.database.Reader(conf.geoip_city)
         except Exception:
-            warning("Cannot open geoip2 database at %s", conf.geoip_city)
+            log_runtime.error(
+                "Cannot open geoip2 database at %s",
+                conf.geoip_city
+            )
             return []
 
         # Regroup results per trace

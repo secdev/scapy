@@ -112,6 +112,31 @@ parsed from a string (during a network capture or a PCAP file
 read). Adding inefficient code here will have a disastrous effect on
 Scapy's performances.
 
+### Logging
+
+Scapy has an internal logging system based on `logging`.
+
+In the past, Scapy was generally too verbose on packet dissection,
+leading many new users to disable all logs, which makes it harder for them
+to find real issues afterwards. You should comply with these guidelines to
+make sure logging in Scapy remains helpful.
+
+-  If you want the log message to only be displayed when using Scapy through
+   the interactive console, use `scapy.error.log_interactive`. You are free to
+   use any log level.
+-  Otherwise, always use `scapy.error.log_runtime`.
+   -  On **packet dissection**, of *packet layers*
+      you should remain **AT OR BELOW the `logging.INFO` level**, unless the
+      issue is critical or tied to security.
+      For instance: "DNS Decompression loop detected !" is allowed as WARNING,
+      but "Could not dissect packet" or "Invalid value detected" are not.
+   -  On **packet build** or **any command** or function that is called by the
+      user or the root program, you are **free and welcomed** to use the WARNING
+      or ERROR levels, to signal that a packet was wrongly built for instance.
+-  If you are working on Scapy's core, you may use: `scapy.error.log_loading`
+   only while Scapy is loading, to display import errors for instance.
+
+
 ### Python 2 and 3 compatibility
 
 The project aims to provide code that works both on Python 2 and Python 3. Therefore, some rules need to be applied to achieve compatibility:

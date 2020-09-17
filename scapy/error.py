@@ -84,6 +84,7 @@ class ScapyColoredFormatter(logging.Formatter):
         )
         return message
 
+
 if WINDOWS:
     # colorama is bundled within IPython, but
     # logging.StreamHandler will be overwritten when called,
@@ -94,12 +95,12 @@ if WINDOWS:
     except ImportError:
         pass
 
-# get scapy's master logger
+# get Scapy's master logger
 log_scapy = logging.getLogger("scapy")
 # override the level if not already set
 if log_scapy.level == logging.NOTSET:
     log_scapy.setLevel(logging.WARNING)
-# add a custom handler controlled by scapy's config
+# add a custom handler controlled by Scapy's config
 _handler = logging.StreamHandler()
 _handler.setFormatter(
     ScapyColoredFormatter(
