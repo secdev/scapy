@@ -10,6 +10,7 @@ DNS: Domain Name System.
 from __future__ import absolute_import
 import struct
 import time
+import warnings
 
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers, NoPayload
@@ -127,7 +128,10 @@ def dns_encode(x, check_built=False):
 
 def DNSgetstr(*args, **kwargs):
     """Legacy function. Deprecated"""
-    warning("DNSgetstr deprecated. Use dns_get_str instead")
+    warnings.warn(
+        "DNSgetstr is deprecated. Use dns_get_str instead."
+        DeprecationWarning
+    )
     return dns_get_str(*args, **kwargs)
 
 
