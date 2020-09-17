@@ -990,6 +990,8 @@ def main():
             if VERB > 2:
                 print("### libpcap mode ###")
 
+        KW_KO.append("disabled")
+
         # Process extras
         if six.PY3:
             KW_KO.append("FIXME_py3")

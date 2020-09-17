@@ -1,5 +1,9 @@
 % Regression tests for ISOTPScan
 
+# Currently too unstable
+
+~ disabled
+
 + Configuration
 ~ conf
 
