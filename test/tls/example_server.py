@@ -13,10 +13,6 @@ will be preferred to any other suite the client might propose.
 
 import os
 import sys
-import logging
-
-logger = logging.getLogger("scapy")
-logger.addHandler(logging.StreamHandler())
 
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
@@ -50,10 +46,6 @@ if args.no_pfs and args.psk:
     psk_mode = "psk_ke"
 else:
     psk_mode = "psk_dhe_ke"
-
-if args.debug == 5:
-    conf.logLevel = 10
-    conf.warning_threshold = 0
 
 t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
                        mykey=basedir+'/test/tls/pki/srv_key.pem',

@@ -8,16 +8,18 @@
 Automata with states, transitions and actions.
 """
 
-from __future__ import absolute_import
-import types
 import itertools
-import time
+import logging
 import os
 import sys
+import threading
+import time
 import traceback
+import types
+
 from select import select
 from collections import deque
-import threading
+
 from scapy.config import conf
 from scapy.utils import do_graph
 from scapy.error import log_runtime, warning
@@ -590,6 +592,8 @@ class Automaton_metaclass(type):
 class Automaton(six.with_metaclass(Automaton_metaclass)):
     def parse_args(self, debug=0, store=1, **kargs):
         self.debug_level = debug
+        if debug:
+            conf.logLevel = logging.DEBUG
         self.socket_kargs = kargs
         self.store_packets = store
 
