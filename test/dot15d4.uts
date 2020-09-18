@@ -555,20 +555,11 @@ packet.show2()
 
 conf.dot15d4_protocol = "zigbee"
 
-= Zigbee - layers
+= ZigbeeNWKStub - ZigbeeNWK dispatch_hook
 
-# a crazy packet with all classes in it!
-pkt = ZigBeeBeacon()/ZigbeeAppCommandPayload()/ZigbeeAppDataPayload()/ZigbeeAppDataPayloadStub()/ZigbeeClusterLibrary()/ZigbeeDeviceProfile()/ZigbeeNWK()/ZigbeeNWKCommandPayload()/ZigbeeNWKStub()/ZigbeeSecurityHeader()
-assert ZigBeeBeacon in pkt.layers()
-assert ZigbeeAppCommandPayload in pkt.layers()
-assert ZigbeeAppDataPayload in pkt.layers()
-assert ZigbeeAppDataPayloadStub in pkt.layers()
-assert ZigbeeClusterLibrary in pkt.layers()
-assert ZigbeeDeviceProfile in pkt.layers()
-assert ZigbeeNWK in pkt.layers()
-assert ZigbeeNWKCommandPayload in pkt.layers()
-assert ZigbeeNWKStub in pkt.layers()
-assert ZigbeeSecurityHeader in pkt.layers()
+pkt = Dot15d4()/Dot15d4Data()/ZigbeeNWKStub()
+pkt = Dot15d4(raw(pkt))
+assert ZigbeeNWKStub in pkt
 
 = Zigbee - ZCLGeneralReadAttributesResponse 
 

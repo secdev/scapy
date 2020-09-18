@@ -247,7 +247,8 @@ class ZigbeeNWK(Packet):
     fields_desc = [
         BitField("discover_route", 0, 2),
         BitField("proto_version", 2, 4),
-        BitEnumField("frametype", 0, 2, {0: 'data', 1: 'command'}),
+        BitEnumField("frametype", 0, 2,
+                     {0: 'data', 1: 'command', 3: 'Inter-PAN'}),
         FlagsField("flags", 0, 8, ['multicast', 'security', 'source_route', 'extended_dst', 'extended_src', 'reserved1', 'reserved2', 'reserved3']),  # noqa: E501
         XLEShortField("destination", 0),
         XLEShortField("source", 0),
@@ -264,8 +265,16 @@ class ZigbeeNWK(Packet):
         ConditionalField(FieldListField("relays", [], XLEShortField("", 0x0000), count_from=lambda pkt:pkt.relay_count), lambda pkt:pkt.flags & 0x04),  # noqa: E501
     ]
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 2:
+            frametype = ord(_pkt[:1]) & 3
+            if frametype == 3:
+                return ZigbeeNWKStub
+        return cls
+
     def guess_payload_class(self, payload):
-        if self.flags & 0x02:
+        if self.flags.security:
             return ZigbeeSecurityHeader
         elif self.frametype == 0:
             return ZigbeeAppDataPayload
