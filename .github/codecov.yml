@@ -16,7 +16,11 @@ coverage:
   round: down
   status:
     # Only consider changes to the whole project
-    project: true
+    project:
+      default:
+        target: auto
+        threshold: 0.5%
+        base: auto
     patch: false
     changes: false
 
