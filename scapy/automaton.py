@@ -885,16 +885,20 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 elif not isinstance(state_output, list):
                     state_output = state_output,
 
-                # Then check immediate conditions
-                for cond in self.conditions[self.state.state]:
-                    self._run_condition(cond, *state_output)
+                # If there are commandMessage, we should skip immediate
+                # conditions.
+                if not select_objects([self.cmdin], 0):
+                    # Then check immediate conditions
+                    for cond in self.conditions[self.state.state]:
+                        self._run_condition(cond, *state_output)
 
-                # If still there and no conditions left, we are stuck!
-                if (len(self.recv_conditions[self.state.state]) == 0 and
-                    len(self.ioevents[self.state.state]) == 0 and
-                        len(self.timeout[self.state.state]) == 1):
-                    raise self.Stuck("stuck in [%s]" % self.state.state,
-                                     state=self.state.state, result=state_output)  # noqa: E501
+                    # If still there and no conditions left, we are stuck!
+                    if (len(self.recv_conditions[self.state.state]) == 0 and
+                        len(self.ioevents[self.state.state]) == 0 and
+                            len(self.timeout[self.state.state]) == 1):
+                        raise self.Stuck("stuck in [%s]" % self.state.state,
+                                         state=self.state.state,
+                                         result=state_output)
 
                 # Finally listen and pay attention to timeouts
                 expirations = iter(self.timeout[self.state.state])

@@ -363,6 +363,7 @@ def _test_connection():
                                    server_name="www.google.com")
     pkt = a.sr1(HTTP()/HTTPRequest(Host="www.google.com"),
                 session=TCPSession(app=True), timeout=2, retry=3)
+    a.close()
     assert HTTPResponse in pkt
     assert b"</html>" in pkt[HTTPResponse].load
 
