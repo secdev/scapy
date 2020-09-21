@@ -137,7 +137,10 @@ def get_dev_bpf():
             return (fd, bpf)
         except OSError as ex:
             if ex.errno == 13:  # Permission denied
-                raise Scapy_Exception("Permission denied")
+                raise Scapy_Exception((
+                    "Permission denied: could not open /dev/bpf%i. "
+                    "Make sure to be running Scapy as root ! (sudo)"
+                ) % bpf)
             continue
 
     raise Scapy_Exception("No /dev/bpf handle is available !")
