@@ -10229,22 +10229,27 @@ random.seed(0x2807)
 r6 = RandIP6()
 assert(r6 == ("d279:1205:e445:5a9f:db28:efc9:afd7:f594" if six.PY2 else
               "240b:238f:b53f:b727:d0f9:bfc4:2007:e265"))
+assert(r6.command() == "RandIP6()")
 
 random.seed(0x2807)
-r6 = RandIP6("2001:db8::-") 
+r6 = RandIP6("2001:db8::-")
 assert(r6 == ("2001:0db8::e445" if six.PY2 else "2001:0db8::b53f"))
+assert(r6.command() == "RandIP6(ip6template='2001:db8::-')")
 
 r6 = RandIP6("2001:db8::*")
 assert(r6 == ("2001:0db8::efc9" if six.PY2 else "2001:0db8::bfc4"))
+assert(r6.command() == "RandIP6(ip6template='2001:db8::*')")
 
 = RandMAC
 
 random.seed(0x2807)
-rm = RandMAC() 
+rm = RandMAC()
 assert(rm == ("d2:12:e4:5a:db:ef" if six.PY2 else "24:23:b5:b7:d0:bf"))
+assert(rm.command() == "RandMAC()")
 
 rm = RandMAC("00:01:02:03:04:0-7")
 assert(rm == ("00:01:02:03:04:05" if six.PY2 else "00:01:02:03:04:01"))
+assert(rm.command() == "RandMAC(template='00:01:02:03:04:0-7')")
 
 
 = RandOID
@@ -10252,18 +10257,25 @@ assert(rm == ("00:01:02:03:04:05" if six.PY2 else "00:01:02:03:04:01"))
 random.seed(0x2807)
 ro = RandOID()
 assert(ro == "7.222.44.194.276.116.320.6.84.97.31.5.25.20.13.84.104.18")
+assert(ro.command() == "RandOID()")
 
 ro = RandOID("1.2.3.*")
 assert(ro == "1.2.3.41")
+assert(ro.command() == "RandOID(fmt='1.2.3.*')")
 
 ro = RandOID("1.2.3.0-28")
 assert(ro == ("1.2.3.11" if six.PY2 else "1.2.3.12"))
+assert(ro.command() == "RandOID(fmt='1.2.3.0-28')")
+
+ro = RandOID("1.2.3.0-28", depth=RandNumExpo(0.2), idnum=RandNumExpo(0.02))
+assert(ro.command() == "RandOID(fmt='1.2.3.0-28', depth=RandNumExpo(lambd=0.2), idnum=RandNumExpo(lambd=0.02))")
 
 = RandRegExp
 
 random.seed(0x2807)
 rex = RandRegExp("[g-v]* @? [0-9]{3} . (g|v)")
 bytes(rex) == ('vmuvr @ 906 \x9e g' if six.PY2 else b'irrtv @ 517 \xc2\xb8 v')
+assert(rex.command() == "RandRegExp(regexp='[g-v]* @? [0-9]{3} . (g|v)')")
 
 rex = RandRegExp("[:digit:][:space:][:word:]")
 assert re.match(b"\\d\\s\\w", bytes(rex))
@@ -10272,33 +10284,37 @@ assert re.match(b"\\d\\s\\w", bytes(rex))
 
 random.seed(0x2807)
 cb = CorruptedBytes("ABCDE", p=0.5)
+assert(cb.command() == "CorruptedBytes(s='ABCDE', p=0.5)")
 assert(sane(raw(cb)) in [".BCD)", "&BCDW"])
 
 cb = CorruptedBits("ABCDE", p=0.2)
+assert(cb.command() == "CorruptedBits(s='ABCDE', p=0.2)")
 assert(sane(raw(cb)) in ["ECk@Y", "QB.P."])
 
 = RandEnumKeys
 random.seed(0x2807)
 rek = RandEnumKeys({'a': 1, 'b': 2, 'c': 3}, seed=0x2807)
 rek.enum.sort()
+assert(rek.command() == "RandEnumKeys(enum=['a', 'b', 'c'], seed=10247)")
 r = str(rek)
-r
 assert(r == ('c' if six.PY2 else 'a'))
 
 = RandSingNum
 random.seed(0x2807)
-rs = RandSingNum(-28, 7)._fix()
-rs
-assert(rs in [2, 3])
+rs = RandSingNum(-28, 7)
+assert(rs._fix() in [2, 3])
+assert(rs.command() == "RandSingNum(mn=-28, mx=7)")
 
 = Rand*
 random.seed(0x2807)
 rss = RandSingString()
 assert(rss == ("CON:" if six.PY2 else "foo.exe:"))
+assert(rss.command() == "RandSingString()")
 
 random.seed(0x2807)
 rts = RandTermString(4, "scapy")
 assert(sane(raw(rts)) in ["...Zscapy", "$#..scapy"])
+assert(rts.command() == "RandTermString(size=4, term=%s'scapy')" % '' if six.PY2 else 'b')
 
 = RandInt (test __bool__)
 a = "True" if RandNum(False, True) else "False"
@@ -10307,22 +10323,30 @@ assert a in ["True", "False"]
 = Various volatiles
 
 random.seed(0x2807)
-assert RandNumGamma(1, 42)._fix() in (8, 73)
+rng = RandNumGamma(1, 42)
+assert rng._fix() in (8, 73)
+assert rng.command() == "RandNumGamma(alpha=1, beta=42)"
 
 random.seed(0x2807)
-assert RandNumGauss(1, 42) == 8
+rng = RandNumGauss(1, 42)
+assert rng._fix() == 8
+assert rng.command() == "RandNumGauss(mu=1, sigma=42)"
 
-print("RandEnum()", RandEnum(1, 42, seed=0x2807)._fix())
-assert RandEnum(1, 42, seed=0x2807) == (13 if six.PY2 else 37)
+renum = RandEnum(1, 42, seed=0x2807)
+assert renum == (13 if six.PY2 else 37)
+assert renum.command() == "RandEnum(min=1, max=42, seed=10247)"
 
-print("RandPool()", RandPool((IncrementalValue(), 42), (IncrementalValue(), 0))._fix())
-assert RandPool((IncrementalValue(), 42), (IncrementalValue(), 0)) == 0
+rp = RandPool((IncrementalValue(), 42), (IncrementalValue(), 0))
+assert rp == 0
+assert rp.command() == "RandPool((IncrementalValue(), 42), (IncrementalValue(), 0))"
 
-print("DelayedEval()", DelayedEval("3 + 1")._fix())
-assert DelayedEval("3 + 1") == 4
+de = DelayedEval("3 + 1")
+assert de == 4
+assert de.command() == "DelayedEval(expr='3 + 1')"
 
 v = IncrementalValue(restart=2)
 assert v == 0 and v == 1 and v == 2 and v == 0
+assert v.command() == "IncrementalValue(restart=2)"
 
 
 ############
@@ -11583,8 +11607,9 @@ RANDUUID_FIXED = uuid.uuid4()
 
 = RandUUID default behaviour
 
-u = RandUUID()._fix()
-assert u.version == 4
+ru = RandUUID()
+assert ru._fix().version == 4
+assert ru.command() == "RandUUID()"
 
 = RandUUID incorrect implicit args
 
@@ -11626,7 +11651,9 @@ u = RandUUID(version=1, clock_seq=0x1234)._fix()
 assert u.version == 1
 assert u.clock_seq == 0x1234
 
-u = RandUUID(version=1, node=0x1234, clock_seq=0x1bcd)._fix()
+ru = RandUUID(version=1, node=0x1234, clock_seq=0x1bcd)
+assert ru.command() == "RandUUID(node=4660, clock_seq=7117, version=1)"
+u = ru._fix()
 assert u.version == 1
 assert u.node == 0x1234
 assert u.clock_seq == 0x1bcd
@@ -11654,8 +11681,10 @@ assert expect_exception(ValueError, lambda: RandUUID(version=1, name="scapy"))
 
 = RandUUID v5 UUID
 
-u = RandUUID(version=5, namespace=RANDUUID_FIXED, name="scapy")._fix()
+ru = RandUUID(version=5, namespace=RANDUUID_FIXED, name="scapy")
+u = ru._fix()
 assert u.version == 5
+assert ru.command() == "RandUUID(namespace=%r, name='scapy', version=5)" % RANDUUID_FIXED
 
 u2 = RandUUID(version=5, namespace=RANDUUID_FIXED, name="scapy")._fix()
 assert u2.version == 5
@@ -11695,7 +11724,9 @@ assert re.match(r'[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}', str(RandUUID()), r
 
 = RandUUID with a static part
 * RandUUID template can contain static part such a 01234567-89ab-*-01*-*****ef
-assert re.match(r'01234567-89ab-[0-9a-f]{4}-01[0-9a-f]{2}-[0-9a-f]{10}ef', str(RandUUID('01234567-89ab-*-01*-*****ef')), re.I) is not None
+ru = RandUUID('01234567-89ab-*-01*-*****ef')
+assert re.match(r'01234567-89ab-[0-9a-f]{4}-01[0-9a-f]{2}-[0-9a-f]{10}ef', str(ru), re.I) is not None
+assert ru.command() == "RandUUID(template='01234567-89ab-*-01*-*****ef')"
 
 = RandUUID with a range part
 * RandUUID template can contain a part with a range of values such a 01234567-89ab-*-01*-****c0:c9ef
