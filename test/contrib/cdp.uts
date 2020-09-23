@@ -81,3 +81,11 @@ assert CDPMsgPortID in p and CDPMsgIPPrefix in p
 
 pkt = CDPv2_HDR(vers=2, ttl=180, msg='123')
 assert len(pkt) == 7
+
+= CDPv2 - CDPMsgAddr Packet
+cdp_msg_addr = CDPMsgAddr(addr=[CDPAddrRecordIPv4(), CDPAddrRecordIPv6()])
+assert(cdp_msg_addr.haslayer(CDPAddrRecordIPv4))
+assert(cdp_msg_addr.haslayer(CDPAddrRecordIPv6))
+assert(len(cdp_msg_addr.addr) == 2)
+
+assert raw(cdp_msg_addr)[4:8] == b'\x00\x00\x00\x02'
