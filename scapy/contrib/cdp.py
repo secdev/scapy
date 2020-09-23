@@ -189,7 +189,7 @@ class CDPMsgAddr(CDPMsgGeneric):
     name = "Addresses"
     fields_desc = [XShortEnumField("type", 0x0002, _cdp_tlv_types),
                    ShortField("len", None),
-                   FieldLenField("naddr", None, "addr", "!I"),
+                   FieldLenField("naddr", None, fmt="!I", count_of="addr"),
                    PacketListField("addr", [], _CDPGuessAddrRecord,
                                    length_from=lambda x:x.len - 8)]
 
