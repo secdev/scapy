@@ -7,7 +7,7 @@ Scapy *BSD native support - core
 from __future__ import absolute_import
 
 from ctypes import cdll, cast, pointer
-from ctypes import c_int, c_ulong, c_char_p
+from ctypes import c_int, c_ulong, c_uint, c_char_p, Structure, POINTER
 from ctypes.util import find_library
 import fcntl
 import os
@@ -16,26 +16,52 @@ import socket
 import struct
 import subprocess
 
+import scapy
 from scapy.arch.bpf.consts import BIOCSETF, SIOCGIFFLAGS, BIOCSETIF
-from scapy.arch.common import get_if, compile_filter
+from scapy.arch.common import get_if, compile_filter, _iff_flags
+from scapy.arch.unix import in6_getifaddr
 from scapy.compat import plain_str
 from scapy.config import conf
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
 from scapy.error import Scapy_Exception, warning
+from scapy.interfaces import InterfaceProvider, IFACES, NetworkInterface, \
+    network_name
+from scapy.pton_ntop import inet_ntop
 from scapy.modules.six.moves import range
 
 
 # ctypes definitions
 
 LIBC = cdll.LoadLibrary(find_library("libc"))
+
 LIBC.ioctl.argtypes = [c_int, c_ulong, c_char_p]
 LIBC.ioctl.restype = c_int
 
+# The following is implemented as of Python >= 3.3
+# under socket.*. Remember to use them when dropping Py2.7
+
+# See https://docs.python.org/3/library/socket.html#socket.if_nameindex
+
+
+class if_nameindex(Structure):
+    _fields_ = [("if_index", c_uint),
+                ("if_name", c_char_p)]
+
+
+_ptr_ifnameindex_table = POINTER(if_nameindex * 255)
+
+LIBC.if_nameindex.argtypes = []
+LIBC.if_nameindex.restype = _ptr_ifnameindex_table
+LIBC.if_freenameindex.argtypes = [_ptr_ifnameindex_table]
+LIBC.if_freenameindex.restype = None
 
 # Addresses manipulation functions
 
+
 def get_if_raw_addr(ifname):
     """Returns the IPv4 address configured on 'ifname', packed with inet_pton."""  # noqa: E501
+
+    ifname = network_name(ifname)
 
     # Get ifconfig output
     subproc = subprocess.Popen(
@@ -49,7 +75,7 @@ def get_if_raw_addr(ifname):
     # Get IPv4 addresses
 
     addresses = [
-        line for line in plain_str(stdout).splitlines()
+        line.strip() for line in plain_str(stdout).splitlines()
         if "inet " in line
     ]
 
@@ -69,6 +95,7 @@ def get_if_raw_hwaddr(ifname):
 
     NULL_MAC_ADDRESS = b'\x00' * 6
 
+    ifname = network_name(ifname)
     # Handle the loopback interface separately
     if ifname == conf.loopback_name:
         return (ARPHDR_LOOPBACK, NULL_MAC_ADDRESS)
@@ -85,7 +112,7 @@ def get_if_raw_hwaddr(ifname):
 
     # Get MAC addresses
     addresses = [
-        line for line in plain_str(stdout).splitlines() if (
+        line.strip() for line in plain_str(stdout).splitlines() if (
             "ether" in line or "lladdr" in line or "address" in line
         )
     ]
@@ -108,7 +135,12 @@ def get_dev_bpf():
         try:
             fd = os.open("/dev/bpf%i" % bpf, os.O_RDWR)
             return (fd, bpf)
-        except OSError:
+        except OSError as ex:
+            if ex.errno == 13:  # Permission denied
+                raise Scapy_Exception((
+                    "Permission denied: could not open /dev/bpf%i. "
+                    "Make sure to be running Scapy as root ! (sudo)"
+                ) % bpf)
             continue
 
     raise Scapy_Exception("No /dev/bpf handle is available !")
@@ -125,87 +157,87 @@ def attach_filter(fd, bpf_filter, iface):
 
 # Interface manipulation functions
 
-def get_if_list():
-    """Returns a list containing all network interfaces."""
-
-    # Get ifconfig output
-    subproc = subprocess.Popen(
-        [conf.prog.ifconfig],
-        close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    stdout, stderr = subproc.communicate()
-    if subproc.returncode:
-        raise Scapy_Exception("Failed to execute ifconfig: (%s)" %
-                              (plain_str(stderr)))
-
-    interfaces = [
-        line[:line.find(':')] for line in plain_str(stdout).splitlines()
-        if ": flags" in line.lower()
-    ]
-    return interfaces
+def _get_ifindex_list():
+    """
+    Returns a list containing (iface, index)
+    """
+    ptr = LIBC.if_nameindex()
+    ifaces = []
+    for i in range(255):
+        iface = ptr.contents[i]
+        if not iface.if_name:
+            break
+        ifaces.append((plain_str(iface.if_name), iface.if_index))
+    LIBC.if_freenameindex(ptr)
+    return ifaces
 
 
 _IFNUM = re.compile(r"([0-9]*)([ab]?)$")
 
 
-def get_working_ifaces():
-    """
-    Returns an ordered list of interfaces that could be used with BPF.
-    Note: the order mimics pcap_findalldevs() behavior
-    """
+def _get_if_flags(ifname):
+    """Internal function to get interface flags"""
+    # Get interface flags
+    try:
+        result = get_if(ifname, SIOCGIFFLAGS)
+    except IOError:
+        warning("ioctl(SIOCGIFFLAGS) failed on %s !", ifname)
+        return None
 
-    # Only root is allowed to perform the following ioctl() call
-    if os.getuid() != 0:
-        return []
+    # Convert flags
+    ifflags = struct.unpack("16xH14x", result)[0]
+    return ifflags
 
-    # Test all network interfaces
-    interfaces = []
-    for ifname in get_if_list():
 
-        # Unlike pcap_findalldevs(), we do not care of loopback interfaces.
-        if ifname == conf.loopback_name:
-            continue
+class BPFInterfaceProvider(InterfaceProvider):
+    name = "BPF"
 
-        # Get interface flags
+    def _is_valid(self, dev):
+        if not dev.flags & 0x1:  # not IFF_UP
+            return False
+        # Get a BPF handle
         try:
-            result = get_if(ifname, SIOCGIFFLAGS)
-        except IOError:
-            warning("ioctl(SIOCGIFFLAGS) failed on %s !", ifname)
-            continue
-
-        # Convert flags
-        ifflags = struct.unpack("16xH14x", result)[0]
-        if ifflags & 0x1:  # IFF_UP
-
-            # Get a BPF handle
             fd = get_dev_bpf()[0]
-            if fd is None:
-                raise Scapy_Exception("No /dev/bpf are available !")
+        except Scapy_Exception:
+            return True  # Can't check if available (non sudo?)
+        if fd is None:
+            raise Scapy_Exception("No /dev/bpf are available !")
+        # Check if the interface can be used
+        try:
+            fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x",
+                                                   dev.network_name.encode()))
+        except IOError:
+            return False
+        else:
+            return True
+        finally:
+            # Close the file descriptor
+            os.close(fd)
 
-            # Check if the interface can be used
+    def load(self):
+        from scapy.fields import FlagValue
+        data = {}
+        ips = in6_getifaddr()
+        for ifname, index in _get_ifindex_list():
             try:
-                fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x",
-                                                       ifname.encode()))
-            except IOError:
-                pass
-            else:
-                ifnum, ifab = _IFNUM.search(ifname).groups()
-                interfaces.append((ifname, int(ifnum) if ifnum else -1, ifab))
-            finally:
-                # Close the file descriptor
-                os.close(fd)
+                ifflags = _get_if_flags(ifname)
+                mac = scapy.utils.str2mac(get_if_raw_hwaddr(ifname)[1])
+                ip = inet_ntop(socket.AF_INET, get_if_raw_addr(ifname))
+            except Scapy_Exception:
+                continue
+            ifflags = FlagValue(ifflags, _iff_flags)
+            if_data = {
+                "name": ifname,
+                "network_name": ifname,
+                "description": ifname,
+                "flags": ifflags,
+                "index": index,
+                "ip": ip,
+                "ips": [x[0] for x in ips if x[2] == ifname] + [ip],
+                "mac": mac
+            }
+            data[ifname] = NetworkInterface(self, if_data)
+        return data
 
-    # Sort to mimic pcap_findalldevs() order
-    interfaces.sort(key=lambda elt: (elt[1], elt[2], elt[0]))
 
-    return [iface[0] for iface in interfaces]
-
-
-def get_working_if():
-    """Returns the first interface than can be used with BPF"""
-
-    ifaces = get_working_ifaces()
-    if not ifaces:
-        # A better interface will be selected later using the routing table
-        return conf.loopback_name
-    return ifaces[0]
+IFACES.register_provider(BPFInterfaceProvider)

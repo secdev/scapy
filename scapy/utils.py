@@ -26,7 +26,7 @@ import tempfile
 import threading
 
 import scapy.modules.six as six
-from scapy.modules.six.moves import range, input
+from scapy.modules.six.moves import range, input, zip_longest
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS, WINDOWS_XP, OPENBSD
@@ -1940,20 +1940,46 @@ def get_terminal_width():
 
 
 def pretty_list(rtlst, header, sortBy=0, borders=False):
-    """Pretty list to fit the terminal, and add header"""
+    """
+    Pretty list to fit the terminal, and add header.
+
+    :param rtlst: a list of tuples. each tuple contains a value which can
+        be either a string or a list of string.
+    :param sortBy: the column id (starting with 0) which whill be used for
+        ordering
+    :param borders: whether to put borders on the table or not
+    """
     if borders:
         _space = "|"
     else:
         _space = "  "
+    cols = len(header[0])
     # Windows has a fat terminal border
-    _spacelen = len(_space) * (len(header) - 1) + (10 if WINDOWS else 0)
+    _spacelen = len(_space) * (cols - 1) + int(WINDOWS)
     _croped = False
     # Sort correctly
     rtlst.sort(key=lambda x: x[sortBy])
+    # Resolve multi-values
+    for i, line in enumerate(rtlst):
+        ids = []
+        values = []
+        for j, val in enumerate(line):
+            if isinstance(val, list):
+                ids.append(j)
+                values.append(val or " ")
+        if values:
+            del rtlst[i]
+            k = 0
+            for ex_vals in zip_longest(*values, fillvalue=" "):
+                extra_line = ([" "] * cols) if k else list(line)
+                for j, h in enumerate(ids):
+                    extra_line[h] = ex_vals[j]
+                rtlst.insert(i + k, tuple(extra_line))
+                k += 1
     # Append tag
     rtlst = header + rtlst
     # Detect column's width
-    colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
+    colwidth = [max(len(y) for y in x) for x in zip(*rtlst)]
     # Make text fit in box (if required)
     width = get_terminal_width()
     if conf.auto_crop_tables and width:
@@ -1982,8 +2008,7 @@ def pretty_list(rtlst, header, sortBy=0, borders=False):
     if borders:
         rtlst.insert(1, tuple("-" * x for x in colwidth))
     # Compile
-    rt = "\n".join(((fmt % x).strip() for x in rtlst))
-    return rt
+    return "\n".join(fmt % x for x in rtlst)
 
 
 def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None, seplinefunc=None, dump=False):  # noqa: E501

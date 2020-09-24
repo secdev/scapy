@@ -72,8 +72,9 @@ class Interceptor(object):
         setattr(obj, int_name, val)
 
     def __set__(self, obj, val):
+        old = getattr(obj, self.intname, self.default)
+        val = self.hook(self.name, val, old, *self.args, **self.kargs)
         setattr(obj, self.intname, val)
-        self.hook(self.name, val, *self.args, **self.kargs)
 
 
 def _readonly(name):
@@ -441,8 +442,9 @@ def isPyPy():
         return False
 
 
-def _prompt_changer(attr, val):
+def _prompt_changer(attr, val, old):
     """Change the current prompt theme"""
+    Interceptor.set_from_hook(conf, attr, val)
     try:
         sys.ps1 = conf.color_theme.prompt(conf.prompt)
     except Exception:
@@ -451,13 +453,13 @@ def _prompt_changer(attr, val):
         apply_ipython_style(get_ipython())
     except NameError:
         pass
+    return getattr(conf, attr, old)
 
 
 def _set_conf_sockets():
     """Populate the conf.L2Socket and conf.L3Socket
     according to the various use_* parameters
     """
-    from scapy.main import _load
     if conf.use_bpf and not BSD:
         Interceptor.set_from_hook(conf, "use_bpf", False)
         raise ScapyInvalidPlatformException("BSD-like (OSX, *BSD...) only !")
@@ -469,7 +471,7 @@ def _set_conf_sockets():
     # we are already in an Interceptor hook, use Interceptor.set_from_hook
     if conf.use_pcap:
         try:
-            from scapy.arch.pcapdnet import L2pcapListenSocket, L2pcapSocket, \
+            from scapy.arch.libpcap import L2pcapListenSocket, L2pcapSocket, \
                 L3pcapSocket
         except (OSError, ImportError):
             warning("No libpcap provider available ! pcap won't be used")
@@ -479,9 +481,7 @@ def _set_conf_sockets():
             conf.L3socket6 = functools.partial(L3pcapSocket, filter="ip6")
             conf.L2socket = L2pcapSocket
             conf.L2listen = L2pcapListenSocket
-            if conf.interactive:
-                # Update globals
-                _load("scapy.arch.pcapdnet")
+            conf.ifaces.reload()
             return
     if conf.use_bpf:
         from scapy.arch.bpf.supersocket import L2bpfListenSocket, \
@@ -490,9 +490,7 @@ def _set_conf_sockets():
         conf.L3socket6 = functools.partial(L3bpfSocket, filter="ip6")
         conf.L2socket = L2bpfSocket
         conf.L2listen = L2bpfListenSocket
-        if conf.interactive:
-            # Update globals
-            _load("scapy.arch.bpf")
+        conf.ifaces.reload()
         return
     if LINUX:
         from scapy.arch.linux import L3PacketSocket, L2Socket, L2ListenSocket
@@ -500,9 +498,7 @@ def _set_conf_sockets():
         conf.L3socket6 = functools.partial(L3PacketSocket, filter="ip6")
         conf.L2socket = L2Socket
         conf.L2listen = L2ListenSocket
-        if conf.interactive:
-            # Update globals
-            _load("scapy.arch.linux")
+        conf.ifaces.reload()
         return
     if WINDOWS:
         from scapy.arch.windows import _NotAvailableSocket
@@ -511,6 +507,7 @@ def _set_conf_sockets():
         conf.L3socket6 = L3WinSocket6
         conf.L2socket = _NotAvailableSocket
         conf.L2listen = _NotAvailableSocket
+        conf.ifaces.reload()
         # No need to update globals on Windows
         return
     from scapy.supersocket import L3RawSocket
@@ -519,9 +516,10 @@ def _set_conf_sockets():
     conf.L3socket6 = L3RawSocket6
 
 
-def _socket_changer(attr, val):
+def _socket_changer(attr, val, old):
     if not isinstance(val, bool):
         raise TypeError("This argument should be a boolean")
+    Interceptor.set_from_hook(conf, attr, val)
     dependencies = {  # Things that will be turned off
         "use_pcap": ["use_bpf"],
         "use_bpf": ["use_pcap"],
@@ -538,11 +536,27 @@ def _socket_changer(attr, val):
             Interceptor.set_from_hook(conf, key, value)
         if isinstance(e, ScapyInvalidPlatformException):
             raise
+    return getattr(conf, attr)
 
 
-def _loglevel_changer(attr, val):
+def _loglevel_changer(attr, val, old):
     """Handle a change of conf.logLevel"""
     log_scapy.setLevel(val)
+    return val
+
+
+def _iface_changer(attr, val, old):
+    """Resolves the interface in conf.iface"""
+    if isinstance(val, str):
+        from scapy.interfaces import resolve_iface
+        iface = resolve_iface(val)
+        if old and iface.dummy:
+            warning(
+                "This interface is not specified in any provider ! "
+                "See conf.ifaces output"
+            )
+        return iface
+    return val
 
 
 class Conf(ConfClass):
@@ -557,7 +571,7 @@ class Conf(ConfClass):
     #: if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
     stealth = "not implemented"
     #: selects the default output interface for srp() and sendp().
-    iface = None
+    iface = Interceptor("iface", None, _iface_changer)
     layers = LayersList()
     commands = CommandsList()
     ASN1_default_codec = None  #: Codec used by default for ASN1 objects
@@ -616,7 +630,10 @@ class Conf(ConfClass):
     #: When 1, print some TLS session secrets when they are computed.
     debug_tls = False
     wepkey = ""
-    cache_iflist = {}
+    #: holds the Scapy interface list and manager
+    ifaces = None
+    #: holds the cache of interfaces loaded from Libpcap
+    cache_pcapiflist = {}
     #: holds the Scapy IPv4 routing table and provides methods to
     #: manipulate it
     route = None  # Filed by route.py
@@ -642,7 +659,7 @@ class Conf(ConfClass):
     #: the conf.L[2/3] sockets
     use_pcap = Interceptor(
         "use_pcap",
-        os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y"),
+        os.getenv("SCAPY_USE_LIBPCAP", "").lower().startswith("y"),
         _socket_changer
     )
     use_bpf = Interceptor("use_bpf", False, _socket_changer)

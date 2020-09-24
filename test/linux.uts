@@ -76,14 +76,6 @@ from mock import patch
 with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo_x'):
     routes = read_routes()
 
-= catch get_working_if only loopback
-~ linux
-
-from mock import patch
-
-with patch('scapy.arch.linux.get_if_list', side_effect=lambda: [conf.loopback_name]):
-    assert get_working_if() == conf.loopback_name
-
 = catch loopback device no address assigned
 ~ linux needs_root
 
@@ -122,6 +114,8 @@ exit_status = os.system("ip link del dev scapy_lo")
 assert(exit_status == 0)
 
 = IPv6 link-local address selection
+
+IFACES._add_fake_iface("scapy0")
 
 from mock import patch
 conf.route6.routes =  [('fe80::', 64, '::', 'scapy0', ['fe80::e039:91ff:fe79:1910'], 256)]
@@ -238,6 +232,7 @@ except subprocess.CalledProcessError:
 except Exception:
     assert False
 
+conf.ifaces.reload()
 if_list = get_if_list()
 assert ('veth_scapy_0' in if_list)
 assert ('veth_scapy_1' in if_list)
@@ -265,6 +260,7 @@ try:
     veth.down()
     veth.destroy()
 
+    conf.ifaces.reload()
     if_list = get_if_list()
     assert ('veth_scapy_0' not in if_list)
     assert ('veth_scapy_1' not in if_list)

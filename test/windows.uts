@@ -25,31 +25,19 @@ assert select_objects([TimeOutSelector()], 1) == []
 ############
 + Windows arch unit tests
 
-= Test pcapname
+= Test network_name
 
 iface = conf.iface
 
-assert pcapname(iface.name) == iface.pcap_name
-assert pcapname(iface.description) == iface.pcap_name
-assert pcapname(iface.pcap_name) == iface.pcap_name
+assert network_name(iface.name) == iface.network_name
+assert network_name(iface.description) == iface.network_name
+assert network_name(iface.network_name) == iface.network_name
 
-= show_interfaces
-
-from scapy.arch import show_interfaces
-
-with ContextManagerCaptureOutput() as cmco:
-    show_interfaces()
-    lines = cmco.get_output().split("\n")[1:]
-    for l in lines:
-        if not l.strip():
-            continue
-        int(l[:2])
-
-= dev_from_pcapname
+= dev_from_networkname
 
 from scapy.config import conf
 
-assert dev_from_pcapname(conf.iface.pcap_name).guid == conf.iface.guid
+assert dev_from_networkname(conf.iface.network_name).guid == conf.iface.guid
 
 = test pcap_service_status
 
@@ -74,7 +62,7 @@ assert pcap_service_status()[2] == True
 def _test_autostart_ui(mocked_getiflist):
     mocked_getiflist.side_effect = lambda: []
     IFACES.reload()
-    assert all(x.win_index < 0 for x in IFACES.data.values())
+    assert all(x.index < 0 for x in IFACES.data.values())
 
 try:
     old_ifaces = IFACES.data.copy()

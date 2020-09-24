@@ -2120,7 +2120,11 @@ class FlagValue(object):
         x = int(self)
         while x:
             if x & 1:
-                r.append(self.names[i])
+                try:
+                    name = self.names[i]
+                except IndexError:
+                    name = "?"
+                r.append(name)
             i += 1
             x >>= 1
         return ("+" if self.multi else "").join(r)

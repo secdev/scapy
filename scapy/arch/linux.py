@@ -28,10 +28,13 @@ from scapy.packet import Packet, Padding
 from scapy.config import conf
 from scapy.data import MTU, ETH_P_ALL, SOL_PACKET, SO_ATTACH_FILTER, \
     SO_TIMESTAMPNS
+from scapy.interfaces import IFACES, InterfaceProvider, NetworkInterface, \
+    network_name
 from scapy.supersocket import SuperSocket
+from scapy.pton_ntop import inet_ntop
 from scapy.error import warning, Scapy_Exception, \
     ScapyInvalidPlatformException, log_runtime
-from scapy.arch.common import get_if, compile_filter
+from scapy.arch.common import get_if, compile_filter, _iff_flags
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -92,13 +95,20 @@ PACKET_FASTROUTE = 6  # Fastrouted frame
 
 
 def get_if_raw_addr(iff):
+    r"""
+    Return the raw IPv4 address of an interface.
+    If unavailable, returns b"\0\0\0\0"
+    """
     try:
         return get_if(iff, SIOCGIFADDR)[20:24]
     except IOError:
         return b"\0\0\0\0"
 
 
-def get_if_list():
+def _get_if_list():
+    """
+    Function to read the interfaces from /proc/net/dev
+    """
     try:
         f = open("/proc/net/dev", "rb")
     except IOError:
@@ -116,19 +126,6 @@ def get_if_list():
         lst.append(line.split(":")[0].strip())
     f.close()
     return lst
-
-
-def get_working_if():
-    """
-    Return the name of the first network interfcace that is up.
-    """
-    for i in get_if_list():
-        if i == conf.loopback_name:
-            continue
-        ifflags = struct.unpack("16xH14x", get_if(i, SIOCGIFFLAGS))[0]
-        if ifflags & IFF_UP:
-            return i
-    return conf.loopback_name
 
 
 def attach_filter(sock, bpf_filter, iface):
@@ -256,15 +253,12 @@ def read_routes():
         gw_str = scapy.utils.inet_ntoa(struct.pack("I", int(gw, 16)))
         metric = int(metric)
 
+        route = [dst_int, msk_int, gw_str, iff, ifaddr, metric]
         if ifaddr_int & msk_int != dst_int:
             tmp_route = get_alias_address(iff, dst_int, gw_str, metric)
             if tmp_route:
-                routes.append(tmp_route)
-            else:
-                routes.append((dst_int, msk_int, gw_str, iff, ifaddr, metric))
-
-        else:
-            routes.append((dst_int, msk_int, gw_str, iff, ifaddr, metric))
+                route = tmp_route
+        routes.append(tuple(route))
 
     f.close()
     s.close()
@@ -360,6 +354,42 @@ def get_if_index(iff):
     return int(struct.unpack("I", get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
 
+class LinuxInterfaceProvider(InterfaceProvider):
+    name = "sys"
+
+    def _is_valid(self, dev):
+        return bool(dev.flags & IFF_UP)
+
+    def load(self):
+        from scapy.fields import FlagValue
+        data = {}
+        ips = in6_getifaddr()
+        for i in _get_if_list():
+            ifflags = struct.unpack("16xH14x", get_if(i, SIOCGIFFLAGS))[0]
+            index = get_if_index(i)
+            mac = scapy.utils.str2mac(
+                get_if_raw_hwaddr(i, siocgifhwaddr=SIOCGIFHWADDR)[1]
+            )
+            ip = inet_ntop(socket.AF_INET, get_if_raw_addr(i))
+            if ip == "0.0.0.0":
+                ip = None
+            ifflags = FlagValue(ifflags, _iff_flags)
+            if_data = {
+                "name": i,
+                "network_name": i,
+                "description": i,
+                "flags": ifflags,
+                "index": index,
+                "ip": ip,
+                "ips": [x[0] for x in ips if x[2] == i] + [ip] if ip else [],
+                "mac": mac
+            }
+            data[i] = NetworkInterface(self, if_data)
+        return data
+
+
+IFACES.register_provider(LinuxInterfaceProvider)
+
 if os.uname()[4] in ['x86_64', 'aarch64']:
     def get_last_packet_timestamp(sock):
         ts = ioctl(sock, SIOCGSTAMP, "1234567890123456")
@@ -388,7 +418,7 @@ class L2Socket(SuperSocket):
 
     def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None,
                  nofilter=0, monitor=None):
-        self.iface = conf.iface if iface is None else iface
+        self.iface = network_name(iface or conf.iface)
         self.type = type
         self.promisc = conf.sniff_promisc if promisc is None else promisc
         if monitor is not None:
@@ -586,7 +616,9 @@ class VEthPair(object):
     def __enter__(self):
         self.setup()
         self.up()
+        conf.ifaces.reload()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.destroy()
+        conf.ifaces.reload()

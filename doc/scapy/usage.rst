@@ -1214,7 +1214,7 @@ Provided that your wireless card and driver are correctly configured for frame i
 
 On Windows, if using Npcap, the equivalent would be to call::
 
-    >>> # Of course, conf.iface can be replaced by any interfaces accessed through IFACES
+    >>> # Of course, conf.iface can be replaced by any interfaces accessed through conf.ifaces
     ... conf.iface.setmonitor(True)
 
 you can have a kind of FakeAP::

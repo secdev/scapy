@@ -10,11 +10,9 @@ Routing and handling of network interfaces.
 
 from __future__ import absolute_import
 
-
-import scapy.consts
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
-from scapy.modules import six
+from scapy.interfaces import resolve_iface
 from scapy.utils import atol, ltoa, itom, plain_str, pretty_list
 
 
@@ -37,10 +35,11 @@ class Route:
     def __repr__(self):
         rtlst = []
         for net, msk, gw, iface, addr, metric in self.routes:
+            if_repr = resolve_iface(iface).description
             rtlst.append((ltoa(net),
                           ltoa(msk),
                           gw,
-                          (iface.description if not isinstance(iface, six.string_types) else iface),  # noqa: E501
+                          if_repr,
                           addr,
                           str(metric)))
 
@@ -94,10 +93,7 @@ class Route:
 
         for i, route in enumerate(self.routes):
             net, msk, gw, iface, addr, metric = route
-            if scapy.consts.WINDOWS:
-                if iff.guid != iface.guid:
-                    continue
-            elif iff != iface:
+            if iff != iface:
                 continue
             if gw == '0.0.0.0':
                 self.routes[i] = (the_net, the_msk, gw, iface, the_addr, metric)  # noqa: E501
@@ -109,10 +105,7 @@ class Route:
         self.invalidate_cache()
         new_routes = []
         for rt in self.routes:
-            if scapy.consts.WINDOWS:
-                if iff.guid == rt[3].guid:
-                    continue
-            elif iff == rt[3]:
+            if iff == rt[3]:
                 continue
             new_routes.append(rt)
         self.routes = new_routes
@@ -184,10 +177,7 @@ class Route:
                 continue    # Ignore default route "0.0.0.0"
             elif msk == 0xffffffff:
                 continue    # Ignore host-specific routes
-            if scapy.consts.WINDOWS:
-                if iff.guid != iface.guid:
-                    continue
-            elif iff != iface:
+            if iff != iface:
                 continue
             bcast = net | (~msk & 0xffffffff)
             bcast_list.append(ltoa(bcast))
@@ -198,12 +188,5 @@ class Route:
 
 conf.route = Route()
 
-iface = conf.route.route(None, verbose=0)[0]
-
-if getattr(iface, "name", iface) == conf.loopback_name:
-    from scapy.arch import get_working_if
-    conf.iface = get_working_if()
-else:
-    conf.iface = iface
-
-del iface
+# Load everything, update conf.iface
+conf.ifaces.reload()

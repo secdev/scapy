@@ -127,15 +127,6 @@ except:
 
 assert not conf.use_bpf
 
-if not conf.use_pcap:
-    a = six.moves.builtins.__dict__
-    conf.interactive = True
-    conf.use_pcap = True
-    assert a["get_if_list"] == scapy.arch.pcapdnet.get_if_list
-    conf.use_pcap = False
-    assert a["get_if_list"] == scapy.arch.linux.get_if_list
-    conf.interactive = False
-
 = Configuration conf.use_* WINDOWS
 ~ windows
 
@@ -146,6 +137,18 @@ except:
     True
 
 assert not conf.use_bpf
+
+= Configuration conf.use_pcap
+~ linux
+
+if not conf.use_pcap:
+    assert not conf.iface.provider.libpcap
+    conf.use_pcap = True
+    assert conf.iface.provider.libpcap
+    for iface in conf.ifaces.values():
+        assert iface.provider.libpcap
+    conf.use_pcap = False
+    assert not conf.iface.provider.libpcap
 
 = Test layer filtering
 ~ filter
@@ -182,22 +185,8 @@ bytes_hex(get_if_raw_addr(conf.iface))
 
 def get_dummy_interface():
     """Returns a dummy network interface"""
-    if WINDOWS:
-        data = {}
-        data["name"] = "dummy0"
-        data["description"] = "Does not exist"
-        data["win_index"] = -1
-        data["guid"] = "{1XX00000-X000-0X0X-X00X-00XXXX000XXX}"
-        data["invalid"] = True
-        data["ipv4_metric"] = 1
-        data["ipv6_metric"] = 1
-        data["mac"] = "00:00:00:00:00:00"
-        data["ips"] = ["127.0.0.1", "::1"]
-        data["pcap_name"] = "\\Device\\NPF_" + data["guid"]
-        data["flags"] = 0
-        return NetworkInterface(data)
-    else:
-        return "dummy0"
+    IFACES._add_fake_iface("dummy0")
+    return "dummy0"
 
 get_if_raw_addr(get_dummy_interface())
 
@@ -206,6 +195,56 @@ get_if_list()
 get_working_if()
 
 get_if_raw_addr6(conf.iface)
+
+= More Interfaces related functions
+
+# Test name resolution
+old = conf.iface
+conf.iface = conf.iface.name
+assert conf.iface == old
+
+assert isinstance(conf.iface, NetworkInterface)
+assert conf.iface.is_valid()
+
+import mock
+@mock.patch("scapy.interfaces.conf.route.routes", [])
+@mock.patch("scapy.interfaces.conf.ifaces", {})
+def _test_get_working_if():
+    assert get_working_if() == conf.loopback_name
+
+assert conf.iface + "a"  # left +
+assert "hey! are you, ready to go ? %s" % conf.iface  # format
+assert "cuz you know the way to go" + conf.iface  # right +
+
+_test_get_working_if()
+
+= Test conf.ifaces
+
+conf.iface
+conf.ifaces
+
+assert conf.iface in conf.ifaces.values()
+assert conf.ifaces.dev_from_index(conf.iface.index) == conf.iface
+assert conf.ifaces.dev_from_networkname(conf.iface.network_name) == conf.iface
+
+conf.ifaces.data = {'a': NetworkInterface(InterfaceProvider(), {"name": 'a', "network_name": 'a', "description": 'a', "ips": ["127.0.0.1", "::1", "::2", "127.0.0.2"], "mac": 'aa:aa:aa:aa:aa:aa'})}
+
+with ContextManagerCaptureOutput() as cmco:
+    conf.ifaces.show()
+    output = cmco.get_output()
+
+data = """
+Source   Index  Name  MAC                IPv4       IPv6
+Unknown  0      a     aa:aa:aa:aa:aa:aa  127.0.0.1  ::1
+                                         127.0.0.2  ::2
+""".strip()
+
+output = [x.strip() for x in output.strip().split("\n")]
+data = [x.strip() for x in data.strip().split("\n")]
+
+assert output == data
+
+conf.ifaces.reload()
 
 = Test read_routes6() - default output
 
@@ -1675,6 +1714,7 @@ asrm = AS_resolver_multi(MockAS_resolver())
 assert len(asrm.resolve(["8.8.8.8", "8.8.4.4"])) == 0
 
 = sendpfast
+~ tcpreplay
 
 old_interactive = conf.interactive
 conf.interactive = False
@@ -4336,6 +4376,11 @@ assert defragment6(pkts).plen == 1508
 ############
 + Test Route6 class
 
+= Fake interfaces
+IFACES._add_fake_iface("eth0")
+IFACES._add_fake_iface("lo")
+IFACES._add_fake_iface("scapy0")
+
 = Route6 - Route6 flushing
 conf_iface = conf.iface
 conf.iface = "eth0"
@@ -4346,6 +4391,7 @@ conf.route6.flush()
 not conf.route6.routes
 
 = Route6 - Route6.route
+
 conf.route6.flush()
 conf.route6.ipv6_ifaces = set(['lo', 'eth0'])
 conf.route6.routes=[
@@ -4356,7 +4402,12 @@ conf.route6.routes=[
 (                 '2001:db8:0:4444::',  64,                       '::', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650'], 1), 
 (                                '::',   0, 'fe80::20f:34ff:fe8a:8aa1', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650', '2002:db8:0:4444:20f:1fff:feca:4650'], 1)
 ]
-conf.route6.route("2002::1") == ('eth0', '2002:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("2001::1") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("fe80::20f:1fff:feab:4870") == ('eth0', 'fe80::20f:1fff:feca:4650', '::') and conf.route6.route("::1") == ('lo', '::1', '::') and conf.route6.route("::") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route('ff00::') == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
+assert conf.route6.route("2002::1") == ('eth0', '2002:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
+assert conf.route6.route("2001::1") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
+assert conf.route6.route("fe80::20f:1fff:feab:4870") == ('eth0', 'fe80::20f:1fff:feca:4650', '::')
+assert conf.route6.route("::1") == ('lo', '::1', '::')
+assert conf.route6.route("::") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
+assert conf.route6.route('ff00::') == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
 conf.iface = conf_iface
 conf.route6.resync()
 if not len(conf.route6.routes):
@@ -9095,6 +9146,9 @@ test_netbsd_7_0()
 
 import scapy
 
+IFACES._add_fake_iface("enp3s0")
+IFACES._add_fake_iface("lo")
+
 old_routes = conf.route.routes
 old_iface = conf.iface
 old_loopback = conf.loopback_name
@@ -9124,10 +9178,15 @@ finally:
     conf.iface = old_iface
     conf.route.routes = old_routes
     conf.route.invalidate_cache()
+    IFACES.reload()
 
 
 = Mocked IPv6 routes calls
 
+IFACES._add_fake_iface("enp3s0")
+IFACES._add_fake_iface("lo")
+
+old_routes = conf.route6.routes
 old_iface = conf.iface
 old_loopback = conf.loopback_name
 try:
