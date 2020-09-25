@@ -29,6 +29,7 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
+from scapy.themes import DefaultTheme, BlackAndWhite
 
 
 #   Util class   #
@@ -240,6 +241,7 @@ class UnitTest(TestClass):
         self.test = ""
         self.comments = ""
         self.result = "passed"
+        self.fresult = ""
         # make instance True at init to have a different truth value than None
         self.duration = 0
         self.output = ""
@@ -248,12 +250,16 @@ class UnitTest(TestClass):
         self.crc = None
         self.expand = 1
 
-    def decode(self):
+    def prepare(self, theme):
         if six.PY2:
             self.test = self.test.decode("utf8", "ignore")
             self.output = self.output.decode("utf8", "ignore")
             self.comments = self.comments.decode("utf8", "ignore")
             self.result = self.result.decode("utf8", "ignore")
+        if self.result == "passed":
+            self.fresult = theme.success(self.result)
+        else:
+            self.fresult = theme.fail(self.result)
 
     def __nonzero__(self):
         return self.result == "passed"
@@ -476,7 +482,8 @@ def remove_empty_testsets(test_campaign):
 
 # RUN TEST #
 
-def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_globals=None):
+def run_test(test, get_interactive_session, theme, verb=3,
+             ignore_globals=None, my_globals=None):
     """An internal UTScapy function to run a single test"""
     start_time = time.time()
     test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals, verb=verb, my_globals=my_globals)
@@ -499,11 +506,11 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_glob
                 cls, val = debug.crashed_on
                 test.output += "\n\nPACKET DISSECTION FAILED ON:\n %s(hex_bytes('%s'))" % (cls.__name__, plain_str(bytes_hex(val)))
                 debug.crashed_on = None
-        test.decode()
+        test.prepare(theme)
         if verb > 2:
-            print("%(result)6s %(crc)s %(duration)06.2fs %(name)s" % test, file=sys.stderr)
+            print("%(fresult)6s %(crc)s %(duration)06.2fs %(name)s" % test, file=sys.stderr)
         elif verb > 1:
-            print("%(result)6s %(crc)s %(name)s" % test, file=sys.stderr)
+            print("%(fresult)6s %(crc)s %(name)s" % test, file=sys.stderr)
 
     return bool(test)
 
@@ -522,7 +529,9 @@ def import_UTscapy_tools(ses):
         ses["conf"].route6.routes = conf.route6.routes
 
 
-def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=False, verb=3, ignore_globals=None, scapy_ses=None):  # noqa: E501
+def run_campaign(test_campaign, get_interactive_session, theme,
+                 drop_to_interpreter=False, verb=3,
+                 ignore_globals=None, scapy_ses=None):
     passed = failed = 0
     if test_campaign.preexec:
         test_campaign.preexec_output = get_interactive_session(
@@ -540,7 +549,8 @@ def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=Fal
     try:
         for i, testset in enumerate(test_campaign):
             for j, t in enumerate(testset):
-                if run_test(t, get_interactive_session, verb, my_globals=scapy_ses):
+                if run_test(t, get_interactive_session, theme,
+                            verb=verb, my_globals=scapy_ses):
                     passed += 1
                 else:
                     failed += 1
@@ -559,12 +569,15 @@ def run_campaign(test_campaign, get_interactive_session, drop_to_interpreter=Fal
 
     test_campaign.passed = passed
     test_campaign.failed = failed
+    style = [theme.success, theme.fail][bool(failed)]
     if verb > 2:
         print("Campaign CRC=%(crc)s in %(duration)06.2fs SHA=%(sha)s" % test_campaign, file=sys.stderr)  # noqa: E501
-        print("PASSED=%i FAILED=%i" % (passed, failed), file=sys.stderr)
+        print(style("PASSED=%i FAILED=%i" % (passed, failed)),
+              file=sys.stderr)
     elif verb:
         print("Campaign CRC=%(crc)s  SHA=%(sha)s" % test_campaign, file=sys.stderr)  # noqa: E501
-        print("PASSED=%i FAILED=%i" % (passed, failed), file=sys.stderr)
+        print(style("PASSED=%i FAILED=%i" % (passed, failed)),
+              file=sys.stderr)
     return failed
 
 
@@ -786,7 +799,9 @@ def usage():
 #    MAIN    #
 
 def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOCS,
-                     FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER, autorun_func, pos_begin=0, ignore_globals=None, scapy_ses=None):  # noqa: E501
+                     FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER,
+                     autorun_func, theme, pos_begin=0,
+                     ignore_globals=None, scapy_ses=None):  # noqa: E501
     # Parse test file
     test_campaign = parse_campaign_file(TESTFILE)
 
@@ -820,7 +835,13 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOC
 
     # Run tests
     test_campaign.output_file = OUTPUTFILE
-    result = run_campaign(test_campaign, autorun_func[FORMAT], drop_to_interpreter=INTERPRETER, verb=VERB, ignore_globals=None, scapy_ses=scapy_ses)  # noqa: E501
+    result = run_campaign(
+        test_campaign, autorun_func[FORMAT], theme,
+        drop_to_interpreter=INTERPRETER,
+        verb=VERB,
+        ignore_globals=None,
+        scapy_ses=scapy_ses
+    )
 
     # Shrink passed
     if ONLYFAILED:
@@ -1035,6 +1056,10 @@ def main():
         Format.XUNIT: scapy.autorun_get_text_interactive_session,
         Format.LIVE: scapy.autorun_get_live_interactive_session,
     }
+    if FORMAT in [Format.LIVE, Format.ANSI]:
+        theme = DefaultTheme()
+    else:
+        theme = BlackAndWhite()
 
     if VERB > 2:
         print("### Starting tests...", file=sys.stderr)
@@ -1069,8 +1094,12 @@ def main():
         with open(TESTFILE) as testfile:
             output, result, campaign = execute_campaign(
                 testfile, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOCS,
-                FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER, autorun_func,
-                pos_begin, ignore_globals, copy.copy(scapy_ses))
+                FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER,
+                autorun_func, theme,
+                pos_begin=pos_begin,
+                ignore_globals=ignore_globals,
+                scapy_ses=copy.copy(scapy_ses)
+            )
         runned_campaigns.append(campaign)
         pos_begin = campaign.end_pos
         if UNIQUE:
