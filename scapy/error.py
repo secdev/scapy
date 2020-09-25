@@ -16,6 +16,8 @@ import logging
 import traceback
 import time
 
+from scapy.consts import WINDOWS
+
 
 class Scapy_Exception(Exception):
     pass
@@ -36,6 +38,9 @@ class ScapyFreqFilter(logging.Filter):
 
     def filter(self, record):
         from scapy.config import conf
+        # Levels below INFO are not covered
+        if record.levelno <= logging.INFO:
+            return True
         wt = conf.warning_threshold
         if wt > 0:
             stk = traceback.extract_stack()
@@ -55,12 +60,11 @@ class ScapyFreqFilter(logging.Filter):
                     if nb == 2:
                         record.msg = "more " + record.msg
                 else:
-                    return 0
+                    return False
             self.warning_table[caller] = (tm, nb)
-        return 1
+        return True
 
 
-# Inspired from python-colorbg (MIT)
 class ScapyColoredFormatter(logging.Formatter):
     """A subclass of logging.Formatter that handles colors."""
     levels_colored = {
@@ -81,9 +85,29 @@ class ScapyColoredFormatter(logging.Formatter):
         return message
 
 
+if WINDOWS:
+    # colorama is bundled within IPython, but
+    # logging.StreamHandler will be overwritten when called,
+    # so we can't wait for IPython to call it
+    try:
+        import colorama
+        colorama.init()
+    except ImportError:
+        pass
+
+# get Scapy's master logger
 log_scapy = logging.getLogger("scapy")
-log_scapy.setLevel(logging.WARNING)
-log_scapy.addHandler(logging.NullHandler())
+# override the level if not already set
+if log_scapy.level == logging.NOTSET:
+    log_scapy.setLevel(logging.WARNING)
+# add a custom handler controlled by Scapy's config
+_handler = logging.StreamHandler()
+_handler.setFormatter(
+    ScapyColoredFormatter(
+        "%(levelname)s: %(message)s",
+    )
+)
+log_scapy.addHandler(_handler)
 # logs at runtime
 log_runtime = logging.getLogger("scapy.runtime")
 log_runtime.addFilter(ScapyFreqFilter())

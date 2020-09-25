@@ -9,13 +9,14 @@ Implementation of the configuration object.
 
 from __future__ import absolute_import
 from __future__ import print_function
+import atexit
 import functools
 import os
 import re
-import time
 import socket
 import sys
-import atexit
+import time
+import warnings
 
 from scapy import VERSION, base_classes
 from scapy.consts import DARWIN, WINDOWS, LINUX, BSD, SOLARIS
@@ -713,7 +714,10 @@ class Conf(ConfClass):
             from scapy.data import TCP_SERVICES
             return TCP_SERVICES
         if attr == "iface6":
-            warning("conf.iface6 is deprecated in favor of conf.iface")
+            warnings.warn(
+                "conf.iface6 is deprecated in favor of conf.iface",
+                DeprecationWarning
+            )
             attr = "iface"
         return object.__getattribute__(self, attr)
 

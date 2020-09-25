@@ -24,6 +24,7 @@ import array
 import subprocess
 import tempfile
 import threading
+import warnings
 
 import scapy.modules.six as six
 from scapy.modules.six.moves import range, input, zip_longest
@@ -693,7 +694,10 @@ def do_graph(graph, prog=None, format=None, target=None, type=None,
     if string:
         return graph
     if type is not None:
-        warning("type is deprecated, and was renamed format")
+        warnings.warn(
+            "type is deprecated, and was renamed format",
+            DeprecationWarning
+        )
         format = type
     if prog is None:
         prog = conf.prog.dot

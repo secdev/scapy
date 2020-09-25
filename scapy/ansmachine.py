@@ -13,9 +13,12 @@ Answering machines.
 
 from __future__ import absolute_import
 from __future__ import print_function
-from scapy.sendrecv import send, sniff
+
+import warnings
+
 from scapy.config import conf
-from scapy.error import log_interactive
+from scapy.sendrecv import send, sniff
+
 import scapy.modules.six as six
 
 
@@ -113,7 +116,10 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
             self.print_reply(pkt, reply)
 
     def run(self, *args, **kargs):
-        log_interactive.warning("run() method deprecated. The instance is now callable")  # noqa: E501
+        warnings.warn(
+            "run() method deprecated. The instance is now callable",
+            DeprecationWarning
+        )
         self(*args, **kargs)
 
     def __call__(self, *args, **kargs):

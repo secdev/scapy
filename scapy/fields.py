@@ -17,9 +17,10 @@ import inspect
 import socket
 import struct
 import time
+import warnings
+
 from types import MethodType
 from uuid import UUID
-
 
 from scapy.config import conf
 from scapy.dadict import DADict
@@ -2111,7 +2112,10 @@ class FlagValue(object):
     __bool__ = __nonzero__
 
     def flagrepr(self):
-        warning("obj.flagrepr() is obsolete. Use str(obj) instead.")
+        warnings.warn(
+            "obj.flagrepr() is obsolete. Use str(obj) instead.",
+            DeprecationWarning
+        )
         return str(self)
 
     def __str__(self):

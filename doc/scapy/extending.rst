@@ -22,6 +22,25 @@ This first example takes an IP or a name as first parameter, send an ICMP echo r
     if p:
         p.show()
 
+Configuring Scapy's logger
+--------------------------
+
+Scapy configures a logger automatically using Python's ``logging`` module. This
+logger is custom to support things like colors and frequency filters. By
+default, it is set to ``WARNING`` (when not in interactive mode), but you can
+change that using for instance::
+
+    import logging
+    logging.getLogger("scapy").setLevel(logging.CRITICAL)
+
+To disable almost all logs. (Scapy simply won't work properly if a CRITICAL
+failure occurs)
+
+.. note:: On interactive mode, the default log level is ``INFO``
+
+More examples
+-------------
+
 This is a more complex example which does an ARP ping and reports what it found with LaTeX formatting::
 
     #! /usr/bin/env python
@@ -73,7 +92,6 @@ Once you've done that, you can launch Scapy and import your file, but this is st
     import logging
     logger = logging.getLogger("scapy")
     logger.setLevel(logging.INFO)
-    logger.addHandler(logging.StreamHandler())
     
     from scapy.all import *
     

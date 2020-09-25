@@ -23,7 +23,13 @@ from scapy.arch.windows.structures import _windows_title, \
     get_service_status
 from scapy.consts import WINDOWS, WINDOWS_XP
 from scapy.config import conf, ConfClass
-from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
+from scapy.error import (
+    Scapy_Exception,
+    log_interactive,
+    log_loading,
+    log_runtime,
+    warning,
+)
 from scapy.interfaces import NetworkInterface, InterfaceProvider, \
     dev_from_index, resolve_iface, network_name
 from scapy.pton_ntop import inet_ntop, inet_pton
@@ -219,7 +225,10 @@ if conf.prog.tcpdump and conf.use_npcap:
             return False
     windump_ok = test_windump_npcap()
     if not windump_ok:
-        warning("The installed Windump version does not work with Npcap ! Refer to 'Winpcap/Npcap conflicts' in scapy's doc")  # noqa: E501
+        log_loading.warning(
+            "The installed Windump version does not work with Npcap! "
+            "Refer to 'Winpcap/Npcap conflicts' in scapy's installation doc"
+        )
     del windump_ok
 
 
@@ -535,7 +544,7 @@ class WindowsInterfacesProvider(InterfaceProvider):
             # No action needed
             return
         else:
-            warning(
+            log_interactive.warning(
                 "Scapy has detected that your pcap service is not running !"
             )
             if not conf.interactive or _ask_user():
@@ -543,11 +552,12 @@ class WindowsInterfacesProvider(InterfaceProvider):
                 if succeed:
                     log_loading.info("Pcap service started !")
                     return
-        warning("Could not start the pcap service ! "
-                "You probably won't be able to send packets. "
-                "Deactivating unneeded interfaces and restarting "
-                "Scapy might help. Check your winpcap/npcap installation "
-                "and access rights.")
+        log_loading.warning(
+            "Could not start the pcap service! "
+            "You probably won't be able to send packets. "
+            "Check your winpcap/npcap installation "
+            "and access rights."
+        )
 
     def load(self, NetworkInterface_Win=NetworkInterface_Win):
         results = {}
@@ -681,7 +691,7 @@ if conf.use_pcap:
         iface_network_name = iface.network_name
         if not iface:
             raise Scapy_Exception(
-                "Interface is invalid (no pcap match found) !"
+                "Interface is invalid (no pcap match found)!"
             )
         # Only check monitor mode when manually specified.
         # Checking/setting for monitor mode will slow down the process, and the
@@ -784,10 +794,7 @@ def read_routes():
         else:
             routes = _read_routes_c(ipv6=False)
     except Exception as e:
-        warning("Error building scapy IPv4 routing table : %s", e)
-    else:
-        if not routes:
-            warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually")  # noqa: E501
+        log_loading.warning("Error building scapy IPv4 routing table : %s", e)
     return routes
 
 
@@ -835,14 +842,14 @@ def read_routes6():
     try:
         routes6 = _read_routes_c(ipv6=True)
     except Exception as e:
-        warning("Error building scapy IPv6 routing table : %s", e)
+        log_loading.warning("Error building scapy IPv6 routing table : %s", e)
     return routes6
 
 
 def _route_add_loopback(routes=None, ipv6=False, iflist=None):
     """Add a route to 127.0.0.1 and ::1 to simplify unit tests on Windows"""
     if not WINDOWS:
-        warning("Not available")
+        warning("Calling _route_add_loopback is only valid on Windows")
         return
     warning("This will completely mess up the routes. Testing purpose only !")
     # Add only if some adpaters already exist

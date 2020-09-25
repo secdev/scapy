@@ -82,7 +82,7 @@ class Route:
             i = self.routes.index(route)
             del(self.routes[i])
         except ValueError:
-            warning("no matching route found")
+            raise ValueError("No matching route found!")
 
     def ifchange(self, iff, addr):
         self.invalidate_cache()

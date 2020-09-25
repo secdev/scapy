@@ -39,7 +39,7 @@ from scapy.compat import chb, orb, raw, plain_str, bytes_encode
 from scapy.config import conf
 from scapy.data import DLT_IPV6, DLT_RAW, DLT_RAW_ALT, ETHER_ANY, ETH_P_IPV6, \
     MTU
-from scapy.error import warning
+from scapy.error import log_runtime, warning
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     DestIP6Field, FieldLenField, FlagsField, IntField, IP6Field, \
     LongField, MACField, PacketLenField, PacketListField, ShortEnumField, \
@@ -317,7 +317,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 idx += 1
 
             if jumbo_len is None:
-                warning("Scapy did not find a Jumbo option")
+                log_runtime.info("Scapy did not find a Jumbo option")
                 jumbo_len = 0
 
             tmp_len = hbh_len + jumbo_len

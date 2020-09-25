@@ -24,17 +24,23 @@ from scapy.compat import raw, plain_str
 from scapy.consts import LINUX
 import scapy.utils
 import scapy.utils6
-from scapy.packet import Packet, Padding
+from scapy.arch.common import get_if, compile_filter, _iff_flags
 from scapy.config import conf
 from scapy.data import MTU, ETH_P_ALL, SOL_PACKET, SO_ATTACH_FILTER, \
     SO_TIMESTAMPNS
+from scapy.error import (
+    ScapyInvalidPlatformException,
+    Scapy_Exception,
+    log_loading,
+    log_runtime,
+    warning,
+)
 from scapy.interfaces import IFACES, InterfaceProvider, NetworkInterface, \
     network_name
-from scapy.supersocket import SuperSocket
+from scapy.packet import Packet, Padding
 from scapy.pton_ntop import inet_ntop
-from scapy.error import warning, Scapy_Exception, \
-    ScapyInvalidPlatformException, log_runtime
-from scapy.arch.common import get_if, compile_filter, _iff_flags
+from scapy.supersocket import SuperSocket
+
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -116,7 +122,7 @@ def _get_if_list():
             f.close()
         except Exception:
             pass
-        warning("Can't open /proc/net/dev !")
+        log_loading.critical("Can't open /proc/net/dev !")
         return []
     lst = []
     f.readline()
@@ -204,7 +210,7 @@ def read_routes():
     try:
         f = open("/proc/net/route", "rb")
     except IOError:
-        warning("Can't open /proc/net/route !")
+        log_loading.critical("Can't open /proc/net/route !")
         return []
     routes = []
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -436,7 +442,7 @@ class L2Socket(SuperSocket):
                 try:
                     attach_filter(self.ins, filter, iface)
                 except ImportError as ex:
-                    warning("Cannot set filter: %s" % ex)
+                    log_runtime.error("Cannot set filter: %s" % ex)
         if self.promisc:
             set_promisc(self.ins, self.iface)
         self.ins.bind((self.iface, type))

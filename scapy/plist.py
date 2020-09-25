@@ -182,10 +182,6 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
             else:
                 print(prn(*res))
 
-    def display(self):  # Deprecated. Use show()
-        """deprecated. is show()"""
-        self.show()
-
     def show(self, *args, **kargs):
         # type: (Any, Any) -> None
         """Best way to display the packet list. Defaults to nsummary() method"""  # noqa: E501

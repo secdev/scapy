@@ -3,6 +3,10 @@
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
+"""
+This file contains constants
+"""
+
 from sys import platform, maxsize
 import platform as platform_lib
 

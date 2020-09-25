@@ -10,6 +10,7 @@ DNS: Domain Name System.
 from __future__ import absolute_import
 import struct
 import time
+import warnings
 
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers, NoPayload
@@ -22,7 +23,7 @@ from scapy.ansmachine import AnsweringMachine
 from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field, IP6Field
-from scapy.error import warning, Scapy_Exception
+from scapy.error import log_runtime, warning, Scapy_Exception
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -55,8 +56,12 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
     bytes_left = None
     while True:
         if abs(pointer) >= max_length:
-            warning("DNS RR prematured end (ofs=%i, len=%i)" % (pointer,
-                                                                len(s)))
+            log_runtime.info(
+                "DNS RR prematured end (ofs=%i, len=%i)" % (
+                    pointer,
+                    len(s)
+                )
+            )
             break
         cur = orb(s[pointer])  # get pointer value
         pointer += 1  # make pointer go forward
@@ -66,7 +71,9 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
                 # as pointer will follow the jump token
                 after_pointer = pointer + 1
             if pointer >= max_length:
-                warning("DNS incomplete jump token at (ofs=%i)" % pointer)
+                log_runtime.info(
+                    "DNS incomplete jump token at (ofs=%i)" % pointer
+                )
                 break
             # Follow the pointer
             pointer = ((cur & ~0xc0) << 8) + orb(s[pointer]) - 12
@@ -127,7 +134,10 @@ def dns_encode(x, check_built=False):
 
 def DNSgetstr(*args, **kwargs):
     """Legacy function. Deprecated"""
-    warning("DNSgetstr deprecated. Use dns_get_str instead")
+    warnings.warn(
+        "DNSgetstr is deprecated. Use dns_get_str instead.",
+        DeprecationWarning
+    )
     return dns_get_str(*args, **kwargs)
 
 
@@ -313,7 +323,7 @@ class DNSRRField(StrField):
         ret = None
         c = getattr(pkt, self.countfld)
         if c > len(s):
-            warning("wrong value: DNS.%s=%i", self.countfld, c)
+            log_runtime.info("DNS wrong value: DNS.%s=%i", self.countfld, c)
             return s, b""
         while c:
             c -= 1
@@ -353,7 +363,10 @@ class DNSTextField(StrLenField):
         while tmp_s:
             tmp_len = orb(tmp_s[0]) + 1
             if tmp_len > len(tmp_s):
-                warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))  # noqa: E501
+                log_runtime.info(
+                    "DNS RR TXT prematured end of character-string "
+                    "(size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s))
+                )
             ret_s.append(tmp_s[1:tmp_len])
             tmp_s = tmp_s[tmp_len:]
         return ret_s
@@ -448,13 +461,13 @@ class DNS(Packet):
                 dns_len = struct.unpack("!H", s[:2])[0]
             else:
                 message = "Malformed DNS message: too small!"
-                warning(message)
+                log_runtime.info(message)
                 raise Scapy_Exception(message)
 
             # Check if the length is valid
             if dns_len < 14 or len(s) < dns_len:
                 message = "Malformed DNS message: invalid length!"
-                warning(message)
+                log_runtime.info(message)
                 raise Scapy_Exception(message)
 
         return s
@@ -545,7 +558,7 @@ def bitmap2RRlist(bitmap):
     while bitmap:
 
         if len(bitmap) < 2:
-            warning("bitmap too short (%i)" % len(bitmap))
+            log_runtime.info("bitmap too short (%i)" % len(bitmap))
             return
 
         window_block = orb(bitmap[0])  # window number
@@ -553,7 +566,7 @@ def bitmap2RRlist(bitmap):
         bitmap_len = orb(bitmap[1])  # length of the bitmap in bytes
 
         if bitmap_len <= 0 or bitmap_len > 32:
-            warning("bitmap length is no valid (%i)" % bitmap_len)
+            log_runtime.info("bitmap length is no valid (%i)" % bitmap_len)
             return
 
         tmp_bitmap = bitmap[2:2 + bitmap_len]
