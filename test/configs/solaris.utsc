@@ -24,7 +24,6 @@
     "test/sslv2.uts": "load_layer(\"tls\")",
     "test/tls*.uts": "load_layer(\"tls\")"
   },
-  "format": "text",
   "kw_ko": [
     "osx",
     "linux",
