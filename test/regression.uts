@@ -784,6 +784,12 @@ assert(ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP
 ret = autorun_get_text_interactive_session("scapy_undefined")
 assert "NameError" in ret[0]
 
+= Test autorun with logging
+
+cmds = """log_runtime.info(hex_bytes("446166742050756e6b"))\n"""
+ret = autorun_get_text_interactive_session(cmds)
+assert "Daft Punk" in ret[0]
+
 = Test utility TEX functions
 
 assert tex_escape("{scapy}\\^$~#_&%|><") == "{\\tt\\char123}scapy{\\tt\\char125}{\\tt\\char92}\\^{}\\${\\tt\\char126}\\#\\_\\&\\%{\\tt\\char124}{\\tt\\char62}{\\tt\\char60}"
