@@ -44,9 +44,11 @@ You can turn auto-decompression/auto-compression off with:
 import io
 import os
 import re
+import socket
 import struct
 import subprocess
 
+from scapy.base_classes import Net
 from scapy.compat import plain_str, bytes_encode, \
     gzip_compress, gzip_decompress
 from scapy.config import conf
@@ -54,6 +56,7 @@ from scapy.consts import WINDOWS
 from scapy.error import warning, log_loading
 from scapy.fields import StrField
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
+from scapy.supersocket import StreamSocket
 from scapy.utils import get_temp_file, ContextManagerSubprocess
 
 from scapy.layers.inet import TCP, TCP_client
@@ -665,7 +668,7 @@ class HTTP(Packet):
 
 def http_request(host, path="/", port=80, timeout=3,
                  display=False, verbose=0,
-                 iptables=False, iface=None,
+                 raw=False, iptables=False, iface=None,
                  **headers):
     """Util to perform an HTTP request, using the TCP_client.
 
@@ -674,13 +677,18 @@ def http_request(host, path="/", port=80, timeout=3,
     :param port: the port (default 80)
     :param timeout: timeout before None is returned
     :param display: display the resullt in the default browser (default False)
-    :param iface: interface to use. default: conf.iface
-    :param iptables: temporarily prevents the kernel from
-      answering with a TCP RESET message.
+    :param raw: opens a raw socket instead of going through the OS's TCP
+                socket. Scapy will then use its own TCP client.
+                Careful, the OS might cancel the TCP connection with RST.
+    :param iptables: when raw is enabled, this calls iptables to temporarily
+                     prevent the OS from sending TCP RST to the host IP.
+                     On Linux, you'll almost certainly need this.
+    :param iface: interface to use. Changing this turns on "raw"
     :param headers: any additional headers passed to the request
 
     :returns: the HTTPResponse packet
     """
+    from scapy.sessions import TCPSession
     http_headers = {
         "Accept_Encoding": b'gzip, deflate',
         "Cache_Control": b'no-cache',
@@ -691,19 +699,37 @@ def http_request(host, path="/", port=80, timeout=3,
     }
     http_headers.update(headers)
     req = HTTP() / HTTPRequest(**http_headers)
-    tcp_client = TCP_client.tcplink(HTTP, host, port, debug=verbose,
-                                    iface=iface)
     ans = None
-    if iptables:
-        ip = tcp_client.atmt.dst
+
+    # Open a socket
+    if iface is not None:
+        raw = True
+    if raw:
+        # Use TCP_client on a raw socket
         iptables_rule = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
-        assert(os.system(iptables_rule % ('A', ip)) == 0)
-    try:
-        ans = tcp_client.sr1(req, timeout=timeout, verbose=verbose)
-    finally:
-        tcp_client.close()
         if iptables:
-            assert(os.system(iptables_rule % ('D', ip)) == 0)
+            host = str(Net(host))
+            assert(os.system(iptables_rule % ('A', host)) == 0)
+        sock = TCP_client.tcplink(HTTP, host, port, debug=verbose,
+                                  iface=iface)
+    else:
+        # Use a native TCP socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, port))
+        sock = StreamSocket(sock, HTTP)
+    # Send the request and wait for the answer
+    try:
+        ans = sock.sr1(
+            req,
+            session=TCPSession(app=True),
+            timeout=timeout,
+            verbose=verbose
+        )
+    finally:
+        sock.close()
+        if raw and iptables:
+            host = str(Net(host))
+            assert(os.system(iptables_rule % ('D', host)) == 0)
     if ans:
         if display:
             if Raw not in ans:

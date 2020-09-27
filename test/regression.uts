@@ -2406,9 +2406,9 @@ assert '"BEGIN" -> "END"' in graph
 ~ automaton netaccess needs_root
 * This test retries on failure because it may fail quite easily
 
-# This test doesn't pass on Travis BSD, and will be skipped
+import functools
 
-SECDEV_IP4 = "203.178.141.194"
+SECDEV_IP4 = "217.25.178.5"
 
 if LINUX:
     import os
@@ -2424,7 +2424,7 @@ def _tcp_client_test():
         Cache_Control=b'no-cache',
         Pragma=b'no-cache',
         Connection=b'keep-alive',
-        Host=b'www.kame.net',
+        Host=b'www.secdev.org',
     )
     t = TCP_client.tcplink(HTTP, SECDEV_IP4, 80)
     response = t.sr1(req, timeout=3)
@@ -2433,21 +2433,27 @@ def _tcp_client_test():
     assert response.Status_Code == b'200'
     assert response.Reason_Phrase == b'OK'
 
-def _http_request_test():
-    response = http_request("www.kame.net", path="/", iptables=LINUX)
+def _http_request_test(_raw=False):
+    response = http_request("www.google.com", path="/", raw=_raw, iptables=LINUX)
     assert response.Http_Version == b'HTTP/1.1'
     assert response.Status_Code == b'200'
     assert response.Reason_Phrase == b'OK'
 
-# This test doesn't pass on Travis BSD
+# Native sockets
+retry_test(_http_request_test)
+
+# Our raw socket test doesn't pass on Travis BSD
+# (likely because the firewall is different and our iptables call isn't enough)
 if not BSD:
+    retry_test(functools.partial(_http_request_test, _raw=True))
+
+if LINUX:
     try:
         retry_test(_tcp_client_test)
     finally:
         if LINUX:
             # Remove the iptables rule
             assert(os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0)
-    retry_test(_http_request_test)
 
 ############
 ############
