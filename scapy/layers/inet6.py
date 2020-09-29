@@ -676,8 +676,8 @@ class HBHOptUnknown(Packet):  # IPv6 Hop-By-Hop Option
         """
         As specified in section 4.2 of RFC 2460, every options has
         an alignment requirement usually expressed xn+y, meaning
-        the Option Type must appear at an integer multiple of x octest
-        from the start of the header, plus y octet.
+        the Option Type must appear at an integer multiple of x octets
+        from the start of the header, plus y octets.
 
         That function is provided the current position from the
         start of the header and returns required padding length.
