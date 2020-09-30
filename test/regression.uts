@@ -13009,122 +13009,122 @@ RANDUUID_FIXED = uuid.uuid4()
 = RandUUID default behaviour
 
 u = RandUUID()._fix()
-u.version == 4
+assert u.version == 4
 
 = RandUUID incorrect implicit args
 
-expect_exception(ValueError, lambda: RandUUID(node=0x1234, name="scapy"))
-expect_exception(ValueError, lambda: RandUUID(node=0x1234, namespace=uuid.uuid4()))
-expect_exception(ValueError, lambda: RandUUID(clock_seq=0x1234, name="scapy"))
-expect_exception(ValueError, lambda: RandUUID(clock_seq=0x1234, namespace=uuid.uuid4()))
-expect_exception(ValueError, lambda: RandUUID(name="scapy"))
-expect_exception(ValueError, lambda: RandUUID(namespace=uuid.uuid4()))
+assert expect_exception(ValueError, lambda: RandUUID(node=0x1234, name="scapy"))
+assert expect_exception(ValueError, lambda: RandUUID(node=0x1234, namespace=uuid.uuid4()))
+assert expect_exception(ValueError, lambda: RandUUID(clock_seq=0x1234, name="scapy"))
+assert expect_exception(ValueError, lambda: RandUUID(clock_seq=0x1234, namespace=uuid.uuid4()))
+assert expect_exception(ValueError, lambda: RandUUID(name="scapy"))
+assert expect_exception(ValueError, lambda: RandUUID(namespace=uuid.uuid4()))
 
 = RandUUID v4 UUID (correct args)
 
 u = RandUUID(version=4)._fix()
-u.version == 4
+assert u.version == 4
 
 u2 = RandUUID(version=4)._fix()
-u2.version == 4
+assert u2.version == 4
 
-str(u) != str(u2)
+assert str(u) != str(u2)
 
 = RandUUID v4 UUID (incorrect args)
 
-expect_exception(ValueError, lambda: RandUUID(version=4, template=RANDUUID_TEMPLATE))
-expect_exception(ValueError, lambda: RandUUID(version=4, node=0x1234))
-expect_exception(ValueError, lambda: RandUUID(version=4, clock_seq=0x1234))
-expect_exception(ValueError, lambda: RandUUID(version=4, namespace=uuid.uuid4()))
-expect_exception(ValueError, lambda: RandUUID(version=4, name="scapy"))
+assert expect_exception(ValueError, lambda: RandUUID(version=4, template=RANDUUID_TEMPLATE))
+assert expect_exception(ValueError, lambda: RandUUID(version=4, node=0x1234))
+assert expect_exception(ValueError, lambda: RandUUID(version=4, clock_seq=0x1234))
+assert expect_exception(ValueError, lambda: RandUUID(version=4, namespace=uuid.uuid4()))
+assert expect_exception(ValueError, lambda: RandUUID(version=4, name="scapy"))
 
 = RandUUID v1 UUID
 
 u = RandUUID(version=1)._fix()
-u.version == 1
+assert u.version == 1
 
 u = RandUUID(version=1, node=0x1234)._fix()
-u.version == 1
-u.node == 0x1234
+assert u.version == 1
+assert u.node == 0x1234
 
 u = RandUUID(version=1, clock_seq=0x1234)._fix()
-u.version == 1
-u.clock_seq == 0x1234
+assert u.version == 1
+assert u.clock_seq == 0x1234
 
 u = RandUUID(version=1, node=0x1234, clock_seq=0x1bcd)._fix()
-u.version == 1
-u.node == 0x1234
-u.clock_seq == 0x1bcd
+assert u.version == 1
+assert u.node == 0x1234
+assert u.clock_seq == 0x1bcd
 
 = RandUUID v1 UUID (implicit version)
 
 u = RandUUID(node=0x1234)._fix()
-u.version == 1
-u.node == 0x1234
+assert u.version == 1
+assert u.node == 0x1234
 
 u = RandUUID(clock_seq=0x1234)._fix()
-u.version == 1
-u.clock_seq == 0x1234
+assert u.version == 1
+assert u.clock_seq == 0x1234
 
 u = RandUUID(node=0x1234, clock_seq=0x1bcd)._fix()
-u.version == 1
-u.node == 0x1234
-u.clock_seq == 0x1bcd
+assert u.version == 1
+assert u.node == 0x1234
+assert u.clock_seq == 0x1bcd
 
 = RandUUID v1 UUID (incorrect args)
 
-expect_exception(ValueError, lambda: RandUUID(version=1, template=RANDUUID_TEMPLATE))
-expect_exception(ValueError, lambda: RandUUID(version=1, namespace=uuid.uuid4()))
-expect_exception(ValueError, lambda: RandUUID(version=1, name="scapy"))
+assert expect_exception(ValueError, lambda: RandUUID(version=1, template=RANDUUID_TEMPLATE))
+assert expect_exception(ValueError, lambda: RandUUID(version=1, namespace=uuid.uuid4()))
+assert expect_exception(ValueError, lambda: RandUUID(version=1, name="scapy"))
 
 = RandUUID v5 UUID
 
 u = RandUUID(version=5, namespace=RANDUUID_FIXED, name="scapy")._fix()
-u.version == 5
+assert u.version == 5
 
 u2 = RandUUID(version=5, namespace=RANDUUID_FIXED, name="scapy")._fix()
-u2.version == 5
-u.bytes == u2.bytes
+assert u2.version == 5
+assert u.bytes == u2.bytes
 
 # implicit v5
 u2 = RandUUID(namespace=RANDUUID_FIXED, name="scapy")._fix()
-u.bytes == u2.bytes
+assert u.bytes == u2.bytes
 
 = RandUUID v5 UUID (incorrect args)
 
-expect_exception(ValueError, lambda: RandUUID(version=5, template=RANDUUID_TEMPLATE))
-expect_exception(ValueError, lambda: RandUUID(version=5, node=0x1234))
-expect_exception(ValueError, lambda: RandUUID(version=5, clock_seq=0x1234))
+assert expect_exception(ValueError, lambda: RandUUID(version=5, template=RANDUUID_TEMPLATE))
+assert expect_exception(ValueError, lambda: RandUUID(version=5, node=0x1234))
+assert expect_exception(ValueError, lambda: RandUUID(version=5, clock_seq=0x1234))
 
 = RandUUID v3 UUID
 
 u = RandUUID(version=3, namespace=RANDUUID_FIXED, name="scapy")._fix()
-u.version == 3
+assert u.version == 3
 
 u2 = RandUUID(version=3, namespace=RANDUUID_FIXED, name="scapy")._fix()
-u2.version == 3
-u.bytes == u2.bytes
+assert u2.version == 3
+assert u.bytes == u2.bytes
 
 # implicit v5
 u2 = RandUUID(namespace=RANDUUID_FIXED, name="scapy")._fix()
-u.bytes != u2.bytes
+assert u.bytes != u2.bytes
 
 = RandUUID v3 UUID (incorrect args)
 
-expect_exception(ValueError, lambda: RandUUID(version=5, template=RANDUUID_TEMPLATE))
-expect_exception(ValueError, lambda: RandUUID(version=5, node=0x1234))
-expect_exception(ValueError, lambda: RandUUID(version=5, clock_seq=0x1234))
+assert expect_exception(ValueError, lambda: RandUUID(version=5, template=RANDUUID_TEMPLATE))
+assert expect_exception(ValueError, lambda: RandUUID(version=5, node=0x1234))
+assert expect_exception(ValueError, lambda: RandUUID(version=5, clock_seq=0x1234))
 
 = RandUUID looks like a UUID with str
-re.match(r'[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}', str(RandUUID()), re.I) is not None
+assert re.match(r'[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}', str(RandUUID()), re.I) is not None
 
 = RandUUID with a static part
 * RandUUID template can contain static part such a 01234567-89ab-*-01*-*****ef
-re.match(r'01234567-89ab-[0-9a-f]{4}-01[0-9a-f]{2}-[0-9a-f]{10}ef', str(RandUUID('01234567-89ab-*-01*-*****ef')), re.I) is not None
+assert re.match(r'01234567-89ab-[0-9a-f]{4}-01[0-9a-f]{2}-[0-9a-f]{10}ef', str(RandUUID('01234567-89ab-*-01*-*****ef')), re.I) is not None
 
 = RandUUID with a range part
 * RandUUID template can contain a part with a range of values such a 01234567-89ab-*-01*-****c0:c9ef
-re.match(r'01234567-89ab-[0-9a-f]{4}-01[0-9a-f]{2}-[0-9a-f]{8}c[0-9]ef', str(RandUUID('01234567-89ab-*-01*-****c0:c9ef')), re.I) is not None
+assert re.match(r'01234567-89ab-[0-9a-f]{4}-01[0-9a-f]{2}-[0-9a-f]{8}c[0-9]ef', str(RandUUID('01234567-89ab-*-01*-****c0:c9ef')), re.I) is not None
 
 ############
 ############
