@@ -1466,6 +1466,8 @@ values.
                 fv = "[%s]" % ",".join(map(Packet.command, fv))
             elif isinstance(fld, FlagsField):
                 fv = int(fv)
+            elif callable(getattr(fv, 'command', None)):
+                fv = fv.command()
             else:
                 fv = repr(fv)
             f.append("%s=%s" % (fn, fv))
