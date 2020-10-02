@@ -11,7 +11,7 @@ PacketList: holds several packets and allows to do operations on them.
 from __future__ import absolute_import
 from __future__ import print_function
 import os
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
@@ -710,3 +710,10 @@ class SndRcvList(PacketList):
     def _elt2sum(self, elt):
         # type: (Tuple[Packet, Packet]) -> str
         return "%s ==> %s" % (elt[0].summary(), elt[1].summary())
+
+    def __getitem__(self, item):
+        answer_item = super(SndRcvList, self).__getitem__(item)
+        if issubtype(item, BasePacket) or isinstance(item, slice):
+            return answer_item
+        PacketAnswer = namedtuple("PacketAnswer", ["sent", "answer"])
+        return PacketAnswer._make(answer_item)
