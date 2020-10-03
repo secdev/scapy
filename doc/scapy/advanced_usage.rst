@@ -527,7 +527,7 @@ Let's begin with a simple example. I take the convention to write states with ca
 In this example, we can see 3 decorators:
 
 * ``ATMT.state`` that is used to indicate that a method is a state, and that can
-  have initial, final and error optional arguments set to non-zero for special states.
+  have initial, final, stop and error optional arguments set to non-zero for special states.
 * ``ATMT.condition`` that indicate a method to be run when the automaton state 
   reaches the indicated state. The argument is the name of the method representing that state
 * ``ATMT.action`` binds a method to a transition and is run when the transition is taken. 
@@ -681,7 +681,9 @@ Decorators
 Decorator for states
 ~~~~~~~~~~~~~~~~~~~~
 
-States are methods decorated by the result of the ``ATMT.state`` function. It can take 3 optional parameters, ``initial``, ``final`` and ``error``, that, when set to ``True``, indicating that the state is an initial, final or error state.
+States are methods decorated by the result of the ``ATMT.state`` function. It can take 4 optional parameters, ``initial``, ``final``, ``stop`` and ``error``, that, when set to ``True``, indicating that the state is an initial, final, stop or error state.
+
+.. note:: The ``initial`` state is called while starting the automata. The ``final`` step will tell the automata has reached its end. If you call ``atmt.stop()``, the automata will move to the ``stop`` step whatever its current state is. The ``error`` state will mark the automata as errored. If no ``stop`` state is specified, calling ``stop`` and ``forcestop`` will be equivalent.
 
 ::
 
@@ -689,19 +691,34 @@ States are methods decorated by the result of the ``ATMT.state`` function. It ca
         @ATMT.state(initial=1)
         def BEGIN(self):
             pass
-    
+
         @ATMT.state()
         def SOME_STATE(self):
             pass
-    
+
         @ATMT.state(final=1)
         def END(self):
             return "Result of the automaton: 42"
-    
+
+        @ATMT.state(stop=1)
+        def STOP(self):
+            print("SHUTTING DOWN...")
+            # e.g. close sockets...
+
+        @ATMT.condition(STOP)
+        def is_stopping(self):
+            raise self.END()
+
         @ATMT.state(error=1)
         def ERROR(self):
             return "Partial result, or explanation"
     # [...]
+
+Take for instance the TCP client:
+
+.. image:: graphics/ATMT_TCP_client.svg
+
+The ``START`` event is ``initial=1``, the ``STOP`` event is ``stop=1`` and the ``CLOSED`` event is ``final=1``.
 
 Decorators for transitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -735,6 +752,35 @@ When the automaton switches to a given state, the state's method is executed. Th
         @ATMT.timeout(WAITING, 10.0)
         def waiting_timeout(self):
             raise self.ERROR_TIMEOUT()
+
+.. note:: Within an ``ATMT.receive_condition`` handler, it is possible to change the state while passing an argument for the conditions of the next state using the ``action_parameters`` function. This allows to immediately re-trigger the ``ATMT.receive_condition`` of the new state (or any condition that requires an argument). For instance: ``raise self.NEW_STATE().action_parameters(pkt)``
+
+For instance, this automaton will go from ``WAITING`` to ``ACK_RECEIVED`` with a **single** FIN+ACK TCP packet.
+
+::
+
+    class Example(Automaton):
+        @ATMT.state()
+        def WAITING(self):
+            pass
+
+        @ATMT.state()
+        def FIN_RECEIVED(self):
+            pass
+
+        @ATMT.state()
+        def ACK_RECEIVED(self):
+            pass
+
+        @ATMT.receive_condition(WAITING)
+        def is_fin(self, pkt):
+            if pkt[TCP].flags.F:
+                raise self.FIN_RECEIVED().action_parameters(pkt)
+
+        @ATMT.receive_condition(FIN_RECEIVED)
+        def is_ack(self, pkt):
+            if pkt[TCP].flags.A:
+                raise self.ACK_RECEIVED()
 
 Decorator for actions
 ~~~~~~~~~~~~~~~~~~~~~

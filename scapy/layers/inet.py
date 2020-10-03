@@ -1811,6 +1811,14 @@ class TCP_client(Automaton):
     def CLOSED(self):
         pass
 
+    @ATMT.state(stop=1)
+    def STOP(self):
+        pass
+
+    @ATMT.state()
+    def STOP_SENT_FIN_ACK(self):
+        pass
+
     @ATMT.condition(START)
     def connect(self):
         raise self.SYN_SENT()
@@ -1880,6 +1888,25 @@ class TCP_client(Automaton):
     def ack_of_fin_received(self, pkt):
         if pkt[TCP].flags.A:
             raise self.CLOSED()
+
+    @ATMT.condition(STOP)
+    def stop_behavior(self):
+        self.l4[TCP].flags = "FA"
+        self.send(self.l4)
+        self.l4[TCP].seq += 1
+        raise self.STOP_SENT_FIN_ACK()
+
+    @ATMT.receive_condition(STOP_SENT_FIN_ACK)
+    def stop_ack_received(self, pkt):
+        if pkt[TCP].flags.F:
+            self.l4[TCP].flags = "FA"
+            self.l4[TCP].ack = pkt[TCP].seq + 1
+            self.send(self.l4)
+            raise self.CLOSED()
+
+    @ATMT.timeout(STOP_SENT_FIN_ACK, 1)
+    def stop_ack_timeout(self):
+        raise self.CLOSED()
 
 
 #####################
