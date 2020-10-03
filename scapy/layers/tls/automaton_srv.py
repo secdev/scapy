@@ -1394,7 +1394,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.socket.close()
         raise self.FINAL()
 
-    @ATMT.state(final=True)
+    @ATMT.state(stop=True, final=True)
     def FINAL(self):
         self.vprint("Closing server socket...")
         self.serversocket.close()

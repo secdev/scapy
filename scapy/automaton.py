@@ -8,6 +8,9 @@
 Automata with states, transitions and actions.
 """
 
+# TODO:
+# - add documentation for ioevent, as_supersocket...
+
 import itertools
 import logging
 import os
@@ -308,6 +311,7 @@ class ATMT:
             self.state = state_func.atmt_state
             self.initial = state_func.atmt_initial
             self.error = state_func.atmt_error
+            self.stop = state_func.atmt_stop
             self.final = state_func.atmt_final
             Exception.__init__(self, "Request state [%s]" % self.state)
             self.automaton = automaton
@@ -327,12 +331,13 @@ class ATMT:
             return "NewStateRequested(%s)" % self.state
 
     @staticmethod
-    def state(initial=0, final=0, error=0):
+    def state(initial=0, final=0, stop=0, error=0):
         def deco(f, initial=initial, final=final):
             f.atmt_type = ATMT.STATE
             f.atmt_state = f.__name__
             f.atmt_initial = initial
             f.atmt_final = final
+            f.atmt_stop = stop
             f.atmt_error = error
 
             def state_wrapper(self, *args, **kargs):
@@ -343,6 +348,7 @@ class ATMT:
             state_wrapper.atmt_state = f.__name__
             state_wrapper.atmt_initial = initial
             state_wrapper.atmt_final = final
+            state_wrapper.atmt_stop = stop
             state_wrapper.atmt_error = error
             state_wrapper.atmt_origfunc = f
             return state_wrapper
@@ -406,6 +412,7 @@ class _ATMT_Command:
     NEXT = "NEXT"
     FREEZE = "FREEZE"
     STOP = "STOP"
+    FORCESTOP = "FORCESTOP"
     END = "END"
     EXCEPTION = "EXCEPTION"
     SINGLESTEP = "SINGLESTEP"
@@ -484,6 +491,7 @@ class Automaton_metaclass(type):
         cls.timeout = {}
         cls.actions = {}
         cls.initial_states = []
+        cls.stop_states = []
         cls.ionames = []
         cls.iosupersockets = []
 
@@ -509,6 +517,8 @@ class Automaton_metaclass(type):
                 cls.timeout[s] = []
                 if m.atmt_initial:
                     cls.initial_states.append(m)
+                if m.atmt_stop:
+                    cls.stop_states.append(m)
             elif m.atmt_type in [ATMT.CONDITION, ATMT.RECV, ATMT.TIMEOUT, ATMT.IOEVENT]:  # noqa: E501
                 cls.actions[m.atmt_condname] = []
 
@@ -554,6 +564,8 @@ class Automaton_metaclass(type):
                 se += '\t"%s" [ style=filled, fillcolor=green, shape=octagon ];\n' % st.atmt_state  # noqa: E501
             elif st.atmt_error:
                 se += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st.atmt_state  # noqa: E501
+            elif st.atmt_stop:
+                se += '\t"%s" [ style=filled, fillcolor=orange, shape=box, root=true ];\n' % st.atmt_state  # noqa: E501
         s += se
 
         for st in six.itervalues(self.states):
@@ -840,6 +852,14 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     elif c.type == _ATMT_Command.FREEZE:
                         continue
                     elif c.type == _ATMT_Command.STOP:
+                        if self.stop_states:
+                            # There is a stop state
+                            self.state = self.stop_states[0](self)
+                            iterator = self._do_iter()
+                        else:
+                            # Act as FORCESTOP
+                            break
+                    elif c.type == _ATMT_Command.FORCESTOP:
                         break
                     while True:
                         state = next(iterator)
@@ -1009,8 +1029,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         return self.run(resume=Message(type=_ATMT_Command.NEXT))
     __next__ = next
 
-    def stop(self):
-        self.cmdin.send(Message(type=_ATMT_Command.STOP))
+    def _flush_inout(self):
         with self.started:
             # Flush command pipes
             while True:
@@ -1019,6 +1038,14 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     break
                 for fd in r:
                     fd.recv()
+
+    def stop(self):
+        self.cmdin.send(Message(type=_ATMT_Command.STOP))
+        self._flush_inout()
+
+    def forcestop(self):
+        self.cmdin.send(Message(type=_ATMT_Command.FORCESTOP))
+        self._flush_inout()
 
     def restart(self, *args, **kargs):
         self.stop()

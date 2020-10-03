@@ -33,6 +33,10 @@ You can also use the io with a TCPSession, e.g. to get an HTTPS answer::
     a = TLSClientAutomaton.tlslink(HTTP, server="www.google.com", dport=443)
     pkt = a.sr1(HTTP()/HTTPRequest(), session=TCPSession(app=True),
                 timeout=2)
+
+TODO:
+    - Add an event with `stop=1` (called on atmt.stop()) that correctly calls
+    one of the `CLOSE_NOTIFY` events depending on the SSL/TLS version.
 """
 
 from __future__ import print_function
