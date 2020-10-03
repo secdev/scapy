@@ -333,16 +333,7 @@ class GTPPDUSessionContainer(Packet):
                                     pkt.P == 1),
                    ConditionalField(XBitField("dlSendTime", 0, 32),
                                     lambda pkt: pkt.type == 0 and
-                                    pkt.qmp == 1),
-                   ConditionalField(ByteField("pad1", 0),
-                                    lambda pkt: pkt.type == 0 and
-                                    pkt.P == 1),
-                   ConditionalField(ByteField("pad2", 0),
-                                    lambda pkt: pkt.type == 0 and
-                                    pkt.P == 1),
-                   ConditionalField(ByteField("pad3", 0),
-                                    lambda pkt: pkt.type == 0 and
-                                    pkt.P == 1),
+                                    pkt.qmp == 1),                   
                    ConditionalField(XBitField("dlSendTimeRpt", 0, 32),
                                     lambda pkt: pkt.type == 1 and
                                     pkt.qmp == 1),
@@ -358,12 +349,14 @@ class GTPPDUSessionContainer(Packet):
                    ConditionalField(XBitField("ulDelayRslt", 0, 32),
                                     lambda pkt: pkt.type == 1 and
                                     pkt.ulDelayInd == 1),
+                   ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes),
                    ConditionalField(StrLenField(
                        "extraPadding",
                        "",
-                       length_from=lambda pkt: 4 * (pkt.ExtHdrLen) - 4),
-                       lambda pkt: pkt.ExtHdrLen and pkt.ExtHdrLen > 1),
-                   ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes), ]
+                       length_from=lambda pkt: 4 * (pkt.ExtHdrLen) - 5),
+                       lambda pkt.ExtHdrLen > 1 and pkt.type == 0 and
+                       pkt.P == 1 and pkt.NextExtHdr == 0), ]
+
 
     def guess_payload_class(self, payload):
         if self.NextExtHdr == 0:
