@@ -333,7 +333,7 @@ class GTPPDUSessionContainer(Packet):
                                     pkt.P == 1),
                    ConditionalField(XBitField("dlSendTime", 0, 32),
                                     lambda pkt: pkt.type == 0 and
-                                    pkt.qmp == 1),                   
+                                    pkt.qmp == 1),
                    ConditionalField(XBitField("dlSendTimeRpt", 0, 32),
                                     lambda pkt: pkt.type == 1 and
                                     pkt.qmp == 1),
@@ -354,8 +354,8 @@ class GTPPDUSessionContainer(Packet):
                        "extraPadding",
                        "",
                        length_from=lambda pkt: 4 * (pkt.ExtHdrLen) - 5),
-                       lambda pkt.ExtHdrLen > 1 and pkt.type == 0 and
-                       pkt.P == 1 and pkt.NextExtHdr == 0), ]
+                       lambda pkt:pkt.ExtHdrLen > 1 and pkt.type == 0 and
+                       pkt.P == 1 and pkt.NextExtHdr == 0)]
 
 
     def guess_payload_class(self, payload):
