@@ -6,10 +6,11 @@
 
 """
 Automata with states, transitions and actions.
+
+TODO:
+    - add documentation for ioevent, as_supersocket...
 """
 
-# TODO:
-# - add documentation for ioevent, as_supersocket...
 
 import itertools
 import logging

@@ -36,6 +36,7 @@ needs_sphinx = '2.2.0'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
+    'sphinx.ext.todo',
     'scapy_doc'
 ]
 
@@ -44,6 +45,9 @@ autodoc_inherit_docstrings = False
 autodoc_default_options = {
     'undoc-members': True
 }
+
+# Enable the todo module
+todo_include_todos = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

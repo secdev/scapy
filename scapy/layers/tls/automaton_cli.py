@@ -36,7 +36,8 @@ You can also use the io with a TCPSession, e.g. to get an HTTPS answer::
 
 TODO:
     - Add an event with `stop=1` (called on atmt.stop()) that correctly calls
-    one of the `CLOSE_NOTIFY` events depending on the SSL/TLS version.
+      one of the `CLOSE_NOTIFY` events depending on the SSL/TLS version.
+
 """
 
 from __future__ import print_function
