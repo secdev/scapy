@@ -355,9 +355,7 @@ class GTPPDUSessionContainer(Packet):
                        "",
                        length_from=lambda pkt: 4 * (pkt.ExtHdrLen) - 5),
                        lambda pkt:pkt.ExtHdrLen > 1 and pkt.type == 0 and
-                       pkt.P == 1 and pkt.NextExtHdr == 0),
-                  ]
-
+                       pkt.P == 1 and pkt.NextExtHdr == 0), ]
 
     def guess_payload_class(self, payload):
         if self.NextExtHdr == 0:
