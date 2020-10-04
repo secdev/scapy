@@ -753,35 +753,6 @@ When the automaton switches to a given state, the state's method is executed. Th
         def waiting_timeout(self):
             raise self.ERROR_TIMEOUT()
 
-.. note:: Within an ``ATMT.receive_condition`` handler, it is possible to change the state while passing an argument for the conditions of the next state using the ``action_parameters`` function. This allows to immediately re-trigger the ``ATMT.receive_condition`` of the new state (or any condition that requires an argument). For instance: ``raise self.NEW_STATE().action_parameters(pkt)``
-
-For instance, this automaton will go from ``WAITING`` to ``ACK_RECEIVED`` with a **single** FIN+ACK TCP packet.
-
-::
-
-    class Example(Automaton):
-        @ATMT.state()
-        def WAITING(self):
-            pass
-
-        @ATMT.state()
-        def FIN_RECEIVED(self):
-            pass
-
-        @ATMT.state()
-        def ACK_RECEIVED(self):
-            pass
-
-        @ATMT.receive_condition(WAITING)
-        def is_fin(self, pkt):
-            if pkt[TCP].flags.F:
-                raise self.FIN_RECEIVED().action_parameters(pkt)
-
-        @ATMT.receive_condition(FIN_RECEIVED)
-        def is_ack(self, pkt):
-            if pkt[TCP].flags.A:
-                raise self.ACK_RECEIVED()
-
 Decorator for actions
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -802,6 +773,7 @@ Actions are methods that are decorated by the return of ``ATMT.action`` function
         def maybe_go_to_end(self):
             if random() > 0.5:
                 raise self.END()
+
         @ATMT.condition(BEGIN, prio=2)
         def certainly_go_to_end(self):
             raise self.END()
@@ -809,9 +781,11 @@ Actions are methods that are decorated by the return of ``ATMT.action`` function
         @ATMT.action(maybe_go_to_end)
         def maybe_action(self):
             print "We are lucky..."
+
         @ATMT.action(certainly_go_to_end)
         def certainly_action(self):
             print "We are not lucky..."
+
         @ATMT.action(maybe_go_to_end, prio=1)
         @ATMT.action(certainly_go_to_end, prio=1)
         def always_action(self):
@@ -826,6 +800,30 @@ The two possible outputs are::
     >>> a.run()
     We are lucky...
     This wasn't luck!...
+
+
+.. note:: If you want to pass a parameter to an action, you can use the ``action_parameters`` function while raising the next state.
+
+In the following example, the ``send_copy`` action takes a parameter passed by ``is_fin``::
+
+    class Example(Automaton):
+        @ATMT.state()
+        def WAITING(self):
+            pass
+
+        @ATMT.state()
+        def FIN_RECEIVED(self):
+            pass
+
+        @ATMT.receive_condition(WAITING)
+        def is_fin(self, pkt):
+            if pkt[TCP].flags.F:
+                raise self.FIN_RECEIVED().action_parameters(pkt)
+
+        @ATMT.action(is_fin)
+        def send_copy(self, pkt):
+            send(pkt)
+
 
 Methods to overload
 ^^^^^^^^^^^^^^^^^^^
