@@ -11,6 +11,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from decimal import Decimal
 
+import difflib
 import os
 import sys
 import socket
@@ -291,33 +292,51 @@ def repr_hex(s):
 
 
 @conf.commands.register
-def hexdiff(x, y):
-    """Show differences between 2 binary strings"""
-    x = bytes_encode(x)[::-1]
-    y = bytes_encode(y)[::-1]
-    SUBST = 1
-    INSERT = 1
-    d = {(-1, -1): (0, (-1, -1))}
-    for j in range(len(y)):
-        d[-1, j] = d[-1, j - 1][0] + INSERT, (-1, j - 1)
-    for i in range(len(x)):
-        d[i, -1] = d[i - 1, -1][0] + INSERT, (i - 1, -1)
+def hexdiff(x, y, autojunk=False):
+    """
+    Show differences between 2 binary strings, Packets...
 
-    for j in range(len(y)):
-        for i in range(len(x)):
-            d[i, j] = min((d[i - 1, j - 1][0] + SUBST * (x[i] != y[j]), (i - 1, j - 1)),  # noqa: E501
-                          (d[i - 1, j][0] + INSERT, (i - 1, j)),
-                          (d[i, j - 1][0] + INSERT, (i, j - 1)))
+    For the autojunk parameter, see
+    https://docs.python.org/3.8/library/difflib.html#difflib.SequenceMatcher
+
+    :param x:
+    :param y: The binary strings, packets... to compare
+    :param autojunk: Setting it to True will likely increase the comparison
+        speed a lot on big byte strings, but will reduce accuracy (will tend
+        to miss insertion and see replacements instead for instance).
+    """
+
+    # Compare the strings using difflib
+
+    x = bytes_encode(x)
+    y = bytes_encode(y)
+
+    sm = difflib.SequenceMatcher(a=x, b=y, autojunk=autojunk)
+    x = [x[i:i + 1] for i in range(len(x))]
+    y = [y[i:i + 1] for i in range(len(y))]
 
     backtrackx = []
     backtracky = []
-    i = len(x) - 1
-    j = len(y) - 1
-    while not (i == j == -1):
-        i2, j2 = d[i, j][1]
-        backtrackx.append(x[i2 + 1:i + 1])
-        backtracky.append(y[j2 + 1:j + 1])
-        i, j = i2, j2
+    for opcode in sm.get_opcodes():
+        typ, x0, x1, y0, y1 = opcode
+        if typ == 'delete':
+            backtrackx += x[x0:x1]
+            backtracky += [''] * (x1 - x0)
+        elif typ == 'insert':
+            backtrackx += [''] * (y1 - y0)
+            backtracky += y[y0:y1]
+        elif typ in ['equal', 'replace']:
+            backtrackx += x[x0:x1]
+            backtracky += y[y0:y1]
+
+    if autojunk:
+        # Some lines may have been considered as junk. Check the sizes
+        lbx = len(backtrackx)
+        lby = len(backtracky)
+        backtrackx += [''] * (max(lbx, lby) - lbx)
+        backtracky += [''] * (max(lbx, lby) - lby)
+
+    # Print the diff
 
     x = y = i = 0
     colorize = {0: lambda x: x,
