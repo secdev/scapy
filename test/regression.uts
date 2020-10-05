@@ -608,19 +608,63 @@ assert(fletcher16_checkbytes(b"\x28\x07", 1) == b"\xaf(")
 
 = Test hexdiff function
 ~ not_pypy
-def test_hexdiff():
+def test_hexdiff(a, b, autojunk=False):
     conf_color_theme = conf.color_theme
     conf.color_theme = BlackAndWhite()
     with ContextManagerCaptureOutput() as cmco:
-        hexdiff("abcde", "abCde")
+        hexdiff(a, b, autojunk=autojunk)
         result_hexdiff = cmco.get_output()
     conf.interactive = True
     conf.color_theme = conf_color_theme
-    expected  = "0000        61 62 63 64 65                                     abcde\n"
-    expected += "     0000   61 62 43 64 65                                     abCde\n"
-    assert(result_hexdiff == expected)
+    return result_hexdiff
 
-test_hexdiff()
+# Basic string test
+
+result_hexdiff = test_hexdiff("abcde", "abCde")
+expected  = "0000        61 62 63 64 65                                     abcde\n"
+expected += "     0000   61 62 43 64 65                                     abCde\n"
+assert result_hexdiff == expected
+
+# More advanced string test
+
+result_hexdiff = test_hexdiff("add_common_", "_common_removed")
+expected  = "0000        61 64 64 5F 63 6F 6D 6D  6F 6E 5F                  add_common_     \n"
+expected += "     -003            5F 63 6F 6D 6D  6F 6E 5F 72 65 6D 6F 76      _common_remov\n"
+expected += "     000d   65 64                                              ed\n"
+assert result_hexdiff == expected
+
+# Compare packets
+
+result_hexdiff = test_hexdiff(IP(dst="127.0.0.1", src="127.0.0.1"), IP(dst="127.0.0.2", src="127.0.0.1"))
+expected  = "0000        45 00 00 14 00 01 00 00  40 00 7C E7 7F 00 00 01   E.......@.|.....\n"
+expected += "     0000   45 00 00 14 00 01 00 00  40 00 7C E6 7F 00 00 01   E.......@.|.....\n"
+expected += "0010        7F 00 00 01                                        ....\n"
+expected += "     0010   7F 00 00 02                                        ....\n"
+assert result_hexdiff == expected
+
+# Compare using autojunk
+
+a = "A" * 1000 + "findme" + "B" * 1000
+b = "A" * 1000 + "B" * 1000
+ret1 = test_hexdiff(a, b)
+ret2 = test_hexdiff(a, b, autojunk=True)
+
+expected_ret1 = """
+03d0 03d0   41 41 41 41 41 41 41 41  41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA
+03e0        41 41 41 41 41 41 41 41  66 69 6E 64 6D 65 42 42   AAAAAAAAfindmeBB
+     03e0   41 41 41 41 41 41 41 41                    42 42   AAAAAAAA      BB
+03ea 03ea   42 42 42 42 42 42 42 42  42 42 42 42 42 42 42 42   BBBBBBBBBBBBBBBB
+"""
+expected_ret2 = """
+03d0 03d0   41 41 41 41 41 41 41 41  41 41 41 41 41 41 41 41   AAAAAAAAAAAAAAAA
+03e0        41 41 41 41 41 41 41 41  66 69 6E 64 6D 65 42 42   AAAAAAAAfindmeBB
+     03e0   41 41 41 41 41 41 41 41  42 42 42 42 42 42 42 42   AAAAAAAABBBBBBBB
+03f0 03f0   42 42 42 42 42 42 42 42  42 42 42 42 42 42 42 42   BBBBBBBBBBBBBBBB
+"""
+
+assert ret1 != ret2
+assert expected_ret1 in ret1
+assert expected_ret2 in ret2
 
 = Test mysummary functions - Ether
 
