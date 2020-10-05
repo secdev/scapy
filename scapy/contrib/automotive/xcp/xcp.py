@@ -214,7 +214,7 @@ class CTORequest(Packet):
     name = "Command Transfer Object Request"
 
     fields_desc = [
-        ByteEnumField("pid", 0x01, pids),
+        ByteEnumField("pid", 0xFF, pids),
     ]
 
 
@@ -306,14 +306,14 @@ class DTO(Packet):
         ConditionalField(XByteField("fill", 0x00),
                          lambda _: identification_field_needs_alignment()),
         ConditionalField(
-            StrLenField("daq", "", length_from=lambda _: get_daq_length()),
+            StrLenField("daq", b"", length_from=lambda _: get_daq_length()),
             lambda _: get_daq_length() > 0),
         ConditionalField(
-            StrLenField("timestamp", "",
+            StrLenField("timestamp", b"",
                         length_from=lambda _: get_timestamp_length()),
             lambda _: get_timestamp_length() > 0),
         ConditionalField(
-            StrLenField("data", "",
+            StrLenField("data", b"",
                         length_from=lambda _: get_daq_data_field_length()),
             lambda _: get_daq_data_field_length() > 0)
     ]
@@ -333,7 +333,7 @@ class CTOResponse(Packet):
     name = "Command Transfer Object Response"
 
     fields_desc = [
-        ByteEnumField("packet_code", 0, packet_codes),
+        ByteEnumField("packet_code", 0xFF, packet_codes),
     ]
 
     @staticmethod
@@ -386,14 +386,13 @@ class CTOResponse(Packet):
         field of the corresponding request.
         This method changes the class of the payload to the class
         which is expected for the given request."""
-        if not isinstance(request, CTORequest) or \
-                not isinstance(self, CTOResponse):
+        if not isinstance(request, CTORequest):
             return False
 
-        if isinstance(self.payload, NegativeResponse) or \
-                isinstance(self.payload, EvPacket) or \
-                isinstance(self.payload, ServPacket):
+        if self.packet_code in [0xFE, 0xFD, 0xFC]:
             return True
+        if self.packet_code != 0xFF:
+            return False
 
         payload_cls = self.get_positive_response_cls(request)
 
@@ -451,7 +450,7 @@ positive_response_classes = [ConnectPositiveResponse,
 for cls in positive_response_classes:
     bind_top_down(CTOResponse, cls, packet_code=0xFF)
 
-bind_layers(CTOResponse, NegativeResponse, pid=0xFE)
+bind_layers(CTOResponse, NegativeResponse, packet_code=0xFE)
 
 # Asynchronous Event/request messages from the slave
 bind_layers(CTOResponse, EvPacket, packet_code=0xFD)

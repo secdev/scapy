@@ -17,11 +17,11 @@ from scapy.contrib.cansocket import CANSocket
 
 class ScannerParams:
     def __init__(self):
-        self.broadcast_id = None
-        self.broadcast_id_range = None
+        self.id_range = None
         self.sniff_time = None
         self.verbose = False
         self.channel = None
+        self.broadcast = False
 
 
 def signal_handler(sig, _frame):
@@ -49,20 +49,16 @@ def parse_inputs():
     parser = argparse.ArgumentParser()
     parser.description = "Finds XCP slaves using the XCP Broadcast-CAN " \
                          "identifier."
-    parser.add_argument('--broadcast_id', '-b',
-                        help='XCP Broadcast CAN identifier (in hex), e.g. 7F0')
     parser.add_argument('--start', '-s',
-                        help='XCP Broadcast CAN identifier Start ID '
-                             '(in hex).\n'
+                        help='Start ID CAN (in hex).\n'
                              'If actual ID is unknown the scan will '
                              'test broadcast ids between --start and --end '
-                             '(inclusive)')
+                             '(inclusive). Default: 0x00')
     parser.add_argument('--end', '-e',
-                        help='End XCP Broadcast CAN identifier End ID '
-                             '(in hex).\n'
+                        help='End ID CAN (in hex).\n'
                              'If actual ID is unknown the scan will test '
                              'broadcast ids between --start and --end '
-                             '(inclusive)')
+                             '(inclusive). Default: 0x7ff')
     parser.add_argument('--sniff_time', '-t',
                         help='Duration in milliseconds a sniff is waiting '
                              'for a response.', type=int, default=100)
@@ -70,28 +66,24 @@ def parse_inputs():
                         help='Linux SocketCAN interface name, e.g.: vcan0')
     parser.add_argument('--verbose', '-v', action="store_true",
                         help='Display information during scan')
+    parser.add_argument('--broadcast', '-b', action="store_true",
+                        help='Use Broadcast-message GetSlaveId instead of '
+                             'default "Connect"')
+
     args = parser.parse_args()
     scanner_params.channel = args.channel
     scanner_params.verbose = args.verbose
+    scanner_params.use_broadcast = args.broadcast
     scanner_params.sniff_time = float(args.sniff_time) / 1000
 
-    if args.broadcast_id:
-        scanner_params.broadcast_id = int(args.broadcast_id, 16)
+    start_id = int(args.start, 16) if args.start is not None else 0
+    end_id = int(args.end, 16) if args.end is not None else 0x7ff
 
-    if args.start is not None and args.end is not None:
-        scanner_params.broadcast_id_range = (
-            int(args.start, 16), int(args.end, 16))
-    elif bool(args.start) != bool(args.end):
-        parser.error("You can not only set --end/-e or --start/-s. "
-                     "You have to set both.")
-        sys.exit(1)
-
-    if scanner_params.broadcast_id_range is not None and \
-            scanner_params.broadcast_id_range[0] >= \
-            scanner_params.broadcast_id_range[1]:
+    if start_id >= end_id:
         parser.error(
             "Start identifier must be smaller than the end identifier.")
         sys.exit(1)
+    scanner_params.id_range = range(start_id, end_id + 1)
 
     return scanner_params
 
@@ -101,26 +93,17 @@ def main():
     can_socket = init_socket(scanner_params)
 
     try:
-        if scanner_params.broadcast_id is not None:
-            scanner = XCPOnCANScanner(can_socket,
-                                      broadcast_id=scanner_params.broadcast_id,
-                                      sniff_time=scanner_params.sniff_time,
-                                      verbose=scanner_params.verbose)
-
-        elif scanner_params.broadcast_id_range is not None:
-            scanner = XCPOnCANScanner(can_socket,
-                                      broadcast_id_range=scanner_params.broadcast_id_range,  # noqa: E501
-                                      sniff_time=scanner_params.sniff_time,
-                                      verbose=scanner_params.verbose)
-
-        else:
-            scanner = XCPOnCANScanner(can_socket,
-                                      sniff_time=scanner_params.sniff_time,
-                                      verbose=scanner_params.verbose)
+        scanner = XCPOnCANScanner(can_socket,
+                                  id_range=scanner_params.id_range,
+                                  # noqa: E501
+                                  sniff_time=scanner_params.sniff_time,
+                                  verbose=scanner_params.verbose)
 
         signal.signal(signal.SIGINT, signal_handler)
 
-        results = scanner.start_scan()  # Blocking
+        results = scanner.scan_with_get_slave_id() \
+            if scanner_params.broadcast \
+            else scanner.scan_with_connect()  # Blocking
 
         if isinstance(results, list) and len(results) > 0:
             for r in results:

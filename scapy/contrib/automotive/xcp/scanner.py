@@ -5,19 +5,17 @@
 
 # scapy.contrib.description = XCPScanner
 # scapy.contrib.status = loads
-
-from typing import Optional, List, Tuple
+from collections import namedtuple
+from typing import Optional, List, Type, Iterable
 
 from scapy.contrib.automotive.xcp.cto_commands_master import \
-    TransportLayerCmd, TransportLayerCmdGetSlaveId
+    TransportLayerCmd, TransportLayerCmdGetSlaveId, Connect
+from scapy.contrib.automotive.xcp.cto_commands_slave import \
+    ConnectPositiveResponse, TransportLayerCmdGetSlaveIdResponse
 from scapy.contrib.automotive.xcp.xcp import CTORequest, XCPOnCAN
 from scapy.contrib.cansocket_native import CANSocket
 
-
-class XCPScannerResult:
-    def __init__(self, slave_id, response_id):
-        self.slave_id = slave_id
-        self.response_id = response_id
+XCPScannerResult = namedtuple('XCPScannerResult', 'request_id response_id')
 
 
 class XCPOnCANScanner:
@@ -25,66 +23,94 @@ class XCPOnCANScanner:
     Scans for XCP Slave on CAN
     """
 
-    def __init__(self, can_socket,
-                 broadcast_id=None, broadcast_id_range=None,
+    def __init__(self, can_socket, id_range=None,
                  sniff_time=0.1, verbose=False):
-        # type: (CANSocket, Optional[int], Optional[Tuple[int, int]], Optional[float], Optional[bool]) -> None # noqa: E501
+        # type: (CANSocket, Optional[Iterable[int]], Optional[float], Optional[bool]) -> None # noqa: E501
 
         """
         Constructor
         :param can_socket: Can Socket with XCPonCAN as basecls for scan
-        :param broadcast_id: XCP broadcast Id in network (if known)
+        :param id_range: CAN id range to scan
         :param sniff_time: time the scan waits for a response
                            after sending a request
         """
         self.__socket = can_socket
-        self.broadcast_id = broadcast_id
-        self.broadcast_id_range = broadcast_id_range
+        self.id_range = id_range or range(0, 0x800)
         self.__flags = 0
         self.__sniff_time = sniff_time
         self.__verbose = verbose
 
-    def broadcast_get_slave_id(self, identifier):
-        # type: (int) -> List[XCPScannerResult]
-        """
-        Sends GET_SLAVE_ID Message on the Control Area Network
-        """
+    def _scan(self, identifier, body, answer_type):
+        # type: (int, CTORequest, Type) -> List # noqa: E501
 
-        self.log_verbose("Scan for broadcast id: " + str(identifier))
+        self.log_verbose("Scan for id: " + str(identifier))
         cto_request = \
-            XCPOnCAN(identifier=identifier,
-                     flags=self.__flags) \
-            / CTORequest() \
-            / TransportLayerCmd() \
-            / TransportLayerCmdGetSlaveId()
+            XCPOnCAN(identifier=identifier, flags=self.__flags) \
+            / CTORequest() / body
 
-        cto_responses, _unanswered = \
+        req_and_res_list, _unanswered = \
             self.__socket.sr(cto_request, timeout=self.__sniff_time,
                              verbose=self.__verbose, multi=True)
-        all_slaves = []
-        if len(cto_responses) == 0:
+
+        if len(req_and_res_list) == 0:
             self.log_verbose(
-                "No XCP slave detected for broadcast identifier: " + str(
-                    identifier))
+                "No answer for identifier: " + str(identifier))
             return []
 
-        for pkt_pair in cto_responses:
-            answer = pkt_pair[1]
-            if "TransportLayerCmdGetSlaveIdResponse" not in answer:
-                continue
+        valid_req_and_res_list = filter(
+            lambda req_and_res: req_and_res[1].haslayer(answer_type),
+            req_and_res_list)
+        return list(valid_req_and_res_list)
+
+    def _send_connect(self, identifier):
+        # type: (int) -> List[XCPScannerResult]
+        """
+        Sends CONNECT Message on the Control Area Network
+        """
+        all_slaves = []
+        body = Connect()
+        xcp_req_and_res_list = self._scan(identifier, body,
+                                          ConnectPositiveResponse)
+
+        for req_and_res in xcp_req_and_res_list:
+            result = XCPScannerResult(response_id=req_and_res[1].identifier,
+                                      request_id=identifier)
+            all_slaves.append(result)
+            self.log_verbose(
+                "Detected XCP slave for broadcast identifier: " + str(
+                    identifier) + "\nResponse: " + str(result))
+
+        if len(all_slaves) == 0:
+            self.log_verbose(
+                "No XCP slave detected for identifier: " + str(identifier))
+        return all_slaves
+
+    def _send_get_slave_id(self, identifier):
+        # type: (int) -> List[XCPScannerResult]
+        """
+        Sends GET_SLAVE_ID message on the Control Area Network
+        """
+        all_slaves = []
+        body = TransportLayerCmd() / TransportLayerCmdGetSlaveId()
+        xcp_req_and_res_list = \
+            self._scan(identifier, body, TransportLayerCmdGetSlaveIdResponse)
+
+        for req_and_res in xcp_req_and_res_list:
+            response = req_and_res[1]
             # The protocol will also mark other XCP messages that might be
             # send as TransportLayerCmdGetSlaveIdResponse
             # -> Payload must be checked. It must include XCP
-            if answer.position_1 != 0x58 or answer.position_2 != 0x43 or \
-                    answer.position_3 != 0x50:
+            if response.position_1 != 0x58 or response.position_2 != 0x43 or \
+                    response.position_3 != 0x50:
                 continue
 
             # Identifier that the master must use to send packets to the slave
             # and the slave will answer with
-            slave_id = \
-                answer["TransportLayerCmdGetSlaveIdResponse"].can_identifier
+            request_id = \
+                response["TransportLayerCmdGetSlaveIdResponse"].can_identifier
 
-            result = XCPScannerResult(slave_id, answer.identifier)
+            result = XCPScannerResult(request_id=request_id,
+                                      response_id=response.identifier)
             all_slaves.append(result)
             self.log_verbose(
                 "Detected XCP slave for broadcast identifier: " + str(
@@ -92,26 +118,30 @@ class XCPOnCANScanner:
 
         return all_slaves
 
-    def start_scan(self):
+    def scan_with_get_slave_id(self):
         # type: () -> List[XCPScannerResult]
-        """Starts the scan for XCP devices on CAN"""
-        if self.broadcast_id:
-            self.log_verbose("Start scan with single broadcast id: " + str(
-                self.broadcast_id))
-            return self.broadcast_get_slave_id(self.broadcast_id)
+        """Starts the scan for XCP devices on CAN with the transport specific
+        GetSlaveId Message"""
+        self.log_verbose("Start scan with GetSlaveId id in range: " + str(
+            self.id_range))
 
-        broadcast_id_range = self.broadcast_id_range or (0, 0x7ff)
-
-        self.log_verbose("Start scan with broadcast id in range: " + str(
-            broadcast_id_range))
-
-        for identifier in range(broadcast_id_range[0],
-                                broadcast_id_range[1] + 1):
-            ids = self.broadcast_get_slave_id(identifier)
+        for identifier in self.id_range:
+            ids = self._send_get_slave_id(identifier)
             if len(ids) > 0:
                 return ids
 
         return []
+
+    def scan_with_connect(self):
+        # type: () -> List[XCPScannerResult]
+        self.log_verbose("Start scan with CONNECT id in range: " + str(
+            self.id_range))
+        results = []
+        for identifier in self.id_range:
+            result = self._send_connect(identifier)
+            if len(result) > 0:
+                results.extend(result)
+        return results
 
     def log_verbose(self, output):
         if self.__verbose:

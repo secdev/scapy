@@ -73,61 +73,19 @@ s.close()
 
 + Tests XCPonCAN Scanner
 
-= xcp can scanner with broadcast ID
-broadcast_identifier = 50
-ecu_xcp_identifier = 30
-ecu_response_identifier = 31
-
-id_request = XCPOnCAN(identifier=broadcast_identifier) / CTORequest(
-    pid="TRANSPORT_LAYER_CMD") / TransportLayerCmd(
-    sub_command_code=0xFF) / TransportLayerCmdGetSlaveId()
-id_response = XCPOnCAN(
-    identifier=ecu_response_identifier) / CTOResponse() / TransportLayerCmdGetSlaveIdResponse(
-    can_identifier=ecu_xcp_identifier)
-
-assert id_response.answers(id_request) == True
-
-sock1 = new_can_socket0()
-sock1.basecls = XCPOnCAN
-
-sock2 = new_can_socket0()
-sock2.basecls = XCPOnCAN
-
-def ecu():
-    pkts = sock1.sniff(count=1, timeout=2)
-    if len(pkts) == 1:
-        sock1.send(id_response)
-
-thread = threading.Thread(target=ecu)
-thread.start()
-
-scanner = XCPOnCANScanner(sock2, broadcast_id=broadcast_identifier)
-result = scanner.start_scan()
-
-assert result[0].slave_id == ecu_xcp_identifier
-assert result[0].response_id == ecu_response_identifier
-thread.join()
-sock1.close()
-sock2.close()
-
 = xcp can scanner broadcast ID-Range
-broadcast_identifier_range = (50, 53)
-ecu_xcp_identifier_1 = 10
-ecu_response_identifier_1 = 11
-ecu_xcp_identifier_2 = 20
-ecu_response_identifier_2 = 21
 
-id_response_1 = XCPOnCAN(
-    identifier=ecu_response_identifier_1) / CTOResponse() / TransportLayerCmdGetSlaveIdResponse(
-    can_identifier=ecu_xcp_identifier_1)
-id_response_2 = XCPOnCAN(
-    identifier=ecu_response_identifier_2) / CTOResponse() / TransportLayerCmdGetSlaveIdResponse(
-    can_identifier=ecu_xcp_identifier_2)
+id_range = range(50, 53)
+slave_id_1 = 10
+response_id_1 = 11
+slave_id_2 = 20
+response_id_2 = 21
 
-id_response_3 = XCPOnCAN(
-    identifier=30) / CTOResponse() / GenericResponse(b"\x00\x00")
-id_response_4 = XCPOnCAN(
-    identifier=40) / CTOResponse() / GenericResponse(b"\x00\x00")
+slave_1_response = XCPOnCAN(identifier=response_id_1) / CTOResponse(packet_code=0xFF) / TransportLayerCmdGetSlaveIdResponse(can_identifier=slave_id_1)
+slave_2_response = XCPOnCAN(identifier=response_id_2) / CTOResponse(packet_code=0xFF) / TransportLayerCmdGetSlaveIdResponse(can_identifier=slave_id_2)
+
+random_xcp_response_1 = XCPOnCAN(identifier=30) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x00\x00")
+random_xcp_response_2 = XCPOnCAN(identifier=40) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x00\x00")
 
 sock1 = new_can_socket0()
 sock1.basecls = XCPOnCAN
@@ -135,33 +93,81 @@ sock1.basecls = XCPOnCAN
 sock2 = new_can_socket0()
 sock2.basecls = XCPOnCAN
 
+
 def ecu():
-    p = sock1.sniff(count=1, store=False, timeout=2)
-    sock1.send(CAN(identifier=0x90, data=b'\x01\x02\x03'))
-    sock1.send(id_response_3)
-    sock1.sniff(count=1, store=False, timeout=2)
-    sock1.send(CAN(identifier=0x90, data=b'\x05\x02\x03'))
-    sock1.send(id_response_3)
-    sock1.send(id_response_4)
-    sock1.sniff(count=2, store=False, timeout=2)
-    sock1.send(CAN(identifier=0x90, data=b'\xff\x05\x03'))
-    sock1.send(id_response_1)
-    sock1.send(id_response_2)
+    for i in range(50, 53):
+        sock1.sniff(count=1, store=False, timeout=2)
+        if i == 50:
+            sock1.send(CAN(identifier=0x90, data=b'\x01\x02\x03'))
+            sock1.send(CAN(identifier=0x90, data=b'\x05\x02\x03'))
+            sock1.send(CAN(identifier=0x90, data=b'\xff\x05\x03'))
+        if i == 51:
+            sock1.send(random_xcp_response_1)
+            sock1.send(random_xcp_response_2)
+        if i == 52:
+            sock1.send(slave_1_response)
+            sock1.send(slave_2_response)
+
 
 thread = threading.Thread(target=ecu)
 thread.start()
 
-scanner = XCPOnCANScanner(sock2, broadcast_id_range=broadcast_identifier_range)
-result = scanner.start_scan()
+scanner = XCPOnCANScanner(sock2, id_range=id_range)
+result = scanner.scan_with_get_slave_id()
+thread.join()
+sock1.close()
+sock2.close()
+assert len(result) == 2
+assert result[0].request_id == slave_id_1
+assert result[0].response_id == response_id_1
+assert result[1].request_id == slave_id_2
+assert result[1].response_id == response_id_2
+
+
+= xcp can scanner connect ID-range
+id_range = range(50, 53)
+slave_id = 52
+response_id = 11
+
+connect_response = XCPOnCAN(identifier=response_id) / CTOResponse(packet_code=0xFF) / ConnectPositiveResponse()
+
+random_xcp_response_1 = XCPOnCAN(identifier=30) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x00\x00")
+random_xcp_response_2 = XCPOnCAN(identifier=40) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x10")
+
+sock1 = new_can_socket0()
+sock1.basecls = XCPOnCAN
+
+sock2 = new_can_socket0()
+sock2.basecls = XCPOnCAN
+
+
+def ecu():
+    for i in range(50, 53):
+        sock1.sniff(count=1, store=False, timeout=2)
+        if i == 50:
+            sock1.send(CAN(identifier=0x90, data=b'\x01\x02\x03'))
+            sock1.send(CAN(identifier=0x90, data=b'\xff\x05\x03'))
+        if i == 51:
+            sock1.send(CAN(identifier=0x90, data=b'\x05\x02\x03'))
+            sock1.send(random_xcp_response_1)
+            sock1.send(random_xcp_response_2)
+        if i == slave_id:
+            sock1.send(CAN(identifier=0x90, data=b'\xff\x05\x03'))
+            sock1.send(connect_response)
+
+
+thread = threading.Thread(target=ecu)
+thread.start()
+
+scanner = XCPOnCANScanner(sock2, id_range=id_range, sniff_time=0.25)
+result = scanner.scan_with_connect()
 thread.join()
 sock1.close()
 sock2.close()
 
-assert len(result) == 2
-assert result[0].slave_id == ecu_xcp_identifier_1
-assert result[0].response_id == ecu_response_identifier_1
-assert result[1].slave_id == ecu_xcp_identifier_2
-assert result[1].response_id == ecu_response_identifier_2
+assert len(result) == 1
+assert result[0].request_id == slave_id
+assert result[0].response_id == response_id
 
 
 + Cleanup
