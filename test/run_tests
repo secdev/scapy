@@ -20,4 +20,4 @@ then
   echo "WARNING: '$PYTHON' not found, using 'python' instead."
   PYTHON=python
 fi
-PYTHONPATH=$DIR exec "$PYTHON" ${DIR}/scapy/tools/UTscapy.py "$@"
+PYTHONPATH=$DIR exec "$PYTHON" ${DIR}/scapy/tools/UTscapy.py $ARGS

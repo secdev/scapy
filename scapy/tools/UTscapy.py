@@ -8,7 +8,6 @@ Unit testing infrastructure for Scapy
 """
 
 from __future__ import print_function
-from __future__ import unicode_literals
 
 import bz2
 import copy
@@ -32,6 +31,32 @@ from scapy.modules.six.moves import range
 from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
 from scapy.themes import DefaultTheme, BlackAndWhite
+
+
+# Check UTF-8 support #
+
+def _utf8_support():
+    """
+    Check UTF-8 support for the output
+    """
+    try:
+        if six.PY2:
+            return False
+        if WINDOWS:
+            return (sys.stdout.encoding == "utf-8")
+        return True
+    except AttributeError:
+        return False
+
+
+if _utf8_support():
+    arrow = "\u2514"
+    dash = "\u2501"
+    checkmark = "\u2713"
+else:
+    arrow = "->"
+    dash = "--"
+    checkmark = "OK"
 
 
 #   Util class   #
@@ -296,7 +321,7 @@ def parse_config_file(config_path, verb=3):
     with open(config_path) as config_file:
         data = json.load(config_file)
         if verb > 2:
-            print("### Loaded config file", config_path, file=sys.stderr)
+            print(" %s Loaded config file" % arrow, config_path, file=sys.stderr)
 
     def get_if_exist(key, default):
         return data[key] if key in data else default
@@ -608,9 +633,9 @@ def campaign_to_TEXT(test_campaign, theme):
     ftheme = [lambda x: x, theme.fail][bool(test_campaign.failed)]
 
     output = theme.green("\n%(title)s\n" % test_campaign)
-    output += "\u2501 " + info_line(test_campaign) + "\n"
-    output += ptheme(" \u2514- Passed=%(passed)i\n" % test_campaign)
-    output += ftheme(" \u2514- Failed=%(failed)i\n" % test_campaign)
+    output += dash + " " + info_line(test_campaign) + "\n"
+    output += ptheme(" " + arrow + " Passed=%(passed)i\n" % test_campaign)
+    output += ftheme(" " + arrow + " Failed=%(failed)i\n" % test_campaign)
     output += "%(headcomments)s\n" % test_campaign
 
     for testset in test_campaign:
@@ -890,6 +915,11 @@ def main():
     logger.addHandler(logging.StreamHandler())
     ignore_globals = list(six.moves.builtins.__dict__)
 
+    import scapy
+    print(dash + " UTScapy - Scapy %s - %s" % (
+        scapy.__version__, sys.version.split(" ")[0]
+    ))
+
     # Parse arguments
 
     FORMAT = Format.ANSI
@@ -1007,29 +1037,25 @@ def main():
 
     # Disable tests if needed
 
-    if VERB > 2:
-        import scapy
-        print("\u2501 UTScapy - Scapy %s" % scapy.__version__)
-
     # Discard Python3 tests when using Python2
     if six.PY2:
         KW_KO.append("python3_only")
         if VERB > 2:
-            print(" \u2514- Python 2 mode ###")
+            print(" " + arrow + " Python 2 mode")
     try:
         if NON_ROOT or os.getuid() != 0:  # Non root
             # Discard root tests
             KW_KO.append("netaccess")
             KW_KO.append("needs_root")
             if VERB > 2:
-                print("\u2514- Non-root mode !")
+                print(" " + arrow + " Non-root mode")
     except AttributeError:
         pass
 
     if conf.use_pcap:
         KW_KO.append("not_pcapdnet")
         if VERB > 2:
-            print("\u2514- libpcap mode ###")
+            print(" " + arrow + " libpcap mode ###")
 
     KW_KO.append("disabled")
 
@@ -1046,7 +1072,7 @@ def main():
         collect_types.start()
 
     if VERB > 2:
-        print("\u2514- Booting scapy...", file=sys.stderr)
+        print(" " + arrow + " Booting scapy...", file=sys.stderr)
     try:
         from scapy import all as scapy
     except Exception as e:
@@ -1074,7 +1100,7 @@ def main():
     }
 
     if VERB > 2:
-        print("\u2514- Discovering tests files...", file=sys.stderr)
+        print(" " + arrow + " Discovering tests files...", file=sys.stderr)
 
     glob_output = ""
     glob_result = 0
@@ -1101,7 +1127,7 @@ def main():
     # Execute all files
     for TESTFILE in TESTFILES:
         if VERB > 2:
-            print(theme.green("\u2501 Loading: %s" % TESTFILE), file=sys.stderr)
+            print(theme.green(dash + " Loading: %s" % TESTFILE), file=sys.stderr)
         PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC
         with open(TESTFILE) as testfile:
             output, result, campaign = execute_campaign(
@@ -1123,7 +1149,10 @@ def main():
                 break
 
     if VERB > 2:
-        print("\u2713 All campaigns executed. Writing output...", file=sys.stderr)
+        print(
+            checkmark + " All campaigns executed. Writing output...",
+            file=sys.stderr
+        )
 
     if ANNOTATIONS_MODE:
         collect_types.stop()
