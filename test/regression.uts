@@ -146,7 +146,7 @@ if not conf.use_pcap:
     conf.use_pcap = True
     assert conf.iface.provider.libpcap
     for iface in conf.ifaces.values():
-        assert iface.provider.libpcap
+        assert iface.provider.libpcap or iface.is_valid() == False
     conf.use_pcap = False
     assert not conf.iface.provider.libpcap
 
