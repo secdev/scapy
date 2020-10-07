@@ -1831,15 +1831,6 @@ class FieldListField(Field[List[Any], List[Any]]):
         # type: (BasePacket, List[Any]) -> int
         return int(sum(self.field.i2len(pkt, v) for v in val))
 
-    def i2m(self,
-            pkt,  # type: BasePacket
-            val,  # type: Optional[List[Any]]
-            ):
-        # type: (...) -> List[Any]
-        if val is None:
-            val = []
-        return val
-
     def any2i(self, pkt, x):
         # type: (BasePacket, List[Any]) -> List[Any]
         if not isinstance(x, list):

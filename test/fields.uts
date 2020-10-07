@@ -319,6 +319,17 @@ p = TestFLF(raw(a))
 p
 assert Raw in p and p[Raw].load == b'\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x05'
 
+= Test mutability of the default values
+~ field
+class X(Packet):
+    fields_desc = [ FieldListField("f", [], ByteField("", 0)) ]
+
+m = X()
+m.f.append(3)
+assert raw(m) == b"\x03"
+assert m.default_fields['f'] == []
+assert m.fields['f'] == [3]
+
 
 ############
 ############
