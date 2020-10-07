@@ -2923,6 +2923,9 @@ in6_getAddrType("FF02::1") == (IPV6_ADDR_LINKLOCAL | IPV6_ADDR_MULTICAST)
 = in6_getAddrType - Unicast Link-Local address
 in6_getAddrType("FE80::") == (IPV6_ADDR_UNICAST | IPV6_ADDR_LINKLOCAL)
 
+= in6_getAddrType - Unicast Unique local address
+in6_getAddrType("FC00::") == (IPV6_ADDR_UNICAST | IPV6_ADDR_UNIQUE_LOCAL)
+
 = in6_getAddrType - Loopback address
 in6_getAddrType("::1") == IPV6_ADDR_LOOPBACK
 
@@ -10136,6 +10139,7 @@ assert in6_getscope("fe80::2807") == IPV6_ADDR_LINKLOCAL
 assert in6_getscope("ff02::2807") == IPV6_ADDR_LINKLOCAL
 assert in6_getscope("ff0e::2807") == IPV6_ADDR_GLOBAL
 assert in6_getscope("ff05::2807") == IPV6_ADDR_SITELOCAL
+assert in6_getscope("fc00::2807") == IPV6_ADDR_UNIQUE_LOCAL
 assert in6_getscope("ff01::2807") == IPV6_ADDR_LOOPBACK
 assert in6_getscope("::1") == IPV6_ADDR_LOOPBACK
 

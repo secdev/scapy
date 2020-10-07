@@ -20,8 +20,9 @@ import re
 from scapy.config import conf
 from scapy.base_classes import Gen
 from scapy.data import IPV6_ADDR_GLOBAL, IPV6_ADDR_LINKLOCAL, \
-    IPV6_ADDR_SITELOCAL, IPV6_ADDR_LOOPBACK, IPV6_ADDR_UNICAST,\
-    IPV6_ADDR_MULTICAST, IPV6_ADDR_6TO4, IPV6_ADDR_UNSPECIFIED
+    IPV6_ADDR_SITELOCAL, IPV6_ADDR_UNIQUE_LOCAL, IPV6_ADDR_LOOPBACK, \
+    IPV6_ADDR_UNICAST, IPV6_ADDR_MULTICAST, IPV6_ADDR_6TO4, \
+    IPV6_ADDR_UNSPECIFIED
 from scapy.utils import strxor
 from scapy.compat import orb, chb
 from scapy.pton_ntop import inet_pton, inet_ntop
@@ -59,12 +60,14 @@ def construct_source_candidate_set(addr, plen, laddr):
         return -res
 
     cset = []
-    if in6_isgladdr(addr) or in6_isuladdr(addr):
+    if in6_isgladdr(addr):
         cset = (x for x in laddr if x[1] == IPV6_ADDR_GLOBAL)
     elif in6_islladdr(addr):
         cset = (x for x in laddr if x[1] == IPV6_ADDR_LINKLOCAL)
     elif in6_issladdr(addr):
         cset = (x for x in laddr if x[1] == IPV6_ADDR_SITELOCAL)
+    elif in6_isuladdr(addr):
+        cset = (x for x in laddr if x[1] == IPV6_ADDR_UNIQUE_LOCAL)
     elif in6_ismaddr(addr):
         if in6_ismnladdr(addr):
             cset = [('::1', 16, conf.loopback_name)]
@@ -164,29 +167,27 @@ def get_source_addr_from_candidate_set(dst, candidate_set):
     return candidate_set[0]
 
 
-# Think before modify it : for instance, FE::1 does exist and is unicast
-# there are many others like that.
-# TODO : integrate Unique Local Addresses
 def in6_getAddrType(addr):
     naddr = inet_pton(socket.AF_INET6, addr)
     paddr = inet_ntop(socket.AF_INET6, naddr)  # normalize
     addrType = 0
     # _Assignable_ Global Unicast Address space
     # is defined in RFC 3513 as those in 2000::/3
-    if ((orb(naddr[0]) & 0xE0) == 0x20):
+    if in6_isgladdr(addr):
         addrType = (IPV6_ADDR_UNICAST | IPV6_ADDR_GLOBAL)
-        if naddr[:2] == b' \x02':  # Mark 6to4 @
+        if in6_isaddr6to4(addr):  # Mark 6to4
             addrType |= IPV6_ADDR_6TO4
-    elif orb(naddr[0]) == 0xff:  # multicast
-        addrScope = paddr[3]
-        if addrScope == '2':
+    elif in6_ismaddr(addr):  # multicast
+        if in6_ismlladdr(addr):
             addrType = (IPV6_ADDR_LINKLOCAL | IPV6_ADDR_MULTICAST)
-        elif addrScope == 'e':
+        elif in6_ismgladdr(addr):
             addrType = (IPV6_ADDR_GLOBAL | IPV6_ADDR_MULTICAST)
         else:
             addrType = (IPV6_ADDR_GLOBAL | IPV6_ADDR_MULTICAST)
-    elif ((orb(naddr[0]) == 0xfe) and ((int(paddr[2], 16) & 0xC) == 0x8)):
+    elif in6_islladdr(addr):
         addrType = (IPV6_ADDR_UNICAST | IPV6_ADDR_LINKLOCAL)
+    elif in6_isuladdr(addr):
+        addrType = (IPV6_ADDR_UNICAST | IPV6_ADDR_UNIQUE_LOCAL)
     elif paddr == "::1":
         addrType = IPV6_ADDR_LOOPBACK
     elif paddr == "::":
@@ -704,11 +705,6 @@ def in6_isuladdr(str):
     """
     return in6_isincluded(str, 'fc00::', 7)
 
-# TODO : we should see the status of Unique Local addresses against
-#        global address space.
-#        Up-to-date information is available through RFC 3587.
-#        We should review function behavior based on its content.
-
 
 def in6_isgladdr(str):
     """
@@ -783,12 +779,14 @@ def in6_getscope(addr):
     """
     Returns the scope of the address.
     """
-    if in6_isgladdr(addr) or in6_isuladdr(addr):
+    if in6_isgladdr(addr):
         scope = IPV6_ADDR_GLOBAL
     elif in6_islladdr(addr):
         scope = IPV6_ADDR_LINKLOCAL
     elif in6_issladdr(addr):
         scope = IPV6_ADDR_SITELOCAL
+    elif in6_isuladdr(addr):
+        scope = IPV6_ADDR_UNIQUE_LOCAL
     elif in6_ismaddr(addr):
         if in6_ismgladdr(addr):
             scope = IPV6_ADDR_GLOBAL
