@@ -304,8 +304,7 @@ ie = gtp.IE_list[5]
 ie.ietype == 135 and ie.allocation_retention_prioiry == 2 and ie.delay_class == 2 and ie.traffic_class == 3
 
 = IE_QoS(), basic instantiation
-ie = IE_QoS(
-    allocation_retention_prioiry=2, delay_class=2, traffic_class=3)
+ie = IE_QoS(allocation_retention_prioiry=2, delay_class=2, traffic_class=3, length=50)
 ie.ietype == 135 and ie.allocation_retention_prioiry == 2 and ie.delay_class == 2 and ie.traffic_class == 3
 
 = IE_CommonFlags(), dissect
@@ -385,7 +384,9 @@ ie.ietype == 191 and ie.PCI == 1
 
 = IE_CharginGatewayAddress(), basic instantiation
 ie = IE_CharginGatewayAddress()
-ie.ietype == 251 and ie.ipv4_address == '127.0.0.1' and ie.ipv6_address == '::1'
+assert ie.ietype == 251 and ie.ipv4_address == '127.0.0.1'
+ie = IE_CharginGatewayAddress(length=16)
+assert ie.ietype == 251 and ie.ipv6_address == '::1'
 
 = IE_PrivateExtension(), basic instantiation
 ie = IE_PrivateExtension(extention_value='hello')

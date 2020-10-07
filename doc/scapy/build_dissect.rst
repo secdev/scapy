@@ -1043,6 +1043,7 @@ Special
             # Wrapper to make field 'fld' only appear if
             # function 'cond' evals to True, e.g. 
             # ConditionalField(XShortField("chksum",None),lambda pkt:pkt.chksumpresent==1)
+            # When hidden, it won't be built nor dissected and the stored value will be 'None'
             
     
     PadField(fld, align, padwith=None)  

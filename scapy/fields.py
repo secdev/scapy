@@ -309,6 +309,11 @@ class ConditionalField(object):
         # type: (Packet) -> bool
         return bool(self.cond(pkt))
 
+    def i2h(self, pkt, val):
+        if not self._evalcond(pkt):
+            return None
+        return self.fld.i2h(pkt, val)
+
     def getfield(self, pkt, s):
         # type: (Packet, bytes) -> Tuple[bytes, Any]
         if self._evalcond(pkt):
