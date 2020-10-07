@@ -62,6 +62,15 @@ class PPPoED(PPPoE):
                    XShortField("sessionid", 0x0),
                    ShortField("len", None)]
 
+    def extract_padding(self, s):
+        if len(s) < 5:
+            return s, None
+        length = struct.unpack("!H", s[4:6])[0]
+        return s[:length], s[length:]
+
+    def mysummary(self):
+        return self.sprintf("%code%")
+
 
 # PPPoE Tag types (RFC2516, RFC4638, RFC5578)
 class PPPoETag(Packet):
@@ -96,6 +105,11 @@ class PPPoETag(Packet):
 class PPPoED_Tags(Packet):
     name = "PPPoE Tag List"
     fields_desc = [PacketListField('tag_list', None, PPPoETag)]
+
+    def mysummary(self):
+        return "PPPoE Tags" + ", ".join(
+            x.sprintf("%tag_type%") for x in self.tag_list
+        ), [PPPoED]
 
 
 _PPP_PROTOCOLS = {
