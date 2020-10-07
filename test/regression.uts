@@ -6398,6 +6398,42 @@ pkts[0].show()
 assert HTTPResponse in pkts[0]
 assert pkts[0].load == b'This is a test file for testing brotli decompression in Wireshark\n'
 
+= HTTP decompression (zstd)
+~ zstd
+
+conf.debug_dissector = True
+load_layer("http")
+
+import os
+import zstandard
+
+# sample server: $ socat -v TCP-LISTEN:8080,fork,reuseaddr SYSTEM:'(echo -ne "HTTP/1.1 200 OK\r\nContent-Encoding: zstd\r\n\r\n") > tmp && dd bs=1G count=1 status=none | zstd --stdout >> tmp && cat tmp'
+# sample client: $ curl -v localhost:8080/tmp_echo_zstd_request_for_testing -o a.html
+tmp = "/test/pcaps/http_compressed-zstd.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+# First without auto decompression
+
+conf.contribs["http"]["auto_compression"] = False
+pkts = sniff(offline=filename)
+
+data = b'\x28\xb5\x2f\xfd\x04\x58\x45\x03\x00\xf2\x06\x19\x1c\x70\x89\x1b\xf6\x4f\x21\x1a\xbb\x28\xda\x9a\x1c\x34\xb8\x68\x1f\xd2\x82\xd7\x01\x8d\x36\xe5\x57\x1d\x0f\x38\x10\xa9\xa9\x86\x32\x96\x3d\xd4\xce\x2d\xa9\x2b\x01\x92\x94\xa8\x17\x23\xb7\xec\x9f\x6e\x96\x23\xb6\x13\x52\x97\xb2\x14\xf6\x0e\x9d\x57\x70\xf0\x2d\x7b\x87\x4c\x2a\x92\x10\x35\x68\x8d\xd9\xe6\x41\xbc\xf7\x73\x84\x07\x7e\xef\x48\xd1\x91\x0d\xef\x0b\x86\x8e\x6b\x86\x12\xaf\xb6\x05\x04\x01\x00\x29\x52\xd2\xfa'
+
+pkts[0].show()
+assert HTTPResponse in pkts[0]
+assert pkts[0].Content_Encoding == b'zstd'
+assert pkts[0].load == data
+
+# Now with auto decompression
+
+conf.contribs["http"]["auto_compression"] = True
+pkts = sniff(offline=filename)
+
+pkts[0].show()
+assert HTTPResponse in pkts[0]
+assert b'tmp_echo_zstd_request_for_testing' in pkts[0].load
+
 = HTTP PSH bug fix
 
 tmp = "/test/pcaps/http_tcp_psh.pcap.gz"
