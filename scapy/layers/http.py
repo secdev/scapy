@@ -41,6 +41,7 @@ You can turn auto-decompression/auto-compression off with:
 # Original Authors : Steeve Barbeau, Luca Invernizzi
 # Originally published under a GPLv2 license
 
+import io
 import os
 import re
 import struct
@@ -64,6 +65,12 @@ try:
     _is_brotli_available = True
 except ImportError:
     _is_brotli_available = False
+
+try:
+    import zstandard
+    _is_zstd_available = True
+except ImportError:
+    _is_zstd_available = False
 
 if "http" not in conf.contribs:
     conf.contribs["http"] = {}
@@ -318,6 +325,19 @@ class _HTTPContent(Packet):
                         "Can't import brotli. brotli decompression "
                         "will be ignored !"
                     )
+            elif "zstd" in encodings:
+                if _is_zstd_available:
+                    # Using its streaming API since its simple API could handle
+                    # only cases where there is content size data embedded in
+                    # the frame
+                    bio = io.BytesIO(s)
+                    reader = zstandard.ZstdDecompressor().stream_reader(bio)
+                    s = reader.read()
+                else:
+                    log_loading.info(
+                        "Can't import zstandard. zstd decompression "
+                        "will be ignored !"
+                    )
         except Exception:
             # Cannot decompress - probably incomplete data
             pass
@@ -342,6 +362,14 @@ class _HTTPContent(Packet):
             else:
                 log_loading.info(
                     "Can't import brotli. brotli compression will "
+                    "be ignored !"
+                )
+        elif "zstd" in encodings:
+            if _is_zstd_available:
+                pay = zstandard.ZstdCompressor().compress(pay)
+            else:
+                log_loading.info(
+                    "Can't import zstandard. zstd compression will "
                     "be ignored !"
                 )
         return pkt + pay
