@@ -21,6 +21,7 @@ import random
 import socket
 import subprocess
 import types
+import warnings
 
 from scapy.compat import FAKE_TYPING
 from scapy.consts import WINDOWS
@@ -214,7 +215,20 @@ class Packet_metaclass(type):
 
         if resolved_fld:  # perform default value replacements
             final_fld = []
+            names = []
             for f in resolved_fld:
+                if f.name in names:
+                    war_msg = (
+                        "Packet '%s' has a duplicated '%s' field ! "
+                        "If you are using several ConditionalFields, have "
+                        "a look at MultipleTypeField instead ! This will "
+                        "become a SyntaxError in a future version of "
+                        "Scapy !" % (
+                            name, f.name
+                        )
+                    )
+                    warnings.warn(war_msg, SyntaxWarning)
+                names.append(f.name)
                 if f.name in dct:
                     f = f.copy()
                     f.default = dct[f.name]
