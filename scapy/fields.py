@@ -309,7 +309,23 @@ class ConditionalField(object):
         # type: (Packet) -> bool
         return bool(self.cond(pkt))
 
+    def any2i(self, pkt, x):
+        # type: (BasePacket, Any) -> Any
+        # BACKWARD COMPATIBILITY
+        # Note: we shouldn't need this function. (it's not correct)
+        # However, having i2h implemented (#2364), it changes the default
+        # behavior and broke all packets that wrongly use two ConditionalField
+        # with the same name. Those packets are the problem: they are wrongly
+        # built (they should either be re-using the same conditional field, or
+        # using a MultipleTypeField).
+        # But I don't want to dive into fixing all of them just yet,
+        # so for now, let's keep this this way, even though it's not correct.
+        if type(self.fld) == Field:
+            return x
+        return self.fld.any2i(pkt, x)
+
     def i2h(self, pkt, val):
+        # type: (BasePacket, Any) -> Any
         if not self._evalcond(pkt):
             return None
         return self.fld.i2h(pkt, val)
