@@ -19,9 +19,24 @@ from scapy.config import conf
 
 from scapy.data import DLT_IEEE802_15_4_WITHFCS, DLT_IEEE802_15_4_NOFCS
 from scapy.packet import Packet, bind_layers
-from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    ConditionalField, Field, LELongField, PacketField, XByteField, \
-    XLEIntField, XLEShortField, FCSField, Emph, FieldListField
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    Emph,
+    FCSField,
+    Field,
+    FieldListField,
+    LELongField,
+    MultipleTypeField,
+    PacketField,
+    StrFixedLenField,
+    XByteField,
+    XLEIntField,
+    XLEShortField,
+)
 
 # Fields #
 
@@ -193,12 +208,14 @@ class Dot15d4AuxSecurityHeader(Packet):
         XLEIntField("sec_framecounter", 0x00000000),  # 4 octets
         # Key Identifier (variable length): identifies the key that is used for cryptographic protection  # noqa: E501
         # Key Source : length of sec_keyid_keysource varies btwn 0, 4, and 8 bytes depending on sec_sc_keyidmode  # noqa: E501
-        # 4 octets when sec_sc_keyidmode == 2
-        ConditionalField(XLEIntField("sec_keyid_keysource", 0x00000000),
-                         lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 2),
-        # 8 octets when sec_sc_keyidmode == 3
-        ConditionalField(LELongField("sec_keyid_keysource", 0x0000000000000000),  # noqa: E501
-                         lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 3),
+        MultipleTypeField([
+            # 4 octets when sec_sc_keyidmode == 2
+            (XLEIntField("sec_keyid_keysource", 0x00000000),
+                lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 2),
+            # 8 octets when sec_sc_keyidmode == 3
+            (LELongField("sec_keyid_keysource", 0x0000000000000000),
+                lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 3),
+        ], StrFixedLenField("sec_keyid_keysource", "", length=0)),
         # Key Index (1 octet): allows unique identification of different keys with the same originator  # noqa: E501
         ConditionalField(XByteField("sec_keyid_keyindex", 0xFF),
                          lambda pkt: pkt.getfieldval("sec_sc_keyidmode") != 0),

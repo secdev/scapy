@@ -260,10 +260,10 @@ class NBTDatagram(Packet):
                    ShortField("Offset", 0),
                    NetBIOSNameField("SourceName", "windows"),
                    ShortEnumField("SUFFIX1", 0x4141, _NETBIOS_SUFFIXES),
-                   ByteField("NULL", 0),
+                   ByteField("NULL1", 0),
                    NetBIOSNameField("DestinationName", "windows"),
                    ShortEnumField("SUFFIX2", 0x4141, _NETBIOS_SUFFIXES),
-                   ByteField("NULL", 0)]
+                   ByteField("NULL2", 0)]
 
 
 class NBTSession(Packet):

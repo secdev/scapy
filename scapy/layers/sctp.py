@@ -15,10 +15,26 @@ from scapy.compat import orb, raw
 from scapy.volatile import RandBin
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers
-from scapy.fields import BitField, ByteEnumField, ConditionalField, Field, \
-    FieldLenField, FieldListField, IPField, IntEnumField, IntField, \
-    PacketListField, PadField, ShortEnumField, ShortField, StrLenField, \
-    XByteField, XIntField, XShortField
+from scapy.fields import (
+    BitField,
+    ByteEnumField,
+    Field,
+    FieldLenField,
+    FieldListField,
+    IPField,
+    IntEnumField,
+    IntField,
+    MultipleTypeField,
+    PacketListField,
+    PadField,
+    ShortEnumField,
+    ShortField,
+    StrFixedLenField,
+    StrLenField,
+    XByteField,
+    XIntField,
+    XShortField,
+)
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet6 import IPv6
@@ -396,12 +412,16 @@ class SCTPChunkParamAddIPAddr(_SCTPChunkParam, Packet):
                    ShortEnumField("addr_type", 5, sctpchunkparamtypes),
                    FieldLenField("addr_len", None, length_of="addr",
                                  adjust=lambda pkt, x:x + 4),
-                   ConditionalField(
-        IPField("addr", "127.0.0.1"),
-        lambda p: p.addr_type == 5),
-        ConditionalField(
-        IP6Field("addr", "::1"),
-        lambda p: p.addr_type == 6), ]
+                   MultipleTypeField(
+                       [
+                           (IPField("addr", "127.0.0.1"),
+                            lambda p: p.addr_type == 5),
+                           (IP6Field("addr", "::1"),
+                            lambda p: p.addr_type == 6),
+                       ],
+                       StrFixedLenField("addr", "",
+                                        length_from=lambda pkt: pkt.addr_len))
+                   ]
 
 
 class SCTPChunkParamDelIPAddr(SCTPChunkParamAddIPAddr):
