@@ -28,11 +28,31 @@ from scapy.compat import raw, chb, orb, bytes_encode
 from scapy.config import conf
 from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, \
     MATPLOTLIB_DEFAULT_PLOT_KARGS
-from scapy.fields import ConditionalField, IPField, BitField, BitEnumField, \
-    FieldLenField, StrLenField, ByteField, ShortField, ByteEnumField, \
-    DestField, FieldListField, FlagsField, IntField, MultiEnumField, \
-    PacketListField, ShortEnumField, SourceIPField, StrField, \
-    StrFixedLenField, XByteField, XShortField, Emph
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    DestField,
+    Emph,
+    FieldLenField,
+    FieldListField,
+    FlagsField,
+    IPField,
+    IntField,
+    MultiEnumField,
+    MultipleTypeField,
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    SourceIPField,
+    StrField,
+    StrFixedLenField,
+    StrLenField,
+    XByteField,
+    XShortField,
+)
 from scapy.packet import Packet, bind_layers, bind_bottom_up, NoPayload
 from scapy.volatile import RandShort, RandInt, RandBin, RandNum, VolatileValue
 from scapy.sendrecv import sr, sr1
@@ -852,8 +872,15 @@ class ICMP(Packet):
                    ConditionalField(ByteField("length", 0), lambda pkt:pkt.type in [3, 11, 12]),  # noqa: E501
                    ConditionalField(IPField("addr_mask", "0.0.0.0"), lambda pkt:pkt.type in [17, 18]),  # noqa: E501
                    ConditionalField(ShortField("nexthopmtu", 0), lambda pkt:pkt.type == 3),  # noqa: E501
-                   ConditionalField(ShortField("unused", 0), lambda pkt:pkt.type in [11, 12]),  # noqa: E501
-                   ConditionalField(IntField("unused", 0), lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12, 13, 14, 15, 16, 17, 18])  # noqa: E501
+                   MultipleTypeField(
+                       [
+                           (ShortField("unused", 0),
+                               lambda pkt:pkt.type in [11, 12]),
+                           (IntField("unused", 0),
+                               lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12,
+                                                           13, 14, 15, 16, 17,
+                                                           18])
+                       ], StrFixedLenField("unused", "", length=0)),
                    ]
 
     def post_build(self, p, pay):

@@ -11122,7 +11122,7 @@ assert f.Green_Field == 0
 assert f.SM_Power_Save == 3
 assert f.Supported_Channel_Width == 0
 assert f.LDPC_Coding_Capability == 1
-assert f.res == 0
+assert f.res1 == 0
 assert f.Min_MPDCU_Start_Spacing == 5
 assert f.Max_A_MPDU_Length_Exponent == 3
 assert f.TX_Unequal_Modulation == 0
@@ -11175,7 +11175,7 @@ assert f.Green_Field == 0
 assert f.SM_Power_Save == 3
 assert f.Supported_Channel_Width == 0
 assert f.LDPC_Coding_Capability == 0
-assert f.res == 5
+assert f.res1 == 5
 assert f.Min_MPDCU_Start_Spacing == 7
 assert f.Max_A_MPDU_Length_Exponent == 3
 assert f.TX_Unequal_Modulation == 0
