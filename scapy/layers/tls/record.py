@@ -76,7 +76,7 @@ class _TLSMsgListField(PacketListField):
     def __init__(self, name, default, length_from=None):
         if not length_from:
             length_from = self._get_length
-        super(_TLSMsgListField, self).__init__(name, default, cls=None,
+        super(_TLSMsgListField, self).__init__(name, default, None,
                                                length_from=length_from)
 
     def _get_length(self, pkt):

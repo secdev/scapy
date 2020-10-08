@@ -6,5 +6,10 @@
 
 scapy/__init__.py
 scapy/main.py
-scapy/contrib/http2.py
+# Need fixes that mypy is in strict mode :/
+#scapy/contrib/http2.py
+scapy/compat.py
+scapy/config.py
+scapy/fields.py
+scapy/packet.py
 scapy/plist.py

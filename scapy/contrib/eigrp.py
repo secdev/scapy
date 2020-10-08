@@ -47,11 +47,11 @@ import struct
 from scapy.packet import Packet
 from scapy.fields import StrField, IPField, XShortField, FieldLenField, \
     StrLenField, IntField, ByteEnumField, ByteField, ConditionalField, \
-    FlagsField, IP6Field, PacketField, PacketListField, ShortEnumField, \
+    FlagsField, IP6Field, PacketListField, ShortEnumField, \
     ShortField, StrFixedLenField, ThreeBytesField
 from scapy.layers.inet import IP, checksum, bind_layers
 from scapy.layers.inet6 import IPv6
-from scapy.compat import chb, raw
+from scapy.compat import chb
 from scapy.config import conf
 from scapy.utils import inet_aton, inet_ntoa
 from scapy.pton_ntop import inet_ntop, inet_pton
@@ -449,28 +449,6 @@ _eigrp_tlv_cls = {
 }
 
 
-class RepeatedTlvListField(PacketListField):
-    def __init__(self, name, default, cls):
-        PacketField.__init__(self, name, default, cls)
-
-    def getfield(self, pkt, s):
-        lst = []
-        remain = s
-        while len(remain) > 0:
-            p = self.m2i(pkt, remain)
-            if conf.padding_layer in p:
-                pad = p[conf.padding_layer]
-                remain = pad.load
-                del(pad.underlayer.payload)
-            else:
-                remain = b""
-            lst.append(p)
-        return remain, lst
-
-    def addfield(self, pkt, s, val):
-        return s + b"".join(raw(v) for v in val)
-
-
 def _EIGRPGuessPayloadClass(p, **kargs):
     cls = conf.raw_layer
     if len(p) >= 2:
@@ -504,7 +482,7 @@ class EIGRP(Packet):
                    IntField("seq", 0),
                    IntField("ack", 0),
                    IntField("asn", 100),
-                   RepeatedTlvListField("tlvlist", [], _EIGRPGuessPayloadClass)
+                   PacketListField("tlvlist", [], _EIGRPGuessPayloadClass)
                    ]
 
     def post_build(self, p, pay):

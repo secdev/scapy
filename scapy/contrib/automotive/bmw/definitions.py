@@ -278,7 +278,7 @@ class SVK(Packet):
         ByteField("pad1", 0),
         LEIntField("prog_milage", 0),
         StrFixedLenField("pad2", 0, length=5),
-        PacketListField("entries", [], cls=SVK_Entry,
+        PacketListField("entries", [], SVK_Entry,
                         count_from=lambda x: x.entries_count)]
 
 

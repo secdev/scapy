@@ -22,7 +22,7 @@ from scapy.data import EPOCH, ETHER_ANY
 from scapy.compat import raw, orb
 from scapy.error import warning
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
-    FlagsField, IntEnumField, IntField, MACField, PacketField, \
+    FlagsField, IntEnumField, IntField, MACField, \
     PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
     StrLenField, UTCTimeField, X3BytesField, XIntField, XShortEnumField, \
     PacketLenField, UUIDField, FieldListField
@@ -343,34 +343,20 @@ class DHCP6OptUnknown(_DHCP6OptGuessPayload):  # A generic DHCPv6 Option
                                length_from=lambda pkt: pkt.optlen)]
 
 
-class _DUIDField(PacketField):
-    __slots__ = ["length_from"]
-
-    def __init__(self, name, default, length_from=None):
-        StrField.__init__(self, name, default)
-        self.length_from = length_from
-
-    def i2m(self, pkt, i):
-        return raw(i)
-
-    def m2i(self, pkt, x):
-        cls = conf.raw_layer
-        if len(x) > 4:
-            o = struct.unpack("!H", x[:2])[0]
-            cls = get_cls(duid_cls.get(o, conf.raw_layer), conf.raw_layer)
-        return cls(x)
-
-    def getfield(self, pkt, s):
-        tmp_len = self.length_from(pkt)
-        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
+def _duid_dispatcher(x):
+    cls = conf.raw_layer
+    if len(x) > 4:
+        o = struct.unpack("!H", x[:2])[0]
+        cls = get_cls(duid_cls.get(o, conf.raw_layer), conf.raw_layer)
+    return cls(x)
 
 
 class DHCP6OptClientId(_DHCP6OptGuessPayload):     # RFC 8415 sect 21.2
     name = "DHCP6 Client Identifier Option"
     fields_desc = [ShortEnumField("optcode", 1, dhcp6opts),
                    FieldLenField("optlen", None, length_of="duid", fmt="!H"),
-                   _DUIDField("duid", "",
-                              length_from=lambda pkt: pkt.optlen)]
+                   PacketLenField("duid", "", _duid_dispatcher,
+                                  length_from=lambda pkt: pkt.optlen)]
 
 
 class DHCP6OptServerId(DHCP6OptClientId):     # RFC 8415 sect 21.3

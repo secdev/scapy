@@ -967,7 +967,7 @@ class LoWPAN_NHC(Packet):
     name = "LOWPAN_NHC"
     fields_desc = [
         PacketListField(
-            "exts", [], cls=LoWPAN_NHC_Hdr,
+            "exts", [], pkt_cls=LoWPAN_NHC_Hdr,
             next_cls_cb=lambda *s: LoWPAN_NHC_Hdr.get_next_cls(s[3])
         )
     ]
