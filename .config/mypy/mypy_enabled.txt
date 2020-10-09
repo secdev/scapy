@@ -13,3 +13,4 @@ scapy/config.py
 scapy/fields.py
 scapy/packet.py
 scapy/plist.py
+scapy/contrib/roce.py

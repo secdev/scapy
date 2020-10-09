@@ -19,6 +19,7 @@ from scapy.compat import raw
 from scapy.error import warning
 from zlib import crc32
 import struct
+from scapy.compat import Tuple
 
 _transports = {
     'RC': 0x00,
@@ -56,6 +57,7 @@ CNP_OPCODE = 0x81
 
 
 def opcode(transport, op):
+    # type: (str, str) -> Tuple[int, str]
     return (_transports[transport] + _ops[op], '{}_{}'.format(transport, op))
 
 
@@ -145,9 +147,11 @@ class BTH(Packet):
 
     @staticmethod
     def pack_icrc(icrc):
+        # type: (int) -> bytes
         return struct.pack("!I", icrc & 0xffffffff)[::-1]
 
     def compute_icrc(self, p):
+        # type: (bytes) -> bytes
         udp = self.underlayer
         if udp is None or not isinstance(udp, UDP):
             warning("Expecting UDP underlayer to compute checksum. Got %s.",
@@ -182,6 +186,7 @@ class BTH(Packet):
     # pseudo-header. Add the ICRC header if it is missing and calculate its
     # value.
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         if self.icrc is None:
             p = p[:-4] + self.compute_icrc(p)
@@ -197,6 +202,7 @@ class CNPPadding(Packet):
 
 
 def cnp(dqpn):
+    # type: (int) -> BTH
     return BTH(opcode=CNP_OPCODE, becn=1, dqpn=dqpn) / CNPPadding()
 
 
