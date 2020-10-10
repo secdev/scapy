@@ -303,7 +303,7 @@ class ConditionalField(_FieldContainer):
 
     def __init__(self,
                  fld,  # type: Field[Any, Any]
-                 cond  # type: Callable[[Optional[Packet]], bool]
+                 cond  # type: Callable[[Packet], bool]
                  ):
         # type: (...) -> None
         self.fld = fld
@@ -632,7 +632,7 @@ class DestField(Field[str, bytes]):
         )
 
 
-class MACField(Field[str, bytes]):
+class MACField(Field[Optional[str], bytes]):
     def __init__(self, name, default):
         # type: (str, Optional[Any]) -> None
         Field.__init__(self, name, default, "6s")
@@ -658,8 +658,10 @@ class MACField(Field[str, bytes]):
         return cast(str, x)
 
     def i2repr(self, pkt, x):
-        # type: (Optional[Packet], str) -> str
+        # type: (Optional[Packet], Optional[str]) -> str
         x = self.i2h(pkt, x)
+        if x is None:
+            return repr(x)
         if self in conf.resolve:
             x = conf.manufdb._resolve_MAC(x)
         return x
@@ -1598,9 +1600,9 @@ class StrFixedLenField(StrField):
     def __init__(
             self,
             name,  # type: str
-            default,  # type: bytes
+            default,  # type: Optional[bytes]
             length=None,  # type: Optional[int]
-            length_from=None,  # type: Optional[Callable[[Optional[Packet]], int]]  # noqa: E501
+            length_from=None,  # type: Optional[Callable[[Packet], int]]  # noqa: E501
     ):
         # type: (...) -> None
         super(StrFixedLenField, self).__init__(name, default)
@@ -1632,7 +1634,7 @@ class StrFixedLenField(StrField):
     def randval(self):
         # type: () -> RandBin
         try:
-            len_pkt = self.length_from(None)
+            len_pkt = self.length_from(None)  # type: ignore
         except Exception:
             len_pkt = RandNum(0, 200)
         return RandBin(len_pkt)
@@ -2223,7 +2225,7 @@ class _EnumField(Field[Union[List[I], I], I]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[I]
-                 enum,  # type: Union[Dict[I, str], List[str], DADict[I, str], Tuple[Callable[[I], str], Callable[[str], I]]]  # noqa: E501
+                 enum,  # type: Union[Dict[I, str], Dict[str, I], List[str], DADict[I, str], Tuple[Callable[[I], str], Callable[[str], I]]]  # noqa: E501
                  fmt="H",  # type: str
                  ):
         # type: (...) -> None
@@ -2264,8 +2266,9 @@ class _EnumField(Field[Union[List[I], I], I]):
                 if any(isinstance(x, str) for x in keys):
                     i2s, s2i = s2i, i2s  # type: ignore
             for k in keys:
-                i2s[k] = enum[k]
-                s2i[enum[k]] = k
+                value = cast(str, enum[k])
+                i2s[k] = value
+                s2i[value] = k
         Field.__init__(self, name, default, fmt)
 
     def any2i_one(self, pkt, x):
@@ -2384,7 +2387,7 @@ class ShortEnumField(EnumField[int]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: int
-                 enum,  # type: Union[Dict[int, str], Tuple[Callable[[int], str], Callable[[str], int]], DADict[int, str]]  # noqa: E501
+                 enum,  # type: Union[Dict[int, str], Dict[str, int], Tuple[Callable[[int], str], Callable[[str], int]], DADict[int, str]]  # noqa: E501
                  ):
         # type: (...) -> None
         EnumField.__init__(self, name, default, enum, "H")
