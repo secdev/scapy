@@ -133,7 +133,6 @@ REQUEST_HEADERS = [
 
 COMMON_UNSTANDARD_REQUEST_HEADERS = [
     "Upgrade-Insecure-Requests",
-    "Upgrade-Insecure-Requests",
     "X-Requested-With",
     "DNT",
     "X-Forwarded-For",
@@ -173,7 +172,6 @@ RESPONSE_HEADERS = [
     "Last-Modified",
     "Link",
     "Location",
-    "Permanent",
     "P3P",
     "Proxy-Authenticate",
     "Public-Key-Pins",
