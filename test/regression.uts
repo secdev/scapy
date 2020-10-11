@@ -2107,18 +2107,21 @@ in6_addrtomac("FE80::" + in6_mactoifaceid("FF:00:00:00:00:00", ulbit=0)) == 'ff:
 
 ########### RFC 3041 related function ###############################
 = Test in6_getRandomizedIfaceId
+
 import socket
 
-res=True
 for a in six.moves.range(10):
-    s1,s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3')
-    inet_pton(socket.AF_INET6, '::'+s1)
-    tmp2 = inet_pton(socket.AF_INET6, '::'+s2)
-    res = res and ((orb(s1[0]) & 0x04) == 0x04)
-    s1,s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3', previous=tmp2)
-    tmp = inet_pton(socket.AF_INET6, '::'+s1)
-    inet_pton(socket.AF_INET6, '::'+s2)
-    res = res and ((orb(s1[0]) & 0x04) == 0x04)
+    s1, s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3')
+    s1, s2
+    tmp = inet_pton(socket.AF_INET6, "::" + s1)[8:]
+    tmp
+    assert (orb(tmp[0]) & 0x04) == 0
+    s1, s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3', previous=s2)
+    s1, s2
+    tmp = inet_pton(socket.AF_INET6, "::" + s1)[8:]
+    assert (orb(tmp[0]) & 0x04) == 0
+
+assert in6_getRandomizedIfaceId('20b:93ff:feeb:2d3', previous='d006:d540:db11:b092') == ('721f:11fa:3743:fc7f', '5946:5272:7fcc:108a')
 
 ########### RFC 1924 related function ###############################
 = Test RFC 1924 function - in6_ctop() basic test
