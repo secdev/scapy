@@ -764,6 +764,8 @@ class Conf(ConfClass):
     route6 = None  # type: 'scapy.route6.Route6'
     manufdb = None  # type: 'scapy.data.ManufDA'
     # 'route6' will be filed by route6.py
+    teredoPrefix = ""  # type: str
+    teredoServerPort = None  # type: int
     auto_fragment = True
     #: raise exception when a packet dissector raises an exception
     debug_dissector = False

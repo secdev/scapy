@@ -668,7 +668,7 @@ class MACField(Field[str, bytes]):
         return RandMAC()
 
 
-class IPField(Field[str, bytes]):
+class IPField(Field[Union[str, Net], bytes]):
     def __init__(self, name, default):
         # type: (str, Optional[str]) -> None
         Field.__init__(self, name, default, "4s")
@@ -687,7 +687,7 @@ class IPField(Field[str, bytes]):
         return x
 
     def i2h(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> str
+        # type: (Optional[Packet], Optional[Union[str, Net]]) -> str
         return cast(str, x)
 
     def resolve(self, x):
@@ -703,7 +703,7 @@ class IPField(Field[str, bytes]):
         return x
 
     def i2m(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> bytes
+        # type: (Optional[Packet], Optional[Union[str, Net]]) -> bytes
         if x is None:
             return b'\x00\x00\x00\x00'
         return inet_aton(plain_str(x))
@@ -717,7 +717,7 @@ class IPField(Field[str, bytes]):
         return self.h2i(pkt, x)
 
     def i2repr(self, pkt, x):
-        # type: (Optional[Packet], str) -> str
+        # type: (Optional[Packet], Union[str, Net]) -> str
         r = self.resolve(self.i2h(pkt, x))
         return r if isinstance(r, str) else repr(r)
 
@@ -752,19 +752,19 @@ class SourceIPField(IPField):
         return conf.route.route(dst)[1]
 
     def i2m(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> bytes
+        # type: (Optional[Packet], Optional[Union[str, Net]]) -> bytes
         if x is None and pkt is not None:
             x = self.__findaddr(pkt)
         return super(SourceIPField, self).i2m(pkt, x)
 
     def i2h(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> str
+        # type: (Optional[Packet], Optional[Union[str, Net]]) -> str
         if x is None and pkt is not None:
             x = self.__findaddr(pkt)
         return super(SourceIPField, self).i2h(pkt, x)
 
 
-class IP6Field(Field[Optional[str], bytes]):
+class IP6Field(Field[Optional[Union[str, Net6]], bytes]):
     def __init__(self, name, default):
         # type: (str, Optional[str]) -> None
         Field.__init__(self, name, default, "16s")
@@ -777,17 +777,17 @@ class IP6Field(Field[Optional[str], bytes]):
             try:
                 x = in6_ptop(x)
             except socket.error:
-                x = Net6(x)
+                return Net6(x)  # type: ignore
         elif isinstance(x, list):
             x = [self.h2i(pkt, n) for n in x]
         return x  # type: ignore
 
     def i2h(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> str
+        # type: (Optional[Packet], Optional[Union[str, Net6]]) -> str
         return cast(str, x)
 
     def i2m(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> bytes
+        # type: (Optional[Packet], Optional[Union[str, Net6]]) -> bytes
         if x is None:
             x = "::"
         return inet_pton(socket.AF_INET6, plain_str(x))
@@ -801,7 +801,7 @@ class IP6Field(Field[Optional[str], bytes]):
         return self.h2i(pkt, x)
 
     def i2repr(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> str
+        # type: (Optional[Packet], Optional[Union[str, Net6]]) -> str
         if x is None:
             return self.i2h(pkt, x)
         elif not isinstance(x, Net6) and not isinstance(x, list):
@@ -828,7 +828,7 @@ class SourceIP6Field(IP6Field):
         self.dstname = dstname
 
     def i2m(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> bytes
+        # type: (Optional[Packet], Optional[Union[str, Net6]]) -> bytes
         if x is None:
             dst = ("::" if self.dstname is None else
                    getattr(pkt, self.dstname) or "::")
@@ -836,7 +836,7 @@ class SourceIP6Field(IP6Field):
         return super(SourceIP6Field, self).i2m(pkt, x)
 
     def i2h(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> str
+        # type: (Optional[Packet], Optional[Union[str, Net6]]) -> str
         if x is None:
             if conf.route6 is None:
                 # unused import, only to initialize conf.route6
@@ -862,13 +862,13 @@ class DestIP6Field(IP6Field, DestField):
         DestField.__init__(self, name, default)
 
     def i2m(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> bytes
+        # type: (Optional[Packet], Optional[Union[str, Net6]]) -> bytes
         if x is None and pkt is not None:
             x = self.dst_from_pkt(pkt)
         return IP6Field.i2m(self, pkt, x)
 
     def i2h(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> str
+        # type: (Optional[Packet], Optional[Union[str, Net6]]) -> str
         if x is None and pkt is not None:
             x = self.dst_from_pkt(pkt)
         return super(DestIP6Field, self).i2h(pkt, x)

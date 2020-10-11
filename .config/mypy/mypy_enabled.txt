@@ -24,6 +24,7 @@ scapy/route.py
 scapy/route6.py
 scapy/sessions.py
 scapy/utils.py
+scapy/utils6.py
 
 # LAYERS
 
