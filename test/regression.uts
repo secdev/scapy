@@ -9627,6 +9627,7 @@ ro = RandOID("1.2.3.0-28", depth=RandNumExpo(0.2), idnum=RandNumExpo(0.02))
 assert(ro.command() == "RandOID(fmt='1.2.3.0-28', depth=RandNumExpo(lambd=0.2), idnum=RandNumExpo(lambd=0.02))")
 
 = RandRegExp
+~ not_pyannotate
 
 random.seed(0x2807)
 rex = RandRegExp("[g-v]* @? [0-9]{3} . (g|v)")

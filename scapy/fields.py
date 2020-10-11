@@ -737,13 +737,13 @@ class SourceIPField(IPField):
                else getattr(pkt, self.dstname) or "0.0.0.0")
         if isinstance(dst, (Gen, list)):
             r = {
-                conf.route.route(str(daddr))  # type: ignore
+                conf.route.route(str(daddr))
                 for daddr in dst
             }  # type:  Set[Tuple[str, str, str]]
             if len(r) > 1:
                 warning("More than one possible route for %r" % (dst,))
             return min(r)[1]
-        return conf.route.route(dst)[1]  # type: ignore
+        return conf.route.route(dst)[1]
 
     def i2m(self, pkt, x):
         # type: (BasePacket, Optional[str]) -> bytes
@@ -837,7 +837,7 @@ class SourceIP6Field(IP6Field):
                 import scapy.route6  # noqa: F401
             dst = ("::" if self.dstname is None else getattr(pkt, self.dstname))  # noqa: E501
             if isinstance(dst, (Gen, list)):
-                r = {conf.route6.route(str(daddr))  # type: ignore
+                r = {conf.route6.route(str(daddr))
                      for daddr in dst}
                 if len(r) > 1:
                     warning("More than one possible route for %r" % (dst,))
