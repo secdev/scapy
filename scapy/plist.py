@@ -745,17 +745,26 @@ class _PacketList(Generic[_Inner]):
 class PacketList(_PacketList[Packet],
                  BasePacketList,
                  _CanvasDumpExtended):
-    def sr(self, multi=0):
-        # type: (int) -> Tuple[SndRcvList, PacketList]
-        """sr([multi=1]) -> (SndRcvList, PacketList)
-        Matches packets in the list and return ( (matched couples), (unmatched packets) )"""  # noqa: E501
+    def sr(self, multi=False, lookahead=None):
+        # type: (bool, Optional[int]) -> Tuple[SndRcvList, PacketList]
+        """
+        Matches packets in the list
+
+        :param multi: True if a packet can have multiple answers
+        :param lookahead: Maximum number of packets between packet and answer.
+                          If 0 or None, full remaining list is
+                          scanned for answers
+        :return: ( (matched couples), (unmatched packets) )
+        """
         remain = self.res[:]
-        sr = []
+        sr = []  # type: List[Tuple[Packet, Packet]]
         i = 0
+        if lookahead is None or lookahead == 0:
+            lookahead = len(remain)
         while i < len(remain):
             s = remain[i]
             j = i
-            while j < len(remain) - 1:
+            while j < min(lookahead + i, len(remain) - 1):
                 j += 1
                 r = remain[j]
                 if r.answers(s):
