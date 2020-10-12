@@ -11,7 +11,7 @@ import struct
 from scapy.fields import ObservableDict, XByteEnumField, ByteEnumField, \
     ConditionalField, XByteField, StrField, XShortEnumField, XShortField, \
     X3BytesField, XIntField, ShortField, PacketField, PacketListField, \
-    FieldListField
+    FieldListField, MultipleTypeField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import warning, log_loading
@@ -420,12 +420,16 @@ bind_layers(GMLAN, GMLAN_RDBPKTI, service=0xAA)
 class GMLAN_RMBA(Packet):
     name = 'ReadMemoryByAddress'
     fields_desc = [
-        ConditionalField(XShortField('memoryAddress', 0),
-                         lambda pkt: GMLAN.determine_len(2)),
-        ConditionalField(X3BytesField('memoryAddress', 0),
-                         lambda pkt: GMLAN.determine_len(3)),
-        ConditionalField(XIntField('memoryAddress', 0),
-                         lambda pkt: GMLAN.determine_len(4)),
+        MultipleTypeField(
+            [
+                (XShortField('memoryAddress', 0),
+                 lambda pkt: GMLAN.determine_len(2)),
+                (X3BytesField('memoryAddress', 0),
+                 lambda pkt: GMLAN.determine_len(3)),
+                (XIntField('memoryAddress', 0),
+                 lambda pkt: GMLAN.determine_len(4))
+            ],
+            XIntField('memoryAddress', 0)),
         XShortField('memorySize', 0),
     ]
 
@@ -441,12 +445,16 @@ bind_layers(GMLAN, GMLAN_RMBA, service=0x23)
 class GMLAN_RMBAPR(Packet):
     name = 'ReadMemoryByAddressPositiveResponse'
     fields_desc = [
-        ConditionalField(XShortField('memoryAddress', 0),
-                         lambda pkt: GMLAN.determine_len(2)),
-        ConditionalField(X3BytesField('memoryAddress', 0),
-                         lambda pkt: GMLAN.determine_len(3)),
-        ConditionalField(XIntField('memoryAddress', 0),
-                         lambda pkt: GMLAN.determine_len(4)),
+        MultipleTypeField(
+            [
+                (XShortField('memoryAddress', 0),
+                 lambda pkt: GMLAN.determine_len(2)),
+                (X3BytesField('memoryAddress', 0),
+                 lambda pkt: GMLAN.determine_len(3)),
+                (XIntField('memoryAddress', 0),
+                 lambda pkt: GMLAN.determine_len(4))
+            ],
+            XIntField('memoryAddress', 0)),
         StrField('dataRecord', None, fmt="B")
     ]
 
@@ -571,12 +579,16 @@ class GMLAN_DPBA(Packet):
     name = 'DefinePIDByAddress'
     fields_desc = [
         XShortField('parameterIdentifier', 0),
-        ConditionalField(XShortField('memoryAddress', 0),
-                         lambda pkt: GMLAN.determine_len(2)),
-        ConditionalField(X3BytesField('memoryAddress', 0),
-                         lambda pkt: GMLAN.determine_len(3)),
-        ConditionalField(XIntField('memoryAddress', 0),
-                         lambda pkt: GMLAN.determine_len(4)),
+        MultipleTypeField(
+            [
+                (XShortField('memoryAddress', 0),
+                 lambda pkt: GMLAN.determine_len(2)),
+                (X3BytesField('memoryAddress', 0),
+                 lambda pkt: GMLAN.determine_len(3)),
+                (XIntField('memoryAddress', 0),
+                 lambda pkt: GMLAN.determine_len(4))
+            ],
+            XIntField('memoryAddress', 0)),
         XByteField('memorySize', 0),
     ]
 
@@ -612,12 +624,16 @@ class GMLAN_RD(Packet):
     name = 'RequestDownload'
     fields_desc = [
         XByteField('dataFormatIdentifier', 0),
-        ConditionalField(XShortField('memorySize', 0),
-                         lambda pkt: GMLAN.determine_len(2)),
-        ConditionalField(X3BytesField('memorySize', 0),
-                         lambda pkt: GMLAN.determine_len(3)),
-        ConditionalField(XIntField('memorySize', 0),
-                         lambda pkt: GMLAN.determine_len(4)),
+        MultipleTypeField(
+            [
+                (XShortField('memorySize', 0),
+                 lambda pkt: GMLAN.determine_len(2)),
+                (X3BytesField('memorySize', 0),
+                 lambda pkt: GMLAN.determine_len(3)),
+                (XIntField('memorySize', 0),
+                 lambda pkt: GMLAN.determine_len(4))
+            ],
+            XIntField('memorySize', 0))
     ]
 
     @staticmethod
@@ -638,12 +654,16 @@ class GMLAN_TD(Packet):
     name = 'TransferData'
     fields_desc = [
         ByteEnumField('subfunction', 0, subfunctions),
-        ConditionalField(XShortField('startingAddress', 0),
-                         lambda pkt: GMLAN.determine_len(2)),
-        ConditionalField(X3BytesField('startingAddress', 0),
-                         lambda pkt: GMLAN.determine_len(3)),
-        ConditionalField(XIntField('startingAddress', 0),
-                         lambda pkt: GMLAN.determine_len(4)),
+        MultipleTypeField(
+            [
+                (XShortField('startingAddress', 0),
+                 lambda pkt: GMLAN.determine_len(2)),
+                (X3BytesField('startingAddress', 0),
+                 lambda pkt: GMLAN.determine_len(3)),
+                (XIntField('startingAddress', 0),
+                 lambda pkt: GMLAN.determine_len(4))
+            ],
+            XIntField('startingAddress', 0)),
         StrField("dataRecord", None)
     ]
 
