@@ -11891,6 +11891,62 @@ p[IP]
 ############
 + PacketList methods
 
+= sr()
+
+class Req(Packet):
+    fields_desc = [
+        ByteField("raw", 0)
+    ]
+    def answers(self, other):
+        return False
+
+class Res(Packet):
+    fields_desc = [
+        ByteField("raw", 0)
+    ]
+    def answers(self, other):
+        return other.__class__ == Req and other.raw == self.raw
+
+pl = PacketList([Req(b"1"), Res(b"1"), Req(b"2"), Req(b"3"), Req(b"4"), Res(b"3"), Res(b"1"), Res(b"1"), Res(b"4")])
+
+srl, rl = pl.sr()
+assert len(srl) == 3
+assert len(rl) == 3
+
+srl, rl = pl.sr(lookahead=1)
+assert len(srl) == 1
+assert len(rl) == 7
+
+srl, rl = pl.sr(lookahead=2)
+assert len(srl) == 2
+assert len(rl) == 5
+
+srl, rl = pl.sr(lookahead=3)
+assert len(srl) == 3
+assert len(rl) == 3
+
+pl = PacketList([Req(b"\x05"), Res(b"1"), Res(b"2"), Res(b"3"), Res(b"4"), Res(b"3"), Res(b"1"), Res(b"1"), Res(b"\x05")])
+
+srl, rl = pl.sr(lookahead=3)
+assert len(srl) == 0
+assert len(rl) == 9
+
+srl, rl = pl.sr(lookahead=7)
+assert len(srl) == 0
+assert len(rl) == 9
+
+srl, rl = pl.sr(lookahead=8)
+assert len(srl) == 1
+assert len(rl) == 7
+
+srl, rl = pl.sr(lookahead=0)
+assert len(srl) == 1
+assert len(rl) == 7
+
+srl, rl = pl.sr(lookahead=None)
+assert len(srl) == 1
+assert len(rl) == 7
+
 = plot()
 
 import mock
