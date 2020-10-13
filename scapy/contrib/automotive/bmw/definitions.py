@@ -9,7 +9,8 @@
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteField, ShortField, ByteEnumField, X3BytesField, \
-    StrField, StrFixedLenField, LEIntField, LEThreeBytesField, PacketListField
+    StrField, StrFixedLenField, LEIntField, LEThreeBytesField, \
+    PacketListField, IntField, IPField, ThreeBytesField, ShortEnumField
 from scapy.contrib.automotive.uds import UDS, UDS_RDBI, UDS_DSC, UDS_IOCBI, \
     UDS_RC, UDS_RD, UDS_RSDBI, UDS_RDBIPR
 
@@ -282,6 +283,95 @@ class SVK(Packet):
                         count_from=lambda x: x.entries_count)]
 
 
+class DIAG_SESSION_RESP(Packet):
+    fields_desc = [
+        ByteField('DIAG_SESSION_VALUE', 0),
+        StrField('DIAG_SESSION_TEXT', '')
+    ]
+
+
+class IP_CONFIG_RESP(Packet):
+    fields_desc = [
+        ByteField('ADDRESS_FORMAT_ID', 0),
+        IPField('IP', ''),
+        IPField('SUBNETMASK', ''),
+        IPField('DEFAULT_GATEWAY', '')
+    ]
+
+
+bind_layers(UDS_RDBIPR, IP_CONFIG_RESP, dataIdentifier=0x172a)
+bind_layers(UDS_RDBIPR, DIAG_SESSION_RESP, dataIdentifier=0xf186)
+
+
+class DEV_JOB(Packet):
+    identifiers = {
+        0x51F1: "ControlReciprocalMonitor",
+        0xCADD: "EnableDebugCan",
+        0xDEAD: "LockJtag1",
+        0xDEAE: "LockJtag2",
+        0xDEAF: "UnlockJtag",
+        0xF510: "ControlFuSiIO",
+        0xFF00: "ReadTransportMessageStatus",
+        0xFF10: "ControlEthernetActivation",
+        0xFF51: "ControlPwfMaster",
+        0xFF66: "ControlWebsite",
+        0xFF77: "ControlIdleMessage",
+        0xFFB0: "ReadManufacturerData",
+        0xFFB1: "ReadBuildNumber",
+        0xFFD0: "ReadFzmSentryStates",
+        0xFFD1: "ReadFzmSlaveStates",
+        0xFFD2: "ReadFzmMasterState",
+        0xFFD3: "ControlLifecycle",
+        0xFFD5: "IsCertificateValid",
+        0xFFFA: "SetDiagRouting",
+        0xFFFF: "ReadMemory"}
+    fields_desc = [
+        ShortEnumField('identifier', 0xffff, identifiers)
+    ]
+
+
+class DEV_JOB_PR(Packet):
+    fields_desc = [
+        ShortEnumField('identifier', 0xffff, DEV_JOB.identifiers)
+    ]
+
+    def answers(self, other):
+        return other.__class__ == DEV_JOB \
+            and self.identifier == other.identifier
+
+
+UDS.services[0xBF] = "DevelopmentJob"
+UDS.services[0xFF] = "DevelopmentJobPositiveResponse"
+bind_layers(UDS, DEV_JOB, service=0xBF)
+bind_layers(UDS, DEV_JOB_PR, service=0xFF)
+
+
+class READ_MEM(Packet):
+    fields_desc = [
+        IntField('read_addr', 0),
+        IntField('read_length', 0)
+    ]
+
+
+class READ_MEM_PR(Packet):
+    fields_desc = [
+        StrField('data', ''),
+    ]
+
+
+class WEBSERVER(Packet):
+    fields_desc = [
+        ByteField('enable', 1),
+        ThreeBytesField('password', b'123')
+    ]
+
+
+bind_layers(DEV_JOB, WEBSERVER, identifier=0xff66)
+bind_layers(DEV_JOB_PR, WEBSERVER, identifier=0xff66)
+bind_layers(DEV_JOB, READ_MEM, identifier=0xffff)
+bind_layers(DEV_JOB_PR, READ_MEM_PR, identifier=0xffff)
+
+
 bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf101)
 bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf102)
 bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf103)
@@ -351,7 +441,7 @@ bind_layers(UDS_RDBIPR, SVK, dataIdentifier=0xf140)
 UDS_RDBI.dataIdentifiers[0x0014] = "RDBCI_IS_LESEN_DETAIL_REQ"
 UDS_RDBI.dataIdentifiers[0x0015] = "RDBCI_HS_LESEN_DETAIL_REQ"
 UDS_RDBI.dataIdentifiers[0x0e80] = "AirbagLock"
-UDS_RDBI.dataIdentifiers[0x1000] = "testStamp"
+UDS_RDBI.dataIdentifiers[0x1000] = "TestStamp"
 UDS_RDBI.dataIdentifiers[0x1001] = "CBSdata"
 UDS_RDBI.dataIdentifiers[0x1002] = "smallUserInformationField"
 UDS_RDBI.dataIdentifiers[0x1003] = "smallUserInformationField"
@@ -361,8 +451,8 @@ UDS_RDBI.dataIdentifiers[0x1006] = "smallUserInformationField"
 UDS_RDBI.dataIdentifiers[0x1007] = "smallUserInformationField"
 UDS_RDBI.dataIdentifiers[0x1008] = "smallUserInformationFieldBMWfast"
 UDS_RDBI.dataIdentifiers[0x1009] = "vehicleProductionDate"
-UDS_RDBI.dataIdentifiers[0x100a] = "energySavingState"       # or EnergyMode
-UDS_RDBI.dataIdentifiers[0x100b] = "Istep"       # or I-Stufe
+UDS_RDBI.dataIdentifiers[0x100A] = "EnergyMode"
+UDS_RDBI.dataIdentifiers[0x100B] = "VcmIntegrationStep"
 UDS_RDBI.dataIdentifiers[0x100d] = "gatewayTableVersionNumber"
 UDS_RDBI.dataIdentifiers[0x100e] = "ExtendedMode"
 UDS_RDBI.dataIdentifiers[0x1010] = "fullVehicleIdentificationNumber"
@@ -637,10 +727,15 @@ UDS_RDBI.dataIdentifiers[0x16fc] = "SubbusMemberSerialNumber"
 UDS_RDBI.dataIdentifiers[0x16fd] = "SubbusMemberSerialNumber"
 UDS_RDBI.dataIdentifiers[0x16fe] = "SubbusMemberSerialNumber"
 UDS_RDBI.dataIdentifiers[0x16ff] = "SubbusMemberSerialNumber"
-UDS_RDBI.dataIdentifiers[0x171f] = "Certificate"
-UDS_RDBI.dataIdentifiers[0x172a] = "IPIdent"
-UDS_RDBI.dataIdentifiers[0x1734] = "IndividualDataIDTable"
-UDS_RDBI.dataIdentifiers[0x1735] = "StatusLifeCycle"
+UDS_RDBI.dataIdentifiers[0x1701] = "SysTime"
+UDS_RDBI.dataIdentifiers[0x170C] = "BoardPowerSupply"
+UDS_RDBI.dataIdentifiers[0x171F] = "Certificate"
+UDS_RDBI.dataIdentifiers[0x1720] = "SCVersion"
+UDS_RDBI.dataIdentifiers[0x1723] = "ActiveResponseDTCs"
+UDS_RDBI.dataIdentifiers[0x1724] = "LockableDTCs"
+UDS_RDBI.dataIdentifiers[0x172A] = "IPConfiguration"
+UDS_RDBI.dataIdentifiers[0x172B] = "MACAddress"
+UDS_RDBI.dataIdentifiers[0x1735] = "LifecycleMode"
 UDS_RDBI.dataIdentifiers[0x2000] = "dtcShadowMemory"
 UDS_RDBI.dataIdentifiers[0x2001] = "dtcShadowMemoryEntry"
 UDS_RDBI.dataIdentifiers[0x2002] = "dtcShadowMemoryEntry"
@@ -1730,57 +1825,69 @@ UDS_RDBI.dataIdentifiers[0x243d] = "additionalPersonalizationDataDriver3"
 UDS_RDBI.dataIdentifiers[0x243e] = "additionalPersonalizationDataDriver3"
 UDS_RDBI.dataIdentifiers[0x243f] = "additionalPersonalizationDataDriver3"
 UDS_RDBI.dataIdentifiers[0x2500] = "programmReferenzBackup/vehicleManufacturerECUHW_NrBackup"  # noqa E501
-UDS_RDBI.dataIdentifiers[0x2501] = "eraseTime, signatureTime, resetTime, authentificationTime"       # or memorySegmentationTable  # noqa E501
-UDS_RDBI.dataIdentifiers[0x2502] = "hardwareReferenz"       # or programmingCounter  # noqa E501
-UDS_RDBI.dataIdentifiers[0x2503] = "programmingCounter-MaxValue"       # or programmReferenz  # noqa E501
-UDS_RDBI.dataIdentifiers[0x2504] = "flashTimingParameter"       # or datenReferenz  # noqa E501
-UDS_RDBI.dataIdentifiers[0x2505] = "maximumBlocklength"
+UDS_RDBI.dataIdentifiers[0x2501] = "MemorySegmentationTable"
+UDS_RDBI.dataIdentifiers[0x2502] = "ProgrammingCounter"
+UDS_RDBI.dataIdentifiers[0x2503] = "ProgrammingCounterMax"
+UDS_RDBI.dataIdentifiers[0x2504] = "FlashTimings"
+UDS_RDBI.dataIdentifiers[0x2505] = "MaxBlocklength"
 UDS_RDBI.dataIdentifiers[0x2506] = "ReadMemoryAddress"       # or maximaleBlockLaenge  # noqa E501
 UDS_RDBI.dataIdentifiers[0x2507] = "EcuSupportsDeleteSwe"
 UDS_RDBI.dataIdentifiers[0x2508] = "GWRoutingStatus"
 UDS_RDBI.dataIdentifiers[0x2509] = "RoutingTable"
+UDS_RDBI.dataIdentifiers[0x2530] = "SubnetStatus"
 UDS_RDBI.dataIdentifiers[0x2541] = "STATUS_CALCVN"
 UDS_RDBI.dataIdentifiers[0x3000] = "RDBI_CD_REQ"       # or WDBI_CD_REQ
 UDS_RDBI.dataIdentifiers[0x300a] = "Codier-VIN"
 UDS_RDBI.dataIdentifiers[0x37fe] = "Codierpruefstempel"
 UDS_RDBI.dataIdentifiers[0x3f00] = "SVT-Ist"
 UDS_RDBI.dataIdentifiers[0x3f01] = "SVT-Soll"
-UDS_RDBI.dataIdentifiers[0x3f02] = "SGListeSecurity"
-UDS_RDBI.dataIdentifiers[0x3f03] = "SG-Liste SWT"
-UDS_RDBI.dataIdentifiers[0x3f04] = "Zeitstempel"
-UDS_RDBI.dataIdentifiers[0x3f05] = "Liste aller Seriennummern"
-UDS_RDBI.dataIdentifiers[0x3f06] = "FA"
-UDS_RDBI.dataIdentifiers[0x3f07] = "SGListeKomplett"
-UDS_RDBI.dataIdentifiers[0x3f08] = "SGListeAktivesMelden"
-UDS_RDBI.dataIdentifiers[0x3f09] = "FP"
-UDS_RDBI.dataIdentifiers[0x3f0a] = "SGListeDifferentiellProg"
-UDS_RDBI.dataIdentifiers[0x3f0b] = "SGListeNGSC"
-UDS_RDBI.dataIdentifiers[0x3f0c] = "SGListeCodierrelevantesSG"
-UDS_RDBI.dataIdentifiers[0x3f0d] = "SGListeFlashfaehigesSG"
-UDS_RDBI.dataIdentifiers[0x3f0e] = "SGListeK_CAN"
-UDS_RDBI.dataIdentifiers[0x3f0f] = "SGListeBody_CAN"
-UDS_RDBI.dataIdentifiers[0x3f10] = "SGListeI_CAN"
-UDS_RDBI.dataIdentifiers[0x3f11] = "SGListeMOST"
-UDS_RDBI.dataIdentifiers[0x3f12] = "SGListeFA_CAN"
-UDS_RDBI.dataIdentifiers[0x3f13] = "SGListeFlexRay"
-UDS_RDBI.dataIdentifiers[0x3f14] = "SGListeA_CAN"
-UDS_RDBI.dataIdentifiers[0x3f15] = "SGListeISO14229"
-UDS_RDBI.dataIdentifiers[0x3f16] = "SGListeS_CAN"
-UDS_RDBI.dataIdentifiers[0x3f17] = "SGListeEthernet"
-UDS_RDBI.dataIdentifiers[0x3f18] = "SGListeD_CAN"
-UDS_RDBI.dataIdentifiers[0x3f19] = "Identifikation VCM"
-UDS_RDBI.dataIdentifiers[0x3f1a] = "SVT-Version"
+UDS_RDBI.dataIdentifiers[0x3F02] = "VcmEcuListSecurity"
+UDS_RDBI.dataIdentifiers[0x3F03] = "VcmEcuListSwt"
+UDS_RDBI.dataIdentifiers[0x3F04] = "VcmNotificationTimeStamp"
+UDS_RDBI.dataIdentifiers[0x3F05] = "VcmSerialNumberReferenceList"
+UDS_RDBI.dataIdentifiers[0x3F06] = "VcmVehicleOrder"
+UDS_RDBI.dataIdentifiers[0x3F07] = "VcmEcuListAll"
+UDS_RDBI.dataIdentifiers[0x3F08] = "VcmEcuListActiveResponse"
+UDS_RDBI.dataIdentifiers[0x3F09] = "VcmVehicleProfile"
+UDS_RDBI.dataIdentifiers[0x3F0A] = "VcmEcuListDiffProg"
+UDS_RDBI.dataIdentifiers[0x3F0B] = "VcmEcuListNgsc"
+UDS_RDBI.dataIdentifiers[0x3F0C] = "VcmEcuListCodingRelevant"
+UDS_RDBI.dataIdentifiers[0x3F0D] = "VcmEcuListFlashable"
+UDS_RDBI.dataIdentifiers[0x3F0E] = "VcmEcuListKCan"
+UDS_RDBI.dataIdentifiers[0x3F0F] = "VcmEcuListBodyCan"
+UDS_RDBI.dataIdentifiers[0x3F10] = "VcmEcuListSFCan"
+UDS_RDBI.dataIdentifiers[0x3F11] = "VcmEcuListMost"
+UDS_RDBI.dataIdentifiers[0x3F12] = "VcmEcuListFaCan"
+UDS_RDBI.dataIdentifiers[0x3F13] = "VcmEcuListFlexray"
+UDS_RDBI.dataIdentifiers[0x3F14] = "VcmEcuListACan"
+UDS_RDBI.dataIdentifiers[0x3F15] = "VcmEcuListIso14229"
+UDS_RDBI.dataIdentifiers[0x3F16] = "VcmEcuListSCan"
+UDS_RDBI.dataIdentifiers[0x3F17] = "VcmEcuListEthernet"
+UDS_RDBI.dataIdentifiers[0x3F18] = "VcmEcuListDCan"
+UDS_RDBI.dataIdentifiers[0x3F19] = "VcmVcmIdentification"
+UDS_RDBI.dataIdentifiers[0x3F1A] = "VcmSvtVersion"
 UDS_RDBI.dataIdentifiers[0x3f1b] = "vehicleOrder_3F00_3FFE"
 UDS_RDBI.dataIdentifiers[0x3f1c] = "FA_Teil1"
 UDS_RDBI.dataIdentifiers[0x3f1d] = "FA_Teil2"
 UDS_RDBI.dataIdentifiers[0x3fff] = "changeIndexOfCodingData"
+UDS_RDBI.dataIdentifiers[0x4000] = "GWTableVersion"
+UDS_RDBI.dataIdentifiers[0x4001] = "WakeupSource"
+UDS_RDBI.dataIdentifiers[0x4020] = "StatusLearnFlexray"
+UDS_RDBI.dataIdentifiers[0x4021] = "StatusFlexrayPath"
+UDS_RDBI.dataIdentifiers[0x4030] = "EthernetRegisters"
+UDS_RDBI.dataIdentifiers[0x4031] = "EthernetStatusInformation"
 UDS_RDBI.dataIdentifiers[0x403c] = "STATUS_CALCVN_EA"
+UDS_RDBI.dataIdentifiers[0x4040] = "DemLockingMasterState"
+UDS_RDBI.dataIdentifiers[0x4050] = "AmbiguousRoutings"
 UDS_RDBI.dataIdentifiers[0x4080] = "AirbagLock_NEU"
+UDS_RDBI.dataIdentifiers[0x4140] = "BodyComConfig"
 UDS_RDBI.dataIdentifiers[0x4ab4] = "Betriebsstundenzaehler"
 UDS_RDBI.dataIdentifiers[0x5fc2] = "WDBI_DME_ABGLEICH_PROG_REQ"
 UDS_RDBI.dataIdentifiers[0xd114] = "Gesamtweg-Streckenzähler Offset"
 UDS_RDBI.dataIdentifiers[0xd387] = "STATUS_DIEBSTAHLSCHUTZ"
 UDS_RDBI.dataIdentifiers[0xdb9c] = "InitStatusEngineAngle"
+UDS_RDBI.dataIdentifiers[0xEFE9] = "WakeupRegistry"
+UDS_RDBI.dataIdentifiers[0xEFE8] = "ClearWakeupRegistry"
 UDS_RDBI.dataIdentifiers[0xf000] = "networkConfigurationDataForTractorTrailerApplication"  # noqa E501
 UDS_RDBI.dataIdentifiers[0xf001] = "networkConfigurationDataForTractorTrailerApplication"  # noqa E501
 UDS_RDBI.dataIdentifiers[0xf002] = "networkConfigurationDataForTractorTrailerApplication"  # noqa E501
@@ -2038,9 +2145,9 @@ UDS_RDBI.dataIdentifiers[0xf0fd] = "networkConfigurationData"
 UDS_RDBI.dataIdentifiers[0xf0fe] = "networkConfigurationData"
 UDS_RDBI.dataIdentifiers[0xf0ff] = "networkConfigurationData"
 UDS_RDBI.dataIdentifiers[0xf100] = "activeSessionState"
-UDS_RDBI.dataIdentifiers[0xf101] = "SVK_Aktuell"
-UDS_RDBI.dataIdentifiers[0xf102] = "SVK_SystemSupplier"
-UDS_RDBI.dataIdentifiers[0xf103] = "SVK_Werk"
+UDS_RDBI.dataIdentifiers[0xF101] = "SVKCurrent"
+UDS_RDBI.dataIdentifiers[0xF102] = "SVKSystemSupplier"
+UDS_RDBI.dataIdentifiers[0xF103] = "SVKFactory"
 UDS_RDBI.dataIdentifiers[0xf104] = "SVK_Backup_01"
 UDS_RDBI.dataIdentifiers[0xf105] = "SVK_Backup_02"
 UDS_RDBI.dataIdentifiers[0xf106] = "SVK_Backup_03"
@@ -4743,6 +4850,9 @@ UDS_RC.routineControlIdentifiers[0x0232] = "ResetStateFsCSM"
 UDS_RC.routineControlIdentifiers[0x0233] = "GetParameterN11"
 UDS_RC.routineControlIdentifiers[0x0234] = "ExternerInit"
 UDS_RC.routineControlIdentifiers[0x02a5] = "RequestListEntry"
+UDS_RC.routineControlIdentifiers[0x0303] = "DiagLoopbackStart"
+UDS_RC.routineControlIdentifiers[0x0304] = "DTC"
+UDS_RC.routineControlIdentifiers[0x0305] = "STEUERN_DM_FSS_MASTER"
 UDS_RC.routineControlIdentifiers[0x0f01] = "codingChecksum"
 UDS_RC.routineControlIdentifiers[0x0f02] = "clearMemory"
 UDS_RC.routineControlIdentifiers[0x0f04] = "selfTest"
@@ -4773,8 +4883,10 @@ UDS_RC.routineControlIdentifiers[0x1024] = "ResetActivationlineLogical"
 UDS_RC.routineControlIdentifiers[0x1042] = "EthernetARLTable"
 UDS_RC.routineControlIdentifiers[0x1045] = "EthernetIPConfiguration"
 UDS_RC.routineControlIdentifiers[0x104e] = "EthernetARLTableExtended"
+UDS_RC.routineControlIdentifiers[0x4000] = "Diagnosemaster"
 UDS_RC.routineControlIdentifiers[0x4001] = "SetGWRouting"
 UDS_RC.routineControlIdentifiers[0x4002] = "HDDDownload"
+UDS_RC.routineControlIdentifiers[0x4004] = "KeepBussesAlive"
 UDS_RC.routineControlIdentifiers[0x4007] = "updateMode"
 UDS_RC.routineControlIdentifiers[0x4008] = "httpUpdate"
 UDS_RC.routineControlIdentifiers[0x7000] = "ProcessingApplicationData"
@@ -5295,7 +5407,30 @@ UDS_RC.routineControlIdentifiers[0xe1fe] = "OBDTestIDs"
 UDS_RC.routineControlIdentifiers[0xe1ff] = "OBDTestIDs"
 UDS_RC.routineControlIdentifiers[0xf013] = "DeactivateSegeln"
 UDS_RC.routineControlIdentifiers[0xf043] = "RequestDeactivateMontagemodus"
-UDS_RC.routineControlIdentifiers[0xf760] = "ResetActivationline"
+UDS_RC.routineControlIdentifiers[0xF720] = "ControlSniffingHuPort"
+UDS_RC.routineControlIdentifiers[0xF759] = "ControlHeadUnitActivationLine"
+UDS_RC.routineControlIdentifiers[0xF760] = "ResetHeadUnitActivationLine"
+UDS_RC.routineControlIdentifiers[0xF761] = "ClearFilterCAN"
+UDS_RC.routineControlIdentifiers[0xF762] = "SetFilterCAN"
+UDS_RC.routineControlIdentifiers[0xF764] = "MessageLogging"
+UDS_RC.routineControlIdentifiers[0xF765] = "ReceiveCANFrame"
+UDS_RC.routineControlIdentifiers[0xF766] = "SendCANFrame"
+UDS_RC.routineControlIdentifiers[0xF767] = "ReceiveFlexrayFrame"
+UDS_RC.routineControlIdentifiers[0xF768] = "SendFlexrayFrame"
+UDS_RC.routineControlIdentifiers[0xF769] = "SetFilterFlexray"
+UDS_RC.routineControlIdentifiers[0xF770] = "ClearFilterFlexray"
+UDS_RC.routineControlIdentifiers[0xF774] = "GetStatusLogging"
+UDS_RC.routineControlIdentifiers[0xF776] = "MessageTunnelDeauthenticator"
+UDS_RC.routineControlIdentifiers[0xF777] = "ControlTransDiagSend"
+UDS_RC.routineControlIdentifiers[0xF778] = "ClearFilterAll"
+UDS_RC.routineControlIdentifiers[0xF779] = "GetFilterCAN"
+UDS_RC.routineControlIdentifiers[0xF77B] = "SteuernFlexrayAutoDetectDisable"
+UDS_RC.routineControlIdentifiers[0xF77C] = "SteuernFlexrayPath"
+UDS_RC.routineControlIdentifiers[0xF77D] = "SteuernResetLernFlexray"
+UDS_RC.routineControlIdentifiers[0xF77F] = "SteuernLernFlexray"
+UDS_RC.routineControlIdentifiers[0xF780] = "ClearFilterLIN"
+UDS_RC.routineControlIdentifiers[0xF781] = "GetFilterLIN"
+UDS_RC.routineControlIdentifiers[0xF782] = "SetFilterLIN"
 UDS_RC.routineControlIdentifiers[0xff00] = "eraseMemory"
 UDS_RC.routineControlIdentifiers[0xff01] = "checkProgrammingDependencies"
 
