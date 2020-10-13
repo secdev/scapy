@@ -112,7 +112,7 @@ def ecu():
 thread = threading.Thread(target=ecu)
 thread.start()
 
-scanner = XCPOnCANScanner(sock2, id_range=id_range)
+scanner = XCPOnCANScanner(sock2, id_range=id_range, sniff_time=0.5)
 result = scanner.scan_with_get_slave_id()
 thread.join()
 sock1.close()
@@ -159,7 +159,7 @@ def ecu():
 thread = threading.Thread(target=ecu)
 thread.start()
 
-scanner = XCPOnCANScanner(sock2, id_range=id_range, sniff_time=0.25)
+scanner = XCPOnCANScanner(sock2, id_range=id_range, sniff_time=0.5)
 result = scanner.scan_with_connect()
 thread.join()
 sock1.close()

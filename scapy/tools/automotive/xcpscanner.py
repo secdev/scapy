@@ -79,9 +79,9 @@ def parse_inputs():
     start_id = int(args.start, 16) if args.start is not None else 0
     end_id = int(args.end, 16) if args.end is not None else 0x7ff
 
-    if start_id >= end_id:
+    if start_id > end_id:
         parser.error(
-            "Start identifier must be smaller than the end identifier.")
+            "End identifier must not be smaller than the start identifier.")
         sys.exit(1)
     scanner_params.id_range = range(start_id, end_id + 1)
 
@@ -95,7 +95,6 @@ def main():
     try:
         scanner = XCPOnCANScanner(can_socket,
                                   id_range=scanner_params.id_range,
-                                  # noqa: E501
                                   sniff_time=scanner_params.sniff_time,
                                   verbose=scanner_params.verbose)
 

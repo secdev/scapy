@@ -22,7 +22,7 @@ from scapy.packet import Packet
 
 class NegativeResponse(Packet):
     """Error Packet"""
-    error_code = {
+    error_code_enum = {
         0x00: "ERR_CMD_SYNCH",
         0x10: "ERR_CMD_BUSY",
         0x11: "ERR_DAQ_ACTIVE",
@@ -43,7 +43,7 @@ class NegativeResponse(Packet):
         0x32: "ERR_VERIFY"
     }
     fields_desc = [
-        ByteEnumField("error_code", 0, error_code),
+        ByteEnumField("error_code", 0, error_code_enum),
         StrField("error_info", "")
     ]
 
@@ -121,11 +121,11 @@ class StatusPositiveResponse(Packet):
 
 class CommonModeInfoPositiveResponse(Packet):
     fields_desc = [
-        ByteField("reserved", 0),
+        ByteField("reserved1", 0),
         FlagsField("comm_mode_optional", 0, 8,
                    ["master_block_mode", "interleaved_mode", "x2", "x3", "x4",
                     "x5", "x6", "x7"]),
-        ByteField("reserved", 0),
+        ByteField("reserved2", 0),
         ByteField("max_bs", 0),
         ByteField("min_st", 0),
         ByteField("queue_size", 0),
@@ -216,12 +216,12 @@ class TransportLayerCmdGetSlaveIdResponse(Packet):
 
 
 class TransportLayerCmdGetDAQIdResponse(Packet):
-    can_id_fixed = {
+    can_id_fixed_enum = {
         0x00: "configurable",
         0x01: "fixed"
     }
     fields_desc = [
-        ByteEnumField("can_id_fixed", 0xFE, can_id_fixed),
+        ByteEnumField("can_id_fixed", 0xFE, can_id_fixed_enum),
         XCPEndiannessField(ShortField("reserved", 0)),
         XCPEndiannessField(IntField("can_identifier", 0))
     ]
@@ -447,7 +447,7 @@ class SectorInfoPositiveResponse(Packet):
 
 class EvPacket(Packet):
     """Event packet"""
-    event_code = {
+    event_code_enum = {
         0x00: "EV_RESUME_MODE",
         0x01: "EV_CLEAR_DAQ",
         0x02: "EV_STORE_DAQ",
@@ -459,7 +459,7 @@ class EvPacket(Packet):
         0xFF: "EV_TRANSPORT",
     }
     fields_desc = [
-        ByteEnumField("event_code", 0, event_code),
+        ByteEnumField("event_code", 0, event_code_enum),
         StrLenField("event_information_data", b"",
                     max_length=lambda _: get_max_cto() - 2)
     ]
@@ -467,13 +467,13 @@ class EvPacket(Packet):
 
 class ServPacket(Packet):
     """Service Request packet"""
-    service_request_code = {
+    service_request_code_enum = {
         0x00: "SERV_RESET",
         0x01: "SERV_TEXT",
     }
 
     fields_desc = [
-        ByteEnumField("service_request_code", 0, service_request_code),
+        ByteEnumField("service_request_code", 0, service_request_code_enum),
         StrLenField("command_response_data", b"",
                     max_length=lambda _: get_max_cto() - 2)
     ]

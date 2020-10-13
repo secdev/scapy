@@ -389,8 +389,13 @@ class CTOResponse(Packet):
         if not isinstance(request, CTORequest):
             return False
 
+        # FE: Negative Response
+        # FD: Event Packet
+        # FC: Service Packet
+        # They are always a valid response
         if self.packet_code in [0xFE, 0xFD, 0xFC]:
             return True
+        # FF: Positive Response
         if self.packet_code != 0xFF:
             return False
 

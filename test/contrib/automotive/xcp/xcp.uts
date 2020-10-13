@@ -500,6 +500,7 @@ assert get_daq_clock_response.receive_timestamp == 0x0000C5AA
 
 cto_request = CTORequest() / GetCommModeInfo()
 cto_response = CTOResponse() / NegativeResponse()
+assert cto_response.packet_code == 0xFE
 assert cto_response.answers(cto_request)
 
 = test_start_stop_synch

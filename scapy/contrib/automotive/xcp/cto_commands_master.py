@@ -58,9 +58,9 @@ class GetId(Packet):
 class SetRequest(Packet):
     """Request to save to non-volatile memory"""
     fields_desc = [
-        FlagsField("mode", 0, 8, (
+        FlagsField("mode", 0, 8, [
             "store_cal_req", "store_daq_req", "clear_daq_req", "x3", "x4",
-            "x5", "x6", "x7")),
+            "x5", "x6", "x7"]),
         XCPEndiannessField(ShortField("session_configuration_id", 0x00))
     ]
 
@@ -79,7 +79,7 @@ class Unlock(Packet):
     # Send key for unlocking a protected resource
     fields_desc = [
         FieldLenField("len", None, length_of="seed", fmt="B"),
-        StrVarLenField("seed", "", length_from=lambda p: p.len,
+        StrVarLenField("seed", b"", length_from=lambda p: p.len,
                        max_length=lambda: get_max_cto() - 2)
     ]
 
@@ -193,9 +193,10 @@ class Download(Packet):
     fields_desc = [
         ByteField("nr_of_data_elements", 0),
         ConditionalField(
-            StrLenField("alignment", "", length_from=lambda pkt: get_ag() - 2),
+            StrLenField("alignment", b"",
+                        length_from=lambda pkt: get_ag() - 2),
             lambda pkt: get_ag() > 2),
-        StrLenField("data_elements", "",
+        StrLenField("data_elements", b"",
                     length_from=lambda pkt: get_max_cto() - 2 if get_ag() == 1
                     else get_max_cto() - get_ag()),
     ]
@@ -211,9 +212,9 @@ class DownloadMax(Packet):
     # Download from master to slave (fixed size)
     fields_desc = [
         ConditionalField(
-            StrLenField("alignment", "", length_from=lambda _: get_ag() - 1),
+            StrLenField("alignment", b"", length_from=lambda _: get_ag() - 1),
             lambda _: get_ag() > 1),
-        StrLenField("data_elements", "",
+        StrLenField("data_elements", b"",
                     length_from=lambda _: get_max_cto() - (get_ag() * 2 - 1))
     ]
 
@@ -225,7 +226,7 @@ class ShortDownload(Packet):
         ByteField("reserved", 0),
         ByteField("address_extension", 0),
         XCPEndiannessField(IntField("address", 0)),
-        StrVarLenField("data_elements", "", length_from=lambda p: p.len,
+        StrVarLenField("data_elements", b"", length_from=lambda p: p.len,
                        max_length=lambda: get_max_cto() - 8)
     ]
 
