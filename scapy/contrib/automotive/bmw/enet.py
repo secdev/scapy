@@ -8,6 +8,7 @@
 
 import struct
 import socket
+import time
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import IntField, ShortEnumField, XByteField
 from scapy.layers.inet import TCP
@@ -19,7 +20,8 @@ from scapy.data import MTU
 
 
 """
-BMW specific diagnostic over IP protocol implementation ENET
+BMW specific diagnostic over IP protocol implementation ENET.
+Also called BMW FAST.
 """
 
 # #########################ENET###################################
@@ -85,8 +87,13 @@ class ISOTP_ENETSocket(ENETSocket):
 
     def send(self, x):
         if not isinstance(x, ISOTP):
-            raise Scapy_Exception("Please provide a packet class based on "
-                                  "ISOTP")
+            raise Scapy_Exception(
+                "Please provide a packet class based on ISOTP")
+        try:
+            x.sent_time = time.time()
+        except AttributeError:
+            pass
+
         super(ISOTP_ENETSocket, self).send(
             ENET(src=self.src, dst=self.dst) / x)
 
