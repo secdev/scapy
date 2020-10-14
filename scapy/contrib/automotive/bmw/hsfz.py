@@ -3,8 +3,9 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-# scapy.contrib.description = ENET - BMW diagnostic protocol over Ethernet
+# scapy.contrib.description = HSFZ - BMW High-Speed-Fahrzeug-Zugang
 # scapy.contrib.status = loads
+
 
 import struct
 import socket
@@ -20,15 +21,16 @@ from scapy.data import MTU
 
 
 """
-BMW specific diagnostic over IP protocol implementation ENET.
-Also called BMW FAST.
+BMW HSFZ (High-Speed-Fahrzeug-Zugang / High-Speed-Car-Access).
+BMW specific diagnostic over IP protocol implementation.
+The physical interface for this connection is called ENET.
 """
 
-# #########################ENET###################################
+# #########################HSFZ###################################
 
 
-class ENET(Packet):
-    name = 'ENET'
+class HSFZ(Packet):
+    name = 'HSFZ'
     fields_desc = [
         IntField('length', None),
         ShortEnumField('type', 1, {0x01: "message",
@@ -59,30 +61,30 @@ class ENET(Packet):
         return pkt + pay
 
 
-bind_bottom_up(TCP, ENET, sport=6801)
-bind_bottom_up(TCP, ENET, dport=6801)
-bind_layers(TCP, ENET, sport=6801, dport=6801)
-bind_layers(ENET, UDS)
+bind_bottom_up(TCP, HSFZ, sport=6801)
+bind_bottom_up(TCP, HSFZ, dport=6801)
+bind_layers(TCP, HSFZ, sport=6801, dport=6801)
+bind_layers(HSFZ, UDS)
 
 
-# ########################ENETSocket###################################
+# ########################HSFZSocket###################################
 
 
-class ENETSocket(StreamSocket):
+class HSFZSocket(StreamSocket):
     def __init__(self, ip='127.0.0.1', port=6801):
         self.ip = ip
         self.port = port
         s = socket.socket()
         s.connect((self.ip, self.port))
-        StreamSocket.__init__(self, s, ENET)
+        StreamSocket.__init__(self, s, HSFZ)
 
 
-class ISOTP_ENETSocket(ENETSocket):
+class ISOTP_HSFZSocket(HSFZSocket):
     def __init__(self, src, dst, ip='127.0.0.1', port=6801, basecls=ISOTP):
-        super(ISOTP_ENETSocket, self).__init__(ip, port)
+        super(ISOTP_HSFZSocket, self).__init__(ip, port)
         self.src = src
         self.dst = dst
-        self.basecls = ENET
+        self.basecls = HSFZ
         self.outputcls = basecls
 
     def send(self, x):
@@ -94,9 +96,9 @@ class ISOTP_ENETSocket(ENETSocket):
         except AttributeError:
             pass
 
-        super(ISOTP_ENETSocket, self).send(
-            ENET(src=self.src, dst=self.dst) / x)
+        super(ISOTP_HSFZSocket, self).send(
+            HSFZ(src=self.src, dst=self.dst) / x)
 
     def recv(self, x=MTU):
-        pkt = super(ISOTP_ENETSocket, self).recv(x)
+        pkt = super(ISOTP_HSFZSocket, self).recv(x)
         return self.outputcls(bytes(pkt[1]))
