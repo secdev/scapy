@@ -143,15 +143,15 @@ class LTP(Packet):
                          lambda x: x.flags in _ltp_checkpoint_segment),
         MultipleTypeField([
             (SDNV2("ReportSerialNo", 0),
-                         lambda x: x.flags in _ltp_checkpoint_segment),
+                lambda x: x.flags in _ltp_checkpoint_segment),
 
             #
             # Field for Reception Reports
             #
             (SDNV2("ReportSerialNo", 0),
-                         lambda x: x.flags == 8),
+                lambda x: x.flags == 8),
 
-            ],
+        ],
             SDNV2("ReportSerialNo", 0)
         ),
         #

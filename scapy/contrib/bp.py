@@ -56,7 +56,7 @@ class BP(Packet):
                        (SDNV2("ADUL", 0), lambda x: (
                            x.ProcFlags & 0x01)),
                    ],
-                   SDNV2("ADUL", 0)),
+                       SDNV2("ADUL", 0)),
                    ]
 
     def mysummary(self):
