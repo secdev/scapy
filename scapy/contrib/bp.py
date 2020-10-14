@@ -27,7 +27,7 @@
 # scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import ByteEnumField, ByteField, MultipleTypeField, \
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
     StrLenField
 from scapy.contrib.sdnv import SDNV2FieldLenField, SDNV2LenField, SDNV2
 from scapy.contrib.ltp import LTP, ltp_bind_payload
@@ -50,13 +50,10 @@ class BP(Packet):
                    SDNV2('CTSN', 0),
                    SDNV2('LT', 0),
                    SDNV2('DL', 0),
-                   MultipleTypeField([
-                       (SDNV2("FO", 0), lambda x: (
-                           x.ProcFlags & 0x01)),
-                       (SDNV2("ADUL", 0), lambda x: (
-                           x.ProcFlags & 0x01)),
-                   ],
-                       SDNV2("ADUL", 0)),
+                   ConditionalField(SDNV2("FO", 0), lambda x: (
+                       x.ProcFlags & 0x01)),
+                   ConditionalField(SDNV2("ADUL", 0), lambda x: (
+                       x.ProcFlags & 0x01)),
                    ]
 
     def mysummary(self):
