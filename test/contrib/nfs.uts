@@ -601,104 +601,32 @@ pkt = ACCESS_Reply(
 )
 assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\n'
 
-pkt = READDIRPLUS_Reply(
-    status=0,
-    attributes_follow=1,
-    attributes=Fattr3(
-        type='NF3DIR',
-        mode=0o755,
-        nlink=1,
-        uid=2,
-        gid=3,
-        size=0xffffffffffffffff,
-        used=0xaaaaaaaaaaaaaaaa,
-        rdev=[4, 5],
-        fsid=0xbbbbbbbbbbbbbbbb,
-        fileid=0xcccccccccccccccc,
-        atime_s=0xdddddddd,
-        atime_ns=0xeeeeeeee,
-        mtime_s=0xffffffff,
-        mtime_ns=0x11111111,
-        ctime_s=0x22222222,
-        ctime_ns=0x33333333
-    ),
-    verifier=0xa,
-    value_follows=1,
-    files=[
-        File_From_Dir_Plus(
-            fileid=0xa,
-            filename=Object_Name(
-                length=5,
-                _name='file1',
-                fill='\x00\x00\x00'
-            ),
-            cookie=0xb,
-            attributes_follow=1,
-            attributes=Fattr3(
-                type='NF3REG',
-                mode=0o755,
-                nlink=1,
-                uid=2,
-                gid=3,
-                size=0xffffffffffffffff,
-                used=0xaaaaaaaaaaaaaaaa,
-                rdev=[4, 5],
-                fsid=0xbbbbbbbbbbbbbbbb,
-                fileid=0xcccccccccccccccc,
-                atime_s=0xdddddddd,
-                atime_ns=0xeeeeeeee,
-                mtime_s=0xffffffff,
-                mtime_ns=0x11111111,
-                ctime_s=0x22222222,
-                ctime_ns=0x33333333
-            ),
-            handle_follows=1,
-            filehandle=File_Object(
-                length=3,
-                fh='fh1',
-                fill='\x00'
-            ),
-            value_follows=1
-        ),
-
-        File_From_Dir_Plus(
-            fileid=0xb,
-            filename=Object_Name(
-                length=5,
-                _name='file2',
-                fill='\x00\x00\x00'
-            ),
-            cookie=0xc,
-            attributes_follow=1,
-            attributes=Fattr3(
-                type='NF3REG',
-                mode=0o755,
-                nlink=1,
-                uid=2,
-                gid=3,
-                size=0xffffffffffffffff,
-                used=0xaaaaaaaaaaaaaaaa,
-                rdev=[4, 5],
-                fsid=0xbbbbbbbbbbbbbbbb,
-                fileid=0xcccccccccccccccc,
-                atime_s=0xdddddddd,
-                atime_ns=0xeeeeeeee,
-                mtime_s=0xffffffff,
-                mtime_ns=0x11111111,
-                ctime_s=0x22222222,
-                ctime_ns=0x33333333
-            ),
-            handle_follows=1,
-            filehandle=File_Object(
-                length=3,
-                fh='fh2',
-                fill='\x00'
-            ),
-            value_follows=0
-        )
-    ],
-    eof=1
-)
+pkt = READDIRPLUS_Reply(status=0, attributes_follow=1,
+                        attributes=Fattr3(type='NF3DIR', mode=0o755, nlink=1, uid=2,
+                                          gid=3, size=0xffffffffffffffff, used=0xaaaaaaaaaaaaaaaa,
+                                          rdev=[4, 5], fsid=0xbbbbbbbbbbbbbbbb, fileid=0xcccccccccccccccc,
+                                          atime_s=0xdddddddd, atime_ns=0xeeeeeeee, mtime_s=0xffffffff,
+                                          mtime_ns=0x11111111, ctime_s=0x22222222, ctime_ns=0x33333333),
+                        verifier=0xa, value_follows=1,
+                        files=[File_From_Dir_Plus(fileid=0xa,
+                                                  filename=Object_Name(length=5, _name='file1', fill='\x00\x00\x00'),
+                                                  cookie=0xb, attributes_follow=1,
+                                                  attributes=Fattr3(type='NF3REG', mode=0o755, nlink=1, uid=2, gid=3,
+                                                                    size=0xffffffffffffffff, used=0xaaaaaaaaaaaaaaaa,
+                                                                    rdev=[4, 5], fsid=0xbbbbbbbbbbbbbbbb,
+                                                                    fileid=0xcccccccccccccccc, atime_s=0xdddddddd,
+                                                                    atime_ns=0xeeeeeeee, mtime_s=0xffffffff,
+                                                                    mtime_ns=0x11111111, ctime_s=0x22222222,
+                                                                    ctime_ns=0x33333333),
+                                                  handle_follows=1, filehandle=File_Object(length=3, fh='fh1', fill='\x00'),
+                                                  value_follows=1),
+                        File_From_Dir_Plus(fileid=0xb, filename=Object_Name(length=5, _name='file2', fill='\x00\x00\x00'),
+                        cookie=0xc, attributes_follow=1, attributes=Fattr3(type='NF3REG', mode=0o755, nlink=1, uid=2,
+                        gid=3, size=0xffffffffffffffff, used=0xaaaaaaaaaaaaaaaa, rdev=[4, 5], fsid=0xbbbbbbbbbbbbbbbb,
+                        fileid=0xcccccccccccccccc, atime_s=0xdddddddd, atime_ns=0xeeeeeeee, mtime_s=0xffffffff,
+                        mtime_ns=0x11111111, ctime_s=0x22222222, ctime_ns=0x33333333), handle_follows=1,
+                        filehandle=File_Object(length=3, fh='fh2', fill='\x00'), value_follows=0)
+                        ], eof=1)
 assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x00\x05file1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x03fh1\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x00\x00\x05file2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x03fh2\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 
 pkt = WRITE_Reply(

@@ -10,9 +10,9 @@ jobs:
       - name: Checkout Scapy
         uses: actions/checkout@v2
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
         with:
-          python-version: 3.8
+          python-version: 3.9
       - name: Install tox
         run: pip install tox
       - name: Run flake8 tests
@@ -28,9 +28,9 @@ jobs:
       - name: Checkout Scapy
         uses: actions/checkout@v2
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
         with:
-          python-version: 3.8
+          python-version: 3.9
       - name: Install tox
         run: pip install tox
       - name: Build docs
@@ -42,9 +42,9 @@ jobs:
       - name: Checkout Scapy
         uses: actions/checkout@v2
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
         with:
-          python-version: 3.8
+          python-version: 3.9
       - name: Install tox
         run: pip install tox
       - name: Run mypy
@@ -56,12 +56,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [2.7, pypy2, pypy3, 3.5, 3.6, 3.7, 3.8]
+        python: [2.7, pypy2, pypy3, 3.5, 3.6, 3.7, 3.8, 3.9]
     steps:
       - name: Checkout Scapy
         uses: actions/checkout@v2
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
       - name: Install Tox and any other packages
