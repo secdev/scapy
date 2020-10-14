@@ -162,6 +162,7 @@ class MQTTDisconnect(Packet):
     name = "MQTT disconnect"
     fields_desc = []
 
+
 RETURN_CODE = {
     0: 'Connection Accepted',
     1: 'Unacceptable protocol version',
@@ -302,7 +303,7 @@ bind_layers(MQTT, MQTTSubscribe, type=8)
 bind_layers(MQTT, MQTTSuback, type=9)
 bind_layers(MQTT, MQTTUnsubscribe, type=10)
 bind_layers(MQTT, MQTTUnsuback, type=11)
-bind_layers(MQTT,MQTTDisconnect,type=14)
+bind_layers(MQTT, MQTTDisconnect, type=14)
 bind_layers(MQTTConnect, MQTT)
 bind_layers(MQTTConnack, MQTT)
 bind_layers(MQTTPublish, MQTT)
@@ -314,5 +315,5 @@ bind_layers(MQTTSubscribe, MQTT)
 bind_layers(MQTTSuback, MQTT)
 bind_layers(MQTTUnsubscribe, MQTT)
 bind_layers(MQTTUnsuback, MQTT)
-bind_layers(MQTTDisconnect,MQTT)
+bind_layers(MQTTDisconnect, MQTT)
 
