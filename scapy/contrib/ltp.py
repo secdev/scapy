@@ -29,7 +29,8 @@
 import scapy.modules.six as six
 from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import BitEnumField, BitField, BitFieldLenField, \
-    ByteEnumField, ConditionalField, PacketListField, StrLenField
+    ByteEnumField, ConditionalField, PacketListField, StrLenField, \
+    MultipleTypeField
 from scapy.layers.inet import UDP
 from scapy.config import conf
 from scapy.contrib.sdnv import SDNV2, SDNV2FieldLenField
@@ -140,8 +141,19 @@ class LTP(Packet):
         #
         ConditionalField(SDNV2("CheckpointSerialNo", 0),
                          lambda x: x.flags in _ltp_checkpoint_segment),
-        ConditionalField(SDNV2("ReportSerialNo", 0),
+        MultipleTypeField([
+            (SDNV2("ReportSerialNo", 0),
                          lambda x: x.flags in _ltp_checkpoint_segment),
+
+            #
+            # Field for Reception Reports
+            #
+            (SDNV2("ReportSerialNo", 0),
+                         lambda x: x.flags == 8),
+
+            ],
+            SDNV2("ReportSerialNo", 0)
+        ),
         #
         # Then comes the actual payload for data carrying segments.
         #
@@ -156,8 +168,6 @@ class LTP(Packet):
         #
         # Reception reports have the following fields.
         #
-        ConditionalField(SDNV2("ReportSerialNo", 0),
-                         lambda x: x.flags == 8),
         ConditionalField(SDNV2("ReportCheckpointSerialNo", 0),
                          lambda x: x.flags == 8),
         ConditionalField(SDNV2("ReportUpperBound", 0),
