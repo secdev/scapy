@@ -30,7 +30,7 @@ function to get all information about one specific protocol.
 |                     +----------------------+--------------------------------------------------------+
 |                     | SOME/IP              | SOMEIP, SD                                             |
 |                     +----------------------+--------------------------------------------------------+
-|                     | BMW ENET             | ENET, ENETSocket                                       |
+|                     | BMW HSFZ             | HSFZ, HSFZSocket                                       |
 |                     +----------------------+--------------------------------------------------------+
 |                     | OBD                  | OBD, OBD_S0X                                           |
 |                     +----------------------+--------------------------------------------------------+
@@ -714,7 +714,7 @@ UDS
 ===
 
 The main usage of UDS is flashing and diagnostic of an ECU. UDS is an
-application layer protocol and can be used as a DoIP or ENET payload or a UDS packet
+application layer protocol and can be used as a DoIP or HSFZ payload or a UDS packet
 can directly be sent over an ISOTPSocket. Every OEM has its own customization of UDS.
 This increases the difficulty of generic applications and OEM specific knowledge is
 required for penetration tests. RoutineControl jobs and ReadDataByIdentifier/WriteDataByIdentifier
