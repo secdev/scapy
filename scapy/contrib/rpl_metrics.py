@@ -123,8 +123,8 @@ class RPLDAGMCNSA(DAGMCObj):
                    # NSA Object Body Format
                    ByteField("res", 0),
                    BitField("flags", 0, 6),
-                   BitField("A", 0, 1),
-                   BitField("O", 0, 1)]
+                   BitField("A2", 0, 1),
+                   BitField("O2", 0, 1)]
 
 
 class RPLDAGMCNodeEnergy(DAGMCObj):
