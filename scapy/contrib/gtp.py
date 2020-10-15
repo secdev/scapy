@@ -9,6 +9,13 @@
 # scapy.contrib.description = GPRS Tunneling Protocol (GTP)
 # scapy.contrib.status = loads
 
+"""
+GPRS Tunneling Protocol (GTP)
+
+Spec: 3GPP TS 29.060 and 3GPP TS 29.274
+Some IEs: 3GPP TS 24.008
+"""
+
 from __future__ import absolute_import
 import struct
 
@@ -572,15 +579,16 @@ class IE_MSInternationalNumber(IE_Base):
 
 class QoS_Profile(IE_Base):
     name = "QoS profile"
+    # 3GPP TS 24.008 10.5.6.5
     fields_desc = [ByteField("qos_ei", 0),
                    ByteField("length", None),
-                   XBitField("qos_spare1", 0x00, 2),
+                   XBitField("spare1", 0x00, 2),
                    XBitField("delay_class", 0x000, 3),
                    XBitField("reliability_class", 0x000, 3),
                    XBitField("peak_troughput", 0x0000, 4),
-                   BitField("spare", 0, 1),
+                   BitField("spare2", 0, 1),
                    XBitField("precedence_class", 0x000, 3),
-                   XBitField("qos_spare2", 0x000, 3),
+                   XBitField("spare3", 0x000, 3),
                    XBitField("mean_troughput", 0x00000, 5),
                    XBitField("traffic_class", 0x000, 3),
                    XBitField("delivery_order", 0x00, 2),
@@ -601,8 +609,8 @@ class IE_QoS(IE_Base):
     fields_desc = [ByteEnumField("ietype", 135, IEType),
                    ShortField("length", None),
                    ByteField("allocation_retention_prioiry", 1),
-
-                   ConditionalField(XBitField("ie_qos_spare1", 0x00, 2),
+                   # 3GPP TS 24.008 10.5.6.5
+                   ConditionalField(XBitField("spare1", 0x00, 2),
                                     lambda p: p.length and p.length > 1),
                    ConditionalField(XBitField("delay_class", 0x000, 3),
                                     lambda p: p.length and p.length > 1),
@@ -611,12 +619,12 @@ class IE_QoS(IE_Base):
 
                    ConditionalField(XBitField("peak_troughput", 0x0000, 4),
                                     lambda p: p.length and p.length > 2),
-                   ConditionalField(BitField("ie_qos_spare2", 0, 1),
+                   ConditionalField(BitField("spare2", 0, 1),
                                     lambda p: p.length and p.length > 2),
                    ConditionalField(XBitField("precedence_class", 0x000, 3),
                                     lambda p: p.length and p.length > 2),
 
-                   ConditionalField(XBitField("ie_qos_spare3", 0x000, 3),
+                   ConditionalField(XBitField("spare3", 0x000, 3),
                                     lambda p: p.length and p.length > 3),
                    ConditionalField(XBitField("mean_troughput", 0x00000, 5),
                                     lambda p: p.length and p.length > 3),
@@ -652,7 +660,7 @@ class IE_QoS(IE_Base):
                                               None),
                                     lambda p: p.length and p.length > 11),
 
-                   ConditionalField(XBitField("spare", 0x000, 3),
+                   ConditionalField(XBitField("spare4", 0x000, 3),
                                     lambda p: p.length and p.length > 12),
                    ConditionalField(BitField("signaling_indication", 0, 1),
                                     lambda p: p.length and p.length > 12),
@@ -727,12 +735,7 @@ class IE_MSTimeZone(IE_Base):
     fields_desc = [ByteEnumField("ietype", 153, IEType),
                    ShortField("length", None),
                    ByteField("timezone", 0),
-                   BitField("ie_mstz_spare1", 0, 1),
-                   BitField("ie_mstz_spare2", 0, 1),
-                   BitField("ie_mstz_spare3", 0, 1),
-                   BitField("ie_mstz_spare4", 0, 1),
-                   BitField("ie_mstz_spare5", 0, 1),
-                   BitField("ie_mstz_spare6", 0, 1),
+                   BitField("spare", 0, 6),
                    XBitField("daylight_saving_time", 0x00, 2)]
 
 
@@ -752,13 +755,10 @@ class IE_MSInfoChangeReportingAction(IE_Base):
 
 class IE_DirectTunnelFlags(IE_Base):
     name = "Direct Tunnel Flags"
+    # 29.060 7.7.81
     fields_desc = [ByteEnumField("ietype", 182, IEType),
                    ShortField("length", 1),
-                   BitField("ie_dtf_spare1", 0, 1),
-                   BitField("ie_dtf_spare2", 0, 1),
-                   BitField("ie_dtf_spare3", 0, 1),
-                   BitField("ie_dtf_spare4", 0, 1),
-                   BitField("ie_dtf_spare5", 0, 1),
+                   BitField("spare", 0, 5),
                    BitField("EI", 0, 1),
                    BitField("GCSI", 0, 1),
                    BitField("DTI", 0, 1)]
@@ -773,12 +773,13 @@ class IE_BearerControlMode(IE_Base):
 
 class IE_EvolvedAllocationRetentionPriority(IE_Base):
     name = "Evolved Allocation/Retention Priority"
+    # 29.060 7.7.91
     fields_desc = [ByteEnumField("ietype", 191, IEType),
                    ShortField("length", 1),
-                   BitField("ie_earp_spare1", 0, 1),
+                   BitField("spare1", 0, 1),
                    BitField("PCI", 0, 1),
                    XBitField("PL", 0x0000, 4),
-                   BitField("ie_earp_spare2", 0, 1),
+                   BitField("spare2", 0, 1),
                    BitField("PVI", 0, 1)]
 
 
