@@ -27,11 +27,11 @@ scapy/utils.py
 scapy/utils6.py
 
 # LAYERS
-
+scapy/layers/can.py
+scapy/layers/l2.py
 
 # CONTRIB
 #scapy/contrib/http2.py  # needs to be fixed
 scapy/contrib/roce.py
-scapy/layers/can.py
 scapy/contrib/automotive/gm/gmlanutils.py
-scapy/layers/l2.py
+scapy/contrib/automotive/bmw/hsfz.py
