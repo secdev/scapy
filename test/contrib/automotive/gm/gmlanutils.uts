@@ -911,7 +911,7 @@ def ecusim():
         pkt = GMLAN(b"\x28")
         print(requ)
         assert len(requ) >= 1
-        if bytes(requ[0].data) != b"\xfe\x01" + bytes(pkt):
+        if bytes(requ[0].data[0:3]) != b"\xfe\x01" + bytes(pkt):
             ecusimSuccessfullyExecuted = False
         print("ReportProgrammedState")
         requ = isotpsock2.sniff(count=1, timeout=2)
