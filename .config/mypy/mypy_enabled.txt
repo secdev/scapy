@@ -19,6 +19,7 @@ scapy/pton_ntop.py
 scapy/route.py
 scapy/route6.py
 scapy/utils.py
+scapy/supersocket.py
 
 # LAYERS
 

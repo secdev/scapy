@@ -16,6 +16,8 @@ import socket
 import struct
 import time
 
+from typing import List, Optional, Tuple, Union, Any, Type, cast
+
 from scapy.config import conf
 from scapy.consts import LINUX, DARWIN, WINDOWS
 from scapy.data import MTU, ETH_P_IP, SOL_PACKET, SO_TIMESTAMPNS
@@ -23,14 +25,19 @@ from scapy.compat import raw, bytes_encode
 from scapy.error import warning, log_runtime
 from scapy.interfaces import network_name
 import scapy.modules.six as six
+from scapy.packet import RawVal, Packet, Packet_metaclass
 import scapy.packet
+from scapy.plist import PacketList
 from scapy.utils import PcapReader, tcpdump
 
 
 # Utils
 
 class _SuperSocket_metaclass(type):
+    desc = None   # type: Optional[str]
+
     def __repr__(self):
+        # type: () -> str
         if self.desc is not None:
             return "<%s: %s>" % (self.__name__, self.desc)
         else:
@@ -38,9 +45,9 @@ class _SuperSocket_metaclass(type):
 
 
 # Used to get ancillary data
-PACKET_AUXDATA = 8
-ETH_P_8021Q = 0x8100
-TP_STATUS_VLAN_VALID = 1 << 4
+PACKET_AUXDATA = 8  # type: int
+ETH_P_8021Q = 0x8100  # type: int
+TP_STATUS_VLAN_VALID = 1 << 4  # type: int
 
 
 class tpacket_auxdata(ctypes.Structure):
@@ -52,25 +59,27 @@ class tpacket_auxdata(ctypes.Structure):
         ("tp_net", ctypes.c_ushort),
         ("tp_vlan_tci", ctypes.c_ushort),
         ("tp_padding", ctypes.c_ushort),
-    ]
+    ]  # type: List[Tuple[str, Any]]
 
 
 # SuperSocket
 
 class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
-    desc = None
-    closed = 0
-    nonblocking_socket = False
-    auxdata_available = False
+    closed = 0    # type: int
+    nonblocking_socket = False  # type: bool
+    auxdata_available = False   # type: bool
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
-        self.ins = socket.socket(family, type, proto)
-        self.outs = self.ins
+        # type: (int, int, int) -> None
+        self.ins = socket.socket(family, type, proto)  # type: socket.socket
+        self.outs = self.ins  # type: socket.socket
         self.promisc = None
 
     def send(self, x):
+        # type: (Union[Packet, RawVal]) -> int
         sx = raw(x)
         try:
+            x = cast(Packet, x)
             x.sent_time = time.time()
         except AttributeError:
             pass
@@ -78,11 +87,13 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
 
     if six.PY2:
         def _recv_raw(self, sock, x):
+            # type: (socket.socket, int) -> Tuple[Any, Any, Optional[int]]
             """Internal function to receive a Packet"""
             pkt, sa_ll = sock.recvfrom(x)
             return pkt, sa_ll, None
     else:
         def _recv_raw(self, sock, x):
+            # type: (socket.socket, int) -> Tuple[Any, Any, Optional[int]]
             """Internal function to receive a Packet,
             and process ancillary data.
             """
@@ -129,15 +140,17 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             return pkt, sa_ll, timestamp
 
     def recv_raw(self, x=MTU):
+        # type: (int) -> Tuple[Packet_metaclass, bytes, Optional[int]]
         """Returns a tuple containing (cls, pkt_data, time)"""
         return conf.raw_layer, self.ins.recv(x), None
 
     def recv(self, x=MTU):
+        # type: (int) -> Optional[Packet]
         cls, val, ts = self.recv_raw(x)
         if not val or not cls:
-            return
+            return None
         try:
-            pkt = cls(val)
+            pkt = cls(val)  # type: Packet
         except KeyboardInterrupt:
             raise
         except Exception:
@@ -151,9 +164,11 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         return pkt
 
     def fileno(self):
+        # type: () -> int
         return self.ins.fileno()
 
     def close(self):
+        # type: () -> None
         if self.closed:
             return
         self.closed = True
@@ -166,10 +181,12 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
                 self.ins.close()
 
     def sr(self, *args, **kargs):
+        # type: (...) -> Tuple[PacketList, PacketList]
         from scapy import sendrecv
         return sendrecv.sndrcv(self, *args, **kargs)
 
     def sr1(self, *args, **kargs):
+        # type: (...) -> Optional[Packet]
         from scapy import sendrecv
         a, b = sendrecv.sndrcv(self, *args, **kargs)
         if len(a) > 0:
@@ -178,15 +195,18 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             return None
 
     def sniff(self, *args, **kargs):
+        # type: (...) -> PacketList
         from scapy import sendrecv
         return sendrecv.sniff(opened_socket=self, *args, **kargs)
 
     def tshark(self, *args, **kargs):
+        # type: (...) -> None
         from scapy import sendrecv
         return sendrecv.tshark(opened_socket=self, *args, **kargs)
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
+        # type: (List[SuperSocket], float) -> Tuple[List[SuperSocket], None]
         """This function is called during sendrecv() routine to select
         the available sockets.
 
@@ -203,13 +223,16 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         return inp, None
 
     def __del__(self):
+        # type: () -> None
         """Close the socket"""
         self.close()
 
     def __enter__(self):
+        # type: () -> SuperSocket
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        # type: (Optional[Type[BaseException]], Optional[BaseException], Optional[Any]) -> None  # noqa: E501
         """Close the socket"""
         self.close()
 
@@ -218,6 +241,7 @@ class L3RawSocket(SuperSocket):
     desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
 
     def __init__(self, type=ETH_P_IP, filter=None, iface=None, promisc=None, nofilter=0):  # noqa: E501
+        # type: (int, Optional[Any], Optional[str], Optional[bool], int) -> None
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)  # noqa: E501
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
@@ -242,6 +266,7 @@ class L3RawSocket(SuperSocket):
                 log_runtime.info(msg)
 
     def recv(self, x=MTU):
+        # type: (int) -> Optional[Packet]
         pkt, sa_ll, ts = self._recv_raw(self.ins, x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None
@@ -275,6 +300,7 @@ class L3RawSocket(SuperSocket):
         return pkt
 
     def send(self, x):
+        # type: (Union[Packet, RawVal]) -> int
         try:
             sx = raw(x)
             x.sent_time = time.time()
@@ -287,6 +313,7 @@ class SimpleSocket(SuperSocket):
     desc = "wrapper around a classic socket"
 
     def __init__(self, sock):
+        # type: (socket.socket) -> None
         self.ins = sock
         self.outs = sock
 
@@ -296,12 +323,14 @@ class StreamSocket(SimpleSocket):
     nonblocking_socket = True
 
     def __init__(self, sock, basecls=None):
+        # type: (socket.socket, Optional[Packet_metaclass]) -> None
         if basecls is None:
             basecls = conf.raw_layer
         SimpleSocket.__init__(self, sock)
         self.basecls = basecls
 
     def recv(self, x=MTU):
+        # type: (int) -> Optional[Packet]
         pkt = self.ins.recv(x, socket.MSG_PEEK)
         x = len(pkt)
         if x == 0:
@@ -322,11 +351,13 @@ class SSLStreamSocket(StreamSocket):
     desc = "similar usage than StreamSocket but specialized for handling SSL-wrapped sockets"  # noqa: E501
 
     def __init__(self, sock, basecls=None):
+        # type: (socket.socket, Optional[Packet_metaclass]) -> None
         self._buf = b""
         super(SSLStreamSocket, self).__init__(sock, basecls)
 
     # 65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=65535):
+        # type: (int) -> Packet
         pkt = None
         if self._buf != b"":
             try:
@@ -359,6 +390,7 @@ class L2ListenTcpdump(SuperSocket):
 
     def __init__(self, iface=None, promisc=None, filter=None, nofilter=False,
                  prog=None, *arg, **karg):
+        # type: (str, Optional[bool], Optional[Any], Optional[int], Optional[str]) -> None  # noqa: E501
         self.outs = None
         args = ['-w', '-', '-s', '65535']
         if iface is None and (WINDOWS or DARWIN):
@@ -380,14 +412,17 @@ class L2ListenTcpdump(SuperSocket):
         self.ins = PcapReader(self.tcpdump_proc.stdout)
 
     def recv(self, x=MTU):
+        # type: (int) -> Optional[Packet]
         return self.ins.recv(x)
 
     def close(self):
+        # type: () -> None
         SuperSocket.close(self)
         self.tcpdump_proc.kill()
 
     @staticmethod
     def select(sockets, remain=None):
+        # type: (List[SuperSocket], Optional[float]) -> Tuple[List[SuperSocket], None]  # noqa: E501
         if (WINDOWS or DARWIN):
             return sockets, None
         return SuperSocket.select(sockets, remain=remain)
@@ -400,12 +435,14 @@ class TunTapInterface(SuperSocket):
     desc = "Act as the host's peer of a tun / tap interface"
 
     def __init__(self, iface=None, mode_tun=None, *arg, **karg):
+        # type: (Optional[str], Optional[str]) -> None
         self.iface = conf.iface if iface is None else iface
         self.mode_tun = ("tun" in self.iface) if mode_tun is None else mode_tun
         self.closed = True
         self.open()
 
     def open(self):
+        # type: () -> None
         """Open the TUN or TAP device."""
         if not self.closed:
             return
@@ -426,6 +463,7 @@ class TunTapInterface(SuperSocket):
         self.closed = False
 
     def __call__(self, *arg, **karg):
+        # type: (...) -> TunTapInterface
         """Needed when using an instantiated TunTapInterface object for
 conf.L2listen, conf.L2socket or conf.L3socket.
 
@@ -433,6 +471,7 @@ conf.L2listen, conf.L2socket or conf.L3socket.
         return self
 
     def recv(self, x=MTU):
+        # type: (int) -> Packet
         if self.mode_tun:
             data = os.read(self.ins.fileno(), x + 4)
             proto = struct.unpack('!H', data[2:4])[0]
@@ -442,11 +481,13 @@ conf.L2listen, conf.L2socket or conf.L3socket.
         )
 
     def send(self, x):
+        # type: (Union[RawVal, Packet]) -> int
         sx = raw(x)
         if self.mode_tun:
             try:
                 proto = conf.l3types[type(x)]
             except KeyError:
+                x = cast(Packet, x)
                 log_runtime.warning(
                     "Cannot find layer 3 protocol value to send %s in "
                     "conf.l3types, using 0",
@@ -456,9 +497,12 @@ conf.L2listen, conf.L2socket or conf.L3socket.
             sx = struct.pack('!HH', 0, proto) + sx
         try:
             try:
+                x = cast(Packet, x)
                 x.sent_time = time.time()
             except AttributeError:
                 pass
             return os.write(self.outs.fileno(), sx)
         except socket.error:
             log_runtime.error("%s send", self.__class__.__name__, exc_info=True)  # noqa: E501
+
+        return 0
