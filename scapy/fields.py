@@ -3167,9 +3167,9 @@ class _ScalingField(object):
     def __init__(self,
                  name,  # type: str
                  default,  # type: float
-                 scaling=1,  # type: int
+                 scaling=1,  # type: Union[int, float]
                  unit="",  # type: str
-                 offset=0,  # type: int
+                 offset=0,  # type: Union[int, float]
                  ndigits=3,  # type: int
                  fmt="B",  # type: str
                  ):
