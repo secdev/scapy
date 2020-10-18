@@ -66,7 +66,7 @@ class Route:
                    host=None,  # type: Optional[str]
                    net=None,  # type: Optional[str]
                    gw=None,  # type: Optional[str]
-                   dev=None,  # type: Optional[Any]
+                   dev=None,  # type: Optional[str]
                    metric=1,  # type: int
                    ):
         # type: (...) -> Tuple[int, int, str, str, str, int]
