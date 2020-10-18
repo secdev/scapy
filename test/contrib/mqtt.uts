@@ -55,6 +55,10 @@ assert(connect.klive == 60)
 assert(connect.clientIdlen == 17)
 assert(connect.clientId == b'mosqpub/1440-kali')
 
+= MQTTDisconnect
+mr = raw(MQTT()/MQTTDisconnect())                                                                                           
+dc= MQTT(mr)                                                                                                                
+assert dc.type == 14 
 
 =MQTTConnack, packet instantiation
 ck = MQTT()/MQTTConnack(sessPresentFlag=1,retcode=0)
