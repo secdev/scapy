@@ -319,10 +319,10 @@ class Route6:
 
         res = []  # type: List[Tuple[int, int, Tuple[str, str, str]]]
         for path in paths:  # we select best source address for every route
-            tup = path[2]
-            srcaddr = get_source_addr_from_candidate_set(dst, tup[1])
+            tmp_c = path[2]
+            srcaddr = get_source_addr_from_candidate_set(dst, tmp_c[1])
             if srcaddr is not None:
-                res.append((path[0], path[1], (tup[0], srcaddr, tup[2])))
+                res.append((path[0], path[1], (tmp_c[0], srcaddr, tmp_c[2])))
 
         if res == []:
             warning("Found a route for IPv6 destination '%s', but no possible source address.", dst)  # noqa: E501
