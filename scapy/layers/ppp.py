@@ -19,10 +19,25 @@ from scapy.layers.eap import EAP
 from scapy.layers.l2 import Ether, CookedLinux, GRE_PPTP
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
-from scapy.fields import BitField, ByteEnumField, ByteField, \
-    ConditionalField, EnumField, FieldLenField, IntField, IPField, \
-    PacketListField, PacketField, ShortEnumField, ShortField, \
-    StrFixedLenField, StrLenField, XByteField, XShortField, XStrLenField
+from scapy.fields import (
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    EnumField,
+    FieldLenField,
+    IPField,
+    IntField,
+    OUIField,
+    PacketField,
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    StrLenField,
+    XByteField,
+    XShortField,
+    XStrLenField,
+)
 from scapy.modules import six
 
 
@@ -449,7 +464,7 @@ class PPP_ECP_Option_OUI(PPP_ECP_Option):
         ByteEnumField("type", 0, _PPP_ecpopttypes),
         FieldLenField("len", None, length_of="data", fmt="B",
                       adjust=lambda _, val: val + 6),
-        StrFixedLenField("oui", "", 3),
+        OUIField("oui", 0),
         ByteField("subtype", 0),
         StrLenField("data", "", length_from=lambda pkt: pkt.len - 6),
     ]

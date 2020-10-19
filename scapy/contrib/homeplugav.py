@@ -19,11 +19,30 @@ from __future__ import absolute_import
 import struct
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import BitField, ByteEnumField, ByteField, \
-    ConditionalField, EnumField, FieldLenField, IntField, LEIntField, \
-    LELongField, LEShortField, MACField, PacketListField, ShortField, \
-    StrFixedLenField, StrLenField, X3BytesField, XByteField, XIntField, \
-    XLongField, XShortField, LEShortEnumField
+from scapy.fields import (
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    EnumField,
+    FieldLenField,
+    IntField,
+    LEIntField,
+    LELongField,
+    LEShortEnumField,
+    LEShortField,
+    MACField,
+    OUIField,
+    PacketListField,
+    ShortField,
+    StrFixedLenField,
+    StrLenField,
+    X3BytesField,
+    XByteField,
+    XIntField,
+    XLongField,
+    XShortField,
+)
 from scapy.layers.l2 import Ether
 from scapy.modules.six.moves import range
 
@@ -176,7 +195,7 @@ class MACManagementHeader(Packet):
 
 class VendorMME(Packet):
     name = "VendorMME "
-    fields_desc = [X3BytesField("OUI", 0x00b052)]
+    fields_desc = [OUIField("OUI", 0x00b052)]
 
 
 class GetDeviceVersion(Packet):

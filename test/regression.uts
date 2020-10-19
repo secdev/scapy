@@ -2434,7 +2434,7 @@ assert( q[PPP_IPCP_Option_NBNS2].data == '9.10.11.12' )
 = PPP ECP
 ~ ppp ecp
 
-p = PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ")])
+p = PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui=0x58595a)])
 p
 r = raw(p)
 r
@@ -2442,7 +2442,7 @@ assert(r == b'\x80S\x01\x00\x00\n\x00\x06XYZ\x00')
 q = PPP(r)
 q
 assert(raw(p) == raw(q))
-p = PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ"),PPP_ECP_Option(type=1,data="ABCDEFG")])
+p = PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui=0x58595a),PPP_ECP_Option(type=1,data="ABCDEFG")])
 p
 r = raw(p)
 r
