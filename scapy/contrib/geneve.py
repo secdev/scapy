@@ -39,7 +39,7 @@ class GENEVEOptionsField(XStrField):
     def getfield(self, pkt, s):
         opln = pkt.optionlen * 4
         if opln < 0:
-            warning("bad optionlen (%i). Assuming optionlen=0" % pkt.optionlen)
+            warning("bad optionlen (%i). Assuming optionlen=0", pkt.optionlen)
             opln = 0
         return s[opln:], self.m2i(pkt, s[:opln])
 

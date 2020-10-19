@@ -988,9 +988,11 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             except Exception:
                 if conf.debug_dissector:
                     if issubtype(cls, Packet):
-                        log_runtime.error("%s dissector failed" % cls.__name__)
+                        log_runtime.error("%s dissector failed", cls.__name__)
                     else:
-                        log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__, repr(cls)))  # noqa: E501
+                        log_runtime.error("%s.guess_payload_class() returned "
+                                          "[%s]",
+                                          self.__class__.__name__, repr(cls))
                     if cls is not None:
                         raise
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)

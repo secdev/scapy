@@ -296,7 +296,7 @@ class ShortVersionField(ShortField):
             if not hasattr(self, "default"):
                 return x
             if self.default is not None:
-                warning("set value to default. Format of %r is invalid" % x)
+                warning("set value to default. Format of %r is invalid", x)
                 return self.default
             else:
                 raise Scapy_Exception("Format of value is invalid")

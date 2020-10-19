@@ -1173,7 +1173,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         if p.identifier != self.dst_id:
             if not self.filter_warning_emitted and conf.verb >= 2:
                 warning("You should put a filter for identifier=%x on your "
-                        "CAN socket" % self.dst_id)
+                        "CAN socket", self.dst_id)
                 self.filter_warning_emitted = True
         else:
             self.on_recv(p)

@@ -57,10 +57,7 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
     while True:
         if abs(pointer) >= max_length:
             log_runtime.info(
-                "DNS RR prematured end (ofs=%i, len=%i)" % (
-                    pointer,
-                    len(s)
-                )
+                "DNS RR prematured end (ofs=%i, len=%i)", pointer, len(s)
             )
             break
         cur = orb(s[pointer])  # get pointer value
@@ -72,7 +69,7 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
                 after_pointer = pointer + 1
             if pointer >= max_length:
                 log_runtime.info(
-                    "DNS incomplete jump token at (ofs=%i)" % pointer
+                    "DNS incomplete jump token at (ofs=%i)", pointer
                 )
                 break
             # Follow the pointer
@@ -364,7 +361,7 @@ class DNSTextField(StrLenField):
             if tmp_len > len(tmp_s):
                 log_runtime.info(
                     "DNS RR TXT prematured end of character-string "
-                    "(size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s))
+                    "(size=%i, remaining bytes=%i)", tmp_len, len(tmp_s)
                 )
             ret_s.append(tmp_s[1:tmp_len])
             tmp_s = tmp_s[tmp_len:]
@@ -557,7 +554,7 @@ def bitmap2RRlist(bitmap):
     while bitmap:
 
         if len(bitmap) < 2:
-            log_runtime.info("bitmap too short (%i)" % len(bitmap))
+            log_runtime.info("bitmap too short (%i)", len(bitmap))
             return
 
         window_block = orb(bitmap[0])  # window number
@@ -565,7 +562,7 @@ def bitmap2RRlist(bitmap):
         bitmap_len = orb(bitmap[1])  # length of the bitmap in bytes
 
         if bitmap_len <= 0 or bitmap_len > 32:
-            log_runtime.info("bitmap length is no valid (%i)" % bitmap_len)
+            log_runtime.info("bitmap length is no valid (%i)", bitmap_len)
             return
 
         tmp_bitmap = bitmap[2:2 + bitmap_len]

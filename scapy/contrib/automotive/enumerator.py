@@ -117,13 +117,13 @@ class Enumerator(object):
         else:
             it = self.request_iterators[state]
 
-        log_interactive.debug("Using iterator %s in state %s" % (it, state))
+        log_interactive.debug("Using iterator %s in state %s", it, state)
 
         for req in it:
             try:
                 res = self.sock.sr1(req, timeout=timeout, verbose=False)
             except ValueError as e:
-                warning("Exception in scan %s" % e)
+                warning("Exception in scan %s", e)
                 break
 
             self.results.append(Enumerator.ScanResult(state, req, res))
@@ -356,20 +356,20 @@ class Scanner(object):
         scan_complete = False
         while not scan_complete:
             scan_complete = True
-            log_interactive.info("[i] Scan paths %s" % self.get_state_paths())
+            log_interactive.info("[i] Scan paths %s", self.get_state_paths())
             for p in self.get_state_paths():
-                log_interactive.info("[i] Scan path %s" % p)
+                log_interactive.info("[i] Scan path %s", p)
                 final_state = p[-1]
                 for e in self.enumerators:
                     if e.state_completed[final_state]:
-                        log_interactive.debug("[+] State %s for %s completed" %
-                                              (repr(final_state), e))
+                        log_interactive.debug("[+] State %s for %s completed",
+                                              repr(final_state), e)
                         continue
                     if not self.enter_state_path(p):
-                        log_interactive.error("[-] Error entering path %s" % p)
+                        log_interactive.error("[-] Error entering path %s", p)
                         continue
-                    log_interactive.info("[i] EXECUTE SCAN %s for path %s" %
-                                         (e.__class__.__name__, p))
+                    log_interactive.info("[i] EXECUTE SCAN %s for path %s",
+                                         e.__class__.__name__, p)
                     self.execute_enumerator(e)
                     scan_complete = False
         self.reset_target()

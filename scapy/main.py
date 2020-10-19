@@ -318,7 +318,7 @@ def save_session(fname="", session=None, pickleProto=-1):
         fname = conf.session
         if not fname:
             conf.session = fname = cast(str, utils.get_temp_file(keep=True))
-    log_interactive.info("Use [%s] as session file" % fname)
+    log_interactive.info("Use [%s] as session file", fname)
 
     if not session:
         try:
@@ -378,7 +378,7 @@ def load_session(fname=None):
     scapy_session.update(s)
     update_ipython_session(scapy_session)
 
-    log_loading.info("Loaded session [%s]" % fname)
+    log_loading.info("Loaded session [%s]", fname)
 
 
 def update_session(fname=None):
@@ -420,7 +420,7 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
         try:
             os.stat(session_name)
         except OSError:
-            log_loading.info("New session [%s]" % session_name)
+            log_loading.info("New session [%s]", session_name)
         else:
             try:
                 try:
@@ -428,15 +428,15 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
                                                                "rb"))
                 except IOError:
                     SESSION = six.moves.cPickle.load(open(session_name, "rb"))
-                log_loading.info("Using session [%s]" % session_name)
+                log_loading.info("Using session [%s]", session_name)
             except ValueError:
                 msg = "Error opening Python3 pickled session on Python2 [%s]"
-                log_loading.error(msg % session_name)
+                log_loading.error(msg, session_name)
             except EOFError:
-                log_loading.error("Error opening session [%s]" % session_name)
+                log_loading.error("Error opening session [%s]", session_name)
             except AttributeError:
                 log_loading.error("Error opening session [%s]. "
-                                  "Attribute missing" % session_name)
+                                  "Attribute missing", session_name)
 
         if SESSION:
             if "conf" in SESSION:

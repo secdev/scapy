@@ -263,7 +263,7 @@ if WINDOWS:
         def __init__(self, iface=None, *args, **karg):
             _usbpcap_check()
             if iface is None:
-                warning("Available interfaces: [%s]" %
+                warning("Available interfaces: [%s]",
                         " ".join(x[0] for x in get_usbpcap_interfaces()))
                 raise NameError("No interface specified !"
                                 " See get_usbpcap_interfaces()")

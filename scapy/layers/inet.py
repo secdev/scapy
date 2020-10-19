@@ -367,7 +367,7 @@ class TCPOptionsField(StrField):
         opsz = (pkt.dataofs - 5) * 4
         if opsz < 0:
             log_runtime.info(
-                "bad dataofs (%i). Assuming dataofs=5" % pkt.dataofs
+                "bad dataofs (%i). Assuming dataofs=5", pkt.dataofs
             )
             opsz = 0
         return s[opsz:], self.m2i(pkt, s[:opsz])
@@ -389,7 +389,7 @@ class TCPOptionsField(StrField):
                 olen = 0
             if olen < 2:
                 log_runtime.info(
-                    "Malformed TCP option (announced length is %i)" % olen
+                    "Malformed TCP option (announced length is %i)", olen
                 )
                 olen = 2
             oval = x[2:olen]
