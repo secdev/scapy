@@ -442,7 +442,7 @@ class L2Socket(SuperSocket):
                 try:
                     attach_filter(self.ins, filter, iface)
                 except ImportError as ex:
-                    log_runtime.error("Cannot set filter: %s" % ex)
+                    log_runtime.error("Cannot set filter: %s", ex)
         if self.promisc:
             set_promisc(self.ins, self.iface)
         self.ins.bind((self.iface, type))

@@ -507,7 +507,7 @@ def _parse_tcpreplay_result(stdout, stderr, argv):
     except Exception as parse_exception:
         if not conf.interactive:
             raise
-        log_runtime.error("Error parsing output: " + str(parse_exception))
+        log_runtime.error("Error parsing output: %s", parse_exception)
         return {}
 
 

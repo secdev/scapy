@@ -636,7 +636,7 @@ class TLSServerAutomaton(_TLSAutomaton):
                     # secret
                     self.vprint("Ticket found in database !")
                     if res_ciphersuite not in _tls_cipher_suites_cls:
-                        warning("Unknown cipher suite %d" % res_ciphersuite)
+                        warning("Unknown cipher suite %d", res_ciphersuite)
                         # we do not try to set a default nor stop the execution
                     else:
                         cs_cls = _tls_cipher_suites_cls[res_ciphersuite]

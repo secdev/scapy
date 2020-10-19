@@ -116,7 +116,7 @@ def getmacbyip(ip, chainCC=0):
                    chainCC=chainCC,
                    nofilter=1)
     except Exception as ex:
-        warning("getmacbyip failed on %s" % ex)
+        warning("getmacbyip failed on %s", ex)
         return None
     if res is not None:
         mac = res.payload.hwsrc

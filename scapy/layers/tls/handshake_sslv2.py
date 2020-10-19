@@ -297,7 +297,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
             cipher = pkt[1:4]
             cs_val = struct.unpack("!I", b"\x00" + cipher)[0]
             if cs_val not in _tls_cipher_suites_cls:
-                warning("Unknown ciphersuite %d from ClientMasterKey" % cs_val)
+                warning("Unknown cipher suite %d from ClientMasterKey", cs_val)
                 cs_cls = None
             else:
                 cs_cls = _tls_cipher_suites_cls[cs_val]
@@ -349,7 +349,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
         s = self.tls_session
         cs_val = self.cipher
         if cs_val not in _tls_cipher_suites_cls:
-            warning("Unknown cipher suite %d from ClientMasterKey" % cs_val)
+            warning("Unknown cipher suite %d from ClientMasterKey", cs_val)
             cs_cls = None
         else:
             cs_cls = _tls_cipher_suites_cls[cs_val]

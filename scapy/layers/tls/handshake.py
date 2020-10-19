@@ -554,7 +554,7 @@ class TLSServerHello(_TLSHandshake):
         if self.cipher:
             cs_val = self.cipher
             if cs_val not in _tls_cipher_suites_cls:
-                warning("Unknown cipher suite %d from ServerHello" % cs_val)
+                warning("Unknown cipher suite %d from ServerHello", cs_val)
                 # we do not try to set a default nor stop the execution
             else:
                 cs_cls = _tls_cipher_suites_cls[cs_val]
@@ -563,8 +563,8 @@ class TLSServerHello(_TLSHandshake):
         if self.comp:
             comp_val = self.comp[0]
             if comp_val not in _tls_compression_algs_cls:
-                err = "Unknown compression alg %d from ServerHello" % comp_val
-                warning(err)
+                err = "Unknown compression alg %d from ServerHello"
+                warning(err, comp_val)
                 comp_val = 0
             comp_cls = _tls_compression_algs_cls[comp_val]
 
@@ -650,7 +650,7 @@ class TLS13ServerHello(TLSServerHello):
         if self.cipher:
             cs_val = self.cipher
             if cs_val not in _tls_cipher_suites_cls:
-                warning("Unknown cipher suite %d from ServerHello" % cs_val)
+                warning("Unknown cipher suite %d from ServerHello", cs_val)
                 # we do not try to set a default nor stop the execution
             else:
                 cs_cls = _tls_cipher_suites_cls[cs_val]

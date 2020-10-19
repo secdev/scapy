@@ -2303,7 +2303,7 @@ class _EnumField(Field[Union[List[I], I], I]):
         # type: (ObservableDict, I, str) -> None
         ks = "0x%x" if isinstance(key, int) else "%s"
         log_runtime.debug(
-            ("At %s: Change to %s at " + ks) % (self, value, key)
+            "At %s: Change to %s at " + ks, self, value, key
         )
         if self.i2s and self.s2i:
             self.i2s[key] = value
@@ -2312,7 +2312,7 @@ class _EnumField(Field[Union[List[I], I], I]):
     def notify_del(self, enum, key):
         # type: (ObservableDict, I) -> None
         ks = "0x%x" if isinstance(key, int) else "%s"
-        log_runtime.debug(("At %s: Delete value at " + ks) % (self, key))
+        log_runtime.debug("At %s: Delete value at " + ks, self, key)
         if self.i2s and self.s2i:
             value = self.i2s[key]
             del self.i2s[key]

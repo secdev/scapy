@@ -236,8 +236,8 @@ def GMLAN_TransferData(sock, addr, payload, maxmsglen=None, timeout=None,
 
     scheme = conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']
     if addr < 0 or addr >= 2**(8 * scheme):
-        warning("Error: Invalid address " + hex(addr) + " for scheme " +
-                str(scheme))
+        warning("Error: Invalid address %s for scheme %s",
+                hex(addr), str(scheme))
         return False
 
     # max size of dataRecord according to gmlan protocol
@@ -311,14 +311,15 @@ def GMLAN_ReadMemoryByAddress(sock, addr, length, timeout=None,
 
     scheme = conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']
     if addr < 0 or addr >= 2**(8 * scheme):
-        warning("Error: Invalid address " + hex(addr) + " for scheme " +
-                str(scheme))
+        warning("Error: Invalid address %s for scheme %s",
+                hex(addr), str(scheme))
         return None
 
     # max size of dataRecord according to gmlan protocol
     if length <= 0 or length > (4094 - scheme):
-        warning("Error: Invalid length " + hex(length) + " for scheme " +
-                str(scheme) + ". Choose between 0x1 and " + hex(4094 - scheme))
+        warning("Error: Invalid length %s for scheme %s. "
+                "Choose between 0x1 and %s",
+                hex(length), str(scheme), hex(4094 - scheme))
         return None
 
     while retry >= 0:

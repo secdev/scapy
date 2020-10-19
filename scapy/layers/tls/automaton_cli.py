@@ -256,7 +256,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                 if self.resumption_master_secret:
 
                     if s.tls13_ticket_ciphersuite not in _tls_cipher_suites_cls:  # noqa: E501
-                        warning("Unknown cipher suite %d" % s.tls13_ticket_ciphersuite)  # noqa: E501
+                        warning("Unknown cipher suite %d", s.tls13_ticket_ciphersuite)  # noqa: E501
                         # we do not try to set a default nor stop the execution
                     else:
                         cs_cls = _tls_cipher_suites_cls[s.tls13_ticket_ciphersuite]  # noqa: E501

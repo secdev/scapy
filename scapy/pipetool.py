@@ -131,12 +131,14 @@ class PipeEngine(SelectableObject):
                             sources = self.active_sources - exhausted
                             sources.add(self)
                         else:
-                            warning("Unknown internal pipe engine command: %r. Ignoring." % cmd)  # noqa: E501
+                            warning("Unknown internal pipe engine command: %r."
+                                    " Ignoring.", cmd)
                     elif fd in sources:
                         try:
                             fd.deliver()
                         except Exception as e:
-                            log_runtime.exception("piping from %s failed: %s" % (fd.name, e))  # noqa: E501
+                            log_runtime.exception("piping from %s failed: %s",
+                                                  fd.name, e)
                         else:
                             if fd.exhausted():
                                 exhausted.add(fd)

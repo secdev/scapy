@@ -91,7 +91,8 @@ class connState(object):
         self.ciphersuite = ciphersuite(tls_version=tls_version)
 
         if not self.ciphersuite.usable:
-            warning("TLS ciphersuite not usable. Is the cryptography Python module installed ?")  # noqa: E501
+            warning("TLS cipher suite not usable. "
+                    "Is the cryptography Python module installed?")
             return
 
         self.compression = compression_alg()

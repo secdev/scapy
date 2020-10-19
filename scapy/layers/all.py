@@ -20,7 +20,7 @@ log = logging.getLogger("scapy.loading")
 __all__ = []
 
 for _l in conf.load_layers:
-    log_loading.debug("Loading layer %s" % _l)
+    log_loading.debug("Loading layer %s", _l)
     try:
         load_layer(_l, globals_dict=globals(), symb_list=__all__)
     except Exception as e:
