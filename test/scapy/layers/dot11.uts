@@ -536,6 +536,27 @@ b = RadioTapExtendedPresenceMask(index=1, present="b32+b45+b59+b62")
 pkt = RadioTap(present="Ext", Ext=[a, b])
 assert raw(pkt) == b'\x00\x00\x10\x00\x00\x00\x00\x80\x01\x10\x00\xa0\x01 \x00H'
 
+= RadioTap - dissect & build TLVs
+
+pkt = RadioTap(
+    present="TLV+dBm_TX_Power+TXFlags+Channel+Rate+Flags",
+    tlvs=[
+        RadioTapTLV(type=30, data=b"tes1t"),
+        RadioTapTLV(type=1, data=b"a")
+    ]
+)
+
+assert raw(pkt) == b'\x00\x00,\x00\x0e\x84\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x1e\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00tes1t\x00\x00\x00\x01\x00\x01\x00a\x00\x00\x00'
+
+pkt = RadioTap(raw(pkt))
+assert pkt.present.TLV
+assert pkt.tlvs[0].type == 30
+assert pkt.tlvs[0].data == b"tes1t"
+assert pkt.tlvs[0].pad == b"\0\0\0"
+assert pkt.tlvs[1].type == 1
+assert pkt.tlvs[1].data == b"a"
+assert pkt.notdecoded == b""
+
 = fuzz() calls for Dot11Elt()
 for i in range(10):
     assert isinstance(raw(fuzz(Dot11Elt())), bytes)

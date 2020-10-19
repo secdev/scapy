@@ -3280,6 +3280,21 @@ class BitScalingField(_ScalingField, BitField):  # type: ignore
         BitField.__init__(self, name, default, size)  # type: ignore
 
 
+class OUIField(X3BytesField):
+    """
+    A field designed to carry a OUI (3 bytes)
+    """
+    def i2repr(self, pkt, val):
+        # type: (Optional[BasePacket], int) -> str
+        by_val = struct.pack("!I", val or 0)[1:]
+        oui = str2mac(by_val + b"\0" * 3)[:8]
+        if conf.manufdb:
+            fancy = conf.manufdb._get_manuf(oui)
+            if fancy != oui:
+                return "%s (%s)" % (fancy, oui)
+        return oui
+
+
 class UUIDField(Field[UUID, bytes]):
     """Field for UUID storage, wrapping Python's uuid.UUID type.
 
