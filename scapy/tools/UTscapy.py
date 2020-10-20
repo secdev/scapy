@@ -381,8 +381,7 @@ def parse_campaign_file(campaign_file):
         else:
             if test is None:
                 if line.strip():
-                    print("Unknown content [%s]" % line.strip(),
-                          file=sys.stderr)
+                    raise ValueError("Unknown content [%s]" % line.strip())
             else:
                 test.test += line
     return test_campaign
@@ -835,7 +834,12 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOC
                      autorun_func, theme, pos_begin=0,
                      ignore_globals=None, scapy_ses=None):  # noqa: E501
     # Parse test file
-    test_campaign = parse_campaign_file(TESTFILE)
+    try:
+        test_campaign = parse_campaign_file(TESTFILE)
+    except ValueError as ex:
+        print(theme.red("Error while parsing '%s': '%s'" % (TESTFILE.name, ex)),
+              file=sys.stderr)
+        sys.exit(0)
 
     # Report parameters
     if PREEXEC:
@@ -918,7 +922,7 @@ def main():
     import scapy
     print(dash + " UTScapy - Scapy %s - %s" % (
         scapy.__version__, sys.version.split(" ")[0]
-    ))
+    ), file=sys.stderr)
 
     # Parse arguments
 
@@ -1041,21 +1045,21 @@ def main():
     if six.PY2:
         KW_KO.append("python3_only")
         if VERB > 2:
-            print(" " + arrow + " Python 2 mode")
+            print(" " + arrow + " Python 2 mode", file=sys.stderr)
     try:
         if NON_ROOT or os.getuid() != 0:  # Non root
             # Discard root tests
             KW_KO.append("netaccess")
             KW_KO.append("needs_root")
             if VERB > 2:
-                print(" " + arrow + " Non-root mode")
+                print(" " + arrow + " Non-root mode", file=sys.stderr)
     except AttributeError:
         pass
 
     if conf.use_pcap:
         KW_KO.append("not_pcapdnet")
         if VERB > 2:
-            print(" " + arrow + " libpcap mode ###")
+            print(" " + arrow + " libpcap mode", file=sys.stderr)
 
     KW_KO.append("disabled")
 
