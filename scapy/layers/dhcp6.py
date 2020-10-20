@@ -776,6 +776,9 @@ class DHCP6OptIAPrefix(_DHCP6OptGuessPayload):  # RFC 8415 sect 21.22
                                    _DHCP6OptGuessPayloadElt,
                                    length_from=lambda pkt: pkt.optlen - 25)]
 
+    def guess_payload_class(self, payload):
+        return conf.padding_layer
+
 
 class DHCP6OptIA_PD(_DHCP6OptGuessPayload):  # RFC 8415 sect 21.21
     name = "DHCP6 Option - Identity Association for Prefix Delegation"

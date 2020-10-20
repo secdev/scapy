@@ -652,7 +652,19 @@ a.optcode == 24 and a.optlen == 36 and len(a.dnsdomains) == 2 and a.dnsdomains[0
 = DHCP6OptIAPrefix - Basic Instantiation
 raw(DHCP6OptIAPrefix()) == b'\x00\x1a\x00\x19\x00\x00\x00\x00\x00\x00\x00\x000 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
-#TODO : finish me
+= DHCP6OptIAPrefix - Basic Dissection
+a = DHCP6OptIAPrefix(b'\x00\x1a\x00\x19\x00\x00\x00\x00\x00\x00\x00\x000 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.optcode == 26 and a.optlen == 25 and a.prefix == "2001:db8::" and a.plen == 48 and a.preflft == 0 and a. validlft == 0 and a.iaprefopts == []
+
+= DHCP6OptIAPrefix - Instantiation with specific values
+raw(DHCP6OptIAPrefix(optlen=0x1111, prefix="1111:2222:3333:4444::", plen=64, preflft=0x66666666, validlft=0x77777777, iaprefopts="somestring")) == b'\x00\x1a\x11\x11ffffwwww@\x11\x11""33DD\x00\x00\x00\x00\x00\x00\x00\x00somestring'
+
+= DHCP6OptIAPrefix - Instantiation with specific values (default optlen computation)
+raw(DHCP6OptIAPrefix(prefix="1111:2222:3333:4444::", plen=64, preflft=0x66666666, validlft=0x77777777, iaprefopts="somestring")) == b'\x00\x1a\x00#ffffwwww@\x11\x11""33DD\x00\x00\x00\x00\x00\x00\x00\x00somestring'
+
+= DHCP6OptIAPrefix - Dissection with specific values 
+a = DHCP6OptIAPrefix(b'\x00\x1a\x00#ffffwwww@\x11\x11""33DD\x00\x00\x00\x00\x00\x00\x00\x00somerawing')
+a.optcode == 26 and a.optlen == 35 and a.prefix == "1111:2222:3333:4444::" and a.plen == 64 and a.preflft == 0x66666666 and a.validlft == 0x77777777 and a.iaprefopts[0].load == b"somerawing"
 
 
 ############
@@ -662,10 +674,26 @@ raw(DHCP6OptIAPrefix()) == b'\x00\x1a\x00\x19\x00\x00\x00\x00\x00\x00\x00\x000 \
 = DHCP6OptIA_PD - Basic Instantiation
 raw(DHCP6OptIA_PD()) == b'\x00\x19\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
-= DHCP6OptIA_PD - Instantiation with a list of different opts: IA Address and Status Code (optlen automatic computation)
-raw(DHCP6OptIA_PD(iaid=0x22222222, T1=0x33333333, T2=0x44444444, iapdopt=[DHCP6OptIAAddress(), DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")])) == b'\x00\x19\x003""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x07\x00\xffHello'
+= DHCP6OptIA_PD - Basic Dissection
+a = DHCP6OptIA_PD(b'\x00\x19\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.optcode == 25 and a.optlen == 12 and a.iaid == 0 and a.T1 == 0 and a.T2==0 and a.iapdopt == []
 
-#TODO : finish me
+= DHCP6OptIA_PD - Instantiation with specific values (keep automatic length computation) 
+print(raw(DHCP6OptIA_PD(iaid=0x22222222, T1=0x33333333, T2=0x44444444)))
+raw(DHCP6OptIA_PD(iaid=0x22222222, T1=0x33333333, T2=0x44444444)) == b'\x00\x19\x00\x0c""""3333DDDD'
+
+= DHCP6OptIA_PD - Instantiation with specific values (forced optlen)
+raw(DHCP6OptIA_PD(optlen=0x1111, iaid=0x22222222, T1=0x33333333, T2=0x44444444)) == b'\x00\x19\x11\x11""""3333DDDD'
+
+= DHCP6OptIA_PD - Instantiation with a list of IA Prefixes (optlen automatic computation)
+raw(DHCP6OptIA_PD(iaid=0x22222222, T1=0x33333333, T2=0x44444444, iapdopt=[DHCP6OptIAPrefix(), DHCP6OptIAPrefix()])) == b'\x00\x19\x00F""""3333DDDD\x00\x1a\x00\x19\x00\x00\x00\x00\x00\x00\x00\x000 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1a\x00\x19\x00\x00\x00\x00\x00\x00\x00\x000 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= DHCP6OptIA_PD - Dissection with specific values
+a = DHCP6OptIA_PD(b'\x00\x19\x00N""""3333DDDD\x00\x1a\x00\x19\x00\x00\x00\x00\x00\x00\x00\x000 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1a\x00\x19\x00\x00\x00\x00\x00\x00\x00\x000 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.optcode == 25 and a.optlen == 78 and a.iaid == 0x22222222 and a.T1 == 0x33333333 and a.T2==0x44444444 and len(a.iapdopt) == 2 and isinstance(a.iapdopt[0], DHCP6OptIAPrefix) and isinstance(a.iapdopt[1], DHCP6OptIAPrefix)
+
+= DHCP6OptIA_PD - Instantiation with a list of different opts: IA Prefix and Status Code (optlen automatic computation)
+raw(DHCP6OptIA_PD(iaid=0x22222222, T1=0x33333333, T2=0x44444444, iapdopt=[DHCP6OptIAPrefix(), DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")])) == b'\x00\x19\x004""""3333DDDD\x00\x1a\x00\x19\x00\x00\x00\x00\x00\x00\x00\x000 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x07\x00\xffHello'
 
 
 ############
