@@ -181,28 +181,31 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
                 self.ins.close()
 
     def sr(self, *args, **kargs):
-        # type: (...) -> Tuple[PacketList, PacketList]
+        # type: (Any, Any) -> Tuple[PacketList, PacketList]
         from scapy import sendrecv
-        return sendrecv.sndrcv(self, *args, **kargs)
+        ans, unans = sendrecv.sndrcv(self, *args, **kargs)  # type: PacketList, PacketList  # noqa: E501
+        return ans, unans
 
     def sr1(self, *args, **kargs):
-        # type: (...) -> Optional[Packet]
+        # type: (Any, Any) -> Optional[Packet]
         from scapy import sendrecv
-        a, b = sendrecv.sndrcv(self, *args, **kargs)
+        a, b = sendrecv.sndrcv(self, *args, **kargs)  # type: PacketList, PacketList  # noqa: E501
         if len(a) > 0:
-            return a[0][1]
+            pkt = a[0][1]  # type: Packet
+            return pkt
         else:
             return None
 
     def sniff(self, *args, **kargs):
-        # type: (...) -> PacketList
+        # type: (Any, Any) -> PacketList
         from scapy import sendrecv
-        return sendrecv.sniff(opened_socket=self, *args, **kargs)
+        pkts =  sendrecv.sniff(opened_socket=self, *args, **kargs)  # type: PacketList  # noqa: E501
+        return pkts
 
     def tshark(self, *args, **kargs):
-        # type: (...) -> None
+        # type: (Any, Any) -> None
         from scapy import sendrecv
-        return sendrecv.tshark(opened_socket=self, *args, **kargs)
+        sendrecv.tshark(opened_socket=self, *args, **kargs)
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
@@ -267,11 +270,11 @@ class L3RawSocket(SuperSocket):
 
     def recv(self, x=MTU):
         # type: (int) -> Optional[Packet]
-        pkt, sa_ll, ts = self._recv_raw(self.ins, x)
+        data, sa_ll, ts = self._recv_raw(self.ins, x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None
         if sa_ll[3] in conf.l2types:
-            cls = conf.l2types[sa_ll[3]]
+            cls = conf.l2types[sa_ll[3]]  # type: Packet_metaclass
             lvl = 2
         elif sa_ll[1] in conf.l3types:
             cls = conf.l3types[sa_ll[1]]
@@ -282,13 +285,14 @@ class L3RawSocket(SuperSocket):
             lvl = 3
 
         try:
-            pkt = cls(pkt)
+            pkt = cls(data)  # type: Packet
         except KeyboardInterrupt:
             raise
         except Exception:
             if conf.debug_dissector:
                 raise
-            pkt = conf.raw_layer(pkt)
+            pkt = conf.raw_layer(data)
+
         if lvl == 2:
             pkt = pkt.payload
 
@@ -303,10 +307,12 @@ class L3RawSocket(SuperSocket):
         # type: (Union[Packet, RawVal]) -> int
         try:
             sx = raw(x)
+            x = cast(Packet, x)
             x.sent_time = time.time()
             return self.outs.sendto(sx, (x.dst, 0))
         except socket.error as msg:
             log_runtime.error(msg)
+        return 0
 
 
 class SimpleSocket(SuperSocket):
@@ -331,11 +337,11 @@ class StreamSocket(SimpleSocket):
 
     def recv(self, x=MTU):
         # type: (int) -> Optional[Packet]
-        pkt = self.ins.recv(x, socket.MSG_PEEK)
-        x = len(pkt)
+        data = self.ins.recv(x, socket.MSG_PEEK)
+        x = len(data)
         if x == 0:
             return None
-        pkt = self.basecls(pkt)
+        pkt = self.basecls(data)  # type: Packet
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
             del(pad.underlayer.payload)
@@ -358,7 +364,7 @@ class SSLStreamSocket(StreamSocket):
     # 65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=65535):
         # type: (int) -> Packet
-        pkt = None
+        pkt = None  # type: Optional[Packet]
         if self._buf != b"":
             try:
                 pkt = self.basecls(self._buf)
@@ -390,7 +396,7 @@ class L2ListenTcpdump(SuperSocket):
 
     def __init__(self, iface=None, promisc=None, filter=None, nofilter=False,
                  prog=None, *arg, **karg):
-        # type: (str, Optional[bool], Optional[Any], Optional[int], Optional[str]) -> None  # noqa: E501
+        # type: (str, Optional[bool], Optional[Any], Optional[int], Optional[str], Any, Any) -> None  # noqa: E501
         self.outs = None
         args = ['-w', '-', '-s', '65535']
         if iface is None and (WINDOWS or DARWIN):
@@ -435,7 +441,7 @@ class TunTapInterface(SuperSocket):
     desc = "Act as the host's peer of a tun / tap interface"
 
     def __init__(self, iface=None, mode_tun=None, *arg, **karg):
-        # type: (Optional[str], Optional[str]) -> None
+        # type: (Optional[str], Optional[str], Any, Any) -> None
         self.iface = conf.iface if iface is None else iface
         self.mode_tun = ("tun" in self.iface) if mode_tun is None else mode_tun
         self.closed = True
