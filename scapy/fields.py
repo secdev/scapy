@@ -784,11 +784,11 @@ class IP6Field(Field[Optional[str], bytes]):
         # type: (Optional[BasePacket], Optional[str]) -> bytes
         if x is None:
             x = "::"
-        return inet_pton(socket.AF_INET6, plain_str(x))  # type: ignore
+        return inet_pton(socket.AF_INET6, plain_str(x))
 
     def m2i(self, pkt, x):
         # type: (Optional[BasePacket], bytes) -> str
-        return inet_ntop(socket.AF_INET6, x)  # type: ignore
+        return inet_ntop(socket.AF_INET6, x)
 
     def any2i(self, pkt, x):
         # type: (Optional[BasePacket], Optional[str]) -> str
@@ -2214,7 +2214,7 @@ class _EnumField(Field[Union[List[I], I], I]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[I]
-                 enum,  # type: Union[Dict[I, str], List[str], DADict, Tuple[Callable[[I], str], Callable[[str], I]]]  # noqa: E501
+                 enum,  # type: Union[Dict[I, str], List[str], DADict[I, str], Tuple[Callable[[I], str], Callable[[str], I]]]  # noqa: E501
                  fmt="H",  # type: str
                  ):
         # type: (...) -> None
@@ -2234,7 +2234,7 @@ class _EnumField(Field[Union[List[I], I], I]):
                         internal value from and to machine representation.
         """
         if isinstance(enum, ObservableDict):
-            enum.observe(self)
+            cast(ObservableDict, enum).observe(self)
 
         if isinstance(enum, tuple):
             self.i2s_cb = enum[0]  # type: Optional[Callable[[I], str]]
@@ -2327,7 +2327,7 @@ class CharEnumField(EnumField[str]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: str
-                 enum,  # type: Union[Dict[str, str], Tuple[Callable[[BasePacket], str], ...]]  # noqa: E501
+                 enum,  # type: Union[Dict[str, str], Tuple[Callable[[str], str], Callable[[str], str]]]  # noqa: E501
                  fmt="1s",  # type: str
                  ):
         # type: (...) -> None
@@ -2375,7 +2375,7 @@ class ShortEnumField(EnumField[int]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: int
-                 enum,  # type: Union[Dict[int, str], Tuple[Callable[[BasePacket], int], ...], DADict]  # noqa: E501
+                 enum,  # type: Union[Dict[int, str], Tuple[Callable[[int], str], Callable[[str], int]], DADict[int, str]]  # noqa: E501
                  ):
         # type: (...) -> None
         EnumField.__init__(self, name, default, enum, "H")

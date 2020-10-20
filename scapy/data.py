@@ -19,6 +19,17 @@ from scapy.error import log_loading
 from scapy.compat import plain_str
 import scapy.modules.six as six
 
+from scapy.compat import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    cast,
+)
+
 
 ############
 #  Consts  #
@@ -273,12 +284,15 @@ IANA_ENTERPRISE_NUMBERS = {
 }
 
 
-def load_protocols(filename, _fallback=None, _integer_base=10, _cls=DADict):
+def load_protocols(filename, _fallback=None, _integer_base=10,
+                   _cls=DADict[int, str]):
+    # type: (str, Optional[bytes], int, type) -> DADict[int, str]
     """"Parse /etc/protocols and return values as a dictionary."""
     spaces = re.compile(b"[ \t]+|\n")
-    dct = _cls(_name=filename)
+    dct = _cls(_name=filename)  # type: DADict[int, str]
 
     def _process_data(fdesc):
+        # type: (Iterator[bytes]) -> None
         for line in fdesc:
             try:
                 shrp = line.find(b"#")
@@ -305,16 +319,17 @@ def load_protocols(filename, _fallback=None, _integer_base=10, _cls=DADict):
             _process_data(fdesc)
     except IOError:
         if _fallback:
-            _process_data(_fallback.split(b"\n"))
+            _process_data(iter(_fallback.split(b"\n")))
         else:
             log_loading.info("Can't open %s file", filename)
     return dct
 
 
-class EtherDA(DADict):
+class EtherDA(DADict[int, str]):
     # Backward compatibility: accept
     # ETHER_TYPES["MY_GREAT_TYPE"] = 12
     def __setitem__(self, attr, val):
+        # type: (int, str) -> None
         if isinstance(attr, str):
             attr, val = val, attr
             warnings.warn(
@@ -324,6 +339,7 @@ class EtherDA(DADict):
         super(EtherDA, self).__setitem__(attr, val)
 
     def __getitem__(self, attr):
+        # type: (int) -> Any
         if isinstance(attr, str):
             warnings.warn(
                 "Please use 'ETHER_TYPES.%s'" % attr,
@@ -334,19 +350,22 @@ class EtherDA(DADict):
 
 
 def load_ethertypes(filename):
+    # type: (Optional[str]) -> EtherDA
     """"Parse /etc/ethertypes and return values as a dictionary.
     If unavailable, use the copy bundled with Scapy."""
     from scapy.libs.ethertypes import DATA
-    return load_protocols(filename or "Scapy's backup ETHER_TYPES",
+    prot = load_protocols(filename or "Scapy's backup ETHER_TYPES",
                           _fallback=DATA,
                           _integer_base=16,
                           _cls=EtherDA)
+    return cast(EtherDA, prot)
 
 
 def load_services(filename):
+    # type: (str) -> Tuple[DADict[int, str], DADict[int, str]]
     spaces = re.compile(b"[ \t]+|\n")
-    tdct = DADict(_name="%s-tcp" % filename)
-    udct = DADict(_name="%s-udp" % filename)
+    tdct = DADict(_name="%s-tcp" % filename)  # type: DADict[int, str]
+    udct = DADict(_name="%s-udp" % filename)  # type: DADict[int, str]
     try:
         with open(filename, "rb") as fdesc:
             for line in fdesc:
@@ -387,32 +406,38 @@ def load_services(filename):
     return tdct, udct
 
 
-class ManufDA(DADict):
+class ManufDA(DADict[str, Tuple[str, str]]):
     def ident(self, v):
+        # type: (Any) -> str
         return fixname(v[0] if isinstance(v, tuple) else v)
 
     def _get_manuf_couple(self, mac):
+        # type: (str) -> Tuple[str, str]
         oui = ":".join(mac.split(":")[:3]).upper()
-        return self.__dict__.get(oui, (mac, mac))
+        return self.d.get(oui, (mac, mac))
 
     def _get_manuf(self, mac):
+        # type: (str) -> str
         return self._get_manuf_couple(mac)[1]
 
     def _get_short_manuf(self, mac):
+        # type: (str) -> str
         return self._get_manuf_couple(mac)[0]
 
     def _resolve_MAC(self, mac):
+        # type: (str) -> str
         oui = ":".join(mac.split(":")[:3]).upper()
         if oui in self:
             return ":".join([self[oui][0]] + mac.split(":")[3:])
         return mac
 
     def lookup(self, mac):
+        # type: (str) -> Tuple[str, str]
         """Find OUI name matching to a MAC"""
-        oui = ":".join(mac.split(":")[:3]).upper()
-        return self[oui]
+        return self._get_manuf_couple(mac)
 
     def reverse_lookup(self, name, case_sensitive=False):
+        # type: (str, bool) -> Dict[str, str]
         """
         Find all MACs registered to a OUI
 
@@ -421,14 +446,15 @@ class ManufDA(DADict):
         :returns: a dict of mac:tuples (Name, Extended Name)
         """
         if case_sensitive:
-            filtr = lambda x, l: any(x == z for z in l)
+            filtr = lambda x, l: any(x in z for z in l)  # type: Callable[[str, Tuple[str, str]], bool]  # noqa: E501
         else:
             name = name.lower()
-            filtr = lambda x, l: any(x == z.lower() for z in l)
-        return {k: v for k, v in six.iteritems(self.__dict__)
+            filtr = lambda x, l: any(x in z.lower() for z in l)
+        return {k: v for k, v in six.iteritems(self.d)
                 if filtr(name, v)}
 
     def __dir__(self):
+        # type: () -> List[str]
         return [
             "_get_manuf",
             "_get_short_manuf",
@@ -439,6 +465,7 @@ class ManufDA(DADict):
 
 
 def load_manuf(filename):
+    # type: (str) -> ManufDA
     """
     Loads manuf file from Wireshark.
 
@@ -465,11 +492,13 @@ def load_manuf(filename):
 
 
 def select_path(directories, filename):
+    # type: (List[str], str) -> Optional[str]
     """Find filename among several directories"""
     for directory in directories:
         path = os.path.join(directory, filename)
         if os.path.exists(path):
             return path
+    return None
 
 
 if WINDOWS:
@@ -501,13 +530,16 @@ else:
 
 class KnowledgeBase:
     def __init__(self, filename):
+        # type: (Optional[Any]) -> None
         self.filename = filename
-        self.base = None
+        self.base = None  # type: Optional[str]
 
     def lazy_init(self):
+        # type: () -> None
         self.base = ""
 
     def reload(self, filename=None):
+        # type: (Optional[Any]) -> None
         if filename is not None:
             self.filename = filename
         oldbase = self.base
@@ -517,6 +549,7 @@ class KnowledgeBase:
             self.base = oldbase
 
     def get_base(self):
+        # type: () -> str
         if self.base is None:
             self.lazy_init()
-        return self.base
+        return cast(str, self.base)

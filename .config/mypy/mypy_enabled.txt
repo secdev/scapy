@@ -6,12 +6,16 @@
 
 # CORE
 scapy/__init__.py
+scapy/asn1/mib.py
 scapy/compat.py
 scapy/config.py
+scapy/dadict.py
+scapy/data.py
 scapy/fields.py
 scapy/main.py
 scapy/packet.py
 scapy/plist.py
+scapy/pton_ntop.py
 scapy/route.py
 scapy/route6.py
 scapy/utils.py

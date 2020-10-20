@@ -1,6 +1,5 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) Philippe Biondi <phil@secdev.org>
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>
 # This program is published under a GPLv2 license
 
@@ -13,6 +12,7 @@ import base64
 import binascii
 import collections
 import gzip
+import socket
 import struct
 import sys
 
@@ -45,6 +45,7 @@ __all__ = [
     'FAKE_TYPING',
     'TYPE_CHECKING',
     # compat
+    'AddressFamily',
     'base64_bytes',
     'bytes_base64',
     'bytes_encode',
@@ -166,6 +167,21 @@ if sys.version_info >= (3, 8):
     from typing import Literal
 else:
     Literal = _FakeType("Literal")
+
+# Python 3.4
+if sys.version_info >= (3, 4):
+    from socket import AddressFamily
+else:
+    class AddressFamily:
+        AF_INET = socket.AF_INET
+        AF_INET6 = socket.AF_INET6
+
+
+class _Generic_metaclass(type):
+    if FAKE_TYPING:
+        def __getitem__(self, typ):
+            # type: (Any) -> Any
+            return self
 
 
 ###########

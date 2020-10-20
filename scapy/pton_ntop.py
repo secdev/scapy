@@ -17,11 +17,17 @@ import binascii
 from scapy.modules.six.moves import range
 from scapy.compat import plain_str, hex_bytes, bytes_encode, bytes_hex
 
+from scapy.compat import (
+    AddressFamily,
+    Union,
+)
+
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 _INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")
 
 
 def _inet6_pton(addr):
+    # type: (str) -> bytes
     """Convert an IPv6 address from text representation into binary form,
 used when socket.inet_pton is not available.
 
@@ -79,6 +85,7 @@ _INET_PTON = {
 
 
 def inet_pton(af, addr):
+    # type: (AddressFamily, Union[bytes, str]) -> bytes
     """Convert an IP address from text representation into binary form."""
     # Will replace Net/Net6 objects
     addr = plain_str(addr)
@@ -93,6 +100,7 @@ def inet_pton(af, addr):
 
 
 def _inet6_ntop(addr):
+    # type: (bytes) -> str
     """Convert an IPv6 address from binary form into text representation,
 used when socket.inet_pton is not available.
 
@@ -125,6 +133,7 @@ _INET_NTOP = {
 
 
 def inet_ntop(af, addr):
+    # type: (AddressFamily, bytes) -> str
     """Convert an IP address from binary form into text representation."""
     # Use inet_ntop if available
     addr = bytes_encode(addr)
