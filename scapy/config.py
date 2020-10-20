@@ -725,7 +725,8 @@ class Conf(ConfClass):
     BTsocket = None
     USBsocket = None
     min_pkt_size = 60
-    mib = None  #: holds MIB direct access dictionary
+    #: holds MIB direct access dictionary
+    mib = None  # type: 'scapy.asn1.mib.MIBDict'
     bufsize = 2**16
     #: history file
     histfile = os.getenv('SCAPY_HISTFILE',
@@ -754,6 +755,7 @@ class Conf(ConfClass):
     #: holds the Scapy IPv6 routing table and provides methods to
     #: manipulate it
     route6 = None  # type: 'scapy.route6.Route6'
+    manufdb = None  # type: 'scapy.data.ManufDA'
     # 'route6' will be filed by route6.py
     auto_fragment = True
     #: raise exception when a packet dissector raises an exception
@@ -810,7 +812,7 @@ class Conf(ConfClass):
     raise_no_dst_mac = False
     loopback_name = "lo" if LINUX else "lo0"
 
-    def __getattr__(self, attr):
+    def __getattribute__(self, attr):
         # type: (str) -> Any
         # Those are loaded on runtime to avoid import loops
         if attr == "manufdb":

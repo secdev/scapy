@@ -10062,7 +10062,7 @@ os.write(fd, b"-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
 os.close(fd)
 
 load_mib(fname)
-assert(sum(1 for k in six.itervalues(conf.mib.__dict__) if "scapy" in k) == 1)
+assert(sum(1 for k in six.itervalues(conf.mib.d) if "scapy" in k) == 1)
 
 assert(sum(1 for oid in conf.mib) > 100)
 
