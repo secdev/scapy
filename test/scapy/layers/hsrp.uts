@@ -1,0 +1,15 @@
+% HSRP regression tests for Scapy
+
+
+############
+############
++ HSRP tests
+
+= HSRP - build & dissection
+defaddr = conf.route.route('0.0.0.0')[1]
+pkt = IP(raw(IP()/UDP(dport=1985, sport=1985)/HSRP()/HSRPmd5()))
+assert pkt[IP].dst == "224.0.0.2" and pkt[UDP].sport == pkt[UDP].dport == 1985
+assert pkt[HSRP].opcode == 0 and pkt[HSRP].state == 16
+assert pkt[HSRPmd5].type == 4 and pkt[HSRPmd5].sourceip == defaddr
+
+
