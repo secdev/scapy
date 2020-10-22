@@ -39,9 +39,7 @@ nf5.version == 5 and nf5[NetflowHeaderV5].count == 2 and isinstance(nf5[NetflowR
 = NetflowV9 - advanced dissection
 
 import os
-tmp = "/test/pcaps/netflowv9.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/netflowv9.pcap")
 a = rdpcap(filename)
 a = netflowv9_defragment(a)
 
@@ -167,9 +165,7 @@ assert raw(pkt) == dat
 = IPFix dissection
 
 import os
-tmp = "/test/pcaps/ipfix.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/ipfix.pcap")
 a = sniff(offline=filename, session=NetflowSession)
 
 # Templates
@@ -243,9 +239,7 @@ assert raw(pkt) == b'\x00\n\x00>\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
 = NetflowSession - dissect packet NetflowV9 packets on-the-flow
 
 import os
-tmp = "/test/pcaps/netflowv9.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/netflowv9.pcap")
 
 dissected_packets = []
 def callback(pkt):

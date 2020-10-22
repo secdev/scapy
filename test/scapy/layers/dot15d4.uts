@@ -590,9 +590,7 @@ assert pkt.read_attribute_status_record[1].attribute_value == b'\x07sengled'
 = Zigbee - advanced dissection
 
 import os
-tmp = "/test/pcaps/zigbee-join-authenticate.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/zigbee-join-authenticate.pcap")
 a = rdpcap(filename)
 
 pkt1 = a[0]  # Data
@@ -629,9 +627,7 @@ assert pkt3[ZigBeeBeacon].tx_offset == 16777215
 
 = Zigbee - skke_1 transport key
 
-tmp = "/test/pcaps/zigbee-transport-key-skke_1.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/zigbee-transport-key-skke_1.pcap")
 a = rdpcap(filename)
 
 pkt1 = a[0]  # AppCommandPayload with transport key

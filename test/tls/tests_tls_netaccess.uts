@@ -63,9 +63,6 @@ def check_output_for_data(out, err, expected_data):
     else:
         return (False, None)
 
-def get_file(filename):
-    return os.path.abspath(os.getenv("SCAPY_ROOT_DIR")+filename if not os.path.exists(filename) else filename)
-
 
 def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=False,
                         psk=None, handle_session_ticket=False):
@@ -73,9 +70,8 @@ def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=
     print("Server started !")
     with captured_output() as (out, err):
         # Prepare automaton
-        mycert = get_file("/test/tls/pki/srv_cert.pem")
-        mykey = get_file("/test/tls/pki/srv_key.pem")
-        print(os.environ["SCAPY_ROOT_DIR"])
+        mycert = scapy_path("/test/tls/pki/srv_cert.pem")
+        mykey = scapy_path("/test/tls/pki/srv_key.pem")
         print(mykey)
         print(mycert)
         assert os.path.exists(mycert)
@@ -104,9 +100,9 @@ def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=
 def run_openssl_client(msg, suite="", version="", tls13=False, client_auth=False,
                        psk=None, sess_out=None):
     # Run client
-    CA_f = get_file("/test/tls/pki/ca_cert.pem")
-    mycert = get_file("/test/tls/pki/cli_cert.pem")
-    mykey = get_file("/test/tls/pki/cli_key.pem")
+    CA_f = scapy_path("/test/tls/pki/ca_cert.pem")
+    mycert = scapy_path("/test/tls/pki/cli_cert.pem")
+    mykey = scapy_path("/test/tls/pki/cli_key.pem")
     args = [
         "openssl", "s_client",
         "-connect", "127.0.0.1:4433", "-debug",
@@ -222,8 +218,8 @@ def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None,
                         client_auth=False, key_update=False, stop_server=True,
                         session_ticket_file_out=None, session_ticket_file_in=None):
     print("Loading client...")
-    mycert = get_file("/test/tls/pki/cli_cert.pem") if client_auth else None
-    mykey = get_file("/test/tls/pki/cli_key.pem") if client_auth else None
+    mycert = scapy_path("/test/tls/pki/cli_cert.pem") if client_auth else None
+    mykey = scapy_path("/test/tls/pki/cli_key.pem") if client_auth else None
     commands = [send_data]
     if key_update:
         commands.append(b"key_update")
@@ -268,7 +264,7 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
     print("Thread synchronised")
     # Run client
     if sess_in_out:
-        file_sess = get_file("/test/session")
+        file_sess = scapy_path("/test/session")
         run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_out=file_sess,
                             stop_server=False)
         run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_in=file_sess,
@@ -352,7 +348,7 @@ test_tls_client("1305", "0304", client_auth=True, sess_in_out=True)
 
 = Clear session file
 
-file_sess = get_file("/test/session")
+file_sess = scapy_path("/test/session")
 try:
     os.remove(file_sess)
 except:

@@ -1819,6 +1819,10 @@ pktpcapngdefaults = rdpcap(pcapngdefaults)
 assert pktpcapngdefaults[0].time == 1575115986.114775512
 assert Ether in pktpcapngdefaults[0]
 
+= Read a pcapng with little-endian SHB
+pktcapng = sniff(offline=scapy_path("/test/pcaps/macos.pcapng.gz"))
+assert len(pktcapng) != 0
+
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
 
@@ -1983,11 +1987,21 @@ assert isinstance(pkt, Padding) and pkt.load == b'\xeay$\xf6'
 pkt = pkt.payload
 assert isinstance(pkt, NoPayload)
 
-= Invalid pcapng file
+= Invalid pcapng files
 
 from io import BytesIO
-invalid_pcapngfile = BytesIO(b'\n\r\r\n\r\x00\x00\x00M<+\x1a\xb2<\xb2\xa1\x01\x00\x00\x00\r\x00\x00\x00M<+\x1a\x80\xaa\xb2\x02')
-assert(len(rdpcap(invalid_pcapngfile)) == 0)
+
+# Invalid PCAPNG format -> Raise
+try:
+    invalid_pcapngfile_1 = BytesIO(b'\n\r\r\n\r\x00\x00\x00M<+\x1a\xb2<\xb2\xa1\x01\x00\x00\x00\r\x00\x00\x00M<+\x1a\x80\xaa\xb2\x02')
+    rdpcap(invalid_pcapngfile_1)
+    assert False
+except Scapy_Exception:
+    pass
+
+# Invalid Packet in PCAPNG -> return
+invalid_pcapngfile_2 = BytesIO(b'\n\r\r\n\x00\x00\x00\x10\x1a+<M\x00\x00\x00\x10\x00\x00\x00\x01\x00\x00\x00\x10    \x00\x00\x00\x10')
+assert len(rdpcap(invalid_pcapngfile_2)) == 0
 
 = Check PcapWriter on null write
 

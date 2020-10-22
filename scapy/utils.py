@@ -1125,20 +1125,20 @@ class PcapReader_metaclass(type):
             )
         try:
             i.__init__(filename, fdesc, magic)
-        except Scapy_Exception:
-            if "alternative" in cls.__dict__:
-                cls = cls.__dict__["alternative"]
-                i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
-                try:
-                    i.__init__(filename, fdesc, magic)
-                except Scapy_Exception:
-                    try:
-                        i.f.seek(-4, 1)
-                    except Exception:
-                        pass
-                    raise Scapy_Exception("Not a supported capture file")
+            return i
+        except (Scapy_Exception, EOFError):
+            pass
 
-        return i
+        if "alternative" in cls.__dict__:
+            cls = cls.__dict__["alternative"]
+            i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+            try:
+                i.__init__(filename, fdesc, magic)
+                return i
+            except (Scapy_Exception, EOFError):
+                pass
+
+        raise Scapy_Exception("Not a supported capture file")
 
     @staticmethod
     def open(fname  # type: Union[IO[bytes], str]
@@ -1365,33 +1365,81 @@ class RawPcapNgReader(RawPcapReader):
             "tsresol": 1000000
         }
         self.blocktypes = {
-            1: self.read_block_idb,
-            2: self.read_block_pkt,
-            3: self.read_block_spb,
-            6: self.read_block_epb,
+            1: self._read_block_idb,
+            2: self._read_block_pkt,
+            3: self._read_block_spb,
+            6: self._read_block_epb,
         }
+        self.endian = "!"  # Will be overwritten by first SHB
+
         if magic != b"\x0a\x0d\x0d\x0a":  # PcapNg:
             raise Scapy_Exception(
                 "Not a pcapng capture file (bad magic: %r)" % magic
             )
-        # see https://github.com/pcapng/pcapng
-        blocklen_, magic = self.f.read(4), self.f.read(4)  # noqa: F841
-        if magic == b"\x1a\x2b\x3c\x4d":
+
+        try:
+            self._read_block_shb()
+        except EOFError:
+            raise Scapy_Exception(
+                "The first SHB of the pcapng file is malformed !"
+            )
+
+    def _read_block(self, size=MTU):
+        # type: (int) -> Optional[Tuple[bytes, RawPcapNgReader.PacketMetadata]]  # noqa: E501
+        try:
+            blocktype = struct.unpack(self.endian + "I", self.f.read(4))[0]
+        except struct.error:
+            raise EOFError
+        if blocktype == 0x0A0D0D0A:
+            # This function updates the endianness based on the block content.
+            self._read_block_shb()
+            return None
+        try:
+            blocklen = struct.unpack(self.endian + "I", self.f.read(4))[0]
+        except struct.error:
+            raise EOFError
+        if blocklen < 12:
+            warning("Invalid block length !")
+            raise EOFError
+        block = self.f.read(blocklen - 12)
+        self._read_block_tail(blocklen)
+        return self.blocktypes.get(
+            blocktype,
+            lambda block, size: None
+        )(block, size)
+
+    def _read_block_tail(self, blocklen):
+        # type: (int) -> None
+        if blocklen % 4:
+            pad = self.f.read(-blocklen % 4)
+            warning("PcapNg: bad blocklen %d (MUST be a multiple of 4. "
+                    "Ignored padding %r" % (blocklen, pad))
+        try:
+            if blocklen != struct.unpack(self.endian + 'I',
+                                         self.f.read(4))[0]:
+                raise EOFError("PcapNg: Invalid pcapng block (bad blocklen)")
+        except struct.error:
+            raise EOFError
+
+    def _read_block_shb(self):
+        # type: () -> None
+        _blocklen = self.f.read(4)
+        endian = self.f.read(4)
+        if endian == b"\x1a\x2b\x3c\x4d":
             self.endian = ">"
-        elif magic == b"\x4d\x3c\x2b\x1a":
+        elif endian == b"\x4d\x3c\x2b\x1a":
             self.endian = "<"
         else:
-            raise Scapy_Exception("Not a pcapng capture file (bad magic)")
-        self.f.read(12)
-        blocklen = struct.unpack("!I", blocklen_)[0]  # type: int
-        # Read default options
-        self.default_options = self.read_options(
-            self.f.read(blocklen - 24)
-        )
-        try:
-            self.f.seek(0)
-        except Exception:
-            pass
+            warning("Bad magic in Section Header block (not a pcapng file?)")
+            raise EOFError
+
+        blocklen = struct.unpack(self.endian + "I", _blocklen)[0]
+        if blocklen < 16:
+            warning("Invalid SHB block length!")
+            raise EOFError
+        options = self.f.read(blocklen - 16)
+        self._read_block_tail(blocklen)
+        self._read_options(options)
 
     def _read_packet(self, size=MTU):  # type: ignore
         # type: (int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1401,29 +1449,11 @@ class RawPcapNgReader(RawPcapReader):
 
         """
         while True:
-            try:
-                blocktype, blocklen = struct.unpack(self.endian + "2I",
-                                                    self.f.read(8))
-            except struct.error:
-                raise EOFError
-            block = self.f.read(blocklen - 12)
-            if blocklen % 4:
-                pad = self.f.read(4 - (blocklen % 4))
-                warning("PcapNg: bad blocklen %d (MUST be a multiple of 4. "
-                        "Ignored padding %r" % (blocklen, pad))
-            try:
-                if (blocklen,) != struct.unpack(self.endian + 'I',
-                                                self.f.read(4)):
-                    warning("PcapNg: Invalid pcapng block (bad blocklen)")
-                    raise EOFError
-            except struct.error:
-                raise EOFError
-            res = self.blocktypes.get(blocktype,
-                                      lambda block, size: None)(block, size)
+            res = self._read_block()
             if res is not None:
                 return res
 
-    def read_options(self, options):
+    def _read_options(self, options):
         # type: (bytes) -> Dict[str, int]
         """Section Header Block"""
         opts = self.default_options.copy()
@@ -1446,23 +1476,31 @@ class RawPcapNgReader(RawPcapReader):
             options = options[4 + length:]
         return opts
 
-    def read_block_idb(self, block, _):
+    def _read_block_idb(self, block, _):
         # type: (bytes, int) -> None
         """Interface Description Block"""
-        options = self.read_options(block[16:])
-        interface = struct.unpack(  # type: ignore
-            self.endian + "HxxI",
-            block[:8]
-        ) + (options["tsresol"],)  # type: Tuple[int, int, int]
+        # 2 bytes LinkType + 2 bytes Reserved
+        # 4 bytes Snaplen
+        options = self._read_options(block[8:-4])
+        try:
+            interface = struct.unpack(  # type: ignore
+                self.endian + "HxxI",
+                block[:8]
+            ) + (options["tsresol"],)  # type: Tuple[int, int, int]
+        except struct.error:
+            raise EOFError
         self.interfaces.append(interface)
 
-    def read_block_epb(self, block, size):
+    def _read_block_epb(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
         """Enhanced Packet Block"""
-        intid, tshigh, tslow, caplen, wirelen = struct.unpack(
-            self.endian + "5I",
-            block[:20],
-        )
+        try:
+            intid, tshigh, tslow, caplen, wirelen = struct.unpack(
+                self.endian + "5I",
+                block[:20],
+            )
+        except struct.error:
+            raise EOFError
         return (block[20:20 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
                                                tsresol=self.interfaces[intid][2],  # noqa: E501
@@ -1470,7 +1508,7 @@ class RawPcapNgReader(RawPcapReader):
                                                tslow=tslow,
                                                wirelen=wirelen))
 
-    def read_block_spb(self, block, size):
+    def _read_block_spb(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
         """Simple Packet Block"""
         # "it MUST be assumed that all the Simple Packet Blocks have
@@ -1486,7 +1524,7 @@ class RawPcapNgReader(RawPcapReader):
                                                tslow=None,
                                                wirelen=wirelen))
 
-    def read_block_pkt(self, block, size):
+    def _read_block_pkt(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
         """(Obsolete) Packet Block"""
         intid, drops, tshigh, tslow, caplen, wirelen = struct.unpack(
