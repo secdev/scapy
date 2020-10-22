@@ -52,6 +52,7 @@ from scapy.fields import (
     LEShortField,
     LESignedIntField,
     MultipleTypeField,
+    OUIField,
     PacketField,
     PacketListField,
     ReversePadField,
@@ -60,7 +61,6 @@ from scapy.fields import (
     StrField,
     StrFixedLenField,
     StrLenField,
-    X3BytesField,
     XByteField,
     XStrFixedLenField,
 )
@@ -70,7 +70,6 @@ from scapy.layers.l2 import Ether, LLC, MACField
 from scapy.layers.inet import IP, TCP
 from scapy.error import warning, log_loading
 from scapy.sendrecv import sniff, sendp
-from scapy.utils import str2mac
 
 
 if conf.crypto_valid:
@@ -150,40 +149,6 @@ class PrismHeader(Packet):
 # Note: Radiotap alignment is crazy. See the doc:
 # https://www.radiotap.org/#alignment-in-radiotap
 
-
-def _next_radiotap_extpm(pkt, lst, cur, s):
-    """Generates the next RadioTapExtendedPresenceMask"""
-    if cur is None or (cur.present and cur.present.Ext):
-        st = len(lst) + (cur is not None)
-        return lambda *args: RadioTapExtendedPresenceMask(*args, index=st)
-    return None
-
-
-class RadioTapExtendedPresenceMask(Packet):
-    """RadioTapExtendedPresenceMask should be instantiated by passing an
-    `index=` kwarg, stating which place the item has in the list.
-
-    Passing index will update the b[x] fields accordingly to the index.
-      e.g.
-       >>> a = RadioTapExtendedPresenceMask(present="b0+b12+b29+Ext")
-       >>> b = RadioTapExtendedPresenceMask(index=1, present="b33+b45+b59+b62")
-       >>> pkt = RadioTap(present="Ext", Ext=[a, b])
-    """
-    name = "RadioTap Extended presence mask"
-    fields_desc = [FlagsField('present', None, -32,
-                              ["b%s" % i for i in range(0, 31)] + ["Ext"])]
-
-    def __init__(self, _pkt=None, index=0, **kwargs):
-        self._restart_indentation(index)
-        Packet.__init__(self, _pkt, **kwargs)
-
-    def _restart_indentation(self, index):
-        st = index * 32
-        self.fields_desc[0].names = ["b%s" % (i + st) for i in range(0, 31)] + ["Ext"]  # noqa: E501
-
-    def guess_payload_class(self, pay):
-        return conf.padding_layer
-
 # RadioTap constants
 
 
@@ -193,7 +158,7 @@ _rt_present = ['TSFT', 'Flags', 'Rate', 'Channel', 'FHSS', 'dBm_AntSignal',
                'dB_AntSignal', 'dB_AntNoise', 'RXFlags', 'TXFlags',
                'b17', 'b18', 'ChannelPlus', 'MCS', 'A_MPDU',
                'VHT', 'timestamp', 'HE', 'HE_MU', 'HE_MU_other_user',
-               'zero_length_psdu', 'L_SIG', 'b28',
+               'zero_length_psdu', 'L_SIG', 'TLV',
                'RadiotapNS', 'VendorNS', 'Ext']
 
 # Note: Inconsistencies with wireshark
@@ -258,6 +223,85 @@ _rt_hemuother_per_user_known = {
     'Coding',
 }
 
+
+# Radiotap utils
+
+# Note: extended presence masks are dissected pretty dumbly by
+# Wireshark.
+
+def _next_radiotap_extpm(pkt, lst, cur, s):
+    """Generates the next RadioTapExtendedPresenceMask"""
+    if cur is None or (cur.present and cur.present.Ext):
+        st = len(lst) + (cur is not None)
+        return lambda *args: RadioTapExtendedPresenceMask(*args, index=st)
+    return None
+
+
+class RadioTapExtendedPresenceMask(Packet):
+    """RadioTapExtendedPresenceMask should be instantiated by passing an
+    `index=` kwarg, stating which place the item has in the list.
+
+    Passing index will update the b[x] fields accordingly to the index.
+      e.g.
+       >>> a = RadioTapExtendedPresenceMask(present="b0+b12+b29+Ext")
+       >>> b = RadioTapExtendedPresenceMask(index=1, present="b33+b45+b59+b62")
+       >>> pkt = RadioTap(present="Ext", Ext=[a, b])
+    """
+    name = "RadioTap Extended presence mask"
+    fields_desc = [FlagsField('present', None, -32,
+                              ["b%s" % i for i in range(0, 31)] + ["Ext"])]
+
+    def __init__(self, _pkt=None, index=0, **kwargs):
+        self._restart_indentation(index)
+        Packet.__init__(self, _pkt, **kwargs)
+
+    def _restart_indentation(self, index):
+        st = index * 32
+        self.fields_desc[0].names = ["b%s" % (i + st) for i in range(0, 31)] + ["Ext"]  # noqa: E501
+
+    def guess_payload_class(self, pay):
+        return conf.padding_layer
+
+
+# This is still unimplemented in Wireshark
+# https://www.radiotap.org/fields/TLV.html
+class RadioTapTLV(Packet):
+    fields_desc = [
+        LEShortEnumField("type", 0, _rt_present),
+        LEShortField("length", None),
+        ConditionalField(
+            OUIField("oui", 0),
+            lambda pkt: pkt.type == 30  # VendorNS
+        ),
+        ConditionalField(
+            ByteField("subtype", 0),
+            lambda pkt: pkt.type == 30
+        ),
+        ConditionalField(
+            LEShortField("presence_type", 0),
+            lambda pkt: pkt.type == 30
+        ),
+        ConditionalField(
+            LEShortField("reserved", 0),
+            lambda pkt: pkt.type == 30
+        ),
+        StrLenField("data", b"",
+                    length_from=lambda pkt: pkt.length),
+        StrLenField("pad", None, length_from=lambda pkt: -pkt.length % 4)
+    ]
+
+    def post_build(self, pkt, pay):
+        if self.length is None:
+            pkt = pkt[:2] + struct.pack("<H", len(self.data)) + pkt[4:]
+        if self.pad is None:
+            pkt += b"\x00" * (-len(self.data) % 4)
+        return pkt + pay
+
+    def extract_padding(self, s):
+        return "", s
+
+
+# RADIOTAP
 
 class RadioTap(Packet):
     name = "RadioTap"
@@ -496,6 +540,14 @@ class RadioTap(Packet):
         ConditionalField(
             BitField("lsig_rate", 0, 4),
             lambda pkt: pkt.present and pkt.present.L_SIG),
+        # TLV fields
+        ConditionalField(
+            ReversePadField(
+                PacketListField("tlvs", [], RadioTapTLV),
+                4
+            ),
+            lambda pkt: pkt.present and pkt.present.TLV,
+        ),
         # Remaining
         StrLenField('notdecoded', "", length_from=lambda pkt: 0)
     ]
@@ -1009,17 +1061,6 @@ class Dot11Elt(Packet):
         return p + pay
 
 
-class _OUIField(X3BytesField):
-    def i2repr(self, pkt, val):
-        by_val = struct.pack("!I", val or 0)[1:]
-        oui = str2mac(by_val + b"\0" * 3)[:8]
-        if conf.manufdb:
-            fancy = conf.manufdb._get_manuf(oui)
-            if fancy != oui:
-                return "%s (%s)" % (fancy, oui)
-        return oui
-
-
 class Dot11EltDSSSet(Dot11Elt):
     name = "802.11 DSSS Parameter Set"
     match_subclass = True
@@ -1046,7 +1087,7 @@ class Dot11EltERP(Dot11Elt):
 class RSNCipherSuite(Packet):
     name = "Cipher suite"
     fields_desc = [
-        _OUIField("oui", 0x000fac),
+        OUIField("oui", 0x000fac),
         ByteEnumField("cipher", 0x04, {
             0x00: "Use group cipher suite",
             0x01: "WEP-40",
@@ -1072,7 +1113,7 @@ class RSNCipherSuite(Packet):
 class AKMSuite(Packet):
     name = "AKM suite"
     fields_desc = [
-        _OUIField("oui", 0x000fac),
+        OUIField("oui", 0x000fac),
         ByteEnumField("suite", 0x01, {
             0x00: "Reserved",
             0x01: "802.1X",
@@ -1321,7 +1362,7 @@ class Dot11EltVendorSpecific(Dot11Elt):
     fields_desc = [
         ByteEnumField("ID", 221, _dot11_id_enum),
         ByteField("len", None),
-        _OUIField("oui", 0x000000),
+        OUIField("oui", 0x000000),
         StrLenField("info", "", length_from=lambda x: x.len - 3)
     ]
 

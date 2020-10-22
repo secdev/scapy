@@ -25,9 +25,21 @@ from __future__ import absolute_import
 import struct
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import ByteEnumField, ByteField, FieldLenField, FlagsField, \
-    IP6Field, IPField, PacketListField, ShortField, StrLenField, \
-    X3BytesField, XByteField, XShortEnumField, XShortField
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    FieldLenField,
+    FlagsField,
+    IP6Field,
+    IPField,
+    OUIField,
+    PacketListField,
+    ShortField,
+    StrLenField,
+    XByteField,
+    XShortEnumField,
+    XShortField,
+)
 from scapy.layers.inet import checksum
 from scapy.layers.l2 import SNAP
 from scapy.compat import orb, chb
@@ -261,7 +273,7 @@ class CDPMsgProtoHello(CDPMsgGeneric):
     type = 0x0008
     fields_desc = [XShortEnumField("type", 0x0008, _cdp_tlv_types),
                    ShortField("len", 32),
-                   X3BytesField("oui", 0x00000c),
+                   OUIField("oui", 0x00000c),
                    XShortField("protocol_id", 0x0),
                    # TLV length (len) - 2 (type) - 2 (len) - 3 (OUI) - 2
                    # (Protocol ID)

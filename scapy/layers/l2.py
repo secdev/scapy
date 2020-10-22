@@ -25,13 +25,32 @@ from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
     DLT_NULL, ETHER_ANY, ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, \
     ETH_P_MACSEC
 from scapy.error import warning, ScapyNoDstMacException
-from scapy.fields import BCDFloatField, BitField, ByteField, \
-    ConditionalField, FieldLenField, FCSField, \
-    IntEnumField, IntField, IP6Field, IPField, \
-    LenField, MACField, MultipleTypeField, \
-    ShortEnumField, ShortField, SourceIP6Field, SourceIPField, \
-    StrFixedLenField, StrLenField, X3BytesField, XByteField, XIntField, \
-    XShortEnumField, XShortField
+from scapy.fields import (
+    BCDFloatField,
+    BitField,
+    ByteField,
+    ConditionalField,
+    FCSField,
+    FieldLenField,
+    IP6Field,
+    IPField,
+    IntEnumField,
+    IntField,
+    LenField,
+    MACField,
+    MultipleTypeField,
+    OUIField,
+    ShortEnumField,
+    ShortField,
+    SourceIP6Field,
+    SourceIPField,
+    StrFixedLenField,
+    StrLenField,
+    XByteField,
+    XIntField,
+    XShortEnumField,
+    XShortField,
+)
 from scapy.modules.six import viewitems
 from scapy.packet import bind_layers, Packet
 from scapy.plist import PacketList, SndRcvList
@@ -253,7 +272,7 @@ class MPacketPreamble(Packet):
 
 class SNAP(Packet):
     name = "SNAP"
-    fields_desc = [X3BytesField("OUI", 0x000000),
+    fields_desc = [OUIField("OUI", 0x000000),
                    XShortEnumField("code", 0x000, ETHER_TYPES)]
 
 
