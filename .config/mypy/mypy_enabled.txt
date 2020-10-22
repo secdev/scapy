@@ -22,3 +22,4 @@ scapy/utils.py
 # CONTRIB
 #scapy/contrib/http2.py  # needs to be fixed
 scapy/contrib/roce.py
+scapy/layers/can.py

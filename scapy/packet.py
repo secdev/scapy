@@ -936,7 +936,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         return canvas
 
     def extract_padding(self, s):
-        # type: (bytes) -> Tuple[bytes, None]
+        # type: (bytes) -> Tuple[bytes, Optional[bytes]]
         """
         DEV: to be overloaded to extract current layer's padding.
 
