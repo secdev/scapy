@@ -6309,41 +6309,6 @@ conf.contribs["http"]["auto_compression"] = True
 c = sniff(offline=[xa, xb], session=TCPSession)[0]
 assert gzip_decompress(z) == c.load
 
-############
-############
-+ LLMNR protocol
-
-= Simple packet dissection
-pkt = Ether(b'\x11\x11\x11\x11\x11\x11\x99\x99\x99\x99\x99\x99\x08\x00E\x00\x00(\x00\x01\x00\x00@\x11:\xa4\xc0\xa8\x00w\x7f\x00\x00\x01\x14\xeb\x14\xeb\x00\x14\x95\xcf\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-assert pkt.sport == 5355
-assert pkt.dport == 5355
-assert pkt[LLMNRQuery].opcode == 0
-
-= Packet build / dissection
-pkt = UDP(raw(UDP()/LLMNRResponse()))
-assert LLMNRResponse in pkt
-assert pkt.qr == 1
-assert pkt.c == 0
-assert pkt.tc == 0
-assert pkt.z == 0
-assert pkt.rcode == 0
-assert pkt.qdcount == 0
-assert pkt.arcount == 0
-assert pkt.nscount == 0
-assert pkt.ancount == 0
-
-= Answers - building
-a = UDP()/LLMNRResponse(id=12)
-b = UDP()/LLMNRQuery(id=12)
-assert a.answers(b)
-assert not b.answers(a)
-assert b.hashret() == b'\x00\x0c'
-
-= Answers - dissecting
-a = Ether(b'\xd0P\x99V\xdd\xf9\x14\x0cv\x8f\xfe(\x08\x00E\x00\x00(\x00\x01\x00\x00@\x11:\xa4\x7f\x00\x00\x01\xc0\xa8\x00w\x14\xeb\x14\xeb\x00\x14\x95\xcf\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-b = Ether(b'\x14\x0cv\x8f\xfe(\xd0P\x99V\xdd\xf9\x08\x00E\x00\x00(\x00\x01\x00\x00@\x11:\xa4\xc0\xa8\x00w\x7f\x00\x00\x01\x14\xeb\x14\xeb\x00\x14\x15\xcf\x00\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-assert b.answers(a)
-assert not a.answers(b)
 
 ############
 ############
@@ -9024,18 +8989,6 @@ p = Ether(src="00:00:5e:00:02:02",dst="33:33:00:00:00:12")/IPv6(src="2001:db8::1
 c = Ether(raw(p))
 assert c[VRRPv3].chksum == 0x481b
 
-############
-############
-+ L2TP tests
-
-= L2TP - build
-s = raw(IP()/UDP()/L2TP())
-s == b'E\x00\x00"\x00\x01\x00\x00@\x11|\xc8\x7f\x00\x00\x01\x7f\x00\x00\x01\x06\xa5\x06\xa5\x00\x0e\xf4\x83\x00\x02\x00\x00\x00\x00'
-
-= L2TP - dissection
-p = IP(s)
-L2TP in p and len(p[L2TP]) == 6 and p.tunnel_id == 0 and p.session_id == 0 and p[UDP].chksum == 0xf483
-
 
 ############
 ############
@@ -9061,18 +9014,6 @@ s == b'E\x00\x000\x00\x01\x00\x00@\x11|\xba\x7f\x00\x00\x01\x7f\x00\x00\x01\x01\
 = MobileIP - dissect
 pkt = IP(s)
 assert pkt[MobileIP][MobileIPRRP].haaddr == '95.83.86.216'
-
-
-############
-############
-+ HSRP tests
-
-= HSRP - build & dissection
-defaddr = conf.route.route('0.0.0.0')[1]
-pkt = IP(raw(IP()/UDP(dport=1985, sport=1985)/HSRP()/HSRPmd5()))
-assert pkt[IP].dst == "224.0.0.2" and pkt[UDP].sport == pkt[UDP].dport == 1985
-assert pkt[HSRP].opcode == 0 and pkt[HSRP].state == 16
-assert pkt[HSRPmd5].type == 4 and pkt[HSRPmd5].sourceip == defaddr
 
 
 ############
