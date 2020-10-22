@@ -1828,7 +1828,9 @@ class IE_UserPlaneIPResourceInformation(IE_Base):
                            x.length - 1 - (1 if x.TEIDRI != 0 else 0) -
                            (x.V4 * 4) - (x.V6 * 16) - x.ASSOSI),
             lambda x: x.ASSONI == 1),
-        ConditionalField(XBitField("spare2", None, 4), lambda x: x.ASSOSI == 1),
+        ConditionalField(
+            XBitField("spare2", None, 4),
+            lambda x: x.ASSOSI == 1),
         ConditionalField(
             BitEnumField("interface", "Access", 4, SourceInterface),
             lambda x: x.ASSOSI == 1),
