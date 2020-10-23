@@ -16,7 +16,7 @@ from collections import defaultdict
 from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
 from scapy.base_classes import BasePacket, BasePacketList, \
-    _CanvasDumpExtended, Packet_metaclass, PacketList_metaclass
+    _CanvasDumpExtended, PacketList_metaclass
 from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
     make_tex_table, issubtype
 from scapy.extlib import plt, Line2D, \
@@ -36,6 +36,7 @@ from scapy.compat import (
     List,
     Optional,
     Tuple,
+    Type,
     TypeVar,
     Union,
 )
@@ -56,7 +57,7 @@ class _PacketList(Generic[_Inner]):
     def __init__(self,
                  res=None,  # type: Optional[Union[_PacketList[_Inner], List[_Inner]]]  # noqa: E501
                  name="PacketList",  # type: str
-                 stats=None  # type: Optional[List[Packet_metaclass]]
+                 stats=None  # type: Optional[List[Type[Packet]]]
                  ):
         # type: (...) -> None
         """create a packet list from a list of packets
@@ -674,7 +675,7 @@ class _PacketList(Generic[_Inner]):
                  nb=None,  # type: Optional[int]
                  flt=None,  # type: Optional[Dict[str, Any]]
                  name=None,  # type: Optional[str]
-                 stats=None  # type: Optional[List[Packet]]
+                 stats=None  # type: Optional[List[Type[Packet]]]
                  ):
         # type: (...) -> PacketList
         """Returns the packet list from a given layer.
@@ -718,8 +719,12 @@ class _PacketList(Generic[_Inner]):
             name, stats
         )
 
-    def convert_to(self, other_cls, name=None, stats=None):
-        # type: (Packet, Optional[str], Optional[List[Packet]]) -> PacketList
+    def convert_to(self,
+                   other_cls,  # type: Type[Packet]
+                   name=None,  # type: Optional[str]
+                   stats=None  # type: Optional[List[Type[Packet]]]
+                   ):
+        # type: (...) -> PacketList
         """Converts all packets to another type.
 
         See ``Packet.convert_to`` for more info.
@@ -749,7 +754,7 @@ class _PacketList(Generic[_Inner]):
 
 
 class PacketList(_PacketList[Packet],
-                 BasePacketList,
+                 BasePacketList[Packet],
                  _CanvasDumpExtended):
     def sr(self, multi=False, lookahead=None):
         # type: (bool, Optional[int]) -> Tuple[SndRcvList, PacketList]
@@ -790,14 +795,14 @@ class PacketList(_PacketList[Packet],
 
 
 class SndRcvList(_PacketList[Tuple[Packet, Packet]],
-                 BasePacketList,
+                 BasePacketList[Tuple[Packet, Packet]],
                  _CanvasDumpExtended):
     __slots__ = []  # type: List[str]
 
     def __init__(self,
-                 res=None,  # type: Optional[Union[PacketList, List[Tuple[Packet, Packet]]]]  # noqa: E501
+                 res=None,  # type: Optional[Union[_PacketList[Tuple[Packet, Packet]], List[Tuple[Packet, Packet]]]]  # noqa: E501
                  name="Results",  # type: str
-                 stats=None  # type: Optional[List[Packet]]
+                 stats=None  # type: Optional[List[Type[Packet]]]
                  ):
         # type: (...) -> None
         super(SndRcvList, self).__init__(res, name, stats)

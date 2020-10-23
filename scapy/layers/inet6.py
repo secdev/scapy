@@ -1948,9 +1948,9 @@ class DomainNameListField(StrLenField):
     islist = 1
     padded_unit = 8
 
-    def __init__(self, name, default, fld=None, length_from=None, padded=False):  # noqa: E501
+    def __init__(self, name, default, length_from=None, padded=False):  # noqa: E501
         self.padded = padded
-        StrLenField.__init__(self, name, default, fld, length_from)
+        StrLenField.__init__(self, name, default, length_from=length_from)
 
     def i2len(self, pkt, x):
         return len(self.i2m(pkt, x))

@@ -28,7 +28,7 @@ from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
 from scapy.config import conf, _version_checker
 from scapy.compat import raw, orb, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
-    _CanvasDumpExtended, Field_metaclass
+    _CanvasDumpExtended
 from scapy.volatile import RandField, VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
@@ -36,6 +36,7 @@ from scapy.error import Scapy_Exception, log_runtime, warning
 from scapy.extlib import PYX
 import scapy.modules.six as six
 
+# Typing imports
 from scapy.compat import (
     Any,
     Callable,
@@ -46,11 +47,11 @@ from scapy.compat import (
     Optional,
     Set,
     Tuple,
+    Type,
     TypeVar,
     Union,
     cast,
 )
-
 try:
     import pyx
 except ImportError:
@@ -101,21 +102,21 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
     name = None
     fields_desc = []  # type: List[Field[Any, Any]]
     deprecated_fields = {}  # type: Dict[str, Tuple[str, str]]
-    overload_fields = {}  # type: Dict[Packet_metaclass, Dict[str, Any]]
-    payload_guess = []  # type: List[Tuple[Dict[str, Any], Packet_metaclass]]
+    overload_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
+    payload_guess = []  # type: List[Tuple[Dict[str, Any], Type[Packet]]]
     show_indent = 1
     show_summary = True
     match_subclass = False
-    class_dont_cache = {}  # type: Dict[Packet_metaclass, bool]
-    class_packetfields = {}  # type: Dict[Packet_metaclass, Any]
-    class_default_fields = {}  # type: Dict[Packet_metaclass, Dict[str, Any]]
-    class_default_fields_ref = {}  # type: Dict[Packet_metaclass, List[str]]
-    class_fieldtype = {}  # type: Dict[Packet_metaclass, Dict[str, Field[Any, Any]]]  # noqa: E501
+    class_dont_cache = {}  # type: Dict[Type[Packet], bool]
+    class_packetfields = {}  # type: Dict[Type[Packet], Any]
+    class_default_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
+    class_default_fields_ref = {}  # type: Dict[Type[Packet], List[str]]
+    class_fieldtype = {}  # type: Dict[Type[Packet], Dict[str, Field[Any, Any]]]  # noqa: E501
 
     @classmethod
     def from_hexcap(cls):
-        # type: (Packet_metaclass) -> Packet
-        return cls(import_hexcap())  # type: ignore
+        # type: (Type[Packet]) -> Packet
+        return cls(import_hexcap())
 
     @classmethod
     def upper_bonds(self):
@@ -198,7 +199,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
     ]
 
     def __reduce__(self):
-        # type: () -> Tuple[Packet_metaclass, Tuple[()], Packet._PickleType]
+        # type: () -> Tuple[Type[Packet], Tuple[()], Packet._PickleType]
         """Used by pickling methods"""
         return (self.__class__, (), (
             self.build(),
@@ -422,7 +423,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         return self.payload.getfieldval(attr)
 
     def getfield_and_val(self, attr):
-        # type: (str) -> Optional[Tuple[Any, Any]]
+        # type: (str) -> Tuple[Any, Any]
         if self.deprecated_fields and attr in self.deprecated_fields:
             attr = self._resolve_alias(attr)
         if attr in self.fields:
@@ -431,13 +432,13 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             return self.get_field(attr), self.overloaded_fields[attr]
         if attr in self.default_fields:
             return self.get_field(attr), self.default_fields[attr]
-        return None
+        raise ValueError
 
     def __getattr__(self, attr):
         # type: (str) -> Any
         try:
-            fld, v = self.getfield_and_val(attr)  # type: ignore
-        except TypeError:
+            fld, v = self.getfield_and_val(attr)
+        except ValueError:
             return self.payload.__getattr__(attr)
         if fld is not None:
             return fld.i2h(self, v)
@@ -582,7 +583,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             cloneA.add_payload(cloneB)
             return cloneA
         elif isinstance(other, (bytes, str)):
-            return self / conf.raw_layer(load=other)  # type: ignore
+            return self / conf.raw_layer(load=other)
         else:
             return other.__rdiv__(self)  # type: ignore
     __truediv__ = __div__
@@ -590,7 +591,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
     def __rdiv__(self, other):
         # type: (Any) -> Packet
         if isinstance(other, (bytes, str)):
-            return conf.raw_layer(load=other) / self  # type: ignore
+            return conf.raw_layer(load=other) / self
         else:
             raise TypeError
     __rtruediv__ = __rdiv__
@@ -1012,7 +1013,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.add_payload(conf.padding_layer(pad))
 
     def guess_payload_class(self, payload):
-        # type: (bytes) -> Packet_metaclass
+        # type: (bytes) -> Type[Packet]
         """
         DEV: Guesses the next payload class from layer bonds.
         Can be overloaded to use a different mechanism.
@@ -1025,13 +1026,13 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 try:
                     if all(v == self.getfieldval(k)
                            for k, v in six.iteritems(fval)):
-                        return cls
+                        return cls  # type: ignore
                 except AttributeError:
                     pass
         return self.default_payload_class(payload)
 
     def default_payload_class(self, payload):
-        # type: (bytes) -> Packet_metaclass
+        # type: (bytes) -> Type[Packet]
         """
         DEV: Returns the default payload class if nothing has been found by the
         guess_payload_class() method.
@@ -1102,7 +1103,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                         yield x
             else:
                 if isinstance(self.payload, NoPayload):
-                    payloads = SetGen([None])
+                    payloads = SetGen([None])  # type: SetGen[Packet]
                 else:
                     payloads = self.payload
                 share_time = False
@@ -1145,7 +1146,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             return len(x) == 2 and all(isinstance(z, int) for z in x)
 
         for field in fields:
-            fld, val = self.getfield_and_val(field)  # type: ignore
+            fld, val = self.getfield_and_val(field)
             if hasattr(val, "__iterlen__"):
                 length *= val.__iterlen__()
             elif is_valid_gen_tuple(val):
@@ -1230,7 +1231,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         return 0
 
     def layers(self):
-        # type: () -> List[Packet_metaclass]
+        # type: () -> List[Type[Packet]]
         """returns a list of layer classes (including subclasses) in this packet"""  # noqa: E501
         layers = []
         lyr = self  # type: Optional[Packet]
@@ -1240,7 +1241,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         return layers
 
     def haslayer(self, cls, _subclass=None):
-        # type: (Union[Packet_metaclass, str], Optional[bool]) -> int
+        # type: (Union[Type[Packet], str], Optional[bool]) -> int
         """
         true if self has a layer that is an instance of cls.
         Superseded by "cls in self" syntax.
@@ -1268,7 +1269,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         return self.payload.haslayer(cls, _subclass=_subclass)
 
     def getlayer(self,
-                 cls,  # type: Union[int, Packet_metaclass]
+                 cls,  # type: Union[int, Type[Packet], str]
                  nb=1,  # type: int
                  _track=None,  # type: Optional[List[int]]
                  _subclass=None,  # type: Optional[bool]
@@ -1284,17 +1285,23 @@ values.
             match = issubtype
         else:
             match = lambda cls1, cls2: bool(cls1 == cls2)
+        # Note:
+        # cls can be int, packet, str
+        # string_class_name can be packet, str (packet or packet+field)
+        # class_name can be packet, str (packet only)
         if isinstance(cls, int):
             nb = cls + 1
-            cls = None
-        ccls = None  # type: Union[None, str]
-        fld = None  # type: Union[None, str]
-        if isinstance(cls, str) and "." in cls:
-            ccls, fld = cls.split(".", 1)
+            string_class_name = ""  # type: Union[Type[Packet], str]
         else:
-            ccls, fld = cls, None
-        if cls is None or match(self.__class__, cls) \
-           or ccls in [self.__class__.__name__, self._name]:
+            string_class_name = cls
+        class_name = ""  # type: Union[Type[Packet], str]
+        fld = None  # type: Optional[str]
+        if isinstance(string_class_name, str) and "." in string_class_name:
+            class_name, fld = string_class_name.split(".", 1)
+        else:
+            class_name, fld = string_class_name, None
+        if not class_name or match(self.__class__, class_name) \
+           or class_name in [self.__class__.__name__, self._name]:
             if all(self.getfieldval(fldname) == fldvalue
                    for fldname, fldvalue in six.iteritems(flt)):
                 if nb == 1:
@@ -1313,12 +1320,12 @@ values.
             for fvalue in fvalue_gen:
                 if isinstance(fvalue, Packet):
                     track = []  # type: List[int]
-                    ret = fvalue.getlayer(cls, nb=nb, _track=track,
+                    ret = fvalue.getlayer(class_name, nb=nb, _track=track,
                                           _subclass=_subclass, **flt)
                     if ret is not None:
                         return ret
                     nb = track[0]
-        return self.payload.getlayer(cls, nb=nb, _track=_track,
+        return self.payload.getlayer(class_name, nb=nb, _track=_track,
                                      _subclass=_subclass, **flt)
 
     def firstlayer(self):
@@ -1329,7 +1336,7 @@ values.
         return q
 
     def __getitem__(self, cls):
-        # type: (Packet_metaclass) -> Any
+        # type: (Union[Type[Packet], str]) -> Any
         if isinstance(cls, slice):
             lname = cls.start
             if cls.stop:
@@ -1340,23 +1347,25 @@ values.
             lname = cls
             ret = self.getlayer(cls)
         if ret is None:
-            if isinstance(lname, Packet_metaclass):
-                lname = lname.__name__
+            if isinstance(lname, type):
+                name = lname.__name__
             elif not isinstance(lname, bytes):
-                lname = repr(lname)
-            raise IndexError("Layer [%s] not found" % lname)
+                name = repr(lname)
+            else:
+                name = cast(str, lname)
+            raise IndexError("Layer [%s] not found" % name)
         return ret
 
     def __delitem__(self, cls):
-        # type: (Packet_metaclass) -> None
+        # type: (Type[Packet]) -> None
         del(self[cls].underlayer.payload)
 
     def __setitem__(self, cls, val):
-        # type: (Packet_metaclass, Packet) -> None
+        # type: (Type[Packet], Packet) -> None
         self[cls].underlayer.payload = val
 
     def __contains__(self, cls):
-        # type: (Packet_metaclass) -> int
+        # type: (Union[Type[Packet], str]) -> int
         """
         "cls in self" returns true if self has a layer which is an
         instance of cls.
@@ -1417,7 +1426,10 @@ values.
             fvalue = self.getfieldval(f.name)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and isinstance(fvalue, list)):  # noqa: E501
                 s += "%s  \\%-10s\\\n" % (label_lvl + lvl, ncol(f.name))
-                fvalue_gen = SetGen(fvalue, _iterpacket=0)
+                fvalue_gen = SetGen(
+                    fvalue,
+                    _iterpacket=0
+                )  # type: SetGen[Packet]
                 for fvalue in fvalue_gen:
                     s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl + lvl + "   |", first_call=False)  # noqa: E501
             else:
@@ -1637,7 +1649,7 @@ values.
         return self.payload.lastlayer(self)
 
     def decode_payload_as(self, cls):
-        # type: (Packet_metaclass) -> None
+        # type: (Type[Packet]) -> None
         """Reassembles the payload and decode it using another packet class"""
         s = raw(self.payload)
         self.payload = cls(s, _internal=1, _underlayer=self)
@@ -1675,7 +1687,7 @@ values.
         return c
 
     def convert_to(self, other_cls, **kwargs):
-        # type: (Packet_metaclass, **Any) -> Packet
+        # type: (Type[Packet], **Any) -> Packet
         """Converts this Packet to another type.
 
         This is not guaranteed to be a lossless process.
@@ -1695,7 +1707,7 @@ values.
             return Raw(raw(self))
 
         if "_internal" not in kwargs:
-            return other_cls.convert_packet(self, _internal=True, **kwargs)  # type: ignore  # noqa: E501
+            return other_cls.convert_packet(self, _internal=True, **kwargs)
 
         raise TypeError("Cannot convert {} to {}".format(
             type(self).__name__, other_cls.__name__))
@@ -1740,7 +1752,7 @@ values.
 
 class NoPayload(Packet):
     def __new__(cls, *args, **kargs):
-        # type: (Packet_metaclass, *Any, **Any) -> Packet
+        # type: (Type[Packet], *Any, **Any) -> Packet
         singl = cls.__dict__.get("__singl__")
         if singl is None:
             cls.__singl__ = singl = Packet.__new__(cls)
@@ -1855,11 +1867,11 @@ class NoPayload(Packet):
         return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)  # noqa: E501
 
     def haslayer(self, cls, _subclass=None):
-        # type: (Union[Packet_metaclass, str], Optional[bool]) -> int
+        # type: (Union[Type[Packet], str], Optional[bool]) -> int
         return 0
 
     def getlayer(self,
-                 cls,  # type: Union[int, Packet_metaclass]
+                 cls,  # type: Union[int, Type[Packet], str]
                  nb=1,  # type: int
                  _track=None,  # type: Optional[List[int]]
                  _subclass=None,  # type: Optional[bool]
@@ -1890,7 +1902,7 @@ class NoPayload(Packet):
         return 0, "", []
 
     def layers(self):
-        # type: () -> List[Packet_metaclass]
+        # type: () -> List[Type[Packet]]
         return []
 
     def lastlayer(self, layer=None):
@@ -1966,8 +1978,8 @@ if conf.default_l2 is None:
 #################
 
 
-def bind_bottom_up(lower,  # type: Packet_metaclass
-                   upper,  # type: Packet_metaclass
+def bind_bottom_up(lower,  # type: Type[Packet]
+                   upper,  # type: Type[Packet]
                    __fval=None,  # type: Optional[Any]
                    **fval  # type: Any
                    ):
@@ -1988,8 +2000,8 @@ def bind_bottom_up(lower,  # type: Packet_metaclass
     lower.payload_guess.append((fval, upper))
 
 
-def bind_top_down(lower,  # type: Packet_metaclass
-                  upper,  # type: Packet_metaclass
+def bind_top_down(lower,  # type: Type[Packet]
+                  upper,  # type: Type[Packet]
                   __fval=None,  # type: Optional[Any]
                   **fval  # type: Any
                   ):
@@ -2010,8 +2022,8 @@ def bind_top_down(lower,  # type: Packet_metaclass
 
 
 @conf.commands.register
-def bind_layers(lower,  # type: Packet_metaclass
-                upper,  # type: Packet_metaclass
+def bind_layers(lower,  # type: Type[Packet]
+                upper,  # type: Type[Packet]
                 __fval=None,  # type: Optional[Dict[str, int]]
                 **fval  # type: Any
                 ):
@@ -2034,8 +2046,8 @@ def bind_layers(lower,  # type: Packet_metaclass
     bind_bottom_up(lower, upper, **fval)
 
 
-def split_bottom_up(lower,  # type: Packet_metaclass
-                    upper,  # type: Packet_metaclass
+def split_bottom_up(lower,  # type: Type[Packet]
+                    upper,  # type: Type[Packet]
                     __fval=None,  # type: Optional[Any]
                     **fval  # type: Any
                     ):
@@ -2047,7 +2059,7 @@ def split_bottom_up(lower,  # type: Packet_metaclass
         fval.update(__fval)
 
     def do_filter(params, cls):
-        # type: (Dict[str, int], Packet_metaclass) -> bool
+        # type: (Dict[str, int], Type[Packet]) -> bool
         params_is_invalid = any(
             k not in params or params[k] != v for k, v in six.iteritems(fval)
         )
@@ -2055,8 +2067,8 @@ def split_bottom_up(lower,  # type: Packet_metaclass
     lower.payload_guess = [x for x in lower.payload_guess if do_filter(*x)]
 
 
-def split_top_down(lower,  # type: Packet_metaclass
-                   upper,  # type: Packet_metaclass
+def split_top_down(lower,  # type: Type[Packet]
+                   upper,  # type: Type[Packet]
                    __fval=None,  # type: Optional[Any]
                    **fval  # type: Any
                    ):
@@ -2075,8 +2087,8 @@ def split_top_down(lower,  # type: Packet_metaclass
 
 
 @conf.commands.register
-def split_layers(lower,  # type: Packet_metaclass
-                 upper,  # type: Packet_metaclass
+def split_layers(lower,  # type: Type[Packet]
+                 upper,  # type: Type[Packet]
                  __fval=None,  # type: Optional[Any]
                  **fval  # type: Any
                  ):
@@ -2292,10 +2304,10 @@ def explore(layer=None):
     print(pretty_list(rtlst, [("Class", "Name")], borders=True))
 
 
-def _pkt_ls(obj,  # type: Union[Packet, Packet_metaclass]
+def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
             verbose=False,  # type: bool
             ):
-    # type: (...) -> List[Tuple[str, Field_metaclass, str, str, List[str]]]
+    # type: (...) -> List[Tuple[str, Type[Field[Any, Any]], str, str, List[str]]]  # noqa: E501
     """Internal function used to resolve `fields_desc` to display it.
 
     :param obj: a packet object or class
@@ -2312,8 +2324,8 @@ def _pkt_ls(obj,  # type: Union[Packet, Packet_metaclass]
         long_attrs = []  # type: List[str]
         while isinstance(cur_fld, (Emph, ConditionalField)):
             if isinstance(cur_fld, ConditionalField):
-                attrs.append(cur_fld.__class__.__name__[:4])
-            cur_fld = cur_fld.fld
+                attrs.append(cur_fld.__class__.__name__[:4])  # type: ignore
+            cur_fld = cur_fld.fld  # type: ignore
         if verbose and isinstance(cur_fld, EnumField) \
            and hasattr(cur_fld, "i2s"):
             if len(cur_fld.i2s or []) < 50:
@@ -2323,12 +2335,15 @@ def _pkt_ls(obj,  # type: Union[Packet, Packet_metaclass]
                     sorted(six.iteritems(cur_fld.i2s))
                 )
         elif isinstance(cur_fld, MultiEnumField):
-            fld_depend = cur_fld.depends_on(obj.__class__
-                                            if is_pkt else obj)
+            fld_depend = cur_fld.depends_on(
+                cast(Packet, obj if is_pkt else obj())
+            )
             attrs.append("Depends on %s" % fld_depend)
             if verbose:
                 cur_i2s = cur_fld.i2s_multi.get(
-                    cur_fld.depends_on(obj if is_pkt else obj()), {}
+                    cur_fld.depends_on(
+                        cast(Packet, obj if is_pkt else obj())
+                    ), {}
                 )
                 if len(cur_i2s) < 50:
                     long_attrs.extend(
@@ -2359,7 +2374,7 @@ def _pkt_ls(obj,  # type: Union[Packet, Packet_metaclass]
 
 
 @conf.commands.register
-def ls(obj=None,  # type: Union[str, Packet, Packet_metaclass]
+def ls(obj=None,  # type: Optional[Union[str, Packet, Type[Packet]]]
        case_sensitive=False,  # type: bool
        verbose=False  # type: bool
        ):
@@ -2378,7 +2393,10 @@ def ls(obj=None,  # type: Union[str, Packet, Packet_metaclass]
             tip = True
             all_layers = sorted(conf.layers, key=lambda x: x.__name__)
         else:
-            pattern = re.compile(obj, 0 if case_sensitive else re.I)
+            pattern = re.compile(
+                cast(str, obj),
+                0 if case_sensitive else re.I
+            )
             # We first order by accuracy, then length
             if case_sensitive:
                 sorter = lambda x: (x.__name__.index(obj), len(x.__name__))
@@ -2399,12 +2417,15 @@ def ls(obj=None,  # type: Union[str, Packet, Packet_metaclass]
                   "layers using a clear GUI")
     else:
         try:
-            fields = _pkt_ls(obj, verbose=verbose)
+            fields = _pkt_ls(
+                obj,  # type: ignore
+                verbose=verbose
+            )
             is_pkt = isinstance(obj, Packet)
             # Print
             for fname, cls, clsne, dflt, long_attrs in fields:
-                cls = cls.__name__ + " " + clsne
-                print("%-10s : %-35s =" % (fname, cls), end=' ')
+                clsinfo = cls.__name__ + " " + clsne
+                print("%-10s : %-35s =" % (fname, clsinfo), end=' ')
                 if is_pkt:
                     print("%-15r" % (getattr(obj, fname),), end=' ')
                 print("(%r)" % (dflt,))
@@ -2423,7 +2444,7 @@ def ls(obj=None,  # type: Union[str, Packet, Packet_metaclass]
 
 @conf.commands.register
 def rfc(cls, ret=False, legend=True):
-    # type: (Packet_metaclass, bool, bool) -> Optional[str]
+    # type: (Type[Packet], bool, bool) -> Optional[str]
     """
     Generate an RFC-like representation of a packet def.
 
