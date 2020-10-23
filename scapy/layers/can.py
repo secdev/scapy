@@ -23,7 +23,7 @@ from scapy.data import DLT_CAN_SOCKETCAN, MTU
 from scapy.fields import FieldLenField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ScalingField, ConditionalField, LenField
 from scapy.volatile import RandFloat, RandBinFloat
-from scapy.packet import Packet, bind_layers, BasePacket
+from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import CookedLinux
 from scapy.error import Scapy_Exception
 from scapy.plist import PacketList
@@ -167,7 +167,7 @@ class SignalField(ScalingField):
         return self.fmt[-1] == "f"
 
     def addfield(self, pkt, s, val):
-        # type: (BasePacket, bytes, Optional[Union[int, float]]) -> bytes
+        # type: (Packet, bytes, Optional[Union[int, float]]) -> bytes
         if not isinstance(pkt, SignalPacket):
             raise Scapy_Exception("Only use SignalFields in a SignalPacket")
 
@@ -202,7 +202,7 @@ class SignalField(ScalingField):
         return tmp_s[:len(s)]
 
     def getfield(self, pkt, s):
-        # type: (BasePacket, bytes) -> Tuple[bytes, Union[int, float]]
+        # type: (Packet, bytes) -> Tuple[bytes, Union[int, float]]
         if not isinstance(pkt, SignalPacket):
             raise Scapy_Exception("Only use SignalFields in a SignalPacket")
 
@@ -256,7 +256,7 @@ class SignalField(ScalingField):
         return RandFloat(min(min_val, max_val), max(min_val, max_val))
 
     def i2len(self, pkt, x):
-        # type: (BasePacket, Any) -> int
+        # type: (Packet, Any) -> int
         return int(float(self.size) / 8)
 
 
@@ -397,7 +397,7 @@ class CandumpReader:
         return cast(str, filename), fdesc
 
     def next(self):
-        # type: () -> BasePacket
+        # type: () -> Packet
         """implement the iterator protocol on a set of packets
         """
         try:
@@ -411,7 +411,7 @@ class CandumpReader:
     __next__ = next
 
     def read_packet(self, size=MTU):
-        # type: (int) -> Optional[BasePacket]
+        # type: (int) -> Optional[Packet]
         """return a single packet read from the file or None if filters apply
 
         raise EOFError when no more packets are available
@@ -482,7 +482,7 @@ class CandumpReader:
         return PacketList(res, name=os.path.basename(self.filename))
 
     def recv(self, size=MTU):
-        # type: (int) -> Optional[BasePacket]
+        # type: (int) -> Optional[Packet]
         """ Emulate a socket
         """
         return self.read_packet(size=size)

@@ -29,7 +29,8 @@ class _SSLv2MsgListField(_TLSMsgListField):
             length_from = lambda pkt: ((pkt.len & 0x7fff) -
                                        (pkt.padlen or 0) -
                                        len(pkt.mac))
-        super(_SSLv2MsgListField, self).__init__(name, default, length_from)
+        super(_SSLv2MsgListField, self).__init__(name, default,
+                                                 length_from=length_from)
 
     def m2i(self, pkt, m):
         cls = Raw

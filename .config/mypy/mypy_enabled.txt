@@ -7,10 +7,13 @@
 # CORE
 scapy/__init__.py
 scapy/asn1/mib.py
+scapy/base_classes.py
 scapy/compat.py
 scapy/config.py
 scapy/dadict.py
 scapy/data.py
+scapy/error.py
+scapy/extlib.py
 scapy/fields.py
 scapy/main.py
 scapy/packet.py
