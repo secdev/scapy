@@ -1019,10 +1019,8 @@ class Dot11Elt(Packet):
 
     def mysummary(self):
         if self.ID == 0:
-            ssid = repr(self.info)
-            if ssid[:2] in ['b"', "b'"]:
-                ssid = ssid[1:]
-            return "SSID=%s" % ssid, [Dot11]
+            ssid = plain_str(self.info)
+            return "SSID='%s'" % ssid, [Dot11]
         else:
             return ""
 
