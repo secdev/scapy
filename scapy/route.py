@@ -23,7 +23,6 @@ from scapy.compat import (
     Optional,
     Tuple,
     Union,
-    cast,
 )
 
 
@@ -51,7 +50,7 @@ class Route:
         # type: () -> str
         rtlst = []  # type: List[Tuple[Union[str, List[str]], ...]]
         for net, msk, gw, iface, addr, metric in self.routes:
-            if_repr = cast(str, resolve_iface(iface).description)
+            if_repr = resolve_iface(iface).description
             rtlst.append((ltoa(net),
                           ltoa(msk),
                           gw,

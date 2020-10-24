@@ -664,7 +664,7 @@ def _loglevel_changer(attr, val, old):
 
 
 def _iface_changer(attr, val, old):
-    # type: (str, Any, Any) -> 'scapy.interfaces.NetworkInterfaceDict'
+    # type: (str, Any, Any) -> 'scapy.interfaces.NetworkInterface'
     """Resolves the interface in conf.iface"""
     if isinstance(val, str):
         from scapy.interfaces import resolve_iface
@@ -675,7 +675,7 @@ def _iface_changer(attr, val, old):
                 "See conf.ifaces output"
             )
         return iface
-    return val
+    return val  # type: ignore
 
 
 class Conf(ConfClass):
@@ -725,12 +725,12 @@ class Conf(ConfClass):
     default_l2 = None  # type: Type[Packet]
     l2types = Num2Layer()
     l3types = Num2Layer()
-    L3socket = None
-    L3socket6 = None
-    L2socket = None
-    L2listen = None
-    BTsocket = None
-    USBsocket = None
+    L3socket = None  # type: Type[scapy.supersocket.SuperSocket]
+    L3socket6 = None  # type: Type[scapy.supersocket.SuperSocket]
+    L2socket = None  # type: Type[scapy.supersocket.SuperSocket]
+    L2listen = None  # type: Type[scapy.supersocket.SuperSocket]
+    BTsocket = None  # type: Type[scapy.supersocket.SuperSocket]
+    USBsocket = None  # type: Type[scapy.supersocket.SuperSocket]
     min_pkt_size = 60
     #: holds MIB direct access dictionary
     mib = None  # type: 'scapy.asn1.mib.MIBDict'

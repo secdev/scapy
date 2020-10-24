@@ -208,8 +208,9 @@ assert conf.iface.is_valid()
 
 import mock
 @mock.patch("scapy.interfaces.conf.route.routes", [])
-@mock.patch("scapy.interfaces.conf.ifaces", {})
-def _test_get_working_if():
+@mock.patch("scapy.interfaces.conf.ifaces.values")
+def _test_get_working_if(rou):
+    rou.side_effect = lambda: []
     assert get_working_if() == conf.loopback_name
 
 assert conf.iface + "a"  # left +
