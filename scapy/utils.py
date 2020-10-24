@@ -32,7 +32,7 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range, input, zip_longest
 
 from scapy.config import conf
-from scapy.consts import DARWIN, WINDOWS, WINDOWS_XP, OPENBSD
+from scapy.consts import DARWIN, WINDOWS, WINDOWS_XP
 from scapy.data import MTU, DLT_EN10MB
 from scapy.compat import orb, plain_str, chb, bytes_base64,\
     base64_bytes, hex_bytes, lambda_tuple_converter, bytes_encode
@@ -1763,11 +1763,6 @@ class PcapWriter(RawPcapWriter):
                 self.linktype = conf.l2types.layer2num[
                     pkt.__class__
                 ]
-                # Import here to prevent import loops
-                from scapy.layers.inet import IP
-                from scapy.layers.inet6 import IPv6
-                if OPENBSD and isinstance(pkt, (IP, IPv6)):
-                    self.linktype = 14  # DLT_RAW
             except KeyError:
                 warning("PcapWriter: unknown LL type for %s. Using type 1 (Ethernet)", pkt.__class__.__name__)  # noqa: E501
                 self.linktype = DLT_EN10MB
