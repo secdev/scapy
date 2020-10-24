@@ -1425,7 +1425,8 @@ values.
                 vcol = ct.field_value
             fvalue = self.getfieldval(f.name)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and isinstance(fvalue, list)):  # noqa: E501
-                s += "%s  \\%-10s\\\n" % (label_lvl + lvl, ncol(f.name))
+                pad = max(0, 10 - len(f.name)) * " "
+                s += "%s  \\%s%s\\\n" % (label_lvl + lvl, ncol(f.name), pad)
                 fvalue_gen = SetGen(
                     fvalue,
                     _iterpacket=0
@@ -1433,9 +1434,11 @@ values.
                 for fvalue in fvalue_gen:
                     s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl + lvl + "   |", first_call=False)  # noqa: E501
             else:
-                begn = "%s  %-10s%s " % (label_lvl + lvl,
-                                         ncol(f.name),
-                                         ct.punct("="),)
+                pad = max(0, 10 - len(f.name)) * " "
+                begn = "%s  %s%s%s " % (label_lvl + lvl,
+                                        ncol(f.name),
+                                        pad,
+                                        ct.punct("="),)
                 reprval = f.i2repr(self, fvalue)
                 if isinstance(reprval, str):
                     reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl) +  # noqa: E501
