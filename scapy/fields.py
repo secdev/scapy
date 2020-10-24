@@ -1325,10 +1325,9 @@ class _StrField(Field[I, bytes]):
 
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], I) -> str
-        val = super(_StrField, self).i2repr(pkt, x)
-        if val[:2] in ['b"', "b'"]:
-            return val[1:]
-        return val
+        if isinstance(x, bytes):
+            return repr(plain_str(x))
+        return super(_StrField, self).i2repr(pkt, x)
 
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[I]) -> bytes

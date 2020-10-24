@@ -37,17 +37,12 @@ assert s == b'\x88\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x
 pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID=0, info=b"".join(chb(i) for i in range(32)))
 pkt.show()
 pkt.summary()
-assert pkt[Dot11Elt::{"ID": 0}].summary() in [
-    "SSID='%s'" % "".join(repr(chr(d))[1:-1] for d in range(32)),
-    'SSID="%s"' % "".join(repr(chr(d))[1:-1] for d in range(32)),
-]
+assert pkt[Dot11Elt::{"ID": 0}].summary() == "SSID='%s'" % "".join(chr(d) for d in range(32))
+
 pkt = Dot11(raw(pkt))
 pkt.show()
 pkt.summary()
-assert pkt[Dot11Elt::{"ID": 0}].summary() in [
-    "SSID='%s'" % "".join(repr(chr(d))[1:-1] for d in range(32)),
-    'SSID="%s"' % "".join(repr(chr(d))[1:-1] for d in range(32)),
-]
+assert pkt[Dot11Elt::{"ID": 0}].summary() == "SSID='%s'" % "".join(chr(d) for d in range(32))
 
 = Dot11QoS - dissection
 p = Dot11(s)

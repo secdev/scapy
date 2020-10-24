@@ -78,7 +78,8 @@ try:
     tftp_read.run()
     assert False
 except Automaton.ErrorState as e:
-    assert str(e) == "Reached ERROR: [\"ERROR Access violation: 'Fatal error'\"]"
+    assert "Reached ERROR" in str(e)
+    assert "ERROR Access violation" in str(e)
 
 scapy.automaton.select_objects = legacy_select_objects
 
@@ -119,7 +120,8 @@ try:
     tftp_write.run()
     assert False
 except Automaton.ErrorState as e:
-    assert str(e) == "Reached ERROR: [\"ERROR Access violation: 'Fatal error'\"]"
+    assert "Reached ERROR" in str(e)
+    assert "ERROR Access violation" in str(e)
 
 scapy.automaton.select_objects = legacy_select_objects
 
