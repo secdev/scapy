@@ -917,9 +917,11 @@ class UDS_RDTCI(Packet):
     name = 'ReadDTCInformation'
     fields_desc = [
         ByteEnumField('reportType', 0, reportTypes),
+        ConditionalField(ByteField('DTCSeverityMask', 0),
+                         lambda pkt: pkt.reportType in [0x07, 0x08]),
         ConditionalField(XByteField('DTCStatusMask', 0),
-                         lambda pkt: pkt.reportType in [0x01, 0x02, 0x0f,
-                                                        0x11, 0x12, 0x13]),
+                         lambda pkt: pkt.reportType in [
+                             0x01, 0x02, 0x07, 0x08, 0x0f, 0x11, 0x12, 0x13]),
         ConditionalField(ByteField('DTCHighByte', 0),
                          lambda pkt: pkt.reportType in [0x3, 0x4, 0x6,
                                                         0x10, 0x09]),
@@ -932,11 +934,7 @@ class UDS_RDTCI(Packet):
         ConditionalField(ByteField('DTCSnapshotRecordNumber', 0),
                          lambda pkt: pkt.reportType in [0x3, 0x4, 0x5]),
         ConditionalField(ByteField('DTCExtendedDataRecordNumber', 0),
-                         lambda pkt: pkt.reportType in [0x6, 0x10]),
-        ConditionalField(ByteField('DTCSeverityMask', 0),
-                         lambda pkt: pkt.reportType in [0x07, 0x08]),
-        ConditionalField(ByteField('DTCStatusMask', 0),
-                         lambda pkt: pkt.reportType in [0x07, 0x08]),
+                         lambda pkt: pkt.reportType in [0x6, 0x10])
     ]
 
     @staticmethod
