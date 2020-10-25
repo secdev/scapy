@@ -348,6 +348,14 @@ test_tls_client("1305", "0304", key_update=True)
 
 test_tls_client("1305", "0304", client_auth=True, sess_in_out=True)
 
+= Clear session file
+
+file_sess = get_file("/test/session")
+try:
+    os.remove(file_sess)
+except:
+    pass
+
 # Automaton as Socket tests
 
 + TLSAutomatonClient socket tests
