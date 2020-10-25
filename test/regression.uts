@@ -425,7 +425,7 @@ assert not get_var("z")
 os.remove("%s.dat" % session_name)
 
 = Test temporary file creation
-~ appveyor_only
+~ ci_only
 
 scapy_delete_temp_files()
 
@@ -9100,6 +9100,7 @@ assert pl[1][Ether].dst == '00:22:33:44:55:66'
 + Scapy version
 
 = _version()
+~ ci_only
 
 import os
 version_filename = os.path.join(scapy._SCAPY_PKG_DIR, "VERSION")
