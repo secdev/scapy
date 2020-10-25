@@ -25,7 +25,7 @@ from scapy.compat import raw, bytes_encode
 from scapy.error import warning, log_runtime
 from scapy.interfaces import network_name
 import scapy.modules.six as six
-from scapy.packet import RawVal, Packet, Packet_metaclass
+from scapy.packet import RawVal, Packet
 import scapy.packet
 from scapy.plist import PacketList
 from scapy.utils import PcapReader, tcpdump
@@ -144,7 +144,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             return pkt, sa_ll, timestamp
 
     def recv_raw(self, x=MTU):
-        # type: (int) -> Tuple[Packet_metaclass, bytes, Optional[int]]
+        # type: (int) -> Tuple[Type[Packet], bytes, Optional[int]]
         """Returns a tuple containing (cls, pkt_data, time)"""
         return conf.raw_layer, self.ins.recv(x), None
 
@@ -204,7 +204,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     def sniff(self, *args, **kargs):
         # type: (Any, Any) -> PacketList
         from scapy import sendrecv
-        pkts =  sendrecv.sniff(opened_socket=self, *args, **kargs)  # type: PacketList  # noqa: E501
+        pkts = sendrecv.sniff(opened_socket=self, *args, **kargs)  # type: PacketList  # noqa: E501
         return pkts
 
     def tshark(self, *args, **kargs):
@@ -214,7 +214,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
-        # type: (List[SuperSocket], Optional[float]) -> Tuple[List[SuperSocket], None]
+        # type: (List[SuperSocket], Optional[float]) -> Tuple[List[SuperSocket], None]  # noqa: E501
         """This function is called during sendrecv() routine to select
         the available sockets.
 
@@ -249,7 +249,7 @@ class L3RawSocket(SuperSocket):
     desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
 
     def __init__(self, type=ETH_P_IP, filter=None, iface=None, promisc=None, nofilter=0):  # noqa: E501
-        # type: (int, Optional[Any], Optional[str], Optional[bool], int) -> None
+        # type: (int, Optional[Any], Optional[str], Optional[bool], int) -> None  # noqa: E501
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)  # noqa: E501
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
@@ -279,7 +279,7 @@ class L3RawSocket(SuperSocket):
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None
         if sa_ll[3] in conf.l2types:
-            cls = conf.l2types[sa_ll[3]]  # type: Packet_metaclass
+            cls = conf.l2types[sa_ll[3]]  # type: Type[Packet]
             lvl = 2
         elif sa_ll[1] in conf.l3types:
             cls = conf.l3types[sa_ll[1]]
@@ -335,7 +335,7 @@ class StreamSocket(SimpleSocket):
     nonblocking_socket = True
 
     def __init__(self, sock, basecls=None):
-        # type: (socket.socket, Optional[Packet_metaclass]) -> None
+        # type: (socket.socket, Optional[Type[Packet]]) -> None
         if basecls is None:
             basecls = conf.raw_layer
         SimpleSocket.__init__(self, sock)
@@ -363,7 +363,7 @@ class SSLStreamSocket(StreamSocket):
     desc = "similar usage than StreamSocket but specialized for handling SSL-wrapped sockets"  # noqa: E501
 
     def __init__(self, sock, basecls=None):
-        # type: (socket.socket, Optional[Packet_metaclass]) -> None
+        # type: (socket.socket, Optional[Type[Packet]]) -> None
         self._buf = b""
         super(SSLStreamSocket, self).__init__(sock, basecls)
 
@@ -391,7 +391,7 @@ class SSLStreamSocket(StreamSocket):
 
             if pad is not None and pad.underlayer is not None:
                 del(pad.underlayer.payload)
-            while pad is not None and not isinstance(pad, scapy.packet.NoPayload):
+            while pad is not None and not isinstance(pad, scapy.packet.NoPayload):   # noqa: E501
                 x -= len(pad.load)
                 pad = pad.payload
             self._buf = self._buf[x:]
