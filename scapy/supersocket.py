@@ -72,7 +72,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
         # type: (int, int, int) -> None
         self.ins = socket.socket(family, type, proto)  # type: socket.socket
-        self.outs = self.ins  # type: socket.socket
+        self.outs = self.ins  # type: Optional[socket.socket]
         self.promisc = None
 
     def send(self, x):
@@ -83,7 +83,11 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             x.sent_time = time.time()
         except AttributeError:
             pass
-        return self.outs.send(sx)
+
+        if self.outs:
+            return self.outs.send(sx)
+        else:
+            return 0
 
     if six.PY2:
         def _recv_raw(self, sock, x):
@@ -174,8 +178,9 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         self.closed = True
         if getattr(self, "outs", None):
             if getattr(self, "ins", None) != self.outs:
-                if WINDOWS or self.outs.fileno() != -1:
-                    self.outs.close()
+                if WINDOWS or self.outs and self.outs.fileno() != -1:
+                    if self.outs:
+                        self.outs.close()
         if getattr(self, "ins", None):
             if WINDOWS or self.ins.fileno() != -1:
                 self.ins.close()
@@ -209,7 +214,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
-        # type: (List[SuperSocket], float) -> Tuple[List[SuperSocket], None]
+        # type: (List[SuperSocket], Optional[float]) -> Tuple[List[SuperSocket], None]
         """This function is called during sendrecv() routine to select
         the available sockets.
 
@@ -309,7 +314,8 @@ class L3RawSocket(SuperSocket):
             sx = raw(x)
             x = cast(Packet, x)
             x.sent_time = time.time()
-            return self.outs.sendto(sx, (x.dst, 0))
+            if self.outs:
+                return self.outs.sendto(sx, (x.dst, 0))
         except socket.error as msg:
             log_runtime.error(msg)
         return 0
@@ -363,7 +369,7 @@ class SSLStreamSocket(StreamSocket):
 
     # 65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=65535):
-        # type: (int) -> Packet
+        # type: (int) -> Optional[Packet]
         pkt = None  # type: Optional[Packet]
         if self._buf != b"":
             try:
@@ -380,14 +386,15 @@ class SSLStreamSocket(StreamSocket):
 
         x = len(self._buf)
         pkt = self.basecls(self._buf)
-        pad = pkt.getlayer(conf.padding_layer)
+        if pkt is not None:
+            pad = pkt.getlayer(conf.padding_layer)
 
-        if pad is not None and pad.underlayer is not None:
-            del(pad.underlayer.payload)
-        while pad is not None and not isinstance(pad, scapy.packet.NoPayload):
-            x -= len(pad.load)
-            pad = pad.payload
-        self._buf = self._buf[x:]
+            if pad is not None and pad.underlayer is not None:
+                del(pad.underlayer.payload)
+            while pad is not None and not isinstance(pad, scapy.packet.NoPayload):
+                x -= len(pad.load)
+                pad = pad.payload
+            self._buf = self._buf[x:]
         return pkt
 
 
@@ -396,7 +403,7 @@ class L2ListenTcpdump(SuperSocket):
 
     def __init__(self, iface=None, promisc=None, filter=None, nofilter=False,
                  prog=None, *arg, **karg):
-        # type: (str, Optional[bool], Optional[Any], Optional[int], Optional[str], Any, Any) -> None  # noqa: E501
+        # type: (Optional[str], Optional[bool], Optional[Any], Optional[int], Optional[str], Any, Any) -> None  # noqa: E501
         self.outs = None
         args = ['-w', '-', '-s', '65535']
         if iface is None and (WINDOWS or DARWIN):
@@ -481,10 +488,15 @@ conf.L2listen, conf.L2socket or conf.L3socket.
         if self.mode_tun:
             data = os.read(self.ins.fileno(), x + 4)
             proto = struct.unpack('!H', data[2:4])[0]
-            return conf.l3types.get(proto, conf.raw_layer)(data[4:])
-        return conf.l2types.get(1, conf.raw_layer)(
-            os.read(self.ins.fileno(), x)
-        )
+            basecls = conf.l3types.get(proto, conf.raw_layer)
+            basecls = cast(Type[Packet], basecls)
+            pkt = basecls(data[4:])  # type: Packet
+            return pkt
+        basecls = conf.l2types.get(1, conf.raw_layer)
+        basecls = cast(Type[Packet], basecls)
+        data = os.read(self.ins.fileno(), x)
+        pkt = basecls(data)
+        return pkt
 
     def send(self, x):
         # type: (Union[RawVal, Packet]) -> int
@@ -507,7 +519,9 @@ conf.L2listen, conf.L2socket or conf.L3socket.
                 x.sent_time = time.time()
             except AttributeError:
                 pass
-            return os.write(self.outs.fileno(), sx)
+
+            if self.outs:
+                return os.write(self.outs.fileno(), sx)
         except socket.error:
             log_runtime.error("%s send", self.__class__.__name__, exc_info=True)  # noqa: E501
 
