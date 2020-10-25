@@ -1,0 +1,16 @@
+% Mobile IP regression tests for Scapy
+
+
+############
+############
++ MobileIP tests
+
+= MobileIP - build
+s = raw(IP(src="127.0.0.1")/UDP()/MobileIP()/MobileIPRRP(homeaddr='156.133.50.141', haaddr='95.83.86.216'))
+s == b'E\x00\x000\x00\x01\x00\x00@\x11|\xba\x7f\x00\x00\x01\x7f\x00\x00\x01\x01\xb2\x01\xb2\x00\x1cu]\x03\x00\x00\xb4\x9c\x852\x8d_SV\xd8\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= MobileIP - dissect
+pkt = IP(s)
+assert pkt[MobileIP][MobileIPRRP].haaddr == '95.83.86.216'
+
+

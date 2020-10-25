@@ -1,0 +1,15 @@
+% MGCP regression tests for Scapy
+
+############
+############
++ MGCP tests
+
+= MGCP - build
+s = raw(IP(src="127.0.0.1")/UDP()/MGCP(endpoint="scapy@secdev.org", transaction_id="04523"))
+s == b'E\x00\x00I\x00\x01\x00\x00@\x11|\xa1\x7f\x00\x00\x01\x7f\x00\x00\x01\n\xa7\n\xa7\x005\xf8\xaeAUEP 04523 scapy@secdev.org MGCP 1.0 NCS 1.0\n'
+
+= MGCP - dissect
+pkt = Ether(b'\x1b\x81\xb8\xa8J5\xe3\xebn\x90q\xb8\x08\x00E\x00\x00E\x00\x01\x00\x00@\x11\xf7\xde\xc0\xa8\x00\xff\xc0\xa8\x00y\n\xa7\n\xa7\x001\x05\xb5AUEP 155 god@heaven.com MGCP 1.0 NCS 1.0\n')
+assert pkt[MGCP].endpoint == b'god@heaven.com'
+
+
