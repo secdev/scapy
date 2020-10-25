@@ -22,6 +22,7 @@ scapy/plist.py
 scapy/pton_ntop.py
 scapy/route.py
 scapy/route6.py
+scapy/sessions.py
 scapy/utils.py
 
 # LAYERS
