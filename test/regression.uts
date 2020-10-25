@@ -9619,10 +9619,6 @@ param1, param2 = SCTPChunkParamRandom(), SCTPChunkParamRandom()
 assert(param1.random != param2.random)
 
 
-######################################
-# More PPI tests in contrib/ppi_cace #
-######################################
-
 ############
 ############
 + 802.3
