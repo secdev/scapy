@@ -2,6 +2,17 @@
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
+############
+############
++ Basic tests
+
+= specific haslayer and getlayer implementations for NTP
+~ haslayer getlayer NTP
+pkt = IP() / UDP() / NTPHeader()
+assert NTP in pkt
+assert pkt.haslayer(NTP)
+assert isinstance(pkt[NTP], NTPHeader)
+assert isinstance(pkt.getlayer(NTP), NTPHeader)
 
 ############
 ############

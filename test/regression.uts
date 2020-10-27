@@ -1059,14 +1059,6 @@ assert pkt[IP::{"ttl":3}].ttl == 3
 assert pkt.getlayer(IP, ttl=3).ttl == 3
 assert IPv6ExtHdrHopByHop(options=[HBHOptUnknown()]).getlayer(HBHOptUnknown, otype=42) is None
 
-= specific haslayer and getlayer implementations for NTP
-~ haslayer getlayer NTP
-pkt = IP() / UDP() / NTPHeader()
-assert NTP in pkt
-assert pkt.haslayer(NTP)
-assert isinstance(pkt[NTP], NTPHeader)
-assert isinstance(pkt.getlayer(NTP), NTPHeader)
-
 = specific haslayer and getlayer implementations for EAP
 ~ haslayer getlayer EAP
 pkt = Ether() / EAPOL() / EAP_MD5()
