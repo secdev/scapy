@@ -38,8 +38,12 @@ from scapy.compat import (
 )
 
 
-def construct_source_candidate_set(addr, plen, laddr):
-    # type: (str, int, List[Tuple[str, int, str]]) -> List[str]
+def construct_source_candidate_set(
+        addr,  # type: str
+        plen,  # type: int
+        laddr  # type: Iterator[Tuple[str, int, str]]
+):
+    # type: (...) -> List[str]
     """
     Given all addresses assigned to a specific interface ('laddr' parameter),
     this function returns the "candidate set" associated with 'addr/plen'.

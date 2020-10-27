@@ -225,9 +225,9 @@ class UDS_DoIPSocket(DoIPSocket):
         return super(UDS_DoIPSocket, self).send(pkt)
 
     def recv(self, x=MTU):
-        # type: (int) -> Packet
+        # type: (int) -> Optional[Packet]
         pkt = super(UDS_DoIPSocket, self).recv(x)
-        if pkt.payload_type == 0x8001:
+        if pkt and pkt.payload_type == 0x8001:
             return pkt.payload
         else:
             return pkt

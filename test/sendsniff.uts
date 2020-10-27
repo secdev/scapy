@@ -207,6 +207,8 @@ else:
 
 = Ensure bridge_and_sniff does not close sockets if data is send within xfrm on ingress interface
 
+from scapy.arch.linux import VEthPair
+
 with VEthPair('a_0', 'a_1') as veth_0:
     with VEthPair('b_0', 'b_1') as veth_1:
         xfrm_count = {

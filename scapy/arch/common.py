@@ -15,7 +15,19 @@ from scapy.consts import WINDOWS
 from scapy.config import conf
 from scapy.data import MTU, ARPHDR_ETHER, ARPHRD_TO_DLT
 from scapy.error import Scapy_Exception
-from scapy.interfaces import network_name
+from scapy.interfaces import network_name, NetworkInterface
+from scapy.libs.structures import bpf_program
+
+# Type imports
+import scapy
+from scapy.compat import (
+    Callable,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 if not WINDOWS:
     from fcntl import ioctl
@@ -48,6 +60,7 @@ _iff_flags = [
 
 
 def get_if(iff, cmd):
+    # type: (Union[NetworkInterface, str], int) -> bytes
     """Ease SIOCGIF* ioctl calls"""
 
     iff = network_name(iff)
@@ -58,7 +71,10 @@ def get_if(iff, cmd):
         sck.close()
 
 
-def get_if_raw_hwaddr(iff, siocgifhwaddr=None):
+def get_if_raw_hwaddr(iff,  # type: Union[NetworkInterface, str]
+                      siocgifhwaddr=None,  # type: Optional[int]
+                      ):
+    # type: (...) -> Tuple[int, bytes]
     """Get the raw MAC address of a local interface.
 
     This function uses SIOCGIFHWADDR calls, therefore only works
@@ -68,32 +84,47 @@ def get_if_raw_hwaddr(iff, siocgifhwaddr=None):
     :returns: the corresponding raw MAC address
     """
     if siocgifhwaddr is None:
-        from scapy.arch import SIOCGIFHWADDR
+        from scapy.arch import SIOCGIFHWADDR  # type: ignore
         siocgifhwaddr = SIOCGIFHWADDR
-    return struct.unpack("16xh6s8x", get_if(iff, siocgifhwaddr))
+    return struct.unpack(  # type: ignore
+        "16xh6s8x",
+        get_if(iff, siocgifhwaddr)
+    )
 
 # SOCKET UTILS
 
 
-def _select_nonblock(sockets, remain=None):
+_T = TypeVar("_T")
+
+
+def _select_nonblock(sockets,  # type: List[_T]
+                     remain=None  # type: Optional[int]
+                     ):
+    # type: (...) -> Tuple[List[_T], Callable[['scapy.supersocket.SuperSocket'], Optional['scapy.packet.Packet']]]  # type: ignore # noqa: E501
     """This function is called during sendrecv() routine to select
     the available sockets.
     """
     # pcap sockets aren't selectable, so we return all of them
     # and ask the selecting functions to use nonblock_recv instead of recv
-    def _sleep_nonblock_recv(self):
-        res = self.nonblock_recv()
+    def _sleep_nonblock_recv(self  # type: 'scapy.supersocket.SuperSocket'
+                             ):
+        # type: (...) -> 'Optional[scapy.packet.Packet]'
+        res = self.nonblock_recv()  # type: ignore
         if res is None:
             time.sleep(conf.recv_poll_rate)
-        return res
+        return res  # type: ignore
     # we enforce remain=None: don't wait.
     return sockets, _sleep_nonblock_recv
 
 # BPF HANDLERS
 
 
-def compile_filter(filter_exp, iface=None, linktype=None,
-                   promisc=False):
+def compile_filter(filter_exp,  # type: str
+                   iface=None,  # type: Optional[Union[str, 'scapy.interfaces.NetworkInterface']]  # noqa: E501
+                   linktype=None,  # type: Optional[int]
+                   promisc=False  # type: bool
+                   ):
+    # type: (...) -> bpf_program
     """Asks libpcap to parse the filter, then build the matching
     BPF bytecode.
 
@@ -108,7 +139,6 @@ def compile_filter(filter_exp, iface=None, linktype=None,
             pcap_compile_nopcap,
             pcap_close
         )
-        from scapy.libs.structures import bpf_program
     except OSError:
         raise ImportError(
             "libpcap is not available. Cannot compile filter !"
@@ -139,10 +169,9 @@ def compile_filter(filter_exp, iface=None, linktype=None,
         )
     elif iface:
         err = create_string_buffer(PCAP_ERRBUF_SIZE)
-        iface = network_name(iface)
-        iface = create_string_buffer(iface.encode("utf8"))
+        iface_b = create_string_buffer(network_name(iface).encode("utf8"))
         pcap = pcap_open_live(
-            iface, MTU, promisc, 0, err
+            iface_b, MTU, promisc, 0, err
         )
         error = bytes(bytearray(err)).strip(b"\x00")
         if error:

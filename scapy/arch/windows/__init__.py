@@ -716,11 +716,16 @@ def _read_routes_c_v1():
     This is compatible with XP but won't get IPv6 routes."""
     def _extract_ip(obj):
         return inet_ntop(socket.AF_INET, struct.pack("<I", obj))
+
+    def _proc(ip):
+        if WINDOWS_XP:
+            return struct.unpack("<I", struct.pack(">I", ip))[0]
+        return ip
     routes = []
     for route in GetIpForwardTable():
         ifIndex = route['ForwardIfIndex']
-        dest = route['ForwardDest']
-        netmask = route['ForwardMask']
+        dest = _proc(route['ForwardDest'])
+        netmask = _proc(route['ForwardMask'])
         nexthop = _extract_ip(route['ForwardNextHop'])
         metric = route['ForwardMetric1']
         # Build route

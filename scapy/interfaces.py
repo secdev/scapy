@@ -42,7 +42,7 @@ class InterfaceProvider(object):
     libpcap = False
 
     def load(self):
-        # type: () -> NoReturn
+        # type: () -> Dict[str, NetworkInterface]
         """Returns a dictionary of the loaded interfaces, by their
         name."""
         raise NotImplementedError

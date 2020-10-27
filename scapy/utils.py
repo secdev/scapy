@@ -32,7 +32,7 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range, input, zip_longest
 
 from scapy.config import conf
-from scapy.consts import DARWIN, WINDOWS, WINDOWS_XP
+from scapy.consts import DARWIN, WINDOWS
 from scapy.data import MTU, DLT_EN10MB
 from scapy.compat import orb, plain_str, chb, bytes_base64,\
     base64_bytes, hex_bytes, lambda_tuple_converter, bytes_encode
@@ -671,15 +671,9 @@ def valid_net6(addr):
     return valid_ip6(addr)
 
 
-if WINDOWS_XP:
-    # That is a hell of compatibility :(
-    def ltoa(x):
-        # type: (int) -> str
-        return inet_ntoa(struct.pack("<I", x & 0xffffffff))
-else:
-    def ltoa(x):
-        # type: (int) -> str
-        return inet_ntoa(struct.pack("!I", x & 0xffffffff))
+def ltoa(x):
+    # type: (int) -> str
+    return inet_ntoa(struct.pack("!I", x & 0xffffffff))
 
 
 def itom(x):

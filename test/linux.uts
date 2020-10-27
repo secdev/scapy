@@ -149,6 +149,8 @@ else:
 = veth interface error handling
 ~ linux needs_root veth
 
+from scapy.arch.linux import VEthPair
+
 try:
     veth = VEthPair('this_IF_name_is_to_long_and_will_cause_an_error', 'veth_scapy_1')
     veth.setup()
@@ -288,6 +290,8 @@ test_read_routes()
 
 = L3PacketSocket sendto exception
 ~ linux needs_root
+
+from scapy.arch.linux import L3PacketSocket
 
 if six.PY3:
     import mock, six, socket

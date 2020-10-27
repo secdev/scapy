@@ -41,6 +41,8 @@ assert dev_from_networkname(conf.iface.network_name).guid == conf.iface.guid
 
 = test pcap_service_status
 
+from scapy.arch.windows import pcap_service_status
+
 status = pcap_service_status()
 assert status
 
@@ -81,6 +83,8 @@ assert conf.use_pcap == False
 
 = Prepare ping: open firewall & get current seq number
 ~ netaccess needs_root
+
+from scapy.arch.windows.native import open_icmp_firewall, get_current_icmp_seq
 
 # Note: this method is complicated, but allow us to perform a real test
 # it is discouraged otherwise. Npcap/Winpcap does NOT require such mechanics

@@ -25,6 +25,10 @@ get_if_raw_hwaddr(conf.loopback_name) == (ARPHDR_LOOPBACK, b'\x00'*6)
 ############
 + BPF related functions
 
+= Imports
+
+from scapy.arch.bpf.supersocket import L3bpfSocket, L2bpfListenSocket, L2bpfSocket
+
 = Get a BPF handler
 ~ needs_root
 
