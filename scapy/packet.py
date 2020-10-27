@@ -57,24 +57,6 @@ except ImportError:
     pass
 
 
-class RawVal:
-    def __init__(self, val=""):
-        # type: (str) -> None
-        self.val = val
-
-    def __str__(self):
-        # type: () -> str
-        return str(self.val)
-
-    def __bytes__(self):
-        # type: () -> bytes
-        return bytes_encode(self.val)
-
-    def __repr__(self):
-        # type: () -> str
-        return "<RawVal [%r]>" % self.val
-
-
 _T = TypeVar("_T", Dict[str, Any], Optional[Dict[str, Any]])
 
 
@@ -640,12 +622,10 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                         fsubval.clear_cache()
         self.payload.clear_cache()
 
-    def self_build(self, field_pos_list=None):
-        # type: (Optional[Any])-> bytes
+    def self_build(self):
+        # type: ()-> bytes
         """
         Create the default layer regarding fields_desc dict
-
-        :param field_pos_list:
         """
         if self.raw_packet_cache is not None:
             for fname, fval in six.iteritems(self.raw_packet_cache_fields):
@@ -659,13 +639,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         p = b""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
-            if isinstance(val, RawVal):
-                sval = raw(val)
-                p += sval
-                if field_pos_list is not None:
-                    field_pos_list.append((f.name, sval, len(p), len(sval)))
-            else:
-                p = f.addfield(self, p, val)
+            p = f.addfield(self, p, val)
         return p
 
     def do_build_payload(self):
@@ -1944,8 +1918,8 @@ class Raw(Packet):
 class Padding(Raw):
     name = "Padding"
 
-    def self_build(self, field_pos_list=None):
-        # type: (Optional[Any]) -> bytes
+    def self_build(self):
+        # type: () -> bytes
         return b""
 
     def build_padding(self):
