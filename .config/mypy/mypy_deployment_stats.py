@@ -30,7 +30,7 @@ ALL_FILES = [
 # Process
 
 REMAINING = defaultdict(list)
-MODULES = defaultdict(lambda: (0, 0))
+MODULES = defaultdict(lambda: (0, 0, 0, 0))
 
 for f in ALL_FILES:
     with open(os.path.join(rootpath, f)) as fd:
@@ -40,21 +40,24 @@ for f in ALL_FILES:
         mod = parts[1]
     else:
         mod = "[core]"
-    e, l = MODULES[mod]
+    e, l, t, a = MODULES[mod]
     if f in FILES:
         e += lines
+        t += 1
     else:
         REMAINING[mod].append(f)
     l += lines
-    MODULES[mod] = (e, l)
+    a += 1
+    MODULES[mod] = (e, l, t, a)
 
 ENABLED = sum(x[0] for x in MODULES.values())
 TOTAL = sum(x[1] for x in MODULES.values())
 
-print("*The numbers correspond to the amount of lines per files processed*")
 print("**MyPy Support: %.2f%%**" % (ENABLED / TOTAL * 100))
+print("| Module | Typed code (lines) | Typed files |")
+print("| --- | --- | --- |")
 for mod, dat in MODULES.items():
-    print("- `%s`: %.2f%%" % (mod, dat[0] / dat[1] * 100))
+    print("|`%s` | %.2f%% | %s/%s |" % (mod, dat[0] / dat[1] * 100, dat[2], dat[3]))
 
 print()
 COREMODS = REMAINING["[core]"]

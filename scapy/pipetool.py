@@ -690,7 +690,13 @@ class TermSink(Sink):
                 self.name = "Scapy" if self.name is None else self.name
                 # Start a powershell in a new window and print the PID
                 cmd = "$app = Start-Process PowerShell -ArgumentList '-command &{$host.ui.RawUI.WindowTitle=\\\"%s\\\";Get-Content \\\"%s\\\" -wait}' -passthru; echo $app.Id" % (self.name, self.__f.replace("\\", "\\\\"))  # noqa: E501
-                proc = subprocess.Popen([conf.prog.powershell, cmd], stdout=subprocess.PIPE)  # noqa: E501
+                proc = subprocess.Popen(
+                    [
+                        getattr(conf.prog, "powershell"),
+                        cmd
+                    ],
+                    stdout=subprocess.PIPE
+                )
                 output, _ = proc.communicate()
                 # This is the process PID
                 self.pid = int(output)

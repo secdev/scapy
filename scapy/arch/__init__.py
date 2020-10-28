@@ -7,8 +7,8 @@
 Operating system specific functionality.
 """
 
-from __future__ import absolute_import
 import socket
+import sys
 
 from scapy.compat import orb
 from scapy.config import conf, _set_conf_sockets
@@ -20,7 +20,7 @@ from scapy.data import (
     ARPHDR_TUN,
     IPV6_ADDR_GLOBAL
 )
-from scapy.error import Scapy_Exception
+from scapy.error import log_loading, Scapy_Exception
 from scapy.interfaces import NetworkInterface, network_name
 from scapy.pton_ntop import inet_pton, inet_ntop
 
@@ -46,6 +46,7 @@ __all__ = [  # noqa: F405
     "in6_getifaddr",
     "read_routes",
     "read_routes6",
+    "SIOCGIFHWADDR",
 ]
 
 # BACKWARD COMPATIBILITY
@@ -60,7 +61,7 @@ from scapy.interfaces import (
 
 def str2mac(s):
     # Duplicated from scapy/utils.py for import reasons
-    # type: (str) -> str
+    # type: (bytes) -> str
     return ("%02x:" * 6)[:-1] % tuple(orb(x) for x in s)
 
 
@@ -77,7 +78,8 @@ def get_if_hwaddr(iff):
     """
     Returns the MAC (hardware) address of an interface
     """
-    addrfamily, mac = get_if_raw_hwaddr(iff)  # type: ignore # noqa: F405
+    from scapy.arch import get_if_raw_hwaddr
+    addrfamily, mac = get_if_raw_hwaddr(iff)  # noqa: F405
     if addrfamily in [ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_PPP, ARPHDR_TUN]:
         return str2mac(mac)
     else:
@@ -130,11 +132,18 @@ elif BSD:
         # Native
         from scapy.arch.bpf.supersocket import *  # noqa F403
         conf.use_bpf = True
+    SIOCGIFHWADDR = 0  # mypy compat
 elif SOLARIS:
     from scapy.arch.solaris import *  # noqa F403
 elif WINDOWS:
     from scapy.arch.windows import *  # noqa F403
     from scapy.arch.windows.native import *  # noqa F403
+    SIOCGIFHWADDR = 0  # mypy compat
+else:
+    log_loading.critical(
+        "Scapy currently does not support %s! I/O will NOT work!" % sys.platform
+    )
+    SIOCGIFHWADDR = 0  # mypy compat
 
 if LINUX or BSD:
     conf.load_layers.append("tuntap")

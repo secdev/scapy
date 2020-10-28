@@ -868,8 +868,8 @@ def do_graph(
                 warning("Temporary file '%s' could not be written. Graphic will not be displayed.", tempfile)  # noqa: E501
                 break
         else:
-            if conf.prog.display == conf.prog._default:
-                os.startfile(target.name)  # type: ignore
+            if WINDOWS and conf.prog.display == conf.prog._default:
+                os.startfile(target.name)
             else:
                 with ContextManagerSubprocess(conf.prog.display):
                     subprocess.Popen([conf.prog.display, target.name])

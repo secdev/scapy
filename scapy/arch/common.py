@@ -8,25 +8,18 @@ Functions common to different architectures
 """
 
 import ctypes
-import socket
-import struct
-from scapy.consts import WINDOWS
 from scapy.config import conf
 from scapy.data import MTU, ARPHDR_ETHER, ARPHRD_TO_DLT
 from scapy.error import Scapy_Exception
-from scapy.interfaces import network_name, NetworkInterface
+from scapy.interfaces import network_name
 from scapy.libs.structures import bpf_program
 
 # Type imports
 import scapy
 from scapy.compat import (
     Optional,
-    Tuple,
     Union,
 )
-
-if not WINDOWS:
-    from fcntl import ioctl
 
 # From if.h
 _iff_flags = [
@@ -51,41 +44,6 @@ _iff_flags = [
     "DORMANT",
     "ECHO"
 ]
-
-# UTILS
-
-
-def get_if(iff, cmd):
-    # type: (Union[NetworkInterface, str], int) -> bytes
-    """Ease SIOCGIF* ioctl calls"""
-
-    iff = network_name(iff)
-    sck = socket.socket()
-    try:
-        return ioctl(sck, cmd, struct.pack("16s16x", iff.encode("utf8")))
-    finally:
-        sck.close()
-
-
-def get_if_raw_hwaddr(iff,  # type: Union[NetworkInterface, str]
-                      siocgifhwaddr=None,  # type: Optional[int]
-                      ):
-    # type: (...) -> Tuple[int, bytes]
-    """Get the raw MAC address of a local interface.
-
-    This function uses SIOCGIFHWADDR calls, therefore only works
-    on some distros.
-
-    :param iff: the network interface name as a string
-    :returns: the corresponding raw MAC address
-    """
-    if siocgifhwaddr is None:
-        from scapy.arch import SIOCGIFHWADDR  # type: ignore
-        siocgifhwaddr = SIOCGIFHWADDR
-    return struct.unpack(  # type: ignore
-        "16xH6s8x",
-        get_if(iff, siocgifhwaddr)
-    )
 
 
 # BPF HANDLERS
@@ -127,6 +85,7 @@ def compile_filter(filter_exp,  # type: str
                 )
             iface = conf.iface
         # Try to guess linktype to avoid requiring root
+        from scapy.arch import get_if_raw_hwaddr
         try:
             arphd = get_if_raw_hwaddr(iface)[0]
             linktype = ARPHRD_TO_DLT.get(arphd)
