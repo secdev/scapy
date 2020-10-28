@@ -1650,8 +1650,8 @@ class _ExtCommValuePacketField(PacketField):
 
     __slots__ = ["type_from"]
 
-    def __init__(self, name, default, cls, remain=0, type_from=(0, 0)):
-        PacketField.__init__(self, name, default, cls, remain)
+    def __init__(self, name, default, cls, type_from=(0, 0)):
+        PacketField.__init__(self, name, default, cls)
         self.type_from = type_from
 
     def m2i(self, pkt, m):
@@ -2499,11 +2499,7 @@ class BGPRouteRefresh(BGP):
         ShortEnumField("afi", 1, address_family_identifiers),
         ByteEnumField("subtype", 0, rr_message_subtypes),
         ByteEnumField("safi", 1, subsequent_afis),
-        PacketField(
-            'orf_data',
-            "", BGPORF,
-            lambda p: _update_orf_afi_safi(p.afi, p.safi)
-        )
+        PacketField('orf_data', "", BGPORF)
     ]
 
 
