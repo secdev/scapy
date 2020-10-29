@@ -1273,75 +1273,7 @@ assert(len(y[TFTP_Options].options) == 2 and y[TFTP_Option].oname == b"blksize")
 
 ############
 ############
-+ ASN1 tests
-
-= ASN1 - ASN1_Object
-assert ASN1_Object(1) == ASN1_Object(1)
-assert ASN1_Object(1) > ASN1_Object(0)
-assert ASN1_Object(1) >= ASN1_Object(1)
-assert ASN1_Object(0) < ASN1_Object(1)
-assert ASN1_Object(1) <= ASN1_Object(2)
-assert ASN1_Object(1) != ASN1_Object(2)
-ASN1_Object(2).show()
-
-= ASN1 - RandASN1Object
-a = RandASN1Object()
-random.seed(0x2807)
-o = bytes(a)
-o
-assert o in [
-    b'\x02\x02\xfe\x92',
-    b'A\x02\x07q',
-    b'\x15\x10E55WW2a7yrh9XEck',
-    b'C\x02\xfe\x92',
-    b'\x1e\x023V'
-]
-
-= ASN1 - ASN1_BIT_STRING
-a = ASN1_BIT_STRING("test", readable=True)
-a
-assert a.val == '01110100011001010111001101110100'
-assert raw(a) == b'\x03\x05\x00test'
-
-a = ASN1_BIT_STRING(b"\xff"*16, readable=True)
-a
-assert a.val == "1" * 128
-assert raw(a) == b'\x03\x11\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff'
-
-= ASN1 - ASN1_SEQUENCE
-a = ASN1_SEQUENCE([ASN1_Object(1), ASN1_Object(0)])
-assert a.strshow() == '# ASN1_SEQUENCE:\n  <ASN1_Object[1]>\n  <ASN1_Object[0]>\n'
-
-= ASN1 - ASN1_DECODING_ERROR
-a = ASN1_DECODING_ERROR("error", exc=OSError(1))
-assert repr(a) == "<ASN1_DECODING_ERROR['error']{{1}}>"
-b = ASN1_DECODING_ERROR("error", exc=OSError(ASN1_BIT_STRING("0")))
-assert repr(b) in ["<ASN1_DECODING_ERROR['error']{{<ASN1_BIT_STRING[0]=b'\\x00' (7 unused bits)>}}>",
-                   "<ASN1_DECODING_ERROR['error']{{<ASN1_BIT_STRING[0]=\x00 (7 unused bits)>}}>"]
-
-= ASN1 - ASN1_INTEGER
-a = ASN1_INTEGER(int("1"*23))
-assert repr(a) in ["0x25a55a46e5da99c71c7 <ASN1_INTEGER[1111111111...1111111111]>",
-                   "0x25a55a46e5da99c71c7 <ASN1_INTEGER[1111111111...111111111L]>"]
-
-= ASN1 - ASN1_OID
-assert raw(ASN1_OID("")) == b"\x06\x00"
-
-= RandASN1Object(), specific crashes
-
-import random
-
-# ASN1F_NUMERIC_STRING
-random.seed(1514315682)
-raw(RandASN1Object())
-
-# ASN1F_VIDEOTEX_STRING
-random.seed(1240186058)
-raw(RandASN1Object())
-
-# ASN1F_UTC_TIME & ASN1F_GENERALIZED_TIME
-random.seed(1873503288)
-raw(RandASN1Object())
++ SSID tests
 
 = SSID is parsed properly even with the presence of RSN Information
 ~ SSID RSN Information
