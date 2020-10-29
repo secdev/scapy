@@ -225,7 +225,7 @@ def list_contrib(name=None,  # type: Optional[str]
                  ret=False,  # type: bool
                  _debug=False  # type: bool
                  ):
-    # type: (...) -> Optional[List[Dict[str, Union[str, None]]]]
+    # type: (...) -> Optional[List[Dict[str, str]]]
     """Show the list of all existing contribs.
 
     :param name: filter to search the contribs
@@ -244,7 +244,7 @@ def list_contrib(name=None,  # type: Optional[str]
         name = "*.py"
     elif "*" not in name and "?" not in name and not name.endswith(".py"):
         name += ".py"
-    results = []  # type: List[Dict[str, Union[str, None]]]
+    results = []  # type: List[Dict[str, str]]
     dir_path = os.path.join(os.path.dirname(__file__), "contrib")
     if sys.version_info >= (3, 5):
         name = os.path.join(dir_path, "**", name)
@@ -258,7 +258,7 @@ def list_contrib(name=None,  # type: Optional[str]
             continue
         if mod.endswith(".py"):
             mod = mod[:-3]
-        desc = {"description": None, "status": None, "name": mod}
+        desc = {"description": "", "status": "", "name": mod}
         with io.open(f, errors="replace") as fd:
             for line in fd:
                 if line[0] != "#":
