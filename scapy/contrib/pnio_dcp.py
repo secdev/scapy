@@ -540,7 +540,7 @@ class ProfinetDCP(Packet):
                          lambda pkt: pkt.service_id == 4 and
                          pkt.service_type == 0),
         # Name Of Station
-        ConditionalField(StrLenField("name_of_station", "et200sp",
+        ConditionalField(StrLenField("name_of_station_set_req", "et200sp",
                          length_from=lambda x: x.dcp_block_length - 2),
                          lambda pkt: pkt.service_id == 4 and
                          pkt.service_type == 0 and pkt.option == 2 and
