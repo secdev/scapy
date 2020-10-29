@@ -35,6 +35,10 @@ from scapy.layers.tls.crypto.groups import (
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives.asymmetric import dh, ec
+    from cryptography.hazmat.primitives import serialization
+if conf.crypto_valid_advanced:
+    from cryptography.hazmat.primitives.asymmetric import x25519
+    from cryptography.hazmat.primitives.asymmetric import x448
 
 
 ###############################################################################
@@ -800,15 +804,29 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
         s.client_kx_privkey = _tls_named_groups_generate(
             s.client_kx_ecdh_params
         )
+        # ecdh_Yc follows ECPoint.point format as defined in
+        # https://tools.ietf.org/html/rfc8422#section-5.4
         pubkey = s.client_kx_privkey.public_key()
-        x = pubkey.public_numbers().x
-        y = pubkey.public_numbers().y
-        self.ecdh_Yc = (b"\x04" +
-                        pkcs_i2osp(x, pubkey.key_size // 8) +
-                        pkcs_i2osp(y, pubkey.key_size // 8))
+        if isinstance(pubkey, (x25519.X25519PublicKey,
+                               x448.X448PublicKey)):
+            self.ecdh_Yc = pubkey.public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw
+            )
+            if s.client_kx_privkey and s.server_kx_pubkey:
+                pms = s.client_kx_privkey.exchange(s.server_kx_pubkey)
+        else:
+            # uncompressed format of an elliptic curve point
+            x = pubkey.public_numbers().x
+            y = pubkey.public_numbers().y
+            self.ecdh_Yc = (b"\x04" +
+                            pkcs_i2osp(x, pubkey.key_size // 8) +
+                            pkcs_i2osp(y, pubkey.key_size // 8))
+            if s.client_kx_privkey and s.server_kx_pubkey:
+                pms = s.client_kx_privkey.exchange(ec.ECDH(),
+                                                   s.server_kx_pubkey)
 
         if s.client_kx_privkey and s.server_kx_pubkey:
-            pms = s.client_kx_privkey.exchange(ec.ECDH(), s.server_kx_pubkey)
             s.pre_master_secret = pms
             if not s.extms or s.session_hash:
                 s.compute_ms_and_derive_keys()
