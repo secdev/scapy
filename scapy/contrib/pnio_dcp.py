@@ -567,7 +567,7 @@ class ProfinetDCP(Packet):
 
         # DCP IDENTIFY REQUEST #
         # Name of station
-        ConditionalField(StrLenField("name_of_station", "et200sp",
+        ConditionalField(StrLenField("name_of_station_identify_req", "et200sp",
                                      length_from=lambda x: x.dcp_block_length),
                          lambda pkt: pkt.service_id == 5 and
                          pkt.service_type == 0 and pkt.option == 2 and
