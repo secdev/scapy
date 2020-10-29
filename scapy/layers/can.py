@@ -28,6 +28,7 @@ from scapy.layers.l2 import CookedLinux
 from scapy.error import Scapy_Exception
 from scapy.plist import PacketList
 from scapy.supersocket import SuperSocket
+from scapy.utils import _ByteStream
 
 __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
@@ -380,21 +381,20 @@ class CandumpReader:
 
     @staticmethod
     def open(filename):
-        # type: (Union[IO[Any], str]) -> Tuple[str, IO[Any]]
+        # type: (Union[IO[bytes], str]) -> Tuple[str, _ByteStream]
         """Open (if necessary) filename."""
-        if isinstance(filename, six.string_types):
-            filename = cast(str, filename)
+        if isinstance(filename, str):
             try:
-                fdesc = gzip.open(filename, "rb")
+                fdesc = gzip.open(filename, "rb")  # type: _ByteStream
                 # try read to cause exception
                 fdesc.read(1)
                 fdesc.seek(0)
             except IOError:
                 fdesc = open(filename, "rb")
+            return filename, fdesc
         else:
-            fdesc = cast(IO[Any], filename)
-            filename = getattr(fdesc, "name", "No name")
-        return cast(str, filename), fdesc
+            name = getattr(filename, "name", "No name")
+            return name, filename
 
     def next(self):
         # type: () -> Packet
@@ -424,10 +424,10 @@ class CandumpReader:
         is_log_file_format = orb(line[0]) == orb(b"(")
 
         if is_log_file_format:
-            t, intf, f = line.split()
+            t_b, intf, f = line.split()
             idn, data = f.split(b'#')
             le = None
-            t = float(t[1:-1])
+            t = float(t_b[1:-1])  # type: Optional[float]
         else:
             h, data = line.split(b']')
             intf, idn, le = h.split()

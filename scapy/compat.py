@@ -156,7 +156,7 @@ else:
     Set = _FakeType("Set", set)  # type: ignore
     Tuple = _FakeType("Tuple")
     Type = _FakeType("Type", type)
-    TypeVar = _FakeType("TypeVar")
+    TypeVar = _FakeType("TypeVar")  # type: ignore
     Union = _FakeType("Union")
 
     class Sized(object):  # type: ignore
