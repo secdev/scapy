@@ -657,7 +657,7 @@ class TLS_Ext_PostHandshakeAuth(TLS_Ext_Unknown):                   # RFC 8446
 
 class TLS_Ext_SignatureAlgorithmsCert(TLS_Ext_Unknown):    # RFC 8446
     name = "TLS Extension - Signature Algorithms Cert"
-    fields_desc = [ShortEnumField("type", 0x31, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x32, _tls_ext),
                    ShortField("len", None),
                    SigAndHashAlgsLenField("sig_algs_len", None,
                                           length_of="sig_algs"),
