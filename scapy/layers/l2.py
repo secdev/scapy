@@ -462,7 +462,8 @@ class GRErouting(Packet):
     fields_desc = [ShortField("address_family", 0),
                    ByteField("SRE_offset", 0),
                    FieldLenField("SRE_len", None, "routing_info", "B"),
-                   StrLenField("routing_info", "", "SRE_len"),
+                   StrLenField("routing_info", "",
+                               length_from=lambda pkt: pkt.SRE_len),
                    ]
 
 
