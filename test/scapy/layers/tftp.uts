@@ -1,0 +1,16 @@
+% TFTP regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ TFTP tests
+
+= TFTP Options
+x=IP()/UDP(sport=12345)/TFTP()/TFTP_RRQ(filename="fname")/TFTP_Options(options=[TFTP_Option(oname="blksize", value="8192"),TFTP_Option(oname="other", value="othervalue")])
+assert( raw(x) == b'E\x00\x00H\x00\x01\x00\x00@\x11|\xa2\x7f\x00\x00\x01\x7f\x00\x00\x0109\x00E\x004B6\x00\x01fname\x00octet\x00blksize\x008192\x00other\x00othervalue\x00' )
+y=IP(raw(x))
+y[TFTP_Option].oname
+y[TFTP_Option:2].oname
+assert(len(y[TFTP_Options].options) == 2 and y[TFTP_Option].oname == b"blksize")
