@@ -18,7 +18,7 @@
 import struct
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+from scapy.fields import ByteEnumField, ByteField, MultipleTypeField, \
     FieldLenField, IntEnumField, IntField, IPField, MACField, StrLenField
 from scapy.layers.inet import UDP
 
@@ -52,13 +52,13 @@ class VQPEntry(Packet):
             3080: "ResMACAddress"
         }),
         FieldLenField("len", None),
-        ConditionalField(IPField("datatom", "0.0.0.0"),
-                         lambda p: p.datatype == 3073),
-        ConditionalField(MACField("MAC_data", "00:00:00:00:00:00"),
-                         lambda p: p.datatype == 3078 or p.datatype == 3080),
-        ConditionalField(StrLenField("data", None,
-                                     length_from=lambda p: p.len),
-                         lambda p: p.datatype not in [3073, 3078, 3080]),
+        MultipleTypeField([
+            (IPField("datatom", "0.0.0.0"), lambda p: p.datatype == 3073),
+            (MACField("data", "00:00:00:00:00:00"),
+                lambda p: p.datatype == 3078 or p.datatype == 3080),
+        ],
+            StrLenField("data", None, length_from=lambda p: p.len)
+        )
     ]
 
     def post_build(self, p, pay):
