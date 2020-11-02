@@ -1,7 +1,9 @@
 #################################### bgp.py ##################################
 % Regression tests for the bgp module
 
-# Default configuration : OLD speaker (see RFC 6793)
++ Default configuration
+
+= OLD speaker (see RFC 6793)
 bgp_module_conf.use_2_bytes_asn  = True
 
 ################################ BGPNLRI_IPv4 ################################

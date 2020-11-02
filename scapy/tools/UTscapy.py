@@ -839,7 +839,7 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOC
     except ValueError as ex:
         print(theme.red("Error while parsing '%s': '%s'" % (TESTFILE.name, ex)),
               file=sys.stderr)
-        sys.exit(0)
+        sys.exit(1)
 
     # Report parameters
     if PREEXEC:
