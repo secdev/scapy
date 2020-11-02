@@ -58,6 +58,17 @@ with ContextManagerCaptureOutput() as cmco:
 assert all("IP" in x for x in result_ls if x.strip())
 assert len(result_ls) >= 3
 
+= List packet fields - ls
+~ command
+
+with ContextManagerCaptureOutput() as cmco:
+    ls(ARP(hwsrc="aa:aa:aa:aa:aa:aa", psrc="1.1.1.1"))
+    result_ls = cmco.get_output().split("\n")
+
+result_ls
+assert result_ls[5] == "hwsrc      : MultipleTypeField (SourceMACField, StrFixedLenField) = 'aa:aa:aa:aa:aa:aa' ('None')"
+assert result_ls[6] == "psrc       : MultipleTypeField (SourceIPField, SourceIP6Field, StrFixedLenField) = '1.1.1.1'       ('None')"
+
 = List commands
 ~ conf command
 lsc()

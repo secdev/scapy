@@ -2340,6 +2340,8 @@ def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
             if isinstance(cur_fld, ConditionalField):
                 attrs.append(cur_fld.__class__.__name__[:4])
             cur_fld = cur_fld.fld
+        name = cur_fld.name
+        default = cur_fld.default
         if verbose and isinstance(cur_fld, EnumField) \
            and hasattr(cur_fld, "i2s"):
             if len(cur_fld.i2s or []) < 50:
@@ -2368,6 +2370,13 @@ def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
         elif verbose and isinstance(cur_fld, FlagsField):
             names = cur_fld.names
             long_attrs.append(", ".join(names))
+        elif isinstance(cur_fld, MultipleTypeField):
+            default = cur_fld.dflt.default
+            attrs.append(", ".join(
+                x[0].__class__.__name__ for x in
+                itertools.chain(cur_fld.flds, [(cur_fld.dflt,)])
+            ))
+
         cls = cur_fld.__class__
         class_name_extras = "(%s)" % (
             ", ".join(attrs)
@@ -2378,10 +2387,10 @@ def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
                 "s" if cur_fld.size > 1 else ""
             )
         fields.append(
-            (f.name,
+            (name,
              cls,
              class_name_extras,
-             repr(f.default),
+             repr(default),
              long_attrs)
         )
     return fields
