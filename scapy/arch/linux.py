@@ -11,11 +11,13 @@ from __future__ import absolute_import
 
 
 import array
+import ctypes
 from fcntl import ioctl
 import os
 from select import select
 import socket
 import struct
+import sys
 import time
 
 import subprocess
@@ -37,6 +39,7 @@ from scapy.error import (
 )
 from scapy.interfaces import IFACES, InterfaceProvider, NetworkInterface, \
     network_name
+from scapy.libs.structures import sock_fprog
 from scapy.packet import Packet, Padding
 from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
@@ -143,6 +146,15 @@ def attach_filter(sock, bpf_filter, iface):
     :param iface: the interface used to compile
     """
     bp = compile_filter(bpf_filter, iface)
+    if conf.use_pypy and sys.pypy_version_info <= (7, 3, 2):
+        # PyPy < 7.3.2 has a broken behavior
+        # https://foss.heptapod.net/pypy/pypy/-/issues/3298
+        bp = struct.pack(
+            'HL',
+            bp.bf_len, ctypes.addressof(bp.bf_insns.contents)
+        )
+    else:
+        bp = sock_fprog(bp.bf_len, bp.bf_insns)
     sock.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
 
 

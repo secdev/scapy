@@ -10,7 +10,6 @@ Functions common to different architectures
 import ctypes
 import socket
 import struct
-import sys
 import time
 from scapy.consts import WINDOWS
 from scapy.config import conf
@@ -153,12 +152,5 @@ def compile_filter(filter_exp, iface=None, linktype=None,
     if ret == -1:
         raise Scapy_Exception(
             "Failed to compile filter expression %s (%s)" % (filter_exp, ret)
-        )
-    if conf.use_pypy and sys.pypy_version_info <= (7, 3, 2):
-        # PyPy < 7.3.2 has a broken behavior
-        # https://foss.heptapod.net/pypy/pypy/-/issues/3298
-        return struct.pack(
-            'HL',
-            bpf.bf_len, ctypes.addressof(bpf.bf_insns.contents)
         )
     return bpf
