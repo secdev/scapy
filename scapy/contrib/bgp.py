@@ -575,7 +575,7 @@ class _BGPCap_metaclass(type):
         return newclass
 
 
-class _BGPCapability_metaclass(Packet_metaclass, _BGPCap_metaclass):
+class _BGPCapability_metaclass(_BGPCap_metaclass, Packet_metaclass):
     pass
 
 
