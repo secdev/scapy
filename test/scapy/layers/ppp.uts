@@ -1,0 +1,108 @@
+% Scapy PPP layer tests
+
+############
+############
++ PPP tests
+
+= PPPoE
+~ ppp pppoe
+p=Ether(b'\xff\xff\xff\xff\xff\xff\x08\x00\x27\xf3<5\x88c\x11\x09\x00\x00\x00\x0c\x01\x01\x00\x00\x01\x03\x00\x04\x01\x02\x03\x04\x00\x00\x00\x00')
+p
+assert(p[Ether].type==0x8863)
+assert(PPPoED in p)
+assert(p[PPPoED].version==1)
+assert(p[PPPoED].type==1)
+assert(p[PPPoED].code==0x09)
+assert(PPPoED_Tags in p)
+q=p[PPPoED_Tags]
+assert(q.tag_list is not None)
+r=q.tag_list
+assert(r[0].tag_type==0x0101)
+assert(r[1].tag_type==0x0103)
+assert(r[1].tag_len==4)
+assert(r[1].tag_value==b'\x01\x02\x03\x04')
+assert(r[2].tag_type==0x0000)
+
+=  PPPoE with padding
+~ ppp pppoe
+p = CookedLinux(b'\x00\x00\x00\x01\x00\x06\x00\x1d\xaa\x00\x00\x00\x00\x00\x88c\x11\xa7\x08\x81\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x8e\xf3\x9d\xf1\xc5C\xbe\xde')
+assert p.summary() == 'CookedLinux / PPPoE Active Discovery Terminate (PADT) / Padding'
+assert p[PPPoED].len == 0
+assert len(p[Padding].load) == 44
+
+= PPP/HDLC
+~ ppp hdlc
+p = HDLC()/PPP()/PPP_IPCP()
+p
+s = raw(p)
+s
+assert(s == b'\xff\x03\x80!\x01\x00\x00\x04')
+p = PPP(s)
+p
+assert(HDLC in p)
+assert(p[HDLC].control==3)
+assert(p[PPP].proto==0x8021)
+q = PPP(s[2:])
+q
+assert(HDLC not in q)
+assert(q[PPP].proto==0x8021)
+
+
+= PPP IPCP
+~ ppp ipcp
+p = PPP(b'\x80!\x01\x01\x00\x10\x03\x06\xc0\xa8\x01\x01\x02\x06\x00-\x0f\x01')
+p
+assert(p[PPP_IPCP].code == 1)
+assert(p[PPP_IPCP_Option_IPAddress].data=="192.168.1.1")
+assert(p[PPP_IPCP_Option].data == b'\x00-\x0f\x01')
+p=PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
+r = raw(p)
+r
+assert(r == b'\x80!\x01\x00\x00\x16\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08\x84\x06\t\n\x0b\x0c')
+q = PPP(r)
+q
+assert(raw(p) == raw(q))
+assert(PPP(raw(q))==q)
+p = PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option(type=123,data="ABCDEFG"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
+p
+r = raw(p)
+r
+assert(r == b'\x80!\x01\x00\x00\x1f\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08{\tABCDEFG\x84\x06\t\n\x0b\x0c')
+q = PPP(r)
+q
+assert( q[PPP_IPCP_Option].type == 123 )
+assert( q[PPP_IPCP_Option].data == b"ABCDEFG" )
+assert( q[PPP_IPCP_Option_NBNS2].data == '9.10.11.12' )
+
+
+= PPP ECP
+~ ppp ecp
+
+p = PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui=0x58595a)])
+p
+r = raw(p)
+r
+assert(r == b'\x80S\x01\x00\x00\n\x00\x06XYZ\x00')
+q = PPP(r)
+q
+assert(raw(p) == raw(q))
+p = PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui=0x58595a),PPP_ECP_Option(type=1,data="ABCDEFG")])
+p
+r = raw(p)
+r
+assert(r == b'\x80S\x01\x00\x00\x13\x00\x06XYZ\x00\x01\tABCDEFG')
+q = PPP(r)
+q
+assert( raw(p) == raw(q) )
+assert( q[PPP_ECP_Option].data == b"ABCDEFG" )
+
+
+= PPP with only one byte for protocol
+~ ppp
+
+assert(len(raw(PPP() / IP())) == 21)
+
+p = PPP(b'!E\x00\x00<\x00\x00@\x008\x06\xa5\xce\x85wP)\xc0\xa8Va\x01\xbbd\x8a\xe2}r\xb8O\x95\xb5\x84\xa0\x12q \xc8\x08\x00\x00\x02\x04\x02\x18\x04\x02\x08\nQ\xdf\xd6\xb0\x00\x07LH\x01\x03\x03\x07Ao')
+assert(IP in p)
+assert(TCP in p)
+
