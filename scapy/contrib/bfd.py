@@ -33,7 +33,8 @@ class BFD(Packet):
     def mysummary(self):
         return self.sprintf(
             "BFD (my_disc=%BFD.my_discriminator%,"
-            "your_disc=%BFD.my_discriminator%)"
+            "your_disc=%BFD.your_discriminator%,"
+            "state=%BFD.sta%)"
         )
 
 
