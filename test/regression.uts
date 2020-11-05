@@ -6746,21 +6746,6 @@ for binfrm in ["\x00" * 15, b"\x00" * 17]:
 
 ############
 ############
-+ Netbios tests
-
-= NBNSQueryRequest - build
-
-z = NBNSQueryRequest(SUFFIX="file server service", QUESTION_NAME='TEST1', QUESTION_TYPE='NB')
-
-assert raw(z) == b'\x00\x00\x01\x10\x00\x01\x00\x00\x00\x00\x00\x00 FEEFFDFEDBCACACACACACACACACACACA\x00\x00 \x00\x01'
-
-pkt = IP(dst='192.168.0.255')/UDP(sport=137, dport='netbios_ns')/z
-pkt = IP(raw(pkt))
-assert pkt.QUESTION_NAME == b'TEST1          '
-
-
-############
-############
 + MGCP tests
 
 = MGCP - build
