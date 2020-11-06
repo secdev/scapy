@@ -145,6 +145,7 @@ def dns_compress(pkt):
         raise Scapy_Exception("Can only compress DNS layers")
     pkt = pkt.copy()
     dns_pkt = pkt.getlayer(DNS)
+    dns_pkt.clear_cache()
     build_pkt = raw(dns_pkt)
 
     def field_gen(dns_pkt):
