@@ -180,3 +180,26 @@ try:
     assert False
 except Scapy_Exception as e:
     assert str(e) == "Malformed DNS message: invalid length!"
+
+= DNS - dns_compress on decompressed packet
+
+data = b'E\x00\x00n~\x82\x00\x00{\x11\xae\xeb\x08\x08\x08\x08\x01\x01\x01\x01\x005\x005\x00Z!\x17\x00\x00\x81\x80\x00\x01\x00\x00\x00\x01\x00\x00\x03www\x06google\x03com\x00\x00\x0f\x00\x01\xc0\x10\x00\x06\x00\x01\x00\x00\x002\x00&\x03ns1\xc0\x10\tdns-admin\xc0\x10\x14Po\x8f\x00\x00\x03\x84\x00\x00\x03\x84\x00\x00\x07\x08\x00\x00\x00<'
+
+p = IP(data)
+assert p.ns.rrname == b"google.com."
+assert p.ns.mname == b"ns1.google.com."
+assert p.ns.rname == b"dns-admin.google.com."
+cp = dns_compress(p)
+assert cp.ns.rrname == b'\xc0\x10'
+assert cp.ns.mname == b'\x03ns1\xc0\x10'
+assert cp.ns.rname == b'\tdns-admin\xc0\x10'
+p = IP(raw(cp))
+assert p.ns.rrname == b"google.com."
+assert p.ns.mname == b"ns1.google.com."
+assert p.ns.rname == b"dns-admin.google.com."
+
+= DNS - dns_encode edge cases
+
+assert dns_encode(b"www.google.com") == b'\x03www\x06google\x03com\x00'
+assert dns_encode(b"*") == b'\x01*\x00'
+assert dns_encode(dns_encode(b"*")) == b'\x03\x01*\x00'
