@@ -1,0 +1,213 @@
+% Scapy Radius layer tests
+
+
+############
+############
++ RADIUS tests
+
+= IP/UDP/RADIUS - Build
+s = raw(IP()/UDP(sport=1812)/Radius(authenticator="scapy")/RadiusAttribute(value="scapy"))
+s == b'E\x00\x007\x00\x01\x00\x00@\x11|\xb3\x7f\x00\x00\x01\x7f\x00\x00\x01\x07\x14\x07\x14\x00#U\xb3\x01\x00\x00\x1bscapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x07scapy'
+
+= IP/UDP/RADIUS - Dissection
+p = IP(s)
+Radius in p and len(p[Radius].attributes) == 1 and p[Radius].attributes[0].value == b"scapy"
+
+= RADIUS - Access-Request - Dissection (1)
+s = b'\x01\xae\x01\x17>k\xd4\xc4\x19V\x0b*1\x99\xc8D\xea\xc2\x94Z\x01\x06leap\x06\x06\x00\x00\x00\x02\x1a\x1b\x00\x00\x00\t\x01\x15service-type=Framed\x0c\x06\x00\x00#\xee\x1e\x13AC-7E-8A-4E-E2-92\x1f\x1300-26-73-9E-0F-D3O\x0b\x02\x01\x00\t\x01leapP\x12U\xbc\x12\xcdM\x00\xf8\xdb4\xf1\x18r\xca_\x8c\xf6f\x02\x1a1\x00\x00\x00\t\x01+audit-session-id=0AC8090E0000001A0354CA00\x1a\x14\x00\x00\x00\t\x01\x0emethod=dot1x\x08\x06\xc0\xa8\n\xb9\x04\x06\xc0\xa8\n\x80\x1a\x1d\x00\x00\x00\t\x02\x17GigabitEthernet1/0/18W\x17GigabitEthernet1/0/18=\x06\x00\x00\x00\x0f\x05\x06\x00\x00\xc3\xc6'
+radius_packet = Radius(s)
+assert(radius_packet.id == 174)
+assert(radius_packet.len == 279)
+assert(radius_packet.authenticator == b'>k\xd4\xc4\x19V\x0b*1\x99\xc8D\xea\xc2\x94Z')
+assert(len(radius_packet.attributes) == 17)
+assert(radius_packet.attributes[0].type == 1)
+assert(type(radius_packet.attributes[0]) == RadiusAttr_User_Name)
+assert(radius_packet.attributes[0].len == 6)
+assert(radius_packet.attributes[0].value == b"leap")
+assert(radius_packet.attributes[1].type == 6)
+assert(type(radius_packet.attributes[1]) == RadiusAttr_Service_Type)
+assert(radius_packet.attributes[1].len == 6)
+assert(radius_packet.attributes[1].value == 2)
+assert(radius_packet.attributes[2].type == 26)
+assert(type(radius_packet.attributes[2]) == RadiusAttr_Vendor_Specific)
+assert(radius_packet.attributes[2].len == 27)
+assert(radius_packet.attributes[2].vendor_id == 9)
+assert(radius_packet.attributes[2].vendor_type == 1)
+assert(radius_packet.attributes[2].vendor_len == 21)
+assert(radius_packet.attributes[2].value == b"service-type=Framed")
+assert(radius_packet.attributes[6].type == 79)
+assert(type(radius_packet.attributes[6]) == RadiusAttr_EAP_Message)
+assert(radius_packet.attributes[6].len == 11)
+assert(radius_packet.attributes[6].value.haslayer(EAP))
+assert(radius_packet.attributes[6].value[EAP].code == 2)
+assert(radius_packet.attributes[6].value[EAP].id == 1)
+assert(radius_packet.attributes[6].value[EAP].len == 9)
+assert(radius_packet.attributes[6].value[EAP].type == 1)
+assert(hasattr(radius_packet.attributes[6].value[EAP], "identity"))
+assert(radius_packet.attributes[6].value[EAP].identity == b"leap")
+assert(radius_packet.attributes[7].type == 80)
+assert(type(radius_packet.attributes[7]) == RadiusAttr_Message_Authenticator)
+assert(radius_packet.attributes[7].len == 18)
+assert(radius_packet.attributes[7].value == b'U\xbc\x12\xcdM\x00\xf8\xdb4\xf1\x18r\xca_\x8c\xf6')
+assert(radius_packet.attributes[11].type == 8)
+assert(type(radius_packet.attributes[11]) == RadiusAttr_Framed_IP_Address)
+assert(radius_packet.attributes[11].len == 6)
+assert(radius_packet.attributes[11].value == '192.168.10.185')
+assert(radius_packet.attributes[16].type == 5)
+assert(type(radius_packet.attributes[16]) == RadiusAttr_NAS_Port)
+assert(radius_packet.attributes[16].len == 6)
+assert(radius_packet.attributes[16].value == 50118)
+
+f,v = radius_packet.getfield_and_val("authenticator")
+assert f.i2repr(None, v) == '3e6bd4c419560b2a3199c844eac2945a'
+
+= RADIUS - compute_message_authenticator()
+ram = radius_packet[RadiusAttr_Message_Authenticator]
+assert ram.compute_message_authenticator(radius_packet, b"dummy bytes", b"scapy") == b'I\x85l\x8f\xa5\xd6\xbc\xb5\x08\xe0<\xebH\x9d\xfb?'
+
+= RADIUS - Access-Challenge - Dissection (2)
+s = b'\x0b\xae\x00[\xc7\xae\xfc6\xa1=\xb5\x99&^\xdf=\xe9\x00\xa6\xe8\x12\rHello, leapO\x16\x01\x02\x00\x14\x11\x01\x00\x08\xb8\xc4\x1a4\x97x\xd3\x82leapP\x12\xd3\x12\x17\xa6\x0c.\x94\x85\x03]t\xd1\xdb\xd0\x13\x8c\x18\x12iQs\xf7iSb@k\x9d,\xa0\x99\x8ehO'
+radius_packet = Radius(s)
+assert(radius_packet.id == 174)
+assert(radius_packet.len == 91)
+assert(radius_packet.authenticator == b'\xc7\xae\xfc6\xa1=\xb5\x99&^\xdf=\xe9\x00\xa6\xe8')
+assert(len(radius_packet.attributes) == 4)
+assert(radius_packet.attributes[0].type == 18)
+assert(type(radius_packet.attributes[0]) == RadiusAttribute)
+assert(radius_packet.attributes[0].len == 13)
+assert(radius_packet.attributes[0].value == b"Hello, leap")
+assert(radius_packet.attributes[1].type == 79)
+assert(type(radius_packet.attributes[1]) == RadiusAttr_EAP_Message)
+assert(radius_packet.attributes[1].len == 22)
+assert(radius_packet.attributes[1][EAP].code == 1)
+assert(radius_packet.attributes[1][EAP].id == 2)
+assert(radius_packet.attributes[1][EAP].len == 20)
+assert(radius_packet.attributes[1][EAP].type == 17)
+assert(radius_packet.attributes[2].type == 80)
+assert(type(radius_packet.attributes[2]) == RadiusAttr_Message_Authenticator)
+assert(radius_packet.attributes[2].len == 18)
+assert(radius_packet.attributes[2].value == b'\xd3\x12\x17\xa6\x0c.\x94\x85\x03]t\xd1\xdb\xd0\x13\x8c')
+assert(radius_packet.attributes[3].type == 24)
+assert(type(radius_packet.attributes[3]) == RadiusAttr_State)
+assert(radius_packet.attributes[3].len == 18)
+assert(radius_packet.attributes[3].value == b'iQs\xf7iSb@k\x9d,\xa0\x99\x8ehO')
+
+= RADIUS - Access-Request - Dissection (3)
+s = b'\x01\xaf\x01DC\xbe!J\x08\xdf\xcf\x9f\x00v~,\xfb\x8e`\xc8\x01\x06leap\x06\x06\x00\x00\x00\x02\x1a\x1b\x00\x00\x00\t\x01\x15service-type=Framed\x0c\x06\x00\x00#\xee\x1e\x13AC-7E-8A-4E-E2-92\x1f\x1300-26-73-9E-0F-D3O&\x02\x02\x00$\x11\x01\x00\x18\rE\xc9\x92\xf6\x9ae\x04\xa2\x06\x13\x8f\x0b#\xf1\xc56\x8eU\xd9\x89\xe5\xa1)leapP\x12|\x1c\x9d[dv\x9c\x19\x96\xc6\xec\xb82\x8f\n f\x02\x1a1\x00\x00\x00\t\x01+audit-session-id=0AC8090E0000001A0354CA00\x1a\x14\x00\x00\x00\t\x01\x0emethod=dot1x\x08\x06\xc0\xa8\n\xb9\x04\x06\xc0\xa8\n\x80\x1a\x1d\x00\x00\x00\t\x02\x17GigabitEthernet1/0/18W\x17GigabitEthernet1/0/18=\x06\x00\x00\x00\x0f\x05\x06\x00\x00\xc3\xc6\x18\x12iQs\xf7iSb@k\x9d,\xa0\x99\x8ehO'
+radius_packet = Radius(s)
+assert(radius_packet.id == 175)
+assert(radius_packet.len == 324)
+assert(radius_packet.authenticator == b'C\xbe!J\x08\xdf\xcf\x9f\x00v~,\xfb\x8e`\xc8')
+assert(len(radius_packet.attributes) == 18)
+assert(radius_packet.attributes[0].type == 1)
+assert(type(radius_packet.attributes[0]) == RadiusAttr_User_Name)
+assert(radius_packet.attributes[0].len == 6)
+assert(radius_packet.attributes[0].value == b"leap")
+assert(radius_packet.attributes[1].type == 6)
+assert(type(radius_packet.attributes[1]) == RadiusAttr_Service_Type)
+assert(radius_packet.attributes[1].len == 6)
+assert(radius_packet.attributes[1].value == 2)
+assert(radius_packet.attributes[2].type == 26)
+assert(type(radius_packet.attributes[2]) == RadiusAttr_Vendor_Specific)
+assert(radius_packet.attributes[2].len == 27)
+assert(radius_packet.attributes[2].vendor_id == 9)
+assert(radius_packet.attributes[2].vendor_type == 1)
+assert(radius_packet.attributes[2].vendor_len == 21)
+assert(radius_packet.attributes[2].value == b"service-type=Framed")
+assert(radius_packet.attributes[6].type == 79)
+assert(type(radius_packet.attributes[6]) == RadiusAttr_EAP_Message)
+assert(radius_packet.attributes[6].len == 38)
+assert(radius_packet.attributes[6].value.haslayer(EAP))
+assert(radius_packet.attributes[6].value[EAP].code == 2)
+assert(radius_packet.attributes[6].value[EAP].id == 2)
+assert(radius_packet.attributes[6].value[EAP].len == 36)
+assert(radius_packet.attributes[6].value[EAP].type == 17)
+assert(radius_packet.attributes[7].type == 80)
+assert(type(radius_packet.attributes[7]) == RadiusAttr_Message_Authenticator)
+assert(radius_packet.attributes[7].len == 18)
+assert(radius_packet.attributes[7].value == b'|\x1c\x9d[dv\x9c\x19\x96\xc6\xec\xb82\x8f\n ')
+assert(radius_packet.attributes[11].type == 8)
+assert(type(radius_packet.attributes[11]) == RadiusAttr_Framed_IP_Address)
+assert(radius_packet.attributes[11].len == 6)
+assert(radius_packet.attributes[11].value == '192.168.10.185')
+assert(radius_packet.attributes[16].type == 5)
+assert(type(radius_packet.attributes[16]) == RadiusAttr_NAS_Port)
+assert(radius_packet.attributes[16].len == 6)
+assert(radius_packet.attributes[16].value == 50118)
+assert(radius_packet.attributes[17].type == 24)
+assert(type(radius_packet.attributes[17]) == RadiusAttr_State)
+assert(radius_packet.attributes[17].len == 18)
+assert(radius_packet.attributes[17].value == b'iQs\xf7iSb@k\x9d,\xa0\x99\x8ehO')
+
+= RADIUS - Access-Challenge - Dissection (4)
+s = b'\x0b\xaf\x00K\x82 \x95=\xfd\x80\x05 -l}\xab)\xa5kU\x12\rHello, leapO\x06\x03\x03\x00\x04P\x12l0\xb9\x8d\xca\xfc!\xf3\xa7\x08\x80\xe1\xf6}\x84\xff\x18\x12iQs\xf7hRb@k\x9d,\xa0\x99\x8ehO'
+radius_packet = Radius(s)
+assert(radius_packet.id == 175)
+assert(radius_packet.len == 75)
+assert(radius_packet.authenticator == b'\x82 \x95=\xfd\x80\x05 -l}\xab)\xa5kU')
+assert(len(radius_packet.attributes) == 4)
+assert(radius_packet.attributes[0].type == 18)
+assert(type(radius_packet.attributes[0]) == RadiusAttribute)
+assert(radius_packet.attributes[0].len == 13)
+assert(radius_packet.attributes[0].value == b"Hello, leap")
+assert(radius_packet.attributes[1].type == 79)
+assert(type(radius_packet.attributes[1]) == RadiusAttr_EAP_Message)
+assert(radius_packet.attributes[1].len == 6)
+assert(radius_packet.attributes[1][EAP].code == 3)
+assert(radius_packet.attributes[1][EAP].id == 3)
+assert(radius_packet.attributes[1][EAP].len == 4)
+assert(radius_packet.attributes[2].type == 80)
+assert(type(radius_packet.attributes[2]) == RadiusAttr_Message_Authenticator)
+assert(radius_packet.attributes[2].len == 18)
+assert(radius_packet.attributes[2].value == b'l0\xb9\x8d\xca\xfc!\xf3\xa7\x08\x80\xe1\xf6}\x84\xff')
+assert(radius_packet.attributes[3].type == 24)
+assert(type(radius_packet.attributes[3]) == RadiusAttr_State)
+assert(radius_packet.attributes[3].len == 18)
+assert(radius_packet.attributes[3].value == b'iQs\xf7hRb@k\x9d,\xa0\x99\x8ehO')
+
+= RADIUS - Response Authenticator computation
+s = b'\x01\xae\x01\x17>k\xd4\xc4\x19V\x0b*1\x99\xc8D\xea\xc2\x94Z\x01\x06leap\x06\x06\x00\x00\x00\x02\x1a\x1b\x00\x00\x00\t\x01\x15service-type=Framed\x0c\x06\x00\x00#\xee\x1e\x13AC-7E-8A-4E-E2-92\x1f\x1300-26-73-9E-0F-D3O\x0b\x02\x01\x00\t\x01leapP\x12U\xbc\x12\xcdM\x00\xf8\xdb4\xf1\x18r\xca_\x8c\xf6f\x02\x1a1\x00\x00\x00\t\x01+audit-session-id=0AC8090E0000001A0354CA00\x1a\x14\x00\x00\x00\t\x01\x0emethod=dot1x\x08\x06\xc0\xa8\n\xb9\x04\x06\xc0\xa8\n\x80\x1a\x1d\x00\x00\x00\t\x02\x17GigabitEthernet1/0/18W\x17GigabitEthernet1/0/18=\x06\x00\x00\x00\x0f\x05\x06\x00\x00\xc3\xc6'
+access_request = Radius(s)
+s = b'\x0b\xae\x00[\xc7\xae\xfc6\xa1=\xb5\x99&^\xdf=\xe9\x00\xa6\xe8\x12\rHello, leapO\x16\x01\x02\x00\x14\x11\x01\x00\x08\xb8\xc4\x1a4\x97x\xd3\x82leapP\x12\xd3\x12\x17\xa6\x0c.\x94\x85\x03]t\xd1\xdb\xd0\x13\x8c\x18\x12iQs\xf7iSb@k\x9d,\xa0\x99\x8ehO'
+access_challenge = Radius(s)
+access_challenge.compute_authenticator(access_request.authenticator, b"radiuskey") == access_challenge.authenticator
+
+= RADIUS - Layers (1)
+radius_attr = RadiusAttr_EAP_Message(value = EAP())
+assert(RadiusAttr_EAP_Message in radius_attr)
+assert(RadiusAttribute in radius_attr)
+type(radius_attr[RadiusAttribute])
+assert(type(radius_attr[RadiusAttribute]) == RadiusAttr_EAP_Message)
+assert(EAP in radius_attr.value)
+
+= RADIUS - sessions (1)
+p = IP()/TCP(sport=1812)/Radius(authenticator="scapy")/RadiusAttribute(value="scapy")
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
+
+= RADIUS - sessions (2)
+p = IP()/UDP(sport=1812)/Radius(authenticator="scapy")/RadiusAttribute(value="scapy")
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
+
+= Issue GH#1407
+s = b"Z\xa5\xaaUZ\xa5\xaaU\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xe9\xc5\x00\x00\x14'\x02\x00\x00\x001\x9a\xe44\xea4"
+isinstance(Radius(s), Radius)
+
+= RADIUS - attributes with IPv4 addresses
+
+r = raw(RadiusAttr_NAS_IP_Address())
+p = RadiusAttr_NAS_IP_Address(r)
+assert p.type == 4
+
+r = raw(RadiusAttr_Framed_IP_Address())
+p = RadiusAttr_Framed_IP_Address(r)
+assert p.type == 8
+
+= RadiusAttr_User_Password
+
+r = b'\x01\x00\x00\x1c0x10x20x30x40x50\x02\x08geheim'
+p = Radius(r)
+assert isinstance(p.attributes[0], RadiusAttr_User_Password)
