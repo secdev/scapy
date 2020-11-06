@@ -87,7 +87,7 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
                     _fullpacket = True
                 else:
                     # No -> abort
-                    raise Scapy_Exception("DNS message can't be compressed" +
+                    raise Scapy_Exception("DNS message can't be compressed " +
                                           "at this point!")
             processed_pointers.append(pointer)
             continue
