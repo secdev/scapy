@@ -1613,6 +1613,8 @@ def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
     ans, unans = sr(IP(dst="www.google.fr") / ICMP(), timeout=2)
+    assert ans[0].query == ans[0][0]
+    assert ans[0].answer == ans[0][1]
     conf.debug_match = old_debug_match
     conf.debug_dissector = old_debug_dissector
     assert ans and not unans
