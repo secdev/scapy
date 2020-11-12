@@ -294,7 +294,7 @@ if len(routes6) > 2 and not WINDOWS:
             assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]) >= 1
         except:
             # IPv6 is not available, but we still check the loopback
-            assert conf.route6.route("::/0") == (conf.loopback_name, "::", "::")
+            #assert conf.route6.route("::/0") == (conf.loopback_name, "::", "::")
             assert sum(1 for r in routes6 if r[1] == 128 and r[4] == ["::1"]) >= 1
 else:
     True
