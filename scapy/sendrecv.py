@@ -8,6 +8,7 @@ Functions to send and receive packets.
 """
 
 from __future__ import absolute_import, print_function
+from collections import namedtuple
 import itertools
 from threading import Thread, Event
 import os
@@ -51,6 +52,8 @@ class debug:
 ####################
 #  Send / Receive  #
 ####################
+
+QueryAnswer = namedtuple("QueryAnswer", ["query", "answer"])
 
 _DOC_SNDRCV_PARAMS = """
     :param pks: SuperSocket instance to send/receive packets
@@ -233,7 +236,7 @@ class SndRcvHandler(object):
             hlst = self.hsent[h]
             for i, sentpkt in enumerate(hlst):
                 if r.answers(sentpkt):
-                    self.ans.append((sentpkt, r))
+                    self.ans.append(QueryAnswer(sentpkt, r))
                     if self.verbose > 1:
                         os.write(1, b"*")
                     ok = True
