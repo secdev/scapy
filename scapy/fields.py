@@ -310,7 +310,7 @@ class ConditionalField(object):
         return bool(self.cond(pkt))
 
     def any2i(self, pkt, x):
-        # type: (BasePacket, Any) -> Any
+        # type: (Optional[Packet], Any) -> Any
         # BACKWARD COMPATIBILITY
         # Note: we shouldn't need this function. (it's not correct)
         # However, having i2h implemented (#2364), it changes the default
@@ -325,8 +325,8 @@ class ConditionalField(object):
         return self.fld.any2i(pkt, x)
 
     def i2h(self, pkt, val):
-        # type: (BasePacket, Any) -> Any
-        if not self._evalcond(pkt):
+        # type: (Optional[Packet], Any) -> Any
+        if pkt and not self._evalcond(pkt):
             return None
         return self.fld.i2h(pkt, val)
 
