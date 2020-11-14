@@ -23,8 +23,19 @@ import copy
 import types
 import warnings
 
-from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
-    BitField, MultiEnumField, EnumField, FlagsField, MultipleTypeField, Field
+from scapy.fields import (
+    AnyField,
+    BitField,
+    ConditionalField,
+    Emph,
+    EnumField,
+    Field,
+    FlagsField,
+    MultiEnumField,
+    MultipleTypeField,
+    PacketListField,
+    StrField,
+)
 from scapy.config import conf, _version_checker
 from scapy.compat import raw, orb, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
@@ -100,7 +111,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         "wirelen",
     ]
     name = None
-    fields_desc = []  # type: List[Field[Any, Any]]
+    fields_desc = []  # type: List[AnyField]
     deprecated_fields = {}  # type: Dict[str, Tuple[str, str]]
     overload_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     payload_guess = []  # type: List[Tuple[Dict[str, Any], Type[Packet]]]
@@ -111,7 +122,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
     class_packetfields = {}  # type: Dict[Type[Packet], Any]
     class_default_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     class_default_fields_ref = {}  # type: Dict[Type[Packet], List[str]]
-    class_fieldtype = {}  # type: Dict[Type[Packet], Dict[str, Field[Any, Any]]]  # noqa: E501
+    class_fieldtype = {}  # type: Dict[Type[Packet], Dict[str, AnyField]]  # noqa: E501
 
     @classmethod
     def from_hexcap(cls):
@@ -147,8 +158,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.overload_fields = self._overload_fields
         self.overloaded_fields = {}  # type: Dict[str, Any]
         self.fields = {}  # type: Dict[str, Any]
-        self.fieldtype = {}  # type: Dict[str, Field[Any, Any]]
-        self.packetfields = []  # type: List[Field[Any, Any]]
+        self.fieldtype = {}  # type: Dict[str, AnyField]
+        self.packetfields = []  # type: List[AnyField]
         self.payload = NoPayload()
         self.init_fields()
         self.underlayer = _underlayer
@@ -245,7 +256,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.do_init_cached_fields()
 
     def do_init_fields(self,
-                       flist,  # type: List[Field[Any, Any]]
+                       flist,  # type: List[AnyField]
                        ):
         # type: (...) -> None
         """
@@ -290,7 +301,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                     self.fields[fname] = value[:]
 
     def prepare_cached_fields(self, flist):
-        # type: (List[Field[Any, Any]]) -> None
+        # type: (List[AnyField]) -> None
         """
         Prepare the cached fields of the fields_desc dict
         """
@@ -343,7 +354,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         pass
 
     def get_field(self, fld):
-        # type: (str) -> Field[Any, Any]
+        # type: (str) -> AnyField
         """DEV: returns the field instance from the name of the field"""
         return self.fieldtype[fld]
 
@@ -423,7 +434,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         return self.payload.getfieldval(attr)
 
     def getfield_and_val(self, attr):
-        # type: (str) -> Tuple[Any, Any]
+        # type: (str) -> Tuple[AnyField, Any]
         if self.deprecated_fields and attr in self.deprecated_fields:
             attr = self._resolve_alias(attr)
         if attr in self.fields:
@@ -2310,7 +2321,7 @@ def explore(layer=None):
 def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
             verbose=False,  # type: bool
             ):
-    # type: (...) -> List[Tuple[str, Type[Field[Any, Any]], str, str, List[str]]]  # noqa: E501
+    # type: (...) -> List[Tuple[str, Type[AnyField], str, str, List[str]]]  # noqa: E501
     """Internal function used to resolve `fields_desc` to display it.
 
     :param obj: a packet object or class
@@ -2327,8 +2338,8 @@ def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
         long_attrs = []  # type: List[str]
         while isinstance(cur_fld, (Emph, ConditionalField)):
             if isinstance(cur_fld, ConditionalField):
-                attrs.append(cur_fld.__class__.__name__[:4])  # type: ignore
-            cur_fld = cur_fld.fld  # type: ignore
+                attrs.append(cur_fld.__class__.__name__[:4])
+            cur_fld = cur_fld.fld
         if verbose and isinstance(cur_fld, EnumField) \
            and hasattr(cur_fld, "i2s"):
             if len(cur_fld.i2s or []) < 50:

@@ -250,17 +250,25 @@ class Field(Generic[I, M]):
             warning("no random class for [%s] (fmt=%s).", self.name, self.fmt)
 
 
-class Emph(object):
+class _FieldContainer(object):
+    """
+    A field that acts as a container for another field
+    """
+    def __getattr__(self, attr):
+        # type: (str) -> Any
+        return getattr(self.fld, attr)
+
+
+AnyField = Union[Field[Any, Any], _FieldContainer]
+
+
+class Emph(_FieldContainer):
     """Empathize sub-layer for display"""
     __slots__ = ["fld"]
 
     def __init__(self, fld):
         # type: (Any) -> None
         self.fld = fld
-
-    def __getattr__(self, attr):
-        # type: (str) -> Any
-        return getattr(self.fld, attr)
 
     def __eq__(self, other):
         # type: (Any) -> bool
@@ -275,26 +283,22 @@ class Emph(object):
     __hash__ = None  # type: ignore
 
 
-class ActionField(object):
-    __slots__ = ["_fld", "_action_method", "_privdata"]
+class ActionField(_FieldContainer):
+    __slots__ = ["fld", "_action_method", "_privdata"]
 
     def __init__(self, fld, action_method, **kargs):
         # type: (Field[Any, Any], str, **Any) -> None
-        self._fld = fld
+        self.fld = fld
         self._action_method = action_method
         self._privdata = kargs
 
     def any2i(self, pkt, val):
         # type: (Optional[Packet], int) -> Any
-        getattr(pkt, self._action_method)(val, self._fld, **self._privdata)
-        return getattr(self._fld, "any2i")(pkt, val)
-
-    def __getattr__(self, attr):
-        # type: (str) -> Any
-        return getattr(self._fld, attr)
+        getattr(pkt, self._action_method)(val, self.fld, **self._privdata)
+        return getattr(self.fld, "any2i")(pkt, val)
 
 
-class ConditionalField(object):
+class ConditionalField(_FieldContainer):
     __slots__ = ["fld", "cond"]
 
     def __init__(self,
@@ -328,7 +332,7 @@ class ConditionalField(object):
         return getattr(self.fld, attr)
 
 
-class MultipleTypeField(object):
+class MultipleTypeField(_FieldContainer):
     """MultipleTypeField are used for fields that can be implemented by
 various Field subclasses, depending on conditions on the packet.
 
@@ -490,19 +494,20 @@ the value to set is also known) of ._find_fld_pkt() instead.
             fld.owners.append(cls)
         self.dflt.owners.append(cls)
 
-    def __getattr__(self, attr):
-        # type: (str) -> Any
-        return getattr(self._find_fld(), attr)
+    @property
+    def fld(self):
+        # type: () -> Field[Any, Any]
+        return self._find_fld()
 
 
-class PadField(object):
+class PadField(_FieldContainer):
     """Add bytes after the proxified field so that it ends at the specified
        alignment from its beginning"""
-    __slots__ = ["_fld", "_align", "_padwith"]
+    __slots__ = ["fld", "_align", "_padwith"]
 
     def __init__(self, fld, align, padwith=None):
         # type: (Field[Any, Any], int, Optional[bytes]) -> None
-        self._fld = fld
+        self.fld = fld
         self._align = align
         self._padwith = padwith or b"\x00"
 
@@ -515,7 +520,7 @@ class PadField(object):
                  s,  # type: bytes
                  ):
         # type: (...) -> Tuple[bytes, Any]
-        remain, val = self._fld.getfield(pkt, s)
+        remain, val = self.fld.getfield(pkt, s)
         padlen = self.padlen(len(s) - len(remain))
         return remain[padlen:], val
 
@@ -525,17 +530,13 @@ class PadField(object):
                  val,  # type: Any
                  ):
         # type: (...) -> bytes
-        sval = self._fld.addfield(pkt, b"", val)
+        sval = self.fld.addfield(pkt, b"", val)
         return s + sval + struct.pack(
             "%is" % (
                 self.padlen(len(sval))
             ),
             self._padwith
         )
-
-    def __getattr__(self, attr):
-        # type: (str) -> Any
-        return getattr(self._fld, attr)
 
 
 class ReversePadField(PadField):
@@ -549,7 +550,7 @@ class ReversePadField(PadField):
         # type: (...) -> Tuple[bytes, Any]
         # We need to get the length that has already been dissected
         padlen = self.padlen(len(pkt.original) - len(s))
-        remain, val = self._fld.getfield(pkt, s[padlen:])
+        remain, val = self.fld.getfield(pkt, s[padlen:])
         return remain, val
 
     def addfield(self,
@@ -558,7 +559,7 @@ class ReversePadField(PadField):
                  val,  # type: Any
                  ):
         # type: (...) -> bytes
-        sval = self._fld.addfield(pkt, b"", val)
+        sval = self.fld.addfield(pkt, b"", val)
         return s + struct.pack("%is" % (
             self.padlen(len(s))
         ), self._padwith) + sval
@@ -1819,8 +1820,8 @@ class FieldListField(Field[List[Any], List[Any]]):
     def __init__(
             self,
             name,  # type: str
-            default,  # type: Optional[List[Field[Any, Any]]]
-            field,  # type: Field[Any, Any]
+            default,  # type: Optional[List[AnyField]]
+            field,  # type: AnyField
             length_from=None,  # type: Optional[Callable[[Packet], int]]
             count_from=None,  # type: Optional[Callable[[Packet], int]]
     ):
