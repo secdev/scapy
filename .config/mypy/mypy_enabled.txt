@@ -33,3 +33,4 @@ scapy/utils6.py
 #scapy/contrib/http2.py  # needs to be fixed
 scapy/contrib/roce.py
 scapy/layers/can.py
+scapy/contrib/automotive/gm/gmlanutils.py
