@@ -1,28 +1,32 @@
 {
   "testfiles": [
     "test/*.uts",
+    "test/scapy/*.uts",
+    "test/scapy/tools/*.uts",
+    "test/scapy/modules/*.uts",
     "test/scapy/layers/*.uts",
-    "test/contrib/automotive/*.uts",
-    "test/contrib/automotive/obd/*.uts",
-    "test/contrib/automotive/gm/*.uts",
-    "test/contrib/automotive/bmw/*.uts",
-    "test/contrib/*.uts"
+    "test/scapy/arch/*.uts",
+    "test/scapy/contrib/automotive/*.uts",
+    "test/scapy/contrib/automotive/obd/*.uts",
+    "test/scapy/contrib/automotive/gm/*.uts",
+    "test/scapy/contrib/automotive/bmw/*.uts",
+    "test/scapy/contrib/*.uts"
   ],
   "remove_testfiles": [
-    "test/linux.uts",
-    "test/bpf.uts",
-    "test/windows.uts",
-    "test/contrib/automotive/ecu_am.uts",
-    "test/contrib/automotive/gm/gmlanutils.uts",
-    "test/contrib/isotp.uts",
-    "test/contrib/isotpscan.uts"
+    "test/scapy/arch/linux.uts",
+    "test/scapy/arch/bpf.uts",
+    "test/scapy/arch/windows.uts",
+    "test/scapy/contrib/automotive/ecu_am.uts",
+    "test/scapy/contrib/automotive/gm/gmlanutils.uts",
+    "test/scapy/contrib/isotp.uts",
+    "test/scapy/contrib/isotpscan.uts"
   ],
   "onlyfailed": true,
   "preexec": {
-    "test/contrib/*.uts": "load_contrib(\"%name%\")",
+    "test/scapy/contrib/*.uts": "load_contrib(\"%name%\")",
     "test/cert.uts": "load_layer(\"tls\")",
-    "test/sslv2.uts": "load_layer(\"tls\")",
-    "test/tls*.uts": "load_layer(\"tls\")"
+    "test/scapy/layers/sslv2.uts": "load_layer(\"tls\")",
+    "test/scapy/layers/tls*.uts": "load_layer(\"tls\")"
   },
   "kw_ko": [
     "osx",

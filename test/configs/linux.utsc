@@ -1,26 +1,30 @@
 {
   "testfiles": [
     "test/*.uts",
+    "test/scapy/*.uts",
+    "test/scapy/tools/*.uts",
+    "test/scapy/modules/*.uts",
     "test/scapy/layers/*.uts",
-    "test/contrib/*.uts",
-    "test/contrib/automotive/*.uts",
-    "test/contrib/automotive/obd/*.uts",
-    "test/contrib/automotive/gm/*.uts",
-    "test/contrib/automotive/bmw/*.uts",
-    "test/tools/*.uts",
-    "test/tls/tests_tls_netaccess.uts"
+    "test/scapy/arch/*.uts",
+    "test/scapy/contrib/*.uts",
+    "test/scapy/contrib/automotive/*.uts",
+    "test/scapy/contrib/automotive/obd/*.uts",
+    "test/scapy/contrib/automotive/gm/*.uts",
+    "test/scapy/contrib/automotive/bmw/*.uts",
+    "test/scapy/tools/*.uts",
+    "test/scapy/layers/tls/tests_tls_netaccess.uts"
   ],
   "remove_testfiles": [
-    "test/windows.uts",
-    "test/bpf.uts"
+    "test/scapy/arch/windows.uts",
+    "test/scapy/arch/bpf.uts"
   ],
   "breakfailed": true,
   "onlyfailed": true,
   "preexec": {
-    "test/contrib/*.uts": "load_contrib(\"%name%\")",
-    "test/cert.uts": "load_layer(\"tls\")",
-    "test/sslv2.uts": "load_layer(\"tls\")",
-    "test/tls*.uts": "load_layer(\"tls\")"
+    "test/scapy/contrib/*.uts": "load_contrib(\"%name%\")",
+    "test/scapy/cert.uts": "load_layer(\"tls\")",
+    "test/scapy/layers/sslv2.uts": "load_layer(\"tls\")",
+    "test/scapy/layers/tls*.uts": "load_layer(\"tls\")"
   },
   "kw_ko": [
     "osx",
