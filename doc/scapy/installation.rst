@@ -134,7 +134,7 @@ Here are the topics involved and some examples that you can use to try if your i
  
   .. code-block:: python
 
-    >>> p=readpcap("myfile.pcap")
+    >>> p=rdpcap("myfile.pcap")
     >>> p.conversations(type="jpg", target="> test.jpg")
 
   .. note::
