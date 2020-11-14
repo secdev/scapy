@@ -59,7 +59,7 @@ def get_fields_desc(obj):
             (
                 "**%s**" % fname,
                 class_ref(cls) + ((" " + clsne) if clsne else ""),
-                "``%s``" % repr(dflt)
+                "``%s``" % dflt
             )
         )
     if output:
@@ -127,7 +127,8 @@ class AttrsDocumenter(AttributeDocumenter):
                     for line in tab(lines):
                         self.add_line(line, sourcename)
                 return
-            elif self.object_name in ["aliastypes"]:
+            elif (self.object_name in ["aliastypes"] or
+                  self.object_name.startswith("class_")):
                 # Ignore
                 call_parent()
                 return
