@@ -11,7 +11,7 @@ import struct
 import socket
 import time
 
-from typing import Tuple, Any
+from scapy.compat import Tuple, Any
 
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Packet_metaclass
 from scapy.fields import IntField, ShortEnumField, XByteField
