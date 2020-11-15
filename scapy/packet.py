@@ -61,6 +61,7 @@ from scapy.compat import (
     Type,
     TypeVar,
     Union,
+    Sequence,
     cast,
 )
 try:
@@ -111,7 +112,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         "wirelen",
     ]
     name = None
-    fields_desc = []  # type: List[AnyField]
+    fields_desc = []  # type: Sequence[AnyField]
     deprecated_fields = {}  # type: Dict[str, Tuple[str, str]]
     overload_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     payload_guess = []  # type: List[Tuple[Dict[str, Any], Type[Packet]]]
@@ -256,7 +257,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.do_init_cached_fields()
 
     def do_init_fields(self,
-                       flist,  # type: List[AnyField]
+                       flist,  # type: Sequence[AnyField]
                        ):
         # type: (...) -> None
         """
@@ -301,7 +302,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                     self.fields[fname] = value[:]
 
     def prepare_cached_fields(self, flist):
-        # type: (List[AnyField]) -> None
+        # type: (Sequence[AnyField]) -> None
         """
         Prepare the cached fields of the fields_desc dict
         """
