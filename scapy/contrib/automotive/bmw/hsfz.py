@@ -11,9 +11,9 @@ import struct
 import socket
 import time
 
-from scapy.compat import Tuple, Any
+from scapy.compat import Tuple, Any, Type
 
-from scapy.packet import Packet, bind_layers, bind_bottom_up, Packet_metaclass
+from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import IntField, ShortEnumField, XByteField
 from scapy.layers.inet import TCP
 from scapy.supersocket import StreamSocket
@@ -89,7 +89,7 @@ class HSFZSocket(StreamSocket):
 
 class ISOTP_HSFZSocket(HSFZSocket):
     def __init__(self, src, dst, ip='127.0.0.1', port=6801, basecls=ISOTP):
-        # type: (int, int, str, int, Packet_metaclass) -> None
+        # type: (int, int, str, int, Type[Packet]) -> None
         super(ISOTP_HSFZSocket, self).__init__(ip, port)
         self.src = src
         self.dst = dst
