@@ -2314,7 +2314,7 @@ class _EnumField(Field[Union[List[I], I], I]):
         log_runtime.debug(
             "At %s: Change to %s at " + ks, self, value, key
         )
-        if self.i2s and self.s2i:
+        if self.i2s is not None and self.s2i is not None:
             self.i2s[key] = value
             self.s2i[value] = key
 
@@ -2322,7 +2322,7 @@ class _EnumField(Field[Union[List[I], I], I]):
         # type: (ObservableDict, I) -> None
         ks = "0x%x" if isinstance(key, int) else "%s"
         log_runtime.debug("At %s: Delete value at " + ks, self, key)
-        if self.i2s and self.s2i:
+        if self.i2s is not None and self.s2i is not None:
             value = self.i2s[key]
             del self.i2s[key]
             del self.s2i[value]
