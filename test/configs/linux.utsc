@@ -3,11 +3,11 @@
     "test/*.uts",
     "test/scapy/layers/*.uts",
     "test/contrib/*.uts",
+    "test/tools/*.uts",
     "test/contrib/automotive/*.uts",
     "test/contrib/automotive/obd/*.uts",
     "test/contrib/automotive/gm/*.uts",
     "test/contrib/automotive/bmw/*.uts",
-    "test/tools/*.uts",
     "test/tls/tests_tls_netaccess.uts"
   ],
   "remove_testfiles": [
