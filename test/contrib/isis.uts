@@ -97,7 +97,12 @@ p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()
                      ISIS_ExtendedIpPrefix(metric=10, pfx="10.1.0.109/30", subtlvindicator=1,
                      subtlvs=[
                         ISIS_32bitAdministrativeTagSubTlv(tags=[321, 123]),
-                        ISIS_64bitAdministrativeTagSubTlv(tags=[54321, 4294967311])
+                        ISIS_64bitAdministrativeTagSubTlv(tags=[54321, 4294967311]),
+                        ISIS_PrefixSegmentIdentifierSubTlv(flags="P", algorithm=0, idx=20)
+                     ]),
+                     ISIS_ExtendedIpPrefix(metric=10, pfx="10.20.30.40/32", subtlvindicator=1,
+                     subtlvs=[
+                         ISIS_PrefixSegmentIdentifierSubTlv(flags=["L", "V", "N"], algorithm=0, sid=1000)
                      ]),
                      ISIS_ExtendedIpPrefix(metric=10, pfx="10.1.0.181/30", subtlvindicator=1,
                      subtlvs=[
@@ -130,12 +135,37 @@ p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()
              ),
              ISIS_ExternalIpReachabilityTlv(
                  type=130
+             ),
+             ISIS_RouterCapabilityTlv(
+                 type=242,
+                 routerid="10.20.30.40",
+                 subtlvs=[
+                     ISIS_SRCapabilitiesSubTLV(
+                         flags='I',
+                         srgb_ranges=[
+                             ISIS_SRGBDescriptorEntry(
+                                 range=1000,
+                                 sid_label=ISIS_SIDLabelSubTLV(
+                                     sid=10
+                                     )
+                                ),
+                             ISIS_SRGBDescriptorEntry(
+                                 range=5000,
+                                 sid_label=ISIS_SIDLabelSubTLV(
+                                     idx=20
+                                     )
+                                ),
+                         ]
+                     ),
+                     ISIS_SRAlgorithmSubTLV(algorithms=[0, 1])
+                 ]
              )
          ])
 p = p.__class__(raw(p))
-assert(p[ISIS_L2_LSP].pdulength == 278)
-assert(p[ISIS_L2_LSP].checksum == 0xc0a9)
+assert(p[ISIS_L2_LSP].pdulength == 332)
+assert(p[ISIS_L2_LSP].checksum == 0x074f)
 assert(p[ISIS_ExtendedIpReachabilityTlv].pfxs[1].subtlvs[1].tags[0]==54321)
+assert(p[ISIS_ExtendedIpReachabilityTlv].pfxs[2].subtlvs[0].sid==1000)
 assert(p[ISIS_Ipv6ReachabilityTlv].pfxs[1].subtlvs[0].len==8)
 assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[0].address=='172.16.8.4')
 assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[1].localid==418)
@@ -143,3 +173,7 @@ assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[3].maxbw==1250000
 assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[4].unrsvbw[0]==125000000)
 assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[5].temetric==16777214)
 assert(p[ISIS_ExternalIpReachabilityTlv].type==130)
+assert(p[ISIS_RouterCapabilityTlv].type==242)
+assert(p[ISIS_RouterCapabilityTlv].subtlvs[0].srgb_ranges[0].range==1000)
+assert(p[ISIS_RouterCapabilityTlv].subtlvs[0].srgb_ranges[0].sid_label.sid==10)
+assert(p[ISIS_RouterCapabilityTlv].subtlvs[1].algorithms==[0, 1])

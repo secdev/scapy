@@ -22,6 +22,10 @@
     :copyright: 2014-2016 BENOCS GmbH, Berlin (Germany)
     :author:    Marcel Patzlaff, mpatzlaff@benocs.com
                 Michal Kaliszan, mkaliszan@benocs.com
+
+    :copyright: 2020 Metaswitch, London (UK)
+    :author:    Tom Zhu, tom.zhu@metaswitch.com
+
     :license:   GPLv2
 
         This module is free software; you can redistribute it and/or
@@ -48,6 +52,7 @@
         * RFC 5303 (three-way handshake)
         * RFC 5304 (cryptographic authentication)
         * RFC 5308 (routing IPv6 with IS-IS)
+        * RFC 8667 (IS-IS extensions for segment routing)
 
     :TODO:
 
@@ -68,8 +73,8 @@ from scapy.config import conf
 from scapy.fields import BitField, BitFieldLenField, BoundStrLenField, \
     ByteEnumField, ByteField, ConditionalField, Field, FieldLenField, \
     FieldListField, FlagsField, IEEEFloatField, IP6PrefixField, IPField, \
-    IPPrefixField, IntField, LongField, MACField, PacketListField, \
-    ShortField, ThreeBytesField, XIntField, XShortField
+    IPPrefixField, IntField, LongField, MACField, PacketField, \
+    PacketListField, ShortField, ThreeBytesField, XIntField, XShortField
 from scapy.packet import bind_layers, Packet
 from scapy.layers.clns import network_layer_protocol_ids, register_cln_protocol
 from scapy.layers.inet6 import IP6ListField, IP6Field
@@ -78,7 +83,7 @@ from scapy.volatile import RandString, RandByte
 from scapy.modules.six.moves import range
 from scapy.compat import orb, hex_bytes
 
-EXT_VERSION = "v0.0.2"
+EXT_VERSION = "v0.0.3"
 
 
 #######################################################################
@@ -379,12 +384,14 @@ class ISIS_TEDefaultMetricSubTlv(ISIS_GenericSubTlv):
 #######################################################################
 _isis_subtlv_classes_2 = {
     1: "ISIS_32bitAdministrativeTagSubTlv",
-    2: "ISIS_64bitAdministrativeTagSubTlv"
+    2: "ISIS_64bitAdministrativeTagSubTlv",
+    3: "ISIS_PrefixSegmentIdentifierSubTlv"
 }
 
 _isis_subtlv_names_2 = {
     1: "32-bit Administrative Tag",
-    2: "64-bit Administrative Tag"
+    2: "64-bit Administrative Tag",
+    3: "Prefix Segment Identifier"
 }
 
 
@@ -404,6 +411,113 @@ class ISIS_64bitAdministrativeTagSubTlv(ISIS_GenericSubTlv):
     fields_desc = [ByteEnumField("type", 2, _isis_subtlv_names_2),
                    FieldLenField("len", None, length_of="tags", fmt="B"),
                    FieldListField("tags", [], LongField("", 0), count_from=lambda pkt: pkt.len // 8)]  # noqa: E501
+
+
+class ISIS_PrefixSegmentIdentifierSubTlv(ISIS_GenericSubTlv):
+    name = "ISIS Prefix SID sub TLV"
+    fields_desc = [ByteEnumField("type", 3, _isis_subtlv_names_2),
+                   ByteField("len", 5),
+                   FlagsField(
+                       "flags", 0, 8,
+                       ["res1", "res2", "L", "V", "E", "P", "N", "R"]),
+                   ByteField("algorithm", 0),
+                   ConditionalField(ThreeBytesField("sid", 0),
+                                    lambda pkt: pkt.len == 5),
+                   ConditionalField(IntField("idx", 0),
+                                    lambda pkt: pkt.len == 6)]
+
+
+#######################################################################
+#   ISIS Sub-TLVs for TLVs 149, 150                                   #
+#######################################################################
+_isis_subtlv_classes_3 = {
+    1: "ISIS_SIDLabelSubTLV"
+}
+
+_isis_subtlv_names_3 = {
+    1: "ISIS SID/Label sub TLV"
+}
+
+
+def _ISIS_GuessSubTlvClass_3(p, **kargs):
+    return _ISIS_GuessTlvClass_Helper(
+        _isis_subtlv_classes_3, "ISIS_GenericSubTlv", p, **kargs)
+
+
+class ISIS_SIDLabelSubTLV(ISIS_GenericSubTlv):
+    name = "ISIS SID Label sub TLV"
+    fields_desc = [
+        ByteEnumField("type", 1, _isis_subtlv_names_3),
+        ByteField("len", 3),
+        ConditionalField(ThreeBytesField("sid", 0),
+                         lambda pkt: pkt.len == 3),
+        ConditionalField(IntField("idx", 0),
+                         lambda pkt: pkt.len == 4)
+    ]
+
+
+#######################################################################
+#   ISIS Sub-TLVs for TLV 242                                         #
+#######################################################################
+_isis_subtlv_classes_4 = {
+    2: "ISIS_SRCapabilitiesSubTLV",
+    19: "ISIS_SRAlgorithmSubTLV",
+}
+
+_isis_subtlv_names_4 = {
+    2: "Segment Routing Capability sub TLV",
+    19: "Segment Routing Algorithm",
+}
+
+
+def _ISIS_GuessSubTlvClass_4(p, **kargs):
+    return _ISIS_GuessTlvClass_Helper(
+        _isis_subtlv_classes_4, "ISIS_GenericSubTlv", p, **kargs)
+
+
+class ISIS_SRGBDescriptorEntry(Packet):
+    name = "ISIS SRGB Descriptor"
+    fields_desc = [
+        ThreeBytesField("range", 0),
+        PacketField("sid_label", None, ISIS_SIDLabelSubTLV)
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
+
+class ISIS_SRCapabilitiesSubTLV(ISIS_GenericSubTlv):
+    name = "ISIS SR Capabilities TLV"
+    fields_desc = [
+        ByteEnumField("type", 2, _isis_subtlv_names_3),
+        FieldLenField(
+            "len",
+            None,
+            length_of="srgb_ranges",
+            adjust=lambda pkt, x: x + 1,
+            fmt="B"),
+        FlagsField(
+            "flags", 0, 8,
+            ["res1", "res2", "res3", "res4", "res5", "res6", "V", "I"]),
+        PacketListField(
+            "srgb_ranges",
+            [],
+            ISIS_SRGBDescriptorEntry,
+            length_from=lambda pkt: pkt.len - 1)
+    ]
+
+
+class ISIS_SRAlgorithmSubTLV(ISIS_GenericSubTlv):
+    name = "ISIS SR Algorithm sub TLV"
+    fields_desc = [
+        ByteEnumField("type", 19, _isis_subtlv_names_4),
+        FieldLenField("len", None, length_of="algorithms", fmt="B"),
+        FieldListField(
+            "algorithms",
+            [0],
+            ByteField("", 0),
+            count_from=lambda pkt:pkt.len)
+    ]
 
 
 #######################################################################
@@ -427,7 +541,8 @@ _isis_tlv_classes = {
     137: "ISIS_DynamicHostnameTlv",
     232: "ISIS_Ipv6InterfaceAddressTlv",
     236: "ISIS_Ipv6ReachabilityTlv",
-    240: "ISIS_P2PAdjacencyStateTlv"
+    240: "ISIS_P2PAdjacencyStateTlv",
+    242: "ISIS_RouterCapabilityTlv"
 }
 
 _isis_tlv_names = {
@@ -684,6 +799,28 @@ class ISIS_ProtocolsSupportedTlv(ISIS_GenericTlv):
         ByteEnumField("type", 129, _isis_tlv_names),
         FieldLenField("len", None, count_of="nlpids", fmt="B"),
         FieldListField("nlpids", [], ByteEnumField("", "IPv4", network_layer_protocol_ids), count_from=lambda pkt: pkt.len)  # noqa: E501
+    ]
+
+
+class ISIS_RouterCapabilityTlv(ISIS_GenericTlv):
+    name = "ISIS Router Capability TLV"
+    fields_desc = [
+        ByteEnumField("type", 242, _isis_tlv_names),
+        FieldLenField(
+            "len",
+            None,
+            length_of="subtlvs",
+            adjust=lambda pkt, x: x + 5,
+            fmt="B"),
+        IPField("routerid", "0.0.0.0"),
+        FlagsField(
+            "flags", 0, 8,
+            ["S", "D", "res1", "res2", "res3", "res4", "res5", "res6"]),
+        PacketListField(
+            "subtlvs",
+            [],
+            _ISIS_GuessSubTlvClass_4,
+            length_from=lambda pkt: pkt.len - 5)
     ]
 
 
