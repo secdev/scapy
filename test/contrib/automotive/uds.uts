@@ -382,6 +382,30 @@ assert rdbi.identifiers[0] == 0x0102
 assert rdbi.identifiers[1] == 0x0304
 assert raw(rdbi) == b'\x22\x01\x02\x03\x04'
 
+= Test observable dict used in UDS_RDBI, setter
+
+UDS_RDBI.dataIdentifiers[0x102] = "turbo"
+UDS_RDBI.dataIdentifiers[0x103] = "fullspeed"
+
+rdbi = UDS()/UDS_RDBI(identifiers=[0x102, 0x103])
+
+assert "turbo" in plain_str(repr(rdbi))
+assert "fullspeed" in plain_str(repr(rdbi))
+
+= Test observable dict used in UDS_RDBI, deleter
+
+UDS_RDBI.dataIdentifiers[0x102] = "turbo"
+
+rdbi = UDS()/UDS_RDBI(identifiers=[0x102, 0x103])
+assert "turbo" in plain_str(repr(rdbi))
+
+del UDS_RDBI.dataIdentifiers[0x102]
+UDS_RDBI.dataIdentifiers[0x103] = "slowspeed"
+
+rdbi = UDS()/UDS_RDBI(identifiers=[0x102, 0x103])
+
+assert "turbo" not in plain_str(repr(rdbi))
+assert "slowspeed" in plain_str(repr(rdbi))
 
 = Check UDS_RDBIPR
 
