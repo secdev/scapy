@@ -1338,7 +1338,7 @@ class PcapReader(RawPcapReader):
             if conf.raw_layer is None:
                 # conf.raw_layer is set on import
                 import scapy.packet  # noqa: F401
-            p = conf.raw_layer(s)  # type: ignore
+            p = conf.raw_layer(s)
         power = Decimal(10) ** Decimal(-9 if self.nano else -6)
         p.time = EDecimal(pkt_info.sec + power * pkt_info.usec)
         p.wirelen = pkt_info.wirelen
@@ -1532,7 +1532,7 @@ class PcapNgReader(RawPcapNgReader):
             if conf.raw_layer is None:
                 # conf.raw_layer is set on import
                 import scapy.packet  # noqa: F401
-            p = conf.raw_layer(s)  # type: ignore
+            p = conf.raw_layer(s)
         if tshigh is not None:
             p.time = EDecimal((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen

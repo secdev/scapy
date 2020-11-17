@@ -1,4 +1,5 @@
 % Regression tests for the XCP_CAN
+~ needs_root
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
