@@ -126,7 +126,9 @@ dhcp6opts = {1: "CLIENTID",
              65: "OPTION_ERP_LOCAL_DOMAIN_NAME",  # RFC6440
              66: "OPTION_RELAY_SUPPLIED_OPTIONS",  # RFC6422
              68: "OPTION_VSS",  # RFC6607
-             79: "OPTION_CLIENT_LINKLAYER_ADDR"}  # RFC6939
+             79: "OPTION_CLIENT_LINKLAYER_ADDR",  # RFC6939
+             112: "OPTION_MUD_URL",  # RFC8520
+             }
 
 dhcp6opts_by_code = {1: "DHCP6OptClientId",
                      2: "DHCP6OptServerId",
@@ -182,6 +184,7 @@ dhcp6opts_by_code = {1: "DHCP6OptClientId",
                      66: "DHCP6OptRelaySuppliedOpt",  # RFC6422
                      68: "DHCP6OptVSS",  # RFC6607
                      79: "DHCP6OptClientLinkLayerAddr",  # RFC6939
+                     112: "DHCP6OptMudUrl",  # RFC8520
                      }
 
 
@@ -1024,6 +1027,16 @@ class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
                                  adjust=lambda pkt, x: x + 2),
                    ShortField("lltype", 1),  # ethernet
                    _LLAddrField("clladdr", ETHER_ANY)]
+
+
+class DHCP6OptMudUrl(_DHCP6OptGuessPayload):  # RFC8520
+    name = "DHCP6 Option - MUD URL"
+    fields_desc = [ShortEnumField("optcode", 112, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="mudString"),
+                   StrLenField("mudString", "",
+                               length_from=lambda pkt: pkt.optlen,
+                               max_length=253,
+                               )]
 
 
 #####################################################################
