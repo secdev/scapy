@@ -46,7 +46,7 @@ def _check_response(resp, verbose):
         return False
     if verbose:
         resp.show()
-    return cast(bool, resp.service != 0x7f)  # NegativeResponse
+    return resp.service != 0x7f  # NegativeResponse
 
 
 class GMLAN_TesterPresentSender(PeriodicSenderThread):
@@ -338,7 +338,7 @@ def GMLAN_ReadMemoryByAddress(sock, addr, length, timeout=None,
         pkt = GMLAN() / GMLAN_RMBA(memoryAddress=addr, memorySize=length)
         resp = sock.sr1(pkt, timeout=timeout, verbose=0)
         if _check_response(resp, verbose):
-            return cast(bytes, resp.dataRecord)
+            return resp.dataRecord
         retry -= 1
         if retry >= 0 and verbose:
             print("Retrying..")
