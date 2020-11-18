@@ -412,6 +412,11 @@ use.
         self.dflt = dflt
         self.default = None  # So that we can detect changes in defaults
         self.name = self.dflt.name
+        if any(x[0].name != self.name for x in self.flds):
+            warnings.warn(
+                "All fields should have the same name in a MultipleTypeField",
+                SyntaxWarning
+            )
 
     def _iterate_fields_cond(self, pkt, val, use_val):
         # type: (Optional[Packet], Any, bool) -> Field[Any, Any]

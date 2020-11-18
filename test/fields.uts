@@ -1401,6 +1401,22 @@ assert o.subfield == 0xBEEFBEEF
 o = SweetPacket(switch=1, subfield=0x88)
 assert o.subfield == 0x88
 
+= MultipleTypeField - syntax error
+
+import warnings
+
+with warnings.catch_warnings(record=True) as w:
+    warnings.simplefilter("always")
+    class MTFPacket(Packet):
+        fields_desc = [ByteField("a", 0),
+                       MultipleTypeField([
+                           (ByteField("b", 0), lambda pkt: pkt.a == 0),
+                           (ShortField("not_b", 0), lambda: pkt.a != 0),
+                       ], IntField("b", 0))]
+    assert len(w) == 1
+    assert issubclass(w[-1].category, SyntaxWarning)
+
+
 ########
 ########
 + FlagsField
