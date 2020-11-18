@@ -220,6 +220,7 @@ DHCPOptions = {
     150: IPField("tftp_server_address", "0.0.0.0"),
     159: "v4-portparams",
     160: StrField("v4-captive-portal", ""),
+    161: StrField("mud-url", ""),
     208: "pxelinux_magic",
     209: "pxelinux_configuration_file",
     210: "pxelinux_path_prefix",
