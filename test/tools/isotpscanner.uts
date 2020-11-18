@@ -233,7 +233,10 @@ assert 0 == send_returncode
 assert returncode1 == 0
 assert returncode2 == 0
 
-
+print(std_out1)
+print(std_err1)
+print(std_out2)
+print(std_err2)
 expected_output = [b'0x600', b'0x700']
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out1 + std_out2)

@@ -10,18 +10,22 @@
 # scapy.contrib.status = loads
 
 import time
+
+from scapy.compat import Optional, cast, Callable
+
 from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SA, GMLAN_RD, \
     GMLAN_TD, GMLAN_PM, GMLAN_RMBA
 from scapy.config import conf
+from scapy.packet import Packet
 from scapy.contrib.isotp import ISOTPSocket
 from scapy.error import warning, log_loading
 from scapy.utils import PeriodicSenderThread
-
 
 __all__ = ["GMLAN_TesterPresentSender", "GMLAN_InitDiagnostics",
            "GMLAN_GetSecurityAccess", "GMLAN_RequestDownload",
            "GMLAN_TransferData", "GMLAN_TransferPayload",
            "GMLAN_ReadMemoryByAddress", "GMLAN_BroadcastSocket"]
+
 
 log_loading.info("\"conf.contribs['GMLAN']"
                  "['treat-response-pending-as-answer']\" set to True). This "
@@ -33,52 +37,60 @@ except KeyError:
     conf.contribs['GMLAN'] = {'treat-response-pending-as-answer': False}
 
 
-class GMLAN_TesterPresentSender(PeriodicSenderThread):
-    def __init__(self, sock, pkt=GMLAN(service="TesterPresent"), interval=2):
-        """ Thread to send TesterPresent messages packets periodically
-
-        Args:
-            sock: socket where packet is sent periodically
-            pkt: packet to send
-            interval: interval between two packets
-        """
-        PeriodicSenderThread.__init__(self, sock, pkt, interval)
-
-
+# Helper function
 def _check_response(resp, verbose):
+    # type: (Packet, Optional[bool]) -> bool
     if resp is None:
         if verbose:
             print("Timeout.")
         return False
     if verbose:
         resp.show()
-    return resp.sprintf("%GMLAN.service%") != "NegativeResponse"
+    return resp.service != 0x7f  # NegativeResponse
 
 
-def _send_and_check_response(sock, req, timeout, verbose):
-    if verbose:
-        print("Sending %s" % repr(req))
-    resp = sock.sr1(req, timeout=timeout, verbose=0)
-    return _check_response(resp, verbose)
+class GMLAN_TesterPresentSender(PeriodicSenderThread):
+
+    def __init__(self, sock, pkt=GMLAN(service="TesterPresent"), interval=2):
+        # type: (ISOTPSocket, Packet, int) -> None
+        """ Thread to send GMLAN TesterPresent packets periodically
+
+        :param sock: socket where packet is sent periodically
+        :param pkt: packet to send
+        :param interval: interval between two packets
+        """
+        PeriodicSenderThread.__init__(self, sock, pkt, interval)
+
+    def run(self):
+        # type: () -> None
+        while not self._stopped.is_set():
+            self._socket.sr1(self._pkt, verbose=False, timeout=0.1)
+            time.sleep(self._interval)
 
 
-def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
-                          verbose=None, retry=0):
-    """Send messages to put an ECU into an diagnostic/programming state.
+def GMLAN_InitDiagnostics(sock, broadcast_socket=None, timeout=None, verbose=None, retry=0):  # noqa: E501
+    # type: (ISOTPSocket, Optional[ISOTPSocket], Optional[int], Optional[bool], int) -> bool  # noqa: E501
+    """ Send messages to put an ECU into diagnostic/programming state.
 
-    Args:
-        sock:       socket to send the message on.
-        broadcast:  socket for broadcasting. If provided some message will be
-                    sent as broadcast. Recommended when used on a network with
-                    several ECUs.
-        timeout:    timeout for sending, receiving or sniffing packages.
-        verbose:    set verbosity level
-        retry:      number of retries in case of failure.
-
-    Returns true on success.
+    :param sock: socket for communication.
+    :param broadcast_socket: socket for broadcasting. If provided some message
+                             will be sent as broadcast. Recommended when used
+                             on a network with several ECUs.
+    :param timeout: timeout for sending, receiving or sniffing packages.
+    :param verbose: set verbosity level
+    :param retry: number of retries in case of failure.
+    :return: True on success else False
     """
+    # Helper function
+    def _send_and_check_response(sock, req, timeout, verbose):
+        # type: (ISOTPSocket, Packet, Optional[int], Optional[bool]) -> bool
+        if verbose:
+            print("Sending %s" % repr(req))
+        resp = sock.sr1(req, timeout=timeout, verbose=False)
+        return _check_response(resp, verbose)
+
     if verbose is None:
-        verbose = conf.verb
+        verbose = conf.verb > 0
     retry = abs(retry)
 
     while retry >= 0:
@@ -86,13 +98,13 @@ def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
 
         # DisableNormalCommunication
         p = GMLAN(service="DisableNormalCommunication")
-        if broadcastsocket is None:
+        if broadcast_socket is None:
             if not _send_and_check_response(sock, p, timeout, verbose):
                 continue
         else:
             if verbose:
                 print("Sending %s as broadcast" % repr(p))
-            broadcastsocket.send(p)
+            broadcast_socket.send(p)
         time.sleep(0.05)
 
         # ReportProgrammedState
@@ -116,23 +128,24 @@ def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
     return False
 
 
-def GMLAN_GetSecurityAccess(sock, keyFunction, level=1, timeout=None,
-                            verbose=None, retry=0):
-    """Authenticate on ECU. Implements Seey-Key procedure.
+def GMLAN_GetSecurityAccess(sock, key_function, level=1, timeout=None, verbose=None, retry=0):  # noqa: E501
+    # type: (ISOTPSocket, Callable[[int], int], int, Optional[int], Optional[bool], int) -> bool  # noqa: E501
+    """ Authenticate on ECU. Implements Seey-Key procedure.
 
-    Args:
-        sock:        socket to send the message on.
-        keyFunction: function implementing the key algorithm.
-        level:       level of access
-        timeout:     timeout for sending, receiving or sniffing packages.
-        verbose:     set verbosity level
-        retry:       number of retries in case of failure.
-
-    Returns true on success.
+    :param sock: socket to send the message on.
+    :param key_function: function implementing the key algorithm.
+    :param level: level of access
+    :param timeout: timeout for sending, receiving or sniffing packages.
+    :param verbose: set verbosity level
+    :param retry: number of retries in case of failure.
+    :return: True on success.
     """
     if verbose is None:
-        verbose = conf.verb
+        verbose = conf.verb > 0
     retry = abs(retry)
+
+    if key_function is None:
+        return False
 
     if level % 2 == 0:
         warning("Parameter Error: Level must be an odd number.")
@@ -157,7 +170,7 @@ def GMLAN_GetSecurityAccess(sock, keyFunction, level=1, timeout=None,
             return True
 
         keypkt = GMLAN() / GMLAN_SA(subfunction=level + 1,
-                                    securityKey=keyFunction(seed))
+                                    securityKey=key_function(seed))
         if verbose:
             print("Responding with key..")
         resp = sock.sr1(keypkt, timeout=timeout, verbose=0)
@@ -182,21 +195,20 @@ def GMLAN_GetSecurityAccess(sock, keyFunction, level=1, timeout=None,
 
 
 def GMLAN_RequestDownload(sock, length, timeout=None, verbose=None, retry=0):
-    """Send RequestDownload message.
+    # type: (ISOTPSocket, int, Optional[int], Optional[bool], int) -> bool
+    """ Send RequestDownload message.
 
-    Usually used before calling TransferData.
+        Usually used before calling TransferData.
 
-    Args:
-        sock:       socket to send the message on.
-        length:     value for the message's parameter 'unCompressedMemorySize'.
-        timeout:    timeout for sending, receiving or sniffing packages.
-        verbose:    set verbosity level.
-        retry:      number of retries in case of failure.
-
-    Returns true on success.
+    :param sock: socket to send the message on.
+    :param length: value for the message's parameter 'unCompressedMemorySize'.
+    :param timeout: timeout for sending, receiving or sniffing packages.
+    :param verbose: set verbosity level.
+    :param retry: number of retries in case of failure.
+    :return: True on success
     """
     if verbose is None:
-        verbose = conf.verb
+        verbose = conf.verb > 0
     retry = abs(retry)
 
     while retry >= 0:
@@ -211,26 +223,25 @@ def GMLAN_RequestDownload(sock, length, timeout=None, verbose=None, retry=0):
     return False
 
 
-def GMLAN_TransferData(sock, addr, payload, maxmsglen=None, timeout=None,
-                       verbose=None, retry=0):
-    """Send TransferData message.
+def GMLAN_TransferData(sock, addr, payload, maxmsglen=None, timeout=None, verbose=None, retry=0):  # noqa: E501
+    # type: (ISOTPSocket, int, bytes, Optional[int], Optional[int], Optional[bool], int) -> bool  # noqa: E501
+    """ Send TransferData message.
 
     Usually used after calling RequestDownload.
 
-    Args:
-        sock:       socket to send the message on.
-        addr:       destination memory address on the ECU.
-        payload:    data to be sent.
-        maxmsglen:  maximum length of a single iso-tp message. (default:
-                    maximum length)
-        timeout:    timeout for sending, receiving or sniffing packages.
-        verbose:    set verbosity level.
-        retry:      number of retries in case of failure.
-
-    Returns true on success.
+    :param sock: socket to send the message on.
+    :param addr: destination memory address on the ECU.
+    :param payload: data to be sent.
+    :param maxmsglen: maximum length of a single iso-tp message.
+                      default: maximum length
+    :param timeout: timeout for sending, receiving or sniffing packages.
+    :param verbose: set verbosity level.
+    :param retry: number of retries in case of failure.
+    :return: True on success.
     """
     if verbose is None:
-        verbose = conf.verb
+        verbose = conf.verb > 0
+
     retry = abs(retry)
     startretry = retry
 
@@ -243,6 +254,8 @@ def GMLAN_TransferData(sock, addr, payload, maxmsglen=None, timeout=None,
     # max size of dataRecord according to gmlan protocol
     if maxmsglen is None or maxmsglen <= 0 or maxmsglen > (4093 - scheme):
         maxmsglen = (4093 - scheme)
+
+    maxmsglen = cast(int, maxmsglen)
 
     for i in range(0, len(payload), maxmsglen):
         retry = startretry
@@ -268,19 +281,18 @@ def GMLAN_TransferData(sock, addr, payload, maxmsglen=None, timeout=None,
 
 def GMLAN_TransferPayload(sock, addr, payload, maxmsglen=None, timeout=None,
                           verbose=None, retry=0):
-    """Send data by using GMLAN services.
+    # type: (ISOTPSocket, int, bytes, Optional[int], Optional[int], Optional[bool], int) -> bool  # noqa: E501
+    """ Send data by using GMLAN services.
 
-    Args:
-        sock:       socket to send the data on.
-        addr:       destination memory address on the ECU.
-        payload:    data to be sent.
-        maxmsglen:  maximum length of a single iso-tp message. (default:
-                    maximum length)
-        timeout:    timeout for sending, receiving or sniffing packages.
-        verbose:    set verbosity level.
-        retry:      number of retries in case of failure.
-
-    Returns true on success.
+    :param sock: socket to send the data on.
+    :param addr: destination memory address on the ECU.
+    :param payload: data to be sent.
+    :param maxmsglen: maximum length of a single iso-tp message.
+                      default: maximum length
+    :param timeout: timeout for sending, receiving or sniffing packages.
+    :param verbose: set verbosity level.
+    :param retry: number of retries in case of failure.
+    :return: True on success.
     """
     if not GMLAN_RequestDownload(sock, len(payload), timeout=timeout,
                                  verbose=verbose, retry=retry):
@@ -293,20 +305,19 @@ def GMLAN_TransferPayload(sock, addr, payload, maxmsglen=None, timeout=None,
 
 def GMLAN_ReadMemoryByAddress(sock, addr, length, timeout=None,
                               verbose=None, retry=0):
-    """Read data from ECU memory.
+    # type: (ISOTPSocket, int, int, Optional[int], Optional[bool], int) -> Optional[bytes]  # noqa: E501
+    """ Read data from ECU memory.
 
-    Args:
-        sock:       socket to send the data on.
-        addr:       source memory address on the ECU.
-        length:     bytes to read
-        timeout:    timeout for sending, receiving or sniffing packages.
-        verbose:    set verbosity level.
-        retry:      number of retries in case of failure.
-
-    Returns the bytes read.
+    :param sock: socket to send the data on.
+    :param addr: source memory address on the ECU.
+    :param length: bytes to read.
+    :param timeout: timeout for sending, receiving or sniffing packages.
+    :param verbose: set verbosity level.
+    :param retry: number of retries in case of failure.
+    :return: bytes red or None
     """
     if verbose is None:
-        verbose = conf.verb
+        verbose = conf.verb > 0
     retry = abs(retry)
 
     scheme = conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']
@@ -335,6 +346,11 @@ def GMLAN_ReadMemoryByAddress(sock, addr, length, timeout=None,
 
 
 def GMLAN_BroadcastSocket(interface):
-    """Returns a GMLAN broadcast socket using interface."""
+    # type: (str) -> ISOTPSocket
+    """ Returns a GMLAN broadcast socket using interface.
+
+    :param interface: interface name
+    :return: ISOTPSocket configured as GMLAN Broadcast Socket
+    """
     return ISOTPSocket(interface, sid=0x101, did=0x0, basecls=GMLAN,
-                       extended_addr=0xfe)
+                       extended_addr=0xfe, padding=True)
