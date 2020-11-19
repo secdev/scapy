@@ -11,7 +11,8 @@ from itertools import product
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
-    ShortField, ObservableDict, XShortEnumField, XByteEnumField
+    ShortField, ObservableDict, XShortEnumField, XByteEnumField, StrLenField, \
+    FieldLenField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import log_loading
@@ -54,6 +55,7 @@ class UDS(ISOTP):
          0x35: 'RequestUpload',
          0x36: 'TransferData',
          0x37: 'RequestTransferExit',
+         0x38: 'RequestFileTransfer',
          0x3D: 'WriteMemoryByAddress',
          0x3E: 'TesterPresent',
          0x50: 'DiagnosticSessionControlPositiveResponse',
@@ -74,6 +76,7 @@ class UDS(ISOTP):
          0x75: 'RequestUploadPositiveResponse',
          0x76: 'TransferDataPositiveResponse',
          0x77: 'RequestTransferExitPositiveResponse',
+         0x78: 'RequestFileTransferPositiveResponse',
          0x7D: 'WriteMemoryByAddressPositiveResponse',
          0x7E: 'TesterPresentPositiveResponse',
          0x83: 'AccessTimingParameter',
@@ -1219,6 +1222,101 @@ class UDS_RTEPR(Packet):
 
 
 bind_layers(UDS, UDS_RTEPR, service=0x77)
+
+
+# #########################RFT###################################
+class UDS_RFT(Packet):
+    name = 'RequestFileTransfer'
+
+    modeOfOperations = {
+        0x00: "ISO/SAE Reserved",
+        0x01: "Add File",
+        0x02: "Delete File",
+        0x03: "Replace File",
+        0x04: "Read File",
+        0x05: "Read Directory"
+    }
+
+    @staticmethod
+    def _contains_file_size(packet):
+        return packet.modeOfOperation not in [2, 4, 5]
+
+    fields_desc = [
+        XByteEnumField('modeOfOperation', 0, modeOfOperations),
+        FieldLenField('filePathAndNameLength', 0,
+                      length_of='filePathAndName', fmt='H'),
+        StrLenField('filePathAndName', b"",
+                    length_from=lambda p: p.filePathAndNameLength),
+        ConditionalField(BitField('compressionMethod', 0, 4),
+                         lambda p: p.modeOfOperation not in [2, 5]),
+        ConditionalField(BitField('encryptingMethod', 0, 4),
+                         lambda p: p.modeOfOperation not in [2, 5]),
+        ConditionalField(FieldLenField('fileSizeParameterLength', 0, fmt="B",
+                                       length_of='fileSizeUnCompressed'),
+                         lambda p: UDS_RFT._contains_file_size(p)),
+        ConditionalField(StrLenField('fileSizeUnCompressed', b"",
+                                     length_from=lambda p:
+                                     p.fileSizeParameterLength),
+                         lambda p: UDS_RFT._contains_file_size(p)),
+        ConditionalField(StrLenField('fileSizeCompressed', b"",
+                                     length_from=lambda p:
+                                     p.fileSizeParameterLength),
+                         lambda p: UDS_RFT._contains_file_size(p))
+    ]
+
+    @staticmethod
+    def get_log(pkt):
+        return pkt.sprintf("%UDS.service%"),\
+            pkt.modeOfOperation
+
+
+bind_layers(UDS, UDS_RFT, service=0x38)
+
+
+class UDS_RFTPR(Packet):
+    name = 'RequestFileTransferPositiveResponse'
+
+    @staticmethod
+    def _contains_data_format_identifier(packet):
+        return packet.modeOfOperation != 0x02
+
+    fields_desc = [
+        XByteEnumField('modeOfOperation', 0, UDS_RFT.modeOfOperations),
+        ConditionalField(FieldLenField('lengthFormatIdentifier', 0,
+                                       length_of='maxNumberOfBlockLength',
+                                       fmt='B'),
+                         lambda p: p.modeOfOperation != 2),
+        ConditionalField(StrLenField('maxNumberOfBlockLength', b"",
+                         length_from=lambda p: p.lengthFormatIdentifier),
+                         lambda p: p.modeOfOperation != 2),
+        ConditionalField(BitField('compressionMethod', 0, 4),
+                         lambda p: p.modeOfOperation != 0x02),
+        ConditionalField(BitField('encryptingMethod', 0, 4),
+                         lambda p: p.modeOfOperation != 0x02),
+        ConditionalField(FieldLenField('fileSizeOrDirInfoParameterLength', 0,
+                         length_of='fileSizeUncompressedOrDirInfoLength'),
+                         lambda p: p.modeOfOperation not in [1, 2, 3]),
+        ConditionalField(StrLenField('fileSizeUncompressedOrDirInfoLength',
+                                     b"",
+                                     length_from=lambda p:
+                                     p.fileSizeOrDirInfoParameterLength),
+                         lambda p: p.modeOfOperation not in [1, 2, 3]),
+        ConditionalField(StrLenField('fileSizeCompressed', b"",
+                         length_from=lambda p:
+                         p.fileSizeOrDirInfoParameterLength),
+                         lambda p: p.modeOfOperation not in [1, 2, 3, 5]),
+    ]
+
+    def answers(self, other):
+        return other.__class__ == UDS_RFT
+
+    @staticmethod
+    def get_log(pkt):
+        return pkt.sprintf("%UDS.service%"),\
+            pkt.modeOfOperation
+
+
+bind_layers(UDS, UDS_RFTPR, service=0x78)
 
 
 # #########################IOCBI###################################

@@ -970,13 +970,34 @@ assert iocbi.dataIdentifier == 0x2334
 assert iocbi.controlOptionRecord == 255
 assert iocbi.controlEnableMaskRecord == b'coffee'
 
+= Check UDS_RFT
+
+rft = UDS(b'\x38\x01\x00\x1ED:\\mapdata\\europe\\germany1.yxz\x11\x02\xC3\x50\x75\x30')
+assert rft.service == 0x38
+assert rft.modeOfOperation == 0x01
+assert rft.filePathAndNameLength == 0x001e
+assert rft.filePathAndName == b'D:\\mapdata\\europe\\germany1.yxz'
+assert rft.compressionMethod == 1
+assert rft.encryptingMethod == 1
+assert rft.fileSizeParameterLength == 0x02
+assert rft.fileSizeUnCompressed == b'\xc3\x50'
+assert rft.fileSizeCompressed == b'\x75\x30'
+
+= Check UDS_RFTPR
+
+rftpr = UDS(b'\x78\x01\x02\xc3\x50\x11')
+assert rftpr.service == 0x78
+assert rftpr.modeOfOperation == 0x01
+assert rftpr.lengthFormatIdentifier == 0x02
+assert rftpr.maxNumberOfBlockLength == b'\xc3\x50'
+assert rftpr.compressionMethod == 1
+assert rftpr.encryptingMethod == 1
+
+assert rftpr.answers(rft)
+
 = Check UDS_NRC
 
 nrc = UDS(b'\x7f\x22\x33')
 assert nrc.service == 0x7f
 assert nrc.requestServiceId == 0x22
 assert nrc.negativeResponseCode == 0x33
-
-
-
-
