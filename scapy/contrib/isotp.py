@@ -1160,7 +1160,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
 
     def can_send(self, load):
         if self.padding:
-            load += bytearray(CAN_MAX_DLEN - len(load))
+            load += b"\xCC" * (CAN_MAX_DLEN - len(load))
         if self.src_id is None or self.src_id <= 0x7ff:
             self.can_socket.send(CAN(identifier=self.src_id, data=load))
         else:
@@ -1626,10 +1626,10 @@ if six.PY3 and LINUX:
         def __build_can_isotp_options(
                 self,
                 flags=CAN_ISOTP_DEFAULT_FLAGS,
-                frame_txtime=0,
+                frame_txtime=CAN_ISOTP_DEFAULT_FRAME_TXTIME,
                 ext_address=CAN_ISOTP_DEFAULT_EXT_ADDRESS,
-                txpad_content=0,
-                rxpad_content=0,
+                txpad_content=CAN_ISOTP_DEFAULT_PAD_CONTENT,
+                rxpad_content=CAN_ISOTP_DEFAULT_PAD_CONTENT,
                 rx_ext_address=CAN_ISOTP_DEFAULT_EXT_ADDRESS):
             return struct.pack(self.can_isotp_options_fmt,
                                flags,

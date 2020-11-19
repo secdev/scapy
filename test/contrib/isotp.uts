@@ -1716,7 +1716,7 @@ with new_can_socket(iface0) as cans:
         assert(can.data == dhex("30 00 00"))
         can = cans.sniff(timeout=1, count=1)[0]
         assert(can.identifier == 0x641)
-        assert(can.data == dhex("21 07 08 00 00 00 00 00"))
+        assert(can.data == dhex("21 07 08 CC CC CC CC CC"))
     ack_thread.join(timeout=5)
 
 
@@ -1967,7 +1967,7 @@ with new_can_socket(iface0) as cans:
     assert(can.data == dhex("30 00 00"))
     can = cans.sniff(timeout=1, count=1)[0]
     assert(can.identifier == 0x641)
-    assert(can.data == dhex("21 07 08 00 00 00 00 00"))
+    assert(can.data == dhex("21 07 08 CC CC CC CC CC"))
 
 
 = Receive a padded single frame ISOTP message with padding disabled
