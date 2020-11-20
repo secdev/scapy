@@ -211,7 +211,7 @@ def lambda_tuple_converter(func):
 # This is ugly, but we don't want to move raw() out of compat.py
 # and it makes it much clearer
 if TYPE_CHECKING:
-    from scapy.packet import Packet, RawVal
+    from scapy.packet import Packet
 
 
 if six.PY2:
@@ -225,7 +225,7 @@ if six.PY2:
         return chr(x)
 
     def raw(x):
-        # type: (Union[Packet, RawVal]) -> bytes
+        # type: (Union[Packet]) -> bytes
         """
         Builds a packet and returns its bytes representation.
         This function is and will always be cross-version compatible
@@ -235,7 +235,7 @@ if six.PY2:
         return bytes(x)
 else:
     def raw(x):
-        # type: (Union[Packet, RawVal]) -> bytes
+        # type: (Union[Packet]) -> bytes
         """
         Builds a packet and returns its bytes representation.
         This function is and will always be cross-version compatible

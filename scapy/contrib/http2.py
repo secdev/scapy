@@ -1324,14 +1324,14 @@ class HPackHdrString(packet.Packet):
         # underlayer packet
         return config.conf.padding_layer
 
-    def self_build(self, field_pos_list=None):
+    def self_build(self, **kwargs):
         # type: (Any) -> str
         """self_build is overridden because type and len are determined at
         build time, based on the "data" field internal type
         """
         if self.getfieldval('type') is None:
             self.type = 1 if isinstance(self.getfieldval('data'), HPackZString) else 0  # noqa: E501
-        return super(HPackHdrString, self).self_build(field_pos_list)
+        return super(HPackHdrString, self).self_build(**kwargs)
 
 
 class HPackHeaders(packet.Packet):
