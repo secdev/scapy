@@ -1345,7 +1345,7 @@ class Dot11EltHTCapabilities(Dot11Elt):
                  end_tot_size=-4),
         # ASEL Capabilities: 1B
         FlagsField("ASEL", 0, 8, [
-            "res"
+            "res",
             "Transmit_Sounding_PPDUs",
             "Receive_ASEL",
             "Antenna_Indices_Feedback",

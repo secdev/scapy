@@ -18,6 +18,7 @@ import hashlib
 import importlib
 import json
 import logging
+import os
 import os.path
 import sys
 import time
@@ -1180,6 +1181,21 @@ def main():
     # Delete scapy's test environment vars
     del os.environ['SCAPY_ROOT_DIR']
 
+    # Print end message
+    if VERB > 2:
+        if glob_result == 0:
+            print(theme.green("UTscapy ended successfully"), file=sys.stderr)
+        else:
+            print(theme.red("UTscapy ended with error code %s" % glob_result),
+                  file=sys.stderr)
+
+    # Check active threads
+    if VERB > 2:
+        import threading
+        if threading.active_count() > 1:
+            print("\nWARNING: UNFINISHED THREADS", file=sys.stderr)
+            print(threading.enumerate(), file=sys.stderr)
+
     # Return state
     return glob_result
 
@@ -1190,7 +1206,7 @@ if __name__ == "__main__":
             warnings.resetwarnings()
             # Let's discover the garbage waste
             warnings.simplefilter('error')
-            print("### Warning mode enabled ###")
+            print("### Warning mode enabled ###", file=sys.stderr)
             res = main()
             if cw:
                 res = 1

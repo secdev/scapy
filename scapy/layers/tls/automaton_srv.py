@@ -770,7 +770,6 @@ class TLSServerAutomaton(_TLSAutomaton):
         if self.cur_session.sid is not None:
             self.add_record(is_tls12=True)
             self.add_msg(TLSChangeCipherSpec())
-        pass
 
     @ATMT.condition(tls13_ADDED_SERVERHELLO)
     def tls13_should_add_EncryptedExtensions(self):
