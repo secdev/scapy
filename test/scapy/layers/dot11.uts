@@ -368,12 +368,13 @@ assert f.Receive_NDP == 0
 assert f.Transmit_Staggered_Sounding == 1
 assert f.Receive_Staggered_Sounding == 1
 assert f.Implicit_Transmit_Beamforming_Receiving == 0
-assert f.ASEL.resTransmit_Sounding_PPDUs
+assert f.ASEL.res
+assert f.ASEL.Transmit_Sounding_PPDUs
 assert f.ASEL.Receive_ASEL
 assert f.ASEL.Antenna_Indices_Feedback
 assert f.ASEL.Explicit_CSI_Feedback
 assert f.ASEL.Explicit_CSI_Feedback_Based_Transmit_ASEL
-assert f.ASEL.Antenna_Selection
+assert not f.ASEL.Antenna_Selection
 assert f.ASEL == 63
 
 = RadioTap - MCS weird padding
