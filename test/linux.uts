@@ -189,7 +189,7 @@ try:
                             started_callback=_sniffer_started)
             global frm_count
             frm_count = 2
-        t_sniffer = Thread(target=_sniffer)
+        t_sniffer = Thread(target=_sniffer, name="linux.uts sniff veth_scapy_1")
         t_sniffer.start()
         cond_started.wait()
         sendp(Ether(type=0xbeef)/Raw(b'0123456789'),
@@ -247,7 +247,7 @@ def _sniffer():
     global frm_count
     frm_count = 2
 
-t_sniffer = Thread(target=_sniffer)
+t_sniffer = Thread(target=_sniffer, name="linux.uts sniff veth_scapy_1 2")
 t_sniffer.start()
 cond_started.wait()
 sendp(Ether(type=0xbeef)/Raw(b'0123456789'),
@@ -349,7 +349,7 @@ def _sniffer():
     global dot1q_count
     dot1q_count = len(sniffed)
 
-t_sniffer = Thread(target=_sniffer)
+t_sniffer = Thread(target=_sniffer, name="linux.uts sniff right0")
 t_sniffer.start()
 cond_started.wait()
 sendp(Ether()/IP(dst="198.51.100.2")/ICMP(), iface='vlanleft0', count=2)
