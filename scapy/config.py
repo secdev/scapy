@@ -798,14 +798,50 @@ class Conf(ConfClass):
     temp_files = []  # type: List[str]
     netcache = NetCache()
     geoip_city = None
-    # can, tls, http are not loaded by default
-    load_layers = ['bluetooth', 'bluetooth4LE', 'dhcp', 'dhcp6', 'dns',
-                   'dot11', 'dot15d4', 'eap', 'gprs', 'hsrp', 'inet',
-                   'inet6', 'ipsec', 'ir', 'isakmp', 'l2', 'l2tp',
-                   'llmnr', 'lltd', 'mgcp', 'mobileip', 'netbios',
-                   'netflow', 'ntp', 'ppi', 'ppp', 'pptp', 'radius', 'rip',
-                   'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'smb2', 'snmp',
-                   'tftp', 'tuntap', 'vrrp', 'vxlan', 'x509', 'zigbee']
+    # can, tls, http and a few others are not loaded by default
+    load_layers = [
+        'bluetooth',
+        'bluetooth4LE',
+        'dhcp',
+        'dhcp6',
+        'dns',
+        'dot11',
+        'dot15d4',
+        'eap',
+        'gprs',
+        'hsrp',
+        'inet',
+        'inet6',
+        'ipsec',
+        'ir',
+        'isakmp',
+        'l2',
+        'l2tp',
+        'llmnr',
+        'lltd',
+        'mgcp',
+        'mobileip',
+        'netbios',
+        'netflow',
+        'ntp',
+        'ppi',
+        'ppp',
+        'pptp',
+        'radius',
+        'rip',
+        'rtp',
+        'sctp',
+        'sixlowpan',
+        'skinny',
+        'smb',
+        'smb2',
+        'snmp',
+        'tftp',
+        'vrrp',
+        'vxlan',
+        'x509',
+        'zigbee'
+    ]
     #: a dict which can be used by contrib layers to store local
     #: configuration
     contribs = dict()  # type: Dict[str, Any]

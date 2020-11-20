@@ -8,9 +8,12 @@ All layers. Configurable with conf.load_layers.
 """
 
 from __future__ import absolute_import
-from scapy.config import conf
+
+# We import conf from arch to make sure arch specific layers are populated
+from scapy.arch import conf
 from scapy.error import log_loading
 from scapy.main import load_layer
+
 import logging
 import scapy.modules.six as six
 
