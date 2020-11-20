@@ -27,7 +27,8 @@ else:
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tap1", "count": 5, "prn": Packet.summary,
-            "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"}
+            "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+    name="tests sniff 1"
 )
 t_sniff.start()
 
@@ -35,7 +36,8 @@ t_sniff.start()
 * It will terminate when 5 IP packets from 192.0.2.1 have been forwarded
 t_bridge = Thread(target=bridge_and_sniff, args=(tap0, tap1),
                   kwargs={"store": False, "count": 5, 'prn': Packet.summary,
-                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"})
+                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+                  name="tests bridge_and_sniff 1")
 t_bridge.start()
 
 = Send five IP packets from 192.0.2.1 to the tap0 **interface**
@@ -54,7 +56,8 @@ assert not t_sniff.is_alive()
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tap1", "count": 5, "prn": Packet.summary,
-            "lfilter": lambda p: IP in p and p[IP].src == "198.51.100.1"}
+            "lfilter": lambda p: IP in p and p[IP].src == "198.51.100.1"},
+    name="tests sniff 2"
 )
 t_sniff.start()
 
@@ -70,7 +73,8 @@ def nat_1_2(pkt):
 t_bridge = Thread(target=bridge_and_sniff, args=(tap0, tap1),
                   kwargs={"store": False, "count": 5, 'prn': Packet.summary,
                           "xfrm12": nat_1_2,
-                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"})
+                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+                  name="tests bridge_and_sniff 2")
 t_bridge.start()
 
 = Send five IP packets from 192.0.2.1 to the tap0 **interface**
@@ -126,7 +130,8 @@ time.sleep(10)
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tun1", "count": 5, "prn": Packet.summary,
-            "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"}
+            "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+    name="tests sniff 3")
 )
 t_sniff.start()
 
@@ -135,7 +140,8 @@ t_sniff.start()
 t_bridge = Thread(target=bridge_and_sniff, args=(tun0, tun1),
                   kwargs={"store": False, "count": 5, 'prn': Packet.summary,
                           "xfrm12": lambda pkt: pkt,
-                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"})
+                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+                          name="tests bridge_and_sniff 3")
 t_bridge.start()
 
 = Send five IP packets from 192.0.2.1 to the tun0 **interface**
@@ -155,7 +161,8 @@ assert not t_sniff.is_alive()
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tun1", "count": 5, "prn": Packet.summary,
-            "lfilter": lambda p: IP in p and p[IP].src == "198.51.100.1"}
+            "lfilter": lambda p: IP in p and p[IP].src == "198.51.100.1"},
+    name="tests sniff 4")
 )
 t_sniff.start()
 
@@ -171,7 +178,8 @@ def nat_1_2(pkt):
 t_bridge = Thread(target=bridge_and_sniff, args=(tun0, tun1),
                   kwargs={"store": False, "count": 5, 'prn': Packet.summary,
                           "xfrm12": nat_1_2,
-                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"})
+                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+                          name="tests bridge_and_sniff 4")
 t_bridge.start()
 
 = Send five IP packets from 192.0.2.1 to the tun0 **interface**
@@ -224,7 +232,8 @@ with VEthPair('a_0', 'a_1') as veth_0:
                               'xfrm21': xfrm_x,
                               'store': False,
                               'count': 4,
-                              'lfilter': lambda p: Ether in p and p[Ether].type == 0xbeef})
+                              'lfilter': lambda p: Ether in p and p[Ether].type == 0xbeef},
+                          name="tests bridge_and_sniff VEthPair")
         t_bridge.start()
         time.sleep(1)
         # send frames in both directions
@@ -291,7 +300,8 @@ def answer_arp_leak(pkt):
 t_answer = Thread(
     target=sniff,
     kwargs={"prn": answer_arp_leak, "timeout": 10, "store": False,
-            "opened_socket": tap0}
+            "opened_socket": tap0},
+    name="tests answer_arp_leak"
 )
 
 t_answer.start()

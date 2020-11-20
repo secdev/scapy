@@ -466,7 +466,8 @@ class ThreadGenSource(AutoSource):
 
     def start(self):
         self.RUN = True
-        Thread(target=self.generate, name="scapy.pipetool.ThreadGenSource").start()
+        Thread(target=self.generate,
+               name="scapy.pipetool.ThreadGenSource").start()
 
     def stop(self):
         self.RUN = False
