@@ -161,7 +161,7 @@ class ICMPExtensionInterfaceInformation(ICMPExtensionObject):
         IntField('mtu', None),
         lambda pkt: pkt.has_mtu == 1)]
 
-    def self_build(self, field_pos_list=None):
+    def self_build(self, **kwargs):
         if self.afi is None:
             if self.ip4 is not None:
                 self.afi = 1
@@ -179,7 +179,7 @@ class ICMPExtensionInterfaceInformation(ICMPExtensionObject):
         if self.has_mtu and self.mtu is None:
             warning('has_mtu set but mtu is not set.')
 
-        return ICMPExtensionObject.self_build(self, field_pos_list=field_pos_list)  # noqa: E501
+        return ICMPExtensionObject.self_build(self, **kwargs)
 
 
 # Add the post_dissection() method to the existing ICMPv4 and

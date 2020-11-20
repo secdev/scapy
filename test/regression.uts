@@ -2686,6 +2686,11 @@ p = IP(raw(p))
 
 assert p.len == 0
 
+= IP with RawVal
+
+pkt = IP(src="127.0.0.1", dst="127.0.0.1", ttl=RawVal(b"\x01\x02\x03\x04"))
+assert raw(pkt) == b'F\x00\x00\x18\x00\x01\x00\x00\x01\x02\xb2\xe2\x00\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x00'
+
 = TCP payload with IP Total Length 0
 data = b'1234567890abcdef123456789ABCDEF'
 pkt = IP()/TCP()/data
@@ -4629,6 +4634,10 @@ assert isinstance(p.payload, NoPayload)
 p = ARP(pdst='192.168.178.0/24')
 assert "Net" in repr(p)
 
+= Test RawVal on ARP
+
+pkt = ARP(psrc="1.1.1.1", hwtype=RawVal(b"test"))
+assert bytes(pkt) == b'test\x08\x00\x00\x04\x00\x01\x01\x01\x01\x01\x00\x00\x00\x00'
 
 ############
 ############

@@ -270,6 +270,19 @@ The function fuzz() is able to change any default value that is not to be calcul
     ................^C
     Sent 16 packets.
 
+Injecting bytes
+---------------
+
+.. index::
+   single: RawVal
+
+In a packet, each field has a specific type. For instance, the length field of the IP packet ``len`` expects an integer. More on that later. If you're developping a PoC, there are times where you'll want to inject some value that doesn't fit that type. This is possible using ``RawVal``
+
+.. code::
+
+    >>> pkt = IP(len=RawVal(b"NotAnInteger"), src="127.0.0.1")
+    >>> bytes(pkt)
+    b'H\x00NotAnInt\x0f\xb3er\x00\x01\x00\x00@\x00\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00'
 
 Send and receive packets (sr)
 -----------------------------

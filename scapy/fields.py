@@ -65,12 +65,43 @@ if TYPE_CHECKING:
     from scapy.packet import Packet
 
 
-"""
-Helper class to specify a protocol extendable for runtime modifications
-"""
+class RawVal:
+    r"""
+    A raw value that will not be processed by the field and inserted
+    as-is in the packet string.
+
+    Example::
+
+        >>> a = IP(len=RawVal("####"))
+        >>> bytes(a)
+        b'F\x00####\x00\x01\x00\x005\xb5\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00'
+
+    """
+    def __init__(self, val=b""):
+        # type: (bytes) -> None
+        self.val = bytes_encode(val)
+
+    def __str__(self):
+        # type: () -> str
+        return str(self.val)
+
+    def __bytes__(self):
+        # type: () -> bytes
+        return self.val
+
+    def __len__(self):
+        # type: () -> int
+        return len(self.val)
+
+    def __repr__(self):
+        # type: () -> str
+        return "<RawVal [%r]>" % self.val
 
 
 class ObservableDict(Dict[int, str]):
+    """
+    Helper class to specify a protocol extendable for runtime modifications
+    """
     def __init__(self, *args, **kw):
         # type: (*Dict[int, str], **Any) -> None
         self.observers = []  # type: List[_EnumField[Any]]
@@ -148,6 +179,8 @@ class Field(Generic[I, M]):
               ):
         # type: (...) -> int
         """Convert internal value to a length usable by a FieldLenField"""
+        if isinstance(x, RawVal):
+            return len(x)
         return self.sz
 
     def i2count(self, pkt, x):
@@ -197,7 +230,15 @@ class Field(Generic[I, M]):
         Copy the network representation of field `val` (belonging to layer
         `pkt`) to the raw string packet `s`, and return the new string packet.
         """
-        return s + self.struct.pack(self.i2m(pkt, val))
+        try:
+            return s + self.struct.pack(self.i2m(pkt, val))
+        except struct.error as ex:
+            raise ValueError(
+                "Incorrect type of value for field %s:\n" % self.name +
+                "struct.error('%s')\n" % ex +
+                "To inject bytes into the field regardless of the type, " +
+                "use RawVal. See help(RawVal)"
+            )
 
     def getfield(self, pkt, s):
         # type: (Packet, bytes) -> Tuple[bytes, I]
@@ -1243,6 +1284,8 @@ class _StrField(Field[I, bytes]):
 
     def i2len(self, pkt, x):
         # type: (Optional[Packet], Any) -> int
+        if x is None:
+            return 0
         return len(x)
 
     def any2i(self, pkt, x):

@@ -34,6 +34,7 @@ from scapy.fields import (
     MultiEnumField,
     MultipleTypeField,
     PacketListField,
+    RawVal,
     StrField,
 )
 from scapy.config import conf, _version_checker
@@ -67,24 +68,6 @@ try:
     import pyx
 except ImportError:
     pass
-
-
-class RawVal:
-    def __init__(self, val=""):
-        # type: (str) -> None
-        self.val = val
-
-    def __str__(self):
-        # type: () -> str
-        return str(self.val)
-
-    def __bytes__(self):
-        # type: () -> bytes
-        return bytes_encode(self.val)
-
-    def __repr__(self):
-        # type: () -> str
-        return "<RawVal [%r]>" % self.val
 
 
 _T = TypeVar("_T", Dict[str, Any], Optional[Dict[str, Any]])
@@ -652,8 +635,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                         fsubval.clear_cache()
         self.payload.clear_cache()
 
-    def self_build(self, field_pos_list=None):
-        # type: (Optional[Any])-> bytes
+    def self_build(self):
+        # type: () -> bytes
         """
         Create the default layer regarding fields_desc dict
 
@@ -672,10 +655,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
             if isinstance(val, RawVal):
-                sval = raw(val)
-                p += sval
-                if field_pos_list is not None:
-                    field_pos_list.append((f.name, sval, len(p), len(sval)))
+                p += bytes(val)
             else:
                 p = f.addfield(self, p, val)
         return p
