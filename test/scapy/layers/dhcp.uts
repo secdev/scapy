@@ -67,7 +67,7 @@ assert p3[DHCP].options[6] == "end"
 
 p4 = IP(s4)
 assert DHCP in p4
-assert p4[DHCP].options[0] == ("mud-url", "https://example.org")
+assert p4[DHCP].options[0] == ("mud-url", b"https://example.org")
 
 = DHCPOptions
 

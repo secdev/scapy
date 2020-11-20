@@ -1186,6 +1186,23 @@ assert(p.clladdr == "00:01:02:03:04:05")
 
 ############
 ############
++ Test DHCP6 Option MUD URL
+
+= Basic build & dissect
+s = raw(DHCP6OptMudUrl())
+assert(s == b"\x00p\x00\x00")
+
+p = DHCP6OptMudUrl(s)
+assert(p.mudString == b"")
+
+r = b'\x00p\x00\x13https://example.org'
+p = DHCP6OptMudUrl(r)
+assert(p.mudString == b"https://example.org")
+assert(p.optlen == 19)
+
+
+############
+############
 + Test DHCP6 Option Virtual Subnet Selection
 
 = Basic build & dissect
