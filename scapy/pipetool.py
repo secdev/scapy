@@ -155,7 +155,7 @@ class PipeEngine(SelectableObject):
 
     def start(self):
         if self.thread_lock.acquire(0):
-            _t = Thread(target=self.run)
+            _t = Thread(target=self.run, name="scapy.pipetool.PipeEngine")
             _t.setDaemon(True)
             _t.start()
             self.thread = _t
@@ -466,7 +466,7 @@ class ThreadGenSource(AutoSource):
 
     def start(self):
         self.RUN = True
-        Thread(target=self.generate).start()
+        Thread(target=self.generate, name="scapy.pipetool.ThreadGenSource").start()
 
     def stop(self):
         self.RUN = False

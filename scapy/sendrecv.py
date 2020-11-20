@@ -836,7 +836,8 @@ class AsyncSniffer(object):
         self.thread = Thread(
             target=self._run,
             args=self.args,
-            kwargs=self.kwargs
+            kwargs=self.kwargs,
+            name="AsyncSniffer"
         )
         self.thread.setDaemon(True)
 
