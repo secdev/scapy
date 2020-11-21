@@ -2,12 +2,12 @@
   "testfiles": [
     "*.uts",
     "scapy\\layers\\*.uts",
-    "test\\contrib\\automotive\\obd\\*.uts",
-    "test\\contrib\\automotive\\gm\\*.uts",
-    "test\\contrib\\automotive\\bmw\\*.uts",
-    "test\\contrib\\automotive\\*.uts",
+    "test\\scapy\\contrib\\automotive\\obd\\*.uts",
+    "test\\scapy\\contrib\\automotive\\gm\\*.uts",
+    "test\\scapy\\contrib\\automotive\\bmw\\*.uts",
+    "test\\scapy\\contrib\\automotive\\*.uts",
     "tls\\tests_tls_netaccess.uts",
-    "contrib\\*.uts"
+    "scapy\\contrib\\*.uts"
   ],
   "remove_testfiles": [
     "bpf.uts",
@@ -16,7 +16,7 @@
   "breakfailed": true,
   "onlyfailed": true,
   "preexec": {
-    "contrib\\*.uts": "load_contrib(\"%name%\")",
+    "scapy\\contrib\\*.uts": "load_scapy\\contrib(\"%name%\")",
     "cert.uts": "load_layer(\"tls\")",
     "sslv2.uts": "load_layer(\"tls\")",
     "tls*.uts": "load_layer(\"tls\")"
