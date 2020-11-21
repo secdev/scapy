@@ -18,7 +18,7 @@
   ],
   "onlyfailed": true,
   "preexec": {
-    "test/scapy/contrib/*.uts": "load_scapy/contrib(\"%name%\")",
+    "test/scapy/contrib/*.uts": "load_contrib(\"%name%\")",
     "test/cert.uts": "load_layer(\"tls\")",
     "test/sslv2.uts": "load_layer(\"tls\")",
     "test/tls*.uts": "load_layer(\"tls\")"
