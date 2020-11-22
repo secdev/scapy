@@ -56,6 +56,7 @@ from scapy.fields import (
     PacketListField,
     ReversePadField,
     ScalingField,
+    SignedByteField, 
     ShortField,
     StrField,
     StrFixedLenField,
@@ -304,8 +305,7 @@ class RadioTap(Packet):
             lambda pkt: pkt.present and pkt.present.Channel),
         # dBm_AntSignal
         ConditionalField(
-            ScalingField("dBm_AntSignal", 0, offset=-256,
-                         unit="dBm", fmt="B"),
+            SignedByteField("dBm_AntSignal", 0), 
             lambda pkt: pkt.present and pkt.present.dBm_AntSignal),
         # dBm_AntNoise
         ConditionalField(
