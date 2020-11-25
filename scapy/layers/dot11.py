@@ -348,13 +348,13 @@ class RadioTap(Packet):
             lambda pkt: pkt.present and pkt.present.Channel),
         # dBm_AntSignal
         ConditionalField(
-            ScalingField("dBm_AntSignal", 0, offset=-256,
-                         unit="dBm", fmt="B"),
+            ScalingField("dBm_AntSignal", 0,
+                         unit="dBm", fmt="b"),
             lambda pkt: pkt.present and pkt.present.dBm_AntSignal),
         # dBm_AntNoise
         ConditionalField(
-            ScalingField("dBm_AntNoise", 0, offset=-256,
-                         unit="dBm", fmt="B"),
+            ScalingField("dBm_AntNoise", 0,
+                         unit="dBm", fmt="b"),
             lambda pkt: pkt.present and pkt.present.dBm_AntNoise),
         # Lock_Quality
         ConditionalField(
