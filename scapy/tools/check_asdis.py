@@ -19,14 +19,14 @@ def main(argv):
     VERBOSE = 0
     try:
         opts = getopt.getopt(argv, "hi:o:azdv")
-        for opt, parm in opts[0]:
+        for opt, param in opts[0]:
             if opt == "-h":
                 usage()
                 raise SystemExit
             elif opt == "-i":
-                PCAP_IN = parm
+                PCAP_IN = param
             elif opt == "-o":
-                PCAP_OUT = parm
+                PCAP_OUT = param
             elif opt == "-v":
                 VERBOSE += 1
             elif opt == "-d":

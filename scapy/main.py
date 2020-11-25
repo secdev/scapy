@@ -516,20 +516,20 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
 
     try:
         opts = getopt.getopt(argv[1:], "hs:Cc:Pp:d:H")
-        for opt, parm in opts[0]:
+        for opt, param in opts[0]:
             if opt == "-h":
                 _usage()
             elif opt == "-H":
                 conf.fancy_prompt = False
                 conf.verb = 30
             elif opt == "-s":
-                session_name = parm
+                session_name = param
             elif opt == "-c":
-                STARTUP_FILE = parm
+                STARTUP_FILE = param
             elif opt == "-C":
                 STARTUP_FILE = None
             elif opt == "-p":
-                PRESTART_FILE = parm
+                PRESTART_FILE = param
             elif opt == "-P":
                 PRESTART_FILE = None
             elif opt == "-d":
