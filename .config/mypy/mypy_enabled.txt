@@ -35,3 +35,4 @@ scapy/layers/l2.py
 scapy/contrib/roce.py
 scapy/contrib/automotive/gm/gmlanutils.py
 scapy/contrib/automotive/bmw/hsfz.py
+scapy/contrib/automotive/doip.py
