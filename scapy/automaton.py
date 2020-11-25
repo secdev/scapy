@@ -112,10 +112,10 @@ class SelectableObject(object):
         """DEV: When call_release() will be called, the hook will also"""
         self.hooks.append(hook)
 
-    def call_release(self, arborted=False):
+    def call_release(self, aborted=False):
         """DEV: Must be call when the object becomes ready to read.
            Relesases the lock of _wait_non_ressources"""
-        self.was_ended = arborted
+        self.was_ended = aborted
         try:
             self.trigger.release()
         except (threading.ThreadError, AttributeError):
