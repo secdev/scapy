@@ -1,6 +1,11 @@
 name: Scapy unit tests
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [master]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [master]
 
 jobs:
   health:
@@ -52,11 +57,20 @@ jobs:
 
   # Github Actions block ICMP. We can still use it for non root tests
   utscapy:
-    name: Non-sudo unit tests
-    runs-on: ubuntu-latest
+    name: ${{ matrix.os }} ${{ matrix.python }} ${{ matrix.mode }}
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os: [ubuntu-latest]
         python: [2.7, pypy2, pypy3, 3.5, 3.6, 3.7, 3.8, 3.9]
+        mode: [non_root]
+        include:
+          - os: macos-latest
+            python: 2.7
+            mode: both
+          - os: macos-latest
+            python: 3.9
+            mode: both
     steps:
       - name: Checkout Scapy
         uses: actions/checkout@v2
@@ -67,8 +81,30 @@ jobs:
       - name: Install Tox and any other packages
         run: ./.config/ci/install.sh
       - name: Run Tox
-        run: ./.config/ci/test.sh ${{ matrix.python }} non_root
+        run: ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
       - name: Codecov
         uses: codecov/codecov-action@v1
         with:
             file: /home/runner/work/scapy/scapy/.coverage
+
+  # CODE-QL
+  analyze:
+    name: CodeQL analysis
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['python']
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 2
+    - run: git checkout HEAD^2
+      if: ${{ github.event_name == 'pull_request' }}
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v1
+      with:
+         languages: ${{ matrix.language }}
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v1

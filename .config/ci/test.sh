@@ -23,9 +23,9 @@ then
   else
     UT_FLAGS+=" -K vcan_socket"
   fi
-elif [ "$OSTYPE" = "darwin"* ] || [ "$TRAVIS_OS_NAME" = "osx" ]
+elif [[ "$OSTYPE" = "darwin"* ]] || [ "$TRAVIS_OS_NAME" = "osx" ]
 then
-  OSTOX="osx"
+  OSTOX="bsd"
   # Travis CI in macOS 10.13+ can't load kexts. Need this for tuntaposx.
   UT_FLAGS+=" -K tun -K tap"
 fi
