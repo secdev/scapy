@@ -7,7 +7,8 @@ cache:
 
 jobs:
     include:
-        # Run linux as root (non root tested by github ci)
+        # Run linux as root on linux.
+        # Non-root on linux and root/non_root on OSX are tested via GitHub CI
         - os: linux
           python: 2.7
           env:
@@ -27,25 +28,6 @@ jobs:
           python: 3.8
           env:
             - TOXENV=py38-linux_root,codecov
-
-        # run OSX
-        - os: osx
-          osx_image: xcode9.3
-          language: shell
-          before_install:
-              - python --version
-              - pip install --upgrade --ignore-installed --user pip tox setuptools
-          env:
-            - TOXENV=py27-bsd_non_root,py27-bsd_root,codecov
-
-        - os: osx
-          osx_image: xcode10.2
-          language: shell
-          before_install:
-              - python3 --version
-              - pip3 install --upgrade --ignore-installed pip tox setuptools
-          env:
-            - TOXENV=py37-bsd_non_root,py37-bsd_root,codecov
 
         # run custom root tests
         # isotp
