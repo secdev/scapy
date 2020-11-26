@@ -462,9 +462,10 @@ class NetCache:
         setattr(self, cache.name, cache)
 
     def new_cache(self, name, timeout=None):
-        # type: (str, Optional[int]) -> None
+        # type: (str, Optional[int]) -> CacheInstance
         c = CacheInstance(name=name, timeout=timeout)
         self.add_cache(c)
+        return c
 
     def __delattr__(self, attr):
         # type: (str) -> NoReturn
@@ -755,6 +756,8 @@ class Conf(ConfClass):
     ifaces = None  # type: 'scapy.interfaces.NetworkInterfaceDict'
     #: holds the cache of interfaces loaded from Libpcap
     cache_iflist = {}  # type: Dict[str, Tuple[str, List[str], int]]
+    neighbor = None  # type: 'scapy.layers.l2.Neighbor'
+    # `neighbor` will be filed by scapy.layers.l2
     #: holds the Scapy IPv4 routing table and provides methods to
     #: manipulate it
     route = None  # type: 'scapy.route.Route'

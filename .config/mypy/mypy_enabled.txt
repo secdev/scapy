@@ -34,3 +34,4 @@ scapy/utils6.py
 scapy/contrib/roce.py
 scapy/layers/can.py
 scapy/contrib/automotive/gm/gmlanutils.py
+scapy/layers/l2.py

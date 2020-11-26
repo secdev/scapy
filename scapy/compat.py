@@ -36,6 +36,7 @@ __all__ = [
     'Pattern',
     'Sequence',
     'Set',
+    'Sequence',
     'Sized',
     'Tuple',
     'Type',
@@ -154,6 +155,7 @@ else:
     Pattern = _FakeType("Pattern")  # type: ignore
     Sequence = _FakeType("Sequence")  # type: ignore
     Set = _FakeType("Set", set)  # type: ignore
+    Sequence = _FakeType("Sequence", list)  # type: ignore
     Tuple = _FakeType("Tuple")
     Type = _FakeType("Type", type)
     TypeVar = _FakeType("TypeVar")  # type: ignore
