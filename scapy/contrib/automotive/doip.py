@@ -175,13 +175,12 @@ class DoIP(Packet):
 
 class DoIPSocket(StreamSocket):
     def __init__(self, ip='127.0.0.1', port=13400, activate_routing=True,
-                 source_address=0xe80, target_address=0x4010,
+                 source_address=0xe80, target_address=0,
                  activation_type=0):
         # type: (str, int, bool, int, int, int) -> None
         self.ip = ip
         self.port = port
         self.source_address = source_address
-        self.target_address = target_address
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -195,9 +194,11 @@ class DoIPSocket(StreamSocket):
                 verbose=False, timeout=1)
             if resp and resp.payload_type == 0x6 and \
                     resp.routing_activation_response == 0x10:
-                print("Routing activated!")
+                self.target_address = target_address or resp.source_address
+                print("Routing activation successful! "
+                      "Target address set to: %x" % self.target_address)
             else:
-                print("Routing activation failure!")
+                print("Routing activation failed! Response: %s" % repr(resp))
 
 
 class UDS_DoIPSocket(DoIPSocket):
