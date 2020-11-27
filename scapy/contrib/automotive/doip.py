@@ -218,7 +218,7 @@ class UDS_DoIPSocket(DoIPSocket):
             pkt = x
 
         try:
-            x.sent_time = time.time()
+            x.sent_time = time.time()  # type: ignore
         except AttributeError:
             pass
 
