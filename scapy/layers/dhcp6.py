@@ -1032,8 +1032,8 @@ class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
 class DHCP6OptMudUrl(_DHCP6OptGuessPayload):  # RFC8520
     name = "DHCP6 Option - MUD URL"
     fields_desc = [ShortEnumField("optcode", 112, dhcp6opts),
-                   FieldLenField("optlen", None, length_of="mudString"),
-                   StrLenField("mudString", "",
+                   FieldLenField("optlen", None, length_of="mudstring"),
+                   StrLenField("mudstring", "",
                                length_from=lambda pkt: pkt.optlen,
                                max_length=253,
                                )]
