@@ -963,7 +963,7 @@ Create the entry array input::
 
 Create the options array input::
 
-   oa = SDOption_IP4_Endpoint()
+   oa = SDOption_IP4_EndPoint()
    oa.addr = "192.168.0.13"
    oa.l4_proto = 0x11
    oa.port = 30509
