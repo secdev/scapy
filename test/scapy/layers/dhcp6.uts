@@ -1193,11 +1193,11 @@ s = raw(DHCP6OptMudUrl())
 assert(s == b"\x00p\x00\x00")
 
 p = DHCP6OptMudUrl(s)
-assert(p.mudString == b"")
+assert(p.mudstring == b"")
 
 r = b'\x00p\x00\x13https://example.org'
 p = DHCP6OptMudUrl(r)
-assert(p.mudString == b"https://example.org")
+assert(p.mudstring == b"https://example.org")
 assert(p.optlen == 19)
 
 
