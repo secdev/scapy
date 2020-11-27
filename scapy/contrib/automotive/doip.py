@@ -20,7 +20,7 @@ from scapy.supersocket import StreamSocket
 from scapy.layers.inet import TCP, UDP
 from scapy.contrib.automotive.uds import UDS
 from scapy.data import MTU
-from scapy.compat import Union
+from scapy.compat import Union, Tuple, Optional
 
 
 class DoIP(Packet):
@@ -170,6 +170,13 @@ class DoIP(Packet):
             pkt = pkt[:4] + struct.pack("!I", len(pay) + len(pkt) - 8) + \
                 pkt[8:]
         return pkt + pay
+
+    def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, Optional[bytes]]
+        if self.payload_type == 0x8001:
+            return s[:self.payload_length - 4], None
+        else:
+            return b"", None
 
 
 class DoIPSocket(StreamSocket):
