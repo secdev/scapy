@@ -19,7 +19,6 @@ from scapy.packet import Packet, bind_layers
 from scapy.supersocket import StreamSocket
 from scapy.layers.inet import TCP, UDP
 from scapy.contrib.automotive.uds import UDS
-from scapy.error import Scapy_Exception
 from scapy.data import MTU
 from scapy.compat import Union
 
@@ -194,9 +193,10 @@ class DoIPSocket(StreamSocket):
                 verbose=False, timeout=1)
             if resp and resp.payload_type == 0x6 and \
                     resp.routing_activation_response == 0x10:
-                self.target_address = target_address or resp.source_address
+                self.target_address = target_address or \
+                    resp.logical_address_doip_entity
                 print("Routing activation successful! "
-                      "Target address set to: %x" % self.target_address)
+                      "Target address set to: 0x%x" % self.target_address)
             else:
                 print("Routing activation failed! Response: %s" % repr(resp))
 
@@ -204,21 +204,26 @@ class DoIPSocket(StreamSocket):
 class UDS_DoIPSocket(DoIPSocket):
     def send(self, x):
         # type: (Union[Packet, bytes]) -> int
-        if not isinstance(x, UDS):
-            raise Scapy_Exception("Please provide a UDS packet")
+        if isinstance(x, UDS):
+            pkt = DoIP(payload_type=0x8001, source_address=self.source_address,
+                       target_address=self.target_address) / x
+        else:
+            pkt = x
+
         try:
             x.sent_time = time.time()
         except AttributeError:
             pass
 
-        return super(UDS_DoIPSocket, self).send(
-            DoIP(payload_type=0x8001, source_address=self.source_address,
-                 target_address=self.target_address) / x)
+        return super(UDS_DoIPSocket, self).send(pkt)
 
     def recv(self, x=MTU):
         # type: (int) -> Packet
         pkt = super(UDS_DoIPSocket, self).recv(x)
-        return pkt[1]
+        if pkt.payload_type == 0x8001:
+            return pkt[1]
+        else:
+            return pkt
 
 
 bind_layers(UDP, DoIP, sport=13400)
