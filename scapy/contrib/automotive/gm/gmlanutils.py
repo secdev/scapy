@@ -159,6 +159,10 @@ def GMLAN_GetSecurityAccess(sock, key_function, level=1, timeout=None, verbose=N
             print("Requesting seed..")
         resp = sock.sr1(request, timeout=timeout, verbose=0)
         if not _check_response(resp, verbose):
+            if resp is not None and resp.returnCode == 0x37 and retry:
+                if verbose:
+                    print("RequiredTimeDelayNotExpired. Wait 10s.")
+                time.sleep(10)
             if verbose:
                 print("Negative Response.")
             continue
