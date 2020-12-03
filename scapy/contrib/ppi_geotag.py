@@ -34,7 +34,7 @@ from scapy.fields import ByteField, ConditionalField, Field, FlagsField, \
     UTCTimeField, XLEIntField, SignedByteField, XLEShortField
 from scapy.layers.ppi import PPI_Hdr, PPI_Element
 from scapy.error import warning
-import scapy.modules.six as six
+from scapy.modules.six.moves import six
 from scapy.modules.six.moves import range
 
 CURR_GEOTAG_VER = 2  # Major revision of specification
