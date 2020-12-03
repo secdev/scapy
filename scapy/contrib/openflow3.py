@@ -25,7 +25,7 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     XIntField, XShortField, PacketLenField
 from scapy.layers.l2 import Ether
 from scapy.packet import Packet, Padding, Raw
-from scapy.modules import six
+import scapy.modules.six as six
 
 from scapy.contrib.openflow import _ofp_header, _ofp_header_item, \
     OFPacketField, OpenFlow, _UnknownOpenFlow

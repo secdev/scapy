@@ -31,7 +31,7 @@ from scapy.compat import chb, orb
 from scapy.layers.can import CAN
 import scapy.modules.six as six
 import scapy.automaton as automaton
-import six.moves.queue as queue
+from scapy.modules.six.moves import queue
 from scapy.error import Scapy_Exception, warning, log_loading, log_runtime
 from scapy.supersocket import SuperSocket, SO_TIMESTAMPNS
 from scapy.config import conf
