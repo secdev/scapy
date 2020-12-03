@@ -1388,16 +1388,16 @@ def _test():
 
 retry_test(_test)
 
-= Sending an ICMP message at layer 2 and layer 3
-~ netaccess IP ICMP
+= Sending a TCP syn message at layer 2 and layer 3
+~ netaccess IP
 def _test():
-    tmp = send(IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
+    tmp = send(IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S"), return_packets=True, realtime=True)
     assert(len(tmp) == 1)
     
-    tmp = sendp(Ether()/IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
+    tmp = sendp(Ether()/IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S"), return_packets=True, realtime=True)
     assert(len(tmp) == 1)
     
-    p = Ether()/IP(dst="8.8.8.8")/ICMP()
+    p = Ether()/IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S")
     from decimal import Decimal
     p.time = Decimal(p.time)
     tmp = sendp(p, return_packets=True, realtime=True)
@@ -1421,25 +1421,25 @@ retry_test(_test)
 
 conf.L3socket = sock
 
-= Sending an ICMP message 'forever' at layer 2 and layer 3
-~ netaccess IP ICMP icmp_firewall
+= Sending a TCP syn 'forever' at layer 2 and layer 3
+~ netaccess IP
 def _test():
-    tmp = srloop(IP(dst="8.8.8.8")/ICMP(), count=1, timeout=3)
+    tmp = srloop(IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S"), count=1, timeout=3)
     assert(type(tmp) == tuple and len(tmp[0]) == 1)
     
-    tmp = srploop(Ether()/IP(dst="8.8.8.8")/ICMP(), count=1, timeout=3)
+    tmp = srploop(Ether()/IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S"), count=1, timeout=3)
     assert(type(tmp) == tuple and len(tmp[0]) == 1)
 
 retry_test(_test)
 
-= Sending and receiving an ICMP with flooding methods
-~ netaccess IP ICMP icmp_firewall
+= Sending and receiving an TCP syn with flooding methods
+~ netaccess IP
 from functools import partial
 # flooding methods do not support timeout. Packing the test for security
 def _test_flood(flood_function, add_ether=False):
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
-    p = IP(dst="www.google.com")/ICMP()
+    p = IP(dst="www.google.com")/TCP(sport=RandShort(), dport=80, flags="S")
     if add_ether:
         p = Ether()/p
     x = flood_function(p, timeout=2)
@@ -1449,7 +1449,6 @@ def _test_flood(flood_function, add_ether=False):
     x
     assert x[IP].ottl() in [32, 64, 128, 255]
     assert 0 <= x[IP].hops() <= 126
-    x is not None and ICMP in x and x[ICMP].type == 0
 
 _test_srflood = partial(_test_flood, srflood)
 retry_test(_test_srflood)
@@ -1623,7 +1622,7 @@ def _test():
     conf.debug_match = True
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
-    ans, unans = sr(IP(dst="www.google.fr") / ICMP(), timeout=2)
+    ans, unans = sr(IP(dst="www.google.fr") / TCP(sport=RandShort(), dport=80, flags="S"), timeout=2)
     assert ans[0].query == ans[0][0]
     assert ans[0].answer == ans[0][1]
     conf.debug_match = old_debug_match
@@ -1637,9 +1636,9 @@ retry_test(_test)
 def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / ICMP(), timeout=2, retry=1)
+    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / TCP(sport=RandShort(), dport=53, flags="S"), timeout=2, retry=1)
     conf.debug_dissector = old_debug_dissector
-    len(ans) == 1 and len(unans) == 1
+    assert len(ans) == 1 and len(unans) == 1
 
 retry_test(_test)
 
@@ -1648,9 +1647,9 @@ retry_test(_test)
 def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / ICMP(), timeout=2, multi=1)
+    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / TCP(sport=RandShort(), dport=53, flags="S"), timeout=2, multi=1)
     conf.debug_dissector = old_debug_dissector
-    len(ans) == 1 and len(unans) == 1
+    assert len(ans) >= 1 and len(unans) == 1
 
 retry_test(_test)
 
