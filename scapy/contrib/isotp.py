@@ -29,7 +29,7 @@ from scapy.fields import BitField, FlagsField, StrLenField, \
     BitEnumField, ByteField, XByteField, BitFieldLenField, StrField
 from scapy.compat import chb, orb
 from scapy.layers.can import CAN
-from scapy.modules.six.moves import six
+import scapy.modules.six as six
 import scapy.automaton as automaton
 import six.moves.queue as queue
 from scapy.error import Scapy_Exception, warning, log_loading, log_runtime

@@ -32,7 +32,7 @@ from scapy.fields import ConditionalField, EnumField, Field, FieldLenField, \
     XByteField, XIntField
 from scapy.layers.inet import TCP
 from scapy.layers.sctp import SCTPChunkData
-from scapy.modules.six.moves import six
+import scapy.modules.six as six
 from scapy.modules.six.moves import range
 from scapy.compat import chb, orb, raw, bytes_hex, plain_str
 from scapy.error import warning

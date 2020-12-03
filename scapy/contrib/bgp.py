@@ -38,7 +38,7 @@ from scapy.layers.inet6 import IP6Field
 from scapy.config import conf, ConfClass
 from scapy.compat import orb, chb
 from scapy.error import log_runtime
-from scapy.modules.six.moves import six
+import scapy.modules.six as six
 
 
 #
