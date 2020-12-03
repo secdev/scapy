@@ -1375,7 +1375,7 @@ assert ssid == "ROUTE-821E295"
 * Those tests need network access
 
 = Sending and receiving an ICMP
-~ netaccess IP ICMP
+~ netaccess IP ICMP icmp_firewall
 def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
@@ -1422,18 +1422,18 @@ retry_test(_test)
 conf.L3socket = sock
 
 = Sending an ICMP message 'forever' at layer 2 and layer 3
-~ netaccess IP ICMP
+~ netaccess IP ICMP icmp_firewall
 def _test():
-    tmp = srloop(IP(dst="8.8.8.8")/ICMP(), count=1)
+    tmp = srloop(IP(dst="8.8.8.8")/ICMP(), count=1, timeout=3)
     assert(type(tmp) == tuple and len(tmp[0]) == 1)
     
-    tmp = srploop(Ether()/IP(dst="8.8.8.8")/ICMP(), count=1)
+    tmp = srploop(Ether()/IP(dst="8.8.8.8")/ICMP(), count=1, timeout=3)
     assert(type(tmp) == tuple and len(tmp[0]) == 1)
 
 retry_test(_test)
 
 = Sending and receiving an ICMP with flooding methods
-~ netaccess IP ICMP
+~ netaccess IP ICMP icmp_firewall
 from functools import partial
 # flooding methods do not support timeout. Packing the test for security
 def _test_flood(flood_function, add_ether=False):

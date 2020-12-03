@@ -7,28 +7,6 @@ cache:
 
 jobs:
     include:
-        # Run linux as root on linux.
-        # Non-root on linux and root/non_root on OSX are tested via GitHub CI
-        - os: linux
-          python: 2.7
-          env:
-            - TOXENV=py27-linux_root,codecov
-
-        - os: linux
-          python: pypy2
-          env:
-            - TOXENV=pypy-linux_root,codecov
-
-        - os: linux
-          python: pypy3
-          env:
-            - TOXENV=pypy3-linux_root,codecov
-
-        - os: linux
-          python: 3.8
-          env:
-            - TOXENV=py38-linux_root,codecov
-
         # run custom root tests
         # isotp
         - os: linux

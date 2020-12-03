@@ -67,15 +67,6 @@ _DOC_SNDRCV_PARAMS = """
     :param timeout: how much time to wait after the last packet has been sent
     :param verbose: set verbosity level
     :param multi: whether to accept multiple answers for the same stimulus
-    :param store_unanswered: whether to store not-answered packets or not.
-        setting it to False will increase speed, and will return
-        None as the unans list.
-    :param process: if specified, only result from process(pkt) will be stored.
-        the function should follow the following format:
-        ``lambda sent, received: (func(sent), func2(received))``
-        if the packet is unanswered, `received` will be None.
-        if `store_unanswered` is False, the function won't be called on
-        un-answered packets.
     :param prebuild: pre-build the packets before starting to send them.
         Automatically enabled when a generator is passed as the packet
     """
@@ -681,7 +672,7 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, timeout=None):
     return sndrcv(
         pks, infinite_gen,
         inter=inter, verbose=verbose,
-        chainCC=chainCC, timeout=None,
+        chainCC=chainCC, timeout=timeout,
         _flood=_flood
     )
 
