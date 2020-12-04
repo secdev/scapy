@@ -266,7 +266,7 @@ ie = gtp.IE_list[0]
 ie.CSG_ID == 22 and ie.AccessMode == 0 and ie.LCSG == 1 and ie.CMI == 0 and ie.MCC == b'123' and ie.MNC == b'45'
 
 = IE_UCI, basic instantiation
-ie = IE_UCI(ietype='UCI', length=8, CR_flag=0, instance=0, MCC=b'123', MNC=b'45', SPARE=0, CSG_ID=22, AccessMode=0, LCSG=1, CMI=0)
+ie = IE_UCI(ietype='UCI', length=8, CR_flag=0, instance=0, MCC=b'123', MNC=b'45', SPARE1=0, SPARE2=0, CSG_ID=22, AccessMode=0, LCSG=1, CMI=0)
 ie.ietype == 145 and ie.CSG_ID == 22 and ie.AccessMode == 0 and ie.LCSG == 1 and ie.CMI == 0 and ie.MCC == b'123' and ie.MNC == b'45'
 
 = IE_BearerFlags, dissection
