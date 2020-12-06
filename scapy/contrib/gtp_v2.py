@@ -266,10 +266,12 @@ class GTPHeader(gtp.GTPHeader):
                    ThreeBytesField("seq", RandShort()),
                    ConditionalField(BitField("msg_priority", 0, 4),
                                     lambda pkt:pkt.MP == 1),
-                   ConditionalField(BitField("SPARE3_MP1", 0, 4),
-                                    lambda pkt:pkt.MP == 1),
-                   ConditionalField(ByteField("SPARE3_MP0", 0),
-                                    lambda pkt:pkt.MP == 0)
+                   ConditionalField(
+                       MultipleTypeField(
+                           [(BitField("SPARE3", 0, 4), lambda pkt: pkt.MP == 1)],
+                           ByteField("SPARE3", 0)
+                       ), lambda pkt: pkt.MP in [0, 1]
+                   )
                    ]
 
 
@@ -904,11 +906,11 @@ class IE_Indication(gtp.IE_Base):
         ConditionalField(
         BitField("TSPCMI", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
-        BitField("Spare1", 0, 1), lambda pkt: pkt.length > 7),
+        BitField("SPARE1", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
-        BitField("Spare2", 0, 1), lambda pkt: pkt.length > 7),
+        BitField("SPARE2", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
-        BitField("Spare3", 0, 1), lambda pkt: pkt.length > 7),
+        BitField("SPARE3", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
         BitField("N5GNMI", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
