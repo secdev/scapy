@@ -31,6 +31,7 @@ from scapy.fields import (
     ConditionalField,
     IPField,
     IntField,
+    MultipleTypeField,
     PacketField,
     PacketListField,
     ShortEnumField,
@@ -268,7 +269,8 @@ class GTPHeader(gtp.GTPHeader):
                                     lambda pkt:pkt.MP == 1),
                    ConditionalField(
                        MultipleTypeField(
-                           [(BitField("SPARE3", 0, 4), lambda pkt: pkt.MP == 1)],
+                           [(BitField("SPARE3", 0, 4),
+                             lambda pkt: pkt.MP == 1)],
                            ByteField("SPARE3", 0)
                        ), lambda pkt: pkt.MP in [0, 1]
                    )
