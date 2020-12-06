@@ -31,6 +31,7 @@ from scapy.fields import (
     ConditionalField,
     IPField,
     IntField,
+    MultipleTypeField,
     PacketField,
     PacketListField,
     ShortEnumField,
@@ -266,11 +267,12 @@ class GTPHeader(gtp.GTPHeader):
                    ThreeBytesField("seq", RandShort()),
                    ConditionalField(BitField("msg_priority", 0, 4),
                                     lambda pkt:pkt.MP == 1),
-                   ConditionalField(BitField("SPARE3", 0, 4),
-                                    lambda pkt:pkt.MP == 1),
-                   ConditionalField(ByteField("SPARE3", 0),
-                                    lambda pkt:pkt.MP == 0)
-                   ]
+                   ConditionalField(
+                       MultipleTypeField(
+                           [(BitField("SPARE3", 0, 4),
+                             lambda pkt: pkt.MP == 1)],
+                           ByteField("SPARE3", 0)),
+                       lambda pkt: pkt.MP in [0, 1])]
 
 
 class IE_IP_Address(gtp.IE_Base):
@@ -512,10 +514,10 @@ class IE_UCI(gtp.IE_Base):
                    BitField("instance", 0, 4),
                    gtp.TBCDByteField("MCC", "", 2),
                    gtp.TBCDByteField("MNC", "", 1),
-                   BitField("SPARE", 0, 5),
+                   BitField("SPARE1", 0, 5),
                    BitField("CSG_ID", 0, 27),
                    BitField("AccessMode", 0, 2),
-                   BitField("SPARE", 0, 4),
+                   BitField("SPARE2", 0, 4),
                    BitField("LCSG", 0, 1),
                    BitField("CMI", 0, 1)]
 
@@ -904,11 +906,11 @@ class IE_Indication(gtp.IE_Base):
         ConditionalField(
         BitField("TSPCMI", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
-        BitField("Spare", 0, 1), lambda pkt: pkt.length > 7),
+        BitField("SPARE1", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
-        BitField("Spare", 0, 1), lambda pkt: pkt.length > 7),
+        BitField("SPARE2", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
-        BitField("Spare", 0, 1), lambda pkt: pkt.length > 7),
+        BitField("SPARE3", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
         BitField("N5GNMI", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
@@ -1346,10 +1348,10 @@ class IE_Bearer_QoS(gtp.IE_Base):
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   BitField("SPARE", 0, 1),
+                   BitField("SPARE1", 0, 1),
                    BitField("PCI", 0, 1),
                    BitField("PriorityLevel", 0, 4),
-                   BitField("SPARE", 0, 1),
+                   BitField("SPARE2", 0, 1),
                    BitField("PVI", 0, 1),
                    ByteField("QCI", 0),
                    BitField("MaxBitRateForUplink", 0, 40),
