@@ -271,10 +271,8 @@ class GTPHeader(gtp.GTPHeader):
                        MultipleTypeField(
                            [(BitField("SPARE3", 0, 4),
                              lambda pkt: pkt.MP == 1)],
-                           ByteField("SPARE3", 0)
-                       ), lambda pkt: pkt.MP in [0, 1]
-                   )
-                   ]
+                           ByteField("SPARE3", 0)),
+                       lambda pkt: pkt.MP in [0, 1])]
 
 
 class IE_IP_Address(gtp.IE_Base):
