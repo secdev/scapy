@@ -32,7 +32,7 @@ from scapy.modules.six.moves import range
 
 # ctypes definitions
 
-LIBC = cdll.LoadLibrary(find_library("libc"))
+LIBC = cdll.LoadLibrary(find_library("c"))
 
 LIBC.ioctl.argtypes = [c_int, c_ulong, c_char_p]
 LIBC.ioctl.restype = c_int
