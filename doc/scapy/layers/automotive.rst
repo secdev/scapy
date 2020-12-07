@@ -630,7 +630,7 @@ Usage with python-can CANSockets::
    conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
    conf.contribs['CANSocket'] = {'use-python-can': True}
    load_contrib('isotp')
-   with ISOTPSocket(CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel="can0", bitrate=250000)), sid=0x641, did=0x241) as sock:
+   with ISOTPSocket(CANSocket(bustype='socketcan', channel="can0"), sid=0x641, did=0x241) as sock:
        sock.send(...)
 
 This second example allows the usage of any ``python_can.interface`` object.
