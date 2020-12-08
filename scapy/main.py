@@ -58,8 +58,7 @@ QUOTES = [
     ("To craft a packet, you have to be a packet, and learn how to swim in "
      "the wires and in the waves.", "Jean-Claude Van Damme"),
     ("We are in France, we say Skappee. OK? Merci.", "Sebastien Chabal"),
-    ("Wanna support scapy? Rate it on sectools! "
-     "http://sectools.org/tool/scapy/", "Satoshi Nakamoto"),
+    ("Wanna support scapy? Star us on GitHub!", "Satoshi Nakamoto"),
     ("What is dead may never die!", "Python 2"),
 ]
 
