@@ -211,30 +211,30 @@ Creating a simple native CANSocket::
    load_contrib('cansocket')
 
    # Simple Socket
-   socket = CANSocket(iface="vcan0")
+   socket = CANSocket(channel="vcan0")
 
 Creating a native CANSocket only listen for messages with Id == 0x200::
 
-   socket = CANSocket(iface="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x7FF}])
+   socket = CANSocket(channel="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x7FF}])
 
 Creating a native CANSocket only listen for messages with Id >= 0x200 and Id <= 0x2ff::
 
-   socket = CANSocket(iface="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x700}])
+   socket = CANSocket(channel="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x700}])
 
 Creating a native CANSocket only listen for messages with Id != 0x200::
 
-   socket = CANSocket(iface="vcan0", can_filters=[{'can_id': 0x200 | CAN_INV_FILTER, 'can_mask': 0x7FF}])
+   socket = CANSocket(channel="vcan0", can_filters=[{'can_id': 0x200 | CAN_INV_FILTER, 'can_mask': 0x7FF}])
 
 Creating a native CANSocket with multiple can_filters::
 
-   socket = CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff},
+   socket = CANSocket(channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff},
                                                   {'can_id': 0x400, 'can_mask': 0x7ff},
                                                   {'can_id': 0x600, 'can_mask': 0x7ff},
                                                   {'can_id': 0x7ff, 'can_mask': 0x7ff}])
 
 Creating a native CANSocket which also receives its own messages::
 
-   socket = CANSocket(iface="vcan0", receive_own_messages=True)
+   socket = CANSocket(channel="vcan0", receive_own_messages=True)
 
 .. image:: ../graphics/animations/animation-scapy-native-cansocket.svg
 
@@ -290,8 +290,8 @@ Import modules::
 
 Create can sockets for attack::
 
-   socket0 = CANSocket(iface='vcan0')
-   socket1 = CANSocket(iface='vcan1')
+   socket0 = CANSocket(channel='vcan0')
+   socket1 = CANSocket(channel='vcan1')
 
 Create a function to send packet with threading::
 
@@ -307,8 +307,8 @@ Create a function for forwarding or change packets::
 Create a function to bridge and sniff between two sockets::
 
    def bridge():
-       bSocket0 = CANSocket(iface='vcan0')
-       bSocket1 = CANSocket(iface='vcan1')
+       bSocket0 = CANSocket(channel='vcan0')
+       bSocket1 = CANSocket(channel='vcan1')
        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=1)
        bSocket0.close()
        bSocket1.close()
@@ -420,7 +420,7 @@ If we aren't interested in the DTO of an ECU, we can just send a CRO message lik
 Sending a CRO message::
 
     pkt = CCP(identifier=0x700)/CRO(ctr=1)/CONNECT(station_address=0x02)
-    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
+    sock = CANSocket(bustype='socketcan', channel='vcan0')
     sock.send(pkt)
 
 If we are interested in the DTO of an ECU, we need to set the basecls parameter of the
@@ -428,7 +428,7 @@ CANSocket to CCP and we need to use sr1:
 Sending a CRO message::
 
     cro = CCP(identifier=0x700)/CRO(ctr=0x53)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12")
-    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000), basecls=CCP)
+    sock = CANSocket(bustype='socketcan', channel='vcan0', basecls=CCP)
     dto = sock.sr1(cro)
     dto.show()
     ###[ CAN Calibration Protocol ]###
