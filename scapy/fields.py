@@ -139,9 +139,10 @@ M = TypeVar('M')  # Machine storage
 @six.add_metaclass(Field_metaclass)
 class Field(Generic[I, M]):
     """
-    For more information on how this work, please refer to
-    http://www.secdev.org/projects/scapy/files/scapydoc.pdf
-    chapter ``Adding a New Field``
+    For more information on how this works, please refer to the
+    'Adding new protocols' chapter in the online documentation:
+
+    https://scapy.readthedocs.io/en/stable/build_dissect.html
     """
     __slots__ = [
         "name",
