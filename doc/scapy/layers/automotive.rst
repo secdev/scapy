@@ -56,7 +56,7 @@ How-To
 
 Send and receive a message over Linux SocketCAN::
 
-   load_layer('can')
+   load_layer("can")
    load_contrib('cansocket')
 
    socket = CANSocket(channel='can0')
@@ -70,7 +70,7 @@ Send and receive a message over Linux SocketCAN::
 Send a message over a Vector CAN-Interface::
 
    import can
-   load_layer('can')
+   load_layer("can")
    conf.contribs['CANSocket'] = {'use-python-can' : True}
    load_contrib('cansocket')
    from can.interfaces.vector import VectorBus
@@ -471,7 +471,7 @@ The class ``ISOTPSocket`` can be set to a ``ISOTPNativeSocket`` or a ``ISOTPSoft
 The decision is made dependent on the configuration ``conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}`` (to select ``ISOTPNativeSocket``) or
 ``conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}`` (to select ``ISOTPSoftSocket``).
 This will allow you to write platform independent code. Apply this configuration before loading the ISOTP layer
-with ``load_contrib("isotp")``.
+with ``load_contrib('isotp')``.
 
 Another remark in respect to ISOTPSocket compatibility. Always use with for socket creation. Example::
 
@@ -770,8 +770,8 @@ Customization example::
 
 If one wants to work with this custom additions, these can be loaded at runtime to the Scapy interpreter::
 
-    >>> load_contrib("automotive.uds")
-    >>> load_contrib("automotive.OEM-XYZ.car-model-xyz")
+    >>> load_contrib('automotive.uds')
+    >>> load_contrib('automotive.OEM-XYZ.car-model-xyz')
 
     >>> pkt = UDS()/UDS_WDBI()/DBI_IP(IP='192.168.2.1', SUBNETMASK='255.255.255.0', DEFAULT_GATEWAY='192.168.2.1')
 
@@ -900,7 +900,7 @@ This example shows a SOME/IP message which requests a service 0x1234 with the me
 
 Load the contribution::
 
-   load_contrib("automotive.someip")
+   load_contrib('automotive.someip')
 
 Create UDP package::
 
@@ -937,7 +937,7 @@ In this example a SOME/IP SD offer service message is shown with an IPv4 endpoin
 
 Load the contribution::
 
-   load_contrib("automotive.someip")
+   load_contrib('automotive.someip')
 
 Create UDP package::
 
