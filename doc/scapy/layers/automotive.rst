@@ -412,6 +412,7 @@ can be interpreted from the command of the associated CRO object.
 
 Creating a CRO message::
 
+    load_contrib('automotive.ccp')
     CCP(identifier=0x700)/CRO(ctr=1)/CONNECT(station_address=0x02)
     CCP(identifier=0x711)/CRO(ctr=2)/GET_SEED(resource=2)
     CCP(identifier=0x711)/CRO(ctr=3)/UNLOCK(key=b"123456")
