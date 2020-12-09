@@ -92,14 +92,14 @@ class ConnectPositiveResponse(Packet):
 
     def get_address_granularity(self):
         comm_mode_basic = self.comm_mode_basic
-        if "address_granularity_1" not in comm_mode_basic and \
-                "address_granularity_2" not in comm_mode_basic:
+        if not comm_mode_basic.address_granularity_0 and \
+                not comm_mode_basic.address_granularity_1:
             return 1
-        if "address_granularity_1" not in comm_mode_basic == 0 and \
-                "address_granularity_2" in comm_mode_basic:
+        if comm_mode_basic.address_granularity_0 and \
+                not comm_mode_basic.address_granularity_1:
             return 2
-        if "address_granularity_1" in comm_mode_basic and \
-                "address_granularity_2" not in comm_mode_basic:
+        if not comm_mode_basic.address_granularity_0 and \
+                comm_mode_basic.address_granularity_1:
             return 4
         else:
             warning(
@@ -347,11 +347,11 @@ class DAQProcessorInfoPositiveResponse(Packet):
 
     def write_identification_field_type_to_config(self):
         conf.contribs["XCP"][
-            "identification_field_type_0"] = "identification_field_type_0" in \
-                                             self.daq_key_byte
+            "identification_field_type_0"] = bool(
+            self.daq_key_byte.identification_field_type_0)
         conf.contribs["XCP"][
-            "identification_field_type_1"] = "identification_field_type_1" in \
-                                             self.daq_key_byte
+            "identification_field_type_1"] = bool(
+            self.daq_key_byte.identification_field_type_1)
 
     def post_dissection(self, pkt):
         self.write_identification_field_type_to_config()
@@ -370,9 +370,9 @@ class DAQResolutionInfoPositiveResponse(Packet):
     ]
 
     def get_timestamp_size(self):
-        size_0 = "size_0" in self.timestamp_mode
-        size_1 = "size_1" in self.timestamp_mode
-        size_2 = "size_2" in self.timestamp_mode
+        size_0 = bool(self.timestamp_mode.size_0)
+        size_1 = bool(self.timestamp_mode.size_1)
+        size_2 = bool(self.timestamp_mode.size_2)
 
         if not size_2 and not size_1 == 0 and size_0:
             return 1
