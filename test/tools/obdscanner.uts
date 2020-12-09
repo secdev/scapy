@@ -307,30 +307,16 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD,
     sim = threading.Thread(target=answering_machine, kwargs={'verbose': False, 'timeout': 100, 'stop_filter': lambda p: bytes(p) == b"\x01\xff\xff\xff\xff"})
     sim.start()
     try:
-        result = subprocess.Popen([sys.executable, "scapy/tools/automotive/obdscanner.py"] + can_socket_string_list + ["-s", "0x7e0", "-d", "0x7e8", "-t", "0.20", "-f", "-1"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.Popen([sys.executable, "scapy/tools/automotive/obdscanner.py"] + can_socket_string_list + ["-s", "0x7e0", "-d", "0x7e8", "-t", "0.30", "-f", "-1", "-3"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         std_out1, std_err1 = result.communicate()
-    except Exception as e:
-        print(e)
-    finally:
-        tester.send(b"\x01\xff\xff\xff\xff")
-        sim.join(timeout=10)
-    expected_output = ["256 requests were sent", "1 answered"]
-    retest = False
-    try:
-        for out in expected_output:
-            assert bytes_encode(out) in bytes_encode(std_out1)
-    except AssertionError:
-        retest = True
-    if not retest:
-        exit(0)
-    try:
-        result = subprocess.Popen([sys.executable, "scapy/tools/automotive/obdscanner.py"] + can_socket_string_list + ["-s", "0x7e0", "-d", "0x7e8", "-t", "0.20", "-f", "-1"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.Popen([sys.executable, "scapy/tools/automotive/obdscanner.py"] + can_socket_string_list + ["-s", "0x7e0", "-d", "0x7e8", "-t", "0.30", "-f", "-1", "-3"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         std_out2, std_err2 = result.communicate()
     except Exception as e:
         print(e)
     finally:
         tester.send(b"\x01\xff\xff\xff\xff")
         sim.join(timeout=10)
+    expected_output = ["256 requests were sent", "1 requests were sent, 1 answered"]
     for out in expected_output:
         assert bytes_encode(out) in bytes_encode(std_out1) or bytes_encode(out) in bytes_encode(std_out2)
 
