@@ -228,7 +228,7 @@ class UDS_DoIPSocket(DoIPSocket):
         # type: (int) -> Packet
         pkt = super(UDS_DoIPSocket, self).recv(x)
         if pkt.payload_type == 0x8001:
-            return pkt[1]
+            return pkt.payload
         else:
             return pkt
 
