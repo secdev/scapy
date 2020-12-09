@@ -40,7 +40,6 @@ from scapy.error import log_runtime, Scapy_Exception, warning
 from scapy.pton_ntop import inet_pton
 
 # Typing imports
-from scapy.base_classes import Packet_metaclass
 from scapy.compat import (
     cast,
     Any,
@@ -1310,7 +1309,9 @@ class PcapReader(RawPcapReader):
         # type: (str, IO[bytes], bytes) -> None
         RawPcapReader.__init__(self, filename, fdesc, magic)
         try:
-            self.LLcls = conf.l2types[self.linktype]  # type: Packet_metaclass
+            self.LLcls = conf.l2types.num2layer[
+                self.linktype
+            ]  # type: Type[Packet]
         except KeyError:
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype, self.linktype))  # noqa: E501
             if conf.raw_layer is None:
@@ -1337,7 +1338,7 @@ class PcapReader(RawPcapReader):
             if conf.raw_layer is None:
                 # conf.raw_layer is set on import
                 import scapy.packet  # noqa: F401
-            p = conf.raw_layer(s)  # type: ignore
+            p = conf.raw_layer(s)
         power = Decimal(10) ** Decimal(-9 if self.nano else -6)
         p.time = EDecimal(pkt_info.sec + power * pkt_info.usec)
         p.wirelen = pkt_info.wirelen
@@ -1521,7 +1522,7 @@ class PcapNgReader(RawPcapNgReader):
             raise EOFError
         s, (linktype, tsresol, tshigh, tslow, wirelen) = rp
         try:
-            cls = conf.l2types[linktype]  # type: Packet_metaclass
+            cls = conf.l2types.num2layer[linktype]  # type: Type[Packet]
             p = cls(s)  # type: Packet
         except KeyboardInterrupt:
             raise
@@ -1531,7 +1532,7 @@ class PcapNgReader(RawPcapNgReader):
             if conf.raw_layer is None:
                 # conf.raw_layer is set on import
                 import scapy.packet  # noqa: F401
-            p = conf.raw_layer(s)  # type: ignore
+            p = conf.raw_layer(s)
         if tshigh is not None:
             p.time = EDecimal((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
@@ -1756,7 +1757,12 @@ class PcapWriter(RawPcapWriter):
         # type: (Optional[Union[Packet, bytes]]) -> None
         if self.linktype is None:
             try:
-                self.linktype = conf.l2types[pkt.__class__]
+                if pkt is None or isinstance(pkt, bytes):
+                    # Can't guess LL
+                    raise KeyError
+                self.linktype = conf.l2types.layer2num[
+                    pkt.__class__
+                ]
                 # Import here to prevent import loops
                 from scapy.layers.inet import IP
                 from scapy.layers.inet6 import IPv6

@@ -74,6 +74,9 @@ elif WINDOWS:
 
 _set_conf_sockets()  # Apply config
 
+if LINUX or BSD:
+    conf.load_layers.append("tuntap")
+
 
 def get_if_addr6(iff):
     """

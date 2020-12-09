@@ -40,6 +40,7 @@ except (ImportError, RuntimeError):
 
 
 def _test_pyx():
+    # type: () -> bool
     """Returns if PyX is correctly installed or not"""
     try:
         with open(os.devnull, 'wb') as devnull:

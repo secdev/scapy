@@ -528,7 +528,7 @@ class PadFieldWithLen(PadField):
     """PadField which handles the i2len function to include padding"""
     def i2len(self, pkt, val):
         """get the length of the field, including the padding length"""
-        fld_len = self._fld.i2len(pkt, val)
+        fld_len = self.fld.i2len(pkt, val)
         return fld_len + self.padlen(fld_len)
 
 

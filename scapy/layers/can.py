@@ -23,11 +23,12 @@ from scapy.data import DLT_CAN_SOCKETCAN, MTU
 from scapy.fields import FieldLenField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ScalingField, ConditionalField, LenField
 from scapy.volatile import RandFloat, RandBinFloat
-from scapy.packet import Packet, bind_layers, BasePacket
+from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import CookedLinux
 from scapy.error import Scapy_Exception
 from scapy.plist import PacketList
 from scapy.supersocket import SuperSocket
+from scapy.utils import _ByteStream
 
 __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
@@ -167,7 +168,7 @@ class SignalField(ScalingField):
         return self.fmt[-1] == "f"
 
     def addfield(self, pkt, s, val):
-        # type: (BasePacket, bytes, Optional[Union[int, float]]) -> bytes
+        # type: (Packet, bytes, Optional[Union[int, float]]) -> bytes
         if not isinstance(pkt, SignalPacket):
             raise Scapy_Exception("Only use SignalFields in a SignalPacket")
 
@@ -202,7 +203,7 @@ class SignalField(ScalingField):
         return tmp_s[:len(s)]
 
     def getfield(self, pkt, s):
-        # type: (BasePacket, bytes) -> Tuple[bytes, Union[int, float]]
+        # type: (Packet, bytes) -> Tuple[bytes, Union[int, float]]
         if not isinstance(pkt, SignalPacket):
             raise Scapy_Exception("Only use SignalFields in a SignalPacket")
 
@@ -256,7 +257,7 @@ class SignalField(ScalingField):
         return RandFloat(min(min_val, max_val), max(min_val, max_val))
 
     def i2len(self, pkt, x):
-        # type: (BasePacket, Any) -> int
+        # type: (Packet, Any) -> int
         return int(float(self.size) / 8)
 
 
@@ -380,24 +381,23 @@ class CandumpReader:
 
     @staticmethod
     def open(filename):
-        # type: (Union[IO[Any], str]) -> Tuple[str, IO[Any]]
+        # type: (Union[IO[bytes], str]) -> Tuple[str, _ByteStream]
         """Open (if necessary) filename."""
-        if isinstance(filename, six.string_types):
-            filename = cast(str, filename)
+        if isinstance(filename, str):
             try:
-                fdesc = gzip.open(filename, "rb")
+                fdesc = gzip.open(filename, "rb")  # type: _ByteStream
                 # try read to cause exception
                 fdesc.read(1)
                 fdesc.seek(0)
             except IOError:
                 fdesc = open(filename, "rb")
+            return filename, fdesc
         else:
-            fdesc = cast(IO[Any], filename)
-            filename = getattr(fdesc, "name", "No name")
-        return cast(str, filename), fdesc
+            name = getattr(filename, "name", "No name")
+            return name, filename
 
     def next(self):
-        # type: () -> BasePacket
+        # type: () -> Packet
         """implement the iterator protocol on a set of packets
         """
         try:
@@ -411,7 +411,7 @@ class CandumpReader:
     __next__ = next
 
     def read_packet(self, size=MTU):
-        # type: (int) -> Optional[BasePacket]
+        # type: (int) -> Optional[Packet]
         """return a single packet read from the file or None if filters apply
 
         raise EOFError when no more packets are available
@@ -424,10 +424,10 @@ class CandumpReader:
         is_log_file_format = orb(line[0]) == orb(b"(")
 
         if is_log_file_format:
-            t, intf, f = line.split()
+            t_b, intf, f = line.split()
             idn, data = f.split(b'#')
             le = None
-            t = float(t[1:-1])
+            t = float(t_b[1:-1])  # type: Optional[float]
         else:
             h, data = line.split(b']')
             intf, idn, le = h.split()
@@ -482,7 +482,7 @@ class CandumpReader:
         return PacketList(res, name=os.path.basename(self.filename))
 
     def recv(self, size=MTU):
-        # type: (int) -> Optional[BasePacket]
+        # type: (int) -> Optional[Packet]
         """ Emulate a socket
         """
         return self.read_packet(size=size)

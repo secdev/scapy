@@ -22,7 +22,7 @@ import warnings
 
 import scapy
 from scapy import VERSION
-from scapy.base_classes import Packet_metaclass
+from scapy.base_classes import BasePacket
 from scapy.consts import DARWIN, WINDOWS, LINUX, BSD, SOLARIS
 from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
 from scapy.modules import six
@@ -38,10 +38,16 @@ from scapy.compat import (
     NoReturn,
     Optional,
     Set,
+    Type,
     Tuple,
     Union,
+    TYPE_CHECKING,
 )
 from types import ModuleType
+
+if TYPE_CHECKING:
+    # Do not import at runtime
+    from scapy.packet import Packet
 
 ############
 #  Config  #
@@ -165,8 +171,8 @@ class ConfigFieldList:
         self._recalc_layer_list()
 
     def __contains__(self, elt):
-        # type: (Packet_metaclass) -> bool
-        if isinstance(elt, Packet_metaclass):
+        # type: (Any) -> bool
+        if isinstance(elt, BasePacket):
             return elt in self.layers
         return elt in self.fields
 
@@ -186,39 +192,41 @@ class Resolve(ConfigFieldList):
 class Num2Layer:
     def __init__(self):
         # type: () -> None
-        self.num2layer = {}  # type: Dict[int, Packet_metaclass]
-        self.layer2num = {}  # type: Dict[Packet_metaclass, int]
+        self.num2layer = {}  # type: Dict[int, Type[Packet]]
+        self.layer2num = {}  # type: Dict[Type[Packet], int]
 
     def register(self, num, layer):
-        # type: (int, Packet_metaclass) -> None
+        # type: (int, Type[Packet]) -> None
         self.register_num2layer(num, layer)
         self.register_layer2num(num, layer)
 
     def register_num2layer(self, num, layer):
-        # type: (int, Packet_metaclass) -> None
+        # type: (int, Type[Packet]) -> None
         self.num2layer[num] = layer
 
     def register_layer2num(self, num, layer):
-        # type: (int, Packet_metaclass) -> None
+        # type: (int, Type[Packet]) -> None
         self.layer2num[layer] = num
 
     def __getitem__(self, item):
-        # type: (Union[int, Packet_metaclass]) -> Union[int, Packet_metaclass]
-        if isinstance(item, Packet_metaclass):
+        # type: (Union[int, Type[Packet]]) -> Union[int, Type[Packet]]
+        if isinstance(item, int):
+            return self.num2layer[item]
+        else:
             return self.layer2num[item]
-        return self.num2layer[item]
 
     def __contains__(self, item):
-        # type: (int) -> bool
-        if isinstance(item, Packet_metaclass):
+        # type: (Union[int, Type[Packet]]) -> bool
+        if isinstance(item, int):
+            return item in self.num2layer
+        else:
             return item in self.layer2num
-        return item in self.num2layer
 
     def get(self,
-            item,  # type: Union[int, Packet_metaclass]
-            default=None,  # type: Optional[Packet_metaclass]
+            item,  # type: Union[int, Type[Packet]]
+            default=None,  # type: Optional[Type[Packet]]
             ):
-        # type: (...) -> Union[int, Packet_metaclass]
+        # type: (...) -> Optional[Union[int, Type[Packet]]]
         return self[item] if item in self else default
 
     def __repr__(self):
@@ -239,14 +247,13 @@ class Num2Layer:
         return "\n".join(y for x, y in lst)
 
 
-class LayersList(List[Packet_metaclass]):
-
+class LayersList(List[Type['scapy.packet.Packet']]):
     def __init__(self):
         # type: () -> None
         list.__init__(self)
-        self.ldict = {}  # type: Dict[str, List[Packet_metaclass]]
+        self.ldict = {}  # type: Dict[str, List[Type[Packet]]]
         self.filtered = False
-        self._backup_dict = {}  # type: Dict[Packet_metaclass, List[Tuple[Dict[str, Any], Packet_metaclass]]]  # noqa: E501
+        self._backup_dict = {}  # type: Dict[Type[Packet], List[Tuple[Dict[str, Any], Type[Packet]]]]  # noqa: E501
 
     def __repr__(self):
         # type: () -> str
@@ -254,7 +261,7 @@ class LayersList(List[Packet_metaclass]):
                          for layer in self)
 
     def register(self, layer):
-        # type: (Packet_metaclass) -> None
+        # type: (Type[Packet]) -> None
         self.append(layer)
         if layer.__module__ not in self.ldict:
             self.ldict[layer.__module__] = []
@@ -271,7 +278,7 @@ class LayersList(List[Packet_metaclass]):
         return result
 
     def filter(self, items):
-        # type: (List[Packet_metaclass]) -> None
+        # type: (List[Type[Packet]]) -> None
         """Disable dissection of unused layers to speed up dissection"""
         if self.filtered:
             raise ValueError("Already filtered. Please disable it first")
@@ -455,9 +462,10 @@ class NetCache:
         setattr(self, cache.name, cache)
 
     def new_cache(self, name, timeout=None):
-        # type: (str, Optional[int]) -> None
+        # type: (str, Optional[int]) -> CacheInstance
         c = CacheInstance(name=name, timeout=timeout)
         self.add_cache(c)
+        return c
 
     def __delattr__(self, attr):
         # type: (str) -> NoReturn
@@ -657,7 +665,7 @@ def _loglevel_changer(attr, val, old):
 
 
 def _iface_changer(attr, val, old):
-    # type: (str, Any, Any) -> 'scapy.interfaces.NetworkInterfaceDict'
+    # type: (str, Any, Any) -> 'scapy.interfaces.NetworkInterface'
     """Resolves the interface in conf.iface"""
     if isinstance(val, str):
         from scapy.interfaces import resolve_iface
@@ -668,7 +676,7 @@ def _iface_changer(attr, val, old):
                 "See conf.ifaces output"
             )
         return iface
-    return val
+    return val  # type: ignore
 
 
 class Conf(ConfClass):
@@ -685,7 +693,7 @@ class Conf(ConfClass):
     #: selects the default output interface for srp() and sendp().
     iface = Interceptor("iface", None, _iface_changer)
     layers = LayersList()
-    commands = CommandsList()
+    commands = CommandsList()  # type: CommandsList
     ASN1_default_codec = None  #: Codec used by default for ASN1 objects
     AS_resolver = None  #: choose the AS resolver class to use
     dot15d4_protocol = None  # Used in dot15d4.py
@@ -712,18 +720,18 @@ class Conf(ConfClass):
     #: spoof on a lan)
     promisc = True
     sniff_promisc = 1  #: default mode for sniff()
-    raw_layer = None  # type: Packet_metaclass
+    raw_layer = None  # type: Type[Packet]
     raw_summary = False
-    padding_layer = None  # type: Packet_metaclass
-    default_l2 = None  # type: Packet_metaclass
+    padding_layer = None  # type: Type[Packet]
+    default_l2 = None  # type: Type[Packet]
     l2types = Num2Layer()
     l3types = Num2Layer()
-    L3socket = None
-    L3socket6 = None
-    L2socket = None
-    L2listen = None
-    BTsocket = None
-    USBsocket = None
+    L3socket = None  # type: Type[scapy.supersocket.SuperSocket]
+    L3socket6 = None  # type: Type[scapy.supersocket.SuperSocket]
+    L2socket = None  # type: Type[scapy.supersocket.SuperSocket]
+    L2listen = None  # type: Type[scapy.supersocket.SuperSocket]
+    BTsocket = None  # type: Type[scapy.supersocket.SuperSocket]
+    USBsocket = None  # type: Type[scapy.supersocket.SuperSocket]
     min_pkt_size = 60
     #: holds MIB direct access dictionary
     mib = None  # type: 'scapy.asn1.mib.MIBDict'
@@ -748,6 +756,8 @@ class Conf(ConfClass):
     ifaces = None  # type: 'scapy.interfaces.NetworkInterfaceDict'
     #: holds the cache of interfaces loaded from Libpcap
     cache_iflist = {}  # type: Dict[str, Tuple[str, List[str], int]]
+    neighbor = None  # type: 'scapy.layers.l2.Neighbor'
+    # `neighbor` will be filed by scapy.layers.l2
     #: holds the Scapy IPv4 routing table and provides methods to
     #: manipulate it
     route = None  # type: 'scapy.route.Route'
@@ -757,6 +767,8 @@ class Conf(ConfClass):
     route6 = None  # type: 'scapy.route6.Route6'
     manufdb = None  # type: 'scapy.data.ManufDA'
     # 'route6' will be filed by route6.py
+    teredoPrefix = ""  # type: str
+    teredoServerPort = None  # type: int
     auto_fragment = True
     #: raise exception when a packet dissector raises an exception
     debug_dissector = False
@@ -784,19 +796,55 @@ class Conf(ConfClass):
     ipv6_enabled = socket.has_ipv6
     #: path or list of paths where extensions are to be looked for
     extensions_paths = "."
-    stats_classic_protocols = []  # type: List[Packet_metaclass]
-    stats_dot11_protocols = []  # type: List[Packet_metaclass]
+    stats_classic_protocols = []  # type: List[Type[Packet]]
+    stats_dot11_protocols = []  # type: List[Type[Packet]]
     temp_files = []  # type: List[str]
     netcache = NetCache()
     geoip_city = None
-    # can, tls, http are not loaded by default
-    load_layers = ['bluetooth', 'bluetooth4LE', 'dhcp', 'dhcp6', 'dns',
-                   'dot11', 'dot15d4', 'eap', 'gprs', 'hsrp', 'inet',
-                   'inet6', 'ipsec', 'ir', 'isakmp', 'l2', 'l2tp',
-                   'llmnr', 'lltd', 'mgcp', 'mobileip', 'netbios',
-                   'netflow', 'ntp', 'ppi', 'ppp', 'pptp', 'radius', 'rip',
-                   'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'smb2', 'snmp',
-                   'tftp', 'vrrp', 'vxlan', 'x509', 'zigbee']
+    # can, tls, http and a few others are not loaded by default
+    load_layers = [
+        'bluetooth',
+        'bluetooth4LE',
+        'dhcp',
+        'dhcp6',
+        'dns',
+        'dot11',
+        'dot15d4',
+        'eap',
+        'gprs',
+        'hsrp',
+        'inet',
+        'inet6',
+        'ipsec',
+        'ir',
+        'isakmp',
+        'l2',
+        'l2tp',
+        'llmnr',
+        'lltd',
+        'mgcp',
+        'mobileip',
+        'netbios',
+        'netflow',
+        'ntp',
+        'ppi',
+        'ppp',
+        'pptp',
+        'radius',
+        'rip',
+        'rtp',
+        'sctp',
+        'sixlowpan',
+        'skinny',
+        'smb',
+        'smb2',
+        'snmp',
+        'tftp',
+        'vrrp',
+        'vxlan',
+        'x509',
+        'zigbee'
+    ]
     #: a dict which can be used by contrib layers to store local
     #: configuration
     contribs = dict()  # type: Dict[str, Any]
@@ -845,7 +893,7 @@ if not Conf.ipv6_enabled:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)
 
-conf = Conf()
+conf = Conf()  # type: Conf
 
 
 def crypto_validator(func):

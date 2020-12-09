@@ -10,18 +10,30 @@ if [ "$OSTYPE" = "linux-gnu" ] || [ "$TRAVIS_OS_NAME" = "linux" ]
 then
   # Linux
   OSTOX="linux"
-  UT_FLAGS=" -K tshark" # TODO: also test as root ?
-  # check vcan
-  sudo modprobe -n -v vcan
-  if [[ $? -ne 0 ]]
+  UT_FLAGS+=" -K tshark"
+  if [ ! -z "$GITHUB_ACTIONS" ]
   then
-    # The vcan module is currently unavailable on Travis-CI xenial builds
+    # Due to a security policy, the firewall of the Azure runner
+    # (Standard_DS2_v2) that runs Github Actions on Linux blocks ICMP.
+    UT_FLAGS+=" -K icmp_firewall"
+  fi
+  if [ -z "$SIMPLE_TESTS" ]
+  then
+    # check vcan
+    sudo modprobe -n -v vcan
+    if [[ $? -ne 0 ]]
+    then
+      # The vcan module is currently unavailable on Travis-CI xenial builds
+      UT_FLAGS+=" -K vcan_socket"
+    fi
+  else
     UT_FLAGS+=" -K vcan_socket"
   fi
-elif [ "$OSTYPE" = "darwin"* ] || [ "$TRAVIS_OS_NAME" = "osx" ]
+elif [[ "$OSTYPE" = "darwin"* ]] || [ "$TRAVIS_OS_NAME" = "osx" ]
 then
-  OSTOX="osx"
-  UT_FLAGS=" -K tcpdump"
+  OSTOX="bsd"
+  # Travis CI in macOS 10.13+ can't load kexts. Need this for tuntaposx.
+  UT_FLAGS+=" -K tun -K tap"
 fi
 
 # pypy
@@ -69,6 +81,12 @@ echo TOXENV=$TOXENV
 
 # Launch Scapy unit tests
 tox -- ${UT_FLAGS} || exit 1
+
+# Stop if NO_BASH_TESTS is set
+if [ ! -z "$SIMPLE_TESTS" ]
+then
+  exit $?
+fi
 
 # Start Scapy in interactive mode
 TEMPFILE=$(mktemp)

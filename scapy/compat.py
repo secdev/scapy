@@ -36,6 +36,7 @@ __all__ = [
     'Pattern',
     'Sequence',
     'Set',
+    'Sequence',
     'Sized',
     'Tuple',
     'Type',
@@ -154,9 +155,10 @@ else:
     Pattern = _FakeType("Pattern")  # type: ignore
     Sequence = _FakeType("Sequence")  # type: ignore
     Set = _FakeType("Set", set)  # type: ignore
+    Sequence = _FakeType("Sequence", list)  # type: ignore
     Tuple = _FakeType("Tuple")
     Type = _FakeType("Type", type)
-    TypeVar = _FakeType("TypeVar")
+    TypeVar = _FakeType("TypeVar")  # type: ignore
     Union = _FakeType("Union")
 
     class Sized(object):  # type: ignore
@@ -211,7 +213,7 @@ def lambda_tuple_converter(func):
 # This is ugly, but we don't want to move raw() out of compat.py
 # and it makes it much clearer
 if TYPE_CHECKING:
-    from scapy.packet import Packet, RawVal
+    from scapy.packet import Packet
 
 
 if six.PY2:
@@ -225,7 +227,7 @@ if six.PY2:
         return chr(x)
 
     def raw(x):
-        # type: (Union[Packet, RawVal]) -> bytes
+        # type: (Union[Packet]) -> bytes
         """
         Builds a packet and returns its bytes representation.
         This function is and will always be cross-version compatible
@@ -235,7 +237,7 @@ if six.PY2:
         return bytes(x)
 else:
     def raw(x):
-        # type: (Union[Packet, RawVal]) -> bytes
+        # type: (Union[Packet]) -> bytes
         """
         Builds a packet and returns its bytes representation.
         This function is and will always be cross-version compatible

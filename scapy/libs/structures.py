@@ -21,3 +21,9 @@ class bpf_program(ctypes.Structure):
     """"Structure for BIOCSETF"""
     _fields_ = [('bf_len', ctypes.c_int),
                 ('bf_insns', ctypes.POINTER(bpf_insn))]
+
+
+class sock_fprog(ctypes.Structure):
+    """"Structure for SO_ATTACH_FILTER"""
+    _fields_ = [('len', ctypes.c_ushort),
+                ('filter', ctypes.POINTER(bpf_insn))]

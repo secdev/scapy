@@ -1,0 +1,2867 @@
+% Scapy IPv6 layers tests
+
+# Scapy6 Regression Test Campaign 
+
+############
+############
++ Test IPv6 Class 
+= IPv6 Class basic Instantiation
+a=IPv6() 
+
+= IPv6 Class basic build (default values)
+raw(IPv6()) == b'`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+= IPv6 Class basic dissection (default values)
+a=IPv6(raw(IPv6())) 
+a.version == 6 and a.tc == 0 and a.fl == 0 and a.plen == 0 and a.nh == 59 and a.hlim ==64 and a.src == "::1" and a.dst == "::1"
+
+= IPv6 Class with basic TCP stacked - build
+raw(IPv6()/TCP()) == b'`\x00\x00\x00\x00\x14\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x8f}\x00\x00'
+
+= IPv6 Class with basic TCP stacked - dissection
+a=IPv6(raw(IPv6()/TCP()))
+a.nh == 6 and a.plen == 20 and isinstance(a.payload, TCP) and a.payload.chksum == 0x8f7d
+
+= IPv6 Class with TCP and TCP data - build
+raw(IPv6()/TCP()/Raw(load="somedata")) == b'`\x00\x00\x00\x00\x1c\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xd5\xdd\x00\x00somedata'
+
+= IPv6 Class with TCP and TCP data - dissection
+a=IPv6(raw(IPv6()/TCP(dport=1234, sport=1234)/Raw(load="somedata")))
+a.nh == 6 and a.plen == 28 and isinstance(a.payload, TCP) and a.payload.chksum == 0xcc9d and isinstance(a.payload.payload, Raw) and a[Raw].load == b"somedata"
+
+= IPv6 Class binding with Ethernet - build
+raw(Ether(src="00:00:00:00:00:00", dst="ff:ff:ff:ff:ff:ff")/IPv6()/TCP()) == b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x86\xdd`\x00\x00\x00\x00\x14\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x8f}\x00\x00'
+
+= IPv6 Class binding with Ethernet - dissection
+a=Ether(raw(Ether()/IPv6()/TCP()))
+a.type == 0x86dd
+
+= IPv6 Class - summary
+a = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IPv6(src='c266:a92d:0ed8:dc54:7d6f:9667:3743:a32f', dst='6406:c31f:d0b5:72fc:1700:2081:62e7:fae9')
+assert a.summary() == 'Ether / c266:a92d:ed8:dc54:7d6f:9667:3743:a32f > 6406:c31f:d0b5:72fc:1700:2081:62e7:fae9 (59)'
+
+= IPv6 Class binding with GRE - build
+s = raw(IP(src="127.0.0.1")/GRE()/Ether(dst="ff:ff:ff:ff:ff:ff", src="00:00:00:00:00:00")/IP()/GRE()/IPv6(src="::1"))
+s == b'E\x00\x00f\x00\x01\x00\x00@/|f\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00eX\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00@\x00\x01\x00\x00@/|\x8c\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x86\xdd`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+= IPv6 Class binding with GRE - dissection
+p = IP(s)
+GRE in p and p[GRE:1].proto == 0x6558 and p[GRE:2].proto == 0x86DD and IPv6 in p
+
+= IPv6 ma_addr coverage on hashret
+IPv6(dst="ff00::1:ff28:9c5a", src="::").hashret() == b';'
+
+########### IPv6ExtHdrRouting Class ###########################
+
+= IPv6ExtHdrRouting Class - No address - build
+raw(IPv6(src="2048::deca", dst="2047::cafe")/IPv6ExtHdrRouting(addresses=[])/TCP(dport=80)) ==b'`\x00\x00\x00\x00\x1c+@ H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x06\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xa5&\x00\x00' 
+
+= IPv6ExtHdrRouting Class - One address - build
+raw(IPv6(src="2048::deca", dst="2047::cafe")/IPv6ExtHdrRouting(addresses=["2022::deca"])/TCP(dport=80)) == b'`\x00\x00\x00\x00,+@ H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x06\x02\x00\x01\x00\x00\x00\x00 "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91\x7f\x00\x00'
+
+= IPv6ExtHdrRouting Class - Multiple Addresses - build
+raw(IPv6(src="2048::deca", dst="2047::cafe")/IPv6ExtHdrRouting(addresses=["2001::deca", "2022::deca"])/TCP(dport=80)) == b'`\x00\x00\x00\x00<+@ H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x06\x04\x00\x02\x00\x00\x00\x00 \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91\x7f\x00\x00'
+
+= IPv6ExtHdrRouting Class - Specific segleft (2->1) - build
+raw(IPv6(src="2048::deca", dst="2047::cafe")/IPv6ExtHdrRouting(addresses=["2001::deca", "2022::deca"], segleft=1)/TCP(dport=80)) == b'`\x00\x00\x00\x00<+@ H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x06\x04\x00\x01\x00\x00\x00\x00 \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91\x7f\x00\x00'
+
+= IPv6ExtHdrRouting Class - Specific segleft (2->0) - build
+raw(IPv6(src="2048::deca", dst="2047::cafe")/IPv6ExtHdrRouting(addresses=["2001::deca", "2022::deca"], segleft=0)/TCP(dport=80)) == b'`\x00\x00\x00\x00<+@ H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x06\x04\x00\x00\x00\x00\x00\x00 \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xa5&\x00\x00'
+
+########### IPv6ExtHdrSegmentRouting Class ###########################
+
+= IPv6ExtHdrSegmentRouting Class - default - build & dissect
+s = raw(IPv6()/IPv6ExtHdrSegmentRouting()/UDP())
+assert(s == b'`\x00\x00\x00\x00 +@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x11\x02\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x005\x005\x00\x08\xffr')
+
+p = IPv6(s)
+assert(UDP in p and IPv6ExtHdrSegmentRouting in p)
+assert(p[IPv6ExtHdrSegmentRouting].lastentry == 0 and len(p[IPv6ExtHdrSegmentRouting].addresses) == 1 and len(p[IPv6ExtHdrSegmentRouting].tlv_objects) == 0)
+
+= IPv6ExtHdrSegmentRouting Class - addresses list - build & dissect
+
+s = raw(IPv6()/IPv6ExtHdrSegmentRouting(addresses=["::1", "::2", "::3"])/UDP())
+assert(s == b'`\x00\x00\x00\x00@+@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x11\x06\x04\x02\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x005\x005\x00\x08\xffr')
+
+p = IPv6(s)
+assert(UDP in p and IPv6ExtHdrSegmentRouting in p)
+assert(p[IPv6ExtHdrSegmentRouting].lastentry == 2 and len(p[IPv6ExtHdrSegmentRouting].addresses) == 3 and len(p[IPv6ExtHdrSegmentRouting].tlv_objects) == 0)
+
+= IPv6ExtHdrSegmentRouting Class - TLVs list - build & dissect
+
+s = raw(IPv6()/IPv6ExtHdrSegmentRouting(tlv_objects=[IPv6ExtHdrSegmentRoutingTLV()])/TCP())
+assert(s == b'`\x00\x00\x00\x004+@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x06\x03\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x04\x02\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x8f}\x00\x00')
+
+p = IPv6(s)
+assert(TCP in p and IPv6ExtHdrSegmentRouting in p)
+assert(p[IPv6ExtHdrSegmentRouting].lastentry == 0)
+assert(len(p[IPv6ExtHdrSegmentRouting].addresses) == 1 and len(p[IPv6ExtHdrSegmentRouting].tlv_objects) == 2)
+assert(isinstance(p[IPv6ExtHdrSegmentRouting].tlv_objects[1], IPv6ExtHdrSegmentRoutingTLVPadding))
+
+= IPv6ExtHdrSegmentRouting Class - both lists - build & dissect
+
+s = raw(IPv6()/IPv6ExtHdrSegmentRouting(addresses=["::1", "::2", "::3"], tlv_objects=[IPv6ExtHdrSegmentRoutingTLVIngressNode(),IPv6ExtHdrSegmentRoutingTLVEgressNode()])/ICMPv6EchoRequest())
+assert(s == b'`\x00\x00\x00\x00h+@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01:\x0b\x04\x02\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x01\x12\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x12\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x80\x00\x7f\xbb\x00\x00\x00\x00')
+
+p = IPv6(s)
+assert(p[IPv6ExtHdrSegmentRouting].lastentry == 2)
+assert(ICMPv6EchoRequest in p and IPv6ExtHdrSegmentRouting in p)
+assert(len(p[IPv6ExtHdrSegmentRouting].addresses) == 3 and len(p[IPv6ExtHdrSegmentRouting].tlv_objects) == 2)
+
+= IPv6ExtHdrSegmentRouting Class - UDP pseudo-header checksum - build & dissect
+
+s= raw(IPv6(src="fc00::1", dst="fd00::42")/IPv6ExtHdrSegmentRouting(addresses=["fd00::42", "fc13::1337"][::-1], segleft=1, lastentry=1) / UDP(sport=11000, dport=4242) / Raw('foobar'))
+assert(s == b'`\x00\x00\x00\x006+@\xfc\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B\x11\x04\x04\x01\x01\x00\x00\x00\xfc\x13\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x137\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B*\xf8\x10\x92\x00\x0e\x81\xb7foobar')
+
+
+############
+############
++ Test in6_get6to4Prefix()
+
+= Test in6_get6to4Prefix() - 0.0.0.0 address
+in6_get6to4Prefix("0.0.0.0") == "2002::"
+
+= Test in6_get6to4Prefix() - 255.255.255.255 address
+in6_get6to4Prefix("255.255.255.255") == "2002:ffff:ffff::"
+
+= Test in6_get6to4Prefix() - 1.1.1.1 address
+in6_get6to4Prefix("1.1.1.1") == "2002:101:101::"
+
+= Test in6_get6to4Prefix() - invalid address
+in6_get6to4Prefix("somebadrawing") is None
+
+
+############
+############
++ Test in6_6to4ExtractAddr()
+
+= Test in6_6to4ExtractAddr() - 2002:: address
+in6_6to4ExtractAddr("2002::") == "0.0.0.0"
+
+= Test in6_6to4ExtractAddr() - 255.255.255.255 address
+in6_6to4ExtractAddr("2002:ffff:ffff::") == "255.255.255.255"
+
+= Test in6_6to4ExtractAddr() - "2002:101:101::" address
+in6_6to4ExtractAddr("2002:101:101::") == "1.1.1.1"
+
+= Test in6_6to4ExtractAddr() - invalid address
+in6_6to4ExtractAddr("somebadrawing") is None
+
+
+########### RFC 4489 - Link-Scoped IPv6 Multicast address ###########
+
+= in6_getLinkScopedMcastAddr() : default generation
+a = in6_getLinkScopedMcastAddr(addr="FE80::") 
+a == 'ff32:ff::'
+
+= in6_getLinkScopedMcastAddr() : different valid scope values
+a = in6_getLinkScopedMcastAddr(addr="FE80::", scope=0) 
+b = in6_getLinkScopedMcastAddr(addr="FE80::", scope=1) 
+c = in6_getLinkScopedMcastAddr(addr="FE80::", scope=2) 
+d = in6_getLinkScopedMcastAddr(addr="FE80::", scope=3) 
+a == 'ff30:ff::' and b == 'ff31:ff::' and c == 'ff32:ff::' and d is None
+
+= in6_getLinkScopedMcastAddr() : grpid in different formats
+a = in6_getLinkScopedMcastAddr(addr="FE80::A12:34FF:FE56:7890", grpid=b"\x12\x34\x56\x78") 
+b = in6_getLinkScopedMcastAddr(addr="FE80::A12:34FF:FE56:7890", grpid="12345678")
+c = in6_getLinkScopedMcastAddr(addr="FE80::A12:34FF:FE56:7890", grpid=305419896)
+a == b and b == c 
+
+
+########### ethernet address to iface ID conversion #################
+
+= in6_mactoifaceid() conversion function (test 1)
+in6_mactoifaceid("FD:00:00:00:00:00", ulbit=0) == 'FD00:00FF:FE00:0000'
+
+= in6_mactoifaceid() conversion function (test 2)
+in6_mactoifaceid("FD:00:00:00:00:00", ulbit=1) == 'FF00:00FF:FE00:0000'
+
+= in6_mactoifaceid() conversion function (test 3)
+in6_mactoifaceid("FD:00:00:00:00:00") == 'FF00:00FF:FE00:0000'
+
+= in6_mactoifaceid() conversion function (test 4)
+in6_mactoifaceid("FF:00:00:00:00:00") == 'FD00:00FF:FE00:0000'
+
+= in6_mactoifaceid() conversion function (test 5)
+in6_mactoifaceid("FF:00:00:00:00:00", ulbit=1) == 'FF00:00FF:FE00:0000'
+
+= in6_mactoifaceid() conversion function (test 6)
+in6_mactoifaceid("FF:00:00:00:00:00", ulbit=0) == 'FD00:00FF:FE00:0000'
+
+########### iface ID conversion #################
+
+= in6_mactoifaceid() conversion function (test 1)
+in6_ifaceidtomac(in6_mactoifaceid("FD:00:00:00:00:00", ulbit=0)) == 'ff:00:00:00:00:00'
+
+= in6_mactoifaceid() conversion function (test 2)
+in6_ifaceidtomac(in6_mactoifaceid("FD:00:00:00:00:00", ulbit=1)) == 'fd:00:00:00:00:00'
+
+= in6_mactoifaceid() conversion function (test 3)
+in6_ifaceidtomac(in6_mactoifaceid("FD:00:00:00:00:00")) == 'fd:00:00:00:00:00'
+
+= in6_mactoifaceid() conversion function (test 4)
+in6_ifaceidtomac(in6_mactoifaceid("FF:00:00:00:00:00")) == 'ff:00:00:00:00:00'
+
+= in6_mactoifaceid() conversion function (test 5)
+in6_ifaceidtomac(in6_mactoifaceid("FF:00:00:00:00:00", ulbit=1)) == 'fd:00:00:00:00:00'
+
+= in6_mactoifaceid() conversion function (test 6)
+in6_ifaceidtomac(in6_mactoifaceid("FF:00:00:00:00:00", ulbit=0)) == 'ff:00:00:00:00:00'
+
+
+= in6_addrtomac() conversion function (test 1)
+in6_addrtomac("FE80::" + in6_mactoifaceid("FD:00:00:00:00:00", ulbit=0)) == 'ff:00:00:00:00:00'
+
+= in6_addrtomac() conversion function (test 2)
+in6_addrtomac("FE80::" + in6_mactoifaceid("FD:00:00:00:00:00", ulbit=1)) == 'fd:00:00:00:00:00'
+
+= in6_addrtomac() conversion function (test 3)
+in6_addrtomac("FE80::" + in6_mactoifaceid("FD:00:00:00:00:00")) == 'fd:00:00:00:00:00'
+
+= in6_addrtomac() conversion function (test 4)
+in6_addrtomac("FE80::" + in6_mactoifaceid("FF:00:00:00:00:00")) == 'ff:00:00:00:00:00'
+
+= in6_addrtomac() conversion function (test 5)
+in6_addrtomac("FE80::" + in6_mactoifaceid("FF:00:00:00:00:00", ulbit=1)) == 'fd:00:00:00:00:00'
+
+= in6_addrtomac() conversion function (test 6)
+in6_addrtomac("FE80::" + in6_mactoifaceid("FF:00:00:00:00:00", ulbit=0)) == 'ff:00:00:00:00:00'
+
+########### RFC 3041 related function ###############################
+= Test in6_getRandomizedIfaceId
+
+import socket
+
+for a in six.moves.range(10):
+    s1, s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3')
+    s1, s2
+    tmp = inet_pton(socket.AF_INET6, "::" + s1)[8:]
+    tmp
+    assert (orb(tmp[0]) & 0x04) == 0
+    s1, s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3', previous=s2)
+    s1, s2
+    tmp = inet_pton(socket.AF_INET6, "::" + s1)[8:]
+    assert (orb(tmp[0]) & 0x04) == 0
+
+assert in6_getRandomizedIfaceId('20b:93ff:feeb:2d3', previous='d006:d540:db11:b092') == ('721f:11fa:3743:fc7f', '5946:5272:7fcc:108a')
+
+########### RFC 1924 related function ###############################
+= Test RFC 1924 function - in6_ctop() basic test
+in6_ctop("4)+k&C#VzJ4br>0wv%Yp") == '1080::8:800:200c:417a'
+
+= Test RFC 1924 function - in6_ctop() with character outside charset
+in6_ctop("4)+k&C#VzJ4br>0wv%Y'") == None
+
+= Test RFC 1924 function - in6_ctop() with bad length address
+in6_ctop("4)+k&C#VzJ4br>0wv%Y") == None
+
+= Test RFC 1924 function - in6_ptoc() basic test
+in6_ptoc('1080::8:800:200c:417a') == '4)+k&C#VzJ4br>0wv%Yp'
+
+= Test RFC 1924 function - in6_ptoc() basic test
+in6_ptoc('1080::8:800:200c:417a') == '4)+k&C#VzJ4br>0wv%Yp'
+
+= Test RFC 1924 function - in6_ptoc() with bad input
+in6_ptoc('1080:::8:800:200c:417a') == None
+
+########### in6_getAddrType #########################################
+
+= in6_getAddrType - 6to4 addresses
+in6_getAddrType("2002::1") == (IPV6_ADDR_UNICAST | IPV6_ADDR_GLOBAL | IPV6_ADDR_6TO4)
+
+= in6_getAddrType - Assignable Unicast global address
+in6_getAddrType("2001:db8::1") == (IPV6_ADDR_UNICAST | IPV6_ADDR_GLOBAL)
+
+= in6_getAddrType - Multicast global address
+in6_getAddrType("FF0E::1") == (IPV6_ADDR_GLOBAL | IPV6_ADDR_MULTICAST)
+
+= in6_getAddrType - Multicast local address
+in6_getAddrType("FF02::1") == (IPV6_ADDR_LINKLOCAL | IPV6_ADDR_MULTICAST)
+
+= in6_getAddrType - Unicast Link-Local address
+in6_getAddrType("FE80::") == (IPV6_ADDR_UNICAST | IPV6_ADDR_LINKLOCAL)
+
+= in6_getAddrType - Loopback address
+in6_getAddrType("::1") == IPV6_ADDR_LOOPBACK
+
+= in6_getAddrType - Unspecified address
+in6_getAddrType("::") == IPV6_ADDR_UNSPECIFIED
+
+= in6_getAddrType - Unassigned Global Unicast address
+in6_getAddrType("4000::") == (IPV6_ADDR_GLOBAL | IPV6_ADDR_UNICAST)
+
+= in6_getAddrType - Weird address (FE::1)
+in6_getAddrType("FE::") == (IPV6_ADDR_GLOBAL | IPV6_ADDR_UNICAST)
+
+= in6_getAddrType - Weird address (FE8::1)
+in6_getAddrType("FE8::1") == (IPV6_ADDR_GLOBAL | IPV6_ADDR_UNICAST)
+
+= in6_getAddrType - Weird address (1::1)
+in6_getAddrType("1::1") == (IPV6_ADDR_GLOBAL | IPV6_ADDR_UNICAST)
+
+= in6_getAddrType - Weird address (1000::1)
+in6_getAddrType("1000::1") == (IPV6_ADDR_GLOBAL | IPV6_ADDR_UNICAST)
+
+########### ICMPv6DestUnreach Class #################################
+
+= ICMPv6DestUnreach Class - Basic Build (no argument)
+raw(ICMPv6DestUnreach()) == b'\x01\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6DestUnreach Class - Basic Build over IPv6 (for cksum and overload)
+raw(IPv6(src="2048::deca", dst="2047::cafe")/ICMPv6DestUnreach()) == b'`\x00\x00\x00\x00\x08:@ H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x01\x00\x14e\x00\x00\x00\x00'
+
+= ICMPv6DestUnreach Class - Basic Build over IPv6 with some payload
+raw(IPv6(src="2048::deca", dst="2047::cafe")/ICMPv6DestUnreach()/IPv6(src="2047::cafe", dst="2048::deca")) == b'`\x00\x00\x00\x000:@ H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x01\x00\x8e\xa3\x00\x00\x00\x00`\x00\x00\x00\x00\x00;@ G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca'
+
+= ICMPv6DestUnreach Class - Dissection with default values and some payload
+a = IPv6(raw(IPv6(src="2048::deca", dst="2047::cafe")/ICMPv6DestUnreach()/IPv6(src="2047::cafe", dst="2048::deca")))
+a.plen == 48 and a.nh == 58 and ICMPv6DestUnreach in a and a[ICMPv6DestUnreach].type == 1 and a[ICMPv6DestUnreach].code == 0 and a[ICMPv6DestUnreach].cksum == 0x8ea3 and a[ICMPv6DestUnreach].unused == 0 and IPerror6 in a
+
+= ICMPv6DestUnreach Class - Dissection with specific values
+a=IPv6(raw(IPv6(src="2048::deca", dst="2047::cafe")/ICMPv6DestUnreach(code=1, cksum=0x6666, unused=0x7777)/IPv6(src="2047::cafe", dst="2048::deca")))
+a.plen == 48 and a.nh == 58 and ICMPv6DestUnreach in a and a[ICMPv6DestUnreach].type == 1 and a[ICMPv6DestUnreach].cksum == 0x6666 and a[ICMPv6DestUnreach].unused == 0x7777 and IPerror6 in a[ICMPv6DestUnreach]
+
+= ICMPv6DestUnreach Class - checksum computation related stuff
+a=IPv6(raw(IPv6(src="2048::deca", dst="2047::cafe")/ICMPv6DestUnreach(code=1, cksum=0x6666, unused=0x7777)/IPv6(src="2047::cafe", dst="2048::deca")/TCP()))
+b=IPv6(raw(IPv6(src="2047::cafe", dst="2048::deca")/TCP()))
+a[ICMPv6DestUnreach][TCPerror].chksum == b.chksum
+
+
+########### ICMPv6PacketTooBig Class ################################
+
+= ICMPv6PacketTooBig Class - Basic Build (no argument)
+raw(ICMPv6PacketTooBig()) == b'\x02\x00\x00\x00\x00\x00\x05\x00'
+
+= ICMPv6PacketTooBig Class - Basic Build over IPv6 (for cksum and overload)
+raw(IPv6(src="2048::deca", dst="2047::cafe")/ICMPv6PacketTooBig()) == b'`\x00\x00\x00\x00\x08:@ H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x02\x00\x0ee\x00\x00\x05\x00'
+
+= ICMPv6PacketTooBig Class - Basic Build over IPv6 with some payload
+raw(IPv6(src="2048::deca", dst="2047::cafe")/ICMPv6PacketTooBig()/IPv6(src="2047::cafe", dst="2048::deca")) == b'`\x00\x00\x00\x000:@ H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x02\x00\x88\xa3\x00\x00\x05\x00`\x00\x00\x00\x00\x00;@ G\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca'
+
+= ICMPv6PacketTooBig Class - Dissection with default values and some payload
+a = IPv6(raw(IPv6(src="2048::deca", dst="2047::cafe")/ICMPv6PacketTooBig()/IPv6(src="2047::cafe", dst="2048::deca")))
+a.plen == 48 and a.nh == 58 and ICMPv6PacketTooBig in a and a[ICMPv6PacketTooBig].type == 2 and a[ICMPv6PacketTooBig].code == 0 and a[ICMPv6PacketTooBig].cksum == 0x88a3 and a[ICMPv6PacketTooBig].mtu == 1280 and IPerror6 in a
+True
+
+= ICMPv6PacketTooBig Class - Dissection with specific values
+a=IPv6(raw(IPv6(src="2048::deca", dst="2047::cafe")/ICMPv6PacketTooBig(code=2, cksum=0x6666, mtu=1460)/IPv6(src="2047::cafe", dst="2048::deca")))
+a.plen == 48 and a.nh == 58 and ICMPv6PacketTooBig in a and a[ICMPv6PacketTooBig].type == 2 and a[ICMPv6PacketTooBig].code == 2 and a[ICMPv6PacketTooBig].cksum == 0x6666 and a[ICMPv6PacketTooBig].mtu == 1460 and IPerror6 in a
+
+= ICMPv6PacketTooBig Class - checksum computation related stuff
+a=IPv6(raw(IPv6(src="2048::deca", dst="2047::cafe")/ICMPv6PacketTooBig(code=1, cksum=0x6666, mtu=0x7777)/IPv6(src="2047::cafe", dst="2048::deca")/TCP()))
+b=IPv6(raw(IPv6(src="2047::cafe", dst="2048::deca")/TCP()))
+a[ICMPv6PacketTooBig][TCPerror].chksum == b.chksum
+
+
+########### ICMPv6TimeExceeded Class ################################
+# To be done but not critical. Same mechanisms and format as 
+# previous ones.
+
+########### ICMPv6ParamProblem Class ################################
+# See previous note
+
+############
+############
++ Test ICMPv6EchoRequest Class
+
+= ICMPv6EchoRequest - Basic Instantiation
+raw(ICMPv6EchoRequest()) == b'\x80\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6EchoRequest - Instantiation with specific values
+raw(ICMPv6EchoRequest(code=0xff, cksum=0x1111, id=0x2222, seq=0x3333, data="thisissomestring")) == b'\x80\xff\x11\x11""33thisissomestring'
+
+= ICMPv6EchoRequest - Basic dissection
+a=ICMPv6EchoRequest(b'\x80\x00\x00\x00\x00\x00\x00\x00')
+a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == b""
+
+= ICMPv6EchoRequest - Dissection with specific values 
+a=ICMPv6EchoRequest(b'\x80\xff\x11\x11""33thisissomerawing')
+a.type == 128 and a.code == 0xff and a.cksum == 0x1111 and a.id == 0x2222 and a.seq == 0x3333 and a.data == b"thisissomerawing"
+
+= ICMPv6EchoRequest - Automatic checksum computation and field overloading (build)
+raw(IPv6(dst="2001::cafe", src="2001::deca", hlim=64)/ICMPv6EchoRequest()) == b'`\x00\x00\x00\x00\x08:@ \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x80\x00\x95\xf1\x00\x00\x00\x00'
+
+= ICMPv6EchoRequest - Automatic checksum computation and field overloading (dissection)
+a=IPv6(b'`\x00\x00\x00\x00\x08:@ \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x80\x00\x95\xf1\x00\x00\x00\x00')
+isinstance(a, IPv6) and a.nh == 58 and isinstance(a.payload, ICMPv6EchoRequest) and a.payload.cksum == 0x95f1
+
+
+############
+############
++ Test ICMPv6EchoReply Class
+
+= ICMPv6EchoReply - Basic Instantiation
+raw(ICMPv6EchoReply()) == b'\x81\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6EchoReply - Instantiation with specific values
+raw(ICMPv6EchoReply(code=0xff, cksum=0x1111, id=0x2222, seq=0x3333, data="thisissomestring")) == b'\x81\xff\x11\x11""33thisissomestring'
+
+= ICMPv6EchoReply - Basic dissection
+a=ICMPv6EchoReply(b'\x80\x00\x00\x00\x00\x00\x00\x00')
+a.type == 128 and a.code == 0 and a.cksum == 0 and a.id == 0 and a.seq == 0 and a.data == b""
+
+= ICMPv6EchoReply - Dissection with specific values 
+a=ICMPv6EchoReply(b'\x80\xff\x11\x11""33thisissomerawing')
+a.type == 128 and a.code == 0xff and a.cksum == 0x1111 and a.id == 0x2222 and a.seq == 0x3333 and a.data == b"thisissomerawing"
+
+= ICMPv6EchoReply - Automatic checksum computation and field overloading (build)
+raw(IPv6(dst="2001::cafe", src="2001::deca", hlim=64)/ICMPv6EchoReply()) == b'`\x00\x00\x00\x00\x08:@ \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x81\x00\x94\xf1\x00\x00\x00\x00'
+
+= ICMPv6EchoReply - Automatic checksum computation and field overloading (dissection)
+a=IPv6(b'`\x00\x00\x00\x00\x08:@ \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xde\xca \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe\x80\x00\x95\xf1\x00\x00\x00\x00')
+isinstance(a, IPv6) and a.nh == 58 and isinstance(a.payload, ICMPv6EchoRequest) and a.payload.cksum == 0x95f1
+
+########### ICMPv6EchoReply/Request answers() and hashret() #########
+
+= ICMPv6EchoRequest and ICMPv6EchoReply - hashret() test 1
+b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(data="somedata")
+a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(data="somedata")
+b.hashret() == a.hashret()
+
+# data are not taken into account for hashret
+= ICMPv6EchoRequest and ICMPv6EchoReply - hashret() test 2
+b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(data="somedata")
+a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(data="otherdata")
+b.hashret() == a.hashret()
+
+= ICMPv6EchoRequest and ICMPv6EchoReply - hashret() test 3
+b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(id=0x6666, seq=0x7777,data="somedata")
+a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(id=0x6666, seq=0x8888, data="somedata")
+b.hashret() != a.hashret()
+
+= ICMPv6EchoRequest and ICMPv6EchoReply - hashret() test 4
+b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(id=0x6666, seq=0x7777,data="somedata")
+a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(id=0x8888, seq=0x7777, data="somedata")
+b.hashret() != a.hashret()
+
+= ICMPv6EchoRequest and ICMPv6EchoReply - answers() test 5
+b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(data="somedata")
+a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(data="somedata")
+(a > b) == True
+
+= ICMPv6EchoRequest and ICMPv6EchoReply - answers() test 6
+b=IPv6(src="2047::deca", dst="2048::cafe")/ICMPv6EchoReply(id=0x6666, seq=0x7777, data="somedata")
+a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(id=0x6666, seq=0x7777, data="somedata")
+(a > b) == True
+
+= ICMPv6EchoRequest and ICMPv6EchoReply - live answers() use Net6
+~ netaccess ipv6
+
+a = IPv6(dst="www.google.com")/ICMPv6EchoRequest()
+b = IPv6(src="www.google.com", dst=a.src)/ICMPv6EchoReply()
+assert b.answers(a)
+assert (a > b)
+
+
+########### ICMPv6MRD* Classes ######################################
+
+= ICMPv6MRD_Advertisement - Basic instantiation
+raw(ICMPv6MRD_Advertisement()) == b'\x97\x14\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6MRD_Advertisement - Instantiation with specific values
+raw(ICMPv6MRD_Advertisement(advinter=0xdd, queryint=0xeeee, robustness=0xffff)) == b'\x97\xdd\x00\x00\xee\xee\xff\xff'
+
+= ICMPv6MRD_Advertisement - Basic Dissection and overloading mechanisms
+a=Ether(raw(Ether()/IPv6()/ICMPv6MRD_Advertisement()))
+a.dst == "33:33:00:00:00:02" and IPv6 in a and a[IPv6].plen == 8 and a[IPv6].nh == 58 and a[IPv6].hlim == 1 and a[IPv6].dst == "ff02::2" and ICMPv6MRD_Advertisement in a and a[ICMPv6MRD_Advertisement].type == 151 and a[ICMPv6MRD_Advertisement].advinter == 20 and a[ICMPv6MRD_Advertisement].queryint == 0 and a[ICMPv6MRD_Advertisement].robustness == 0
+
+
+= ICMPv6MRD_Solicitation - Basic dissection
+raw(ICMPv6MRD_Solicitation()) == b'\x98\x00\x00\x00'
+
+= ICMPv6MRD_Solicitation - Instantiation with specific values 
+raw(ICMPv6MRD_Solicitation(res=0xbb)) == b'\x98\xbb\x00\x00'
+
+= ICMPv6MRD_Solicitation - Basic Dissection and overloading mechanisms
+a=Ether(raw(Ether()/IPv6()/ICMPv6MRD_Solicitation()))
+a.dst == "33:33:00:00:00:02" and IPv6 in a and a[IPv6].plen == 4 and a[IPv6].nh == 58 and a[IPv6].hlim == 1 and a[IPv6].dst == "ff02::2" and ICMPv6MRD_Solicitation in a and a[ICMPv6MRD_Solicitation].type == 152 and a[ICMPv6MRD_Solicitation].res == 0
+
+
+= ICMPv6MRD_Termination Basic instantiation
+raw(ICMPv6MRD_Termination()) == b'\x99\x00\x00\x00'
+
+= ICMPv6MRD_Termination - Instantiation with specific values 
+raw(ICMPv6MRD_Termination(res=0xbb)) == b'\x99\xbb\x00\x00'
+
+= ICMPv6MRD_Termination - Basic Dissection and overloading mechanisms
+a=Ether(raw(Ether()/IPv6()/ICMPv6MRD_Termination()))
+a.dst == "33:33:00:00:00:6a" and IPv6 in a and a[IPv6].plen == 4 and a[IPv6].nh == 58 and a[IPv6].hlim == 1 and a[IPv6].dst == "ff02::6a" and ICMPv6MRD_Termination in a and a[ICMPv6MRD_Termination].type == 153 and a[ICMPv6MRD_Termination].res == 0
+
+
+############
+############
++ Test HBHOptUnknown Class
+
+= HBHOptUnknown - Basic Instantiation 
+raw(HBHOptUnknown()) == b'\x01\x00'
+
+= HBHOptUnknown - Basic Dissection 
+a=HBHOptUnknown(b'\x01\x00')
+a.otype == 0x01 and a.optlen == 0 and a.optdata == b""
+
+= HBHOptUnknown - Automatic optlen computation
+raw(HBHOptUnknown(optdata="B"*10)) == b'\x01\nBBBBBBBBBB'
+
+= HBHOptUnknown - Instantiation with specific values
+raw(HBHOptUnknown(optlen=9, optdata="B"*10)) == b'\x01\tBBBBBBBBBB'
+
+= HBHOptUnknown - Dissection with specific values 
+a=HBHOptUnknown(b'\x01\tBBBBBBBBBB')
+a.otype == 0x01 and a.optlen == 9 and a.optdata == b"B"*9 and isinstance(a.payload, Raw) and a.payload.load == b"B"
+
+
+############
+############
++ Test Pad1 Class
+
+= Pad1 - Basic Instantiation
+raw(Pad1()) == b'\x00'
+
+= Pad1 - Basic Dissection
+raw(Pad1(b'\x00')) == b'\x00'
+
+
+############
+############
++ Test PadN Class
+
+= PadN - Basic Instantiation
+raw(PadN()) == b'\x01\x00'
+
+= PadN - Optlen Automatic computation
+raw(PadN(optdata="B"*10)) == b'\x01\nBBBBBBBBBB'
+
+= PadN - Basic Dissection
+a=PadN(b'\x01\x00')
+a.otype == 1 and a.optlen == 0 and a.optdata == b""
+
+= PadN - Dissection with specific values 
+a=PadN(b'\x01\x0cBBBBBBBBBB')
+a.otype == 1 and a.optlen == 12 and a.optdata == b'BBBBBBBBBB'
+
+= PadN - Instantiation with forced optlen 
+raw(PadN(optdata="B"*10, optlen=9)) == b'\x01\x09BBBBBBBBBB'
+
+
+############
+############
++ Test RouterAlert Class (RFC 2711)
+
+= RouterAlert - Basic Instantiation 
+raw(RouterAlert()) == b'\x05\x02\x00\x00'
+
+= RouterAlert - Basic Dissection 
+a=RouterAlert(b'\x05\x02\x00\x00')
+a.otype == 0x05 and a.optlen == 2 and a.value == 00
+
+= RouterAlert - Instantiation with specific values 
+raw(RouterAlert(optlen=3, value=0xffff)) == b'\x05\x03\xff\xff' 
+
+= RouterAlert - Instantiation with specific values
+a=RouterAlert(b'\x05\x03\xff\xff')
+a.otype == 0x05 and a.optlen == 3 and a.value == 0xffff
+
+
+############
+############
++ Test Jumbo Class (RFC 2675)
+
+= Jumbo - Basic Instantiation 
+raw(Jumbo()) == b'\xc2\x04\x00\x00\x00\x00'
+
+= Jumbo - Basic Dissection 
+a=Jumbo(b'\xc2\x04\x00\x00\x00\x00')
+a.otype == 0xC2 and a.optlen == 4 and a.jumboplen == 0
+
+= Jumbo - Instantiation with specific values
+raw(Jumbo(optlen=6, jumboplen=0xffffffff)) == b'\xc2\x06\xff\xff\xff\xff'
+
+= Jumbo - Dissection with specific values 
+a=Jumbo(b'\xc2\x06\xff\xff\xff\xff')
+a.otype == 0xc2 and a.optlen == 6 and a.jumboplen == 0xffffffff
+
+
+############
+############
++ Test HAO Class (RFC 3775)
+
+= HAO - Basic Instantiation 
+raw(HAO()) == b'\xc9\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= HAO - Basic Dissection 
+a=HAO(b'\xc9\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.otype == 0xC9 and a.optlen == 16 and a.hoa == "::"
+
+= HAO - Instantiation with specific values
+raw(HAO(optlen=9, hoa="2001::ffff")) == b'\xc9\t \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff'
+
+= HAO - Dissection with specific values 
+a=HAO(b'\xc9\t \x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff')
+a.otype == 0xC9 and a.optlen == 9 and a.hoa == "2001::ffff"
+
+= HAO - hashret
+
+p = IPv6()/IPv6ExtHdrDestOpt(options=HAO(hoa="2001:db8::1"))/ICMPv6EchoRequest()
+p.hashret() == b' \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\x00\x00\x00\x00'
+
+
+############
+############
++ Test IPv6ExtHdrHopByHop()
+
+= IPv6ExtHdrHopByHop - Basic Instantiation 
+raw(IPv6ExtHdrHopByHop()) ==  b';\x00\x01\x04\x00\x00\x00\x00'
+
+= IPv6ExtHdrHopByHop - Instantiation with HAO option
+raw(IPv6ExtHdrHopByHop(options=[HAO()])) == b';\x02\x01\x02\x00\x00\xc9\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= IPv6ExtHdrHopByHop - Instantiation with RouterAlert option
+raw(IPv6ExtHdrHopByHop(options=[RouterAlert()])) == b';\x00\x05\x02\x00\x00\x01\x00'
+ 
+= IPv6ExtHdrHopByHop - Instantiation with Jumbo option
+raw(IPv6ExtHdrHopByHop(options=[Jumbo()])) == b';\x00\xc2\x04\x00\x00\x00\x00'
+
+= IPv6ExtHdrHopByHop - Complete dissection with Jumbo option
+s = b'`\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01:\x00\xc2\x04\x00\x00\x00\x10\x80\x00\x7f\xbb\x00\x00\x00\x00'
+p = IPv6(s)
+assert IPv6ExtHdrHopByHop in p and Jumbo in p and ICMPv6EchoRequest in p
+
+s = b'`\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01:\x01\x01\x06\x00\x00\x00\x00\x00\x00\xc2\x04\x00\x00\x00\x18\x80\x00\x7f\xbb\x00\x00\x00\x00'
+p = IPv6(s)
+assert IPv6ExtHdrHopByHop in p and PadN in p and Jumbo in p and ICMPv6EchoRequest in p
+
+= IPv6ExtHdrHopByHop - Instantiation with Pad1 option
+raw(IPv6ExtHdrHopByHop(options=[Pad1()])) == b';\x00\x00\x01\x03\x00\x00\x00'
+
+= IPv6ExtHdrHopByHop - Instantiation with PadN option
+raw(IPv6ExtHdrHopByHop(options=[Pad1()])) == b';\x00\x00\x01\x03\x00\x00\x00'
+
+= IPv6ExtHdrHopByHop - Instantiation with Jumbo, RouterAlert, HAO
+raw(IPv6ExtHdrHopByHop(options=[Jumbo(), RouterAlert(), HAO()])) == b';\x03\xc2\x04\x00\x00\x00\x00\x05\x02\x00\x00\x01\x00\xc9\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= IPv6ExtHdrHopByHop - Instantiation with HAO, Jumbo, RouterAlert
+raw(IPv6ExtHdrHopByHop(options=[HAO(), Jumbo(), RouterAlert()])) == b';\x04\x01\x02\x00\x00\xc9\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\xc2\x04\x00\x00\x00\x00\x05\x02\x00\x00\x01\x02\x00\x00'
+
+= IPv6ExtHdrHopByHop - Instantiation with RouterAlert, HAO, Jumbo
+raw(IPv6ExtHdrHopByHop(options=[RouterAlert(), HAO(), Jumbo()])) == b';\x03\x05\x02\x00\x00\xc9\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\xc2\x04\x00\x00\x00\x00'
+
+= IPv6ExtHdrHopByHop - Hashret
+(IPv6(src="::1", dst="::1")/IPv6ExtHdrHopByHop()).hashret() == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00;'
+
+= IPv6ExtHdrHopByHop - Basic Dissection
+a=IPv6ExtHdrHopByHop(b';\x00\x01\x04\x00\x00\x00\x00')
+a.nh == 59 and a.len == 0 and len(a.options) == 1 and isinstance(a.options[0], PadN) and a.options[0].otype == 1 and a.options[0].optlen == 4 and a.options[0].optdata == b'\x00'*4
+
+#= IPv6ExtHdrHopByHop - Automatic length computation
+#raw(IPv6ExtHdrHopByHop(options=["toto"])) == b'\x00\x00toto'
+#= IPv6ExtHdrHopByHop - Automatic length computation
+#raw(IPv6ExtHdrHopByHop(options=["toto"])) == b'\x00\x00tototo'
+
+
+############
+############
++ Test ICMPv6ND_RS() class - ICMPv6 Type 133 Code 0
+
+= ICMPv6ND_RS - Basic instantiation
+raw(ICMPv6ND_RS()) == b'\x85\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6ND_RS - Basic instantiation with empty dst in IPv6 underlayer
+raw(IPv6(src="2001:db8::1")/ICMPv6ND_RS()) == b'`\x00\x00\x00\x00\x08:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x85\x00M\xfe\x00\x00\x00\x00'
+
+= ICMPv6ND_RS - Basic dissection
+a=ICMPv6ND_RS(b'\x85\x00\x00\x00\x00\x00\x00\x00')
+a.type == 133 and a.code == 0 and a.cksum == 0 and a.res == 0 
+
+= ICMPv6ND_RS - Basic instantiation with empty dst in IPv6 underlayer
+a=IPv6(b'`\x00\x00\x00\x00\x08:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x85\x00M\xfe\x00\x00\x00\x00')
+assert isinstance(a, IPv6) and a.nh == 58 and a.hlim == 255 and isinstance(a.payload, ICMPv6ND_RS) and a.payload.type == 133 and a.payload.code == 0 and a.payload.cksum == 0x4dfe and a.payload.res == 0
+assert a.hashret() == b":"
+
+
+############
+############
++ Test ICMPv6ND_RA() class - ICMPv6 Type 134 Code 0
+
+= ICMPv6ND_RA - Basic Instantiation 
+raw(ICMPv6ND_RA()) == b'\x86\x00\x00\x00\x00\x08\x07\x08\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6ND_RA - Basic instantiation with empty dst in IPv6 underlayer
+raw(IPv6(src="2001:db8::1")/ICMPv6ND_RA()) == b'`\x00\x00\x00\x00\x10:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x86\x00E\xe7\x00\x08\x07\x08\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6ND_RA - Basic dissection
+a=ICMPv6ND_RA(b'\x86\x00\x00\x00\x00\x08\x07\x08\x00\x00\x00\x00\x00\x00\x00\x00')
+a.type == 134 and a.code == 0 and a.cksum == 0 and a.chlim == 0 and a.M == 0 and a.O == 0 and a.H == 0 and a.prf == 1 and a.res == 0 and a.routerlifetime == 1800 and a.reachabletime == 0 and a.retranstimer == 0
+
+= ICMPv6ND_RA - Basic instantiation with empty dst in IPv6 underlayer
+a=IPv6(b'`\x00\x00\x00\x00\x10:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x86\x00E\xe7\x00\x08\x07\x08\x00\x00\x00\x00\x00\x00\x00\x00')
+isinstance(a, IPv6) and a.nh == 58 and a.hlim == 255 and isinstance(a.payload, ICMPv6ND_RA) and a.payload.type == 134 and a.code == 0 and a.cksum == 0x45e7 and a.chlim == 0 and a.M == 0 and a.O == 0 and a.H == 0 and a.prf == 1 and a.res == 0 and a.routerlifetime == 1800 and a.reachabletime == 0 and a.retranstimer == 0 
+
+= ICMPv6ND_RA - Answers
+assert ICMPv6ND_RA().answers(ICMPv6ND_RS())
+a=IPv6(b'`\x00\x00\x00\x00\x10:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x86\x00E\xe7\x00\x08\x07\x08\x00\x00\x00\x00\x00\x00\x00\x00')
+b = IPv6(b"`\x00\x00\x00\x00\x10:\xff\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x85\x00M\xff\x00\x00\x00\x00")
+assert a.answers(b)
+
+= ICMPv6ND_RA - Summary Output
+ICMPv6ND_RA(chlim=42, M=0, O=1, H=0, prf=1, P=0, routerlifetime=300).mysummary() == "ICMPv6 Neighbor Discovery - Router Advertisement Lifetime 300 Hop Limit 42 Preference High Managed 0 Other 1 Home 0"
+
+############
+############
++ ICMPv6ND_NS Class Test
+
+= ICMPv6ND_NS - Basic Instantiation
+raw(ICMPv6ND_NS()) == b'\x87\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6ND_NS - Instantiation with specific values
+raw(ICMPv6ND_NS(code=0x11, res=3758096385, tgt="ffff::1111")) == b'\x87\x11\x00\x00\xe0\x00\x00\x01\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+
+= ICMPv6ND_NS - Basic Dissection
+a=ICMPv6ND_NS(b'\x87\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.code==0 and a.res==0 and a.tgt=="::"
+
+= ICMPv6ND_NS - Dissection with specific values
+a=ICMPv6ND_NS(b'\x87\x11\x00\x00\xe0\x00\x00\x01\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+assert a.code==0x11 and a.res==3758096385 and a.tgt=="ffff::1111"
+assert a.hashret() == b"ffff::1111"
+
+= ICMPv6ND_NS - IPv6 layer fields overloading
+a=IPv6(raw(IPv6()/ICMPv6ND_NS()))
+a.nh == 58 and a.dst=="ff02::1" and a.hlim==255
+
+############
+############
++ ICMPv6ND_NA Class Test
+
+= ICMPv6ND_NA - Basic Instantiation
+raw(ICMPv6ND_NA()) == b'\x88\x00\x00\x00\xa0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6ND_NA - Instantiation with specific values
+raw(ICMPv6ND_NA(code=0x11, R=0, S=1, O=0, res=1, tgt="ffff::1111")) == b'\x88\x11\x00\x00@\x00\x00\x01\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+
+= ICMPv6ND_NA - Basic Dissection
+a=ICMPv6ND_NA(b'\x88\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.code==0 and a.R==0 and a.S==0 and a.O==0 and a.res==0 and a.tgt=="::"
+
+= ICMPv6ND_NA - Dissection with specific values
+a=ICMPv6ND_NA(b'\x88\x11\x00\x00@\x00\x00\x01\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+a.code==0x11 and a.R==0 and a.S==1 and a.O==0 and a.res==1 and a.tgt=="ffff::1111"
+assert a.hashret() == b'ffff::1111'
+
+= ICMPv6ND_NS - IPv6 layer fields overloading
+a=IPv6(raw(IPv6()/ICMPv6ND_NS()))
+a.nh == 58 and a.dst=="ff02::1" and a.hlim==255
+
+
+############
+############
++ ICMPv6ND_ND/ICMPv6ND_ND matching test
+
+=  ICMPv6ND_ND/ICMPv6ND_ND matching - test 1
+# Sent NS 
+a=IPv6(b'`\x00\x00\x00\x00\x18:\xff\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x0f\x1f\xff\xfe\xcaFP\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x87\x00UC\x00\x00\x00\x00\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x0f4\xff\xfe\x8a\x8a\xa1')
+# Received NA 
+b=IPv6(b'n\x00\x00\x00\x00 :\xff\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x0f4\xff\xfe\x8a\x8a\xa1\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x0f\x1f\xff\xfe\xcaFP\x88\x00\xf3F\xe0\x00\x00\x00\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x0f4\xff\xfe\x8a\x8a\xa1\x02\x01\x00\x0f4\x8a\x8a\xa1')
+b.answers(a)
+
+
+############
+############
++ ICMPv6NDOptUnknown Class Test
+
+= ICMPv6NDOptUnknown - Basic Instantiation
+raw(ICMPv6NDOptUnknown()) == b'\x00\x02'
+
+= ICMPv6NDOptUnknown - Instantiation with specific values
+raw(ICMPv6NDOptUnknown(len=4, data="somestring")) == b'\x00\x04somestring'
+
+= ICMPv6NDOptUnknown - Basic Dissection
+a=ICMPv6NDOptUnknown(b'\x00\x02')
+a.type == 0 and a.len == 2
+
+= ICMPv6NDOptUnknown - Dissection with specific values 
+a=ICMPv6NDOptUnknown(b'\x00\x04somerawing')
+a.type == 0 and a.len==4 and a.data == b"so" and isinstance(a.payload, Raw) and a.payload.load == b"merawing"
+
+
+############
+############
++ ICMPv6NDOptSrcLLAddr Class Test
+
+= ICMPv6NDOptSrcLLAddr - Basic Instantiation
+raw(ICMPv6NDOptSrcLLAddr()) == b'\x01\x01\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptSrcLLAddr - Instantiation with specific values
+raw(ICMPv6NDOptSrcLLAddr(len=2, lladdr="11:11:11:11:11:11")) == b'\x01\x02\x11\x11\x11\x11\x11\x11'
+
+= ICMPv6NDOptSrcLLAddr - Basic Dissection
+a=ICMPv6NDOptSrcLLAddr(b'\x01\x01\x00\x00\x00\x00\x00\x00')
+a.type == 1 and a.len == 1 and a.lladdr == "00:00:00:00:00:00"
+
+= ICMPv6NDOptSrcLLAddr - Instantiation with specific values
+a=ICMPv6NDOptSrcLLAddr(b'\x01\x02\x11\x11\x11\x11\x11\x11') 
+a.type == 1 and a.len == 2 and a.lladdr == "11:11:11:11:11:11"
+
+
+############
+############
++ ICMPv6NDOptDstLLAddr Class Test
+
+= ICMPv6NDOptDstLLAddr - Basic Instantiation
+raw(ICMPv6NDOptDstLLAddr()) == b'\x02\x01\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptDstLLAddr - Instantiation with specific values
+raw(ICMPv6NDOptDstLLAddr(len=2, lladdr="11:11:11:11:11:11")) == b'\x02\x02\x11\x11\x11\x11\x11\x11'
+
+= ICMPv6NDOptDstLLAddr - Basic Dissection
+a=ICMPv6NDOptDstLLAddr(b'\x02\x01\x00\x00\x00\x00\x00\x00')
+a.type == 2 and a.len == 1 and a.lladdr == "00:00:00:00:00:00"
+
+= ICMPv6NDOptDstLLAddr - Instantiation with specific values
+a=ICMPv6NDOptDstLLAddr(b'\x02\x02\x11\x11\x11\x11\x11\x11') 
+a.type == 2 and a.len == 2 and a.lladdr == "11:11:11:11:11:11"
+
+
+############
+############
++ ICMPv6NDOptPrefixInfo Class Test
+
+= ICMPv6NDOptPrefixInfo - Basic Instantiation
+raw(ICMPv6NDOptPrefixInfo()) == b'\x03\x04@\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptPrefixInfo - Instantiation with specific values
+raw(ICMPv6NDOptPrefixInfo(len=5, prefixlen=64, L=0, A=0, R=1, res1=1, validlifetime=0x11111111, preferredlifetime=0x22222222, res2=0x33333333, prefix="2001:db8::1")) == b'\x03\x05@!\x11\x11\x11\x11""""3333 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+= ICMPv6NDOptPrefixInfo - Basic Dissection
+a=ICMPv6NDOptPrefixInfo(b'\x03\x04\x00\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.type == 3 and a.len == 4 and a.prefixlen == 0 and a.L == 1 and a.A == 1 and a.R == 0 and a.res1 == 0 and a.validlifetime == 0xffffffff and a.preferredlifetime == 0xffffffff and a.res2 == 0 and a.prefix == "::"
+
+= ICMPv6NDOptPrefixInfo - Instantiation with specific values
+a=ICMPv6NDOptPrefixInfo(b'\x03\x05@!\x11\x11\x11\x11""""3333 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
+a.type == 3 and a.len == 5 and a.prefixlen == 64 and a.L == 0 and a.A == 0 and a.R == 1 and a.res1 == 1 and a.validlifetime == 0x11111111 and a.preferredlifetime == 0x22222222 and a.res2 == 0x33333333 and a.prefix == "2001:db8::1"
+
+
+############
+############
++ ICMPv6NDOptRedirectedHdr Class Test 
+
+= ICMPv6NDOptRedirectedHdr - Basic Instantiation
+~ ICMPv6NDOptRedirectedHdr
+raw(ICMPv6NDOptRedirectedHdr()) == b'\x04\x01\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptRedirectedHdr - Instantiation with specific values 
+~ ICMPv6NDOptRedirectedHdr
+raw(ICMPv6NDOptRedirectedHdr(len=0xff, res="abcdef", pkt="somestringthatisnotanipv6packet")) == b'\x04\xffabcdefsomestringthatisnotanipv'
+
+= ICMPv6NDOptRedirectedHdr - Instantiation with simple IPv6 packet (no upper layer)
+~ ICMPv6NDOptRedirectedHdr
+raw(ICMPv6NDOptRedirectedHdr(pkt=IPv6())) == b'\x04\x06\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+= ICMPv6NDOptRedirectedHdr - Basic Dissection
+~ ICMPv6NDOptRedirectedHdr
+a=ICMPv6NDOptRedirectedHdr(b'\x04\x00\x00\x00')
+assert(a.type == 4)
+assert(a.len == 0)
+assert(a.res == b"\x00\x00")
+assert(a.pkt == b"")
+
+= ICMPv6NDOptRedirectedHdr - Disssection with specific values
+~ ICMPv6NDOptRedirectedHdr
+a=ICMPv6NDOptRedirectedHdr(b'\x04\xff\x11\x11\x00\x00\x00\x00somerawingthatisnotanipv6pac')
+a.type == 4 and a.len == 255 and a.res == b'\x11\x11\x00\x00\x00\x00' and isinstance(a.pkt, Raw) and a.pkt.load == b"somerawingthatisnotanipv6pac"
+
+= ICMPv6NDOptRedirectedHdr - Dissection with cut IPv6 Header
+~ ICMPv6NDOptRedirectedHdr
+a=ICMPv6NDOptRedirectedHdr(b'\x04\x06\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.type == 4 and a.len == 6 and a.res == b"\x00\x00\x00\x00\x00\x00" and isinstance(a.pkt, Raw) and a.pkt.load == b'`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptRedirectedHdr - Complete dissection
+~ ICMPv6NDOptRedirectedHdr
+x=ICMPv6NDOptRedirectedHdr(b'\x04\x06\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
+y=x.copy()
+del(y.len)
+x == ICMPv6NDOptRedirectedHdr(raw(y))
+
+# Add more tests
+
+
+############
+############
++ ICMPv6NDOptMTU Class Test 
+
+= ICMPv6NDOptMTU - Basic Instantiation
+raw(ICMPv6NDOptMTU()) == b'\x05\x01\x00\x00\x00\x00\x05\x00'
+
+= ICMPv6NDOptMTU - Instantiation with specific values
+raw(ICMPv6NDOptMTU(len=2, res=0x1111, mtu=1500)) == b'\x05\x02\x11\x11\x00\x00\x05\xdc'
+ 
+= ICMPv6NDOptMTU - Basic dissection
+a=ICMPv6NDOptMTU(b'\x05\x01\x00\x00\x00\x00\x05\x00')
+a.type == 5 and a.len == 1 and a.res == 0 and a.mtu == 1280
+
+= ICMPv6NDOptMTU - Dissection with specific values
+a=ICMPv6NDOptMTU(b'\x05\x02\x11\x11\x00\x00\x05\xdc')
+a.type == 5 and a.len == 2 and a.res == 0x1111 and a.mtu == 1500
+
+= ICMPv6NDOptMTU - Summary Output
+ICMPv6NDOptMTU(b'\x05\x02\x11\x11\x00\x00\x05\xdc').mysummary() == "ICMPv6 Neighbor Discovery Option - MTU 1500"
+
+
+############
+############
++ ICMPv6NDOptShortcutLimit Class Test (RFC2491)
+
+= ICMPv6NDOptShortcutLimit - Basic Instantiation
+raw(ICMPv6NDOptShortcutLimit()) == b'\x06\x01(\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptShortcutLimit - Instantiation with specific values
+raw(ICMPv6NDOptShortcutLimit(len=2, shortcutlim=0x11, res1=0xee, res2=0xaaaaaaaa)) == b'\x06\x02\x11\xee\xaa\xaa\xaa\xaa'
+
+= ICMPv6NDOptShortcutLimit - Basic Dissection
+a=ICMPv6NDOptShortcutLimit(b'\x06\x01(\x00\x00\x00\x00\x00')
+a.type == 6 and a.len == 1 and a.shortcutlim == 40 and a.res1 == 0 and a.res2 == 0
+
+= ICMPv6NDOptShortcutLimit - Dissection with specific values
+a=ICMPv6NDOptShortcutLimit(b'\x06\x02\x11\xee\xaa\xaa\xaa\xaa')
+a.len==2 and a.shortcutlim==0x11 and a.res1==0xee and a.res2==0xaaaaaaaa
+
+
+############
+############
++ ICMPv6NDOptAdvInterval Class Test 
+
+= ICMPv6NDOptAdvInterval - Basic Instantiation
+raw(ICMPv6NDOptAdvInterval()) == b'\x07\x01\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptAdvInterval - Instantiation with specific values
+raw(ICMPv6NDOptAdvInterval(len=2, res=0x1111, advint=0xffffffff)) == b'\x07\x02\x11\x11\xff\xff\xff\xff'
+ 
+= ICMPv6NDOptAdvInterval - Basic dissection
+a=ICMPv6NDOptAdvInterval(b'\x07\x01\x00\x00\x00\x00\x00\x00')
+a.type == 7 and a.len == 1 and a.res == 0 and a.advint == 0
+
+= ICMPv6NDOptAdvInterval - Dissection with specific values
+a=ICMPv6NDOptAdvInterval(b'\x07\x02\x11\x11\xff\xff\xff\xff')
+a.type == 7 and a.len == 2 and a.res == 0x1111 and a.advint == 0xffffffff
+
+
+############
+############
++ ICMPv6NDOptHAInfo Class Test
+
+= ICMPv6NDOptHAInfo - Basic Instantiation
+raw(ICMPv6NDOptHAInfo()) == b'\x08\x01\x00\x00\x00\x00\x00\x01'
+
+= ICMPv6NDOptHAInfo - Instantiation with specific values
+raw(ICMPv6NDOptHAInfo(len=2, res=0x1111, pref=0x2222, lifetime=0x3333)) == b'\x08\x02\x11\x11""33'
+ 
+= ICMPv6NDOptHAInfo - Basic dissection
+a=ICMPv6NDOptHAInfo(b'\x08\x01\x00\x00\x00\x00\x00\x01')
+a.type == 8 and a.len == 1 and a.res == 0 and a.pref == 0 and a.lifetime == 1
+
+= ICMPv6NDOptHAInfo - Dissection with specific values
+a=ICMPv6NDOptHAInfo(b'\x08\x02\x11\x11""33')
+a.type == 8 and a.len == 2 and a.res == 0x1111 and a.pref == 0x2222 and a.lifetime == 0x3333
+
+
+############
+############
++ ICMPv6NDOptSrcAddrList Class Test 
+
+= ICMPv6NDOptSrcAddrList - Basic Instantiation
+raw(ICMPv6NDOptSrcAddrList()) == b'\t\x01\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptSrcAddrList - Instantiation with specific values (auto len)
+raw(ICMPv6NDOptSrcAddrList(res="BBBBBB", addrlist=["ffff::ffff", "1111::1111"])) == b'\t\x05BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+
+= ICMPv6NDOptSrcAddrList - Instantiation with specific values 
+raw(ICMPv6NDOptSrcAddrList(len=3, res="BBBBBB", addrlist=["ffff::ffff", "1111::1111"])) == b'\t\x03BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+
+= ICMPv6NDOptSrcAddrList - Basic Dissection
+a=ICMPv6NDOptSrcAddrList(b'\t\x01\x00\x00\x00\x00\x00\x00')
+a.type == 9 and a.len == 1 and a.res == b'\x00\x00\x00\x00\x00\x00' and not a.addrlist
+
+= ICMPv6NDOptSrcAddrList - Dissection with specific values (auto len)
+a=ICMPv6NDOptSrcAddrList(b'\t\x05BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+a.type == 9 and a.len == 5 and a.res == b'BBBBBB' and len(a.addrlist) == 2 and a.addrlist[0] == "ffff::ffff" and a.addrlist[1] == "1111::1111"
+
+= ICMPv6NDOptSrcAddrList - Dissection with specific values 
+conf.debug_dissector = False
+a=ICMPv6NDOptSrcAddrList(b'\t\x03BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+conf.debug_dissector = True
+a.type == 9 and a.len == 3 and a.res == b'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == b'\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+
+
+############
+############
++ ICMPv6NDOptTgtAddrList Class Test 
+
+= ICMPv6NDOptTgtAddrList - Basic Instantiation
+raw(ICMPv6NDOptTgtAddrList()) == b'\n\x01\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptTgtAddrList - Instantiation with specific values (auto len)
+raw(ICMPv6NDOptTgtAddrList(res="BBBBBB", addrlist=["ffff::ffff", "1111::1111"])) == b'\n\x05BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+
+= ICMPv6NDOptTgtAddrList - Instantiation with specific values 
+raw(ICMPv6NDOptTgtAddrList(len=3, res="BBBBBB", addrlist=["ffff::ffff", "1111::1111"])) == b'\n\x03BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+
+= ICMPv6NDOptTgtAddrList - Basic Dissection
+a=ICMPv6NDOptTgtAddrList(b'\n\x01\x00\x00\x00\x00\x00\x00')
+a.type == 10 and a.len == 1 and a.res == b'\x00\x00\x00\x00\x00\x00' and not a.addrlist
+
+= ICMPv6NDOptTgtAddrList - Dissection with specific values (auto len)
+a=ICMPv6NDOptTgtAddrList(b'\n\x05BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+a.type == 10 and a.len == 5 and a.res == b'BBBBBB' and len(a.addrlist) == 2 and a.addrlist[0] == "ffff::ffff" and a.addrlist[1] == "1111::1111"
+
+= ICMPv6NDOptTgtAddrList - Instantiation with specific values 
+conf.debug_dissector = False
+a=ICMPv6NDOptTgtAddrList(b'\n\x03BBBBBB\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+conf.debug_dissector = True
+a.type == 10 and a.len == 3 and a.res == b'BBBBBB' and len(a.addrlist) == 1 and a.addrlist[0] == "ffff::ffff" and isinstance(a.payload, Raw) and a.payload.load == b'\x11\x11\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+
+
+############
+############
++ ICMPv6NDOptIPAddr Class Test (RFC 4068)
+
+= ICMPv6NDOptIPAddr - Basic Instantiation 
+raw(ICMPv6NDOptIPAddr()) == b'\x11\x03\x01@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptIPAddr - Instantiation with specific values
+raw(ICMPv6NDOptIPAddr(len=5, optcode=0xff, plen=40, res=0xeeeeeeee, addr="ffff::1111")) == b'\x11\x05\xff(\xee\xee\xee\xee\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+
+= ICMPv6NDOptIPAddr - Basic Dissection 
+a=ICMPv6NDOptIPAddr(b'\x11\x03\x01@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.type == 17 and a.len == 3 and a.optcode == 1 and a.plen == 64 and a.res == 0 and a.addr == "::"
+
+= ICMPv6NDOptIPAddr - Dissection with specific values
+a=ICMPv6NDOptIPAddr(b'\x11\x05\xff(\xee\xee\xee\xee\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+a.type == 17 and a.len == 5 and a.optcode == 0xff and a.plen == 40 and a.res == 0xeeeeeeee and a.addr == "ffff::1111"
+
+
+############
+############
++ ICMPv6NDOptNewRtrPrefix Class Test (RFC 4068)
+
+= ICMPv6NDOptNewRtrPrefix - Basic Instantiation 
+raw(ICMPv6NDOptNewRtrPrefix()) == b'\x12\x03\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptNewRtrPrefix - Instantiation with specific values
+raw(ICMPv6NDOptNewRtrPrefix(len=5, optcode=0xff, plen=40, res=0xeeeeeeee, prefix="ffff::1111")) == b'\x12\x05\xff(\xee\xee\xee\xee\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+
+= ICMPv6NDOptNewRtrPrefix - Basic Dissection 
+a=ICMPv6NDOptNewRtrPrefix(b'\x12\x03\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.type == 18 and a.len == 3 and a.optcode == 0 and a.plen == 64 and a.res == 0 and a.prefix == "::"
+
+= ICMPv6NDOptNewRtrPrefix - Dissection with specific values
+a=ICMPv6NDOptNewRtrPrefix(b'\x12\x05\xff(\xee\xee\xee\xee\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+a.type == 18 and a.len == 5 and a.optcode == 0xff and a.plen == 40 and a.res == 0xeeeeeeee and a.prefix == "ffff::1111"
+
+
+############
+############
++ ICMPv6NDOptLLA Class Test (RFC 4068)
+
+= ICMPv6NDOptLLA - Basic Instantiation 
+raw(ICMPv6NDOptLLA()) == b'\x13\x01\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptLLA - Instantiation with specific values
+raw(ICMPv6NDOptLLA(len=2, optcode=3, lla="ff:11:ff:11:ff:11")) == b'\x13\x02\x03\xff\x11\xff\x11\xff\x11'
+
+= ICMPv6NDOptLLA - Basic Dissection 
+a=ICMPv6NDOptLLA(b'\x13\x01\x00\x00\x00\x00\x00\x00\x00')
+a.type == 19 and a.len == 1 and a.optcode == 0 and a.lla == "00:00:00:00:00:00"
+
+= ICMPv6NDOptLLA - Dissection with specific values
+a=ICMPv6NDOptLLA(b'\x13\x02\x03\xff\x11\xff\x11\xff\x11')
+a.type == 19 and a.len == 2 and a.optcode == 3 and a.lla == "ff:11:ff:11:ff:11"
+
+
+############
+############
++ ICMPv6NDOptRouteInfo Class Test
+
+= ICMPv6NDOptRouteInfo - Basic Instantiation
+raw(ICMPv6NDOptRouteInfo()) == b'\x18\x01\x00\x00\xff\xff\xff\xff'
+
+= ICMPv6NDOptRouteInfo - Instantiation with forced prefix but no length
+raw(ICMPv6NDOptRouteInfo(prefix="2001:db8:1:1:1:1:1:1")) == b'\x18\x03\x00\x00\xff\xff\xff\xff \x01\r\xb8\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01'
+
+= ICMPv6NDOptRouteInfo - Instantiation with forced length values (1/4)
+raw(ICMPv6NDOptRouteInfo(len=1, prefix="2001:db8:1:1:1:1:1:1")) == b'\x18\x01\x00\x00\xff\xff\xff\xff'
+
+= ICMPv6NDOptRouteInfo - Instantiation with forced length values (2/4)
+raw(ICMPv6NDOptRouteInfo(len=2, prefix="2001:db8:1:1:1:1:1:1")) == b'\x18\x02\x00\x00\xff\xff\xff\xff \x01\r\xb8\x00\x01\x00\x01'
+
+= ICMPv6NDOptRouteInfo - Instantiation with forced length values (3/4)
+raw(ICMPv6NDOptRouteInfo(len=3, prefix="2001:db8:1:1:1:1:1:1")) == b'\x18\x03\x00\x00\xff\xff\xff\xff \x01\r\xb8\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01'
+
+= ICMPv6NDOptRouteInfo - Instantiation with forced length values (4/4)
+raw(ICMPv6NDOptRouteInfo(len=4, prefix="2001:db8:1:1:1:1:1:1")) == b'\x18\x04\x00\x00\xff\xff\xff\xff \x01\r\xb8\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptRouteInfo - Instantiation with specific values 
+raw(ICMPv6NDOptRouteInfo(len=6, plen=0x11, res1=1, prf=3, res2=1, rtlifetime=0x22222222, prefix="2001:db8::1")) == b'\x18\x06\x119"""" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptRouteInfo - Basic dissection
+a=ICMPv6NDOptRouteInfo(b'\x18\x03\x00\x00\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.type == 24 and a.len == 3 and a.plen == 0 and a.res1 == 0 and a.prf == 0 and a.res2 == 0 and a.rtlifetime == 0xffffffff and a. prefix == "::"
+
+= ICMPv6NDOptRouteInfo - Dissection with specific values 
+a=ICMPv6NDOptRouteInfo(b'\x18\x04\x119"""" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
+a.plen == 0x11 and a.res1 == 1 and a.prf == 3 and a.res2 == 1 and a.rtlifetime == 0x22222222 and a.prefix == "2001:db8::1" 
+
+= ICMPv6NDOptRouteInfo - Summary Output
+ICMPv6NDOptRouteInfo(b'\x18\x04\x119"""" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01').mysummary() == "ICMPv6 Neighbor Discovery Option - Route Information Option 2001:db8::1/17 Preference Low"
+
+
+############
+############
++ ICMPv6NDOptMAP Class Test
+
+= ICMPv6NDOptMAP - Basic Instantiation
+raw(ICMPv6NDOptMAP()) == b'\x17\x03\x1f\x80\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptMAP - Instantiation with specific values
+raw(ICMPv6NDOptMAP(len=5, dist=3, pref=10, R=0, res=1, validlifetime=0x11111111, addr="ffff::1111")) == b'\x17\x05:\x01\x11\x11\x11\x11\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11'
+
+= ICMPv6NDOptMAP - Basic Dissection
+a=ICMPv6NDOptMAP(b'\x17\x03\x1f\x80\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.type==23 and a.len==3 and a.dist==1 and a.pref==15 and a.R==1 and a.res==0 and a.validlifetime==0xffffffff and a.addr=="::"
+
+= ICMPv6NDOptMAP - Dissection with specific values
+a=ICMPv6NDOptMAP(b'\x17\x05:\x01\x11\x11\x11\x11\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x11')
+a.type==23 and a.len==5 and a.dist==3 and a.pref==10 and a.R==0 and a.res==1 and a.validlifetime==0x11111111 and a.addr=="ffff::1111"
+
+
+############
+############
++ ICMPv6NDOptRDNSS Class Test
+
+= ICMPv6NDOptRDNSS - Basic Instantiation
+raw(ICMPv6NDOptRDNSS()) == b'\x19\x01\x00\x00\xff\xff\xff\xff'
+
+= ICMPv6NDOptRDNSS - Basic instantiation with 1 DNS address
+raw(ICMPv6NDOptRDNSS(dns=["2001:db8::1"])) == b'\x19\x03\x00\x00\xff\xff\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+= ICMPv6NDOptRDNSS - Basic instantiation with 2 DNS addresses
+raw(ICMPv6NDOptRDNSS(dns=["2001:db8::1", "2001:db8::2"])) == b'\x19\x05\x00\x00\xff\xff\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
+
+= ICMPv6NDOptRDNSS - Instantiation with specific values
+raw(ICMPv6NDOptRDNSS(len=43, res=0xaaee, lifetime=0x11111111, dns=["2001:db8::2"])) == b'\x19+\xaa\xee\x11\x11\x11\x11 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
+
+= ICMPv6NDOptRDNSS - Basic Dissection
+a=ICMPv6NDOptRDNSS(b'\x19\x01\x00\x00\xff\xff\xff\xff')
+a.type==25 and a.len==1 and a.res == 0 and a.dns==[]
+
+= ICMPv6NDOptRDNSS - Dissection (with 1 DNS address)
+a=ICMPv6NDOptRDNSS(b'\x19\x03\x00\x00\xff\xff\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
+a.type==25 and a.len==3 and a.res ==0 and len(a.dns) == 1 and a.dns[0] == "2001:db8::1"
+
+= ICMPv6NDOptRDNSS - Dissection (with 2 DNS addresses)
+a=ICMPv6NDOptRDNSS(b'\x19\x05\xaa\xee\xff\xff\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
+a.type==25 and a.len==5 and a.res == 0xaaee and len(a.dns) == 2 and a.dns[0] == "2001:db8::1" and a.dns[1] == "2001:db8::2"
+
+= ICMPv6NDOptRDNSS - Summary Output
+a=ICMPv6NDOptRDNSS(b'\x19\x05\xaa\xee\xff\xff\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
+a.mysummary() == "ICMPv6 Neighbor Discovery Option - Recursive DNS Server Option 2001:db8::1, 2001:db8::2"
+
+
+############
+############
++ ICMPv6NDOptDNSSL Class Test
+
+= ICMPv6NDOptDNSSL - Basic Instantiation
+raw(ICMPv6NDOptDNSSL()) == b'\x1f\x01\x00\x00\xff\xff\xff\xff'
+
+= ICMPv6NDOptDNSSL - Instantiation with 1 search domain, as seen in the wild
+raw(ICMPv6NDOptDNSSL(lifetime=60, searchlist=["home."])) == b'\x1f\x02\x00\x00\x00\x00\x00<\x04home\x00\x00\x00'
+
+= ICMPv6NDOptDNSSL - Basic instantiation with 2 search domains
+raw(ICMPv6NDOptDNSSL(searchlist=["home.", "office."])) == b'\x1f\x03\x00\x00\xff\xff\xff\xff\x04home\x00\x06office\x00\x00\x00'
+
+= ICMPv6NDOptDNSSL - Basic instantiation with 3 search domains
+raw(ICMPv6NDOptDNSSL(searchlist=["home.", "office.", "here.there."])) == b'\x1f\x05\x00\x00\xff\xff\xff\xff\x04home\x00\x06office\x00\x04here\x05there\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptDNSSL - Basic Dissection
+p = ICMPv6NDOptDNSSL(b'\x1f\x01\x00\x00\xff\xff\xff\xff')
+p.type == 31 and p.len == 1 and p.res == 0 and p.searchlist == []
+
+= ICMPv6NDOptDNSSL - Basic Dissection with specific values
+p = ICMPv6NDOptDNSSL(b'\x1f\x02\x00\x00\x00\x00\x00<\x04home\x00\x00\x00')
+p.type == 31 and p.len == 2 and p.res == 0 and p.lifetime == 60 and p.searchlist == ["home."]
+
+= ICMPv6NDOptDNSSL - Summary Output
+ICMPv6NDOptDNSSL(searchlist=["home.", "office."]).mysummary() == "ICMPv6 Neighbor Discovery Option - DNS Search List Option home., office."
+
+
+############
+############
++ ICMPv6NDOptEFA Class Test
+
+= ICMPv6NDOptEFA - Basic Instantiation
+raw(ICMPv6NDOptEFA()) == b'\x1a\x01\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NDOptEFA - Basic Dissection
+a=ICMPv6NDOptEFA(b'\x1a\x01\x00\x00\x00\x00\x00\x00')
+a.type==26 and a.len==1 and a.res == 0
+
+
+############
+############
++ Test Node Information Query - ICMPv6NIQueryNOOP
+
+= ICMPv6NIQueryNOOP - Basic Instantiation
+raw(ICMPv6NIQueryNOOP(nonce=b"\x00"*8)) == b'\x8b\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NIQueryNOOP - Basic Dissection
+a = ICMPv6NIQueryNOOP(b'\x8b\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.type == 139 and a.code == 1 and a.cksum == 0 and a.qtype == 0 and a.unused == 0 and a.flags == 0 and a.nonce == b"\x00"*8 and a.data == b""
+
+
+############
+############
++ Test Node Information Query - ICMPv6NIQueryName
+
+= ICMPv6NIQueryName - single label DNS name (internal)
+a=ICMPv6NIQueryName(data="abricot").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 1 and a[1] == b'\x07abricot\x00\x00'
+
+= ICMPv6NIQueryName - single label DNS name
+ICMPv6NIQueryName(data="abricot").data == b"abricot"
+
+= ICMPv6NIQueryName - fqdn (internal)
+a=ICMPv6NIQueryName(data="n.d.org").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 1 and a[1] == b'\x01n\x01d\x03org\x00'
+
+= ICMPv6NIQueryName - fqdn
+ICMPv6NIQueryName(data="n.d.org").data == b"n.d.org"
+
+= ICMPv6NIQueryName - IPv6 address (internal)
+a=ICMPv6NIQueryName(data="2001:db8::1").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 0 and a[1] == '2001:db8::1'
+
+= ICMPv6NIQueryName - IPv6 address 
+ICMPv6NIQueryName(data="2001:db8::1").data == "2001:db8::1"
+
+= ICMPv6NIQueryName - IPv4 address (internal)
+a=ICMPv6NIQueryName(data="169.254.253.252").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 2 and a[1] == '169.254.253.252'
+
+= ICMPv6NIQueryName - IPv4 address
+ICMPv6NIQueryName(data="169.254.253.252").data == '169.254.253.252'
+
+= ICMPv6NIQueryName - build & dissection
+s = raw(IPv6()/ICMPv6NIQueryName(data="n.d.org"))
+p = IPv6(s)
+ICMPv6NIQueryName in p and p[ICMPv6NIQueryName].data == b"n.d.org"
+
+= ICMPv6NIQueryName - dissection
+s = b'\x8b\x00z^\x00\x02\x00\x00\x00\x03g\x90\xc7\xa3\xdd[\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+p = ICMPv6NIQueryName(s)
+p.show()
+assert ICMPv6NIQueryName in p and p.data == "ff02::1"
+
+
+############
+############
++ Test Node Information Query - ICMPv6NIQueryIPv6
+
+= ICMPv6NIQueryIPv6 - single label DNS name (internal)
+a = ICMPv6NIQueryIPv6(data="abricot")
+ls(a)
+a = a.getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 1 and a[1] == b'\x07abricot\x00\x00'
+
+= ICMPv6NIQueryIPv6 - single label DNS name
+ICMPv6NIQueryIPv6(data="abricot").data == b"abricot"
+
+= ICMPv6NIQueryIPv6 - fqdn (internal)
+a=ICMPv6NIQueryIPv6(data="n.d.org").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 1 and a[1] == b'\x01n\x01d\x03org\x00'
+
+= ICMPv6NIQueryIPv6 - fqdn
+ICMPv6NIQueryIPv6(data="n.d.org").data == b"n.d.org"
+
+= ICMPv6NIQueryIPv6 - IPv6 address (internal)
+a=ICMPv6NIQueryIPv6(data="2001:db8::1").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 0 and a[1] == '2001:db8::1'
+
+= ICMPv6NIQueryIPv6 - IPv6 address 
+ICMPv6NIQueryIPv6(data="2001:db8::1").data == "2001:db8::1"
+
+= ICMPv6NIQueryIPv6 - IPv4 address (internal)
+a=ICMPv6NIQueryIPv6(data="169.254.253.252").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 2 and a[1] == '169.254.253.252'
+
+= ICMPv6NIQueryIPv6 - IPv4 address
+ICMPv6NIQueryIPv6(data="169.254.253.252").data == '169.254.253.252'
+
+
+############
+############
++ Test Node Information Query - ICMPv6NIQueryIPv4
+
+= ICMPv6NIQueryIPv4 - single label DNS name (internal)
+a=ICMPv6NIQueryIPv4(data="abricot").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 1 and a[1] == b'\x07abricot\x00\x00'
+
+= ICMPv6NIQueryIPv4 - single label DNS name
+ICMPv6NIQueryIPv4(data="abricot").data == b"abricot"
+
+= ICMPv6NIQueryIPv4 - fqdn (internal)
+a=ICMPv6NIQueryIPv4(data="n.d.org").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 1 and a[1] == b'\x01n\x01d\x03org\x00'
+
+= ICMPv6NIQueryIPv4 - fqdn
+ICMPv6NIQueryIPv4(data="n.d.org").data == b"n.d.org"
+
+= ICMPv6NIQueryIPv4 - IPv6 address (internal)
+a=ICMPv6NIQueryIPv4(data="2001:db8::1").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 0 and a[1] == '2001:db8::1'
+
+= ICMPv6NIQueryIPv4 - IPv6 address 
+ICMPv6NIQueryIPv4(data="2001:db8::1").data == "2001:db8::1"
+
+= ICMPv6NIQueryIPv4 - IPv4 address (internal)
+a=ICMPv6NIQueryIPv4(data="169.254.253.252").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 2 and a[1] == '169.254.253.252'
+
+= ICMPv6NIQueryIPv4 - IPv4 address
+ICMPv6NIQueryIPv4(data="169.254.253.252").data == '169.254.253.252'
+
+= ICMPv6NIQueryIPv4 - dissection
+s = b'\x8b\x01\x00\x00\x00\x04\x00\x00\xc2\xb9\xc2\x96\xc3\xa1.H\x07freebsd\x00\x00'
+p = ICMPv6NIQueryIPv4(s)
+p.show()
+assert ICMPv6NIQueryIPv4 in p and p.data == b"freebsd"
+
+= ICMPv6NIQueryIPv4 - hashret()
+
+random.seed(0x2807)
+p = IPv6(src="::", dst="::")/ICMPv6NIQueryIPv4(data="freebsd")
+h = p.hashret()
+h
+assert h in [
+    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:g\x02f1\xbd?\xb3\xc4',
+    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\x88\xccb\x19~\x9e\xe3a',
+    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:$#\xb5\xb7\xd0\xbf \xe2'
+]
+
+
+############
+############
++ Test Node Information Query - Flags tests
+
+= ICMPv6NIQuery* - flags handling (Test 1)
+t = ICMPv6NIQueryIPv6(flags="T")
+a = ICMPv6NIQueryIPv6(flags="A")
+c = ICMPv6NIQueryIPv6(flags="C")
+l = ICMPv6NIQueryIPv6(flags="L")
+s = ICMPv6NIQueryIPv6(flags="S")
+g = ICMPv6NIQueryIPv6(flags="G")
+allflags = ICMPv6NIQueryIPv6(flags="TALCLSG")
+t.flags == 1 and a.flags == 2 and c.flags == 4 and l.flags == 8 and s.flags == 16 and g.flags == 32 and allflags.flags == 63
+
+
+= ICMPv6NIQuery* - flags handling (Test 2)
+t = raw(ICMPv6NIQueryNOOP(flags="T", nonce="A"*8))[6:8]
+a = raw(ICMPv6NIQueryNOOP(flags="A", nonce="A"*8))[6:8]
+c = raw(ICMPv6NIQueryNOOP(flags="C", nonce="A"*8))[6:8]
+l = raw(ICMPv6NIQueryNOOP(flags="L", nonce="A"*8))[6:8]
+s = raw(ICMPv6NIQueryNOOP(flags="S", nonce="A"*8))[6:8]
+g = raw(ICMPv6NIQueryNOOP(flags="G", nonce="A"*8))[6:8]
+allflags = raw(ICMPv6NIQueryNOOP(flags="TALCLSG", nonce="A"*8))[6:8]
+t == b'\x00\x01' and a == b'\x00\x02' and c == b'\x00\x04' and l == b'\x00\x08' and s == b'\x00\x10' and g == b'\x00\x20' and allflags == b'\x00\x3F'
+
+
+= ICMPv6NIReply* - flags handling (Test 1)
+t = ICMPv6NIReplyIPv6(flags="T")
+a = ICMPv6NIReplyIPv6(flags="A")
+c = ICMPv6NIReplyIPv6(flags="C")
+l = ICMPv6NIReplyIPv6(flags="L")
+s = ICMPv6NIReplyIPv6(flags="S")
+g = ICMPv6NIReplyIPv6(flags="G")
+allflags = ICMPv6NIReplyIPv6(flags="TALCLSG")
+t.flags == 1 and a.flags == 2 and c.flags == 4 and l.flags == 8 and s.flags == 16 and g.flags == 32 and allflags.flags == 63
+
+
+= ICMPv6NIReply* - flags handling (Test 2)
+t = raw(ICMPv6NIReplyNOOP(flags="T", nonce="A"*8))[6:8]
+a = raw(ICMPv6NIReplyNOOP(flags="A", nonce="A"*8))[6:8]
+c = raw(ICMPv6NIReplyNOOP(flags="C", nonce="A"*8))[6:8]
+l = raw(ICMPv6NIReplyNOOP(flags="L", nonce="A"*8))[6:8]
+s = raw(ICMPv6NIReplyNOOP(flags="S", nonce="A"*8))[6:8]
+g = raw(ICMPv6NIReplyNOOP(flags="G", nonce="A"*8))[6:8]
+allflags = raw(ICMPv6NIReplyNOOP(flags="TALCLSG", nonce="A"*8))[6:8]
+t == b'\x00\x01' and a == b'\x00\x02' and c == b'\x00\x04' and l == b'\x00\x08' and s == b'\x00\x10' and g == b'\x00\x20' and allflags == b'\x00\x3F'
+
+
+= ICMPv6NIQuery* - Flags Default values
+a = ICMPv6NIQueryNOOP()
+b = ICMPv6NIQueryName()
+c = ICMPv6NIQueryIPv4()
+d = ICMPv6NIQueryIPv6()
+a.flags == 0 and b.flags == 0 and c.flags == 0 and d.flags == 62
+
+= ICMPv6NIReply* - Flags Default values
+a = ICMPv6NIReplyIPv6()
+b = ICMPv6NIReplyName()
+c = ICMPv6NIReplyIPv6()
+d = ICMPv6NIReplyIPv4()
+e = ICMPv6NIReplyRefuse()
+f = ICMPv6NIReplyUnknown()
+a.flags == 0 and b.flags == 0 and c.flags == 0 and d.flags == 0 and e.flags == 0 and f.flags == 0
+
+
+
+# Nonces 
+# hashret and answers
+# payload guess
+# automatic destination address computation when integrated in scapy6
+# at least computeNIGroupAddr
+
+
+############
+############
++ Test Node Information Query - Dispatching
+
+= ICMPv6NIQueryIPv6 - dispatch with nothing in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryIPv6())
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryIPv6)
+
+= ICMPv6NIQueryIPv6 - dispatch with IPv6 address in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryIPv6(data="2001::db8::1"))
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryIPv6)
+
+= ICMPv6NIQueryIPv6 - dispatch with IPv4 address in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryIPv6(data="192.168.0.1"))
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryIPv6)
+
+= ICMPv6NIQueryIPv6 - dispatch with name in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryIPv6(data="alfred"))
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryIPv6)
+
+= ICMPv6NIQueryName - dispatch with nothing in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryName())
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryName)
+
+= ICMPv6NIQueryName - dispatch with IPv6 address in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryName(data="2001:db8::1"))
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryName)
+
+= ICMPv6NIQueryName - dispatch with IPv4 address in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryName(data="192.168.0.1"))
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryName)
+
+= ICMPv6NIQueryName - dispatch with name in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryName(data="alfred"))
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryName)
+
+= ICMPv6NIQueryIPv4 - dispatch with nothing in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryIPv4())
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryIPv4)
+
+= ICMPv6NIQueryIPv4 - dispatch with IPv6 address in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryIPv4(data="2001:db8::1"))
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryIPv4)
+
+= ICMPv6NIQueryIPv4 - dispatch with IPv6 address in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryIPv4(data="192.168.0.1"))
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryIPv4)
+
+= ICMPv6NIQueryIPv4 - dispatch with name in data
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIQueryIPv4(data="alfred"))
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIQueryIPv4)
+
+= ICMPv6NIReplyName - dispatch
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIReplyName())
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIReplyName)
+
+= ICMPv6NIReplyIPv6 - dispatch
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIReplyIPv6())
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIReplyIPv6)
+
+= ICMPv6NIReplyIPv4 - dispatch
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIReplyIPv4())
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIReplyIPv4)
+
+= ICMPv6NIReplyRefuse - dispatch
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIReplyRefuse())
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIReplyRefuse)
+
+= ICMPv6NIReplyUnknown - dispatch
+s = raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/ICMPv6NIReplyUnknown())
+p = IPv6(s)
+isinstance(p.payload, ICMPv6NIReplyUnknown)
+
+
+############
+############
++ Test Node Information Query - ICMPv6NIReplyNOOP
+
+= ICMPv6NIReplyNOOP - single DNS name without hint => understood as string (internal)
+a=ICMPv6NIReplyNOOP(data="abricot").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 0 and a[1] == b"abricot"
+
+= ICMPv6NIReplyNOOP - single DNS name without hint => understood as string
+ICMPv6NIReplyNOOP(data="abricot").data == b"abricot"
+
+= ICMPv6NIReplyNOOP - fqdn without hint => understood as string (internal)
+a=ICMPv6NIReplyNOOP(data="n.d.tld").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 0 and a[1] == b"n.d.tld"
+
+= ICMPv6NIReplyNOOP - fqdn without hint => understood as string 
+ICMPv6NIReplyNOOP(data="n.d.tld").data == b"n.d.tld"
+
+= ICMPv6NIReplyNOOP - IPv6 address without hint => understood as string (internal)
+a=ICMPv6NIReplyNOOP(data="2001:0db8::1").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 0 and a[1] == b"2001:0db8::1"
+
+= ICMPv6NIReplyNOOP - IPv6 address without hint => understood as string
+ICMPv6NIReplyNOOP(data="2001:0db8::1").data == b"2001:0db8::1"
+
+= ICMPv6NIReplyNOOP - IPv4 address without hint => understood as string (internal)
+a=ICMPv6NIReplyNOOP(data="169.254.253.010").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 0 and a[1] == b"169.254.253.010"
+
+= ICMPv6NIReplyNOOP - IPv4 address without hint => understood as string
+ICMPv6NIReplyNOOP(data="169.254.253.010").data == b"169.254.253.010"
+
+
+############
+############
++ Test Node Information Query - ICMPv6NIReplyName
+
+= ICMPv6NIReplyName - single label DNS name as a rawing (without ttl) (internal)
+a=ICMPv6NIReplyName(data="abricot").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 2 and type(a[1]) is list and len(a[1]) == 2 and a[1][0] == 0 and a[1][1] == b'\x07abricot\x00\x00'
+
+= ICMPv6NIReplyName - single label DNS name as a rawing (without ttl)
+ICMPv6NIReplyName(data="abricot").data == [0, b"abricot"]
+
+= ICMPv6NIReplyName - fqdn name as a rawing (without ttl) (internal)
+a=ICMPv6NIReplyName(data="n.d.tld").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 2 and type(a[1]) is list and len(a[1]) == 2 and a[1][0] == 0 and a[1][1] == b'\x01n\x01d\x03tld\x00'
+
+= ICMPv6NIReplyName - fqdn name as a rawing (without ttl)
+ICMPv6NIReplyName(data="n.d.tld").data == [0, b'n.d.tld']
+
+= ICMPv6NIReplyName - list of 2 single label DNS names (without ttl) (internal)
+a=ICMPv6NIReplyName(data=["abricot", "poire"]).getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 2 and type(a[1]) is list and len(a[1]) == 2 and a[1][0] == 0 and a[1][1] == b'\x07abricot\x00\x00\x05poire\x00\x00'
+
+= ICMPv6NIReplyName - list of 2 single label DNS names (without ttl)
+ICMPv6NIReplyName(data=["abricot", "poire"]).data == [0, b"abricot", b"poire"]
+
+= ICMPv6NIReplyName - [ttl, single-label, single-label, fqdn] (internal)
+a=ICMPv6NIReplyName(data=[42, "abricot", "poire", "n.d.tld"]).getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 2 and type(a[1]) is list and len(a[1]) == 2 and a[1][0] == 42 and a[1][1] == b'\x07abricot\x00\x00\x05poire\x00\x00\x01n\x01d\x03tld\x00'
+
+= ICMPv6NIReplyName - [ttl, single-label, single-label, fqdn]
+ICMPv6NIReplyName(data=[42, "abricot", "poire", "n.d.tld"]).data == [42, b"abricot", b"poire", b"n.d.tld"]
+
+= ICMPv6NIReplyName - dissection
+
+s = b'\x8c\x00\xd1\x0f\x00\x02\x00\x00\x00\x00\xd9$\x94\x8d\xc6%\x00\x00\x00\x00\x07freebsd\x00\x00'
+p = ICMPv6NIReplyName(s)
+p.show()
+assert ICMPv6NIReplyName in p and p.data == [0, b'freebsd']
+
+
+############
+############
++ Test Node Information Query - ICMPv6NIReplyIPv6
+
+= ICMPv6NIReplyIPv6 - one IPv6 address without TTL (internal)
+a=ICMPv6NIReplyIPv6(data="2001:db8::1").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 3 and type(a[1]) is list and len(a[1]) == 1 and type(a[1][0]) is tuple and len(a[1][0]) == 2 and a[1][0][0] == 0 and a[1][0][1] == "2001:db8::1" 
+
+= ICMPv6NIReplyIPv6 - one IPv6 address without TTL
+ICMPv6NIReplyIPv6(data="2001:db8::1").data == [(0, '2001:db8::1')]
+
+= ICMPv6NIReplyIPv6 - one IPv6 address without TTL (as a list)  (internal)
+a=ICMPv6NIReplyIPv6(data=["2001:db8::1"]).getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 3 and type(a[1]) is list and len(a[1]) == 1 and type(a[1][0]) is tuple and len(a[1][0]) == 2 and a[1][0][0] == 0 and a[1][0][1] == "2001:db8::1" 
+
+= ICMPv6NIReplyIPv6 - one IPv6 address without TTL (as a list) 
+ICMPv6NIReplyIPv6(data=["2001:db8::1"]).data == [(0, '2001:db8::1')]
+
+= ICMPv6NIReplyIPv6 - one IPv6 address with TTL  (internal)
+a=ICMPv6NIReplyIPv6(data=[(0, "2001:db8::1")]).getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 3 and type(a[1]) is list and len(a[1]) == 1 and type(a[1][0]) is tuple and len(a[1][0]) == 2 and a[1][0][0] == 0 and a[1][0][1] == "2001:db8::1" 
+
+= ICMPv6NIReplyIPv6 - one IPv6 address with TTL
+ICMPv6NIReplyIPv6(data=[(0, "2001:db8::1")]).data == [(0, '2001:db8::1')]
+
+= ICMPv6NIReplyIPv6 - two IPv6 addresses as a list of rawings (without TTL) (internal)
+a=ICMPv6NIReplyIPv6(data=["2001:db8::1", "2001:db8::2"]).getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 3 and type(a[1]) is list and len(a[1]) == 2 and type(a[1][0]) is tuple and len(a[1][0]) == 2 and a[1][0][0] == 0 and a[1][0][1] == "2001:db8::1" and len(a[1][1]) == 2 and a[1][1][0] == 0 and a[1][1][1] == "2001:db8::2" 
+
+= ICMPv6NIReplyIPv6 - two IPv6 addresses as a list of rawings (without TTL)
+ICMPv6NIReplyIPv6(data=["2001:db8::1", "2001:db8::2"]).data == [(0, '2001:db8::1'), (0, '2001:db8::2')]
+
+= ICMPv6NIReplyIPv6 - two IPv6 addresses as a list (first with ttl, second without) (internal)
+a=ICMPv6NIReplyIPv6(data=[(42, "2001:db8::1"), "2001:db8::2"]).getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 3 and type(a[1]) is list and len(a[1]) == 2 and type(a[1][0]) is tuple and len(a[1][0]) == 2 and a[1][0][0] == 42 and a[1][0][1] == "2001:db8::1" and len(a[1][1]) == 2 and a[1][1][0] == 0 and a[1][1][1] == "2001:db8::2" 
+
+= ICMPv6NIReplyIPv6 - two IPv6 addresses as a list (first with ttl, second without)
+ICMPv6NIReplyIPv6(data=[(42, "2001:db8::1"), "2001:db8::2"]).data == [(42, "2001:db8::1"), (0, "2001:db8::2")]
+
+= ICMPv6NIReplyIPv6 - build & dissection
+
+s = raw(IPv6()/ICMPv6NIReplyIPv6(data="2001:db8::1"))
+p = IPv6(s)
+ICMPv6NIReplyIPv6 in p and p.data == [(0, '2001:db8::1')]
+
+############
+############
++ Test Node Information Query - ICMPv6NIReplyIPv4
+
+= ICMPv6NIReplyIPv4 - one IPv4 address without TTL (internal)
+a=ICMPv6NIReplyIPv4(data="169.254.253.252").getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 4 and type(a[1]) is list and len(a[1]) == 1 and type(a[1][0]) is tuple and len(a[1][0]) == 2 and a[1][0][0] == 0 and a[1][0][1] == "169.254.253.252" 
+
+= ICMPv6NIReplyIPv4 - one IPv4 address without TTL
+ICMPv6NIReplyIPv4(data="169.254.253.252").data == [(0, '169.254.253.252')]
+
+= ICMPv6NIReplyIPv4 - one IPv4 address without TTL (as a list) (internal)
+a=ICMPv6NIReplyIPv4(data=["169.254.253.252"]).getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 4 and type(a[1]) is list and len(a[1]) == 1 and type(a[1][0]) is tuple and len(a[1][0]) == 2 and a[1][0][0] == 0 and a[1][0][1] == "169.254.253.252" 
+
+= ICMPv6NIReplyIPv4 - one IPv4 address without TTL (as a list)
+ICMPv6NIReplyIPv4(data=["169.254.253.252"]).data == [(0, '169.254.253.252')]
+
+= ICMPv6NIReplyIPv4 - one IPv4 address with TTL (internal)
+a=ICMPv6NIReplyIPv4(data=[(0, "169.254.253.252")]).getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 4 and type(a[1]) is list and len(a[1]) == 1 and type(a[1][0]) is tuple and len(a[1][0]) == 2 and a[1][0][0] == 0 and a[1][0][1] == "169.254.253.252" 
+
+= ICMPv6NIReplyIPv4 - one IPv4 address with TTL (internal)
+ICMPv6NIReplyIPv4(data=[(0, "169.254.253.252")]).data == [(0, '169.254.253.252')]
+
+= ICMPv6NIReplyIPv4 - two IPv4 addresses as a list of rawings (without TTL)
+a=ICMPv6NIReplyIPv4(data=["169.254.253.252", "169.254.253.253"]).getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 4 and type(a[1]) is list and len(a[1]) == 2 and type(a[1][0]) is tuple and len(a[1][0]) == 2 and a[1][0][0] == 0 and a[1][0][1] == "169.254.253.252" and len(a[1][1]) == 2 and a[1][1][0] == 0 and a[1][1][1] == "169.254.253.253" 
+
+= ICMPv6NIReplyIPv4 - two IPv4 addresses as a list of rawings (without TTL) (internal)
+ICMPv6NIReplyIPv4(data=["169.254.253.252", "169.254.253.253"]).data == [(0, '169.254.253.252'), (0, '169.254.253.253')]
+
+= ICMPv6NIReplyIPv4 - two IPv4 addresses as a list (first with ttl, second without)
+a=ICMPv6NIReplyIPv4(data=[(42, "169.254.253.252"), "169.254.253.253"]).getfieldval("data")
+type(a) is tuple and len(a) == 2 and a[0] == 4 and type(a[1]) is list and len(a[1]) == 2 and type(a[1][0]) is tuple and len(a[1][0]) == 2 and a[1][0][0] == 42 and a[1][0][1] == "169.254.253.252" and len(a[1][1]) == 2 and a[1][1][0] == 0 and a[1][1][1] == "169.254.253.253" 
+
+= ICMPv6NIReplyIPv4 - two IPv4 addresses as a list (first with ttl, second without) (internal)
+ICMPv6NIReplyIPv4(data=[(42, "169.254.253.252"), "169.254.253.253"]).data == [(42, "169.254.253.252"), (0, "169.254.253.253")]
+
+= ICMPv6NIReplyIPv4 - build & dissection
+
+s = raw(IPv6()/ICMPv6NIReplyIPv4(data="192.168.0.1"))
+p = IPv6(s)
+ICMPv6NIReplyIPv4 in p and p.data == [(0, '192.168.0.1')]
+
+s = raw(IPv6()/ICMPv6NIReplyIPv4(data=[(2807, "192.168.0.1")]))
+p = IPv6(s)
+ICMPv6NIReplyIPv4 in p and p.data == [(2807, "192.168.0.1")]
+
+
+############
+############
++ Test Node Information Query - ICMPv6NIReplyRefuse
+= ICMPv6NIReplyRefuse - basic instantiation
+raw(ICMPv6NIReplyRefuse())[:8] == b'\x8c\x01\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NIReplyRefuse - basic dissection
+a=ICMPv6NIReplyRefuse(b'\x8c\x01\x00\x00\x00\x00\x00\x00\xf1\xe9\xab\xc9\x8c\x0by\x18')
+a.type == 140 and a.code == 1 and a.cksum == 0 and a.unused == 0 and a.flags == 0 and a.nonce == b'\xf1\xe9\xab\xc9\x8c\x0by\x18' and a.data ==  None
+
+
+############
+############
++ Test Node Information Query - ICMPv6NIReplyUnknown
+
+= ICMPv6NIReplyUnknown - basic instantiation
+raw(ICMPv6NIReplyUnknown(nonce=b'\x00'*8)) == b'\x8c\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= ICMPv6NIReplyRefuse - basic dissection
+a=ICMPv6NIReplyRefuse(b'\x8c\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+a.type == 140 and a.code == 2 and a.cksum == 0 and a.unused == 0 and a.flags == 0 and a.nonce == b'\x00'*8 and a.data ==  None
+
+
+############
+############
++ Test Node Information Query - utilities
+
+= computeNIGroupAddr
+computeNIGroupAddr("scapy") == "ff02::2:f886:2f66"
+
+
+############
+############
++ IPv6ExtHdrFragment Class Test
+
+= IPv6ExtHdrFragment - Basic Instantiation
+raw(IPv6ExtHdrFragment()) == b';\x00\x00\x00\x00\x00\x00\x00'
+
+= IPv6ExtHdrFragment - Instantiation with specific values
+raw(IPv6ExtHdrFragment(nh=0xff, res1=0xee, offset=0x1fff, res2=1, m=1, id=0x11111111)) == b'\xff\xee\xff\xfb\x11\x11\x11\x11'
+
+= IPv6ExtHdrFragment - Basic Dissection 
+a=IPv6ExtHdrFragment(b';\x00\x00\x00\x00\x00\x00\x00')
+a.nh == 59 and a.res1 == 0 and a.offset == 0 and a.res2 == 0 and a.m == 0 and a.id == 0
+
+= IPv6ExtHdrFragment - Instantiation with specific values
+a=IPv6ExtHdrFragment(b'\xff\xee\xff\xfb\x11\x11\x11\x11')
+a.nh == 0xff and a.res1 == 0xee and a.offset==0x1fff and a.res2==1 and a.m == 1 and a.id == 0x11111111
+
+= IPv6 - IPv6ExtHdrFragment hashret
+a=IPv6()/IPv6ExtHdrFragment(b'\xff\xee\xff\xfb\x11\x11\x11\x11')
+a.hashret() == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff'
+
+
+############
+############
++ Test fragment6 function
+
+= fragment6 - test against a long TCP packet with a 1280 MTU
+l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*40000), 1280) 
+len(l) == 33 and len(raw(l[-1])) == 644
+
+= fragment6 - test against a long TCP packet with a 1280 MTU without fragment header
+l=fragment6(IPv6()/TCP()/Raw(load="A"*40000), 1280)
+len(l) == 33 and len(raw(l[-1])) == 644
+
+
+############
+############
++ Test defragment6 function
+
+= defragment6 - test against a long TCP packet fragmented with a 1280 MTU
+l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*40000), 1280) 
+raw(defragment6(l)) == (b'`\x00\x00\x00\x9cT\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xe92\x00\x00' + b'A'*40000)
+
+
+= defragment6 - test against packets with L2 header
+l=defragment6(fragment6(Ether()/IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*2000), 1280))
+Ether in l
+
+
+= defragment6 - test against a large TCP packet fragmented with a 1280 bytes MTU and missing fragments
+l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*40000), 1280) 
+del(l[2])
+del(l[4])
+del(l[12])
+del(l[18])
+raw(defragment6(l)) == (b'`\x00\x00\x00\x9cT\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xe92\x00\x00' + 2444*b'A' + 1232*b'X' + 2464*b'A' + 1232*b'X' + 9856*b'A' + 1232*b'X' + 7392*b'A' + 1232*b'X' + 12916*b'A')
+
+
+= defragment6 - test against a TCP packet fragmented with a 800 bytes MTU and missing fragments
+l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*4000), 800) 
+del(l[4])
+del(l[2])
+raw(defragment6(l)) == b'`\x00\x00\x00\x0f\xb4\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xb2\x0f\x00\x00AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+
+= defragment6 - test the packet length
+pkts = fragment6(IPv6()/IPv6ExtHdrFragment()/UDP(dport=42, sport=42)/Raw(load="A"*1500), 1280)
+pkts = [IPv6(raw(p)) for p in pkts]
+assert defragment6(pkts).plen == 1508
+
+
+############
+############
++ Test Route6 class
+
+= Fake interfaces
+IFACES._add_fake_iface("eth0")
+IFACES._add_fake_iface("lo")
+IFACES._add_fake_iface("scapy0")
+
+= Route6 - Route6 flushing
+conf_iface = conf.iface
+conf.iface = "eth0"
+conf.route6.routes=[
+(                               '::1', 128,                       '::',   'lo', ['::1'], 1), 
+(          'fe80::20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1'], 1)]
+conf.route6.flush()
+not conf.route6.routes
+
+= Route6 - Route6.route
+
+conf.route6.flush()
+conf.route6.ipv6_ifaces = set(['lo', 'eth0'])
+conf.route6.routes=[
+(                               '::1', 128,                       '::',   'lo', ['::1'], 1), 
+(          'fe80::20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1'], 1), 
+(                            'fe80::',  64,                       '::', 'eth0', ['fe80::20f:1fff:feca:4650'], 1),
+('2001:db8:0:4444:20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1'], 1), 
+(                 '2001:db8:0:4444::',  64,                       '::', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650'], 1), 
+(                                '::',   0, 'fe80::20f:34ff:fe8a:8aa1', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650', '2002:db8:0:4444:20f:1fff:feca:4650'], 1)
+]
+assert conf.route6.route("2002::1") == ('eth0', '2002:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
+assert conf.route6.route("2001::1") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
+assert conf.route6.route("fe80::20f:1fff:feab:4870") == ('eth0', 'fe80::20f:1fff:feca:4650', '::')
+assert conf.route6.route("::1") == ('lo', '::1', '::')
+assert conf.route6.route("::") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
+assert conf.route6.route('ff00::') == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
+conf.iface = conf_iface
+conf.route6.resync()
+if not len(conf.route6.routes):
+    # IPv6 seems disabled. Force a route to ::1
+    conf.route6.routes.append(("::1", 128, "::", conf.loopback_name, ["::1"], 1))
+    True
+
+= Route6 - Route6.make_route
+
+r6 = Route6()
+r6.make_route("2001:db8::1", dev=conf.loopback_name) in [
+    ("2001:db8::1", 128, "::", conf.loopback_name, [], 1),
+    ("2001:db8::1", 128, "::", conf.loopback_name, ["::1"], 1)
+]
+len_r6 = len(r6.routes)
+
+= Route6 - Route6.add & Route6.delt
+
+r6.add(dst="2001:db8:cafe:f000::/64", gw="2001:db8:cafe::1", dev="eth0")
+assert(len(r6.routes) == len_r6 + 1)
+r6.delt(dst="2001:db8:cafe:f000::/64", gw="2001:db8:cafe::1")
+assert(len(r6.routes) == len_r6)
+
+= Route6 - Route6.ifadd & Route6.ifdel
+r6.ifadd("scapy0", "2001:bd8:cafe:1::1/64")
+r6.ifdel("scapy0")
+
+= IPv6 - utils
+
+import mock
+@mock.patch("scapy.layers.inet6.get_if_hwaddr")
+@mock.patch("scapy.layers.inet6.srp1")
+def test_neighsol(mock_srp1, mock_get_if_hwaddr):
+    mock_srp1.return_value = Ether()/IPv6()/ICMPv6ND_NA()/ICMPv6NDOptDstLLAddr(lladdr="05:04:03:02:01:00")
+    mock_get_if_hwaddr.return_value = "00:01:02:03:04:05"
+    return neighsol("fe80::f6ce:46ff:fea9:e04b", "fe80::f6ce:46ff:fea9:e04b", "scapy0")
+
+p = test_neighsol()
+ICMPv6NDOptDstLLAddr in p and p[ICMPv6NDOptDstLLAddr].lladdr == "05:04:03:02:01:00"
+
+
+@mock.patch("scapy.layers.inet6.neighsol")
+@mock.patch("scapy.layers.inet6.conf.route6.route")
+def test_getmacbyip6(mock_route6, mock_neighsol):
+    mock_route6.return_value = ("scapy0", "fe80::baca:3aff:fe72:b08b", "::")
+    mock_neighsol.return_value = test_neighsol()
+    return getmacbyip6("fe80::704:3ff:fe2:100")
+
+test_getmacbyip6() == "05:04:03:02:01:00"
+
+= IPv6 - IPerror6 & UDPerror & _ICMPv6Error
+
+query = IPv6(dst="2001:db8::1", src="2001:db8::2", hlim=1)/UDP()/DNS()
+answer = IPv6(dst="2001:db8::2", src="2001:db8::1", hlim=1)/ICMPv6TimeExceeded()/IPerror6(dst="2001:db8::1", src="2001:db8::2", hlim=0)/UDPerror()/DNS()
+answer.answers(query) == True
+
+# Test _ICMPv6Error
+from scapy.layers.inet6 import _ICMPv6Error
+assert _ICMPv6Error().guess_payload_class(None) == IPerror6
+assert _ICMPv6Error().hashret() == b''
+
+= Windows: reset routes properly
+
+if WINDOWS:
+    from scapy.arch.windows import _route_add_loopback
+    _route_add_loopback()
+
+############
+############
++ ICMPv6ML
+
+= ICMPv6MLQuery - build & dissection
+s = raw(IPv6(src="fe80::1")/ICMPv6MLQuery())
+assert s == b"`\x00\x00\x00\x00\x18:\x01\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x82\x00Y\x17'\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+
+p = IPv6(s)
+assert ICMPv6MLQuery in p and p[IPv6].dst == "ff02::1"
+
+= Check answers
+
+q = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLQuery()
+a = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLReport()
+
+assert a.answers(q)
+
+############
+############
++ ICMPv6MLv2
+
+= ICMPv6MLQuery2 - build & dissection
+p = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLQuery2(sources=["::1"])
+s = raw(p)
+assert s == b"`\x00\x00\x00\x004\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01:\x00\x05\x02\x00\x00\x01\x00\x82\x00V\x85'\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01"
+
+p = IPv6(s)
+assert ICMPv6MLQuery2 in p and p.sources_number == 1
+
+= ICMPv6MLReport2 - build & dissection
+p = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLReport2(records=[ICMPv6MLDMultAddrRec(), ICMPv6MLDMultAddrRec(sources=["::1"], auxdata="scapy")])
+s = raw(p)
+assert s == b'`\x00\x00\x00\x00M\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01:\x00\x05\x02\x00\x00\x01\x00\x8f\x00\x1a\xa1\x00\x00\x00\x02\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x05\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01scapy'
+
+p = IPv6(s)
+assert ICMPv6MLReport2 in p and p.records_number == 2
+
+= ICMPv6MLReport2 and ICMPv6MLDMultAddrRec - dissection
+
+z = b'33\x00\x00\x00\x16\xd0P\x99V\xdd\xf9\x86\xdd`\x00\x00\x00\x00\x1c:\x01\xfe\x80\x00\x00\x00\x00\x00\x00q eX\x98\x86\xfa\x88\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x16\x8f\x00\x13\x4d\x00\x00\x00\x01\x04\x00\x00\x00\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xffR\xf3\xe1'
+w = Ether(z)
+
+assert len(w.records) == 1
+assert isinstance(w.records[0], ICMPv6MLDMultAddrRec)
+assert w.records[0].dst == "ff02::1:ff52:f3e1"
+
+= Check answers
+
+q = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLQuery2()
+a = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLReport2()
+
+assert a.answers(q)
+
+
+############
+############
++ IPv6 attacks
+
+= Define test utilities
+
+import mock
+
+@mock.patch("scapy.layers.inet6.sniff")
+@mock.patch("scapy.layers.inet6.sendp")
+def test_attack(function, pktlist, sendp_mock, sniff_mock, options=()):
+    pktlist = [Ether(raw(x)) for x in pktlist]
+    ret_list = []
+    def _fake_sniff(lfilter=None, prn=None, **kwargs):
+        for p in pktlist:
+            if lfilter and lfilter(p) and prn:
+                prn(p)
+    sniff_mock.side_effect = _fake_sniff
+    def _fake_sendp(pkt, *args, **kwargs):
+        ret_list.append(Ether(raw(pkt)))
+    sendp_mock.side_effect = _fake_sendp
+    function(*options)
+    return ret_list
+
+= Test NDP_Attack_DAD_DoS_via_NS
+
+data = [Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:00:11:11')/IPv6(src="::", dst="ff02::1:ff00:1111")/ICMPv6ND_NS(tgt="ffff::1111", code=17, res=3758096385),
+        Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:5d:c3:53')/IPv6(src="::", dst="ff02::1:ff5d:c353")/ICMPv6ND_NS(tgt="b643:44c3:f659:f8e6:31c0:6437:825d:c353"),
+        Ether()/IP()/ICMP()]
+results = test_attack(NDP_Attack_DAD_DoS_via_NS, data)
+assert len(results) == 2
+
+a = results[0][IPv6]
+assert a[IPv6].src == "::"
+assert a[IPv6].dst == "ff02::1:ff00:1111"
+assert a[IPv6].hlim == 255
+assert a[ICMPv6ND_NS].tgt == "ffff::1111"
+
+b = results[1][IPv6]
+assert b[IPv6].src == "::"
+assert b[IPv6].dst == "ff02::1:ff5d:c353"
+assert b[IPv6].hlim == 255
+assert b[ICMPv6ND_NS].tgt == "b643:44c3:f659:f8e6:31c0:6437:825d:c353"
+
+= Test NDP_Attack_DAD_DoS_via_NA
+
+data = [Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:00:11:11')/IPv6(src="::", dst="ff02::1:ff00:1111")/ICMPv6ND_NS(tgt="ffff::1111", code=17, res=3758096385),
+        Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:5d:c3:53')/IPv6(src="::", dst="ff02::1:ff5d:c353")/ICMPv6ND_NS(tgt="b643:44c3:f659:f8e6:31c0:6437:825d:c353"),
+        Ether()/IP()/ICMP()]
+results = test_attack(NDP_Attack_DAD_DoS_via_NA, data, options=(None, None, None, "ab:ab:ab:ab:ab:ab"))
+assert len(results) == 2
+results[0].dst = "ff:ff:ff:ff:ff:ff"
+results[1].dst = "ff:ff:ff:ff:ff:ff"
+
+a = results[0]
+assert a[Ether].dst == "ff:ff:ff:ff:ff:ff"
+assert a[Ether].src == "ab:ab:ab:ab:ab:ab"
+assert a[IPv6].src == "ffff::1111"
+assert a[IPv6].dst == "ff02::1:ff00:1111"
+assert a[IPv6].hlim == 255
+assert a[ICMPv6ND_NA].tgt == "ffff::1111"
+assert a[ICMPv6NDOptDstLLAddr].lladdr == "ab:ab:ab:ab:ab:ab"
+
+b = results[1]
+assert b[Ether].dst == "ff:ff:ff:ff:ff:ff"
+assert b[Ether].src == "ab:ab:ab:ab:ab:ab"
+assert b[IPv6].src == "b643:44c3:f659:f8e6:31c0:6437:825d:c353"
+assert b[IPv6].dst == "ff02::1:ff5d:c353"
+assert b[IPv6].hlim == 255
+assert b[ICMPv6ND_NA].tgt == "b643:44c3:f659:f8e6:31c0:6437:825d:c353"
+assert b[ICMPv6NDOptDstLLAddr].lladdr == "ab:ab:ab:ab:ab:ab"
+
+= Test NDP_Attack_NA_Spoofing
+
+data = [Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:d4:e5:f6')/IPv6(src="753a:727c:97b5:f71d:51ea:3901:ab52:e110", dst="ff02::1:ffd4:e5f6")/ICMPv6ND_NS(tgt="ff02::1:ffd4:e5f6", code=171, res=3758096),
+        Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:e4:68:c9:4f')/IPv6(src="753a:727c:97b5:f71d:51ea:3901:ab52:e110", dst="fe9c:98b0:52b5:7033:5db0:394f:e468:c94f")/ICMPv6ND_NS(),
+        Ether()/IP()/ICMP()]
+results = test_attack(NDP_Attack_NA_Spoofing, data, options=(None, None, None, "ff:ff:ff:ff:ff:ff", None))
+assert len(results) == 2
+
+a = results[0]
+assert a[Ether].dst == "aa:aa:aa:aa:aa:aa"
+assert a[Ether].src == "ff:ff:ff:ff:ff:ff"
+assert a[IPv6].src == "ff02::1:ffd4:e5f6"
+assert a[IPv6].dst == "753a:727c:97b5:f71d:51ea:3901:ab52:e110"
+assert a[IPv6].hlim == 255
+assert a[ICMPv6ND_NA].R == 0
+assert a[ICMPv6ND_NA].S == 1
+assert a[ICMPv6ND_NA].O == 1
+assert a[ICMPv6ND_NA].tgt == "ff02::1:ffd4:e5f6"
+assert a[ICMPv6NDOptDstLLAddr].lladdr == "ff:ff:ff:ff:ff:ff"
+
+b = results[1]
+assert b[Ether].dst == "aa:aa:aa:aa:aa:aa"
+assert b[Ether].src == "ff:ff:ff:ff:ff:ff"
+assert b[IPv6].src == "::"
+assert b[IPv6].dst == "753a:727c:97b5:f71d:51ea:3901:ab52:e110"
+assert b[IPv6].hlim == 255
+assert b[ICMPv6ND_NA].R == 0
+assert b[ICMPv6ND_NA].S == 1
+assert b[ICMPv6ND_NA].O == 1
+assert b[ICMPv6ND_NA].tgt == "::"
+assert b[ICMPv6NDOptDstLLAddr].lladdr == "ff:ff:ff:ff:ff:ff"
+
+= Test NDP_Attack_Kill_Default_Router
+
+data = [Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:d4:e5:f6')/IPv6(src="753a:727c:97b5:f71d:51ea:3901:ab52:e110", dst="ff02::1:ffd4:e5f6")/ICMPv6ND_RA(routerlifetime=1),
+        Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ab:52:e1:10')/IPv6(src="fe9c:98b0:52b5:7033:5db0:394f:e468:c94f", dst="753a:727c:97b5:f71d:51ea:3901:ab52:e110")/ICMPv6ND_RA(routerlifetime=1),
+        Ether()/IP()/"RANDOM"]
+results = test_attack(NDP_Attack_Kill_Default_Router, data)
+assert len(results) == 2
+
+a = results[0][IPv6]
+assert a[IPv6].src == "753a:727c:97b5:f71d:51ea:3901:ab52:e110"
+assert a[IPv6].dst == "ff02::1"
+assert a[IPv6].hlim == 255
+assert a[ICMPv6ND_RA].M == 0
+assert a[ICMPv6ND_RA].O == 0
+assert a[ICMPv6ND_RA].H == 0
+assert a[ICMPv6ND_RA].P == 0
+assert a[ICMPv6ND_RA].routerlifetime == 0
+assert a[ICMPv6ND_RA].reachabletime == 0
+assert a[ICMPv6ND_RA].retranstimer == 0
+assert a[ICMPv6NDOptSrcLLAddr].lladdr == "aa:aa:aa:aa:aa:aa"
+
+b = results[1][IPv6]
+assert b[IPv6].src == "fe9c:98b0:52b5:7033:5db0:394f:e468:c94f"
+assert b[IPv6].dst == "ff02::1"
+assert b[IPv6].hlim == 255
+assert b[ICMPv6ND_RA].M == 0
+assert b[ICMPv6ND_RA].O == 0
+assert b[ICMPv6ND_RA].H == 0
+assert b[ICMPv6ND_RA].P == 0
+assert b[ICMPv6ND_RA].routerlifetime == 0
+assert b[ICMPv6ND_RA].reachabletime == 0
+assert b[ICMPv6ND_RA].retranstimer == 0
+assert b[ICMPv6NDOptSrcLLAddr].lladdr == "aa:aa:aa:aa:aa:aa"
+
+= Test NDP_Attack_Fake_Router
+
+ra  = Ether()/IPv6()/ICMPv6ND_RA()
+ra /= ICMPv6NDOptPrefixInfo(prefix="2001:db8:1::", prefixlen=64)
+ra /= ICMPv6NDOptPrefixInfo(prefix="2001:db8:2::", prefixlen=64)
+ra /= ICMPv6NDOptSrcLLAddr(lladdr="00:11:22:33:44:55")
+
+rad = Ether(raw(ra))
+
+data = [Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ab:52:e1:10')/IPv6(src="753a:727c:97b5:f71d:51ea:3901:ab52:e110", dst="ff02::1:ffd4:e5f6")/ICMPv6ND_RS(code=11, res=3758096),
+        Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ab:52:e1:10')/IPv6(src="753a:727c:97b5:f71d:51ea:3901:ab52:e110", dst="fe9c:98b0:52b5:7033:5db0:394f:e468:c94f")/ICMPv6ND_RS(),
+        Ether()/IP()/ICMP()]
+results = test_attack(NDP_Attack_Fake_Router, data, options=(ra,))
+assert len(results) == 2
+
+assert results[0] == rad
+assert results[1] == rad
+
+= Test NDP_Attack_NS_Spoofing
+
+r = test_attack(NDP_Attack_NS_Spoofing, [], options=("aa:aa:aa:aa:aa:aa", "753a:727c:97b5:f71d:51ea:3901:ab52:e110", "2001:db8::1", 'e4a0:654b:1a24:1b15:761d:2e5d:245d:ba83', "cc:cc:cc:cc:cc:cc", "dd:dd:dd:dd:dd:dd"))[0]
+
+assert r[Ether].dst == "dd:dd:dd:dd:dd:dd"
+assert r[Ether].src == "cc:cc:cc:cc:cc:cc"
+assert r[IPv6].hlim == 255
+assert r[IPv6].src == "753a:727c:97b5:f71d:51ea:3901:ab52:e110"
+assert r[IPv6].dst == "e4a0:654b:1a24:1b15:761d:2e5d:245d:ba83"
+assert r[ICMPv6ND_NS].tgt == "2001:db8::1"
+assert r[ICMPv6NDOptSrcLLAddr].lladdr == "aa:aa:aa:aa:aa:aa"
+
+# Below is our Homework : here is the mountain ...
+#
+
+########### ICMPv6MLReport Class ####################################
+########### ICMPv6MLDone Class ######################################
+########### ICMPv6ND_Redirect Class #################################
+########### ICMPv6NDOptSrcAddrList Class ############################
+########### ICMPv6NDOptTgtAddrList Class ############################
+########### ICMPv6ND_INDSol Class ###################################
+########### ICMPv6ND_INDAdv Class ###################################
+
+############
+############
++ Home Agent Address Discovery
+
+= in6_getha()
+in6_getha('2001:db8::') == '2001:db8::fdff:ffff:ffff:fffe'
+
+= ICMPv6HAADRequest - build/dissection
+p = IPv6(raw(IPv6(dst=in6_getha('2001:db8::'), src='2001:db8::1')/ICMPv6HAADRequest(id=42)))
+p.cksum == 0x9620 and p.dst == '2001:db8::fdff:ffff:ffff:fffe' and p.R == 1
+
+= ICMPv6HAADReply - build/dissection
+p = IPv6(raw(IPv6(dst='2001:db8::1', src='2001:db8::42')/ICMPv6HAADReply(id=42, addresses=['2001:db8::2', '2001:db8::3'])))
+p.cksum = 0x3747 and p.addresses == [ '2001:db8::2', '2001:db8::3' ]
+
+= ICMPv6HAADRequest / ICMPv6HAADReply - build/dissection
+a=ICMPv6HAADRequest(id=42) 
+b=ICMPv6HAADReply(id=42)
+not a < b and a > b
+
+
+############
+############
++ Mobile Prefix Solicitation/Advertisement
+
+= ICMPv6MPSol - build (default values)
+
+s = b'`\x00\x00\x00\x00\x08:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x92\x00m\xbb\x00\x00\x00\x00'
+raw(IPv6()/ICMPv6MPSol()) == s
+
+= ICMPv6MPSol - dissection (default values)
+p = IPv6(s)
+p[ICMPv6MPSol].type == 146 and p[ICMPv6MPSol].cksum == 0x6dbb and p[ICMPv6MPSol].id == 0
+
+= ICMPv6MPSol - build
+s = b'`\x00\x00\x00\x00\x08:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x92\x00(\x08\x00\x08\x00\x00'
+raw(IPv6()/ICMPv6MPSol(cksum=0x2808, id=8)) == s
+
+= ICMPv6MPSol - dissection
+p = IPv6(s)
+p[ICMPv6MPSol].cksum == 0x2808 and p[ICMPv6MPSol].id == 8
+
+= ICMPv6MPAdv - build (default values)
+s = b'`\x00\x00\x00\x00(:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x93\x00\xa8\xd6\x00\x00\x80\x00\x03\x04@\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+raw(IPv6()/ICMPv6MPAdv()/ICMPv6NDOptPrefixInfo()) == s
+
+= ICMPv6MPAdv - dissection (default values)
+p = IPv6(s)
+p[ICMPv6MPAdv].type == 147 and p[ICMPv6MPAdv].cksum == 0xa8d6 and p[ICMPv6NDOptPrefixInfo].prefix == '::'
+
+= ICMPv6MPAdv - build
+s = b'`\x00\x00\x00\x00(:@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x93\x00(\x07\x00*@\x00\x03\x04@@\xff\xff\xff\xff\x00\x00\x00\x0c\x00\x00\x00\x00 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+raw(IPv6()/ICMPv6MPAdv(cksum=0x2807, flags=1, id=42)/ICMPv6NDOptPrefixInfo(prefix='2001:db8::1', L=0, preferredlifetime=12)) == s
+
+= ICMPv6MPAdv - dissection
+p = IPv6(s)
+p[ICMPv6MPAdv].cksum == 0x2807 and p[ICMPv6MPAdv].flags == 1 and p[ICMPv6MPAdv].id == 42 and p[ICMPv6NDOptPrefixInfo].prefix == '2001:db8::1' and p[ICMPv6NDOptPrefixInfo].preferredlifetime == 12
+
+
+############
+############
++ Type 2 Routing Header
+
+= IPv6ExtHdrRouting - type 2 - build/dissection
+p = IPv6(raw(IPv6(dst='2001:db8::1', src='2001:db8::2')/IPv6ExtHdrRouting(type=2, addresses=['2001:db8::3'])/ICMPv6EchoRequest()))
+p.type == 2 and len(p.addresses) == 1 and p.cksum == 0x2446
+
+= IPv6ExtHdrRouting - type 2 - hashret
+
+p = IPv6()/IPv6ExtHdrRouting(addresses=["2001:db8::1", "2001:db8::2"])/ICMPv6EchoRequest()
+p.hashret() == b" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\x00\x00\x00\x00"
+
+
+############
+############
++ Mobility Options - Binding Refresh Advice
+
+= MIP6OptBRAdvice - build (default values)
+s = b'\x02\x02\x00\x00'
+raw(MIP6OptBRAdvice()) == s
+
+= MIP6OptBRAdvice - dissection (default values)
+p = MIP6OptBRAdvice(s)
+p.otype == 2 and p.olen == 2 and p.rinter == 0
+
+= MIP6OptBRAdvice - build
+s = b'\x03*\n\xf7'
+raw(MIP6OptBRAdvice(otype=3, olen=42, rinter=2807)) == s
+
+= MIP6OptBRAdvice - dissection
+p = MIP6OptBRAdvice(s)
+p.otype == 3 and p.olen == 42 and p.rinter == 2807
+
+
+############
+############
++ Mobility Options - Alternate Care-of Address
+
+= MIP6OptAltCoA - build (default values)
+s = b'\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+raw(MIP6OptAltCoA()) == s
+
+= MIP6OptAltCoA - dissection (default values)
+p = MIP6OptAltCoA(s)
+p.otype == 3 and p.olen == 16 and p.acoa == '::'
+
+= MIP6OptAltCoA - build
+s = b'*\x08 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+raw(MIP6OptAltCoA(otype=42, olen=8, acoa='2001:db8::1')) == s
+
+= MIP6OptAltCoA - dissection
+p = MIP6OptAltCoA(s)
+p.otype == 42 and p.olen == 8 and p.acoa == '2001:db8::1'
+
+
+############
+############
++ Mobility Options - Nonce Indices
+
+= MIP6OptNonceIndices - build (default values)
+s = b'\x04\x10\x00\x00\x00\x00'
+raw(MIP6OptNonceIndices()) == s
+
+= MIP6OptNonceIndices - dissection (default values)
+p = MIP6OptNonceIndices(s)
+p.otype == 4 and p.olen == 16 and p.hni == 0 and p.coni == 0
+
+= MIP6OptNonceIndices - build
+s = b'\x04\x12\x00\x13\x00\x14'
+raw(MIP6OptNonceIndices(olen=18, hni=19, coni=20)) == s
+
+= MIP6OptNonceIndices - dissection
+p = MIP6OptNonceIndices(s)
+p.hni == 19 and p.coni == 20
+
+
+############
+############
++ Mobility Options - Binding Authentication Data
+
+= MIP6OptBindingAuthData - build (default values)
+s = b'\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+raw(MIP6OptBindingAuthData()) == s
+
+= MIP6OptBindingAuthData - dissection (default values)
+p = MIP6OptBindingAuthData(s)
+p.otype == 5 and p.olen == 16 and p.authenticator == 0
+
+= MIP6OptBindingAuthData - build
+s = b'\x05*\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\xf7'
+raw(MIP6OptBindingAuthData(olen=42, authenticator=2807)) == s
+
+= MIP6OptBindingAuthData - dissection
+p = MIP6OptBindingAuthData(s)
+p.otype == 5 and p.olen == 42 and p.authenticator == 2807
+
+
+############
+############
++ Mobility Options - Mobile Network Prefix
+
+= MIP6OptMobNetPrefix - build (default values)
+s = b'\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+raw(MIP6OptMobNetPrefix()) == s
+
+= MIP6OptMobNetPrefix - dissection (default values)
+p = MIP6OptMobNetPrefix(s)
+p.otype == 6 and p.olen == 18 and p.plen == 64 and p.prefix == '::'
+
+= MIP6OptMobNetPrefix - build
+s = b'\x06*\x02  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+raw(MIP6OptMobNetPrefix(olen=42, reserved=2, plen=32, prefix='2001:db8::')) == s
+
+= MIP6OptMobNetPrefix - dissection
+p = MIP6OptMobNetPrefix(s)
+p.olen ==  42 and p.reserved  == 2 and p.plen == 32 and p.prefix == '2001:db8::'
+
+
+############
+############
++ Mobility Options - Link-Layer Address (MH-LLA)
+
+= MIP6OptLLAddr - basic build
+raw(MIP6OptLLAddr()) == b'\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00'
+
+= MIP6OptLLAddr - basic dissection
+p = MIP6OptLLAddr(b'\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00')
+p.otype == 7 and p.olen == 7 and p.ocode == 2 and p.pad == 0 and p.lla == "00:00:00:00:00:00"
+
+= MIP6OptLLAddr - build with specific values
+raw(MIP6OptLLAddr(olen=42, ocode=4, pad=0xff, lla='EE:EE:EE:EE:EE:EE')) == b'\x07*\x04\xff\xee\xee\xee\xee\xee\xee'
+
+= MIP6OptLLAddr - dissection with specific values
+p = MIP6OptLLAddr(b'\x07*\x04\xff\xee\xee\xee\xee\xee\xee')
+
+raw(MIP6OptLLAddr(olen=42, ocode=4, pad=0xff, lla='EE:EE:EE:EE:EE:EE'))
+p.otype == 7 and p.olen == 42 and p.ocode == 4 and p.pad == 0xff and p.lla == "ee:ee:ee:ee:ee:ee"
+
+
+############
+############
++ Mobility Options - Mobile Node Identifier
+
+= MIP6OptMNID - basic build
+raw(MIP6OptMNID()) == b'\x08\x01\x01'
+
+= MIP6OptMNID - basic dissection
+p = MIP6OptMNID(b'\x08\x01\x01')
+p.otype == 8 and p.olen == 1 and p.subtype == 1 and p.id == b""
+
+= MIP6OptMNID - build with specific values
+raw(MIP6OptMNID(subtype=42, id="someid")) == b'\x08\x07*someid'
+
+= MIP6OptMNID - dissection with specific values
+p = MIP6OptMNID(b'\x08\x07*someid')
+p.otype == 8 and p.olen == 7 and p.subtype == 42 and p.id == b"someid"
+
+
+
+############
+############
++ Mobility Options - Message Authentication
+
+= MIP6OptMsgAuth - basic build
+raw(MIP6OptMsgAuth()) == b'\x09\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA'
+
+= MIP6OptMsgAuth - basic dissection
+p = MIP6OptMsgAuth(b'\x09\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA')
+p.otype == 9 and p.olen == 17 and p.subtype == 1 and p.mspi == 0 and p.authdata == b"A"*12
+
+= MIP6OptMsgAuth - build with specific values
+raw(MIP6OptMsgAuth(authdata="B"*16, mspi=0xeeeeeeee, subtype=0xff)) == b'\t\x15\xff\xee\xee\xee\xeeBBBBBBBBBBBBBBBB'
+
+= MIP6OptMsgAuth - dissection with specific values
+p = MIP6OptMsgAuth(b'\t\x15\xff\xee\xee\xee\xeeBBBBBBBBBBBBBBBB')
+p.otype == 9 and p.olen == 21 and p.subtype == 255 and p.mspi == 0xeeeeeeee and p.authdata == b"B"*16
+
+
+############
+############
++ Mobility Options - Replay Protection
+
+= MIP6OptReplayProtection - basic build
+raw(MIP6OptReplayProtection()) == b'\n\x08\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= MIP6OptReplayProtection - basic dissection
+p = MIP6OptReplayProtection(b'\n\x08\x00\x00\x00\x00\x00\x00\x00\x00')
+p.otype == 10 and p.olen == 8 and p.timestamp == 0
+
+= MIP6OptReplayProtection - build with specific values
+s = raw(MIP6OptReplayProtection(olen=42, timestamp=(72*31536000)<<32))
+s == b'\n*\x87V|\x00\x00\x00\x00\x00'
+
+= MIP6OptReplayProtection - dissection with specific values
+p = MIP6OptReplayProtection(s)
+p.otype == 10 and p.olen == 42 and p.timestamp == 9752118382559232000
+p.fields_desc[-1].i2repr("", p.timestamp) == 'Mon, 13 Dec 1971 23:50:39 +0000 (9752118382559232000)'
+
+
+############
+############
++ Mobility Options - CGA Parameters
+= MIP6OptCGAParams
+
+
+############
+############
++ Mobility Options - Signature
+= MIP6OptSignature
+
+
+############
+############
++ Mobility Options - Permanent Home Keygen Token
+= MIP6OptHomeKeygenToken
+
+
+############
+############
++ Mobility Options - Care-of Test Init
+= MIP6OptCareOfTestInit
+
+
+############
+############
++ Mobility Options - Care-of Test
+= MIP6OptCareOfTest
+
+
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptBRAdvice
+=  Mobility Options - Automatic Padding - MIP6OptBRAdvice
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptBRAdvice()]))                        ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x02\x02\x00\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptBRAdvice()]))                 ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x00\x02\x02\x00\x00\x01\x04\x00\x00\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptBRAdvice()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x02\x02\x00\x00\x01\x04\x00\x00\x00\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptBRAdvice()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x00\x02\x02\x00\x00\x01\x02\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptBRAdvice()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x02\x02\x00\x00\x01\x02\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptBRAdvice()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x00\x02\x02\x00\x00\x01\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptBRAdvice()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x02\x02\x00\x00\x01\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptBRAdvice()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x00\x02\x02\x00\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptBRAdvice()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x02\x02\x00\x00'
+a and b and c and d and e and g and h and i and j
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptAltCoA           
+=  Mobility Options - Automatic Padding - MIP6OptAltCoA          
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptAltCoA()]))                        ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptAltCoA()]))                 ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptAltCoA()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptAltCoA()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x01\x05\x00\x00\x00\x00\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptAltCoA()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x01\x04\x00\x00\x00\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptAltCoA()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x01\x03\x00\x00\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptAltCoA()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x01\x02\x00\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptAltCoA()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x01\x01\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptAltCoA()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x01\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptNonceIndices                             
+=  Mobility Options - Automatic Padding - MIP6OptNonceIndices                            
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptNonceIndices()]))                        ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x04\x10\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptNonceIndices()]))                 ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x00\x04\x10\x00\x00\x00\x00\x01\x02\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptNonceIndices()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x04\x10\x00\x00\x00\x00\x01\x02\x00\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptNonceIndices()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x00\x04\x10\x00\x00\x00\x00\x01\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptNonceIndices()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x04\x10\x00\x00\x00\x00\x01\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptNonceIndices()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x00\x04\x10\x00\x00\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptNonceIndices()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x04\x10\x00\x00\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptNonceIndices()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x00\x04\x10\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptNonceIndices()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x04\x10\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptBindingAuthData                          
+=  Mobility Options - Automatic Padding - MIP6OptBindingAuthData                                 
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptBindingAuthData()]))                        ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptBindingAuthData()]))                 ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x01\x03\x00\x00\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptBindingAuthData()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x01\x02\x00\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptBindingAuthData()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x01\x01\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptBindingAuthData()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x01\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptBindingAuthData()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptBindingAuthData()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptBindingAuthData()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptBindingAuthData()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00\x05\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptMobNetPrefix                             
+=  Mobility Options - Automatic Padding - MIP6OptMobNetPrefix                            
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptMobNetPrefix()]))                        == b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptMobNetPrefix()]))                 == b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x01\x05\x00\x00\x00\x00\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptMobNetPrefix()])) == b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x01\x04\x00\x00\x00\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptMobNetPrefix()])) == b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x01\x03\x00\x00\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptMobNetPrefix()])) == b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x01\x02\x00\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptMobNetPrefix()])) == b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x01\x01\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptMobNetPrefix()])) == b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x01\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptMobNetPrefix()])) == b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptMobNetPrefix()])) == b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptLLAddr                           
+=  Mobility Options - Automatic Padding - MIP6OptLLAddr                          
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptLLAddr()]))                        ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptLLAddr()]))                 ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptLLAddr()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptLLAddr()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptLLAddr()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptLLAddr()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x03\x00\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptLLAddr()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptLLAddr()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x01\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptLLAddr()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x00'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptMNID                             
+=  Mobility Options - Automatic Padding - MIP6OptMNID                            
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptMNID()]))                        ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x08\x01\x01\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptMNID()]))                 ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x08\x01\x01'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptMNID()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x08\x01\x01\x01\x05\x00\x00\x00\x00\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptMNID()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x08\x01\x01\x01\x04\x00\x00\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptMNID()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x08\x01\x01\x01\x03\x00\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptMNID()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x08\x01\x01\x01\x02\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptMNID()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x08\x01\x01\x01\x01\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptMNID()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x08\x01\x01\x01\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptMNID()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x08\x01\x01\x00'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptMsgAuth                          
+=  Mobility Options - Automatic Padding - MIP6OptMsgAuth                                 
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptMsgAuth()]))                        ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptMsgAuth()]))                 ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptMsgAuth()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x01\x01\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA\x01\x02\x00\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptMsgAuth()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x01\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA\x01\x02\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptMsgAuth()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA\x01\x02\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptMsgAuth()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA\x01\x02\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptMsgAuth()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x01\x01\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptMsgAuth()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x01\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptMsgAuth()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x00\t\x11\x01\x00\x00\x00\x00AAAAAAAAAAAA'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptReplayProtection                                 
+=  Mobility Options - Automatic Padding - MIP6OptReplayProtection                                
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptReplayProtection()]))                        ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptReplayProtection()]))                 ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x01\x03\x00\x00\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptReplayProtection()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x01\x02\x00\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptReplayProtection()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x01\x01\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptReplayProtection()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x01\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptReplayProtection()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptReplayProtection()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptReplayProtection()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptReplayProtection()])) ==b';\x04\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00\n\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptCGAParamsReq                             
+=  Mobility Options - Automatic Padding - MIP6OptCGAParamsReq                            
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptCGAParamsReq()]))                        ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x0b\x00\x01\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptCGAParamsReq()]))                 ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x0b\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptCGAParamsReq()])) ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x0b\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptCGAParamsReq()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x0b\x00\x01\x05\x00\x00\x00\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptCGAParamsReq()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x0b\x00\x01\x04\x00\x00\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptCGAParamsReq()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x0b\x00\x01\x03\x00\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptCGAParamsReq()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x0b\x00\x01\x02\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptCGAParamsReq()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x0b\x00\x01\x01\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptCGAParamsReq()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x0b\x00\x01\x00'
+a and b and c and d and e and g and h and i and j
+                                                
+
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptCGAParams                                
+=  Mobility Options - Automatic Padding - MIP6OptCGAParams                               
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptCGAParams()]))                        ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x0c\x00\x01\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptCGAParams()]))                 ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x0c\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptCGAParams()])) ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x0c\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptCGAParams()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x0c\x00\x01\x05\x00\x00\x00\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptCGAParams()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x0c\x00\x01\x04\x00\x00\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptCGAParams()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x0c\x00\x01\x03\x00\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptCGAParams()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x0c\x00\x01\x02\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptCGAParams()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x0c\x00\x01\x01\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptCGAParams()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x0c\x00\x01\x00'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptSignature                                
+=  Mobility Options - Automatic Padding - MIP6OptSignature                               
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptSignature()]))                        ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\r\x00\x01\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptSignature()]))                 ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\r\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptSignature()])) ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\r\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptSignature()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\r\x00\x01\x05\x00\x00\x00\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptSignature()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\r\x00\x01\x04\x00\x00\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptSignature()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\r\x00\x01\x03\x00\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptSignature()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\r\x00\x01\x02\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptSignature()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\r\x00\x01\x01\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptSignature()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\r\x00\x01\x00'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptHomeKeygenToken                          
+=  Mobility Options - Automatic Padding - MIP6OptHomeKeygenToken                                 
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptHomeKeygenToken()]))                        ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x0e\x00\x01\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptHomeKeygenToken()]))                 ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x0e\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptHomeKeygenToken()])) ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x0e\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptHomeKeygenToken()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x0e\x00\x01\x05\x00\x00\x00\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptHomeKeygenToken()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x0e\x00\x01\x04\x00\x00\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptHomeKeygenToken()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x0e\x00\x01\x03\x00\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptHomeKeygenToken()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x0e\x00\x01\x02\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptHomeKeygenToken()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x0e\x00\x01\x01\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptHomeKeygenToken()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x0e\x00\x01\x00'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptCareOfTestInit                           
+=  Mobility Options - Automatic Padding - MIP6OptCareOfTestInit                          
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptCareOfTestInit()]))                        ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x0f\x00\x01\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptCareOfTestInit()]))                 ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x0f\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptCareOfTestInit()])) ==b';\x01\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x0f\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptCareOfTestInit()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x0f\x00\x01\x05\x00\x00\x00\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptCareOfTestInit()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x0f\x00\x01\x04\x00\x00\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptCareOfTestInit()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x0f\x00\x01\x03\x00\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptCareOfTestInit()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x0f\x00\x01\x02\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptCareOfTestInit()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x0f\x00\x01\x01\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptCareOfTestInit()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x0f\x00\x01\x00'
+a and b and c and d and e and g and h and i and j
+
+                                                
+############
+############
++ Mobility Options - Automatic Padding - MIP6OptCareOfTest                               
+=  Mobility Options - Automatic Padding - MIP6OptCareOfTest                              
+a = raw(MIP6MH_BU(seq=0x4242, options=[MIP6OptCareOfTest()]))                        ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x10\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00'
+b = raw(MIP6MH_BU(seq=0x4242, options=[Pad1(),MIP6OptCareOfTest()]))                 ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x00\x10\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+c = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*0),MIP6OptCareOfTest()])) ==b';\x02\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x00\x10\x08\x00\x00\x00\x00\x00\x00\x00\x00'
+d = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*1),MIP6OptCareOfTest()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x01\x00\x10\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00'
+e = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*2),MIP6OptCareOfTest()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x02\x00\x00\x10\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x04\x00\x00\x00\x00'
+g = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*3),MIP6OptCareOfTest()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x03\x00\x00\x00\x10\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x03\x00\x00\x00'
+h = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*4),MIP6OptCareOfTest()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x04\x00\x00\x00\x00\x10\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00'
+i = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*5),MIP6OptCareOfTest()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x05\x00\x00\x00\x00\x00\x10\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01\x00'
+j = raw(MIP6MH_BU(seq=0x4242, options=[PadN(optdata=b'\x00'*6),MIP6OptCareOfTest()])) ==b';\x03\x05\x00\x00\x00BB\xd0\x00\x00\x03\x01\x06\x00\x00\x00\x00\x00\x00\x10\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00'
+a and b and c and d and e and g and h and i and j
+
+
+############
+############
++ Binding Refresh Request Message
+= MIP6MH_BRR - Build (default values)
+raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_BRR()) == b'`\x00\x00\x00\x00\x08\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x00\x00\x00h\xfb\x00\x00'
+
+= MIP6MH_BRR - Build with specific values
+raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_BRR(nh=0xff, res=0xee, res2=0xaaaa, options=[MIP6OptLLAddr(), MIP6OptAltCoA()])) == b'`\x00\x00\x00\x00(\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\xff\x04\x00\xee\xec$\xaa\xaa\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= MIP6MH_BRR - Basic dissection
+a=IPv6(b'`\x00\x00\x00\x00\x08\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x00\x00\x00h\xfb\x00\x00')
+b=a.payload
+a.nh == 135 and isinstance(b, MIP6MH_BRR) and b.nh == 59 and b.len == 0 and b.mhtype == 0 and b.res == 0 and b.cksum == 0x68fb and b.res2 == 0 and b.options == []
+
+= MIP6MH_BRR - Dissection with specific values
+a=IPv6(b'`\x00\x00\x00\x00(\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\xff\x04\x00\xee\xec$\xaa\xaa\x07\x07\x02\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+b=a.payload
+a.nh == 135 and isinstance(b, MIP6MH_BRR) and b.nh == 0xff and b.len == 4 and b.mhtype == 0 and b.res == 238 and b.cksum == 0xec24 and b.res2 == 43690 and len(b.options) == 3 and isinstance(b.options[0], MIP6OptLLAddr) and isinstance(b.options[1], PadN) and isinstance(b.options[2], MIP6OptAltCoA)
+
+= MIP6MH_BRR / MIP6MH_BU / MIP6MH_BA hashret() and answers()
+hoa="2001:db8:9999::1"
+coa="2001:db8:7777::1"
+cn="2001:db8:8888::1"
+ha="2001db8:6666::1"
+a=IPv6(raw(IPv6(src=cn, dst=hoa)/MIP6MH_BRR()))
+b=IPv6(raw(IPv6(src=coa, dst=cn)/IPv6ExtHdrDestOpt(options=HAO(hoa=hoa))/MIP6MH_BU(flags=0x01)))
+b2=IPv6(raw(IPv6(src=coa, dst=cn)/IPv6ExtHdrDestOpt(options=HAO(hoa=hoa))/MIP6MH_BU(flags=~0x01)))
+c=IPv6(raw(IPv6(src=cn, dst=coa)/IPv6ExtHdrRouting(type=2, addresses=[hoa])/MIP6MH_BA()))
+b.answers(a) and not a.answers(b) and c.answers(b) and not b.answers(c) and not c.answers(b2)
+
+len(b[IPv6ExtHdrDestOpt].options) == 2
+
+
+############
+############
++ Home Test Init Message
+
+= MIP6MH_HoTI - Build (default values)
+raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_HoTI()) == b'`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x01\x00g\xf2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= MIP6MH_HoTI - Dissection (default values)
+a=IPv6(b'`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x01\x00g\xf2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+b = a.payload
+a.nh == 135 and isinstance(b, MIP6MH_HoTI) and b.nh==59 and b.mhtype == 1 and b.len== 1 and b.res == 0 and b.cksum == 0x67f2 and b.cookie == b'\x00'*8
+
+
+= MIP6MH_HoTI - Build (specific values)
+raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_HoTI(res=0x77, cksum=0x8899, cookie=b"\xAA"*8)) == b'`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x01w\x88\x99\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa'
+
+= MIP6MH_HoTI - Dissection (specific values)
+a=IPv6(b'`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x01w\x88\x99\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa')
+b=a.payload
+a.nh == 135 and isinstance(b, MIP6MH_HoTI) and b.nh==59 and b.mhtype == 1 and b.len == 1 and b.res == 0x77 and b.cksum == 0x8899 and b.cookie == b'\xAA'*8
+
+
+############
+############
++ Care-of Test Init Message
+
+= MIP6MH_CoTI - Build (default values)
+raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_CoTI()) == b'`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x02\x00f\xf2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= MIP6MH_CoTI - Dissection (default values)
+a=IPv6(b'`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x02\x00f\xf2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+b = a.payload
+a.nh == 135 and isinstance(b, MIP6MH_CoTI) and b.nh==59 and b.mhtype == 2 and b.len== 1 and b.res == 0 and b.cksum == 0x66f2 and b.cookie == b'\x00'*8
+
+= MIP6MH_CoTI - Build (specific values)
+raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_CoTI(res=0x77, cksum=0x8899, cookie=b"\xAA"*8)) == b'`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x02w\x88\x99\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa'
+
+= MIP6MH_CoTI - Dissection (specific values)
+a=IPv6(b'`\x00\x00\x00\x00\x10\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x01\x02w\x88\x99\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa')
+b=a.payload
+a.nh == 135 and isinstance(b, MIP6MH_CoTI) and b.nh==59 and b.mhtype == 2 and b.len == 1 and b.res == 0x77 and b.cksum == 0x8899 and b.cookie == b'\xAA'*8
+
+
+############
+############
++ Home Test Message
+
+= MIP6MH_HoT - Build (default values)
+raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_HoT()) == b'`\x00\x00\x00\x00\x18\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x02\x03\x00e\xe9\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= MIP6MH_HoT - Dissection (default values)
+a=IPv6(b'`\x00\x00\x00\x00\x18\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x02\x03\x00e\xe9\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+b = a.payload
+a.nh == 135 and isinstance(b, MIP6MH_HoT) and b.nh==59 and b.mhtype == 3 and b.len== 2 and b.res == 0 and b.cksum == 0x65e9 and b.index == 0 and b.cookie == b'\x00'*8 and b.token == b'\x00'*8
+
+= MIP6MH_HoT - Build (specific values)
+raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_HoT(res=0x77, cksum=0x8899, cookie=b"\xAA"*8, index=0xAABB, token=b'\xCC'*8)) == b'`\x00\x00\x00\x00\x18\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x02\x03w\x88\x99\xaa\xbb\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc'
+
+= MIP6MH_HoT - Dissection (specific values)
+a=IPv6(b'`\x00\x00\x00\x00\x18\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x02\x03w\x88\x99\xaa\xbb\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc')
+b = a.payload
+a.nh == 135 and isinstance(b, MIP6MH_HoT) and b.nh==59 and b.mhtype == 3 and b.len== 2 and b.res == 0x77 and b.cksum == 0x8899 and b.index == 0xAABB and b.cookie == b'\xAA'*8 and b.token == b'\xCC'*8
+
+= MIP6MH_HoT answers
+a1, a2 = "2001:db8::1", "2001:db8::2"
+cookie = RandString(8)._fix()
+p1 = IPv6(src=a1, dst=a2)/MIP6MH_HoTI(cookie=cookie)
+p2 = IPv6(src=a2, dst=a1)/MIP6MH_HoT(cookie=cookie)
+p2_ko = IPv6(src=a2, dst=a1)/MIP6MH_HoT(cookie="".join(chr((orb(b'\xff') + 1) % 256)))
+assert p1.hashret() == p2.hashret() and p2.answers(p1) and not p1.answers(p2)
+assert p1.hashret() != p2_ko.hashret() and not p2_ko.answers(p1) and not p1.answers(p2_ko)
+
+
+############
+############
++ Care-of Test Message
+
+= MIP6MH_CoT - Build (default values)
+raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_CoT()) == b'`\x00\x00\x00\x00\x18\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x02\x04\x00d\xe9\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= MIP6MH_CoT - Dissection (default values)
+a=IPv6(b'`\x00\x00\x00\x00\x18\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x02\x04\x00d\xe9\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+b = a.payload
+a.nh == 135 and isinstance(b, MIP6MH_HoT) and b.nh==59 and b.mhtype == 4 and b.len== 2 and b.res == 0 and b.cksum == 0x64e9 and b.index == 0 and b.cookie == b'\x00'*8 and b.token == b'\x00'*8
+
+= MIP6MH_CoT - Build (specific values)
+raw(IPv6(src="2001:db8::1", dst="2001:db8::2")/MIP6MH_CoT(res=0x77, cksum=0x8899, cookie=b"\xAA"*8, index=0xAABB, token=b'\xCC'*8)) == b'`\x00\x00\x00\x00\x18\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x02\x04w\x88\x99\xaa\xbb\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc'
+
+= MIP6MH_CoT - Dissection (specific values)
+a=IPv6(b'`\x00\x00\x00\x00\x18\x87@ \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02;\x02\x04w\x88\x99\xaa\xbb\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc')
+b = a.payload
+a.nh == 135 and isinstance(b, MIP6MH_CoT) and b.nh==59 and b.mhtype == 4 and b.len== 2 and b.res == 0x77 and b.cksum == 0x8899 and b.index == 0xAABB and b.cookie == b'\xAA'*8 and b.token == b'\xCC'*8
+
+
+############
+############
++ Binding Update Message
+
+= MIP6MH_BU - build (default values)
+s= b'`\x00\x00\x00\x00(<@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x87\x02\x01\x02\x00\x00\xc9\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00;\x01\x05\x00\xee`\x00\x00\xd0\x00\x00\x03\x01\x02\x00\x00'
+raw(IPv6()/IPv6ExtHdrDestOpt(options=[HAO()])/MIP6MH_BU()) == s
+
+= MIP6MH_BU - dissection (default values)
+p = IPv6(s)
+p[MIP6MH_BU].len == 1
+
+= MIP6MH_BU - build
+s = b'`\x00\x00\x00\x00P<@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x87\x02\x01\x02\x00\x00\xc9\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xca\xfe;\x06\x05\x00\xea\xf2\x00\x00\xd0\x00\x00*\x01\x00\x03\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x00\x06\x12\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+raw(IPv6()/IPv6ExtHdrDestOpt(options=[HAO(hoa='2001:db8::cafe')])/MIP6MH_BU(mhtime=42, options=[MIP6OptAltCoA(),MIP6OptMobNetPrefix()])) == s
+
+= MIP6MH_BU - dissection
+p = IPv6(s)
+p[MIP6MH_BU].cksum == 0xeaf2 and p[MIP6MH_BU].len == 6 and len(p[MIP6MH_BU].options) == 4 and p[MIP6MH_BU].mhtime == 42
+
+
+############
+############
++ Binding ACK Message
+
+=  MIP6MH_BA - build
+s = b'`\x00\x00\x00\x00\x10\x87@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01;\x01\x06\x00\xbc\xb9\x00\x80\x00\x00\x00*\x01\x02\x00\x00'
+raw(IPv6()/MIP6MH_BA(mhtime=42)) == s
+
+=  MIP6MH_BA - dissection
+p = IPv6(s)
+p[MIP6MH_BA].cksum == 0xbcb9 and p[MIP6MH_BA].len == 1 and len(p[MIP6MH_BA].options) == 1 and p[MIP6MH_BA].mhtime == 42
+
+
+############
+############
++ Binding ERR Message
+
+=  MIP6MH_BE - build
+s = b'`\x00\x00\x00\x00\x18\x87@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01;\x02\x07\x00\xbbY\x02\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
+raw(IPv6()/MIP6MH_BE(status=2, ha='1::2')) == s
+
+=  MIP6MH_BE - dissection
+p = IPv6(s)
+p[MIP6MH_BE].cksum=0xba10 and p[MIP6MH_BE].len == 1 and len(p[MIP6MH_BE].options) == 1
+
+
+############
+############
++ TracerouteResult6
+
+= get_trace()
+ip6_hlim = [("2001:db8::%d" % i, i) for i in six.moves.range(1, 12)]
+
+tr6_packets = [ (IPv6(dst="2001:db8::1", src="2001:db8::254", hlim=hlim)/UDP()/"scapy",
+                 IPv6(dst="2001:db8::254", src=ip)/ICMPv6TimeExceeded()/IPerror6(dst="2001:db8::1", src="2001:db8::254", hlim=0)/UDPerror()/"scapy")
+                   for (ip, hlim) in ip6_hlim ]
+
+tr6 = TracerouteResult6(tr6_packets)
+tr6.get_trace() == {'2001:db8::1': {1: ('2001:db8::1', False), 2: ('2001:db8::2', False), 3: ('2001:db8::3', False), 4: ('2001:db8::4', False), 5: ('2001:db8::5', False), 6: ('2001:db8::6', False), 7: ('2001:db8::7', False), 8: ('2001:db8::8', False), 9: ('2001:db8::9', False), 10: ('2001:db8::10', False), 11: ('2001:db8::11', False)}}
+
+= show()
+def test_show():
+    with ContextManagerCaptureOutput() as cmco:
+        tr6 = TracerouteResult6(tr6_packets)
+        tr6.show()
+        result = cmco.get_output()
+    expected = "  2001:db8::1                               :udpdomain \n"
+    expected += "1  2001:db8::1                                3         \n"
+    expected += "2  2001:db8::2                                3         \n"
+    expected += "3  2001:db8::3                                3         \n"
+    expected += "4  2001:db8::4                                3         \n"
+    expected += "5  2001:db8::5                                3         \n"
+    expected += "6  2001:db8::6                                3         \n"
+    expected += "7  2001:db8::7                                3         \n"
+    expected += "8  2001:db8::8                                3         \n"
+    expected += "9  2001:db8::9                                3         \n"
+    expected += "10 2001:db8::10                               3         \n"
+    expected += "11 2001:db8::11                               3         \n"
+    index_result = result.index("\n1")
+    index_expected = expected.index("\n1")
+    assert(result[index_result:] == expected[index_expected:])
+
+test_show()
+
+= graph()
+saved_AS_resolver = conf.AS_resolver
+conf.AS_resolver = None
+tr6.make_graph()
+assert len(tr6.graphdef) == 530
+assert tr6.graphdef.startswith("digraph trace {")
+'"2001:db8::1 53/udp";' in tr6.graphdef
+conf.AS_resolver = saved_AS_resolver 

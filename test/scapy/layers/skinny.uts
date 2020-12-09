@@ -1,0 +1,12 @@
+% Skinny regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Skinny tests
+
+= Skinny - build & dissection
+p = raw(IP(src="127.0.0.1")/TCP()/Skinny(msg="ServiceURLStatMessage"))
+assert p == b'E\x00\x004\x00\x01\x00\x00@\x06|\xc1\x7f\x00\x00\x01\x7f\x00\x00\x01\x07\xd0\x07\xd0\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00S3\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00/\x01\x00\x00'
+assert IP(p)[Skinny].msg == 303

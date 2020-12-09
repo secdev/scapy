@@ -348,13 +348,13 @@ class RadioTap(Packet):
             lambda pkt: pkt.present and pkt.present.Channel),
         # dBm_AntSignal
         ConditionalField(
-            ScalingField("dBm_AntSignal", 0, offset=-256,
-                         unit="dBm", fmt="B"),
+            ScalingField("dBm_AntSignal", 0,
+                         unit="dBm", fmt="b"),
             lambda pkt: pkt.present and pkt.present.dBm_AntSignal),
         # dBm_AntNoise
         ConditionalField(
-            ScalingField("dBm_AntNoise", 0, offset=-256,
-                         unit="dBm", fmt="B"),
+            ScalingField("dBm_AntNoise", 0,
+                         unit="dBm", fmt="b"),
             lambda pkt: pkt.present and pkt.present.dBm_AntNoise),
         # Lock_Quality
         ConditionalField(
@@ -1345,7 +1345,7 @@ class Dot11EltHTCapabilities(Dot11Elt):
                  end_tot_size=-4),
         # ASEL Capabilities: 1B
         FlagsField("ASEL", 0, 8, [
-            "res"
+            "res",
             "Transmit_Sounding_PPDUs",
             "Receive_ASEL",
             "Antenna_Indices_Feedback",

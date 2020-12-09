@@ -1812,7 +1812,7 @@ class IE_UserPlaneIPResourceInformation(IE_Base):
     name = "IE User Plane IP Resource Information"
     ie_type = 116
     fields_desc = IE_Base.fields_desc + [
-        XBitField("spare", 0, 1),
+        XBitField("spare1", 0, 1),
         BitField("ASSOSI", 0, 1),
         BitField("ASSONI", 0, 1),
         BitField("TEIDRI", 0, 3),
@@ -1828,7 +1828,9 @@ class IE_UserPlaneIPResourceInformation(IE_Base):
                            x.length - 1 - (1 if x.TEIDRI != 0 else 0) -
                            (x.V4 * 4) - (x.V6 * 16) - x.ASSOSI),
             lambda x: x.ASSONI == 1),
-        ConditionalField(XBitField("spare", None, 4), lambda x: x.ASSOSI == 1),
+        ConditionalField(
+            XBitField("spare2", None, 4),
+            lambda x: x.ASSOSI == 1),
         ConditionalField(
             BitEnumField("interface", "Access", 4, SourceInterface),
             lambda x: x.ASSOSI == 1),

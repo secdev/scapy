@@ -9,19 +9,18 @@
 + Linux only test
 
 = L3RawSocket
-~ netaccess IP ICMP linux needs_root
+~ netaccess IP TCP linux needs_root
 
 old_l3socket = conf.L3socket
 old_debug_dissector = conf.debug_dissector
 conf.debug_dissector = False
 conf.L3socket = L3RawSocket
-x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
+x = sr1(IP(dst="www.google.com")/TCP(sport=RandShort(), dport=80, flags="S"),timeout=3)
 conf.debug_dissector = old_debug_dissector
 conf.L3socket = old_l3socket
 x
 assert x[IP].ottl() in [32, 64, 128, 255]
 assert 0 <= x[IP].hops() <= 126
-x is not None and ICMP in x and x[ICMP].type == 0
 
 # TODO: fix this test (randomly stuck)
 # ex: https://travis-ci.org/secdev/scapy/jobs/247473497
@@ -189,7 +188,7 @@ try:
                             started_callback=_sniffer_started)
             global frm_count
             frm_count = 2
-        t_sniffer = Thread(target=_sniffer)
+        t_sniffer = Thread(target=_sniffer, name="linux.uts sniff veth_scapy_1")
         t_sniffer.start()
         cond_started.wait()
         sendp(Ether(type=0xbeef)/Raw(b'0123456789'),
@@ -247,7 +246,7 @@ def _sniffer():
     global frm_count
     frm_count = 2
 
-t_sniffer = Thread(target=_sniffer)
+t_sniffer = Thread(target=_sniffer, name="linux.uts sniff veth_scapy_1 2")
 t_sniffer.start()
 cond_started.wait()
 sendp(Ether(type=0xbeef)/Raw(b'0123456789'),
@@ -349,7 +348,7 @@ def _sniffer():
     global dot1q_count
     dot1q_count = len(sniffed)
 
-t_sniffer = Thread(target=_sniffer)
+t_sniffer = Thread(target=_sniffer, name="linux.uts sniff right0")
 t_sniffer.start()
 cond_started.wait()
 sendp(Ether()/IP(dst="198.51.100.2")/ICMP(), iface='vlanleft0', count=2)
@@ -358,3 +357,9 @@ t_sniffer.join(1)
 assert(dot1q_count == 2)
 
 veth.destroy()
+
+= Reload interfaces & routes
+
+conf.ifaces.reload()
+conf.route.resync()
+conf.route6.resync()

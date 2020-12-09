@@ -100,7 +100,11 @@ class SelectableObject(object):
         """Entry point of SelectableObject: register the callback"""
         if self.check_recv():
             return callback(self)
-        _t = threading.Thread(target=self._wait_non_ressources, args=(callback,))  # noqa: E501
+        _t = threading.Thread(
+            target=self._wait_non_ressources,
+            args=(callback,),
+            name="scapy.automaton wait_return"
+        )
         _t.setDaemon(True)
         _t.start()
 
@@ -108,10 +112,10 @@ class SelectableObject(object):
         """DEV: When call_release() will be called, the hook will also"""
         self.hooks.append(hook)
 
-    def call_release(self, arborted=False):
+    def call_release(self, aborted=False):
         """DEV: Must be call when the object becomes ready to read.
            Relesases the lock of _wait_non_ressources"""
-        self.was_ended = arborted
+        self.was_ended = aborted
         try:
             self.trigger.release()
         except (threading.ThreadError, AttributeError):
@@ -180,7 +184,11 @@ class SelectableSelector(object):
             if not self.remain:
                 return self.results
 
-            threading.Thread(target=self._timeout_thread, args=(self.remain,)).start()  # noqa: E501
+            threading.Thread(
+                target=self._timeout_thread,
+                args=(self.remain,),
+                name="scapy.automaton process"
+            ).start()
             if not self._ended:
                 self.available_lock.acquire()
             return self.results
@@ -817,7 +825,12 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     def _do_start(self, *args, **kargs):
         ready = threading.Event()
-        _t = threading.Thread(target=self._do_control, args=(ready,) + (args), kwargs=kargs)  # noqa: E501
+        _t = threading.Thread(
+            target=self._do_control,
+            args=(ready,) + (args),
+            kwargs=kargs,
+            name="scapy.automaton _do_start"
+        )
         _t.setDaemon(True)
         _t.start()
         ready.wait()

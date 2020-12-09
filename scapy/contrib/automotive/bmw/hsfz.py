@@ -10,6 +10,9 @@
 import struct
 import socket
 import time
+
+from scapy.compat import Tuple, Any, Type
+
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import IntField, ShortEnumField, XByteField
 from scapy.layers.inet import TCP
@@ -40,19 +43,23 @@ class HSFZ(Packet):
     ]
 
     def hashret(self):
+        # type: () -> bytes
         hdr_hash = struct.pack("B", self.src ^ self.dst)
         pay_hash = self.payload.hashret()
         return hdr_hash + pay_hash
 
     def answers(self, other):
+        # type: (Packet) -> int
         if other.__class__ == self.__class__:
             return self.payload.answers(other.payload)
         return 0
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return s[:self.length - 2], s[self.length - 2:]
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         """
         This will set the LenField 'length' to the correct value.
         """
@@ -72,6 +79,7 @@ bind_layers(HSFZ, UDS)
 
 class HSFZSocket(StreamSocket):
     def __init__(self, ip='127.0.0.1', port=6801):
+        # type: (str, int) -> None
         self.ip = ip
         self.port = port
         s = socket.socket()
@@ -81,6 +89,7 @@ class HSFZSocket(StreamSocket):
 
 class ISOTP_HSFZSocket(HSFZSocket):
     def __init__(self, src, dst, ip='127.0.0.1', port=6801, basecls=ISOTP):
+        # type: (int, int, str, int, Type[Packet]) -> None
         super(ISOTP_HSFZSocket, self).__init__(ip, port)
         self.src = src
         self.dst = dst
@@ -88,6 +97,7 @@ class ISOTP_HSFZSocket(HSFZSocket):
         self.outputcls = basecls
 
     def send(self, x):
+        # type: (bytes) -> None
         if not isinstance(x, ISOTP):
             raise Scapy_Exception(
                 "Please provide a packet class based on ISOTP")
@@ -100,5 +110,6 @@ class ISOTP_HSFZSocket(HSFZSocket):
             HSFZ(src=self.src, dst=self.dst) / x)
 
     def recv(self, x=MTU):
+        # type: (int) -> Any
         pkt = super(ISOTP_HSFZSocket, self).recv(x)
         return self.outputcls(bytes(pkt[1]))

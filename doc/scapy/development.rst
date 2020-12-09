@@ -254,6 +254,15 @@ all Scapy unit tests automatically without any external dependency::
 
  tox -- -K vcan_socket -K tcpdump -K tshark -K nmap -K manufdb -K crypto
 
+.. note:: This will trigger the unit tests on all available Python versions
+  unless you specify a `-e` option. See below
+
+For your convenience, and for package maintainers, we provide a util that
+run tox on only a single (default Python) environment, again with no external
+dependencies::
+
+ ./test/run_tests
+
 VIM syntax highlighting for .uts files
 --------------------------------------
 

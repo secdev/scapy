@@ -316,26 +316,53 @@ class GTPPDUSessionContainer(Packet):
     name = "GTP PDU Session Container"
     fields_desc = [ByteField("ExtHdrLen", None),
                    BitField("type", 0, 4),
-                   BitField("spare1", 0, 4),
-                   BitField("P", 0, 1),
-                   BitField("R", 0, 1),
+                   BitField("qmp", 0, 1),
+                   ConditionalField(BitField("dlDelayInd", 0, 1),
+                                    lambda pkt: pkt.type == 1),
+                   ConditionalField(BitField("ulDelayInd", 0, 1),
+                                    lambda pkt: pkt.type == 1),
+                   ConditionalField(BitField("spareUl1", 0, 1),
+                                    lambda pkt: pkt.type == 1),
+                   ConditionalField(XBitField("spareDl1", 0, 3),
+                                    lambda pkt: pkt.type == 0),
+                   ConditionalField(BitField("P", 0, 1),
+                                    lambda pkt: pkt.type == 0),
+                   ConditionalField(BitField("R", 0, 1),
+                                    lambda pkt: pkt.type == 0),
+                   ConditionalField(XBitField("spareUl2", 0, 2),
+                                    lambda pkt: pkt.type == 1),
                    BitField("QFI", 0, 6),
                    ConditionalField(XBitField("PPI", 0, 3),
-                                    lambda pkt: pkt.P == 1),
-                   ConditionalField(XBitField("spare2", 0, 5),
-                                    lambda pkt: pkt.P == 1),
-                   ConditionalField(ByteField("pad1", 0),
-                                    lambda pkt: pkt.P == 1),
-                   ConditionalField(ByteField("pad2", 0),
-                                    lambda pkt: pkt.P == 1),
-                   ConditionalField(ByteField("pad3", 0),
-                                    lambda pkt: pkt.P == 1),
+                                    lambda pkt: pkt.type == 0 and
+                                    pkt.P == 1),
+                   ConditionalField(XBitField("spareDl2", 0, 5),
+                                    lambda pkt: pkt.type == 0 and
+                                    pkt.P == 1),
+                   ConditionalField(XBitField("dlSendTime", 0, 32),
+                                    lambda pkt: pkt.type == 0 and
+                                    pkt.qmp == 1),
+                   ConditionalField(XBitField("dlSendTimeRpt", 0, 32),
+                                    lambda pkt: pkt.type == 1 and
+                                    pkt.qmp == 1),
+                   ConditionalField(XBitField("dlRecvTime", 0, 32),
+                                    lambda pkt: pkt.type == 1 and
+                                    pkt.qmp == 1),
+                   ConditionalField(XBitField("ulSendTime", 0, 32),
+                                    lambda pkt: pkt.type == 1 and
+                                    pkt.qmp == 1),
+                   ConditionalField(XBitField("dlDelayRslt", 0, 32),
+                                    lambda pkt: pkt.type == 1 and
+                                    pkt.dlDelayInd == 1),
+                   ConditionalField(XBitField("ulDelayRslt", 0, 32),
+                                    lambda pkt: pkt.type == 1 and
+                                    pkt.ulDelayInd == 1),
+                   ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes),
                    ConditionalField(StrLenField(
                        "extraPadding",
                        "",
-                       length_from=lambda pkt: 4 * (pkt.ExtHdrLen) - 4),
-                       lambda pkt: pkt.ExtHdrLen and pkt.ExtHdrLen > 1),
-                   ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes), ]
+                       length_from=lambda pkt: 4 * (pkt.ExtHdrLen) - 5),
+                       lambda pkt:pkt.ExtHdrLen and pkt.ExtHdrLen > 1 and
+                       pkt.type == 0 and pkt.P == 1 and pkt.NextExtHdr == 0)]
 
     def guess_payload_class(self, payload):
         if self.NextExtHdr == 0:

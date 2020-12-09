@@ -1,0 +1,260 @@
+% SCTP regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ SCTP
+
+= SCTP - Chunk Init - build
+s = raw(IP()/SCTP()/SCTPChunkInit(params=[SCTPChunkParamIPv4Addr()]))
+s == b'E\x00\x00<\x00\x01\x00\x00@\x84|;\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00@,\x0b_\x01\x00\x00\x1c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x08\x7f\x00\x00\x01'
+
+= SCTP - Chunk Init - dissection
+p = IP(s)
+SCTPChunkParamIPv4Addr in p and p[SCTP].chksum == 0x402c0b5f and p[SCTPChunkParamIPv4Addr].addr == "127.0.0.1"
+
+= SCTP - SCTPChunkSACK - build
+s = raw(IP()/SCTP()/SCTPChunkSACK(gap_ack_list=["7:28"]))
+s == b'E\x00\x004\x00\x01\x00\x00@\x84|C\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00;\x01\xd4\x04\x03\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x07\x00\x1c'
+
+= SCTP - SCTPChunkSACK - dissection
+p = IP(s)
+SCTPChunkSACK in p and p[SCTP].chksum == 0x3b01d404 and p[SCTPChunkSACK].gap_ack_list[0] == "7:28"
+
+= SCTP - answers
+(IP()/SCTP()).answers(IP()/SCTP()) == True
+
+= SCTP basic header - Dissection
+~ sctp
+blob = b"\x1A\x85\x26\x94\x00\x00\x00\x0D\x00\x00\x04\xD2"
+p = SCTP(blob)
+assert(p.dport == 9876)
+assert(p.sport == 6789)
+assert(p.tag == 13)
+assert(p.chksum == 1234)
+
+= basic SCTPChunkData - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x64\x61\x74\x61"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkData))
+assert(p.reserved == 0)
+assert(p.delay_sack == 0)
+assert(p.unordered == 0)
+assert(p.beginning == 0)
+assert(p.ending == 0)
+assert(p.tsn == 0)
+assert(p.stream_id == 0)
+assert(p.stream_seq == 0)
+assert(p.len == (len("data") + 16))
+assert(p.data == b"data")
+
+= basic SCTPChunkInit - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkInit))
+assert(p.flags == 0)
+assert(p.len == 20)
+assert(p.init_tag == 0)
+assert(p.a_rwnd == 0)
+assert(p.n_out_streams == 0)
+assert(p.n_in_streams == 0)
+assert(p.init_tsn == 0)
+assert(p.params == [])
+
+= SCTPChunkInit multiple valid parameters - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x5C\x00\x00\x00\x65\x00\x00\x00\x66\x00\x67\x00\x68\x00\x00\x00\x69\x00\x0C\x00\x06\x00\x05\x00\x00\x80\x00\x00\x04\xC0\x00\x00\x04\x80\x08\x00\x07\x0F\xC1\x80\x00\x80\x03\x00\x04\x80\x02\x00\x24\x87\x77\x21\x29\x3F\xDA\x62\x0C\x06\x6F\x10\xA5\x39\x58\x60\x98\x4C\xD4\x59\xD8\x8A\x00\x85\xFB\x9E\x2E\x66\xBA\x3A\x23\x54\xEF\x80\x04\x00\x06\x00\x01\x00\x00"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkInit))
+assert(p.flags == 0)
+assert(p.len == 92)
+assert(p.init_tag == 101)
+assert(p.a_rwnd == 102)
+assert(p.n_out_streams == 103)
+assert(p.n_in_streams == 104)
+assert(p.init_tsn == 105)
+assert(len(p.params) == 7)
+params = {type(param): param for param in p.params}
+assert(set(params.keys()) == {SCTPChunkParamECNCapable, SCTPChunkParamFwdTSN,
+                              SCTPChunkParamSupportedExtensions, SCTPChunkParamChunkList,
+                              SCTPChunkParamRandom, SCTPChunkParamRequestedHMACFunctions,
+                              SCTPChunkParamSupportedAddrTypes})
+assert(params[SCTPChunkParamECNCapable] == SCTPChunkParamECNCapable())
+assert(params[SCTPChunkParamFwdTSN] == SCTPChunkParamFwdTSN())
+assert(params[SCTPChunkParamSupportedExtensions] == SCTPChunkParamSupportedExtensions(len=7))
+assert(params[SCTPChunkParamChunkList] == SCTPChunkParamChunkList(len=4))
+assert(params[SCTPChunkParamRandom].len == 4+32)
+assert(len(params[SCTPChunkParamRandom].random) == 32)
+assert(params[SCTPChunkParamRequestedHMACFunctions] == SCTPChunkParamRequestedHMACFunctions(len=6))
+assert(params[SCTPChunkParamSupportedAddrTypes] == SCTPChunkParamSupportedAddrTypes(len=6))
+
+= basic SCTPChunkInitAck - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkInitAck))
+assert(p.flags == 0)
+assert(p.len == 20)
+assert(p.init_tag == 0)
+assert(p.a_rwnd == 0)
+assert(p.n_out_streams == 0)
+assert(p.n_in_streams == 0)
+assert(p.init_tsn == 0)
+assert(p.params == [])
+
+= SCTPChunkInitAck with state cookie - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x4C\x00\x00\x00\x65\x00\x00\x00\x66\x00\x67\x00\x68\x00\x00\x00\x69\x80\x00\x00\x04\x00\x0B\x00\x0D\x6C\x6F\x63\x61\x6C\x68\x6F\x73\x74\x00\x00\x00\xC0\x00\x00\x04\x80\x08\x00\x07\x0F\xC1\x80\x00\x00\x07\x00\x14\x00\x10\x9E\xB2\x86\xCE\xE1\x7D\x0F\x6A\xAD\xFD\xB3\x5D\xBC\x00"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkInitAck))
+assert(p.flags == 0)
+assert(p.len == 76)
+assert(p.init_tag == 101)
+assert(p.a_rwnd == 102)
+assert(p.n_out_streams == 103)
+assert(p.n_in_streams == 104)
+assert(p.init_tsn == 105)
+assert(len(p.params) == 5)
+params = {type(param): param for param in p.params}
+assert(set(params.keys()) == {SCTPChunkParamECNCapable, SCTPChunkParamHostname,
+                              SCTPChunkParamFwdTSN, SCTPChunkParamSupportedExtensions,
+                              SCTPChunkParamStateCookie})
+assert(params[SCTPChunkParamECNCapable] == SCTPChunkParamECNCapable())
+assert(raw(params[SCTPChunkParamHostname]) == raw(SCTPChunkParamHostname(len=13, hostname="localhost")))
+assert(params[SCTPChunkParamFwdTSN] == SCTPChunkParamFwdTSN())
+assert(params[SCTPChunkParamSupportedExtensions] == SCTPChunkParamSupportedExtensions(len=7))
+assert(params[SCTPChunkParamStateCookie].len == 4+16)
+assert(len(params[SCTPChunkParamStateCookie].cookie) == 16)
+
+= basic SCTPChunkSACK - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkSACK))
+assert(p.flags == 0)
+assert(p.len == 16)
+assert(p.cumul_tsn_ack == 0)
+assert(p.a_rwnd == 0)
+assert(p.n_gap_ack == 0)
+assert(p.n_dup_tsn == 0)
+assert(p.gap_ack_list == [])
+assert(p.dup_tsn_list == [])
+
+= basic SCTPChunkHeartbeatReq - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x04"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkHeartbeatReq))
+assert(p.flags == 0)
+assert(p.len == 4)
+assert(p.params == [])
+
+= basic SCTPChunkHeartbeatAck - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x04"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkHeartbeatAck))
+assert(p.flags == 0)
+assert(p.len == 4)
+assert(p.params == [])
+
+= basic SCTPChunkAbort - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x06\x00\x00\x04"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkAbort))
+assert(p.reserved == 0)
+assert(p.TCB == 0)
+assert(p.len == 4)
+assert(p.error_causes == b"")
+
+= basic SCTPChunkShutDown - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x08\x00\x00\x00\x00"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkShutdown))
+assert(p.flags == 0)
+assert(p.len == 8)
+assert(p.cumul_tsn_ack == 0)
+
+= basic SCTPChunkShutDownAck - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x04"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkShutdownAck))
+assert(p.flags == 0)
+assert(p.len == 4)
+
+= basic SCTPChunkError - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x09\x00\x00\x04"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkError))
+assert(p.flags == 0)
+assert(p.len == 4)
+assert(p.error_causes == b"")
+
+= basic SCTPChunkCookieEcho - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0A\x00\x00\x04"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkCookieEcho))
+assert(p.flags == 0)
+assert(p.len == 4)
+assert(p.cookie == b"")
+
+= basic SCTPChunkCookieAck - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0B\x00\x00\x04"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkCookieAck))
+assert(p.flags == 0)
+assert(p.len == 4)
+
+= basic SCTPChunkShutdownComplete - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0E\x00\x00\x04"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkShutdownComplete))
+assert(p.reserved == 0)
+assert(p.TCB == 0)
+assert(p.len == 4)
+
+= basic SCTPChunkAuthentication - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x08\x00\x00\x00\x00"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkAuthentication))
+assert(p.flags == 0)
+assert(p.len == 8)
+assert(p.shared_key_id == 0)
+assert(p.HMAC_function == 0)
+
+= basic SCTPChunkAddressConf - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xc1\x00\x00\x08\x00\x00\x00\x00"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkAddressConf))
+assert(p.flags == 0)
+assert(p.len == 8)
+assert(p.seq == 0)
+assert(p.params == [])
+
+= basic SCTPChunkAddressConfAck - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x08\x00\x00\x00\x00"
+p = SCTP(blob).lastlayer()
+assert(isinstance(p, SCTPChunkAddressConfAck))
+assert(p.flags == 0)
+assert(p.len == 8)
+assert(p.seq == 0)
+assert(p.params == [])
+
+= SCTPChunkParamRandom - Consecutive calls
+~ sctp
+param1, param2 = SCTPChunkParamRandom(), SCTPChunkParamRandom()
+assert(param1.random != param2.random)

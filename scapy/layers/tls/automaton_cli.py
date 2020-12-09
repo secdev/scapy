@@ -97,7 +97,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         the handshake, should the server ask for client authentication.
     :param client_hello: may hold a TLSClientHello or SSLv2ClientHello to be
         sent to the server. This is particularly useful for extensions
-        tweaking.
+        tweaking. If not set, a default is populated accordingly.
     :param version: is a quicker way to advertise a protocol version ("sslv2",
         "tls1", "tls12", etc.) It may be overridden by the previous
         'client_hello'.

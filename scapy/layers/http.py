@@ -375,7 +375,7 @@ class _HTTPContent(Packet):
                 )
         return pkt + pay
 
-    def self_build(self, field_pos_list=None):
+    def self_build(self, **kwargs):
         ''' Takes an HTTPRequest or HTTPResponse object, and creates its
         string representation.'''
         if not isinstance(self.underlayer, HTTP):

@@ -58,8 +58,7 @@ QUOTES = [
     ("To craft a packet, you have to be a packet, and learn how to swim in "
      "the wires and in the waves.", "Jean-Claude Van Damme"),
     ("We are in France, we say Skappee. OK? Merci.", "Sebastien Chabal"),
-    ("Wanna support scapy? Rate it on sectools! "
-     "http://sectools.org/tool/scapy/", "Satoshi Nakamoto"),
+    ("Wanna support scapy? Star us on GitHub!", "Satoshi Nakamoto"),
     ("What is dead may never die!", "Python 2"),
 ]
 
@@ -225,7 +224,7 @@ def list_contrib(name=None,  # type: Optional[str]
                  ret=False,  # type: bool
                  _debug=False  # type: bool
                  ):
-    # type: (...) -> Optional[List[Dict[str, Union[str, None]]]]
+    # type: (...) -> Optional[List[Dict[str, str]]]
     """Show the list of all existing contribs.
 
     :param name: filter to search the contribs
@@ -244,7 +243,7 @@ def list_contrib(name=None,  # type: Optional[str]
         name = "*.py"
     elif "*" not in name and "?" not in name and not name.endswith(".py"):
         name += ".py"
-    results = []  # type: List[Dict[str, Union[str, None]]]
+    results = []  # type: List[Dict[str, str]]
     dir_path = os.path.join(os.path.dirname(__file__), "contrib")
     if sys.version_info >= (3, 5):
         name = os.path.join(dir_path, "**", name)
@@ -258,7 +257,7 @@ def list_contrib(name=None,  # type: Optional[str]
             continue
         if mod.endswith(".py"):
             mod = mod[:-3]
-        desc = {"description": None, "status": None, "name": mod}
+        desc = {"description": "", "status": "", "name": mod}
         with io.open(f, errors="replace") as fd:
             for line in fd:
                 if line[0] != "#":
@@ -516,20 +515,20 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
 
     try:
         opts = getopt.getopt(argv[1:], "hs:Cc:Pp:d:H")
-        for opt, parm in opts[0]:
+        for opt, param in opts[0]:
             if opt == "-h":
                 _usage()
             elif opt == "-H":
                 conf.fancy_prompt = False
                 conf.verb = 30
             elif opt == "-s":
-                session_name = parm
+                session_name = param
             elif opt == "-c":
-                STARTUP_FILE = parm
+                STARTUP_FILE = param
             elif opt == "-C":
                 STARTUP_FILE = None
             elif opt == "-p":
-                PRESTART_FILE = parm
+                PRESTART_FILE = param
             elif opt == "-P":
                 PRESTART_FILE = None
             elif opt == "-d":

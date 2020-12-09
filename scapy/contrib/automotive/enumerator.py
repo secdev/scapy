@@ -10,7 +10,7 @@ from collections import defaultdict, namedtuple
 
 from scapy.error import Scapy_Exception, log_interactive, warning
 from scapy.utils import make_lined_table, SingleConversationSocket
-from scapy.modules import six
+import scapy.modules.six as six
 from scapy.contrib.automotive.ecu import ECU_State
 
 

@@ -1,0 +1,258 @@
+% NetFlow regression tests for Scapy
+
+
+############
+############
++ Netflow v5
+~ netflow
+
+= NetflowHeaderV5 - basic building
+
+raw(NetflowHeader()/NetflowHeaderV5()) == b'\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+raw(NetflowHeaderV5(engineID=42)) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00*\x00\x00'
+
+raw(NetflowRecordV5(dst="192.168.0.1")) == b'\x7f\x00\x00\x01\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+raw(NetflowHeader()/NetflowHeaderV5(count=1)/NetflowRecordV5(dst="192.168.0.1")) == b'\x00\x05\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+raw(NetflowHeader()/NetflowHeaderV5()/NetflowRecordV5(dst="192.168.0.1")/NetflowRecordV5(dst="172.16.0.1")) == b'\x00\x05\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\xac\x10\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+
+= NetflowHeaderV5 - UDP bindings
+
+s = raw(IP(src="127.0.0.1")/UDP()/NetflowHeader()/NetflowHeaderV5())
+assert s == b'E\x00\x004\x00\x01\x00\x00@\x11|\xb6\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x07\x08\x07\x00 \xf1\x98\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+pkt = IP(s)
+assert NetflowHeaderV5 in pkt
+
+= NetflowHeaderV5 - basic dissection
+
+nf5 = NetflowHeader(b'\x00\x05\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+nf5.version == 5 and nf5[NetflowHeaderV5].count == 2 and isinstance(nf5[NetflowRecordV5].payload, NetflowRecordV5)
+
+############
+############
++ Netflow v9
+~ netflow
+
+= NetflowV9 - advanced dissection
+
+import os
+tmp = "/test/pcaps/netflowv9.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+a = rdpcap(filename)
+a = netflowv9_defragment(a)
+
+nfv9_fl = a[0]
+assert NetflowFlowsetV9 in nfv9_fl
+assert len(nfv9_fl.templates[0].template_fields) == 21
+assert nfv9_fl.templates[0].template_fields[1].fieldType == 12
+
+nfv9_ds = a[3]
+assert NetflowDataflowsetV9 in nfv9_ds
+assert len(nfv9_ds[NetflowDataflowsetV9].records) == 24
+assert nfv9_ds[NetflowDataflowsetV9].records[21].IP_PROTOCOL_VERSION == 4
+assert nfv9_ds.records[21].IPV4_SRC_ADDR == '20.0.0.248'
+assert nfv9_ds.records[21].IPV4_DST_ADDR == '30.0.0.248'
+
+nfv9_options_fl = a[1]
+assert NetflowOptionsFlowsetV9 in nfv9_options_fl
+assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].scopes[0], NetflowOptionsFlowsetScopeV9)
+assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].options[0], NetflowOptionsFlowsetOptionV9)
+assert nfv9_options_fl[NetflowOptionsFlowsetV9].options[0].optionFieldType == 36
+
+nfv9_options_ds = a[4]
+assert NetflowDataflowsetV9 in nfv9_options_ds
+assert isinstance(nfv9_options_ds.records[0], NetflowOptionsRecordScopeV9)
+assert nfv9_options_ds.records[0].IN_BYTES == b'\x01\x00\x00\x00'
+assert nfv9_options_ds.records[1].SAMPLING_INTERVAL == 12
+assert nfv9_options_ds.records[1].SAMPLING_ALGORITHM == 0x2
+
+= NetflowV9 - Multiple FlowSets in one packet
+
+nfv9_multiple_flowsets = NetflowHeader(b'\x00\t\x00\x03\x00\x00K [F\x17\x97\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00H\x04\x00\x00\x10\x00\x08\x00\x04\x00\x0c\x00\x04\x00\x15\x00\x04\x00\x16\x00\x04\x00\x01\x00\x08\x00\x02\x00\x08\x00\n\x00\x04\x00\x0e\x00\x04\x00\x07\x00\x02\x00\x0b\x00\x02\x00\x04\x00\x01\x00\x06\x00\x01\x00<\x00\x01\x00\x05\x00\x01\x00 \x00\x02\x00:\x00\x02\x00\x00\x00L\x08\x00\x00\x11\x00\x1b\x00\x10\x00\x1c\x00\x10\x00\x1f\x00\x04\x00\x15\x00\x04\x00\x16\x00\x04\x00\x01\x00\x08\x00\x02\x00\x08\x00\n\x00\x04\x00\x0e\x00\x04\x00\x07\x00\x02\x00\x0b\x00\x02\x00\x04\x00\x01\x00\x06\x00\x01\x00<\x00\x01\x00\x05\x00\x01\x00 \x00\x02\x00:\x00\x02\x04\x00\x008\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x10\xac\x00\x00\x10\x83\x00\x00\x00\x00\x00\x00\x0b\xb8\x00\x00\x00\x00\x00\x00\x002\x00\x00\x00\x00\x00\x00\x00\x01\x005\x005\x11\x00\x04\x00\x00\x00\x00e')
+assert nfv9_multiple_flowsets.haslayer(NetflowFlowsetV9)
+assert nfv9_multiple_flowsets.haslayer(NetflowDataflowsetV9)
+nfv9_defrag = netflowv9_defragment(list(nfv9_multiple_flowsets))
+flowset1 = nfv9_defrag[0].getlayer(NetflowFlowsetV9, 1)
+assert flowset1.templates[0].template_fields[0].fieldType == 8
+assert flowset1.templates[0].template_fields[0].fieldLength == 4
+assert flowset1.templates[0].template_fields[5].fieldType == 2
+assert flowset1.templates[0].template_fields[5].fieldLength == 8
+flowset2 = nfv9_defrag[0].getlayer(NetflowFlowsetV9, 2)
+assert flowset2.templates[0].template_fields[0].fieldType == 27
+assert flowset2.templates[0].template_fields[0].fieldLength == 16
+assert flowset2.templates[0].template_fields[5].fieldType == 1
+assert flowset2.templates[0].template_fields[5].fieldLength == 8
+assert nfv9_defrag[0].getlayer(NetflowFlowsetV9, 2)
+assert nfv9_defrag[0].records[0].IP_PROTOCOL_VERSION == 4
+assert nfv9_defrag[0].records[0].PROTOCOL == 17
+assert nfv9_defrag[0].records[0].IPV4_SRC_ADDR == "127.0.0.1"
+
+= NetflowV9 - build and dissection
+~ netflow
+
+header = Ether()/IP()/UDP()
+netflow_header = NetflowHeader()/NetflowHeaderV9()
+
+flowset = NetflowFlowsetV9(
+    templates=[NetflowTemplateV9(
+        template_fields=[
+            NetflowTemplateFieldV9(fieldType=1, fieldLength=1),  # IN_BYTES
+            NetflowTemplateFieldV9(fieldType=2, fieldLength=4),  # IN_PKTS
+            NetflowTemplateFieldV9(fieldType=4),  # PROTOCOL
+            NetflowTemplateFieldV9(fieldType=8),  # IPV4_SRC_ADDR
+            NetflowTemplateFieldV9(fieldType=12),  # IPV4_DST_ADDR
+        ],
+        templateID=256,
+        fieldCount=5)
+    ],
+    flowSetID=0
+)
+recordClass = GetNetflowRecordV9(flowset)
+dataFS = NetflowDataflowsetV9(
+    templateID=256,
+    records=[ # Some random data.
+        recordClass(
+            IN_BYTES=b"\x12",
+            IN_PKTS=b"\0\0\0\0",
+            PROTOCOL=6,
+            IPV4_SRC_ADDR="192.168.0.10",
+            IPV4_DST_ADDR="192.168.0.11"
+        ),
+    ],
+)
+
+pkt = netflow_header / flowset / dataFS
+assert raw(pkt) == b'\x00\t\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x01\x00\x00\x05\x00\x01\x00\x01\x00\x02\x00\x04\x00\x04\x00\x01\x00\x08\x00\x04\x00\x0c\x00\x04\x01\x00\x00\x14\x12\x00\x00\x00\x00\x06\xc0\xa8\x00\n\xc0\xa8\x00\x0b\x00\x00'
+
+pkt = header / netflow_header / flowset / dataFS
+pkt = netflowv9_defragment(Ether(raw(pkt)))[0]
+
+assert NetflowDataflowsetV9 in pkt
+assert len(pkt[NetflowDataflowsetV9].records) == 1
+assert pkt[NetflowDataflowsetV9].records[0].IPV4_DST_ADDR == "192.168.0.11"
+
+= NetflowV9 - advanced build
+~ netflow
+
+atm_time = 1547927349.328283
+
+header = Ether(src="00:00:00:00:00:00", dst="aa:aa:aa:aa:aa:aa")/IP(dst="127.0.0.1", src="127.0.0.1")/UDP()/NetflowHeader()/NetflowHeaderV9(unixSecs=atm_time)
+flowset = NetflowFlowsetV9(templates=[NetflowTemplateV9(template_fields=[NetflowTemplateFieldV9(fieldType=8, fieldLength=4),NetflowTemplateFieldV9(fieldType=12, fieldLength=4),NetflowTemplateFieldV9(fieldType=5, fieldLength=1),NetflowTemplateFieldV9(fieldType=4, fieldLength=1),NetflowTemplateFieldV9(fieldType=7, fieldLength=2),NetflowTemplateFieldV9(fieldType=11, fieldLength=2),NetflowTemplateFieldV9(fieldType=32, fieldLength=2),NetflowTemplateFieldV9(fieldType=10, fieldLength=4),NetflowTemplateFieldV9(fieldType=16, fieldLength=4),NetflowTemplateFieldV9(fieldType=17, fieldLength=4),NetflowTemplateFieldV9(fieldType=18, fieldLength=4),NetflowTemplateFieldV9(fieldType=14, fieldLength=4),NetflowTemplateFieldV9(fieldType=1, fieldLength=4),NetflowTemplateFieldV9(fieldType=2, fieldLength=4),NetflowTemplateFieldV9(fieldType=22, fieldLength=4),NetflowTemplateFieldV9(fieldType=21, fieldLength=4),NetflowTemplateFieldV9(fieldType=15, fieldLength=4),NetflowTemplateFieldV9(fieldType=9, fieldLength=1),NetflowTemplateFieldV9(fieldType=13, fieldLength=1),NetflowTemplateFieldV9(fieldType=6, fieldLength=1),NetflowTemplateFieldV9(fieldType=60, fieldLength=1)], templateID=424, fieldCount=21)], flowSetID=0, length=92)
+dataflowset = NetflowDataflowsetV9(records=[NetflowRecordV9(fieldValue=b'\x14\x00\x00\xfd\x1e\x00\x00\xfd\x00\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x03 \x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x02\xfb\x00\x15a|\x00\x00\x07\x0f$\x95x\xed$\x99\x91<\ndg\x01  \x00\x04')], templateID=424)
+
+pkt = netflowv9_defragment(list(header/flowset/dataflowset))[0]
+assert pkt.records[0].IPV4_NEXT_HOP == "10.100.103.1"
+assert pkt.records[0].OUTPUT_SNMP == b'\x00\x00\x02\xfb'
+
+assert raw(pkt) == b'\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00\xcc\x00\x01\x00\x00@\x11|\x1e\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x07\x08\x07\x00\xb8\x86\xe7\x00\t\x00\x02\x00\x00\x00\x00\\C\x7f5\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\\\x01\xa8\x00\x15\x00\x08\x00\x04\x00\x0c\x00\x04\x00\x05\x00\x01\x00\x04\x00\x01\x00\x07\x00\x02\x00\x0b\x00\x02\x00 \x00\x02\x00\n\x00\x04\x00\x10\x00\x04\x00\x11\x00\x04\x00\x12\x00\x04\x00\x0e\x00\x04\x00\x01\x00\x04\x00\x02\x00\x04\x00\x16\x00\x04\x00\x15\x00\x04\x00\x0f\x00\x04\x00\t\x00\x01\x00\r\x00\x01\x00\x06\x00\x01\x00<\x00\x01\x01\xa8\x00@\x14\x00\x00\xfd\x1e\x00\x00\xfd\x00\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x03 \x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x02\xfb\x00\x15a|\x00\x00\x07\x0f$\x95x\xed$\x99\x91<\ndg\x01  \x00\x04'
+
+= NetflowV9 - padding #GH2257
+
+dat = hex_bytes("fb200807007840a10009000277efe9c450c843f900362202000000000001001801000004000800010000002a00040029000400000101004477ef819077ef81900000003c00000001009300930ac900640ac9033b060009ee0b3500000ac9033b131302000000000000260bdc69aa6480996649a000000000")
+pkt = UDP(dat)
+assert pkt[NetflowOptionsFlowsetV9].pad == b"\x00\x00"
+pkt[NetflowOptionsFlowsetV9].pad = None
+assert raw(pkt) == dat
+
+
+############
+############
++ Netflow v10 (aka IPFix)
+~ netflow
+
+= IPFix dissection
+
+import os
+tmp = "/test/pcaps/ipfix.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+a = sniff(offline=filename, session=NetflowSession)
+
+# Templates
+pkt1 = a[0]
+assert NetflowHeaderV10 in pkt1
+assert len(pkt1[NetflowFlowsetV9].templates) == 1
+assert len(pkt1[NetflowFlowsetV9].templates[0].template_fields) == 23
+flds = pkt1[NetflowFlowsetV9].templates[0].template_fields
+assert (flds[0].fieldType == 8 and flds[0].fieldLength == 4)
+assert (flds[4].fieldType == 7 and flds[4].fieldLength == 2)
+
+# Data
+pkt2 = a[2]
+assert NetflowHeaderV10 in pkt2
+assert len(pkt2.records) == 1
+assert pkt2.records[0].IPV4_SRC_ADDR == "70.1.115.1"
+assert pkt2.records[0].flowStartMilliseconds == 1480449931519
+
+# Options
+pkt3 = a[1]
+assert NetflowOptionsFlowset10 in pkt3
+assert pkt3.scope_field_count == 1
+assert pkt3.field_count == 3
+assert len(pkt3[NetflowOptionsFlowset10].scopes) == 1
+assert len(pkt3[NetflowOptionsFlowset10].options) == 2
+assert pkt3.scopes[0].scopeFieldType == 5
+assert pkt3.scopes[0].scopeFieldlength == 2
+assert pkt3[NetflowOptionsFlowset10].options[0].optionFieldType == 36
+
+# Templates with enterprise-specific Information Elements.
+s=b'\x01\x07\x00\x12\x01\n\x00\x04\x84\x0c\x00\x02\x00\x00\x00\t\x01\n\x00&\x00\x0b\x00\x02\x00\x07\x00\x02\x00\x04\x00\x01\x00\x0c\x00\x04\x00\x08\x00\x04\x00\xea\x00\x02\x01\n\x00\x01\x84\x10\x00\x06\x00\x00\x00\t\x84\x0e\x00\x06\x00\x00\x00\t\x84\x0f\x00\x06\x00\x00\x00\t\x00\x01\x00\x04\x00\x02\x00\x04\x00\xf3\x00\x02\x00\x06\x00\x01\x01\n\x00#'
+pkt4 = NetflowTemplateV9(s)
+assert len(pkt4.template_fields) == pkt4.fieldCount
+assert sum([template.fieldLength for template in pkt4.template_fields]) == 124
+
+= NetflowV10/IPFIX - build
+
+netflow_header = NetflowHeader()/NetflowHeaderV10()
+
+flowset = NetflowFlowsetV9(
+    templates=[NetflowTemplateV9(
+        template_fields=[
+            NetflowTemplateFieldV9(fieldType=1, fieldLength=1),  # IN_BYTES
+            NetflowTemplateFieldV9(fieldType=2, fieldLength=4),  # IN_PKTS
+            NetflowTemplateFieldV9(fieldType=4),  # PROTOCOL
+            NetflowTemplateFieldV9(fieldType=8),  # IPV4_SRC_ADDR
+            NetflowTemplateFieldV9(fieldType=12),  # IPV4_DST_ADDR
+        ],
+        templateID=256,
+        fieldCount=5)
+    ],
+    flowSetID=0
+)
+recordClass = GetNetflowRecordV9(flowset)
+dataFS = NetflowDataflowsetV9(
+    templateID=256,
+    records=[ # Some random data.
+        recordClass(
+            IN_BYTES=b"\x12",
+            IN_PKTS=b"\0\0\0\0",
+            PROTOCOL=6,
+            IPV4_SRC_ADDR="192.168.0.10",
+            IPV4_DST_ADDR="192.168.0.11"
+        ),
+    ],
+)
+
+pkt = netflow_header / flowset / dataFS
+assert raw(pkt) == b'\x00\n\x00>\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x01\x00\x00\x05\x00\x01\x00\x01\x00\x02\x00\x04\x00\x04\x00\x01\x00\x08\x00\x04\x00\x0c\x00\x04\x01\x00\x00\x14\x12\x00\x00\x00\x00\x06\xc0\xa8\x00\n\xc0\xa8\x00\x0b\x00\x00'
+
+= NetflowSession - dissect packet NetflowV9 packets on-the-flow
+
+import os
+tmp = "/test/pcaps/netflowv9.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+dissected_packets = []
+def callback(pkt):
+    dissected_packets.append(pkt)
+
+sniff(offline=filename, session=NetflowSession, prn=callback)
+records = dissected_packets[3][NetflowDataflowsetV9].records
+assert len(records) == 24
+assert records[0].IPV4_SRC_ADDR == '20.0.1.174'
+assert records[0].IPV4_NEXT_HOP == '10.100.103.1'

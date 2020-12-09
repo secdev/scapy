@@ -30,7 +30,7 @@ from scapy.fields import (
     StrFixedLenField, ShortField,
     FlagsField, ByteField, XIntField, X3BytesField
 )
-from scapy.modules import six
+import scapy.modules.six as six
 
 PNIO_FRAME_IDS = {
     0x0020: "PTCP-RTSyncPDU-followup",

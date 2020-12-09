@@ -1,0 +1,18 @@
+% RIP regression tests for Scapy
+
+############
+############
++ RIP tests
+
+= RIP - build
+s = raw(IP()/UDP(sport=520)/RIP()/RIPEntry()/RIPAuth(authtype=2, password="scapy"))
+s == b'E\x00\x00H\x00\x01\x00\x00@\x11|\xa2\x7f\x00\x00\x01\x7f\x00\x00\x01\x02\x08\x02\x08\x004\xae\x99\x01\x01\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\xff\x00\x02scapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= RIP - UDP bindings
+w = IP(raw(IP()/UDP()/RIP()/RIPEntry()/RIPAuth(authtype=2, password="scapy")))
+assert RIPAuth in w
+assert w[RIPAuth].password.startswith(b"scapy")
+
+= RIP - dissection
+p = IP(s)
+RIPEntry in p and RIPAuth in p and p[RIPAuth].password.startswith(b"scapy")

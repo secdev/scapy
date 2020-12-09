@@ -8,6 +8,7 @@ Functions to send and receive packets.
 """
 
 from __future__ import absolute_import, print_function
+from collections import namedtuple
 import itertools
 from threading import Thread, Event
 import os
@@ -52,6 +53,8 @@ class debug:
 #  Send / Receive  #
 ####################
 
+QueryAnswer = namedtuple("QueryAnswer", ["query", "answer"])
+
 _DOC_SNDRCV_PARAMS = """
     :param pks: SuperSocket instance to send/receive packets
     :param pkt: the packet to send
@@ -64,15 +67,6 @@ _DOC_SNDRCV_PARAMS = """
     :param timeout: how much time to wait after the last packet has been sent
     :param verbose: set verbosity level
     :param multi: whether to accept multiple answers for the same stimulus
-    :param store_unanswered: whether to store not-answered packets or not.
-        setting it to False will increase speed, and will return
-        None as the unans list.
-    :param process: if specified, only result from process(pkt) will be stored.
-        the function should follow the following format:
-        ``lambda sent, received: (func(sent), func2(received))``
-        if the packet is unanswered, `received` will be None.
-        if `store_unanswered` is False, the function won't be called on
-        un-answered packets.
     :param prebuild: pre-build the packets before starting to send them.
         Automatically enabled when a generator is passed as the packet
     """
@@ -233,7 +227,7 @@ class SndRcvHandler(object):
             hlst = self.hsent[h]
             for i, sentpkt in enumerate(hlst):
                 if r.answers(sentpkt):
-                    self.ans.append((sentpkt, r))
+                    self.ans.append(QueryAnswer(sentpkt, r))
                     if self.verbose > 1:
                         os.write(1, b"*")
                     ok = True
@@ -678,7 +672,7 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, timeout=None):
     return sndrcv(
         pks, infinite_gen,
         inter=inter, verbose=verbose,
-        chainCC=chainCC, timeout=None,
+        chainCC=chainCC, timeout=timeout,
         _flood=_flood
     )
 
@@ -833,7 +827,8 @@ class AsyncSniffer(object):
         self.thread = Thread(
             target=self._run,
             args=self.args,
-            kwargs=self.kwargs
+            kwargs=self.kwargs,
+            name="AsyncSniffer"
         )
         self.thread.setDaemon(True)
 
@@ -1117,11 +1112,11 @@ def bridge_and_sniff(if1, if2, xfrm12=None, xfrm21=None, prn=None, L2socket=None
                 return
             else:
                 if newpkt is True:
-                    newpkt = pkt.original
+                    newpkt = pkt
                 elif not newpkt:
                     return
         else:
-            newpkt = pkt.original
+            newpkt = pkt
         try:
             sendsock.send(newpkt)
         except Exception:

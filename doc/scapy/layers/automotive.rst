@@ -630,7 +630,7 @@ Usage with python-can CANSockets::
    conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
    conf.contribs['CANSocket'] = {'use-python-can': True}
    load_contrib('isotp')
-   with ISOTPSocket(CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel="can0", bitrate=250000)), sid=0x641, did=0x241) as sock:
+   with ISOTPSocket(CANSocket(bustype='socketcan', channel="can0"), sid=0x641, did=0x241) as sock:
        sock.send(...)
 
 This second example allows the usage of any ``python_can.interface`` object.
@@ -963,7 +963,7 @@ Create the entry array input::
 
 Create the options array input::
 
-   oa = SDOption_IP4_Endpoint()
+   oa = SDOption_IP4_EndPoint()
    oa.addr = "192.168.0.13"
    oa.l4_proto = 0x11
    oa.port = 30509
