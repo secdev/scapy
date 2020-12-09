@@ -15,7 +15,7 @@ import time
 from scapy.fields import ByteEnumField, ConditionalField, \
     XByteField, XShortField, XIntField, XShortEnumField, XByteEnumField, \
     IntField, StrFixedLenField
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_layers, bind_bottom_up, bind_top_down
 from scapy.supersocket import StreamSocket
 from scapy.layers.inet import TCP, UDP
 from scapy.contrib.automotive.uds import UDS
@@ -233,8 +233,12 @@ class UDS_DoIPSocket(DoIPSocket):
             return pkt
 
 
-bind_layers(UDP, DoIP, sport=13400)
-bind_layers(UDP, DoIP, dport=13400)
+bind_bottom_up(UDP, DoIP, sport=13400)
+bind_bottom_up(UDP, DoIP, dport=13400)
+bind_top_down(UDP, DoIP, sport=13400)
+bind_top_down(UDP, DoIP, dport=13400)
+bind_layers(UDP, DoIP, sport=13400, dport=13400)
+
 bind_layers(TCP, DoIP, sport=13400)
 bind_layers(TCP, DoIP, dport=13400)
 
