@@ -49,21 +49,21 @@ from scapy.layers.can import CAN
 from scapy.layers.inet import UDP, TCP
 from scapy.packet import Packet, bind_layers, bind_bottom_up, bind_top_down
 
-if "XCP" not in conf.contribs:
-    conf.contribs["XCP"] = {}
+conf.contribs.setdefault("XCP", {})
 
 # 0 stands for Intel/little-endian format, 1 for Motorola/big-endian format
-conf.contribs["XCP"]["byte_order"] = 1
-conf.contribs["XCP"]["allow_byte_order_change"] = True
-conf.contribs["XCP"]["Address_Granularity_Byte"] = None  # Can be 1, 2 or 4
-conf.contribs["XCP"]["allow_ag_change"] = True
+conf.contribs["XCP"].setdefault("byte_order", 1)
+conf.contribs["XCP"].setdefault("allow_byte_order_change", True)
+# Can be 1, 2 or 4
+conf.contribs["XCP"].setdefault("Address_Granularity_Byte", None)
+conf.contribs["XCP"].setdefault("allow_ag_change", True)
 
-conf.contribs["XCP"]["MAX_CTO"] = None
-conf.contribs["XCP"]["MAX_DTO"] = None
-conf.contribs["XCP"]["allow_cto_and_dto_change"] = True
-conf.contribs["XCP"]["add_padding_for_can"] = False
+conf.contribs["XCP"].setdefault("MAX_CTO", None)
+conf.contribs["XCP"].setdefault("MAX_DTO", None)
+conf.contribs["XCP"].setdefault("allow_cto_and_dto_change", True)
+conf.contribs["XCP"].setdefault("add_padding_for_can", False)
 
-conf.contribs['XCP']['timestamp_size'] = 0
+conf.contribs['XCP'].setdefault('timestamp_size', 0)
 
 
 # Specifications from:
