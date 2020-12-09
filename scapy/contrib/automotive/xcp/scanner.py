@@ -8,6 +8,7 @@
 from collections import namedtuple
 from typing import Optional, List, Type, Iterable
 
+from scapy.config import conf
 from scapy.contrib.automotive.xcp.cto_commands_master import \
     TransportLayerCmd, TransportLayerCmdGetSlaveId, Connect
 from scapy.contrib.automotive.xcp.cto_commands_slave import \
@@ -24,8 +25,8 @@ class XCPOnCANScanner:
     """
 
     def __init__(self, can_socket, id_range=None,
-                 sniff_time=0.1, verbose=False):
-        # type: (CANSocket, Optional[Iterable[int]], Optional[float], Optional[bool]) -> None # noqa: E501
+                 sniff_time=0.1, add_padding=False, verbose=False):
+        # type: (CANSocket, Optional[Iterable[int]], Optional[float], Optional[bool], Optional[bool]) -> None # noqa: E501
 
         """
         Constructor
@@ -34,19 +35,21 @@ class XCPOnCANScanner:
         :param sniff_time: time the scan waits for a response
                            after sending a request
         """
+        if add_padding:
+            conf.contribs["XCP"]["add_padding_for_can"] = True
         self.__socket = can_socket
         self.id_range = id_range or range(0, 0x800)
-        self.__flags = 0
         self.__sniff_time = sniff_time
         self.__verbose = verbose
 
-    def _scan(self, identifier, body, answer_type):
-        # type: (int, CTORequest, Type) -> List # noqa: E501
+    def _scan(self, identifier, body, pid, answer_type):
+        # type: (int, CTORequest, int, Type) -> List # noqa: E501
 
         self.log_verbose("Scan for id: " + str(identifier))
+        flags = 'extended' if identifier >= 0x800 else 0
         cto_request = \
-            XCPOnCAN(identifier=identifier, flags=self.__flags) \
-            / CTORequest() / body
+            XCPOnCAN(identifier=identifier, flags=flags) \
+            / CTORequest(pid=pid) / body
 
         req_and_res_list, _unanswered = \
             self.__socket.sr(cto_request, timeout=self.__sniff_time,
@@ -68,8 +71,8 @@ class XCPOnCANScanner:
         Sends CONNECT Message on the Control Area Network
         """
         all_slaves = []
-        body = Connect()
-        xcp_req_and_res_list = self._scan(identifier, body,
+        body = Connect(connection_mode=0x00)
+        xcp_req_and_res_list = self._scan(identifier, body, 0xFF,
                                           ConnectPositiveResponse)
 
         for req_and_res in xcp_req_and_res_list:
@@ -93,7 +96,8 @@ class XCPOnCANScanner:
         all_slaves = []
         body = TransportLayerCmd() / TransportLayerCmdGetSlaveId()
         xcp_req_and_res_list = \
-            self._scan(identifier, body, TransportLayerCmdGetSlaveIdResponse)
+            self._scan(
+                identifier, body, 0xF2, TransportLayerCmdGetSlaveIdResponse)
 
         for req_and_res in xcp_req_and_res_list:
             response = req_and_res[1]

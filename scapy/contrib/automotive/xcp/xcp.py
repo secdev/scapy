@@ -61,6 +61,7 @@ conf.contribs["XCP"]["allow_ag_change"] = True
 conf.contribs["XCP"]["MAX_CTO"] = None
 conf.contribs["XCP"]["MAX_DTO"] = None
 conf.contribs["XCP"]["allow_cto_and_dto_change"] = True
+conf.contribs["XCP"]["add_padding_for_can"] = False
 
 conf.contribs['XCP']['timestamp_size'] = 0
 
@@ -86,8 +87,10 @@ class XCPOnCAN(CAN):
     ]
 
     def post_build(self, pkt, pay):
-        if self.length is None:
-            tmp_len = len(pay)
+        if self.length is None or \
+                (len(pay) < 8 and conf.contribs["XCP"]["add_padding_for_can"]):
+            tmp_len = 8 if conf.contribs["XCP"]["add_padding_for_can"] else \
+                len(pay)
             pkt = pkt[:4] + struct.pack("B", tmp_len) + pkt[5:]
         return super(XCPOnCAN, self).post_build(pkt, pay)
 
