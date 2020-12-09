@@ -597,23 +597,23 @@ load_contrib("automotive.xcp.xcp", globals_dict=globals())
 
 = Global variables
 
-iface0 = "vcan0"
+iface_name = "vcan_xcp"
 
 = Initialize a virtual CAN interface
 ~ vcan_socket needs_root linux
 
 print('setting up CAN')
 
-if 0 != call(["cansend", iface0,  "000#"]):
+if 0 != call(["cansend", iface_name,  "000#"]):
     # vcan0 is not enabled
     if 0 != call(["sudo", "modprobe", "vcan"]):
         raise Exception("modprobe vcan failed")
-    if 0 != call(["sudo", "ip", "link", "add", "name", iface0, "type", "vcan"]):
-        print("add %s failed: Maybe it was already up?" % iface0)
-    if 0 != call(["sudo", "ip", "link", "set", "dev", iface0, "up"]):
-        raise Exception("could not bring up %s" % iface0)
+    if 0 != call(["sudo", "ip", "link", "add", "name", iface_name, "type", "vcan"]):
+        print("add %s failed: Maybe it was already up?" % iface_name)
+    if 0 != call(["sudo", "ip", "link", "set", "dev", iface_name, "up"]):
+        raise Exception("could not bring up %s" % iface_name)
 
-if 0 != call(["cansend", iface0,  "000#"]):
+if 0 != call(["cansend", iface_name,  "000#"]):
     raise Exception("cansend doesn't work")
 
 print("CAN should work now")
@@ -623,17 +623,17 @@ print("CAN should work now")
 ~ vcan_socket needs_root linux
 if six.PY3 and not conf.use_pypy:
     from scapy.contrib.cansocket_native import CANSocket
-    new_can_socket0 = lambda: CANSocket(iface0)
-    print("Using Native CANSocket on " + iface0)
+    new_can_socket0 = lambda: CANSocket(iface_name)
+    print("Using Native CANSocket on " + iface_name)
 else:
     from scapy.contrib.cansocket_python_can import CANSocket
-    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, bitrate=250000, timeout=0.01)
-    print("Using Soft CANSocket on " + iface0)
+    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface_name, bitrate=250000, timeout=0.01)
+    print("Using Soft CANSocket on " + iface_name)
 
 = Define new_can_socket0 without root or linux
 if "new_can_socket0" not in globals():
     from scapy.contrib.cansocket_python_can import CANSocket
-    new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface0, timeout=0.01)
+    new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface_name, timeout=0.01)
     print("Using Soft CANSocket on virtual in-process can bus")
 
 
@@ -732,8 +732,8 @@ assert not response.answers(request)
 = Delete vcan interfaces
 ~ vcan_socket needs_root linux
 
-if 0 != call(["sudo", "ip", "link", "delete", iface0]):
-    raise Exception("%s could not be deleted" % iface0)
+if 0 != call(["sudo", "ip", "link", "delete", iface_name]):
+    raise Exception("%s could not be deleted" % iface_name)
 
 + Tests for XCPonUDP
 = Imports
