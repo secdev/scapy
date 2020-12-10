@@ -445,6 +445,7 @@ class L2Socket(SuperSocket):
             )
         self.ins = socket.socket(
             socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if not nofilter:
             if conf.except_filter:
                 if filter:
