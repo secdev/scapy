@@ -272,10 +272,10 @@ class LenStringPacket(Packet):
     name = "len string packet"
     fields_desc = [
         FieldLenField('length', 0, length_of='data', fmt="H"),
-        ConditionalField(StrLenField('data', None,
+        ConditionalField(StrLenField('data1', None,
                          length_from=lambda pkt:pkt.length + 2),
                          lambda pkt:pkt.length == 0),
-        ConditionalField(StrLenField('data', '',
+        ConditionalField(StrLenField('data2', '',
                          length_from=lambda pkt:pkt.length),
                          lambda pkt:pkt.length != 0),
     ]
@@ -288,10 +288,10 @@ class LenStringPacketLE(Packet):
     name = "len string packet"
     fields_desc = [
         LEFieldLenField('length', 0, length_of='data', fmt="<H"),
-        ConditionalField(StrLenField('data', None,
+        ConditionalField(StrLenField('data1', None,
                          length_from=lambda pkt:pkt.length + 2),
                          lambda pkt:pkt.length == 0),
-        ConditionalField(StrLenField('data', '',
+        ConditionalField(StrLenField('data2', '',
                          length_from=lambda pkt:pkt.length),
                          lambda pkt:pkt.length != 0),
     ]
@@ -741,18 +741,18 @@ class NTLMSSP(Packet):
         StrFixedLenField('Z', '', 6),
         LongField('timestamp', 0),  # Time in nanoseconde
         StrFixedLenField('clientChallenge', '', 8),
-        IntField('Z', 0),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        IntField('Z', 0),
+        IntField('Z1', 0),
+        PacketField('attributeNTLMV2_1', None, AttributeName),
+        PacketField('attributeNTLMV2_2', None, AttributeName),
+        PacketField('attributeNTLMV2_3', None, AttributeName),
+        PacketField('attributeNTLMV2_4', None, AttributeName),
+        PacketField('attributeNTLMV2_5', None, AttributeName),
+        PacketField('attributeNTLMV2_6', None, AttributeName),
+        PacketField('attributeNTLMV2_7', None, AttributeName),
+        PacketField('attributeNTLMV2_8', None, AttributeName),
+        PacketField('attributeNTLMV2_9', None, AttributeName),
+        PacketField('attributeNTLMV2_10', None, AttributeName),
+        IntField('Z2', 0),
         IntField('padding', 0),
         StrLenField('sessionKey', '',
                     length_from=lambda pkt: pkt.sessionKeyLen),
@@ -805,7 +805,7 @@ class NTLMSSPLE(Packet):
         StrFixedLenField('Z', '', 6),
         LELongField('timestamp', 0),  # Time in nanosecond
         StrFixedLenField('clientChallenge', '', 8),
-        LEIntField('Z', 0),
+        LEIntField('Z1', 0),
         PacketField('attribute1', None, AttributeNameLE),
         PacketField('attribute2', None, AttributeNameLE),
         PacketField('attribute3', None, AttributeNameLE),
@@ -816,7 +816,7 @@ class NTLMSSPLE(Packet):
         PacketField('attribute8', None, AttributeNameLE),
         PacketField('attribute9', None, AttributeNameLE),
         PacketField('attribute10', None, AttributeNameLE),
-        LEIntField('Z', 0),
+        LEIntField('Z2', 0),
         LEIntField('padding', 0),
         StrLenField('sessionKey', '',
                     length_from=lambda pkt: pkt.sessionKeyLen),
@@ -1470,8 +1470,8 @@ class OpcDaHeaderMessage(Packet):
                      {0: "ascii", 1: "ebcdic"}),
         ByteEnumField('floatingPointRepresentation', 0,
                       {0: "ieee", 1: "vax", 2: "cray", 3: "ibm"}),
-        ByteField('reservedForFutur', 0),
-        ByteField('reservedForFutur', 0),
+        ByteField('reservedForFutur1', 0),
+        ByteField('reservedForFutur2', 0),
     ]
 
     def guess_payload_class(self, payload):
