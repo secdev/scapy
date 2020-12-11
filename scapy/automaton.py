@@ -987,6 +987,12 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 self.state = state_req
                 yield state_req
 
+    def __repr__(self):
+        return "<Automaton %s [%s]>" % (
+            self.__class__.__name__,
+            ["HALTED", "RUNNING"][self.started.locked()]
+        )
+
     # Public API
     def add_interception_points(self, *ipts):
         for ipt in ipts:
