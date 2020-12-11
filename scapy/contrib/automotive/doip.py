@@ -15,7 +15,7 @@ import time
 from scapy.fields import ByteEnumField, ConditionalField, \
     XByteField, XShortField, XIntField, XShortEnumField, XByteEnumField, \
     IntField, StrFixedLenField
-from scapy.packet import Packet, bind_layers, bind_bottom_up, bind_top_down
+from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.supersocket import StreamSocket
 from scapy.layers.inet import TCP, UDP
 from scapy.contrib.automotive.uds import UDS
