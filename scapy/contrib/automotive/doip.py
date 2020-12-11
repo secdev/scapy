@@ -235,8 +235,6 @@ class UDS_DoIPSocket(DoIPSocket):
 
 bind_bottom_up(UDP, DoIP, sport=13400)
 bind_bottom_up(UDP, DoIP, dport=13400)
-bind_top_down(UDP, DoIP, sport=13400)
-bind_top_down(UDP, DoIP, dport=13400)
 bind_layers(UDP, DoIP, sport=13400, dport=13400)
 
 bind_layers(TCP, DoIP, sport=13400)
