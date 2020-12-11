@@ -267,7 +267,11 @@ class Field(Generic[I, M]):
 
     def __repr__(self):
         # type: () -> str
-        return "<Field (%s).%s>" % (",".join(x.__name__ for x in self.owners), self.name)  # noqa: E501
+        return "<%s (%s).%s>" % (
+            self.__class__.__name__,
+            ",".join(x.__name__ for x in self.owners),
+            self.name
+        )
 
     def copy(self):
         # type: () -> Field[I, M]
