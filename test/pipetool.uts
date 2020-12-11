@@ -232,10 +232,9 @@ import mock
 r, w = os.pipe()
 os.write(w, b"X")
 
-mocked_l2listen = mock.patch("scapy.config.conf.L2listen", return_value=Bunch(close=lambda *args: None, fileno=lambda: r, recv=lambda *args: Raw("data")))
-mocked_l2listen.start()
-
-try:
+@mock.patch("scapy.scapypipes.conf.L2listen")
+def _test(l2listen):
+    l2listen.return_value=Bunch(close=lambda *args: None, fileno=lambda: r, recv=lambda *args: Raw("data"))
     p = PipeEngine()
     s = SniffSource()
     assert s.s is None
@@ -244,11 +243,14 @@ try:
     s > d1 > c
     p.add(s)
     p.start()
-    assert c.q.get(2)
+    x = c.q.get(2)
+    assert bytes(x) == b"data"
     assert s.s is not None
     p.stop()
+
+try:
+    _test()
 finally:
-    mocked_l2listen.stop()
     os.close(r)
     os.close(w)
 
