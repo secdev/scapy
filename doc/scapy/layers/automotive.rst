@@ -479,7 +479,7 @@ If we are interested in the response of an ECU, we need to set the basecls param
 CANSocket to XCPonCAN and we need to use sr1:
 Sending a CTO message::
 
-    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0'), basecls=XCPonCAN)
+    sock = CANSocket(bustype='socketcan', channel='vcan0', basecls=XCPonCAN)
     dto = sock.sr1(pkt)
 
 Since sr1 calls the answers function, our payload of the XCP-response objects gets interpreted with the

@@ -35,8 +35,8 @@ class XCPOnCANScanner:
         :param sniff_time: time the scan waits for a response
                            after sending a request
         """
-        if add_padding:
-            conf.contribs["XCP"]["add_padding_for_can"] = True
+
+        conf.contribs["XCP"]["add_padding_for_can"] = add_padding
         self.__socket = can_socket
         self.id_range = id_range or range(0, 0x800)
         self.__sniff_time = sniff_time

@@ -21,7 +21,18 @@ from scapy.main import load_layer
 load_layer("can", globals_dict=globals())
 load_contrib("automotive.xcp.xcp",  globals_dict=globals())
 
+
+= Test padding
+
+conf.contribs["XCP"]["add_padding_for_can"] = True
+
+pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
+build_pkt = pkt.do_build()
+assert build_pkt == b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\xcc\xcc\xcc\xcc\xcc\xcc'
+conf.contribs["XCP"]["add_padding_for_can"] = False
+
 = test_get_com_mode_info
+conf.contribs["XCP"]["add_padding_for_can"] = False
 
 cto_request = CTORequest() / GetCommModeInfo()
 assert cto_request.pid == 0xfb

@@ -92,6 +92,7 @@ class XCPOnCAN(CAN):
             tmp_len = 8 if conf.contribs["XCP"]["add_padding_for_can"] else \
                 len(pay)
             pkt = pkt[:4] + struct.pack("B", tmp_len) + pkt[5:]
+            pay += b"\xCC" * (tmp_len - len(pay))
         return super(XCPOnCAN, self).post_build(pkt, pay)
 
     def extract_padding(self, p):
