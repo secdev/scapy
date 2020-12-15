@@ -995,6 +995,11 @@ a
 assert(a.copy().time == a.time)
 a=3
 
+= Bind string array as payload
+~ basic
+assert bytes(Raw("sca")/"py") == b"scapy"
+assert bytes(Raw("sca")/b"py") == b"scapy"
+assert bytes(Raw("sca")/bytearray(b"py")) == b"scapy"
 
 = Checking overloads
 ~ basic IP TCP Ether

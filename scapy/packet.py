@@ -577,7 +577,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             cloneB = other.copy()
             cloneA.add_payload(cloneB)
             return cloneA
-        elif isinstance(other, (bytes, str)):
+        elif isinstance(other, (bytes, str, bytearray)):
             return self / conf.raw_layer(load=other)
         else:
             return other.__rdiv__(self)  # type: ignore
@@ -585,7 +585,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
 
     def __rdiv__(self, other):
         # type: (Any) -> Packet
-        if isinstance(other, (bytes, str)):
+        if isinstance(other, (bytes, str, bytearray)):
             return conf.raw_layer(load=other) / self
         else:
             raise TypeError
