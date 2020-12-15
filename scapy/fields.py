@@ -320,7 +320,7 @@ class ConditionalField(object):
         # using a MultipleTypeField).
         # But I don't want to dive into fixing all of them just yet,
         # so for now, let's keep this this way, even though it's not correct.
-        if type(self.fld) == Field:
+        if type(self.fld) is Field:
             return x
         return self.fld.any2i(pkt, x)
 
