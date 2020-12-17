@@ -1000,6 +1000,18 @@ a=3
 assert bytes(Raw("sca")/"py") == b"scapy"
 assert bytes(Raw("sca")/b"py") == b"scapy"
 assert bytes(Raw("sca")/bytearray(b"py")) == b"scapy"
+assert bytes("sca"/Raw("py")) == b"scapy"
+assert bytes(b"sca"/Raw("py")) == b"scapy"
+assert bytes(bytearray(b"sca")/Raw("py")) == b"scapy"
+a=Raw("sca")
+a.add_payload("py")
+assert bytes(a) == b"scapy"
+a=Raw("sca")
+a.add_payload(b"py")
+assert bytes(a) == b"scapy"
+a=Raw("sca")
+a.add_payload(bytearray(b"py"))
+assert bytes(a) == b"scapy"
 
 = Checking overloads
 ~ basic IP TCP Ether
