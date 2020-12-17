@@ -186,6 +186,7 @@ DHCPOptions = {
     74: IPField("IRC_server", "0.0.0.0"),
     75: IPField("StreetTalk_server", "0.0.0.0"),
     76: IPField("StreetTalk_Dir_Assistance", "0.0.0.0"),
+    77: "user_class",
     78: "slp_service_agent",
     79: "slp_service_scope",
     81: "client_FQDN",
