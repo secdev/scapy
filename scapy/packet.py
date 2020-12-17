@@ -956,6 +956,9 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             if not s:
                 break
             s, fval = f.getfield(self, s)
+            # Skip unused ConditionalField
+            if isinstance(f, ConditionalField) and fval is None:
+                continue
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
             if f.islist or f.holds_packets or f.ismutable:

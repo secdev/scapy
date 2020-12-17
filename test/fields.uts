@@ -14,11 +14,65 @@
 #assert( _ == b"FOO\x12" )
 #Field("foo", None, fmt="I").getfield(None, b"\x12\x34\x56\x78ABCD")
 #assert( _ == ("ABCD",0x12345678) )
-#
-#= ConditionnalField class
-#~ core field
-#False
 
+
+= ConditionnalField class
+~ core field
+
+# Test equality with conditional fields
+
+class TEST_COND(Packet):
+    fields_desc = [
+        IntField("A", 0),
+        ConditionalField(IntField("A0",0), lambda pkt:pkt.A == 0),
+        ConditionalField(IntField("A1",0), lambda pkt:pkt.A != 0),
+        IntField("B", 0),
+        ConditionalField(IntField("B0",0), lambda pkt:pkt.B == 0),
+        ConditionalField(IntField("B1",0), lambda pkt:pkt.B != 0),
+        ]
+
+print(TEST_COND(TEST_COND().build()).fields)
+
+a = TEST_COND()
+b = TEST_COND(raw(TEST_COND()))
+assert raw(a) == raw(b)
+assert a == b
+
+# Test ConditionalField dependencies
+
+class TEST_COND(Packet):
+    fields_desc = [
+        ByteField('A', 0),
+        ConditionalField(ByteField('B', 0),
+            lambda pkt:pkt.A != 0),
+        ConditionalField(ByteField('C', 0),
+            lambda pkt:pkt.B == 0),
+        ]
+
+assert TEST_COND().build() == b'\x00'
+
+# Test MultipleTypeField in ConditionalField
+
+class TEST_INNER(Packet):
+    fields_desc = [
+        ByteField('A', 0),
+        ByteField('B', 0),
+        ConditionalField(
+            MultipleTypeField(
+                [
+                    (ByteField('C', 1), lambda pkt: pkt.B == 1), 
+                    (ByteField('C', 2), lambda pkt: pkt.B == 2), 
+                ],
+                ByteField('C', 0),
+            ),
+            lambda pkt: pkt.A,
+        )
+    ]
+
+pkt = TEST_INNER()
+pkt.A = 1
+pkt.B = 1
+assert pkt.C == 1
 
 = Simple tests
 

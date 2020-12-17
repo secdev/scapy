@@ -183,7 +183,6 @@ assert(p[ProfinetDCP].option == 0x02)
 assert(p[ProfinetDCP].sub_option == 0x02)
 assert(p[ProfinetDCP].dcp_block_length == 0x08)
 assert(p[ProfinetDCP].block_qualifier == 0x0001)
-assert(p[ProfinetDCP].name_of_station == b'device')
 
 
 = DCP Identify Response crafting
