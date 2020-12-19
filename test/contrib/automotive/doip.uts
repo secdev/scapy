@@ -204,7 +204,7 @@ assert p.nack_code == 0
 
 = read pcap file
 
-pkts = rdpcap("test/pcaps/doip.pcap")
+pkts = rdpcap("test/pcaps/doip.pcap.gz")
 ips = [p for p in pkts if p.proto == 6]
 
 assert len(ips) > 1
