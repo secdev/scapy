@@ -1,0 +1,66 @@
+% SNMP regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ SNMP layer
+
+= SNMP assembling
+~ SNMP ASN1
+r = raw(SNMP())
+r
+assert(r == b'0\x18\x02\x01\x01\x04\x06public\xa0\x0b\x02\x01\x00\x02\x01\x00\x02\x01\x000\x00')
+p = SNMP(version="v2c", community="ABC", PDU=SNMPbulk(id=4,varbindlist=[SNMPvarbind(oid="1.2.3.4",value=ASN1_INTEGER(7)),SNMPvarbind(oid="4.3.2.1.2.3",value=ASN1_IA5_STRING("testing123"))]))
+p
+r = raw(p)
+r
+assert(r == b'05\x02\x01\x01\x04\x03ABC\xa5+\x02\x01\x04\x02\x01\x00\x02\x01\x000 0\x08\x06\x03*\x03\x04\x02\x01\x070\x14\x06\x06\x81#\x02\x01\x02\x03\x16\ntesting123')
+
+= SNMP disassembling
+~ SNMP ASN1
+x=SNMP(b'0y\x02\x01\x00\x04\x06public\xa2l\x02\x01)\x02\x01\x00\x02\x01\x000a0!\x06\x12+\x06\x01\x04\x01\x81}\x08@\x04\x02\x01\x07\n\x86\xde\xb78\x04\x0b172.31.19.20#\x06\x12+\x06\x01\x04\x01\x81}\x08@\x04\x02\x01\x07\n\x86\xde\xb76\x04\r255.255.255.00\x17\x06\x12+\x06\x01\x04\x01\x81}\x08@\x04\x02\x01\x05\n\x86\xde\xb9`\x02\x01\x01')
+x.show()
+assert(x.community==b"public" and x.version == 0)
+assert(x.PDU.id == 41 and len(x.PDU.varbindlist) == 3)
+assert(x.PDU.varbindlist[0].oid == "1.3.6.1.4.1.253.8.64.4.2.1.7.10.14130104")
+assert(x.PDU.varbindlist[0].value == b"172.31.19.2")
+assert(x.PDU.varbindlist[2].oid == "1.3.6.1.4.1.253.8.64.4.2.1.5.10.14130400")
+assert(x.PDU.varbindlist[2].value == 1)
+
+= Basic UDP/SNMP bindings
+~ SNMP ASN1
+z = UDP()/x
+z = UDP(raw(z))
+assert SNMP in z
+
+x = UDP()/SNMP()
+assert x.sport == x.dport == 161
+
+= Basic SNMPvarbind build
+~ SNMP ASN1
+x = SNMPvarbind(oid=ASN1_OID("1.3.6.1.2.1.1.4.0"), value=RandBin())
+x = SNMPvarbind(raw(x))
+assert isinstance(x.value, ASN1_STRING)
+
+= Failing SNMPvarbind dissection
+~ SNMP ASN1
+try:
+    SNMP('0a\x02\x01\x00\x04\x06public\xa3T\x02\x02D\xd0\x02\x01\x00\x02\x01\x000H0F\x06\x08+\x06\x01\x02\x01\x01\x05\x00\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D')
+    assert False
+except BER_Decoding_Error:
+    pass
+
+#= Test snmpwalk()
+#
+#~ netaccess
+#def test_snmpwalk(dst):
+#    with ContextManagerCaptureOutput() as cmco:
+#        snmpwalk(dst=dst)
+#        output = cmco.get_output()
+#    expected = "No answers\n"
+#    assert(output == expected)
+#
+#test_snmpwalk("secdev.org")
+
