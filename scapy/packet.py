@@ -356,10 +356,10 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                     if t in payload.overload_fields:
                         self.overloaded_fields = payload.overload_fields[t]
                         break
-            elif isinstance(payload, bytes):
-                self.payload = conf.raw_layer(load=payload)
+            elif isinstance(payload, (bytes, str, bytearray, memoryview)):
+                self.payload = conf.raw_layer(load=bytes_encode(payload))
             else:
-                raise TypeError("payload must be either 'Packet' or 'bytes', not [%s]" % repr(payload))  # noqa: E501
+                raise TypeError("payload must be 'Packet', 'bytes', 'str', 'bytearray', or 'memoryview', not [%s]" % repr(payload))  # noqa: E501
 
     def remove_payload(self):
         # type: () -> None
@@ -577,16 +577,16 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             cloneB = other.copy()
             cloneA.add_payload(cloneB)
             return cloneA
-        elif isinstance(other, (bytes, str, bytearray)):
-            return self / conf.raw_layer(load=other)
+        elif isinstance(other, (bytes, str, bytearray, memoryview)):
+            return self / conf.raw_layer(load=bytes_encode(other))
         else:
             return other.__rdiv__(self)  # type: ignore
     __truediv__ = __div__
 
     def __rdiv__(self, other):
         # type: (Any) -> Packet
-        if isinstance(other, (bytes, str, bytearray)):
-            return conf.raw_layer(load=other) / self
+        if isinstance(other, (bytes, str, bytearray, memoryview)):
+            return conf.raw_layer(load=bytes_encode(other)) / self
         else:
             raise TypeError
     __rtruediv__ = __rdiv__
