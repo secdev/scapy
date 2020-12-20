@@ -1,0 +1,273 @@
+% Regression tests for the DoIP layer
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
+
++ Doip contrib tests
+
+= Load Contrib Layer
+
+load_contrib("automotive.doip", globals_dict=globals())
+load_contrib("automotive.uds", globals_dict=globals())
+
+= Defaults test
+
+p = DoIP(payload_type=1)
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == None
+assert p.payload_type == 1
+
+= Build test 0
+
+p = DoIP(bytes(DoIP(payload_type=0)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 1
+assert p.payload_type == 0
+assert p.nack == 0
+
+= Build test 1
+
+p = DoIP(bytes(DoIP(payload_type=1)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 0
+assert p.payload_type == 1
+
+= Build test 2
+
+p = DoIP(bytes(DoIP(payload_type=2)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 6
+assert p.payload_type == 2
+assert bytes(p.eid) == b"\x00" * 6
+
+= Build test 3
+
+p = DoIP(bytes(DoIP(payload_type=3)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 17
+assert p.payload_type == 3
+assert bytes(p.vin) == b"\x00" * 17
+
+= Build test 4
+
+p = DoIP(bytes(DoIP(payload_type=4)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 33
+assert p.payload_type == 4
+assert bytes(p.vin) == b"\x00" * 17
+assert p.logical_address == 0
+assert bytes(p.eid) == b"\x00" * 6
+assert bytes(p.gid) == b"\x00" * 6
+assert p.further_action == 0
+assert p.vin_gid_status == 0
+
+= Build test 5
+
+p = DoIP(bytes(DoIP(payload_type=5)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 11
+assert p.payload_type == 5
+assert p.source_address == 0
+assert p.activation_type == 0
+assert p.reserved_iso == 0
+assert p.reserved_oem == 0
+
+= Build test 6
+
+p = DoIP(bytes(DoIP(payload_type=6)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 13
+assert p.payload_type == 6
+assert p.logical_address_tester == 0
+assert p.logical_address_doip_entity == 0
+assert p.reserved_iso == 0
+assert p.reserved_oem == 0
+
+= Build test 7
+
+p = DoIP(bytes(DoIP(payload_type=7)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 0
+assert p.payload_type == 7
+
+= Build test 8
+
+p = DoIP(bytes(DoIP(payload_type=8)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 2
+assert p.payload_type == 8
+assert p.source_address == 0
+
+= Build test 4001
+
+p = DoIP(bytes(DoIP(payload_type=0x4001)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 0
+assert p.payload_type == 0x4001
+
+
+= Build test 4002
+
+p = DoIP(bytes(DoIP(payload_type=0x4002)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 7
+assert p.payload_type == 0x4002
+assert p.node_type == 0
+assert p.max_open_sockets == 0
+assert p.cur_open_sockets == 0
+assert p.max_data_size == 0
+
+
+= Build test 4003
+
+p = DoIP(bytes(DoIP(payload_type=0x4003)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 0
+assert p.payload_type == 0x4003
+
+
+= Build test 4004
+
+p = DoIP(bytes(DoIP(payload_type=0x4004)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 1
+assert p.payload_type == 0x4004
+assert p.diagnostic_power_mode == 0
+
+= Build test 8001
+
+p = DoIP(bytes(DoIP(payload_type=0x8001)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 4
+assert p.payload_type == 0x8001
+assert p.source_address == 0
+assert p.target_address == 0
+
+= Build test 8002
+
+p = DoIP(bytes(DoIP(payload_type=0x8002)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 5
+assert p.payload_type == 0x8002
+assert p.source_address == 0
+assert p.target_address == 0
+assert p.ack_code == 0
+
+= Build test 8003
+
+p = DoIP(bytes(DoIP(payload_type=0x8003)))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 5
+assert p.payload_type == 0x8003
+assert p.source_address == 0
+assert p.target_address == 0
+assert p.nack_code == 0
+
++ pcap based tests
+
+= read pcap file
+
+pkts = rdpcap("test/pcaps/doip.pcap.gz")
+ips = [p for p in pkts if p.proto == 6]
+
+assert len(ips) > 1
+
+= dissect test of routing activation pkts req
+
+req = ips[0]
+p = req
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 11
+assert p.payload_type == 0x5
+assert p.source_address == 0xe80
+assert p.activation_type == 0
+assert p.reserved_iso == 0
+assert p.reserved_oem == 0
+
+= dissect test of routing activation pkts resp
+
+resp = ips[1]
+p = resp
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 9
+assert p.payload_type == 0x6
+assert p.logical_address_tester == 0xe80
+assert p.logical_address_doip_entity == 0x4010
+assert p.routing_activation_response == 16
+assert p.reserved_iso == 0
+
+= answers test of routing activation pkts
+
+assert resp.answers(req)
+assert resp.hashret() == req.hashret()
+
+= dissect diagnostic message
+
+req = ips[-4]
+resp = ips[-1]
+
+p = req
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 6
+assert p.payload_type == 0x8001
+assert p.source_address == 0xe80
+assert p.target_address == 0x4010
+assert bytes(p)[-2:] == bytes(UDS()/UDS_DSC(b"\x02"))
+assert p.service == 0x10
+assert p.diagnosticSessionType == 2
+
+p = resp
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 10
+assert p.payload_type == 0x8001
+assert p.target_address == 0xe80
+assert p.source_address == 0x4010
+assert bytes(p)[-6:] == bytes(UDS()/UDS_DSCPR(b"\x02\x002\x01\xf4"))
+assert p.service == 0x50
+assert p.diagnosticSessionType == 2
+
+assert req.hashret() == resp.hashret()
+# exclude TCP layer from answers check
+assert resp[3].answers(req[3])
+assert not req[3].answers(resp[3])

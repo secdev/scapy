@@ -7,6 +7,8 @@
 # scapy.contrib.status = loads
 
 import struct
+import time
+
 from itertools import product
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
@@ -1441,6 +1443,12 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
             interval: interval between two packets
         """
         PeriodicSenderThread.__init__(self, sock, pkt, interval)
+
+    def run(self):
+        # type: () -> None
+        while not self._stopped.is_set():
+            self._socket.sr1(self._pkt, timeout=0.3, verbose=False)
+            time.sleep(self._interval)
 
 
 def UDS_SessionEnumerator(sock, session_range=range(0x100), reset_wait=1.5):

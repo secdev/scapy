@@ -82,7 +82,9 @@ class HSFZSocket(StreamSocket):
         # type: (str, int) -> None
         self.ip = ip
         self.port = port
-        s = socket.socket()
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.connect((self.ip, self.port))
         StreamSocket.__init__(self, s, HSFZ)
 
