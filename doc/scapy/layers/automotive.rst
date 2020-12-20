@@ -35,6 +35,9 @@ function to get all information about one specific protocol.
 |                     | OBD                  | OBD, OBD_S0X                                           |
 |                     +----------------------+--------------------------------------------------------+
 |                     | CCP                  | CCP, DTO, CRO                                          |
+|                     +----------------------+--------------------------------------------------------+
+|                     | XCP                  | XCPOnCAN, XCPOnUDP, XCPOnTCP, CTORequest, CTOResponse, |
+|                     |                      | DTO                                                    |
 +---------------------+----------------------+--------------------------------------------------------+
 | Transportation Layer| ISO-TP (ISO 15765-2) | ISOTPSocket, ISOTPNativeSocket, ISOTPSoftSocket        |
 |                     |                      |                                                        |
@@ -448,6 +451,64 @@ Sending a CRO message::
 Since sr1 calls the answers function, our payload of the DTO objects gets interpreted with the
 command of our CRO object.
 
+
+Universal calibration and measurement protocol (XCP)
+====================================================
+
+XCP is the successor of CCP. It is usable with several protocols. Scapy includes CAN, UDP and TCP.
+XCP has two types of message types: Command Transfer Object (CTO) and Data Transmission Object (DTO).
+CTOs send to an ECU are requests (commands) and the ECU has to reply with a positive response or an error.
+Additionally, the ECU can send a CTO to inform the master about an asynchronous event (EV) or request a service execution (SERV).
+DTOs sent by the ECU are called DAQ (Data AcQuisition) and include measured values.
+DTOs received by the ECU are used for a periodic stimulation and are called STIM (Stimulation).
+
+
+Creating a CTO message::
+
+    CTORequest() / Connect()
+    CTORequest() / GetDaqResolutionInfo()
+    CTORequest() / GetSeed(mode=0x01, resource=0x00)
+
+To send the message over CAN a header has to be added
+
+    pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
+    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0'))
+    sock.send(pkt)
+
+If we are interested in the response of an ECU, we need to set the basecls parameter of the
+CANSocket to XCPonCAN and we need to use sr1:
+Sending a CTO message::
+
+    sock = CANSocket(bustype='socketcan', channel='vcan0', basecls=XCPonCAN)
+    dto = sock.sr1(pkt)
+
+Since sr1 calls the answers function, our payload of the XCP-response objects gets interpreted with the
+command of our CTO object. Otherwise it could not be interpreted.
+The first message should always be the "CONNECT" message, the response of the ECU determines how the messages are read. E.g.: byte order.
+Otherwise, one must set the address granularity, and max size of the DTOs and CTOs per hand in the contrib config::
+
+    conf.contribs['XCP']['Address_Granularity_Byte'] = 1  # Can be 1, 2 or 4
+    conf.contribs['XCP']['MAX_CTO'] = 8
+    conf.contribs['XCP']['MAX_DTO'] = 8
+
+If you do not want this to be set after receiving the message you can also disable that feature::
+
+    conf.contribs['XCP']['allow_byte_order_change'] = False
+    conf.contribs['XCP']['allow_ag_change'] = False
+    conf.contribs['XCP']['allow_cto_and_dto_change'] = False
+
+To send a pkt over TCP or UDP another header must be used.
+TCP::
+
+    prt1, prt2 = 12345, 54321
+    XCPOnTCP(sport=prt1, dport=prt2) / CTORequest() / Connect()
+
+UDP::
+
+    XCPOnUDP(sport=prt1, dport=prt2) / CTORequest() / Connect()
+
+
+
 ISOTP
 =====
 
@@ -708,6 +769,54 @@ Interactive shell usage example::
      <<ISOTPNativeSocket: read/write packets at a given CAN interface using CAN_ISOTP socket > at 0x7f98f912ec50>,
      <<ISOTPNativeSocket: read/write packets at a given CAN interface using CAN_ISOTP socket > at 0x7f98f912e950>,
      <<ISOTPNativeSocket: read/write packets at a given CAN interface using CAN_ISOTP socket > at 0x7f98f906c0d0>]
+
+XCPScanner
+---------------
+
+The XCPScanner is a utility to find the CAN identifiers of ECUs that support XCP.
+
+Commandline usage example::
+
+    python -m scapy.tools.automotive.xcpscanner -h
+    Finds XCP slaves using the "GetSlaveId"-message(Broadcast) or the "Connect"-message.
+
+    positional arguments:
+      channel               Linux SocketCAN interface name, e.g.: vcan0
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --start START, -s START
+                            Start identifier CAN (in hex).
+                            The scan will test ids between --start and --end (inclusive)
+                            Default: 0x00
+      --end END, -e END     End identifier CAN (in hex).
+                            The scan will test ids between --start and --end (inclusive)
+                            Default: 0x7ff
+      --sniff_time', '-t'   Duration in milliseconds a sniff is waiting for a response.
+                            Default: 100
+      --broadcast, -b       Use Broadcast-message GetSlaveId instead of default "Connect"
+                            (GetSlaveId is an optional Message that is not always implemented)
+      --verbose VERBOSE, -v
+                            Display information during scan
+
+        Examples:
+            python3.6 -m scapy.tools.automotive.xcpscanner can0
+            python3.6 -m scapy.tools.automotive.xcpscanner can0 -b 500
+            python3.6 -m scapy.tools.automotive.xcpscanner can0 -s 50 -e 100
+            python3.6 -m scapy.tools.automotive.xcpscanner can0 -b 500 -v
+
+
+Interactive shell usage example::
+    >>> conf.contribs['CANSocket'] = {'use-python-can': False}
+    >>> load_layer("can")
+    >>> load_contrib("automotive.xcp.xcp")
+    >>> sock = CANSocket("vcan0")
+    >>> sock.basecls = XCPOnCAN
+    >>> scanner = XCPOnCANScanner(sock)
+    >>> result = scanner.start_scan()
+
+The result includes the slave_id (the identifier of the ECU that receives XCP messages),
+and the response_id (the identifier that the ECU will send XCP messages to).
 
 
 
