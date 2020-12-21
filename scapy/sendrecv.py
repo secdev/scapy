@@ -887,7 +887,8 @@ class AsyncSniffer(object):
 
                 if isinstance(offline, Packet):
                     tempfile_written, offline = _write_to_pcap([offline])
-                elif isinstance(offline, list) and \
+                elif (isinstance(offline, list) or
+                        isinstance(offline, PacketList)) and \
                         all(isinstance(elt, Packet) for elt in offline):
                     tempfile_written, offline = _write_to_pcap(offline)
 
