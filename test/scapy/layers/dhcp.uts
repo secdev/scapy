@@ -10,7 +10,9 @@ assert BOOTP().hashret() == b"\x00\x00\x00\x00"
 
 import random
 random.seed(0x2809)
-assert str(RandDHCPOptions(size=1)) in [r"[('NIS_server', '0.45.231.69')]", r"[('tcp_keepalive_interval', 3853054080)]"]
+o = str(RandDHCPOptions(size=1))
+print("RandDHCPOptions %s" % o)
+assert o in [r"[('NIS_server', '0.45.231.69')]", r"[('tcp_keepalive_interval', 3853054080)]"]
 
 = DHCPOptionsField
 
