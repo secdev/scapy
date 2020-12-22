@@ -14,9 +14,10 @@ from scapy.data import DLT_BLUETOOTH_LE_LL, DLT_BLUETOOTH_LE_LL_WITH_PHDR, \
     PPI_BTLE
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    Field, FlagsField, LEIntField, LEShortEnumField, LEShortField, \
+    Field, LEIntField, LEShortEnumField, LEShortField, \
     MACField, PacketListField, SignedByteField, X3BytesField, XBitField, \
     XByteField, XIntField, XShortField, XLEIntField, XLEShortField
+from scapy.contrib.ethercat import LEBitEnumField, LEBitField
 
 from scapy.layers.bluetooth import EIR_Hdr, L2CAP_Hdr
 from scapy.layers.ppi import PPI_Element, PPI_Hdr
@@ -53,22 +54,47 @@ class BTLE_PPI(PPI_Element):
 class BTLE_RF(Packet):
     """Cooked BTLE link-layer pseudoheader.
 
-    http://www.whiterocker.com/bt/LINKTYPE_BLUETOOTH_LE_LL_WITH_PHDR.html
+    https://www.tcpdump.org/linktypes/LINKTYPE_BLUETOOTH_LE_LL_WITH_PHDR.html
     """
     name = "BTLE RF info header"
+
+    _TYPES = {
+        0: "ADV_OR_DATA_UNKNOWN_DIR",
+        1: "AUX_ADV",
+        2: "DATA_M_TO_S",
+        3: "DATA_S_TO_M",
+        4: "CONN_ISO_M_TO_S",
+        5: "CONN_ISO_S_TO_M",
+        6: "BROADCAST_ISO",
+        7: "RFU",
+    }
+
+    _PHY = {
+        0: "1M",
+        1: "2M",
+        2: "Coded",
+        3: "RFU",
+    }
+
     fields_desc = [
         ByteField("rf_channel", 0),
         SignedByteField("signal", -128),
         SignedByteField("noise", -128),
         ByteField("access_address_offenses", 0),
         XLEIntField("reference_access_address", 0),
-        FlagsField("flags", 0, -16, [
-            "dewhitened", "sig_power_valid", "noise_power_valid",
-            "decrypted", "reference_access_address_valid",
-            "access_address_offenses_valid", "channel_aliased",
-            "res1", "res2", "res3", "crc_checked", "crc_valid",
-            "mic_checked", "mic_valid", "res4", "res5"
-        ])
+        LEBitField("dewhitened", 0, 1),
+        LEBitField("sig_power_valid", 0, 1),
+        LEBitField("noise_power_valid", 0, 1),
+        LEBitField("decrypted", 0, 1),
+        LEBitField("reference_access_address_valid", 0, 1),
+        LEBitField("access_address_offenses_valid", 0, 1),
+        LEBitField("channel_aliased", 0, 1),
+        LEBitEnumField("type", 0, 3, _TYPES),
+        LEBitField("crc_checked", 0, 1),
+        LEBitField("crc_valid", 0, 1),
+        LEBitField("mic_checked", 0, 1),
+        LEBitField("mic_valid", 0, 1),
+        LEBitEnumField("phy", 0, 2, _PHY),
     ]
 
 
