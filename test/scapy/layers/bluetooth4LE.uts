@@ -65,19 +65,23 @@ assert BTLE_SCAN_RSP in pkt.layers()
 a = BTLE_RF()/BTLE()/BTLE_ADV()/BTLE_SCAN_REQ()
 a.ScanA = "aa:aa:aa:aa:aa:aa"
 a.AdvA = "bb:bb:bb:bb:bb:bb"
-a.flags = 0x10
+a.reference_access_address_valid = 1
 a.reference_access_address = 0x8e89bed6
+a.phy = 3
+a.type = 5
 a.noise = -90
 a.signal = -75
 a.rf_channel = 6
 a.access_address_offenses = 10
-assert raw(a) == b'\x06\xb5\xa6\n\xd6\xbe\x89\x8e\x10\x00\xd6\xbe\x89\x8e\x03\x0c\xaa\xaa\xaa\xaa\xaa\xaa\xbb\xbb\xbb\xbb\xbb\xbb\x07\xb2a'
+assert raw(a) == b'\x06\xb5\xa6\n\xd6\xbe\x89\x8e\x90\xc2\xd6\xbe\x89\x8e\x03\x0c\xaa\xaa\xaa\xaa\xaa\xaa\xbb\xbb\xbb\xbb\xbb\xbb\x07\xb2a'
 
 a = BTLE_RF(raw(a))
 
 assert a.noise == -90
 assert a.signal == -75
-assert a.flags == "reference_access_address_valid"
+assert a.phy == 3
+assert a.type == 5
+assert a.reference_access_address_valid == 1
 assert a[BTLE_SCAN_REQ].ScanA == "aa:aa:aa:aa:aa:aa"
 
 + Specific tests after issue GH#1673
