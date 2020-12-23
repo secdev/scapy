@@ -36,7 +36,6 @@ __all__ = [
     'Pattern',
     'Sequence',
     'Set',
-    'Sequence',
     'Sized',
     'Tuple',
     'Type',

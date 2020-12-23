@@ -5,8 +5,9 @@
 
 # scapy.contrib.description = XCPScanner
 # scapy.contrib.status = loads
+
 from collections import namedtuple
-from typing import Optional, List, Type, Iterable
+from scapy.compat import Optional, List, Type, Iterator
 
 from scapy.config import conf
 from scapy.contrib.automotive.xcp.cto_commands_master import \
@@ -26,7 +27,7 @@ class XCPOnCANScanner:
 
     def __init__(self, can_socket, id_range=None,
                  sniff_time=0.1, add_padding=False, verbose=False):
-        # type: (CANSocket, Optional[Iterable[int]], Optional[float], Optional[bool], Optional[bool]) -> None # noqa: E501
+        # type: (CANSocket, Optional[Iterator[int]], Optional[float], Optional[bool], Optional[bool]) -> None # noqa: E501
 
         """
         Constructor
