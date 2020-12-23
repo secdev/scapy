@@ -14,7 +14,8 @@ import gzip
 import struct
 import binascii
 
-from typing import Tuple, Optional, Type, List, Union, Callable, IO, Any, cast
+from scapy.compat import Tuple, Optional, Type, List, Union, Callable, IO, \
+    Any, cast
 
 import scapy.modules.six as six
 from scapy.config import conf

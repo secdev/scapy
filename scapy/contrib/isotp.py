@@ -21,7 +21,7 @@ import time
 import traceback
 import heapq
 from threading import Thread, Event, Lock
-from typing import Iterable, Optional, Union, List, Tuple, Dict
+from scapy.compat import Iterator, Optional, Union, List, Tuple, Dict
 
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
@@ -1961,7 +1961,7 @@ def filter_periodic_packets(packet_dict, verbose=False):
 
 
 def get_isotp_fc(id_value, id_list, noise_ids, extended, packet, verbose=False):   # noqa: E501
-    # type: (int, Union[List[int], Dict[int, Tuple[Packet, int]]], Optional[Iterable[int]], bool, Packet, bool) -> None   # noqa: E501
+    # type: (int, Union[List[int], Dict[int, Tuple[Packet, int]]], Optional[Iterator[int]], bool, Packet, bool) -> None   # noqa: E501
     """Callback for sniff function when packet received
 
     If received packet is a FlowControl and not in noise_ids append it
@@ -2004,8 +2004,8 @@ def get_isotp_fc(id_value, id_list, noise_ids, extended, packet, verbose=False):
 
 
 def scan(sock,                      # type: SuperSocket
-         scan_range=range(0x800),   # type: Iterable[int]
-         noise_ids=None,            # type: Optional[Iterable[int]]
+         scan_range=range(0x800),   # type: Iterator[int]
+         noise_ids=None,            # type: Optional[Iterator[int]]
          sniff_time=0.1,            # type: float
          extended_can_id=False,     # type: bool
          verbose=False              # type: bool
@@ -2052,10 +2052,10 @@ def scan(sock,                      # type: SuperSocket
 
 
 def scan_extended(sock,                              # type: SuperSocket
-                  scan_range=range(0x800),           # type: Iterable[int]
+                  scan_range=range(0x800),           # type: Iterator[int]
                   scan_block_size=32,                # type: int
-                  extended_scan_range=range(0x100),  # type: Iterable[int]
-                  noise_ids=None,                    # type: Optional[Iterable[int]]  # noqa: E501
+                  extended_scan_range=range(0x100),  # type: Iterator[int]
+                  noise_ids=None,                    # type: Optional[Iterator[int]]  # noqa: E501
                   sniff_time=0.1,                    # type: float
                   extended_can_id=False,             # type: bool
                   verbose=False                      # type: bool
