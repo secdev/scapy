@@ -11,7 +11,7 @@ import struct
 from scapy.fields import ObservableDict, XByteEnumField, ByteEnumField, \
     ConditionalField, XByteField, StrField, XShortEnumField, XShortField, \
     X3BytesField, XIntField, ShortField, PacketField, PacketListField, \
-    FieldListField, MultipleTypeField
+    FieldListField, MultipleTypeField, StrFixedLenField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import warning, log_loading
@@ -455,7 +455,7 @@ class GMLAN_RMBAPR(Packet):
                  lambda pkt: GMLAN.determine_len(4))
             ],
             XIntField('memoryAddress', 0)),
-        StrField('dataRecord', None, fmt="B")
+        StrField('dataRecord', b"", fmt="B")
     ]
 
     def answers(self, other):
@@ -491,7 +491,7 @@ class GMLAN_SA(Packet):
     name = 'SecurityAccess'
     fields_desc = [
         ByteEnumField('subfunction', 0, subfunctions),
-        ConditionalField(XShortField('securityKey', B""),
+        ConditionalField(XShortField('securityKey', 0),
                          lambda pkt: pkt.subfunction % 2 == 0)
     ]
 
@@ -512,7 +512,7 @@ class GMLAN_SAPR(Packet):
     name = 'SecurityAccessPositiveResponse'
     fields_desc = [
         ByteEnumField('subfunction', 0, GMLAN_SA.subfunctions),
-        ConditionalField(XShortField('securitySeed', B""),
+        ConditionalField(XShortField('securitySeed', 0),
                          lambda pkt: pkt.subfunction % 2 == 1),
     ]
 
@@ -664,7 +664,7 @@ class GMLAN_TD(Packet):
                  lambda pkt: GMLAN.determine_len(4))
             ],
             XIntField('startingAddress', 0)),
-        StrField("dataRecord", None)
+        StrField("dataRecord", b"")
     ]
 
     @staticmethod
@@ -682,7 +682,7 @@ class GMLAN_WDBI(Packet):
     name = 'WriteDataByIdentifier'
     fields_desc = [
         XByteEnumField('dataIdentifier', 0, GMLAN_RDBI.dataIdentifiers),
-        StrField("dataRecord", b'\x00')
+        StrField("dataRecord", b'')
     ]
 
     @staticmethod
@@ -814,6 +814,38 @@ class GMLAN_RDI_BC(Packet):
 
 bind_layers(GMLAN_RDI, GMLAN_RDI_BC, subfunction=0x82)
 # TODO:This function receive single frame responses... (Implement GMLAN Socket)
+
+
+# ########################DC###################################
+class GMLAN_DC(Packet):
+    name = 'DeviceControl'
+    fields_desc = [
+        XByteField('CPIDNumber', 0),
+        StrFixedLenField('CPIDControlBytes', b"", 5)
+    ]
+
+    @staticmethod
+    def get_log(pkt):
+        return pkt.sprintf("%GMLAN.service%"), \
+            pkt.sprintf("%GMLAN_DC.CPIDNumber%")
+
+
+bind_layers(GMLAN, GMLAN_DC, service=0xAE)
+
+
+class GMLAN_DCPR(Packet):
+    name = 'DeviceControlPositiveResponse'
+    fields_desc = [
+        XByteField('CPIDNumber', 0)
+    ]
+
+    @staticmethod
+    def get_log(pkt):
+        return pkt.sprintf("%GMLAN.service%"), \
+            pkt.sprintf("%GMLAN_DCPR.CPIDNumber%")
+
+
+bind_layers(GMLAN, GMLAN_DCPR, service=0xEE)
 
 
 # ########################NRC###################################
