@@ -132,13 +132,21 @@ class SignalField(ScalingField):
     @staticmethod
     def _msb_lookup(start):
         # type: (int) -> int
-        return SignalField._lookup_table.index(start)
+        try:
+            return SignalField._lookup_table.index(start)
+        except ValueError:
+            raise Scapy_Exception("Only 64 bits for all SignalFields "
+                                  "are supported")
 
     @staticmethod
     def _lsb_lookup(start, size):
         # type: (int, int) -> int
-        return SignalField._lookup_table[SignalField._msb_lookup(start) +
-                                         size - 1]
+        try:
+            return SignalField._lookup_table[SignalField._msb_lookup(start) +
+                                             size - 1]
+        except IndexError:
+            raise Scapy_Exception("Only 64 bits for all SignalFields "
+                                  "are supported")
 
     @staticmethod
     def _convert_to_unsigned(number, bit_length):
