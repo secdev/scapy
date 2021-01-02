@@ -2479,8 +2479,7 @@ class PeriodicSenderThread(threading.Thread):
             interval: interval between two packets
         """
         if not isinstance(pkt, list):
-            pkt = cast(Packet, pkt)
-            self._pkts = [pkt]  # type: _UniPacketList
+            self._pkts = [cast("Packet", pkt)]  # type: _UniPacketList
         else:
             self._pkts = pkt
         self._socket = sock
