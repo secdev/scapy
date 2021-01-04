@@ -844,6 +844,10 @@ class GMLAN_DCPR(Packet):
         return pkt.sprintf("%GMLAN.service%"), \
             pkt.sprintf("%GMLAN_DCPR.CPIDNumber%")
 
+    def answers(self, other):
+        return other.__class__ == GMLAN_DC \
+            and other.CPIDNumber == self.CPIDNumber
+
 
 bind_layers(GMLAN, GMLAN_DCPR, service=0xEE)
 
