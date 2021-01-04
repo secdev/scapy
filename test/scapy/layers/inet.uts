@@ -520,6 +520,8 @@ def test_summary():
 
 test_summary()
 
+import mock
+
 @mock.patch("scapy.layers.inet.plt")
 def test_timeskew_graph(mock_plt):
     def fake_plot(data, **kwargs):
@@ -555,6 +557,8 @@ assert("192.168.0.254" not in [p[IP].src for p in new_pl])
 
 = IPv4 - reporting
 ~ netaccess
+
+import mock
 
 @mock.patch("scapy.layers.inet.sr")
 def test_report_ports(mock_sr):
