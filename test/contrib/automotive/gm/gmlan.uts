@@ -449,5 +449,31 @@ ecu.update(GMLAN(service="ReturnToNormalOperationPositiveResponse"))
 assert ecu.current_session == 1
 assert ecu.communication_control == 0
 
+= Craft GMLAN_DC
 
+req = GMLAN()/GMLAN_DC(CPIDNumber=0x11, CPIDControlBytes=b"\xbe\xefabc")
+assert bytes(req) == b"\xAE\x11\xbe\xefabc"
+
+req2 = GMLAN()/GMLAN_DC(CPIDNumber=0x12)
+assert bytes(req2) == b"\xAE\x12\x00\x00\x00\x00\x00"
+
+resp = GMLAN()/GMLAN_DCPR(CPIDNumber=0x11)
+assert bytes(resp) == b"\xEE\x11"
+
+
+assert resp.answers(req)
+assert not resp.answers(req2)
+
+= Dissect test GMLAN_DC
+
+req = GMLAN(b"\xAE\x14caffe")
+assert req.service == 0xAE
+assert req.CPIDNumber == 20
+assert req.CPIDControlBytes == b"caffe"
+
+resp = GMLAN(b"\xEE\x14")
+assert resp.service == 0xEE
+assert resp.CPIDNumber == 20
+assert resp.answers(req)
+assert resp.hashret() == req.hashret()
 
