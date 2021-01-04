@@ -1,0 +1,8 @@
++ ICMP Extensions tests
+
+= Basic build
+
+p = IP(src="192.0.2.1", dst="192.0.2.2")/ICMP()/ICMPExtensionHeader(version = 2)/ICMPExtensionMPLS(classnum = 1, classtype = 1)
+print(raw(p))
+b = b'E\x00\x00$\x00\x01\x00\x00@\x01\xf6\xd4\xc0\x00\x02\x01\xc0\x00\x02\x02\x08\x00\xf6\xfa\x00\x00\x00\x00 \x00\xdf\xff\x00\x04\x01\x01'
+assert raw(p) == b
