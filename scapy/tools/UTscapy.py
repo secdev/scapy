@@ -335,7 +335,7 @@ def parse_config_file(config_path, verb=3):
                  docs=get_if_exist("docs", 0),
                  preexec=get_if_exist("preexec", {}),
                  global_preexec=get_if_exist("global_preexec", ""),
-                 outfile=get_if_exist("outputfile", sys.stdout),
+                 outfile=get_if_exist("outputfile", sys.stderr),
                  local=get_if_exist("local", False),
                  num=get_if_exist("num", None),
                  modules=get_if_exist("modules", []),
@@ -928,7 +928,7 @@ def main():
     # Parse arguments
 
     FORMAT = Format.ANSI
-    OUTPUTFILE = sys.stdout
+    OUTPUTFILE = sys.stderr
     LOCAL = 0
     NUM = None
     NON_ROOT = False
@@ -1170,9 +1170,8 @@ def main():
     # Write the final output
     # Note: on Python 2, we force-encode to ignore ascii errors
     # on Python 3, we need to detect the type of stream
-    if OUTPUTFILE == sys.stdout:
-        OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
-                         if 'b' in OUTPUTFILE.mode or six.PY2 else glob_output)
+    if OUTPUTFILE == sys.stderr:
+        print(glob_output, file=OUTPUTFILE)
     else:
         with open(OUTPUTFILE, "wb") as f:
             f.write(glob_output.encode("utf8", "ignore")
