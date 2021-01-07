@@ -322,7 +322,7 @@ def parse_config_file(config_path, verb=3):
     with open(config_path) as config_file:
         data = json.load(config_file)
         if verb > 2:
-            print(" %s Loaded config file" % arrow, config_path, file=sys.stderr)
+            print(" %s Loaded config file" % arrow, config_path)
 
     def get_if_exist(key, default):
         return data[key] if key in data else default
@@ -535,9 +535,9 @@ def run_test(test, get_interactive_session, theme, verb=3,
                 debug.crashed_on = None
         test.prepare(theme)
         if verb > 2:
-            print("%(fresult)6s %(crc)s %(duration)06.2fs %(name)s" % test, file=sys.stderr)
+            print("%(fresult)6s %(crc)s %(duration)06.2fs %(name)s" % test)
         elif verb > 1:
-            print("%(fresult)6s %(crc)s %(name)s" % test, file=sys.stderr)
+            print("%(fresult)6s %(crc)s %(name)s" % test)
 
     return bool(test)
 
@@ -590,7 +590,7 @@ def run_campaign(test_campaign, get_interactive_session, theme,
         test_campaign.trunc(i + 1)
         test_campaign.interrupted = True
         if verb:
-            print("Campaign interrupted!", file=sys.stderr)
+            print("Campaign interrupted!")
             if drop_to_interpreter:
                 drop(scapy_ses)
 
@@ -598,13 +598,11 @@ def run_campaign(test_campaign, get_interactive_session, theme,
     test_campaign.failed = failed
     style = [theme.success, theme.fail][bool(failed)]
     if verb > 2:
-        print("Campaign CRC=%(crc)s in %(duration)06.2fs SHA=%(sha)s" % test_campaign, file=sys.stderr)  # noqa: E501
-        print(style("PASSED=%i FAILED=%i" % (passed, failed)),
-              file=sys.stderr)
+        print("Campaign CRC=%(crc)s in %(duration)06.2fs SHA=%(sha)s" % test_campaign)
+        print(style("PASSED=%i FAILED=%i" % (passed, failed)))
     elif verb:
-        print("Campaign CRC=%(crc)s  SHA=%(sha)s" % test_campaign, file=sys.stderr)  # noqa: E501
-        print(style("PASSED=%i FAILED=%i" % (passed, failed)),
-              file=sys.stderr)
+        print("Campaign CRC=%(crc)s  SHA=%(sha)s" % test_campaign)
+        print(style("PASSED=%i FAILED=%i" % (passed, failed)))
     return failed
 
 
@@ -824,7 +822,7 @@ def usage():
 -k <kw1>,<kw2>,...\t: include only tests with one of those keywords (can be used many times)
 -K <kw1>,<kw2>,...\t: remove tests with one of those keywords (can be used many times)
 -P <preexecute_python_code>
-""", file=sys.stderr)
+""")
     raise SystemExit
 
 
@@ -838,8 +836,9 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOC
     try:
         test_campaign = parse_campaign_file(TESTFILE)
     except ValueError as ex:
-        print(theme.red("Error while parsing '%s': '%s'" % (TESTFILE.name, ex)),
-              file=sys.stderr)
+        print(
+            theme.red("Error while parsing '%s': '%s'" % (TESTFILE.name, ex))
+        )
         sys.exit(1)
 
     # Report parameters
@@ -923,7 +922,7 @@ def main():
     import scapy
     print(dash + " UTScapy - Scapy %s - %s" % (
         scapy.__version__, sys.version.split(" ")[0]
-    ), file=sys.stderr)
+    ))
 
     # Parse arguments
 
@@ -1032,7 +1031,7 @@ def main():
                 KW_KO.extend(optarg.split(","))
 
     except getopt.GetoptError as msg:
-        print("ERROR:", msg, file=sys.stderr)
+        print("ERROR:", msg)
         raise SystemExit
 
     if FORMAT in [Format.LIVE, Format.ANSI]:
@@ -1046,21 +1045,21 @@ def main():
     if six.PY2:
         KW_KO.append("python3_only")
         if VERB > 2:
-            print(" " + arrow + " Python 2 mode", file=sys.stderr)
+            print(" " + arrow + " Python 2 mode")
     try:
         if NON_ROOT or os.getuid() != 0:  # Non root
             # Discard root tests
             KW_KO.append("netaccess")
             KW_KO.append("needs_root")
             if VERB > 2:
-                print(" " + arrow + " Non-root mode", file=sys.stderr)
+                print(" " + arrow + " Non-root mode")
     except AttributeError:
         pass
 
     if conf.use_pcap:
         KW_KO.append("not_pcapdnet")
         if VERB > 2:
-            print(" " + arrow + " libpcap mode", file=sys.stderr)
+            print(" " + arrow + " libpcap mode")
 
     KW_KO.append("disabled")
 
@@ -1077,11 +1076,11 @@ def main():
         collect_types.start()
 
     if VERB > 2:
-        print(" " + arrow + " Booting scapy...", file=sys.stderr)
+        print(" " + arrow + " Booting scapy...")
     try:
         from scapy import all as scapy
     except Exception as e:
-        print("[CRITICAL]: Cannot import Scapy: %s" % e, file=sys.stderr)
+        print("[CRITICAL]: Cannot import Scapy: %s" % e)
         traceback.print_exc()
         sys.exit(1)  # Abort the tests
 
@@ -1105,7 +1104,7 @@ def main():
     }
 
     if VERB > 2:
-        print(" " + arrow + " Discovering tests files...", file=sys.stderr)
+        print(" " + arrow + " Discovering tests files...")
 
     glob_output = ""
     glob_result = 0
@@ -1132,7 +1131,7 @@ def main():
     # Execute all files
     for TESTFILE in TESTFILES:
         if VERB > 2:
-            print(theme.green(dash + " Loading: %s" % TESTFILE), file=sys.stderr)
+            print(theme.green(dash + " Loading: %s" % TESTFILE))
         PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC
         with open(TESTFILE) as testfile:
             output, result, campaign = execute_campaign(
@@ -1155,8 +1154,7 @@ def main():
 
     if VERB > 2:
         print(
-            checkmark + " All campaigns executed. Writing output...",
-            file=sys.stderr
+            checkmark + " All campaigns executed. Writing output..."
         )
 
     if ANNOTATIONS_MODE:
@@ -1171,8 +1169,7 @@ def main():
     # Note: on Python 2, we force-encode to ignore ascii errors
     # on Python 3, we need to detect the type of stream
     if OUTPUTFILE == sys.stdout:
-        OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
-                         if 'b' in OUTPUTFILE.mode or six.PY2 else glob_output)
+        print(glob_output, file=OUTPUTFILE)
     else:
         with open(OUTPUTFILE, "wb") as f:
             f.write(glob_output.encode("utf8", "ignore")
@@ -1184,17 +1181,16 @@ def main():
     # Print end message
     if VERB > 2:
         if glob_result == 0:
-            print(theme.green("UTscapy ended successfully"), file=sys.stderr)
+            print(theme.green("UTscapy ended successfully"))
         else:
-            print(theme.red("UTscapy ended with error code %s" % glob_result),
-                  file=sys.stderr)
+            print(theme.red("UTscapy ended with error code %s" % glob_result))
 
     # Check active threads
     if VERB > 2:
         import threading
         if threading.active_count() > 1:
-            print("\nWARNING: UNFINISHED THREADS", file=sys.stderr)
-            print(threading.enumerate(), file=sys.stderr)
+            print("\nWARNING: UNFINISHED THREADS")
+            print(threading.enumerate())
 
     # Return state
     return glob_result
@@ -1206,7 +1202,7 @@ if __name__ == "__main__":
             warnings.resetwarnings()
             # Let's discover the garbage waste
             warnings.simplefilter('error')
-            print("### Warning mode enabled ###", file=sys.stderr)
+            print("### Warning mode enabled ###")
             res = main()
             if cw:
                 res = 1
