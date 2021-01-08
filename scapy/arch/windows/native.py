@@ -68,7 +68,7 @@ class L3WinSocket(SuperSocket):
     __slots__ = ["promisc", "cls", "ipv6", "proto"]
 
     def __init__(self, iface=None, proto=socket.IPPROTO_IP,
-                 ttl=128, ipv6=False, promisc=True, **kwargs):
+                 ttl=128, ipv6=False, promisc=None, **kwargs):
         from scapy.layers.inet import IP
         from scapy.layers.inet6 import IPv6
         for kwarg in kwargs:
@@ -85,6 +85,8 @@ class L3WinSocket(SuperSocket):
         # On Windows, with promisc=False, you won't get much
         self.ipv6 = ipv6
         self.cls = IPv6 if ipv6 else IP
+        if promisc is None:
+            promisc = conf.sniff_promisc
         self.promisc = promisc
         # Notes:
         # - IPPROTO_RAW only works to send packets.
