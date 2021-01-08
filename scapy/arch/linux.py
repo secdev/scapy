@@ -49,7 +49,7 @@ from scapy.modules.six.moves import range
 
 from scapy.arch.common import get_if_raw_hwaddr  # noqa: F401
 
-# From bits/ioctls.h
+# From sockios.h
 SIOCGIFHWADDR = 0x8927          # Get hardware address
 SIOCGIFADDR = 0x8915          # get PA address
 SIOCGIFNETMASK = 0x891b          # get network PA mask
@@ -439,10 +439,6 @@ class L2Socket(SuperSocket):
         self.iface = network_name(iface or conf.iface)
         self.type = type
         self.promisc = conf.sniff_promisc if promisc is None else promisc
-        if monitor is not None:
-            log_runtime.info(
-                "The 'monitor' argument has no effect on native linux sockets."
-            )
         self.ins = socket.socket(
             socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)

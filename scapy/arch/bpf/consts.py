@@ -4,24 +4,51 @@
 Scapy BSD native support - constants
 """
 
-from ctypes import sizeof
+import ctypes
 
 from scapy.libs.structures import bpf_program
 from scapy.data import MTU
 
-
 SIOCGIFFLAGS = 0xc0206911
 BPF_BUFFER_LENGTH = MTU
 
+# From sys/ioccom.h
+
+IOCPARM_MASK = 0x1fff
+IOC_VOID = 0x20000000
+IOC_OUT = 0x40000000
+IOC_IN = 0x80000000
+IOC_INOUT = IOC_IN | IOC_OUT
+
+_th = lambda x: x if isinstance(x, int) else ctypes.sizeof(x)
+
+
+def _IOC(inout, group, num, len):
+    return (inout |
+            ((_th(len) & IOCPARM_MASK) << 16) |
+            (ord(group) << 8) | (num))
+
+
+_IO = lambda g, n: _IOC(IOC_VOID, g, n, 0)
+_IOR = lambda g, n, t: _IOC(IOC_OUT, g, n, t)
+_IOW = lambda g, n, t: _IOC(IOC_IN, g, n, t)
+_IOWR = lambda g, n, t: _IOC(IOC_INOUT, g, n, t)
+
+# Length of some structures
+_bpf_stat = 8
+_ifreq = 32
+
 # From net/bpf.h
-BIOCIMMEDIATE = 0x80044270
-BIOCGSTATS = 0x4008426f
-BIOCPROMISC = 0x20004269
-BIOCSETIF = 0x8020426c
-BIOCSBLEN = 0xc0044266
-BIOCGBLEN = 0x40044266
-BIOCSETF = 0x80004267 | ((sizeof(bpf_program) & 0x1fff) << 16)
-BIOCSDLT = 0x80044278
-BIOCSHDRCMPLT = 0x80044275
-BIOCGDLT = 0x4004426a
-DLT_IEEE802_11_RADIO = 127
+BIOCGBLEN = _IOR('B', 102, ctypes.c_uint)
+BIOCSBLEN = _IOWR('B', 102, ctypes.c_uint)
+BIOCSETF = _IOW('B', 103, bpf_program)
+BIOCPROMISC = _IO('B', 105)
+BIOCGDLT = _IOR('B', 106, ctypes.c_uint)
+BIOCSETIF = _IOW('B', 108, 32)
+BIOCGSTATS = _IOR('B', 111, _bpf_stat)
+BIOCIMMEDIATE = _IOW('B', 112, ctypes.c_uint)
+BIOCSHDRCMPLT = _IOW('B', 117, ctypes.c_uint)
+BIOCSDLT = _IOW('B', 120, ctypes.c_uint)
+BIOCSTSTAMP = _IOW('B', 132, ctypes.c_uint)
+
+BPF_T_NANOTIME = 0x0001
