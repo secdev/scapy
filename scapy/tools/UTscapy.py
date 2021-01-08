@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import os.path
+import random
 import sys
 import time
 import traceback
@@ -503,6 +504,22 @@ def filter_tests_remove_on_keywords(test_campaign, kw):
     return _filter_tests_kw(test_campaign, kw, False)
 
 
+def filter_tests_remove_some_long_tests(test_campaign, verb):
+    for ts in test_campaign:
+        tests = list()
+        for t in ts.tests:
+            if "long_test" not in t.keywords:
+                tests.append(t)
+            elif random.randint(0, 9) == 5:
+                tests.append(t)
+            elif verb > 2:
+                print("From TestSet '%s' removed Test %03i '%s' because of the keyword 'long_test' assigned" % (ts.name, t.num, t.name))
+        ts.tests = tests
+
+        ts.tests = [t for t in ts.tests if "long_test" not in t.keywords or
+                    ("long_test" in t.keywords and random.randint(0, 9) == 5)]
+
+
 def remove_empty_testsets(test_campaign):
     test_campaign.campaign = [ts for ts in test_campaign.campaign if ts.tests]
 
@@ -512,6 +529,7 @@ def remove_empty_testsets(test_campaign):
 def run_test(test, get_interactive_session, theme, verb=3,
              ignore_globals=None, my_globals=None):
     """An internal UTScapy function to run a single test"""
+    test = test  # type: UnitTest
     start_time = time.time()
     test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals, verb=verb, my_globals=my_globals)
     test.result = "failed"
@@ -526,6 +544,10 @@ def run_test(test, get_interactive_session, theme, verb=3,
         test.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
     finally:
         test.duration = time.time() - start_time
+        if test.duration > 10 and "long_test" not in test.keywords:
+            test.output += "\n\nTEST FAILED: Execution time to long and test not marked with keyword 'long_test'!"
+            test.result = "failed"
+
         if test.result == "failed":
             from scapy.sendrecv import debug
             # Add optional debugging data to log
@@ -811,6 +833,7 @@ def usage():
 -D\t\t: dump campaign and stop
 -R\t\t: dump campaign as reStructuredText
 -C\t\t: don't calculate CRC and SHA
+-L\t\t: Randomly remove Tests with the keyword 'long_test'
 -c\t\t: load a .utsc config file
 -i\t\t: drop into Python interpreter if test failed
 -q\t\t: quiet mode
@@ -829,7 +852,7 @@ def usage():
 #    MAIN    #
 
 def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOCS,
-                     FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER,
+                     FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER, FILTER_LONG,
                      autorun_func, theme, pos_begin=0,
                      ignore_globals=None, scapy_ses=None):  # noqa: E501
     # Parse test file
@@ -855,6 +878,9 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOC
         filter_tests_keep_on_keywords(test_campaign, k)
     for k in KW_KO:
         filter_tests_remove_on_keywords(test_campaign, k)
+
+    if FILTER_LONG:
+        filter_tests_remove_some_long_tests(test_campaign, VERB)
 
     remove_empty_testsets(test_campaign)
 
@@ -945,8 +971,9 @@ def main():
     TESTFILES = []
     ANNOTATIONS_MODE = False
     INTERPRETER = False
+    FILTER_LONG = False
     try:
-        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DRdCiFqNP:s:x")
+        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DRdCLiFqNP:s:x")
         for opt, optarg in opts[0]:
             if opt == "-h":
                 usage()
@@ -964,6 +991,8 @@ def main():
                 DUMP = 1
             elif opt == "-C":
                 CRC = False
+            elif opt == "-L":
+                FILTER_LONG = True
             elif opt == "-i":
                 INTERPRETER = True
             elif opt == "-x":
@@ -1077,6 +1106,11 @@ def main():
 
     if VERB > 2:
         print(" " + arrow + " Booting scapy...")
+
+    if FILTER_LONG:
+        print(" " + arrow + " Tests with a 'long_test' keyword are executed with a "
+                            "likelihood of 10%. Remove -L to enforce execution.")
+
     try:
         from scapy import all as scapy
     except Exception as e:
@@ -1136,7 +1170,7 @@ def main():
         with open(TESTFILE) as testfile:
             output, result, campaign = execute_campaign(
                 testfile, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOCS,
-                FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER,
+                FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER, FILTER_LONG,
                 autorun_func, theme,
                 pos_begin=pos_begin,
                 ignore_globals=ignore_globals,

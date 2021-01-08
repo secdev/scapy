@@ -253,7 +253,7 @@ assert len(s.enumerators[7].results) == 1    # 1 PR
 
 
 = Run scanner with real world responses full scan
-
+~ long_test
 exit_if_no_isotp_module()
 
 drain_bus(iface0)

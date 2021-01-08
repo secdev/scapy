@@ -294,6 +294,7 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD,
 
 
 = Test full scan
+~ long_test
 
 drain_bus(iface0)
 
