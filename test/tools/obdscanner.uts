@@ -203,6 +203,7 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD,
     assert bytes_encode(expected_output) in bytes_encode(std_out1) or bytes_encode(expected_output) in bytes_encode(std_out2) 
 
 = Test supported PIDs scan
+~ long_test
 
 drain_bus(iface0)
 
