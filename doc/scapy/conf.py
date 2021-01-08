@@ -37,7 +37,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx.ext.todo',
-    'sphinx.ext.viewcode',
+    'sphinx.ext.linkcode',
     'scapy_doc'
 ]
 
@@ -49,6 +49,9 @@ autodoc_default_options = {
 
 # Enable the todo module
 todo_include_todos = True
+
+# Linkcode resolver
+from linkcode_res import linkcode_resolve
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
