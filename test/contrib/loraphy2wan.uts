@@ -25,7 +25,7 @@ assert pkt.Join_Request_Field[0].DevNonce == 26985
 p = b'\x0f0P@\xad\x15\x00`\x80\x06\x00\t\xca\xfe\x0c\x1d\x8d\x04\\\xb5'
 pkt = LoRa(p)
 assert pkt.MType == 2
-assert pkt.DataPayload == b'\xca\xfe'
+assert pkt.ULDataPayload == b'\xca\xfe'
 assert pkt.FCnt == 6
 assert pkt.FPort == 9
 assert pkt.FCtrl[0].ADR == 1
@@ -36,19 +36,12 @@ p = b'\x0f0P\x80\xad\x15\x00`\x00\x01\x00\t\xca\xfe:\x98\x89|\x8f\xd4'
 pkt = LoRa(p)
 assert pkt.MType == 4
 
-= Decoding piggyback MAC Commands
-
-p = b'\r0\xc0\x80\xad\x15\x00`\x01\x01\x00\x02\xc0\xe3N\xb7\xc7\xae'
-pkt = LoRa(p)
-assert pkt.FOpts_up[0].CID == 2
-assert pkt.CRC == 0xc7ae
-
 = Decoding an encrypted JA packet
 
 LoRa.encrypted = True
 p = b'\x00\x00\x00 \x086\xe2\x87\xa9\x80\\\xb7\xee\x9e_\xff|\x9e\xe9z'
 pkt = LoRa(p)
-assert pkt.Join_Accept_Encrypted == b'6\xe2\x87\xa9\x80\\\xb7\xee\x9e_\xff|\x9e\xe9z'
+assert pkt.Join_Accept_Encrypted == b'\x086\xe2\x87\xa9\x80\\\xb7\xee\x9e_\xff|\x9e\xe9z'
 
 = Packet crafting: generating an unencrypted JA frame
 
