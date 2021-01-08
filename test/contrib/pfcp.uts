@@ -25,7 +25,7 @@ for name, cls in pfcp_mod.__dict__.items():
 
 = Verify PCAPs
 
-~ pcaps
+~ pcaps long_test
 
 # the following can be useful while adding more IE types
 # (e.g. updating for a newer version of the spec)
