@@ -218,6 +218,7 @@ else:
         "arp", "-s", "192.0.2.2", "20:00:00:20:00:00", "temp"]) == 0
 
 = Send ping packets from OS into Scapy
+~ long_test
 
 t = AsyncSniffer(opened_socket=tap0)
 t.start()
