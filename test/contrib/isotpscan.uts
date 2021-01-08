@@ -1,9 +1,5 @@
 % Regression tests for ISOTPScan
 
-# Currently too unstable
-
-~ disabled
-
 + Configuration
 ~ conf
 
@@ -850,14 +846,17 @@ test_dynamic(test_isotpscan_text_extended_can_id)
 test_dynamic(test_isotpscan_code)
 
 = Test ISOTPScan with noise (output_format=code)
+~ long_test
 
 test_dynamic(test_isotpscan_code_noise)
 
 = Test extended ISOTPScan(output_format=code)
+~ long_test
 
 test_dynamic(test_extended_isotpscan_code)
 
 = Test extended ISOTPScan(output_format=code) extended_can_id
+~ long_test
 
 test_dynamic(test_extended_isotpscan_code_extended_can_id)
 
@@ -870,14 +869,17 @@ test_dynamic(test_isotpscan_none)
 test_dynamic(test_isotpscan_none_2)
 
 = Test extended ISOTPScan(output_format=None)
+~ long_test
 
 test_dynamic(test_extended_isotpscan_none)
 
 = Test ISOTPScan(output_format=None) random IDs
+~ long_test disabled
 
 test_dynamic(test_isotpscan_none_random_ids)
 
 = Test ISOTPScan(output_format=None) random IDs padding
+~ long_test disabled
 
 test_dynamic(test_isotpscan_none_random_ids_padding)
 

@@ -130,6 +130,8 @@ else:
 load_contrib("automotive.uds", globals_dict=globals())
 
 = Test Session Enumerator
+~ long_test
+
 drain_bus(iface0)
 drain_bus(iface1)
 
@@ -157,6 +159,8 @@ assert succ
 
 
 = Test Service Enumerator
+~ long_test
+
 drain_bus(iface0)
 drain_bus(iface1)
 
