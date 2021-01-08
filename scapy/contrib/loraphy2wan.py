@@ -15,12 +15,11 @@
 # scapy.contrib.description = LoRa PHY to WAN Layer
 # scapy.contrib.status = loads
 
-
 """
-    Copyright (C) 2020 Sebastien Dudek (@FlUxIuS @PentHertz)
+    Copyright (C) 2020  Sebastien Dudek (@FlUxIuS)
+    initially developed @PentHertz
+    and improve at @Trend Micro
 """
-
-from __future__ import absolute_import
 
 from scapy.packet import Packet
 from scapy.fields import BitField, ByteEnumField, ByteField, \
@@ -36,6 +35,19 @@ class FCtrl_DownLink(Packet):
                    BitField("ADRACKReq", 0, 1),
                    BitField("ACK", 0, 1),
                    BitField("FPending", 0, 1),
+                   BitFieldLenField("FOptsLen", 0, 4)]
+
+    # pylint: disable=R0201
+    def extract_padding(self, p):
+        return "", p
+
+
+class FCtrl_Link(Packet):
+    name = "FCtrl_UpLink"
+    fields_desc = [BitField("ADR", 0, 1),
+                   BitField("ADRACKReq", 0, 1),
+                   BitField("ACK", 0, 1),
+                   BitField("UpClassB_DownFPending", 0, 1),
                    BitFieldLenField("FOptsLen", 0, 4)]
 
     # pylint: disable=R0201
@@ -526,7 +538,7 @@ class FOpts(Packet):
 
 def FOptsDownShow(pkt):
     try:
-        if pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 1 and pkt.MType <= 0b101:  # noqa: E501
+        if pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 1 and pkt.MType <= 0b101 and (pkt.MType & 0b10 > 0):  # noqa: E501
             return True
         return False
     except Exception:
@@ -535,7 +547,7 @@ def FOptsDownShow(pkt):
 
 def FOptsUpShow(pkt):
     try:
-        if pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 0 and pkt.MType >= 0b010:  # noqa: E501
+        if pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 0 and pkt.MType >= 0b010 and (pkt.MType & 0b10 > 0):  # noqa: E501
             return True
         return False
     except Exception:
@@ -549,15 +561,13 @@ class FHDR(Packet):
                                     lambda pkt:(pkt.MType >= 0b010 and
                                                 pkt.MType <= 0b101)),
                    ConditionalField(PacketListField("FCtrl", b"",
-                                                    FCtrl_DownLink,
+                                                    FCtrl_Link,
                                                     length_from=lambda pkt:1),
-                                    lambda pkt:(pkt.MType & 0b1 == 1 and
-                                                pkt.MType <= 0b101)),
-                   ConditionalField(PacketListField("FCtrl", b"",
-                                                    FCtrl_UpLink,
-                                                    length_from=lambda pkt:1),
-                                    lambda pkt:(pkt.MType & 0b1 == 0 and
-                                                pkt.MType >= 0b010)),
+                                    lambda pkt:((pkt.MType & 0b1 == 1 and
+                                                pkt.MType <= 0b101 and
+                                                (pkt.MType & 0b10 > 0)) or
+                                                (pkt.MType & 0b1 == 0 and
+                                                pkt.MType >= 0b010))),
                    ConditionalField(LEShortField("FCnt", 0),
                                     lambda pkt:(pkt.MType >= 0b010 and
                                                 pkt.MType <= 0b101)),
@@ -623,10 +633,10 @@ class RejoinReq(Packet):  # LoRa 1.1 specs
 
 class FRMPayload(Packet):
     name = "FRMPayload"
-    fields_desc = [ConditionalField(StrField("DataPayload", "", remain=4),  # Downlink  # noqa: E501
+    fields_desc = [ConditionalField(StrField("DLDataPayload", "", remain=4),  # Downlink  # noqa: E501
                                     lambda pkt:(pkt.MType == 0b101 or
                                                 pkt.MType == 0b011)),
-                   ConditionalField(StrField("DataPayload", "", remain=6),  # Uplink  # noqa: E501
+                   ConditionalField(StrField("ULDataPayload", "", remain=6),  # Uplink  # noqa: E501
                                     lambda pkt:(pkt.MType == 0b100 or
                                                 pkt.MType == 0b010)),
                    ConditionalField(PacketListField("Join_Request_Field", b"",
@@ -669,6 +679,7 @@ MTypes = {0b000: "Join-request",
 
 class MHDR(Packet):  # Same for 1.0 as for 1.1
     name = "MHDR"
+
     fields_desc = [BitEnumField("MType", 0b000, 3, MTypes),
                    BitField("RFU", 0b000, 3),
                    BitField("Major", 0b00, 2)]
@@ -687,6 +698,7 @@ class LoRa(Packet):  # default frame (unclear specs => taken from https://www.nc
     name = "LoRa"
     version = "1.1"  # default version to parse
     encrypted = True
+
     fields_desc = [XBitField("Preamble", 0, 4),
                    XBitField("PHDR", 0, 16),
                    XBitField("PHDR_CRC", 0, 4),
