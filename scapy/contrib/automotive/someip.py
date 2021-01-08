@@ -64,8 +64,8 @@ class SOMEIP(Packet):
     TYPE_TP_REQUEST = 0x20
     TYPE_TP_REQUEST_NO_RET = 0x21
     TYPE_TP_NOTIFICATION = 0x22
-    TYPE_TP_RESPONSE = 0x23
-    TYPE_TP_ERROR = 0x24
+    TYPE_TP_RESPONSE = 0xa0
+    TYPE_TP_ERROR = 0xa1
     RET_E_OK = 0x00
     RET_E_NOT_OK = 0x01
     RET_E_UNKNOWN_SERVICE = 0x02
@@ -463,11 +463,11 @@ class SD(_SDPacketBase):
         X3BytesField("res", 0),
         FieldLenField("len_entry_array", None,
                       length_of="entry_array", fmt="!I"),
-        PacketListField("entry_array", None, cls=_sdentry_class,
+        PacketListField("entry_array", None, _sdentry_class,
                         length_from=lambda pkt: pkt.len_entry_array),
         FieldLenField("len_option_array", None,
                       length_of="option_array", fmt="!I"),
-        PacketListField("option_array", None, cls=_sdoption_class,
+        PacketListField("option_array", None, _sdoption_class,
                         length_from=lambda pkt: pkt.len_option_array)
     ]
 

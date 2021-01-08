@@ -38,7 +38,7 @@ from scapy.fields import FieldLenField, PacketListField, IntField, \
 from scapy.layers.l2 import Ether
 
 ETH_P_IFE = 0xed3e
-ETHER_TYPES['IFE'] = ETH_P_IFE
+ETHER_TYPES[ETH_P_IFE] = 'IFE'
 
 # The value to set for the skb mark.
 IFE_META_SKBMARK = 0x0001

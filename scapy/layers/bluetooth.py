@@ -19,11 +19,30 @@ from ctypes import sizeof
 from scapy.config import conf
 from scapy.data import DLT_BLUETOOTH_HCI_H4, DLT_BLUETOOTH_HCI_H4_WITH_PHDR
 from scapy.packet import bind_layers, Packet
-from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
-    FieldListField, FlagsField, IntField, LEShortEnumField, LEShortField, \
-    LenField, PacketListField, SignedByteField, StrField, StrFixedLenField, \
-    StrLenField, XByteField, BitField, XLELongField, PadField, UUIDField, \
-    XStrLenField, ConditionalField
+from scapy.fields import (
+    BitField,
+    ByteEnumField,
+    ByteField,
+    Field,
+    FieldLenField,
+    FieldListField,
+    FlagsField,
+    IntField,
+    LEShortEnumField,
+    LEShortField,
+    LenField,
+    MultipleTypeField,
+    PacketListField,
+    PadField,
+    SignedByteField,
+    StrField,
+    StrFixedLenField,
+    StrLenField,
+    UUIDField,
+    XByteField,
+    XLELongField,
+    XStrLenField,
+)
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
 from scapy.data import MTU
@@ -201,27 +220,16 @@ class HCI_Hdr(Packet):
 
 class HCI_ACL_Hdr(Packet):
     name = "HCI ACL header"
-    # NOTE: the 2-bytes entity formed by the 2 flags + handle must be LE
-    # This means that we must reverse those two bytes manually (we don't have
-    # a field that can reverse a group of fields)
-    fields_desc = [BitField("BC", 0, 2),       # ]
-                   BitField("PB", 0, 2),       # ]=> 2 bytes
-                   BitField("handle", 0, 12),  # ]
+    fields_desc = [BitField("BC", 0, 2, tot_size=-2),
+                   BitField("PB", 0, 2),
+                   BitField("handle", 0, 12, end_tot_size=-2),
                    LEShortField("len", None), ]
-
-    def pre_dissect(self, s):
-        return s[:2][::-1] + s[2:]  # Reverse the 2 first bytes
-
-    def post_dissect(self, s):
-        self.raw_packet_cache = None  # Reset packet to allow post_build
-        return s
 
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
             p = p[:2] + struct.pack("<H", len(pay)) + p[4:]
-        # Reverse, opposite of pre_dissect
-        return p[:2][::-1] + p[2:]  # Reverse (again) the 2 first bytes
+        return p
 
 
 class L2CAP_Hdr(Packet):
@@ -404,20 +412,16 @@ class ATT_Find_Information_Response(Packet):
     name = "Find Information Response"
     fields_desc = [
         XByteField("format", 1),
-        ConditionalField(
-            PacketListField(
-                "handles", [],
-                ATT_Handle,
-            ),
-            lambda pkt: pkt.format == 1
-        ),
-        ConditionalField(
-            PacketListField(
-                "handles", [],
-                ATT_Handle_UUID128,
-            ),
-            lambda pkt: pkt.format == 2
-        )]
+        MultipleTypeField(
+            [
+                (PacketListField("handles", [], ATT_Handle),
+                    lambda pkt: pkt.format == 1),
+                (PacketListField("handles", [], ATT_Handle_UUID128),
+                    lambda pkt: pkt.format == 2),
+            ],
+            StrFixedLenField("handles", "", length=0)
+        )
+    ]
 
 
 class ATT_Find_By_Type_Value_Request(Packet):

@@ -1,0 +1,798 @@
+% Regression tests for the Dot15D4, SixLoWPAN and Zigbee layers
+
+###################
+##### Dot15D4 #####
+###################
+
++ Dot15D4 tests
+
+= Dot15D4 layers
+
+# a crazy packet with all classes in it!
+pkt = Dot15d4()/Dot15d4Ack()/Dot15d4AuxSecurityHeader()/Dot15d4Beacon()/Dot15d4Cmd()/Dot15d4CmdAssocReq()/Dot15d4CmdAssocResp()/Dot15d4CmdCoordRealign()/Dot15d4CmdCoordRealignPage()/Dot15d4CmdDisassociation()/Dot15d4CmdGTSReq()/Dot15d4Data()/Dot15d4FCS()
+assert Dot15d4 in pkt.layers()
+assert Dot15d4Ack in pkt.layers()
+assert Dot15d4AuxSecurityHeader in pkt.layers()
+assert Dot15d4Beacon in pkt.layers()
+assert Dot15d4Cmd in pkt.layers()
+assert Dot15d4CmdAssocReq in pkt.layers()
+assert Dot15d4CmdAssocResp in pkt.layers()
+assert Dot15d4CmdCoordRealign in pkt.layers()
+assert Dot15d4CmdCoordRealignPage in pkt.layers()
+assert Dot15d4CmdDisassociation in pkt.layers()
+assert Dot15d4CmdGTSReq in pkt.layers()
+assert Dot15d4Data in pkt.layers()
+assert Dot15d4FCS in pkt.layers()
+
+= Dot15d4FCS parent matching
+
+pkt = Ether()/IP()/Dot15d4FCS()
+assert pkt[Dot15d4]
+
+= Dot15d4FCS - Beacon (without pending addresses)
+
+pkt = Dot15d4FCS(b'\x00\x80\x89\xaa\x99\x00\x00\xff\xcf\x00\x00\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00X\xa4')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == False
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0
+assert pkt[Dot15d4FCS].fcf_framever == 0
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 2
+assert pkt[Dot15d4FCS].seqnum == 137
+assert Dot15d4Beacon in pkt.layers()
+assert pkt[Dot15d4Beacon].src_panid == 0x99aa
+assert pkt[Dot15d4Beacon].src_addr == 0x0000
+assert pkt[Dot15d4Beacon].sf_beaconorder == 15
+assert pkt[Dot15d4Beacon].sf_sforder == 15
+assert pkt[Dot15d4Beacon].sf_finalcapslot == 15
+assert pkt[Dot15d4Beacon].sf_battlifeextend == False
+assert pkt[Dot15d4Beacon].sf_pancoord == True
+assert pkt[Dot15d4Beacon].sf_assocpermit == True
+assert pkt[Dot15d4Beacon].gts_spec_permit == False
+assert pkt[Dot15d4Beacon].gts_spec_reserved == 0
+assert pkt[Dot15d4Beacon].gts_spec_desccount == 0
+assert pkt[Dot15d4Beacon].pa_num_short == 0
+assert pkt[Dot15d4Beacon].pa_num_long == 0
+assert pkt[Dot15d4Beacon].pa_short_addresses == []
+assert pkt[Dot15d4Beacon].pa_long_addresses == []
+assert raw(pkt[Dot15d4Beacon].payload) == b'\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00'
+assert pkt[Dot15d4FCS].fcs == 0xa458
+
+= Dot15d4FCS - Beacon (with pending addresses)
+
+pkt = Dot15d4FCS(b'\x00\x80\x89\xaa\x99\x00\x00\xff\xcf\x00\x124\x12xV\x88wfUD3"\x11\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00\x96\xd3')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == False
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0
+assert pkt[Dot15d4FCS].fcf_framever == 0
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 2
+assert pkt[Dot15d4FCS].seqnum == 137
+assert Dot15d4Beacon in pkt.layers()
+assert pkt[Dot15d4Beacon].src_panid == 0x99aa
+assert pkt[Dot15d4Beacon].src_addr == 0x0000
+assert pkt[Dot15d4Beacon].sf_beaconorder == 15
+assert pkt[Dot15d4Beacon].sf_sforder == 15
+assert pkt[Dot15d4Beacon].sf_finalcapslot == 15
+assert pkt[Dot15d4Beacon].sf_battlifeextend == False
+assert pkt[Dot15d4Beacon].sf_pancoord == True
+assert pkt[Dot15d4Beacon].sf_assocpermit == True
+assert pkt[Dot15d4Beacon].gts_spec_permit == False
+assert pkt[Dot15d4Beacon].gts_spec_reserved == 0
+assert pkt[Dot15d4Beacon].gts_spec_desccount == 0
+assert pkt[Dot15d4Beacon].pa_num_short == 2
+assert pkt[Dot15d4Beacon].pa_num_long == 1
+assert pkt[Dot15d4Beacon].pa_short_addresses == [0x1234, 0x5678]
+assert pkt[Dot15d4Beacon].pa_long_addresses == [0x1122334455667788]
+assert raw(pkt[Dot15d4Beacon].payload) == b'\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00'
+assert pkt[Dot15d4FCS].fcs == 0xd396
+
+= Dot15d4FCS - Coordinator Realignment (without the channel page)
+
+pkt = Dot15d4FCS(b'#\xcc\x89\xff\xff\x88wfUD3"\x11\xaa\x99\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x08\xaa\x99\xde\xc0\x14\xad\xde\\!')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 3
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == True
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 3
+assert pkt[Dot15d4FCS].fcf_framever == 0
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 3
+assert pkt[Dot15d4FCS].seqnum == 137
+assert Dot15d4Cmd in pkt.layers()
+assert pkt[Dot15d4Cmd].dest_panid == 0xffff
+assert pkt[Dot15d4Cmd].dest_addr == 0x1122334455667788
+assert pkt[Dot15d4Cmd].src_panid == 0x99aa
+assert pkt[Dot15d4Cmd].src_addr == 0x8899aabbccddeeff
+assert pkt[Dot15d4Cmd].cmd_id == 0x08
+assert Dot15d4CmdCoordRealign in pkt.layers()
+assert pkt[Dot15d4CmdCoordRealign].panid == 0x99aa
+assert pkt[Dot15d4CmdCoordRealign].coord_address == 0xc0de
+assert pkt[Dot15d4CmdCoordRealign].channel == 20
+assert pkt[Dot15d4CmdCoordRealign].dev_address == 0xdead
+assert raw(pkt[Dot15d4CmdCoordRealign].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0x215c
+
+= Dot15d4FCS - Coordinator Realignment (with the channel page)
+
+pkt = Dot15d4FCS(b'#\xcc\x89\xff\xff\x88wfUD3"\x11\xaa\x99\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x08\xaa\x99\xde\xc0\x14\xad\xde\x00\xc8\x98')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 3
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == True
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 3
+assert pkt[Dot15d4FCS].fcf_framever == 0
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 3
+assert pkt[Dot15d4FCS].seqnum == 137
+assert Dot15d4Cmd in pkt.layers()
+assert pkt[Dot15d4Cmd].dest_panid == 0xffff
+assert pkt[Dot15d4Cmd].dest_addr == 0x1122334455667788
+assert pkt[Dot15d4Cmd].src_panid == 0x99aa
+assert pkt[Dot15d4Cmd].src_addr == 0x8899aabbccddeeff
+assert pkt[Dot15d4Cmd].cmd_id == 0x08
+assert Dot15d4CmdCoordRealign in pkt.layers()
+assert pkt[Dot15d4CmdCoordRealign].panid == 0x99aa
+assert pkt[Dot15d4CmdCoordRealign].coord_address == 0xc0de
+assert pkt[Dot15d4CmdCoordRealign].channel == 20
+assert pkt[Dot15d4CmdCoordRealign].dev_address == 0xdead
+assert Dot15d4CmdCoordRealignPage in pkt.layers()
+assert pkt[Dot15d4CmdCoordRealignPage].channel_page == 0
+assert raw(pkt[Dot15d4CmdCoordRealignPage].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0x98c8
+
+###################
+#### SixLoWPAN ####
+###################
+
++ SixLoWPAN tests
+
+= Set SixLoWPAN
+
+conf.dot15d4_protocol = "sixlowpan"
+
+= SixLoWPAN layers
+
+# a crazy packet with all classes in it!
+pkt = SixLoWPAN()/LoWPANFragmentationFirst()/LoWPANFragmentationSubsequent()/LoWPANMesh()/LoWPANUncompressedIPv6()
+assert SixLoWPAN in pkt.layers()
+assert LoWPANFragmentationFirst in pkt.layers()
+assert LoWPANFragmentationSubsequent in pkt.layers()
+assert LoWPANMesh in pkt.layers()
+assert LoWPANUncompressedIPv6 in pkt.layers()
+
+= Default dissection
+
+# some sample packet extracted
+
+lowpan_frag_first = b'\xc29\x00\x17`\x00\x00\x00\x00\x00\x00\x00 \x02\r\xb8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01 \x02\r\xb8\x00\x00\x00\x00\x00\x11"\xff\xfe3DU\xc4\xf9\x00Pw\x9b\x18\x9d\x00\x00\x01\xa2P\x18\x13X\x08\x10\x00\x00GET / HTTP/1.1\r\nHost: [aaaa::11:22ff'
+lowpan_frag_first_packet = SixLoWPAN(lowpan_frag_first)
+
+assert lowpan_frag_first_packet.load == b'\xc4\xf9\x00Pw\x9b\x18\x9d\x00\x00\x01\xa2P\x18\x13X\x08\x10\x00\x00GET / HTTP/1.1\r\nHost: [aaaa::11:22ff'
+
+= Frag second dissection
+
+lowpan_frag_second = b'\xe29\x00\x17\x0c`\x00\x00\x00\x00\x00\x00\x00 \x02\r\xb8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01 \x02\r\xb8\x00\x00\x00\x00\x00\x11"\xff\xfe3DUerer: http://[aaaa::11:22ff:fe33:4455]/sensor.shtml\r\nUse'
+lowpan_frag_sec_packet = SixLoWPAN(lowpan_frag_second)
+
+assert LoWPANFragmentationSubsequent in lowpan_frag_sec_packet
+assert lowpan_frag_sec_packet.datagramSize == 569
+assert lowpan_frag_sec_packet.datagramTag == 0x17
+
+= LoWPAN_IPHC dissections
+
+lowpan_iphc = b"\x78\xf6\x00\x06\x80\x00\x01\x00\x50\xc4\xf9\x00\x00\x02\x12\x77\x9b\x1a\x9a\x50\x18\x04\xc4\x12\xd5\x00\x00\x3c\x21\x44\x4f\x43\x54\x59\x50\x45\x20\x48\x54\x4d\x4c\x20\x50\x55\x42\x4c\x49\x43\x20\x22\x2d\x2f\x2f\x57\x33\x43\x2f\x2f\x44\x54\x44\x20\x48\x54\x4d\x4c\x20\x34\x2e\x30\x31\x20\x54\x72\x61\x6e\x73\x69\x74\x69\x6f\x6e\x61\x6c\x2f\x2f\x45\x4e\x22\x20\x22\x68\x74\x74\x70"
+lowpan_frag_iphc = LoWPAN_IPHC(lowpan_iphc)
+
+assert IPv6 in lowpan_frag_iphc
+assert lowpan_frag_iphc.load == b'<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http'
+
+p = LoWPAN_IPHC(tf=0x0, flowlabel=0x8, _nhField=0x3a, _hopLimit=64)/IPv6(dst="aaaa::11:22ff:fe33:4455", src="aaaa::1")/ICMPv6EchoRequest()
+p = LoWPAN_IPHC(raw(p))
+assert ICMPv6EchoRequest in p
+assert p.destinyAddr == "aaaa::11:22ff:fe33:4455"
+
+q = LoWPAN_IPHC(tf=0x0)
+assert raw(q) == b'`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= LoWPAN_IPHC - M=1, DAC=1, DAM=0
+
+p = Dot15d4(b'a\x88\x10"\x00\x13\x00\x16Pw\x9cB\xe6\x87`\x12\xe1\x08~\x04\x08\x00\x00\x00\xf0Q\xc7\x1bX\x9e\xf3\x00\x00\x00\x1c\xfa\xfa\xfa\xfa\xe7k')
+
+assert p.m == 1
+assert p.dac == 1
+assert p.dam == 0
+assert p.dst == "ff00::f0:51c7"
+
+p = Dot15d4(raw(p))
+assert p.dst == "ff00::f0:51c7"
+
+assert raw(p) == b'a\x88\x10"\x00\x13\x00\x16Pw\x9cB\xe6\x87`\x12\xe1\x08~\x04\x08\x00\x00\x00\xf0Q\xc7\x1bX\x9e\xf3\x00\x00\x00\x1c\xfa\xfa\xfa\xfa\xe7k'
+
+= LoWPAN_NHC - NHC_UDP
+
+p = Dot15d4(b'A\x88\x00"\x00\xff\xff\x13\x00};\x01\xf0\xda\xc9\xda\xc9\x85\x80\xc8\x00\x00\x00\x00\x00\x00\x00\xf2\xeb')
+
+assert LoWPAN_NHC in p
+assert p[LoWPAN_NHC].exts[0].udpSourcePort == 56009
+assert p[LoWPAN_NHC].exts[0].udpDestPort == 56009
+assert p[LoWPAN_NHC].exts[0].udpChecksum == 0x8580
+assert p[UDP].sport == 56009
+assert p[UDP].dport == 56009
+
+p.clear_cache()
+
+assert raw(p) == b'A\x88\x00"\x00\xff\xff\x13\x00};\x01\xf0\xda\xc9\xda\xc9\x85\x80\xc8\x00\x00\x00\x00\x00\x00\x00\xf2\xeb'
+
+= LoWPAN_NHC - compute UDP NHC_UDP
+
+p = Dot15d4()/Dot15d4Data()/LoWPAN_IPHC()/LoWPAN_NHC()/IPv6()/UDP(sport=61618, dport=61621)
+assert raw(p) == b'\x01\x08\x01\xff\xff\xff\xffd\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xf3%\x1et'
+
+assert p.exts[0].udpSourcePort == 2
+assert p.exts[0].udpDestPort == 5
+assert p.exts[0].udpChecksum == 0x1e74
+
+= LoWPAN_NHC - NHC_IPv6Ext
+
+p = Dot15d4(b'a\x88\x07"\x00\x16\x00\x13\x00|f\x10\x00\x13\x00\x12\xe1\x08~\x04\n\x00\x00\x00\xf0Q\xc7\x1bX\x9f\t\x00\x00\x00\t\xfa\xfa\xfa\xfa\xf0\xeb')
+
+assert LoWPAN_NHC in p
+assert p[LoWPAN_NHC].exts[0].eid == 0
+assert p[LoWPAN_NHC].exts[0].len == 8
+assert p[LoWPAN_NHC].exts[0].data == b'~\x04\n\x00\x00\x00\xf0Q'
+
+= LoWPAN_HC1 dissection & build
+
+dat = b'\x00"\x19\x100\xe5\x00\x1c\xda\x00\x00\x01\x08\x00E\x00\x00m\xc7\xf3\x00\x00@\x11W\x0f\xac\x10\x02)\xac\x10\x014EZEZ\x00Y\x8f\xaaEX\x02\x01\x00\x00\x01\x01\xff\x00\x0c\xd14\x7f\xc1H4\x00\x05\xc68\x00\x00\x00\x00\x00\x00\x00\x00\x00\x001A\xcc\xa5\xff\xff\x8a\x18\x00\xff\xff\xda\x1c\x00\x88\x18\x00\xff\xff\xda\x1c\x00B\xfb`@\x04\x01\x1f\x88\xc0Hello 005 0x626B\n\xa5\x0b'
+p = Ether(dat)
+p.clear_cache()
+
+assert p[LoWPAN_HC1].src == p[IPv6].src == 'fe80::21c:daff:ff00:1888'
+assert p[LoWPAN_HC1].dst == p[IPv6].dst == 'fe80::21c:daff:ff00:188a'
+assert p[LoWPAN_HC1].hopLimit == p[IPv6].hlim == 64
+assert p[LoWPAN_HC1].hc2Field.sc == 0
+assert p[LoWPAN_HC1].hc2Field.dc == 1
+assert p[LoWPAN_HC1].hc2Field.lc == 1
+assert p[IPv6].nh == socket.IPPROTO_UDP
+assert p[LoWPAN_HC1].udpSourcePort == p.getlayer(UDP, 2).sport == 1025
+assert p[LoWPAN_HC1].udpDestPort == p.getlayer(UDP, 2).dport == 61617
+assert p[LoWPAN_HC1].udpChecksum == p.getlayer(UDP, 2).chksum == 0xf88c
+assert p.getlayer(UDP, 2).len == 27
+
+assert raw(p) == dat
+
+= LoWPAN_HC1 build from scratch
+
+a = Dot15d4()/Dot15d4Data()/LoWPAN_HC1()/IPv6()/UDP()
+assert raw(a) == b'\x01\x08\x01\xff\xff\xff\xffB\x03\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x03P\x03P\x00\x8f\xf7 '
+
+a = Dot15d4(raw(a))
+assert a[LoWPAN_HC1].nh == 1
+assert a[LoWPAN_HC1].hc2 == 1
+assert a[LoWPAN_HC1].udpDestPort
+assert a[LoWPAN_HC1].udpSourcePort
+
+= Advanced packets - dissection & FCS computation
+
+# SAMPLE PACKETSS!!! IEEE 802.15.4 containing
+
+ieee802_firstfrag = b"\x41\xcc\xa3\xcd\xab\x16\x15\x14\xfe\xff\x13\x12\x02\x55\x44\x33\xfe\xff\x22\x11\x02\xc3\x42\x00\x23\x78\xf6\x00\x06\x80\x00\x01\x00\x50\xc4\xf9\x00\x00\x02\x12\x77\x9b\x1a\x9a\x50\x18\x04\xc4\x12\xd5\x00\x00\x3c\x21\x44\x4f\x43\x54\x59\x50\x45\x20\x48\x54\x4d\x4c\x20\x50\x55\x42\x4c\x49\x43\x20\x22\x2d\x2f\x2f\x57\x33\x43\x2f\x2f\x44\x54\x44\x20\x48\x54\x4d\x4c\x20\x34\x2e\x30\x31\x20\x54\x72\x61\x6e\x73\x69\x74\x69\x6f\x6e\x61\x6c\x2f\x2f\x45\x4e\x22\x20\x22\x68\x74\x74\x70\x39\xb5"
+ieee = Dot15d4FCS(ieee802_firstfrag)
+ieee.show()
+assert ieee.fcs == 0xb539
+
+del ieee.fcs
+ieee = Dot15d4FCS(raw(ieee))
+assert ieee.fcs == 0xb539
+
+
+ieee802_secfrag = b"\x41\xcc\x4d\xcd\xab\x55\x44\x33\xfe\xff\x22\x11\x02\x16\x15\x14\xfe\xff\x13\x12\x02\xe2\x39\x00\x17\x10\x69\x76\x65\x0d\x0a\x52\x65\x66\x65\x72\x65\x72\x3a\x20\x68\x74\x74\x70\x3a\x2f\x2f\x5b\x61\x61\x61\x61\x3a\x3a\x31\x31\x3a\x32\x32\x66\x66\x3a\x66\x65\x33\x33\x3a\x34\x34\x35\x35\x5d\x2f\x73\x65\x6e\x73\x6f\x72\x2e\x73\x68\x74\x6d\x6c\x0d\x0a\x55\x73\x65\x72\x2d\x41\x67\x65\x6e\x74\x3a\x20\x4d\x6f\x7a\x69\x6c\x6c\x61\x2f\x35\x2e\x30\x20\x28\x58\x31\x31\x3b\x20\x55\x3b\x20\x4c\x69\x66\xac"
+ieee = Dot15d4FCS(ieee802_secfrag)
+ieee.show()
+assert ieee.fcs == 0xac66
+
+del ieee.fcs
+ieee = Dot15d4FCS(raw(ieee))
+assert ieee.fcs == 0xac66
+
+ieee802_iphc = b"\x41\xcc\xb5\xcd\xab\x16\x15\x14\xfe\xff\x13\x12\x02\x55\x44\x33\xfe\xff\x22\x11\x02\x78\xf6\x00\x06\x80\x00\x01\x00\x50\xc4\xfa\x00\x00\x01\xf7\x89\xf3\x02\x5f\x50\x18\x04\xc4\x48\x28\x00\x00\x43\x6f\x6e\x74\x65\x6e\x74\x2d\x74\x79\x70\x65\x3a\x20\x74\x65\x78\x74\x2f\x63\x73\x73\x0d\x0a\x0d\x0a\xc1\x16"
+ieee = Dot15d4FCS(ieee802_iphc)
+ieee.show()
+assert ieee.fcs == 0x16c1
+
+assert ieee[LoWPAN_IPHC].dst == '::1'
+
+del ieee.fcs
+ieee = Dot15d4FCS(raw(ieee))
+assert ieee.fcs == 0x16c1
+
+= Dot15d4AuxSecurityHeader - build & dissect
+
+p = Dot15d4AuxSecurityHeader(b"\x04\x05\x00\x00\x00")
+assert p.sec_sc_keyidmode == 0
+assert p.sec_sc_seclevel == 4
+
+p = Dot15d4AuxSecurityHeader(b"\x18\x05\x00\x00\x00\xff\xee\xdd\xcc\xbb\xaa\x00\x99\x88\x77")
+assert p.sec_sc_keyidmode == 3
+assert p.sec_keyid_keysource == 11024999611375677183
+
+# RPL: unimplemented
+#p = SixLoWPAN(b"\x7b\x3b\x3a\x1a\x9b\x02\xae\x30\x21\x00\x00\xef\x05\x12\x00\x80\x20\x02\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x33\x44\x09\x04\x00\x00\x00\x00\x06\x04\x00\x01\xef\xff")
+#p.show2()
+
+= Fragmentate packet & defragmentate
+
+ipv6p = b"\x60\x00\x00\x00\x02\x11\x06\x80\x20\x02\x0d\xb8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01\x20\x02\x0d\xb8\x00\x00\x00\x00\x00\x11\x22\xff\xfe\x33\x44\x55"
+tcpp = b"\xc4\xf9\x00\x50\x77\x9b\x18\x9d\x00\x00\x01\xa2\x50\x18\x13\x58\x08\x10\x00\x00"
+httpp = b"\x47\x45\x54\x20\x2f\x20\x48\x54\x54\x50\x2f\x31\x2e\x31\x0d\x0a\x48\x6f\x73\x74\x3a\x20\x5b\x61\x61\x61\x61\x3a\x3a\x31\x31\x3a\x32\x32\x66\x66\x3a\x66\x65\x33\x33\x3a\x34\x34\x35\x35\x5d\x0d\x0a\x43\x6f\x6e\x6e\x65\x63\x74\x69\x6f\x6e\x3a\x20\x6b\x65\x65\x70\x2d\x61\x6c\x69\x76\x65\x0d\x0a\x52\x65\x66\x65\x72\x65\x72\x3a\x20\x68\x74\x74\x70\x3a\x2f\x2f\x5b\x61\x61\x61\x61\x3a\x3a\x31\x31\x3a\x32\x32\x66\x66\x3a\x66\x65\x33\x33\x3a\x34\x34\x35\x35\x5d\x2f\x73\x65\x6e\x73\x6f\x72\x2e\x73\x68\x74\x6d\x6c\x0d\x0a\x55\x73\x65\x72\x2d\x41\x67\x65\x6e\x74\x3a\x20\x4d\x6f\x7a\x69\x6c\x6c\x61\x2f\x35\x2e\x30\x20\x28\x58\x31\x31\x3b\x20\x55\x3b\x20\x4c\x69\x6e\x75\x78\x20\x69\x36\x38\x36\x3b\x20\x65\x6e\x2d\x55\x53\x29\x20\x41\x70\x70\x6c\x65\x57\x65\x62\x4b\x69\x74\x2f\x35\x33\x34\x2e\x31\x36\x20\x28\x4b\x48\x54\x4d\x4c\x2c\x20\x6c\x69\x6b\x65\x20\x47\x65\x63\x6b\x6f\x29\x20\x55\x62\x75\x6e\x74\x75\x2f\x31\x30\x2e\x31\x30\x20\x43\x68\x72\x6f\x6d\x69\x75\x6d\x2f\x31\x30\x2e\x30\x2e\x36\x34\x38\x2e\x31\x33\x33\x20\x43\x68\x72\x6f\x6d\x65\x2f\x31\x30\x2e\x30\x2e\x36\x34\x38\x2e\x31\x33\x33\x20\x53\x61\x66\x61\x72\x69\x2f\x35\x33\x34\x2e\x31\x36\x0d\x0a\x41\x63\x63\x65\x70\x74\x3a\x20\x61\x70\x70\x6c\x69\x63\x61\x74\x69\x6f\x6e\x2f\x78\x6d\x6c\x2c\x61\x70\x70\x6c\x69\x63\x61\x74\x69\x6f\x6e\x2f\x78\x68\x74\x6d\x6c\x2b\x78\x6d\x6c\x2c\x74\x65\x78\x74\x2f\x68\x74\x6d\x6c\x3b\x71\x3d\x30\x2e\x39\x2c\x74\x65\x78\x74\x2f\x70\x6c\x61\x69\x6e\x3b\x71\x3d\x30\x2e\x38\x2c\x69\x6d\x61\x67\x65\x2f\x70\x6e\x67\x2c\x2a\x2f\x2a\x3b\x71\x3d\x30\x2e\x35\x0d\x0a\x41\x63\x63\x65\x70\x74\x2d\x45\x6e\x63\x6f\x64\x69\x6e\x67\x3a\x20\x67\x7a\x69\x70\x2c\x64\x65\x66\x6c\x61\x74\x65\x2c\x73\x64\x63\x68\x0d\x0a\x41\x63\x63\x65\x70\x74\x2d\x4c\x61\x6e\x67\x75\x61\x67\x65\x3a\x20\x65\x6e\x2d\x55\x53\x2c\x65\x6e\x3b\x71\x3d\x30\x2e\x38\x0d\x0a\x41\x63\x63\x65\x70\x74\x2d\x43\x68\x61\x72\x73\x65\x74\x3a\x20\x49\x53\x4f\x2d\x38\x38\x35\x39\x2d\x31\x2c\x75\x74\x66\x2d\x38\x3b\x71\x3d\x30\x2e\x37\x2c\x2a\x3b\x71\x3d\x30\x2e\x33\x0d\x0a\x0d\x0a"
+ipv6_tcp_http = IPv6(ipv6p + tcpp + httpp)
+pkt = sixlowpan_fragment(ipv6_tcp_http, 0x17)
+
+assert len(pkt) == 6
+assert isinstance(pkt[0], LoWPANFragmentationFirst)
+assert all(isinstance(x, LoWPANFragmentationSubsequent) for x in pkt[1:])
+
+ipv6 = sixlowpan_defragment(pkt)[0x17]
+assert TCP in ipv6
+assert raw(ipv6_tcp_http) == raw(ipv6)
+
+= Mesh Header.
+# DOESN'T WORK! (In wireshark it reports, malformed packet)
+
+######## TODO ########
+
+#packet = SixLoWPAN(b"\x83\x00\x0a\x00\xff\x0a\x11\x78\x04\x00\x28\x00\x00\x00\x80\x00")
+#packet.show2()
+
+= SixLoWPAN - Advanced 1
+
+packet = LoWPAN_IPHC(b"\x7b\x49\x3a\x02\x01\xff\x02\x02\x02\x87\x00\x02\x0b\x00\x00\x00\x00\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x12\x74\x02\x00\x02\x02\x02")
+assert packet._nhField == 0x3a
+assert packet.src == "::"
+assert packet.dst == "ff02::1:ff02:202"
+
+= SixLoWPAN - Advanced 2
+
+packet = SixLoWPAN(b"\x7b\x49\x3a\x02\x01\xff\x01\x01\x01\x87\x00\x57\xe6\x00\x00\x00\x00\xaa\xaa\x00\x00\x00\x00\x00\x00\x02\x12\x74\x01\x00\x01\x01\x01")
+assert packet._nhField == 0x3a
+assert packet.sourceAddr == "::"
+assert packet.destinyAddr == "ff02::1:ff01:101"
+
+= SixLoWPAN - Advanced 3
+
+packet = Ether()/IP()/UDP()/ZEP2()/Dot15d4(fcf_srcaddrmode=2)/Dot15d4Data(src_addr=0x0)/b"\x7b\x33\x3a\x88\x00\x3c\xb9\x60\x00\x00\x00\xfe\x80\x00\x00\x00\x00\x00\x00\x02\x12\x74\x02\x00\x02\x02\x02\x02\x02\x00\x12\x74\x02\x00\x02\x02\x02\x00\x00\x00\x00\x00\x00"
+packet = Ether(raw(packet))
+packet.show2()
+assert packet.sourceAddr == 'fe80::ff:fe00:0'
+assert packet.destinyAddr == 'fe80::ff:fe00:ffff'
+
+= SixLoWPAN - Using ICMP
+
+#ICMP: Neighbour Solicitation
+icmp = b"\x7b\xf6\x00\x3a\x00\x01\x87\x00\xaa\x66\x00\x00\x00\x00\xaa\xaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01\x02\x02\x11\x22\xff\xfe\x33\x44\x55\x00\x00\x00\x00\x00\x00"
+packet = SixLoWPAN(icmp)
+#packet.show2()
+assert packet.tf == 0x3
+assert packet.nh == 0
+assert packet.hlim == 0x3
+assert packet.cid == True
+assert packet.sac == True
+assert packet.sam == 0x3
+assert packet.m == False
+assert packet.dac == True
+assert packet.dam == 0x2
+assert packet._nhField == 0x3a
+
+= LoWPAN_IPHC - Extracted packet
+icmp = Ether()/IP()/UDP()/ZEP2()/Dot15d4(fcf_srcaddrmode=2)/Dot15d4Data(src_addr=0xFFFF)/b"\x7b\x3b\x3a\x01\x86\x00\xd3\xfd\x80\x00\x00\xc8\x00\x05\x7e\x40\x00\x00\x00\x00\x03\x04\x40\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\xaa\xaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x01\x00\x00\x00\x00\x05\x00\x01\x02\x02\x12\x13\xff\xfe\x14\x15\x16\x7b\x66\x6f\x6e\x74\x2d"
+packet = Ether(raw(icmp))
+assert packet[LoWPAN_IPHC][IPv6].dst == 'ff02::1'
+
+#the same message with ethernet header
+eth = Ether()/IP()/UDP()/ZEP2()/Dot15d4()/Dot15d4Data()/b"\x41\xc8\x49\xcd\xab\xff\xff\x16\x15\x14\xfe\xff\x13\x12\x02\x7b\x3b\x3a\x01\x86\x00\xd3\xfd\x80\x00\x00\xc8\x00\x05\x7e\x40\x00\x00\x00\x00\x03\x04\x40\xc0\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\xaa\xaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x01\x00\x00\x00\x00\x05\x00\x01\x02\x02\x12\x13\xff\xfe\x14\x15\x16\x7b\x66\x6f\x6e\x74\x2d\xa0\x90"
+packet = Ether(raw(eth))
+assert LoWPANUncompressedIPv6 in packet
+
+= LoWPAN_IPHC - Extracted packet 2
+
+#NOTE: this is not a real package, it's the first fragment from a udp packet
+# extracted from 6lowpan-test.pcap
+udp = Ether()/IP()/UDP()/ZEP2()/Dot15d4()/Dot15d4Data()/b"\x7e\xf7\x00\xf0\x22\x3d\x16\x2e\x8e\x60\x10\x03\x00\x00\xaa\xaa\x00\x00\x00\x00\x00\x00\x48\x65\x6c\x6c\x6f\x20\x31\x20\x66\x72\x6f\x6d\x20\x74\x68\x65\x20\x63\x6c\x69\x65\x6e\x74\x2e\x2d\x2e\x2d\x2e\x2d\x20\x30\x20\x33\x34\x35\x36\x37\x38\x39\x20\x31\x20\x33\x34\x35\x36\x37\x38\x39\x20\x32\x20\x33\x34\x35\x36\x37\x38\x39\x20\x33\x20\x33\x34\x35\x36\x37\x38\x39\x20\x34\x20\x33\x34\x35\x36"
+packet = Ether(raw(udp))
+assert packet.exts[0].udpSourcePort == 8765
+assert packet.exts[0].udpDestPort == 5678
+assert packet.exts[0].udpChecksum == 0x8e60
+assert packet[IPv6].nh == 0x11 # the ipv6 header
+assert packet[IPv6][UDP].sport == 8765 #udp decompressed header
+assert packet[IPv6][UDP].dport == 5678 #udp decompressed header
+assert packet[IPv6][UDP].chksum == 0x8e60 #udp decompressed header
+packet.show2()
+
+= SixLoWPAN - Check Traffic Class and Flow Label when TF=0
+packet = SixLoWPAN()/LoWPAN_IPHC(tf=0)/IPv6(tc = 12, fl=467)
+packet = SixLoWPAN(raw(packet))
+assert (packet.tc_ecn << 6) + packet.tc_dscp == 12
+assert packet.flowlabel == 467
+
+= SixLoWPAN - Check Traffic Class and Flow Label when TF=1
+
+packet = SixLoWPAN()/LoWPAN_IPHC(tf=1)/IPv6(tc = 12, fl=467)
+packet = SixLoWPAN(raw(packet))
+assert packet.tc_ecn == 0 and packet.flowlabel == 467
+
+= SixLoWPAN - Check Traffic Class and Flow Label when TF=2
+
+packet = SixLoWPAN()/LoWPAN_IPHC(tf=2)/IPv6(tc = 12, fl=467)
+packet = SixLoWPAN(raw(packet))
+assert (packet.tc_ecn << 6) + packet.tc_dscp == 12 and packet.flowlabel is None
+packet = SixLoWPAN()/LoWPAN_IPHC(tf=3)/IPv6(tc = 12, fl=467)
+packet = SixLoWPAN(raw(packet))
+assert packet.tc_ecn is None and packet.tc_dscp is None and packet.flowlabel is None
+
+#TODO: Next Header Test
+
+= SixLoWPAN - Checking the Hop Limit value in the IPv6 packet decompressed
+packet = SixLoWPAN()/LoWPAN_IPHC()/IPv6(tc = 12, fl=467, hlim=65)/ICMPv6EchoRequest()
+packet = SixLoWPAN(raw(packet))
+assert packet[IPv6].hlim == 65
+packet = SixLoWPAN()/LoWPAN_IPHC(hlim=1)/IPv6(tc = 12, fl=467, hlim=65)/ICMPv6EchoRequest()
+packet = SixLoWPAN(raw(packet))
+assert packet[IPv6].hlim == 1
+packet = SixLoWPAN()/LoWPAN_IPHC(hlim=2)/IPv6(tc = 12, fl=467, hlim=65)/ICMPv6EchoRequest()
+packet = SixLoWPAN(raw(packet))
+assert packet[IPv6].hlim == 64
+packet = SixLoWPAN()/LoWPAN_IPHC(hlim=3)/IPv6(tc = 12, fl=467, hlim=65)/ICMPv6EchoRequest()
+packet = SixLoWPAN(raw(packet))
+assert packet[IPv6].hlim == 255
+
+#TODO: Context Test
+
+= SixLoWPAN - Check Source Address
+packet = SixLoWPAN()/LoWPAN_IPHC(sam = 0, sac = 0, destinyAddr='ff02::1a')/IPv6(hlim=65, src="aaaa::1", dst="ff02::1a")/ICMPv6EchoRequest()
+packet = SixLoWPAN(raw(packet))
+assert packet.sourceAddr == "aaaa::1"
+assert packet.destinyAddr == "ff02::1a"
+
+= SixLoWPAN over Ethernet
+# See https://github.com/secdev/scapy/issues/2716
+packet = Ether(b'\xff\xff\xff\xff\xff\xffPQRg\x15i\xa0\xed~;\x02\xf0\x1f\x90\x1f\x90\x03Qtesttext2')
+assert LoWPAN_IPHC in packet
+assert packet[LoWPAN_IPHC].src == "fe80::5051:52ff:fe67:1569"
+assert packet[LoWPAN_IPHC].dst == "ff02::2"
+assert packet[UDP].dport == packet[UDP].sport == 8080
+
+
++ Dot15d4 with SixLoWPAN - Advanced dissection
+
+= Compressed SixLoWPAN - real packets with ZEP2
+
+basic_ipv6 = b'\x00"\x19\x100\xe5\x00\x1c\xda\x00\x10\x04\x08\x00E\x00\x00g>\x0c\x00\x00@\x11\xe1\x95\xac\x10\x01\x90\xac\x10\x014EZEZ\x00S\xda\x93EX\x02\x01\x03\x00Y\x01\xff\x00\x02\xab\xa2\x81\xba\xc2\xdf\x00\x00<\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00+A\x88U\xaa\x1b\xff\xfffU{;:\x1a\x9b\x01uE\x00\xf1\x03Z\x8b\xf0\x00\x00\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x11"lF'
+ack_frame = b'\x00"\x19\x100\xe5\x00\x1c\xda\x00\x10\x04\x08\x00E\x00\x00A>\x0e\x00\x00@\x11\xe1\xb9\xac\x10\x01\x90\xac\x10\x014EZEZ\x00-d7EX\x02\x01\x03\x00Y\x01\xff\x00\x02\xab\xa8\x84\xcb\x07\xd0\x00\x00<\x16\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x02\x00[\xeeY'
+router_adv = b'\x00"\x19\x100\xe5\x00\x1c\xda\x00\x10\x04\x08\x00E\x00\x00\xab>F\x00\x00@\x11\xe1\x17\xac\x10\x01\x90\xac\x10\x014EZEZ\x00\x97\x81\xb0EX\x02\x01\x03\x00Y\x01\xff\x00\x02\xab\xe8E\xce\xbf\xec\x00\x00<N\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00oA\x88_\xaa\x1b\xff\xfffU{;:\x01\x86\x00\xbe\x87@\x00\x07\x08\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01Uf\x00\x00\x00\x00!\x03\x00\x00\x00\x00\x00\x01\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x11"\x03\x04@@\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x02@\x10\x00\x00\x00\x03\xfd\x00\x00\x00\x00\x00\x00\x00\xc27'
+
+pkt_1 = Ether(basic_ipv6)
+pkt_2 = Ether(ack_frame)
+pkt_3 = Ether(router_adv)
+
+assert ZEP2 in pkt_1
+assert pkt_1[LoWPAN_IPHC].sourceAddr == "fe80::ff:fe00:5566"
+
+assert ZEP2 in pkt_2
+assert Dot15d4Ack in pkt_2
+
+assert ZEP2 in pkt_3
+assert ICMPv6NDOptSrcLLAddr in pkt_3
+assert pkt_3[Dot15d4Data].dest_panid == 0x1baa
+
+= SixLoWPAN - Using ETH
+
+# It requires the ETH message
+lowpan_iphc_header = Ether()/IP()/UDP()/ZEP2()/Dot15d4()/Dot15d4Data()/b"\x78\xe7\x00\x06\x80\x00\x01"
+packet = Ether(raw(lowpan_iphc_header))
+assert packet.tf == 0x3
+assert packet.nh == 0
+assert packet.hlim == 0x0
+assert packet.cid == True
+assert packet.sac == True
+assert packet.sam == 0x2
+assert packet.m == 0x0
+assert packet.dac == 0x1
+assert packet.dam == 0x03
+assert packet._nhField == 0x06
+assert packet._hopLimit == 128
+
+= SixLoWPAN - Using ETH 2
+
+# It requires the ETH message
+lowpan_iphc_header = Ether()/IP()/UDP()/ZEP2()/Dot15d4()/Dot15d4Data()/b"\x78\xf6\x00\x06\x80\x00\x01"
+packet = Ether(raw(lowpan_iphc_header))
+assert packet.tf == 0x3
+assert packet.nh == 0
+assert packet.hlim == 0x0
+assert packet.cid == True
+assert packet.sac == True
+assert packet.sam == 0x3
+assert packet.m == 0x0
+assert packet.dac == 0x1
+assert packet.dam == 0x02
+assert packet._nhField == 0x06
+assert packet._hopLimit == 128
+
+= SixLoWPAN - Using ETH 3
+
+lowpan_iphc_header = Ether()/IP()/UDP()/ZEP2()/Dot15d4()/Dot15d4Data()/b"\x78\xe7\x00\x06\x80\x00\x01"
+packet = Ether(raw(lowpan_iphc_header))
+assert packet.tf == 0x3
+assert packet.nh == 0
+assert packet.hlim == 0x0
+assert packet.cid == True
+assert packet.sac == True
+assert packet.sam == 0x2
+assert packet.m == 0x0
+assert packet.dac == 0x1
+assert packet.dam == 0x03
+assert packet._nhField == 0x06
+assert packet._hopLimit == 128
+packet.show2()
+
+
+###################
+#### Zigbee ####
+###################
+
++ Zigbee tests
+
+= Set zigbee
+
+conf.dot15d4_protocol = "zigbee"
+
+= ZigbeeNWKStub - ZigbeeNWK dispatch_hook
+
+pkt = Dot15d4()/Dot15d4Data()/ZigbeeNWKStub()
+pkt = Dot15d4(raw(pkt))
+assert ZigbeeNWKStub in pkt
+
+= Zigbee - ZCLGeneralReadAttributesResponse 
+
+pkt = ZigbeeClusterLibrary()/ZCLGeneralReadAttributesResponse(read_attribute_status_record=[ZCLReadAttributeStatusRecord(attribute_data_type=0x08, attribute_value=b"\xee")])
+pkt = ZigbeeClusterLibrary(raw(pkt))
+assert ZCLGeneralReadAttributesResponse in pkt
+assert pkt.read_attribute_status_record[0].attribute_data_type == 0x08
+assert pkt.read_attribute_status_record[0].attribute_value == b'\xee'
+assert raw(pkt) == b'\x00\x00\x01\x00\x00\x00\x08\xee'
+
+= Zigbee - ZigbeeAppDataPayload
+
+pkt = ZigbeeAppDataPayload(b'@\x01\x00\x00\x04\x01\x01\r\x18 \x01\x00\x00\x00 \x01\x04\x00\x00B\x07sengled')
+
+assert ZigbeeClusterLibrary in pkt
+assert ZCLGeneralReadAttributesResponse in pkt
+assert pkt.command_identifier == 1
+assert len(pkt.read_attribute_status_record) == 2
+
+assert pkt.read_attribute_status_record[0].status == 0
+assert pkt.read_attribute_status_record[0].attribute_data_type == 0x20
+assert pkt.read_attribute_status_record[0].attribute_value == b'\x01'
+
+assert pkt.read_attribute_status_record[1].status == 0
+assert pkt.read_attribute_status_record[1].attribute_data_type == 0x42
+assert pkt.read_attribute_status_record[1].attribute_value == b'\x07sengled'
+
+= Zigbee - advanced dissection
+
+import os
+tmp = "/test/pcaps/zigbee-join-authenticate.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+a = rdpcap(filename)
+
+pkt1 = a[0]  # Data
+pkt2 = a[1]  # Command
+pkt3 = a[2]  # Beacon
+pkt4 = a[38]  # ack
+
+assert Dot15d4 in pkt1
+assert ZigbeeNWK in pkt1
+assert ZigbeeSecurityHeader in pkt1
+assert pkt1[ZigbeeNWK].flags == 18
+assert pkt1[ZigbeeNWK].ext_src == 3781220488824152
+f,v = pkt1[ZigbeeNWK].getfield_and_val("ext_src")
+assert f.i2repr(None, v) == "00:0d:6f:00:00:0d:c5:58"
+assert pkt1[ZigbeeSecurityHeader].source == 3781220488824152
+assert pkt1[ZigbeeSecurityHeader].key_type == 1
+assert pkt1[ZigbeeSecurityHeader].extended_nonce == 1
+
+assert Dot15d4 in pkt2
+assert Dot15d4Cmd in pkt2
+assert pkt2[Dot15d4Cmd].dest_addr == 0xffff
+assert pkt2[Dot15d4Cmd].dest_panid == 0xffff
+assert pkt2[Dot15d4Cmd].cmd_id == 7
+
+assert Dot15d4 in pkt3
+assert Dot15d4Beacon in pkt3
+assert ZigBeeBeacon in pkt3
+assert pkt3[Dot15d4Beacon].src_panid == 0x1ff
+assert pkt3[ZigBeeBeacon].nwkc_protocol_version== 2
+assert pkt3[ZigBeeBeacon].extended_pan_id == 125823003551091
+f,v = pkt3[ZigBeeBeacon].getfield_and_val("extended_pan_id")
+assert f.i2repr(None, v) == "00:00:72:6f:73:6e:65:73"
+assert pkt3[ZigBeeBeacon].tx_offset == 16777215
+
+= Zigbee - skke_1 transport key
+
+tmp = "/test/pcaps/zigbee-transport-key-skke_1.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+a = rdpcap(filename)
+
+pkt1 = a[0]  # AppCommandPayload with transport key
+
+assert Dot15d4FCS in pkt1
+assert ZigbeeNWK in pkt1
+assert ZigbeeAppDataPayload in pkt1
+assert ZigbeeAppCommandPayload in pkt1
+assert pkt1[ZigbeeAppCommandPayload].cmd_identifier == 5
+f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("cmd_identifier")
+assert f.i2repr(None, v) == "APS_CMD_TRANSPORT_KEY"
+assert pkt1[ZigbeeAppCommandPayload].key == b"&Tkr;9jr{]RqQ}9/"
+assert pkt1[ZigbeeAppCommandPayload].key_seqnum == 0
+assert pkt1[ZigbeeAppCommandPayload].dest_addr == 4502500120025882
+f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("dest_addr")
+assert f.i2repr(None, v) == "00:0f:ff:00:00:41:5b:1a"
+assert pkt1[ZigbeeAppCommandPayload].src_addr == 18446744073709551615
+f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("src_addr")
+assert f.i2repr(None, v) == "ff:ff:ff:ff:ff:ff:ff:ff"
+
+= Zigbee - Link Status
+
+pkt = ZigbeeNWKCommandPayload(b'\x08c\x00\x00\x11\xad\xde\x11\xde\xc0\x11')
+assert ZigbeeNWKCommandPayload in pkt.layers()
+assert pkt[ZigbeeNWKCommandPayload].cmd_identifier == 0x08
+assert pkt[ZigbeeNWKCommandPayload].entry_count == 3
+assert pkt[ZigbeeNWKCommandPayload].first_frame == 1
+assert pkt[ZigbeeNWKCommandPayload].last_frame == 1
+assert len(pkt[ZigbeeNWKCommandPayload].link_status_list) == 3
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[0].neighbor_network_address == 0x0000
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[0].incoming_cost == 1
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[0].outgoing_cost == 1
+assert raw(pkt[ZigbeeNWKCommandPayload].link_status_list[0].payload) == b''
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[1].neighbor_network_address == 0xdead
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[1].incoming_cost == 1
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[1].outgoing_cost == 1
+assert raw(pkt[ZigbeeNWKCommandPayload].link_status_list[1].payload) == b''
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[2].neighbor_network_address == 0xc0de
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[2].incoming_cost == 1
+assert pkt[ZigbeeNWKCommandPayload].link_status_list[2].outgoing_cost == 1
+assert raw(pkt[ZigbeeNWKCommandPayload].link_status_list[2].payload) == b''
+assert raw(pkt[ZigbeeNWKCommandPayload].payload) == b''
+
+= Zigbee - End Device Timeout Request
+
+pkt = ZigbeeNWKCommandPayload(b'\x0b\x03\x00')
+assert ZigbeeNWKCommandPayload in pkt.layers()
+assert pkt[ZigbeeNWKCommandPayload].cmd_identifier == 0x0b
+assert pkt[ZigbeeNWKCommandPayload].req_timeout == 3
+assert pkt[ZigbeeNWKCommandPayload].ed_conf == 0
+assert raw(pkt[ZigbeeNWKCommandPayload].payload) == b''
+
+= Zigbee - End Device Timeout Response
+
+pkt = ZigbeeNWKCommandPayload(b'\x0c\x00\x03')
+assert ZigbeeNWKCommandPayload in pkt.layers()
+assert pkt[ZigbeeNWKCommandPayload].cmd_identifier == 0x0c
+assert pkt[ZigbeeNWKCommandPayload].status == 0
+assert pkt[ZigbeeNWKCommandPayload].mac_data_poll_keepalive == 1
+assert pkt[ZigbeeNWKCommandPayload].ed_timeout_req_keepalive == 1
+assert raw(pkt[ZigbeeNWKCommandPayload].payload) == b''
+
+= Zigbee - Transport Key
+
+pkt = ZigbeeAppCommandPayload(b'\x05\x01\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x00\x88wfUD3"\x11\xff\xee\xdd\xcc\xbb\xaa\x99\x88')
+assert ZigbeeAppCommandPayload in pkt.layers()
+assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x05
+assert pkt[ZigbeeAppCommandPayload].key_type == 1
+assert pkt[ZigbeeAppCommandPayload].key == b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f'
+assert pkt[ZigbeeAppCommandPayload].key_seqnum == 0
+assert pkt[ZigbeeAppCommandPayload].dest_addr == 0x1122334455667788
+assert pkt[ZigbeeAppCommandPayload].src_addr == 0x8899aabbccddeeff
+assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
+
+= Zigbee - Request Key
+
+pkt = ZigbeeAppCommandPayload(b'\x08\x04')
+assert ZigbeeAppCommandPayload in pkt.layers()
+assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x08
+assert pkt[ZigbeeAppCommandPayload].key_type == 0x04
+assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
+
+= Zigbee - Tunnel
+
+pkt = ZigbeeAppCommandPayload(b'\x0e\x88wfUD3"\x11!\xe20\x0bP\x00\x00\xff\xee\xdd\xcc\xbb\xaa\x99\x88\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc')
+assert ZigbeeAppCommandPayload in pkt.layers()
+assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x0e
+assert pkt[ZigbeeAppCommandPayload].dest_addr == 0x1122334455667788
+assert pkt[ZigbeeAppCommandPayload].aps_frametype == 1
+assert pkt[ZigbeeAppCommandPayload].delivery_mode == 0
+assert pkt[ZigbeeAppCommandPayload].frame_control == 0b0010
+assert ZigbeeSecurityHeader in pkt.layers()
+assert raw(pkt[ZigbeeSecurityHeader]) == b'0\x0bP\x00\x00\xff\xee\xdd\xcc\xbb\xaa\x99\x88\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc'
+
+= Zigbee - Verify Key
+
+pkt = ZigbeeAppCommandPayload(b'\x0f\x04\x88wfUD3"\x11\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f')
+assert ZigbeeAppCommandPayload in pkt.layers()
+assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x0f
+assert pkt[ZigbeeAppCommandPayload].key_type == 0x04
+assert pkt[ZigbeeAppCommandPayload].address == 0x1122334455667788
+assert pkt[ZigbeeAppCommandPayload].key_hash == b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f'
+assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
+
+= Zigbee - Confirm Key
+
+pkt = ZigbeeAppCommandPayload(b'\x10\x00\x04\x88wfUD3"\x11')
+assert ZigbeeAppCommandPayload in pkt.layers()
+assert pkt[ZigbeeAppCommandPayload].cmd_identifier == 0x10
+assert pkt[ZigbeeAppCommandPayload].status == 0
+assert pkt[ZigbeeAppCommandPayload].key_type == 0x04
+assert pkt[ZigbeeAppCommandPayload].address == 0x1122334455667788
+assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
+
+= Zigbee - APS acknowledgment (with the Acknowledgment Format enabled)
+pkt = ZigbeeAppDataPayload(b'\x12\xa8')
+assert ZigbeeAppDataPayload in pkt.layers()
+assert pkt[ZigbeeAppDataPayload].aps_frametype == 2
+assert pkt[ZigbeeAppDataPayload].delivery_mode == 0
+assert pkt[ZigbeeAppDataPayload].frame_control == 0b0001
+assert pkt[ZigbeeAppDataPayload].counter == 168
+assert raw(pkt[ZigbeeAppDataPayload].payload) == b''
+
+= Zigbee - APS acknowledgment (with the Acknowledgment Format disabled)
+pkt = ZigbeeAppDataPayload(b'\x02\x00\x02\x00\x00\x00\x00\xa6')
+assert ZigbeeAppDataPayload in pkt.layers()
+pkt.show()
+assert pkt[ZigbeeAppDataPayload].aps_frametype == 2
+assert pkt[ZigbeeAppDataPayload].delivery_mode == 0
+assert pkt[ZigbeeAppDataPayload].frame_control == 0b0000
+assert pkt[ZigbeeAppDataPayload].dst_endpoint == 0
+assert pkt[ZigbeeAppDataPayload].cluster == 0x0002
+assert pkt[ZigbeeAppDataPayload].profile == 0x0000
+assert pkt[ZigbeeAppDataPayload].src_endpoint == 0
+assert pkt[ZigbeeAppDataPayload].counter == 166
+assert raw(pkt[ZigbeeAppDataPayload].payload) == b''
+
+= Zigbee - ZDP command
+pkt = ZigbeeAppDataPayload(b'\x08\x006\x00\x00\x00\x00\xb5\x01\x14\x01')
+assert ZigbeeAppDataPayload in pkt.layers()
+assert pkt[ZigbeeAppDataPayload].aps_frametype == 0
+assert pkt[ZigbeeAppDataPayload].delivery_mode == 2
+assert pkt[ZigbeeAppDataPayload].frame_control == 0b0000
+assert pkt[ZigbeeAppDataPayload].dst_endpoint == 0
+assert pkt[ZigbeeAppDataPayload].cluster == 0x0036
+assert pkt[ZigbeeAppDataPayload].profile == 0x0000
+assert pkt[ZigbeeAppDataPayload].src_endpoint == 0
+assert pkt[ZigbeeAppDataPayload].counter == 181
+assert ZigbeeDeviceProfile in pkt.layers()
+assert raw(pkt[ZigbeeDeviceProfile]) == b'\x01\x14\x01'
+
+= Zigbee - ZCL command
+pkt = ZigbeeAppDataPayload(b'@\x01\n\x00\x04\x01\x01\x9d\x00\x00\x00\x00\x00')
+assert ZigbeeAppDataPayload in pkt.layers()
+assert pkt[ZigbeeAppDataPayload].aps_frametype == 0
+assert pkt[ZigbeeAppDataPayload].delivery_mode == 0
+assert pkt[ZigbeeAppDataPayload].frame_control == 0b0100
+assert pkt[ZigbeeAppDataPayload].dst_endpoint == 1
+assert pkt[ZigbeeAppDataPayload].cluster == 0x000a
+assert pkt[ZigbeeAppDataPayload].profile == 0x0104
+assert pkt[ZigbeeAppDataPayload].src_endpoint == 1
+assert pkt[ZigbeeAppDataPayload].counter == 157
+assert ZigbeeClusterLibrary in pkt.layers()
+assert raw(pkt[ZigbeeClusterLibrary]) == b'\x00\x00\x00\x00\x00'

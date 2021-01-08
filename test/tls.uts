@@ -979,6 +979,106 @@ assert(rec_fin.mac == b'\xecguD\xa8\x87$<7+\n\x94\x1e9\x96\xfa')
 assert(isinstance(rec_fin.msg[0], _TLSEncryptedContent))
 rec_fin.msg[0].load == b'7\\)`\xaa`\x7ff\xcd\x10\xa9v\xa3*\x17\x1a'
 
+= Building x25519 ecdh_Yc
+
+from scapy.layers.tls.record import TLS
+from scapy.layers.tls.handshake import TLSClientKeyExchange
+
+cli_hello = hex_bytes('160303008f0100008b0303000027104268d53e923ce05aa04cb21b8fe33aed93266c00bd1f13ea6a6dad24000018c02cc02bc030c02fc024c023c028c027c00ac009c014c0130100004a00000013001100000e7777772e676f6f676c652e636f6d000500050100000000000a00080006001d00170018000b00020100000d00140012040105010201040305030203020206010603')
+ser_hello = hex_bytes('16030300520200004e03035f9b52e4206fdc2410d1d482905c9b45a204641d9d856afb444f574e4752440120c4d1479e11a26edf0dbcb07e7a5f7d41c3d7b500015ff8c1ceed473bf457b193c02b000006000b0002010016030309270b0009230009200004cc308204c8308203b0a003020102021100b2fe3f66ac447c9f02000000007d9a03300d06092a864886f70d01010b05003042310b3009060355040613025553311e301c060355040a1315476f6f676c65205472757374205365727669636573311330110603550403130a47545320434120314f31301e170d3230313030363036343132305a170d3230313232393036343132305a3068310b3009060355040613025553311330110603550408130a43616c69666f726e6961311630140603550407130d4d6f756e7461696e205669657731133011060355040a130a476f6f676c65204c4c43311730150603550403130e7777772e676f6f676c652e636f6d3059301306072a8648ce3d020106082a8648ce3d030107034200046a7c4a9d35904b2b1b3f7c7326ff2adfb1bcb273b2a1a02003978dd1df8cecce5094e2309201fcd2294270ef359f4bdea177665d9e7321586682392ccc93ac89a382025c30820258300e0603551d0f0101ff04040302078030130603551d25040c300a06082b06010505070301300c0603551d130101ff04023000301d0603551d0e041604145d7ced1d850e92337bf7a0602ae3dd70668b895b301f0603551d2304183016801498d1f86e10ebcf9bec609f18901ba0eb7d09fd2b306806082b06010505070101045c305a302b06082b06010505073001861f687474703a2f2f6f6373702e706b692e676f6f672f677473316f31636f7265302b06082b06010505073002861f687474703a2f2f706b692e676f6f672f677372322f475453314f312e63727430190603551d1104123010820e7777772e676f6f676c652e636f6d30210603551d20041a30183008060667810c010202300c060a2b06010401d67902050330330603551d1f042c302a3028a026a0248622687474703a2f2f63726c2e706b692e676f6f672f475453314f31636f72652e63726c30820104060a2b06010401d6790204020481f50481f200f0007600b21e05cc8ba2cd8a204e8766f92bb98a2520676bdafa70e7b249532def8b905e00000174fcdb8af4000004030047304502207610c2e9b008b8ebf2f27a1e65631b8ae7534294c60f55a4c78c9e4927f56a23022100b61c72d94468cd6b4e376ea5d2ba7a6605a765c575f6a536b819a2d8031be4f7007600e712f2b0377e1a62fb8ec90c6184f1ea7b37cb561d11265bf3e0f34bf241546e00000174fcdb8af7000004030047304502204aae6373290fd01ad53e8ff9d6ef4f21d0badc0e65fef15c52c8f6af9468e12f022100c77dff6b266313b172ef8815beff3032d6058129baaa767361fe95e2c541ad81300d06092a864886f70d01010b05000382010100657bfcc7fd99ffed6f032bb056dc7712ec3ea437cf17750db8527ae0dcdd630f3ec4b2b95b7d482cc3a94082351117e45362319a842556954160d34c9019cc3cd312073ce540d031c4bf197b924a139b0e91bffc168a80c1641834445c509d6edf2daf8a247b72104b184968ef25cc260c75b28f470fc355477ac403da12701556e6e7550a38346f444238a154f1efb1a1a297eff39e35d76bc285599d19b0bd475d6f1daba94f1365dbc930041a79ca2df1bb724d53e4fb8831b8dc486522ee7d8eee0e1fea658352736fe949fcb233c08a3b9e14abc56a5556f9b469925cb5916ed058a4cf332c4c13a75ca83850773f9182ad95fadff51203c08e684df63b00044e3082044a30820332a003020102020d01e3b49aa18d8aa981256950b8300d06092a864886f70d01010b0500304c3120301e060355040b1317476c6f62616c5369676e20526f6f74204341202d205232311330110603')
+ser_cert = hex_bytes('16030309270b0009230009200004cc308204c8308203b0a003020102021100b2fe3f66ac447c9f02000000007d9a03300d06092a864886f70d01010b05003042310b3009060355040613025553311e301c060355040a1315476f6f676c65205472757374205365727669636573311330110603550403130a47545320434120314f31301e170d3230313030363036343132305a170d3230313232393036343132305a3068310b3009060355040613025553311330110603550408130a43616c69666f726e6961311630140603550407130d4d6f756e7461696e205669657731133011060355040a130a476f6f676c65204c4c43311730150603550403130e7777772e676f6f676c652e636f6d3059301306072a8648ce3d020106082a8648ce3d030107034200046a7c4a9d35904b2b1b3f7c7326ff2adfb1bcb273b2a1a02003978dd1df8cecce5094e2309201fcd2294270ef359f4bdea177665d9e7321586682392ccc93ac89a382025c30820258300e0603551d0f0101ff04040302078030130603551d25040c300a06082b06010505070301300c0603551d130101ff04023000301d0603551d0e041604145d7ced1d850e92337bf7a0602ae3dd70668b895b301f0603551d2304183016801498d1f86e10ebcf9bec609f18901ba0eb7d09fd2b306806082b06010505070101045c305a302b06082b06010505073001861f687474703a2f2f6f6373702e706b692e676f6f672f677473316f31636f7265302b06082b06010505073002861f687474703a2f2f706b692e676f6f672f677372322f475453314f312e63727430190603551d1104123010820e7777772e676f6f676c652e636f6d30210603551d20041a30183008060667810c010202300c060a2b06010401d67902050330330603551d1f042c302a3028a026a0248622687474703a2f2f63726c2e706b692e676f6f672f475453314f31636f72652e63726c30820104060a2b06010401d6790204020481f50481f200f0007600b21e05cc8ba2cd8a204e8766f92bb98a2520676bdafa70e7b249532def8b905e00000174fcdb8af4000004030047304502207610c2e9b008b8ebf2f27a1e65631b8ae7534294c60f55a4c78c9e4927f56a23022100b61c72d94468cd6b4e376ea5d2ba7a6605a765c575f6a536b819a2d8031be4f7007600e712f2b0377e1a62fb8ec90c6184f1ea7b37cb561d11265bf3e0f34bf241546e00000174fcdb8af7000004030047304502204aae6373290fd01ad53e8ff9d6ef4f21d0badc0e65fef15c52c8f6af9468e12f022100c77dff6b266313b172ef8815beff3032d6058129baaa767361fe95e2c541ad81300d06092a864886f70d01010b05000382010100657bfcc7fd99ffed6f032bb056dc7712ec3ea437cf17750db8527ae0dcdd630f3ec4b2b95b7d482cc3a94082351117e45362319a842556954160d34c9019cc3cd312073ce540d031c4bf197b924a139b0e91bffc168a80c1641834445c509d6edf2daf8a247b72104b184968ef25cc260c75b28f470fc355477ac403da12701556e6e7550a38346f444238a154f1efb1a1a297eff39e35d76bc285599d19b0bd475d6f1daba94f1365dbc930041a79ca2df1bb724d53e4fb8831b8dc486522ee7d8eee0e1fea658352736fe949fcb233c08a3b9e14abc56a5556f9b469925cb5916ed058a4cf332c4c13a75ca83850773f9182ad95fadff51203c08e684df63b00044e3082044a30820332a003020102020d01e3b49aa18d8aa981256950b8300d06092a864886f70d01010b0500304c3120301e060355040b1317476c6f62616c5369676e20526f6f74204341202d20523231133011060355040a130a476c6f62616c5369676e311330110603550403130a476c6f62616c5369676e301e170d3137303631353030303034325a170d3231313231353030303034325a3042310b3009060355040613025553311e301c060355040a1315476f6f676c65205472757374205365727669636573311330110603550403130a47545320434120314f3130820122300d06092a864886f70d01010105000382010f003082010a0282010100d018cf45d48bcdd39ce440ef7eb4dd69211bc9cf3c8e4c75b90f3119843d9e3c29ef500d10936f0580809f2aa0bd124b02e13d9f581624fe309f0b747755931d4bf74de1928210f651ac0cc3b222940f346b981049e70b9d8339dd20c61c2defd1186165e7238320a82312ffd2247fd42fe7446a5b4dd75066b0af9e426305fbe01cc46361af9f6a33ff6297bd48d9d37c1467dc75dc2e69e8f86d7869d0b71005b8f131c23b24fd1a3374f823e0ec6b198a16c6e3cda4cd0bdbb3a4596038883bad1db9c68ca7531bfcbcd9a4abbcdd3c61d7931598ee81bd8fe264472040064ed7ac97e8b9c05912a1492523e4ed70342ca5b4637cf9a33d83d1cd6d24ac070203010001a38201333082012f300e0603551d0f0101ff040403020186301d0603551d250416301406082b0601050507030106082b0601050507030230120603551d130101ff040830060101ff020100301d0603551d0e0416041498d1f86e10ebcf9bec609f18901ba0eb7d09fd2b301f0603551d230418301680149be20757671c1ec06a06de59b49a2ddfdc19862e303506082b0601050507010104293027302506082b060105050730018619687474703a2f2f6f6373702e706b692e676f6f672f6773723230320603551d1f042b30293027a025a0238621687474703a2f2f63726c2e706b692e676f6f672f677372322f677372322e63726c303f0603551d20043830363034060667810c010202302a302806082b06010505070201161c68747470733a2f2f706b692e676f6f672f7265706f7369746f72792f300d06092a864886f70d01010b050003820101001a803e3679fbf32ea946377d5e541635aec74e0899febdd13469265266073d0aba49cb62f4f11a8efc114f68964c742bd367deb2a3aa058d844d4c20650fa596da0d16f86c3bdb6f0423886b3a6cc160bd689f718eee2d583407f0d554e98659fd7b5e0d2194f58cc9a8f8d8f2adcc0f1af39aa7a90427f9a3c9b0ff02786b61bac7352be856fa4fc31c0cedb63cb44beaedcce13cecdc0d8cd63e9bca42588bcc16211740bca2d666efdac4155bcd89aa9b0926e732d20d6e6720025b10b090099c0c1f9eadd83beaa1fc6ce8105c085219512a71bbac7ab5dd15ed2bc9082a2c8ab4a621ab63ffd7524950d089b7adf2affb50ae2fe1950df346ad9d9cf5ca')
+
+r1 = TLS(cli_hello)
+r2 = TLS(ser_hello, tls_session=r1.tls_session.mirror())
+r3 = TLS(ser_cert, tls_session=r2.tls_session)
+
+s = r3.tls_session.mirror()
+s.client_kx_ecdh_params = 29
+pkt = TLSClientKeyExchange(tls_session=s)
+bytes(pkt)
+pkt.exchkeys.fill_missing()
+assert len(pkt.exchkeys.ecdh_Yc) == 32
+
+= Reading TLS test session - Extended master secret
+
+# See https://github.com/secdev/scapy/issues/2784
+
+from scapy.layers.tls.cert import PrivKey
+from scapy.layers.tls.handshake import TLSFinished
+from scapy.layers.tls.record import TLS
+
+chello_extms = hex_bytes(b'1603010200010001fc0303f8b3dbcb70ed3804009c15af4a4298720619b70d1ad4f24d0e99de9e93ce3c3b201c3b2cf3266bcba19b29479ec66fe815f7db0a6b976111f70958395e7aeebaba003e130213031301c02cc030009fcca9cca8ccaac02bc02f009ec024c028006bc023c0270067c00ac0140039c009c0130033009d009c003d003c0035002f00ff01000175000b000403000102000a000c000a001d0017001e00190018337400000010000e000c02683208687474702f312e31001600000017000000310000000d002a0028040305030603080708080809080a080b080408050806040105010601030303010302040205020602002b00050403040303002d00020101003300260024001d0020e8410f5ab09d96b05f10183ccd9e93a057a73290b4c9e1c254cdfc299fc01d41001500d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
+shello_extms = hex_bytes(b'160303005502000051030320a54032477ea3a963b8a700090459f11f1f4ad1896e1d75745b7e2bdc51dde0200600f552db6c51b97a309717ff847bb6e8fef1ce2601544413fda7b66075b887009d000009ff0100010000170000160303036e0b00036a0003670003643082036030820248a003020102020900eb73b71c3e2f9fdc300d06092a864886f70d01010b05003045310b30090603550406130241553113301106035504080c0a536f6d652d53746174653121301f060355040a0c18496e7465726e6574205769646769747320507479204c7464301e170d3139303231353135313430335a170d3239303231323135313430335a3045310b30090603550406130241553113301106035504080c0a536f6d652d53746174653121301f060355040a0c18496e7465726e6574205769646769747320507479204c746430820122300d06092a864886f70d01010105000382010f003082010a0282010100d2f7d36b233a5619368fc3a7db0f2364dc71986dd4eebcbee85b783e139cfeb0a80de50147c936aa84230e2fa2eb91ef1737410387b932440ac7cfda3c5966eef88f688bcbee6a5d0dfaa075b77dfe836f2cb318375ff5be2b35f6d62dd7c4b147224f67d53d95c7fcc11cda7bc622369b4d4a685655169fb28f66e511724f0c9af2f74ea4cdf09b92f917246a582f67fade3eff7eca2c794d713c13f80cd53f847aa196d0adc04494790a628e327f4b53d05b83025c3ea541195f953ce6fc37edcc68a8fd6eca621f38bc08bc2d8d72cfcdf85c68f9f4f4485b32133c63299f85ffd62bde5a9d585e5a896f08319448277f19e86d5d6878bc53768b2ef9b3210203010001a3533051301d0603551d0e041604148297fb8cf3d9ddf2f60ec90f92815c28e3f3ff35301f0603551d230418301680148297fb8cf3d9ddf2f60ec90f92815c28e3f3ff35300f0603551d130101ff040530030101ff300d06092a864886f70d01010b050003820101003c001f0f5d106072e0beedfa47895329d4623422080e66caa4beb4c3d9b6868fa107467d6160e512ede7cbbefdeb17c09b9f594f86f1a9922c982ccf9655d4d67eda061f667eeb25fe7203bea00e40f150a490a78ca963d87c185ade8b7c294f5052fb1e1edb3403831e33e4026c8e56717cb77bc32321858be37a77fe7f5511ef8c2013c86e2730c5b2366875131cae0c7616fdc7c8605696133e7a685f20203c0db8e0ff1d1a5991d2f058f48f20b10a5fb0df27a1f9874cc0fe8d6ebf77e9a7ba38490e9d63241a0fb3fd7701ff3b130c9aa7aa77770280b7003c1bb5e0784c34aacb74ce8114960e50eee04602a7ab20e5c878028e4292e90e40fd631fee16030300040e000000')
+finished_extms = hex_bytes(b'160303010610000102010007534dd8642e57edd33d156d8002f70562864c1dfe5d721763e8e4ef2c03fb14b4e4eac1864c41fcce57367f95798f04954ef957deb934536b0ac39a72c14f772d0f64b7cc0d8260e2019748fc65fd6f382da6d4f873afe6fc1fa17e786cf6c72b6a46950d2030c7b42ed10f2c4dba37282001132ddb151a44f6face6b049338217784cf2a5ac6a054a2a1d205fb7657d7affa14113c43314b54b28164423455174f57eb50f6eea0836ba1c68616db720641bf18f0cdf7bb729c9cc0b4cfeee8aeed94e00573210eb5328cbcca4ccb1aa29a910c5b5f2c96cf3a431e9677980400d574244ff6bfdabf36ba9dda84703f5760d607e4b731d4f1dc16372b0feac11403030001011603030028269118aa98b35c71e35034f35c23c78d55c04662cdb71c11b1ef862e3b4ebf8ace2aff053257bb08')
+key = base64_bytes(b'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2UUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktjd2dnU2pBZ0VBQW9JQkFRRFM5OU5ySXpwV0dUYVAKdzZmYkR5TmszSEdZYmRUdXZMN29XM2crRTV6K3NLZ041UUZIeVRhcWhDTU9MNkxya2U4WE4wRURoN2t5UkFySAp6OW84V1didStJOW9pOHZ1YWwwTitxQjF0MzMrZzI4c3N4ZzNYL1crS3pYMjFpM1h4TEZISWs5bjFUMlZ4L3pCCkhOcDd4aUkybTAxS2FGWlZGcCt5ajJibEVYSlBESnJ5OTA2a3pmQ2JrdmtYSkdwWUwyZjYzajcvZnNvc2VVMXgKUEJQNEROVS9oSHFobHRDdHdFU1VlUXBpampKL1MxUFFXNE1DWEQ2bFFSbGZsVHptL0RmdHpHaW8vVzdLWWg4NAp2QWk4TFkxeXo4MzRYR2o1OVBSSVd6SVRQR01wbjRYLzFpdmVXcDFZWGxxSmJ3Z3hsRWduZnhub2JWMW9lTHhUCmRvc3UrYk1oQWdNQkFBRUNnZ0VBSGQ5NTBISHNrTVNCTlZvL0tvVzZQVTM1eDl2Rml3aXUvN2YwRHRZNEpOaGUKODVpNTFiQm9UVHpvdWRtRStGWnh4SmZPWFBHYkI4TWF3N0JxOXFDeU1xUi9xZzRoa21EOVREMXcrenBBWFFtLwpkRlRuMk85OW5MQUJ0RElmeTYzT2JJUXZPa1MzczczZHpIcUpkWDFZMnVLaXp5WjNFeFZoQjZmR3Fpa09ScU1BCmNYbjJSRzN1UXFNWk4yUkVUK1hFYWdsa1dkbGphVTdaTC9CbklRT2xGS0h2ZzVSeGFwWGpJbTM2NnFUVStreGEKWDJFZnllOUJycWxWK0o4cnYzODVjRDBQc3RkSVFTQzMxZFBzUHMrSnJMVlBKQVpGZTBLVk1lYkk2ODU1cERYZApGd1ZGcC9BOXhFa3NwRW1jS0tnL1ZkZ3JQZUxMQmxhVm9mMVhPeUhWQVFLQmdRRHhPdXFGaXJvNTNQNGZQUGlMCkFnTTNvRnpmY2xwdDFMdnduelprUmVMU1NvVFBvZSt1R2xMdTBpS3lMUHBjWm1DTCt0bldsSXBheHRYOU1CRmUKOWNvMlJpSU9WM2JZM0ZpOTBLYjlvN3NyZURhaWE5NElHNGlBYktyWjJJdktBZmFkWnBqb1hBTXZpWnBEYWxGYgprZWVCd29nV0sreTdic2EwU1RYTGVMdjF5d0tCZ1FEZjRwT2lUZ3RBNFdtMXo2WFB4Z0ZCa3A3OWVjaWhINTlICnF1cVJNNkhtQ2YzSnZqZzJCZnYyb2hYNTlTU2VnZTI5ek0yZEhmVGhSeW1vZlg5VkpyMnRYY2FhVWpkRnp1Ui8Kcm1EblJMTjVDTUFnUWNCU3M5UXFCaXdTM0hqVmpML1REcFMvblJwY2VCQnNZTFYvR1YvQkpvWDkxTlVodVRXcwpjQ0VvRmNVOVF3S0JnUUNjbCtGTHhTMTBpSGZTY1hMcVVla2l3QS9wNFVMQWoxdGRMUTFTOUdiMG1ma3pDKzBaCitPNmpKM2ZzYi9RcDdTOTVUdU1BUDdhOGpOeTJtZkI4MDFOci9nVDNpR0dYRHhyd1JUVlI2MnFDSW14YzdXYloKbm4zeTJCZmtpSVRlSW40ajJVa2pkUytBT1hRUmxUK3hFTHJXNmlBTFBJSlZmZWl4ZWVEWTc4d2NGd0tCZ0Z5aQoxcTFvbDNWd0Q1cGY0ZDdYc2Z0YzNKWkxCcjNNWk01MXBQc1JueUtjN2JyRkQyTWpGTDlYRDdyT09TbXczeHNTCm05MHY0UHc1d3IzcHQzOFhPWko3WThyRXpBUUJlRUJ3ZWI0WGloOUJoS1dVTHl6SkpiZUJ1RWpSbXRuWmxDR1QKUGU4TzVUSnZwM1FBaS9pY0dpZkVkZHF5YnNHMmJjUDgzV3RGbnNnYkFvR0FMOHF4VUx3bGlMck1ML3c3aEJNegpXSHdKM21PK0NXbzFWR3p4bi9lK3I2ejVTUW03M0VuYzlSZnVkN3RBWmU1QUhXYXVSR3RNaVNoY0J1bkl5Q0g1CnU2Q2laZU5UOTBRdElLRmVCS09QSk5WNDR1QzJtK0xKQkNGa0hzU085MHp0dHZzcmVyU0tiNG5oZ2tiZDhxQ24KbDVFZFBpZEx2NXdiY0tyc3dIVzZYSm89Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0=')
+# Load key
+ssl_key = PrivKey(key)
+
+# Load TLS session
+r1 = TLS(chello_extms)
+r1.tls_session.server_rsa_key = ssl_key
+r2 = TLS(shello_extms, tls_session=r1.tls_session.mirror())
+r3 = TLS(finished_extms, tls_session=r2.tls_session.mirror())
+
+r3
+
+assert r3.tls_session.extms
+assert r3.tls_session.session_hash == b'\n\x8b\xe0\x08S\xb9f|\xd4\x1f\xc5\x8f\xdb\xfaj\xc6\xb4Aj\\j~B)Ep\x07\x90\xc6/\x18\x1e\x99\x1e\x8d.\xe2,B\xe1\x10ZJ\x10^\xect('
+
+l3 = r3.getlayer(TLS, 3)
+assert isinstance(l3.msg[0], TLSFinished)
+assert l3.msg[0][TLSFinished].vdata == b'\x00\x1fG\xd8VD@\x0ctK\xeee'
+
+# RC4 case
+
+chello_extms = hex_bytes(b'160301008501000081030360037703ac90bb5e29ae0fca71b68dd8133b17b7060c13779d34f69d5c3255110000060005000400ff01000052337400000010000e000c02683208687474702f312e310016000000170000000d0030002e040305030603080708080809080a080b080408050806040105010601030302030301020103020202040205020602')
+shello_extms = hex_bytes(b'1603030055020000510303c985430a03add71566a952a16249e471cd3226c0792ba42c444f574e4752440120e835d66cd3293b9fcb157d5c477848d654a2d3a42fc92bcf9c472171188f69610005000009ff0100010000170000160303036e0b00036a0003670003643082036030820248a003020102020900eb73b71c3e2f9fdc300d06092a864886f70d01010b05003045310b30090603550406130241553113301106035504080c0a536f6d652d53746174653121301f060355040a0c18496e7465726e6574205769646769747320507479204c7464301e170d3139303231353135313430335a170d3239303231323135313430335a3045310b30090603550406130241553113301106035504080c0a536f6d652d53746174653121301f060355040a0c18496e7465726e6574205769646769747320507479204c746430820122300d06092a864886f70d01010105000382010f003082010a0282010100d2f7d36b233a5619368fc3a7db0f2364dc71986dd4eebcbee85b783e139cfeb0a80de50147c936aa84230e2fa2eb91ef1737410387b932440ac7cfda3c5966eef88f688bcbee6a5d0dfaa075b77dfe836f2cb318375ff5be2b35f6d62dd7c4b147224f67d53d95c7fcc11cda7bc622369b4d4a685655169fb28f66e511724f0c9af2f74ea4cdf09b92f917246a582f67fade3eff7eca2c794d713c13f80cd53f847aa196d0adc04494790a628e327f4b53d05b83025c3ea541195f953ce6fc37edcc68a8fd6eca621f38bc08bc2d8d72cfcdf85c68f9f4f4485b32133c63299f85ffd62bde5a9d585e5a896f08319448277f19e86d5d6878bc53768b2ef9b3210203010001a3533051301d0603551d0e041604148297fb8cf3d9ddf2f60ec90f92815c28e3f3ff35301f0603551d230418301680148297fb8cf3d9ddf2f60ec90f92815c28e3f3ff35300f0603551d130101ff040530030101ff300d06092a864886f70d01010b050003820101003c001f0f5d106072e0beedfa47895329d4623422080e66caa4beb4c3d9b6868fa107467d6160e512ede7cbbefdeb17c09b9f594f86f1a9922c982ccf9655d4d67eda061f667eeb25fe7203bea00e40f150a490a78ca963d87c185ade8b7c294f5052fb1e1edb3403831e33e4026c8e56717cb77bc32321858be37a77fe7f5511ef8c2013c86e2730c5b2366875131cae0c7616fdc7c8605696133e7a685f20203c0db8e0ff1d1a5991d2f058f48f20b10a5fb0df27a1f9874cc0fe8d6ebf77e9a7ba38490e9d63241a0fb3fd7701ff3b130c9aa7aa77770280b7003c1bb5e0784c34aacb74ce8114960e50eee04602a7ab20e5c878028e4292e90e40fd631fee16030300040e000000')
+finished_extms = hex_bytes(b'16030301061000010201004971b89ae4355a001c49ccb49ed0664a9090a2dc0c14c97563b6dd98f13004ac5327c97abf10617b1f5d19b1f6e1091ccf159693497ebda262aedba2f3b76ae217d56477cad45e2ea129c324083701c2e99e65b6d63f916f963de8d98c5357d22272c032a30acccd673d1556d01e22e206186bcda3a5845d6dacee260ab66f47ea86a4c0081faa082b398f2c65da35264428f320c354b97cd96c986da43c8510e914ffb7f8bb73baee2530c4533ae2d6a922771af689c15b42c53428978510a3e3e90a3806f77fc1cb35c2c3f34dd7e3f831a79bc59b333f0c9e8be49390cd2a8e1c88dafbb9e3e24d1e0530703dbff7cd1c516fcc21a7d484f2111f985f03f8140303000101160303002457ed5c62171e4720a5890cf9ef09323f6e2db063aeebea776a54b879ffb6a69182d15cae')
+
+# Load TLS session
+r1 = TLS(chello_extms)
+r1.tls_session.server_rsa_key = ssl_key
+r2 = TLS(shello_extms, tls_session=r1.tls_session.mirror())
+r3 = TLS(finished_extms, tls_session=r2.tls_session.mirror())
+
+assert r3.tls_session.extms
+assert r3.tls_session.pwcs.prf.hash_name == "SHA256"
+assert r3.tls_session.session_hash == b'2\xdc\xf5\xcb\xbc\x99\xc6IV\xba\x0f.\x0bdq\x1f=\xef\xdaW\xfc*A\x9b\xe2?b\xccKW\xe9\xb7'
+
+l3 = r3.getlayer(TLS, 3)
+assert isinstance(l3.msg[0], TLSFinished)
+assert l3.msg[0][TLSFinished].vdata == b'\x15\xd6\xd5\xea\x84\xee\xb3\xdd\xd6\x10\xd8\x11'
+
+= Reading TLS test session - Encrypt-then-MAC extension
+from scapy.layers.tls.cert import PrivKey
+from scapy.layers.tls.handshake import TLSFinished
+from scapy.layers.tls.record import TLS
+
+client_hello = hex_bytes(b'16030100c9010000c50303611a2f42b70345cfbc5c5c4da1929bea8a2cb8b1fd10ab1341e43ffaa8856a63000038c02cc030009fcca9cca8ccaac02bc02f009ec024c028006bc023c0270067c00ac0140039c009c0130033009d009c003d003c0035002f00ff01000064000b000403000102000a000c000a001d0017001e00190018337400000010000e000c02683208687474702f312e310016000000170000000d002a0028040305030603080708080809080a080b080408050806040105010601030303010302040205020602')
+server_hello = hex_bytes(b'1603030059020000550303a22c975875df69bea936cbd28b083cde754693b4f34a15a036e5e57b7f4755cf20226e6386f90e3751723beea9196640d5bbe6c7c9f314568fa3645cb7218e9159003d00000dff010001000016000000170000160303036e0b00036a0003670003643082036030820248a003020102020900eb73b71c3e2f9fdc300d06092a864886f70d01010b05003045310b30090603550406130241553113301106035504080c0a536f6d652d53746174653121301f060355040a0c18496e7465726e6574205769646769747320507479204c7464301e170d3139303231353135313430335a170d3239303231323135313430335a3045310b30090603550406130241553113301106035504080c0a536f6d652d53746174653121301f060355040a0c18496e7465726e6574205769646769747320507479204c746430820122300d06092a864886f70d01010105000382010f003082010a0282010100d2f7d36b233a5619368fc3a7db0f2364dc71986dd4eebcbee85b783e139cfeb0a80de50147c936aa84230e2fa2eb91ef1737410387b932440ac7cfda3c5966eef88f688bcbee6a5d0dfaa075b77dfe836f2cb318375ff5be2b35f6d62dd7c4b147224f67d53d95c7fcc11cda7bc622369b4d4a685655169fb28f66e511724f0c9af2f74ea4cdf09b92f917246a582f67fade3eff7eca2c794d713c13f80cd53f847aa196d0adc04494790a628e327f4b53d05b83025c3ea541195f953ce6fc37edcc68a8fd6eca621f38bc08bc2d8d72cfcdf85c68f9f4f4485b32133c63299f85ffd62bde5a9d585e5a896f08319448277f19e86d5d6878bc53768b2ef9b3210203010001a3533051301d0603551d0e041604148297fb8cf3d9ddf2f60ec90f92815c28e3f3ff35301f0603551d230418301680148297fb8cf3d9ddf2f60ec90f92815c28e3f3ff35300f0603551d130101ff040530030101ff300d06092a864886f70d01010b050003820101003c001f0f5d106072e0beedfa47895329d4623422080e66caa4beb4c3d9b6868fa107467d6160e512ede7cbbefdeb17c09b9f594f86f1a9922c982ccf9655d4d67eda061f667eeb25fe7203bea00e40f150a490a78ca963d87c185ade8b7c294f5052fb1e1edb3403831e33e4026c8e56717cb77bc32321858be37a77fe7f5511ef8c2013c86e2730c5b2366875131cae0c7616fdc7c8605696133e7a685f20203c0db8e0ff1d1a5991d2f058f48f20b10a5fb0df27a1f9874cc0fe8d6ebf77e9a7ba38490e9d63241a0fb3fd7701ff3b130c9aa7aa77770280b7003c1bb5e0784c34aacb74ce8114960e50eee04602a7ab20e5c878028e4292e90e40fd631fee16030300040e000000')
+client_finished = hex_bytes(b'1603030106100001020100482bf86fa7047c767ecc5f46e971f2349232d57d4c40b04856b6ea2b5645b5b233c0cd2ad7b05101d6a3fcbd2698b25064501ba4f0cde40c8189abc29aebfffcb87413d4590cae7cf3589fa371ad5e0d161da9c275a4b8ca1aa9a400a3d76021f92b872403a72a22bad6368276010209ca1344971adf7d7a9cdeefd534cd933ec3d2852ea1dfff217f7cd55eac7d2b18f7c5600c56f28746389d1d6c33cd2ac24817632fc0fbd81ffcf528b1c2a5b328a0105e88513e6b2f95b51ca3adf390146662115a721bfd718eae3033388aaa5cb37e2c16428a6f7c994f961137f6a7f933327ed300f15621500d427d261f39970bbf40f4ba303963609439007d34e6bc1403030001011603030050f4b7962d5455e9244efe886bbd4156ca20936e4b8868d80c82b06ceac7cff6d69f130a610f2aa4c4fd8cb2681f84e3ebecad1b563bcd258255aa509ba2b6388f90ac5f1c1f84f1569dc3809667b86ba4')
+server_finished = hex_bytes(b'14030300010116030300509e8e5fd6aebaa98263e98266fffcf7fd21eb50fb0510b8598660afb65c57a025374c1e63aff3e260dd5d027180e8aa0d85d43e0c0b54e8783e4ce51a71ef0ae555ab81404020342ca1a34643ce713688')
+
+# Load TLS session
+r1 = TLS(client_hello)
+r1.tls_session.server_rsa_key = ssl_key
+r2 = TLS(server_hello, tls_session=r1.tls_session.mirror())
+r3 = TLS(client_finished, tls_session=r2.tls_session.mirror())
+r4 = TLS(server_finished, tls_session=r3.tls_session.mirror())
+
+client_finished = r3.getlayer(TLS, 3).msg[0]
+server_finished = r4.getlayer(TLS, 2).msg[0]
+
+assert r4.tls_session.encrypt_then_mac
+assert isinstance(client_finished, TLSFinished)
+assert isinstance(server_finished, TLSFinished)
+assert client_finished.vdata == hex_bytes(b'771049b4ff714ac71253f84f')
+assert server_finished.vdata == hex_bytes(b'42c9765e833997b6714fec75')
+
+###
+### Other/bug tests
+###
+
 = Reading TLS test session - Full TLSNewSessionTicket captured
 import os
 tmp = "/test/pcaps/tls_new-session-ticket.pcap"
@@ -1003,7 +1103,28 @@ assert isinstance(TLS(b"\x00"), Raw)
 
 = Reading TLS msg dissect - Wrong data
 from scapy.layers.tls.record import _TLSMsgListField
-assert isinstance(_TLSMsgListField.m2i(_TLSMsgListField("", []), TLS(type=0), '\x00\x03\x03\x00\x03abc'), Raw)
+# Unknown type
+assert isinstance(_TLSMsgListField.m2i(_TLSMsgListField("", []), TLS(type=0), b'\x00\x03\x03\x00\x03abc'), Raw)
+
+old_debug_dissector = conf.debug_dissector
+conf.debug_dissector = False
+# not even bytes to make it crash
+assert isinstance(_TLSMsgListField.m2i(_TLSMsgListField("", []), TLS(type=20), 1), Raw)
+conf.debug_dissector = old_debug_dissector
+
+= Test x25519 dissection in ServerKeyExchange
+
+import binascii
+from scapy.layers.tls.session import tlsSession
+
+session = tlsSession(connection_end="client")
+# Raw hex data of a TLS Handshake - Server Key Exchange with x25519 elliptic curve
+hex_data = "160303012c0c00012803001d202f19b3f5defbd65cfdcbb3583d4760ef74dde4144e01049a43d8a036df38ca15080401008e4e4afc21f612d2f024bb489940a733ea606ed36cba9c60b8479264dcb5f4a0f839d85fa02f0a4be087243e69e575af48917ba6dfda9b485311cd8fe0d7616ece9b216b7b878588c03d3ab90b9dc981f758588905307541c7d3ccb6655baf7bfb0628f3a0ac181729da6b7fcba3efdd43f5bbaec53cfa4dd512941ee1204a42cba8a989e724bd42ac2cb1373ddb54acba29ae45fd58047176e4cb623a9b301711b926d15103f5251f6a0288b04a644834a9843752bbe2f8554beffdbf412983456fcc38b9caabdf7cf9ea2c30bd72dc00cf2cf48f22cd7f17b2d22fb651facb772507cc2fb83301c0c8dd1c3b4f24f38f0c4c82d21d0fa5d1e0b260d545e701"
+packet = TLS(binascii.unhexlify(hex_data), tls_session=session)
+
+assert isinstance(packet.msg[0], TLSServerKeyExchange)
+assert packet.msg[0].params[0].sprintf("%named_curve%") == "x25519"
+assert packet.msg[0].params[0].point == b'/\x19\xb3\xf5\xde\xfb\xd6\\\xfd\xcb\xb3X=G`\xeft\xdd\xe4\x14N\x01\x04\x9aC\xd8\xa06\xdf8\xca\x15'
 
 
 ###############################################################################
@@ -1055,8 +1176,11 @@ assert (t6.payload.payload.mac == b'\x10\xce\xca2\xb4\xc3m\xf1\x16c\xdb\xfc\x08\
 # suite does not provide PFS, we are able to break the data confidentiality.
 
 + Read a vulnerable TLS session
+~ server_rsa_key
 
 = Reading TLS vulnerable session - Decrypt data from using a compromised server key
+load_layer("tls")
+
 from scapy.layers.tls.cert import PrivKeyRSA
 from scapy.layers.tls.record import TLSApplicationData
 import os
@@ -1078,7 +1202,26 @@ t = TLS(data, tls_session=t.tls_session.mirror())
 assert(len(t.msg) == 1)
 assert(isinstance(t.msg[0], TLSApplicationData))
 assert(t.msg[0].data == b"")
-t.getlayer(2).msg[0].data == b"To boldly go where no man has gone before...\n"
+t.getlayer(TLS, 2).msg[0].data == b"To boldly go where no man has gone before...\n"
+
+= Auto provide the session
+
+conf.debug_dissector = 2
+client = "192.168.0.1"
+server = "1.2.3.4"
+bc = Ether()/IP(src=client, dst=server)/TCP(sport=51478, dport=443, seq=1)
+bs = Ether()/IP(src=server, dst=client)/TCP(sport=443, dport=51478, seq=1)
+pcap = [
+    bc/ch,
+    bs/sh,
+    bc/ck,
+    bs/fin,
+    bc/data
+]
+res = sniff(offline=pcap, session=TLSSession(server_rsa_key=key))
+
+res[4].show()
+assert res[4].getlayer(TLS, 2).msg[0].data == b"To boldly go where no man has gone before...\n"
 
 
 ###############################################################################
@@ -1132,6 +1275,19 @@ ch.ext = [ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9]
 t = TLS(type='handshake', version='TLS 1.0', msg=ch)
 raw(t) == b'\x16\x03\x01\x00\xc7\x01\x00\x00\xc3\x03\x03&\xee-\xddX\xe1\xb1T\xaa\xb1\x0b\xa0zlg\xf8\xd14]%\xa9\x91d\x08\xc7t\xcd6\xd4"\x9f\xcf\x00\x00\x16\xc0+\xc0/\xc0\n\xc0\t\xc0\x13\xc0\x14\x003\x009\x00/\x005\x00\n\x01\x00\x00\x84\x00\x00\x00\x11\x00\x0f\x00\x00\x0cmn.scapy.wtv\xff\x01\x00\x01\x00\x00\n\x00\x08\x00\x06\x00\x17\x00\x18\x00\x19\x00\x0b\x00\x02\x01\x00\x00#\x00\x003t\x00\x00\x00\x10\x00)\x00\'\x05h2-16\x05h2-15\x05h2-14\x02h2\x08spdy/3.1\x08http/1.1\x00\x05\x00\x05\x01\x00\x00\x00\x00\x00\r\x00\x16\x00\x14\x04\x01\x05\x01\x06\x01\x02\x01\x04\x03\x05\x03\x06\x03\x02\x03\x04\x02\x02\x02'
 
+= Building packets - application data with Encrypt-then-MAC
+session = tlsSession(
+    rcs=connState(ciphersuite=TLS_RSA_WITH_AES_256_CBC_SHA256),
+    wcs=connState(ciphersuite=TLS_RSA_WITH_AES_256_CBC_SHA256),
+)
+session.encrypt_then_mac = True
+session.tls_version = 0x0303
+session.rcs.cipher.key = b'A' * 32
+session.wcs.cipher.key = b'A' * 32
+payload = b'PAYLOAD'
+tlsdata = TLS(msg=TLSApplicationData(data=payload), tls_session=session)
+t = TLS(raw(tlsdata), tls_session=session.mirror())
+assert t[0].msg[0].data == payload
 
 = Building packets - ServerHello context linking
 from scapy.layers.tls.crypto.kx_algs import KX_ECDHE_RSA
@@ -1159,7 +1315,7 @@ raw(t) == b'\xde\xad\xbe\xef\xff\x01'
 
 = Building packets - TLS record with bad data
 a = TLS(b'\x17\x03\x03\x00\x03data')
-assert a.haslayer(Raw)
+assert a[Raw]
 
 
 = Building packets - _CipherSuitesField with no cipher
@@ -1198,8 +1354,13 @@ test_tls_without_cryptography()
 
 = Truncated TCP segment
 
+dd = conf.debug_dissector
+conf.debug_dissector = False
+
 pkt = Ether(hex_bytes('00155dfb587a00155dfb58430800450005dc54d3400070065564400410d40a00000d01bb044e8b86744e16063ac45010faf06ba9000016030317c30200005503035cb336a067d53a5d2cedbdfec666ac740afbd0637ddd13eddeab768c3c63abee20981a0000d245f1c905b329323ad67127cd4b907a49f775c331d0794149aca7cdc02800000d0005000000170000ff010001000b000ec6000ec300090530820901308206e9a00302010202132000036e72aded906765595fae000000036e72300d06092a864886f70d01010b050030818b310b30090603550406130255533113'))
 assert TLSServerHello in pkt
+
+conf.debug_dissector = dd
 
 ###############################################################################
 ########################### TLS Misc tests ####################################
@@ -1309,10 +1470,64 @@ test_tls_tools()
 
 = Dissect TLSCertificateVerify
 
+from scapy.layers.tls.handshake import TLSCertificateVerify
+
 t = TLS(b'\x16\x03\x03\x00P\x0f\x00\x00L\x04\x03\x00H0F\x02!\x00\xcf\xf1\xd0:1\xb8\xe4JCU\x00\x8c\xcdg\xf9=g\x84\xa3h;V@\xfd\xd1\\\xf0\xc4f\xfa\x18\xdc\x02!\x00\x82\x1dF\xc1\xd1\xab\x86\xaa\xb9"\x0eA\xf2\xc3Rj\xd7\xf1\xe9\xaf\x9b\xa5?R\n\xca\x15\xfe)\xa9j\x84')
 assert TLSCertificateVerify in t
 assert t[TLSCertificateVerify].sig.sig_len == 72
 
+
+= Test complex TLSServerKeyExchange dissection & build
+
+a = b'\x16\x03\x03\x0e4\x02\x00\x00M\x03\x03^\xfa\xb5~\x88\xdf\xdc#}\'\xa0\xff\xa2\xe2\xb5\xec\x0e\x93\xa8\xe0\xde\x01[\x13[F\x151 x\xc6\xcc `)\x00\x00\x8aZ\x90l\xda\x0b\xe1\xec[i\x13\xa7\x8e\xb9a\x98"\x8a7L\x9d\x90\xe0\x01\x06c$9\xc0\'\x00\x00\x05\xff\x01\x00\x01\x00\x0b\x00\x0c\x8e\x00\x0c\x8b\x00\x06n0\x82\x06j0\x82\x05R\xa0\x03\x02\x01\x02\x02\x10EY\xe8\x1c\x1e\x9a\xe0?X\xaa\xc3\xbc\xcd`jh0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x000\x81\x8f1\x0b0\t\x06\x03U\x04\x06\x13\x02GB1\x1b0\x19\x06\x03U\x04\x08\x13\x12Greater Manchester1\x100\x0e\x06\x03U\x04\x07\x13\x07Salford1\x180\x16\x06\x03U\x04\n\x13\x0fSectigo Limited1705\x06\x03U\x04\x03\x13.Sectigo RSA Domain Validation Secure Server CA0\x1e\x17\r190309000000Z\x17\r210308235959Z0W1!0\x1f\x06\x03U\x04\x0b\x13\x18Domain Control Validated1\x1d0\x1b\x06\x03U\x04\x0b\x13\x14PositiveSSL Wildcard1\x130\x11\x06\x03U\x04\x03\x0c\n*.mql5.net0\x82\x01"0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x01\x05\x00\x03\x82\x01\x0f\x000\x82\x01\n\x02\x82\x01\x01\x00\xcb\xbcn=\xbaGd\xe1XB\x07\xc9\xb1\xc8/\x86\xaa4Z\xbdNk\xfb\xffR\x8f\xe4\x1c^\x91m8\xb9^\x97\xa5\xd3N\xfb\x80\x92\x8ap\xda\x15\x9f\xee\xe7\xb3\xc8?\xb0>~\xaa\x07\x91\xb1\x99q\xe2\xe5\xc8\x9b\x1d5\xa0\x96,\x98\xdaW\x93\x95\x8e%\xe8\xd4L\xeb\xcbSg\x15"\xba\xb7\xc7\x1f\xe9\xd6\x1a\xe6E\x1d\xc8\x1e%\xd36\xe0/r\xd1\xce1C\xce\x91&\xa1\x08*R\xbf\x8cu\xb0\xda\x0e\x1e2\xd66\x1df&3\x9b\x03\x0b\xcam:\xf7\x12\xd9ud(\xae\xdc\xbci\x85\xbd\xcf\xeb{\x15:\xbd\x0e\x11\x1bi\xd8\xff]y~E\x15\x95\xee\xe9\xea\xc6Cr</\x0b\xe8\xc2\x9d\xe3\x83\x07R\xeb1\xf0\x93<|.\xf8G\xab\xa8=\xac\x16\x1d\xf9\x93%\x1b;)\xb2FN\x15\xc4\x17\xa9}\xb0\x80\xba\xfb\xc8\x15-G\x9e\x05\xe9\xf6\xc76\xc1\x9af\xa3\x91\n\xa4\x80,\x11=\x87\xec\xf9\xd6iJ\xd0\xbe\xc3K\x99J\xe7&\xc4\x86\x84:W\xc4/\x7f\x02\x03\x01\x00\x01\xa3\x82\x02\xf70\x82\x02\xf30\x1f\x06\x03U\x1d#\x04\x180\x16\x80\x14\x8d\x8c^\xc4T\xad\x8a\xe1w\xe9\x9b\xf9\x9b\x05\xe1\xb8\x01\x8da\xe10\x1d\x06\x03U\x1d\x0e\x04\x16\x04\x14z\x87\xb6T\xcbt:a\x03\xef:\x1f_\xad\xc0\x1cT\x15\x9d\xe30\x0e\x06\x03U\x1d\x0f\x01\x01\xff\x04\x04\x03\x02\x05\xa00\x0c\x06\x03U\x1d\x13\x01\x01\xff\x04\x020\x000\x1d\x06\x03U\x1d%\x04\x160\x14\x06\x08+\x06\x01\x05\x05\x07\x03\x01\x06\x08+\x06\x01\x05\x05\x07\x03\x020I\x06\x03U\x1d \x04B0@04\x06\x0b+\x06\x01\x04\x01\xb21\x01\x02\x02\x070%0#\x06\x08+\x06\x01\x05\x05\x07\x02\x01\x16\x17https://sectigo.com/CPS0\x08\x06\x06g\x81\x0c\x01\x02\x010\x81\x84\x06\x08+\x06\x01\x05\x05\x07\x01\x01\x04x0v0O\x06\x08+\x06\x01\x05\x05\x070\x02\x86Chttp://crt.sectigo.com/SectigoRSADomainValidationSecureServerCA.crt0#\x06\x08+\x06\x01\x05\x05\x070\x01\x86\x17http://ocsp.sectigo.com0\x1f\x06\x03U\x1d\x11\x04\x180\x16\x82\n*.mql5.net\x82\x08mql5.net0\x82\x01\x7f\x06\n+\x06\x01\x04\x01\xd6y\x02\x04\x02\x04\x82\x01o\x04\x82\x01k\x01i\x00v\x00\xbb\xd9\xdf\xbc\x1f\x8aq\xb5\x93\x94#\x97\xaa\x92{G8W\x95\n\xabR\xe8\x1a\x90\x96d6\x8e\x1e\xd1\x85\x00\x00\x01icH\xf8\x9b\x00\x00\x04\x03\x00G0E\x02 =\xab\xac\xefa \xc3\xf3J\xbb] w8\xc1+\xa9\x1b8\xcc\x94LP,T\xe0\x07\xe8\x87\x93s\xf5\x02!\x00\xf4D\x0e\x86a\xc9M\x8b\xc5\xf8\xec\x821\x9b\xbf]^\xacB1p\xfc\x8a\n\x07\xefz\xb6\x82 \xe0\xd5\x00v\x00D\x94e.\xb0\xee\xce\xaf\xc4@\x07\xd8\xa8\xfe(\xc0\xda\xe6\x82\xbe\xd8\xcb1\xb5?\xd33\x96\xb5\xb6\x81\xa8\x00\x00\x01icH\xf8\xdb\x00\x00\x04\x03\x00G0E\x02 ]\x91\x03.5\xaaA\xa82\xf4Bg\x08\xf7\xf1\x948N\x08,\xf5\x96\x01\x08\xdcM]&7J\xebv\x02!\x00\xeb\x90\r\xd5k\xf9\xa3L<\xc67]\xc5]\x16\xb2\x10\xed\xd5\x9b\xec\xdc$\xe1\xd5r+\x99\x19\xdbb\xe4\x00w\x00\\\xdcC\x92\xfe\xe6\xabED\xb1^\x9a\xd4V\xe6\x107\xfb\xd5\xfaG\xdc\xa1s\x94\xb2^\xe6\xf6\xc7\x0e\xca\x00\x00\x01icH\xf8\xe5\x00\x00\x04\x03\x00H0F\x02!\x00\x8f\xf5W\xd5 \xea\x02\xc4v\x1b\xd0h\x03\xe7`\xec\xdfp\xd7\xb8\x10\xd9nb7\xadDp\xf6V\xa0l\x02!\x00\xa9\x935\x94\xe3\xdb\xab\xc8N\xd2t\xa2M\xd5\xf0\x1c8\xccl\xd3}\xceQ\xc5u\xbc\xa1>!=~y0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x00\x03\x82\x01\x01\x00\x17\x7f\x18\x82[\t\x18@R@\xa6\xb7\xc5[\xf1su\xc7\x8cG?\xf7\x91\xe2E]\x1b\x7f\xc3su\x88\xb6\x17t\xc3\x8b\xb1g\xd2\x06\xfc\x82\x84\x8d\xbb\x13\xc1\x8c\xf71\xc0>(?\xa3\xf0P\x14Z\x8a\x97\x9c\xa3\xb1!ddy\xa3 .\xdb\xd3\xfb\xa6\x0b\xf7k\xdbP\xb48\xeb\xc7\x90\x00\xa9\x90\xa4\x9d\xbf\x9c\xa7\n\x8e\x90\xfe\x8f\xa3\x95Th\xe6,\xdd\xde\xde\x06\x0b\x8e+\xf5\xca\x85>n\xbf\xd87\xff\xe3\xd2|*\xc0\x89\x07\x95\xbeV\x90:lG[\xf0\xadUF\xa1\x88nmj\xbb\xa9\x16\x90\xdd\x84\xe4\xbf\xe7\xe8\xe3"\xd4+0\xa0d\xdc.\x8e\x85+\xbd\x99\xd8\x02\xa7K}\xb1\xc4\xed;\xe2\xaf\x81R\xceJ\xb9iZ\xec\xda\x8f`\x8eI\xf6]\x83-\x9e\xa7{]\x02\x9d\x1fh\xf4\xef\x14\xf4\xb3\x0e\r\xe6\x9b\x9d\x96\xb4\x90iWA\xe0\xf4\x1d_\xbeRD\x15a;?\t\x8c\x8f6\xea!\xf2\xd6/Yg\x82e/5\xe1\xb4\xa1\x94\xef\xd7\x94\x82\x04\x00\x06\x170\x82\x06\x130\x82\x03\xfb\xa0\x03\x02\x01\x02\x02\x10}[Q&\xb4v\xba\x11\xdbt\x16\x0b\xbcS\r\xa70\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0c\x05\x000\x81\x881\x0b0\t\x06\x03U\x04\x06\x13\x02US1\x130\x11\x06\x03U\x04\x08\x13\nNew Jersey1\x140\x12\x06\x03U\x04\x07\x13\x0bJersey City1\x1e0\x1c\x06\x03U\x04\n\x13\x15The USERTRUST Network1.0,\x06\x03U\x04\x03\x13%USERTrust RSA Certification Authority0\x1e\x17\r181102000000Z\x17\r301231235959Z0\x81\x8f1\x0b0\t\x06\x03U\x04\x06\x13\x02GB1\x1b0\x19\x06\x03U\x04\x08\x13\x12Greater Manchester1\x100\x0e\x06\x03U\x04\x07\x13\x07Salford1\x180\x16\x06\x03U\x04\n\x13\x0fSectigo Limited1705\x06\x03U\x04\x03\x13.Sectigo RSA Domain Validation Secure Server CA0\x82\x01"0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x01\x05\x00\x03\x82\x01\x0f\x000\x82\x01\n\x02\x82\x01\x01\x00\xd6s3\xd6\xd7< \xd0\x00\xd2\x17E\xb8\xd6>\x07\xa2?\xc7A\xee20\xc9\xb0l\xfd\xf4\x9f\xcb\x12\x98\x0f-?\x8dM\x01\x0c\x82\x0f\x17\x7fb.\xe9\xb8Hy\xfb\x16\x83N\xad\xd72%\x93\xb7\x07\xbf\xb9P?\xa9L\xc3@*\xe99\xff\xd9\x81\xca\x1f\x162A\xda\x80&\xb9#z\x87 \x1e\xe3\xff \x9a<\x95Do\x87u\x06\x90@\xb42\x93\x16\t\x10\x08#>\xd2\xdd\x87\x0fo]Q\x14j\ni\xc5O\x01ri\xcf\xd3\x93Lm\x04\xa0\xa3\x1b\x82~\xb1\x9a\xb9\xed\xc5\x9e\xc57x\x9f\x9a\x084\xfbV.X\xc4\t\x0e\x06d[\xbc7\xdc\xf1\x9f(h\xa8V\xb0\x92\xa3\\\x9f\xbb\x88\x98\x08\x1b$\x1d\xab0\x85\xae\xaf\xb0.\x9ez\x9d\xc1\xc0B\x1c\xe2\x02\xf0\xea\xe0J\xd2\xef\x90\x0e\xb4\xc1@\x16\xf0o\x85BJd\xf7\xa40\xa0\xfe\xbf.\xa3\'Z\x8e\x8bX\xb8\xad\xc3\x19\x17\x84c\xedoV\xfd\x83\xcb`4\xc4t\xbe\xe6\x9d\xdb\xe1\xe4\xe5\xca\x0c_\x15\x02\x03\x01\x00\x01\xa3\x82\x01n0\x82\x01j0\x1f\x06\x03U\x1d#\x04\x180\x16\x80\x14Sy\xbfZ\xaa+J\xcfT\x80\xe1\xd8\x9b\xc0\x9d\xf2\xb2\x03f\xcb0\x1d\x06\x03U\x1d\x0e\x04\x16\x04\x14\x8d\x8c^\xc4T\xad\x8a\xe1w\xe9\x9b\xf9\x9b\x05\xe1\xb8\x01\x8da\xe10\x0e\x06\x03U\x1d\x0f\x01\x01\xff\x04\x04\x03\x02\x01\x860\x12\x06\x03U\x1d\x13\x01\x01\xff\x04\x080\x06\x01\x01\xff\x02\x01\x000\x1d\x06\x03U\x1d%\x04\x160\x14\x06\x08+\x06\x01\x05\x05\x07\x03\x01\x06\x08+\x06\x01\x05\x05\x07\x03\x020\x1b\x06\x03U\x1d \x04\x140\x120\x06\x06\x04U\x1d \x000\x08\x06\x06g\x81\x0c\x01\x02\x010P\x06\x03U\x1d\x1f\x04I0G0E\xa0C\xa0A\x86?http://crl.usertrust.com/USERTrustRSACertificationAuthority.crl0v\x06\x08+\x06\x01\x05\x05\x07\x01\x01\x04j0h0?\x06\x08+\x06\x01\x05\x05\x070\x02\x863http://crt.usertrust.com/USERTrustRSAAddTrustCA.crt0%\x06\x08+\x06\x01\x05\x05\x070\x01\x86\x19http://ocsp.usertrust.com0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0c\x05\x00\x03\x82\x02\x01\x002\xbfa\xbd\x0eH\xc3O\xc7\xbaGM\xf8\x9cx\x19\x01\xdc\x13\x1d\x80o\xfc\xc3p\xb4R\x9a13\x9aWR\xfb1\x9ek\xa4\xefT\xaa\x89\x8d@\x17h\xf8\x11\x10|\xd2\xca\xb1\xf1U\x86\xc7\xee\xb36\x91\x86\xf69Q\xbfF\xbf\x0f\xa0\xba\xb4\xf7~I\xc4*6\x17\x9e\xe4h9z\xaf\x94NVo\xb2{;\xbf\n\x86\xbd\xcd\xc5w\x1c\x03\xb88\xb1\xa2\x1f_~\xdb\x8a\xdcFH\xb6h\n\xcf\xb2\xb5\xb4\xe24\xe4g\xa98f\t^\xd2\xb8\xfc\x9d(:\x17@\'\xc2rN)\xfd!<|\xcf\x13\xfb\x96,\xc51D\xfd\x13\xed\xd5\x9b\xa9ihw|\xee\xe1\xff\xa4\xf968\x08S9\xa2\x844\x9c\x19\xf3\xbe\x0e\xac\xd5$7\xeb#\xa8x\xd0\xd3\xe7\xef\x92Gdb9"\xef\xc6\xf7\x11\xbe"\x85\xc6fD$&\x8e\x102\x8d\xc8\x93\xae\x07\x9e\x83>/\xd9\xf9\xf5F\x8ec\xbe\xc1\xe6\xb4\xdc\xa6\xcd!\xa8\x86\n\x95\xd9.\x85&\x1a\xfd\xfc\xb1\xb6WBm\x95\xd13\xf69\x14\x06\x82A8\xf5\x8fX\xdc\x80[\xa4\xd5}\x95x\xfd\xa7\x9b\xff\xfd\xc5\xa8i\xab&\xe7\xa7\xa4\x05\x87[\xa9\xb7\xb8\xa3 \x0b\x97\xa9E\x85\xdd\xb3\x8b\xe5\x897\x8e)\r\xfc\x06\x17\xf68@\x0eB\xe4\x12\x06\xfb{\xf3\xc6\x11hb\xdf\xe3\x98\xf4\x13\xd8\x15O\x8b\xb1i\xd9\x10`\xbcd*\xea1\xb7\xe4\xb5\xa3:\x14\x9b&\xe3\x0b{\xfd\x02\x8e\xb6\x99\xc18\x97Y6\xf6\xa8t\xa2\x86\xb6^\xeb\xc6d\xea\xcf\xa0\xa3\xf9n\x9e\xba-\x11\xb6\x86\x98\x08X-\xc9\xac%d\xf2^u\xb48\xc1\xae\x7fZF\x83\xeaQ\xca\xb6\xf1\x99\x115k\xa5j{\xc6\x00\xb0\xe7\xf8\xbed\xb2\xad\xc8\xc2\xf1\xac\xe3Q\xea\xa4\x93\xe0y\xc8\xe1\x81@\xc9\n[\xe1\x12<\xc1`*\xe3\x97\xc0\x89B\xca\x94\xcfF\x98\x12i\xbb\x98\xd0\xc2\xd3\rrKGn\xe5\x93\xc42(c\x87C\xe4\xb02>\n\xd3K\xbf#\x9b\x14)A+\x9a\x04\x1f\x93-\xf1\xc79H<\xadZ\x12\x7f\x0c\x00\x01I\x03\x00\x17A\x04\x13\x1c\x02q\xd4m\x97\x01\x99\xcf\xf2\x80G\xa8\xe1\xdf\x1ak\xbf\x1fJ\xf9\x9e\xd0\x02\x01W\x9d\xb8\xbc*\xf9S\xb6\xbf\xb8\xf1\xc1\x89\xcd\x96C(\xa8|\x189\x13\xcd\xc5\xf7Q\x1e\xe17h~\x8c`\x1f8\x8e\xacq\x04\x01\x01\x00\xc1R`\xb8\x14!\xed\xb9\xbca\x9d0{\xb7\x95\x94\x80\x06\t.A\xcc\x82\x99\x89N_\xa1\x08M%#\x1fg\xb6\xa2\xfe\x00\xd6\xa8\xe9\x9fd\x91O\xdbzw\xbfS\x88?\xeb[2\x7f\xa1\xeb\xd1vmi_\x95\xd0A\x04`\x01+\x02\\\x99\xa0\xe9\n\xb5\xb5j\x85\x89J\x82\xf8\x00\xbb\xa3%\x14\x15D\xbf9\x12{\x9e\xca\x0e\x92\xdf\xbb\xfd\xd3\xc8\x0ez\x04n \x12\x01\xd2|\xc6t\xc36\xce>:J\xc3\x81+d\xbc\xb1\x1d\x8d\x00o\x00\xc9\xd4%\xb6\x90\x1f\xe1\xc5\x14\xb5Qk\x06\x1e\xf6{\xbdJ\xb2H\xcbf\xe9_mQ(\x9e4\x10U#\xcd4\x88\x1c\xfb\x03\x80(Q:\x9c\x0f\x16\xed\xad\xb4\x18k\t\xc5$\x97}~s\xc1\xca\xae\x9d\xd1q\x94\x9fi+Pj\x80:v\xc1z#\xf6\xee]ou~\xa3\xd9I\xce\xb8Z|\x1b\x8ep\xc6\x19\xb4A\x03\x92\x1bp\x16\x10\x0f\x84\xa9\x9f\xb7\xc9\x01\xc8^\x93\xaat\r\x87\x96\x86\xf6\xc5\xfe\x88\x13\xc3N\x0e\x00\x00\x00'
+p = TLS(a)
+p.clear_cache()
+assert raw(p) == a
+
+= Issue 2763
+
+dd = conf.debug_dissector
+conf.debug_dissector = False
+
+p = Ether(b'RU\x10\x00\x02\x02RT\x00\x124V\x08\x00E\x00\x05\xc8\r\xd8\x00\x00@\x06\x96\x9d\x9c&\xce\x12\xc0\xa8\xa5\xd9\x01\xbb\xc0\x1f\x00w$\x02\x03\xbe\xc5#P\x10#(\x0b\x9e\x00\x00\x16\x03\x03\x0e4\x02\x00\x00M\x03\x03^\xfa\xb5~\x88\xdf\xdc#}\'\xa0\xff\xa2\xe2\xb5\xec\x0e\x93\xa8\xe0\xde\x01[\x13[F\x151 x\xc6\xcc `)\x00\x00\x8aZ\x90l\xda\x0b\xe1\xec[i\x13\xa7\x8e\xb9a\x98"\x8a7L\x9d\x90\xe0\x01\x06c$9\xc0\'\x00\x00\x05\xff\x01\x00\x01\x00\x0b\x00\x0c\x8e\x00\x0c\x8b\x00\x06n0\x82\x06j0\x82\x05R\xa0\x03\x02\x01\x02\x02\x10EY\xe8\x1c\x1e\x9a\xe0?X\xaa\xc3\xbc\xcd`jh0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x000\x81\x8f1\x0b0\t\x06\x03U\x04\x06\x13\x02GB1\x1b0\x19\x06\x03U\x04\x08\x13\x12Greater Manchester1\x100\x0e\x06\x03U\x04\x07\x13\x07Salford1\x180\x16\x06\x03U\x04\n\x13\x0fSectigo Limited1705\x06\x03U\x04\x03\x13.Sectigo RSA Domain Validation Secure Server CA0\x1e\x17\r190309000000Z\x17\r210308235959Z0W1!0\x1f\x06\x03U\x04\x0b\x13\x18Domain Control Validated1\x1d0\x1b\x06\x03U\x04\x0b\x13\x14PositiveSSL Wildcard1\x130\x11\x06\x03U\x04\x03\x0c\n*.mql5.net0\x82\x01"0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x01\x05\x00\x03\x82\x01\x0f\x000\x82\x01\n\x02\x82\x01\x01\x00\xcb\xbcn=\xbaGd\xe1XB\x07\xc9\xb1\xc8/\x86\xaa4Z\xbdNk\xfb\xffR\x8f\xe4\x1c^\x91m8\xb9^\x97\xa5\xd3N\xfb\x80\x92\x8ap\xda\x15\x9f\xee\xe7\xb3\xc8?\xb0>~\xaa\x07\x91\xb1\x99q\xe2\xe5\xc8\x9b\x1d5\xa0\x96,\x98\xdaW\x93\x95\x8e%\xe8\xd4L\xeb\xcbSg\x15"\xba\xb7\xc7\x1f\xe9\xd6\x1a\xe6E\x1d\xc8\x1e%\xd36\xe0/r\xd1\xce1C\xce\x91&\xa1\x08*R\xbf\x8cu\xb0\xda\x0e\x1e2\xd66\x1df&3\x9b\x03\x0b\xcam:\xf7\x12\xd9ud(\xae\xdc\xbci\x85\xbd\xcf\xeb{\x15:\xbd\x0e\x11\x1bi\xd8\xff]y~E\x15\x95\xee\xe9\xea\xc6Cr</\x0b\xe8\xc2\x9d\xe3\x83\x07R\xeb1\xf0\x93<|.\xf8G\xab\xa8=\xac\x16\x1d\xf9\x93%\x1b;)\xb2FN\x15\xc4\x17\xa9}\xb0\x80\xba\xfb\xc8\x15-G\x9e\x05\xe9\xf6\xc76\xc1\x9af\xa3\x91\n\xa4\x80,\x11=\x87\xec\xf9\xd6iJ\xd0\xbe\xc3K\x99J\xe7&\xc4\x86\x84:W\xc4/\x7f\x02\x03\x01\x00\x01\xa3\x82\x02\xf70\x82\x02\xf30\x1f\x06\x03U\x1d#\x04\x180\x16\x80\x14\x8d\x8c^\xc4T\xad\x8a\xe1w\xe9\x9b\xf9\x9b\x05\xe1\xb8\x01\x8da\xe10\x1d\x06\x03U\x1d\x0e\x04\x16\x04\x14z\x87\xb6T\xcbt:a\x03\xef:\x1f_\xad\xc0\x1cT\x15\x9d\xe30\x0e\x06\x03U\x1d\x0f\x01\x01\xff\x04\x04\x03\x02\x05\xa00\x0c\x06\x03U\x1d\x13\x01\x01\xff\x04\x020\x000\x1d\x06\x03U\x1d%\x04\x160\x14\x06\x08+\x06\x01\x05\x05\x07\x03\x01\x06\x08+\x06\x01\x05\x05\x07\x03\x020I\x06\x03U\x1d \x04B0@04\x06\x0b+\x06\x01\x04\x01\xb21\x01\x02\x02\x070%0#\x06\x08+\x06\x01\x05\x05\x07\x02\x01\x16\x17https://sectigo.com/CPS0\x08\x06\x06g\x81\x0c\x01\x02\x010\x81\x84\x06\x08+\x06\x01\x05\x05\x07\x01\x01\x04x0v0O\x06\x08+\x06\x01\x05\x05\x070\x02\x86Chttp://crt.sectigo.com/SectigoRSADomainValidationSecureServerCA.crt0#\x06\x08+\x06\x01\x05\x05\x070\x01\x86\x17http://ocsp.sectigo.com0\x1f\x06\x03U\x1d\x11\x04\x180\x16\x82\n*.mql5.net\x82\x08mql5.net0\x82\x01\x7f\x06\n+\x06\x01\x04\x01\xd6y\x02\x04\x02\x04\x82\x01o\x04\x82\x01k\x01i\x00v\x00\xbb\xd9\xdf\xbc\x1f\x8aq\xb5\x93\x94#\x97\xaa\x92{G8W\x95\n\xabR\xe8\x1a\x90\x96d6\x8e\x1e\xd1\x85\x00\x00\x01icH\xf8\x9b\x00\x00\x04\x03\x00G0E\x02 =\xab\xac\xefa \xc3\xf3J\xbb] w8\xc1+\xa9\x1b8\xcc\x94LP,T\xe0\x07\xe8\x87\x93s\xf5\x02!\x00\xf4D\x0e\x86a\xc9M\x8b\xc5\xf8\xec\x821\x9b\xbf]^\xacB1p\xfc\x8a\n\x07\xefz\xb6\x82 \xe0\xd5\x00v\x00D\x94e.\xb0\xee\xce\xaf\xc4@\x07\xd8\xa8\xfe(\xc0\xda\xe6\x82\xbe\xd8\xcb1\xb5?\xd33\x96\xb5\xb6\x81\xa8\x00\x00\x01icH\xf8\xdb\x00\x00\x04\x03\x00G0E\x02 ]\x91\x03.5\xaaA\xa82\xf4Bg\x08\xf7\xf1\x948N\x08,\xf5\x96\x01\x08\xdcM]&7J\xebv\x02!\x00\xeb\x90\r\xd5k\xf9\xa3L<\xc67]\xc5]\x16\xb2\x10\xed\xd5\x9b\xec\xdc$\xe1\xd5r+\x99\x19\xdbb\xe4\x00w\x00\\\xdcC\x92\xfe\xe6\xabED\xb1^\x9a\xd4V\xe6\x107\xfb\xd5\xfaG\xdc\xa1s\x94\xb2^\xe6\xf6\xc7\x0e\xca\x00\x00\x01icH\xf8\xe5\x00\x00\x04\x03\x00H0F\x02!\x00\x8f\xf5W\xd5 \xea\x02\xc4v\x1b\xd0h\x03\xe7`\xec\xdfp\xd7\xb8\x10\xd9nb7\xadDp\xf6V\xa0l\x02!\x00\xa9\x935\x94\xe3\xdb')
+assert raw(p[TLS]) == b'\x17\x03\x03\x0e4\x02\x00\x00M\x03\x03^\xfa\xb5~\x88\xdf\xdc#}\'\xa0\xff\xa2\xe2\xb5\xec\x0e\x93\xa8\xe0\xde\x01[\x13[F\x151 x\xc6\xcc `)\x00\x00\x8aZ\x90l\xda\x0b\xe1\xec[i\x13\xa7\x8e\xb9a\x98"\x8a7L\x9d\x90\xe0\x01\x06c$9\xc0\'\x00\x00\x05\xff\x01\x00\x01\x00\x0b\x00\x0c\x8e\x00\x0c\x8b\x00\x06n0\x82\x06j0\x82\x05R\xa0\x03\x02\x01\x02\x02\x10EY\xe8\x1c\x1e\x9a\xe0?X\xaa\xc3\xbc\xcd`jh0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x000\x81\x8f1\x0b0\t\x06\x03U\x04\x06\x13\x02GB1\x1b0\x19\x06\x03U\x04\x08\x13\x12Greater Manchester1\x100\x0e\x06\x03U\x04\x07\x13\x07Salford1\x180\x16\x06\x03U\x04\n\x13\x0fSectigo Limited1705\x06\x03U\x04\x03\x13.Sectigo RSA Domain Validation Secure Server CA0\x1e\x17\r190309000000Z\x17\r210308235959Z0W1!0\x1f\x06\x03U\x04\x0b\x13\x18Domain Control Validated1\x1d0\x1b\x06\x03U\x04\x0b\x13\x14PositiveSSL Wildcard1\x130\x11\x06\x03U\x04\x03\x0c\n*.mql5.net0\x82\x01"0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x01\x05\x00\x03\x82\x01\x0f\x000\x82\x01\n\x02\x82\x01\x01\x00\xcb\xbcn=\xbaGd\xe1XB\x07\xc9\xb1\xc8/\x86\xaa4Z\xbdNk\xfb\xffR\x8f\xe4\x1c^\x91m8\xb9^\x97\xa5\xd3N\xfb\x80\x92\x8ap\xda\x15\x9f\xee\xe7\xb3\xc8?\xb0>~\xaa\x07\x91\xb1\x99q\xe2\xe5\xc8\x9b\x1d5\xa0\x96,\x98\xdaW\x93\x95\x8e%\xe8\xd4L\xeb\xcbSg\x15"\xba\xb7\xc7\x1f\xe9\xd6\x1a\xe6E\x1d\xc8\x1e%\xd36\xe0/r\xd1\xce1C\xce\x91&\xa1\x08*R\xbf\x8cu\xb0\xda\x0e\x1e2\xd66\x1df&3\x9b\x03\x0b\xcam:\xf7\x12\xd9ud(\xae\xdc\xbci\x85\xbd\xcf\xeb{\x15:\xbd\x0e\x11\x1bi\xd8\xff]y~E\x15\x95\xee\xe9\xea\xc6Cr</\x0b\xe8\xc2\x9d\xe3\x83\x07R\xeb1\xf0\x93<|.\xf8G\xab\xa8=\xac\x16\x1d\xf9\x93%\x1b;)\xb2FN\x15\xc4\x17\xa9}\xb0\x80\xba\xfb\xc8\x15-G\x9e\x05\xe9\xf6\xc76\xc1\x9af\xa3\x91\n\xa4\x80,\x11=\x87\xec\xf9\xd6iJ\xd0\xbe\xc3K\x99J\xe7&\xc4\x86\x84:W\xc4/\x7f\x02\x03\x01\x00\x01\xa3\x82\x02\xf70\x82\x02\xf30\x1f\x06\x03U\x1d#\x04\x180\x16\x80\x14\x8d\x8c^\xc4T\xad\x8a\xe1w\xe9\x9b\xf9\x9b\x05\xe1\xb8\x01\x8da\xe10\x1d\x06\x03U\x1d\x0e\x04\x16\x04\x14z\x87\xb6T\xcbt:a\x03\xef:\x1f_\xad\xc0\x1cT\x15\x9d\xe30\x0e\x06\x03U\x1d\x0f\x01\x01\xff\x04\x04\x03\x02\x05\xa00\x0c\x06\x03U\x1d\x13\x01\x01\xff\x04\x020\x000\x1d\x06\x03U\x1d%\x04\x160\x14\x06\x08+\x06\x01\x05\x05\x07\x03\x01\x06\x08+\x06\x01\x05\x05\x07\x03\x020I\x06\x03U\x1d \x04B0@04\x06\x0b+\x06\x01\x04\x01\xb21\x01\x02\x02\x070%0#\x06\x08+\x06\x01\x05\x05\x07\x02\x01\x16\x17https://sectigo.com/CPS0\x08\x06\x06g\x81\x0c\x01\x02\x010\x81\x84\x06\x08+\x06\x01\x05\x05\x07\x01\x01\x04x0v0O\x06\x08+\x06\x01\x05\x05\x070\x02\x86Chttp://crt.sectigo.com/SectigoRSADomainValidationSecureServerCA.crt0#\x06\x08+\x06\x01\x05\x05\x070\x01\x86\x17http://ocsp.sectigo.com0\x1f\x06\x03U\x1d\x11\x04\x180\x16\x82\n*.mql5.net\x82\x08mql5.net0\x82\x01\x7f\x06\n+\x06\x01\x04\x01\xd6y\x02\x04\x02\x04\x82\x01o\x04\x82\x01k\x01i\x00v\x00\xbb\xd9\xdf\xbc\x1f\x8aq\xb5\x93\x94#\x97\xaa\x92{G8W\x95\n\xabR\xe8\x1a\x90\x96d6\x8e\x1e\xd1\x85\x00\x00\x01icH\xf8\x9b\x00\x00\x04\x03\x00G0E\x02 =\xab\xac\xefa \xc3\xf3J\xbb] w8\xc1+\xa9\x1b8\xcc\x94LP,T\xe0\x07\xe8\x87\x93s\xf5\x02!\x00\xf4D\x0e\x86a\xc9M\x8b\xc5\xf8\xec\x821\x9b\xbf]^\xacB1p\xfc\x8a\n\x07\xefz\xb6\x82 \xe0\xd5\x00v\x00D\x94e.\xb0\xee\xce\xaf\xc4@\x07\xd8\xa8\xfe(\xc0\xda\xe6\x82\xbe\xd8\xcb1\xb5?\xd33\x96\xb5\xb6\x81\xa8\x00\x00\x01icH\xf8\xdb\x00\x00\x04\x03\x00G0E\x02 ]\x91\x03.5\xaaA\xa82\xf4Bg\x08\xf7\xf1\x948N\x08,\xf5\x96\x01\x08\xdcM]&7J\xebv\x02!\x00\xeb\x90\r\xd5k\xf9\xa3L<\xc67]\xc5]\x16\xb2\x10\xed\xd5\x9b\xec\xdc$\xe1\xd5r+\x99\x19\xdbb\xe4\x00w\x00\\\xdcC\x92\xfe\xe6\xabED\xb1^\x9a\xd4V\xe6\x107\xfb\xd5\xfaG\xdc\xa1s\x94\xb2^\xe6\xf6\xc7\x0e\xca\x00\x00\x01icH\xf8\xe5\x00\x00\x04\x03\x00H0F\x02!\x00\x8f\xf5W\xd5 \xea\x02\xc4v\x1b\xd0h\x03\xe7`\xec\xdfp\xd7\xb8\x10\xd9nb7\xadDp\xf6V\xa0l\x02!\x00\xa9\x935\x94\xe3\xdb'
+
+conf.debug_dissector = dd
+
+= Test TLS TCP defragmentation
+
+import os
+
+tmp = "/test/pcaps/tls_tcp_frag.pcap.gz"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+dd = conf.debug_dissector
+conf.debug_dissector = False
+
+a = sniff(offline=filename, session=TCPSession)[0]
+
+conf.debug_dissector = dd
+
+assert len(a.msg) == 4
+assert isinstance(a.msg[0], TLSServerHello)
+assert isinstance(a.msg[1], TLSCertificate)
+assert isinstance(a.msg[2], TLSServerKeyExchange)
+assert isinstance(a.msg[3], TLSServerHelloDone)
+
+= Issue 2527
+
+p = TLS(b'\x16\x03\x00\x05\'\x02\x00\x00&\x03\x00\x00\x00\x00\x00\x7fk77\n\xe2\x1d\xdf\x82e\x06p$\xbaV7_\xa9\xb1\x03\x01\x0c\x0c\x18\x90\x00H\x01\x00\x00\x03\x00\x0b\x00\x03\xa8\x00\x03\xa5\x00\x03\xa20\x82\x03\x9e0\x82\x02\x86\xa0\x03\x02\x01\x02\x02\t\x00\xfe\x04W\r\xc7\'\xe9\xf60\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x000T1\x0b0\t\x06\x03U\x04\x06\x13\x02MN1\x140\x12\x06\x03U\x04\x07\x0c\x0bUlaanbaatar1\x170\x15\x06\x03U\x04\x0b\x0c\x0eScapy Test PKI1\x160\x14\x06\x03U\x04\x03\x0c\rScapy Test CA0\x1e\x17\r160916102811Z\x17\r260915102811Z0X1\x0b0\t\x06\x03U\x04\x06\x13\x02MN1\x140\x12\x06\x03U\x04\x07\x0c\x0bUlaanbaatar1\x170\x15\x06\x03U\x04\x0b\x0c\x0eScapy Test PKI1\x1a0\x18\x06\x03U\x04\x03\x0c\x11Scapy Test Server0\x82\x01"0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x01\x05\x00\x03\x82\x01\x0f\x000\x82\x01\n\x02\x82\x01\x01\x00\xcc\xf1\xf1\x9b`-`\xae\xf2\x98\r\')\xd9\xc0\tYL\x0fJ0\xa8R\xdf\xe5\xb1!\x9fO\xc3=V\x93\xdd_\xc6\xf7\xb3\xf6U\x8b\xe7\x92\xe2\xde\xf2\x85I\xb4\xa1,\xf4\xfdv\xa8g\xca\x04 `\x11\x18\xa6\xf2\xa9\xb6\xa6\x1d\xd9\xaa\xe5\xd9\xdb\xaf\xe6\xafUW\x9f\xffR\x89e\xe6\x80b\x80!\x94\xbc\xcf\x81\x1b\xcbg\xc2\x9d\xb5\x05w\x04\xa6\xc7\x88\x18\x80xh\x956\xde\x97\x1b\xb6a\x87B\x1au\x98E\x82\xeb>2\x11\xc8\x9b\x86B9\x8dM\x12\xb7X\x1b\x19\xf3\x9d+\xa1\x98\x82\xca\xd7;$\xfb\t9\xb0\xbc\xc2\x95\xcf\x82)u\x16)?B \x17+M@\x8cVl\xad\xba\x0f4\x85\xb1\x7f@yqx\xb7\xa5\x04\xbb\x94\xf7\xb5A\x95\xee|\xeb\x8d\x0cyhY\xef\xcb\xb3\xfa>x\x1e\xeegLz\xdd\xe0\x99\xef\xda\xe7\xef\xb2\t]\xbe\x80 !\x05\x83,D\xdb]*v)\xa5\xb0#\x88t\x07T"\xd6)z\x92\xf5o-\x9e\xe7\xf8&+\x9cXe\x02\x03\x01\x00\x01\xa3o0m0\t\x06\x03U\x1d\x13\x04\x020\x000\x0b\x06\x03U\x1d\x0f\x04\x04\x03\x02\x05\xe00\x1d\x06\x03U\x1d\x0e\x04\x16\x04\x14\xa1+ p\xd2k\x80\xe5e\xbc\xeb\x03\x0f\x88\x9ft\xad\xdd\xf6\x130\x1f\x06\x03U\x1d#\x04\x180\x16\x80\x14fS\x94\xf4\x15\xd1\xbdgh\xb0Q725\xe1\xa4\xaa\xde\x07|0\x13\x06\x03U\x1d%\x04\x0c0\n\x06\x08+\x06\x01\x05\x05\x07\x03\x010\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x00\x03\x82\x01\x01\x00\x81\x88\x92sk\x93\xe7\x95\xd6\xddA\xee\x8e\x1e\xbd\xa3HX\xa7A5?{}\xd07\x98\x0e\xb8,\x94w\xc8Q6@\xadY\t(\xc8V\xd6\xea[\xac\xb4\xd8?h\xb7f\xca\xe1V7\xa9\x00e\xeaQ\xc9\xec\xb2iI]\xf9\xe3\xc0\xedaT\xc9\x12\x9f\xc6\xb0\nsU\xe8U5`\xef\x1c6\xf0\xda\xd1\x90wV\x04\xb8\xab8\xee\xf7\t\xc5\xa5\x98\x90#\xea\x1f\xdb\x15\x7f2(\x81\xab\x9b\x85\x02K\x95\xe77Q{\x1bH.\xfb>R\xa3\r\xb4F\xa9\x92:\x1c\x1f\xd7\n\x1eXJ\xfa.Q\x8f)\xc6\x1e\xb8\x0e1\x0es\xf1\'\x88\x17\xca\xc8i\x0c\xfa\x83\xcd\xb3y\x0e\x14\xb0\xb8\x9b/:-\t\xe3\xfc\x06\xf0:n\xfd6;+\x1a\t*\xe8\xab_\x8c@\xe4\x81\xb2\xbc\xf7\x83g\x11nN\x93\xea"\xaf\xff\xa3\x9awWv\xd0\x0b8\xac\xf8\x8a\x945\x8e\xd7\xd4a\xcc\x01\xff$\xb4\x8fa#\xba\x88\xd7Y\xe4\xe9\xba*N\xb5\x15\x0f\x9c\xd0\xea\x06\x91\xd9\xde\xab\x0c\x00\x01I\x00@\xd1L\xf3\xe7\x8b\xdd\x98\xff\xb2\xf5Rd\xd6\x85\x0f\r{\x9f\xc2\xc0\x8aY\xbf.\xfb\xf0o\x96\xa5\xba;\x877qet\xe8\xe4K\xd7\xcb\xb8\xecAk>S\xe0\xa5\xc3\xfc\xe8\xde\xf1\xb0\xe5\x15s|\xb7\xe6D\x15+\x00\x03\x01\x00\x01\x01\x00H\xf1\x08\x88\xe9\xf8\xe6\xb2y\\\xf9\xf64\x95r\xf9\x8c]\x0b\x88%s\xee{\xd4\xa3{|Jd>\xfb\x01\x0b\xfdAf\xea\x13%\x1f\xcc\xba\xf8H\xed\xeb?u\x00\xc46\xe4\x9f!r\x99\xec\'!\xa1+\xe9\xcd;\xfa\x00a\xd1ME7\x9a\xc3C\xb2\xb0>\xec\x07\xff>\xb3\xa3\xbd\x8db\xa2\x17\x0b\xce\xe1H\xaf\xba_\xdc\x18\x83Fr^\xf6\xfd\x8f\xbd\xc1\xdf\xc3\xf9T\xc2RC\xfa1\xe1\x16\x94RgZ\xb1\xe8rycp\xaeEa@\xe2\xb7T\xe4\xaa7\x02\x1e\xb3\x0c_P\x14\xd9\x023]\xc9)\x1b\xd7]\xba\x8aS\x18\xe5\x88\x1e08W\xc7\xd5\xc0\x7f\xf6n\n>\x83_\r\t\x1f\x01\x99\xda\x88(\xbc\xd9\xb8!=\xb6%\x15wh\xacl)\xde\xb3-\x81M\xc6(,\xceom\x15W7\xcc\xd3\xe3\xc2e\xb4\x96\xf1\xfc\x1e\xa5?\xe1B\xbd\x00\x89\xc1\xd0t\xd6\xaa\xf8\xa7\x1f\xa1z}\x91M\x8egg\xa1}\x93\xaal\xec\x16@\xf3\xd7\x0b\x91\n\xcc\x0e\x00\x00\x00')
+
+assert p.msg[0].extlen is None
+assert p.msg[0].ext == []
+assert [type(x) for x in a.msg] == [TLSServerHello, TLSCertificate, TLSServerKeyExchange, TLSServerHelloDone]
+
+= Issue 2778
+
+r1 = TLS(b"\x16\x03\x01\x02\x00\x01\x00\x01\xfc\x03\x03\xf8\xb3\xdb\xcbp\xed8\x04\x00\x9c\x15\xafJB\x98r\x06\x19\xb7\r\x1a\xd4\xf2M\x0e\x99\xde\x9e\x93\xce<; \x1c;,\xf3&k\xcb\xa1\x9b)G\x9e\xc6o\xe8\x15\xf7\xdb\nk\x97a\x11\xf7\tX9^z\xee\xba\xba\x00>\x13\x02\x13\x03\x13\x01\xc0,\xc00\x00\x9f\xcc\xa9\xcc\xa8\xcc\xaa\xc0+\xc0/\x00\x9e\xc0$\xc0(\x00k\xc0#\xc0'\x00g\xc0\n\xc0\x14\x009\xc0\t\xc0\x13\x003\x00\x9d\x00\x9c\x00=\x00<\x005\x00/\x00\xff\x01\x00\x01u\x00\x0b\x00\x04\x03\x00\x01\x02\x00\n\x00\x0c\x00\n\x00\x1d\x00\x17\x00\x1e\x00\x19\x00\x183t\x00\x00\x00\x10\x00\x0e\x00\x0c\x02h2\x08http/1.1\x00\x16\x00\x00\x00\x17\x00\x00\x001\x00\x00\x00\r\x00*\x00(\x04\x03\x05\x03\x06\x03\x08\x07\x08\x08\x08\t\x08\n\x08\x0b\x08\x04\x08\x05\x08\x06\x04\x01\x05\x01\x06\x01\x03\x03\x03\x01\x03\x02\x04\x02\x05\x02\x06\x02\x00+\x00\x05\x04\x03\x04\x03\x03\x00-\x00\x02\x01\x01\x003\x00&\x00$\x00\x1d\x00 \xe8A\x0fZ\xb0\x9d\x96\xb0_\x10\x18<\xcd\x9e\x93\xa0W\xa72\x90\xb4\xc9\xe1\xc2T\xcd\xfc)\x9f\xc0\x1dA\x00\x15\x00\xd0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+r2 = TLS(b'\x16\x03\x03\x00U\x02\x00\x00Q\x03\x03 \xa5@2G~\xa3\xa9c\xb8\xa7\x00\t\x04Y\xf1\x1f\x1fJ\xd1\x89n\x1dut[~+\xdcQ\xdd\xe0 \x06\x00\xf5R\xdblQ\xb9z0\x97\x17\xff\x84{\xb6\xe8\xfe\xf1\xce&\x01TD\x13\xfd\xa7\xb6`u\xb8\x87\x00\x9d\x00\x00\t\xff\x01\x00\x01\x00\x00\x17\x00\x00\x16\x03\x03\x03n\x0b\x00\x03j\x00\x03g\x00\x03d0\x82\x03`0\x82\x02H\xa0\x03\x02\x01\x02\x02\t\x00\xebs\xb7\x1c>/\x9f\xdc0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x000E1\x0b0\t\x06\x03U\x04\x06\x13\x02AU1\x130\x11\x06\x03U\x04\x08\x0c\nSome-State1!0\x1f\x06\x03U\x04\n\x0c\x18Internet Widgits Pty Ltd0\x1e\x17\r190215151403Z\x17\r290212151403Z0E1\x0b0\t\x06\x03U\x04\x06\x13\x02AU1\x130\x11\x06\x03U\x04\x08\x0c\nSome-State1!0\x1f\x06\x03U\x04\n\x0c\x18Internet Widgits Pty Ltd0\x82\x01"0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x01\x05\x00\x03\x82\x01\x0f\x000\x82\x01\n\x02\x82\x01\x01\x00\xd2\xf7\xd3k#:V\x196\x8f\xc3\xa7\xdb\x0f#d\xdcq\x98m\xd4\xee\xbc\xbe\xe8[x>\x13\x9c\xfe\xb0\xa8\r\xe5\x01G\xc96\xaa\x84#\x0e/\xa2\xeb\x91\xef\x177A\x03\x87\xb92D\n\xc7\xcf\xda<Yf\xee\xf8\x8fh\x8b\xcb\xeej]\r\xfa\xa0u\xb7}\xfe\x83o,\xb3\x187_\xf5\xbe+5\xf6\xd6-\xd7\xc4\xb1G"Og\xd5=\x95\xc7\xfc\xc1\x1c\xda{\xc6"6\x9bMJhVU\x16\x9f\xb2\x8ff\xe5\x11rO\x0c\x9a\xf2\xf7N\xa4\xcd\xf0\x9b\x92\xf9\x17$jX/g\xfa\xde>\xff~\xca,yMq<\x13\xf8\x0c\xd5?\x84z\xa1\x96\xd0\xad\xc0D\x94y\nb\x8e2\x7fKS\xd0[\x83\x02\\>\xa5A\x19_\x95<\xe6\xfc7\xed\xcch\xa8\xfdn\xcab\x1f8\xbc\x08\xbc-\x8dr\xcf\xcd\xf8\\h\xf9\xf4\xf4H[2\x13<c)\x9f\x85\xff\xd6+\xdeZ\x9dX^Z\x89o\x081\x94H\'\x7f\x19\xe8m]hx\xbcSv\x8b.\xf9\xb3!\x02\x03\x01\x00\x01\xa3S0Q0\x1d\x06\x03U\x1d\x0e\x04\x16\x04\x14\x82\x97\xfb\x8c\xf3\xd9\xdd\xf2\xf6\x0e\xc9\x0f\x92\x81\\(\xe3\xf3\xff50\x1f\x06\x03U\x1d#\x04\x180\x16\x80\x14\x82\x97\xfb\x8c\xf3\xd9\xdd\xf2\xf6\x0e\xc9\x0f\x92\x81\\(\xe3\xf3\xff50\x0f\x06\x03U\x1d\x13\x01\x01\xff\x04\x050\x03\x01\x01\xff0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x00\x03\x82\x01\x01\x00<\x00\x1f\x0f]\x10`r\xe0\xbe\xed\xfaG\x89S)\xd4b4"\x08\x0ef\xca\xa4\xbe\xb4\xc3\xd9\xb6\x86\x8f\xa1\x07F}a`\xe5\x12\xed\xe7\xcb\xbe\xfd\xeb\x17\xc0\x9b\x9fYO\x86\xf1\xa9\x92,\x98,\xcf\x96U\xd4\xd6~\xda\x06\x1ff~\xeb%\xfer\x03\xbe\xa0\x0e@\xf1P\xa4\x90\xa7\x8c\xa9c\xd8|\x18Z\xde\x8b|)OPR\xfb\x1e\x1e\xdb4\x03\x83\x1e3\xe4\x02l\x8eVq|\xb7{\xc3#!\x85\x8b\xe3zw\xfe\x7fU\x11\xef\x8c \x13\xc8n\'0\xc5\xb26hu\x13\x1c\xae\x0cv\x16\xfd\xc7\xc8`V\x96\x13>zh_  <\r\xb8\xe0\xff\x1d\x1aY\x91\xd2\xf0X\xf4\x8f \xb1\n_\xb0\xdf\'\xa1\xf9\x87L\xc0\xfe\x8dn\xbfw\xe9\xa7\xba8I\x0e\x9dc$\x1a\x0f\xb3\xfdw\x01\xff;\x13\x0c\x9a\xa7\xaaww\x02\x80\xb7\x00<\x1b\xb5\xe0xL4\xaa\xcbt\xce\x81\x14\x96\x0eP\xee\xe0F\x02\xa7\xab \xe5\xc8x\x02\x8eB\x92\xe9\x0e@\xfdc\x1f\xee\x16\x03\x03\x00\x04\x0e\x00\x00\x00', tls_session=r1.tls_session.mirror())
+assert r2.tls_session.tls_version == 0x303
 
 ###############################################################################
 ############################ Automaton behaviour ##############################

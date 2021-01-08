@@ -506,7 +506,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                     options.append((int(opt[1:]), ''))
             # FIXME: qqP not handled
             else:
-                warning("unhandled TCP option " + opt)
+                warning("unhandled TCP option %s", opt)
             pkt.payload.options = options
 
     # window size

@@ -21,6 +21,7 @@ import time
 import traceback
 import heapq
 from threading import Thread, Event, Lock
+from scapy.compat import Iterator, Optional, Union, List, Tuple, Dict
 
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
@@ -30,7 +31,7 @@ from scapy.compat import chb, orb
 from scapy.layers.can import CAN
 import scapy.modules.six as six
 import scapy.automaton as automaton
-import six.moves.queue as queue
+from scapy.modules.six.moves import queue
 from scapy.error import Scapy_Exception, warning, log_loading, log_runtime
 from scapy.supersocket import SuperSocket, SO_TIMESTAMPNS
 from scapy.config import conf
@@ -199,6 +200,10 @@ class ISOTP(Packet):
                     "provided CAN frames, returning the first one.")
 
         return results[0]
+
+    def __eq__(self, other):
+        # Don't compare src, dst, exsrc and exdst.
+        return super(ISOTP, self).__eq__(other)
 
 
 class ISOTPHeader(CAN):
@@ -646,8 +651,8 @@ class ISOTPSoftSocket(SuperSocket):
         """
 
         if six.PY3 and LINUX and isinstance(can_socket, six.string_types):
-            from scapy.contrib.cansocket import CANSocket
-            can_socket = CANSocket(can_socket)
+            from scapy.contrib.cansocket_native import NativeCANSocket
+            can_socket = NativeCANSocket(can_socket)
         elif isinstance(can_socket, six.string_types):
             raise Scapy_Exception("Provide a CANSocket object instead")
 
@@ -723,7 +728,10 @@ class ISOTPSoftSocket(SuperSocket):
         blocking = remain is None or remain > 0
 
         def find_ready_sockets():
-            return list(filter(lambda x: not x.ins.rx_queue.empty(), sockets))
+            return list(filter(lambda x: (x.ins is not None) and
+                                         (x.ins.rx_queue is not None) and
+                                         (not x.ins.rx_queue.empty()),
+                               sockets))
 
         ready_sockets = find_ready_sockets()
         if len(ready_sockets) > 0 or not blocking:
@@ -745,6 +753,8 @@ class ISOTPSoftSocket(SuperSocket):
                 try:
                     s.ins.rx_callbacks.remove(my_cb)
                 except ValueError:
+                    pass
+                except AttributeError:
                     pass
 
         ready_sockets = find_ready_sockets()
@@ -840,7 +850,8 @@ class TimeoutScheduler:
 
             # Start the scheduling thread if it is not started already
             if TimeoutScheduler._thread is None:
-                t = Thread(target=TimeoutScheduler._task)
+                t = Thread(target=TimeoutScheduler._task,
+                           name="TimeoutScheduler._task")
                 must_interrupt = False
                 TimeoutScheduler._thread = t
                 TimeoutScheduler._event.clear()
@@ -871,7 +882,7 @@ class TimeoutScheduler:
                     # set the event to stop the wait - this kills the thread
                     TimeoutScheduler._event.set()
             else:
-                Exception("Handle not found")
+                raise Scapy_Exception("Handle not found")
 
     @staticmethod
     def clear():
@@ -968,9 +979,12 @@ class TimeoutScheduler:
 
                 # Time complexity is O(log n)
                 handle = heapq.heappop(handles)
+                callback = None
+                if handle is not None:
+                    callback = handle._cb
+                    handle._cb = True
 
             # Call the callback here, outside of the mutex
-            callback = handle._cb if handle is not None else None
             if callback is not None:
                 try:
                     callback()
@@ -995,8 +1009,18 @@ class TimeoutScheduler:
         def cancel(self):
             """Cancels this timeout, preventing it from executing its
             callback"""
-            self._cb = None
-            return TimeoutScheduler.cancel(self)
+            if self._cb is None:
+                raise Scapy_Exception("cancel() called on "
+                                      "previous canceled Handle")
+            else:
+                if isinstance(self._cb, bool):
+                    # Handle was already executed.
+                    # We don't need to cancel anymore
+                    return False
+                else:
+                    self._cb = None
+                    TimeoutScheduler.cancel(self)
+                    return True
 
         def __cmp__(self, other):
             diff = self._when - other._when
@@ -1004,6 +1028,15 @@ class TimeoutScheduler:
 
         def __lt__(self, other):
             return self._when < other._when
+
+        def __le__(self, other):
+            return self._when <= other._when
+
+        def __gt__(self, other):
+            return self._when > other._when
+
+        def __ge__(self, other):
+            return self._when >= other._when
 
 
 """ISOTPSoftSocket definitions."""
@@ -1128,7 +1161,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
 
     def can_send(self, load):
         if self.padding:
-            load += bytearray(CAN_MAX_DLEN - len(load))
+            load += b"\xCC" * (CAN_MAX_DLEN - len(load))
         if self.src_id is None or self.src_id <= 0x7ff:
             self.can_socket.send(CAN(identifier=self.src_id, data=load))
         else:
@@ -1139,9 +1172,9 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         if not isinstance(p, CAN):
             raise Scapy_Exception("argument is not a CAN frame")
         if p.identifier != self.dst_id:
-            if not self.filter_warning_emitted:
-                warning("You should put a filter for identifier=%x on your"
-                        "CAN socket" % self.dst_id)
+            if not self.filter_warning_emitted and conf.verb >= 2:
+                warning("You should put a filter for identifier=%x on your "
+                        "CAN socket", self.dst_id)
                 self.filter_warning_emitted = True
         else:
             self.on_recv(p)
@@ -1158,7 +1191,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 # we did not get new data frames in time.
                 # reset rx state
                 self.rx_state = ISOTP_IDLE
-                warning("RX state was reset due to timeout")
+                if conf.verb > 2:
+                    warning("RX state was reset due to timeout")
 
     def _tx_timer_handler(self):
         """Method called every time the tx_timer times out, which can happen in
@@ -1311,7 +1345,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.rx_timeout_handle = None
 
         if self.rx_state != ISOTP_IDLE:
-            warning("RX state was reset because single frame was received")
+            if conf.verb > 2:
+                warning("RX state was reset because single frame was received")
             self.rx_state = ISOTP_IDLE
 
         length = six.indexbytes(data, 0) & 0xf
@@ -1332,7 +1367,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.rx_timeout_handle = None
 
         if self.rx_state != ISOTP_IDLE:
-            warning("RX state was reset because first frame was received")
+            if conf.verb > 2:
+                warning("RX state was reset because first frame was received")
             self.rx_state = ISOTP_IDLE
 
         if len(data) < 7:
@@ -1393,13 +1429,15 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         if len(data) < self.rx_ll_dl:
             # this is only allowed for the last CF
             if self.rx_len - self.rx_idx > self.rx_ll_dl:
-                warning("Received a CF with insuffifient length")
+                if conf.verb > 2:
+                    warning("Received a CF with insufficient length")
                 return 1
 
         if six.indexbytes(data, 0) & 0x0f != self.rx_sn:
             # Wrong sequence number
-            warning("RX state was reset because wrong sequence number was "
-                    "received")
+            if conf.verb > 2:
+                warning("RX state was reset because wrong sequence number was "
+                        "received")
             self.rx_state = ISOTP_IDLE
             return 1
 
@@ -1487,10 +1525,11 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.begin_send(p)
 
             # Wait until the tx callback is called
-            if not self.tx_done.wait(30):
-                raise Scapy_Exception("ISOTP send not completed in 30s")
+            send_done = self.tx_done.wait(30)
             if self.tx_exception is not None:
                 raise Scapy_Exception(self.tx_exception)
+            if not send_done:
+                raise Scapy_Exception("ISOTP send not completed in 30s")
             return
 
     def recv(self, timeout=None):
@@ -1588,10 +1627,10 @@ if six.PY3 and LINUX:
         def __build_can_isotp_options(
                 self,
                 flags=CAN_ISOTP_DEFAULT_FLAGS,
-                frame_txtime=0,
+                frame_txtime=CAN_ISOTP_DEFAULT_FRAME_TXTIME,
                 ext_address=CAN_ISOTP_DEFAULT_EXT_ADDRESS,
-                txpad_content=0,
-                rxpad_content=0,
+                txpad_content=CAN_ISOTP_DEFAULT_PAD_CONTENT,
+                rxpad_content=CAN_ISOTP_DEFAULT_PAD_CONTENT,
                 rx_ext_address=CAN_ISOTP_DEFAULT_EXT_ADDRESS):
             return struct.pack(self.can_isotp_options_fmt,
                                flags,
@@ -1840,19 +1879,19 @@ if USE_CAN_ISOTP_KERNEL_MODULE:
 # #################### ISOTPSCAN ####################################
 # ###################################################################
 def send_multiple_ext(sock, ext_id, packet, number_of_packets):
-    """ Send multiple packets with extended addresses at once
-
-    Args:
-        sock: socket for can interface
-        ext_id: extended id. First id to send.
-        packet: packet to send
-        number_of_packets: number of packets send
+    # type: (SuperSocket, int, Packet, int) -> None
+    """Send multiple packets with extended addresses at once.
 
     This function is used for scanning with extended addresses.
     It sends multiple packets at once. The number of packets
     is defined in the number_of_packets variable.
-    It only iterates the extended ID, NOT the actual ID of the packet.
+    It only iterates the extended ID, NOT the actual CAN ID of the packet.
     This method is used in extended scan function.
+
+    :param sock: CAN interface to send packets
+    :param ext_id: Extended ISOTP-Address
+    :param packet: Template Packet
+    :param number_of_packets: number of packets to send in one batch
     """
     end_id = min(ext_id + number_of_packets, 255)
     for i in range(ext_id, end_id + 1):
@@ -1861,11 +1900,13 @@ def send_multiple_ext(sock, ext_id, packet, number_of_packets):
 
 
 def get_isotp_packet(identifier=0x0, extended=False, extended_can_id=False):
-    """ Craft ISO TP packet
-    Args:
-        identifier: identifier of crafted packet
-        extended: boolean if packet uses extended address
-        extended_can_id: boolean if CAN should use extended Ids
+    # type: (int, bool, bool) -> Packet
+    """Craft ISO-TP packet
+
+    :param identifier: identifier of crafted packet
+    :param extended: boolean if packet uses extended address
+    :param extended_can_id: boolean if CAN should use extended Ids
+    :return: Crafted Packet
     """
 
     if extended:
@@ -1884,17 +1925,16 @@ def get_isotp_packet(identifier=0x0, extended=False, extended_can_id=False):
 
 
 def filter_periodic_packets(packet_dict, verbose=False):
-    """ Filter for periodic packets
+    # type: (Dict[int, Tuple[Packet, int]], bool) -> None
+    """Filter to remove periodic packets from packet_dict
 
-    Args:
-        packet_dict: Dictionary with Send-to-ID as key and a tuple
-                     (received packet, Recv_ID)
-        verbose: Displays further information
-
-    ISOTP-Filter for periodic packets (same ID, always same timegap)
+    ISOTP-Filter for periodic packets (same ID, always same time-gaps)
     Deletes periodic packets in packet_dict
+
+    :param packet_dict: Dictionary, where the filter is applied
+    :param verbose: Displays further information
     """
-    filter_dict = {}
+    filter_dict = {}  # type: Dict[int, Tuple[List[int], List[Packet]]]
 
     for key, value in packet_dict.items():
         pkt = value[0]
@@ -1920,22 +1960,20 @@ def filter_periodic_packets(packet_dict, verbose=False):
                 del packet_dict[k]
 
 
-def get_isotp_fc(id_value, id_list, noise_ids, extended, packet,
-                 verbose=False):
+def get_isotp_fc(id_value, id_list, noise_ids, extended, packet, verbose=False):   # noqa: E501
+    # type: (int, Union[List[int], Dict[int, Tuple[Packet, int]]], Optional[Iterator[int]], bool, Packet, bool) -> None   # noqa: E501
     """Callback for sniff function when packet received
 
-    Args:
-            id_value: packet id of send packet
-            id_list: list of received IDs
-            noise_ids: list of packet IDs which will not be considered when
-                       received during scan
-            extended: boolean if extended scan
-            packet: received packet
-            verbose: displays information during scan
+    If received packet is a FlowControl and not in noise_ids append it
+    to id_list.
 
-    If received packet is a FlowControl
-    and not in noise_ids
-    append it to id_list
+    :param id_value: packet id of send packet
+    :param id_list: list of received IDs
+    :param noise_ids: list of packet IDs which will not be considered when
+                      received during scan
+    :param extended: boolean if extended scan
+    :param packet: received packet
+    :param verbose: displays information during scan
     """
     if packet.flags and packet.flags != "extended":
         return
@@ -1965,27 +2003,33 @@ def get_isotp_fc(id_value, id_list, noise_ids, extended, packet,
               (e, repr(packet)))
 
 
-def scan(sock, scan_range=range(0x800), noise_ids=None, sniff_time=0.1,
-         extended_can_id=False, verbose=False):
+def scan(sock,                      # type: SuperSocket
+         scan_range=range(0x800),   # type: Iterator[int]
+         noise_ids=None,            # type: Optional[Iterator[int]]
+         sniff_time=0.1,            # type: float
+         extended_can_id=False,     # type: bool
+         verbose=False              # type: bool
+         ):                         # type: (...) -> Dict[int, Tuple[Packet, int]]  # noqa: E501
     """Scan and return dictionary of detections
-
-    Args:
-            sock: socket for can interface
-            scan_range: hexadecimal range of IDs to scan.
-                        Default is 0x0 - 0x7ff
-            noise_ids: list of packet IDs which will not be considered when
-                       received during scan
-            sniff_time: time the scan waits for isotp flow control responses
-                        after sending a first frame
-            extended_can_id: Send extended can frames
-            verbose: displays information during scan
 
     ISOTP-Scan - NO extended IDs
     found_packets = Dictionary with Send-to-ID as
     key and a tuple (received packet, Recv_ID)
+
+    :param sock: socket for can interface
+    :param scan_range: hexadecimal range of IDs to scan. Default is 0x0 - 0x7ff
+    :param noise_ids: list of packet IDs which will not be tested during scan
+    :param sniff_time: time the scan waits for isotp flow control responses
+                       after sending a first frame
+    :param extended_can_id: Send extended can frames
+    :param verbose: displays information during scan
+    :return: Dictionary with all found packets
     """
     return_values = dict()
     for value in scan_range:
+        if noise_ids and value in noise_ids:
+            continue
+
         sock.sniff(prn=lambda pkt: get_isotp_fc(value, return_values,
                                                 noise_ids, False, pkt,
                                                 verbose),
@@ -1996,7 +2040,7 @@ def scan(sock, scan_range=range(0x800), noise_ids=None, sniff_time=0.1,
     cleaned_ret_val = dict()
 
     for tested_id in return_values.keys():
-        for value in range(tested_id - 2, tested_id + 2, 1):
+        for value in range(max(0, tested_id - 2), tested_id + 2, 1):
             sock.sniff(prn=lambda pkt: get_isotp_fc(value, cleaned_ret_val,
                                                     noise_ids, False, pkt,
                                                     verbose),
@@ -2007,45 +2051,51 @@ def scan(sock, scan_range=range(0x800), noise_ids=None, sniff_time=0.1,
     return cleaned_ret_val
 
 
-def scan_extended(sock, scan_range=range(0x800), scan_block_size=32,
-                  noise_ids=None, sniff_time=0.1, extended_can_id=False,
-                  verbose=False):
+def scan_extended(sock,                              # type: SuperSocket
+                  scan_range=range(0x800),           # type: Iterator[int]
+                  scan_block_size=32,                # type: int
+                  extended_scan_range=range(0x100),  # type: Iterator[int]
+                  noise_ids=None,                    # type: Optional[Iterator[int]]  # noqa: E501
+                  sniff_time=0.1,                    # type: float
+                  extended_can_id=False,             # type: bool
+                  verbose=False                      # type: bool
+                  ):                                 # type: (...) -> Dict[int, Tuple[Packet, int]]  # noqa: E501
     """Scan with ISOTP extended addresses and return dictionary of detections
-
-    Args:
-            sock: socket for can interface
-            scan_range: hexadecimal range of IDs to scan.
-                        Default is 0x0 - 0x7ff
-            scan_block_size: count of packets send at once
-            noise_ids: list of packet IDs which will not be considered when
-                       received during scan
-            sniff_time: time the scan waits for isotp flow control responses
-                        after sending a first frame
-            extended_can_id: Send extended can frames
-            verbose: displays information during scan
 
     If an answer-packet found -> slow scan with
     single packages with extended ID 0 - 255
     found_packets = Dictionary with Send-to-ID
     as key and a tuple (received packet, Recv_ID)
-    """
 
-    return_values = dict()
+    :param sock: socket for can interface
+    :param scan_range: hexadecimal range of IDs to scan. Default is 0x0 - 0x7ff
+    :param scan_block_size: count of packets send at once
+    :param extended_scan_range: range to search for extended ISOTP addresses
+    :param noise_ids: list of packet IDs which will not be tested during scan
+    :param sniff_time: time the scan waits for isotp flow control responses
+                       after sending a first frame
+    :param extended_can_id: Send extended can frames
+    :param verbose: displays information during scan
+    :return: Dictionary with all found packets
+    """
+    return_values = dict()  # type: Dict[int, Tuple[Packet, int]]
     scan_block_size = scan_block_size or 1
 
     for value in scan_range:
-        pkt = get_isotp_packet(value, extended=True,
-                               extended_can_id=extended_can_id)
-        id_list = []
+        if noise_ids and value in noise_ids:
+            continue
 
-        for ext_isotp_id in range(0, 256, scan_block_size):
+        pkt = get_isotp_packet(
+            value, extended=True, extended_can_id=extended_can_id)
+        id_list = []  # type: List[int]
+        r = list(extended_scan_range)
+        for ext_isotp_id in range(r[0], r[-1], scan_block_size):
             sock.sniff(prn=lambda p: get_isotp_fc(ext_isotp_id, id_list,
                                                   noise_ids, True, p,
                                                   verbose),
-                       timeout=sniff_time,
-                       started_callback=send_multiple_ext(sock, ext_isotp_id,
-                                                          pkt,
-                                                          scan_block_size))
+                       timeout=sniff_time * 3,
+                       started_callback=lambda: send_multiple_ext(
+                           sock, ext_isotp_id, pkt, scan_block_size))
             # sleep to prevent flooding
             time.sleep(sniff_time)
 
@@ -2066,31 +2116,17 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=32,
     return return_values
 
 
-def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
+def ISOTPScan(sock,
+              scan_range=range(0x7ff + 1),
+              extended_addressing=False,
+              extended_scan_range=range(0x100),
               noise_listen_time=2,
               sniff_time=0.1,
               output_format=None,
               can_interface=None,
               extended_can_id=False,
               verbose=False):
-
     """Scan for ISOTP Sockets on a bus and return findings
-
-    Args:
-        sock: CANSocket object to communicate with the bus under scan
-        scan_range: hexadecimal range of CAN-Identifiers to scan.
-                    Default is 0x0 - 0x7ff
-        extended_addressing: scan with ISOTP extended addressing
-        noise_listen_time: seconds to listen for default
-                           communication on the bus
-        sniff_time: time the scan waits for isotp flow control responses
-                    after sending a first frame
-        output_format: defines the format of the returned
-                       results (text, code or sockets). Provide a string
-                       e.g. "text". Default is "socket".
-        can_interface: interface used to create the returned code/sockets
-        extended_can_id: Use Extended CAN-Frames
-        verbose: displays information during scan
 
     Scan for ISOTP Sockets in the defined range and returns found sockets
     in a specified format. The format can be:
@@ -2099,8 +2135,23 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
     - code: python code for copy&paste
     - sockets: if output format is not specified, ISOTPSockets will be
       created and returned in a list
-    """
 
+    :param sock: CANSocket object to communicate with the bus under scan
+    :param scan_range: range of CAN-Identifiers to scan. Default is 0x0 - 0x7ff
+    :param extended_addressing: scan with ISOTP extended addressing
+    :param extended_scan_range: range for ISOTP extended addressing values
+    :param noise_listen_time: seconds to listen for default communication on
+                              the bus
+    :param sniff_time: time the scan waits for isotp flow control responses
+                       after sending a first frame
+    :param output_format: defines the format of the returned results
+                          (text, code or sockets). Provide a string e.g.
+                          "text". Default is "socket".
+    :param can_interface: interface used to create the returned code/sockets
+    :param extended_can_id: Use Extended CAN-Frames
+    :param verbose: displays information during scan
+    :return:
+    """
     if verbose:
         print("Filtering background noise...")
 
@@ -2116,12 +2167,15 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
     noise_ids = list(set(pkt.identifier for pkt in background_pkts))
 
     if extended_addressing:
-        found_packets = scan_extended(sock, scan_range, noise_ids=noise_ids,
+        found_packets = scan_extended(sock, scan_range,
+                                      extended_scan_range=extended_scan_range,
+                                      noise_ids=noise_ids,
                                       sniff_time=sniff_time,
                                       extended_can_id=extended_can_id,
                                       verbose=verbose)
     else:
-        found_packets = scan(sock, scan_range, noise_ids=noise_ids,
+        found_packets = scan(sock, scan_range,
+                             noise_ids=noise_ids,
                              sniff_time=sniff_time,
                              extended_can_id=extended_can_id,
                              verbose=verbose)
@@ -2141,13 +2195,14 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
 
 
 def generate_text_output(found_packets, extended_addressing=False):
-    """Generate a human readable output from the result of the `scan` or
-        the `scan_extended` function.
+    # type: (Dict[int, Tuple[Packet, int]], bool) -> str
+    """Generate a human readable output from the result of the `scan` or the
+    `scan_extended` function.
 
-        Args:
-                found_packets: result of the `scan` or `scan_extended` function
-                extended_addressing: print results from a scan with ISOTP
-                                     extended addressing
+    :param found_packets: result of the `scan` or `scan_extended` function
+    :param extended_addressing: print results from a scan with
+                                ISOTP extended addressing
+    :return: human readable scan results
     """
     if not found_packets:
         return "No packets found."
@@ -2186,15 +2241,16 @@ def generate_text_output(found_packets, extended_addressing=False):
 
 def generate_code_output(found_packets, can_interface,
                          extended_addressing=False):
+    # type: (Dict[int, Tuple[Packet, int]], str, bool) -> str
     """Generate a copy&past-able output from the result of the `scan` or
-        the `scan_extended` function.
+    the `scan_extended` function.
 
-        Args:
-                found_packets: result of the `scan` or `scan_extended` function
-                can_interface: description string for a CAN interface to be
-                                used for the creation of the output.
-                extended_addressing: print results from a scan with ISOTP
-                                     extended addressing
+    :param found_packets: result of the `scan` or `scan_extended` function
+    :param can_interface: description string for a CAN interface to be
+                          used for the creation of the output.
+    :param extended_addressing: print results from a scan with ISOTP
+                                extended addressing
+    :return: Python-code as string to generate all found sockets
     """
     result = ""
     if not found_packets:
@@ -2230,17 +2286,18 @@ def generate_code_output(found_packets, can_interface,
 
 def generate_isotp_list(found_packets, can_interface,
                         extended_addressing=False):
+    # type: (Dict[int, Tuple[Packet, int]], str, bool) -> List[ISOTPSocket]
     """Generate a list of ISOTPSocket objects from the result of the `scan` or
-        the `scan_extended` function.
+    the `scan_extended` function.
 
-        Args:
-            found_packets: result of the `scan` or `scan_extended` function
-            can_interface: description string for a CAN interface to be
-                            used for the creation of the output.
-            extended_addressing: print results from a scan with ISOTP
-                                     extended addressing
+    :param found_packets: result of the `scan` or `scan_extended` function
+    :param can_interface: description string for a CAN interface to be
+                          used for the creation of the output.
+    :param extended_addressing: print results from a scan with ISOTP
+                                extended addressing
+    :return: A list of all found ISOTPSockets
     """
-    socket_list = []
+    socket_list = []  # type: List[ISOTPSocket]
     for pack in found_packets:
         pkt = found_packets[pack][0]
 

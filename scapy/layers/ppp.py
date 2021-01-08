@@ -19,10 +19,25 @@ from scapy.layers.eap import EAP
 from scapy.layers.l2 import Ether, CookedLinux, GRE_PPTP
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
-from scapy.fields import BitField, ByteEnumField, ByteField, \
-    ConditionalField, EnumField, FieldLenField, IntField, IPField, \
-    PacketListField, PacketField, ShortEnumField, ShortField, \
-    StrFixedLenField, StrLenField, XByteField, XShortField, XStrLenField
+from scapy.fields import (
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    EnumField,
+    FieldLenField,
+    IPField,
+    IntField,
+    OUIField,
+    PacketField,
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    StrLenField,
+    XByteField,
+    XShortField,
+    XStrLenField,
+)
 from scapy.modules import six
 
 
@@ -62,6 +77,15 @@ class PPPoED(PPPoE):
                    XShortField("sessionid", 0x0),
                    ShortField("len", None)]
 
+    def extract_padding(self, s):
+        if len(s) < 5:
+            return s, None
+        length = struct.unpack("!H", s[4:6])[0]
+        return s[:length], s[length:]
+
+    def mysummary(self):
+        return self.sprintf("%code%")
+
 
 # PPPoE Tag types (RFC2516, RFC4638, RFC5578)
 class PPPoETag(Packet):
@@ -96,6 +120,11 @@ class PPPoETag(Packet):
 class PPPoED_Tags(Packet):
     name = "PPPoE Tag List"
     fields_desc = [PacketListField('tag_list', None, PPPoETag)]
+
+    def mysummary(self):
+        return "PPPoE Tags" + ", ".join(
+            x.sprintf("%tag_type%") for x in self.tag_list
+        ), [PPPoED]
 
 
 _PPP_PROTOCOLS = {
@@ -435,7 +464,7 @@ class PPP_ECP_Option_OUI(PPP_ECP_Option):
         ByteEnumField("type", 0, _PPP_ecpopttypes),
         FieldLenField("len", None, length_of="data", fmt="B",
                       adjust=lambda _, val: val + 6),
-        StrFixedLenField("oui", "", 3),
+        OUIField("oui", 0),
         ByteField("subtype", 0),
         StrLenField("data", "", length_from=lambda pkt: pkt.len - 6),
     ]

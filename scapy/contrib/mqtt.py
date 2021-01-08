@@ -158,6 +158,11 @@ class MQTTConnect(Packet):
     ]
 
 
+class MQTTDisconnect(Packet):
+    name = "MQTT disconnect"
+    fields_desc = []
+
+
 RETURN_CODE = {
     0: 'Connection Accepted',
     1: 'Unacceptable protocol version',
@@ -220,14 +225,26 @@ class MQTTPubcomp(Packet):
     ]
 
 
+class MQTTTopic(Packet):
+    name = "MQTT topic"
+    fields_desc = [
+        FieldLenField("length", None, length_of="topic"),
+        StrLenField("topic", "", length_from=lambda pkt:pkt.length)
+    ]
+
+    def guess_payload_class(self, payload):
+        return conf.padding_layer
+
+
+class MQTTTopicQOS(MQTTTopic):
+    fields_desc = MQTTTopic.fields_desc + [ByteEnumField("QOS", 0, QOS_LEVEL)]
+
+
 class MQTTSubscribe(Packet):
     name = "MQTT subscribe"
     fields_desc = [
         ShortField("msgid", None),
-        FieldLenField("length", None, length_of="topic"),
-        StrLenField("topic", "",
-                    length_from=lambda pkt: pkt.length),
-        ByteEnumField("QOS", 0, QOS_LEVEL),
+        PacketListField("topics", [], pkt_cls=MQTTTopicQOS)
     ]
 
 
@@ -247,32 +264,11 @@ class MQTTSuback(Packet):
     ]
 
 
-class MQTTTopic(Packet):
-    name = "MQTT topic"
-    fields_desc = [
-        FieldLenField("len", None, length_of="topic"),
-        StrLenField("topic", "", length_from=lambda pkt:pkt.len)
-    ]
-
-    def guess_payload_class(self, payload):
-        return conf.padding_layer
-
-
-def cb_topic(pkt, lst, cur, remain):
-    """
-    Decode the remaining bytes as a MQTT topic
-    """
-    if len(remain) > 3:
-        return MQTTTopic
-    else:
-        return conf.raw_layer
-
-
 class MQTTUnsubscribe(Packet):
     name = "MQTT unsubscribe"
     fields_desc = [
         ShortField("msgid", None),
-        PacketListField("topics", [], next_cls_cb=cb_topic)
+        PacketListField("topics", [], pkt_cls=MQTTTopic)
     ]
 
 
@@ -298,6 +294,7 @@ bind_layers(MQTT, MQTTSubscribe, type=8)
 bind_layers(MQTT, MQTTSuback, type=9)
 bind_layers(MQTT, MQTTUnsubscribe, type=10)
 bind_layers(MQTT, MQTTUnsuback, type=11)
+bind_layers(MQTT, MQTTDisconnect, type=14)
 bind_layers(MQTTConnect, MQTT)
 bind_layers(MQTTConnack, MQTT)
 bind_layers(MQTTPublish, MQTT)
@@ -309,3 +306,4 @@ bind_layers(MQTTSubscribe, MQTT)
 bind_layers(MQTTSuback, MQTT)
 bind_layers(MQTTUnsubscribe, MQTT)
 bind_layers(MQTTUnsuback, MQTT)
+bind_layers(MQTTDisconnect, MQTT)

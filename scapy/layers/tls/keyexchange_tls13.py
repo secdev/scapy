@@ -1,5 +1,6 @@
 # This file is part of Scapy
 # Copyright (C) 2017 Maxence Tury
+#               2019 Romain Perez
 # This program is published under a GPLv2 license
 
 """
@@ -15,17 +16,18 @@ from scapy.fields import FieldLenField, IntField, PacketField, \
     StrLenField
 from scapy.packet import Packet, Padding
 from scapy.layers.tls.extensions import TLS_Ext_Unknown, _tls_ext
-from scapy.layers.tls.crypto.groups import _tls_named_ffdh_groups, \
-    _tls_named_curves, _ffdh_groups, \
-    _tls_named_groups
+from scapy.layers.tls.crypto.groups import (
+    _tls_named_curves,
+    _tls_named_ffdh_groups,
+    _tls_named_groups,
+    _tls_named_groups_generate,
+    _tls_named_groups_import,
+    _tls_named_groups_pubbytes,
+)
 import scapy.modules.six as six
 
 if conf.crypto_valid:
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import dh, ec
-if conf.crypto_valid_advanced:
-    from cryptography.hazmat.primitives.asymmetric import x25519
+    from cryptography.hazmat.primitives.asymmetric import ec
 
 
 class KeyShareEntry(Packet):
@@ -60,33 +62,8 @@ class KeyShareEntry(Packet):
         """
         This is called by post_build() for key creation.
         """
-        if self.group in _tls_named_ffdh_groups:
-            params = _ffdh_groups[_tls_named_ffdh_groups[self.group]][0]
-            privkey = params.generate_private_key()
-            self.privkey = privkey
-            pubkey = privkey.public_key()
-            self.key_exchange = pubkey.public_numbers().y
-        elif self.group in _tls_named_curves:
-            if _tls_named_curves[self.group] == "x25519":
-                if conf.crypto_valid_advanced:
-                    privkey = x25519.X25519PrivateKey.generate()
-                    self.privkey = privkey
-                    pubkey = privkey.public_key()
-                    self.key_exchange = pubkey.public_bytes()
-            elif _tls_named_curves[self.group] != "x448":
-                curve = ec._CURVE_TYPES[_tls_named_curves[self.group]]()
-                privkey = ec.generate_private_key(curve, default_backend())
-                self.privkey = privkey
-                pubkey = privkey.public_key()
-                try:
-                    # cryptography >= 2.5
-                    self.key_exchange = pubkey.public_bytes(
-                        serialization.Encoding.X962,
-                        serialization.PublicFormat.UncompressedPoint
-                    )
-                except TypeError:
-                    # older versions
-                    self.key_exchange = pubkey.public_numbers().encode_point()
+        self.privkey = _tls_named_groups_generate(self.group)
+        self.key_exchange = _tls_named_groups_pubbytes(self.privkey)
 
     def post_build(self, pkt, pay):
         if self.group is None:
@@ -107,21 +84,10 @@ class KeyShareEntry(Packet):
 
     @crypto_validator
     def register_pubkey(self):
-        if self.group in _tls_named_ffdh_groups:
-            params = _ffdh_groups[_tls_named_ffdh_groups[self.group]][0]
-            pn = params.parameter_numbers()
-            public_numbers = dh.DHPublicNumbers(self.key_exchange, pn)
-            self.pubkey = public_numbers.public_key(default_backend())
-        elif self.group in _tls_named_curves:
-            if _tls_named_curves[self.group] == "x25519":
-                if conf.crypto_valid_advanced:
-                    import_point = x25519.X25519PublicKey.from_public_bytes
-                    self.pubkey = import_point(self.key_exchange)
-            elif _tls_named_curves[self.group] != "x448":
-                curve = ec._CURVE_TYPES[_tls_named_curves[self.group]]()
-                import_point = ec.EllipticCurvePublicKey.from_encoded_point
-                public_numbers = import_point(curve, self.key_exchange).public_numbers()  # noqa: E501
-                self.pubkey = public_numbers.public_key(default_backend())
+        self.pubkey = _tls_named_groups_import(
+            self.group,
+            self.key_exchange
+        )
 
     def post_dissection(self, r):
         try:
@@ -196,7 +162,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                 if group_name in six.itervalues(_tls_named_ffdh_groups):
                     pms = privkey.exchange(pubkey)
                 elif group_name in six.itervalues(_tls_named_curves):
-                    if group_name == "x25519":
+                    if group_name in ["x25519", "x448"]:
                         pms = privkey.exchange(pubkey)
                     else:
                         pms = privkey.exchange(ec.ECDH(), pubkey)
@@ -219,7 +185,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                 if group_name in six.itervalues(_tls_named_ffdh_groups):
                     pms = privkey.exchange(pubkey)
                 elif group_name in six.itervalues(_tls_named_curves):
-                    if group_name == "x25519":
+                    if group_name in ["x25519", "x448"]:
                         pms = privkey.exchange(pubkey)
                     else:
                         pms = privkey.exchange(ec.ECDH(), pubkey)
@@ -230,7 +196,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                 if group_name in six.itervalues(_tls_named_ffdh_groups):
                     pms = privkey.exchange(pubkey)
                 elif group_name in six.itervalues(_tls_named_curves):
-                    if group_name == "x25519":
+                    if group_name in ["x25519", "x448"]:
                         pms = privkey.exchange(pubkey)
                     else:
                         pms = privkey.exchange(ec.ECDH(), pubkey)

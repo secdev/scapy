@@ -11,8 +11,14 @@ Color themes for the interactive console.
 #  Color themes  #
 ##################
 
-import cgi
 import sys
+
+from scapy.compat import (
+    Any,
+    Callable,
+    Optional,
+    Union,
+)
 
 
 class ColorTable:
@@ -44,6 +50,7 @@ class ColorTable:
         "blink": ("\033[5m", ""),
         "invert": ("\033[7m", ""),
     }
+    inv_map = {v[0]: v[1] for k, v in colors.items()}
 
     def __repr__(self):
         return "<ColorTable>"
@@ -52,8 +59,8 @@ class ColorTable:
         return self.colors.get(attr, [""])[0]
 
     def ansi_to_pygments(self, x):  # Transform ansi encoded text to Pygments text  # noqa: E501
-        inv_map = {v[0]: v[1] for k, v in self.colors.items()}
-        for k, v in inv_map.items():
+        # type: (str) -> str
+        for k, v in self.inv_map.items():
             x = x.replace(k, " " + v)
         return x.strip()
 
@@ -62,7 +69,9 @@ Color = ColorTable()
 
 
 def create_styler(fmt=None, before="", after="", fmt2="%s"):
+    # type: (Optional[Any], str, str, str) -> Callable
     def do_style(val, fmt=fmt, before=before, after=after, fmt2=fmt2):
+        # type: (Union[int, str], Optional[Any], str, str, str) -> str
         if fmt is None:
             if not isinstance(val, str):
                 val = str(val)
@@ -74,12 +83,14 @@ def create_styler(fmt=None, before="", after="", fmt2="%s"):
 
 class ColorTheme:
     def __repr__(self):
+        # type: () -> str
         return "<%s>" % self.__class__.__name__
 
     def __reduce__(self):
         return (self.__class__, (), ())
 
     def __getattr__(self, attr):
+        # type: (str) -> Callable
         if attr in ["__getstate__", "__setstate__", "__getinitargs__",
                     "__reduce_ex__"]:
             raise AttributeError()
@@ -97,6 +108,7 @@ class NoTheme(ColorTheme):
 
 class AnsiColorTheme(ColorTheme):
     def __getattr__(self, attr):
+        # type: (str) -> Callable
         if attr.startswith("__"):
             raise AttributeError(attr)
         s = "style_%s" % attr
@@ -239,6 +251,7 @@ class ColorOnBlackTheme(AnsiColorTheme):
 
 class FormatTheme(ColorTheme):
     def __getattr__(self, attr):
+        # type: (str) -> Callable
         if attr.startswith("__"):
             raise AttributeError(attr)
         colfmt = self.__class__.__dict__.get("style_%s" % attr, "%s")
@@ -324,6 +337,7 @@ class HTMLTheme2(HTMLTheme):
 
 
 def apply_ipython_style(shell):
+    # type: (Any) -> None
     """Updates the specified IPython console shell with
     the conf.color_theme scapy theme."""
     try:
@@ -363,7 +377,8 @@ def apply_ipython_style(shell):
         if isinstance(conf.color_theme, (FormatTheme, NoTheme)):
             # Formatable
             if isinstance(conf.color_theme, HTMLTheme):
-                prompt = cgi.escape(conf.prompt)
+                from scapy.compat import html_escape
+                prompt = html_escape(conf.prompt)
             elif isinstance(conf.color_theme, LatexTheme):
                 from scapy.utils import tex_escape
                 prompt = tex_escape(conf.prompt)

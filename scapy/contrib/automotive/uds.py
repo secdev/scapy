@@ -7,16 +7,20 @@
 # scapy.contrib.status = loads
 
 import struct
+import time
+
 from itertools import product
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
-    ShortField, ObservableDict, XShortEnumField, XByteEnumField
+    ShortField, ObservableDict, XShortEnumField, XByteEnumField, StrLenField, \
+    FieldLenField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import log_loading
 from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
+from scapy.compat import Dict, Union, Tuple, Any
 
 """
 UDS
@@ -54,6 +58,7 @@ class UDS(ISOTP):
          0x35: 'RequestUpload',
          0x36: 'TransferData',
          0x37: 'RequestTransferExit',
+         0x38: 'RequestFileTransfer',
          0x3D: 'WriteMemoryByAddress',
          0x3E: 'TesterPresent',
          0x50: 'DiagnosticSessionControlPositiveResponse',
@@ -74,6 +79,7 @@ class UDS(ISOTP):
          0x75: 'RequestUploadPositiveResponse',
          0x76: 'TransferDataPositiveResponse',
          0x77: 'RequestTransferExitPositiveResponse',
+         0x78: 'RequestFileTransferPositiveResponse',
          0x7D: 'WriteMemoryByAddressPositiveResponse',
          0x7E: 'TesterPresentPositiveResponse',
          0x83: 'AccessTimingParameter',
@@ -86,13 +92,14 @@ class UDS(ISOTP):
          0xC5: 'ControlDTCSettingPositiveResponse',
          0xC6: 'ResponseOnEventPositiveResponse',
          0xC7: 'LinkControlPositiveResponse',
-         0x7f: 'NegativeResponse'})
+         0x7f: 'NegativeResponse'})  # type: Dict[int, str]
     name = 'UDS'
     fields_desc = [
         XByteEnumField('service', 0, services)
     ]
 
     def answers(self, other):
+        # type: (Union[UDS, Packet]) -> bool
         if other.__class__ != self.__class__:
             return False
         if self.service == 0x7f:
@@ -106,6 +113,7 @@ class UDS(ISOTP):
         return False
 
     def hashret(self):
+        # type: () -> bytes
         if self.service == 0x7f:
             return struct.pack('B', self.requestServiceId)
         return struct.pack('B', self.service & ~0x40)
@@ -127,6 +135,7 @@ class UDS_DSC(Packet):
 
     @staticmethod
     def get_log(pkt):
+        # type: (UDS_DSC) -> Tuple[str, Any]
         return pkt.sprintf("%UDS.service%"), \
             pkt.sprintf("%UDS_DSC.diagnosticSessionType%")
 
@@ -139,7 +148,7 @@ class UDS_DSCPR(Packet):
     fields_desc = [
         ByteEnumField('diagnosticSessionType', 0,
                       UDS_DSC.diagnosticSessionTypes),
-        StrField('sessionParameterRecord', B"")
+        StrField('sessionParameterRecord', b"")
     ]
 
     def answers(self, other):
@@ -168,6 +177,7 @@ class UDS_ER(Packet):
         0x03: 'softReset',
         0x04: 'enableRapidPowerShutDown',
         0x05: 'disableRapidPowerShutDown',
+        0x41: 'powerDown',
         0x7F: 'ISOSAEReserved'}
     name = 'ECUReset'
     fields_desc = [
@@ -212,9 +222,9 @@ class UDS_SA(Packet):
     name = 'SecurityAccess'
     fields_desc = [
         ByteField('securityAccessType', 0),
-        ConditionalField(StrField('securityAccessDataRecord', B""),
+        ConditionalField(StrField('securityAccessDataRecord', b""),
                          lambda pkt: pkt.securityAccessType % 2 == 1),
-        ConditionalField(StrField('securityKey', B""),
+        ConditionalField(StrField('securityKey', b""),
                          lambda pkt: pkt.securityAccessType % 2 == 0)
     ]
 
@@ -235,7 +245,7 @@ class UDS_SAPR(Packet):
     name = 'SecurityAccessPositiveResponse'
     fields_desc = [
         ByteField('securityAccessType', 0),
-        ConditionalField(StrField('securitySeed', B""),
+        ConditionalField(StrField('securitySeed', b""),
                          lambda pkt: pkt.securityAccessType % 2 == 1),
     ]
 
@@ -375,7 +385,7 @@ class UDS_ATP(Packet):
     fields_desc = [
         ByteEnumField('timingParameterAccessType', 0,
                       timingParameterAccessTypes),
-        ConditionalField(StrField('timingParameterRequestRecord', B""),
+        ConditionalField(StrField('timingParameterRequestRecord', b""),
                          lambda pkt: pkt.timingParameterAccessType == 0x4)
     ]
 
@@ -388,7 +398,7 @@ class UDS_ATPPR(Packet):
     fields_desc = [
         ByteEnumField('timingParameterAccessType', 0,
                       UDS_ATP.timingParameterAccessTypes),
-        ConditionalField(StrField('timingParameterResponseRecord', B""),
+        ConditionalField(StrField('timingParameterResponseRecord', b""),
                          lambda pkt: pkt.timingParameterAccessType == 0x3)
     ]
 
@@ -405,7 +415,7 @@ bind_layers(UDS, UDS_ATPPR, service=0xC3)
 class UDS_SDT(Packet):
     name = 'SecuredDataTransmission'
     fields_desc = [
-        StrField('securityDataRequestRecord', B"")
+        StrField('securityDataRequestRecord', b"")
     ]
 
     @staticmethod
@@ -419,7 +429,7 @@ bind_layers(UDS, UDS_SDT, service=0x84)
 class UDS_SDTPR(Packet):
     name = 'SecuredDataTransmissionPositiveResponse'
     fields_desc = [
-        StrField('securityDataResponseRecord', B"")
+        StrField('securityDataResponseRecord', b"")
     ]
 
     def answers(self, other):
@@ -443,7 +453,7 @@ class UDS_CDTCS(Packet):
     name = 'ControlDTCSetting'
     fields_desc = [
         ByteEnumField('DTCSettingType', 0, DTCSettingTypes),
-        StrField('DTCSettingControlOptionRecord', B"")
+        StrField('DTCSettingControlOptionRecord', b"")
     ]
 
     @staticmethod
@@ -484,7 +494,7 @@ class UDS_ROE(Packet):
     fields_desc = [
         ByteEnumField('eventType', 0, eventTypes),
         ByteField('eventWindowTime', 0),
-        StrField('eventTypeRecord', B"")
+        StrField('eventTypeRecord', b"")
     ]
 
 
@@ -497,7 +507,7 @@ class UDS_ROEPR(Packet):
         ByteEnumField('eventType', 0, UDS_ROE.eventTypes),
         ByteField('numberOfIdentifiedEvents', 0),
         ByteField('eventWindowTime', 0),
-        StrField('eventTypeRecord', B"")
+        StrField('eventTypeRecord', b"")
     ]
 
     def answers(self, other):
@@ -562,7 +572,7 @@ class UDS_RDBI(Packet):
     dataIdentifiers = ObservableDict()
     name = 'ReadDataByIdentifier'
     fields_desc = [
-        FieldListField("identifiers", [0],
+        FieldListField("identifiers", None,
                        XShortEnumField('dataIdentifier', 0,
                                        dataIdentifiers))
     ]
@@ -622,9 +632,9 @@ class UDS_RMBA(Packet):
 
     @staticmethod
     def get_log(pkt):
-        addr = getattr(pkt, "memoryAddress%d" % pkt.memoryAddressLen)
-        size = getattr(pkt, "memorySize%d" % pkt.memorySizeLen)
-        return pkt.sprintf("%UDS.service%"), (addr, size)
+        return pkt.sprintf("%UDS.service%"), \
+            (getattr(pkt, "memoryAddress%d" % pkt.memoryAddressLen),
+             getattr(pkt, "memorySize%d" % pkt.memorySizeLen))
 
 
 bind_layers(UDS, UDS_RMBA, service=0x23)
@@ -633,7 +643,7 @@ bind_layers(UDS, UDS_RMBA, service=0x23)
 class UDS_RMBAPR(Packet):
     name = 'ReadMemoryByAddressPositiveResponse'
     fields_desc = [
-        StrField('dataRecord', None, fmt="B")
+        StrField('dataRecord', b"", fmt="B")
     ]
 
     def answers(self, other):
@@ -665,7 +675,7 @@ class UDS_RSDBIPR(Packet):
     fields_desc = [
         XShortEnumField('dataIdentifier', 0, UDS_RSDBI.dataIdentifiers),
         ByteField('scalingByte', 0),
-        StrField('dataRecord', None, fmt="B")
+        StrField('dataRecord', b"", fmt="B")
     ]
 
     def answers(self, other):
@@ -689,7 +699,7 @@ class UDS_RDBPI(Packet):
     fields_desc = [
         ByteEnumField('transmissionMode', 0, transmissionModes),
         ByteField('periodicDataIdentifier', 0),
-        StrField('furtherPeriodicDataIdentifier', 0, fmt="B")
+        StrField('furtherPeriodicDataIdentifier', b"", fmt="B")
     ]
 
 
@@ -701,7 +711,7 @@ class UDS_RDBPIPR(Packet):
     name = 'ReadDataByPeriodicIdentifierPositiveResponse'
     fields_desc = [
         ByteField('periodicDataIdentifier', 0),
-        StrField('dataRecord', None, fmt="B")
+        StrField('dataRecord', b"", fmt="B")
     ]
 
     def answers(self, other):
@@ -722,7 +732,7 @@ class UDS_DDDI(Packet):
                     0x3: "clearDynamicallyDefinedDataIdentifier"}
     fields_desc = [
         ByteEnumField('subFunction', 0, subFunctions),
-        StrField('dataRecord', 0, fmt="B")
+        StrField('dataRecord', b"", fmt="B")
     ]
 
 
@@ -803,7 +813,7 @@ class UDS_WMBA(Packet):
                          lambda pkt: pkt.memorySizeLen == 3),
         ConditionalField(XIntField('memorySize4', 0),
                          lambda pkt: pkt.memorySizeLen == 4),
-        StrField('dataRecord', b'\x00', fmt="B"),
+        StrField('dataRecord', b'', fmt="B"),
 
     ]
 
@@ -917,9 +927,11 @@ class UDS_RDTCI(Packet):
     name = 'ReadDTCInformation'
     fields_desc = [
         ByteEnumField('reportType', 0, reportTypes),
+        ConditionalField(ByteField('DTCSeverityMask', 0),
+                         lambda pkt: pkt.reportType in [0x07, 0x08]),
         ConditionalField(XByteField('DTCStatusMask', 0),
-                         lambda pkt: pkt.reportType in [0x01, 0x02, 0x0f,
-                                                        0x11, 0x12, 0x13]),
+                         lambda pkt: pkt.reportType in [
+                             0x01, 0x02, 0x07, 0x08, 0x0f, 0x11, 0x12, 0x13]),
         ConditionalField(ByteField('DTCHighByte', 0),
                          lambda pkt: pkt.reportType in [0x3, 0x4, 0x6,
                                                         0x10, 0x09]),
@@ -932,11 +944,7 @@ class UDS_RDTCI(Packet):
         ConditionalField(ByteField('DTCSnapshotRecordNumber', 0),
                          lambda pkt: pkt.reportType in [0x3, 0x4, 0x5]),
         ConditionalField(ByteField('DTCExtendedDataRecordNumber', 0),
-                         lambda pkt: pkt.reportType in [0x6, 0x10]),
-        ConditionalField(ByteField('DTCSeverityMask', 0),
-                         lambda pkt: pkt.reportType in [0x07, 0x08]),
-        ConditionalField(ByteField('DTCStatusMask', 0),
-                         lambda pkt: pkt.reportType in [0x07, 0x08]),
+                         lambda pkt: pkt.reportType in [0x6, 0x10])
     ]
 
     @staticmethod
@@ -967,11 +975,11 @@ class UDS_RDTCIPR(Packet):
         ConditionalField(ShortField('DTCCount', 0),
                          lambda pkt: pkt.reportType in [0x01, 0x07,
                                                         0x11, 0x12]),
-        ConditionalField(StrField('DTCAndStatusRecord', 0),
+        ConditionalField(StrField('DTCAndStatusRecord', b""),
                          lambda pkt: pkt.reportType in [0x02, 0x0A, 0x0B,
                                                         0x0C, 0x0D, 0x0E,
                                                         0x0F, 0x13, 0x15]),
-        ConditionalField(StrField('dataRecord', 0),
+        ConditionalField(StrField('dataRecord', b""),
                          lambda pkt: pkt.reportType in [0x03, 0x04, 0x05,
                                                         0x06, 0x08, 0x09,
                                                         0x10, 0x14])
@@ -1002,7 +1010,7 @@ class UDS_RC(Packet):
     fields_desc = [
         ByteEnumField('routineControlType', 0, routineControlTypes),
         XShortEnumField('routineIdentifier', 0, routineControlIdentifiers),
-        StrField('routineControlOptionRecord', 0, fmt="B"),
+        StrField('routineControlOptionRecord', b"", fmt="B"),
     ]
 
     @staticmethod
@@ -1023,7 +1031,7 @@ class UDS_RCPR(Packet):
                       UDS_RC.routineControlTypes),
         XShortEnumField('routineIdentifier', 0,
                         UDS_RC.routineControlIdentifiers),
-        StrField('routineStatusRecord', 0, fmt="B"),
+        StrField('routineStatusRecord', b"", fmt="B"),
     ]
 
     def answers(self, other):
@@ -1084,7 +1092,7 @@ class UDS_RDPR(Packet):
     fields_desc = [
         BitField('memorySizeLen', 0, 4),
         BitField('reserved', 0, 4),
-        StrField('maxNumberOfBlockLength', 0, fmt="B"),
+        StrField('maxNumberOfBlockLength', b"", fmt="B"),
     ]
 
     def answers(self, other):
@@ -1139,7 +1147,7 @@ class UDS_RUPR(Packet):
     fields_desc = [
         BitField('memorySizeLen', 0, 4),
         BitField('reserved', 0, 4),
-        StrField('maxNumberOfBlockLength', 0, fmt="B"),
+        StrField('maxNumberOfBlockLength', b"", fmt="B"),
     ]
 
     def answers(self, other):
@@ -1158,7 +1166,7 @@ class UDS_TD(Packet):
     name = 'TransferData'
     fields_desc = [
         ByteField('blockSequenceCounter', 0),
-        StrField('transferRequestParameterRecord', 0, fmt="B")
+        StrField('transferRequestParameterRecord', b"", fmt="B")
     ]
 
     @staticmethod
@@ -1174,7 +1182,7 @@ class UDS_TDPR(Packet):
     name = 'TransferDataPositiveResponse'
     fields_desc = [
         ByteField('blockSequenceCounter', 0),
-        StrField('transferResponseParameterRecord', 0, fmt="B")
+        StrField('transferResponseParameterRecord', b"", fmt="B")
     ]
 
     def answers(self, other):
@@ -1193,7 +1201,7 @@ bind_layers(UDS, UDS_TDPR, service=0x76)
 class UDS_RTE(Packet):
     name = 'RequestTransferExit'
     fields_desc = [
-        StrField('transferRequestParameterRecord', 0, fmt="B")
+        StrField('transferRequestParameterRecord', b"", fmt="B")
     ]
 
     @staticmethod
@@ -1208,7 +1216,7 @@ bind_layers(UDS, UDS_RTE, service=0x37)
 class UDS_RTEPR(Packet):
     name = 'RequestTransferExitPositiveResponse'
     fields_desc = [
-        StrField('transferResponseParameterRecord', 0, fmt="B")
+        StrField('transferResponseParameterRecord', b"", fmt="B")
     ]
 
     def answers(self, other):
@@ -1223,6 +1231,101 @@ class UDS_RTEPR(Packet):
 bind_layers(UDS, UDS_RTEPR, service=0x77)
 
 
+# #########################RFT###################################
+class UDS_RFT(Packet):
+    name = 'RequestFileTransfer'
+
+    modeOfOperations = {
+        0x00: "ISO/SAE Reserved",
+        0x01: "Add File",
+        0x02: "Delete File",
+        0x03: "Replace File",
+        0x04: "Read File",
+        0x05: "Read Directory"
+    }
+
+    @staticmethod
+    def _contains_file_size(packet):
+        return packet.modeOfOperation not in [2, 4, 5]
+
+    fields_desc = [
+        XByteEnumField('modeOfOperation', 0, modeOfOperations),
+        FieldLenField('filePathAndNameLength', 0,
+                      length_of='filePathAndName', fmt='H'),
+        StrLenField('filePathAndName', b"",
+                    length_from=lambda p: p.filePathAndNameLength),
+        ConditionalField(BitField('compressionMethod', 0, 4),
+                         lambda p: p.modeOfOperation not in [2, 5]),
+        ConditionalField(BitField('encryptingMethod', 0, 4),
+                         lambda p: p.modeOfOperation not in [2, 5]),
+        ConditionalField(FieldLenField('fileSizeParameterLength', 0, fmt="B",
+                                       length_of='fileSizeUnCompressed'),
+                         lambda p: UDS_RFT._contains_file_size(p)),
+        ConditionalField(StrLenField('fileSizeUnCompressed', b"",
+                                     length_from=lambda p:
+                                     p.fileSizeParameterLength),
+                         lambda p: UDS_RFT._contains_file_size(p)),
+        ConditionalField(StrLenField('fileSizeCompressed', b"",
+                                     length_from=lambda p:
+                                     p.fileSizeParameterLength),
+                         lambda p: UDS_RFT._contains_file_size(p))
+    ]
+
+    @staticmethod
+    def get_log(pkt):
+        return pkt.sprintf("%UDS.service%"),\
+            pkt.modeOfOperation
+
+
+bind_layers(UDS, UDS_RFT, service=0x38)
+
+
+class UDS_RFTPR(Packet):
+    name = 'RequestFileTransferPositiveResponse'
+
+    @staticmethod
+    def _contains_data_format_identifier(packet):
+        return packet.modeOfOperation != 0x02
+
+    fields_desc = [
+        XByteEnumField('modeOfOperation', 0, UDS_RFT.modeOfOperations),
+        ConditionalField(FieldLenField('lengthFormatIdentifier', 0,
+                                       length_of='maxNumberOfBlockLength',
+                                       fmt='B'),
+                         lambda p: p.modeOfOperation != 2),
+        ConditionalField(StrLenField('maxNumberOfBlockLength', b"",
+                         length_from=lambda p: p.lengthFormatIdentifier),
+                         lambda p: p.modeOfOperation != 2),
+        ConditionalField(BitField('compressionMethod', 0, 4),
+                         lambda p: p.modeOfOperation != 0x02),
+        ConditionalField(BitField('encryptingMethod', 0, 4),
+                         lambda p: p.modeOfOperation != 0x02),
+        ConditionalField(FieldLenField('fileSizeOrDirInfoParameterLength', 0,
+                         length_of='fileSizeUncompressedOrDirInfoLength'),
+                         lambda p: p.modeOfOperation not in [1, 2, 3]),
+        ConditionalField(StrLenField('fileSizeUncompressedOrDirInfoLength',
+                                     b"",
+                                     length_from=lambda p:
+                                     p.fileSizeOrDirInfoParameterLength),
+                         lambda p: p.modeOfOperation not in [1, 2, 3]),
+        ConditionalField(StrLenField('fileSizeCompressed', b"",
+                         length_from=lambda p:
+                         p.fileSizeOrDirInfoParameterLength),
+                         lambda p: p.modeOfOperation not in [1, 2, 3, 5]),
+    ]
+
+    def answers(self, other):
+        return other.__class__ == UDS_RFT
+
+    @staticmethod
+    def get_log(pkt):
+        return pkt.sprintf("%UDS.service%"),\
+            pkt.modeOfOperation
+
+
+bind_layers(UDS, UDS_RFTPR, service=0x78)
+
+
 # #########################IOCBI###################################
 class UDS_IOCBI(Packet):
     name = 'InputOutputControlByIdentifier'
@@ -1230,7 +1333,7 @@ class UDS_IOCBI(Packet):
     fields_desc = [
         XShortEnumField('dataIdentifier', 0, dataIdentifiers),
         ByteField('controlOptionRecord', 0),
-        StrField('controlEnableMaskRecord', 0, fmt="B")
+        StrField('controlEnableMaskRecord', b"", fmt="B")
     ]
 
     @staticmethod
@@ -1245,7 +1348,7 @@ class UDS_IOCBIPR(Packet):
     name = 'InputOutputControlByIdentifierPositiveResponse'
     fields_desc = [
         XShortField('dataIdentifier', 0),
-        StrField('controlStatusRecord', 0, fmt="B")
+        StrField('controlStatusRecord', b"", fmt="B")
     ]
 
     def answers(self, other):
@@ -1345,6 +1448,12 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
             interval: interval between two packets
         """
         PeriodicSenderThread.__init__(self, sock, pkt, interval)
+
+    def run(self):
+        # type: () -> None
+        while not self._stopped.is_set():
+            self._socket.sr1(self._pkt, timeout=0.3, verbose=False)
+            time.sleep(self._interval)
 
 
 def UDS_SessionEnumerator(sock, session_range=range(0x100), reset_wait=1.5):

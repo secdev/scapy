@@ -1,15 +1,21 @@
 {
   "testfiles": [
     "test/*.uts",
+    "test/scapy/layers/*.uts",
     "test/contrib/automotive/*.uts",
     "test/contrib/automotive/obd/*.uts",
     "test/contrib/automotive/gm/*.uts",
     "test/contrib/automotive/bmw/*.uts",
+    "test/contrib/automotive/xcp/*.uts",
     "test/contrib/*.uts"
   ],
   "remove_testfiles": [
     "test/linux.uts",
-    "test/windows.uts"
+    "test/windows.uts",
+    "test/contrib/automotive/ecu_am.uts",
+    "test/contrib/automotive/gm/gmlanutils.uts",
+    "test/contrib/isotp.uts",
+    "test/contrib/isotpscan.uts"
   ],
   "onlyfailed": true,
   "preexec": {
@@ -18,7 +24,6 @@
     "test/sslv2.uts": "load_layer(\"tls\")",
     "test/tls*.uts": "load_layer(\"tls\")"
   },
-  "format": "text",
   "kw_ko": [
     "linux",
     "windows",

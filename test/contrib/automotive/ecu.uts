@@ -9,16 +9,15 @@
 ~ conf command
 
 = Load modules
-
-load_contrib('isotp')
-load_contrib("automotive.uds")
-load_contrib("automotive.gm.gmlan")
-load_layer("can")
+load_contrib("isotp", globals_dict=globals())
+load_contrib("automotive.uds", globals_dict=globals())
+load_contrib("automotive.gm.gmlan", globals_dict=globals())
+load_layer("can", globals_dict=globals())
 conf.contribs["CAN"]["swap-bytes"] = True
 
 = Load ECU module
 
-load_contrib("automotive.ecu")
+load_contrib("automotive.ecu", globals_dict=globals())
 
 + Basic checks
 
@@ -121,7 +120,7 @@ assert unanswered_packets[0].diagnosticSessionType == 4  # no_docs
 * A ``PcapReader`` object is used as socket and an ``ISOTPSession`` parses ``CAN`` frames to ``ISOTP`` frames
 * which are then casted to ``UDS`` objects through the ``basecls`` parameter
 
-with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
+with PcapReader("test/contrib/automotive/ecu_trace.pcap.gz") as sock:
      udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
 
 assert len(udsmsgs) == 50  # no_docs
@@ -157,7 +156,7 @@ assert len(ecu.log["TransferData"]) == 2
 
 session = ECUSession()
 
-with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
+with PcapReader("test/contrib/automotive/ecu_trace.pcap.gz") as sock:
      udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
 
 assert len(udsmsgs) == 50  # no_docs
@@ -187,32 +186,31 @@ assert len(ecu.log["TransferData"]) == 2  # no_docs
 
 session = ECUSession()
 
-sock =  CandumpReader("test/contrib/automotive/gmlan_trace.candump")
-gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=2, opened_socket=sock)
-ecu = session.ecu
-print("Check 1 after change to diagnostic mode")
-assert len(ecu.supported_responses) == 1
-assert ecu.current_session == 3
-assert ecu.current_security_level == 0
-gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=8, opened_socket=sock)
-ecu = session.ecu
-print("Check 2 after some more messages were read")
-assert len(ecu.supported_responses) == 4
-assert ecu.current_session == 3
-assert ecu.current_security_level == 0
-gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=10, opened_socket=sock)
-ecu = session.ecu
-print("Check 3 after change to programming mode (bootloader)")
-assert len(ecu.supported_responses) == 5
-assert ecu.current_session == 2
-assert ecu.current_security_level == 0
-gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=16, opened_socket=sock)
-ecu = session.ecu
-print("Check 4 after gaining security access")
-assert len(ecu.supported_responses) == 7
-assert ecu.current_session == 2
-assert ecu.current_security_level == 2
-del sock
+with CandumpReader("test/contrib/automotive/gmlan_trace.candump") as sock:
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=2, opened_socket=sock)
+    ecu = session.ecu
+    print("Check 1 after change to diagnostic mode")
+    assert len(ecu.supported_responses) == 1
+    assert ecu.current_session == 3
+    assert ecu.current_security_level == 0
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=8, opened_socket=sock)
+    ecu = session.ecu
+    print("Check 2 after some more messages were read")
+    assert len(ecu.supported_responses) == 4
+    assert ecu.current_session == 3
+    assert ecu.current_security_level == 0
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=10, opened_socket=sock)
+    ecu = session.ecu
+    print("Check 3 after change to programming mode (bootloader)")
+    assert len(ecu.supported_responses) == 5
+    assert ecu.current_session == 2
+    assert ecu.current_security_level == 0
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=16, opened_socket=sock)
+    ecu = session.ecu
+    print("Check 4 after gaining security access")
+    assert len(ecu.supported_responses) == 7
+    assert ecu.current_session == 2
+    assert ecu.current_security_level == 2
 
 = Analyze on the fly with ECUSession GMLAN logging test
 

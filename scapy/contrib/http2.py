@@ -31,11 +31,10 @@ from __future__ import absolute_import
 from __future__ import print_function
 import abc
 import re
-import sys
 from io import BytesIO
 import struct
 import scapy.modules.six as six
-from scapy.compat import raw, plain_str, bytes_hex, orb, chb, bytes_encode
+from scapy.compat import raw, plain_str, hex_bytes, orb, chb, bytes_encode
 
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
@@ -641,17 +640,9 @@ class FieldUVarLenField(AbstractUVarIntField):
 #                                                HPACK String Fields          #
 ###############################################################################
 
-# Welcome the magic of Python inconsistencies !
-# https://stackoverflow.com/a/41622155
 
-
-if sys.version_info >= (3, 4):
-    ABC = abc.ABC
-else:
-    ABC = abc.ABCMeta('ABC', (), {})
-
-
-class HPackStringsInterface(ABC, Sized):  # type: ignore
+@six.add_metaclass(abc.ABCMeta)
+class HPackStringsInterface(Sized):  # type: ignore
     @abc.abstractmethod
     def __str__(self):
         pass
@@ -1333,14 +1324,14 @@ class HPackHdrString(packet.Packet):
         # underlayer packet
         return config.conf.padding_layer
 
-    def self_build(self, field_pos_list=None):
+    def self_build(self, **kwargs):
         # type: (Any) -> str
         """self_build is overridden because type and len are determined at
         build time, based on the "data" field internal type
         """
         if self.getfieldval('type') is None:
             self.type = 1 if isinstance(self.getfieldval('data'), HPackZString) else 0  # noqa: E501
-        return super(HPackHdrString, self).self_build(field_pos_list)
+        return super(HPackHdrString, self).self_build(**kwargs)
 
 
 class HPackHeaders(packet.Packet):
@@ -2123,7 +2114,7 @@ packet.bind_layers(H2Frame, H2ContinuationFrame, {'type': H2ContinuationFrame.ty
 
 #                                          HTTP/2 Connection Preface                                                   #  # noqa: E501
 # From RFC 7540 par3.5
-H2_CLIENT_CONNECTION_PREFACE = bytes_hex('505249202a20485454502f322e300d0a0d0a534d0d0a0d0a')  # noqa: E501
+H2_CLIENT_CONNECTION_PREFACE = hex_bytes('505249202a20485454502f322e300d0a0d0a534d0d0a0d0a')  # noqa: E501
 
 
 ###############################################################################
@@ -2615,13 +2606,13 @@ class HPackHdrTable(Sized):
             )
         )
 
-    def _parse_header_line(self, l):
+    def _parse_header_line(self, line):
         # type: (str) -> Union[Tuple[None, None], Tuple[str, str]]
 
         if self._regexp is None:
             self._regexp = re.compile(br'^(?::([a-z\-0-9]+)|([a-z\-0-9]+):)\s+(.+)$')  # noqa: E501
 
-        hdr_line = l.rstrip()
+        hdr_line = line.rstrip()
         grp = self._regexp.match(hdr_line)
 
         if grp is None or len(grp.groups()) != 3:

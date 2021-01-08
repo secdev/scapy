@@ -4,7 +4,35 @@
 
 # Style cheet: https://mypy.readthedocs.io/en/latest/cheat_sheet.html
 
+# CORE
 scapy/__init__.py
+scapy/asn1/mib.py
+scapy/base_classes.py
+scapy/compat.py
+scapy/config.py
+scapy/dadict.py
+scapy/data.py
+scapy/error.py
+scapy/extlib.py
+scapy/fields.py
+scapy/interfaces.py
 scapy/main.py
-scapy/contrib/http2.py
+scapy/packet.py
 scapy/plist.py
+scapy/pton_ntop.py
+scapy/route.py
+scapy/route6.py
+scapy/sessions.py
+scapy/utils.py
+scapy/utils6.py
+
+# LAYERS
+scapy/layers/can.py
+scapy/layers/l2.py
+
+# CONTRIB
+#scapy/contrib/http2.py  # needs to be fixed
+scapy/contrib/roce.py
+scapy/contrib/automotive/gm/gmlanutils.py
+scapy/contrib/automotive/bmw/hsfz.py
+scapy/contrib/automotive/doip.py

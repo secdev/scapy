@@ -18,7 +18,12 @@ Each of these steps can be done in a different way depending on your platform an
 Scapy versions
 ==============
 
-.. image:: graphics/scapy_version_timeline.jpg
+.. raw:: html
+
+   <div id="table_div" style="text-align:center;"></div>
+   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+   <script type="text/javascript" src="https://scapy.net/assets/js/scapy_versions.js"></script>
+   <br />
 
 .. note::
 
@@ -129,7 +134,7 @@ Here are the topics involved and some examples that you can use to try if your i
  
   .. code-block:: python
 
-    >>> p=readpcap("myfile.pcap")
+    >>> p=rdpcap("myfile.pcap")
     >>> p.conversations(type="jpg", target="> test.jpg")
 
   .. note::

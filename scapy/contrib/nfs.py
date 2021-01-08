@@ -442,7 +442,7 @@ class READDIRPLUS_Reply(Packet):
         ),
         ConditionalField(
             PacketListField(
-                'files', None, cls=File_From_Dir_Plus,
+                'files', None, File_From_Dir_Plus,
                 next_cls_cb=lambda pkt, lst, cur, remain:
                 File_From_Dir_Plus if pkt.value_follows == 1 and
                 (len(lst) == 0 or cur.value_follows == 1) and
@@ -722,7 +722,7 @@ class READDIR_Reply(Packet):
         ),
         ConditionalField(
             PacketListField(
-                'files', None, cls=File_From_Dir,
+                'files', None, File_From_Dir,
                 next_cls_cb=lambda pkt, lst, cur, remain:
                 File_From_Dir if pkt.value_follows == 1 and
                 (len(lst) == 0 or cur.value_follows == 1) and

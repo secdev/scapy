@@ -14,8 +14,8 @@ import scapy.config
 import scapy.utils
 from scapy.arch import get_if_addr
 from scapy.config import conf
-from scapy.consts import FREEBSD, NETBSD, OPENBSD, SOLARIS, LOOPBACK_NAME
-from scapy.error import warning, log_interactive
+from scapy.consts import FREEBSD, NETBSD, OPENBSD, SOLARIS
+from scapy.error import log_runtime, warning
 from scapy.pton_ntop import inet_pton
 from scapy.utils6 import in6_getscope, construct_source_candidate_set
 from scapy.utils6 import in6_isvalid, in6_ismlladdr, in6_ismnladdr
@@ -49,7 +49,7 @@ def read_routes():
     if SOLARIS:
         f = os.popen("netstat -rvn -f inet")
     elif FREEBSD:
-        f = os.popen("netstat -rnW")  # -W to handle long interface names
+        f = os.popen("netstat -rnW -f inet")  # -W to show long interface names
     else:
         f = os.popen("netstat -rn -f inet")
     ok = 0
@@ -71,7 +71,7 @@ def read_routes():
                 mtu_present = "mtu" in line
                 prio_present = "prio" in line
                 refs_present = "ref" in line  # There is no s on Solaris
-                use_present = "use" in line
+                use_present = "use" in line or "nhop" in line
             continue
         if not line:
             break
@@ -119,7 +119,10 @@ def read_routes():
                         ifaddr = get_if_addr(guessed_netif)
                         routes.append((dest, netmask, gw, guessed_netif, ifaddr, metric))  # noqa: E501
                     else:
-                        warning("Could not guess partial interface name: %s", netif)  # noqa: E501
+                        log_runtime.info(
+                            "Could not guess partial interface name: %s",
+                            netif
+                        )
                 else:
                     raise
         else:
@@ -161,7 +164,7 @@ def _in6_getifaddr(ifname):
     try:
         f = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
     except OSError:
-        log_interactive.warning("Failed to execute ifconfig.")
+        log_runtime.warning("Failed to execute ifconfig.")
         return []
 
     # Iterate over lines and extract IPv6 addresses
@@ -207,21 +210,21 @@ def in6_getifaddr():
         try:
             f = os.popen(cmd % conf.prog.ifconfig)
         except OSError:
-            log_interactive.warning("Failed to execute ifconfig.")
+            log_runtime.warning("Failed to execute ifconfig.")
             return []
 
         # Get the list of network interfaces
         splitted_line = []
-        for l in f:
-            if "flags" in l:
-                iface = l.split()[0].rstrip(':')
+        for line in f:
+            if "flags" in line:
+                iface = line.split()[0].rstrip(':')
                 splitted_line.append(iface)
 
     else:  # FreeBSD, NetBSD or Darwin
         try:
             f = os.popen("%s -l" % conf.prog.ifconfig)
         except OSError:
-            log_interactive.warning("Failed to execute ifconfig.")
+            log_runtime.warning("Failed to execute ifconfig.")
             return []
 
         # Get the list of network interfaces
@@ -339,7 +342,7 @@ def read_routes6():
             # Note: multicast routing is handled in Route6.route()
             continue
 
-        if LOOPBACK_NAME in dev:
+        if conf.loopback_name in dev:
             # Handle ::1 separately
             cset = ["::1"]
             next_hop = "::"

@@ -8,6 +8,7 @@ Functions to send and receive packets.
 """
 
 from __future__ import absolute_import, print_function
+from collections import namedtuple
 import itertools
 from threading import Thread, Event
 import os
@@ -20,6 +21,7 @@ from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
 from scapy.config import conf
 from scapy.error import warning
+from scapy.interfaces import network_name, resolve_iface
 from scapy.packet import Gen, Packet
 from scapy.utils import get_temp_file, tcpdump, wrpcap, \
     ContextManagerSubprocess, PcapReader
@@ -30,8 +32,9 @@ from scapy.modules import six
 from scapy.modules.six.moves import map
 from scapy.sessions import DefaultSession
 from scapy.supersocket import SuperSocket
+
 if conf.route is None:
-    # unused import, only to initialize conf.route
+    # unused import, only to initialize conf.route and conf.iface*
     import scapy.route  # noqa: F401
 
 #################
@@ -50,6 +53,8 @@ class debug:
 #  Send / Receive  #
 ####################
 
+QueryAnswer = namedtuple("QueryAnswer", ["query", "answer"])
+
 _DOC_SNDRCV_PARAMS = """
     :param pks: SuperSocket instance to send/receive packets
     :param pkt: the packet to send
@@ -62,15 +67,6 @@ _DOC_SNDRCV_PARAMS = """
     :param timeout: how much time to wait after the last packet has been sent
     :param verbose: set verbosity level
     :param multi: whether to accept multiple answers for the same stimulus
-    :param store_unanswered: whether to store not-answered packets or not.
-        setting it to False will increase speed, and will return
-        None as the unans list.
-    :param process: if specified, only result from process(pkt) will be stored.
-        the function should follow the following format:
-        ``lambda sent, received: (func(sent), func2(received))``
-        if the packet is unanswered, `received` will be None.
-        if `store_unanswered` is False, the function won't be called on
-        un-answered packets.
     :param prebuild: pre-build the packets before starting to send them.
         Automatically enabled when a generator is passed as the packet
     """
@@ -231,7 +227,7 @@ class SndRcvHandler(object):
             hlst = self.hsent[h]
             for i, sentpkt in enumerate(hlst):
                 if r.answers(sentpkt):
-                    self.ans.append((sentpkt, r))
+                    self.ans.append(QueryAnswer(sentpkt, r))
                     if self.verbose > 1:
                         os.write(1, b"*")
                     ok = True
@@ -322,10 +318,23 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
         return sent_packets
 
 
+def _send(x, _func, inter=0, loop=0, iface=None, count=None,
+          verbose=None, realtime=None,
+          return_packets=False, socket=None, **kargs):
+    """Internal function used by send and sendp"""
+    need_closing = socket is None
+    iface = resolve_iface(iface or conf.iface)
+    socket = socket or _func(iface)(iface=iface, **kargs)
+    results = __gen_send(socket, x, inter=inter, loop=loop,
+                         count=count, verbose=verbose,
+                         realtime=realtime, return_packets=return_packets)
+    if need_closing:
+        socket.close()
+    return results
+
+
 @conf.commands.register
-def send(x, inter=0, loop=0, count=None,
-         verbose=None, realtime=None,
-         return_packets=False, socket=None, *args, **kargs):
+def send(x, iface=None, *args, **kargs):
     """
     Send packets at layer 3
 
@@ -341,20 +350,16 @@ def send(x, inter=0, loop=0, count=None,
     :param monitor: (not on linux) send in monitor mode
     :returns: None
     """
-    need_closing = socket is None
-    socket = socket or conf.L3socket(*args, **kargs)
-    results = __gen_send(socket, x, inter=inter, loop=loop,
-                         count=count, verbose=verbose,
-                         realtime=realtime, return_packets=return_packets)
-    if need_closing:
-        socket.close()
-    return results
+    iface = _interface_selection(iface, x)
+    return _send(
+        x,
+        lambda iface: iface.l3socket(), iface=iface,
+        *args, **kargs
+    )
 
 
 @conf.commands.register
-def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None,
-          verbose=None, realtime=None,
-          return_packets=False, socket=None, *args, **kargs):
+def sendp(x, iface=None, iface_hint=None, socket=None, *args, **kargs):
     """
     Send packets at layer 2
 
@@ -372,14 +377,14 @@ def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None,
     """
     if iface is None and iface_hint is not None and socket is None:
         iface = conf.route.route(iface_hint)[0]
-    need_closing = socket is None
-    socket = socket or conf.L2socket(iface=iface, *args, **kargs)
-    results = __gen_send(socket, x, inter=inter, loop=loop,
-                         count=count, verbose=verbose,
-                         realtime=realtime, return_packets=return_packets)
-    if need_closing:
-        socket.close()
-    return results
+    return _send(
+        x,
+        lambda iface: iface.l2socket(),
+        *args,
+        iface=iface,
+        socket=socket,
+        **kargs
+    )
 
 
 @conf.commands.register
@@ -401,7 +406,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     """
     if iface is None:
         iface = conf.iface
-    argv = [conf.prog.tcpreplay, "--intf1=%s" % iface]
+    argv = [conf.prog.tcpreplay, "--intf1=%s" % network_name(iface)]
     if pps is not None:
         argv.append("--pps=%i" % pps)
     elif mbps is not None:
@@ -496,7 +501,7 @@ def _parse_tcpreplay_result(stdout, stderr, argv):
     except Exception as parse_exception:
         if not conf.interactive:
             raise
-        log_runtime.error("Error parsing output: " + str(parse_exception))
+        log_runtime.error("Error parsing output: %s", parse_exception)
         return {}
 
 
@@ -539,8 +544,6 @@ def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     s.close()
     if len(ans) > 0:
         return ans[0][1]
-    else:
-        return None
 
 
 @conf.commands.register
@@ -551,8 +554,9 @@ def srp(x, promisc=None, iface=None, iface_hint=None, filter=None,
     """
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    s = conf.L2socket(promisc=promisc, iface=iface,
-                      filter=filter, nofilter=nofilter, type=type)
+    iface = resolve_iface(iface or conf.iface)
+    s = iface.l2socket()(promisc=promisc, iface=iface,
+                         filter=filter, nofilter=nofilter, type=type)
     result = sndrcv(s, x, *args, **kargs)
     s.close()
     return result
@@ -566,8 +570,6 @@ def srp1(*args, **kargs):
     ans, _ = srp(*args, **kargs)
     if len(ans) > 0:
         return ans[0][1]
-    else:
-        return None
 
 
 # Append doc
@@ -670,7 +672,7 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, timeout=None):
     return sndrcv(
         pks, infinite_gen,
         inter=inter, verbose=verbose,
-        chainCC=chainCC, timeout=None,
+        chainCC=chainCC, timeout=timeout,
         _flood=_flood
     )
 
@@ -685,7 +687,8 @@ def srflood(x, promisc=None, filter=None, iface=None, nofilter=None, *args, **ka
     :param filter:   provide a BPF filter
     :param iface:    listen answers only on the given interface
     """
-    s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
+    iface = resolve_iface(iface or conf.iface)
+    s = iface.l3socket()(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
     r = sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
@@ -701,13 +704,12 @@ def sr1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **karg
     :param filter:   provide a BPF filter
     :param iface:    listen answers only on the given interface
     """
-    s = conf.L3socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
+    iface = resolve_iface(iface or conf.iface)
+    s = iface.l3socket()(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
     ans, _ = sndrcvflood(s, x, *args, **kargs)
     s.close()
     if len(ans) > 0:
         return ans[0][1]
-    else:
-        return None
 
 
 @conf.commands.register
@@ -722,7 +724,8 @@ def srpflood(x, promisc=None, filter=None, iface=None, iface_hint=None, nofilter
     """
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    s = conf.L2socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
+    iface = resolve_iface(iface or conf.iface)
+    s = iface.l2socket()(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
     r = sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
@@ -738,13 +741,12 @@ def srp1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kar
     :param filter:   provide a BPF filter
     :param iface:    listen answers only on the given interface
     """
-    s = conf.L2socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
+    iface = resolve_iface(iface or conf.iface)
+    s = iface.l2socket()(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
     ans, _ = sndrcvflood(s, x, *args, **kargs)
     s.close()
     if len(ans) > 0:
         return ans[0][1]
-    else:
-        return None
 
 # SNIFF METHODS
 
@@ -760,13 +762,16 @@ class AsyncSniffer(object):
              is displayed.
              --Ex: prn = lambda x: x.summary()
         session: a session = a flow decoder used to handle stream of packets.
-                 e.g: IPSession (to defragment on-the-flow) or NetflowSession
+                 --Ex: session=TCPSession
+                 See below for more details.
         filter: BPF filter to apply.
         lfilter: Python function applied to each packet to determine if
                  further action may be done.
                  --Ex: lfilter = lambda x: x.haslayer(Padding)
         offline: PCAP file (or list of PCAP files) to read packets from,
                  instead of sniffing them
+        quiet:   when set to True, the process stderr is discarded
+                 (default: False).
         timeout: stop sniffing after a given time (default: None).
         L2socket: use the provided L2socket (default: use conf.L2listen).
         opened_socket: provide an object (or a list of objects) ready to use
@@ -783,6 +788,9 @@ class AsyncSniffer(object):
     The iface, offline and opened_socket parameters can be either an
     element, a list of elements, or a dict object mapping an element to a
     label (see examples below).
+
+    For more information about the session argument, see
+    https://scapy.rtfd.io/en/latest/usage.html#advanced-sniffing-sniffing-sessions
 
     Examples: synchronous
       >>> sniff(filter="arp")
@@ -805,6 +813,7 @@ class AsyncSniffer(object):
       >>> print("nice weather today")
       >>> t.stop()
     """
+
     def __init__(self, *args, **kwargs):
         # Store keyword arguments
         self.args = args
@@ -818,13 +827,14 @@ class AsyncSniffer(object):
         self.thread = Thread(
             target=self._run,
             args=self.args,
-            kwargs=self.kwargs
+            kwargs=self.kwargs,
+            name="AsyncSniffer"
         )
         self.thread.setDaemon(True)
 
     def _run(self,
              count=0, store=True, offline=None,
-             prn=None, lfilter=None,
+             quiet=False, prn=None, lfilter=None,
              L2socket=None, timeout=None, opened_socket=None,
              stop_filter=None, iface=None, started_callback=None,
              session=None, session_args=[], session_kwargs={},
@@ -834,7 +844,8 @@ class AsyncSniffer(object):
         # instantiate session
         if not isinstance(session, DefaultSession):
             session = session or DefaultSession
-            session = session(prn, store, *session_args, **session_kwargs)
+            session = session(prn=prn, store=store,
+                              *session_args, **session_kwargs)
         else:
             session.prn = prn
             session.store = store
@@ -860,12 +871,12 @@ class AsyncSniffer(object):
                     all(isinstance(elt, str) for elt in offline):
                 sniff_sockets.update((PcapReader(
                     fname if flt is None else
-                    tcpdump(fname, args=["-w", "-", flt], getfd=True)
+                    tcpdump(fname, args=["-w", "-"], flt=flt, getfd=True)
                 ), fname) for fname in offline)
             elif isinstance(offline, dict):
                 sniff_sockets.update((PcapReader(
                     fname if flt is None else
-                    tcpdump(fname, args=["-w", "-", flt], getfd=True)
+                    tcpdump(fname, args=["-w", "-"], flt=flt, getfd=True)
                 ), label) for fname, label in six.iteritems(offline))
             else:
                 # Write Scapy Packet objects to a pcap file
@@ -882,11 +893,16 @@ class AsyncSniffer(object):
 
                 sniff_sockets[PcapReader(
                     offline if flt is None else
-                    tcpdump(offline, args=["-w", "-", flt], getfd=True)
+                    tcpdump(offline,
+                            args=["-w", "-"],
+                            flt=flt,
+                            getfd=True,
+                            quiet=quiet)
                 )] = offline
         if not sniff_sockets or iface is not None:
+            iface = resolve_iface(iface or conf.iface)
             if L2socket is None:
-                L2socket = conf.L2listen
+                L2socket = iface.l2listen()
             if isinstance(iface, list):
                 sniff_sockets.update(
                     (L2socket(type=ETH_P_ALL, iface=ifname, *arg, **karg),
@@ -905,7 +921,6 @@ class AsyncSniffer(object):
 
         # Get select information from the sockets
         _main_socket = next(iter(sniff_sockets))
-        read_allowed_exceptions = _main_socket.read_allowed_exceptions
         select_func = _main_socket.select
         _backup_read_func = _main_socket.__class__.recv
         nonblocking_socket = _main_socket.nonblocking_socket
@@ -914,10 +929,6 @@ class AsyncSniffer(object):
             warning("Warning: inconsistent socket types ! "
                     "The used select function "
                     "will be the one of the first socket")
-
-        # Fill if empty
-        if not read_allowed_exceptions:
-            read_allowed_exceptions = (IOError,)
 
         if nonblocking_socket:
             # select is non blocking
@@ -962,9 +973,11 @@ class AsyncSniffer(object):
                         p = read_func(s)
                     except EOFError:
                         # End of stream
+                        try:
+                            s.close()
+                        except Exception:
+                            pass
                         dead_sockets.append(s)
-                        continue
-                    except read_allowed_exceptions:
                         continue
                     except Exception as ex:
                         msg = " It was closed."
@@ -1044,24 +1057,20 @@ sniff.__doc__ = AsyncSniffer.__doc__
 def bridge_and_sniff(if1, if2, xfrm12=None, xfrm21=None, prn=None, L2socket=None,  # noqa: E501
                      *args, **kargs):
     """Forward traffic between interfaces if1 and if2, sniff and return
-the exchanged packets.
+    the exchanged packets.
 
-Arguments:
+    :param if1: the interfaces to use (interface names or opened sockets).
+    :param if2:
+    :param xfrm12: a function to call when forwarding a packet from if1 to
+        if2. If it returns True, the packet is forwarded as it. If it
+        returns False or None, the packet is discarded. If it returns a
+        packet, this packet is forwarded instead of the original packet
+        one.
+    :param xfrm21: same as xfrm12 for packets forwarded from if2 to if1.
 
-  if1, if2: the interfaces to use (interface names or opened sockets).
-
-  xfrm12: a function to call when forwarding a packet from if1 to
-      if2. If it returns True, the packet is forwarded as it. If it
-      returns False or None, the packet is discarded. If it returns a
-      packet, this packet is forwarded instead of the original packet
-      one.
-
-  xfrm21: same as xfrm12 for packets forwarded from if2 to if1.
-
-  The other arguments are the same than for the function sniff(),
-      except for offline, opened_socket and iface that are ignored.
-      See help(sniff) for more.
-
+    The other arguments are the same than for the function sniff(),
+    except for offline, opened_socket and iface that are ignored.
+    See help(sniff) for more.
     """
     for arg in ['opened_socket', 'offline', 'iface']:
         if arg in kargs:
@@ -1069,11 +1078,14 @@ Arguments:
                                 "bridge_and_sniff() -- ignoring it.", arg)
             del kargs[arg]
 
-    def _init_socket(iface, count):
+    def _init_socket(iface, count, L2socket=L2socket):
         if isinstance(iface, SuperSocket):
             return iface, "iface%d" % count
         else:
-            return (L2socket or conf.L2socket)(iface=iface), iface
+            if not L2socket:
+                iface = resolve_iface(iface or conf.iface)
+                L2socket = iface.l2socket()
+            return L2socket(iface=iface), iface
     sckt1, if1 = _init_socket(if1, 1)
     sckt2, if2 = _init_socket(if2, 2)
     peers = {if1: sckt2, if2: sckt1}
@@ -1100,11 +1112,11 @@ Arguments:
                 return
             else:
                 if newpkt is True:
-                    newpkt = pkt.original
+                    newpkt = pkt
                 elif not newpkt:
                     return
         else:
-            newpkt = pkt.original
+            newpkt = pkt
         try:
             sendsock.send(newpkt)
         except Exception:

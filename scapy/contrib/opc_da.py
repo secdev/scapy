@@ -27,22 +27,54 @@
 # scapy.contrib.status = loads
 
 """
-Opc Data Access.
-References: Data Access Custom Interface StanDard
-Using the website: http://pubs.opengroup.org/onlinepubs/9629399/chap12.htm
+Opc Data Access
+
+Spec: Google 'OPCDA3.00.pdf'
+
+RPC PDU encodings:
+- DCE 1.1 RPC: https://pubs.opengroup.org/onlinepubs/9629399/toc.pdf
+- http://pubs.opengroup.org/onlinepubs/9629399/chap12.htm
 
 DCOM Remote Protocol.
-References: Specifies Distributed Component Object Model (DCOM) Remote Protocol
-Using the website: https://msdn.microsoft.com/en-us/library/cc226801.aspx
+[MS-DCOM]: Distributed Component Object Model (DCOM) Remote Protocol
+https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dcom/4a893f3d-bd29-48cd-9f43-d9777a4415b0
+XXX TODO: does not appear to have been linked to RPC
+
+NT LAN Manager (NTLM) Authentication Protocol
+https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/b38c36ed-2804-4868-a9ff-8dd3182128e4
 """
 
+import struct
+
 from scapy.config import conf
-from scapy.fields import Field, ByteField, ShortField, LEShortField, \
-    IntField, LEIntField, LongField, LELongField, StrField, StrLenField, \
-    StrFixedLenField, BitEnumField, ByteEnumField, ShortEnumField, \
-    LEShortEnumField, IntEnumField, LEIntEnumField, FieldLenField, \
-    LEFieldLenField, PacketField, PacketListField, PacketLenField, \
-    ConditionalField, FlagsField, UUIDField
+from scapy.fields import (
+    BitEnumField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    Field,
+    FieldLenField,
+    FlagsField,
+    IntEnumField,
+    IntField,
+    LEIntEnumField,
+    LEIntField,
+    LELongField,
+    LEShortField,
+    MultipleTypeField,
+    PacketField,
+    PacketLenField,
+    PacketListField,
+    ShortEnumField,
+    ShortField,
+    StrField,
+    StrFixedLenField,
+    StrLenField,
+    ThreeBytesField,
+    UUIDField,
+    _FieldContainer,
+    _PacketField,
+)
 from scapy.packet import Packet
 
 # Defined values
@@ -233,6 +265,31 @@ _authentification_protocol = {
     1: 'OsfDcePrivateKeyAuthentication',
 }
 
+# Util
+
+
+def _make_le(pkt_cls):
+    """
+    Make all fields in a packet LE.
+    """
+    flds = [f.copy() for f in pkt_cls.fields_desc]
+    for f in flds:
+        if isinstance(f, _FieldContainer):
+            f = f.fld
+        if isinstance(f, UUIDField):
+            f.uuid_fmt = UUIDField.FORMAT_LE
+        elif isinstance(f, _PacketField):
+            f.cls = globals().get(f.cls.__name__ + "LE", f.cls)
+        elif not isinstance(f, StrField):
+            f.fmt = "<" + f.fmt.replace(">", "").replace("!", "")
+            f.struct = struct.Struct(f.fmt)
+
+    class LEPacket(pkt_cls):
+        fields_desc = flds
+        name = pkt_cls().name + " (LE)"
+    LEPacket.__name__ = pkt_cls.__name__ + "LE"
+    return LEPacket
+
 
 #  Sub class for dissection
 class AuthentificationProtocol(Packet):
@@ -242,11 +299,11 @@ class AuthentificationProtocol(Packet):
         return b"", p
 
     def guess_payload_class(self, payload):
-        if self.underlayer and hasattr(self.underlayer, "auth_length"):
-            auth_length = self.underlayer.auth_length
-            if auth_length != 0:
+        if self.underlayer and hasattr(self.underlayer, "authLength"):
+            authLength = self.underlayer.authLength
+            if authLength != 0:
                 try:
-                    return _authentification_protocol[auth_length]
+                    return _authentification_protocol[authLength]
                 except Exception:
                     pass
         return conf.raw_layer
@@ -269,35 +326,22 @@ class OPCHandle(Packet):
 
 
 class LenStringPacket(Packet):
+    # Among other things, can be (port_any_t -  DCE 1.1 RPC - p592)
     name = "len string packet"
     fields_desc = [
         FieldLenField('length', 0, length_of='data', fmt="H"),
-        ConditionalField(StrLenField('data', None,
-                         length_from=lambda pkt:pkt.length + 2),
-                         lambda pkt:pkt.length == 0),
-        ConditionalField(StrLenField('data', '',
-                         length_from=lambda pkt:pkt.length),
-                         lambda pkt:pkt.length != 0),
+        MultipleTypeField(
+            [(StrFixedLenField('data', '', length=2),
+                lambda pkt: not pkt.length)],
+            StrLenField('data', '', length_from=lambda pkt: pkt.length)
+        )
     ]
 
     def extract_padding(self, p):
         return b"", p
 
 
-class LenStringPacketLE(Packet):
-    name = "len string packet"
-    fields_desc = [
-        LEFieldLenField('length', 0, length_of='data', fmt="<H"),
-        ConditionalField(StrLenField('data', None,
-                         length_from=lambda pkt:pkt.length + 2),
-                         lambda pkt:pkt.length == 0),
-        ConditionalField(StrLenField('data', '',
-                         length_from=lambda pkt:pkt.length),
-                         lambda pkt:pkt.length != 0),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+LenStringPacketLE = _make_le(LenStringPacket)
 
 
 class SyntaxId(Packet):
@@ -313,24 +357,15 @@ class SyntaxId(Packet):
         return b"", p
 
 
-class SyntaxIdLE(Packet):
-    name = "syntax Id"
-    fields_desc = [
-        UUIDField('interfaceUUID', str('0001' * 8),
-                  uuid_fmt=UUIDField.FORMAT_LE),
-        LEShortField('versionMajor', 0),
-        LEShortField('versionMinor', 0),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+SyntaxIdLE = _make_le(SyntaxId)
 
 
 class ResultElement(Packet):
-    name = "result"
+    # p_result_list_t -  DCE 1.1 RPC - p591
+    name = "p_result_t"
     fields_desc = [
         ShortEnumField('resultContextNegotiation', 0, _defResult),
-        ConditionalField(LEShortEnumField('reason', 0, _defReason),
+        ConditionalField(ShortEnumField('reason', 0, _defReason),
                          lambda pkt:pkt.resultContextNegotiation != 0),
         PacketField('transferSyntax', '\x00' * 20, SyntaxId),
     ]
@@ -339,21 +374,12 @@ class ResultElement(Packet):
         return b"", p
 
 
-class ResultElementLE(Packet):
-    name = "result"
-    fields_desc = [
-        LEShortEnumField('resultContextNegotiation', 0, _defResult),
-        ConditionalField(LEShortEnumField('reason', 0, _defReason),
-                         lambda pkt:pkt.resultContextNegotiation != 0),
-        PacketField('transferSyntax', '\x00' * 20, SyntaxId),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+ResultElementLE = _make_le(ResultElement)
 
 
 class ResultList(Packet):
-    name = "list result"
+    # p_result_list_t -  DCE 1.1 RPC - p592
+    name = "p_result_list_t"
     fields_desc = [
         ByteField('nbResult', 0),
         ByteField('reserved', 0),
@@ -366,21 +392,10 @@ class ResultList(Packet):
         return b"", p
 
 
-class ResultListLE(Packet):
-    name = "list result"
-    fields_desc = [
-        ByteField('nbResult', 0),
-        ByteField('reserved', 0),
-        ShortField('reserved2', 0),
-        PacketListField('resultList', None, ResultElementLE,
-                        count_from=lambda pkt:pkt.nbResult),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+ResultListLE = _make_le(ResultList)
 
 
-class ContextElment(Packet):
+class ContextElement(Packet):
     name = "context element"
     fields_desc = [
         ShortField('contxtId', 0),
@@ -395,19 +410,7 @@ class ContextElment(Packet):
         return b"", p
 
 
-class ContextElmentLE(Packet):
-    name = "context element"
-    fields_desc = [
-        LEShortField('contxtId', 0),
-        ByteField('nbTransferSyn', 0),
-        ByteField('reserved', 0),
-        PacketField('abstractSyntax', None, SyntaxIdLE),
-        PacketListField('transferSyntax', None, SyntaxIdLE,
-                        count_from=lambda pkt:pkt.nbTransferSyn),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+ContextElementLE = _make_le(ContextElement)
 
 
 # Only in Little-Endian
@@ -441,14 +444,7 @@ class DualStringArray(Packet):
     ]
 
 
-class DualStringArrayLE(Packet):
-    name = "Dual String Array"
-    fields_desc = [
-        LEShortField('wNumEntries', 0),
-        LEShortField('wSecurityOffset', 0),
-        StrFixedLenField('StringBinding', '',
-                         length_from=lambda pkt:pkt.wSecurityOffset),
-    ]
+DualStringArrayLE = _make_le(DualStringArray)
 
 
 class OBJREF_STANDARD(Packet):
@@ -459,12 +455,7 @@ class OBJREF_STANDARD(Packet):
     ]
 
 
-class OBJREF_STANDARDLE(Packet):
-    name = "objetref stanDard"
-    fields_desc = [
-        PacketField('std', None, STDOBJREF),
-        PacketField('saResAddr', None, DualStringArrayLE),
-    ]
+OBJREF_STANDARDLE = _make_le(OBJREF_STANDARD)
 
 
 class OBJREF_HANDLER(Packet):
@@ -476,13 +467,7 @@ class OBJREF_HANDLER(Packet):
     ]
 
 
-class OBJREF_HANDLERLE(Packet):
-    name = "objetref stanDard"
-    fields_desc = [
-        PacketField('std', None, STDOBJREF),
-        UUIDField('clsid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_LE),
-        PacketField('saResAddr', None, DualStringArrayLE),
-    ]
+OBJREF_HANDLERLE = _make_le(OBJREF_HANDLER)
 
 
 class OBJREF_CUSTOM(Packet):
@@ -494,13 +479,7 @@ class OBJREF_CUSTOM(Packet):
     ]
 
 
-class OBJREF_CUSTOMLE(Packet):
-    name = "objetref stanDard"
-    fields_desc = [
-        UUIDField('clsid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_LE),
-        LEIntField('cbExtension', 0),
-        LEIntField('reserved', 0),
-    ]
+OBJREF_CUSTOMLE = _make_le(OBJREF_CUSTOM)
 
 
 class OBJREF_EXTENDED(Packet):
@@ -510,11 +489,7 @@ class OBJREF_EXTENDED(Packet):
     ]
 
 
-class OBJREF_EXTENDEDLE(Packet):
-    name = "objetref stanDard"
-    fields_desc = [
-
-    ]
+OBJREF_EXTENDEDLE = _make_le(OBJREF_EXTENDED)
 
 
 # Packet for the interfaces defined
@@ -545,25 +520,16 @@ class IRemoteSCMActivator_RemoteCreateInstance(Packet):
 
     def guess_payload_class(self, payload):
         try:
-            return _objref_pdu[self.flag][1]
+            return _objref_pdu[self.flag][
+                self.__class__.__name__.endswith("LE")
+            ]
         except Exception:
             pass
 
 
-class IRemoteSCMActivator_RemoteCreateInstanceLE(Packet):
-    name = 'RemoteCreateInstance'
-    fields_desc = [
-        LEShortField('versionMajor', 0),
-        LEShortField('versionMinor', 0),
-        LEIntEnumField('flag', 1, _objref_flag),
-        LEIntField('reserved', 0),
-    ]
-
-    def guess_payload_class(self, payload):
-        try:
-            return _objref_pdu[self.flag][1]
-        except Exception:
-            pass
+IRemoteSCMActivator_RemoteCreateInstanceLE = _make_le(
+    IRemoteSCMActivator_RemoteCreateInstance
+)
 
 
 IRemoteSCMActivator = {
@@ -620,7 +586,7 @@ _standardDcomEndpoint = {
 }
 
 
-# Not in the official Documentation
+# [MS-NLMP] 2.2.2.1
 _attribute_type = {
     0: 'EndOfList',
     1: 'NetBIOSComputerName',
@@ -671,183 +637,85 @@ _negociate_flags = [
 ]
 
 
-class AttributeName(Packet):
-    name = "Attribute"
+class AV_PAIR(Packet):
+    name = "AV_PAIR"
     fields_desc = [
-        ShortEnumField('attributeItemType', 2, _attribute_type),
-        ShortField('attributeItemLen', 0),
-        StrLenField('attributeItem', '',
-                    length_from=lambda pkt:pkt.responseItemLen),
+        ShortEnumField('avID', 2, _attribute_type),
+        ShortField('avLen', 0),
+        StrLenField('value', '',
+                    length_from=lambda pkt:pkt.avLen),
     ]
 
     def extract_padding(self, p):
         return b"", p
 
 
-# Next version adapte the type with one PDU
-class AttributeNameLE(Packet):
-    name = "Attribute"
-    fields_desc = [
-        LEShortEnumField('attributeItemType', 2, _attribute_type),
-        LEShortField('attributeItemLen', 0),
-        StrLenField('attributeItem', '',
-                    length_from=lambda pkt:pkt.attributeItemLen),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+AV_PAIRLE = _make_le(AV_PAIR)
 
 
 class NTLMSSP(Packet):
-    name = 'NTLM Secure Service Provider'
+    # [MS-NLMP] v16.2 sect 2.2.1
+    name = 'NTLM Authentication Protocol'
+    deprecated_fields_desc = {
+        'identifier': ('signature', '2.5.0'),
+    }
     fields_desc = [
-        StrFixedLenField('identifier', 'NTLMSSP', length=8),
-        IntEnumField('messageType', 3, {3: 'NTLMSSP_AUTH'}),
-        ShortField('lanManagerLen', 0),
-        ShortField('lanManagerMax', 0),
-        ShortField('lanManagerOffset', 0),
-        ShortField('NTLMRepLen', 0),
-        ShortField('NTLMRepMax', 0),
-        IntField('NTLMRepOffset', 0),
+        StrFixedLenField('signature', b'NTLMSSP\0', length=8),
+        IntEnumField('messageType', 3, {1: 'NEGOTIATE_MESSAGE',
+                                        2: 'CHALLENGE_MESSAGE',
+                                        3: 'AUTHENTICATE_MESSAGE'}),
+        # TODO: ONLY AUTHENTICATE_MESSAGE IMPLEMENTED
+        # sect 2.2.1.3
+        ShortField('lmChallengeResponseLen', 0),
+        ShortField('lmChallengeResponseMaxLen', 0),
+        IntField('lmChallengeResponseBufferOffset', 0),
+        ShortField('ntChallengeResponseLen', 0),
+        ShortField('ntChallengeResponseMaxLen', 0),
+        IntField('ntChallengeResponseBufferOffset', 0),
         ShortField('domainNameLen', 0),
         ShortField('domainNameMax', 0),
         IntField('domainNameOffset', 0),
         ShortField('userNameLen', 0),
         ShortField('userNameMax', 0),
         IntField('userNameOffset', 0),
-        ShortField('hostNameLen', 0),
-        ShortField('hostNameMax', 0),
-        IntField('hostNameOffset', 0),
-        ShortField('sessionKeyLen', 0),
-        ShortField('sessionKeyMax', 0),
-        IntField('sessionKeyOffset', 0),
+        ShortField('workstationLen', 0),
+        ShortField('workstationMaxLen', 0),
+        IntField('workstationBufferOffset', 0),
+        ShortField('encryptedRandomSessionKeyLen', 0),
+        ShortField('encryptedRandomSessionKeyMaxLen', 0),
+        IntField('encryptedRandomSessionKeyBufferOffset', 0),
         FlagsField('negociateFlags', 0, 32, _negociate_flags),
-        ByteField('versionMajor', 0),
-        ByteField('versionMinor', 0),
-        ShortField('buildNumber', 0),
-        ByteField('reserved', 0),
-        ShortField('reserved2', 0),
-        ByteField('NTLMCurrentRevision', 0),
+        ByteField('productMajorVersion', 0),
+        ByteField('productMinorVersion', 0),
+        ShortField('productBuild', 0),
+        ThreeBytesField('reserved', 0),
+        ByteField('NTLMRevisionCurrent', 0),
         StrFixedLenField('MIC', '', 16),
+        # payload field.
+        # TODO: those challenges are structures that should be defined
+        StrLenField('lmChallengeResponse', '',
+                    length_from=lambda pkt: pkt.lmChallengeResponseLen),
+        StrLenField('ntChallengeResponse', '',
+                    length_from=lambda pkt: pkt.ntChallengeResponseLen),
         StrLenField('domainName', '',
                     length_from=lambda pkt: pkt.domainNameLen),
-        StrLenField('userName', '', length_from=lambda pkt: pkt.userNameLen),
-        StrLenField('hostName', '', length_from=lambda pkt: pkt.hostNameLen),
-        StrLenField('lanManager', '',
-                    length_from=lambda pkt: pkt.lanManagerLen),
-        StrLenField('NTLMRep', '', length_from=lambda pkt: pkt.NTLMRepLen),
-        ByteField('responseVersion', 0),
-        ByteField('hiResponseVersion', 0),
-        StrFixedLenField('Z', '', 6),
-        LongField('timestamp', 0),  # Time in nanoseconde
-        StrFixedLenField('clientChallenge', '', 8),
-        IntField('Z', 0),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        PacketField('attributeNTLMV2', None, AttributeName),
-        IntField('Z', 0),
-        IntField('padding', 0),
-        StrLenField('sessionKey', '',
-                    length_from=lambda pkt: pkt.sessionKeyLen),
+        StrLenField('userName', '',
+                    length_from=lambda pkt: pkt.userNameLen),
+        StrLenField('workstation', '',
+                    length_from=lambda pkt: pkt.workstationLen),
+        StrLenField('encryptedRandomSessionKey', '',
+                    length_from=lambda pkt: pkt.encryptedRandomSessionKeyLen)
     ]
 
     def extract_padding(self, p):
         return b"", p
 
 
-class NTLMSSPLE(Packet):
-    name = 'NTLM Secure Service Provider'
-    fields_desc = [
-        StrFixedLenField('identifier', 'NTLMSSP', length=8),
-        LEIntEnumField('messageType', 3, {3: 'NTLMSSP_AUTH'}),
-        LEShortField('lanManagerLen', 0),
-        LEShortField('lanManagerMax', 0),
-        LEIntField('lanManagerOffset', 0),
-        LEShortField('NTLMRepLen', 0),
-        LEShortField('NTLMRepMax', 0),
-        LEIntField('NTLMRepOffset', 0),
-        LEShortField('domainNameLen', 0),
-        LEShortField('domainNameMax', 0),
-        LEIntField('domainNameOffset', 0),
-        LEShortField('userNameLen', 0),
-        LEShortField('userNameMax', 0),
-        LEIntField('userNameOffset', 0),
-        LEShortField('hostNameLen', 0),
-        LEShortField('hostNameMax', 0),
-        LEIntField('hostNameOffset', 0),
-        LEShortField('sessionKeyLen', 0),
-        LEShortField('sessionKeyMax', 0),
-        LEIntField('sessionKeyOffset', 0),
-        FlagsField('negociateFlags', 0, 32, _negociate_flags),
-        ByteField('versionMajor', 0),
-        ByteField('versionMinor', 0),
-        LEShortField('buildNumber', 0),
-        ByteField('reserved', 0),
-        ShortField('reserved2', 0),
-        ByteField('NTLMCurrentRevision', 0),
-        StrFixedLenField('MIC', '', 16),
-        StrLenField('domainName', '',
-                    length_from=lambda pkt: pkt.domainNameLen),
-        StrLenField('userName', '', length_from=lambda pkt: pkt.userNameLen),
-        StrLenField('hostName', '', length_from=lambda pkt: pkt.hostNameLen),
-        StrLenField('lanManager', '',
-                    length_from=lambda pkt: pkt.lanManagerLen),
-        StrFixedLenField('NTLMRep', '', length=16),
-        ByteField('responseVersion', 0),
-        ByteField('hiResponseVersion', 0),
-        StrFixedLenField('Z', '', 6),
-        LELongField('timestamp', 0),  # Time in nanosecond
-        StrFixedLenField('clientChallenge', '', 8),
-        LEIntField('Z', 0),
-        PacketField('attribute1', None, AttributeNameLE),
-        PacketField('attribute2', None, AttributeNameLE),
-        PacketField('attribute3', None, AttributeNameLE),
-        PacketField('attribute4', None, AttributeNameLE),
-        PacketField('attribute5', None, AttributeNameLE),
-        PacketField('attribute6', None, AttributeNameLE),
-        PacketField('attribute7', None, AttributeNameLE),
-        PacketField('attribute8', None, AttributeNameLE),
-        PacketField('attribute9', None, AttributeNameLE),
-        PacketField('attribute10', None, AttributeNameLE),
-        LEIntField('Z', 0),
-        LEIntField('padding', 0),
-        StrLenField('sessionKey', '',
-                    length_from=lambda pkt: pkt.sessionKeyLen),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
-
+NTLMSSPLE = _make_le(NTLMSSP)
 
 _opcDa_auth_classes = {
     10: [NTLMSSP, NTLMSSPLE],
 }
-
-
-class OpcDaAuth3LE(Packet):
-    name = "Auth3"
-    fields_desc = [
-        LEShortField('code?', 5840),
-        LEShortField('code2?', 5840),
-        ByteField('authType', 10),
-        ByteField('authLevel', 2),
-        ByteField('authPadLen', 0),
-        ByteField('authReserved', 0),
-        LEIntField('authContextId', 0),
-    ]
-
-    def guess_payload_class(self, payload):
-        try:
-            return _opcDa_auth_classes[self.authType][1]
-        except Exception:
-            pass
 
 
 class OpcDaAuth3(Packet):
@@ -864,9 +732,14 @@ class OpcDaAuth3(Packet):
 
     def guess_payload_class(self, payload):
         try:
-            return _opcDa_auth_classes[self.authType][0]
+            return _opcDa_auth_classes[self.authType][
+                self.__class__.__name__.endswith("LE")
+            ]
         except Exception:
             pass
+
+
+OpcDaAuth3LE = _make_le(OpcDaAuth3)
 
 
 # A client sends a request PDU when it wants to execute a remote operation.
@@ -874,42 +747,47 @@ class OpcDaAuth3(Packet):
 #  with the same sequence number and monotonically increasing fragment
 #  numbers. The body of a request PDU contains data that represents input
 #  parameters for the operation.
-class RequestSubData(Packet):
-    name = 'RequestSubData'
+
+class RequestStubData(Packet):
+    name = 'RequestStubData'
     fields_desc = [
         ShortField('versionMajor', 0),
         ShortField('versionMinor', 0),
-        StrField('subdata', ''),
+        StrField('stubdata', ''),
     ]
 
     def extract_padding(self, p):
         return b"", p
 
 
-class RequestSubDataLE(Packet):
-    name = 'RequestSubData'
-    fields_desc = [
-        LEShortField('versionMajor', 0),
-        LEShortField('versionMinor', 0),
-        LEIntField('flags', 0),
-        LEIntField('reserved', 0),
-        UUIDField('subUuid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_LE),
-        StrField('subdata', ''),
-    ]
+RequestStubDataLE = _make_le(RequestStubData)
 
-    def extract_padding(self, p):
-        return b"", p
+
+def _opc_stubdata_length(pkt):
+    if not pkt.underlayer or not isinstance(pkt.underlayer, OpcDaHeaderN):
+        return 0
+    stub_data_length = pkt.underlayer.fragLength - 24
+    stub_data_length -= pkt.underlayer.authLength
+    if (OpcDaHeaderMessage in pkt.firstlayer() and
+            pkt.firstlayer()[OpcDaHeaderMessage].pfc_flags & 'objectUuid'):
+        stub_data_length -= 36
+    return max(0, stub_data_length)
 
 
 class OpcDaRequest(Packet):
+    # DCE 1.1 RPC - 12.6.4.9
     name = "OpcDaRequest"
     fields_desc = [
         IntField('allocHint', 0),
         ShortField('contextId', 0),
         ShortField('opNum', 0),
-        UUIDField('uuid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_BE),
-        PacketLenField('subData', None, RequestSubData,
-                       length_from=lambda pkt:pkt.allocHint),
+        ConditionalField(
+            UUIDField('uuid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_BE),
+            lambda pkt: OpcDaHeaderMessage in pkt.firstlayer() and
+            pkt.firstlayer()[OpcDaHeaderMessage].pfc_flags & 'objectUuid'
+        ),
+        PacketLenField('stubData', None, RequestStubData,
+                       length_from=lambda pkt: _opc_stubdata_length(pkt)),
         PacketField('authentication', None, AuthentificationProtocol),
     ]
 
@@ -917,26 +795,14 @@ class OpcDaRequest(Packet):
         return b"", p
 
 
-class OpcDaRequestLE(Packet):
-    name = "OpcDaRequest"
-    fields_desc = [
-        LEIntField('allocHint', 0),
-        LEShortField('contextId', 0),
-        LEShortField('opNum', 0),
-        UUIDField('uuid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_LE),
-        PacketLenField('subData', None, RequestSubDataLE,
-                       length_from=lambda pkt:pkt.allocHint),
-        PacketField('authentication', None, AuthentificationProtocol),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaRequestLE = _make_le(OpcDaRequest)
 
 
 # A client sends a ping PDU when it wants to inquire about an outstanding
 #  request.
 # A ping PDU contains no body data.
 class OpcDaPing(Packet):
+    # DCE 1.1 RPC - 12.5.3.7
     name = "OpcDaPing"
     fields_desc = []
 
@@ -950,13 +816,14 @@ class OpcDaPing(Packet):
 #  consists of a series of response PDUs with the same sequence number and
 #  monotonically increasing fragment numbers.
 class OpcDaResponse(Packet):
+    # DCE 1.1 RPC - 12.6.4.10
     name = "OpcDaResponse"
     fields_desc = [
         IntField('allocHint', 0),
         ShortField('contextId', 0),
         ByteField('cancelCount', 0),
         ByteField('reserved', 0),
-        StrLenField('subData', None,
+        StrLenField('stubData', None,
                     length_from=lambda pkt:pkt.allocHint - 32),
         PacketField('authentication', None, AuthentificationProtocol),
     ]
@@ -965,26 +832,14 @@ class OpcDaResponse(Packet):
         return b"", p
 
 
-class OpcDaResponseLE(Packet):
-    name = "OpcDaResponse"
-    fields_desc = [
-        LEIntField('allocHint', 0),
-        LEShortField('contextId', 0),
-        ByteField('cancelCount', 0),
-        ByteField('reserved', 0),
-        StrLenField('subData', None,
-                    length_from=lambda pkt:pkt.allocHint - 32),
-        PacketField('authentication', None, AuthentificationProtocol),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaResponseLE = _make_le(OpcDaResponse)
 
 
 # The fault PDU is used to indicate either an RPC run-time, RPC stub, or
 #  RPC-specific exception to the client.
-# Length of the subdata egal allochint less header
+# Length of the stubdata egal allochint less header
 class OpcDaFault(Packet):
+    # DCE 1.1 RPC - 12.6.4.7
     name = "OpcDaFault"
     fields_desc = [
         IntField('allocHint', 0),
@@ -993,30 +848,16 @@ class OpcDaFault(Packet):
         ByteField('reserved', 0),
         IntEnumField('Group', 0, _faultStatus),
         IntField('reserved2', 0),
-        StrLenField('subData', None,
-                    length_from=lambda pkt:pkt.allocHint - 32),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
-
-
-class OpcDaFaultLE(Packet):
-    name = "OpcDaFault"
-    fields_desc = [
-        LEIntField('allocHint', 0),
-        LEShortField('contextId', 0),
-        ByteField('cancelCount', 0),
-        ByteField('reserved', 0),
-        LEIntEnumField('Group', 0, _faultStatus),
-        LEIntField('reserved2', 0),
-        StrLenField('subData', None,
+        StrLenField('stubData', None,
                     length_from=lambda pkt:pkt.allocHint - 32),
         PacketField('authentication', None, AuthentificationProtocol),
     ]
 
     def extract_padding(self, p):
         return b"", p
+
+
+OpcDaFaultLE = _make_le(OpcDaFault)
 
 
 # A server sends a working PDU in reply to a ping PDU. This reply indicates
@@ -1049,6 +890,7 @@ class OpcDaNoCallLE(Packet):
 #  a reject PDU contains a status code indicating why a callee is rejecting
 #  a request PDU from a caller.
 class OpcDaReject(Packet):
+    # DCE 1.1 RPC - 12.5.3.8
     name = "OpcDaReject"
     fields_desc = [
         IntField('allocHint', 0),
@@ -1056,7 +898,7 @@ class OpcDaReject(Packet):
         ByteField('cancelCount', 0),
         ByteField('reserved', 0),
         IntEnumField('Group', 0, _rejectStatus),
-        StrLenField('subData', None,
+        StrLenField('stubData', None,
                     length_from=lambda pkt:pkt.allocHint - 32),
         PacketField('authentication', None, AuthentificationProtocol),
     ]
@@ -1065,21 +907,7 @@ class OpcDaReject(Packet):
         return b"", p
 
 
-class OpcDaRejectLE(Packet):
-    name = "OpcDaReject"
-    fields_desc = [
-        LEIntField('allocHint', 0),
-        LEShortField('contextId', 0),
-        ByteField('cancelCount', 0),
-        ByteField('reserved', 0),
-        LEIntEnumField('Group', 0, _rejectStatus),
-        StrLenField('subData', None,
-                    length_from=lambda pkt: pkt.allocHint - 32),
-        PacketField('authentication', None, AuthentificationProtocol),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaRejectLE = _make_le(OpcDaReject)
 
 
 # A client sends an ack PDU after it has received a response to
@@ -1097,6 +925,7 @@ class OpcDaAck(Packet):
 
 # The cancel PDU is used to forward a cancel.
 class OpcDaCl_cancel(Packet):
+    # DCE 1.1 RPC - 12.5.3.3
     name = "OpcDaCl_cancel"
     fields_desc = [
         PacketField('authentication', None, AuthentificationProtocol),
@@ -1108,16 +937,7 @@ class OpcDaCl_cancel(Packet):
         return b"", p
 
 
-class OpcDaCl_cancelLE(Packet):
-    name = "OpcDaCl_cancel"
-    fields_desc = [
-        PacketField('authentication', None, AuthentificationProtocol),
-        LEIntField('version', 0),
-        LEIntField('cancelId', 0),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaCl_cancelLE = _make_le(OpcDaCl_cancel)
 
 
 #  Both clients and servers send fack PDUs.
@@ -1128,6 +948,7 @@ class OpcDaCl_cancelLE(Packet):
 #  request. A fack PDU explicitly acknowledges that the server has received the
 #  fragment; it may tell the sender to stop sending for a while.
 class OpcDaFack(Packet):
+    # DCE 1.1 RPC - 12.5.3.4
     name = "OpcDaFack"
     fields_desc = [
         ShortField('version', 0),
@@ -1145,22 +966,7 @@ class OpcDaFack(Packet):
         return b"", p
 
 
-class OpcDaFackLE(Packet):
-    name = "OpcDaFackLE"
-    fields_desc = [
-        LEShortField('version', 0),
-        ByteField('pad', 0),
-        LEShortField('windowSize', 0),
-        LEIntField('maxTsdu', 0),
-        LEIntField('maxFragSize', 0),
-        LEShortField('serialNum', 0),
-        LEFieldLenField('selackLen', 0, count_of='selack', fmt="<H"),
-        PacketListField('selack', None, LEIntField,
-                        count_from=lambda pkt:pkt.selackLen),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaFackLE = _make_le(OpcDaFack)
 
 
 # A server sends a cancel_ack PDU after it has received a cancel PDU.
@@ -1174,6 +980,7 @@ class OpcDaFackLE(Packet):
 #  call. The run-time system's processing of a cancelled call continues
 #  uninterrupted.
 class OpcDaCancel_ack(Packet):
+    # DCE 1.1 RPC - 12.5.3.2
     name = "OpcDaCancel_ack"
     fields_desc = [
         IntField('version', 0),
@@ -1185,22 +992,14 @@ class OpcDaCancel_ack(Packet):
         return b"", p
 
 
-class OpcDaCancel_ackLE(Packet):
-    name = "OpcDaCancel_ackLE"
-    fields_desc = [
-        LEIntField('version', 0),
-        LEIntField('cancelId', 0),
-        ByteField('accepting', 1)
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaCancel_ackLE = _make_le(OpcDaCancel_ack)
 
 
 # The bind PDU is used to initiate the presentation negotiation for the body
 #  data, and optionally, authentication. The presentation negotiation follows
 #  the model of the OSI presentation layer.
 class OpcDaBind(Packet):
+    # DCE 1.1 RPC - 12.6.4.3
     name = "OpcDaBind"
     fields_desc = [
         ShortField('maxXmitFrag', 5840),
@@ -1209,7 +1008,7 @@ class OpcDaBind(Packet):
         ByteField('nbContextElement', 1),
         ByteField('reserved', 0),
         ShortField('reserved2', 0),
-        PacketListField('contextItem', None, ContextElment,
+        PacketListField('contextItem', None, ContextElement,
                         count_from=lambda pkt:pkt.nbContextElement),
         PacketField('authentication', None, AuthentificationProtocol),
     ]
@@ -1218,22 +1017,7 @@ class OpcDaBind(Packet):
         return b"", p
 
 
-class OpcDaBindLE(Packet):
-    name = "OpcDaBind"
-    fields_desc = [
-        LEShortField('maxXmitFrag', 5840),
-        LEShortField('maxRecvtFrag', 5840),
-        LEIntField('assocGroupId', 0),
-        ByteField('nbContextElement', 1),
-        ByteField('reserved', 0),
-        LEShortField('reserved2', 0),
-        PacketListField('contextItem', None, ContextElmentLE,
-                        count_from=lambda pkt:pkt.nbContextElement),
-        PacketField('authentication', None, AuthentificationProtocol),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaBindLE = _make_le(OpcDaBind)
 
 
 # The bind_ack PDU is returned by the server when it accepts a bind request
@@ -1241,13 +1025,14 @@ class OpcDaBindLE(Packet):
 #  context and fragment size negotiations. It may also contain a new
 #  association group identifier if one was requested by the client.
 class OpcDaBind_ack(Packet):
+    # DCE 1.1 RPC - 12.6.4.4
     name = "OpcDaBind_ack"
     fields_desc = [
         ShortField('maxXmitFrag', 5840),
         ShortField('maxRecvtFrag', 5840),
         IntField('assocGroupId', 0),
         PacketField('portSpec', '\x00\x00\x00\x00', LenStringPacket),
-        IntField('pda2', 0),
+        IntField('pad2', 0),
         PacketField('resultList', None, ResultList),
         PacketField('authentication', None, AuthentificationProtocol),
     ]
@@ -1256,20 +1041,7 @@ class OpcDaBind_ack(Packet):
         return b"", p
 
 
-class OpcDaBind_ackLE(Packet):
-    name = "OpcDaBind_ackLE"
-    fields_desc = [
-        LEShortField('maxXmitFrag', 5840),
-        LEShortField('maxRecvtFrag', 5840),
-        LEIntField('assocGroupId', 0),
-        PacketField('portSpec', None, LenStringPacketLE),
-        LEIntField('pda2', 0),
-        PacketField('resultList', None, ResultListLE),
-        PacketField('authentication', None, AuthentificationProtocol),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaBind_ackLE = _make_le(OpcDaBind_ack)
 
 
 # The bind_nak PDU is returned by the server when it rejects an association
@@ -1278,6 +1050,7 @@ class OpcDaBind_ackLE(Packet):
 #  protocol_version_not_supported, the versions field contains a list of
 #  run-time protocol versions supported by the server.
 class OpcDaBind_nak(Packet):
+    # DCE 1.1 RPC - 12.6.4.5
     name = "OpcDaBind_nak"
     fields_desc = [
         ShortEnumField("providerRejectReason", 0, _rejectBindNack)
@@ -1287,20 +1060,14 @@ class OpcDaBind_nak(Packet):
         return b"", p
 
 
-class OpcDaBind_nakLE(Packet):
-    name = "OpcDaBind_nak"
-    fields_desc = [
-        LEShortEnumField("providerRejectReason", 0, _rejectBindNack)
-    ]  # To complete
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaBind_nakLE = _make_le(OpcDaBind_nak)
 
 
 # The alter_context PDU is used to request additional presentation negotiation
 #  for another interface and/or version, or to negotiate a new security
 #  context, or both.
 class OpcDaAlter_context(Packet):
+    # DCE 1.1 RPC - 12.6.4.1
     name = "OpcDaAlter_context"
     fields_desc = [
         ShortField('maxXmitFrag', 5840),
@@ -1313,47 +1080,27 @@ class OpcDaAlter_context(Packet):
         return b"", p
 
 
-class OpcDaAlter_contextLE(Packet):
-    name = "OpcDaAlter_context"
-    fields_desc = [
-        LEShortField('maxXmitFrag', 5840),
-        LEShortField('maxRecvtFrag', 5840),
-        LEIntField('assocGroupId', 0),
-        # PacketField('authentication', None, AuthentificationProtocol),
-    ]  # To complete
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaAlter_contextLE = _make_le(OpcDaAlter_context)
 
 
 class OpcDaAlter_Context_Resp(Packet):
+    # DCE 1.1 RPC - 12.6.4.2
     name = "OpcDaAlter_Context_Resp"
     fields_desc = [
         ShortField('maxXmitFrag', 5840),
         ShortField('maxRecvtFrag', 5840),
         IntField('assocGroupId', 0),
-        PacketField('portSPec', '\x00\x00\x00\x00', LenStringPacket),
-        LEIntField('numResult', 0),
-        # PacketField('authentication', None, AuthentificationProtocol),
+        PacketField('portSpec', '\x00\x00\x00\x00', LenStringPacket),
+        IntField('pad2', 0),
+        PacketField('resultList', None, ResultList),
+        PacketField('authentication', None, AuthentificationProtocol),
     ]  # To complete
 
     def extract_padding(self, p):
         return b"", p
 
 
-class OpcDaAlter_Context_RespLE(Packet):
-    name = "OpcDaAlter_Context_RespLE"
-    fields_desc = [
-        LEShortField('maxXmitFrag', 5840),
-        LEShortField('maxRecvtFrag', 5840),
-        LEIntField('assocGroupId', 0),
-        PacketField('portSpec', '\x00\x00\x00\x00', LenStringPacketLE),
-        LEIntField('numResult', 0),
-        # PacketField('authentication', None, AuthentificationProtocol),
-    ]  # To complete
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaAlter_Context_RespLE = _make_le(OpcDaAlter_Context_Resp)
 
 
 # The shutdown PDU is sent by the server to request that a client terminate the
@@ -1361,6 +1108,7 @@ class OpcDaAlter_Context_RespLE(Packet):
 # The shutdown PDU never contains an authentication verifier even if
 #  authentication services are in use.
 class OpcDaShutdown(Packet):
+    # DCE 1.1 RPC - 12.6.4.11
     name = "OpcDaShutdown"
 
     def extract_padding(self, p):
@@ -1369,6 +1117,7 @@ class OpcDaShutdown(Packet):
 
 # The cancel PDU is used to forward a cancel.
 class OpcDaCo_cancel(Packet):
+    # DCE 1.1 RPC - 12.5.3.3
     name = "OpcDaCO_cancel"
     fields_desc = [
         PacketField('authentication', None, AuthentificationProtocol),
@@ -1380,16 +1129,7 @@ class OpcDaCo_cancel(Packet):
         return b"", p
 
 
-class OpcDaCo_cancelLE(Packet):
-    name = "OpcDaCo_cancelLE"
-    fields_desc = [
-        PacketField('authentication', None, AuthentificationProtocol),
-        LEIntField('version', 0),
-        LEIntField('cancelId', 0),
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
+OpcDaCo_cancelLE = _make_le(OpcDaCo_cancel)
 
 
 # The orphaned PDU is used by a client to notify a server that it is aborting a
@@ -1399,6 +1139,7 @@ class OpcDaOrphaned(AuthentificationProtocol):
     name = "OpcDaOrphaned"
 
 
+# DCE 1.1 RPC sect 12
 _opcDa_pdu_classes = {
     0: [OpcDaRequest, OpcDaRequestLE],
     1: [OpcDaPing, OpcDaPing],
@@ -1409,11 +1150,11 @@ _opcDa_pdu_classes = {
     6: [OpcDaReject, OpcDaRejectLE],
     7: [OpcDaAck, OpcDaAck],
     8: [OpcDaCl_cancel, OpcDaCl_cancelLE],
-    9: [OpcDaFack, OpcDaFack],
+    9: [OpcDaFack, OpcDaFackLE],
     10: [OpcDaCancel_ack, OpcDaCancel_ackLE],
     11: [OpcDaBind, OpcDaBindLE],
     12: [OpcDaBind_ack, OpcDaBind_ackLE],
-    13: [OpcDaBind_nak, OpcDaBind_nak],
+    13: [OpcDaBind_nak, OpcDaBind_nakLE],
     14: [OpcDaAlter_context, OpcDaAlter_contextLE],
     15: [OpcDaAlter_Context_Resp, OpcDaAlter_Context_RespLE],
     17: [OpcDaShutdown, OpcDaShutdown],
@@ -1425,29 +1166,26 @@ _opcDa_pdu_classes = {
 
 
 class OpcDaHeaderN(Packet):
+    # Last 3 fields of the common fields, used for dispatching the PDUs
     name = "OpcDaHeaderNext"
     fields_desc = [
-        ShortField('fragLenght', 0),
-        ShortEnumField('authLenght', 0, _authentification_protocol),
+        ShortField('fragLength', 0),
+        ShortEnumField('authLength', 0, _authentification_protocol),
         IntField('callID', 0)
     ]
 
     def guess_payload_class(self, payload):
         if self.underlayer:
             try:
-                return _opcDa_pdu_classes[self.underlayer.pdu_type][1]
+                return _opcDa_pdu_classes[self.underlayer.pduType][
+                    self.__class__.__name__.endswith("LE")
+                ]
             except AttributeError:
                 pass
         return conf.raw_layer
 
 
-class OpcDaHeaderNLE(OpcDaHeaderN):
-    name = "OpcDaHeaderNextLE"
-    fields_desc = [
-        LEShortField('fragLenght', 0),
-        LEShortEnumField('authLenght', 0, _authentification_protocol),
-        LEIntField('callID', 0)
-    ]
+OpcDaHeaderNLE = _make_le(OpcDaHeaderN)
 
 
 _opcda_next_header = {
@@ -1457,21 +1195,26 @@ _opcda_next_header = {
 
 
 class OpcDaHeaderMessage(Packet):
+    # An actual RPC PDU
+    # DCE 1.1 RPC - 12.6.3.1
     name = "OpcDaHeader"
+    deprecated_fields = {
+        "pdu_type": ("pduType", "2.5.0"),
+    }
     fields_desc = [
         ByteField('versionMajor', 0),
         ByteField('versionMinor', 0),
         ByteEnumField("pduType", 0, _pduType),
         FlagsField('pfc_flags', 0, 8, _pfc_flags),
         # Non-Delivery Report/Receipt  (NDR) Format Label
+        # DCE 1.1 RPC - 14.1
         BitEnumField('integerRepresentation', 1, 4,
                      {0: "bigEndian", 1: "littleEndian"}),
         BitEnumField('characterRepresentation', 0, 4,
                      {0: "ascii", 1: "ebcdic"}),
         ByteEnumField('floatingPointRepresentation', 0,
                       {0: "ieee", 1: "vax", 2: "cray", 3: "ibm"}),
-        ByteField('reservedForFutur', 0),
-        ByteField('reservedForFutur', 0),
+        ShortField('res', 0),
     ]
 
     def guess_payload_class(self, payload):

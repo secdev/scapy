@@ -68,7 +68,7 @@ _MAX_CRL_SIZE = 10 * 1024 * 1024   # some are that big
 @conf.commands.register
 def der2pem(der_string, obj="UNKNOWN"):
     """Convert DER octet string to PEM format (with optional header)"""
-    # Encode a byte string in PEM format. Header advertizes <obj> type.
+    # Encode a byte string in PEM format. Header advertises <obj> type.
     pem_string = ("-----BEGIN %s-----\n" % obj).encode()
     base64_string = base64.b64encode(der_string)
     chunks = [base64_string[i:i + 64] for i in range(0, len(base64_string), 64)]  # noqa: E501
@@ -102,7 +102,12 @@ def split_pem(s):
         if start_idx == -1:
             break
         end_idx = s.find(b"-----END")
+        if end_idx == -1:
+            raise Exception("Invalid PEM object (missing END tag)")
         end_idx = s.find(b"\n", end_idx) + 1
+        if end_idx == 0:
+            # There is no final \n
+            end_idx = len(s)
         pem_strings.append(s[start_idx:end_idx])
         s = s[end_idx:]
     return pem_strings
@@ -140,9 +145,8 @@ class _PKIObjMaker(type):
             if _size > obj_max_size:
                 raise Exception(error_msg)
             try:
-                f = open(obj_path, "rb")
-                _raw = f.read()
-                f.close()
+                with open(obj_path, "rb") as f:
+                    _raw = f.read()
             except Exception:
                 raise Exception(error_msg)
         else:
@@ -727,12 +731,11 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         """
         Export certificate in 'fmt' format (DER or PEM) to file 'filename'
         """
-        f = open(filename, "wb")
-        if fmt == "DER":
-            f.write(self.der)
-        elif fmt == "PEM":
-            f.write(self.pem)
-        f.close()
+        with open(filename, "wb") as f:
+            if fmt == "DER":
+                f.write(self.der)
+            elif fmt == "PEM":
+                f.write(self.pem)
 
     def show(self):
         print("Serial: %s" % self.serial)
@@ -924,9 +927,8 @@ class Chain(list):
         certificates can be passed (as a file, this time).
         """
         try:
-            f = open(cafile, "rb")
-            ca_certs = f.read()
-            f.close()
+            with open(cafile, "rb") as f:
+                ca_certs = f.read()
         except Exception:
             raise Exception("Could not read from cafile")
 
@@ -935,9 +937,8 @@ class Chain(list):
         untrusted = None
         if untrusted_file:
             try:
-                f = open(untrusted_file, "rb")
-                untrusted_certs = f.read()
-                f.close()
+                with open(untrusted_file, "rb") as f:
+                    untrusted_certs = f.read()
             except Exception:
                 raise Exception("Could not read from untrusted_file")
             untrusted = [Cert(c) for c in split_pem(untrusted_certs)]
@@ -955,16 +956,16 @@ class Chain(list):
         try:
             anchors = []
             for cafile in os.listdir(capath):
-                anchors.append(Cert(open(os.path.join(capath, cafile), "rb").read()))  # noqa: E501
+                with open(os.path.join(capath, cafile), "rb") as fd:
+                    anchors.append(Cert(fd.read()))
         except Exception:
             raise Exception("capath provided is not a valid cert path")
 
         untrusted = None
         if untrusted_file:
             try:
-                f = open(untrusted_file, "rb")
-                untrusted_certs = f.read()
-                f.close()
+                with open(untrusted_file, "rb") as f:
+                    untrusted_certs = f.read()
             except Exception:
                 raise Exception("Could not read from untrusted_file")
             untrusted = [Cert(c) for c in split_pem(untrusted_certs)]

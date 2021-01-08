@@ -10,19 +10,20 @@ DNS: Domain Name System.
 from __future__ import absolute_import
 import struct
 import time
+import warnings
 
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    ConditionalField, FieldLenField, FlagsField, IntField, \
-    PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
+    ConditionalField, Field, FieldLenField, FlagsField, IntField, \
+    PacketListField, ShortEnumField, ShortField, StrField, \
     StrLenField, MultipleTypeField, UTCTimeField
 from scapy.compat import orb, raw, chb, bytes_encode
 from scapy.ansmachine import AnsweringMachine
 from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field, IP6Field
-from scapy.error import warning, Scapy_Exception
+from scapy.error import log_runtime, warning, Scapy_Exception
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -55,8 +56,9 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
     bytes_left = None
     while True:
         if abs(pointer) >= max_length:
-            warning("DNS RR prematured end (ofs=%i, len=%i)" % (pointer,
-                                                                len(s)))
+            log_runtime.info(
+                "DNS RR prematured end (ofs=%i, len=%i)", pointer, len(s)
+            )
             break
         cur = orb(s[pointer])  # get pointer value
         pointer += 1  # make pointer go forward
@@ -66,7 +68,9 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
                 # as pointer will follow the jump token
                 after_pointer = pointer + 1
             if pointer >= max_length:
-                warning("DNS incomplete jump token at (ofs=%i)" % pointer)
+                log_runtime.info(
+                    "DNS incomplete jump token at (ofs=%i)", pointer
+                )
                 break
             # Follow the pointer
             pointer = ((cur & ~0xc0) << 8) + orb(s[pointer]) - 12
@@ -83,7 +87,7 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
                     _fullpacket = True
                 else:
                     # No -> abort
-                    raise Scapy_Exception("DNS message can't be compressed" +
+                    raise Scapy_Exception("DNS message can't be compressed " +
                                           "at this point!")
             processed_pointers.append(pointer)
             continue
@@ -113,7 +117,8 @@ def dns_encode(x, check_built=False):
         return b"\x00"
 
     if check_built and b"." not in x and (
-        orb(x[-1]) == 0 or (orb(x[-2]) & 0xc0) == 0xc0
+        (x and orb(x[-1]) == 0) or
+        (len(x) >= 2 and (orb(x[-2]) & 0xc0) == 0xc0)
     ):
         # The value has already been processed. Do not process it again
         return x
@@ -127,7 +132,10 @@ def dns_encode(x, check_built=False):
 
 def DNSgetstr(*args, **kwargs):
     """Legacy function. Deprecated"""
-    warning("DNSgetstr deprecated. Use dns_get_str instead")
+    warnings.warn(
+        "DNSgetstr is deprecated. Use dns_get_str instead.",
+        DeprecationWarning
+    )
     return dns_get_str(*args, **kwargs)
 
 
@@ -138,6 +146,7 @@ def dns_compress(pkt):
         raise Scapy_Exception("Can only compress DNS layers")
     pkt = pkt.copy()
     dns_pkt = pkt.getlayer(DNS)
+    dns_pkt.clear_cache()
     build_pkt = raw(dns_pkt)
 
     def field_gen(dns_pkt):
@@ -229,7 +238,6 @@ class DNSStrField(StrLenField):
     It will also handle DNS decompression.
     (may be StrLenField if a length_from is passed),
     """
-
     def h2i(self, pkt, x):
         if not x:
             return b"."
@@ -244,7 +252,7 @@ class DNSStrField(StrLenField):
     def getfield(self, pkt, s):
         remain = b""
         if self.length_from:
-            remain, s = StrLenField.getfield(self, pkt, s)
+            remain, s = super(DNSStrField, self).getfield(pkt, s)
         # Decode the compressed DNS message
         decoded, _, left = dns_get_str(s, 0, pkt)
         # returns (remaining, decoded)
@@ -313,7 +321,7 @@ class DNSRRField(StrField):
         ret = None
         c = getattr(pkt, self.countfld)
         if c > len(s):
-            warning("wrong value: DNS.%s=%i", self.countfld, c)
+            log_runtime.info("DNS wrong value: DNS.%s=%i", self.countfld, c)
             return s, b""
         while c:
             c -= 1
@@ -353,7 +361,10 @@ class DNSTextField(StrLenField):
         while tmp_s:
             tmp_len = orb(tmp_s[0]) + 1
             if tmp_len > len(tmp_s):
-                warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))  # noqa: E501
+                log_runtime.info(
+                    "DNS RR TXT prematured end of character-string "
+                    "(size=%i, remaining bytes=%i)", tmp_len, len(tmp_s)
+                )
             ret_s.append(tmp_s[1:tmp_len])
             tmp_s = tmp_s[tmp_len:]
         return ret_s
@@ -448,13 +459,13 @@ class DNS(Packet):
                 dns_len = struct.unpack("!H", s[:2])[0]
             else:
                 message = "Malformed DNS message: too small!"
-                warning(message)
+                log_runtime.info(message)
                 raise Scapy_Exception(message)
 
             # Check if the length is valid
             if dns_len < 14 or len(s) < dns_len:
                 message = "Malformed DNS message: invalid length!"
-                warning(message)
+                log_runtime.info(message)
                 raise Scapy_Exception(message)
 
         return s
@@ -545,7 +556,7 @@ def bitmap2RRlist(bitmap):
     while bitmap:
 
         if len(bitmap) < 2:
-            warning("bitmap too short (%i)" % len(bitmap))
+            log_runtime.info("bitmap too short (%i)", len(bitmap))
             return
 
         window_block = orb(bitmap[0])  # window number
@@ -553,7 +564,7 @@ def bitmap2RRlist(bitmap):
         bitmap_len = orb(bitmap[1])  # length of the bitmap in bytes
 
         if bitmap_len <= 0 or bitmap_len > 32:
-            warning("bitmap length is no valid (%i)" % bitmap_len)
+            log_runtime.info("bitmap length is no valid (%i)", bitmap_len)
             return
 
         tmp_bitmap = bitmap[2:2 + bitmap_len]
@@ -807,9 +818,9 @@ tsig_algo_sizes = {"HMAC-MD5.SIG-ALG.REG.INT": 16,
                    "hmac-sha1": 20}
 
 
-class TimeSignedField(StrFixedLenField):
+class TimeSignedField(Field[int, bytes]):
     def __init__(self, name, default):
-        StrFixedLenField.__init__(self, name, default, 6)
+        Field.__init__(self, name, default, fmt="6s")
 
     def _convert_seconds(self, packed_seconds):
         """Unpack the internal representation."""
@@ -817,7 +828,7 @@ class TimeSignedField(StrFixedLenField):
         seconds += struct.unpack("!I", packed_seconds[2:])[0]
         return seconds
 
-    def h2i(self, pkt, seconds):
+    def i2m(self, pkt, seconds):
         """Convert the number of seconds since 1-Jan-70 UTC to the packed
            representation."""
 
@@ -829,7 +840,7 @@ class TimeSignedField(StrFixedLenField):
 
         return struct.pack("!HI", tmp_short, tmp_int)
 
-    def i2h(self, pkt, packed_seconds):
+    def m2i(self, pkt, packed_seconds):
         """Convert the internal representation to the number of seconds
            since 1-Jan-70 UTC."""
 
@@ -841,7 +852,7 @@ class TimeSignedField(StrFixedLenField):
     def i2repr(self, pkt, packed_seconds):
         """Convert the internal representation to a nice one using the RFC
            format."""
-        time_struct = time.gmtime(self._convert_seconds(packed_seconds))
+        time_struct = time.gmtime(packed_seconds)
         return time.strftime("%a %b %d %H:%M:%S %Y", time_struct)
 
 

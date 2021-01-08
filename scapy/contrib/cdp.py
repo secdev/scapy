@@ -25,9 +25,21 @@ from __future__ import absolute_import
 import struct
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import ByteEnumField, ByteField, FieldLenField, FlagsField, \
-    IP6Field, IPField, PacketListField, ShortField, StrLenField, \
-    X3BytesField, XByteField, XShortEnumField, XShortField
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    FieldLenField,
+    FlagsField,
+    IP6Field,
+    IPField,
+    OUIField,
+    PacketListField,
+    ShortField,
+    StrLenField,
+    XByteField,
+    XShortEnumField,
+    XShortField,
+)
 from scapy.layers.inet import checksum
 from scapy.layers.l2 import SNAP
 from scapy.compat import orb, chb
@@ -189,14 +201,13 @@ class CDPMsgAddr(CDPMsgGeneric):
     name = "Addresses"
     fields_desc = [XShortEnumField("type", 0x0002, _cdp_tlv_types),
                    ShortField("len", None),
-                   FieldLenField("naddr", None, "addr", "!I"),
+                   FieldLenField("naddr", None, fmt="!I", count_of="addr"),
                    PacketListField("addr", [], _CDPGuessAddrRecord,
                                    length_from=lambda x:x.len - 8)]
 
     def post_build(self, pkt, pay):
         if self.len is None:
-            tmp_len = 8 + len(self.addr) * 9
-            pkt = pkt[:2] + struct.pack("!H", tmp_len) + pkt[4:]
+            pkt = pkt[:2] + struct.pack("!H", len(pkt)) + pkt[4:]
         p = pkt + pay
         return p
 
@@ -262,7 +273,7 @@ class CDPMsgProtoHello(CDPMsgGeneric):
     type = 0x0008
     fields_desc = [XShortEnumField("type", 0x0008, _cdp_tlv_types),
                    ShortField("len", 32),
-                   X3BytesField("oui", 0x00000c),
+                   OUIField("oui", 0x00000c),
                    XShortField("protocol_id", 0x0),
                    # TLV length (len) - 2 (type) - 2 (len) - 3 (OUI) - 2
                    # (Protocol ID)

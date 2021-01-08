@@ -51,24 +51,9 @@ pkt = GETPORT_Reply(
 )
 assert bytes(pkt) == b'\x00\x00\x08\x01'
 
-pkt = DUMP_Reply(
-    value_follows=1,
-    mappings=[
-        Map_Entry(
-            prog=1,
-            vers=2,
-            prot=3,
-            port=4,
-            value_follows=1
-        ),
-
-        Map_Entry(
-            prog=5,
-            vers=6,
-            prot=7,
-            port=8,
-            value_follows=0
-        )
-    ]
-)
+pkt = DUMP_Reply(value_follows=1,
+                 mappings=[Map_Entry(prog=1, vers=2, prot=3, port=4, value_follows=1),
+                           Map_Entry(prog=5, vers=6, prot=7, port=8, value_follows=0),
+                          ]
+                 )
 assert bytes(pkt) == b'\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x01\x00\x00\x00\x05\x00\x00\x00\x06\x00\x00\x00\x07\x00\x00\x00\x08\x00\x00\x00\x00'

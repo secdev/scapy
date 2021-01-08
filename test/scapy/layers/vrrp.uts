@@ -1,0 +1,40 @@
+% VRRP regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ VRRP tests
+
+= VRRP - build
+s = raw(IP()/VRRP())
+s == b'E\x00\x00$\x00\x01\x00\x00@p|g\x7f\x00\x00\x01\x7f\x00\x00\x01!\x01d\x00\x00\x01z\xfd\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= VRRP - dissection
+p = IP(s)
+VRRP in p and p[VRRP].chksum == 0x7afd
+
+= VRRP IPv6 - build
+s6 = raw(IPv6()/VRRPv3())
+s6 == b'`\x00\x00\x00\x00\x08p@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x011\x01d\x01\x00dj\x1f'
+
+= VRRP IPv6 - dissection
+p6 = IPv6(s6)
+VRRPv3 in p6 and p6[VRRPv3].chksum == 0x6a1f
+
+= VRRP - chksums
+# VRRPv3
+p = Ether(src="00:00:5e:00:02:02",dst="01:00:5e:00:00:12")/IP(src="20.0.0.3", dst="224.0.0.18",ttl=255)/VRRPv3(priority=254,vrid=2,version=3,adv=1,addrlist=["20.0.1.2","20.0.1.3"])
+a = Ether(raw(p))
+assert a[VRRPv3].chksum == 0xb25e
+# VRRPv1
+p = Ether(src="00:00:5e:00:02:02",dst="01:00:5e:00:00:12")/IP(src="20.0.0.3", dst="224.0.0.18",ttl=255)/VRRP(priority=254,vrid=2,version=1,adv=1,addrlist=["20.0.1.2","20.0.1.3"])
+b = Ether(raw(p))
+assert b[VRRP].chksum == 0xc6f4
+
+= VRRP IPv6 - chksums
+# VRRPv3 IPv6
+p = Ether(src="00:00:5e:00:02:02",dst="33:33:00:00:00:12")/IPv6(src="2001:db8::1", dst="ff02::12",hlim=255)/VRRPv3(priority=254,vrid=2,version=3,adv=1,ipcount=2,addrlist=["2001:db8::2","2001:db8::3"])
+c = Ether(raw(p))
+assert c[VRRPv3].chksum == 0x481b

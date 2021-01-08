@@ -5,7 +5,7 @@
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
-sudo pkg_add git python-2.7.15p0 python-3.6.6p1 py-virtualenv
+sudo pkg_add git python-2.7.18p0 python-3.8.2 py-virtualenv
 sudo mkdir -p /usr/local/test/
 sudo chown -R vagrant:vagrant /usr/local/test/
 cd /usr/local/test/

@@ -1,0 +1,580 @@
+% Dot11 regression tests for Scapy
+
+############
+############
++ 802.11
+~ dot11
+
+= 802.11 - misc
+PrismHeader().answers(PrismHeader()) == True
+
+dpl = Dot11PacketList([Dot11()/LLC()/SNAP()/IP()/UDP()])
+len(dpl) == 1
+
+dpl_ether = dpl.toEthernet()
+len(dpl_ether) == 1 and Ether in dpl_ether[0]
+
+= Dot11 - build
+s = raw(Dot11())
+s == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= Dot11 - dissection
+p = Dot11(s)
+Dot11 in p and p.addr3 == "00:00:00:00:00:00"
+assert p.mysummary() == '802.11 Management Association Request 00:00:00:00:00:00 (TA=SA) > 00:00:00:00:00:00 (RA=DA)'
+assert "DA" in p.address_meaning(1)
+assert "SA" in p.address_meaning(2)
+assert "BSSID" in p.address_meaning(3)
+
+= Dot11QoS - build
+s = raw(Dot11()/Dot11QoS(Ack_Policy=1))
+assert s == b'\xc8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00'
+
+s = raw(Dot11(type=2, subtype=8)/Dot11QoS(TID=4))
+assert s == b'\x88\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00'
+
+= Dot11 - binary in SSID
+pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID=0, info=b"".join(chb(i) for i in range(32)))
+pkt.show()
+pkt.summary()
+assert pkt[Dot11Elt::{"ID": 0}].summary() == "SSID='%s'" % "".join(chr(d) for d in range(32))
+
+pkt = Dot11(raw(pkt))
+pkt.show()
+pkt.summary()
+assert pkt[Dot11Elt::{"ID": 0}].summary() == "SSID='%s'" % "".join(chr(d) for d in range(32))
+
+= Dot11QoS - dissection
+p = Dot11(s)
+assert Dot11QoS in p
+assert p.TID == 4
+assert "DA" in p.address_meaning(1)
+assert "SA" in p.address_meaning(2)
+assert "BSSID" in p.address_meaning(3)
+
+= Dot11 - answers
+query = Dot11(type=0, subtype=0)
+Dot11(type=0, subtype=1).answers(query) == True
+
+= Dot11 - misc
+assert Dot11Elt(info="scapy").summary() == "SSID='scapy'"
+assert Dot11Elt(ID=1).mysummary() == ""
+assert Dot11(b'\x84\x00\x00\x00\x00\x11\x22\x33\x44\x55\x00\x11\x22\x33\x44\x55').addr2 == '00:11:22:33:44:55'
+
+= Multiple Dot11Elt layers
+pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID="Supported Rates") / Dot11Elt(ID="SSID", info="Scapy")
+assert pkt[Dot11Elt::{"ID": 0}].info == b"Scapy"
+assert pkt.getlayer(Dot11Elt, ID=0).info == b"Scapy"
+
+= Dot11WEP - build
+~ crypto
+conf.wepkey = ""
+assert raw(PPI()/Dot11(FCfield=0x40)/Dot11WEP()) == b'\x00\x00\x08\x00i\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+conf.wepkey = "test123"
+assert raw(PPI()/Dot11(type=2, subtype=8, FCfield=0x40)/Dot11QoS()/Dot11WEP()) == b'\x00\x00\x08\x00i\x00\x00\x00\x88@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x008(^a'
+
+= Dot11WEP - dissect
+~ crypto
+conf.wepkey = "test123"
+a = PPI(b'\x00\x00\x08\x00i\x00\x00\x00\x88@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x008(^a')
+assert a[Dot11QoS][Dot11WEP].icv == 942169697
+
+= Dot11TKIP - dissection
+
+pkt = RadioTap(b'\x00\x00\x0f\x00*\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x08B\x00\x00\xff\xff\xff\xff\xff\xff\xfe\xec\xda\x1d\xa3M\x00\x04t\x14\x02BP+\x01!\x00\xa0\x01!\x00\xa0\x01!\x00\xa0\x00\x00\x00\x00\xb0\xb6sN\xbdl9S\xc3x\x9d\xa6TEp\xcd(\xebht{\xff9\x9a[\x0f~\x00\xf8&m$\x1e\xd2[dXn\x16\x8526G\x8c\x88\xc3B\xc9\xda^\xc5w\xa5 \x9a\xa0 \x08')
+assert Dot11TKIP in pkt
+
+assert pkt[Dot11TKIP].TSC1 == 1
+assert pkt[Dot11TKIP].WEPSeed == 33
+assert pkt[Dot11TKIP].TSC0 == 0
+assert pkt[Dot11TKIP].key_id == 2
+assert pkt[Dot11TKIP].ext_iv == 1
+assert pkt[Dot11TKIP].res == 0
+assert pkt[Dot11TKIP].TSC2 == 1
+assert pkt[Dot11TKIP].TSC3 == 33
+assert pkt[Dot11TKIP].TSC4 == 0
+assert pkt[Dot11TKIP].TSC5 == 160
+
+assert "DA" in pkt[Dot11].address_meaning(1)
+assert "TA=BSSID" in pkt[Dot11].address_meaning(2)
+assert "SA" in pkt[Dot11].address_meaning(3)
+
+= Dot11CCMP - dissection
+
+pkt = RadioTap(b'\x00\x00\x0f\x00*\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x08b\x00\x00\x01\x00^\x7f\xff\xfa\x0e\xec\xda\x1d\xa3M\x00\x0eX7\xbe\xbe\x00\x8aD#\x00\xa0D#\x00\xa0\x00\x00\x00\x00c\xb7\rv/s\x88N;>\x07\x0e\xe5\xd9\xf5\xfa\xcdD\xc2he\xfc\xc5^m\xae\xf2\xfe\xf9\xb06\xce\rt\xbe\x9d(\xb5\x98\x848NU\x0f\x93\x0f]m\xa2\x96\x80{\x95\x00\xb5\x98Y!\xa3^\xfc\xda\xca.R\xf3\xd3\xf8^\xeda\x88\x82p\xc6\xb8L\x0b\x815-\x85(\xb1F\xd5K\x166dJ\xc7\x04B\xdb\xec\x8d\xb7:{\x0f\'g<\x06\xd07>\xde\xad\x08\xcb\xffr\xfa\xf4}o\xe9\xa9b\xa5)\x87\x90\xa5{\xe1\xea\x0f\x0fGf`x1\xbd\xc1\xe8\xa0\xb6(\x05gq\xf3\x99\x9e\x93\xde\'\x8e\nQ\xf7\xad\xf7\x89"\xee\xcf\xe8$\x8a\x9c\xb4\xe6\x03\xab\x9ec\xd0\xd5\x08\xca\xd2\xbb\xae\xcc\x9c$R\xbc\xcdFO?\xc3Ah\x9ch\xd4\x9b)m\xea\xbab+\'\x06I2\xb5!\xdb\x03\xbe\xb8\xb2\x86\x0f\x80\n\xbc\x85\x02\xb4T\x00\x00\xc7|\xac\xc0B\xb2\x89\xbb\xc5\xc0\x93\x858\xe3Q\xf9\t\xff4\xdb\x9a>\xe5O-e\x16\x81w!9m\xb9dZ\xaa\xaa0\x9cW\xaa\xa3\xf1\xdd\xecW\xdd\xc41D\xe6\xba\xf3SQ\x81S\xf6\xbd\xe3\xc0e\xba\xa0*\x15%\x9cz0\xa8\xa6l\x8e\x0c(\xd3\xe4\xa2\xf9\xc2:Yae#T\x8d\xef\x01\xfad\x05/\xdb\xf2!D\xde~\x0f\x99\xf6U\xf5\xbf\xd0\xaf\xbe0\xf7\xf03\xa8s`\x8d>4\x98\xb5Y\x06dXFz\x88\x82\'B\x84\xe6\xca\x05\x02\xd5G\xb6\x11\xed <\xb1\xd4\xc9\xa9\xaa\xae\xc9\xb3g\xbc\xfd+\xe7\x1aG\x92\x17\xdb\xce\xf7\x843\xce4\xc4w\x8f\x8a\x83\xf0\'\xfe\x87\x14\x95\xd3\x0bM\xbaL$\xc8\x8d\' 8\x87c 3yt\xc5\xeeN\xc9\xe1\x95\x1d\xe9\xddh\x87E\x07\xe5\x86\xc7\x82\x8a\x88\x05\xa4\x06\xb1\x0c\xddV\xd0\xf0d\xc8\xcet`\xc5C\xcb\x8f\x06]A\x92\x1a\xae5wc\x8dN\xa2\xf0}aJ\x9c\x8e\xd1\xb2[*\xffK\x0f\xf8u\xd5\x84#\xc3"\xffX\x9f\xffC\x0fb\x02n\x1b\xbaAr\x93\xe1\xb7\x1f\x8e\x1c\xfev]w\xaa\xcch\x8c{lm\xb9\x9aE\x08\x1d\xc28u\x82\xa8\xbe\xf2\xb3\x11\xdc\x90 \x83\xa7\x9c*:\x01R\xcf\xd6\xc6~\x989\x9a5\xc97\xfa\x10<x|kQ5\xa1S\x17\x1a\xc1\x83\xa03\xec\xf0h8\xfbZA\x03"&p\x99\n\x01\x9c\xa9\xd9\xff\xdf\'n$K8t\x0br_\xce^\xf3\xf4v\xff\x11\xde\xc7Wo\xe9\xaf%\x02UM\xb5l\xb9\x88=x\x87\xfamH\xb2;7|\x99C\xb6{}n_Z\xc7i\\:D\xdd\x87\xf3\\e\xdeH\x1b~9\xcb\xaeg\x99\xde4\xcf9\xe9\xc8\x8f\x87DLz\xe0\xa4\xca\x04\xa2\x93\xaf\x80g\xfb\x9d\xb8\xa8y\xb8K\xaa\x8b2\xfe\xfb\x90+\x0e\xcc_J\x13\xe5,\x12\x9a>\xe4!uEP\x968\x00*\xd0\xefE\xf8{\x1d(\xcb\xe3IR\\r\xee\x9fU\x14\ty\xe3\xdc\x96@\xf4\x8d\x17\xab\xcc\x98I\x8e\xe16\x9e\xa5+\xe0\xa8{S\x051##\x90:A')
+assert Dot11CCMP in pkt
+
+assert pkt[Dot11CCMP].PN0 == 68
+assert pkt[Dot11CCMP].PN1 == 35
+assert pkt[Dot11CCMP].res0 == 0
+assert pkt[Dot11CCMP].key_id == 2
+assert pkt[Dot11CCMP].ext_iv == 1
+assert pkt[Dot11CCMP].res1 == 0
+assert pkt[Dot11CCMP].PN2 == 68
+assert pkt[Dot11CCMP].PN3 == 35
+assert pkt[Dot11CCMP].PN4 == 0
+assert pkt[Dot11CCMP].PN5 == 160
+
+= Dot11 - answers
+a = Dot11()/Dot11Auth(seqnum=1)
+b = Dot11()/Dot11Auth(seqnum=2)
+assert b.answers(a)
+assert not a.answers(b)
+
+assert not (Dot11()/Dot11Ack()).answers(Dot11())
+assert (Dot11()/LLC(dsap=2, ctrl=4)).answers(Dot11()/LLC(dsap=1, ctrl=5))
+
+= Dot11Beacon network_stats()
+
+data = b'\x00\x00\x12\x00.H\x00\x00\x00\x02\x8f\t\xa0\x00\x01\x01\x00\x00\x80\x00\x00\x00\xff\xff\xff\xff\xff\xffDH\xc1\xb7\xf0uDH\xc1\xb7\xf0u\x10\xb7\x00\x00\x00\x00\x00\x00\x00\x00\x90\x01\x11\x00\x00\x06SSID76\x01\n\x82\x84\x0c\x12\x18$0H`l\x03\x01\x080\x18\x01\x00\x00\x0f\xac\x04\x02\x00\x00\x0f\xac\x04\x00\x0f\xac\x02\x01\x00\x00\x0f\xac\x02\x0c\x00\x07\tUSI\x01\x18\x00\n\x05\xe7'
+pkt = RadioTap(data)
+nstats = pkt[Dot11Beacon].network_stats()
+nstats
+assert nstats == {
+   'channel': 8,
+   'crypto': {'WPA2/PSK'},
+   'rates': [1.0, 2.0, 6.0, 9.0, 12.0, 18.0, 24.0, 36.0, 48.0, 54.0],
+   'ssid': 'SSID76',
+   'country': 'US',
+   'country_desc_type': 'Indoor'
+}
+
+data = b'\x00\x00\x16\x00\x0f\x00\x00\x00|P\xb1\x82\xae\x86\x05\x00\x00\x02l\t\xa0\x00\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x02\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00:Q\xb1\x82\xae\x86\x05\x00d\x00\x11\x04\x00\x0cWPA3-Network\x01\x08\x82\x84\x8b\x96\x0c\x12\x18$\x03\x01\x01\x05\x04\x00\x02\x00\x00*\x01\x042\x040H`l0\x14\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x08\xc0\x00;\x02Q\x00\x7f\x08\x04\x00\x00\x00\x00\x00\x00@'
+pkt = RadioTap(data)
+nstats = pkt[Dot11Beacon].network_stats()
+nstats
+assert nstats == {
+   'ssid': 'WPA3-Network',
+   'rates': [1.0, 2.0, 5.5, 11.0, 6.0, 9.0, 12.0, 18.0, 24.0, 36.0, 48.0, 54.0],
+   'channel': 1,
+   'crypto': {'WPA3/SAE'}
+}
+
+
+= Dot11EltCountry dissection
+
+data = b"\x00\x00&\x00/@\x00\xa0 \x08\x00\xa0 \x08\x00\x00R\xa9[#\x00\x00\x00\x00\x10\x18\x85\t\xc0\x00\xc8\x00\x00\x00\xc3\x00\xc7\x01P\x080\x00V\x9cm\xf4\xb1\xe9\xa0\xcf[\xfb%0\xa0\xcf[\xfb%0\xa0R&\x1a@\xc2\x06\x03\x00\x00f\x00!\x14\x00\x1eDisney Convention Center Guest\x01\x07\x12\x98$0H`l\x03\x01\x06\x07\x06US \x01\x0b\x1e\x0b\x05\n\x00\x8a\x8d[ \x01\x03*\x01\x00-\x1a,\x18\x1b\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x006\x03*L\x01=\x16\x06\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00F\x05s\xc0\x00\x00\x00\x7f\x06\x00\x10\x00\x04\x01@\x85\x1e\x10\x00\x8f\x00\x0f\x00\xff\x03Y\x001617-AP33-SorcA\x00\n\x00\x00:\x96\x06\x00@\x96\x00\x0b\x00\xdd\x18\x00P\xf2\x02\x01\x01\x80\x00\x03\xa4\x00\x00'\xa4\x00\x00BC^\x00b2/\x00\xdd\x06\x00@\x96\x01\x01\x04\xdd\x05\x00@\x96\x03\x05\xdd\x05\x00@\x96\x0bI\xdd\x05\x00@\x96\x14\x00dZ\x97\xbf"
+pkt = RadioTap(data)
+assert pkt[Dot11EltCountry].info == b'US \x01\x0b\x1e'
+assert len(pkt[Dot11EltCountry].descriptors) == 1
+assert pkt[Dot11EltCountry].descriptors[0].mtp == 30
+
+* Country element: padding check
+data = hex_bytes('00001a002f48000017cd9f3100000000000c3c144001e000000080000000ffffffffffff461b860bef06461b860bef06909403e0f75b0000000064001105000c4c697665626f782d3232353001088c1218243048606c0301240504020300000728504c202401172801172c01173001173401173801173c011740011764011e68011e6c011e70011e000b05000002ffff46050000000000200100c30502171717002a01002d1aef0117fffffffffeffffffff1f000001000000000018e6e719003d1624050000000000000000000000000000000000000000dd180050f2020101840003a4000027a4000042435e0062322f0030140100000fac040100000fac040100000fac020000bf0cb279c33faaff0000aaff0000c005012a00fcffdd1e002686010300dd00000025040592000601d15b5816830000000000000000dd06002686170000dd0e00268618010101024c1b860bef067f080100080200000040dd3b0050f204104a0001101044000102105700010110470010344331423836f042f546303634433142103c000103103c0001031049000600372a000120')
+pkt = RadioTap(data)
+assert pkt[Dot11EltCountry].pad == 0
+assert pkt.getlayer(Dot11Elt, ID=11)
+
+* Country element: Secondary padding check
+erp_payload = b'\x1e\x2a\x01\x62'
+country_payload = b'\x07\x06\x55\x53\x20\x01\x0b'
+
+bare_country = Dot11EltCountry(country_payload)
+country_nested = Dot11EltCountry(country_payload + erp_payload)
+
+assert not bare_country.payload
+assert country_nested.payload
+assert country_nested.payload.ID == 42
+
+= RSNCipherSuite
+assert bytes(RSNCipherSuite()) == b'\x00\x0f\xac\x04'
+rsn =  RSNCipherSuite(b'\x00\x0f\xac\x04')
+assert rsn.oui == 0x0fac
+assert rsn.cipher == 0x04
+
+= AKMSuite
+assert bytes(AKMSuite()) == b'\x00\x0f\xac\x01'
+akm = AKMSuite(b'\x00\x0f\xac\x01')
+assert akm.oui == 0x0fac
+assert akm.suite == 0x01
+
+= PMKIDListPacket
+assert bytes(PMKIDListPacket()) == b'\x00\x00'
+pmkids = PMKIDListPacket(b'\x01\x00LD\xfe\xf2l\xdcV\xce\x0b7\xab\xc62\x02O\x11')
+assert pmkids.nb_pmkids == 1
+assert len(pmkids.pmkid_list) == 1
+assert pmkids.pmkid_list[0] == b'LD\xfe\xf2l\xdcV\xce\x0b7\xab\xc62\x02O\x11'
+
+= Dot11EltRSN
+assert bytes(Dot11EltRSN()) == b'0\x14\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01\x00\x00'
+rsn_ie = Dot11EltRSN(b'0\x14\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01\x01\x00')
+assert rsn_ie.group_cipher_suite.cipher == 0x04
+assert rsn_ie.nb_pairwise_cipher_suites == 0x01
+assert rsn_ie.pairwise_cipher_suites[0].cipher == 0x04
+assert rsn_ie.nb_akm_suites == 0x01
+assert rsn_ie.akm_suites[0].suite == 0x01
+assert rsn_ie.pre_auth
+assert Dot11Elt in rsn_ie
+
+pkt = RadioTap(b"\x00\x000\x00/@\x00\xa0 \x08\x00\xa0 \x08\x00\xa0 \x08\x00\x00\x00\x00\x00\x00\x0bpin;%\xedN\x10\x0cl\t\xc0\x00\xce\x00\x00\x00\xb2\x00\xbd\x01\xce\x02\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\xec\x17/\x82\x1e)\xec\x17/\x82\x1e)\x10p\x81a\xa1\x08\x00\x00\x00\x00d\x001\x04\x00\rROUTE-821E295\x01\x01\x8c\x03\x01\x01\x05\x04\x00\x02\x00\x00\x07$IL \x01\x01\x14\x02\x01\x14\x03\x01\x14\x04\x01\x14\x05\x01\x14\x06\x01\x14\x07\x01\x14\x08\x01\x14\t\x01\x14\n\x01\x14\x0b\x01\x14;\x12QQRSTstuvwxyz{}~\x7f\x80*\x01\x000\x1a\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x02\x8c\x00\x00\x00\x00\x0f\xac\x06-\x1a\x8d\x01\x1f\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00=\x16\x01\x00\x15\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xdd\x18\x00P\xf2\x02\x01\x01\x81\x00\x03\xa4\x00\x00'\xa4\x00\x00BT^\x00a2/\x00\x7f\x01\x04\xdd\x07\x00\xa0\xc6\x02\x02\x03\x00\xdd\x17\xec\x17/RRRRRRRRRRRRRRRRRRRRR\x9e[\xf2")
+assert Dot11EltRSN in pkt
+pkt[Dot11Beacon].network_stats()
+assert pkt[Dot11Beacon].network_stats() == {
+    'ssid': 'ROUTE-821E295',
+    'rates': [6.0],
+    'channel': 1,
+    'country': 'IL',
+    'country_desc_type': None,
+    'crypto': {'WPA2/PSK'}
+}
+assert [x.ID for x in pkt[Dot11Elt].iterpayloads()] == [0, 1, 3, 5, 7, 59, 42, 48, 45, 61, 221, 127, 221, 221]
+assert pkt.pmkids.nb_pmkids == 0
+assert pkt.group_management_cipher_suite.oui == 0xfac
+assert pkt.group_management_cipher_suite.cipher == 0x6
+
+= Dot11EltMicrosoftWPA
+assert bytes(Dot11EltMicrosoftWPA()) == b'\xdd\x16\x00P\xf2\x01\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01'
+ms_wpa_ie = Dot11EltMicrosoftWPA(b'\xdd\x1a\x00P\xf2\x01\x01\x00\x00P\xf2\x02\x02\x00\x00P\xf2\x04\x00P\xf2\x02\x01\x00\x00P\xf2\x01')
+assert ms_wpa_ie[Dot11EltMicrosoftWPA].type == 0x01
+assert ms_wpa_ie[Dot11EltMicrosoftWPA].version == 0x01
+assert ms_wpa_ie[Dot11EltMicrosoftWPA].group_cipher_suite.cipher == 0x02
+assert ms_wpa_ie[Dot11EltMicrosoftWPA].nb_pairwise_cipher_suites == 0x02
+assert ms_wpa_ie[Dot11EltMicrosoftWPA].pairwise_cipher_suites[0].cipher == 0x04
+assert ms_wpa_ie[Dot11EltMicrosoftWPA].pairwise_cipher_suites[1].cipher == 0x02
+assert ms_wpa_ie[Dot11EltMicrosoftWPA].nb_akm_suites == 0x01
+assert ms_wpa_ie[Dot11EltMicrosoftWPA].akm_suites[0].suite == 0x01
+assert Dot11Elt in ms_wpa_ie
+
+= Dot11EltVendorSpecific
+assert bytes(Dot11EltVendorSpecific()) == b'\xdd\x03\x00\x00\x00'
+vendor_specific_ie = Dot11EltVendorSpecific(b'\xdd\t\x00\x03\x7f\x01\x01\x00\x00\xff\x7f')
+assert vendor_specific_ie.oui == 0x00037f
+assert Dot11Elt in vendor_specific_ie
+
+= Beacon with RSN IE
+f = Dot11(b"\x80\x00\x00\x00\xff\xff\xff\xff\xff\xffLN5V\xee\x03LN5V\xee\x03\xf0\x8f\x80\x01\xdc7\x00\x00\x00\x00\x90\x011\x04\x00\x0cciscosb-wpa2\x01\x08\x82\x84\x8b\x96\x0c\x12\x18$\x03\x01\x06\x05\x04\x00\x01\x00\x00*\x01\x000\x14\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01\x01\x002\x040H`l\xdd\x18\x00P\xf2\x02\x01\x01\x84\x00\x03\xa4\x00\x00'\xa4\x00\x00BC^\x00b2/\x00\xdd\x1e\x00\x90L3L\x10\x1b\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00-\x1aL\x10\x1b\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xdd\x1a\x00\x90L4\x06\x08\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00=\x16\x06\x08\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00J\x0e\x14\x00\n\x00,\x01\xc8\x00\x14\x00\x05\x00\x19\x00\x7f\x01\x01\xdd\t\x00\x03\x7f\x01\x01\x00\x00\xff\x7f\xdd\n\x00\x03\x7f\x04\x01\x00\x06\x00@\x00")
+assert Dot11EltRSN in f
+assert f[Dot11EltRSN].len == 20
+assert f[Dot11EltRSN].group_cipher_suite[0].cipher == 0x04
+assert f[Dot11EltRSN].pairwise_cipher_suites[0].cipher == 0x04
+assert f[Dot11EltRSN].akm_suites[0].suite == 0x01
+
+= Beacon with Microsoft WPA IE
+f = Dot11(b"\x80\x00\x00\x00\xff\xff\xff\xff\xff\xffNN5V\xee\x03NN5V\xee\x030\x8f\x80\x01\xdc7\x00\x00\x00\x00\x90\x011\x04\x00\x0bciscosb-wpa\x01\x08\x82\x84\x8b\x96\x0c\x12\x18$\x03\x01\x06\x05\x04\x00\x01\x00\x00*\x01\x00\xdd\x16\x00P\xf2\x01\x01\x00\x00P\xf2\x04\x01\x00\x00P\xf2\x04\x01\x00\x00P\xf2\x012\x040H`l\xdd\x18\x00P\xf2\x02\x01\x01\x85\x00\x03\xa4\x00\x00'\xa4\x00\x00BC^\x00b2/\x00\xdd\x1e\x00\x90L3L\x10\x1b\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00-\x1aL\x10\x1b\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xdd\x1a\x00\x90L4\x06\x08\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00=\x16\x06\x08\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00J\x0e\x14\x00\n\x00,\x01\xc8\x00\x14\x00\x05\x00\x19\x00\x7f\x01\x01\xdd\t\x00\x03\x7f\x01\x01\x00\x00\xff\x7f\xdd\n\x00\x03\x7f\x04\x01\x00\x06\x00@\x00")
+assert Dot11EltMicrosoftWPA in f
+assert f[Dot11EltMicrosoftWPA].type == 0x01
+assert f[Dot11EltMicrosoftWPA].version == 0x01
+assert f[Dot11EltMicrosoftWPA].group_cipher_suite.cipher == 0x04
+assert f[Dot11EltMicrosoftWPA].nb_pairwise_cipher_suites == 0x01
+assert f[Dot11EltMicrosoftWPA].pairwise_cipher_suites[0].cipher == 0x04
+assert f[Dot11EltMicrosoftWPA].nb_akm_suites == 0x01
+assert f[Dot11EltMicrosoftWPA].akm_suites[0].suite == 0x01
+
+= HT Capabilities
+f = RadioTap(b"\x00\x00&\x00/@\x00\xa0 \x08\x00\xa0 \x08\x00\x00\x9dt\xc3\xf1\x18\x00\x00\x00\x10\x02l\t\xa0\x00\xd9\x00\x00\x00\xd3\x00\xd7\x01@\x00\x00\x00\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xff\xff\xff\xff\xff\xffP'\x00\x00\x01\x04\x02\x04\x0b\x162\x08\x0c\x12\x18$0H`l\x03\x01\x01-\x1a-@\x17\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x08\x00\x00\x08\x04\x00\x00\x00@Y\xb7T\x13")
+assert Dot11EltHTCapabilities in f
+assert f.L_SIG_TXOP_Protection == 0
+assert f.Forty_Mhz_Intolerant == 1
+assert f.PSMP == 0
+assert f.DSSS_CCK == 0
+assert f.Max_A_MSDU == 0
+assert f.Delayed_BlockAck == 0
+assert f.Rx_STBC == 0
+assert f.Tx_STBC == 0
+assert f.Short_GI_40Mhz == 0
+assert f.Short_GI_20Mhz == 1
+assert f.Green_Field == 0
+assert f.SM_Power_Save == 3
+assert f.Supported_Channel_Width == 0
+assert f.LDPC_Coding_Capability == 1
+assert f.res1 == 0
+assert f.Min_MPDCU_Start_Spacing == 5
+assert f.Max_A_MPDU_Length_Exponent == 3
+assert f.TX_Unequal_Modulation == 0
+assert f.TX_Max_Spatial_Streams == 0
+assert f.TX_RX_MCS_Set_Not_Equal == 0
+assert f.TX_MCS_Set_Defined == 0
+assert f.RX_Highest_Supported_Data_Rate == 0
+assert f.RX_MSC_Bitmask == 255
+assert f.RD_Responder == 0
+assert f.HTC_HT_Support == 0
+assert f.MCS_Feedback == 0
+assert f.PCO_Transition_Time == 0
+assert f.PCO == 0
+assert f.Channel_Estimation_Capability == 0
+assert f.CSI_max_n_Rows_Beamformer_Supported == 0
+assert f.Compressed_Steering_n_Beamformer_Antennas_Supported == 0
+assert f.Noncompressed_Steering_n_Beamformer_Antennas_Supported == 0
+assert f.CSI_n_Beamformer_Antennas_Supported == 0
+assert f.Minimal_Grouping == 0
+assert f.Explicit_Compressed_Beamforming_Feedback == 0
+assert f.Explicit_Noncompressed_Beamforming_Feedback == 0
+assert f.Explicit_Transmit_Beamforming_CSI_Feedback == 0
+assert f.Explicit_Compressed_Steering == 0
+assert f.Explicit_Noncompressed_Steering == 0
+assert f.Explicit_CSI_Transmit_Beamforming == 0
+assert f.Calibration == 0
+assert f.Implicit_Trasmit_Beamforming == 0
+assert f.Transmit_NDP == 0
+assert f.Receive_NDP == 0
+assert f.Transmit_Staggered_Sounding == 0
+assert f.Receive_Staggered_Sounding == 0
+assert f.Implicit_Transmit_Beamforming_Receiving == 0
+assert f.ASEL == 0
+
+= HT Capabilities with fuzzed values
+# Those were checked with Wireshark !
+f = RadioTap(b'\x00\x00\t\x00\x02\x00\x00\x00\x10@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00-\x1a\xecH\xbf\x85!\x02\xd0m\x91\xa8\xd9\xf0\xa9\xb8\x15\xae\x00\x00\x00,Y\x86\xb3H\xa7?Z\xd2\xa8\xc2')
+assert Dot11EltHTCapabilities in f
+assert f.L_SIG_TXOP_Protection == 0
+assert f.Forty_Mhz_Intolerant == 1
+assert f.PSMP == 0
+assert f.DSSS_CCK == 0
+assert f.Max_A_MSDU == 1
+assert f.Delayed_BlockAck == 0
+assert f.Rx_STBC == 0
+assert f.Tx_STBC == 1
+assert f.Short_GI_40Mhz == 1
+assert f.Short_GI_20Mhz == 1
+assert f.Green_Field == 0
+assert f.SM_Power_Save == 3
+assert f.Supported_Channel_Width == 0
+assert f.LDPC_Coding_Capability == 0
+assert f.res1 == 5
+assert f.Min_MPDCU_Start_Spacing == 7
+assert f.Max_A_MPDU_Length_Exponent == 3
+assert f.TX_Unequal_Modulation == 0
+assert f.TX_Max_Spatial_Streams == 3
+assert f.TX_RX_MCS_Set_Not_Equal == 1
+assert f.TX_MCS_Set_Defined == 0
+assert f.RX_Highest_Supported_Data_Rate == 440
+assert f.RX_MSC_Bitmask == 46944200869120244326789
+assert f.RD_Responder == 1
+assert f.HTC_HT_Support == 0
+assert f.MCS_Feedback == 1
+assert f.PCO_Transition_Time == 2
+assert f.PCO == 0
+assert f.Channel_Estimation_Capability == 0
+assert f.CSI_max_n_Rows_Beamformer_Supported == 3
+assert f.Compressed_Steering_n_Beamformer_Antennas_Supported == 2
+assert f.Noncompressed_Steering_n_Beamformer_Antennas_Supported == 2
+assert f.CSI_n_Beamformer_Antennas_Supported == 1
+assert f.Minimal_Grouping == 0
+assert f.Explicit_Compressed_Beamforming_Feedback == 1
+assert f.Explicit_Noncompressed_Beamforming_Feedback == 1
+assert f.Explicit_Transmit_Beamforming_CSI_Feedback == 2
+assert f.Explicit_Compressed_Steering == 0
+assert f.Explicit_Noncompressed_Steering == 1
+assert f.Explicit_CSI_Transmit_Beamforming == 1
+assert f.Calibration == 2
+assert f.Implicit_Trasmit_Beamforming == 0
+assert f.Transmit_NDP == 0
+assert f.Receive_NDP == 0
+assert f.Transmit_Staggered_Sounding == 1
+assert f.Receive_Staggered_Sounding == 1
+assert f.Implicit_Transmit_Beamforming_Receiving == 0
+assert f.ASEL.res
+assert f.ASEL.Transmit_Sounding_PPDUs
+assert f.ASEL.Receive_ASEL
+assert f.ASEL.Antenna_Indices_Feedback
+assert f.ASEL.Explicit_CSI_Feedback
+assert f.ASEL.Explicit_CSI_Feedback_Based_Transmit_ASEL
+assert not f.ASEL.Antenna_Selection
+assert f.ASEL == 63
+
+= RadioTap - MCS weird padding
+f = RadioTap(b'\x00\x00,\x00K\x08\x1c\x00"b\x96\x03\x00\x00\x00\x00\x10\x00l\t\x80\x04\xb0\x00\x80\x04\x01\x00l\t\x01\x00\x1f\x08\x0c\x00\x94\x05\x00\x00\x04\x00\x00\x00\x88\x020\x00.\xdf\xc4J\xb0\xdc\xa0c\x91sf\xech\x05\xca?\xf4h@Y\x00\x00\xaa\xaa\x03\x00\x00\x00\x08\x00E\x00\x05\xdc \xcf@\x00\x80\x06P\xf0\xc0\xa8\x01\n\xc0\xa8\x01\x02\xdb\x8f\x13\x89\xfbv\xa3\xde\xf6\xd8L\xe8P\x10\xff\xfft\xdd\x00\x0023456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901O\xdc\x01x')
+assert f.knownMCS == 31
+assert f.Ness_LSB == 0
+assert f.STBC_streams == 0
+assert f.FEC_type == 0
+assert f.HT_format == 1
+assert f.guard_interval == 0
+assert f.MCS_bandwidth == 0
+assert f.MCS_index == 0xc
+assert f.A_MPDU_ref == 1428
+
+= Reassociation request
+f = Dot11(b' \x00:\x01@\xe3\xd6\x7f*\x00\x00\x10\x18\xa9l.@\xe3\xd6\x7f*\x00 \t1\x04\n\x00@\xe3\xd6\x7f*\x00\x00\x064.2.12\x01\x08\x82\x84\x0b\x16$0Hl!\x02\x08\x1a$\x02\x01\x0b0&\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01\x00\x00\x01\x00LD\xfe\xf2l\xdcV\xce\x0b7\xab\xc62\x02O\x112\x04\x0c\x12\x18`\x7f\x08\x01\x00\x00\x00\x00\x00\x00@\xdd\t\x00\x10\x18\x02\x00\x00\x10\x00\x00')
+assert Dot11EltRSN in f
+assert f[Dot11EltRSN].pmkids.nb_pmkids == 1
+assert len(f[Dot11EltRSN].pmkids.pmkid_list) == 1
+assert f[Dot11EltRSN].pmkids.pmkid_list[0] == b'LD\xfe\xf2l\xdcV\xce\x0b7\xab\xc62\x02O\x11'
+
+= Backward compatibility of Dot11Elt
+
+# Old naming scheme
+assert Dot11Elt(ID="DSset").sprintf("%ID%") == 'DSSS Set'
+assert Dot11Elt(ID="RSNinfo").sprintf("%ID%") == 'RSN'
+
+= Dot11FCS parent matching
+
+pkt = Ether()/IP()/Dot11FCS()
+assert pkt[Dot11]
+
+= Dot11FCS - test FCS with FCSField
+
+data = b'\x00\x00 \x00\xae@\x00\xa0 \x08\x00\xa0 \x08\x00\x00\x10\x02\x85\t\xa0\x00\xe2\x00d\x00\x00\x00\x00\x00\x00\x01\xa0@:\x01\x00\xc0\xca\xa4}PLfA\xac\xe4\xb3\x00\xc0\xca\xa4}P\x00\x03\x00 \x08 \x00\x00\x00\x00\x0f)\x1d\xd4\xd49\x1f>4\xeb'
+pkt = RadioTap(data)
+w_payload = hex_bytes('00002000ae4000a0200800a02008000010028509a000e2006400000000000001a0403a0100c0caa47d504c6641ace4b300c0caa47d50000300200820000000000f291dd4d4391f3e34eb')
+assert raw(pkt) == w_payload
+
+= Dot11FCS computation
+
+pkt = RadioTap() / Dot11FCS() / Dot11Beacon()
+assert raw(pkt) == b'\x00\x00\t\x00\x02\x00\x00\x00\x10\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00e\xd9=\xb9'
+
+= WEP tests
+~ wifi crypto Dot11 LLC SNAP IP TCP
+conf.wepkey = ""
+bck_conf_crypto_valid = conf.crypto_valid
+p = Dot11WEP(b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5\xde\xe7\xb8\x1d,\xa1\xfe\xe83\xca\xe1\xfe\xbd\xfe\xec\x00)T`\xde.\x93Td\x95C\x0f\x07\xdd')
+assert isinstance(p, Dot11WEP)
+conf.crypto_valid = bck_conf_crypto_valid
+
+conf.wepkey = "Fobar"
+r = raw(Dot11WEP()/LLC()/SNAP()/IP()/TCP(seq=12345678))
+r
+assert(r == b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5\xde\xe7\xb8\x1d,\xa1\xfe\xe83\xca\xe1\xfe\xbd\xfe\xec\x00)T`\xde.\x93Td\x95C\x0f\x07\xdd')
+p = Dot11WEP(r)
+p
+assert(TCP in p and p[TCP].seq == 12345678)
+
+= RadioTap - dissection & build
+data = b'\x00\x008\x00k\x084\x00oo\x0f\x98\x00\x00\x00\x00\x10\x00\x99\x16@\x01\xc5\xa1\x01\x00\x00\x00@\x01\x02\x00\x99\x16\x9d"\x05\x0b\x00\x00\x00\x00\x00\x00\xff\x01\x16\x01\x82\x00\x00\x00\x01\x00\x00\x00\x88\x020\x00\xb8\xe8VB_\xb2\x82*\xa8Uq\x15\xf0\x9f\xc2\x11\x16dP\xb0\x00\x00\xaa\xaa\x03\x00\x00\x00\x08\x00E\x00\x00GC\xad@\x007\x11\x97;\xd0C\xde{\xac\x10\r\xee\x005\xed\xec\x003\xd5/\xfc\\\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\tlocalhost\x00\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\t:\x80\x00\x04\x7f\x00\x00\x01\xcdj\x88]'
+r = RadioTap(data)
+r = RadioTap(raw(r))
+assert r.dBm_AntSignal == -59
+assert r.ChannelFrequency == 5785
+assert r.ChannelPlusFrequency == 5785
+assert r.present == 3410027
+assert r.A_MPDU_ref == 2821
+assert r.KnownVHT == 511
+assert r.PresentVHT == 22
+assert r.notdecoded == b''
+
+= RadioTap Big-Small endian dissection
+data = b'\x00\x00\x1a\x00/H\x00\x00\xe1\xd3\xcb\x05\x00\x00\x00\x00@0x\x14@\x01\xac\x00\x00\x00'
+r = RadioTap(data)
+r.show()
+assert r.present == 18479
+
+= RadioTap MCS dissection
+data = b"\x00\x00\x0b\x00\x00\x00\x08\x00?,\x05"
+r = RadioTap(data)
+r.show()
+assert r.present.MCS
+assert r.knownMCS.MCS_bandwidth
+assert r.knownMCS.MCS_index
+assert r.knownMCS.guard_interval
+assert r.knownMCS.HT_format
+assert r.knownMCS.FEC_type
+assert r.knownMCS.STBC_streams
+assert not r.knownMCS.Ness
+assert not r.knownMCS.Ness_MSB
+assert r.MCS_bandwidth == 0
+assert r.guard_interval == 1
+assert r.HT_format == 1
+assert r.FEC_type == 0
+assert r.STBC_streams == 1
+assert r.MCS_index == 5
+assert r.Ness_LSB == 0
+
+= RadioTap RX/TX Flags dissection
+data = b'\x00\x00\x0c\x00\x00\xc0\x00\x00\x02\x00\x3f\x00'
+r = RadioTap(data)
+r.show()
+assert r.present.TXFlags
+assert r.TXFlags.TX_FAIL
+assert r.TXFlags.CTS
+assert r.TXFlags.RTS
+assert r.TXFlags.NOACK
+assert r.TXFlags.NOSEQ
+assert r.TXFlags.ORDER
+assert r.present.RXFlags
+assert r.RXFlags.BAD_PLCP
+
+= RadioTap, other fields
+
+data = b'\x00\x00 \x00\xae@\x00\xa0 \x08\x00\xa0 \x08\x00\x00\x10\x02\x85\t\xa0\x00\xe2\x00d\x00\x00\x00\x00\x00\x00\x01\xa0@:\x01\x00\xc0\xca\xa4}PLfA\xac\xe4\xb3\x00\xc04\xeb\xca\xa4}P\x00 \x08 \x00\x00\x00\x00\x0f)\x1d\xd4\xd49\x00\x03\x1f>'
+r = RadioTap(data)
+assert Dot11TKIP in r
+assert r[Dot11]
+assert r.dBm_AntSignal == -30
+assert r.Lock_Quality == 100
+assert r.RXFlags == 0
+
+= RadioTap - Dissection - guess_payload_class() test
+data = b'\x00\x00\r\x00\x04\x80\x02\x00\x02\x00\x00\x00\x00@\x00\x00\x00\xff\xff\xff\xff\xff\xff\xe8\x94\xf6\x1c\xdf\x8b\xff\xff\xff\xff\xff\xff\xa0\x01\x00\x10ciscosb-wpa2-eap\x01\x08\x02\x04\x0b\x16\x0c\x12\x18$2\x040H`l\x03\x01\x01-\x1an\x11\x1b\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+radiotap = RadioTap(data)
+assert radiotap.present.Rate
+assert radiotap.present.TXFlags
+assert radiotap.present.b18
+assert radiotap.present == 163844
+assert radiotap.guess_payload_class("") == Dot11
+
+= RadioTap - Dissection with Extended presence mask
+data = b"\x00\x00 \x00\xae@\x00\xa0 \x08\x00\xa0 \x08\x00\x00\x10\x02\x9e\t\xa0\x00\xa2\x00d\x00\x00\x00\x00\x00\x00\x01\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x94S0\xe8\x93\xb2\x94S0\xe8\x93\xb2\xf0u\x85\xe1H\x9c\x08\x00\x00\x00d\x00\x11\x14\x00\x08Why Fye?\x01\x08\x82\x84\x8b\x96$0Hl\x03\x01\x0b\x05\x04\x00\x01\x00\x00*\x01\x04/\x01\x040\x14\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x02\x0c\x002\x04\x0c\x12\x18`\x0b\x05\x07\x00;\x00\x00-\x1a\xad\x19\x17\xff\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00=\x16\x0b\x08\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x08\x04\x00\x08\x00\x00\x00\x00@\xdd1\x00P\xf2\x04\x10J\x00\x01\x10\x10D\x00\x01\x02\x10G\x00\x10\xef\xda]\xd2#\xe8\xa7\xf0\xb2/\xa4\x98\xbf\x0cv\xe7\x10<\x00\x01\x03\x10I\x00\x06\x007*\x00\x01 \xdd\t\x00\x10\x18\x02\x07\x00\x1c\x00\x00\xdd\x18\x00P\xf2\x02\x01\x01\x80\x00\x03\xa4\x00\x00'\xa4\x00\x00BC^\x00b2/\x00F\x05r\x08\x01\x00\x00\xdd\x1e\x00\x90L\x04\x08\xbf\x0c\xb2Y\x82\x0f\xea\xff\x00\x00\xea\xff\x00\x00\xc0\x05\x00\x0b\x00\x00\x00\xc3\x02\x00\x02\x08I\xc0\xdb"
+radiotap = RadioTap(data)
+
+assert radiotap.present.Ext
+assert len(radiotap.Ext) == 2
+assert radiotap.Ext[0].present.b5
+assert radiotap.Ext[0].present.b11
+assert radiotap.Ext[0].present.b29
+assert radiotap.Ext[0].present.Ext
+assert radiotap.Ext[1].present.b37
+assert radiotap.Ext[1].present.b43
+assert not radiotap.Ext[1].present.Ext
+
+assert radiotap.present.Flags
+assert radiotap.Flags.FCS
+assert Dot11FCS in radiotap
+assert radiotap.fcs == 0xdbc04908
+
+assert Dot11EltRates in radiotap
+assert radiotap[Dot11EltRates].rates == [130, 132, 139, 150, 36, 48, 72, 108]
+
+= RadioTap - Build with Extended presence mask
+
+a = RadioTapExtendedPresenceMask(present="b0+b12+b29+Ext")
+b = RadioTapExtendedPresenceMask(index=1, present="b32+b45+b59+b62")
+pkt = RadioTap(present="Ext", Ext=[a, b])
+assert raw(pkt) == b'\x00\x00\x10\x00\x00\x00\x00\x80\x01\x10\x00\xa0\x01 \x00H'
+
+= RadioTap - dissect & build TLVs
+
+pkt = RadioTap(
+    present="TLV+dBm_TX_Power+TXFlags+Channel+Rate+Flags",
+    tlvs=[
+        RadioTapTLV(type=30, data=b"tes1t"),
+        RadioTapTLV(type=1, data=b"a")
+    ]
+)
+
+assert raw(pkt) == b'\x00\x00,\x00\x0e\x84\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x1e\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00tes1t\x00\x00\x00\x01\x00\x01\x00a\x00\x00\x00'
+
+pkt = RadioTap(raw(pkt))
+assert pkt.present.TLV
+assert pkt.tlvs[0].type == 30
+assert pkt.tlvs[0].data == b"tes1t"
+assert pkt.tlvs[0].pad == b"\0\0\0"
+assert pkt.tlvs[1].type == 1
+assert pkt.tlvs[1].data == b"a"
+assert pkt.notdecoded == b""
+
+= fuzz() calls for Dot11Elt()
+for i in range(10):
+    assert isinstance(raw(fuzz(Dot11Elt())), bytes)
+
+= PMKIDListPacket - Check computation of nb_pmkids
+assert PMKIDListPacket(raw(PMKIDListPacket())).nb_pmkids == 0
+assert PMKIDListPacket(raw(PMKIDListPacket(pmkid_list=["AZEDFREZSDERFGTY"]))).nb_pmkids == 1
+assert PMKIDListPacket(raw(PMKIDListPacket(pmkid_list=["0123456789ABDEFX", "AZEDFREZSDERFGTY"]))).nb_pmkids == 2
+
+= Dot11EltRSN - Check computation of nb_pairwise_cipher_suites and nb_akm_suites 
+assert Dot11EltRSN(raw(Dot11EltRSN())).nb_pairwise_cipher_suites == 1 
+assert Dot11EltRSN(raw(Dot11EltRSN(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP")]))).nb_pairwise_cipher_suites == 1 
+assert Dot11EltRSN(raw(Dot11EltRSN(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP"), RSNCipherSuite(cipher="CCMP-128")]))).nb_pairwise_cipher_suites == 2 
+assert Dot11EltRSN(raw(Dot11EltRSN())).nb_akm_suites == 1
+assert Dot11EltRSN(raw(Dot11EltRSN(akm_suites=[AKMSuite(suite="PSK")]))).nb_akm_suites == 1
+assert Dot11EltRSN(raw(Dot11EltRSN(akm_suites=[AKMSuite(suite="PSK"), AKMSuite(suite="802.1X")]))).nb_akm_suites == 2
+
+= Dot11EltMicrosoftWPA - Check computation of nb_pairwise_cipher_suites and nb_akm_suites 
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA())).nb_pairwise_cipher_suites == 1
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP")]))).nb_pairwise_cipher_suites == 1
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(pairwise_cipher_suites=[RSNCipherSuite(cipher="TKIP"), RSNCipherSuite(cipher="CCMP-128")]))).nb_pairwise_cipher_suites == 2
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA())).nb_akm_suites == 1
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(akm_suites=[AKMSuite(suite="PSK")]))).nb_akm_suites == 1
+assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(akm_suites=[AKMSuite(suite="PSK"), AKMSuite(suite="802.1X")]))).nb_akm_suites == 2
+

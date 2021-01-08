@@ -1,0 +1,818 @@
+##############################
+% PPTP Related regression tests
+##############################
+
++ GRE Tests
+
+= Test IP/GRE v0 decoding
+~ gre ip
+
+data = hex_bytes('45c00064000f0000ff2f1647c0a80c01c0a8170300000800')
+pkt = IP(data)
+assert GRE in pkt
+gre = pkt[GRE]
+assert gre.chksum_present == 0
+assert gre.routing_present == 0
+assert gre.key_present == 0
+assert gre.seqnum_present == 0
+assert gre.strict_route_source == 0
+assert gre.recursion_control == 0
+assert gre.flags == 0
+assert gre.version == 0
+assert gre.proto == 0x800
+
+= Test IP/GRE v1 decoding with PPP LCP
+~ gre ip pptp ppp lcp
+
+data = hex_bytes('4500003c18324000402f0e5a0a0000020a0000063001880b001c9bf500000000ff03'\
+       'c021010100180206000000000304c2270506fbb8831007020802')
+pkt = IP(data)
+assert GRE_PPTP in pkt
+gre_pptp = pkt[GRE_PPTP]
+assert gre_pptp.chksum_present == 0
+assert gre_pptp.routing_present == 0
+assert gre_pptp.key_present == 1
+assert gre_pptp.seqnum_present == 1
+assert gre_pptp.strict_route_source == 0
+assert gre_pptp.recursion_control == 0
+assert gre_pptp.acknum_present == 0
+assert gre_pptp.flags == 0
+assert gre_pptp.version == 1
+assert gre_pptp.proto == 0x880b
+assert gre_pptp.payload_len == 28
+assert gre_pptp.call_id == 39925
+assert gre_pptp.sequence_number == 0x0
+
+assert HDLC in pkt
+assert PPP in pkt
+assert PPP_LCP_Configure in pkt
+
+= Test IP/GRE v1 encoding/decoding with PPP LCP Echo
+~ gre ip pptp ppp hdlc lcp lcp_echo
+
+pkt = IP(src='192.168.0.1', dst='192.168.0.2') /\
+      GRE_PPTP(seqnum_present=1, acknum_present=1, sequence_number=47, ack_number=42) /\
+      HDLC() / PPP() / PPP_LCP_Echo(id=42, magic_number=4242, data='abcdef')
+pkt_data = raw(pkt)
+pkt_data_ref = hex_bytes('4500003600010000402ff944c0a80001c0a800023081880b001200000000002f000000'\
+                         '2aff03c021092a000e00001092616263646566')
+assert (pkt_data == pkt_data_ref)
+pkt_decoded = IP(pkt_data_ref)
+assert IP in pkt
+assert GRE_PPTP in pkt
+assert HDLC in pkt
+assert PPP in pkt
+assert PPP_LCP_Echo in pkt
+
+assert pkt[IP].proto == 47
+assert pkt[GRE_PPTP].chksum_present == 0
+assert pkt[GRE_PPTP].routing_present == 0
+assert pkt[GRE_PPTP].key_present == 1
+assert pkt[GRE_PPTP].seqnum_present == 1
+assert pkt[GRE_PPTP].acknum_present == 1
+assert pkt[GRE_PPTP].sequence_number == 47
+assert pkt[GRE_PPTP].ack_number == 42
+assert pkt[PPP].proto == 0xc021
+assert pkt[PPP_LCP_Echo].code == 9
+assert pkt[PPP_LCP_Echo].id == 42
+assert pkt[PPP_LCP_Echo].magic_number == 4242
+assert pkt[PPP_LCP_Echo].data == b'abcdef'
+
++ PPP LCP Tests
+= Test LCP Echo Request / Reply
+~ ppp lcp lcp_echo
+
+lcp_echo_request_data = hex_bytes('c021090700080000002a')
+lcp_echo_reply_data = raw(PPP()/PPP_LCP_Echo(code=10, id=7, magic_number=77, data='defgh'))
+
+lcp_echo_request_pkt = PPP(lcp_echo_request_data)
+lcp_echo_reply_pkt = PPP(lcp_echo_reply_data)
+
+assert lcp_echo_reply_pkt.answers(lcp_echo_request_pkt)
+assert not lcp_echo_request_pkt.answers(lcp_echo_reply_pkt)
+
+lcp_echo_non_reply_data = raw(PPP()/PPP_LCP_Echo(code=10, id=3, magic_number=77))
+lcp_echo_non_reply_pkt = PPP(lcp_echo_non_reply_data)
+
+assert not lcp_echo_non_reply_pkt.answers(lcp_echo_request_pkt)
+
+lcp_echo_non_reply_data = raw(PPP()/PPP_LCP_Echo(id=7, magic_number=42))
+lcp_echo_non_reply_pkt = PPP(lcp_echo_non_reply_data)
+
+assert not lcp_echo_non_reply_pkt.answers(lcp_echo_request_pkt)
+
+= Test LCP Configure Request
+~ ppp lcp lcp_configure magic_number
+
+conf_req = PPP() / PPP_LCP_Configure(id=42, options=[PPP_LCP_Magic_Number_Option(magic_number=4242)])
+conf_req_ref_data = hex_bytes('c021012a000a050600001092')
+
+assert raw(conf_req) == conf_req_ref_data
+
+conf_req_pkt = PPP(conf_req_ref_data)
+
+assert PPP_LCP_Configure in conf_req_pkt
+assert conf_req_pkt[PPP_LCP_Configure].code == 1
+assert conf_req_pkt[PPP_LCP_Configure].id == 42
+assert len(conf_req_pkt[PPP_LCP_Configure].options) == 1
+assert isinstance(conf_req_pkt[PPP_LCP_Configure].options[0], PPP_LCP_Magic_Number_Option)
+assert conf_req_pkt[PPP_LCP_Configure].options[0].magic_number == 4242
+
+= Test LCP Configure Ack
+~ ppp lcp lcp_configure lcp_configure_ack
+
+conf_ack = PPP() / PPP_LCP_Configure(code='Configure-Ack', id=42,
+                                     options=[PPP_LCP_Magic_Number_Option(magic_number=4242)])
+conf_ack_ref_data = hex_bytes('c021022a000a050600001092')
+
+assert (raw(conf_ack) == conf_ack_ref_data)
+
+conf_ack_pkt = PPP(conf_ack_ref_data)
+
+assert PPP_LCP_Configure in conf_ack_pkt
+assert conf_ack_pkt[PPP_LCP_Configure].code == 2
+assert conf_ack_pkt[PPP_LCP_Configure].id == 42
+assert len(conf_ack_pkt[PPP_LCP_Configure].options) == 1
+assert isinstance(conf_ack_pkt[PPP_LCP_Configure].options[0], PPP_LCP_Magic_Number_Option)
+assert conf_ack_pkt[PPP_LCP_Configure].options[0].magic_number == 4242
+
+conf_req_pkt = PPP(hex_bytes('c021012a000a050600001092'))
+
+assert conf_ack_pkt.answers(conf_req_pkt)
+assert not conf_req_pkt.answers(conf_ack_pkt)
+
+= Test LCP Configure Nak
+~ ppp lcp lcp_configure lcp_configure_nak lcp_mru_option lcp_accm_option
+
+conf_nak = PPP() / PPP_LCP_Configure(code='Configure-Nak', id=42,
+                                     options=[PPP_LCP_MRU_Option(), PPP_LCP_ACCM_Option(accm=0xffff0000)])
+conf_nak_ref_data = hex_bytes('c021032a000e010405dc0206ffff0000')
+
+assert(raw(conf_nak) == conf_nak_ref_data)
+
+conf_nak_pkt = PPP(conf_nak_ref_data)
+
+assert PPP_LCP_Configure in conf_nak_pkt
+assert conf_nak_pkt[PPP_LCP_Configure].code == 3
+assert conf_nak_pkt[PPP_LCP_Configure].id == 42
+assert len(conf_nak_pkt[PPP_LCP_Configure].options) == 2
+assert isinstance(conf_nak_pkt[PPP_LCP_Configure].options[0], PPP_LCP_MRU_Option)
+assert conf_nak_pkt[PPP_LCP_Configure].options[0].max_recv_unit == 1500
+assert isinstance(conf_nak_pkt[PPP_LCP_Configure].options[1], PPP_LCP_ACCM_Option)
+assert conf_nak_pkt[PPP_LCP_Configure].options[1].accm == 0xffff0000
+
+conf_req_pkt = PPP(hex_bytes('c021012a000e010405dc0206ffff0000'))
+
+assert conf_nak_pkt.answers(conf_req_pkt)
+assert not conf_req_pkt.answers(conf_nak_pkt)
+
+= Test LCP Configure Reject
+~ ppp lcp lcp_configure lcp_configure_reject
+
+conf_reject = PPP() / PPP_LCP_Configure(code='Configure-Reject', id=42,
+                                        options=[PPP_LCP_Callback_Option(operation='Location identifier',
+                                                                         message='test')])
+conf_reject_ref_data = hex_bytes('c021042a000b0d070274657374')
+
+assert(raw(conf_reject) == conf_reject_ref_data)
+
+conf_reject_pkt = PPP(conf_reject_ref_data)
+
+assert PPP_LCP_Configure in conf_reject_pkt
+assert conf_reject_pkt[PPP_LCP_Configure].code == 4
+assert conf_reject_pkt[PPP_LCP_Configure].id == 42
+assert len(conf_reject_pkt[PPP_LCP_Configure].options) == 1
+assert isinstance(conf_reject_pkt[PPP_LCP_Configure].options[0], PPP_LCP_Callback_Option)
+assert conf_reject_pkt[PPP_LCP_Configure].options[0].operation == 2
+assert conf_reject_pkt[PPP_LCP_Configure].options[0].message == b'test'
+
+conf_req_pkt = PPP(hex_bytes('c021012a000b0d070274657374'))
+
+assert conf_reject_pkt.answers(conf_req_pkt)
+assert not conf_req_pkt.answers(conf_reject_pkt)
+
+= Test LCP Configure options
+~ ppp lcp lcp_configure
+
+conf_req = PPP() / PPP_LCP_Configure(id=42, options=[PPP_LCP_MRU_Option(max_recv_unit=5000),
+                                                     PPP_LCP_ACCM_Option(accm=0xf0f0f0f0),
+                                                     PPP_LCP_Auth_Protocol_Option(),
+                                                     PPP_LCP_Quality_Protocol_Option(data='test'),
+                                                     PPP_LCP_Magic_Number_Option(magic_number=4242),
+                                                     PPP_LCP_Callback_Option(operation='Distinguished name',message='test')])
+conf_req_ref_data = hex_bytes('c021012a0027010413880206f0f0f0f00304c0230408c025746573740506000010920d070474657374')
+
+assert(raw(conf_req) == conf_req_ref_data)
+
+conf_req_pkt = PPP(conf_req_ref_data)
+
+assert PPP_LCP_Configure in conf_req_pkt
+options = conf_req_pkt[PPP_LCP_Configure].options
+assert len(options) == 6
+assert isinstance(options[0], PPP_LCP_MRU_Option)
+assert options[0].max_recv_unit == 5000
+assert isinstance(options[1], PPP_LCP_ACCM_Option)
+assert options[1].accm == 0xf0f0f0f0
+assert isinstance(options[2], PPP_LCP_Auth_Protocol_Option)
+assert options[2].auth_protocol == 0xc023
+assert isinstance(options[3], PPP_LCP_Quality_Protocol_Option)
+assert options[3].quality_protocol == 0xc025
+assert options[3].data == b'test'
+assert isinstance(options[4], PPP_LCP_Magic_Number_Option)
+assert options[4].magic_number == 4242
+assert isinstance(options[5], PPP_LCP_Callback_Option)
+assert options[5].operation == 4
+assert options[5].message == b'test'
+
+= Test LCP Auth option
+~ ppp lcp lcp_configure
+
+pap = PPP_LCP_Auth_Protocol_Option()
+pap_ref_data = hex_bytes('0304c023')
+
+assert(raw(pap) == pap_ref_data)
+
+pap_pkt = PPP_LCP_Option(pap_ref_data)
+assert isinstance(pap_pkt, PPP_LCP_Auth_Protocol_Option)
+assert pap_pkt.auth_protocol == 0xc023
+
+chap_sha1 = PPP_LCP_Auth_Protocol_Option(auth_protocol='Challenge-response authentication protocol', algorithm="SHA1")
+chap_sha1_ref_data = hex_bytes('0305c22306')
+
+assert raw(chap_sha1) == chap_sha1_ref_data
+
+chap_sha1_pkt = PPP_LCP_Option(chap_sha1_ref_data)
+assert isinstance(chap_sha1_pkt, PPP_LCP_Auth_Protocol_Option)
+assert chap_sha1_pkt.auth_protocol == 0xc223
+assert chap_sha1_pkt.algorithm == 6
+
+eap = PPP_LCP_Auth_Protocol_Option(auth_protocol='PPP Extensible authentication protocol', data='test')
+eap_ref_data = hex_bytes('0308c22774657374')
+
+assert raw(eap) == eap_ref_data
+
+eap_pkt = PPP_LCP_Option(eap_ref_data)
+assert isinstance(eap_pkt, PPP_LCP_Auth_Protocol_Option)
+assert eap_pkt.auth_protocol == 0xc227
+assert eap_pkt.data == b'test'
+
+= Test LCP Code-Reject
+~ ppp lcp lcp_code_reject
+
+code_reject = PPP() / PPP_LCP_Code_Reject(id=42, rejected_packet=PPP_LCP(code=42, id=7, data='unknown_data'))
+code_reject_ref_data = hex_bytes('c021072a00142a070010756e6b6e6f776e5f64617461')
+
+assert raw(code_reject) == code_reject_ref_data
+
+code_reject_pkt = PPP(code_reject_ref_data)
+assert PPP_LCP_Code_Reject in code_reject_pkt
+assert code_reject_pkt[PPP_LCP_Code_Reject].id == 42
+assert isinstance(code_reject_pkt[PPP_LCP_Code_Reject].rejected_packet, PPP_LCP)
+assert code_reject[PPP_LCP_Code_Reject].rejected_packet.code == 42
+assert code_reject[PPP_LCP_Code_Reject].rejected_packet.id == 7
+assert code_reject[PPP_LCP_Code_Reject].rejected_packet.data == b'unknown_data'
+
+= Test LCP Protocol-Reject
+~ ppp lcp lcp_protocol_reject
+
+protocol_reject = PPP() / PPP_LCP_Protocol_Reject(id=42, rejected_protocol=0x8039,
+                                                  rejected_information=Packet(hex_bytes('0305c22306')))
+protocol_reject_ref_data = hex_bytes('c021082a000b80390305c22306')
+
+assert raw(protocol_reject) == protocol_reject_ref_data
+
+protocol_reject_pkt = PPP(protocol_reject_ref_data)
+assert PPP_LCP_Protocol_Reject in protocol_reject_pkt
+assert protocol_reject_pkt[PPP_LCP_Protocol_Reject].id == 42
+assert protocol_reject_pkt[PPP_LCP_Protocol_Reject].rejected_protocol == 0x8039
+assert len(protocol_reject_pkt[PPP_LCP_Protocol_Reject].rejected_information) == 5
+
+= Test LCP Discard Request
+~ ppp lcp lcp_discard_request
+
+discard_request = PPP() / PPP_LCP_Discard_Request(id=7, magic_number=4242, data='test')
+discard_request_ref_data = hex_bytes('c0210b07000c0000109274657374')
+
+assert raw(discard_request) == discard_request_ref_data
+
+discard_request_pkt = PPP(discard_request_ref_data)
+assert PPP_LCP_Discard_Request in discard_request_pkt
+assert discard_request_pkt[PPP_LCP_Discard_Request].id == 7
+assert discard_request_pkt[PPP_LCP_Discard_Request].magic_number == 4242
+assert discard_request_pkt[PPP_LCP_Discard_Request].data == b'test'
+
+= Test LCP Terminate-Request/Terminate-Ack
+~ ppp lcp lcp_terminate
+
+terminate_request = PPP() / PPP_LCP_Terminate(id=7, data='test')
+terminate_request_ref_data = hex_bytes('c0210507000874657374')
+
+assert raw(terminate_request) == terminate_request_ref_data
+
+terminate_request_pkt = PPP(terminate_request_ref_data)
+assert PPP_LCP_Terminate in terminate_request_pkt
+assert terminate_request_pkt[PPP_LCP_Terminate].code == 5
+assert terminate_request_pkt[PPP_LCP_Terminate].id == 7
+assert terminate_request_pkt[PPP_LCP_Terminate].data == b'test'
+
+terminate_ack = PPP() / PPP_LCP_Terminate(code='Terminate-Ack', id=7)
+terminate_ack_ref_data = hex_bytes('c02106070004')
+
+assert raw(terminate_ack) == terminate_ack_ref_data
+
+terminate_ack_pkt = PPP(terminate_ack_ref_data)
+assert PPP_LCP_Terminate in terminate_ack_pkt
+assert terminate_ack_pkt[PPP_LCP_Terminate].code == 6
+assert terminate_ack_pkt[PPP_LCP_Terminate].id == 7
+
+assert terminate_ack_pkt.answers(terminate_request_pkt)
+assert not terminate_request_pkt.answers(terminate_ack_pkt)
+
++ PPP PAP Tests
+= Test PPP PAP Request
+~ ppp pap pap_request
+pap_request = PPP() / PPP_PAP_Request(id=42, username='administrator', password='secret_password')
+pap_request_ref_data = hex_bytes('c023012a00220d61646d696e6973747261746f720f7365637265745f70617373776f7264')
+
+assert raw(pap_request) == pap_request_ref_data
+
+pap_request_pkt = PPP(pap_request_ref_data)
+assert PPP_PAP_Request in pap_request_pkt
+assert pap_request_pkt[PPP_PAP_Request].code == 1
+assert pap_request_pkt[PPP_PAP_Request].id == 42
+assert pap_request_pkt[PPP_PAP_Request].username == b'administrator'
+assert pap_request_pkt[PPP_PAP_Request].password == b'secret_password'
+assert pap_request_pkt[PPP_PAP_Request].summary() in ['PAP-Request username=\'administrator\' password=\'secret_password\'',
+                                                      'PAP-Request username=b\'administrator\' password=b\'secret_password\'']
+
+= Test PPP PAP Authenticate-Ack
+~ ppp pap pap_response pap_ack
+pap_response = PPP() / PPP_PAP(code='Authenticate-Ack', id=42)
+pap_response_ref_data = hex_bytes('c023022a000500')
+
+assert raw(pap_response) == pap_response_ref_data
+
+pap_response_pkt = PPP(pap_response_ref_data)
+assert PPP_PAP_Response in pap_response_pkt
+assert pap_response_pkt[PPP_PAP_Response].code == 2
+assert pap_response_pkt[PPP_PAP_Response].id == 42
+assert pap_response_pkt[PPP_PAP_Response].msg_len == 0
+assert pap_response_pkt[PPP_PAP_Response].message == b''
+assert pap_response_pkt[PPP_PAP_Response].summary() == 'PAP-Ack'
+
+pap_request_pkt = PPP(hex_bytes('c023012a00220d61646d696e6973747261746f720f7365637265745f70617373776f7264'))
+assert pap_response_pkt.answers(pap_request_pkt)
+assert not pap_request_pkt.answers(pap_response_pkt)
+
+= Test PPP PAP Authenticate-Nak
+~ ppp pap pap_response pap_nak
+pap_response = PPP() / PPP_PAP(code=3, id=42, message='Bad password')
+pap_response_ref_data = hex_bytes('c023032a00110c4261642070617373776f7264')
+
+assert raw(pap_response) == pap_response_ref_data
+
+pap_response_pkt = PPP(pap_response_ref_data)
+assert PPP_PAP_Response in pap_response_pkt
+assert pap_response_pkt[PPP_PAP_Response].code == 3
+assert pap_response_pkt[PPP_PAP_Response].id == 42
+assert pap_response_pkt[PPP_PAP_Response].msg_len == len('Bad password')
+assert pap_response_pkt[PPP_PAP_Response].message == b'Bad password'
+assert pap_response_pkt[PPP_PAP_Response].summary() in ['PAP-Nak msg=\'Bad password\'', 'PAP-Nak msg=b\'Bad password\'']
+
+pap_request_pkt = PPP(hex_bytes('c023012a00220d61646d696e6973747261746f720f7365637265745f70617373776f7264'))
+assert pap_response_pkt.answers(pap_request_pkt)
+assert not pap_request_pkt.answers(pap_response_pkt)
+
++ PPP CHAP Tests
+= Test PPP CHAP Challenge
+~ ppp chap chap_challenge
+chap_challenge = PPP() / PPP_CHAP(code=1, id=47, value=b'B' * 7,
+                                                        optional_name='server')
+chap_challenge_ref_data = hex_bytes('c223012f00120742424242424242736572766572')
+
+assert raw(chap_challenge) == chap_challenge_ref_data
+
+chap_challenge_pkt = PPP(chap_challenge_ref_data)
+assert PPP_CHAP_ChallengeResponse in chap_challenge_pkt
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].code == 1
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].id == 47
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].value_size == 7
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].value == b'B' * 7
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].optional_name == b'server'
+assert chap_challenge_pkt[PPP_CHAP_ChallengeResponse].summary() in ['CHAP challenge=0x42424242424242 optional_name=\'server\'',
+                                                                    'CHAP challenge=0x42424242424242 optional_name=b\'server\'']
+
+= Test PPP CHAP Response
+~ ppp chap chap_response
+chap_response = PPP() / PPP_CHAP(code='Response', id=47, value=b'\x00' * 16, optional_name='client')
+chap_response_ref_data = hex_bytes('c223022f001b1000000000000000000000000000000000636c69656e74')
+
+assert raw(chap_response) == chap_response_ref_data
+
+chap_response_pkt = PPP(chap_response_ref_data)
+assert PPP_CHAP_ChallengeResponse in chap_response_pkt
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].code == 2
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].id == 47
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].value_size == 16
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].value == b'\x00' * 16
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].optional_name == b'client'
+assert chap_response_pkt[PPP_CHAP_ChallengeResponse].summary() in ['CHAP response=0x00000000000000000000000000000000 optional_name=\'client\'',
+                                                                   'CHAP response=0x00000000000000000000000000000000 optional_name=b\'client\'']
+
+chap_request = PPP(hex_bytes('c223012f00120742424242424242736572766572'))
+
+assert chap_response.answers(chap_challenge)
+assert not chap_challenge.answers(chap_response)
+
+= Test PPP CHAP Success
+~ ppp chap chap_success
+
+chap_success = PPP() / PPP_CHAP(code='Success', id=47)
+chap_success_ref_data = hex_bytes('c223032f0004')
+
+assert raw(chap_success) == chap_success_ref_data
+
+chap_success_pkt = PPP(chap_success_ref_data)
+assert PPP_CHAP in chap_success_pkt
+assert chap_success_pkt[PPP_CHAP].code == 3
+assert chap_success_pkt[PPP_CHAP].id == 47
+assert chap_success_pkt[PPP_CHAP].data == b''
+assert chap_success_pkt[PPP_CHAP].summary() in ['CHAP Success message=\'\'', 'CHAP Success message=b\'\'']
+
+chap_response_pkt = PPP(hex_bytes('c223022f001b1000000000000000000000000000000000636c69656e74'))
+
+assert chap_success_pkt.answers(chap_response_pkt)
+assert not chap_response_pkt.answers(chap_success_pkt)
+
+= Test PPP CHAP Failure
+~ ppp chap chap_failure
+chap_failure = PPP() / PPP_CHAP(code='Failure', id=47, data='Go away')
+chap_failure_ref_data = hex_bytes('c223042f000b476f2061776179')
+
+assert raw(chap_failure) == chap_failure_ref_data
+
+chap_failure_pkt = PPP(chap_failure_ref_data)
+assert PPP_CHAP in chap_failure_pkt
+assert chap_failure_pkt[PPP_CHAP].code == 4
+assert chap_failure_pkt[PPP_CHAP].id == 47
+assert chap_failure_pkt[PPP_CHAP].data == b'Go away'
+assert chap_failure_pkt[PPP_CHAP].summary() in ['CHAP Failure message=\'Go away\'', 'CHAP Failure message=b\'Go away\'']
+
+chap_response_pkt = PPP(hex_bytes('c223022f001b1000000000000000000000000000000000636c69656e74'))
+
+assert chap_failure_pkt.answers(chap_response_pkt)
+assert not chap_failure_pkt.answers(chap_success_pkt)
+
++ PPTP Tests
+= Test PPTP Start-Control-Connection-Request
+~ pptp
+start_control_connection = PPTPStartControlConnectionRequest(framing_capabilities='Asynchronous Framing supported',
+                                                             bearer_capabilities='Digital access supported',
+                                                             maximum_channels=42,
+                                                             firmware_revision=47,
+                                                             host_name='test host name',
+                                                             vendor_string='test vendor string')
+start_control_connection_ref_data = hex_bytes('009c00011a2b3c4d00010000010000000000000100000002002a00'\
+                                    '2f7465737420686f7374206e616d65000000000000000000000000'\
+                                    '000000000000000000000000000000000000000000000000000000'\
+                                    '0000000000000000000000746573742076656e646f722073747269'\
+                                    '6e6700000000000000000000000000000000000000000000000000'\
+                                    '000000000000000000000000000000000000000000')
+
+assert raw(start_control_connection) == start_control_connection_ref_data
+
+start_control_connection_pkt = PPTP(start_control_connection_ref_data)
+
+assert isinstance(start_control_connection_pkt, PPTPStartControlConnectionRequest)
+assert start_control_connection_pkt.magic_cookie == 0x1a2b3c4d
+assert start_control_connection_pkt.protocol_version == 0x0100
+assert start_control_connection_pkt.framing_capabilities == 1
+assert start_control_connection_pkt.bearer_capabilities == 2
+assert start_control_connection_pkt.maximum_channels == 42
+assert start_control_connection_pkt.firmware_revision == 47
+assert start_control_connection_pkt.host_name == b'test host name' + b'\0' * (64-len('test host name'))
+assert start_control_connection_pkt.vendor_string == b'test vendor string' + b'\0' * (64-len('test vendor string'))
+
+= Test PPTP Start-Control-Connection-Reply
+~ pptp
+start_control_connection_reply = PPTPStartControlConnectionReply(result_code='General error',
+                                                                 error_code='Not-Connected',
+                                                                 framing_capabilities='Synchronous Framing supported',
+                                                                 bearer_capabilities='Analog access supported',
+                                                                 vendor_string='vendor')
+start_control_connection_reply_ref_data = hex_bytes('009c00011a2b3c4d00020000010002010000000200000001ffff0'\
+                                          '1006c696e75780000000000000000000000000000000000000000'\
+                                          '00000000000000000000000000000000000000000000000000000'\
+                                          '000000000000000000000000076656e646f720000000000000000'\
+                                          '00000000000000000000000000000000000000000000000000000'\
+                                          '00000000000000000000000000000000000000000000000')
+
+assert raw(start_control_connection_reply) == start_control_connection_reply_ref_data
+
+start_control_connection_reply_pkt = PPTP(start_control_connection_reply_ref_data)
+
+assert isinstance(start_control_connection_reply_pkt, PPTPStartControlConnectionReply)
+assert start_control_connection_reply_pkt.magic_cookie == 0x1a2b3c4d
+assert start_control_connection_reply_pkt.protocol_version == 0x0100
+assert start_control_connection_reply_pkt.result_code == 2
+assert start_control_connection_reply_pkt.error_code == 1
+assert start_control_connection_reply_pkt.framing_capabilities == 2
+assert start_control_connection_reply_pkt.bearer_capabilities == 1
+assert start_control_connection_reply_pkt.host_name == b'linux' + b'\0' * (64-len('linux'))
+assert start_control_connection_reply_pkt.vendor_string == b'vendor' + b'\0' * (64-len('vendor'))
+
+start_control_connection_request = PPTPStartControlConnectionRequest()
+
+assert start_control_connection_reply_pkt.answers(start_control_connection_request)
+assert not start_control_connection_request.answers(start_control_connection_reply_pkt)
+
+= Test PPTP Stop-Control-Connection-Request
+~ pptp
+stop_control_connection = PPTPStopControlConnectionRequest(reason='Stop-Local-Shutdown')
+stop_control_connection_ref_data = hex_bytes('001000011a2b3c4d0003000003000000')
+
+assert raw(stop_control_connection) == stop_control_connection_ref_data
+
+stop_control_connection_pkt = PPTP(stop_control_connection_ref_data)
+
+assert isinstance(stop_control_connection_pkt, PPTPStopControlConnectionRequest)
+assert stop_control_connection_pkt.magic_cookie == 0x1a2b3c4d
+assert stop_control_connection_pkt.reason == 3
+
+= Test PPTP Stop-Control-Connection-Reply
+~ pptp
+stop_control_connection_reply = PPTPStopControlConnectionReply(result_code='General error',error_code='PAC-Error')
+stop_control_connection_reply_ref_data = hex_bytes('001000011a2b3c4d0004000002060000')
+
+assert raw(stop_control_connection_reply) == stop_control_connection_reply_ref_data
+
+stop_control_connection_reply_pkt = PPTP(stop_control_connection_reply_ref_data)
+
+assert isinstance(stop_control_connection_reply_pkt, PPTPStopControlConnectionReply)
+assert stop_control_connection_reply_pkt.magic_cookie == 0x1a2b3c4d
+assert stop_control_connection_reply_pkt.result_code == 2
+assert stop_control_connection_reply_pkt.error_code == 6
+
+stop_control_connection_request = PPTPStopControlConnectionRequest()
+
+assert stop_control_connection_reply_pkt.answers(stop_control_connection_request)
+assert not stop_control_connection_request.answers(stop_control_connection_reply_pkt)
+
+= Test PPTP Echo-Request
+~ pptp
+echo_request = PPTPEchoRequest(identifier=42)
+echo_request_ref_data = hex_bytes('001000011a2b3c4d000500000000002a')
+
+assert raw(echo_request) == echo_request_ref_data
+
+echo_request_pkt = PPTP(echo_request_ref_data)
+
+assert isinstance(echo_request_pkt, PPTPEchoRequest)
+assert echo_request_pkt.magic_cookie == 0x1a2b3c4d
+assert echo_request_pkt.identifier == 42
+
+= Test PPTP Echo-Reply
+~ pptp
+echo_reply = PPTPEchoReply(identifier=42, result_code='OK')
+echo_reply_ref_data = hex_bytes('001400011a2b3c4d000600000000002a01000000')
+
+assert raw(echo_reply) == echo_reply_ref_data
+
+echo_reply_pkt = PPTP(echo_reply_ref_data)
+
+assert isinstance(echo_reply_pkt, PPTPEchoReply)
+assert echo_reply_pkt.magic_cookie == 0x1a2b3c4d
+assert echo_reply_pkt.identifier == 42
+assert echo_reply_pkt.result_code == 1
+assert echo_reply_pkt.error_code == 0
+
+echo_request = PPTPEchoRequest(identifier=42)
+
+assert echo_reply_pkt.answers(echo_request)
+assert not echo_request.answers(echo_reply)
+
+echo_request_incorrect = PPTPEchoRequest(identifier=47)
+
+assert not echo_reply_pkt.answers(echo_request_incorrect)
+assert not echo_request_incorrect.answers(echo_reply_pkt)
+
+= Test PPTP Outgoing-Call-Request
+~ pptp
+outgoing_call = PPTPOutgoingCallRequest(call_id=4242, call_serial_number=47,
+                                        minimum_bps=1000, maximum_bps=10000,
+                                        bearer_type='Digital channel',
+                                        pkt_window_size=16, pkt_proc_delay=1,
+                                        phone_number_len=9, phone_number='123456789',
+                                        subaddress='test')
+outgoing_call_ref_data = hex_bytes('00a800011a2b3c4d000700001092002f000003e8000027100000000200'\
+                         '0000030010000100090000313233343536373839000000000000000000'\
+                         '0000000000000000000000000000000000000000000000000000000000'\
+                         '0000000000000000000000000000000000746573740000000000000000'\
+                         '0000000000000000000000000000000000000000000000000000000000'\
+                         '0000000000000000000000000000000000000000000000')
+
+assert raw(outgoing_call) == outgoing_call_ref_data
+
+outgoing_call_pkt = PPTP(outgoing_call_ref_data)
+
+assert isinstance(outgoing_call_pkt, PPTPOutgoingCallRequest)
+assert outgoing_call_pkt.magic_cookie == 0x1a2b3c4d
+assert outgoing_call_pkt.call_id == 4242
+assert outgoing_call_pkt.call_serial_number == 47
+assert outgoing_call_pkt.minimum_bps == 1000
+assert outgoing_call_pkt.maximum_bps == 10000
+assert outgoing_call_pkt.bearer_type == 2
+assert outgoing_call_pkt.framing_type == 3
+assert outgoing_call_pkt.pkt_window_size == 16
+assert outgoing_call_pkt.pkt_proc_delay == 1
+assert outgoing_call_pkt.phone_number_len == 9
+assert outgoing_call_pkt.phone_number == b'123456789' + b'\0' * (64-len('123456789'))
+assert outgoing_call_pkt.subaddress == b'test' + b'\0' * (64-len('test'))
+
+= Test PPTP Outgoing-Call-Reply
+~ pptp
+outgoing_call_reply = PPTPOutgoingCallReply(call_id=4243, peer_call_id=4242,
+                                            result_code='Busy', error_code='No-Resource',
+                                            cause_code=42, connect_speed=5000,
+                                            pkt_window_size=32, pkt_proc_delay=3,
+                                            channel_id=42)
+outgoing_call_reply_ref_data = hex_bytes('002000011a2b3c4d00080000109310920404002a00001388002000030000002a')
+
+assert raw(outgoing_call_reply) == outgoing_call_reply_ref_data
+
+outgoing_call_reply_pkt = PPTP(outgoing_call_reply_ref_data)
+
+assert isinstance(outgoing_call_reply_pkt, PPTPOutgoingCallReply)
+assert outgoing_call_reply_pkt.magic_cookie == 0x1a2b3c4d
+assert outgoing_call_reply_pkt.call_id == 4243
+assert outgoing_call_reply_pkt.peer_call_id == 4242
+assert outgoing_call_reply_pkt.result_code == 4
+assert outgoing_call_reply_pkt.error_code == 4
+assert outgoing_call_reply_pkt.cause_code == 42
+assert outgoing_call_reply_pkt.connect_speed == 5000
+assert outgoing_call_reply_pkt.pkt_window_size == 32
+assert outgoing_call_reply_pkt.pkt_proc_delay == 3
+assert outgoing_call_reply_pkt.channel_id == 42
+
+outgoing_call_request = PPTPOutgoingCallRequest(call_id=4242)
+
+assert outgoing_call_reply_pkt.answers(outgoing_call_request)
+assert not outgoing_call_request.answers(outgoing_call_reply_pkt)
+
+outgoing_call_request_incorrect = PPTPOutgoingCallRequest(call_id=5656)
+
+assert not outgoing_call_reply_pkt.answers(outgoing_call_request_incorrect)
+assert not outgoing_call_request_incorrect.answers(outgoing_call_reply_pkt)
+
+= Test PPTP Incoming-Call-Request
+~ pptp
+incoming_call = PPTPIncomingCallRequest(call_id=4242, call_serial_number=47, bearer_type='Digital channel',
+                                        channel_id=12, dialed_number_len=9, dialing_number_len=10,
+                                        dialed_number='123456789', dialing_number='0123456789',
+                                        subaddress='test')
+incoming_call_ref_data = hex_bytes('00dc00011a2b3c4d000900001092002f000000020000000c0009000a313233343536373839'\
+                         '00000000000000000000000000000000000000000000000000000000000000000000000000'\
+                         '00000000000000000000000000000000000030313233343536373839000000000000000000'\
+                         '00000000000000000000000000000000000000000000000000000000000000000000000000'\
+                         '00000000000000007465737400000000000000000000000000000000000000000000000000'\
+                         '0000000000000000000000000000000000000000000000000000000000000000000000')
+
+assert raw(incoming_call) == incoming_call_ref_data
+
+incoming_call_pkt = PPTP(incoming_call_ref_data)
+
+assert isinstance(incoming_call_pkt, PPTPIncomingCallRequest)
+assert incoming_call_pkt.magic_cookie == 0x1a2b3c4d
+assert incoming_call_pkt.call_id == 4242
+assert incoming_call_pkt.call_serial_number == 47
+assert incoming_call_pkt.bearer_type == 2
+assert incoming_call_pkt.channel_id == 12
+assert incoming_call_pkt.dialed_number_len == 9
+assert incoming_call_pkt.dialing_number_len == 10
+assert incoming_call_pkt.dialed_number == b'123456789' + b'\0' * (64-len('123456789'))
+assert incoming_call_pkt.dialing_number == b'0123456789' + b'\0' * (64-len('0123456879'))
+assert incoming_call_pkt.subaddress == b'test' + b'\0' * (64-len('test'))
+
+= Test PPTP Incoming-Call-Reply
+~ pptp
+incoming_call_reply = PPTPIncomingCallReply(call_id=4243, peer_call_id=4242, result_code='Connected',
+                                            error_code='None', pkt_window_size=16, pkt_transmit_delay=42)
+incoming_call_reply_ref_data = hex_bytes('009400011a2b3c4d000a00001093109201000010002a0000')
+
+assert raw(incoming_call_reply) == incoming_call_reply_ref_data
+
+incoming_call_reply_pkt = PPTP(incoming_call_reply_ref_data)
+assert isinstance(incoming_call_reply_pkt, PPTPIncomingCallReply)
+assert incoming_call_reply_pkt.magic_cookie == 0x1a2b3c4d
+assert incoming_call_reply_pkt.call_id == 4243
+assert incoming_call_reply_pkt.peer_call_id == 4242
+assert incoming_call_reply_pkt.result_code == 1
+assert incoming_call_reply_pkt.error_code == 0
+assert incoming_call_reply_pkt.pkt_window_size == 16
+assert incoming_call_reply_pkt.pkt_transmit_delay == 42
+
+incoming_call_req = PPTPIncomingCallRequest(call_id=4242)
+
+assert incoming_call_reply_pkt.answers(incoming_call_req)
+assert not incoming_call_req.answers(incoming_call_reply)
+
+incoming_call_req_incorrect = PPTPIncomingCallRequest(call_id=4343)
+assert not incoming_call_reply_pkt.answers(incoming_call_req_incorrect)
+assert not incoming_call_req_incorrect.answers(incoming_call_reply_pkt)
+
+= Test PPTP Incoming-Call-Connected
+~ pptp
+incoming_call_connected = PPTPIncomingCallConnected(peer_call_id=4242, connect_speed=47474747,
+                                                    pkt_window_size=16, pkt_transmit_delay=7,
+                                                    framing_type='Any type of framing')
+incoming_call_connected_ref_data = hex_bytes('001c00011a2b3c4d000b00001092000002d4683b0010000700000003')
+
+assert raw(incoming_call_connected) == incoming_call_connected_ref_data
+
+incoming_call_connected_pkt = PPTP(incoming_call_connected_ref_data)
+assert isinstance(incoming_call_connected_pkt, PPTPIncomingCallConnected)
+assert incoming_call_connected_pkt.magic_cookie == 0x1a2b3c4d
+assert incoming_call_connected_pkt.peer_call_id == 4242
+assert incoming_call_connected_pkt.connect_speed == 47474747
+assert incoming_call_connected_pkt.pkt_window_size == 16
+assert incoming_call_connected_pkt.pkt_transmit_delay == 7
+assert incoming_call_connected_pkt.framing_type == 3
+
+incoming_call_reply = PPTPIncomingCallReply(call_id=4242)
+
+assert incoming_call_connected_pkt.answers(incoming_call_reply)
+assert not incoming_call_reply.answers(incoming_call_connected_pkt)
+
+incoming_call_reply_incorrect = PPTPIncomingCallReply(call_id=4243)
+
+assert not incoming_call_connected_pkt.answers(incoming_call_reply_incorrect)
+assert not incoming_call_reply_incorrect.answers(incoming_call_connected_pkt)
+
+= Test PPTP Call-Clear-Request
+~ pptp
+call_clear_request = PPTPCallClearRequest(call_id=4242)
+call_clear_request_ref_data = hex_bytes('001000011a2b3c4d000c000010920000')
+
+assert raw(call_clear_request) == call_clear_request_ref_data
+
+call_clear_request_pkt = PPTP(call_clear_request_ref_data)
+
+assert isinstance(call_clear_request_pkt, PPTPCallClearRequest)
+assert call_clear_request_pkt.magic_cookie == 0x1a2b3c4d
+assert call_clear_request_pkt.call_id == 4242
+
+= Test PPTP Call-Disconnect-Notify
+~ pptp
+call_disconnect_notify = PPTPCallDisconnectNotify(call_id=4242, result_code='Admin Shutdown', error_code='None',
+                                                  cause_code=47, call_statistic='some description')
+call_disconnect_notify_ref_data = hex_bytes('009400011a2b3c4d000d000010920300002f0000736f6d65206465736372697074696'\
+                                  'f6e000000000000000000000000000000000000000000000000000000000000000000'\
+                                  '000000000000000000000000000000000000000000000000000000000000000000000'\
+                                  '000000000000000000000000000000000000000000000000000000000000000000000'\
+                                  '00000000000000000000')
+
+assert raw(call_disconnect_notify) == call_disconnect_notify_ref_data
+
+call_disconnect_notify_pkt = PPTP(call_disconnect_notify_ref_data)
+
+assert isinstance(call_disconnect_notify_pkt, PPTPCallDisconnectNotify)
+assert call_disconnect_notify_pkt.magic_cookie == 0x1a2b3c4d
+assert call_disconnect_notify_pkt.call_id == 4242
+assert call_disconnect_notify_pkt.result_code == 3
+assert call_disconnect_notify_pkt.error_code == 0
+assert call_disconnect_notify_pkt.cause_code == 47
+assert call_disconnect_notify_pkt.call_statistic == b'some description' + b'\0' * (128-len('some description'))
+
+= Test PPTP WAN-Error-Notify
+~ pptp
+wan_error_notify = PPTPWANErrorNotify(peer_call_id=4242, crc_errors=1, framing_errors=2,
+                                      hardware_overruns=3, buffer_overruns=4, time_out_errors=5,
+                                      alignment_errors=6)
+wan_error_notify_ref_data = hex_bytes('002800011a2b3c4d000e000010920000000000010000000200000003000000040000000500000006')
+
+assert raw(wan_error_notify) == wan_error_notify_ref_data
+
+wan_error_notify_pkt = PPTP(wan_error_notify_ref_data)
+
+assert isinstance(wan_error_notify_pkt, PPTPWANErrorNotify)
+assert wan_error_notify_pkt.magic_cookie == 0x1a2b3c4d
+assert wan_error_notify_pkt.peer_call_id == 4242
+assert wan_error_notify_pkt.crc_errors == 1
+assert wan_error_notify_pkt.framing_errors == 2
+assert wan_error_notify_pkt.hardware_overruns == 3
+assert wan_error_notify_pkt.buffer_overruns == 4
+
+= Test PPTP Set-Link-Info
+~ pptp
+set_link_info = PPTPSetLinkInfo(peer_call_id=4242, send_accm=0x0f0f0f0f, receive_accm=0xf0f0f0f0)
+set_link_info_ref_data = hex_bytes('001800011a2b3c4d000f0000109200000f0f0f0ff0f0f0f0')
+
+assert raw(set_link_info) == set_link_info_ref_data
+
+set_link_info_pkt = PPTP(set_link_info_ref_data)
+
+assert isinstance(set_link_info_pkt, PPTPSetLinkInfo)
+assert set_link_info_pkt.magic_cookie == 0x1a2b3c4d
+assert set_link_info_pkt.peer_call_id == 4242
+assert set_link_info_pkt.send_accm == 0x0f0f0f0f
+assert set_link_info_pkt.receive_accm == 0xf0f0f0f0

@@ -11,9 +11,11 @@ from __future__ import print_function
 import code
 import sys
 import importlib
+import logging
+
 from scapy.config import conf
 from scapy.themes import NoTheme, DefaultTheme, HTMLTheme2, LatexTheme2
-from scapy.error import Scapy_Exception
+from scapy.error import log_scapy, Scapy_Exception
 from scapy.utils import tex_escape
 import scapy.modules.six as six
 
@@ -109,6 +111,9 @@ def autorun_get_interactive_session(cmds, **kargs):
     """
     sstdout, sstderr = sys.stdout, sys.stderr
     sw = StringWriter()
+    h_old = log_scapy.handlers[0]
+    log_scapy.removeHandler(h_old)
+    log_scapy.addHandler(logging.StreamHandler(stream=sw))
     try:
         try:
             sys.stdout = sys.stderr = sw
@@ -118,6 +123,8 @@ def autorun_get_interactive_session(cmds, **kargs):
             raise
     finally:
         sys.stdout, sys.stderr = sstdout, sstderr
+        log_scapy.removeHandler(log_scapy.handlers[0])
+        log_scapy.addHandler(h_old)
     return sw.s, res
 
 

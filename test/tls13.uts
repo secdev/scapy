@@ -622,6 +622,8 @@ assert(m.data == payload)
 = TLS_Ext_EncryptedServerName(), dissect
 ~ crypto_advanced
 
+from scapy.layers.tls.extensions import TLS_Ext_EncryptedServerName
+
 clientHello3 = clean("""
 16030102c4010002c003034b1 40e7d15fc8db422cec056fbaf 0285d306df4eedad1bc6ea57d 5114e6bd52a20a5b9c7445955 e296b886469c974648cda0a68
 5d3c06d884e388f6475c32e03 2d0024130113031302c02bc02 fcca9cca8c02cc030c00ac009 c013c01400330039002f00350 00a0100025300170000ff0100

@@ -21,8 +21,10 @@ from scapy.config import conf
 from scapy.consts import FREEBSD, NETBSD, DARWIN
 from scapy.data import ETH_P_ALL
 from scapy.error import Scapy_Exception, warning
+from scapy.interfaces import network_name
 from scapy.supersocket import SuperSocket
 from scapy.compat import raw
+from scapy.layers.l2 import Loopback
 
 
 if FREEBSD:
@@ -53,10 +55,7 @@ class _L2bpfSocket(SuperSocket):
         else:
             self.promisc = promisc
 
-        if iface is None:
-            self.iface = conf.iface
-        else:
-            self.iface = iface
+        self.iface = network_name(iface or conf.iface)
 
         # Get the BPF handle
         (self.ins, self.dev_bpf) = get_dev_bpf()
@@ -114,7 +113,10 @@ class _L2bpfSocket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self.ins, filter, self.iface)
+                try:
+                    attach_filter(self.ins, filter, self.iface)
+                except ImportError as ex:
+                    warning("Cannot set filter: %s" % ex)
 
         # Set the guessed packet class
         self.guessed_cls = self.guess_cls()
@@ -375,7 +377,18 @@ class L3bpfSocket(L2bpfSocket):
             self.assigned_interface = iff
 
         # Build the frame
-        frame = raw(self.guessed_cls() / pkt)
+        if self.guessed_cls == Loopback:
+            # bpf(4) man page (from macOS, but also for BSD):
+            # "A packet can be sent out on the network by writing to a bpf
+            # file descriptor. [...] Currently only writes to Ethernets and
+            # SLIP links are supported"
+            #
+            # Headers are only mentioned for reads, not writes. tuntaposx's tun
+            # device reports as a "loopback" device, but it does IP.
+            frame = raw(pkt)
+        else:
+            frame = raw(self.guessed_cls() / pkt)
+
         pkt.sent_time = time.time()
 
         # Send the frame

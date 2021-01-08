@@ -1,140 +1,35 @@
 language: python
+dist: bionic  # OpenSSL 1.1.1
+cache:
+  directories:
+  - $HOME/.cache/pip
+  - .tox
 
-matrix:
+jobs:
     include:
-        # PEP 8 checks, build doc and grammar spelling check
+        # run custom root tests
+        # isotp
         - os: linux
           python: 3.8
           env:
-            - TOXENV=flake8,spell,twine
+            - TOXENV=py38-isotp_kernel_module,codecov
 
+        # libpcap
         - os: linux
           python: 3.8
           env:
-            - TOXENV=docs
+            - SCAPY_USE_LIBPCAP=yes TOXENV=py38-linux_root,codecov
 
+        # warnings/deprecations
         - os: linux
           python: 3.8
           env:
-            - TOXENV=mypy
-
-        # Tests that run without root.
-        # We only keep reduced because how similar to real tests they are
-
-        - os: linux
-          python: 2.7
-          env:
-            - TOXENV=py27-linux_non_root,codecov
-
-        - os: linux
-          dist: xenial
-          python: 3.8
-          env:
-            - TOXENV=py38-linux_non_root,codecov
-
-        - os: linux
-          python: pypy
-          env:
-            - TOXENV=pypy-linux_non_root,codecov
-
-        - os: linux
-          python: pypy3
-          env:
-            - TOXENV=pypy3-linux_non_root,codecov
-
-        - os: osx
-          language: generic
-          env:
-            - TOXENV=py27-bsd_non_root,codecov
-
-        # Run as root
-        - language: python
-          dist: trusty
-          python: 2.7
-          env:
-            - TOXENV=py27-linux_root,codecov
-
-        - os: linux
-          python: pypy
-          env:
-            - TOXENV=pypy-linux_root,codecov
-
-# Note: a bug in pypy3 <= 5.10.1 prevents from using Scapy to inject packets
-#       see https://bitbucket.org/pypy/pypy/issues/2787/pypy3-sockname-error
-
-        - os: linux
-          python: pypy3
-          env:
-            - TOXENV=pypy3-linux_root,codecov
-
-        - language: python
-          dist: trusty
-          python: 3.4
-          env:
-            - TOXENV=py34-linux_root,codecov
-
-        - language: python
-          dist: trusty
-          python: 3.5
-          env:
-            - TOXENV=py35-linux_root,codecov
-
-        - language: python
-          dist: trusty
-          python: 3.6
-          env:
-            - TOXENV=py36-linux_root,codecov
-
-        - language: python
-          dist: xenial
-          python: 3.7
-          env:
-            - TOXENV=py37-linux_root,codecov
-
-        - language: python
-          dist: xenial
-          python: 3.8
-          env:
-            - TOXENV=py38-linux_root,codecov
-
-        - os: linux
-          python: 2.7
-          virtualenv:
-            system_site_packages: true
-          env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes TOXENV=py27-pcapdnet_root,codecov
-        
-        - language: python
-          dist: trusty
-          python: 3.6
-          env:
-            - SCAPY_SUDO=sudo TOXENV=py36-isotp_kernel_module,codecov
-
-        - os: osx
-          language: generic
-          env:
-            - TOXENV=py27-bsd_root,codecov
-
-        - os: osx
-          language: generic
-          env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes TOXENV=py27-pcapdnet_root,codecov
-
-        - os: osx
-          language: generic
-          env:
-            - TOXENV=py36-bsd_non_root,py36-bsd_root,codecov
-
+            - SCAPY_PY_OPTS="-Werror -X tracemalloc" TOXENV=py38-linux_root
     allow_failures:
-        # Other root tests
-        # Test scapy against all warnings
-        - os: linux
-          python: 3.6
-          env:
-            - TOXENV=linux_warnings
+      - env: SCAPY_PY_OPTS="-Werror -X tracemalloc" TOXENV=py38-linux_root
 
 install:
-  - bash .config/travis/install.sh
+  - bash .config/ci/install.sh
   - python -c "from scapy.all import conf; print(repr(conf))"
 
-script: bash .config/travis/test.sh
+script: bash .config/ci/test.sh

@@ -10,15 +10,39 @@ Functions common to different architectures
 import ctypes
 import socket
 import struct
-import sys
 import time
 from scapy.consts import WINDOWS
 from scapy.config import conf
-from scapy.data import MTU, ARPHRD_TO_DLT
+from scapy.data import MTU, ARPHDR_ETHER, ARPHRD_TO_DLT
 from scapy.error import Scapy_Exception
+from scapy.interfaces import network_name
 
 if not WINDOWS:
     from fcntl import ioctl
+
+# From if.h
+_iff_flags = [
+    "UP",
+    "BROADCAST",
+    "DEBUG",
+    "LOOPBACK",
+    "POINTTOPOINT",
+    "NOTRAILERS",
+    "RUNNING",
+    "NOARP",
+    "PROMISC",
+    "NOTRAILERS",
+    "ALLMULTI",
+    "MASTER",
+    "SLAVE",
+    "MULTICAST",
+    "PORTSEL",
+    "AUTOMEDIA",
+    "DYNAMIC",
+    "LOWER_UP",
+    "DORMANT",
+    "ECHO"
+]
 
 # UTILS
 
@@ -26,6 +50,7 @@ if not WINDOWS:
 def get_if(iff, cmd):
     """Ease SIOCGIF* ioctl calls"""
 
+    iff = network_name(iff)
     sck = socket.socket()
     try:
         return ioctl(sck, cmd, struct.pack("16s16x", iff.encode("utf8")))
@@ -33,7 +58,7 @@ def get_if(iff, cmd):
         sck.close()
 
 
-def get_if_raw_hwaddr(iff):
+def get_if_raw_hwaddr(iff, siocgifhwaddr=None):
     """Get the raw MAC address of a local interface.
 
     This function uses SIOCGIFHWADDR calls, therefore only works
@@ -42,8 +67,10 @@ def get_if_raw_hwaddr(iff):
     :param iff: the network interface name as a string
     :returns: the corresponding raw MAC address
     """
-    from scapy.arch import SIOCGIFHWADDR
-    return struct.unpack("16xh6s8x", get_if(iff, SIOCGIFHWADDR))
+    if siocgifhwaddr is None:
+        from scapy.arch import SIOCGIFHWADDR
+        siocgifhwaddr = SIOCGIFHWADDR
+    return struct.unpack("16xh6s8x", get_if(iff, siocgifhwaddr))
 
 # SOCKET UTILS
 
@@ -82,8 +109,8 @@ def compile_filter(filter_exp, iface=None, linktype=None,
             pcap_close
         )
         from scapy.libs.structures import bpf_program
-    except ImportError:
-        raise Scapy_Exception(
+    except OSError:
+        raise ImportError(
             "libpcap is not available. Cannot compile filter !"
         )
     from ctypes import create_string_buffer
@@ -96,10 +123,7 @@ def compile_filter(filter_exp, iface=None, linktype=None,
                 raise Scapy_Exception(
                     "Please provide an interface or linktype!"
                 )
-            if WINDOWS:
-                iface = conf.iface.pcap_name
-            else:
-                iface = conf.iface
+            iface = conf.iface
         # Try to guess linktype to avoid requiring root
         try:
             arphd = get_if_raw_hwaddr(iface)[0]
@@ -107,12 +131,15 @@ def compile_filter(filter_exp, iface=None, linktype=None,
         except Exception:
             # Failed to use linktype: use the interface
             pass
+        if not linktype and conf.use_bpf:
+            linktype = ARPHDR_ETHER
     if linktype is not None:
         ret = pcap_compile_nopcap(
             MTU, linktype, ctypes.byref(bpf), bpf_filter, 0, -1
         )
     elif iface:
         err = create_string_buffer(PCAP_ERRBUF_SIZE)
+        iface = network_name(iface)
         iface = create_string_buffer(iface.encode("utf8"))
         pcap = pcap_open_live(
             iface, MTU, promisc, 0, err
@@ -127,12 +154,5 @@ def compile_filter(filter_exp, iface=None, linktype=None,
     if ret == -1:
         raise Scapy_Exception(
             "Failed to compile filter expression %s (%s)" % (filter_exp, ret)
-        )
-    if conf.use_pypy and sys.pypy_version_info <= (7, 3, 0):
-        # PyPy < 7.3.0 has a broken behavior
-        # https://bitbucket.org/pypy/pypy/issues/3114
-        return struct.pack(
-            'HL',
-            bpf.bf_len, ctypes.addressof(bpf.bf_insns.contents)
         )
     return bpf

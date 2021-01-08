@@ -1,0 +1,44 @@
+% ERSPAN
+
++ ERSPAN I
+= Build & dissect ERSPAN 1
+
+pkt = GRE()/ERSPAN_I()/Ether()
+pkt = GRE(bytes(pkt))
+assert ERSPAN in pkt
+assert pkt.proto == 0x88be
+assert pkt.seqnum_present == 0
+
++ ERSPAN II
+= Build ERSPAN II
+
+pkt = GRE()/ERSPAN_II()/Ether(src="11:11:11:11:11:11", dst="ff:ff:ff:ff:ff:ff")
+b = bytes(pkt)
+assert b == b'\x10\x00\x88\xbe\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\x11\x11\x11\x11\x11\x11\x90\x00'
+
+= Dissect ERSPAN II
+
+pkt = GRE(b)
+assert pkt[GRE].proto == 0x88be
+assert pkt[GRE].seqnum_present == 1
+assert pkt[GRE][ERSPAN].ver == 0
+assert pkt[Ether].src == "11:11:11:11:11:11"
+
++ ERSPAN III
+= Build & dissect ERSPAN III with platform specific
+
+pkt = GRE()/ERSPAN_III()/ERSPAN_PlatformSpecific()/Ether()
+pkt = GRE(bytes(pkt))
+assert pkt[GRE].proto == 0x22eb
+assert pkt[ERSPAN_III].o == 1
+assert ERSPAN_PlatformSpecific in pkt
+assert Ether in pkt
+
+= Build & dissect ERSPAN III without platform specific
+pkt = GRE()/ERSPAN_III()/Ether()
+pkt = GRE(bytes(pkt))
+assert pkt[GRE].proto == 0x22eb
+assert pkt[ERSPAN_III].o == 0
+assert ERSPAN_PlatformSpecific not in pkt
+assert Ether in pkt
+

@@ -8,21 +8,25 @@
 """
 Cisco NetFlow protocol v1, v5, v9 and v10 (IPFix)
 
-HowTo dissect NetflowV9/10 (IPFix) packets:
+HowTo dissect NetflowV9/10 (IPFix) packets
 
 # From a pcap / list of packets
 
-Using sniff and sessions:
->>> sniff(offline=open("my_great_pcap.pcap", "rb"), session=NetflowSession)
+Using sniff and sessions::
+
+    >>> sniff(offline=open("my_great_pcap.pcap", "rb"), session=NetflowSession)
 
 Using the netflowv9_defragment/ipfix_defragment commands:
+
 - get a list of packets containing NetflowV9/10 packets
 - call `netflowv9_defragment(plist)` to defragment the list
 
 (ipfix_defragment is an alias for netflowv9_defragment)
 
-# Live / on-the-flow / other: use NetflowSession
->>> sniff(session=NetflowSession, prn=[...])
+# Live / on-the-flow / other: use NetflowSession::
+
+    >>> sniff(session=NetflowSession, prn=[...])
+
 """
 
 import socket
@@ -63,10 +67,16 @@ bind_layers(UDP, NetflowHeader, dport=2055, sport=2055)
 
 class NetflowHeaderV1(Packet):
     name = "Netflow Header v1"
-    fields_desc = [ShortField("count", 0),
+    fields_desc = [ShortField("count", None),
                    IntField("sysUptime", 0),
                    UTCTimeField("unixSecs", 0),
                    UTCTimeField("unixNanoSeconds", 0, use_nano=True)]
+
+    def post_build(self, pkt, pay):
+        if self.count is None:
+            count = len(self.layers()) - 1
+            pkt = struct.pack("!H", count) + pkt[2:]
+        return pkt + pay
 
 
 class NetflowRecordV1(Packet):
@@ -101,7 +111,7 @@ bind_layers(NetflowRecordV1, NetflowRecordV1)
 
 class NetflowHeaderV5(Packet):
     name = "Netflow Header v5"
-    fields_desc = [ShortField("count", 0),
+    fields_desc = [ShortField("count", None),
                    IntField("sysUptime", 0),
                    UTCTimeField("unixSecs", 0),
                    UTCTimeField("unixNanoSeconds", 0, use_nano=True),
@@ -109,6 +119,12 @@ class NetflowHeaderV5(Packet):
                    ByteField("engineType", 0),
                    ByteField("engineID", 0),
                    ShortField("samplingInterval", 0)]
+
+    def post_build(self, pkt, pay):
+        if self.count is None:
+            count = len(self.layers()) - 1
+            pkt = struct.pack("!H", count) + pkt[2:]
+        return pkt + pay
 
 
 class NetflowRecordV5(Packet):
@@ -1242,6 +1258,12 @@ class NetflowHeaderV10(Packet):
                    IntField("flowSequence", 0),
                    IntField("ObservationDomainID", 0)]
 
+    def post_build(self, pkt, pay):
+        if self.length is None:
+            length = len(pkt) + len(pay)
+            pkt = struct.pack("!H", length) + pkt[2:]
+        return pkt + pay
+
 
 class NetflowTemplateFieldV9(Packet):
     name = "Netflow Flowset Template Field V9/10"
@@ -1525,8 +1547,8 @@ class NetflowSession(IPSession):
     """Session used to defragment NetflowV9/10 packets on the flow.
     See help(scapy.layers.netflow) for more infos.
     """
-    def __init__(self, *args):
-        IPSession.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        IPSession.__init__(self, *args, **kwargs)
         self.definitions = {}
         self.definitions_opts = {}
         self.ignored = set()

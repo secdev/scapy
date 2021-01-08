@@ -31,7 +31,7 @@ handle, like sending invalid frames, injecting your own 802.11 frames, combining
 techniques (VLAN hopping+ARP cache poisoning, VoIP decoding on WEP protected
 channel, ...), etc.
 
-Scapy supports Python 2.7 and Python 3 (3.4 to 3.7). It's intended to
+Scapy supports Python 2.7 and Python 3 (3.4 to 3.8). It's intended to
 be cross platform, and runs on many different platforms (Linux, OSX,
 \*BSD, and Windows).
 
@@ -42,7 +42,7 @@ For further details, please head over to [Getting started with Scapy](https://sc
 
 ### Shell demo
 
-![Scapy install demo](https://secdev.github.io/img/animation-scapy-install.svg)
+![Scapy install demo](https://secdev.github.io/files/doc/animation-scapy-install.svg)
 
 Scapy can easily be used as an interactive shell to interact with the network.
 The following example shows how to send an ICMP Echo Request message to

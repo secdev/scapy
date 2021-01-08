@@ -56,7 +56,7 @@ setup(
             'matplotlib'
         ],
         'docs': [
-            'sphinx>=2.2.0',
+            'sphinx>=3.0.0',
             'sphinx_rtd_theme>=0.4.3',
             'tox>=3.0.0'
         ]
@@ -95,6 +95,8 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "Topic :: Security",
         "Topic :: System :: Networking",
         "Topic :: System :: Networking :: Monitoring",

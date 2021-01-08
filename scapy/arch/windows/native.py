@@ -56,6 +56,7 @@ from scapy.compat import raw
 from scapy.config import conf
 from scapy.data import MTU
 from scapy.error import Scapy_Exception, warning
+from scapy.interfaces import resolve_iface
 from scapy.supersocket import SuperSocket
 
 # Watch out for import loops (inet...)
@@ -115,7 +116,7 @@ class L3WinSocket(SuperSocket, SelectableObject):
         self.ins.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, ttl)
         self.outs.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, ttl)
         # Bind on all ports
-        iface = iface or conf.iface
+        iface = resolve_iface(iface) or conf.iface
         host = iface.ip if iface.ip else socket.gethostname()
         self.ins.bind((host, 0))
         self.ins.setblocking(False)
@@ -151,7 +152,10 @@ class L3WinSocket(SuperSocket, SelectableObject):
         self.outs.sendto(data, (dst_ip, 0))
 
     def nonblock_recv(self, x=MTU):
-        return self.recv()
+        try:
+            return self.recv()
+        except IOError:
+            return None
 
     # https://docs.microsoft.com/en-us/windows/desktop/winsock/tcp-ip-raw-sockets-2  # noqa: E501
     # - For IPv4 (address family of AF_INET), an application receives the IP

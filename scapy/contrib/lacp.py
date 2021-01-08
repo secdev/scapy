@@ -21,7 +21,7 @@ from scapy.layers.l2 import Ether
 from scapy.data import ETHER_TYPES
 
 
-ETHER_TYPES['SlowProtocol'] = 0x8809
+ETHER_TYPES[0x8809] = 'SlowProtocol'
 SLOW_SUB_TYPES = {
     'Unused': 0,
     'LACP': 1,
@@ -39,6 +39,11 @@ bind_layers(Ether, SlowProtocol, type=0x8809, dst='01:80:c2:00:00:02')
 
 class LACP(Packet):
     name = "LACP"
+    deprecated_fields = {
+        "actor_port_numer": ("actor_port_number", "2.4.4"),
+        "partner_port_numer": ("partner_port_number", "2.4.4"),
+        "colletctor_reserved": ("collector_reserved", "2.4.4"),
+    }
     fields_desc = [
         ByteField("version", 1),
         ByteField("actor_type", 1),
@@ -47,7 +52,7 @@ class LACP(Packet):
         MACField("actor_system", None),
         ShortField("actor_key", 0),
         ShortField("actor_port_priority", 0),
-        ShortField("actor_port_numer", 0),
+        ShortField("actor_port_number", 0),
         ByteField("actor_state", 0),
         XStrFixedLenField("actor_reserved", "", 3),
         ByteField("partner_type", 2),
@@ -56,13 +61,13 @@ class LACP(Packet):
         MACField("partner_system", None),
         ShortField("partner_key", 0),
         ShortField("partner_port_priority", 0),
-        ShortField("partner_port_numer", 0),
+        ShortField("partner_port_number", 0),
         ByteField("partner_state", 0),
         XStrFixedLenField("partner_reserved", "", 3),
         ByteField("collector_type", 3),
         ByteField("collector_length", 16),
         ShortField("collector_max_delay", 0),
-        XStrFixedLenField("colletctor_reserved", "", 12),
+        XStrFixedLenField("collector_reserved", "", 12),
         ByteField("terminator_type", 0),
         ByteField("terminator_length", 0),
         XStrFixedLenField("reserved", "", 50),

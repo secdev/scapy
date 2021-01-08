@@ -13,9 +13,12 @@ Answering machines.
 
 from __future__ import absolute_import
 from __future__ import print_function
-from scapy.sendrecv import send, sniff
+
+import warnings
+
 from scapy.config import conf
-from scapy.error import log_interactive
+from scapy.sendrecv import send, sniff
+
 import scapy.modules.six as six
 
 
@@ -31,13 +34,15 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
     function_name = ""
     filter = None
     sniff_options = {"store": 0}
-    sniff_options_list = ["store", "iface", "count", "promisc", "filter", "type", "prn", "stop_filter"]  # noqa: E501
+    sniff_options_list = ["store", "iface", "count", "promisc", "filter",
+                          "type", "prn", "stop_filter", "opened_socket"]
     send_options = {"verbose": 0}
-    send_options_list = ["iface", "inter", "loop", "verbose"]
+    send_options_list = ["iface", "inter", "loop", "verbose", "socket"]
     send_function = staticmethod(send)
 
     def __init__(self, **kargs):
         self.mode = 0
+        self.verbose = kargs.get("verbose", conf.verb >= 0)
         if self.filter:
             kargs.setdefault("filter", self.filter)
         kargs.setdefault("prn", self.reply)
@@ -108,11 +113,14 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
             return
         reply = self.make_reply(pkt)
         self.send_reply(reply)
-        if conf.verb >= 0:
+        if self.verbose:
             self.print_reply(pkt, reply)
 
     def run(self, *args, **kargs):
-        log_interactive.warning("run() method deprecated. The instance is now callable")  # noqa: E501
+        warnings.warn(
+            "run() method deprecated. The instance is now callable",
+            DeprecationWarning
+        )
         self(*args, **kargs)
 
     def __call__(self, *args, **kargs):

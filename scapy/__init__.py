@@ -7,21 +7,18 @@
 Scapy: create, send, sniff, dissect and manipulate network packets.
 
 Usable either from an interactive console or as a Python library.
-http://www.secdev.org/projects/scapy
+https://scapy.net
 """
 
 import os
 import re
 import subprocess
 
-from scapy.compat import AnyStr
-
-
 _SCAPY_PKG_DIR = os.path.dirname(__file__)
 
 
 def _version_from_git_describe():
-    # type: () -> AnyStr
+    # type: () -> str
     """
     Read the version from ``git describe``. It returns the latest tag with an
     optional suffix if the current directory is not exactly on the tag.
@@ -48,23 +45,32 @@ def _version_from_git_describe():
     if not os.path.isdir(os.path.join(os.path.dirname(_SCAPY_PKG_DIR), '.git')):  # noqa: E501
         raise ValueError('not in scapy git repo')
 
-    process = subprocess.Popen(['git', 'describe', '--always'],
-                               cwd=_SCAPY_PKG_DIR,
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    out, err = process.communicate()
-
-    if process.returncode == 0:
-        tag = out.decode().strip()
-        match = re.match('^v?(.+?)-(\\d+)-g[a-f0-9]+$', tag)
-        if match:
-            # remove the 'v' prefix and add a '.devN' suffix
-            return '%s.dev%s' % (match.group(1), match.group(2))
+    def _git(cmd):
+        # type: (str) -> str
+        process = subprocess.Popen(
+            cmd.split(),
+            cwd=_SCAPY_PKG_DIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        out, err = process.communicate()
+        if process.returncode == 0:
+            return out.decode().strip()
         else:
-            # just remove the 'v' prefix
-            return re.sub('^v', '', tag)
+            raise subprocess.CalledProcessError(process.returncode, err)
+
+    tag = _git("git describe --always")
+    if not tag.startswith("v"):
+        # Upstream was not fetched
+        commit = _git("git rev-list --tags --max-count=1")
+        tag = _git("git describe --tags --always --long %s" % commit)
+    match = re.match('^v?(.+?)-(\\d+)-g[a-f0-9]+$', tag)
+    if match:
+        # remove the 'v' prefix and add a '.devN' suffix
+        return '%s.dev%s' % (match.group(1), match.group(2))
     else:
-        raise subprocess.CalledProcessError(process.returncode, err)
+        # just remove the 'v' prefix
+        return re.sub('^v', '', tag)
 
 
 def _version():

@@ -1,6 +1,7 @@
 # This file is part of Scapy
 # Copyright (C) 2007, 2008, 2009 Arnaud Ebalard <arno@natisbad.com>
 #               2015, 2016, 2017 Maxence Tury <maxence.tury@ssi.gouv.fr>
+#               2019 Romain Perez
 # This program is published under a GPLv2 license
 
 """
@@ -19,7 +20,7 @@ Main features:
     - RSA & ECDSA keys sign/verify methods.
 
     - TLS records and sublayers (handshake...) parsing/building. Works with
-      versions SSLv2 to TLS 1.2. This may be enhanced by a TLS context. For
+      versions SSLv2 to TLS 1.3. This may be enhanced by a TLS context. For
       instance, if Scapy reads a ServerHello with version TLS 1.2 and a cipher
       suite using AES, it will assume the presence of IVs prepending the data.
       See test/tls.uts for real examples.
@@ -44,7 +45,7 @@ Unit tests:
 
     - Reading a TLS handshake between a Firefox client and a GitHub server.
 
-    - Reading TLS 1.3 handshakes from test vectors of a draft RFC.
+    - Reading TLS 1.3 handshakes from test vectors of the 8448 RFC.
 
     - Reading a SSLv2 handshake between s_client and s_server, without PFS.
 
@@ -57,14 +58,13 @@ TODO list (may it be carved away by good souls):
 
     - Features to add (or wait for) in the cryptography library:
 
-        - X448 from RFC 7748 (no support in openssl yet);
-
         - the compressed EC point format.
-
 
     - About the automatons:
 
-        - Add resumption support, through session IDs or session tickets.
+        - Allow upgrade from TLS 1.2 to TLS 1.3 in the Automaton client.
+          Currently we'll use TLS 1.3 only if the automaton client was given
+          version="tls13".
 
         - Add various checks for discrepancies between client and server.
           Is the ServerHello ciphersuite ok? What about the SKE params? Etc.
@@ -80,8 +80,6 @@ TODO list (may it be carved away by good souls):
 
 
     - Miscellaneous:
-
-        - Enhance PSK and session ticket support.
 
         - Define several Certificate Transparency objects.
 

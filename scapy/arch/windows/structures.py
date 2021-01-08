@@ -241,7 +241,8 @@ def GetIcmpStatistics():
 MAX_ADAPTER_ADDRESS_LENGTH = 8
 MAX_DHCPV6_DUID_LENGTH = 130
 
-GAA_FLAG_INCLUDE_PREFIX = ULONG(0x0010)
+GAA_FLAG_INCLUDE_PREFIX = 0x0010
+GAA_FLAG_INCLUDE_ALL_INTERFACES = 0x0100
 # for now, just use void * for pointers to unused structures
 PIP_ADAPTER_WINS_SERVER_ADDRESS_LH = VOID
 PIP_ADAPTER_GATEWAY_ADDRESS_LH = VOID
@@ -435,7 +436,7 @@ def GetAdaptersAddresses(AF=AF_UNSPEC):
     """Return all Windows Adapters addresses from iphlpapi"""
     # We get the size first
     size = ULONG()
-    flags = GAA_FLAG_INCLUDE_PREFIX
+    flags = ULONG(GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_INCLUDE_ALL_INTERFACES)
     res = _GetAdaptersAddresses(AF, flags,
                                 None, None,
                                 byref(size))

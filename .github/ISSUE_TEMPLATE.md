@@ -1,4 +1,5 @@
-#### Things to consider
+<!--
+Things to consider
 
 1.  Please check that you are using the latest scapy version, e.g. installed via:
 
@@ -7,6 +8,7 @@
 2.  If you are here to ask a question - please check previous issues and online resources, and consider using gitter instead: <https://gitter.im/secdev/scapy>
 
 3.  Please understand that **this is not a forum** but an issue tracker. The following article explains why you should limit questions asked on Github issues: <https://medium.com/@methane/why-you-must-not-ask-questions-on-github-issues-51d741d83fde>
+-->
 
 #### Brief description
 

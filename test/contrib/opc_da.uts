@@ -9,10 +9,10 @@ opcdaRequestPacket_Build = OpcDaMessage(OpcDaMessage= \
 OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=0, \
     pfc_flags = 131,integerRepresentation='bigEndian',\
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
-    reservedForFutur=0)/ OpcDaHeaderN(fragLenght=100,authLenght=0,callID=21)\
+    res=0)/ OpcDaHeaderN(fragLength=100,authLength=0,callID=21)\
     / OpcDaRequest(allocHint=60,contextId=6,opNum=5,\
-    uuid=b'0000c41d-0a9c-0000-d702-8c761299f7bf',subData=RequestSubData(\
-    versionMajor=0,versionMinor=0,subdata='')))
+    uuid=b'0000c41d-0a9c-0000-d702-8c761299f7bf',stubData=RequestStubData(\
+    versionMajor=0,versionMinor=0,stubdata='')))
 elem2 = raw(opcdaRequestPacket_Build)
 
 assert( elem1 == elem2 )
@@ -25,11 +25,11 @@ opcdaRequestLEPacket_Build = OpcDaMessage(OpcDaMessage= \
 OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=0, \
     pfc_flags = 131,integerRepresentation='littleEndian',\
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
-    reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=100,authLenght=0,callID=21)\
+    res=0)/ OpcDaHeaderNLE(fragLength=100,authLength=0,callID=21)\
     / OpcDaRequestLE (allocHint=60,contextId=6,opNum=5,\
     uuid=b'0000c41d-0a9c-0000-d702-8c761299f7bf',\
-    subData=RequestSubDataLE(versionMajor=0,versionMinor=0,flags=0,reserved=0,\
-    subUuid=b'344e2d51-43ab-4914-a2cf-7784b21b3ea1',subdata='')))
+    stubData=RequestStubDataLE(versionMajor=0,versionMinor=0,\
+    stubdata=b'\x00\x00\x00\x00\x00\x00\x00\x00Q-N4\xabC\x14I\xa2\xcfw\x84\xb2\x1b>\xa1')))
 elem2 = raw(opcdaRequestLEPacket_Build)
 
 assert( elem1 == elem2 )
@@ -44,7 +44,7 @@ opcdaPingPacket_Build = OpcDaMessage(OpcDaMessage= \
     OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=1, \
     pfc_flags = 3,integerRepresentation='littleEndian',\
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
-    reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=100,authLenght=0,callID=21)\
+    res=0)/ OpcDaHeaderNLE(fragLength=100,authLength=0,callID=21)\
     / OpcDaPing()) / '\x00'
 elem2 = raw(opcdaPingPacket_Build)
 
@@ -60,9 +60,9 @@ opcDaResponsePacket_Build = OpcDaMessage(OpcDaMessage= \
     OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=2, \
     pfc_flags = 3,integerRepresentation='bigEndian',\
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
-    reservedForFutur=0)/ OpcDaHeaderN(fragLenght=212,authLenght=0,callID=21)\
+    res=0)/ OpcDaHeaderN(fragLength=212,authLength=0,callID=21)\
     / OpcDaResponse(allocHint=188,contextId=6,cancelCount=0,reserved=0,\
-        subData=b'0'*(212-32)))
+        stubData=b'0'*(212-32)))
 elem2 = raw(opcDaResponsePacket_Build)
 
 assert( elem1 == elem2 )
@@ -75,9 +75,9 @@ opcDaResponseLEPacket_Build = OpcDaMessage(OpcDaMessage= \
     OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=2, \
     pfc_flags = 3,integerRepresentation='littleEndian',\
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
-    reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=212,authLenght=0,callID=21)\
+    res=0)/ OpcDaHeaderNLE(fragLength=212,authLength=0,callID=21)\
     / OpcDaResponseLE(allocHint=188,contextId=6,cancelCount=0,reserved=0,\
-        subData=b'0'*(212-32)))
+        stubData=b'0'*(212-32)))
 elem2 = raw(opcDaResponseLEPacket_Build)
 
 assert( elem1 == elem2 )
@@ -140,7 +140,7 @@ ocDaAlter_contextPacket_Build = OpcDaMessage(OpcDaMessage= \
     OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=14, \
     pfc_flags = 3,integerRepresentation='bigEndian',\
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
-    reservedForFutur=0)/ OpcDaHeaderN(fragLenght=72,authLenght=0,callID=23)\
+    res=0)/ OpcDaHeaderN(fragLength=72,authLength=0,callID=23)\
     / OpcDaAlter_context(maxXmitFrag=5840,maxRecvtFrag=5840,\
         assocGroupId=534853)) \
     / '\x00\x00\x00\x01\x07\x00\x01\x00\x01\x01\x00\x00\x00\x00\x00\x00\xc0'\
@@ -156,7 +156,7 @@ ocDaAlter_contextLEPacket_Build = OpcDaMessage(OpcDaMessage= \
     OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=14, \
     pfc_flags = 3,integerRepresentation='littleEndian',\
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
-    reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=72,authLenght=0,callID=23)\
+    res=0)/ OpcDaHeaderNLE(fragLength=72,authLength=0,callID=23)\
     / OpcDaAlter_contextLE(maxXmitFrag=5840,maxRecvtFrag=5840,\
         assocGroupId=534853)) \
     / '\x01\x00\x00\x00\x07\x00\x01\x00\x01\x01\x00\x00\x00\x00\x00\x00\xc0'\

@@ -1,0 +1,121 @@
+name: Scapy unit tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [master]
+
+jobs:
+  health:
+    name: Code health check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Scapy
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install tox
+        run: pip install tox
+      - name: Run flake8 tests
+        run: tox -e flake8
+      - name: Run codespell
+        run: tox -e spell
+      - name: Run twine check
+        run: tox -e twine
+  docs:
+    name: Build doc
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Scapy
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install tox
+        run: pip install tox
+      - name: Build docs
+        run: tox -e docs
+  mypy:
+    name: Type hints check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Scapy
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install tox
+        run: pip install tox
+      - name: Run mypy
+        run: tox -e mypy
+
+  utscapy:
+    name: ${{ matrix.os }} ${{ matrix.python }} ${{ matrix.mode }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python: [2.7, pypy2, pypy3, 3.9]
+        mode: [both]
+        include:
+          # Linux non-root only tests
+          - os: ubuntu-latest
+            python: 3.6
+            mode: non_root
+          - os: ubuntu-latest
+            python: 3.7
+            mode: non_root
+          - os: ubuntu-latest
+            python: 3.8
+            mode: non_root
+          # MacOS tests
+          - os: macos-latest
+            python: 2.7
+            mode: both
+          - os: macos-latest
+            python: 3.9
+            mode: both
+    steps:
+      - name: Checkout Scapy
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Tox and any other packages
+        run: ./.config/ci/install.sh
+      - name: Run Tox
+        run: ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
+      - name: Codecov
+        uses: codecov/codecov-action@v1
+        with:
+            file: /home/runner/work/scapy/scapy/.coverage
+
+  # CODE-QL
+  analyze:
+    name: CodeQL analysis
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['python']
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 2
+    - run: git checkout HEAD^2
+      if: ${{ github.event_name == 'pull_request' }}
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v1
+      with:
+         languages: ${{ matrix.language }}
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v1

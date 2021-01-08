@@ -15,10 +15,16 @@ We also provide TLS identifiers for these DH groups and also the ECDH groups.
 from __future__ import absolute_import
 
 from scapy.config import conf
+from scapy.error import warning
 from scapy.utils import long_converter
 import scapy.modules.six as six
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.asymmetric import dh, ec
+    from cryptography.hazmat.primitives import serialization
+if conf.crypto_valid_advanced:
+    from cryptography.hazmat.primitives.asymmetric import x25519
+    from cryptography.hazmat.primitives.asymmetric import x448
 
 # We have to start by a dirty hack in order to allow long generators,
 # which some versions of openssl love to use...
@@ -434,6 +440,79 @@ _tls_named_groups = {}
 _tls_named_groups.update(_tls_named_ffdh_groups)
 _tls_named_groups.update(_tls_named_curves)
 
+
+def _tls_named_groups_import(group, pubbytes):
+    if group in _tls_named_ffdh_groups:
+        params = _ffdh_groups[_tls_named_ffdh_groups[group]][0]
+        pn = params.parameter_numbers()
+        public_numbers = dh.DHPublicNumbers(pubbytes, pn)
+        return public_numbers.public_key(default_backend())
+    elif group in _tls_named_curves:
+        if _tls_named_curves[group] in ["x25519", "x448"]:
+            if conf.crypto_valid_advanced:
+                if _tls_named_curves[group] == "x25519":
+                    import_point = x25519.X25519PublicKey.from_public_bytes
+                else:
+                    import_point = x448.X448PublicKey.from_public_bytes
+                return import_point(pubbytes)
+        else:
+            curve = ec._CURVE_TYPES[_tls_named_curves[group]]()
+            try:  # cryptography >= 2.5
+                return ec.EllipticCurvePublicKey.from_encoded_point(
+                    curve,
+                    pubbytes
+                )
+            except AttributeError:
+                pub_num = ec.EllipticCurvePublicNumbers.from_encoded_point(
+                    curve,
+                    pubbytes
+                ).public_numbers()
+                return pub_num.public_key(default_backend())
+
+
+def _tls_named_groups_pubbytes(privkey):
+    if isinstance(privkey, dh.DHPrivateKey):
+        pubkey = privkey.public_key()
+        return pubkey.public_numbers().y
+    elif isinstance(privkey, (x25519.X25519PrivateKey,
+                              x448.X448PrivateKey)):
+        pubkey = privkey.public_key()
+        return pubkey.public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw
+        )
+    else:
+        pubkey = privkey.public_key()
+        try:
+            # cryptography >= 2.5
+            return pubkey.public_bytes(
+                serialization.Encoding.X962,
+                serialization.PublicFormat.UncompressedPoint
+            )
+        except TypeError:
+            # older versions
+            return pubkey.public_numbers().encode_point()
+
+
+def _tls_named_groups_generate(group):
+    if group in _tls_named_ffdh_groups:
+        params = _ffdh_groups[_tls_named_ffdh_groups[group]][0]
+        return params.generate_private_key()
+    elif group in _tls_named_curves:
+        group_name = _tls_named_curves[group]
+        if group_name in ["x25519", "x448"]:
+            if conf.crypto_valid_advanced:
+                if group_name == "x25519":
+                    return x25519.X25519PrivateKey.generate()
+                else:
+                    return x448.X448PrivateKey.generate()
+            else:
+                warning(
+                    "Your cryptography version doesn't support " + group_name
+                )
+        else:
+            curve = ec._CURVE_TYPES[_tls_named_curves[group]]()
+            return ec.generate_private_key(curve, default_backend())
 
 # Below lies ghost code since the shift from 'ecdsa' to 'cryptography' lib.
 # Part of the code has been kept, but commented out, in case anyone would like

@@ -1,12 +1,14 @@
 % Regression tests for gmlanutil
+~ needs_root
 
 + Configuration
 ~ conf
 
 = Imports
-load_layer("can")
+load_layer("can", globals_dict=globals())
 conf.contribs['CAN']['swap-bytes'] = False
-import threading, six, subprocess, time
+import subprocess, sys
+import scapy.modules.six as six
 from subprocess import call
 from scapy.consts import LINUX
 
@@ -18,36 +20,36 @@ iface1 = "vcan1"
 ISOTP_KERNEL_MODULE_AVAILABLE = False
 def exit_if_no_isotp_module():
     if not ISOTP_KERNEL_MODULE_AVAILABLE:
-        err = "TEST SKIPPED: can-isotp not available"
-        subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
+        err = "TEST SKIPPED: can-isotp not available\n"
+        sys.__stderr__.write(err)
         warning("Can't test ISOTP native socket because kernel module is not loaded")
         exit(0)
 
 
 = Initialize a virtual CAN interface
 ~ vcan_socket needs_root linux
-if 0 != call("cansend %s 000#" % iface0, shell=True):
+if 0 != call(["cansend", iface0,  "000#"]):
     # vcan0 is not enabled
-    if 0 != call("sudo modprobe vcan", shell=True):
+    if 0 != call(["sudo", "modprobe", "vcan"]):
         raise Exception("modprobe vcan failed")
-    if 0 != call("sudo ip link add name %s type vcan" % iface0, shell=True):
+    if 0 != call(["sudo", "ip", "link", "add", "name", iface0, "type", "vcan"]):
         print("add %s failed: Maybe it was already up?" % iface0)
-    if 0 != call("sudo ip link set dev %s up" % iface0, shell=True):
+    if 0 != call(["sudo", "ip", "link", "set", "dev", iface0, "up"]):
         raise Exception("could not bring up %s" % iface0)
 
-if 0 != call("cansend %s 000#" % iface0, shell=True):
+if 0 != call(["cansend", iface0,  "000#"]):
     raise Exception("cansend doesn't work")
 
-if 0 != call("cansend %s 000#" % iface1, shell=True):
+if 0 != call(["cansend", iface1,  "000#"]):
     # vcan1 is not enabled
-    if 0 != call("sudo modprobe vcan", shell=True):
+    if 0 != call(["sudo", "modprobe", "vcan"]):
         raise Exception("modprobe vcan failed")
-    if 0 != call("sudo ip link add name %s type vcan" % iface1, shell=True):
+    if 0 != call(["sudo", "ip", "link", "add", "name", iface1, "type", "vcan"]):
         print("add %s failed: Maybe it was already up?" % iface1)
-    if 0 != call("sudo ip link set dev %s up" % iface1, shell=True):
+    if 0 != call(["sudo", "ip", "link", "set", "dev", iface1, "up"]):
         raise Exception("could not bring up %s" % iface1)
 
-if 0 != call("cansend %s 000#" % iface1, shell=True):
+if 0 != call(["cansend", iface1,  "000#"]):
     raise Exception("cansend doesn't work")
 
 print("CAN should work now")
@@ -56,10 +58,9 @@ print("CAN should work now")
 
 from scapy.contrib.cansocket_python_can import *
 
-import can as python_can
-new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface))
-new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface0), timeout=0.01)
-new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface1), timeout=0.01)
+new_can_socket = lambda iface: CANSocket(bustype='virtual', channel=iface, timeout=0.01)
+new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface0, timeout=0.01)
+new_can_socket1 = lambda: CANSocket(bustype='virtual', channel=iface1, timeout=0.01)
 
 # utility function for draining a can interface, asserting that no packets are there
 def drain_bus(iface=iface0, assert_empty=True):
@@ -71,7 +72,7 @@ def drain_bus(iface=iface0, assert_empty=True):
 print("CAN sockets should work now")
 
 = Overwrite definition for vcan_socket systems native sockets
-~ vcan_socket needs_root linux
+~ vcan_socket not_pypy needs_root linux
 
 if six.PY3 and LINUX:
     from scapy.contrib.cansocket_native import *
@@ -83,41 +84,41 @@ if six.PY3 and LINUX:
 = Overwrite definition for vcan_socket systems python-can sockets
 ~ vcan_socket needs_root linux
 if "python_can" in CANSocket.__module__:
-    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000), timeout=0.01)
-    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
-    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000), timeout=0.01)
+    new_can_socket = lambda iface: CANSocket(bustype='socketcan', channel=iface, timeout=0.001)
+    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, timeout=0.001)
+    new_can_socket1 = lambda: CANSocket(bustype='socketcan', channel=iface1, timeout=0.001)
 
 = Verify that a CAN socket can be created and closed
 s = new_can_socket(iface0)
 s.close()
 
-
 = Check if can-isotp and can-utils are installed on this system
 ~ linux
-p = subprocess.Popen('lsmod | grep "^can_isotp"', stdout = subprocess.PIPE, shell=True)
-if p.wait() == 0:
-    if b"can_isotp" in p.stdout.read():
-        p = subprocess.Popen("isotpsend -s1 -d0 %s" % iface0, stdin = subprocess.PIPE, shell=True)
-        p.stdin.write(b"01")
-        p.stdin.close()
-        r = p.wait()
-        if r == 0:
-            ISOTP_KERNEL_MODULE_AVAILABLE = True
+p1 = subprocess.Popen(['lsmod'], stdout = subprocess.PIPE)
+p2 = subprocess.Popen(['grep', '^can_isotp'], stdout = subprocess.PIPE, stdin=p1.stdout)
+p1.stdout.close()
+if p1.wait() == 0 and p2.wait() == 0 and b"can_isotp" in p2.stdout.read():
+    p = subprocess.Popen(["isotpsend", "-s1", "-d0", iface0], stdin = subprocess.PIPE)
+    p.communicate(b"01")
+    if p.returncode == 0:
+        ISOTP_KERNEL_MODULE_AVAILABLE = True
 
 
 + Syntax check
 
 = Import isotp
 conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
-load_contrib("isotp")
 
-if ISOTP_KERNEL_MODULE_AVAILABLE:
-    from scapy.contrib.isotp import ISOTPNativeSocket
-    ISOTPSocket = ISOTPNativeSocket
+if six.PY3:
+    import importlib
+    if "scapy.contrib.isotp" in sys.modules:
+        importlib.reload(scapy.contrib.isotp)
+
+load_contrib("isotp", globals_dict=globals())
+
+if six.PY3 and ISOTP_KERNEL_MODULE_AVAILABLE:
     assert ISOTPSocket == ISOTPNativeSocket
 else:
-    from scapy.contrib.isotp import ISOTPSoftSocket
-    ISOTPSocket = ISOTPSoftSocket
     assert ISOTPSocket == ISOTPSoftSocket
 
 ############
@@ -126,8 +127,8 @@ else:
 
 = Load contribution layer
 
-load_contrib("automotive.gm.gmlan")
-load_contrib("automotive.gm.gmlanutils")
+load_contrib("automotive.gm.gmlan", globals_dict=globals())
+load_contrib("automotive.gm.gmlanutils", globals_dict=globals())
 
 ##############################################################################
 + GMLAN_RequestDownload Tests
@@ -147,13 +148,13 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
-
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
 
-thread.join(timeout=5)
 assert ecusimSuccessfullyExecuted == True
 
 = Negative, immediate negative response
@@ -165,12 +166,12 @@ def ecusim():
         isotpsock2.send(nr)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == False
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_RequestDownload(isotpsock, 4, timeout=1) == False
+    thread.join(timeout=5)
+    assert res
 
 = Negative, timeout
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
@@ -181,22 +182,24 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, base
 started = threading.Event()
 def ecusim():
     with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x642, did=0x242, basecls=GMLAN) as isotpsock2:
-        isotpsock2.sniff(count=1, timeout=1, started_callback=started.set)
+        isotpsock2.sniff(count=1, timeout=2, started_callback=started.set)
         pending = GMLAN()/GMLAN_NR(requestServiceId=0x34, returnCode=0x78)
         isotpsock2.send(pending)
         ack = b"\x74"
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_RequestDownload(isotpsock, 4, timeout=2) == True
+    join = thread.join(timeout=5)
+    print("JOIN", join)
+    print("Result", repr(res))
+    assert res
 
 = Positive, hold response pending for several messages
-tout = 0.3
+tout = 0.8
 repeats = 4
 started = threading.Event()
 def ecusim():
@@ -210,16 +213,20 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
-
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
+    thread.start()
+    started.wait(timeout=5)
     starttime = time.time() # may be inaccurate -> on some systems only seconds precision
-    assert GMLAN_RequestDownload(isotpsock, 4, timeout=repeats*tout+0.5) == True
+    result = GMLAN_RequestDownload(isotpsock, 4, timeout=repeats*tout+0.5)
     endtime = time.time()
-    assert (endtime - starttime) >= tout*repeats
+    join = thread.join(timeout=5)
+    print("Result", repr(result))
+    print("Join", join)
+    assert result
+    print(endtime - starttime)
+    print(tout * (repeats - 1))
+    assert (endtime - starttime) >= tout * (repeats - 1)
 
-thread.join(timeout=5)
 
 = Negative, negative response after response pending
 started = threading.Event()
@@ -232,12 +239,14 @@ def ecusim():
         isotpsock2.send(nr)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == False
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_RequestDownload(isotpsock, 4, timeout=1) == False
+    thread.join(timeout=5)
+    assert res
 
-thread.join(timeout=5)
+
 
 = Negative, timeout after response pending
 started = threading.Event()
@@ -248,12 +257,14 @@ def ecusim():
         isotpsock2.send(pending)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_RequestDownload(isotpsock, 4, timeout=0.3) == False
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_RequestDownload(isotpsock, 4, timeout=0.3) == False
+    thread.join(timeout=5)
+    assert res
 
-thread.join(timeout=5)
+
 
 = Positive, pending message from different service interferes while pending
 started = threading.Event()
@@ -269,12 +280,12 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
 
 = Positive, negative response from different service interferes while pending
 started = threading.Event()
@@ -290,12 +301,12 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
 
 ################### RETRY
 = Positive, first: immediate negative response, retry: Positive
@@ -321,13 +332,14 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_RequestDownload(isotpsock, 4, timeout=1, retry=1) == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_RequestDownload(isotpsock, 4, timeout=1, retry=1) == True
+    thread.join(timeout=5)
+    assert res
     assert ecusimSuccessfullyExecuted == True
 
-thread.join(timeout=5)
 
 
 ##############################################################################
@@ -351,13 +363,13 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferData(isotpsock, 0x40000000, payload, timeout=1) == True
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_TransferData(isotpsock, 0x40000000, payload, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 = Positive, short payload, scheme = 3
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 3
@@ -377,13 +389,13 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferData(isotpsock, 0x400000, payload, timeout=1) == True
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_TransferData(isotpsock, 0x400000, payload, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 = Positive, short payload, scheme = 2
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 2
@@ -403,13 +415,13 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferData(isotpsock, 0x4000, payload, timeout=2) == True
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_TransferData(isotpsock, 0x4000, payload, timeout=2) == True
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 = Negative, short payload
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
@@ -425,12 +437,12 @@ def ecusim():
         isotpsock2.send(nr)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferData(isotpsock, 0x40000000, payload, timeout=1) == False
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_TransferData(isotpsock, 0x40000000, payload, timeout=1) == False
+    thread.join(timeout=5)
+    assert res
 
 = Negative, timeout
 
@@ -462,13 +474,13 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferData(isotpsock, 0x40000000, payload*4, maxmsglen=16, timeout=1) == True
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_TransferData(isotpsock, 0x40000000, payload*4, maxmsglen=16, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 
 #
@@ -491,12 +503,12 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferData(isotpsock, 0x40000000, payload*4, maxmsglen=16, timeout=1, retry=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_TransferData(isotpsock, 0x40000000, payload*4, maxmsglen=16, timeout=1, retry=1) == True
+    thread.join(timeout=5)
+    assert res
 
 ############
 = Positive, maxmsglen length check -> message is split automatically
@@ -531,13 +543,14 @@ def ecusim():
 
 thread = threading.Thread(target=ecusim)
 thread.name = "ECUSimulator" + thread.name
-thread.start()
-with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    sim_started.wait(timeout=5)
-    assert GMLAN_TransferData(isotpsock, 0x40000000, payload*512, maxmsglen=0x1000000, timeout=8) == True
 
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
+    thread.start()
+    sim_started.wait(timeout=5)
+    res = GMLAN_TransferData(isotpsock, 0x40000000, payload*512, maxmsglen=0x1000000, timeout=8) == True
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 ############ Address boundary checks
 = Positive, highest possible address for scheme
@@ -551,12 +564,12 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferData(isotpsock, 2**32 - 1, payload, timeout=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_TransferData(isotpsock, 2**32 - 1, payload, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
 
 = Negative, invalid address (too large for addressing scheme)
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
@@ -569,12 +582,12 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferData(isotpsock, 2**32, payload, timeout=1) == False
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_TransferData(isotpsock, 2**32, payload, timeout=1) == False
+    thread.join(timeout=5)
+    assert res
 
 = Positive, address zero
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
@@ -587,12 +600,12 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferData(isotpsock, 0x00, payload, timeout=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_TransferData(isotpsock, 0x00, payload, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
 
 = Negative, negative address
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
@@ -605,12 +618,12 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferData(isotpsock, -1, payload, timeout=1) == False
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_TransferData(isotpsock, -1, payload, timeout=1) == False
+    thread.join(timeout=5)
+    assert res
 
 ############################################
 + GMLAN_TransferPayload Tests
@@ -638,13 +651,13 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_TransferPayload(isotpsock, 0x40000000, payload, timeout=1) == True
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_TransferPayload(isotpsock, 0x40000000, payload, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 
 ############################################
@@ -678,14 +691,13 @@ def ecusim():
             isotpsock2.send(pr)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
-
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == True
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 = Positive scenario, level 3
 ecusimSuccessfullyExecuted = True
@@ -712,13 +724,13 @@ def ecusim():
             isotpsock2.send(pr)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=3, timeout=1) == True
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=3, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 
 = Negative scenario, invalid password
@@ -746,13 +758,13 @@ def ecusim():
             isotpsock2.send(pr)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == False
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == False
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 = invalid level (not an odd number)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
@@ -768,12 +780,12 @@ def ecusim():
         isotpsock2.send(seedmsg)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == True
+    thread.join(timeout=5)
+    assert res
 
 ############### retry
 = Positive scenario, request timeout, retry works
@@ -792,12 +804,12 @@ def ecusim():
         isotpsock2.send(pr)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
+    thread.join(timeout=5)
+    assert res
 
 = Positive scenario, keysend timeout, retry works
 started = threading.Event()
@@ -817,12 +829,12 @@ def ecusim():
         isotpsock2.send(pr)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
+    thread.join(timeout=5)
+    assert res
 
 
 = Positive scenario, request error, retry works
@@ -842,12 +854,12 @@ def ecusim():
         isotpsock2.send(pr)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
+    thread.join(timeout=5)
+    assert res
 
 
 ##############################################################################
@@ -885,32 +897,27 @@ def ecusim():
             ecusimSuccessfullyExecuted = False
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == True
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == True
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 = sequence of the correct messages, disablenormalcommunication as broadcast
-* TODO: This test errors if executed with ISOTPSoftSockets
-
-exit_if_no_isotp_module()
 ecusimSuccessfullyExecuted = True
 started = threading.Event()
 def ecusim():
     global ecusimSuccessfullyExecuted
     ecusimSuccessfullyExecuted= True
     with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x642, did=0x242, basecls=GMLAN) as isotpsock2, \
-        new_can_socket(iface0) as broadcastrcv:
+        new_can_socket0() as broadcastrcv:
         print("DisableNormalCommunication")
         requ = broadcastrcv.sniff(count=1, timeout=2, started_callback=started.set)
-        pkt = GMLAN(b"\x28")
-        print(requ)
         assert len(requ) >= 1
-        if bytes(requ[0].data) != b"\xfe\x01" + bytes(pkt):
+        if bytes(requ[0].data)[0:3] != b"\xfe\x01\x28":
             ecusimSuccessfullyExecuted = False
         print("ReportProgrammedState")
         requ = isotpsock2.sniff(count=1, timeout=2)
@@ -919,26 +926,26 @@ def ecusim():
             ecusimSuccessfullyExecuted = False
         ack = GMLAN()/GMLAN_RPSPR(programmedState=0)
         print("ProgrammingMode requestProgramming")
-        requ = isotpsock2.sniff(count=1, timeout=2, started_callback=lambda: isotpsock2.send(ack))
+        requ = isotpsock2.sniff(count=1, timeout=3, started_callback=lambda: isotpsock2.send(ack))
         pkt = GMLAN() / GMLAN_PM(subfunction=0x1)
         if bytes(requ[0]) != bytes(pkt):
             ecusimSuccessfullyExecuted = False
         ack = GMLAN(b"\xe5")
         print("InitiateProgramming enableProgramming")
-        requ = isotpsock2.sniff(count=1, timeout=2, started_callback=lambda: isotpsock2.send(ack))
+        requ = isotpsock2.sniff(count=1, timeout=3, started_callback=lambda: isotpsock2.send(ack))
         pkt = GMLAN() / GMLAN_PM(subfunction=0x3)
         if bytes(requ[0]) != bytes(pkt):
             ecusimSuccessfullyExecuted = False
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, broadcastsocket=GMLAN_BroadcastSocket(new_can_socket(iface0)), timeout=8, verbose=1) == True
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, broadcast_socket=GMLAN_BroadcastSocket(new_can_socket0()), timeout=5, verbose=1) == True
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 
 ######## timeout
@@ -956,14 +963,13 @@ def ecusim():
             ecusimSuccessfullyExecuted = False
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
-
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 
 = timeout ReportProgrammedState
@@ -988,14 +994,14 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 
 = timeout ProgrammingMode requestProgramming
@@ -1024,14 +1030,14 @@ def ecusim():
             ecusimSuccessfullyExecuted = False
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 ###### negative respone
 = timeout DisableNormalCommunication
@@ -1050,14 +1056,14 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 ###### retry tests
 = sequence of the correct messages, retry set 
@@ -1077,13 +1083,13 @@ def ecusim():
         requ = isotpsock2.sniff(count=1, timeout=1, started_callback=lambda:isotpsock2.send(ack))
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=0) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=0) == True
+    assert res
+    thread.join(timeout=5)
 
 
 = negative response, make sure no retries are made
@@ -1100,14 +1106,14 @@ def ecusim():
             ecusimSuccessfullyExecuted = False
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=0) == False
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=0) == False
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 
 = first fail at DisableNormalCommunication, then sequence of the correct messages
@@ -1129,13 +1135,12 @@ def ecusim():
         requ = isotpsock2.sniff(count=1, timeout=1, started_callback=lambda:isotpsock2.send(ack))
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
-
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
+    thread.join(timeout=5)
+    assert res
 
 = first fail at ReportProgrammedState, then sequence of the correct messages
 started = threading.Event()
@@ -1160,13 +1165,12 @@ def ecusim():
         requ = isotpsock2.sniff(count=1, timeout=1, started_callback=lambda:isotpsock2.send(ack))
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
-
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
+    thread.join(timeout=5)
+    assert res
 
 = first fail at ProgrammingMode requestProgramming, then sequence of the correct messages
 started = threading.Event()
@@ -1195,13 +1199,12 @@ def ecusim():
         requ = isotpsock2.sniff(count=1, timeout=1)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
-
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
+    thread.join(timeout=5)
+    assert res
 
 = fail twice
 ecusimSuccessfullyExecuted = True
@@ -1219,14 +1222,13 @@ def ecusim():
             ecusimSuccessfullyExecuted = False
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
-
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == False
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == False
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 ##############################################################################
 + GMLAN_ReadMemoryByAddress Tests
@@ -1248,13 +1250,13 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1) == payload
-
-thread.join(timeout=5)
-assert ecusimSuccessfullyExecuted == True
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1) == payload
+    thread.join(timeout=5)
+    assert res
+    assert ecusimSuccessfullyExecuted == True
 
 
 = Negative, negative response
@@ -1268,12 +1270,12 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1) is None
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1) is None
+    thread.join(timeout=5)
+    assert res
 
 = Negative, timeout
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
@@ -1293,20 +1295,20 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.start()
-started.wait(timeout=5)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
-    assert GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1, retry=1) == payload
-
-thread.join(timeout=5)
+    thread.start()
+    started.wait(timeout=5)
+    res = GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1, retry=1) == payload
+    thread.join(timeout=5)
+    assert res
 
 + Cleanup
 
 = Delete vcan interfaces
 ~ vcan_socket needs_root linux
 
-if 0 != call("sudo ip link delete %s" % iface0, shell=True):
+if 0 != call(["sudo", "ip", "link", "delete", iface0]):
         raise Exception("%s could not be deleted" % iface0)
 
-if 0 != call("sudo ip link delete %s" % iface1, shell=True):
+if 0 != call(["sudo", "ip", "link", "delete", iface1]):
         raise Exception("%s could not be deleted" % iface1)

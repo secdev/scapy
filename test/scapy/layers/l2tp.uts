@@ -1,0 +1,13 @@
+% L2TP regression tests for Scapy
+
+############
+############
++ L2TP tests
+
+= L2TP - build
+s = raw(IP(src="127.0.0.1", dst="127.0.0.1")/UDP()/L2TP())
+s == b'E\x00\x00"\x00\x01\x00\x00@\x11|\xc8\x7f\x00\x00\x01\x7f\x00\x00\x01\x06\xa5\x06\xa5\x00\x0e\xf4\x83\x00\x02\x00\x00\x00\x00'
+
+= L2TP - dissection
+p = IP(s)
+L2TP in p and len(p[L2TP]) == 6 and p.tunnel_id == 0 and p.session_id == 0 and p[UDP].chksum == 0xf483

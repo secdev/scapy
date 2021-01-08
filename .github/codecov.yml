@@ -1,0 +1,35 @@
+codecov:
+  notify:
+    # Do not send notifications when CI fails
+    require_ci_to_pass: true
+
+comment:
+  # Define codevov comments behavior and content
+  behavior: default
+  layout: header, diff, tree
+  require_changes: false
+
+coverage:
+  # Define coverage range and precision
+  precision: 2
+  range: "70..100"
+  round: down
+  status:
+    # Only consider changes to the whole project
+    project:
+      default:
+        target: auto
+        threshold: 0.5%
+        base: auto
+    patch: false
+    changes: false
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: true
+      loop: true
+      macro: false
+      method: false
+  javascript:
+    enable_partials: yes

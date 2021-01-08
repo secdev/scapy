@@ -1,6 +1,5 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) Philippe Biondi <phil@secdev.org>
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>
 # This program is published under a GPLv2 license
 
@@ -25,7 +24,9 @@ from mypy.main import main as mypy_main
 
 # Load files
 
-with io.open("./.config/mypy/mypy_enabled.txt") as fd:
+localdir = os.path.split(__file__)[0]
+
+with io.open(os.path.join(localdir, "mypy_enabled.txt")) as fd:
     FILES = [l.strip() for l in fd.readlines() if l.strip() and l[0] != "#"]
 
 if not FILES:
@@ -35,14 +36,30 @@ if not FILES:
 # Generate mypy arguments
 
 ARGS = [
-    "--py2",
-    "--follow-imports=skip",
+    # strictness: same as --strict minus --disallow-subclassing-any
+    "--warn-unused-configs",
+    "--disallow-any-generics",
+    "--disallow-untyped-calls",
+    "--disallow-untyped-defs",
+    "--disallow-incomplete-defs",
+    "--check-untyped-defs",
+    "--disallow-untyped-decorators",
+    "--no-implicit-optional",
+    "--warn-redundant-casts",
+    "--warn-unused-ignores",
+    "--warn-return-any",
+    "--no-implicit-reexport",
+    "--strict-equality",
+    "--ignore-missing-imports",
+    # config
+    "--follow-imports=skip",  # Remove eventually
     "--config-file=" + os.path.abspath(
         os.path.join(
-            os.path.split(__file__)[0],
+            localdir,
             "mypy.ini"
         )
-    )
+    ),
+    "--show-traceback",
 ] + [os.path.abspath(f) for f in FILES]
 
 # Run mypy over the files

@@ -23,7 +23,7 @@ from scapy.layers.l2 import Ether
 from scapy.layers.inet import TCP
 from scapy.packet import Packet, Raw, bind_bottom_up, bind_top_down
 from scapy.utils import binrepr
-from scapy.modules import six
+import scapy.modules.six as six
 
 
 # If prereq_autocomplete is True then match prerequisites will be
@@ -494,7 +494,7 @@ class OFPPacketQueue(Packet):
                    ShortField("len", None),
                    XShortField("pad", 0),
                    PacketListField("properties", [], OFPQT,
-                                    length_from=lambda pkt:pkt.len - 8)]  # noqa: E501
+                                   length_from=lambda pkt:pkt.len - 8)]
 
     def extract_padding(self, s):
         return b"", s

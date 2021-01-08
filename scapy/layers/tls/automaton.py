@@ -7,6 +7,8 @@
 The _TLSAutomaton class provides methods common to both TLS client and server.
 """
 
+import select
+import socket
 import struct
 
 from scapy.automaton import Automaton
@@ -63,6 +65,8 @@ class _TLSAutomaton(Automaton):
 
     def parse_args(self, mycert=None, mykey=None, **kargs):
 
+        self.verbose = kargs.pop("verbose", True)
+
         super(_TLSAutomaton, self).parse_args(**kargs)
 
         self.socket = None
@@ -82,8 +86,6 @@ class _TLSAutomaton(Automaton):
             self.mykey = PrivKey(mykey)
         else:
             self.mykey = None
-
-        self.verbose = kargs.get("verbose", True)
 
     def get_next_msg(self, socket_timeout=2, retry=2):
         """
@@ -105,7 +107,6 @@ class _TLSAutomaton(Automaton):
             # A message is already available.
             return
 
-        self.socket.settimeout(socket_timeout)
         is_sslv2_msg = False
         still_getting_len = True
         grablen = 2
@@ -133,15 +134,27 @@ class _TLSAutomaton(Automaton):
             if grablen == len(self.remain_in):
                 break
 
+            final = False
             try:
-                tmp = self.socket.recv(grablen - len(self.remain_in))
+                tmp, _, _ = select.select([self.socket], [], [],
+                                          socket_timeout)
                 if not tmp:
                     retry -= 1
                 else:
-                    self.remain_in += tmp
-            except Exception:
-                self.vprint("Could not join host ! Retrying...")
+                    data = tmp[0].recv(grablen - len(self.remain_in))
+                    if not data:
+                        # Socket peer was closed
+                        self.vprint("Peer socket closed !")
+                        final = True
+                    else:
+                        self.remain_in += data
+            except Exception as ex:
+                if not isinstance(ex, socket.timeout):
+                    self.vprint("Could not join host (%s) ! Retrying..." % ex)
                 retry -= 1
+            else:
+                if final:
+                    raise self.SOCKET_CLOSED()
 
         if len(self.remain_in) < 2 or len(self.remain_in) != grablen:
             # Remote peer is not willing to respond
@@ -180,6 +193,8 @@ class _TLSAutomaton(Automaton):
                     self.buffer_in += p.msg
                 else:
                     self.buffer_in += p.inner.msg
+            else:
+                p = p.payload
 
     def raise_on_packet(self, pkt_cls, state, get_next_msg=True):
         """
@@ -200,11 +215,11 @@ class _TLSAutomaton(Automaton):
         self.buffer_in = self.buffer_in[1:]
         raise state()
 
-    def add_record(self, is_sslv2=None, is_tls13=None):
+    def add_record(self, is_sslv2=None, is_tls13=None, is_tls12=None):
         """
         Add a new TLS or SSLv2 or TLS 1.3 record to the packets buffered out.
         """
-        if is_sslv2 is None and is_tls13 is None:
+        if is_sslv2 is None and is_tls13 is None and is_tls12 is None:
             v = (self.cur_session.tls_version or
                  self.cur_session.advertised_tls_version)
             if v in [0x0200, 0x0002]:
@@ -215,6 +230,11 @@ class _TLSAutomaton(Automaton):
             self.buffer_out.append(SSLv2(tls_session=self.cur_session))
         elif is_tls13:
             self.buffer_out.append(TLS13(tls_session=self.cur_session))
+        # For TLS 1.3 middlebox compatibility, TLS record version must
+        # be 0x0303
+        elif is_tls12:
+            self.buffer_out.append(TLS(version="TLS 1.2",
+                                       tls_session=self.cur_session))
         else:
             self.buffer_out.append(TLS(tls_session=self.cur_session))
 

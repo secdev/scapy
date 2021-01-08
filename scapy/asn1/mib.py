@@ -17,6 +17,14 @@ from scapy.utils import do_graph
 import scapy.modules.six as six
 from scapy.compat import plain_str
 
+from scapy.compat import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+)
+
 #################
 #  MIB parsing  #
 #################
@@ -28,12 +36,9 @@ _mib_re_strings = re.compile(r'"[^"]*"')
 _mib_re_comments = re.compile(r'--.*(\r|\n)')
 
 
-class MIBDict(DADict):
-    def fixname(self, val):
-        # We overwrite DADict fixname method as we want to keep - in names
-        return val
-
+class MIBDict(DADict[str, str]):
     def _findroot(self, x):
+        # type: (str) -> Tuple[str, str, str]
         """Internal MIBDict function used to find a partial OID"""
         if x.startswith("."):
             x = x[1:]
@@ -51,29 +56,32 @@ class MIBDict(DADict):
         return root, root_key, x[max:-1]
 
     def _oidname(self, x):
+        # type: (str) -> str
         """Deduce the OID name from its OID ID"""
         root, _, remainder = self._findroot(x)
         return root + remainder
 
     def _oid(self, x):
+        # type: (str) -> str
         """Parse the OID id/OID generator, and return real OID"""
         xl = x.strip(".").split(".")
         p = len(xl) - 1
         while p >= 0 and _mib_re_integer.match(xl[p]):
             p -= 1
-        if p != 0 or xl[p] not in six.itervalues(self.__dict__):
+        if p != 0 or xl[p] not in six.itervalues(self.d):
             return x
-        xl[p] = next(k for k, v in six.iteritems(self.__dict__) if v == xl[p])
+        xl[p] = next(k for k, v in six.iteritems(self.d) if v == xl[p])
         return ".".join(xl[p:])
 
     def _make_graph(self, other_keys=None, **kargs):
+        # type: (Optional[Any], **Any) -> None
         if other_keys is None:
             other_keys = []
         nodes = [(self[key], key) for key in self.iterkeys()]
         oids = set(self.iterkeys())
         for k in other_keys:
             if k not in oids:
-                nodes.append(self.oidname(k), k)
+                nodes.append((self._oidname(k), k))
         s = 'digraph "mib" {\n\trankdir=LR;\n\n'
         for k, o in nodes:
             s += '\t"%s" [ label="%s"  ];\n' % (o, k)
@@ -88,12 +96,27 @@ class MIBDict(DADict):
         do_graph(s, **kargs)
 
 
-def _mib_register(ident, value, the_mib, unresolved):
-    """Internal function used to register an OID and its name in a MIBDict"""
-    if ident in the_mib or ident in unresolved:
-        return ident in the_mib
+def _mib_register(ident,  # type: str
+                  value,  # type: List[str]
+                  the_mib,  # type: Dict[str, List[str]]
+                  unresolved,  # type: Dict[str, List[str]]
+                  alias,  # type: Dict[str, str]
+                  ):
+    # type: (...) -> bool
+    """
+    Internal function used to register an OID and its name in a MIBDict
+    """
+    if ident in the_mib:
+        # We have already resolved this one. Store the alias
+        alias[".".join(value)] = ident
+        return True
+    if ident in unresolved:
+        # We know we can't resolve this one
+        return False
     resval = []
     not_resolved = 0
+    # Resolve the OID
+    # (e.g. 2.basicConstraints.3 -> 2.2.5.29.19.3)
     for v in value:
         if _mib_re_integer.match(v):
             resval.append(v)
@@ -102,23 +125,26 @@ def _mib_register(ident, value, the_mib, unresolved):
             if v not in the_mib:
                 not_resolved = 1
             if v in the_mib:
-                v = the_mib[v]
+                resval += the_mib[v]
             elif v in unresolved:
-                v = unresolved[v]
-            if isinstance(v, list):
-                resval += v
+                resval += unresolved[v]
             else:
                 resval.append(v)
     if not_resolved:
+        # Unresolved
         unresolved[ident] = resval
         return False
     else:
+        # Fully resolved
         the_mib[ident] = resval
         keys = list(unresolved)
         i = 0
+        # Go through the unresolved to update the ones that
+        # depended on the one we just did
         while i < len(keys):
             k = keys[i]
-            if _mib_register(k, unresolved[k], the_mib, {}):
+            if _mib_register(k, unresolved[k], the_mib, {}, alias):
+                # Now resolved: we can remove it from unresolved
                 del(unresolved[k])
                 del(keys[i])
                 i = 0
@@ -129,35 +155,51 @@ def _mib_register(ident, value, the_mib, unresolved):
 
 
 def load_mib(filenames):
-    """Load the conf.mib dict from a list of filenames"""
+    # type: (str) -> None
+    """
+    Load the conf.mib dict from a list of filenames
+    """
     the_mib = {'iso': ['1']}
-    unresolved = {}
+    unresolved = {}  # type: Dict[str, List[str]]
+    alias = {}  # type: Dict[str, str]
+    # Export the current MIB to a working dictionary
     for k in six.iterkeys(conf.mib):
-        _mib_register(conf.mib[k], k.split("."), the_mib, unresolved)
+        _mib_register(conf.mib[k], k.split("."), the_mib, unresolved, alias)
 
+    # Read the files
     if isinstance(filenames, (str, bytes)):
-        filenames = [filenames]
-    for fnames in filenames:
+        files_list = [filenames]
+    else:
+        files_list = filenames
+    for fnames in files_list:
         for fname in glob(fnames):
-            f = open(fname)
-            text = f.read()
-            cleantext = " ".join(_mib_re_strings.split(" ".join(_mib_re_comments.split(text))))  # noqa: E501
+            with open(fname) as f:
+                text = f.read()
+            cleantext = " ".join(
+                _mib_re_strings.split(" ".join(_mib_re_comments.split(text)))
+            )
             for m in _mib_re_oiddecl.finditer(cleantext):
                 gr = m.groups()
-                ident, oid = gr[0], gr[-1]
+                ident, oid_s = gr[0], gr[-1]
                 ident = fixname(ident)
-                oid = oid.split()
-                for i, elt in enumerate(oid):
-                    m = _mib_re_both.match(elt)
-                    if m:
-                        oid[i] = m.groups()[1]
-                _mib_register(ident, oid, the_mib, unresolved)
+                oid_l = oid_s.split()
+                for i, elt in enumerate(oid_l):
+                    m2 = _mib_re_both.match(elt)
+                    if m2:
+                        oid_l[i] = m2.groups()[1]
+                _mib_register(ident, oid_l, the_mib, unresolved, alias)
 
+    # Create the new MIB
     newmib = MIBDict(_name="MIB")
+    # Add resolved values
     for oid, key in six.iteritems(the_mib):
         newmib[".".join(key)] = oid
+    # Add unresolved values
     for oid, key in six.iteritems(unresolved):
         newmib[".".join(key)] = oid
+    # Add aliases
+    for key, oid in six.iteritems(alias):
+        newmib[key] = oid
 
     conf.mib = newmib
 
@@ -519,7 +561,7 @@ certicomCurve_oids = {
 #       policies       #
 
 certPolicy_oids = {
-    "anyPolicy": "2.5.29.32.0"
+    "2.5.29.32.0": "anyPolicy"
 }
 
 # from Chromium source code (ev_root_ca_metadata.cc)

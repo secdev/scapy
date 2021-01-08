@@ -1,6 +1,7 @@
 {
   "testfiles": [
     "*.uts",
+    "scapy\\layers\\*.uts",
     "test\\contrib\\automotive\\obd\\*.uts",
     "test\\contrib\\automotive\\gm\\*.uts",
     "test\\contrib\\automotive\\bmw\\*.uts",
@@ -32,6 +33,8 @@
     "ipv6",
     "manufdb",
     "tcpdump",
+    "tap",
+    "tun",
     "tshark"
   ]
 }

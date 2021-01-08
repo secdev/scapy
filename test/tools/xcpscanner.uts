@@ -1,0 +1,179 @@
+% Regression tests for the XCP_CAN
+~ needs_root
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
+
++ Basic operations
+= Imports
+
+import threading
+from subprocess import call
+
+import six
+
+from scapy.consts import LINUX
+from scapy.contrib.automotive.xcp.cto_commands_master import Connect, TransportLayerCmd, TransportLayerCmdGetSlaveId
+from scapy.contrib.automotive.xcp.scanner import XCPOnCANScanner
+from scapy.contrib.automotive.xcp.xcp import CTORequest, XCPOnCAN, CTOResponse, ConnectPositiveResponse, TransportLayerCmdGetSlaveIdResponse, GenericResponse
+from scapy.contrib.cansocket_python_can import CANSocket
+from scapy.main import load_layer
+
+= Load module
+
+load_layer("can", globals_dict=globals())
+load_contrib("automotive.xcp.xcp", globals_dict=globals())
+
+= Global variables
+
+iface0 = "vcan0"
+
+= Initialize a virtual CAN interface
+~ vcan_socket needs_root linux
+
+print('setting up CAN')
+
+if 0 != call(["cansend", iface0,  "000#"]):
+    # vcan0 is not enabled
+    if 0 != call(["sudo", "modprobe", "vcan"]):
+        raise Exception("modprobe vcan failed")
+    if 0 != call(["sudo", "ip", "link", "add", "name", iface0, "type", "vcan"]):
+        print("add %s failed: Maybe it was already up?" % iface0)
+    if 0 != call(["sudo", "ip", "link", "set", "dev", iface0, "up"]):
+        raise Exception("could not bring up %s" % iface0)
+
+if 0 != call(["cansend", iface0,  "000#"]):
+    raise Exception("cansend doesn't work")
+
+print("CAN should work now")
+
+
+= Define new_can_socket0 for root and linux
+~ vcan_socket needs_root linux
+if six.PY3 and not conf.use_pypy:
+    from scapy.contrib.cansocket_native import CANSocket
+    new_can_socket0 = lambda: CANSocket(iface0)
+    print("Using Native CANSocket on " + iface0)
+else:
+    from scapy.contrib.cansocket_python_can import CANSocket
+    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, bitrate=250000, timeout=0.01)
+    print("Using Soft CANSocket on " + iface0)
+
+= Define new_can_socket0 without root or linux
+if "new_can_socket0" not in globals():
+    from scapy.contrib.cansocket_python_can import CANSocket
+    new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface0, timeout=0.01)
+    print("Using Soft CANSocket on virtual in-process can bus")
+
+
+= verify CAN Socket creation works
+s = new_can_socket0()
+s.close()
+
++ Tests XCPonCAN Scanner
+
+= xcp can scanner broadcast ID-Range
+
+id_range = range(50, 53)
+slave_id_1 = 10
+response_id_1 = 11
+slave_id_2 = 20
+response_id_2 = 21
+
+slave_1_response = XCPOnCAN(identifier=response_id_1) / CTOResponse(packet_code=0xFF) / TransportLayerCmdGetSlaveIdResponse(can_identifier=slave_id_1)
+slave_2_response = XCPOnCAN(identifier=response_id_2) / CTOResponse(packet_code=0xFF) / TransportLayerCmdGetSlaveIdResponse(can_identifier=slave_id_2)
+
+random_xcp_response_1 = XCPOnCAN(identifier=30) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x00\x00")
+random_xcp_response_2 = XCPOnCAN(identifier=40) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x00\x00")
+
+sock1 = new_can_socket0()
+sock1.basecls = XCPOnCAN
+
+sock2 = new_can_socket0()
+sock2.basecls = XCPOnCAN
+
+
+def ecu():
+    for i in range(50, 53):
+        sock1.sniff(count=1, store=False, timeout=2)
+        if i == 50:
+            sock1.send(CAN(identifier=0x90, data=b'\x01\x02\x03'))
+            sock1.send(CAN(identifier=0x90, data=b'\x05\x02\x03'))
+            sock1.send(CAN(identifier=0x90, data=b'\xff\x05\x03'))
+        if i == 51:
+            sock1.send(random_xcp_response_1)
+            sock1.send(random_xcp_response_2)
+        if i == 52:
+            sock1.send(slave_1_response)
+            sock1.send(slave_2_response)
+
+
+thread = threading.Thread(target=ecu)
+thread.start()
+
+scanner = XCPOnCANScanner(sock2, id_range=id_range, sniff_time=0.5)
+result = scanner.scan_with_get_slave_id()
+thread.join()
+sock1.close()
+sock2.close()
+assert len(result) == 2
+assert result[0].request_id == slave_id_1
+assert result[0].response_id == response_id_1
+assert result[1].request_id == slave_id_2
+assert result[1].response_id == response_id_2
+
+
+= xcp can scanner connect ID-range
+id_range = range(50, 53)
+slave_id = 52
+response_id = 11
+
+connect_response = XCPOnCAN(identifier=response_id) / CTOResponse(packet_code=0xFF) / ConnectPositiveResponse()
+
+random_xcp_response_1 = XCPOnCAN(identifier=30) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x00\x00")
+random_xcp_response_2 = XCPOnCAN(identifier=40) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x10")
+
+sock1 = new_can_socket0()
+sock1.basecls = XCPOnCAN
+
+sock2 = new_can_socket0()
+sock2.basecls = XCPOnCAN
+
+
+def ecu():
+    for i in range(50, 53):
+        sock1.sniff(count=1, store=False, timeout=2)
+        if i == 50:
+            sock1.send(CAN(identifier=0x90, data=b'\x01\x02\x03'))
+            sock1.send(CAN(identifier=0x90, data=b'\xff\x05\x03'))
+        if i == 51:
+            sock1.send(CAN(identifier=0x90, data=b'\x05\x02\x03'))
+            sock1.send(random_xcp_response_1)
+            sock1.send(random_xcp_response_2)
+        if i == slave_id:
+            sock1.send(CAN(identifier=0x90, data=b'\xff\x05\x03'))
+            sock1.send(connect_response)
+
+
+thread = threading.Thread(target=ecu)
+thread.start()
+
+scanner = XCPOnCANScanner(sock2, id_range=id_range, sniff_time=0.5)
+result = scanner.scan_with_connect()
+thread.join()
+sock1.close()
+sock2.close()
+
+assert len(result) == 1
+assert result[0].request_id == slave_id
+assert result[0].response_id == response_id
+
+
++ Cleanup
+= Delete vcan interfaces
+~ vcan_socket needs_root linux
+
+if 0 != call(["sudo", "ip", "link", "delete", iface0]):
+    raise Exception("%s could not be deleted" % iface0)

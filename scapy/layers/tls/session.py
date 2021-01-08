@@ -1,6 +1,7 @@
 # This file is part of Scapy
 # Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
 #               2015, 2016, 2017 Maxence Tury
+#               2019 Romain Perez
 # This program is published under a GPLv2 license
 
 """
@@ -15,7 +16,10 @@ from scapy.compat import raw
 import scapy.modules.six as six
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
+from scapy.pton_ntop import inet_pton
+from scapy.sessions import DefaultSession
 from scapy.utils import repr_hex, strxor
+from scapy.layers.inet import TCP
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.layers.tls.crypto.prf import PRF
@@ -87,7 +91,8 @@ class connState(object):
         self.ciphersuite = ciphersuite(tls_version=tls_version)
 
         if not self.ciphersuite.usable:
-            warning("TLS ciphersuite not usable. Is the cryptography Python module installed ?")  # noqa: E501
+            warning("TLS cipher suite not usable. "
+                    "Is the cryptography Python module installed?")
             return
 
         self.compression = compression_alg()
@@ -439,11 +444,21 @@ class tlsSession(object):
         self.tls13_handshake_secret = None
         self.tls13_master_secret = None
         self.tls13_derived_secrets = {}
+        self.post_handshake_auth = False
+        self.tls13_ticket_ciphersuite = None
+        self.tls13_retry = False
+        self.middlebox_compatibility = False
 
         # Handshake messages needed for Finished computation/validation.
         # No record layer headers, no HelloRequests, no ChangeCipherSpecs.
         self.handshake_messages = []
         self.handshake_messages_parsed = []
+
+        # Flag, whether we derive the secret as Extended MS or not
+        self.extms = False
+        self.session_hash = None
+
+        self.encrypt_then_mac = False
 
         # All exchanged TLS packets.
         # XXX no support for now
@@ -518,10 +533,14 @@ class tlsSession(object):
             warning("Missing client_random while computing master_secret!")
         if self.server_random is None:
             warning("Missing server_random while computing master_secret!")
+        if self.extms and self.session_hash is None:
+            warning("Missing session hash while computing master secret!")
 
         ms = self.pwcs.prf.compute_master_secret(self.pre_master_secret,
                                                  self.client_random,
-                                                 self.server_random)
+                                                 self.server_random,
+                                                 self.extms,
+                                                 self.session_hash)
         self.master_secret = ms
         if conf.debug_tls:
             log_runtime.debug("TLS: master secret: %s", repr_hex(ms))
@@ -802,8 +821,8 @@ class tlsSession(object):
         family = socket.AF_INET
         if ':' in self.ipsrc:
             family = socket.AF_INET6
-        s1 += socket.inet_pton(family, self.ipsrc)
-        s2 += socket.inet_pton(family, self.ipdst)
+        s1 += inet_pton(family, self.ipsrc)
+        s2 += inet_pton(family, self.ipdst)
         return strxor(s1, s2)
 
     def eq(self, other):
@@ -855,14 +874,41 @@ class _GenericTLSSessionInheritance(Packet):
         except Exception:
             setme = True
 
+        newses = False
         if setme:
             if tls_session is None:
+                newses = True
                 self.tls_session = tlsSession()
             else:
                 self.tls_session = tls_session
 
         self.rcs_snap_init = self.tls_session.rcs.snapshot()
         self.wcs_snap_init = self.tls_session.wcs.snapshot()
+
+        if isinstance(_underlayer, TCP):
+            tcp = _underlayer
+            self.tls_session.sport = tcp.sport
+            self.tls_session.dport = tcp.dport
+            try:
+                self.tls_session.ipsrc = tcp.underlayer.src
+                self.tls_session.ipdst = tcp.underlayer.dst
+            except AttributeError:
+                pass
+            if conf.tls_session_enable:
+                if newses:
+                    s = conf.tls_sessions.find(self.tls_session)
+                    if s:
+                        if s.dport == self.tls_session.dport:
+                            self.tls_session = s
+                        else:
+                            self.tls_session = s.mirror()
+                    else:
+                        conf.tls_sessions.add(self.tls_session)
+            if self.tls_session.connection_end == "server":
+                srk = conf.tls_sessions.server_rsa_key
+                if not self.tls_session.server_rsa_key and \
+                        srk:
+                    self.tls_session.server_rsa_key = srk
 
         Packet.__init__(self, _pkt=_pkt, post_transform=post_transform,
                         _internal=_internal, _underlayer=_underlayer,
@@ -963,9 +1009,28 @@ class _GenericTLSSessionInheritance(Packet):
         s.rcs = rcs_snap
         s.wcs = wcs_snap
 
-    # Uncomment this when the automata update IPs and ports properly
-    # def mysummary(self):
-    #    return "TLS %s" % repr(self.tls_session)
+    def mysummary(self):
+        return "TLS %s / %s" % (repr(self.tls_session),
+                                getattr(self, "_name", self.name))
+
+    @classmethod
+    def tcp_reassemble(cls, data, metadata):
+        # Used with TLSSession
+        from scapy.layers.tls.record import TLS
+        from scapy.layers.tls.record_tls13 import TLS13
+        if cls in (TLS, TLS13):
+            length = struct.unpack("!H", data[3:5])[0] + 5
+            if len(data) == length:
+                return cls(data)
+            elif len(data) > length:
+                pkt = cls(data)
+                if hasattr(pkt.payload, "tcp_reassemble"):
+                    if pkt.payload.tcp_reassemble(data[length:], metadata):
+                        return pkt
+                else:
+                    return pkt
+        else:
+            return cls(data)
 
 
 ###############################################################################
@@ -975,6 +1040,7 @@ class _GenericTLSSessionInheritance(Packet):
 class _tls_sessions(object):
     def __init__(self):
         self.sessions = {}
+        self.server_rsa_key = None
 
     def add(self, session):
         s = self.find(session)
@@ -998,7 +1064,10 @@ class _tls_sessions(object):
         self.sessions[h].remove(session)
 
     def find(self, session):
-        h = session.hash()
+        try:
+            h = session.hash()
+        except Exception:
+            return None
         if h in self.sessions:
             for k in self.sessions[h]:
                 if k.eq(session):
@@ -1011,18 +1080,33 @@ class _tls_sessions(object):
 
     def __repr__(self):
         res = [("First endpoint", "Second endpoint", "Session ID")]
-        for l in six.itervalues(self.sessions):
-            for s in l:
+        for li in six.itervalues(self.sessions):
+            for s in li:
                 src = "%s[%d]" % (s.ipsrc, s.sport)
                 dst = "%s[%d]" % (s.ipdst, s.dport)
                 sid = repr(s.sid)
                 if len(sid) > 12:
                     sid = sid[:11] + "..."
                 res.append((src, dst, sid))
-        colwidth = (max([len(y) for y in x]) for x in zip(*res))
+        colwidth = (max(len(y) for y in x) for x in zip(*res))
         fmt = "  ".join(map(lambda x: "%%-%ds" % x, colwidth))
         return "\n".join(map(lambda x: fmt % x, res))
 
 
+class TLSSession(DefaultSession):
+    def __init__(self, *args, **kwargs):
+        server_rsa_key = kwargs.pop("server_rsa_key", None)
+        super(TLSSession, self).__init__(*args, **kwargs)
+        self._old_conf_status = conf.tls_session_enable
+        conf.tls_session_enable = True
+        if server_rsa_key:
+            conf.tls_sessions.server_rsa_key = server_rsa_key
+
+    def toPacketList(self):
+        conf.tls_session_enable = self._old_conf_status
+        return super(TLSSession, self).toPacketList()
+
+
 conf.tls_sessions = _tls_sessions()
+conf.tls_session_enable = False
 conf.tls_verbose = False

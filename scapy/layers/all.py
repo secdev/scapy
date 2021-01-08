@@ -8,9 +8,12 @@ All layers. Configurable with conf.load_layers.
 """
 
 from __future__ import absolute_import
-from scapy.config import conf
+
+# We import conf from arch to make sure arch specific layers are populated
+from scapy.arch import conf
 from scapy.error import log_loading
 from scapy.main import load_layer
+
 import logging
 import scapy.modules.six as six
 
@@ -20,7 +23,7 @@ log = logging.getLogger("scapy.loading")
 __all__ = []
 
 for _l in conf.load_layers:
-    log_loading.debug("Loading layer %s" % _l)
+    log_loading.debug("Loading layer %s", _l)
     try:
         load_layer(_l, globals_dict=globals(), symb_list=__all__)
     except Exception as e:

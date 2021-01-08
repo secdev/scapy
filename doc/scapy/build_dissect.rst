@@ -2,7 +2,7 @@
 Adding new protocols
 ********************
 
-Adding new protocol (or more correctly: a new *layer*) in Scapy is very easy. All the magic is in the fields. If the 
+Adding a new protocol (or more correctly: a new *layer*) in Scapy is very easy. All the magic is in the fields. If the 
 fields you need are already there and the protocol is not too brain-damaged, 
 this should be a matter of minutes. 
 
@@ -1043,6 +1043,7 @@ Special
             # Wrapper to make field 'fld' only appear if
             # function 'cond' evals to True, e.g. 
             # ConditionalField(XShortField("chksum",None),lambda pkt:pkt.chksumpresent==1)
+            # When hidden, it won't be built nor dissected and the stored value will be 'None'
             
     
     PadField(fld, align, padwith=None)  

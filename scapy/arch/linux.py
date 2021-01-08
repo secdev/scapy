@@ -11,28 +11,39 @@ from __future__ import absolute_import
 
 
 import array
+import ctypes
 from fcntl import ioctl
 import os
 from select import select
 import socket
 import struct
+import sys
 import time
-import re
 
 import subprocess
 
 from scapy.compat import raw, plain_str
-from scapy.consts import LOOPBACK_NAME, LINUX
+from scapy.consts import LINUX
 import scapy.utils
 import scapy.utils6
-from scapy.packet import Packet, Padding
+from scapy.arch.common import get_if, compile_filter, _iff_flags
 from scapy.config import conf
 from scapy.data import MTU, ETH_P_ALL, SOL_PACKET, SO_ATTACH_FILTER, \
     SO_TIMESTAMPNS
+from scapy.error import (
+    ScapyInvalidPlatformException,
+    Scapy_Exception,
+    log_loading,
+    log_runtime,
+    warning,
+)
+from scapy.interfaces import IFACES, InterfaceProvider, NetworkInterface, \
+    network_name
+from scapy.libs.structures import sock_fprog
+from scapy.packet import Packet, Padding
+from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
-from scapy.error import warning, Scapy_Exception, \
-    ScapyInvalidPlatformException, log_runtime
-from scapy.arch.common import get_if, compile_filter
+
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -93,18 +104,28 @@ PACKET_FASTROUTE = 6  # Fastrouted frame
 
 
 def get_if_raw_addr(iff):
+    r"""
+    Return the raw IPv4 address of an interface.
+    If unavailable, returns b"\0\0\0\0"
+    """
     try:
         return get_if(iff, SIOCGIFADDR)[20:24]
     except IOError:
         return b"\0\0\0\0"
 
 
-def get_if_list():
+def _get_if_list():
+    """
+    Function to read the interfaces from /proc/net/dev
+    """
     try:
         f = open("/proc/net/dev", "rb")
     except IOError:
-        f.close()
-        warning("Can't open /proc/net/dev !")
+        try:
+            f.close()
+        except Exception:
+            pass
+        log_loading.critical("Can't open /proc/net/dev !")
         return []
     lst = []
     f.readline()
@@ -116,27 +137,24 @@ def get_if_list():
     return lst
 
 
-def get_working_if():
-    """
-    Return the name of the first network interfcace that is up.
-    """
-    for i in get_if_list():
-        if i == LOOPBACK_NAME:
-            continue
-        ifflags = struct.unpack("16xH14x", get_if(i, SIOCGIFFLAGS))[0]
-        if ifflags & IFF_UP:
-            return i
-    return LOOPBACK_NAME
-
-
 def attach_filter(sock, bpf_filter, iface):
-    # XXX We generate the filter on the interface conf.iface
-    # because tcpdump open the "any" interface and ppp interfaces
-    # in cooked mode. As we use them in raw mode, the filter will not
-    # work... one solution could be to use "any" interface and translate
-    # the filter from cooked mode to raw mode
-    # mode
+    """
+    Compile bpf filter and attach it to a socket
+
+    :param sock: the python socket
+    :param bpf_filter: the bpf string filter to compile
+    :param iface: the interface used to compile
+    """
     bp = compile_filter(bpf_filter, iface)
+    if conf.use_pypy and sys.pypy_version_info <= (7, 3, 2):
+        # PyPy < 7.3.2 has a broken behavior
+        # https://foss.heptapod.net/pypy/pypy/-/issues/3298
+        bp = struct.pack(
+            'HL',
+            bp.bf_len, ctypes.addressof(bp.bf_insns.contents)
+        )
+    else:
+        bp = sock_fprog(bp.bf_len, bp.bf_insns)
     sock.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
 
 
@@ -204,26 +222,26 @@ def read_routes():
     try:
         f = open("/proc/net/route", "rb")
     except IOError:
-        warning("Can't open /proc/net/route !")
+        log_loading.critical("Can't open /proc/net/route !")
         return []
     routes = []
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", scapy.consts.LOOPBACK_NAME.encode("utf8")))  # noqa: E501
+        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", conf.loopback_name.encode("utf8")))  # noqa: E501
         addrfamily = struct.unpack("h", ifreq[16:18])[0]
         if addrfamily == socket.AF_INET:
-            ifreq2 = ioctl(s, SIOCGIFNETMASK, struct.pack("16s16x", scapy.consts.LOOPBACK_NAME.encode("utf8")))  # noqa: E501
+            ifreq2 = ioctl(s, SIOCGIFNETMASK, struct.pack("16s16x", conf.loopback_name.encode("utf8")))  # noqa: E501
             msk = socket.ntohl(struct.unpack("I", ifreq2[20:24])[0])
             dst = socket.ntohl(struct.unpack("I", ifreq[20:24])[0]) & msk
             ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
-            routes.append((dst, msk, "0.0.0.0", scapy.consts.LOOPBACK_NAME, ifaddr, 1))  # noqa: E501
+            routes.append((dst, msk, "0.0.0.0", conf.loopback_name, ifaddr, 1))  # noqa: E501
         else:
-            warning("Interface %s: unknown address family (%i)" % (scapy.consts.LOOPBACK_NAME, addrfamily))  # noqa: E501
+            warning("Interface %s: unknown address family (%i)" % (conf.loopback_name, addrfamily))  # noqa: E501
     except IOError as err:
         if err.errno == 99:
-            warning("Interface %s: no address assigned" % scapy.consts.LOOPBACK_NAME)  # noqa: E501
+            warning("Interface %s: no address assigned" % conf.loopback_name)  # noqa: E501
         else:
-            warning("Interface %s: failed to get address config (%s)" % (scapy.consts.LOOPBACK_NAME, str(err)))  # noqa: E501
+            warning("Interface %s: failed to get address config (%s)" % (conf.loopback_name, str(err)))  # noqa: E501
 
     for line in f.readlines()[1:]:
         line = plain_str(line)
@@ -253,15 +271,12 @@ def read_routes():
         gw_str = scapy.utils.inet_ntoa(struct.pack("I", int(gw, 16)))
         metric = int(metric)
 
+        route = [dst_int, msk_int, gw_str, iff, ifaddr, metric]
         if ifaddr_int & msk_int != dst_int:
             tmp_route = get_alias_address(iff, dst_int, gw_str, metric)
             if tmp_route:
-                routes.append(tmp_route)
-            else:
-                routes.append((dst_int, msk_int, gw_str, iff, ifaddr, metric))
-
-        else:
-            routes.append((dst_int, msk_int, gw_str, iff, ifaddr, metric))
+                route = tmp_route
+        routes.append(tuple(route))
 
     f.close()
     s.close()
@@ -339,7 +354,7 @@ def read_routes6():
         nh = proc2r(nh)
 
         cset = []  # candidate set (possible source addresses)
-        if dev == LOOPBACK_NAME:
+        if dev == conf.loopback_name:
             if d == '::':
                 continue
             cset = ['::1']
@@ -356,6 +371,42 @@ def read_routes6():
 def get_if_index(iff):
     return int(struct.unpack("I", get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
+
+class LinuxInterfaceProvider(InterfaceProvider):
+    name = "sys"
+
+    def _is_valid(self, dev):
+        return bool(dev.flags & IFF_UP)
+
+    def load(self):
+        from scapy.fields import FlagValue
+        data = {}
+        ips = in6_getifaddr()
+        for i in _get_if_list():
+            ifflags = struct.unpack("16xH14x", get_if(i, SIOCGIFFLAGS))[0]
+            index = get_if_index(i)
+            mac = scapy.utils.str2mac(
+                get_if_raw_hwaddr(i, siocgifhwaddr=SIOCGIFHWADDR)[1]
+            )
+            ip = inet_ntop(socket.AF_INET, get_if_raw_addr(i))
+            if ip == "0.0.0.0":
+                ip = None
+            ifflags = FlagValue(ifflags, _iff_flags)
+            if_data = {
+                "name": i,
+                "network_name": i,
+                "description": i,
+                "flags": ifflags,
+                "index": index,
+                "ip": ip,
+                "ips": [x[0] for x in ips if x[2] == i] + [ip] if ip else [],
+                "mac": mac
+            }
+            data[i] = NetworkInterface(self, if_data)
+        return data
+
+
+IFACES.register_provider(LinuxInterfaceProvider)
 
 if os.uname()[4] in ['x86_64', 'aarch64']:
     def get_last_packet_timestamp(sock):
@@ -380,68 +431,21 @@ def _flush_fd(fd):
             break
 
 
-def get_iface_mode(iface):
-    """Return the interface mode.
-    params:
-     - iface: the iwconfig interface
-    """
-    p = subprocess.Popen(["iwconfig", iface], stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT)
-    output, err = p.communicate()
-    match = re.search(br"mode:([a-zA-Z]*)", output.lower())
-    if match:
-        return plain_str(match.group(1))
-    return "unknown"
-
-
-def set_iface_monitor(iface, monitor):
-    """Sets the monitor mode (or remove it) from an interface.
-    params:
-     - iface: the iwconfig interface
-     - monitor: True if the interface should be set in monitor mode,
-                False if it should be in managed mode
-    """
-    mode = get_iface_mode(iface)
-    if mode == "unknown":
-        warning("Could not parse iwconfig !")
-    current_monitor = mode == "monitor"
-    if monitor == current_monitor:
-        # Already correct
-        return True
-    s_mode = "monitor" if monitor else "managed"
-
-    def _check_call(commands):
-        p = subprocess.Popen(commands,
-                             stderr=subprocess.PIPE,
-                             stdout=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-        if p.returncode != 0:
-            warning("%s failed !" % " ".join(commands))
-            return False
-        return True
-    if not _check_call(["ifconfig", iface, "down"]):
-        return False
-    if not _check_call(["iwconfig", iface, "mode", s_mode]):
-        return False
-    if not _check_call(["ifconfig", iface, "up"]):
-        return False
-    return True
-
-
 class L2Socket(SuperSocket):
     desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
 
     def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None,
                  nofilter=0, monitor=None):
-        self.iface = conf.iface if iface is None else iface
+        self.iface = network_name(iface or conf.iface)
         self.type = type
         self.promisc = conf.sniff_promisc if promisc is None else promisc
         if monitor is not None:
-            warning(
-                "The monitor argument is ineffective on native linux sockets."
-                " Use set_iface_monitor instead."
+            log_runtime.info(
+                "The 'monitor' argument has no effect on native linux sockets."
             )
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
+        self.ins = socket.socket(
+            socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if not nofilter:
             if conf.except_filter:
                 if filter:
@@ -449,7 +453,10 @@ class L2Socket(SuperSocket):
                 else:
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
-                attach_filter(self.ins, filter, iface)
+                try:
+                    attach_filter(self.ins, filter, iface)
+                except ImportError as ex:
+                    log_runtime.error("Cannot set filter: %s", ex)
         if self.promisc:
             set_promisc(self.ins, self.iface)
         self.ins.bind((self.iface, type))
@@ -552,10 +559,15 @@ class L3PacketSocket(L2Socket):
         self.outs.bind(sdto)
         sn = self.outs.getsockname()
         ll = lambda x: x
-        if type(x) in conf.l3types:
-            sdto = (iff, conf.l3types[type(x)])
+        type_x = type(x)
+        if type_x in conf.l3types:
+            sdto = (iff, conf.l3types[type_x])
         if sn[3] in conf.l2types:
             ll = lambda x: conf.l2types[sn[3]]() / x
+        if self.lvl == 3 and type_x != self.LL:
+            warning("Incompatible L3 types detected using %s instead of %s !",
+                    type_x, self.LL)
+            self.LL = type_x
         sx = raw(ll(x))
         x.sent_time = time.time()
         try:
@@ -624,7 +636,9 @@ class VEthPair(object):
     def __enter__(self):
         self.setup()
         self.up()
+        conf.ifaces.reload()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.destroy()
+        conf.ifaces.reload()

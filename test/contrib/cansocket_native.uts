@@ -1,5 +1,5 @@
 % Regression tests for nativecansocket
-~ python3_only vcan_socket needs_root linux
+~ python3_only not_pypy vcan_socket needs_root linux
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
@@ -7,51 +7,40 @@
 ############
 ############
 + Configuration of CAN virtual sockets
+~ conf
 
 = Load module
-~ conf command needs_root linux
-
-load_layer("can")
+load_layer("can", globals_dict=globals())
 conf.contribs['CANSocket'] = {'use-python-can': False}
 from scapy.contrib.cansocket_native import *
 conf.contribs['CAN'] = {'swap-bytes': False}
 
 
 = Setup string for vcan
-~ conf command
-    bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
+bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
 
 = Load os
-~ conf command needs_root linux
-
 import os
 import threading
 from time import sleep
 from subprocess import call
 
 = Setup vcan0
-~ conf command needs_root linux
-
 0 == os.system(bashCommand)
 
 + Basic Packet Tests()
 = CAN Packet init
-
-
 canframe = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 bytes(canframe) == b'\x00\x00\x07\xff\x08\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08'
 
 + Basic Socket Tests()
 = CAN Socket Init
-
-
-sock1 = CANSocket(iface="vcan0")
+sock1 = CANSocket(channel="vcan0")
 
 = CAN Socket send recv small packet
-
 def sender():
     sleep(0.1)
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
     sock2.close()
 
@@ -62,11 +51,9 @@ rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 thread.join(timeout=5)
 
 = CAN Socket send recv
-
-
 def sender():
     sleep(0.1)
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.close()
 
@@ -77,11 +64,9 @@ rx == CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 thread.join(timeout=5)
 
 = CAN Socket basecls test
-
-
 def sender():
     sleep(0.1)
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.close()
 
@@ -95,18 +80,14 @@ thread.join(timeout=5)
 
 + Advanced Socket Tests()
 = CAN Socket sr1
-
-
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 = CAN Socket sr1 init time
-
-
 tx.sent_time == None
 
 def sender():
     sleep(0.1)
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(tx)
     sock2.close()
 
@@ -120,27 +101,21 @@ sock1.close()
 thread.join(timeout=5)
 
 = CAN Socket sr1 time check
-
-
 assert tx.sent_time < rx.time and rx.time > 0
 
 = sr can
-
-
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 = sr can check init time
-
-
 assert tx.sent_time == None
 
 def sender():
     sleep(0.1)
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(tx)
     sock2.close()
 
-sock1 = CANSocket(iface="vcan0")
+sock1 = CANSocket(channel="vcan0")
 thread = threading.Thread(target=sender)
 thread.start()
 rx = None
@@ -154,11 +129,11 @@ thread.join(timeout=5)
 
 def sender():
     sleep(0.1)
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(tx)
     sock2.close()
 
-sock1 = CANSocket(iface="vcan0", basecls=Raw)
+sock1 = CANSocket(channel="vcan0", basecls=Raw)
 thread = threading.Thread(target=sender)
 thread.start()
 rx = None
@@ -175,10 +150,10 @@ assert tx.sent_time > 0 and rx.time > 0 and tx.sent_time < rx.time
 = sniff with filtermask 0x7ff
 
 
-sock1 = CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}])
+sock1 = CANSocket(channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}])
 
 def sender():
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x300, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x300, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
@@ -197,10 +172,10 @@ thread.join(timeout=5)
 = sniff with filtermask 0x700
 
 
-sock1 = CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x700}])
+sock1 = CANSocket(channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x700}])
 
 def sender():
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(CAN(identifier=0x212, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x300, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x2ff, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
@@ -219,10 +194,10 @@ thread.join(timeout=5)
 = sniff with filtermask 0x0ff
 
 
-sock1 = CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x0ff}])
+sock1 = CANSocket(channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x0ff}])
 
 def sender():
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x301, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x300, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
@@ -241,10 +216,10 @@ thread.join(timeout=5)
 = sniff with multiple filters
 
 
-sock1 = CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}, {'can_id': 0x400, 'can_mask': 0x7ff}, {'can_id': 0x600, 'can_mask': 0x7ff},  {'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock1 = CANSocket(channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}, {'can_id': 0x400, 'can_mask': 0x7ff}, {'can_id': 0x600, 'can_mask': 0x7ff},  {'can_id': 0x7ff, 'can_mask': 0x7ff}])
 
 def sender():
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x300, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x400, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
@@ -264,10 +239,10 @@ thread.join(timeout=5)
 = sniff with filtermask 0x7ff and inverse filter
 
 
-sock1 = CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200 | CAN_INV_FILTER, 'can_mask': 0x7ff}])
+sock1 = CANSocket(channel='vcan0', can_filters=[{'can_id': 0x200 | CAN_INV_FILTER, 'can_mask': 0x7ff}])
 
 def sender():
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x300, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
@@ -286,10 +261,10 @@ thread.join(timeout=5)
 = sniff with filtermask 0x1FFFFFFF
 
 
-sock1 = CANSocket(iface='vcan0', can_filters=[{'can_id': 0x10000000, 'can_mask': 0x1fffffff}])
+sock1 = CANSocket(channel='vcan0', can_filters=[{'can_id': 0x10000000, 'can_mask': 0x1fffffff}])
 
 def sender():
-    sock2 = CANSocket(iface="vcan0")
+    sock2 = CANSocket(channel="vcan0")
     sock2.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
@@ -308,7 +283,7 @@ thread.join(timeout=5)
 = sniff with filtermask 0x1FFFFFFF and inverse filter
 
 
-sock1 = CANSocket(iface='vcan0', can_filters=[{'can_id': 0x10000000 | CAN_INV_FILTER, 'can_mask': 0x1fffffff}])
+sock1 = CANSocket(channel='vcan0', can_filters=[{'can_id': 0x10000000 | CAN_INV_FILTER, 'can_mask': 0x1fffffff}])
 
 if six.PY3:
     thread = threading.Thread(target=sender)
@@ -320,7 +295,7 @@ sock1.close()
 = CAN Socket sr1 with receive own messages
 
 
-sock1 = CANSocket(iface="vcan0", receive_own_messages=True)
+sock1 = CANSocket(channel="vcan0", receive_own_messages=True)
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 rx = None
 rx = sock1.sr1(tx, verbose=False)
@@ -331,7 +306,7 @@ sock1.close()
 
 = sr can
 
-sock1 = CANSocket(iface="vcan0", receive_own_messages=True)
+sock1 = CANSocket(channel="vcan0", receive_own_messages=True)
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 rx = None
 rx = sock1.sr(tx, timeout=1, verbose=False)
@@ -345,8 +320,8 @@ tx == rx[0][0][1]
 bashCommand = "/bin/bash -c 'sudo ip link add name vcan1 type vcan; sudo ip link set dev vcan1 up'"
 0 == os.system(bashCommand)
 
-sock0 = CANSocket(iface='vcan0')
-sock1 = CANSocket(iface='vcan1')
+sock0 = CANSocket(channel='vcan0')
+sock1 = CANSocket(channel='vcan1')
 
 def senderVCan0():
     sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
@@ -360,8 +335,8 @@ bridgeStarted = threading.Event()
 
 def bridge():
     global bridgeStarted
-    bSock0 = CANSocket(iface="vcan0")
-    bSock1 = CANSocket(iface='vcan1')
+    bSock0 = CANSocket(channel="vcan0")
+    bSock1 = CANSocket(channel='vcan1')
     def pnr(pkt):
         return pkt
     bridgeStarted.set()
@@ -386,8 +361,8 @@ sock0.close()
 = bridge and sniff setup vcan0 package forwarding
 
 
-sock0 = CANSocket(iface='vcan0')
-sock1 = CANSocket(iface='vcan1')
+sock0 = CANSocket(channel='vcan0')
+sock1 = CANSocket(channel='vcan1')
 
 def senderVCan1():
     sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
@@ -399,8 +374,8 @@ bridgeStarted = threading.Event()
 
 def bridge():
     global bridgeStarted
-    bSock0 = CANSocket(iface="vcan0")
-    bSock1 = CANSocket(iface='vcan1')
+    bSock0 = CANSocket(channel="vcan0")
+    bSock1 = CANSocket(channel='vcan1')
     def pnr(pkt):
         return pkt
     bridgeStarted.set()
@@ -425,8 +400,8 @@ threadBridge.join(timeout=5)
 =bridge and sniff setup vcan0 vcan1 package forwarding both directions
 
 
-sock0 = CANSocket(iface='vcan0')
-sock1 = CANSocket(iface='vcan1')
+sock0 = CANSocket(channel='vcan0')
+sock1 = CANSocket(channel='vcan1')
 
 def senderBothVCans():
     sock0.send(CAN(flags='extended', identifier=0x25, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
@@ -444,8 +419,8 @@ bridgeStarted = threading.Event()
 
 def bridge():
     global bridgeStarted
-    bSock0 = CANSocket(iface="vcan0")
-    bSock1 = CANSocket(iface='vcan1')
+    bSock0 = CANSocket(channel="vcan0")
+    bSock1 = CANSocket(channel='vcan1')
     def pnr(pkt):
         return pkt
     bridgeStarted.set()
@@ -474,8 +449,8 @@ threadBridge.join(timeout=5)
 =bridge and sniff setup vcan1 package change
 
 
-sock0 = CANSocket(iface='vcan0')
-sock1 = CANSocket(iface='vcan1', can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
+sock0 = CANSocket(channel='vcan0')
+sock1 = CANSocket(channel='vcan1', can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
 
 def senderVCan0():
     sleep(0.1)
@@ -490,8 +465,8 @@ bridgeStarted = threading.Event()
 
 def bridgeWithPackageChangeVCan0ToVCan1():
     global bridgeStarted
-    bSock0 = CANSocket(iface="vcan0")
-    bSock1 = CANSocket(iface="vcan1")
+    bSock0 = CANSocket(channel="vcan0")
+    bSock1 = CANSocket(channel="vcan1")
     def pnr(pkt):
         pkt.data = b'\x08\x07\x06\x05\x04\x03\x02\x01'
         pkt.identifier = 0x10010000
@@ -519,8 +494,8 @@ threadBridge.join(timeout=5)
 =bridge and sniff setup vcan0 package change
 
 
-sock0 = CANSocket(iface='vcan0',  can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
-sock1 = CANSocket(iface='vcan1')
+sock0 = CANSocket(channel='vcan0',  can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
+sock1 = CANSocket(channel='vcan1')
 
 def senderVCan1():
     sleep(0.1)
@@ -533,8 +508,8 @@ bridgeStarted = threading.Event()
 
 def bridgeWithPackageChangeVCan1ToVCan0():
     global bridgeStarted
-    bSock0 = CANSocket(iface="vcan0")
-    bSock1 = CANSocket(iface="vcan1")
+    bSock0 = CANSocket(channel="vcan0")
+    bSock1 = CANSocket(channel="vcan1")
     def pnr(pkt):
         pkt.data = b'\x08\x07\x06\x05\x04\x03\x02\x01'
         pkt.identifier = 0x10010000
@@ -562,8 +537,8 @@ threadBridge.join(timeout=5)
 =bridge and sniff setup vcan0 and vcan1 package change in both directions
 
 
-sock0 = CANSocket(iface='vcan0',  can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
-sock1 = CANSocket(iface='vcan1', can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
+sock0 = CANSocket(channel='vcan0',  can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
+sock1 = CANSocket(channel='vcan1', can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
 
 def senderBothVCans():
     sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
@@ -581,8 +556,8 @@ bridgeStarted = threading.Event()
 
 def bridgeWithPackageChangeBothDirections():
     global bridgeStarted
-    bSock0 = CANSocket(iface="vcan0")
-    bSock1 = CANSocket(iface="vcan1")
+    bSock0 = CANSocket(channel="vcan0")
+    bSock1 = CANSocket(channel="vcan1")
     def pnr(pkt):
         pkt.data = b'\x08\x07\x06\x05\x04\x03\x02\x01'
         pkt.identifier = 0x10010000
@@ -613,8 +588,8 @@ threadBridge.join(timeout=5)
 =bridge and sniff setup vcan0 package remove
 
 
-sock0 = CANSocket(iface='vcan0')
-sock1 = CANSocket(iface='vcan1')
+sock0 = CANSocket(channel='vcan0')
+sock1 = CANSocket(channel='vcan1')
 
 def senderVCan0():
     sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
@@ -628,8 +603,8 @@ bridgeStarted = threading.Event()
 
 def bridgeWithRemovePackageFromVCan0ToVCan1():
     global bridgeStarted
-    bSock0 = CANSocket(iface="vcan0")
-    bSock1 = CANSocket(iface="vcan1")
+    bSock0 = CANSocket(channel="vcan0")
+    bSock1 = CANSocket(channel="vcan1")
     def pnr(pkt):
         if(pkt.identifier == 0x10020000):
             pkt = None
@@ -661,8 +636,8 @@ threadBridge.join(timeout=5)
 =bridge and sniff setup vcan1 package remove
 
 
-sock0 = CANSocket(iface='vcan0')
-sock1 = CANSocket(iface='vcan1')
+sock0 = CANSocket(channel='vcan0')
+sock1 = CANSocket(channel='vcan1')
 
 def senderVCan1():
     sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
@@ -674,8 +649,8 @@ bridgeStarted = threading.Event()
 
 def bridgeWithRemovePackageFromVCan1ToVCan0():
     global bridgeStarted
-    bSock0 = CANSocket(iface="vcan0")
-    bSock1 = CANSocket(iface="vcan1")
+    bSock0 = CANSocket(channel="vcan0")
+    bSock1 = CANSocket(channel="vcan1")
     def pnr(pkt):
         if(pkt.identifier == 0x10050000):
             pkt = None
@@ -706,8 +681,8 @@ threadBridge.join(timeout=5)
 =bridge and sniff setup vcan0 and vcan1 package remove both directions
 
 
-sock0 = CANSocket(iface="vcan0")
-sock1 = CANSocket(iface="vcan1")
+sock0 = CANSocket(channel="vcan0")
+sock1 = CANSocket(channel="vcan1")
 
 def senderBothVCans():
     sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
@@ -725,8 +700,8 @@ bridgeStarted = threading.Event()
 
 def bridgeWithRemovePackageInBothDirections():
     global bridgeStarted
-    bSock0 = CANSocket(iface="vcan0")
-    bSock1 = CANSocket(iface="vcan1")
+    bSock0 = CANSocket(channel="vcan0")
+    bSock1 = CANSocket(channel="vcan1")
     def pnrA(pkt):
         if(pkt.identifier == 0x10020000):
             pkt = None
@@ -764,8 +739,8 @@ threadBridge.join(timeout=5)
 
 = Delete vcan interfaces
 
-if 0 != call("sudo ip link delete %s" % "vcan0", shell=True):
-        raise Exception("%s could not be deleted" % "vcan0")
+if 0 != call(["sudo", "ip", "link", "delete", "vcan0"]):
+        raise Exception("vcan0 could not be deleted")
 
-if 0 != call("sudo ip link delete %s" % "vcan1", shell=True):
-        raise Exception("%s could not be deleted" % "vcan1")
+if 0 != call(["sudo", "ip", "link", "delete", "vcan1"]):
+        raise Exception("vcan1 could not be deleted")

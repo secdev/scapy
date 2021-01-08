@@ -6,32 +6,33 @@
 
 """
 Automata with states, transitions and actions.
+
+TODO:
+    - add documentation for ioevent, as_supersocket...
 """
 
-from __future__ import absolute_import
-import types
+import io
 import itertools
-import time
+import logging
 import os
 import sys
+import threading
+import time
 import traceback
+import types
+
 from select import select
 from collections import deque
-import threading
+
 from scapy.config import conf
 from scapy.utils import do_graph
-from scapy.error import log_interactive, warning
+from scapy.error import log_runtime, warning
 from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 
-if WINDOWS:
-    from scapy.error import Scapy_Exception
-    recv_error = Scapy_Exception
-else:
-    recv_error = ()
 
 """ In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionality  # noqa: E501
 # Passive way: using no-ressources locks
@@ -99,7 +100,11 @@ class SelectableObject(object):
         """Entry point of SelectableObject: register the callback"""
         if self.check_recv():
             return callback(self)
-        _t = threading.Thread(target=self._wait_non_ressources, args=(callback,))  # noqa: E501
+        _t = threading.Thread(
+            target=self._wait_non_ressources,
+            args=(callback,),
+            name="scapy.automaton wait_return"
+        )
         _t.setDaemon(True)
         _t.start()
 
@@ -107,10 +112,10 @@ class SelectableObject(object):
         """DEV: When call_release() will be called, the hook will also"""
         self.hooks.append(hook)
 
-    def call_release(self, arborted=False):
+    def call_release(self, aborted=False):
         """DEV: Must be call when the object becomes ready to read.
            Relesases the lock of _wait_non_ressources"""
-        self.was_ended = arborted
+        self.was_ended = aborted
         try:
             self.trigger.release()
         except (threading.ThreadError, AttributeError):
@@ -179,7 +184,11 @@ class SelectableSelector(object):
             if not self.remain:
                 return self.results
 
-            threading.Thread(target=self._timeout_thread, args=(self.remain,)).start()  # noqa: E501
+            threading.Thread(
+                target=self._timeout_thread,
+                args=(self.remain,),
+                name="scapy.automaton process"
+            ).start()
             if not self._ended:
                 self.available_lock.acquire()
             return self.results
@@ -201,11 +210,10 @@ def select_objects(inputs, remain):
     return handler.process()
 
 
-class ObjectPipe(SelectableObject):
-    read_allowed_exceptions = ()
+class ObjectPipe(SelectableObject, io.BufferedIOBase):
 
     def __init__(self):
-        self.closed = False
+        self._closed = False
         self.rd, self.wr = os.pipe()
         self.queue = deque()
         SelectableObject.__init__(self)
@@ -224,8 +232,11 @@ class ObjectPipe(SelectableObject):
     def write(self, obj):
         self.send(obj)
 
+    def flush(self):
+        pass
+
     def recv(self, n=0):
-        if self.closed:
+        if self._closed:
             if self.check_recv():
                 return self.queue.popleft()
             return None
@@ -236,11 +247,14 @@ class ObjectPipe(SelectableObject):
         return self.recv(n)
 
     def close(self):
-        if not self.closed:
-            self.closed = True
+        if not self._closed:
+            self._closed = True
             os.close(self.rd)
             os.close(self.wr)
             self.queue.clear()
+
+    def __del__(self):
+        self.close()
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
@@ -307,6 +321,7 @@ class ATMT:
             self.state = state_func.atmt_state
             self.initial = state_func.atmt_initial
             self.error = state_func.atmt_error
+            self.stop = state_func.atmt_stop
             self.final = state_func.atmt_final
             Exception.__init__(self, "Request state [%s]" % self.state)
             self.automaton = automaton
@@ -326,12 +341,13 @@ class ATMT:
             return "NewStateRequested(%s)" % self.state
 
     @staticmethod
-    def state(initial=0, final=0, error=0):
+    def state(initial=0, final=0, stop=0, error=0):
         def deco(f, initial=initial, final=final):
             f.atmt_type = ATMT.STATE
             f.atmt_state = f.__name__
             f.atmt_initial = initial
             f.atmt_final = final
+            f.atmt_stop = stop
             f.atmt_error = error
 
             def state_wrapper(self, *args, **kargs):
@@ -342,6 +358,7 @@ class ATMT:
             state_wrapper.atmt_state = f.__name__
             state_wrapper.atmt_initial = initial
             state_wrapper.atmt_final = final
+            state_wrapper.atmt_stop = stop
             state_wrapper.atmt_error = error
             state_wrapper.atmt_origfunc = f
             return state_wrapper
@@ -405,6 +422,7 @@ class _ATMT_Command:
     NEXT = "NEXT"
     FREEZE = "FREEZE"
     STOP = "STOP"
+    FORCESTOP = "FORCESTOP"
     END = "END"
     EXCEPTION = "EXCEPTION"
     SINGLESTEP = "SINGLESTEP"
@@ -426,6 +444,7 @@ class _ATMT_supersocket(SuperSocket, SelectableObject):
         # Register recv hook
         self.spb.register_hook(self.call_release)
         kargs["external_fd"] = {ioevent: (self.spa, self.spb)}
+        kargs["is_atmt_socket"] = True
         self.atmt = automaton(*args, **kargs)
         self.atmt.runbg()
 
@@ -447,7 +466,11 @@ class _ATMT_supersocket(SuperSocket, SelectableObject):
         return r
 
     def close(self):
-        pass
+        if not self.closed:
+            self.atmt.stop()
+            self.spa.close()
+            self.spb.close()
+            self.closed = True
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
@@ -478,6 +501,7 @@ class Automaton_metaclass(type):
         cls.timeout = {}
         cls.actions = {}
         cls.initial_states = []
+        cls.stop_states = []
         cls.ionames = []
         cls.iosupersockets = []
 
@@ -503,6 +527,8 @@ class Automaton_metaclass(type):
                 cls.timeout[s] = []
                 if m.atmt_initial:
                     cls.initial_states.append(m)
+                if m.atmt_stop:
+                    cls.stop_states.append(m)
             elif m.atmt_type in [ATMT.CONDITION, ATMT.RECV, ATMT.TIMEOUT, ATMT.IOEVENT]:  # noqa: E501
                 cls.actions[m.atmt_condname] = []
 
@@ -548,6 +574,8 @@ class Automaton_metaclass(type):
                 se += '\t"%s" [ style=filled, fillcolor=green, shape=octagon ];\n' % st.atmt_state  # noqa: E501
             elif st.atmt_error:
                 se += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st.atmt_state  # noqa: E501
+            elif st.atmt_stop:
+                se += '\t"%s" [ style=filled, fillcolor=orange, shape=box, root=true ];\n' % st.atmt_state  # noqa: E501
         s += se
 
         for st in six.itervalues(self.states):
@@ -586,6 +614,8 @@ class Automaton_metaclass(type):
 class Automaton(six.with_metaclass(Automaton_metaclass)):
     def parse_args(self, debug=0, store=1, **kargs):
         self.debug_level = debug
+        if debug:
+            conf.logLevel = logging.DEBUG
         self.socket_kargs = kargs
         self.store_packets = store
 
@@ -694,7 +724,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     # Services
     def debug(self, lvl, msg):
         if self.debug_level >= lvl:
-            log_interactive.debug(msg)
+            log_runtime.debug(msg)
 
     def send(self, pkt):
         if self.state.state in self.interception_points:
@@ -725,6 +755,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         external_fd = kargs.pop("external_fd", {})
         self.send_sock_class = kargs.pop("ll", conf.L3socket)
         self.recv_sock_class = kargs.pop("recvsock", conf.L2listen)
+        self.is_atmt_socket = kargs.pop("is_atmt_socket", False)
         self.started = threading.Lock()
         self.threadid = None
         self.breakpointed = None
@@ -794,7 +825,12 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     def _do_start(self, *args, **kargs):
         ready = threading.Event()
-        _t = threading.Thread(target=self._do_control, args=(ready,) + (args), kwargs=kargs)  # noqa: E501
+        _t = threading.Thread(
+            target=self._do_control,
+            args=(ready,) + (args),
+            kwargs=kargs,
+            name="scapy.automaton _do_start"
+        )
         _t.setDaemon(True)
         _t.start()
         ready.wait()
@@ -831,6 +867,14 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     elif c.type == _ATMT_Command.FREEZE:
                         continue
                     elif c.type == _ATMT_Command.STOP:
+                        if self.stop_states:
+                            # There is a stop state
+                            self.state = self.stop_states[0](self)
+                            iterator = self._do_iter()
+                        else:
+                            # Act as FORCESTOP
+                            break
+                    elif c.type == _ATMT_Command.FORCESTOP:
                         break
                     while True:
                         state = next(iterator)
@@ -880,16 +924,20 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 elif not isinstance(state_output, list):
                     state_output = state_output,
 
-                # Then check immediate conditions
-                for cond in self.conditions[self.state.state]:
-                    self._run_condition(cond, *state_output)
+                # If there are commandMessage, we should skip immediate
+                # conditions.
+                if not select_objects([self.cmdin], 0):
+                    # Then check immediate conditions
+                    for cond in self.conditions[self.state.state]:
+                        self._run_condition(cond, *state_output)
 
-                # If still there and no conditions left, we are stuck!
-                if (len(self.recv_conditions[self.state.state]) == 0 and
-                    len(self.ioevents[self.state.state]) == 0 and
-                        len(self.timeout[self.state.state]) == 1):
-                    raise self.Stuck("stuck in [%s]" % self.state.state,
-                                     state=self.state.state, result=state_output)  # noqa: E501
+                    # If still there and no conditions left, we are stuck!
+                    if (len(self.recv_conditions[self.state.state]) == 0 and
+                        len(self.ioevents[self.state.state]) == 0 and
+                            len(self.timeout[self.state.state]) == 1):
+                        raise self.Stuck("stuck in [%s]" % self.state.state,
+                                         state=self.state.state,
+                                         result=state_output)
 
                 # Finally listen and pay attention to timeouts
                 expirations = iter(self.timeout[self.state.state])
@@ -920,18 +968,14 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                         if fd == self.cmdin:
                             yield self.CommandMessage("Received command message")  # noqa: E501
                         elif fd == self.listen_sock:
-                            try:
-                                pkt = self.listen_sock.recv(MTU)
-                            except recv_error:
-                                pass
-                            else:
-                                if pkt is not None:
-                                    if self.master_filter(pkt):
-                                        self.debug(3, "RECVD: %s" % pkt.summary())  # noqa: E501
-                                        for rcvcond in self.recv_conditions[self.state.state]:  # noqa: E501
-                                            self._run_condition(rcvcond, pkt, *state_output)  # noqa: E501
-                                    else:
-                                        self.debug(4, "FILTR: %s" % pkt.summary())  # noqa: E501
+                            pkt = self.listen_sock.recv(MTU)
+                            if pkt is not None:
+                                if self.master_filter(pkt):
+                                    self.debug(3, "RECVD: %s" % pkt.summary())  # noqa: E501
+                                    for rcvcond in self.recv_conditions[self.state.state]:  # noqa: E501
+                                        self._run_condition(rcvcond, pkt, *state_output)  # noqa: E501
+                                else:
+                                    self.debug(4, "FILTR: %s" % pkt.summary())  # noqa: E501
                         else:
                             self.debug(3, "IOEVENT on %s" % fd.ioname)
                             for ioevt in self.ioevents[self.state.state]:
@@ -942,6 +986,12 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 self.debug(2, "switching from [%s] to [%s]" % (self.state.state, state_req.state))  # noqa: E501
                 self.state = state_req
                 yield state_req
+
+    def __repr__(self):
+        return "<Automaton %s [%s]>" % (
+            self.__class__.__name__,
+            ["HALTED", "RUNNING"][self.started.locked()]
+        )
 
     # Public API
     def add_interception_points(self, *ipts):
@@ -1000,8 +1050,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         return self.run(resume=Message(type=_ATMT_Command.NEXT))
     __next__ = next
 
-    def stop(self):
-        self.cmdin.send(Message(type=_ATMT_Command.STOP))
+    def _flush_inout(self):
         with self.started:
             # Flush command pipes
             while True:
@@ -1010,6 +1059,14 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     break
                 for fd in r:
                     fd.recv()
+
+    def stop(self):
+        self.cmdin.send(Message(type=_ATMT_Command.STOP))
+        self._flush_inout()
+
+    def forcestop(self):
+        self.cmdin.send(Message(type=_ATMT_Command.FORCESTOP))
+        self._flush_inout()
 
     def restart(self, *args, **kargs):
         self.stop()

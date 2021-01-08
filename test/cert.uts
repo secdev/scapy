@@ -69,9 +69,9 @@ z.pubkey.public_numbers().x == 1047486561747694969523700054215665182527042630001
 
 = PubKeyRSA class : Generate without modulus
 t = PubKeyRSA()
-t.fill_and_store(modulus=None, pubExp=32769, modulusLen=1024)
+t.fill_and_store(modulus=None, pubExp=65537, modulusLen=1024)
 assert t.pubkey.key_size == 1024
-assert t.pubkey.public_numbers().e == 32769
+assert t.pubkey.public_numbers().e == 65537
 
 ########### PrivKey class ###############################################
 
@@ -383,6 +383,22 @@ Validity: Aug 01 12:00:00 2013 GMT to Jan 15 12:00:00 2038 GMT
 with ContextManagerCaptureOutput() as cmco:
     y.show()
     assert cmco.get_output().strip() == awaited.strip()
+
+= Cert: Check split_pem on chained certs with missing end \n
+from scapy.layers.tls.cert import split_pem
+ks = split_pem(b"""
+-----BEGIN EC PRIVATE KEY-----
+MHQCAQEEIMiRlFoy6046m1NXu911ukXyjDLVgmOXWCKWdQMd8gCRoAcGBSuBBAAK
+oUQDQgAE55WjbZjS/88K1kYagsO9wtKifw0IKLp4Jd5qtmDF2Zu+xrwrBRT0HBnP
+weDU+RsFxcyU/QxD9WYORzYarqxbcA==
+-----END EC PRIVATE KEY-----
+-----BEGIN EC PRIVATE KEY-----
+MHQCAQEEIMiRlFoy6046m1NXu911ukXyjDLVgmOXWCKWdQMd8gCRoAcGBSuBBAAK
+oUQDQgAE55WjbZjS/88K1kYagsO9wtKifw0IKLp4Jd5qtmDF2Zu+xrwrBRT0HBnP
+weDU+RsFxcyU/QxD9WYORzYarqxbcA==
+-----END EC PRIVATE KEY-----""")
+assert ks[0][:-1] == ks[1]
+
 
 ########### CRL class ###############################################
 

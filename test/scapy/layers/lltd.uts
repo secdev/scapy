@@ -1,0 +1,61 @@
+% LLTD regression tests for Scapy
+
+############
+############
++ LLTD protocol
+
+= Simple packet dissection
+pkt = Ether(b'\xff\xff\xff\xff\xff\xff\x86\x14\xf0\xc7[.\x88\xd9\x01\x00\x00\x01\xff\xff\xff\xff\xff\xff\x86\x14\xf0\xc7[.\x00\x00\xfe\xe9[\xa9\xaf\xc1\x0bS[\xa9\xaf\xc1\x0bS\x01\x06}[G\x8f\xec.\x02\x04p\x00\x00\x00\x03\x04\x00\x00\x00\x06\x07\x04\xac\x19\x88\xe4\t\x02\x00l\n\x08\x00\x00\x00\x00\x00\x0fB@\x0c\x04\x00\x08=`\x0e\x00\x0f\x0eT\x00E\x00S\x00T\x00-\x00A\x00P\x00\x12\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x04\x00\x00\x00\x00\x15\x01\x02\x18\x00\x19\x02\x04\x00\x1a\x00\x00')
+assert pkt.dst == pkt.real_dst
+assert pkt.src == pkt.real_src
+assert pkt.current_mapper_address == pkt.apparent_mapper_address
+assert pkt.mac == '7d:5b:47:8f:ec:2e'
+assert pkt.hostname == "TEST-AP"
+assert isinstance(pkt[LLTDAttributeEOP].payload, NoPayload)
+
+= Packet build / dissection
+pkt = Ether(raw(Ether(dst=ETHER_BROADCAST, src=RandMAC()) / LLTD(tos=0, function=0)))
+assert LLTD in pkt
+assert pkt.dst == pkt.real_dst
+assert pkt.src == pkt.real_src
+assert pkt.tos == 0
+assert pkt.function == 0
+
+= Attribute build / dissection
+assert isinstance(LLTDAttribute(), LLTDAttribute)
+assert isinstance(LLTDAttribute(raw(LLTDAttribute())), LLTDAttribute)
+assert all(isinstance(LLTDAttribute(type=i), LLTDAttribute) for i in six.moves.range(256))
+assert all(isinstance(LLTDAttribute(raw(LLTDAttribute(type=i))), LLTDAttribute) for i in six.moves.range(256))
+
+= Large TLV
+m1, m2, seq = RandMAC()._fix(), RandMAC()._fix(), 123
+preqbase = Ether(src=m1, dst=m2) / LLTD() / \
+           LLTDQueryLargeTlv(type="Detailed Icon Image")
+prespbase = Ether(src=m2, dst=m1) / LLTD() / \
+            LLTDQueryLargeTlvResp()
+plist = []
+pkt = preqbase.copy()
+pkt.seq = seq
+plist.append(Ether(raw(pkt)))
+pkt = prespbase.copy()
+pkt.seq = seq
+pkt.flags = "M"
+pkt.value = "abcd"
+plist.append(Ether(raw(pkt)))
+pkt = preqbase.copy()
+pkt.seq = seq + 1
+pkt.offset = 4
+plist.append(Ether(raw(pkt)))
+pkt = prespbase.copy()
+pkt.seq = seq + 1
+pkt.value = "efg"
+plist.append(Ether(raw(pkt)))
+builder = LargeTlvBuilder()
+builder.parse(plist)
+data = builder.get_data()
+assert len(data) == 1
+key, value = data.popitem()
+assert key.endswith(' [Detailed Icon Image]')
+assert value == 'abcdefg'
+
+

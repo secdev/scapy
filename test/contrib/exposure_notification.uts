@@ -1,0 +1,59 @@
+% Exposure Notification System tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('exposure_notification')" -t test/contrib/exposure_notification.uts
+
++ ENS tests
+
+= Setup
+
+def next_eir(p):
+   return EIR_Hdr(p[Padding].load)
+
+= Presence check
+
+Exposure_Notification_Frame
+
+= Raw payload copied from BluetoothExplorer.app
+
+d = hex_bytes('17df1d67405e3395470e62ca4fda6a9303687b31')
+p = Exposure_Notification_Frame(d)
+
+assert p.identifier == hex_bytes('17df1d67405e3395470e62ca4fda6a93')
+assert p.metadata == hex_bytes('03687b31')
+
+= Raw captured payload
+
+d = hex_bytes('02011a03036ffd17166ffde23f352fa09307a85d4194912443180d484dc151')
+p = EIR_Hdr(d)
+
+# First is a flags header
+assert EIR_Flags in p
+
+# Then the 16-bit Service Class ID
+p = next_eir(p)
+assert p[EIR_CompleteList16BitServiceUUIDs].svc_uuids == [
+    EXPOSURE_NOTIFICATION_UUID]
+
+# Then the ENS
+p = next_eir(p)
+assert p[EIR_ServiceData16BitUUID].svc_uuid == EXPOSURE_NOTIFICATION_UUID
+assert p[Exposure_Notification_Frame].identifier == hex_bytes(
+    'e23f352fa09307a85d4194912443180d')
+assert p[Exposure_Notification_Frame].metadata == hex_bytes('484dc151')
+
+# Rebuild the payload.
+p2 = p[Exposure_Notification_Frame].build_eir()
+
+# Our captured payload was from a mobile phone, but build_eir presumes that
+# we're broadcasting as an non-connectable, LE-only beacon. We need to adjust
+# these flags to match the captured packet.
+p2[0] = EIR_Hdr() / EIR_Flags(flags=[
+    'general_disc_mode', 'simul_le_br_edr_ctrl', 'simul_le_br_edr_host'])
+
+# Ensure we didn't mutate LowEnergyBeaconHelper.base_eir just then.
+assert LowEnergyBeaconHelper.base_eir[0][EIR_Flags].flags == [
+    'general_disc_mode', 'br_edr_not_supported']
+
+# Assemble all packet bytes
+assert b''.join(map(raw, p2)) == d

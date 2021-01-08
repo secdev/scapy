@@ -25,7 +25,7 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     XIntField, XShortField, PacketLenField
 from scapy.layers.l2 import Ether
 from scapy.packet import Packet, Padding, Raw
-from scapy.modules import six
+import scapy.modules.six as six
 
 from scapy.contrib.openflow import _ofp_header, _ofp_header_item, \
     OFPacketField, OpenFlow, _UnknownOpenFlow
@@ -2103,7 +2103,7 @@ class OFPTFlowMod(_ofp_header):
                    XShortField("pad", 0),
                    MatchField("match"),
                    PacketListField("instructions", [], OFPIT,
-                                              length_from=lambda pkt:pkt.len - 48 - (pkt.match.len + (8 - pkt.match.len % 8) % 8))]  # noqa: E501
+                                   length_from=lambda pkt:pkt.len - 48 - (pkt.match.len + (8 - pkt.match.len % 8) % 8))]  # noqa: E501
     # include match padding to match.len
 
 

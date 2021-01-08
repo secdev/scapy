@@ -1,0 +1,85 @@
+% Layer 2 regression tests for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ Layer 2 Unit Tests
+
+= Arping
+~ netaccess tcpdump
+* This test assumes the local network is a /24. This is bad.
+def _test():
+    ip_address = conf.route.route("0.0.0.0")[2]
+    ip_address
+    arping(ip_address+"/24")
+
+retry_test(_test)
+
+= Test ARPingResult output
+~ manufdb
+
+ar = ARPingResult([(None, Ether(src='70:ee:50:50:ee:70')/ARP(psrc='192.168.0.1'))])
+with ContextManagerCaptureOutput() as cmco:
+    ar.show()
+    result_ar = cmco.get_output()
+
+assert result_ar.startswith("  70:ee:50:50:ee:70 Netatmo 192.168.0.1")
+
+
+############
+############
++ STP tests
+
+= STP - Basic Instantiation
+assert raw(STP()) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00\x02\x00\x0f\x00'
+
+= STP - Basic Dissection
+
+s = STP(b'\x00\x00\x00\x00\x00\x00\x00\x12\x13\x14\x15\x16\x17\x00\x00\x00\x00\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x01\x00\x14\x00\x05\x00\x0f\x00')
+assert s.rootmac == "12:13:14:15:16:17"
+assert s.bridgemac == "aa:aa:aa:aa:aa:aa"
+assert s.hellotime == 5
+
+
+############
+############
++ ARP
+
+= Simple Ether() / ARP() show
+(Ether() / ARP()).show()
+
+= ARP for IPv4
+
+p = raw(ARP())
+assert p == raw(ARP(ptype=0x0800))
+p = ARP(p)
+assert p.ptype == 0x0800
+assert valid_ip(p.pdst)
+assert valid_ip(p.psrc)
+assert isinstance(p.payload, NoPayload)
+
+= ARP for IPv6
+
+p = ARP(raw(ARP(ptype=0x86dd)))
+assert p.ptype == 0x86dd
+assert valid_ip6(p.pdst)
+assert valid_ip6(p.psrc)
+assert isinstance(p.payload, NoPayload)
+
+= Dummy ARP
+
+p = ARP(raw(ARP(plen=2, hwlen=1, hwdst="x", hwsrc="y", pdst="aa", psrc="bb")))
+assert p.hwdst == b"x"
+assert p.hwsrc == b"y"
+assert p.pdst == b"aa"
+assert p.psrc == b"bb"
+assert isinstance(p.payload, NoPayload)
+
+p = ARP(raw(ARP(plen=1, hwlen=1)))
+assert p.hwdst == p.hwsrc == p.pdst == p.psrc == b"\x00"
+assert isinstance(p.payload, NoPayload)
+
+p = ARP(pdst='192.168.178.0/24')
+assert "Net" in repr(p)

@@ -22,7 +22,7 @@ from scapy.fields import BitField, BitEnumField, ByteField, ByteEnumField, \
     PadField
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
-from scapy.utils import issubtype, lhex
+from scapy.utils import lhex
 from scapy.compat import orb
 from scapy.config import conf
 import scapy.modules.six as six
@@ -206,22 +206,6 @@ class NTP(Packet):
             err += "({})).".format(_NTP_PACKET_MIN_SIZE)
             raise _NTPInvalidDataException(err)
         return s
-
-    # NTPHeader, NTPControl and NTPPrivate are NTP packets.
-    # This might help, for example when reading a pcap file.
-    def haslayer(self, cls):
-        """Specific: NTPHeader().haslayer(NTP) should return True."""
-        if cls == "NTP":
-            if isinstance(self, NTP):
-                return True
-        elif issubtype(cls, NTP):
-            if isinstance(self, cls):
-                return True
-        return super(NTP, self).haslayer(cls)
-
-    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
-        return super(NTP, self).getlayer(cls, nb=nb, _track=_track,
-                                         _subclass=True, **flt)
 
     def mysummary(self):
         return self.sprintf("NTP v%ir,NTP.version%, %NTP.mode%")
@@ -436,6 +420,7 @@ class NTPHeader(NTP):
     #
 
     name = "NTPHeader"
+    match_subclass = True
     fields_desc = [
         BitEnumField("leap", 0, 2, _leap_indicator),
         BitField("version", 4, 3),
@@ -467,10 +452,10 @@ class NTPHeader(NTP):
         """
         plen = len(payload)
 
-        if plen > _NTP_AUTH_MD5_TAIL_SIZE:
-            return NTPExtensions
-        elif plen == _NTP_AUTH_MD5_TAIL_SIZE:
+        if plen - 4 in [16, 20, 32, 64]:  # length of MD5, SHA1, SHA256, SHA512
             return NTPAuthenticator
+        elif plen > _NTP_AUTH_MD5_TAIL_SIZE:
+            return NTPExtensions
 
         return Packet.guess_payload_class(self, payload)
 
@@ -805,6 +790,7 @@ class NTPControl(NTP):
     #
 
     name = "Control message"
+    match_subclass = True
     fields_desc = [
         BitField("zeros", 0, 2),
         BitField("version", 2, 3),
@@ -1785,6 +1771,7 @@ class NTPPrivate(NTP):
     #
 
     name = "Private (mode 7)"
+    match_subclass = True
     fields_desc = [
         BitField("response", 0, 1),
         BitField("more", 0, 1),

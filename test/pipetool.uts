@@ -216,6 +216,14 @@ p.start()
 p.wait_and_stop()
 assert test_val == "hello"
 
+= Test PeriodicSource exhaustion
+
+s = PeriodicSource("", 1)
+s.msg = []
+p = PipeEngine(s)
+p.start()
+p.wait_and_stop()
+
 + Advanced ScapyPipes pipetools tests
 
 = Test SniffSource
@@ -224,10 +232,9 @@ import mock
 r, w = os.pipe()
 os.write(w, b"X")
 
-mocked_l2listen = mock.patch("scapy.config.conf.L2listen", return_value=Bunch(close=lambda *args: None, fileno=lambda: r, recv=lambda *args: Raw("data")))
-mocked_l2listen.start()
-
-try:
+@mock.patch("scapy.scapypipes.conf.L2listen")
+def _test(l2listen):
+    l2listen.return_value=Bunch(close=lambda *args: None, fileno=lambda: r, recv=lambda *args: Raw("data"))
     p = PipeEngine()
     s = SniffSource()
     assert s.s is None
@@ -236,11 +243,14 @@ try:
     s > d1 > c
     p.add(s)
     p.start()
-    assert c.q.get(2)
+    x = c.q.get(2)
+    assert bytes(x) == b"data"
     assert s.s is not None
     p.stop()
+
+try:
+    _test()
 finally:
-    mocked_l2listen.stop()
     os.close(r)
     os.close(w)
 
@@ -310,89 +320,68 @@ except:
     pass
 
 = Test WiresharkSink
+~ wiresharksink
 
-from io import BytesIO
+q = ObjectPipe()
+pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-f = BytesIO()
-pkt = Ether()/IP()/ICMP()
-
-with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
-    p = PipeEngine()
-    src = CLIFeeder()
+import mock
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink()
-    p.add(src > sink)
-    p.start()
-    src.send(pkt)
-    time.sleep(3)
-    # Prevent stop from closing the BytesIO
-    with mock.patch.object(f, 'close'):
-        p.stop()
+    sink.start()
+
+sink.push(pkt)
+
+q.recv()
+q.recv()
+assert raw(pkt) in q.recv()
 
 popen.assert_called_once_with(
-    [conf.prog.wireshark, '-ki', '-'], stdin=subprocess.PIPE, stdout=None,
+    [conf.prog.wireshark, '-Slki', '-'], stdin=subprocess.PIPE, stdout=None,
     stderr=None)
-bytes_hex(f.getvalue())
-bytes_hex(raw(pkt))
-assert raw(pkt) in f.getvalue()
 
 = Test WiresharkSink with linktype
+~ wiresharksink
 
-f = BytesIO()
-pkt = Ether()/IP()/ICMP()
 linktype = scapy.data.DLT_EN3MB
+q = ObjectPipe()
+pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
-    p = PipeEngine()
-    src = CLIFeeder()
+import mock
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink(linktype=linktype)
-    p.add(src > sink)
-    p.start()
-    src.send(pkt)
-    time.sleep(3)
-    # Prevent stop from closing the BytesIO
-    with mock.patch.object(f, 'close'):
-        p.stop()
+    sink.start()
 
-popen.assert_called_once_with(
-    [conf.prog.wireshark, '-ki', '-'],
-    stdin=subprocess.PIPE, stdout=None, stderr=None)
+sink.push(pkt)
 
-bytes_hex(f.getvalue())
-bytes_hex(raw(pkt))
-assert raw(pkt) in f.getvalue()
-
-# Check that the linktype was also correct
-f.seek(0) or None
-r = PcapReader(f)
-assert r.linktype == DLT_EN3MB
+chb(linktype) in q.recv()
+q.recv()
+assert raw(pkt) in q.recv()
 
 = Test WiresharkSink with args
+~ wiresharksink
 
-f = BytesIO()
-pkt = Ether()/IP()/ICMP()
+linktype = scapy.data.DLT_EN3MB
+q = ObjectPipe()
+pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
-with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
-    p = PipeEngine()
-    src = CLIFeeder()
+import mock
+with mock.patch("scapy.scapypipes.subprocess.Popen", return_value=Bunch(stdin=q)) as popen:
     sink = WiresharkSink(args=['-c', '1'])
-    p.add(src > sink)
-    p.start()
-    src.send(pkt)
-    time.sleep(3)
-    # Prevent stop from closing the BytesIO
-    with mock.patch.object(f, 'close'):
-        p.stop()
+    sink.start()
+
+sink.push(pkt)
 
 popen.assert_called_once_with(
-    [conf.prog.wireshark, '-ki', '-', '-c', '1'],
+    [conf.prog.wireshark, '-Slki', '-', '-c', '1'],
     stdin=subprocess.PIPE, stdout=None, stderr=None)
 
 = Test RdpcapSource and WrpcapSink
 
 dname = get_temp_dir()
 
-req = Ether()/IP()/ICMP()
-rpy = Ether()/IP(b'E\x00\x00\x1c\x00\x00\x00\x004\x01\x1d\x04\xd8:\xd0\x83\xc0\xa8\x00w\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+req = Ether(b'E\x00\x00\x1c\x00\x00\x00\x004\x01\x1d\x04\xd8:\xd0\x83\xc0\xa8\x00w\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+rpy = Ether(b'\x8c\xf8\x13C5P\xdcS`\xeb\x80H\x08\x00E\x00\x00\x1c\x00\x00\x00\x004\x01\x1d\x04\xd8:\xd0\x83\xc0\xa8\x00w\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 
 wrpcap(os.path.join(dname, "t.pcap"), [req, rpy])
 
@@ -690,13 +679,35 @@ s.push("data")
 s.deliver()
 assert c.q.get(timeout=1) == "hello"
 
+= UDPClientPipe and UDPServerPipe
+~ networking needs_root
+
+p = PipeEngine()
+
+s = CLIFeeder()
+srv = UDPServerPipe(name="srv", port=10000)
+cli = UDPClientPipe(name="cli", addr="127.0.0.1", port=10000)
+c = QueueSink(name="c")
+
+s > cli
+srv > c
+
+p.add(s, c)
+p.start()
+
+s.send(b"hello")
+p.start()
+assert c.recv() == b"hello"
+p.stop()
+srv.stop()
+
 = TCPConnectPipe networking test
 ~ networking needs_root
 
 p = PipeEngine()
 
 s = CLIFeeder()
-d1 = TCPConnectPipe(addr="www.secdev.org", port=80)
+d1 = TCPConnectPipe(addr="www.google.com", port=80)
 c = QueueSink()
 
 s > d1 > c
@@ -704,7 +715,8 @@ s > d1 > c
 p.add(s)
 p.start()
 
-s.send(b"GET / HTTP/1.1\nHost: www.secdev.org\n\n")
+from scapy.layers.http import HTTPRequest, HTTP
+s.send(bytes(HTTP()/HTTPRequest(Host="www.google.com")))
 result = c.q.get(timeout=10)
 p.stop()
 

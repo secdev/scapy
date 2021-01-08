@@ -18,8 +18,52 @@ from scapy.plist import PacketList
 from scapy.error import Scapy_Exception
 from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
+from scapy.config import conf
 
-__all__ = ["ECU", "ECUResponse", "ECUSession", "ECU_am"]
+__all__ = ["ECU_State", "ECU", "ECUResponse", "ECUSession", "ECU_am"]
+
+
+class ECU_State(object):
+    def __init__(self, session=1, tester_present=False, security_level=0,
+                 communication_control=0, **kwargs):
+        self.session = session
+        self.security_level = security_level
+        self.communication_control = communication_control
+        self._tp = tester_present
+        self.misc = kwargs
+
+    def reset(self):
+        self.session = 1
+        self.security_level = 0
+        self.communication_control = 0
+        self._tp = False
+        self.misc = dict()
+
+    @property
+    def tp(self):
+        return self._tp or self.session > 1
+
+    def __eq__(self, other):
+        return other.session == self.session and other.tp == self.tp and \
+            other.misc == self.misc and \
+            self.security_level == other.security_level
+
+    def __ne__(self, other):
+        return not other == self
+
+    def __lt__(self, other):
+        if self.session == other.session:
+            return len(self.misc) < len(other.misc)
+        return self.session < other.session
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def __repr__(self):
+        tps = "_TP" if self.tp else ""
+        sl = "_SL%d" % self.security_level if self.security_level else ""
+        ks = "_" + "_".join(self.misc.keys()) if len(self.misc) else ""
+        return "%d%s%s%s" % (self.session, tps, sl, ks)
 
 
 class ECU(object):
@@ -60,9 +104,9 @@ class ECU(object):
         :param store_supported_responses: Turn creation of supported responses
                                           on or off. Default is on.
         """
-        self.current_session = init_session or 1
-        self.current_security_level = init_security_level or 0
-        self.communication_control = init_communication_control or 0
+        self.state = ECU_State(
+            session=init_session or 1, security_level=init_security_level or 0,
+            communication_control=init_communication_control or 0)
         self.verbose = verbose
         self.logging = logging
         self.store_supported_responses = store_supported_responses
@@ -70,10 +114,32 @@ class ECU(object):
         self._supported_responses = list()
         self._unanswered_packets = PacketList()
 
+    @property
+    def current_session(self):
+        return self.state.session
+
+    @current_session.setter
+    def current_session(self, ses):
+        self.state.session = ses
+
+    @property
+    def current_security_level(self):
+        return self.state.security_level
+
+    @current_security_level.setter
+    def current_security_level(self, sec):
+        self.state.security_level = sec
+
+    @property
+    def communication_control(self):
+        return self.state.communication_control
+
+    @communication_control.setter
+    def communication_control(self, cc):
+        self.state.communication_control = cc
+
     def reset(self):
-        self.current_session = 1
-        self.current_security_level = 0
-        self.communication_control = 0
+        self.state.reset()
 
     def update(self, p):
         if isinstance(p, PacketList):
@@ -94,15 +160,15 @@ class ECU(object):
         self._update_internal_state(pkt)
 
     def _update_log(self, pkt):
-        for l in pkt.layers():
-            if hasattr(l, "get_log"):
-                log_key, log_value = l.get_log(pkt)
+        for layer in pkt.layers():
+            if hasattr(layer, "get_log"):
+                log_key, log_value = layer.get_log(pkt)
                 self.log[log_key].append((pkt.time, log_value))
 
     def _update_internal_state(self, pkt):
-        for l in pkt.layers():
-            if hasattr(l, "modifies_ecu_state"):
-                l.modifies_ecu_state(pkt, self)
+        for layer in pkt.layers():
+            if hasattr(layer, "modifies_ecu_state"):
+                layer.modifies_ecu_state(pkt, self)
 
     def _update_supported_responses(self, pkt):
         self._unanswered_packets += PacketList([pkt])
@@ -262,6 +328,9 @@ class ECUResponse:
     __hash__ = None
 
 
+conf.contribs['ECU_am'] = {'send_delay': 0}
+
+
 class ECU_am(AnsweringMachine):
     """AnsweringMachine which emulates the basic behaviour of a real world ECU.
     Provide a list of ``ECUResponse`` objects to configure the behaviour of this
@@ -328,9 +397,9 @@ class ECU_am(AnsweringMachine):
                     continue
 
                 for r in resp.responses:
-                    for l in r.layers():
-                        if hasattr(l, "modifies_ecu_state"):
-                            l.modifies_ecu_state(r, self.ecu_state)
+                    for layer in r.layers():
+                        if hasattr(layer, "modifies_ecu_state"):
+                            layer.modifies_ecu_state(r, self.ecu_state)
 
                 return resp.responses
 
@@ -338,6 +407,7 @@ class ECU_am(AnsweringMachine):
 
     def send_reply(self, reply):
         for p in reply:
+            time.sleep(conf.contribs['ECU_am']['send_delay'])
             if len(reply) > 1:
                 time.sleep(random.uniform(0.01, 0.5))
             self.main_socket.send(p)

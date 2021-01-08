@@ -139,8 +139,11 @@ class MACsecSA(object):
     # encap(), it is
     def decap(self, orig_pkt):
         """decapsulate a MACsec frame"""
-        if orig_pkt.name != Ether().name or orig_pkt.payload.name != MACsec().name:  # noqa: E501
-            raise TypeError('cannot decapsulate MACsec packet, must be Ethernet/MACsec')  # noqa: E501
+        if not isinstance(orig_pkt, Ether) or \
+                not isinstance(orig_pkt.payload, MACsec):
+            raise TypeError(
+                'cannot decapsulate MACsec packet, must be Ethernet/MACsec'
+            )
         packet = copy.deepcopy(orig_pkt)
         prev_layer = packet[MACsec].underlayer
         prev_layer.type = packet[MACsec].type
@@ -210,19 +213,35 @@ class MACsecSA(object):
 class MACsec(Packet):
     """representation of one MACsec frame"""
     name = '802.1AE'
-    fields_desc = [BitField('Ver', 0, 1),
-                   BitField('ES', 0, 1),
-                   BitField('SC', 0, 1),
-                   BitField('SCB', 0, 1),
-                   BitField('E', 0, 1),
-                   BitField('C', 0, 1),
-                   BitField('an', 0, 2),
-                   BitField('reserved', 0, 2),
-                   BitField('shortlen', 0, 6),
-                   IntField("pn", 1),
-                   ConditionalField(PacketField("sci", None, MACsecSCI), lambda pkt: pkt.SC),  # noqa: E501
-                   ConditionalField(XShortEnumField("type", None, ETHER_TYPES),
-                                    lambda pkt: pkt.type is not None)]
+    deprecated_fields = {
+        'an': ("AN", "2.4.4"),
+        'pn': ("PN", "2.4.4"),
+        'sci': ("SCI", "2.4.4"),
+        'shortlen': ("SL", "2.4.4"),
+    }
+    # 802.1AE-2018 - Section 9
+    fields_desc = [
+        # 802.1AE-2018 - Section 9.5
+        BitField('Ver', 0, 1),
+        BitField('ES', 0, 1),  # End Station
+        BitField('SC', 0, 1),  # Secure Channel
+        BitField('SCB', 0, 1),  # Single Copy Broadcast
+        BitField('E', 0, 1),  # Encryption
+        BitField('C', 0, 1),  # Changed Text
+        BitField('AN', 0, 2),  # Association Number
+        # 802.1AE-2018 - Section 9.7
+        BitField('reserved', 0, 2),
+        BitField('SL', 0, 6),  # Short Length
+        # 802.1AE-2018 - Section 9.8
+        IntField("PN", 1),  # Packet Number
+        # 802.1AE-2018 - Section 9.9
+        ConditionalField(
+            PacketField("SCI", None, MACsecSCI),
+            lambda pkt: pkt.SC
+        ),
+        # Off-spec. Used for conveniency (only present if passed manually)
+        ConditionalField(XShortEnumField("type", None, ETHER_TYPES),
+                         lambda pkt: "type" in pkt.fields)]
 
     def mysummary(self):
         summary = self.sprintf("an=%MACsec.an%, pn=%MACsec.pn%")

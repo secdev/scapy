@@ -13,7 +13,7 @@ from threading import Lock, Thread
 
 from scapy.automaton import Message, select_objects, SelectableObject
 from scapy.consts import WINDOWS
-from scapy.error import log_interactive, warning
+from scapy.error import log_runtime, warning
 from scapy.config import conf
 from scapy.utils import get_temp_file, do_graph
 
@@ -89,11 +89,11 @@ class PipeEngine(SelectableObject):
             self.active_sinks.add(pipe)
 
     def get_pipe_list(self, pipe):
-        def flatten(p, l):
-            l.add(p)
+        def flatten(p, li):
+            li.add(p)
             for q in p.sources | p.sinks | p.high_sources | p.high_sinks:
-                if q not in l:
-                    flatten(q, l)
+                if q not in li:
+                    flatten(q, li)
         pl = set()
         flatten(pipe, pl)
         return pl
@@ -108,7 +108,7 @@ class PipeEngine(SelectableObject):
         return pl
 
     def run(self):
-        log_interactive.info("Pipe engine thread started.")
+        log_runtime.debug("Pipe engine thread started.")
         try:
             for p in self.active_pipes:
                 p.start()
@@ -131,12 +131,14 @@ class PipeEngine(SelectableObject):
                             sources = self.active_sources - exhausted
                             sources.add(self)
                         else:
-                            warning("Unknown internal pipe engine command: %r. Ignoring." % cmd)  # noqa: E501
+                            warning("Unknown internal pipe engine command: %r."
+                                    " Ignoring.", cmd)
                     elif fd in sources:
                         try:
                             fd.deliver()
                         except Exception as e:
-                            log_interactive.exception("piping from %s failed: %s" % (fd.name, e))  # noqa: E501
+                            log_runtime.exception("piping from %s failed: %s",
+                                                  fd.name, e)
                         else:
                             if fd.exhausted():
                                 exhausted.add(fd)
@@ -149,16 +151,16 @@ class PipeEngine(SelectableObject):
                     p.stop()
             finally:
                 self.thread_lock.release()
-                log_interactive.info("Pipe engine thread stopped.")
+                log_runtime.debug("Pipe engine thread stopped.")
 
     def start(self):
         if self.thread_lock.acquire(0):
-            _t = Thread(target=self.run)
+            _t = Thread(target=self.run, name="scapy.pipetool.PipeEngine")
             _t.setDaemon(True)
             _t.start()
             self.thread = _t
         else:
-            warning("Pipe engine already running")
+            log_runtime.debug("Pipe engine already running")
 
     def wait_and_stop(self):
         self.stop(_cmd="B")
@@ -174,7 +176,7 @@ class PipeEngine(SelectableObject):
                     except Exception:
                         pass
                 else:
-                    warning("Pipe engine thread not running")
+                    log_runtime.debug("Pipe engine thread not running")
         except KeyboardInterrupt:
             print("Interrupted by user.")
 
@@ -379,10 +381,34 @@ class Drain(Pipe):
 
 
 class Sink(Pipe):
+    """
+    Does nothing; interface to extend for custom sinks.
+
+    All sinks have the following constructor parameters:
+
+    :param name: a human-readable name for the element
+    :type name: str
+    """
     def push(self, msg):
+        """
+        Called by :py:class:`PipeEngine` when there is a new message for the
+        low entry.
+
+        :param msg: The message data
+        :returns: None
+        :rtype: None
+        """
         pass
 
     def high_push(self, msg):
+        """
+        Called by :py:class:`PipeEngine` when there is a new message for the
+        high entry.
+
+        :param msg: The message data
+        :returns: None
+        :rtype: None
+        """
         pass
 
     def start(self):
@@ -440,14 +466,15 @@ class ThreadGenSource(AutoSource):
 
     def start(self):
         self.RUN = True
-        Thread(target=self.generate).start()
+        Thread(target=self.generate,
+               name="scapy.pipetool.ThreadGenSource").start()
 
     def stop(self):
         self.RUN = False
 
 
 class ConsoleSink(Sink):
-    """Print messages on low and high entries:
+    """Print messages on low and high entries to ``stdout``
 
     .. code::
 
@@ -466,7 +493,7 @@ class ConsoleSink(Sink):
 
 
 class RawConsoleSink(Sink):
-    """Print messages on low and high entries, using os.write:
+    """Print messages on low and high entries, using os.write
 
     .. code::
 
@@ -475,6 +502,10 @@ class RawConsoleSink(Sink):
          | write |
        >-|--'    |->
          +-------+
+
+    :param newlines: Include a new-line character after printing each packet.
+                     Defaults to True.
+    :type newlines: bool
     """
 
     def __init__(self, name=None, newlines=True):
@@ -562,7 +593,9 @@ class PeriodicSource(ThreadGenSource):
 
 
 class TermSink(Sink):
-    """Print messages on low and high entries on a separate terminal:
+    """
+    Prints messages on the low and high entries, on a separate terminal (xterm
+    or cmd).
 
     .. code::
 
@@ -571,9 +604,21 @@ class TermSink(Sink):
          | print |
        >-|--'    |->
          +-------+
+
+    :param keepterm: Leave the terminal window open after :py:meth:`~Pipe.stop`
+                     is called. Defaults to True.
+    :type keepterm: bool
+    :param newlines: Include a new-line character after printing each packet.
+                     Defaults to True.
+    :type newlines: bool
+    :param openearly: Automatically starts the terminal when the constructor is
+                      called, rather than waiting for :py:meth:`~Pipe.start`.
+                      Defaults to True.
+    :type openearly: bool
     """
 
-    def __init__(self, name=None, keepterm=True, newlines=True, openearly=True):  # noqa: E501
+    def __init__(self, name=None, keepterm=True, newlines=True,
+                 openearly=True):
         Sink.__init__(self, name=name)
         self.keepterm = keepterm
         self.newlines = newlines
@@ -656,8 +701,10 @@ class TermSink(Sink):
 
 
 class QueueSink(Sink):
-    """Collect messages from high and low entries and queue them.
-    Messages are unqueued with the .recv() method:
+    """
+    Collects messages on the low and high entries into a :py:class:`Queue`.
+    Messages are dequeued with :py:meth:`recv`.
+    Both high and low entries share the same :py:class:`Queue`.
 
     .. code::
 
@@ -679,6 +726,20 @@ class QueueSink(Sink):
         self.q.put(msg)
 
     def recv(self, block=True, timeout=None):
+        """
+        Reads the next message from the queue.
+
+        If no message is available in the queue, returns None.
+
+        :param block: Blocks execution until a packet is available in the
+                      queue. Defaults to True.
+        :type block: bool
+        :param timeout: Controls how long to wait if ``block=True``. If None
+                        (the default), this method will wait forever. If a
+                        non-negative number, this is a number of seconds to
+                        wait before giving up (and returning None).
+        :type timeout: None, int or float
+        """
         try:
             return self.q.get(block=block, timeout=timeout)
         except six.moves.queue.Empty:

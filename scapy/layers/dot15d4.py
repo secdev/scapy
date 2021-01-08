@@ -4,7 +4,7 @@
 # Copyright (C) Ryan Speers <ryan@rmspeers.com> 2011-2012
 # Copyright (C) Roger Meyer <roger.meyer@csus.edu>: 2012-03-10 Added frames
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>: 2018
-# Intern at INRIA Grand Nancy Est
+# Copyright (C) 2020 Dimitrios-Georgios Akestoridis <akestoridis@cmu.edu>
 # This program is published under a GPLv2 license
 
 """
@@ -19,9 +19,24 @@ from scapy.config import conf
 
 from scapy.data import DLT_IEEE802_15_4_WITHFCS, DLT_IEEE802_15_4_NOFCS
 from scapy.packet import Packet, bind_layers
-from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    ConditionalField, Field, LELongField, PacketField, XByteField, \
-    XLEIntField, XLEShortField, FCSField, Emph
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    Emph,
+    FCSField,
+    Field,
+    FieldListField,
+    LELongField,
+    MultipleTypeField,
+    PacketField,
+    StrFixedLenField,
+    XByteField,
+    XLEIntField,
+    XLEShortField,
+)
 
 # Fields #
 
@@ -193,12 +208,14 @@ class Dot15d4AuxSecurityHeader(Packet):
         XLEIntField("sec_framecounter", 0x00000000),  # 4 octets
         # Key Identifier (variable length): identifies the key that is used for cryptographic protection  # noqa: E501
         # Key Source : length of sec_keyid_keysource varies btwn 0, 4, and 8 bytes depending on sec_sc_keyidmode  # noqa: E501
-        # 4 octets when sec_sc_keyidmode == 2
-        ConditionalField(XLEIntField("sec_keyid_keysource", 0x00000000),
-                         lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 2),
-        # 8 octets when sec_sc_keyidmode == 3
-        ConditionalField(LELongField("sec_keyid_keysource", 0x0000000000000000),  # noqa: E501
-                         lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 3),
+        MultipleTypeField([
+            # 4 octets when sec_sc_keyidmode == 2
+            (XLEIntField("sec_keyid_keysource", 0x00000000),
+                lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 2),
+            # 8 octets when sec_sc_keyidmode == 3
+            (LELongField("sec_keyid_keysource", 0x0000000000000000),
+                lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 3),
+        ], StrFixedLenField("sec_keyid_keysource", "", length=0)),
         # Key Index (1 octet): allows unique identification of different keys with the same originator  # noqa: E501
         ConditionalField(XByteField("sec_keyid_keyindex", 0xFF),
                          lambda pkt: pkt.getfieldval("sec_sc_keyidmode") != 0),
@@ -275,12 +292,17 @@ class Dot15d4Beacon(Packet):
 
         # Pending Address Fields:
         #  Pending Address Specification (1 byte)
-        BitField("pa_num_short", 0, 3),  # number of short addresses pending
         BitField("pa_reserved_1", 0, 1),
         BitField("pa_num_long", 0, 3),  # number of long addresses pending
         BitField("pa_reserved_2", 0, 1),
+        BitField("pa_num_short", 0, 3),  # number of short addresses pending
         #  Address List (var length)
-        # TODO add a FieldListField of the pending short addresses, followed by the pending long addresses, with max 7 addresses  # noqa: E501
+        FieldListField("pa_short_addresses", [],
+                       XLEShortField("", 0x0000),
+                       count_from=lambda pkt: pkt.pa_num_short),
+        FieldListField("pa_long_addresses", [],
+                       dot15d4AddressField("", 0, adjust=lambda pkt, x: 8),
+                       count_from=lambda pkt: pkt.pa_num_long),
         # TODO beacon payload
     ]
 
@@ -348,12 +370,23 @@ class Dot15d4CmdCoordRealign(Packet):
         ByteField("channel", 0),
         # Short Address (2 octets)
         XLEShortField("dev_address", 0xFFFF),
-        # Channel page (0/1 octet) TODO optional
-        # ByteField("channel_page", 0),
     ]
 
     def mysummary(self):
         return self.sprintf("802.15.4 Coordinator Realign Payload ( PAN ID: %Dot15dCmdCoordRealign.pan_id% : channel %Dot15d4CmdCoordRealign.channel% )")  # noqa: E501
+
+    def guess_payload_class(self, payload):
+        if len(payload) == 1:
+            return Dot15d4CmdCoordRealignPage
+        else:
+            return Packet.guess_payload_class(self, payload)
+
+
+class Dot15d4CmdCoordRealignPage(Packet):
+    name = "802.15.4 Coordinator Realign Page"
+    fields_desc = [
+        ByteField("channel_page", 0),
+    ]
 
 
 # Utility Functions #

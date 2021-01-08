@@ -657,7 +657,7 @@ class TLS_Ext_PostHandshakeAuth(TLS_Ext_Unknown):                   # RFC 8446
 
 class TLS_Ext_SignatureAlgorithmsCert(TLS_Ext_Unknown):    # RFC 8446
     name = "TLS Extension - Signature Algorithms Cert"
-    fields_desc = [ShortEnumField("type", 0x31, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x32, _tls_ext),
                    ShortField("len", None),
                    SigAndHashAlgsLenField("sig_algs_len", None,
                                           length_of="sig_algs"),
@@ -760,7 +760,12 @@ class _ExtensionsLenField(FieldLenField):
 
                 i = self.adjust(pkt, f)
                 if i == 0:  # for correct build if no ext and not explicitly 0
-                    return s
+                    v = pkt.tls_session.tls_version
+                    # With TLS 1.3, zero lengths are always explicit.
+                    if v is None or v < 0x0304:
+                        return s
+                    else:
+                        return s + struct.pack(self.fmt, i)
         return s + struct.pack(self.fmt, i)
 
 
@@ -774,8 +779,8 @@ class _ExtensionsField(StrLenField):
         return len(self.i2m(pkt, i))
 
     def getfield(self, pkt, s):
-        tmp_len = self.length_from(pkt)
-        if tmp_len is None:
+        tmp_len = self.length_from(pkt) or 0
+        if tmp_len <= 0:
             return s, []
         return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 

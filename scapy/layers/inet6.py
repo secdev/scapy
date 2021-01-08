@@ -37,10 +37,9 @@ from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.base_classes import Gen
 from scapy.compat import chb, orb, raw, plain_str, bytes_encode
 from scapy.config import conf
-import scapy.consts
 from scapy.data import DLT_IPV6, DLT_RAW, DLT_RAW_ALT, ETHER_ANY, ETH_P_IPV6, \
     MTU
-from scapy.error import warning
+from scapy.error import log_runtime, warning
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     DestIP6Field, FieldLenField, FlagsField, IntField, IP6Field, \
     LongField, MACField, PacketLenField, PacketListField, ShortEnumField, \
@@ -71,7 +70,7 @@ if not hasattr(socket, "IPPROTO_IPIP"):
 
 if conf.route6 is None:
     # unused import, only to initialize conf.route6
-    import scapy.route6
+    import scapy.route6  # noqa: F401
 
 ##########################
 #  Neighbor cache stuff  #
@@ -126,7 +125,7 @@ def getmacbyip6(ip6, chainCC=0):
 
     iff, a, nh = conf.route6.route(ip6)
 
-    if iff == scapy.consts.LOOPBACK_INTERFACE:
+    if iff == conf.loopback_name:
         return "ff:ff:ff:ff:ff:ff"
 
     if nh != '::':
@@ -270,7 +269,7 @@ class _IPv6GuessPayload:
 class IPv6(_IPv6GuessPayload, Packet, IPTools):
     name = "IPv6"
     fields_desc = [BitField("version", 6, 4),
-                   BitField("tc", 0, 8),  # TODO: IPv6, ByteField ?
+                   BitField("tc", 0, 8),
                    BitField("fl", 0, 20),
                    ShortField("plen", None),
                    ByteEnumField("nh", 59, ipv6nh),
@@ -318,7 +317,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 idx += 1
 
             if jumbo_len is None:
-                warning("Scapy did not find a Jumbo option")
+                log_runtime.info("Scapy did not find a Jumbo option")
                 jumbo_len = 0
 
             tmp_len = hbh_len + jumbo_len
@@ -443,7 +442,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             return self.payload.answers(other.payload)
 
 
-class _IPv46(IP):
+class IPv46(IP):
     """
     This class implements a dispatcher that is used to detect the IP version
     while parsing Raw IP pcap files.
@@ -677,8 +676,8 @@ class HBHOptUnknown(Packet):  # IPv6 Hop-By-Hop Option
         """
         As specified in section 4.2 of RFC 2460, every options has
         an alignment requirement usually expressed xn+y, meaning
-        the Option Type must appear at an integer multiple of x octest
-        from the start of the header, plus y octet.
+        the Option Type must appear at an integer multiple of x octets
+        from the start of the header, plus y octets.
 
         That function is provided the current position from the
         start of the header and returns required padding length.
@@ -859,7 +858,7 @@ class IPv6ExtHdrHopByHop(_IPv6ExtHdr):
                                  adjust=lambda pkt, x: (x + 2 + 7) // 8 - 1),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], HBHOptUnknown, 2,
-                                         length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]  # noqa: E501
+                                 length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]  # noqa: E501
     overload_fields = {IPv6: {"nh": 0}}
 
 
@@ -872,7 +871,7 @@ class IPv6ExtHdrDestOpt(_IPv6ExtHdr):
                                  adjust=lambda pkt, x: (x + 2 + 7) // 8 - 1),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], HBHOptUnknown, 2,
-                                         length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]  # noqa: E501
+                                 length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]  # noqa: E501
     overload_fields = {IPv6: {"nh": 60}}
 
 
@@ -1023,6 +1022,12 @@ class IPv6ExtHdrFragment(_IPv6ExtHdr):
                    IntField("id", None)]
     overload_fields = {IPv6: {"nh": 44}}
 
+    def guess_payload_class(self, p):
+        if self.offset > 0:
+            return Raw
+        else:
+            return super(IPv6ExtHdrFragment, self).guess_payload_class(p)
+
 
 def defragment6(packets):
     """
@@ -1066,7 +1071,7 @@ def defragment6(packets):
         fragmentable += raw(q.payload)
 
     # Regenerate the unfragmentable part.
-    q = res[0]
+    q = res[0].copy()
     nh = q[IPv6ExtHdrFragment].nh
     q[IPv6ExtHdrFragment].underlayer.nh = nh
     q[IPv6ExtHdrFragment].underlayer.plen = len(fragmentable)
@@ -1074,26 +1079,40 @@ def defragment6(packets):
     q /= conf.raw_layer(load=fragmentable)
     del(q.plen)
 
-    return IPv6(raw(q))
+    if q[IPv6].underlayer:
+        q[IPv6] = IPv6(raw(q[IPv6]))
+    else:
+        q = IPv6(raw(q))
+    return q
 
 
 def fragment6(pkt, fragSize):
     """
-    Performs fragmentation of an IPv6 packet. Provided packet ('pkt') must
-    already contain an IPv6ExtHdrFragment() class. 'fragSize' argument is the
-    expected maximum size of fragments (MTU). The list of packets is returned.
+    Performs fragmentation of an IPv6 packet. 'fragSize' argument is the
+    expected maximum size of fragment data (MTU). The list of packets is
+    returned.
 
-    If packet does not contain an IPv6ExtHdrFragment class, it is returned in
-    result list.
+    If packet does not contain an IPv6ExtHdrFragment class, it is added to
+    first IPv6 layer found. If no IPv6 layer exists packet is returned in
+    result list unmodified.
     """
 
     pkt = pkt.copy()
 
     if IPv6ExtHdrFragment not in pkt:
-        # TODO : automatically add a fragment before upper Layer
-        #        at the moment, we do nothing and return initial packet
-        #        as single element of a list
-        return [pkt]
+        if IPv6 not in pkt:
+            return [pkt]
+
+        layer3 = pkt[IPv6]
+        data = layer3.payload
+        frag = IPv6ExtHdrFragment(nh=layer3.nh)
+
+        layer3.remove_payload()
+        del(layer3.nh)
+        del(layer3.plen)
+
+        frag.add_payload(data)
+        layer3.add_payload(frag)
 
     # If the payload is bigger than 65535, a Jumbo payload must be used, as
     # an IPv6 packet can't be bigger than 65535 bytes.
@@ -1203,6 +1222,8 @@ icmp6typescls = {1: "ICMPv6DestUnreach",
                  151: "ICMPv6MRD_Advertisement",
                  152: "ICMPv6MRD_Solicitation",
                  153: "ICMPv6MRD_Termination",
+                 # 154: Do Me - FMIPv6 Messages - RFC 5568
+                 155: "ICMPv6RPL",  # RFC 6550
                  }
 
 icmp6typesminhdrlen = {1: 8,
@@ -1230,7 +1251,8 @@ icmp6typesminhdrlen = {1: 8,
                        147: 8,
                        151: 8,
                        152: 4,
-                       153: 4
+                       153: 4,
+                       155: 4
                        }
 
 icmp6types = {1: "Destination unreachable",
@@ -1264,6 +1286,7 @@ icmp6types = {1: "Destination unreachable",
               151: "Multicast Router Advertisement",
               152: "Multicast Router Solicitation",
               153: "Multicast Router Termination",
+              155: "RPL Control Message",
               200: "Private Experimentation",
               201: "Private Experimentation"}
 
@@ -1677,7 +1700,7 @@ class ICMPv6NDOptPrefixInfo(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Prefix Information"
     fields_desc = [ByteField("type", 3),
                    ByteField("len", 4),
-                   ByteField("prefixlen", None),
+                   ByteField("prefixlen", 64),
                    BitField("L", 1, 1),
                    BitField("A", 1, 1),
                    BitField("R", 0, 1),
@@ -1925,9 +1948,9 @@ class DomainNameListField(StrLenField):
     islist = 1
     padded_unit = 8
 
-    def __init__(self, name, default, fld=None, length_from=None, padded=False):  # noqa: E501
+    def __init__(self, name, default, length_from=None, padded=False):  # noqa: E501
         self.padded = padded
-        StrLenField.__init__(self, name, default, fld, length_from)
+        StrLenField.__init__(self, name, default, length_from=length_from)
 
     def i2len(self, pkt, x):
         return len(self.i2m(pkt, x))
@@ -2603,6 +2626,32 @@ def _niquery_guesser(p):
 
 #############################################################################
 #############################################################################
+#     Routing Protocol for Low Power and Lossy Networks RPL (RFC 6550)      #
+#############################################################################
+#############################################################################
+
+# https://www.iana.org/assignments/rpl/rpl.xhtml#control-codes
+rplcodes = {0: "DIS",
+            1: "DIO",
+            2: "DAO",
+            3: "DAO-ACK",
+            # 4: "P2P-DRO",
+            # 5: "P2P-DRO-ACK",
+            # 6: "Measurement",
+            7: "DCO",
+            8: "DCO-ACK"}
+
+
+class ICMPv6RPL(_ICMPv6):   # RFC 6550
+    name = 'RPL'
+    fields_desc = [ByteEnumField("type", 155, icmp6types),
+                   ByteEnumField("code", 0, rplcodes),
+                   XShortField("cksum", None)]
+    overload_fields = {IPv6: {"nh": 58, "dst": "ff02::1a"}}
+
+
+#############################################################################
+#############################################################################
 #               Mobile IPv6 (RFC 3775) and Nemo (RFC 3963)                  #
 #############################################################################
 #############################################################################
@@ -3006,7 +3055,7 @@ class MIP6MH_BRR(_MobilityHeader):
                    ShortField("res2", None),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], MIP6OptUnknown, 8,
-                                   length_from=lambda pkt: 8 * pkt.len)]
+                                 length_from=lambda pkt: 8 * pkt.len)]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3027,7 +3076,7 @@ class MIP6MH_HoTI(_MobilityHeader):
                    StrFixedLenField("cookie", b"\x00" * 8, 8),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], MIP6OptUnknown, 16,
-                                 length_from=lambda pkt: 8 * (pkt.len - 1))]  # noqa: E501
+                                 length_from=lambda pkt: 8 * (pkt.len - 1))]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3054,7 +3103,7 @@ class MIP6MH_HoT(_MobilityHeader):
                    StrFixedLenField("token", b"\x00" * 8, 8),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], MIP6OptUnknown, 24,
-                                   length_from=lambda pkt: 8 * (pkt.len - 2))]  # noqa: E501
+                                 length_from=lambda pkt: 8 * (pkt.len - 2))]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3099,7 +3148,7 @@ class MIP6MH_BU(_MobilityHeader):
                    LifetimeField("mhtime", 3),  # unit == 4 seconds
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], MIP6OptUnknown, 12,
-                                   length_from=lambda pkt: 8 * pkt.len - 4)]  # noqa: E501
+                                 length_from=lambda pkt: 8 * pkt.len - 4)]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):  # Hack: see comment in MIP6MH_BRR.hashret()
@@ -3125,7 +3174,7 @@ class MIP6MH_BA(_MobilityHeader):
                    XShortField("mhtime", 0),  # unit == 4 seconds
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
                    _OptionsField("options", [], MIP6OptUnknown, 12,
-                                   length_from=lambda pkt: 8 * pkt.len - 4)]  # noqa: E501
+                                 length_from=lambda pkt: 8 * pkt.len - 4)]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):  # Hack: see comment in MIP6MH_BRR.hashret()
@@ -3158,7 +3207,7 @@ class MIP6MH_BE(_MobilityHeader):
                    ByteField("reserved", 0),
                    IP6Field("ha", "::"),
                    _OptionsField("options", [], MIP6OptUnknown, 24,
-                                  length_from=lambda pkt: 8 * (pkt.len - 2))]  # noqa: E501
+                                 length_from=lambda pkt: 8 * (pkt.len - 2))]
     overload_fields = {IPv6: {"nh": 135}}
 
 
@@ -3238,9 +3287,9 @@ class TracerouteResult6(TracerouteResult):
                 m = min(x for x, y in six.iteritems(k) if y[1])
             except ValueError:
                 continue
-            for l in list(k):  # use list(): k is modified in the loop
-                if l > m:
-                    del k[l]
+            for li in list(k):  # use list(): k is modified in the loop
+                if li > m:
+                    del k[li]
 
         return trace
 
@@ -3980,8 +4029,8 @@ _load_dict(ipv6nhcls)
 conf.l3types.register(ETH_P_IPV6, IPv6)
 conf.l2types.register(31, IPv6)
 conf.l2types.register(DLT_IPV6, IPv6)
-conf.l2types.register(DLT_RAW, _IPv46)
-conf.l2types.register_num2layer(DLT_RAW_ALT, _IPv46)
+conf.l2types.register(DLT_RAW, IPv46)
+conf.l2types.register_num2layer(DLT_RAW_ALT, IPv46)
 
 bind_layers(Ether, IPv6, type=0x86dd)
 bind_layers(CookedLinux, IPv6, proto=0x86dd)

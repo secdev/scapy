@@ -10,13 +10,25 @@ Global variables and functions for handling external data sets.
 import calendar
 import os
 import re
+import warnings
 
 
-from scapy.dadict import DADict
+from scapy.dadict import DADict, fixname
 from scapy.consts import FREEBSD, NETBSD, OPENBSD, WINDOWS
 from scapy.error import log_loading
 from scapy.compat import plain_str
 import scapy.modules.six as six
+
+from scapy.compat import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    cast,
+)
 
 
 ############
@@ -106,8 +118,12 @@ DLT_AX25_KISS = 202
 DLT_PPP_WITH_DIR = 204
 DLT_FC_2 = 224
 DLT_CAN_SOCKETCAN = 227
-DLT_IPV4 = 228
-DLT_IPV6 = 229
+if OPENBSD:
+    DLT_IPV4 = DLT_RAW
+    DLT_IPV6 = DLT_RAW
+else:
+    DLT_IPV4 = 228
+    DLT_IPV6 = 229
 DLT_IEEE802_15_4_NOFCS = 230
 DLT_USBPCAP = 249
 DLT_NETLINK = 253
@@ -272,12 +288,15 @@ IANA_ENTERPRISE_NUMBERS = {
 }
 
 
-def load_protocols(filename, _fallback=None, _integer_base=10):
+def load_protocols(filename, _fallback=None, _integer_base=10,
+                   _cls=DADict[int, str]):
+    # type: (str, Optional[bytes], int, type) -> DADict[int, str]
     """"Parse /etc/protocols and return values as a dictionary."""
     spaces = re.compile(b"[ \t]+|\n")
-    dct = DADict(_name=filename)
+    dct = _cls(_name=filename)  # type: DADict[int, str]
 
     def _process_data(fdesc):
+        # type: (Iterator[bytes]) -> None
         for line in fdesc:
             try:
                 shrp = line.find(b"#")
@@ -289,7 +308,7 @@ def load_protocols(filename, _fallback=None, _integer_base=10):
                 lt = tuple(re.split(spaces, line))
                 if len(lt) < 2 or not lt[0]:
                     continue
-                dct[lt[0]] = int(lt[1], _integer_base)
+                dct[int(lt[1], _integer_base)] = fixname(lt[0])
             except Exception as e:
                 log_loading.info(
                     "Couldn't parse file [%s]: line [%r] (%s)",
@@ -304,23 +323,53 @@ def load_protocols(filename, _fallback=None, _integer_base=10):
             _process_data(fdesc)
     except IOError:
         if _fallback:
-            _process_data(_fallback.split(b"\n"))
+            _process_data(iter(_fallback.split(b"\n")))
         else:
             log_loading.info("Can't open %s file", filename)
     return dct
 
 
+class EtherDA(DADict[int, str]):
+    # Backward compatibility: accept
+    # ETHER_TYPES["MY_GREAT_TYPE"] = 12
+    def __setitem__(self, attr, val):
+        # type: (int, str) -> None
+        if isinstance(attr, str):
+            attr, val = val, attr
+            warnings.warn(
+                "ETHER_TYPES now uses the integer value as key !",
+                DeprecationWarning
+            )
+        super(EtherDA, self).__setitem__(attr, val)
+
+    def __getitem__(self, attr):
+        # type: (int) -> Any
+        if isinstance(attr, str):
+            warnings.warn(
+                "Please use 'ETHER_TYPES.%s'" % attr,
+                DeprecationWarning
+            )
+            return super(EtherDA, self).__getattr__(attr)
+        return super(EtherDA, self).__getitem__(attr)
+
+
 def load_ethertypes(filename):
+    # type: (Optional[str]) -> EtherDA
     """"Parse /etc/ethertypes and return values as a dictionary.
     If unavailable, use the copy bundled with Scapy."""
     from scapy.libs.ethertypes import DATA
-    return load_protocols(filename, _fallback=DATA, _integer_base=16)
+    prot = load_protocols(filename or "Scapy's backup ETHER_TYPES",
+                          _fallback=DATA,
+                          _integer_base=16,
+                          _cls=EtherDA)
+    return cast(EtherDA, prot)
 
 
 def load_services(filename):
+    # type: (str) -> Tuple[DADict[int, str], DADict[int, str]]
     spaces = re.compile(b"[ \t]+|\n")
-    tdct = DADict(_name="%s-tcp" % filename)
-    udct = DADict(_name="%s-udp" % filename)
+    tdct = DADict(_name="%s-tcp" % filename)  # type: DADict[int, str]
+    udct = DADict(_name="%s-udp" % filename)  # type: DADict[int, str]
     try:
         with open(filename, "rb") as fdesc:
             for line in fdesc:
@@ -334,10 +383,21 @@ def load_services(filename):
                     lt = tuple(re.split(spaces, line))
                     if len(lt) < 2 or not lt[0]:
                         continue
+                    dtct = None
                     if lt[1].endswith(b"/tcp"):
-                        tdct[lt[0]] = int(lt[1].split(b'/')[0])
+                        dtct = tdct
                     elif lt[1].endswith(b"/udp"):
-                        udct[lt[0]] = int(lt[1].split(b'/')[0])
+                        dtct = udct
+                    else:
+                        continue
+                    port = lt[1].split(b'/')[0]
+                    name = fixname(lt[0])
+                    if b"-" in port:
+                        sport, eport = port.split(b"-")
+                        for i in range(int(sport), int(eport) + 1):
+                            dtct[i] = name
+                    else:
+                        dtct[int(port)] = name
                 except Exception as e:
                     log_loading.warning(
                         "Couldn't parse file [%s]: line [%r] (%s)",
@@ -350,35 +410,38 @@ def load_services(filename):
     return tdct, udct
 
 
-class ManufDA(DADict):
-    def fixname(self, val):
-        return plain_str(val)
-
-    def __dir__(self):
-        return ["lookup", "reverse_lookup"]
+class ManufDA(DADict[str, Tuple[str, str]]):
+    def ident(self, v):
+        # type: (Any) -> str
+        return fixname(v[0] if isinstance(v, tuple) else v)
 
     def _get_manuf_couple(self, mac):
+        # type: (str) -> Tuple[str, str]
         oui = ":".join(mac.split(":")[:3]).upper()
-        return self.__dict__.get(oui, (mac, mac))
+        return self.d.get(oui, (mac, mac))
 
     def _get_manuf(self, mac):
+        # type: (str) -> str
         return self._get_manuf_couple(mac)[1]
 
     def _get_short_manuf(self, mac):
+        # type: (str) -> str
         return self._get_manuf_couple(mac)[0]
 
     def _resolve_MAC(self, mac):
+        # type: (str) -> str
         oui = ":".join(mac.split(":")[:3]).upper()
         if oui in self:
             return ":".join([self[oui][0]] + mac.split(":")[3:])
         return mac
 
     def lookup(self, mac):
+        # type: (str) -> Tuple[str, str]
         """Find OUI name matching to a MAC"""
-        oui = ":".join(mac.split(":")[:3]).upper()
-        return self[oui]
+        return self._get_manuf_couple(mac)
 
     def reverse_lookup(self, name, case_sensitive=False):
+        # type: (str, bool) -> Dict[str, str]
         """
         Find all MACs registered to a OUI
 
@@ -387,15 +450,26 @@ class ManufDA(DADict):
         :returns: a dict of mac:tuples (Name, Extended Name)
         """
         if case_sensitive:
-            filtr = lambda x, l: any(x == z for z in l)
+            filtr = lambda x, l: any(x in z for z in l)  # type: Callable[[str, Tuple[str, str]], bool]  # noqa: E501
         else:
             name = name.lower()
-            filtr = lambda x, l: any(x == z.lower() for z in l)
-        return {k: v for k, v in six.iteritems(self.__dict__)
+            filtr = lambda x, l: any(x in z.lower() for z in l)
+        return {k: v for k, v in six.iteritems(self.d)
                 if filtr(name, v)}
+
+    def __dir__(self):
+        # type: () -> List[str]
+        return [
+            "_get_manuf",
+            "_get_short_manuf",
+            "_resolve_MAC",
+            "loopkup",
+            "reverse_lookup",
+        ] + super(ManufDA, self).__dir__()
 
 
 def load_manuf(filename):
+    # type: (str) -> ManufDA
     """
     Loads manuf file from Wireshark.
 
@@ -410,9 +484,10 @@ def load_manuf(filename):
                 if not line or line.startswith(b"#"):
                     continue
                 parts = line.split(None, 2)
-                oui, shrt = parts[:2]
-                lng = parts[2].lstrip(b"#").strip() if len(parts) > 2 else ""
+                ouib, shrt = parts[:2]
+                lng = parts[2].lstrip(b"#").strip() if len(parts) > 2 else b""
                 lng = lng or shrt
+                oui = plain_str(ouib)
                 manufdb[oui] = plain_str(shrt), plain_str(lng)
             except Exception:
                 log_loading.warning("Couldn't parse one line from [%s] [%r]",
@@ -421,11 +496,13 @@ def load_manuf(filename):
 
 
 def select_path(directories, filename):
+    # type: (List[str], str) -> Optional[str]
     """Find filename among several directories"""
     for directory in directories:
         path = os.path.join(directory, filename)
         if os.path.exists(path):
             return path
+    return None
 
 
 if WINDOWS:
@@ -457,13 +534,16 @@ else:
 
 class KnowledgeBase:
     def __init__(self, filename):
+        # type: (Optional[Any]) -> None
         self.filename = filename
-        self.base = None
+        self.base = None  # type: Optional[str]
 
     def lazy_init(self):
+        # type: () -> None
         self.base = ""
 
     def reload(self, filename=None):
+        # type: (Optional[Any]) -> None
         if filename is not None:
             self.filename = filename
         oldbase = self.base
@@ -473,6 +553,7 @@ class KnowledgeBase:
             self.base = oldbase
 
     def get_base(self):
+        # type: () -> str
         if self.base is None:
             self.lazy_init()
-        return self.base
+        return cast(str, self.base)

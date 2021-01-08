@@ -73,7 +73,7 @@ class DUMP_Reply(Packet):
     name = 'PORTMAP DUMP Reply'
     fields_desc = [
         IntField('value_follows', 0),
-        PacketListField('mappings', [], cls=Map_Entry,
+        PacketListField('mappings', [], Map_Entry,
                         next_cls_cb=lambda pkt, lst, cur, remain:
                         Map_Entry if pkt.value_follows == 1 and
                         (len(lst) == 0 or cur.value_follows == 1) and

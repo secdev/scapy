@@ -1,0 +1,76 @@
+% Regression tests for the HSFZ layer
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
+
++ HSFZ Contrib tests
+
+= Load Contrib Layer
+load_contrib("automotive.bmw.hsfz", globals_dict=globals())
+
+= Basic Test 1
+
+pkt = HSFZ(type=1, src=0xf4, dst=0x10)/Raw(b'\x11\x22\x33')
+assert bytes(pkt) == b'\x00\x00\x00\x05\x00\x01\xf4\x10\x11"3'
+
+= Basic Test 2
+
+pkt = HSFZ(type=1, src=0xf4, dst=0x10)/Raw(b'\x11\x22\x33\x11\x11\x11\x11\x11')
+assert bytes(pkt) == b'\x00\x00\x00\x0a\x00\x01\xf4\x10\x11"3\x11\x11\x11\x11\x11'
+
+= Basic Dissect Test
+
+pkt = HSFZ(b'\x00\x00\x00\x0a\x00\x01\xf4\x10\x11"3\x11\x11\x11\x11\x11')
+assert pkt.length == 10
+assert pkt.src == 0xf4
+assert pkt.dst == 0x10
+assert pkt.type == 1
+assert pkt[1].service == 17
+assert pkt[2].resetType == 34
+
+= Build Test
+
+pkt = HSFZ(src=0xf4, dst=0x10)/Raw(b"0" * 20)
+assert bytes(pkt) == b'\x00\x00\x00\x16\x00\x01\xf4\x10' + b"0" * 20
+
+= Dissect Test
+
+pkt = HSFZ(b'\x00\x00\x00\x18\x00\x01\xf4\x10\x67\x01' + b"0" * 20)
+assert pkt.length == 24
+assert pkt.src == 0xf4
+assert pkt.dst == 0x10
+assert pkt.type == 1
+assert pkt.securitySeed == b"0" * 20
+assert len(pkt[1]) == pkt.length - 2
+
+= Dissect Test with padding
+
+pkt = HSFZ(b'\x00\x00\x00\x18\x00\x01\xf4\x10\x67\x01' + b"0" * 20 + b"p" * 100)
+assert pkt.length == 24
+assert pkt.src == 0xf4
+assert pkt.dst == 0x10
+assert pkt.type == 1
+assert pkt.securitySeed == b"0" * 20
+assert pkt.load == b'p' * 100
+
+= Dissect Test to short packet
+
+pkt = HSFZ(b'\x00\x00\x00\x18\x00\x01\xf4\x10\x67\x01' + b"0" * 19)
+assert pkt.length == 24
+assert pkt.src == 0xf4
+assert pkt.dst == 0x10
+assert pkt.type == 1
+assert pkt.securitySeed == b"0" * 19
+
+= Dissect Test very long packet
+
+pkt = HSFZ(b'\x00\x0f\xff\x04\x00\x01\xf4\x10\x67\x01' + b"0" * 0xfff00)
+assert pkt.length == 0xfff04
+assert pkt.src == 0xf4
+assert pkt.dst == 0x10
+assert pkt.type == 1
+assert pkt.securitySeed == b"0" * 0xfff00
+

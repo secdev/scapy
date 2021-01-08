@@ -140,8 +140,12 @@ class LTP(Packet):
         #
         ConditionalField(SDNV2("CheckpointSerialNo", 0),
                          lambda x: x.flags in _ltp_checkpoint_segment),
+        #
+        # For segments that are checkpoints or reception reports.
+        #
         ConditionalField(SDNV2("ReportSerialNo", 0),
-                         lambda x: x.flags in _ltp_checkpoint_segment),
+                         lambda x: x.flags in _ltp_checkpoint_segment \
+                         or x.flags == 8),
         #
         # Then comes the actual payload for data carrying segments.
         #
@@ -154,10 +158,9 @@ class LTP(Packet):
         ConditionalField(SDNV2("RA_ReportSerialNo", 0),
                          lambda x: x.flags == 9),
         #
-        # Reception reports have the following fields.
+        # Reception reports have the following fields,
+        # excluding ReportSerialNo defined above.
         #
-        ConditionalField(SDNV2("ReportSerialNo", 0),
-                         lambda x: x.flags == 8),
         ConditionalField(SDNV2("ReportCheckpointSerialNo", 0),
                          lambda x: x.flags == 8),
         ConditionalField(SDNV2("ReportUpperBound", 0),

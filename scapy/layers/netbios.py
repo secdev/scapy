@@ -260,10 +260,10 @@ class NBTDatagram(Packet):
                    ShortField("Offset", 0),
                    NetBIOSNameField("SourceName", "windows"),
                    ShortEnumField("SUFFIX1", 0x4141, _NETBIOS_SUFFIXES),
-                   ByteField("NULL", 0),
+                   ByteField("NULL1", 0),
                    NetBIOSNameField("DestinationName", "windows"),
                    ShortEnumField("SUFFIX2", 0x4141, _NETBIOS_SUFFIXES),
-                   ByteField("NULL", 0)]
+                   ByteField("NULL2", 0)]
 
 
 class NBTSession(Packet):
@@ -289,4 +289,7 @@ bind_layers(NBNSNodeStatusResponseService, NBNSNodeStatusResponseService, )
 bind_layers(NBNSNodeStatusResponseService, NBNSNodeStatusResponseEnd, )
 bind_layers(UDP, NBNSWackResponse, sport=137)
 bind_layers(UDP, NBTDatagram, dport=138)
+bind_layers(TCP, NBTSession, dport=445)
+bind_layers(TCP, NBTSession, sport=445)
 bind_layers(TCP, NBTSession, dport=139)
+bind_layers(TCP, NBTSession, sport=139)

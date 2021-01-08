@@ -9,25 +9,31 @@
 """
 HTTP 1.0 layer.
 
-Load using:
+Load using::
+
+    from scapy.layers.http import *
+
+Or (console only)::
 
     >>> load_layer("http")
 
 Note that this layer ISN'T loaded by default, as quite experimental for now.
 
 To follow HTTP packets streams = group packets together to get the
-whole request/answer, use `TCPSession` as:
+whole request/answer, use ``TCPSession`` as:
 
     >>> sniff(session=TCPSession)  # Live on-the-flow session
     >>> sniff(offline="./http_chunk.pcap", session=TCPSession)  # pcap
 
-This will decode HTTP packets using `Content_Length` or chunks,
+This will decode HTTP packets using ``Content_Length`` or chunks,
 and will also decompress the packets when needed.
 Note: on failure, decompression will be ignored.
 
 You can turn auto-decompression/auto-compression off with:
 
-    >>> conf.contribs["http"]["auto_compression"] = True
+    >>> conf.contribs["http"]["auto_compression"] = False
+
+(Defaults to True)
 """
 
 # This file is a modified version of the former scapy_http plugin.
@@ -35,23 +41,39 @@ You can turn auto-decompression/auto-compression off with:
 # Original Authors : Steeve Barbeau, Luca Invernizzi
 # Originally published under a GPLv2 license
 
+import io
 import os
 import re
+import socket
 import struct
 import subprocess
 
+from scapy.base_classes import Net
 from scapy.compat import plain_str, bytes_encode, \
     gzip_compress, gzip_decompress
 from scapy.config import conf
 from scapy.consts import WINDOWS
-from scapy.error import warning
+from scapy.error import warning, log_loading
 from scapy.fields import StrField
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
+from scapy.supersocket import StreamSocket
 from scapy.utils import get_temp_file, ContextManagerSubprocess
 
 from scapy.layers.inet import TCP, TCP_client
 
 from scapy.modules import six
+
+try:
+    import brotli
+    _is_brotli_available = True
+except ImportError:
+    _is_brotli_available = False
+
+try:
+    import zstandard
+    _is_zstd_available = True
+except ImportError:
+    _is_zstd_available = False
 
 if "http" not in conf.contribs:
     conf.contribs["http"] = {}
@@ -111,7 +133,6 @@ REQUEST_HEADERS = [
 
 COMMON_UNSTANDARD_REQUEST_HEADERS = [
     "Upgrade-Insecure-Requests",
-    "Upgrade-Insecure-Requests",
     "X-Requested-With",
     "DNT",
     "X-Forwarded-For",
@@ -151,7 +172,6 @@ RESPONSE_HEADERS = [
     "Last-Modified",
     "Link",
     "Location",
-    "Permanent",
     "P3P",
     "Proxy-Authenticate",
     "Public-Key-Pins",
@@ -298,6 +318,27 @@ class _HTTPContent(Packet):
             elif "compress" in encodings:
                 import lzw
                 s = lzw.decompress(s)
+            elif "br" in encodings:
+                if _is_brotli_available:
+                    s = brotli.decompress(s)
+                else:
+                    log_loading.info(
+                        "Can't import brotli. brotli decompression "
+                        "will be ignored !"
+                    )
+            elif "zstd" in encodings:
+                if _is_zstd_available:
+                    # Using its streaming API since its simple API could handle
+                    # only cases where there is content size data embedded in
+                    # the frame
+                    bio = io.BytesIO(s)
+                    reader = zstandard.ZstdDecompressor().stream_reader(bio)
+                    s = reader.read()
+                else:
+                    log_loading.info(
+                        "Can't import zstandard. zstd decompression "
+                        "will be ignored !"
+                    )
         except Exception:
             # Cannot decompress - probably incomplete data
             pass
@@ -316,9 +357,25 @@ class _HTTPContent(Packet):
         elif "compress" in encodings:
             import lzw
             pay = lzw.compress(pay)
+        elif "br" in encodings:
+            if _is_brotli_available:
+                pay = brotli.compress(pay)
+            else:
+                log_loading.info(
+                    "Can't import brotli. brotli compression will "
+                    "be ignored !"
+                )
+        elif "zstd" in encodings:
+            if _is_zstd_available:
+                pay = zstandard.ZstdCompressor().compress(pay)
+            else:
+                log_loading.info(
+                    "Can't import zstandard. zstd compression will "
+                    "be ignored !"
+                )
         return pkt + pay
 
-    def self_build(self, field_pos_list=None):
+    def self_build(self, **kwargs):
         ''' Takes an HTTPRequest or HTTPResponse object, and creates its
         string representation.'''
         if not isinstance(self.underlayer, HTTP):
@@ -551,8 +608,22 @@ class HTTP(Packet):
                 # It's not Content-Length based. It could be chunked
                 encodings = http_packet[HTTP].payload._get_encodings()
                 chunked = ("chunked" in encodings)
+                is_response = isinstance(http_packet.payload, HTTPResponse)
                 if chunked:
+                    detect_end = lambda dat: dat.endswith(b"0\r\n\r\n")
+                # HTTP Requests that do not have any content,
+                # end with a double CRLF
+                elif isinstance(http_packet.payload, HTTPRequest):
                     detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
+                    # In case we are handling a HTTP Request,
+                    # we want to continue assessing the data,
+                    # to handle requests with a body (POST)
+                    metadata["detect_unknown"] = True
+                elif is_response and http_packet.Status_Code == b"101":
+                    # If it's an upgrade response, it may also hold a
+                    # different protocol data.
+                    # make sure all headers are present
+                    detect_end = lambda dat: dat.find(b"\r\n\r\n")
                 else:
                     # If neither Content-Length nor chunked is specified,
                     # it means it's the TCP packet that contains the data,
@@ -594,7 +665,9 @@ class HTTP(Packet):
 
 
 def http_request(host, path="/", port=80, timeout=3,
-                 display=False, verbose=None, **headers):
+                 display=False, verbose=0,
+                 raw=False, iptables=False, iface=None,
+                 **headers):
     """Util to perform an HTTP request, using the TCP_client.
 
     :param host: the host to connect to
@@ -602,10 +675,18 @@ def http_request(host, path="/", port=80, timeout=3,
     :param port: the port (default 80)
     :param timeout: timeout before None is returned
     :param display: display the resullt in the default browser (default False)
+    :param raw: opens a raw socket instead of going through the OS's TCP
+                socket. Scapy will then use its own TCP client.
+                Careful, the OS might cancel the TCP connection with RST.
+    :param iptables: when raw is enabled, this calls iptables to temporarily
+                     prevent the OS from sending TCP RST to the host IP.
+                     On Linux, you'll almost certainly need this.
+    :param iface: interface to use. Changing this turns on "raw"
     :param headers: any additional headers passed to the request
 
     :returns: the HTTPResponse packet
     """
+    from scapy.sessions import TCPSession
     http_headers = {
         "Accept_Encoding": b'gzip, deflate',
         "Cache_Control": b'no-cache',
@@ -616,12 +697,37 @@ def http_request(host, path="/", port=80, timeout=3,
     }
     http_headers.update(headers)
     req = HTTP() / HTTPRequest(**http_headers)
-    tcp_client = TCP_client.tcplink(HTTP, host, port)
     ans = None
+
+    # Open a socket
+    if iface is not None:
+        raw = True
+    if raw:
+        # Use TCP_client on a raw socket
+        iptables_rule = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
+        if iptables:
+            host = str(Net(host))
+            assert(os.system(iptables_rule % ('A', host)) == 0)
+        sock = TCP_client.tcplink(HTTP, host, port, debug=verbose,
+                                  iface=iface)
+    else:
+        # Use a native TCP socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, port))
+        sock = StreamSocket(sock, HTTP)
+    # Send the request and wait for the answer
     try:
-        ans = tcp_client.sr1(req, timeout=timeout, verbose=verbose)
+        ans = sock.sr1(
+            req,
+            session=TCPSession(app=True),
+            timeout=timeout,
+            verbose=verbose
+        )
     finally:
-        tcp_client.close()
+        sock.close()
+        if raw and iptables:
+            host = str(Net(host))
+            assert(os.system(iptables_rule % ('D', host)) == 0)
     if ans:
         if display:
             if Raw not in ans:

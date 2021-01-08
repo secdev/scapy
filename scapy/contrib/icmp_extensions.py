@@ -19,6 +19,7 @@ from __future__ import absolute_import
 import struct
 
 import scapy
+from scapy.compat import chb
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitField, ByteField, ConditionalField, \
     FieldLenField, IPField, IntField, PacketListField, ShortField, \
@@ -55,7 +56,7 @@ class ICMPExtensionHeader(Packet):
     def post_build(self, p, pay):
         if self.chksum is None:
             ck = checksum(p)
-            p = p[:2] + chr(ck >> 8) + chr(ck & 0xff) + p[4:]
+            p = p[:2] + chb(ck >> 8) + chb(ck & 0xff) + p[4:]
         return p + pay
 
     def guess_payload_class(self, payload):
@@ -161,7 +162,7 @@ class ICMPExtensionInterfaceInformation(ICMPExtensionObject):
         IntField('mtu', None),
         lambda pkt: pkt.has_mtu == 1)]
 
-    def self_build(self, field_pos_list=None):
+    def self_build(self, **kwargs):
         if self.afi is None:
             if self.ip4 is not None:
                 self.afi = 1
@@ -179,7 +180,7 @@ class ICMPExtensionInterfaceInformation(ICMPExtensionObject):
         if self.has_mtu and self.mtu is None:
             warning('has_mtu set but mtu is not set.')
 
-        return ICMPExtensionObject.self_build(self, field_pos_list=field_pos_list)  # noqa: E501
+        return ICMPExtensionObject.self_build(self, **kwargs)
 
 
 # Add the post_dissection() method to the existing ICMPv4 and
