@@ -121,7 +121,7 @@ else:
 
 print('waiting a bit...')
 import time
-time.sleep(10)
+time.sleep(7)
 
 = Run a sniff thread on the tun1 **interface**
 * It will terminate when 5 IP packets from 192.0.2.1 have been sniffed
@@ -266,6 +266,7 @@ else:
     assert subprocess.check_call(["ifconfig", "tap0", "up"]) == 0
 
 = Check for arpleak
+~ long_test
 
 def answer_arp_leak(pkt):
     mymac = b"\x00\x01\x02\x03\x04\x06"
