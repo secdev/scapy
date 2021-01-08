@@ -4,39 +4,77 @@
 Scapy *BSD native support - BPF sockets
 """
 
-from ctypes import c_long, sizeof
+from select import select
+import ctypes
 import errno
 import fcntl
 import os
 import platform
-from select import select
 import struct
 import sys
 import time
 
 from scapy.arch.bpf.core import get_dev_bpf, attach_filter
-from scapy.arch.bpf.consts import BIOCGBLEN, BIOCGDLT, BIOCGSTATS, \
-    BIOCIMMEDIATE, BIOCPROMISC, BIOCSBLEN, BIOCSETIF, BIOCSHDRCMPLT, \
-    BPF_BUFFER_LENGTH, BIOCSDLT, DLT_IEEE802_11_RADIO
+from scapy.arch.bpf.consts import (
+    BIOCGBLEN,
+    BIOCGDLT,
+    BIOCGSTATS,
+    BIOCIMMEDIATE,
+    BIOCPROMISC,
+    BIOCSBLEN,
+    BIOCSDLT,
+    BIOCSETIF,
+    BIOCSHDRCMPLT,
+    BIOCSTSTAMP,
+    BPF_BUFFER_LENGTH,
+    BPF_T_NANOTIME,
+)
 from scapy.config import conf
-from scapy.consts import FREEBSD, NETBSD, DARWIN
-from scapy.data import ETH_P_ALL
+from scapy.consts import DARWIN, FREEBSD, NETBSD
+from scapy.data import ETH_P_ALL, DLT_IEEE802_11_RADIO
 from scapy.error import Scapy_Exception, warning
 from scapy.interfaces import network_name
 from scapy.supersocket import SuperSocket
 from scapy.compat import raw
 
+# Structures & c types
 
-if FREEBSD:
+if FREEBSD or NETBSD:
     # On 32bit architectures long might be 32bit.
-    BPF_ALIGNMENT = sizeof(c_long)
-elif NETBSD:
-    BPF_ALIGNMENT = 8  # sizeof(long)
+    BPF_ALIGNMENT = ctypes.sizeof(ctypes.c_long)
 else:
-    BPF_ALIGNMENT = 4  # sizeof(int32_t)
+    # DARWIN, OPENBSD
+    BPF_ALIGNMENT = ctypes.sizeof(ctypes.c_int32)
 
+_NANOTIME = FREEBSD  # Kinda disappointing availability TBH
+
+if _NANOTIME:
+    class bpf_timeval(ctypes.Structure):
+        # actually a bpf_timespec
+        _fields_ = [("tv_sec", ctypes.c_ulong),
+                    ("tv_nsec", ctypes.c_ulong)]
+elif NETBSD:
+    class bpf_timeval(ctypes.Structure):
+        _fields_ = [("tv_sec", ctypes.c_ulong),
+                    ("tv_usec", ctypes.c_ulong)]
+else:
+    class bpf_timeval(ctypes.Structure):
+        _fields_ = [("tv_sec", ctypes.c_uint32),
+                    ("tv_usec", ctypes.c_uint32)]
+
+
+class bpf_hdr(ctypes.Structure):
+    # Also called bpf_xhdr on some OSes
+    _fields_ = [("bh_tstamp", bpf_timeval),
+                ("bh_caplen", ctypes.c_uint32),
+                ("bh_datalen", ctypes.c_uint32),
+                ("bh_hdrlen", ctypes.c_uint16)]
+
+
+_bpf_hdr_len = ctypes.sizeof(bpf_hdr)
 
 # SuperSockets definitions
+
 
 class _L2bpfSocket(SuperSocket):
     """"Generic Scapy BPF Super Socket"""
@@ -46,14 +84,19 @@ class _L2bpfSocket(SuperSocket):
 
     def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None,
                  nofilter=0, monitor=False):
+        if monitor:
+            raise Scapy_Exception(
+                "We do not natively support monitor mode on BPF. "
+                "Please turn on libpcap using conf.use_pcap = True"
+            )
+
         self.fd_flags = None
         self.assigned_interface = None
 
         # SuperSocket mandatory variables
         if promisc is None:
-            self.promisc = conf.sniff_promisc
-        else:
-            self.promisc = promisc
+            promisc = conf.sniff_promisc
+        self.promisc = promisc
 
         self.iface = network_name(iface or conf.iface)
 
@@ -62,16 +105,32 @@ class _L2bpfSocket(SuperSocket):
         (self.ins, self.dev_bpf) = get_dev_bpf()
         self.outs = self.ins
 
+        if FREEBSD:
+            # Set the BPF timeval format. Availability issues here !
+            try:
+                fcntl.ioctl(
+                    self.ins, BIOCSTSTAMP,
+                    struct.pack('I', BPF_T_NANOTIME)
+                )
+            except IOError:
+                raise Scapy_Exception("BIOCSTSTAMP failed on /dev/bpf%i" %
+                                      self.dev_bpf)
         # Set the BPF buffer length
         try:
-            fcntl.ioctl(self.ins, BIOCSBLEN, struct.pack('I', BPF_BUFFER_LENGTH))  # noqa: E501
+            fcntl.ioctl(
+                self.ins, BIOCSBLEN,
+                struct.pack('I', BPF_BUFFER_LENGTH)
+            )
         except IOError:
             raise Scapy_Exception("BIOCSBLEN failed on /dev/bpf%i" %
                                   self.dev_bpf)
 
         # Assign the network interface to the BPF handle
         try:
-            fcntl.ioctl(self.ins, BIOCSETIF, struct.pack("16s16x", self.iface.encode()))  # noqa: E501
+            fcntl.ioctl(
+                self.ins, BIOCSETIF,
+                struct.pack("16s16x", self.iface.encode())
+            )
         except IOError:
             raise Scapy_Exception("BIOCSETIF failed on %s" % self.iface)
         self.assigned_interface = self.iface
@@ -287,51 +346,34 @@ class L2bpfListenSocket(_L2bpfSocket):
         return ((bh_h + bh_c) + (BPF_ALIGNMENT - 1)) & ~(BPF_ALIGNMENT - 1)
 
     def extract_frames(self, bpf_buffer):
-        """Extract all frames from the buffer and stored them in the received list."""  # noqa: E501
+        """
+        Extract all frames from the buffer and stored them in the received list
+        """
 
         # Ensure that the BPF buffer contains at least the header
         len_bb = len(bpf_buffer)
-        if len_bb < 20:  # Note: 20 == sizeof(struct bfp_hdr)
+        if len_bb < _bpf_hdr_len:
             return
 
         # Extract useful information from the BPF header
-        if FREEBSD:
-            # Unless we set BIOCSTSTAMP to something different than
-            # BPF_T_MICROTIME, we will get bpf_hdr on FreeBSD, which means
-            # that we'll get a struct timeval, which is time_t, suseconds_t.
-            # On i386 time_t is 32bit so the bh_tstamp will only be 8 bytes.
-            # We really want to set BIOCSTSTAMP to BPF_T_NANOTIME and be
-            # done with this and it always be 16?
-            if platform.machine() == "i386":
-                # struct bpf_hdr
-                bh_tstamp_offset = 8
-            else:
-                # struct bpf_hdr (64bit time_t) or struct bpf_xhdr
-                bh_tstamp_offset = 16
-        elif NETBSD:
-            # struct bpf_hdr or struct bpf_hdr32
-            bh_tstamp_offset = 16
-        else:
-            # struct bpf_hdr
-            bh_tstamp_offset = 8
-
-        # Parse the BPF header
-        bh_caplen = struct.unpack('I', bpf_buffer[bh_tstamp_offset:bh_tstamp_offset + 4])[0]  # noqa: E501
-        next_offset = bh_tstamp_offset + 4
-        bh_datalen = struct.unpack('I', bpf_buffer[next_offset:next_offset + 4])[0]  # noqa: E501
-        next_offset += 4
-        bh_hdrlen = struct.unpack('H', bpf_buffer[next_offset:next_offset + 2])[0]  # noqa: E501
-        if bh_datalen == 0:
+        bh_hdr = bpf_hdr.from_buffer_copy(bpf_buffer)
+        if bh_hdr.bh_datalen == 0:
             return
 
         # Get and store the Scapy object
-        frame_str = bpf_buffer[bh_hdrlen:bh_hdrlen + bh_caplen]
+        frame_str = bpf_buffer[
+            bh_hdr.bh_hdrlen:bh_hdr.bh_hdrlen + bh_hdr.bh_caplen
+        ]
+        if _NANOTIME:
+            ts = bh_hdr.bh_tstamp.tv_sec + 1e-9 * bh_hdr.bh_tstamp.tv_nsec
+        else:
+            ts = bh_hdr.bh_tstamp.tv_sec + 1e-6 * bh_hdr.bh_tstamp.tv_usec
         self.received_frames.append(
-            (self.guessed_cls, frame_str, None)
+            (self.guessed_cls, frame_str, ts)
         )
 
         # Extract the next frame
-        end = self.bpf_align(bh_hdrlen, bh_caplen)
+        end = self.bpf_align(bh_hdr.bh_hdrlen, bh_hdr.bh_caplen)
         if (len_bb - end) >= 20:
             self.extract_frames(bpf_buffer[end:])
 
