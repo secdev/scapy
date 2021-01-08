@@ -538,7 +538,7 @@ class FOpts(Packet):
 
 def FOptsDownShow(pkt):
     try:
-        if pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 1 and pkt.MType <= 0b101 and (pkt.MType & 0b10 > 0):  # noqa: E501
+        if pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 1 and pkt.MType <= 0b101 and (pkt.MType & 0b101 > 0):  # noqa: E501
             return True
         return False
     except Exception:
@@ -547,7 +547,7 @@ def FOptsDownShow(pkt):
 
 def FOptsUpShow(pkt):
     try:
-        if pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 0 and pkt.MType >= 0b010 and (pkt.MType & 0b10 > 0):  # noqa: E501
+        if pkt.FCtrl[0].FOptsLen > 0 and pkt.MType & 0b1 == 0 and pkt.MType >= 0b010 and (pkt.MType & 0b110 > 0):  # noqa: E501
             return True
         return False
     except Exception:
