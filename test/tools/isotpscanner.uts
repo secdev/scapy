@@ -207,6 +207,7 @@ assert expected_output in plain_str(std_out)
 + Scan tests
 
 = Test standard scan
+~ long_test
 
 drain_bus(iface0)
 started = threading.Event()
@@ -243,6 +244,7 @@ for out in expected_output:
 
 
 = Test extended scan
+~ long_test
 
 drain_bus(iface0)
 started = threading.Event()
@@ -274,6 +276,7 @@ for out in expected_output:
     assert plain_str(out) in plain_str(std_out1 + std_out2)
 
 = Test extended only scan
+~ long_test
 
 drain_bus(iface0)
 started = threading.Event()
@@ -306,6 +309,7 @@ for out in expected_output:
 
 
 = Test scan with piso flag
+~ long_test
 
 drain_bus(iface0)
 started = threading.Event()
