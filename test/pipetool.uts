@@ -680,7 +680,7 @@ s.deliver()
 assert c.q.get(timeout=1) == "hello"
 
 = UDPClientPipe and UDPServerPipe
-~ networking needs_root
+~ networking needs_root long_test
 
 p = PipeEngine()
 
