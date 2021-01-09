@@ -17,7 +17,7 @@ Routing and network interface handling for IPv6.
 from __future__ import absolute_import
 import socket
 from scapy.config import conf
-from scapy.interfaces import resolve_iface
+from scapy.interfaces import resolve_iface, NetworkInterface
 from scapy.utils6 import in6_ptop, in6_cidr2mask, in6_and, \
     in6_islladdr, in6_ismlladdr, in6_isincluded, in6_isgladdr, \
     in6_isaddr6to4, in6_ismaddr, construct_source_candidate_set, \
@@ -52,7 +52,7 @@ class Route6:
     def flush(self):
         # type: () -> None
         self.invalidate_cache()
-        self.ipv6_ifaces = set()  # type: Set[str]
+        self.ipv6_ifaces = set()  # type: Set[Union[str, NetworkInterface]]
         self.routes = []  # type: List[Tuple[str, int, str, str, List[str], int]]  # noqa: E501
 
     def resync(self):
@@ -104,7 +104,7 @@ class Route6:
             ifaddr = [ifaddr_uniq]
         else:
             lifaddr = in6_getifaddr()
-            devaddrs = [x for x in lifaddr if x[2] == dev]
+            devaddrs = (x for x in lifaddr if x[2] == dev)
             ifaddr = construct_source_candidate_set(prefix, plen, devaddrs)
 
         self.ipv6_ifaces.add(dev)

@@ -2250,7 +2250,7 @@ with mock.patch("scapy.utils.warning") as warning:
 import mock
 from io import StringIO
 
-@mock.patch("scapy.arch.unix.get_if_addr")
+@mock.patch("scapy.arch.get_if_addr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_netstat_truncated(mock_os, mock_get_if_addr):
     """Test read_routes() on OS X 10.? with a long interface name"""
@@ -2285,9 +2285,7 @@ default            link#11            UCSI            1        0 bridge1
     def se_get_if_addr(iface):
         """Perform specific side effects"""
         if iface == "bridge1":
-            oserror_exc = OSError()
-            oserror_exc.message = "Device not configured"
-            raise oserror_exc
+            raise OSError("Device not configured")
         return "1.2.3.4"
     mock_get_if_addr.side_effect = se_get_if_addr
     # Test the function
@@ -2310,7 +2308,7 @@ test_osx_netstat_truncated()
 import mock
 from io import StringIO
 
-@mock.patch("scapy.arch.unix.get_if_addr")
+@mock.patch("scapy.arch.get_if_addr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_13_ipv4(mock_os, mock_get_if_addr):
     """Test read_routes() on OS X 10.13"""
@@ -2369,7 +2367,7 @@ test_osx_10_13_ipv4()
 import mock
 from io import StringIO
 
-@mock.patch("scapy.arch.unix.get_if_addr")
+@mock.patch("scapy.arch.get_if_addr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_15_ipv4(mock_os, mock_get_if_addr):
     """Test read_routes() on OS X 10.15"""

@@ -691,7 +691,7 @@ class Conf(ConfClass):
     #: if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
     stealth = "not implemented"
     #: selects the default output interface for srp() and sendp().
-    iface = Interceptor("iface", None, _iface_changer)
+    iface = Interceptor("iface", None, _iface_changer)  # type: 'scapy.interfaces.NetworkInterface'  # type: ignore  # noqa: E501
     layers = LayersList()
     commands = CommandsList()  # type: CommandsList
     ASN1_default_codec = None  #: Codec used by default for ASN1 objects
@@ -755,7 +755,7 @@ class Conf(ConfClass):
     #: holds the Scapy interface list and manager
     ifaces = None  # type: 'scapy.interfaces.NetworkInterfaceDict'
     #: holds the cache of interfaces loaded from Libpcap
-    cache_iflist = {}  # type: Dict[str, Tuple[str, List[str], int]]
+    cache_pcapiflist = {}  # type: Dict[str, Tuple[str, List[str], int]]
     neighbor = None  # type: 'scapy.layers.l2.Neighbor'
     # `neighbor` will be filed by scapy.layers.l2
     #: holds the Scapy IPv4 routing table and provides methods to

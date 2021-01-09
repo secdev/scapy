@@ -6,6 +6,10 @@
 
 # CORE
 scapy/__init__.py
+scapy/arch/__init__.py
+scapy/arch/common.py
+scapy/arch/linux.py
+scapy/arch/unix.py
 scapy/asn1/mib.py
 scapy/base_classes.py
 scapy/compat.py
@@ -23,6 +27,7 @@ scapy/pton_ntop.py
 scapy/route.py
 scapy/route6.py
 scapy/sessions.py
+scapy/supersocket.py
 scapy/utils.py
 scapy/utils6.py
 

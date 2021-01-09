@@ -11,7 +11,7 @@ import struct
 import socket
 import time
 
-from scapy.compat import Tuple, Any, Type
+from scapy.compat import Optional, Tuple, Type
 
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import IntField, ShortEnumField, XByteField
@@ -99,7 +99,7 @@ class ISOTP_HSFZSocket(HSFZSocket):
         self.outputcls = basecls
 
     def send(self, x):
-        # type: (bytes) -> None
+        # type: (bytes) -> int
         if not isinstance(x, ISOTP):
             raise Scapy_Exception(
                 "Please provide a packet class based on ISOTP")
@@ -108,10 +108,14 @@ class ISOTP_HSFZSocket(HSFZSocket):
         except AttributeError:
             pass
 
-        super(ISOTP_HSFZSocket, self).send(
-            HSFZ(src=self.src, dst=self.dst) / x)
+        return super(ISOTP_HSFZSocket, self).send(
+            HSFZ(src=self.src, dst=self.dst) / x
+        )
 
     def recv(self, x=MTU):
-        # type: (int) -> Any
+        # type: (int) -> Optional[Packet]
         pkt = super(ISOTP_HSFZSocket, self).recv(x)
-        return self.outputcls(bytes(pkt[1]))
+        if pkt:
+            return self.outputcls(bytes(pkt.payload))
+        else:
+            return pkt
