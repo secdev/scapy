@@ -1452,8 +1452,9 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
     def run(self):
         # type: () -> None
         while not self._stopped.is_set():
-            self._socket.sr1(self._pkt, timeout=0.3, verbose=False)
-            time.sleep(self._interval)
+            for p in self._pkts:
+                self._socket.sr1(p, timeout=0.3, verbose=False)
+                time.sleep(self._interval)
 
 
 def UDS_SessionEnumerator(sock, session_range=range(0x100), reset_wait=1.5):

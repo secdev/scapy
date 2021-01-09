@@ -2470,15 +2470,18 @@ def whois(ip_address):
 
 class PeriodicSenderThread(threading.Thread):
     def __init__(self, sock, pkt, interval=0.5):
-        # type: (Any, Packet, float) -> None
+        # type: (Any, _UniPacketList, float) -> None
         """ Thread to send packets periodically
 
         Args:
             sock: socket where packet is sent periodically
-            pkt: packet to send
+            pkt: packet or list of packets to send
             interval: interval between two packets
         """
-        self._pkt = pkt
+        if not isinstance(pkt, list):
+            self._pkts = [cast("Packet", pkt)]  # type: _UniPacketList
+        else:
+            self._pkts = pkt
         self._socket = sock
         self._stopped = threading.Event()
         self._interval = interval
@@ -2487,8 +2490,11 @@ class PeriodicSenderThread(threading.Thread):
     def run(self):
         # type: () -> None
         while not self._stopped.is_set():
-            self._socket.send(self._pkt)
-            time.sleep(self._interval)
+            for p in self._pkts:
+                self._socket.send(p)
+                time.sleep(self._interval)
+                if self._stopped.is_set():
+                    break
 
     def stop(self):
         # type: () -> None
@@ -2503,7 +2509,6 @@ class SingleConversationSocket(object):
 
     @property
     def __dict__(self):  # type: ignore
-        # type: () -> Any
         return self._inner.__dict__
 
     def __getattr__(self, name):

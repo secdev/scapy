@@ -64,8 +64,9 @@ class GMLAN_TesterPresentSender(PeriodicSenderThread):
     def run(self):
         # type: () -> None
         while not self._stopped.is_set():
-            self._socket.sr1(self._pkt, verbose=False, timeout=0.1)
-            time.sleep(self._interval)
+            for p in self._pkts:
+                self._socket.sr1(p, verbose=False, timeout=0.1)
+                time.sleep(self._interval)
 
 
 def GMLAN_InitDiagnostics(sock, broadcast_socket=None, timeout=None, verbose=None, retry=0):  # noqa: E501
