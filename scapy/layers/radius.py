@@ -6,6 +6,10 @@
 
 """
 RADIUS (Remote Authentication Dial In User Service)
+
+To disable Radius-EAP defragmentation (True by default), you can use::
+
+    conf.contribs.setdefault("radius", {}).setdefault("auto-defrag", False)
 """
 
 import struct
@@ -20,7 +24,6 @@ from scapy.layers.inet import UDP
 from scapy.layers.eap import EAP
 from scapy.config import conf
 from scapy.error import Scapy_Exception
-
 
 # https://www.iana.org/assignments/radius-types/radius-types.xhtml
 _radius_attribute_types = {
@@ -995,7 +998,6 @@ class RadiusAttr_NAS_Port_Type(_RadiusAttrIntEnumVal):
 
 
 class _EAPPacketField(PacketLenField):
-
     """
     Handles EAP-Message attribute value (the actual EAP packet).
     """
@@ -1016,7 +1018,6 @@ class RadiusAttr_EAP_Message(RadiusAttribute):
     """
     Implements the "EAP-Message" attribute (RFC 3579).
     """
-
     name = "EAP-Message"
     match_subclass = True
     fields_desc = [
@@ -1026,10 +1027,28 @@ class RadiusAttr_EAP_Message(RadiusAttribute):
             None,
             "value",
             "B",
-            adjust=lambda pkt, x: len(pkt.value) + 2
+            adjust=lambda pkt, x: x + 2
         ),
         _EAPPacketField("value", "", EAP, length_from=lambda p: p.len - 2)
     ]
+
+    def post_dissect(self, s):
+        if not conf.contribs.get("radius", {}).get("auto-defrag", True):
+            return s
+        if isinstance(self.value, conf.raw_layer):
+            # Defragment
+            x = s
+            buf = self.value.load
+            while x and struct.unpack("!B", x[:1])[0] == 79:
+                # Let's carefully avoid the infinite loop
+                length = struct.unpack("!B", x[1:2])[0]
+                if not length:
+                    return s
+                buf, x = buf + x[2:length], x[length:]
+                if length < 254:
+                    self.value = EAP(buf)
+                    return x
+        return s
 
 
 class RadiusAttr_Vendor_Specific(RadiusAttribute):
