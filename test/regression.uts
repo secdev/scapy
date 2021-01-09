@@ -1502,7 +1502,7 @@ def _test():
 retry_test(_test)
 
 = AS resolvers
-~ netaccess IP as_resolvers
+~ netaccess IP as_resolvers long_test
 * This test retries on failure because it often fails
 
 def _test():
