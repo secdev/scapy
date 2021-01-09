@@ -131,29 +131,33 @@ class BTLEChanMapField(XByteField):
 
 class BTLEFeatureField(FlagsField):
     def __init__(self, name, default):
-        FlagsField.__init__(self, name, default, -64,
-                            ['le_encryption',
-                             'conn_par_req_proc',
-                             'ext_reject_ind',
-                             'slave_init_feat_exch',
-                             'le_ping',
-                             'le_data_len_ext',
-                             'll_privacy',
-                             'ext_scan_filter',
-                             'le_2m_phy',
-                             'tx_mod_idx',
-                             'rx_mod_idx',
-                             'le_coded_phy',
-                             'le_ext_adv',
-                             'le_periodic_adv',
-                             'ch_sel_alg',
-                             'le_pwr_class'])
+        super(BTLEFeatureField, self).__init__(
+            name, default, -64,
+            ['le_encryption',
+             'conn_par_req_proc',
+             'ext_reject_ind',
+             'slave_init_feat_exch',
+             'le_ping',
+             'le_data_len_ext',
+             'll_privacy',
+             'ext_scan_filter',
+             'le_2m_phy',
+             'tx_mod_idx',
+             'rx_mod_idx',
+             'le_coded_phy',
+             'le_ext_adv',
+             'le_periodic_adv',
+             'ch_sel_alg',
+             'le_pwr_class']
+        )
 
 
 class BTLEPhysField(FlagsField):
     def __init__(self, name, default):
-        super(BTLEPhysField, self).__init__(name, default, -8,
-                                            ['phy_1m', 'phy_2m', 'phy_coded']),
+        super(BTLEPhysField, self).__init__(
+            name, default, -8,
+            ['phy_1m', 'phy_2m', 'phy_coded']
+        )
 
 
 ##########
