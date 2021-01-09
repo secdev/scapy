@@ -516,9 +516,6 @@ def filter_tests_remove_some_long_tests(test_campaign, verb):
                 print("From TestSet '%s' removed Test %03i '%s' because of the keyword 'long_test' assigned" % (ts.name, t.num, t.name))
         ts.tests = tests
 
-        ts.tests = [t for t in ts.tests if "long_test" not in t.keywords or
-                    ("long_test" in t.keywords and random.randint(0, 9) == 5)]
-
 
 def remove_empty_testsets(test_campaign):
     test_campaign.campaign = [ts for ts in test_campaign.campaign if ts.tests]
