@@ -702,7 +702,7 @@ p.stop()
 srv.stop()
 
 = TCPConnectPipe networking test
-~ networking needs_root
+~ networking needs_root long_test
 
 p = PipeEngine()
 
