@@ -1091,8 +1091,12 @@ def rdpcap(filename, count=-1):
     # __call__ function is, of course, not supported by MyPy.
     # One day we should simplify this mess and use a much simpler
     # layout that will actually be supported and properly dissected.
-    with PcapReader(filename) as fdesc:  # type: ignore
-        return fdesc.read_all(count=count)
+    try:
+        with PcapReader(filename) as fdesc:  # type: ignore
+            return fdesc.read_all(count=count)
+    except Scapy_Exception as exception:
+        warning(exception)
+        return []
 
 
 class PcapReader_metaclass(type):
@@ -1125,20 +1129,20 @@ class PcapReader_metaclass(type):
             )
         try:
             i.__init__(filename, fdesc, magic)
+            return i
         except Scapy_Exception:
-            if "alternative" in cls.__dict__:
-                cls = cls.__dict__["alternative"]
-                i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
-                try:
-                    i.__init__(filename, fdesc, magic)
-                except Scapy_Exception:
-                    try:
-                        i.f.seek(-4, 1)
-                    except Exception:
-                        pass
-                    raise Scapy_Exception("Not a supported capture file")
+            pass
 
-        return i
+        if "alternative" in cls.__dict__:
+            cls = cls.__dict__["alternative"]
+            i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+            try:
+                i.__init__(filename, fdesc, magic)
+                return i
+            except Scapy_Exception:
+                pass
+
+        raise Scapy_Exception("Not a supported capture file")
 
     @staticmethod
     def open(fname  # type: Union[IO[bytes], str]
@@ -1384,6 +1388,9 @@ class RawPcapNgReader(RawPcapReader):
             raise Scapy_Exception("Not a pcapng capture file (bad magic)")
         self.f.read(12)
         blocklen = struct.unpack("!I", blocklen_)[0]  # type: int
+        if blocklen < 24:
+            raise Scapy_Exception("Invalid pcapng capture file: not enough "
+                                  "data to store default options!")
         # Read default options
         self.default_options = self.read_options(
             self.f.read(blocklen - 24)
