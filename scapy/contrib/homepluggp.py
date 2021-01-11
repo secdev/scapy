@@ -143,7 +143,7 @@ class CM_SLAC_MATCH_REQ(Packet):
     fields_desc = [ByteField("ApplicationType", 0x0),
                    ByteField("SecurityType", 0x0),
                    FieldLenField("MatchVariableFieldLen", None,
-                                 count_of="VariableField", fmt="H"),
+                                 length_of="VariableField", fmt="<H"),
                    PacketField("VariableField",
                                SLAC_varfield(),
                                SLAC_varfield)]
@@ -167,7 +167,7 @@ class CM_SLAC_MATCH_CNF(Packet):
     fields_desc = [ByteField("ApplicationType", 0x0),
                    ByteField("SecurityType", 0x0),
                    FieldLenField("MatchVariableFieldLen", None,
-                                 count_of="VariableField", fmt="H"),
+                                 length_of="VariableField", fmt="<H"),
                    PacketField("VariableField",
                                SLAC_varfield_cnf(),
                                SLAC_varfield_cnf)]
