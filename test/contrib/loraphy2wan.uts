@@ -25,7 +25,7 @@ assert pkt.Join_Request_Field[0].DevNonce == 26985
 p = b'\x0f0P@\xad\x15\x00`\x80\x06\x00\t\xca\xfe\x0c\x1d\x8d\x04\\\xb5'
 pkt = LoRa(p)
 assert pkt.MType == 2
-assert pkt.ULDataPayload == b'\xca\xfe'
+assert pkt.DataPayload == b'\xca\xfe'
 assert pkt.FCnt == 6
 assert pkt.FPort == 9
 assert pkt.FCtrl[0].ADR == 1
