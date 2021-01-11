@@ -18,7 +18,7 @@
 """
     Copyright (C) 2020  Sebastien Dudek (@FlUxIuS)
     initially developed @PentHertz
-    and improve at @Trend Micro
+    and improved at @Trend Micro
 """
 
 from scapy.packet import Packet
@@ -26,7 +26,8 @@ from scapy.fields import BitField, ByteEnumField, ByteField, \
     ConditionalField, IntField, LEShortField, PacketListField, \
     StrFixedLenField, X3BytesField, XByteField, XIntField, \
     XShortField, BitFieldLenField, LEX3BytesField, XBitField, \
-    BitEnumField, XLEIntField, StrField, PacketField
+    BitEnumField, XLEIntField, StrField, PacketField, \
+    MultipleTypeField
 
 
 class FCtrl_DownLink(Packet):
@@ -37,7 +38,6 @@ class FCtrl_DownLink(Packet):
                    BitField("FPending", 0, 1),
                    BitFieldLenField("FOptsLen", 0, 4)]
 
-    # pylint: disable=R0201
     def extract_padding(self, p):
         return "", p
 
@@ -50,7 +50,6 @@ class FCtrl_Link(Packet):
                    BitField("UpClassB_DownFPending", 0, 1),
                    BitFieldLenField("FOptsLen", 0, 4)]
 
-    # pylint: disable=R0201
     def extract_padding(self, p):
         return "", p
 
@@ -63,7 +62,6 @@ class FCtrl_UpLink(Packet):
                    BitField("ClassB", 0, 1),
                    BitFieldLenField("FOptsLen", 0, 4)]
 
-    # pylint: disable=R0201
     def extract_padding(self, p):
         return "", p
 
@@ -608,7 +606,6 @@ class Join_Accept(Packet):
                    ConditionalField(StrFixedLenField("CFList", b"\x00" * 16, 16),  # noqa: E501
                                     lambda pkt:(Join_Accept.dcflist is True))]
 
-    # pylint: disable=R0201
     def extract_padding(self, p):
         return "", p
 
@@ -631,14 +628,26 @@ class RejoinReq(Packet):  # LoRa 1.1 specs
                    XShortField("RJcount0", 0)]
 
 
+def dpload_type(pkt):
+    if (pkt.MType == 0b101 or pkt.MType == 0b011):
+        return 0  # downlink
+    elif (pkt.MType == 0b100 or pkt.MType == 0b010):
+        return 1  # uplink
+    return None
+
+
+datapayload_list = [(StrField("DataPayload", "", remain=4),
+                     lambda pkt:(dpload_type(pkt) == 0)),
+                    (StrField("DataPayload", "", remain=6),
+                     lambda pkt:(dpload_type(pkt) == 1))]
+
+
 class FRMPayload(Packet):
     name = "FRMPayload"
-    fields_desc = [ConditionalField(StrField("DLDataPayload", "", remain=4),  # Downlink  # noqa: E501
-                                    lambda pkt:(pkt.MType == 0b101 or
-                                                pkt.MType == 0b011)),
-                   ConditionalField(StrField("ULDataPayload", "", remain=6),  # Uplink  # noqa: E501
-                                    lambda pkt:(pkt.MType == 0b100 or
-                                                pkt.MType == 0b010)),
+    fields_desc = [ConditionalField(MultipleTypeField(datapayload_list,
+                                                      StrField("DataPayload",
+                                                               "", remain=4)),
+                                    lambda pkt:(dpload_type(pkt) is not None)),
                    ConditionalField(PacketListField("Join_Request_Field", b"",
                                                     Join_Request,
                                                     length_from=lambda pkt:18),
