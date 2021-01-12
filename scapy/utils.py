@@ -1095,8 +1095,8 @@ def rdpcap(filename, count=-1):
         with PcapReader(filename) as fdesc:  # type: ignore
             return fdesc.read_all(count=count)
     except Scapy_Exception as exception:
-        warning(exception)
-        return []
+        warning(str(exception))
+        return PacketList()
 
 
 class PcapReader_metaclass(type):
