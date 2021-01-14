@@ -1864,6 +1864,11 @@ fdesc = os.fdopen(fdesc, "wb")
 wrpcap(fdesc, pktpcap)
 fdesc.close()
 
+= Check offline sniff() (by PacketList)
+l=sniff(offline=PacketList([IP()/TCP(),IP()/TCP()]))
+assert len(l) == 2
+assert(all(TCP in p for p in l))
+
 = Check offline sniff() (by filename)
 assert list(pktpcap) == list(sniff(offline=filename))
 
