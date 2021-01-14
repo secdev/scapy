@@ -31,7 +31,7 @@ from scapy.base_classes import SetGen
 from scapy.modules import six
 from scapy.modules.six.moves import map
 from scapy.sessions import DefaultSession
-from scapy.supersocket import SuperSocket
+from scapy.supersocket import SuperSocket, IterSocket
 
 if conf.route is None:
     # unused import, only to initialize conf.route and conf.iface*
@@ -867,30 +867,42 @@ class AsyncSniffer(object):
         if offline is not None:
             flt = karg.get('filter')
 
+            if isinstance(offline, str):
+                # Single file
+                offline = [offline]
             if isinstance(offline, list) and \
                     all(isinstance(elt, str) for elt in offline):
+                # List of files
                 sniff_sockets.update((PcapReader(
                     fname if flt is None else
-                    tcpdump(fname, args=["-w", "-"], flt=flt, getfd=True)
+                    tcpdump(fname,
+                            args=["-w", "-"],
+                            flt=flt,
+                            getfd=True,
+                            quiet=quiet)
                 ), fname) for fname in offline)
             elif isinstance(offline, dict):
+                # Dict of files
                 sniff_sockets.update((PcapReader(
                     fname if flt is None else
-                    tcpdump(fname, args=["-w", "-"], flt=flt, getfd=True)
+                    tcpdump(fname,
+                            args=["-w", "-"],
+                            flt=flt,
+                            getfd=True,
+                            quiet=quiet)
                 ), label) for fname, label in six.iteritems(offline))
+            elif isinstance(offline, (Packet, PacketList, list)):
+                # Iterables (list of packets, PacketList..)
+                offline = IterSocket(offline)
+                sniff_sockets[offline if flt is None else PcapReader(
+                    tcpdump(offline,
+                            args=["-w", "-"],
+                            flt=flt,
+                            getfd=True,
+                            quiet=quiet)
+                )] = offline
             else:
-                # Write Scapy Packet objects to a pcap file
-                def _write_to_pcap(packets_list):
-                    filename = get_temp_file(autoext=".pcap")
-                    wrpcap(filename, offline)
-                    return filename, filename
-
-                if isinstance(offline, Packet):
-                    tempfile_written, offline = _write_to_pcap([offline])
-                elif isinstance(offline, (list, PacketList)) and \
-                        all(isinstance(elt, Packet) for elt in offline):
-                    tempfile_written, offline = _write_to_pcap(offline)
-
+                # Other (file descriptors...)
                 sniff_sockets[PcapReader(
                     offline if flt is None else
                     tcpdump(offline,

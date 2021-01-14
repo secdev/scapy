@@ -24,17 +24,19 @@ from scapy.interfaces import network_name, NetworkInterface
 import scapy.modules.six as six
 from scapy.packet import Packet
 import scapy.packet
-from scapy.plist import PacketList
+from scapy.plist import _PacketList, PacketList, SndRcvList
 from scapy.utils import PcapReader, tcpdump
 
 # Typing imports
 from scapy.compat import (
     Any,
+    Iterator,
     List,
     Optional,
     Tuple,
     Type,
     Union,
+    cast,
 )
 
 # Utils
@@ -475,3 +477,51 @@ class L2ListenTcpdump(SuperSocket):
         if (WINDOWS or DARWIN):
             return sockets, None
         return SuperSocket.select(sockets, remain=remain)
+
+
+# More abstract objects
+
+class IterSocket(SuperSocket):
+    desc = "wrapper around an iterable"
+    nonblocking_socket = True
+
+    def __init__(self, obj):
+        # type: (Union[Packet, List[Packet], _PacketList[Packet]]) -> None
+        if not obj:
+            self.iter = iter([])  # type: Iterator[Packet]
+        elif isinstance(obj, IterSocket):
+            self.iter = obj.iter
+        elif isinstance(obj, SndRcvList):
+            def _iter(obj=cast(SndRcvList, obj)):
+                # type: (SndRcvList) -> Iterator[Packet]
+                for s, r in obj:
+                    if s.sent_time:
+                        s.time = s.sent_time
+                    yield s
+                    yield r
+            self.iter = _iter()
+        elif isinstance(obj, (list, PacketList)):
+            if isinstance(obj[0], bytes):  # type: ignore
+                # Deprecated
+                self.iter = (conf.raw_layer(x) for x in obj)
+            else:
+                self.iter = (y for x in obj for y in x)
+        else:
+            self.iter = obj.__iter__()
+
+    @staticmethod
+    def select(sockets, remain=None):
+        # type: (List[SuperSocket], Any) -> Tuple[List[SuperSocket], None]
+        return sockets, None
+
+    def recv(self, *args):
+        # type: (*Any) -> Optional[Packet]
+        try:
+            pkt = next(self.iter)
+            return pkt.__class__(bytes(pkt))
+        except StopIteration:
+            raise EOFError
+
+    def close(self):
+        # type: () -> None
+        pass
