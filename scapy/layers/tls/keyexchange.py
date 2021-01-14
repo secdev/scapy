@@ -231,9 +231,9 @@ class _TLSSignatureField(PacketField):
     """
     __slots__ = ["length_from"]
 
-    def __init__(self, name, default, length_from=None, remain=0):
+    def __init__(self, name, default, length_from=None):
         self.length_from = length_from
-        PacketField.__init__(self, name, default, _TLSSignature, remain=remain)
+        PacketField.__init__(self, name, default, _TLSSignature)
 
     def m2i(self, pkt, m):
         tmp_len = self.length_from(pkt)
@@ -266,9 +266,9 @@ class _TLSServerParamsField(PacketField):
     """
     __slots__ = ["length_from"]
 
-    def __init__(self, name, default, length_from=None, remain=0):
+    def __init__(self, name, default, length_from=None):
         self.length_from = length_from
-        PacketField.__init__(self, name, default, None, remain=remain)
+        PacketField.__init__(self, name, default, None)
 
     def m2i(self, pkt, m):
         s = pkt.tls_session
@@ -456,10 +456,10 @@ class _ECBasisTypeField(ByteEnumField):
 class _ECBasisField(PacketField):
     __slots__ = ["clsdict", "basis_type_from"]
 
-    def __init__(self, name, default, basis_type_from, clsdict, remain=0):
+    def __init__(self, name, default, basis_type_from, clsdict):
         self.clsdict = clsdict
         self.basis_type_from = basis_type_from
-        PacketField.__init__(self, name, default, None, remain=remain)
+        PacketField.__init__(self, name, default, None)
 
     def m2i(self, pkt, m):
         basis = self.basis_type_from(pkt)

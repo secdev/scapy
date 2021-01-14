@@ -1392,10 +1392,9 @@ class _PacketField(_StrField[K]):
                  name,  # type: str
                  default,  # type: Optional[K]
                  pkt_cls,  # type: Union[Callable[[bytes], Packet], Type[Packet]]  # noqa: E501
-                 remain=0,  # type: int
                  ):
         # type: (...) -> None
-        super(_PacketField, self).__init__(name, default, remain=remain)
+        super(_PacketField, self).__init__(name, default)
         self.cls = pkt_cls
 
     def i2m(self,

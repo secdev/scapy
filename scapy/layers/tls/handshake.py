@@ -1258,9 +1258,9 @@ class _TLSCKExchKeysField(PacketField):
     __slots__ = ["length_from"]
     holds_packet = 1
 
-    def __init__(self, name, length_from=None, remain=0):
+    def __init__(self, name, length_from=None):
         self.length_from = length_from
-        PacketField.__init__(self, name, None, None, remain=remain)
+        PacketField.__init__(self, name, None, None)
 
     def m2i(self, pkt, m):
         """

@@ -1650,8 +1650,8 @@ class _ExtCommValuePacketField(PacketField):
 
     __slots__ = ["type_from"]
 
-    def __init__(self, name, default, cls, remain=0, type_from=(0, 0)):
-        PacketField.__init__(self, name, default, cls, remain)
+    def __init__(self, name, default, cls, type_from=(0, 0)):
+        PacketField.__init__(self, name, default, cls)
         self.type_from = type_from
 
     def m2i(self, pkt, m):
@@ -2310,7 +2310,7 @@ class BGPORFEntry(Packet):
     Provides an implementation of an ORF entry.
     References: RFC 5291
     """
-
+    __slots__ = ["afi", "safi"]
     name = "ORF entry"
     fields_desc = [
         BitEnumField("action", 0, 2, _orf_actions),
@@ -2318,6 +2318,11 @@ class BGPORFEntry(Packet):
         BitField("reserved", 0, 5),
         StrField("value", "")
     ]
+
+    def __init__(self, *args, **kwargs):
+        self.afi = kwargs.pop("afi", 1)
+        self.safi = kwargs.pop("safi", 1)
+        super(BGPORFEntry, self).__init__(*args, **kwargs)
 
 
 class _ORFNLRIPacketField(PacketField):
@@ -2328,11 +2333,11 @@ class _ORFNLRIPacketField(PacketField):
     def m2i(self, pkt, m):
         ret = None
 
-        if _orf_entry_afi == 1:
+        if pkt.afi == 1:
             # IPv4
             ret = BGPNLRI_IPv4(m)
 
-        elif _orf_entry_afi == 2:
+        elif pkt.afi == 2:
             # IPv6
             ret = BGPNLRI_IPv6(m)
 
@@ -2346,7 +2351,6 @@ class BGPORFAddressPrefix(BGPORFEntry):
     """
     Provides an implementation of the Address Prefix ORF (RFC 5292).
     """
-
     name = "Address Prefix ORF"
     fields_desc = [
         BitEnumField("action", 0, 2, _orf_actions),
@@ -2359,11 +2363,10 @@ class BGPORFAddressPrefix(BGPORFEntry):
     ]
 
 
-class BGPORFCoveringPrefix(Packet):
+class BGPORFCoveringPrefix(BGPORFEntry):
     """
     Provides an implementation of the CP-ORF (RFC 7543).
     """
-
     name = "CP-ORF"
     fields_desc = [
         BitEnumField("action", 0, 2, _orf_actions),
@@ -2387,12 +2390,19 @@ class BGPORFEntryPacketListField(PacketListField):
     def m2i(self, pkt, m):
         ret = None
 
+        if isinstance(pkt.underlayer, BGPRouteRefresh):
+            afi = pkt.underlayer.afi
+            safi = pkt.underlayer.safi
+        else:
+            afi = 1
+            safi = 1
+
         # Cisco also uses 128
         if pkt.orf_type == 64 or pkt.orf_type == 128:
-            ret = BGPORFAddressPrefix(m)
+            ret = BGPORFAddressPrefix(m, afi=afi, safi=safi)
 
         elif pkt.orf_type == 65:
-            ret = BGPORFCoveringPrefix(m)
+            ret = BGPORFCoveringPrefix(m, afi=afi, safi=safi)
 
         else:
             ret = conf.raw_layer(m)
@@ -2426,19 +2436,19 @@ class BGPORFEntryPacketListField(PacketListField):
             elif pkt.orf_type == 65:
                 # Covering Prefix ORF
 
-                if _orf_entry_afi == 1:
+                if pkt.afi == 1:
                     # IPv4
                     # sequence (4 bytes) + min_len (1 byte) + max_len (1 byte) +  # noqa: E501
                     # rt (8 bytes) + import_rt (8 bytes) + route_type (1 byte)
                     orf_len = 23 + 4
 
-                elif _orf_entry_afi == 2:
+                elif pkt.afi == 2:
                     # IPv6
                     # sequence (4 bytes) + min_len (1 byte) + max_len (1 byte) +  # noqa: E501
                     # rt (8 bytes) + import_rt (8 bytes) + route_type (1 byte)
                     orf_len = 23 + 16
 
-                elif _orf_entry_afi == 25:
+                elif pkt.afi == 25:
                     # sequence (4 bytes) + min_len (1 byte) + max_len (1 byte) +  # noqa: E501
                     # rt (8 bytes) + import_rt (8 bytes)
                     route_type = orb(remain[22])
@@ -2499,11 +2509,7 @@ class BGPRouteRefresh(BGP):
         ShortEnumField("afi", 1, address_family_identifiers),
         ByteEnumField("subtype", 0, rr_message_subtypes),
         ByteEnumField("safi", 1, subsequent_afis),
-        PacketField(
-            'orf_data',
-            "", BGPORF,
-            lambda p: _update_orf_afi_safi(p.afi, p.safi)
-        )
+        PacketField('orf_data', "", BGPORF)
     ]
 
 
