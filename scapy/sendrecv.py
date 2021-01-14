@@ -882,7 +882,7 @@ class AsyncSniffer(object):
                 # Write Scapy Packet objects to a pcap file
                 def _write_to_pcap(packets_list):
                     filename = get_temp_file(autoext=".pcap")
-                    wrpcap(filename, offline)
+                    wrpcap(filename, packets_list)
                     return filename, filename
 
                 if isinstance(offline, Packet):
