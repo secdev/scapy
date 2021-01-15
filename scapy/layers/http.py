@@ -282,8 +282,7 @@ class _HTTPContent(Packet):
         return encodings
 
     def hashret(self):
-        # The only field both Answers and Responses have in common
-        return self.Http_Version
+        return b"HTTP1"
 
     def post_dissect(self, s):
         if not conf.contribs["http"]["auto_compression"]:
