@@ -102,6 +102,10 @@ class SetGen(Gen[_T]):
             else:
                 yield i
 
+    def __len__(self):
+        # type: () -> int
+        return self.__iterlen__()
+
     def __repr__(self):
         # type: () -> str
         return "<SetGen %r>" % self.values
@@ -434,9 +438,7 @@ class _CanvasDumpExtended(object):
         from scapy.utils import get_temp_file, ContextManagerSubprocess
         canvas = self.canvas_dump(**kargs)
         if filename is None:
-            fname = cast(str, get_temp_file(
-                autoext=kargs.get("suffix", ".eps")
-            ))
+            fname = get_temp_file(autoext=kargs.get("suffix", ".eps"))
             canvas.writeEPSfile(fname)
             if WINDOWS and conf.prog.psreader is None:
                 os.startfile(fname)
@@ -461,9 +463,7 @@ class _CanvasDumpExtended(object):
         from scapy.utils import get_temp_file, ContextManagerSubprocess
         canvas = self.canvas_dump(**kargs)
         if filename is None:
-            fname = cast(str, get_temp_file(
-                autoext=kargs.get("suffix", ".pdf")
-            ))
+            fname = get_temp_file(autoext=kargs.get("suffix", ".pdf"))
             canvas.writePDFfile(fname)
             if WINDOWS and conf.prog.pdfreader is None:
                 os.startfile(fname)
@@ -488,9 +488,7 @@ class _CanvasDumpExtended(object):
         from scapy.utils import get_temp_file, ContextManagerSubprocess
         canvas = self.canvas_dump(**kargs)
         if filename is None:
-            fname = cast(str, get_temp_file(
-                autoext=kargs.get("suffix", ".svg")
-            ))
+            fname = get_temp_file(autoext=kargs.get("suffix", ".svg"))
             canvas.writeSVGfile(fname)
             if WINDOWS and conf.prog.svgreader is None:
                 os.startfile(fname)

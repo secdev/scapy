@@ -26,6 +26,7 @@ scapy/plist.py
 scapy/pton_ntop.py
 scapy/route.py
 scapy/route6.py
+scapy/sendrecv.py
 scapy/sessions.py
 scapy/supersocket.py
 scapy/utils.py

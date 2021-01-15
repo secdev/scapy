@@ -46,8 +46,8 @@ from scapy.compat import (
     AnyStr,
     Callable,
     Dict,
-    Iterator,
     IO,
+    Iterator,
     List,
     Literal,
     Optional,
@@ -55,13 +55,17 @@ from scapy.compat import (
     Tuple,
     Type,
     Union,
+    overload,
 )
 
 if TYPE_CHECKING:
     from scapy.packet import Packet
-    from scapy.plist import PacketList
+    from scapy.plist import _PacketIterable, PacketList
+    from scapy.supersocket import SuperSocket
+    _SuperSocket = SuperSocket
+else:
+    _SuperSocket = object
 
-_UniPacketList = Union[List["Packet"], "Packet", "PacketList"]
 _ByteStream = Union[IO[bytes], gzip.GzipFile]
 
 ###########
@@ -159,7 +163,19 @@ class EDecimal(Decimal):
         return super(EDecimal, self).__eq__(other) or float(self) == other
 
 
-def get_temp_file(keep=False, autoext="", fd=False):
+@overload
+def get_temp_file(keep, autoext, fd):
+    # type: (bool, str, Literal[True]) -> IO[bytes]
+    pass
+
+
+@overload
+def get_temp_file(keep=False, autoext="", fd=False):  # noqa: F811
+    # type: (bool, str, Literal[False]) -> str
+    pass
+
+
+def get_temp_file(keep=False, autoext="", fd=False):  # noqa: F811
     # type: (bool, str, bool) -> Union[IO[bytes], str]
     """Creates a temporary file.
 
@@ -1059,7 +1075,7 @@ def corrupt_bits(data, p=0.01, n=None):
 
 @conf.commands.register
 def wrpcap(filename,  # type: Union[IO[bytes], str]
-           pkt,  # type: _UniPacketList
+           pkt,  # type: _PacketIterable
            *args,  # type: Any
            **kargs  # type: Any
            ):
@@ -1094,6 +1110,14 @@ def rdpcap(filename, count=-1):
     with PcapReader(filename) as fdesc:  # type: ignore
         return fdesc.read_all(count=count)
 
+
+# NOTE: Type hinting
+# Mypy doesn't understand the following metaclass, and thinks each
+# constructor (PcapReader...) needs 3 arguments each. To avoid this,
+# we add a fake (=None) to the last 2 arguments then force the value
+# to not be None in the signature and pack the whole thing in an ignore.
+# This allows to not have # type: ignore every time we call those
+# constructors.
 
 class PcapReader_metaclass(type):
     """Metaclass for (Raw)Pcap(Ng)Readers"""
@@ -1168,7 +1192,7 @@ class RawPcapReader:
     PacketMetadata = collections.namedtuple("PacketMetadata",
                                             ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
 
-    def __init__(self, filename, fdesc, magic):
+    def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, _ByteStream, bytes) -> None
         self.filename = filename
         self.f = fdesc
@@ -1281,25 +1305,21 @@ class RawPcapReader:
         # type: () -> Optional[Any]
         return self.f.close()
 
-    def __enter__(self):
-        # type: () -> RawPcapReader
-        return self
-
     def __exit__(self, exc_type, exc_value, tracback):
         # type: (Optional[Any], Optional[Any], Optional[Any]) -> None
         self.close()
 
     # emulate SuperSocket
     @staticmethod
-    def select(sockets,  # type: Dict[RawPcapReader, str]
-               remain=None,  # type: Optional[Any]
+    def select(sockets,  # type: List[SuperSocket]
+               remain=None,  # type: Optional[float]
                ):
-        # type: (...) -> Tuple[Dict[RawPcapReader, str], None]
+        # type: (...) -> Tuple[List[SuperSocket], None]
         return sockets, None
 
 
-class PcapReader(RawPcapReader):
-    def __init__(self, filename, fdesc, magic):
+class PcapReader(RawPcapReader, _SuperSocket):
+    def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
         RawPcapReader.__init__(self, filename, fdesc, magic)
         try:
@@ -1312,6 +1332,10 @@ class PcapReader(RawPcapReader):
                 # conf.raw_layer is set on import
                 import scapy.packet  # noqa: F401
             self.LLcls = conf.raw_layer
+
+    def __enter__(self):
+        # type: () -> PcapReader
+        return self
 
     def read_packet(self, size=MTU):
         # type: (int) -> Packet
@@ -1355,7 +1379,7 @@ class RawPcapNgReader(RawPcapReader):
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen"])
 
-    def __init__(self, filename, fdesc, magic):
+    def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
         self.filename = filename
         self.f = fdesc
@@ -1553,13 +1577,17 @@ class RawPcapNgReader(RawPcapReader):
                                                wirelen=wirelen))
 
 
-class PcapNgReader(RawPcapNgReader):
+class PcapNgReader(RawPcapNgReader, _SuperSocket):
 
     alternative = PcapReader
 
-    def __init__(self, filename, fdesc, magic):
+    def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
         RawPcapNgReader.__init__(self, filename, fdesc, magic)
+
+    def __enter__(self):
+        # type: () -> PcapNgReader
+        return self
 
     def read_packet(self, size=MTU):
         # type: (int) -> Packet
@@ -1674,7 +1702,7 @@ class RawPcapWriter:
         self.f.flush()
 
     def write(self, pkt):
-        # type: (Union[_UniPacketList, bytes]) -> None
+        # type: (Union[_PacketIterable, bytes]) -> None
         """
         Writes a Packet, a SndRcvList object, or bytes to a pcap file.
 
@@ -1908,7 +1936,7 @@ def wireshark(pktlist, wait=False, **kwargs):
 
 @conf.commands.register
 def tdecode(
-    pktlist,  # type: Union[IO[bytes], None, str, _UniPacketList]
+    pktlist,  # type: Union[IO[bytes], None, str, _PacketIterable]
     args=None,  # type: Optional[List[str]]
     **kwargs  # type: Any
 ):
@@ -1946,7 +1974,7 @@ def _guess_linktype_value(name):
 
 @conf.commands.register
 def tcpdump(
-    pktlist=None,  # type: Union[IO[bytes], None, str, _UniPacketList]
+    pktlist=None,  # type: Union[IO[bytes], None, str, _PacketIterable]
     dump=False,  # type: bool
     getfd=False,  # type: bool
     args=None,  # type: Optional[List[str]]
@@ -2132,7 +2160,7 @@ def tcpdump(
                 stderr=stderr,
             )
     elif use_tempfile:
-        pktlist = cast(Union[IO[bytes], _UniPacketList], pktlist)
+        pktlist = cast(Union[IO[bytes], "_PacketIterable"], pktlist)
         tmpfile = get_temp_file(  # type: ignore
             autoext=".pcap",
             fd=True
@@ -2142,7 +2170,7 @@ def tcpdump(
                 iter(lambda: pktlist.read(1048576), b"")  # type: ignore
             )
         except AttributeError:
-            pktlist = cast(_UniPacketList, pktlist)
+            pktlist = cast("_PacketIterable", pktlist)
             wrpcap(tmpfile, pktlist, linktype=linktype)
         else:
             tmpfile.close()
@@ -2205,9 +2233,9 @@ def tcpdump(
 
 @conf.commands.register
 def hexedit(pktlist):
-    # type: (_UniPacketList) -> PacketList
+    # type: (_PacketIterable) -> PacketList
     """Run hexedit on a list of packets, then return the edited packets."""
-    f = get_temp_file()  # type: str  # type: ignore
+    f = get_temp_file()
     wrpcap(f, pktlist)
     with ContextManagerSubprocess(conf.prog.hexedit):
         subprocess.call([conf.prog.hexedit, f])
@@ -2508,7 +2536,7 @@ def whois(ip_address):
 
 class PeriodicSenderThread(threading.Thread):
     def __init__(self, sock, pkt, interval=0.5):
-        # type: (Any, _UniPacketList, float) -> None
+        # type: (Any, _PacketIterable, float) -> None
         """ Thread to send packets periodically
 
         Args:
@@ -2517,7 +2545,7 @@ class PeriodicSenderThread(threading.Thread):
             interval: interval between two packets
         """
         if not isinstance(pkt, list):
-            self._pkts = [cast("Packet", pkt)]  # type: _UniPacketList
+            self._pkts = [cast("Packet", pkt)]  # type: _PacketIterable
         else:
             self._pkts = pkt
         self._socket = sock

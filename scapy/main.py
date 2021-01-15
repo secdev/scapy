@@ -316,7 +316,7 @@ def save_session(fname="", session=None, pickleProto=-1):
     if not fname:
         fname = conf.session
         if not fname:
-            conf.session = fname = cast(str, utils.get_temp_file(keep=True))
+            conf.session = fname = utils.get_temp_file(keep=True)
     log_interactive.info("Use [%s] as session file", fname)
 
     if not session:

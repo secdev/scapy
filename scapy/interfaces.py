@@ -188,6 +188,9 @@ class NetworkInterface(object):
         return other + self.network_name
 
 
+_GlobInterfaceType = Union[NetworkInterface, str]
+
+
 class NetworkInterfaceDict(UserDict):
     """Store information about network interfaces and convert between names"""
 
@@ -384,7 +387,7 @@ def dev_from_index(if_index):
 
 
 def resolve_iface(dev):
-    # type: (Union[NetworkInterface, str]) -> NetworkInterface
+    # type: (_GlobInterfaceType) -> NetworkInterface
     """
     Resolve an interface name into the interface
     """
@@ -410,7 +413,7 @@ def resolve_iface(dev):
 
 
 def network_name(dev):
-    # type: (Union[NetworkInterface, str]) -> str
+    # type: (_GlobInterfaceType) -> str
     """
     Resolves the device network name of a device or Scapy NetworkInterface
     """
