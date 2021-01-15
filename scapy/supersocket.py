@@ -20,14 +20,19 @@ from scapy.consts import DARWIN, WINDOWS
 from scapy.data import MTU, ETH_P_IP, SOL_PACKET, SO_TIMESTAMPNS
 from scapy.compat import raw
 from scapy.error import warning, log_runtime
-from scapy.interfaces import network_name, NetworkInterface
+from scapy.interfaces import network_name
 import scapy.modules.six as six
 from scapy.packet import Packet
 import scapy.packet
-from scapy.plist import _PacketList, PacketList, SndRcvList
+from scapy.plist import (
+    PacketList,
+    SndRcvList,
+    _PacketIterable,
+)
 from scapy.utils import PcapReader, tcpdump
 
 # Typing imports
+from scapy.interfaces import _GlobInterfaceType
 from scapy.compat import (
     Any,
     Iterator,
@@ -35,7 +40,6 @@ from scapy.compat import (
     Optional,
     Tuple,
     Type,
-    Union,
     cast,
 )
 
@@ -79,11 +83,18 @@ class SuperSocket:
     nonblocking_socket = False  # type: bool
     auxdata_available = False   # type: bool
 
-    def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
-        # type: (int, int, int) -> None
+    def __init__(self,
+                 family=socket.AF_INET,  # type: int
+                 type=socket.SOCK_STREAM,  # type: int
+                 proto=0,  # type: int
+                 iface=None,  # type: Optional[_GlobInterfaceType]
+                 **kwargs  # type: Any
+                 ):
+        # type: (...) -> None
         self.ins = socket.socket(family, type, proto)  # type: socket.socket
         self.outs = self.ins  # type: Optional[socket.socket]
         self.promisc = None
+        self.iface = iface
 
     def send(self, x):
         # type: (Packet) -> int
@@ -194,17 +205,17 @@ class SuperSocket:
                 self.ins.close()
 
     def sr(self, *args, **kargs):
-        # type: (Any, Any) -> Tuple[PacketList, PacketList]
+        # type: (Any, Any) -> Tuple[SndRcvList, PacketList]
         from scapy import sendrecv
-        ans, unans = sendrecv.sndrcv(self, *args, **kargs)  # type: PacketList, PacketList  # noqa: E501
+        ans, unans = sendrecv.sndrcv(self, *args, **kargs)  # type: SndRcvList, PacketList  # noqa: E501
         return ans, unans
 
     def sr1(self, *args, **kargs):
         # type: (Any, Any) -> Optional[Packet]
         from scapy import sendrecv
-        a, b = sendrecv.sndrcv(self, *args, **kargs)  # type: PacketList, PacketList  # noqa: E501
-        if len(a) > 0:
-            pkt = a[0][1]  # type: Packet
+        ans = sendrecv.sndrcv(self, *args, **kargs)[0]  # type: SndRcvList
+        if len(ans) > 0:
+            pkt = ans[0][1]  # type: Packet
             return pkt
         else:
             return None
@@ -270,8 +281,14 @@ class SuperSocket:
 class L3RawSocket(SuperSocket):
     desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
 
-    def __init__(self, type=ETH_P_IP, filter=None, iface=None, promisc=None, nofilter=0):  # noqa: E501
-        # type: (int, Optional[Any], Optional[str], Optional[bool], int) -> None  # noqa: E501
+    def __init__(self,
+                 type=ETH_P_IP,  # type: int
+                 filter=None,  # type: Optional[str]
+                 iface=None,  # type: Optional[_GlobInterfaceType]
+                 promisc=None,  # type: Optional[bool]
+                 nofilter=0  # type: int
+                 ):
+        # type: (...) -> None
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)  # noqa: E501
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
@@ -432,7 +449,7 @@ class L2ListenTcpdump(SuperSocket):
     desc = "read packets at layer 2 using tcpdump"
 
     def __init__(self,
-                 iface=None,  # type: Optional[Union[NetworkInterface, str]]
+                 iface=None,  # type: Optional[_GlobInterfaceType]
                  promisc=False,  # type: bool
                  filter=None,  # type: Optional[str]
                  nofilter=False,  # type: bool
@@ -459,7 +476,7 @@ class L2ListenTcpdump(SuperSocket):
         if filter is not None:
             args.append(filter)
         self.tcpdump_proc = tcpdump(None, prog=prog, args=args, getproc=True)
-        self.reader = PcapReader(self.tcpdump_proc.stdout)  # type: ignore
+        self.reader = PcapReader(self.tcpdump_proc.stdout)
         self.ins = self.reader  # type: ignore
 
     def recv(self, x=MTU):
@@ -486,7 +503,7 @@ class IterSocket(SuperSocket):
     nonblocking_socket = True
 
     def __init__(self, obj):
-        # type: (Union[Packet, List[Packet], _PacketList[Packet]]) -> None
+        # type: (_PacketIterable) -> None
         if not obj:
             self.iter = iter([])  # type: Iterator[Packet]
         elif isinstance(obj, IterSocket):
@@ -502,8 +519,7 @@ class IterSocket(SuperSocket):
             self.iter = _iter()
         elif isinstance(obj, (list, PacketList)):
             if isinstance(obj[0], bytes):  # type: ignore
-                # Deprecated
-                self.iter = (conf.raw_layer(x) for x in obj)
+                self.iter = iter(obj)
             else:
                 self.iter = (y for x in obj for y in x)
         else:

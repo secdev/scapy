@@ -41,6 +41,7 @@ from scapy.config import conf, _version_checker
 from scapy.compat import raw, orb, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended
+from scapy.interfaces import _GlobInterfaceType
 from scapy.volatile import RandField, VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
@@ -153,7 +154,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.raw_packet_cache_fields = None  # type: Optional[Dict[str, Any]]  # noqa: E501
         self.wirelen = None  # type: Optional[int]
         self.direction = None  # type: Optional[int]
-        self.sniffed_on = None  # type: Optional[str]
+        self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -189,7 +190,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         Union[EDecimal, float],
         Optional[Union[EDecimal, float, None]],
         Optional[int],
-        Optional[str],
+        Optional[_GlobInterfaceType],
         Optional[int]
     ]
 

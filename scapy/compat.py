@@ -27,10 +27,12 @@ __all__ = [
     'DefaultDict',
     'Dict',
     'Generic',
-    'Iterator',
     'IO',
+    'Iterator',
     'List',
     'Literal',
+    'NamedTuple',
+    'NewType',
     'NoReturn',
     'Optional',
     'Pattern',
@@ -42,6 +44,7 @@ __all__ = [
     'TypeVar',
     'Union',
     'cast',
+    'overload',
     'FAKE_TYPING',
     'TYPE_CHECKING',
     # compat
@@ -122,6 +125,8 @@ if not FAKE_TYPING:
         Iterator,
         IO,
         List,
+        NamedTuple,
+        NewType,
         NoReturn,
         Optional,
         Pattern,
@@ -133,6 +138,7 @@ if not FAKE_TYPING:
         TypeVar,
         Union,
         cast,
+        overload,
     )
 else:
     # Let's be creative and make some fake ones.
@@ -149,6 +155,8 @@ else:
     Iterator = _FakeType("Iterator")  # type: ignore
     IO = _FakeType("IO")  # type: ignore
     List = _FakeType("List", list)  # type: ignore
+    NamedTuple = _FakeType("NamedTuple", collections.namedtuple)  # type: ignore  # noqa: E501
+    NewType = _FakeType("NewType")
     NoReturn = _FakeType("NoReturn")  # type: ignore
     Optional = _FakeType("Optional")
     Pattern = _FakeType("Pattern")  # type: ignore
@@ -162,6 +170,8 @@ else:
 
     class Sized(object):  # type: ignore
         pass
+
+    overload = lambda x: x
 
 # Python 3.8 Only
 if sys.version_info >= (3, 8):
