@@ -305,6 +305,8 @@ class TCPSession(IPSession):
                 return pkt
             metadata["pay_class"] = pay_class
             metadata["tcp_reassemble"] = tcp_reassemble
+            if self.store:
+                metadata["pkt_list"] = PacketList()
         else:
             tcp_reassemble = metadata["tcp_reassemble"]
         # Get a relative sequence number for a storage purpose
@@ -315,6 +317,8 @@ class TCPSession(IPSession):
         # Add the data to the buffer
         # Note that this take care of retransmission packets.
         data.append(new_data, seq)
+        if self.store:
+            metadata["pkt_list"].append(pkt)
         # Check TCP FIN or TCP RESET
         if pkt[TCP].flags.F or pkt[TCP].flags.R:
             metadata["tcp_end"] = True
@@ -332,13 +336,16 @@ class TCPSession(IPSession):
         # Stack the result on top of the previous frames
         if packet:
             data.clear()
-            metadata.clear()
             del self.tcp_frags[ident]
             pay.underlayer.remove_payload()
             if IP in pkt:
                 pkt[IP].len = None
                 pkt[IP].chksum = None
-            return pkt / packet
+            pkt_ret = pkt / packet
+            if self.store:
+                pkt_ret.pkt_list=metadata["pkt_list"]
+            metadata.clear()
+            return pkt_ret 
         return None
 
     def on_packet_received(self, pkt):
