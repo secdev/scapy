@@ -1234,8 +1234,10 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                     if self.tx_gap == 0:
                         continue
                     else:
+                        # stop and wait for tx gap
                         self.tx_timeout_handle = TimeoutScheduler.schedule(
                             self.tx_gap, self._tx_timer_handler)
+                        return
 
     def on_recv(self, cf):
         """Function that must be called every time a CAN frame is received, to
