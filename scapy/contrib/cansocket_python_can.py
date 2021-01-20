@@ -152,7 +152,7 @@ class SocketWrapper(can_BusABC):
 
     def __init__(self, *args, **kwargs):
         super(SocketWrapper, self).__init__(*args, **kwargs)
-        self.rx_queue = queue.PriorityQueue()  # type: queue.PriorityQueue[PriotizedCanMessage]  # noqa: E501
+        self.rx_queue = queue.Queue()  # type: queue.Queue[PriotizedCanMessage]  # noqa: E501
         self.name = None
         self.prio_counter = 0
         SocketsPool().register(self, *args, **kwargs)
