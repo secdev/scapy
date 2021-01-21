@@ -23,7 +23,11 @@ conf.contribs['CAN']['swap-bytes'] = False
 iface0 = "vcan0"
 iface1 = "vcan1"
 
-_root = os.geteuid() == 0
+try:
+    _root = os.geteuid() == 0
+except AttributeError:
+    _root = False
+
 _not_pypy = "pypy" not in python_implementation().lower()
 
 
