@@ -4,7 +4,7 @@
 # This program is published under a GPLv2 license
 
 
-""" Default imports required for setup of CAN interfaces  """
+# """ Default imports required for setup of CAN interfaces  """
 
 import os
 import subprocess
@@ -19,7 +19,9 @@ from scapy.consts import LINUX
 load_layer("can", globals_dict=globals())
 conf.contribs['CAN']['swap-bytes'] = False
 
-""" Define interface names for automotive tests  """
+# ############################################################################
+# """ Define interface names for automotive tests  """
+# ############################################################################
 iface0 = "vcan0"
 iface1 = "vcan1"
 
@@ -56,7 +58,9 @@ if LINUX and os.geteuid() == 0:
         print(e)
 
 
-""" Define helper functions for CANSocket creation on all platforms """
+# ############################################################################
+# """ Define helper functions for CANSocket creation on all platforms """
+# ############################################################################
 if LINUX and _not_pypy and _root:
     if six.PY3:
         from scapy.contrib.cansocket_native import *
@@ -79,7 +83,9 @@ else:
     new_can_socket1 = lambda: PythonCANSocket(bustype='virtual', channel=iface1, timeout=0.01)
 
 
-""" Test if socket creation functions work """
+# ############################################################################
+# """ Test if socket creation functions work """
+# ############################################################################
 s = new_can_socket(iface0)
 s.close()
 s = new_can_socket(iface1)
@@ -117,9 +123,13 @@ def drain_bus(iface=iface0, assert_empty=True):
 
 print("CAN sockets should work now")
 
-""" Setup and definitions for ISOTP related stuff """
+# ############################################################################
+# """ Setup and definitions for ISOTP related stuff """
+# ############################################################################
 
+# ############################################################################
 # function to exit when the can-isotp kernel module is not available
+# ############################################################################
 ISOTP_KERNEL_MODULE_AVAILABLE = False
 
 
@@ -135,7 +145,9 @@ def exit_if_no_isotp_module():
         exit(0)
 
 
-""" Evaluate if ISOTP kernel module is installed and available """
+# ############################################################################
+# """ Evaluate if ISOTP kernel module is installed and available """
+# ############################################################################
 if LINUX and os.geteuid() == 0 and six.PY3:
     p1 = subprocess.Popen(['lsmod'], stdout=subprocess.PIPE)
     p2 = subprocess.Popen(['grep', '^can_isotp'],
@@ -148,11 +160,15 @@ if LINUX and os.geteuid() == 0 and six.PY3:
         if p.returncode == 0:
             ISOTP_KERNEL_MODULE_AVAILABLE = True
 
-""" Save configuration """
+# ############################################################################
+# """ Save configuration """
+# ############################################################################
 conf.contribs['ISOTP'] = \
     {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
 
-""" reload ISOTP kernel module in case configuration changed """
+# ############################################################################
+# """ reload ISOTP kernel module in case configuration changed """
+# ############################################################################
 if six.PY3:
     import importlib
     if "scapy.contrib.isotp" in sys.modules:
@@ -167,8 +183,9 @@ else:
     if not ISOTPSocket == ISOTPSoftSocket:
         raise Scapy_Exception("Error in ISOTPSocket import!")
 
-
-""" Prepare send_delay on Ecu Answering Machine to stabilize unit tests """
+# ############################################################################
+# """ Prepare send_delay on Ecu Answering Machine to stabilize unit tests """
+# ############################################################################
 from scapy.contrib.automotive.ecu import *
 print("Set delay to lower utilization")
 conf.contribs['ECU_am']['send_delay'] = 0.004
