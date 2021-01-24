@@ -187,24 +187,24 @@ last byte. For instance, 0x123456 will be coded as 0xC8E856::
 
     def vlenq2str(l):
         s = []
-        s.append( hex(l & 0x7F) )
+        s.append(l & 0x7F)
         l = l >> 7
-        while l>0:
-            s.append( hex(0x80 | (l & 0x7F) ) )
+        while l > 0:
+            s.append( 0x80 | (l & 0x7F) )
             l = l >> 7
         s.reverse()
-        return "".join(chr(int(x, 16)) for x in s)
+        return bytes(bytearray(s))
     
-    def str2vlenq(s=""):
+    def str2vlenq(s=b""):
         i = l = 0
-        while i<len(s) and ord(s[i]) & 0x80:
+        while i < len(s) and ord(s[i:i+1]) & 0x80:
             l = l << 7
-            l = l + (ord(s[i]) & 0x7F)
+            l = l + (ord(s[i:i+1]) & 0x7F)
             i = i + 1
         if i == len(s):
             warning("Broken vlenq: no ending byte")
         l = l << 7
-        l = l + (ord(s[i]) & 0x7F)
+        l = l + (ord(s[i:i+1]) & 0x7F)
     
         return s[i+1:], l
 
@@ -242,16 +242,16 @@ And now, define a layer using this kind of field::
     class FOO(Packet):
         name = "FOO"
         fields_desc = [ VarLenQField("len", None, "data"),
-                        StrLenField("data", "", "len") ]
+                        StrLenField("data", "", length_from=lambda pkt: pkt.len) ]
     
-        >>> f = FOO(data="A"*129)
-        >>> f.show()
-        ###[ FOO ]###
-          len= 0
-          data=    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    >>> f = FOO(data="A"*129)
+    >>> f.show()
+    ###[ FOO ]###
+      len= None
+      data=    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
-Here, ``len``  is  not  yet  computed  and only  the  default  value  are
-displayed.  This  is  the   current  internal  representation  of  our
+Here, ``len``  has yet to be computed and only the default value is
+displayed. This is the current internal representation of our
 layer. Let's force the computation now::
 
     >>> f.show2()
@@ -259,7 +259,7 @@ layer. Let's force the computation now::
       len= 129
       data= 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
-The method ``show2()`` displays the  fields with their values as they will
+The method ``show2()`` displays the fields with their values as they will
 be sent to the network, but in a human readable way, so we see ``len=129``.
 Last but not least, let us look now at the machine representation::
 
