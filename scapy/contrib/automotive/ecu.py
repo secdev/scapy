@@ -20,11 +20,11 @@ from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
 from scapy.config import conf
 
-__all__ = ["ECU_State", "Ecu", "EcuResponse", "EcuSession",
+__all__ = ["EcuState", "Ecu", "EcuResponse", "EcuSession",
            "EcuAnsweringMachine"]
 
 
-class ECU_State(object):
+class EcuState(object):
     def __init__(self, session=1, tester_present=False, security_level=0,
                  communication_control=0, **kwargs):
         self.session = session
@@ -105,7 +105,7 @@ class Ecu(object):
         :param store_supported_responses: Turn creation of supported responses
                                           on or off. Default is on.
         """
-        self.state = ECU_State(
+        self.state = EcuState(
             session=init_session or 1, security_level=init_security_level or 0,
             communication_control=init_communication_control or 0)
         self.verbose = verbose

@@ -11,7 +11,7 @@ from collections import defaultdict, namedtuple
 from scapy.error import Scapy_Exception, log_interactive, warning
 from scapy.utils import make_lined_table, SingleConversationSocket
 import scapy.modules.six as six
-from scapy.contrib.automotive.ecu import ECU_State
+from scapy.contrib.automotive.ecu import EcuState
 
 
 class Graph:
@@ -283,7 +283,7 @@ class Scanner(object):
         else:
             self.socket = socket
         self.tps = None  # TesterPresentSender
-        self.target_state = ECU_State()
+        self.target_state = EcuState()
         self.reset_handler = reset_handler
         self.verbose = kwargs.get("verbose", False)
         if enumerators:
@@ -293,7 +293,7 @@ class Scanner(object):
             self.enumerators = [e(self.socket) for e in self.default_enumerator_clss]  # noqa: E501
         self.enumerator_classes = [e.__class__ for e in self.enumerators]
         self.state_graph = Graph()
-        self.state_graph.add_edge(ECU_State(), ECU_State())
+        self.state_graph.add_edge(EcuState(), EcuState())
         self.configuration = \
             {"dynamic_timeout": kwargs.pop("dynamic_timeout", False),
              "enumerator_classes": self.enumerator_classes,
@@ -325,9 +325,9 @@ class Scanner(object):
                 "delay_state_change": self.configuration["delay_state_change"]}
 
     def get_state_paths(self):
-        paths = [Graph.dijsktra(self.state_graph, ECU_State(), s)
-                 for s in self.state_graph.nodes if s != ECU_State()]
-        return sorted([p for p in paths if p is not None] + [[ECU_State()]],
+        paths = [Graph.dijsktra(self.state_graph, EcuState(), s)
+                 for s in self.state_graph.nodes if s != EcuState()]
+        return sorted([p for p in paths if p is not None] + [[EcuState()]],
                       key=lambda x: x[-1])
 
     def reset_target(self):
@@ -339,7 +339,7 @@ class Scanner(object):
             except TypeError:
                 self.reset_handler()
 
-        self.target_state = ECU_State()
+        self.target_state = EcuState()
 
     def execute_enumerator(self, enumerator):
         enumerator_kwargs = self.configuration[enumerator.__class__]
@@ -375,7 +375,7 @@ class Scanner(object):
         self.reset_target()
 
     def enter_state_path(self, path):
-        if path[0] != ECU_State():
+        if path[0] != EcuState():
             raise Scapy_Exception(
                 "Initial state of path not equal reset state of the target")
 
