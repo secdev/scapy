@@ -1,4 +1,4 @@
-% Regression tests for ECU_am
+% Regression tests for EcuAnsweringMachine
 ~ needs_root
 
 + Configuration
@@ -147,7 +147,7 @@ success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS, verbose=False)
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS, verbose=False)
     sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
     time.sleep(0.1)
@@ -184,7 +184,7 @@ success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
     time.sleep(0.1)
@@ -245,7 +245,7 @@ success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
     time.sleep(0.1)
@@ -324,7 +324,7 @@ success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses,
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
@@ -404,7 +404,7 @@ success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses,
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
@@ -456,7 +456,7 @@ success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses,
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
     sim.start()
@@ -510,7 +510,7 @@ success = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses,
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses,
                                main_socket=ecu, basecls=UDS)
     sim = threading.Thread(target=answering_machine, kwargs={'timeout':5, 'stop_filter': lambda p: p.service==0xff})
     sim.start()

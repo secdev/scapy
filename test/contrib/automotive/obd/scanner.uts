@@ -216,7 +216,7 @@ exit_if_no_isotp_module()
 drain_bus(iface0)
 
 with new_can_socket0() as isocan_ecu, ISOTPSocket(isocan_ecu, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
-    answering_machine = ECU_am(supported_responses=responses, main_socket=ecu, basecls=OBD)
+    answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
     sim = threading.Thread(target=answering_machine, kwargs={"timeout": 60, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:
@@ -259,7 +259,7 @@ exit_if_no_isotp_module()
 drain_bus(iface0)
 
 with new_can_socket0() as isocan_ecu, ISOTPSocket(isocan_ecu, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
-    answering_machine = ECU_am(supported_responses=responses, main_socket=ecu, basecls=OBD)
+    answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
     sim = threading.Thread(target=answering_machine, kwargs={"timeout": 60, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:
@@ -302,7 +302,7 @@ exit_if_no_isotp_module()
 drain_bus(iface0)
 
 with new_can_socket0() as isocan_ecu, ISOTPSocket(isocan_ecu, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
-    answering_machine = ECU_am(supported_responses=responses, main_socket=ecu, basecls=OBD)
+    answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
     sim = threading.Thread(target=answering_machine, kwargs={"timeout": 60, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:
