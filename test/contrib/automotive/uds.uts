@@ -99,7 +99,7 @@ assert dscpr.service == 0x50
 assert dscpr.diagnosticSessionType == 0x09
 assert dscpr.sessionParameterRecord == b"beef"
 
-ecu = ECU()
+ecu = Ecu()
 ecu.update(dscpr)
 assert ecu.current_session == 9
 
@@ -137,7 +137,7 @@ assert erpr.service == 0x51
 assert erpr.resetType == 0x04
 assert erpr.powerDownTime == 0x10
 
-ecu = ECU()
+ecu = Ecu()
 ecu.current_security_level = 5
 ecu.current_session = 3
 ecu.communication_control = 4
@@ -193,7 +193,7 @@ sapr = UDS(b'\x67\x06')
 assert sapr.service == 0x67
 assert sapr.securityAccessType == 0x6
 
-ecu = ECU()
+ecu = Ecu()
 ecu.update(sapr)
 assert ecu.current_security_level == 6
 
@@ -235,7 +235,7 @@ ccpr = UDS(b'\x68\x01')
 assert ccpr.service == 0x68
 assert ccpr.controlType == 0x1
 
-ecu = ECU()
+ecu = Ecu()
 ecu.update(ccpr)
 assert ecu.communication_control == 1
 
