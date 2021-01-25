@@ -201,10 +201,6 @@ class ISOTP(Packet):
 
         return results[0]
 
-    def __eq__(self, other):
-        # Don't compare src, dst, exsrc and exdst.
-        return super(ISOTP, self).__eq__(other)
-
 
 class ISOTPHeader(CAN):
     name = 'ISOTPHeader'
