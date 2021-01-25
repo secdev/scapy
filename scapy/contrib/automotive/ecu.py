@@ -20,7 +20,7 @@ from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
 from scapy.config import conf
 
-__all__ = ["ECU_State", "Ecu", "ECUResponse", "EcuSession", "ECU_am"]
+__all__ = ["ECU_State", "Ecu", "EcuResponse", "EcuSession", "ECU_am"]
 
 
 class ECU_State(object):
@@ -174,7 +174,7 @@ class Ecu(object):
         self._unanswered_packets += PacketList([pkt])
         answered, unanswered = self._unanswered_packets.sr()
         for _, resp in answered:
-            ecu_resp = ECUResponse(session=self.current_session,
+            ecu_resp = EcuResponse(session=self.current_session,
                                    security_level=self.current_security_level,
                                    responses=resp)
 
@@ -236,24 +236,24 @@ class EcuSession(DefaultSession):
         DefaultSession.on_packet_received(self, pkt)
 
 
-class ECUResponse:
+class EcuResponse:
     """Encapsulates a response and the according Ecu state.
     A list of this objects can be used to configure a Ecu Answering Machine.
     This is useful, if you want to clone the behaviour of a real Ecu on a bus.
 
         Usage:
-        >>> print("Generates a ECUResponse which answers on UDS()/UDS_RDBI(identifiers=[2]) if Ecu is in session 2 and has security_level 2")  # noqa: E501
-        >>> ECUResponse(session=2,                     security_level=2,                responses=UDS()/UDS_RDBIPR(dataIdentifier=2)/Raw(b"deadbeef1"))  # noqa: E501
+        >>> print("Generates a EcuResponse which answers on UDS()/UDS_RDBI(identifiers=[2]) if Ecu is in session 2 and has security_level 2")  # noqa: E501
+        >>> EcuResponse(session=2,                     security_level=2,                responses=UDS()/UDS_RDBIPR(dataIdentifier=2)/Raw(b"deadbeef1"))  # noqa: E501
         >>> print("Further examples")
-        >>> ECUResponse(session=range(3,5),            security_level=[3,4],            responses=UDS()/UDS_RDBIPR(dataIdentifier=3)/Raw(b"deadbeef2"))  # noqa: E501
-        >>> ECUResponse(session=[5,6,7],               security_level=range(5,7),       responses=UDS()/UDS_RDBIPR(dataIdentifier=5)/Raw(b"deadbeef3"))  # noqa: E501
-        >>> ECUResponse(session=lambda x: 8 < x <= 10, security_level=lambda x: x > 10, responses=UDS()/UDS_RDBIPR(dataIdentifier=9)/Raw(b"deadbeef4"))  # noqa: E501
+        >>> EcuResponse(session=range(3,5),            security_level=[3,4],            responses=UDS()/UDS_RDBIPR(dataIdentifier=3)/Raw(b"deadbeef2"))  # noqa: E501
+        >>> EcuResponse(session=[5,6,7],               security_level=range(5,7),       responses=UDS()/UDS_RDBIPR(dataIdentifier=5)/Raw(b"deadbeef3"))  # noqa: E501
+        >>> EcuResponse(session=lambda x: 8 < x <= 10, security_level=lambda x: x > 10, responses=UDS()/UDS_RDBIPR(dataIdentifier=9)/Raw(b"deadbeef4"))  # noqa: E501
     """
     def __init__(self, session=1, security_level=0,
                  responses=Raw(b"\x7f\x10"),
                  answers=None):
         """
-        Initialize an ECUResponse capsule
+        Initialize an EcuResponse capsule
 
         :param session: Defines the session in which this response is valid.
                         A integer, a callable or any iterable object can be
@@ -347,7 +347,7 @@ class ECU_am(AnsweringMachine):
         :param basecls: Provide a basecls of the used protocol
 
            Usage:
-           >>> resp = ECUResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))  # noqa: E501
+           >>> resp = EcuResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))  # noqa: E501
            >>> sock = ISOTPSocket(can_iface, sid=0x700, did=0x600, basecls=UDS)  # noqa: E501
            >>> answering_machine = ECU_am(supported_responses=[resp], main_socket=sock, basecls=UDS)  # noqa: E501
            >>> sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout':5})  # noqa: E501
@@ -382,9 +382,9 @@ class ECU_am(AnsweringMachine):
     def make_reply(self, req):
         if self.supported_responses is not None:
             for resp in self.supported_responses:
-                if not isinstance(resp, ECUResponse):
+                if not isinstance(resp, EcuResponse):
                     raise Scapy_Exception("Unsupported type for response. "
-                                          "Please use `ECUResponse` objects. ")
+                                          "Please use `EcuResponse` objects. ")
 
                 if not resp.in_correct_session(self.ecu_state.current_session):
                     continue
