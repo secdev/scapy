@@ -981,14 +981,14 @@ Usage example::
 
 
 
-Analyze on the fly with ECUSession
+Analyze on the fly with EcuSession
 ----------------------------------
 
-This example shows the usage of an ECUSession in sniff. An ISOTPSocket or any socket like object which returns entire messages of the right protocol can be used. An ``ECUSession`` is used as supersession in an ``ISOTPSession``. To obtain the ``Ecu`` object from an ``ECUSession``, the ``ECUSession`` has to be created outside of sniff.
+This example shows the usage of an EcuSession in sniff. An ISOTPSocket or any socket like object which returns entire messages of the right protocol can be used. An ``EcuSession`` is used as supersession in an ``ISOTPSession``. To obtain the ``Ecu`` object from an ``EcuSession``, the ``EcuSession`` has to be created outside of sniff.
 
 Usage example::
 
-    session = ECUSession()
+    session = EcuSession()
 
     with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
         udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)

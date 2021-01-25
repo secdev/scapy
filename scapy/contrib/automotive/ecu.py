@@ -20,7 +20,7 @@ from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
 from scapy.config import conf
 
-__all__ = ["ECU_State", "Ecu", "ECUResponse", "ECUSession", "ECU_am"]
+__all__ = ["ECU_State", "Ecu", "ECUResponse", "EcuSession", "ECU_am"]
 
 
 class ECU_State(object):
@@ -209,11 +209,11 @@ class Ecu(object):
                                                  self.communication_control)
 
 
-class ECUSession(DefaultSession):
+class EcuSession(DefaultSession):
     """Tracks modification to an Ecu 'on-the-flow'.
 
     Usage:
-    >>> sniff(session=ECUSession)
+    >>> sniff(session=EcuSession)
     """
 
     def __init__(self, *args, **kwargs):
@@ -230,7 +230,7 @@ class ECUSession(DefaultSession):
             return
         if isinstance(pkt, list):
             for p in pkt:
-                ECUSession.on_packet_received(self, p)
+                EcuSession.on_packet_received(self, p)
             return
         self.ecu.update(pkt)
         DefaultSession.on_packet_received(self, pkt)
