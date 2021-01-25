@@ -20,7 +20,8 @@ from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
 from scapy.config import conf
 
-__all__ = ["ECU_State", "Ecu", "EcuResponse", "EcuSession", "ECU_am"]
+__all__ = ["ECU_State", "Ecu", "EcuResponse", "EcuSession",
+           "EcuAnsweringMachine"]
 
 
 class ECU_State(object):
@@ -328,10 +329,10 @@ class EcuResponse:
     __hash__ = None
 
 
-conf.contribs['ECU_am'] = {'send_delay': 0}
+conf.contribs['EcuAnsweringMachine'] = {'send_delay': 0}
 
 
-class ECU_am(AnsweringMachine):
+class EcuAnsweringMachine(AnsweringMachine):
     """AnsweringMachine which emulates the basic behaviour of a real world Ecu.
     Provide a list of ``ECUResponse`` objects to configure the behaviour of this
     AnsweringMachine.
@@ -349,11 +350,11 @@ class ECU_am(AnsweringMachine):
            Usage:
            >>> resp = EcuResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))  # noqa: E501
            >>> sock = ISOTPSocket(can_iface, sid=0x700, did=0x600, basecls=UDS)  # noqa: E501
-           >>> answering_machine = ECU_am(supported_responses=[resp], main_socket=sock, basecls=UDS)  # noqa: E501
+           >>> answering_machine = EcuAnsweringMachine(supported_responses=[resp], main_socket=sock, basecls=UDS)  # noqa: E501
            >>> sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout':5})  # noqa: E501
            >>> sim.start()
        """
-    function_name = "ECU_am"
+    function_name = "EcuAnsweringMachine"
     sniff_options_list = ["store", "opened_socket", "count", "filter", "prn", "stop_filter", "timeout"]  # noqa: E501
 
     def parse_options(self, supported_responses=None,
@@ -407,7 +408,7 @@ class ECU_am(AnsweringMachine):
 
     def send_reply(self, reply):
         for p in reply:
-            time.sleep(conf.contribs['ECU_am']['send_delay'])
+            time.sleep(conf.contribs['EcuAnsweringMachine']['send_delay'])
             if len(reply) > 1:
                 time.sleep(random.uniform(0.01, 0.5))
             self.main_socket.send(p)

@@ -12,7 +12,7 @@ from subprocess import call
 from scapy.contrib.automotive.ecu import *
 
 print("Set delay to lower utilization")
-conf.contribs['ECU_am']['send_delay'] = 0.004
+conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
 = Definition of constants, utility functions and mock classes
 iface0 = "vcan0"
 iface1 = "vcan1"
@@ -186,7 +186,7 @@ example_responses = [EcuResponse(session=range(0, 255), security_level=0, respon
 with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, 0x7e0, 0x7e8, basecls=OBD, padding=True) as tester:
     conf.verb = -1
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
     sim = threading.Thread(target=answering_machine, kwargs={'verbose': False, 'timeout': 15, 'stop_filter': lambda p: bytes(p) == b"\x01\xff\xff\xff\xff"})
     sim.start()
     try:
@@ -230,7 +230,7 @@ example_responses = \
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, 0x7e0, 0x7e8, basecls=OBD, padding=True) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
     sim = threading.Thread(target=answering_machine, kwargs={'verbose': False, 'timeout': 100, 'stop_filter': lambda p: bytes(p) == b"\x01\xff\xff\xff\xff"})
     sim.start()
     try:
@@ -275,7 +275,7 @@ example_responses = \
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, 0x7e0, 0x7e8, basecls=OBD, padding=True) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
     sim = threading.Thread(target=answering_machine, kwargs={'verbose': False, 'timeout': 100, 'stop_filter':  lambda p: bytes(p) == b"\x01\xff\xff\xff\xff"})
     sim.start()
     try:
@@ -303,7 +303,7 @@ example_responses.append(EcuResponse(session=range(0, 255), security_level=0, re
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, 0x7e0, 0x7e8, basecls=OBD, padding=True) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
     sim = threading.Thread(target=answering_machine, kwargs={'verbose': False, 'timeout': 100, 'stop_filter': lambda p: bytes(p) == b"\x01\xff\xff\xff\xff"})
     sim.start()
     try:
