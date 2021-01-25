@@ -5,7 +5,7 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-# scapy.contrib.description = Helper class for tracking ECU states (ECU)
+# scapy.contrib.description = Helper class for tracking Ecu states (Ecu)
 # scapy.contrib.status = loads
 
 import time
@@ -20,7 +20,7 @@ from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
 from scapy.config import conf
 
-__all__ = ["ECU_State", "ECU", "ECUResponse", "ECUSession", "ECU_am"]
+__all__ = ["ECU_State", "Ecu", "ECUResponse", "ECUSession", "ECU_am"]
 
 
 class ECU_State(object):
@@ -66,7 +66,7 @@ class ECU_State(object):
         return "%d%s%s%s" % (self.session, tps, sl, ks)
 
 
-class ECU(object):
+class Ecu(object):
     """A ECU object can be used to
             - track the states of an ECU.
             - to log all modification to an ECU
@@ -74,18 +74,18 @@ class ECU(object):
 
            Usage:
            >>> print("This ecu logs, tracks and creates supported responses")
-           >>> my_virtual_ecu = ECU()
+           >>> my_virtual_ecu = Ecu()
            >>> my_virtual_ecu.update(PacketList([...]))
            >>> my_virtual_ecu.supported_responses
            >>> print("Another ecu just tracks")
-           >>> my_tracking_ecu = ECU(logging=False, store_supported_responses=False)  # noqa: E501
+           >>> my_tracking_ecu = Ecu(logging=False, store_supported_responses=False)  # noqa: E501
            >>> my_tracking_ecu.update(PacketList([...]))
            >>> print("Another ecu just logs all modifications to it")
-           >>> my_logging_ecu = ECU(verbose=False, store_supported_responses=False)  # noqa: E501
+           >>> my_logging_ecu = Ecu(verbose=False, store_supported_responses=False)  # noqa: E501
            >>> my_logging_ecu.update(PacketList([...]))
            >>> my_logging_ecu.log
            >>> print("Another ecu just creates supported responses")
-           >>> my_response_ecu = ECU(verbose=False, logging=False)
+           >>> my_response_ecu = Ecu(verbose=False, logging=False)
            >>> my_response_ecu.update(PacketList([...]))
            >>> my_response_ecu.supported_responses
        """
@@ -93,7 +93,7 @@ class ECU(object):
                  init_communication_control=None, logging=True, verbose=True,
                  store_supported_responses=True):
         """
-        Initialize an ECU object
+        Initialize an Ecu object
 
         :param init_session: An initial session
         :param init_security_level: An initial security level
@@ -210,7 +210,7 @@ class ECU(object):
 
 
 class ECUSession(DefaultSession):
-    """Tracks modification to an ECU 'on-the-flow'.
+    """Tracks modification to an Ecu 'on-the-flow'.
 
     Usage:
     >>> sniff(session=ECUSession)
@@ -218,7 +218,7 @@ class ECUSession(DefaultSession):
 
     def __init__(self, *args, **kwargs):
         DefaultSession.__init__(self, *args, **kwargs)
-        self.ecu = ECU(init_session=kwargs.pop("init_session", None),
+        self.ecu = Ecu(init_session=kwargs.pop("init_session", None),
                        init_security_level=kwargs.pop("init_security_level", None),  # noqa: E501
                        init_communication_control=kwargs.pop("init_communication_control", None),  # noqa: E501
                        logging=kwargs.pop("logging", True),
@@ -237,12 +237,12 @@ class ECUSession(DefaultSession):
 
 
 class ECUResponse:
-    """Encapsulates a response and the according ECU state.
-    A list of this objects can be used to configure a ECU Answering Machine.
-    This is useful, if you want to clone the behaviour of a real ECU on a bus.
+    """Encapsulates a response and the according Ecu state.
+    A list of this objects can be used to configure a Ecu Answering Machine.
+    This is useful, if you want to clone the behaviour of a real Ecu on a bus.
 
         Usage:
-        >>> print("Generates a ECUResponse which answers on UDS()/UDS_RDBI(identifiers=[2]) if ECU is in session 2 and has security_level 2")  # noqa: E501
+        >>> print("Generates a ECUResponse which answers on UDS()/UDS_RDBI(identifiers=[2]) if Ecu is in session 2 and has security_level 2")  # noqa: E501
         >>> ECUResponse(session=2,                     security_level=2,                responses=UDS()/UDS_RDBIPR(dataIdentifier=2)/Raw(b"deadbeef1"))  # noqa: E501
         >>> print("Further examples")
         >>> ECUResponse(session=range(3,5),            security_level=[3,4],            responses=UDS()/UDS_RDBIPR(dataIdentifier=3)/Raw(b"deadbeef2"))  # noqa: E501
@@ -332,7 +332,7 @@ conf.contribs['ECU_am'] = {'send_delay': 0}
 
 
 class ECU_am(AnsweringMachine):
-    """AnsweringMachine which emulates the basic behaviour of a real world ECU.
+    """AnsweringMachine which emulates the basic behaviour of a real world Ecu.
     Provide a list of ``ECUResponse`` objects to configure the behaviour of this
     AnsweringMachine.
 
@@ -365,7 +365,7 @@ class ECU_am(AnsweringMachine):
         if broadcast_socket is not None:
             self.sockets.append(broadcast_socket)
 
-        self.ecu_state = ECU(logging=False, verbose=False,
+        self.ecu_state = Ecu(logging=False, verbose=False,
                              store_supported_responses=False)
         self.basecls = basecls
         self.supported_responses = supported_responses
