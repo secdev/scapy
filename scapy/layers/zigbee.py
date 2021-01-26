@@ -1078,6 +1078,9 @@ class ZCLPricePublishPrice(Packet):
 
 class ZigbeeClusterLibrary(Packet):
     name = "Zigbee Cluster Library (ZCL) Frame"
+    deprecated_fields = {
+        "direction": ("command_direction", "2.5.0"),
+    }
     fields_desc = [
         # Frame control (8 bits)
         BitField("reserved", 0, 3),
