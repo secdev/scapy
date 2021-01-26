@@ -1082,7 +1082,7 @@ class ZigbeeClusterLibrary(Packet):
         # Frame control (8 bits)
         BitField("reserved", 0, 3),
         BitField("disable_default_response", 0, 1),  # 0 default response command will be returned  # noqa: E501
-        BitField("direction", 0, 1),  # 0 command sent from client to server; 1 command sent from server to client  # noqa: E501
+        BitField("command_direction", 0, 1),  # 0 command sent from client to server; 1 command sent from server to client  # noqa: E501
         BitField("manufacturer_specific", 0, 1),  # 0 manufacturer code shall not be included in the ZCL frame  # noqa: E501
         # Frame Type
         # 0b00 command acts across the entire profile
@@ -1105,11 +1105,11 @@ class ZigbeeClusterLibrary(Packet):
             # done in bind_layers
             pass
         # Cluster-specific commands
-        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x00 and self.direction == 0 and self.underlayer.cluster == 0x0700:  # "price"  # noqa: E501
+        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x00 and self.command_direction == 0 and self.underlayer.cluster == 0x0700:  # "price"  # noqa: E501
             return ZCLPriceGetCurrentPrice
-        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x01 and self.direction == 0 and self.underlayer.cluster == 0x0700:  # "price"  # noqa: E501
+        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x01 and self.command_direction == 0 and self.underlayer.cluster == 0x0700:  # "price"  # noqa: E501
             return ZCLPriceGetScheduledPrices
-        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x00 and self.direction == 1 and self.underlayer.cluster == 0x0700:  # "price"  # noqa: E501
+        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x00 and self.command_direction == 1 and self.underlayer.cluster == 0x0700:  # "price"  # noqa: E501
             return ZCLPricePublishPrice
         return Packet.guess_payload_class(self, payload)
 
