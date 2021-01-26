@@ -58,6 +58,7 @@ class _L2bpfSocket(SuperSocket):
         self.iface = network_name(iface or conf.iface)
 
         # Get the BPF handle
+        self.ins = None
         (self.ins, self.dev_bpf) = get_dev_bpf()
         self.outs = self.ins
 
