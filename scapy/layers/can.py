@@ -590,13 +590,13 @@ class CandumpReader:
         return self.read_packet(size=size)
 
     def fileno(self):
-        """Emulation of SuperSocket"""
         # type: () -> int
+        """Emulation of SuperSocket"""
         return self.f.fileno()
 
     def close(self):
-        """Emulation of SuperSocket"""
         # type: () -> Any
+        """Emulation of SuperSocket"""
         return self.f.close()
 
     def __enter__(self):
