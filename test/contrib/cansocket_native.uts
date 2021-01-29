@@ -13,7 +13,7 @@
 load_layer("can", globals_dict=globals())
 conf.contribs['CANSocket'] = {'use-python-can': False}
 from scapy.contrib.cansocket_native import *
-conf.contribs['CAN'] = {'swap-bytes': False}
+conf.contribs['CAN'] = {'swap-bytes': False, 'remove-padding': True}
 
 
 = Setup string for vcan
@@ -37,7 +37,10 @@ bytes(canframe) == b'\x00\x00\x07\xff\x08\x00\x00\x00\x01\x02\x03\x04\x05\x06\x0
 = CAN Socket Init
 sock1 = CANSocket(channel="vcan0")
 
-= CAN Socket send recv small packet
+= CAN Socket send recv small packet without remove padding
+
+conf.contribs['CAN'] = {'swap-bytes': False, 'remove-padding': False}
+
 def sender():
     sleep(0.1)
     sock2 = CANSocket(channel="vcan0")
@@ -47,6 +50,24 @@ def sender():
 thread = threading.Thread(target=sender)
 thread.start()
 rx = sock1.recv()
+print(repr(rx))
+rx == CAN(identifier=0x7ff,length=1,data=b'\x01') / Padding(b"\x00" * 7)
+thread.join(timeout=5)
+
+= CAN Socket send recv small packet
+
+conf.contribs['CAN'] = {'swap-bytes': False, 'remove-padding': True}
+
+def sender():
+    sleep(0.1)
+    sock2 = CANSocket(channel="vcan0")
+    sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
+    sock2.close()
+
+thread = threading.Thread(target=sender)
+thread.start()
+rx = sock1.recv()
+print(repr(rx))
 rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 thread.join(timeout=5)
 

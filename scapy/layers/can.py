@@ -46,7 +46,8 @@ CAN_INV_FILTER = 0x20000000
 # Mimics the Wireshark CAN dissector parameter
 # 'Byte-swap the CAN ID/flags field'.
 # Set to True when working with PF_CAN sockets
-conf.contribs['CAN'] = {'swap-bytes': False}
+conf.contribs['CAN'] = {'swap-bytes': False,
+                        'remove-padding': True}
 
 
 class CAN(Packet):
@@ -59,12 +60,27 @@ class CAN(Packet):
     endianness for the first 32 bit of a CAN message. This dissector can be
     configured for both use cases.
 
-    Configuration:
+    Configuration ``swap-bytes``:
     ** Wireshark dissection: **
-    >>> conf.contribs['CAN'] = {'swap-bytes': False}
+    >>> conf.contribs['CAN']['swap-bytes'] = False
 
     ** PF_CAN Socket dissection: **
-    >>> conf.contribs['CAN'] = {'swap-bytes': True}
+    >>> conf.contribs['CAN']['swap-bytes'] = True
+
+    Configuration ``remove-padding``:
+    Linux PF_CAN Sockets always return 16 bytes per CAN frame receive.
+    This implicates that CAN frames get padded from the Linux PF_CAN socket
+    with zeros up to 8 bytes of data. The real length from the CAN frame on
+    the wire is given by the length field. To obtain only the CAN frame from
+    the wire, this additional padding has to be removed. Nevertheless, for
+    corner cases, it might be useful to also get the padding. This can be
+    configuered through the **remove-padding** configuration.
+    ** Truncate CAN frame based on length field **
+    >>> conf.contribs['CAN']['remove-padding'] = True
+
+    ** Show entire CAN frame received from socket **
+    >>> conf.contribs['CAN']['remove-padding'] = False
+
     """
     fields_desc = [
         FlagsField('flags', 0, 3, ['error',
@@ -119,7 +135,10 @@ class CAN(Packet):
 
     def extract_padding(self, p):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]
-        return b'', p
+        if conf.contribs['CAN']['remove-padding']:
+            return b'', b''
+        else:
+            return b'', p
 
 
 conf.l2types.register(DLT_CAN_SOCKETCAN, CAN)
