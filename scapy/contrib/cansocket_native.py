@@ -120,10 +120,8 @@ class NativeCANSocket(SuperSocket):
         if not conf.contribs['CAN']['swap-bytes']:
             bs = bs + b'\x00' * (CAN_FRAME_SIZE - len(bs))
             bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
-        try:
-            return super(NativeCANSocket, self).send(bs)  # type: ignore
-        except socket.error as msg:
-            raise msg
+
+        return super(NativeCANSocket, self).send(bs)  # type: ignore
 
     def close(self):
         # type: () -> None
