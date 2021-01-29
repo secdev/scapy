@@ -59,8 +59,7 @@ class CAN(Packet):
     endianness for the first 32 bit of a CAN message. This dissector can be
     configured for both use cases.
 
-    Configuration
-    -------------
+    Configuration:
     ** Wireshark dissection: **
     >>> conf.contribs['CAN'] = {'swap-bytes': False}
 
