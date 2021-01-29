@@ -54,7 +54,7 @@ class CAN(Packet):
 
     Dissection of CAN messages from Wireshark captures and Linux PF_CAN sockets
     are supported from protocol specification.
-    See https://wiki.wireshark.org/CANopen for futher information on
+    See https://wiki.wireshark.org/CANopen for further information on
     the Wireshark dissector. Linux PF_CAN and Wireshark use different
     endianness for the first 32 bit of a CAN message. This dissector can be
     configured for both use cases.
@@ -399,7 +399,7 @@ class SignalHeader(CAN):
 
     All CAN messages received from this dbc_sock CANSocket will be interpreted
     as SignalHeader. Through Scapys ``bind_layers`` mechanism, all CAN messages
-    with CAN identifier 0x321 will interprete the payload bytes of these
+    with CAN identifier 0x321 will interpret the payload bytes of these
     CAN messages as floatSignals packet.
     """
     fields_desc = [

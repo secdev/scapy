@@ -249,7 +249,7 @@ class SocketWrapper(can_BusABC):
 
     def _recv_internal(self, timeout):
         # type: (int) -> Tuple[Optional[can_Message], bool]
-        """Internal blocking receive methode,
+        """Internal blocking receive method,
         following the ``can_BusABC`` interface of python-can.
 
         This triggers the multiplex function of the general SocketsPool.
