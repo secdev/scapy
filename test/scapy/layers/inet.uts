@@ -584,4 +584,11 @@ def test_IPID_count():
 
 test_IPID_count()
 
+= IPv4 - Checksum computation with source routing
 
+no_sr = IP(raw(IP(dst="8.8.8.8")/UDP()/b"Scapy"))
+sr = IP(raw(IP(options=[IPOption_SSRR(routers=["1.1.1.1", "8.8.8.8"])])/UDP()/b"Scapy"))
+assert no_sr[UDP].chksum == sr[UDP].chksum
+
+sr = IP(raw(IP(options=[IPOption_LSRR(routers=["1.1.1.1"]), IPOption_SSRR(routers=["8.8.8.8"])])/UDP()/b"Scapy"))
+assert no_sr[UDP].chksum != sr[UDP].chksum
