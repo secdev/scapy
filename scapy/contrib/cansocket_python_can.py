@@ -22,7 +22,7 @@ from scapy.supersocket import SuperSocket
 from scapy.layers.can import CAN
 from scapy.packet import Packet
 from scapy.error import warning
-from scapy.compat import List, Type, Tuple, Dict, Any, Optional, Callable
+from scapy.compat import List, Type, Tuple, Dict, Any, Optional, Callable, cast
 from scapy.modules.six.moves import queue
 from scapy.compat import Any, List
 from can import Message as can_Message
@@ -110,16 +110,26 @@ class SocketMapper:
 
 class SocketsPool(object):
     """Helper class to organize all SocketWrapper and SocketMapper objects"""
-    __instance = None
+    __instance = None  # type: Optional[SocketsPool]
 
     def __new__(cls):
         # type: (Type[object]) -> SocketsPool
         """Enforces the singleton pattern for SocketsPool class"""
         if SocketsPool.__instance is None:
             SocketsPool.__instance = object.__new__(cls)
-            SocketsPool.__instance.pool = dict()
-            SocketsPool.__instance.pool_mutex = threading.Lock()
+            SocketsPool.__instance._pool = dict()  # type: ignore
+            SocketsPool.__instance._pool_mutex = threading.Lock()  # type: ignore  # noqa: E501
         return SocketsPool.__instance
+
+    @property
+    def pool(self):
+        # type: () -> Dict[str, SocketMapper]
+        return cast(SocketsPool, SocketsPool.__instance)._pool  # type: ignore
+
+    @property
+    def pool_mutex(self):
+        # type: () -> threading.Lock
+        return cast(SocketsPool, SocketsPool.__instance)._pool_mutex  # type: ignore  # noqa: E501
 
     def internal_send(self, sender, msg, prio=0):
         # type: (SocketWrapper, can_Message) -> None
@@ -136,6 +146,9 @@ class SocketsPool(object):
         :param msg: CAN message to be sent
 	:param prio: Priority count for internal heapq
         """
+        if sender.name is None:
+            raise TypeError("SocketWrapper.name should never be None")
+
         with self.pool_mutex:
             try:
                 mapper = self.pool[sender.name]
@@ -202,6 +215,9 @@ class SocketsPool(object):
 
         :param socket: SocketWrapper to be unregistered
         """
+        if socket.name is None:
+            raise TypeError("SocketWrapper.name should never be None")
+
         with self.pool_mutex:
             try:
                 t = self.pool[socket.name]
@@ -285,7 +301,12 @@ class PythonCANSocket(SuperSocket):
 
         :param kwargs:
         """
-        self.basecls = kwargs.pop("basecls", CAN)
+        self.basecls = None  # type: Optional[Type[Packet]]
+        try:
+            self.basecls = cast(Type[Packet], kwargs.pop("basecls"))
+        except KeyError:
+            self.basecls = CAN
+
         self.iface = SocketWrapper(**kwargs)
 
     def recv_raw(self, x=0xffff):
@@ -304,7 +325,7 @@ class PythonCANSocket(SuperSocket):
         return self.basecls, pkt_data, msg.timestamp
 
     def send(self, x):
-        # type: (Packet) -> None
+        # type: (Packet) -> int
         msg = can_Message(is_remote_frame=x.flags == 0x2,
                           is_extended_id=x.flags == 0x4,
                           is_error_frame=x.flags == 0x1,
@@ -317,10 +338,11 @@ class PythonCANSocket(SuperSocket):
         except AttributeError:
             pass
         self.iface.send(msg)
+        return len(x)
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
-        # type: (List[SuperSocket], Optional[float]) -> Tuple[List[SuperSocket], Callable[[int], Optional[Packet]]]  # noqa: E501
+        # type: (List[SuperSocket], Optional[float]) -> Tuple[List[SuperSocket], Optional[Callable[[SuperSocket, int], Optional[Packet]]]]  # noqa: E501
         """This function is called during sendrecv() routine to select
         the available sockets.
 
