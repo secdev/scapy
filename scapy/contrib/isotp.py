@@ -21,7 +21,9 @@ import time
 import traceback
 import heapq
 from threading import Thread, Event, Lock
-from scapy.compat import Iterator, Optional, Union, List, Tuple, Dict
+
+from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict, Any,\
+    Type
 
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
@@ -33,7 +35,8 @@ import scapy.modules.six as six
 import scapy.automaton as automaton
 from scapy.modules.six.moves import queue
 from scapy.error import Scapy_Exception, warning, log_loading, log_runtime
-from scapy.supersocket import SuperSocket, SO_TIMESTAMPNS
+from scapy.supersocket import SuperSocket
+from scapy.data import SO_TIMESTAMPNS
 from scapy.config import conf
 from scapy.consts import LINUX
 from scapy.contrib.cansocket import PYTHON_CAN
@@ -47,7 +50,7 @@ __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
 
 USE_CAN_ISOTP_KERNEL_MODULE = False
 if six.PY3 and LINUX:
-    LIBC = ctypes.cdll.LoadLibrary(find_library("c"))
+    LIBC = ctypes.cdll.LoadLibrary(find_library("c"))  # type: ignore
     try:
         if conf.contribs['ISOTP']['use-can-isotp-kernel-module']:
             USE_CAN_ISOTP_KERNEL_MODULE = True
@@ -71,36 +74,34 @@ N_PCI_FC = 0x30  # /* flow control */
 class ISOTP(Packet):
     name = 'ISOTP'
     fields_desc = [
-        StrField('data', B"")
+        StrField('data', b"")
     ]
     __slots__ = Packet.__slots__ + ["src", "dst", "exsrc", "exdst"]
 
-    def answers(self, other):
-        if other.__class__ == self.__class__:
-            return self.payload.answers(other.payload)
-        return 0
-
     def __init__(self, *args, **kwargs):
-        self.src = None
-        self.dst = None
-        self.exsrc = None
-        self.exdst = None
-        if "src" in kwargs:
-            self.src = kwargs["src"]
-            del kwargs["src"]
-        if "dst" in kwargs:
-            self.dst = kwargs["dst"]
-            del kwargs["dst"]
-        if "exsrc" in kwargs:
-            self.exsrc = kwargs["exsrc"]
-            del kwargs["exsrc"]
-        if "exdst" in kwargs:
-            self.exdst = kwargs["exdst"]
-            del kwargs["exdst"]
-        Packet.__init__(self, *args, **kwargs)
+        # type: (Tuple[Any, ...], Dict[str, Any]) -> None
+        """Packet class for ISOTP messages. This class contains additional
+        slots for source address (src), destination address (dst),
+        extended source address (exsrc) and
+        extended destination address (exdst) information. This information
+        gets filled from ISOTPSockets or the ISOTPMessageBuilder, if it
+        is available. Address information is not used for Packet comparison.
+
+        :param args: Arguments for Packet init, for example bytes string
+        :param kwargs: Keyword arguments for Packet init.
+        """
+        self.src = kwargs.pop("src", None)  # type: ignore
+        self.dst = kwargs.pop("dst", None)  # type: ignore
+        self.exsrc = kwargs.pop("exsrc", None)  # type: ignore
+        self.exdst = kwargs.pop("exdst", None)  # type: ignore
+        super(ISOTP, self).__init__(*args, **kwargs)  # type: ignore
         self.validate_fields()
 
     def validate_fields(self):
+        # type: () -> None
+        """Helper function to validate information in src, dst, exsrc and exdst
+        slots
+        """
         if self.src is not None:
             if not 0 <= self.src <= CAN_MAX_IDENTIFIER:
                 raise Scapy_Exception("src is not a valid CAN identifier")
@@ -115,6 +116,12 @@ class ISOTP(Packet):
                 raise Scapy_Exception("exdst is not a byte")
 
     def fragment(self):
+        # type: () -> List[Packet]
+        """Helper function to fragment an ISOTP message into multiple
+        CAN frames.
+
+        :return: A list of CAN frames
+        """
         data_bytes_in_frame = 7
         if self.exdst is not None:
             data_bytes_in_frame = 6
@@ -172,21 +179,28 @@ class ISOTP(Packet):
 
     @staticmethod
     def defragment(can_frames, use_extended_addressing=None):
+        # type: (List[Packet], Optional[bool]) -> Optional[ISOTP]
+        """Helper function to defragment a list of CAN frames to one ISOTP
+        message
+
+        :param can_frames: A list of CAN frames
+        :param use_extended_addressing: Specify if extended ISO-TP addressing
+                                        is used in the packets for
+                                        defragmentation.
+        :return: An ISOTP message containing the data of the CAN frames or None
+        """
         if len(can_frames) == 0:
             raise Scapy_Exception("ISOTP.defragment called with 0 frames")
 
         dst = can_frames[0].identifier
-        for frame in can_frames:
-            if frame.identifier != dst:
-                warning("Not all CAN frames have the same identifier")
+        if any([frame.identifier != dst for frame in can_frames]):
+            warning("Not all CAN frames have the same identifier")
 
         parser = ISOTPMessageBuilder(use_extended_addressing)
-        for c in can_frames:
-            parser.feed(c)
+        parser.feed(can_frames)
 
         results = []
-        while parser.count > 0:
-            p = parser.pop()
+        for p in parser:
             if (use_extended_addressing is True and p.exdst is not None) \
                     or (use_extended_addressing is False and p.exdst is None) \
                     or (use_extended_addressing is None):
@@ -195,9 +209,9 @@ class ISOTP(Packet):
         if len(results) == 0:
             return None
 
-        if len(results) > 0:
+        if len(results) > 1:
             warning("More than one ISOTP frame could be defragmented from the "
-                    "provided CAN frames, returning the first one.")
+                    "provided CAN frames, only returning the first one.")
 
         return results[0]
 
@@ -214,9 +228,11 @@ class ISOTPHeader(CAN):
     ]
 
     def extract_padding(self, p):
+        # type: (bytes) -> Tuple[bytes, Optional[bytes]]
         return p, None
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         """
         This will set the ByteField 'length' to the correct value.
         """
@@ -225,8 +241,12 @@ class ISOTPHeader(CAN):
         return pkt + pay
 
     def guess_payload_class(self, payload):
-        """
-        ISOTP encodes the frame type in the first nibble of a frame.
+        # type: (bytes) -> Type[Packet]
+        """ISO-TP encodes the frame type in the first nibble of a frame. This
+        is used to determine the payload_class
+
+        :param payload: payload bytes string
+        :return: Type of payload class
         """
         t = (orb(payload[0]) & 0xf0) >> 4
         if t == 0:
@@ -246,6 +266,7 @@ class ISOTPHeaderEA(ISOTPHeader):
     ]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         """
         This will set the ByteField 'length' to the correct value.
         'chb(len(pay) + 1)' is required, because the field 'extended_address'
@@ -266,8 +287,8 @@ class ISOTP_SF(Packet):
     name = 'ISOTPSingleFrame'
     fields_desc = [
         BitEnumField('type', 0, 4, ISOTP_TYPE),
-        BitFieldLenField('message_size', None, 4, length_of='data'),
-        StrLenField('data', '', length_from=lambda pkt: pkt.message_size)
+        BitFieldLenField('message_size', 0, 4, length_of='data'),
+        StrLenField('data', b'', length_from=lambda pkt: pkt.message_size)
     ]
 
 
@@ -304,15 +325,21 @@ class ISOTP_FC(Packet):
 
 
 class ISOTPMessageBuilderIter(object):
+    """
+    Iterator class for ISOTPMessageBuilder
+    """
     slots = ["builder"]
 
     def __init__(self, builder):
+        # type: (ISOTPMessageBuilder) -> None
         self.builder = builder
 
     def __iter__(self):
+        # type: () -> ISOTPMessageBuilderIter
         return self
 
     def __next__(self):
+        # type: () -> ISOTP
         while self.builder.count:
             return self.builder.pop()
         raise StopIteration
@@ -335,17 +362,22 @@ class ISOTPMessageBuilder(object):
     """
 
     class Bucket(object):
+        """
+        Helper class to store not finished ISOTP messages while building.
+        """
         def __init__(self, total_len, first_piece, ts=None):
-            self.pieces = list()
+            # type: (int, bytes, Optional[int]) -> None
+            self.pieces = list()  # type: List[bytes]
             self.total_len = total_len
             self.current_len = 0
-            self.ready = None
-            self.src = None
-            self.exsrc = None
-            self.time = ts
+            self.ready = None  # type: Optional[bytes]
+            self.src = None  # type: Optional[int]
+            self.exsrc = None  # type: Optional[int]
+            self.time = ts  # type: Optional[int]
             self.push(first_piece)
 
         def push(self, piece):
+            # type: (bytes) -> None
             self.pieces.append(piece)
             self.current_len += len(piece)
             if self.current_len >= self.total_len:
@@ -355,23 +387,23 @@ class ISOTPMessageBuilder(object):
                     isotp_data = "".join(map(str, self.pieces))
                 self.ready = isotp_data[:self.total_len]
 
-    def __init__(self, use_ext_addr=None, did=None, basecls=None):
-        """
-        Initialize a ISOTPMessageBuilder object
+    def __init__(self, use_ext_addr=None, did=None, basecls=ISOTP):
+        # type: (Optional[bool], Optional[int], Type[Packet]) -> None
+        """Initialize a ISOTPMessageBuilder object
 
-        :param use_ext_addr:    True for only attempting to defragment with
-                                extended addressing, False for only attempting
-                                to defragment without extended addressing,
-                                or None for both
-        :param basecls:         the class of packets that will be returned,
-                                defaults to ISOTP
-
+        :param use_ext_addr: True for only attempting to defragment with
+                             extended addressing, False for only attempting
+                             to defragment without extended addressing,
+                             or None for both
+        :param did: Destination Identifier
+        :param basecls: The class of packets that will be returned,
+                        defaults to ISOTP
         """
         self.ready = []
         self.buckets = {}
         self.use_ext_addr = use_ext_addr
-        self.basecls = basecls or ISOTP
-        self.dst_ids = None
+        self.basecls = basecls
+        self.dst_ids = None  # type: Optional[List[int]]
         self.last_ff = None
         self.last_ff_ex = None
         if did is not None:
@@ -381,6 +413,7 @@ class ISOTPMessageBuilder(object):
                 self.dst_ids = [did]
 
     def feed(self, can):
+        # type: (Union[List[CAN], CAN]) -> None
         """Attempt to feed an incoming CAN frame into the state machine"""
         if not isinstance(can, Packet) and hasattr(can, "__iter__"):
             for p in can:
@@ -401,16 +434,21 @@ class ISOTPMessageBuilder(object):
 
     @property
     def count(self):
+        # type: () -> int
         """Returns the number of ready ISOTP messages built from the provided
-        can frames"""
+        can frames
+
+        :return: Number of ready ISOTP messages
+        """
         return len(self.ready)
 
     def __len__(self):
+        # type: () -> int
         return self.count
 
     def pop(self, identifier=None, ext_addr=None):
-        """
-        Returns a built ISOTP message
+        # type: (Optional[int], Optional[int]) -> Optional[Packet]
+        """Returns a built ISOTP message
 
         :param identifier: if not None, only return isotp messages with this
                            destination
@@ -434,10 +472,12 @@ class ISOTPMessageBuilder(object):
         return None
 
     def __iter__(self):
+        # type: () -> ISOTPMessageBuilderIter
         return ISOTPMessageBuilderIter(self)
 
     @staticmethod
     def _build(t, basecls=ISOTP):
+        # type: (Tuple[int, int, ISOTPMessageBuilder.Bucket], Type[Packet]) -> Packet  # noqa: E501
         bucket = t[2]
         p = basecls(bucket.ready)
         if hasattr(p, "dst"):
@@ -453,6 +493,7 @@ class ISOTPMessageBuilder(object):
         return p
 
     def _feed_first_frame(self, identifier, ea, data, ts):
+        # type: (int, int, bytes, int) -> bool
         if len(data) < 3:
             # At least 3 bytes are necessary: 2 for length and 1 for data
             return False
@@ -473,6 +514,7 @@ class ISOTPMessageBuilder(object):
         return True
 
     def _feed_single_frame(self, identifier, ea, data, ts):
+        # type: (int, int, bytes, int) -> bool
         if len(data) < 2:
             # At least 2 bytes are necessary: 1 for length and 1 for data
             return False
@@ -489,6 +531,7 @@ class ISOTPMessageBuilder(object):
         return True
 
     def _feed_consecutive_frame(self, identifier, ea, data):
+        # type: (int, int, bytes) -> bool
         if len(data) < 2:
             # At least 2 bytes are necessary: 1 for sequence number and
             # 1 for data
@@ -518,6 +561,7 @@ class ISOTPMessageBuilder(object):
         return True
 
     def _feed_flow_control_frame(self, identifier, ea, data):
+        # type: (int, int, bytes) -> bool
         if len(data) < 3:
             # At least 2 bytes are necessary: 1 for sequence number and
             # 1 for data
@@ -545,6 +589,7 @@ class ISOTPMessageBuilder(object):
         return True
 
     def _try_feed(self, identifier, ea, data, ts):
+        # type: (int, int, bytes, int) -> None
         first_byte = six.indexbytes(data, 0)
         if len(data) > 1 and first_byte & 0xf0 == N_PCI_SF:
             self._feed_single_frame(identifier, ea, data, ts)
@@ -562,9 +607,9 @@ class ISOTPSession(DefaultSession):
     Usage:
     >>> sniff(session=ISOTPSession)
     """
-
     def __init__(self, *args, **kwargs):
-        DefaultSession.__init__(self, *args, **kwargs)
+        # type: (Type[Any, ...], Dict[str, Any]) -> None
+        super(ISOTPSession, self).__init__(*args, **kwargs)
         self.m = ISOTPMessageBuilder(
             use_ext_addr=kwargs.pop("use_ext_addr", None),
             did=kwargs.pop("did", None),
@@ -1957,7 +2002,7 @@ def filter_periodic_packets(packet_dict, verbose=False):
 
 
 def get_isotp_fc(id_value, id_list, noise_ids, extended, packet, verbose=False):   # noqa: E501
-    # type: (int, Union[List[int], Dict[int, Tuple[Packet, int]]], Optional[Iterator[int]], bool, Packet, bool) -> None   # noqa: E501
+    # type: (int, Union[List[int], Dict[int, Tuple[Packet, int]]], Optional[Iterable[int]], bool, Packet, bool) -> None   # noqa: E501
     """Callback for sniff function when packet received
 
     If received packet is a FlowControl and not in noise_ids append it
@@ -2000,8 +2045,8 @@ def get_isotp_fc(id_value, id_list, noise_ids, extended, packet, verbose=False):
 
 
 def scan(sock,                      # type: SuperSocket
-         scan_range=range(0x800),   # type: Iterator[int]
-         noise_ids=None,            # type: Optional[Iterator[int]]
+         scan_range=range(0x800),   # type: Iterable[int]
+         noise_ids=None,            # type: Optional[Iterable[int]]
          sniff_time=0.1,            # type: float
          extended_can_id=False,     # type: bool
          verbose=False              # type: bool
@@ -2048,10 +2093,10 @@ def scan(sock,                      # type: SuperSocket
 
 
 def scan_extended(sock,                              # type: SuperSocket
-                  scan_range=range(0x800),           # type: Iterator[int]
+                  scan_range=range(0x800),           # type: Iterable[int]
                   scan_block_size=32,                # type: int
-                  extended_scan_range=range(0x100),  # type: Iterator[int]
-                  noise_ids=None,                    # type: Optional[Iterator[int]]  # noqa: E501
+                  extended_scan_range=range(0x100),  # type: Iterable[int]
+                  noise_ids=None,                    # type: Optional[Iterable[int]]  # noqa: E501
                   sniff_time=0.1,                    # type: float
                   extended_can_id=False,             # type: bool
                   verbose=False                      # type: bool
