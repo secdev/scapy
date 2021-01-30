@@ -16,14 +16,11 @@ import time
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, warning
-from scapy.layers.can import CAN
+from scapy.layers.can import CAN, CAN_MTU
 from scapy.packet import Padding
 from scapy.arch.linux import get_last_packet_timestamp
 
 conf.contribs['NativeCANSocket'] = {'channel': "can0"}
-
-CAN_FRAME_SIZE = 16
-CAN_INV_FILTER = 0x20000000
 
 
 class NativeCANSocket(SuperSocket):
@@ -73,7 +70,7 @@ class NativeCANSocket(SuperSocket):
         self.ins.bind((self.channel,))
         self.outs = self.ins
 
-    def recv(self, x=CAN_FRAME_SIZE):
+    def recv(self, x=CAN_MTU):
         try:
             pkt, sa_ll = self.ins.recvfrom(x)
         except BlockingIOError:  # noqa: F821
@@ -109,7 +106,7 @@ class NativeCANSocket(SuperSocket):
             # required by the underlying Linux SocketCAN frame format
             bs = bytes(x)
             if not conf.contribs['CAN']['swap-bytes']:
-                bs = bs + b'\x00' * (CAN_FRAME_SIZE - len(bs))
+                bs = bs + b'\x00' * (CAN_MTU - len(bs))
                 bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
             return SuperSocket.send(self, bs)
         except socket.error as msg:

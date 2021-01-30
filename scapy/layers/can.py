@@ -20,7 +20,7 @@ from scapy.compat import Tuple, Optional, Type, List, Union, Callable, IO, \
 import scapy.modules.six as six
 from scapy.config import conf
 from scapy.compat import orb
-from scapy.data import DLT_CAN_SOCKETCAN, MTU
+from scapy.data import DLT_CAN_SOCKETCAN
 from scapy.fields import FieldLenField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ScalingField, ConditionalField, LenField
 from scapy.volatile import RandFloat, RandBinFloat
@@ -34,7 +34,14 @@ from scapy.utils import _ByteStream
 __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
            "BESignedSignalField", "BEUnsignedSignalField", "rdcandump",
-           "CandumpReader", "SignalHeader"]
+           "CandumpReader", "SignalHeader", "CAN_MTU", "CAN_MAX_IDENTIFIER",
+           "CAN_MAX_DLEN", "CAN_INV_FILTER"]
+
+# CONSTANTS
+CAN_MAX_IDENTIFIER = (1 << 29) - 1  # Maximum 29-bit identifier
+CAN_MTU = 16
+CAN_MAX_DLEN = 8
+CAN_INV_FILTER = 0x20000000
 
 # Mimics the Wireshark CAN dissector parameter 'Byte-swap the CAN ID/flags field'  # noqa: E501
 #   set to True when working with PF_CAN sockets
@@ -419,7 +426,7 @@ class CandumpReader:
         return pkt
     __next__ = next
 
-    def read_packet(self, size=MTU):
+    def read_packet(self, size=CAN_MTU):
         # type: (int) -> Optional[Packet]
         """return a single packet read from the file or None if filters apply
 
@@ -490,7 +497,7 @@ class CandumpReader:
             res.append(p)
         return PacketList(res, name=os.path.basename(self.filename))
 
-    def recv(self, size=MTU):
+    def recv(self, size=CAN_MTU):
         # type: (int) -> Optional[Packet]
         """ Emulate a socket
         """
