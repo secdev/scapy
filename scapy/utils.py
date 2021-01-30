@@ -1635,24 +1635,14 @@ class RawPcapWriter:
                 self.write_header(pkt)
             self.write_packet(pkt)
         else:
-            # Import here to avoid a circular dependency
-            from scapy.plist import SndRcvList
-            if isinstance(pkt, SndRcvList):
-                def _iter(pkt=cast(SndRcvList, pkt)):
-                    # type: (SndRcvList) -> Iterator[Packet]
-                    for s, r in pkt:
-                        if s.sent_time:
-                            s.time = s.sent_time
-                        yield s
-                        yield r
-                pkt_iter = _iter()
-            else:
-                pkt_iter = pkt.__iter__()
-            for p in pkt_iter:
+            # Import here to avoid circular dependency
+            from scapy.supersocket import IterSocket
+            for p in IterSocket(pkt).iter:
                 if not self.header_present:
                     self.write_header(p)
 
-                if self.linktype != conf.l2types.get(type(p), None):
+                if not isinstance(p, bytes) and \
+                        self.linktype != conf.l2types.get(type(p), None):
                     warning("Inconsistent linktypes detected!"
                             " The resulting PCAP file might contain"
                             " invalid packets."
@@ -2148,9 +2138,11 @@ def tcpdump(
         # An error has occurred
         return
     if dump:
-        return b"".join(
+        data = b"".join(
             iter(lambda: proc.stdout.read(1048576), b"")  # type: ignore
         )
+        proc.terminate()
+        return data
     if getproc:
         return proc
     if getfd:
