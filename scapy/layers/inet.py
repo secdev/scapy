@@ -655,7 +655,8 @@ def in4_chksum(proto, u, p):
         ln = len(p)
 
     # Filter out IPOption_LSRR and IPOption_SSRR
-    sr_options = [opt for opt in u.options if opt.option in [3, 9]]
+    sr_options = [opt for opt in u.options if isinstance(opt, IPOption_LSRR) or
+                  isinstance(opt, IPOption_SSRR)]
     len_sr_options = len(sr_options)
     if len_sr_options == 1 and len(sr_options[0].routers):
         # The checksum must be computed using the final
