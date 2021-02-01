@@ -12,7 +12,7 @@ import subprocess, sys
 from six.moves.queue import Queue
 from subprocess import call
 from io import BytesIO
-from scapy.contrib.isotp import get_isotp_packet
+from scapy.contrib.isotp.isotp_scan import get_isotp_packet
 from scapy.consts import LINUX
 
 = Definition of constants, utility functions and mock classes

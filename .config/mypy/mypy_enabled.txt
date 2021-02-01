@@ -41,4 +41,8 @@ scapy/contrib/roce.py
 scapy/contrib/automotive/gm/gmlanutils.py
 scapy/contrib/automotive/bmw/hsfz.py
 scapy/contrib/automotive/doip.py
-scapy/contrib/isotp.py
+scapy/contrib/isotp/isotp_packet.py
+scapy/contrib/isotp/isotp_native_socket.py
+scapy/contrib/isotp/isotp_scan.py
+scapy/contrib/isotp/isotp_soft_socket.py
+scapy/contrib/isotp/isotp_utils.py
