@@ -2135,7 +2135,7 @@ class _BitField(Field[I, int]):
 
     def __init__(self, name, default, size,
                  tot_size=0, end_tot_size=0):
-        # type: (str, I, int, int, int) -> None
+        # type: (str, Optional[I], int, int, int) -> None
         Field.__init__(self, name, default)
         if callable(size):
             size = size(self)
@@ -2237,7 +2237,7 @@ class BitFixedLenField(BitField):
 
     def __init__(self,
                  name,  # type: str
-                 default,  # type: int
+                 default,  # type: Optional[int]
                  length_from  # type: Callable[[Packet], int]
                  ):
         # type: (...) -> None
@@ -2267,7 +2267,7 @@ class BitFieldLenField(BitField):
 
     def __init__(self,
                  name,  # type: str
-                 default,  # type: int
+                 default,  # type: Optional[int]
                  size,  # type: int
                  length_of=None,  # type: Optional[Union[Callable[[Optional[Packet]], int], str]]  # noqa: E501
                  count_of=None,  # type: Optional[str]
