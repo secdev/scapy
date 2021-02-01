@@ -95,7 +95,7 @@ class ISOTP(Packet):
         self.dst = kwargs.pop("dst", None)  # type: Optional[int]
         self.exsrc = kwargs.pop("exsrc", None)  # type: Optional[int]
         self.exdst = kwargs.pop("exdst", None)  # type: Optional[int]
-        super(ISOTP, self).__init__(*args, **kwargs)
+        Packet.__init__(self, *args, **kwargs)
         self.validate_fields()
 
     def validate_fields(self):
