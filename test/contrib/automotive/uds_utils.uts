@@ -24,7 +24,7 @@ load_contrib("automotive.uds", globals_dict=globals())
 drain_bus(iface0)
 drain_bus(iface1)
 
-packet = ISOTP('Request')
+packet = ISOTP(b'Request')
 succ = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x241, did=0x641, basecls=UDS) as sendSock, \
@@ -51,7 +51,7 @@ assert succ
 drain_bus(iface0)
 drain_bus(iface1)
 
-packet = ISOTP('Request')
+packet = ISOTP(b'Request')
 succ = False
 
 with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x241, did=0x641, basecls=UDS) as sendSock, \
