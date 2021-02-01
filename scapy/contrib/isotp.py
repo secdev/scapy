@@ -23,7 +23,7 @@ import heapq
 from threading import Thread, Event, Lock
 
 from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict, Any,\
-    Type, cast, Callable
+    Type, cast, Callable, TYPE_CHECKING
 from scapy.utils import EDecimal, _UniPacketList
 from scapy.packet import Packet
 from scapy.plist import PacketList
@@ -40,9 +40,12 @@ from scapy.supersocket import SuperSocket
 from scapy.data import SO_TIMESTAMPNS
 from scapy.config import conf
 from scapy.consts import LINUX
-from scapy.contrib.cansocket import PYTHON_CAN, CANSocket
+from scapy.contrib.cansocket import PYTHON_CAN
 from scapy.sendrecv import sniff
 from scapy.sessions import DefaultSession
+
+if TYPE_CHECKING:
+    from scapy.contrib.cansocket import CANSocket
 
 __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
            "ISOTP_CF", "ISOTP_FC", "ISOTPSoftSocket", "ISOTPSession",
@@ -691,7 +694,7 @@ class ISOTPSoftSocket(SuperSocket):
                  padding=False,
                  listen_only=False,
                  basecls=ISOTP):
-        # type: (Optional[CANSocket], int, int, Optional[int], Optional[int], int, int, bool, bool, Type[Packet]) -> None  # noqa: E501
+        # type: (Optional["CANSocket"], int, int, Optional[int], Optional[int], int, int, bool, bool, Type[Packet]) -> None  # noqa: E501
         """
         Initialize an ISOTPSoftSocket using the provided underlying can socket
 
@@ -856,7 +859,7 @@ class CANReceiverThread(Thread):
     """
 
     def __init__(self, can_socket, callback):
-        # type: (CANSocket, Callable[[Packet], None]) -> None
+        # type: ("CANSocket", Callable[[Packet], None]) -> None
         """
         Initialize the thread. In order for this thread to be able to be
         stopped by the destructor of another object, it is important to not
@@ -1190,7 +1193,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                  rx_block_size=0,
                  rx_separation_time_min=0,
                  listen_only=False):
-        # type: (CANSocket, int, int, bool, Optional[int], Optional[int], int, int, bool) -> None  # noqa: E501
+        # type: ("CANSocket", int, int, bool, Optional[int], Optional[int], int, int, bool) -> None  # noqa: E501
         """
         :param can_socket: a CANSocket instance, preferably filtering only can
                            frames with identifier equal to did
