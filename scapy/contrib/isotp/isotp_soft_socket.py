@@ -34,6 +34,19 @@ if TYPE_CHECKING:
     from scapy.contrib.cansocket import CANSocket
 
 
+# Enum states
+ISOTP_IDLE = 0
+ISOTP_WAIT_FIRST_FC = 1
+ISOTP_WAIT_FC = 2
+ISOTP_WAIT_DATA = 3
+ISOTP_SENDING = 4
+
+# /* Flow Status given in FC frame */
+ISOTP_FC_CTS = 0  # /* clear to send */
+ISOTP_FC_WT = 1  # /* wait */
+ISOTP_FC_OVFLW = 2  # /* overflow */
+
+
 class ISOTPSoftSocket(SuperSocket):
     """
     This class is a wrapper around the ISOTPSocketImplementation, for the
@@ -530,21 +543,6 @@ class TimeoutScheduler:
             if not isinstance(other, TimeoutScheduler.Handle):
                 raise TypeError()
             return self._when >= other._when
-
-
-"""ISOTPSoftSocket definitions."""
-
-# Enum states
-ISOTP_IDLE = 0
-ISOTP_WAIT_FIRST_FC = 1
-ISOTP_WAIT_FC = 2
-ISOTP_WAIT_DATA = 3
-ISOTP_SENDING = 4
-
-# /* Flow Status given in FC frame */
-ISOTP_FC_CTS = 0  # /* clear to send */
-ISOTP_FC_WT = 1  # /* wait */
-ISOTP_FC_OVFLW = 2  # /* overflow */
 
 
 class ISOTPSocketImplementation(automaton.SelectableObject):
