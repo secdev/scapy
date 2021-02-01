@@ -287,4 +287,3 @@ class ISOTP_FC(Packet):
         ByteField('block_size', 0),
         ByteField('separation_time', 0),
     ]
-

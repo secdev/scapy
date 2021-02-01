@@ -15,7 +15,6 @@ from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict, Any,\
 from scapy.utils import EDecimal, _UniPacketList
 from scapy.packet import Packet
 from scapy.plist import PacketList
-from scapy.sendrecv import sniff
 from scapy.sessions import DefaultSession
 from scapy.contrib.isotp.isotp_packet import ISOTP, N_PCI_CF, N_PCI_SF, \
     N_PCI_FF, N_PCI_FC
@@ -343,4 +342,3 @@ class ISOTPSession(DefaultSession):
                 self._supersession.on_packet_received(rcvd)
             else:
                 super(ISOTPSession, self).on_packet_received(rcvd)
-

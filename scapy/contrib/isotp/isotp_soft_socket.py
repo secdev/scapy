@@ -11,9 +11,12 @@ import struct
 import time
 import traceback
 import heapq
+import socket
+
 from threading import Thread, Event, Lock
 
-from scapy.compat import Optional, Union, List, Tuple, Any, Type, cast, Callable
+from scapy.compat import Optional, Union, List, Tuple, Any, Type, cast, \
+    Callable
 from scapy.packet import Packet
 from scapy.layers.can import CAN
 import scapy.modules.six as six
@@ -113,8 +116,9 @@ class ISOTPSoftSocket(SuperSocket):
             listen_only=listen_only
         )
 
-        self.ins = impl  # type: Optional[ISOTPSocketImplementation]
-        self.outs = impl  # type: Optional[ISOTPSocketImplementation]
+        self.iso_ins = impl  # type: Optional[ISOTPSocketImplementation]
+        self.iso_outs = impl  # type: Optional[ISOTPSocketImplementation]
+        self.ins = self.outs = cast(socket.socket, impl)
         self.impl = impl
         self.basecls = basecls
         if basecls is None:
@@ -124,8 +128,10 @@ class ISOTPSoftSocket(SuperSocket):
         # type: () -> None
         if not self.closed:
             self.impl.close()
+            self.iso_outs = None
+            self.iso_ins = None
+            self.ins = None  # type: ignore
             self.outs = None
-            self.ins = None
             super(ISOTPSoftSocket, self).close()
 
     def begin_send(self, p):
@@ -137,8 +143,8 @@ class ISOTPSoftSocket(SuperSocket):
         if hasattr(p, "sent_time"):
             p.sent_time = time.time()
 
-        if self.outs is not None:
-            self.outs.begin_send(bytes(p))
+        if self.iso_outs is not None:
+            self.iso_outs.begin_send(bytes(p))
             return len(p)
         else:
             return 0
@@ -149,8 +155,8 @@ class ISOTPSoftSocket(SuperSocket):
         received or the specified timeout is reached.
         If self.timeout is 0, then this function doesn't block and returns the
         first frame in the receive buffer or None if there isn't any."""
-        if self.ins is not None:
-            return self.basecls, self.ins.recv(), time.time()
+        if self.iso_ins is not None:
+            return self.basecls, self.iso_ins.recv(), time.time()
         else:
             return self.basecls, None, None
 
@@ -181,9 +187,9 @@ class ISOTPSoftSocket(SuperSocket):
         def find_ready_sockets(socks):
             # type: (List[ISOTPSoftSocket]) -> List[ISOTPSoftSocket]
             return [x for x in socks if
-                    x.ins is not None and
-                    x.ins.rx_queue is not None and
-                    not x.ins.rx_queue.empty()]
+                    x.iso_ins is not None and
+                    x.iso_ins.rx_queue is not None and
+                    not x.iso_ins.rx_queue.empty()]
 
         iso_socks = [s for s in sockets if isinstance(s, ISOTPSoftSocket)]
         ready_sockets = find_ready_sockets(iso_socks)
@@ -198,16 +204,16 @@ class ISOTPSoftSocket(SuperSocket):
 
         try:
             for s in iso_socks:
-                if s.ins is not None:
-                    s.ins.rx_callbacks.append(my_cb)
+                if s.iso_ins is not None:
+                    s.iso_ins.rx_callbacks.append(my_cb)
 
             exit_select.wait(remain)
 
         finally:
             for s in iso_socks:
-                if s.ins is not None:
+                if s.iso_ins is not None:
                     try:
-                        s.ins.rx_callbacks.remove(my_cb)
+                        s.iso_ins.rx_callbacks.remove(my_cb)
                     except ValueError:
                         pass
                     except AttributeError:

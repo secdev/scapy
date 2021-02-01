@@ -14,7 +14,7 @@ from scapy.error import log_loading
 from scapy.contrib.isotp.isotp_packet import ISOTP, ISOTPHeader, \
     ISOTPHeaderEA, ISOTP_SF, ISOTP_FF, ISOTP_CF, ISOTP_FC
 from scapy.contrib.isotp.isotp_utils import ISOTPSession, \
-    ISOTPMessageBuilder, ISOTPMessageBuilderIter
+    ISOTPMessageBuilder
 from scapy.contrib.isotp.isotp_soft_socket import ISOTPSoftSocket
 from scapy.contrib.isotp.isotp_scan import ISOTPScan
 
@@ -41,4 +41,3 @@ if USE_CAN_ISOTP_KERNEL_MODULE:
     ISOTPSocket = ISOTPNativeSocket
 else:
     ISOTPSocket = ISOTPSoftSocket
-
