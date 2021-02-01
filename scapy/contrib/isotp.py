@@ -737,6 +737,8 @@ class ISOTPSoftSocket(SuperSocket):
 
         self.iso_ins = impl  # type: Optional[ISOTPSocketImplementation]
         self.iso_outs = impl  # type: Optional[ISOTPSocketImplementation]
+        self.ins = cast(socket.socket, impl)
+        self.outs = cast(socket.socket, impl)
         self.impl = impl
         self.basecls = basecls
         if basecls is None:
@@ -748,6 +750,8 @@ class ISOTPSoftSocket(SuperSocket):
             self.impl.close()
             self.iso_outs = None
             self.iso_ins = None
+            self.outs = None
+            self.ins = None  # type: ignore
             super(ISOTPSoftSocket, self).close()
 
     def begin_send(self, p):
