@@ -408,8 +408,8 @@ CAN Calibration Protocol (CCP)
 
 CCP is derived from CAN. The CAN-header is part of a CCP frame. CCP has two types
 of message objects. One is called Command Receive Object (CRO), the other is called
-Data Transmission Object (DTO). Usually CROs are sent to an ECU, and DTOs are received
-from an ECU. The information, if one DTO answers a CRO is implemented through a counter
+Data Transmission Object (DTO). Usually CROs are sent to an Ecu, and DTOs are received
+from an Ecu. The information, if one DTO answers a CRO is implemented through a counter
 field (ctr). If both objects have the same counter value, the payload of a DTO object
 can be interpreted from the command of the associated CRO object.
 
@@ -420,14 +420,14 @@ Creating a CRO message::
     CCP(identifier=0x711)/CRO(ctr=2)/GET_SEED(resource=2)
     CCP(identifier=0x711)/CRO(ctr=3)/UNLOCK(key=b"123456")
 
-If we aren't interested in the DTO of an ECU, we can just send a CRO message like this:
+If we aren't interested in the DTO of an Ecu, we can just send a CRO message like this:
 Sending a CRO message::
 
     pkt = CCP(identifier=0x700)/CRO(ctr=1)/CONNECT(station_address=0x02)
     sock = CANSocket(bustype='socketcan', channel='vcan0')
     sock.send(pkt)
 
-If we are interested in the DTO of an ECU, we need to set the basecls parameter of the
+If we are interested in the DTO of an Ecu, we need to set the basecls parameter of the
 CANSocket to CCP and we need to use sr1:
 Sending a CRO message::
 
@@ -457,10 +457,10 @@ Universal calibration and measurement protocol (XCP)
 
 XCP is the successor of CCP. It is usable with several protocols. Scapy includes CAN, UDP and TCP.
 XCP has two types of message types: Command Transfer Object (CTO) and Data Transmission Object (DTO).
-CTOs send to an ECU are requests (commands) and the ECU has to reply with a positive response or an error.
-Additionally, the ECU can send a CTO to inform the master about an asynchronous event (EV) or request a service execution (SERV).
-DTOs sent by the ECU are called DAQ (Data AcQuisition) and include measured values.
-DTOs received by the ECU are used for a periodic stimulation and are called STIM (Stimulation).
+CTOs send to an Ecu are requests (commands) and the Ecu has to reply with a positive response or an error.
+Additionally, the Ecu can send a CTO to inform the master about an asynchronous event (EV) or request a service execution (SERV).
+DTOs sent by the Ecu are called DAQ (Data AcQuisition) and include measured values.
+DTOs received by the Ecu are used for a periodic stimulation and are called STIM (Stimulation).
 
 
 Creating a CTO message::
@@ -475,7 +475,7 @@ To send the message over CAN a header has to be added
     sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0'))
     sock.send(pkt)
 
-If we are interested in the response of an ECU, we need to set the basecls parameter of the
+If we are interested in the response of an Ecu, we need to set the basecls parameter of the
 CANSocket to XCPonCAN and we need to use sr1:
 Sending a CTO message::
 
@@ -484,7 +484,7 @@ Sending a CTO message::
 
 Since sr1 calls the answers function, our payload of the XCP-response objects gets interpreted with the
 command of our CTO object. Otherwise it could not be interpreted.
-The first message should always be the "CONNECT" message, the response of the ECU determines how the messages are read. E.g.: byte order.
+The first message should always be the "CONNECT" message, the response of the Ecu determines how the messages are read. E.g.: byte order.
 Otherwise, one must set the address granularity, and max size of the DTOs and CTOs per hand in the contrib config::
 
     conf.contribs['XCP']['Address_Granularity_Byte'] = 1  # Can be 1, 2 or 4
@@ -815,15 +815,15 @@ Interactive shell usage example::
     >>> scanner = XCPOnCANScanner(sock)
     >>> result = scanner.start_scan()
 
-The result includes the slave_id (the identifier of the ECU that receives XCP messages),
-and the response_id (the identifier that the ECU will send XCP messages to).
+The result includes the slave_id (the identifier of the Ecu that receives XCP messages),
+and the response_id (the identifier that the Ecu will send XCP messages to).
 
 
 
 UDS
 ===
 
-The main usage of UDS is flashing and diagnostic of an ECU. UDS is an
+The main usage of UDS is flashing and diagnostic of an Ecu. UDS is an
 application layer protocol and can be used as a DoIP or HSFZ payload or a UDS packet
 can directly be sent over an ISOTPSocket. Every OEM has its own customization of UDS.
 This increases the difficulty of generic applications and OEM specific knowledge is
@@ -842,9 +842,9 @@ Customization of UDS_RDBI, UDS_WDBI
 -----------------------------------
 
 In real-world use-cases, the UDS layer is heavily customized. OEMs define their own substructure of packets.
-Especially the packets ReadDataByIdentifier or WriteDataByIdentifier have a very OEM or even ECU specific
+Especially the packets ReadDataByIdentifier or WriteDataByIdentifier have a very OEM or even Ecu specific
 substructure. Therefore a ``StrField`` ``dataRecord`` is not added to the ``field_desc``.
-The intended usage is to create ECU or OEM specific description files, which extend the general UDS layer of
+The intended usage is to create Ecu or OEM specific description files, which extend the general UDS layer of
 Scapy with further protocol implementations.
 
 Customization example::
@@ -913,47 +913,47 @@ Usage example:
 .. image:: ../graphics/animations/animation-scapy-gmlan.svg
 
 
-ECU Utility examples
+Ecu Utility examples
 ====================
 
-The ECU utility can be used to analyze the internal states of an ECU under investigation.
+The Ecu utility can be used to analyze the internal states of an Ecu under investigation.
 This utility depends heavily on the support of the used protocol. ``UDS`` is supported.
 
-Log all commands applied to an ECU
+Log all commands applied to an Ecu
 ----------------------------------
 
-This example shows the logging mechanism of an ECU object. The log of an ECU is a dictionary of applied UDS commands. The key for this dictionary is the UDS service name. The value consists of a list of tuples, containing a timestamp and a log value
+This example shows the logging mechanism of an Ecu object. The log of an Ecu is a dictionary of applied UDS commands. The key for this dictionary is the UDS service name. The value consists of a list of tuples, containing a timestamp and a log value
 
 Usage example::
 
-    ecu = ECU(verbose=False, store_supported_responses=False)
+    ecu = Ecu(verbose=False, store_supported_responses=False)
     ecu.update(PacketList(msgs))
     print(ecu.log)
     timestamp, value = ecu.log["DiagnosticSessionControl"][0]
 
 
 
-Trace all commands applied to an ECU
+Trace all commands applied to an Ecu
 ------------------------------------
 
-This example shows the trace mechanism of an ECU object. Traces of the current state of the ECU object and the received message are printed on stdout. Some messages, depending on the protocol, will change the internal state of the ECU.
+This example shows the trace mechanism of an Ecu object. Traces of the current state of the Ecu object and the received message are printed on stdout. Some messages, depending on the protocol, will change the internal state of the Ecu.
 
 Usage example::
 
-    ecu = ECU(verbose=True, logging=False, store_supported_responses=False)
+    ecu = Ecu(verbose=True, logging=False, store_supported_responses=False)
     ecu.update(PacketList(msgs))
     print(ecu.current_session)
 
 
 
-Generate supported responses of an ECU
+Generate supported responses of an Ecu
 --------------------------------------
 
-This example shows a mechanism to clone a real world ECU by analyzing a list of Packets.
+This example shows a mechanism to clone a real world Ecu by analyzing a list of Packets.
 
 Usage example::
 
-    ecu = ECU(verbose=False, logging=False, store_supported_responses=True)
+    ecu = Ecu(verbose=False, logging=False, store_supported_responses=True)
     ecu.update(PacketList(msgs))
     supported_responses = ecu.supported_responses
     unanswered_packets = ecu.unanswered_packets
@@ -973,7 +973,7 @@ Usage example::
         udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
 
 
-    ecu = ECU()
+    ecu = Ecu()
     ecu.update(udsmsgs)
     print(ecu.log)
     print(ecu.supported_responses)
@@ -981,14 +981,14 @@ Usage example::
 
 
 
-Analyze on the fly with ECUSession
+Analyze on the fly with EcuSession
 ----------------------------------
 
-This example shows the usage of an ECUSession in sniff. An ISOTPSocket or any socket like object which returns entire messages of the right protocol can be used. An ``ECUSession`` is used as supersession in an ``ISOTPSession``. To obtain the ``ECU`` object from an ``ECUSession``, the ``ECUSession`` has to be created outside of sniff.
+This example shows the usage of an EcuSession in sniff. An ISOTPSocket or any socket like object which returns entire messages of the right protocol can be used. An ``EcuSession`` is used as supersession in an ``ISOTPSession``. To obtain the ``Ecu`` object from an ``EcuSession``, the ``EcuSession`` has to be created outside of sniff.
 
 Usage example::
 
-    session = ECUSession()
+    session = EcuSession()
 
     with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
         udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
@@ -1098,7 +1098,7 @@ OBD
 OBD message
 -----------
 
-OBD is implemented on top of ISOTP. Use an ISOTPSocket for the communication with an ECU. 
+OBD is implemented on top of ISOTP. Use an ISOTPSocket for the communication with an Ecu.
 You should set the parameters ``basecls=OBD`` and ``padding=True`` in your ISOTPSocket init call.
 
 OBD is split into different service groups. Here are some example requests:
@@ -1120,7 +1120,7 @@ The response will contain a PacketListField, called `data_records`. This field c
          |###[ PID_00_PIDsSupported ]###
          |     supported_pids= PID20+PID1F+PID1C+PID15+PID14+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID0A+PID07+PID06+PID05+PID04+PID03+PID01
 
-Let's assume our ECU under test supports the pid 0x15::
+Let's assume our Ecu under test supports the pid 0x15::
    
    req = OBD()/OBD_S01(pid=[0x15])
    resp = sock.sr1(req)

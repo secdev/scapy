@@ -12,7 +12,7 @@ from subprocess import call
 from scapy.contrib.automotive.ecu import *
 
 print("Set delay to lower utilization")
-conf.contribs['ECU_am']['send_delay'] = 0.004
+conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
 = Definition of constants, utility functions and mock classes
 iface0 = "vcan0"
 iface1 = "vcan1"
@@ -181,12 +181,12 @@ drain_bus(iface0)
 
 s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
 
-example_responses = [ECUResponse(session=range(0,255), security_level=0, responses=s3)]
+example_responses = [EcuResponse(session=range(0, 255), security_level=0, responses=s3)]
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, 0x7e0, 0x7e8, basecls=OBD, padding=True) as tester:
     conf.verb = -1
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
     sim = threading.Thread(target=answering_machine, kwargs={'verbose': False, 'timeout': 15, 'stop_filter': lambda p: bytes(p) == b"\x01\xff\xff\xff\xff"})
     sim.start()
     try:
@@ -217,20 +217,20 @@ s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)
 
 # Create answers for 'supported PIDs scan'
 example_responses = \
-    [ECUResponse(session=range(0, 255), security_level=0, responses=s3),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid00),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s6_mid00),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s8_tid00),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s9_iid00),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid03),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid0B),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid0F)]
+    [EcuResponse(session=range(0, 255), security_level=0, responses=s3),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid00),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s6_mid00),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s8_tid00),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s9_iid00),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid03),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid0B),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid0F)]
 
 
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, 0x7e0, 0x7e8, basecls=OBD, padding=True) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
     sim = threading.Thread(target=answering_machine, kwargs={'verbose': False, 'timeout': 100, 'stop_filter': lambda p: bytes(p) == b"\x01\xff\xff\xff\xff"})
     sim.start()
     try:
@@ -262,20 +262,20 @@ s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)
 
 # Create answers for 'supported PIDs scan'
 example_responses = \
-    [ECUResponse(session=range(0, 255), security_level=0, responses=s3),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid00),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s6_mid00),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s8_tid00),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s9_iid00),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid03),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid0B),
-     ECUResponse(session=range(0, 255), security_level=0, responses=s1_pid0F)]
+    [EcuResponse(session=range(0, 255), security_level=0, responses=s3),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid00),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s6_mid00),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s8_tid00),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s9_iid00),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid03),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid0B),
+     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid0F)]
 
 
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, 0x7e0, 0x7e8, basecls=OBD, padding=True) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
     sim = threading.Thread(target=answering_machine, kwargs={'verbose': False, 'timeout': 100, 'stop_filter':  lambda p: bytes(p) == b"\x01\xff\xff\xff\xff"})
     sim.start()
     try:
@@ -299,11 +299,11 @@ drain_bus(iface0)
 
 # Add unsupported PID
 s1_pid01 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID01()])
-example_responses.append(ECUResponse(session=range(0,255), security_level=0, responses=s1_pid01))
+example_responses.append(EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid01))
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, 0x7e0, 0x7e8, basecls=OBD, padding=True) as tester:
-    answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
+    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=OBD, verbose=False)
     sim = threading.Thread(target=answering_machine, kwargs={'verbose': False, 'timeout': 100, 'stop_filter': lambda p: bytes(p) == b"\x01\xff\xff\xff\xff"})
     sim.start()
     try:

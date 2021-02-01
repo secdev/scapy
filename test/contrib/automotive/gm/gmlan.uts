@@ -242,7 +242,7 @@ x.service == 0x67
 x.subfunction == 2
 x.answers(b)
 
-ecu = ECU()
+ecu = Ecu()
 ecu.update(x)
 assert ecu.current_security_level == 2
 
@@ -436,7 +436,7 @@ assert x.answers(y)
 y.hashret() == x.hashret()
 
 = Check modifies ecu state
-ecu = ECU()
+ecu = Ecu()
 ecu.update(GMLAN(service="InitiateDiagnosticOperationPositiveResponse"))
 assert ecu.current_session == 3
 ecu.update(GMLAN(service="ReturnToNormalOperationPositiveResponse"))

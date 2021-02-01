@@ -136,75 +136,75 @@ load_contrib("automotive.obd.scanner", globals_dict=globals())
 load_contrib("automotive.ecu", globals_dict=globals())
 
 print("Set delay to lower utilization")
-conf.contribs['ECU_am']['send_delay'] = 0.004
+conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
 
 = Create answers
 
 responses = [
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=0)/OBD_PID00(supported_pids=3191777299)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=1)/OBD_PID01(mil=0, dtc_count=0, reserved1=0, continuous_tests_ready=0, reserved2=0, continuous_tests_supported=7, once_per_trip_tests_supported=225, once_per_trip_tests_ready=0)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=11)/OBD_PID0B(data=44)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=12)/OBD_PID0C(data=857.0)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=13)/OBD_PID0D(data=0)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=14)/OBD_PID0E(data=3.5)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=15)/OBD_PID0F(data=22.0)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=17)/OBD_PID11(data=14.51)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=19)/OBD_PID13(sensors_present=3)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=21)/OBD_PID15(outputVoltage=1.275, trim=99.219)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=28)/OBD_PID1C(data=6)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=3)/OBD_PID03(fuel_system1=2, fuel_system2=0)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=31)/OBD_PID1F(data=13)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=32)/OBD_PID20(supported_pids=2684465153)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=33)/OBD_PID21(data=0)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=35)/OBD_PID23(data=24910)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=4)/OBD_PID04(data=9.804)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=48)/OBD_PID30(data=19)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=49)/OBD_PID31(data=3587)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=5)/OBD_PID05(data=41.0)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=51)/OBD_PID33(data=97)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=52)/OBD_PID34(equivalence_ratio=1.001, current=128.004)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=6)/OBD_PID06(data=0.0)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=64)/OBD_PID40(supported_pids=244352000)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=69)/OBD_PID45(data=3.922)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=7)/OBD_PID07(data=-0.781)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=70)/OBD_PID46(data=20.0)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=71)/OBD_PID47(data=12.549)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=73)/OBD_PID49(data=5.49)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=76)/OBD_PID4C(data=3.922)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=81)/OBD_PID51(data=1)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=86)/OBD_PID56(bank1=0.0)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=67)/OBD_S03_PR(count=0)),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=0)/OBD_MID00(supported_mids=3221225473)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=1)/OBD_MIDXX(standardized_test_id=131, unit_and_scaling_id=4, test_value=0.0, min_limit=0.0, max_limit=1.0),OBD_S06_PR_Record(mid=1)/OBD_MIDXX(standardized_test_id=138, unit_and_scaling_id=132, test_value=0.996, min_limit=-32.768, max_limit=1.06),OBD_S06_PR_Record(mid=1)/OBD_MIDXX(standardized_test_id=139, unit_and_scaling_id=132, test_value=0.996, min_limit=0.94, max_limit=32.767)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=128)/OBD_MID80(supported_mids=1)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=160)/OBD_MIDA0(supported_mids=4160749568)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=161)/OBD_MIDXX(standardized_test_id=12, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=65535)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=162)/OBD_MIDXX(standardized_test_id=12, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=65535),OBD_S06_PR_Record(mid=162)/OBD_MIDXX(standardized_test_id=11, unit_and_scaling_id=36, test_value=2, min_limit=0, max_limit=65535)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=163)/OBD_MIDXX(standardized_test_id=12, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=65535),OBD_S06_PR_Record(mid=163)/OBD_MIDXX(standardized_test_id=11, unit_and_scaling_id=36, test_value=1, min_limit=0, max_limit=65535)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=164)/OBD_MIDXX(standardized_test_id=12, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=65535),OBD_S06_PR_Record(mid=164)/OBD_MIDXX(standardized_test_id=11, unit_and_scaling_id=36, test_value=1, min_limit=0, max_limit=65535)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=165)/OBD_MIDXX(standardized_test_id=12, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=65535),OBD_S06_PR_Record(mid=165)/OBD_MIDXX(standardized_test_id=11, unit_and_scaling_id=36, test_value=1, min_limit=0, max_limit=65535)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=2)/OBD_MIDXX(standardized_test_id=145, unit_and_scaling_id=177, test_value=3944, min_limit=900, max_limit=65534),OBD_S06_PR_Record(mid=2)/OBD_MIDXX(standardized_test_id=149, unit_and_scaling_id=10, test_value=764.696, min_limit=719.556, max_limit=7995.27),OBD_S06_PR_Record(mid=2)/OBD_MIDXX(standardized_test_id=150, unit_and_scaling_id=10, test_value=115.412, min_limit=0.0, max_limit=179.95)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=32)/OBD_MID20(supported_mids=2147485697)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=33)/OBD_MIDXX(standardized_test_id=132, unit_and_scaling_id=3, test_value=2.63, min_limit=1.0, max_limit=655.35)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=128, unit_and_scaling_id=28, test_value=32.42, min_limit=10.0, max_limit=655.35),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=129, unit_and_scaling_id=28, test_value=25.41, min_limit=10.0, max_limit=655.35),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=130, unit_and_scaling_id=28, test_value=0.21, min_limit=0.0, max_limit=10.0),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=131, unit_and_scaling_id=28, test_value=0.0, min_limit=0.0, max_limit=10.0),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=132, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=3),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=133, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=3),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=134, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=3),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=135, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=3)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=64)/OBD_MID40(supported_mids=3221225473)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=65)/OBD_MIDXX(standardized_test_id=133, unit_and_scaling_id=22, test_value=720.0, min_limit=700.0, max_limit=6513.5)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=66)/OBD_MIDXX(standardized_test_id=144, unit_and_scaling_id=20, test_value=401, min_limit=0, max_limit=800)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=96)/OBD_MID60(supported_mids=1)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=71)/OBD_S07_PR(count=0)),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=0)/OBD_IID00(supported_iids=1430405120)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=10)/OBD_IID0A(ecu_names=[b'ECM\x00-EngineControl\x00\x00'], count=1)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=15)/Raw(load=b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00HM0876')])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=18)/Raw(load=b'\x01\x00\xd5')])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=2)/OBD_IID02(vehicle_identification_numbers=[b'WDD1xxxxxxxxxxx11'], count=1)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=4)/OBD_IID04(calibration_identifications=[b'282xxxxxxx300044', b'00090xxxxxx00031'], count=2)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=6)/OBD_IID06(calibration_verification_numbers=[b'\xf9\x10\xb9\xfb', b'&6"e'], count=2)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=8)/OBD_IID08(data=[9, 189, 8, 9, 0, 0, 8, 9, 0, 0, 22, 9, 0, 0, 0, 0, 8, 9, 0, 0], count=20)])),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=127)/OBD_NR(request_service_id=1, response_code=49)),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=127)/OBD_NR(request_service_id=10, response_code=49)),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=127)/OBD_NR(request_service_id=6, response_code=49)),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=127)/OBD_NR(request_service_id=8, response_code=17)),
-    ECUResponse(session=range(0, 255), security_level=0, responses=OBD(service=127)/OBD_NR(request_service_id=9, response_code=49))]
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=0)/OBD_PID00(supported_pids=3191777299)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=1)/OBD_PID01(mil=0, dtc_count=0, reserved1=0, continuous_tests_ready=0, reserved2=0, continuous_tests_supported=7, once_per_trip_tests_supported=225, once_per_trip_tests_ready=0)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=11)/OBD_PID0B(data=44)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=12)/OBD_PID0C(data=857.0)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=13)/OBD_PID0D(data=0)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=14)/OBD_PID0E(data=3.5)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=15)/OBD_PID0F(data=22.0)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=17)/OBD_PID11(data=14.51)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=19)/OBD_PID13(sensors_present=3)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=21)/OBD_PID15(outputVoltage=1.275, trim=99.219)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=28)/OBD_PID1C(data=6)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=3)/OBD_PID03(fuel_system1=2, fuel_system2=0)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=31)/OBD_PID1F(data=13)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=32)/OBD_PID20(supported_pids=2684465153)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=33)/OBD_PID21(data=0)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=35)/OBD_PID23(data=24910)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=4)/OBD_PID04(data=9.804)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=48)/OBD_PID30(data=19)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=49)/OBD_PID31(data=3587)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=5)/OBD_PID05(data=41.0)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=51)/OBD_PID33(data=97)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=52)/OBD_PID34(equivalence_ratio=1.001, current=128.004)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=6)/OBD_PID06(data=0.0)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=64)/OBD_PID40(supported_pids=244352000)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=69)/OBD_PID45(data=3.922)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=7)/OBD_PID07(data=-0.781)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=70)/OBD_PID46(data=20.0)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=71)/OBD_PID47(data=12.549)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=73)/OBD_PID49(data=5.49)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=76)/OBD_PID4C(data=3.922)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=81)/OBD_PID51(data=1)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=86)/OBD_PID56(bank1=0.0)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=67)/OBD_S03_PR(count=0)),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=0)/OBD_MID00(supported_mids=3221225473)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=1)/OBD_MIDXX(standardized_test_id=131, unit_and_scaling_id=4, test_value=0.0, min_limit=0.0, max_limit=1.0),OBD_S06_PR_Record(mid=1)/OBD_MIDXX(standardized_test_id=138, unit_and_scaling_id=132, test_value=0.996, min_limit=-32.768, max_limit=1.06),OBD_S06_PR_Record(mid=1)/OBD_MIDXX(standardized_test_id=139, unit_and_scaling_id=132, test_value=0.996, min_limit=0.94, max_limit=32.767)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=128)/OBD_MID80(supported_mids=1)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=160)/OBD_MIDA0(supported_mids=4160749568)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=161)/OBD_MIDXX(standardized_test_id=12, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=65535)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=162)/OBD_MIDXX(standardized_test_id=12, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=65535),OBD_S06_PR_Record(mid=162)/OBD_MIDXX(standardized_test_id=11, unit_and_scaling_id=36, test_value=2, min_limit=0, max_limit=65535)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=163)/OBD_MIDXX(standardized_test_id=12, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=65535),OBD_S06_PR_Record(mid=163)/OBD_MIDXX(standardized_test_id=11, unit_and_scaling_id=36, test_value=1, min_limit=0, max_limit=65535)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=164)/OBD_MIDXX(standardized_test_id=12, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=65535),OBD_S06_PR_Record(mid=164)/OBD_MIDXX(standardized_test_id=11, unit_and_scaling_id=36, test_value=1, min_limit=0, max_limit=65535)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=165)/OBD_MIDXX(standardized_test_id=12, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=65535),OBD_S06_PR_Record(mid=165)/OBD_MIDXX(standardized_test_id=11, unit_and_scaling_id=36, test_value=1, min_limit=0, max_limit=65535)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=2)/OBD_MIDXX(standardized_test_id=145, unit_and_scaling_id=177, test_value=3944, min_limit=900, max_limit=65534),OBD_S06_PR_Record(mid=2)/OBD_MIDXX(standardized_test_id=149, unit_and_scaling_id=10, test_value=764.696, min_limit=719.556, max_limit=7995.27),OBD_S06_PR_Record(mid=2)/OBD_MIDXX(standardized_test_id=150, unit_and_scaling_id=10, test_value=115.412, min_limit=0.0, max_limit=179.95)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=32)/OBD_MID20(supported_mids=2147485697)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=33)/OBD_MIDXX(standardized_test_id=132, unit_and_scaling_id=3, test_value=2.63, min_limit=1.0, max_limit=655.35)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=128, unit_and_scaling_id=28, test_value=32.42, min_limit=10.0, max_limit=655.35),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=129, unit_and_scaling_id=28, test_value=25.41, min_limit=10.0, max_limit=655.35),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=130, unit_and_scaling_id=28, test_value=0.21, min_limit=0.0, max_limit=10.0),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=131, unit_and_scaling_id=28, test_value=0.0, min_limit=0.0, max_limit=10.0),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=132, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=3),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=133, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=3),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=134, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=3),OBD_S06_PR_Record(mid=53)/OBD_MIDXX(standardized_test_id=135, unit_and_scaling_id=36, test_value=0, min_limit=0, max_limit=3)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=64)/OBD_MID40(supported_mids=3221225473)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=65)/OBD_MIDXX(standardized_test_id=133, unit_and_scaling_id=22, test_value=720.0, min_limit=700.0, max_limit=6513.5)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=66)/OBD_MIDXX(standardized_test_id=144, unit_and_scaling_id=20, test_value=401, min_limit=0, max_limit=800)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=70)/OBD_S06_PR(data_records=[OBD_S06_PR_Record(mid=96)/OBD_MID60(supported_mids=1)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=71)/OBD_S07_PR(count=0)),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=0)/OBD_IID00(supported_iids=1430405120)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=10)/OBD_IID0A(ecu_names=[b'ECM\x00-EngineControl\x00\x00'], count=1)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=15)/Raw(load=b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00HM0876')])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=18)/Raw(load=b'\x01\x00\xd5')])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=2)/OBD_IID02(vehicle_identification_numbers=[b'WDD1xxxxxxxxxxx11'], count=1)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=4)/OBD_IID04(calibration_identifications=[b'282xxxxxxx300044', b'00090xxxxxx00031'], count=2)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=6)/OBD_IID06(calibration_verification_numbers=[b'\xf9\x10\xb9\xfb', b'&6"e'], count=2)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=8)/OBD_IID08(data=[9, 189, 8, 9, 0, 0, 8, 9, 0, 0, 22, 9, 0, 0, 0, 0, 8, 9, 0, 0], count=20)])),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=127)/OBD_NR(request_service_id=1, response_code=49)),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=127)/OBD_NR(request_service_id=10, response_code=49)),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=127)/OBD_NR(request_service_id=6, response_code=49)),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=127)/OBD_NR(request_service_id=8, response_code=17)),
+    EcuResponse(session=range(0, 255), security_level=0, responses=OBD(service=127)/OBD_NR(request_service_id=9, response_code=49))]
 
 
 + Simulate scanner
@@ -216,7 +216,7 @@ exit_if_no_isotp_module()
 drain_bus(iface0)
 
 with new_can_socket0() as isocan_ecu, ISOTPSocket(isocan_ecu, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
-    answering_machine = ECU_am(supported_responses=responses, main_socket=ecu, basecls=OBD)
+    answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
     sim = threading.Thread(target=answering_machine, kwargs={"timeout": 60, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:
@@ -259,7 +259,7 @@ exit_if_no_isotp_module()
 drain_bus(iface0)
 
 with new_can_socket0() as isocan_ecu, ISOTPSocket(isocan_ecu, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
-    answering_machine = ECU_am(supported_responses=responses, main_socket=ecu, basecls=OBD)
+    answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
     sim = threading.Thread(target=answering_machine, kwargs={"timeout": 60, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:
@@ -302,7 +302,7 @@ exit_if_no_isotp_module()
 drain_bus(iface0)
 
 with new_can_socket0() as isocan_ecu, ISOTPSocket(isocan_ecu, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
-    answering_machine = ECU_am(supported_responses=responses, main_socket=ecu, basecls=OBD)
+    answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
     sim = threading.Thread(target=answering_machine, kwargs={"timeout": 60, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:

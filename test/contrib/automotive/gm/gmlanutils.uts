@@ -542,7 +542,7 @@ def ecusim():
         isotpsock2.send(ack)
 
 thread = threading.Thread(target=ecusim)
-thread.name = "ECUSimulator" + thread.name
+thread.name = "EcuSimulator" + thread.name
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x242, did=0x642, basecls=GMLAN) as isotpsock:
     thread.start()
