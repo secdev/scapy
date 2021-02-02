@@ -30,6 +30,12 @@ from can.interface import Bus as can_Bus
 
 
 class PriotizedCanMessage(object):
+    """Helper object for comparison of CAN messages. If the timestamps of two
+    messages are equal, the counter value of a priority counter, is used
+    for comparison. It's only important that this priority counter always
+    get increased for every CAN message in the receive heapq. This compensates
+    a low resolution of `time.time()` on some operating systems.
+    """
     def __init__(self, msg, count):
         # type: (can_Message, int) -> None
         self.msg = msg
