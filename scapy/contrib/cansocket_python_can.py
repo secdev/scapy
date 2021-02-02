@@ -62,39 +62,6 @@ class PriotizedCanMessage(object):
         return not self < other
 
 
-class PriotizedCanMessage(object):
-    def __init__(self, msg, count):
-        # type: (can_Message, int) -> None
-        self.msg = msg
-        self.count = count
-
-    def __eq__(self, other):
-        # type: (Any) -> bool
-        if not isinstance(other, PriotizedCanMessage):
-            return False
-        return self.msg.timestamp == other.msg.timestamp and \
-            self.count == other.count
-
-    def __lt__(self, other):
-        # type: (Any) -> bool
-        if not isinstance(other, PriotizedCanMessage):
-            return False
-        return self.msg.timestamp < other.msg.timestamp or \
-            self.count < other.count
-
-    def __le__(self, other):
-        # type: (Any) -> bool
-        return self == other or self < other
-
-    def __gt__(self, other):
-        # type: (Any) -> bool
-        return not self <= other
-
-    def __ge__(self, other):
-        # type: (Any) -> bool
-        return not self < other
-
-
 class SocketMapper:
     def __init__(self, bus, sockets):
         # type: (can_BusABC, List[SocketWrapper]) -> None
