@@ -47,7 +47,8 @@ class PriotizedCanMessage(object):
         if not isinstance(other, PriotizedCanMessage):
             return False
         return self.msg.timestamp < other.msg.timestamp or \
-            self.count < other.count
+            (self.msg.timestamp == other.msg.timestamp and
+             self.count < other.count)
 
     def __le__(self, other):
         # type: (Any) -> bool
