@@ -24,9 +24,8 @@ from threading import Thread, Event, Lock
 
 from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict, Any,\
     Type, cast, Callable, TYPE_CHECKING
-from scapy.utils import EDecimal, _UniPacketList
+from scapy.utils import EDecimal
 from scapy.packet import Packet
-from scapy.plist import PacketList
 from scapy.fields import BitField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ConditionalField, \
     BitEnumField, ByteField, XByteField, BitFieldLenField, StrField
@@ -638,12 +637,8 @@ class ISOTPSession(DefaultSession):
             basecls=kwargs.pop("basecls", ISOTP))
 
     def on_packet_received(self, pkt):
-        # type: (Optional[_UniPacketList]) -> None
+        # type: (Optional[Packet]) -> None
         if not pkt:
-            return
-        if isinstance(pkt, list) or isinstance(pkt, PacketList):
-            for p in pkt:
-                self.on_packet_received(p)
             return
         self.m.feed(pkt)
         while len(self.m) > 0:

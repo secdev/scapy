@@ -12,7 +12,6 @@ from scapy.compat import raw
 from scapy.config import conf
 from scapy.packet import NoPayload, Packet
 from scapy.plist import PacketList
-from scapy.utils import _UniPacketList
 
 # Typing imports
 from scapy.compat import (
@@ -92,16 +91,14 @@ class DefaultSession(object):
             return PacketList(self.lst, "Sniffed")
 
     def on_packet_received(self, pkt):
-        # type: (Optional[_UniPacketList]) -> None
+        # type: (Optional[Packet]) -> None
         """DEV: entry point. Will be called by sniff() for each
         received packet (that passes the filters).
         """
         if not pkt:
             return
-        if isinstance(pkt, list) or isinstance(pkt, PacketList):
-            for p in pkt:
-                self.on_packet_received(p)
-            return
+        if not isinstance(pkt, Packet):
+            raise TypeError("Only provide a Packet.")
         self.__count += 1
         if self.store:
             self.lst.append(pkt)
@@ -151,13 +148,9 @@ class IPSession(DefaultSession):
             return packet
 
     def on_packet_received(self, pkt):
-        # type: (Optional[_UniPacketList]) -> None
+        # type: (Optional[Packet]) -> None
         if not pkt:
             return None
-        if isinstance(pkt, list) or isinstance(pkt, PacketList):
-            for p in pkt:
-                self.on_packet_received(p)
-            return
         super(IPSession, self).on_packet_received(self._ip_process_packet(pkt))
 
 
@@ -344,17 +337,13 @@ class TCPSession(IPSession):
         return None
 
     def on_packet_received(self, pkt):
-        # type: (Optional[_UniPacketList]) -> None
+        # type: (Optional[Packet]) -> None
         """Hook to the Sessions API: entry point of the dissection.
         This will defragment IP if necessary, then process to
         TCP reassembly.
         """
         if not pkt:
             return None
-        if isinstance(pkt, list) or isinstance(pkt, PacketList):
-            for p in pkt:
-                self.on_packet_received(p)
-            return
         # First, defragment IP if necessary
         pkt = self._ip_process_packet(pkt)
         if not pkt:
