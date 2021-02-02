@@ -28,7 +28,7 @@ from scapy.fields import BitField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ConditionalField, \
     BitEnumField, ByteField, XByteField, BitFieldLenField, StrField
 from scapy.compat import chb, orb
-from scapy.layers.can import CAN
+from scapy.layers.can import CAN, CAN_MAX_IDENTIFIER, CAN_MTU, CAN_MAX_DLEN
 import scapy.modules.six as six
 import scapy.automaton as automaton
 from scapy.modules.six.moves import queue
@@ -56,9 +56,6 @@ if six.PY3 and LINUX:
                          "{'use-can-isotp-kernel-module': True}' to enable "
                          "usage of can-isotp kernel module.")
 
-CAN_MAX_IDENTIFIER = (1 << 29) - 1  # Maximum 29-bit identifier
-CAN_MTU = 16
-CAN_MAX_DLEN = 8
 ISOTP_MAX_DLEN_2015 = (1 << 32) - 1  # Maximum for 32-bit FF_DL
 ISOTP_MAX_DLEN = (1 << 12) - 1  # Maximum for 12-bit FF_DL
 

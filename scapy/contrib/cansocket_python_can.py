@@ -29,10 +29,6 @@ from can import BusABC as can_BusABC
 from can.interface import Bus as can_Bus
 
 
-CAN_FRAME_SIZE = 16
-CAN_INV_FILTER = 0x20000000
-
-
 class SocketMapper:
     def __init__(self, bus, sockets):
         self.bus = bus           # type: can_BusABC
