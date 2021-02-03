@@ -1,23 +1,23 @@
 % Regression tests for ISOTP
-~ needs_root
 
 + Configuration
 ~ conf
 
 = Imports
-load_layer("can", globals_dict=globals())
-conf.contribs['CAN']['swap-bytes'] = False
-import scapy.modules.six as six
-import subprocess, sys
+
 from six.moves.queue import Queue
-from subprocess import call
 from io import BytesIO
 from scapy.contrib.isotp import get_isotp_packet
-from scapy.consts import LINUX
+
+import scapy.modules.six as six
+
+if six.PY3:
+    exec(open("test/contrib/automotive/interface_mockup.py").read())
+else:
+    execfile("test/contrib/automotive/interface_mockup.py")
 
 = Definition of constants, utility functions and mock classes
-iface0 = "vcan0"
-iface1 = "vcan1"
+
 
 class MockCANSocket(SuperSocket):
     nonblocking_socket = True
@@ -58,89 +58,17 @@ else:
     dhex = bytes.fromhex
 
 
-# function to exit when the can-isotp kernel module is not available
-ISOTP_KERNEL_MODULE_AVAILABLE = False
-def exit_if_no_isotp_module():
-    if not ISOTP_KERNEL_MODULE_AVAILABLE:
-        err = "TEST SKIPPED: can-isotp not available\n"
-        sys.__stderr__.write(err)
-        warning("Can't test ISOTP native socket because kernel module is not loaded")
-        exit(0)
-
-
-= Initialize a virtual CAN interface
-~ vcan_socket needs_root linux
-if 0 != call(["cansend", iface0,  "000#"]):
-    # vcan0 is not enabled
-    if 0 != call(["sudo", "modprobe", "vcan"]):
-        raise Exception("modprobe vcan failed")
-    if 0 != call(["sudo", "ip", "link", "add", "name", iface0, "type", "vcan"]):
-        print("add %s failed: Maybe it was already up?" % iface0)
-    if 0 != call(["sudo", "ip", "link", "set", "dev", iface0, "up"]):
-        raise Exception("could not bring up %s" % iface0)
-
-if 0 != call(["cansend", iface0,  "000#"]):
-    raise Exception("cansend doesn't work")
-
-if 0 != call(["cansend", iface1,  "000#"]):
-    # vcan1 is not enabled
-    if 0 != call(["sudo", "modprobe", "vcan"]):
-        raise Exception("modprobe vcan failed")
-    if 0 != call(["sudo", "ip", "link", "add", "name", iface1, "type", "vcan"]):
-        print("add %s failed: Maybe it was already up?" % iface1)
-    if 0 != call(["sudo", "ip", "link", "set", "dev", iface1, "up"]):
-        raise Exception("could not bring up %s" % iface1)
-
-if 0 != call(["cansend", iface1,  "000#"]):
-    raise Exception("cansend doesn't work")
-
-print("CAN should work now")
-
-= Import CANSocket
-
-from scapy.contrib.cansocket_python_can import *
-
-new_can_socket = lambda iface: CANSocket(bustype='virtual', channel=iface)
-new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface0, timeout=0.01)
-new_can_socket1 = lambda: CANSocket(bustype='virtual', channel=iface1, timeout=0.01)
-
-# utility function for draining a can interface, asserting that no packets are there
-def drain_bus(iface=iface0, assert_empty=True):
-    with new_can_socket(iface) as s:
-        pkts = s.sniff(timeout=0.1)
-        if assert_empty:
-            assert len(pkts) == 0
-
-print("CAN sockets should work now")
-
-= Overwrite definition for vcan_socket systems python-can sockets
-~ vcan_socket needs_root linux
-if "python_can" in CANSocket.__module__:
-    new_can_socket = lambda iface: CANSocket(bustype='socketcan', channel=iface, bitrate=250000, timeout=0.01)
-    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, bitrate=250000, timeout=0.01)
-    new_can_socket1 = lambda: CANSocket(bustype='socketcan', channel=iface1, bitrate=250000, timeout=0.01)
-
-= Verify that a CAN socket can be created and closed
-s = new_can_socket(iface0)
-s.close()
-
-
-= Check if can-isotp and can-utils are installed on this system
-~ linux
-p1 = subprocess.Popen(['lsmod'], stdout = subprocess.PIPE)
-p2 = subprocess.Popen(['grep', '^can_isotp'], stdout = subprocess.PIPE, stdin=p1.stdout)
-p1.stdout.close()
-if p1.wait() == 0 and p2.wait() == 0 and b"can_isotp" in p2.stdout.read():
-    p = subprocess.Popen(["isotpsend", "-s1", "-d0", iface0], stdin = subprocess.PIPE)
-    p.communicate(b"01")
-    if p.returncode == 0:
-        ISOTP_KERNEL_MODULE_AVAILABLE = True
-
-
 + Syntax check
 
 = Import isotp
+
 conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+
+if six.PY3:
+    import importlib
+    if "scapy.contrib.isotp" in sys.modules:
+        importlib.reload(scapy.contrib.isotp)
+
 load_contrib("isotp", globals_dict=globals())
 
 ISOTPSocket = ISOTPSoftSocket
@@ -1537,6 +1465,7 @@ assert(succ)
 + ISOTPSoftSocket MITM attack tests
 
 = bridge and sniff with isotp soft sockets set up vcan0 and vcan1 for package forwarding vcan1
+~ needs_root
 drain_bus(iface0)
 drain_bus(iface1)
 
@@ -1575,6 +1504,7 @@ drain_bus(iface0)
 drain_bus(iface1)
 
 = bridge and sniff with isotp soft sockets and multiple long packets
+~ needs_root
 drain_bus(iface0)
 drain_bus(iface1)
 
@@ -1623,6 +1553,7 @@ drain_bus(iface0)
 drain_bus(iface1)
 
 = bridge and sniff with isotp soft sockets set up vcan0 and vcan1 for package change vcan1
+~ needs_root
 drain_bus(iface0)
 drain_bus(iface1)
 
@@ -2406,12 +2337,6 @@ assert(rSucc)
 = Cleanup reference to ISOTPSoftSocket to let the thread end
 s = None
 
-
 = Delete vcan interfaces
-~ vcan_socket needs_root linux
 
-if 0 != call(["sudo", "ip", "link", "delete", iface0]):
-        raise Exception("%s could not be deleted" % iface0)
-
-if 0 != call(["sudo", "ip", "link", "delete", iface1]):
-        raise Exception("%s could not be deleted" % iface1)
+assert cleanup_interfaces()
