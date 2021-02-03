@@ -19,7 +19,6 @@ from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, warning
 from scapy.packet import Packet
 from scapy.layers.can import CAN, CAN_MTU
-from scapy.packet import Padding
 from scapy.arch.linux import get_last_packet_timestamp
 from scapy.compat import List, Dict, Type, Any, Optional, Tuple
 
@@ -118,7 +117,7 @@ class NativeCANSocket(SuperSocket):
         # required by the underlying Linux SocketCAN frame format
         bs = bytes(x)
         if not conf.contribs['CAN']['swap-bytes']:
-            bs = bs + b'\x00' * (CAN_FRAME_SIZE - len(bs))
+            bs = bs + b'\x00' * (CAN_MTU - len(bs))
             bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
 
         return super(NativeCANSocket, self).send(bs)  # type: ignore

@@ -30,7 +30,7 @@ from can import CanError as can_CanError
 from can import BusABC as can_BusABC
 from can.interface import Bus as can_Bus
 
-__all__ = ["CANSocket", "PythonCANSocket", "CAN_FRAME_SIZE", "CAN_INV_FILTER"]
+__all__ = ["CANSocket", "PythonCANSocket"]
 
 
 class PriotizedCanMessage(object):
