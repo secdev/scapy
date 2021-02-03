@@ -122,10 +122,5 @@ class NativeCANSocket(SuperSocket):
 
         return super(NativeCANSocket, self).send(bs)  # type: ignore
 
-    def close(self):
-        # type: () -> None
-        """Closes this socket"""
-        self.ins.close()
-
 
 CANSocket = NativeCANSocket
