@@ -193,7 +193,7 @@ class ISOTP(Packet):
             raise Scapy_Exception("ISOTP.defragment called with 0 frames")
 
         dst = can_frames[0].identifier
-        if any([frame.identifier != dst for frame in can_frames]):
+        if any(frame.identifier != dst for frame in can_frames):
             warning("Not all CAN frames have the same identifier")
 
         parser = ISOTPMessageBuilder(use_extended_addressing)
@@ -434,20 +434,19 @@ class ISOTPMessageBuilder(object):
                 self.feed(p)
             return
 
-        can = cast(Packet, can)
+        if not isinstance(can, Packet):
+            return
 
-        identifier = can.identifier
-
-        if self.dst_ids is not None and identifier not in self.dst_ids:
+        if self.dst_ids is not None and can.identifier not in self.dst_ids:
             return
 
         data = bytes(can.data)
 
         if len(data) > 1 and self.use_ext_addr is not True:
-            self._try_feed(identifier, None, data, can.time)
+            self._try_feed(can.identifier, None, data, can.time)
         if len(data) > 2 and self.use_ext_addr is not False:
             ea = six.indexbytes(data, 0)
-            self._try_feed(identifier, ea, data[1:], can.time)
+            self._try_feed(can.identifier, ea, data[1:], can.time)
 
     @property
     def count(self):
@@ -733,8 +732,7 @@ class ISOTPSoftSocket(SuperSocket):
             listen_only=listen_only
         )
 
-        self.iso_ins = impl  # type: Optional[ISOTPSocketImplementation]
-        self.iso_outs = impl  # type: Optional[ISOTPSocketImplementation]
+        # Cast for compatibility to functions from SuperSocket.
         self.ins = cast(socket.socket, impl)
         self.outs = cast(socket.socket, impl)
         self.impl = impl
@@ -746,11 +744,7 @@ class ISOTPSoftSocket(SuperSocket):
         # type: () -> None
         if not self.closed:
             self.impl.close()
-            self.iso_outs = None
-            self.iso_ins = None
-            self.outs = None
-            self.ins = None  # type: ignore
-            super(ISOTPSoftSocket, self).close()
+            self.closed = True
 
     def begin_send(self, p):
         # type: (Packet) -> int
@@ -758,11 +752,11 @@ class ISOTPSoftSocket(SuperSocket):
         sending the first frame. If multiple frames are necessary to send the
         message, this socket will unable to send other messages until either
         the transmission of this frame succeeds or it fails."""
-        if hasattr(p, "sent_time"):
-            p.sent_time = time.time()
 
-        if self.iso_outs is not None:
-            self.iso_outs.begin_send(bytes(p))
+        if not self.closed:
+            if hasattr(p, "sent_time"):
+                p.sent_time = time.time()
+            self.impl.begin_send(bytes(p))
             return len(p)
         else:
             return 0
@@ -773,10 +767,11 @@ class ISOTPSoftSocket(SuperSocket):
         received or the specified timeout is reached.
         If self.timeout is 0, then this function doesn't block and returns the
         first frame in the receive buffer or None if there isn't any."""
-        if self.iso_ins is not None:
-            return self.basecls, self.iso_ins.recv(), time.time()
-        else:
-            return self.basecls, None, None
+        if not self.closed:
+            tup = self.impl.recv()
+            if tup is not None:
+                return self.basecls, tup[0], float(tup[1])
+        return self.basecls, None, None
 
     def recv(self, x=0xffff):
         # type: (int) -> Optional[Packet]
@@ -800,19 +795,17 @@ class ISOTPSoftSocket(SuperSocket):
         """This function is called during sendrecv() routine to wait for
         sockets to be ready to receive
         """
-        blocking = remain is None or remain > 0
 
         def find_ready_sockets(socks):
-            # type: (List[ISOTPSoftSocket]) -> List[ISOTPSoftSocket]
-            return [x for x in socks if
-                    x.iso_ins is not None and
-                    x.iso_ins.rx_queue is not None and
-                    not x.iso_ins.rx_queue.empty()]
+            # type: (List[SuperSocket]) -> List[SuperSocket]
+            return [x for x in socks if isinstance(x, ISOTPSoftSocket) and
+                    not x.closed and not x.impl.rx_queue.empty()]
 
-        iso_socks = [s for s in sockets if isinstance(s, ISOTPSoftSocket)]
-        ready_sockets = find_ready_sockets(iso_socks)
+        ready_sockets = find_ready_sockets(sockets)
+
+        blocking = remain is None or remain > 0
         if len(ready_sockets) > 0 or not blocking:
-            return cast(List[SuperSocket], ready_sockets)
+            return ready_sockets
 
         exit_select = Event()
 
@@ -821,24 +814,22 @@ class ISOTPSoftSocket(SuperSocket):
             exit_select.set()
 
         try:
-            for s in iso_socks:
-                if s.iso_ins is not None:
-                    s.iso_ins.rx_callbacks.append(my_cb)
+            for s in sockets:
+                if not s.closed and isinstance(s, ISOTPSoftSocket):
+                    s.impl.rx_callbacks.append(my_cb)
 
             exit_select.wait(remain)
 
         finally:
-            for s in iso_socks:
-                if s.iso_ins is not None:
+            for s in sockets:
+                if isinstance(s, ISOTPSoftSocket):
                     try:
-                        s.iso_ins.rx_callbacks.remove(my_cb)
-                    except ValueError:
-                        pass
-                    except AttributeError:
+                        s.impl.rx_callbacks.remove(my_cb)
+                    except (ValueError, AttributeError):
                         pass
 
-        ready_sockets = find_ready_sockets(iso_socks)
-        return cast(List[SuperSocket], ready_sockets)
+        ready_sockets = find_ready_sockets(sockets)
+        return ready_sockets
 
 
 ISOTPSocket = ISOTPSoftSocket  # type: Union[Type[ISOTPSoftSocket], Type[ISOTPNativeSocket]]  # noqa: E501
@@ -1240,6 +1231,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         self.rx_sn = 0
         self.rx_bs = 0
         self.rx_idx = 0
+        self.rx_ts = 0.0  # type: Union[float, EDecimal]
         self.rx_state = ISOTP_IDLE
 
         self.txfc_bs = 0
@@ -1393,10 +1385,10 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 self._recv_fc(data[ae:])
         elif n_pci == N_PCI_SF:
             with self.rx_mutex:
-                self._recv_sf(data[ae:])
+                self._recv_sf(data[ae:], cf.time)
         elif n_pci == N_PCI_FF:
             with self.rx_mutex:
-                self._recv_ff(data[ae:])
+                self._recv_ff(data[ae:], cf.time)
         elif n_pci == N_PCI_CF:
             with self.rx_mutex:
                 self._recv_cf(data[ae:])
@@ -1462,8 +1454,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.tx_done.set()
             raise Scapy_Exception(self.tx_exception)
 
-    def _recv_sf(self, data):
-        # type: (bytes) -> None
+    def _recv_sf(self, data, ts):
+        # type: (bytes, Union[float, EDecimal]) -> None
         """Process a received 'Single Frame' frame"""
         if self.rx_timeout_handle is not None:
             self.rx_timeout_handle.cancel()
@@ -1479,13 +1471,13 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             return
 
         msg = data[1:1 + length]
-        self.rx_queue.put(msg)
+        self.rx_queue.put((msg, ts))
         for cb in self.rx_callbacks:
             cb(msg)
         self.call_release()
 
-    def _recv_ff(self, data):
-        # type: (bytes) -> None
+    def _recv_ff(self, data, ts):
+        # type: (bytes, Union[float, EDecimal]) -> None
         """Process a received 'First Frame' frame"""
         if self.rx_timeout_handle is not None:
             self.rx_timeout_handle.cancel()
@@ -1518,6 +1510,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         data_bytes = data[ff_pci_sz:]
         self.rx_idx = len(data_bytes)
         self.rx_buf = data_bytes
+        self.rx_ts = ts
 
         # initial setup for this pdu reception
         self.rx_sn = 1
@@ -1576,7 +1569,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             # we are done
             self.rx_buf = self.rx_buf[0:self.rx_len]
             self.rx_state = ISOTP_IDLE
-            self.rx_queue.put(self.rx_buf)
+            self.rx_queue.put((self.rx_buf, self.rx_ts))
             for cb in self.rx_callbacks:
                 cb(self.rx_buf)
             self.call_release()
@@ -1661,7 +1654,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             return
 
     def recv(self, timeout=None):
-        # type: (Optional[int]) -> Optional[bytes]
+        # type: (Optional[int]) -> Optional[Tuple[bytes, Union[float, EDecimal]]]  # noqa: E501
         """Receive an ISOTP frame, blocking if none is available in the buffer
         for at most 'timeout' seconds."""
 
