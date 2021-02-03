@@ -187,5 +187,5 @@ else:
 # """ Prepare send_delay on Ecu Answering Machine to stabilize unit tests """
 # ############################################################################
 from scapy.contrib.automotive.ecu import *
-print("Set delay to lower utilization")
-conf.contribs['ECU_am']['send_delay'] = 0.004
+print("Set send delay to lower utilization on CI machines")
+conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
