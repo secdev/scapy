@@ -20,7 +20,7 @@ from scapy.error import Scapy_Exception, warning
 from scapy.packet import Packet
 from scapy.layers.can import CAN, CAN_MTU
 from scapy.arch.linux import get_last_packet_timestamp
-from scapy.compat import List, Dict, Type, Any, Optional, Tuple
+from scapy.compat import List, Dict, Type, Any, Optional, Tuple, raw
 
 conf.contribs['NativeCANSocket'] = {'channel': "can0"}
 
@@ -115,7 +115,7 @@ class NativeCANSocket(SuperSocket):
 
         # need to change the byte order of the first four bytes,
         # required by the underlying Linux SocketCAN frame format
-        bs = bytes(x)
+        bs = raw(x)
         if not conf.contribs['CAN']['swap-bytes']:
             bs = bs + b'\x00' * (CAN_MTU - len(bs))
             bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
