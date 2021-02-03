@@ -187,7 +187,8 @@ try:
                             store=True,
                             count=2,
                             lfilter=lambda p: Ether in p and p[Ether].type == 0xbeef,
-                            started_callback=_sniffer_started)
+                            started_callback=_sniffer_started,
+                            timeout=3)
             global frm_count
             frm_count = 2
         t_sniffer = Thread(target=_sniffer, name="linux.uts sniff veth_scapy_1")
@@ -244,7 +245,8 @@ def _sniffer():
                     store=True,
                     count=2,
                     lfilter=lambda p: Ether in p and p[Ether].type == 0xbeef,
-                    started_callback=_sniffer_started)
+                    started_callback=_sniffer_started,
+                    timeout=3)
     global frm_count
     frm_count = 2
 

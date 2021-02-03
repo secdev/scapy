@@ -237,8 +237,8 @@ assert len(packetsVCan1) == 6
 sock1.close()
 sock0.close()
 
-threadBridge.join()
-threadSender.join()
+threadBridge.join(timeout=3)
+threadSender.join(timeout=3)
 
 = PythonCANSocket bridge and sniff setup vcan1 package forwarding
 
@@ -281,8 +281,8 @@ assert len(packetsVCan1) == 6
 sock1.close()
 sock0.close()
 
-threadBridge.join()
-threadSender.join()
+threadBridge.join(timeout=3)
+threadSender.join(timeout=3)
 
 
 + Cleanup

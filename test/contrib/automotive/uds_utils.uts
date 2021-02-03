@@ -41,7 +41,7 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x241, did=0x641, ba
     threadSniffer = threading.Thread(target=sniffer)
     threadSniffer.start()
     sessions = UDS_SessionEnumerator(sendSock, session_range=range(3))
-    threadSniffer.join()
+    threadSniffer.join(timeout=3)
 
 assert sniffed == 3*2
 assert succ
@@ -70,7 +70,7 @@ with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x241, did=0x641, ba
     threadSniffer = threading.Thread(target=sniffer)
     threadSniffer.start()
     services = UDS_ServiceEnumerator(sendSock)
-    threadSniffer.join()
+    threadSniffer.join(timeout=3)
 
 assert sniffed == 128
 assert succ

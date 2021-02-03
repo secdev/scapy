@@ -671,7 +671,7 @@ thread.start()
 time.sleep(0.1)
 pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
 ans = sock1.sr1(pkt, timeout=3)
-thread.join()
+thread.join(timeout=3)
 sock1.close()
 sock2.close()
 

@@ -1375,7 +1375,7 @@ conf.L3socket = L3RawSocket
 
 def _test():
     req = IP(dst="127.0.0.1")/ICMP()
-    ans = sr1(req)
+    ans = sr1(req, timeout=3)
     assert (ans.time - req.sent_time) >= 0
     assert (ans.time - req.sent_time) <= 1e-3
 
@@ -1565,7 +1565,7 @@ assert a.sent_time is None
 def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
-    ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]),timeout=2)
+    ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]), timeout=2)
     conf.debug_dissector = old_debug_dissector
     
     # Backward compatibility: Python 2 only
@@ -1653,7 +1653,7 @@ def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None, opened_socket=Non
         if fork:
             os.waitpid(pid, 0)
         else:
-            t_other.join()
+            t_other.join(timeout=3)
     assert raw(pkt) in (raw(p[pkt.__class__]) for p in pkts if pkt.__class__ in p)
 
 def send_and_sniff(pkt, timeout=2, flt=None, opened_socket=None):
@@ -1670,8 +1670,8 @@ def send_and_sniff(pkt, timeout=2, flt=None, opened_socket=None):
         t_child = Thread(target=run_function, args=(pkt, timeout, flt, 1, t_parent, results, opened_socket), name="send_and_sniff 2")
         t_parent.start()
         t_child.start()
-        t_parent.join()
-        t_child.join()
+        t_parent.join(timeout=3)
+        t_child.join(timeout=3)
         assert results.qsize() >= 2
         while not results.empty():
             assert results.get()
@@ -3103,7 +3103,7 @@ class DNSTCP(Packet):
 ssck = StreamSocket(sck)
 ssck.basecls = DNSTCP
 
-r = ssck.sr1(DNSTCP(dns=DNS(rd=1, qd=DNSQR(qname="www.example.com"))))
+r = ssck.sr1(DNSTCP(dns=DNS(rd=1, qd=DNSQR(qname="www.example.com"))), timeout=3)
 sck.close()
 assert(DNSTCP in r and len(r.dns.an))
 

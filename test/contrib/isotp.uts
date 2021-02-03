@@ -1404,7 +1404,7 @@ with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, 0x123, 0x321) as txSoc
         global rx2, sent
         with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, 0x321, 0x123) as rxSock:
             evt.set()
-            rx2 = rxSock.sniff(count=1)
+            rx2 = rxSock.sniff(count=1, timeout=3)
             rxSock.send(msg)
             sent = True
     rxThread = threading.Thread(target=receiver, name="receiver")

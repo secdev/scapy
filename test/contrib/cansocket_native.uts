@@ -94,7 +94,7 @@ def sender():
 thread = threading.Thread(target=sender)
 thread.start()
 rx = None
-rx = sock1.sr1(tx, verbose=False)
+rx = sock1.sr1(tx, verbose=False, timeout=3)
 rx == tx
 
 sock1.close()
@@ -298,7 +298,7 @@ sock1.close()
 sock1 = CANSocket(channel="vcan0", receive_own_messages=True)
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 rx = None
-rx = sock1.sr1(tx, verbose=False)
+rx = sock1.sr1(tx, verbose=False, timeout=3)
 tx == rx
 tx.sent_time < rx.time and tx == rx and rx.time > 0
 
