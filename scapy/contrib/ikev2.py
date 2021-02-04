@@ -384,7 +384,7 @@ IKEv2_payload_type = ["None", "", "Proposal", "Transform"]
 
 IKEv2_payload_type.extend([""] * 29)
 IKEv2_payload_type.extend(["SA", "KE", "IDi", "IDr", "CERT", "CERTREQ", "AUTH", "Nonce", "Notify", "Delete",  # noqa: E501
-                           "VendorID", "TSi", "TSr", "Encrypted", "CP", "EAP", "", "", "", "", "Encrypted Fragment"])  # noqa: E501
+                           "VendorID", "TSi", "TSr", "Encrypted", "CP", "EAP", "", "", "", "", "Encrypted_Fragment"])  # noqa: E501
 
 IKEv2_exchange_type = [""] * 34
 IKEv2_exchange_type.extend(["IKE_SA_INIT", "IKE_AUTH", "CREATE_CHILD_SA",
