@@ -45,15 +45,17 @@ Fortunately, Scapy knows how to detect the templates and will provide dissecting
     header = Ether()/IP()/UDP()
     netflow_header = NetflowHeader()/NetflowHeaderV9()
 
-    # Let's first build the template. Those need an ID > 255
+    # Let's first build the template. Those need an ID > 255.
+    # The (full) list of possible fieldType is available in the
+    # NetflowV910TemplateFieldTypes list. You can also use the int value.
     flowset = NetflowFlowsetV9(
         templates=[NetflowTemplateV9(
             template_fields=[
-                NetflowTemplateFieldV9(fieldType=1, fieldLength=1),  # IN_BYTES
-                NetflowTemplateFieldV9(fieldType=2, fieldLength=4),  # IN_PKTS
-                NetflowTemplateFieldV9(fieldType=4),  # PROTOCOL
-                NetflowTemplateFieldV9(fieldType=8),  # IPV4_SRC_ADDR
-                NetflowTemplateFieldV9(fieldType=12),  # IPV4_DST_ADDR
+                NetflowTemplateFieldV9(fieldType="IN_BYTES", fieldLength=1),
+                NetflowTemplateFieldV9(fieldType="IN_PKTS", fieldLength=4),
+                NetflowTemplateFieldV9(fieldType="PROTOCOL"),
+                NetflowTemplateFieldV9(fieldType="IPV4_SRC_ADDR"),
+                NetflowTemplateFieldV9(fieldType="IPV4_DST_ADDR"),
             ],
             templateID=256,
             fieldCount=5)
