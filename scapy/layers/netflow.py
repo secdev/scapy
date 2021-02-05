@@ -1270,14 +1270,18 @@ class NetflowTemplateFieldV9(Packet):
     fields_desc = [BitField("enterpriseBit", 0, 1),
                    BitEnumField("fieldType", None, 15,
                                 NetflowV910TemplateFieldTypes),
-                   ShortField("fieldLength", 0),
+                   ShortField("fieldLength", None),
                    ConditionalField(IntField("enterpriseNumber", 0),
                                     lambda p: p.enterpriseBit)]
 
     def __init__(self, *args, **kwargs):
         Packet.__init__(self, *args, **kwargs)
-        if self.fieldType is not None and not self.fieldLength and self.fieldType in NetflowV9TemplateFieldDefaultLengths:  # noqa: E501
-            self.fieldLength = NetflowV9TemplateFieldDefaultLengths[self.fieldType]  # noqa: E501
+        if (self.fieldType is not None and
+                self.fieldLength is None and
+                self.fieldType in NetflowV9TemplateFieldDefaultLengths):
+            self.fieldLength = NetflowV9TemplateFieldDefaultLengths[
+                self.fieldType
+            ]
 
     def default_payload_class(self, p):
         return conf.padding_layer
