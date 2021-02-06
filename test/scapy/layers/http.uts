@@ -11,9 +11,7 @@ load_layer("http")
 
 import os
 
-tmp = "/test/pcaps/http_chunk.pcap.gz"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/http_chunk.pcap.gz")
 
 a = sniff(offline=filename, session=TCPSession)
 
@@ -49,9 +47,7 @@ import os
 
 # Packet from
 # https://community.cisco.com/t5/networking-documents/http-packet-captures/ta-p/3121453
-tmp = "/test/pcaps/http_content_length.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/http_content_length.pcap")
 
 expected_data = b"""<!doctype html><html><head><meta http-equiv="content-type" content="text/html; charset=UTF-8"><title>Google</title><script>window.google={kEI:"TiU7TKv1IdO6jAfQmdX4AQ",kEXPI:"17259,18168,23756,24692,24878,24879,25233,25335,25402,25529",kCSI:{e:"17259,18168,23756,24692,24878,24879,25233,25335,25402,25529",ei:"TiU7TKv1IdO6jAfQmdX4AQ",expi:"17259,18168,23756,24692,24878,24879,25233,25335,25402,25529"},ml:function(){},kHL:"en",time:function(){return(new Date).getTime()},log:function(b,d,c){var a=new Image,e=google,g=e.lc,f=e.li;a.onerror=(a.onload=(a.onabort=function(){delete g[f]}));g[f]=a;c=c||"/gen_204?atyp=i&ct="+b+"&cad="+d+"&zx="+google.time();a.src=c;e.li=f+1},lc:[],li:0,Toolbelt:{}};\nwindow.google.sn="webhp";window.google.timers={load:{t:{start:(new Date).getTime()}}};try{window.google.pt=window.external&&window.external.pageT;}catch(u){}window.google.jsrt_kill=1;\nvar _gjwl=location;function _gjuc(){var b=_gjwl.href.indexOf("#");if(b>=0){var a=_gjwl.href.substring(b+1);if(/(^|&)q=/.test(a)&&a.indexOf("#")==-1&&!/(^|&)cad=h($|&)/.test(a)){_gjwl.replace("/search?"+a.replace(/(^|&)fp=[^&]*/g,"")+"&cad=h");return 1}}return 0}function _gjp(){!(window._gjwl.hash&&window._gjuc())&&setTimeout(_gjp,500)};\nwindow._gjp && _gjp()</script><style id=gstyle>body{margin:0}#gog{padding:3px 10px 0}td{line-height:.8em;}.gac_m td{line-height:17px;}form{margin-bottom:20px;}body,td,a,p,.h{font-family:arial,sans-serif}.h{color:#36c;font-size:20px}.q{color:#00c}.ts td{padding:0}.ts{border-collapse:collapse}.fl a:link{color:#77c}em{font-weight:bold;font-style:normal}.lst{font:17px arial,sans-serif;margin-bottom:.2em;vertical-align:bottom;}input{font-family:inherit}.lsb,.gac_sb{font-size:15px;height:1.85em!important;margin:.2em;padding:0 6px;width:auto;overflow:visible;}#gog{background:#fff;}#gbar,#guser{font-size:13px;padding-top:1px !important}#gbar{float:left;height:22px}#guser{padding-bottom:7px !important;text-align:right}.gbh,.gbd{border-top:1px solid #c9d7f1;font-size:1px}.gbh{height:0;position:absolute;top:24px;width:100%}#gbs,.gbm{background:#fff;left:0;position:absolute;text-align:left;visibility:hidden;z-index:1000}.gbm{border:1px solid;border-color:#c9d7f1 #36c #36c #a2bae7;z-index:1001}.gb1{margin-right:.5em}.gb1,.gb3{zoom:1}.gb2{display:block;padding:.2em .5em;}.gb2,.gb3{text-decoration:none;border-bottom:none}a.gb1,a.gb2,a.gb3,a.gb4{color:#00c !important}a.gb2:hover{background:#36c;color:#fff !important}</style><script>google.y={};google.x=function(e,g){google.y[e.id]=[e,g];return false};var e=0;if(!window.google)window.google={};window.google.crm={};window.google.cri=0;window.clk=function(f,g,h,l,m,b,n){if(document.images){e++;var a=encodeURIComponent||escape,c=new Image,i=window.google.cri++;window.google.crm[i]=c;c.onerror=(c.onload=(c.onabort=function(){delete window.google.crm[i]}));if(b&&b.substring(0,6)!="&sig2=")b="&sig2="+b;c.src=["/url?sa=T","","&cd=",a(m),"&ved=",a(n),f?"&url="+a(f.replace(/#.*/,"")).replace(/\\+/g,"%2B"):"","&ei=","TiU7TKv1IdO6jAfQmdX4AQ",b,"&nclks=",e].join("")}return true};\nwindow.gbar={qs:function(){},tg:function(e){var o={id:\'gbar\'};for(i in e)o[i]=e[i];google.x(o,function(){gbar.tg(o)})}};</script></head><body bgcolor=#ffffff text=#000000 link=#0000cc vlink=#551a8b alink=#ff0000 onload="document.f.q.focus();if(document.images)new Image().src=\'/images/nav_logo8.png\'" ><textarea id=csi style=display:none></textarea><span><iframe name=wgjf style=display:none></iframe></span><div id=xjsc></div><div id=ghead><div id=gog><div id=gbar><nobr><b class=gb1>Web</b> <a href="http://www.google.com/imghp?hl=en&tab=wi" onclick=gbar.qs(this) class=gb1>Images</a> <a href="http://video.google.com/?hl=en&tab=wv" onclick=gbar.qs(this) class=gb1>Videos</a> <a href="http://maps.google.com/maps?hl=en&tab=wl" onclick=gbar.qs(this) class=gb1>Maps</a> <a href="http://news.google.com/nwshp?hl=en&tab=wn" onclick=gbar.qs(this) class=gb1>News</a> <a href="http://www.google.com/prdhp?hl=en&tab=wf" onclick=gbar.qs(this) class=gb1>Shopping</a> <a href="http://mail.google.com/mail/?hl=en&tab=wm" class=gb1>Gmail</a> <a href="http://www.google.com/intl/en/options/" onclick="this.blur();gbar.tg(event);return !1" aria-haspopup=true class=gb3><u>more</u> <small>&#9660;</small></a><div class=gbm id=gbi><a href="http://books.google.com/bkshp?hl=en&tab=wp" onclick=gbar.qs(this) class=gb2>Books</a> <a href="http://www.google.com/finance?hl=en&tab=we" onclick=gbar.qs(this) class=gb2>Finance</a> <a href="http://translate.google.com/?hl=en&tab=wT" onclick=gbar.qs(this) class=gb2>Translate</a> <a href="http://scholar.google.com/schhp?hl=en&tab=ws" onclick=gbar.qs(this) class=gb2>Scholar</a> <a href="http://blogsearch.google.com/?hl=en&tab=wb" onclick=gbar.qs(this) class=gb2>Blogs</a> <div class=gb2><div class=gbd></div></div><a href="http://www.youtube.com/?hl=en&tab=w1" onclick=gbar.qs(this) class=gb2>YouTube</a> <a href="http://www.google.com/calendar/render?hl=en&tab=wc" class=gb2>Calendar</a> <a href="http://picasaweb.google.com/home?hl=en&tab=wq" onclick=gbar.qs(this) class=gb2>Photos</a> <a href="http://docs.google.com/?hl=en&tab=wo" class=gb2>Documents</a> <a href="http://www.google.com/reader/?hl=en&tab=wy" class=gb2>Reader</a> <a href="http://sites.google.com/?hl=en&tab=w3" class=gb2>Sites</a> <a href="http://groups.google.com/grphp?hl=en&tab=wg" onclick=gbar.qs(this) class=gb2>Groups</a> <div class=gb2><div class=gbd></div></div><a href="http://www.google.com/intl/en/options/" class=gb2>even more &raquo;</a> </div></nobr></div><div id=guser width=100%><nobr><span id=gbn class=gbi></span><span id=gbf class=gbf></span><span id=gbe><a href="/url?sa=p&pref=ig&pval=3&q=http://www.google.com/ig%3Fhl%3Den%26source%3Diglk&usg=AFQjCNFA18XPfgb7dKnXfKz7x7g1GDH1tg" class=gb4>iGoogle</a> | </span><a href="/preferences?hl=en" class=gb4>Search settings</a> | <a href="https://www.google.com/accounts/Login?hl=en&continue=http://www.google.com/" class=gb4>Sign in</a></nobr></div><div class=gbh style=left:0></div><div class=gbh style=right:0></div></div></div> <center><style>.pmoabs{position:absolute;right:0;top:25px;}.pmoflt,.pmoc{float:right;clear:both;}#pmocntr{behavior:url(#default#userdata);border:1px solid #ccc;}#pmocntr table{font-size:80%;}#pmolnk,#pmolnk div{background:url(/images/modules/buttons/g-button-chocobo-basic-1.gif)}#pmolnk{width:170px;}#pmolnk div{background-position:100% -400px;}#pmolnk div div{background-position:0 100%;}#pmolnk a{white-space:nowrap;background:url(/images/modules/buttons/g-button-chocobo-basic-2.gif) 100% 100% no-repeat;color:#fff;display:block;padding:8px 12px 15px 10px;text-decoration:none}.padi {padding:0 0 4px 8px}.padt {padding:0 6px 4px 6px}</style><div id=pmocntr class=pmoabs><table border=0><tr><td colspan=2><img border=0 src="/images/close_sm.gif" class=pmoc onclick="cpc()"><tr><td class=padi rowspan=2><img src="/images/chrome_48.gif"><td class=padt align=center><b>A faster way to browse the web</b><tr><td class=padt align=center dir=ltr><div id=pmolnk><div><div><a href="/aclk?sa=L&ai=CMDwaOCM7TIi0MIqv4gbPjZW5B8_W3aEB-9_olQ_v-_3lJxABIMFUULKwjvUBYLsGqgSUAU_QpGfsCCT1d4iDFinqBPHIMs6nmdIsfzDF-UtUGr_gjMc_XAzlKMJy_lPWHLjRniVP1sBkhK5rdW1q85XInEs9JuYm4Dk1ofkpAr6hdMN3EZXsHVSk7CsomsS42n4oOQUZtLJ1sLpkc5VOuvAIU17-0Egro-40RlOQGNYLTbGSHyqssz8Ahp3Ehki745351WicSNE&num=1&sig=AGiWqtz44oZT8y_vcAQLTowVZyUZctoAHA&adurl=http://www.google.com/chrome/index.html%3Fhl%3Den%26brand%3DCHNG%26utm_source%3Den-hpp%26utm_medium%3Dhpp%26utm_campaign%3Den"><b>Install Google Chrome</b></a></div></div></table></div><script>(function(){var b=\'pmocntr\',a=document.getElementById(b),c=\'d\',d=\'i\',e;function p(){a.style.display=\'none\'}try{a.load(b);e=a.getAttribute(d)||0;if(a.getAttribute(c)||e>25){p()}else{a.setAttribute(d,++e);a.save(b)}}catch(z){}window.cpc=function(){p();try{a.setAttribute(c,1);a.save(b)}catch(z){}};window.onresize=function(){if(a.offsetWidth*2+document.getElementById(\'logo\').offsetWidth>document.body.clientWidth){a.className=\'pmoflt\'}else{a.className=\'pmoabs\'}};window.lol=function(){window.onresize()}}())</script><br clear=all id=lgpd><div id=lga><img alt="Google" height=110 src="/intl/en_ALL/images/logo2.gif" width=276 id=logo onload="window.lol&&lol()"><br><br></div><form action="/search" name=f><table cellpadding=0 cellspacing=0><tr valign=top><td width=25%>&nbsp;</td><td align=center nowrap><input name=hl type=hidden value=en><input name=source type=hidden value=hp><input autocomplete="off" maxlength=2048 name=q size=55 class=lst title="Google Search" value=""><br><input name=btnG type=submit value="Google Search" class=lsb><input name=btnI type=submit value="I&#39;m Feeling Lucky" class=lsb></td><td nowrap width=25% align=left><font size=-2>&nbsp;&nbsp;<a href="/advanced_search?hl=en">Advanced Search</a><br>&nbsp;&nbsp;<a href="/language_tools?hl=en">Language Tools</a></font></td></tr></table></form><br><span id=footer><center id=fctr><br><font size=-1><a href="/intl/en/ads/">Advertising&nbsp;Programs</a> - <a href="/services/">Business Solutions</a> - <a href="/intl/en/about.html">About Google</a><p id=shf0 style=display:none;behavior:url(#default#homePage)><font size=-1><a href="/aclk?sa=L&ai=Ch8SU4iQ7TMvoHp2x4gbR1rm3B8X4n3yvjpnHCs2tk5cREAEgwVRQvpyhyfj_____AWCrBaoEsgFP0AfDqi9LrsWk8xuAZxV33DBcsflfyeiFyZrQXRUyD-x2QfMpinnjfIrM5cD-YizzdL-m7VKXO6w_kRsOWsPkgD9mKu0K9qXP9FQfHQsHRp0LdDmtlbf1g0E-Md-opiHZKK6_0YlMxALdkw6sN2LZRCkOIQq8LDHViqVDnr8Rqx2bomL0aY_vO6JtJE3QZkkQJkV5ZFLB8R-H0FingtOWISs1zLoTNYlPJwUnqOPcAKF7&num=1&sig=AGiWqtxkwm32U-Ox-AEC_8qXgysR70jfpA&adurl=/mgyhp.html" onclick=xz()>Make Google my homepage</a></p><script>(function(){var a=document.getElementById("shf0"),b="http://www.google.com/";try{a.isHomePage(b)||(a.style.display="block")}catch(z){}window.xz=function(){try{a.setHomePage(b);var c=new Image;c.src="/gen_204?mgmhp=shf0&ct=c&cd="+a.isHomePage(b);window.wy=c}catch(z){}}})();</script></font><p><font size=-2>&copy;2010 - <a href="/intl/en/privacy.html">Privacy</a></font></p></center></span> <div id=xjsd></div><div id=xjsi><script>if(google.y)google.y.first=[];if(google.y)google.y.first=[];google.dstr=[];google.rein=[];window.setTimeout(function(){var a=document.createElement("script");a.src="/extern_js/f/CgJlbhICdXMrMEU4ASwrMFo4AiwrMA44FSwrMBc4BywrMCc4BCwrMDw4AywrMFE4AiwrMAo4bUAvLCswFjgcLCswGTghLCswJTjKiAEsKzBAOBIsKzBOOAUsKzAYOAUsKzAmOAssgAIN/sfSVKzsYj5Q.js";(document.getElementById("xjsd")||document.body).appendChild(a);if(google.timers&&google.timers.load.t)google.timers.load.t.xjsls=(new Date).getTime();},0);\n;google.neegg=1;google.y.first.push(function(){google.ac.i(document.f,document.f.q,\'\',\'\',\'\',{a:1,o:1,l:1});google.History&&google.History.initialize(\'/\')});if(google.j&&google.j.en&&google.j.xi){window.setTimeout(google.j.xi,0);google.fade=null;}</script></div><script>(function(){\nvar b,d,e,f;function g(a,c){if(a.removeEventListener){a.removeEventListener("load",c,false);a.removeEventListener("error",c,false)}else{a.detachEvent("onload",c);a.detachEvent("onerror",c)}}function h(a){f=(new Date).getTime();++d;a=a||window.event;var c=a.target||a.srcElement;g(c,h)}var i=document.getElementsByTagName("img");b=i.length;d=0;for(var j=0,k;j<b;++j){k=i[j];if(k.complete||typeof k.src!="string"||!k.src)++d;else if(k.addEventListener){k.addEventListener("load",h,false);k.addEventListener("error",\nh,false)}else{k.attachEvent("onload",h);k.attachEvent("onerror",h)}}e=b-d;function l(){google.timers.load.t.ol=(new Date).getTime();google.timers.load.t.iml=f;google.kCSI.imc=d;google.kCSI.imn=b;google.kCSI.imp=e;google.report&&google.report(google.timers.load,google.kCSI)}if(window.addEventListener)window.addEventListener("load",l,false);else if(window.attachEvent)window.attachEvent("onload",l);google.timers.load.t.prt=(f=(new Date).getTime());\n})();\n</script>"""
 
@@ -80,9 +76,7 @@ load_layer("http")
 import os
 import gzip
 
-tmp = "/test/pcaps/http_compressed.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/http_compressed.pcap")
 
 # First without auto decompression
 
@@ -115,9 +109,7 @@ load_layer("http")
 import os
 import brotli
 
-tmp = "/test/pcaps/http_compressed-brotli.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/http_compressed-brotli.pcap")
 
 # First without auto decompression
 
@@ -152,9 +144,7 @@ import zstandard
 
 # sample server: $ socat -v TCP-LISTEN:8080,fork,reuseaddr SYSTEM:'(echo -ne "HTTP/1.1 200 OK\r\nContent-Encoding: zstd\r\n\r\n") > tmp && dd bs=1G count=1 status=none | zstd --stdout >> tmp && cat tmp'
 # sample client: $ curl -v localhost:8080/tmp_echo_zstd_request_for_testing -o a.html
-tmp = "/test/pcaps/http_compressed-zstd.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/http_compressed-zstd.pcap")
 
 # First without auto decompression
 
@@ -179,9 +169,7 @@ assert b'tmp_echo_zstd_request_for_testing' in pkts[0].load
 
 = HTTP PSH bug fix
 
-tmp = "/test/pcaps/http_tcp_psh.pcap.gz"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/http_tcp_psh.pcap.gz")
 
 pkts = sniff(offline=filename, session=TCPSession)
 
@@ -208,9 +196,7 @@ from scapy.contrib.http2 import H2Frame
 
 import os
 
-tmp = "/test/pcaps/http2_h2c.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/http2_h2c.pcap")
 
 pkts = sniff(offline=filename, session=TCPSession)
 

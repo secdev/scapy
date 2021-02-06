@@ -84,6 +84,15 @@ def retry_test(func):
     assert success
     return result
 
+
+def scapy_path(fname):
+    """Resolves a path relative to scapy's root folder"""
+    if fname.startswith('/'):
+        fname = fname[1:]
+    return os.path.abspath(os.path.join(
+        os.path.dirname(__file__), '../../', fname
+    ))
+
 #    Import tool    #
 
 
@@ -546,8 +555,9 @@ def run_test(test, get_interactive_session, theme, verb=3,
 
 def import_UTscapy_tools(ses):
     """Adds UTScapy tools directly to a session"""
-    ses["retry_test"] = retry_test
     ses["Bunch"] = Bunch
+    ses["retry_test"] = retry_test
+    ses["scapy_path"] = scapy_path
     if WINDOWS:
         from scapy.arch.windows import _route_add_loopback
         _route_add_loopback()
@@ -1091,9 +1101,6 @@ def main():
         except ImportError as e:
             raise getopt.GetoptError("cannot import [%s]: %s" % (m, e))
 
-    # Add SCAPY_ROOT_DIR environment variable, used for tests
-    os.environ['SCAPY_ROOT_DIR'] = os.environ.get("PWD", os.getcwd())
-
     autorun_func = {
         Format.TEXT: scapy.autorun_get_text_interactive_session,
         Format.ANSI: scapy.autorun_get_ansi_interactive_session,
@@ -1174,9 +1181,6 @@ def main():
         with open(OUTPUTFILE, "wb") as f:
             f.write(glob_output.encode("utf8", "ignore")
                     if 'b' in f.mode or six.PY2 else glob_output)
-
-    # Delete scapy's test environment vars
-    del os.environ['SCAPY_ROOT_DIR']
 
     # Print end message
     if VERB > 2:
