@@ -75,6 +75,9 @@ then
   esac
 fi
 
+# Configure OpenSSL
+export OPENSSL_CONF=$(python `dirname $BASH_SOURCE`/openssl.py)
+
 # Dump vars (the others were already dumped in install.sh)
 echo UT_FLAGS=$UT_FLAGS
 echo TOXENV=$TOXENV

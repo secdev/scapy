@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # Install on osx
 if [ "$OSTYPE" = "darwin"* ] || [ "$TRAVIS_OS_NAME" = "osx" ]
 then
