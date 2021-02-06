@@ -56,7 +56,7 @@ p = IP(src="9.10.11.12", dst="13.14.15.16", options=[IPOption_NOP(),IPOption_LSR
 p
 r = raw(p)
 r
-assert(r == b'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+assert(r == b'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00o[\x00\x00')
 q = IP(r)
 q
 assert(q[IPOption_LSRR].get_current_router() == "1.2.3.4")
@@ -584,4 +584,11 @@ def test_IPID_count():
 
 test_IPID_count()
 
+= IPv4 - Checksum computation with source routing
 
+no_sr = IP(raw(IP(dst="8.8.8.8")/UDP()/DNS()))
+sr = IP(raw(IP(options=[IPOption_SSRR(routers=["1.1.1.1", "8.8.8.8"])])/UDP()/DNS()))
+assert no_sr[UDP].chksum == sr[UDP].chksum
+
+sr = IP(raw(IP(options=[IPOption_LSRR(routers=["1.1.1.1"]), IPOption_SSRR(routers=["8.8.8.8"])])/UDP()/DNS()))
+assert no_sr[UDP].chksum != sr[UDP].chksum
