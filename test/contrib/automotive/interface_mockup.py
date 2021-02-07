@@ -98,6 +98,10 @@ def cleanup_interfaces():
 
     :return: True on success
     """
+    import threading
+    if threading.active_count() > 1:
+        raise Exception(str(threading.enumerate()))
+
     if LINUX and _not_pypy and _root:
         if 0 != subprocess.call(["sudo", "ip", "link", "delete", iface0]):
             raise Exception("%s could not be deleted" % iface0)
