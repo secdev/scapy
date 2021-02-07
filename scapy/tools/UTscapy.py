@@ -594,12 +594,6 @@ def run_campaign(test_campaign, get_interactive_session, theme,
                     if drop_to_interpreter:
                         drop(scapy_ses)
                 test_campaign.duration += t.duration
-                # Check active threads
-                if verb > 2:
-                    import threading
-                    if threading.active_count() > 1:
-                        print("\nWARNING: UNFINISHED THREADS")
-                        print(threading.enumerate())
     except KeyboardInterrupt:
         failed += 1
         testset.trunc(j + 1)
@@ -1194,6 +1188,13 @@ def main():
             print(theme.green("UTscapy ended successfully"))
         else:
             print(theme.red("UTscapy ended with error code %s" % glob_result))
+
+    # Check active threads
+    if VERB > 2:
+        import threading
+        if threading.active_count() > 1:
+            print("\nWARNING: UNFINISHED THREADS")
+            print(threading.enumerate())
 
     # Return state
     return glob_result
