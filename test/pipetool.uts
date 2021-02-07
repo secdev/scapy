@@ -305,7 +305,7 @@ def _fail():
 
 a = AutoSource()
 a._send = mock.MagicMock(side_effect=_fail)
-a._wake_up()
+a.send("x")
 try:
     a.deliver()
 except:
@@ -665,16 +665,16 @@ assert DNS in res[0] and res[0][UDP].sport == 1234
 
 p.stop()
 
-= FDSourceSink on a Bunch object
+= FDSourceSink on a ObjectPipe object
 
-fd = Bunch(write=lambda x: None, read=lambda: "hello", fileno=lambda: None)
+obj = ObjectPipe()
+obj.send("hello")
 
-s = FDSourceSink(fd)
+s = FDSourceSink(obj)
 d = Drain()
 c = QueueSink()
 s > d > c
 
-assert s.fileno() == None
 s.push("data")
 s.deliver()
 assert c.q.get(timeout=1) == "hello"

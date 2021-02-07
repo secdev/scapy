@@ -13,8 +13,7 @@ import socket
 import struct
 import time
 
-from scapy.automaton import SelectableObject
-from scapy.arch.common import _select_nonblock
+from scapy.automaton import SelectableObject, select_objects
 from scapy.compat import raw, plain_str
 from scapy.config import conf
 from scapy.consts import WINDOWS
@@ -62,14 +61,9 @@ _pcap_if_flags = [
 
 
 class _L2libpcapSocket(SuperSocket, SelectableObject):
-    nonblocking_socket = True
-
     def __init__(self):
         SelectableObject.__init__(self)
         self.cls = None
-
-    def check_recv(self):
-        return True
 
     def recv_raw(self, x=MTU):
         """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
@@ -91,8 +85,7 @@ class _L2libpcapSocket(SuperSocket, SelectableObject):
         return self.cls, pkt, ts
 
     def nonblock_recv(self):
-        """Receives and dissect a packet in non-blocking mode.
-        Note: on Windows, this won't do anything."""
+        """Receives and dissect a packet in non-blocking mode."""
         self.ins.setnonblock(1)
         p = self.recv(MTU)
         self.ins.setnonblock(0)
@@ -100,7 +93,7 @@ class _L2libpcapSocket(SuperSocket, SelectableObject):
 
     @staticmethod
     def select(sockets, remain=None):
-        return _select_nonblock(sockets, remain=None)
+        return select_objects(sockets, remain)
 
 ##########
 #  PCAP  #
@@ -111,7 +104,7 @@ if conf.use_pcap:
     if WINDOWS:
         # Windows specific
         NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
-        from scapy.libs.winpcapy import pcap_setmintocopy
+        from scapy.libs.winpcapy import pcap_setmintocopy, pcap_getevent
     else:
         from scapy.libs.winpcapy import pcap_get_selectable_fd
     from ctypes import POINTER, byref, create_string_buffer, c_ubyte, cast
@@ -294,8 +287,7 @@ if conf.use_pcap:
 
         def fileno(self):
             if WINDOWS:
-                log_runtime.error("Cannot get selectable PCAP fd on Windows")
-                return -1
+                return pcap_getevent(self.pcap)
             else:
                 # This does not exist under Windows
                 return pcap_get_selectable_fd(self.pcap)
@@ -381,13 +373,7 @@ if conf.use_pcap:
             if promisc is None:
                 promisc = conf.sniff_promisc
             self.promisc = promisc
-            # Note: Timeout with Winpcap/Npcap
-            #   The 4th argument of open_pcap corresponds to timeout. In an ideal world, we would  # noqa: E501
-            # set it to 0 ==> blocking pcap_next_ex.
-            #   However, the way it is handled is very poor, and result in a jerky packet stream.  # noqa: E501
-            # To fix this, we set 100 and the implementation under windows is slightly different, as  # noqa: E501
-            # everything is always received as non-blocking
-            self.ins = open_pcap(iface, MTU, self.promisc, 100,
+            self.ins = open_pcap(iface, MTU, self.promisc, 0,
                                  monitor=monitor)
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
@@ -417,8 +403,7 @@ if conf.use_pcap:
             if promisc is None:
                 promisc = 0
             self.promisc = promisc
-            # See L2pcapListenSocket for infos about this line
-            self.ins = open_pcap(iface, MTU, self.promisc, 100,
+            self.ins = open_pcap(iface, MTU, self.promisc, 0,
                                  monitor=monitor)
             self.outs = self.ins
             try:

@@ -220,7 +220,7 @@ class PythonCANSocket(SuperSocket):
     def select(sockets, *args, **kwargs):
         SocketsPool().multiplex_rx_packets()
         return [s for s in sockets if isinstance(s, PythonCANSocket) and
-                not s.iface.rx_queue.empty()], PythonCANSocket.recv
+                not s.iface.rx_queue.empty()]
 
     def close(self):
         if self.closed:

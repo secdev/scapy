@@ -723,7 +723,7 @@ class ISOTPSoftSocket(SuperSocket):
 
         ready_sockets = find_ready_sockets()
         if len(ready_sockets) > 0 or not blocking:
-            return ready_sockets, None
+            return ready_sockets
 
         exit_select = Event()
 
@@ -746,7 +746,7 @@ class ISOTPSoftSocket(SuperSocket):
                     pass
 
         ready_sockets = find_ready_sockets()
-        return ready_sockets, None
+        return ready_sockets
 
 
 ISOTPSocket = ISOTPSoftSocket

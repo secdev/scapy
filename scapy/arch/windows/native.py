@@ -49,8 +49,7 @@ import socket
 import subprocess
 import time
 
-from scapy.automaton import SelectableObject
-from scapy.arch.common import _select_nonblock
+from scapy.automaton import SelectableObject, select_objects
 from scapy.arch.windows.structures import GetIcmpStatistics
 from scapy.compat import raw
 from scapy.config import conf
@@ -65,6 +64,7 @@ from scapy.supersocket import SuperSocket
 class L3WinSocket(SuperSocket, SelectableObject):
     desc = "a native Layer 3 (IPv4) raw socket under Windows"
     nonblocking_socket = True
+    __selectable_force_select__ = True
     __slots__ = ["promisc", "cls", "ipv6", "proto"]
 
     def __init__(self, iface=None, proto=socket.IPPROTO_IP,
@@ -186,9 +186,6 @@ class L3WinSocket(SuperSocket, SelectableObject):
         else:
             return IP, data, time.time()
 
-    def check_recv(self):
-        return True
-
     def close(self):
         if not self.closed and self.promisc:
             self.ins.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
@@ -196,7 +193,7 @@ class L3WinSocket(SuperSocket, SelectableObject):
 
     @staticmethod
     def select(sockets, remain=None):
-        return _select_nonblock(sockets, remain=remain)
+        return select_objects(sockets, remain)
 
 
 class L3WinSocket6(L3WinSocket):

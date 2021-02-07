@@ -10,7 +10,6 @@ Functions common to different architectures
 import ctypes
 import socket
 import struct
-import time
 from scapy.consts import WINDOWS
 from scapy.config import conf
 from scapy.data import MTU, ARPHDR_ETHER, ARPHRD_TO_DLT
@@ -21,11 +20,8 @@ from scapy.libs.structures import bpf_program
 # Type imports
 import scapy
 from scapy.compat import (
-    Callable,
-    List,
     Optional,
     Tuple,
-    TypeVar,
     Union,
 )
 
@@ -91,30 +87,6 @@ def get_if_raw_hwaddr(iff,  # type: Union[NetworkInterface, str]
         get_if(iff, siocgifhwaddr)
     )
 
-# SOCKET UTILS
-
-
-_T = TypeVar("_T")
-
-
-def _select_nonblock(sockets,  # type: List[_T]
-                     remain=None  # type: Optional[int]
-                     ):
-    # type: (...) -> Tuple[List[_T], Callable[['scapy.supersocket.SuperSocket'], Optional['scapy.packet.Packet']]]  # type: ignore # noqa: E501
-    """This function is called during sendrecv() routine to select
-    the available sockets.
-    """
-    # pcap sockets aren't selectable, so we return all of them
-    # and ask the selecting functions to use nonblock_recv instead of recv
-    def _sleep_nonblock_recv(self  # type: 'scapy.supersocket.SuperSocket'
-                             ):
-        # type: (...) -> 'Optional[scapy.packet.Packet]'
-        res = self.nonblock_recv()  # type: ignore
-        if res is None:
-            time.sleep(conf.recv_poll_rate)
-        return res  # type: ignore
-    # we enforce remain=None: don't wait.
-    return sockets, _sleep_nonblock_recv
 
 # BPF HANDLERS
 

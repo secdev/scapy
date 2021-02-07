@@ -231,7 +231,7 @@ class _L2bpfSocket(SuperSocket):
         the available sockets.
         """
         # sockets, None (means use the socket's recv() )
-        return bpf_select(sockets, remain), None
+        return bpf_select(sockets, remain)
 
 
 class L2bpfListenSocket(_L2bpfSocket):

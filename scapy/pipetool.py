@@ -6,19 +6,22 @@
 from __future__ import print_function
 import os
 import subprocess
-import collections
 import time
 import scapy.modules.six as six
 from threading import Lock, Thread
 
-from scapy.automaton import Message, select_objects, SelectableObject
+from scapy.automaton import (
+    Message,
+    ObjectPipe,
+    select_objects,
+)
 from scapy.consts import WINDOWS
 from scapy.error import log_runtime, warning
 from scapy.config import conf
 from scapy.utils import get_temp_file, do_graph
 
 
-class PipeEngine(SelectableObject):
+class PipeEngine(ObjectPipe):
     pipes = {}
 
     @classmethod
@@ -38,6 +41,7 @@ class PipeEngine(SelectableObject):
                 print("###### %s" % pn)
 
     def __init__(self, *pipes):
+        ObjectPipe.__init__(self)
         self.active_pipes = set()
         self.active_sources = set()
         self.active_drains = set()
@@ -45,10 +49,7 @@ class PipeEngine(SelectableObject):
         self._add_pipes(*pipes)
         self.thread_lock = Lock()
         self.command_lock = Lock()
-        self.__fd_queue = collections.deque()
-        self.__fdr, self.__fdw = os.pipe()
         self.thread = None
-        SelectableObject.__init__(self)
 
     def __getattr__(self, attr):
         if attr.startswith("spawn_"):
@@ -62,22 +63,11 @@ class PipeEngine(SelectableObject):
                 return f
         raise AttributeError(attr)
 
-    def check_recv(self):
-        """As select.select is not available, we check if there
-        is some data to read by using a list that stores pointers."""
-        return len(self.__fd_queue) > 0
-
-    def fileno(self):
-        return self.__fdr
-
     def _read_cmd(self):
-        os.read(self.__fdr, 1)
-        return self.__fd_queue.popleft()
+        return self.recv()
 
     def _write_cmd(self, _cmd):
-        self.__fd_queue.append(_cmd)
-        os.write(self.__fdw, b"X")
-        self.call_release()
+        self.send(_cmd)
 
     def add_one_pipe(self, pipe):
         self.active_pipes.add(pipe)
@@ -118,7 +108,7 @@ class PipeEngine(SelectableObject):
             RUN = True
             STOP_IF_EXHAUSTED = False
             while RUN and (not STOP_IF_EXHAUSTED or len(sources) > 1):
-                fds = select_objects(sources, 2)
+                fds = select_objects(sources, 0)
                 for fd in fds:
                     if fd is self:
                         cmd = self._read_cmd()
@@ -326,10 +316,10 @@ class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
         return s
 
 
-class Source(Pipe, SelectableObject):
+class Source(Pipe, ObjectPipe):
     def __init__(self, name=None):
         Pipe.__init__(self, name=name)
-        SelectableObject.__init__(self)
+        ObjectPipe.__init__(self)
         self.is_exhausted = False
 
     def _read_message(self):
@@ -338,12 +328,6 @@ class Source(Pipe, SelectableObject):
     def deliver(self):
         msg = self._read_message
         self._send(msg)
-
-    def fileno(self):
-        return None
-
-    def check_recv(self):
-        return False
 
     def exhausted(self):
         return self.is_exhausted
@@ -418,42 +402,27 @@ class Sink(Pipe):
         pass
 
 
-class AutoSource(Source, SelectableObject):
+class AutoSource(Source):
     def __init__(self, name=None):
-        SelectableObject.__init__(self)
         Source.__init__(self, name=name)
-        self.__fdr, self.__fdw = os.pipe()
-        self._queue = collections.deque()
-
-    def fileno(self):
-        return self.__fdr
-
-    def check_recv(self):
-        return len(self._queue) > 0
 
     def _gen_data(self, msg):
-        self._queue.append((msg, False))
-        self._wake_up()
+        ObjectPipe.send(self, (msg, False, False))
 
     def _gen_high_data(self, msg):
-        self._queue.append((msg, True))
-        self._wake_up()
+        ObjectPipe.send(self, (msg, True, False))
 
-    def _wake_up(self):
-        os.write(self.__fdw, b"X")
-        self.call_release()
+    def _exhaust(self):
+        ObjectPipe.send(self, (None, None, True))
 
     def deliver(self):
-        os.read(self.__fdr, 1)
-        try:
-            msg, high = self._queue.popleft()
-        except IndexError:  # empty queue. Exhausted source
+        msg, high, exhaust = self.recv()
+        if exhaust:
             pass
+        if high:
+            self._high_send(msg)
         else:
-            if high:
-                self._high_send(msg)
-            else:
-                self._send(msg)
+            self._send(msg)
 
 
 class ThreadGenSource(AutoSource):
@@ -588,7 +557,7 @@ class PeriodicSource(ThreadGenSource):
                 time.sleep(self.period)
             if empty_gen:
                 self.is_exhausted = True
-                self._wake_up()
+                self._exhaust()
             time.sleep(self.period2)
 
 
