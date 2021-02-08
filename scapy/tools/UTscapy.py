@@ -919,7 +919,7 @@ def resolve_testfiles(TESTFILES):
     for tfile in TESTFILES[:]:
         if "*" in tfile:
             TESTFILES.remove(tfile)
-            TESTFILES.extend(glob.glob(tfile))
+            TESTFILES.extend(sorted(glob.glob(tfile)))
     return TESTFILES
 
 
