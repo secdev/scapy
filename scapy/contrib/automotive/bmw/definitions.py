@@ -293,9 +293,9 @@ class DIAG_SESSION_RESP(Packet):
 class IP_CONFIG_RESP(Packet):
     fields_desc = [
         ByteField('ADDRESS_FORMAT_ID', 0),
-        IPField('IP', ''),
-        IPField('SUBNETMASK', ''),
-        IPField('DEFAULT_GATEWAY', '')
+        IPField('IP', '192.168.0.10'),
+        IPField('SUBNETMASK', '255.255.255.0'),
+        IPField('DEFAULT_GATEWAY', '192.168.0.1')
     ]
 
 
