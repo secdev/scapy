@@ -12,7 +12,7 @@ import sys
 
 from platform import python_implementation
 
-from scapy.all import load_layer, load_contrib, conf
+from scapy.all import load_layer, load_contrib, conf, log_runtime
 import scapy.modules.six as six
 from scapy.consts import LINUX
 
@@ -31,43 +31,49 @@ except AttributeError:
     _root = False
 
 _not_pypy = "pypy" not in python_implementation().lower()
+_socket_can_support = False
 
 
 def test_and_setup_socket_can(iface_name):
-    if 0 != subprocess.call(["cansend", iface_name, "000#"]):
+    if 0 != subprocess.call(("cansend %s 000#" % iface_name).split()):
         # iface_name is not enabled
-        if 0 != subprocess.call(["sudo", "modprobe", "vcan"]):
+        if 0 != subprocess.call("modprobe vcan".split()):
             raise Exception("modprobe vcan failed")
-        if 0 != subprocess.call(["sudo", "ip", "link", "add", "name",
-                                 iface_name, "type", "vcan"]):
-            print("add %s failed: Maybe it was already up?" % iface_name)
         if 0 != subprocess.call(
-                ["sudo", "ip", "link", "set", "dev", iface_name, "up"]):
+                ("ip link add name %s type vcan" % iface_name).split()):
+            log_runtime.debug(
+                "add %s failed: Maybe it was already up?" % iface_name)
+        if 0 != subprocess.call(
+                ("ip link set dev %s up" % iface_name).split()):
             raise Exception("could not bring up %s" % iface_name)
 
-    if 0 != subprocess.call(["cansend", iface_name, "000#"]):
+    if 0 != subprocess.call(("cansend %s 000#12" % iface_name).split()):
         raise Exception("cansend doesn't work")
 
+    sys.__stderr__.write("SocketCAN setup done!\n")
 
-if LINUX and os.geteuid() == 0:
-    try:
-        test_and_setup_socket_can(iface0)
-        test_and_setup_socket_can(iface1)
-        print("CAN should work now")
-    except Exception as e:
-        print(e)
+
+if LINUX and _root and _not_pypy:
+    test_and_setup_socket_can(iface0)
+    test_and_setup_socket_can(iface1)
+    log_runtime.debug("CAN should work now")
+    _socket_can_support = True
+
+
+sys.__stderr__.write("SocketCAN support: %s\n" % _socket_can_support)
 
 
 # ############################################################################
 # """ Define helper functions for CANSocket creation on all platforms """
 # ############################################################################
-if LINUX and _not_pypy and _root:
+if _socket_can_support:
     if six.PY3:
         from scapy.contrib.cansocket_native import *
         new_can_socket = NativeCANSocket
         new_can_socket0 = lambda: NativeCANSocket(iface0)
         new_can_socket1 = lambda: NativeCANSocket(iface1)
         can_socket_string_list = ["-c", iface0]
+        sys.__stderr__.write("Using NativeCANSocket\n")
 
     else:
         from scapy.contrib.cansocket_python_can import *
@@ -75,12 +81,14 @@ if LINUX and _not_pypy and _root:
         new_can_socket0 = lambda: PythonCANSocket(bustype='socketcan', channel=iface0, timeout=0.01)
         new_can_socket1 = lambda: PythonCANSocket(bustype='socketcan', channel=iface1, timeout=0.01)
         can_socket_string_list = ["-i", "socketcan", "-c", iface0]
+        sys.__stderr__.write("Using PythonCANSocket socketcan\n")
 
 else:
     from scapy.contrib.cansocket_python_can import *
     new_can_socket = lambda iface: PythonCANSocket(bustype='virtual', channel=iface)
     new_can_socket0 = lambda: PythonCANSocket(bustype='virtual', channel=iface0, timeout=0.01)
     new_can_socket1 = lambda: PythonCANSocket(bustype='virtual', channel=iface1, timeout=0.01)
+    sys.__stderr__.write("Using PythonCANSocket virtual\n")
 
 
 # ############################################################################
@@ -88,8 +96,11 @@ else:
 # ############################################################################
 s = new_can_socket(iface0)
 s.close()
+del s
+
 s = new_can_socket(iface1)
 s.close()
+del s
 
 
 def cleanup_interfaces():
@@ -105,9 +116,9 @@ def cleanup_interfaces():
             t.join(10)
 
     if LINUX and _not_pypy and _root:
-        if 0 != subprocess.call(["sudo", "ip", "link", "delete", iface0]):
+        if 0 != subprocess.call(["ip", "link", "delete", iface0]):
             raise Exception("%s could not be deleted" % iface0)
-        if 0 != subprocess.call(["sudo", "ip", "link", "delete", iface1]):
+        if 0 != subprocess.call(["ip", "link", "delete", iface1]):
             raise Exception("%s could not be deleted" % iface1)
     return True
 
@@ -127,7 +138,10 @@ def drain_bus(iface=iface0, assert_empty=True):
                 "Error in drain_bus. Packets found but no packets expected!")
 
 
-print("CAN sockets should work now")
+drain_bus(iface0)
+drain_bus(iface1)
+
+log_runtime.debug("CAN sockets should work now")
 
 # ############################################################################
 # """ Setup and definitions for ISOTP related stuff """
@@ -154,7 +168,7 @@ def exit_if_no_isotp_module():
 # ############################################################################
 # """ Evaluate if ISOTP kernel module is installed and available """
 # ############################################################################
-if LINUX and os.geteuid() == 0 and six.PY3:
+if LINUX and _root and six.PY3:
     p1 = subprocess.Popen(['lsmod'], stdout=subprocess.PIPE)
     p2 = subprocess.Popen(['grep', '^can_isotp'],
                           stdout=subprocess.PIPE, stdin=p1.stdout)
@@ -193,5 +207,5 @@ else:
 # """ Prepare send_delay on Ecu Answering Machine to stabilize unit tests """
 # ############################################################################
 from scapy.contrib.automotive.ecu import *
-print("Set send delay to lower utilization on CI machines")
+log_runtime.debug("Set send delay to lower utilization on CI machines")
 conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004

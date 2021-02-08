@@ -1,89 +1,15 @@
 % Regression tests for the CCP layer
-~ needs_root
 
 + Configuration
 ~ conf
 
 = Imports
-load_layer("can", globals_dict=globals())
-conf.contribs['CAN']['swap-bytes'] = False
 import scapy.modules.six as six
-from subprocess import call
-from scapy.consts import LINUX
 
-= Definition of constants, utility functions and mock classes
-iface0 = "vcan0"
-iface1 = "vcan1"
-
-
-= Initialize a virtual CAN interface
-~ vcan_socket needs_root linux
-if 0 != call(["cansend", iface0,  "000#"]):
-    # vcan0 is not enabled
-    if 0 != call(["sudo", "modprobe", "vcan"]):
-        raise Exception("modprobe vcan failed")
-    if 0 != call(["sudo", "ip", "link", "add", "name", iface0, "type", "vcan"]):
-        print("add %s failed: Maybe it was already up?" % iface0)
-    if 0 != call(["sudo", "ip", "link", "set", "dev", iface0, "up"]):
-        raise Exception("could not bring up %s" % iface0)
-
-if 0 != call(["cansend", iface0,  "000#"]):
-    raise Exception("cansend doesn't work")
-
-if 0 != call(["cansend", iface1,  "000#"]):
-    # vcan1 is not enabled
-    if 0 != call(["sudo", "modprobe", "vcan"]):
-        raise Exception("modprobe vcan failed")
-    if 0 != call(["sudo", "ip", "link", "add", "name", iface1, "type", "vcan"]):
-        print("add %s failed: Maybe it was already up?" % iface1)
-    if 0 != call(["sudo", "ip", "link", "set", "dev", iface1, "up"]):
-        raise Exception("could not bring up %s" % iface1)
-
-if 0 != call(["cansend", iface1,  "000#"]):
-    raise Exception("cansend doesn't work")
-
-print("CAN should work now")
-
-= Import CANSocket
-
-from scapy.contrib.cansocket_python_can import *
-
-new_can_socket = lambda iface: CANSocket(bustype='virtual', channel=iface)
-new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface0, timeout=0.01)
-new_can_socket1 = lambda: CANSocket(bustype='virtual', channel=iface1, timeout=0.01)
-
-# utility function for draining a can interface, asserting that no packets are there
-def drain_bus(iface=iface0, assert_empty=True):
-    with new_can_socket(iface) as s:
-        pkts = s.sniff(timeout=0.1)
-        if assert_empty:
-            assert len(pkts) == 0
-
-print("CAN sockets should work now")
-
-= Overwrite definition for vcan_socket systems native sockets
-~ vcan_socket not_pypy needs_root linux
-
-if six.PY3 and LINUX:
-    from scapy.contrib.cansocket_native import *
-    new_can_socket = lambda iface: CANSocket(iface)
-    new_can_socket0 = lambda: CANSocket(iface0)
-    new_can_socket1 = lambda: CANSocket(iface1)
-
-
-= Overwrite definition for vcan_socket systems python-can sockets
-~ vcan_socket needs_root linux
-
-if "python_can" in CANSocket.__module__:
-    new_can_socket = lambda iface: CANSocket(bustype='socketcan', channel=iface, bitrate=250000, timeout=0.01)
-    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, bitrate=250000, timeout=0.01)
-    new_can_socket1 = lambda: CANSocket(bustype='socketcan', channel=iface1, bitrate=250000, timeout=0.01)
-
-
-= Verify that a CAN socket can be created and closed
-s = new_can_socket(iface0)
-s.close()
-
+if six.PY3:
+    exec(open("test/contrib/automotive/interface_mockup.py").read())
+else:
+    execfile("test/contrib/automotive/interface_mockup.py")
 
 ############
 ############
@@ -1031,10 +957,6 @@ assert dto.MTA0_address == 0xffffffff
 + Cleanup
 
 = Delete vcan interfaces
-~ vcan_socket needs_root linux
 
-if 0 != call(["sudo", "ip", "link", "delete", iface0]):
-        raise Exception("%s could not be deleted" % iface0)
+assert cleanup_interfaces()
 
-if 0 != call(["sudo", "ip", "link", "delete", iface1]):
-        raise Exception("%s could not be deleted" % iface1)

@@ -1,0 +1,126 @@
+% Regression tests for the XCP using CANSockets
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
+
++ Configuration
+~ conf
+
+= Imports
+
+import scapy.modules.six as six
+
+if six.PY3:
+    exec(open("test/contrib/automotive/interface_mockup.py").read())
+else:
+    execfile("test/contrib/automotive/interface_mockup.py")
+
+
+= Load module
+
+load_contrib("automotive.xcp.xcp",  globals_dict=globals())
+
+= Connect
+
+evt = threading.Event()
+
+def ecu():
+    global evt
+    with new_can_socket1() as sock2:
+        sock2.basecls = XCPOnCAN
+        response = XCPOnCAN(
+            identifier=0x700) / CTOResponse() / ConnectPositiveResponse(
+            b'\x15\xC0\x08\x08\x00\x10\x10')
+        while True:
+            pkts = sock2.sniff(count=1, timeout=5, started_callback=evt.set)
+            if len(pkts):
+                if pkts[0].identifier == 0x100:
+                    break
+                sock2.send(response)
+
+with new_can_socket1() as sock1:
+    sock1.basecls = XCPOnCAN
+    thread = threading.Thread(target=ecu)
+    thread.start()
+    evt.wait(timeout=10)
+    pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
+    for x in range(10):
+        ans = sock1.sr1(pkt, timeout=0.5)
+        if ans is not None:
+            break
+    sock1.send(XCPOnCAN(identifier=0x100))
+    thread.join(timeout=10)
+
+assert ans.identifier == 0x700
+cto_response = ans["CTOResponse"]
+assert cto_response.packet_code == 0xff
+
+connect_response = cto_response["ConnectPositiveResponse"]
+
+assert connect_response.resource == 0x15
+assert connect_response.comm_mode_basic == 0xC0
+assert connect_response.max_cto == 8
+assert connect_response.max_dto is None
+assert connect_response.max_dto_le == 8
+
+assert connect_response.xcp_protocol_layer_version_number_msb == 0x10
+assert connect_response.xcp_transport_layer_version_number_msb == 0x10
+
+
+cto_request = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
+
+assert cto_request.identifier == 0x700
+assert cto_request.pid == 0xFF
+assert cto_request.connection_mode == 0
+assert bytes(cto_request) == b'\x00\x00\x07\x00\x02\x00\x00\x00\xff\x00'
+
+xcp_on_can = XCPOnCAN(b'\x00\x00\x05\x00\x08\x00\x00\x00\xff\x15\xC0\x08\x08\x00\x10\x10')
+assert xcp_on_can.identifier == 0x500
+assert xcp_on_can.answers(cto_request)
+
+cto_response = xcp_on_can["CTOResponse"]
+assert cto_response.packet_code == 0xFF
+
+connect_response = cto_response["ConnectPositiveResponse"]
+assert connect_response.resource == 0x15
+assert connect_response.comm_mode_basic == 0xC0
+assert connect_response.max_cto == 8
+assert connect_response.max_cto == 8
+
+assert connect_response.xcp_protocol_layer_version_number_msb == 0x10
+assert connect_response.xcp_transport_layer_version_number_msb == 0x10
+
+assert conf.contribs['XCP']['byte_order'] == 0
+assert conf.contribs['XCP']['MAX_CTO'] == 8
+assert conf.contribs['XCP']['MAX_DTO'] == 8
+assert conf.contribs['XCP']['Address_Granularity_Byte'] == 1
+
+
+= Endianness test for ConnectPositiveResponse
+
+p = ConnectPositiveResponse(b"\x00\xFF\x01\x00\xFF\x05\x05")
+assert p.max_dto_le is None
+assert p.max_dto == 0xff
+
+p = ConnectPositiveResponse(b"\x00\x00\x01\xFF\x00\x05\x05")
+assert p.max_dto_le == 0xff
+assert p.max_dto is None
+
+
+= Wrong answer
+
+request = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
+
+# This response has not enough bytes for a ConnectPositiveResponse
+response = XCPOnCAN(identifier=0x90) / CTOResponse() / Raw(b'\x01\x02\x03\x04')
+
+assert not response.answers(request)
+
+
++ Cleanup
+
+= Delete vcan interfaces
+
+assert cleanup_interfaces()
+
