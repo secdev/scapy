@@ -5,7 +5,7 @@
 
 = Imports
 
-from six.moves.queue import Queue
+from scapy.modules.six.moves.queue import Queue
 from io import BytesIO
 from scapy.contrib.isotp import get_isotp_packet
 
