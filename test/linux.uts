@@ -187,7 +187,8 @@ try:
                             store=True,
                             count=2,
                             lfilter=lambda p: Ether in p and p[Ether].type == 0xbeef,
-                            started_callback=_sniffer_started)
+                            started_callback=_sniffer_started,
+                            timeout=3)
             global frm_count
             frm_count = 2
         t_sniffer = Thread(target=_sniffer, name="linux.uts sniff veth_scapy_1")
@@ -244,7 +245,8 @@ def _sniffer():
                     store=True,
                     count=2,
                     lfilter=lambda p: Ether in p and p[Ether].type == 0xbeef,
-                    started_callback=_sniffer_started)
+                    started_callback=_sniffer_started,
+                    timeout=3)
     global frm_count
     frm_count = 2
 
@@ -292,9 +294,10 @@ test_read_routes()
 ~ linux needs_root
 
 from scapy.arch.linux import L3PacketSocket
+import scapy.modules.six as six
 
 if six.PY3:
-    import mock, six, socket
+    import mock, socket
     @mock.patch("scapy.arch.linux.socket.socket.sendto")
     def test_L3PacketSocket_sendto_python3(mock_sendto):
         mock_sendto.side_effect = OSError(22, 2807)

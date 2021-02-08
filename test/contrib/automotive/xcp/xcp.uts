@@ -671,7 +671,7 @@ thread.start()
 time.sleep(0.1)
 pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
 ans = sock1.sr1(pkt, timeout=3)
-thread.join()
+thread.join(timeout=3)
 sock1.close()
 sock2.close()
 
@@ -770,7 +770,6 @@ assert cto_request.ctr == 0
 assert cto_request.pid == 0xFF
 assert cto_request.connection_mode == 0
 assert bytes(cto_request).endswith(b'\x00\x02\x00\x00\xff\x00')
-print(XCPOnUDP(ctr=0, sport=1, dport=1))
 xcp_on_udp = XCPOnUDP(b'\x00\x01\x00\x01\x00\x0c\x00\x00\x00\x08\x00\x01\xff\x15\xC0\x08\x08\x00\x10\x10')
 assert xcp_on_udp.length == 8
 assert xcp_on_udp.ctr == 1

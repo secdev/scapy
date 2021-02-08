@@ -5,7 +5,7 @@
 
 = Imports
 
-from six.moves.queue import Queue
+from scapy.modules.six.moves.queue import Queue
 from io import BytesIO
 from scapy.contrib.isotp import get_isotp_packet
 
@@ -1294,7 +1294,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s
     except Scapy_Exception as ex:
         exception = ex
 
-print(exception)
 assert(str(exception) == "TX state was reset due to timeout" or str(exception) == "ISOTP send not completed in 30s")
 
 = Check if not sending the second FC will make the socket timeout
@@ -1351,7 +1350,7 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s
 thread.join(timeout=5)
 
 assert(exception is not None)
-print(exception)
+
 assert(str(exception) == "Overflow happened at the receiver side")
 
 = Close the Socket
@@ -1404,7 +1403,7 @@ with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, 0x123, 0x321) as txSoc
         global rx2, sent
         with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, 0x321, 0x123) as rxSock:
             evt.set()
-            rx2 = rxSock.sniff(count=1)
+            rx2 = rxSock.sniff(count=1, timeout=3)
             rxSock.send(msg)
             sent = True
     rxThread = threading.Thread(target=receiver, name="receiver")
@@ -1541,8 +1540,6 @@ with new_can_socket0() as can0_0, \
     sender = threading.Thread(target=sendpkts)
     packetsVCan1 = isoTpSocket1.sniff(timeout=T, count=N, started_callback=sender.start)
     sender.join(timeout=5)
-    print("forwarded: %d" % forwarded)
-    print("len(packetsVCan1): %d" % len(packetsVCan1))
     threadBridge.join(timeout=5)
 
 assert forwarded == N
@@ -1691,8 +1688,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241, padd
         cans.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
         res = s.recv()
         res.show()
-        print(res.data)
-        print(raw(res))
         assert(res.data == dhex("01 02 03 04 05 06 07 08 09"))
 
 
@@ -1708,7 +1703,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x642, did=0x242) as s
     p = subprocess.Popen(["isotpsend", "-s", "242", "-d", "642", iface0], stdin=subprocess.PIPE, universal_newlines=True)
     p.communicate(message)
     r = p.returncode
-    print("returncode is %d" % r)
     assert(r == 0)
     isotp = s.recv()
     assert(isotp.data == dhex(message))
@@ -1722,7 +1716,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x644, did=0x244, exte
     p = subprocess.Popen(["isotpsend", "-s", "244", "-d", "644", "-x", "ee:aa", iface0], stdin=subprocess.PIPE, universal_newlines=True)
     p.communicate(message)
     r = p.returncode
-    print("returncode is %d" % r)
     assert(r == 0)
     isotp = s.recv()
     assert(isotp.data == dhex(message))
@@ -1733,7 +1726,6 @@ exit_if_no_isotp_module()
 
 isotp = ISOTP(data=bytearray(range(1,20)))
 cmd = ["isotprecv", "-s", "243", "-d", "643", "-b", "3", iface0]
-print(" ".join(cmd))
 p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 time.sleep(0.1)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x643, did=0x243) as s:
@@ -1741,7 +1733,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x643, did=0x243) as s
 
 threading.Timer(1, lambda: p.terminate() if p.poll() else p.wait()).start()  # Timeout the receiver after 1 second
 r = p.wait()
-print("returncode is %d" % r)
 assert(0 == r)
 
 result = None
@@ -1752,7 +1743,6 @@ for i in range(10):
         break
 
 assert(result is not None)
-print(result)
 result_data = dhex(result)
 assert(result_data == isotp.data)
 
@@ -1761,7 +1751,6 @@ assert(result_data == isotp.data)
 exit_if_no_isotp_module()
 isotp = ISOTP(data=bytearray(range(1,20)))
 cmd = ["isotprecv", "-s245", "-d645", "-b3", "-x", "ee:aa", iface0]
-print(" ".join(cmd))
 p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 time.sleep(0.1)  # Give some time for starting reception
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x645, did=0x245, extended_addr=0xaa, extended_rx_addr=0xee) as s:
@@ -1769,7 +1758,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x645, did=0x245, exte
 
 threading.Timer(1, lambda: p.terminate() if p.poll() else p.wait()).start()  # Timeout the receiver after 1 second
 r = p.wait()
-print("returncode is %d" % r)
 assert(0 == r)
 
 result = None
@@ -1780,7 +1768,6 @@ for i in range(10):
         break
 
 assert(result is not None)
-print(result)
 result_data = dhex(result)
 assert(result_data == isotp.data)
 

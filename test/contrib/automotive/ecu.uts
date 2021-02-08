@@ -60,7 +60,6 @@ msgs = [UDS(service=16) / UDS_DSC(diagnosticSessionType=3),  # no_docs
 
 ecu = Ecu(verbose=False, store_supported_responses=False)
 ecu.update(PacketList(msgs))
-print(ecu.log)
 assert len(ecu.log["DiagnosticSessionControl"]) == 5  # no_docs
 timestamp, value = ecu.log["DiagnosticSessionControl"][0]
 assert timestamp > 0  # no_docs
@@ -80,7 +79,6 @@ msgs = [UDS(service=16) / UDS_DSC(diagnosticSessionType=3),  # no_docs
 
 ecu = Ecu(verbose=True, logging=False, store_supported_responses=False)
 ecu.update(PacketList(msgs))
-print(ecu.current_session)
 assert ecu.current_session == 3  # no_docs
 assert ecu.current_security_level == 0  # no_docs
 assert ecu.communication_control == 0  # no_docs
@@ -98,8 +96,6 @@ ecu = Ecu(verbose=False, logging=False, store_supported_responses=True)
 ecu.update(PacketList(msgs))
 supported_responses = ecu.supported_responses
 unanswered_packets = ecu.unanswered_packets
-print(supported_responses)
-print(unanswered_packets)
 assert ecu.current_session == 3  # no_docs
 assert ecu.current_security_level == 0  # no_docs
 assert ecu.communication_control == 0  # no_docs
@@ -121,14 +117,12 @@ assert unanswered_packets[0].diagnosticSessionType == 4  # no_docs
 * which are then casted to ``UDS`` objects through the ``basecls`` parameter
 
 with PcapReader("test/contrib/automotive/ecu_trace.pcap.gz") as sock:
-     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
+     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock, timeout=3)
 
 assert len(udsmsgs) == 50  # no_docs
 
 ecu = Ecu()
 ecu.update(udsmsgs)
-print(ecu.log)
-print(ecu.supported_responses)
 response = ecu.supported_responses[0]  # no_docs
 assert response.in_correct_session(1)  # no_docs
 assert response.has_security_access(0)  # no_docs
@@ -157,13 +151,11 @@ assert len(ecu.log["TransferData"]) == 2
 session = EcuSession()
 
 with PcapReader("test/contrib/automotive/ecu_trace.pcap.gz") as sock:
-     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
+     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock, timeout=3)
 
 assert len(udsmsgs) == 50  # no_docs
 
 ecu = session.ecu
-print(ecu.log)
-print(ecu.supported_responses)
 response = ecu.supported_responses[0]  # no_docs
 assert response.in_correct_session(1)  # no_docs
 assert response.has_security_access(0)  # no_docs
@@ -187,25 +179,25 @@ assert len(ecu.log["TransferData"]) == 2  # no_docs
 session = EcuSession()
 
 with CandumpReader("test/contrib/automotive/gmlan_trace.candump") as sock:
-    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=2, opened_socket=sock)
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=2, opened_socket=sock, timeout=3)
     ecu = session.ecu
     print("Check 1 after change to diagnostic mode")
     assert len(ecu.supported_responses) == 1
     assert ecu.current_session == 3
     assert ecu.current_security_level == 0
-    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=8, opened_socket=sock)
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=8, opened_socket=sock, timeout=3)
     ecu = session.ecu
     print("Check 2 after some more messages were read")
     assert len(ecu.supported_responses) == 4
     assert ecu.current_session == 3
     assert ecu.current_security_level == 0
-    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=10, opened_socket=sock)
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=10, opened_socket=sock, timeout=3)
     ecu = session.ecu
     print("Check 3 after change to programming mode (bootloader)")
     assert len(ecu.supported_responses) == 5
     assert ecu.current_session == 2
     assert ecu.current_security_level == 0
-    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=16, opened_socket=sock)
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=16, opened_socket=sock, timeout=3)
     ecu = session.ecu
     print("Check 4 after gaining security access")
     assert len(ecu.supported_responses) == 7
@@ -216,8 +208,10 @@ with CandumpReader("test/contrib/automotive/gmlan_trace.candump") as sock:
 
 session = EcuSession(verbose=False, store_supported_responses=False)
 
+conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
+
 with CandumpReader("test/contrib/automotive/gmlan_trace.candump") as sock:
-     gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=200, opened_socket=sock)
+     gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=200, opened_socket=sock, timeout=6)
 
 ecu = session.ecu
 assert len(ecu.supported_responses) == 0

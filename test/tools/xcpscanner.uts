@@ -65,7 +65,7 @@ thread.start()
 
 scanner = XCPOnCANScanner(sock2, id_range=id_range, sniff_time=0.5)
 result = scanner.scan_with_get_slave_id()
-thread.join()
+thread.join(timeout=3)
 sock1.close()
 sock2.close()
 assert len(result) == 2
@@ -112,7 +112,7 @@ thread.start()
 
 scanner = XCPOnCANScanner(sock2, id_range=id_range, sniff_time=0.5)
 result = scanner.scan_with_connect()
-thread.join()
+thread.join(timeout=3)
 sock1.close()
 sock2.close()
 

@@ -62,7 +62,7 @@ assert subprocess.check_call(["ping", "-c3", "192.0.2.2"]) == 0
 
 = Cleanup
 
-t_am.join()
+t_am.join(timeout=3)
 
 tun0.close()
 if not conf.use_pypy:
