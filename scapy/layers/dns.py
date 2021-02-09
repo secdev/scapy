@@ -172,7 +172,6 @@ def dns_compress(pkt):
         for x in range(1, dat.count(b".")):
             yield dat.split(b".", x)[x]
     data = {}
-    burned_data = 0
     for current, name, dat in field_gen(dns_pkt):
         for part in possible_shortens(dat):
             # Encode the data
@@ -182,18 +181,21 @@ def dns_compress(pkt):
                 # possible pointer for future strings.
                 # We get the index of the encoded data
                 index = build_pkt.index(encoded)
-                index -= burned_data
                 # The following is used to build correctly the pointer
                 fb_index = ((index >> 8) | 0xc0)
                 sb_index = index - (256 * (fb_index - 0xc0))
                 pointer = chb(fb_index) + chb(sb_index)
-                data[part] = [(current, name, pointer)]
+                data[part] = [(current, name, pointer, index + 1)]
             else:
                 # This string already exists, let's mark the current field
                 # with it, so that it gets compressed
                 data[part].append((current, name))
-                # calculate spared space
-                burned_data += len(encoded) - 2
+                _in = data[part][0][3]
+                build_pkt = build_pkt[:_in] + build_pkt[_in:].replace(
+                    encoded,
+                    b"\0\0",
+                    1
+                )
                 break
     # Apply compression rules
     for ck in data:
