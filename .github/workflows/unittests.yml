@@ -85,6 +85,9 @@ jobs:
     steps:
       - name: Checkout Scapy
         uses: actions/checkout@v2
+        # Codecov requires a fetch-depth > 1
+        with:
+          fetch-depth: 2
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
