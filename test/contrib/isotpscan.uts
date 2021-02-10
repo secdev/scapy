@@ -1,14 +1,12 @@
 % Regression tests for ISOTPScan
-
-# Currently too unstable
-
-~ disabled
+* Some tests are disabled to lower the CI utilitzation
 
 + Configuration
 ~ conf
 
 = Imports
 import scapy.modules.six as six
+from scapy.contrib.isotp import send_multiple_ext, filter_periodic_packets, scan_extended, scan
 
 if six.PY3:
     exec(open("test/contrib/automotive/interface_mockup.py").read())
@@ -737,15 +735,15 @@ test_dynamic(test_isotpscan_text_extended_can_id)
 test_dynamic(test_isotpscan_code)
 
 = Test ISOTPScan with noise (output_format=code)
-
+~ disabled
 test_dynamic(test_isotpscan_code_noise)
 
 = Test extended ISOTPScan(output_format=code)
-
+~ disabled
 test_dynamic(test_extended_isotpscan_code)
 
 = Test extended ISOTPScan(output_format=code) extended_can_id
-
+~ disabled
 test_dynamic(test_extended_isotpscan_code_extended_can_id)
 
 = Test ISOTPScan(output_format=None)
@@ -765,7 +763,7 @@ test_dynamic(test_extended_isotpscan_none)
 test_dynamic(test_isotpscan_none_random_ids)
 
 = Test ISOTPScan(output_format=None) random IDs padding
-
+~ disabled
 test_dynamic(test_isotpscan_none_random_ids_padding)
 
 + Cleanup

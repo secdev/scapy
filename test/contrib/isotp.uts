@@ -1602,6 +1602,21 @@ assert len(result) == 1
 assert(result[0].data == isotp.data)
 
 
+= Two ISOTPSockets at the same time, sending and receiving with tx_gap
+
+with new_can_socket0() as cs1, ISOTPSocket(cs1, sid=0x641, did=0x241, rx_separation_time_min=1) as s1, \
+        new_can_socket0() as cs2, ISOTPSocket(cs2, sid=0x241, did=0x641) as s2:
+    isotp = ISOTP(data=b"\x10\x25" * 43)
+    def sender():
+        s2.send(isotp)
+    t = Thread(target=sender)
+    result = s1.sniff(count=1, timeout=5, started_callback=t.start)
+    t.join(timeout=5)
+
+assert len(result) == 1
+assert(result[0].data == isotp.data)
+
+
 = Two ISOTPSockets at the same time, multiple sends/receives
 with new_can_socket0() as cs1, ISOTPSocket(cs1, sid=0x641, did=0x241) as s1, \
         new_can_socket0() as cs2, ISOTPSocket(cs2, sid=0x241, did=0x641) as s2:
