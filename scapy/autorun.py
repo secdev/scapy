@@ -93,12 +93,14 @@ class StringWriter(object):
         self.debug = debug
 
     def write(self, x):
-        if self.debug:
+        # Object can be in the middle of being destroyed.
+        if getattr(self, "debug", None):
             self.debug.write(x)
-        self.s += x
+        if getattr(self, "s", None) is not None:
+            self.s += x
 
     def flush(self):
-        if self.debug:
+        if getattr(self, "debug", None):
             self.debug.flush()
 
 

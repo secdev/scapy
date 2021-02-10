@@ -117,7 +117,8 @@ def run_openssl_client(msg, suite="", version="", tls13=False, client_auth=False
     if sess_out:
         args.extend(["-sess_out", sess_out])
     p = subprocess.Popen(
-        args,
+        " ".join(args),
+        shell=True,
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     msg += b"\nstop_server\n"

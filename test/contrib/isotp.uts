@@ -1,5 +1,7 @@
 % Regression tests for ISOTP
 
+~ vcan_socket
+
 + Configuration
 ~ conf
 

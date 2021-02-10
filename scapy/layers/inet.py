@@ -1952,6 +1952,10 @@ class TCP_client(Automaton):
         self.l4[TCP].ack = pkt[TCP].seq + 1
         self.send(self.l4)
 
+    @ATMT.timeout(SYN_SENT, 1)
+    def syn_ack_timeout(self):
+        raise self.CLOSED()
+
     @ATMT.timeout(STOP_SENT_FIN_ACK, 1)
     def stop_ack_timeout(self):
         raise self.CLOSED()

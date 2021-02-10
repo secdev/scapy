@@ -15,32 +15,42 @@ from threading import Thread
 
 tap0, tap1 = [TunTapInterface("tap%d" % i) for i in range(2)]
 
+if six.PY2:
+    chk_kwargs = {}
+else:
+    chk_kwargs = {"timeout": 3}
+
 if LINUX:
     for i in range(2):
-        assert subprocess.check_call(["ip", "link", "set", "tap%d" % i, "up"]) == 0
+        assert subprocess.check_call(["ip", "link", "set", "tap%d" % i, "up"], **chk_kwargs) == 0
 else:
     for i in range(2):
-        assert subprocess.check_call(["ifconfig", "tap%d" % i, "up"]) == 0
+        assert subprocess.check_call(["ifconfig", "tap%d" % i, "up"], **chk_kwargs) == 0
 
 = Run a sniff thread on the tap1 **interface**
 * It will terminate when 5 IP packets from 192.0.2.1 have been sniffed
+started = threading.Event()
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tap1", "count": 5, "prn": Packet.summary,
-            "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+            "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1",
+            "started_callback": started.set},
     name="tests sniff 1")
 t_sniff.start()
+started.wait(timeout=5)
 
 = Run a bridge_and_sniff thread between the taps **sockets**
 * It will terminate when 5 IP packets from 192.0.2.1 have been forwarded
+started = threading.Event()
 t_bridge = Thread(target=bridge_and_sniff, args=(tap0, tap1),
                   kwargs={"store": False, "count": 5, 'prn': Packet.summary,
-                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1",
+                          "started_callback": started.set},
                   name="tests bridge_and_sniff 1")
 t_bridge.start()
+started.wait(timeout=5)
 
 = Send five IP packets from 192.0.2.1 to the tap0 **interface**
-time.sleep(1)
 sendp([Ether(dst=ETHER_BROADCAST) / IP(src="192.0.2.1") / ICMP()], iface="tap0",
       count=5)
 
@@ -52,12 +62,15 @@ assert not t_sniff.is_alive()
 
 = Run a sniff thread on the tap1 **interface**
 * It will terminate when 5 IP packets from 198.51.100.1 have been sniffed
+started = threading.Event()
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tap1", "count": 5, "prn": Packet.summary,
-            "lfilter": lambda p: IP in p and p[IP].src == "198.51.100.1"},
+            "lfilter": lambda p: IP in p and p[IP].src == "198.51.100.1",
+            "started_callback": started.set},
     name="tests sniff 2")
 t_sniff.start()
+started.wait(timeout=5)
 
 = Run a bridge_and_sniff thread between the taps **sockets**
 * It will "NAT" packets from 192.0.2.1 to 198.51.100.1 and will terminate when 5 IP packets have been forwarded
@@ -68,15 +81,17 @@ def nat_1_2(pkt):
         return pkt
     return False
 
+started = threading.Event()
 t_bridge = Thread(target=bridge_and_sniff, args=(tap0, tap1),
                   kwargs={"store": False, "count": 5, 'prn': Packet.summary,
                           "xfrm12": nat_1_2,
-                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1",
+                          "started_callback": started.set},
                   name="tests bridge_and_sniff 2")
 t_bridge.start()
+started.wait(timeout=5)
 
 = Send five IP packets from 192.0.2.1 to the tap0 **interface**
-time.sleep(1)
 sendp([Ether(dst=ETHER_BROADCAST) / IP(src="192.0.2.1") / ICMP()], iface="tap0",
       count=5)
 
@@ -108,42 +123,48 @@ from threading import Thread
 
 tun0, tun1 = [TunTapInterface("tun%d" % i) for i in range(2)]
 
+if six.PY2:
+    chk_kwargs = {}
+else:
+    chk_kwargs = {"timeout": 3}
+
 if LINUX:
     for i in range(2):
-        assert subprocess.check_call(["ip", "link", "set", "tun%d" % i, "up"]) == 0
+        assert subprocess.check_call(["ip", "link", "set", "tun%d" % i, "up"], **chk_kwargs) == 0
     assert subprocess.check_call([
         "ip", "addr", "change",
-        "192.0.2.1", "peer", "192.0.2.2", "dev", "tun0"]) == 0
+        "192.0.2.1", "peer", "192.0.2.2", "dev", "tun0"], **chk_kwargs) == 0
 else:
     for i in range(2):
-        assert subprocess.check_call(["ifconfig", "tun%d" % i, "up"]) == 0
-    assert subprocess.check_call(["ifconfig", "tun0", "192.0.2.1", "192.0.2.2"]) == 0
-
-print('waiting a bit...')
-import time
-time.sleep(10)
+        assert subprocess.check_call(["ifconfig", "tun%d" % i, "up"], **chk_kwargs) == 0
+    assert subprocess.check_call(["ifconfig", "tun0", "192.0.2.1", "192.0.2.2"], **chk_kwargs) == 0
 
 = Run a sniff thread on the tun1 **interface**
 * It will terminate when 5 IP packets from 192.0.2.1 have been sniffed
+started = threading.Event()
 t_sniff = Thread(target=sniff,
                  kwargs={"iface": "tun1", "count": 5,
                          "prn": Packet.summary,
-                         "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+                         "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1",
+                         "started_callback": started.set},
                  name="tests sniff 3")
 
 t_sniff.start()
+started.wait(timeout=5)
 
 = Run a bridge_and_sniff thread between the tuns **sockets**
 * It will terminate when 5 IP packets from 192.0.2.1 have been forwarded.
+started = threading.Event()
 t_bridge = Thread(target=bridge_and_sniff, args=(tun0, tun1),
                   kwargs={"store": False, "count": 5, 'prn': Packet.summary,
                           "xfrm12": lambda pkt: pkt,
-                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1",
+                          "started_callback": started.set},
                           name="tests bridge_and_sniff 3")
 t_bridge.start()
+started.wait(timeout=5)
 
 = Send five IP packets from 192.0.2.1 to the tun0 **interface**
-time.sleep(1)
 conf.route.add(net="192.0.2.2/32", dev="tun0")
 send([IP(src="192.0.2.1", dst="192.0.2.2") / ICMP()], count=5, iface="tun0")
 conf.route.delt(net="192.0.2.2/32", dev="tun0")
@@ -156,12 +177,15 @@ assert not t_sniff.is_alive()
 
 = Run a sniff thread on the tun1 **interface**
 * It will terminate when 5 IP packets from 198.51.100.1 have been sniffed
+started = threading.Event()
 t_sniff = Thread(target=sniff,
                  kwargs={"iface": "tun1", "count": 5, "prn": Packet.summary,
-                         "lfilter": lambda p: IP in p and p[IP].src == "198.51.100.1"},
+                         "lfilter": lambda p: IP in p and p[IP].src == "198.51.100.1",
+                         "started_callback": started.set},
                  name="tests sniff 4")
 
 t_sniff.start()
+started.wait(timeout=5)
 
 = Run a bridge_and_sniff thread between the tuns **sockets**
 * It will "NAT" packets from 192.0.2.1 to 198.51.100.1 and will terminate when 5 IP packets have been forwarded
@@ -172,15 +196,17 @@ def nat_1_2(pkt):
         return pkt
     return False
 
+started = threading.Event()
 t_bridge = Thread(target=bridge_and_sniff, args=(tun0, tun1),
                   kwargs={"store": False, "count": 5, 'prn': Packet.summary,
                           "xfrm12": nat_1_2,
-                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1"},
+                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1",
+                          "started_callback": started.set},
                           name="tests bridge_and_sniff 4")
 t_bridge.start()
+started.wait(timeout=5)
 
 = Send five IP packets from 192.0.2.1 to the tun0 **interface**
-time.sleep(1)
 conf.route.add(net="192.0.2.2/32", dev="tun0")
 send([IP(src="192.0.2.1", dst="192.0.2.2") / ICMP()], count=5, iface="tun0")
 conf.route.delt(net="192.0.2.2/32", dev="tun0")
@@ -224,6 +250,7 @@ with VEthPair('a_0', 'a_1') as veth_0:
             global xfrm_count
             xfrm_count[pkt.sniffed_on] = xfrm_count[pkt.sniffed_on] + 1
             return True
+        started = threading.Event()
         t_bridge = Thread(target=bridge_and_sniff,
                           args=('a_0', 'b_0'),
                           kwargs={
@@ -231,10 +258,11 @@ with VEthPair('a_0', 'a_1') as veth_0:
                               'xfrm21': xfrm_x,
                               'store': False,
                               'count': 4,
-                              'lfilter': lambda p: Ether in p and p[Ether].type == 0xbeef},
+                              'lfilter': lambda p: Ether in p and p[Ether].type == 0xbeef,
+                              "started_callback": started.set},
                           name="tests bridge_and_sniff VEthPair")
         t_bridge.start()
-        time.sleep(1)
+        started.wait(timeout=5)
         # send frames in both directions
         for if_name in ['a_1', 'b_1', 'a_1', 'b_1']:
             sendp([Ether(type=0xbeef) /
@@ -262,10 +290,15 @@ import time
 
 tap0 = TunTapInterface("tap0")
 
-if LINUX:
-    assert subprocess.check_call(["ip", "link", "set", "tap0", "up"]) == 0
+if six.PY2:
+    chk_kwargs = {}
 else:
-    assert subprocess.check_call(["ifconfig", "tap0", "up"]) == 0
+    chk_kwargs = {"timeout": 3}
+
+if LINUX:
+    assert subprocess.check_call(["ip", "link", "set", "tap0", "up"], **chk_kwargs) == 0
+else:
+    assert subprocess.check_call(["ifconfig", "tap0", "up"], **chk_kwargs) == 0
 
 = Check for arpleak
 
@@ -296,13 +329,16 @@ def answer_arp_leak(pkt):
     tap0.send(ans)
     print('Answered!')
 
+started = threading.Event()
 t_answer = Thread(
     target=sniff,
     kwargs={"prn": answer_arp_leak, "timeout": 10, "store": False,
-            "opened_socket": tap0},
+            "opened_socket": tap0,
+            "started_callback": started.set},
     name="tests answer_arp_leak")
 
 t_answer.start()
+started.wait(timeout=5)
 
 @mock.patch("scapy.layers.l2.get_if_addr")
 @mock.patch("scapy.layers.l2.get_if_hwaddr")
@@ -311,8 +347,6 @@ def test_arpleak(mock_get_if_hwaddr, mock_get_if_addr, hwlen=255, plen=255):
     mock_get_if_addr.side_effect = lambda _: "192.0.2.1"
     mock_get_if_hwaddr.side_effect = lambda _: "00:01:02:03:04:05"
     return arpleak("192.0.2.2/31", timeout=2, hwlen=hwlen, plen=plen)
-
-time.sleep(2)
 
 ans, unans = test_arpleak()
 assert len(ans) == 1
