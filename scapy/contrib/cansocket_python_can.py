@@ -24,7 +24,7 @@ from scapy.packet import Packet
 from scapy.error import warning
 from scapy.compat import List, Type, Tuple, Dict, Any, Optional, Callable, cast
 from scapy.modules.six.moves import queue
-from scapy.compat import Any, List
+
 from can import Message as can_Message
 from can import CanError as can_CanError
 from can import BusABC as can_BusABC
@@ -132,7 +132,7 @@ class SocketsPool(object):
         return cast(SocketsPool, SocketsPool.__instance)._pool_mutex  # type: ignore  # noqa: E501
 
     def internal_send(self, sender, msg, prio=0):
-        # type: (SocketWrapper, can_Message) -> None
+        # type: (SocketWrapper, can_Message, int) -> None
         """Internal send function.
 
         A given SocketWrapper wants to send a CAN message. The python-can
@@ -144,7 +144,7 @@ class SocketsPool(object):
 
         :param sender: SocketWrapper which initiated a send of a CAN message
         :param msg: CAN message to be sent
-	:param prio: Priority count for internal heapq
+        :param prio: Priority count for internal heapq
         """
         if sender.name is None:
             raise TypeError("SocketWrapper.name should never be None")
@@ -188,10 +188,8 @@ class SocketsPool(object):
         :param args: Arguments for the python-can Bus object
         :param kwargs: Keyword arguments for the python-can Bus object
         """
-        k = str(
-            str(kwargs.get("bustype", "unknown_bustype")) + "_" +
+        k = str(kwargs.get("bustype", "unknown_bustype")) + "_" + \
             str(kwargs.get("channel", "unknown_channel"))
-        )
         with self.pool_mutex:
             if k in self.pool:
                 t = self.pool[k]
@@ -243,7 +241,7 @@ class SocketWrapper(can_BusABC):
         """
         super(SocketWrapper, self).__init__(*args, **kwargs)
         self.rx_queue = queue.PriorityQueue()  # type: queue.PriorityQueue[PriotizedCanMessage]  # noqa: E501
-        self.name = None
+        self.name = None  # type: Optional[str]
         self.prio_counter = 0
         SocketsPool().register(self, *args, **kwargs)
 
