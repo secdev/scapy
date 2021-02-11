@@ -2003,6 +2003,14 @@ except Scapy_Exception:
 invalid_pcapngfile_2 = BytesIO(b'\n\r\r\n\x00\x00\x00\x10\x1a+<M\x00\x00\x00\x10\x00\x00\x00\x01\x00\x00\x00\x10    \x00\x00\x00\x10')
 assert len(rdpcap(invalid_pcapngfile_2)) == 0
 
+# Invalid interface ID in PCAPNG -> raise EOFError
+try:
+    invalid_pcapngfile_3 = BytesIO(b'\n\n\n\x14\x00\x00\x00M<+\x1a    \x14\x00\x00\x00\x03\x00\x00\x00\x14\x00\x00\x00        \x14\x00\x00\x00')
+    rdpcap(invalid_pcapngfile_3)
+    assert False
+except Scapy_Exception:
+    pass
+
 = Check PcapWriter on null write
 
 f = BytesIO()
