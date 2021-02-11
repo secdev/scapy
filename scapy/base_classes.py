@@ -133,19 +133,25 @@ class Net(Gen[str]):
         # type: (int) -> str
         return socket.inet_ntoa(struct.pack('!I', val))
 
-    def __init__(self, net):
-        # type: (str) -> None
-        try:
-            net, mask = net.split("/", 1)
-        except ValueError:
-            self.mask = self.max_mask
+    def __init__(self, net, stop=None):
+        # type: (str, Union[None, str]) -> None
+        if stop is None:
+            try:
+                net, mask = net.split("/", 1)
+            except ValueError:
+                self.mask = self.max_mask  # type: Union[None, int]
+            else:
+                self.mask = int(mask)
+            self.net = net  # type: Union[None, str]
+            inv_mask = self.max_mask - self.mask
+            self.start = self.ip2int(net) >> inv_mask << inv_mask
+            self.count = 1 << inv_mask
+            self.stop = self.start + self.count - 1
         else:
-            self.mask = int(mask)
-        self.net = net
-        inv_mask = self.max_mask - self.mask
-        self.start = self.ip2int(net) >> inv_mask << inv_mask
-        self.count = 1 << inv_mask
-        self.stop = self.start + self.count - 1
+            self.start = self.ip2int(net)
+            self.stop = self.ip2int(stop)
+            self.count = self.stop - self.start + 1
+            self.net = self.mask = None
 
     def __str__(self):
         # type: () -> str
@@ -172,16 +178,27 @@ class Net(Gen[str]):
 
     def __repr__(self):
         # type: () -> str
-        return '%s("%s/%d")' % (self.__class__.__name__, self.net, self.mask)
+        if self.mask is not None:
+            return '%s("%s/%d")' % (
+                self.__class__.__name__,
+                self.net,
+                self.mask,
+            )
+        return '%s("%s", "%s")' % (
+            self.__class__.__name__,
+            self.int2ip(self.start),
+            self.int2ip(self.stop),
+        )
 
     def __eq__(self, other):
         # type: (Any) -> bool
-        if type(other) is not self.__class__:
+        if isinstance(other, str):
+            return self == self.__class__(other)
+        if not isinstance(other, Net):
             return False
-        return cast(
-            bool,
-            (self.start == other.start) and (self.stop == other.stop),
-        )
+        if self.family != other.family:
+            return False
+        return (self.start == other.start) and (self.stop == other.stop)
 
     def __ne__(self, other):
         # type: (Any) -> bool
@@ -190,7 +207,7 @@ class Net(Gen[str]):
 
     def __hash__(self):
         # type: () -> int
-        return hash((self.__class__.__name__, self.start, self.stop))
+        return hash(("scapy.Net", self.family, self.start, self.stop))
 
     def __contains__(self, other):
         # type: (Any) -> bool
@@ -202,9 +219,7 @@ class Net(Gen[str]):
             return False
         return cast(
             bool,
-            (self.mask <= other.mask and (
-                self.start <= other.start <= self.stop
-            )),
+            (self.start <= other.start <= other.stop <= self.stop),
         )
 
 
