@@ -3342,6 +3342,10 @@ assert "0.0.0.0/1" in Net("0.0.0.0/0")
 
 assert "0.0.0.0/0" not in Net("0.0.0.0/1")
 
+assert Net("1.2.3.0/24") == Net("1.2.3.0", "1.2.3.255")
+
+assert hash(Net("1.2.3.0/24")) == hash(Net("1.2.3.0", "1.2.3.255"))
+
 = Net using name
 ~ netaccess
 
@@ -3380,6 +3384,18 @@ assert "ffff::ffff" in Net6("::/0")
 assert "::/1" in Net6("::/0")
 
 assert "::/0" not in Net6("::/1")
+
+assert Net6("::/120") == Net6("::", "::ff")
+
+assert hash(Net6("::/120")) == hash(Net6("::", "::ff"))
+
+assert Net6("::1.2.3.0/120") == Net6("::1.2.3.0", "::1.2.3.255")
+
+assert hash(Net6("::1.2.3.0/120")) == hash(Net6("::1.2.3.0", "::1.2.3.255"))
+
+assert Net6("::1.2.3.0/120") != Net("1.2.3.0/24")
+
+assert hash(Net6("::1.2.3.0/120")) != hash(Net("1.2.3.0/24"))
 
 = Net6 using web address
 ~ netaccess ipv6
