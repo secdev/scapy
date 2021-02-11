@@ -1491,6 +1491,14 @@ class RawPcapNgReader(RawPcapReader):
             raise EOFError
         self.interfaces.append(interface)
 
+    def _check_interface_id(self, intid):
+        # type: (int) -> None
+        """Check the interface id value and raise EOFError if invalid."""
+        tmp_len = len(self.interfaces)
+        if intid >= tmp_len:
+            warning("PcapNg: invalid interface id %d/%d" % (intid, tmp_len))
+            raise EOFError
+
     def _read_block_epb(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
         """Enhanced Packet Block"""
@@ -1501,6 +1509,8 @@ class RawPcapNgReader(RawPcapReader):
             )
         except struct.error:
             raise EOFError
+
+        self._check_interface_id(intid)
         return (block[20:20 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
                                                tsresol=self.interfaces[intid][2],  # noqa: E501
@@ -1515,6 +1525,8 @@ class RawPcapNgReader(RawPcapReader):
         # been captured on the interface previously specified in the
         # first Interface Description Block."
         intid = 0
+        self._check_interface_id(intid)
+
         wirelen, = struct.unpack(self.endian + "I", block[:4])
         caplen = min(wirelen, self.interfaces[intid][1])
         return (block[4:4 + caplen][:size],
@@ -1531,6 +1543,8 @@ class RawPcapNgReader(RawPcapReader):
             self.endian + "HH4I",
             block[:20],
         )
+
+        self._check_interface_id(intid)
         return (block[20:20 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
                                                tsresol=self.interfaces[intid][2],  # noqa: E501
