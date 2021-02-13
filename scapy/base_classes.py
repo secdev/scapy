@@ -16,9 +16,9 @@ from __future__ import absolute_import
 from functools import reduce
 import operator
 import os
-import re
 import random
 import socket
+import struct
 import subprocess
 import types
 import warnings
@@ -106,91 +106,106 @@ class SetGen(Gen[_T]):
 
 
 class Net(Gen[str]):
-    """Generate a list of IPs from a network address or a name"""
-    name = "ip"
-    ip_regex = re.compile(r"^(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)(/[0-3]?[0-9])?$")  # noqa: E501
-
-    @staticmethod
-    def _parse_digit(a, netmask):
-        # type: (str, int) -> Tuple[int, int]
-        netmask = min(8, max(netmask, 0))
-        if a == "*":
-            return (0, 256)
-        elif a.find("-") >= 0:
-            x, y = [int(d) for d in a.split('-')]
-            if x > y:
-                y = x
-            return (x & (0xff << netmask), max(y, (x | (0xff >> (8 - netmask)))) + 1)  # noqa: E501
-        else:
-            return (int(a) & (0xff << netmask), (int(a) | (0xff >> (8 - netmask))) + 1)  # noqa: E501
+    """Network object from an IP address or hostname and mask"""
+    name = "Net"  # type: str
+    family = socket.AF_INET  # type: int
+    max_mask = 32  # type: int
 
     @classmethod
-    def _parse_net(cls, net):
-        # type: (str) -> Tuple[List[Tuple[int, int]], int]
-        tmp = net.split('/') + ["32"]
-        if not cls.ip_regex.match(net):
-            tmp[0] = socket.gethostbyname(tmp[0])
-        netmask = int(tmp[1])
-        ret_list = [cls._parse_digit(x, y - netmask) for (x, y) in zip(tmp[0].split('.'), [8, 16, 24, 32])]  # noqa: E501
-        return ret_list, netmask
+    def name2addr(cls, name):
+        # type: (str) -> str
+        return next(
+            addr_port[0]
+            for family, _, _, _, addr_port in
+            socket.getaddrinfo(name, None, cls.family)
+            if family == cls.family
+        )
+
+    @classmethod
+    def ip2int(cls, addr):
+        # type: (str) -> int
+        return cast(int, struct.unpack(
+            "!I", socket.inet_aton(cls.name2addr(addr))
+        )[0])
+
+    @staticmethod
+    def int2ip(val):
+        # type: (int) -> str
+        return socket.inet_ntoa(struct.pack('!I', val))
 
     def __init__(self, net):
         # type: (str) -> None
-        self.repr = net
-        self.parsed, self.netmask = self._parse_net(net)
+        try:
+            net, mask = net.split("/", 1)
+        except ValueError:
+            self.mask = self.max_mask
+        else:
+            self.mask = int(mask)
+        self.net = net
+        inv_mask = self.max_mask - self.mask
+        self.start = self.ip2int(net) >> inv_mask << inv_mask
+        self.count = 1 << inv_mask
+        self.stop = self.start + self.count - 1
 
     def __str__(self):
         # type: () -> str
-        return next(self.__iter__(), "")
+        return next(iter(self), "")
 
     def __iter__(self):
         # type: () -> Iterator[str]
-        for d in range(*self.parsed[3]):
-            for c in range(*self.parsed[2]):
-                for b in range(*self.parsed[1]):
-                    for a in range(*self.parsed[0]):
-                        yield "%i.%i.%i.%i" % (a, b, c, d)
+        # Python 2 won't handle huge (> sys.maxint) values in range()
+        for i in range(self.count):
+            yield self.int2ip(self.start + i)
+
+    def __len__(self):
+        # type: () -> int
+        return self.count
 
     def __iterlen__(self):
         # type: () -> int
-        return reduce(operator.mul, ((y - x) for (x, y) in self.parsed), 1)
+        # for compatibility
+        return len(self)
 
     def choice(self):
         # type: () -> str
-        return ".".join(str(random.randint(v[0], v[1] - 1)) for v in self.parsed)  # noqa: E501
+        return self.int2ip(random.randint(self.start, self.stop))
 
     def __repr__(self):
         # type: () -> str
-        return "Net(%r)" % self.repr
+        return '%s("%s/%d")' % (self.__class__.__name__, self.net, self.mask)
 
     def __eq__(self, other):
         # type: (Any) -> bool
-        if not other:
+        if type(other) is not self.__class__:
             return False
-        if hasattr(other, "parsed"):
-            p2 = other.parsed
-        else:
-            p2, nm2 = self._parse_net(other)
-        return bool(self.parsed == p2)
+        return cast(
+            bool,
+            (self.start == other.start) and (self.stop == other.stop),
+        )
 
     def __ne__(self, other):
         # type: (Any) -> bool
         # Python 2.7 compat
         return not self == other
 
-    __hash__ = None  # type: ignore
+    def __hash__(self):
+        # type: () -> int
+        return hash((self.__class__.__name__, self.start, self.stop))
 
     def __contains__(self, other):
-        # type: (Union[str, Net]) -> bool
-        if hasattr(other, "parsed"):
-            p2 = cast(Net, other).parsed
-        else:
-            p2, _ = self._parse_net(cast(str, other))
-        return all(a1 <= a2 and b1 >= b2 for (a1, b1), (a2, b2) in zip(self.parsed, p2))  # noqa: E501
-
-    def __rcontains__(self, other):
-        # type: (str) -> bool
-        return self in self.__class__(other)
+        # type: (Any) -> bool
+        if isinstance(other, int):
+            return self.start <= other <= self.stop
+        if isinstance(other, str):
+            return self.__class__(other) in self
+        if type(other) is not self.__class__:
+            return False
+        return cast(
+            bool,
+            (self.mask <= other.mask and (
+                self.start <= other.start <= self.stop
+            )),
+        )
 
 
 class OID(Gen[str]):

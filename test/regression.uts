@@ -3330,28 +3330,24 @@ for binfrm in ["\x00" * 15, b"\x00" * 17]:
 
 = Net
 
-n1 = Net("192.168.0.0/31")
-[ip for ip in n1] == ["192.168.0.0", "192.168.0.1"]
+assert list(Net("192.168.0.0/31")) == ["192.168.0.0", "192.168.0.1"]
 
-n2 = Net("192.168.0.*")
-sum(1 for ip in n2) == 256
-assert n2.__iterlen__() == 256
+assert "1.2.3.4" in Net("0.0.0.0/0")
 
-n3 = Net("192.168.0.1-5")
-sum(1 for ip in n3) == 5
-assert n3.__iterlen__() == 5
+assert "192.168.0.0/25" in Net("192.168.0.0/24")
 
-(n1 == n3) == False
+assert "192.168.0.0/23" not in Net("192.168.0.0/24")
 
-(n3 in n2) == True
+assert "0.0.0.0/1" in Net("0.0.0.0/0")
 
-= Net using web address
+assert "0.0.0.0/0" not in Net("0.0.0.0/1")
+
+= Net using name
 ~ netaccess
 
 ip = IP(dst="www.google.com")
 n1 = ip.dst
 assert isinstance(n1, Net)
-assert n1.ip_regex.match(str(n1))
 ip.show()
 
 = Multiple IP addresses test
@@ -3373,11 +3369,17 @@ assert oid.__iterlen__() == 3
 = Net6
 
 n1 = Net6("2001:db8::/127")
-sum(1 for ip in n1) == 2
+assert len(list(n1)) == 2
+assert len(n1) == 2
 
 n2 = Net6("fec0::/110")
-#len([x for x in n2]) returns 262144 (very slow)
-assert n2.__iterlen__() == 262144
+assert len(n2) == 262144
+
+assert "ffff::ffff" in Net6("::/0")
+
+assert "::/1" in Net6("::/0")
+
+assert "::/0" not in Net6("::/1")
 
 = Net6 using web address
 ~ netaccess ipv6
@@ -3385,12 +3387,11 @@ assert n2.__iterlen__() == 262144
 ip = IPv6(dst="www.google.com")
 n1 = ip.dst
 assert isinstance(n1, Net6)
-assert n1.ip_regex.match(str(n1))
+assert "www.google.com" in repr(n1)
 ip.show()
 
 ip = IPv6(dst="www.yahoo.com")
-addrs = [ip.dst, IPv6(raw(ip)).dst, [p.dst for p in ip][0]]
-assert addrs[0] == addrs[1] == addrs[2]
+assert IPv6(raw(ip)).dst == [p.dst for p in ip][0]
 
 = Multiple IPv6 addresses test
 ~ netaccess ipv6
@@ -3406,13 +3407,14 @@ assert isinstance(src, str)
 ~ netaccess
 
 conf.color_theme = BlackAndWhite()
-assert "Net('www.google.com')" in repr(IP(src="www.google.com"))
+output = repr(IP(src="www.google.com"))
+assert 'Net("www.google.com/32")' in output
 
 = Test repr on Net
 ~ netaccess ipv6
 
 conf.color_theme = BlackAndWhite()
-assert "Net6('www.google.com')" in repr(IPv6(src="www.google.com"))
+assert 'Net6("www.google.com/128")' in repr(IPv6(src="www.google.com"))
 
 ############
 ############
