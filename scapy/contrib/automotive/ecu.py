@@ -14,7 +14,7 @@ import random
 from collections import defaultdict
 from types import GeneratorType
 
-from scapy.compat import Any, cast
+from scapy.compat import Any, cast, Dict
 from scapy.packet import Raw, Packet
 from scapy.plist import PacketList
 from scapy.error import Scapy_Exception
@@ -33,7 +33,7 @@ class EcuState(object):
     A EcuState supports comparison and serialization (command()).
     """
     def __init__(self, **kwargs):
-        # type: (Any) -> None
+        # type: (Dict[str, Any]) -> None
         for k, v in kwargs.items():
             if isinstance(v, GeneratorType):
                 v = list(v)
@@ -49,27 +49,32 @@ class EcuState(object):
 
     def __repr__(self):
         # type: () -> str
-        return "".join([str(k) + str(v) for k, v in
-                        sorted(self.__dict__.items(), key=lambda t: t[0])])
+        return "".join(str(k) + str(v) for k, v in
+                       sorted(self.__dict__.items(), key=lambda t: t[0]))
 
     def __eq__(self, other):
         # type: (object) -> bool
         other = cast(EcuState, other)
-        if sorted(self.__dict__.keys()) != sorted(other.__dict__.keys()):
+        if len(self.__dict__) != len(other.__dict__):
             return False
-        return all(self.__dict__[k] == other.__dict__[k]
-                   for k in self.__dict__.keys())
+        try:
+            return all(self.__dict__[k] == other.__dict__[k]
+                       for k in self.__dict__.keys())
+        except KeyError:
+            return False
 
     def __contains__(self, item):
         # type: (EcuState) -> bool
         if not isinstance(item, EcuState):
             return False
-        if not sorted(self.__dict__.keys()) == sorted(item.__dict__.keys()):
+        if len(self.__dict__) != len(item.__dict__):
             return False
-        return all(ov[1] == sv[1] or
-                   (hasattr(sv[1], "__iter__") and ov[1] in sv[1])
-                   for sv, ov in
-                   zip(self.__dict__.items(), item.__dict__.items()))
+        try:
+            return all(ov == sv or (hasattr(sv, "__iter__") and ov in sv)
+                       for sv, ov in
+                       zip(self.__dict__.values(), item.__dict__.values()))
+        except (KeyError, TypeError):
+            return False
 
     def __ne__(self, other):
         # type: (object) -> bool
@@ -99,7 +104,7 @@ class EcuState(object):
             if self.__dict__[k] > other.__dict__[k]:
                 return False
 
-        if len(common) < len(self.__dict__.keys()):
+        if len(common) < len(self.__dict__):
             self_diffs = set(self.__dict__.keys()).difference(
                 set(other.__dict__.keys()))
             other_diffs = set(other.__dict__.keys()).difference(
