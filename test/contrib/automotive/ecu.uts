@@ -9,6 +9,10 @@
 ~ conf command
 
 = Load modules
+
+import copy
+import itertools
+
 load_contrib("isotp", globals_dict=globals())
 load_contrib("automotive.uds", globals_dict=globals())
 load_contrib("automotive.gm.gmlan", globals_dict=globals())
@@ -18,6 +22,293 @@ conf.contribs["CAN"]["swap-bytes"] = True
 = Load Ecu module
 
 load_contrib("automotive.ecu", globals_dict=globals())
+
++ EcuState Basic checks
+
+= Check EcuState basic functionality
+
+state = EcuState()
+state["session"] = 2
+state["securityAccess"] = 4
+print(repr(state))
+assert repr(state) == "securityAccess4session2"
+
+= More complex tests
+
+state = EcuState(ses=4)
+assert state.ses == 4
+state.ses = 5
+assert state.ses == 5
+
+= Even more complex tests
+
+state = EcuState(myinfo="42")
+
+state.ses = 5
+assert state.ses == 5
+
+state["ses"] = None
+assert state.ses is None
+
+state.ses = 5
+assert 5 == state.ses
+
+assert "42" == state.myinfo
+assert repr(state) == "myinfo42ses5"
+
+
+
+= Copy tests
+
+state = EcuState(myinfo="42")
+state.ses = 5
+
+ns = copy.copy(state)
+
+ns.ses = 6
+
+assert ns.ses == 6
+assert state.ses == 5
+assert ns.myinfo == "42"
+
+
+= Move tests
+
+state = EcuState(myinfo="42")
+state.ses = 5
+
+ns = state
+
+ns.ses = 6
+
+assert ns.ses == 6
+assert state.ses == 6
+assert ns.myinfo == "42"
+
+= equal tests
+
+state = EcuState(myinfo="42")
+state.ses = 5
+
+ns = copy.copy(state)
+
+assert state == ns
+assert hash(state) == hash(ns)
+
+ns.ses = 6
+
+assert state != ns
+assert hash(state) != hash(ns)
+
+ns.ses = 5
+
+assert state == ns
+assert hash(state) == hash(ns)
+
+ns.sa = 5
+
+assert state != ns
+assert hash(state) != hash(ns)
+
+
+= hash tests
+
+state = EcuState(myinfo="42")
+state.ses = 5
+
+ns = copy.copy(state)
+
+assert hash(state) == hash(ns)
+
+ns.ses = 6
+
+assert hash(state) != hash(ns)
+
+ns.ses = 5
+
+assert hash(state) == hash(ns)
+
+ns.sa = 5
+
+assert hash(state) != hash(ns)
+
+= command tests
+
+state = EcuState(myinfo="42")
+state.ses = 5
+
+state.command()
+assert "EcuState(myinfo='42', ses=5)" == state.command()
+
+= less than tests
+
+s1 = EcuState()
+s2 = EcuState()
+
+s1.a = 1
+s2.a = 2
+
+assert s1 < s2
+
+s1.b = 4
+
+assert s1 > s2
+
+s2.b = 1
+
+assert s1 < s2
+
+s1.a = 2
+
+assert s1 > s2
+
+= less than tests 2
+
+s1 = EcuState()
+s2 = EcuState()
+
+s1.c = "x"
+s2.c = 4
+exception = False
+
+try:
+    assert s1 < s2
+except TypeError:
+    exception = True
+
+assert exception
+
+= less than tests 3
+
+s1 = EcuState()
+s2 = EcuState()
+
+
+s1.A = 1
+s1.a = 2
+
+s2.A = 2
+s2.a = 1
+
+assert s1 < s2
+
+= less than tests 4
+
+s1 = EcuState()
+s2 = EcuState()
+
+
+s1.A = 1
+s1.a = 2
+
+s2.A = 2
+s2.b = 100
+
+assert s1 < s2
+
+= less than tests 5
+
+s1 = EcuState()
+s2 = EcuState()
+
+
+s1.A = 100
+s1.a = 2
+
+s2.A = 2
+s2.b = 100
+
+assert s1 > s2
+
+= less than tests 6
+
+s1 = EcuState()
+s2 = EcuState()
+
+
+s1.A = 100
+s1.B = 200
+
+s2.a = 2
+s2.b = 1
+
+assert s1 < s2
+
+= contains test
+
+s1 = EcuState(ses=[1,2,3])
+s2 = EcuState(ses=1)
+
+assert s1 != s2
+assert s2 in s1
+assert s1 not in s2
+
+s1 = EcuState(ses=[2,3])
+s2 = EcuState(ses=1)
+
+assert s1 != s2
+assert s2 not in s1
+assert s1 not in s2
+
+
+s1 = EcuState(ses=[1,2,3], security=5)
+s2 = EcuState(ses=1)
+
+assert s1 != s2
+assert s2 not in s1
+assert s1 not in s2
+
+s1 = EcuState(ses=range(3), security=5)
+s2 = EcuState(ses=1, security=5)
+
+assert s1 != s2
+assert s2 in s1
+assert s1 not in s2
+
+s1 = EcuState(ses=range(3), security=(x for x in range(1, 10, 2)))
+s2 = EcuState(ses=1, security=5)
+
+assert s1 != s2
+assert s2 in s1
+assert s1 not in s2
+
+s1 = EcuState(ses=[1,2,3])
+s2 = EcuState(ses=[1,2,3])
+
+assert s1 in s2
+assert s2 in s1
+assert s1 == s2
+
+s1 = EcuState(ses=range(3), security=range(5))
+for ses, sec in itertools.product(range(3), range(5)):
+    s2 = EcuState(ses=ses, security=sec)
+    assert s1 != s2
+    assert s2 in s1
+    assert s1 not in s2
+
+
+s1 = EcuState(ses=[0, 1, 2], security=[43, 44])
+for ses, sec in itertools.product(range(3), range(43, 45)):
+    s2 = EcuState(ses=ses, security=sec)
+    assert s1 != s2
+    assert s2 in s1
+    assert s1 not in s2
+
+s1 = EcuState(ses=[0, 1, 2], security=["a", "b"])
+for ses, sec in itertools.product(range(3), (x for x in "ab")):
+    s2 = EcuState(ses=ses, security=sec)
+    assert s1 != s2
+    assert s2 in s1
+    try:
+        assert s1 not in s2
+    except TypeError:
+        assert True
+
+s1 = [EcuState(ses=1), EcuState(ses=2), EcuState(ses=3)]
+s2 = EcuState(ses=3)
+
+assert s2 in s1
+assert s1 not in s2
 
 + Basic checks
 

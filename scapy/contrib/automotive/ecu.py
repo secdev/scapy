@@ -12,7 +12,9 @@ import time
 import random
 
 from collections import defaultdict
+from types import GeneratorType
 
+from scapy.compat import Any, cast, Dict
 from scapy.packet import Raw, Packet
 from scapy.plist import PacketList
 from scapy.error import Scapy_Exception
@@ -25,46 +27,113 @@ __all__ = ["EcuState", "Ecu", "EcuResponse", "EcuSession",
 
 
 class EcuState(object):
-    def __init__(self, session=1, tester_present=False, security_level=0,
-                 communication_control=0, **kwargs):
-        self.session = session
-        self.security_level = security_level
-        self.communication_control = communication_control
-        self._tp = tester_present
-        self.misc = kwargs
+    """
+    Stores the state of an Ecu. The state is defined by a protocol, for
+    example UDS or GMLAN.
+    A EcuState supports comparison and serialization (command()).
+    """
+    def __init__(self, **kwargs):
+        # type: (Dict[str, Any]) -> None
+        for k, v in kwargs.items():
+            if isinstance(v, GeneratorType):
+                v = list(v)
+            self.__setattr__(k, v)
 
-    def reset(self):
-        self.session = 1
-        self.security_level = 0
-        self.communication_control = 0
-        self._tp = False
-        self.misc = dict()
+    def __getitem__(self, item):
+        # type: (str) -> Any
+        return self.__dict__[item]
 
-    @property
-    def tp(self):
-        return self._tp or self.session > 1
+    def __setitem__(self, key, value):
+        # type: (str, Any) -> None
+        self.__dict__[key] = value
+
+    def __repr__(self):
+        # type: () -> str
+        return "".join(str(k) + str(v) for k, v in
+                       sorted(self.__dict__.items(), key=lambda t: t[0]))
 
     def __eq__(self, other):
-        return other.session == self.session and other.tp == self.tp and \
-            other.misc == self.misc and \
-            self.security_level == other.security_level
+        # type: (object) -> bool
+        other = cast(EcuState, other)
+        if len(self.__dict__) != len(other.__dict__):
+            return False
+        try:
+            return all(self.__dict__[k] == other.__dict__[k]
+                       for k in self.__dict__.keys())
+        except KeyError:
+            return False
+
+    def __contains__(self, item):
+        # type: (EcuState) -> bool
+        if not isinstance(item, EcuState):
+            return False
+        if len(self.__dict__) != len(item.__dict__):
+            return False
+        try:
+            return all(ov == sv or (hasattr(sv, "__iter__") and ov in sv)
+                       for sv, ov in
+                       zip(self.__dict__.values(), item.__dict__.values()))
+        except (KeyError, TypeError):
+            return False
 
     def __ne__(self, other):
+        # type: (object) -> bool
         return not other == self
 
     def __lt__(self, other):
-        if self.session == other.session:
-            return len(self.misc) < len(other.misc)
-        return self.session < other.session
+        # type: (EcuState) -> bool
+        if self == other:
+            return False
+
+        if len(self.__dict__.keys()) < len(other.__dict__.keys()):
+            return True
+
+        if len(self.__dict__.keys()) > len(other.__dict__.keys()):
+            return False
+
+        common = set(self.__dict__.keys()).intersection(
+            set(other.__dict__.keys()))
+
+        for k in sorted(common):
+            if not isinstance(other.__dict__[k], type(self.__dict__[k])):
+                raise TypeError(
+                    "Can't compare %s with %s for the EcuState element %s" %
+                    (type(self.__dict__[k]), type(other.__dict__[k]), k))
+            if self.__dict__[k] < other.__dict__[k]:
+                return True
+            if self.__dict__[k] > other.__dict__[k]:
+                return False
+
+        if len(common) < len(self.__dict__):
+            self_diffs = set(self.__dict__.keys()).difference(
+                set(other.__dict__.keys()))
+            other_diffs = set(other.__dict__.keys()).difference(
+                set(self.__dict__.keys()))
+
+            for s, o in zip(self_diffs, other_diffs):
+                if s < o:
+                    return True
+
+            return False
+
+        raise TypeError("EcuStates should be identical. Something bad happen. "
+                        "self: %s other: %s" % (self.__dict__, other.__dict__))
 
     def __hash__(self):
+        # type: () -> int
         return hash(repr(self))
 
-    def __repr__(self):
-        tps = "_TP" if self.tp else ""
-        sl = "_SL%d" % self.security_level if self.security_level else ""
-        ks = "_" + "_".join(self.misc.keys()) if len(self.misc) else ""
-        return "%d%s%s%s" % (self.session, tps, sl, ks)
+    def reset(self):
+        # type: () -> None
+        keys = list(self.__dict__.keys())
+        for k in keys:
+            del self.__dict__[k]
+
+    def command(self):
+        # type: () -> str
+        return "EcuState(" + ", ".join(
+            ["%s=%s" % (k, repr(v)) for k, v in sorted(
+                self.__dict__.items(), key=lambda t: t[0])]) + ")"
 
 
 class Ecu(object):
@@ -141,6 +210,9 @@ class Ecu(object):
 
     def reset(self):
         self.state.reset()
+        self.state.session = 1
+        self.state.security_level = 0
+        self.state.communication_control = 0
 
     def update(self, p):
         if isinstance(p, PacketList):
