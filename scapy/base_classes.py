@@ -17,6 +17,7 @@ from functools import reduce
 import operator
 import os
 import random
+import re
 import socket
 import struct
 import subprocess
@@ -24,6 +25,7 @@ import types
 import warnings
 
 import scapy
+from scapy.error import Scapy_Exception
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 
@@ -114,12 +116,18 @@ class Net(Gen[str]):
     @classmethod
     def name2addr(cls, name):
         # type: (str) -> str
-        return next(
-            addr_port[0]
-            for family, _, _, _, addr_port in
-            socket.getaddrinfo(name, None, cls.family)
-            if family == cls.family
-        )
+        try:
+            return next(
+                addr_port[0]
+                for family, _, _, _, addr_port in
+                socket.getaddrinfo(name, None, cls.family)
+                if family == cls.family
+            )
+        except socket.error:
+            if re.search("(^|\\.)[0-9]+-[0-9]+($|\\.)", name) is not None:
+                raise Scapy_Exception("Ranges are no longer accepted in %s()" %
+                                      cls.__name__)
+            raise
 
     @classmethod
     def ip2int(cls, addr):
@@ -135,6 +143,9 @@ class Net(Gen[str]):
 
     def __init__(self, net, stop=None):
         # type: (str, Union[None, str]) -> None
+        if "*" in net:
+            raise Scapy_Exception("Wildcards are no longer accepted in %s()" %
+                                  self.__class__.__name__)
         if stop is None:
             try:
                 net, mask = net.split("/", 1)
