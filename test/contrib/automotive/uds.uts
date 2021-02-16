@@ -101,7 +101,7 @@ assert dscpr.sessionParameterRecord == b"beef"
 
 ecu = Ecu()
 ecu.update(dscpr)
-assert ecu.current_session == 9
+assert ecu.state.session == 9
 
 = Check UDS_ER
 
@@ -138,15 +138,13 @@ assert erpr.resetType == 0x04
 assert erpr.powerDownTime == 0x10
 
 ecu = Ecu()
-ecu.current_security_level = 5
-ecu.current_session = 3
-ecu.communication_control = 4
+ecu.state.security_level = 5
+ecu.state.session = 3
+ecu.state.communication_control = 4
 
 ecu.update(erpr)
 
-assert ecu.current_session == 1
-assert ecu.current_security_level == 0
-assert ecu.communication_control == 0
+assert ecu.state.session == 1
 
 = Check UDS_SA
 
@@ -195,7 +193,7 @@ assert sapr.securityAccessType == 0x6
 
 ecu = Ecu()
 ecu.update(sapr)
-assert ecu.current_security_level == 6
+assert ecu.state.security_level == 6
 
 = Check UDS_SA
 
@@ -237,7 +235,7 @@ assert ccpr.controlType == 0x1
 
 ecu = Ecu()
 ecu.update(ccpr)
-assert ecu.communication_control == 1
+assert ecu.state.communication_control == 1
 
 = Check UDS_TP
 

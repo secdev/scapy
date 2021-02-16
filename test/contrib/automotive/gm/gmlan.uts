@@ -244,7 +244,7 @@ x.answers(b)
 
 ecu = Ecu()
 ecu.update(x)
-assert ecu.current_security_level == 2
+assert ecu.state.security_level == 2
 
 
 = Craft Packet for GMLAN_SAPR2
@@ -438,16 +438,15 @@ y.hashret() == x.hashret()
 = Check modifies ecu state
 ecu = Ecu()
 ecu.update(GMLAN(service="InitiateDiagnosticOperationPositiveResponse"))
-assert ecu.current_session == 3
+assert ecu.state.session == 3
 ecu.update(GMLAN(service="ReturnToNormalOperationPositiveResponse"))
-assert ecu.current_session == 1
+assert ecu.state.session == 1
 ecu.update(GMLAN(service="ProgrammingModePositiveResponse"))
-assert ecu.current_session == 2
+assert ecu.state.session == 2
 ecu.update(GMLAN(service="DisableNormalCommunicationPositiveResponse"))
-assert ecu.communication_control == 1
+assert ecu.state.communication_control == 1
 ecu.update(GMLAN(service="ReturnToNormalOperationPositiveResponse"))
-assert ecu.current_session == 1
-assert ecu.communication_control == 0
+assert ecu.state.session == 1
 
 = Craft GMLAN_DC
 

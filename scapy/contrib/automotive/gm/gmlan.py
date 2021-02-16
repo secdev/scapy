@@ -16,6 +16,7 @@ from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import warning, log_loading
 from scapy.contrib.isotp import ISOTP
+from scapy.contrib.automotive.ecu import EcuStateModifier, EcuState
 
 
 """
@@ -36,7 +37,7 @@ except KeyError:
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = None
 
 
-class GMLAN(ISOTP):
+class GMLAN(ISOTP, EcuStateModifier):
     @staticmethod
     def determine_len(x):
         if conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] is None:
@@ -113,18 +114,21 @@ class GMLAN(ISOTP):
             return struct.pack('B', self.requestServiceId)
         return struct.pack('B', self.service & ~0x40)
 
-    @staticmethod
-    def modifies_ecu_state(pkt, ecu):
-        if pkt.service == 0x50:
-            ecu.current_session = 3
-        elif pkt.service == 0x60:
-            ecu.current_session = 1
-            ecu.communication_control = 0
-            ecu.current_security_level = 0
-        elif pkt.service == 0x68:
-            ecu.communication_control = 1
-        elif pkt.service == 0xe5:
-            ecu.current_session = 2
+    def modify_ecu_state(self, state):
+        # type: (EcuState) -> None
+        if self.service == 0x50:
+            state.session = 3
+        elif self.service == 0x60:
+            state.reset()
+            state.session = 1
+        elif self.service == 0x68:
+            state.communication_control = 1
+        elif self.service == 0xe5:
+            state.session = 2
+        elif self.service == 0x74:
+            state.request_download = 1
+        elif self.service == 0x7e:
+            state.tp = 1
 
 
 # ########################IDO###################################
@@ -508,7 +512,7 @@ class GMLAN_SA(Packet):
 bind_layers(GMLAN, GMLAN_SA, service=0x27)
 
 
-class GMLAN_SAPR(Packet):
+class GMLAN_SAPR(Packet, EcuStateModifier):
     name = 'SecurityAccessPositiveResponse'
     fields_desc = [
         ByteEnumField('subfunction', 0, GMLAN_SA.subfunctions),
@@ -529,10 +533,10 @@ class GMLAN_SAPR(Packet):
             return pkt.sprintf("%GMLAN.service%"), \
                 (pkt.subfunction, pkt.securitySeed)
 
-    @staticmethod
-    def modifies_ecu_state(pkt, ecu):
-        if pkt.subfunction % 2 == 0:
-            ecu.current_security_level = pkt.subfunction
+    def modify_ecu_state(self, state):
+        # type: (EcuState) -> None
+        if self.subfunction % 2 == 0:
+            state.security_level = self.subfunction
 
 
 bind_layers(GMLAN, GMLAN_SAPR, service=0x67)

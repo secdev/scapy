@@ -10,20 +10,23 @@
 
 import time
 import random
+import copy
 
 from collections import defaultdict
 from types import GeneratorType
 
-from scapy.compat import Any, cast, Dict
+from scapy.compat import Any, Union, Iterable, Callable, List, Optional, \
+    Tuple, Type, cast, Dict
 from scapy.packet import Raw, Packet
 from scapy.plist import PacketList
-from scapy.error import Scapy_Exception
 from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
 from scapy.config import conf
+from scapy.supersocket import SuperSocket
 
-__all__ = ["EcuState", "Ecu", "EcuResponse", "EcuSession",
-           "EcuAnsweringMachine"]
+
+__all__ = ["EcuState", "EcuStateModifier", "Ecu", "EcuResponse",
+           "EcuSession", "EcuAnsweringMachine"]
 
 
 class EcuState(object):
@@ -136,150 +139,189 @@ class EcuState(object):
                 self.__dict__.items(), key=lambda t: t[0])]) + ")"
 
 
-class Ecu(object):
-    """A ECU object can be used to
-            - track the states of an ECU.
-            - to log all modification to an ECU
-            - to extract supported responses of a real ECU
+class EcuStateModifier(object):
+    """
+    Abstract class to signal that instances of this class can
+    change an EcuState.
+    """
 
-           Usage:
-           >>> print("This ecu logs, tracks and creates supported responses")
-           >>> my_virtual_ecu = Ecu()
-           >>> my_virtual_ecu.update(PacketList([...]))
-           >>> my_virtual_ecu.supported_responses
-           >>> print("Another ecu just tracks")
-           >>> my_tracking_ecu = Ecu(logging=False, store_supported_responses=False)  # noqa: E501
-           >>> my_tracking_ecu.update(PacketList([...]))
-           >>> print("Another ecu just logs all modifications to it")
-           >>> my_logging_ecu = Ecu(verbose=False, store_supported_responses=False)  # noqa: E501
-           >>> my_logging_ecu.update(PacketList([...]))
-           >>> my_logging_ecu.log
-           >>> print("Another ecu just creates supported responses")
-           >>> my_response_ecu = Ecu(verbose=False, logging=False)
-           >>> my_response_ecu.update(PacketList([...]))
-           >>> my_response_ecu.supported_responses
-       """
-    def __init__(self, init_session=None, init_security_level=None,
-                 init_communication_control=None, logging=True, verbose=True,
-                 store_supported_responses=True):
+    def modify_ecu_state(self, state):
+        # type: (EcuState) -> None
+        raise NotImplementedError
+
+    @staticmethod
+    def modifies_ecu_state(pkt):
+        # type: (Packet) -> bool
+        """
+        Helper function to determine if a Packet contains a layer which
+        modifies the EcuState.
+        :param pkt: Packet to be analyzed
+        :return: True if pkt contains layer of instance EcuStateModifier
+        """
+        return any(issubclass(layer, EcuStateModifier)
+                   for layer in pkt.layers())
+
+    @staticmethod
+    def get_modified_ecu_state(pkt, state, modify_in_place=False):
+        # type: (Packet, EcuState, bool) -> EcuState
+        """
+        Helper function to get a modified EcuState from a Packet and a
+        previous EcuState.
+        :param pkt: Packet that supports `modify_ecu_state`
+        :param state: A previous EcuState
+        :param modify_in_place: If True, the given EcuState will be modified
+        :return: The modified EcuState as copy
+        """
+        if modify_in_place:
+            new_state = state
+        else:
+            new_state = copy.copy(state)
+
+        for layer in pkt.layers():
+            if not issubclass(layer, EcuStateModifier):
+                continue
+            try:
+                layer.modify_ecu_state(pkt, new_state)
+            except TypeError:
+                layer.modify_ecu_state.im_func(pkt, new_state)
+        return new_state
+
+
+class Ecu(object):
+    """An Ecu object can be used to
+        - track the states of an Ecu.
+        - to log all modification to an Ecu.
+        - to extract supported responses of a real Ecu.
+
+    Usage:
+    >>> print("This ecu logs, tracks and creates supported responses")
+    >>> my_virtual_ecu = Ecu()
+    >>> my_virtual_ecu.update(PacketList([...]))
+    >>> my_virtual_ecu.supported_responses
+    >>> print("Another ecu just tracks")
+    >>> my_tracking_ecu = Ecu(logging=False, store_supported_responses=False)
+    >>> my_tracking_ecu.update(PacketList([...]))
+    >>> print("Another ecu just logs all modifications to it")
+    >>> my_logging_ecu = Ecu(verbose=False, store_supported_responses=False)
+    >>> my_logging_ecu.update(PacketList([...]))
+    >>> my_logging_ecu.log
+    >>> print("Another ecu just creates supported responses")
+    >>> my_response_ecu = Ecu(verbose=False, logging=False)
+    >>> my_response_ecu.update(PacketList([...]))
+    >>> my_response_ecu.supported_responses
+    """
+    def __init__(self, logging=True, verbose=True,
+                 store_supported_responses=True, lookahead=10):
+        # type: (bool, bool, bool, int) -> None
         """
         Initialize an Ecu object
 
-        :param init_session: An initial session
-        :param init_security_level: An initial security level
-        :param init_communication_control: An initial communication control
-                                           setting
         :param logging: Turn logging on or off. Default is on.
         :param verbose: Turn tracking on or off. Default is on.
-        :param store_supported_responses: Turn creation of supported responses
-                                          on or off. Default is on.
+        :param store_supported_responses: Create list of supported responses
+                                          if True.
+        :param lookahead: Configuration for lookahead when computing supported
+                          responses
         """
-        self.state = EcuState(
-            session=init_session or 1, security_level=init_security_level or 0,
-            communication_control=init_communication_control or 0)
+        self.state = EcuState()
         self.verbose = verbose
         self.logging = logging
         self.store_supported_responses = store_supported_responses
-        self.log = defaultdict(list)
-        self._supported_responses = list()
-        self._unanswered_packets = PacketList()
-
-    @property
-    def current_session(self):
-        return self.state.session
-
-    @current_session.setter
-    def current_session(self, ses):
-        self.state.session = ses
-
-    @property
-    def current_security_level(self):
-        return self.state.security_level
-
-    @current_security_level.setter
-    def current_security_level(self, sec):
-        self.state.security_level = sec
-
-    @property
-    def communication_control(self):
-        return self.state.communication_control
-
-    @communication_control.setter
-    def communication_control(self, cc):
-        self.state.communication_control = cc
+        self.lookahead = lookahead
+        self.log = defaultdict(list)  # type: Dict[str, List[Any]]
+        self.__supported_responses = list()  # type: List[EcuResponse]
+        self.__unanswered_packets = PacketList()
 
     def reset(self):
-        self.state.reset()
-        self.state.session = 1
-        self.state.security_level = 0
-        self.state.communication_control = 0
+        # type: () -> None
+        self.state = EcuState(session=1)
 
     def update(self, p):
+        # type: (Union[Packet, PacketList]) -> None
         if isinstance(p, PacketList):
             for pkt in p:
-                self._update(pkt)
+                self.update(pkt)
         elif not isinstance(p, Packet):
-            raise Scapy_Exception("Provide a Packet object for an update")
+            raise TypeError("Provide a Packet object for an update")
         else:
-            self._update(p)
+            self.__update(p)
 
-    def _update(self, pkt):
+    def __update(self, pkt):
+        # type: (Packet) -> None
         if self.verbose:
             print(repr(self), repr(pkt))
         if self.store_supported_responses:
-            self._update_supported_responses(pkt)
+            self.__update_supported_responses(pkt)
         if self.logging:
-            self._update_log(pkt)
-        self._update_internal_state(pkt)
+            self.__update_log(pkt)
+        self.__update_internal_state(pkt)
 
-    def _update_log(self, pkt):
+    def __update_log(self, pkt):
+        # type: (Packet) -> None
         for layer in pkt.layers():
             if hasattr(layer, "get_log"):
                 log_key, log_value = layer.get_log(pkt)
                 self.log[log_key].append((pkt.time, log_value))
 
-    def _update_internal_state(self, pkt):
-        for layer in pkt.layers():
-            if hasattr(layer, "modifies_ecu_state"):
-                layer.modifies_ecu_state(pkt, self)
+    def __update_internal_state(self, pkt):
+        # type: (Packet) -> None
+        EcuStateModifier.get_modified_ecu_state(pkt, self.state, True)
 
-    def _update_supported_responses(self, pkt):
-        self._unanswered_packets += PacketList([pkt])
-        answered, unanswered = self._unanswered_packets.sr()
+    def __update_supported_responses(self, pkt):
+        # type: (Packet) -> None
+        self.__unanswered_packets.append(pkt)
+        reduced_plist = self.__unanswered_packets[-self.lookahead:]
+        answered, unanswered = reduced_plist.sr(lookahead=self.lookahead)
         for _, resp in answered:
-            ecu_resp = EcuResponse(session=self.current_session,
-                                   security_level=self.current_security_level,
-                                   responses=resp)
+            added = False
+            for sup_resp in self.__supported_responses:
+                if resp == sup_resp.key_response:
+                    if sup_resp.states is not None and \
+                            self.state not in sup_resp.states:
+                        sup_resp.states.append(copy.copy(self.state))
+                    added = True
+                    break
 
-            if ecu_resp not in self._supported_responses:
-                if self.verbose:
-                    print("[+] ", repr(ecu_resp))
-                self._supported_responses.append(ecu_resp)
-            else:
-                if self.verbose:
-                    print("[-] ", repr(ecu_resp))
-        self._unanswered_packets = unanswered
+            if added:
+                continue
+
+            ecu_resp = EcuResponse(copy.copy(self.state), responses=resp)
+            if self.verbose:
+                print("[+] ", repr(ecu_resp))
+            self.__supported_responses.append(ecu_resp)
+
+        self.__unanswered_packets = unanswered
 
     @property
     def supported_responses(self):
-        # This sorts responses in the following order:
-        # 1. Positive responses first
-        # 2. Lower ServiceID first
-        # 3. Longer (more specific) responses first
-        self._supported_responses.sort(
-            key=lambda x: (x.responses[0].service == 0x7f,
-                           x.responses[0].service,
-                           0xffffffff - len(x.responses[0])))
-        return self._supported_responses
+        # type: () -> List[EcuResponse]
+        def sort_key_func(resp):
+            # type: (EcuResponse) -> Tuple[bool, int, int, int]
+            """
+            This sorts responses in the following order:
+            1. Positive responses first
+            2. Lower ServiceID first
+            3. Less states first
+            4. Longer (more specific) responses first
+            :param resp: EcuResponse to be sorted
+            :return: Tuple as sort key
+            """
+            return (resp.key_response.service == 0x7f,
+                    resp.key_response.service,
+                    0xffffffff - len(resp.states or []),
+                    0xffffffff - len(resp.key_response))
+
+        self.__supported_responses.sort(key=sort_key_func)
+        return self.__supported_responses
 
     @property
     def unanswered_packets(self):
-        return self._unanswered_packets
+        # type: () -> PacketList
+        return self.__unanswered_packets
 
     def __repr__(self):
-        return "ses: %03d  sec: %03d  cc: %d" % (self.current_session,
-                                                 self.current_security_level,
-                                                 self.communication_control)
+        # type: () -> str
+        return repr(self.state)
 
 
 class EcuSession(DefaultSession):
@@ -288,55 +330,41 @@ class EcuSession(DefaultSession):
     Usage:
     >>> sniff(session=EcuSession)
     """
-
     def __init__(self, *args, **kwargs):
+        # type: (Any, Any) -> None
         DefaultSession.__init__(self, *args, **kwargs)
-        self.ecu = Ecu(init_session=kwargs.pop("init_session", None),
-                       init_security_level=kwargs.pop("init_security_level", None),  # noqa: E501
-                       init_communication_control=kwargs.pop("init_communication_control", None),  # noqa: E501
-                       logging=kwargs.pop("logging", True),
+        self.ecu = Ecu(logging=kwargs.pop("logging", True),
                        verbose=kwargs.pop("verbose", True),
                        store_supported_responses=kwargs.pop("store_supported_responses", True))  # noqa: E501
 
     def on_packet_received(self, pkt):
+        # type: (Optional[Packet]) -> None
         if not pkt:
-            return
-        if isinstance(pkt, list):
-            for p in pkt:
-                EcuSession.on_packet_received(self, p)
             return
         self.ecu.update(pkt)
         DefaultSession.on_packet_received(self, pkt)
 
 
 class EcuResponse:
-    """Encapsulates a response and the according Ecu state.
-    A list of this objects can be used to configure a Ecu Answering Machine.
-    This is useful, if you want to clone the behaviour of a real Ecu on a bus.
+    """Encapsulates responses and the according EcuStates.
+    A list of this objects can be used to configure an Ecu_am.
+    This is useful, if you want to clone the behaviour of a real Ecu.
 
-        Usage:
-        >>> print("Generates a EcuResponse which answers on UDS()/UDS_RDBI(identifiers=[2]) if Ecu is in session 2 and has security_level 2")  # noqa: E501
-        >>> EcuResponse(session=2,                     security_level=2,                responses=UDS()/UDS_RDBIPR(dataIdentifier=2)/Raw(b"deadbeef1"))  # noqa: E501
-        >>> print("Further examples")
-        >>> EcuResponse(session=range(3,5),            security_level=[3,4],            responses=UDS()/UDS_RDBIPR(dataIdentifier=3)/Raw(b"deadbeef2"))  # noqa: E501
-        >>> EcuResponse(session=[5,6,7],               security_level=range(5,7),       responses=UDS()/UDS_RDBIPR(dataIdentifier=5)/Raw(b"deadbeef3"))  # noqa: E501
-        >>> EcuResponse(session=lambda x: 8 < x <= 10, security_level=lambda x: x > 10, responses=UDS()/UDS_RDBIPR(dataIdentifier=9)/Raw(b"deadbeef4"))  # noqa: E501
+    Usage:
+    >>> EcuResponse(EcuState(session=2, security_level=2), responses=UDS()/UDS_RDBIPR(dataIdentifier=2)/Raw(b"deadbeef1"))  # noqa: E501
+    >>> EcuResponse([EcuState(session=range(2, 5), security_level=2), EcuState(session=3, security_level=5)], responses=UDS()/UDS_RDBIPR(dataIdentifier=9)/Raw(b"deadbeef4"))  # noqa: E501
     """
-    def __init__(self, session=1, security_level=0,
-                 responses=Raw(b"\x7f\x10"),
-                 answers=None):
+    def __init__(self, state=None, responses=Raw(b"\x7f\x10"), answers=None):
+        # type: (Optional[Union[EcuState, Iterable[EcuState]]], Union[Iterable[Packet], PacketList, Packet], Optional[Callable[[Packet, Packet], bool]]) -> None  # noqa: E501
         """
         Initialize an EcuResponse capsule
 
-        :param session: Defines the session in which this response is valid.
-                        A integer, a callable or any iterable object can be
-                        provided.
-        :param security_level: Defines the security_level in which this
-                               response is valid. A integer, a callable or any
-                               iterable object can be provided.
+        :param state: EcuState or list of EcuStates in which this response
+                      is allowed to be sent. If no state provided, the response
+                      packet will always be send.
         :param responses: A Packet or a list of Packet objects. By default the
-                          last packet is asked if it answers a incoming packet.
-                          This allows to send for example
+                          last packet is asked if it answers an incoming
+                          packet. This allows to send for example
                           `requestCorrectlyReceived-ResponsePending` packets.
         :param answers: Optional argument to provide a custom answer here:
                         `lambda resp, req: return resp.answers(req)`
@@ -346,70 +374,122 @@ class EcuResponse:
                         messages which answers to everything can be realized
                         in this way.
         """
-        self.__session = session \
-            if hasattr(session, "__iter__") or callable(session) else [session]
-        self.__security_level = security_level \
-            if hasattr(security_level, "__iter__") or callable(security_level)\
-            else [security_level]
-        if isinstance(responses, PacketList):
-            self.responses = responses
-        elif isinstance(responses, Packet):
-            self.responses = PacketList([responses])
-        elif hasattr(responses, "__iter__"):
-            self.responses = PacketList(responses)
+        if state is None:
+            self.__states = None  # type: Optional[List[EcuState]]
         else:
-            self.responses = PacketList([responses])
+            if hasattr(state, "__iter__"):
+                state = cast(List[EcuState], state)
+                self.__states = state
+            else:
+                state = cast(EcuState, state)
+                self.__states = [state]
+
+        if isinstance(responses, PacketList):
+            self.__responses = responses  # type: PacketList
+        elif isinstance(responses, Packet):
+            self.__responses = PacketList([responses])
+        elif hasattr(responses, "__iter__"):
+            responses = cast(List[Packet], responses)
+            self.__responses = PacketList(responses)
+        else:
+            raise TypeError(
+                "Can't handle type %s as response" % type(responses))
 
         self.__custom_answers = answers
 
-    def in_correct_session(self, current_session):
-        if callable(self.__session):
-            return self.__session(current_session)
-        else:
-            return current_session in self.__session
+    @property
+    def states(self):
+        # type: () -> Optional[List[EcuState]]
+        return self.__states
 
-    def has_security_access(self, current_security_level):
-        if callable(self.__security_level):
-            return self.__security_level(current_security_level)
+    @property
+    def responses(self):
+        # type: () -> PacketList
+        return self.__responses
+
+    @property
+    def key_response(self):
+        # type: () -> Packet
+        pkt = self.__responses[-1]  # type: Packet
+        return pkt
+
+    def supports_state(self, state):
+        # type: (EcuState) -> bool
+        if self.__states is None or len(self.__states) == 0:
+            return True
         else:
-            return current_security_level in self.__security_level
+            return any(s == state or state in s for s in self.__states)
 
     def answers(self, other):
+        # type: (Packet) -> Union[int, bool]
         if self.__custom_answers is not None:
-            return self.__custom_answers(self.responses[-1], other)
+            return self.__custom_answers(self.key_response, other)
         else:
-            return self.responses[-1].answers(other)
+            return self.key_response.answers(other)
 
     def __repr__(self):
-        return "session=%s, security_level=%s, responses=%s" % \
-               (self.__session, self.__security_level,
-                [resp.summary() for resp in self.responses])
+        # type: () -> str
+        return "%s, responses=%s" % \
+               (repr(self.__states),
+                [resp.summary() for resp in self.__responses])
 
     def __eq__(self, other):
-        return \
-            self.__class__ == other.__class__ and \
-            self.__session == other.__session and \
-            self.__security_level == other.__security_level and \
+        # type: (object) -> bool
+        other = cast(EcuResponse, other)
+
+        responses_equal = \
             len(self.responses) == len(other.responses) and \
             all(bytes(x) == bytes(y) for x, y in zip(self.responses,
                                                      other.responses))
+        if self.__states is None:
+            return responses_equal
+        else:
+            return any(other.supports_state(s) for s in self.__states) and \
+                responses_equal
 
     def __ne__(self, other):
+        # type: (object) -> bool
         # Python 2.7 compat
         return not self == other
 
-    __hash__ = None
+    def command(self):
+        # type: () -> str
+        if self.__states is not None:
+            return "EcuResponse(%s, responses=%s)" % (
+                "[" + ", ".join(s.command() for s in self.__states) + "]",
+                "[" + ", ".join(p.command() for p in self.__responses) + "]")
+        else:
+            return "EcuResponse(responses=%s)" % "[" + ", ".join(
+                p.command() for p in self.__responses) + "]"
+
+    __hash__ = None  # type: ignore
 
 
 conf.contribs['EcuAnsweringMachine'] = {'send_delay': 0}
 
 
 class EcuAnsweringMachine(AnsweringMachine):
-    """AnsweringMachine which emulates the basic behaviour of a real world Ecu.
-    Provide a list of ``ECUResponse`` objects to configure the behaviour of this
+    """AnsweringMachine which emulates the basic behaviour of a real world ECU.
+    Provide a list of ``EcuResponse`` objects to configure the behaviour of this
     AnsweringMachine.
 
-        :param supported_responses: List of ``ECUResponse`` objects to define
+    Usage:
+    >>> resp = EcuResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))
+    >>> sock = ISOTPSocket(can_iface, sid=0x700, did=0x600, basecls=UDS)
+    >>> answering_machine = EcuAnsweringMachine(supported_responses=[resp], main_socket=sock, basecls=UDS)
+    >>> sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout':5})
+    >>> sim.start()  # noqa: E501
+    """
+    function_name = "EcuAnsweringMachine"
+    sniff_options_list = ["store", "opened_socket", "count", "filter", "prn",
+                          "stop_filter", "timeout"]
+
+    def parse_options(self, supported_responses=None,
+                      main_socket=None, broadcast_socket=None, basecls=Raw,
+                      timeout=None, initial_ecu_state=None):
+        # type: (Optional[List[EcuResponse]], Optional[SuperSocket], Optional[SuperSocket], Type[Packet], Optional[Union[int, float]], Optional[EcuState]) -> None  # noqa: E501
+        """
+        :param supported_responses: List of ``EcuResponse`` objects to define
                                     the behaviour. The default response is
                                     ``generalReject``.
         :param main_socket: Defines the object of the socket to send
@@ -418,69 +498,65 @@ class EcuAnsweringMachine(AnsweringMachine):
                                  Listen-only, responds with the main_socket.
                                  `None` to disable broadcast capabilities.
         :param basecls: Provide a basecls of the used protocol
-
-           Usage:
-           >>> resp = EcuResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))  # noqa: E501
-           >>> sock = ISOTPSocket(can_iface, sid=0x700, did=0x600, basecls=UDS)  # noqa: E501
-           >>> answering_machine = EcuAnsweringMachine(supported_responses=[resp], main_socket=sock, basecls=UDS)  # noqa: E501
-           >>> sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout':5})  # noqa: E501
-           >>> sim.start()
-       """
-    function_name = "EcuAnsweringMachine"
-    sniff_options_list = ["store", "opened_socket", "count", "filter", "prn", "stop_filter", "timeout"]  # noqa: E501
-
-    def parse_options(self, supported_responses=None,
-                      main_socket=None, broadcast_socket=None, basecls=Raw,
-                      timeout=None):
-        self.main_socket = main_socket
-        self.sockets = [self.main_socket]
+        :param timeout: Specifies the timeout for sniffing in seconds.
+        """
+        self.__ecu_state = EcuState(session=1)
+        self.__main_socket = main_socket  # type: Optional[SuperSocket]
+        self.__sockets = [self.__main_socket]
 
         if broadcast_socket is not None:
-            self.sockets.append(broadcast_socket)
+            self.__sockets.append(broadcast_socket)
 
-        self.ecu_state = Ecu(logging=False, verbose=False,
-                             store_supported_responses=False)
-        self.basecls = basecls
-        self.supported_responses = supported_responses
+        if initial_ecu_state:
+            self.__ecu_state = initial_ecu_state
+
+        self.__basecls = basecls  # type: Type[Packet]
+        self.__supported_responses = supported_responses
 
         self.sniff_options["timeout"] = timeout
-        self.sniff_options["opened_socket"] = self.sockets
+        self.sniff_options["opened_socket"] = self.__sockets
+
+    @property
+    def state(self):
+        # type: () -> EcuState
+        return self.__ecu_state
 
     def is_request(self, req):
-        return req.__class__ == self.basecls
+        # type: (Packet) -> bool
+        return req.__class__ == self.__basecls
 
     def print_reply(self, req, reply):
+        # type: (Packet, PacketList) -> None
         print("%s ==> %s" % (req.summary(), [res.summary() for res in reply]))
 
     def make_reply(self, req):
-        if self.supported_responses is not None:
-            for resp in self.supported_responses:
+        # type: (Packet) -> PacketList
+        if self.__supported_responses is not None:
+            for resp in self.__supported_responses:
                 if not isinstance(resp, EcuResponse):
-                    raise Scapy_Exception("Unsupported type for response. "
-                                          "Please use `EcuResponse` objects. ")
+                    raise TypeError("Unsupported type for response. "
+                                    "Please use `EcuResponse` objects. ")
 
-                if not resp.in_correct_session(self.ecu_state.current_session):
-                    continue
-
-                if not resp.has_security_access(
-                        self.ecu_state.current_security_level):
+                if not resp.supports_state(self.__ecu_state):
                     continue
 
                 if not resp.answers(req):
                     continue
 
                 for r in resp.responses:
-                    for layer in r.layers():
-                        if hasattr(layer, "modifies_ecu_state"):
-                            layer.modifies_ecu_state(r, self.ecu_state)
+                    EcuStateModifier.get_modified_ecu_state(
+                        r, self.__ecu_state, True)
 
                 return resp.responses
 
-        return PacketList([self.basecls(b"\x7f" + bytes(req)[0:1] + b"\x10")])
+        return PacketList([self.__basecls(
+            b"\x7f" + bytes(req)[0:1] + b"\x10")])
 
     def send_reply(self, reply):
+        # type: (PacketList) -> None
         for p in reply:
             time.sleep(conf.contribs['EcuAnsweringMachine']['send_delay'])
             if len(reply) > 1:
                 time.sleep(random.uniform(0.01, 0.5))
-            self.main_socket.send(p)
+            if self.__main_socket:
+                self.__main_socket.send(p)
