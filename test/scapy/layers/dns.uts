@@ -169,8 +169,11 @@ assert raw(p) == b'\x00\x01\x01\x80\x00\x00\x00\x01\x00\x00\x00\x00\x06secdev\x0
 
 = DNS - Malformed DNS over TCP message
 
+_old_dbg = conf.debug_dissector
+conf.debug_dissector = True
+
 try:
-    p = IP(IP(raw(IP()/TCP()/DNS(length=28))[:-13]))
+    p = IP(raw(IP()/TCP()/DNS(length=28))[:-13])
     assert False
 except Scapy_Exception as e:
     assert str(e) == "Malformed DNS message: too small!"
@@ -180,6 +183,8 @@ try:
     assert False
 except Scapy_Exception as e:
     assert str(e) == "Malformed DNS message: invalid length!"
+
+conf.debug_dissector = _old_dbg
 
 = DNS - dns_compress on decompressed packet
 
@@ -197,6 +202,16 @@ p = IP(raw(cp))
 assert p.ns.rrname == b"google.com."
 assert p.ns.mname == b"ns1.google.com."
 assert p.ns.rname == b"dns-admin.google.com."
+
+= DNS - dns_compress on close indexes
+
+p = dns_compress(DNS(qd=DNSQR(qname=b'scapy.'), an=DNSRR(rrname=b'scapy.'), ar=DNSRROPT(rrname=b'.')))
+assert raw(p) == b'\x00\x00\x01\x00\x00\x01\x00\x01\x00\x00\x00\x01\x05scapy\x00\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00)\x10\x00\x00\x00\x80\x00\x00\x00'
+
+p = DNS(raw(p))
+assert p.qd.qname == b'scapy.'
+assert p.an.rrname == b'scapy.'
+assert p.ar.rrname == b'.'
 
 = DNS - dns_encode edge cases
 
