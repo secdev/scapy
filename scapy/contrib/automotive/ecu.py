@@ -170,6 +170,7 @@ class EcuStateModifier(object):
         """
         Helper function to get a modified EcuState from a Packet based on a
         previous EcuState.
+
         :param pkt: A packet that itself, or one of its layers derives
                     from `EcuStateModifier` and supports `modify_ecu_state`.
         :param state: An EcuState to be modified.
@@ -198,22 +199,23 @@ class Ecu(object):
         - to log all modification to an Ecu.
         - to extract supported responses of a real Ecu.
 
-    Usage:
-    >>> print("This ecu logs, tracks and creates supported responses")
-    >>> my_virtual_ecu = Ecu()
-    >>> my_virtual_ecu.update(PacketList([...]))
-    >>> my_virtual_ecu.supported_responses
-    >>> print("Another ecu just tracks")
-    >>> my_tracking_ecu = Ecu(logging=False, store_supported_responses=False)
-    >>> my_tracking_ecu.update(PacketList([...]))
-    >>> print("Another ecu just logs all modifications to it")
-    >>> my_logging_ecu = Ecu(verbose=False, store_supported_responses=False)
-    >>> my_logging_ecu.update(PacketList([...]))
-    >>> my_logging_ecu.log
-    >>> print("Another ecu just creates supported responses")
-    >>> my_response_ecu = Ecu(verbose=False, logging=False)
-    >>> my_response_ecu.update(PacketList([...]))
-    >>> my_response_ecu.supported_responses
+    Example:
+        >>> print("This ecu logs, tracks and creates supported responses")
+        >>> my_virtual_ecu = Ecu()
+        >>> my_virtual_ecu.update(PacketList([...]))
+        >>> my_virtual_ecu.supported_responses
+        >>> print("Another ecu just tracks")
+        >>> my_tracking_ecu = Ecu(logging=False, store_supported_responses=False)  # noqa: E501
+        >>> my_tracking_ecu.update(PacketList([...]))
+        >>> print("Another ecu just logs all modifications to it")
+        >>> my_logging_ecu = Ecu(verbose=False, store_supported_responses=False)  # noqa: E501
+        >>> my_logging_ecu.update(PacketList([...]))
+        >>> my_logging_ecu.log
+        >>> print("Another ecu just creates supported responses")
+        >>> my_response_ecu = Ecu(verbose=False, logging=False)
+        >>> my_response_ecu.update(PacketList([...]))
+        >>> my_response_ecu.supported_responses
+
     """
     def __init__(self, logging=True, verbose=True,
                  store_supported_responses=True, lookahead=10):
@@ -378,17 +380,19 @@ class Ecu(object):
 
 
 class EcuSession(DefaultSession):
-    """Tracks modification to an Ecu object 'on-the-flow'.
+    """
+    Tracks modification to an Ecu object 'on-the-flow'.
 
     The parameters for the internal Ecu object are obtained from the kwargs
     dict.
-    :param logging: Turn logging on or off. Default is on.
-    :param verbose: Turn tracking on or off. Default is on.
-    :param store_supported_responses: Create a list of supported responses,
-                                      if True.
 
-    Usage:
-    >>> sniff(session=EcuSession)
+    `logging`: Turn logging on or off. Default is on.
+    `verbose`: Turn tracking on or off. Default is on.
+    `store_supported_responses`: Create a list of supported responses, if True.
+
+    Example:
+        >>> sniff(session=EcuSession)
+
     """
     def __init__(self, *args, **kwargs):
         # type: (Any, Any) -> None
@@ -410,9 +414,10 @@ class EcuResponse:
     A list of this objects can be used to configure an EcuAnsweringMachine.
     This is useful, if you want to clone the behaviour of a real Ecu.
 
-    Usage:
-    >>> EcuResponse(EcuState(session=2, security_level=2), responses=UDS()/UDS_RDBIPR(dataIdentifier=2)/Raw(b"deadbeef1"))  # noqa: E501
-    >>> EcuResponse([EcuState(session=range(2, 5), security_level=2), EcuState(session=3, security_level=5)], responses=UDS()/UDS_RDBIPR(dataIdentifier=9)/Raw(b"deadbeef4"))  # noqa: E501
+    Example:
+        >>> EcuResponse(EcuState(session=2, security_level=2), responses=UDS()/UDS_RDBIPR(dataIdentifier=2)/Raw(b"deadbeef1"))  # noqa: E501
+        >>> EcuResponse([EcuState(session=range(2, 5), security_level=2), EcuState(session=3, security_level=5)], responses=UDS()/UDS_RDBIPR(dataIdentifier=9)/Raw(b"deadbeef4"))  # noqa: E501
+
     """
     def __init__(self, state=None, responses=Raw(b"\x7f\x10"), answers=None):
         # type: (Optional[Union[EcuState, Iterable[EcuState]]], Union[Iterable[Packet], PacketList, Packet], Optional[Callable[[Packet, Packet], bool]]) -> None  # noqa: E501
