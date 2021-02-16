@@ -7,7 +7,7 @@
 # scapy.contrib.status = loads
 
 from scapy.fields import XIntField, IntField, IntEnumField, StrLenField, \
-    FieldListField, ConditionalField, PacketField
+    FieldListField, ConditionalField, PacketField, FieldLenField
 from scapy.packet import Packet, bind_layers
 import struct
 
@@ -73,6 +73,31 @@ class Auth_Unix(Packet):
         return '', s
 
 
+class Auth_RPCSEC_GSS(Packet):
+    name = 'Auth RPCSEC_GSS'
+    fields_desc = [
+        IntField('gss_version', 0),
+        IntField('gss_procedure', 0),
+        IntField('gss_seq_num', 0),
+        IntField('gss_service', 0),
+        PacketField('gss_context', Object_Name(), Object_Name)
+    ]
+
+    def extract_padding(self, s):
+        return '', s
+
+
+class Verifier_RPCSEC_GSS(Packet):
+    name = 'Verifier RPCSEC_GSS'
+    fields_desc = [
+        FieldLenField("len", None, length_of="data"),
+        StrLenField("data", "", length_from=lambda pkt:pkt.len)
+    ]
+
+    def extract_padding(self, s):
+        return '', s
+
+
 class RPC_Call(Packet):
     name = 'RPC Call'
 
@@ -81,17 +106,38 @@ class RPC_Call(Packet):
         IntField('program', 100003),
         IntField('pversion', 3),
         IntField('procedure', 0),
-        IntEnumField('aflavor', 1, {0: 'AUTH_NULL', 1: 'AUTH_UNIX'}),
+        IntEnumField(
+            'aflavor', 1,
+            {0: 'AUTH_NULL', 1: 'AUTH_UNIX', 6: 'RPCSEC_GSS'}
+        ),
         IntField('alength', None),
         ConditionalField(
             PacketField('a_unix', Auth_Unix(), Auth_Unix),
             lambda pkt: pkt.aflavor == 1
         ),
-        IntEnumField('vflavor', 0, {0: 'AUTH_NULL', 1: 'AUTH_UNIX'}),
-        IntField('vlength', None),
+        ConditionalField(
+            PacketField('a_rpcsec_gss', Auth_RPCSEC_GSS(), Auth_RPCSEC_GSS),
+            lambda pkt: pkt.aflavor == 6
+        ),
+        IntEnumField(
+            'vflavor', 0,
+            {0: 'AUTH_NULL', 1: 'AUTH_UNIX', 6: 'RPCSEC_GSS'}
+        ),
+        ConditionalField(
+            IntField('vlength', None),
+            lambda pkt: pkt.vflavor != 6
+        ),
         ConditionalField(
             PacketField('v_unix', Auth_Unix(), Auth_Unix),
             lambda pkt: pkt.vflavor == 1
+        ),
+        ConditionalField(
+            PacketField(
+                'v_rpcsec_gss',
+                Verifier_RPCSEC_GSS(),
+                Verifier_RPCSEC_GSS
+            ),
+            lambda pkt: pkt.vflavor == 6
         )
     ]
 
@@ -118,8 +164,13 @@ class RPC_Call(Packet):
             # default will be correct
             return Packet.post_build(self, pkt, pay)
         if self.aflavor != 0 and self.alength is None:
+            if self.aflavor == 6:
+                pack_len = len(self.a_rpcsec_gss)
+            else:
+                pack_len = len(self.a_unix)
+
             pkt = pkt[:20] \
-                + struct.pack('!I', len(self.a_unix)) \
+                + struct.pack('!I', pack_len) \
                 + pkt[24:]
             return Packet.post_build(self, pkt, pay)
         if self.vflavor != 0 and self.vlength is None:
