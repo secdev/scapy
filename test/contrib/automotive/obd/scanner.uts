@@ -33,6 +33,30 @@ conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
 
 = Create answers
 
+s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
+
+s1_pid00 = OBD() / OBD_S01_PR(data_records=[OBD_S01_PR_Record() / OBD_PID00(supported_pids="PID03+PID0B+PID0F")])
+s6_mid00 = OBD() / OBD_S06_PR(data_records=[OBD_S06_PR_Record() / OBD_MID00(supported_mids="")])
+s8_tid00 = OBD() / OBD_S08_PR(data_records=[OBD_S08_PR_Record() / OBD_TID00(supported_tids="")])
+s9_iid00 = OBD() / OBD_S09_PR(data_records=[OBD_S09_PR_Record() / OBD_IID00(supported_iids="")])
+
+
+s1_pid01 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID01()])
+s1_pid03 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID03(fuel_system1=0, fuel_system2=2)])
+s1_pid0B = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0B(data=100)])
+s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)])
+
+example_responses = \
+    [EcuResponse(responses=s3),
+     EcuResponse(responses=s1_pid00),
+     EcuResponse(responses=s6_mid00),
+     EcuResponse(responses=s8_tid00),
+     EcuResponse(responses=s9_iid00),
+     EcuResponse(responses=s1_pid01),
+     EcuResponse(responses=s1_pid03),
+     EcuResponse(responses=s1_pid0B),
+     EcuResponse(responses=s1_pid0F)]
+
 responses = [
     EcuResponse(responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=0)/OBD_PID00(supported_pids=3191777299)])),
     EcuResponse(responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=1)/OBD_PID01(mil=0, dtc_count=0, reserved1=0, continuous_tests_ready=0, reserved2=0, continuous_tests_supported=7, once_per_trip_tests_supported=225, once_per_trip_tests_ready=0)])),
