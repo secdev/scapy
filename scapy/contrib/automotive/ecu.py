@@ -155,9 +155,11 @@ class EcuStateModifier(object):
         """
         Helper function to determine if a Packet contains a layer which
         modifies the EcuState, more technical, derives from `EcuStateModifier`.
+
         :param pkt: Packet to be analyzed
         :return: True if pkt contains at least one layer which is an instance
-                 of `EcuStateModifier`
+                 of `EcuStateModifier`.
+
         """
         return any(issubclass(layer, EcuStateModifier)
                    for layer in pkt.layers())
@@ -382,7 +384,7 @@ class EcuSession(DefaultSession):
     dict.
     :param logging: Turn logging on or off. Default is on.
     :param verbose: Turn tracking on or off. Default is on.
-    :param store_supported_responses: Create a list of supported responses
+    :param store_supported_responses: Create a list of supported responses,
                                       if True.
 
     Usage:
