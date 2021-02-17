@@ -450,20 +450,21 @@ def rdcandump(filename, count=-1, interface=None):
 
 
 class CandumpReader:
-    """A stateful candump reader. Each packet is returned as a CAN packet"""
+    """A stateful candump reader. Each packet is returned as a CAN packet.
+
+    Creates a CandumpReader object
+
+    :param filename: filename of a candump logfile, compressed or
+                     uncompressed, or a already opened file object.
+    :param interface: Name of a interface, if candump contains messages
+                      of multiple interfaces and only one messages from a
+                      specific interface are wanted.
+    """
 
     nonblocking_socket = True
 
     def __init__(self, filename, interface=None):
         # type: (str, Optional[Union[List[str], str]]) -> None
-        """Creates a CandumpReader object
-
-        :param filename: filename of a candump logfile, compressed or
-                         uncompressed, or a already opened file object.
-        :param interface: Name of a interface, if candump contains messages
-                          of multiple interfaces and only one messages from a
-                          specific interface are wanted.
-        """
         self.filename, self.f = self.open(filename)
         self.ifilter = None  # type: Optional[List[str]]
         if interface is not None:
