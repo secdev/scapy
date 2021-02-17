@@ -17,7 +17,7 @@ import time
 import types
 
 from scapy.compat import plain_str
-from scapy.data import ETH_P_ALL, MTU
+from scapy.data import ETH_P_ALL
 from scapy.config import conf
 from scapy.error import warning
 from scapy.interfaces import (
