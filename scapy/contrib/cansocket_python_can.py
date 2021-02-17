@@ -281,24 +281,22 @@ class SocketWrapper(can_BusABC):
 
 
 class PythonCANSocket(SuperSocket):
+    """Initializes a python-can bus object as Scapy PythonCANSocket.
+
+    All provided keyword arguments, except *basecls* are forwarded to
+    the python-can can_Bus init function. For further details on python-can
+    check: https://python-can.readthedocs.io/
+
+    Example:
+        >>> socket = PythonCANSocket(bustype='socketcan', channel='vcan0', bitrate=250000)  # noqa: E501
+    """
     desc = "read/write packets at a given CAN interface " \
            "using a python-can bus object"
     nonblocking_socket = True
 
     def __init__(self, **kwargs):
         # type: (Dict[str, Any]) -> None
-        """Initializes a python-can bus object as Scapy PythonCANSocket.
 
-        All provided keyword arguments, except **basecls** are forwarded to
-        the python-can can_Bus init function. For further details on python-can
-        check: https://python-can.readthedocs.io/
-
-        Example:
-        --------
-        >>> socket = PythonCANSocket(bustype='socketcan', channel='vcan0', bitrate=250000)  # noqa: E501
-
-        :param kwargs:
-        """
         self.basecls = None  # type: Optional[Type[Packet]]
         try:
             self.basecls = cast(Type[Packet], kwargs.pop("basecls"))

@@ -61,11 +61,11 @@ class CAN(Packet):
     configured for both use cases.
 
     Configuration ``swap-bytes``:
-    ** Wireshark dissection: **
-    >>> conf.contribs['CAN']['swap-bytes'] = False
+        Wireshark dissection:
+            >>> conf.contribs['CAN']['swap-bytes'] = False
 
-    ** PF_CAN Socket dissection: **
-    >>> conf.contribs['CAN']['swap-bytes'] = True
+        PF_CAN Socket dissection:
+            >>> conf.contribs['CAN']['swap-bytes'] = True
 
     Configuration ``remove-padding``:
     Linux PF_CAN Sockets always return 16 bytes per CAN frame receive.
@@ -75,11 +75,12 @@ class CAN(Packet):
     the wire, this additional padding has to be removed. Nevertheless, for
     corner cases, it might be useful to also get the padding. This can be
     configuered through the **remove-padding** configuration.
-    ** Truncate CAN frame based on length field **
-    >>> conf.contribs['CAN']['remove-padding'] = True
 
-    ** Show entire CAN frame received from socket **
-    >>> conf.contribs['CAN']['remove-padding'] = False
+    Truncate CAN frame based on length field:
+        >>> conf.contribs['CAN']['remove-padding'] = True
+
+    Show entire CAN frame received from socket:
+        >>> conf.contribs['CAN']['remove-padding'] = False
 
     """
     fields_desc = [

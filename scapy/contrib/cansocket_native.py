@@ -26,24 +26,24 @@ conf.contribs['NativeCANSocket'] = {'channel': "can0"}
 
 
 class NativeCANSocket(SuperSocket):
+    """Initializes a Linux PF_CAN socket object.
+
+    Example:
+        >>> socket = NativeCANSocket(channel="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x7FF}])  # noqa: E501
+
+    :param channel: Network interface name
+    :param receive_own_messages: Messages, sent by this socket are will
+                                 also be received.
+    :param can_filters: A list of can filter dictionaries.
+    :param basecls: Packet type in which received data gets interpreted.
+    :param kwargs: Various keyword arguments for compatibility with
+                   PythonCANSockets
+    """
     desc = "read/write packets at a given CAN interface using PF_CAN sockets"
 
     def __init__(self, channel=None, receive_own_messages=False,
                  can_filters=None, basecls=CAN, **kwargs):
         # type: (Optional[str], bool, Optional[List[Dict[str, int]]], Type[Packet], Dict[str, Any]) -> None  # noqa: E501
-        """Initializes a Linux PF_CAN socket object.
-
-        Example:
-        >>> socket = NativeCANSocket(channel="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x7FF}])  # noqa: E501
-
-        :param channel: Network interface name
-        :param receive_own_messages: Messages, sent by this socket are will
-                                     also be received.
-        :param can_filters: A list of can filter dictionaries.
-        :param basecls: Packet type in which received data gets interpreted.
-        :param kwargs: Various keyword arguments for compatibility with
-                       PythonCANSockets
-        """
         bustype = kwargs.pop("bustype", "")
         if bustype != "socketcan":
             warning("You created a NativeCANSocket. "
