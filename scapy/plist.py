@@ -15,8 +15,13 @@ from collections import defaultdict
 
 from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
-from scapy.base_classes import BasePacket, BasePacketList, \
-    _CanvasDumpExtended, PacketList_metaclass
+from scapy.base_classes import (
+    BasePacket,
+    BasePacketList,
+    PacketList_metaclass,
+    SetGen,
+    _CanvasDumpExtended,
+)
 from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
     make_tex_table, issubtype
 from scapy.extlib import plt, Line2D, \
@@ -34,6 +39,7 @@ from scapy.compat import (
     Generic,
     Iterator,
     List,
+    NamedTuple,
     Optional,
     Tuple,
     Type,
@@ -47,7 +53,13 @@ from scapy.packet import Packet
 #  Results  #
 #############
 
-_Inner = TypeVar("_Inner", Packet, Tuple[Packet, Packet])
+
+QueryAnswer = NamedTuple(
+    "QueryAnswer",
+    [("query", Packet), ("answer", Packet)]
+)
+
+_Inner = TypeVar("_Inner", Packet, QueryAnswer)
 
 
 @six.add_metaclass(PacketList_metaclass)
@@ -163,10 +175,20 @@ class _PacketList(Generic[_Inner]):
                                   name="mod %s" % self.listname)
         return self.res.__getitem__(item)
 
-    def __add__(self, other):
-        # type: (_PacketList[_Inner]) -> _PacketList[_Inner]
-        return self.__class__(self.res + other.res,
-                              name="%s+%s" % (self.listname, other.listname))
+    _T = TypeVar('_T', 'SndRcvList', 'PacketList')
+
+    # Hinting hack: type self
+    def __add__(self,  # type: _PacketList._T  # type: ignore
+                other  # type: _PacketList._T
+                ):
+        # type: (...) -> _PacketList._T
+        return self.__class__(
+            self.res + other.res,
+            name="%s+%s" % (
+                self.listname,
+                other.listname
+            )
+        )
 
     def summary(self,
                 prn=None,  # type: Optional[Callable[..., Any]]
@@ -768,7 +790,7 @@ class PacketList(_PacketList[Packet],
         :return: ( (matched couples), (unmatched packets) )
         """
         remain = self.res[:]
-        sr = []  # type: List[Tuple[Packet, Packet]]
+        sr = []  # type: List[QueryAnswer]
         i = 0
         if lookahead is None or lookahead == 0:
             lookahead = len(remain)
@@ -779,7 +801,7 @@ class PacketList(_PacketList[Packet],
                 j += 1
                 r = remain[j]
                 if r.answers(s):
-                    sr.append((s, r))
+                    sr.append(QueryAnswer(s, r))
                     if multi:
                         remain[i]._answered = 1
                         remain[j]._answered = 2
@@ -794,13 +816,21 @@ class PacketList(_PacketList[Packet],
         return SndRcvList(sr), PacketList(remain)
 
 
-class SndRcvList(_PacketList[Tuple[Packet, Packet]],
-                 BasePacketList[Tuple[Packet, Packet]],
+_PacketIterable = Union[
+    List[Packet],
+    Packet,
+    SetGen[Packet],
+    _PacketList[Packet]
+]
+
+
+class SndRcvList(_PacketList[QueryAnswer],
+                 BasePacketList[QueryAnswer],
                  _CanvasDumpExtended):
     __slots__ = []  # type: List[str]
 
     def __init__(self,
-                 res=None,  # type: Optional[Union[_PacketList[Tuple[Packet, Packet]], List[Tuple[Packet, Packet]]]]  # noqa: E501
+                 res=None,  # type: Optional[Union[_PacketList[QueryAnswer], List[QueryAnswer]]]  # noqa: E501
                  name="Results",  # type: str
                  stats=None  # type: Optional[List[Type[Packet]]]
                  ):
@@ -808,9 +838,9 @@ class SndRcvList(_PacketList[Tuple[Packet, Packet]],
         super(SndRcvList, self).__init__(res, name, stats)
 
     def _elt2pkt(self, elt):
-        # type: (Tuple[Packet, Packet]) -> Packet
+        # type: (QueryAnswer) -> Packet
         return elt[1]
 
     def _elt2sum(self, elt):
-        # type: (Tuple[Packet, Packet]) -> str
+        # type: (QueryAnswer) -> str
         return "%s ==> %s" % (elt[0].summary(), elt[1].summary())
