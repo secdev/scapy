@@ -41,6 +41,7 @@ from scapy.compat import (
     Tuple,
     Type,
     cast,
+    Callable
 )
 
 # Utils

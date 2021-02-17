@@ -305,12 +305,12 @@ class PythonCANSocket(SuperSocket):
         except KeyError:
             self.basecls = CAN
 
-        self.iface = SocketWrapper(**kwargs)
+        self.can_iface = SocketWrapper(**kwargs)
 
     def recv_raw(self, x=0xffff):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
         """Returns a tuple containing (cls, pkt_data, time)"""
-        msg = self.iface.recv()
+        msg = self.can_iface.recv()
 
         hdr = msg.is_extended_id << 31 | msg.is_remote_frame << 30 | \
             msg.is_error_frame << 29 | msg.arbitration_id
@@ -335,7 +335,7 @@ class PythonCANSocket(SuperSocket):
             x.sent_time = msg.timestamp
         except AttributeError:
             pass
-        self.iface.send(msg)
+        self.can_iface.send(msg)
         return len(x)
 
     @staticmethod
@@ -350,7 +350,7 @@ class PythonCANSocket(SuperSocket):
         """
         SocketsPool().multiplex_rx_packets()
         return [s for s in sockets if isinstance(s, PythonCANSocket) and
-                not s.iface.rx_queue.empty()]
+                not s.can_iface.rx_queue.empty()]
 
     def close(self):
         # type: () -> None
@@ -358,7 +358,7 @@ class PythonCANSocket(SuperSocket):
         if self.closed:
             return
         super(PythonCANSocket, self).close()
-        self.iface.shutdown()
+        self.can_iface.shutdown()
 
 
 CANSocket = PythonCANSocket
