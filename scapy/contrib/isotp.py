@@ -72,6 +72,16 @@ N_PCI_FC = 0x30  # /* flow control */
 
 
 class ISOTP(Packet):
+    """Packet class for ISOTP messages. This class contains additional
+    slots for source address (src), destination address (dst),
+    extended source address (exsrc) and
+    extended destination address (exdst) information. This information
+    gets filled from ISOTPSockets or the ISOTPMessageBuilder, if it
+    is available. Address information is not used for Packet comparison.
+
+    :param args: Arguments for Packet init, for example bytes string
+    :param kwargs: Keyword arguments for Packet init.
+    """
     name = 'ISOTP'
     fields_desc = [
         StrField('data', b"")
@@ -80,16 +90,6 @@ class ISOTP(Packet):
 
     def __init__(self, *args, **kwargs):
         # type: (Any, Any) -> None
-        """Packet class for ISOTP messages. This class contains additional
-        slots for source address (src), destination address (dst),
-        extended source address (exsrc) and
-        extended destination address (exdst) information. This information
-        gets filled from ISOTPSockets or the ISOTPMessageBuilder, if it
-        is available. Address information is not used for Packet comparison.
-
-        :param args: Arguments for Packet init, for example bytes string
-        :param kwargs: Keyword arguments for Packet init.
-        """
         self.src = kwargs.pop("src", None)  # type: Optional[int]
         self.dst = kwargs.pop("dst", None)  # type: Optional[int]
         self.exsrc = kwargs.pop("exsrc", None)  # type: Optional[int]
@@ -359,6 +359,8 @@ class ISOTPMessageBuilderIter(object):
 
 class ISOTPMessageBuilder(object):
     """
+    Initialize a ISOTPMessageBuilder object
+
     Utility class to build ISOTP messages out of CAN frames, used by both
     ISOTP.defragment() and ISOTPSession.
 
@@ -369,6 +371,14 @@ class ISOTPMessageBuilder(object):
 
     CAN frames are fed to an ISOTPMessageBuilder object with the feed() method
     and the resulting ISOTP frames can be extracted using the pop() method.
+
+    :param use_ext_addr: True for only attempting to defragment with
+                         extended addressing, False for only attempting
+                         to defragment without extended addressing,
+                         or None for both
+    :param did: Destination Identifier
+    :param basecls: The class of packets that will be returned,
+                    defaults to ISOTP
     """
 
     class Bucket(object):
@@ -399,16 +409,6 @@ class ISOTPMessageBuilder(object):
 
     def __init__(self, use_ext_addr=None, did=None, basecls=ISOTP):
         # type: (Optional[bool], Optional[Union[int, List[int], Iterable[int]]], Type[Packet]) -> None  # noqa: E501
-        """Initialize a ISOTPMessageBuilder object
-
-        :param use_ext_addr: True for only attempting to defragment with
-                             extended addressing, False for only attempting
-                             to defragment without extended addressing,
-                             or None for both
-        :param did: Destination Identifier
-        :param basecls: The class of packets that will be returned,
-                        defaults to ISOTP
-        """
         self.ready = []  # type: List[Tuple[int, Optional[int], ISOTPMessageBuilder.Bucket]]  # noqa: E501
         self.buckets = {}  # type: Dict[Tuple[Optional[int], int, int], ISOTPMessageBuilder.Bucket]  # noqa: E501
         self.use_ext_addr = use_ext_addr
@@ -625,7 +625,7 @@ class ISOTPSession(DefaultSession):
     """Defragment ISOTP packets 'on-the-flow'.
 
     Usage:
-    >>> sniff(session=ISOTPSession)
+        >>> sniff(session=ISOTPSession)
     """
     def __init__(self, *args, **kwargs):
         # type: (Any, Any) -> None
@@ -673,7 +673,38 @@ class ISOTPSoftSocket(SuperSocket):
     * Upon destruction, ISOTPSoftSocket.close() will be called
     * ISOTPSoftSocket.close() will call ISOTPSocketImplementation.close()
     * RX background thread can be stopped by the garbage collector
-    """
+
+    Initialize an ISOTPSoftSocket using the provided underlying can socket.
+
+    Example (with NativeCANSocket underneath):
+        >>> conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+        >>> load_contrib('isotp')
+        >>> with ISOTPSocket("can0", sid=0x641, did=0x241) as sock:
+        >>>     sock.send(...)
+
+    Example (with PythonCANSocket underneath):
+        >>> conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+        >>> conf.contribs['CANSocket'] = {'use-python-can': True}
+        >>> load_contrib('isotp')
+        >>> with ISOTPSocket(CANSocket(bustype='socketcan', channel="can0"), sid=0x641, did=0x241) as sock:
+        >>>     sock.send(...)
+
+    :param can_socket: a CANSocket instance, preferably filtering only can
+                       frames with identifier equal to did
+    :param sid: the CAN identifier of the sent CAN frames
+    :param did: the CAN identifier of the received CAN frames
+    :param extended_addr: the extended address of the sent ISOTP frames
+                          (can be None)
+    :param extended_rx_addr: the extended address of the received ISOTP
+                             frames (can be None)
+    :param rx_block_size: block size sent in Flow Control ISOTP frames
+    :param rx_separation_time_min: minimum desired separation time sent in
+                                   Flow Control ISOTP frames
+    :param padding: If True, pads sending packets with 0x00 which not
+                    count to the payload.
+                    Does not affect receiving packets.
+    :param basecls: base class of the packets emitted by this socket
+    """   # noqa: E501
 
     nonblocking_socket = True
 
@@ -689,25 +720,6 @@ class ISOTPSoftSocket(SuperSocket):
                  listen_only=False,
                  basecls=ISOTP):
         # type: (Optional["CANSocket"], int, int, Optional[int], Optional[int], int, int, bool, bool, Type[Packet]) -> None  # noqa: E501
-        """
-        Initialize an ISOTPSoftSocket using the provided underlying can socket
-
-        :param can_socket: a CANSocket instance, preferably filtering only can
-                           frames with identifier equal to did
-        :param sid: the CAN identifier of the sent CAN frames
-        :param did: the CAN identifier of the received CAN frames
-        :param extended_addr: the extended address of the sent ISOTP frames
-                              (can be None)
-        :param extended_rx_addr: the extended address of the received ISOTP
-                                 frames (can be None)
-        :param rx_block_size: block size sent in Flow Control ISOTP frames
-        :param rx_separation_time_min: minimum desired separation time sent in
-                                       Flow Control ISOTP frames
-        :param padding: If True, pads sending packets with 0x00 which not
-                        count to the payload.
-                        Does not affect receiving packets.
-        :param basecls: base class of the packets emitted by this socket
-        """
 
         if six.PY3 and LINUX and isinstance(can_socket, six.string_types):
             from scapy.contrib.cansocket_native import NativeCANSocket
@@ -842,19 +854,18 @@ class CANReceiverThread(Thread):
     and not being lost if they come before the sniff method is called. This is
     true in general since sniff is usually implemented as repeated recv(), but
     might be false in some implementation of CANSocket
+
+    Initialize the thread. In order for this thread to be able to be
+    stopped by the destructor of another object, it is important to not
+    keep a reference to the object in the callback function.
+
+    :param socket: the CANSocket upon which this class will call the
+                   sniff() method
+    :param callback: function to call whenever a CAN frame is received
     """
 
     def __init__(self, can_socket, callback):
         # type: ("CANSocket", Callable[[Packet], None]) -> None
-        """
-        Initialize the thread. In order for this thread to be able to be
-        stopped by the destructor of another object, it is important to not
-        keep a reference to the object in the callback function.
-
-        :param socket: the CANSocket upon which this class will call the
-                       sniff() method
-        :param callback: function to call whenever a CAN frame is received
-        """
         self.socket = can_socket
         self.callback = callback
         self.exiting = False
@@ -1167,6 +1178,29 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
     This class is separated from ISOTPSoftSocket to make sure the background
     thread can't hold a reference to ISOTPSoftSocket, allowing it to be
     collected by the GC.
+
+    :param can_socket: a CANSocket instance, preferably filtering only can
+                       frames with identifier equal to did
+    :param src_id: the CAN identifier of the sent CAN frames
+    :param dst_id: the CAN identifier of the received CAN frames
+    :param padding: If True, pads sending packets with 0x00 which not
+                    count to the payload.
+                    Does not affect receiving packets.
+    :param extended_addr: Extended Address byte to be added at the
+            beginning of every CAN frame _sent_ by this object. Can be None
+            in order to disable extended addressing on sent frames.
+    :param extended_rx_addr: Extended Address byte expected to be found at
+            the beginning of every CAN frame _received_ by this object. Can
+            be None in order to disable extended addressing on received
+            frames.
+    :param rx_block_size: Block Size byte to be included in every Control
+            Flow Frame sent by this object. The default value of 0 means
+            that all the data will be received in a single block.
+    :param rx_separation_time_min: Time Minimum Separation byte to be
+            included in every Control Flow Frame sent by this object. The
+            default value of 0 indicates that the peer will not wait any
+            time between sending frames.
+    :param listen_only: Disables send of flow control frames
     """
 
     def __init__(self,
@@ -1180,31 +1214,6 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                  rx_separation_time_min=0,
                  listen_only=False):
         # type: ("CANSocket", int, int, bool, Optional[int], Optional[int], int, int, bool) -> None  # noqa: E501
-        """
-        :param can_socket: a CANSocket instance, preferably filtering only can
-                           frames with identifier equal to did
-        :param src_id: the CAN identifier of the sent CAN frames
-        :param dst_id: the CAN identifier of the received CAN frames
-        :param padding: If True, pads sending packets with 0x00 which not
-                        count to the payload.
-                        Does not affect receiving packets.
-        :param extended_addr: Extended Address byte to be added at the
-                beginning of every CAN frame _sent_ by this object. Can be None
-                in order to disable extended addressing on sent frames.
-        :param extended_rx_addr: Extended Address byte expected to be found at
-                the beginning of every CAN frame _received_ by this object. Can
-                be None in order to disable extended addressing on received
-                frames.
-        :param rx_block_size: Block Size byte to be included in every Control
-                Flow Frame sent by this object. The default value of 0 means
-                that all the data will be received in a single block.
-        :param rx_separation_time_min: Time Minimum Separation byte to be
-                included in every Control Flow Frame sent by this object. The
-                default value of 0 indicates that the peer will not wait any
-                time between sending frames.
-        :param listen_only: Disables send of flow control frames
-        """
-
         automaton.SelectableObject.__init__(self)
 
         self.can_socket = can_socket
