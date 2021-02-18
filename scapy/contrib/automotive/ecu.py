@@ -195,9 +195,9 @@ class EcuStateModifier(object):
 
 class Ecu(object):
     """An Ecu object can be used to
-        - track the states of an Ecu.
-        - to log all modification to an Ecu.
-        - to extract supported responses of a real Ecu.
+        * track the states of an Ecu.
+        * to log all modification to an Ecu.
+        * to extract supported responses of a real Ecu.
 
     Example:
         >>> print("This ecu logs, tracks and creates supported responses")
@@ -205,10 +205,10 @@ class Ecu(object):
         >>> my_virtual_ecu.update(PacketList([...]))
         >>> my_virtual_ecu.supported_responses
         >>> print("Another ecu just tracks")
-        >>> my_tracking_ecu = Ecu(logging=False, store_supported_responses=False)  # noqa: E501
+        >>> my_tracking_ecu = Ecu(logging=False, store_supported_responses=False)
         >>> my_tracking_ecu.update(PacketList([...]))
         >>> print("Another ecu just logs all modifications to it")
-        >>> my_logging_ecu = Ecu(verbose=False, store_supported_responses=False)  # noqa: E501
+        >>> my_logging_ecu = Ecu(verbose=False, store_supported_responses=False)
         >>> my_logging_ecu.update(PacketList([...]))
         >>> my_logging_ecu.log
         >>> print("Another ecu just creates supported responses")
@@ -216,20 +216,16 @@ class Ecu(object):
         >>> my_response_ecu.update(PacketList([...]))
         >>> my_response_ecu.supported_responses
 
-    """
+    Paremeters to initialize an Ecu object
+
+    :param logging: Turn logging on or off. Default is on.
+    :param verbose: Turn tracking on or off. Default is on.
+    :param store_supported_responses: Create a list of supported responses if True.
+    :param lookahead: Configuration for lookahead when computing supported responses
+    """    # noqa: E501
     def __init__(self, logging=True, verbose=True,
                  store_supported_responses=True, lookahead=10):
         # type: (bool, bool, bool, int) -> None
-        """
-        Initialize an Ecu object
-
-        :param logging: Turn logging on or off. Default is on.
-        :param verbose: Turn tracking on or off. Default is on.
-        :param store_supported_responses: Create a list of supported responses
-                                          if True.
-        :param lookahead: Configuration for lookahead when computing supported
-                          responses
-        """
         self.state = EcuState()
         self.verbose = verbose
         self.logging = logging
@@ -415,30 +411,28 @@ class EcuResponse:
     This is useful, if you want to clone the behaviour of a real Ecu.
 
     Example:
-        >>> EcuResponse(EcuState(session=2, security_level=2), responses=UDS()/UDS_RDBIPR(dataIdentifier=2)/Raw(b"deadbeef1"))  # noqa: E501
-        >>> EcuResponse([EcuState(session=range(2, 5), security_level=2), EcuState(session=3, security_level=5)], responses=UDS()/UDS_RDBIPR(dataIdentifier=9)/Raw(b"deadbeef4"))  # noqa: E501
+        >>> EcuResponse(EcuState(session=2, security_level=2), responses=UDS()/UDS_RDBIPR(dataIdentifier=2)/Raw(b"deadbeef1"))
+        >>> EcuResponse([EcuState(session=range(2, 5), security_level=2), EcuState(session=3, security_level=5)], responses=UDS()/UDS_RDBIPR(dataIdentifier=9)/Raw(b"deadbeef4"))
 
-    """
+    Initialize an EcuResponse capsule
+
+    :param state: EcuState or list of EcuStates in which this response
+                  is allowed to be sent. If no state provided, the response
+                  packet will always be send.
+    :param responses: A Packet or a list of Packet objects. By default the
+                      last packet is asked if it answers an incoming
+                      packet. This allows to send for example
+                      `requestCorrectlyReceived-ResponsePending` packets.
+    :param answers: Optional argument to provide a custom answer here:
+                    `lambda resp, req: return resp.answers(req)`
+                    This allows the modification of a response depending
+                    on a request. Custom SecurityAccess mechanisms can
+                    be implemented in this way or generic NegativeResponse
+                    messages which answers to everything can be realized
+                    in this way.
+    """   # noqa: E501
     def __init__(self, state=None, responses=Raw(b"\x7f\x10"), answers=None):
         # type: (Optional[Union[EcuState, Iterable[EcuState]]], Union[Iterable[Packet], PacketList, Packet], Optional[Callable[[Packet, Packet], bool]]) -> None  # noqa: E501
-        """
-        Initialize an EcuResponse capsule
-
-        :param state: EcuState or list of EcuStates in which this response
-                      is allowed to be sent. If no state provided, the response
-                      packet will always be send.
-        :param responses: A Packet or a list of Packet objects. By default the
-                          last packet is asked if it answers an incoming
-                          packet. This allows to send for example
-                          `requestCorrectlyReceived-ResponsePending` packets.
-        :param answers: Optional argument to provide a custom answer here:
-                        `lambda resp, req: return resp.answers(req)`
-                        This allows the modification of a response depending
-                        on a request. Custom SecurityAccess mechanisms can
-                        be implemented in this way or generic NegativeResponse
-                        messages which answers to everything can be realized
-                        in this way.
-        """
         if state is None:
             self.__states = None  # type: Optional[List[EcuState]]
         else:
@@ -539,12 +533,12 @@ class EcuAnsweringMachine(AnsweringMachine):
     AnsweringMachine.
 
     Usage:
-    >>> resp = EcuResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))
-    >>> sock = ISOTPSocket(can_iface, sid=0x700, did=0x600, basecls=UDS)
-    >>> answering_machine = EcuAnsweringMachine(supported_responses=[resp], main_socket=sock, basecls=UDS)
-    >>> sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout':5})
-    >>> sim.start()  # noqa: E501
-    """
+        >>> resp = EcuResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))
+        >>> sock = ISOTPSocket(can_iface, sid=0x700, did=0x600, basecls=UDS)
+        >>> answering_machine = EcuAnsweringMachine(supported_responses=[resp], main_socket=sock, basecls=UDS)
+        >>> sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout':5})
+        >>> sim.start()
+    """  # noqa: E501
     function_name = "EcuAnsweringMachine"
     sniff_options_list = ["store", "opened_socket", "count", "filter", "prn",
                           "stop_filter", "timeout"]
