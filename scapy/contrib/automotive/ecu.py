@@ -216,7 +216,7 @@ class Ecu(object):
         >>> my_response_ecu.update(PacketList([...]))
         >>> my_response_ecu.supported_responses
 
-    Paremeters to initialize an Ecu object
+    Parameters to initialize an Ecu object
 
     :param logging: Turn logging on or off. Default is on.
     :param verbose: Turn tracking on or off. Default is on.
