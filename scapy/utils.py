@@ -1512,6 +1512,7 @@ class RawPcapNgReader(RawPcapReader):
                 block[:8]
             ) + (options["tsresol"],)  # type: Tuple[int, int, int]
         except struct.error:
+            warning("PcapNg: IDB is too small %d/8 !" % len(block))
             raise EOFError
         self.interfaces.append(interface)
 
@@ -1532,6 +1533,7 @@ class RawPcapNgReader(RawPcapReader):
                 block[:20],
             )
         except struct.error:
+            warning("PcapNg: EPB is too small %d/20 !" % len(block))
             raise EOFError
 
         self._check_interface_id(intid)
