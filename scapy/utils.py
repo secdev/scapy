@@ -1551,7 +1551,12 @@ class RawPcapNgReader(RawPcapReader):
         intid = 0
         self._check_interface_id(intid)
 
-        wirelen, = struct.unpack(self.endian + "I", block[:4])
+        try:
+            wirelen, = struct.unpack(self.endian + "I", block[:4])
+        except struct.error:
+            warning("PcapNg: SPB is too small %d/4 !" % len(block))
+            raise EOFError
+
         caplen = min(wirelen, self.interfaces[intid][1])
         return (block[4:4 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
