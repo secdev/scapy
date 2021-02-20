@@ -72,8 +72,8 @@ def get_if_raw_addr(ifname):
     if subproc.returncode:
         warning("Failed to execute ifconfig: (%s)", plain_str(stderr).strip())
         return b"\0\0\0\0"
-    # Get IPv4 addresses
 
+    # Get IPv4 addresses
     addresses = [
         line.strip() for line in plain_str(stdout).splitlines()
         if "inet " in line
