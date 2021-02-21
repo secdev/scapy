@@ -2153,6 +2153,14 @@ assert raw(pkt) in f.getvalue()
 f.close()
 del f, pkt
 
+= Check sniff() offline with linktype & 802.11 filter
+~ tcpdump
+
+fd = get_temp_file()
+wrpcap(fd, [RadioTap()/Dot11()/Dot11ProbeReq(), RadioTap()/Dot11()])
+lst = sniff(offline=fd, filter="subtype probe-req")
+assert len(lst) == 1
+
 = Check tcpdump() command rejects non-string input for prog
 
 pkt = Ether()/IP()/ICMP()

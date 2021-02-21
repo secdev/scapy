@@ -1974,20 +1974,19 @@ def tdecode(
 def _guess_linktype_name(value):
     # type: (int) -> str
     """Guess the DLT name from its value."""
-    import scapy.data
-    return next(  # type: ignore
-        k[4:] for k, v in six.iteritems(scapy.data.__dict__)
-        if k.startswith("DLT") and v == value
-    )
+    from scapy.libs.winpcapy import pcap_datalink_val_to_name
+    return cast(bytes, pcap_datalink_val_to_name(value)).decode()
 
 
 def _guess_linktype_value(name):
     # type: (str) -> int
     """Guess the value of a DLT name."""
-    import scapy.data
-    if not name.startswith("DLT_"):
-        name = "DLT_" + name
-    return scapy.data.__dict__[name]  # type: ignore
+    from scapy.libs.winpcapy import pcap_datalink_name_to_val
+    val = cast(int, pcap_datalink_name_to_val(name.encode()))
+    if val == -1:
+        warning("Unknown linktype: %s. Using EN10MB", name)
+        return DLT_EN10MB
+    return val
 
 
 @conf.commands.register
@@ -2103,8 +2102,6 @@ def tcpdump(
         raise ValueError("prog must be a string")
 
     if linktype is not None:
-        # Tcpdump does not support integers in -y (yet)
-        # https://github.com/the-tcpdump-group/tcpdump/issues/758
         if isinstance(linktype, int):
             # Guess name from value
             try:
@@ -2135,8 +2132,12 @@ def tcpdump(
 
     if flt is not None:
         # Check the validity of the filter
+        if linktype is None and isinstance(pktlist, str):
+            # linktype is unknown but required. Read it from file
+            with PcapReader(pktlist) as rd:
+                linktype = rd.linktype
         from scapy.arch.common import compile_filter
-        compile_filter(flt)
+        compile_filter(flt, linktype=linktype)
         args.append(flt)
 
     stdout = subprocess.PIPE if dump or getfd else None

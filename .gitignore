@@ -6,6 +6,7 @@ MANIFEST
 *.egg-info/
 scapy/VERSION
 test/*.html
+.coverage*
 .tox
 .ipynb_checkpoints
 .mypy_cache
