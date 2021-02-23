@@ -229,7 +229,7 @@ def in6_mactoifaceid(mac, ulbit=None):
     if len(m) != 12:
         raise ValueError("Invalid MAC")
     first = int(m[0:2], 16)
-    if ulbit is None or not (ulbit == 0 or ulbit == 1):
+    if ulbit in (0, 1):
         ulbit = [1, 0, 0][first & 0x02]
     ulbit *= 2
     first_b = "%.02x" % ((first & 0xFD) | ulbit)

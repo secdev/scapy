@@ -649,7 +649,7 @@ class RandRegExp(RandField):
             p = s.find("-")
             if p < 0:
                 break
-            if p == 0 or p == len(s) - 1:
+            if p in (0, len(s) - 1):
                 m = "-"
                 if p:
                     s = s[:-1]
@@ -735,7 +735,7 @@ class RandRegExp(RandField):
                     ch[1].append(current)
                 index.append(current)
                 current = current[0]
-            elif c == '[' or c == '{':
+            elif c in ('[', '{'):
                 current = [current]
                 current[0].append(current)
                 interp = False
@@ -783,7 +783,7 @@ class RandRegExp(RandField):
                     current.pop()
             elif c == '.':
                 current.append(RandChoice(*[chr(x) for x in range(256)]))
-            elif c == '$' or c == '^':
+            elif c in ('$', '^'):
                 pass
             else:
                 current.append(c)

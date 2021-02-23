@@ -655,8 +655,7 @@ def in4_chksum(proto, u, p):
         ln = len(p)
 
     # Filter out IPOption_LSRR and IPOption_SSRR
-    sr_options = [opt for opt in u.options if isinstance(opt, IPOption_LSRR) or
-                  isinstance(opt, IPOption_SSRR)]
+    sr_options = [opt for opt in u.options if isinstance(opt, (IPOption_LSRR, IPOption_SSRR))]
     len_sr_options = len(sr_options)
     if len_sr_options == 1 and len(sr_options[0].routers):
         # The checksum must be computed using the final
@@ -776,7 +775,7 @@ class UDP(Packet):
                 if ck == 0:
                     ck = 0xFFFF
                 p = p[:6] + struct.pack("!H", ck) + p[8:]
-            elif isinstance(self.underlayer, scapy.layers.inet6.IPv6) or isinstance(self.underlayer, scapy.layers.inet6._IPv6ExtHdr):  # noqa: E501
+            elif isinstance(self.underlayer, (scapy.layers.inet6.IPv6, scapy.layers.inet6._IPv6ExtHdr)):  # noqa: E501
                 ck = scapy.layers.inet6.in6_chksum(socket.IPPROTO_UDP, self.underlayer, p)  # noqa: E501
                 # According to RFC2460 if the result checksum is 0, it should be set to 0xFFFF  # noqa: E501
                 if ck == 0:

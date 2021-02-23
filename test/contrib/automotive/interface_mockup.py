@@ -162,7 +162,7 @@ def exit_if_no_isotp_module():
         sys.__stderr__.write(err)
         warning("Can't test ISOTPNativeSocket because "
                 "kernel module isn't loaded")
-        exit(0)
+        sys.exit(0)
 
 
 # ############################################################################

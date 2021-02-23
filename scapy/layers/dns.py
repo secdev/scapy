@@ -271,7 +271,7 @@ class DNSRRCountField(ShortField):
     def _countRR(self, pkt):
         x = getattr(pkt, self.rr)
         i = 0
-        while isinstance(x, DNSRR) or isinstance(x, DNSQR) or isdnssecRR(x):
+        while isinstance(x, (DNSRR, DNSQR)) or isdnssecRR(x):
             x = x.payload
             i += 1
         return i
