@@ -149,7 +149,7 @@ class SndRcvHandler(object):
             self.notans = _flood[0]
         else:
             if isinstance(pkt, types.GeneratorType) or prebuild:
-                self.tobesent = [p for p in pkt]
+                self.tobesent = list(pkt)
                 self.notans = len(self.tobesent)
             else:
                 self.tobesent = (
