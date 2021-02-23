@@ -1887,8 +1887,7 @@ class H2PingFrame(H2FramePayload):
         # RFC7540 par6.7 p42
         assert(
             len(args) == 0 or (
-                (isinstance(args[0], bytes) or
-                 isinstance(args[0], str)) and
+                isinstance(args[0], (bytes, str)) and
                 len(args[0]) == 8
             )
         ), 'Invalid ping frame; length is not 8'
@@ -1931,8 +1930,7 @@ class H2WindowUpdateFrame(H2FramePayload):
         # RFC7540 par6.9 p46
         assert(
             len(args) == 0 or (
-                (isinstance(args[0], bytes) or
-                 isinstance(args[0], str)) and
+                isinstance(args[0], (bytes, str)) and
                 len(args[0]) == 4
             )
         ), 'Invalid window update frame; length is not 4'

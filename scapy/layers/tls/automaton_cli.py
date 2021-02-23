@@ -125,8 +125,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.local_port = None
         self.socket = None
 
-        if (isinstance(client_hello, TLSClientHello) or
-                isinstance(client_hello, TLS13ClientHello)):
+        if isinstance(client_hello, (TLSClientHello, TLS13ClientHello)):
             self.client_hello = client_hello
         else:
             self.client_hello = None
