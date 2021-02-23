@@ -85,7 +85,7 @@ class DRFlags (FlagsField):
             return "None"
         res = hex(int(x))
         r = ''
-        cmdt = (x & 128) and ' Request' or ' Answer'
+        cmdt = ' Request' if (x & 128) else ' Answer'
         if x & 15:  # Check if reserved bits are used
             nb = 8
             offset = 0
@@ -353,7 +353,7 @@ def GuessAvpType(p, **kargs):
         avpCode = struct.unpack("!I", p[:AVP_Code_length])[0]
         vnd = bool(struct.unpack(
             "!B", p[AVP_Code_length:AVP_Code_length + AVP_Flag_length])[0] & 128)  # noqa: E501
-        vndCode = vnd and struct.unpack("!I", p[8:12])[0] or 0
+        vndCode = struct.unpack("!I", p[8:12])[0] if vnd else 0
         # Check if vendor and code defined and fetch the corresponding AVP
         # definition
         if vndCode in AvpDefDict:
@@ -430,7 +430,7 @@ def AVP(avpId, **fields):
         if val:
             fields['avpFlags'] = val[2]
         else:
-            fields['avpFlags'] = vnd and 128 or 0
+            fields['avpFlags'] = 128 if vnd else 0
     # Finally, set the name and class if possible
     if val:
         classType = val[1]
@@ -4799,12 +4799,12 @@ def getCmdParams(cmd, request, **fields):
         drAppId = next(iter(params[2]))   # The first record is taken
         fields['drAppId'] = drAppId
     # Set the command name
-    name = request and params[0] + '-Request' or params[0] + '-Answer'
+    name = params[0] + '-Request' if request else params[0] + '-Answer'
     # Processing of flags (only if not provided manually)
     if 'drFlags' not in fields:
         if drAppId in params[2]:
             flags = params[2][drAppId]
-            fields['drFlags'] = request and flags[0] or flags[1]
+            fields['drFlags'] = flags[0] if request else flags[1]
     return (fields, name)
 
 

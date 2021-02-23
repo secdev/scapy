@@ -3684,7 +3684,7 @@ def NDP_Attack_NA_Spoofing(iface=None, mac_src_filter=None, tgt_filter=None,
         reply_mac = get_if_hwaddr(iface)
     sniff_filter = "icmp6 and not ether src %s" % reply_mac
 
-    router = (router and 1) or 0  # Value of the R flags in NA
+    router = 1 if router else 0  # Value of the R flags in NA
 
     sniff(store=0,
           filter=sniff_filter,
