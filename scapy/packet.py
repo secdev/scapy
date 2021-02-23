@@ -1863,7 +1863,7 @@ class NoPayload(Packet):
 
     def answers(self, other):
         # type: (NoPayload) -> bool
-        return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)  # noqa: E501
+        return isinstance(other, (NoPayload, conf.padding_layer))  # noqa: E501
 
     def haslayer(self, cls, _subclass=None):
         # type: (Union[Type[Packet], str], Optional[bool]) -> int
