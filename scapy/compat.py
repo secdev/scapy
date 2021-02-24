@@ -176,7 +176,8 @@ else:
 if sys.version_info >= (3, 7):
     from typing import NamedTuple
 else:
-    NamedTuple = lambda name, params: collections.namedtuple(name, list(x[0] for x in params))  # noqa: E501
+    def NamedTuple(name, params):
+        return collections.namedtuple(name, list(x[0] for x in params))
 
 # Python 3.8 Only
 if sys.version_info >= (3, 8):
