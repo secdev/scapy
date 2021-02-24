@@ -1206,7 +1206,7 @@ class Dot11EltRSN(Dot11Elt):
         ConditionalField(
             PacketField("group_management_cipher_suite",
                         RSNCipherSuite(cipher=0x6), RSNCipherSuite),
-            lambda pkt: pkt.mfp_capable == 1
+            lambda pkt: pkt.mfp_capable == 1 and pkt.mfp_required == 1
         )
     ]
 
