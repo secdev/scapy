@@ -173,12 +173,12 @@ class EcuState(object):
         previous EcuState. An EcuState is always modified after a response
         Packet is received. In some protocols, the belonging request packet
         is necessary to determine the precise state of the Ecu
+
         :param response: Response packet that supports `modify_ecu_state`
-        :param request: Belonging request of the response that modifies
-                        the state of the Ecu
+        :param request: Belonging request of the response that modifies Ecu
         :param state: The previous/current EcuState
         :param modify_in_place: If True, the given EcuState will be modified
-        :return: The modified EcuState as copy
+        :return: The modified EcuState or a modified copy
         """
         if modify_in_place:
             new_state = state
@@ -283,7 +283,11 @@ class Ecu(object):
         for layer in pkt.layers():
             if not hasattr(layer, "get_log"):
                 continue
-            log_key, log_value = layer.get_log(pkt)
+            try:
+                log_key, log_value = layer.get_log(pkt)
+            except TypeError:
+                log_key, log_value = layer.get_log.im_func(pkt)
+
             self.log[log_key].append((pkt.time, log_value))
 
     def __update_supported_responses(self, pkt):
