@@ -11,6 +11,9 @@
 load_contrib("automotive.ecu", globals_dict=globals())
 load_contrib("automotive.gm.gmlan", globals_dict=globals())
 
+from scapy.contrib.automotive.gm.gmlan_ecu_states import *
+
+
 + Basic Packet Tests()
 = Set GMLAN ECU AddressingScheme
 
@@ -243,6 +246,7 @@ x.subfunction == 2
 x.answers(b)
 
 ecu = Ecu()
+ecu.update(b)
 ecu.update(x)
 assert ecu.state.security_level == 2
 
@@ -437,14 +441,19 @@ y.hashret() == x.hashret()
 
 = Check modifies ecu state
 ecu = Ecu()
+ecu.update(GMLAN(service="InitiateDiagnosticOperation"))
 ecu.update(GMLAN(service="InitiateDiagnosticOperationPositiveResponse"))
 assert ecu.state.session == 3
+ecu.update(GMLAN(service="ReturnToNormalOperation"))
 ecu.update(GMLAN(service="ReturnToNormalOperationPositiveResponse"))
 assert ecu.state.session == 1
+ecu.update(GMLAN(service="ProgrammingMode"))
 ecu.update(GMLAN(service="ProgrammingModePositiveResponse"))
 assert ecu.state.session == 2
+ecu.update(GMLAN(service="DisableNormalCommunication"))
 ecu.update(GMLAN(service="DisableNormalCommunicationPositiveResponse"))
 assert ecu.state.communication_control == 1
+ecu.update(GMLAN(service="ReturnToNormalOperation"))
 ecu.update(GMLAN(service="ReturnToNormalOperationPositiveResponse"))
 assert ecu.state.session == 1
 

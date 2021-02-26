@@ -1845,6 +1845,7 @@ if six.PY3 and LINUX:
             except OSError:
                 # something bad happened (e.g. the interface went down)
                 warning("Captured no data.")
+                self.close()
                 return None
 
             if ts is None:

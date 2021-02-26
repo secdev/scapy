@@ -25,8 +25,8 @@ from scapy.config import conf
 from scapy.supersocket import SuperSocket
 
 
-__all__ = ["EcuState", "EcuStateModifier", "Ecu", "EcuResponse",
-           "EcuSession", "EcuAnsweringMachine"]
+__all__ = ["EcuState", "Ecu", "EcuResponse", "EcuSession",
+           "EcuAnsweringMachine"]
 
 
 class EcuState(object):
@@ -138,58 +138,60 @@ class EcuState(object):
             ["%s=%s" % (k, repr(v)) for k, v in sorted(
                 self.__dict__.items(), key=lambda t: t[0])]) + ")"
 
+    @staticmethod
+    def extend_pkt_with_modifier(cls):
+        # type: (Type[Packet]) -> Callable[[Callable[[Packet, Packet, EcuState], None]], None]  # noqa: E501
+        """
+        Decorator to add a function as 'modify_ecu_state' methode to a given
+        class. This allows dynamic modifications and additions to a protocol.
+        :param cls: A packet class to be modified
+        :return: Decorator function
+        """
+        def decorator_function(f):
+            # type: (Callable[[Packet, Packet, EcuState], None]) -> None
+            setattr(cls, "modify_ecu_state", f)
 
-class EcuStateModifier(object):
-    """
-    Abstract class to signal that instances of this class can
-    change an EcuState.
-    """
-
-    def modify_ecu_state(self, state):
-        # type: (EcuState) -> None
-        raise NotImplementedError
+        return decorator_function
 
     @staticmethod
-    def modifies_ecu_state(pkt):
+    def is_modifier_pkt(pkt):
         # type: (Packet) -> bool
         """
-        Helper function to determine if a Packet contains a layer which
-        modifies the EcuState, more technical, derives from `EcuStateModifier`.
-
+        Helper function to determine if a Packet contains a layer that
+        modifies the EcuState.
         :param pkt: Packet to be analyzed
-        :return: True if pkt contains at least one layer which is an instance
-                 of `EcuStateModifier`.
-
+        :return: True if pkt contains layer that implements modify_ecu_state
         """
-        return any(issubclass(layer, EcuStateModifier)
+        return any(hasattr(layer, "modify_ecu_state")
                    for layer in pkt.layers())
 
     @staticmethod
-    def get_modified_ecu_state(pkt, state, modify_in_place=False):
-        # type: (Packet, EcuState, bool) -> EcuState
+    def get_modified_ecu_state(response, request, state, modify_in_place=False):  # noqa: E501
+        # type: (Packet, Packet, EcuState, bool) -> EcuState
         """
-        Helper function to get a modified EcuState from a Packet based on a
-        previous EcuState.
-
-        :param pkt: A packet that itself, or one of its layers derives
-                    from `EcuStateModifier` and supports `modify_ecu_state`.
-        :param state: An EcuState to be modified.
+        Helper function to get a modified EcuState from a Packet and a
+        previous EcuState. An EcuState is always modified after a response
+        Packet is received. In some protocols, the belonging request packet
+        is necessary to determine the precise state of the Ecu
+        :param response: Response packet that supports `modify_ecu_state`
+        :param request: Belonging request of the response that modifies
+                        the state of the Ecu
+        :param state: The previous/current EcuState
         :param modify_in_place: If True, the given EcuState will be modified
-        :return: The modified EcuState. If `modify_in_place=False` a modified
-                 copy of `state` is returned.
+        :return: The modified EcuState as copy
         """
         if modify_in_place:
             new_state = state
         else:
             new_state = copy.copy(state)
 
-        for layer in pkt.layers():
-            if not issubclass(layer, EcuStateModifier):
+        for layer in response.layers():
+            if not hasattr(layer, "modify_ecu_state"):
                 continue
             try:
-                layer.modify_ecu_state(pkt, new_state)
+                layer.modify_ecu_state(response, request, new_state)
             except TypeError:
-                layer.modify_ecu_state.im_func(pkt, new_state)
+                layer.modify_ecu_state.im_func(response, request, new_state)
         return new_state
 
 
@@ -265,11 +267,9 @@ class Ecu(object):
         """
         if self.verbose:
             print(repr(self), repr(pkt))
-        if self.store_supported_responses:
-            self.__update_supported_responses(pkt)
         if self.logging:
             self.__update_log(pkt)
-        self.__update_internal_state(pkt)
+        self.__update_supported_responses(pkt)
 
     def __update_log(self, pkt):
         # type: (Packet) -> None
@@ -286,15 +286,6 @@ class Ecu(object):
             log_key, log_value = layer.get_log(pkt)
             self.log[log_key].append((pkt.time, log_value))
 
-    def __update_internal_state(self, pkt):
-        # type: (Packet) -> None
-        """
-        Checks if a given packet is defined as EcuStateModifier packet and
-        updates the internal EcuState of this Ecu object in place.
-        :param pkt: A Packet to be processed for state changes.
-        """
-        EcuStateModifier.get_modified_ecu_state(pkt, self.state, True)
-
     def __update_supported_responses(self, pkt):
         # type: (Packet) -> None
         """
@@ -307,26 +298,32 @@ class Ecu(object):
         """
         self.__unanswered_packets.append(pkt)
         reduced_plist = self.__unanswered_packets[-self.lookahead:]
-        answered, unanswered = reduced_plist.sr()
-        for _, resp in answered:
+        answered, unanswered = reduced_plist.sr(lookahead=self.lookahead)
+        self.__unanswered_packets = unanswered
+
+        for req, resp in answered:
             added = False
+            current_state = copy.copy(self.state)
+            EcuState.get_modified_ecu_state(resp, req, self.state, True)
+
+            if not self.store_supported_responses:
+                continue
+
             for sup_resp in self.__supported_responses:
                 if resp == sup_resp.key_response:
                     if sup_resp.states is not None and \
                             self.state not in sup_resp.states:
-                        sup_resp.states.append(copy.copy(self.state))
+                        sup_resp.states.append(current_state)
                     added = True
                     break
 
             if added:
                 continue
 
-            ecu_resp = EcuResponse(copy.copy(self.state), responses=resp)
+            ecu_resp = EcuResponse(current_state, responses=resp)
             if self.verbose:
                 print("[+] ", repr(ecu_resp))
             self.__supported_responses.append(ecu_resp)
-
-        self.__unanswered_packets = unanswered
 
     @staticmethod
     def sort_key_func(resp):
@@ -373,6 +370,22 @@ class Ecu(object):
     def __repr__(self):
         # type: () -> str
         return repr(self.state)
+
+    @staticmethod
+    def extend_pkt_with_logging(cls):
+        # type: (Type[Packet]) -> Callable[[Callable[[Packet], Tuple[str, Any]]], None]  # noqa: E501
+        """
+        Decorator to add a function as 'get_log' methode to a given
+        class. This allows dynamic modifications and additions to a protocol.
+        :param cls: A packet class to be modified
+        :return: Decorator function
+        """
+
+        def decorator_function(f):
+            # type: (Callable[[Packet], Tuple[str, Any]]) -> None
+            setattr(cls, "get_log", f)
+
+        return decorator_function
 
 
 class EcuSession(DefaultSession):
@@ -615,9 +628,8 @@ class EcuAnsweringMachine(AnsweringMachine):
                 if not resp.answers(req):
                     continue
 
-                for r in resp.responses:
-                    EcuStateModifier.get_modified_ecu_state(
-                        r, self.__ecu_state, True)
+                EcuState.get_modified_ecu_state(
+                    resp.key_response, req, self.__ecu_state, True)
 
                 return resp.responses
 
