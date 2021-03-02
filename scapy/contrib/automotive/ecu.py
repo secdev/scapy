@@ -16,7 +16,7 @@ from collections import defaultdict
 from types import GeneratorType
 
 from scapy.compat import Any, Union, Iterable, Callable, List, Optional, \
-    Tuple, Type, cast, Dict
+    Tuple, Type, cast, Dict, orb
 from scapy.packet import Raw, Packet
 from scapy.plist import PacketList
 from scapy.sessions import DefaultSession
@@ -341,7 +341,7 @@ class Ecu(object):
         :param resp: EcuResponse to be sorted
         :return: Tuple as sort key
         """
-        service = bytes(resp.key_response[0])[0]
+        service = orb(bytes(resp.key_response[0])[0])
         return (service == 0x7f,
                 service,
                 0xffffffff - len(resp.states or []),
