@@ -561,7 +561,7 @@ class EcuAnsweringMachine(AnsweringMachine):
 
     def parse_options(self, supported_responses=None,
                       main_socket=None, broadcast_socket=None, basecls=Raw,
-                      timeout=None, initial_ecu_state=None):
+                      timeout=None):
         # type: (Optional[List[EcuResponse]], Optional[SuperSocket], Optional[SuperSocket], Type[Packet], Optional[Union[int, float]], Optional[EcuState]) -> None  # noqa: E501
         """
         :param supported_responses: List of ``EcuResponse`` objects to define
@@ -576,14 +576,14 @@ class EcuAnsweringMachine(AnsweringMachine):
         :param timeout: Specifies the timeout for sniffing in seconds.
         """
         self.__ecu_state = EcuState(session=1)
+        # TODO: Apply a cleanup of the initial EcuStates. Maybe provide a way
+        #       to overwrite EcuState.reset to allow the manipulation of the
+        #       initial (default) EcuState.
         self.__main_socket = main_socket  # type: Optional[SuperSocket]
         self.__sockets = [self.__main_socket]
 
         if broadcast_socket is not None:
             self.__sockets.append(broadcast_socket)
-
-        if initial_ecu_state:
-            self.__ecu_state = initial_ecu_state
 
         self.__basecls = basecls  # type: Type[Packet]
         self.__supported_responses = supported_responses
