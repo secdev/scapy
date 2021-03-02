@@ -108,28 +108,12 @@ class SocketMapper:
                 warning("[MUX] python-can exception caught: %s" % e)
 
 
-class SocketsPool(object):
+class _SocketsPool(object):
     """Helper class to organize all SocketWrapper and SocketMapper objects"""
-    __instance = None  # type: Optional[SocketsPool]
-
-    def __new__(cls):
-        # type: (Type[object]) -> SocketsPool
-        """Enforces the singleton pattern for SocketsPool class"""
-        if SocketsPool.__instance is None:
-            SocketsPool.__instance = object.__new__(cls)
-            SocketsPool.__instance._pool = dict()  # type: ignore
-            SocketsPool.__instance._pool_mutex = threading.Lock()  # type: ignore  # noqa: E501
-        return SocketsPool.__instance
-
-    @property
-    def pool(self):
-        # type: () -> Dict[str, SocketMapper]
-        return cast(SocketsPool, SocketsPool.__instance)._pool  # type: ignore
-
-    @property
-    def pool_mutex(self):
-        # type: () -> threading.Lock
-        return cast(SocketsPool, SocketsPool.__instance)._pool_mutex  # type: ignore  # noqa: E501
+    def __init__(self):
+        # type: () -> None
+        self.pool = dict()  # type: Dict[str, SocketMapper]
+        self.pool_mutex = threading.Lock()
 
     def internal_send(self, sender, msg, prio=0):
         # type: (SocketWrapper, can_Message, int) -> None
@@ -227,6 +211,9 @@ class SocketsPool(object):
                 warning("Socket %s already removed from pool" % socket.name)
 
 
+SocketsPool = _SocketsPool()
+
+
 class SocketWrapper(can_BusABC):
     """Helper class to wrap a python-can Bus object as socket"""
 
@@ -243,7 +230,7 @@ class SocketWrapper(can_BusABC):
         self.rx_queue = queue.PriorityQueue()  # type: queue.PriorityQueue[PriotizedCanMessage]  # noqa: E501
         self.name = None  # type: Optional[str]
         self.prio_counter = 0
-        SocketsPool().register(self, *args, **kwargs)
+        SocketsPool.register(self, *args, **kwargs)
 
     def _recv_internal(self, timeout):
         # type: (int) -> Tuple[Optional[can_Message], bool]
@@ -256,7 +243,7 @@ class SocketWrapper(can_BusABC):
         :return: Returns a tuple of either a can_Message or None and a bool to
                  indicate if filtering was already applied.
         """
-        SocketsPool().multiplex_rx_packets()
+        SocketsPool.multiplex_rx_packets()
         try:
             pm = self.rx_queue.get(block=True, timeout=timeout)
             return pm.msg, True
@@ -270,14 +257,15 @@ class SocketWrapper(can_BusABC):
         :param msg: Message to be sent.
         :param timeout: Not used.
         """
-        SocketsPool().internal_send(self, msg)
+        self.prio_counter += 1
+        SocketsPool.internal_send(self, msg, self.prio_counter)
 
     def shutdown(self):
         # type: () -> None
         """Shutdown function, following the ``can_BusABC`` interface of
         python-can.
         """
-        SocketsPool().unregister(self)
+        SocketsPool.unregister(self)
 
 
 class PythonCANSocket(SuperSocket):
@@ -346,7 +334,7 @@ class PythonCANSocket(SuperSocket):
         :returns: an array of sockets that were selected and
             the function to be called next to get the packets (i.g. recv)
         """
-        SocketsPool().multiplex_rx_packets()
+        SocketsPool.multiplex_rx_packets()
         return [s for s in sockets if isinstance(s, PythonCANSocket) and
                 not s.can_iface.rx_queue.empty()]
 
