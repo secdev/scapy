@@ -341,7 +341,8 @@ class Ecu(object):
         :param resp: EcuResponse to be sorted
         :return: Tuple as sort key
         """
-        service = orb(bytes(resp.key_response[0])[0])
+        first_layer = cast(Packet, resp.key_response[0])  # type: ignore
+        service = orb(bytes(first_layer)[0])
         return (service == 0x7f,
                 service,
                 0xffffffff - len(resp.states or []),
@@ -562,7 +563,7 @@ class EcuAnsweringMachine(AnsweringMachine):
     def parse_options(self, supported_responses=None,
                       main_socket=None, broadcast_socket=None, basecls=Raw,
                       timeout=None):
-        # type: (Optional[List[EcuResponse]], Optional[SuperSocket], Optional[SuperSocket], Type[Packet], Optional[Union[int, float]], Optional[EcuState]) -> None  # noqa: E501
+        # type: (Optional[List[EcuResponse]], Optional[SuperSocket], Optional[SuperSocket], Type[Packet], Optional[Union[int, float]]) -> None  # noqa: E501
         """
         :param supported_responses: List of ``EcuResponse`` objects to define
                                     the behaviour. The default response is
