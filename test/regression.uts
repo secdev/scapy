@@ -2320,7 +2320,7 @@ default            link#11            UCSI            1        0 bridge1
     def se_get_if_addr(iface):
         """Perform specific side effects"""
         if iface == "bridge1":
-            raise OSError("Device not configured")
+            return "0.0.0.0"
         return "1.2.3.4"
     mock_get_if_addr.side_effect = se_get_if_addr
     # Test the function
@@ -2457,9 +2457,10 @@ test_osx_10_15_ipv4()
 import mock
 from io import StringIO
 
+@mock.patch("scapy.arch.get_if_addr")
 @mock.patch("scapy.arch.unix.OPENBSD")
 @mock.patch("scapy.arch.unix.os")
-def test_openbsd_6_3(mock_os, mock_openbsd):
+def test_openbsd_6_3(mock_os, mock_openbsd, mock_get_if_addr):
     """Test read_routes() on OpenBSD 6.3"""
     # 'netstat -rn -f inet' output
     netstat_output = u"""
@@ -2489,6 +2490,16 @@ default            10.0.1.254         UGS        0        0     -     8 bge0
     
     # Mocked OpenBSD parsing behavior
     mock_openbsd = True
+    
+    # Mocked get_if_addr() output
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        import socket
+        if iface == "bge0":
+            return "192.168.122.42"
+        return "10.0.1.26"
+    mock_get_if_addr.side_effect = se_get_if_addr
+    
     # Test the function
     from scapy.arch.unix import read_routes
     return read_routes()
@@ -2518,9 +2529,10 @@ from io import StringIO
 
 # Mocked Solaris 11.1 parsing behavior
 
+@mock.patch("scapy.arch.get_if_addr")
 @mock.patch("scapy.arch.unix.SOLARIS", True)
 @mock.patch("scapy.arch.unix.os")
-def test_solaris_111(mock_os):
+def test_solaris_111(mock_os, mock_get_if_addr):
     """Test read_routes() on Solaris 11.1"""
     # 'netstat -rvn -f inet' output
     netstat_output = u"""
@@ -2535,6 +2547,15 @@ default              0.0.0.0         10.0.2.2             net0    1500   2 UG   
     strio = StringIO(netstat_output)
     mock_os.popen = mock.MagicMock(return_value=strio)
     print(scapy.arch.unix.SOLARIS)
+    
+    # Mocked get_if_addr() output
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        import socket
+        if iface == "net0":
+            return "10.0.2.15"
+        return "127.0.0.1"
+    mock_get_if_addr.side_effect = se_get_if_addr
     
     # Test the function
     from scapy.arch.unix import read_routes
@@ -2857,9 +2878,10 @@ test_freebsd_10_2()
 
 import mock
 from io import StringIO
-
+ 
+@mock.patch("scapy.arch.get_if_addr")
 @mock.patch("scapy.arch.unix.os")
-def test_freebsd_13(mock_os):
+def test_freebsd_13(mock_os, mock_get_if_addr):
     """Test read_routes() on FreeBSD 13"""
     # 'netstat -rnW -f inet' output
     netstat_output = u"""
@@ -2875,6 +2897,13 @@ default            10.0.0.1           UGS         3   1500     vtnet0
     # Mocked file descriptor
     strio = StringIO(netstat_output)
     mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked get_if_addr() behavior
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        if iface == "vtnet0":
+            return "10.0.0.1"
+        return "1.2.3.4"
+    mock_get_if_addr.side_effect = se_get_if_addr
     # Test the function
     from scapy.arch.unix import read_routes
     routes = read_routes()
