@@ -1512,6 +1512,7 @@ class RawPcapNgReader(RawPcapReader):
                 block[:8]
             ) + (options["tsresol"],)  # type: Tuple[int, int, int]
         except struct.error:
+            warning("PcapNg: IDB is too small %d/8 !" % len(block))
             raise EOFError
         self.interfaces.append(interface)
 
@@ -1532,6 +1533,7 @@ class RawPcapNgReader(RawPcapReader):
                 block[:20],
             )
         except struct.error:
+            warning("PcapNg: EPB is too small %d/20 !" % len(block))
             raise EOFError
 
         self._check_interface_id(intid)
@@ -1551,7 +1553,12 @@ class RawPcapNgReader(RawPcapReader):
         intid = 0
         self._check_interface_id(intid)
 
-        wirelen, = struct.unpack(self.endian + "I", block[:4])
+        try:
+            wirelen, = struct.unpack(self.endian + "I", block[:4])
+        except struct.error:
+            warning("PcapNg: SPB is too small %d/4 !" % len(block))
+            raise EOFError
+
         caplen = min(wirelen, self.interfaces[intid][1])
         return (block[4:4 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
@@ -1563,10 +1570,14 @@ class RawPcapNgReader(RawPcapReader):
     def _read_block_pkt(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
         """(Obsolete) Packet Block"""
-        intid, drops, tshigh, tslow, caplen, wirelen = struct.unpack(
-            self.endian + "HH4I",
-            block[:20],
-        )
+        try:
+            intid, drops, tshigh, tslow, caplen, wirelen = struct.unpack(
+                self.endian + "HH4I",
+                block[:20],
+            )
+        except struct.error:
+            warning("PcapNg: PKT is too small %d/20 !" % len(block))
+            raise EOFError
 
         self._check_interface_id(intid)
         return (block[20:20 + caplen][:size],
