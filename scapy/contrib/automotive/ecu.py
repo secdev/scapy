@@ -341,10 +341,9 @@ class Ecu(object):
         :param resp: EcuResponse to be sorted
         :return: Tuple as sort key
         """
-        # TODO: Is there a more performant way, to get only the first byte
-        #       of a packet, without the need to build it?
-        return (bytes(resp.key_response)[0] == 0x7f,
-                bytes(resp.key_response)[0],
+        service = bytes(resp.key_response[0])[0]
+        return (service == 0x7f,
+                service,
                 0xffffffff - len(resp.states or []),
                 0xffffffff - len(resp.key_response))
 
@@ -599,7 +598,7 @@ class EcuAnsweringMachine(AnsweringMachine):
 
     def is_request(self, req):
         # type: (Packet) -> bool
-        return req.__class__ == self.__basecls
+        return isinstance(req, self.__basecls)
 
     def print_reply(self, req, reply):
         # type: (Packet, PacketList) -> None
