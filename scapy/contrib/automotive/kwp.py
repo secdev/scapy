@@ -16,8 +16,9 @@ from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import log_loading
 from scapy.utils import PeriodicSenderThread
+from scapy.plist import _PacketIterable
 from scapy.contrib.isotp import ISOTP
-from scapy.compat import Dict, Union
+from scapy.compat import Dict, Any
 
 """
 KWP2000
@@ -98,7 +99,7 @@ class KWP(ISOTP):
     ]
 
     def answers(self, other):
-        # type: (Union[KWP, Packet]) -> bool
+        # type: (Packet) -> bool
         if not isinstance(other, type(self)):
             return False
         if self.service == 0x7f:
@@ -144,6 +145,7 @@ class KWP_SDSPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_SDS) and \
             other.diagnosticSession == self.diagnosticSession
 
@@ -170,6 +172,7 @@ class KWP_ERPR(Packet):
     name = 'ECUResetPositiveResponse'
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_ER)
 
 
@@ -198,6 +201,7 @@ class KWP_SAPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_SA) \
             and other.accessMode == self.accessMode
 
@@ -237,6 +241,7 @@ class KWP_IOCBLIPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_IOCBLI) \
             and other.localIdentifier == self.localIdentifier
 
@@ -263,6 +268,7 @@ class KWP_DNMTPR(Packet):
     name = 'DisableNormalMessageTransmissionPositiveResponse'
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_DNMT)
 
 
@@ -288,6 +294,7 @@ class KWP_ENMTPR(Packet):
     name = 'EnableNormalMessageTransmissionPositiveResponse'
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_DNMT)
 
 
@@ -313,6 +320,7 @@ class KWP_TPPR(Packet):
     name = 'TesterPresentPositiveResponse'
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_TP)
 
 
@@ -352,6 +360,7 @@ class KWP_CDTCSPR(Packet):
     name = 'ControlDTCSettingPositiveResponse'
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_CDTCS)
 
 
@@ -401,6 +410,7 @@ class KWP_ROEPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_ROE) \
             and other.eventType == self.eventType
 
@@ -440,6 +450,7 @@ class KWP_RDBLIPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_RDBLI) \
             and self.recordLocalIdentifier == other.recordLocalIdentifier
 
@@ -465,6 +476,7 @@ class KWP_WDBLIPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_WDBLI) \
             and self.recordLocalIdentifier == other.recordLocalIdentifier
 
@@ -491,6 +503,7 @@ class KWP_RDBIPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_RDBI) \
             and self.identifier == other.identifier
 
@@ -517,6 +530,7 @@ class KWP_RMBAPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_RMBA)
 
 
@@ -549,6 +563,7 @@ class KWP_DDLIPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_DDLI) and \
             other.dynamicallyDefineLocalIdentifier == self.dynamicallyDefineLocalIdentifier  # noqa: E501
 
@@ -574,6 +589,7 @@ class KWP_WDBIPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_WDBI) \
             and other.identifier == self.identifier
 
@@ -601,6 +617,7 @@ class KWP_WMBAPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_WMBA) and \
             other.memoryAddress == self.memoryAddress
 
@@ -634,6 +651,7 @@ class KWP_CDIPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_CDI) and \
             self.groupOfDTC == other.groupOfDTC
 
@@ -660,6 +678,7 @@ class KWP_RSODTCPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_RSODTC)
 
 
@@ -700,6 +719,7 @@ class KWP_RECUIPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_RECUI) and \
             self.localIdentifier == other.localIdentifier
 
@@ -738,6 +758,7 @@ class KWP_SRBLIPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_SRBLI) \
             and other.routineLocalIdentifier == self.routineLocalIdentifier
 
@@ -765,6 +786,7 @@ class KWP_STRBLIPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_STRBLI) \
             and other.routineLocalIdentifier == self.routineLocalIdentifier
 
@@ -792,6 +814,7 @@ class KWP_RRRBLIPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_RRRBLI) \
             and other.routineLocalIdentifier == self.routineLocalIdentifier
 
@@ -820,6 +843,7 @@ class KWP_RDPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_RD)
 
 
@@ -847,6 +871,7 @@ class KWP_RUPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_RU)
 
 
@@ -873,6 +898,7 @@ class KWP_TDPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_TD) \
             and other.blockSequenceCounter == self.blockSequenceCounter
 
@@ -898,6 +924,7 @@ class KWP_RTEPR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return isinstance(other, KWP_RTE)
 
 
@@ -936,6 +963,7 @@ class KWP_NR(Packet):
     ]
 
     def answers(self, other):
+        # type: (Packet) -> int
         return self.requestServiceId == other.service and \
             (self.negativeResponseCode != 0x78 or
              conf.contribs['KWP']['treat-response-pending-as-answer'])
@@ -944,19 +972,18 @@ class KWP_NR(Packet):
 bind_layers(KWP, KWP_NR, service=0x7f)
 
 
-# ######################### KWP_ #########################################
+# ##################################################################
 # ######################## UTILS ###################################
-# ######################### KWP_ #########################################
-
+# ##################################################################
 
 class KWP_TesterPresentSender(PeriodicSenderThread):
     def __init__(self, sock, pkt=KWP() / KWP_TP(), interval=2):
-        """ Thread to send TesterPresent messages packets periodically
+        # type: (Any, _PacketIterable, float) -> None
+        """ Thread that sends TesterPresent packets periodically
 
-        Args:
-            sock: socket where packet is sent periodically
-            pkt: packet to send
-            interval: interval between two packets
+        :param sock: socket where packet is sent periodically
+        :param pkt: packet to send
+        :param interval: interval between two packets
         """
         PeriodicSenderThread.__init__(self, sock, pkt, interval)
 
