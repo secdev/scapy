@@ -10,10 +10,8 @@ import struct
 import time
 
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
-    BitEnumField, BitField, XByteField, FieldListField, \
-    XShortField, X3BytesField, XIntField, ByteField, \
-    ShortField, ObservableDict, XShortEnumField, XByteEnumField, StrLenField, \
-    FieldLenField
+    BitField, XByteField, X3BytesField, ByteField, \
+    ObservableDict, XShortEnumField, XByteEnumField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import log_loading
@@ -39,58 +37,60 @@ except KeyError:
 
 class KWP(ISOTP):
     services = ObservableDict(
-        {0x10: 'DiagnosticSessionControl',
+        {0x10: 'StartDiagnosticSession',
          0x11: 'ECUReset',
          0x14: 'ClearDiagnosticInformation',
-         0x19: 'ReadDTCInformation',
+         0x17: 'ReadStatusOfDiagnosticTroubleCodes',
+         0x18: 'ReadDiagnosticTroubleCodesByStatus',
+         0x1A: 'ReadECUIdentification',
+         0x21: 'ReadDataByLocalIdentifier',
          0x22: 'ReadDataByIdentifier',
          0x23: 'ReadMemoryByAddress',
-         0x24: 'ReadScalingDataByIdentifier',
          0x27: 'SecurityAccess',
-         0x28: 'CommunicationControl',
-         0x2A: 'ReadDataPeriodicIdentifier',
-         0x2C: 'DynamicallyDefineDataIdentifier',
+         0x28: 'DisableNormalMessageTransmission',
+         0x29: 'EnableNormalMessageTransmission',
+         0x2C: 'DynamicallyDefineLocalIdentifier',
          0x2E: 'WriteDataByIdentifier',
-         0x2F: 'InputOutputControlByIdentifier',
-         0x31: 'RoutineControl',
+         0x30: 'InputOutputControlByLocalIdentifier',
+         0x31: 'StartRoutineByLocalIdentifier',
+         0x32: 'StopRoutineByLocalIdentifier',
+         0x33: 'RequestRoutineResultsByLocalIdentifier',
          0x34: 'RequestDownload',
          0x35: 'RequestUpload',
          0x36: 'TransferData',
          0x37: 'RequestTransferExit',
-         0x38: 'RequestFileTransfer',
+         0x3B: 'WriteDataByLocalIdentifier',
          0x3D: 'WriteMemoryByAddress',
          0x3E: 'TesterPresent',
-         0x50: 'DiagnosticSessionControlPositiveResponse',
+         0x85: 'ControlDTCSetting',
+         0x86: 'ResponseOnEvent',
+         0x50: 'StartDiagnosticSessionPositiveResponse',
          0x51: 'ECUResetPositiveResponse',
          0x54: 'ClearDiagnosticInformationPositiveResponse',
-         0x59: 'ReadDTCInformationPositiveResponse',
+         0x57: 'ReadStatusOfDiagnosticTroubleCodesPositiveResponse',
+         0x58: 'ReadDiagnosticTroubleCodesByStatusPositiveResponse',
+         0x5A: 'ReadECUIdentificationPositiveResponse',
+         0x61: 'ReadDataByLocalIdentifierPositiveResponse',
          0x62: 'ReadDataByIdentifierPositiveResponse',
          0x63: 'ReadMemoryByAddressPositiveResponse',
-         0x64: 'ReadScalingDataByIdentifierPositiveResponse',
          0x67: 'SecurityAccessPositiveResponse',
-         0x68: 'CommunicationControlPositiveResponse',
-         0x6A: 'ReadDataPeriodicIdentifierPositiveResponse',
-         0x6C: 'DynamicallyDefineDataIdentifierPositiveResponse',
+         0x68: 'DisableNormalMessageTransmissionPositiveResponse',
+         0x69: 'EnableNormalMessageTransmissionPositiveResponse',
+         0x6C: 'DynamicallyDefineLocalIdentifierPositiveResponse',
          0x6E: 'WriteDataByIdentifierPositiveResponse',
-         0x6F: 'InputOutputControlByIdentifierPositiveResponse',
-         0x71: 'RoutineControlPositiveResponse',
+         0x70: 'InputOutputControlByLocalIdentifierPositiveResponse',
+         0x71: 'StartRoutineByLocalIdentifierPositiveResponse',
+         0x72: 'StopRoutineByLocalIdentifierPositiveResponse',
+         0x73: 'RequestRoutineResultsByLocalIdentifierPositiveResponse',
          0x74: 'RequestDownloadPositiveResponse',
          0x75: 'RequestUploadPositiveResponse',
          0x76: 'TransferDataPositiveResponse',
          0x77: 'RequestTransferExitPositiveResponse',
-         0x78: 'RequestFileTransferPositiveResponse',
+         0x7B: 'WriteDataByLocalIdentifierPositiveResponse',
          0x7D: 'WriteMemoryByAddressPositiveResponse',
          0x7E: 'TesterPresentPositiveResponse',
-         0x83: 'AccessTimingParameter',
-         0x84: 'SecuredDataTransmission',
-         0x85: 'ControlDTCSetting',
-         0x86: 'ResponseOnEvent',
-         0x87: 'LinkControl',
-         0xC3: 'AccessTimingParameterPositiveResponse',
-         0xC4: 'SecuredDataTransmissionPositiveResponse',
          0xC5: 'ControlDTCSettingPositiveResponse',
          0xC6: 'ResponseOnEventPositiveResponse',
-         0xC7: 'LinkControlPositiveResponse',
          0x7f: 'NegativeResponse'})  # type: Dict[int, str]
     name = 'KWP'
     fields_desc = [
@@ -99,7 +99,7 @@ class KWP(ISOTP):
 
     def answers(self, other):
         # type: (Union[KWP, Packet]) -> bool
-        if other.__class__ != self.__class__:
+        if not isinstance(other, type(self)):
             return False
         if self.service == 0x7f:
             return self.payload.answers(other)
@@ -115,57 +115,51 @@ class KWP(ISOTP):
         # type: () -> bytes
         if self.service == 0x7f:
             return struct.pack('B', self.requestServiceId)
-        return struct.pack('B', self.service & ~0x40)
+        else:
+            return struct.pack('B', self.service & ~0x40)
 
 
-# ########################DSC###################################
-class KWP_DSC(Packet):
+# ########################SDS###################################
+class KWP_SDS(Packet):
     diagnosticSessionTypes = ObservableDict({
-        0x00: 'ISOSAEReserved',
-        0x01: 'defaultSession',
-        0x02: 'programmingSession',
-        0x03: 'extendedDiagnosticSession',
-        0x04: 'safetySystemDiagnosticSession',
-        0x7F: 'ISOSAEReserved'})
-    name = 'DiagnosticSessionControl'
+        0x81: 'defaultSession',
+        0x85: 'programmingSession',
+        0x89: 'standBySession',
+        0x90: 'EcuPassiveSession',
+        0x92: 'extendedDiagnosticSession'})
+    name = 'StartDiagnosticSession'
     fields_desc = [
-        ByteEnumField('diagnosticSessionType', 0, diagnosticSessionTypes)
+        ByteEnumField('diagnosticSession', 0, diagnosticSessionTypes)
     ]
 
 
-bind_layers(KWP, KWP_DSC, service=0x10)
+bind_layers(KWP, KWP_SDS, service=0x10)
 
 
-class KWP_DSCPR(Packet):
-    name = 'DiagnosticSessionControlPositiveResponse'
+class KWP_SDSPR(Packet):
+    name = 'StartDiagnosticSessionPositiveResponse'
     fields_desc = [
-        ByteEnumField('diagnosticSessionType', 0,
-                      KWP_DSC.diagnosticSessionTypes),
-        StrField('sessionParameterRecord', b"")
+        ByteEnumField('diagnosticSession', 0,
+                      KWP_SDS.diagnosticSessionTypes),
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_DSC and \
-            other.diagnosticSessionType == self.diagnosticSessionType
+        return isinstance(other, KWP_SDS) and \
+            other.diagnosticSession == self.diagnosticSession
 
 
-bind_layers(KWP, KWP_DSCPR, service=0x50)
+bind_layers(KWP, KWP_SDSPR, service=0x50)
 
 
-# #########################ER###################################
+# ######################### KWP_ER ###################################
 class KWP_ER(Packet):
-    resetTypes = {
-        0x00: 'ISOSAEReserved',
-        0x01: 'hardReset',
-        0x02: 'keyOffOnReset',
-        0x03: 'softReset',
-        0x04: 'enableRapidPowerShutDown',
-        0x05: 'disableRapidPowerShutDown',
-        0x41: 'powerDown',
-        0x7F: 'ISOSAEReserved'}
+    resetModes = {
+        0x00: 'reserved',
+        0x01: 'powerOnReset',
+        0x82: 'nonvolatileMemoryReset'}
     name = 'ECUReset'
     fields_desc = [
-        ByteEnumField('resetType', 0, resetTypes)
+        ByteEnumField('resetMode', 0, resetModes)
     ]
 
 
@@ -174,28 +168,21 @@ bind_layers(KWP, KWP_ER, service=0x11)
 
 class KWP_ERPR(Packet):
     name = 'ECUResetPositiveResponse'
-    fields_desc = [
-        ByteEnumField('resetType', 0, KWP_ER.resetTypes),
-        ConditionalField(ByteField('powerDownTime', 0),
-                         lambda pkt: pkt.resetType == 0x04)
-    ]
 
     def answers(self, other):
-        return other.__class__ == KWP_ER
+        return isinstance(other, KWP_ER)
 
 
 bind_layers(KWP, KWP_ERPR, service=0x51)
 
 
-# #########################SA###################################
+# ######################### KWP_SA ###################################
 class KWP_SA(Packet):
     name = 'SecurityAccess'
     fields_desc = [
-        ByteField('securityAccessType', 0),
-        ConditionalField(StrField('securityAccessDataRecord', b""),
-                         lambda pkt: pkt.securityAccessType % 2 == 1),
-        ConditionalField(StrField('securityKey', b""),
-                         lambda pkt: pkt.securityAccessType % 2 == 0)
+        ByteField('accessMode', 0),
+        ConditionalField(StrField('key', b""),
+                         lambda pkt: pkt.accessMode % 2 == 0)
     ]
 
 
@@ -205,79 +192,117 @@ bind_layers(KWP, KWP_SA, service=0x27)
 class KWP_SAPR(Packet):
     name = 'SecurityAccessPositiveResponse'
     fields_desc = [
-        ByteField('securityAccessType', 0),
-        ConditionalField(StrField('securitySeed', b""),
-                         lambda pkt: pkt.securityAccessType % 2 == 1),
+        ByteField('accessMode', 0),
+        ConditionalField(StrField('seed', b""),
+                         lambda pkt: pkt.accessMode % 2 == 1),
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_SA \
-            and other.securityAccessType == self.securityAccessType
+        return isinstance(other, KWP_SA) \
+            and other.accessMode == self.accessMode
 
 
 bind_layers(KWP, KWP_SAPR, service=0x67)
 
 
-# #########################CC###################################
-class KWP_CC(Packet):
-    controlTypes = {
-        0x00: 'enableRxAndTx',
-        0x01: 'enableRxAndDisableTx',
-        0x02: 'disableRxAndEnableTx',
-        0x03: 'disableRxAndTx'
+# ######################### KWP_IOCBLI ###################################
+class KWP_IOCBLI(Packet):
+    name = 'InputOutputControlByLocalIdentifier'
+    inputOutputControlParameters = {
+        0x00: "Return Control to ECU",
+        0x01: "Report Current State",
+        0x04: "Reset to Default",
+        0x05: "Freeze Current State",
+        0x07: "Short Term Adjustment",
+        0x08: "Long Term Adjustment"
     }
-    name = 'CommunicationControl'
     fields_desc = [
-        ByteEnumField('controlType', 0, controlTypes),
-        BitEnumField('communicationType0', 0, 2,
-                     {0: 'ISOSAEReserved',
-                      1: 'normalCommunicationMessages',
-                      2: 'networkManagmentCommunicationMessages',
-                      3: 'networkManagmentCommunicationMessages and '
-                         'normalCommunicationMessages'}),
-        BitField('communicationType1', 0, 2),
-        BitEnumField('communicationType2', 0, 4,
-                     {0: 'Disable/Enable specified communication Type',
-                      1: 'Disable/Enable specific subnet',
-                      2: 'Disable/Enable specific subnet',
-                      3: 'Disable/Enable specific subnet',
-                      4: 'Disable/Enable specific subnet',
-                      5: 'Disable/Enable specific subnet',
-                      6: 'Disable/Enable specific subnet',
-                      7: 'Disable/Enable specific subnet',
-                      8: 'Disable/Enable specific subnet',
-                      9: 'Disable/Enable specific subnet',
-                      10: 'Disable/Enable specific subnet',
-                      11: 'Disable/Enable specific subnet',
-                      12: 'Disable/Enable specific subnet',
-                      13: 'Disable/Enable specific subnet',
-                      14: 'Disable/Enable specific subnet',
-                      15: 'Disable/Enable network'})
+        XByteField('localIdentifier', 0),
+        XByteEnumField('inputOutputControlParameter', 0,
+                       inputOutputControlParameters),
+        StrField('controlState', b"", fmt="B")
     ]
 
 
-bind_layers(KWP, KWP_CC, service=0x28)
+bind_layers(KWP, KWP_IOCBLI, service=0x30)
 
 
-class KWP_CCPR(Packet):
-    name = 'CommunicationControlPositiveResponse'
+class KWP_IOCBLIPR(Packet):
+    name = 'InputOutputControlByLocalIdentifierPositiveResponse'
     fields_desc = [
-        ByteEnumField('controlType', 0, KWP_CC.controlTypes)
+        XByteField('localIdentifier', 0),
+        XByteEnumField('inputOutputControlParameter', 0,
+                       KWP_IOCBLI.inputOutputControlParameters),
+        StrField('controlState', b"", fmt="B")
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_CC \
-            and other.controlType == self.controlType
+        return isinstance(other, KWP_IOCBLI) \
+            and other.localIdentifier == self.localIdentifier
 
 
-bind_layers(KWP, KWP_CCPR, service=0x68)
+bind_layers(KWP, KWP_IOCBLIPR, service=0x70)
 
 
-# #########################TP###################################
+# ######################### KWP_DNMT ###################################
+class KWP_DNMT(Packet):
+    responseTypes = {
+        0x01: 'responseRequired',
+        0x02: 'noResponse',
+    }
+    name = 'DisableNormalMessageTransmission'
+    fields_desc = [
+        ByteEnumField('responseRequired', 0, responseTypes)
+    ]
+
+
+bind_layers(KWP, KWP_DNMT, service=0x28)
+
+
+class KWP_DNMTPR(Packet):
+    name = 'DisableNormalMessageTransmissionPositiveResponse'
+
+    def answers(self, other):
+        return isinstance(other, KWP_DNMT)
+
+
+bind_layers(KWP, KWP_DNMTPR, service=0x68)
+
+
+# ######################### KWP_ENMT ###################################
+class KWP_ENMT(Packet):
+    responseTypes = {
+        0x01: 'responseRequired',
+        0x02: 'noResponse',
+    }
+    name = 'EnableNormalMessageTransmission'
+    fields_desc = [
+        ByteEnumField('responseRequired', 1, responseTypes)
+    ]
+
+
+bind_layers(KWP, KWP_ENMT, service=0x29)
+
+
+class KWP_ENMTPR(Packet):
+    name = 'EnableNormalMessageTransmissionPositiveResponse'
+
+    def answers(self, other):
+        return isinstance(other, KWP_DNMT)
+
+
+bind_layers(KWP, KWP_ENMTPR, service=0x69)
+
+
+# ######################### KWP_TP ###################################
 class KWP_TP(Packet):
+    responseTypes = {
+        0x01: 'responseRequired',
+        0x02: 'noResponse',
+    }
     name = 'TesterPresent'
     fields_desc = [
-        ByteField('subFunction', 0)
+        ByteEnumField('responseRequired', 1, responseTypes)
     ]
 
 
@@ -286,91 +311,37 @@ bind_layers(KWP, KWP_TP, service=0x3E)
 
 class KWP_TPPR(Packet):
     name = 'TesterPresentPositiveResponse'
-    fields_desc = [
-        ByteField('zeroSubFunction', 0)
-    ]
 
     def answers(self, other):
-        return other.__class__ == KWP_TP
+        return isinstance(other, KWP_TP)
 
 
 bind_layers(KWP, KWP_TPPR, service=0x7E)
 
 
-# #########################ATP###################################
-class KWP_ATP(Packet):
-    timingParameterAccessTypes = {
-        0: 'ISOSAEReserved',
-        1: 'readExtendedTimingParameterSet',
-        2: 'setTimingParametersToDefaultValues',
-        3: 'readCurrentlyActiveTimingParameters',
-        4: 'setTimingParametersToGivenValues'
-    }
-    name = 'AccessTimingParameter'
-    fields_desc = [
-        ByteEnumField('timingParameterAccessType', 0,
-                      timingParameterAccessTypes),
-        ConditionalField(StrField('timingParameterRequestRecord', b""),
-                         lambda pkt: pkt.timingParameterAccessType == 0x4)
-    ]
-
-
-bind_layers(KWP, KWP_ATP, service=0x83)
-
-
-class KWP_ATPPR(Packet):
-    name = 'AccessTimingParameterPositiveResponse'
-    fields_desc = [
-        ByteEnumField('timingParameterAccessType', 0,
-                      KWP_ATP.timingParameterAccessTypes),
-        ConditionalField(StrField('timingParameterResponseRecord', b""),
-                         lambda pkt: pkt.timingParameterAccessType == 0x3)
-    ]
-
-    def answers(self, other):
-        return other.__class__ == KWP_ATP \
-            and other.timingParameterAccessType == \
-            self.timingParameterAccessType
-
-
-bind_layers(KWP, KWP_ATPPR, service=0xC3)
-
-
-# #########################SDT###################################
-class KWP_SDT(Packet):
-    name = 'SecuredDataTransmission'
-    fields_desc = [
-        StrField('securityDataRequestRecord', b"")
-    ]
-
-
-bind_layers(KWP, KWP_SDT, service=0x84)
-
-
-class KWP_SDTPR(Packet):
-    name = 'SecuredDataTransmissionPositiveResponse'
-    fields_desc = [
-        StrField('securityDataResponseRecord', b"")
-    ]
-
-    def answers(self, other):
-        return other.__class__ == KWP_SDT
-
-
-bind_layers(KWP, KWP_SDTPR, service=0xC4)
-
-
-# #########################CDTCS###################################
+# ######################### KWP_CDTCS ###################################
 class KWP_CDTCS(Packet):
-    DTCSettingTypes = {
-        0: 'ISOSAEReserved',
+    responseTypes = {
+        0x01: 'responseRequired',
+        0x02: 'noResponse',
+    }
+    DTCGroups = {
+        0x0000: 'allPowertrainDTCs',
+        0x4000: 'allChassisDTCs',
+        0x8000: 'allBodyDTCs',
+        0xC000: 'allNetworkDTCs',
+        0xFF00: 'allDTCs'
+    }
+    DTCSettingModes = {
+        0: 'Reserved',
         1: 'on',
         2: 'off'
     }
     name = 'ControlDTCSetting'
     fields_desc = [
-        ByteEnumField('DTCSettingType', 0, DTCSettingTypes),
-        StrField('DTCSettingControlOptionRecord', b"")
+        ByteEnumField('responseRequired', 1, responseTypes),
+        XShortEnumField('groupOfDTC', 0, DTCGroups),
+        ByteEnumField('DTCSettingMode', 0, DTCSettingModes),
     ]
 
 
@@ -379,29 +350,42 @@ bind_layers(KWP, KWP_CDTCS, service=0x85)
 
 class KWP_CDTCSPR(Packet):
     name = 'ControlDTCSettingPositiveResponse'
-    fields_desc = [
-        ByteEnumField('DTCSettingType', 0, KWP_CDTCS.DTCSettingTypes)
-    ]
 
     def answers(self, other):
-        return other.__class__ == KWP_CDTCS
+        return isinstance(other, KWP_CDTCS)
 
 
 bind_layers(KWP, KWP_CDTCSPR, service=0xC5)
 
 
-# #########################ROE###################################
-# TODO: improve this protocol implementation
+# ######################### KWP_ROE ###################################
 class KWP_ROE(Packet):
+    responseTypes = {
+        0x01: 'responseRequired',
+        0x02: 'noResponse',
+    }
+    eventWindowTimes = {
+        0x00: 'reserved',
+        0x01: 'testerPresentRequired',
+        0x02: 'infiniteTimeToResponse',
+        0x80: 'noEventWindow'
+    }
     eventTypes = {
-        0: 'doNotStoreEvent',
-        1: 'storeEvent'
+        0x80: 'reportActivatedEvents',
+        0x81: 'stopResponseOnEvent',
+        0x82: 'onNewDTC',
+        0x83: 'onTimerInterrupt',
+        0x84: 'onChangeOfRecordValue',
+        0xA0: 'onComparisonOfValues'
     }
     name = 'ResponseOnEvent'
     fields_desc = [
+        ByteEnumField('responseRequired', 1, responseTypes),
+        ByteEnumField('eventWindowTime', 0, eventWindowTimes),
         ByteEnumField('eventType', 0, eventTypes),
-        ByteField('eventWindowTime', 0),
-        StrField('eventTypeRecord', b"")
+        ByteField('eventParameter', 0),
+        ByteEnumField('serviceToRespond', 0, KWP.services),
+        ByteField('serviceParameter', 0)
     ]
 
 
@@ -411,67 +395,89 @@ bind_layers(KWP, KWP_ROE, service=0x86)
 class KWP_ROEPR(Packet):
     name = 'ResponseOnEventPositiveResponse'
     fields_desc = [
+        ByteField("numberOfActivatedEvents", 0),
+        ByteEnumField('eventWindowTime', 0, KWP_ROE.eventWindowTimes),
         ByteEnumField('eventType', 0, KWP_ROE.eventTypes),
-        ByteField('numberOfIdentifiedEvents', 0),
-        ByteField('eventWindowTime', 0),
-        StrField('eventTypeRecord', b"")
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_ROE \
+        return isinstance(other, KWP_ROE) \
             and other.eventType == self.eventType
 
 
 bind_layers(KWP, KWP_ROEPR, service=0xC6)
 
 
-# #########################LC###################################
-class KWP_LC(Packet):
-    linkControlTypes = {
-        0: 'ISOSAEReserved',
-        1: 'verifyBaudrateTransitionWithFixedBaudrate',
-        2: 'verifyBaudrateTransitionWithSpecificBaudrate',
-        3: 'transitionBaudrate'
-    }
-    name = 'LinkControl'
+# ######################### KWP_RDBLI ###################################
+class KWP_RDBLI(Packet):
+    localIdentifiers = ObservableDict({
+        0xE0: "Development Data",
+        0xE1: "ECU Serial Number",
+        0xE2: "DBCom Data",
+        0xE3: "Operating System Version",
+        0xE4: "Ecu Reprogramming Identification",
+        0xE5: "Vehicle Information",
+        0xE6: "Flash Info 1",
+        0xE7: "Flash Info 2",
+        0xE8: "System Diagnostic general parameter data",
+        0xE9: "System Diagnostic global parameter data",
+        0xEA: "Ecu Configuration",
+        0xEB: "Diagnostic Protocol Information"
+    })
+    name = 'ReadDataByLocalIdentifier'
     fields_desc = [
-        ByteEnumField('linkControlType', 0, linkControlTypes),
-        ConditionalField(ByteField('baudrateIdentifier', 0),
-                         lambda pkt: pkt.linkControlType == 0x1),
-        ConditionalField(ByteField('baudrateHighByte', 0),
-                         lambda pkt: pkt.linkControlType == 0x2),
-        ConditionalField(ByteField('baudrateMiddleByte', 0),
-                         lambda pkt: pkt.linkControlType == 0x2),
-        ConditionalField(ByteField('baudrateLowByte', 0),
-                         lambda pkt: pkt.linkControlType == 0x2)
+        XByteEnumField('recordLocalIdentifier', 0, localIdentifiers)
     ]
 
 
-bind_layers(KWP, KWP_LC, service=0x87)
+bind_layers(KWP, KWP_RDBLI, service=0x21)
 
 
-class KWP_LCPR(Packet):
-    name = 'LinkControlPositiveResponse'
+class KWP_RDBLIPR(Packet):
+    name = 'ReadDataByLocalIdentifierPositiveResponse'
     fields_desc = [
-        ByteEnumField('linkControlType', 0, KWP_LC.linkControlTypes)
+        XByteEnumField('recordLocalIdentifier', 0, KWP_RDBLI.localIdentifiers)
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_LC \
-            and other.linkControlType == self.linkControlType
+        return isinstance(other, KWP_RDBLI) \
+            and self.recordLocalIdentifier == other.recordLocalIdentifier
 
 
-bind_layers(KWP, KWP_LCPR, service=0xC7)
+bind_layers(KWP, KWP_RDBLIPR, service=0x61)
 
 
-# #########################RDBI###################################
+# ######################### KWP_WDBLI ###################################
+class KWP_WDBLI(Packet):
+    name = 'WriteDataByLocalIdentifier'
+    fields_desc = [
+        XByteEnumField('recordLocalIdentifier', 0, KWP_RDBLI.localIdentifiers)
+    ]
+
+
+bind_layers(KWP, KWP_WDBLI, service=0x3B)
+
+
+class KWP_WDBLIPR(Packet):
+    name = 'WriteDataByLocalIdentifierPositiveResponse'
+    fields_desc = [
+        XByteEnumField('recordLocalIdentifier', 0, KWP_WDBLI.localIdentifiers)
+    ]
+
+    def answers(self, other):
+        return isinstance(other, KWP_WDBLI) \
+            and self.recordLocalIdentifier == other.recordLocalIdentifier
+
+
+bind_layers(KWP, KWP_WDBLIPR, service=0x7B)
+
+
+# ######################### KWP_RDBI ###################################
 class KWP_RDBI(Packet):
     dataIdentifiers = ObservableDict()
     name = 'ReadDataByIdentifier'
     fields_desc = [
-        FieldListField("identifiers", None,
-                       XShortEnumField('dataIdentifier', 0,
-                                       dataIdentifiers))
+        XShortEnumField('identifier', 0, dataIdentifiers)
     ]
 
 
@@ -481,40 +487,23 @@ bind_layers(KWP, KWP_RDBI, service=0x22)
 class KWP_RDBIPR(Packet):
     name = 'ReadDataByIdentifierPositiveResponse'
     fields_desc = [
-        XShortEnumField('dataIdentifier', 0,
-                        KWP_RDBI.dataIdentifiers),
+        XShortEnumField('identifier', 0, KWP_RDBI.dataIdentifiers),
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_RDBI \
-            and self.dataIdentifier in other.identifiers
+        return isinstance(other, KWP_RDBI) \
+            and self.identifier == other.identifier
 
 
 bind_layers(KWP, KWP_RDBIPR, service=0x62)
 
 
-# #########################RMBA###################################
+# ######################### KWP_RMBA ###################################
 class KWP_RMBA(Packet):
     name = 'ReadMemoryByAddress'
     fields_desc = [
-        BitField('memorySizeLen', 0, 4),
-        BitField('memoryAddressLen', 0, 4),
-        ConditionalField(XByteField('memoryAddress1', 0),
-                         lambda pkt: pkt.memoryAddressLen == 1),
-        ConditionalField(XShortField('memoryAddress2', 0),
-                         lambda pkt: pkt.memoryAddressLen == 2),
-        ConditionalField(X3BytesField('memoryAddress3', 0),
-                         lambda pkt: pkt.memoryAddressLen == 3),
-        ConditionalField(XIntField('memoryAddress4', 0),
-                         lambda pkt: pkt.memoryAddressLen == 4),
-        ConditionalField(XByteField('memorySize1', 0),
-                         lambda pkt: pkt.memorySizeLen == 1),
-        ConditionalField(XShortField('memorySize2', 0),
-                         lambda pkt: pkt.memorySizeLen == 2),
-        ConditionalField(X3BytesField('memorySize3', 0),
-                         lambda pkt: pkt.memorySizeLen == 3),
-        ConditionalField(XIntField('memorySize4', 0),
-                         lambda pkt: pkt.memorySizeLen == 4),
+        X3BytesField('memoryAddress', 0),
+        ByteField('memorySize', 0)
     ]
 
 
@@ -528,115 +517,50 @@ class KWP_RMBAPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_RMBA
+        return isinstance(other, KWP_RMBA)
 
 
 bind_layers(KWP, KWP_RMBAPR, service=0x63)
 
 
-# #########################RSDBI###################################
-class KWP_RSDBI(Packet):
-    name = 'ReadScalingDataByIdentifier'
-    dataIdentifiers = ObservableDict()
-    fields_desc = [
-        XShortEnumField('dataIdentifier', 0, dataIdentifiers)
-    ]
-
-
-bind_layers(KWP, KWP_RSDBI, service=0x24)
-
-
-# TODO: Implement correct scaling here, instead of using just the dataRecord
-class KWP_RSDBIPR(Packet):
-    name = 'ReadScalingDataByIdentifierPositiveResponse'
-    fields_desc = [
-        XShortEnumField('dataIdentifier', 0, KWP_RSDBI.dataIdentifiers),
-        ByteField('scalingByte', 0),
-        StrField('dataRecord', b"", fmt="B")
-    ]
-
-    def answers(self, other):
-        return other.__class__ == KWP_RSDBI \
-            and other.dataIdentifier == self.dataIdentifier
-
-
-bind_layers(KWP, KWP_RSDBIPR, service=0x64)
-
-
-# #########################RDBPI###################################
-class KWP_RDBPI(Packet):
-    transmissionModes = {
-        0: 'ISOSAEReserved',
-        1: 'sendAtSlowRate',
-        2: 'sendAtMediumRate',
-        3: 'sendAtFastRate',
-        4: 'stopSending'
-    }
-    name = 'ReadDataByPeriodicIdentifier'
-    fields_desc = [
-        ByteEnumField('transmissionMode', 0, transmissionModes),
-        ByteField('periodicDataIdentifier', 0),
-        StrField('furtherPeriodicDataIdentifier', b"", fmt="B")
-    ]
-
-
-bind_layers(KWP, KWP_RDBPI, service=0x2A)
-
-
-# TODO: Implement correct scaling here, instead of using just the dataRecord
-class KWP_RDBPIPR(Packet):
-    name = 'ReadDataByPeriodicIdentifierPositiveResponse'
-    fields_desc = [
-        ByteField('periodicDataIdentifier', 0),
-        StrField('dataRecord', b"", fmt="B")
-    ]
-
-    def answers(self, other):
-        return other.__class__ == KWP_RDBPI \
-            and other.periodicDataIdentifier == self.periodicDataIdentifier
-
-
-bind_layers(KWP, KWP_RDBPIPR, service=0x6A)
-
-
-# #########################DDDI###################################
+# ######################### KWP_DDLI ###################################
 # TODO: Implement correct interpretation here,
-# instead of using just the dataRecord
-class KWP_DDDI(Packet):
-    name = 'DynamicallyDefineDataIdentifier'
-    subFunctions = {0x1: "defineByIdentifier",
-                    0x2: "defineByMemoryAddress",
-                    0x3: "clearDynamicallyDefinedDataIdentifier"}
+#       instead of using just the dataRecord
+class KWP_DDLI(Packet):
+    name = 'DynamicallyDefineLocalIdentifier'
+    definitionModes = {0x1: "defineByLocalIdentifier",
+                       0x2: "defineByMemoryAddress",
+                       0x3: "defineByIdentifier",
+                       0x4: "clearDynamicallyDefinedLocalIdentifier"}
     fields_desc = [
-        ByteEnumField('subFunction', 0, subFunctions),
+        XByteField('dynamicallyDefineLocalIdentifier', 0),
+        ByteEnumField('definitionMode', 0, definitionModes),
         StrField('dataRecord', b"", fmt="B")
     ]
 
 
-bind_layers(KWP, KWP_DDDI, service=0x2C)
+bind_layers(KWP, KWP_DDLI, service=0x2C)
 
 
-class KWP_DDDIPR(Packet):
-    name = 'DynamicallyDefineDataIdentifierPositiveResponse'
+class KWP_DDLIPR(Packet):
+    name = 'DynamicallyDefineLocalIdentifierPositiveResponse'
     fields_desc = [
-        ByteEnumField('subFunction', 0, KWP_DDDI.subFunctions),
-        XShortField('dynamicallyDefinedDataIdentifier', 0)
+        XByteField('dynamicallyDefineLocalIdentifier', 0)
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_DDDI \
-            and other.subFunction == self.subFunction
+        return isinstance(other, KWP_DDLI) and \
+            other.dynamicallyDefineLocalIdentifier == self.dynamicallyDefineLocalIdentifier  # noqa: E501
 
 
-bind_layers(KWP, KWP_DDDIPR, service=0x6C)
+bind_layers(KWP, KWP_DDLIPR, service=0x6C)
 
 
-# #########################WDBI###################################
+# ######################### KWP_WDBI ###################################
 class KWP_WDBI(Packet):
     name = 'WriteDataByIdentifier'
     fields_desc = [
-        XShortEnumField('dataIdentifier', 0,
-                        KWP_RDBI.dataIdentifiers)
+        XShortEnumField('identifier', 0, KWP_RDBI.dataIdentifiers)
     ]
 
 
@@ -646,42 +570,24 @@ bind_layers(KWP, KWP_WDBI, service=0x2E)
 class KWP_WDBIPR(Packet):
     name = 'WriteDataByIdentifierPositiveResponse'
     fields_desc = [
-        XShortEnumField('dataIdentifier', 0,
-                        KWP_RDBI.dataIdentifiers),
+        XShortEnumField('identifier', 0, KWP_RDBI.dataIdentifiers),
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_WDBI \
-            and other.dataIdentifier == self.dataIdentifier
+        return isinstance(other, KWP_WDBI) \
+            and other.identifier == self.identifier
 
 
 bind_layers(KWP, KWP_WDBIPR, service=0x6E)
 
 
-# #########################WMBA###################################
+# ######################### KWP_WMBA ###################################
 class KWP_WMBA(Packet):
     name = 'WriteMemoryByAddress'
     fields_desc = [
-        BitField('memorySizeLen', 0, 4),
-        BitField('memoryAddressLen', 0, 4),
-        ConditionalField(XByteField('memoryAddress1', 0),
-                         lambda pkt: pkt.memoryAddressLen == 1),
-        ConditionalField(XShortField('memoryAddress2', 0),
-                         lambda pkt: pkt.memoryAddressLen == 2),
-        ConditionalField(X3BytesField('memoryAddress3', 0),
-                         lambda pkt: pkt.memoryAddressLen == 3),
-        ConditionalField(XIntField('memoryAddress4', 0),
-                         lambda pkt: pkt.memoryAddressLen == 4),
-        ConditionalField(XByteField('memorySize1', 0),
-                         lambda pkt: pkt.memorySizeLen == 1),
-        ConditionalField(XShortField('memorySize2', 0),
-                         lambda pkt: pkt.memorySizeLen == 2),
-        ConditionalField(X3BytesField('memorySize3', 0),
-                         lambda pkt: pkt.memorySizeLen == 3),
-        ConditionalField(XIntField('memorySize4', 0),
-                         lambda pkt: pkt.memorySizeLen == 4),
-        StrField('dataRecord', b'', fmt="B"),
-
+        X3BytesField('memoryAddress', 0),
+        ByteField('memorySize', 0),
+        StrField('dataRecord', b'', fmt="B")
     ]
 
 
@@ -691,211 +597,216 @@ bind_layers(KWP, KWP_WMBA, service=0x3D)
 class KWP_WMBAPR(Packet):
     name = 'WriteMemoryByAddressPositiveResponse'
     fields_desc = [
-        BitField('memorySizeLen', 0, 4),
-        BitField('memoryAddressLen', 0, 4),
-        ConditionalField(XByteField('memoryAddress1', 0),
-                         lambda pkt: pkt.memoryAddressLen == 1),
-        ConditionalField(XShortField('memoryAddress2', 0),
-                         lambda pkt: pkt.memoryAddressLen == 2),
-        ConditionalField(X3BytesField('memoryAddress3', 0),
-                         lambda pkt: pkt.memoryAddressLen == 3),
-        ConditionalField(XIntField('memoryAddress4', 0),
-                         lambda pkt: pkt.memoryAddressLen == 4),
-        ConditionalField(XByteField('memorySize1', 0),
-                         lambda pkt: pkt.memorySizeLen == 1),
-        ConditionalField(XShortField('memorySize2', 0),
-                         lambda pkt: pkt.memorySizeLen == 2),
-        ConditionalField(X3BytesField('memorySize3', 0),
-                         lambda pkt: pkt.memorySizeLen == 3),
-        ConditionalField(XIntField('memorySize4', 0),
-                         lambda pkt: pkt.memorySizeLen == 4)
+        X3BytesField('memoryAddress', 0)
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_WMBA \
-            and other.memorySizeLen == self.memorySizeLen \
-            and other.memoryAddressLen == self.memoryAddressLen
+        return isinstance(other, KWP_WMBA) and \
+            other.memoryAddress == self.memoryAddress
 
 
 bind_layers(KWP, KWP_WMBAPR, service=0x7D)
 
 
-# #########################CDTCI###################################
-class KWP_CDTCI(Packet):
+# ######################### KWP_CDI ###################################
+class KWP_CDI(Packet):
+    DTCGroups = {
+        0x0000: 'allPowertrainDTCs',
+        0x4000: 'allChassisDTCs',
+        0x8000: 'allBodyDTCs',
+        0xC000: 'allNetworkDTCs',
+        0xFF00: 'allDTCs'
+    }
     name = 'ClearDiagnosticInformation'
     fields_desc = [
-        ByteField('groupOfDTCHighByte', 0),
-        ByteField('groupOfDTCMiddleByte', 0),
-        ByteField('groupOfDTCLowByte', 0),
+        XShortEnumField('groupOfDTC', 0, DTCGroups)
     ]
 
 
-bind_layers(KWP, KWP_CDTCI, service=0x14)
+bind_layers(KWP, KWP_CDI, service=0x14)
 
 
-class KWP_CDTCIPR(Packet):
+class KWP_CDIPR(Packet):
     name = 'ClearDiagnosticInformationPositiveResponse'
 
-    def answers(self, other):
-        return other.__class__ == KWP_CDTCI
-
-
-bind_layers(KWP, KWP_CDTCIPR, service=0x54)
-
-
-# #########################RDTCI###################################
-class KWP_RDTCI(Packet):
-    reportTypes = {
-        0: 'ISOSAEReserved',
-        1: 'reportNumberOfDTCByStatusMask',
-        2: 'reportDTCByStatusMask',
-        3: 'reportDTCSnapshotIdentification',
-        4: 'reportDTCSnapshotRecordByDTCNumber',
-        5: 'reportDTCSnapshotRecordByRecordNumber',
-        6: 'reportDTCExtendedDataRecordByDTCNumber',
-        7: 'reportNumberOfDTCBySeverityMaskRecord',
-        8: 'reportDTCBySeverityMaskRecord',
-        9: 'reportSeverityInformationOfDTC',
-        10: 'reportSupportedDTC',
-        11: 'reportFirstTestFailedDTC',
-        12: 'reportFirstConfirmedDTC',
-        13: 'reportMostRecentTestFailedDTC',
-        14: 'reportMostRecentConfirmedDTC',
-        15: 'reportMirrorMemoryDTCByStatusMask',
-        16: 'reportMirrorMemoryDTCExtendedDataRecordByDTCNumber',
-        17: 'reportNumberOfMirrorMemoryDTCByStatusMask',
-        18: 'reportNumberOfEmissionsRelatedOBDDTCByStatusMask',
-        19: 'reportEmissionsRelatedOBDDTCByStatusMask',
-        20: 'reportDTCFaultDetectionCounter',
-        21: 'reportDTCWithPermanentStatus'
-    }
-    name = 'ReadDTCInformation'
     fields_desc = [
-        ByteEnumField('reportType', 0, reportTypes),
-        ConditionalField(ByteField('DTCSeverityMask', 0),
-                         lambda pkt: pkt.reportType in [0x07, 0x08]),
-        ConditionalField(XByteField('DTCStatusMask', 0),
-                         lambda pkt: pkt.reportType in [
-                             0x01, 0x02, 0x07, 0x08, 0x0f, 0x11, 0x12, 0x13]),
-        ConditionalField(ByteField('DTCHighByte', 0),
-                         lambda pkt: pkt.reportType in [0x3, 0x4, 0x6,
-                                                        0x10, 0x09]),
-        ConditionalField(ByteField('DTCMiddleByte', 0),
-                         lambda pkt: pkt.reportType in [0x3, 0x4, 0x6,
-                                                        0x10, 0x09]),
-        ConditionalField(ByteField('DTCLowByte', 0),
-                         lambda pkt: pkt.reportType in [0x3, 0x4, 0x6,
-                                                        0x10, 0x09]),
-        ConditionalField(ByteField('DTCSnapshotRecordNumber', 0),
-                         lambda pkt: pkt.reportType in [0x3, 0x4, 0x5]),
-        ConditionalField(ByteField('DTCExtendedDataRecordNumber', 0),
-                         lambda pkt: pkt.reportType in [0x6, 0x10])
-    ]
-
-
-bind_layers(KWP, KWP_RDTCI, service=0x19)
-
-
-class KWP_RDTCIPR(Packet):
-    name = 'ReadDTCInformationPositiveResponse'
-    fields_desc = [
-        ByteEnumField('reportType', 0, KWP_RDTCI.reportTypes),
-        ConditionalField(XByteField('DTCStatusAvailabilityMask', 0),
-                         lambda pkt: pkt.reportType in [0x01, 0x07, 0x11,
-                                                        0x12, 0x02, 0x0A,
-                                                        0x0B, 0x0C, 0x0D,
-                                                        0x0E, 0x0F, 0x13,
-                                                        0x15]),
-        ConditionalField(ByteEnumField('DTCFormatIdentifier', 0,
-                                       {0: 'ISO15031-6DTCFormat',
-                                        1: 'KWP-1DTCFormat',
-                                        2: 'SAEJ1939-73DTCFormat',
-                                        3: 'ISO11992-4DTCFormat'}),
-                         lambda pkt: pkt.reportType in [0x01, 0x07,
-                                                        0x11, 0x12]),
-        ConditionalField(ShortField('DTCCount', 0),
-                         lambda pkt: pkt.reportType in [0x01, 0x07,
-                                                        0x11, 0x12]),
-        ConditionalField(StrField('DTCAndStatusRecord', b""),
-                         lambda pkt: pkt.reportType in [0x02, 0x0A, 0x0B,
-                                                        0x0C, 0x0D, 0x0E,
-                                                        0x0F, 0x13, 0x15]),
-        ConditionalField(StrField('dataRecord', b""),
-                         lambda pkt: pkt.reportType in [0x03, 0x04, 0x05,
-                                                        0x06, 0x08, 0x09,
-                                                        0x10, 0x14])
+        XShortEnumField('groupOfDTC', 0, KWP_CDI.DTCGroups)
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_RDTCI \
-            and other.reportType == self.reportType
+        return isinstance(other, KWP_CDI) and \
+            self.groupOfDTC == other.groupOfDTC
 
 
-bind_layers(KWP, KWP_RDTCIPR, service=0x59)
+bind_layers(KWP, KWP_CDIPR, service=0x54)
 
 
-# #########################RC###################################
-class KWP_RC(Packet):
-    routineControlTypes = {
-        0: 'ISOSAEReserved',
-        1: 'startRoutine',
-        2: 'stopRoutine',
-        3: 'requestRoutineResults'
-    }
-    routineControlIdentifiers = ObservableDict()
-    name = 'RoutineControl'
+# ######################### KWP_RSODTC ###################################
+class KWP_RSODTC(Packet):
+    name = 'ReadStatusOfDiagnosticTroubleCodes'
     fields_desc = [
-        ByteEnumField('routineControlType', 0, routineControlTypes),
-        XShortEnumField('routineIdentifier', 0, routineControlIdentifiers)
+        XShortEnumField('groupOfDTC', 0, KWP_CDI.DTCGroups)
     ]
 
 
-bind_layers(KWP, KWP_RC, service=0x31)
+bind_layers(KWP, KWP_RSODTC, service=0x17)
 
 
-class KWP_RCPR(Packet):
-    name = 'RoutineControlPositiveResponse'
+class KWP_RSODTCPR(Packet):
+    name = 'ReadStatusOfDiagnosticTroubleCodesPositiveResponse'
+
     fields_desc = [
-        ByteEnumField('routineControlType', 0, KWP_RC.routineControlTypes),
-        XShortEnumField('routineIdentifier', 0,
-                        KWP_RC.routineControlIdentifiers),
+        ByteField('numberOfDTC', 0),
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_RC \
-            and other.routineControlType == self.routineControlType \
-            and other.routineIdentifier == self.routineIdentifier
+        return isinstance(other, KWP_RSODTC)
 
 
-bind_layers(KWP, KWP_RCPR, service=0x71)
+bind_layers(KWP, KWP_RSODTCPR, service=0x57)
 
 
-# #########################RD###################################
-class KWP_RD(Packet):
-    dataFormatIdentifiers = ObservableDict({
-        0: 'noCompressionNoEncryption'
+# ######################### KWP_RECUI ###################################
+class KWP_RECUI(Packet):
+    name = 'ReadECUIdentification'
+    localIdentifiers = ObservableDict({
+        0x86: "DCS ECU Identification",
+        0x87: "DCX / MMC ECU Identification",
+        0x88: "VIN (Original)",
+        0x89: "Diagnostic Variant Code",
+        0x90: "VIN (Current)",
+        0x96: "Calibration Identification",
+        0x97: "Calibration Verification Number",
+        0x9A: "ECU Code Fingerprint",
+        0x98: "ECU Data Fingerprint",
+        0x9C: "ECU Code Software Identification",
+        0x9D: "ECU Data Software Identification",
+        0x9E: "ECU Boot Software Identification",
+        0x9F: "ECU Boot Fingerprint"
     })
+    fields_desc = [
+        XByteEnumField('localIdentifier', 0, localIdentifiers)
+    ]
+
+
+bind_layers(KWP, KWP_RECUI, service=0x1A)
+
+
+class KWP_RECUIPR(Packet):
+    name = 'ReadECUIdentificationPositiveResponse'
+
+    fields_desc = [
+        XByteEnumField('localIdentifier', 0, KWP_RECUI.localIdentifiers)
+    ]
+
+    def answers(self, other):
+        return isinstance(other, KWP_RECUI) and \
+            self.localIdentifier == other.localIdentifier
+
+
+bind_layers(KWP, KWP_RECUIPR, service=0x5A)
+
+
+# ######################### KWP_SRBLI ###################################
+class KWP_SRBLI(Packet):
+    routineLocalIdentifiers = ObservableDict({
+        0xE0: "FlashEraseRoutine",
+        0xE1: "FlashCheckRoutine",
+        0xE2: "Tell-TaleRetentionStack",
+        0xE3: "RequestDTCsFromShadowErrorMemory",
+        0xE4: "RequestEnvironmentDataFromShadowErrorMemory",
+        0xE5: "RequestEventInformation",
+        0xE6: "RequestEventEnvironmentData",
+        0xE7: "RequestSoftwareModuleInformation",
+        0xE8: "ClearTell-TaleRetentionStack",
+        0xE9: "ClearEventInformation"
+    })
+    name = 'StartRoutineByLocalIdentifier'
+    fields_desc = [
+        XByteEnumField('routineLocalIdentifier', 0, routineLocalIdentifiers)
+    ]
+
+
+bind_layers(KWP, KWP_SRBLI, service=0x31)
+
+
+class KWP_SRBLIPR(Packet):
+    name = 'StartRoutineByLocalIdentifierPositiveResponse'
+    fields_desc = [
+        XByteEnumField('routineLocalIdentifier', 0,
+                       KWP_SRBLI.routineLocalIdentifiers)
+    ]
+
+    def answers(self, other):
+        return isinstance(other, KWP_SRBLI) \
+            and other.routineLocalIdentifier == self.routineLocalIdentifier
+
+
+bind_layers(KWP, KWP_SRBLIPR, service=0x71)
+
+
+# ######################### KWP_STRBLI ###################################
+class KWP_STRBLI(Packet):
+    name = 'StopRoutineByLocalIdentifier'
+    fields_desc = [
+        XByteEnumField('routineLocalIdentifier', 0,
+                       KWP_SRBLI.routineLocalIdentifiers)
+    ]
+
+
+bind_layers(KWP, KWP_STRBLI, service=0x32)
+
+
+class KWP_STRBLIPR(Packet):
+    name = 'StopRoutineByLocalIdentifierPositiveResponse'
+    fields_desc = [
+        XByteEnumField('routineLocalIdentifier', 0,
+                       KWP_SRBLI.routineLocalIdentifiers)
+    ]
+
+    def answers(self, other):
+        return isinstance(other, KWP_STRBLI) \
+            and other.routineLocalIdentifier == self.routineLocalIdentifier
+
+
+bind_layers(KWP, KWP_STRBLIPR, service=0x72)
+
+
+# ######################### KWP_RRRBLI ###################################
+class KWP_RRRBLI(Packet):
+    name = 'RequestRoutineResultsByLocalIdentifier'
+    fields_desc = [
+        XByteEnumField('routineLocalIdentifier', 0,
+                       KWP_SRBLI.routineLocalIdentifiers)
+    ]
+
+
+bind_layers(KWP, KWP_RRRBLI, service=0x33)
+
+
+class KWP_RRRBLIPR(Packet):
+    name = 'RequestRoutineResultsByLocalIdentifierPositiveResponse'
+    fields_desc = [
+        XByteEnumField('routineLocalIdentifier', 0,
+                       KWP_SRBLI.routineLocalIdentifiers)
+    ]
+
+    def answers(self, other):
+        return isinstance(other, KWP_RRRBLI) \
+            and other.routineLocalIdentifier == self.routineLocalIdentifier
+
+
+bind_layers(KWP, KWP_RRRBLIPR, service=0x73)
+
+
+# ######################### KWP_RD ###################################
+class KWP_RD(Packet):
     name = 'RequestDownload'
     fields_desc = [
-        ByteEnumField('dataFormatIdentifier', 0, dataFormatIdentifiers),
-        BitField('memorySizeLen', 0, 4),
-        BitField('memoryAddressLen', 0, 4),
-        ConditionalField(XByteField('memoryAddress1', 0),
-                         lambda pkt: pkt.memoryAddressLen == 1),
-        ConditionalField(XShortField('memoryAddress2', 0),
-                         lambda pkt: pkt.memoryAddressLen == 2),
-        ConditionalField(X3BytesField('memoryAddress3', 0),
-                         lambda pkt: pkt.memoryAddressLen == 3),
-        ConditionalField(XIntField('memoryAddress4', 0),
-                         lambda pkt: pkt.memoryAddressLen == 4),
-        ConditionalField(XByteField('memorySize1', 0),
-                         lambda pkt: pkt.memorySizeLen == 1),
-        ConditionalField(XShortField('memorySize2', 0),
-                         lambda pkt: pkt.memorySizeLen == 2),
-        ConditionalField(X3BytesField('memorySize3', 0),
-                         lambda pkt: pkt.memorySizeLen == 3),
-        ConditionalField(XIntField('memorySize4', 0),
-                         lambda pkt: pkt.memorySizeLen == 4)
+        X3BytesField('memoryAddress', 0),
+        BitField('compression', 0, 4),
+        BitField('encryption', 0, 4),
+        X3BytesField('uncompressedMemorySize', 0)
     ]
 
 
@@ -905,42 +816,24 @@ bind_layers(KWP, KWP_RD, service=0x34)
 class KWP_RDPR(Packet):
     name = 'RequestDownloadPositiveResponse'
     fields_desc = [
-        BitField('memorySizeLen', 0, 4),
-        BitField('reserved', 0, 4),
         StrField('maxNumberOfBlockLength', b"", fmt="B"),
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_RD
+        return isinstance(other, KWP_RD)
 
 
 bind_layers(KWP, KWP_RDPR, service=0x74)
 
 
-# #########################RU###################################
+# ######################### KWP_RU ###################################
 class KWP_RU(Packet):
     name = 'RequestUpload'
     fields_desc = [
-        ByteEnumField('dataFormatIdentifier', 0,
-                      KWP_RD.dataFormatIdentifiers),
-        BitField('memorySizeLen', 0, 4),
-        BitField('memoryAddressLen', 0, 4),
-        ConditionalField(XByteField('memoryAddress1', 0),
-                         lambda pkt: pkt.memoryAddressLen == 1),
-        ConditionalField(XShortField('memoryAddress2', 0),
-                         lambda pkt: pkt.memoryAddressLen == 2),
-        ConditionalField(X3BytesField('memoryAddress3', 0),
-                         lambda pkt: pkt.memoryAddressLen == 3),
-        ConditionalField(XIntField('memoryAddress4', 0),
-                         lambda pkt: pkt.memoryAddressLen == 4),
-        ConditionalField(XByteField('memorySize1', 0),
-                         lambda pkt: pkt.memorySizeLen == 1),
-        ConditionalField(XShortField('memorySize2', 0),
-                         lambda pkt: pkt.memorySizeLen == 2),
-        ConditionalField(X3BytesField('memorySize3', 0),
-                         lambda pkt: pkt.memorySizeLen == 3),
-        ConditionalField(XIntField('memorySize4', 0),
-                         lambda pkt: pkt.memorySizeLen == 4)
+        X3BytesField('memoryAddress', 0),
+        BitField('compression', 0, 4),
+        BitField('encryption', 0, 4),
+        X3BytesField('uncompressedMemorySize', 0)
     ]
 
 
@@ -950,24 +843,22 @@ bind_layers(KWP, KWP_RU, service=0x35)
 class KWP_RUPR(Packet):
     name = 'RequestUploadPositiveResponse'
     fields_desc = [
-        BitField('memorySizeLen', 0, 4),
-        BitField('reserved', 0, 4),
         StrField('maxNumberOfBlockLength', b"", fmt="B"),
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_RU
+        return isinstance(other, KWP_RU)
 
 
 bind_layers(KWP, KWP_RUPR, service=0x75)
 
 
-# #########################TD###################################
+# ######################### KWP_TD ###################################
 class KWP_TD(Packet):
     name = 'TransferData'
     fields_desc = [
         ByteField('blockSequenceCounter', 0),
-        StrField('transferRequestParameterRecord', b"", fmt="B")
+        StrField('transferDataRequestParameter', b"", fmt="B")
     ]
 
 
@@ -978,22 +869,22 @@ class KWP_TDPR(Packet):
     name = 'TransferDataPositiveResponse'
     fields_desc = [
         ByteField('blockSequenceCounter', 0),
-        StrField('transferResponseParameterRecord', b"", fmt="B")
+        StrField('transferDataRequestParameter', b"", fmt="B")
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_TD \
+        return isinstance(other, KWP_TD) \
             and other.blockSequenceCounter == self.blockSequenceCounter
 
 
 bind_layers(KWP, KWP_TDPR, service=0x76)
 
 
-# #########################RTE###################################
+# ######################### KWP_RTE ###################################
 class KWP_RTE(Packet):
     name = 'RequestTransferExit'
     fields_desc = [
-        StrField('transferRequestParameterRecord', b"", fmt="B")
+        StrField('transferDataRequestParameter', b"", fmt="B")
     ]
 
 
@@ -1003,178 +894,40 @@ bind_layers(KWP, KWP_RTE, service=0x37)
 class KWP_RTEPR(Packet):
     name = 'RequestTransferExitPositiveResponse'
     fields_desc = [
-        StrField('transferResponseParameterRecord', b"", fmt="B")
+        StrField('transferDataRequestParameter', b"", fmt="B")
     ]
 
     def answers(self, other):
-        return other.__class__ == KWP_RTE
+        return isinstance(other, KWP_RTE)
 
 
 bind_layers(KWP, KWP_RTEPR, service=0x77)
 
 
-# #########################RFT###################################
-class KWP_RFT(Packet):
-    name = 'RequestFileTransfer'
-
-    modeOfOperations = {
-        0x00: "ISO/SAE Reserved",
-        0x01: "Add File",
-        0x02: "Delete File",
-        0x03: "Replace File",
-        0x04: "Read File",
-        0x05: "Read Directory"
-    }
-
-    @staticmethod
-    def _contains_file_size(packet):
-        return packet.modeOfOperation not in [2, 4, 5]
-
-    fields_desc = [
-        XByteEnumField('modeOfOperation', 0, modeOfOperations),
-        FieldLenField('filePathAndNameLength', 0,
-                      length_of='filePathAndName', fmt='H'),
-        StrLenField('filePathAndName', b"",
-                    length_from=lambda p: p.filePathAndNameLength),
-        ConditionalField(BitField('compressionMethod', 0, 4),
-                         lambda p: p.modeOfOperation not in [2, 5]),
-        ConditionalField(BitField('encryptingMethod', 0, 4),
-                         lambda p: p.modeOfOperation not in [2, 5]),
-        ConditionalField(FieldLenField('fileSizeParameterLength', 0, fmt="B",
-                                       length_of='fileSizeUnCompressed'),
-                         lambda p: KWP_RFT._contains_file_size(p)),
-        ConditionalField(StrLenField('fileSizeUnCompressed', b"",
-                                     length_from=lambda p:
-                                     p.fileSizeParameterLength),
-                         lambda p: KWP_RFT._contains_file_size(p)),
-        ConditionalField(StrLenField('fileSizeCompressed', b"",
-                                     length_from=lambda p:
-                                     p.fileSizeParameterLength),
-                         lambda p: KWP_RFT._contains_file_size(p))
-    ]
-
-
-bind_layers(KWP, KWP_RFT, service=0x38)
-
-
-class KWP_RFTPR(Packet):
-    name = 'RequestFileTransferPositiveResponse'
-
-    @staticmethod
-    def _contains_data_format_identifier(packet):
-        return packet.modeOfOperation != 0x02
-
-    fields_desc = [
-        XByteEnumField('modeOfOperation', 0, KWP_RFT.modeOfOperations),
-        ConditionalField(FieldLenField('lengthFormatIdentifier', 0,
-                                       length_of='maxNumberOfBlockLength',
-                                       fmt='B'),
-                         lambda p: p.modeOfOperation != 2),
-        ConditionalField(StrLenField('maxNumberOfBlockLength', b"",
-                         length_from=lambda p: p.lengthFormatIdentifier),
-                         lambda p: p.modeOfOperation != 2),
-        ConditionalField(BitField('compressionMethod', 0, 4),
-                         lambda p: p.modeOfOperation != 0x02),
-        ConditionalField(BitField('encryptingMethod', 0, 4),
-                         lambda p: p.modeOfOperation != 0x02),
-        ConditionalField(FieldLenField('fileSizeOrDirInfoParameterLength', 0,
-                         length_of='fileSizeUncompressedOrDirInfoLength'),
-                         lambda p: p.modeOfOperation not in [1, 2, 3]),
-        ConditionalField(StrLenField('fileSizeUncompressedOrDirInfoLength',
-                                     b"",
-                                     length_from=lambda p:
-                                     p.fileSizeOrDirInfoParameterLength),
-                         lambda p: p.modeOfOperation not in [1, 2, 3]),
-        ConditionalField(StrLenField('fileSizeCompressed', b"",
-                         length_from=lambda p:
-                         p.fileSizeOrDirInfoParameterLength),
-                         lambda p: p.modeOfOperation not in [1, 2, 3, 5]),
-    ]
-
-    def answers(self, other):
-        return other.__class__ == KWP_RFT
-
-
-bind_layers(KWP, KWP_RFTPR, service=0x78)
-
-
-# #########################IOCBI###################################
-class KWP_IOCBI(Packet):
-    name = 'InputOutputControlByIdentifier'
-    dataIdentifiers = ObservableDict()
-    fields_desc = [
-        XShortEnumField('dataIdentifier', 0, dataIdentifiers),
-        ByteField('controlOptionRecord', 0),
-        StrField('controlEnableMaskRecord', b"", fmt="B")
-    ]
-
-
-bind_layers(KWP, KWP_IOCBI, service=0x2F)
-
-
-class KWP_IOCBIPR(Packet):
-    name = 'InputOutputControlByIdentifierPositiveResponse'
-    fields_desc = [
-        XShortField('dataIdentifier', 0),
-        StrField('controlStatusRecord', b"", fmt="B")
-    ]
-
-    def answers(self, other):
-        return other.__class__ == KWP_IOCBI \
-            and other.dataIdentifier == self.dataIdentifier
-
-
-bind_layers(KWP, KWP_IOCBIPR, service=0x6F)
-
-
-# #########################NR###################################
+# ######################### KWP_NR ###################################
 class KWP_NR(Packet):
     negativeResponseCodes = {
         0x00: 'positiveResponse',
         0x10: 'generalReject',
         0x11: 'serviceNotSupported',
-        0x12: 'subFunctionNotSupported',
-        0x13: 'incorrectMessageLengthOrInvalidFormat',
-        0x14: 'responseTooLong',
-        0x20: 'ISOSAEReserved',
+        0x12: 'subFunctionNotSupported-InvalidFormat',
         0x21: 'busyRepeatRequest',
-        0x22: 'conditionsNotCorrect',
-        0x23: 'ISOSAEReserved',
-        0x24: 'requestSequenceError',
-        0x25: 'noResponseFromSubnetComponent',
-        0x26: 'failurePreventsExecutionOfRequestedAction',
+        0x22: 'conditionsNotCorrect-RequestSequenceError',
+        0x23: 'routineNotComplete',
         0x31: 'requestOutOfRange',
-        0x33: 'securityAccessDenied',
+        0x33: 'securityAccessDenied-SecurityAccessRequested',
         0x35: 'invalidKey',
         0x36: 'exceedNumberOfAttempts',
         0x37: 'requiredTimeDelayNotExpired',
-        0x70: 'uploadDownloadNotAccepted',
-        0x71: 'transferDataSuspended',
-        0x72: 'generalProgrammingFailure',
-        0x73: 'wrongBlockSequenceCounter',
+        0x40: 'downloadNotAccepted',
+        0x50: 'uploadNotAccepted',
+        0x71: 'transferSuspended',
         0x78: 'requestCorrectlyReceived-ResponsePending',
-        0x7E: 'subFunctionNotSupportedInActiveSession',
-        0x7F: 'serviceNotSupportedInActiveSession',
-        0x80: 'ISOSAEReserved',
-        0x81: 'rpmTooHigh',
-        0x82: 'rpmTooLow',
-        0x83: 'engineIsRunning',
-        0x84: 'engineIsNotRunning',
-        0x85: 'engineRunTimeTooLow',
-        0x86: 'temperatureTooHigh',
-        0x87: 'temperatureTooLow',
-        0x88: 'vehicleSpeedTooHigh',
-        0x89: 'vehicleSpeedTooLow',
-        0x8a: 'throttle/PedalTooHigh',
-        0x8b: 'throttle/PedalTooLow',
-        0x8c: 'transmissionRangeNotInNeutral',
-        0x8d: 'transmissionRangeNotInGear',
-        0x8e: 'ISOSAEReserved',
-        0x8f: 'brakeSwitch(es)NotClosed',
-        0x90: 'shifterLeverNotInPark',
-        0x91: 'torqueConverterClutchLocked',
-        0x92: 'voltageTooHigh',
-        0x93: 'voltageTooLow',
+        0x80: 'subFunctionNotSupportedInActiveDiagnosticSession',
+        0x9A: 'dataDecompressionFailed',
+        0x9B: 'dataDecryptionFailed',
+        0xA0: 'EcuNotResponding',
+        0xA1: 'EcuAddressUnknown'
     }
     name = 'NegativeResponse'
     fields_desc = [
@@ -1191,9 +944,9 @@ class KWP_NR(Packet):
 bind_layers(KWP, KWP_NR, service=0x7f)
 
 
-# ##################################################################
+# ######################### KWP_ #########################################
 # ######################## UTILS ###################################
-# ##################################################################
+# ######################### KWP_ #########################################
 
 
 class KWP_TesterPresentSender(PeriodicSenderThread):
