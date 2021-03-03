@@ -461,7 +461,7 @@ bind_layers(KWP, KWP_WDBLI, service=0x3B)
 class KWP_WDBLIPR(Packet):
     name = 'WriteDataByLocalIdentifierPositiveResponse'
     fields_desc = [
-        XByteEnumField('recordLocalIdentifier', 0, KWP_WDBLI.localIdentifiers)
+        XByteEnumField('recordLocalIdentifier', 0, KWP_RDBLI.localIdentifiers)
     ]
 
     def answers(self, other):
