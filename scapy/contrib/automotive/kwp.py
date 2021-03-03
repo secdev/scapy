@@ -20,9 +20,6 @@ from scapy.plist import _PacketIterable
 from scapy.contrib.isotp import ISOTP
 from scapy.compat import Dict, Any
 
-"""
-KWP2000
-"""
 
 try:
     if conf.contribs['KWP']['treat-response-pending-as-answer']:

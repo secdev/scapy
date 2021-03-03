@@ -29,6 +29,19 @@ assert neg.answers(sds)
 = CHECK hashret NEG
 sds.hashret() == neg.hashret()
 
+= Check if negative response answers
+
+conf.contribs['KWP']['treat-response-pending-as-answer'] = False
+
+sds = KWP(b'\x10')
+neg = KWP(b'\x7f\x10\x78')
+assert not neg.answers(sds)
+
+conf.contribs['KWP']['treat-response-pending-as-answer'] = True
+
+= CHECK hashret NEG
+sds.hashret() == neg.hashret()
+
 = Check if negative response answers not
 
 sds = KWP(b'\x10')
