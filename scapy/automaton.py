@@ -77,45 +77,44 @@ def select_objects(inputs, remain):
     :param inputs: objects to process
     :param remain: timeout. If 0, return [].
     """
-    if WINDOWS:
-        natives = []
-        events = []
-        results = []
-        for i in inputs:
-            if getattr(i, "__selectable_force_select__", False):
-                natives.append(i)
-            elif isinstance(i, SelectableObject):
-                if i.check_recv():
-                    results.append(i)
-                else:
-                    events.append(i)
-            else:
-                raise TypeError(
-                    "Invalid type: %s (must extend SelectableObject"
-                )
-        if natives:
-            results.extend(select.select(natives, [], [], remain)[0])
-        if events:
-            remainms = int((remain or 0) * 1000)
-            if len(events) == 1:
-                res = ctypes.windll.kernel32.WaitForSingleObject(
-                    ctypes.c_void_p(events[0].fileno()),
-                    remainms
-                )
-            else:
-                res = ctypes.windll.kernel32.WaitForMultipleObjects(
-                    len(events),
-                    (ctypes.c_void_p * len(events))(
-                        *[x.fileno() for x in events]
-                    ),
-                    False,
-                    remainms
-                )
-            if res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout
-                results.append(events[res])
-        return results
-    else:
+    if not WINDOWS:
         return select.select(inputs, [], [], remain)[0]
+    natives = []
+    events = []
+    results = []
+    for i in list(inputs):
+        if getattr(i, "__selectable_force_select__", False):
+            natives.append(i)
+        elif isinstance(i, SelectableObject):
+            if i.check_recv():
+                results.append(i)
+            else:
+                events.append(i)
+        else:
+            raise TypeError(
+                "Invalid type: %s (must extend SelectableObject)"
+            )
+    if natives:
+        results.extend(select.select(natives, [], [], remain)[0])
+    if events:
+        remainms = int((remain or 0) * 1000)
+        if len(events) == 1:
+            res = ctypes.windll.kernel32.WaitForSingleObject(
+                ctypes.c_void_p(events[0].fileno()),
+                remainms
+            )
+        else:
+            res = ctypes.windll.kernel32.WaitForMultipleObjects(
+                len(events),
+                (ctypes.c_void_p * len(events))(
+                    *[x.fileno() for x in events]
+                ),
+                False,
+                remainms
+            )
+        if res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout
+            results.append(events[res])
+    return results
 
 
 class ObjectPipe(SelectableObject):
