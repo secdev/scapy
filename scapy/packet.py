@@ -1222,7 +1222,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
     def answers(self, other):
         # type: (Packet) -> int
         """DEV: true if self is an answer from other"""
-        if isinstance(other, type(self)):
+        if other.__class__ == self.__class__:
             return self.payload.answers(other.payload)
         return 0
 
