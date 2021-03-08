@@ -12,6 +12,8 @@
 load_contrib("automotive.uds", globals_dict=globals())
 load_contrib("automotive.ecu", globals_dict=globals())
 
+from scapy.contrib.automotive.uds_ecu_states import *
+
 = Check if positive response answers
 
 dsc = UDS(b'\x10')
@@ -100,8 +102,9 @@ assert dscpr.diagnosticSessionType == 0x09
 assert dscpr.sessionParameterRecord == b"beef"
 
 ecu = Ecu()
+ecu.update(dsc)
 ecu.update(dscpr)
-assert ecu.current_session == 9
+assert ecu.state.session == 9
 
 = Check UDS_ER
 
@@ -138,15 +141,13 @@ assert erpr.resetType == 0x04
 assert erpr.powerDownTime == 0x10
 
 ecu = Ecu()
-ecu.current_security_level = 5
-ecu.current_session = 3
-ecu.communication_control = 4
-
+ecu.state.security_level = 5
+ecu.state.session = 3
+ecu.state.communication_control = 4
+ecu.update(er)
 ecu.update(erpr)
 
-assert ecu.current_session == 1
-assert ecu.current_security_level == 0
-assert ecu.communication_control == 0
+assert ecu.state.session == 1
 
 = Check UDS_SA
 
@@ -181,9 +182,9 @@ assert sapr.answers(sa)
 
 = Check UDS_SA
 
-sa = UDS(b'\x27\x00c0ffee')
+sa = UDS(b'\x27\x06c0ffee')
 assert sa.service == 0x27
-assert sa.securityAccessType == 0x0
+assert sa.securityAccessType == 0x6
 assert sa.securityKey == b'c0ffee'
 
 
@@ -194,8 +195,9 @@ assert sapr.service == 0x67
 assert sapr.securityAccessType == 0x6
 
 ecu = Ecu()
+ecu.update(sa)
 ecu.update(sapr)
-assert ecu.current_security_level == 6
+assert ecu.state.security_level == 6
 
 = Check UDS_SA
 
@@ -236,8 +238,9 @@ assert ccpr.service == 0x68
 assert ccpr.controlType == 0x1
 
 ecu = Ecu()
+ecu.update(cc)
 ecu.update(ccpr)
-assert ecu.communication_control == 1
+assert ecu.state.communication_control == 1
 
 = Check UDS_TP
 
@@ -801,7 +804,7 @@ rc = UDS(b'\x31\x03\xff\xee\xdd\xaa')
 assert rc.service == 0x31
 assert rc.routineControlType == 3
 assert rc.routineIdentifier == 0xffee
-assert rc.routineControlOptionRecord == b'\xdd\xaa'
+assert rc.load == b'\xdd\xaa'
 
 = Check UDS_RC
 
@@ -809,7 +812,7 @@ rc = UDS(b'\x31\x03\xff\xee\xdd\xaa')
 assert rc.service == 0x31
 assert rc.routineControlType == 3
 assert rc.routineIdentifier == 0xffee
-assert rc.routineControlOptionRecord == b'\xdd\xaa'
+assert rc.load == b'\xdd\xaa'
 
 
 = Check UDS_RCPR
@@ -818,7 +821,7 @@ rcpr = UDS(b'\x71\x03\xff\xee\xdd\xaa')
 assert rcpr.service == 0x71
 assert rcpr.routineControlType == 3
 assert rcpr.routineIdentifier == 0xffee
-assert rcpr.routineStatusRecord == b'\xdd\xaa'
+assert rcpr.load == b'\xdd\xaa'
 
 = Check UDS_RD
 

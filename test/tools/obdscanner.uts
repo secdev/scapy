@@ -74,7 +74,7 @@ drain_bus(iface0)
 
 s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
 
-example_responses = [EcuResponse(session=range(0, 255), security_level=0, responses=s3)]
+example_responses = [EcuResponse(responses=s3)]
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, 0x7e0, 0x7e8, basecls=OBD, padding=True) as tester:
@@ -110,14 +110,14 @@ s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)
 
 # Create answers for 'supported PIDs scan'
 example_responses = \
-    [EcuResponse(session=range(0, 255), security_level=0, responses=s3),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid00),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s6_mid00),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s8_tid00),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s9_iid00),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid03),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid0B),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid0F)]
+    [EcuResponse(responses=s3),
+     EcuResponse(responses=s1_pid00),
+     EcuResponse(responses=s6_mid00),
+     EcuResponse(responses=s8_tid00),
+     EcuResponse(responses=s9_iid00),
+     EcuResponse(responses=s1_pid03),
+     EcuResponse(responses=s1_pid0B),
+     EcuResponse(responses=s1_pid0F)]
 
 
 
@@ -155,14 +155,14 @@ s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)
 
 # Create answers for 'supported PIDs scan'
 example_responses = \
-    [EcuResponse(session=range(0, 255), security_level=0, responses=s3),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid00),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s6_mid00),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s8_tid00),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s9_iid00),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid03),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid0B),
-     EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid0F)]
+    [EcuResponse(responses=s3),
+     EcuResponse(responses=s1_pid00),
+     EcuResponse(responses=s6_mid00),
+     EcuResponse(responses=s8_tid00),
+     EcuResponse(responses=s9_iid00),
+     EcuResponse(responses=s1_pid03),
+     EcuResponse(responses=s1_pid0B),
+     EcuResponse(responses=s1_pid0F)]
 
 
 
@@ -192,7 +192,7 @@ drain_bus(iface0)
 
 # Add unsupported PID
 s1_pid01 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID01()])
-example_responses.append(EcuResponse(session=range(0, 255), security_level=0, responses=s1_pid01))
+example_responses.append(EcuResponse(responses=s1_pid01))
 
 with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu, \
         new_can_socket0() as isocan2, ISOTPSocket(isocan2, 0x7e0, 0x7e8, basecls=OBD, padding=True) as tester:
