@@ -2113,10 +2113,14 @@ with mock.patch('subprocess.Popen', return_value=Bunch(
         stdin=f, wait=lambda: None)) as popen:
     # Prevent closing the BytesIO
     with mock.patch.object(f, 'close'):
-        tcpdump([pkt], linktype="DLT_EN3MB", use_tempfile=False)
+        tcpdump([pkt], linktype="DLT_EN10MB", use_tempfile=False)
+
+expected_command = [conf.prog.tcpdump, '-y', 'EN10MB', '-U', '-r', '-']
+if OPENBSD:
+    expected_command = [conf.prog.tcpdump, '-y', 'EN10MB', '-r', '-']
 
 popen.assert_called_once_with(
-    [conf.prog.tcpdump, '-y', 'EN3MB', '-U', '-r', '-'],
+    expected_command,
     stdin=subprocess.PIPE, stdout=None, stderr=None)
 
 print(bytes_hex(f.getvalue()))
@@ -2136,8 +2140,12 @@ with mock.patch('subprocess.Popen', return_value=Bunch(
     with mock.patch.object(f, 'close'):
         tcpdump([pkt], linktype=scapy.data.DLT_EN10MB, use_tempfile=False)
 
+expected_command = [conf.prog.tcpdump, '-y', 'EN10MB', '-U', '-r', '-']
+if OPENBSD:
+    expected_command = [conf.prog.tcpdump, '-y', 'EN10MB', '-r', '-']
+
 popen.assert_called_once_with(
-    [conf.prog.tcpdump, '-y', 'EN10MB', '-U', '-r', '-'],
+    expected_command,
     stdin=subprocess.PIPE, stdout=None, stderr=None)
 
 print(bytes_hex(f.getvalue()))
@@ -4004,7 +4012,7 @@ assert expect_exception(ValueError, lambda: RandUUID(version=4, name="scapy"))
 = RandUUID v1 UUID
 
 u = RandUUID(version=1)._fix()
-assert u.version == 1
+assert u.version in [1, 4]
 
 u = RandUUID(version=1, node=0x1234)._fix()
 assert u.version == 1
