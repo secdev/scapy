@@ -3,7 +3,7 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-# scapy.contrib.description = Graph for AutomotiveTestCaseExecutor
+# scapy.contrib.description = Graph library for AutomotiveTestCaseExecutor
 # scapy.contrib.status = library
 
 from collections import defaultdict
@@ -19,15 +19,20 @@ if TYPE_CHECKING:
 
 
 class Graph(object):
+    """
+    Helper object to store a directional Graph of EcuState objects. An edge in
+    this Graph is defined as Tuple of two EcuStates. A node is defined as
+    EcuState.
+
+    self.edges is a dict of all possible next nodes
+    e.g. {'X': ['A', 'B', 'C', 'E'], ...}
+
+    self.__transition_functions has all the transition_functions between
+    two nodes, with the two nodes as a tuple as the key
+    e.g. {('X', 'A'): 7, ('X', 'B'): 2, ...}
+    """
     def __init__(self):
         # type: () -> None
-        """
-        self.edges is a dict of all possible next nodes
-        e.g. {'X': ['A', 'B', 'C', 'E'], ...}
-        self.__transition_functions has all the transition_functions
-        between two nodes, with the two nodes as a tuple as the key
-        e.g. {('X', 'A'): 7, ('X', 'B'): 2, ...}
-        """
         self.edges = defaultdict(list)  # type: Dict[EcuState, List[EcuState]]
         self.__transition_functions = {}  # type: Dict[_Edge, Optional["_TransitionTuple"]]  # noqa: E501
         self.weights = {}  # type: Dict[_Edge, int]
@@ -45,10 +50,19 @@ class Graph(object):
 
     def get_transition_tuple_for_edge(self, edge):
         # type: (_Edge) -> Optional["_TransitionTuple"]  # noqa: E501
+        """
+        Returns a TransitionTuple for an Edge, if available.
+        :param edge: Tuple of EcuStates
+        :return: According TransitionTuple or None
+        """
         return self.__transition_functions.get(edge, None)
 
     def downrate_edge(self, edge):
         # type: (_Edge) -> None
+        """
+        Increases the weight of an Edge
+        :param edge: Edge on which the weight has t obe increased
+        """
         try:
             self.weights[edge] += 1
         except KeyError:
@@ -57,15 +71,29 @@ class Graph(object):
     @property
     def transition_functions(self):
         # type: () -> Dict[_Edge, Optional["_TransitionTuple"]]
+        """
+        Get the dict of all TransistionTuples
+        :return:
+        """
         return self.__transition_functions
 
     @property
     def nodes(self):
         # type: () -> Union[List[EcuState], Set[EcuState]]
+        """
+        Get a set of all nodes in this Graph
+        :return:
+        """
         return set([n for _, p in self.edges.items() for n in p])
 
     def render(self, filename="SystemStateGraph.gv", view=True):
         # type: (str, bool) -> None
+        """
+        Renders this Graph as PDF, if `graphviz` is installed.
+
+        :param filename: A filename for the rendered PDF.
+        :param view: If True, rendered file will be opened.
+        """
         try:
             from graphviz import Digraph
         except ImportError:
