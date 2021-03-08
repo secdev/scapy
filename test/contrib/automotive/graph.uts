@@ -1,0 +1,75 @@
+% Regression tests for graph
+
++ Load general modules
+
+= Load contribution layer
+
+from scapy.contrib.automotive.graph import *
+import pickle
+import io
+
++ Graph tests
+
+= Basic test
+
+g = Graph()
+g.add_edge(("1", "1"))
+g.add_edge(("1", "2"))
+g.add_edge(("2", "3"))
+g.add_edge(("3", "4"))
+g.add_edge(("4", "4"))
+
+assert "1" in g.nodes
+assert "2" in g.nodes
+assert "3" in g.nodes
+assert "4" in g.nodes
+assert len(g.nodes) == 4
+assert g.dijkstra(g, "1", "4") == ["1", "2", "3", "4"]
+
+= Shortest path test
+
+g = Graph()
+g.add_edge(("1", "1"))
+g.add_edge(("1", "2"))
+g.add_edge(("2", "3"))
+g.add_edge(("3", "4"))
+g.add_edge(("4", "4"))
+
+assert g.dijkstra(g, "1", "4") == ["1", "2", "3", "4"]
+
+g.add_edge(("1", "4"))
+
+assert g.dijkstra(g, "1", "4") == ["1", "4"]
+
+g.add_edge(("3", "5"))
+g.add_edge(("5", "6"))
+
+print(g.dijkstra(g, "1", "6"))
+
+assert g.dijkstra(g, "1", "6") == ["1", "2", "3", "5", "6"] or \
+       g.dijkstra(g, "1", "6") == ['1', '4', '3', '5', '6']
+
+g.add_edge(("2", "5"))
+
+print(g.dijkstra(g, "1", "6"))
+
+assert g.dijkstra(g, "1", "6") == ["1", "2", "5", "6"]
+
+= graph add transition function
+
+g.add_edge(("4", "6"), transition_function=(str, str))
+
+assert g.dijkstra(g, "1", "6") == ["1", "4", "6"]
+
+= graph pickle
+
+f = io.BytesIO()
+
+pickle.dump(g, f)
+unp = pickle.loads(f.getvalue())
+
+assert unp.dijkstra(g, "1", "6") == ["1", "4", "6"]
+
+f1, f2 = unp.get_transition_tuple_for_edge(("4", "6"))
+assert f1==f2
+assert "1" == f1(1)
