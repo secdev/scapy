@@ -336,8 +336,8 @@ class DEV_JOB_PR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == DEV_JOB \
-            and self.identifier == other.identifier
+        return isinstance(other, DEV_JOB) and \
+            self.identifier == other.identifier
 
 
 UDS.services[0xBF] = "DevelopmentJob"

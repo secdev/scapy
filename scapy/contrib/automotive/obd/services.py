@@ -88,7 +88,7 @@ class OBD_S03_PR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == OBD_S03
+        return isinstance(other, OBD_S03)
 
 
 class OBD_S04(Packet):
@@ -99,7 +99,7 @@ class OBD_S04_PR(Packet):
     name = "S4_ClearDTCsPositiveResponse"
 
     def answers(self, other):
-        return other.__class__ == OBD_S04
+        return isinstance(other, OBD_S04)
 
 
 class OBD_S06(Packet):
@@ -121,7 +121,7 @@ class OBD_S07_PR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == OBD_S07
+        return isinstance(other, OBD_S07)
 
 
 class OBD_S08(Packet):
@@ -150,4 +150,4 @@ class OBD_S0A_PR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == OBD_S0A
+        return isinstance(other, OBD_S0A)

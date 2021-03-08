@@ -72,11 +72,6 @@ class ISOTP(Packet):
     ]
     __slots__ = Packet.__slots__ + ["src", "dst", "exsrc", "exdst"]
 
-    def answers(self, other):
-        if other.__class__ == self.__class__:
-            return self.payload.answers(other.payload)
-        return 0
-
     def __init__(self, *args, **kwargs):
         self.src = None
         self.dst = None

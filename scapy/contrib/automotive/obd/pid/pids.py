@@ -31,7 +31,7 @@ class OBD_S01_PR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == OBD_S01 \
+        return isinstance(other, OBD_S01) \
             and all(r.pid in other.pid for r in self.data_records)
 
 
@@ -49,7 +49,7 @@ class OBD_S02_PR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == OBD_S02 \
+        return isinstance(other, OBD_S02) \
             and all(r.pid in [o.pid for o in other.requests]
                     for r in self.data_records)
 
