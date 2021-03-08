@@ -32,7 +32,7 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range, input, zip_longest
 
 from scapy.config import conf
-from scapy.consts import DARWIN, WINDOWS
+from scapy.consts import DARWIN, OPENBSD, WINDOWS
 from scapy.data import MTU, DLT_EN10MB
 from scapy.compat import orb, plain_str, chb, bytes_base64,\
     base64_bytes, hex_bytes, lambda_tuple_converter, bytes_encode
@@ -2145,7 +2145,7 @@ def tcpdump(
         if prog[0] == conf.prog.wireshark:
             # Start capturing immediately (-k) from stdin (-i -)
             read_stdin_opts = ["-ki", "-"]
-        elif prog[0] == conf.prog.tcpdump:
+        elif prog[0] == conf.prog.tcpdump and not OPENBSD:
             # Capture in packet-buffered mode (-U) from stdin (-r -)
             read_stdin_opts = ["-U", "-r", "-"]
         else:
