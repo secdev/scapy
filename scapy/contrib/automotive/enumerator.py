@@ -228,7 +228,7 @@ class Scanner(object):
             self.enumerators = [e(self.socket) for e in self.default_enumerator_clss]  # noqa: E501
         self.enumerator_classes = [e.__class__ for e in self.enumerators]
         self.state_graph = Graph()
-        self.state_graph.add_edge(EcuState(), EcuState())
+        self.state_graph.add_edge((EcuState(), EcuState()))
         self.configuration = \
             {"dynamic_timeout": kwargs.pop("dynamic_timeout", False),
              "enumerator_classes": self.enumerator_classes,
