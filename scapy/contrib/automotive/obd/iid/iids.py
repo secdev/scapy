@@ -30,7 +30,7 @@ class OBD_S09_PR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == OBD_S09 \
+        return isinstance(other, OBD_S09) \
             and all(r.iid in other.iid for r in self.data_records)
 
 

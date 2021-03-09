@@ -146,7 +146,7 @@ class UDS_DSCPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_DSC and \
+        return isinstance(other, UDS_DSC) and \
             other.diagnosticSessionType == self.diagnosticSessionType
 
 
@@ -182,7 +182,7 @@ class UDS_ERPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_ER
+        return isinstance(other, UDS_ER)
 
 
 bind_layers(UDS, UDS_ERPR, service=0x51)
@@ -212,7 +212,7 @@ class UDS_SAPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_SA \
+        return isinstance(other, UDS_SA) \
             and other.securityAccessType == self.securityAccessType
 
 
@@ -267,7 +267,7 @@ class UDS_CCPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_CC \
+        return isinstance(other, UDS_CC) \
             and other.controlType == self.controlType
 
 
@@ -292,7 +292,7 @@ class UDS_TPPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_TP
+        return isinstance(other, UDS_TP)
 
 
 bind_layers(UDS, UDS_TPPR, service=0x7E)
@@ -329,7 +329,7 @@ class UDS_ATPPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_ATP \
+        return isinstance(other, UDS_ATP) \
             and other.timingParameterAccessType == \
             self.timingParameterAccessType
 
@@ -355,7 +355,7 @@ class UDS_SDTPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_SDT
+        return isinstance(other, UDS_SDT)
 
 
 bind_layers(UDS, UDS_SDTPR, service=0xC4)
@@ -385,7 +385,7 @@ class UDS_CDTCSPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_CDTCS
+        return isinstance(other, UDS_CDTCS)
 
 
 bind_layers(UDS, UDS_CDTCSPR, service=0xC5)
@@ -419,7 +419,7 @@ class UDS_ROEPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_ROE \
+        return isinstance(other, UDS_ROE) \
             and other.eventType == self.eventType
 
 
@@ -458,7 +458,7 @@ class UDS_LCPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_LC \
+        return isinstance(other, UDS_LC) \
             and other.linkControlType == self.linkControlType
 
 
@@ -487,7 +487,7 @@ class UDS_RDBIPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_RDBI \
+        return isinstance(other, UDS_RDBI) \
             and self.dataIdentifier in other.identifiers
 
 
@@ -529,7 +529,7 @@ class UDS_RMBAPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_RMBA
+        return isinstance(other, UDS_RMBA)
 
 
 bind_layers(UDS, UDS_RMBAPR, service=0x63)
@@ -557,7 +557,7 @@ class UDS_RSDBIPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_RSDBI \
+        return isinstance(other, UDS_RSDBI) \
             and other.dataIdentifier == self.dataIdentifier
 
 
@@ -593,7 +593,7 @@ class UDS_RDBPIPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_RDBPI \
+        return isinstance(other, UDS_RDBPI) \
             and other.periodicDataIdentifier == self.periodicDataIdentifier
 
 
@@ -625,7 +625,7 @@ class UDS_DDDIPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_DDDI \
+        return isinstance(other, UDS_DDDI) \
             and other.subFunction == self.subFunction
 
 
@@ -652,7 +652,7 @@ class UDS_WDBIPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_WDBI \
+        return isinstance(other, UDS_WDBI) \
             and other.dataIdentifier == self.dataIdentifier
 
 
@@ -713,7 +713,7 @@ class UDS_WMBAPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_WMBA \
+        return isinstance(other, UDS_WMBA) \
             and other.memorySizeLen == self.memorySizeLen \
             and other.memoryAddressLen == self.memoryAddressLen
 
@@ -738,7 +738,7 @@ class UDS_CDTCIPR(Packet):
     name = 'ClearDiagnosticInformationPositiveResponse'
 
     def answers(self, other):
-        return other.__class__ == UDS_CDTCI
+        return isinstance(other, UDS_CDTCI)
 
 
 bind_layers(UDS, UDS_CDTCIPR, service=0x54)
@@ -828,7 +828,7 @@ class UDS_RDTCIPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_RDTCI \
+        return isinstance(other, UDS_RDTCI) \
             and other.reportType == self.reportType
 
 
@@ -863,7 +863,7 @@ class UDS_RCPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_RC \
+        return isinstance(other, UDS_RC) \
             and other.routineControlType == self.routineControlType \
             and other.routineIdentifier == self.routineIdentifier
 
@@ -912,7 +912,7 @@ class UDS_RDPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_RD
+        return isinstance(other, UDS_RD)
 
 
 bind_layers(UDS, UDS_RDPR, service=0x74)
@@ -957,7 +957,7 @@ class UDS_RUPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_RU
+        return isinstance(other, UDS_RU)
 
 
 bind_layers(UDS, UDS_RUPR, service=0x75)
@@ -983,7 +983,7 @@ class UDS_TDPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_TD \
+        return isinstance(other, UDS_TD) \
             and other.blockSequenceCounter == self.blockSequenceCounter
 
 
@@ -1008,7 +1008,7 @@ class UDS_RTEPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_RTE
+        return isinstance(other, UDS_RTE)
 
 
 bind_layers(UDS, UDS_RTEPR, service=0x77)
@@ -1093,7 +1093,7 @@ class UDS_RFTPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_RFT
+        return isinstance(other, UDS_RFT)
 
 
 bind_layers(UDS, UDS_RFTPR, service=0x78)
@@ -1121,7 +1121,7 @@ class UDS_IOCBIPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == UDS_IOCBI \
+        return isinstance(other, UDS_IOCBI) \
             and other.dataIdentifier == self.dataIdentifier
 
 

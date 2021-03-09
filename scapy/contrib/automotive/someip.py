@@ -144,7 +144,7 @@ class SOMEIP(Packet):
         return pkt + pay
 
     def answers(self, other):
-        if other.__class__ == self.__class__:
+        if isinstance(other, type(self)):
             if self.msg_type in [SOMEIP.TYPE_REQUEST_NO_RET,
                                  SOMEIP.TYPE_REQUEST_NORET_ACK,
                                  SOMEIP.TYPE_NOTIFICATION,

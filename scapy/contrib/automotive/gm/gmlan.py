@@ -96,7 +96,7 @@ class GMLAN(ISOTP):
     ]
 
     def answers(self, other):
-        if other.__class__ != self.__class__:
+        if not isinstance(other, type(self)):
             return False
         if self.service == 0x7f:
             return self.payload.answers(other)
@@ -165,7 +165,7 @@ class GMLAN_RFRDPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == GMLAN_RFRD and \
+        return isinstance(other, GMLAN_RFRD) and \
             other.subfunction == self.subfunction
 
 
@@ -301,7 +301,7 @@ class GMLAN_RDBIPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == GMLAN_RDBI and \
+        return isinstance(other, GMLAN_RDBI) and \
             other.dataIdentifier == self.dataIdentifier
 
 
@@ -333,7 +333,7 @@ class GMLAN_RDBPIPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == GMLAN_RDBPI and \
+        return isinstance(other, GMLAN_RDBPI) and \
             self.parameterIdentifier in other.identifiers
 
 
@@ -400,7 +400,7 @@ class GMLAN_RMBAPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == GMLAN_RMBA and \
+        return isinstance(other, GMLAN_RMBA) and \
             other.memoryAddress == self.memoryAddress
 
 
@@ -444,7 +444,7 @@ class GMLAN_SAPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == GMLAN_SA \
+        return isinstance(other, GMLAN_SA) \
             and other.subfunction == self.subfunction
 
 
@@ -470,7 +470,7 @@ class GMLAN_DDMPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == GMLAN_DDM \
+        return isinstance(other, GMLAN_DDM) \
             and other.DPIDIdentifier == self.DPIDIdentifier
 
 
@@ -506,7 +506,7 @@ class GMLAN_DPBAPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == GMLAN_DPBA \
+        return isinstance(other, GMLAN_DPBA) \
             and other.parameterIdentifier == self.parameterIdentifier
 
 
@@ -579,7 +579,7 @@ class GMLAN_WDBIPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == GMLAN_WDBI \
+        return isinstance(other, GMLAN_WDBI) \
             and other.dataIdentifier == self.dataIdentifier
 
 
@@ -693,7 +693,7 @@ class GMLAN_DCPR(Packet):
     ]
 
     def answers(self, other):
-        return other.__class__ == GMLAN_DC \
+        return isinstance(other, GMLAN_DC) \
             and other.CPIDNumber == self.CPIDNumber
 
 

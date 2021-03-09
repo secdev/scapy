@@ -141,7 +141,7 @@ class DoIP(Packet):
     def answers(self, other):
         # type: (Packet) -> int
         """DEV: true if self is an answer from other"""
-        if other.__class__ == self.__class__:
+        if isinstance(other, type(self)):
             if self.payload_type == 0:
                 return 1
 
