@@ -18,7 +18,7 @@ Some IEs: 3GPP TS 24.008
 
 from __future__ import absolute_import
 import struct
-
+import math
 
 from scapy.compat import chb, orb, bytes_encode
 from scapy.config import conf
@@ -312,6 +312,19 @@ GTPforcedTypes = {
 }
 
 
+def get_hdr_len(pkt):
+    """
+    helper function to return the GTPPDUSessionContainer padding length
+    """
+    length = 0
+    for field in pkt.fields_desc[:-1]:
+        if isinstance(field, ConditionalField) and not field.cond(pkt):
+            continue
+        length += field.i2len(None, None)
+
+    return int(length)
+
+
 class GTPPDUSessionContainer(Packet):
     name = "GTP PDU Session Container"
     fields_desc = [ByteField("ExtHdrLen", None),
@@ -323,7 +336,9 @@ class GTPPDUSessionContainer(Packet):
                                     lambda pkt: pkt.type == 1),
                    ConditionalField(BitField("spareUl1", 0, 1),
                                     lambda pkt: pkt.type == 1),
-                   ConditionalField(XBitField("spareDl1", 0, 3),
+                   ConditionalField(BitField("SNP", 0, 1),
+                                    lambda pkt: pkt.type == 0),
+                   ConditionalField(XBitField("spareDl1", 0, 2),
                                     lambda pkt: pkt.type == 0),
                    ConditionalField(BitField("P", 0, 1),
                                     lambda pkt: pkt.type == 0),
@@ -338,16 +353,19 @@ class GTPPDUSessionContainer(Packet):
                    ConditionalField(XBitField("spareDl2", 0, 5),
                                     lambda pkt: pkt.type == 0 and
                                     pkt.P == 1),
-                   ConditionalField(XBitField("dlSendTime", 0, 32),
+                   ConditionalField(XBitField("dlSendTime", 0, 64),
                                     lambda pkt: pkt.type == 0 and
                                     pkt.qmp == 1),
-                   ConditionalField(XBitField("dlSendTimeRpt", 0, 32),
+                   ConditionalField(XBitField("dlQFISeqNum", 0, 24),
+                                    lambda pkt: pkt.type == 0 and
+                                    pkt.SNP == 1),
+                   ConditionalField(XBitField("dlSendTimeRpt", 0, 64),
                                     lambda pkt: pkt.type == 1 and
                                     pkt.qmp == 1),
-                   ConditionalField(XBitField("dlRecvTime", 0, 32),
+                   ConditionalField(XBitField("dlRecvTime", 0, 64),
                                     lambda pkt: pkt.type == 1 and
                                     pkt.qmp == 1),
-                   ConditionalField(XBitField("ulSendTime", 0, 32),
+                   ConditionalField(XBitField("ulSendTime", 0, 64),
                                     lambda pkt: pkt.type == 1 and
                                     pkt.qmp == 1),
                    ConditionalField(XBitField("dlDelayRslt", 0, 32),
@@ -356,13 +374,19 @@ class GTPPDUSessionContainer(Packet):
                    ConditionalField(XBitField("ulDelayRslt", 0, 32),
                                     lambda pkt: pkt.type == 1 and
                                     pkt.ulDelayInd == 1),
+                   ConditionalField(XBitField("UlQFISeqNum", 0, 24),
+                                    lambda pkt: pkt.type == 1 and
+                                    pkt.spareUl1 == 1),
+                   ConditionalField(XBitField("N3N9DelayRslt", 0, 32),
+                                    lambda pkt: pkt.type == 1 and
+                                    (pkt.spareUl2 >> 1) == 1),
                    ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes),
                    ConditionalField(StrLenField(
                        "extraPadding",
-                       "",
-                       length_from=lambda pkt: 4 * (pkt.ExtHdrLen) - 5),
-                       lambda pkt:pkt.ExtHdrLen and pkt.ExtHdrLen > 1 and
-                       pkt.type == 0 and pkt.P == 1 and pkt.NextExtHdr == 0)]
+                       "", length_from=lambda pkt:
+                       pkt.ExtHdrLen * 4 - get_hdr_len(pkt),
+                       max_length=12),
+                       lambda pkt: pkt.ExtHdrLen is not None), ]
 
     def guess_payload_class(self, payload):
         if self.NextExtHdr == 0:
@@ -377,12 +401,15 @@ class GTPPDUSessionContainer(Packet):
 
     def post_build(self, p, pay):
         p += pay
-        if self.ExtHdrLen is None:
-            if self.P == 1:
-                hdr_len = 2
-            else:
-                hdr_len = 1
-            p = struct.pack("!B", hdr_len) + p[1:]
+        ext_hdr_len = self.ExtHdrLen
+        hdr_len = get_hdr_len(self)
+        if ext_hdr_len is None:
+            ext_hdr_len = math.ceil(hdr_len / 4.0)
+            p = struct.pack("!B", ext_hdr_len) + p[1:]
+
+        if not self.extraPadding and hdr_len * 4 != len(p) - len(pay):
+            p += bytes(b'0' * int((ext_hdr_len * 4 - hdr_len)))
+
         return p
 
 
