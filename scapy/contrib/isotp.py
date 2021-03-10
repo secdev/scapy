@@ -1992,7 +1992,7 @@ if six.PY3 and LINUX:
                 # something bad happened (e.g. the interface went down)
                 warning("Captured no data.")
                 self.close()
-                return None
+                return None, None, None
 
             if ts is None:
                 ts = get_last_packet_timestamp(self.ins)
