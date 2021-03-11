@@ -58,7 +58,7 @@ jobs:
   utscapy:
     name: ${{ matrix.os }} ${{ matrix.python }} ${{ matrix.mode }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       matrix:
         os: [ubuntu-latest]

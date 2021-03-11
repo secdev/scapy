@@ -618,12 +618,24 @@ def run_campaign(test_campaign, get_interactive_session, theme,
 
 #    INFO LINES    #
 
-def info_line(test_campaign):
+def info_line(test_campaign, theme):
     filename = test_campaign.filename
+    duration = test_campaign.duration
+    if duration > 10:
+        duration = theme.format(duration, "bg_red+white")
+    elif duration > 5:
+        duration = theme.format(duration, "red")
     if filename is None:
-        return "Run %s by UTscapy" % time.ctime()
+        return "Run at %s by UTscapy in %s" % (
+            time.strftime("%H:%M:%S"),
+            duration
+        )
     else:
-        return "Run %s from [%s] by UTscapy" % (time.ctime(), filename)
+        return "Run at %s from [%s] by UTscapy in %s" % (
+            time.strftime("%H:%M:%S"),
+            filename,
+            duration
+        )
 
 
 def html_info_line(test_campaign):
@@ -641,7 +653,7 @@ def campaign_to_TEXT(test_campaign, theme):
     ftheme = [lambda x: x, theme.fail][bool(test_campaign.failed)]
 
     output = theme.green("\n%(title)s\n" % test_campaign)
-    output += dash + " " + info_line(test_campaign) + "\n"
+    output += dash + " " + info_line(test_campaign, theme) + "\n"
     output += ptheme(" " + arrow + " Passed=%(passed)i\n" % test_campaign)
     output += ftheme(" " + arrow + " Failed=%(failed)i\n" % test_campaign)
     output += "%(headcomments)s\n" % test_campaign
