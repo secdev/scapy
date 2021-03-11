@@ -5,6 +5,8 @@
 
 % gmlan unit tests
 
+~ disabled
+
 + Configuration of scapy
 = Load gmlan layer
 ~ conf
