@@ -9,5 +9,6 @@ test/*.html
 .tox
 .ipynb_checkpoints
 .mypy_cache
+.vscode
 doc/scapy/_build
 doc/scapy/api

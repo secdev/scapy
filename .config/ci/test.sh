@@ -3,8 +3,9 @@
 # test.sh
 # Usage:
 #   ./test.sh [tox version] [both/root/non_root (default root)]
-# Example:
+# Examples:
 #   ./test.sh 3.7 both
+#   ./test.sh 3.9 non_root
 
 if [ "$OSTYPE" = "linux-gnu" ] || [ "$TRAVIS_OS_NAME" = "linux" ]
 then
