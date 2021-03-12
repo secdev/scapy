@@ -258,7 +258,7 @@ if WINDOWS:
 
         @staticmethod
         def select(sockets, remain=None):
-            return sockets, None
+            return sockets
 
         def __init__(self, iface=None, *args, **karg):
             _usbpcap_check()

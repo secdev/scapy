@@ -1130,7 +1130,6 @@ class AsyncSniffer(object):
         # Get select information from the sockets
         _main_socket = next(iter(sniff_sockets))
         select_func = _main_socket.select
-        _backup_read_func = _main_socket.__class__.recv
         nonblocking_socket = _main_socket.nonblocking_socket
         # We check that all sockets use the same select(), or raise a warning
         if not all(select_func == sock.select for sock in sniff_sockets):
@@ -1173,17 +1172,13 @@ class AsyncSniffer(object):
                     remain = stoptime - time.time()
                     if remain <= 0:
                         break
-                sockets, read_func = select_func(
-                    list(sniff_sockets.keys()),
-                    remain
-                )
-                read_func = read_func or _backup_read_func
+                sockets = select_func(list(sniff_sockets.keys()), remain)
                 dead_sockets = []
                 for s in sockets:
                     if s is close_pipe:
                         break
                     try:
-                        p = read_func(s)
+                        p = s.recv()
                     except EOFError:
                         # End of stream
                         try:
@@ -1197,8 +1192,8 @@ class AsyncSniffer(object):
                         try:
                             # Make sure it's closed
                             s.close()
-                        except Exception as ex:
-                            msg = " close() failed with '%s'" % ex
+                        except Exception as ex2:
+                            msg = " close() failed with '%s'" % ex2
                         warning(
                             "Socket %s failed with '%s'." % (s, ex) + msg
                         )

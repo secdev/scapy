@@ -100,7 +100,7 @@ class ATMT3(ATMT2):
             raise self.MAIN(s+"da")
 
 
-a=ATMT3(init="a", debug=2, ll=lambda: None, recvsock=lambda: None)
+a=ATMT3(init="a", ll=lambda: None, recvsock=lambda: None)
 r = a.run()
 r
 assert(r == 'cccccacabdacccacabdabda')
@@ -397,7 +397,7 @@ def _tcp_client_test():
         Connection=b'keep-alive',
         Host=b'www.secdev.org',
     )
-    t = TCP_client.tcplink(HTTP, SECDEV_IP4, 80)
+    t = TCP_client.tcplink(HTTP, SECDEV_IP4, 80, debug=4)
     response = t.sr1(req, timeout=3)
     t.close()
     assert response.Http_Version == b'HTTP/1.1'
@@ -405,7 +405,7 @@ def _tcp_client_test():
     assert response.Reason_Phrase == b'OK'
 
 def _http_request_test(_raw=False):
-    response = http_request("www.google.com", path="/", raw=_raw, iptables=LINUX)
+    response = http_request("www.google.com", path="/", raw=_raw, iptables=LINUX, verbose=4)
     assert response.Http_Version == b'HTTP/1.1'
     assert response.Status_Code == b'200'
     assert response.Reason_Phrase == b'OK'

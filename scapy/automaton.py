@@ -11,17 +11,18 @@ TODO:
     - add documentation for ioevent, as_supersocket...
 """
 
-import io
+import ctypes
 import itertools
 import logging
 import os
+import random
 import sys
 import threading
 import time
 import traceback
 import types
 
-from select import select
+import select
 from collections import deque
 
 from scapy.config import conf
@@ -34,199 +35,104 @@ from scapy.consts import WINDOWS
 import scapy.modules.six as six
 
 
-""" In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionality  # noqa: E501
-# Passive way: using no-ressources locks
-               +---------+             +---------------+      +-------------------------+  # noqa: E501
-               |  Start  +------------->Select_objects +----->+Linux: call select.select|  # noqa: E501
-               +---------+             |(select.select)|      +-------------------------+  # noqa: E501
-                                       +-------+-------+
-                                               |
-                                          +----v----+               +--------+
-                                          | Windows |               |Time Out+----------------------------------+  # noqa: E501
-                                          +----+----+               +----+---+                                  |  # noqa: E501
-                                               |                         ^                                      |  # noqa: E501
-      Event                                    |                         |                                      |  # noqa: E501
-        +                                      |                         |                                      |  # noqa: E501
-        |                              +-------v-------+                 |                                      |  # noqa: E501
-        |                       +------+Selectable Sel.+-----+-----------------+-----------+                    |  # noqa: E501
-        |                       |      +-------+-------+     |           |     |           v              +-----v-----+  # noqa: E501
-+-------v----------+            |              |             |           |     |        Passive lock<-----+release_all<------+  # noqa: E501
-|Data added to list|       +----v-----+  +-----v-----+  +----v-----+     v     v            +             +-----------+      |  # noqa: E501
-+--------+---------+       |Selectable|  |Selectable |  |Selectable|   ............         |                                |  # noqa: E501
-         |                 +----+-----+  +-----------+  +----------+                        |                                |  # noqa: E501
-         |                      v                                                           |                                |  # noqa: E501
-         v                 +----+------+   +------------------+               +-------------v-------------------+            |  # noqa: E501
-   +-----+------+          |wait_return+-->+  check_recv:     |               |                                 |            |  # noqa: E501
-   |call_release|          +----+------+   |If data is in list|               |  END state: selectable returned |        +---+--------+  # noqa: E501
-   +-----+--------              v          +-------+----------+               |                                 |        | exit door  |  # noqa: E501
-         |                    else                 |                          +---------------------------------+        +---+--------+  # noqa: E501
-         |                      +                  |                                                                         |  # noqa: E501
-         |                 +----v-------+          |                                                                         |  # noqa: E501
-         +--------->free -->Passive lock|          |                                                                         |  # noqa: E501
-                           +----+-------+          |                                                                         |  # noqa: E501
-                                |                  |                                                                         |  # noqa: E501
-                                |                  v                                                                         |  # noqa: E501
-                                +------------------Selectable-Selector-is-advertised-that-the-selectable-is-readable---------+
-"""
-
-
 class SelectableObject(object):
-    """DEV: to implement one of those, you need to add 2 things to your object:
-    - add "check_recv" function
-    - call "self.call_release" once you are ready to be read
+    if WINDOWS:
+        def __init__(self):
+            self._fd = ctypes.windll.kernel32.CreateEventA(
+                None, 0, 0,
+                "SelectableObject %s" % random.random()
+            )
 
-    You can set the __selectable_force_select__ to True in the class, if you want to  # noqa: E501
-    force the handler to use fileno(). This may only be usable on sockets created using  # noqa: E501
-    the builtin socket API."""
-    __selectable_force_select__ = False
+        def call_release(self):
+            if ctypes.windll.kernel32.PulseEvent(
+                    ctypes.c_void_p(self._fd)) == 0:
+                warning(ctypes.FormatError())
 
-    def __init__(self):
-        self.hooks = []
+        def _close_fd(self):
+            if self._fd and ctypes.windll.kernel32.CloseHandle(
+                    ctypes.c_void_p(self._fd)) == 0:
+                warning(ctypes.FormatError())
+                self._fd = None
+
+        def __del__(self):
+            if hasattr(self, "_fd"):
+                self._close_fd()
+    else:
+        def call_release(self):
+            pass
+
+        def close(self):
+            pass
 
     def check_recv(self):
-        """DEV: will be called only once (at beginning) to check if the object is ready."""  # noqa: E501
-        raise OSError("This method must be overwritten.")
-
-    def _wait_non_ressources(self, callback):
-        """This get started as a thread, and waits for the data lock to be freed then advertise itself to the SelectableSelector using the callback"""  # noqa: E501
-        self.trigger = threading.Lock()
-        self.was_ended = False
-        self.trigger.acquire()
-        self.trigger.acquire()
-        if not self.was_ended:
-            callback(self)
-
-    def wait_return(self, callback):
-        """Entry point of SelectableObject: register the callback"""
-        if self.check_recv():
-            return callback(self)
-        _t = threading.Thread(
-            target=self._wait_non_ressources,
-            args=(callback,),
-            name="scapy.automaton wait_return"
-        )
-        _t.setDaemon(True)
-        _t.start()
-
-    def register_hook(self, hook):
-        """DEV: When call_release() will be called, the hook will also"""
-        self.hooks.append(hook)
-
-    def call_release(self, aborted=False):
-        """DEV: Must be call when the object becomes ready to read.
-           Relesases the lock of _wait_non_ressources"""
-        self.was_ended = aborted
-        try:
-            self.trigger.release()
-        except (threading.ThreadError, AttributeError):
-            pass
-        # Trigger hooks
-        for hook in self.hooks:
-            hook()
-
-
-class SelectableSelector(object):
-    """
-    Select SelectableObject objects.
-
-    inputs: objects to process
-    remain: timeout. If 0, return [].
-    customTypes: types of the objects that have the check_recv function.
-    """
-
-    def _release_all(self):
-        """Releases all locks to kill all threads"""
-        for i in self.inputs:
-            i.call_release(True)
-        self.available_lock.release()
-
-    def _timeout_thread(self, remain):
-        """Timeout before releasing every thing, if nothing was returned"""
-        time.sleep(remain)
-        if not self._ended:
-            self._ended = True
-            self._release_all()
-
-    def _exit_door(self, _input):
-        """This function is passed to each SelectableObject as a callback
-        The SelectableObjects have to call it once there are ready"""
-        self.results.append(_input)
-        if self._ended:
-            return
-        self._ended = True
-        self._release_all()
-
-    def __init__(self, inputs, remain):
-        self.results = []
-        self.inputs = list(inputs)
-        self.remain = remain
-        self.available_lock = threading.Lock()
-        self.available_lock.acquire()
-        self._ended = False
-
-    def process(self):
-        """Entry point of SelectableSelector"""
-        if WINDOWS:
-            select_inputs = []
-            for i in self.inputs:
-                if not isinstance(i, SelectableObject):
-                    warning("Unknown ignored object type: %s", type(i))
-                elif i.__selectable_force_select__:
-                    # Then use select.select
-                    select_inputs.append(i)
-                elif not self.remain and i.check_recv():
-                    self.results.append(i)
-                elif self.remain:
-                    i.wait_return(self._exit_door)
-            if select_inputs:
-                # Use default select function
-                self.results.extend(select(select_inputs, [], [], self.remain)[0])  # noqa: E501
-            if not self.remain:
-                return self.results
-
-            threading.Thread(
-                target=self._timeout_thread,
-                args=(self.remain,),
-                name="scapy.automaton process"
-            ).start()
-            if not self._ended:
-                self.available_lock.acquire()
-            return self.results
-        else:
-            r, _, _ = select(self.inputs, [], [], self.remain)
-            return r
+        return False
 
 
 def select_objects(inputs, remain):
     """
     Select SelectableObject objects. Same than:
-    ``select.select([inputs], [], [], remain)``
+    ``select.select(inputs, [], [], remain)``
     But also works on Windows, only on SelectableObject.
 
     :param inputs: objects to process
     :param remain: timeout. If 0, return [].
     """
-    handler = SelectableSelector(inputs, remain)
-    return handler.process()
+    if not WINDOWS:
+        return select.select(inputs, [], [], remain)[0]
+    natives = []
+    events = []
+    results = []
+    for i in list(inputs):
+        if getattr(i, "__selectable_force_select__", False):
+            natives.append(i)
+        elif isinstance(i, SelectableObject):
+            if i.check_recv():
+                results.append(i)
+            else:
+                events.append(i)
+        else:
+            raise TypeError(
+                "Invalid type: %s (must extend SelectableObject)"
+            )
+    if natives:
+        results.extend(select.select(natives, [], [], remain)[0])
+    if events:
+        remainms = int((remain or 0) * 1000)
+        if len(events) == 1:
+            res = ctypes.windll.kernel32.WaitForSingleObject(
+                ctypes.c_void_p(events[0].fileno()),
+                remainms
+            )
+        else:
+            res = ctypes.windll.kernel32.WaitForMultipleObjects(
+                len(events),
+                (ctypes.c_void_p * len(events))(
+                    *[x.fileno() for x in events]
+                ),
+                False,
+                remainms
+            )
+        if res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout
+            results.append(events[res])
+    return results
 
 
-class ObjectPipe(SelectableObject, io.BufferedIOBase):
-
+class ObjectPipe(SelectableObject):
     def __init__(self):
         self._closed = False
-        self.rd, self.wr = os.pipe()
-        self.queue = deque()
+        self.__rd, self.__wr = os.pipe()
+        self.__queue = deque()
         SelectableObject.__init__(self)
 
     def fileno(self):
-        return self.rd
-
-    def check_recv(self):
-        return len(self.queue) > 0
+        if WINDOWS:
+            return self._fd
+        else:
+            return self.__rd
 
     def send(self, obj):
-        self.queue.append(obj)
-        os.write(self.wr, b"X")
+        self.__queue.append(obj)
+        os.write(self.__wr, b"X")
         self.call_release()
 
     def write(self, obj):
@@ -235,13 +141,16 @@ class ObjectPipe(SelectableObject, io.BufferedIOBase):
     def flush(self):
         pass
 
+    def check_recv(self):
+        return bool(self.__queue)
+
     def recv(self, n=0):
         if self._closed:
             if self.check_recv():
-                return self.queue.popleft()
+                return self.__queue.popleft()
             return None
-        os.read(self.rd, 1)
-        return self.queue.popleft()
+        os.read(self.__rd, 1)
+        return self.__queue.popleft()
 
     def read(self, n=0):
         return self.recv(n)
@@ -249,9 +158,11 @@ class ObjectPipe(SelectableObject, io.BufferedIOBase):
     def close(self):
         if not self._closed:
             self._closed = True
-            os.close(self.rd)
-            os.close(self.wr)
-            self.queue.clear()
+            os.close(self.__rd)
+            os.close(self.__wr)
+            self.__queue.clear()
+            if WINDOWS:
+                self._close_fd()
 
     def __del__(self):
         self.close()
@@ -265,7 +176,7 @@ class ObjectPipe(SelectableObject, io.BufferedIOBase):
                 results.append(s)
         if results:
             return results, None
-        return select_objects(sockets, remain), None
+        return select_objects(sockets, remain)
 
 
 class Message:
@@ -435,29 +346,26 @@ class _ATMT_Command:
 
 class _ATMT_supersocket(SuperSocket, SelectableObject):
     def __init__(self, name, ioevent, automaton, proto, *args, **kargs):
-        SelectableObject.__init__(self)
         self.name = name
         self.ioevent = ioevent
         self.proto = proto
         # write, read
         self.spa, self.spb = ObjectPipe(), ObjectPipe()
-        # Register recv hook
-        self.spb.register_hook(self.call_release)
         kargs["external_fd"] = {ioevent: (self.spa, self.spb)}
         kargs["is_atmt_socket"] = True
         self.atmt = automaton(*args, **kargs)
         self.atmt.runbg()
 
-    def fileno(self):
-        return self.spb.fileno()
-
     def send(self, s):
         if not isinstance(s, bytes):
             s = bytes(s)
-        return self.spa.send(s)
+        self.spa.send(s)
 
     def check_recv(self):
         return self.spb.check_recv()
+
+    def fileno(self):
+        return self.spb.fileno()
 
     def recv(self, n=MTU):
         r = self.spb.recv(n)
@@ -474,7 +382,7 @@ class _ATMT_supersocket(SuperSocket, SelectableObject):
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
-        return select_objects(sockets, remain), None
+        return select_objects(sockets, remain)
 
 
 class _ATMT_to_supersocket:
@@ -650,7 +558,6 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             return os.read(self.rd, n)
 
         def write(self, msg):
-            self.call_release()
             if isinstance(self.wr, ObjectPipe):
                 self.wr.send(msg)
                 return
@@ -683,8 +590,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             return self.recv(n)
 
         def send(self, msg):
-            self.wr.send(msg)
-            return self.call_release()
+            return self.wr.send(msg)
 
         def write(self, msg):
             return self.send(msg)

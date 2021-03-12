@@ -36,7 +36,7 @@ class MockCANSocket(SuperSocket):
         self.sent_queue.put(p)
     @staticmethod
     def select(sockets, remain=None):
-        return sockets, None
+        return sockets
 
 
 # utility function that waits on list l for n elements, timing out if nothing is added for 1 second

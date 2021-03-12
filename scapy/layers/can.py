@@ -522,5 +522,5 @@ class CandumpReader:
     # emulate SuperSocket
     @staticmethod
     def select(sockets, remain=None):
-        # type: (List[SuperSocket], Optional[int]) -> Tuple[List[SuperSocket], None]  # noqa: E501
-        return sockets, None
+        # type: (List[SuperSocket], Optional[int]) -> List[SuperSocket]
+        return sockets

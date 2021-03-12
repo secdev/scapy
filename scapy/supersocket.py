@@ -247,7 +247,7 @@ class SuperSocket:
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
-        # type: (List[SuperSocket], Optional[float]) -> Tuple[List[SuperSocket], None]  # noqa: E501
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
         """This function is called during sendrecv() routine to select
         the available sockets.
 
@@ -261,7 +261,7 @@ class SuperSocket:
             # select.error has no .errno attribute
             if not exc.args or exc.args[0] != errno.EINTR:
                 raise
-        return inp, None
+        return inp
 
     def __del__(self):
         # type: () -> None
@@ -370,6 +370,7 @@ class L3RawSocket(SuperSocket):
 
 class SimpleSocket(SuperSocket):
     desc = "wrapper around a classic socket"
+    nonblocking_socket = True
 
     def __init__(self, sock):
         # type: (socket.socket) -> None
@@ -379,7 +380,6 @@ class SimpleSocket(SuperSocket):
 
 class StreamSocket(SimpleSocket):
     desc = "transforms a stream socket into a layer 2"
-    nonblocking_socket = True
 
     def __init__(self, sock, basecls=None):
         # type: (socket.socket, Optional[Type[Packet]]) -> None
@@ -490,9 +490,9 @@ class L2ListenTcpdump(SuperSocket):
 
     @staticmethod
     def select(sockets, remain=None):
-        # type: (List[SuperSocket], Optional[float]) -> Tuple[List[SuperSocket], None]  # noqa: E501
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
         if (WINDOWS or DARWIN):
-            return sockets, None
+            return sockets
         return SuperSocket.select(sockets, remain=remain)
 
 
@@ -527,8 +527,8 @@ class IterSocket(SuperSocket):
 
     @staticmethod
     def select(sockets, remain=None):
-        # type: (List[SuperSocket], Any) -> Tuple[List[SuperSocket], None]
-        return sockets, None
+        # type: (List[SuperSocket], Any) -> List[SuperSocket]
+        return sockets
 
     def recv(self, *args):
         # type: (*Any) -> Optional[Packet]

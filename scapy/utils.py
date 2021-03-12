@@ -1314,8 +1314,8 @@ class RawPcapReader:
     def select(sockets,  # type: List[SuperSocket]
                remain=None,  # type: Optional[float]
                ):
-        # type: (...) -> Tuple[List[SuperSocket], None]
-        return sockets, None
+        # type: (...) -> List[SuperSocket]
+        return sockets
 
 
 class PcapReader(RawPcapReader, _SuperSocket):
