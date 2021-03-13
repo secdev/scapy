@@ -1622,7 +1622,7 @@ conf.route
 conf.ifaces
 conf.iface
 conf.route.route("8.8.8.8")
-getmacbyip(conf.route.route(conf.route.route("8.8.8.8")[2]))
+getmacbyip(_[2])
 tshark(timeout=2)
 
 ans, unans = traceroute("www.slashdot.org")
