@@ -803,7 +803,7 @@ class ISOTPSoftSocket(SuperSocket):
 
     @staticmethod
     def select(sockets, remain=None):
-        # type: (List[SuperSocket], Optional[float]) -> Tuple[List[SuperSocket], None]  # noqa: E501
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
         """This function is called during sendrecv() routine to wait for
         sockets to be ready to receive
         """
