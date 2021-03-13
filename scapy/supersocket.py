@@ -40,8 +40,7 @@ from scapy.compat import (
     Optional,
     Tuple,
     Type,
-    cast,
-    Callable
+    cast
 )
 
 # Utils
