@@ -43,6 +43,11 @@ then
   UT_FLAGS+=" -K not_pypy"
 fi
 
+# libpcap
+if [[ ! -z "$SCAPY_USE_LIBPCAP" ]]; then
+  UT_FLAGS+=" -K veth"
+fi
+
 # Create version tag (github actions)
 PY_VERSION="py${1//./}"
 PY_VERSION=${PY_VERSION/pypypy/pypy}
