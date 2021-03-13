@@ -22,7 +22,7 @@ from scapy.supersocket import SuperSocket
 from scapy.layers.can import CAN
 from scapy.packet import Packet
 from scapy.error import warning
-from scapy.compat import List, Type, Tuple, Dict, Any, Optional, Callable, cast
+from scapy.compat import List, Type, Tuple, Dict, Any, Optional, cast
 from scapy.modules.six.moves import queue
 
 from can import Message as can_Message
@@ -326,7 +326,7 @@ class PythonCANSocket(SuperSocket):
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
-        # type: (List[SuperSocket], Optional[float]) -> Tuple[List[SuperSocket], Optional[Callable[[SuperSocket, int], Optional[Packet]]]]  # noqa: E501
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
         """This function is called during sendrecv() routine to select
         the available sockets.
 

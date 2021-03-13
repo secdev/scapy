@@ -630,5 +630,5 @@ class CandumpReader:
     @staticmethod
     def select(sockets, remain=None):
         # type: (List[SuperSocket], Optional[int]) -> List[SuperSocket]
-        """Emulation of SuperSocket"""        
-	return sockets
+        """Emulation of SuperSocket"""
+        return sockets
