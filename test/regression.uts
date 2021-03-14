@@ -1618,6 +1618,13 @@ retry_test(_test)
 = Traceroute function
 ~ netaccess tcpdump
 * Let's test traceroute
+conf.route
+conf.ifaces
+conf.iface
+conf.route.route("8.8.8.8")
+getmacbyip(_[2])
+tshark(timeout=2)
+
 ans, unans = traceroute("www.slashdot.org")
 ans.nsummary()
 s,r=ans[0]
