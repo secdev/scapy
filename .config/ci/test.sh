@@ -3,9 +3,8 @@
 # test.sh
 # Usage:
 #   ./test.sh [tox version] [both/root/non_root (default root)]
-# Examples:
+# Example:
 #   ./test.sh 3.7 both
-#   ./test.sh 3.9 non_root
 
 if [ "$OSTYPE" = "linux-gnu" ] || [ "$TRAVIS_OS_NAME" = "linux" ]
 then
@@ -41,11 +40,6 @@ fi
 if python --version 2>&1 | grep -q PyPy
 then
   UT_FLAGS+=" -K not_pypy"
-fi
-
-# libpcap
-if [[ ! -z "$SCAPY_USE_LIBPCAP" ]]; then
-  UT_FLAGS+=" -K veth"
 fi
 
 # Create version tag (github actions)

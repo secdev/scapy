@@ -56,15 +56,14 @@ jobs:
         run: tox -e mypy
 
   utscapy:
-    name: ${{ matrix.os }} ${{ matrix.installmode }} ${{ matrix.python }} ${{ matrix.mode }}
+    name: ${{ matrix.os }} ${{ matrix.python }} ${{ matrix.mode }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python: [2.7, 3.9]
+        python: [2.7, pypy2, pypy3, 3.9]
         mode: [both]
-        installmode: ['']
         include:
           # Linux non-root only tests
           - os: ubuntu-latest
@@ -76,18 +75,6 @@ jobs:
           - os: ubuntu-latest
             python: 3.8
             mode: non_root
-          # PyPy tests: root only
-          - os: ubuntu-latest
-            python: pypy2
-            mode: root
-          - os: ubuntu-latest
-            python: pypy3
-            mode: root
-          # Libpcap test
-          - os: ubuntu-latest
-            python: 3.9
-            mode: root
-            installmode: 'libpcap'
           # MacOS tests
           - os: macos-latest
             python: 2.7
@@ -106,7 +93,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Install Tox and any other packages
-        run: ./.config/ci/install.sh ${{ matrix.installmode }}
+        run: ./.config/ci/install.sh
       - name: Run Tox
         run: ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
       - name: Codecov
@@ -118,14 +105,20 @@ jobs:
   analyze:
     name: CodeQL analysis
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['python']
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
       with:
         fetch-depth: 2
+    - run: git checkout HEAD^2
+      if: ${{ github.event_name == 'pull_request' }}
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v1
       with:
-         languages: 'python'
+         languages: ${{ matrix.language }}
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
