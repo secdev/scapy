@@ -1,16 +1,5 @@
 #!/bin/bash
 
-# Usage:
-# ./install.sh [install mode]
-
-# Detect install mode
-if [[ "${1}" == "libpcap" ]]; then
-    export SCAPY_USE_LIBPCAP="yes"
-    if [[ ! -z "$GITHUB_ACTIONS" ]]; then
-      echo "SCAPY_USE_LIBPCAP=yes" >> $GITHUB_ENV
-    fi
-fi
-
 # Install on osx
 if [ "$OSTYPE" = "darwin"* ] || [ "$TRAVIS_OS_NAME" = "osx" ]
 then

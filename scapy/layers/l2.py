@@ -117,9 +117,7 @@ _arp_cache = conf.netcache.new_cache("arp_cache", 120)
 @conf.commands.register
 def getmacbyip(ip, chainCC=0):
     # type: (str, int) -> Optional[str]
-    """
-    Returns the MAC address matching the route to reach a given IP address
-    """
+    """Return MAC address corresponding to a given IP address"""
     if isinstance(ip, Net):
         ip = next(iter(ip))
     ip = inet_ntoa(inet_aton(ip or "0.0.0.0"))
