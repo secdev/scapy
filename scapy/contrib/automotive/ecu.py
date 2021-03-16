@@ -23,6 +23,7 @@ from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
+from scapy.error import Scapy_Exception
 
 
 __all__ = ["EcuState", "Ecu", "EcuResponse", "EcuSession",
@@ -41,6 +42,10 @@ class EcuState(object):
             if isinstance(v, GeneratorType):
                 v = list(v)
             self.__setattr__(k, v)
+
+    def __len__(self):
+        # type: () -> int
+        return len(self.__dict__.keys())
 
     def __getitem__(self, item):
         # type: (str) -> Any
@@ -88,10 +93,10 @@ class EcuState(object):
         if self == other:
             return False
 
-        if len(self.__dict__.keys()) < len(other.__dict__.keys()):
+        if len(self) < len(other):
             return True
 
-        if len(self.__dict__.keys()) > len(other.__dict__.keys()):
+        if len(self) > len(other):
             return False
 
         common = set(self.__dict__.keys()).intersection(
@@ -147,6 +152,13 @@ class EcuState(object):
         :param cls: A packet class to be modified
         :return: Decorator function
         """
+        if len(cls.fields_desc) == 0:
+            raise Scapy_Exception("Packets without fields can't be extended.")
+
+        if hasattr(cls, "modify_ecu_state"):
+            raise Scapy_Exception(
+                "Class already extended. Can't override existing method.")
+
         def decorator_function(f):
             # type: (Callable[[Packet, Packet, EcuState], None]) -> None
             setattr(cls, "modify_ecu_state", f)
@@ -562,8 +574,8 @@ class EcuAnsweringMachine(AnsweringMachine):
 
     def parse_options(self, supported_responses=None,
                       main_socket=None, broadcast_socket=None, basecls=Raw,
-                      timeout=None):
-        # type: (Optional[List[EcuResponse]], Optional[SuperSocket], Optional[SuperSocket], Type[Packet], Optional[Union[int, float]]) -> None  # noqa: E501
+                      timeout=None, initial_ecu_state=None):
+        # type: (Optional[List[EcuResponse]], Optional[SuperSocket], Optional[SuperSocket], Type[Packet], Optional[Union[int, float]], Optional[EcuState]) -> None  # noqa: E501
         """
         :param supported_responses: List of ``EcuResponse`` objects to define
                                     the behaviour. The default response is
@@ -585,6 +597,9 @@ class EcuAnsweringMachine(AnsweringMachine):
 
         if broadcast_socket is not None:
             self.__sockets.append(broadcast_socket)
+
+        if initial_ecu_state:
+            self.__ecu_state = initial_ecu_state
 
         self.__basecls = basecls  # type: Type[Packet]
         self.__supported_responses = supported_responses
