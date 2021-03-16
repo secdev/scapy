@@ -10,6 +10,8 @@ from scapy.packet import Packet
 from scapy.contrib.automotive.ecu import EcuState
 from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SAPR
 
+__all__ = ["GMLAN_modify_ecu_state", "GMLAN_SAPR_modify_ecu_state"]
+
 
 @EcuState.extend_pkt_with_modifier(GMLAN)
 def GMLAN_modify_ecu_state(self, req, state):
