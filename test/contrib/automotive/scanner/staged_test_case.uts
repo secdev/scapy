@@ -193,6 +193,24 @@ mt.pre_execute(None, None, {})
 
 assert test_storage_tc3["MyTestCase3"]["tc3_con_config"] == "deadbeef"
 
+= Check show
+
+dump = mt.show(dump=True)
+
+assert "MyTestCase1" in dump
+assert "MyTestCase2" in dump
+assert "MyTestCase3" in dump
+
+= Check len
+
+assert len(mt) == 3
+
+= Check generator functions
+
+assert mt.get_generated_test_case() == None
+assert mt.get_new_edge(None, None) == None
+assert mt.get_transition_function(None, None) == None
+
 
 
 

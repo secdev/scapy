@@ -66,6 +66,11 @@ assert "session" in state_info
 assert "False" in state_info
 assert "True" in state_info
 
+dump = mt.show(dump=True)
+
+assert "session" in dump
+assert "MyTestCase" in dump
+
 
 
 
