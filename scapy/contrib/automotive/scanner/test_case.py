@@ -60,7 +60,9 @@ class AutomotiveTestCaseABC(ABC):
     def pre_execute(self, socket, state, global_configuration):
         # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
         """
-        Will be executed previously to ``execute``
+        Will be executed previously to ``execute``. This function can be used
+        to manipulate the configuration passed to execute.
+
         :param socket: Socket object with the connection to a DUT
         :param state: Current state of the DUT
         :param global_configuration: Configuration of the TestCaseExecutor
@@ -84,7 +86,9 @@ class AutomotiveTestCaseABC(ABC):
     def post_execute(self, socket, state, global_configuration):
         # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
         """
-        Will be executed subsequently to ``execute``
+        Will be executed subsequently to ``execute``. This function can be used
+        for additional evaluations after the ``execute``.
+
         :param socket: Socket object with the connection to a DUT
         :param state: Current state of the DUT
         :param global_configuration: Configuration of the TestCaseExecutor
@@ -96,11 +100,14 @@ class AutomotiveTestCaseABC(ABC):
         # type: (bool, bool, bool) -> Optional[str]
         """
         Shows results of TestCase
-        :param dump: If True, the results will be returned; If False, the results will be printed.
-        :param filtered: If True, the negative responses will be filtered dynamically.
+        :param dump: If True, the results will be returned; If False, the
+            results will be printed.
+        :param filtered: If True, the negative responses will be filtered
+            dynamically.
         :param verbose: If True, additional information will be provided.
-        :return: test results of TestCase if parameter ``dump`` is True, else ``None``
-        """  # noqa: E501
+        :return: test results of TestCase if parameter ``dump`` is True,
+            else ``None``
+        """
         raise NotImplementedError()
 
     @property

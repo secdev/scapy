@@ -12,7 +12,7 @@ from scapy.error import Scapy_Exception, log_interactive, warning
 from scapy.utils import make_lined_table, SingleConversationSocket
 import scapy.modules.six as six
 from scapy.contrib.automotive.ecu import EcuState
-from scapy.contrib.automotive.graph import Graph
+from scapy.contrib.automotive.scanner.graph import Graph
 
 
 class Enumerator(object):
