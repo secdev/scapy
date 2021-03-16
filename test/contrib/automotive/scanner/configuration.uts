@@ -1,0 +1,130 @@
+% Regression tests for automotive scanner configuration
+
++ Load general modules
+
+= Load contribution layer
+
+from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCase
+from scapy.contrib.automotive.scanner.configuration import AutomotiveTestCaseExecutorConfiguration
+from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTestCase
+
++ Basic checks
+
+= Definition of Test classes
+
+class MyTestCase1(AutomotiveTestCase):
+    _description = "MyTestCase1"
+    def supported_responses(self):
+        return []
+
+
+class MyTestCase2(AutomotiveTestCase):
+    _description = "MyTestCase2"
+    def supported_responses(self):
+        return []
+
+class MyTestCase3(AutomotiveTestCase):
+    _description = "MyTestCase3"
+    def supported_responses(self):
+        return []
+
+class MyTestCase4(AutomotiveTestCase):
+    _description = "MyTestCase4"
+    def supported_responses(self):
+        return []
+
+= creation of config with classes
+    
+config = AutomotiveTestCaseExecutorConfiguration(
+    [MyTestCase1, MyTestCase2, MyTestCase3, MyTestCase4])
+
+assert len(config.test_cases) == 4
+assert len(config.test_case_clss) == 4
+assert len(config.stages) == 0
+assert len(config.staged_test_cases) == 0
+assert config.verbose == False
+assert config.debug == False
+assert config.delay_state_change > 0
+
+
+= creation of config with instances
+    
+config = AutomotiveTestCaseExecutorConfiguration(
+    [MyTestCase1(), MyTestCase2(), MyTestCase3(), MyTestCase4()])
+
+assert len(config.test_cases) == 4
+assert len(config.test_case_clss) == 4
+assert len(config.stages) == 0
+assert len(config.staged_test_cases) == 0
+assert config.verbose == False
+assert config.debug == False
+assert config.delay_state_change > 0
+
+
+= creation of config with instances and classes
+    
+config = AutomotiveTestCaseExecutorConfiguration(
+    [MyTestCase2(), MyTestCase2(), MyTestCase3, MyTestCase4])
+
+assert len(config.test_cases) == 4
+assert len(config.test_case_clss) == 3
+assert len(config.stages) == 0
+assert len(config.staged_test_cases) == 0
+assert config.verbose == False
+assert config.debug == False
+assert config.delay_state_change > 0
+
+
+= creation of config with instances and classes and global configuration and local configuration
+    
+config = AutomotiveTestCaseExecutorConfiguration(
+    [MyTestCase2(), MyTestCase2(), MyTestCase3, MyTestCase4],
+    global_config=42, verbose=True, MyTestCase2_kwargs={"local_config": 41})
+
+assert len(config.test_cases) == 4
+assert len(config.test_case_clss) == 3
+assert len(config.stages) == 0
+assert len(config.staged_test_cases) == 0
+assert config.verbose == True
+assert config.debug == False
+assert config.delay_state_change > 0
+assert config["MyTestCase2"]["global_config"] == 42
+assert config["MyTestCase2"]["local_config"] == 41
+assert config["MyTestCase2"]["verbose"] == True
+try:
+    print(config["MyTestCase1"]["global_config"])
+    raise AssertionError
+except KeyError:
+    pass
+
+assert len(config["MyTestCase3"]) == 2
+assert len(config["MyTestCase2"]) == 3
+
+try:
+    print(config["MyTestCase3"]["local_config"])
+    raise AssertionError
+except KeyError:
+    pass
+
+
+= creation of config with stages
+
+st = StagedAutomotiveTestCase([MyTestCase1(), MyTestCase2()])
+    
+config = AutomotiveTestCaseExecutorConfiguration(
+    [MyTestCase2(), MyTestCase2, MyTestCase3, MyTestCase4, st])
+
+assert len(config.test_cases) == 5
+assert len(config.test_case_clss) == 5
+assert len(config.stages) == 1
+assert len(config.staged_test_cases) == 2
+assert config.verbose == False
+assert config.debug == False
+assert config.delay_state_change > 0
+
+
+
+
+
+
+

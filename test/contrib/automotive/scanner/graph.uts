@@ -4,7 +4,7 @@
 
 = Load contribution layer
 
-from scapy.contrib.automotive.graph import *
+from scapy.contrib.automotive.scanner.graph import *
 import pickle
 import io
 
