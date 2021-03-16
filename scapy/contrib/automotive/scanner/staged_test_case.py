@@ -36,7 +36,7 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
     :param connectors: A list of connector functions. A connector function takes two
         TestCase objects and returns a dictionary which is provided to the second TestCase
         as kwargs of the execute function.
-    
+
     Example:
         >>> class MyTestCase2(AutomotiveTestCaseABC):
         >>>     pass
