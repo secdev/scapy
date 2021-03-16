@@ -11,7 +11,7 @@ from scapy.compat import Any, List, Optional, Dict, Callable, cast, \
     TYPE_CHECKING
 from scapy.contrib.automotive.scanner.graph import _Edge
 from scapy.error import log_interactive
-from scapy.contrib.automotive.ecu import EcuState, EcuResponse
+from scapy.contrib.automotive.ecu import EcuState, EcuResponse, Ecu
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
     TestCaseGenerator, StateGenerator, _SocketUnion
 
@@ -27,6 +27,37 @@ _TestCaseConnectorCallable = Callable[[AutomotiveTestCaseABC, AutomotiveTestCase
 
 
 class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGenerator):  # noqa: E501
+    """ Helper object to build a pipeline of TestCases. This allows to combine
+    TestCases and to execute them after each other. Custom connector functions
+    can be used to exchange and manipulate the configuration of a subsequent
+    TestCase.
+
+    :param test_cases: A list of objects following the AutomotiveTestCaseABC interface
+    :param connectors: A list of connector functions. A connector function takes two
+        TestCase objects and returns a dictionary which is provided to the second TestCase
+        as kwargs of the execute function.
+        
+    Example:
+        >>> class MyTestCase2(AutomotiveTestCaseABC):
+        >>>     pass
+        >>>
+        >>> class MyTestCase1(AutomotiveTestCaseABC):
+        >>>     pass
+        >>>
+        >>> def connector(testcase1, testcase2):
+        >>>     scan_range = len(testcase1.results)
+        >>>     return {"verbose": True, "scan_range": scan_range}
+        >>>
+        >>> tc1 = MyTestCase1()
+        >>> tc2 = MyTestCase2()
+        >>> pipeline = StagedAutomotiveTestCase([tc1, tc2], [None, connector])
+    """  # noqa: E501
+
+    # Delay the increment of a stage after the current stage is finished
+    # has_completed() has to be called five times in order to increment the
+    # current stage. This ensures, that the current stage is executed for
+    # all possible states of the DUT, and no state is missed for the first
+    # TestCase.
     __delay_stages = 5
 
     def __init__(self, test_cases, connectors=None):
@@ -45,15 +76,6 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
     def __len__(self):
         # type: () -> int
         return len(self.__test_cases)
-
-    # TODO: Fix unit tests and remove this function
-    def __reduce__(self):  # type: ignore
-        f, t, d = super(StagedAutomotiveTestCase, self).__reduce__()  # type: ignore  # noqa: E501
-        try:
-            del d["_StagedAutomotiveTestCase__connectors"]
-        except KeyError:
-            pass
-        return f, t, d
 
     @property
     def test_cases(self):
@@ -205,9 +227,9 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
     @property
     def supported_responses(self):
         # type: () -> List[EcuResponse]
-        # TODO: Sort results
         supported_responses = list()
         for tc in self.test_cases:
             supported_responses += tc.supported_responses
 
+        supported_responses.sort(key=Ecu.sort_key_func)
         return supported_responses
