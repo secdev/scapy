@@ -100,13 +100,14 @@ class AutomotiveTestCaseABC(ABC):
         # type: (bool, bool, bool) -> Optional[str]
         """
         Shows results of TestCase
+
         :param dump: If True, the results will be returned; If False, the
-            results will be printed.
+                     results will be printed.
         :param filtered: If True, the negative responses will be filtered
-            dynamically.
+                         dynamically.
         :param verbose: If True, additional information will be provided.
         :return: test results of TestCase if parameter ``dump`` is True,
-            else ``None``
+                 else ``None``
         """
         raise NotImplementedError()
 
