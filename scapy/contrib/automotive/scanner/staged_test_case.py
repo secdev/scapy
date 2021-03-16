@@ -32,10 +32,12 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
     can be used to exchange and manipulate the configuration of a subsequent
     TestCase.
 
-    :param test_cases: A list of objects following the AutomotiveTestCaseABC interface
-    :param connectors: A list of connector functions. A connector function takes two
-        TestCase objects and returns a dictionary which is provided to the second TestCase
-        as kwargs of the execute function.
+    :param test_cases: A list of objects following the AutomotiveTestCaseABC
+        interface
+    :param connectors: A list of connector functions. A connector function
+        takes two TestCase objects and returns a dictionary which is provided
+        to the second TestCase as kwargs of the execute function.
+
 
     Example:
         >>> class MyTestCase2(AutomotiveTestCaseABC):
@@ -51,7 +53,7 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
         >>> tc1 = MyTestCase1()
         >>> tc2 = MyTestCase2()
         >>> pipeline = StagedAutomotiveTestCase([tc1, tc2], [None, connector])
-    """  # noqa: E501
+    """
 
     # Delay the increment of a stage after the current stage is finished
     # has_completed() has to be called five times in order to increment the
