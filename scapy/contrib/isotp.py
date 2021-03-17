@@ -1728,24 +1728,20 @@ if six.PY3 and LINUX:
     CAN_ISOTP_DEFAULT_LL_TX_DL = CAN_MAX_DLEN
     CAN_ISOTP_DEFAULT_LL_TX_FLAGS = 0
 
-
     class SOCKADDR(ctypes.Structure):
         # See /usr/include/i386-linux-gnu/bits/socket.h for original struct
         _fields_ = [("sa_family", ctypes.c_uint16),
                     ("sa_data", ctypes.c_char * 14)]
-
 
     class TP(ctypes.Structure):
         # This struct is only used within the SOCKADDR_CAN struct
         _fields_ = [("rx_id", ctypes.c_uint32),
                     ("tx_id", ctypes.c_uint32)]
 
-
     class ADDR_INFO(ctypes.Union):
         # This struct is only used within the SOCKADDR_CAN struct
         # This union is to future proof for future can address information
         _fields_ = [("tp", TP)]
-
 
     class SOCKADDR_CAN(ctypes.Structure):
         # See /usr/include/linux/can.h for original struct
@@ -1753,13 +1749,11 @@ if six.PY3 and LINUX:
                     ("can_ifindex", ctypes.c_int),
                     ("can_addr", ADDR_INFO)]
 
-
     class IFREQ(ctypes.Structure):
         # The two fields in this struct were originally unions.
         # See /usr/include/net/if.h for original struct
         _fields_ = [("ifr_name", ctypes.c_char * 16),
                     ("ifr_ifindex", ctypes.c_int)]
-
 
     class ISOTPNativeSocket(SuperSocket):
         desc = "read/write packets at a given CAN interface using CAN_ISOTP " \
@@ -1924,8 +1918,7 @@ if six.PY3 and LINUX:
                 option_flags = option_flags | CAN_ISOTP_LISTEN_MODE
 
             if padding:
-                option_flags = option_flags | CAN_ISOTP_TX_PADDING \
-                               | CAN_ISOTP_RX_PADDING
+                option_flags = option_flags | CAN_ISOTP_TX_PADDING | CAN_ISOTP_RX_PADDING  # noqa: E501
 
             sock.setsockopt(SOL_CAN_ISOTP,
                             CAN_ISOTP_OPTS,
@@ -2037,10 +2030,9 @@ if six.PY3 and LINUX:
             return msg
 
 
-    __all__.append("ISOTPNativeSocket")
-
 if USE_CAN_ISOTP_KERNEL_MODULE:
     ISOTPSocket = ISOTPNativeSocket
+    __all__.append("ISOTPNativeSocket")
 
 
 # ###################################################################
