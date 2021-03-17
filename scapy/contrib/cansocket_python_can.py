@@ -276,8 +276,8 @@ class PythonCANSocket(SuperSocket):
     check: https://python-can.readthedocs.io/
 
     Example:
-        >>> socket = PythonCANSocket(bustype='socketcan', channel='vcan0', bitrate=250000)  # noqa: E501
-    """
+        >>> socket = PythonCANSocket(bustype='socketcan', channel='vcan0', bitrate=250000)
+    """  # noqa: E501
     desc = "read/write packets at a given CAN interface " \
            "using a python-can bus object"
     nonblocking_socket = True

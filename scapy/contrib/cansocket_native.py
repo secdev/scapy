@@ -29,7 +29,7 @@ class NativeCANSocket(SuperSocket):
     """Initializes a Linux PF_CAN socket object.
 
     Example:
-        >>> socket = NativeCANSocket(channel="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x7FF}])  # noqa: E501
+        >>> socket = NativeCANSocket(channel="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x7FF}])
 
     :param channel: Network interface name
     :param receive_own_messages: Messages, sent by this socket are will
@@ -41,9 +41,14 @@ class NativeCANSocket(SuperSocket):
     """
     desc = "read/write packets at a given CAN interface using PF_CAN sockets"
 
-    def __init__(self, channel=None, receive_own_messages=False,
-                 can_filters=None, basecls=CAN, **kwargs):
-        # type: (Optional[str], bool, Optional[List[Dict[str, int]]], Type[Packet], Dict[str, Any]) -> None  # noqa: E501
+    def __init__(self,
+                 channel=None,  # type: Optional[str]
+                 receive_own_messages=False,  # type: bool
+                 can_filters=None,  # type: Optional[List[Dict[str, int]]]
+                 basecls=CAN,  # type: Type[Packet]
+                 **kwargs  # type: Dict[str, Any]
+                 ):
+        # type: (...) -> None
         bustype = kwargs.pop("bustype", "")
         if bustype != "socketcan":
             warning("You created a NativeCANSocket. "
