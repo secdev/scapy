@@ -41,7 +41,7 @@ class ReferenceAM(type):
                 dct  # type: Dict[str, Any]
                 ):
         # type: (...) -> Type['AnsweringMachine']
-        obj = cast(AnsweringMachine,
+        obj = cast('AnsweringMachine',
                    super(ReferenceAM, cls).__new__(cls, name, bases, dct))
         if obj.function_name:
             globals()[obj.function_name] = lambda obj=obj, *args, **kargs: obj(*args, **kargs)()  # noqa: E501
