@@ -38,7 +38,7 @@ class NativeCANSocket(SuperSocket):
     :param basecls: Packet type in which received data gets interpreted.
     :param kwargs: Various keyword arguments for compatibility with
                    PythonCANSockets
-    """
+    """  # noqa: E501
     desc = "read/write packets at a given CAN interface using PF_CAN sockets"
 
     def __init__(self,
