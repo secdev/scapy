@@ -822,7 +822,7 @@ class ARP_am(AnsweringMachine):
         arp = req[ARP]
 
         if 'iface' in self.optsend:
-            iff = self.optsend.get('iface')
+            iff = cast(Union[NetworkInterface, str], self.optsend.get('iface'))
         else:
             iff, a, gw = conf.route.route(arp.psrc)
         self.iff = iff
@@ -842,15 +842,17 @@ class ARP_am(AnsweringMachine):
         return resp
 
     def send_reply(self, reply):
-        # type: (ARP) -> None
+        # type: (Union[Packet, PacketList]) -> None
+        p = cast(Packet, reply)
         if 'iface' in self.optsend:
-            self.send_function(reply, **self.optsend)
+            self.send_function(p, **self.optsend)
         else:
-            self.send_function(reply, iface=self.iff, **self.optsend)
+            self.send_function(p, iface=self.iff, **self.optsend)
 
     def print_reply(self, req, reply):
-        # type: (Ether, Ether) -> None
-        print("%s ==> %s on %s" % (req.summary(), reply.summary(), self.iff))
+        # type: (Packet, Union[Packet, PacketList]) -> None
+        p = cast(Packet, reply)
+        print("%s ==> %s on %s" % (req.summary(), p.summary(), self.iff))
 
 
 @conf.commands.register
