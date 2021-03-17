@@ -12,7 +12,6 @@
 ISOTPSocket.
 """
 
-
 import ctypes
 from ctypes.util import find_library
 import struct
@@ -22,7 +21,7 @@ import traceback
 import heapq
 from threading import Thread, Event, Lock
 
-from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict, Any,\
+from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict, Any, \
     Type, cast, Callable, TYPE_CHECKING
 from scapy.utils import EDecimal
 from scapy.packet import Packet
@@ -206,7 +205,7 @@ class ISOTP(Packet):
                     or (use_extended_addressing is None):
                 results.append(p)
 
-        if len(results) == 0:
+        if not results:
             return None
 
         if len(results) > 1:
@@ -385,6 +384,7 @@ class ISOTPMessageBuilder(object):
         """
         Helper class to store not finished ISOTP messages while building.
         """
+
         def __init__(self, total_len, first_piece, ts):
             # type: (int, bytes, Union[EDecimal, float]) -> None
             self.pieces = list()  # type: List[bytes]
@@ -407,8 +407,13 @@ class ISOTPMessageBuilder(object):
                     isotp_data = "".join(map(str, self.pieces))
                 self.ready = isotp_data[:self.total_len]
 
-    def __init__(self, use_ext_addr=None, did=None, basecls=ISOTP):
-        # type: (Optional[bool], Optional[Union[int, List[int], Iterable[int]]], Type[Packet]) -> None  # noqa: E501
+    def __init__(
+            self,
+            use_ext_addr=None,  # type: Optional[bool]
+            did=None,  # type: Optional[Union[int, List[int], Iterable[int]]]
+            basecls=ISOTP  # type: Type[Packet]
+    ):
+        # type: (...) -> None
         self.ready = []  # type: List[Tuple[int, Optional[int], ISOTPMessageBuilder.Bucket]]  # noqa: E501
         self.buckets = {}  # type: Dict[Tuple[Optional[int], int, int], ISOTPMessageBuilder.Bucket]  # noqa: E501
         self.use_ext_addr = use_ext_addr
@@ -492,8 +497,11 @@ class ISOTPMessageBuilder(object):
         return ISOTPMessageBuilderIter(self)
 
     @staticmethod
-    def _build(t, basecls=ISOTP):
-        # type: (Tuple[int, Optional[int], ISOTPMessageBuilder.Bucket], Type[Packet]) -> Packet  # noqa: E501
+    def _build(
+            t,  # type: Tuple[int, Optional[int], ISOTPMessageBuilder.Bucket]
+            basecls=ISOTP  # type: Type[Packet]
+    ):
+        # type: (...) -> Packet
         bucket = t[2]
         data = bucket.ready or b""
         p = basecls(data)
@@ -584,13 +592,7 @@ class ISOTPMessageBuilder(object):
             # 1 for data
             return False
 
-        keys = list()  # type: List[Tuple[Optional[int], int, int]]
-
-        if self.last_ff is not None:
-            keys.append(self.last_ff)
-        if self.last_ff_ex is not None:
-            keys.append(self.last_ff_ex)
-
+        keys = [x for x in (self.last_ff, self.last_ff_ex) if x is not None]
         buckets = [self.buckets.pop(k, None) for k in keys]
 
         self.last_ff = None
@@ -627,6 +629,7 @@ class ISOTPSession(DefaultSession):
     Usage:
         >>> sniff(session=ISOTPSession)
     """
+
     def __init__(self, *args, **kwargs):
         # type: (Any, Any) -> None
         super(ISOTPSession, self).__init__(*args, **kwargs)
@@ -704,22 +707,23 @@ class ISOTPSoftSocket(SuperSocket):
                     count to the payload.
                     Does not affect receiving packets.
     :param basecls: base class of the packets emitted by this socket
-    """   # noqa: E501
+    """  # noqa: E501
 
     nonblocking_socket = True
 
     def __init__(self,
-                 can_socket=None,
-                 sid=0,
-                 did=0,
-                 extended_addr=None,
-                 extended_rx_addr=None,
-                 rx_block_size=0,
-                 rx_separation_time_min=0,
-                 padding=False,
-                 listen_only=False,
-                 basecls=ISOTP):
-        # type: (Optional["CANSocket"], int, int, Optional[int], Optional[int], int, int, bool, bool, Type[Packet]) -> None  # noqa: E501
+                 can_socket=None,  # type: Optional["CANSocket"]
+                 sid=0,  # type: int
+                 did=0,  # type: int
+                 extended_addr=None,  # type: Optional[int]
+                 extended_rx_addr=None,  # type: Optional[int]
+                 rx_block_size=0,  # type: int
+                 rx_separation_time_min=0,  # type: int
+                 padding=False,  # type: bool
+                 listen_only=False,  # type: bool
+                 basecls=ISOTP  # type: Type[Packet]
+                 ):
+        # type: (...) -> None
 
         if six.PY3 and LINUX and isinstance(can_socket, six.string_types):
             from scapy.contrib.cansocket_native import NativeCANSocket
@@ -815,7 +819,7 @@ class ISOTPSoftSocket(SuperSocket):
 
         ready_sockets = find_ready_sockets(sockets)
 
-        blocking = remain is None or remain > 0
+        blocking = remain != 0
         if len(ready_sockets) > 0 or not blocking:
             return ready_sockets
 
@@ -1099,8 +1103,11 @@ class TimeoutScheduler:
         should be executed."""
         __slots__ = ['_when', '_cb']
 
-        def __init__(self, when, cb):
-            # type: (float, Optional[Union[Callable[[], None], bool]]) -> None  # noqa: E501
+        def __init__(self,
+                     when,  # type: float
+                     cb  # type: Optional[Union[Callable[[], None], bool]]
+                     ):
+            # type: (...) -> None
             self._when = when
             self._cb = cb
 
@@ -1204,16 +1211,17 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
     """
 
     def __init__(self,
-                 can_socket,
-                 src_id,
-                 dst_id,
-                 padding=False,
-                 extended_addr=None,
-                 extended_rx_addr=None,
-                 rx_block_size=0,
-                 rx_separation_time_min=0,
-                 listen_only=False):
-        # type: ("CANSocket", int, int, bool, Optional[int], Optional[int], int, int, bool) -> None  # noqa: E501
+                 can_socket,  # type: "CANSocket"
+                 src_id,  # type: int
+                 dst_id,  # type: int
+                 padding=False,  # type: bool
+                 extended_addr=None,  # type: Optional[int]
+                 extended_rx_addr=None,  # type: Optional[int]
+                 rx_block_size=0,  # type: int
+                 rx_separation_time_min=0,  # type: int
+                 listen_only=False  # type: bool
+                 ):
+        # type: (...) -> None
         automaton.SelectableObject.__init__(self)
 
         self.can_socket = can_socket
@@ -1720,20 +1728,24 @@ if six.PY3 and LINUX:
     CAN_ISOTP_DEFAULT_LL_TX_DL = CAN_MAX_DLEN
     CAN_ISOTP_DEFAULT_LL_TX_FLAGS = 0
 
+
     class SOCKADDR(ctypes.Structure):
         # See /usr/include/i386-linux-gnu/bits/socket.h for original struct
         _fields_ = [("sa_family", ctypes.c_uint16),
                     ("sa_data", ctypes.c_char * 14)]
+
 
     class TP(ctypes.Structure):
         # This struct is only used within the SOCKADDR_CAN struct
         _fields_ = [("rx_id", ctypes.c_uint32),
                     ("tx_id", ctypes.c_uint32)]
 
+
     class ADDR_INFO(ctypes.Union):
         # This struct is only used within the SOCKADDR_CAN struct
         # This union is to future proof for future can address information
         _fields_ = [("tp", TP)]
+
 
     class SOCKADDR_CAN(ctypes.Structure):
         # See /usr/include/linux/can.h for original struct
@@ -1741,11 +1753,13 @@ if six.PY3 and LINUX:
                     ("can_ifindex", ctypes.c_int),
                     ("can_addr", ADDR_INFO)]
 
+
     class IFREQ(ctypes.Structure):
         # The two fields in this struct were originally unions.
         # See /usr/include/net/if.h for original struct
         _fields_ = [("ifr_name", ctypes.c_char * 16),
                     ("ifr_ifindex", ctypes.c_int)]
+
 
     class ISOTPNativeSocket(SuperSocket):
         desc = "read/write packets at a given CAN interface using CAN_ISOTP " \
@@ -1886,12 +1900,15 @@ if six.PY3 and LINUX:
             if error < 0:
                 warning("Couldn't bind socket")
 
-        def __set_option_flags(self, sock, extended_addr=None,
-                               extended_rx_addr=None,
-                               listen_only=False,
-                               padding=False,
-                               transmit_time=100):
-            # type: (socket.socket, Optional[int], Optional[int], bool, bool, int) -> None  # noqa: E501
+        def __set_option_flags(self,
+                               sock,  # type: socket.socket
+                               extended_addr=None,  # type: Optional[int]
+                               extended_rx_addr=None,  # type: Optional[int]
+                               listen_only=False,  # type: bool
+                               padding=False,  # type: bool
+                               transmit_time=100  # type: int
+                               ):
+            # type: (...) -> None
             option_flags = CAN_ISOTP_DEFAULT_FLAGS
             if extended_addr is not None:
                 option_flags = option_flags | CAN_ISOTP_EXTEND_ADDR
@@ -1908,7 +1925,7 @@ if six.PY3 and LINUX:
 
             if padding:
                 option_flags = option_flags | CAN_ISOTP_TX_PADDING \
-                                            | CAN_ISOTP_RX_PADDING
+                               | CAN_ISOTP_RX_PADDING
 
             sock.setsockopt(SOL_CAN_ISOTP,
                             CAN_ISOTP_OPTS,
@@ -1919,18 +1936,23 @@ if six.PY3 and LINUX:
                                 rx_ext_address=extended_rx_addr))
 
         def __init__(self,
-                     iface=None,
-                     sid=0,
-                     did=0,
-                     extended_addr=None,
-                     extended_rx_addr=None,
-                     listen_only=False,
-                     padding=False,
-                     transmit_time=100,
-                     basecls=ISOTP):
-            # type: (Optional[Union[str, SuperSocket]], int, int, Optional[int], Optional[int], bool, bool, int, Type[Packet]) -> None  # noqa: E501
+                     iface=None,  # type: Optional[Union[str, SuperSocket]]
+                     sid=0,  # type: int
+                     did=0,  # type: int
+                     extended_addr=None,  # type: Optional[int]
+                     extended_rx_addr=None,  # type: Optional[int]
+                     listen_only=False,  # type: bool
+                     padding=False,  # type: bool
+                     transmit_time=100,  # type: int
+                     basecls=ISOTP  # type: Type[Packet]
+                     ):
+            # type: (...) -> None
 
             if not isinstance(iface, six.string_types):
+                # This is for interoperability with ISOTPSoftSockets.
+                # If a NativeCANSocket is provided, the interface name of this
+                # socket is extracted and an ISOTPNativeSocket will be opened
+                # on this interface.
                 iface = cast(SuperSocket, iface)
                 if hasattr(iface, "ins") and hasattr(iface.ins, "getsockname"):
                     iface = iface.ins.getsockname()
@@ -1979,7 +2001,7 @@ if six.PY3 and LINUX:
             """
             Receives a packet, then returns a tuple containing
             (cls, pkt_data, time)
-            """  # noqa: E501
+            """
             try:
                 pkt, _, ts = self._recv_raw(self.ins, x)
             except BlockingIOError:  # noqa: F821
@@ -2013,6 +2035,7 @@ if six.PY3 and LINUX:
             if hasattr(msg, "exdst"):
                 msg.exdst = self.exdst
             return msg
+
 
     __all__.append("ISOTPNativeSocket")
 
@@ -2096,7 +2119,8 @@ def filter_periodic_packets(packet_dict, verbose=False):
         if len(pkt_lst) < 3:
             continue
 
-        tg = [float(p1.time) - float(p2.time) for p1, p2 in zip(pkt_lst[1:], pkt_lst[:-1])]  # noqa: E501
+        tg = [float(p1.time) - float(p2.time)
+              for p1, p2 in zip(pkt_lst[1:], pkt_lst[:-1])]
         if all(abs(t1 - t2) < 0.001 for t1, t2 in zip(tg[1:], tg[:-1])):
             if verbose:
                 print("[i] Identifier 0x%03x seems to be periodic. "
@@ -2105,8 +2129,15 @@ def filter_periodic_packets(packet_dict, verbose=False):
                 del packet_dict[k]
 
 
-def get_isotp_fc(id_value, id_list, noise_ids, extended, packet, verbose=False):   # noqa: E501
-    # type: (int, Union[List[int], Dict[int, Tuple[Packet, int]]], Optional[List[int]], bool, Packet, bool) -> None   # noqa: E501
+def get_isotp_fc(
+        id_value,  # type: int
+        id_list,  # type: Union[List[int], Dict[int, Tuple[Packet, int]]]
+        noise_ids,  # type: Optional[List[int]]
+        extended,  # type: bool
+        packet,  # type: Packet
+        verbose=False  # type: bool
+):
+    # type: (...) -> None
     """Callback for sniff function when packet received
 
     If received packet is a FlowControl and not in noise_ids append it
@@ -2149,13 +2180,13 @@ def get_isotp_fc(id_value, id_list, noise_ids, extended, packet, verbose=False):
               (e, repr(packet)))
 
 
-def scan(sock,                      # type: SuperSocket
-         scan_range=range(0x800),   # type: Iterable[int]
-         noise_ids=None,            # type: Optional[List[int]]
-         sniff_time=0.1,            # type: float
-         extended_can_id=False,     # type: bool
-         verbose=False              # type: bool
-         ):                         # type: (...) -> Dict[int, Tuple[Packet, int]]  # noqa: E501
+def scan(sock,  # type: SuperSocket
+         scan_range=range(0x800),  # type: Iterable[int]
+         noise_ids=None,  # type: Optional[List[int]]
+         sniff_time=0.1,  # type: float
+         extended_can_id=False,  # type: bool
+         verbose=False  # type: bool
+         ):  # type: (...) -> Dict[int, Tuple[Packet, int]]
     """Scan and return dictionary of detections
 
     ISOTP-Scan - NO extended IDs
@@ -2192,20 +2223,20 @@ def scan(sock,                      # type: SuperSocket
                                                     verbose),
                        timeout=sniff_time * 10,
                        started_callback=lambda: sock.send(
-                       get_isotp_packet(value, False, extended_can_id)))
+                           get_isotp_packet(value, False, extended_can_id)))
 
     return cleaned_ret_val
 
 
-def scan_extended(sock,                              # type: SuperSocket
-                  scan_range=range(0x800),           # type: Iterable[int]
-                  scan_block_size=32,                # type: int
+def scan_extended(sock,  # type: SuperSocket
+                  scan_range=range(0x800),  # type: Iterable[int]
+                  scan_block_size=32,  # type: int
                   extended_scan_range=range(0x100),  # type: Iterable[int]
-                  noise_ids=None,                    # type: Optional[List[int]]  # noqa: E501
-                  sniff_time=0.1,                    # type: float
-                  extended_can_id=False,             # type: bool
-                  verbose=False                      # type: bool
-                  ):                                 # type: (...) -> Dict[int, Tuple[Packet, int]]  # noqa: E501
+                  noise_ids=None,  # type: Optional[List[int]]
+                  sniff_time=0.1,  # type: float
+                  extended_can_id=False,  # type: bool
+                  verbose=False  # type: bool
+                  ):  # type: (...) -> Dict[int, Tuple[Packet, int]]
     """Scan with ISOTP extended addresses and return dictionary of detections
 
     If an answer-packet found -> slow scan with
@@ -2262,17 +2293,18 @@ def scan_extended(sock,                              # type: SuperSocket
     return return_values
 
 
-def ISOTPScan(sock,
-              scan_range=range(0x7ff + 1),
-              extended_addressing=False,
-              extended_scan_range=range(0x100),
-              noise_listen_time=2,
-              sniff_time=0.1,
-              output_format=None,
-              can_interface=None,
-              extended_can_id=False,
-              verbose=False):
-    # type: (SuperSocket, Iterable[int], bool, Iterable[int], int, float, Optional[str], Optional[str], bool, bool) -> Union[str, List[SuperSocket]]  # noqa: E501
+def ISOTPScan(sock,  # type: SuperSocket
+              scan_range=range(0x7ff + 1),  # type: Iterable[int]
+              extended_addressing=False,  # type: bool
+              extended_scan_range=range(0x100),  # type: Iterable[int]
+              noise_listen_time=2,  # type: int
+              sniff_time=0.1,  # type: float
+              output_format=None,  # type: Optional[str]
+              can_interface=None,  # type: Optional[str]
+              extended_can_id=False,  # type: bool
+              verbose=False  # type: bool
+              ):
+    # type: (...) -> Union[str, List[SuperSocket]]
     """Scan for ISOTP Sockets on a bus and return findings
 
     Scan for ISOTP Sockets in the defined range and returns found sockets
@@ -2385,7 +2417,7 @@ def generate_text_output(found_packets, extended_addressing=False):
     return text
 
 
-def generate_code_output(found_packets, can_interface,
+def generate_code_output(found_packets, can_interface="iface",
                          extended_addressing=False):
     # type: (Dict[int, Tuple[Packet, int]], Optional[str], bool) -> str
     """Generate a copy&past-able output from the result of the `scan` or
@@ -2401,9 +2433,6 @@ def generate_code_output(found_packets, can_interface,
     result = ""
     if not found_packets:
         return result
-
-    if can_interface is None:
-        can_interface = "iface"
 
     header = "\n\nimport can\n" \
              "conf.contribs['CANSocket'] = {'use-python-can': %s}\n" \
@@ -2433,9 +2462,11 @@ def generate_code_output(found_packets, can_interface,
     return header + result
 
 
-def generate_isotp_list(found_packets, can_interface,
-                        extended_addressing=False):
-    # type: (Dict[int, Tuple[Packet, int]], Union[SuperSocket, str], bool) -> List[SuperSocket]  # noqa: E501
+def generate_isotp_list(found_packets,  # type: Dict[int, Tuple[Packet, int]]
+                        can_interface,  # type: Union[SuperSocket, str]
+                        extended_addressing=False  # type: bool
+                        ):
+    # type: (...) -> List[SuperSocket]
     """Generate a list of ISOTPSocket objects from the result of the `scan` or
     the `scan_extended` function.
 

@@ -70,8 +70,14 @@ class GMLAN_TesterPresentSender(PeriodicSenderThread):
                 time.sleep(self._interval)
 
 
-def GMLAN_InitDiagnostics(sock, broadcast_socket=None, timeout=None, verbose=None, retry=0):  # noqa: E501
-    # type: (SuperSocket, Optional[SuperSocket], Optional[int], Optional[bool], int) -> bool  # noqa: E501
+def GMLAN_InitDiagnostics(
+        sock,  # type: SuperSocket
+        broadcast_socket=None,  # type: Optional[SuperSocket]
+        timeout=None,  # type: Optional[int]
+        verbose=None,  # type: Optional[bool]
+        retry=0  # type: int
+):
+    # type: (...) -> bool
     """ Send messages to put an ECU into diagnostic/programming state.
 
     :param sock: socket for communication.
@@ -130,8 +136,15 @@ def GMLAN_InitDiagnostics(sock, broadcast_socket=None, timeout=None, verbose=Non
     return False
 
 
-def GMLAN_GetSecurityAccess(sock, key_function, level=1, timeout=None, verbose=None, retry=0):  # noqa: E501
-    # type: (SuperSocket, Callable[[int], int], int, Optional[int], Optional[bool], int) -> bool  # noqa: E501
+def GMLAN_GetSecurityAccess(
+        sock,  # type: SuperSocket
+        key_function,  # type: Callable[[int], int]
+        level=1,  # type: int
+        timeout=None,  # type: Optional[int]
+        verbose=None,  # type: Optional[bool]
+        retry=0  # type: int
+):
+    # type: (...) -> bool
     """ Authenticate on ECU. Implements Seey-Key procedure.
 
     :param sock: socket to send the message on.
@@ -186,13 +199,12 @@ def GMLAN_GetSecurityAccess(sock, key_function, level=1, timeout=None, verbose=N
             continue
         if verbose:
             resp.show()
-        if resp.sprintf("%GMLAN.service%") == "SecurityAccessPositiveResponse":   # noqa: E501
+        if resp.service == 0x67:
             if verbose:
                 print("SecurityAccess granted.")
             return True
         # Invalid Key
-        elif resp.sprintf("%GMLAN.service%") == "NegativeResponse" and \
-                resp.sprintf("%GMLAN.returnCode%") == "InvalidKey":
+        elif resp.service == 0x7f and resp.returnCode == 0x35:
             if verbose:
                 print("Key invalid")
             continue
@@ -229,8 +241,16 @@ def GMLAN_RequestDownload(sock, length, timeout=None, verbose=None, retry=0):
     return False
 
 
-def GMLAN_TransferData(sock, addr, payload, maxmsglen=None, timeout=None, verbose=None, retry=0):  # noqa: E501
-    # type: (SuperSocket, int, bytes, Optional[int], Optional[int], Optional[bool], int) -> bool  # noqa: E501
+def GMLAN_TransferData(
+        sock,  # type: SuperSocket
+        addr,  # type: int
+        payload,  # type: bytes
+        maxmsglen=None,  # type: Optional[int]
+        timeout=None,  # type: Optional[int]
+        verbose=None,  # type: Optional[bool]
+        retry=0  # type: int
+):
+    # type: (...) -> bool
     """ Send TransferData message.
 
     Usually used after calling RequestDownload.
@@ -285,9 +305,16 @@ def GMLAN_TransferData(sock, addr, payload, maxmsglen=None, timeout=None, verbos
     return True
 
 
-def GMLAN_TransferPayload(sock, addr, payload, maxmsglen=None, timeout=None,
-                          verbose=None, retry=0):
-    # type: (SuperSocket, int, bytes, Optional[int], Optional[int], Optional[bool], int) -> bool  # noqa: E501
+def GMLAN_TransferPayload(
+        sock,  # type: SuperSocket
+        addr,  # type: int
+        payload,  # type: bytes
+        maxmsglen=None,  # type: Optional[int]
+        timeout=None,  # type: Optional[int]
+        verbose=None,  # type: Optional[bool]
+        retry=0  # type: int
+):
+    # type: (...) -> bool
     """ Send data by using GMLAN services.
 
     :param sock: socket to send the data on.
@@ -309,9 +336,15 @@ def GMLAN_TransferPayload(sock, addr, payload, maxmsglen=None, timeout=None,
     return True
 
 
-def GMLAN_ReadMemoryByAddress(sock, addr, length, timeout=None,
-                              verbose=None, retry=0):
-    # type: (SuperSocket, int, int, Optional[int], Optional[bool], int) -> Optional[bytes]  # noqa: E501
+def GMLAN_ReadMemoryByAddress(
+        sock,  # type: SuperSocket
+        addr,  # type: int
+        length,  # type: int
+        timeout=None,  # type: Optional[int]
+        verbose=None,  # type: Optional[bool]
+        retry=0  # type: int
+):
+    # type: (...) -> Optional[bytes]
     """ Read data from ECU memory.
 
     :param sock: socket to send the data on.
