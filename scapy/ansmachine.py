@@ -40,7 +40,7 @@ class ReferenceAM(type):
                 bases,  # type: Tuple[type, ...]
                 dct  # type: Dict[str, Any]
                 ):
-        # type: (...) -> Type['scapy.ansmachine.AnsweringMachine']
+        # type: (...) -> Type['AnsweringMachine']
         obj = cast(AnsweringMachine,
                    super(ReferenceAM, cls).__new__(cls, name, bases, dct))
         if obj.function_name:
