@@ -27,11 +27,14 @@ from scapy.compat import (
     Any,
     cast,
     Dict,
+    Generic,
     Optional,
     Tuple,
     Type,
-    Union
+    TypeVar,
 )
+
+_T = TypeVar("_T", Packet, PacketList)
 
 
 class ReferenceAM(type):
@@ -48,8 +51,8 @@ class ReferenceAM(type):
         return obj
 
 
-class AnsweringMachine(six.with_metaclass(ReferenceAM,  # type: ignore
-                                          object)):
+@six.add_metaclass(ReferenceAM)
+class AnsweringMachine(Generic[_T]):
     function_name = ""
     filter = None  # type: Optional[str]
     sniff_options = {"store": 0}  # type: Dict[str, Any]
@@ -126,15 +129,15 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM,  # type: ignore
         return 1
 
     def make_reply(self, req):
-        # type: (Packet) -> Union[Packet, PacketList]
+        # type: (Packet) -> _T
         return req
 
     def send_reply(self, reply):
-        # type: (Union[Packet, PacketList]) -> None
+        # type: (_T) -> None
         self.send_function(reply, **self.optsend)
 
     def print_reply(self, req, reply):
-        # type: (Packet, Union[Packet, PacketList]) -> None
+        # type: (Packet, _T) -> None
         if isinstance(reply, PacketList):
             print("%s ==> %s" % (req.summary(),
                                  [res.summary() for res in reply]))

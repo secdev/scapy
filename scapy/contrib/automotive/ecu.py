@@ -556,7 +556,7 @@ class EcuResponse:
 conf.contribs['EcuAnsweringMachine'] = {'send_delay': 0}
 
 
-class EcuAnsweringMachine(AnsweringMachine):
+class EcuAnsweringMachine(AnsweringMachine[PacketList]):
     """AnsweringMachine which emulates the basic behaviour of a real world ECU.
     Provide a list of ``EcuResponse`` objects to configure the behaviour of a
     AnsweringMachine.
