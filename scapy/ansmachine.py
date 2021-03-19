@@ -27,6 +27,7 @@ from scapy.compat import (
     Any,
     Dict,
     Generic,
+    _Generic_metaclass,
     Optional,
     Tuple,
     Type,
@@ -49,6 +50,7 @@ class ReferenceAM(type):
         return obj
 
 
+@six.add_metaclass(_Generic_metaclass)
 @six.add_metaclass(ReferenceAM)
 class AnsweringMachine(Generic[_T]):
     function_name = ""

@@ -578,7 +578,7 @@ class EcuAnsweringMachine(AnsweringMachine[PacketList]):
             main_socket=None,  # type: Optional[SuperSocket]
             broadcast_socket=None,  # type: Optional[SuperSocket]
             basecls=Raw,  # type: Type[Packet]
-            timeout=None  # type: Optional[Union[int, float]]
+            timeout=None,  # type: Optional[Union[int, float]]
             initial_ecu_state=None  # type: Optional[EcuState]
     ):
         # type: (...) -> None
