@@ -332,7 +332,8 @@ class LLDPDUChassisID(LLDPDU):
                 IPField('id', None),
                 lambda pkt: pkt.subtype == 0x05
             ),
-        ], StrLenField('id', '', length_from=lambda pkt: pkt._length - 1)
+        ], StrLenField('id', '', length_from=lambda pkt: 0 if pkt._length is
+                       None else pkt._length - 1)
         )
     ]
 
@@ -387,7 +388,8 @@ class LLDPDUPortID(LLDPDU):
                 IPField('id', None),
                 lambda pkt: pkt.subtype == 0x04
             ),
-        ], StrLenField('id', '', length_from=lambda pkt: pkt._length - 1)
+        ], StrLenField('id', '', length_from=lambda pkt: 0 if pkt._length is
+                       None else pkt._length - 1)
         )
     ]
 
