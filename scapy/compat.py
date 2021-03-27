@@ -179,7 +179,24 @@ else:
 if sys.version_info >= (3, 7):
     from typing import NamedTuple
 else:
-    NamedTuple = lambda name, params: collections.namedtuple(name, list(x[0] for x in params))  # noqa: E501
+    # Hack for Python < 3.7 - Implement NamedTuple pickling
+    def _unpickleNamedTuple(name, len_params, *args):
+        return collections.namedtuple(
+            name,
+            args[:len_params]
+        )(*args[len_params:])
+
+    def NamedTuple(name, params):
+        tup_params = tuple(x[0] for x in params)
+        cls = collections.namedtuple(name, tup_params)
+
+        class _NT(cls):
+            def __reduce__(self):
+                """Used by pickling methods"""
+                return (_unpickleNamedTuple,
+                        (name, len(tup_params)) + tup_params + tuple(self))
+        _NT.__name__ = cls.__name__
+        return _NT
 
 # Python 3.8 Only
 if sys.version_info >= (3, 8):

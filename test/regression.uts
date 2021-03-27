@@ -4224,6 +4224,22 @@ srl, rl = pl.sr(lookahead=None)
 assert len(srl) == 1
 assert len(rl) == 7
 
+= pickle test
+import pickle
+import io
+
+srl, rl = PacketList([Raw(b"1"), Raw(b"1"), Raw(b"2"), Raw(b"3"), Raw(b"4"), Raw(b"3"), Raw(b"1"), Raw(b"1"), Raw(b"4")]).sr()
+assert len(srl) == 4
+
+f = io.BytesIO()
+
+pickle.dump(srl, f)
+
+unp = pickle.loads(f.getvalue())
+
+assert len(unp) == len(srl)
+assert all(bytes(a[0]) == bytes(b[0]) for a, b in zip(unp, srl))
+
 = plot()
 
 import mock

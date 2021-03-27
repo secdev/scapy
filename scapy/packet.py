@@ -186,7 +186,6 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.post_transforms = [post_transform]
 
     _PickleType = Tuple[
-        bytes,
         Union[EDecimal, float],
         Optional[Union[EDecimal, float, None]],
         Optional[int],
@@ -195,10 +194,9 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
     ]
 
     def __reduce__(self):
-        # type: () -> Tuple[Type[Packet], Tuple[()], Packet._PickleType]
+        # type: () -> Tuple[Type[Packet], Tuple[bytes], Packet._PickleType]
         """Used by pickling methods"""
-        return (self.__class__, (), (
-            self.build(),
+        return (self.__class__, (self.build(),), (
             self.time,
             self.sent_time,
             self.direction,
@@ -206,20 +204,14 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.wirelen,
         ))
 
-    def __getstate__(self):
-        # type: () -> Packet._PickleType
-        """Mark object as pickable"""
-        return self.__reduce__()[2]
-
     def __setstate__(self, state):
         # type: (Packet._PickleType) -> Packet
         """Rebuild state using pickable methods"""
-        self.__init__(state[0])  # type: ignore
-        self.time = state[1]
-        self.sent_time = state[2]
-        self.direction = state[3]
-        self.sniffed_on = state[4]
-        self.wirelen = state[5]
+        self.time = state[0]
+        self.sent_time = state[1]
+        self.direction = state[2]
+        self.sniffed_on = state[3]
+        self.wirelen = state[4]
         return self
 
     def __deepcopy__(self,
