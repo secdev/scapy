@@ -1185,17 +1185,20 @@ class Dot11EltRSN(Dot11Elt):
             AKMSuite,
             count_from=lambda p: p.nb_akm_suites
         ),
-        BitField("mfp_capable", 0, 1),
-        BitField("mfp_required", 0, 1),
+        BitField("mfp_capable", 1, 1),
+        BitField("mfp_required", 1, 1),
         BitField("gtksa_replay_counter", 0, 2),
         BitField("ptksa_replay_counter", 0, 2),
         BitField("no_pairwise", 0, 1),
         BitField("pre_auth", 0, 1),
         BitField("reserved", 0, 8),
+        # Theorically we could use mfp_capable/mfp_required to know if those
+        # fields are present, but some implementations poorly implement it.
+        # In practice, do as wireshark: guess using offset.
         ConditionalField(
-            PacketField("pmkids", None, PMKIDListPacket),
+            PacketField("pmkids", PMKIDListPacket(), PMKIDListPacket),
             lambda pkt: (
-                0 if pkt.len is None else
+                True if pkt.len is None else
                 pkt.len - (
                     12 +
                     (pkt.nb_pairwise_cipher_suites or 0) * 4 +
@@ -1206,7 +1209,15 @@ class Dot11EltRSN(Dot11Elt):
         ConditionalField(
             PacketField("group_management_cipher_suite",
                         RSNCipherSuite(cipher=0x6), RSNCipherSuite),
-            lambda pkt: pkt.mfp_capable == 1
+            lambda pkt: (
+                True if pkt.len is None else
+                pkt.len - (
+                    12 +
+                    (pkt.nb_pairwise_cipher_suites or 0) * 4 +
+                    (pkt.nb_akm_suites or 0) * 4 +
+                    (pkt.pmkids and pkt.pmkids.nb_pmkids or 0) * 16
+                ) >= 2
+            )
         )
     ]
 
