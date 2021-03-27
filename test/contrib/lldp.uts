@@ -25,6 +25,16 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/ \
 frm = frm.build()
 frm = Ether(frm)
 
+= build: check length calculation (#GH3107)
+
+frame = Ether(src='aa:bb:cc:dd:ee:ff', dst='11:22:33:44:55:66') / \
+        LLDPDUChassisID(subtype=0x04, id='aa:bb:cc:dd:ee:ff') / \
+        LLDPDUPortID(subtype=0x05, id='1') / \
+        LLDPDUTimeToLive(ttl=5) / \
+        LLDPDUManagementAddress(management_address_subtype=0x01, management_address=socket.inet_aton('192.168.0.10'))
+data = b'\x11"3DUf\xaa\xbb\xcc\xdd\xee\xff\x88\xcc\x02\x07\x04\xaa\xbb\xcc\xdd\xee\xff\x04\x02\x051\x06\x02\x00\x05\x10\x0c\x05\x01\xc0\xa8\x00\n\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+assert bytes(frame) == data
+
 = add padding if required
 
 conf.contribs['LLDP'].strict_mode_disable()
