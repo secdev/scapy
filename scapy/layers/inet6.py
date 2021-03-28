@@ -897,15 +897,24 @@ class IPv6ExtHdrRouting(_IPv6ExtHdr):
 
 #                         Segment Routing Header                            #
 
-# This implementation is based on draft 06, available at:
+# This implementation is based on RFC8754, but some older snippets come from:
 # https://tools.ietf.org/html/draft-ietf-6man-segment-routing-header-06
+
+_segment_routing_header_tlvs = {
+    # RFC 8754 sect 8.2
+    0: "Pad1 TLV",
+    1: "Ingress Node TLV",  # draft 06
+    2: "Egress Node TLV",  # draft 06
+    4: "PadN TLV",
+    5: "HMAC TLV",
+}
+
 
 class IPv6ExtHdrSegmentRoutingTLV(Packet):
     name = "IPv6 Option Header Segment Routing - Generic TLV"
-    fields_desc = [ByteField("type", 0),
+    # RFC 8754 sect 2.1
+    fields_desc = [ByteEnumField("type", None, _segment_routing_header_tlvs),
                    ByteField("len", 0),
-                   ByteField("reserved", 0),
-                   ByteField("flags", 0),
                    StrLenField("value", "", length_from=lambda pkt: pkt.len)]
 
     def extract_padding(self, p):
@@ -920,14 +929,15 @@ class IPv6ExtHdrSegmentRoutingTLV(Packet):
     @classmethod
     def dispatch_hook(cls, pkt=None, *args, **kargs):
         if pkt:
-            tmp_type = orb(pkt[0])
+            tmp_type = ord(pkt[:1])
             return cls.registered_sr_tlv.get(tmp_type, cls)
         return cls
 
 
 class IPv6ExtHdrSegmentRoutingTLVIngressNode(IPv6ExtHdrSegmentRoutingTLV):
     name = "IPv6 Option Header Segment Routing - Ingress Node TLV"
-    fields_desc = [ByteField("type", 1),
+    # draft-ietf-6man-segment-routing-header-06 3.1.1
+    fields_desc = [ByteEnumField("type", 1, _segment_routing_header_tlvs),
                    ByteField("len", 18),
                    ByteField("reserved", 0),
                    ByteField("flags", 0),
@@ -936,22 +946,46 @@ class IPv6ExtHdrSegmentRoutingTLVIngressNode(IPv6ExtHdrSegmentRoutingTLV):
 
 class IPv6ExtHdrSegmentRoutingTLVEgressNode(IPv6ExtHdrSegmentRoutingTLV):
     name = "IPv6 Option Header Segment Routing - Egress Node TLV"
-    fields_desc = [ByteField("type", 2),
+    # draft-ietf-6man-segment-routing-header-06 3.1.2
+    fields_desc = [ByteEnumField("type", 2, _segment_routing_header_tlvs),
                    ByteField("len", 18),
                    ByteField("reserved", 0),
                    ByteField("flags", 0),
                    IP6Field("egress_node", "::1")]
 
 
-class IPv6ExtHdrSegmentRoutingTLVPadding(IPv6ExtHdrSegmentRoutingTLV):
-    name = "IPv6 Option Header Segment Routing - Padding TLV"
-    fields_desc = [ByteField("type", 4),
+class IPv6ExtHdrSegmentRoutingTLVPad1(IPv6ExtHdrSegmentRoutingTLV):
+    name = "IPv6 Option Header Segment Routing - Pad1 TLV"
+    # RFC8754 sect 2.1.1.1
+    fields_desc = [ByteEnumField("type", 0, _segment_routing_header_tlvs),
                    FieldLenField("len", None, length_of="padding", fmt="B"),
                    StrLenField("padding", b"\x00", length_from=lambda pkt: pkt.len)]  # noqa: E501
 
 
+class IPv6ExtHdrSegmentRoutingTLVPadN(IPv6ExtHdrSegmentRoutingTLV):
+    name = "IPv6 Option Header Segment Routing - PadN TLV"
+    # RFC8754 sect 2.1.1.2
+    fields_desc = [ByteEnumField("type", 4, _segment_routing_header_tlvs),
+                   FieldLenField("len", None, length_of="padding", fmt="B"),
+                   StrLenField("padding", b"\x00", length_from=lambda pkt: pkt.len)]  # noqa: E501
+
+
+class IPv6ExtHdrSegmentRoutingTLVHMAC(IPv6ExtHdrSegmentRoutingTLV):
+    name = "IPv6 Option Header Segment Routing - HMAC TLV"
+    # RFC8754 sect 2.1.2
+    fields_desc = [ByteEnumField("type", 5, _segment_routing_header_tlvs),
+                   FieldLenField("len", None, length_of="hmac",
+                                 adjust=lambda _, x: x + 48),
+                   BitField("D", 0, 1),
+                   BitField("reserved", 0, 15),
+                   IntField("hmackeyid", 0),
+                   StrLenField("hmac", "",
+                               length_from=lambda pkt: pkt.len - 48)]
+
+
 class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
     name = "IPv6 Option Header Segment Routing"
+    # RFC8754 sect 2. + flag bits from draft 06
     fields_desc = [ByteEnumField("nh", 59, ipv6nh),
                    ByteField("len", None),
                    ByteField("type", 4),
@@ -979,13 +1013,14 @@ class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
         if self.len is None:
 
             # The extension must be align on 8 bytes
-            tmp_mod = (len(pkt) - 8) % 8
+            tmp_mod = (-len(pkt) + 8) % 8
             if tmp_mod == 1:
-                warning("IPv6ExtHdrSegmentRouting(): can't pad 1 byte!")
+                tlv = IPv6ExtHdrSegmentRoutingTLVPad1()
+                pkt += raw(tlv)
             elif tmp_mod >= 2:
                 # Add the padding extension
                 tmp_pad = b"\x00" * (tmp_mod - 2)
-                tlv = IPv6ExtHdrSegmentRoutingTLVPadding(padding=tmp_pad)
+                tlv = IPv6ExtHdrSegmentRoutingTLVPadN(padding=tmp_pad)
                 pkt += raw(tlv)
 
             tmp_len = (len(pkt) - 8) // 8
