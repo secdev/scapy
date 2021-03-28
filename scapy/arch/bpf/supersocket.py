@@ -107,6 +107,7 @@ class _L2bpfSocket(SuperSocket):
                                   self.dev_bpf)
 
         # Configure the BPF filter
+        filter_attached = False
         if not nofilter:
             if conf.except_filter:
                 if filter:
@@ -116,8 +117,19 @@ class _L2bpfSocket(SuperSocket):
             if filter is not None:
                 try:
                     attach_filter(self.ins, filter, self.iface)
+                    filter_attached = True
                 except ImportError as ex:
                     warning("Cannot set filter: %s" % ex)
+        if NETBSD and filter_attached is False:
+            # On NetBSD, a filter must be attached to an interface, otherwise
+            # no frame will be received by os.read(). When no filter has been
+            # configured, Scapy uses a simple tcpdump filter that does nothing
+            # more than ensuring the length frame is not null.
+            filter = "greater 0"
+            try:
+                attach_filter(self.ins, filter, self.iface)
+            except ImportError as ex:
+                warning("Cannot set filter: %s" % ex)
 
         # Set the guessed packet class
         self.guessed_cls = self.guess_cls()
