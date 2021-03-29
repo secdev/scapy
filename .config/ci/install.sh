@@ -5,7 +5,7 @@
 
 # Detect install mode
 if [[ "${1}" == "libpcap" ]]; then
-    export SCAPY_USE_LIBPCAP="yes"
+    SCAPY_USE_LIBPCAP="yes"
     if [[ ! -z "$GITHUB_ACTIONS" ]]; then
       echo "SCAPY_USE_LIBPCAP=yes" >> $GITHUB_ENV
     fi
