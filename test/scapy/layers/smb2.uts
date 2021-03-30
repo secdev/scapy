@@ -204,3 +204,74 @@ assert comp.CompressionAlgorithms[0] == 1
 pkt = IP() / TCP() / NBTSession() / SMB2_Header() / SMB2_Negociate_Protocol_Response_Header()
 pkt = IP(raw(pkt))
 assert SMB2_Negociate_Protocol_Response_Header in pkt
+
++ SMB2 Negociate Procotol Request Header with 1 dialect
+
+= Common fields in header
+
+# OK test
+rawpkt = b'\x45\x00\x01\x10\x16\x2c\x40\x00\x37\x06\xc4\x14\x91\xdc\x18\x13\xc0\xa8\xfe\x07\x9d\x76\x01\xbd\x37\x06\x5e\x82\xa3\xca\x83\xd2\x50\x18\x01\xf6\x11\x5b\x00\x00\x00\x00\x00\xe4\xfe\x53\x4d\x42\x40\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa\xbb\xcc\xdd\xee\xff\x24\x00\x01\x00\x00\x00\x00\x00\x7f\x00\x00\x00\x59\x9e\x84\xf1\x9d\x61\xce\x99\x1f\x50\x5c\x04\x44\x74\xb1\x0a\x68\x00\x00\x00\x04\x00\x00\x00\x11\x03\x00\x00\x01\x00\x26\x00\x00\x00\x00\x00\x01\x00\x20\x00\x01\x00\x75\x06\x05\xed\x60\x88\x9e\xcb\x5e\x79\xbb\xe8\x44\x59\xc5\x5c\xd2\x82\x51\x06\x32\x7a\x6e\x2e\x41\xc5\xa8\x3f\xdd\xf2\xc5\x18\x00\x00\x02\x00\x06\x00\x00\x00\x00\x00\x02\x00\x01\x00\x02\x00\x00\x00\x03\x00\x10\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x01\x00\x02\x00\x03\x00\x04\x00\x05\x00\x1c\x00\x00\x00\x00\x00\x31\x00\x39\x00\x32\x00\x2e\x00\x31\x00\x36\x00\x38\x00\x2e\x00\x31\x00\x37\x00\x38\x00\x2e\x00\x32\x00\x31\x00'
+pkt = IP(rawpkt)
+# Check layers
+assert TCP in pkt
+assert NBTSession in pkt
+assert pkt[NBTSession].LENGTH == 228
+assert SMB2_Header in pkt
+assert SMB2_Negociate_Protocol_Request_Header in pkt
+nego_req = pkt[SMB2_Negociate_Protocol_Request_Header]
+# Check field values
+assert nego_req.StructureSize == 0x24
+assert nego_req.DialectCount == 1
+assert nego_req.SecurityMode == 0
+assert nego_req.Capabilities == 0x7f000000
+assert str(nego_req.ClientGUID) == 'f1849e59-619d-99ce-1f50-5c044474b10a'
+assert nego_req.NegociateContextOffset == 0x68
+assert nego_req.NegociateCount == 4
+for dialect in nego_req.Dialects:
+    assert dialect in SMB_DIALECTS.keys()
+
+# Check SMB 3.1.1
+assert 0x311 in nego_req.Dialects
+assert len(nego_req.NegociateContexts) == nego_req.NegociateCount
+
+= SMB2 Negociate Context in Request - type PREAUTH - disassemble
+
+preauth = nego_req.NegociateContexts[0]
+assert preauth.ContextType == 0x1
+assert preauth.DataLength == 38
+assert preauth.HashAlgorithmCount == 1
+assert preauth.SaltLength == 32
+assert preauth.Salt == b'\x75\x06\x05\xed\x60\x88\x9e\xcb\x5e\x79\xbb\xe8\x44\x59\xc5\x5c\xd2\x82\x51\x06\x32\x7a\x6e\x2e\x41\xc5\xa8\x3f\xdd\xf2\xc5\x18'
+assert len(preauth.HashAlgorithms) == 1
+assert preauth.HashAlgorithms[0] == 0x1
+
+= SMB2 Negociate Context in Request - type ENCRYPTION disassemble
+
+enc = nego_req.NegociateContexts[1]
+assert enc.ContextType == 0x2
+assert enc.DataLength == 6
+assert enc.CipherCount == 2
+assert len(enc.Ciphers) == 2
+assert enc.Ciphers[0] == 1
+assert enc.Ciphers[1] == 2
+
+
+= SMB2 Negociate Context in Request - type COMPRESSION
+
+comp = nego_req.NegociateContexts[2]
+assert comp.ContextType == 0x3
+assert comp.DataLength == 16
+assert comp.CompressionAlgorithmCount == 4
+assert len(comp.CompressionAlgorithms) == 4
+assert comp.CompressionAlgorithms[0] == 1
+assert comp.CompressionAlgorithms[1] == 2
+assert comp.CompressionAlgorithms[2] == 3
+assert comp.CompressionAlgorithms[3] == 4
+
+
+= SMB2 Negociate Context in Request - type NETNAME NEGOCIATE
+
+netname = nego_req.NegociateContexts[3]
+assert netname.ContextType == 0x5
+assert netname.DataLength == 28
+assert netname.NetName == '192.168.178.21'
