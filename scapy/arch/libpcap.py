@@ -373,7 +373,7 @@ if conf.use_pcap:
             if promisc is None:
                 promisc = conf.sniff_promisc
             self.promisc = promisc
-            self.ins = open_pcap(iface, MTU, self.promisc, 0,
+            self.ins = open_pcap(iface, MTU, self.promisc, 100,
                                  monitor=monitor)
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
@@ -403,7 +403,7 @@ if conf.use_pcap:
             if promisc is None:
                 promisc = 0
             self.promisc = promisc
-            self.ins = open_pcap(iface, MTU, self.promisc, 0,
+            self.ins = open_pcap(iface, MTU, self.promisc, 100,
                                  monitor=monitor)
             self.outs = self.ins
             try:
