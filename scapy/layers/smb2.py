@@ -20,7 +20,7 @@ from scapy.fields import (
     LEShortEnumField,
     LEShortField,
     PacketListField,
-    PadField,
+    ReversePadField,
     ShortEnumField,
     ShortField,
     StrFieldUtf16,
@@ -154,20 +154,17 @@ class SMB2_Negociate_Protocol_Request_Header(Packet):
             count_of="NegociateContexts"
         ),
         ShortField("Reserved2", 0),
-        # Padding the dialects - the whole packet (from the
-        # beginning) should be aligned on 8 bytes ; so the list of
-        # dialects should be aligned on 6 bytes (because it starts
-        # at PKT + 8 * N + 2
-        PadField(FieldListField(
+        FieldListField(
             "Dialects", [0x0202],
             LEShortEnumField("", 0x0, SMB_DIALECTS),
             count_from=lambda pkt: pkt.DialectCount
-        ), 6),
-        PacketListField(
+        ),
+        # The first negotiate context must be 8-byte aligned
+        ReversePadField(PacketListField(
             "NegociateContexts", [],
             SMB2_Negociate_Context,
             count_from=lambda pkt: pkt.NegociateCount
-        ),
+        ), 8),
     ]
 
 
