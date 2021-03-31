@@ -14,6 +14,7 @@ from decimal import Decimal
 
 import array
 import collections
+import decimal
 import difflib
 import gzip
 import os
@@ -24,8 +25,8 @@ import struct
 import subprocess
 import sys
 import tempfile
-import time
 import threading
+import time
 import warnings
 
 import scapy.modules.six as six
@@ -161,6 +162,12 @@ class EDecimal(Decimal):
     def __eq__(self, other):
         # type: (Any) -> bool
         return super(EDecimal, self).__eq__(other) or float(self) == other
+
+    def normalize(self, precision):  # type: ignore
+        # type: (int) -> EDecimal
+        with decimal.localcontext() as ctx:
+            ctx.prec = precision
+            return EDecimal(super(EDecimal, self).normalize(ctx))
 
 
 @overload
