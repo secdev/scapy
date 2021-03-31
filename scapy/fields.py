@@ -14,6 +14,7 @@ import calendar
 import collections
 import copy
 import inspect
+import math
 import socket
 import struct
 import time
@@ -32,7 +33,7 @@ from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.compat import bytes_hex, chb, orb, plain_str, raw, bytes_encode
 from scapy.pton_ntop import inet_ntop, inet_pton
-from scapy.utils import inet_aton, inet_ntoa, lhex, mac2str, str2mac
+from scapy.utils import inet_aton, inet_ntoa, lhex, mac2str, str2mac, EDecimal
 from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
     in6_isaddrTeredo, in6_ptop, Net6, teredoAddrExtractInfo
 from scapy.base_classes import Gen, Net, BasePacket, Field_metaclass
@@ -3038,11 +3039,13 @@ class FixedPointField(BitField):
         return (ival << self.frac_bits) | fract
 
     def i2h(self, pkt, val):
-        # type: (Optional[Packet], int) -> float
+        # type: (Optional[Packet], int) -> EDecimal
+        # A bit of trickery to get precise floats
         int_part = val >> self.frac_bits
-        frac_part = float(val & (1 << self.frac_bits) - 1)
-        frac_part /= 2.0**self.frac_bits
-        return int_part + frac_part
+        pw = 2.0**self.frac_bits
+        frac_part = EDecimal(val & (1 << self.frac_bits) - 1)
+        frac_part /= pw  # type: ignore
+        return int_part + frac_part.normalize(int(math.log10(pw)))
 
     def i2repr(self, pkt, val):
         # type: (Optional[Packet], int) -> str
