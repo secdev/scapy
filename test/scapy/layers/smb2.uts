@@ -275,3 +275,10 @@ netname = nego_req.NegociateContexts[3]
 assert netname.ContextType == 0x5
 assert netname.DataLength == 28
 assert netname.NetName == '192.168.178.21'
+
++ SMB2 Negociate Protocol Request Header default values
+
+= Default DialectCount
+
+pkt = SMB2_Negociate_Protocol_Request_Header()
+assert len(pkt.Dialects) == pkt.__class__(raw(pkt)).DialectCount
