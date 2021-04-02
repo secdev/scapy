@@ -134,7 +134,7 @@ class SMB2_Negociate_Protocol_Request_Header(Packet):
     fields_desc = [
         XLEShortField("StructureSize", 0),
         FieldLenField(
-            "DialectCount", 0,
+            "DialectCount", None,
             fmt="<H",
             count_of="Dialects"
         ),
