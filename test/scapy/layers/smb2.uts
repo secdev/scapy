@@ -138,6 +138,14 @@ pkt = IP() / TCP() / NBTSession() / SMB2_Header() / SMB2_Negociate_Protocol_Requ
 pkt = IP(raw(pkt))
 assert SMB2_Negociate_Protocol_Request_Header in pkt
 
+= Request with no 0x0311 in dialects
+
+preauth = SMB2_Preauth_Integrity_Capabilities()
+preauth_context = SMB2_Negociate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
+
+pkt = SMB2_Negociate_Protocol_Request_Header(Dialects=[0x0202], NegociateContexts=[preauth_context])
+assert pkt.__class__(raw(pkt)).NegociateContexts is None
+
 + SMB2 Negociate Protocol Response Header dissecting
 
 = Common fields in header
@@ -204,6 +212,14 @@ assert comp.CompressionAlgorithms[0] == 1
 pkt = IP() / TCP() / NBTSession() / SMB2_Header() / SMB2_Negociate_Protocol_Response_Header()
 pkt = IP(raw(pkt))
 assert SMB2_Negociate_Protocol_Response_Header in pkt
+
+= Response with dialect different from 0x0311
+
+preauth = SMB2_Preauth_Integrity_Capabilities()
+preauth_context = SMB2_Negociate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
+
+pkt = SMB2_Negociate_Protocol_Response_Header(Dialect=0x0202, NegociateContexts=[preauth_context])
+assert pkt.__class__(raw(pkt)).NegociateContexts is None
 
 + SMB2 Negociate Procotol Request Header with 1 dialect
 
@@ -282,3 +298,65 @@ assert netname.NetName == '192.168.178.21'
 
 pkt = SMB2_Negociate_Protocol_Request_Header()
 assert len(pkt.Dialects) == pkt.__class__(raw(pkt)).DialectCount
+
+= Default NegociateCount
+
+preauth = SMB2_Preauth_Integrity_Capabilities()
+preauth_context = SMB2_Negociate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
+
+pkt = SMB2_Negociate_Protocol_Request_Header(Dialects=[0x0311], NegociateContexts=[preauth_context], NegociateContextOffset=0x68)
+assert len(pkt.NegociateContexts) == pkt.__class__(raw(pkt)).NegociateCount
+
++ Negociate Request without manual padding of Negociate Contexts
+
+= SMB2 Negociate Context in Request - type PREAUTH - disassemble
+
+preauth = SMB2_Preauth_Integrity_Capabilities()
+preauth_context = SMB2_Negociate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
+
+enc = SMB2_Encryption_Capabilities()
+enc_context = SMB2_Negociate_Context(ContextType = 2, DataLength = len(enc)) / enc
+
+comp = SMB2_Compression_Capabilities()
+comp_context = SMB2_Negociate_Context(ContextType = 3, DataLength = len(comp)) / comp
+
+netname = SMB2_Netname_Negociate_Context_ID("192.168.178.21".encode("utf-16le"))
+netname_context = SMB2_Negociate_Context(ContextType = 5, DataLength = len(netname)) / netname
+
+pkt = SMB2_Header() / SMB2_Negociate_Protocol_Request_Header(Dialects=[0x0311], NegociateContexts=[preauth_context, enc_context, comp_context, netname_context], NegociateContextOffset=0x68)
+
+pkt = SMB2_Header(raw(pkt))
+
+nego_req = pkt[SMB2_Negociate_Protocol_Request_Header]
+
+preauth_dissected = nego_req.NegociateContexts[0]
+assert preauth_dissected.ContextType == preauth_context.ContextType
+assert preauth_dissected.DataLength == preauth_context.DataLength
+assert preauth_dissected.HashAlgorithmCount == preauth_context.HashAlgorithmCount
+assert preauth_dissected.SaltLength == preauth_context.SaltLength
+assert len(preauth_dissected.HashAlgorithms) == len(preauth_context.HashAlgorithms)
+assert preauth_dissected.HashAlgorithms[0] == preauth_context.HashAlgorithms[0]
+
+= SMB2 Negociate Context in Request - type ENCRYPTION disassemble
+
+enc_dissected = nego_req.NegociateContexts[1]
+assert enc_dissected.ContextType == enc_context.ContextType
+assert enc_dissected.DataLength == enc_context.DataLength
+assert enc_dissected.CipherCount == enc_context.CipherCount
+assert len(enc_dissected.Ciphers) == len(enc_context.Ciphers)
+assert enc_dissected.Ciphers[0] == enc_context.Ciphers[0]
+
+= SMB2 Negociate Context in Request - type COMPRESSION
+
+comp_dissected = nego_req.NegociateContexts[2]
+assert comp_dissected.ContextType == comp_context.ContextType
+assert comp_dissected.DataLength == comp_context.DataLength
+assert comp_dissected.CompressionAlgorithmCount == comp_context.CompressionAlgorithmCount
+assert len(comp_dissected.CompressionAlgorithms) == len(comp_context.CompressionAlgorithms)
+
+= SMB2 Negociate Context in Request - type NETNAME NEGOCIATE
+
+netname_dissected = nego_req.NegociateContexts[3]
+assert netname_dissected.ContextType == netname_context.ContextType
+assert netname_dissected.DataLength == netname_context.DataLength
+assert netname_dissected.NetName == netname_context.NetName
