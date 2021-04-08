@@ -97,6 +97,9 @@ pygments_style = 'sphinx'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
+# Enable codeauthor and sectionauthor directives
+show_authors = True
+
 
 # -- Options for HTML output ----------------------------------------------
 
