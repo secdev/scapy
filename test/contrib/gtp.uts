@@ -55,7 +55,12 @@ assert isinstance(a[GTP_U_Header].payload, PPP)
 = GTPPDUSessionContainer(), dissect
 h = 'fa163ed6de7bfa163ed82b9408004500008400000000fe114b560a0a2e010a0a2efe086808680070000034ff006000000001fa163e850200ff800000000045000054074d00004001fb490a0a31fe0a0a32010000325600930001c444ca5f00000000759e0a0000000000101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637'
 gtp = Ether(hex_bytes(h))
-gtp[GTP_U_Header].ExtHdrLen == 2 and gtp[GTP_U_Header].extraPadding == b'\x00\x00\x00' and gtp[GTP_U_Header][IP].src == '10.10.49.254' and gtp[GTP_U_Header][IP][ICMP].type == 0 and gtp[GTP_U_Header].type == 0 and gtp[GTP_U_Header].qmp == 0 and gtp[GTP_U_Header].P == 1 and gtp[GTP_U_Header].R == 1 and gtp[GTP_U_Header].QFI == 63 and gtp[GTP_U_Header].PPI == 4
+gtp[GTP_U_Header].ExtHdrLen == 2 and gtp[GTP_U_Header].padding == b'\x00\x00\x00' and gtp[GTP_U_Header][IP].src == '10.10.49.254' and gtp[GTP_U_Header][IP][ICMP].type == 0 and gtp[GTP_U_Header].type == 0 and gtp[GTP_U_Header].qmp == 0 and gtp[GTP_U_Header].P == 1 and gtp[GTP_U_Header].R == 1 and gtp[GTP_U_Header].QFI == 63 and gtp[GTP_U_Header].PPI == 4
+
+= GTPPDUSessionContainer with padding
+data = b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00^\x00\x01\x00\x00@\x11|\x8c\x7f\x00\x00\x01\x7f\x00\x00\x01\x08h\x08h\x00J\xed^4\xff\x00:\x00\x00\x00\x00\x00\x00\x00\x85\x04\x08\xbf\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00E\x00\x00&\x00\x01\x00\x00@\x11|\xc4\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x12\x01^ffffffffff000'
+gtp = Ether(data)
+assert IP in gtp
 
 = GTPEchoResponse matches GTPEchoRequest by seq
 req = GTPHeader(seq=12345)/GTPEchoRequest()
