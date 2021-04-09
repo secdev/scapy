@@ -11,10 +11,7 @@ Overview
 ********
 
 .. note::
-    All automotive-related features work best on Linux systems.
-    CANSockets and ISOTPSockets are based on Linux kernel modules.
-    The python-can project is used to support CAN and CANSockets on a wider
-    range of operating systems and CAN hardware interfaces.
+    All automotive-related features work best on Linux systems. CANSockets and ISOTPSockets are based on Linux kernel modules. The python-can project is used to support CAN and CANSockets on a wider range of operating systems and CAN hardware interfaces.
 
 Protocols
 =========
@@ -58,62 +55,28 @@ function to get all information about one specific protocol.
 Technical Background
 ********************
 
+Parts this section were published in a study report [10]_.
+
 Physical Protocols
 ==================
 
-More than 20 different communication protocols exist for the vehicle’s internal
-wired communication. Most vehicles make use of five to ten different protocols
-for their internal communication. The decision which communication protocol is
-used from an Original Equipment Manufacturer (OEM) is usually made by the
-trade-off between the costs for communication technology and the final car
-price. The four major communication technologies for inter-ECU communication
-are Controller Area Network (CAN), FlexRay, Local Interconnect Network (LIN),
-and Automotive Ethernet. For security considerations, these are the most
-relevant protocols for wired communication in vehicles.
-Since Media Oriented Systems Transport (MOST) networks are only used to
-communicate multimedia payloads, MOST networks are not discussed in this
-thesis. Usually, safety-critical data is not communicated through
-MOST networks.
+More than 20 different communication protocols exist for the vehicle’s internal wired communication. Most vehicles make use of five to ten different protocols for their internal communication. The decision which communication protocol is used from an Original Equipment Manufacturer (OEM) is usually made by the trade-off between the costs for communication technology and the final car price. The four major communication technologies for inter-ECU communication are Controller Area Network (CAN), FlexRay, Local Interconnect Network (LIN), and Automotive Ethernet. For security considerations, these are the most relevant protocols for wired communication in vehicles.
 
 LIN
 ---
-LIN is a single wire communication protocol for low data rates.
-Actuators and sensors of a vehicle exchange information with an ECU,
-acting as a LIN master. Software updates over LIN are possible, but the LIN
-slaves usually do not need software updates because of their limited
-functionality.
+LIN is a single wire communication protocol for low data rates. Actuators and sensors of a vehicle exchange information with an ECU, acting as a LIN master. Software updates over LIN are possible, but the LIN slaves usually do not need software updates because of their limited functionality.
 
 CAN
 ---
-CAN is by far the most used communication technology for inter-ECU
-communication in vehicles. In older or cheaper vehicles, CAN is still the
-primary protocol for a vehicle’s backbone communication. Safety-critical
-communication during a vehicle’s operation, diagnostic information, and
-software updates are transferred between ECUs over CAN. The lack of security
-features in the protocol itself, combined with the general use, makes CAN the
-primary protocol for security investigations.
+CAN is by far the most used communication technology for inter-ECU communication in vehicles. In older or cheaper vehicles, CAN is still the primary protocol for a vehicle’s backbone communication. Safety-critical communication during a vehicle’s operation, diagnostic information, and software updates are transferred between ECUs over CAN. The lack of security features in the protocol itself, combined with the general use, makes CAN the primary protocol for security investigations.
 
 FlexRay
 -------
-The FlexRay consortium designed FlexRay as a successor of CAN.
-Modern vehicles have higher demands on communication bandwidth.
-By design, FlexRay is a fast and reliable communication protocol for
-inter-ECU communication. FlexRay components are more expensive than CAN
-components, leading to a more selective use by OEMs.
+The FlexRay consortium designed FlexRay as a successor of CAN. Modern vehicles have higher demands on communication bandwidth. By design, FlexRay is a fast and reliable communication protocol for inter-ECU communication. FlexRay components are more expensive than CAN components, leading to a more selective use by OEMs.
 
 Automotive Ethernet
 -------------------
-Recent upper-class vehicles implement Automotive Ethernet, the new backbone
-technology for internal vehicle communication. The rapidly grown bandwidth
-demands already replace FlexRay. The primary reasons for these demands
-are driver-assistant and autonomous-driving features. Only the physical layer
-(layer 1) of the Open Systems Interconnection (OSI) model distinguishes
-Ethernet (IEEE 802.3) from Automotive Ethernet (BroadR-Reach). This design
-decision leads to multiple advantages. For example, communication stacks of
-operating systems can be used without modification and routing, filtering,
-and firewall systems. Automotive Ethernet components are already cheaper than
-FlexRay components, which will lead to vehicle topologies, where CAN and
-Automotive Ethernet are the most used communication protocols.
+Recent upper-class vehicles implement Automotive Ethernet, the new backbone technology for internal vehicle communication. The rapidly grown bandwidth demands already replace FlexRay. The primary reasons for these demands are driver-assistant and autonomous-driving features. Only the physical layer (layer 1) of the Open Systems Interconnection (OSI) model distinguishes Ethernet (IEEE 802.3) from Automotive Ethernet (BroadR-Reach). This design decision leads to multiple advantages. For example, communication stacks of operating systems can be used without modification and routing, filtering, and firewall systems. Automotive Ethernet components are already cheaper than FlexRay components, which will lead to vehicle topologies, where CAN and Automotive Ethernet are the most used communication protocols.
 
 Topologies
 ==========
@@ -127,15 +90,7 @@ Line-Bus
 
         Line-Bus network topology
 
-The first vehicles with CAN bus used a single network with a line-bus topology.
-Some lower-priced vehicles still use one or two shared CAN bus networks for their internal
-communication nowadays. The downside of this topology is its vulnerability and
-the lack of network separation. All ECUs of a vehicle are connected on a
-shared bus. Since CAN does not support security features from its protocol
-definition, any participant on this bus can communicate directly with all other
-participants, which allows an attacker to affect all ECUs, even safety-critical
-ones, by compromising one single ECU. The overall security level of this
-network is given from the security level of the weakest participant.
+The first vehicles with CAN bus used a single network with a line-bus topology. Some lower-priced vehicles still use one or two shared CAN bus networks for their internal communication nowadays. The downside of this topology is its vulnerability and the lack of network separation. All ECUs of a vehicle are connected on a shared bus. Since CAN does not support security features from its protocol definition, any participant on this bus can communicate directly with all other participants, which allows an attacker to affect all ECUs, even safety-critical ones, by compromising one single ECU. The overall security level of this network is given from the security level of the weakest participant.
 
 Central Gateway
 ---------------
@@ -146,20 +101,7 @@ Central Gateway
 
         Network topology with central GW ECU
 
-The central Gateway (GW) topology can be found in higher-priced older cars and
-medium- to lower-priced recent cars. A centralized GW ECU separates
-domain-specific sub-networks. This allows an OEM to encapsulate all ECUs
-with remote attack surfaces in one sub-network. ECUs with safety-critical
-functionalities are located in an individual CAN network. Next to CAN, FlexRay
-might also be used as a communication protocol inside a separate network
-domain. The security of a safety-critical network in this topology depends
-mainly on the central GW ECU’s security. This architecture increases the
-overall security level of a vehicle through domain separation. After an
-attacker successfully exploited an ECU through an arbitrary attack surface,
-a second exploitable vulnerability or a logical bug is necessary to compromise
-a different domain, a safety-critical network, inside a vehicle. This second
-exploit or logical bug is necessary to overcome the network separation of
-the central GW ECU.
+The central Gateway (GW) topology can be found in higher-priced older cars and medium-priced to lower-priced recent cars. A centralized GW ECU separates domain-specific sub-networks. This allows an OEM to encapsulate all ECUs with remote attack surfaces in one sub-network. ECUs with safety-critical functionalities are located in an individual CAN network. Next to CAN, FlexRay might also be used as a communication protocol inside a separate network domain. The security of a safety-critical network in this topology depends mainly on the central GW ECU’s security. This architecture increases the overall security level of a vehicle through domain separation. After an attacker successfully exploited an ECU through an arbitrary attack surface, a second exploitable vulnerability or a logical bug is necessary to compromise a different domain, a safety-critical network, inside a vehicle. This second exploit or logical bug is necessary to overcome the network separation of the central GW ECU.
 
 Central Gateway and Domain Controller
 -------------------------------------
@@ -170,37 +112,17 @@ Central Gateway and Domain Controller
 
         Network topology with Automotive-Ethernet backbone and DC
 
-A new topology with central GW and Domain Controllers (DCs) can be found in
-the latest higher-priced vehicles. The increasing demand for bandwidth in modern
-vehicles with autonomous driving and driver assistant features led to this topology.
-An Automotive Ethernet network is used as a communication backbone for the
-entire vehicle. Individual domains, connected through a DC with the central GW,
-form the vehicle’s backbone. The individual DCs can control and regulate the
-data communication between a domain and the vehicle’s backbone. This topology
-achieves a very-high security level through a strong network separation with
-individual DCs, acting as gateway and firewall, to the vehicle’s backbone
-network. OEMs have the advantage of dynamic information routing next to this
-security improvement, an enabler for Feature on Demand (FoD) services.
+A new topology with central GW and Domain Controllers (DCs) can be found in the latest higher-priced vehicles. The increasing demand for bandwidth in modern vehicles with autonomous driving and driver assistant features led to this topology. An Automotive Ethernet network is used as a communication backbone for the entire vehicle. Individual domains, connected through a DC with the central GW, form the vehicle’s backbone. The individual DCs can control and regulate the data communication between a domain and the vehicle’s backbone. This topology achieves a very-high security level through a strong network separation with individual DCs, acting as gateway and firewall, to the vehicle’s backbone network. OEMs have the advantage of dynamic information routing next to this security improvement, an enabler for Feature on Demand (FoD) services.
 
 Automotive Communication Protocols
 ==================================
 
-This section provides an overview of relevant communication protocols for
-security evaluations in automotive networks. In contrast to section
-"Physical Protocols", this section focuses on properties for data communication.
+This section provides an overview of relevant communication protocols for security evaluations in automotive networks. In contrast to section "Physical Protocols", this section focuses on properties for data communication.
 
 CAN
 ---
 
-The CAN communication technology was invented in 1983 as a message-based robust
-vehicle bus communication system. The Robert Bosch GmbH designed multiple
-communication features into the CAN standard to achieve a robust and
-computation efficient protocol for controller area networks. Remarkable for the
-communication behavior of CAN is the internal state machine for transmission
-errors. This state machine implements a fail silent behavior to protect a
-safety-critical network from babbling idiot nodes. If a specific limit of
-reception errors (REC) or transmission errors (TEC) occurred, the CAN driver
-changes its state from error-active to error-passive and finally to bus-off.
+The CAN communication technology was invented in 1983 as a message-based robust vehicle bus communication system. The Robert Bosch GmbH designed multiple communication features into the CAN standard to achieve a robust and computation efficient protocol for controller area networks. Remarkable for the communication behavior of CAN is the internal state machine for transmission errors. This state machine implements a fail silent behavior to protect a safety-critical network from babbling idiot nodes. If a specific limit of reception errors (REC) or transmission errors (TEC) occurred, the CAN driver changes its state from error-active to error-passive and finally to bus-off.
 
 .. _fig-can-bus-states:
 
@@ -208,20 +130,7 @@ changes its state from error-active to error-passive and finally to bus-off.
 
         CAN bus states on transmission errors. Receive Error Counter (REC), Transmit Error Counter (TEC)
 
-In recent years, this protocol specification was abused for Denial of Service
-(DoS) attacks and information gathering attacks on the CAN network of a vehicle.
-Cho et al. demonstrated a DoS attack against CAN networks by abusing the
-bus-off state of ECUs [1]_. Injections of communication errors in CAN frames of
-one specific node caused a high transmission error count in the node under
-attack, forcing the attacked node to enter the bus-off state.
-In 2019 Kulandaivel et al. combined this attack with statistical analysis
-to achieve a fast and inexpensive network mapping in vehicular networks [2]_.
-They combined statistical analysis of the CAN network traffic before and after
-the bus-off attack was applied to a node. All missing CAN frames in the network
-traffic after an ECU was attacked could now be mapped to the ECU under attack,
-helping researchers identify the origin ECU of a CAN frame.
-Ken Tindell published a comprehensive summary of low level attacks on CANs in
-2019 [3]_.
+In recent years, this protocol specification was abused for Denial of Service (DoS) attacks and information gathering attacks on the CAN network of a vehicle. Cho et al. demonstrated a DoS attack against CAN networks by abusing the bus-off state of ECUs [1]_. Injections of communication errors in CAN frames of one specific node caused a high transmission error count in the node under attack, forcing the attacked node to enter the bus-off state. In 2019 Kulandaivel et al. combined this attack with statistical analysis to achieve a fast and inexpensive network mapping in vehicular networks [2]_. They combined statistical analysis of the CAN network traffic before and after the bus-off attack was applied to a node. All missing CAN frames in the network traffic after an ECU was attacked could now be mapped to the ECU under attack, helping researchers identify the origin ECU of a CAN frame. Ken Tindell published a comprehensive summary of low level attacks on CANs in 2019 [3]_.
 
 .. _fig-can-full-frame:
 
@@ -229,20 +138,7 @@ Ken Tindell published a comprehensive summary of low level attacks on CANs in
 
         Complete CAN data frame structure [9]_
 
-The above figure shows a CAN frame and its fields as it is transferred over the
-network. For information exchange, only the fields arbitration, control, and
-data are relevant. These are the only fields to which a usual application
-software has access. All other fields are evaluated on a hardware-layer and,
-in most cases, are not forwarded to an application. The data field has a
-variable length and can hold up to eight bytes. The length of the data field
-is specified by the data length code inside the control field. Important
-variations of this example are CAN-frames with extended arbitration fields
-and the Controller Area Network Flexible Data-Rate (CAN FD) protocol.
-On Linux, every received CAN frame is passed to SocketCAN. SocketCAN allows
-the CAN handling via network sockets of the operating system. SocketCAN was
-created by Oliver Hartkopp and added to the Linux Kernel version 2.6.25 [4]_.
-Figure 2.7 shows the frame structure, how CAN frames are encoded if a user-land
-application receives data from a CAN socket.
+The above figure shows a CAN frame and its fields as it is transferred over the network. For information exchange, only the fields arbitration, control, and data are relevant. These are the only fields to which a usual application software has access. All other fields are evaluated on a hardware-layer and, in most cases, are not forwarded to an application. The data field has a variable length and can hold up to eight bytes. The length of the data field is specified by the data length code inside the control field. Important variations of this example are CAN-frames with extended arbitration fields and the Controller Area Network Flexible Data-Rate (CAN FD) protocol. On Linux, every received CAN frame is passed to SocketCAN. SocketCAN allows the CAN handling via network sockets of the operating system. SocketCAN was created by Oliver Hartkopp and added to the Linux Kernel version 2.6.25 [4]_. Figure 2.7 shows the frame structure, how CAN frames are encoded if a user-land application receives data from a CAN socket.
 
 .. _fig-can-socket-frame:
 
@@ -250,32 +146,14 @@ application receives data from a CAN socket.
 
         CAN frame defined by SocketCAN
 
-The comparison of above figures clearly shows the loss of information during
-the CAN frame processing from a physical layer driver. Almost every CAN driver
-acts in the same way, whether an application code runs on a microcontroller or
-a Linux kernel. This also means that a standard application does not have
-access to the Cyclic Redundancy Check (CRC) field, the acknowledgment bit, or
-the end-of-frame field.
+The comparison of above figures clearly shows the loss of information during the CAN frame processing from a physical layer driver. Almost every CAN driver acts in the same way, whether an application code runs on a microcontroller or a Linux kernel. This also means that a standard application does not have access to the Cyclic Redundancy Check (CRC) field, the acknowledgment bit, or the end-of-frame field.
 
-Through the CAN communication in a vehicle or a separated domain, ECUs exchange
-sensor-data and control inputs; this data is mainly not secured and can be
-modified by assailants. Attackers can easily spoof sensor values on a CAN
-bus to trigger malicious reactions of other ECUs. Miller and Valasek described
-this spoofing attack during their studies on automotive networks [5]_.
-To prevent attacks on safety-critical data transferred over CAN, Automotive
-Open System Architecture (AUTOSAR) released a secure onboard communication
-specification [6]_.
+Through the CAN communication in a vehicle or a separated domain, ECUs exchange sensor-data and control inputs; this data is mainly not secured and can be modified by assailants. Attackers can easily spoof sensor values on a CAN bus to trigger malicious reactions of other ECUs. Miller and Valasek described this spoofing attack during their studies on automotive networks [5]_. To prevent attacks on safety-critical data transferred over CAN, Automotive Open System Architecture (AUTOSAR) released a secure onboard communication specification [6]_.
 
 ISO-TP (ISO 15765-2)
 --------------------
 
-The CAN protocol supports only eight bytes of data. Use-cases like diagnostic
-operations or ECU programming require much higher payloads than the CAN
-protocol supports. For these purposes, the automotive industry standardized
-the Transport Layer (ISO-TP) (ISO 15765-2) protocol [7]_. ISO-TP is a
-transportation layer protocol on top of CAN. Payloads with up to 4095 bytes
-can be transferred between ISO-TP endpoints fragmented in CAN frames.
-The ISO-TP protocol handling requires four special frame types.
+The CAN protocol supports only eight bytes of data. Use-cases like diagnostic operations or ECU programming require much higher payloads than the CAN protocol supports. For these purposes, the automotive industry standardized the Transport Layer (ISO-TP) (ISO 15765-2) protocol [7]_. ISO-TP is a transportation layer protocol on top of CAN. Payloads with up to 4095 bytes can be transferred between ISO-TP endpoints fragmented in CAN frames. The ISO-TP protocol handling requires four special frame types.
 
 .. _fig-isotp-flow:
 
@@ -283,17 +161,7 @@ The ISO-TP protocol handling requires four special frame types.
 
         ISO-TP fragmented communication
 
-The different types of ISO-TP frames are shown in the following figure. The
-payload of a CAN frame gets replaced by one of the four ISO-TP frames. The
-individual ISO-TP frames have different purposes. A single frame can transfer
-between 1 and 7 bytes of ISO-TP message data. The len field of a Single Frame
-or a First Frame indicates the ISO-TP message length. Every message with more
-than 7 bytes of payload data must be fragmented into a First Frame, followed
-by multiple Consecutive Frames. This communication is illustrated in the above
-figure. After the First Frame is sent from a sender, the receiver has to
-communicate its reception capabilities through a Flow Control Frame to the
-sender. Only after this Flow Control Frame is received, the sender is allowed
-to communicate the Consecutive Frames according to the receiver’s capabilities.
+The different types of ISO-TP frames are shown in the following figure. The payload of a CAN frame gets replaced by one of the four ISO-TP frames. The individual ISO-TP frames have different purposes. A single frame can transfer between 1 and 7 bytes of ISO-TP message data. The len field of a Single Frame or a First Frame indicates the ISO-TP message length. Every message with more than 7 bytes of payload data must be fragmented into a First Frame, followed by multiple Consecutive Frames. This communication is illustrated in the above figure. After the First Frame is sent from a sender, the receiver has to communicate its reception capabilities through a Flow Control Frame to the sender. Only after this Flow Control Frame is received, the sender is allowed to communicate the Consecutive Frames according to the receiver’s capabilities.
 
 .. _fig-isotp-frames:
 
@@ -301,47 +169,19 @@ to communicate the Consecutive Frames according to the receiver’s capabilities
 
         ISO-TP frame types
 
-ISO-TP acts as a transport protocol with the support of directed communication
-through addressing mechanisms. In vehicles, ISO-TP is mainly used as a
-transport protocol for diagnostic communication. In rare cases, ISO-TP is also
-used to exchange larger data between ECUs of a vehicle. Security measures have
-to be applied to the application layer protocol transported through ISO-TP
-since ISO-TP has no capabilities to secure its transported data.
+ISO-TP acts as a transport protocol with the support of directed communication through addressing mechanisms. In vehicles, ISO-TP is mainly used as a transport protocol for diagnostic communication. In rare cases, ISO-TP is also used to exchange larger data between ECUs of a vehicle. Security measures have to be applied to the application layer protocol transported through ISO-TP since ISO-TP has no capabilities to secure its transported data.
 
 DoIP
 ----
 
-Diagnostic over IP (DoIP) was first implemented on automotive networks with a
-centralized gateway topology. A centralized GW functions as a DoIP endpoint
-that routes diagnostic messages to the desired network, allowing manufacturers
-to program or diagnose multiple ECUs in parallel. Since the
-Internet Protocol (IP) communication between a repair-shop tester and the GW
-is many times faster than the communication between the GW ECU and a target
-ECU connected over CAN, the remaining bandwidth of the IP communication can be
-used to start further DoIP connections to other ECUs in different CAN domains.
-DoIP is specified as part of AUTOSAR and in ISO 13400-2. Similar to ISO-TP,
-DoIP does not specify special security measures. The responsibility regarding
-secured communication is delegated to the application layer protocol.
+Diagnostic over IP (DoIP) was first implemented on automotive networks with a centralized gateway topology. A centralized GW functions as a DoIP endpoint that routes diagnostic messages to the desired network, allowing manufacturers to program or diagnose multiple ECUs in parallel. Since the Internet Protocol (IP) communication between a repair-shop tester and the GW is many times faster than the communication between the GW ECU and a target ECU connected over CAN, the remaining bandwidth of the IP communication can be used to start further DoIP connections to other ECUs in different CAN domains. DoIP is specified as part of AUTOSAR and in ISO 13400-2. Similar to ISO-TP, DoIP does not specify special security measures. The responsibility regarding secured communication is delegated to the application layer protocol.
 
 Diagnostic Protocols
 --------------------
 
-Two examples of diagnostic protocols are
-General Motor Local Area Network (GMLAN) and
-Unified Diagnostic Service (UDS) (ISO 14229-2). The General Motors Cooperation
-uses GMLAN. German OEMs mainly use UDS. Both protocols are very similar from a
-specification point of view, and both protocols use either ISO-TP or DoIP
-messages for a directed communication with a target ECU. Since different OEMs
-use UDS, every manufacturer adds its custom additions to the standard. Also,
-every manufacturer uses individual ISO-TP addressing for the directed
-communication with an ECU. GMLAN includes more precise definitions about ECU
-addressing and an ECUs internal behavior compared to UDS.
+Two examples of diagnostic protocols are General Motor Local Area Network (GMLAN) and Unified Diagnostic Service (UDS) (ISO 14229-2). The General Motors Cooperation uses GMLAN. German OEMs mainly use UDS. Both protocols are very similar from a specification point of view, and both protocols use either ISO-TP or DoIP messages for a directed communication with a target ECU. Since different OEMs use UDS, every manufacturer adds its custom additions to the standard. Also, every manufacturer uses individual ISO-TP addressing for the directed communication with an ECU. GMLAN includes more precise definitions about ECU addressing and an ECUs internal behavior compared to UDS.
 
-UDS and GMLAN follow a tree-like message structure, where the first byte
-identifies the service. Every service is answered by a response. Two types
-of responses are defined in the standard. Negative responses are indicated
-through the service 0x7F. Positive responses are identified by the request
-service identifier incremented with 0x40.
+UDS and GMLAN follow a tree-like message structure, where the first byte identifies the service. Every service is answered by a response. Two types of responses are defined in the standard. Negative responses are indicated through the service 0x7F. Positive responses are identified by the request service identifier incremented with 0x40.
 
 .. _fig-diag-stack:
 
@@ -349,85 +189,25 @@ service identifier incremented with 0x40.
 
         Automotive Diagnostic Protocol Stack
 
-A clear separation between the transport and the application layer allows
-creating application layer tools for both network stacks.
-The figure above provides an overview of relevant protocols and the
-corresponding layers. UDS defines a clean separation between application and
-transport layer. On CAN based networks, ISO-TP is used for this purpose.
-The CAN protocol can be treated as the network access protocol. This allows
-to replace ISO-TP and CAN with DoIP or HSFZ and Ethernet.
-The GMLAN protocol combines transport and application layer specifications
-very similar to ISO-TP and UDS. Because of that similarity, identical
-application layer-specific scan techniques can be applied. To overcome the
-bandwidth limitations of CAN, the latest vehicle architectures use an
-Ethernet-based diagnostic protocol (DoIP, HSFZ) to communicate with a central
-gateway ECU. The central gateway ECU routes application layer packets from an
-Ethernet-based network to a CAN based vehicle internal network. In general,
-the diagnostic functions of all ECUs in a vehicle can be accessed from the
-OBD connector over UDSonCAN or UDSonIP.
+A clear separation between the transport and the application layer allows creating application layer tools for both network stacks. The figure above provides an overview of relevant protocols and the corresponding layers. UDS defines a clean separation between application and transport layer. On CAN based networks, ISO-TP is used for this purpose. The CAN protocol can be treated as the network access protocol. This allows to replace ISO-TP and CAN with DoIP or HSFZ and Ethernet. The GMLAN protocol combines transport and application layer specifications very similar to ISO-TP and UDS. Because of that similarity, identical application layer-specific scan techniques can be applied. To overcome the bandwidth limitations of CAN, the latest vehicle architectures use an Ethernet-based diagnostic protocol (DoIP, HSFZ) to communicate with a central gateway ECU. The central gateway ECU routes application layer packets from an Ethernet-based network to a CAN based vehicle internal network. In general, the diagnostic functions of all ECUs in a vehicle can be accessed from the OBD connector over UDSonCAN or UDSonIP.
 
 SOME/IP
 -------
 
-Scalable service-Oriented MiddlewarE over IP (SOME/IP) defines a new philosophy
-of data communication in automotive networks. SOME/IP is used to exchange data
-between network domain controllers in the latest vehicle networks. SOME/IP
-supports subscription and notification mechanisms, allowing domain controllers
-to dynamically subscribe to data provided by another domain controller
-dependent on the vehicle’s state. SOME/IP transports data between domain
-controllers and the gateway that a vehicle needs during its regular operation.
-The use-cases of SOME/IP are similar to the use-cases of CAN communication. The
-main purpose is the information exchange of sensor and actuator data between
-ECUs. This usage emphasizes SOME/IP communication as a rewarding target for
-cyber-attacks.
+Scalable service-Oriented MiddlewarE over IP (SOME/IP) defines a new philosophy of data communication in automotive networks. SOME/IP is used to exchange data between network domain controllers in the latest vehicle networks. SOME/IP supports subscription and notification mechanisms, allowing domain controllers to dynamically subscribe to data provided by another domain controller dependent on the vehicle’s state. SOME/IP transports data between domain controllers and the gateway that a vehicle needs during its regular operation. The use-cases of SOME/IP are similar to the use-cases of CAN communication. The main purpose is the information exchange of sensor and actuator data between ECUs. This usage emphasizes SOME/IP communication as a rewarding target for cyber-attacks.
 
 CCP/XCP
 -------
 
-Universal Measurement and Calibration Protocol (XCP), the
-CAN Calibration Protocol (CCP) successor, is a calibration protocol for
-automotive systems, standardized by ASAM e.V. in 2003. The primary usage of
-XCP is during the testing and calibration phase of ECU or vehicle development.
-CCP is designed for use on CAN. No message in CCP exceeds the 8-byte limitation
-of CAN. To overcome this restriction, XCP was designed to aim for compatibility
-with a wide range of transport protocols. XCP can be used on top of CAN,
-CAN FD, Serial Peripheral Interface (SPI), Ethernet,
-Universal Serial Bus (USB), and FlexRay. The features of CCP and XCP are very
-similar; however, XCP has a larger functional scope and optimizations for data
-efficiency.
+Universal Measurement and Calibration Protocol (XCP), the CAN Calibration Protocol (CCP) successor, is a calibration protocol for automotive systems, standardized by ASAM e.V. in 2003. The primary usage of XCP is during the testing and calibration phase of ECU or vehicle development. CCP is designed for use on CAN. No message in CCP exceeds the 8-byte limitation of CAN. To overcome this restriction, XCP was designed to aim for compatibility with a wide range of transport protocols. XCP can be used on top of CAN, CAN FD, Serial Peripheral Interface (SPI), Ethernet, Universal Serial Bus (USB), and FlexRay. The features of CCP and XCP are very similar; however, XCP has a larger functional scope and optimizations for data efficiency.
 
-Both protocols have a session-based communication procedure and support
-authentication through seed and key mechanisms between a master and multiple
-slave nodes. A master node is typically an engineering Personal Computer (PC).
-In vehicles, slave nodes are ECUs for configuration. XCP also supports
-simulation. A vehicle engineer can debug a MATLAB Simulink model through XCP.
-In this case, the simulated model acts as the XCP slave node. CCP and XCP can
-read and write to the memory of an ECU. Another main feature is data
-acquisition. Both protocols support a procedure that allows an engineer to
-configure a so-called data acquisition list with memory addresses of interest.
-All memory specified in such a list will be read periodically and be broadcast
-in a CCP or XCP Data Acquisition (DAQ) packet on the chosen communication
-channel. The following figure gives an overview of all supported communication
-and packet types in XCP. In the Command Transfer Object (CTO) area, all
-communication follows a request and response procedure always initiated by the
-XCP master. A Command Packet (CMD) can receive a Command Response Packet (RES),
-an Error (ERR) packet, an Event Packet (EV), or a Service Request Packet (SERV)
-as a response. After the configuration of a slave through CTO CMDs, a slave can
-listen for Stimulation (STIM) packets and periodically send configured DAQ
-packets. The resources section in the following figure indicates the possible
-attack surfaces of this protocol
-(Programming (PGM), Calibration (CAL), DAQ, STIM) which an attacker could
-abuse. It is crucial for a vehicle’s security and safety that such protocols,
-which have their use only during calibration and development of a vehicle,
-are disabled or removed before a vehicle is shipped to a customer.
+Both protocols have a session-based communication procedure and support authentication through seed and key mechanisms between a master and multiple slave nodes. A master node is typically an engineering Personal Computer (PC). In vehicles, slave nodes are ECUs for configuration. XCP also supports simulation. A vehicle engineer can debug a MATLAB Simulink model through XCP. In this case, the simulated model acts as the XCP slave node. CCP and XCP can read and write to the memory of an ECU. Another main feature is data acquisition. Both protocols support a procedure that allows an engineer to configure a so-called data acquisition list with memory addresses of interest. All memory specified in such a list will be read periodically and be broadcast in a CCP or XCP Data Acquisition (DAQ) packet on the chosen communication channel. The following figure gives an overview of all supported communication and packet types in XCP. In the Command Transfer Object (CTO) area, all communication follows a request and response procedure always initiated by the XCP master. A Command Packet (CMD) can receive a Command Response Packet (RES), an Error (ERR) packet, an Event Packet (EV), or a Service Request Packet (SERV) as a response. After the configuration of a slave through CTO CMDs, a slave can listen for Stimulation (STIM) packets and periodically send configured DAQ packets. The resources section in the following figure indicates the possible attack surfaces of this protocol (Programming (PGM), Calibration (CAL), DAQ, STIM) which an attacker could abuse. It is crucial for a vehicle’s security and safety that such protocols, which have their use only during calibration and development of a vehicle, are disabled or removed before a vehicle is shipped to a customer.
 
 .. _fig-xcp-reference:
 
 .. figure:: ../graphics/automotive/XCP_ReferenceBook.png
 
-        XCP communication model between XCP Master and XCP Slave. This model
-        shows the communication direction for CTO/Data Transfer Object (DTO)
-        packages [8]_.
+        XCP communication model between XCP Master and XCP Slave. This model shows the communication direction for CTO/Data Transfer Object (DTO) packages [8]_.
 
 **References**
 
@@ -448,6 +228,8 @@ are disabled or removed before a vehicle is shipped to a customer.
 .. [8] Vector Informatik GmbH. XCP – The Standard Protocol for ECU Development. Vector Informatik GmbH, 2020 (accessed January 30, 2020). https://assets.vector.com/cms/content/application-areas/ecu-calibration/xcp/XCP_ReferenceBook_V3.0_EN.pdf
 
 .. [9] Pico Technology Ltd. Complete CAN data frame structure, 2020 (accessed February 14, 2020). https://www.picotech.com/images/uploads/library/topics/_med/CAN-full-frame.jpg
+
+.. [10] Nils Weiss. Security Testing in Safety-Critical Networks. PhD Study Report. http://www.kiv.zcu.cz/site/documents/verejne/vyzkum/publikace/technicke-zpravy/2020/Rigo_Weiss_2020_2.pdf
 
 
 ******
