@@ -19,14 +19,29 @@ Some IEs: 3GPP TS 24.008
 from __future__ import absolute_import
 import struct
 
-
 from scapy.compat import chb, orb, bytes_encode
 from scapy.config import conf
 from scapy.error import warning
-from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    ConditionalField, FieldLenField, FieldListField, FlagsField, IntField, \
-    IPField, PacketListField, ShortField, StrFixedLenField, StrLenField, \
-    XBitField, XByteField, XIntField
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    FieldLenField,
+    FieldListField,
+    FlagsField,
+    IPField,
+    IntField,
+    PacketListField,
+    ShortField,
+    StrFixedLenField,
+    StrLenField,
+    X3BytesField,
+    XBitField,
+    XByteField,
+    XIntField,
+)
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6, IP6Field
 from scapy.layers.ppp import PPP
@@ -313,56 +328,80 @@ GTPforcedTypes = {
 
 
 class GTPPDUSessionContainer(Packet):
+    # TS 38.415-g30 sect 5
     name = "GTP PDU Session Container"
+    deprecated_fields = {
+        "qmp": ("QMP", "2.4.5"),
+        "P": ("PPP", "2.4.5"),
+        "R": ("RQI", "2.4.5"),
+        "extraPadding": ("padding", "2.4.5"),
+    }
     fields_desc = [ByteField("ExtHdrLen", None),
-                   BitField("type", 0, 4),
-                   BitField("qmp", 0, 1),
+                   BitEnumField("type", 0, 4,
+                                {0: "DL PDU SESSION INFORMATION",
+                                 1: "UL PDU SESSION INFORMATION"}),
+                   BitField("QMP", 0, 1),
+                   # UL (type 1)
                    ConditionalField(BitField("dlDelayInd", 0, 1),
                                     lambda pkt: pkt.type == 1),
                    ConditionalField(BitField("ulDelayInd", 0, 1),
                                     lambda pkt: pkt.type == 1),
-                   ConditionalField(BitField("spareUl1", 0, 1),
+                   # Common
+                   BitField("SNP", 0, 1),
+                   # UL (type 1)
+                   ConditionalField(BitField("N3N9DelayInd", 0, 1),
                                     lambda pkt: pkt.type == 1),
-                   ConditionalField(XBitField("spareDl1", 0, 3),
-                                    lambda pkt: pkt.type == 0),
-                   ConditionalField(BitField("P", 0, 1),
-                                    lambda pkt: pkt.type == 0),
-                   ConditionalField(BitField("R", 0, 1),
-                                    lambda pkt: pkt.type == 0),
-                   ConditionalField(XBitField("spareUl2", 0, 2),
+                   ConditionalField(XBitField("spareUl1", 0, 1),
                                     lambda pkt: pkt.type == 1),
-                   BitField("QFI", 0, 6),
+                   # DL (type 0)
+                   ConditionalField(XBitField("spareDl1", 0, 2),
+                                    lambda pkt: pkt.type == 0),
+                   ConditionalField(BitField("PPP", 0, 1),
+                                    lambda pkt: pkt.type == 0),
+                   ConditionalField(BitField("RQI", 0, 1),
+                                    lambda pkt: pkt.type == 0),
+                   # Common
+                   BitField("QFI", 0, 6),  # QoS Flow Identifier
+                   # DL (type 0)
                    ConditionalField(XBitField("PPI", 0, 3),
                                     lambda pkt: pkt.type == 0 and
-                                    pkt.P == 1),
+                                    pkt.PPP == 1),
                    ConditionalField(XBitField("spareDl2", 0, 5),
                                     lambda pkt: pkt.type == 0 and
-                                    pkt.P == 1),
-                   ConditionalField(XBitField("dlSendTime", 0, 32),
+                                    pkt.PPP == 1),
+                   ConditionalField(XBitField("dlSendTime", 0, 64),
                                     lambda pkt: pkt.type == 0 and
-                                    pkt.qmp == 1),
-                   ConditionalField(XBitField("dlSendTimeRpt", 0, 32),
+                                    pkt.QMP == 1),
+                   ConditionalField(X3BytesField("dlQFISeqNum", 0),
+                                    lambda pkt: pkt.type == 0 and
+                                    pkt.SNP == 1),
+                   # UL (type 1)
+                   ConditionalField(XBitField("dlSendTimeRpt", 0, 64),
                                     lambda pkt: pkt.type == 1 and
-                                    pkt.qmp == 1),
-                   ConditionalField(XBitField("dlRecvTime", 0, 32),
+                                    pkt.QMP == 1),
+                   ConditionalField(XBitField("dlRecvTime", 0, 64),
                                     lambda pkt: pkt.type == 1 and
-                                    pkt.qmp == 1),
-                   ConditionalField(XBitField("ulSendTime", 0, 32),
+                                    pkt.QMP == 1),
+                   ConditionalField(XBitField("ulSendTime", 0, 64),
                                     lambda pkt: pkt.type == 1 and
-                                    pkt.qmp == 1),
+                                    pkt.QMP == 1),
                    ConditionalField(XBitField("dlDelayRslt", 0, 32),
                                     lambda pkt: pkt.type == 1 and
                                     pkt.dlDelayInd == 1),
                    ConditionalField(XBitField("ulDelayRslt", 0, 32),
                                     lambda pkt: pkt.type == 1 and
                                     pkt.ulDelayInd == 1),
+                   ConditionalField(XBitField("UlQFISeqNum", 0, 24),
+                                    lambda pkt: pkt.type == 1 and
+                                    pkt.SNP == 1),
+                   ConditionalField(XBitField("N3N9DelayRslt", 0, 32),
+                                    lambda pkt: pkt.type == 1 and
+                                    pkt.N3N9DelayInd == 1),
+                   # Common
                    ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes),
-                   ConditionalField(StrLenField(
-                       "extraPadding",
-                       "",
-                       length_from=lambda pkt: 4 * (pkt.ExtHdrLen) - 5),
-                       lambda pkt:pkt.ExtHdrLen and pkt.ExtHdrLen > 1 and
-                       pkt.type == 0 and pkt.P == 1 and pkt.NextExtHdr == 0)]
+                   ConditionalField(
+                       StrLenField("padding", b"", length_from=lambda p: 0),
+                       lambda pkt: pkt.NextExtHdr == 0)]
 
     def guess_payload_class(self, payload):
         if self.NextExtHdr == 0:
@@ -375,15 +414,24 @@ class GTPPDUSessionContainer(Packet):
                 return PPP
         return GTPHeader.guess_payload_class(self, payload)
 
+    def post_dissect(self, s):
+        if self.NextExtHdr == 0:
+            # Padding is handled in this layer
+            length = len(self.original) - len(s)
+            pad_length = (- length) % 4
+            self.padding = s[:pad_length]
+            return s[pad_length:]
+        return s
+
     def post_build(self, p, pay):
-        p += pay
+        # Length
+        if self.NextExtHdr == 0:
+            p += b"\x00" * ((-len(p)) % 4)
+        else:
+            pay += b"\x00" * ((-len(p + pay)) % 4)
         if self.ExtHdrLen is None:
-            if self.P == 1:
-                hdr_len = 2
-            else:
-                hdr_len = 1
-            p = struct.pack("!B", hdr_len) + p[1:]
-        return p
+            p = struct.pack("!B", len(p) // 4) + p[1:]
+        return p + pay
 
 
 class GTPEchoRequest(Packet):
