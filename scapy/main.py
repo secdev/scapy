@@ -96,7 +96,7 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
     Manual loading:
         >>> _read_config_file("./config.py"))
         >>> conf.verb
-        42
+        2
 
     """
     log_loading.debug("Loading config file [%s]", cf)
@@ -520,7 +520,8 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 _usage()
             elif opt == "-H":
                 conf.fancy_prompt = False
-                conf.verb = 30
+                conf.verb = 1
+                conf.logLevel = logging.WARNING
             elif opt == "-s":
                 session_name = param
             elif opt == "-c":

@@ -8,7 +8,7 @@ Starting Scapy
 Scapy's interactive shell is run in a terminal session. Root privileges are needed to
 send the packets, so we're using ``sudo`` here::
   
-    $ sudo ./scapy
+    $ sudo scapy -H
     Welcome to Scapy (2.4.0)
     >>> 
 
