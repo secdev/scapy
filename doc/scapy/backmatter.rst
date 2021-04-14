@@ -8,3 +8,4 @@ Credits
 - Fred Raynal wrote the chapter on building and dissecting packets.
 - Peter Kacherginsky contributed several tutorial sections, one-liners and recipes.
 - Dirk Loss integrated and restructured the existing docs to make this book.
+- Nils Weiss contributed automotive specific layers and utilities.
