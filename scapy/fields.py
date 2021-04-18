@@ -2125,9 +2125,9 @@ class _BitField(Field[I, int]):
 
         class TestPacket(Packet):
             fields_desc = [
-                BitField("a", 0, 9, tot_size=-16),
+                BitField("a", 0, 9, tot_size=-2),
                 BitField("b", 0, 2),
-                BitField("c", 0, 5, end_tot_size=-16)
+                BitField("c", 0, 5, end_tot_size=-2)
             ]
 
     """
