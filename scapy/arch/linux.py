@@ -210,7 +210,7 @@ def get_alias_address(iface_name,  # type: str
 
     # Extract interfaces names
     out = struct.unpack("iL", ifreq)[0]
-    names_b = names_ar.tobytes() if six.PY3 else names_ar.tostring()
+    names_b = names_ar.tobytes() if six.PY3 else names_ar.tostring()  # type: ignore  # noqa: E501
     names = [names_b[i:i + offset].split(b'\0', 1)[0] for i in range(0, out, name_len)]  # noqa: E501
 
     # Look for the IP address
