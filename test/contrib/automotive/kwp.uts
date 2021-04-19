@@ -1,0 +1,509 @@
+% Regression tests for the KWP2000 layer
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
+
++ Basic operations
+
+= Load module
+load_contrib("automotive.kwp", globals_dict=globals())
+
+= Check if positive response answers
+
+sds = KWP(b'\x10')
+sdspr = KWP(b'\x50')
+assert sdspr.answers(sds)
+
+= Check hashret
+sds.hashret() == sdspr.hashret()
+
+= Check if negative response answers
+
+sds = KWP(b'\x10')
+neg = KWP(b'\x7f\x10')
+assert neg.answers(sds)
+
+= CHECK hashret NEG
+sds.hashret() == neg.hashret()
+
+= Check if negative response answers
+
+conf.contribs['KWP']['treat-response-pending-as-answer'] = False
+
+sds = KWP(b'\x10')
+neg = KWP(b'\x7f\x10\x78')
+assert not neg.answers(sds)
+
+conf.contribs['KWP']['treat-response-pending-as-answer'] = True
+
+= CHECK hashret NEG
+sds.hashret() == neg.hashret()
+
+= Check if negative response answers not
+
+sds = KWP(b'\x10')
+neg = KWP(b'\x7f\x11')
+assert not neg.answers(sds)
+
+= Check if positive response answers not
+
+sds = KWP(b'\x10')
+somePacket = KWP(b'\x49')
+assert not somePacket.answers(sds)
+
+= Check KWP_SDS
+
+sds = KWP(b'\x10\x01')
+assert sds.service == 0x10
+assert sds.diagnosticSession == 0x01
+
+= Check KWP_SDS
+
+sds = KWP()/KWP_SDS(b'\x01')
+assert sds.service == 0x10
+assert sds.diagnosticSession == 0x01
+
+= Check KWP_SDSPR
+
+sdspr = KWP(b'\x50\x02beef')
+assert sdspr.service == 0x50
+assert sdspr.diagnosticSession == 0x02
+
+assert not sdspr.answers(sds)
+
+= Check KWP_SDSPR
+
+sdspr = KWP()/KWP_SDSPR(b'\x01beef')
+assert sdspr.service == 0x50
+assert sdspr.diagnosticSession == 0x01
+
+assert sdspr.answers(sds)
+
+= Check KWP_SDS
+
+sds = KWP()/KWP_SDS(b'\x01')
+assert sds.service == 0x10
+assert sds.diagnosticSession == 0x01
+
+= Check KWP_SDSPR
+
+sdspr = KWP()/KWP_SDSPR(b'\x01beef')
+assert sdspr.service == 0x50
+assert sdspr.diagnosticSession == 0x01
+
+assert sdspr.answers(sds)
+
+= Check KWP_ER
+
+er = KWP(b'\x11\x01')
+assert er.service == 0x11
+assert er.resetMode == 0x01
+
+= Check KWP_ER
+
+er = KWP()/KWP_ER(resetMode="powerOnReset")
+assert er.service == 0x11
+assert er.resetMode == 0x01
+
+= Check KWP_ERPR
+
+erpr = KWP(b'\x51')
+assert erpr.service == 0x51
+
+assert erpr.answers(er)
+
+= Check KWP_SA
+
+sa = KWP(b'\x27\x00c0ffee')
+assert sa.service == 0x27
+assert sa.accessMode == 0x0
+assert sa.key == b'c0ffee'
+
+= Check KWP_SAPR
+
+sapr = KWP(b'\x67')
+assert sapr.service == 0x67
+
+assert sapr.answers(sa)
+
+= Check KWP_SA
+
+sa = KWP(b'\x27\x01')
+assert sa.service == 0x27
+assert sa.accessMode == 0x1
+
+= Check KWP_SAPR
+
+sapr = KWP(b'\x67\x01c0ffee')
+assert sapr.service == 0x67
+assert sapr.accessMode == 0x1
+assert sapr.seed == b'c0ffee'
+
+assert sapr.answers(sa)
+
+= Check KWP_SA
+
+sa = KWP(b'\x27\x00c0ffee')
+assert sa.service == 0x27
+assert sa.accessMode == 0x0
+assert sa.key == b'c0ffee'
+
+= Check KWP_SA
+
+sa = KWP(b'\x27\x01c0ffee')
+assert sa.service == 0x27
+assert sa.accessMode == 0x1
+
+= Check KWP_SAPR
+
+sapr = KWP(b'\x67\x01c0ffee')
+assert sapr.service == 0x67
+assert sapr.accessMode == 0x1
+assert sapr.seed == b'c0ffee'
+
+
+= Check KWP_DNT
+
+cc = KWP(b'\x28\x01')
+assert cc.service == 0x28
+assert cc.responseRequired == 0x1
+
+= Check KWP_DNMTPR
+
+ccpr = KWP(b'\x68')
+assert ccpr.service == 0x68
+assert ccpr.answers(cc)
+
+= Check KWP_DNMTPR
+
+ccpr = KWP(b'\x68abcd')
+assert ccpr.service == 0x68
+assert ccpr.answers(cc)
+
+assert (KWP()/KWP_DNMTPR()).answers(cc)
+
+= Check KWP_TP
+
+tp = KWP(b'\x3E\x01')
+assert tp.service == 0x3e
+assert tp.responseRequired == 1
+
+= Check KWP_TPPR
+
+tppr = KWP(b'\x7E')
+assert tppr.service == 0x7e
+
+assert tppr.answers(tp)
+
+assert (KWP()/KWP_TPPR()).answers(tp)
+
+= Check KWP_CDTCS
+
+cdtcs = KWP(b'\x85\x01\x40\x00\x01')
+assert cdtcs.service == 0x85
+assert cdtcs.responseRequired == 1
+assert cdtcs.groupOfDTC == 0x4000
+assert cdtcs.DTCSettingMode == 1
+
+= Check KWP_CDTCSPR
+
+cdtcspr = KWP(b'\xC5\x00')
+assert cdtcspr.service == 0xC5
+
+assert cdtcspr.answers(cdtcs)
+
+= Check KWP_ROE
+
+roe = KWP(b'\x86\x01\x10\x00')
+assert roe.service == 0x86
+assert roe.responseRequired == 1
+assert roe.eventType == 0
+assert roe.eventWindowTime == 16
+
+= Check KWP_ROEPR
+
+roepr = KWP(b'\xC6\x00\x01')
+assert roepr.service == 0xC6
+assert roepr.numberOfActivatedEvents == 0
+assert roepr.eventType == 0
+
+assert roepr.answers(roe)
+
+= Check KWP_RDBI
+
+rdbi = KWP(b'\x22\x01\x02')
+assert rdbi.service == 0x22
+assert rdbi.identifier == 0x0102
+
+= Build KWP_RDBI
+
+rdbi = KWP()/KWP_RDBI(identifier=0x102)
+assert rdbi.service == 0x22
+assert rdbi.identifier == 0x0102
+assert bytes(rdbi) == b'\x22\x01\x02'
+
+= Check KWP_RDBI2
+
+rdbi = KWP(b'\x22\x01\x02')
+assert rdbi.service == 0x22
+assert rdbi.identifier == 0x0102
+assert raw(rdbi) == b'\x22\x01\x02'
+
+= Build KWP_RDBI2
+
+rdbi = KWP()/KWP_RDBI(identifier=0x304)
+assert rdbi.service == 0x22
+assert rdbi.identifier == 0x0304
+assert raw(rdbi) == b'\x22\x03\x04'
+
+= Test observable dict used in KWP_RDBI, setter
+
+KWP_RDBI.dataIdentifiers[0x102] = "turbo"
+KWP_RDBI.dataIdentifiers[0x103] = "fullspeed"
+
+rdbi = KWP()/KWP_RDBI(identifier=0x102)
+
+assert "turbo" in plain_str(repr(rdbi))
+
+rdbi = KWP()/KWP_RDBI(identifier=0x103)
+
+assert "fullspeed" in plain_str(repr(rdbi))
+
+= Test observable dict used in KWP_RDBI, deleter
+
+KWP_RDBI.dataIdentifiers[0x102] = "turbo"
+
+rdbi = KWP()/KWP_RDBI(identifier=0x102)
+assert "turbo" in plain_str(repr(rdbi))
+
+del KWP_RDBI.dataIdentifiers[0x102]
+KWP_RDBI.dataIdentifiers[0x103] = "slowspeed"
+
+rdbi = KWP()/KWP_RDBI(identifier=0x102)
+
+assert "turbo" not in plain_str(repr(rdbi))
+
+rdbi = KWP()/KWP_RDBI(identifier=0x103)
+
+assert "slowspeed" in plain_str(repr(rdbi))
+
+= Check KWP_RDBIPR
+
+rdbipr = KWP(b'\x62\x01\x03dieselgate')
+assert rdbipr.service == 0x62
+assert rdbipr.identifier == 0x0103
+assert rdbipr.load == b'dieselgate'
+
+assert rdbipr.answers(rdbi)
+
+= Check KWP_RMBA
+
+rmba = KWP(b'\x23\x11\x02\x02\x11')
+assert rmba.service == 0x23
+assert rmba.memoryAddress == 0x110202
+assert rmba.memorySize == 17
+
+= Check KWP_RMBAPR
+
+rmbapr = KWP(b'\x63muchData')
+assert rmbapr.service == 0x63
+assert rmbapr.dataRecord == b'muchData'
+
+assert rmbapr.answers(rmba)
+
+= Check KWP_DDLI
+
+dddi = KWP(b'\x2c\x12\x44coffee')
+assert dddi.service == 0x2c
+assert dddi.dynamicallyDefineLocalIdentifier == 0x12
+assert dddi.definitionMode == 0x44
+assert dddi.dataRecord == b'coffee'
+
+= Check KWP_DDLIPR
+
+dddipr = KWP(b'\x6c\x12\x44\x01')
+assert dddipr.service == 0x6c
+assert dddipr.dynamicallyDefineLocalIdentifier == 0x12
+
+assert dddipr.answers(dddi)
+
+= Check KWP_WDBI
+
+wdbi = KWP(b'\x2e\x01\x02dieselgate')
+assert wdbi.service == 0x2e
+assert wdbi.identifier == 0x0102
+assert wdbi.load == b'dieselgate'
+
+= Build KWP_WDBI
+
+wdbi = KWP()/KWP_WDBI(identifier=0x0102)/Raw(load=b'dieselgate')
+assert wdbi.service == 0x2e
+assert wdbi.identifier == 0x0102
+assert wdbi.load == b'dieselgate'
+assert bytes(wdbi) == b'\x2e\x01\x02dieselgate'
+
+= Check KWP_WDBI
+
+wdbi = KWP(b'\x2e\x01\x02dieselgate')
+assert wdbi.service == 0x2e
+assert wdbi.identifier == 0x0102
+assert wdbi.load == b'dieselgate'
+
+wdbi = KWP(b'\x2e\x02\x02benzingate')
+assert wdbi.service == 0x2e
+assert wdbi.identifier == 0x0202
+assert wdbi.load == b'benzingate'
+
+
+= Check KWP_WDBIPR
+
+wdbipr = KWP(b'\x6e\x02\x02')
+assert wdbipr.service == 0x6e
+assert wdbipr.identifier == 0x0202
+
+assert wdbipr.answers(wdbi)
+
+= Check KWP_WMBA
+
+wmba = KWP(b'\x3d\x11\x02\x02\x02muchData')
+assert wmba.service == 0x3d
+assert wmba.memoryAddress == 0x110202
+assert wmba.memorySize == 2
+assert wmba.dataRecord == b'muchData'
+
+= Check KWP_WMBAPR
+
+wmbapr = KWP(b'\x7d\x11\x02\x02')
+assert wmbapr.service == 0x7d
+assert wmbapr.memoryAddress == 0x110202
+
+assert wmbapr.answers(wmba)
+
+= Check KWP_CDI
+
+cdtci = KWP(b'\x14\x44\x02\x03')
+assert cdtci.service == 0x14
+assert cdtci.groupOfDTC == 0x4402
+
+cdtcipr = KWP(b'\x54\x44\x02\x03')
+assert cdtcipr.service == 0x54
+assert cdtcipr.groupOfDTC == 0x4402
+
+assert cdtcipr.answers(cdtci)
+
+= Check KWP_RC
+
+rc = KWP(b'\x31\xff\xee\xdd\xaa')
+assert rc.service == 0x31
+assert rc.routineLocalIdentifier == 0xff
+assert rc.load == b'\xee\xdd\xaa'
+
+= Check KWP_RC
+
+rc = KWP(b'\x31\xff\xee\xdd\xaa')
+assert rc.service == 0x31
+assert rc.routineLocalIdentifier == 0xff
+assert rc.load == b'\xee\xdd\xaa'
+
+
+= Check KWP_RCPR
+
+rcpr = KWP(b'\x71\xff\xee\xdd\xaa')
+assert rcpr.service == 0x71
+assert rcpr.routineLocalIdentifier == 0xff
+assert rcpr.load == b'\xee\xdd\xaa'
+
+assert rcpr.answers(rc)
+
+= Check KWP_RD
+
+rd = KWP(b'\x34\xaa\x11\x02\x02\x10\x00\x00')
+
+assert rd.service == 0x34
+assert rd.memoryAddress == 0xaa1102
+assert rd.compression == 0
+assert rd.encryption == 2
+assert rd.uncompressedMemorySize == 0x100000
+
+= Check KWP_RDPR
+
+rdpr = KWP(b'\x74\x02\x02\x02\x02\x03\x03\x03\x03')
+assert rdpr.service == 0x74
+assert rdpr.maxNumberOfBlockLength == b'\x02\x02\x02\x02\x03\x03\x03\x03'
+rdpr.show()
+assert rdpr.answers(rd)
+
+= Check KWP_RU
+
+ru = KWP(b'\x35\x11\x02\x02\xa0\xff\xff\xff')
+assert ru.service == 0x35
+assert ru.memoryAddress == 0x110202
+assert ru.compression == 10
+assert ru.encryption == 0
+assert ru.uncompressedMemorySize == 0xffffff
+
+= Check KWP_RUPR
+
+rupr = KWP(b'\x75\x02\x02\x02\x02\x03\x03\x03\x03')
+assert rupr.service == 0x75
+assert rupr.maxNumberOfBlockLength == b'\x02\x02\x02\x02\x03\x03\x03\x03'
+
+assert rupr.answers(ru)
+
+= Check KWP_TD
+
+td = KWP(b'\x36\xaapayload')
+assert td.service == 0x36
+assert td.blockSequenceCounter == 0xaa
+assert td.transferDataRequestParameter == b'payload'
+
+= Check KWP_TDPR
+
+tdpr = KWP(b'\x76\xaapayload')
+assert tdpr.service == 0x76
+assert tdpr.blockSequenceCounter == 0xaa
+assert tdpr.transferDataRequestParameter == b'payload'
+
+assert tdpr.answers(td)
+
+= Check KWP_RTE
+
+rte = KWP(b'\x37payload')
+assert rte.service == 0x37
+assert rte.transferDataRequestParameter == b'payload'
+
+= Check KWP_RTEPR
+
+rtepr = KWP(b'\x77payload')
+assert rtepr.service == 0x77
+assert rtepr.transferDataRequestParameter == b'payload'
+
+assert rtepr.answers(rte)
+
+= Check KWP_IOCBI
+
+iocbi = KWP(b'\x30\x23\xffcoffee')
+assert iocbi.service == 0x30
+assert iocbi.localIdentifier == 0x23
+assert iocbi.inputOutputControlParameter == 255
+assert iocbi.controlState == b'coffee'
+
+= Check KWP_IOCBIPR
+
+iocbipr = KWP(b'\x70\x23\xffcoffee')
+assert iocbipr.service == 0x70
+assert iocbipr.localIdentifier == 0x23
+assert iocbipr.inputOutputControlParameter == 255
+assert iocbipr.controlState == b'coffee'
+
+assert iocbipr.answers(iocbi)
+
+= Check KWP_NRC
+
+nrc = KWP(b'\x7f\x22\x33')
+assert nrc.service == 0x7f
+assert nrc.requestServiceId == 0x22
+assert nrc.negativeResponseCode == 0x33

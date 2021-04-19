@@ -48,3 +48,4 @@ scapy/contrib/automotive/gm/gmlan_ecu_states.py
 scapy/contrib/automotive/gm/gmlan_logging.py
 scapy/contrib/automotive/bmw/hsfz.py
 scapy/contrib/automotive/doip.py
+scapy/contrib/automotive/kwp.py
