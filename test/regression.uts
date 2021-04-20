@@ -2058,6 +2058,12 @@ assert r.linktype == DLT_EN10MB
 l = [ p for p in RawPcapReader(f) ]
 assert len(l) == 1
 
+= Check RawPcapReader on pcap
+
+fd = get_temp_file()
+wrpcap(fd, [Ether()/IP()/ICMP()])
+assert len([p for p in RawPcapReader(fd)]) == 1
+
 = Check tcpdump()
 ~ tcpdump
 from io import BytesIO

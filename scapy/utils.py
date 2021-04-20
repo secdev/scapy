@@ -1261,7 +1261,7 @@ class RawPcapReader:
     def read_packet(self, size=MTU):
         # type: (int) -> Packet
         return cast(
-            Packet,
+            "Packet",
             self._read_packet()[0]
         )
 
