@@ -7,6 +7,7 @@
 # scapy.contrib.status = library
 
 
+import abc
 from collections import defaultdict
 
 from scapy.compat import Any, Union, List, Optional, \
@@ -22,13 +23,6 @@ if TYPE_CHECKING:
     from scapy.contrib.automotive.scanner.configuration import AutomotiveTestCaseExecutorConfiguration  # noqa: E501
 
 
-if six.PY34:
-    from abc import ABC, abstractmethod
-else:
-    from abc import ABCMeta, abstractmethod
-    ABC = ABCMeta('ABC', (), {})  # type: ignore
-
-
 # type definitions
 _SocketUnion = Union[SuperSocket, SingleConversationSocket]
 _TransitionCallable = Callable[[_SocketUnion, "AutomotiveTestCaseExecutorConfiguration", Dict[str, Any]], bool]  # noqa: E501
@@ -36,7 +30,8 @@ _CleanupCallable = Callable[[_SocketUnion, "AutomotiveTestCaseExecutorConfigurat
 _TransitionTuple = Tuple[_TransitionCallable, Dict[str, Any], Optional[_CleanupCallable]]  # noqa: E501
 
 
-class AutomotiveTestCaseABC(ABC):
+@six.add_metaclass(abc.ABCMeta)
+class AutomotiveTestCaseABC():
     """
     Base class for "TestCase" objects. In automotive scanners, these TestCase
     objects are used for individual tasks, for example enumerating over one
@@ -46,7 +41,7 @@ class AutomotiveTestCaseABC(ABC):
     manipulates a device under test (DUT), to enter a certain state. In this
     state, the TestCase object gets executed.
     """
-    @abstractmethod
+    @abc.abstractmethod
     def has_completed(self, state):
         # type: (EcuState) -> bool
         """
@@ -56,7 +51,7 @@ class AutomotiveTestCaseABC(ABC):
         """
         raise NotImplementedError()
 
-    @abstractmethod
+    @abc.abstractmethod
     def pre_execute(self, socket, state, global_configuration):
         # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
         """
@@ -69,7 +64,7 @@ class AutomotiveTestCaseABC(ABC):
         """
         raise NotImplementedError()
 
-    @abstractmethod
+    @abc.abstractmethod
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None
         """
@@ -82,7 +77,7 @@ class AutomotiveTestCaseABC(ABC):
         """
         raise NotImplementedError()
 
-    @abstractmethod
+    @abc.abstractmethod
     def post_execute(self, socket, state, global_configuration):
         # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
         """
@@ -95,7 +90,7 @@ class AutomotiveTestCaseABC(ABC):
         """
         raise NotImplementedError()
 
-    @abstractmethod
+    @abc.abstractmethod
     def show(self, dump=False, filtered=True, verbose=False):
         # type: (bool, bool, bool) -> Optional[str]
         """
@@ -112,7 +107,7 @@ class AutomotiveTestCaseABC(ABC):
         raise NotImplementedError()
 
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def completed(self):
         # type: () -> bool
         """
@@ -122,7 +117,7 @@ class AutomotiveTestCaseABC(ABC):
         raise NotImplementedError
 
     @property
-    @abstractmethod
+    @abc.abstractmethod
     def supported_responses(self):
         # type: () -> List[EcuResponse]
         """
@@ -206,21 +201,23 @@ class AutomotiveTestCase(AutomotiveTestCaseABC):
             return None
 
 
-class TestCaseGenerator(ABC):
-    @abstractmethod
+@six.add_metaclass(abc.ABCMeta)
+class TestCaseGenerator():
+    @abc.abstractmethod
     def get_generated_test_case(self):
         # type: () -> Optional[AutomotiveTestCaseABC]
         raise NotImplementedError()
 
 
-class StateGenerator(ABC):
+@six.add_metaclass(abc.ABCMeta)
+class StateGenerator():
 
-    @abstractmethod
+    @abc.abstractmethod
     def get_new_edge(self, socket, config):
         # type: (_SocketUnion, AutomotiveTestCaseExecutorConfiguration) -> Optional[_Edge]  # noqa: E501
         raise NotImplementedError
 
-    @abstractmethod
+    @abc.abstractmethod
     def get_transition_function(self, socket, edge):
         # type: (_SocketUnion, _Edge) -> Optional[_TransitionTuple]
         """
