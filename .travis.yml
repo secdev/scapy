@@ -14,14 +14,6 @@ jobs:
           env:
             - TOXENV=py38-isotp_kernel_module,codecov
 
-        # warnings/deprecations
-        - os: linux
-          python: 3.8
-          env:
-            - SCAPY_PY_OPTS="-Werror -X tracemalloc" TOXENV=py38-linux_root
-    allow_failures:
-      - env: SCAPY_PY_OPTS="-Werror -X tracemalloc" TOXENV=py38-linux_root
-
 install:
   - bash .config/ci/install.sh
   - python -c "from scapy.all import conf; print(repr(conf))"

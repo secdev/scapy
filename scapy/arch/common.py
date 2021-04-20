@@ -83,7 +83,7 @@ def get_if_raw_hwaddr(iff,  # type: Union[NetworkInterface, str]
         from scapy.arch import SIOCGIFHWADDR  # type: ignore
         siocgifhwaddr = SIOCGIFHWADDR
     return struct.unpack(  # type: ignore
-        "16xh6s8x",
+        "16xH6s8x",
         get_if(iff, siocgifhwaddr)
     )
 

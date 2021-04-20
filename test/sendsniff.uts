@@ -114,7 +114,7 @@ else:
 ############
 + Test bridge_and_sniff() using tun sockets
 
-~ tun not_pcapdnet
+~ tun not_libpcap
 
 = Create two tun interfaces
 

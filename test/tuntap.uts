@@ -4,7 +4,7 @@
 
 #######
 + Test Linux-specific protocol headers for TunTap
-~ linux tun
+~ linux tun not_libpcap
 
 = Linux-specific protocol headers
 
@@ -26,7 +26,7 @@ assert isinstance(p.payload, IPv6)
 #######
 + Test tun device
 
-~ tun netaccess
+~ tun netaccess not_libpcap
 
 = Create a tun interface
 
@@ -47,32 +47,31 @@ elif BSD:
 else:
     raise NotImplementedError()
 
+conf.ifaces.reload()
+conf.route.resync()
+conf.route6.resync()
+
 = Setup ICMPEcho_am on the interface
 
 am = tun0.am(ICMPEcho_am, count=3)
 am.defoptsniff['timeout'] = 5
 t_am = Thread(target=am)
 t_am.start()
-time.sleep(1)
 
 = Send ping packets from OS into scapy
 
-# ping returns non-zero exit code on 100% packet loss
-assert subprocess.check_call(["ping", "-c3", "192.0.2.2"]) == 0
+send(IP(dst="192.0.2.2")/ICMP(seq=(1,3)))
 
 = Cleanup
 
 t_am.join(timeout=3)
 
 tun0.close()
-if not conf.use_pypy:
-    # See https://pypy.readthedocs.io/en/latest/cpython_differences.html
-    del tun0
 
 #######
 + Test strip_packet_info=False on Linux
 
-~ tun linux netaccess
+~ tun linux netaccess not_libpcap
 
 = Create a tun interface
 
@@ -88,17 +87,18 @@ assert subprocess.check_call([
     "ip", "addr", "change",
     "192.0.2.1", "peer", "192.0.2.2", "dev", "tun0"]) == 0
 
+conf.ifaces.reload()
+conf.route.resync()
+conf.route6.resync()
+
 = Send ping packets from Linux into Scapy
 
-t = AsyncSniffer(opened_socket=tun0)
+def cb():
+    send(IP(dst="192.0.2.2")/ICMP(seq=(1,3)))
+
+t = AsyncSniffer(opened_socket=tun0, lfilter=lambda x: IP in x, started_callback=cb, count=3)
 t.start()
-
-# We expect this to return exit code 1, because there's nothing in Scapy that
-# responds to these packets.
-assert subprocess.call(["ping", "-c3", "192.0.2.2"]) == 1
-
-time.sleep(1)
-t.stop()
+t.join(timeout=3)
 
 assert len(t.results) >= 3
 icmp4_sequences = set()
@@ -118,13 +118,10 @@ assert len(icmp4_sequences) == 3
 
 = Delete the tun interface
 tun0.close()
-if not conf.use_pypy:
-    # See https://pypy.readthedocs.io/en/latest/cpython_differences.html
-    del tun0
 
 + Test strip_packet_info=True and IPv6
 
-~ tun netaccess ipv6
+~ tun netaccess ipv6 not_libpcap
 
 = Create a tun interface with IPv4 + IPv6
 
@@ -149,19 +146,19 @@ elif BSD:
 else:
     raise NotImplementedError()
 
+conf.ifaces.reload()
+conf.route.resync()
+conf.route6.resync()
+
 = Send ping packets from OS into Scapy
 
-t = AsyncSniffer(opened_socket=tun0)
+def cb():
+    send(IP(dst="192.0.2.2")/ICMP(seq=(1,3)))
+    send(IPv6(dst="2001:db8::2")/ICMPv6EchoRequest(seq=(1,3)))
+
+t = AsyncSniffer(opened_socket=tun0, lfilter=lambda x: ICMP in x or ICMPv6EchoRequest in x, started_callback=cb, count=6)
 t.start()
-
-# There's nothing in Scapy that responds, but we expect the packets to be sent
-# successfully. Linux and BSD (incl. macOS) have different exit codes.
-EXPECTED_EXIT = 1 if LINUX else 2
-assert subprocess.call(["ping", "-c3", "192.0.2.2"]) == EXPECTED_EXIT
-assert subprocess.call(["ping6", "-c3", "2001:db8::2"]) == EXPECTED_EXIT
-
-time.sleep(1)
-t.stop()
+t.join(timeout=3)
 
 assert len(t.results) >= 6
 icmp4_sequences = set()
@@ -187,13 +184,10 @@ assert len(icmp6_sequences) == 3, (
 
 = Delete the tun interface
 tun0.close()
-if not conf.use_pypy:
-    # See https://pypy.readthedocs.io/en/latest/cpython_differences.html
-    del tun0
 
 + Test tap interfaces
 
-~ tap netaccess
+~ tap netaccess not_libpcap
 
 = Create a tap interface with IPv4
 
@@ -215,18 +209,21 @@ else:
     assert subprocess.check_call([
         "arp", "-s", "192.0.2.2", "20:00:00:20:00:00", "temp"]) == 0
 
+conf.ifaces.reload()
+conf.route.resync()
+conf.route6.resync()
+
 = Send ping packets from OS into Scapy
 
-t = AsyncSniffer(opened_socket=tap0)
+conf.ifaces
+conf.route
+
+def cb():
+    sendp(Ether(dst="ff:ff:ff:ff:ff:ff")/IP(dst="192.0.2.2")/ICMP(seq=(1,3)), iface="tap0")
+
+t = AsyncSniffer(opened_socket=tap0, lfilter=lambda x: ICMP in x, started_callback=cb, count=3)
 t.start()
-
-# There's nothing in Scapy that responds, but we expect the packets to be sent
-# successfully. Linux and BSD (incl. macOS) have different exit codes.
-EXPECTED_EXIT = 1 if LINUX else 2
-assert subprocess.call(["ping", "-c3", "192.0.2.2"]) == EXPECTED_EXIT
-
-time.sleep(1)
-t.stop()
+t.join(timeout=3)
 
 assert len(t.results) >= 3
 icmp4_sequences = set()
@@ -245,6 +242,12 @@ assert len(icmp4_sequences) == 3, (
 
 = Delete the tap interface
 tap0.close()
-if not conf.use_pypy:
-    # See https://pypy.readthedocs.io/en/latest/cpython_differences.html
-    del tap0
+
++ Refresh interfaces
+~ linux tun tap not_libpcap
+
+= Cleanup
+
+conf.ifaces.reload()
+conf.route.resync()
+conf.route6.resync()
