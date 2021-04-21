@@ -257,14 +257,13 @@ def lhex(x):
     from scapy.volatile import VolatileValue
     if isinstance(x, VolatileValue):
         return repr(x)
-    if type(x) in six.integer_types:
+    if isinstance(x, six.integer_types):
         return hex(x)
-    elif isinstance(x, tuple):
-        return "(%s)" % ", ".join(map(lhex, x))
-    elif isinstance(x, list):
-        return "[%s]" % ", ".join(map(lhex, x))
-    else:
-        return str(x)
+    if isinstance(x, tuple):
+        return "(%s)" % ", ".join(lhex(v) for v in x)
+    if isinstance(x, list):
+        return "[%s]" % ", ".join(lhex(v) for v in x)
+    return str(x)
 
 
 @conf.commands.register
