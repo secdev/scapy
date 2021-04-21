@@ -342,14 +342,16 @@ BTLE_Versions = {
 
 
 BTLE_Corp_IDs = {
+    0x9: 'Infineon Technologies AG',
     0xf: 'Broadcom Corporation',
     0x59: 'Nordic Semiconductor ASA'
+    0x131: 'Cypress Semiconductor'
 }
 
 
 BTLE_BTLE_CTRL_opcode = {
-    0x00: 'LL_CONNECTION_UPDATE_REQ',
-    0x01: 'LL_CHANNEL_MAP_REQ',
+    0x00: 'LL_CONNECTION_UPDATE_IND',
+    0x01: 'LL_CHANNEL_MAP_IND',
     0x02: 'LL_TERMINATE_IND',
     0x03: 'LL_ENC_REQ',
     0x04: 'LL_ENC_RSP',
@@ -365,11 +367,27 @@ BTLE_BTLE_CTRL_opcode = {
     0x0E: 'LL_SLAVE_FEATURE_REQ',
     0x0F: 'LL_CONNECTION_PARAM_REQ',
     0x10: 'LL_CONNECTION_PARAM_RSP',
+    0x11: 'LL_REJECT_EXT_IND',
+    0x12: 'LL_PING_REQ',
+    0x13: 'LL_PING_RSP',
     0x14: 'LL_LENGTH_REQ',
     0x15: 'LL_LENGTH_RSP',
     0x16: 'LL_PHY_REQ',
     0x17: 'LL_PHY_RSP',
     0x18: 'LL_PHY_UPDATE_IND',
+    0x19: 'LL_MIN_USED_CHANNELS_IND',
+    0x1A: 'LL_CTE_REQ',
+    0x1B: 'LL_CTE_RSP',
+    0x1C: 'LL_PERIODIC_SYNC_IND',
+    0x1D: 'LL_CLOCK_ACCURACY_REQ',
+    0x1E: 'LL_CLOCK_ACCURACY_RSP',
+    0x1F: 'LL_CIS_REQ',
+    0x20: 'LL_CIS_RSP',
+    0x21: 'LL_CIS_IND',
+    0x22: 'LL_CIS_TERMINATE_IND',
+    0x23: 'LL_POWER_CONTROL_REQ',
+    0x24: 'LL_POWER_CONTROL_RSP',
+    0x25: 'LL_POWER_CHANGE_IND'
 }
 
 

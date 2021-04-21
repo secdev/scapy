@@ -13,3 +13,4 @@ test/*.html
 .vscode
 doc/scapy/_build
 doc/scapy/api
+.idea/
