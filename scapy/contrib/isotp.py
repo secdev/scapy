@@ -12,7 +12,6 @@
 ISOTPSocket.
 """
 
-
 import ctypes
 from ctypes.util import find_library
 import struct
@@ -21,8 +20,10 @@ import time
 import traceback
 import heapq
 from threading import Thread, Event, Lock
-from scapy.compat import Iterator, Optional, Union, List, Tuple, Dict
 
+from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict, Any, \
+    Type, cast, Callable, TYPE_CHECKING
+from scapy.utils import EDecimal
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ConditionalField, \
@@ -33,12 +34,16 @@ import scapy.modules.six as six
 import scapy.automaton as automaton
 from scapy.modules.six.moves import queue
 from scapy.error import Scapy_Exception, warning, log_loading, log_runtime
-from scapy.supersocket import SuperSocket, SO_TIMESTAMPNS
+from scapy.supersocket import SuperSocket
+from scapy.data import SO_TIMESTAMPNS
 from scapy.config import conf
 from scapy.consts import LINUX
 from scapy.contrib.cansocket import PYTHON_CAN
 from scapy.sendrecv import sniff
 from scapy.sessions import DefaultSession
+
+if TYPE_CHECKING:
+    from scapy.contrib.cansocket import CANSocket
 
 __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
            "ISOTP_CF", "ISOTP_FC", "ISOTPSoftSocket", "ISOTPSession",
@@ -47,7 +52,7 @@ __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
 
 USE_CAN_ISOTP_KERNEL_MODULE = False
 if six.PY3 and LINUX:
-    LIBC = ctypes.cdll.LoadLibrary(find_library("c"))
+    LIBC = ctypes.cdll.LoadLibrary(find_library("c"))  # type: ignore
     try:
         if conf.contribs['ISOTP']['use-can-isotp-kernel-module']:
             USE_CAN_ISOTP_KERNEL_MODULE = True
@@ -66,33 +71,36 @@ N_PCI_FC = 0x30  # /* flow control */
 
 
 class ISOTP(Packet):
+    """Packet class for ISOTP messages. This class contains additional
+    slots for source address (src), destination address (dst),
+    extended source address (exsrc) and
+    extended destination address (exdst) information. This information
+    gets filled from ISOTPSockets or the ISOTPMessageBuilder, if it
+    is available. Address information is not used for Packet comparison.
+
+    :param args: Arguments for Packet init, for example bytes string
+    :param kwargs: Keyword arguments for Packet init.
+    """
     name = 'ISOTP'
     fields_desc = [
-        StrField('data', B"")
+        StrField('data', b"")
     ]
     __slots__ = Packet.__slots__ + ["src", "dst", "exsrc", "exdst"]
 
     def __init__(self, *args, **kwargs):
-        self.src = None
-        self.dst = None
-        self.exsrc = None
-        self.exdst = None
-        if "src" in kwargs:
-            self.src = kwargs["src"]
-            del kwargs["src"]
-        if "dst" in kwargs:
-            self.dst = kwargs["dst"]
-            del kwargs["dst"]
-        if "exsrc" in kwargs:
-            self.exsrc = kwargs["exsrc"]
-            del kwargs["exsrc"]
-        if "exdst" in kwargs:
-            self.exdst = kwargs["exdst"]
-            del kwargs["exdst"]
+        # type: (Any, Any) -> None
+        self.src = kwargs.pop("src", None)  # type: Optional[int]
+        self.dst = kwargs.pop("dst", None)  # type: Optional[int]
+        self.exsrc = kwargs.pop("exsrc", None)  # type: Optional[int]
+        self.exdst = kwargs.pop("exdst", None)  # type: Optional[int]
         Packet.__init__(self, *args, **kwargs)
         self.validate_fields()
 
     def validate_fields(self):
+        # type: () -> None
+        """Helper function to validate information in src, dst, exsrc and exdst
+        slots
+        """
         if self.src is not None:
             if not 0 <= self.src <= CAN_MAX_IDENTIFIER:
                 raise Scapy_Exception("src is not a valid CAN identifier")
@@ -106,7 +114,13 @@ class ISOTP(Packet):
             if not 0 <= self.exdst <= 0xff:
                 raise Scapy_Exception("exdst is not a byte")
 
-    def fragment(self):
+    def fragment(self, *args, **kargs):
+        # type: (*Any, **Any) -> List[Packet]
+        """Helper function to fragment an ISOTP message into multiple
+        CAN frames.
+
+        :return: A list of CAN frames
+        """
         data_bytes_in_frame = 7
         if self.exdst is not None:
             data_bytes_in_frame = 6
@@ -164,32 +178,39 @@ class ISOTP(Packet):
 
     @staticmethod
     def defragment(can_frames, use_extended_addressing=None):
+        # type: (List[Packet], Optional[bool]) -> Optional[ISOTP]
+        """Helper function to defragment a list of CAN frames to one ISOTP
+        message
+
+        :param can_frames: A list of CAN frames
+        :param use_extended_addressing: Specify if extended ISO-TP addressing
+                                        is used in the packets for
+                                        defragmentation.
+        :return: An ISOTP message containing the data of the CAN frames or None
+        """
         if len(can_frames) == 0:
             raise Scapy_Exception("ISOTP.defragment called with 0 frames")
 
         dst = can_frames[0].identifier
-        for frame in can_frames:
-            if frame.identifier != dst:
-                warning("Not all CAN frames have the same identifier")
+        if any(frame.identifier != dst for frame in can_frames):
+            warning("Not all CAN frames have the same identifier")
 
         parser = ISOTPMessageBuilder(use_extended_addressing)
-        for c in can_frames:
-            parser.feed(c)
+        parser.feed(can_frames)
 
         results = []
-        while parser.count > 0:
-            p = parser.pop()
+        for p in parser:
             if (use_extended_addressing is True and p.exdst is not None) \
                     or (use_extended_addressing is False and p.exdst is None) \
                     or (use_extended_addressing is None):
                 results.append(p)
 
-        if len(results) == 0:
+        if not results:
             return None
 
-        if len(results) > 0:
+        if len(results) > 1:
             warning("More than one ISOTP frame could be defragmented from the "
-                    "provided CAN frames, returning the first one.")
+                    "provided CAN frames, only returning the first one.")
 
         return results[0]
 
@@ -202,13 +223,15 @@ class ISOTPHeader(CAN):
                                    'extended']),
         XBitField('identifier', 0, 29),
         ByteField('length', None),
-        ThreeBytesField('reserved', 0),
+        ThreeBytesField('reserved', 0)
     ]
 
     def extract_padding(self, p):
+        # type: (bytes) -> Tuple[bytes, Optional[bytes]]
         return p, None
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         """
         This will set the ByteField 'length' to the correct value.
         """
@@ -217,8 +240,12 @@ class ISOTPHeader(CAN):
         return pkt + pay
 
     def guess_payload_class(self, payload):
-        """
-        ISOTP encodes the frame type in the first nibble of a frame.
+        # type: (bytes) -> Type[Packet]
+        """ISO-TP encodes the frame type in the first nibble of a frame. This
+        is used to determine the payload_class
+
+        :param payload: payload bytes string
+        :return: Type of payload class
         """
         t = (orb(payload[0]) & 0xf0) >> 4
         if t == 0:
@@ -233,11 +260,18 @@ class ISOTPHeader(CAN):
 
 class ISOTPHeaderEA(ISOTPHeader):
     name = 'ISOTPHeaderExtendedAddress'
-    fields_desc = ISOTPHeader.fields_desc + [
-        XByteField('extended_address', 0),
+    fields_desc = [
+        FlagsField('flags', 0, 3, ['error',
+                                   'remote_transmission_request',
+                                   'extended']),
+        XBitField('identifier', 0, 29),
+        ByteField('length', None),
+        ThreeBytesField('reserved', 0),
+        XByteField('extended_address', 0)
     ]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         """
         This will set the ByteField 'length' to the correct value.
         'chb(len(pay) + 1)' is required, because the field 'extended_address'
@@ -259,7 +293,7 @@ class ISOTP_SF(Packet):
     fields_desc = [
         BitEnumField('type', 0, 4, ISOTP_TYPE),
         BitFieldLenField('message_size', None, 4, length_of='data'),
-        StrLenField('data', '', length_from=lambda pkt: pkt.message_size)
+        StrLenField('data', b'', length_from=lambda pkt: pkt.message_size)
     ]
 
 
@@ -270,7 +304,7 @@ class ISOTP_FF(Packet):
         BitField('message_size', 0, 12),
         ConditionalField(BitField('extended_message_size', 0, 32),
                          lambda pkt: pkt.message_size == 0),
-        StrField('data', '', fmt="B")
+        StrField('data', b'', fmt="B")
     ]
 
 
@@ -279,7 +313,7 @@ class ISOTP_CF(Packet):
     fields_desc = [
         BitEnumField('type', 2, 4, ISOTP_TYPE),
         BitField('index', 0, 4),
-        StrField('data', '', fmt="B")
+        StrField('data', b'', fmt="B")
     ]
 
 
@@ -296,17 +330,27 @@ class ISOTP_FC(Packet):
 
 
 class ISOTPMessageBuilderIter(object):
+    """
+    Iterator class for ISOTPMessageBuilder
+    """
     slots = ["builder"]
 
     def __init__(self, builder):
+        # type: (ISOTPMessageBuilder) -> None
         self.builder = builder
 
     def __iter__(self):
+        # type: () -> ISOTPMessageBuilderIter
         return self
 
     def __next__(self):
+        # type: () -> ISOTP
         while self.builder.count:
-            return self.builder.pop()
+            p = self.builder.pop()
+            if p is None:
+                break
+            else:
+                return p
         raise StopIteration
 
     next = __next__
@@ -314,6 +358,8 @@ class ISOTPMessageBuilderIter(object):
 
 class ISOTPMessageBuilder(object):
     """
+    Initialize a ISOTPMessageBuilder object
+
     Utility class to build ISOTP messages out of CAN frames, used by both
     ISOTP.defragment() and ISOTPSession.
 
@@ -324,20 +370,34 @@ class ISOTPMessageBuilder(object):
 
     CAN frames are fed to an ISOTPMessageBuilder object with the feed() method
     and the resulting ISOTP frames can be extracted using the pop() method.
+
+    :param use_ext_addr: True for only attempting to defragment with
+                         extended addressing, False for only attempting
+                         to defragment without extended addressing,
+                         or None for both
+    :param did: Destination Identifier
+    :param basecls: The class of packets that will be returned,
+                    defaults to ISOTP
     """
 
     class Bucket(object):
-        def __init__(self, total_len, first_piece, ts=None):
-            self.pieces = list()
+        """
+        Helper class to store not finished ISOTP messages while building.
+        """
+
+        def __init__(self, total_len, first_piece, ts):
+            # type: (int, bytes, Union[EDecimal, float]) -> None
+            self.pieces = list()  # type: List[bytes]
             self.total_len = total_len
             self.current_len = 0
-            self.ready = None
-            self.src = None
-            self.exsrc = None
-            self.time = ts
+            self.ready = None  # type: Optional[bytes]
+            self.src = None  # type: Optional[int]
+            self.exsrc = None  # type: Optional[int]
+            self.time = ts  # type: Union[float, EDecimal]
             self.push(first_piece)
 
         def push(self, piece):
+            # type: (bytes) -> None
             self.pieces.append(piece)
             self.current_len += len(piece)
             if self.current_len >= self.total_len:
@@ -347,62 +407,69 @@ class ISOTPMessageBuilder(object):
                     isotp_data = "".join(map(str, self.pieces))
                 self.ready = isotp_data[:self.total_len]
 
-    def __init__(self, use_ext_addr=None, did=None, basecls=None):
-        """
-        Initialize a ISOTPMessageBuilder object
-
-        :param use_ext_addr:    True for only attempting to defragment with
-                                extended addressing, False for only attempting
-                                to defragment without extended addressing,
-                                or None for both
-        :param basecls:         the class of packets that will be returned,
-                                defaults to ISOTP
-
-        """
-        self.ready = []
-        self.buckets = {}
+    def __init__(
+            self,
+            use_ext_addr=None,  # type: Optional[bool]
+            did=None,  # type: Optional[Union[int, List[int], Iterable[int]]]
+            basecls=ISOTP  # type: Type[Packet]
+    ):
+        # type: (...) -> None
+        self.ready = []  # type: List[Tuple[int, Optional[int], ISOTPMessageBuilder.Bucket]]  # noqa: E501
+        self.buckets = {}  # type: Dict[Tuple[Optional[int], int, int], ISOTPMessageBuilder.Bucket]  # noqa: E501
         self.use_ext_addr = use_ext_addr
-        self.basecls = basecls or ISOTP
-        self.dst_ids = None
-        self.last_ff = None
-        self.last_ff_ex = None
+        self.basecls = basecls
+        self.dst_ids = None  # type: Optional[Iterable[int]]
+        self.last_ff = None  # type: Optional[Tuple[Optional[int], int, int]]
+        self.last_ff_ex = None  # type: Optional[Tuple[Optional[int], int, int]]  # noqa: E501
         if did is not None:
-            if hasattr(did, "__iter__"):
+            if isinstance(did, list):
+                self.dst_ids = did
+            elif isinstance(did, int):
+                self.dst_ids = [did]
+            elif hasattr(did, "__iter__"):
                 self.dst_ids = did
             else:
-                self.dst_ids = [did]
+                raise TypeError("Invalid type for argument did!")
 
     def feed(self, can):
+        # type: (Union[Iterable[Packet], Packet]) -> None
         """Attempt to feed an incoming CAN frame into the state machine"""
         if not isinstance(can, Packet) and hasattr(can, "__iter__"):
             for p in can:
                 self.feed(p)
             return
-        identifier = can.identifier
 
-        if self.dst_ids is not None and identifier not in self.dst_ids:
+        if not isinstance(can, Packet):
+            return
+
+        if self.dst_ids is not None and can.identifier not in self.dst_ids:
             return
 
         data = bytes(can.data)
 
         if len(data) > 1 and self.use_ext_addr is not True:
-            self._try_feed(identifier, None, data, can.time)
+            self._try_feed(can.identifier, None, data, can.time)
         if len(data) > 2 and self.use_ext_addr is not False:
             ea = six.indexbytes(data, 0)
-            self._try_feed(identifier, ea, data[1:], can.time)
+            self._try_feed(can.identifier, ea, data[1:], can.time)
 
     @property
     def count(self):
+        # type: () -> int
         """Returns the number of ready ISOTP messages built from the provided
-        can frames"""
+        can frames
+
+        :return: Number of ready ISOTP messages
+        """
         return len(self.ready)
 
     def __len__(self):
+        # type: () -> int
         return self.count
 
     def pop(self, identifier=None, ext_addr=None):
-        """
-        Returns a built ISOTP message
+        # type: (Optional[int], Optional[int]) -> Optional[Packet]
+        """Returns a built ISOTP message
 
         :param identifier: if not None, only return isotp messages with this
                            destination
@@ -426,12 +493,18 @@ class ISOTPMessageBuilder(object):
         return None
 
     def __iter__(self):
+        # type: () -> ISOTPMessageBuilderIter
         return ISOTPMessageBuilderIter(self)
 
     @staticmethod
-    def _build(t, basecls=ISOTP):
+    def _build(
+            t,  # type: Tuple[int, Optional[int], ISOTPMessageBuilder.Bucket]
+            basecls=ISOTP  # type: Type[Packet]
+    ):
+        # type: (...) -> Packet
         bucket = t[2]
-        p = basecls(bucket.ready)
+        data = bucket.ready or b""
+        p = basecls(data)
         if hasattr(p, "dst"):
             p.dst = t[0]
         if hasattr(p, "exdst"):
@@ -445,6 +518,7 @@ class ISOTPMessageBuilder(object):
         return p
 
     def _feed_first_frame(self, identifier, ea, data, ts):
+        # type: (int, Optional[int], bytes, Union[EDecimal, float]) -> bool
         if len(data) < 3:
             # At least 3 bytes are necessary: 2 for length and 1 for data
             return False
@@ -465,6 +539,7 @@ class ISOTPMessageBuilder(object):
         return True
 
     def _feed_single_frame(self, identifier, ea, data, ts):
+        # type: (int, Optional[int], bytes, Union[EDecimal, float]) -> bool
         if len(data) < 2:
             # At least 2 bytes are necessary: 1 for length and 1 for data
             return False
@@ -481,6 +556,7 @@ class ISOTPMessageBuilder(object):
         return True
 
     def _feed_consecutive_frame(self, identifier, ea, data):
+        # type: (int, Optional[int], bytes) -> bool
         if len(data) < 2:
             # At least 2 bytes are necessary: 1 for sequence number and
             # 1 for data
@@ -510,21 +586,19 @@ class ISOTPMessageBuilder(object):
         return True
 
     def _feed_flow_control_frame(self, identifier, ea, data):
+        # type: (int, Optional[int], bytes) -> bool
         if len(data) < 3:
             # At least 2 bytes are necessary: 1 for sequence number and
             # 1 for data
             return False
 
-        keys = [self.last_ff, self.last_ff_ex]
-        if not any(keys):
-            return False
-
+        keys = [x for x in (self.last_ff, self.last_ff_ex) if x is not None]
         buckets = [self.buckets.pop(k, None) for k in keys]
 
         self.last_ff = None
         self.last_ff_ex = None
 
-        if not any(buckets):
+        if not any(buckets) or not any(keys):
             # There is no message constructor waiting for this frame
             return False
 
@@ -537,6 +611,7 @@ class ISOTPMessageBuilder(object):
         return True
 
     def _try_feed(self, identifier, ea, data, ts):
+        # type: (int, Optional[int], bytes, Union[EDecimal, float]) -> None
         first_byte = six.indexbytes(data, 0)
         if len(data) > 1 and first_byte & 0xf0 == N_PCI_SF:
             self._feed_single_frame(identifier, ea, data, ts)
@@ -552,22 +627,20 @@ class ISOTPSession(DefaultSession):
     """Defragment ISOTP packets 'on-the-flow'.
 
     Usage:
-    >>> sniff(session=ISOTPSession)
+        >>> sniff(session=ISOTPSession)
     """
 
     def __init__(self, *args, **kwargs):
-        DefaultSession.__init__(self, *args, **kwargs)
+        # type: (Any, Any) -> None
+        super(ISOTPSession, self).__init__(*args, **kwargs)
         self.m = ISOTPMessageBuilder(
             use_ext_addr=kwargs.pop("use_ext_addr", None),
             did=kwargs.pop("did", None),
-            basecls=kwargs.pop("basecls", None))
+            basecls=kwargs.pop("basecls", ISOTP))
 
     def on_packet_received(self, pkt):
+        # type: (Optional[Packet]) -> None
         if not pkt:
-            return
-        if isinstance(pkt, list):
-            for p in pkt:
-                ISOTPSession.on_packet_received(self, p)
             return
         self.m.feed(pkt)
         while len(self.m) > 0:
@@ -575,7 +648,7 @@ class ISOTPSession(DefaultSession):
             if self._supersession:
                 self._supersession.on_packet_received(rcvd)
             else:
-                DefaultSession.on_packet_received(self, rcvd)
+                super(ISOTPSession, self).on_packet_received(rcvd)
 
 
 class ISOTPSoftSocket(SuperSocket):
@@ -603,40 +676,54 @@ class ISOTPSoftSocket(SuperSocket):
     * Upon destruction, ISOTPSoftSocket.close() will be called
     * ISOTPSoftSocket.close() will call ISOTPSocketImplementation.close()
     * RX background thread can be stopped by the garbage collector
-    """
+
+    Initialize an ISOTPSoftSocket using the provided underlying can socket.
+
+    Example (with NativeCANSocket underneath):
+        >>> conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+        >>> load_contrib('isotp')
+        >>> with ISOTPSocket("can0", sid=0x641, did=0x241) as sock:
+        >>>     sock.send(...)
+
+    Example (with PythonCANSocket underneath):
+        >>> conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+        >>> conf.contribs['CANSocket'] = {'use-python-can': True}
+        >>> load_contrib('isotp')
+        >>> with ISOTPSocket(CANSocket(bustype='socketcan', channel="can0"), sid=0x641, did=0x241) as sock:
+        >>>     sock.send(...)
+
+    :param can_socket: a CANSocket instance, preferably filtering only can
+                       frames with identifier equal to did
+    :param sid: the CAN identifier of the sent CAN frames
+    :param did: the CAN identifier of the received CAN frames
+    :param extended_addr: the extended address of the sent ISOTP frames
+                          (can be None)
+    :param extended_rx_addr: the extended address of the received ISOTP
+                             frames (can be None)
+    :param rx_block_size: block size sent in Flow Control ISOTP frames
+    :param rx_separation_time_min: minimum desired separation time sent in
+                                   Flow Control ISOTP frames
+    :param padding: If True, pads sending packets with 0x00 which not
+                    count to the payload.
+                    Does not affect receiving packets.
+    :param basecls: base class of the packets emitted by this socket
+    """  # noqa: E501
 
     nonblocking_socket = True
 
     def __init__(self,
-                 can_socket=None,
-                 sid=0,
-                 did=0,
-                 extended_addr=None,
-                 extended_rx_addr=None,
-                 rx_block_size=0,
-                 rx_separation_time_min=0,
-                 padding=False,
-                 listen_only=False,
-                 basecls=ISOTP):
-        """
-        Initialize an ISOTPSoftSocket using the provided underlying can socket
-
-        :param can_socket: a CANSocket instance, preferably filtering only can
-                           frames with identifier equal to did
-        :param sid: the CAN identifier of the sent CAN frames
-        :param did: the CAN identifier of the received CAN frames
-        :param extended_addr: the extended address of the sent ISOTP frames
-                              (can be None)
-        :param extended_rx_addr: the extended address of the received ISOTP
-                                 frames (can be None)
-        :param rx_block_size: block size sent in Flow Control ISOTP frames
-        :param rx_separation_time_min: minimum desired separation time sent in
-                                       Flow Control ISOTP frames
-        :param padding: If True, pads sending packets with 0x00 which not
-                        count to the payload.
-                        Does not affect receiving packets.
-        :param basecls: base class of the packets emitted by this socket
-        """
+                 can_socket=None,  # type: Optional["CANSocket"]
+                 sid=0,  # type: int
+                 did=0,  # type: int
+                 extended_addr=None,  # type: Optional[int]
+                 extended_rx_addr=None,  # type: Optional[int]
+                 rx_block_size=0,  # type: int
+                 rx_separation_time_min=0,  # type: int
+                 padding=False,  # type: bool
+                 listen_only=False,  # type: bool
+                 basecls=ISOTP  # type: Type[Packet]
+                 ):
+        # type: (...) -> None
 
         if six.PY3 and LINUX and isinstance(can_socket, six.string_types):
             from scapy.contrib.cansocket_native import NativeCANSocket
@@ -661,42 +748,52 @@ class ISOTPSoftSocket(SuperSocket):
             listen_only=listen_only
         )
 
-        self.ins = impl
-        self.outs = impl
+        # Cast for compatibility to functions from SuperSocket.
+        self.ins = cast(socket.socket, impl)
+        self.outs = cast(socket.socket, impl)
         self.impl = impl
-
+        self.basecls = basecls
         if basecls is None:
             warning('Provide a basecls ')
-        self.basecls = basecls
 
     def close(self):
+        # type: () -> None
         if not self.closed:
             self.impl.close()
-            self.outs = None
-            self.ins = None
-            SuperSocket.close(self)
+            self.closed = True
 
     def begin_send(self, p):
+        # type: (Packet) -> int
         """Begin the transmission of message p. This method returns after
         sending the first frame. If multiple frames are necessary to send the
         message, this socket will unable to send other messages until either
         the transmission of this frame succeeds or it fails."""
-        if hasattr(p, "sent_time"):
-            p.sent_time = time.time()
 
-        return self.outs.begin_send(bytes(p))
+        if not self.closed:
+            if hasattr(p, "sent_time"):
+                p.sent_time = time.time()
+            self.impl.begin_send(bytes(p))
+            return len(p)
+        else:
+            return 0
 
     def recv_raw(self, x=0xffff):
+        # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
         """Receive a complete ISOTP message, blocking until a message is
         received or the specified timeout is reached.
         If self.timeout is 0, then this function doesn't block and returns the
         first frame in the receive buffer or None if there isn't any."""
-        msg = self.ins.recv()
-        t = time.time()
-        return self.basecls, msg, t
+        if not self.closed:
+            tup = self.impl.recv()
+            if tup is not None:
+                return self.basecls, tup[0], float(tup[1])
+        return self.basecls, None, None
 
     def recv(self, x=0xffff):
-        msg = SuperSocket.recv(self, x)
+        # type: (int) -> Optional[Packet]
+        msg = super(ISOTPSoftSocket, self).recv(x)
+        if msg is None:
+            return None
 
         if hasattr(msg, "src"):
             msg.src = self.src
@@ -710,46 +807,48 @@ class ISOTPSoftSocket(SuperSocket):
 
     @staticmethod
     def select(sockets, remain=None):
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
         """This function is called during sendrecv() routine to wait for
         sockets to be ready to receive
         """
-        blocking = remain is None or remain > 0
 
-        def find_ready_sockets():
-            return list(filter(lambda x: (x.ins is not None) and
-                                         (x.ins.rx_queue is not None) and
-                                         (not x.ins.rx_queue.empty()),
-                               sockets))
+        def find_ready_sockets(socks):
+            # type: (List[SuperSocket]) -> List[SuperSocket]
+            return [x for x in socks if isinstance(x, ISOTPSoftSocket) and
+                    not x.closed and not x.impl.rx_queue.empty()]
 
-        ready_sockets = find_ready_sockets()
+        ready_sockets = find_ready_sockets(sockets)
+
+        blocking = remain != 0
         if len(ready_sockets) > 0 or not blocking:
             return ready_sockets
 
         exit_select = Event()
 
         def my_cb(msg):
+            # type: (Any) -> None
             exit_select.set()
 
         try:
             for s in sockets:
-                s.ins.rx_callbacks.append(my_cb)
+                if not s.closed and isinstance(s, ISOTPSoftSocket):
+                    s.impl.rx_callbacks.append(my_cb)
 
             exit_select.wait(remain)
 
         finally:
             for s in sockets:
-                try:
-                    s.ins.rx_callbacks.remove(my_cb)
-                except ValueError:
-                    pass
-                except AttributeError:
-                    pass
+                if isinstance(s, ISOTPSoftSocket):
+                    try:
+                        s.impl.rx_callbacks.remove(my_cb)
+                    except (ValueError, AttributeError):
+                        pass
 
-        ready_sockets = find_ready_sockets()
+        ready_sockets = find_ready_sockets(sockets)
         return ready_sockets
 
 
-ISOTPSocket = ISOTPSoftSocket
+ISOTPSocket = ISOTPSoftSocket  # type: Union[Type[ISOTPSoftSocket], Type[ISOTPNativeSocket]]  # noqa: E501
 
 
 class CANReceiverThread(Thread):
@@ -759,36 +858,39 @@ class CANReceiverThread(Thread):
     and not being lost if they come before the sniff method is called. This is
     true in general since sniff is usually implemented as repeated recv(), but
     might be false in some implementation of CANSocket
+
+    Initialize the thread. In order for this thread to be able to be
+    stopped by the destructor of another object, it is important to not
+    keep a reference to the object in the callback function.
+
+    :param socket: the CANSocket upon which this class will call the
+                   sniff() method
+    :param callback: function to call whenever a CAN frame is received
     """
 
     def __init__(self, can_socket, callback):
-        """
-        Initialize the thread. In order for this thread to be able to be
-        stopped by the destructor of another object, it is important to not
-        keep a reference to the object in the callback function.
-
-        :param socket: the CANSocket upon which this class will call the
-                       sniff() method
-        :param callback: function to call whenever a CAN frame is received
-        """
+        # type: ("CANSocket", Callable[[Packet], None]) -> None
         self.socket = can_socket
         self.callback = callback
         self.exiting = False
         self._thread_started = Event()
-        self.exception = None
+        self.exception = None  # type: Optional[Exception]
 
         Thread.__init__(self)
         self.name = "CANReceiver" + self.name
 
     def start(self):
+        # type: () -> None
         Thread.start(self)
         if not self._thread_started.wait(5):
             raise Scapy_Exception("CAN RX thread not started in 5s.")
 
     def run(self):
+        # type: () -> None
         self._thread_started.set()
         try:
             def prn(msg):
+                # type: (Packet) -> None
                 if not self.exiting:
                     self.callback(msg)
 
@@ -802,10 +904,11 @@ class CANReceiverThread(Thread):
                         raise ex
                 if self.exiting:
                     return
-        except Exception as ex:
-            self.exception = ex
+        except Exception as e:
+            self.exception = e
 
     def stop(self):
+        # type: () -> None
         self.exiting = True
 
 
@@ -816,11 +919,14 @@ class TimeoutScheduler:
     GRACE = .1
     _mutex = Lock()
     _event = Event()
-    _thread = None
-    _handles = []  # must use heapq functions!
+    _thread = None  # type: Optional[Thread]
+
+    # use heapq functions on _handles!
+    _handles = []  # type: List[TimeoutScheduler.Handle]
 
     @staticmethod
     def schedule(timeout, callback):
+        # type: (float, Callable[[], None]) -> TimeoutScheduler.Handle
         """Schedules the execution of a timeout.
 
         The function `callback` will be called in `timeout` seconds.
@@ -856,6 +962,7 @@ class TimeoutScheduler:
 
     @staticmethod
     def cancel(handle):
+        # type: (TimeoutScheduler.Handle) -> None
         """Provided its handle, cancels the execution of a timeout."""
 
         handles = TimeoutScheduler._handles
@@ -874,6 +981,7 @@ class TimeoutScheduler:
 
     @staticmethod
     def clear():
+        # type: () -> None
         """Cancels the execution of all timeouts."""
         with TimeoutScheduler._mutex:
             TimeoutScheduler._handles.clear()
@@ -883,6 +991,7 @@ class TimeoutScheduler:
 
     @staticmethod
     def _peek_next():
+        # type: () -> Optional[TimeoutScheduler.Handle]
         """Returns the next timeout to execute, or `None` if list is empty,
         without modifying the list"""
         with TimeoutScheduler._mutex:
@@ -894,6 +1003,7 @@ class TimeoutScheduler:
 
     @staticmethod
     def _wait(handle):
+        # type: (Optional[TimeoutScheduler.Handle]) -> None
         """Waits until it is time to execute the provided handle, or until
         another thread calls _event.set()"""
 
@@ -923,6 +1033,7 @@ class TimeoutScheduler:
 
     @staticmethod
     def _task():
+        # type: () -> None
         """Executed in a background thread, this thread will automatically
         start when the first timeout is added and stop when the last timeout
         is removed or executed."""
@@ -954,6 +1065,7 @@ class TimeoutScheduler:
 
     @staticmethod
     def _poll():
+        # type: () -> None
         """Execute all the callbacks that were due until now"""
 
         handles = TimeoutScheduler._handles
@@ -973,7 +1085,7 @@ class TimeoutScheduler:
                     handle._cb = True
 
             # Call the callback here, outside of the mutex
-            if callback is not None:
+            if callable(callback):
                 try:
                     callback()
                 except Exception:
@@ -981,6 +1093,7 @@ class TimeoutScheduler:
 
     @staticmethod
     def _time():
+        # type: () -> float
         if six.PY2:
             return time.time()
         return time.monotonic()
@@ -988,13 +1101,18 @@ class TimeoutScheduler:
     class Handle:
         """Handle for a timeout, consisting of a callback and a time when it
         should be executed."""
-        __slots__ = '_when', '_cb'
+        __slots__ = ['_when', '_cb']
 
-        def __init__(self, when, cb):
+        def __init__(self,
+                     when,  # type: float
+                     cb  # type: Optional[Union[Callable[[], None], bool]]
+                     ):
+            # type: (...) -> None
             self._when = when
             self._cb = cb
 
         def cancel(self):
+            # type: () -> bool
             """Cancels this timeout, preventing it from executing its
             callback"""
             if self._cb is None:
@@ -1011,19 +1129,34 @@ class TimeoutScheduler:
                     return True
 
         def __cmp__(self, other):
+            # type: (Any) -> int
+            if not isinstance(other, TimeoutScheduler.Handle):
+                raise TypeError()
             diff = self._when - other._when
             return 0 if diff == 0 else (1 if diff > 0 else -1)
 
         def __lt__(self, other):
+            # type: (Any) -> bool
+            if not isinstance(other, TimeoutScheduler.Handle):
+                raise TypeError()
             return self._when < other._when
 
         def __le__(self, other):
+            # type: (Any) -> bool
+            if not isinstance(other, TimeoutScheduler.Handle):
+                raise TypeError()
             return self._when <= other._when
 
         def __gt__(self, other):
+            # type: (Any) -> bool
+            if not isinstance(other, TimeoutScheduler.Handle):
+                raise TypeError()
             return self._when > other._when
 
         def __ge__(self, other):
+            # type: (Any) -> bool
+            if not isinstance(other, TimeoutScheduler.Handle):
+                raise TypeError()
             return self._when >= other._when
 
 
@@ -1052,43 +1185,43 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
     This class is separated from ISOTPSoftSocket to make sure the background
     thread can't hold a reference to ISOTPSoftSocket, allowing it to be
     collected by the GC.
+
+    :param can_socket: a CANSocket instance, preferably filtering only can
+                       frames with identifier equal to did
+    :param src_id: the CAN identifier of the sent CAN frames
+    :param dst_id: the CAN identifier of the received CAN frames
+    :param padding: If True, pads sending packets with 0x00 which not
+                    count to the payload.
+                    Does not affect receiving packets.
+    :param extended_addr: Extended Address byte to be added at the
+            beginning of every CAN frame _sent_ by this object. Can be None
+            in order to disable extended addressing on sent frames.
+    :param extended_rx_addr: Extended Address byte expected to be found at
+            the beginning of every CAN frame _received_ by this object. Can
+            be None in order to disable extended addressing on received
+            frames.
+    :param rx_block_size: Block Size byte to be included in every Control
+            Flow Frame sent by this object. The default value of 0 means
+            that all the data will be received in a single block.
+    :param rx_separation_time_min: Time Minimum Separation byte to be
+            included in every Control Flow Frame sent by this object. The
+            default value of 0 indicates that the peer will not wait any
+            time between sending frames.
+    :param listen_only: Disables send of flow control frames
     """
 
     def __init__(self,
-                 can_socket,
-                 src_id,
-                 dst_id,
-                 padding=False,
-                 extended_addr=None,
-                 extended_rx_addr=None,
-                 rx_block_size=0,
-                 rx_separation_time_min=0,
-                 listen_only=False):
-        """
-        :param can_socket: a CANSocket instance, preferably filtering only can
-                           frames with identifier equal to did
-        :param src_id: the CAN identifier of the sent CAN frames
-        :param dst_id: the CAN identifier of the received CAN frames
-        :param padding: If True, pads sending packets with 0x00 which not
-                        count to the payload.
-                        Does not affect receiving packets.
-        :param extended_addr: Extended Address byte to be added at the
-                beginning of every CAN frame _sent_ by this object. Can be None
-                in order to disable extended addressing on sent frames.
-        :param extended_rx_addr: Extended Address byte expected to be found at
-                the beginning of every CAN frame _received_ by this object. Can
-                be None in order to disable extended addressing on received
-                frames.
-        :param rx_block_size: Block Size byte to be included in every Control
-                Flow Frame sent by this object. The default value of 0 means
-                that all the data will be received in a single block.
-        :param rx_separation_time_min: Time Minimum Separation byte to be
-                included in every Control Flow Frame sent by this object. The
-                default value of 0 indicates that the peer will not wait any
-                time between sending frames.
-        :param listen_only: Disables send of flow control frames
-        """
-
+                 can_socket,  # type: "CANSocket"
+                 src_id,  # type: int
+                 dst_id,  # type: int
+                 padding=False,  # type: bool
+                 extended_addr=None,  # type: Optional[int]
+                 extended_rx_addr=None,  # type: Optional[int]
+                 rx_block_size=0,  # type: int
+                 rx_separation_time_min=0,  # type: int
+                 listen_only=False  # type: bool
+                 ):
+        # type: (...) -> None
         automaton.SelectableObject.__init__(self)
 
         self.can_socket = can_socket
@@ -1111,25 +1244,26 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
 
         self.rx_queue = queue.Queue()
         self.rx_len = -1
-        self.rx_buf = None
+        self.rx_buf = None  # type: Optional[bytes]
         self.rx_sn = 0
         self.rx_bs = 0
         self.rx_idx = 0
+        self.rx_ts = 0.0  # type: Union[float, EDecimal]
         self.rx_state = ISOTP_IDLE
 
         self.txfc_bs = 0
         self.txfc_stmin = 0
         self.tx_gap = 0
 
-        self.tx_buf = None
+        self.tx_buf = None  # type: Optional[bytes]
         self.tx_sn = 0
         self.tx_bs = 0
         self.tx_idx = 0
         self.rx_ll_dl = 0
         self.tx_state = ISOTP_IDLE
 
-        self.tx_timeout_handle = None
-        self.rx_timeout_handle = None
+        self.tx_timeout_handle = None  # type: Optional[TimeoutScheduler.Handle]  # noqa: E501
+        self.rx_timeout_handle = None  # type: Optional[TimeoutScheduler.Handle]  # noqa: E501
         self.rx_thread = CANReceiverThread(can_socket, self.on_can_recv)
 
         self.tx_mutex = Lock()
@@ -1137,17 +1271,19 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         self.send_mutex = Lock()
 
         self.tx_done = Event()
-        self.tx_exception = None
+        self.tx_exception = None  # type: Optional[str]
 
-        self.tx_callbacks = []
-        self.rx_callbacks = []
+        self.tx_callbacks = []  # type: List[Callable[[], None]]
+        self.rx_callbacks = []  # type: List[Callable[[bytes], None]]
 
         self.rx_thread.start()
 
     def __del__(self):
+        # type: () -> None
         self.close()
 
     def can_send(self, load):
+        # type: (bytes) -> None
         if self.padding:
             load += b"\xCC" * (CAN_MAX_DLEN - len(load))
         if self.src_id is None or self.src_id <= 0x7ff:
@@ -1157,6 +1293,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                                      data=load))
 
     def on_can_recv(self, p):
+        # type: (Packet) -> None
         if not isinstance(p, CAN):
             raise Scapy_Exception("argument is not a CAN frame")
         if p.identifier != self.dst_id:
@@ -1168,9 +1305,11 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.on_recv(p)
 
     def close(self):
+        # type: () -> None
         self.rx_thread.stop()
 
     def _rx_timer_handler(self):
+        # type: () -> None
         """Method called every time the rx_timer times out, due to the peer not
         sending a consecutive frame within the expected time window"""
 
@@ -1183,6 +1322,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                     warning("RX state was reset due to timeout")
 
     def _tx_timer_handler(self):
+        # type: () -> None
         """Method called every time the tx_timer times out, which can happen in
         two situations: either a Flow Control frame was not received in time,
         or the Separation Time Min is expired and a new frame must be sent."""
@@ -1200,6 +1340,9 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 # push out the next segmented pdu
                 src_off = len(self.ea_hdr)
                 max_bytes = 7 - src_off
+                if self.tx_buf is None:
+                    self.tx_exception = "TX buffer is not filled"
+                    raise Scapy_Exception(self.tx_exception)
 
                 while 1:
                     load = self.ea_hdr
@@ -1235,6 +1378,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                         return
 
     def on_recv(self, cf):
+        # type: (Packet) -> None
         """Function that must be called every time a CAN frame is received, to
         advance the state machine."""
 
@@ -1258,19 +1402,20 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 self._recv_fc(data[ae:])
         elif n_pci == N_PCI_SF:
             with self.rx_mutex:
-                self._recv_sf(data[ae:])
+                self._recv_sf(data[ae:], cf.time)
         elif n_pci == N_PCI_FF:
             with self.rx_mutex:
-                self._recv_ff(data[ae:])
+                self._recv_ff(data[ae:], cf.time)
         elif n_pci == N_PCI_CF:
             with self.rx_mutex:
                 self._recv_cf(data[ae:])
 
     def _recv_fc(self, data):
+        # type: (bytes) -> None
         """Process a received 'Flow Control' frame"""
         if (self.tx_state != ISOTP_WAIT_FC and
                 self.tx_state != ISOTP_WAIT_FIRST_FC):
-            return 0
+            return
 
         if self.tx_timeout_handle is not None:
             self.tx_timeout_handle.cancel()
@@ -1326,9 +1471,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.tx_done.set()
             raise Scapy_Exception(self.tx_exception)
 
-        return 0
-
-    def _recv_sf(self, data):
+    def _recv_sf(self, data, ts):
+        # type: (bytes, Union[float, EDecimal]) -> None
         """Process a received 'Single Frame' frame"""
         if self.rx_timeout_handle is not None:
             self.rx_timeout_handle.cancel()
@@ -1341,16 +1485,16 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
 
         length = six.indexbytes(data, 0) & 0xf
         if len(data) - 1 < length:
-            return 1
+            return
 
         msg = data[1:1 + length]
-        self.rx_queue.put(msg)
+        self.rx_queue.put((msg, ts))
         for cb in self.rx_callbacks:
             cb(msg)
         self.call_release()
-        return 0
 
-    def _recv_ff(self, data):
+    def _recv_ff(self, data, ts):
+        # type: (bytes, Union[float, EDecimal]) -> None
         """Process a received 'First Frame' frame"""
         if self.rx_timeout_handle is not None:
             self.rx_timeout_handle.cancel()
@@ -1362,7 +1506,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.rx_state = ISOTP_IDLE
 
         if len(data) < 7:
-            return 1
+            return
         self.rx_ll_dl = len(data)
 
         # get the FF_DL
@@ -1383,6 +1527,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         data_bytes = data[ff_pci_sz:]
         self.rx_idx = len(data_bytes)
         self.rx_buf = data_bytes
+        self.rx_ts = ts
 
         # initial setup for this pdu reception
         self.rx_sn = 1
@@ -1400,12 +1545,11 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         self.rx_timeout_handle = TimeoutScheduler.schedule(
             self.cf_timeout, self._rx_timer_handler)
 
-        return 0
-
     def _recv_cf(self, data):
+        # type: (bytes) -> None
         """Process a received 'Consecutive Frame' frame"""
         if self.rx_state != ISOTP_WAIT_DATA:
-            return 0
+            return
 
         if self.rx_timeout_handle is not None:
             self.rx_timeout_handle.cancel()
@@ -1413,7 +1557,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
 
         # CFs are never longer than the FF
         if len(data) > self.rx_ll_dl:
-            return 1
+            return
 
         # CFs have usually the LL_DL length
         if len(data) < self.rx_ll_dl:
@@ -1421,7 +1565,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             if self.rx_len - self.rx_idx > self.rx_ll_dl:
                 if conf.verb > 2:
                     warning("Received a CF with insufficient length")
-                return 1
+                return
 
         if six.indexbytes(data, 0) & 0x0f != self.rx_sn:
             # Wrong sequence number
@@ -1429,7 +1573,10 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 warning("RX state was reset because wrong sequence number was "
                         "received")
             self.rx_state = ISOTP_IDLE
-            return 1
+            return
+
+        if self.rx_buf is None:
+            raise Scapy_Exception("rx_buf not filled with data!")
 
         self.rx_sn = (self.rx_sn + 1) % 16
         self.rx_buf += data[1:]
@@ -1439,12 +1586,12 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             # we are done
             self.rx_buf = self.rx_buf[0:self.rx_len]
             self.rx_state = ISOTP_IDLE
-            self.rx_queue.put(self.rx_buf)
+            self.rx_queue.put((self.rx_buf, self.rx_ts))
             for cb in self.rx_callbacks:
                 cb(self.rx_buf)
             self.call_release()
             self.rx_buf = None
-            return 0
+            return
 
         # perform blocksize handling, if enabled
         if self.rxfc_bs != 0:
@@ -1461,9 +1608,9 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         # wait for another CF
         self.rx_timeout_handle = TimeoutScheduler.schedule(
             self.cf_timeout, self._rx_timer_handler)
-        return 0
 
     def begin_send(self, x):
+        # type: (bytes) -> None
         """Begins sending an ISOTP message. This method does not block."""
         with self.tx_mutex:
             if self.tx_state != ISOTP_IDLE:
@@ -1509,6 +1656,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 self.fc_timeout, self._tx_timer_handler)
 
     def send(self, p):
+        # type: (bytes) -> None
         """Send an ISOTP frame and block until the message is sent or an error
         happens."""
         with self.send_mutex:
@@ -1523,6 +1671,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             return
 
     def recv(self, timeout=None):
+        # type: (Optional[int]) -> Optional[Tuple[bytes, Union[float, EDecimal]]]  # noqa: E501
         """Receive an ISOTP frame, blocking if none is available in the buffer
         for at most 'timeout' seconds."""
 
@@ -1532,6 +1681,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             return None
 
     def check_recv(self):
+        # type: () -> bool
         """Implementation for SelectableObject"""
         return not self.rx_queue.empty()
 
@@ -1622,6 +1772,7 @@ if six.PY3 and LINUX:
                 txpad_content=CAN_ISOTP_DEFAULT_PAD_CONTENT,
                 rxpad_content=CAN_ISOTP_DEFAULT_PAD_CONTENT,
                 rx_ext_address=CAN_ISOTP_DEFAULT_EXT_ADDRESS):
+            # type: (int, int, int, int, int, int) -> bytes
             return struct.pack(self.can_isotp_options_fmt,
                                flags,
                                frame_txtime,
@@ -1655,6 +1806,7 @@ if six.PY3 and LINUX:
                                          bs=CAN_ISOTP_DEFAULT_RECV_BS,
                                          stmin=CAN_ISOTP_DEFAULT_RECV_STMIN,
                                          wftmax=CAN_ISOTP_DEFAULT_RECV_WFTMAX):
+            # type: (int, int, int) -> bytes
             return struct.pack(self.can_isotp_fc_options_fmt,
                                bs,
                                stmin,
@@ -1682,6 +1834,7 @@ if six.PY3 and LINUX:
                                          tx_dl=CAN_ISOTP_DEFAULT_LL_TX_DL,
                                          tx_flags=CAN_ISOTP_DEFAULT_LL_TX_FLAGS
                                          ):
+            # type: (int, int, int) -> bytes
             return struct.pack(self.can_isotp_ll_options_fmt,
                                mtu,
                                tx_dl,
@@ -1707,6 +1860,7 @@ if six.PY3 and LINUX:
         # };
 
         def __get_sock_ifreq(self, sock, iface):
+            # type: (socket.socket, str) -> IFREQ
             socket_id = ctypes.c_int(sock.fileno())
             ifr = IFREQ()
             ifr.ifr_name = iface.encode('ascii')
@@ -1719,6 +1873,7 @@ if six.PY3 and LINUX:
             return ifr
 
         def __bind_socket(self, sock, iface, sid, did):
+            # type: (socket.socket, str, int, int) -> None
             socket_id = ctypes.c_int(sock.fileno())
             ifr = self.__get_sock_ifreq(sock, iface)
 
@@ -1739,11 +1894,15 @@ if six.PY3 and LINUX:
             if error < 0:
                 warning("Couldn't bind socket")
 
-        def __set_option_flags(self, sock, extended_addr=None,
-                               extended_rx_addr=None,
-                               listen_only=False,
-                               padding=False,
-                               transmit_time=100):
+        def __set_option_flags(self,
+                               sock,  # type: socket.socket
+                               extended_addr=None,  # type: Optional[int]
+                               extended_rx_addr=None,  # type: Optional[int]
+                               listen_only=False,  # type: bool
+                               padding=False,  # type: bool
+                               transmit_time=100  # type: int
+                               ):
+            # type: (...) -> None
             option_flags = CAN_ISOTP_DEFAULT_FLAGS
             if extended_addr is not None:
                 option_flags = option_flags | CAN_ISOTP_EXTEND_ADDR
@@ -1759,8 +1918,7 @@ if six.PY3 and LINUX:
                 option_flags = option_flags | CAN_ISOTP_LISTEN_MODE
 
             if padding:
-                option_flags = option_flags | CAN_ISOTP_TX_PADDING \
-                                            | CAN_ISOTP_RX_PADDING
+                option_flags = option_flags | CAN_ISOTP_TX_PADDING | CAN_ISOTP_RX_PADDING  # noqa: E501
 
             sock.setsockopt(SOL_CAN_ISOTP,
                             CAN_ISOTP_OPTS,
@@ -1771,26 +1929,33 @@ if six.PY3 and LINUX:
                                 rx_ext_address=extended_rx_addr))
 
         def __init__(self,
-                     iface=None,
-                     sid=0,
-                     did=0,
-                     extended_addr=None,
-                     extended_rx_addr=None,
-                     listen_only=False,
-                     padding=False,
-                     transmit_time=100,
-                     basecls=ISOTP):
+                     iface=None,  # type: Optional[Union[str, SuperSocket]]
+                     sid=0,  # type: int
+                     did=0,  # type: int
+                     extended_addr=None,  # type: Optional[int]
+                     extended_rx_addr=None,  # type: Optional[int]
+                     listen_only=False,  # type: bool
+                     padding=False,  # type: bool
+                     transmit_time=100,  # type: int
+                     basecls=ISOTP  # type: Type[Packet]
+                     ):
+            # type: (...) -> None
 
             if not isinstance(iface, six.string_types):
+                # This is for interoperability with ISOTPSoftSockets.
+                # If a NativeCANSocket is provided, the interface name of this
+                # socket is extracted and an ISOTPNativeSocket will be opened
+                # on this interface.
+                iface = cast(SuperSocket, iface)
                 if hasattr(iface, "ins") and hasattr(iface.ins, "getsockname"):
                     iface = iface.ins.getsockname()
                     if isinstance(iface, tuple):
-                        iface = iface[0]
+                        iface = cast(str, iface[0])
                 else:
                     raise Scapy_Exception("Provide a string or a CANSocket "
                                           "object as iface parameter")
 
-            self.iface = iface or conf.contribs['NativeCANSocket']['iface']
+            self.iface = cast(str, iface) or conf.contribs['NativeCANSocket']['iface']  # noqa: E501
             self.can_socket = socket.socket(socket.PF_CAN, socket.SOCK_DGRAM,
                                             CAN_ISOTP)
             self.__set_option_flags(self.can_socket,
@@ -1825,30 +1990,34 @@ if six.PY3 and LINUX:
             self.basecls = basecls
 
         def recv_raw(self, x=0xffff):
+            # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
             """
             Receives a packet, then returns a tuple containing
             (cls, pkt_data, time)
-            """  # noqa: E501
+            """
             try:
                 pkt, _, ts = self._recv_raw(self.ins, x)
             except BlockingIOError:  # noqa: F821
                 warning('Captured no data, socket in non-blocking mode.')
-                return None
+                return None, None, None
             except socket.timeout:
                 warning('Captured no data, socket read timed out.')
-                return None
+                return None, None, None
             except OSError:
                 # something bad happened (e.g. the interface went down)
                 warning("Captured no data.")
                 self.close()
-                return None
+                return None, None, None
 
             if ts is None:
                 ts = get_last_packet_timestamp(self.ins)
             return self.basecls, pkt, ts
 
         def recv(self, x=0xffff):
+            # type: (int) -> Optional[Packet]
             msg = SuperSocket.recv(self, x)
+            if msg is None:
+                return msg
 
             if hasattr(msg, "src"):
                 msg.src = self.src
@@ -1860,10 +2029,10 @@ if six.PY3 and LINUX:
                 msg.exdst = self.exdst
             return msg
 
-    __all__.append("ISOTPNativeSocket")
 
 if USE_CAN_ISOTP_KERNEL_MODULE:
     ISOTPSocket = ISOTPNativeSocket
+    __all__.append("ISOTPNativeSocket")
 
 
 # ###################################################################
@@ -1942,7 +2111,8 @@ def filter_periodic_packets(packet_dict, verbose=False):
         if len(pkt_lst) < 3:
             continue
 
-        tg = [p1.time - p2.time for p1, p2 in zip(pkt_lst[1:], pkt_lst[:-1])]
+        tg = [float(p1.time) - float(p2.time)
+              for p1, p2 in zip(pkt_lst[1:], pkt_lst[:-1])]
         if all(abs(t1 - t2) < 0.001 for t1, t2 in zip(tg[1:], tg[:-1])):
             if verbose:
                 print("[i] Identifier 0x%03x seems to be periodic. "
@@ -1951,8 +2121,15 @@ def filter_periodic_packets(packet_dict, verbose=False):
                 del packet_dict[k]
 
 
-def get_isotp_fc(id_value, id_list, noise_ids, extended, packet, verbose=False):   # noqa: E501
-    # type: (int, Union[List[int], Dict[int, Tuple[Packet, int]]], Optional[Iterator[int]], bool, Packet, bool) -> None   # noqa: E501
+def get_isotp_fc(
+        id_value,  # type: int
+        id_list,  # type: Union[List[int], Dict[int, Tuple[Packet, int]]]
+        noise_ids,  # type: Optional[List[int]]
+        extended,  # type: bool
+        packet,  # type: Packet
+        verbose=False  # type: bool
+):
+    # type: (...) -> None
     """Callback for sniff function when packet received
 
     If received packet is a FlowControl and not in noise_ids append it
@@ -1988,19 +2165,20 @@ def get_isotp_fc(id_value, id_list, noise_ids, extended, packet, verbose=False):
             else:
                 raise TypeError("Unknown type of id_list")
         else:
-            noise_ids.append(packet.identifier)
+            if noise_ids is not None:
+                noise_ids.append(packet.identifier)
     except Exception as e:
         print("[!] Unknown message Exception: %s on packet: %s" %
               (e, repr(packet)))
 
 
-def scan(sock,                      # type: SuperSocket
-         scan_range=range(0x800),   # type: Iterator[int]
-         noise_ids=None,            # type: Optional[Iterator[int]]
-         sniff_time=0.1,            # type: float
-         extended_can_id=False,     # type: bool
-         verbose=False              # type: bool
-         ):                         # type: (...) -> Dict[int, Tuple[Packet, int]]  # noqa: E501
+def scan(sock,  # type: SuperSocket
+         scan_range=range(0x800),  # type: Iterable[int]
+         noise_ids=None,  # type: Optional[List[int]]
+         sniff_time=0.1,  # type: float
+         extended_can_id=False,  # type: bool
+         verbose=False  # type: bool
+         ):  # type: (...) -> Dict[int, Tuple[Packet, int]]
     """Scan and return dictionary of detections
 
     ISOTP-Scan - NO extended IDs
@@ -2016,7 +2194,7 @@ def scan(sock,                      # type: SuperSocket
     :param verbose: displays information during scan
     :return: Dictionary with all found packets
     """
-    return_values = dict()
+    return_values = dict()  # type: Dict[int, Tuple[Packet, int]]
     for value in scan_range:
         if noise_ids and value in noise_ids:
             continue
@@ -2028,7 +2206,7 @@ def scan(sock,                      # type: SuperSocket
                    started_callback=lambda: sock.send(
                        get_isotp_packet(value, False, extended_can_id)))
 
-    cleaned_ret_val = dict()
+    cleaned_ret_val = dict()  # type: Dict[int, Tuple[Packet, int]]
 
     for tested_id in return_values.keys():
         for value in range(max(0, tested_id - 2), tested_id + 2, 1):
@@ -2037,20 +2215,20 @@ def scan(sock,                      # type: SuperSocket
                                                     verbose),
                        timeout=sniff_time * 10,
                        started_callback=lambda: sock.send(
-                       get_isotp_packet(value, False, extended_can_id)))
+                           get_isotp_packet(value, False, extended_can_id)))
 
     return cleaned_ret_val
 
 
-def scan_extended(sock,                              # type: SuperSocket
-                  scan_range=range(0x800),           # type: Iterator[int]
-                  scan_block_size=32,                # type: int
-                  extended_scan_range=range(0x100),  # type: Iterator[int]
-                  noise_ids=None,                    # type: Optional[Iterator[int]]  # noqa: E501
-                  sniff_time=0.1,                    # type: float
-                  extended_can_id=False,             # type: bool
-                  verbose=False                      # type: bool
-                  ):                                 # type: (...) -> Dict[int, Tuple[Packet, int]]  # noqa: E501
+def scan_extended(sock,  # type: SuperSocket
+                  scan_range=range(0x800),  # type: Iterable[int]
+                  scan_block_size=32,  # type: int
+                  extended_scan_range=range(0x100),  # type: Iterable[int]
+                  noise_ids=None,  # type: Optional[List[int]]
+                  sniff_time=0.1,  # type: float
+                  extended_can_id=False,  # type: bool
+                  verbose=False  # type: bool
+                  ):  # type: (...) -> Dict[int, Tuple[Packet, int]]
     """Scan with ISOTP extended addresses and return dictionary of detections
 
     If an answer-packet found -> slow scan with
@@ -2107,16 +2285,18 @@ def scan_extended(sock,                              # type: SuperSocket
     return return_values
 
 
-def ISOTPScan(sock,
-              scan_range=range(0x7ff + 1),
-              extended_addressing=False,
-              extended_scan_range=range(0x100),
-              noise_listen_time=2,
-              sniff_time=0.1,
-              output_format=None,
-              can_interface=None,
-              extended_can_id=False,
-              verbose=False):
+def ISOTPScan(sock,  # type: SuperSocket
+              scan_range=range(0x7ff + 1),  # type: Iterable[int]
+              extended_addressing=False,  # type: bool
+              extended_scan_range=range(0x100),  # type: Iterable[int]
+              noise_listen_time=2,  # type: int
+              sniff_time=0.1,  # type: float
+              output_format=None,  # type: Optional[str]
+              can_interface=None,  # type: Optional[str]
+              extended_can_id=False,  # type: bool
+              verbose=False  # type: bool
+              ):
+    # type: (...) -> Union[str, List[SuperSocket]]
     """Scan for ISOTP Sockets on a bus and return findings
 
     Scan for ISOTP Sockets in the defined range and returns found sockets
@@ -2175,13 +2355,12 @@ def ISOTPScan(sock,
 
     if output_format == "text":
         return generate_text_output(found_packets, extended_addressing)
+
     if output_format == "code":
         return generate_code_output(found_packets, can_interface,
                                     extended_addressing)
-    if can_interface is None:
-        can_interface = sock
 
-    return generate_isotp_list(found_packets, can_interface,
+    return generate_isotp_list(found_packets, can_interface or sock,
                                extended_addressing)
 
 
@@ -2230,9 +2409,9 @@ def generate_text_output(found_packets, extended_addressing=False):
     return text
 
 
-def generate_code_output(found_packets, can_interface,
+def generate_code_output(found_packets, can_interface="iface",
                          extended_addressing=False):
-    # type: (Dict[int, Tuple[Packet, int]], str, bool) -> str
+    # type: (Dict[int, Tuple[Packet, int]], Optional[str], bool) -> str
     """Generate a copy&past-able output from the result of the `scan` or
     the `scan_extended` function.
 
@@ -2275,9 +2454,11 @@ def generate_code_output(found_packets, can_interface,
     return header + result
 
 
-def generate_isotp_list(found_packets, can_interface,
-                        extended_addressing=False):
-    # type: (Dict[int, Tuple[Packet, int]], str, bool) -> List[ISOTPSocket]
+def generate_isotp_list(found_packets,  # type: Dict[int, Tuple[Packet, int]]
+                        can_interface,  # type: Union[SuperSocket, str]
+                        extended_addressing=False  # type: bool
+                        ):
+    # type: (...) -> List[SuperSocket]
     """Generate a list of ISOTPSocket objects from the result of the `scan` or
     the `scan_extended` function.
 
@@ -2288,7 +2469,7 @@ def generate_isotp_list(found_packets, can_interface,
                                 extended addressing
     :return: A list of all found ISOTPSockets
     """
-    socket_list = []  # type: List[ISOTPSocket]
+    socket_list = []  # type: List[SuperSocket]
     for pack in found_packets:
         pkt = found_packets[pack][0]
 

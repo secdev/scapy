@@ -944,7 +944,7 @@ assert(not impl.rx_thread.is_alive())
 = Test on_recv function with single frame
 with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
     s.ins.on_recv(CAN(identifier=0x241, data=dhex("05 01 02 03 04 05")))
-    msg = s.ins.rx_queue.get(True, 1)
+    msg, ts = s.ins.rx_queue.get(True, 1)
     assert(msg == dhex("01 02 03 04 05"))
 
 = Test on_recv function with empty frame
@@ -954,9 +954,11 @@ with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
 
 = Test on_recv function with single frame and extended addressing
 with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241, extended_rx_addr=0xea) as s:
-    s.ins.on_recv(CAN(identifier=0x241, data=dhex("EA 05 01 02 03 04 05")))
-    msg = s.ins.rx_queue.get(True, 1)
+    cf = CAN(identifier=0x241, data=dhex("EA 05 01 02 03 04 05"))
+    s.ins.on_recv(cf)
+    msg, ts = s.ins.rx_queue.get(True, 1)
     assert(msg == dhex("01 02 03 04 05"))
+    assert ts == cf.time
 
 = CF is sent when first frame is received
 cans = MockCANSocket()

@@ -17,6 +17,7 @@ from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SA, GMLAN_RD, \
     GMLAN_TD, GMLAN_PM, GMLAN_RMBA
 from scapy.config import conf
 from scapy.packet import Packet
+from scapy.supersocket import SuperSocket
 from scapy.contrib.isotp import ISOTPSocket
 from scapy.error import warning, log_loading
 from scapy.utils import PeriodicSenderThread
@@ -39,7 +40,7 @@ except KeyError:
 
 # Helper function
 def _check_response(resp, verbose):
-    # type: (Packet, Optional[bool]) -> bool
+    # type: (Optional[Packet], Optional[bool]) -> bool
     if resp is None:
         if verbose:
             print("Timeout.")
@@ -52,7 +53,7 @@ def _check_response(resp, verbose):
 class GMLAN_TesterPresentSender(PeriodicSenderThread):
 
     def __init__(self, sock, pkt=GMLAN(service="TesterPresent"), interval=2):
-        # type: (ISOTPSocket, Packet, int) -> None
+        # type: (SuperSocket, Packet, int) -> None
         """ Thread to send GMLAN TesterPresent packets periodically
 
         :param sock: socket where packet is sent periodically
@@ -69,8 +70,14 @@ class GMLAN_TesterPresentSender(PeriodicSenderThread):
                 time.sleep(self._interval)
 
 
-def GMLAN_InitDiagnostics(sock, broadcast_socket=None, timeout=None, verbose=None, retry=0):  # noqa: E501
-    # type: (ISOTPSocket, Optional[ISOTPSocket], Optional[int], Optional[bool], int) -> bool  # noqa: E501
+def GMLAN_InitDiagnostics(
+        sock,  # type: SuperSocket
+        broadcast_socket=None,  # type: Optional[SuperSocket]
+        timeout=None,  # type: Optional[int]
+        verbose=None,  # type: Optional[bool]
+        retry=0  # type: int
+):
+    # type: (...) -> bool
     """ Send messages to put an ECU into diagnostic/programming state.
 
     :param sock: socket for communication.
@@ -84,7 +91,7 @@ def GMLAN_InitDiagnostics(sock, broadcast_socket=None, timeout=None, verbose=Non
     """
     # Helper function
     def _send_and_check_response(sock, req, timeout, verbose):
-        # type: (ISOTPSocket, Packet, Optional[int], Optional[bool]) -> bool
+        # type: (SuperSocket, Packet, Optional[int], Optional[bool]) -> bool
         if verbose:
             print("Sending %s" % repr(req))
         resp = sock.sr1(req, timeout=timeout, verbose=False)
@@ -129,8 +136,15 @@ def GMLAN_InitDiagnostics(sock, broadcast_socket=None, timeout=None, verbose=Non
     return False
 
 
-def GMLAN_GetSecurityAccess(sock, key_function, level=1, timeout=None, verbose=None, retry=0):  # noqa: E501
-    # type: (ISOTPSocket, Callable[[int], int], int, Optional[int], Optional[bool], int) -> bool  # noqa: E501
+def GMLAN_GetSecurityAccess(
+        sock,  # type: SuperSocket
+        key_function,  # type: Callable[[int], int]
+        level=1,  # type: int
+        timeout=None,  # type: Optional[int]
+        verbose=None,  # type: Optional[bool]
+        retry=0  # type: int
+):
+    # type: (...) -> bool
     """ Authenticate on ECU. Implements Seey-Key procedure.
 
     :param sock: socket to send the message on.
@@ -168,7 +182,7 @@ def GMLAN_GetSecurityAccess(sock, key_function, level=1, timeout=None, verbose=N
                 print("Negative Response.")
             continue
 
-        seed = resp.securitySeed
+        seed = cast(Packet, resp).securitySeed
         if seed == 0:
             if verbose:
                 print("ECU security already unlocked. (seed is 0x0000)")
@@ -185,13 +199,12 @@ def GMLAN_GetSecurityAccess(sock, key_function, level=1, timeout=None, verbose=N
             continue
         if verbose:
             resp.show()
-        if resp.sprintf("%GMLAN.service%") == "SecurityAccessPositiveResponse":   # noqa: E501
+        if resp.service == 0x67:
             if verbose:
                 print("SecurityAccess granted.")
             return True
         # Invalid Key
-        elif resp.sprintf("%GMLAN.service%") == "NegativeResponse" and \
-                resp.sprintf("%GMLAN.returnCode%") == "InvalidKey":
+        elif resp.service == 0x7f and resp.returnCode == 0x35:
             if verbose:
                 print("Key invalid")
             continue
@@ -200,7 +213,7 @@ def GMLAN_GetSecurityAccess(sock, key_function, level=1, timeout=None, verbose=N
 
 
 def GMLAN_RequestDownload(sock, length, timeout=None, verbose=None, retry=0):
-    # type: (ISOTPSocket, int, Optional[int], Optional[bool], int) -> bool
+    # type: (SuperSocket, int, Optional[int], Optional[bool], int) -> bool
     """ Send RequestDownload message.
 
         Usually used before calling TransferData.
@@ -228,8 +241,16 @@ def GMLAN_RequestDownload(sock, length, timeout=None, verbose=None, retry=0):
     return False
 
 
-def GMLAN_TransferData(sock, addr, payload, maxmsglen=None, timeout=None, verbose=None, retry=0):  # noqa: E501
-    # type: (ISOTPSocket, int, bytes, Optional[int], Optional[int], Optional[bool], int) -> bool  # noqa: E501
+def GMLAN_TransferData(
+        sock,  # type: SuperSocket
+        addr,  # type: int
+        payload,  # type: bytes
+        maxmsglen=None,  # type: Optional[int]
+        timeout=None,  # type: Optional[int]
+        verbose=None,  # type: Optional[bool]
+        retry=0  # type: int
+):
+    # type: (...) -> bool
     """ Send TransferData message.
 
     Usually used after calling RequestDownload.
@@ -284,9 +305,16 @@ def GMLAN_TransferData(sock, addr, payload, maxmsglen=None, timeout=None, verbos
     return True
 
 
-def GMLAN_TransferPayload(sock, addr, payload, maxmsglen=None, timeout=None,
-                          verbose=None, retry=0):
-    # type: (ISOTPSocket, int, bytes, Optional[int], Optional[int], Optional[bool], int) -> bool  # noqa: E501
+def GMLAN_TransferPayload(
+        sock,  # type: SuperSocket
+        addr,  # type: int
+        payload,  # type: bytes
+        maxmsglen=None,  # type: Optional[int]
+        timeout=None,  # type: Optional[int]
+        verbose=None,  # type: Optional[bool]
+        retry=0  # type: int
+):
+    # type: (...) -> bool
     """ Send data by using GMLAN services.
 
     :param sock: socket to send the data on.
@@ -308,9 +336,15 @@ def GMLAN_TransferPayload(sock, addr, payload, maxmsglen=None, timeout=None,
     return True
 
 
-def GMLAN_ReadMemoryByAddress(sock, addr, length, timeout=None,
-                              verbose=None, retry=0):
-    # type: (ISOTPSocket, int, int, Optional[int], Optional[bool], int) -> Optional[bytes]  # noqa: E501
+def GMLAN_ReadMemoryByAddress(
+        sock,  # type: SuperSocket
+        addr,  # type: int
+        length,  # type: int
+        timeout=None,  # type: Optional[int]
+        verbose=None,  # type: Optional[bool]
+        retry=0  # type: int
+):
+    # type: (...) -> Optional[bytes]
     """ Read data from ECU memory.
 
     :param sock: socket to send the data on.
@@ -343,7 +377,7 @@ def GMLAN_ReadMemoryByAddress(sock, addr, length, timeout=None,
         pkt = GMLAN() / GMLAN_RMBA(memoryAddress=addr, memorySize=length)
         resp = sock.sr1(pkt, timeout=timeout, verbose=0)
         if _check_response(resp, verbose):
-            return resp.dataRecord
+            return cast(Packet, resp).dataRecord
         retry -= 1
         if retry >= 0 and verbose:
             print("Retrying..")
@@ -351,7 +385,7 @@ def GMLAN_ReadMemoryByAddress(sock, addr, length, timeout=None,
 
 
 def GMLAN_BroadcastSocket(interface):
-    # type: (str) -> ISOTPSocket
+    # type: (str) -> SuperSocket
     """ Returns a GMLAN broadcast socket using interface.
 
     :param interface: interface name

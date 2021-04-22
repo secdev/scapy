@@ -27,6 +27,7 @@ __all__ = [
     'DefaultDict',
     'Dict',
     'Generic',
+    'Iterable',
     'IO',
     'Iterable',
     'Iterator',
