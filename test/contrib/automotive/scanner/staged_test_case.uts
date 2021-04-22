@@ -1,0 +1,217 @@
+% Regression tests for automotive scanner staged test_case
+
++ Load general modules
+
+= Load contribution layer
+
+from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCase
+from scapy.contrib.automotive.ecu import EcuState
+from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTestCase
+
++ Basic checks
+
+= Definition of Test classes
+
+class MyTestCase1(AutomotiveTestCase):
+    _description = "MyTestCase1"
+    def supported_responses(self):
+        return []
+
+class MyTestCase2(AutomotiveTestCase):
+    _description = "MyTestCase2"
+    def supported_responses(self):
+        return []
+
+= Create instance of stage test
+
+tc1 = MyTestCase1()
+tc2 = MyTestCase2()
+
+mt = StagedAutomotiveTestCase([tc1, tc2])
+
+assert len(mt.test_cases) == 2
+assert mt.current_test_case == tc1
+assert mt.current_connector == None
+assert mt.previous_test_case == None
+assert mt[0] == tc1
+assert mt[1] == tc2
+
+= Check completion
+
+tc1 = MyTestCase1()
+tc2 = MyTestCase2()
+
+mt = StagedAutomotiveTestCase([tc1, tc2])
+
+tc1._state_completed[EcuState(session=1)] = False
+tc2._state_completed[EcuState(session=1)] = False
+
+assert not mt.completed
+assert not mt.has_completed(EcuState(session=1))
+
+tc1._state_completed[EcuState(session=1)] = True
+assert mt.current_test_case == tc1
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert mt.current_test_case == tc2
+assert not mt.completed
+
+tc2._state_completed[EcuState(session=1)] = True
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert mt.completed
+assert mt.has_completed(EcuState(session=1))
+
+= Check completion 2
+
+tc1 = MyTestCase1()
+tc2 = MyTestCase2()
+
+mt = StagedAutomotiveTestCase([tc1, tc2])
+
+tc1._state_completed[EcuState(session=1)] = False
+tc2._state_completed[EcuState(session=1)] = False
+
+assert not mt.completed
+assert not mt.has_completed(EcuState(session=1))
+
+tc1._state_completed[EcuState(session=1)] = True
+assert mt.current_test_case == tc1
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+tc1._state_completed[EcuState(session=1)] = False
+assert not mt.has_completed(EcuState(session=1))
+tc1._state_completed[EcuState(session=1)] = True
+assert mt.current_test_case == tc1
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+
+assert mt.current_test_case == tc2
+assert not mt.completed
+
+tc2._state_completed[EcuState(session=1)] = True
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert mt.completed
+assert mt.has_completed(EcuState(session=1))
+
+
+= Check connector
+
+test_storage_tc2 = None
+
+class MyTestCase2(AutomotiveTestCase):
+    _description = "MyTestCase2"
+    def pre_execute(self, socket, state, global_configuration):
+        global test_storage_tc2
+        print(global_configuration)
+        test_storage_tc2 = global_configuration
+    def supported_responses(self):
+        return []
+
+test_storage_tc3 = None
+
+class MyTestCase3(AutomotiveTestCase):
+    _description = "MyTestCase3"
+    def pre_execute(self, socket, state, global_configuration):
+        global test_storage_tc3
+        print(global_configuration)
+        test_storage_tc3 = global_configuration
+    def supported_responses(self):
+        return []
+
+def con1(tc1, tc2):
+    assert isinstance(tc1, MyTestCase1)
+    assert isinstance(tc2, MyTestCase2)
+    return {"tc2_con_config": 42}
+
+def con2(tc2, tc3):
+    assert isinstance(tc2, MyTestCase2)
+    assert isinstance(tc3, MyTestCase3)
+    return {"tc3_con_config": "deadbeef"}
+
+tc1 = MyTestCase1()
+tc2 = MyTestCase2()
+tc3 = MyTestCase3()
+
+assert test_storage_tc2 is None
+assert test_storage_tc3 is None
+
+mt = StagedAutomotiveTestCase([tc1, tc2, tc3], [None, con1, con2])
+
+assert mt.current_test_case == tc1
+assert mt.current_connector == None
+
+#Move stage forward
+tc1._state_completed[EcuState(session=1)] = True
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+
+assert mt.current_test_case == tc2
+assert mt.current_connector == con1
+
+mt.pre_execute(None, None, {"MyTestCase2": {"verbose": True, "config": "whatever"}})
+
+assert test_storage_tc2["MyTestCase2"]["verbose"]
+assert test_storage_tc2["MyTestCase2"]["tc2_con_config"] == 42
+assert test_storage_tc2["MyTestCase2"]["config"] == "whatever"
+
+#Move stage forward
+tc2._state_completed[EcuState(session=1)] = True
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+assert not mt.has_completed(EcuState(session=1))
+
+assert mt.current_test_case == tc3
+assert mt.current_connector == con2
+
+mt.pre_execute(None, None, {})
+
+assert test_storage_tc3["MyTestCase3"]["tc3_con_config"] == "deadbeef"
+
+= Check show
+
+dump = mt.show(dump=True)
+
+assert "MyTestCase1" in dump
+assert "MyTestCase2" in dump
+assert "MyTestCase3" in dump
+
+= Check len
+
+assert len(mt) == 3
+
+= Check generator functions
+
+assert mt.get_generated_test_case() == None
+assert mt.get_new_edge(None, None) == None
+assert mt.get_transition_function(None, None) == None
+
+
+
+
+

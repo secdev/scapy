@@ -1,0 +1,79 @@
+% Regression tests for automotive scanner test_case
+
++ Load general modules
+
+= Load contribution layer
+
+from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCase
+from scapy.contrib.automotive.ecu import EcuState
+
++ Basic checks
+
+= Definition of Test class
+
+class MyTestCase(AutomotiveTestCase):
+    _description = "MyTestCase"
+    def supported_responses(self):
+        return []
+
+= Create instance of test class
+
+mt = MyTestCase()
+
+mt._state_completed[EcuState(session=1)] = True
+mt._state_completed[EcuState(session=2)] = True
+mt._state_completed[EcuState(session=3)] = False
+
+= Tests of has_completed
+
+assert mt.completed is False
+assert mt.has_completed(EcuState(session=1))
+assert mt.has_completed(EcuState(session=3)) is False
+
+assert len(mt.scanned_states) == 3
+
+= Tests of has_completed with new state
+
+assert mt.completed is False
+assert mt.has_completed(EcuState(session=4)) is False
+assert mt.has_completed(EcuState(session=3)) is False
+
+assert len(mt.scanned_states) == 4
+
+= Tests of completed
+
+mt._state_completed[EcuState(session=3)] = True
+mt._state_completed[EcuState(session=4)] = True
+
+assert mt.completed
+
+= Test of show
+
+header = mt._show_header(dump=True)
+
+assert "MyTestCase" in header
+
+state_info = mt._show_state_information(dump=True)
+
+assert "session" in state_info
+assert "False" not in state_info
+assert "True" in state_info
+
+mt._state_completed[EcuState(session=3)] = False
+state_info = mt._show_state_information(dump=True)
+
+assert "session" in state_info
+assert "False" in state_info
+assert "True" in state_info
+
+dump = mt.show(dump=True, verbose=True)
+
+assert "session" in dump
+assert "MyTestCase" in dump
+
+
+
+
+
+
+
