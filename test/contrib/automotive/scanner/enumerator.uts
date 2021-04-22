@@ -1,0 +1,353 @@
+% Regression tests for enumerators
+
++ Load general modules
+
+= Load contribution layer
+
+from scapy.contrib.automotive.scanner.enumerator import _AutomotiveTestCaseScanResult, ServiceEnumerator
+from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor
+from scapy.contrib.automotive.uds import *
+from scapy.contrib.automotive.uds_scan import UDS_Enumerator
+from scapy.contrib.automotive.ecu import EcuState
+
++ Basic checks
+= ServiceEnumerator basecls checks
+
+pkts = [
+    _AutomotiveTestCaseScanResult(EcuState(session=1), UDS(b"\x20abcd"), UDS(b"\x60abcd"), 1.0, 1.9),
+    _AutomotiveTestCaseScanResult(EcuState(session=2), UDS(b"\x20abcd"), None, 2.0, None),
+    _AutomotiveTestCaseScanResult(EcuState(session=1), UDS(b"\x21abcd"), UDS(b"\x7fabcd"), 3.0, 3.1),
+    _AutomotiveTestCaseScanResult(EcuState(session=2), UDS(b"\x21abcd"), UDS(b"\x7fa\x10cd"), 4.0, 4.5),
+]
+
+class MyTestCase(ServiceEnumerator):
+    def _get_initial_requests(self, **kwargs):
+        # type: (Any) -> Iterable[Packet]
+        return UDS(service=range(1, 11))
+    @staticmethod
+    def _get_table_entry(tup):
+        state, req, res, _, _ = tup
+        label = UDS_Enumerator._get_label(res, "PR: Supported")
+        return (state,
+                "0x%02x: %s" % (req.service, req.sprintf("%UDS.service%")),
+                label)
+    @staticmethod
+    def _get_negative_response_label(response):
+        # type: (Packet) -> str
+        return response.sprintf("NR: %UDS_NR.negativeResponseCode%")
+    @staticmethod
+    def _get_negative_response_code(resp):
+        # type: (Packet) -> int
+        return resp.negativeResponseCode
+    @staticmethod
+    def _get_negative_response_desc(nrc):
+        # type: (int) -> str
+        return UDS_NR(negativeResponseCode=nrc).sprintf(
+            "%UDS_NR.negativeResponseCode%")
+
+
+e = MyTestCase()
+for p in pkts:
+    p.req.time = p.req_ts
+    p.req.sent_time = p.req_ts
+    if p.resp is not None:
+        p.resp.time = p.resp_ts
+    e._store_result(p.state, p.req, p.resp)
+
+
+= ServiceEnumerator not completed check
+
+assert e.completed == False
+
+= ServiceEnumerator completed
+
+e._state_completed[EcuState(session=1)] = True
+e._state_completed[EcuState(session=2)] = True
+
+assert e.completed
+
+= ServiceEnumerator stats check
+
+stat_list = e._compute_statistics()
+
+stats = {label: value for state, label, value in stat_list if state == "all"}
+print(stats)
+
+assert stats["num_answered"] == '3'
+assert stats["num_unanswered"] == '1'
+assert stats["answertime_max"] == '0.9'
+assert stats["answertime_min"] == '0.1'
+assert stats["answertime_avg"] == '0.5'
+assert stats["num_negative_resps"] == '2'
+
+= ServiceEnumerator scanned states
+
+assert len(e.scanned_states) == 2
+assert {EcuState(session=1), EcuState(session=2)} == e.scanned_states
+
+= ServiceEnumerator scanned results
+
+assert len(e.results_with_positive_response) == 1
+assert len(e.results_with_negative_response) == 2
+assert len(e.results_without_response) == 1
+assert len(e.results_with_response) == 3
+
+= ServiceEnumerator get_label
+assert e._get_label(pkts[0].resp) == "PR: PositiveResponse"
+assert e._get_label(pkts[0].resp, lambda _: "positive") == "positive"
+assert e._get_label(pkts[0].resp, lambda _: "positive" + hex(pkts[0].req.service)) == "positive" + "0x20"
+assert e._get_label(pkts[1].resp) == "Timeout"
+assert e._get_label(pkts[2].resp) == "NR: 98"
+assert e._get_label(pkts[3].resp) == "NR: generalReject"
+
+= ServiceEnumerator show
+
+e.show(filtered=False)
+
+dump = e.show(dump=True, filtered=False)
+assert "NR: 98" in dump
+assert "NR: generalReject" in dump
+assert "PR: Supported" in dump
+assert "Timeout" in dump
+assert "session1" in dump
+assert "session2" in dump
+assert "0x20" in dump
+assert "0x21" in dump
+
+= ServiceEnumerator filtered results before show
+
+print(len(e.filtered_results))
+assert len(e.filtered_results) == 2
+assert e.filtered_results[0] == pkts[0]
+assert e.filtered_results[1] == pkts[2]
+
+= ServiceEnumerator show filtered
+
+e.show(filtered=True)
+
+dump = e.show(dump=True, filtered=True)
+assert "NR: 98" in dump
+assert "NR: generalReject" in dump
+assert "PR: Supported" in dump
+assert "Timeout" not in dump
+assert "session1" in dump
+assert "session2" in dump
+assert "all" in dump
+assert "0x20" in dump
+assert "0x21" in dump
+assert "The following negative response codes are blacklisted: ['serviceNotSupported']" in dump
+
+= ServiceEnumerator filtered results after show
+
+assert len(e.filtered_results) == 3
+assert e.filtered_results[0] == pkts[0]
+assert e.filtered_results[1] == pkts[2]
+
+= ServiceEnumerator supported responses
+
+assert len(e.supported_responses) == 3
+
+= ServiceEnumerator evaluate response
+
+conf = {}
+
+assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), None, **conf)
+assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x10"), **conf)
+conf = {"exit_if_service_not_supported": True, "retry_if_busy_returncode": False}
+assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf)
+assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x10"), **conf)
+assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x11"), **conf)
+assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x7f"), **conf)
+conf = {"exit_if_service_not_supported": False, "retry_if_busy_returncode": True}
+assert e._retry_pkt == None
+assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x10"), **conf)
+assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x11"), **conf)
+assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x7f"), **conf)
+assert e._retry_pkt == None
+assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf)
+assert e._retry_pkt == UDS(b"\x10\x03abcd")
+assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf)
+assert e._retry_pkt == None
+
+assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x50\x03\x00"), **conf)
+assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x11\x03abcd"), UDS(b"\x51\x03\x00"), **conf)
+
+= ServiceEnumerator execute
+
+from scapy.modules.six.moves.queue import Queue
+from scapy.supersocket import SuperSocket
+
+class MockISOTPSocket(SuperSocket):
+    nonblocking_socket = True
+    def __init__(self, rcvd_queue=None):
+        self.rcvd_queue = Queue()
+        self.sent_queue = Queue()
+        if rcvd_queue is not None:
+            for c in rcvd_queue:
+                self.rcvd_queue.put(c)
+    def recv_raw(self, x=MTU):
+        pkt = bytes(self.rcvd_queue.get(True, 0.01))
+        return UDS, pkt, 10.0
+    def send(self, x):
+        sx = raw(x)
+        try:
+            x.sent_time = 9.0
+        except AttributeError:
+            pass
+        self.sent_queue.put(sx)
+        return len(sx)
+    @staticmethod
+    def select(sockets, remain=None):
+        return sockets
+
+sock = MockISOTPSocket()
+sock.rcvd_queue.put(b"\x41")
+sock.rcvd_queue.put(b"\x42")
+sock.rcvd_queue.put(b"\x43")
+sock.rcvd_queue.put(b"\x44")
+sock.rcvd_queue.put(b"\x45")
+sock.rcvd_queue.put(b"\x46")
+sock.rcvd_queue.put(b"\x47")
+sock.rcvd_queue.put(b"\x48")
+sock.rcvd_queue.put(b"\x49")
+sock.rcvd_queue.put(b"\x4A")
+
+e = MyTestCase()
+
+e.execute(sock, EcuState(session=1))
+
+assert len(e.filtered_results) == 10
+assert len(e.results_with_response) == 10
+assert len(e.results_without_response) == 0
+
+assert e.has_completed(EcuState(session=1))
+assert e.completed
+
+e.execute(sock, EcuState(session=2), timeout=0.01)
+
+assert len(e.filtered_results) == 10
+assert len(e.results_with_response) == 10
+assert len(e.results_without_response) == 10
+
+assert e.has_completed(EcuState(session=2))
+
+e.execute(sock, EcuState(session=3), timeout=0.01, exit_if_no_answer_received=True)
+
+assert not e.has_completed(EcuState(session=3))
+assert not e.completed
+assert len(e.scanned_states) == 3
+
+= Test negative response code service not supported
+
+sock.rcvd_queue.put(b"\x7f\x01\x11")
+sock.rcvd_queue.put(b"\x7f\x01\x7f")
+
+e = MyTestCase()
+
+e.execute(sock, EcuState(session=1), exit_if_service_not_supported=True)
+
+assert e._retry_pkt is None
+assert len(e.results_with_response) == 1
+assert len(e.results_with_negative_response) == 1
+assert e.completed
+
+e.execute(sock, EcuState(session=2), exit_if_service_not_supported=True)
+
+assert e._retry_pkt is None
+assert len(e.results_with_response) == 2
+assert len(e.results_with_negative_response) == 2
+assert e.completed
+
+= Test negative response code retry if busy
+
+sock.rcvd_queue.put(b"\x7f\x01\x21")
+sock.rcvd_queue.put(b"\x7f\x01\x10")
+
+e = MyTestCase()
+
+e.execute(sock, EcuState(session=1))
+
+assert e._retry_pkt is not None
+assert len(e.results_with_response) == 1
+assert len(e.results_with_negative_response) == 1
+assert len(e.results_without_response) == 0
+assert not e.completed
+
+e.execute(sock, EcuState(session=1))
+
+assert e._retry_pkt is None
+assert len(e.results_with_response) == 2
+assert len(e.results_with_negative_response) == 2
+assert len(e.results_without_response) == 9
+assert e.completed
+assert e.has_completed(EcuState(session=1))
+
+= Test negative response code don't retry if busy
+
+sock.rcvd_queue.put(b"\x7f\x01\x21")
+
+e = MyTestCase()
+
+e.execute(sock, EcuState(session=1), retry_if_busy_returncode=False)
+
+assert e._retry_pkt is None
+assert len(e.results_with_response) == 1
+assert len(e.results_with_negative_response) == 1
+assert len(e.results_without_response) == 9
+assert e.completed
+assert e.has_completed(EcuState(session=1))
+
+= Test execution time
+
+sock.rcvd_queue.put(b"\x7f\x01\x10")
+
+e = MyTestCase()
+
+e.execute(sock, EcuState(session=1), execution_time=-1)
+
+assert e._retry_pkt is None
+assert len(e.results_with_response) == 1
+assert len(e.results_with_negative_response) == 1
+assert len(e.results_without_response) == 0
+assert not e.completed
+assert not e.has_completed(EcuState(session=1))
+
+
++ AutomotiveTestCaseExecutorConfiguration tests
+
+= Definitions
+
+class MockSock(object):
+    pass
+
+class Scanner(AutomotiveTestCaseExecutor):
+    @property
+    def default_test_case_clss(self):
+        # type: () -> List[Type[AutomotiveTestCaseABC]]
+        return [MyTestCase]
+
+= Basic tests
+
+class TestCase1(MyTestCase):
+    pass
+
+class TestCase2(MyTestCase):
+    pass
+
+tce = Scanner(MockSock(), test_cases=[TestCase1, TestCase2, MyTestCase],
+              verbose=True, delay_state_change=42,
+              global_arg="Whatever", TestCase1_kwargs={"local_kwarg": 42})
+
+config = tce.configuration  # type: AutomotiveTestCaseExecutorConfiguration
+assert config.delay_state_change == 42
+assert config.verbose == True
+assert len(config.test_cases) == 3
+assert len(config.TestCase1.items()) == 4
+assert len(config.TestCase2.items()) == 3
+assert len(config["TestCase1"].items()) == 4
+assert len(config.MyTestCase.items()) == 3
+assert config.TestCase1["verbose"] == True
+assert config.TestCase1["local_kwarg"] == 42
+assert config.TestCase1["global_arg"] == "Whatever"
+assert config.TestCase2["global_arg"] == "Whatever"
+assert config.MyTestCase["global_arg"] == "Whatever"

@@ -31,7 +31,7 @@ _TransitionTuple = Tuple[_TransitionCallable, Dict[str, Any], Optional[_CleanupC
 
 
 @six.add_metaclass(abc.ABCMeta)
-class AutomotiveTestCaseABC():
+class AutomotiveTestCaseABC:
     """
     Base class for "TestCase" objects. In automotive scanners, these TestCase
     objects are used for individual tasks, for example enumerating over one
@@ -52,8 +52,11 @@ class AutomotiveTestCaseABC():
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def pre_execute(self, socket, state, global_configuration):
-        # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
+    def pre_execute(self,
+                    socket,  # type: _SocketUnion
+                    state,  # type: EcuState
+                    global_configuration  # type: AutomotiveTestCaseExecutorConfiguration  # noqa: E501
+                    ):  # type: (...) -> None
         """
         Will be executed previously to ``execute``. This function can be used
         to manipulate the configuration passed to execute.
@@ -78,8 +81,11 @@ class AutomotiveTestCaseABC():
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def post_execute(self, socket, state, global_configuration):
-        # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
+    def post_execute(self,
+                     socket,  # type: _SocketUnion
+                     state,  # type: EcuState
+                     global_configuration  # type: AutomotiveTestCaseExecutorConfiguration  # noqa: E501
+                     ):  # type: (...) -> None
         """
         Will be executed subsequently to ``execute``. This function can be used
         for additional evaluations after the ``execute``.
@@ -202,7 +208,7 @@ class AutomotiveTestCase(AutomotiveTestCaseABC):
 
 
 @six.add_metaclass(abc.ABCMeta)
-class TestCaseGenerator():
+class TestCaseGenerator:
     @abc.abstractmethod
     def get_generated_test_case(self):
         # type: () -> Optional[AutomotiveTestCaseABC]
@@ -210,7 +216,7 @@ class TestCaseGenerator():
 
 
 @six.add_metaclass(abc.ABCMeta)
-class StateGenerator():
+class StateGenerator:
 
     @abc.abstractmethod
     def get_new_edge(self, socket, config):
@@ -225,7 +231,9 @@ class StateGenerator():
         :param socket: Socket to target
         :param edge: Tuple of EcuState objects for the requested
                      transition function
-        :return: Returns an optional tuple with two functions. Both functions
+        :return: Returns an optional tuple consisting of a transition function,
+                 a keyword arguments dictionary for the transition function
+                 and a cleanup function. Both functions
                  take a Socket and the TestCaseExecutor configuration as
                  arguments and return True if the execution was successful.
                  The first function is the state enter function, the second
