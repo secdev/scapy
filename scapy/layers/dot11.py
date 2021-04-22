@@ -398,7 +398,7 @@ class RadioTap(Packet):
         ConditionalField(
             ReversePadField(
                 FlagsField("knownMCS", None, -8, _rt_knownmcs),
-                4
+                2
             ),
             lambda pkt: pkt.present and pkt.present.MCS),
         ConditionalField(
