@@ -772,7 +772,7 @@ def promiscping(net, timeout=2, fake_bcast="ff:ff:ff:ff:ff:fe", **kargs):
     return ans, unans
 
 
-class ARP_am(AnsweringMachine):
+class ARP_am(AnsweringMachine[Packet]):
     """Fake ARP Relay Daemon (farpd)
 
     example:
@@ -817,12 +817,12 @@ class ARP_am(AnsweringMachine):
             (self.IP_addr is None or self.IP_addr == arp.pdst)  # noqa: E501
 
     def make_reply(self, req):
-        # type: (Ether) -> Ether
+        # type: (Packet) -> Packet
         ether = req[Ether]
         arp = req[ARP]
 
         if 'iface' in self.optsend:
-            iff = self.optsend.get('iface')
+            iff = cast(Union[NetworkInterface, str], self.optsend.get('iface'))
         else:
             iff, a, gw = conf.route.route(arp.psrc)
         self.iff = iff
@@ -842,14 +842,14 @@ class ARP_am(AnsweringMachine):
         return resp
 
     def send_reply(self, reply):
-        # type: (ARP) -> None
+        # type: (Packet) -> None
         if 'iface' in self.optsend:
             self.send_function(reply, **self.optsend)
         else:
             self.send_function(reply, iface=self.iff, **self.optsend)
 
     def print_reply(self, req, reply):
-        # type: (Ether, Ether) -> None
+        # type: (Packet, Packet) -> None
         print("%s ==> %s on %s" % (req.summary(), reply.summary(), self.iff))
 
 

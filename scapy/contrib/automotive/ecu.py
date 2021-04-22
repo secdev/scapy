@@ -556,7 +556,7 @@ class EcuResponse:
 conf.contribs['EcuAnsweringMachine'] = {'send_delay': 0}
 
 
-class EcuAnsweringMachine(AnsweringMachine):
+class EcuAnsweringMachine(AnsweringMachine[PacketList]):
     """AnsweringMachine which emulates the basic behaviour of a real world ECU.
     Provide a list of ``EcuResponse`` objects to configure the behaviour of a
     AnsweringMachine.
@@ -572,10 +572,16 @@ class EcuAnsweringMachine(AnsweringMachine):
     sniff_options_list = ["store", "opened_socket", "count", "filter", "prn",
                           "stop_filter", "timeout"]
 
-    def parse_options(self, supported_responses=None,
-                      main_socket=None, broadcast_socket=None, basecls=Raw,
-                      timeout=None, initial_ecu_state=None):
-        # type: (Optional[List[EcuResponse]], Optional[SuperSocket], Optional[SuperSocket], Type[Packet], Optional[Union[int, float]], Optional[EcuState]) -> None  # noqa: E501
+    def parse_options(
+            self,
+            supported_responses=None,  # type: Optional[List[EcuResponse]]
+            main_socket=None,  # type: Optional[SuperSocket]
+            broadcast_socket=None,  # type: Optional[SuperSocket]
+            basecls=Raw,  # type: Type[Packet]
+            timeout=None,  # type: Optional[Union[int, float]]
+            initial_ecu_state=None  # type: Optional[EcuState]
+    ):
+        # type: (...) -> None
         """
         :param supported_responses: List of ``EcuResponse`` objects to define
                                     the behaviour. The default response is
@@ -615,10 +621,6 @@ class EcuAnsweringMachine(AnsweringMachine):
     def is_request(self, req):
         # type: (Packet) -> bool
         return isinstance(req, self.__basecls)
-
-    def print_reply(self, req, reply):
-        # type: (Packet, PacketList) -> None
-        print("%s ==> %s" % (req.summary(), [res.summary() for res in reply]))
 
     def make_reply(self, req):
         # type: (Packet) -> PacketList

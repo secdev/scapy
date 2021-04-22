@@ -10,6 +10,7 @@ scapy/arch/__init__.py
 scapy/arch/common.py
 scapy/arch/linux.py
 scapy/arch/unix.py
+scapy/ansmachine.py
 scapy/asn1/mib.py
 scapy/base_classes.py
 scapy/compat.py
