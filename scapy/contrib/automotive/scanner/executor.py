@@ -12,12 +12,12 @@ import time
 from itertools import product
 
 from scapy.compat import Any, Union, List, Optional, \
-    Dict, Tuple, Callable, Type, cast
+    Dict, Callable, Type, cast
 from scapy.contrib.automotive.scanner.graph import Graph
 from scapy.error import Scapy_Exception, log_interactive
 from scapy.utils import make_lined_table, SingleConversationSocket
 import scapy.modules.six as six
-from scapy.contrib.automotive.ecu import EcuState, EcuResponse
+from scapy.contrib.automotive.ecu import EcuState, EcuResponse, Ecu
 from scapy.contrib.automotive.scanner.configuration import \
     AutomotiveTestCaseExecutorConfiguration
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
@@ -274,26 +274,17 @@ class AutomotiveTestCaseExecutor:
     @property
     def supported_responses(self):
         # type: () -> List[EcuResponse]
-        # TODO: rebase and use Ecu.sort as soon PR is in
-        def sort_key_func(resp):
-            # type: (EcuResponse) -> Tuple[bool, int, int, int]
-            """
-            This sorts responses in the following order:
-            1. Positive responses first
-            2. Lower ServiceID first
-            3. Less states first
-            4. Longer (more specific) responses first
-            :param resp: EcuResponse to be sorted
-            :return: Tuple as sort key
-            """
-            return (resp.key_response.service == 0x7f,
-                    resp.key_response.service,
-                    0xffffffff - len(resp.states or []),
-                    0xffffffff - len(resp.key_response))
-
+        """
+        Returns a sorted list of supported responses, gathered from all
+        enumerators. The sort is done in a way
+        to provide the best possible results, if this list of supported
+        responses is used to simulate an real world Ecu with the
+        EcuAnsweringMachine object.
+        :return: A sorted list of EcuResponse objects
+        """
         supported_responses = list()
         for tc in self.configuration.test_cases:
             supported_responses += tc.supported_responses
 
-        supported_responses.sort(key=sort_key_func)
+        supported_responses.sort(key=Ecu.sort_key_func)
         return supported_responses
