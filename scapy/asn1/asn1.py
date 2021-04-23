@@ -12,7 +12,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 import random
 
-from datetime import datetime
+from datetime import datetime, timedelta, tzinfo
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField, RandIP, GeneralizedTime
@@ -20,6 +20,35 @@ from scapy.utils import Enum_metaclass, EnumElement, binrepr
 from scapy.compat import plain_str, chb, orb
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+
+try:
+    from datetime import timezone
+except ImportError:
+    class UTC(tzinfo):
+        """UTC"""
+        def utcoffset(self, dt):
+            return timedelta(0)
+
+        def tzname(self, dt):
+            return "UTC"
+
+        def dst(self, dt):
+            return None
+
+    class timezone(tzinfo):
+        def __init__(self, delta):
+            self.delta = delta
+
+        def utcoffset(self, dt):
+            return self.delta
+
+        def tzname(self, dt):
+            return None
+
+        def dst(self, dt):
+            return None
+
+    timezone.utc = UTC()
 
 
 class RandASN1Object(RandField):
@@ -433,34 +462,108 @@ class ASN1_IA5_STRING(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.IA5_STRING
 
 
-class ASN1_UTC_TIME(ASN1_STRING):
-    tag = ASN1_Class_UNIVERSAL.UTC_TIME
+class ASN1_GENERALIZED_TIME(ASN1_STRING):
+    """
+    Improved version of ASN1_GENERALIZED_TIME, properly handling time zones and
+    all string representation formats defined by ASN.1. These are:
+
+    1. Local time only:                        YYYYMMDDHH[MM[SS[.fff]]]
+    2. Universal time (UTC time) only:         YYYYMMDDHH[MM[SS[.fff]]]Z
+    3. Difference between local and UTC times: YYYYMMDDHH[MM[SS[.fff]]]+-HHMM
+
+    It also handles ASN1_UTC_TIME, which allows:
+
+    1. Universal time (UTC time) only:         YYMMDDHHMM[SS[.fff]]Z
+    2. Difference between local and UTC times: YYMMDDHHMM[SS[.fff]]+-HHMM
+
+    Note the differences: Year is only two digits, minutes are not optional and
+    there is no milliseconds.
+    """
+    tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
+    pretty_time = None
 
     def __init__(self, val):
-        ASN1_STRING.__init__(self, val)
+        if isinstance(val, datetime):
+            self.__setattr__("datetime", val)
+        else:
+            ASN1_STRING.__init__(self, val)
 
     def __setattr__(self, name, value):
         if isinstance(value, bytes):
             value = plain_str(value)
+
         if name == "val":
+            formats = {
+                10: "%Y%m%d%H",
+                12: "%Y%m%d%H%M",
+                14: "%Y%m%d%H%M%S"
+            }
+            try:
+                if value[-1] == "Z":
+                    str, ofs = value[:-1], value[-1:]
+                elif value[-5] in ("+", "-"):
+                    str, ofs = value[:-5], value[-5:]
+                elif isinstance(self, ASN1_UTC_TIME):
+                    raise ValueError()
+                else:
+                    str, ofs = value, ""
+
+                if isinstance(self, ASN1_UTC_TIME) and len(str) >= 10:
+                    fmt = "%y" + formats[len(str) + 2][2:]
+                elif str[-4] == ".":
+                    fmt = formats[len(str) - 4] + ".%f"
+                else:
+                    fmt = formats[len(str)]
+
+                dt = datetime.strptime(str, fmt)
+                if ofs == 'Z':
+                    dt = dt.replace(tzinfo=timezone.utc)
+                elif ofs:
+                    sign = -1 if ofs[0] == "-" else 1
+                    ofs = datetime.strptime(ofs[1:], "%H%M")
+                    delta = timedelta(hours=ofs.hour * sign,
+                                      minutes=ofs.minute * sign)
+                    dt = dt.replace(tzinfo=timezone(delta))
+            except Exception:
+                dt = None
+
             pretty_time = None
-            if isinstance(self, ASN1_GENERALIZED_TIME):
-                _len = 15
-                self._format = "%Y%m%d%H%M%S"
-            else:
-                _len = 13
-                self._format = "%y%m%d%H%M%S"
-            _nam = self.tag._asn1_obj.__name__[4:].lower()
-            if (isinstance(value, str) and
-                    len(value) == _len and value[-1] == "Z"):
-                dt = datetime.strptime(value[:-1], self._format)
-                pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
-            else:
+            if dt is None:
+                _nam = self.tag._asn1_obj.__name__[5:]
+                _nam = _nam.lower().replace("_", " ")
                 pretty_time = "%s [invalid %s]" % (value, _nam)
+            else:
+                pretty_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+                if dt.microsecond:
+                    pretty_time += dt.strftime(".%f")[:4]
+                if dt.tzinfo == timezone.utc:
+                    pretty_time += dt.strftime(" UTC")
+                elif dt.tzinfo is not None:
+                    if dt.tzinfo.utcoffset(dt) is not None:
+                        pretty_time += dt.strftime(" %z")
+
             ASN1_STRING.__setattr__(self, "pretty_time", pretty_time)
+            ASN1_STRING.__setattr__(self, "datetime", dt)
             ASN1_STRING.__setattr__(self, name, value)
         elif name == "pretty_time":
             print("Invalid operation: pretty_time rewriting is not supported.")
+        elif name == "datetime":
+            ASN1_STRING.__setattr__(self, name, value)
+            if isinstance(value, datetime):
+                yfmt = "%y" if isinstance(self, ASN1_UTC_TIME) else "%Y"
+                if value.microsecond:
+                    str = value.strftime(yfmt + "%m%d%H%M%S.%f")[:-3]
+                else:
+                    str = value.strftime(yfmt + "%m%d%H%M%S")
+
+                if value.tzinfo == timezone.utc:
+                    str = str + "Z"
+                else:
+                    str = str + value.strftime("%z")  # empty if naive
+
+                ASN1_STRING.__setattr__(self, "val", str)
+            else:
+                ASN1_STRING.__setattr__(self, "val", None)
         else:
             ASN1_STRING.__setattr__(self, name, value)
 
@@ -468,8 +571,8 @@ class ASN1_UTC_TIME(ASN1_STRING):
         return "%s %s" % (self.pretty_time, ASN1_STRING.__repr__(self))
 
 
-class ASN1_GENERALIZED_TIME(ASN1_UTC_TIME):
-    tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
+class ASN1_UTC_TIME(ASN1_GENERALIZED_TIME):
+    tag = ASN1_Class_UNIVERSAL.UTC_TIME
 
 
 class ASN1_ISO646_STRING(ASN1_STRING):
