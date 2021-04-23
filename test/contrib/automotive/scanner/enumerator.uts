@@ -7,8 +7,8 @@
 from scapy.contrib.automotive.scanner.enumerator import _AutomotiveTestCaseScanResult, ServiceEnumerator
 from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor
 from scapy.contrib.automotive.uds import *
-from scapy.contrib.automotive.uds_scan import UDS_Enumerator
 from scapy.contrib.automotive.ecu import EcuState
+from scapy.contrib.automotive.uds_ecu_states import *
 
 + Basic checks
 = ServiceEnumerator basecls checks
@@ -27,7 +27,7 @@ class MyTestCase(ServiceEnumerator):
     @staticmethod
     def _get_table_entry(tup):
         state, req, res, _, _ = tup
-        label = UDS_Enumerator._get_label(res, "PR: Supported")
+        label = MyTestCase._get_label(res, "PR: Supported")
         return (state,
                 "0x%02x: %s" % (req.service, req.sprintf("%UDS.service%")),
                 label)
