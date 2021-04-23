@@ -1,0 +1,103 @@
+% Tests for generic ASN.1 encoding
+
+#
+# Try me with:
+# bash test/run_tests -t test/scapy/layers/asn1.uts -F
+
+########### ASN.1 border case #######################################
+
++ ASN.1 Generalized Time
+= short HH
+repr(ASN1_GENERALIZED_TIME("1999123123")).startswith("1999-12-31 23:00:00 <")
+= short HH (invalid)
+"invalid" in repr(ASN1_GENERALIZED_TIME("1999123124"))
+= short HHMM
+repr(ASN1_GENERALIZED_TIME("199912312359")).startswith("1999-12-31 23:59:00 <")
+= short HHMM (invalid)
+"invalid" in repr(ASN1_GENERALIZED_TIME("199912312360"))
+= full
+repr(ASN1_GENERALIZED_TIME("19991231235959")).startswith("1999-12-31 23:59:59 <")
+= full (invalid)
+"invalid" in repr(ASN1_GENERALIZED_TIME("19991231235960"))
+= with microseconds
+repr(ASN1_GENERALIZED_TIME("19991231235959.999")).startswith("1999-12-31 23:59:59.999 <")
+= with microseconds (invalid)
+assert("invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.99")))
+assert("invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.99x")))
+assert("invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.9999")))
+
+
++ ASN.1 Generalized Time (Zulu)
+= Z short HH
+repr(ASN1_GENERALIZED_TIME("1999123123Z")).startswith("1999-12-31 23:00:00 UTC <")
+= Z short HHMM
+repr(ASN1_GENERALIZED_TIME("199912312359Z")).startswith("1999-12-31 23:59:00 UTC <")
+= Z full
+repr(ASN1_GENERALIZED_TIME("19991231235959Z")).startswith("1999-12-31 23:59:59 UTC <")
+= Z with microseconds
+repr(ASN1_GENERALIZED_TIME("19991231235959.999Z")).startswith("1999-12-31 23:59:59.999 UTC <")
+
+
++ ASN.1 Generalized Time (Timezone Offset)
+= offset short HH
+ASN1_GENERALIZED_TIME("1999123123+0100")
+repr(ASN1_GENERALIZED_TIME("1999123123+0100")).startswith("1999-12-31 23:00:00 +0100 <")
+= offset short HHMM
+repr(ASN1_GENERALIZED_TIME("199912312359+0100")).startswith("1999-12-31 23:59:00 +0100 <")
+= offset full
+repr(ASN1_GENERALIZED_TIME("19991231235959+0100")).startswith("1999-12-31 23:59:59 +0100 <")
+= offset with microseconds
+repr(ASN1_GENERALIZED_TIME("19991231235959.999+0100")).startswith("1999-12-31 23:59:59.999 +0100 <")
+= offset negative
+repr(ASN1_GENERALIZED_TIME("19991231235959-2359")).startswith("1999-12-31 23:59:59 -2359 <")
+= offset invalid (offset >= 24h)
+assert("invalid" in repr(ASN1_GENERALIZED_TIME("19991231235959-2400")))
+assert("invalid" in repr(ASN1_GENERALIZED_TIME("19991231235959+2400")))
+
+
++ ASN.1 UTC Time
+= UTC short HHMM
+repr(ASN1_UTC_TIME("9912312359Z")).startswith("1999-12-31 23:59:00 UTC <")
+= UTC short HHMM (no Z)
+"invalid" in repr(ASN1_UTC_TIME("9912312359"))
+= UTC short HHMM (invalid)
+"invalid" in repr(ASN1_UTC_TIME("99123160"))
+= UTC full
+repr(ASN1_UTC_TIME("991231235959Z")).startswith("1999-12-31 23:59:59 UTC <")
+= UTC full (no Z)
+"invalid" in repr(ASN1_UTC_TIME("991231235959"))
+= UTC full (invalid)
+"invalid" in repr(ASN1_UTC_TIME("9912315960"))
+
++ ASN.1 Generalized Time (datetime member)
+= prepare
+class TZ(tzinfo):
+    def __init__(self, delta): self.delta = delta
+    def utcoffset(self, dt): return self.delta
+    def dst(self, dt): return None
+= short HH datetime
+ASN1_GENERALIZED_TIME("1999123123").datetime == datetime(1999, 12, 31, 23)
+= short HHMM datetime
+ASN1_GENERALIZED_TIME("199912312359").datetime == datetime(1999, 12, 31, 23, 59)
+= full datetime
+ASN1_GENERALIZED_TIME("19991231235959").datetime == datetime(1999, 12, 31, 23, 59, 59)
+= datetime assignment
+x = ASN1_GENERALIZED_TIME("19991231235959.999")
+x.datetime = datetime(2020, 12, 31)
+assert(x.val == "20201231000000")
+x.datetime = x.datetime.replace(tzinfo=timezone.utc)
+x.val == "20201231000000Z"
+= datetime construction
+ASN1_GENERALIZED_TIME(datetime(2020, 12, 31)).val == "20201231000000"
+= datetime construction (UTC)
+ASN1_GENERALIZED_TIME(datetime(2020, 12, 31, tzinfo=timezone.utc)).val == "20201231000000Z"
+= datetime construction (offset)
+ASN1_GENERALIZED_TIME(datetime(2020, 12, 31, tzinfo=timezone(timedelta(hours=-23, minutes=-59)))).val == "20201231000000-2359"
+
++ ASN.1 UTC Time (datetime member)
+= UTC datetime construction
+ASN1_UTC_TIME(datetime(2020, 12, 31)).val == "201231000000"
+= UTC datetime construction (Z)
+ASN1_UTC_TIME(datetime(2020, 12, 31, tzinfo=timezone.utc)).val == "201231000000Z"
+= UTC datetime construction (offset)
+ASN1_UTC_TIME(datetime(2020, 12, 31, tzinfo=timezone(timedelta(hours=-23, minutes=-59)))).val == "201231000000-2359"
