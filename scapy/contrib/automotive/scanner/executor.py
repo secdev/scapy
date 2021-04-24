@@ -12,7 +12,7 @@ import time
 from itertools import product
 
 from scapy.compat import Any, Union, List, Optional, \
-    Dict, Callable, Type, cast
+    Dict, Callable, Type
 from scapy.contrib.automotive.scanner.graph import Graph
 from scapy.error import Scapy_Exception, log_interactive
 from scapy.utils import make_lined_table, SingleConversationSocket
@@ -26,6 +26,11 @@ from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
 
 @six.add_metaclass(abc.ABCMeta)
 class AutomotiveTestCaseExecutor:
+    """
+    Base class for different automotive scanners. This class handles
+    the connection to a scan target, ensures the execution of all it's
+    test cases, and stores the system state machine
+    """
     @property
     def __initial_ecu_state(self):
         # type: () -> EcuState
@@ -89,6 +94,11 @@ class AutomotiveTestCaseExecutor:
     @property
     def state_paths(self):
         # type: () -> List[List[EcuState]]
+        """
+        Returns all state paths. A path is represented by a list of EcuState
+        objects.
+        :return: A list of paths.
+        """
         paths = [Graph.dijkstra(self.state_graph, self.__initial_ecu_state, s)
                  for s in self.state_graph.nodes
                  if s != self.__initial_ecu_state]
@@ -99,6 +109,11 @@ class AutomotiveTestCaseExecutor:
     @property
     def final_states(self):
         # type: () -> List[EcuState]
+        """
+        Returns a list with all final states. A final state is the last
+        state of a path.
+        :return:
+        """
         return [p[-1] for p in self.state_paths]
 
     @property
@@ -132,6 +147,14 @@ class AutomotiveTestCaseExecutor:
 
     def execute_test_case(self, test_case):
         # type: (AutomotiveTestCaseABC) -> None
+        """
+        This function ensures the correct execution of a testcase, including
+        the pre_execute, execute and post_execute.
+        Finally the testcase is asked if a new edge or a new testcase was
+        generated.
+        :param test_case: A test case to be executed
+        :return: None
+        """
         test_case.pre_execute(
             self.socket, self.target_state, self.configuration)
 
@@ -155,13 +178,18 @@ class AutomotiveTestCaseExecutor:
                 self.state_graph.add_edge(edge, tf)
 
         if isinstance(test_case, TestCaseGenerator):
-            test_case_gen = cast(TestCaseGenerator, test_case)
-            new_test_case = test_case_gen.get_generated_test_case()
+            new_test_case = test_case.get_generated_test_case()
             if new_test_case:
-                self.configuration.test_cases.append(new_test_case)
+                log_interactive.debug("Testcase generated %s", new_test_case)
+                self.configuration.add_test_case(new_test_case)
 
     def scan(self, timeout=None):
         # type: (Optional[int]) -> None
+        """
+        Executes all testcases for a given time.
+        :param timeout: Time for execution.
+        :return: None
+        """
         kill_time = time.time() + (timeout or 0xffffffff)
         while kill_time > time.time():
             test_case_executed = False
@@ -189,30 +217,38 @@ class AutomotiveTestCaseExecutor:
                     log_interactive.info(
                         "[i] Execute %s for path %s", str(test_case), p)
                     self.execute_test_case(test_case)
-                    self.cleanup_state()
                     test_case_executed = True
                 except (OSError, ValueError, Scapy_Exception) as e:
                     log_interactive.critical("[-] Exception: %s", e)
                     if self.configuration.debug:
                         raise e
+                finally:
+                    self.cleanup_state()
 
             if not test_case_executed:
                 log_interactive.info(
                     "[i] Execute failure or scan completed. Exit scan!")
                 break
+
         self.cleanup_state()
         self.reset_target()
 
     def enter_state_path(self, path):
         # type: (List[EcuState]) -> bool
+        """
+        Resets and reconnects to a target and applies all transition functions
+        to traversal a given path.
+        :param path: Path to be applied to the scan target.
+        :return: True, if all transition functions could be executed.
+        """
         if path[0] != self.__initial_ecu_state:
             raise Scapy_Exception(
                 "Initial state of path not equal reset state of the target")
+        if len(path) == 1:
+            return True
 
         self.reset_target()
         self.reconnect()
-        if len(path) == 1:
-            return True
 
         for next_state in path[1:]:
             edge = (self.target_state, next_state)
@@ -223,6 +259,14 @@ class AutomotiveTestCaseExecutor:
 
     def enter_state(self, prev_state, next_state):
         # type: (EcuState, EcuState) -> bool
+        """
+        Obtains a transition function from the system state graph and executes
+        it. On success, the cleanup function is added for a later cleanup of
+        the new state.
+        :param prev_state: Current state
+        :param next_state: Desired state
+        :return: True, if state could be changed successful
+        """
         edge = (prev_state, next_state)
         funcs = self.state_graph.get_transition_tuple_for_edge(edge)
 
@@ -245,12 +289,15 @@ class AutomotiveTestCaseExecutor:
 
     def cleanup_state(self):
         # type: () -> None
+        """
+        Executes all collected cleanup functions from a traversed path
+        :return: None
+        """
         for f in self.cleanup_functions:
             if not callable(f):
                 continue
             try:
-                result = f(self.socket, self.configuration)
-                if not result:
+                if not f(self.socket, self.configuration):
                     log_interactive.info(
                         "[-] Cleanup function %s failed", repr(f))
             except (OSError, ValueError, Scapy_Exception) as e:
