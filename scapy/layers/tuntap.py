@@ -186,7 +186,7 @@ class TunTapInterface(SimpleSocket):
                 flags = LINUX_IFF_TAP | LINUX_IFF_NO_PI
 
             tsetiff = raw(LinuxTunIfReq(
-                ifrn_name=bytes_encode(self.iface),
+                ifrn_name=self.iface,
                 ifru_flags=flags))
 
             ioctl(sock, LINUX_TUNSETIFF, tsetiff)
@@ -226,6 +226,7 @@ class TunTapInterface(SimpleSocket):
             return r
 
     def send(self, x):
+        # type: (Packet) -> int
         if hasattr(x, "sent_time"):
             x.sent_time = time.time()
 
@@ -240,8 +241,9 @@ class TunTapInterface(SimpleSocket):
         sx = raw(x)
 
         try:
-            self.outs.write(sx)
+            r = self.outs.write(sx)
             self.outs.flush()
+            return r
         except socket.error:
             log_runtime.error("%s send",
                               self.__class__.__name__, exc_info=True)

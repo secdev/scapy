@@ -1079,7 +1079,7 @@ def main():
         pass
 
     if conf.use_pcap:
-        KW_KO.append("not_pcapdnet")
+        KW_KO.append("not_libpcap")
         if VERB > 2:
             print(" " + arrow + " libpcap mode")
 

@@ -1056,7 +1056,7 @@ def corrupt_bytes(data, p=0.01, n=None):
         n = max(1, int(s_len * p))
     for i in random.sample(range(s_len), n):
         s[i] = (s[i] + random.randint(1, 255)) % 256
-    return s.tostring() if six.PY2 else s.tobytes()
+    return s.tostring() if six.PY2 else s.tobytes()  # type: ignore
 
 
 @conf.commands.register
@@ -1072,7 +1072,7 @@ def corrupt_bits(data, p=0.01, n=None):
         n = max(1, int(s_len * p))
     for i in random.sample(range(s_len), n):
         s[i // 8] ^= 1 << (i % 8)
-    return s.tostring() if six.PY2 else s.tobytes()
+    return s.tostring() if six.PY2 else s.tobytes()  # type: ignore
 
 
 #############################
