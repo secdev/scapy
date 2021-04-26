@@ -1,6 +1,4 @@
 % Regression tests for gmlanutil
-~ needs_root
-
 ~ not_pypy needs_root
 
 + Configuration
