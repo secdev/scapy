@@ -1442,14 +1442,19 @@ with new_can_socket0() as isocan, \
         ISOTPSoftSocket(isocan, 0x123, 0x321) as sock:
     msg.data += b'0'
     sock.send(msg)
+    time.sleep(0.1)
     msg.data += b'1'
     sock.send(msg)
+    time.sleep(0.1)
     msg.data += b'2'
     sock.send(msg)
+    time.sleep(0.1)
     msg.data += b'3'
     sock.send(msg)
+    time.sleep(0.1)
     msg.data += b'4'
     sock.send(msg)
+    time.sleep(0.1)
 
 rxThread.join(timeout=5)
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
@@ -2002,7 +2007,7 @@ with ISOTPNativeSocket(iface0, sid=0x641, did=0x241) as s:
 = ISOTP Socket sr1 test
 exit_if_no_isotp_module()
 
-txSock = ISOTPNativeSocket(iface0, sid=0x123, did=0x321)
+txSock = ISOTPNativeSocket(iface0, sid=0x123, did=0x321, basecls=ISOTP)
 txmsg = ISOTP(b'\x11\x22\x33')
 rx2 = None
 
@@ -2036,8 +2041,8 @@ assert(rx2.answers(txmsg))
 
 = ISOTP Socket sr1 and ISOTP test
 exit_if_no_isotp_module()
-txSock = ISOTPNativeSocket(iface0, 0x123, 0x321)
-rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
+txSock = ISOTPNativeSocket(iface0, 0x123, 0x321, basecls=ISOTP)
+rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123, basecls=ISOTP)
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 rx2 = None
 
@@ -2067,8 +2072,8 @@ assert(rx2 == msg)
 = ISOTP Socket sr1 and ISOTP test vice versa
 exit_if_no_isotp_module()
 
-rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
-txSock = ISOTPNativeSocket(iface0, 0x123, 0x321)
+rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123, basecls=ISOTP)
+txSock = ISOTPNativeSocket(iface0, 0x123, 0x321, basecls=ISOTP)
 
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 
@@ -2098,8 +2103,8 @@ assert(sent)
 = ISOTP Socket sniff
 exit_if_no_isotp_module()
 
-rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
-txSock = ISOTPNativeSocket(iface0, 0x123, 0x321)
+rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123, basecls=ISOTP)
+txSock = ISOTPNativeSocket(iface0, 0x123, 0x321, basecls=ISOTP)
 succ = False
 
 receiver_up = Event()
