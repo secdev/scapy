@@ -86,6 +86,7 @@ def ecusim():
         isotpsock2.sniff(count=1, timeout=2, started_callback=started.set)
         pending = GMLAN()/GMLAN_NR(requestServiceId=0x34, returnCode=0x78)
         isotpsock2.send(pending)
+        time.sleep(0.1)
         ack = b"\x74"
         isotpsock2.send(ack)
 
@@ -134,6 +135,7 @@ def ecusim():
         isotpsock2.sniff(count=1, timeout=1, started_callback=started.set)
         pending = GMLAN()/GMLAN_NR(requestServiceId=0x34, returnCode=0x78)
         isotpsock2.send(pending)
+        time.sleep(0.1)
         nr = GMLAN()/GMLAN_NR(requestServiceId=0x34, returnCode=0x22)
         isotpsock2.send(nr)
 
