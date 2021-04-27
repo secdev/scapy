@@ -4,15 +4,16 @@
 
 = Load contribution layer
 
-from scapy.contrib.automotive.scanner.enumerator import _AutomotiveTestCaseScanResult, ServiceEnumerator, StateGenerator
-from scapy.contrib.automotive.scanner.test_case import TestCaseGenerator
+from scapy.contrib.automotive.scanner.enumerator import _AutomotiveTestCaseScanResult, ServiceEnumerator, StateGenerator, StateGeneratingServiceEnumerator
+from scapy.contrib.automotive.scanner.test_case import TestCaseGenerator, AutomotiveTestCase
 from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor
 from scapy.contrib.isotp import ISOTP
 from scapy.contrib.automotive.uds import *
-from scapy.contrib.automotive.ecu import EcuState
-from scapy.contrib.automotive.uds_ecu_states import *
 from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTestCase
 from scapy.utils import SingleConversationSocket
+from scapy.contrib.automotive.ecu import EcuState, EcuResponse
+from scapy.contrib.automotive.uds_ecu_states import *
+
 
 + Basic checks
 = ServiceEnumerator basecls checks
@@ -322,7 +323,8 @@ assert not e.has_completed(EcuState(session=1))
 = Definitions
 
 class MockSock(object):
-    pass
+    def sr1(self, *args, **kwargs):
+        raise OSError
 
 class TestCase1(MyTestCase):
     pass
@@ -757,6 +759,8 @@ cleanup_done1 = False
 transition_done2 = False
 cleanup_done2 = False
 
+transition_error = False
+
 
 def transition_func1(sock, conf, kwargs):
     global transition_done1
@@ -771,7 +775,7 @@ def cleanup_func1(sock, conf):
 def transition_func2(sock, conf, kwargs):
     global transition_done2
     transition_done2 = True
-    return True
+    return not transition_error
 
 def cleanup_func2(sock, conf):
     global cleanup_done2
@@ -836,6 +840,31 @@ try:
     assert False
 except Scapy_Exception:
     assert True
+
+= Test downrate edge
+
+transition_done1 = False
+cleanup_done1 = False
+
+tce = Scanner(MockSock(), test_cases=[TestCase43, TestCase44],
+              reset_handler=reset_func, reconnect_handler=reconnect_func)
+
+assert len(tce.final_states) == 1
+tce.execute_test_case(TestCase43())
+assert len(tce.final_states) == 2
+assert EcuState(session=1) in tce.final_states and EcuState(session=2) in tce.final_states
+tce.execute_test_case(TestCase44())
+assert len(tce.final_states) == 3
+assert EcuState(session=3) in tce.final_states and EcuState(session=2) in tce.final_states
+
+assert not len(tce.cleanup_functions)
+transition_error = True
+assert not tce.enter_state_path([EcuState(session=1), EcuState(session=2), EcuState(session=3)])
+assert transition_done1
+assert cleanup_done1
+assert len(tce.cleanup_functions) == 0
+assert tce.state_graph.weights[(EcuState(session=1), EcuState(session=2))] == 1
+assert tce.state_graph.weights[(EcuState(session=2), EcuState(session=3))] == 2
 
 
 = TestCase execute TestCaseGenerator
@@ -927,5 +956,85 @@ assert len(tce.configuration.test_cases) == 2
 assert tc_executed
 assert tce.scan_completed
 
+= Test supported responses
+
+class MyTestCase1(AutomotiveTestCase):
+    _description = "MyTestCase1"
+    @property
+    def supported_responses(self):
+        return [EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"de")),
+                EcuResponse([EcuState(session=2), EcuState(security_level=6)],            responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"dea2")),
+                EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x13))]
 
 
+class MyTestCase2(AutomotiveTestCase):
+    _description = "MyTestCase2"
+    @property
+    def supported_responses(self):
+        return [EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef1")),
+                EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=6) / Raw(b"deadbeef2")),
+                EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x10, requestServiceId=0x11))]
+
+
+tce = Scanner(MockSock(), test_cases=[MyTestCase1(), MyTestCase2()])
+
+resps = tce.supported_responses
+
+assert len(resps) == 6
+assert resps[0].responses[0].service != 0x7f
+assert resps[1].responses[0].service != 0x7f
+assert resps[2].responses[0].service != 0x7f
+assert resps[3].responses[0].service != 0x7f
+
+assert resps[4].responses[0].service == 0x7f
+assert resps[5].responses[0].service == 0x7f
+
+assert resps[0].responses[0].load == b"dea2"
+assert resps[1].responses[0].load == b"deadbeef1"
+assert resps[2].responses[0].load == b"deadbeef2"
+assert resps[3].responses[0].load == b"de"
+assert resps[4].responses[0].requestServiceId == 0x13
+assert resps[5].responses[0].requestServiceId == 0x11
+
+= Test show testcases
+
+try:
+    tce.show_testcases()
+    assert True
+except Exception:
+    assert False
+
+
+try:
+    tce.show_testcases_status()
+    assert True
+except Exception:
+    assert False
+
+= Test StateGeneratingServiceEnumerator
+
+class TestCase43(MyTestCase, StateGeneratingServiceEnumerator):
+    def execute(self, socket, state, **kwargs):
+        return True
+    @property
+    def results(self):  # type: () -> List[_AutomotiveTestCaseScanResult]
+        return [_AutomotiveTestCaseScanResult(EcuState(session=1), UDS()/UDS_DSC(b"\x03"), UDS()/UDS_DSCPR(b"\x03"), 1.1, 1.2)]
+
+tce = Scanner(MockSock(), test_cases=[TestCase43])
+
+assert len(tce.final_states) == 1
+
+tce.execute_test_case(TestCase43())
+
+assert len(tce.final_states) == 2
+assert EcuState(session=1) in tce.final_states and EcuState(session=3) in tce.final_states
+
+tf, args, cf = tce.state_graph.get_transition_tuple_for_edge((EcuState(session=1), EcuState(session=3)))
+
+assert cf is None
+assert tf is not None
+assert len(args) == 2
+assert args["req"] == UDS()/UDS_DSC(b"\x03")
+assert "diagnosticSessionType" in args["desc"] and "extendedDiagnosticSession" in args["desc"]
+
+assert not tce.enter_state(EcuState(session=1), EcuState(session=3))

@@ -254,6 +254,7 @@ class AutomotiveTestCaseExecutor:
             edge = (self.target_state, next_state)
             if not self.enter_state(*edge):
                 self.state_graph.downrate_edge(edge)
+                self.cleanup_state()
                 return False
         return True
 

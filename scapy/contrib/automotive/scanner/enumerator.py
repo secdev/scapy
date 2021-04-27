@@ -608,7 +608,7 @@ class StateGeneratingServiceEnumerator(ServiceEnumerator, StateGenerator):
         # type: (_Edge) -> Dict[str, Any]
         req = self._edge_requests[edge]
         kwargs = {
-            "desc": self.get_transition_function_description(req),
+            "desc": self.get_transition_function_description(edge),
             "req": req
         }
         return kwargs
