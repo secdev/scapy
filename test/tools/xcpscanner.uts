@@ -50,14 +50,21 @@ def ecu():
         sock1.sniff(count=1, store=False, timeout=2)
         if i == 50:
             sock1.send(CAN(identifier=0x90, data=b'\x01\x02\x03'))
+            time.sleep(0.1)
             sock1.send(CAN(identifier=0x90, data=b'\x05\x02\x03'))
+            time.sleep(0.1)
             sock1.send(CAN(identifier=0x90, data=b'\xff\x05\x03'))
+            time.sleep(0.1)
         if i == 51:
             sock1.send(random_xcp_response_1)
+            time.sleep(0.1)
             sock1.send(random_xcp_response_2)
+            time.sleep(0.1)
         if i == 52:
             sock1.send(slave_1_response)
+            time.sleep(0.1)
             sock1.send(slave_2_response)
+            time.sleep(0.1)
 
 
 thread = threading.Thread(target=ecu)
