@@ -27,6 +27,8 @@ then
     esac
   done
   PYTHON=${PYTHON:-python3}
+else
+  ARGS="$@"
 fi
 $PYTHON --version > /dev/null 2>&1
 if [ ! $? -eq 0 ]
