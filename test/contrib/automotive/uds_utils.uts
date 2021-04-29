@@ -1,5 +1,5 @@
 % Regression tests for uds_utils
-~ needs_root
+~ needs_root not_pypy
 
 + Configuration
 ~ conf

@@ -880,6 +880,7 @@ assert dto.ccp_reserved == b"\xff" * 3
 assert dto.hashret() == cro.hashret()
 
 + Tests on a virtual CAN-Bus
+~ not_pypy
 
 = CAN Socket sr1 with dto.ansers(cro) == True
 
@@ -953,8 +954,6 @@ assert dto.return_code == 1
 assert hasattr(dto, "load") == False
 assert dto.MTA0_extension == 0xff
 assert dto.MTA0_address == 0xffffffff
-
-+ Cleanup
 
 = Delete vcan interfaces
 

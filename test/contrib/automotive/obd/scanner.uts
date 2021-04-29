@@ -1,5 +1,5 @@
 % Regression tests for obd_scan
-~ needs_root
+~ needs_root not_pypy
 
 + Configuration
 ~ conf
