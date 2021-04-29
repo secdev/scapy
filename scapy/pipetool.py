@@ -108,7 +108,7 @@ class PipeEngine(ObjectPipe):
             RUN = True
             STOP_IF_EXHAUSTED = False
             while RUN and (not STOP_IF_EXHAUSTED or len(sources) > 1):
-                fds = select_objects(sources, 0)
+                fds = select_objects(sources, 2)
                 for fd in fds:
                     if fd is self:
                         cmd = self._read_cmd()
