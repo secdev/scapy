@@ -78,7 +78,7 @@ def select_objects(inputs, remain):
     :param remain: timeout. If 0, return [].
     """
     if not WINDOWS:
-        return select.select(inputs, [], [], remain)[0]
+        return select.select(inputs, [], [], remain or 0.1)[0]
     natives = []
     events = []
     results = []
