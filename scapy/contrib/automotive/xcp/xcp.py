@@ -96,7 +96,7 @@ class XCPOnCAN(CAN):
         return super(XCPOnCAN, self).post_build(pkt, pay)
 
     def extract_padding(self, p):
-        return p, None
+        return p[:self.length], None
 
 
 class XCPOnUDP(UDP):

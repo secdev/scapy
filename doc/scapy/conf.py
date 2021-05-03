@@ -100,6 +100,9 @@ todo_include_todos = False
 # Enable codeauthor and sectionauthor directives
 show_authors = True
 
+# Mock python-can
+autodoc_mock_imports = ["can"]
+
 
 # -- Options for HTML output ----------------------------------------------
 

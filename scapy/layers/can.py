@@ -43,14 +43,44 @@ CAN_MTU = 16
 CAN_MAX_DLEN = 8
 CAN_INV_FILTER = 0x20000000
 
-# Mimics the Wireshark CAN dissector parameter 'Byte-swap the CAN ID/flags field'  # noqa: E501
-#   set to True when working with PF_CAN sockets
-conf.contribs['CAN'] = {'swap-bytes': False}
+# Mimics the Wireshark CAN dissector parameter
+# 'Byte-swap the CAN ID/flags field'.
+# Set to True when working with PF_CAN sockets
+conf.contribs['CAN'] = {'swap-bytes': False,
+                        'remove-padding': True}
 
 
 class CAN(Packet):
-    """A minimal implementation of the CANopen protocol, based on
-    Wireshark dissectors. See https://wiki.wireshark.org/CANopen
+    """A implementation of CAN messages.
+
+    Dissection of CAN messages from Wireshark captures and Linux PF_CAN sockets
+    are supported from protocol specification.
+    See https://wiki.wireshark.org/CANopen for further information on
+    the Wireshark dissector. Linux PF_CAN and Wireshark use different
+    endianness for the first 32 bit of a CAN message. This dissector can be
+    configured for both use cases.
+
+    Configuration ``swap-bytes``:
+        Wireshark dissection:
+            >>> conf.contribs['CAN']['swap-bytes'] = False
+
+        PF_CAN Socket dissection:
+            >>> conf.contribs['CAN']['swap-bytes'] = True
+
+    Configuration ``remove-padding``:
+    Linux PF_CAN Sockets always return 16 bytes per CAN frame receive.
+    This implicates that CAN frames get padded from the Linux PF_CAN socket
+    with zeros up to 8 bytes of data. The real length from the CAN frame on
+    the wire is given by the length field. To obtain only the CAN frame from
+    the wire, this additional padding has to be removed. Nevertheless, for
+    corner cases, it might be useful to also get the padding. This can be
+    configuered through the **remove-padding** configuration.
+
+    Truncate CAN frame based on length field:
+        >>> conf.contribs['CAN']['remove-padding'] = True
+
+    Show entire CAN frame received from socket:
+        >>> conf.contribs['CAN']['remove-padding'] = False
 
     """
     fields_desc = [
@@ -66,13 +96,13 @@ class CAN(Packet):
     @staticmethod
     def inv_endianness(pkt):
         # type: (bytes) -> bytes
-        """ Invert the order of the first four bytes of a CAN packet
+        """Invert the order of the first four bytes of a CAN packet
 
         This method is meant to be used specifically to convert a CAN packet
-        between the pcap format and the socketCAN format
+        between the pcap format and the SocketCAN format
 
-        :param pkt: str of the CAN packet
-        :return: packet str with the first four bytes swapped
+        :param pkt: bytes str of the CAN packet
+        :return: bytes str with the first four bytes swapped
         """
         len_partial = len(pkt) - 4  # len of the packet, CAN ID excluded
         return struct.pack('<I{}s'.format(len_partial),
@@ -80,7 +110,7 @@ class CAN(Packet):
 
     def pre_dissect(self, s):
         # type: (bytes) -> bytes
-        """ Implements the swap-bytes functionality when dissecting """
+        """Implements the swap-bytes functionality when dissecting """
         if conf.contribs['CAN']['swap-bytes']:
             data = CAN.inv_endianness(s)  # type: bytes
             return data
@@ -93,9 +123,9 @@ class CAN(Packet):
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
-        """ Implements the swap-bytes functionality when building
+        """Implements the swap-bytes functionality for Packet build.
 
-        this is based on a copy of the Packet.self_build default method.
+        This is based on a copy of the Packet.self_build default method.
         The goal is to affect only the CAN layer data and keep
         under layers (e.g LinuxCooked) unchanged
         """
@@ -106,7 +136,10 @@ class CAN(Packet):
 
     def extract_padding(self, p):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]
-        return b'', p
+        if conf.contribs['CAN']['remove-padding']:
+            return b'', None
+        else:
+            return b'', p
 
 
 conf.l2types.register(DLT_CAN_SOCKETCAN, CAN)
@@ -114,6 +147,16 @@ bind_layers(CookedLinux, CAN, proto=12)
 
 
 class SignalField(ScalingField):
+    """SignalField is a base class for signal data, usually transmitted from
+    CAN messages in automotive applications. Most vehicle manufacturers
+    describe their vehicle internal signals by so called data base CAN (DBC)
+    files. All necessary functions to easily create Scapy dissectors similar
+    to signal descriptions from DBC files are provided by this base class.
+
+    SignalField instances should only be used together with SignalPacket
+    classes since SignalPackets enforce length checks for CAN messages.
+
+    """
     __slots__ = ["start", "size"]
 
     def __init__(self, name, default, start, size, scaling=1, unit="",
@@ -326,6 +369,14 @@ class BEFloatSignalField(SignalField):
 
 
 class SignalPacket(Packet):
+    """Special implementation of Packet.
+
+    This class enforces the correct wirelen of a CAN message for
+    signal transmitting in automotive applications.
+    Furthermore, the dissection order of SignalFields in fields_desc is
+    deduced by the start index of a field.
+    """
+
     def pre_dissect(self, s):
         # type: (bytes) -> bytes
         if not all(isinstance(f, SignalField) or
@@ -337,7 +388,8 @@ class SignalPacket(Packet):
 
     def post_dissect(self, s):
         # type: (bytes) -> bytes
-        """ SignalFields can be dissected on packets with unordered fields.
+        """SignalFields can be dissected on packets with unordered fields.
+
         The order of SignalFields is defined from the start parameter.
         After a build, the consumed bytes of the length of all SignalFields
         have to be removed from the SignalPacket.
@@ -350,6 +402,25 @@ class SignalPacket(Packet):
 
 
 class SignalHeader(CAN):
+    """Special implementation of a CAN Packet to allow dynamic binding.
+
+    This class can be provided to CANSockets as basecls.
+
+    Example:
+        >>> class floatSignals(SignalPacket):
+        >>>     fields_desc = [
+        >>>         LEFloatSignalField("floatSignal2", default=0, start=32),
+        >>>         BEFloatSignalField("floatSignal1", default=0, start=7)]
+        >>>
+        >>> bind_layers(SignalHeader, floatSignals, identifier=0x321)
+        >>>
+        >>> dbc_sock = CANSocket("can0", basecls=SignalHeader)
+
+    All CAN messages received from this dbc_sock CANSocket will be interpreted
+    as SignalHeader. Through Scapys ``bind_layers`` mechanism, all CAN messages
+    with CAN identifier 0x321 will interpret the payload bytes of these
+    CAN messages as floatSignals packet.
+    """
     fields_desc = [
         FlagsField('flags', 0, 3, ['error',
                                    'remote_transmission_request',
@@ -366,18 +437,29 @@ class SignalHeader(CAN):
 
 def rdcandump(filename, count=-1, interface=None):
     # type: (str, int, Optional[str]) -> PacketList
-    """Read a candump log file and return a packet list
+    """ Read a candump log file and return a packet list.
 
-    filename: file to read
-    count: read only <count> packets
-    interfaces: return only packets from a specified interface
+    :param filename: Filename of the file to read from.
+                     Also gzip files are accepted.
+    :param count: Read only <count> packets. Specify -1 to read all packets.
+    :param interface: Return only packets from a specified interface
+    :return: A PacketList object containing the read files
     """
     with CandumpReader(filename, interface) as fdesc:
         return fdesc.read_all(count=count)
 
 
 class CandumpReader:
-    """A stateful candump reader. Each packet is returned as a CAN packet"""
+    """A stateful candump reader. Each packet is returned as a CAN packet.
+
+    Creates a CandumpReader object
+
+    :param filename: filename of a candump logfile, compressed or
+                     uncompressed, or a already opened file object.
+    :param interface: Name of a interface, if candump contains messages
+                      of multiple interfaces and only one messages from a
+                      specific interface are wanted.
+    """
 
     nonblocking_socket = True
 
@@ -398,6 +480,21 @@ class CandumpReader:
     @staticmethod
     def open(filename):
         # type: (Union[IO[bytes], str]) -> Tuple[str, _ByteStream]
+        """Open function to handle three types of input data.
+
+        If filename of a regular candump log file is provided, this function
+        opens the file and returns the file object.
+        If filename of a gzip compressed candump log file is provided, the
+        required gzip open function is used to obtain the necessary file
+        object, which gets returned.
+        If a fileobject or ByteIO is provided, the filename is gathered for
+        internal use. No further steps are performed on this object.
+
+        :param filename: Can be a string, specifying a candump log file or a
+                         gzip compressed candump log file. Also already opened
+                         file objects are allowed.
+        :return: A opened file object for further use.
+        """
         """Open (if necessary) filename."""
         if isinstance(filename, str):
             try:
@@ -414,7 +511,9 @@ class CandumpReader:
 
     def next(self):
         # type: () -> Packet
-        """implement the iterator protocol on a set of packets
+        """Implements the iterator protocol on a set of packets
+
+        :return: Next readable CAN Packet from the specified file
         """
         try:
             pkt = None
@@ -428,9 +527,13 @@ class CandumpReader:
 
     def read_packet(self, size=CAN_MTU):
         # type: (int) -> Optional[Packet]
-        """return a single packet read from the file or None if filters apply
+        """Read a packet from the specified file.
 
-        raise EOFError when no more packets are available
+        This function will raise EOFError when no more packets are available.
+
+        :param size: Not used. Just here to follow the function signature for
+                     SuperSocket emulation.
+        :return: A single packet read from the file or None if filters apply
         """
         line = self.f.readline()
         line = line.lstrip()
@@ -472,7 +575,7 @@ class CandumpReader:
 
     def dispatch(self, callback):
         # type: (Callable[[Packet], None]) -> None
-        """call the specified callback routine for each packet read
+        """Call the specified callback routine for each packet read
 
         This is just a convenience function for the main loop
         that allows for easy launching of packet processing in a
@@ -483,7 +586,11 @@ class CandumpReader:
 
     def read_all(self, count=-1):
         # type: (int) -> PacketList
-        """return a list of all packets in the candump file
+        """Read a specific number or all packets from a candump file.
+
+        :param count: Specify a specific number of packets to be read.
+                      All packets can be read by count=-1.
+        :return: A PacketList object containing read CAN messages
         """
         res = []
         while count != 0:
@@ -499,16 +606,17 @@ class CandumpReader:
 
     def recv(self, size=CAN_MTU):
         # type: (int) -> Optional[Packet]
-        """ Emulate a socket
-        """
+        """Emulation of SuperSocket"""
         return self.read_packet(size=size)
 
     def fileno(self):
         # type: () -> int
+        """Emulation of SuperSocket"""
         return self.f.fileno()
 
     def close(self):
         # type: () -> Any
+        """Emulation of SuperSocket"""
         return self.f.close()
 
     def __enter__(self):
@@ -519,8 +627,8 @@ class CandumpReader:
         # type: (Optional[Type[BaseException]], Optional[BaseException], Optional[Any]) -> None  # noqa: E501
         self.close()
 
-    # emulate SuperSocket
     @staticmethod
     def select(sockets, remain=None):
         # type: (List[SuperSocket], Optional[int]) -> List[SuperSocket]
+        """Emulation of SuperSocket"""
         return sockets

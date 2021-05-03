@@ -39,18 +39,20 @@ scapy/layers/l2.py
 
 # CONTRIB
 #scapy/contrib/http2.py  # needs to be fixed
-scapy/contrib/roce.py
-scapy/contrib/automotive/scanner/test_case.py
-scapy/contrib/automotive/scanner/staged_test_case.py
-scapy/contrib/automotive/scanner/configuration.py
-scapy/contrib/automotive/scanner/graph.py
-scapy/contrib/automotive/ecu.py
-scapy/contrib/automotive/uds_ecu_states.py
-scapy/contrib/automotive/uds_logging.py
-scapy/contrib/automotive/gm/gmlanutils.py
-scapy/contrib/automotive/gm/gmlan_ecu_states.py
-scapy/contrib/automotive/gm/gmlan_logging.py
 scapy/contrib/automotive/bmw/hsfz.py
 scapy/contrib/automotive/doip.py
-scapy/contrib/isotp.py
+scapy/contrib/automotive/ecu.py
+scapy/contrib/automotive/gm/gmlan_ecu_states.py
+scapy/contrib/automotive/gm/gmlan_logging.py
+scapy/contrib/automotive/gm/gmlanutils.py
 scapy/contrib/automotive/kwp.py
+scapy/contrib/automotive/scanner/configuration.py
+scapy/contrib/automotive/scanner/graph.py
+scapy/contrib/automotive/scanner/staged_test_case.py
+scapy/contrib/automotive/scanner/test_case.py
+scapy/contrib/automotive/uds_ecu_states.py
+scapy/contrib/automotive/uds_logging.py
+scapy/contrib/cansocket_native.py
+scapy/contrib/cansocket_python_can.py
+scapy/contrib/isotp.py
+scapy/contrib/roce.py

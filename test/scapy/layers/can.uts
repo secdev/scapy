@@ -69,11 +69,12 @@ set(pkt.length for pkt in packets) == {1, 2, 8}
 ############
 ############
 
-+ swap-bytes functionality (for PF_CAN socket interactions)
++ swap-bytes and remove-padding functionality (for PF_CAN socket interactions)
 
 = read PCAP of a CookedLinux/SocketCAN capture (CAN standard and extended)
 
 conf.contribs['CAN']['swap-bytes'] = True
+conf.contribs['CAN']['remove-padding'] = False
 pcap_fd_can_a = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00q\x00\x00\x00\x15f`Zv\xde\n\x00 \x00\x00\x00 \x00\x00\x00\x00\x01\x01\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\xdf\x07\x00\x00\x03\x00\x00\x00\x02\x01\r\x00\x00\x00\x00\x00')
 packets_can_a = rdpcap(pcap_fd_can_a)
 pcap_fd_can_b = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00q\x00\x00\x00\xf4i`Z\xf3\x99\x07\x00 \x00\x00\x00 \x00\x00\x00\x00\x01\x01\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\xf13\xdb\x98\x03\x00\x00\x00\x02\x01\r\x00\x00\x00\x00\x00')
@@ -116,9 +117,13 @@ p_too_much_data = CAN(flags='error', length=1, identifier=1234, data=b'\x01\x02'
 p = CAN(bytes(p_too_much_data))
 p.haslayer('Padding') and p['Padding'].load == b'\x02'
 
++ rdcandump
 
 = Check rdcandump default
 * default reading
+
+conf.contribs['CAN']['remove-padding'] = True
+
 pcap_fd = BytesIO(b'''(1539191392.761779) vcan0 123#11223344
                     (1539191470.820239) vcan0 123#11223344
                     (1539191471.503168) vcan0 123#11223344

@@ -13,30 +13,50 @@ NativeCANSocket.
 import struct
 import socket
 import time
+
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, warning
+from scapy.packet import Packet
 from scapy.layers.can import CAN, CAN_MTU
-from scapy.packet import Padding
 from scapy.arch.linux import get_last_packet_timestamp
+from scapy.compat import List, Dict, Type, Any, Optional, Tuple, raw
 
 conf.contribs['NativeCANSocket'] = {'channel': "can0"}
 
 
 class NativeCANSocket(SuperSocket):
+    """Initializes a Linux PF_CAN socket object.
+
+    Example:
+        >>> socket = NativeCANSocket(channel="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x7FF}])
+
+    :param channel: Network interface name
+    :param receive_own_messages: Messages, sent by this socket are will
+                                 also be received.
+    :param can_filters: A list of can filter dictionaries.
+    :param basecls: Packet type in which received data gets interpreted.
+    :param kwargs: Various keyword arguments for compatibility with
+                   PythonCANSockets
+    """  # noqa: E501
     desc = "read/write packets at a given CAN interface using PF_CAN sockets"
 
-    def __init__(self, channel=None, receive_own_messages=False,
-                 can_filters=None, remove_padding=True, basecls=CAN, **kwargs):
-        bustype = kwargs.pop("bustype", None)
-        if bustype and bustype != "socketcan":
+    def __init__(self,
+                 channel=None,  # type: Optional[str]
+                 receive_own_messages=False,  # type: bool
+                 can_filters=None,  # type: Optional[List[Dict[str, int]]]
+                 basecls=CAN,  # type: Type[Packet]
+                 **kwargs  # type: Dict[str, Any]
+                 ):
+        # type: (...) -> None
+        bustype = kwargs.pop("bustype", "")
+        if bustype != "socketcan":
             warning("You created a NativeCANSocket. "
                     "If you're providing the argument 'bustype', please use "
                     "the correct one to achieve compatibility with python-can"
                     "/PythonCANSocket. \n'bustype=socketcan'")
 
         self.basecls = basecls
-        self.remove_padding = remove_padding
         self.channel = conf.contribs['NativeCANSocket']['channel'] if \
             channel is None else channel
         self.ins = socket.socket(socket.PF_CAN,
@@ -70,50 +90,42 @@ class NativeCANSocket(SuperSocket):
         self.ins.bind((self.channel,))
         self.outs = self.ins
 
-    def recv(self, x=CAN_MTU):
+    def recv_raw(self, x=CAN_MTU):
+        # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
+        """Returns a tuple containing (cls, pkt_data, time)"""
+        pkt = None
         try:
-            pkt, sa_ll = self.ins.recvfrom(x)
+            pkt = self.ins.recv(x)
         except BlockingIOError:  # noqa: F821
             warning("Captured no data, socket in non-blocking mode.")
-            return None
         except socket.timeout:
             warning("Captured no data, socket read timed out.")
-            return None
         except OSError:
             # something bad happened (e.g. the interface went down)
             warning("Captured no data.")
-            return None
 
         # need to change the byte order of the first four bytes,
         # required by the underlying Linux SocketCAN frame format
-        if not conf.contribs['CAN']['swap-bytes']:
+        if not conf.contribs['CAN']['swap-bytes'] and pkt is not None:
             pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
 
-        len = pkt[4]
-        canpkt = self.basecls(pkt[:len + 8])
-        canpkt.time = get_last_packet_timestamp(self.ins)
-        if self.remove_padding:
-            return canpkt
-        else:
-            return canpkt / Padding(pkt[len + 8:])
+        return self.basecls, pkt, get_last_packet_timestamp(self.ins)
 
     def send(self, x):
+        # type: (Packet) -> int
         try:
-            if hasattr(x, "sent_time"):
-                x.sent_time = time.time()
+            x.sent_time = time.time()
+        except AttributeError:
+            pass
 
-            # need to change the byte order of the first four bytes,
-            # required by the underlying Linux SocketCAN frame format
-            bs = bytes(x)
-            if not conf.contribs['CAN']['swap-bytes']:
-                bs = bs + b'\x00' * (CAN_MTU - len(bs))
-                bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
-            return SuperSocket.send(self, bs)
-        except socket.error as msg:
-            raise msg
+        # need to change the byte order of the first four bytes,
+        # required by the underlying Linux SocketCAN frame format
+        bs = raw(x)
+        if not conf.contribs['CAN']['swap-bytes']:
+            bs = bs + b'\x00' * (CAN_MTU - len(bs))
+            bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
 
-    def close(self):
-        self.ins.close()
+        return super(NativeCANSocket, self).send(bs)  # type: ignore
 
 
 CANSocket = NativeCANSocket
