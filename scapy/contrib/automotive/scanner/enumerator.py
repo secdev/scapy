@@ -13,7 +13,7 @@ from collections import defaultdict, OrderedDict
 from itertools import chain
 
 from scapy.compat import Any, Union, List, Optional, Iterable, \
-    Dict, Tuple, Set, Callable, cast, NamedTuple, FAKE_TYPING, orb
+    Dict, Tuple, Set, Callable, cast, NamedTuple, orb
 from scapy.error import Scapy_Exception, log_interactive
 from scapy.utils import make_lined_table, EDecimal
 import scapy.modules.six as six
@@ -26,34 +26,22 @@ from scapy.contrib.automotive.scanner.configuration import \
 from scapy.contrib.automotive.scanner.graph import _Edge
 
 
-if not FAKE_TYPING:
-    # Definition outside the class ServiceEnumerator to allow pickling
-    _AutomotiveTestCaseScanResult = NamedTuple(
-        "_AutomotiveTestCaseScanResult",
-        [("state", EcuState),
-         ("req", Packet),
-         ("resp", Optional[Packet]),
-         ("req_ts", Union[EDecimal, float]),
-         ("resp_ts", Optional[Union[EDecimal, float]])])
+# Definition outside the class ServiceEnumerator to allow pickling
+_AutomotiveTestCaseScanResult = NamedTuple(
+    "_AutomotiveTestCaseScanResult",
+    [("state", EcuState),
+     ("req", Packet),
+     ("resp", Optional[Packet]),
+     ("req_ts", Union[EDecimal, float]),
+     ("resp_ts", Optional[Union[EDecimal, float]])])
 
-    _AutomotiveTestCaseFilteredScanResult = NamedTuple(
-        "_AutomotiveTestCaseFilteredScanResult",
-        [("state", EcuState),
-         ("req", Packet),
-         ("resp", Packet),
-         ("req_ts", Union[EDecimal, float]),
-         ("resp_ts", Union[EDecimal, float])])
-
-else:
-    from collections import namedtuple
-    # Definition outside the class ServiceEnumerator to allow pickling
-    _AutomotiveTestCaseScanResult = namedtuple(  # type: ignore
-        "_AutomotiveTestCaseScanResult",
-        ["state", "req", "resp", "req_ts", "resp_ts"])
-
-    _AutomotiveTestCaseFilteredScanResult = namedtuple(  # type: ignore
-        "_AutomotiveTestCaseFilteredScanResult",
-        ["state", "req", "resp", "req_ts", "resp_ts"])
+_AutomotiveTestCaseFilteredScanResult = NamedTuple(
+    "_AutomotiveTestCaseFilteredScanResult",
+    [("state", EcuState),
+     ("req", Packet),
+     ("resp", Packet),
+     ("req_ts", Union[EDecimal, float]),
+     ("resp_ts", Union[EDecimal, float])])
 
 
 @six.add_metaclass(abc.ABCMeta)
