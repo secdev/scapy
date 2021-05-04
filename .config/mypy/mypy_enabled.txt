@@ -55,7 +55,6 @@ scapy/contrib/automotive/scanner/executor.py
 scapy/contrib/automotive/scanner/enumerator.py
 scapy/contrib/automotive/scanner/configuration.py
 scapy/contrib/automotive/scanner/graph.py
-scapy/contrib/automotive/ecu.py
 scapy/contrib/automotive/uds_ecu_states.py
 scapy/contrib/automotive/uds_logging.py
 scapy/contrib/cansocket_native.py
