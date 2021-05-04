@@ -841,7 +841,7 @@ _modbus_response_classes = {
     0x06: ModbusPDU06WriteSingleRegisterResponse,
     0x07: ModbusPDU07ReadExceptionStatusResponse,
     0x08: ModbusPDU08DiagnosticsResponse,
-    0x0B: ModbusPDU0BGetCommEventCounterRequest,
+    0x0B: ModbusPDU0BGetCommEventCounterResponse,
     0x0C: ModbusPDU0CGetCommEventLogResponse,
     0x0F: ModbusPDU0FWriteMultipleCoilsResponse,
     0x10: ModbusPDU10WriteMultipleRegistersResponse,
