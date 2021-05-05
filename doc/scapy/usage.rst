@@ -276,7 +276,7 @@ Injecting bytes
 .. index::
    single: RawVal
 
-In a packet, each field has a specific type. For instance, the length field of the IP packet ``len`` expects an integer. More on that later. If you're developping a PoC, there are times where you'll want to inject some value that doesn't fit that type. This is possible using ``RawVal``
+In a packet, each field has a specific type. For instance, the length field of the IP packet ``len`` expects an integer. More on that later. If you're developing a PoC, there are times where you'll want to inject some value that doesn't fit that type. This is possible using ``RawVal``
 
 .. code::
 
