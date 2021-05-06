@@ -122,6 +122,11 @@ def get_if_raw_hwaddr(ifname):
     # Pack and return the MAC address
     mac = addresses[0].split(' ')[1]
     mac = [chr(int(b, 16)) for b in mac.split(':')]
+
+    # Check that the address length is correct
+    if len(mac) != 6:
+        raise Scapy_Exception("No MAC address found on %s !" % ifname)
+
     return (ARPHDR_ETHER, ''.join(mac))
 
 
