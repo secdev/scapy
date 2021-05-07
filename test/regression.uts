@@ -188,6 +188,8 @@ assert p == "127.0.0.1"
 
 = Interface related functions
 
+import mock
+
 conf.iface
 
 get_if_raw_hwaddr(conf.iface)
@@ -206,6 +208,16 @@ get_if_list()
 get_working_if()
 
 get_if_raw_addr6(conf.iface)
+
+if not WINDOWS:
+    addr = u"lladdr 29:0b:c2:ff:fe:53:21:e9\n"
+    b = Bunch(returncode=0, communicate=lambda *args, **kargs: (addr, None))
+    with mock.patch('scapy.arch.bpf.core.subprocess.Popen', return_value=b) as popen:
+        try:
+            scapy.arch.bpf.core.get_if_raw_hwaddr("fw0")
+            assert False
+        except Scapy_Exception:
+            assert True
 
 = More Interfaces related functions
 
