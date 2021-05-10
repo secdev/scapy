@@ -1108,24 +1108,24 @@ class AsyncSniffer(object):
                             quiet=quiet)
                 )] = offline
         if not sniff_sockets or iface is not None:
-            iface = resolve_iface(iface or conf.iface)
-            if L2socket is None:
-                L2socket = iface.l2listen()
+            # The _RL2 function resolves the L2socket of an iface
+            _RL2 = lambda i: L2socket or resolve_iface(i).l2listen()  # type: Callable[[_GlobInterfaceType], Callable[..., SuperSocket]]  # noqa: E501
             if isinstance(iface, list):
                 sniff_sockets.update(
-                    (L2socket(type=ETH_P_ALL, iface=ifname, **karg),
+                    (_RL2(ifname)(type=ETH_P_ALL, iface=ifname, **karg),
                      ifname)
                     for ifname in iface
                 )
             elif isinstance(iface, dict):
                 sniff_sockets.update(
-                    (L2socket(type=ETH_P_ALL, iface=ifname, **karg),
+                    (_RL2(ifname)(type=ETH_P_ALL, iface=ifname, **karg),
                      iflabel)
                     for ifname, iflabel in six.iteritems(iface)
                 )
             else:
-                sniff_sockets[L2socket(type=ETH_P_ALL, iface=iface,
-                                       **karg)] = iface
+                iface = iface or conf.iface
+                sniff_sockets[_RL2(iface)(type=ETH_P_ALL, iface=iface,
+                                          **karg)] = iface
 
         # Get select information from the sockets
         _main_socket = next(iter(sniff_sockets))
@@ -1248,7 +1248,7 @@ class AsyncSniffer(object):
                 return self.results
             return None
         else:
-            raise Scapy_Exception("Not started !")
+            raise Scapy_Exception("Not running ! (check .running attr)")
 
     def join(self, *args, **kwargs):
         # type: (*Any, **Any) -> None

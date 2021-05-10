@@ -711,6 +711,8 @@ We can sniff and do passive OS fingerprinting::
 
 The number before the OS guess is the accuracy of the guess.
 
+.. note:: When sniffing on several interfaces (e.g. ``iface=["eth0", ...]``), you can check what interface a packet was sniffed on by using the ``sniffed_on`` attribute, as shown in one of the examples above.
+
 Asynchronous Sniffing
 ---------------------
 
