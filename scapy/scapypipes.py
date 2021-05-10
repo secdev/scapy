@@ -57,9 +57,6 @@ class SniffSource(Source):
     def fileno(self):
         return self.s.fileno()
 
-    def check_recv(self):
-        return True
-
     def deliver(self):
         try:
             pkt = self.s.recv()
@@ -95,9 +92,6 @@ class RdpcapSource(Source):
 
     def fileno(self):
         return self.f.fileno()
-
-    def check_recv(self):
-        return True
 
     def deliver(self):
         try:
