@@ -1108,9 +1108,8 @@ class AsyncSniffer(object):
                             quiet=quiet)
                 )] = offline
         if not sniff_sockets or iface is not None:
-            iface = resolve_iface(iface or conf.iface)
             if L2socket is None:
-                L2socket = iface.l2listen()
+                L2socket = resolve_iface(iface or conf.iface).l2listen()
             if isinstance(iface, list):
                 sniff_sockets.update(
                     (L2socket(type=ETH_P_ALL, iface=ifname, **karg),
