@@ -41,7 +41,7 @@ class PipeEngine(ObjectPipe):
                 print("###### %s" % pn)
 
     def __init__(self, *pipes):
-        ObjectPipe.__init__(self)
+        ObjectPipe.__init__(self, "PipeEngine")
         self.active_pipes = set()
         self.active_sources = set()
         self.active_drains = set()
@@ -108,7 +108,7 @@ class PipeEngine(ObjectPipe):
             RUN = True
             STOP_IF_EXHAUSTED = False
             while RUN and (not STOP_IF_EXHAUSTED or len(sources) > 1):
-                fds = select_objects(sources, 2)
+                fds = select_objects(sources, 0.5)
                 for fd in fds:
                     if fd is self:
                         cmd = self._read_cmd()
@@ -319,7 +319,7 @@ class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
 class Source(Pipe, ObjectPipe):
     def __init__(self, name=None):
         Pipe.__init__(self, name=name)
-        ObjectPipe.__init__(self)
+        ObjectPipe.__init__(self, name)
         self.is_exhausted = False
 
     def _read_message(self):

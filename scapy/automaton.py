@@ -35,44 +35,25 @@ from scapy.consts import WINDOWS
 import scapy.modules.six as six
 
 
-class SelectableObject(object):
-    if WINDOWS:
-        def __init__(self):
-            self._fd = ctypes.windll.kernel32.CreateEventA(
-                None, 0, 0,
-                "SelectableObject %s" % random.random()
-            )
-
-        def call_release(self):
-            if ctypes.windll.kernel32.PulseEvent(
-                    ctypes.c_void_p(self._fd)) == 0:
-                warning(ctypes.FormatError())
-
-        def _close_fd(self):
-            if self._fd and ctypes.windll.kernel32.CloseHandle(
-                    ctypes.c_void_p(self._fd)) == 0:
-                warning(ctypes.FormatError())
-                self._fd = None
-
-        def __del__(self):
-            if hasattr(self, "_fd"):
-                self._close_fd()
-    else:
-        def call_release(self):
-            pass
-
-        def close(self):
-            pass
-
-    def check_recv(self):
-        return False
-
-
 def select_objects(inputs, remain):
     """
-    Select SelectableObject objects. Same than:
+    Select objects. Same than:
     ``select.select(inputs, [], [], remain)``
-    But also works on Windows, only on SelectableObject.
+
+    But also works on Windows, only on objects whose fileno() returns
+    a Windows event. For simplicity, just use `ObjectPipe()` as a queue
+    that you can select on whatever the platform is.
+
+    If you want an object to be always included in the output of
+    select_objects (i.e. it's not selectable), just make fileno()
+    return a strictly negative value.
+
+    Example:
+
+        >>> a, b = ObjectPipe("a"), ObjectPipe("b")
+        >>> b.send("test")
+        >>> select_objects([a, b], 1)
+        [b]
 
     :param inputs: objects to process
     :param remain: timeout. If 0, return [].
@@ -81,21 +62,16 @@ def select_objects(inputs, remain):
         return select.select(inputs, [], [], remain)[0]
     natives = []
     events = []
-    results = []
+    results = set()
     for i in list(inputs):
         if getattr(i, "__selectable_force_select__", False):
             natives.append(i)
-        elif isinstance(i, SelectableObject):
-            if i.check_recv():
-                results.append(i)
-            else:
-                events.append(i)
+        elif i.fileno() < 0:
+            results.add(i)
         else:
-            raise TypeError(
-                "Invalid type: %s (must extend SelectableObject)"
-            )
+            events.append(i)
     if natives:
-        results.extend(select.select(natives, [], [], remain)[0])
+        results = results.union(set(select.select(natives, [], [], remain)[0]))
     if events:
         remainms = int((remain or 0) * 1000)
         if len(events) == 1:
@@ -104,6 +80,9 @@ def select_objects(inputs, remain):
                 remainms
             )
         else:
+            # Sadly, the only way to emulate select() is to first check
+            # if any object is available using WaitForMultipleObjects
+            # then poll the others.
             res = ctypes.windll.kernel32.WaitForMultipleObjects(
                 len(events),
                 (ctypes.c_void_p * len(events))(
@@ -113,16 +92,49 @@ def select_objects(inputs, remain):
                 remainms
             )
         if res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout
-            results.append(events[res])
-    return results
+            results.add(events[res])
+            if len(events) > 1:
+                # Now poll the others, if any
+                for evt in events:
+                    res = ctypes.windll.kernel32.WaitForSingleObject(
+                        ctypes.c_void_p(evt.fileno()),
+                        0  # poll: don't wait
+                    )
+                    if res == 0:
+                        results.add(evt)
+    return list(results)
 
 
-class ObjectPipe(SelectableObject):
-    def __init__(self):
+class ObjectPipe:
+    def __init__(self, name=None):
+        self.name = name or "ObjectPipe"
         self._closed = False
         self.__rd, self.__wr = os.pipe()
         self.__queue = deque()
-        SelectableObject.__init__(self)
+        if WINDOWS:
+            self._wincreate()
+
+    def _wincreate(self):
+        self._fd = ctypes.windll.kernel32.CreateEventA(
+            None, True, False,
+            ctypes.create_string_buffer(b"ObjectPipe %f" % random.random())
+        )
+
+    def _winset(self):
+        if ctypes.windll.kernel32.SetEvent(
+                ctypes.c_void_p(self._fd)) == 0:
+            warning(ctypes.FormatError())
+
+    def _winreset(self):
+        if ctypes.windll.kernel32.ResetEvent(
+                ctypes.c_void_p(self._fd)) == 0:
+            warning(ctypes.FormatError())
+
+    def _winclose(self):
+        if self._fd and ctypes.windll.kernel32.CloseHandle(
+                ctypes.c_void_p(self._fd)) == 0:
+            warning(ctypes.FormatError())
+            self._fd = None
 
     def fileno(self):
         if WINDOWS:
@@ -132,25 +144,27 @@ class ObjectPipe(SelectableObject):
 
     def send(self, obj):
         self.__queue.append(obj)
+        if WINDOWS:
+            self._winset()
         os.write(self.__wr, b"X")
-        self.call_release()
 
     def write(self, obj):
         self.send(obj)
 
+    def empty(self):
+        return not bool(self.__queue)
+
     def flush(self):
         pass
 
-    def check_recv(self):
-        return bool(self.__queue)
-
     def recv(self, n=0):
         if self._closed:
-            if self.check_recv():
-                return self.__queue.popleft()
             return None
         os.read(self.__rd, 1)
-        return self.__queue.popleft()
+        elt = self.__queue.popleft()
+        if WINDOWS and not self.__queue:
+            self._winreset()
+        return elt
 
     def read(self, n=0):
         return self.recv(n)
@@ -162,7 +176,10 @@ class ObjectPipe(SelectableObject):
             os.close(self.__wr)
             self.__queue.clear()
             if WINDOWS:
-                self._close_fd()
+                self._winclose()
+
+    def __repr__(self):
+        return "<%s at %s>" % (self.name, id(self))
 
     def __del__(self):
         self.close()
@@ -344,13 +361,13 @@ class _ATMT_Command:
     REJECT = "REJECT"
 
 
-class _ATMT_supersocket(SuperSocket, SelectableObject):
+class _ATMT_supersocket(SuperSocket):
     def __init__(self, name, ioevent, automaton, proto, *args, **kargs):
         self.name = name
         self.ioevent = ioevent
         self.proto = proto
         # write, read
-        self.spa, self.spb = ObjectPipe(), ObjectPipe()
+        self.spa, self.spb = ObjectPipe("spa"), ObjectPipe("spb")
         kargs["external_fd"] = {ioevent: (self.spa, self.spb)}
         kargs["is_atmt_socket"] = True
         self.atmt = automaton(*args, **kargs)
@@ -360,9 +377,6 @@ class _ATMT_supersocket(SuperSocket, SelectableObject):
         if not isinstance(s, bytes):
             s = bytes(s)
         self.spa.send(s)
-
-    def check_recv(self):
-        return self.spb.check_recv()
 
     def fileno(self):
         return self.spb.fileno()
@@ -534,7 +548,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         self.send_sock.send(pkt)
 
     # Utility classes and exceptions
-    class _IO_fdwrapper(SelectableObject):
+    class _IO_fdwrapper:
         def __init__(self, rd, wr):
             if rd is not None and not isinstance(rd, (int, ObjectPipe)):
                 rd = rd.fileno()
@@ -542,15 +556,11 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 wr = wr.fileno()
             self.rd = rd
             self.wr = wr
-            SelectableObject.__init__(self)
 
         def fileno(self):
             if isinstance(self.rd, ObjectPipe):
                 return self.rd.fileno()
             return self.rd
-
-        def check_recv(self):
-            return self.rd.check_recv()
 
         def read(self, n=65535):
             if isinstance(self.rd, ObjectPipe):
@@ -559,8 +569,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
         def write(self, msg):
             if isinstance(self.wr, ObjectPipe):
-                self.wr.send(msg)
-                return
+                return self.wr.send(msg)
             return os.write(self.wr, msg)
 
         def recv(self, n=65535):
@@ -569,19 +578,15 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         def send(self, msg):
             return self.write(msg)
 
-    class _IO_mixer(SelectableObject):
+    class _IO_mixer:
         def __init__(self, rd, wr):
             self.rd = rd
             self.wr = wr
-            SelectableObject.__init__(self)
 
         def fileno(self):
-            if isinstance(self.rd, int):
-                return self.rd
-            return self.rd.fileno()
-
-        def check_recv(self):
-            return self.rd.check_recv()
+            if isinstance(self.rd, ObjectPipe):
+                return self.rd.fileno()
+            return self.rd
 
         def recv(self, n=None):
             return self.rd.recv(n)
@@ -673,8 +678,8 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         self.init_kargs = kargs
         self.io = type.__new__(type, "IOnamespace", (), {})
         self.oi = type.__new__(type, "IOnamespace", (), {})
-        self.cmdin = ObjectPipe()
-        self.cmdout = ObjectPipe()
+        self.cmdin = ObjectPipe("cmdin")
+        self.cmdout = ObjectPipe("cmdout")
         self.ioin = {}
         self.ioout = {}
         for n in self.ionames:
@@ -683,12 +688,12 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 extfd = (extfd, extfd)
             ioin, ioout = extfd
             if ioin is None:
-                ioin = ObjectPipe()
-            elif not isinstance(ioin, SelectableObject):
+                ioin = ObjectPipe("ioin")
+            else:
                 ioin = self._IO_fdwrapper(ioin, None)
             if ioout is None:
-                ioout = ObjectPipe()
-            elif not isinstance(ioout, SelectableObject):
+                ioout = ObjectPipe("ioout")
+            else:
                 ioout = self._IO_fdwrapper(None, ioout)
 
             self.ioin[n] = ioin

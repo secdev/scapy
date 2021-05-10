@@ -13,7 +13,7 @@ import socket
 import struct
 import time
 
-from scapy.automaton import SelectableObject, select_objects
+from scapy.automaton import select_objects
 from scapy.compat import raw, plain_str
 from scapy.config import conf
 from scapy.consts import WINDOWS
@@ -60,9 +60,8 @@ _pcap_if_flags = [
 ]
 
 
-class _L2libpcapSocket(SuperSocket, SelectableObject):
+class _L2libpcapSocket(SuperSocket):
     def __init__(self):
-        SelectableObject.__init__(self)
         self.cls = None
 
     def recv_raw(self, x=MTU):
