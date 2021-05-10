@@ -1167,7 +1167,8 @@ class AsyncSniffer(object):
                 stoptime = time.time() + timeout
             remain = None
 
-            while sniff_sockets and self.continue_sniff:
+            # Loop until no sockets (except possibly the control socket) are left in sniff_sockets, or continue_sniff is False:
+            while any(sock for sock in sniff_sockets if sock is not close_pipe) and self.continue_sniff:
                 if timeout is not None:
                     remain = stoptime - time.time()
                     if remain <= 0:
