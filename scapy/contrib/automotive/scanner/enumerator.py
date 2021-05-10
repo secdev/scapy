@@ -69,11 +69,17 @@ class ServiceEnumerator(AutomotiveTestCase):
         # type: (int) -> str
         raise NotImplementedError()
 
-    @staticmethod
-    @abc.abstractmethod
-    def _get_table_entry(tup):
-        # type: (_AutomotiveTestCaseScanResult) -> Tuple[EcuState, str, str]
-        raise NotImplementedError()
+    def _get_table_entry_x(self, tup):
+        # type: (_AutomotiveTestCaseScanResult) -> str
+        return str(tup[0])
+
+    def _get_table_entry_y(self, tup):
+        # type: (_AutomotiveTestCaseScanResult) -> str
+        return repr(tup[1])
+
+    def _get_table_entry_z(self, tup):
+        # type: (_AutomotiveTestCaseScanResult) -> str
+        return repr(tup[2])
 
     @staticmethod
     @abc.abstractmethod
@@ -169,7 +175,6 @@ class ServiceEnumerator(AutomotiveTestCase):
             try:
                 res = socket.sr1(req, timeout=timeout, verbose=False)
             except (OSError, ValueError, Scapy_Exception) as e:
-                res = None
                 if self._retry_pkt is None:
                     log_interactive.debug(
                         "[-] Exception '%s' in execute. Prepare for retry", e)
@@ -178,6 +183,10 @@ class ServiceEnumerator(AutomotiveTestCase):
                     log_interactive.critical(
                         "[-] Exception during retry. This is bad")
                 raise e
+
+            if socket.closed:
+                log_interactive.critical("[-] Socket closed during scan.")
+                return
 
             self._store_result(state, req, res)
 
@@ -212,6 +221,11 @@ class ServiceEnumerator(AutomotiveTestCase):
             kwargs.pop("exit_if_service_not_supported", False)
         retry_if_busy_returncode = \
             kwargs.pop("retry_if_busy_returncode", True)
+        exit_scan_on_first_negative_response = \
+            kwargs.pop("exit_scan_on_first_negative_response", False)
+
+        if exit_scan_on_first_negative_response and response.service == 0x7f:
+            return True
 
         if exit_if_service_not_supported and response.service == 0x7f:
             response_code = self._get_negative_response_code(response)
@@ -455,11 +469,17 @@ class ServiceEnumerator(AutomotiveTestCase):
 
     def _show_results_information(self, dump, filtered):
         # type: (bool, bool) -> Optional[str]
+        def _get_table_entry(
+                tup  # type: _AutomotiveTestCaseScanResult
+        ):  # type: (...) -> Tuple[str, str, str]
+            return self._get_table_entry_x(tup), \
+                self._get_table_entry_y(tup), \
+                self._get_table_entry_z(tup)
         s = "=== No data to display ===\n"
         data = self._results if not filtered else self.filtered_results  # type: Union[List[_AutomotiveTestCaseScanResult], List[_AutomotiveTestCaseFilteredScanResult]]  # noqa: E501
         if len(data):
             s = make_lined_table(
-                data, self._get_table_entry, dump=dump, sortx=str) or ""
+                data, _get_table_entry, dump=dump, sortx=str) or ""
 
         if dump:
             return s + "\n"
@@ -486,13 +506,12 @@ class ServiceEnumerator(AutomotiveTestCase):
             print(s)
             return None
 
-    @classmethod
-    def _get_label(cls, response, positive_case="PR: PositiveResponse"):
+    def _get_label(self, response, positive_case="PR: PositiveResponse"):
         # type: (Optional[Packet], Union[Callable[[Packet], str], str]) -> str
         if response is None:
             return "Timeout"
         elif orb(bytes(response)[0]) == 0x7f:
-            return cls._get_negative_response_label(response)
+            return self._get_negative_response_label(response)
         else:
             if isinstance(positive_case, six.string_types):
                 return cast(str, positive_case)

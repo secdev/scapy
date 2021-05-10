@@ -29,13 +29,12 @@ class MyTestCase(ServiceEnumerator):
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
         return UDS(service=range(1, 11))
-    @staticmethod
-    def _get_table_entry(tup):
-        state, req, res, _, _ = tup
-        label = MyTestCase._get_label(res, "PR: Supported")
-        return (state,
-                "0x%02x: %s" % (req.service, req.sprintf("%UDS.service%")),
-                label)
+    def _get_table_entry_y(self, tup):
+        # type: (_AutomotiveTestCaseScanResult) -> str
+        return "0x%02x: %s" % (tup[1].service, tup[1].sprintf("%UDS.service%"))
+    def _get_table_entry_z(self, tup):
+        # type: (_AutomotiveTestCaseScanResult) -> str
+        return self._get_label(tup[2], "PR: Supported")
     @staticmethod
     def _get_negative_response_label(response):
         # type: (Packet) -> str
@@ -184,6 +183,12 @@ from scapy.supersocket import SuperSocket
 
 class MockISOTPSocket(SuperSocket):
     nonblocking_socket = True
+    @property
+    def closed(self):
+        return False
+    @closed.setter
+    def closed(self, var):
+        pass
     def __init__(self, rcvd_queue=None):
         self.rcvd_queue = Queue()
         self.sent_queue = Queue()

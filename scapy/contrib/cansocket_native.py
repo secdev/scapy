@@ -20,7 +20,7 @@ from scapy.error import Scapy_Exception, warning
 from scapy.packet import Packet
 from scapy.layers.can import CAN, CAN_MTU
 from scapy.arch.linux import get_last_packet_timestamp
-from scapy.compat import List, Dict, Type, Any, Optional, Tuple, raw
+from scapy.compat import List, Dict, Type, Any, Optional, Tuple, raw, cast
 
 conf.contribs['NativeCANSocket'] = {'channel': "can0"}
 
@@ -49,8 +49,8 @@ class NativeCANSocket(SuperSocket):
                  **kwargs  # type: Dict[str, Any]
                  ):
         # type: (...) -> None
-        bustype = kwargs.pop("bustype", "")
-        if bustype != "socketcan":
+        bustype = cast(Optional[str], kwargs.pop("bustype", None))
+        if bustype and bustype != "socketcan":
             warning("You created a NativeCANSocket. "
                     "If you're providing the argument 'bustype', please use "
                     "the correct one to achieve compatibility with python-can"
