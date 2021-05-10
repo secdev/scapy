@@ -821,7 +821,7 @@ _modbus_error_classes = {
     0x87: ModbusPDU07ReadExceptionStatusError,
     0x88: ModbusPDU08DiagnosticsError,
     0x8B: ModbusPDU0BGetCommEventCounterError,
-    0x0C: ModbusPDU0CGetCommEventLogError,
+    0x8C: ModbusPDU0CGetCommEventLogError,
     0x8F: ModbusPDU0FWriteMultipleCoilsError,
     0x90: ModbusPDU10WriteMultipleRegistersError,
     0x91: ModbusPDU11ReportSlaveIdError,
