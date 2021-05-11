@@ -62,32 +62,26 @@ CAN_ISOTP_DEFAULT_LL_TX_DL = CAN_MAX_DLEN
 CAN_ISOTP_DEFAULT_LL_TX_FLAGS = 0
 
 
-class SOCKADDR(ctypes.Structure):
-    # See /usr/include/i386-linux-gnu/bits/socket.h for original struct
-    _fields_ = [("sa_family", ctypes.c_uint16),
-                ("sa_data", ctypes.c_char * 14)]
-
-
-class TP(ctypes.Structure):
-    # This struct is only used within the SOCKADDR_CAN struct
+class tp(ctypes.Structure):
+    # This struct is only used within the sockaddr_can struct
     _fields_ = [("rx_id", ctypes.c_uint32),
                 ("tx_id", ctypes.c_uint32)]
 
 
-class ADDR_INFO(ctypes.Union):
-    # This struct is only used within the SOCKADDR_CAN struct
+class addr_info(ctypes.Union):
+    # This struct is only used within the sockaddr_can struct
     # This union is to future proof for future can address information
-    _fields_ = [("tp", TP)]
+    _fields_ = [("tp", tp)]
 
 
-class SOCKADDR_CAN(ctypes.Structure):
+class sockaddr_can(ctypes.Structure):
     # See /usr/include/linux/can.h for original struct
     _fields_ = [("can_family", ctypes.c_uint16),
                 ("can_ifindex", ctypes.c_int),
-                ("can_addr", ADDR_INFO)]
+                ("can_addr", addr_info)]
 
 
-class IFREQ(ctypes.Structure):
+class ifreq(ctypes.Structure):
     # The two fields in this struct were originally unions.
     # See /usr/include/net/if.h for original struct
     _fields_ = [("ifr_name", ctypes.c_char * 16),
@@ -198,9 +192,9 @@ class ISOTPNativeSocket(SuperSocket):
     # };
 
     def __get_sock_ifreq(self, sock, iface):
-        # type: (socket.socket, str) -> IFREQ
+        # type: (socket.socket, str) -> ifreq
         socket_id = ctypes.c_int(sock.fileno())
-        ifr = IFREQ()
+        ifr = ifreq()
         ifr.ifr_name = iface.encode('ascii')
         ret = LIBC.ioctl(socket_id, SIOCGIFINDEX, ctypes.byref(ifr))
 
@@ -221,9 +215,9 @@ class ISOTPNativeSocket(SuperSocket):
             did = did | socket.CAN_EFF_FLAG
 
         # select the CAN interface and bind the socket to it
-        addr = SOCKADDR_CAN(ctypes.c_uint16(socket.PF_CAN),
+        addr = sockaddr_can(ctypes.c_uint16(socket.PF_CAN),
                             ifr.ifr_ifindex,
-                            ADDR_INFO(TP(ctypes.c_uint32(did),
+                            addr_info(tp(ctypes.c_uint32(did),
                                          ctypes.c_uint32(sid))))
 
         error = LIBC.bind(socket_id, ctypes.byref(addr),

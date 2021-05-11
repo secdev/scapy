@@ -264,18 +264,17 @@ class CANReceiverThread(Thread):
 
     def __init__(self, can_socket, callback):
         # type: ("CANSocket", Callable[[Packet], None]) -> None
+        super(CANReceiverThread, self).__init__()
         self.socket = can_socket
         self.callback = callback
         self.exiting = False
         self._thread_started = Event()
         self.exception = None  # type: Optional[Exception]
-
-        Thread.__init__(self)
         self.name = "CANReceiver" + self.name
 
     def start(self):
         # type: () -> None
-        Thread.start(self)
+        super(CANReceiverThread, self).start()
         if not self._thread_started.wait(5):
             raise Scapy_Exception("CAN RX thread not started in 5s.")
 
@@ -489,7 +488,7 @@ class TimeoutScheduler:
     def _time():
         # type: () -> float
         if six.PY2:
-            return time.time()
+            return time.clock()
         return time.monotonic()
 
     class Handle:
@@ -521,13 +520,6 @@ class TimeoutScheduler:
                     self._cb = None
                     TimeoutScheduler.cancel(self)
                     return True
-
-        def __cmp__(self, other):
-            # type: (Any) -> int
-            if not isinstance(other, TimeoutScheduler.Handle):
-                raise TypeError()
-            diff = self._when - other._when
-            return 0 if diff == 0 else (1 if diff > 0 else -1)
 
         def __lt__(self, other):
             # type: (Any) -> bool
