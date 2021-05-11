@@ -1384,6 +1384,7 @@ class RawPcapNgReader(RawPcapReader):
     PacketMetadata = collections.namedtuple("PacketMetadata",
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen"])
+    """:noindex:"""
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
