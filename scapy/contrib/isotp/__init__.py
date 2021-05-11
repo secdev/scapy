@@ -16,11 +16,11 @@ from scapy.contrib.isotp.isotp_packet import ISOTP, ISOTPHeader, \
 from scapy.contrib.isotp.isotp_utils import ISOTPSession, \
     ISOTPMessageBuilder
 from scapy.contrib.isotp.isotp_soft_socket import ISOTPSoftSocket
-from scapy.contrib.isotp.isotp_scan import ISOTPScan
+from scapy.contrib.isotp.isotp_scan import isotp_scan
 
 __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
            "ISOTP_CF", "ISOTP_FC", "ISOTPSoftSocket", "ISOTPSession",
-           "ISOTPSocket", "ISOTPMessageBuilder", "ISOTPScan",
+           "ISOTPSocket", "ISOTPMessageBuilder", "isotp_scan",
            "USE_CAN_ISOTP_KERNEL_MODULE"]
 
 USE_CAN_ISOTP_KERNEL_MODULE = False

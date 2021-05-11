@@ -266,17 +266,17 @@ def scan_extended(sock,  # type: SuperSocket
     return return_values
 
 
-def ISOTPScan(sock,  # type: SuperSocket
-              scan_range=range(0x7ff + 1),  # type: Iterable[int]
-              extended_addressing=False,  # type: bool
-              extended_scan_range=range(0x100),  # type: Iterable[int]
-              noise_listen_time=2,  # type: int
-              sniff_time=0.1,  # type: float
-              output_format=None,  # type: Optional[str]
-              can_interface=None,  # type: Optional[str]
-              extended_can_id=False,  # type: bool
-              verbose=False  # type: bool
-              ):
+def isotp_scan(sock,  # type: SuperSocket
+               scan_range=range(0x7ff + 1),  # type: Iterable[int]
+               extended_addressing=False,  # type: bool
+               extended_scan_range=range(0x100),  # type: Iterable[int]
+               noise_listen_time=2,  # type: int
+               sniff_time=0.1,  # type: float
+               output_format=None,  # type: Optional[str]
+               can_interface=None,  # type: Optional[str]
+               extended_can_id=False,  # type: bool
+               verbose=False  # type: bool
+               ):
     # type: (...) -> Union[str, List[SuperSocket]]
     """Scan for ISOTP Sockets on a bus and return findings
 
