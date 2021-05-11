@@ -931,7 +931,7 @@ Close sockets::
 
 
 isotp_scan and ISOTPScanner
---------------------------
+---------------------------
 
 isotp_scan is a utility function to find ISOTP-Endpoints on a CAN-Bus.
 ISOTPScanner is a commandline-utility for the identical function.
