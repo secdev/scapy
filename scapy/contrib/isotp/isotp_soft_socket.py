@@ -20,7 +20,6 @@ from scapy.compat import Optional, Union, List, Tuple, Any, Type, cast, \
 from scapy.packet import Packet
 from scapy.layers.can import CAN
 import scapy.modules.six as six
-import scapy.automaton as automaton
 from scapy.modules.six.moves import queue
 from scapy.error import Scapy_Exception, warning, log_runtime
 from scapy.supersocket import SuperSocket
@@ -546,7 +545,7 @@ class TimeoutScheduler:
             return self._when >= other._when
 
 
-class ISOTPSocketImplementation(automaton.SelectableObject):
+class ISOTPSocketImplementation:
     """
     Implementation of an ISOTP "state machine".
 
@@ -593,8 +592,6 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                  listen_only=False  # type: bool
                  ):
         # type: (...) -> None
-        automaton.SelectableObject.__init__(self)
-
         self.can_socket = can_socket
         self.dst_id = dst_id
         self.src_id = src_id
@@ -862,7 +859,6 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         self.rx_queue.put((msg, ts))
         for cb in self.rx_callbacks:
             cb(msg)
-        self.call_release()
 
     def _recv_ff(self, data, ts):
         # type: (bytes, Union[float, EDecimal]) -> None
@@ -960,7 +956,6 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.rx_queue.put((self.rx_buf, self.rx_ts))
             for cb in self.rx_callbacks:
                 cb(self.rx_buf)
-            self.call_release()
             self.rx_buf = None
             return
 
@@ -1050,8 +1045,3 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             return self.rx_queue.get(timeout is None or timeout > 0, timeout)
         except queue.Empty:
             return None
-
-    def check_recv(self):
-        # type: () -> bool
-        """Implementation for SelectableObject"""
-        return not self.rx_queue.empty()
