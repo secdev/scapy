@@ -1195,9 +1195,8 @@ class RawPcapReader:
     """A stateful pcap reader. Each packet is returned as a string"""
 
     nonblocking_socket = True
-    PcapPacketMetadata = collections.namedtuple(
-        "PcapPacketMetadata",
-        ["sec", "usec", "wirelen", "caplen"])
+    PacketMetadata = collections.namedtuple("PacketMetadata",
+                                            ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, _ByteStream, bytes) -> None
@@ -1244,7 +1243,7 @@ class RawPcapReader:
     __next__ = next
 
     def _read_packet(self, size=MTU):
-        # type: (int) -> Tuple[bytes, RawPcapReader.PcapPacketMetadata]
+        # type: (int) -> Tuple[bytes, RawPcapReader.PacketMetadata]
         """return a single packet read from the file as a tuple containing
         (pkt_data, pkt_metadata)
 
@@ -1255,8 +1254,8 @@ class RawPcapReader:
             raise EOFError
         sec, usec, caplen, wirelen = struct.unpack(self.endian + "IIII", hdr)
         return (self.f.read(caplen)[:size],
-                RawPcapReader.PcapPacketMetadata(
-                    sec=sec, usec=usec, wirelen=wirelen, caplen=caplen))
+                RawPcapReader.PacketMetadata(sec=sec, usec=usec,
+                                             wirelen=wirelen, caplen=caplen))
 
     def read_packet(self, size=MTU):
         # type: (int) -> Packet
@@ -1266,7 +1265,7 @@ class RawPcapReader:
         )
 
     def dispatch(self,
-                 callback  # type: Callable[[Tuple[bytes, RawPcapReader.PcapPacketMetadata]], Any]  # noqa: E501
+                 callback  # type: Callable[[Tuple[bytes, RawPcapReader.PacketMetadata]], Any]  # noqa: E501
                  ):
         # type: (...) -> None
         """call the specified callback routine for each packet read
@@ -1416,7 +1415,7 @@ class RawPcapNgReader(RawPcapReader):
             )
 
     def _read_block(self, size=MTU):
-        # type: (int) -> Optional[Tuple[bytes, RawPcapNgReader.PcapNgPacketMetadata]]  # noqa: E501
+        # type: (int) -> Optional[Tuple[bytes, RawPcapNgReader.PacketMetadata]]  # noqa: E501
         try:
             blocktype = struct.unpack(self.endian + "I", self.f.read(4))[0]
         except struct.error:
@@ -1473,7 +1472,7 @@ class RawPcapNgReader(RawPcapReader):
         self._read_options(options)
 
     def _read_packet(self, size=MTU):  # type: ignore
-        # type: (int) -> Tuple[bytes, RawPcapNgReader.PcapNgPacketMetadata]
+        # type: (int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
         """Read blocks until it reaches either EOF or a packet, and
         returns None or (packet, (linktype, sec, usec, wirelen)),
         where packet is a string.
@@ -1532,7 +1531,7 @@ class RawPcapNgReader(RawPcapReader):
             raise EOFError
 
     def _read_block_epb(self, block, size):
-        # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PcapNgPacketMetadata]  # noqa: E501
+        # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
         """Enhanced Packet Block"""
         try:
             intid, tshigh, tslow, caplen, wirelen = struct.unpack(
@@ -1545,15 +1544,14 @@ class RawPcapNgReader(RawPcapReader):
 
         self._check_interface_id(intid)
         return (block[20:20 + caplen][:size],
-                RawPcapNgReader.PcapNgPacketMetadata(
-                    linktype=self.interfaces[intid][0],
-                    tsresol=self.interfaces[intid][2],
-                    tshigh=tshigh,
-                    tslow=tslow,
-                    wirelen=wirelen))
+                RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
+                                               tsresol=self.interfaces[intid][2],  # noqa: E501
+                                               tshigh=tshigh,
+                                               tslow=tslow,
+                                               wirelen=wirelen))
 
     def _read_block_spb(self, block, size):
-        # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PcapNgPacketMetadata]  # noqa: E501
+        # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
         """Simple Packet Block"""
         # "it MUST be assumed that all the Simple Packet Blocks have
         # been captured on the interface previously specified in the
@@ -1569,15 +1567,14 @@ class RawPcapNgReader(RawPcapReader):
 
         caplen = min(wirelen, self.interfaces[intid][1])
         return (block[4:4 + caplen][:size],
-                RawPcapNgReader.PcapNgPacketMetadata(
-                    linktype=self.interfaces[intid][0],
-                    tsresol=self.interfaces[intid][2],
-                    tshigh=None,
-                    tslow=None,
-                    wirelen=wirelen))
+                RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
+                                               tsresol=self.interfaces[intid][2],  # noqa: E501
+                                               tshigh=None,
+                                               tslow=None,
+                                               wirelen=wirelen))
 
     def _read_block_pkt(self, block, size):
-        # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PcapNgPacketMetadata]  # noqa: E501
+        # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
         """(Obsolete) Packet Block"""
         try:
             intid, drops, tshigh, tslow, caplen, wirelen = struct.unpack(
@@ -1590,12 +1587,11 @@ class RawPcapNgReader(RawPcapReader):
 
         self._check_interface_id(intid)
         return (block[20:20 + caplen][:size],
-                RawPcapNgReader.PcapNgPacketMetadata(
-                    linktype=self.interfaces[intid][0],
-                    tsresol=self.interfaces[intid][2],
-                    tshigh=tshigh,
-                    tslow=tslow,
-                    wirelen=wirelen))
+                RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
+                                               tsresol=self.interfaces[intid][2],  # noqa: E501
+                                               tshigh=tshigh,
+                                               tslow=tslow,
+                                               wirelen=wirelen))
 
 
 class PcapNgReader(RawPcapNgReader, _SuperSocket):
