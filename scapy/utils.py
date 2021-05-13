@@ -1381,7 +1381,7 @@ class RawPcapNgReader(RawPcapReader):
 
     alternative = RawPcapReader  # type: Type[Any]
 
-    PacketMetadata = collections.namedtuple("PacketMetadata",
+    PacketMetadata = collections.namedtuple("PacketMetadataNg",
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen"])
 
