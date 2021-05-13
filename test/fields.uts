@@ -932,9 +932,9 @@ fcb = EnumField('test', 0, (
 def expect_exception(e, c):
     try:
         eval(c)
-        return False
+        assert False
     except e:
-        return True
+        assert True
 
 
 = EnumField.any2i_one
@@ -959,8 +959,6 @@ assert(fcb.any2i_one(None, 'Foo') == 0)
 assert(fcb.any2i_one(None, 'Bar') == 1)
 assert(fcb.any2i_one(None, 5) == 5)
 expect_exception(ValueError, 'fcb.any2i_one(None, "Baz")')
-
-True
 
 = EnumField.any2i
 ~ field enumfield
@@ -996,15 +994,15 @@ True
 
 assert(f.i2repr_one(None, 0) == 'Foo')
 assert(f.i2repr_one(None, 1) == 'Bar')
-expect_exception(KeyError, 'f.i2repr_one(None, 2)')
+assert(f.i2repr_one(None, 2) == '2')
 
 assert(rf.i2repr_one(None, 0) == 'Foo')
 assert(rf.i2repr_one(None, 1) == 'Bar')
-expect_exception(KeyError, 'rf.i2repr_one(None, 2)')
+assert(rf.i2repr_one(None, 2) == '2')
 
 assert(lf.i2repr_one(None, 0) == 'Foo')
 assert(lf.i2repr_one(None, 1) == 'Bar')
-expect_exception(KeyError, 'lf.i2repr_one(None, 2)')
+assert(lf.i2repr_one(None, 2) == '2')
 
 assert(fcb.i2repr_one(None, 0) == 'Foo')
 assert(fcb.i2repr_one(None, 1) == 'Bar')
@@ -1044,17 +1042,17 @@ True
 
 assert(f.i2repr(None, 0) == 'Foo')
 assert(f.i2repr(None, 1) == 'Bar')
-expect_exception(KeyError, 'f.i2repr(None, 2)')
+assert(f.i2repr(None, 2) == '2')
 assert(f.i2repr(None, [0, 1]) == ['Foo', 'Bar'])
 
 assert(rf.i2repr(None, 0) == 'Foo')
 assert(rf.i2repr(None, 1) == 'Bar')
-expect_exception(KeyError, 'rf.i2repr(None, 2)')
+assert(rf.i2repr(None, 2) == '2')
 assert(rf.i2repr(None, [0, 1]) == ['Foo', 'Bar'])
 
 assert(lf.i2repr(None, 0) == 'Foo')
 assert(lf.i2repr(None, 1) == 'Bar')
-expect_exception(KeyError, 'lf.i2repr(None, 2)')
+assert(lf.i2repr(None, 2) == '2')
 assert(lf.i2repr(None, [0, 1]) == ['Foo', 'Bar'])
 
 assert(fcb.i2repr(None, 0) == 'Foo')
@@ -1105,9 +1103,9 @@ True
 def expect_exception(e, c):
     try:
         eval(c)
-        return False
+        assert False
     except e:
-        return True
+        assert True
 
 
 = CharEnumField tests initialization
@@ -1144,9 +1142,9 @@ True
 def expect_exception(e, c):
     try:
         eval(c)
-        return False
+        assert False
     except e:
-        return True
+        assert True
 
 
 = XByteEnumField tests initialization
@@ -1222,9 +1220,9 @@ True
 def expect_exception(e, c):
     try:
         eval(c)
-        return False
+        assert False
     except e:
-        return True
+        assert True
 
 
 = XShortEnumField tests initialization
