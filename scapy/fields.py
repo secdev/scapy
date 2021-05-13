@@ -2348,10 +2348,7 @@ class _EnumField(Field[Union[List[I], I], I]):
         # type: (Optional[Packet], Any) -> I
         if isinstance(x, str):
             if self.s2i:
-                try:
-                    x = self.s2i[x]
-                except KeyError:
-                    pass
+                x = self.s2i[x]
             elif self.s2i_cb:
                 x = self.s2i_cb(x)
         return cast(I, x)
