@@ -776,14 +776,14 @@ assert cleanup_interfaces()
 
 = empty tests
 
-from scapy.contrib.isotp.isotp_scan import generate_code_output, generate_text_output
+from scapy.contrib.isotp.isotp_scanner import generate_code_output, generate_text_output
 
 assert generate_code_output("", None) == ""
 assert generate_text_output("") == "No packets found."
 
 = get_isotp_fc
 
-from scapy.contrib.isotp.isotp_scan import get_isotp_fc
+from scapy.contrib.isotp.isotp_scanner import get_isotp_fc
 
 # to trigger "noise_ids.append(packet.identifier)"
 a = []
