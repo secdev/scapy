@@ -34,3 +34,4 @@ IF "%_args%" == "" (
 )
 REM ### Start UTScapy normally ###
 %PYTHON% "%MYDIR%\scapy\tools\UTscapy.py" %_args%
+PAUSE

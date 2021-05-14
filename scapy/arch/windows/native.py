@@ -49,7 +49,7 @@ import socket
 import subprocess
 import time
 
-from scapy.automaton import SelectableObject, select_objects
+from scapy.automaton import select_objects
 from scapy.arch.windows.structures import GetIcmpStatistics
 from scapy.compat import raw
 from scapy.config import conf
@@ -61,10 +61,10 @@ from scapy.supersocket import SuperSocket
 # Watch out for import loops (inet...)
 
 
-class L3WinSocket(SuperSocket, SelectableObject):
+class L3WinSocket(SuperSocket):
     desc = "a native Layer 3 (IPv4) raw socket under Windows"
     nonblocking_socket = True
-    __selectable_force_select__ = True
+    __selectable_force_select__ = True  # see automaton.py
     __slots__ = ["promisc", "cls", "ipv6", "proto"]
 
     def __init__(self, iface=None, proto=socket.IPPROTO_IP,

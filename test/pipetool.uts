@@ -229,12 +229,12 @@ p.wait_and_stop()
 = Test SniffSource
 
 import mock
-r, w = os.pipe()
-os.write(w, b"X")
+fd = ObjectPipe("sniffsource")
+fd.write("test")
 
 @mock.patch("scapy.scapypipes.conf.L2listen")
 def _test(l2listen):
-    l2listen.return_value=Bunch(close=lambda *args: None, fileno=lambda: r, recv=lambda *args: Raw("data"))
+    l2listen.return_value=Bunch(close=lambda *args: None, fileno=lambda: fd.fileno(), recv=lambda *args: Raw("data"))
     p = PipeEngine()
     s = SniffSource()
     assert s.s is None
@@ -251,13 +251,12 @@ def _test(l2listen):
 try:
     _test()
 finally:
-    os.close(r)
-    os.close(w)
+    fd.close()
 
 = Test SniffSource with socket
 
-r, w = os.pipe()
-os.write(w, b"X")
+fd = ObjectPipe("sniffsource_socket")
+fd.write("test")
 
 class FakeSocket(object):
     def __init__(self):
@@ -268,7 +267,7 @@ class FakeSocket(object):
         self.times += 1
         return Raw(b'hello')
     def fileno(self):
-        return r
+        return fd.fileno()
 
 try:
     p = PipeEngine()
@@ -282,8 +281,7 @@ try:
     p.stop()
     assert raw(msg) == b'hello'
 finally:
-    os.close(r)
-    os.close(w)
+    fd.close()
 
 = Test SniffSource with invalid args
 
@@ -322,7 +320,7 @@ except:
 = Test WiresharkSink
 ~ wiresharksink
 
-q = ObjectPipe()
+q = ObjectPipe("wiresharksink")
 pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
 import mock
@@ -344,7 +342,7 @@ popen.assert_called_once_with(
 ~ wiresharksink
 
 linktype = scapy.data.DLT_EN3MB
-q = ObjectPipe()
+q = ObjectPipe("wiresharksink_linktype")
 pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
 import mock
@@ -362,7 +360,7 @@ assert raw(pkt) in q.recv()
 ~ wiresharksink
 
 linktype = scapy.data.DLT_EN3MB
-q = ObjectPipe()
+q = ObjectPipe("wiresharksink_args")
 pkt = Ether(dst="aa:aa:aa:aa:aa:aa", src="bb:bb:bb:bb:bb:bb")/IP(dst="127.0.0.1", src="127.0.0.1")/ICMP()
 
 import mock
@@ -667,7 +665,7 @@ p.stop()
 
 = FDSourceSink on a ObjectPipe object
 
-obj = ObjectPipe()
+obj = ObjectPipe("fdsourcesink")
 obj.send("hello")
 
 s = FDSourceSink(obj)

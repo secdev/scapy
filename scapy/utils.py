@@ -1305,7 +1305,7 @@ class RawPcapReader:
 
     def fileno(self):
         # type: () -> int
-        return self.f.fileno()
+        return -1 if WINDOWS else self.f.fileno()
 
     def close(self):
         # type: () -> Optional[Any]
@@ -1381,7 +1381,7 @@ class RawPcapNgReader(RawPcapReader):
 
     alternative = RawPcapReader  # type: Type[Any]
 
-    PacketMetadata = collections.namedtuple("PacketMetadata",
+    PacketMetadata = collections.namedtuple("PacketMetadataNg",
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen"])
 
@@ -1689,7 +1689,7 @@ class RawPcapWriter:
 
     def fileno(self):
         # type: () -> int
-        return self.f.fileno()
+        return -1 if WINDOWS else self.f.fileno()
 
     def write_header(self, pkt):
         # type: (Optional[Union[Packet, bytes]]) -> None

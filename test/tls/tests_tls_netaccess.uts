@@ -123,7 +123,7 @@ def run_openssl_client(msg, suite="", version="", tls13=False, client_auth=False
     )
     msg += b"\nstop_server\n"
     out = p.communicate(input=msg)[0]
-    print(out.decode())
+    print(plain_str(out))
     if p.returncode != 0:
         raise RuntimeError("OpenSSL returned with error code %s" % p.returncode)
     else:
