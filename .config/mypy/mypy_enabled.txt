@@ -56,7 +56,7 @@ scapy/contrib/cansocket_python_can.py
 #scapy/contrib/http2.py  # needs to be fixed
 scapy/contrib/isotp/isotp_native_socket.py
 scapy/contrib/isotp/isotp_packet.py
-scapy/contrib/isotp/isotp_scan.py
+scapy/contrib/isotp/isotp_scanner.py
 scapy/contrib/isotp/isotp_soft_socket.py
 scapy/contrib/isotp/isotp_utils.py
 scapy/contrib/roce.py
