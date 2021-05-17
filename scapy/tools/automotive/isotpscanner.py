@@ -21,7 +21,7 @@ if six.PY2 or not LINUX or conf.use_pypy:
     conf.contribs['CANSocket'] = {'use-python-can': True}
 
 from scapy.contrib.cansocket import CANSocket, PYTHON_CAN   # noqa: E402
-from scapy.contrib.isotp import ISOTPScan                   # noqa: E402
+from scapy.contrib.isotp import isotp_scan                   # noqa: E402
 
 
 def signal_handler(sig, frame):
@@ -175,15 +175,15 @@ def main():
 
         signal.signal(signal.SIGINT, signal_handler)
 
-        result = ISOTPScan(sock,
-                           range(start, end + 1),
-                           extended_addressing=extended,
-                           noise_listen_time=noise_listen_time,
-                           sniff_time=float(sniff_time) / 1000,
-                           output_format="code" if piso else "text",
-                           can_interface=interface_string,
-                           extended_can_id=extended_can_id,
-                           verbose=verbose)
+        result = isotp_scan(sock,
+                            range(start, end + 1),
+                            extended_addressing=extended,
+                            noise_listen_time=noise_listen_time,
+                            sniff_time=float(sniff_time) / 1000,
+                            output_format="code" if piso else "text",
+                            can_interface=interface_string,
+                            extended_can_id=extended_can_id,
+                            verbose=verbose)
 
         print("Scan: \n%s" % result)
 

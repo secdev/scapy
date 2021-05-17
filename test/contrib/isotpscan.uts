@@ -1,4 +1,4 @@
-% Regression tests for ISOTPScan
+% Regression tests for isotp_scan
 * Some tests are disabled to lower the CI utilitzation
 
 + Configuration
@@ -6,7 +6,7 @@
 
 = Imports
 import scapy.modules.six as six
-from scapy.contrib.isotp import send_multiple_ext, filter_periodic_packets, scan_extended, scan
+from scapy.contrib.isotp.isotp_scanner import send_multiple_ext, filter_periodic_packets, scan_extended, scan
 
 if six.PY3:
     exec(open("test/contrib/automotive/interface_mockup.py").read())
@@ -169,11 +169,11 @@ def test_isotpscan_text(sniff_time=0.02):
     semaphore.acquire()
     semaphore.acquire()
     with new_can_socket0() as scansock:
-        result = ISOTPScan(scansock, range(0x5ff, 0x604 + 1),
-                           output_format="text",
-                           noise_listen_time=sniff_time * 6,
-                           sniff_time=sniff_time,
-                           verbose=True)
+        result = isotp_scan(scansock, range(0x5ff, 0x604 + 1),
+                            output_format="text",
+                            noise_listen_time=sniff_time * 6,
+                            sniff_time=sniff_time,
+                            verbose=True)
     with new_can_socket0() as cans:
         cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
         cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
@@ -207,11 +207,11 @@ def test_isotpscan_text_padding(sniff_time=0.02):
     semaphore.acquire()
     semaphore.acquire()
     with new_can_socket0() as scansock:
-        result = ISOTPScan(scansock, range(0x5ff, 0x604 + 1),
-                           output_format="text",
-                           noise_listen_time=sniff_time * 6,
-                           sniff_time=sniff_time,
-                           verbose=True)
+        result = isotp_scan(scansock, range(0x5ff, 0x604 + 1),
+                            output_format="text",
+                            noise_listen_time=sniff_time * 6,
+                            sniff_time=sniff_time,
+                            verbose=True)
     with new_can_socket0() as cans:
         cans.send(CAN(identifier=0x601, data=b'\x01\xaaffffff'))
         cans.send(CAN(identifier=0x602, data=b'\x01\xaaffffff'))
@@ -248,12 +248,12 @@ def test_isotpscan_text_extended_can_id(sniff_time=0.02):
     semaphore.acquire()
     semaphore.acquire()
     with new_can_socket0() as scansock:
-        result = ISOTPScan(scansock, range(0x1ffff5ff, 0x1ffff604 + 1),
-                           output_format="text",
-                           noise_listen_time=sniff_time * 6,
-                           sniff_time=sniff_time,
-                           extended_can_id=True,
-                           verbose=True)
+        result = isotp_scan(scansock, range(0x1ffff5ff, 0x1ffff604 + 1),
+                            output_format="text",
+                            noise_listen_time=sniff_time * 6,
+                            sniff_time=sniff_time,
+                            extended_can_id=True,
+                            verbose=True)
     with new_can_socket0() as cans:
         cans.send(CAN(identifier=0x1ffff601, flags="extended",
                       data=b'\x01\xaa'))
@@ -292,12 +292,12 @@ def test_isotpscan_code(sniff_time=0.02):
     semaphore.acquire()
     semaphore.acquire()
     with new_can_socket0() as scansock:
-        result = ISOTPScan(scansock, range(0x5ff, 0x603 + 1),
-                           output_format="code",
-                           noise_listen_time=sniff_time * 6,
-                           sniff_time=sniff_time,
-                           can_interface="can0",
-                           verbose=True)
+        result = isotp_scan(scansock, range(0x5ff, 0x603 + 1),
+                            output_format="code",
+                            noise_listen_time=sniff_time * 6,
+                            sniff_time=sniff_time,
+                            can_interface="can0",
+                            verbose=True)
     with new_can_socket0() as cans:
         cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
         cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
@@ -332,12 +332,12 @@ def test_isotpscan_code_noise(sniff_time=0.02):
     semaphore.acquire()
     semaphore.acquire()
     with new_can_socket0() as scansock:
-        result = ISOTPScan(scansock, range(0x5ff, 0x603 + 1),
-                           output_format="code",
-                           noise_listen_time=sniff_time * 6,
-                           sniff_time=sniff_time,
-                           can_interface="can0",
-                           verbose=True)
+        result = isotp_scan(scansock, range(0x5ff, 0x603 + 1),
+                            output_format="code",
+                            noise_listen_time=sniff_time * 6,
+                            sniff_time=sniff_time,
+                            can_interface="can0",
+                            verbose=True)
     with new_can_socket0() as cans:
         cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
         cans.send(CAN(identifier=0x603, data=b'\x01\xaa'))
@@ -370,12 +370,12 @@ def test_extended_isotpscan_code(sniff_time=0.02):
     semaphore.acquire()
     thread_noise.start()
     with new_can_socket0() as scansock:
-        result = ISOTPScan(scansock, range(0x5ff, 0x603 + 1),
-                           extended_scan_range=range(0x20, 0x30),
-                           extended_addressing=True, sniff_time=sniff_time,
-                           noise_listen_time=sniff_time * 6,
-                           output_format="code",
-                           can_interface="can0", verbose=True)
+        result = isotp_scan(scansock, range(0x5ff, 0x603 + 1),
+                            extended_scan_range=range(0x20, 0x30),
+                            extended_addressing=True, sniff_time=sniff_time,
+                            noise_listen_time=sniff_time * 6,
+                            output_format="code",
+                            can_interface="can0", verbose=True)
     with new_can_socket0() as cans:
         cans.send(CAN(identifier=0x602, data=b'\x22\x01\xaa'))
         cans.send(CAN(identifier=0x603, data=b'\x22\x01\xaa'))
@@ -413,15 +413,15 @@ def test_extended_isotpscan_code_extended_can_id(sniff_time=0.02):
     semaphore.acquire()
     thread_noise.start()
     with new_can_socket0() as scansock:
-        result = ISOTPScan(scansock, range(0x1ffff5ff, 0x1ffff604 + 1),
-                           extended_can_id=True,
-                           extended_scan_range=range(0x20, 0x30),
-                           extended_addressing=True,
-                           sniff_time=sniff_time,
-                           noise_listen_time=sniff_time * 6,
-                           output_format="code",
-                           can_interface="can0",
-                           verbose=True)
+        result = isotp_scan(scansock, range(0x1ffff5ff, 0x1ffff604 + 1),
+                            extended_can_id=True,
+                            extended_scan_range=range(0x20, 0x30),
+                            extended_addressing=True,
+                            sniff_time=sniff_time,
+                            noise_listen_time=sniff_time * 6,
+                            output_format="code",
+                            can_interface="can0",
+                            verbose=True)
     with new_can_socket0() as cans:
         cans.send(CAN(identifier=0x1ffff602, flags="extended",
                       data=b'\x22\x01\xaa'))
@@ -458,11 +458,11 @@ def test_isotpscan_none(sniff_time=0.02):
     with new_can_socket0() as socks_interface:
         thread_noise.start()
         with new_can_socket0() as scansock:
-            result = ISOTPScan(scansock, range(0x5ff, 0x603 + 1),
-                               can_interface=socks_interface,
-                               sniff_time=sniff_time,
-                               noise_listen_time=sniff_time * 6,
-                               verbose=True)
+            result = isotp_scan(scansock, range(0x5ff, 0x603 + 1),
+                                can_interface=socks_interface,
+                                sniff_time=sniff_time,
+                                noise_listen_time=sniff_time * 6,
+                                verbose=True)
         result = sorted(result, key=lambda x: x.src)
         with new_can_socket0() as cans:
             cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
@@ -507,11 +507,11 @@ def test_isotpscan_none_2(sniff_time=0.02):
     thread_noise.start()
     with new_can_socket0() as socks_interface:
         with new_can_socket0() as scansock:
-            result = ISOTPScan(scansock, range(0x607, 0x60A),
-                               can_interface=socks_interface,
-                               sniff_time=sniff_time,
-                               noise_listen_time=sniff_time * 6,
-                               verbose=True)
+            result = isotp_scan(scansock, range(0x607, 0x60A),
+                                can_interface=socks_interface,
+                                sniff_time=sniff_time,
+                                noise_listen_time=sniff_time * 6,
+                                verbose=True)
         result = sorted(result, key=lambda x: x.src)
         with new_can_socket0() as cans:
             cans.send(CAN(identifier=0x609, data=b'\x01\xaa'))
@@ -556,13 +556,13 @@ def test_extended_isotpscan_none(sniff_time=0.02):
     with new_can_socket0() as socks_interface:
         thread_noise.start()
         with new_can_socket0() as scansock:
-            result = ISOTPScan(scansock, range(0x5ff, 0x603 + 1),
-                               extended_scan_range=range(0x20, 0x30),
-                               extended_addressing=True,
-                               can_interface=socks_interface,
-                               sniff_time=sniff_time,
-                               noise_listen_time=sniff_time * 6,
-                               verbose=True)
+            result = isotp_scan(scansock, range(0x5ff, 0x603 + 1),
+                                extended_scan_range=range(0x20, 0x30),
+                                extended_addressing=True,
+                                can_interface=socks_interface,
+                                sniff_time=sniff_time,
+                                noise_listen_time=sniff_time * 6,
+                                verbose=True)
         result = sorted(result, key=lambda x: x.src)
         with new_can_socket0() as cans:
             cans.send(CAN(identifier=0x602, data=b'\x22\x01\xaa'))
@@ -621,11 +621,11 @@ def test_isotpscan_none_random_ids(sniff_time=0.02):
     with new_can_socket0() as socks_interface:
         thread_noise.start()
         with new_can_socket0() as scansock:
-            result = ISOTPScan(scansock, range(0x001, 0x51),
-                               can_interface=socks_interface,
-                               noise_listen_time=sniff_time * 6,
-                               sniff_time=sniff_time,
-                               verbose=True)
+            result = isotp_scan(scansock, range(0x001, 0x51),
+                                can_interface=socks_interface,
+                                noise_listen_time=sniff_time * 6,
+                                sniff_time=sniff_time,
+                                verbose=True)
             result = sorted(result, key=lambda x: x.src)
         with new_can_socket0() as cans:
             for i in ids:
@@ -676,11 +676,11 @@ def test_isotpscan_none_random_ids_padding(sniff_time=0.02):
     with new_can_socket0() as socks_interface:
         thread_noise.start()
         with new_can_socket0() as scansock:
-            result = ISOTPScan(scansock, range(0x001, 0x51),
-                               can_interface=socks_interface,
-                               noise_listen_time=sniff_time * 6,
-                               sniff_time=sniff_time,
-                               verbose=True)
+            result = isotp_scan(scansock, range(0x001, 0x51),
+                                can_interface=socks_interface,
+                                noise_listen_time=sniff_time * 6,
+                                sniff_time=sniff_time,
+                                verbose=True)
             result = sorted(result, key=lambda x: x.src)
         with new_can_socket0() as cans:
             for i in ids:
@@ -718,51 +718,51 @@ test_dynamic(test_scan)
 
 test_dynamic(test_scan_extended)
 
-= Test ISOTPScan(output_format=text)
+= Test isotp_scan(output_format=text)
 
 test_dynamic(test_isotpscan_text)
 
-= Test ISOTPScan with padding (output_format=text)
+= Test isotp_scan with padding (output_format=text)
 
 test_dynamic(test_isotpscan_text_padding)
 
-= Test ISOTPScan(output_format=text) extended_can_id
+= Test isotp_scan(output_format=text) extended_can_id
 
 test_dynamic(test_isotpscan_text_extended_can_id)
 
-= Test ISOTPScan(output_format=code)
+= Test isotp_scan(output_format=code)
 
 test_dynamic(test_isotpscan_code)
 
-= Test ISOTPScan with noise (output_format=code)
+= Test isotp_scan with noise (output_format=code)
 ~ disabled
 test_dynamic(test_isotpscan_code_noise)
 
-= Test extended ISOTPScan(output_format=code)
+= Test extended isotp_scan(output_format=code)
 ~ disabled
 test_dynamic(test_extended_isotpscan_code)
 
-= Test extended ISOTPScan(output_format=code) extended_can_id
+= Test extended isotp_scan(output_format=code) extended_can_id
 ~ disabled
 test_dynamic(test_extended_isotpscan_code_extended_can_id)
 
-= Test ISOTPScan(output_format=None)
+= Test isotp_scan(output_format=None)
 
 test_dynamic(test_isotpscan_none)
 
-= Test ISOTPScan(output_format=None) 2
+= Test isotp_scan(output_format=None) 2
 
 test_dynamic(test_isotpscan_none_2)
 
-= Test extended ISOTPScan(output_format=None)
+= Test extended isotp_scan(output_format=None)
 
 test_dynamic(test_extended_isotpscan_none)
 
-= Test ISOTPScan(output_format=None) random IDs
+= Test isotp_scan(output_format=None) random IDs
 
 test_dynamic(test_isotpscan_none_random_ids)
 
-= Test ISOTPScan(output_format=None) random IDs padding
+= Test isotp_scan(output_format=None) random IDs padding
 ~ disabled
 test_dynamic(test_isotpscan_none_random_ids_padding)
 
@@ -776,14 +776,14 @@ assert cleanup_interfaces()
 
 = empty tests
 
-from scapy.contrib.isotp import generate_code_output, generate_text_output
+from scapy.contrib.isotp.isotp_scanner import generate_code_output, generate_text_output
 
 assert generate_code_output("", None) == ""
 assert generate_text_output("") == "No packets found."
 
 = get_isotp_fc
 
-from scapy.contrib.isotp import get_isotp_fc
+from scapy.contrib.isotp.isotp_scanner import get_isotp_fc
 
 # to trigger "noise_ids.append(packet.identifier)"
 a = []

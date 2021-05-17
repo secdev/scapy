@@ -92,7 +92,7 @@ class KWP(ISOTP):
          0x7f: 'NegativeResponse'})  # type: Dict[int, str]
     name = 'KWP'
     fields_desc = [
-        XByteEnumField('service', 0, services)  # type: ignore
+        XByteEnumField('service', 0, services)
     ]
 
     def answers(self, other):

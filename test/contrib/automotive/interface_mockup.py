@@ -110,7 +110,7 @@ def cleanup_interfaces():
     :return: True on success
     """
     import threading
-    from scapy.contrib.isotp import CANReceiverThread
+    from scapy.contrib.isotp.isotp_soft_socket import CANReceiverThread
     for t in threading.enumerate():
         if isinstance(t, CANReceiverThread):
             t.join(10)

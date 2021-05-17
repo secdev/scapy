@@ -38,7 +38,6 @@ scapy/layers/can.py
 scapy/layers/l2.py
 
 # CONTRIB
-#scapy/contrib/http2.py  # needs to be fixed
 scapy/contrib/automotive/bmw/hsfz.py
 scapy/contrib/automotive/doip.py
 scapy/contrib/automotive/ecu.py
@@ -54,5 +53,10 @@ scapy/contrib/automotive/uds_ecu_states.py
 scapy/contrib/automotive/uds_logging.py
 scapy/contrib/cansocket_native.py
 scapy/contrib/cansocket_python_can.py
-scapy/contrib/isotp.py
+#scapy/contrib/http2.py  # needs to be fixed
+scapy/contrib/isotp/isotp_native_socket.py
+scapy/contrib/isotp/isotp_packet.py
+scapy/contrib/isotp/isotp_scanner.py
+scapy/contrib/isotp/isotp_soft_socket.py
+scapy/contrib/isotp/isotp_utils.py
 scapy/contrib/roce.py

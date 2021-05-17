@@ -1,7 +1,5 @@
 % Regression tests for ISOTP
 
-~ vcan_socket
-
 + Configuration
 ~ conf
 
@@ -9,7 +7,7 @@
 
 from scapy.modules.six.moves.queue import Queue
 from io import BytesIO
-from scapy.contrib.isotp import get_isotp_packet
+from scapy.contrib.isotp.isotp_scanner import get_isotp_packet
 
 import scapy.modules.six as six
 
