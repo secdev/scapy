@@ -1282,7 +1282,7 @@ a = ASN1_DECODING_ERROR("error", exc=OSError(1))
 assert repr(a) == "<ASN1_DECODING_ERROR['error']{{1}}>"
 b = ASN1_DECODING_ERROR("error", exc=OSError(ASN1_BIT_STRING("0")))
 assert repr(b) in ["<ASN1_DECODING_ERROR['error']{{<ASN1_BIT_STRING[0]=b'\\x00' (7 unused bits)>}}>",
-                   "<ASN1_DECODING_ERROR['error']{{<ASN1_BIT_STRING[0]=\x00 (7 unused bits)>}}>"]
+                   "<ASN1_DECODING_ERROR['error']{{<ASN1_BIT_STRING[0]='\\x00' (7 unused bits)>}}>"]
 
 = ASN1 - ASN1_INTEGER
 a = ASN1_INTEGER(int("1"*23))
