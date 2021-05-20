@@ -268,6 +268,7 @@ class DoIPSocket(StreamSocket):
                 source_address, target_address, activation_type)
 
     def _init_socket(self, sock_family=socket.AF_INET):
+        # type: (int) -> None
         s = socket.socket(sock_family, socket.SOCK_STREAM)
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
