@@ -3364,10 +3364,10 @@ def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(),
 
 class L3RawSocket6(L3RawSocket):
     def __init__(self, type=ETH_P_IPV6, filter=None, iface=None, promisc=None, nofilter=0):  # noqa: E501
-        L3RawSocket.__init__(self, type, filter, iface, promisc)
         # NOTE: if fragmentation is needed, it will be done by the kernel (RFC 2292)  # noqa: E501
         self.outs = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_RAW)  # noqa: E501
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
+        self.iface = iface
 
 
 def IPv6inIP(dst='203.178.135.36', src=None):
