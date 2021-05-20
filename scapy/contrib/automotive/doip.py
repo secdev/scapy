@@ -261,15 +261,18 @@ class DoIPSocket(StreamSocket):
         self.ip = ip
         self.port = port
         self.source_address = source_address
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.connect((self.ip, self.port))
-        StreamSocket.__init__(self, s, DoIP)
+        self._init_socket()
 
         if activate_routing:
             self._activate_routing(
                 source_address, target_address, activation_type)
+
+    def _init_socket(self, sock_family=socket.AF_INET):
+        s = socket.socket(sock_family, socket.SOCK_STREAM)
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.connect((self.ip, self.port))
+        StreamSocket.__init__(self, s, DoIP)
 
     def _activate_routing(self,
                           source_address,  # type: int
@@ -317,11 +320,7 @@ class DoIPSocket6(DoIPSocket):
         self.ip = ip
         self.port = port
         self.source_address = source_address
-        s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.connect((self.ip, self.port))
-        StreamSocket.__init__(self, s, DoIP)
+        super(DoIPSocket6, self)._init_socket(socket.AF_INET6)
 
         if activate_routing:
             super(DoIPSocket6, self)._activate_routing(
