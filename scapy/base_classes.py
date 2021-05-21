@@ -291,8 +291,8 @@ class Packet_metaclass(_Generic_metaclass):
                 ):
         # type: (...) -> Type['scapy.packet.Packet']
         if "fields_desc" in dct:  # perform resolution of references to other packets  # noqa: E501
-            current_fld = dct["fields_desc"]  # type: List[Union['scapy.fields.Field'[Any, Any], Packet_metaclass]]  # noqa: E501
-            resolved_fld = []  # type: List['scapy.fields.Field'[Any, Any]]
+            current_fld = dct["fields_desc"]  # type: List[Union[scapy.fields.Field[Any, Any], Packet_metaclass]]  # noqa: E501
+            resolved_fld = []  # type: List[scapy.fields.Field[Any, Any]]
             for fld_or_pkt in current_fld:
                 if isinstance(fld_or_pkt, Packet_metaclass):
                     # reference to another fields_desc
@@ -308,7 +308,7 @@ class Packet_metaclass(_Generic_metaclass):
                     break
 
         if resolved_fld:  # perform default value replacements
-            final_fld = []  # type: List['scapy.fields.Field'[Any, Any]]
+            final_fld = []  # type: List[scapy.fields.Field[Any, Any]]
             names = []
             for f in resolved_fld:
                 if f.name in names:
@@ -361,7 +361,7 @@ class Packet_metaclass(_Generic_metaclass):
         return newcls
 
     def __getattr__(self, attr):
-        # type: (str) -> 'scapy.fields.Field'[Any, Any]
+        # type: (str) -> scapy.fields.Field[Any, Any]
         for k in self.fields_desc:  # type: ignore
             if k.name == attr:
                 return k  # type: ignore
@@ -398,7 +398,7 @@ class Field_metaclass(_Generic_metaclass):
                 bases,  # type: Tuple[type, ...]
                 dct  # type: Dict[str, Any]
                 ):
-        # type: (...) -> Type['scapy.fields.Field'[Any, Any]]
+        # type: (...) -> Type[scapy.fields.Field[Any, Any]]
         dct.setdefault("__slots__", [])
         newcls = super(Field_metaclass, cls).__new__(cls, name, bases, dct)
         return newcls
