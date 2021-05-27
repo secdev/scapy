@@ -1108,22 +1108,34 @@ class AsyncSniffer(object):
                             quiet=quiet)
                 )] = offline
         if not sniff_sockets or iface is not None:
-            iface = resolve_iface(iface or conf.iface)
-            if L2socket is None:
-                L2socket = iface.l2listen()
             if isinstance(iface, list):
+                iface = [
+                    resolve_iface(ifname) for ifname in (iface or [conf.iface])
+                ]
+                if L2socket is None:
+                    L2socket = iface[0].l2listen()
                 sniff_sockets.update(
                     (L2socket(type=ETH_P_ALL, iface=ifname, **karg),
                      ifname)
                     for ifname in iface
                 )
             elif isinstance(iface, dict):
+                iface = [
+                    (resolve_iface(ifname), iflabel)
+                    for ifname, iflabel in
+                    six.iteritems(iface or {conf.iface: "conf.iface"})
+                ]
+                if L2socket is None:
+                    L2socket = iface[0][0].l2listen()
                 sniff_sockets.update(
                     (L2socket(type=ETH_P_ALL, iface=ifname, **karg),
                      iflabel)
-                    for ifname, iflabel in six.iteritems(iface)
+                    for ifname, iflabel in iface
                 )
             else:
+                iface = resolve_iface(iface or conf.iface)
+                if L2socket is None:
+                    L2socket = iface.l2listen()
                 sniff_sockets[L2socket(type=ETH_P_ALL, iface=iface,
                                        **karg)] = iface
 
