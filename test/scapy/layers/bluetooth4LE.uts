@@ -24,6 +24,14 @@ a = BTLE(raw(a))
 assert a[BTLE_DATA].len == 4
 assert a[Raw].load == b"toto"
 
+= Longer BTLE_ADV
+
+a = BTLE()/BTLE_ADV()/BTLE_CONNECT_REQ()/(b"X"*200)
+assert raw(a) == b'\xd6\xbe\x89\x8e\x05\xea\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXI\xfc\xcf'
+pkt = BTLE(raw(a))
+assert pkt.Length == 0xea
+assert pkt.load == b"X" * 200
+
 = BTLE_DATA + EIR_ShortenedLocalName
 
 test1 = BTLE() / BTLE_ADV() / BTLE_ADV_IND() / EIR_Hdr() / EIR_ShortenedLocalName(local_name= 'wussa')
