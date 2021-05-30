@@ -2432,12 +2432,10 @@ class CharEnumField(EnumField[str]):
 class BitEnumField(_BitField[Union[List[int], int]], _EnumField[int]):
     __slots__ = EnumField.__slots__
 
-    def __init__(self, name, default, size, enum):
-        # type: (str, Optional[int], int, Dict[int, str]) -> None
+    def __init__(self, name, default, size, enum, **kwargs):
+        # type: (str, Optional[int], int, Dict[int, str], **Any) -> None
         _EnumField.__init__(self, name, default, enum)
-        self.rev = size < 0
-        self.size = abs(size)
-        self.sz = self.size / 8.  # type: ignore
+        _BitField.__init__(self, name, default, size, **kwargs)
 
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Any) -> Union[List[int], int]
