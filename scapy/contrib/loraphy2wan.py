@@ -20,7 +20,7 @@ Copyright (C) 2020  Sebastien Dudek (@FlUxIuS)
 initially developed @PentHertz
 and improved at @Trend Micro
 
-Spec: lorawantm_specification_-v1.1
+Spec: lorawantm_specification v1.1
 """
 
 from scapy.packet import Packet
