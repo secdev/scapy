@@ -261,25 +261,71 @@ class DoIPSocket(StreamSocket):
         self.ip = ip
         self.port = port
         self.source_address = source_address
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._init_socket()
+
+        if activate_routing:
+            self._activate_routing(
+                source_address, target_address, activation_type)
+
+    def _init_socket(self, sock_family=socket.AF_INET):
+        # type: (int) -> None
+        s = socket.socket(sock_family, socket.SOCK_STREAM)
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.connect((self.ip, self.port))
         StreamSocket.__init__(self, s, DoIP)
 
+    def _activate_routing(self,
+                          source_address,  # type: int
+                          target_address,  # type: int
+                          activation_type  # type: int
+                          ):  # type: (...) -> None
+        resp = self.sr1(
+            DoIP(payload_type=0x5, activation_type=activation_type,
+                 source_address=source_address),
+            verbose=False, timeout=1)
+        if resp and resp.payload_type == 0x6 and \
+                resp.routing_activation_response == 0x10:
+            self.target_address = target_address or \
+                resp.logical_address_doip_entity
+            print("Routing activation successful! "
+                  "Target address set to: 0x%x" % self.target_address)
+        else:
+            print("Routing activation failed! Response: %s" % repr(resp))
+
+
+class DoIPSocket6(DoIPSocket):
+    """ Custom StreamSocket for DoIP communication over IPv6.
+    This sockets automatically sends a routing activation request as soon as
+    a TCP connection is established.
+
+    :param ip: IPv6 address of destination
+    :param port: destination port, usually 13400
+    :param activate_routing: If true, routing activation request is
+                             automatically sent
+    :param source_address: DoIP source address
+    :param target_address: DoIP target address, this is automatically
+                           determined if routing activation request is sent
+    :param activation_type: This allows to set a different activation type for
+                            the routing activation request
+
+    Example:
+        >>> socket = DoIPSocket6("2001:16b8:3f0e:2f00:21a:37ff:febf:edb9")
+        >>> pkt = DoIP(payload_type=0x8001, source_address=0xe80, target_address=0x1000) / UDS() / UDS_RDBI(identifiers=[0x1000])
+        >>> resp = socket.sr1(pkt, timeout=1)
+    """  # noqa: E501
+    def __init__(self, ip='::1', port=13400, activate_routing=True,
+                 source_address=0xe80, target_address=0,
+                 activation_type=0):
+        # type: (str, int, bool, int, int, int) -> None
+        self.ip = ip
+        self.port = port
+        self.source_address = source_address
+        super(DoIPSocket6, self)._init_socket(socket.AF_INET6)
+
         if activate_routing:
-            resp = self.sr1(
-                DoIP(payload_type=0x5, activation_type=activation_type,
-                     source_address=source_address),
-                verbose=False, timeout=1)
-            if resp and resp.payload_type == 0x6 and \
-                    resp.routing_activation_response == 0x10:
-                self.target_address = target_address or \
-                    resp.logical_address_doip_entity
-                print("Routing activation successful! "
-                      "Target address set to: 0x%x" % self.target_address)
-            else:
-                print("Routing activation failed! Response: %s" % repr(resp))
+            super(DoIPSocket6, self)._activate_routing(
+                source_address, target_address, activation_type)
 
 
 class UDS_DoIPSocket(DoIPSocket):
@@ -314,6 +360,19 @@ class UDS_DoIPSocket(DoIPSocket):
             return pkt.payload
         else:
             return pkt
+
+
+class UDS_DoIPSocket6(DoIPSocket6, UDS_DoIPSocket):
+    """
+    Application-Layer socket for DoIP endpoints. This socket takes care about
+    the encapsulation of UDS packets into DoIP packets.
+
+    Example:
+        >>> socket = UDS_DoIPSocket6("2001:16b8:3f0e:2f00:21a:37ff:febf:edb9")
+        >>> pkt = UDS() / UDS_RDBI(identifiers=[0x1000])
+        >>> resp = socket.sr1(pkt, timeout=1)
+    """
+    pass
 
 
 bind_bottom_up(UDP, DoIP, sport=13400)
