@@ -368,7 +368,7 @@ class Ecu(object):
         to provide the best possible results, if this list of supported
         responses is used to simulate an real world Ecu with the
         EcuAnsweringMachine object.
-        :return:
+        :return: A sorted list of EcuResponse objects
         """
         self.__supported_responses.sort(key=self.sort_key_func)
         return self.__supported_responses

@@ -23,7 +23,8 @@ if TYPE_CHECKING:
 
 
 # type definitions
-_TestCaseConnectorCallable = Callable[[AutomotiveTestCaseABC, AutomotiveTestCaseABC], Dict[str, Any]]  # noqa: E501
+_TestCaseConnectorCallable = \
+    Callable[[AutomotiveTestCaseABC, AutomotiveTestCaseABC], Dict[str, Any]]
 
 
 class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGenerator):  # noqa: E501
@@ -62,8 +63,10 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
     # TestCase.
     __delay_stages = 5
 
-    def __init__(self, test_cases, connectors=None):
-        # type: (List[AutomotiveTestCaseABC], Optional[List[Optional[_TestCaseConnectorCallable]]]) -> None  # noqa: E501
+    def __init__(self,
+                 test_cases,  # type: List[AutomotiveTestCaseABC]
+                 connectors=None  # type: Optional[List[Optional[_TestCaseConnectorCallable]]]  # noqa: E501
+                 ):  # type: (...) -> None
         super(StagedAutomotiveTestCase, self).__init__()
         self.__test_cases = test_cases
         self.__connectors = connectors
@@ -78,6 +81,15 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
     def __len__(self):
         # type: () -> int
         return len(self.__test_cases)
+
+    # TODO: Fix unit tests and remove this function
+    def __reduce__(self):  # type: ignore
+        f, t, d = super(StagedAutomotiveTestCase, self).__reduce__()  # type: ignore  # noqa: E501
+        try:
+            del d["_StagedAutomotiveTestCase__connectors"]
+        except KeyError:
+            pass
+        return f, t, d
 
     @property
     def test_cases(self):
@@ -111,8 +123,10 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
         except AttributeError:
             return None
 
-    def get_new_edge(self, socket, config):
-        # type: (_SocketUnion, AutomotiveTestCaseExecutorConfiguration) -> Optional[_Edge]   # noqa: E501
+    def get_new_edge(self,
+                     socket,  # type: _SocketUnion
+                     config  # type: AutomotiveTestCaseExecutorConfiguration
+                     ):  # type: (...) -> Optional[_Edge]
         try:
             test_case = cast(StateGenerator, self.current_test_case)
             return test_case.get_new_edge(socket, config)
@@ -159,8 +173,11 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
             self.__completion_delay = 0
         return False
 
-    def pre_execute(self, socket, state, global_configuration):
-        # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
+    def pre_execute(self,
+                    socket,  # type: _SocketUnion
+                    state,  # type: EcuState
+                    global_configuration  # type: AutomotiveTestCaseExecutorConfiguration  # noqa: E501
+                    ):  # type: (...) -> None
         test_case_cls = self.current_test_case.__class__
         try:
             self.__current_kwargs = global_configuration[
@@ -185,13 +202,17 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
         self.current_test_case.pre_execute(socket, state, global_configuration)
 
     def execute(self, socket, state, **kwargs):
-        # type: (_SocketUnion, EcuState, Any) -> None  # noqa: E501
+        # type: (_SocketUnion, EcuState, Any) -> None
         kwargs = self.__current_kwargs or dict()
         self.current_test_case.execute(socket, state, **kwargs)
 
-    def post_execute(self, socket, state, global_configuration):
-        # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
-        self.current_test_case.post_execute(socket, state, global_configuration)  # noqa: E501
+    def post_execute(self,
+                     socket,  # type: _SocketUnion
+                     state,  # type: EcuState
+                     global_configuration  # type: AutomotiveTestCaseExecutorConfiguration  # noqa: E501
+                     ):  # type: (...) -> None
+        self.current_test_case.post_execute(
+            socket, state, global_configuration)
 
     @staticmethod
     def _show_headline(headline, sep="=", dump=False):

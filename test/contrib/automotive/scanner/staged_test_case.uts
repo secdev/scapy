@@ -5,22 +5,33 @@
 = Load contribution layer
 
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCase
-from scapy.contrib.automotive.ecu import EcuState
+from scapy.contrib.automotive.ecu import EcuState, EcuResponse
 from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTestCase
+from scapy.contrib.automotive.uds import UDS, UDS_RDBIPR, UDS_NR
+from scapy.packet import Raw
 
 + Basic checks
 
 = Definition of Test classes
 
+
 class MyTestCase1(AutomotiveTestCase):
     _description = "MyTestCase1"
+    @property
     def supported_responses(self):
-        return []
+        return [EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"de")),
+                EcuResponse([EcuState(session=2), EcuState(security_level=6)],            responses=UDS() / UDS_RDBIPR(dataIdentifier=3) / Raw(b"dea2")),
+                EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x13))]
+
 
 class MyTestCase2(AutomotiveTestCase):
     _description = "MyTestCase2"
+    @property
     def supported_responses(self):
-        return []
+        return [EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef1")),
+                EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=6) / Raw(b"deadbeef2")),
+                EcuResponse(EcuState(session=range(0,255)), responses=UDS() / UDS_NR(negativeResponseCode=0x10, requestServiceId=0x11))]
+
 
 = Create instance of stage test
 
@@ -111,6 +122,29 @@ assert not mt.has_completed(EcuState(session=1))
 assert not mt.has_completed(EcuState(session=1))
 assert mt.completed
 assert mt.has_completed(EcuState(session=1))
+
+= Check supported responses
+
+tc1 = MyTestCase1()
+tc2 = MyTestCase2()
+tx = StagedAutomotiveTestCase([tc1, tc2])
+resps = tx.supported_responses
+
+assert len(resps) == 6
+assert resps[0].responses[0].service != 0x7f
+assert resps[1].responses[0].service != 0x7f
+assert resps[2].responses[0].service != 0x7f
+assert resps[3].responses[0].service != 0x7f
+
+assert resps[4].responses[0].service == 0x7f
+assert resps[5].responses[0].service == 0x7f
+
+assert resps[0].responses[0].load == b"dea2"
+assert resps[1].responses[0].load == b"deadbeef1"
+assert resps[2].responses[0].load == b"deadbeef2"
+assert resps[3].responses[0].load == b"de"
+assert resps[4].responses[0].requestServiceId == 0x13
+assert resps[5].responses[0].requestServiceId == 0x11
 
 
 = Check connector
