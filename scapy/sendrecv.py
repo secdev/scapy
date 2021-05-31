@@ -174,7 +174,7 @@ class SndRcvHandler(object):
                 snd_thread = Thread(
                     target=self._sndrcv_snd
                 )
-                snd_thread.setDaemon(True)
+                snd_thread.daemon = True
 
                 # Start routine with callback
                 self._sndrcv_rcv(snd_thread.start)
@@ -1015,7 +1015,7 @@ class AsyncSniffer(object):
             kwargs=self.kwargs,
             name="AsyncSniffer"
         )
-        self.thread.setDaemon(True)
+        self.thread.daemon = True
 
     def _run(self,
              count=0,  # type: int
