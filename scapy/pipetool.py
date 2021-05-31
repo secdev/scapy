@@ -146,7 +146,7 @@ class PipeEngine(ObjectPipe):
     def start(self):
         if self.thread_lock.acquire(0):
             _t = Thread(target=self.run, name="scapy.pipetool.PipeEngine")
-            _t.setDaemon(True)
+            _t.daemon = True
             _t.start()
             self.thread = _t
         else:

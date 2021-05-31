@@ -742,13 +742,13 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             kwargs=kargs,
             name="scapy.automaton _do_start"
         )
-        _t.setDaemon(True)
+        _t.daemon = True
         _t.start()
         ready.wait()
 
     def _do_control(self, ready, *args, **kargs):
         with self.started:
-            self.threadid = threading.currentThread().ident
+            self.threadid = threading.current_thread().ident
 
             # Update default parameters
             a = args + self.init_args[len(args):]
