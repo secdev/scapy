@@ -21,10 +21,24 @@
 
 from scapy.compat import orb
 from scapy.all import Packet, bind_layers, Padding
-from scapy.fields import ByteEnumField, ShortField, XShortField, \
-    ShortEnumField, FieldLenField, XByteField, XIntField, MultiEnumField, \
-    IPField, MACField, StrLenField, PacketListField, PadField, \
-    ConditionalField, LenField
+from scapy.fields import (
+    ByteEnumField,
+    ConditionalField,
+    FieldLenField,
+    IPField,
+    LenField,
+    MACField,
+    MultiEnumField,
+    MultipleTypeField,
+    PacketListField,
+    PadField,
+    ShortEnumField,
+    ShortField,
+    StrLenField,
+    XByteField,
+    XIntField,
+    XShortField,
+)
 
 # minimum packet is 60 bytes.. 14 bytes are Ether()
 MIN_PACKET_LENGTH = 44
@@ -539,13 +553,21 @@ class ProfinetDCP(Packet):
                                         BLOCK_QUALIFIERS),
                          lambda pkt: pkt.service_id == 4 and
                          pkt.service_type == 0),
-        # Name Of Station
-        ConditionalField(StrLenField("name_of_station", "et200sp",
-                         length_from=lambda x: x.dcp_block_length - 2),
-                         lambda pkt: pkt.service_id == 4 and
-                         pkt.service_type == 0 and pkt.option == 2 and
-                         pkt.sub_option == 2),
-
+        # (Common) Name Of Station
+        ConditionalField(
+            MultipleTypeField(
+                [
+                    (StrLenField("name_of_station", "et200sp",
+                                 length_from=lambda x: x.dcp_block_length - 2),
+                     lambda pkt: pkt.service_id == 4),
+                ],
+                StrLenField("name_of_station", "et200sp",
+                            length_from=lambda x: x.dcp_block_length),
+            ),
+            lambda pkt: pkt.service_type == 0 and pkt.option == 2 and
+            pkt.sub_option == 2
+        ),
+        # DCP SET REQUEST #
         # MAC
         ConditionalField(MACField("mac", "00:00:00:00:00:00"),
                          lambda pkt: pkt.service_id == 4 and
@@ -566,12 +588,7 @@ class ProfinetDCP(Packet):
                          pkt.sub_option == 2),
 
         # DCP IDENTIFY REQUEST #
-        # Name of station
-        ConditionalField(StrLenField("name_of_station", "et200sp",
-                                     length_from=lambda x: x.dcp_block_length),
-                         lambda pkt: pkt.service_id == 5 and
-                         pkt.service_type == 0 and pkt.option == 2 and
-                         pkt.sub_option == 2),
+        # Name of station (handled above)
 
         # Alias name
         ConditionalField(StrLenField("alias_name", "et200sp",

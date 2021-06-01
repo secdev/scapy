@@ -1,6 +1,8 @@
 % Regression tests for isotp_scan
 * Some tests are disabled to lower the CI utilitzation
 
+~ vcan_socket
+
 + Configuration
 ~ conf
 
