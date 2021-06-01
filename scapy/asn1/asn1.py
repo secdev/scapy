@@ -148,7 +148,7 @@ class ASN1Tag(EnumElement):
         self._codec = codec
 
     def clone(self):  # not a real deep copy. self.codec is shared
-        # type: () -> Any
+        # type: () -> ASN1Tag
         return self.__class__(self._key, self._value, self.context, self._codec)  # noqa: E501
 
     def register_asn1_object(self, asn1obj):
