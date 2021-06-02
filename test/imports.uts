@@ -1,0 +1,63 @@
+% Import tests
+
++ Import tests
+~ python3_only imports
+
+= Prepare importing all scapy files
+
+import glob
+import subprocess
+
+# DEV: to add your file to this list, make sure you have
+# a GREAT reason.
+EXCEPTIONS = [
+    "scapy.main",
+    "scapy.__main__",
+    "scapy.contrib.cansocket_python_can",
+]
+EXCEPTION_PACKAGES = [
+    "arch",
+    "tools",
+    "module"
+]
+
+ALL_FILES = [
+    "scapy." + re.match(r".*scapy\/(.*)\.py$", x).group(1).replace("/", ".")
+    for x in glob.iglob(scapy_path('/scapy/**/*.py'), recursive=True)
+]
+ALL_FILES = [
+    x for x in ALL_FILES if
+    x not in EXCEPTIONS and
+    x.split(".")[1] not in EXCEPTION_PACKAGES
+]
+
+
+def import_all(FILES):
+    for file in FILES:
+        proc = subprocess.Popen(
+            [sys.executable, "-c",
+             "import %s" % file],
+             stderr=subprocess.PIPE,
+             encoding="utf8")
+        errs = ""
+        try:
+            outs, errs = proc.communicate(timeout=3)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            errs = "Timed out !"
+        if proc.returncode != 0:
+            print("Importing the file '%s' failed !" % file)
+            print(errs)
+            raise ImportError
+
+= Try importing all core separately
+
+import_all(x for x in ALL_FILES if "layers" not in x and "contrib" not in x)
+
+= Try importing all layers separately
+
+import_all(x for x in ALL_FILES if "layers" in x)
+
+= Try importing all contribs separately
+
+import_all(x for x in ALL_FILES if "contrib" in x)
