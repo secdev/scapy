@@ -58,9 +58,10 @@ class _SuperSocket_metaclass(type):
 
 
 # Used to get ancillary data
-PACKET_AUXDATA = 8  # type: int
-ETH_P_8021Q = 0x8100  # type: int
-TP_STATUS_VLAN_VALID = 1 << 4  # type: int
+PACKET_AUXDATA = 8
+ETH_P_8021Q = 0x8100
+TP_STATUS_VLAN_VALID = 1 << 4
+TP_STATUS_VLAN_TPID_VALID = 1 << 6
 
 
 class tpacket_auxdata(ctypes.Structure):
@@ -71,7 +72,7 @@ class tpacket_auxdata(ctypes.Structure):
         ("tp_mac", ctypes.c_ushort),
         ("tp_net", ctypes.c_ushort),
         ("tp_vlan_tci", ctypes.c_ushort),
-        ("tp_padding", ctypes.c_ushort),
+        ("tp_vlan_tpid", ctypes.c_ushort),
     ]  # type: List[Tuple[str, Any]]
 
 
@@ -144,9 +145,12 @@ class SuperSocket:
                     if auxdata.tp_vlan_tci != 0 or \
                             auxdata.tp_status & TP_STATUS_VLAN_VALID:
                         # Insert VLAN tag
+                        tpid = ETH_P_8021Q
+                        if auxdata.tp_status & TP_STATUS_VLAN_TPID_VALID:
+                            tpid = auxdata.tp_vlan_tpid
                         tag = struct.pack(
                             "!HH",
-                            ETH_P_8021Q,
+                            tpid,
                             auxdata.tp_vlan_tci
                         )
                         pkt = pkt[:12] + tag + pkt[12:]
