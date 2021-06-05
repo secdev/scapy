@@ -41,7 +41,7 @@ def import_all(FILES):
              encoding="utf8")
         errs = ""
         try:
-            outs, errs = proc.communicate(timeout=3)
+            _, errs = proc.communicate(timeout=10)
         except subprocess.TimeoutExpired:
             proc.kill()
             errs = "Timed out !"
