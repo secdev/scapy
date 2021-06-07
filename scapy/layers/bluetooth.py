@@ -4,6 +4,7 @@
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # Copyright (C) Mike Ryan <mikeryan@lacklustre.net>
 # Copyright (C) Michael Farrell <micolous+git@gmail.com>
+# Copyright (C) Haram Park <freehr94@korea.ac.kr>
 
 """
 Bluetooth layers, sockets and send/receive functions.
@@ -250,11 +251,32 @@ class L2CAP_Hdr(Packet):
 class L2CAP_CmdHdr(Packet):
     name = "L2CAP command header"
     fields_desc = [
-        ByteEnumField("code", 8, {1: "rej", 2: "conn_req", 3: "conn_resp",
-                                  4: "conf_req", 5: "conf_resp", 6: "disconn_req",  # noqa: E501
-                                  7: "disconn_resp", 8: "echo_req", 9: "echo_resp",  # noqa: E501
-                                  10: "info_req", 11: "info_resp", 18: "conn_param_update_req",  # noqa: E501
-                                  19: "conn_param_update_resp"}),
+        ByteEnumField("code", 8, {1: "rej",
+                                  2: "conn_req",
+                                  3: "conn_resp",
+                                  4: "conf_req",
+                                  5: "conf_resp",
+                                  6: "disconn_req",
+                                  7: "disconn_resp",
+                                  8: "echo_req",
+                                  9: "echo_resp",
+                                  10: "info_req",
+                                  11: "info_resp",
+                                  12: "create_channel_req",
+                                  13: "create_channel_resp",
+                                  14: "move_channel_req",
+                                  15: "move_channel_resp",
+                                  16: "move_channel_confirm_req",
+                                  17: "move_channel_confirm_resp",
+                                  18: "conn_param_update_req",
+                                  19: "conn_param_update_resp",
+                                  20: "LE_credit_based_conn_req",
+                                  21: "LE_credit_based_conn_resp",
+                                  22: "flow_control_credit_ind",
+                                  23: "credit_based_conn_req",
+                                  24: "credit_based_conn_resp",
+                                  25: "credit_based_reconf_req",
+                                  26: "credit_based_reconf_resp"}),
         ByteField("id", 0),
         LEShortField("len", None)]
 
@@ -277,7 +299,22 @@ class L2CAP_CmdHdr(Packet):
 
 class L2CAP_ConnReq(Packet):
     name = "L2CAP Conn Req"
-    fields_desc = [LEShortEnumField("psm", 0, {1: "SDP", 3: "RFCOMM", 5: "telephony control"}),  # noqa: E501
+    fields_desc = [LEShortEnumField("psm", 0, {1: "SDP",
+                                               3: "RFCOMM",
+                                               5: "TCS-BIN",
+                                               7: "TCS-BIN-CORDLESS",
+                                               15: "BNEP",
+                                               17: "HID-Control",
+                                               19: "HID-Interrupt",
+                                               21: "UPnP",
+                                               23: "AVCTP-Control",
+                                               25: "AVDTP",
+                                               27: "AVCTP-Browsing",
+                                               29: "UDI_C-Plane",
+                                               31: "ATT",
+                                               33: "3DSP",
+                                               35: "IPSP",
+                                               37: "OTS"}),
                    LEShortField("scid", 0),
                    ]
 
@@ -335,6 +372,16 @@ class L2CAP_DisconnResp(Packet):
         return self.scid == other.scid
 
 
+class L2CAP_EchoReq(Packet):
+    name = "L2CAP Echo Req"
+    fields_desc = [StrField("data", ""), ]
+
+
+class L2CAP_EchoResp(Packet):
+    name = "L2CAP Echo Resp"
+    fields_desc = [StrField("data", ""), ]
+
+
 class L2CAP_InfoReq(Packet):
     name = "L2CAP Info Req"
     fields_desc = [LEShortEnumField("type", 0, {1: "CL_MTU", 2: "FEAT_MASK"}),
@@ -352,6 +399,78 @@ class L2CAP_InfoResp(Packet):
         return self.type == other.type
 
 
+class L2CAP_Create_Channel_Request(Packet):
+    name = "L2CAP Create Channel Request"
+    fields_desc = [LEShortEnumField("psm", 0, {1: "SDP",
+                                               3: "RFCOMM",
+                                               5: "TCS-BIN",
+                                               7: "TCS-BIN-CORDLESS",
+                                               15: "BNEP",
+                                               17: "HID-Control",
+                                               19: "HID-Interrupt",
+                                               21: "UPnP",
+                                               23: "AVCTP-Control",
+                                               25: "AVDTP",
+                                               27: "AVCTP-Browsing",
+                                               29: "UDI_C-Plane",
+                                               31: "ATT",
+                                               33: "3DSP",
+                                               35: "IPSP",
+                                               37: "OTS"}),
+                   LEShortField("scid", 0),
+                   ByteField("controller_id", 0), ]
+
+
+class L2CAP_Create_Channel_Response(Packet):
+    name = "L2CAP Create Channel Response"
+    fields_desc = [LEShortField("dcid", 0),
+                   LEShortField("scid", 0),
+                   LEShortEnumField("result", 0, {
+                       0: "Connection successful",
+                       1: "Connection pending",
+                       2: "Connection refused - PSM not supported",
+                       3: "Connection refused - security block",
+                       4: "Connection refused - no resources available",
+                       5: "Connection refused - cont_ID not supported",
+                       6: "Connection refused - invalid scid",
+                       7: "Connection refused - scid already allocated"}),
+                   LEShortEnumField("status", 0, {
+                       0: "No further information available",
+                       1: "Authentication pending",
+                       2: "Authorization pending"}), ]
+
+
+class L2CAP_Move_Channel_Request(Packet):
+    name = "L2CAP Move Channel Request"
+    fields_desc = [LEShortField("icid", 0),
+                   ByteField("dest_controller_id", 0), ]
+
+
+class L2CAP_Move_Channel_Response(Packet):
+    name = "L2CAP Move Channel Response"
+    fields_desc = [LEShortField("icid", 0),
+                   LEShortEnumField("result", 0, {
+                       0: "Move success",
+                       1: "Move pending",
+                       2: "Move refused - Cont_ID not supported",
+                       3: "Move refused - Cont_ID is same as old one",
+                       4: "Move refused - Configuration not supported",
+                       5: "Move refused - Move channel collision",
+                       6: "Move refused - Not allowed to be moved"}), ]
+
+
+class L2CAP_Move_Channel_Confirmation_Request(Packet):
+    name = "L2CAP Move Channel Confirmation Request"
+    fields_desc = [LEShortField("icid", 0),
+                   LEShortEnumField("result", 0, {0: "Move success",
+                                                  1: "Move failure"}), ]
+
+
+class L2CAP_Move_Channel_Confirmation_Response(Packet):
+    name = "L2CAP Move Channel Confirmation Response"
+    fields_desc = [LEShortField("icid", 0), ]
+
+
 class L2CAP_Connection_Parameter_Update_Request(Packet):
     name = "L2CAP Connection Parameter Update Request"
     fields_desc = [LEShortField("min_interval", 0),
@@ -363,6 +482,86 @@ class L2CAP_Connection_Parameter_Update_Request(Packet):
 class L2CAP_Connection_Parameter_Update_Response(Packet):
     name = "L2CAP Connection Parameter Update Response"
     fields_desc = [LEShortField("move_result", 0), ]
+
+
+class L2CAP_LE_Credit_Based_Connection_Request(Packet):
+    name = "L2CAP LE Credit Based Connection Request"
+    fields_desc = [LEShortField("spsm", 0),
+                   LEShortField("scid", 0),
+                   LEShortField("mtu", 0),
+                   LEShortField("mps", 0),
+                   LEShortField("initial_credits", 0), ]
+
+
+class L2CAP_LE_Credit_Based_Connection_Response(Packet):
+    name = "L2CAP LE Credit Based Connection Response"
+    fields_desc = [LEShortField("dcid", 0),
+                   LEShortField("mtu", 0),
+                   LEShortField("mps", 0),
+                   LEShortField("initial_credits", 0),
+                   LEShortEnumField("result", 0, {
+                       0: "Connection successful",
+                       2: "Connection refused - SPSM not supported",
+                       4: "Connection refused - no resources available",
+                       5: "Connection refused - authentication error",
+                       6: "Connection refused - authorization error",
+                       7: "Connection refused - encrypt_key size error",
+                       8: "Connection refused - insufficient encryption",
+                       9: "Connection refused - invalid scid",
+                       10: "Connection refused - scid already allocated",
+                       11: "Connection refused - parameters error"}), ]
+
+
+class L2CAP_Flow_Control_Credit_Ind(Packet):
+    name = "L2CAP Flow Control Credit Ind"
+    fields_desc = [LEShortField("cid", 0),
+                   LEShortField("credits", 0), ]
+
+
+class L2CAP_Credit_Based_Connection_Request(Packet):
+    name = "L2CAP Credit Based Connection Request"
+    fields_desc = [LEShortField("spsm", 0),
+                   LEShortField("mtu", 0),
+                   LEShortField("mps", 0),
+                   LEShortField("initial_credits", 0),
+                   LEShortField("scid", 0), ]
+
+
+class L2CAP_Credit_Based_Connection_Response(Packet):
+    name = "L2CAP Credit Based Connection Response"
+    fields_desc = [LEShortField("mtu", 0),
+                   LEShortField("mps", 0),
+                   LEShortField("initial_credits", 0),
+                   LEShortEnumField("result", 0, {
+                       0: "All connection successful",
+                       2: "All connection refused - SPSM not supported",
+                       4: "Some connections refused - resources error",
+                       5: "All connection refused - authentication error",
+                       6: "All connection refused - authorization error",
+                       7: "All connection refused - encrypt_key size error",
+                       8: "All connection refused - encryption error",
+                       9: "Some connection refused - invalid scid",
+                       10: "Some connection refused - scid already allocated",
+                       11: "All Connection refused - unacceptable parameters",
+                       12: "All connections refused - invalid parameters"}),
+                   LEShortField("dcid", 0), ]
+
+
+class L2CAP_Credit_Based_Reconfigure_Request(Packet):
+    name = "L2CAP Credit Based Reconfigure Request"
+    fields_desc = [LEShortField("mtu", 0),
+                   LEShortField("mps", 0),
+                   LEShortField("dcid", 0), ]
+
+
+class L2CAP_Credit_Based_Reconfigure_Response(Packet):
+    name = "L2CAP Credit Based Reconfigure Response"
+    fields_desc = [LEShortEnumField("result", 0, {
+                   0: "Reconfig successful",
+                   1: "Reconfig failed - MTU size reduction not allowed",
+                   2: "Reconfig failed - MPS size reduction not allowed",
+                   3: "Reconfig failed - one or more dcids invalid",
+                   4: "Reconfig failed - unacceptable parameters"}), ]
 
 
 class ATT_Hdr(Packet):
@@ -1823,10 +2022,25 @@ bind_layers(L2CAP_CmdHdr, L2CAP_ConfReq, code=4)
 bind_layers(L2CAP_CmdHdr, L2CAP_ConfResp, code=5)
 bind_layers(L2CAP_CmdHdr, L2CAP_DisconnReq, code=6)
 bind_layers(L2CAP_CmdHdr, L2CAP_DisconnResp, code=7)
+bind_layers(L2CAP_CmdHdr, L2CAP_EchoReq, code=8)
+bind_layers(L2CAP_CmdHdr, L2CAP_EchoResp, code=9)
 bind_layers(L2CAP_CmdHdr, L2CAP_InfoReq, code=10)
 bind_layers(L2CAP_CmdHdr, L2CAP_InfoResp, code=11)
+bind_layers(L2CAP_CmdHdr, L2CAP_Create_Channel_Request, code=12)
+bind_layers(L2CAP_CmdHdr, L2CAP_Create_Channel_Response, code=13)
+bind_layers(L2CAP_CmdHdr, L2CAP_Move_Channel_Request, code=14)
+bind_layers(L2CAP_CmdHdr, L2CAP_Move_Channel_Response, code=15)
+bind_layers(L2CAP_CmdHdr, L2CAP_Move_Channel_Confirmation_Request, code=16)
+bind_layers(L2CAP_CmdHdr, L2CAP_Move_Channel_Confirmation_Response, code=17)
 bind_layers(L2CAP_CmdHdr, L2CAP_Connection_Parameter_Update_Request, code=18)
 bind_layers(L2CAP_CmdHdr, L2CAP_Connection_Parameter_Update_Response, code=19)
+bind_layers(L2CAP_CmdHdr, L2CAP_LE_Credit_Based_Connection_Request, code=20)
+bind_layers(L2CAP_CmdHdr, L2CAP_LE_Credit_Based_Connection_Response, code=21)
+bind_layers(L2CAP_CmdHdr, L2CAP_Flow_Control_Credit_Ind, code=22)
+bind_layers(L2CAP_CmdHdr, L2CAP_Credit_Based_Connection_Request, code=23)
+bind_layers(L2CAP_CmdHdr, L2CAP_Credit_Based_Connection_Response, code=24)
+bind_layers(L2CAP_CmdHdr, L2CAP_Credit_Based_Reconfigure_Request, code=25)
+bind_layers(L2CAP_CmdHdr, L2CAP_Credit_Based_Reconfigure_Response, code=26)
 bind_layers(L2CAP_Hdr, ATT_Hdr, cid=4)
 bind_layers(ATT_Hdr, ATT_Error_Response, opcode=0x1)
 bind_layers(ATT_Hdr, ATT_Exchange_MTU_Request, opcode=0x2)
