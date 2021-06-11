@@ -34,7 +34,13 @@ elif [[ "$OSTYPE" = "darwin"* ]] || [ "$TRAVIS_OS_NAME" = "osx" ]
 then
   OSTOX="bsd"
   # Travis CI in macOS 10.13+ can't load kexts. Need this for tuntaposx.
-  UT_FLAGS+=" -K tun -K tap"
+  UT_FLAGS+=" -K tap"
+
+  if [[ "${1}" = "2."* ]]
+  then
+    # utun support requires Python 3.3 or later
+    UT_FLAGS+=" -K tun"
+  fi
 fi
 
 # pypy

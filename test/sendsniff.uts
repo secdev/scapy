@@ -121,7 +121,10 @@ else:
 import subprocess
 from threading import Thread
 
-tun0, tun1 = [TunTapInterface("tun%d" % i) for i in range(2)]
+if DARWIN:
+    tun0, tun1 = [TunTapInterface("utun%d" % i) for i in range(2,4)]
+else:
+    tun0, tun1 = [TunTapInterface("tun%d" % i) for i in range(2)]
 
 if six.PY2:
     chk_kwargs = {}
@@ -129,21 +132,21 @@ else:
     chk_kwargs = {"timeout": 3}
 
 if LINUX:
-    for i in range(2):
-        assert subprocess.check_call(["ip", "link", "set", "tun%d" % i, "up"], **chk_kwargs) == 0
+    assert subprocess.check_call(["ip", "link", "set", str(tun0), "up"], **chk_kwargs) == 0
+    assert subprocess.check_call(["ip", "link", "set", str(tun1), "up"], **chk_kwargs) == 0
     assert subprocess.check_call([
         "ip", "addr", "change",
-        "192.0.2.1", "peer", "192.0.2.2", "dev", "tun0"], **chk_kwargs) == 0
+        "192.0.2.1", "peer", "192.0.2.2", "dev", str(tun0)], **chk_kwargs) == 0
 else:
-    for i in range(2):
-        assert subprocess.check_call(["ifconfig", "tun%d" % i, "up"], **chk_kwargs) == 0
-    assert subprocess.check_call(["ifconfig", "tun0", "192.0.2.1", "192.0.2.2"], **chk_kwargs) == 0
+    assert subprocess.check_call(["ifconfig", str(tun0), "up"], **chk_kwargs) == 0
+    assert subprocess.check_call(["ifconfig", str(tun1), "up"], **chk_kwargs) == 0
+    assert subprocess.check_call(["ifconfig", str(tun0), "192.0.2.1", "192.0.2.2"], **chk_kwargs) == 0
 
 = Run a sniff thread on the tun1 **interface**
 * It will terminate when 5 IP packets from 192.0.2.1 have been sniffed
 started = threading.Event()
 t_sniff = Thread(target=sniff,
-                 kwargs={"iface": "tun1", "count": 5,
+                 kwargs={"iface": str(tun1), "count": 5,
                          "prn": Packet.summary,
                          "lfilter": lambda p: IP in p and p[IP].src == "192.0.2.1",
                          "started_callback": started.set},
@@ -165,9 +168,9 @@ t_bridge.start()
 started.wait(timeout=5)
 
 = Send five IP packets from 192.0.2.1 to the tun0 **interface**
-conf.route.add(net="192.0.2.2/32", dev="tun0")
-send([IP(src="192.0.2.1", dst="192.0.2.2") / ICMP()], count=5, iface="tun0")
-conf.route.delt(net="192.0.2.2/32", dev="tun0")
+conf.route.add(net="192.0.2.2/32", dev=str(tun0))
+send([IP(src="192.0.2.1", dst="192.0.2.2") / ICMP()], count=5, iface=str(tun0))
+conf.route.delt(net="192.0.2.2/32", dev=str(tun0))
 
 = Wait for the threads
 t_bridge.join(5)
@@ -179,7 +182,7 @@ assert not t_sniff.is_alive()
 * It will terminate when 5 IP packets from 198.51.100.1 have been sniffed
 started = threading.Event()
 t_sniff = Thread(target=sniff,
-                 kwargs={"iface": "tun1", "count": 5, "prn": Packet.summary,
+                 kwargs={"iface": str(tun1), "count": 5, "prn": Packet.summary,
                          "lfilter": lambda p: IP in p and p[IP].src == "198.51.100.1",
                          "started_callback": started.set},
                  name="tests sniff 4")
@@ -207,9 +210,9 @@ t_bridge.start()
 started.wait(timeout=5)
 
 = Send five IP packets from 192.0.2.1 to the tun0 **interface**
-conf.route.add(net="192.0.2.2/32", dev="tun0")
-send([IP(src="192.0.2.1", dst="192.0.2.2") / ICMP()], count=5, iface="tun0")
-conf.route.delt(net="192.0.2.2/32", dev="tun0")
+conf.route.add(net="192.0.2.2/32", dev=str(tun0))
+send([IP(src="192.0.2.1", dst="192.0.2.2") / ICMP()], count=5, iface=str(tun0))
+conf.route.delt(net="192.0.2.2/32", dev=str(tun0))
 
 = Wait for the threads
 t_bridge.join(5)
