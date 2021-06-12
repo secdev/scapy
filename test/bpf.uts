@@ -145,3 +145,23 @@ s.send(IP(dst="8.8.8.8")/ICMP())
 s = L3bpfSocket()             
 s.assigned_interface = conf.loopback_name
 s.send(IP(dst="8.8.8.8")/ICMP())
+
+= L3bpfSocket - send and sniff on loopback
+~ needs_root
+
+localhost_ip = conf.ifaces[conf.loopback_name].ips[4][0]
+
+def cb():
+    # Send a ping to the loopback IP.
+    s = L3bpfSocket(iface=conf.loopback_name)
+    s.send(IP(dst=localhost_ip)/ICMP(seq=1001))
+
+t = AsyncSniffer(iface=conf.loopback_name, started_callback=cb)
+t.start()
+time.sleep(1)
+t.stop()
+t.join(timeout=1)
+
+# We expect to see our packet and kernel's response.
+len(t.results.filter(lambda p: (
+    IP in p and ICMP in p and (p[IP].src == localhost_ip or p[IP].dst == localhost_ip) and p[ICMP].seq == 1001))) == 2
