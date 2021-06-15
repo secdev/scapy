@@ -58,15 +58,12 @@ options_p0f = {
 class p0fKnowledgeBase(KnowledgeBase):
     """
     self.base = {
-        "mtu" (str): { sig (int): labelnum (int) }
-
+        "mtu" (str): [sig(tuple), ...]
         "tcp"/"http" (str): {
-            direction (str): { sig (tuple): labelnum (int) }
+            direction (str): [sig(tuple), ...]
             }
     }
-
-    # TODO: parse "sys" lines with labels
-    self.labels = ((generic(str), class(str), name(str), flavor(str), ...)
+    self.labels = (label(tuple), ...)
     """
     def lazy_init(self):
         try:
@@ -79,18 +76,12 @@ class p0fKnowledgeBase(KnowledgeBase):
         self.labels = []
         self._parse_file(f)
         self.labels = tuple(self.labels)
-
-        # Parse mtu, tcp, and http bases
-        self.base["mtu"] = {int(s): l for s, l in self.base["mtu"].items()}
-        self._parse_tcp_base()
-        self._parse_http_base()
         f.close()
 
     def _parse_file(self, file):
         """
         Does actual parsing of the file and stores the data with described
         structures.
-        TODO: parse "sys" lines to associate labels with user applications
         """
         label_id = -1
 
@@ -102,177 +93,164 @@ class p0fKnowledgeBase(KnowledgeBase):
             if line[0] == "[":
                 section, direction = lparse(line[1:-1], 2)
                 if section == "mtu":
-                    self.base[section] = {}
-                    currsec = self.base[section]
+                    self.base[section] = []
+                    curr_records = self.base[section]
                 else:
                     if section not in self.base:
-                        self.base[section] = {direction: {}}
+                        self.base[section] = {direction: []}
                     elif direction not in self.base[section]:
-                        self.base[section][direction] = {}
-                    currsec = self.base[section][direction]
+                        self.base[section][direction] = []
+                    curr_records = self.base[section][direction]
             else:
-                param, _, value = line.partition(" = ")
+                param, _, val = line.partition(" = ")
                 param = param.strip()
 
                 if param == "sig":
-                    currsec[value] = label_id
+                    if section == "mtu":
+                        curr_records.append((label_id, int(val)))
+                    elif section == "tcp":
+                        bad_ttl, sig = self.tcp_register_sig(val)
+                        curr_records.append((label_id, bad_ttl, sig))
+                    elif section == "http":
+                        sig = self.http_register_sig(val)
+                        curr_records.append((label_id, sig))
 
                 elif param == "label":
                     label_id += 1
                     if section == "mtu":
-                        self.labels.append(value)
-                    else:
-                        # label = type:class:name:flavor
-                        t, c, name, flavor = lparse(value, 4)
-                        self.labels.append((t, c, name, flavor))
+                        self.labels.append(val)
+                        continue
+                    # label = type:class:name:flavor
+                    t, c, name, flavor = lparse(val, 4)
+                    self.labels.append((t, c, name, flavor))
 
-    def _parse_tcp_base(self):
+                elif param == "sys":
+                    sys_names = tuple(name for name in val.split(","))
+                    self.labels[label_id] += (sys_names,)
+
+    def tcp_register_sig(self, line):
         """
-        TCP database signature is a tuple containing:
-        - ver: 4, 6, or -1 (any)
-        - tuple(ttl, bad_ttl(bool))
-        - olen: length of IP options
-        - mss: Maximum segment size (-1 = any)
-        - window: tuple(wsize, wtype)
-        - scale: window scale (-1 = any)
-        - olayout(str): TCP option layout
-        - quirks(frozenset): quirks
-        - pclass: -1 = any, 0 = zero, 1 = non-zero
+        Parses a TCP sig line and returns a tuple
+        of bad_ttl and the signature itself
         """
-        for direction in "request", "response":
-            newsigs = {}
-            for sig, labelnum in self.base["tcp"][direction].items():
-                ver, ttl, olen, mss, wsize, olayout, quirks, pclass = lparse(sig, 8)  # noqa: E501
-                wsize, _, scale = wsize.partition(",")
+        ver, ttl, olen, mss, wsize, olayout, quirks, pclass = lparse(line, 8)
+        wsize, _, scale = wsize.partition(",")
 
-                ver = -1 if ver == "*" else int(ver)
-                ttl = (int(ttl[:-1]), True) if ttl[-1] == "-" else (int(ttl), False)  # noqa: E501
-                olen = int(olen)
-                mss = -1 if mss == "*" else int(mss)
-                if wsize == "*":
-                    window = (0, WIN_TYPE_ANY)
-                elif wsize[:3] == "mss":
-                    window = (int(wsize[4:]), WIN_TYPE_MSS)
-                elif wsize[0] == "%":
-                    window = (int(wsize[1:]), WIN_TYPE_MOD)
-                elif wsize[:3] == "mtu":
-                    window = (int(wsize[4:]), WIN_TYPE_MTU)
-                else:
-                    window = (int(wsize), WIN_TYPE_NORMAL)
-                scale = -1 if scale == "*" else int(scale)
-                if quirks:
-                    quirks = frozenset(quirks_p0f[q] for q in quirks.split(","))  # noqa: E501
-                else:
-                    quirks = frozenset()
+        ip_ver = -1 if ver == "*" else int(ver)
+        ttl, bad_ttl = (int(ttl[:-1]), True) if ttl[-1] == "-" else (int(ttl), False)  # noqa: E501
+        ip_opt_len = int(olen)
+        mss = -1 if mss == "*" else int(mss)
+        if wsize == "*":
+            win, win_type = (0, WIN_TYPE_ANY)
+        elif wsize[:3] == "mss":
+            win, win_type = (int(wsize[4:]), WIN_TYPE_MSS)
+        elif wsize[0] == "%":
+            win, win_type = (int(wsize[1:]), WIN_TYPE_MOD)
+        elif wsize[:3] == "mtu":
+            win, win_type = (int(wsize[4:]), WIN_TYPE_MTU)
+        else:
+            win, win_type = (int(wsize), WIN_TYPE_NORMAL)
+        wscale = -1 if scale == "*" else int(scale)
+        if quirks:
+            quirks = frozenset(quirks_p0f[q] for q in quirks.split(","))
+        else:
+            quirks = frozenset()
+        pay_class = -1 if pclass == "*" else int(pclass == "+")
 
-                pclass = -1 if pclass == "*" else int(pclass == "+")
+        sig = (ip_ver, ttl, ip_opt_len, mss, win, win_type, wscale, olayout, quirks, pay_class)  # noqa: E501
+        return bad_ttl, sig
 
-                newsigs[(ver, ttl, olen, mss, window,
-                         scale, olayout, quirks, pclass)] = labelnum
-
-            self.base["tcp"][direction] = newsigs
-
-    def _parse_http_base(self):
+    def http_register_sig(self, val):
         """
-        HTTP database signature is a tuple containing:
-        - ver: 0 (1.0), 1 (1.1), or -1 (any)
-        - horder: tuple((name, value(str), optional(bool)), ...)
-        - headers_set(frozenset): all non-optional header names
-        - habsent(frozenset)
-        - expsw(str)
+        Parses an HTTP sig line and returns the signature as a tuple
         """
-        for direction in "request", "response":
-            newsigs = {}
-            for sig, labelnum in self.base["http"][direction].items():
-                ver, horder, habsent, expsw = lparse(sig, 4)
+        ver, horder, habsent, expsw = lparse(val, 4)
+        http_ver = -1 if ver == "*" else int(ver)
 
-                ver = -1 if ver == "*" else int(ver)
+        # horder parsing - split by commas that aren't in []
+        new_horder = []
+        for header in re.split(r",(?![^\[]*\])", horder):
+            name, _, value = header.partition("=")
+            if name[0] == "?":  # Optional header
+                new_horder.append((name[1:], value[1:-1], True))
+            else:
+                new_horder.append((name, value[1:-1], False))
+        hdr = tuple(new_horder)
+        hdr_set = frozenset(header[0] for header in hdr if not header[2])
+        habsent = frozenset(habsent.split(","))
 
-                # horder parsing - split by commas that aren't in []
-                new_horder = []
-                for header in re.split(r",(?![^\[]*\])", horder):
-                    name, _, value = header.partition("=")
-                    if name[0] == "?":  # Optional header
-                        new_horder.append((name[1:], value[1:-1], True))
-                    else:
-                        new_horder.append((name, value[1:-1], False))
-                horder = tuple(new_horder)
-                headers_set = frozenset(hdr[0] for hdr in horder if not hdr[2])
-                habsent = frozenset(habsent.split(","))
-
-                newsigs[(ver, horder, headers_set, habsent, expsw)] = labelnum
-
-            self.base["http"][direction] = newsigs
+        return (http_ver, hdr, hdr_set, habsent, expsw)
 
     def tcp_find_match(self, tcpsig, direction):
         """
         Finds the best match for the given signature and direction.
-        Returns a tuple consisting of:
+        If a match is found, returns a tuple consisting of:
         - label: the matched label
         - dist: guessed distance from the packet source
         - fuzzy: whether the match is fuzzy
+        Returns None if no match was found
         """
-        ver, ittl, olen, mss, wsize, scale, olayout, quirks, pclass = tcpsig
-        win_multi, use_mtu = detect_win_multi(wsize, mss)
+        ver, ttl, olen, mss, win, wscale, olayout, quirks, pclass = tcpsig
+        win_multi, use_mtu = detect_win_multi(tcpsig)
 
         gmatch = None  # generic match
         fmatch = None  # fuzzy match
-        for sig, labelnum in self.base["tcp"][direction].items():
-            sver, sittl, solen, smss, swsize, sscale, solayout, squirks, spclass = sig  # noqa: E501
+        for label_id, bad_ttl, sig in self.base["tcp"][direction]:
+            ver2, ttl2, olen2, mss2, win2, win_type, wscale2, olayout2, quirks2, pclass2 = sig  # noqa: E501
 
             fuzzy = False
-            if solayout != olayout:
+            if olayout2 != olayout:
                 continue
 
-            if sver == -1:
+            if ver2 == -1:
                 if ver == 4:
-                    squirks -= {quirks_p0f["flow"]}
+                    quirks2 -= {quirks_p0f["flow"]}
                 else:
-                    squirks -= {quirks_p0f[q] for q in ("df", "id+", "id-")}
-            if squirks != quirks:
-                deleted = (squirks ^ quirks) & squirks
-                added = (squirks ^ quirks) & quirks
+                    quirks2 -= {quirks_p0f[q] for q in ("df", "id+", "id-")}
+            if quirks2 != quirks:
+                deleted = (quirks2 ^ quirks) & quirks2
+                added = (quirks2 ^ quirks) & quirks
 
-                if (fmatch or (deleted - {quirks_p0f["df"], quirks_p0f["id+"]})
-                   or (added - {quirks_p0f["id-"], quirks_p0f["ecn"]})):
+                if (fmatch or (deleted - {quirks_p0f["df"], quirks_p0f["id+"]}) or  # noqa:E501
+                   (added - {quirks_p0f["id-"], quirks_p0f["ecn"]})):
                     continue
                 fuzzy = True
 
-            if solen != olen:
+            if olen2 != olen:
                 continue
-            if sittl[1]:
-                if sittl[0] < ittl:
+            if bad_ttl:
+                if ttl2 < ttl:
                     continue
             else:
-                if sittl[0] < ittl or sittl[0] - ittl > MAX_DIST:
+                if ttl2 < ttl or ttl2 - ttl > MAX_DIST:
                     fuzzy = True
 
-            if ((smss != -1 and smss != mss) or
-               (sscale != -1 and sscale != scale) or
-               (spclass != -1 and spclass != pclass)):
+            if ((mss2 != -1 and mss2 != mss) or
+               (wscale2 != -1 and wscale2 != wscale) or
+               (pclass2 != -1 and pclass2 != pclass)):
                 continue
 
-            if swsize[1] == WIN_TYPE_NORMAL:
-                if swsize[0] != wsize:
+            if win_type == WIN_TYPE_NORMAL:
+                if win2 != win:
                     continue
-            elif swsize[1] == WIN_TYPE_MOD:
-                if wsize % swsize[0]:
+            elif win_type == WIN_TYPE_MOD:
+                if win % win2:
                     continue
-            elif swsize[1] == WIN_TYPE_MSS:
-                if (use_mtu or swsize[0] != win_multi):
+            elif win_type == WIN_TYPE_MSS:
+                if (use_mtu or win2 != win_multi):
                     continue
-            elif swsize[1] == WIN_TYPE_MTU:
-                if (not use_mtu or swsize[0] != win_multi):
+            elif win_type == WIN_TYPE_MTU:
+                if (not use_mtu or win2 != win_multi):
                     continue
 
-            label = self.labels[labelnum]
+            label = self.labels[label_id]
             if not fuzzy:
                 if label[0] == "s":
-                    return (label, sittl[0] - ittl, fuzzy)
+                    return (label, ttl2 - ttl, fuzzy)
                 elif not gmatch:
-                    gmatch = (label, sittl[0] - ittl, fuzzy)
+                    gmatch = (label, ttl2 - ttl, fuzzy)
             elif not fmatch:
-                fmatch = (label, sittl[0] - ittl, fuzzy)
+                fmatch = (label, ttl2 - ttl, fuzzy)
 
         if gmatch:
             return gmatch
@@ -283,23 +261,26 @@ class p0fKnowledgeBase(KnowledgeBase):
     def http_find_match(self, httpsig, direction):
         """
         Finds the best match for the given signature and direction.
-        Returns the matched label.
+        If a match is found, returns a tuple consisting of:
+        - label: the matched label
+        - dishonest: whether the software was detected as dishonest
+        Returns None if no match was found
         """
-        ver, headers, headers_set = httpsig
+        ver, hdr, hdr_set, sw = httpsig
 
         gmatch = None  # generic match
-        for sig, labelnum in self.base["http"][direction].items():
-            sver, sheaders, sheaders_set, habsent, expsw = sig
+        for label_id, sig in self.base["http"][direction]:
+            ver2, hdr2, hdr_set2, habsent, expsw = sig
 
-            if sver != -1 and sver != ver:
+            if ver2 != -1 and ver2 != ver:
                 continue
 
             # Check that all non-optional headers appear in the packet
-            if not (headers_set & sheaders_set) == sheaders_set:
+            if not (hdr_set & hdr_set2) == hdr_set2:
                 continue
 
             # Check that no forbidden headers appear in the packet.
-            if len(habsent & headers_set) > 0:
+            if len(habsent & hdr_set) > 0:
                 continue
 
             def headers_correl():
@@ -309,24 +290,24 @@ class p0fKnowledgeBase(KnowledgeBase):
                 # Confirm the ordering and values of headers
                 # (this is relatively slow, hence the if statements above).
                 # The algorithm is taken from the original p0f/fp_http.c
-                for d_hdr in range(len(sheaders)):
+                for d_hdr in range(len(hdr2)):
                     orig_p = p_hdr
-                    while (p_hdr < len(headers) and
-                           sheaders[d_hdr][0] != headers[p_hdr][0]):
+                    while (p_hdr < len(hdr) and
+                           hdr2[d_hdr][0] != hdr[p_hdr][0]):
                         p_hdr += 1
 
-                    if p_hdr == len(headers):
-                        if not sheaders[d_hdr][2]:
+                    if p_hdr == len(hdr):
+                        if not hdr2[d_hdr][2]:
                             return False
 
-                        for p_hdr in range(len(headers)):
-                            if sheaders[d_hdr][0] == headers[p_hdr][0]:
+                        for p_hdr in range(len(hdr)):
+                            if hdr2[d_hdr][0] == hdr[p_hdr][0]:
                                 return False
 
                         p_hdr = orig_p
                         continue
 
-                    if sheaders[d_hdr][1] not in headers[p_hdr][1]:
+                    if hdr2[d_hdr][1] not in hdr[p_hdr][1]:
                         return False
                     p_hdr += 1
                 return True
@@ -334,14 +315,25 @@ class p0fKnowledgeBase(KnowledgeBase):
             if not headers_correl():
                 continue
 
-            label = self.labels[labelnum]
-            # TODO: check dishonest software
-            if label[0] == "s":
-                return label
-            elif not gmatch:
-                gmatch = label
+            label = self.labels[label_id]
+            dishonest = expsw and sw and expsw not in sw
 
+            if label[0] == "s":
+                return label, dishonest
+            elif not gmatch:
+                gmatch = (label, dishonest)
         return gmatch if gmatch else None
+
+    def mtu_find_match(self, mtu):
+        """
+        Finds a match for the given MTU.
+        If a match is found, returns the label string.
+        Returns None if no match was found
+        """
+        for label_id, mtu_record in self.base["mtu"]:
+            if mtu == mtu_record:
+                return self.labels[label_id]
+        return None
 
 
 p0fdb = p0fKnowledgeBase(conf.p0f_base)
@@ -370,34 +362,41 @@ def preprocess_packet(pkt):
             break
         pkt = pkt.payload
 
-    if ((not isinstance(pkt, IPv6) and not isinstance(pkt, IP))
-       or not isinstance(pkt.payload, TCP)):
+    if ((not isinstance(pkt, IPv6) and not isinstance(pkt, IP)) or
+       not isinstance(pkt.payload, TCP)):
         raise TypeError("Not a TCP/IP packet")
     return pkt
 
 
-def detect_win_multi(win, mss):
+def detect_win_multi(tcpsig):
     """
     Figure out if window size is a multiplier of MSS or MTU.
+    Returns the multiplier and whether mtu should be used
     """
-    default_mtu = False
-    default_multi = -1
-    if win or mss > 100:
-        options = (
-            (mss, False),  # MSS
-            (mss - 12, False),  # MSS - 12
-            (1500 - MIN_TCP4, False),  # MSS (MTU = 1500, IPv4)
-            (1500 - MIN_TCP4 - 12, False),  # MSS (MTU = 1500, IPv4 - 12)
-            (1500 - MIN_TCP6, False),  # MSS (MTU = 1500, IPv6)
-            (1500 - MIN_TCP6 - 12, False),  # MSS (MTU = 1500, IPv6 - 12)
-            (mss + MIN_TCP4, True),  # MTU (IPv4)
-            (mss + MIN_TCP6, True),  # MTU (IPv6)
-            (1500, True)  # MTU (1500)
-        )
-        for div, use_mtu in options:
-            if not (win % div):
-                return win / div, use_mtu
-    return default_multi, default_mtu
+    mss, win = tcpsig[3], tcpsig[4]
+    if not win or mss < 100:
+        return -1, False
+
+    ip_ver, olayout, quirks = tcpsig[0], tcpsig[6], tcpsig[7]
+    ts1 = "ts" in olayout and quirks_p0f["ts1-"] not in quirks
+    options = [
+        (mss, False),
+        (1500 - MIN_TCP4, False),
+        (1500 - MIN_TCP4 - 12, False),
+        (mss + MIN_TCP4, True),
+        (1500, True)
+    ]
+    if ts1:
+        options.append((mss - 12, False))
+    if ip_ver == 6:
+        options.append((1500 - MIN_TCP6, False))
+        options.append((1500 - MIN_TCP6 - 12, False))
+        options.append((mss + MIN_TCP6, True))
+
+    for div, use_mtu in options:
+        if not (win % div):
+            return win / div, use_mtu
+    return -1, False
 
 
 def packet2p0f(pkt):
@@ -430,19 +429,19 @@ def packet2p0f(pkt):
 
 def packet2tcpsig(pkt):
     """
-    TCP packet signature is a tuple containing:
-    (ver(int), ttl(int), ip_opt_len(int), mss(int), wsize(int),
-     scale(int), olayout(str), quirks(set), pclass(int))
+    Receives a TCP packet (assuming it's valid), and returns
+    a TCP signature as a tuple containing:
+    (ip_ver, ttl, ip_opt_len, mss, win, wscale, opt_layout, quirks, pay_class)
     """
-    ver = pkt.version
+    ip_ver = pkt.version
     quirks = set()
 
     def addq(name):
         quirks.add(quirks_p0f[name])
 
     # IPv4/IPv6 parsing
-    if ver == 4:
-        ittl = pkt.ttl
+    if ip_ver == 4:
+        ttl = pkt.ttl
         ip_opt_len = (pkt.ihl * 4) - 20
         if (pkt.tos & 0x3) in (0x1, 0x2, 0x3):
             addq("ecn")
@@ -455,7 +454,7 @@ def packet2tcpsig(pkt):
         elif pkt.id == 0:
             addq("id-")
     else:
-        ittl = pkt.hlim
+        ttl = pkt.hlim
         ip_opt_len = 0
         if pkt.fl:
             addq("flow")
@@ -464,7 +463,7 @@ def packet2tcpsig(pkt):
 
     # TCP parsing
     tcp = pkt[TCP]
-    wsize = tcp.window
+    win = tcp.window
     if tcp.flags.C or tcp.flags.E:
         addq("ecn")
     if tcp.seq == 0:
@@ -472,22 +471,20 @@ def packet2tcpsig(pkt):
     if tcp.flags.A:
         if tcp.ack == 0:
             addq("ack-")
-    else:
-        if tcp.ack:
-            addq("ack+")
+    elif tcp.ack:
+        addq("ack+")
     if tcp.flags.U:
         addq("urgf+")
-    else:
-        if tcp.urgptr:
-            addq("uptr+")
+    elif tcp.urgptr:
+        addq("uptr+")
     if tcp.flags.P:
         addq("pushf+")
 
-    pclass = 1 if tcp.payload else 0
+    pay_class = 1 if tcp.payload else 0
 
     # Manual TCP options parsing
     mss = 0
-    scale = 0
+    wscale = 0
     olayout = ""
     optlen = (tcp.dataofs << 2) - 20
     x = raw(tcp)[-optlen:]  # raw bytes of TCP options
@@ -509,7 +506,7 @@ def packet2tcpsig(pkt):
             addq("bad")
             break
         oval = x[2:olen]
-        if onum in (2, 3, 4, 5, 8):
+        if onum in options_p0f:
             ofmt = TCPOptions[0][onum][1]
             olayout += "%s," % options_p0f[onum]
             optsize = 2 + struct.calcsize(ofmt) if ofmt else 2  # total size
@@ -532,8 +529,8 @@ def packet2tcpsig(pkt):
                 if onum == 2:
                     mss = oval
                 elif onum == 3:
-                    scale = oval
-                    if scale > 14:
+                    wscale = oval
+                    if wscale > 14:
                         addq("exws")
                 elif onum == 8:
                     if not oval[0]:
@@ -541,19 +538,20 @@ def packet2tcpsig(pkt):
                     if oval[1] and (tcp.flags.S and not tcp.flags.A):
                         addq("ts2+")
         else:  # Unknown option, presumably with specified size
-            if (olen < 2 or olen > 40) or (olen > len(x)):
+            if olen < 2 or olen > 40 or olen > len(x):
                 addq("bad")
                 break
         x = x[olen:]
     olayout = olayout[:-1]
 
-    return (ver, ittl, ip_opt_len, mss, wsize, scale, olayout, quirks, pclass)
+    return (ip_ver, ttl, ip_opt_len, mss, win, wscale, olayout, quirks, pay_class)  # noqa: E501
 
 
 def packet2httpsig(pkt):
     """
-    HTTP packet signature is a tuple containing:
-    (ver(int), headers(name, value(str), headers_set(set))
+    Receives an HTTP packet (assuming it's valid), and returns
+    an HTTP signature as a tuple containing:
+    (http_ver, hdr, hdr_set, sw)
     """
     http_payload = raw(pkt[TCP].payload)
 
@@ -567,20 +565,26 @@ def packet2httpsig(pkt):
     first_line, headers = headers.split("\r\n", 1)
 
     if "1.0" in first_line:
-        ver = 0
+        http_ver = 0
     elif "1.1" in first_line:
-        ver = 1
+        http_ver = 1
     else:
         raise ValueError("HTTP version is not 1.0/1.1")
 
+    sw = ""
     headers_found = []
+    hdr_set = set()
     for header_line in headers.split("\r\n"):
-        name, _, value = header_line.partition(": ")
+        name, _, value = header_line.partition(":")
         if value:
+            value = value.strip()
             headers_found.append((name, value))
-    headers = tuple(headers_found)
-    headers_set = {hdr[0] for hdr in headers}
-    return (ver, headers, headers_set)
+            hdr_set.add(name)
+            if name in ("User-Agent", "Server"):
+                sw = value
+    hdr = tuple(headers_found)
+    return (http_ver, hdr, hdr_set, sw)
+
 
 def fingerprint_mtu(pkt):
     """
@@ -598,11 +602,12 @@ def fingerprint_mtu(pkt):
 
     mtu = (mss + MIN_TCP4) if pkt.version == 4 else (mss + MIN_TCP6)
 
-    db = p0fdb.get_base()
-    if db and mtu in db["mtu"]:
-        labelnum = db["mtu"][mtu]
-        return p0fdb.labels[labelnum]
-    return None
+    if not p0fdb.get_base():
+        warning("p0f base empty.")
+        return None
+
+    return p0fdb.mtu_find_match(mtu)
+
 
 def p0f(pkt):
     sig, direction = packet2p0f(pkt)
@@ -610,9 +615,7 @@ def p0f(pkt):
         warning("p0f base empty.")
         return None
 
-    match = None
     if len(sig) == 9:  # TCP signature
-        match = p0fdb.tcp_find_match(sig, direction)
+        return p0fdb.tcp_find_match(sig, direction)
     else:
-        match = p0fdb.http_find_match(sig, direction)
-    return match
+        return p0fdb.http_find_match(sig, direction)
