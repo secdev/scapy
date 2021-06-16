@@ -586,6 +586,32 @@ def packet2httpsig(pkt):
     return (http_ver, hdr, hdr_set, sw)
 
 
+def sig2str(sig):
+    """
+    Receives a packet TCP/HTTP signature as a tuple and returns
+    a string representation of it
+    """
+    s = ""
+    if len(sig) == 9:  # TCP signature
+
+        def guess_dist(ttl):
+            for opt in (32, 64, 128):
+                if ttl <= opt:
+                    return opt - ttl
+            return 255 - ttl
+
+        fmt = "%i:%i+%i:%i:%i:%i,%i:%s:%s:%i"
+        s += fmt % (sig[0], sig[1], guess_dist(sig[1]), sig[2],
+                    sig[3], sig[4], sig[5], sig[6], sig[7], sig[8])
+    else:
+        # values that depend on the context are not included in the string
+        skipval = ("Host", "User-Agent", "Date", "Content-Type", "Server")
+        fmt = "%i:%s::%s"
+        hdr = ",".join(n if n in skipval else "%s=[%s]" % (n, v) for n, v in sig[1])  # noqa: E501
+        s += fmt % (sig[0], hdr, sig[3])
+    return s
+
+
 def fingerprint_mtu(pkt):
     """
     Fingerprints the MTU based on the maximum segment size specified
@@ -619,3 +645,45 @@ def p0f(pkt):
         return p0fdb.tcp_find_match(sig, direction)
     else:
         return p0fdb.http_find_match(sig, direction)
+
+
+def prnp0f(pkt):
+    """Calls p0f and returns a user-friendly output"""
+    try:
+        r = p0f(pkt)
+    except Exception:
+        return
+
+    sig, direction = packet2p0f(pkt)
+    tcp_sig = len(sig) == 9
+    if tcp_sig:
+        pkt_type = "SYN" if direction == "request" else "SYN+ACK"
+    else:
+        pkt_type = "HTTP Request" if direction == "request" else "HTTP Response"  # noqa: E501
+
+    res = pkt.sprintf(".-[ %IP.src%:%TCP.sport% -> %IP.dst%:%TCP.dport% (" + pkt_type + ") ]-\n|\n")  # noqa: E501
+    fields = []
+
+    def add_field(name, value):
+        fields.append("| %-8s = %s\n" % (name, value))
+
+    cli_or_svr = "Client" if direction == "request" else "Server"
+    add_field(cli_or_svr, pkt.sprintf("%IP.src%:%TCP.sport%"))
+
+    if r:
+        label = r[0]
+        app_or_os = "App" if label[1] == "!" else "OS"
+        add_field(app_or_os, label[2] + " " + label[3])
+        if len(label) == 5:  # label includes sys
+            add_field("Sys", ", ".join(name for name in label[4]))
+        if tcp_sig:
+            add_field("Distance", r[1])
+    else:
+        app_or_os = "OS" if tcp_sig else "App"
+        add_field(app_or_os, "UNKNOWN")
+
+    add_field("Raw sig", sig2str(sig))
+
+    res += "".join(fields)
+    res += "`____\n"
+    print(res)
