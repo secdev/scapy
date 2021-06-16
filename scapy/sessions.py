@@ -338,9 +338,9 @@ class TCPSession(IPSession):
                 pkt[IP].chksum = None
             pkt_ret = pkt / packet
             if self.store:
-                pkt_ret.pkt_list=metadata["pkt_list"]
+                pkt_ret.pkt_list = metadata["pkt_list"]
             metadata.clear()
-            return pkt_ret 
+            return pkt_ret
         return None
 
     def on_packet_received(self, pkt):
