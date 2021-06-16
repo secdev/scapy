@@ -51,6 +51,7 @@ scapy/contrib/automotive/doip.py
 scapy/contrib/automotive/ecu.py
 scapy/contrib/automotive/gm/gmlan_ecu_states.py
 scapy/contrib/automotive/gm/gmlan_logging.py
+scapy/contrib/automotive/gm/gmlan_scanner.py
 scapy/contrib/automotive/gm/gmlanutils.py
 scapy/contrib/automotive/kwp.py
 scapy/contrib/automotive/obd/scanner.py
@@ -71,4 +72,3 @@ scapy/contrib/isotp/isotp_scanner.py
 scapy/contrib/isotp/isotp_soft_socket.py
 scapy/contrib/isotp/isotp_utils.py
 scapy/contrib/roce.py
-
