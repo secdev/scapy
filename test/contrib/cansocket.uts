@@ -14,7 +14,7 @@ load_layer("can", globals_dict=globals())
 from scapy.contrib.cansocket_python_can import PythonCANSocket
 from scapy.contrib.cansocket_native import NativeCANSocket
 
-conf.contribs['CAN'] = {'swap-bytes': False}
+conf.contribs['CAN'] = {'swap-bytes': False, 'remove-padding': True}
 
 = Setup string for vcan
 bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
@@ -237,8 +237,8 @@ assert len(packetsVCan1) == 6
 sock1.close()
 sock0.close()
 
-threadBridge.join()
-threadSender.join()
+threadBridge.join(timeout=3)
+threadSender.join(timeout=3)
 
 = PythonCANSocket bridge and sniff setup vcan1 package forwarding
 
@@ -281,8 +281,8 @@ assert len(packetsVCan1) == 6
 sock1.close()
 sock0.close()
 
-threadBridge.join()
-threadSender.join()
+threadBridge.join(timeout=3)
+threadSender.join(timeout=3)
 
 
 + Cleanup

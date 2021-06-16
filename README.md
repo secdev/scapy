@@ -6,7 +6,7 @@
 
 # Scapy
 
-[![Travis Build Status](https://travis-ci.com/secdev/scapy.svg?branch=master)](https://travis-ci.com/secdev/scapy) <!-- ignore_ppi -->
+[![Scapy unit tests](https://github.com/secdev/scapy/workflows/Scapy%20unit%20tests/badge.svg?event=push)](https://github.com/secdev/scapy/actions?query=workflow%3A%22Scapy+unit+tests%22+branch%3Amaster+event%3Apush) <!-- ignore_ppi -->
 [![AppVeyor Build status](https://ci.appveyor.com/api/projects/status/os03daotfja0wtp7/branch/master?svg=true)](https://ci.appveyor.com/project/secdev/scapy/branch/master) <!-- ignore_ppi -->
 [![Codecov Status](https://codecov.io/gh/secdev/scapy/branch/master/graph/badge.svg)](https://codecov.io/gh/secdev/scapy) <!-- ignore_ppi -->
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://www.codacy.com/app/secdev/scapy) <!-- ignore_ppi -->
@@ -31,7 +31,7 @@ handle, like sending invalid frames, injecting your own 802.11 frames, combining
 techniques (VLAN hopping+ARP cache poisoning, VoIP decoding on WEP protected
 channel, ...), etc.
 
-Scapy supports Python 2.7 and Python 3 (3.4 to 3.8). It's intended to
+Scapy supports Python 2.7 and Python 3 (3.4 to 3.9). It's intended to
 be cross platform, and runs on many different platforms (Linux, OSX,
 \*BSD, and Windows).
 

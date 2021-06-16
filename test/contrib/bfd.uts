@@ -2,7 +2,8 @@
 
 = BFD, basic instantiation
 
-a = UDP()/BFD()
+from scapy.contrib.bfd import BFD
+a = UDP(sport=3784, dport=3784)/BFD()
 assert raw(a) == b'\x0e\xc8\x0e\xc8\x00 \x00\x00 \xc0\x03\x18\x11\x11\x11\x11"""";\x9a\xca\x00;\x9a\xca\x00;\x9a\xca\x00'
 
 = BFD - dissection

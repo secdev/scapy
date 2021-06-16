@@ -1,23 +1,25 @@
 % Regression tests for ISOTP
-~ needs_root
+
+~ vcan_socket
 
 + Configuration
 ~ conf
 
 = Imports
-load_layer("can", globals_dict=globals())
-conf.contribs['CAN']['swap-bytes'] = False
-import scapy.modules.six as six
-import subprocess, sys
-from six.moves.queue import Queue
-from subprocess import call
+
+from scapy.modules.six.moves.queue import Queue
 from io import BytesIO
-from scapy.contrib.isotp import get_isotp_packet
-from scapy.consts import LINUX
+from scapy.contrib.isotp.isotp_scanner import get_isotp_packet
+
+import scapy.modules.six as six
+
+if six.PY3:
+    exec(open("test/contrib/automotive/interface_mockup.py").read())
+else:
+    execfile("test/contrib/automotive/interface_mockup.py")
 
 = Definition of constants, utility functions and mock classes
-iface0 = "vcan0"
-iface1 = "vcan1"
+
 
 class MockCANSocket(SuperSocket):
     nonblocking_socket = True
@@ -34,7 +36,7 @@ class MockCANSocket(SuperSocket):
         self.sent_queue.put(p)
     @staticmethod
     def select(sockets, remain=None):
-        return sockets, None
+        return sockets
 
 
 # utility function that waits on list l for n elements, timing out if nothing is added for 1 second
@@ -58,89 +60,17 @@ else:
     dhex = bytes.fromhex
 
 
-# function to exit when the can-isotp kernel module is not available
-ISOTP_KERNEL_MODULE_AVAILABLE = False
-def exit_if_no_isotp_module():
-    if not ISOTP_KERNEL_MODULE_AVAILABLE:
-        err = "TEST SKIPPED: can-isotp not available\n"
-        sys.__stderr__.write(err)
-        warning("Can't test ISOTP native socket because kernel module is not loaded")
-        exit(0)
-
-
-= Initialize a virtual CAN interface
-~ vcan_socket needs_root linux
-if 0 != call(["cansend", iface0,  "000#"]):
-    # vcan0 is not enabled
-    if 0 != call(["sudo", "modprobe", "vcan"]):
-        raise Exception("modprobe vcan failed")
-    if 0 != call(["sudo", "ip", "link", "add", "name", iface0, "type", "vcan"]):
-        print("add %s failed: Maybe it was already up?" % iface0)
-    if 0 != call(["sudo", "ip", "link", "set", "dev", iface0, "up"]):
-        raise Exception("could not bring up %s" % iface0)
-
-if 0 != call(["cansend", iface0,  "000#"]):
-    raise Exception("cansend doesn't work")
-
-if 0 != call(["cansend", iface1,  "000#"]):
-    # vcan1 is not enabled
-    if 0 != call(["sudo", "modprobe", "vcan"]):
-        raise Exception("modprobe vcan failed")
-    if 0 != call(["sudo", "ip", "link", "add", "name", iface1, "type", "vcan"]):
-        print("add %s failed: Maybe it was already up?" % iface1)
-    if 0 != call(["sudo", "ip", "link", "set", "dev", iface1, "up"]):
-        raise Exception("could not bring up %s" % iface1)
-
-if 0 != call(["cansend", iface1,  "000#"]):
-    raise Exception("cansend doesn't work")
-
-print("CAN should work now")
-
-= Import CANSocket
-
-from scapy.contrib.cansocket_python_can import *
-
-new_can_socket = lambda iface: CANSocket(bustype='virtual', channel=iface)
-new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface0, timeout=0.01)
-new_can_socket1 = lambda: CANSocket(bustype='virtual', channel=iface1, timeout=0.01)
-
-# utility function for draining a can interface, asserting that no packets are there
-def drain_bus(iface=iface0, assert_empty=True):
-    with new_can_socket(iface) as s:
-        pkts = s.sniff(timeout=0.1)
-        if assert_empty:
-            assert len(pkts) == 0
-
-print("CAN sockets should work now")
-
-= Overwrite definition for vcan_socket systems python-can sockets
-~ vcan_socket needs_root linux
-if "python_can" in CANSocket.__module__:
-    new_can_socket = lambda iface: CANSocket(bustype='socketcan', channel=iface, bitrate=250000, timeout=0.01)
-    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, bitrate=250000, timeout=0.01)
-    new_can_socket1 = lambda: CANSocket(bustype='socketcan', channel=iface1, bitrate=250000, timeout=0.01)
-
-= Verify that a CAN socket can be created and closed
-s = new_can_socket(iface0)
-s.close()
-
-
-= Check if can-isotp and can-utils are installed on this system
-~ linux
-p1 = subprocess.Popen(['lsmod'], stdout = subprocess.PIPE)
-p2 = subprocess.Popen(['grep', '^can_isotp'], stdout = subprocess.PIPE, stdin=p1.stdout)
-p1.stdout.close()
-if p1.wait() == 0 and p2.wait() == 0 and b"can_isotp" in p2.stdout.read():
-    p = subprocess.Popen(["isotpsend", "-s1", "-d0", iface0], stdin = subprocess.PIPE)
-    p.communicate(b"01")
-    if p.returncode == 0:
-        ISOTP_KERNEL_MODULE_AVAILABLE = True
-
-
 + Syntax check
 
 = Import isotp
+
 conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+
+if six.PY3:
+    import importlib
+    if "scapy.contrib.isotp" in sys.modules:
+        importlib.reload(scapy.contrib.isotp)
+
 load_contrib("isotp", globals_dict=globals())
 
 ISOTPSocket = ISOTPSoftSocket
@@ -1014,7 +944,7 @@ assert(not impl.rx_thread.is_alive())
 = Test on_recv function with single frame
 with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
     s.ins.on_recv(CAN(identifier=0x241, data=dhex("05 01 02 03 04 05")))
-    msg = s.ins.rx_queue.get(True, 1)
+    msg, ts = s.ins.rx_queue.get(True, 1)
     assert(msg == dhex("01 02 03 04 05"))
 
 = Test on_recv function with empty frame
@@ -1024,9 +954,11 @@ with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
 
 = Test on_recv function with single frame and extended addressing
 with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241, extended_rx_addr=0xea) as s:
-    s.ins.on_recv(CAN(identifier=0x241, data=dhex("EA 05 01 02 03 04 05")))
-    msg = s.ins.rx_queue.get(True, 1)
+    cf = CAN(identifier=0x241, data=dhex("EA 05 01 02 03 04 05"))
+    s.ins.on_recv(cf)
+    msg, ts = s.ins.rx_queue.get(True, 1)
     assert(msg == dhex("01 02 03 04 05"))
+    assert ts == cf.time
 
 = CF is sent when first frame is received
 cans = MockCANSocket()
@@ -1366,7 +1298,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s
     except Scapy_Exception as ex:
         exception = ex
 
-print(exception)
 assert(str(exception) == "TX state was reset due to timeout" or str(exception) == "ISOTP send not completed in 30s")
 
 = Check if not sending the second FC will make the socket timeout
@@ -1423,7 +1354,7 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241) as s
 thread.join(timeout=5)
 
 assert(exception is not None)
-print(exception)
+
 assert(str(exception) == "Overflow happened at the receiver side")
 
 = Close the Socket
@@ -1476,7 +1407,7 @@ with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, 0x123, 0x321) as txSoc
         global rx2, sent
         with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, 0x321, 0x123) as rxSock:
             evt.set()
-            rx2 = rxSock.sniff(count=1)
+            rx2 = rxSock.sniff(count=1, timeout=3)
             rxSock.send(msg)
             sent = True
     rxThread = threading.Thread(target=receiver, name="receiver")
@@ -1511,14 +1442,19 @@ with new_can_socket0() as isocan, \
         ISOTPSoftSocket(isocan, 0x123, 0x321) as sock:
     msg.data += b'0'
     sock.send(msg)
+    time.sleep(0.1)
     msg.data += b'1'
     sock.send(msg)
+    time.sleep(0.1)
     msg.data += b'2'
     sock.send(msg)
+    time.sleep(0.1)
     msg.data += b'3'
     sock.send(msg)
+    time.sleep(0.1)
     msg.data += b'4'
     sock.send(msg)
+    time.sleep(0.1)
 
 rxThread.join(timeout=5)
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
@@ -1537,6 +1473,7 @@ assert(succ)
 + ISOTPSoftSocket MITM attack tests
 
 = bridge and sniff with isotp soft sockets set up vcan0 and vcan1 for package forwarding vcan1
+~ needs_root
 drain_bus(iface0)
 drain_bus(iface1)
 
@@ -1575,6 +1512,7 @@ drain_bus(iface0)
 drain_bus(iface1)
 
 = bridge and sniff with isotp soft sockets and multiple long packets
+~ needs_root
 drain_bus(iface0)
 drain_bus(iface1)
 
@@ -1611,8 +1549,6 @@ with new_can_socket0() as can0_0, \
     sender = threading.Thread(target=sendpkts)
     packetsVCan1 = isoTpSocket1.sniff(timeout=T, count=N, started_callback=sender.start)
     sender.join(timeout=5)
-    print("forwarded: %d" % forwarded)
-    print("len(packetsVCan1): %d" % len(packetsVCan1))
     threadBridge.join(timeout=5)
 
 assert forwarded == N
@@ -1623,6 +1559,7 @@ drain_bus(iface0)
 drain_bus(iface1)
 
 = bridge and sniff with isotp soft sockets set up vcan0 and vcan1 for package change vcan1
+~ needs_root
 drain_bus(iface0)
 drain_bus(iface1)
 
@@ -1660,6 +1597,21 @@ drain_bus(iface1)
 = Two ISOTPSockets at the same time, sending and receiving
 
 with new_can_socket0() as cs1, ISOTPSocket(cs1, sid=0x641, did=0x241) as s1, \
+        new_can_socket0() as cs2, ISOTPSocket(cs2, sid=0x241, did=0x641) as s2:
+    isotp = ISOTP(data=b"\x10\x25" * 43)
+    def sender():
+        s2.send(isotp)
+    t = Thread(target=sender)
+    result = s1.sniff(count=1, timeout=5, started_callback=t.start)
+    t.join(timeout=5)
+
+assert len(result) == 1
+assert(result[0].data == isotp.data)
+
+
+= Two ISOTPSockets at the same time, sending and receiving with tx_gap
+
+with new_can_socket0() as cs1, ISOTPSocket(cs1, sid=0x641, did=0x241, rx_separation_time_min=1) as s1, \
         new_can_socket0() as cs2, ISOTPSocket(cs2, sid=0x241, did=0x641) as s2:
     isotp = ISOTP(data=b"\x10\x25" * 43)
     def sender():
@@ -1760,8 +1712,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x641, did=0x241, padd
         cans.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
         res = s.recv()
         res.show()
-        print(res.data)
-        print(raw(res))
         assert(res.data == dhex("01 02 03 04 05 06 07 08 09"))
 
 
@@ -1777,7 +1727,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x642, did=0x242) as s
     p = subprocess.Popen(["isotpsend", "-s", "242", "-d", "642", iface0], stdin=subprocess.PIPE, universal_newlines=True)
     p.communicate(message)
     r = p.returncode
-    print("returncode is %d" % r)
     assert(r == 0)
     isotp = s.recv()
     assert(isotp.data == dhex(message))
@@ -1791,7 +1740,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x644, did=0x244, exte
     p = subprocess.Popen(["isotpsend", "-s", "244", "-d", "644", "-x", "ee:aa", iface0], stdin=subprocess.PIPE, universal_newlines=True)
     p.communicate(message)
     r = p.returncode
-    print("returncode is %d" % r)
     assert(r == 0)
     isotp = s.recv()
     assert(isotp.data == dhex(message))
@@ -1802,7 +1750,6 @@ exit_if_no_isotp_module()
 
 isotp = ISOTP(data=bytearray(range(1,20)))
 cmd = ["isotprecv", "-s", "243", "-d", "643", "-b", "3", iface0]
-print(" ".join(cmd))
 p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 time.sleep(0.1)
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x643, did=0x243) as s:
@@ -1810,7 +1757,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x643, did=0x243) as s
 
 threading.Timer(1, lambda: p.terminate() if p.poll() else p.wait()).start()  # Timeout the receiver after 1 second
 r = p.wait()
-print("returncode is %d" % r)
 assert(0 == r)
 
 result = None
@@ -1821,7 +1767,6 @@ for i in range(10):
         break
 
 assert(result is not None)
-print(result)
 result_data = dhex(result)
 assert(result_data == isotp.data)
 
@@ -1830,7 +1775,6 @@ assert(result_data == isotp.data)
 exit_if_no_isotp_module()
 isotp = ISOTP(data=bytearray(range(1,20)))
 cmd = ["isotprecv", "-s245", "-d645", "-b3", "-x", "ee:aa", iface0]
-print(" ".join(cmd))
 p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 time.sleep(0.1)  # Give some time for starting reception
 with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x645, did=0x245, extended_addr=0xaa, extended_rx_addr=0xee) as s:
@@ -1838,7 +1782,6 @@ with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x645, did=0x245, exte
 
 threading.Timer(1, lambda: p.terminate() if p.poll() else p.wait()).start()  # Timeout the receiver after 1 second
 r = p.wait()
-print("returncode is %d" % r)
 assert(0 == r)
 
 result = None
@@ -1849,7 +1792,6 @@ for i in range(10):
         break
 
 assert(result is not None)
-print(result)
 result_data = dhex(result)
 assert(result_data == isotp.data)
 
@@ -2065,7 +2007,7 @@ with ISOTPNativeSocket(iface0, sid=0x641, did=0x241) as s:
 = ISOTP Socket sr1 test
 exit_if_no_isotp_module()
 
-txSock = ISOTPNativeSocket(iface0, sid=0x123, did=0x321)
+txSock = ISOTPNativeSocket(iface0, sid=0x123, did=0x321, basecls=ISOTP)
 txmsg = ISOTP(b'\x11\x22\x33')
 rx2 = None
 
@@ -2099,8 +2041,8 @@ assert(rx2.answers(txmsg))
 
 = ISOTP Socket sr1 and ISOTP test
 exit_if_no_isotp_module()
-txSock = ISOTPNativeSocket(iface0, 0x123, 0x321)
-rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
+txSock = ISOTPNativeSocket(iface0, 0x123, 0x321, basecls=ISOTP)
+rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123, basecls=ISOTP)
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 rx2 = None
 
@@ -2130,8 +2072,8 @@ assert(rx2 == msg)
 = ISOTP Socket sr1 and ISOTP test vice versa
 exit_if_no_isotp_module()
 
-rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
-txSock = ISOTPNativeSocket(iface0, 0x123, 0x321)
+rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123, basecls=ISOTP)
+txSock = ISOTPNativeSocket(iface0, 0x123, 0x321, basecls=ISOTP)
 
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 
@@ -2161,8 +2103,8 @@ assert(sent)
 = ISOTP Socket sniff
 exit_if_no_isotp_module()
 
-rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
-txSock = ISOTPNativeSocket(iface0, 0x123, 0x321)
+rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123, basecls=ISOTP)
+txSock = ISOTPNativeSocket(iface0, 0x123, 0x321, basecls=ISOTP)
 succ = False
 
 receiver_up = Event()
@@ -2406,12 +2348,6 @@ assert(rSucc)
 = Cleanup reference to ISOTPSoftSocket to let the thread end
 s = None
 
-
 = Delete vcan interfaces
-~ vcan_socket needs_root linux
 
-if 0 != call(["sudo", "ip", "link", "delete", iface0]):
-        raise Exception("%s could not be deleted" % iface0)
-
-if 0 != call(["sudo", "ip", "link", "delete", iface1]):
-        raise Exception("%s could not be deleted" % iface1)
+assert cleanup_interfaces()

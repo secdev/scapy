@@ -97,10 +97,8 @@ class DefaultSession(object):
         """
         if not pkt:
             return
-        if isinstance(pkt, list):
-            for p in pkt:
-                DefaultSession.on_packet_received(self, p)
-            return
+        if not isinstance(pkt, Packet):
+            raise TypeError("Only provide a Packet.")
         self.__count += 1
         if self.store:
             self.lst.append(pkt)
@@ -153,10 +151,7 @@ class IPSession(DefaultSession):
         # type: (Optional[Packet]) -> None
         if not pkt:
             return None
-        DefaultSession.on_packet_received(
-            self,
-            self._ip_process_packet(pkt)
-        )
+        super(IPSession, self).on_packet_received(self._ip_process_packet(pkt))
 
 
 class StringBuffer(object):

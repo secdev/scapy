@@ -238,11 +238,11 @@ _default_directoryName = [
     X509_RDN(),
     X509_RDN(
         rdn=[X509_AttributeTypeAndValue(
-            type="2.5.4.10",
+            type=ASN1_OID("2.5.4.10"),
             value=ASN1_PRINTABLE_STRING("Scapy, Inc."))]),
     X509_RDN(
         rdn=[X509_AttributeTypeAndValue(
-            type="2.5.4.3",
+            type=ASN1_OID("2.5.4.3"),
             value=ASN1_PRINTABLE_STRING("Scapy Default Name"))])
 ]
 
@@ -882,11 +882,11 @@ _default_issuer = [
     X509_RDN(),
     X509_RDN(
         rdn=[X509_AttributeTypeAndValue(
-            type="2.5.4.10",
+            type=ASN1_OID("2.5.4.10"),
             value=ASN1_PRINTABLE_STRING("Scapy, Inc."))]),
     X509_RDN(
         rdn=[X509_AttributeTypeAndValue(
-            type="2.5.4.3",
+            type=ASN1_OID("2.5.4.3"),
             value=ASN1_PRINTABLE_STRING("Scapy Default Issuer"))])
 ]
 
@@ -894,11 +894,11 @@ _default_subject = [
     X509_RDN(),
     X509_RDN(
         rdn=[X509_AttributeTypeAndValue(
-            type="2.5.4.10",
+            type=ASN1_OID("2.5.4.10"),
             value=ASN1_PRINTABLE_STRING("Scapy, Inc."))]),
     X509_RDN(
         rdn=[X509_AttributeTypeAndValue(
-            type="2.5.4.3",
+            type=ASN1_OID("2.5.4.3"),
             value=ASN1_PRINTABLE_STRING("Scapy Default Subject"))])
 ]
 

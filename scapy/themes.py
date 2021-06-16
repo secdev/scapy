@@ -16,8 +16,9 @@ import sys
 from scapy.compat import (
     Any,
     Callable,
+    List,
     Optional,
-    Union,
+    Tuple,
 )
 
 
@@ -53,13 +54,18 @@ class ColorTable:
     inv_map = {v[0]: v[1] for k, v in colors.items()}
 
     def __repr__(self):
+        # type: () -> str
         return "<ColorTable>"
 
     def __getattr__(self, attr):
+        # type: (str) -> str
         return self.colors.get(attr, [""])[0]
 
-    def ansi_to_pygments(self, x):  # Transform ansi encoded text to Pygments text  # noqa: E501
+    def ansi_to_pygments(self, x):
         # type: (str) -> str
+        """
+        Transform ansi encoded text to Pygments text
+        """
         for k, v in self.inv_map.items():
             x = x.replace(k, " " + v)
         return x.strip()
@@ -68,16 +74,19 @@ class ColorTable:
 Color = ColorTable()
 
 
-def create_styler(fmt=None, before="", after="", fmt2="%s"):
-    # type: (Optional[Any], str, str, str) -> Callable
-    def do_style(val, fmt=fmt, before=before, after=after, fmt2=fmt2):
-        # type: (Union[int, str], Optional[Any], str, str, str) -> str
+def create_styler(fmt=None,  # type: Optional[str]
+                  before="",  # type: str
+                  after="",  # type: str
+                  fmt2="%s"  # type: str
+                  ):
+    # type: (...) -> Callable[[Any], str]
+    def do_style(val, fmt=fmt, fmt2=fmt2, before=before, after=after):
+        # type: (Any, Optional[str], str, str, str) -> str
         if fmt is None:
-            if not isinstance(val, str):
-                val = str(val)
+            sval = str(val)
         else:
-            val = fmt % val
-        return fmt2 % (before + val + after)
+            sval = fmt % val
+        return fmt2 % (before + sval + after)
     return do_style
 
 
@@ -87,16 +96,18 @@ class ColorTheme:
         return "<%s>" % self.__class__.__name__
 
     def __reduce__(self):
+        # type: () -> Tuple[type, Any, Any]
         return (self.__class__, (), ())
 
     def __getattr__(self, attr):
-        # type: (str) -> Callable
+        # type: (str) -> Callable[[Any], str]
         if attr in ["__getstate__", "__setstate__", "__getinitargs__",
                     "__reduce_ex__"]:
             raise AttributeError()
         return create_styler()
 
     def format(self, string, fmt):
+        # type: (str, str) -> str
         for style in fmt.split("+"):
             string = getattr(self, style)(string)
         return string
@@ -108,7 +119,7 @@ class NoTheme(ColorTheme):
 
 class AnsiColorTheme(ColorTheme):
     def __getattr__(self, attr):
-        # type: (str) -> Callable
+        # type: (str) -> Callable[[Any], str]
         if attr.startswith("__"):
             raise AttributeError(attr)
         s = "style_%s" % attr
@@ -251,7 +262,7 @@ class ColorOnBlackTheme(AnsiColorTheme):
 
 class FormatTheme(ColorTheme):
     def __getattr__(self, attr):
-        # type: (str) -> Callable
+        # type: (str) -> Callable[[Any], str]
         if attr.startswith("__"):
             raise AttributeError(attr)
         colfmt = self.__class__.__dict__.get("style_%s" % attr, "%s")
@@ -363,7 +374,7 @@ def apply_ipython_style(shell):
         # default
         shell.colors = 'neutral'
     try:
-        get_ipython()
+        get_ipython()  # type: ignore
         # This function actually contains tons of hacks
         color_magic = shell.magics_manager.magics["line"]["colors"]
         color_magic(shell.colors)
@@ -394,9 +405,11 @@ def apply_ipython_style(shell):
 
         class ClassicPrompt(Prompts):
             def in_prompt_tokens(self, cli=None):
+                # type: (Any) -> List[Tuple[Any, str]]
                 return [(Token.Prompt, prompt), ]
 
             def out_prompt_tokens(self):
+                # type: () -> List[Tuple[Any, str]]
                 return [(Token.OutPrompt, ''), ]
         # Apply classic prompt style
         shell.prompts_class = ClassicPrompt
@@ -405,6 +418,6 @@ def apply_ipython_style(shell):
     shell.highlighting_style_overrides = scapy_style
     # Apply if Live
     try:
-        get_ipython().refresh_style()
+        get_ipython().refresh_style()  # type: ignore
     except NameError:
         pass

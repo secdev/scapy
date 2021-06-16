@@ -3,8 +3,9 @@
 # test.sh
 # Usage:
 #   ./test.sh [tox version] [both/root/non_root (default root)]
-# Example:
+# Examples:
 #   ./test.sh 3.7 both
+#   ./test.sh 3.9 non_root
 
 if [ "$OSTYPE" = "linux-gnu" ] || [ "$TRAVIS_OS_NAME" = "linux" ]
 then
@@ -42,6 +43,11 @@ then
   UT_FLAGS+=" -K not_pypy"
 fi
 
+# libpcap
+if [[ ! -z "$SCAPY_USE_LIBPCAP" ]]; then
+  UT_FLAGS+=" -K veth"
+fi
+
 # Create version tag (github actions)
 PY_VERSION="py${1//./}"
 PY_VERSION=${PY_VERSION/pypypy/pypy}
@@ -74,6 +80,9 @@ then
       ;;
   esac
 fi
+
+# Configure OpenSSL
+export OPENSSL_CONF=$(python `dirname $BASH_SOURCE`/openssl.py)
 
 # Dump vars (the others were already dumped in install.sh)
 echo UT_FLAGS=$UT_FLAGS

@@ -14,6 +14,7 @@ import calendar
 import collections
 import copy
 import inspect
+import math
 import socket
 import struct
 import time
@@ -32,7 +33,7 @@ from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.compat import bytes_hex, chb, orb, plain_str, raw, bytes_encode
 from scapy.pton_ntop import inet_ntop, inet_pton
-from scapy.utils import inet_aton, inet_ntoa, lhex, mac2str, str2mac
+from scapy.utils import inet_aton, inet_ntoa, lhex, mac2str, str2mac, EDecimal
 from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
     in6_isaddrTeredo, in6_ptop, Net6, teredoAddrExtractInfo
 from scapy.base_classes import Gen, Net, BasePacket, Field_metaclass
@@ -2124,9 +2125,9 @@ class _BitField(Field[I, int]):
 
         class TestPacket(Packet):
             fields_desc = [
-                BitField("a", 0, 9, tot_size=-16),
+                BitField("a", 0, 9, tot_size=-2),
                 BitField("b", 0, 2),
-                BitField("c", 0, 5, end_tot_size=-16)
+                BitField("c", 0, 5, end_tot_size=-2)
             ]
 
     """
@@ -2134,7 +2135,7 @@ class _BitField(Field[I, int]):
 
     def __init__(self, name, default, size,
                  tot_size=0, end_tot_size=0):
-        # type: (str, I, int, int, int) -> None
+        # type: (str, Optional[I], int, int, int) -> None
         Field.__init__(self, name, default)
         if callable(size):
             size = size(self)
@@ -2236,7 +2237,7 @@ class BitFixedLenField(BitField):
 
     def __init__(self,
                  name,  # type: str
-                 default,  # type: int
+                 default,  # type: Optional[int]
                  length_from  # type: Callable[[Packet], int]
                  ):
         # type: (...) -> None
@@ -2266,7 +2267,7 @@ class BitFieldLenField(BitField):
 
     def __init__(self,
                  name,  # type: str
-                 default,  # type: int
+                 default,  # type: Optional[int]
                  size,  # type: int
                  length_of=None,  # type: Optional[Union[Callable[[Optional[Packet]], int], str]]  # noqa: E501
                  count_of=None,  # type: Optional[str]
@@ -2347,10 +2348,7 @@ class _EnumField(Field[Union[List[I], I], I]):
         # type: (Optional[Packet], Any) -> I
         if isinstance(x, str):
             if self.s2i:
-                try:
-                    x = self.s2i[x]
-                except KeyError:
-                    pass
+                x = self.s2i[x]
             elif self.s2i_cb:
                 x = self.s2i_cb(x)
         return cast(I, x)
@@ -2434,12 +2432,10 @@ class CharEnumField(EnumField[str]):
 class BitEnumField(_BitField[Union[List[int], int]], _EnumField[int]):
     __slots__ = EnumField.__slots__
 
-    def __init__(self, name, default, size, enum):
-        # type: (str, Optional[int], int, Dict[int, str]) -> None
+    def __init__(self, name, default, size, enum, **kwargs):
+        # type: (str, Optional[int], int, Dict[int, str], **Any) -> None
         _EnumField.__init__(self, name, default, enum)
-        self.rev = size < 0
-        self.size = abs(size)
-        self.sz = self.size / 8.  # type: ignore
+        _BitField.__init__(self, name, default, size, **kwargs)
 
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Any) -> Union[List[int], int]
@@ -3038,11 +3034,13 @@ class FixedPointField(BitField):
         return (ival << self.frac_bits) | fract
 
     def i2h(self, pkt, val):
-        # type: (Optional[Packet], int) -> float
+        # type: (Optional[Packet], int) -> EDecimal
+        # A bit of trickery to get precise floats
         int_part = val >> self.frac_bits
-        frac_part = float(val & (1 << self.frac_bits) - 1)
-        frac_part /= 2.0**self.frac_bits
-        return int_part + frac_part
+        pw = 2.0**self.frac_bits
+        frac_part = EDecimal(val & (1 << self.frac_bits) - 1)
+        frac_part /= pw  # type: ignore
+        return int_part + frac_part.normalize(int(math.log10(pw)))
 
     def i2repr(self, pkt, val):
         # type: (Optional[Packet], int) -> str

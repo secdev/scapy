@@ -16,9 +16,11 @@
 # scapy.contrib.status = loads
 
 """
-    Copyright (C) 2020  Sebastien Dudek (@FlUxIuS)
-    initially developed @PentHertz
-    and improved at @Trend Micro
+Copyright (C) 2020  Sebastien Dudek (@FlUxIuS)
+initially developed @PentHertz
+and improved at @Trend Micro
+
+Spec: lorawantm_specification v1.1
 """
 
 from scapy.packet import Packet
@@ -365,7 +367,7 @@ class ForceRejoinReq(Packet):
     fields_desc = [BitField("RFU", 0, 2),
                    BitField("Period", 0, 3),
                    BitField("Max_Retries", 0, 3),
-                   BitField("RFU", 0, 1),
+                   BitField("RFU2", 0, 1),
                    BitField("RejoinType", 0, 3),
                    BitField("DR", 0, 4)]
 

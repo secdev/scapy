@@ -12,14 +12,14 @@ import mock
 ############
 + Mechanics tests
 
-= Automaton - SelectableSelector system timeout
+= Automaton - Test select_objects edge cases
 
-class TimeOutSelector(SelectableObject):
-    def check_recv(self):
-        return False
+assert select_objects([ObjectPipe()], 0) == []
+assert select_objects([ObjectPipe()], 1) == []
 
-assert select_objects([TimeOutSelector()], 0) == []
-assert select_objects([TimeOutSelector()], 1) == []
+a = ObjectPipe()
+a.send("test")
+assert select_objects([a], 0) == [a]
 
 ############
 ############

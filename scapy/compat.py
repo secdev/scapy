@@ -27,10 +27,14 @@ __all__ = [
     'DefaultDict',
     'Dict',
     'Generic',
-    'Iterator',
+    'Iterable',
     'IO',
+    'Iterable',
+    'Iterator',
     'List',
     'Literal',
+    'NamedTuple',
+    'NewType',
     'NoReturn',
     'Optional',
     'Pattern',
@@ -42,6 +46,7 @@ __all__ = [
     'TypeVar',
     'Union',
     'cast',
+    'overload',
     'FAKE_TYPING',
     'TYPE_CHECKING',
     # compat
@@ -119,9 +124,11 @@ if not FAKE_TYPING:
         DefaultDict,
         Dict,
         Generic,
+        Iterable,
         Iterator,
         IO,
         List,
+        NewType,
         NoReturn,
         Optional,
         Pattern,
@@ -133,6 +140,7 @@ if not FAKE_TYPING:
         TypeVar,
         Union,
         cast,
+        overload,
     )
 else:
     # Let's be creative and make some fake ones.
@@ -146,9 +154,11 @@ else:
                             collections.defaultdict)
     Dict = _FakeType("Dict", dict)  # type: ignore
     Generic = _FakeType("Generic")
+    Iterable = _FakeType("Iterable")  # type: ignore
     Iterator = _FakeType("Iterator")  # type: ignore
     IO = _FakeType("IO")  # type: ignore
     List = _FakeType("List", list)  # type: ignore
+    NewType = _FakeType("NewType")
     NoReturn = _FakeType("NoReturn")  # type: ignore
     Optional = _FakeType("Optional")
     Pattern = _FakeType("Pattern")  # type: ignore
@@ -162,6 +172,32 @@ else:
 
     class Sized(object):  # type: ignore
         pass
+
+    overload = lambda x: x
+
+
+# Broken < Python 3.7
+if sys.version_info >= (3, 7):
+    from typing import NamedTuple
+else:
+    # Hack for Python < 3.7 - Implement NamedTuple pickling
+    def _unpickleNamedTuple(name, len_params, *args):
+        return collections.namedtuple(
+            name,
+            args[:len_params]
+        )(*args[len_params:])
+
+    def NamedTuple(name, params):
+        tup_params = tuple(x[0] for x in params)
+        cls = collections.namedtuple(name, tup_params)
+
+        class _NT(cls):
+            def __reduce__(self):
+                """Used by pickling methods"""
+                return (_unpickleNamedTuple,
+                        (name, len(tup_params)) + tup_params + tuple(self))
+        _NT.__name__ = cls.__name__
+        return _NT
 
 # Python 3.8 Only
 if sys.version_info >= (3, 8):

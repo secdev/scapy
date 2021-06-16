@@ -10,14 +10,12 @@
 Utility functions for IPv6.
 """
 from __future__ import absolute_import
-import operator
 import socket
 import struct
 import time
-import re
 
 from scapy.config import conf
-from scapy.base_classes import Gen
+from scapy.base_classes import Net
 from scapy.data import IPV6_ADDR_GLOBAL, IPV6_ADDR_LINKLOCAL, \
     IPV6_ADDR_SITELOCAL, IPV6_ADDR_LOOPBACK, IPV6_ADDR_UNICAST,\
     IPV6_ADDR_MULTICAST, IPV6_ADDR_6TO4, IPV6_ADDR_UNSPECIFIED
@@ -29,12 +27,12 @@ from scapy.error import warning, Scapy_Exception
 from functools import reduce, cmp_to_key
 
 from scapy.compat import (
-    Any,
     Iterator,
     List,
     Optional,
     Tuple,
     Union,
+    cast,
 )
 
 
@@ -907,78 +905,24 @@ def in6_isvalid(address):
         return False
 
 
-class Net6(Gen[str]):  # syntax ex. fec0::/126
-    """Generate a list of IPv6s from a network address or a name"""
-    name = "ipv6"
-    ip_regex = re.compile(r"^([a-fA-F0-9:]+)(/[1]?[0-3]?[0-9])?$")
+class Net6(Net):  # syntax ex. 2011:db8::/126
+    """Network object from an IP address or hostname and mask"""
+    name = "Net6"  # type: str
+    family = socket.AF_INET6  # type: int
+    max_mask = 128  # type: int
 
-    def __init__(self, net):
-        # type: (str) -> None
-        self.repr = net
+    @classmethod
+    def ip2int(cls, addr):
+        # type: (str) -> int
+        val1, val2 = struct.unpack(
+            '!QQ', inet_pton(socket.AF_INET6, cls.name2addr(addr))
+        )
+        return cast(int, (val1 << 64) + val2)
 
-        tmp = net.split('/') + ["128"]
-        if not self.ip_regex.match(net):
-            tmp[0] = socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]  # noqa: E501
-
-        netmask = int(tmp[1])
-        self.net = inet_pton(socket.AF_INET6, tmp[0])
-        self.mask = in6_cidr2mask(netmask)
-        self.plen = netmask
-        self.parsed = []  # type: List[Tuple[int, int]]
-
-    def _parse(self):
-        # type: () -> None
-        def parse_digit(value, netmask):
-            # type: (int, int) -> Tuple[int, int]
-            netmask = min(8, max(netmask, 0))
-            return (value & (0xff << netmask),
-                    (value | (0xff >> (8 - netmask))) + 1)
-
-        self.parsed = [
-            parse_digit(x, y) for x, y in zip(
-                struct.unpack("16B", in6_and(self.net, self.mask)),
-                (x - self.plen for x in range(8, 129, 8)),
-            )
-        ]
-
-    def __iter__(self):
-        # type: () -> Iterator[str]
-        self._parse()
-
-        def rec(n, li):
-            # type: (int, List[str]) -> List[str]
-            sep = ':' if n and n % 2 == 0 else ''
-            if n == 16:
-                return li
-            return rec(n + 1, [y + sep + '%.2x' % i
-                               # faster than '%s%s%.2x' % (y, sep, i)
-                               for i in range(*self.parsed[n])
-                               for y in li])
-
-        return (in6_ptop(addr) for addr in iter(rec(0, [''])))
-
-    def __iterlen__(self):
-        # type: () -> int
-        self._parse()
-        return reduce(operator.mul, ((y - x) for x, y in self.parsed), 1)
-
-    def __str__(self):
-        # type: () -> str
-        try:
-            return next(self.__iter__())
-        except (StopIteration, RuntimeError):
-            return ""
-
-    def __eq__(self, other):
-        # type: (Any) -> bool
-        return str(other) == str(self)
-
-    def __ne__(self, other):
-        # type: (Any) -> bool
-        return not self == other
-
-    __hash__ = None  # type: ignore
-
-    def __repr__(self):
-        # type: () -> str
-        return "Net6(%r)" % self.repr
+    @staticmethod
+    def int2ip(val):
+        # type: (int) -> str
+        return inet_ntop(
+            socket.AF_INET6,
+            struct.pack('!QQ', val >> 64, val & 0xffffffffffffffff),
+        )

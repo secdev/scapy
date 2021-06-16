@@ -1,0 +1,21 @@
+% VQP tests
+
++ Basic VQP tests
+
+= Build VQP
+
+pkt = UDP()/VQP(type=2,
+  seq=15)/VQPEntry(datatype=3073,data="1.2.3.4")/VQPEntry(datatype=3078,
+  data="AA:AA:AA:AA:AA:AA")
+
+assert bytes(pkt) == b'\x065\x065\x00&\x00\x00\x01\x02\x00\x02\x00\x00\x00\x0f\x00\x00\x0c\x01\x00\x04\x01\x02\x03\x04\x00\x00\x0c\x06\x00\x06\xaa\xaa\xaa\xaa\xaa\xaa'
+
+= Dissect VQP
+
+pkt = UDP(b'\x065\x065\x00&\x00\x00\x01\x02\x00\x02\x00\x00\x00\x0f\x00\x00\x0c\x01\x00\x04\x01\x02\x03\x04\x00\x00\x0c\x06\x00\x06\xaa\xaa\xaa\xaa\xaa\xaa')
+
+assert pkt[VQP].sprintf("%type%") == "responseVLAN"
+assert pkt.getlayer(VQPEntry, 1).len == 4
+assert pkt.getlayer(VQPEntry, 1).sprintf("%datatype%") == "clientIPAddress"
+assert pkt.getlayer(VQPEntry, 2).len == 6
+assert pkt.getlayer(VQPEntry, 2).sprintf("%datatype%") == "ReqMACAddress"

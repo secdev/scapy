@@ -694,7 +694,8 @@ class Conf(ConfClass):
     iface = Interceptor("iface", None, _iface_changer)  # type: 'scapy.interfaces.NetworkInterface'  # type: ignore  # noqa: E501
     layers = LayersList()
     commands = CommandsList()  # type: CommandsList
-    ASN1_default_codec = None  #: Codec used by default for ASN1 objects
+    #: Codec used by default for ASN1 objects
+    ASN1_default_codec = None  # type: 'scapy.asn1.asn1.ASN1Codec'
     AS_resolver = None  #: choose the AS resolver class to use
     dot15d4_protocol = None  # Used in dot15d4.py
     logLevel = Interceptor("logLevel", log_scapy.level, _loglevel_changer)

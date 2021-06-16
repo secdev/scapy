@@ -332,7 +332,8 @@ class LLDPDUChassisID(LLDPDU):
                 IPField('id', None),
                 lambda pkt: pkt.subtype == 0x05
             ),
-        ], StrLenField('id', '', length_from=lambda pkt: pkt._length - 1)
+        ], StrLenField('id', '', length_from=lambda pkt: 0 if pkt._length is
+                       None else pkt._length - 1)
         )
     ]
 
@@ -387,7 +388,8 @@ class LLDPDUPortID(LLDPDU):
                 IPField('id', None),
                 lambda pkt: pkt.subtype == 0x04
             ),
-        ], StrLenField('id', '', length_from=lambda pkt: pkt._length - 1)
+        ], StrLenField('id', '', length_from=lambda pkt: 0 if pkt._length is
+                       None else pkt._length - 1)
         )
     ]
 
@@ -631,7 +633,8 @@ class LLDPDUManagementAddress(LLDPDU):
         ByteEnumField('management_address_subtype', 0x00,
                       IANA_ADDRESS_FAMILY_NUMBERS),
         XStrLenField('management_address', '',
-                     length_from=lambda pkt:
+                     length_from=lambda pkt: 0
+                     if pkt._management_address_string_length is None else
                      pkt._management_address_string_length - 1),
         ByteEnumField('interface_numbering_subtype',
                       SUBTYPE_INTERFACE_NUMBER_UNKNOWN,
@@ -681,7 +684,9 @@ class LLDPDUGenericOrganisationSpecific(LLDPDU):
         BitFieldLenField('_length', None, 9, length_of='data', adjust=lambda pkt, x: len(pkt.data) + 4),  # noqa: E501
         ThreeBytesEnumField('org_code', 0, ORG_UNIQUE_CODES),
         ByteField('subtype', 0x00),
-        XStrLenField('data', '', length_from=lambda pkt: pkt._length - 4)
+        XStrLenField('data', '',
+                     length_from=lambda pkt: 0 if pkt._length is None else
+                     pkt._length - 4)
     ]
 
 

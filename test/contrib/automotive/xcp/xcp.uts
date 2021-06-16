@@ -1,24 +1,15 @@
 % Regression tests for the XCP
-~ needs_root
-
 # More information at http://www.secdev.org/projects/UTscapy/
 
 ############
 ############
 
 + Basic operations
-= Imports
-
-from scapy.config import conf
-from scapy.contrib.automotive.xcp.cto_commands_master import GetCommModeInfo, GetStatus, GetSeed, Unlock, GetId, Upload, GetCalPage, SetMta, BuildChecksum, Download, ShortUpload, CopyCalPage, GetDaqProcessorInfo, GetDaqResolutionInfo, GetDaqEventInfo, GetDaqListInfo, ClearDaqList, AllocDaq, AllocOdt, AllocOdtEntry, SetDaqPtr, WriteDaq, SetDaqListMode, StartStopDaqList, GetDaqClock, StartStopSynch, ProgramStart, ProgramClear, Program
-from scapy.contrib.automotive.xcp.cto_commands_slave import NegativeResponse
-from scapy.contrib.automotive.xcp.xcp import CTORequest, CTOResponse
-from scapy.main import load_layer
-
 
 = Load module
 
 load_layer("can", globals_dict=globals())
+conf.contribs['CAN']['swap-bytes'] = False
 load_contrib("automotive.xcp.xcp",  globals_dict=globals())
 
 
@@ -27,7 +18,8 @@ load_contrib("automotive.xcp.xcp",  globals_dict=globals())
 conf.contribs["XCP"]["add_padding_for_can"] = True
 
 pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
-build_pkt = pkt.do_build()
+build_pkt = bytes(pkt)
+hexdump(build_pkt)
 assert build_pkt == b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\xcc\xcc\xcc\xcc\xcc\xcc'
 conf.contribs["XCP"]["add_padding_for_can"] = False
 
@@ -589,176 +581,7 @@ assert cto_response.packet_code == 0xFF
 assert cto_response.answers(cto_request)
 
 
-+ Tests on a virtual CAN-Bus
-= Imports
-
-import threading
-import time
-from subprocess import call
-
-import scapy.modules.six as six
-from scapy.contrib.automotive.xcp.cto_commands_master import Connect
-from scapy.contrib.automotive.xcp.xcp import CTORequest, XCPOnCAN, CTOResponse, ConnectPositiveResponse
-from scapy.main import load_layer
-
-= Load module
-
-load_layer("can", globals_dict=globals())
-load_contrib("automotive.xcp.xcp", globals_dict=globals())
-
-= Global variables
-
-iface_name = "vcan_xcp"
-
-= Initialize a virtual CAN interface
-~ vcan_socket needs_root linux
-
-print('setting up CAN')
-
-if 0 != call(["cansend", iface_name,  "000#"]):
-    # vcan0 is not enabled
-    if 0 != call(["sudo", "modprobe", "vcan"]):
-        raise Exception("modprobe vcan failed")
-    if 0 != call(["sudo", "ip", "link", "add", "name", iface_name, "type", "vcan"]):
-        print("add %s failed: Maybe it was already up?" % iface_name)
-    if 0 != call(["sudo", "ip", "link", "set", "dev", iface_name, "up"]):
-        raise Exception("could not bring up %s" % iface_name)
-
-if 0 != call(["cansend", iface_name,  "000#"]):
-    raise Exception("cansend doesn't work")
-
-print("CAN should work now")
-
-
-= Define new_can_socket0 for root and linux
-~ vcan_socket needs_root linux
-if six.PY3 and not conf.use_pypy:
-    from scapy.contrib.cansocket_native import CANSocket
-    new_can_socket0 = lambda: CANSocket(iface_name)
-    print("Using Native CANSocket on " + iface_name)
-else:
-    from scapy.contrib.cansocket_python_can import CANSocket
-    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface_name, bitrate=250000, timeout=0.01)
-    print("Using Soft CANSocket on " + iface_name)
-
-= Define new_can_socket0 without root or linux
-if "new_can_socket0" not in globals():
-    from scapy.contrib.cansocket_python_can import CANSocket
-    new_can_socket0 = lambda: CANSocket(bustype='virtual', channel=iface_name, timeout=0.01)
-    print("Using Soft CANSocket on virtual in-process can bus")
-
-
-= verify CAN Socket creation works
-s = new_can_socket0()
-s.close()
-
-
-= Connect
-sock1 = new_can_socket0()
-sock2 = new_can_socket0()
-
-sock1.basecls = XCPOnCAN
-sock2.basecls = XCPOnCAN
-
-def ecu():
-    pkts = sock2.sniff(count=1, timeout=5)
-    if len(pkts) == 1:
-        response = XCPOnCAN(identifier=0x700) / CTOResponse() / ConnectPositiveResponse(b'\x15\xC0\x08\x08\x00\x10\x10')
-        sock2.send(response)
-
-thread = threading.Thread(target=ecu)
-thread.start()
-time.sleep(0.1)
-pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
-ans = sock1.sr1(pkt, timeout=3)
-thread.join()
-sock1.close()
-sock2.close()
-
-assert ans.identifier == 0x700
-cto_response = ans["CTOResponse"]
-assert cto_response.packet_code == 0xff
-
-connect_response = cto_response["ConnectPositiveResponse"]
-
-assert connect_response.resource == 0x15
-assert connect_response.comm_mode_basic == 0xC0
-assert connect_response.max_cto == 8
-assert connect_response.max_dto is None
-assert connect_response.max_dto_le == 8
-
-assert connect_response.xcp_protocol_layer_version_number_msb == 0x10
-assert connect_response.xcp_transport_layer_version_number_msb == 0x10
-
-
-cto_request = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
-
-assert cto_request.identifier == 0x700
-assert cto_request.pid == 0xFF
-assert cto_request.connection_mode == 0
-assert bytes(cto_request) == b'\x00\x00\x07\x00\x02\x00\x00\x00\xff\x00'
-
-xcp_on_can = XCPOnCAN(b'\x00\x00\x05\x00\x08\x00\x00\x00\xff\x15\xC0\x08\x08\x00\x10\x10')
-assert xcp_on_can.identifier == 0x500
-assert xcp_on_can.answers(cto_request)
-
-cto_response = xcp_on_can["CTOResponse"]
-assert cto_response.packet_code == 0xFF
-
-connect_response = cto_response["ConnectPositiveResponse"]
-assert connect_response.resource == 0x15
-assert connect_response.comm_mode_basic == 0xC0
-assert connect_response.max_cto == 8
-assert connect_response.max_cto == 8
-
-assert connect_response.xcp_protocol_layer_version_number_msb == 0x10
-assert connect_response.xcp_transport_layer_version_number_msb == 0x10
-
-assert conf.contribs['XCP']['byte_order'] == 0
-assert conf.contribs['XCP']['MAX_CTO'] == 8
-assert conf.contribs['XCP']['MAX_DTO'] == 8
-assert conf.contribs['XCP']['Address_Granularity_Byte'] == 1
-
-= Endianness test for ConnectPositiveResponse
-
-p = ConnectPositiveResponse(b"\x00\xFF\x01\x00\xFF\x05\x05")
-assert p.max_dto_le is None
-assert p.max_dto == 0xff
-
-p = ConnectPositiveResponse(b"\x00\x00\x01\xFF\x00\x05\x05")
-assert p.max_dto_le == 0xff
-assert p.max_dto is None
-
-= Wrong answer
-
-request = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
-
-# This response has not enough bytes for a ConnectPositiveResponse
-response = XCPOnCAN(identifier=0x90) / CTOResponse() / Raw(b'\x01\x02\x03\x04')
-
-assert not response.answers(request)
-
-
-+ Cleanup VCAN
-= Delete vcan interfaces
-~ vcan_socket needs_root linux
-
-if 0 != call(["sudo", "ip", "link", "delete", iface_name]):
-    raise Exception("%s could not be deleted" % iface_name)
-
 + Tests for XCPonUDP
-= Imports
-
-from scapy.config import conf
-
-from scapy.contrib.automotive.xcp.cto_commands_master import Connect
-from scapy.contrib.automotive.xcp.xcp import CTORequest, XCPOnUDP
-from scapy.main import load_layer
-
-= Load module
-
-load_layer("can", globals_dict=globals())
-load_contrib("automotive.xcp.xcp",  globals_dict=globals())
 
 = CONNECT
 
@@ -770,7 +593,6 @@ assert cto_request.ctr == 0
 assert cto_request.pid == 0xFF
 assert cto_request.connection_mode == 0
 assert bytes(cto_request).endswith(b'\x00\x02\x00\x00\xff\x00')
-print(XCPOnUDP(ctr=0, sport=1, dport=1))
 xcp_on_udp = XCPOnUDP(b'\x00\x01\x00\x01\x00\x0c\x00\x00\x00\x08\x00\x01\xff\x15\xC0\x08\x08\x00\x10\x10')
 assert xcp_on_udp.length == 8
 assert xcp_on_udp.ctr == 1
@@ -830,8 +652,6 @@ xcp_on_udp_request = XCPOnUDP(sport=1, dport=2, ctr=0) / CTORequest() / Connect(
 assert bytes(xcp_on_udp_request)[8:10] == b'\x00\x02'
 
 + Tests XCPonTCP
-= Imports
-from scapy.contrib.automotive.xcp.xcp import XCPOnTCP
 
 = CONNECT
 

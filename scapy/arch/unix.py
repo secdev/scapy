@@ -118,23 +118,22 @@ def read_routes():
             from scapy.arch import get_if_addr
             try:
                 ifaddr = get_if_addr(netif)
-                routes.append((dest, netmask, gw, netif, ifaddr, metric))
-            except OSError as exc:
-                if 'Device not configured' in str(exc):
+                if ifaddr == "0.0.0.0":
                     # This means the interface name is probably truncated by
                     # netstat -nr. We attempt to guess it's name and if not we
                     # ignore it.
                     guessed_netif = _guess_iface_name(netif)
                     if guessed_netif is not None:
                         ifaddr = get_if_addr(guessed_netif)
-                        routes.append((dest, netmask, gw, guessed_netif, ifaddr, metric))  # noqa: E501
+                        netif = guessed_netif
                     else:
                         log_runtime.info(
                             "Could not guess partial interface name: %s",
                             netif
                         )
-                else:
-                    raise
+                routes.append((dest, netmask, gw, netif, ifaddr, metric))
+            except OSError:
+                raise
         else:
             pending_if.append((dest, netmask, gw))
     f.close()

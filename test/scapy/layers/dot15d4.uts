@@ -590,9 +590,7 @@ assert pkt.read_attribute_status_record[1].attribute_value == b'\x07sengled'
 = Zigbee - advanced dissection
 
 import os
-tmp = "/test/pcaps/zigbee-join-authenticate.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/zigbee-join-authenticate.pcap")
 a = rdpcap(filename)
 
 pkt1 = a[0]  # Data
@@ -629,9 +627,7 @@ assert pkt3[ZigBeeBeacon].tx_offset == 16777215
 
 = Zigbee - skke_1 transport key
 
-tmp = "/test/pcaps/zigbee-transport-key-skke_1.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/zigbee-transport-key-skke_1.pcap")
 a = rdpcap(filename)
 
 pkt1 = a[0]  # AppCommandPayload with transport key
@@ -673,6 +669,17 @@ assert pkt[ZigbeeNWKCommandPayload].link_status_list[2].neighbor_network_address
 assert pkt[ZigbeeNWKCommandPayload].link_status_list[2].incoming_cost == 1
 assert pkt[ZigbeeNWKCommandPayload].link_status_list[2].outgoing_cost == 1
 assert raw(pkt[ZigbeeNWKCommandPayload].link_status_list[2].payload) == b''
+assert raw(pkt[ZigbeeNWKCommandPayload].payload) == b''
+
+= Zigbee - Network Report
+
+pkt = ZigbeeNWKCommandPayload(b'\t\x01\x88wfUD3"\x11\xaa\x99')
+assert ZigbeeNWKCommandPayload in pkt.layers()
+assert pkt[ZigbeeNWKCommandPayload].cmd_identifier == 0x09
+assert pkt[ZigbeeNWKCommandPayload].report_information_count == 0b00001
+assert pkt[ZigbeeNWKCommandPayload].report_command_identifier == 0b000
+assert pkt[ZigbeeNWKCommandPayload].epid == 0x1122334455667788
+assert pkt[ZigbeeNWKCommandPayload].PAN_ID_conflict_report == [0x99aa]
 assert raw(pkt[ZigbeeNWKCommandPayload].payload) == b''
 
 = Zigbee - End Device Timeout Request
@@ -747,6 +754,7 @@ assert pkt[ZigbeeAppCommandPayload].address == 0x1122334455667788
 assert raw(pkt[ZigbeeAppCommandPayload].payload) == b''
 
 = Zigbee - APS acknowledgment (with the Acknowledgment Format enabled)
+
 pkt = ZigbeeAppDataPayload(b'\x12\xa8')
 assert ZigbeeAppDataPayload in pkt.layers()
 assert pkt[ZigbeeAppDataPayload].aps_frametype == 2
@@ -756,6 +764,7 @@ assert pkt[ZigbeeAppDataPayload].counter == 168
 assert raw(pkt[ZigbeeAppDataPayload].payload) == b''
 
 = Zigbee - APS acknowledgment (with the Acknowledgment Format disabled)
+
 pkt = ZigbeeAppDataPayload(b'\x02\x00\x02\x00\x00\x00\x00\xa6')
 assert ZigbeeAppDataPayload in pkt.layers()
 pkt.show()
@@ -770,6 +779,7 @@ assert pkt[ZigbeeAppDataPayload].counter == 166
 assert raw(pkt[ZigbeeAppDataPayload].payload) == b''
 
 = Zigbee - ZDP command
+
 pkt = ZigbeeAppDataPayload(b'\x08\x006\x00\x00\x00\x00\xb5\x01\x14\x01')
 assert ZigbeeAppDataPayload in pkt.layers()
 assert pkt[ZigbeeAppDataPayload].aps_frametype == 0
@@ -784,6 +794,7 @@ assert ZigbeeDeviceProfile in pkt.layers()
 assert raw(pkt[ZigbeeDeviceProfile]) == b'\x01\x14\x01'
 
 = Zigbee - ZCL command
+
 pkt = ZigbeeAppDataPayload(b'@\x01\n\x00\x04\x01\x01\x9d\x00\x00\x00\x00\x00')
 assert ZigbeeAppDataPayload in pkt.layers()
 assert pkt[ZigbeeAppDataPayload].aps_frametype == 0
@@ -795,4 +806,13 @@ assert pkt[ZigbeeAppDataPayload].profile == 0x0104
 assert pkt[ZigbeeAppDataPayload].src_endpoint == 1
 assert pkt[ZigbeeAppDataPayload].counter == 157
 assert ZigbeeClusterLibrary in pkt.layers()
-assert raw(pkt[ZigbeeClusterLibrary]) == b'\x00\x00\x00\x00\x00'
+assert pkt[ZigbeeClusterLibrary].zcl_frametype == 0b00
+assert pkt[ZigbeeClusterLibrary].manufacturer_specific == 0b0
+assert pkt[ZigbeeClusterLibrary].command_direction == 0b0
+assert pkt[ZigbeeClusterLibrary].disable_default_response == 0b0
+assert pkt[ZigbeeClusterLibrary].transaction_sequence == 0
+assert pkt[ZigbeeClusterLibrary].command_identifier == 0x00
+assert ZCLGeneralReadAttributes in pkt.layers()
+assert len(pkt[ZCLGeneralReadAttributes].attribute_identifiers) == 1
+assert pkt[ZCLGeneralReadAttributes].attribute_identifiers[0] == 0x0000
+assert raw(pkt[ZCLGeneralReadAttributes].payload) == b''

@@ -180,8 +180,7 @@ class _CipherSuitesField(StrLenField):
             s2i[dico[k]] = k
 
     def any2i_one(self, pkt, x):
-        if (isinstance(x, _GenericCipherSuite) or
-                isinstance(x, _GenericCipherSuiteMetaclass)):
+        if isinstance(x, (_GenericCipherSuite, _GenericCipherSuiteMetaclass)):
             x = x.val
         if isinstance(x, bytes):
             x = self.s2i[x]
@@ -230,8 +229,7 @@ class _CipherSuitesField(StrLenField):
 class _CompressionMethodsField(_CipherSuitesField):
 
     def any2i_one(self, pkt, x):
-        if (isinstance(x, _GenericComp) or
-                isinstance(x, _GenericCompMetaclass)):
+        if isinstance(x, (_GenericComp, _GenericCompMetaclass)):
             x = x.val
         if isinstance(x, str):
             x = self.s2i[x]

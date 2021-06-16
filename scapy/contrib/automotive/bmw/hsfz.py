@@ -48,12 +48,6 @@ class HSFZ(Packet):
         pay_hash = self.payload.hashret()
         return hdr_hash + pay_hash
 
-    def answers(self, other):
-        # type: (Packet) -> int
-        if other.__class__ == self.__class__:
-            return self.payload.answers(other.payload)
-        return 0
-
     def extract_padding(self, s):
         # type: (bytes) -> Tuple[bytes, bytes]
         return s[:self.length - 2], s[self.length - 2:]

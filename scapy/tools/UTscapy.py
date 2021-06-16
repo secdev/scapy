@@ -84,6 +84,15 @@ def retry_test(func):
     assert success
     return result
 
+
+def scapy_path(fname):
+    """Resolves a path relative to scapy's root folder"""
+    if fname.startswith('/'):
+        fname = fname[1:]
+    return os.path.abspath(os.path.join(
+        os.path.dirname(__file__), '../../', fname
+    ))
+
 #    Import tool    #
 
 
@@ -546,8 +555,9 @@ def run_test(test, get_interactive_session, theme, verb=3,
 
 def import_UTscapy_tools(ses):
     """Adds UTScapy tools directly to a session"""
-    ses["retry_test"] = retry_test
     ses["Bunch"] = Bunch
+    ses["retry_test"] = retry_test
+    ses["scapy_path"] = scapy_path
     if WINDOWS:
         from scapy.arch.windows import _route_add_loopback
         _route_add_loopback()
@@ -608,12 +618,24 @@ def run_campaign(test_campaign, get_interactive_session, theme,
 
 #    INFO LINES    #
 
-def info_line(test_campaign):
+def info_line(test_campaign, theme):
     filename = test_campaign.filename
+    duration = test_campaign.duration
+    if duration > 10:
+        duration = theme.format(duration, "bg_red+white")
+    elif duration > 5:
+        duration = theme.format(duration, "red")
     if filename is None:
-        return "Run %s by UTscapy" % time.ctime()
+        return "Run at %s by UTscapy in %s" % (
+            time.strftime("%H:%M:%S"),
+            duration
+        )
     else:
-        return "Run %s from [%s] by UTscapy" % (time.ctime(), filename)
+        return "Run at %s from [%s] by UTscapy in %s" % (
+            time.strftime("%H:%M:%S"),
+            filename,
+            duration
+        )
 
 
 def html_info_line(test_campaign):
@@ -631,7 +653,7 @@ def campaign_to_TEXT(test_campaign, theme):
     ftheme = [lambda x: x, theme.fail][bool(test_campaign.failed)]
 
     output = theme.green("\n%(title)s\n" % test_campaign)
-    output += dash + " " + info_line(test_campaign) + "\n"
+    output += dash + " " + info_line(test_campaign, theme) + "\n"
     output += ptheme(" " + arrow + " Passed=%(passed)i\n" % test_campaign)
     output += ftheme(" " + arrow + " Failed=%(failed)i\n" % test_campaign)
     output += "%(headcomments)s\n" % test_campaign
@@ -909,7 +931,7 @@ def resolve_testfiles(TESTFILES):
     for tfile in TESTFILES[:]:
         if "*" in tfile:
             TESTFILES.remove(tfile)
-            TESTFILES.extend(glob.glob(tfile))
+            TESTFILES.extend(sorted(glob.glob(tfile)))
     return TESTFILES
 
 
@@ -1057,9 +1079,12 @@ def main():
         pass
 
     if conf.use_pcap:
-        KW_KO.append("not_pcapdnet")
+        KW_KO.append("not_libpcap")
         if VERB > 2:
             print(" " + arrow + " libpcap mode")
+    elif WINDOWS and not NON_ROOT:
+        print("ERROR: libpcap is required on Windows for root tests")
+        raise SystemExit
 
     KW_KO.append("disabled")
 
@@ -1090,9 +1115,6 @@ def main():
             six.moves.builtins.__dict__.update(mod.__dict__)
         except ImportError as e:
             raise getopt.GetoptError("cannot import [%s]: %s" % (m, e))
-
-    # Add SCAPY_ROOT_DIR environment variable, used for tests
-    os.environ['SCAPY_ROOT_DIR'] = os.environ.get("PWD", os.getcwd())
 
     autorun_func = {
         Format.TEXT: scapy.autorun_get_text_interactive_session,
@@ -1174,9 +1196,6 @@ def main():
         with open(OUTPUTFILE, "wb") as f:
             f.write(glob_output.encode("utf8", "ignore")
                     if 'b' in f.mode or six.PY2 else glob_output)
-
-    # Delete scapy's test environment vars
-    del os.environ['SCAPY_ROOT_DIR']
 
     # Print end message
     if VERB > 2:

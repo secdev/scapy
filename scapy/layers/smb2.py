@@ -10,6 +10,7 @@ SMB (Server Message Block), also known as CIFS - version 2
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import (
+    ConditionalField,
     FieldLenField,
     FieldListField,
     FlagsField,
@@ -19,8 +20,8 @@ from scapy.fields import (
     LELongField,
     LEShortEnumField,
     LEShortField,
-    PacketListField,
-    PadField,
+    PacketField,
+    ReversePadField,
     ShortEnumField,
     ShortField,
     StrFieldUtf16,
@@ -134,7 +135,7 @@ class SMB2_Negociate_Protocol_Request_Header(Packet):
     fields_desc = [
         XLEShortField("StructureSize", 0),
         FieldLenField(
-            "DialectCount", 0,
+            "DialectCount", None,
             fmt="<H",
             count_of="Dialects"
         ),
@@ -149,24 +150,25 @@ class SMB2_Negociate_Protocol_Request_Header(Packet):
         UUIDField("ClientGUID", 0x0, uuid_fmt=UUIDField.FORMAT_LE),
         XLEIntField("NegociateContextOffset", 0x0),
         FieldLenField(
-            "NegociateCount", 0x0,
+            "NegociateCount", None,
             fmt="<H",
             count_of="NegociateContexts"
         ),
         ShortField("Reserved2", 0),
-        # Padding the dialects - the whole packet (from the
-        # beginning) should be aligned on 8 bytes ; so the list of
-        # dialects should be aligned on 6 bytes (because it starts
-        # at PKT + 8 * N + 2
-        PadField(FieldListField(
+        FieldListField(
             "Dialects", [0x0202],
             LEShortEnumField("", 0x0, SMB_DIALECTS),
             count_from=lambda pkt: pkt.DialectCount
-        ), 6),
-        PacketListField(
-            "NegociateContexts", [],
-            SMB2_Negociate_Context,
-            count_from=lambda pkt: pkt.NegociateCount
+        ),
+        # Field only exists if Dialects contains 0x0311
+        # Each negotiate context must be 8-byte aligned
+        ConditionalField(
+            FieldListField(
+                "NegociateContexts", [],
+                ReversePadField(
+                    PacketField("Context", None, SMB2_Negociate_Context), 8
+                ), count_from=lambda pkt: pkt.NegociateCount
+            ), lambda x: 0x0311 in x.Dialects
         ),
     ]
 
@@ -187,12 +189,6 @@ class SMB2_Preauth_Integrity_Capabilities(Packet):
             0x0001: "SHA-512",
         }), count_from=lambda pkt: pkt.HashAlgorithmCount),
         XStrLenField("Salt", "", length_from=lambda pkt: pkt.SaltLength),
-        # Pad the whole packet on 8 bytes
-        XStrLenField(
-            "Padding", "",
-            length_from=lambda pkt:
-                    (8 - (4 + pkt.HashAlgorithmCount * 2 + pkt.SaltLength)) % 8
-        ),
     ]
 
 
@@ -206,11 +202,6 @@ class SMB2_Encryption_Capabilities(Packet):
             0x0001: "AES-128-CCM",
             0x0002: "AES-128-GCM",
         }), count_from=lambda pkt: pkt.CipherCount),
-        # Pad the whole packet on 8 bytes
-        XStrLenField(
-            "Padding", "",
-            length_from=lambda pkt: (8 - (2 + pkt.CipherCount * 2)) % 8
-        ),
     ]
 
 
@@ -233,12 +224,6 @@ class SMB2_Compression_Capabilities(Packet):
             LEShortEnumField("", 0x0, SMB2_COMPRESSION_ALGORITHMS),
             count_from=lambda pkt: pkt.CompressionAlgorithmCount,
         ),
-        # Pad the whole packet on 8 bytes
-        XStrLenField(
-            "Padding2", "",
-            length_from=lambda pkt:
-                    (8 - (2 + 2 + 4 + pkt.CompressionAlgorithmCount * 2)) % 8
-        ),
     ]
 
 
@@ -259,7 +244,7 @@ class SMB2_Negociate_Protocol_Response_Header(Packet):
         }),
         LEShortEnumField("Dialect", 0x0, SMB_DIALECTS),
         FieldLenField(
-            "NegociateCount", 0x0,
+            "NegociateCount", None,
             fmt="<H",
             count_of="NegociateContexts"
         ),
@@ -284,10 +269,15 @@ class SMB2_Negociate_Protocol_Response_Header(Packet):
             "SecurityBuffer", None,
             length_from=lambda pkt: pkt.SecurityBufferLength
         ),
-        PacketListField(
-            "NegociateContexts", [],
-            SMB2_Negociate_Context,
-            count_from=lambda pkt: pkt.NegociateCount
+        # Field only exists if Dialect is 0x0311
+        # Each negotiate context must be 8-byte aligned
+        ConditionalField(
+            FieldListField(
+                "NegociateContexts", [],
+                ReversePadField(
+                    PacketField("Context", None, SMB2_Negociate_Context), 8
+                ), count_from=lambda pkt: pkt.NegociateCount
+            ), lambda x: x.Dialect == 0x0311
         ),
     ]
 

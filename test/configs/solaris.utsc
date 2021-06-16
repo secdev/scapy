@@ -4,6 +4,7 @@
     "test/scapy/layers/*.uts",
     "test/contrib/automotive/*.uts",
     "test/contrib/automotive/obd/*.uts",
+    "test/contrib/automotive/scanner/*.uts",
     "test/contrib/automotive/gm/*.uts",
     "test/contrib/automotive/bmw/*.uts",
     "test/contrib/automotive/xcp/*.uts",

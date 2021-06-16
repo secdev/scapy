@@ -27,6 +27,8 @@ then
     esac
   done
   PYTHON=${PYTHON:-python3}
+else
+  ARGS="$@"
 fi
 $PYTHON --version > /dev/null 2>&1
 if [ ! $? -eq 0 ]
@@ -52,7 +54,7 @@ then
   fi
 
   # Run tox
-  export UT_FLAGS="-K tcpdump -K manufdb -K wireshark -K ci_only"
+  export UT_FLAGS="-K tcpdump -K manufdb -K wireshark -K ci_only -K vcan_socket"
   export SIMPLE_TESTS="true"
   PYVER=$($PYTHON -c "import sys; print('.'.join(sys.version.split('.')[:2]))")
   ${DIR}/.config/ci/test.sh $PYVER non_root

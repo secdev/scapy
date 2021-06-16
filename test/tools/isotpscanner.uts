@@ -1,107 +1,17 @@
 % Regression tests for isotpscanner
-~ vcan_socket needs_root linux
+~ vcan_socket needs_root linux not_pypy
 
 
 + Configuration
 ~ conf
 
 = Imports
-load_layer("can", globals_dict=globals())
-
-import threading, subprocess, sys
 import scapy.modules.six as six
-from subprocess import call
 
-= Definition of constants, utility functions and mock classes
-iface0 = "vcan0"
-iface1 = "vcan1"
-
-# function to exit when the can-isotp kernel module is not available
-ISOTP_KERNEL_MODULE_AVAILABLE = False
-def exit_if_no_isotp_module():
-    if not ISOTP_KERNEL_MODULE_AVAILABLE:
-        err = "TEST SKIPPED: can-isotp not available\n"
-        sys.__stderr__.write(err)
-        warning("Can't test ISOTP native socket because kernel module is not loaded")
-        exit(0)
-
-
-= Initialize a virtual CAN interface
-if 0 != call(["cansend", iface0,  "000#"]):
-    # vcan0 is not enabled
-    if 0 != call(["sudo", "modprobe", "vcan"]):
-        raise Exception("modprobe vcan failed")
-    if 0 != call(["sudo", "ip", "link", "add", "name", iface0, "type", "vcan"]):
-        print("add %s failed: Maybe it was already up?" % iface0)
-    if 0 != call(["sudo", "ip", "link", "set", "dev", iface0, "up"]):
-        raise Exception("could not bring up %s" % iface0)
-
-if 0 != call(["cansend", iface0,  "000#"]):
-    raise Exception("cansend doesn't work")
-
-if 0 != call(["cansend", iface1,  "000#"]):
-    # vcan1 is not enabled
-    if 0 != call(["sudo", "modprobe", "vcan"]):
-        raise Exception("modprobe vcan failed")
-    if 0 != call(["sudo", "ip", "link", "add", "name", iface1, "type", "vcan"]):
-        print("add %s failed: Maybe it was already up?" % iface1)
-    if 0 != call(["sudo", "ip", "link", "set", "dev", iface1, "up"]):
-        raise Exception("could not bring up %s" % iface1)
-
-if 0 != call(["cansend", iface1,  "000#"]):
-    raise Exception("cansend doesn't work")
-
-print("CAN should work now")
-
-
-if six.PY3 and not conf.use_pypy:
-    from scapy.contrib.cansocket_native import *
+if six.PY3:
+    exec(open("test/contrib/automotive/interface_mockup.py").read())
 else:
-    from scapy.contrib.cansocket_python_can import *
-
-
-if "python_can" in CANSocket.__module__:
-    new_can_socket = lambda iface: CANSocket(bustype='socketcan', channel=iface)
-    new_can_socket0 = lambda: CANSocket(bustype='socketcan', channel=iface0, timeout=0.01)
-    new_can_socket1 = lambda: CANSocket(bustype='socketcan', channel=iface1, timeout=0.01)
-    can_socket_string_list = ["-i", "socketcan", "-c", iface0, "-a", "bitrate=250000"]
-else:
-    new_can_socket = lambda iface: CANSocket(iface)
-    new_can_socket0 = lambda: CANSocket(iface0)
-    new_can_socket1 = lambda: CANSocket(iface1)
-    can_socket_string_list = ["-c", iface0]
-
-# utility function for draining a can interface, asserting that no packets are there
-def drain_bus(iface=iface0, assert_empty=True):
-    with new_can_socket(iface) as s:
-        pkts = s.sniff(timeout=0.1)
-        if assert_empty:
-            assert len(pkts) == 0
-
-print("CAN sockets should work now")
-
-
-= Verify that a CAN socket can be created and closed
-s = new_can_socket(iface0)
-s.close()
-
-
-= Check if can-isotp and can-utils are installed on this system
-p1 = subprocess.Popen(['lsmod'], stdout = subprocess.PIPE)
-p2 = subprocess.Popen(['grep', '^can_isotp'], stdout = subprocess.PIPE, stdin=p1.stdout)
-p1.stdout.close()
-if p1.wait() == 0 and p2.wait() == 0 and b"can_isotp" in p2.stdout.read():
-    p = subprocess.Popen(["isotpsend", "-s1", "-d0", iface0], stdin = subprocess.PIPE)
-    p.communicate(b"01")
-    if p.returncode == 0:
-        ISOTP_KERNEL_MODULE_AVAILABLE = True
-
-
-+ Syntax check
-
-= Import isotp
-conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': ISOTP_KERNEL_MODULE_AVAILABLE}
-load_contrib("isotp", globals_dict=globals())
+    execfile("test/contrib/automotive/interface_mockup.py")
 
 ISOTPSocket = ISOTPSoftSocket
 
@@ -153,10 +63,6 @@ returncode = result.wait()
 expected_output = plain_str(b'Start scan')
 std_out, std_err = result.communicate()
 
-print(std_out)
-print("%s" % std_err)
-print(expected_output)
-
 assert returncode == 0
 assert expected_output in plain_str(std_out)
 
@@ -164,12 +70,8 @@ assert expected_output in plain_str(std_out)
 
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py", "-i", "socketcan", "-c", iface0, "-a", "bitrate=500000", "-s", "0x600", "-e", "0x600", "-v"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 returncode = result.wait()
-print(returncode)
 expected_output = plain_str(b'Start scan')
 std_out, std_err = result.communicate()
-print(std_out)
-print("%s" % std_err)
-print(expected_output)
 
 assert returncode == 0
 assert expected_output in plain_str(std_out)
@@ -179,12 +81,8 @@ assert expected_output in plain_str(std_out)
 
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py", "-i", "socketcan", "-c", iface0, "-a", "bitrate=500000 receive_own_messages=True", "-s", "0x600", "-e", "0x600", "-v"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 returncode = result.wait()
-print(returncode)
 expected_output = plain_str(b'Start scan')
 std_out, std_err = result.communicate()
-print(std_out)
-print("%s" % std_err)
-print(expected_output)
 
 assert returncode == 0
 assert expected_output in plain_str(std_out)
@@ -193,12 +91,8 @@ assert expected_output in plain_str(std_out)
 
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py", "-i", "socketcan", "-c", iface0, "--python-can_args", "bitrate=500000 receive_own_messages=True", "-s", "0x600", "-e", "0x600", "-v"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 returncode = result.wait()
-print(returncode)
 expected_output = plain_str(b'Start scan')
 std_out, std_err = result.communicate()
-print(std_out)
-print("%s" % std_err)
-print(expected_output)
 
 assert returncode == 0
 assert expected_output in plain_str(std_out)
@@ -233,10 +127,6 @@ assert 0 == send_returncode
 assert returncode1 == 0
 assert returncode2 == 0
 
-print(std_out1)
-print(std_err1)
-print(std_out2)
-print(std_err2)
 expected_output = [b'0x600', b'0x700']
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out1 + std_out2)
@@ -340,10 +230,6 @@ for out in expected_output:
 
 + Cleanup
 
-= Cleanup
+= Delete vcan interfaces
 
-if 0 != call(["sudo", "ip", "link", "delete", "vcan0"]):
-        raise Exception("vcan0 could not be deleted")
-
-if 0 != call(["sudo", "ip", "link", "delete", "vcan1"]):
-        raise Exception("vcan1 could not be deleted")
+assert cleanup_interfaces()

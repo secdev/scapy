@@ -41,6 +41,7 @@ from scapy.config import conf, _version_checker
 from scapy.compat import raw, orb, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended
+from scapy.interfaces import _GlobInterfaceType
 from scapy.volatile import RandField, VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
@@ -153,7 +154,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.raw_packet_cache_fields = None  # type: Optional[Dict[str, Any]]  # noqa: E501
         self.wirelen = None  # type: Optional[int]
         self.direction = None  # type: Optional[int]
-        self.sniffed_on = None  # type: Optional[str]
+        self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -185,19 +186,17 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.post_transforms = [post_transform]
 
     _PickleType = Tuple[
-        bytes,
         Union[EDecimal, float],
         Optional[Union[EDecimal, float, None]],
         Optional[int],
-        Optional[str],
+        Optional[_GlobInterfaceType],
         Optional[int]
     ]
 
     def __reduce__(self):
-        # type: () -> Tuple[Type[Packet], Tuple[()], Packet._PickleType]
+        # type: () -> Tuple[Type[Packet], Tuple[bytes], Packet._PickleType]
         """Used by pickling methods"""
-        return (self.__class__, (), (
-            self.build(),
+        return (self.__class__, (self.build(),), (
             self.time,
             self.sent_time,
             self.direction,
@@ -205,20 +204,14 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.wirelen,
         ))
 
-    def __getstate__(self):
-        # type: () -> Packet._PickleType
-        """Mark object as pickable"""
-        return self.__reduce__()[2]
-
     def __setstate__(self, state):
         # type: (Packet._PickleType) -> Packet
         """Rebuild state using pickable methods"""
-        self.__init__(state[0])  # type: ignore
-        self.time = state[1]
-        self.sent_time = state[2]
-        self.direction = state[3]
-        self.sniffed_on = state[4]
-        self.wirelen = state[5]
+        self.time = state[0]
+        self.sent_time = state[1]
+        self.direction = state[2]
+        self.sniffed_on = state[3]
+        self.wirelen = state[4]
         return self
 
     def __deepcopy__(self,
@@ -1862,7 +1855,7 @@ class NoPayload(Packet):
 
     def answers(self, other):
         # type: (NoPayload) -> bool
-        return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)  # noqa: E501
+        return isinstance(other, (NoPayload, conf.padding_layer))  # noqa: E501
 
     def haslayer(self, cls, _subclass=None):
         # type: (Union[Type[Packet], str], Optional[bool]) -> int

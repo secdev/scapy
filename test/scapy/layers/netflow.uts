@@ -39,9 +39,7 @@ nf5.version == 5 and nf5[NetflowHeaderV5].count == 2 and isinstance(nf5[NetflowR
 = NetflowV9 - advanced dissection
 
 import os
-tmp = "/test/pcaps/netflowv9.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/netflowv9.pcap")
 a = rdpcap(filename)
 a = netflowv9_defragment(a)
 
@@ -167,9 +165,7 @@ assert raw(pkt) == dat
 = IPFix dissection
 
 import os
-tmp = "/test/pcaps/ipfix.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/ipfix.pcap")
 a = sniff(offline=filename, session=NetflowSession)
 
 # Templates
@@ -204,6 +200,20 @@ s=b'\x01\x07\x00\x12\x01\n\x00\x04\x84\x0c\x00\x02\x00\x00\x00\t\x01\n\x00&\x00\
 pkt4 = NetflowTemplateV9(s)
 assert len(pkt4.template_fields) == pkt4.fieldCount
 assert sum([template.fieldLength for template in pkt4.template_fields]) == 124
+
+= NetflowV10/IPFIX - dissection without padding (GH3101)
+
+s=b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00f\x00\x01\x00\x00@\x11|\x84\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x07\x08\x07\x00R\xee\xa2\x00\n\x00H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x18\x01\x01\x00\x04\x00\x02\x00\x04\x00\x04\x00\x01\x00\x08\x00\x04\x00\x0c\x00\x04\x01\x01\x00\x11\x00\x00\x00\x00\x06\xc0\xa8\x00\n\xc0\xa8\x00\x0b\x01\x01\x00\x11\x00\x00\x00\x00\x06\xc0\xa8\x00\n\xc0\xa8\x00\x0b'
+pkt = netflowv9_defragment(Ether(s))[0]
+
+for i in range(1,3):
+    assert pkt.getlayer(NetflowDataflowsetV9, i).templateID == 257
+    assert pkt.getlayer(NetflowDataflowsetV9, i).records[0].IN_PKTS == b'\x00\x00\x00\x00'
+    assert pkt.getlayer(NetflowDataflowsetV9, i).records[0].PROTOCOL == 6
+    assert pkt.getlayer(NetflowDataflowsetV9, i).records[0].IPV4_SRC_ADDR == "192.168.0.10"
+    assert pkt.getlayer(NetflowDataflowsetV9, i).records[0].IPV4_DST_ADDR == "192.168.0.11"
+
+assert not pkt.getlayer(NetflowDataflowsetV9, 2).payload
 
 = NetflowV10/IPFIX - build
 
@@ -243,9 +253,7 @@ assert raw(pkt) == b'\x00\n\x00>\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
 = NetflowSession - dissect packet NetflowV9 packets on-the-flow
 
 import os
-tmp = "/test/pcaps/netflowv9.pcap"
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
-filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+filename = scapy_path("/test/pcaps/netflowv9.pcap")
 
 dissected_packets = []
 def callback(pkt):

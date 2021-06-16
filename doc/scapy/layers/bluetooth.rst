@@ -471,7 +471,7 @@ This example sets up a virtual iBeacon:
    # Beacon data consists of a UUID, and two 16-bit integers: "major" and
    # "minor".
    #
-   # iBeacon sits ontop of Apple's BLE protocol.
+   # iBeacon sits on top of Apple's BLE protocol.
    p = Apple_BLE_Submessage()/IBeacon_Data(
       uuid='fb0b57a2-8228-44cd-913a-94a122ba1206',
       major=1, minor=2)

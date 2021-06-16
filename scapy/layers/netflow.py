@@ -35,12 +35,31 @@ import struct
 from scapy.config import conf
 from scapy.data import IP_PROTOS
 from scapy.error import warning, Scapy_Exception
-from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
-    FlagsField, IPField, IntField, MACField, \
-    PacketListField, PadField, SecondsIntField, ShortEnumField, ShortField, \
-    StrField, StrFixedLenField, ThreeBytesField, UTCTimeField, XByteField, \
-    XShortField, LongField, BitField, ConditionalField, BitEnumField, \
-    StrLenField
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    Field,
+    FieldLenField,
+    FlagsField,
+    IPField,
+    IntField,
+    LongField,
+    MACField,
+    PacketListField,
+    SecondsIntField,
+    ShortEnumField,
+    ShortField,
+    StrField,
+    StrFixedLenField,
+    StrLenField,
+    ThreeBytesField,
+    UTCTimeField,
+    XByteField,
+    XShortField,
+)
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.plist import PacketList
 from scapy.sessions import IPSession, DefaultSession
@@ -1270,14 +1289,18 @@ class NetflowTemplateFieldV9(Packet):
     fields_desc = [BitField("enterpriseBit", 0, 1),
                    BitEnumField("fieldType", None, 15,
                                 NetflowV910TemplateFieldTypes),
-                   ShortField("fieldLength", 0),
+                   ShortField("fieldLength", None),
                    ConditionalField(IntField("enterpriseNumber", 0),
                                     lambda p: p.enterpriseBit)]
 
     def __init__(self, *args, **kwargs):
         Packet.__init__(self, *args, **kwargs)
-        if self.fieldType is not None and not self.fieldLength and self.fieldType in NetflowV9TemplateFieldDefaultLengths:  # noqa: E501
-            self.fieldLength = NetflowV9TemplateFieldDefaultLengths[self.fieldType]  # noqa: E501
+        if (self.fieldType is not None and
+                self.fieldLength is None and
+                self.fieldType in NetflowV9TemplateFieldDefaultLengths):
+            self.fieldLength = NetflowV9TemplateFieldDefaultLengths[
+                self.fieldType
+            ]
 
     def default_payload_class(self, p):
         return conf.padding_layer
@@ -1384,14 +1407,11 @@ class NetflowRecordV9(Packet):
 class NetflowDataflowsetV9(Packet):
     name = "Netflow DataFlowSet V9/10"
     fields_desc = [ShortField("templateID", 255),
-                   FieldLenField("length", None, length_of="records",
-                                 adjust=lambda pkt, x: x + 4 + (-x % 4)),
-                   PadField(
-                       PacketListField(
-                           "records", [],
-                           NetflowRecordV9,
-                           length_from=lambda pkt: pkt.length - 4
-                       ), 4, padwith=b"\x00")]
+                   ShortField("length", None),
+                   PacketListField(
+                       "records", [],
+                       NetflowRecordV9,
+                       length_from=lambda pkt: pkt.length - 4)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -1408,6 +1428,15 @@ class NetflowDataflowsetV9(Packet):
             if _pkt[:2] == b"\x00\x03":
                 return NetflowOptionsFlowset10
         return cls
+
+    def post_build(self, pkt, pay):
+        if self.length is None:
+            # Padding is optional, let's apply it on build
+            length = len(pkt)
+            pad = (-length) % 4
+            pkt = pkt[:2] + struct.pack("!H", length + pad) + pkt[4:]
+            pkt += b"\x00" * pad
+        return pkt + pay
 
 
 def _netflowv9_defragment_packet(pkt, definitions, definitions_opts, ignored):
@@ -1463,53 +1492,56 @@ def _netflowv9_defragment_packet(pkt, definitions, definitions_opts, ignored):
             current = current.payload
     # Dissect flowsets
     if NetflowDataflowsetV9 in pkt:
-        datafl = pkt[NetflowDataflowsetV9]
-        tid = datafl.templateID
-        if tid not in definitions and tid not in definitions_opts:
-            ignored.add(tid)
-            return
-        # All data is stored in one record, awaiting to be split
-        # If fieldValue is available, the record has not been
-        # defragmented: pop it
-        try:
-            data = datafl.records[0].fieldValue
-            datafl.records.pop(0)
-        except (IndexError, AttributeError):
-            return
-        res = []
-        # Flowset record
-        # Now, according to the flow/option data,
-        # let's re-dissect NetflowDataflowsetV9
-        if tid in definitions:
-            tot_len, cls = definitions[tid]
-            while len(data) >= tot_len:
-                res.append(cls(data[:tot_len]))
-                data = data[tot_len:]
-            # Inject dissected data
-            datafl.records = res
-            if data:
-                if len(data) <= 4:
-                    datafl.add_payload(conf.padding_layer(data))
-                else:
-                    datafl.do_dissect_payload(data)
-        # Options
-        elif tid in definitions_opts:
-            (scope_len, scope_cls,
-                option_len, option_cls) = definitions_opts[tid]
-            # Dissect scopes
-            if scope_len:
-                res.append(scope_cls(data[:scope_len]))
-            if option_len:
-                res.append(
-                    option_cls(data[scope_len:scope_len + option_len])
-                )
-            if len(data) > scope_len + option_len:
-                res.append(
-                    conf.padding_layer(data[scope_len + option_len:])
-                )
-            # Inject dissected data
-            datafl.records = res
-            datafl.name = "Netflow DataFlowSet V9/10 - OPTIONS"
+        current = pkt
+        while NetflowDataflowsetV9 in current:
+            datafl = current[NetflowDataflowsetV9]
+            tid = datafl.templateID
+            if tid not in definitions and tid not in definitions_opts:
+                ignored.add(tid)
+                return
+            # All data is stored in one record, awaiting to be split
+            # If fieldValue is available, the record has not been
+            # defragmented: pop it
+            try:
+                data = datafl.records[0].fieldValue
+                datafl.records.pop(0)
+            except (IndexError, AttributeError):
+                return
+            res = []
+            # Flowset record
+            # Now, according to the flow/option data,
+            # let's re-dissect NetflowDataflowsetV9
+            if tid in definitions:
+                tot_len, cls = definitions[tid]
+                while len(data) >= tot_len:
+                    res.append(cls(data[:tot_len]))
+                    data = data[tot_len:]
+                # Inject dissected data
+                datafl.records = res
+                if data:
+                    if len(data) <= 4:
+                        datafl.add_payload(conf.padding_layer(data))
+                    else:
+                        datafl.do_dissect_payload(data)
+            # Options
+            elif tid in definitions_opts:
+                (scope_len, scope_cls,
+                    option_len, option_cls) = definitions_opts[tid]
+                # Dissect scopes
+                if scope_len:
+                    res.append(scope_cls(data[:scope_len]))
+                if option_len:
+                    res.append(
+                        option_cls(data[scope_len:scope_len + option_len])
+                    )
+                if len(data) > scope_len + option_len:
+                    res.append(
+                        conf.padding_layer(data[scope_len + option_len:])
+                    )
+                # Inject dissected data
+                datafl.records = res
+                datafl.name = "Netflow DataFlowSet V9/10 - OPTIONS"
+            current = datafl.payload
 
 
 def netflowv9_defragment(plist, verb=1):

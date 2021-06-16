@@ -13,7 +13,13 @@ import socket
 from scapy.compat import orb
 from scapy.config import conf, _set_conf_sockets
 from scapy.consts import LINUX, SOLARIS, WINDOWS, BSD
-from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, IPV6_ADDR_GLOBAL
+from scapy.data import (
+    ARPHDR_ETHER,
+    ARPHDR_LOOPBACK,
+    ARPHDR_PPP,
+    ARPHDR_TUN,
+    IPV6_ADDR_GLOBAL
+)
 from scapy.error import Scapy_Exception
 from scapy.interfaces import NetworkInterface
 from scapy.pton_ntop import inet_pton, inet_ntop
@@ -72,7 +78,7 @@ def get_if_hwaddr(iff):
     Returns the MAC (hardware) address of an interface
     """
     addrfamily, mac = get_if_raw_hwaddr(iff)  # type: ignore # noqa: F405
-    if addrfamily in [ARPHDR_ETHER, ARPHDR_LOOPBACK]:
+    if addrfamily in [ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_PPP, ARPHDR_TUN]:
         return str2mac(mac)
     else:
         raise Scapy_Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily, iff))  # noqa: E501

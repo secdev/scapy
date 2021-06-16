@@ -13,11 +13,27 @@ from scapy.config import conf
 from scapy.data import DLT_BLUETOOTH_LE_LL, DLT_BLUETOOTH_LE_LL_WITH_PHDR, \
     PPI_BTLE
 from scapy.packet import Packet, bind_layers
-from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    Field, FlagsField, LEIntField, LEShortEnumField, LEShortField, \
-    MACField, PacketListField, SignedByteField, X3BytesField, XBitField, \
-    XByteField, XIntField, XShortField, XLEIntField, XLELongField, \
-    XLEShortField
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    Field,
+    FlagsField,
+    LEIntField,
+    LEShortEnumField,
+    LEShortField,
+    MACField,
+    PacketListField,
+    SignedByteField,
+    X3BytesField,
+    XByteField,
+    XIntField,
+    XLEIntField,
+    XLELongField,
+    XLEShortField,
+    XShortField,
+)
 from scapy.contrib.ethercat import LEBitEnumField, LEBitField
 
 from scapy.layers.bluetooth import EIR_Hdr, L2CAP_Hdr
@@ -225,15 +241,24 @@ class BTLE(Packet):
 
 
 class BTLE_ADV(Packet):
+    # BT Core 5.2 - 2.3 ADVERTISING PHYSICAL CHANNEL PDU
     name = "BTLE advertising header"
     fields_desc = [
-        BitEnumField("RxAdd", 0, 1, {0: "public", 1: "random"}),
-        BitEnumField("TxAdd", 0, 1, {0: "public", 1: "random"}),
-        BitField("RFU", 0, 2),  # Unused
-        BitEnumField("PDU_type", 0, 4, {0: "ADV_IND", 1: "ADV_DIRECT_IND", 2: "ADV_NONCONN_IND", 3: "SCAN_REQ",  # noqa: E501
-                                        4: "SCAN_RSP", 5: "CONNECT_REQ", 6: "ADV_SCAN_IND"}),  # noqa: E501
-        BitField("unused", 0, 2),  # Unused
-        XBitField("Length", None, 6),
+        BitEnumField("RxAdd", 0, 1, {0: "public",
+                                     1: "random"}),
+        BitEnumField("TxAdd", 0, 1, {0: "public",
+                                     1: "random"}),
+        # 4.5.8.3.1 - LE Channel Selection Algorithm #2
+        BitEnumField("ChSel", 0, 1, {1: "#2"}),
+        BitField("RFU", 0, 1),  # Unused
+        BitEnumField("PDU_type", 0, 4, {0: "ADV_IND",
+                                        1: "ADV_DIRECT_IND",
+                                        2: "ADV_NONCONN_IND",
+                                        3: "SCAN_REQ",
+                                        4: "SCAN_RSP",
+                                        5: "CONNECT_REQ",
+                                        6: "ADV_SCAN_IND"}),
+        XByteField("Length", None),
     ]
 
     def post_build(self, p, pay):
@@ -243,7 +268,7 @@ class BTLE_ADV(Packet):
                 l_pay = len(pay)
             else:
                 l_pay = 0
-            p = p[:1] + chb(l_pay & 0x3f) + p[2:]
+            p = p[:1] + chb(l_pay & 0xff) + p[2:]
         if not isinstance(self.underlayer, BTLE):
             self.add_underlayer(BTLE)
         return p

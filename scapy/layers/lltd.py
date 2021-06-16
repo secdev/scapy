@@ -111,8 +111,8 @@ class LLTD(Packet):
 
     def hashret(self):
         tos, function = self.tos, self.function
-        return "%c%c" % self.answer_hashret.get((tos, function),
-                                                (tos, function))
+        return b"%c%c" % self.answer_hashret.get((tos, function),
+                                                 (tos, function))
 
     def answers(self, other):
         if not isinstance(other, LLTD):

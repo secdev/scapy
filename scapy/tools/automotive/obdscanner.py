@@ -13,6 +13,7 @@ import getopt
 import sys
 import signal
 import re
+import traceback
 
 from ast import literal_eval
 
@@ -198,6 +199,8 @@ def main():
         print("\nSocket couldn't be created. Check your arguments.\n",
               file=sys.stderr)
         print(e, file=sys.stderr)
+        if verbose:
+            traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
     finally:

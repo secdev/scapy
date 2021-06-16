@@ -653,6 +653,20 @@ def in4_chksum(proto, u, p):
         ln = max(u.len - 4 * ihl, 0)
     else:
         ln = len(p)
+
+    # Filter out IPOption_LSRR and IPOption_SSRR
+    sr_options = [opt for opt in u.options if isinstance(opt, IPOption_LSRR) or
+                  isinstance(opt, IPOption_SSRR)]
+    len_sr_options = len(sr_options)
+    if len_sr_options == 1 and len(sr_options[0].routers):
+        # The checksum must be computed using the final
+        # destination address
+        u.dst = sr_options[0].routers[-1]
+    elif len_sr_options > 1:
+        message = "Found %d Source Routing Options! "
+        message += "Falling back to IP.dst for checksum computation."
+        warning(message, len_sr_options)
+
     psdhdr = struct.pack("!4s4sHH",
                          inet_pton(socket.AF_INET, u.src),
                          inet_pton(socket.AF_INET, u.dst),
@@ -1937,6 +1951,10 @@ class TCP_client(Automaton):
         self.l4[TCP].flags = "A"
         self.l4[TCP].ack = pkt[TCP].seq + 1
         self.send(self.l4)
+
+    @ATMT.timeout(SYN_SENT, 1)
+    def syn_ack_timeout(self):
+        raise self.CLOSED()
 
     @ATMT.timeout(STOP_SENT_FIN_ACK, 1)
     def stop_ack_timeout(self):

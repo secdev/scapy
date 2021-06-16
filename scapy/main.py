@@ -96,7 +96,7 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
     Manual loading:
         >>> _read_config_file("./config.py"))
         >>> conf.verb
-        42
+        2
 
     """
     log_loading.debug("Loading config file [%s]", cf)
@@ -316,7 +316,7 @@ def save_session(fname="", session=None, pickleProto=-1):
     if not fname:
         fname = conf.session
         if not fname:
-            conf.session = fname = cast(str, utils.get_temp_file(keep=True))
+            conf.session = fname = utils.get_temp_file(keep=True)
     log_interactive.info("Use [%s] as session file", fname)
 
     if not session:
@@ -520,7 +520,8 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 _usage()
             elif opt == "-H":
                 conf.fancy_prompt = False
-                conf.verb = 30
+                conf.verb = 1
+                conf.logLevel = logging.WARNING
             elif opt == "-s":
                 session_name = param
             elif opt == "-c":

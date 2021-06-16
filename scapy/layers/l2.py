@@ -53,7 +53,12 @@ from scapy.fields import (
 )
 from scapy.modules.six import viewitems
 from scapy.packet import bind_layers, Packet
-from scapy.plist import PacketList, SndRcvList, _PacketList
+from scapy.plist import (
+    PacketList,
+    QueryAnswer,
+    SndRcvList,
+    _PacketList,
+)
 from scapy.sendrecv import sendp, srp, srp1
 from scapy.utils import checksum, hexdump, hexstr, inet_ntoa, inet_aton, \
     mac2str, valid_mac, valid_net, valid_net6
@@ -693,7 +698,7 @@ arpcachepoison(target, victim, [interval=60]) -> None
 
 class ARPingResult(SndRcvList):
     def __init__(self,
-                 res=None,  # type: Optional[Union[_PacketList[Tuple[Packet, Packet]], List[Tuple[Packet, Packet]]]]  # noqa: E501
+                 res=None,  # type: Optional[Union[_PacketList[QueryAnswer], List[QueryAnswer]]]  # noqa: E501
                  name="ARPing",  # type: str
                  stats=None  # type: Optional[List[Type[Packet]]]
                  ):
@@ -726,8 +731,14 @@ arping(net, [cache=0,] [iface=conf.iface,] [verbose=conf.verb]) -> None
 Set cache=True if you want arping to modify internal ARP-Cache"""
     if verbose is None:
         verbose = conf.verb
-    ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=net), verbose=verbose,  # noqa: E501
-                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)  # noqa: E501
+    ans, unans = srp(
+        Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=net),
+        verbose=verbose,
+        filter="arp and arp[7] = 2",
+        timeout=timeout,
+        iface_hint=net,
+        **kargs
+    )
     ans = ARPingResult(ans.res)
 
     if cache and ans is not None:
@@ -761,7 +772,7 @@ def promiscping(net, timeout=2, fake_bcast="ff:ff:ff:ff:ff:fe", **kargs):
     return ans, unans
 
 
-class ARP_am(AnsweringMachine):
+class ARP_am(AnsweringMachine[Packet]):
     """Fake ARP Relay Daemon (farpd)
 
     example:
@@ -806,12 +817,12 @@ class ARP_am(AnsweringMachine):
             (self.IP_addr is None or self.IP_addr == arp.pdst)  # noqa: E501
 
     def make_reply(self, req):
-        # type: (Ether) -> Ether
+        # type: (Packet) -> Packet
         ether = req[Ether]
         arp = req[ARP]
 
         if 'iface' in self.optsend:
-            iff = self.optsend.get('iface')
+            iff = cast(Union[NetworkInterface, str], self.optsend.get('iface'))
         else:
             iff, a, gw = conf.route.route(arp.psrc)
         self.iff = iff
@@ -831,14 +842,14 @@ class ARP_am(AnsweringMachine):
         return resp
 
     def send_reply(self, reply):
-        # type: (ARP) -> None
+        # type: (Packet) -> None
         if 'iface' in self.optsend:
             self.send_function(reply, **self.optsend)
         else:
             self.send_function(reply, iface=self.iff, **self.optsend)
 
     def print_reply(self, req, reply):
-        # type: (Ether, Ether) -> None
+        # type: (Packet, Packet) -> None
         print("%s ==> %s on %s" % (req.summary(), reply.summary(), self.iff))
 
 
