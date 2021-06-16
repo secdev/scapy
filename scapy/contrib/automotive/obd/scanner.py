@@ -45,9 +45,6 @@ class OBD_Enumerator(ServiceEnumerator):
 
 
 class OBD_Service_Enumerator(OBD_Enumerator):
-    def _get_initial_requests(self, scan_range=range(2, 0x100), **kwargs):
-        raise NotImplementedError
-
     def get_supported(self, socket, state, **kwargs):
         super(OBD_Service_Enumerator, self).execute(
             socket, state, scan_range=range(0, 0xff, 0x20),
@@ -226,6 +223,3 @@ class OBD_Scanner(AutomotiveTestCaseExecutor):
         return [OBD_S01_Enumerator, OBD_S02_Enumerator, OBD_S06_Enumerator,
                 OBD_S08_Enumerator, OBD_S09_Enumerator, OBD_S03_Enumerator,
                 OBD_S07_Enumerator, OBD_S0A_Enumerator]
-
-    def enter_state(self, _, __):
-        return True
