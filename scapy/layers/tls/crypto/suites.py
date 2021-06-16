@@ -1308,12 +1308,12 @@ def get_usable_ciphersuites(li, kx):
     res = []
     for c in li:
         if c in _tls_cipher_suites_cls:
-            ciph = _tls_cipher_suites_cls[c]
-            if ciph.usable:
+            cipher = _tls_cipher_suites_cls[c]
+            if cipher.usable:
                 # XXX select among RSA and ECDSA cipher suites
                 # according to the key(s) the server was given
-                if (ciph.kx_alg.anonymous or
-                   kx in ciph.kx_alg.name or
-                   ciph.kx_alg.name == "TLS13"):
+                if (cipher.kx_alg.anonymous or
+                   kx in cipher.kx_alg.name or
+                   cipher.kx_alg.name == "TLS13"):
                     res.append(c)
     return res
