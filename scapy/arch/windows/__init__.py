@@ -855,7 +855,7 @@ def _route_add_loopback(routes=None, ipv6=False, iflist=None):
         warning("Calling _route_add_loopback is only valid on Windows")
         return
     warning("This will completely mess up the routes. Testing purpose only !")
-    # Add only if some adpaters already exist
+    # Add only if some adapters already exist
     if ipv6:
         if not conf.route6.routes:
             return
