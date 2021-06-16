@@ -18,8 +18,6 @@ from scapy.fields import IntField, ShortEnumField, XByteField
 from scapy.layers.inet import TCP
 from scapy.supersocket import StreamSocket
 from scapy.contrib.automotive.uds import UDS
-from scapy.contrib.isotp import ISOTP
-from scapy.error import Scapy_Exception
 from scapy.data import MTU
 
 
@@ -83,32 +81,28 @@ class HSFZSocket(StreamSocket):
         StreamSocket.__init__(self, s, HSFZ)
 
 
-class ISOTP_HSFZSocket(HSFZSocket):
-    def __init__(self, src, dst, ip='127.0.0.1', port=6801, basecls=ISOTP):
+class UDS_HSFZSocket(HSFZSocket):
+    def __init__(self, src, dst, ip='127.0.0.1', port=6801, basecls=UDS):
         # type: (int, int, str, int, Type[Packet]) -> None
-        super(ISOTP_HSFZSocket, self).__init__(ip, port)
+        super(UDS_HSFZSocket, self).__init__(ip, port)
         self.src = src
         self.dst = dst
         self.basecls = HSFZ
         self.outputcls = basecls
 
     def send(self, x):
-        # type: (bytes) -> int
-        if not isinstance(x, ISOTP):
-            raise Scapy_Exception(
-                "Please provide a packet class based on ISOTP")
+        # type: (Packet) -> int
         try:
             x.sent_time = time.time()
         except AttributeError:
             pass
 
-        return super(ISOTP_HSFZSocket, self).send(
-            HSFZ(src=self.src, dst=self.dst) / x
-        )
+        return super(UDS_HSFZSocket, self).send(
+            HSFZ(src=self.src, dst=self.dst) / x)
 
     def recv(self, x=MTU):
         # type: (int) -> Optional[Packet]
-        pkt = super(ISOTP_HSFZSocket, self).recv(x)
+        pkt = super(UDS_HSFZSocket, self).recv(x)
         if pkt:
             return self.outputcls(bytes(pkt.payload))
         else:
