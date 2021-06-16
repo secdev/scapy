@@ -362,7 +362,7 @@ class READ_MEM_PR(Packet):
 class WEBSERVER(Packet):
     fields_desc = [
         ByteField('enable', 1),
-        ThreeBytesField('password', b'123')
+        ThreeBytesField('password', 0x10203)
     ]
 
 
