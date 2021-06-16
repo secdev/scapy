@@ -27,7 +27,10 @@ if six.PY2 or not LINUX or conf.use_pypy:
 from scapy.contrib.isotp import ISOTPSocket                    # noqa: E402
 from scapy.contrib.cansocket import CANSocket, PYTHON_CAN      # noqa: E402
 from scapy.contrib.automotive.obd.obd import OBD               # noqa: E402
-from scapy.contrib.automotive.obd.scanner import OBD_Scanner, OBD_S01_Enumerator, OBD_S02_Enumerator, OBD_S03_Enumerator, OBD_S06_Enumerator, OBD_S07_Enumerator, OBD_S08_Enumerator, OBD_S09_Enumerator, OBD_S0A_Enumerator  # noqa: E402 E501
+from scapy.contrib.automotive.obd.scanner import OBD_Scanner, \
+    OBD_S01_Enumerator, OBD_S02_Enumerator, OBD_S03_Enumerator, \
+    OBD_S06_Enumerator, OBD_S07_Enumerator, OBD_S08_Enumerator, \
+    OBD_S09_Enumerator, OBD_S0A_Enumerator  # noqa: E402
 
 
 def signal_handler(sig, frame):
@@ -86,10 +89,9 @@ def main():
     destination = 0x7df
     timeout = 0.1
     full_scan = False
-    specific_scan = False
     verbose = False
     python_can_args = None
-    custom_enumerators = []
+    enumerators = []
     conf.verb = -1
 
     options = getopt.getopt(
@@ -119,29 +121,21 @@ def main():
             elif opt in ('-f', '--full'):
                 full_scan = True
             elif opt == '-1':
-                specific_scan = True
-                custom_enumerators += [OBD_S01_Enumerator]
+                enumerators += [OBD_S01_Enumerator]
             elif opt == '-2':
-                specific_scan = True
-                custom_enumerators += [OBD_S02_Enumerator]
+                enumerators += [OBD_S02_Enumerator]
             elif opt == '-3':
-                specific_scan = True
-                custom_enumerators += [OBD_S03_Enumerator]
+                enumerators += [OBD_S03_Enumerator]
             elif opt == '-6':
-                specific_scan = True
-                custom_enumerators += [OBD_S06_Enumerator]
+                enumerators += [OBD_S06_Enumerator]
             elif opt == '-7':
-                specific_scan = True
-                custom_enumerators += [OBD_S07_Enumerator]
+                enumerators += [OBD_S07_Enumerator]
             elif opt == '-8':
-                specific_scan = True
-                custom_enumerators += [OBD_S08_Enumerator]
+                enumerators += [OBD_S08_Enumerator]
             elif opt == '-9':
-                specific_scan = True
-                custom_enumerators += [OBD_S09_Enumerator]
+                enumerators += [OBD_S09_Enumerator]
             elif opt == '-A':
-                specific_scan = True
-                custom_enumerators += [OBD_S0A_Enumerator]
+                enumerators += [OBD_S0A_Enumerator]
             elif opt in ('-v', '--verbose'):
                 verbose = True
     except getopt.GetoptError as msg:
@@ -183,16 +177,13 @@ def main():
         with ISOTPSocket(csock, source, destination,
                          basecls=OBD, padding=True) as isock:
             signal.signal(signal.SIGINT, signal_handler)
-            if specific_scan:
-                es = custom_enumerators
-            else:
-                es = OBD_Scanner.default_enumerator_clss
-            s = OBD_Scanner(isock, enumerators=es, full_scan=full_scan,
-                            verbose=verbose, timeout=timeout)
+
+            s = OBD_Scanner(isock, test_cases=enumerators,
+                            full_scan=full_scan, verbose=verbose,
+                            timeout=timeout)
             print("Starting OBD-Scan...")
             s.scan()
-            for e in s.enumerators:
-                e.show()
+            s.show_testcases()
 
     except Exception as e:
         usage(True)

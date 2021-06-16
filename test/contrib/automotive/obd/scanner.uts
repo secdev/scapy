@@ -25,6 +25,8 @@ load_contrib("automotive.obd.obd", globals_dict=globals())
 
 from subprocess import call
 
+from scapy.contrib.automotive.obd.scanner import OBD_Scanner
+
 load_contrib("automotive.obd.scanner", globals_dict=globals())
 load_contrib("automotive.ecu", globals_dict=globals())
 
@@ -155,16 +157,18 @@ assert s.enumerators[5].__class__ == OBD_S03_Enumerator
 assert s.enumerators[6].__class__ == OBD_S07_Enumerator
 assert s.enumerators[7].__class__ == OBD_S0A_Enumerator
 
+print(len(s.enumerators[0].results))
+
 assert len(s.enumerators[0].results) == 33   # 32 pos resps + 1 NR
-assert len([r for _, _, r in s.enumerators[0].results if r is not None and r.service == 0x7f]) == 1
+assert len([tup.resp for tup in s.enumerators[0].results if tup.resp is not None and tup.resp.service == 0x7f]) == 1
 assert len(s.enumerators[1].results) == 1    # 1 NR
-assert len([r for _, _, r in s.enumerators[1].results if r is not None and r.service == 0x7f]) == 1
+assert len([tup.resp for tup in s.enumerators[1].results if tup.resp is not None and tup.resp.service == 0x7f]) == 1
 assert len(s.enumerators[2].results) == 18   # 17 pos resps + 1 NR
-assert len([r for _, _, r in s.enumerators[2].results if r is not None and r.service == 0x7f]) == 1
+assert len([tup.resp for tup in s.enumerators[2].results if tup.resp is not None and tup.resp.service == 0x7f]) == 1
 assert len(s.enumerators[3].results) == 1    # 1 NR
-assert len([r for _, _, r in s.enumerators[3].results if r is not None and r.service == 0x7f]) == 1
+assert len([tup.resp for tup in s.enumerators[3].results if tup.resp is not None and tup.resp.service == 0x7f]) == 1
 assert len(s.enumerators[4].results) == 9    # 8 pos resps + 1 NR
-assert len([r for _, _, r in s.enumerators[4].results if r is not None and r.service == 0x7f]) == 1
+assert len([tup.resp for tup in s.enumerators[4].results if tup.resp is not None and tup.resp.service == 0x7f]) == 1
 assert len(s.enumerators[5].results) == 1    # 1 PR
 assert len(s.enumerators[6].results) == 1    # 1 PR
 assert len(s.enumerators[7].results) == 1    # 1 PR
@@ -199,15 +203,18 @@ assert s.enumerators[6].__class__ == OBD_S07_Enumerator
 assert s.enumerators[7].__class__ == OBD_S0A_Enumerator
 
 assert len(s.enumerators[0].results) == 0x100   # 32 pos resps + 1 NR
-assert len([r for _, _, r in s.enumerators[0].results if r is not None and r.service == 0x7f]) == 0x100 - 32
+print( len(s.enumerators[0].results_with_negative_response))
+assert len(s.enumerators[0].results_with_negative_response) == 0x100 - 32
+print( len(s.enumerators[1].results))
 assert len(s.enumerators[1].results) == 0x100
-assert len([r for _, _, r in s.enumerators[1].results if r is not None and r.service == 0x7f]) == 0x100
+print( len(s.enumerators[1].results_with_negative_response))
+assert len(s.enumerators[1].results_with_negative_response) == 0x100
 assert len(s.enumerators[2].results) == 0x100   # 17 pos resps
-assert len([r for _, _, r in s.enumerators[2].results if r is not None and r.service == 0x7f]) == 0x100 - 17
+assert len(s.enumerators[2].results_with_negative_response) == 0x100 - 17
 assert len(s.enumerators[3].results) == 0x100
-assert len([r for _, _, r in s.enumerators[3].results if r is not None and r.service == 0x7f]) == 0x100
+assert len(s.enumerators[3].results_with_negative_response) == 0x100
 assert len(s.enumerators[4].results) == 0x100    # 8 pos resps
-assert len([r for _, _, r in s.enumerators[4].results if r is not None and r.service == 0x7f]) == 0x100 - 8
+assert len(s.enumerators[4].results_with_negative_response) == 0x100 - 8
 assert len(s.enumerators[5].results) == 1    # 1 PR
 assert len(s.enumerators[6].results) == 1    # 1 PR
 assert len(s.enumerators[7].results) == 1    # 1 PR
@@ -225,7 +232,7 @@ with new_can_socket0() as isocan_ecu, ISOTPSocket(isocan_ecu, 0x7e8, 0x7e0, base
     sim.start()
     try:
         with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
-            s = OBD_Scanner(socket, enumerators=[OBD_S01_Enumerator], full_scan=False)
+            s = OBD_Scanner(socket, test_cases=[OBD_S01_Enumerator], full_scan=False)
             s.scan()
             socket.send(b"\xff\xff\xff")
     finally:
@@ -235,7 +242,7 @@ assert len(s.enumerators) == 1
 assert s.enumerators[0].__class__ == OBD_S01_Enumerator
 
 assert len(s.enumerators[0].results) == 33   # 32 pos resps + 1 NR
-assert len([r for _, _, r in s.enumerators[0].results if r is not None and r.service == 0x7f]) == 1
+assert len(s.enumerators[0].results_with_negative_response) == 1
 
 
 + Cleanup
