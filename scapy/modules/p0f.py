@@ -616,6 +616,9 @@ def fingerprint_mtu(pkt):
     """
     Fingerprints the MTU based on the maximum segment size specified
     in TCP options.
+    Returns a tuple consisting of:
+    - label: the matched label, None if no match
+    - raw_mtu: the calculated raw MTU
     """
     pkt = preprocess_packet(pkt)
     mss = 0
@@ -632,7 +635,7 @@ def fingerprint_mtu(pkt):
         warning("p0f base empty.")
         return None
 
-    return p0fdb.mtu_find_match(mtu)
+    return p0fdb.mtu_find_match(mtu), mtu
 
 
 def p0f(pkt):
@@ -681,6 +684,12 @@ def prnp0f(pkt):
     else:
         app_or_os = "OS" if tcp_sig else "App"
         add_field(app_or_os, "UNKNOWN")
+
+    if tcp_sig:
+        mtu_label, raw_mtu = fingerprint_mtu(pkt)
+        if mtu_label:
+            add_field("Link", mtu_label)
+            add_field("Raw MTU", raw_mtu)
 
     add_field("Raw sig", sig2str(sig))
 
