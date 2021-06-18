@@ -80,16 +80,15 @@ class p0fKnowledgeBase(KnowledgeBase):
 
     def _parse_file(self, file):
         """
-        Does actual parsing of the file and stores the data with described
-        structures.
+        Parses p0f.fp file and stores the data with described structures.
         """
         label_id = -1
 
         for line in file:
+            if line[0] in (";", "\n"):
+                continue
             line = line.strip()
 
-            if not line or line[0] == ";":
-                continue
             if line[0] == "[":
                 section, direction = lparse(line[1:-1], 2)
                 if section == "mtu":
@@ -109,8 +108,8 @@ class p0fKnowledgeBase(KnowledgeBase):
                     if section == "mtu":
                         curr_records.append((label_id, int(val)))
                     elif section == "tcp":
-                        bad_ttl, sig = self.tcp_register_sig(val)
-                        curr_records.append((label_id, bad_ttl, sig))
+                        sig = self.tcp_register_sig(val)
+                        curr_records.append((label_id, sig))
                     elif section == "http":
                         sig = self.http_register_sig(val)
                         curr_records.append((label_id, sig))
@@ -130,8 +129,7 @@ class p0fKnowledgeBase(KnowledgeBase):
 
     def tcp_register_sig(self, line):
         """
-        Parses a TCP sig line and returns a tuple
-        of bad_ttl and the signature itself
+        Parses a TCP sig line and returns the signature as a tuple
         """
         ver, ttl, olen, mss, wsize, olayout, quirks, pclass = lparse(line, 8)
         wsize, _, scale = wsize.partition(",")
@@ -157,8 +155,8 @@ class p0fKnowledgeBase(KnowledgeBase):
             quirks = frozenset()
         pay_class = -1 if pclass == "*" else int(pclass == "+")
 
-        sig = (ip_ver, ttl, ip_opt_len, mss, win, win_type, wscale, olayout, quirks, pay_class)  # noqa: E501
-        return bad_ttl, sig
+        sig = (ip_ver, ttl, bad_ttl, ip_opt_len, mss, win, win_type, wscale, olayout, quirks, pay_class)  # noqa: E501
+        return sig
 
     def http_register_sig(self, val):
         """
@@ -195,8 +193,8 @@ class p0fKnowledgeBase(KnowledgeBase):
 
         gmatch = None  # generic match
         fmatch = None  # fuzzy match
-        for label_id, bad_ttl, sig in self.base["tcp"][direction]:
-            ver2, ttl2, olen2, mss2, win2, win_type, wscale2, olayout2, quirks2, pclass2 = sig  # noqa: E501
+        for label_id, sig in self.base["tcp"][direction]:
+            ver2, ttl2, bad_ttl, olen2, mss2, win2, win_type, wscale2, olayout2, quirks2, pclass2 = sig  # noqa: E501
 
             fuzzy = False
             if olayout2 != olayout:
@@ -284,32 +282,32 @@ class p0fKnowledgeBase(KnowledgeBase):
                 continue
 
             def headers_correl():
-                d_hdr = 0  # Database hdr index
-                p_hdr = 0  # Packet hdr index
+                phi = 0  # Packet HTTP header index
+                hdr_len = len(hdr)
 
                 # Confirm the ordering and values of headers
                 # (this is relatively slow, hence the if statements above).
-                # The algorithm is taken from the original p0f/fp_http.c
-                for d_hdr in range(len(hdr2)):
-                    orig_p = p_hdr
-                    while (p_hdr < len(hdr) and
-                           hdr2[d_hdr][0] != hdr[p_hdr][0]):
-                        p_hdr += 1
+                # The algorithm is derived from the original p0f/fp_http.c
+                for kh in hdr2:  # kh - KnowledgeBase HTTP header
+                    orig_phi = phi
+                    while (phi < hdr_len and
+                           kh[0] != hdr[phi][0]):
+                        phi += 1
 
-                    if p_hdr == len(hdr):
-                        if not hdr2[d_hdr][2]:
+                    if phi == hdr_len:
+                        if not kh[2]:
                             return False
 
-                        for p_hdr in range(len(hdr)):
-                            if hdr2[d_hdr][0] == hdr[p_hdr][0]:
+                        for ph in hdr:
+                            if kh[0] == ph[0]:
                                 return False
 
-                        p_hdr = orig_p
+                        phi = orig_phi
                         continue
 
-                    if hdr2[d_hdr][1] not in hdr[p_hdr][1]:
+                    if kh[1] not in hdr[phi][1]:
                         return False
-                    p_hdr += 1
+                    phi += 1
                 return True
 
             if not headers_correl():
@@ -339,11 +337,11 @@ class p0fKnowledgeBase(KnowledgeBase):
 p0fdb = p0fKnowledgeBase(conf.p0f_base)
 
 
-def lparse(line, n, default="", splitchar=":"):
+def lparse(line, n, delimiter=":", default=""):
     """
     Parsing of 'a:b:c:d:e' lines
     """
-    a = line.split(splitchar)[:n]
+    a = line.split(delimiter)[:n]
     for elt in a:
         yield elt
     for _ in range(n - len(a)):
@@ -352,7 +350,9 @@ def lparse(line, n, default="", splitchar=":"):
 
 def preprocess_packet(pkt):
     """
-    Makes sure the packet is an IPv4/IPv6 and TCP packet
+    Creates a copy of the packet and checks if the packet has
+    IPv4/IPv6 and TCP layers. If the packet is valid, the copy is returned.
+    If not, TypeError is raised.
     """
     pkt = pkt.copy()
     pkt = pkt.__class__(raw(pkt))
@@ -401,7 +401,8 @@ def detect_win_multi(tcpsig):
 
 def packet2p0f(pkt):
     """
-    Returns a p0f signature of the packet, and the direction
+    Returns a p0f signature of the packet, and the direction.
+    Raises TypeError if the packet isn't valid for p0f
     """
     pkt = preprocess_packet(pkt)
 
@@ -593,7 +594,6 @@ def sig2str(sig):
     """
     s = ""
     if len(sig) == 9:  # TCP signature
-
         def guess_dist(ttl):
             for opt in (32, 64, 128):
                 if ttl <= opt:
@@ -616,9 +616,7 @@ def fingerprint_mtu(pkt):
     """
     Fingerprints the MTU based on the maximum segment size specified
     in TCP options.
-    Returns a tuple consisting of:
-    - label: the matched label, None if no match
-    - raw_mtu: the calculated raw MTU
+    If a match was found, returns the label. If not returns None
     """
     pkt = preprocess_packet(pkt)
     mss = 0
@@ -635,7 +633,7 @@ def fingerprint_mtu(pkt):
         warning("p0f base empty.")
         return None
 
-    return p0fdb.mtu_find_match(mtu), mtu
+    return p0fdb.mtu_find_match(mtu)
 
 
 def p0f(pkt):
@@ -684,12 +682,6 @@ def prnp0f(pkt):
     else:
         app_or_os = "OS" if tcp_sig else "App"
         add_field(app_or_os, "UNKNOWN")
-
-    if tcp_sig:
-        mtu_label, raw_mtu = fingerprint_mtu(pkt)
-        if mtu_label:
-            add_field("Link", mtu_label)
-            add_field("Raw MTU", raw_mtu)
 
     add_field("Raw sig", sig2str(sig))
 
