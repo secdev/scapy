@@ -184,7 +184,7 @@ sctpchunktypes = {
 }
 
 sctpchunkparamtypescls = {
-    1: "SCTPChunkParamHearbeatInfo",
+    1: "SCTPChunkParamHeartbeatInfo",
     5: "SCTPChunkParamIPv4Addr",
     6: "SCTPChunkParamIPv6Addr",
     7: "SCTPChunkParamStateCookie",
@@ -287,7 +287,7 @@ class _SCTPChunkParam:
         return b"", s[:]
 
 
-class SCTPChunkParamHearbeatInfo(_SCTPChunkParam, Packet):
+class SCTPChunkParamHeartbeatInfo(_SCTPChunkParam, Packet):
     fields_desc = [ShortEnumField("type", 1, sctpchunkparamtypes),
                    FieldLenField("len", None, length_of="data",
                                  adjust=lambda pkt, x:x + 4),
