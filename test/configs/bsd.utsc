@@ -15,7 +15,6 @@
     "test/windows.uts",
     "test/contrib/automotive/ecu_am.uts",
     "test/contrib/automotive/gm/gmlanutils.uts",
-    "test/contrib/isotp.uts",
     "test/contrib/isotpscan.uts"
   ],
   "onlyfailed": true,
