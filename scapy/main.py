@@ -304,7 +304,7 @@ def _scapy_builtins():
     """Load scapy and return all builtins"""
     return {k: v
             for k, v in six.iteritems(
-                importlib.import_module(".all", "scapy").__dict__
+                importlib.import_module(".all", "scapy").__dict__.copy()
             )
             if _validate_local(k)}
 
