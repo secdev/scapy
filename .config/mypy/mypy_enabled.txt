@@ -53,6 +53,7 @@ scapy/contrib/automotive/gm/gmlan_ecu_states.py
 scapy/contrib/automotive/gm/gmlan_logging.py
 scapy/contrib/automotive/gm/gmlanutils.py
 scapy/contrib/automotive/kwp.py
+scapy/contrib/automotive/obd/scanner.py
 scapy/contrib/automotive/scanner/configuration.py
 scapy/contrib/automotive/scanner/enumerator.py
 scapy/contrib/automotive/scanner/executor.py

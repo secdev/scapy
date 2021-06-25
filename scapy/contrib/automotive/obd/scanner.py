@@ -8,7 +8,7 @@
 # scapy.contrib.description = OnBoardDiagnosticScanner
 # scapy.contrib.status = loads
 
-from scapy.compat import List, Type
+from scapy.compat import List, Type, Any, Iterable
 from scapy.contrib.automotive.obd.obd import OBD, OBD_S03, OBD_S07, OBD_S0A, \
     OBD_S01, OBD_S06, OBD_S08, OBD_S09, OBD_NR, OBD_S02, OBD_S02_Record
 from scapy.config import conf
@@ -16,10 +16,12 @@ from scapy.packet import Packet
 from scapy.themes import BlackAndWhite
 
 from scapy.contrib.automotive.scanner.enumerator import ServiceEnumerator, \
-    _AutomotiveTestCaseScanResult
-from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC
+    _AutomotiveTestCaseScanResult, _AutomotiveTestCaseFilteredScanResult
 from scapy.contrib.automotive.scanner.executor import \
     AutomotiveTestCaseExecutor
+from scapy.contrib.automotive.ecu import EcuState
+from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
+    _SocketUnion
 
 
 class OBD_Enumerator(ServiceEnumerator):
@@ -40,12 +42,13 @@ class OBD_Enumerator(ServiceEnumerator):
 
     @property
     def filtered_results(self):
-        # type: () -> List[ServiceEnumerator.FilteredScanResult]
+        # type: () -> List[_AutomotiveTestCaseFilteredScanResult]
         return self.results_with_positive_response
 
 
 class OBD_Service_Enumerator(OBD_Enumerator):
     def get_supported(self, socket, state, **kwargs):
+        # type: (_SocketUnion, EcuState, Any) -> List[int]
         super(OBD_Service_Enumerator, self).execute(
             socket, state, scan_range=range(0, 0xff, 0x20),
             exit_scan_on_first_negative_response=True, **kwargs)
@@ -58,7 +61,9 @@ class OBD_Service_Enumerator(OBD_Enumerator):
                           getattr(dr, key, ["xxx00"])]
         return [i for i in supported if i % 0x20]
 
-    def execute(self, socket, state, full_scan=False, **kwargs):
+    def execute(self, socket, state, **kwargs):
+        # type: (_SocketUnion, EcuState, Any) -> None
+        full_scan = kwargs.pop("full_scan", False)  # type: bool
         if full_scan:
             super(OBD_Service_Enumerator, self).execute(socket, state, **kwargs)
         else:
@@ -69,6 +74,7 @@ class OBD_Service_Enumerator(OBD_Enumerator):
 
     @staticmethod
     def print_payload(resp):
+        # type: (Packet) -> str
         backup_ct = conf.color_theme
         conf.color_theme = BlackAndWhite()
         load = repr(resp.data_records[0].lastlayer())
@@ -83,6 +89,7 @@ class OBD_Service_Enumerator(OBD_Enumerator):
 class OBD_DTC_Enumerator(OBD_Enumerator):
     @staticmethod
     def print_payload(resp):
+        # type: (Packet) -> str
         backup_ct = conf.color_theme
         conf.color_theme = BlackAndWhite()
         load = repr(resp.dtcs)
@@ -94,6 +101,7 @@ class OBD_S03_Enumerator(OBD_DTC_Enumerator):
     _description = "Available DTCs in OBD service 03"
 
     def _get_initial_requests(self, **kwargs):
+        # type: (Any) -> Iterable[Packet]
         return [OBD() / OBD_S03()]
 
     def _get_table_entry_x(self, tup):
@@ -102,13 +110,18 @@ class OBD_S03_Enumerator(OBD_DTC_Enumerator):
 
     def _get_table_entry_y(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
-        return "NR" if tup[2].service == 0x7f else "%d DTCs" % tup[2].count
+        resp = tup[2]
+        if resp is None:
+            return "Timeout"
+        else:
+            return "NR" if resp.service == 0x7f else "%d DTCs" % resp.count
 
 
 class OBD_S07_Enumerator(OBD_DTC_Enumerator):
     _description = "Available DTCs in OBD service 07"
 
     def _get_initial_requests(self, **kwargs):
+        # type: (Any) -> Iterable[Packet]
         return [OBD() / OBD_S07()]
 
     def _get_table_entry_x(self, tup):
@@ -120,6 +133,7 @@ class OBD_S0A_Enumerator(OBD_DTC_Enumerator):
     _description = "Available DTCs in OBD service 10"
 
     def _get_initial_requests(self, **kwargs):
+        # type: (Any) -> Iterable[Packet]
         return [OBD() / OBD_S0A()]
 
     def _get_table_entry_x(self, tup):
@@ -130,7 +144,9 @@ class OBD_S0A_Enumerator(OBD_DTC_Enumerator):
 class OBD_S01_Enumerator(OBD_Service_Enumerator):
     _description = "Available data in OBD service 01"
 
-    def _get_initial_requests(self, scan_range=range(0x100), **kwargs):
+    def _get_initial_requests(self, **kwargs):
+        # type: (Any) -> Iterable[Packet]
+        scan_range = kwargs.pop("scan_range", range(0x100))  # type: Iterable[int]  # noqa: E501
         return (OBD() / OBD_S01(pid=[x]) for x in scan_range)
 
     def _get_table_entry_x(self, tup):
@@ -139,14 +155,20 @@ class OBD_S01_Enumerator(OBD_Service_Enumerator):
 
     def _get_table_entry_y(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
-        return "NR" if tup[2].service == 0x7f else \
-            "%s" % tup[2].data_records[0].lastlayer().name
+        resp = tup[2]
+        if resp is None:
+            return "Timeout"
+        else:
+            return "NR" if resp.service == 0x7f else \
+                "%s" % resp.data_records[0].lastlayer().name
 
 
 class OBD_S02_Enumerator(OBD_Service_Enumerator):
     _description = "Available data in OBD service 02"
 
-    def _get_initial_requests(self, scan_range=range(0x100), **kwargs):
+    def _get_initial_requests(self, **kwargs):
+        # type: (Any) -> Iterable[Packet]
+        scan_range = kwargs.pop("scan_range", range(0x100))  # type: Iterable[int]  # noqa: E501
         return (OBD() / OBD_S02(requests=[OBD_S02_Record(pid=[x])])
                 for x in scan_range)
 
@@ -156,14 +178,20 @@ class OBD_S02_Enumerator(OBD_Service_Enumerator):
 
     def _get_table_entry_y(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
-        return "NR" if tup[2].service == 0x7f else \
-            "%s" % tup[2].data_records[0].lastlayer().name
+        resp = tup[2]
+        if resp is None:
+            return "Timeout"
+        else:
+            return "NR" if resp.service == 0x7f else \
+                "%s" % resp.data_records[0].lastlayer().name
 
 
 class OBD_S06_Enumerator(OBD_Service_Enumerator):
     _description = "Available data in OBD service 06"
 
-    def _get_initial_requests(self, scan_range=range(0x100), **kwargs):
+    def _get_initial_requests(self, **kwargs):
+        # type: (Any) -> Iterable[Packet]
+        scan_range = kwargs.pop("scan_range", range(0x100))  # type: Iterable[int]  # noqa: E501
         return (OBD() / OBD_S06(mid=[x]) for x in scan_range)
 
     def _get_table_entry_x(self, tup):
@@ -172,16 +200,23 @@ class OBD_S06_Enumerator(OBD_Service_Enumerator):
 
     def _get_table_entry_y(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
-        return "NR" if tup[2].service == 0x7f else \
-            "0x%02x %s" % (
-                tup[1].mid[0],
-                tup[2].data_records[0].sprintf("%OBD_S06_PR_Record.mid%"))
+        req = tup[1]
+        resp = tup[2]
+        if resp is None:
+            return "Timeout"
+        else:
+            return "NR" if resp.service == 0x7f else \
+                "0x%02x %s" % (
+                    req.mid[0],
+                    resp.data_records[0].sprintf("%OBD_S06_PR_Record.mid%"))
 
 
 class OBD_S08_Enumerator(OBD_Service_Enumerator):
     _description = "Available data in OBD service 08"
 
-    def _get_initial_requests(self, scan_range=range(0x100), **kwargs):
+    def _get_initial_requests(self, **kwargs):
+        # type: (Any) -> Iterable[Packet]
+        scan_range = kwargs.pop("scan_range", range(0x100))  # type: Iterable[int]  # noqa: E501
         return (OBD() / OBD_S08(tid=[x]) for x in scan_range)
 
     def _get_table_entry_x(self, tup):
@@ -190,14 +225,20 @@ class OBD_S08_Enumerator(OBD_Service_Enumerator):
 
     def _get_table_entry_y(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
-        return "NR" if tup[2].service == 0x7f else "0x%02x %s" % (
-            tup[1].tid[0], tup[2].data_records[0].lastlayer().name)
+        resp = tup[2]
+        if resp is None:
+            return "Timeout"
+        else:
+            return "NR" if resp.service == 0x7f else "0x%02x %s" % (
+                tup[1].tid[0], resp.data_records[0].lastlayer().name)
 
 
 class OBD_S09_Enumerator(OBD_Service_Enumerator):
     _description = "Available data in OBD service 09"
 
-    def _get_initial_requests(self, scan_range=range(0x100), **kwargs):
+    def _get_initial_requests(self, **kwargs):
+        # type: (Any) -> Iterable[Packet]
+        scan_range = kwargs.pop("scan_range", range(0x100))  # type: Iterable[int]  # noqa: E501
         return (OBD() / OBD_S09(iid=[x]) for x in scan_range)
 
     def _get_table_entry_x(self, tup):
@@ -206,9 +247,13 @@ class OBD_S09_Enumerator(OBD_Service_Enumerator):
 
     def _get_table_entry_y(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
-        return "NR" if tup[2].service == 0x7f else \
-            "0x%02x %s" % (tup[1].iid[0],
-                           tup[2].data_records[0].lastlayer().name)
+        resp = tup[2]
+        if resp is None:
+            return "Timeout"
+        else:
+            return "NR" if resp.service == 0x7f else \
+                "0x%02x %s" % (tup[1].iid[0],
+                               resp.data_records[0].lastlayer().name)
 
 
 class OBD_Scanner(AutomotiveTestCaseExecutor):
@@ -219,7 +264,7 @@ class OBD_Scanner(AutomotiveTestCaseExecutor):
 
     @property
     def default_test_case_clss(self):
-        # type: () -> List[Type[ServiceEnumerator]]
+        # type: () -> List[Type[AutomotiveTestCaseABC]]
         return [OBD_S01_Enumerator, OBD_S02_Enumerator, OBD_S06_Enumerator,
                 OBD_S08_Enumerator, OBD_S09_Enumerator, OBD_S03_Enumerator,
                 OBD_S07_Enumerator, OBD_S0A_Enumerator]
