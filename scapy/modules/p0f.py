@@ -465,7 +465,7 @@ def packet2tcpsig(pkt):
     # TCP parsing
     tcp = pkt[TCP]
     win = tcp.window
-    if tcp.flags.C or tcp.flags.E:
+    if tcp.flags & (0x40 | 0x80 | 0x01):
         addq("ecn")
     if tcp.seq == 0:
         addq("seq-")
