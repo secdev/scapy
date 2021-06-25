@@ -444,7 +444,7 @@ def packet2tcpsig(pkt):
     if ip_ver == 4:
         ttl = pkt.ttl
         ip_opt_len = (pkt.ihl * 4) - 20
-        if (pkt.tos & 0x3) in (0x1, 0x2, 0x3):
+        if pkt.tos & (0x01 | 0x02):
             addq("ecn")
         if pkt.flags.evil:
             addq("0+")
@@ -459,7 +459,7 @@ def packet2tcpsig(pkt):
         ip_opt_len = 0
         if pkt.fl:
             addq("flow")
-        if (pkt.tc & 0x3) in (0x1, 0x2, 0x3):
+        if pkt.tc & (0x01 | 0x02):
             addq("ecn")
 
     # TCP parsing
