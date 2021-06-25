@@ -1,0 +1,73 @@
+name: Bug Report
+description: File a bug report
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Things to consider
+        1.  Please check that you are using the **latest scapy version**, e.g. installed via:
+            `pip install --upgrade git+git://github.com/secdev/scapy`
+        2.  If you are here to ask a question - please check previous issues and online resources, and consider using gitter instead: <https://gitter.im/secdev/scapy>
+        3.  Please understand that **this is not a forum** but an issue tracker. The following article explains why you should limit questions asked on Github issues: <https://medium.com/@methane/why-you-must-not-ask-questions-on-github-issues-51d741d83fde>
+
+        ***All bug reports must have at least one reproducible example.*** This may be a code snippet, a pcap file (zipped)..
+  - type: textarea
+    id: description
+    attributes:
+      label: Brief description
+      description: |
+        Describe the main issue in one sentence
+        If possible, describe what components / protocols could be affected by the issue (e.g. wrpcap() + IPv6, it is likely this also affects XXX)
+    validations:
+      required: true
+  - type: input
+    id: scapy_ver
+    attributes:
+      label: Scapy version
+      description: Give the scapy version or the commit hash
+      placeholder: 2.4.5
+    validations:
+      required: true
+  - type: input
+    id: py_ver
+    attributes:
+      label: Python version
+      placeholder: "3.8"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Minix 3.4
+    validations:
+      required: true
+  - type: textarea
+    id: add_os
+    attributes:
+      label: Additional environment information
+      description: If needed - further information to get a picture of your setup (e.g. a sketch of your network setup)
+    validations:
+      required: false
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: Step-by-step explanation or a short script, may reference section 'Related resources'
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Actual result
+      description: Dump results that outline the issue, please format your code
+  - type: textarea
+    id: expected_result
+    attributes:
+      label: Expected result
+      description: Describe the expected result and outline the difference to the actual one, could also be a screen shot (e.g. wireshark)
+  - type: textarea
+    id: resources
+    attributes:
+      label: Related resources
+      description: Traces / sample pcaps (stripped to the relevant frames), related standards, RFCs or other resources
