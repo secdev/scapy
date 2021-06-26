@@ -5,6 +5,24 @@
 = Module loading
 load_module('p0f')
 
+= Fetch database
+~ netaccess
+
+try:
+    from urllib.request import urlopen
+except ImportError:
+    from urllib2 import urlopen
+
+for i in range(10):
+    try:
+        open("p0f.fp", 'wb').write(urlopen('https://raw.githubusercontent.com/p0f/p0f/e8b924ae7fa099a3a5fe7def0ce3e397fd9a7137/p0f.fp').read())
+        break
+    except:
+        raise
+
+conf.p0f_base = "p0f.fp"
+p0fdb.reload(conf.p0f_base)
+
 + Default tests
 
 = Test TCP p0f, SYN - Windows

@@ -394,7 +394,7 @@ def detect_win_multi(tcpsig):
         options.append((mss + MIN_TCP6, True))
 
     for div, use_mtu in options:
-        if not (win % div):
+        if not win % div:
             return win / div, use_mtu
     return -1, False
 
