@@ -1,0 +1,75 @@
+% knx layer test campaign
+
++ Syntax check
+= Import the knx layer
+from scapy.contrib.knx import *
+
++ Test KNX Header
+= Header default values
+pkt = KNX()
+assert(raw(pkt) == b'\x06\x10\x00\x00\x00\x06')
+
+= KNX Header payload length calculation
+pkt = KNX(service_identifier=0x0203)/KNXDescriptionRequest()
+assert(raw(pkt)[4:6] == b'\x00\x0e')
+
+= KNX Header Guess Payload KNXSearchRequest
+p = KNX(b'\x06\x10\x02\x01\x00\x0e\x08\x01\x00\x00\x00\x00\x00\x00')
+assert(isinstance(p.payload, KNXSearchRequest))
+
+= KNX Header Guess Payload KNXSearchResponse
+p = KNX(b'\x06\x10\x02\x02\x00F\x08\x01\x00\x00\x00\x00\x00\x006\x01\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x02')
+assert(isinstance(p.payload, KNXSearchResponse))
+
+= KNX Header Guess Payload KNXDescriptionRequest
+p = KNX(b'\x06\x10\x02\x03\x00\x0e\x08\x01\x00\x00\x00\x00\x00\x00')
+assert(isinstance(p.payload, KNXDescriptionRequest))
+
+= KNX Header Guess Payload KNXDescriptionResponse
+p = KNX(b'\x06\x10\x02\x04\x00>6\x01\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x02')
+assert(isinstance(p.payload, KNXDescriptionResponse))
+
+= KNX Header Guess Payload KNXConnectRequest
+p = KNX(b'\x06\x10\x02\x05\x00\x18\x08\x01\x00\x00\x00\x00\x00\x00\x08\x01\x00\x00\x00\x00\x00\x00\x02\x03')
+assert(isinstance(p.payload, KNXConnectRequest))
+
+= KNX Header Guess Payload KNXConnectResponse
+p = KNX(b'\x06\x10\x02\x06\x00\x12\x00\x00\x08\x01\x00\x00\x00\x00\x00\x00\x02\x03')
+assert(isinstance(p.payload, KNXConnectResponse))
+
+= KNX Header Guess Payload KNXConnectionstateRequest
+p = KNX(b'\x06\x10\x02\x07\x00\x10\x00\x00\x08\x01\x00\x00\x00\x00\x00\x00')
+assert(isinstance(p.payload, KNXConnectionstateRequest))
+
+= KNX Header Guess Payload KNXConnectionstateResponse
+p = KNX(b'\x06\x10\x02\x08\x00\x08\x00\x00')
+assert(isinstance(p.payload, KNXConnectionstateResponse))
+
+= KNX Header Guess Payload KNXDisconnectRequest
+p = KNX(b'\x06\x10\x02\t\x00\x10\x01\x00\x08\x01\x00\x00\x00\x00\x00\x00')
+assert(isinstance(p.payload, KNXDisconnectRequest))
+
+= KNX Header Guess Payload KNXDisconnectResponse
+p = KNX(b'\x06\x10\x02\n\x00\x08\x00\x00')
+assert(isinstance(p.payload, KNXDisconnectResponse))
+
+= KNX Header Guess Payload KNXConfigurationRequest
+p = KNX(b'\x06\x10\x03\x10\x00\x15\x04\x01\x00\x00\x00\x00\xbc\xe0\x00\x00\n\x03\x01\x00\x80')
+assert(isinstance(p.payload, KNXConfigurationRequest))
+
+= KNX Header Guess Payload KNXConfigurationACK
+p = KNX(b'\x06\x10\x03\x11\x00\n\x04\x01\x00\x00')
+assert(isinstance(p.payload, KNXConfigurationACK))
+
+= KNX Header Guess Payload KNXTunnelingRequest
+p = KNX(b'\x06\x10\x04 \x00\x15\x04\x01\x00\x00\x00\x00\xbc\xe0\x00\x00\n\x03\x01\x00\x80')
+assert(isinstance(p.payload, KNXTunnelingRequest))
+
+= KNX Header Guess Payload KNXTunnelingACK
+p = KNX(b'\x06\x10\x04!\x00\n\x04\x01\x00\x00')
+assert(isinstance(p.payload, KNXTunnelingACK))
+
++ Test layer binding
+= Destination port
+
+
