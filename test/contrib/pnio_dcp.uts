@@ -206,6 +206,31 @@ assert(p[DCPControlBlock].response_sub_option == 0x02)
 assert(p[DCPControlBlock].block_error == 0x00)
 
 
+= DCP Set Full IP Suite Request parsing
+
+p = Ether(b'\x12\x34\x00\x78\x90\xab\xc8\x5b\x76\xe6\x89\xdf' \
+      b'\x88\x92\xfe\xfd\x04\x00\x00\x00\x00\x04\x00\x00' \
+      b'\x00\x28\x01\x03\x00\x1e\x00\x00\xc0\xa8\x01\xab' \
+      b'\xff\xff\xff\x00\xc0\xa8\x01\x01\x01\x02\x03\x04' \
+      b'\x05\x06\x07\x08\x00\x00\x00\x00\x00\x00\x00\x00')
+
+assert(p[ProfinetIO].frameID == 0xfefd)
+assert(p[ProfinetDCP].service_id == 0x04)
+assert(p[ProfinetDCP].service_type == 0x00)
+assert(p[ProfinetDCP].xid == 0x0000004)
+assert(p[ProfinetDCP].reserved == 0x00)
+assert(p[ProfinetDCP].dcp_data_length == 40)
+assert(p[ProfinetDCP].option == 0x01)
+assert(p[ProfinetDCP].sub_option == 0x03)
+assert(p[ProfinetDCP].ip == "192.168.1.171")
+assert(p[ProfinetDCP].netmask == "255.255.255.0")
+assert(p[ProfinetDCP].gateway == "192.168.1.1")
+assert(p[ProfinetDCP].dnsaddr[0] == "1.2.3.4")
+assert(p[ProfinetDCP].dnsaddr[1] == "5.6.7.8")
+assert(p[ProfinetDCP].dnsaddr[2] == "0.0.0.0")
+assert(p[ProfinetDCP].dnsaddr[3] == "0.0.0.0")
+
+
 = DCP Identify All Request crafting
 
 # dcp_data_length cannot be calculated automatically at this time
@@ -253,6 +278,25 @@ assert(p[DCPNameOfStationBlock].sub_option == 0x02)
 assert(p[DCPNameOfStationBlock].dcp_block_length == 0x08)
 assert(p[DCPNameOfStationBlock].block_info == 0x00)
 assert(p[DCPNameOfStationBlock].name_of_station == b'device')
+
+
+= DCP Set Full IP Suite Request crafting
+
+p = ProfinetIO(frameID=DCP_GET_SET_FRAME_ID) / ProfinetDCP(service_id=DCP_SERVICE_ID_SET, service_type=DCP_REQUEST, option=1, sub_option=3, ip='192.168.1.171', netmask='255.255.255.0', gateway='192.168.1.1', dnsaddr=['1.2.3.4', '5.6.7.8'], dcp_data_length=40, dcp_block_length=30)
+
+assert(p[ProfinetIO].frameID == 0xfefd)
+assert(p[ProfinetDCP].service_id == 0x04)
+assert(p[ProfinetDCP].service_type == 0x00)
+assert(p[ProfinetDCP].xid == 0x1000001)
+assert(p[ProfinetDCP].reserved == 0x00)
+assert(p[ProfinetDCP].dcp_data_length == 40)
+assert(p[ProfinetDCP].option == 0x01)
+assert(p[ProfinetDCP].sub_option == 0x03)
+assert(p[ProfinetDCP].ip == "192.168.1.171")
+assert(p[ProfinetDCP].netmask == "255.255.255.0")
+assert(p[ProfinetDCP].gateway == "192.168.1.1")
+assert(p[ProfinetDCP].dnsaddr[0] == "1.2.3.4")
+assert(p[ProfinetDCP].dnsaddr[1] == "5.6.7.8")
 
 
 conf.debug_dissector = old_conf_dissector
