@@ -15,6 +15,7 @@ from select import select
 
 import array
 import ctypes
+import json
 import os
 import socket
 import struct
@@ -341,7 +342,61 @@ def in6_getifaddr():
     return ret
 
 
-def read_routes6():
+def _read_routes6_iproute2(all_tables=False):
+    # type: () -> List[Tuple[str, int, str, str, List[str], int]]
+
+    cmd = ['ip', '-json', '-6', 'route', 'show']
+    if all_tables:
+        cmd += ['table', 'all']
+
+    try:
+        res = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+    except subprocess.CalledProcessError as ex:
+        # Probably -json is not supported on this version. The caller
+        # will fall back to the /proc/net method.
+        raise IOError(ex)
+
+    routes = []
+    lifaddr = in6_getifaddr()
+    for rt in json.loads(res.stdout):
+        # Skip reject/unreachable routes (note: the JSON output omits
+        # the default 'type=unicast' unless the '-d' option is given)
+        if rt.get('type', 'unicast') != 'unicast':
+            continue
+
+        if rt['dst'] == 'default':
+            d, dp = '::', 0
+        else:
+            d, _, dp = rt['dst'].partition('/')
+            dp = int(dp or '128')
+
+        # ECMP routes have an array of nexthops
+        if 'nexthops' in rt:
+            gws = [(nh.get('gateway', '::'), nh['dev']) for nh in rt['nexthops']]
+        else:
+            gws = [(rt.get('gateway', '::'), rt['dev'])]
+
+        metric = rt['metric']
+
+        for nh, dev in gws:
+            cset = []
+            if dev == conf.loopback_name:
+                if d == '::':
+                    continue
+                cset = ['::1']
+            else:
+                devaddrs = (x for x in lifaddr if x[2] == dev)
+                try:
+                    cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs)
+                except:
+                    print(rt)
+                    raise
+
+            if len(cset) != 0:
+                routes.append((d, dp, nh, dev, cset, metric))
+    return routes
+
+def _read_routes6_proc():
     # type: () -> List[Tuple[str, int, str, str, List[str], int]]
     try:
         f = open("/proc/net/ipv6_route", "rb")
@@ -394,6 +449,14 @@ def read_routes6():
             routes.append((d, dp, nh, dev, cset, metric))
     f.close()
     return routes
+
+
+def read_routes6():
+    # type: () -> List[Tuple[str, int, str, str, List[str], int]]
+    try:
+        return _read_routes6_iproute2(all_tables=True)
+    except IOError:
+        return _read_routes6_proc()
 
 
 def get_if_index(iff):
