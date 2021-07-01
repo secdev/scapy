@@ -4,7 +4,7 @@
 # This program is published under a GPLv2 license
 
 """
-Clone of p0f passive OS fingerprinting
+Clone of p0f v2 passive OS fingerprinting
 """
 
 from __future__ import absolute_import
