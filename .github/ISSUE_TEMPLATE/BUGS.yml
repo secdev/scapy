@@ -5,9 +5,9 @@ body:
     attributes:
       value: |
         ### Things to consider
-        1.  Please check that you are using the **latest scapy version**, e.g. installed via:
+        1.  Please check that you are using the **latest Scapy version**, e.g. installed via:
             `pip install --upgrade git+git://github.com/secdev/scapy`
-        2.  If you are here to ask a question - please check previous issues and online resources, and consider using gitter instead: <https://gitter.im/secdev/scapy>
+        2.  If you are here to ask a question - please check previous issues and online resources, and consider using Gitter instead: <https://gitter.im/secdev/scapy>
         3.  Please understand that **this is not a forum** but an issue tracker. The following article explains why you should limit questions asked on Github issues: <https://medium.com/@methane/why-you-must-not-ask-questions-on-github-issues-51d741d83fde>
 
         ***All bug reports must have at least one reproducible example.*** This may be a code snippet, a pcap file (zipped)..
@@ -24,7 +24,7 @@ body:
     id: scapy_ver
     attributes:
       label: Scapy version
-      description: Give the scapy version or the commit hash
+      description: Give the Scapy version or the commit hash
       placeholder: 2.4.5
     validations:
       required: true
@@ -39,7 +39,7 @@ body:
     id: os
     attributes:
       label: Operating system
-      placeholder: Minix 3.4
+      placeholder: Linux 5.10.46
     validations:
       required: true
   - type: textarea
