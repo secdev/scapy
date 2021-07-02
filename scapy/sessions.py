@@ -300,7 +300,7 @@ class TCPSession(IPSession):
                 return pkt
             metadata["pay_class"] = pay_class
             metadata["tcp_reassemble"] = tcp_reassemble
-            metadata["seq"] = pkt[TCP].seq
+            metadata["seq"] = seq
         else:
             tcp_reassemble = metadata["tcp_reassemble"]
         # Get a relative sequence number for a storage purpose
@@ -327,7 +327,7 @@ class TCPSession(IPSession):
             packet = tcp_reassemble(bytes(data), metadata)
         # Stack the result on top of the previous frames
         if packet:
-            if metadata["seq"] is not None:
+            if "seq" in metadata:
                 pkt[TCP].seq = metadata["seq"]
             data.clear()
             metadata.clear()
@@ -337,7 +337,7 @@ class TCPSession(IPSession):
                 pkt[IP].len = None
                 pkt[IP].chksum = None
             pkt = pkt / packet
-            pkt.wirelen = len(raw(pkt))
+            pkt.wirelen = None
             return pkt
         return None
 
