@@ -301,7 +301,7 @@ def update_ipython_session(session):
 
 def _scapy_builtins():
     # type: () -> Dict[str, Any]
-    """Load scapy and return all builtins"""
+    """Load Scapy and return all builtins"""
     return {k: v
             for k, v in six.iteritems(
                 importlib.import_module(".all", "scapy").__dict__.copy()
@@ -455,7 +455,7 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
     else:
         SESSION = {"conf": conf}
 
-    # Load scapy
+    # Load Scapy
     scapy_builtins = _scapy_builtins()
 
     SESSION.update(scapy_builtins)
