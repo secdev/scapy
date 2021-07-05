@@ -1,5 +1,5 @@
 % Regression tests for the XCP using CANSockets
-~ not_pypy
+~ not_pypy automotive_comm
 # More information at http://www.secdev.org/projects/UTscapy/
 
 ############

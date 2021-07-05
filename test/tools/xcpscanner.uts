@@ -1,5 +1,5 @@
 % Regression tests for the XCP_CAN
-~ needs_root not_pypy
+~ needs_root not_pypy automotive_comm
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
