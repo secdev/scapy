@@ -27,6 +27,7 @@
 
 # scapy.contrib.description = KNX Protocol
 # scapy.contrib.status = loads
+import struct
 
 from scapy.fields import PacketField, MultipleTypeField, ByteField, XByteField, \
     ShortEnumField, ShortField, \
@@ -36,7 +37,7 @@ from scapy.fields import PacketField, MultipleTypeField, ByteField, XByteField, 
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Padding
 from scapy.layers.inet import UDP
 
-### KNX CODES
+# KNX CODES
 
 # KNX Standard v2.1 - 03_08_02 p20
 SERVICE_IDENTIFIER_CODES = {
@@ -153,7 +154,7 @@ CEMI_PROPERTIES = {
 }
 
 
-### KNX SPECIFIC FIELDS
+# KNX SPECIFIC FIELDS
 
 # KNX Standard v2.1 - 03_05_01 p.17
 class KNXAddressField(ShortField):
@@ -164,13 +165,14 @@ class KNXAddressField(ShortField):
             return "%d.%d.%d" % ((x >> 12) & 0xf, (x >> 8) & 0xf, (x & 0xff))
 
     def any2i(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             try:
                 a, b, c = map(int, x.split("."))
                 x = (a << 12) | (b << 8) | c
-            except:
+            except ValueError:
                 raise ValueError(x)
         return ShortField.any2i(self, pkt, x)
+
 
 # KNX Standard v2.1 - 03_05_01 p.18
 class KNXGroupField(ShortField):
@@ -178,16 +180,16 @@ class KNXGroupField(ShortField):
         return "%d/%d/%d" % ((x >> 11) & 0x1f, (x >> 8) & 0x7, (x & 0xff))
 
     def any2i(self, pkt, x):
-        if type(x) is str:
+        if isinstance(x, str):
             try:
                 a, b, c = map(int, x.split("/"))
                 x = (a << 11) | (b << 8) | c
-            except:
+            except ValueError:
                 raise ValueError(x)
         return ShortField.any2i(self, pkt, x)
 
 
-### KNX PLACEHOLDERS
+# KNX PLACEHOLDERS
 
 # KNX Standard v2.1 - 03_08_02 p21
 class HPAI(Packet):
@@ -200,7 +202,8 @@ class HPAI(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        if p[0] == 0x00:
+            p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -214,7 +217,8 @@ class ServiceFamily(Packet):
 
 
 # Different DIB types depends on the "description_type_code" field
-# Defining a generic DIB packet and differentiating with `dispatch_hook` or `MultipleTypeField` may better fit KNX specs
+# Defining a generic DIB packet and differentiating with `dispatch_hook` or `MultipleTypeField`
+# may better fit KNX specs
 class DIBDeviceInfo(Packet):
     name = "DIB: DEVICE_INFO"
     fields_desc = [
@@ -231,7 +235,8 @@ class DIBDeviceInfo(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        if p[0] == 0x00:
+            p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -241,14 +246,16 @@ class DIBSuppSvcFamilies(Packet):
         ByteField("structure_length", 0x02),
         ByteEnumField("description_type", 0x02, DESCRIPTION_TYPE_CODES),
         ConditionalField(
-            PacketListField("service_family", ServiceFamily(), ServiceFamily,
-                            length_from=lambda
-                                pkt: pkt.structure_length - 0x02),
+            PacketListField("service_family",
+                            ServiceFamily(),
+                            ServiceFamily,
+                            length_from=lambda pkt: pkt.structure_length - 0x02),
             lambda pkt: pkt.structure_length > 0x02)
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        if p[0] == 0x00:
+            p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -279,7 +286,8 @@ class CRI(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        if p[0] == 0x00:
+            p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -288,12 +296,15 @@ class CRD(Packet):
     fields_desc = [
         ByteField("structure_length", 0x00),
         ByteEnumField("connection_type", 0x03, CONNECTION_TYPE_CODES),
-        ConditionalField(PacketField("connection_data", CRDTunnelingConnection(), CRDTunnelingConnection),
+        ConditionalField(PacketField("connection_data",
+                                     CRDTunnelingConnection(),
+                                     CRDTunnelingConnection),
                          lambda pkt: pkt.connection_type == 0x04)
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        if p[0] == 0x00:
+            p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -379,7 +390,7 @@ class CEMI(Packet):
     ]
 
 
-### KNX SERVICES
+# KNX SERVICES
 
 # KNX Standard v2.1 - 03_08_02 p28
 class KNXSearchRequest(Packet):
@@ -491,7 +502,8 @@ class KNXConfigurationRequest(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p[:4])).to_bytes(1, byteorder='big') + p[1:]
+        if p[0] == 0x00:
+            p = struct.pack("!B", len(p[:4])) + p[1:]
         return p + pay
 
 
@@ -506,7 +518,8 @@ class KNXConfigurationACK(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        if p[0] == 0x00:
+            p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
@@ -522,7 +535,8 @@ class KNXTunnelingRequest(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p[:4])).to_bytes(1, byteorder='big') + p[1:]
+        if p[0] == 0x00:
+            p = struct.pack("!B", len(p[:4])) + p[1:]
         return p + pay
 
 
@@ -537,14 +551,15 @@ class KNXTunnelingACK(Packet):
     ]
 
     def post_build(self, p, pay):
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        if p[0] == 0x00:
+            p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
 
-### KNX FRAME
+# KNX FRAME
 
 # we made the choice to define a KNX service as a payload for a KNX Header
-# it could also be possible to define the body as a conditionnal PacketField contained after the header
+# it could also be possible to define the body as a conditionnal PacketField contained after header
 
 class KNX(Packet):
     name = "KNXnet/IP"
@@ -557,14 +572,18 @@ class KNX(Packet):
 
     def post_build(self, p, pay):
         # computes header_length
-        p = (len(p)).to_bytes(1, byteorder='big') + p[1:]
+        if p[0] == 0x00:
+            p = struct.pack("!B", len(p)) + p[1:]
         # computes total_length
-        p = p[:-2] + (len(p) + len(pay)).to_bytes(2, byteorder='big')
+        if p[4] == 0x00 and p[5] == 0x00:
+            p = p[:-2] + struct.pack("!H", len(p) + len(pay))
         return p + pay
 
 
-### LAYERS BINDING
-bind_layers(UDP, KNX, dport=3671)
+# LAYERS BINDING
+bind_bottom_up(UDP, KNX, dport=3671)
+bind_bottom_up(UDP, KNX, sport=3671)
+bind_layers(UDP, KNX, sport=3671, dport=3671)
 
 bind_layers(KNX, KNXSearchRequest, service_identifier=0x0201)
 bind_layers(KNX, KNXSearchResponse, service_identifier=0x0202)
@@ -617,4 +636,3 @@ bind_layers(KNXConfigurationRequest, Padding)
 bind_layers(KNXConfigurationACK, Padding)
 bind_layers(KNXTunnelingRequest, Padding)
 bind_layers(KNXTunnelingACK, Padding)
-
