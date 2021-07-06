@@ -35,16 +35,12 @@ from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS
 
 from scapy.compat import (
-    cast,
     Any,
     Dict,
     List,
     Optional,
-    Tuple,
-    Union
+    Union,
 )
-
-IGNORED = list(six.moves.builtins.__dict__)
 
 LAYER_ALIASES = {
     "tls": "tls.all"
@@ -119,11 +115,8 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
 
 def _validate_local(x):
     # type: (str) -> bool
-    """Returns whether or not a variable should be imported.
-    Will return False for any default modules (sys), or if
-    they are detected as private vars (starting with a _)"""
-    global IGNORED
-    return x[0] != "_" and x not in IGNORED
+    """Returns whether or not a variable should be imported."""
+    return x[0] != "_"
 
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".scapy_prestart.py")
@@ -296,11 +289,24 @@ def list_contrib(name=None,  # type: Optional[str]
 def update_ipython_session(session):
     # type: (Dict[str, Any]) -> None
     """Updates IPython session with a custom one"""
+    if "_oh" not in session:
+        session["_oh"] = session["Out"] = {}
+        session["In"] = {}
     try:
         from IPython import get_ipython
         get_ipython().user_ns.update(session)
     except Exception:
         pass
+
+
+def _scapy_builtins():
+    # type: () -> Dict[str, Any]
+    """Load Scapy and return all builtins"""
+    return {k: v
+            for k, v in six.iteritems(
+                importlib.import_module(".all", "scapy").__dict__.copy()
+            )
+            if _validate_local(k)}
 
 
 def save_session(fname="", session=None, pickleProto=-1):
@@ -317,7 +323,7 @@ def save_session(fname="", session=None, pickleProto=-1):
         fname = conf.session
         if not fname:
             conf.session = fname = utils.get_temp_file(keep=True)
-    log_interactive.info("Use [%s] as session file", fname)
+    log_interactive.info("Saving session into [%s]", fname)
 
     if not session:
         try:
@@ -326,21 +332,28 @@ def save_session(fname="", session=None, pickleProto=-1):
         except Exception:
             session = six.moves.builtins.__dict__["scapy_session"]
 
-    to_be_saved = cast(Dict[str, Any], session).copy()
-    if "__builtins__" in to_be_saved:
-        del(to_be_saved["__builtins__"])
+    if not session:
+        log_interactive.error("No session found ?!")
+        return
+
+    ignore = session.get("_scpybuiltins", [])
+    hard_ignore = ["scapy_session", "In", "Out"]
+    to_be_saved = session.copy()
 
     for k in list(to_be_saved):
         i = to_be_saved[k]
-        if hasattr(i, "__module__") and (k[0] == "_" or
-                                         i.__module__.startswith("IPython")):
+        if k[0] == "_":
             del(to_be_saved[k])
-        if isinstance(i, ConfClass):
+        elif hasattr(i, "__module__") and i.__module__.startswith("IPython"):
             del(to_be_saved[k])
-        elif isinstance(i, (type, type, types.ModuleType)):
+        elif isinstance(i, ConfClass):
+            del(to_be_saved[k])
+        elif k in ignore or k in hard_ignore:
+            del(to_be_saved[k])
+        elif isinstance(i, (type, types.ModuleType)):
             if k[0] != "_":
-                log_interactive.error("[%s] (%s) can't be saved.", k,
-                                      type(to_be_saved[k]))
+                log_interactive.warning("[%s] (%s) can't be saved.", k,
+                                        type(to_be_saved[k]))
             del(to_be_saved[k])
 
     try:
@@ -373,6 +386,7 @@ def load_session(fname=None):
             raise
 
     scapy_session = six.moves.builtins.__dict__["scapy_session"]
+    s.update({k: scapy_session[k] for k in scapy_session["_scpybuiltins"]})
     scapy_session.clear()
     scapy_session.update(s)
     update_ipython_session(scapy_session)
@@ -399,21 +413,12 @@ def update_session(fname=None):
 
 
 def init_session(session_name,  # type: Optional[Union[str, None]]
-                 mydict=None  # type: Optional[Union[Dict[str, Any], None]]
+                 mydict=None,  # type: Optional[Union[Dict[str, Any], None]]
+                 ret=False,  # type: bool
                  ):
-    # type: (...) -> Tuple[Dict[str, Any], List[str]]
+    # type: (...) -> Optional[Dict[str, Any]]
     from scapy.config import conf
-    SESSION = {}  # type: Dict[str, Any]
-    GLOBKEYS = []  # type: List[str]
-
-    scapy_builtins = {k: v
-                      for k, v in six.iteritems(
-                          importlib.import_module(".all", "scapy").__dict__
-                      )
-                      if _validate_local(k)}
-    six.moves.builtins.__dict__.update(scapy_builtins)
-    GLOBKEYS.extend(scapy_builtins)
-    GLOBKEYS.append("scapy_session")
+    SESSION = {}  # type: Optional[Dict[str, Any]]
 
     if session_name:
         try:
@@ -427,7 +432,7 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
                                                                "rb"))
                 except IOError:
                     SESSION = six.moves.cPickle.load(open(session_name, "rb"))
-                log_loading.info("Using session [%s]", session_name)
+                log_loading.info("Using existing session [%s]", session_name)
             except ValueError:
                 msg = "Error opening Python3 pickled session on Python2 [%s]"
                 log_loading.error(msg, session_name)
@@ -450,13 +455,19 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
     else:
         SESSION = {"conf": conf}
 
+    # Load Scapy
+    scapy_builtins = _scapy_builtins()
+
+    SESSION.update(scapy_builtins)
+    SESSION["_scpybuiltins"] = scapy_builtins.keys()
     six.moves.builtins.__dict__["scapy_session"] = SESSION
 
     if mydict is not None:
         six.moves.builtins.__dict__["scapy_session"].update(mydict)
         update_ipython_session(mydict)
-        GLOBKEYS.extend(mydict)
-    return SESSION, GLOBKEYS
+    if ret:
+        return SESSION
+    return None
 
 ################
 #     Main     #
@@ -547,7 +558,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     # Reset sys.argv, otherwise IPython thinks it is for him
     sys.argv = sys.argv[:1]
 
-    SESSION, GLOBKEYS = init_session(session_name, mydict)
+    SESSION = init_session(session_name, mydict=mydict, ret=True)
 
     if STARTUP_FILE:
         _read_config_file(STARTUP_FILE, interactive=True)
@@ -699,12 +710,6 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
 
     if conf.session:
         save_session(conf.session, SESSION)
-
-    for k in GLOBKEYS:
-        try:
-            del(six.moves.builtins.__dict__[k])
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":

@@ -829,14 +829,18 @@ scapy_delete_temp_files()
 atol("www.secdev.org") == 3642339845
 
 = Test autorun functions
+~ autorun
 
 ret = autorun_get_text_interactive_session("IP().src")
+ret
 assert(ret == (">>> IP().src\n'127.0.0.1'\n", '127.0.0.1'))
 
 ret = autorun_get_html_interactive_session("IP().src")
+ret
 assert(ret == ("<span class=prompt>&gt;&gt;&gt; </span>IP().src\n'127.0.0.1'\n", '127.0.0.1'))
 
 ret = autorun_get_latex_interactive_session("IP().src")
+ret
 assert(ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP().src\n'127.0.0.1'\n", '127.0.0.1'))
 
 ret = autorun_get_text_interactive_session("scapy_undefined")
@@ -884,8 +888,14 @@ conf.netcache
 
 = Test pyx detection functions
 
-from scapy.extlib import _test_pyx
-assert _test_pyx() == False
+from mock import patch
+
+def _r(*args, **kwargs):
+    raise OSError
+
+with patch("scapy.extlib.subprocess.check_call", _r):
+    from scapy.extlib import _test_pyx
+    assert _test_pyx() == False
 
 = Test matplotlib detection functions
 
