@@ -1,8 +1,6 @@
 % Regression tests for isotp_scan
-~ not_pypy vcan_socket needs_root
+~ not_pypy vcan_socket needs_root automotive_comm
 * Some tests are disabled to lower the CI utilitzation
-
-~ vcan_socket
 
 + Configuration
 ~ conf

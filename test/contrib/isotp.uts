@@ -1,6 +1,6 @@
 % Regression tests for ISOTP
 
-~ vcan_socket
+~ automotive_comm
 
 + Configuration
 ~ conf
