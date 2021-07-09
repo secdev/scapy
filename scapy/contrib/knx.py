@@ -202,7 +202,7 @@ class HPAI(Packet):
     ]
 
     def post_build(self, p, pay):
-        if p[0] == 0x00:
+        if self.structure_length is None:
             p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
@@ -235,7 +235,7 @@ class DIBDeviceInfo(Packet):
     ]
 
     def post_build(self, p, pay):
-        if p[0] == 0x00:
+        if self.structure_length is None:
             p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
@@ -254,7 +254,7 @@ class DIBSuppSvcFamilies(Packet):
     ]
 
     def post_build(self, p, pay):
-        if p[0] == 0x00:
+        if self.structure_length is None:
             p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
@@ -286,7 +286,7 @@ class CRI(Packet):
     ]
 
     def post_build(self, p, pay):
-        if p[0] == 0x00:
+        if self.structure_length is None:
             p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
@@ -303,7 +303,7 @@ class CRD(Packet):
     ]
 
     def post_build(self, p, pay):
-        if p[0] == 0x00:
+        if self.structure_length is None:
             p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
@@ -502,7 +502,7 @@ class KNXConfigurationRequest(Packet):
     ]
 
     def post_build(self, p, pay):
-        if p[0] == 0x00:
+        if self.structure_length is None:
             p = struct.pack("!B", len(p[:4])) + p[1:]
         return p + pay
 
@@ -518,7 +518,7 @@ class KNXConfigurationACK(Packet):
     ]
 
     def post_build(self, p, pay):
-        if p[0] == 0x00:
+        if self.structure_length is None:
             p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
@@ -535,7 +535,7 @@ class KNXTunnelingRequest(Packet):
     ]
 
     def post_build(self, p, pay):
-        if p[0] == 0x00:
+        if self.structure_length is None:
             p = struct.pack("!B", len(p[:4])) + p[1:]
         return p + pay
 
@@ -551,7 +551,7 @@ class KNXTunnelingACK(Packet):
     ]
 
     def post_build(self, p, pay):
-        if p[0] == 0x00:
+        if self.structure_length is None:
             p = struct.pack("!B", len(p)) + p[1:]
         return p + pay
 
@@ -572,10 +572,10 @@ class KNX(Packet):
 
     def post_build(self, p, pay):
         # computes header_length
-        if p[0] == 0x00:
+        if self.header_length is None:
             p = struct.pack("!B", len(p)) + p[1:]
         # computes total_length
-        if p[4] == 0x00 and p[5] == 0x00:
+        if self.total_length is None:
             p = p[:-2] + struct.pack("!H", len(p) + len(pay))
         return p + pay
 
