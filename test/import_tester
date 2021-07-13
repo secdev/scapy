@@ -1,3 +1,0 @@
-#! /bin/bash
-cd "$(dirname $0)/.."
-find scapy -name '*.py' | sed -e 's#/#.#g' -e 's/\(\.__init__\)\?\.py$//'  | while read a; do echo "######### $a"; python -c "import $a"; done

@@ -1,0 +1,89 @@
+% Import tests
+
++ Import tests
+~ python3_only imports
+
+= Prepare importing all scapy files
+
+import glob
+import subprocess
+
+# DEV: to add your file to this list, make sure you have
+# a GREAT reason.
+EXCEPTIONS = [
+    "scapy.__main__",
+    "scapy.contrib.automotive*",
+    "scapy.contrib.cansocket*",
+    "scapy.contrib.isotp*",
+    "scapy.contrib.scada*",
+    "scapy.main",
+]
+EXCEPTION_PACKAGES = [
+    "arch",
+    "libs",
+    "modules",
+    "tools",
+]
+
+ALL_FILES = [
+    "scapy." + re.match(r".*scapy\/(.*)\.py$", x).group(1).replace("/", ".")
+    for x in glob.iglob(scapy_path('/scapy/**/*.py'), recursive=True)
+]
+ALL_FILES = [
+    x for x in ALL_FILES if
+    not any(x == y if y[-1] != "*" else x.startswith(y[:-1]) for y in EXCEPTIONS) and
+    x.split(".")[1] not in EXCEPTION_PACKAGES
+]
+
+import importlib
+from multiprocessing import Pool
+
+process_file_code = """# This was automatically generated
+import subprocess, sys
+
+def process_file(file):
+    proc = subprocess.Popen(
+        [sys.executable, "-c",
+         "import %s" % file],
+         stderr=subprocess.PIPE,
+         encoding="utf8")
+    errs = ""
+    try:
+        _, errs = proc.communicate(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        errs = "Timed out !"
+    if proc.returncode != 0:
+        return "Importing the file '%s' failed !\\n%s" % (file, errs)
+    return None
+"""
+
+tmp = get_temp_file(autoext=".py", keep=True)
+print(tmp)
+with open(tmp, "w") as fd:
+    fd.write(process_file_code)
+
+fld, file = os.path.split(tmp)
+sys.path.append(fld)
+pkg = importlib.import_module(os.path.splitext(file)[0])
+
+def import_all(FILES):
+    with Pool(processes=8) as pool:
+        for err in pool.imap_unordered(pkg.process_file, FILES, 4):
+            if err:
+                print(err)
+                pool.terminate()
+                raise ImportError
+
+
+= Try importing all core separately
+
+import_all(x for x in ALL_FILES if "layers" not in x and "contrib" not in x)
+
+= Try importing all layers separately
+
+import_all(x for x in ALL_FILES if "layers" in x)
+
+= Try importing all contribs separately
+
+import_all(x for x in ALL_FILES if "contrib" in x)

@@ -24,7 +24,6 @@ from scapy.error import Scapy_Exception, warning
 from scapy.interfaces import network_name
 from scapy.supersocket import SuperSocket
 from scapy.compat import raw
-from scapy.layers.l2 import Loopback
 
 
 if FREEBSD:
@@ -375,6 +374,7 @@ class L3bpfSocket(L2bpfSocket):
 
     def send(self, pkt):
         """Send a packet"""
+        from scapy.layers.l2 import Loopback
 
         # Use the routing table to find the output interface
         iff = pkt.route()[0]
