@@ -28,6 +28,31 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
 
+# https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
+dnstypes = {
+    0: "ANY",
+    1: "A", 2: "NS", 3: "MD", 4: "MF", 5: "CNAME", 6: "SOA", 7: "MB", 8: "MG",
+    9: "MR", 10: "NULL", 11: "WKS", 12: "PTR", 13: "HINFO", 14: "MINFO",
+    15: "MX", 16: "TXT", 17: "RP", 18: "AFSDB", 19: "X25", 20: "ISDN",
+    21: "RT", 22: "NSAP", 23: "NSAP-PTR", 24: "SIG", 25: "KEY", 26: "PX",
+    27: "GPOS", 28: "AAAA", 29: "LOC", 30: "NXT", 31: "EID", 32: "NIMLOC",
+    33: "SRV", 34: "ATMA", 35: "NAPTR", 36: "KX", 37: "CERT", 38: "A6",
+    39: "DNAME", 40: "SINK", 41: "OPT", 42: "APL", 43: "DS", 44: "SSHFP",
+    45: "IPSECKEY", 46: "RRSIG", 47: "NSEC", 48: "DNSKEY", 49: "DHCID",
+    50: "NSEC3", 51: "NSEC3PARAM", 52: "TLSA", 53: "SMIMEA", 55: "HIP",
+    56: "NINFO", 57: "RKEY", 58: "TALINK", 59: "CDS", 60: "CDNSKEY",
+    61: "OPENPGPKEY", 62: "CSYNC", 99: "SPF", 100: "UINFO", 101: "UID",
+    102: "GID", 103: "UNSPEC", 104: "NID", 105: "L32", 106: "L64", 107: "LP",
+    108: "EUI48", 109: "EUI64", 249: "TKEY", 250: "TSIG", 256: "URI",
+    257: "CAA", 258: "AVC", 32768: "TA", 32769: "DLV", 65535: "RESERVED"
+}
+
+
+dnsqtypes = {251: "IXFR", 252: "AXFR", 253: "MAILB", 254: "MAILA", 255: "ALL"}
+dnsqtypes.update(dnstypes)
+dnsclasses = {1: 'IN', 2: 'CS', 3: 'CH', 4: 'HS', 255: 'ANY'}
+
+
 def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
     """This function decompresses a string s, starting
     from the given pointer.
@@ -288,12 +313,16 @@ class DNSRRCountField(ShortField):
 
 
 class DNSRRField(StrField):
-    __slots__ = ["countfld", "passon"]
+    __slots__ = ["countfld", "passon", "rr"]
     holds_packets = 1
 
-    def __init__(self, name, countfld, passon=1):
+    def __init__(self, name, countfld, default, passon=1):
         StrField.__init__(self, name, None)
         self.countfld = countfld
+        # Notes:
+        # - self.rr: used by DNSRRCountField() to compute the records count
+        # - self.default: used to set the default record
+        self.rr = self.default = default
         self.passon = passon
 
     def i2m(self, pkt, x):
@@ -394,6 +423,14 @@ class DNSTextField(StrLenField):
         return ret_s
 
 
+class DNSQR(InheritOriginDNSStrPacket):
+    name = "DNS Question Record"
+    show_indent = 0
+    fields_desc = [DNSStrField("qname", "www.example.com"),
+                   ShortEnumField("qtype", 1, dnsqtypes),
+                   ShortEnumField("qclass", 1, dnsclasses)]
+
+
 class DNS(Packet):
     name = "DNS"
     fields_desc = [
@@ -417,10 +454,10 @@ class DNS(Packet):
         DNSRRCountField("ancount", None, "an"),
         DNSRRCountField("nscount", None, "ns"),
         DNSRRCountField("arcount", None, "ar"),
-        DNSQRField("qd", "qdcount"),
-        DNSRRField("an", "ancount"),
-        DNSRRField("ns", "nscount"),
-        DNSRRField("ar", "arcount", 0),
+        DNSQRField("qd", "qdcount", DNSQR()),
+        DNSRRField("an", "ancount", None),
+        DNSRRField("ns", "nscount", None),
+        DNSRRField("ar", "arcount", None, 0),
     ]
 
     def answers(self, other):
@@ -471,38 +508,6 @@ class DNS(Packet):
                 raise Scapy_Exception(message)
 
         return s
-
-
-# https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
-dnstypes = {
-    0: "ANY",
-    1: "A", 2: "NS", 3: "MD", 4: "MF", 5: "CNAME", 6: "SOA", 7: "MB", 8: "MG",
-    9: "MR", 10: "NULL", 11: "WKS", 12: "PTR", 13: "HINFO", 14: "MINFO",
-    15: "MX", 16: "TXT", 17: "RP", 18: "AFSDB", 19: "X25", 20: "ISDN", 21: "RT",  # noqa: E501
-    22: "NSAP", 23: "NSAP-PTR", 24: "SIG", 25: "KEY", 26: "PX", 27: "GPOS",
-    28: "AAAA", 29: "LOC", 30: "NXT", 31: "EID", 32: "NIMLOC", 33: "SRV",
-    34: "ATMA", 35: "NAPTR", 36: "KX", 37: "CERT", 38: "A6", 39: "DNAME",
-    40: "SINK", 41: "OPT", 42: "APL", 43: "DS", 44: "SSHFP", 45: "IPSECKEY",
-    46: "RRSIG", 47: "NSEC", 48: "DNSKEY", 49: "DHCID", 50: "NSEC3",
-    51: "NSEC3PARAM", 52: "TLSA", 53: "SMIMEA", 55: "HIP", 56: "NINFO", 57: "RKEY",  # noqa: E501
-    58: "TALINK", 59: "CDS", 60: "CDNSKEY", 61: "OPENPGPKEY", 62: "CSYNC",
-    99: "SPF", 100: "UINFO", 101: "UID", 102: "GID", 103: "UNSPEC", 104: "NID",
-    105: "L32", 106: "L64", 107: "LP", 108: "EUI48", 109: "EUI64",
-    249: "TKEY", 250: "TSIG", 256: "URI", 257: "CAA", 258: "AVC",
-    32768: "TA", 32769: "DLV", 65535: "RESERVED"
-}
-
-dnsqtypes = {251: "IXFR", 252: "AXFR", 253: "MAILB", 254: "MAILA", 255: "ALL"}
-dnsqtypes.update(dnstypes)
-dnsclasses = {1: 'IN', 2: 'CS', 3: 'CH', 4: 'HS', 255: 'ANY'}
-
-
-class DNSQR(InheritOriginDNSStrPacket):
-    name = "DNS Question Record"
-    show_indent = 0
-    fields_desc = [DNSStrField("qname", "www.example.com"),
-                   ShortEnumField("qtype", 1, dnsqtypes),
-                   ShortEnumField("qclass", 1, dnsclasses)]
 
 
 # RFC 2671 - Extension Mechanisms for DNS (EDNS0)

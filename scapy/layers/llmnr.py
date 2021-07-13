@@ -38,10 +38,10 @@ class LLMNRQuery(Packet):
                    DNSRRCountField("ancount", None, "an"),
                    DNSRRCountField("nscount", None, "ns"),
                    DNSRRCountField("arcount", None, "ar"),
-                   DNSQRField("qd", "qdcount"),
-                   DNSRRField("an", "ancount"),
-                   DNSRRField("ns", "nscount"),
-                   DNSRRField("ar", "arcount", 0)]
+                   DNSQRField("qd", "qdcount", None),
+                   DNSRRField("an", "ancount", None),
+                   DNSRRField("ns", "nscount", None),
+                   DNSRRField("ar", "arcount", None, 0)]
     overload_fields = {UDP: {"sport": 5355, "dport": 5355}}
 
     def hashret(self):
