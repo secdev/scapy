@@ -11,14 +11,18 @@ import subprocess
 # DEV: to add your file to this list, make sure you have
 # a GREAT reason.
 EXCEPTIONS = [
-    "scapy.main",
     "scapy.__main__",
-    "scapy.contrib.cansocket_python_can",
+    "scapy.contrib.automotive*",
+    "scapy.contrib.cansocket*",
+    "scapy.contrib.isotp*",
+    "scapy.contrib.scada*",
+    "scapy.main",
 ]
 EXCEPTION_PACKAGES = [
     "arch",
+    "libs",
+    "modules",
     "tools",
-    "module"
 ]
 
 ALL_FILES = [
@@ -27,7 +31,7 @@ ALL_FILES = [
 ]
 ALL_FILES = [
     x for x in ALL_FILES if
-    x not in EXCEPTIONS and
+    not any(x == y if y[-1] != "*" else x.startswith(y[:-1]) for y in EXCEPTIONS) and
     x.split(".")[1] not in EXCEPTION_PACKAGES
 ]
 
