@@ -38,7 +38,7 @@ WIN_TYPE_MOD = 2  # Modulo check
 WIN_TYPE_MSS = 3  # Window size MSS multiplier
 WIN_TYPE_MTU = 4  # Window size MTU multiplier
 
-# Convert TCP option num to p0f (nop is handled seperately)
+# Convert TCP option num to p0f (nop is handled separately)
 tcp_options_p0f = {
     2: "mss",  # maximum segment size
     3: "ws",  # window scaling
