@@ -1077,13 +1077,10 @@ def main():
     except AttributeError:
         pass
 
-    if conf.use_pcap:
+    if conf.use_pcap or WINDOWS:
         KW_KO.append("not_libpcap")
         if VERB > 2:
             print(" " + arrow + " libpcap mode")
-    elif WINDOWS and not NON_ROOT:
-        print("ERROR: libpcap is required on Windows for root tests")
-        raise SystemExit
 
     KW_KO.append("disabled")
 
