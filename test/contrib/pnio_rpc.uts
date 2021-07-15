@@ -427,6 +427,38 @@ p == ExpectedSubmoduleBlockReq(block_length=38,
     ]
   ) / conf.padding_layer(b'\xef')
 
+
+####################################################################
+####################################################################
+
++ Check AlarmCRBlockReq
+
+= AlarmCRBlockReq default values
+bytes(AlarmCRBlockReq()) == bytearray.fromhex('010300160100000188920000000000010003000300c8c000a000')
+
+= AlarmCRBlockReq with transport
+bytes(AlarmCRBlockReq(AlarmCRProperties_Transport=1)) == bytearray.fromhex('010300160100000108004000000000010003000300c8c000a000')
+
+= AlarmCRBlockReq dissection
+p = AlarmCRBlockReq(bytearray.fromhex('010300160100000188920000000000010003000300c8c000a000'))
+p[AlarmCRBlockReq].AlarmCRType == 0x0001
+p[AlarmCRBlockReq].LocalAlarmReference == 0x0003
+
+= AlarmCRBlockReq response
+p = p.get_response()
+p == AlarmCRBlockRes(AlarmCRType=0x0001, LocalAlarmReference=0x0003)
+
++ Check AlarmCRBlockRes
+
+= AlarmCRBlockRes default values
+bytes(AlarmCRBlockRes()) == bytearray.fromhex('810300080100000100000000')
+
+= AlarmCRBlockRes dissection
+p = AlarmCRBlockRes(bytearray.fromhex('810300080100000100030000'))
+p[AlarmCRBlockRes].AlarmCRType == 0x0001
+p[AlarmCRBlockRes].LocalAlarmReference == 0x0003
+
+
 ####################################################################
 ####################################################################
 

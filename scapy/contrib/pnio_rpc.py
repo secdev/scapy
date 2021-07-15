@@ -852,11 +852,75 @@ class ExpectedSubmoduleBlockReq(Block):
         return None  # no response associated (should be modulediffblock)
 
 
+ALARM_CR_TYPE = {
+    0x0001: "AlarmCR",
+}
+
+ALARM_CR_TRANSPORT = {
+    0x0: "RTA_CLASS_1",
+    0x1: "RTA_CLASS_UDP"
+}
+
+
+class AlarmCRBlockReq(Block):
+    """Alarm CR block request"""
+    fields_desc = [
+        BlockHeader,
+        XShortEnumField("AlarmCRType", 1, ALARM_CR_TYPE),
+        ShortField("LT", 0x8892),
+        BitField("AlarmCRProperties_Priority", 0, 1),
+        BitEnumField("AlarmCRProperties_Transport", 0, 1, ALARM_CR_TRANSPORT),
+        BitField("AlarmCRProperties_Reserved1", 0, 22),
+        BitField("AlarmCRProperties_Reserved2", 0, 8),
+        ShortField("RTATimeoutFactor", 0x0001),
+        ShortField("RTARetries", 0x0003),
+        ShortField("LocalAlarmReference", 0x0003),
+        ShortField("MaxAlarmDataLength", 0x00C8),
+        ShortField("AlarmCRTagHeaderHigh", 0xC000),
+        ShortField("AlarmCRTagHeaderLow", 0xA000),
+    ]
+    # default block_type value
+    block_type = 0x0103
+
+    def post_build(self, p, pay):
+        # Set the LT based on transport
+        if self.AlarmCRProperties_Transport == 0x1:
+            p = p[:8] + struct.pack("!H", 0x0800) + p[10:]
+            print("p[:8]={}".format(bytes(p[:8]).hex()))
+            print("p[10:]={}".format(bytes(p[10:]).hex()))
+            print("p={}".format(bytes(p).hex()))
+
+        return Block.post_build(self, p, pay)
+
+    def get_response(self):
+        """Generate the response block of this request.
+        Careful: it only sets the fields which can be set from the request
+        """
+        res = AlarmCRBlockRes()
+        for field in ["AlarmCRType", "LocalAlarmReference"]:
+            res.setfieldval(field, self.getfieldval(field))
+
+        res.block_type = self.block_type + 0x8000
+        return res
+
+
+class AlarmCRBlockRes(Block):
+    fields_desc = [
+        BlockHeader,
+        XShortEnumField("AlarmCRType", 1, ALARM_CR_TYPE),
+        ShortField("LocalAlarmReference", 0),
+        ShortField("MaxAlarmDataLength", 0)
+    ]
+    # default block_type value
+    block_type = 0x8103
+
+
 # PROFINET IO DCE/RPC PDU
 PNIO_RPC_BLOCK_ASSOCIATION = {
     # requests
     "0101": ARBlockReq,
     "0102": IOCRBlockReq,
+    "0103": AlarmCRBlockReq,
     "0104": ExpectedSubmoduleBlockReq,
     "0110": IODControlReq,
     "0111": IODControlReq,
@@ -870,6 +934,7 @@ PNIO_RPC_BLOCK_ASSOCIATION = {
     # responses
     "8101": ARBlockRes,
     "8102": IOCRBlockRes,
+    "8103": AlarmCRBlockRes,
     "8110": IODControlRes,
     "8111": IODControlRes,
     "8112": IODControlRes,
