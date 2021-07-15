@@ -727,13 +727,12 @@ class _ExtensionsLenField(FieldLenField):
     def getfield(self, pkt, s):
         """
         We try to compute a length, usually from a msglen parsed earlier.
-        If this length is 0, we consider 'selection_present' (from RFC 5246)
-        to be False. This means that there should not be any length field.
-        However, with TLS 1.3, zero lengths are always explicit.
+        If we can not find any length, we consider 'extensions_present'
+        (from RFC 5246) to be False.
         """
         ext = pkt.get_field(self.length_of)
         tmp_len = ext.length_from(pkt)
-        if tmp_len is None or tmp_len <= 0:
+        if tmp_len is None:
             v = pkt.tls_session.tls_version
             if v is None or v < 0x0304:
                 return s, None
