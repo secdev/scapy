@@ -218,3 +218,7 @@ assert p.ar.rrname == b'.'
 assert dns_encode(b"www.google.com") == b'\x03www\x06google\x03com\x00'
 assert dns_encode(b"*") == b'\x01*\x00'
 assert dns_encode(dns_encode(b"*")) == b'\x03\x01*\x00'
+
+= DNS - simple request
+
+assert raw(DNS()) == b'\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03www\x07example\x03com\x00\x00\x01\x00\x01'
