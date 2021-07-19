@@ -49,10 +49,10 @@ def process_file(file):
          encoding="utf8")
     errs = ""
     try:
-        _, errs = proc.communicate(timeout=10)
+        _, errs = proc.communicate(timeout=15)
     except subprocess.TimeoutExpired:
         proc.kill()
-        errs = "Timed out !"
+        errs = "Timed out (>15s)!"
     if proc.returncode != 0:
         return "Importing the file '%s' failed !\\n%s" % (file, errs)
     return None
