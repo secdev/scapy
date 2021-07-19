@@ -48,6 +48,11 @@ assert _version_checker(FakeModule3, (2, 4, 2))
 ~ conf command
 ls()
 
+= Always fails
+
+assert False
+assert 0 == 1
+
 = List layers - advanced
 ~ conf command
 
