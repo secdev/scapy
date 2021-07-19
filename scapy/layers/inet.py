@@ -1303,7 +1303,7 @@ class TracerouteResult(SndRcvList):
             p.join()
 
     def trace3D_notebook(self):
-        """Same than trace3D, used when ran from Jupyther notebooks"""
+        """Same than trace3D, used when ran from Jupyter notebooks"""
         trace = self.get_trace()
         import vpython
 

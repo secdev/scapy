@@ -2323,7 +2323,7 @@ def pretty_list(rtlst,  # type: List[Tuple[Union[str, List[str]], ...]]
 
     :param rtlst: a list of tuples. each tuple contains a value which can
         be either a string or a list of string.
-    :param sortBy: the column id (starting with 0) which whill be used for
+    :param sortBy: the column id (starting with 0) which will be used for
         ordering
     :param borders: whether to put borders on the table or not
     """

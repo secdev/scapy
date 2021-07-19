@@ -99,7 +99,7 @@ def _FakeType(name, cls=object):
             # type: (str) -> None
             self.name = name
 
-        # make the objects subscriptable indefinetly
+        # make the objects subscriptable indefinitely
         def __getitem__(self, item):  # type: ignore
             return cls
 
