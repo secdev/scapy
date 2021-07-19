@@ -73,7 +73,7 @@ def autorun_commands(cmds, my_globals=None, verb=None):
                                               sys.last_traceback.tb_next,
                                               file=sys.stdout)
                     sys.last_value = None
-                    return None
+                    return False
                 cmd = ""
                 if len(cmds) <= 1:
                     break
