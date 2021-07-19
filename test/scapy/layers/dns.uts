@@ -83,7 +83,7 @@ assert pkt.an.getlayer(DNSRR, type=16).rdata == [b'txtvers=1', b'vs=190.9', b'ch
 = DNS advanced building
 ~ dns
 
-pkt = DNS(qr=1, aa=1, rd=1)
+pkt = DNS(qr=1, qd=None, aa=1, rd=1)
 pkt.an = DNSRR(type=12, rrname='_raop._tcp.local.', rdata='140C768FFE28@Freebox Server._raop._tcp.local.')/DNSRR(rrname='140C768FFE28@Freebox Server._raop._tcp.local.', type=16, rdata=[b'txtvers=1', b'vs=190.9', b'ch=2', b'sr=44100', b'ss=16', b'pw=false', b'et=0,1', b'ek=1', b'tp=TCP,UDP', b'am=FreeboxServer1,2', b'cn=0,1,2,3', b'md=0,2', b'sf=0x44', b'ft=0xBF0A00', b'sv=false', b'da=true', b'vn=65537', b'vv=2'])/DNSRRSRV(rrname='140C768FFE28@Freebox Server._raop._tcp.local.', target='Freebox-Server-3.local.', port=5000, type=33, rclass=32769)/DNSRR(rrname='Freebox-Server-3.local.', rdata='192.168.0.254', rclass=32769, type=1, ttl=120)
 
 pkt = DNS(raw(pkt))
@@ -160,10 +160,10 @@ DNS(s)
 
 = DNS record type 16 (TXT)
 
-p = DNS(raw(DNS(id=1,ra=1,an=DNSRR(rrname='scapy', type='TXT', rdata="niceday", ttl=1))))
+p = DNS(raw(DNS(id=1,ra=1,qd=None,an=DNSRR(rrname='scapy', type='TXT', rdata="niceday", ttl=1))))
 assert p[DNS].an.rdata == [b"niceday"]
 
-p = DNS(raw(DNS(id=1,ra=1,an=DNSRR(rrname='secdev', type='TXT', rdata=["sweet", "celestia"], ttl=1))))
+p = DNS(raw(DNS(id=1,ra=1,qd=None,an=DNSRR(rrname='secdev', type='TXT', rdata=["sweet", "celestia"], ttl=1))))
 assert p[DNS].an.rdata == [b"sweet", b"celestia"]
 assert raw(p) == b'\x00\x01\x01\x80\x00\x00\x00\x01\x00\x00\x00\x00\x06secdev\x00\x00\x10\x00\x01\x00\x00\x00\x01\x00\x0f\x05sweet\x08celestia'
 
@@ -173,13 +173,13 @@ _old_dbg = conf.debug_dissector
 conf.debug_dissector = True
 
 try:
-    p = IP(raw(IP()/TCP()/DNS(length=28))[:-13])
+    p = IP(raw(IP()/TCP()/DNS(qd=None,length=28))[:-13])
     assert False
 except Scapy_Exception as e:
     assert str(e) == "Malformed DNS message: too small!"
 
 try:
-    p = IP(raw(IP()/TCP()/DNS(length=28, qdcount=1)))
+    p = IP(raw(IP()/TCP()/DNS(qd=None,length=28, qdcount=1)))
     assert False
 except Scapy_Exception as e:
     assert str(e) == "Malformed DNS message: invalid length!"
