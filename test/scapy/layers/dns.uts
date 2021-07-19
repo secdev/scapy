@@ -222,3 +222,15 @@ assert dns_encode(dns_encode(b"*")) == b'\x03\x01*\x00'
 = DNS - simple request
 
 assert raw(DNS()) == b'\x00\x00\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03www\x07example\x03com\x00\x00\x01\x00\x01'
+
+= DNS - preserve rdlen when rdata is not a compressed DNS string
+
+# RR type A
+dnsrr1 = Raw(b'\x01a\x01b\x01c\x00\x00\x01\x10\x00\x00\x00\x00\x01\x00\x04\x01\x02\x03\x04')
+# RR type NS & plain rdata
+dnsrr2 = Raw(b'\x02ns\xc0\x0e\x00\x02\x10\x00\x00\x00\x00\x01\x00\x06\x01x\x01y\x01z')
+# RR type NS & compressed rdata
+dnsrr3 = Raw(b'\x02ns\xc0\x0e\x00\x02\x10\x00\x00\x00\x00\x01\x00\x07\x04test\xc0\x0e')
+
+d = DNS(raw(DNS(ancount=3, an=dnsrr1/dnsrr2/dnsrr3)))
+assert d.an[0].rdlen == 4 and d.an[1].rdlen == 6 and d.an[2].rdlen is None

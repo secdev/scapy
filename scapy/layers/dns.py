@@ -128,7 +128,7 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
     if bytes_left is None:
         bytes_left = s[pointer:]
     # name, end_index, remaining
-    return name, pointer, bytes_left
+    return name, pointer, bytes_left, len(processed_pointers) != 0
 
 
 def dns_encode(x, check_built=False):
@@ -161,7 +161,7 @@ def DNSgetstr(*args, **kwargs):
         "DNSgetstr is deprecated. Use dns_get_str instead.",
         DeprecationWarning
     )
-    return dns_get_str(*args, **kwargs)
+    return dns_get_str(*args, **kwargs)[:-1]
 
 
 def dns_compress(pkt):
@@ -265,6 +265,8 @@ class DNSStrField(StrLenField):
     It will also handle DNS decompression.
     (may be StrLenField if a length_from is passed),
     """
+    __slots__ = ["compressed"]
+
     def h2i(self, pkt, x):
         if not x:
             return b"."
@@ -281,7 +283,7 @@ class DNSStrField(StrLenField):
         if self.length_from:
             remain, s = super(DNSStrField, self).getfield(pkt, s)
         # Decode the compressed DNS message
-        decoded, _, left = dns_get_str(s, 0, pkt)
+        decoded, _, left, self.compressed = dns_get_str(s, 0, pkt)
         # returns (remaining, decoded)
         return left + remain, decoded
 
@@ -337,8 +339,15 @@ class DNSRRField(StrField):
         p += 10
         cls = DNSRR_DISPATCHER.get(typ, DNSRR)
         rr = cls(b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)
-        # Will have changed because of decompression
-        rr.rdlen = None
+
+        # Reset rdlen if DNS compression was used
+        for fname in rr.fieldtype.keys():
+            rdata_obj = rr.fieldtype[fname]
+            if fname == "rdata" and isinstance(rdata_obj, MultipleTypeField):
+                rdata_obj = rdata_obj._find_fld_pkt_val(rr, rr.type)[0]
+            if isinstance(rdata_obj, DNSStrField) and rdata_obj.compressed:
+                del rr.rdlen
+                break
         rr.rrname = name
 
         p += rdlen
@@ -356,7 +365,7 @@ class DNSRRField(StrField):
             return s, b""
         while c:
             c -= 1
-            name, p, _ = dns_get_str(s, p, _fullpacket=True)
+            name, p, _, _ = dns_get_str(s, p, _fullpacket=True)
             rr, p = self.decodeRR(name, s, p)
             if ret is None:
                 ret = rr
