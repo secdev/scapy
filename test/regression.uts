@@ -1337,15 +1337,7 @@ raw(RandASN1Object())
 # RSN Information that isn't parsed properly,
 # causing the SSID to be overridden.
 # This test checks the SSID is parsed properly.
-print(os.path.dirname(__file__))
-filename = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "test",
-        "pcaps",
-        "bad_rsn_parsing_overrides_ssid.pcap"
-    ))
+filename = scapy_path("/test/pcaps/bad_rsn_parsing_overrides_ssid.pcap")
 frame = rdpcap(filename)[0]
 beacon = frame.getlayer(5)
 ssid = beacon.network_stats()['ssid']
