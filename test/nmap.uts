@@ -26,12 +26,11 @@ try:
 except ImportError:
     from urllib2 import urlopen
 
-for i in range(10):
-    try:
-        open('nmap-os-fingerprints', 'wb').write(urlopen('https://raw.githubusercontent.com/nmap/nmap/9efe1892/nmap-os-fingerprints').read())
-        break
-    except:
-        pass
+def _test():
+    with open('nmap-os-fingerprints', 'wb') as fd:
+        fd.write(urlopen('https://raw.githubusercontent.com/nmap/nmap/9efe1892/nmap-os-fingerprints').read())
+
+retry_test(_test)
 
 conf.nmap_base = 'nmap-os-fingerprints'
 
