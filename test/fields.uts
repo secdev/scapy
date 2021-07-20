@@ -101,7 +101,7 @@ p = Ether() / ARP(pdst="1.2.3.4")
 assert p.src == p.hwsrc == p[ARP].hwsrc == get_if_hwaddr(conf.iface)
 p = Dot3() / LLC() / SNAP() / ARP(pdst="1.2.3.4")
 assert p.src == p.hwsrc == p[ARP].hwsrc == get_if_hwaddr(conf.iface)
-conf.route.delt(net="1.2.3.4/32")
+conf.route.delt(net="1.2.3.4/32", dev=conf.iface)
 
 = IPField class
 ~ core field
