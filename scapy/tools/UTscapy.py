@@ -1205,6 +1205,11 @@ def main():
         if threading.active_count() > 1:
             print("\nWARNING: UNFINISHED THREADS")
             print(threading.enumerate())
+        import multiprocessing
+        processes = multiprocessing.active_children()
+        if processes:
+            print("\nWARNING: UNFINISHED PROCESSES")
+            print(processes)
 
     # Return state
     return glob_result
