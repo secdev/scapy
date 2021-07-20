@@ -1142,7 +1142,8 @@ def main():
 
     runned_campaigns = []
 
-    scapy_ses = importlib.import_module(".all", "scapy").__dict__
+    from scapy.main import _scapy_builtins
+    scapy_ses = _scapy_builtins()
     import_UTscapy_tools(scapy_ses)
 
     # Execute all files

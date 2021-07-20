@@ -9,7 +9,6 @@ Run commands when the Scapy interpreter starts.
 
 from __future__ import print_function
 import code
-import importlib
 import logging
 import sys
 import traceback
@@ -43,7 +42,8 @@ def autorun_commands(cmds, my_globals=None, verb=None):
         try:
             interp = ScapyAutorunInterpreter()
             if my_globals is None:
-                my_globals = importlib.import_module(".all", "scapy").__dict__
+                from scapy.main import _scapy_builtins
+                my_globals = _scapy_builtins()
             interp.locals = my_globals
             try:
                 del six.moves.builtins.__dict__["scapy_session"]["_"]
