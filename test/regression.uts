@@ -1445,7 +1445,7 @@ def _test_flood(flood_function, add_ether=False):
     p = IP(dst="www.google.com")/TCP(sport=RandShort(), dport=80, flags="S")
     if add_ether:
         p = Ether()/p
-    x = flood_function(p, timeout=2)
+    x = flood_function(p, timeout=0.5)
     conf.debug_dissector = old_debug_dissector
     if type(x) == tuple:
         x = x[0][0][1]
