@@ -272,6 +272,10 @@ class LayersList(List[Type['scapy.packet.Packet']]):
         result = []
         # This import may feel useless, but it is required for the eval below
         import scapy  # noqa: F401
+        try:
+            import builtins  # noqa: F401
+        except ImportError:
+            import __builtin__  # noqa: F401
         for lay in self.ldict:
             doc = eval(lay).__doc__
             result.append((lay, doc.strip().split("\n")[0] if doc else lay))
