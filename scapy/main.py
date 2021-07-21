@@ -113,10 +113,10 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
                               cf)
 
 
-def _validate_local(x):
+def _validate_local(k):
     # type: (str) -> bool
     """Returns whether or not a variable should be imported."""
-    return x[0] != "_"
+    return k[0] != "_" and k not in ["range", "map"]
 
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".scapy_prestart.py")

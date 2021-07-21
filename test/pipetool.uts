@@ -653,12 +653,14 @@ p.add(s)
 p.add(s2)
 p.start()
 
+pkt = DNS()
+
 s.send(IP(src="127.0.0.1")/UDP()/DNS())
-s2.send(DNS())
+s2.send(pkt)
 
 res = [c.q.get(timeout=2), c.q.get(timeout=2)]
-assert b'\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00' in res
-res.remove(b'\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+assert raw(pkt) in res
+res.remove(raw(pkt))
 assert DNS in res[0] and res[0][UDP].sport == 1234
 
 p.stop()

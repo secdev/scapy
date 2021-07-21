@@ -89,7 +89,7 @@ None.
         fdesc.close()
 
 
-nmap_kdb = NmapKnowledgeBase(None)
+conf.nmap_kdb = NmapKnowledgeBase(None)
 
 
 def nmap_tcppacket_sig(pkt):
@@ -181,7 +181,7 @@ def nmap_probes2sig(tests):
 
 def nmap_search(sigs):
     guess = 0, []
-    for osval, fprint in nmap_kdb.get_base():
+    for osval, fprint in conf.nmap_kdb.get_base():
         score = 0.0
         for test, values in six.iteritems(fprint):
             if test in sigs:

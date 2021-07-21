@@ -26,19 +26,19 @@ try:
 except ImportError:
     from urllib2 import urlopen
 
-for i in range(10):
-    try:
-        open('nmap-os-fingerprints', 'wb').write(urlopen('https://raw.githubusercontent.com/nmap/nmap/9efe1892/nmap-os-fingerprints').read())
-        break
-    except:
-        pass
+def _test():
+    with open('nmap-os-fingerprints', 'wb') as fd:
+        fd.write(urlopen('https://raw.githubusercontent.com/nmap/nmap/9efe1892/nmap-os-fingerprints').read())
+
+retry_test(_test)
 
 conf.nmap_base = 'nmap-os-fingerprints'
 
 = Database loading
 ~ netaccess
 
-assert len(nmap_kdb.get_base()) > 100
+print(conf.nmap_kdb.base, conf.nmap_kdb.filename, len(conf.nmap_kdb.get_base()))
+assert len(conf.nmap_kdb.get_base()) > 100
 
 = fingerprint test: www.secdev.org
 ~ netaccess
@@ -75,9 +75,9 @@ assert len(a["PU"]) > 0
 
 = Nmap base not available
 
-nmap_kdb.filename = "invalid"
-nmap_kdb.reload()
-assert nmap_kdb.filename == None
+conf.nmap_kdb.filename = "invalid"
+conf.nmap_kdb.reload()
+assert conf.nmap_kdb.filename == None
 
 = Clear temp files
 try:

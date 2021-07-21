@@ -1337,15 +1337,7 @@ raw(RandASN1Object())
 # RSN Information that isn't parsed properly,
 # causing the SSID to be overridden.
 # This test checks the SSID is parsed properly.
-print(os.path.dirname(__file__))
-filename = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "test",
-        "pcaps",
-        "bad_rsn_parsing_overrides_ssid.pcap"
-    ))
+filename = scapy_path("/test/pcaps/bad_rsn_parsing_overrides_ssid.pcap")
 frame = rdpcap(filename)[0]
 beacon = frame.getlayer(5)
 ssid = beacon.network_stats()['ssid']
@@ -1453,7 +1445,7 @@ def _test_flood(flood_function, add_ether=False):
     p = IP(dst="www.google.com")/TCP(sport=RandShort(), dport=80, flags="S")
     if add_ether:
         p = Ether()/p
-    x = flood_function(p, timeout=2)
+    x = flood_function(p, timeout=0.5)
     conf.debug_dissector = old_debug_dissector
     if type(x) == tuple:
         x = x[0][0][1]
@@ -1674,60 +1666,17 @@ s.show()
 s.show(2)
 
 = send() and sniff()
-~ netaccess tcpdump
-import time
-import os
+~ netaccess ss
 
-from scapy.modules.six.moves.queue import Queue
+def _test():
+    sendp(Ether()/IP(src="9.0.0.0")/UDP(), count=3, iface=conf.iface)
 
-def _send_or_sniff(pkt, timeout, flt, pid, fork, t_other=None, opened_socket=None):
-    assert pid != -1
-    if pid == 0:
-        time.sleep(1)
-        (sendp if isinstance(pkt, (Ether, Dot3)) else send)(pkt)
-        if fork:
-            os._exit(0)
-        else:
-            return
-    else:
-        spkt = raw(pkt)
-        # We do not want to crash when a packet cannot be parsed
-        old_debug_dissector = conf.debug_dissector
-        conf.debug_dissector = False
-        pkts = sniff(
-            timeout=timeout, filter=flt, opened_socket=opened_socket,
-            stop_filter=lambda p: pkt.__class__ in p and raw(p[pkt.__class__]) == spkt
-        )
-        conf.debug_dissector = old_debug_dissector
-        if fork:
-            os.waitpid(pid, 0)
-        else:
-            t_other.join(timeout=3)
-    assert raw(pkt) in (raw(p[pkt.__class__]) for p in pkts if pkt.__class__ in p)
+r = sniff(timeout=3, count=1,
+          lfilter=lambda x: x[IP].src == "9.0.0.0",
+          iface=conf.iface,
+          started_callback=_test)
 
-def send_and_sniff(pkt, timeout=2, flt=None, opened_socket=None):
-    """Send a packet, sniff, and check the packet has been seen"""
-    if hasattr(os, "fork"):
-        _send_or_sniff(pkt, timeout, flt, os.fork(), True)
-    else:
-        from threading import Thread
-        def run_function(pkt, timeout, flt, pid, thread, results, opened_socket):
-            _send_or_sniff(pkt, timeout, flt, pid, False, t_other=thread, opened_socket=opened_socket)
-            results.put(True)
-        results = Queue()
-        t_parent = Thread(target=run_function, args=(pkt, timeout, flt, 0, None, results, None), name="send_and_sniff 1")
-        t_child = Thread(target=run_function, args=(pkt, timeout, flt, 1, t_parent, results, opened_socket), name="send_and_sniff 2")
-        t_parent.start()
-        t_child.start()
-        t_parent.join(timeout=3)
-        t_child.join(timeout=3)
-        assert results.qsize() >= 2
-        while not results.empty():
-            assert results.get()
-
-retry_test(lambda: send_and_sniff(IP(dst="secdev.org")/ICMP()))
-retry_test(lambda: send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp"))
-retry_test(lambda: send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP()))
+assert r
 
 = Test SuperSocket.select
 ~ select

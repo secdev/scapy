@@ -5,6 +5,7 @@
 
 = Prepare importing all scapy files
 
+import os
 import glob
 import subprocess
 
@@ -18,6 +19,10 @@ EXCEPTIONS = [
     "scapy.contrib.scada*",
     "scapy.main",
 ]
+
+if WINDOWS:
+    EXCEPTIONS.append("scapy.layers.tuntap")
+
 EXCEPTION_PACKAGES = [
     "arch",
     "libs",
@@ -26,7 +31,7 @@ EXCEPTION_PACKAGES = [
 ]
 
 ALL_FILES = [
-    "scapy." + re.match(r".*scapy\/(.*)\.py$", x).group(1).replace("/", ".")
+    "scapy." + re.match(".*scapy\\" + os.path.sep + "(.*)\\.py$", x).group(1).replace(os.path.sep, ".")
     for x in glob.iglob(scapy_path('/scapy/**/*.py'), recursive=True)
 ]
 ALL_FILES = [
@@ -49,10 +54,10 @@ def process_file(file):
          encoding="utf8")
     errs = ""
     try:
-        _, errs = proc.communicate(timeout=10)
+        _, errs = proc.communicate(timeout=30)
     except subprocess.TimeoutExpired:
         proc.kill()
-        errs = "Timed out !"
+        errs = "Timed out (>30s)!"
     if proc.returncode != 0:
         return "Importing the file '%s' failed !\\n%s" % (file, errs)
     return None
@@ -68,8 +73,8 @@ sys.path.append(fld)
 pkg = importlib.import_module(os.path.splitext(file)[0])
 
 def import_all(FILES):
-    with Pool(processes=8) as pool:
-        for err in pool.imap_unordered(pkg.process_file, FILES, 4):
+    with Pool(processes=4) as pool:
+        for err in pool.imap_unordered(pkg.process_file, FILES):
             if err:
                 print(err)
                 pool.terminate()

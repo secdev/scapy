@@ -69,18 +69,17 @@ class Bunch:
 def retry_test(func):
     """Retries the passed function 3 times before failing"""
     success = False
-    ex = Exception("Unknown")
     for _ in six.moves.range(3):
         try:
             result = func()
-        except Exception as e:
+        except Exception:
+            t, v, tb = sys.exc_info()
             time.sleep(1)
-            ex = e
         else:
             success = True
             break
     if not success:
-        raise ex
+        six.reraise(t, v, tb)
     assert success
     return result
 
@@ -1143,7 +1142,8 @@ def main():
 
     runned_campaigns = []
 
-    scapy_ses = importlib.import_module(".all", "scapy").__dict__
+    from scapy.main import _scapy_builtins
+    scapy_ses = _scapy_builtins()
     import_UTscapy_tools(scapy_ses)
 
     # Execute all files
@@ -1205,6 +1205,11 @@ def main():
         if threading.active_count() > 1:
             print("\nWARNING: UNFINISHED THREADS")
             print(threading.enumerate())
+        import multiprocessing
+        processes = multiprocessing.active_children()
+        if processes:
+            print("\nWARNING: UNFINISHED PROCESSES")
+            print(processes)
 
     # Return state
     return glob_result

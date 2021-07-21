@@ -178,7 +178,7 @@ class ServerName(Packet):
 class ServerListField(PacketListField):
     def i2repr(self, pkt, x):
         res = [p.servername for p in x]
-        return "[%s]" % b", ".join(res)
+        return "[%s]" % ", ".join(repr(x) for x in res)
 
 
 class ServerLenField(FieldLenField):
@@ -498,7 +498,7 @@ class ProtocolName(Packet):
 class ProtocolListField(PacketListField):
     def i2repr(self, pkt, x):
         res = [p.protocol for p in x]
-        return "[%s]" % b", ".join(res)
+        return "[%s]" % ", ".join(repr(x) for x in res)
 
 
 class TLS_Ext_ALPN(TLS_Ext_PrettyPacketList):                       # RFC 7301
@@ -732,7 +732,7 @@ class _ExtensionsLenField(FieldLenField):
         """
         ext = pkt.get_field(self.length_of)
         tmp_len = ext.length_from(pkt)
-        if tmp_len is None:
+        if tmp_len is None or tmp_len < 0:
             v = pkt.tls_session.tls_version
             if v is None or v < 0x0304:
                 return s, None
