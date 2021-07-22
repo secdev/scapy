@@ -385,6 +385,22 @@ class DCPDeviceInstanceBlock(Packet):
     def extract_padding(self, s):
         return '', s
 
+class DCPOEMIDBlock(Packet):
+    fields_desc = [
+        ByteEnumField("option", 2, DCP_OPTIONS),
+        MultiEnumField("sub_option", 8, DCP_SUBOPTIONS, fmt='B',
+                       depends_on=lambda p: p.option),
+        LenField("dcp_block_length", None),
+        ShortEnumField("block_info", 0, BLOCK_INFOS),
+        XShortField("vendor_id", 0x002a),
+        XShortField("device_id", 0x0313),
+        PadField(StrLenField("padding", b"\x00",
+                             length_from=lambda p: p.dcp_block_length % 2), 1,
+                 padwith=b"\x00")
+    ]
+
+    def extract_padding(self, s):
+        return '', s
 
 class DCPControlBlock(Packet):
     fields_desc = [
@@ -404,6 +420,22 @@ class DCPControlBlock(Packet):
     def extract_padding(self, s):
         return '', s
 
+
+class DCPDeviceInitiativeBlock(Packet):
+    """
+        device initiative DCP block
+    """
+    fields_desc = [
+        ByteEnumField("option", 6, DCP_OPTIONS),
+        MultiEnumField("sub_option", 1, DCP_SUBOPTIONS, fmt='B',
+                       depends_on=lambda p: p.option),
+        FieldLenField("dcp_block_length", None, length_of="device_initiative"),
+        ShortEnumField("block_info", 0, BLOCK_INFOS),
+        ShortField("device_initiative", 1),
+    ]
+
+    def extract_padding(self, s):
+        return '', s
 
 def guess_dcp_block_class(packet, **kargs):
     """
@@ -436,7 +468,7 @@ def guess_dcp_block_class(packet, **kargs):
                 0x05: "DCPDeviceOptionsBlock",
                 0x06: "DCPAliasNameBlock",
                 0x07: "DCPDeviceInstanceBlock",
-                0x08: "OEM Device ID"
+                0x08: "DCPOEMIDBlock"
             },
         # DHCP
         0x03:
@@ -466,7 +498,7 @@ def guess_dcp_block_class(packet, **kargs):
         0x06:
             {
                 0x00: "Reserved (0x00)",
-                0x01: "Device Initiative (0x01)"
+                0x01: "DCPDeviceInitiativeBlock"
             },
         # ALL Selector
         0xff:
