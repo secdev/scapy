@@ -795,6 +795,7 @@ def srploop(pkts,  # type: _PacketIterable
 def sndrcvflood(pks,  # type: SuperSocket
                 pkt,  # type: _PacketIterable
                 inter=0,  # type: int
+                maxretries=None,  # type: Optional[int]
                 verbose=None,  # type: Optional[int]
                 chainCC=False,  # type: bool
                 timeout=None  # type: Optional[int]
@@ -807,7 +808,11 @@ def sndrcvflood(pks,  # type: SuperSocket
         # type: (_PacketIterable, Event) -> Iterator[Packet]
         """Infinite generator that produces the same
         packet until stopevent is triggered."""
+        i = 0
         while True:
+            i += 1
+            if maxretries and i >= maxretries:
+                return
             for p in tobesent:
                 if stopevent.is_set():
                     return

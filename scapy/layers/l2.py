@@ -478,7 +478,7 @@ class ARP(Packet):
         return self_psrc[:len(other_pdst)] == other_pdst[:len(self_psrc)]
 
     def route(self):
-        # type: () -> Tuple[Union[NetworkInterface, str, None], Optional[str], Optional[str]] # noqa: E501
+        # type: () -> Tuple[Optional[str], Optional[str], Optional[str]]
         fld, dst = cast(Tuple[MultipleTypeField, str],
                         self.getfield_and_val("pdst"))
         fld_inner, dst = fld._find_fld_pkt_val(self, dst)
@@ -506,7 +506,10 @@ class ARP(Packet):
 
 def l2_register_l3_arp(l2, l3):
     # type: (Type[Packet], Type[Packet]) -> Optional[str]
-    return getmacbyip(l3.pdst)
+    # TODO: support IPv6?
+    if l3.plen == 4:
+        return getmacbyip(l3.pdst)
+    return None
 
 
 conf.neighbor.register_l3(Ether, ARP, l2_register_l3_arp)

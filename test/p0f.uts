@@ -77,7 +77,9 @@ assert fingerprint_mtu(pkt) == "Ethernet or modem"
 
 sig = "*:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0"
 pkt = p0f_impersonate(IP()/TCP(), signature=sig)
-assert p0f(pkt) == (("s", "unix", "Linux", "3.11 and newer"), 0, False)
+imp = p0f(pkt)
+print(imp)
+assert imp == (("s", "unix", "Linux", "3.11 and newer"), 0, False)
 
 = Impersonate when window size must be multiple of some integer
 sig = "*:64:0:1460:%8192,0:mss,nop,ws::0"
