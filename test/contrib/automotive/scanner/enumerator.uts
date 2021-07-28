@@ -328,6 +328,7 @@ assert not e.has_completed(EcuState(session=1))
 = Definitions
 
 class MockSock(object):
+    closed = False
     def sr1(self, *args, **kwargs):
         raise OSError
 
@@ -478,7 +479,7 @@ assert tce.target_state == EcuState(session=1)
 = Reconnect Handler tests
 
 class MockSocket2:
-    pass
+    closed = False
 
 def reconnect_func():
     return MockSocket2()
@@ -496,12 +497,13 @@ assert isinstance(tce.socket._inner, MockSocket2)
 closed = False
 
 class MockSocket1:
+    closed = False
     def close(self):
         global closed
         closed = True
 
 class MockSocket2:
-    pass
+    closed = False
 
 def reconnect_func():
     return MockSocket2()
