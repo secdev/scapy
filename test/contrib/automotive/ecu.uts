@@ -60,7 +60,20 @@ assert 5 == state.ses
 assert "42" == state.myinfo
 assert repr(state) == "myinfo42ses5"
 
+= Delete Attribute Test
 
+state = EcuState(myinfo="42")
+
+state.ses = 5
+assert state.ses == 5
+
+del state.ses
+
+try:
+    x = state.ses
+    assert False
+except (KeyError, AttributeError):
+    assert state.myinfo == "42"
 
 = Copy tests
 
