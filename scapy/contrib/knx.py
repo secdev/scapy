@@ -12,11 +12,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# Copyright (C) 2021 Julien BEDEL <contact[at]julienbedel.com>, Claire VACHEROT <lex[at]lex.os>
+# Copyright (C) 2021 Julien BEDEL <contact[at]julienbedel.com>
+#                    Claire VACHEROT <lex[at]lex.os>
 
 # This module provides Scapy layers for KNXNet/IP communications over UDP
 # according to KNX specifications v2.1 / ISO-IEC 14543-3.
-# Specifications can be downloaded for free here : https://my.knx.org/en/shop/knx-specifications
+# Specifications can be downloaded for free here :
+# https://my.knx.org/en/shop/knx-specifications
 #
 # Currently, the module (partially) supports the following services :
 #   * SEARCH REQUEST/RESPONSE
@@ -29,8 +31,8 @@
 # scapy.contrib.status = loads
 import struct
 
-from scapy.fields import PacketField, MultipleTypeField, ByteField, XByteField, \
-    ShortEnumField, ShortField, \
+from scapy.fields import PacketField, MultipleTypeField, ByteField, \
+    XByteField, ShortEnumField, ShortField, \
     ByteEnumField, IPField, StrFixedLenField, MACField, XBitField, \
     PacketListField, FieldLenField, \
     StrLenField, BitEnumField, BitField, ConditionalField
@@ -217,8 +219,8 @@ class ServiceFamily(Packet):
 
 
 # Different DIB types depends on the "description_type_code" field
-# Defining a generic DIB packet and differentiating with `dispatch_hook` or `MultipleTypeField`
-# may better fit KNX specs
+# Defining a generic DIB packet and differentiating with `dispatch_hook` or
+# `MultipleTypeField` may better fit KNX specs
 class DIBDeviceInfo(Packet):
     name = "DIB: DEVICE_INFO"
     fields_desc = [
@@ -249,7 +251,8 @@ class DIBSuppSvcFamilies(Packet):
             PacketListField("service_family",
                             ServiceFamily(),
                             ServiceFamily,
-                            length_from=lambda pkt: pkt.structure_length - 0x02),
+                            length_from=lambda pkt:
+                            pkt.structure_length - 0x02),
             lambda pkt: pkt.structure_length > 0x02)
     ]
 
@@ -281,7 +284,9 @@ class CRI(Packet):
     fields_desc = [
         ByteField("structure_length", 0x02),
         ByteEnumField("connection_type", 0x03, CONNECTION_TYPE_CODES),
-        ConditionalField(PacketField("connection_data", TunnelingConnection(), TunnelingConnection),
+        ConditionalField(PacketField("connection_data",
+                                     TunnelingConnection(),
+                                     TunnelingConnection),
                          lambda pkt: pkt.connection_type == 0x04)
     ]
 
@@ -426,7 +431,8 @@ class KNXDescriptionResponse(Packet):
         PacketField("device_info", DIBDeviceInfo(), DIBDeviceInfo),
         PacketField("supported_service_families", DIBSuppSvcFamilies(),
                     DIBSuppSvcFamilies)
-        # TODO: this is an optional field in KNX specs, add conditions to take it into account
+        # TODO: this is an optional field in KNX specs,
+        #  => Add conditions to take it into account
         # PacketField("other_device_info", DIBDeviceInfo(), DIBDeviceInfo)
     ]
 
@@ -559,7 +565,8 @@ class KNXTunnelingACK(Packet):
 # KNX FRAME
 
 # we made the choice to define a KNX service as a payload for a KNX Header
-# it could also be possible to define the body as a conditionnal PacketField contained after header
+# it could also be possible to define the body as a conditional PacketField
+# contained after header
 
 class KNX(Packet):
     name = "KNXnet/IP"
@@ -602,13 +609,12 @@ bind_layers(KNX, KNXTunnelingACK, service_identifier=0x0421)
 
 # we bind every layer to Padding in order to delete their payloads
 # (from https://github.com/secdev/scapy/issues/360)
-# we could also define a new Packet class with no payload and inherit every KNX packet from it :
-"""
-class _KNXBodyNoPayload(Packet):
-
-    def extract_padding(self, s):
-        return b"", None
-"""
+# we could also define a new Packet class with no payload and
+# inherit every KNX packet from it :
+# class _KNXBodyNoPayload(Packet):
+#
+#     def extract_padding(self, s):
+#         return b"", None
 
 bind_layers(HPAI, Padding)
 bind_layers(ServiceFamily, Padding)
