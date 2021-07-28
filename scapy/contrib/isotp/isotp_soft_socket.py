@@ -97,8 +97,8 @@ class ISOTPSoftSocket(SuperSocket):
     :param extended_rx_addr: the extended address of the received ISOTP
                              frames (can be None)
     :param rx_block_size: block size sent in Flow Control ISOTP frames
-    :param rx_separation_time_min: minimum desired separation time sent in
-                                   Flow Control ISOTP frames
+    :param stmin: minimum desired separation time sent in
+                  Flow Control ISOTP frames
     :param padding: If True, pads sending packets with 0x00 which not
                     count to the payload.
                     Does not affect receiving packets.
@@ -114,7 +114,7 @@ class ISOTPSoftSocket(SuperSocket):
                  extended_addr=None,  # type: Optional[int]
                  extended_rx_addr=None,  # type: Optional[int]
                  rx_block_size=0,  # type: int
-                 rx_separation_time_min=0,  # type: int
+                 stmin=0,  # type: int
                  padding=False,  # type: bool
                  listen_only=False,  # type: bool
                  basecls=ISOTP  # type: Type[Packet]
@@ -140,7 +140,7 @@ class ISOTPSoftSocket(SuperSocket):
             extended_addr=extended_addr,
             extended_rx_addr=extended_rx_addr,
             rx_block_size=rx_block_size,
-            rx_separation_time_min=rx_separation_time_min,
+            rx_separation_time_min=stmin,
             listen_only=listen_only
         )
 

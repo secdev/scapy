@@ -345,7 +345,6 @@ class ISOTPNativeSocket(SuperSocket):
                         "Increasing `stmin` could solve this problem.")
             elif e.errno == 110:
                 warning('Captured no data, socket read timed out.')
-                pass
             else:
                 self.close()
             return None, None, None
