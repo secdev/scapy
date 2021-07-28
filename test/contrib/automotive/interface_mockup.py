@@ -9,12 +9,21 @@
 import os
 import subprocess
 import sys
+import time
 
 from platform import python_implementation
 
-from scapy.all import load_layer, load_contrib, conf, log_runtime
+from scapy.main import load_layer, load_contrib
+from scapy.config import conf
+from scapy.error import log_runtime, Scapy_Exception
 import scapy.modules.six as six
 from scapy.consts import LINUX
+from scapy.modules.six.moves import queue
+from scapy.automaton import ObjectPipe
+from scapy.data import MTU
+from scapy.packet import Packet
+from scapy.compat import Optional, Type, Tuple, List
+from scapy.supersocket import SuperSocket
 
 load_layer("can", globals_dict=globals())
 conf.contribs['CAN']['swap-bytes'] = False
@@ -35,6 +44,7 @@ _socket_can_support = False
 
 
 def test_and_setup_socket_can(iface_name):
+    # type: (str) -> None
     if 0 != subprocess.call(("cansend %s 000#" % iface_name).split()):
         # iface_name is not enabled
         if 0 != subprocess.call("modprobe vcan".split()):
@@ -104,6 +114,7 @@ del s
 
 
 def cleanup_interfaces():
+    # type: () -> bool
     """
     Helper function to remove virtual CAN interfaces after test
 
@@ -124,6 +135,7 @@ def cleanup_interfaces():
 
 
 def drain_bus(iface=iface0, assert_empty=True):
+    # type: (str, bool) -> None
     """
     Utility function for draining a can interface,
     asserting that no packets are there
@@ -154,6 +166,7 @@ ISOTP_KERNEL_MODULE_AVAILABLE = False
 
 
 def exit_if_no_isotp_module():
+    # type: () -> None
     """
     Helper function to exit a test case if ISOTP kernel module is not available
     """
@@ -192,15 +205,15 @@ conf.contribs['ISOTP'] = \
 if six.PY3:
     import importlib
     if "scapy.contrib.isotp" in sys.modules:
-        importlib.reload(scapy.contrib.isotp)
+        importlib.reload(scapy.contrib.isotp)  # type: ignore
 
 load_contrib("isotp", globals_dict=globals())
 
 if six.PY3 and ISOTP_KERNEL_MODULE_AVAILABLE:
-    if not ISOTPSocket == ISOTPNativeSocket:
+    if not ISOTPSocket == ISOTPNativeSocket:  # type: ignore
         raise Scapy_Exception("Error in ISOTPSocket import!")
 else:
-    if not ISOTPSocket == ISOTPSoftSocket:
+    if not ISOTPSocket == ISOTPSoftSocket:  # type: ignore
         raise Scapy_Exception("Error in ISOTPSocket import!")
 
 # ############################################################################
@@ -209,3 +222,79 @@ else:
 from scapy.contrib.automotive.ecu import *
 log_runtime.debug("Set send delay to lower utilization on CI machines")
 conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
+
+# ############################################################################
+# """ Define custom SuperSocket for unit tests """
+# ############################################################################
+
+
+class TestSocket(ObjectPipe, object):
+    nonblocking_socket = True  # type: bool
+
+    def __init__(self, basecls=None):
+        # type: (Optional[Type[Packet]]) -> None
+        super(TestSocket, self).__init__()
+        self.basecls = basecls
+        self.__paired_socket = None  # type: Optional[TestSocket]
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+        super(TestSocket, self).close()
+
+    def pair(self, sock):
+        # type: (TestSocket) -> None
+        if sock.__paired_socket or self.__paired_socket:
+            raise Scapy_Exception("Socket already paired")
+        self.__paired_socket = sock
+        sock.__paired_socket = self
+
+    def send(self, x):
+        # type: (Packet) -> int
+        if not self.__paired_socket:
+            self.close()
+            raise Scapy_Exception("Socket not paired!")
+
+        sx = bytes(x)
+        super(TestSocket, self.__paired_socket).send(sx)
+        try:
+            x.sent_time = time.time()
+        except AttributeError:
+            pass
+        return len(sx)
+
+    def recv_raw(self, x=MTU):
+        # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
+        """Returns a tuple containing (cls, pkt_data, time)"""
+        return self.basecls, \
+            super(TestSocket, self).recv(), \
+            time.time()
+
+    def recv(self, x=MTU):
+        # type: (int) -> Optional[Packet]
+        cls, val, ts = self.recv_raw(x)
+        if not val or not cls:
+            return None
+        try:
+            pkt = cls(val)  # type: Packet
+        except KeyboardInterrupt:
+            raise
+        except Exception:
+            if conf.debug_dissector:
+                from scapy.sendrecv import debug
+                debug.crashed_on = (cls, val)
+                raise
+            pkt = conf.raw_layer(val)
+        if ts:
+            pkt.time = ts
+        return pkt
+
+    def sr1(self, *args, **kargs):
+        # type: (Any, Any) -> Optional[Packet]
+        from scapy import sendrecv
+        ans = sendrecv.sndrcv(self, *args, **kargs)[0]  # type: SndRcvList
+        if len(ans) > 0:
+            pkt = ans[0][1]  # type: Packet
+            return pkt
+        else:
+            return None
