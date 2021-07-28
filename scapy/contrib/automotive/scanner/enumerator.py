@@ -54,7 +54,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         self.__result_packets = OrderedDict()  # type: Dict[bytes, Packet]
         self._results = list()  # type: List[_AutomotiveTestCaseScanResult]
         self._request_iterators = dict()  # type: Dict[EcuState, Iterable[Packet]]  # noqa: E501
-        self._retry_pkt = None  # type: Optional[Union[Packet, Iterable[Packet]]]  # noqa: E501
+        self._retry_pkt = defaultdict(lambda: None)  # type: Dict[EcuState, Optional[Union[Packet, Iterable[Packet]]]]  # noqa: E501
         self._negative_response_blacklist = [0x10, 0x11]  # type: List[int]
 
     @staticmethod
@@ -133,17 +133,16 @@ class ServiceEnumerator(AutomotiveTestCase):
             req.sent_time or 0.0,
             res.time if res is not None else None))
 
-    def __get_retry_iterator(self):
-        # type: () -> Iterable[Packet]
-        if self._retry_pkt:
-            if isinstance(self._retry_pkt, Packet):
-                it = [self._retry_pkt]  # type: Iterable[Packet]
-            else:
-                # assume self.retry_pkt is a generator or list
-                it = self._retry_pkt
-            return it
-        else:
+    def __get_retry_iterator(self, state):
+        # type: (EcuState) -> Iterable[Packet]
+        retry_entry = self._retry_pkt[state]
+        if retry_entry is None:
             return []
+        elif isinstance(retry_entry, Packet):
+            return [retry_entry]
+        else:
+            # assume self.retry_pkt is a generator or list
+            return retry_entry
 
     def __get_initial_request_iterator(self, state, **kwargs):
         # type: (EcuState, Any) -> Iterable[Packet]
@@ -155,7 +154,7 @@ class ServiceEnumerator(AutomotiveTestCase):
 
     def __get_request_iterator(self, state, **kwargs):
         # type: (EcuState, Optional[Dict[str, Any]]) -> Iterable[Packet]
-        return chain(self.__get_retry_iterator(),
+        return chain(self.__get_retry_iterator(state),
                      self.__get_initial_request_iterator(state, **kwargs))
 
     def execute(self, socket, state, **kwargs):
@@ -175,10 +174,10 @@ class ServiceEnumerator(AutomotiveTestCase):
             try:
                 res = socket.sr1(req, timeout=timeout, verbose=False)
             except (OSError, ValueError, Scapy_Exception) as e:
-                if self._retry_pkt is None:
+                if self._retry_pkt[state] is None:
                     log_interactive.debug(
                         "[-] Exception '%s' in execute. Prepare for retry", e)
-                    self._retry_pkt = req
+                    self._retry_pkt[state] = req
                 else:
                     log_interactive.critical(
                         "[-] Exception during retry. This is bad")
@@ -244,19 +243,19 @@ class ServiceEnumerator(AutomotiveTestCase):
         if retry_if_busy_returncode and response.service == 0x7f \
                 and self._get_negative_response_code(response) == 0x21:
 
-            if self._retry_pkt is None:
+            if self._retry_pkt[state] is None:
                 # This was no retry since the retry_pkt is None
-                self._retry_pkt = request
+                self._retry_pkt[state] = request
                 log_interactive.debug(
                     "[-] Exit execute. Retry packet next time!")
                 return True
             else:
                 # This was a unsuccessful retry, continue execute
-                self._retry_pkt = None
+                self._retry_pkt[state] = None
                 log_interactive.debug("[-] Unsuccessful retry!")
                 return False
         else:
-            self._retry_pkt = None
+            self._retry_pkt[state] = None
 
         if EcuState.is_modifier_pkt(response):
             if state != EcuState.get_modified_ecu_state(
