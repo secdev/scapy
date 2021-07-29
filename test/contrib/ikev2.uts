@@ -92,6 +92,19 @@ assert isinstance(a, IKEv2_payload_CERT_CRL)
 assert isinstance(b, IKEv2_payload_CERT_STR)
 assert isinstance(c, IKEv2_payload_CERT_CRT)
 
+= Test Certs length calculations
+## For the length calculations see Figure 12 in RFC 7296
+a = IKEv2_payload_CERT_CRT(raw(IKEv2_payload_CERT_CRT()))
+assert len(a.x509Cert) > 0
+assert a.length == len(a.x509Cert) + 5
+
+b = IKEv2_payload_CERT_CRL(raw(IKEv2_payload_CERT_CRL()))
+assert len(b.x509CRL) > 0
+assert b.length == len(b.x509CRL) + 5
+
+c = IKEv2_payload_CERT_STR(raw(IKEv2_payload_CERT_STR(cert_data=b'dummy')))
+assert c.length == len(c.cert_data) + 5
+
 = Test TrafficSelector detection
 
 a = TrafficSelector(raw(IPv4TrafficSelector()))
