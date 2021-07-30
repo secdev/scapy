@@ -1,0 +1,122 @@
+% Tests for Scapy's p0fv2 module.
+
+~ p0f
+
+
+############
+############
++ Basic p0f module tests
+
+= Module loading
+load_module('p0fv2')
+
+= Fetch database
+~ netaccess
+
+from __future__ import print_function
+try:
+    from urllib.request import urlopen
+except ImportError:
+    from urllib2 import urlopen
+
+def _load_database(file):
+    for i in range(10):
+        try:
+            open(file, 'wb').write(urlopen('https://raw.githubusercontent.com/p0f/p0f/4b4d1f384abebbb9b1b25b8f3c6df5ad7ab365f7/' + file).read())
+            break
+        except:
+            raise
+            pass
+
+_load_database("p0f.fp")
+conf.p0f_base = "p0f.fp"
+_load_database("p0fa.fp")
+conf.p0fa_base = "p0fa.fp"
+_load_database("p0fr.fp")
+conf.p0fr_base = "p0fr.fp"
+_load_database("p0fo.fp")
+conf.p0fo_base = "p0fo.fp"
+
+p0f_load_knowledgebases()
+
+############
+############
++ Default tests
+
+= Test p0f
+~ netaccess
+
+pkt = Ether(b'\x14\x0cv\x8f\xfe(\xd0P\x99V\xdd\xf9\x08\x00E\x00\x0045+@\x00\x80\x06\x00\x00\xc0\xa8\x00w(M\xe2\xf9\xda\xcb\x01\xbbcc\xdd\x1e\x00\x00\x00\x00\x80\x02\xfa\xf0\xcc\x8c\x00\x00\x02\x04\x05\xb4\x01\x03\x03\x08\x01\x01\x04\x02')
+
+assert p0f(pkt) == [('@Windows', 'XP/2000 (RFC1323+, w+, tstamp-)', 0)]
+
+= Test prnp0f
+~ netaccess
+
+with ContextManagerCaptureOutput() as cmco:
+    prnp0f(pkt)
+    assert cmco.get_output() == '192.168.0.119:56011 - @Windows XP/2000 (RFC1323+, w+, tstamp-)\n  -> 40.77.226.249:https (S) (distance 0)\n'
+
+############
+############
++ Tests for p0f_impersonate
+
+# XXX: a lot of pieces of p0f_impersonate don't have tests yet.
+
+= Impersonate when window size must be multiple of some integer
+sig = ('%467', 64, 1, 60, 'M*,W*', '.', 'Phony Sys', '1.0')
+pkt = p0f_impersonate(IP()/TCP(), signature=sig)
+assert pkt.payload.window % 467 == 0
+
+= Handle unusual flags ("F") quirk
+sig = ('1024', 64, 0, 60, 'W*', 'F', 'Phony Sys', '1.0')
+pkt = p0f_impersonate(IP()/TCP(), signature=sig)
+assert (pkt.payload.flags & 40) in (8, 32, 40)
+
+= Use valid option values from original packet
+sig = ('S4', 64, 1, 60, 'M*,W*,T', '.', 'Phony Sys', '1.0')
+opts = [('MSS', 1400), ('WScale', 3), ('Timestamp', (97256, 0))]
+pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
+assert pkt.payload.options == opts
+
+= Use valid option values when multiples required
+sig = ('S4', 64, 1, 60, 'M%37,W%19', '.', 'Phony Sys', '1.0')
+opts = [('MSS', 37*15), ('WScale', 19*12)]
+pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
+assert pkt.payload.options == opts
+
+= Discard non-multiple option values when multiples required
+sig = ('S4', 64, 1, 60, 'M%37,W%19', '.', 'Phony Sys', '1.0')
+opts = [('MSS', 37*15 + 1), ('WScale', 19*12 + 1)]
+pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
+assert pkt.payload.options[0][1] % 37 == 0
+assert pkt.payload.options[1][1] % 19 == 0
+
+= Discard bad timestamp values
+sig = ('S4', 64, 1, 60, 'M*,T', '.', 'Phony Sys', '1.0')
+opts = [('Timestamp', (0, 1000))]
+pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
+# since option is "T" and not "T0":
+assert pkt.payload.options[1][1][0] > 0
+# since T quirk is not present:
+assert pkt.payload.options[1][1][1] == 0
+
+= Discard 2nd timestamp of 0 if "T" quirk is present
+sig = ('S4', 64, 1, 60, 'M*,T', 'T', 'Phony Sys', '1.0')
+opts = [('Timestamp', (54321, 0))]
+pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
+assert pkt.payload.options[1][1][1] > 0
+
++ Clear temp files
+
+= Remove fp files
+def _rem(f):
+    try:
+        os.remove(f)
+    except:
+        pass
+
+_rem("p0f.fp")
+_rem("p0fa.fp")
+_rem("p0fr.fp")
+_rem("p0fo.fp")

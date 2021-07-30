@@ -2,9 +2,6 @@
 
 ~ p0f
 
-
-############
-############
 + Basic p0f module tests
 
 = Module loading
@@ -13,99 +10,104 @@ load_module('p0f')
 = Fetch database
 ~ netaccess
 
-from __future__ import print_function
 try:
     from urllib.request import urlopen
 except ImportError:
     from urllib2 import urlopen
 
-def _load_database(file):
-    for i in range(10):
-        try:
-            open(file, 'wb').write(urlopen('https://raw.githubusercontent.com/p0f/p0f/4b4d1f384abebbb9b1b25b8f3c6df5ad7ab365f7/' + file).read())
-            break
-        except:
-            raise
-            pass
+for i in range(10):
+    try:
+        open("p0f.fp", 'wb').write(urlopen('https://raw.githubusercontent.com/p0f/p0f/e8b924ae7fa099a3a5fe7def0ce3e397fd9a7137/p0f.fp').read())
+        break
+    except:
+        raise
 
-_load_database("p0f.fp")
 conf.p0f_base = "p0f.fp"
-_load_database("p0fa.fp")
-conf.p0fa_base = "p0fa.fp"
-_load_database("p0fr.fp")
-conf.p0fr_base = "p0fr.fp"
-_load_database("p0fo.fp")
-conf.p0fo_base = "p0fo.fp"
+p0fdb.reload(conf.p0f_base)
 
-p0f_load_knowledgebases()
-
-############
-############
 + Default tests
 
-= Test p0f
+= Test TCP p0f, SYN - Windows
 ~ netaccess
 
-pkt = Ether(b'\x14\x0cv\x8f\xfe(\xd0P\x99V\xdd\xf9\x08\x00E\x00\x0045+@\x00\x80\x06\x00\x00\xc0\xa8\x00w(M\xe2\xf9\xda\xcb\x01\xbbcc\xdd\x1e\x00\x00\x00\x00\x80\x02\xfa\xf0\xcc\x8c\x00\x00\x02\x04\x05\xb4\x01\x03\x03\x08\x01\x01\x04\x02')
+pkt = IP(b'E\x00\x004Se@\x00\x80\x06\x93?\n\x00\x00\x14\n\x00\x00\x0c\xc3\x08\x01\xbb\xcf\xb4\xbb\\\x00\x00\x00\x00\x80\x02 \x00\xeb\x1b\x00\x00\x02\x04\x05\xb4\x01\x03\x03\x08\x01\x01\x04\x02')
+assert p0f(pkt) == (('s', 'win', 'Windows', '7 or 8'), 0, False)
 
-assert p0f(pkt) == [('@Windows', 'XP/2000 (RFC1323+, w+, tstamp-)', 0)]
-
-= Test prnp0f
+= Test TCP p0f, SYN - Linux
 ~ netaccess
 
-with ContextManagerCaptureOutput() as cmco:
-    prnp0f(pkt)
-    assert cmco.get_output() == '192.168.0.119:56011 - @Windows XP/2000 (RFC1323+, w+, tstamp-)\n  -> 40.77.226.249:https (S) (distance 0)\n'
+pkt = IP(b"E\x10\x00<A0@\x00@\x06t\xdd\xc0\xa8\x01\x8c\xc0\xa8\x01\xc2\xdd\xb8\x00\x17\xda\xcf!\xd5\x00\x00\x00\x00\xa0\x02\x16\xd0q\x10\x00\x00\x02\x04\x05\xb4\x04\x02\x08\n\x00'`\xe5\x00\x00\x00\x00\x01\x03\x03\x07")
+assert p0f(pkt) == (('s', 'unix', 'Linux', '2.6.x'), 0, False)
 
-############
-############
+= Test TCP p0f, SYN - IPv6 FreeBSD
+~ netaccess
+
+pkt = IPv6(hlim=64) / TCP(seq=1, window=65535, options=[("MSS", 150), ("NOP", None), ("WScale", 6), ("SAckOK", ""), ("Timestamp", (12345, 0))])
+assert p0f(pkt) == (('s', 'unix', 'FreeBSD', '9.x or newer'), 0, False)
+
+= Test TCP p0f, SYN-ACK - Linux
+~ netaccess
+
+pkt = IP(b'E\x00\x00<\x00\x00@\x008\x06N;?t\xf3a\xc0\xa8\x01\x03\x00P\xe5\xc0\xa3\xc4\x80\x9f\xe5\x94=\xab\xa0\x12\x16\xa0N\x07\x00\x00\x02\x04\x05\xb4\x04\x02\x08\n\x8d\x9d\x9d\xfa\x00\x17\x95e\x01\x03\x03\x05')
+assert p0f(pkt) == (('s', 'unix', 'Linux', '2.6.x'), 8, False)
+
+= Test HTTP p0f, request - wget
+~ netaccess
+
+pkt = IP(b'E\x00\x00\xba\xcb]@\x00@\x06(d\xc0\xa8\x01\x8c\xae\x8f\xd5\xb8\xe1N\x00P\x8eP\x19\x02\xc7R\x9d\x89\x80\x18\x00.G)\x00\x00\x01\x01\x08\n\x00!\xd2_1\xc7\xbaHGET /images/layout/logo.png HTTP/1.0\r\nUser-Agent: Wget/1.12 (linux-gnu)\r\nAccept: */*\r\nHost: packetlife.net\r\nConnection: Keep-Alive\r\n\r\n')
+assert p0f(pkt) == (('s', '!', 'wget', '', ('@unix', 'Windows')), False)
+
+= Test HTTP p0f, response - nginx
+~ netaccess
+
+pkt = IP(b"E\x00\x05\xdc'\xde@\x00\xfb\x06\x0b\xc1\xae\x8f\xd5\xb8\xc0\xa8\x01\x8c\x00P\xe1N\xc7R\x9d\x89\x8eP\x19\x88\x80\x10\x00lS\xc4\x00\x00\x01\x01\x08\n1\xc7\xbaT\x00!\xd2_HTTP/1.1 200 OK\r\nServer: nginx/0.8.53\r\nDate: Tue, 01 Mar 2011 20:45:16 GMT\r\nContent-Type: image/png\r\nContent-Length: 21684\r\nLast-Modified: Fri, 21 Jan 2011 03:41:14 GMT\r\nConnection: keep-alive\r\nKeep-Alive: timeout=20\r\nExpires: Wed, 29 Feb 2012 20:45:16 GMT\r\nCache-Control: max-age=31536000\r\nCache-Control: public\r\nVary: Accept-Encoding\r\nAccept-Ranges: bytes\r\n\r\n")
+assert p0f(pkt) == (('s', '!', 'nginx', '1.x', ('@unix',)), False)
+
+= Test MTU p0f
+~ netaccess
+
+pkt = IP(b'E\x00\x004Se@\x00\x80\x06\x93?\n\x00\x00\x14\n\x00\x00\x0c\xc3\x08\x01\xbb\xcf\xb4\xbb\\\x00\x00\x00\x00\x80\x02 \x00\xeb\x1b\x00\x00\x02\x04\x05\xb4\x01\x03\x03\x08\x01\x01\x04\x02')
+assert fingerprint_mtu(pkt) == "Ethernet or modem"
+
+
 + Tests for p0f_impersonate
 
-# XXX: a lot of pieces of p0f_impersonate don't have tests yet.
+= Check that the impersonated packet is properly detected by p0f
+~ netaccess
+
+sig = "*:64:0:*:mss*20,10:mss,sok,ts,nop,ws:df,id+:0"
+pkt = p0f_impersonate(IP()/TCP(), signature=sig)
+assert p0f(pkt) == (("s", "unix", "Linux", "3.11 and newer"), 0, False)
 
 = Impersonate when window size must be multiple of some integer
-sig = ('%467', 64, 1, 60, 'M*,W*', '.', 'Phony Sys', '1.0')
+sig = "*:64:0:1460:%8192,0:mss,nop,ws::0"
 pkt = p0f_impersonate(IP()/TCP(), signature=sig)
-assert pkt.payload.window % 467 == 0
+assert pkt[TCP].window % 8192 == 0
 
-= Handle unusual flags ("F") quirk
-sig = ('1024', 64, 0, 60, 'W*', 'F', 'Phony Sys', '1.0')
+= Impersonate when window size must be multiple of mss
+sig = "*:64:0:1024:mss*4,0:mss::0"
 pkt = p0f_impersonate(IP()/TCP(), signature=sig)
-assert (pkt.payload.flags & 40) in (8, 32, 40)
+assert (pkt[TCP].window // 4) == 1024
+
+= Impersonate when the following quirks are present: seq-,ack-,pushf+,urgf+
+sig = "*:64:0:1460:8192,0:mss:seq-,ack-,pushf+,urgf+:0"
+pkt = p0f_impersonate(IP()/TCP(seq=1, ack=1, flags="S"), signature=sig)
+tcp = pkt[TCP]
+assert pkt[TCP].seq == pkt[TCP].ack == 0
+assert pkt[TCP].flags.A and pkt[TCP].flags.P and pkt[TCP].flags.U
 
 = Use valid option values from original packet
-sig = ('S4', 64, 1, 60, 'M*,W*,T', '.', 'Phony Sys', '1.0')
-opts = [('MSS', 1400), ('WScale', 3), ('Timestamp', (97256, 0))]
+sig = "*:64:0:*:8192,*:mss,ws,ts::0"
+opts = [("MSS", 1400), ("WScale", 3), ("Timestamp", (97256, 0))]
 pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
-assert pkt.payload.options == opts
+assert pkt[TCP].options == opts
 
-= Use valid option values when multiples required
-sig = ('S4', 64, 1, 60, 'M%37,W%19', '.', 'Phony Sys', '1.0')
-opts = [('MSS', 37*15), ('WScale', 19*12)]
+= Discard invalid options values
+sig = "*:64:0:1000:8192,5:mss,ws::0"
+opts = [("MSS", 1400), ("WScale", 3)]
 pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
-assert pkt.payload.options == opts
-
-= Discard non-multiple option values when multiples required
-sig = ('S4', 64, 1, 60, 'M%37,W%19', '.', 'Phony Sys', '1.0')
-opts = [('MSS', 37*15 + 1), ('WScale', 19*12 + 1)]
-pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
-assert pkt.payload.options[0][1] % 37 == 0
-assert pkt.payload.options[1][1] % 19 == 0
-
-= Discard bad timestamp values
-sig = ('S4', 64, 1, 60, 'M*,T', '.', 'Phony Sys', '1.0')
-opts = [('Timestamp', (0, 1000))]
-pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
-# since option is "T" and not "T0":
-assert pkt.payload.options[1][1][0] > 0
-# since T quirk is not present:
-assert pkt.payload.options[1][1][1] == 0
-
-= Discard 2nd timestamp of 0 if "T" quirk is present
-sig = ('S4', 64, 1, 60, 'M*,T', 'T', 'Phony Sys', '1.0')
-opts = [('Timestamp', (54321, 0))]
-pkt = p0f_impersonate(IP()/TCP(options=opts), signature=sig)
-assert pkt.payload.options[1][1][1] > 0
+assert pkt[TCP].options[0][1] == 1000
+assert pkt[TCP].options[1][1] == 5
 
 + Clear temp files
 
@@ -117,6 +119,3 @@ def _rem(f):
         pass
 
 _rem("p0f.fp")
-_rem("p0fa.fp")
-_rem("p0fr.fp")
-_rem("p0fo.fp")
