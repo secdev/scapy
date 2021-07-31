@@ -209,7 +209,7 @@ get_working_if()
 
 get_if_raw_addr6(conf.iface)
 
-if not WINDOWS:
+if conf.use_bpf:
     addr = u"lladdr 29:0b:c2:ff:fe:53:21:e9\n"
     b = Bunch(returncode=0, communicate=lambda *args, **kargs: (addr, None))
     with mock.patch('scapy.arch.bpf.core.subprocess.Popen', return_value=b) as popen:

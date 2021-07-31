@@ -1,6 +1,6 @@
 % Regression tests for ISOTP
 
-~ automotive_comm
+~ automotive_comm disabled
 
 + Configuration
 ~ conf
