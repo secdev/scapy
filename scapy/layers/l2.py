@@ -24,7 +24,7 @@ from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
     DLT_ETHERNET_MPACKET, DLT_LINUX_IRDA, DLT_LINUX_SLL, DLT_LOOP, \
     DLT_NULL, ETHER_ANY, ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, \
     ETH_P_MACSEC
-from scapy.error import warning, ScapyNoDstMacException
+from scapy.error import warning, ScapyNoDstMacException, log_runtime
 from scapy.fields import (
     BCDFloatField,
     BitField,
@@ -509,6 +509,10 @@ def l2_register_l3_arp(l2, l3):
     # TODO: support IPv6?
     if l3.plen == 4:
         return getmacbyip(l3.pdst)
+    log_runtime.warning(
+        "Unable to guess L2 MAC address from an ARP packet with a "
+        "non-IPv4 pdst. Provide it manually !"
+    )
     return None
 
 
