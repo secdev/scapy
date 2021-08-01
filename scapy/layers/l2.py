@@ -30,7 +30,6 @@ from scapy.fields import (
     BitField,
     ByteField,
     ConditionalField,
-    FCSField,
     FieldLenField,
     IP6Field,
     IPField,
@@ -46,6 +45,7 @@ from scapy.fields import (
     SourceIPField,
     StrFixedLenField,
     StrLenField,
+    TrailerField,
     XByteField,
     XIntField,
     XShortEnumField,
@@ -310,7 +310,7 @@ class MPacketPreamble(Packet):
     # IEEE 802.3br Figure 99-3
     name = "MPacket Preamble"
     fields_desc = [StrFixedLenField("preamble", b"", length=8),
-                   FCSField("fcs", 0, fmt="!I")]
+                   TrailerField(IntField("fcs", 0))]
 
 
 class SNAP(Packet):

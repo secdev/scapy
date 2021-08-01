@@ -427,17 +427,13 @@ class IEC104_I_Message(IEC104_APDU):
 
     fields_desc = []
 
-    def __init__(self, _pkt=b"", post_transform=None, _internal=0,
-                 _underlayer=None, **fields):
+    def __init__(self, _pkt=b"", **kwargs):
 
         super(IEC104_I_Message, self).__init__(_pkt=_pkt,
-                                               post_transform=post_transform,
-                                               _internal=_internal,
-                                               _underlayer=_underlayer,
-                                               **fields)
+                                               **kwargs)
 
-        if 'io' in fields and fields['io']:
-            self._information_object_update(fields['io'])
+        if 'io' in kwargs and kwargs['io']:
+            self._information_object_update(kwargs['io'])
 
     def _information_object_update(self, io_instances):
         """

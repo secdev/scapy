@@ -867,8 +867,7 @@ class _GenericTLSSessionInheritance(Packet):
     name = "Dummy Generic TLS Packet"
     fields_desc = []
 
-    def __init__(self, _pkt="", post_transform=None, _internal=0,
-                 _underlayer=None, tls_session=None, **fields):
+    def __init__(self, _pkt="", _underlayer=None, tls_session=None, **kwargs):
         try:
             setme = self.tls_session is None
         except Exception:
@@ -910,9 +909,7 @@ class _GenericTLSSessionInheritance(Packet):
                         srk:
                     self.tls_session.server_rsa_key = srk
 
-        Packet.__init__(self, _pkt=_pkt, post_transform=post_transform,
-                        _internal=_internal, _underlayer=_underlayer,
-                        **fields)
+        Packet.__init__(self, _pkt=_pkt, **kwargs)
 
     def __getattr__(self, attr):
         """

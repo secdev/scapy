@@ -161,9 +161,8 @@ class Dot15d4FCS(Dot15d4):
     '''
     name = "802.15.4 - FCS"
     match_subclass = True
-    fields_desc = Dot15d4.fields_desc + [FCSField("fcs", None, fmt="<H")]
 
-    def compute_fcs(self, data):
+    def compute_fcs(_, data):
         # Do a CRC-CCITT Kermit 16bit on the data given
         # Returns a CRC that is the FCS for the frame
         #  Implemented using pseudocode from: June 1986, Kermit Protocol Manual
@@ -178,13 +177,9 @@ class Dot15d4FCS(Dot15d4):
             crc = (crc // 16) ^ (q * 4225)
         return struct.pack('<H', crc)  # return as bytes in little endian order
 
-    def post_build(self, p, pay):
-        # construct the packet with the FCS at the end
-        p = Dot15d4.post_build(self, p, pay)
-        if self.fcs is None:
-            p = p[:-2]
-            p = p + self.compute_fcs(p)
-        return p
+    fields_desc = Dot15d4.fields_desc + [
+        FCSField("fcs", None, compute_fcs, fmt="<H")
+    ]
 
 
 class Dot15d4Ack(Packet):

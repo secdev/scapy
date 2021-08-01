@@ -804,16 +804,13 @@ class Dot11(Packet):
 class Dot11FCS(Dot11):
     name = "802.11-FCS"
     match_subclass = True
-    fields_desc = Dot11.fields_desc + [FCSField("fcs", None, fmt="<I")]
 
-    def compute_fcs(self, s):
+    def compute_fcs(_, s):
         return struct.pack("!I", crc32(s) & 0xffffffff)[::-1]
 
-    def post_build(self, p, pay):
-        p += pay
-        if self.fcs is None:
-            p = p[:-4] + self.compute_fcs(p[:-4])
-        return p
+    fields_desc = Dot11.fields_desc + [
+        FCSField("fcs", None, compute_fcs, fmt="<I")
+    ]
 
 
 class Dot11QoS(Packet):

@@ -638,39 +638,91 @@ class ReversePadField(PadField):
         ), self._padwith) + sval
 
 
-class FCSField(Field[int, int]):
+class TrailerField(_FieldContainer):
     """Special Field that gets its value from the end of the *packet*
     (Note: not layer, but packet).
 
-    Mostly used for FCS
+    Note that the value is appended in ``build_done``: you
+    will not see it anywhere in ``post_build``s.
+
+    Mostly used for FCS.
+
+    :param fld: the field to wrap
+    :param compute: a function to calculate the value to append based on
+                    the build packet
     """
+    __slots__ = ["fld"]
+
+    def __init__(self,
+                 fld,  # type: Field[Any, Any]
+                 compute=None  # type: Optional[Callable[[Packet, bytes], bytes]]  # noqa: E501
+                 ):
+        # type: (...) -> None
+        self.fld = fld
+        self.compute = compute
+        if not self.fld.sz:
+            raise ValueError("Unsupported field (must have sz) !")
+
+    def _inject_post_done(self, pkt, val):
+        # type: (Packet, bytes) -> None
+        def _build_done(p):
+            # type: (bytes) -> bytes
+            return p + val
+        pkt.register_build_done("trailer_done_%s" % self.fld.name, _build_done)
+
+    def _inject_post_build(self, pkt, val, compute):
+        # type: (Packet, bytes, bool) -> None
+        previous_post_build = pkt.post_build
+
+        def _compute(p):
+            # type: (bytes) -> bytes
+            if compute and self.compute:
+                return self.compute(pkt, p)
+            else:
+                return val
+
+        def _post_build(_self, p, pay):
+            # type: (Packet, bytes, bytes) -> bytes
+            p = previous_post_build(p, pay)
+            self._inject_post_done(_self, _compute(p))
+            _self.post_build = previous_post_build  # type: ignore
+            return p
+        pkt.post_build = MethodType(_post_build, pkt)  # type: ignore
 
     def getfield(self, pkt, s):
-        # type: (Packet, bytes) -> Tuple[bytes, int]
-        previous_post_dissect = pkt.post_dissect
-        val = self.m2i(pkt, struct.unpack(self.fmt, s[-self.sz:])[0])
-
-        def _post_dissect(self, s):
-            # type: (Packet, bytes) -> bytes
-            # Reset packet to allow post_build
-            self.raw_packet_cache = None
-            self.post_dissect = previous_post_dissect  # type: ignore
-            return previous_post_dissect(s)
-        pkt.post_dissect = MethodType(_post_dissect, pkt)  # type: ignore
-        return s[:-self.sz], val
+        # type: (Packet, bytes) -> Tuple[bytes, Any]
+        r, val = self.fld.getfield(pkt, s[-self.fld.sz:])
+        if r:
+            # This case is unsupported. Nothing should remain
+            log_runtime.warning(
+                "Remaining data in TrailerField ! This shouldn't happen !"
+            )
+            return s, None
+        self._inject_post_done(pkt, s[-self.fld.sz:])
+        return s[:-self.fld.sz], val
 
     def addfield(self, pkt, s, val):
-        # type: (Packet, bytes, Optional[int]) -> bytes
-        previous_post_build = pkt.post_build
-        value = struct.pack(self.fmt, self.i2m(pkt, val))
-
-        def _post_build(self, p, pay):
-            # type: (Packet, bytes, bytes) -> bytes
-            pay += value
-            self.post_build = previous_post_build  # type: ignore
-            return previous_post_build(p, pay)
-        pkt.post_build = MethodType(_post_build, pkt)  # type: ignore
+        # type: (Packet, bytes, Optional[Any]) -> bytes
+        value = self.fld.addfield(pkt, b"", val)
+        self._inject_post_build(pkt, value, val is None)
         return s
+
+
+class FCSField(TrailerField):
+    """
+    A ``TrailerField`` that uses the default Field and displays hex.
+    """
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: Optional[int]
+                 compute_fcs,  # type: Optional[Callable[[Packet, bytes], bytes]]  # noqa: E501
+                 *args,  # type: Any
+                 **kwargs  # type: Any
+                 ):
+        super(FCSField, self).__init__(
+            Field(name, default, *args, **kwargs),
+            compute=compute_fcs
+        )
 
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], int) -> str

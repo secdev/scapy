@@ -128,28 +128,15 @@ _bth_opcodes = dict([
 
 class BTH(Packet):
     name = "BTH"
-    fields_desc = [
-        ByteEnumField("opcode", 0, _bth_opcodes),
-        BitField("solicited", 0, 1),
-        BitField("migreq", 0, 1),
-        BitField("padcount", 0, 2),
-        BitField("version", 0, 4),
-        XShortField("pkey", 0xffff),
-        BitField("fecn", 0, 1),
-        BitField("becn", 0, 1),
-        BitField("resv6", 0, 6),
-        BitField("dqpn", 0, 24),
-        BitField("ackreq", 0, 1),
-        BitField("resv7", 0, 7),
-        BitField("psn", 0, 24),
-
-        FCSField("icrc", None, fmt="!I")]
 
     @staticmethod
     def pack_icrc(icrc):
         # type: (int) -> bytes
         return struct.pack("!I", icrc & 0xffffffff)[::-1]
 
+    # RoCE packets end with ICRC - a 32-bit CRC of the packet payload and
+    # pseudo-header. Add the ICRC header if it is missing and calculate its
+    # value.
     def compute_icrc(self, p):
         # type: (bytes) -> bytes
         udp = self.underlayer
@@ -182,15 +169,22 @@ class BTH(Packet):
                     ip and ip.name)
             return self.pack_icrc(0)
 
-    # RoCE packets end with ICRC - a 32-bit CRC of the packet payload and
-    # pseudo-header. Add the ICRC header if it is missing and calculate its
-    # value.
-    def post_build(self, p, pay):
-        # type: (bytes, bytes) -> bytes
-        p += pay
-        if self.icrc is None:
-            p = p[:-4] + self.compute_icrc(p)
-        return p
+    fields_desc = [
+        ByteEnumField("opcode", 0, _bth_opcodes),
+        BitField("solicited", 0, 1),
+        BitField("migreq", 0, 1),
+        BitField("padcount", 0, 2),
+        BitField("version", 0, 4),
+        XShortField("pkey", 0xffff),
+        BitField("fecn", 0, 1),
+        BitField("becn", 0, 1),
+        BitField("resv6", 0, 6),
+        BitField("dqpn", 0, 24),
+        BitField("ackreq", 0, 1),
+        BitField("resv7", 0, 7),
+        BitField("psn", 0, 24),
+
+        FCSField("icrc", None, compute_icrc, fmt="!I")]
 
 
 class CNPPadding(Packet):

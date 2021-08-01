@@ -2041,7 +2041,7 @@ class TestPacket(Packet):
         ByteField("a", 0),
         LEShortField("b", 15),
         LEIntField("c", 7),
-        FCSField("fcs", None),
+        FCSField("fcs", None, None, fmt="H"),
         IntField("bottom", 0)
     ]
 
@@ -2056,6 +2056,28 @@ assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\x
 pkt = TestPacket(raw(pkt))
 assert pkt.fcs == 0xbeef
 
+assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01\xbe\xef'
+
+= TrailerField
+
+class TestPacket(Packet):
+    fields_desc = [
+        ByteField("a", 0),
+        LEShortField("b", 15),
+        LEIntField("c", 7),
+        TrailerField(MACField("mac", None)),
+        TrailerField(MACField("mac2", None)),
+        IntField("bottom", 0)
+    ]
+
+bind_layers(TestPacket, Ether)
+pkt = TestPacket(a=12, mac="11:11:11:11:11:11", mac2="dd:dd:dd:dd:dd:dd", bottom=123)/Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IP(src="127.0.0.1", dst="127.0.0.1")
+
+assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01\xdd\xdd\xdd\xdd\xdd\xdd\x11\x11\x11\x11\x11\x11'
+
+pkt = TestPacket(raw(pkt))
+
+assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01\xdd\xdd\xdd\xdd\xdd\xdd\x11\x11\x11\x11\x11\x11'
 
 ############
 ############

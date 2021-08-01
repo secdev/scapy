@@ -36,6 +36,7 @@ from scapy.fields import (
     PacketListField,
     RawVal,
     StrField,
+    TrailerField,
 )
 from scapy.config import conf, _version_checker
 from scapy.compat import raw, orb, bytes_encode
@@ -84,7 +85,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         "overload_fields", "overloaded_fields",
         "packetfields",
         "original", "explicit", "raw_packet_cache",
-        "raw_packet_cache_fields", "_pkt", "post_transforms",
+        "raw_packet_cache_fields", "_pkt",
+        "build_dones",
         # then payload and underlayer
         "payload", "underlayer",
         "name",
@@ -128,7 +130,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
 
     def __init__(self,
                  _pkt=b"",  # type: bytes
-                 post_transform=None,  # type: Any
+                 build_done=None,  # type: Any
                  _internal=0,  # type: int
                  _underlayer=None,  # type: Optional[Packet]
                  **fields  # type: Any
@@ -155,6 +157,12 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.wirelen = None  # type: Optional[int]
         self.direction = None  # type: Optional[int]
         self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
+        if isinstance(build_done, list):
+            self.build_dones = build_done
+        elif build_done is None:
+            self.build_dones = []
+        else:
+            self.build_dones = [("__init__", build_done)]
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -178,12 +186,6 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 self.fields[fname] = self.get_field(fname).any2i(self, value)
                 continue
             raise AttributeError(fname)
-        if isinstance(post_transform, list):
-            self.post_transforms = post_transform
-        elif post_transform is None:
-            self.post_transforms = []
-        else:
-            self.post_transforms = [post_transform]
 
     _PickleType = Tuple[
         Union[EDecimal, float],
@@ -382,7 +384,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.raw_packet_cache_fields
         )
         clone.wirelen = self.wirelen
-        clone.post_transforms = self.post_transforms[:]
+        clone.build_dones = self.build_dones[:]
         clone.payload = self.payload.copy()
         clone.payload.add_underlayer(clone)
         clone.time = self.time
@@ -673,8 +675,6 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         if not self.explicit:
             self = next(iter(self))
         pkt = self.self_build()
-        for t in self.post_transforms:
-            pkt = t(pkt)
         pay = self.do_build_payload()
         if self.raw_packet_cache is None:
             return self.post_build(pkt, pay)
@@ -708,9 +708,20 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         """
         return pkt + pay
 
+    def register_build_done(self, name, t):
+        # type: (str, Callable[[bytes], bytes]) -> None
+        """
+        DEV: called after the whole packet has been built.
+        """
+        if not any(x[0] == name for x in self.build_dones):
+            self.build_dones.insert(0, (name, t))
+
     def build_done(self, p):
         # type: (bytes) -> bytes
-        return self.payload.build_done(p)
+        p = self.payload.build_done(p)
+        for _, t in self.build_dones:
+            p = t(p)
+        return p
 
     def do_build_ps(self):
         # type: () -> Tuple[bytes, List[Tuple[Packet, List[Tuple[Field[Any, Any], str, bytes]]]]]  # noqa: E501
@@ -945,6 +956,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         # type: (bytes) -> bytes
         _raw = s
         self.raw_packet_cache_fields = {}
+        nocache = False
         for f in self.fields_desc:
             if not s:
                 break
@@ -952,12 +964,16 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             # Skip unused ConditionalField
             if isinstance(f, ConditionalField) and fval is None:
                 continue
+            # Do not store cache for TrailerFields
+            if isinstance(f, TrailerField):
+                nocache = True
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
             if f.islist or f.holds_packets or f.ismutable:
                 self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
-        self.raw_packet_cache = _raw[:-len(s)] if s else _raw
+        if not nocache:
+            self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
         return s
 
@@ -1055,7 +1071,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         pkt.overloaded_fields = self.overloaded_fields.copy()
         pkt.time = self.time
         pkt.underlayer = self.underlayer
-        pkt.post_transforms = self.post_transforms
+        pkt.build_dones = self.build_dones
         pkt.raw_packet_cache = self.raw_packet_cache
         pkt.raw_packet_cache_fields = self.copy_fields_dict(
             self.raw_packet_cache_fields
