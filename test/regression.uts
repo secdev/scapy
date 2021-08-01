@@ -2063,10 +2063,30 @@ l = [ p for p in RawPcapReader(f) ]
 assert len(l) == 1
 
 = Check RawPcapReader on pcap
+~ pcap
 
 fd = get_temp_file()
 wrpcap(fd, [Ether()/IP()/ICMP()])
 assert len([p for p in RawPcapReader(fd)]) == 1
+
+for (x, y) in RawPcapReader(fd):
+    pass
+
+= Check RawPcapWriter
+~ pcap
+
+# GH3256
+fd = get_temp_file()
+with RawPcapWriter(fd, linktype=1) as w:
+    w.write(b"test")
+
+try:
+    fd = get_temp_file()
+    with RawPcapWriter(fd) as w:
+        w.write(b"test")
+    assert False
+except ValueError:
+    pass
 
 = Check tcpdump()
 ~ tcpdump
