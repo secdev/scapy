@@ -1194,6 +1194,10 @@ class PcapReader_metaclass(type):
 class RawPcapReader:
     """A stateful pcap reader. Each packet is returned as a string"""
 
+    # TODO: use Generics to properly type the various readers.
+    # As of right now, RawPcapReader is typed as if it returned packets
+    # because all of its child do. Fix that
+
     nonblocking_socket = True
     PacketMetadata = collections.namedtuple("PacketMetadata",
                                             ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
@@ -1237,10 +1241,13 @@ class RawPcapReader:
         implement the iterator protocol on a set of packets in a pcap file
         """
         try:
-            return self.read_packet()
+            return self._read_packet()  # type: ignore
         except EOFError:
             raise StopIteration
-    __next__ = next
+
+    def __next__(self):
+        # type: () -> Packet
+        return self.next()
 
     def _read_packet(self, size=MTU):
         # type: (int) -> Tuple[bytes, RawPcapReader.PacketMetadata]
@@ -1259,9 +1266,9 @@ class RawPcapReader:
 
     def read_packet(self, size=MTU):
         # type: (int) -> Packet
-        return cast(
-            "Packet",
-            self._read_packet()[0]
+        raise Exception(
+            "Cannot call read_packet() in RawPcapReader. Use "
+            "_read_packet()"
         )
 
     def dispatch(self,
@@ -1276,12 +1283,6 @@ class RawPcapReader:
         """
         for p in self:
             callback(p)
-
-    def read_all(self, count=-1):
-        # type: (int) -> PacketList
-        res = self._read_all(count)
-        from scapy import plist
-        return plist.PacketList(res, name=os.path.basename(self.filename))
 
     def _read_all(self, count=-1):
         # type: (int) -> List[Packet]
@@ -1371,6 +1372,19 @@ class PcapReader(RawPcapReader, _SuperSocket):
     def recv(self, size=MTU):
         # type: (int) -> Packet
         return self.read_packet(size=size)
+
+    def next(self):
+        # type: () -> Packet
+        try:
+            return self.read_packet()
+        except EOFError:
+            raise StopIteration
+
+    def read_all(self, count=-1):
+        # type: (int) -> PacketList
+        res = self._read_all(count)
+        from scapy import plist
+        return plist.PacketList(res, name=os.path.basename(self.filename))
 
 
 class RawPcapNgReader(RawPcapReader):
@@ -1594,7 +1608,7 @@ class RawPcapNgReader(RawPcapReader):
                                                wirelen=wirelen))
 
 
-class PcapNgReader(RawPcapNgReader, _SuperSocket):
+class PcapNgReader(RawPcapNgReader, PcapReader, _SuperSocket):
 
     alternative = PcapReader
 
@@ -1713,6 +1727,12 @@ class RawPcapWriter:
                     return
             finally:
                 g.close()
+
+        if self.linktype is None:
+            raise ValueError(
+                "linktype could not be guessed. "
+                "Please pass a linktype while creating the writer"
+            )
 
         self.f.write(struct.pack(self.endian + "IHHIIII", 0xa1b23c4d if self.nano else 0xa1b2c3d4,  # noqa: E501
                                  2, 4, 0, 0, self.snaplen, self.linktype))
