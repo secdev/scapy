@@ -227,7 +227,7 @@ class AutomotiveTestCaseExecutor:
                     log_interactive.critical("[-] Exception: %s", e)
                     if self.configuration.debug:
                         raise e
-                    if cast(SuperSocket, self.socket.closed) and \
+                    if cast(SuperSocket, self.socket).closed and \
                             self.reconnect_handler is None:
                         log_interactive.critical(
                             "Socket went down. Need to leave scan")
