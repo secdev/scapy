@@ -15,14 +15,13 @@ from platform import python_implementation
 
 from scapy.main import load_layer, load_contrib
 from scapy.config import conf
-from scapy.error import log_runtime, Scapy_Exception
+from scapy.error import log_runtime, Scapy_Exception, warning
 import scapy.modules.six as six
 from scapy.consts import LINUX
-from scapy.modules.six.moves import queue
 from scapy.automaton import ObjectPipe
 from scapy.data import MTU
 from scapy.packet import Packet
-from scapy.compat import Optional, Type, Tuple, List
+from scapy.compat import Optional, Type, Tuple, Any
 from scapy.supersocket import SuperSocket
 
 load_layer("can", globals_dict=globals())
@@ -78,7 +77,7 @@ sys.__stderr__.write("SocketCAN support: %s\n" % _socket_can_support)
 # ############################################################################
 if _socket_can_support:
     if six.PY3:
-        from scapy.contrib.cansocket_native import *
+        from scapy.contrib.cansocket_native import *  # noqa: F403
         new_can_socket = NativeCANSocket
         new_can_socket0 = lambda: NativeCANSocket(iface0)
         new_can_socket1 = lambda: NativeCANSocket(iface1)
@@ -86,18 +85,18 @@ if _socket_can_support:
         sys.__stderr__.write("Using NativeCANSocket\n")
 
     else:
-        from scapy.contrib.cansocket_python_can import *
-        new_can_socket = lambda iface: PythonCANSocket(bustype='socketcan', channel=iface, timeout=0.01)
-        new_can_socket0 = lambda: PythonCANSocket(bustype='socketcan', channel=iface0, timeout=0.01)
-        new_can_socket1 = lambda: PythonCANSocket(bustype='socketcan', channel=iface1, timeout=0.01)
+        from scapy.contrib.cansocket_python_can import *  # noqa: F403
+        new_can_socket = lambda iface: PythonCANSocket(bustype='socketcan', channel=iface, timeout=0.01)  # noqa: E501
+        new_can_socket0 = lambda: PythonCANSocket(bustype='socketcan', channel=iface0, timeout=0.01)  # noqa: E501
+        new_can_socket1 = lambda: PythonCANSocket(bustype='socketcan', channel=iface1, timeout=0.01)  # noqa: E501
         can_socket_string_list = ["-i", "socketcan", "-c", iface0]
         sys.__stderr__.write("Using PythonCANSocket socketcan\n")
 
 else:
-    from scapy.contrib.cansocket_python_can import *
-    new_can_socket = lambda iface: PythonCANSocket(bustype='virtual', channel=iface)
-    new_can_socket0 = lambda: PythonCANSocket(bustype='virtual', channel=iface0, timeout=0.01)
-    new_can_socket1 = lambda: PythonCANSocket(bustype='virtual', channel=iface1, timeout=0.01)
+    from scapy.contrib.cansocket_python_can import *  # noqa: F403
+    new_can_socket = lambda iface: PythonCANSocket(bustype='virtual', channel=iface)  # noqa: E501
+    new_can_socket0 = lambda: PythonCANSocket(bustype='virtual', channel=iface0, timeout=0.01)  # noqa: E501
+    new_can_socket1 = lambda: PythonCANSocket(bustype='virtual', channel=iface1, timeout=0.01)  # noqa: E501
     sys.__stderr__.write("Using PythonCANSocket virtual\n")
 
 
@@ -205,21 +204,21 @@ conf.contribs['ISOTP'] = \
 if six.PY3:
     import importlib
     if "scapy.contrib.isotp" in sys.modules:
-        importlib.reload(scapy.contrib.isotp)  # type: ignore
+        importlib.reload(scapy.contrib.isotp)  # type: ignore  # noqa: F405
 
 load_contrib("isotp", globals_dict=globals())
 
 if six.PY3 and ISOTP_KERNEL_MODULE_AVAILABLE:
-    if not ISOTPSocket == ISOTPNativeSocket:  # type: ignore
+    if ISOTPSocket is not ISOTPNativeSocket:  # type: ignore
         raise Scapy_Exception("Error in ISOTPSocket import!")
 else:
-    if not ISOTPSocket == ISOTPSoftSocket:  # type: ignore
+    if ISOTPSocket is not ISOTPSoftSocket:  # type: ignore
         raise Scapy_Exception("Error in ISOTPSocket import!")
 
 # ############################################################################
 # """ Prepare send_delay on Ecu Answering Machine to stabilize unit tests """
 # ############################################################################
-from scapy.contrib.automotive.ecu import *
+from scapy.contrib.automotive.ecu import *  # noqa: F403
 log_runtime.debug("Set send delay to lower utilization on CI machines")
 conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
 
@@ -272,29 +271,14 @@ class TestSocket(ObjectPipe, object):
 
     def recv(self, x=MTU):
         # type: (int) -> Optional[Packet]
-        cls, val, ts = self.recv_raw(x)
-        if not val or not cls:
-            return None
-        try:
-            pkt = cls(val)  # type: Packet
-        except KeyboardInterrupt:
-            raise
-        except Exception:
-            if conf.debug_dissector:
-                from scapy.sendrecv import debug
-                debug.crashed_on = (cls, val)
-                raise
-            pkt = conf.raw_layer(val)
-        if ts:
-            pkt.time = ts
-        return pkt
+        if six.PY3:
+            return SuperSocket.recv(self, x)
+        else:
+            return SuperSocket.recv.im_func(self, x)
 
     def sr1(self, *args, **kargs):
         # type: (Any, Any) -> Optional[Packet]
-        from scapy import sendrecv
-        ans = sendrecv.sndrcv(self, *args, **kargs)[0]  # type: SndRcvList
-        if len(ans) > 0:
-            pkt = ans[0][1]  # type: Packet
-            return pkt
+        if six.PY3:
+            return SuperSocket.sr1(self, *args, **kargs)
         else:
-            return None
+            return SuperSocket.sr1.im_func(self, *args, **kargs)
