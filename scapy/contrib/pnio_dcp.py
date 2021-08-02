@@ -385,6 +385,7 @@ class DCPDeviceInstanceBlock(Packet):
     def extract_padding(self, s):
         return '', s
 
+
 class DCPOEMIDBlock(Packet):
     fields_desc = [
         ByteEnumField("option", 2, DCP_OPTIONS),
@@ -401,6 +402,7 @@ class DCPOEMIDBlock(Packet):
 
     def extract_padding(self, s):
         return '', s
+
 
 class DCPControlBlock(Packet):
     fields_desc = [
@@ -436,6 +438,7 @@ class DCPDeviceInitiativeBlock(Packet):
 
     def extract_padding(self, s):
         return '', s
+
 
 def guess_dcp_block_class(packet, **kargs):
     """
