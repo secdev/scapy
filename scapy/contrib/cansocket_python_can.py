@@ -23,7 +23,7 @@ from scapy.layers.can import CAN
 from scapy.packet import Packet
 from scapy.error import warning
 from scapy.compat import List, Type, Tuple, Dict, Any, Optional, cast
-from scapy.modules.six.moves import queue
+from scapy.automaton import ObjectPipe, select_objects
 
 from can import Message as can_Message
 from can import CanError as can_CanError
@@ -31,46 +31,6 @@ from can import BusABC as can_BusABC
 from can.interface import Bus as can_Bus
 
 __all__ = ["CANSocket", "PythonCANSocket"]
-
-
-class PriotizedCanMessage(object):
-    """Helper object for comparison of CAN messages. If the timestamps of two
-    messages are equal, the counter value of a priority counter, is used
-    for comparison. It's only important that this priority counter always
-    get increased for every CAN message in the receive heapq. This compensates
-    a low resolution of `time.time()` on some operating systems.
-    """
-    def __init__(self, msg, count):
-        # type: (can_Message, int) -> None
-        self.msg = msg
-        self.count = count
-
-    def __eq__(self, other):
-        # type: (Any) -> bool
-        if not isinstance(other, PriotizedCanMessage):
-            return False
-        return self.msg.timestamp == other.msg.timestamp and \
-            self.count == other.count
-
-    def __lt__(self, other):
-        # type: (Any) -> bool
-        if not isinstance(other, PriotizedCanMessage):
-            return False
-        return self.msg.timestamp < other.msg.timestamp or \
-            (self.msg.timestamp == other.msg.timestamp and
-             self.count < other.count)
-
-    def __le__(self, other):
-        # type: (Any) -> bool
-        return self == other or self < other
-
-    def __gt__(self, other):
-        # type: (Any) -> bool
-        return not self <= other
-
-    def __ge__(self, other):
-        # type: (Any) -> bool
-        return not self < other
 
 
 class SocketMapper:
@@ -95,15 +55,13 @@ class SocketMapper:
         all receive queues of the SocketWrapper objects.
         """
         while True:
-            prio_count = 0
             try:
                 msg = self.bus.recv(timeout=0)
                 if msg is None:
                     return
                 for sock in self.sockets:
                     if sock._matches_filters(msg):
-                        prio_count += 1
-                        sock.rx_queue.put(PriotizedCanMessage(msg, prio_count))
+                        sock.rx_queue.send(msg)
             except Exception as e:
                 warning("[MUX] python-can exception caught: %s" % e)
 
@@ -115,8 +73,8 @@ class _SocketsPool(object):
         self.pool = dict()  # type: Dict[str, SocketMapper]
         self.pool_mutex = threading.Lock()
 
-    def internal_send(self, sender, msg, prio=0):
-        # type: (SocketWrapper, can_Message, int) -> None
+    def internal_send(self, sender, msg):
+        # type: (SocketWrapper, can_Message) -> None
         """Internal send function.
 
         A given SocketWrapper wants to send a CAN message. The python-can
@@ -143,7 +101,7 @@ class _SocketsPool(object):
                     if not sock._matches_filters(msg):
                         continue
 
-                    sock.rx_queue.put(PriotizedCanMessage(msg, prio))
+                    sock.rx_queue.send(msg)
             except KeyError:
                 warning("[SND] Socket %s not found in pool" % sender.name)
             except can_CanError as e:
@@ -227,9 +185,8 @@ class SocketWrapper(can_BusABC):
         :param kwargs: Keyword arguments for the python-can Bus object
         """
         super(SocketWrapper, self).__init__(*args, **kwargs)
-        self.rx_queue = queue.PriorityQueue()  # type: queue.PriorityQueue[PriotizedCanMessage]  # noqa: E501
+        self.rx_queue = ObjectPipe()
         self.name = None  # type: Optional[str]
-        self.prio_counter = 0
         SocketsPool.register(self, *args, **kwargs)
 
     def _recv_internal(self, timeout):
@@ -245,9 +202,8 @@ class SocketWrapper(can_BusABC):
         """
         SocketsPool.multiplex_rx_packets()
         try:
-            pm = self.rx_queue.get(block=True, timeout=timeout)
-            return pm.msg, True
-        except queue.Empty:
+            return self.rx_queue.recv(), True
+        except IndexError:
             return None, True
 
     def send(self, msg, timeout=None):
@@ -257,8 +213,7 @@ class SocketWrapper(can_BusABC):
         :param msg: Message to be sent.
         :param timeout: Not used.
         """
-        self.prio_counter += 1
-        SocketsPool.internal_send(self, msg, self.prio_counter)
+        SocketsPool.internal_send(self, msg)
 
     def shutdown(self):
         # type: () -> None
@@ -280,7 +235,7 @@ class PythonCANSocket(SuperSocket):
     """  # noqa: E501
     desc = "read/write packets at a given CAN interface " \
            "using a python-can bus object"
-    nonblocking_socket = True
+    nonblocking_socket = False
 
     def __init__(self, **kwargs):
         # type: (Dict[str, Any]) -> None
@@ -335,8 +290,11 @@ class PythonCANSocket(SuperSocket):
             the function to be called next to get the packets (i.g. recv)
         """
         SocketsPool.multiplex_rx_packets()
+        obj_pipes = [s.can_iface.rx_queue
+                     for s in sockets if isinstance(s, PythonCANSocket)]
+        ready_pipes = select_objects(obj_pipes, remain)
         return [s for s in sockets if isinstance(s, PythonCANSocket) and
-                not s.can_iface.rx_queue.empty()]
+                s.can_iface.rx_queue in ready_pipes]
 
     def close(self):
         # type: () -> None

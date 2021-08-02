@@ -1,5 +1,5 @@
 % Regression tests for the CANSocket
-~ vcan_socket linux needs_root disabled
+~ vcan_socket linux needs_root
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
@@ -62,27 +62,21 @@ sock1 = None
 sock1 = CANSocket(bustype='socketcan', channel='vcan0')
 sock2 = CANSocket(bustype='socketcan', channel='vcan0')
 
-thread = threading.Thread(target=sender, args=(sock2, CAN(identifier=0x7ff,length=1,data=b'\x01'), ))
-thread.start()
-send_done.wait(timeout=1)
-send_done.clear()
+sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
 rx = sock1.recv()
 sock1.close()
 sock2.close()
 
-rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
+assert rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 
 = CAN Socket send recv small packet test with
 
 with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
     CANSocket(bustype='socketcan', channel='vcan0') as sock2:
-    thread = threading.Thread(target=sender, args=(sock2, CAN(identifier=0x7ff,length=1,data=b'\x01'),))
-    thread.start()
-    send_done.wait(timeout=1)
-    send_done.clear()
+    sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
     rx = sock1.recv()
 
-rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
+assert rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 
 
 = CAN Socket send recv ISOTP_Packet
@@ -91,37 +85,28 @@ from scapy.contrib.isotp import ISOTPHeader, ISOTP_FF
 
 with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
     CANSocket(bustype='socketcan', channel='vcan0') as sock2:
-    thread = threading.Thread(target=sender, args=(sock2, ISOTPHeader(identifier=0x7ff)/ISOTP_FF(message_size=100, data=b'abcdef'),))
-    thread.start()
-    send_done.wait(timeout=1)
-    send_done.clear()
+    sock2.send(ISOTPHeader(identifier=0x7ff)/ISOTP_FF(message_size=100, data=b'abcdef'))
     rx = sock1.recv()
-    rx == CAN(identifier=0x7ff,length=8,data=b'\x10\x64abcdef')
+    assert rx == CAN(identifier=0x7ff,length=8,data=b'\x10\x64abcdef')
 
 
 = CAN Socket basecls test
 
 with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
     CANSocket(bustype='socketcan', channel='vcan0') as sock2:
-    thread = threading.Thread(target=sender, args=(sock2, CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),))
-    thread.start()
     sock1.basecls = Raw
-    send_done.wait(timeout=1)
-    send_done.clear()
+    sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     rx = sock1.recv()
-    rx == Raw(bytes(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')))
+    assert rx == Raw(bytes(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')))
 
 = CAN Socket send recv
 
 with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
     CANSocket(bustype='socketcan', channel='vcan0') as sock2:
-    thread = threading.Thread(target=sender, args=(sock2, CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),))
-    thread.start()
+    sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock1.basecls = CAN
-    send_done.wait(timeout=1)
-    send_done.clear()
     rx = sock1.recv()
-    rx == CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+    assert rx == CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 = CAN Socket send recv swapped
 
@@ -129,13 +114,10 @@ conf.contribs['CAN']['swap-bytes'] = True
 
 with CANSocket(bustype='socketcan', channel='vcan0') as sock1, \
     CANSocket(bustype='socketcan', channel='vcan0') as sock2:
-    thread = threading.Thread(target=sender, args=(sock2, CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'),))
-    thread.start()
+    sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock1.basecls = CAN
-    send_done.wait(timeout=1)
-    send_done.clear()
     rx = sock1.recv()
-    rx == CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+    assert rx == CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 conf.contribs['CAN']['swap-bytes'] = False
 
@@ -150,11 +132,9 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
 
 with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}]) as sock1, \
         CANSocket(bustype='socketcan', channel='vcan0') as sock2:
-    thread = threading.Thread(target=sender, args=(sock2, msgs,))
-    thread.start()
-    send_done.wait(timeout=1)
-    send_done.clear()
-    packets = sock1.sniff(timeout=0.1)
+    for m in msgs:
+        sock2.send(m)
+    packets = sock1.sniff(timeout=0.1, count=3)
     assert len(packets) == 3
 
 
@@ -169,11 +149,9 @@ msgs = [CAN(identifier=0x212, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
 
 with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x700}]) as sock1, \
         CANSocket(bustype='socketcan', channel='vcan0') as sock2:
-    thread = threading.Thread(target=sender, args=(sock2, msgs,))
-    thread.start()
-    send_done.wait(timeout=1)
-    send_done.clear()
-    packets = sock1.sniff(timeout=0.1)
+    for m in msgs:
+        sock2.send(m)
+    packets = sock1.sniff(timeout=0.1, count=4)
     assert len(packets) == 4
 
 = sniff with filtermask 0x0ff
@@ -187,12 +165,10 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
 
 with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0xff}]) as sock1, \
         CANSocket(bustype='socketcan', channel='vcan0') as sock2:
-    thread = threading.Thread(target=sender, args=(sock2, msgs,))
-    thread.start()
-    send_done.wait(timeout=1)
-    send_done.clear()
-    packets = sock1.sniff(timeout=0.1)
-    len(packets) == 4
+    for m in msgs:
+        sock2.send(m)
+    packets = sock1.sniff(timeout=0.1, count=4)
+    assert len(packets) == 4
 
 = sniff with multiple filters
 
@@ -206,11 +182,9 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
 
 with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}, {'can_id': 0x400, 'can_mask': 0x7ff}, {'can_id': 0x600, 'can_mask': 0x7ff}, {'can_id': 0x7ff, 'can_mask': 0x7ff}]) as sock1, \
         CANSocket(bustype='socketcan', channel='vcan0') as sock2:
-    thread = threading.Thread(target=sender, args=(sock2, msgs,))
-    thread.start()
-    send_done.wait(timeout=1)
-    send_done.clear()
-    packets = sock1.sniff(timeout=0.1)
+    for m in msgs:
+        sock2.send(m)
+    packets = sock1.sniff(timeout=0.1, count=4)
     assert len(packets) == 4
 
 = sniff with filtermask 0x7ff
@@ -225,11 +199,9 @@ msgs = [CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'
 
 with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}]) as sock1, \
         CANSocket(bustype='socketcan', channel='vcan0') as sock2:
-    thread = threading.Thread(target=sender, args=(sock2, msgs,))
-    thread.start()
-    send_done.wait(timeout=1)
-    send_done.clear()
-    packets = sock1.sniff(timeout=0.1)
+    for m in msgs:
+        sock2.send(m)
+    packets = sock1.sniff(timeout=0.1, count=4)
     assert len(packets) == 4
 
 = sniff with filtermask 0x1FFFFFFF
@@ -243,11 +215,9 @@ msgs = [CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x
 
 with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x10000000, 'can_mask': 0x1fffffff}]) as sock1, \
         CANSocket(bustype='socketcan', channel='vcan0') as sock2:
-    thread = threading.Thread(target=sender, args=(sock2, msgs,))
-    thread.start()
-    send_done.wait(timeout=1)
-    send_done.clear()
-    packets = sock1.sniff(timeout=0.1)
+    for m in msgs:
+        sock2.send(m)
+    packets = sock1.sniff(timeout=0.1, count=2)
     assert len(packets) == 2
 
 
@@ -255,18 +225,10 @@ with CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x1
 = bridge and sniff setup vcan1 package forwarding
 
 bashCommand = "/bin/bash -c 'sudo ip link add name vcan1 type vcan; sudo ip link set dev vcan1 up'"
-0 == os.system(bashCommand)
+assert 0 == os.system(bashCommand)
 
 sock0 = CANSocket(bustype='socketcan', channel='vcan0')
 sock1 = CANSocket(bustype='socketcan', channel='vcan1')
-
-def senderVCan0():
-    sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 
 bridgeStarted = threading.Event()
 def bridge():
@@ -281,35 +243,35 @@ def bridge():
         return pkt
     bSock0.timeout = 0.01
     bSock1.timeout = 0.01
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set, count=6)
     bSock0.close()
     bSock1.close()
 
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
-threadSender = threading.Thread(target=senderVCan0)
-bridgeStarted.wait()
+bridgeStarted.wait(timeout=1)
 
-packetsVCan1 = sock1.sniff(timeout=0.5, started_callback=threadSender.start)
+sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+
+packetsVCan1 = sock1.sniff(timeout=0.5, count=6)
 assert len(packetsVCan1) == 6
 
 sock1.close()
 sock0.close()
 
 threadBridge.join(timeout=3)
-threadSender.join(timeout=3)
+assert not threadBridge.is_alive()
 
 = bridge and sniff setup vcan0 package forwarding
 
 sock0 = CANSocket(bustype='socketcan', channel='vcan0')
 sock1 = CANSocket(bustype='socketcan', channel='vcan1')
 
-def senderVCan1():
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x80, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-
 bridgeStarted = threading.Event()
 def bridge():
     global bridgeStarted
@@ -319,42 +281,33 @@ def bridge():
         return pkt
     bSock0.timeout = 0.01
     bSock1.timeout = 0.01
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set, count=4)
     bSock0.close()
     bSock1.close()
 
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
-threadSender = threading.Thread(target=senderVCan1)
-bridgeStarted.wait()
+bridgeStarted.wait(timeout=1)
 
-packetsVCan0 = sock0.sniff(timeout=0.3, started_callback=threadSender.start)
-len(packetsVCan0) == 4
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x80, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+
+packetsVCan0 = sock0.sniff(timeout=0.3, count=4)
+assert len(packetsVCan0) == 4
 
 sock0.close()
 sock1.close()
 
 threadBridge.join(timeout=3)
-threadSender.join(timeout=3)
+assert not threadBridge.is_alive()
 
 =bridge and sniff setup vcan0 vcan1 package forwarding both directions
 
 sock0 = CANSocket(bustype='socketcan', channel='vcan0')
 sock1 = CANSocket(bustype='socketcan', channel='vcan1')
 
-
-def senderBothVCans():
-    sock0.send(CAN(flags='extended', identifier=0x25, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x20, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x25, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x25, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x20, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x30, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock1.send(CAN(flags='extended', identifier=0x40, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x40, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x80, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x40, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-
 bridgeStarted = threading.Event()
 def bridge():
     global bridgeStarted
@@ -364,38 +317,40 @@ def bridge():
         return pkt
     bSock0.timeout = 0.01
     bSock1.timeout = 0.01
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set, count=10)
     bSock0.close()
     bSock1.close()
 
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
-threadSender = threading.Thread(target=senderBothVCans)
-bridgeStarted.wait()
+bridgeStarted.wait(timeout=1)
 
-packetsVCan0 = sock0.sniff(timeout=0.3, started_callback=threadSender.start)
-packetsVCan1 = sock1.sniff(timeout=0.3)
-len(packetsVCan0) == 4
-len(packetsVCan1) == 6
+sock0.send(CAN(flags='extended', identifier=0x25, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x20, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x25, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x25, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x20, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x30, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock1.send(CAN(flags='extended', identifier=0x40, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x40, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x80, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x40, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+
+packetsVCan0 = sock0.sniff(timeout=0.3, count=4)
+packetsVCan1 = sock1.sniff(timeout=0.3, count=6)
+assert len(packetsVCan0) == 4
+assert len(packetsVCan1) == 6
 
 sock0.close()
 sock1.close()
 
 threadBridge.join(timeout=3)
-threadSender.join(timeout=3)
+assert not threadBridge.is_alive()
 
 =bridge and sniff setup vcan1 package change
 
 sock0 = CANSocket(bustype='socketcan', channel='vcan0')
 sock1 = CANSocket(bustype='socketcan', channel='vcan1', can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
-
-def senderVCan0():
-    sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 
 bridgeStarted = threading.Event()
 def bridgeWithPackageChangeVCan0ToVCan1():
@@ -408,34 +363,33 @@ def bridgeWithPackageChangeVCan0ToVCan1():
         return pkt
     bSock0.timeout = 0.01
     bSock1.timeout = 0.01
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, timeout=0.5, started_callback=bridgeStarted.set)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, timeout=0.5, started_callback=bridgeStarted.set, count=6)
     bSock0.close()
     bSock1.close()
 
 threadBridge = threading.Thread(target=bridgeWithPackageChangeVCan0ToVCan1)
 threadBridge.start()
-threadSender = threading.Thread(target=senderVCan0)
-bridgeStarted.wait()
+bridgeStarted.wait(timeout=1)
+sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 
-packetsVCan1 = sock1.sniff(timeout=0.3, started_callback=threadSender.start)
-len(packetsVCan1) == 6
+packetsVCan1 = sock1.sniff(timeout=0.3, count=6)
+assert len(packetsVCan1) == 6
 
 sock0.close()
 sock1.close()
 
 threadBridge.join(timeout=3)
-threadSender.join(timeout=3)
+assert not threadBridge.is_alive()
 
 =bridge and sniff setup vcan0 package change
 
 sock1 = CANSocket(bustype='socketcan', channel='vcan1')
 sock0 = CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
-
-def senderVCan1():
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
 bridgeStarted = threading.Event()
 def bridgeWithPackageChangeVCan1ToVCan0():
@@ -448,40 +402,32 @@ def bridgeWithPackageChangeVCan1ToVCan0():
         return pkt
     bSock0.timeout = 0.01
     bSock1.timeout = 0.01
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set, count=4)
     bSock0.close()
     bSock1.close()
 
 threadBridge = threading.Thread(target=bridgeWithPackageChangeVCan1ToVCan0)
 threadBridge.start()
-threadSender = threading.Thread(target=senderVCan1)
-bridgeStarted.wait()
+bridgeStarted.wait(timeout=1)
 
-packetsVCan0 = sock0.sniff(timeout=0.3, started_callback=threadSender.start)
-len(packetsVCan0) == 4
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+
+packetsVCan0 = sock0.sniff(timeout=0.3, count=4)
+assert len(packetsVCan0) == 4
 
 sock0.close()
 sock1.close()
 
 threadBridge.join(timeout=3)
-threadSender.join(timeout=3)
+assert not threadBridge.is_alive()
 
 =bridge and sniff setup vcan0 and vcan1 package change in both directions
 
 sock0 = CANSocket(bustype='socketcan', channel='vcan0', can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
 sock1 = CANSocket(bustype='socketcan', channel='vcan1', can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
-
-def senderBothVCans():
-    sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
 bridgeStarted = threading.Event()
 def bridgeWithPackageChangeBothDirections():
@@ -494,38 +440,40 @@ def bridgeWithPackageChangeBothDirections():
         return pkt
     bSock0.timeout = 0.01
     bSock1.timeout = 0.01
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set, count=10)
     bSock0.close()
     bSock1.close()
 
 threadBridge = threading.Thread(target=bridgeWithPackageChangeBothDirections)
 threadBridge.start()
-threadSender = threading.Thread(target=senderBothVCans)
-bridgeStarted.wait()
+bridgeStarted.wait(timeout=1)
 
-packetsVCan0 = sock0.sniff(timeout=0.3, started_callback=threadSender.start)
-packetsVCan1 = sock1.sniff(timeout=0.3)
-len(packetsVCan0) == 4
-len(packetsVCan1) == 6
+sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+
+packetsVCan0 = sock0.sniff(timeout=0.3, count=4)
+packetsVCan1 = sock1.sniff(timeout=0.3, count=6)
+assert len(packetsVCan0) == 4
+assert len(packetsVCan1) == 6
 
 sock0.close()
 sock1.close()
 
 threadBridge.join(timeout=3)
-threadSender.join(timeout=3)
+assert not threadBridge.is_alive()
 
 =bridge and sniff setup vcan0 package remove
 
 sock0 = CANSocket(bustype='socketcan', channel='vcan0')
 sock1 = CANSocket(bustype='socketcan', channel='vcan1')
-
-def senderVCan0():
-    sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 
 bridgeStarted = threading.Event()
 def bridgeWithRemovePackageFromVCan0ToVCan1():
@@ -540,35 +488,35 @@ def bridgeWithRemovePackageFromVCan0ToVCan1():
         return pkt
     bSock0.timeout = 0.01
     bSock1.timeout = 0.01
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, timeout=0.5, started_callback=bridgeStarted.set)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, timeout=0.5, started_callback=bridgeStarted.set, count=6)
     bSock0.close()
     bSock1.close()
 
 threadBridge = threading.Thread(target=bridgeWithRemovePackageFromVCan0ToVCan1)
 threadBridge.start()
-threadSender = threading.Thread(target=senderVCan0)
-bridgeStarted.wait()
+bridgeStarted.wait(timeout=1)
 
-packetsVCan1 = sock1.sniff(timeout=0.3, started_callback=threadSender.start)
+sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 
-len(packetsVCan1) == 5
+packetsVCan1 = sock1.sniff(timeout=0.3, count=5)
+
+assert len(packetsVCan1) == 5
 
 sock0.close()
 sock1.close()
 
 threadBridge.join(timeout=3)
-threadSender.join(timeout=3)
+assert not threadBridge.is_alive()
 
 =bridge and sniff setup vcan1 package remove
 
 sock0 = CANSocket(bustype='socketcan', channel='vcan0')
 sock1 = CANSocket(bustype='socketcan', channel='vcan1')
-
-def senderVCan1():
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
 bridgeStarted = threading.Event()
 def bridgeWithRemovePackageFromVCan1ToVCan0():
@@ -583,42 +531,34 @@ def bridgeWithRemovePackageFromVCan1ToVCan0():
         return pkt
     bSock0.timeout = 0.01
     bSock1.timeout = 0.01
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm21=pnr, timeout=0.5, started_callback=bridgeStarted.set, count=4)
     bSock0.close()
     bSock1.close()
 
 threadBridge = threading.Thread(target=bridgeWithRemovePackageFromVCan1ToVCan0)
 threadBridge.start()
-threadSender = threading.Thread(target=senderVCan1)
-bridgeStarted.wait()
+bridgeStarted.wait(timeout=1)
 
-packetsVCan0 = sock0.sniff(timeout=0.3, started_callback=threadSender.start)
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
-len(packetsVCan0) == 3
+packetsVCan0 = sock0.sniff(timeout=0.3, count=3)
+
+assert len(packetsVCan0) == 3
 
 sock0.close()
 sock1.close()
 
 threadBridge.join(timeout=3)
-threadSender.join(timeout=3)
+assert not threadBridge.is_alive()
 
 
 =bridge and sniff setup vcan0 and vcan1 package remove both directions
 
 sock0 = CANSocket(bustype='socketcan', channel='vcan0')
 sock1 = CANSocket(bustype='socketcan', channel='vcan1')
-
-def senderBothVCans():
-    sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
-    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
 bridgeStarted = threading.Event()
 def bridgeWithRemovePackageInBothDirections():
@@ -639,20 +579,33 @@ def bridgeWithRemovePackageInBothDirections():
         return pkt
     bSock0.timeout = 0.01
     bSock1.timeout = 0.01
-    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnrA, xfrm21=pnrB, timeout=0.5, started_callback=bridgeStarted.set)
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnrA, xfrm21=pnrB, timeout=0.5, started_callback=bridgeStarted.set, count=10)
     bSock0.close()
     bSock1.close()
 
 threadBridge = threading.Thread(target=bridgeWithRemovePackageInBothDirections)
 threadBridge.start()
-threadSender = threading.Thread(target=senderBothVCans)
-bridgeStarted.wait()
+bridgeStarted.wait(timeout=1)
 
-packetsVCan0 = sock0.sniff(timeout=0.3, started_callback=threadSender.start)
-packetsVCan1 = sock1.sniff(timeout=0.3)
+sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
-len(packetsVCan0) == 3
-len(packetsVCan1) == 5
+packetsVCan0 = sock0.sniff(timeout=0.3, count=3)
+packetsVCan1 = sock1.sniff(timeout=0.3, count=5)
+
+assert len(packetsVCan0) == 3
+assert len(packetsVCan1) == 5
+
+threadBridge.join(timeout=3)
+assert not threadBridge.is_alive()
 
 sock0.close()
 sock1.close()
