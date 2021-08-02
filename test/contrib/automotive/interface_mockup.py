@@ -119,12 +119,6 @@ def cleanup_interfaces():
 
     :return: True on success
     """
-    import threading
-    from scapy.contrib.isotp.isotp_soft_socket import CANReceiverThread
-    for t in threading.enumerate():
-        if isinstance(t, CANReceiverThread):
-            t.join(10)
-
     if LINUX and _not_pypy and _root:
         if 0 != subprocess.call(["ip", "link", "delete", iface0]):
             raise Exception("%s could not be deleted" % iface0)
