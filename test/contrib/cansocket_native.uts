@@ -1,5 +1,5 @@
 % Regression tests for nativecansocket
-~ python3_only not_pypy vcan_socket needs_root linux
+~ python3_only not_pypy vcan_socket needs_root linux disabled
 
 # More information at http://www.secdev.org/projects/UTscapy/
 

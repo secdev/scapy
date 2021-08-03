@@ -13,10 +13,12 @@ import subprocess
 # a GREAT reason.
 EXCEPTIONS = [
     "scapy.__main__",
+    "scapy.all",
     "scapy.contrib.automotive*",
     "scapy.contrib.cansocket*",
     "scapy.contrib.isotp*",
     "scapy.contrib.scada*",
+    "scapy.layers.all",
     "scapy.main",
 ]
 
@@ -72,8 +74,10 @@ fld, file = os.path.split(tmp)
 sys.path.append(fld)
 pkg = importlib.import_module(os.path.splitext(file)[0])
 
+NB_PROC = 1 if WINDOWS else 4
+
 def import_all(FILES):
-    with Pool(processes=4) as pool:
+    with Pool(processes=NB_PROC) as pool:
         for err in pool.imap_unordered(pkg.process_file, FILES):
             if err:
                 print(err)

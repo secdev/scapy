@@ -24,7 +24,7 @@ from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
     DLT_ETHERNET_MPACKET, DLT_LINUX_IRDA, DLT_LINUX_SLL, DLT_LOOP, \
     DLT_NULL, ETHER_ANY, ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, \
     ETH_P_MACSEC
-from scapy.error import warning, ScapyNoDstMacException
+from scapy.error import warning, ScapyNoDstMacException, log_runtime
 from scapy.fields import (
     BCDFloatField,
     BitField,
@@ -478,7 +478,7 @@ class ARP(Packet):
         return self_psrc[:len(other_pdst)] == other_pdst[:len(self_psrc)]
 
     def route(self):
-        # type: () -> Tuple[Union[NetworkInterface, str, None], Optional[str], Optional[str]] # noqa: E501
+        # type: () -> Tuple[Optional[str], Optional[str], Optional[str]]
         fld, dst = cast(Tuple[MultipleTypeField, str],
                         self.getfield_and_val("pdst"))
         fld_inner, dst = fld._find_fld_pkt_val(self, dst)
@@ -506,7 +506,14 @@ class ARP(Packet):
 
 def l2_register_l3_arp(l2, l3):
     # type: (Type[Packet], Type[Packet]) -> Optional[str]
-    return getmacbyip(l3.pdst)
+    # TODO: support IPv6?
+    if l3.plen == 4:
+        return getmacbyip(l3.pdst)
+    log_runtime.warning(
+        "Unable to guess L2 MAC address from an ARP packet with a "
+        "non-IPv4 pdst. Provide it manually !"
+    )
+    return None
 
 
 conf.neighbor.register_l3(Ether, ARP, l2_register_l3_arp)

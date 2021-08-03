@@ -1361,7 +1361,7 @@ values.
         return self.haslayer(cls)
 
     def route(self):
-        # type: () -> Tuple[Any, Optional[str], Optional[str]]
+        # type: () -> Tuple[Optional[str], Optional[str], Optional[str]]
         return self.payload.route()
 
     def fragment(self, *args, **kargs):

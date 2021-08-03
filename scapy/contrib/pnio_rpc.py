@@ -886,9 +886,6 @@ class AlarmCRBlockReq(Block):
         # Set the LT based on transport
         if self.AlarmCRProperties_Transport == 0x1:
             p = p[:8] + struct.pack("!H", 0x0800) + p[10:]
-            print("p[:8]={}".format(bytes(p[:8]).hex()))
-            print("p[10:]={}".format(bytes(p[10:]).hex()))
-            print("p={}".format(bytes(p).hex()))
 
         return Block.post_build(self, p, pay)
 

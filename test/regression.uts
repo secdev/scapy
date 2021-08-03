@@ -209,7 +209,7 @@ get_working_if()
 
 get_if_raw_addr6(conf.iface)
 
-if not WINDOWS:
+if conf.use_bpf:
     addr = u"lladdr 29:0b:c2:ff:fe:53:21:e9\n"
     b = Bunch(returncode=0, communicate=lambda *args, **kargs: (addr, None))
     with mock.patch('scapy.arch.bpf.core.subprocess.Popen', return_value=b) as popen:
@@ -1436,16 +1436,17 @@ def _test():
 retry_test(_test)
 
 = Sending and receiving an TCP syn with flooding methods
-~ netaccess IP
+~ netaccess IP flood
 from functools import partial
 # flooding methods do not support timeout. Packing the test for security
-def _test_flood(flood_function, add_ether=False):
+def _test_flood(ip, flood_function, add_ether=False):
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
-    p = IP(dst="www.google.com")/TCP(sport=RandShort(), dport=80, flags="S")
+    p = IP(dst=ip)/TCP(sport=RandShort(), dport=80, flags="S")
     if add_ether:
         p = Ether()/p
-    x = flood_function(p, timeout=0.5)
+    p.show2()
+    x = flood_function(p, timeout=0.5, maxretries=10)
     conf.debug_dissector = old_debug_dissector
     if type(x) == tuple:
         x = x[0][0][1]
@@ -1453,16 +1454,16 @@ def _test_flood(flood_function, add_ether=False):
     assert x[IP].ottl() in [32, 64, 128, 255]
     assert 0 <= x[IP].hops() <= 126
 
-_test_srflood = partial(_test_flood, srflood)
+_test_srflood = partial(_test_flood, "www.google.com", srflood)
 retry_test(_test_srflood)
 
-_test_sr1flood = partial(_test_flood, sr1flood)
+_test_sr1flood = partial(_test_flood, "www.google.fr", sr1flood)
 retry_test(_test_sr1flood)
 
-_test_srpflood = partial(_test_flood, srpflood, True)
+_test_srpflood = partial(_test_flood, "www.google.net", srpflood, True)
 retry_test(_test_srpflood)
 
-_test_srp1flood = partial(_test_flood, srp1flood, True)
+_test_srp1flood = partial(_test_flood, "www.google.co.uk", srp1flood, True)
 retry_test(_test_srp1flood)
 
 = Sending and receiving an ICMPv6EchoRequest
@@ -1666,17 +1667,22 @@ s.show()
 s.show(2)
 
 = send() and sniff()
-~ netaccess ss
+~ netaccess
 
 def _test():
     sendp(Ether()/IP(src="9.0.0.0")/UDP(), count=3, iface=conf.iface)
 
 r = sniff(timeout=3, count=1,
-          lfilter=lambda x: x[IP].src == "9.0.0.0",
+          lfilter=lambda x: IP in x and x[IP].src == "9.0.0.0",
           iface=conf.iface,
           started_callback=_test)
 
 assert r
+
+= GH issue 3306
+~ netaccess
+
+send(fuzz(ARP()))
 
 = Test SuperSocket.select
 ~ select

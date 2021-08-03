@@ -600,7 +600,7 @@ class L3PacketSocket(L2Socket):
         # type: (Packet) -> int
         iff = x.route()[0]
         if iff is None:
-            iff = conf.iface
+            iff = network_name(conf.iface)
         sdto = (iff, self.type)
         self.outs.bind(sdto)
         sn = self.outs.getsockname()

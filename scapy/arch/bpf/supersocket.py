@@ -379,7 +379,7 @@ class L3bpfSocket(L2bpfSocket):
         # Use the routing table to find the output interface
         iff = pkt.route()[0]
         if iff is None:
-            iff = conf.iface
+            iff = network_name(conf.iface)
 
         # Assign the network interface to the BPF handle
         if self.assigned_interface != iff:
