@@ -750,7 +750,7 @@ class IKEv2_payload_CERT_CRT(IKEv2_payload_CERT):
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2_payload_type),
         ByteField("res", 0),
-        FieldLenField("length", None, "x509Cert", "H", adjust=lambda pkt, x: x + len(pkt.x509Cert) + 5),  # noqa: E501
+        FieldLenField("length", None, "x509Cert", "H", adjust=lambda pkt, x: x + 5),  # noqa: E501
         ByteEnumField("cert_type", 4, IKEv2CertificateEncodings),
         PacketLenField("x509Cert", X509_Cert(''), X509_Cert, length_from=lambda x:x.length - 5),  # noqa: E501
     ]
@@ -761,7 +761,7 @@ class IKEv2_payload_CERT_CRL(IKEv2_payload_CERT):
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2_payload_type),
         ByteField("res", 0),
-        FieldLenField("length", None, "x509CRL", "H", adjust=lambda pkt, x: x + len(pkt.x509CRL) + 5),  # noqa: E501
+        FieldLenField("length", None, "x509CRL", "H", adjust=lambda pkt, x: x + 5),  # noqa: E501
         ByteEnumField("cert_type", 7, IKEv2CertificateEncodings),
         PacketLenField("x509CRL", X509_CRL(''), X509_CRL, length_from=lambda x:x.length - 5),  # noqa: E501
     ]
