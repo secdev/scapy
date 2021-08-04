@@ -471,6 +471,29 @@ class IKEv2_Key_Length_Attribute(OptionalIntField):
             return OptionalIntField.h2i(self, pkt, (x if x is not None else 0) | 0x800E0000)  # noqa: E501
 
 
+class PseudoPayloadListField(PacketListField):
+    def addfield(self, pkt, s, val):
+        """
+        Corrects the next_payload field for Transform and Proposal packets
+        """
+        for i, v in enumerate(val):
+            f, curr = v.getfield_and_val('next_payload')
+
+            # Ignore fields explicitly set by the user
+            if curr != f.default:
+                continue
+
+            # For the last entry, set next_payload to 0 ("last")
+            # For all other entries, set next_payload to i (either "Transform" or "Proposal")
+            if (i + 1) == len(val):
+                v.next_payload = 0
+            else:
+                [j] = [x for x in f.i2s.keys() if x != 0]
+                v.next_payload = j
+
+        return super().addfield(pkt, s, val)
+
+
 class IKEv2_payload_Transform(IKEv2_class):
     name = "IKE Transform"
     fields_desc = [
@@ -483,6 +506,9 @@ class IKEv2_payload_Transform(IKEv2_class):
         IKEv2_Key_Length_Attribute("key_length", None, length_from=lambda pkt: pkt.length, length_without=8),  # noqa: E501
     ]
 
+    def extract_padding(self, s):
+        return '', s
+
 
 class IKEv2_payload_Proposal(IKEv2_class):
     name = "IKEv2 Proposal"
@@ -493,10 +519,13 @@ class IKEv2_payload_Proposal(IKEv2_class):
         ByteField("proposal", 1),
         ByteEnumField("proto", 1, {1: "IKEv2", 2: "AH", 3: "ESP"}),
         FieldLenField("SPIsize", None, "SPI", "B"),
-        ByteField("trans_nb", None),
+        FieldLenField("trans_nb", None, fmt="B", count_of="trans"),
         StrLenField("SPI", "", length_from=lambda pkt: pkt.SPIsize),
-        PacketLenField("trans", conf.raw_layer(), IKEv2_payload_Transform, length_from=lambda pkt: pkt.length - 8 - pkt.SPIsize),  # noqa: E501
+        PseudoPayloadListField("trans", None, IKEv2_payload_Transform, length_from=lambda pkt: pkt.length - 8 - pkt.SPIsize),  # noqa: E501
     ]
+
+    def extract_padding(self, s):
+        return '', s
 
 
 class IKEv2_payload(IKEv2_class):
@@ -646,7 +675,7 @@ class IKEv2_payload_SA(IKEv2_class):
         ByteEnumField("next_payload", None, IKEv2_payload_type),
         ByteField("res", 0),
         FieldLenField("length", None, "prop", "H", adjust=lambda pkt, x:x + 4),
-        PacketLenField("prop", conf.raw_layer(), IKEv2_payload_Proposal, length_from=lambda x:x.length - 4),  # noqa: E501
+        PseudoPayloadListField("prop", None, IKEv2_payload_Proposal, length_from=lambda x:x.length - 4),  # noqa: E501
     ]
 
 
