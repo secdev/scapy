@@ -73,7 +73,7 @@ class _SocketsPool(object):
         self.pool = dict()  # type: Dict[str, SocketMapper]
         self.pool_mutex = threading.Lock()
 
-    def internal_send(self, sender, msg):
+    def _internal_send(self, sender, msg):
         # type: (SocketWrapper, can_Message) -> None
         """Internal send function.
 
@@ -213,7 +213,7 @@ class SocketWrapper(can_BusABC):
         :param msg: Message to be sent.
         :param timeout: Not used.
         """
-        SocketsPool.internal_send(self, msg)
+        SocketsPool._internal_send(self, msg)
 
     def shutdown(self):
         # type: () -> None
