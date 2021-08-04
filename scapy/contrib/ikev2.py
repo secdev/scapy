@@ -436,16 +436,39 @@ class IKEv2(IKEv2_class):  # rfc4306
         return p
 
 
-class IKEv2_Key_Length_Attribute(IntField):
-    # We only support the fixed-length Key Length attribute (the only one currently defined)  # noqa: E501
-    def __init__(self, name):
-        IntField.__init__(self, name, 0x800E0000)
+class OptionalIntField(IntField):
+    """
+    Field that is only emitted if not set to None / the default value
+    """
+    __slots__ = ["length_from", "length_without"]
 
+    def __init__(self, name, default, length_from, length_without):
+        IntField.__init__(self, name, default)
+        self.length_from = length_from
+        self.length_without = length_without
+
+    def addfield(self, pkt, s, val):
+        if val == self.default:
+            return s
+
+        return IntField.addfield(self, pkt, s, val)
+
+    def getfield(self, pkt, s):
+        len_pkt = self.length_from(pkt)
+        if len_pkt == self.length_without:
+            return s, self.default
+
+        return super().getfield(pkt, s)
+
+
+class IKEv2_Key_Length_Attribute(OptionalIntField):
     def i2h(self, pkt, x):
-        return IntField.i2h(self, pkt, x & 0xFFFF)
+        if x is not None:
+            return OptionalIntField.i2h(self, pkt, x & 0xFFFF)
 
     def h2i(self, pkt, x):
-        return IntField.h2i(self, pkt, (x if x is not None else 0) | 0x800E0000)  # noqa: E501
+        if x is not None:
+            return OptionalIntField.h2i(self, pkt, (x if x is not None else 0) | 0x800E0000)  # noqa: E501
 
 
 class IKEv2_payload_Transform(IKEv2_class):
@@ -453,11 +476,11 @@ class IKEv2_payload_Transform(IKEv2_class):
     fields_desc = [
         ByteEnumField("next_payload", None, {0: "last", 3: "Transform"}),
         ByteField("res", 0),
-        ShortField("length", 8),
+        FieldLenField("length", None, "key_length", "H", adjust=lambda pkt, _: 8 if pkt.key_length is None else 12),
         ByteEnumField("transform_type", None, IKEv2Transforms),
         ByteField("res2", 0),
         MultiEnumField("transform_id", None, IKEv2TransformNum, depends_on=lambda pkt: pkt.transform_type, fmt="H"),  # noqa: E501
-        ConditionalField(IKEv2_Key_Length_Attribute("key_length"), lambda pkt: pkt.length > 8),  # noqa: E501
+        IKEv2_Key_Length_Attribute("key_length", None, length_from=lambda pkt: pkt.length, length_without=8),  # noqa: E501
     ]
 
 

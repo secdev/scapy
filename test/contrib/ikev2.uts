@@ -122,3 +122,15 @@ assert raw(IKEv2_payload_Encrypted_Fragment()) == s
 
 p = IKEv2_payload_Encrypted_Fragment(s)
 assert p.length == 8 and p.frag_number == 1
+
+= Test automatic calculation of Transform length parameter
+
+a = IKEv2_payload_Transform(transform_type = 'Encryption', transform_id = 12, key_length = 128)
+b = IKEv2_payload_Transform(raw(a))
+assert b.length == 12
+assert b.key_length == 128
+
+c = IKEv2_payload_Transform(transform_type = 'Encryption', transform_id = 12)
+d = IKEv2_payload_Transform(raw(c))
+assert d.length == 8
+assert d.key_length is None
