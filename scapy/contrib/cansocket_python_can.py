@@ -235,7 +235,7 @@ class PythonCANSocket(SuperSocket):
     """  # noqa: E501
     desc = "read/write packets at a given CAN interface " \
            "using a python-can bus object"
-    nonblocking_socket = False
+    nonblocking_socket = True
 
     def __init__(self, **kwargs):
         # type: (Dict[str, Any]) -> None
@@ -251,7 +251,9 @@ class PythonCANSocket(SuperSocket):
     def recv_raw(self, x=0xffff):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
         """Returns a tuple containing (cls, pkt_data, time)"""
-        msg = self.can_iface.recv()
+        msg = self.can_iface.recv(0)
+        if msg is None:
+            return None, None, None
 
         hdr = msg.is_extended_id << 31 | msg.is_remote_frame << 30 | \
             msg.is_error_frame << 29 | msg.arbitration_id
