@@ -71,6 +71,30 @@ def usage(is_error):
           file=sys.stderr if is_error else sys.stdout)
 
 
+def create_socket(python_can_args, interface, channel):
+
+    if PYTHON_CAN:
+        if python_can_args:
+            interface_string = "CANSocket(bustype=" \
+                               "'%s', channel='%s', %s)" % \
+                               (interface, channel, python_can_args)
+            arg_dict = dict((k, literal_eval(v)) for k, v in
+                            (pair.split('=') for pair in
+                             re.split(', | |,', python_can_args)))
+            sock = CANSocket(bustype=interface, channel=channel,
+                             **arg_dict)
+        else:
+            interface_string = "CANSocket(bustype=" \
+                               "'%s', channel='%s')" % \
+                               (interface, channel)
+            sock = CANSocket(bustype=interface, channel=channel)
+    else:
+        sock = CANSocket(channel=channel)
+        interface_string = "\"%s\"" % channel
+
+    return sock, interface_string
+
+
 def main():
     extended = False
     piso = False
@@ -148,27 +172,9 @@ def main():
         print("start must be equal or smaller than end.", file=sys.stderr)
         sys.exit(1)
 
-    sock = None
-
     try:
-        if PYTHON_CAN:
-            if python_can_args:
-                interface_string = "CANSocket(bustype=" \
-                                   "'%s', channel='%s', %s)" % \
-                                   (interface, channel, python_can_args)
-                arg_dict = dict((k, literal_eval(v)) for k, v in
-                                (pair.split('=') for pair in
-                                 re.split(', | |,', python_can_args)))
-                sock = CANSocket(bustype=interface, channel=channel,
-                                 **arg_dict)
-            else:
-                interface_string = "CANSocket(bustype=" \
-                                   "'%s', channel='%s')" % \
-                                   (interface, channel)
-                sock = CANSocket(bustype=interface, channel=channel)
-        else:
-            sock = CANSocket(channel=channel)
-            interface_string = "\"%s\"" % channel
+        sock, interface_string = \
+            create_socket(python_can_args, interface, channel)
 
         if verbose:
             print("Start scan (%s - %s)" % (hex(start), hex(end)))
@@ -195,7 +201,7 @@ def main():
         sys.exit(1)
 
     finally:
-        if sock is not None:
+        if sock is not None and not sock.closed:
             sock.close()
 
 
