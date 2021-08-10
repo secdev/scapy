@@ -676,8 +676,8 @@ def campaign_to_xUNIT(test_campaign):
     output = '<?xml version="1.0" encoding="UTF-8" ?>\n<testsuite>\n'
     for testset in test_campaign:
         for t in testset:
-            output += ' <testcase classname="%s"\n' % testset.name.encode("string_escape").replace('"', ' ')  # noqa: E501
-            output += '           name="%s"\n' % t.name.encode("string_escape").replace('"', ' ')  # noqa: E501
+            output += ' <testcase classname="%s"\n' % testset.name.replace('"', ' ')  # noqa: E501
+            output += '           name="%s"\n' % t.name.replace('"', ' ')  # noqa: E501
             output += '           duration="0">\n' % t
             if not t:
                 output += '<error><![CDATA[%(output)s]]></error>\n' % t
