@@ -20,28 +20,46 @@
 """
 Geneve: Generic Network Virtualization Encapsulation
 
-draft-ietf-nvo3-geneve-06
+draft-ietf-nvo3-geneve-16
 """
 
-from scapy.fields import BitField, XByteField, XShortEnumField, X3BytesField, \
-    XStrField
+import struct
+
+from scapy.fields import BitField, XByteField, XShortEnumField, X3BytesField, StrLenField, PacketListField
 from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.l2 import Ether, ETHER_TYPES
 from scapy.compat import chb, orb
-from scapy.error import warning
+
+CLASS_IDS = {0x0100: "Linux",
+             0x0101: "Open vSwitch",
+             0x0102: "Open Virtual Networking (OVN)",
+             0x0103: "In-band Network Telemetry (INT)",
+             0x0104: "VMware",
+             0x0105: "Amazon.com, Inc.",
+             0x0106: "Cisco Systems, Inc.",
+             0x0107: "Oracle Corporation",
+             0x0110: "Amazon.com, Inc.",
+             0x0118: "IBM",
+             0x0128: "Ericsson",
+             0xFEFF: "Unassigned",
+             0xFFFF: "Experimental"}
 
 
-class GENEVEOptionsField(XStrField):
-    islist = 1
+class GeneveOptions(Packet):
+    name = "Geneve Options"
+    fields_desc = [XShortEnumField("classid", 0x0000, CLASS_IDS),
+                   XByteField("type", 0x00),
+                   BitField("reserved", 0, 3),
+                   BitField("length", None, 5),
+                   StrLenField('data', '', length_from=lambda x:x.length * 4)]
 
-    def getfield(self, pkt, s):
-        opln = pkt.optionlen * 4
-        if opln < 0:
-            warning("bad optionlen (%i). Assuming optionlen=0", pkt.optionlen)
-            opln = 0
-        return s[opln:], self.m2i(pkt, s[:opln])
+    def post_build(self, p, pay):
+        if self.length is None:
+            tmp_len = len(self.data) // 4
+            p = p[:3] + struct.pack("!B", tmp_len) + p[4:]
+        return p + pay
 
 
 class GENEVE(Packet):
@@ -54,15 +72,13 @@ class GENEVE(Packet):
                    XShortEnumField("proto", 0x0000, ETHER_TYPES),
                    X3BytesField("vni", 0),
                    XByteField("reserved2", 0x00),
-                   GENEVEOptionsField("options", "")]
+                   PacketListField("options", [], GeneveOptions, length_from=lambda pkt:pkt.optionlen * 4)]
 
     def post_build(self, p, pay):
-        p += pay
-        optionlen = self.optionlen
-        if optionlen is None:
-            optionlen = (len(self.options) + 3) // 4
-            p = chb(optionlen & 0x2f | orb(p[0]) & 0xc0) + p[1:]
-        return p
+        if self.optionlen is None:
+            tmp_len = (len(p) - 8) // 4
+            p = chb(tmp_len & 0x2f | orb(p[0]) & 0xc0) + p[1:]
+        return p + pay
 
     def answers(self, other):
         if isinstance(other, GENEVE):
