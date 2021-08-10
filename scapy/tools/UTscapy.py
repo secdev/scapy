@@ -820,7 +820,7 @@ def campaign_to_LATEX(test_campaign):
 # USAGE #
 
 def usage():
-    print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX|live}] [-o output_file]
+    print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX|xUnit|live}] [-o output_file]
                [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
                [-l] [-b] [-d|-D] [-F] [-q[q]] [-i] [-P preexecute_python_code]
                [-c configfile]
