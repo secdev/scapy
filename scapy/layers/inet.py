@@ -67,6 +67,8 @@ import scapy.as_resolvers
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
+from scapy.modules.mptcp import decodeMpOption
+
 ####################
 #  IP Tools class  #
 ####################
@@ -302,6 +304,7 @@ TCPOptions = (
      15: ("AltChkSumOpt", None),
      25: ("Mood", "!p"),
      28: ("UTO", "!H"),
+     30: ("MPTCP", None),
      34: ("TFO", "!II"),
      # RFC 3692
      # 253: ("Experiment", "!HHHH"),
@@ -318,6 +321,7 @@ TCPOptions = (
      "AltChkSumOpt": 15,
      "Mood": 25,
      "UTO": 28,
+     "MPTCP": 30,
      "TFO": 34,
      })
 
@@ -402,6 +406,8 @@ class TCPOptionsField(StrField):
                     oval = struct.unpack(ofmt, oval)
                     if len(oval) == 1:
                         oval = oval[0]
+                if onum == 30:
+                    oval = decodeMpOption(olen, oval)
                 opt.append((oname, oval))
             else:
                 opt.append((onum, oval))
