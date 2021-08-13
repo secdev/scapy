@@ -11,7 +11,7 @@ MPTCPSubtypes = {
     0x6: 'MP_FAIL',
     0x7: 'MP_FASTCLOSE',
     0x8: 'MP_TCPRST',
-    0xf: 'MP_EXPRIMENTAL'  
+    0xf: 'MP_EXPRIMENTAL'
 }
 
 MP_TCPRSTReasons = {
@@ -24,8 +24,10 @@ MP_TCPRSTReasons = {
     0x6: 'Middlebox interference'
 }
 
+
 def decodeMpOption(olen, oval):
     return MpOption(olen, oval).__dict__
+
 
 class MpOption:
     def __init__(self, olen, oval):
@@ -34,7 +36,7 @@ class MpOption:
 
         if enum in MPTCPSubtypes:
             self.subtype = MPTCPSubtypes[enum]
-            
+
             oval = oval[1:]
 
             if enum == 0:
@@ -60,14 +62,13 @@ class MpOption:
         else:
             self.raw = oval
 
-
     def _MP_CAPABLE(self, olen, opt, oval):
-        self.version = opt & 1 # v0 or v1
+        self.version = opt & 1  # v0 or v1
         flags = struct.unpack('!B', oval[:1])[0]
         oval = oval[1:]
 
-        self.checksumReq = bool(flags & (1 << 7))       # A -> Checksum required
-        self.extensibility = bool(flags & (1 << 6))     # B -> Extensibility 
+        self.checksumReq = bool(flags & (1 << 7))       # A -> Checksum Req
+        self.extensibility = bool(flags & (1 << 6))     # B -> Extensibility
         self.noMoreSubFlows = bool(flags & (1 << 5))    # C -> No more subflows
         self.useHMACSHA256 = bool(flags & 1)            # H -> Use HMAC-SHA256
 
@@ -82,27 +83,27 @@ class MpOption:
         if olen > 20:
             self.dll = struct.unpack('!H', oval[:2])[0]
             oval = oval[2:]
-        
+
         if self.checksumReq:
             self.checksum = struct.unpack('!H', oval)[0]
 
     def _MP_JOIN(self, opt, olen, oval):
         if olen == 12:
             oval = struct.unpack('!BII', oval)
-            self.backup = bool(opt & 1) # B -> Use as backup
+            self.backup = bool(opt & 1)  # B -> Use as backup
             self.id = oval[0]
             self.recvToken = oval[1]
             self.sendRNumber = oval[2]
-            
+
         elif olen == 16:
             oval = struct.unpack('!BQI', oval)
-            self.backup = bool(opt & 1) # B -> Use as backup
+            self.backup = bool(opt & 1)  # B -> Use as backup
             self.id = oval[0]
             self.recvTHMAC = oval[1]
             self.sendRNumber = oval[2]
 
         elif olen == 24:
-            oval = oval[1:] # Skip reserved byte
+            oval = oval[1:]  # Skip reserved byte
             self.sendHmac = struct.unpack('!20s', oval)[0]
 
     def _DSS(self, oval):
@@ -118,15 +119,15 @@ class MpOption:
             else:
                 self.ack = struct.unpack('!I', oval[:4])[0]
                 oval = oval[4:]
-        
+
         if flags & (1 << 2):    # M -> DSN, SSN, DLL and Checksum present
             f = '!'
             if flags & (1 << 3):    # m -> DSN is 8 octects
                 f += 'Q'
             else:
                 f += 'I'
-            
-            f += 'IH' # SSN and DLL
+
+            f += 'IH'  # SSN and DLL
 
             r = struct.unpack(f, oval[:struct.calcsize(f)])
 
@@ -149,7 +150,7 @@ class MpOption:
         else:           # IPV4
             f += '4s'
 
-        r = struct.unpack(f, oval[:ipSize+1])
+        r = struct.unpack(f, oval[:ipSize + 1])
         self.id = r[0]
 
         if ipSize == 4:
@@ -157,15 +158,15 @@ class MpOption:
         else:
             self.ip = str(ipaddress.IPv6Address(r[1]))
 
-        oval = oval[ipSize+1:]
+        oval = oval[ipSize + 1:]
 
         self.echo = bool(opt & 1)   # E
 
-        if not self.echo: # HMAC is present
-            if len(oval) > 8: # Port is present
+        if not self.echo:  # HMAC is present
+            if len(oval) > 8:  # Port is present
                 self.port = struct.unpack('!H', oval[:2])[0]
                 oval = oval[2:]
-            
+
             self.hmac = struct.unpack('!Q', oval)[0]
 
     def _REMOVE_ADDR(self, olen, oval):
@@ -173,19 +174,19 @@ class MpOption:
 
         for _ in range(olen - 3):
             f += 'B'
-            
+
         self.ids = struct.unpack(f, oval)
-        
+
     def _MP_PRIO(self, opt):
-        self.backup = bool(opt & 1) 
-    
+        self.backup = bool(opt & 1)
+
     def _MP_FAIL(self, oval):
-        oval = oval[1:] # Skip reserved byte
+        oval = oval[1:]  # Skip reserved byte
         self.dsn = struct.unpack('!Q', oval)[0]
 
     def _MP_FASTCLOSE(self, oval):
-        oval = oval[1:] # Skip reserved byte
-        self.recvKey = struct.unpack('!Q', oval)[0] 
+        oval = oval[1:]  # Skip reserved byte
+        self.recvKey = struct.unpack('!Q', oval)[0]
 
     def _MP_TCPRST(self, opt, oval):
         self.transient = bool(opt & 1)
@@ -194,8 +195,7 @@ class MpOption:
         if reasonCode in MP_TCPRSTReasons:
             self.reason = MP_TCPRSTReasons[reasonCode]
         else:
-            self.reason = "Unknown Reason" 
+            self.reason = "Unknown Reason"
 
     def _MP_EXPRIMENTAL(self, oval):
         self.raw = oval
-
