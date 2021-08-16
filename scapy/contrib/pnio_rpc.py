@@ -37,8 +37,8 @@ from scapy.volatile import RandUUID
 
 # Block Packet
 BLOCK_TYPES_ENUM = {
-    0x0000: "AlarmNotification_High",
-    0x0001: "AlarmNotification_Low",
+    0x0001: "AlarmNotification_High",
+    0x0002: "AlarmNotification_Low",
     0x0008: "IODWriteReqHeader",
     0x0009: "IODReadReqHeader",
     0x0010: "DiagnosisData",
