@@ -14,12 +14,12 @@ import copy
 from collections import defaultdict
 
 from scapy.compat import Optional, List, Type, Any, Tuple, Iterable, Dict, \
-    cast, Callable
+    cast, Callable, orb
 from scapy.packet import Packet
 import scapy.modules.six as six
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
-from scapy.error import Scapy_Exception, log_interactive
+from scapy.error import Scapy_Exception, log_interactive, warning
 from scapy.contrib.automotive.gm.gmlanutils import GMLAN_InitDiagnostics, \
     GMLAN_TesterPresentSender
 from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SA, GMLAN_RD, \
@@ -244,16 +244,11 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
 
     def pre_execute(self, socket, state, global_configuration):
         # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
-        if global_configuration.unittest:
-            return
-
         if cast(ServiceEnumerator, self)._retry_pkt[state] is not None:
             # this is a retry execute. Wait much longer than usual because
             # a required time delay not expired could have been received
             # on the previous attempt
             time.sleep(11)
-        else:
-            time.sleep(1)
 
     def _evaluate_response(self, state, request, response, **kwargs):
         # type: (EcuState, Packet, Optional[Packet], Optional[Dict[str, Any]]) -> bool  # noqa: E501
@@ -295,26 +290,25 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
     def get_seed_pkt(sock, level=1):
         # type: (_SocketUnion, int) -> Optional[Packet]
         req = GMLAN() / GMLAN_SA(subfunction=level)
-        seed = None
         for t in range(10):
             seed = sock.sr1(req, timeout=5, verbose=False)
-            if seed is None or \
-                    (seed.service == 0x7f and
-                     GMLAN_Enumerator._get_negative_response_code(seed) != 0x37):  # noqa: E501
+            if seed is None:
+                return None
+            elif seed.service == 0x7f and \
+                    GMLAN_Enumerator._get_negative_response_code(seed) != 0x37:
                 log_interactive.info(
                     "Security access no seed! NR: %s", repr(seed))
                 return None
 
-            if seed.service == 0x7f and \
+            elif seed.service == 0x7f and \
                     GMLAN_Enumerator._get_negative_response_code(seed) == 0x37:
                 log_interactive.info("Security access retry to get seed")
                 time.sleep(10)
                 continue
-
-            if t == 9:
-                return None
-            break
-        return seed
+            else:
+                return seed
+        else:
+            return None
 
     @staticmethod
     def evaluate_security_access_response(res, seed, key):
@@ -620,16 +614,13 @@ class GMLAN_RMBAEnumerator(GMLAN_Enumerator):
             from intelhex import IntelHex
 
             ih = IntelHex()
-            for tup in self.filtered_results:
+            for tup in self.results_with_positive_response:
                 for i, b in enumerate(tup.resp.dataRecord):
-                    ih[tup.req.memoryAddress + i] = int(b)
+                    ih[tup.req.memoryAddress + i] = orb(b)
 
             ih.tofile("RMBA_dump.hex", format="hex")
         except ImportError:
-            err_msg = "Install 'intelhex' to create a hex file of the memory"
-            log_interactive.critical(err_msg)
-            with open("RMBA_dump.hex", "w") as file:
-                file.write(err_msg)
+            warning("Install 'intelhex' to create a hex file of the memory")
 
         if dump and s is not None:
             return s + "\n"

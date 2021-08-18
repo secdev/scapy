@@ -1,16 +1,13 @@
-% Regression tests for Simulated ECUs, UDS- and GMLAN Scanners
+% Regression tests for GMLAN Scanners
 
 + Configuration
 ~ conf
 
 = Imports
-import scapy.modules.six as six
 import itertools
 
-if six.PY3:
-    exec(open("test/contrib/automotive/interface_mockup.py").read())
-else:
-    execfile("test/contrib/automotive/interface_mockup.py")
+with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
+    exec(f.read())
 
 
 ############
@@ -18,7 +15,6 @@ else:
 + Load general modules
 
 = Load contribution layer
-
 
 from scapy.contrib.automotive.gm.gmlan import *
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
