@@ -121,6 +121,33 @@ assert len(config.staged_test_cases) == 2
 assert config.verbose == False
 assert config.debug == False
 assert config.delay_state_change > 0
+assert config.staged_test_cases[0].__class__ == MyTestCase1
+assert config.staged_test_cases[1].__class__ == MyTestCase2
+assert config.stages[0].__class__ == StagedAutomotiveTestCase
+
+= creation of config with stages class
+
+class myStagedTestCase(StagedAutomotiveTestCase):
+    def __init__(self):
+        # type: () -> None
+        super(myStagedTestCase, self).__init__(
+            [MyTestCase1(), MyTestCase2()],
+            None)
+
+
+config = AutomotiveTestCaseExecutorConfiguration(
+    [MyTestCase2(), MyTestCase2, MyTestCase3, MyTestCase4, myStagedTestCase])
+
+assert len(config.test_cases) == 5
+assert len(config.test_case_clss) == 5
+assert len(config.stages) == 1
+assert len(config.staged_test_cases) == 2
+assert config.staged_test_cases[0].__class__ == MyTestCase1
+assert config.staged_test_cases[1].__class__ == MyTestCase2
+assert config.stages[0].__class__ == myStagedTestCase
+assert config.verbose == False
+assert config.debug == False
+assert config.delay_state_change > 0
 
 
 

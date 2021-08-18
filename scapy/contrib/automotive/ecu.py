@@ -43,6 +43,10 @@ class EcuState(object):
                 v = list(v)
             self.__setattr__(k, v)
 
+    def __delitem__(self, key):
+        # type: (str) -> None
+        del self.__dict__[key]
+
     def __len__(self):
         # type: () -> int
         return len(self.__dict__.keys())

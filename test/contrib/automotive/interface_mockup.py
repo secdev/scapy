@@ -9,12 +9,20 @@
 import os
 import subprocess
 import sys
+import time
 
 from platform import python_implementation
 
-from scapy.all import load_layer, load_contrib, conf, log_runtime
+from scapy.main import load_layer, load_contrib
+from scapy.config import conf
+from scapy.error import log_runtime, Scapy_Exception, warning
 import scapy.modules.six as six
 from scapy.consts import LINUX
+from scapy.automaton import ObjectPipe
+from scapy.data import MTU
+from scapy.packet import Packet
+from scapy.compat import Optional, Type, Tuple, Any
+from scapy.supersocket import SuperSocket
 
 load_layer("can", globals_dict=globals())
 conf.contribs['CAN']['swap-bytes'] = False
@@ -35,6 +43,7 @@ _socket_can_support = False
 
 
 def test_and_setup_socket_can(iface_name):
+    # type: (str) -> None
     if 0 != subprocess.call(("cansend %s 000#" % iface_name).split()):
         # iface_name is not enabled
         if 0 != subprocess.call("modprobe vcan".split()):
@@ -68,7 +77,7 @@ sys.__stderr__.write("SocketCAN support: %s\n" % _socket_can_support)
 # ############################################################################
 if _socket_can_support:
     if six.PY3:
-        from scapy.contrib.cansocket_native import *
+        from scapy.contrib.cansocket_native import *  # noqa: F403
         new_can_socket = NativeCANSocket
         new_can_socket0 = lambda: NativeCANSocket(iface0)
         new_can_socket1 = lambda: NativeCANSocket(iface1)
@@ -76,18 +85,18 @@ if _socket_can_support:
         sys.__stderr__.write("Using NativeCANSocket\n")
 
     else:
-        from scapy.contrib.cansocket_python_can import *
-        new_can_socket = lambda iface: PythonCANSocket(bustype='socketcan', channel=iface, timeout=0.01)
-        new_can_socket0 = lambda: PythonCANSocket(bustype='socketcan', channel=iface0, timeout=0.01)
-        new_can_socket1 = lambda: PythonCANSocket(bustype='socketcan', channel=iface1, timeout=0.01)
+        from scapy.contrib.cansocket_python_can import *  # noqa: F403
+        new_can_socket = lambda iface: PythonCANSocket(bustype='socketcan', channel=iface, timeout=0.01)  # noqa: E501
+        new_can_socket0 = lambda: PythonCANSocket(bustype='socketcan', channel=iface0, timeout=0.01)  # noqa: E501
+        new_can_socket1 = lambda: PythonCANSocket(bustype='socketcan', channel=iface1, timeout=0.01)  # noqa: E501
         can_socket_string_list = ["-i", "socketcan", "-c", iface0]
         sys.__stderr__.write("Using PythonCANSocket socketcan\n")
 
 else:
-    from scapy.contrib.cansocket_python_can import *
-    new_can_socket = lambda iface: PythonCANSocket(bustype='virtual', channel=iface)
-    new_can_socket0 = lambda: PythonCANSocket(bustype='virtual', channel=iface0, timeout=0.01)
-    new_can_socket1 = lambda: PythonCANSocket(bustype='virtual', channel=iface1, timeout=0.01)
+    from scapy.contrib.cansocket_python_can import *  # noqa: F403
+    new_can_socket = lambda iface: PythonCANSocket(bustype='virtual', channel=iface)  # noqa: E501
+    new_can_socket0 = lambda: PythonCANSocket(bustype='virtual', channel=iface0, timeout=0.01)  # noqa: E501
+    new_can_socket1 = lambda: PythonCANSocket(bustype='virtual', channel=iface1, timeout=0.01)  # noqa: E501
     sys.__stderr__.write("Using PythonCANSocket virtual\n")
 
 
@@ -104,6 +113,7 @@ del s
 
 
 def cleanup_interfaces():
+    # type: () -> bool
     """
     Helper function to remove virtual CAN interfaces after test
 
@@ -124,6 +134,7 @@ def cleanup_interfaces():
 
 
 def drain_bus(iface=iface0, assert_empty=True):
+    # type: (str, bool) -> None
     """
     Utility function for draining a can interface,
     asserting that no packets are there
@@ -154,6 +165,7 @@ ISOTP_KERNEL_MODULE_AVAILABLE = False
 
 
 def exit_if_no_isotp_module():
+    # type: () -> None
     """
     Helper function to exit a test case if ISOTP kernel module is not available
     """
@@ -192,20 +204,81 @@ conf.contribs['ISOTP'] = \
 if six.PY3:
     import importlib
     if "scapy.contrib.isotp" in sys.modules:
-        importlib.reload(scapy.contrib.isotp)
+        importlib.reload(scapy.contrib.isotp)  # type: ignore  # noqa: F405
 
 load_contrib("isotp", globals_dict=globals())
 
 if six.PY3 and ISOTP_KERNEL_MODULE_AVAILABLE:
-    if not ISOTPSocket == ISOTPNativeSocket:
+    if ISOTPSocket is not ISOTPNativeSocket:  # type: ignore
         raise Scapy_Exception("Error in ISOTPSocket import!")
 else:
-    if not ISOTPSocket == ISOTPSoftSocket:
+    if ISOTPSocket is not ISOTPSoftSocket:  # type: ignore
         raise Scapy_Exception("Error in ISOTPSocket import!")
 
 # ############################################################################
 # """ Prepare send_delay on Ecu Answering Machine to stabilize unit tests """
 # ############################################################################
-from scapy.contrib.automotive.ecu import *
+from scapy.contrib.automotive.ecu import *  # noqa: F403
 log_runtime.debug("Set send delay to lower utilization on CI machines")
 conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
+
+# ############################################################################
+# """ Define custom SuperSocket for unit tests """
+# ############################################################################
+
+
+class TestSocket(ObjectPipe, object):
+    nonblocking_socket = True  # type: bool
+
+    def __init__(self, basecls=None):
+        # type: (Optional[Type[Packet]]) -> None
+        super(TestSocket, self).__init__()
+        self.basecls = basecls
+        self.__paired_socket = None  # type: Optional[TestSocket]
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+        super(TestSocket, self).close()
+
+    def pair(self, sock):
+        # type: (TestSocket) -> None
+        if sock.__paired_socket or self.__paired_socket:
+            raise Scapy_Exception("Socket already paired")
+        self.__paired_socket = sock
+        sock.__paired_socket = self
+
+    def send(self, x):
+        # type: (Packet) -> int
+        if not self.__paired_socket:
+            self.close()
+            raise Scapy_Exception("Socket not paired!")
+
+        sx = bytes(x)
+        super(TestSocket, self.__paired_socket).send(sx)
+        try:
+            x.sent_time = time.time()
+        except AttributeError:
+            pass
+        return len(sx)
+
+    def recv_raw(self, x=MTU):
+        # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
+        """Returns a tuple containing (cls, pkt_data, time)"""
+        return self.basecls, \
+            super(TestSocket, self).recv(), \
+            time.time()
+
+    def recv(self, x=MTU):
+        # type: (int) -> Optional[Packet]
+        if six.PY3:
+            return SuperSocket.recv(self, x)
+        else:
+            return SuperSocket.recv.im_func(self, x)
+
+    def sr1(self, *args, **kargs):
+        # type: (Any, Any) -> Optional[Packet]
+        if six.PY3:
+            return SuperSocket.sr1(self, *args, **kargs)
+        else:
+            return SuperSocket.sr1.im_func(self, *args, **kargs)

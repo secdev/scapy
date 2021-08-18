@@ -6,7 +6,9 @@
 # scapy.contrib.description = AutomotiveTestCaseExecutorConfiguration
 # scapy.contrib.status = library
 
-from scapy.compat import Any, Union, List, Type, Set
+import inspect
+
+from scapy.compat import Any, Union, List, Type, Set, cast
 from scapy.contrib.automotive.scanner.graph import Graph
 from scapy.error import log_interactive
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC
@@ -69,26 +71,40 @@ class AutomotiveTestCaseExecutorConfiguration(object):
         self.__setattr__(test_case_cls.__name__, val)
 
     def add_test_case(self, test_case):
-        # type: (Union[AutomotiveTestCaseABC, Type[AutomotiveTestCaseABC], StagedAutomotiveTestCase]) -> None  # noqa: E501
-        if isinstance(test_case, StagedAutomotiveTestCase):
-            self.stages.append(test_case)
-            for tc in test_case.test_cases:
-                self.staged_test_cases.append(tc)
-                self._generate_test_case_config(tc.__class__)
+        # type: (Union[AutomotiveTestCaseABC, Type[AutomotiveTestCaseABC], StagedAutomotiveTestCase, Type[StagedAutomotiveTestCase]]) -> None  # noqa: E501
+        if inspect.isclass(test_case):
+            test_case_class = cast(Union[Type[AutomotiveTestCaseABC],
+                                         Type[StagedAutomotiveTestCase]],
+                                   test_case)
+            if issubclass(test_case_class, StagedAutomotiveTestCase):
+                self.add_test_case(test_case_class())  # type: ignore
+            elif issubclass(test_case_class, AutomotiveTestCaseABC):
+                self.add_test_case(test_case_class())
+            else:
+                raise TypeError(
+                    "Provided class is not in "
+                    "Union[Type[AutomotiveTestCaseABC], "
+                    "Type[StagedAutomotiveTestCase]]")
 
-        if isinstance(test_case, AutomotiveTestCaseABC):
+        elif isinstance(test_case, AutomotiveTestCaseABC):
             self.test_cases.append(test_case)
             self._generate_test_case_config(test_case.__class__)
-
-        if not isinstance(test_case, AutomotiveTestCaseABC):
-            self.test_cases.append(test_case())
-            self._generate_test_case_config(test_case)
+            if isinstance(test_case, StagedAutomotiveTestCase):
+                self.stages.append(test_case)
+                for tc in test_case.test_cases:
+                    self.staged_test_cases.append(tc)
+                    self._generate_test_case_config(tc.__class__)
+        else:
+            raise TypeError(
+                "Provided instance or class of "
+                "StagedAutomotiveTestCase or AutomotiveTestCaseABC")
 
     def __init__(self, test_cases, **kwargs):
         # type: (Union[List[Union[AutomotiveTestCaseABC, Type[AutomotiveTestCaseABC]]], List[Type[AutomotiveTestCaseABC]]], Any) -> None  # noqa: E501
         self.verbose = kwargs.get("verbose", False)
         self.debug = kwargs.get("debug", False)
         self.delay_state_change = kwargs.get("delay_state_change", 0.5)
+        self.unittest = kwargs.pop("unittest", False)
         self.state_graph = Graph()
         self.test_cases = list()  # type: List[AutomotiveTestCaseABC]
         self.stages = list()  # type: List[StagedAutomotiveTestCase]
