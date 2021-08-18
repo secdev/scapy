@@ -13,10 +13,8 @@ from scapy.contrib.isotp.isotp_scanner import get_isotp_packet
 
 import scapy.modules.six as six
 
-if six.PY3:
-    exec(open("test/contrib/automotive/interface_mockup.py").read())
-else:
-    execfile("test/contrib/automotive/interface_mockup.py")
+with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
+    exec(f.read())
 
 = Definition of constants, utility functions and mock classes
 
