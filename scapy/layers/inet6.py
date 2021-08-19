@@ -3351,7 +3351,7 @@ def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(),
     a = TracerouteResult6(a.res)
 
     if verbose:
-        a.display()
+        a.show()
 
     return a, b
 
