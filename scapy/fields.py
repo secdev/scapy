@@ -1309,12 +1309,21 @@ class IEEEDoubleField(Field[int, int]):
 
 
 class _StrField(Field[I, bytes]):
-    __slots__ = ["remain"]
+    __slots__ = ["remain", "max_length", "chars"]
+    _DEFAULT_CHARS = b"".join(chb(c) for c in range(256))
 
-    def __init__(self, name, default, fmt="H", remain=0):
+    def __init__(self, name,
+                 default,  # type: str
+                 fmt="H",  # type: str
+                 remain=0,  # type: int
+                 max_length=None,  # type: int
+                 chars=_DEFAULT_CHARS  # type: Optional[bytes]
+                 ):
         # type: (str, Optional[I], str, int) -> None
         Field.__init__(self, name, default, fmt)
         self.remain = remain
+        self.max_length = max_length
+        self.chars = chars
 
     def i2len(self, pkt, x):
         # type: (Optional[Packet], Any) -> int
@@ -1355,7 +1364,7 @@ class _StrField(Field[I, bytes]):
 
     def randval(self):
         # type: () -> RandBin
-        return RandBin(RandNum(0, 1200))
+        return RandBin(RandNum(0, self.max_length or 1200), chars=self.chars)
 
 
 class StrField(_StrField[bytes]):
@@ -1669,6 +1678,7 @@ class PacketListField(_PacketField[List[BasePacket]]):
 
 class StrFixedLenField(StrField):
     __slots__ = ["length_from"]
+    _DEFAULT_CHARS = b"".join(chb(c) for c in range(256))
 
     def __init__(
             self,
@@ -1676,10 +1686,12 @@ class StrFixedLenField(StrField):
             default,  # type: Optional[bytes]
             length=None,  # type: Optional[int]
             length_from=None,  # type: Optional[Callable[[Packet], int]]  # noqa: E501
+            chars=_DEFAULT_CHARS  # type: Optional[bytes]
     ):
         # type: (...) -> None
         super(StrFixedLenField, self).__init__(name, default)
         self.length_from = length_from or (lambda x: 0)
+        self.chars = chars
         if length is not None:
             self.length_from = lambda x, length=length: length  # type: ignore
 
@@ -1710,7 +1722,7 @@ class StrFixedLenField(StrField):
             len_pkt = self.length_from(None)  # type: ignore
         except Exception:
             len_pkt = RandNum(0, 200)
-        return RandBin(len_pkt)
+        return RandBin(len_pkt, chars=self.chars)
 
 
 class StrFixedLenEnumField(StrFixedLenField):
@@ -1775,6 +1787,7 @@ class NetBIOSNameField(StrFixedLenField):
 
 class StrLenField(StrField):
     __slots__ = ["length_from", "max_length"]
+    _DEFAULT_CHARS = b"".join(chb(c) for c in range(256))
 
     def __init__(
             self,
@@ -1782,6 +1795,7 @@ class StrLenField(StrField):
             default,  # type: bytes
             length_from=None,  # type: Optional[Callable[[Packet], int]]
             max_length=None,  # type: Optional[Any]
+            chars=_DEFAULT_CHARS  # type: Optional[bytes]
     ):
         # type: (...) -> None
         super(StrLenField, self).__init__(name, default)
@@ -1795,7 +1809,7 @@ class StrLenField(StrField):
 
     def randval(self):
         # type: () -> RandBin
-        return RandBin(RandNum(0, self.max_length or 1200))
+        return RandBin(RandNum(0, self.max_length or 1200), chars=self.chars)
 
 
 class XStrField(StrField):
@@ -1869,6 +1883,7 @@ class StrLenFieldUtf16(StrLenField):
 
 class BoundStrLenField(StrLenField):
     __slots__ = ["minlen", "maxlen"]
+    _DEFAULT_CHARS = b"".join(chb(c) for c in range(256))
 
     def __init__(
             self,
@@ -1876,7 +1891,8 @@ class BoundStrLenField(StrLenField):
             default,  # type: bytes
             minlen=0,  # type: int
             maxlen=255,  # type: int
-            length_from=None  # type: Optional[Callable[[Packet], int]]
+            length_from=None,  # type: Optional[Callable[[Packet], int]]
+            chars=_DEFAULT_CHARS  # type: Optional[bytes]
     ):
         # type: (...) -> None
         StrLenField.__init__(self, name, default, length_from=length_from)
@@ -1885,7 +1901,7 @@ class BoundStrLenField(StrLenField):
 
     def randval(self):
         # type: () -> RandBin
-        return RandBin(RandNum(self.minlen, self.maxlen))
+        return RandBin(RandNum(self.minlen, self.maxlen), chars=self.chars)
 
 
 class FieldListField(Field[List[Any], List[Any]]):
@@ -2024,17 +2040,27 @@ class StrNullField(StrField):
 
     def randval(self):
         # type: () -> RandTermString
-        return RandTermString(RandNum(0, 1200), b"\x00")
+        return RandTermString(RandNum(0, self.max_length or 1200), b"\x00")
 
 
 class StrStopField(StrField):
-    __slots__ = ["stop", "additional"]
+    __slots__ = ["stop", "additional", "max_length", "chars"]
+    _DEFAULT_CHARS = b"".join(chb(c) for c in range(256))
 
-    def __init__(self, name, default, stop, additional=0):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: bytes
+                 stop,  # type: str
+                 additional=0,  # type: int
+                 max_length=None,  # type: int
+                 chars=_DEFAULT_CHARS  # type: bytes
+                 ):
         # type: (str, str, bytes, int) -> None
         Field.__init__(self, name, default)
         self.stop = stop
         self.additional = additional
+        self.max_length = max_length
+        self.chars = chars
 
     def getfield(self, pkt, s):
         # type: (Optional[Packet], bytes) -> Tuple[bytes, bytes]
@@ -2047,7 +2073,9 @@ class StrStopField(StrField):
 
     def randval(self):
         # type: () -> RandTermString
-        return RandTermString(RandNum(0, 1200), self.stop)
+        return RandTermString(RandNum(0, self.max_length or 1200),
+                              self.stop, chars=self.chars
+                              )
 
 
 class LenField(Field[int, int]):

@@ -430,8 +430,10 @@ class RandString(RandField):
 
 
 class RandBin(RandString):
-    def __init__(self, size=None):
-        super(RandBin, self).__init__(size=size, chars=b"".join(chb(c) for c in range(256)))  # noqa: E501
+    _DEFAULT_CHARS = b"".join(chb(c) for c in range(256))
+
+    def __init__(self, size=None, chars=_DEFAULT_CHARS):
+        super(RandBin, self).__init__(size=size, chars=chars)  # noqa: E501
 
     def _command_args(self):
         if not isinstance(self.size, VolatileValue):
@@ -445,9 +447,11 @@ class RandBin(RandString):
 
 
 class RandTermString(RandBin):
-    def __init__(self, size, term):
+    _DEFAULT_CHARS = b"".join(chb(c) for c in range(256))
+
+    def __init__(self, size, term, chars=_DEFAULT_CHARS):
         self.term = bytes_encode(term)
-        super(RandTermString, self).__init__(size=size)
+        super(RandTermString, self).__init__(size=size, chars=chars)
 
     def _command_args(self):
         return ", ".join((super(RandTermString, self)._command_args(),
