@@ -651,7 +651,7 @@ class GMLAN_TDEnumerator(GMLAN_Enumerator):
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
         scan_range = kwargs.pop("scan_range", range(0x1ff))
-        addresses = (random.randint(0, 0xffffffff) // 4 for _ in scan_range)
+        addresses = (random.randint(0, 0x5fffffff) << 4 for _ in scan_range)
         return (GMLAN() / GMLAN_TD(subfunction=0, startingAddress=x)
                 for x in addresses)
 
