@@ -113,7 +113,7 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
             privshares = self.tls_session.tls13_client_privshares
             for kse in self.client_shares:
                 if kse.privkey:
-                    if _tls_named_curves[kse.group] in privshares:
+                    if _tls_named_groups[kse.group] in privshares:
                         pkt_info = pkt.firstlayer().summary()
                         log_runtime.info("TLS: group %s used twice in the same ClientHello [%s]", kse.group, pkt_info)  # noqa: E501
                         break
@@ -125,11 +125,11 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
             for kse in self.client_shares:
                 if kse.pubkey:
                     pubshares = self.tls_session.tls13_client_pubshares
-                    if _tls_named_curves[kse.group] in pubshares:
+                    if _tls_named_groups[kse.group] in pubshares:
                         pkt_info = r.firstlayer().summary()
                         log_runtime.info("TLS: group %s used twice in the same ClientHello [%s]", kse.group, pkt_info)  # noqa: E501
                         break
-                    pubshares[_tls_named_curves[kse.group]] = kse.pubkey
+                    pubshares[_tls_named_groups[kse.group]] = kse.pubkey
         return super(TLS_Ext_KeyShare_CH, self).post_dissection(r)
 
 
