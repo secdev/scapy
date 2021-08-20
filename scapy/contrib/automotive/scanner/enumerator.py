@@ -210,16 +210,45 @@ class ServiceEnumerator(AutomotiveTestCase):
                            request,  # type: Packet
                            response,  # type: Optional[Packet]
                            **kwargs  # type: Optional[Dict[str, Any]]
-                           ):  # type: (...) -> bool  # noqa: E501
-
+                           ):  # type: (...) -> bool
         if response is None:
             # Nothing to evaluate, return and continue execute
             return cast(bool, kwargs.pop("exit_if_no_answer_received", False))
 
+        if self._evaluate_negative_response_code(
+                state, response, **kwargs):
+            # leave current execution, because of a negative response code
+            return True
+
+        if self._evaluate_retry(state, request, response, **kwargs):
+            # leave current execution, because a retry was set
+            return True
+
+        # cleanup retry packet
+        self._retry_pkt[state] = None
+
+        return self._evaluate_ecu_state_modifications(state, request, response)
+
+    def _evaluate_ecu_state_modifications(self,
+                                          state,  # type: EcuState
+                                          request,  # type: Packet
+                                          response,  # type: Packet
+                                          ):  # type: (...) -> bool
+        if EcuState.is_modifier_pkt(response):
+            if state != EcuState.get_modified_ecu_state(
+                    response, request, state):
+                log_interactive.debug(
+                    "[-] Exit execute. Ecu state was modified!")
+                return True
+        return False
+
+    def _evaluate_negative_response_code(self,
+                                         state,  # type: EcuState
+                                         response,  # type: Packet
+                                         **kwargs  # type: Optional[Dict[str, Any]]  # noqa: E501
+                                         ):  # type: (...) -> bool
         exit_if_service_not_supported = \
             kwargs.pop("exit_if_service_not_supported", False)
-        retry_if_busy_returncode = \
-            kwargs.pop("retry_if_busy_returncode", True)
         exit_scan_on_first_negative_response = \
             kwargs.pop("exit_scan_on_first_negative_response", False)
 
@@ -239,6 +268,16 @@ class ServiceEnumerator(AutomotiveTestCase):
                 self._state_completed[state] = True
                 # stop current execute and exit
                 return True
+        return False
+
+    def _evaluate_retry(self,
+                        state,  # type: EcuState
+                        request,  # type: Packet
+                        response,  # type: Packet
+                        **kwargs  # type: Optional[Dict[str, Any]]
+                        ):  # type: (...) -> bool
+        retry_if_busy_returncode = \
+            kwargs.pop("retry_if_busy_returncode", True)
 
         if retry_if_busy_returncode and response.service == 0x7f \
                 and self._get_negative_response_code(response) == 0x21:
@@ -251,19 +290,7 @@ class ServiceEnumerator(AutomotiveTestCase):
                 return True
             else:
                 # This was a unsuccessful retry, continue execute
-                self._retry_pkt[state] = None
                 log_interactive.debug("[-] Unsuccessful retry!")
-                return False
-        else:
-            self._retry_pkt[state] = None
-
-        if EcuState.is_modifier_pkt(response):
-            if state != EcuState.get_modified_ecu_state(
-                    response, request, state):
-                log_interactive.debug(
-                    "[-] Exit execute. Ecu state was modified!")
-                return True
-
         return False
 
     def _compute_statistics(self):

@@ -250,20 +250,21 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
             # on the previous attempt
             time.sleep(11)
 
-    def _evaluate_response(self, state, request, response, **kwargs):
-        # type: (EcuState, Packet, Optional[Packet], Optional[Dict[str, Any]]) -> bool  # noqa: E501
-        if super(GMLAN_SAEnumerator, self)._evaluate_response(
+    def _evaluate_retry(self,
+                        state,  # type: EcuState
+                        request,  # type: Packet
+                        response,  # type: Packet
+                        **kwargs  # type: Optional[Dict[str, Any]]
+                        ):  # type: (...) -> bool
+
+        if super(GMLAN_SAEnumerator, self)._evaluate_retry(
                 state, request, response, **kwargs):
             return True
-
-        if response is None:
-            # Nothing to evaluate, return and continue execute
-            return False
 
         if response.service == 0x7f and \
                 self._get_negative_response_code(response) in [0x22, 0x37]:
             # requiredTimeDelayNotExpired or requestSequenceError
-            if cast(ServiceEnumerator, self)._retry_pkt[state] is None:
+            if self._retry_pkt[state] is None:
                 # This was no retry since the retry_pkt is None
                 self._retry_pkt[state] = request
                 log_interactive.debug(
@@ -272,18 +273,25 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
                 return True
             else:
                 # This was an unsuccessful retry, continue execute
-                self._retry_pkt[state] = None
                 log_interactive.warning(
                     "[-] Unsuccessful retry. %s!",
                     self._get_negative_response_label(response))
-                return False
-        else:
-            self._retry_pkt[state] = None
+        return False
 
-        if response.service == 0x67 and response.subfunction % 2 == 1:
-            log_interactive.debug("[i] Seed received. Leave scan to try a key")
+    def _evaluate_response(self,
+                           state,  # type: EcuState
+                           request,  # type: Packet
+                           response,  # type: Optional[Packet]
+                           **kwargs  # type: Optional[Dict[str, Any]]
+                           ):  # type: (...) -> bool
+        if super(GMLAN_SAEnumerator, self)._evaluate_response(
+                state, request, response, **kwargs):
             return True
 
+        if response is not None and \
+                response.service == 0x67 and response.subfunction % 2 == 1:
+            log_interactive.debug("[i] Seed received. Leave scan to try a key")
+            return True
         return False
 
     @staticmethod
