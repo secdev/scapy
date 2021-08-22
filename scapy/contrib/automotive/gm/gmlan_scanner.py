@@ -298,7 +298,7 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
     def get_seed_pkt(sock, level=1):
         # type: (_SocketUnion, int) -> Optional[Packet]
         req = GMLAN() / GMLAN_SA(subfunction=level)
-        for t in range(10):
+        for _ in range(10):
             seed = sock.sr1(req, timeout=5, verbose=False)
             if seed is None:
                 return None
@@ -315,8 +315,7 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
                 continue
             else:
                 return seed
-        else:
-            return None
+        return None
 
     @staticmethod
     def evaluate_security_access_response(res, seed, key):
