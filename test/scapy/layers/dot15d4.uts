@@ -793,7 +793,35 @@ assert pkt[ZigbeeAppDataPayload].counter == 181
 assert ZigbeeDeviceProfile in pkt.layers()
 assert raw(pkt[ZigbeeDeviceProfile]) == b'\x01\x14\x01'
 
-= Zigbee - ZCL command
+
+= Zigbee - ZDP command: Device_annce
+
+pkt = ZigbeeAppDataPayload(b'\x08\x00\x13\x00\x00\x00\x00\x0c\x81\xad\xde\x88wfUD3"\x11\x8e')
+assert ZigbeeAppDataPayload in pkt.layers()
+assert pkt[ZigbeeAppDataPayload].aps_frametype == 0
+assert pkt[ZigbeeAppDataPayload].delivery_mode == 2
+assert pkt[ZigbeeAppDataPayload].frame_control == 0b0000
+assert pkt[ZigbeeAppDataPayload].dst_endpoint == 0
+assert pkt[ZigbeeAppDataPayload].cluster == 0x0013
+assert pkt[ZigbeeAppDataPayload].profile == 0x0000
+assert pkt[ZigbeeAppDataPayload].src_endpoint == 0
+assert pkt[ZigbeeAppDataPayload].counter == 12
+assert ZigbeeDeviceProfile in pkt.layers()
+assert pkt[ZigbeeDeviceProfile].trans_seqnum == 129
+assert ZDPDeviceAnnce in pkt.layers()
+assert pkt[ZDPDeviceAnnce].nwk_addr == 0xdead
+assert pkt[ZDPDeviceAnnce].ieee_addr == 0x1122334455667788
+assert pkt[ZDPDeviceAnnce].alternate_pan_coordinator == 0b0
+assert pkt[ZDPDeviceAnnce].device_type == 0b1
+assert pkt[ZDPDeviceAnnce].power_source == 0b1
+assert pkt[ZDPDeviceAnnce].receiver_on_when_idle == 0b1
+assert pkt[ZDPDeviceAnnce].reserved1 == 0b0
+assert pkt[ZDPDeviceAnnce].reserved2 == 0b0
+assert pkt[ZDPDeviceAnnce].security_capability == 0b0
+assert pkt[ZDPDeviceAnnce].allocate_address == 0b1
+assert raw(pkt[ZDPDeviceAnnce].payload) == b''
+
+= Zigbee - ZCL General command: Read Attributes
 
 pkt = ZigbeeAppDataPayload(b'@\x01\n\x00\x04\x01\x01\x9d\x00\x00\x00\x00\x00')
 assert ZigbeeAppDataPayload in pkt.layers()
@@ -816,3 +844,23 @@ assert ZCLGeneralReadAttributes in pkt.layers()
 assert len(pkt[ZCLGeneralReadAttributes].attribute_identifiers) == 1
 assert pkt[ZCLGeneralReadAttributes].attribute_identifiers[0] == 0x0000
 assert raw(pkt[ZCLGeneralReadAttributes].payload) == b''
+
+= Zigbee - ZCL General command: Read Attributes Response
+
+pkt = ZCLGeneralReadAttributesResponse(b'!\x00\x00 \xc4')
+assert ZCLGeneralReadAttributesResponse in pkt.layers()
+assert len(pkt[ZCLGeneralReadAttributesResponse].read_attribute_status_record) == 1
+assert pkt[ZCLGeneralReadAttributesResponse].read_attribute_status_record[0].attribute_identifier == 0x0021
+assert pkt[ZCLGeneralReadAttributesResponse].read_attribute_status_record[0].status == 0x00
+assert pkt[ZCLGeneralReadAttributesResponse].read_attribute_status_record[0].attribute_data_type == 0x20
+assert pkt[ZCLGeneralReadAttributesResponse].read_attribute_status_record[0].attribute_value == b'\xc4'
+assert raw(pkt[ZCLGeneralReadAttributesResponse].payload) == b''
+
+
+= Zigbee - ZCL IAS Zone command: Zone Enroll Response
+
+pkt = ZCLIASZoneZoneEnrollResponse(b'\x00:')
+assert ZCLIASZoneZoneEnrollResponse in pkt.layers()
+assert pkt[ZCLIASZoneZoneEnrollResponse].rsp_code == 0x00
+assert pkt[ZCLIASZoneZoneEnrollResponse].zone_id == 0x3a
+assert raw(pkt[ZCLIASZoneZoneEnrollResponse].payload) == b''
