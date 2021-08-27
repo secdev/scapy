@@ -264,18 +264,8 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
         if response.service == 0x7f and \
                 self._get_negative_response_code(response) in [0x22, 0x37]:
             # requiredTimeDelayNotExpired or requestSequenceError
-            if self._retry_pkt[state] is None:
-                # This was no retry since the retry_pkt is None
-                self._retry_pkt[state] = request
-                log_interactive.debug(
-                    "[-] Exit execute. %s. Retry next time.",
-                    self._get_negative_response_label(response))
-                return True
-            else:
-                # This was an unsuccessful retry, continue execute
-                log_interactive.warning(
-                    "[-] Unsuccessful retry. %s!",
-                    self._get_negative_response_label(response))
+            return super(GMLAN_SAEnumerator, self)._populate_retry(
+                state, request)
         return False
 
     def _evaluate_response(self,
