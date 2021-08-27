@@ -25,7 +25,7 @@ def GMLAN_modify_ecu_state(self, req, state):
         state.communication_control = 1  # type: ignore
     elif self.service == 0xe5:
         state.session = 2  # type: ignore
-    elif self.service == 0x74:
+    elif self.service == 0x74 and len(req) > 3:
         state.request_download = 1  # type: ignore
     elif self.service == 0x7e:
         state.tp = 1  # type: ignore
@@ -34,5 +34,5 @@ def GMLAN_modify_ecu_state(self, req, state):
 @EcuState.extend_pkt_with_modifier(GMLAN_SAPR)
 def GMLAN_SAPR_modify_ecu_state(self, req, state):
     # type: (Packet, Packet, EcuState) -> None
-    if self.subfunction % 2 == 0:
+    if self.subfunction % 2 == 0 and self.subfunction > 0 and len(req) >= 3:
         state.security_level = self.subfunction  # type: ignore

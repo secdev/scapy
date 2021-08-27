@@ -210,16 +210,62 @@ class ServiceEnumerator(AutomotiveTestCase):
                            request,  # type: Packet
                            response,  # type: Optional[Packet]
                            **kwargs  # type: Optional[Dict[str, Any]]
-                           ):  # type: (...) -> bool  # noqa: E501
-
+                           ):  # type: (...) -> bool
+        """
+        Evaluates the response and determines if the current scan execution
+        should be stopped.
+        :param state: Current state of the ECU under test
+        :param request: Sent request
+        :param response: Received response
+        :param kwargs: Arguments to modify the behavior of this function.
+                       Supported arguments:
+                         - retry_if_none_received: True/False
+                         - exit_if_no_answer_received: True/False
+                         - exit_if_service_not_supported: True/False
+                         - exit_scan_on_first_negative_response: True/False
+                         - retry_if_busy_returncode: True/False
+        :return: True, if current execution needs to be interrupted.
+                 False, if enumerator should proceed with the execution.
+        """
         if response is None:
-            # Nothing to evaluate, return and continue execute
+            if cast(bool, kwargs.pop("retry_if_none_received", False)):
+                return self._populate_retry(state, request)
             return cast(bool, kwargs.pop("exit_if_no_answer_received", False))
 
+        if self._evaluate_negative_response_code(
+                state, response, **kwargs):
+            # leave current execution, because of a negative response code
+            return True
+
+        if self._evaluate_retry(state, request, response, **kwargs):
+            # leave current execution, because a retry was set
+            return True
+
+        # cleanup retry packet
+        self._retry_pkt[state] = None
+
+        return self._evaluate_ecu_state_modifications(state, request, response)
+
+    def _evaluate_ecu_state_modifications(self,
+                                          state,  # type: EcuState
+                                          request,  # type: Packet
+                                          response,  # type: Packet
+                                          ):  # type: (...) -> bool
+        if EcuState.is_modifier_pkt(response):
+            if state != EcuState.get_modified_ecu_state(
+                    response, request, state):
+                log_interactive.debug(
+                    "[-] Exit execute. Ecu state was modified!")
+                return True
+        return False
+
+    def _evaluate_negative_response_code(self,
+                                         state,  # type: EcuState
+                                         response,  # type: Packet
+                                         **kwargs  # type: Optional[Dict[str, Any]]  # noqa: E501
+                                         ):  # type: (...) -> bool
         exit_if_service_not_supported = \
             kwargs.pop("exit_if_service_not_supported", False)
-        retry_if_busy_returncode = \
-            kwargs.pop("retry_if_busy_returncode", True)
         exit_scan_on_first_negative_response = \
             kwargs.pop("exit_scan_on_first_negative_response", False)
 
@@ -239,31 +285,45 @@ class ServiceEnumerator(AutomotiveTestCase):
                 self._state_completed[state] = True
                 # stop current execute and exit
                 return True
+        return False
+
+    def _populate_retry(self,
+                        state,  # type: EcuState
+                        request,  # type: Packet
+                        ):  # type: (...) -> bool
+        """
+        Populates internal storage with request for a retry.
+
+        :param state: Current state
+        :param request: Request which needs a retry
+        :return: True, if storage was populated. If False is returned, the
+                 retry storage is still populated. This indicates that the
+                 current execution was already a retry execution.
+        """
+
+        if self._retry_pkt[state] is None:
+            # This was no retry since the retry_pkt is None
+            self._retry_pkt[state] = request
+            log_interactive.debug(
+                "[-] Exit execute. Retry packet next time!")
+            return True
+        else:
+            # This was a unsuccessful retry, continue execute
+            log_interactive.debug("[-] Unsuccessful retry!")
+            return False
+
+    def _evaluate_retry(self,
+                        state,  # type: EcuState
+                        request,  # type: Packet
+                        response,  # type: Packet
+                        **kwargs  # type: Optional[Dict[str, Any]]
+                        ):  # type: (...) -> bool
+        retry_if_busy_returncode = \
+            kwargs.pop("retry_if_busy_returncode", True)
 
         if retry_if_busy_returncode and response.service == 0x7f \
                 and self._get_negative_response_code(response) == 0x21:
-
-            if self._retry_pkt[state] is None:
-                # This was no retry since the retry_pkt is None
-                self._retry_pkt[state] = request
-                log_interactive.debug(
-                    "[-] Exit execute. Retry packet next time!")
-                return True
-            else:
-                # This was a unsuccessful retry, continue execute
-                self._retry_pkt[state] = None
-                log_interactive.debug("[-] Unsuccessful retry!")
-                return False
-        else:
-            self._retry_pkt[state] = None
-
-        if EcuState.is_modifier_pkt(response):
-            if state != EcuState.get_modified_ecu_state(
-                    response, request, state):
-                log_interactive.debug(
-                    "[-] Exit execute. Ecu state was modified!")
-                return True
-
+            return self._populate_retry(state, request)
         return False
 
     def _compute_statistics(self):

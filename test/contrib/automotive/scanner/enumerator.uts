@@ -175,6 +175,10 @@ assert e._retry_pkt[EcuState(session=1)] == None
 
 assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x50\x03\x00"), **conf)
 assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x11\x03abcd"), UDS(b"\x51\x03\x00"), **conf)
+conf = {"retry_if_none_received": True}
+assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), None, **conf)
+assert e._retry_pkt[EcuState(session=1)] is not None
+
 
 = ServiceEnumerator execute
 
