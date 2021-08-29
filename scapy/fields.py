@@ -1376,7 +1376,7 @@ class StrFieldUtf16(StrField):
 
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
-        return plain_str(x)
+        return plain_str(self.i2h(pkt, x))
 
     def i2h(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
@@ -1858,7 +1858,7 @@ class StrLenFieldUtf16(StrLenField):
 
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
-        return plain_str(x)
+        return plain_str(self.i2h(pkt, x))
 
     def i2h(self,
             pkt,  # type: Optional[Packet]
