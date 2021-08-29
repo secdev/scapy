@@ -329,6 +329,29 @@ def hex_bytes(x):
     return binascii.a2b_hex(bytes_encode(x))
 
 
+if six.PY2:
+    def int_bytes(x, size):
+        # type: (int, int) -> bytes
+        """Convert an int to an arbitrary sized bytes string"""
+        _hx = hex(x)[2:].strip("L")
+        return binascii.unhexlify("0" * (size * 2 - len(_hx)) + _hx)
+
+    def bytes_int(x):
+        # type: (bytes) -> int
+        """Convert an arbitrary sized bytes string to an int"""
+        return int(x.encode('hex'), 16)
+else:
+    def int_bytes(x, size):
+        # type: (int, int) -> bytes
+        """Convert an int to an arbitrary sized bytes string"""
+        return x.to_bytes(size, byteorder='big')
+
+    def bytes_int(x):
+        # type: (bytes) -> int
+        """Convert an arbitrary sized bytes string to an int"""
+        return int.from_bytes(x, "big")
+
+
 def base64_bytes(x):
     # type: (AnyStr) -> bytes
     """Turn base64 into bytes"""
