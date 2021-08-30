@@ -234,7 +234,7 @@ class TestSocket(ObjectPipe, object):
         # type: (Optional[Type[Packet]]) -> None
         super(TestSocket, self).__init__()
         self.basecls = basecls
-        self.__paired_socket = None  # type: Optional[TestSocket]
+        self.paired_sockets = list()  # type: List[TestSocket]
         self.closed = False
 
     def close(self):
@@ -243,19 +243,14 @@ class TestSocket(ObjectPipe, object):
 
     def pair(self, sock):
         # type: (TestSocket) -> None
-        if sock.__paired_socket or self.__paired_socket:
-            raise Scapy_Exception("Socket already paired")
-        self.__paired_socket = sock
-        sock.__paired_socket = self
+        self.paired_sockets += [sock]
+        sock.paired_sockets += [self]
 
     def send(self, x):
         # type: (Packet) -> int
-        if not self.__paired_socket:
-            self.close()
-            raise Scapy_Exception("Socket not paired!")
-
         sx = bytes(x)
-        super(TestSocket, self.__paired_socket).send(sx)
+        for r in self.paired_sockets:
+            super(TestSocket, r).send(sx)
         try:
             x.sent_time = time.time()
         except AttributeError:
@@ -282,3 +277,10 @@ class TestSocket(ObjectPipe, object):
             return SuperSocket.sr1(self, *args, **kargs)
         else:
             return SuperSocket.sr1.im_func(self, *args, **kargs)
+
+    def sniff(self, *args, **kargs):
+        # type: (Any, Any) -> PacketList
+        if six.PY3:
+            return SuperSocket.sniff(self, *args, **kargs)
+        else:
+            return SuperSocket.sniff.im_func(self, *args, **kargs)
