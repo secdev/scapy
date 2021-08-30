@@ -575,8 +575,8 @@ def valid_mac(mac):
 def str2mac(s):
     # type: (bytes) -> str
     if isinstance(s, str):
-        return ("%02x:" * 6)[:-1] % tuple(map(ord, s))
-    return ("%02x:" * 6)[:-1] % tuple(s)
+        return ("%02x:" * len(s))[:-1] % tuple(map(ord, s))
+    return ("%02x:" * len(s))[:-1] % tuple(s)
 
 
 def randstring(length):
