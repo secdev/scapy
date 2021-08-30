@@ -38,7 +38,7 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
     try:
         scanner = GMLAN_Scanner(
             tester, reset_handler=answering_machine.reset_state,
-            test_cases=enumerators, timeout=0.1, retry_if_none_received=True,
+            test_cases=enumerators, timeout=0.5, retry_if_none_received=True,
             unittest=True, delay_state_change=0, **kwargs)
         scanner.scan(timeout=200)
     finally:
@@ -474,3 +474,9 @@ assert 0xf0f0 in addrs
 result = tc.show(dump=True)
 
 assert "RequestOutOfRange received " in result
+
++ Cleanup
+
+= Delete vcan interfaces
+
+assert cleanup_interfaces()
