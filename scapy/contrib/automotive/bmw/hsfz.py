@@ -12,13 +12,13 @@ import socket
 import time
 
 from scapy.compat import Optional, Tuple, Type
-
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import IntField, ShortEnumField, XByteField
 from scapy.layers.inet import TCP
 from scapy.supersocket import StreamSocket
 from scapy.contrib.automotive.uds import UDS
 from scapy.data import MTU
+from scapy.error import log_interactive
 
 
 """
@@ -97,8 +97,21 @@ class UDS_HSFZSocket(HSFZSocket):
         except AttributeError:
             pass
 
-        return super(UDS_HSFZSocket, self).send(
-            HSFZ(src=self.src, dst=self.dst) / x)
+        try:
+            return super(UDS_HSFZSocket, self).send(
+                HSFZ(src=self.src, dst=self.dst) / x)
+        except Exception as e:
+            # Workaround:
+            # This catch block is currently necessary to detect errors
+            # during send. In automotive application it's not uncommon that
+            # a destination socket goes down. If any function based on
+            # SndRcvHandler is used, all exceptions are silently handled
+            # in the send part. This means, a caller of the SndRcvHandler
+            # can not detect if an error occurred. This workaround closes
+            # the socket if a send error was detected.
+            log_interactive.error("Exception: %s", e)
+            self.close()
+            return 0
 
     def recv(self, x=MTU):
         # type: (int) -> Optional[Packet]

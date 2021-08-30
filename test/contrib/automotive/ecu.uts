@@ -554,7 +554,9 @@ assert len(ecu.log["TransferData"]) == 2
 
 session = EcuSession()
 
-with CandumpReader(scapy_path("test/pcaps/gmlan_trace.candump.gz")) as sock:
+conf.contribs['CAN']['swap-bytes'] = True
+
+with PcapReader(scapy_path("test/pcaps/gmlan_trace.pcap.gz")) as sock:
     gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=2, opened_socket=sock, timeout=3)
     ecu = session.ecu
     print("Check 1 after change to diagnostic mode")
@@ -587,9 +589,10 @@ with CandumpReader(scapy_path("test/pcaps/gmlan_trace.candump.gz")) as sock:
 session = EcuSession(verbose=False, store_supported_responses=False)
 
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
+conf.contribs['CAN']['swap-bytes'] = True
 
-with CandumpReader(scapy_path("test/pcaps/gmlan_trace.candump.gz")) as sock:
-     gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=200, opened_socket=sock, timeout=6)
+with PcapReader(scapy_path("test/pcaps/gmlan_trace.pcap.gz")) as sock:
+    gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=200, opened_socket=sock, timeout=6)
 
 ecu = session.ecu
 assert len(ecu.supported_responses) == 0
