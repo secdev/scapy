@@ -589,9 +589,12 @@ class IKEv2_payload_TSi(IKEv2_class):
         ByteEnumField("next_payload", None, IKEv2_payload_type),
         ByteField("res", 0),
         FieldLenField("length", None, "traffic_selector", "H", adjust=lambda pkt, x:x + 8),  # noqa: E501
-        FieldLenField("number_of_TSs", None, fmt="B", count_of="traffic_selector"),
+        FieldLenField("number_of_TSs", None, fmt="B",
+                      count_of="traffic_selector"),
         X3BytesField("res2", 0),
-        PacketListField("traffic_selector", None, TrafficSelector, length_from=lambda x:x.length - 8, count_from=lambda x:x.number_of_TSs),  # noqa: E501
+        PacketListField("traffic_selector", None, TrafficSelector,
+                        length_from=lambda x:x.length - 8,
+                        count_from=lambda x:x.number_of_TSs),
     ]
 
 
@@ -602,9 +605,12 @@ class IKEv2_payload_TSr(IKEv2_class):
         ByteEnumField("next_payload", None, IKEv2_payload_type),
         ByteField("res", 0),
         FieldLenField("length", None, "traffic_selector", "H", adjust=lambda pkt, x:x + 8),  # noqa: E501
-        FieldLenField("number_of_TSs", None, fmt="B", count_of="traffic_selector"),
+        FieldLenField("number_of_TSs", None, fmt="B",
+                      count_of="traffic_selector"),
         X3BytesField("res2", 0),
-        PacketListField("traffic_selector", None, TrafficSelector, length_from=lambda x:x.length - 8, count_from=lambda x:x.number_of_TSs),  # noqa: E501
+        PacketListField("traffic_selector", None, TrafficSelector,
+                        length_from=lambda x:x.length - 8,
+                        count_from=lambda x:x.number_of_TSs),
     ]
 
 
