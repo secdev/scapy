@@ -318,6 +318,33 @@ raw(p[TCP]) == bytearray.fromhex("001400500000000000000000a0022000fec20000131279
 md5opt = IP(raw(p))[TCP].options[0]
 md5opt[1] == bytearray.fromhex("797e69f8dbe44a8b84f687a2832595ed")
 
+= TCP Authentication Option: build
+opt = TCPAOValue(keyid=1, rnextkeyid=2, mac=b"FAKE")
+assert opt.keyid == 1
+assert opt.rnextkeyid == 2
+assert opt.mac == b"FAKE"
+assert bytes(opt) == b"\x01\x02FAKE"
+
+= TCP Authentication Option: parse
+opt = TCPAOValue(b"\x01\x02FAKE")
+assert opt.keyid == 1
+assert opt.rnextkeyid == 2
+assert opt.mac == b"FAKE"
+
+= TCP Authentication Option: parse from TCP
+p = IP(bytes(bytearray.fromhex("45e0004cdd0f4000ff06bf6b0a0b0c0dac1b1c1de9d700b3fbfbab5a00000000e002ffffcac40000020405b4010303080402080a00155ab7000000001d103d542ee437c6f8ede6d7c4d602e7")))
+tcpao = get_tcpao(p[TCP])
+assert isinstance(tcpao, TCPAOValue)
+assert tcpao.keyid == 61
+assert tcpao.rnextkeyid == 84
+assert tcpao.mac == bytearray.fromhex("2ee437c6f8ede6d7c4d602e7")
+
+= TCP Authentication Option: build TCP
+p = TCP(options=[('AO', TCPAOValue(keyid=1, rnextkeyid=2, mac=b"3456"))])
+p.summary()
+print(bytes(p))
+assert bytes(p).endswith(b"\x01\x023456")
+
 = TCP options: invalid data offset
 data = b'\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x1b\xb8\x00\x00\x02\x04\x05\xb4\x04\x02\x08\x06\xf7\xa26C\x00\x00\x00\x00\x01\x03\x03\x07'
 p = TCP(data)
