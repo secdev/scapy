@@ -262,9 +262,9 @@ class Field(Generic[I, M]):
             for i in range(len(x)):
                 if isinstance(x[i], BasePacket):
                     x[i] = x[i].copy()
+            return x
         if hasattr(x, "copy"):
             return x.copy()  # type: ignore
-        return x
 
     def __repr__(self):
         # type: () -> str
