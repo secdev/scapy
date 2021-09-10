@@ -3955,6 +3955,24 @@ assert(len(a.list) == 1)
 b = TestPacket()
 assert(len(b.list) == 0)
 
+= Test PacketListField deepcopy
+class SubPacket(Packet):
+    name = "SubPacket"
+    fields_desc = [
+        ByteField("mem", 1),
+    ]
+
+class TestPacket(Packet):
+    name = "TestPacket"
+    fields_desc = [
+        PacketListField("packlist", SubPacket(), SubPacket),
+    ]
+
+a = TestPacket()
+b = a.copy()
+fuzz(b)
+assert(a.packlist[0].mem == 1)
+
 = PacketField
 
 class InnerPacket(Packet):
