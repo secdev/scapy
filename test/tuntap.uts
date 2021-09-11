@@ -26,7 +26,7 @@ assert isinstance(p.payload, IPv6)
 #######
 + Test tun device
 
-~ tun netaccess not_libpcap
+~ tun needs_root not_libpcap
 
 = Create a tun interface
 
@@ -71,7 +71,7 @@ tun0.close()
 #######
 + Test strip_packet_info=False on Linux
 
-~ tun linux netaccess not_libpcap
+~ tun linux needs_root not_libpcap
 
 = Create a tun interface
 
@@ -122,7 +122,7 @@ tun0.close()
 
 + Test strip_packet_info=True and IPv6
 
-~ tun netaccess ipv6 not_libpcap
+~ tun needs_root ipv6 not_libpcap
 
 = Create a tun interface with IPv4 + IPv6
 
@@ -188,7 +188,7 @@ tun0.close()
 
 + Test tap interfaces
 
-~ tap netaccess not_libpcap
+~ tap needs_root not_libpcap
 
 = Create a tap interface with IPv4
 

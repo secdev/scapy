@@ -4,7 +4,7 @@
 ~dns
 
 = DNS request
-~ netaccess IP UDP DNS
+~ netaccess needs_root IP UDP DNS
 * A possible cause of failure could be that the open DNS (resolver1.opendns.com)
 * is not reachable or down.
 def _test():
@@ -18,7 +18,7 @@ def _test():
 dns_ans = retry_test(_test)
 
 = DNS packet manipulation
-~ netaccess IP UDP DNS
+~ netaccess needs_root IP UDP DNS
 dns_ans.show()
 dns_ans.show2()
 dns_ans[DNS].an.show()
