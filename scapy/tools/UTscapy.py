@@ -1069,7 +1069,6 @@ def main():
     try:
         if NON_ROOT or os.getuid() != 0:  # Non root
             # Discard root tests
-            KW_KO.append("netaccess")
             KW_KO.append("needs_root")
             if VERB > 2:
                 print(" " + arrow + " Non-root mode")
