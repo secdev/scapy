@@ -4072,6 +4072,8 @@ bind_layers(Ether, IPv6, type=0x86dd)
 bind_layers(CookedLinux, IPv6, proto=0x86dd)
 bind_layers(GRE, IPv6, proto=0x86dd)
 bind_layers(SNAP, IPv6, code=0x86dd)
+# AF_INET6 values are platform-dependent. For a detailed explaination, read
+# https://github.com/the-tcpdump-group/libpcap/blob/f98637ad7f086a34c4027339c9639ae1ef842df3/gencode.c#L3333-L3354  # noqa: E501
 if WINDOWS:
     bind_layers(Loopback, IPv6, type=0x18)
 else:
