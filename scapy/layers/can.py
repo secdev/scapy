@@ -614,6 +614,11 @@ class CandumpReader:
         """Emulation of SuperSocket"""
         return self.f.fileno()
 
+    @property
+    def closed(self):
+        # type: () -> bool
+        return self.f.closed
+
     def close(self):
         # type: () -> Any
         """Emulation of SuperSocket"""
@@ -631,4 +636,5 @@ class CandumpReader:
     def select(sockets, remain=None):
         # type: (List[SuperSocket], Optional[int]) -> List[SuperSocket]
         """Emulation of SuperSocket"""
-        return sockets
+        return [s for s in sockets if isinstance(s, CandumpReader) and
+                not s.closed]
