@@ -41,21 +41,21 @@ print(conf.nmap_kdb.base, conf.nmap_kdb.filename, len(conf.nmap_kdb.get_base()))
 assert len(conf.nmap_kdb.get_base()) > 100
 
 = fingerprint test: www.secdev.org
-~ netaccess
+~ netaccess needs_root
 score, fprint = nmap_fp('www.secdev.org')
 print(score, fprint)
 assert score > 0.5
 assert fprint
 
 = fingerprint test: gateway
-~ netaccess
+~ netaccess needs_root
 score, fprint = nmap_fp(conf.route.route('0.0.0.0')[2])
 print(score, fprint)
 assert score > 0.5
 assert fprint
 
 = fingerprint test: to text
-~  netaccess
+~  netaccess needs_root
 
 import re as re_
 
@@ -65,7 +65,7 @@ for x in nmap_sig2txt(a).split("\n"):
     assert re_.match(r"\w{2,4}\(.*\)", x)
 
 = nmap_udppacket_sig test: www.google.com
-~ netaccess
+~ netaccess needs_root
 
 a = nmap_sig("www.google.com", ucport=80)
 assert len(a) > 3

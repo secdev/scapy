@@ -1,6 +1,6 @@
 % send, sniff, sr* tests for Scapy
 
-~ netaccess
+~ needs_root
 
 ############
 ############
