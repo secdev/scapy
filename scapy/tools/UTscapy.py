@@ -21,6 +21,7 @@ import logging
 import os
 import os.path
 import sys
+import threading
 import time
 import traceback
 import warnings
@@ -28,7 +29,7 @@ import zlib
 
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
-from scapy.modules.six.moves import range
+from scapy.modules.six.moves import range, queue
 from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
 from scapy.themes import DefaultTheme, BlackAndWhite
@@ -517,11 +518,27 @@ def remove_empty_testsets(test_campaign):
 
 # RUN TEST #
 
+def _run_test_timeout(test, get_interactive_session, verb=3, my_globals=None):
+    """Run a test with timeout"""
+    q = queue.Queue()
+
+    def _runner():
+        output, res = get_interactive_session(test, verb=verb, my_globals=my_globals)
+        q.put((output, res))
+    th = threading.Thread(target=_runner)
+    th.daemon = True
+    th.start()
+    th.join(60 * 3)  # 3 min timeout
+    if th.is_alive():
+        return "Test timed out", False
+    return q.get()
+
+
 def run_test(test, get_interactive_session, theme, verb=3,
              my_globals=None):
     """An internal UTScapy function to run a single test"""
     start_time = time.time()
-    test.output, res = get_interactive_session(test.test.strip(), verb=verb, my_globals=my_globals)
+    test.output, res = _run_test_timeout(test.test.strip(), get_interactive_session, verb=verb, my_globals=my_globals)
     test.result = "failed"
     try:
         if res is None or res:
