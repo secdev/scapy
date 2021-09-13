@@ -6,7 +6,7 @@
 
 = Imports
 
-from scapy.modules.six.moves.queue import Queue
+from scapy.modules.six.moves.queue import Queue, Empty
 from io import BytesIO
 import scapy.modules.six as six
 
@@ -25,13 +25,16 @@ class MockCANSocket(SuperSocket):
             for c in rcvd_queue:
                 self.rcvd_queue.put(c)
     def recv_raw(self, x=MTU):
-        pkt = bytes(self.rcvd_queue.get(True, 2))
-        return CAN, pkt, None
+        try:
+            pkt = bytes(self.rcvd_queue.get_nowait())
+            return CAN, pkt, None
+        except Empty:
+            return None, None, None
     def send(self, p):
         self.sent_queue.put(p)
     @staticmethod
     def select(sockets, remain=None):
-        return sockets
+        return [s for s in sockets if not s.rcvd_queue.empty()]
 
 # hexadecimal to bytes convenience function
 if six.PY2:
