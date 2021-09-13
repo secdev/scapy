@@ -1,5 +1,4 @@
 % Regression tests for EcuAnsweringMachine
-~ not_pypy automotive_comm
 
 + Configuration
 ~ conf
@@ -19,47 +18,46 @@ with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
 load_contrib("automotive.uds", globals_dict=globals())
 load_contrib("automotive.ecu", globals_dict=globals())
 
-print("Set delay to lower utilization")
-conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
+from scapy.contrib.automotive.uds_ecu_states import *
+
+conf.contribs['EcuAnsweringMachine']['send_delay'] = 0
+
+ecu = TestSocket(UDS)
+tester = TestSocket(UDS)
+ecu.pair(tester)
 
 + Simulator tests
 
 = Simple check with RDBI and Negative Response
-drain_bus(iface0)
 
 example_responses = \
     [EcuResponse([EcuState(session=1)], responses=UDS() / UDS_RDBIPR(dataIdentifier=0x1234) / Raw(b"deadbeef"))]
 
 success = False
-
-with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS, verbose=False)
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
-    sim.start()
-    time.sleep(0.1)
-    try:
-        resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[0x123]), timeout=1, verbose=False)
-        assert resp.negativeResponseCode == 0x10
-        assert resp.requestServiceId == 34
-        resp = tester.sr1(UDS(service=0x22), timeout=1, verbose=False)
-        assert resp.negativeResponseCode == 0x10
-        assert resp.requestServiceId == 34
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[0x1234]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 0x1234
-        assert resp.load == b"deadbeef"
-        success = True
-    except Exception as ex:
-        print(ex)
-    finally:
-        tester.send(UDS(service=0xff))
-        sim.join(timeout=10)
+answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS, verbose=False)
+sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
+sim.start()
+try:
+    resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[0x123]), timeout=1, verbose=False)
+    assert resp.negativeResponseCode == 0x10
+    assert resp.requestServiceId == 34
+    resp = tester.sr1(UDS(service=0x22), timeout=1, verbose=False)
+    assert resp.negativeResponseCode == 0x10
+    assert resp.requestServiceId == 34
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[0x1234]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 0x1234
+    assert resp.load == b"deadbeef"
+    success = True
+except Exception as ex:
+    print(ex)
+finally:
+    tester.send(UDS(service=0xff))
+    sim.join(timeout=10)
 
 assert success
 
 = Simple check with different Sessions
-drain_bus(iface0)
 
 example_responses = \
     [EcuResponse(EcuState(session=2),         responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"deadbeef1")),
@@ -69,47 +67,43 @@ example_responses = \
 
 success = False
 
-with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
-    sim.start()
-    time.sleep(0.1)
-    try:
-        resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.negativeResponseCode == 0x10
-        assert resp.requestServiceId == 34
-        answering_machine.state.session = 2
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 2
-        assert resp.load == b"deadbeef1"
-        answering_machine.state.session = 4
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 3
-        assert resp.load == b"deadbeef2"
-        answering_machine.state.session = 6
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 5
-        assert resp.load == b"deadbeef3"
-        answering_machine.state.session = 9
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 9
-        assert resp.load == b"deadbeef4"
-        success = True
-    except Exception as ex:
-        print(ex)
-    finally:
-        tester.send(UDS(service=0xff))
-        sim.join(timeout=10)
+answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
+sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
+sim.start()
+try:
+    resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.negativeResponseCode == 0x10
+    assert resp.requestServiceId == 34
+    answering_machine.state.session = 2
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 2
+    assert resp.load == b"deadbeef1"
+    answering_machine.state.session = 4
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 3
+    assert resp.load == b"deadbeef2"
+    answering_machine.state.session = 6
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 5
+    assert resp.load == b"deadbeef3"
+    answering_machine.state.session = 9
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 9
+    assert resp.load == b"deadbeef4"
+    success = True
+except Exception as ex:
+    print(ex)
+finally:
+    tester.send(UDS(service=0xff))
+    sim.join(timeout=10)
 
 assert success
 
 = Simple check with different Sessions and diagnosticSessionControl
-drain_bus(iface0)
 
 example_responses = \
     [EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"deadbeef1")),
@@ -130,63 +124,59 @@ example_responses = \
 
 success = False
 
-with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
-    sim.start()
-    time.sleep(0.1)
-    try:
-        resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.negativeResponseCode == 0x10
-        assert resp.requestServiceId == 34
-        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=2), timeout=1, verbose=False)
-        assert resp.service == 0x50
-        assert resp.diagnosticSessionType == 2
-        assert resp.sessionParameterRecord == b"dead"
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 2
-        assert resp.load == b"deadbeef1"
-        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=4), timeout=1, verbose=False)
-        assert resp.service == 0x50
-        assert resp.diagnosticSessionType == 4
-        assert resp.sessionParameterRecord == b"dead"
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 3
-        assert resp.load == b"deadbeef2"
-        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=6), timeout=1, verbose=False)
-        assert resp.service == 0x50
-        assert resp.diagnosticSessionType == 6
-        assert resp.sessionParameterRecord == b"dead"
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 5
-        assert resp.load == b"deadbeef3"
-        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=8), timeout=1, verbose=False)
-        assert resp.service == 0x50
-        assert resp.diagnosticSessionType == 8
-        assert resp.sessionParameterRecord == b"dead"
-        resp = tester.sr1(UDS() / UDS_DSC(diagnosticSessionType=9), timeout=1, verbose=False)
-        assert resp.service == 0x50
-        assert resp.diagnosticSessionType == 9
-        assert resp.sessionParameterRecord == b"dead1"
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 9
-        assert resp.load == b"deadbeef4"
-        success = True
-    except Exception as ex:
-        print(ex)
-    finally:
-        tester.send(UDS(service=0xff))
-        sim.join(timeout=10)
+answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
+sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
+sim.start()
+try:
+    resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.negativeResponseCode == 0x10
+    assert resp.requestServiceId == 34
+    resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=2), timeout=1, verbose=False)
+    assert resp.service == 0x50
+    assert resp.diagnosticSessionType == 2
+    assert resp.sessionParameterRecord == b"dead"
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 2
+    assert resp.load == b"deadbeef1"
+    resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=4), timeout=1, verbose=False)
+    assert resp.service == 0x50
+    assert resp.diagnosticSessionType == 4
+    assert resp.sessionParameterRecord == b"dead"
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 3
+    assert resp.load == b"deadbeef2"
+    resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=6), timeout=1, verbose=False)
+    assert resp.service == 0x50
+    assert resp.diagnosticSessionType == 6
+    assert resp.sessionParameterRecord == b"dead"
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 5
+    assert resp.load == b"deadbeef3"
+    resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=8), timeout=1, verbose=False)
+    assert resp.service == 0x50
+    assert resp.diagnosticSessionType == 8
+    assert resp.sessionParameterRecord == b"dead"
+    resp = tester.sr1(UDS() / UDS_DSC(diagnosticSessionType=9), timeout=1, verbose=False)
+    assert resp.service == 0x50
+    assert resp.diagnosticSessionType == 9
+    assert resp.sessionParameterRecord == b"dead1"
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 9
+    assert resp.load == b"deadbeef4"
+    success = True
+except Exception as ex:
+    print(ex)
+finally:
+    tester.send(UDS(service=0xff))
+    sim.join(timeout=10)
 
 assert success
 
 = Simple check with different Sessions and diagnosticSessionControl and answers hook
-drain_bus(iface0)
 
 def custom_answers(resp, req):
     if req.service + 0x40 != resp.service:
@@ -209,64 +199,59 @@ example_responses = \
 
 success = False
 
-with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = EcuAnsweringMachine(supported_responses=example_responses,
-                               main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
-    sim.start()
-    time.sleep(0.1)
-    try:
-        resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.negativeResponseCode == 0x10
-        assert resp.requestServiceId == 34
-        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=2), timeout=1, verbose=False)
-        assert resp.service == 0x50
-        assert resp.diagnosticSessionType == 2
-        assert resp.sessionParameterRecord == b"dead"
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 2
-        assert resp.load == b"deadbeef1"
-        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=4), timeout=1, verbose=False)
-        assert resp.service == 0x50
-        assert resp.diagnosticSessionType == 4
-        assert resp.sessionParameterRecord == b"dead"
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 3
-        assert resp.load == b"deadbeef2"
-        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=6), timeout=1, verbose=False)
-        assert resp.service == 0x50
-        assert resp.diagnosticSessionType == 6
-        assert resp.sessionParameterRecord == b"dead"
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 5
-        assert resp.load == b"deadbeef3"
-        resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=8), timeout=1, verbose=False)
-        assert resp.service == 0x50
-        assert resp.diagnosticSessionType == 8
-        assert resp.sessionParameterRecord == b"dead"
-        resp = tester.sr1(UDS() / UDS_DSC(diagnosticSessionType=9), timeout=1, verbose=False)
-        assert resp.service == 0x50
-        assert resp.diagnosticSessionType == 9
-        assert resp.sessionParameterRecord == b"dead1"
-        resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
-        assert resp.service == 0x62
-        assert resp.dataIdentifier == 9
-        assert resp.load == b"deadbeef4"
-        success = True
-    except Exception as ex:
-        print(ex)
-    finally:
-        tester.send(UDS(service=0xff))
-        sim.join(timeout=10)
+answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
+sim = threading.Thread(target=answering_machine, kwargs={'timeout': 60, 'stop_filter': lambda p: p.service==0xff})
+sim.start()
+try:
+    resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.negativeResponseCode == 0x10
+    assert resp.requestServiceId == 34
+    resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=2), timeout=1, verbose=False)
+    assert resp.service == 0x50
+    assert resp.diagnosticSessionType == 2
+    assert resp.sessionParameterRecord == b"dead"
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 2
+    assert resp.load == b"deadbeef1"
+    resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=4), timeout=1, verbose=False)
+    assert resp.service == 0x50
+    assert resp.diagnosticSessionType == 4
+    assert resp.sessionParameterRecord == b"dead"
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 3
+    assert resp.load == b"deadbeef2"
+    resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=6), timeout=1, verbose=False)
+    assert resp.service == 0x50
+    assert resp.diagnosticSessionType == 6
+    assert resp.sessionParameterRecord == b"dead"
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 5
+    assert resp.load == b"deadbeef3"
+    resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=8), timeout=1, verbose=False)
+    assert resp.service == 0x50
+    assert resp.diagnosticSessionType == 8
+    assert resp.sessionParameterRecord == b"dead"
+    resp = tester.sr1(UDS() / UDS_DSC(diagnosticSessionType=9), timeout=1, verbose=False)
+    assert resp.service == 0x50
+    assert resp.diagnosticSessionType == 9
+    assert resp.sessionParameterRecord == b"dead1"
+    resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[2, 3, 5, 9]), timeout=1, verbose=False)
+    assert resp.service == 0x62
+    assert resp.dataIdentifier == 9
+    assert resp.load == b"deadbeef4"
+    success = True
+except Exception as ex:
+    print(ex)
+finally:
+    tester.send(UDS(service=0xff))
+    sim.join(timeout=10)
 
 assert success
 
 = Simple check with security access and answers hook
-drain_bus(iface0)
 
 security_seed = b"abcd"
 
@@ -289,36 +274,31 @@ example_responses = \
 
 success = False
 
-with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = EcuAnsweringMachine(supported_responses=example_responses,
-                               main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
-    sim.start()
-    time.sleep(0.1)
-    try:
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
-        assert resp.service == 0x67
-        assert resp.securitySeed == b"abcd"
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed), timeout=1, verbose=False)
-        assert resp.service == 0x7f
-        assert resp.negativeResponseCode == 0x35
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
-        assert resp.service == 0x67
-        assert resp.securitySeed == b"abcd"
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=1, verbose=False)
-        assert resp.service == 0x67
-        success = True
-    except Exception as ex:
-        print(ex)
-    finally:
-        tester.send(UDS(service=0xff))
-        sim.join(timeout=10)
+answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
+sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
+sim.start()
+try:
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
+    assert resp.service == 0x67
+    assert resp.securitySeed == b"abcd"
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed), timeout=1, verbose=False)
+    assert resp.service == 0x7f
+    assert resp.negativeResponseCode == 0x35
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
+    assert resp.service == 0x67
+    assert resp.securitySeed == b"abcd"
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=1, verbose=False)
+    assert resp.service == 0x67
+    success = True
+except Exception as ex:
+    print(ex)
+finally:
+    tester.send(UDS(service=0xff))
+    sim.join(timeout=10)
 
 assert success
 
 = Simple check with security access and answers hook and request-correctly-received message
-drain_bus(iface0)
 
 security_seed = b"abcd"
 
@@ -341,36 +321,31 @@ example_responses = \
 
 success = False
 
-with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = EcuAnsweringMachine(supported_responses=example_responses,
-                               main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
-    sim.start()
-    time.sleep(0.1)
-    try:
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=2, verbose=False)
-        assert resp.service == 0x67
-        assert resp.securitySeed == b"abcd"
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed), timeout=2, verbose=False)
-        assert resp.service == 0x7f
-        assert resp.negativeResponseCode == 0x35
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=2, verbose=False)
-        assert resp.service == 0x67
-        assert resp.securitySeed == b"abcd"
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=2, verbose=False)
-        assert resp.service == 0x67
-        success = True
-    except Exception as ex:
-        print(ex)
-    finally:
-        tester.send(UDS(service=0xff))
-        sim.join(timeout=10)
+answering_machine = EcuAnsweringMachine(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
+sim = threading.Thread(target=answering_machine, kwargs={'timeout': 10, 'stop_filter': lambda p: p.service==0xff})
+sim.start()
+try:
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=2, verbose=False)
+    assert resp.service == 0x67
+    assert resp.securitySeed == b"abcd"
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed), timeout=2, verbose=False)
+    assert resp.service == 0x7f
+    assert resp.negativeResponseCode == 0x35
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=2, verbose=False)
+    assert resp.service == 0x67
+    assert resp.securitySeed == b"abcd"
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=2, verbose=False)
+    assert resp.service == 0x67
+    success = True
+except Exception as ex:
+    print(ex)
+finally:
+    tester.send(UDS(service=0xff))
+    sim.join(timeout=10)
 
 assert success
 
 = Simple check with security access and answers hook and request-correctly-received message 2
-drain_bus(iface0)
 
 security_seed = b"abcd"
 
@@ -395,44 +370,35 @@ conf.contribs['UDS']['treat-response-pending-as-answer'] = True
 
 success = False
 
-with new_can_socket0() as isocan1, ISOTPSocket(isocan1, sid=0x700, did=0x600, basecls=UDS) as ecu, \
-        new_can_socket0() as isocan2, ISOTPSocket(isocan2, sid=0x600, did=0x700, basecls=UDS) as tester:
-    answering_machine = EcuAnsweringMachine(supported_responses=example_responses,
-                               main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout':5, 'stop_filter': lambda p: p.service==0xff})
-    sim.start()
-    time.sleep(0.1)
-    try:
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
-        assert resp.service == 0x7f
-        assert resp.negativeResponseCode == 0x78
-        resp = tester.sniff(timeout=2, count=1, verbose=False)[0]
-        assert resp.service == 0x67
-        assert resp.securitySeed == b"abcd"
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed), timeout=3, verbose=False)
-        assert resp.service == 0x7f
-        assert resp.negativeResponseCode == 0x35
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
-        assert resp.service == 0x7f
-        assert resp.negativeResponseCode == 0x78
-        resp = tester.sniff(timeout=2, count=1, verbose=False)[0]
-        assert resp.service == 0x67
-        assert resp.securitySeed == b"abcd"
-        resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=1, verbose=False)
-        assert resp.service == 0x67
-        success = True
-    except Exception as ex:
-        print(ex)
-    finally:
-        tester.send(UDS(service=0xff))
-        sim.join(timeout=10)
+answering_machine = EcuAnsweringMachine(supported_responses=example_responses,
+                           main_socket=ecu, basecls=UDS)
+sim = threading.Thread(target=answering_machine, kwargs={'timeout':5, 'stop_filter': lambda p: p.service==0xff})
+sim.start()
+try:
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
+    assert resp.service == 0x7f
+    assert resp.negativeResponseCode == 0x78
+    resp = tester.sniff(timeout=2, count=1, verbose=False)[0]
+    assert resp.service == 0x67
+    assert resp.securitySeed == b"abcd"
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed), timeout=3, verbose=False)
+    assert resp.service == 0x7f
+    assert resp.negativeResponseCode == 0x35
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=1), timeout=1, verbose=False)
+    assert resp.service == 0x7f
+    assert resp.negativeResponseCode == 0x78
+    resp = tester.sniff(timeout=2, count=1, verbose=False)[0]
+    assert resp.service == 0x67
+    assert resp.securitySeed == b"abcd"
+    resp = tester.sr1(UDS() / UDS_SA(securityAccessType=2, securityKey=resp.securitySeed+resp.securitySeed), timeout=1, verbose=False)
+    assert resp.service == 0x67
+    success = True
+except Exception as ex:
+    print(ex)
+finally:
+    tester.send(UDS(service=0xff))
+    sim.join(timeout=10)
 
 assert success
 
 conf.contribs['UDS']['treat-response-pending-as-answer'] = False
-
-+ Cleanup
-
-= Delete vcan interfaces
-
-assert cleanup_interfaces()

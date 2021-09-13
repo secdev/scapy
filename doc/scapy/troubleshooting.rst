@@ -25,18 +25,44 @@ My TCP connections are reset by Scapy or by my kernel.
 ------------------------------------------------------
 The kernel is not aware of what Scapy is doing behind his back. If Scapy sends a SYN, the target replies with a SYN-ACK and your kernel sees it, it will reply with a RST. To prevent this, use local firewall rules (e.g. NetFilter for Linux). Scapy does not mind about local firewalls.
 
-I can't ping 127.0.0.1. Scapy does not work with 127.0.0.1 or on the loopback interface 
----------------------------------------------------------------------------------------
+I can't ping 127.0.0.1 (or ::1). Scapy does not work with 127.0.0.1 (or ::1) on the loopback interface.
+-------------------------------------------------------------------------------------------------------
 
-The loopback interface is a very special interface. Packets going through it are not really assembled and disassembled. The kernel routes the packet to its destination while it is still stored an internal structure. What you see with tcpdump -i lo is only a fake to make you think everything is normal. The kernel is not aware of what Scapy is doing behind his back, so what you see on the loopback interface is also a fake. Except this one did not come from a local structure. Thus the kernel will never receive it.
+The loopback interface is a very special interface. Packets going through it are not really assembled and disassembled. The kernel routes the packet to its destination while it is still stored an internal structure. What you see with ```tcpdump -i lo``` is only a fake to make you think everything is normal. The kernel is not aware of what Scapy is doing behind his back, so what you see on the loopback interface is also a fake. Except this one did not come from a local structure. Thus the kernel will never receive it.
 
-In order to speak to local applications, you need to build your packets one layer upper, using a PF_INET/SOCK_RAW socket instead of a PF_PACKET/SOCK_RAW (or its equivalent on other systems than Linux)::
+On Linux, in order to speak to local IPv4 applications, you need to build your packets one layer upper, using a PF_INET/SOCK_RAW socket instead of a PF_PACKET/SOCK_RAW (or its equivalent on other systems than Linux)::
 
     >>> conf.L3socket
     <class __main__.L3PacketSocket at 0xb7bdf5fc>
-    >>> conf.L3socket=L3RawSocket
-    >>> sr1(IP(dst="127.0.0.1")/ICMP())
+    >>> conf.L3socket = L3RawSocket
+    >>> sr1(IP(dst) / ICMP())
     <IP  version=4L ihl=5L tos=0x0 len=28 id=40953 flags= frag=0L ttl=64 proto=ICMP chksum=0xdce5 src=127.0.0.1 dst=127.0.0.1 options='' |<ICMP  type=echo-reply code=0 chksum=0xffff id=0x0 seq=0x0 |>>
+
+With IPv6, you can simply do::
+
+    # Layer 3
+    >>> sr1(IPv6() / ICMPv6EchoRequest())
+    <IPv6  version=6 tc=0 fl=866674 plen=8 nh=ICMPv6 hlim=64 src=::1 dst=::1 |<ICMPv6EchoReply  type=Echo Reply code=0 cksum=0x7ebb id=0x0 seq=0x0 |>>
+
+    # Layer 2
+    >>> conf.iface = "lo"
+    >>> srp1(Ether() / IPv6() / ICMPv6EchoRequest())
+    <Ether  dst=00:00:00:00:00:00 src=00:00:00:00:00:00 type=IPv6 |<IPv6  version=6 tc=0 fl=866674 plen=8 nh=ICMPv6 hlim=64 src=::1 dst=::1 |<ICMPv6EchoReply  type=Echo Reply code=0 cksum=0x7ebb id=0x0 seq=0x0 |>>>
+
+On Windows, BSD, and macOS, you must deactivate the local firewall and set ````conf.iface``` to the loopback interface prior to using the following commands::
+
+    # Layer 3
+    >>> sr1(IP() / ICMP())
+    <IP  version=4L ihl=5L tos=0x0 len=28 id=40953 flags= frag=0L ttl=64 proto=ICMP chksum=0xdce5 src=127.0.0.1 dst=127.0.0.1 options='' |<ICMP  type=echo-reply code=0 chksum=0xffff id=0x0 seq=0x0 |>>
+    >>> sr1(IPv6() / ICMPv6EchoRequest())
+    <IPv6  version=6 tc=0 fl=866674 plen=8 nh=ICMPv6 hlim=64 src=::1 dst=::1 |<ICMPv6EchoReply  type=Echo Reply code=0 cksum=0x7ebb id=0x0 seq=0x0 |>>
+
+    # Layer 2
+    >>> srp1(Loopback() / IP() / ICMP())
+    <Loopback  type=IPv4 |<IP  version=4 ihl=5 tos=0x0 len=28 id=56066 flags= frag=0 ttl=64 proto=icmp chksum=0x0 src=127.0.0.1 dst=127.0.0.1 |<ICMP  type=echo-reply code=0 chksum=0xffff id=0x0 seq=0x0 |>>>
+    >>> srp1(Loopback() / IPv6() / ICMPv6EchoRequest())
+    <Loopback  type=IPv6 |<IPv6  version=6 tc=0 fl=0 plen=8 nh=ICMPv6 hlim=64 src=::1 dst=::1 |<ICMPv6EchoReply  type=Echo Reply code=0 cksum=0x7ebb id=0x0 seq=0x0 |>>>
+
 
 BPF filters do not work. I'm on a ppp link
 ------------------------------------------

@@ -854,7 +854,7 @@ def p0f_impersonate(pkt, osgenre=None, osdetails=None, signature=None,
                 if mss_hint and 0 <= mss_hint <= maxmss:
                     options.append(("MSS", mss_hint))
                 else:  # invalid hint, generate new value
-                    options.append(("MSS", random.randint(1, maxmss)))
+                    options.append(("MSS", random.randint(100, maxmss)))
             else:
                 options.append(("MSS", sig.mss))
 

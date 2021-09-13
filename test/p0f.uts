@@ -78,6 +78,16 @@ assert fingerprint_mtu(pkt) == "Ethernet or modem"
 pkt = p0f_impersonate(IP()/TCP(), osgenre="Linux", osdetails="3.11 and newer")
 assert p0f(pkt) == (("s", "unix", "Linux", "3.11 and newer"), 0, False)
 
+= Check incidence of MSS value on linux version detection
+~ netaccess
+
+pkt = IP(ttl=64, flags=2)/TCP(options=[('MSS', 14), ('SAckOK', ''), ('Timestamp', (2638474259, 0)), ('NOP', None), ('WScale', 7)], window=280, seq=3964706621, flags=2)
+assert p0f(pkt) == (('g', 'unix', 'Linux', '2.2.x-3.x'), 0, False)
+
+pkt[TCP].options = [('MSS', 100), ('SAckOK', ''), ('Timestamp', (2638474259, 0)), ('NOP', None), ('WScale', 7)]
+pkt[TCP].window = 100*20
+assert p0f(pkt) == (("s", "unix", "Linux", "3.11 and newer"), 0, False)
+
 = Impersonate when window size must be multiple of some integer
 sig = "*:64:0:1460:%8192,0:mss,nop,ws::0"
 pkt = p0f_impersonate(IP()/TCP(), signature=sig)

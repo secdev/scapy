@@ -626,6 +626,76 @@ class IODWriteMultipleRes(Block):
         return Packet.post_build(self, p, pay)
 
 
+#     I&M0
+class IM0Block(Block):
+    """Identification and Maintenance 0"""
+    fields_desc = [
+        BlockHeader,
+        ByteField("VendorIDHigh", 0x00),
+        ByteField("VendorIDLow", 0x00),
+        StrFixedLenField("OrderID", "", length=20),
+        StrFixedLenField("IMSerialNumber", "", length=16),
+        ShortField("IMHardwareRevision", 0),
+        StrFixedLenField("IMSWRevisionPrefix", "V", length=1),
+        ByteField("IMSWRevisionFunctionalEnhancement", 0),
+        ByteField("IMSWRevisionBugFix", 0),
+        ByteField("IMSWRevisionInternalChange", 0),
+        ShortField("IMRevisionCounter", 0),
+        ShortField("IMProfileID", 0),
+        ShortField("IMProfileSpecificType", 0),
+        ByteField("IMVersionMajor", 1),
+        ByteField("IMVersionMinor", 1),
+        ShortField("IMSupported", 0x0),
+    ]
+
+    block_type = 0x0020
+
+
+#     I&M1
+class IM1Block(Block):
+    """Identification and Maintenance 1"""
+    fields_desc = [
+        BlockHeader,
+        StrFixedLenField("IMTagFunction", "", length=32),
+        StrFixedLenField("IMTagLocation", "", length=22),
+    ]
+
+    block_type = 0x0021
+
+
+#     I&M2
+class IM2Block(Block):
+    """Identification and Maintenance 2"""
+    fields_desc = [
+        BlockHeader,
+        StrFixedLenField("IMDate", "", length=16),
+    ]
+
+    block_type = 0x0022
+
+
+#     I&M3
+class IM3Block(Block):
+    """Identification and Maintenance 3"""
+    fields_desc = [
+        BlockHeader,
+        StrFixedLenField("IMDescriptor", "", length=54),
+    ]
+
+    block_type = 0x0023
+
+
+#     I&M4
+class IM4Block(Block):
+    """Identification and Maintenance 4"""
+    fields_desc = [
+        BlockHeader,
+        StrFixedLenField("IMSignature", "", 54)
+    ]
+
+    block_type = 0x0024
+
+
 #     ARBlockRe{q,s}
 class ARBlockReq(Block):
     """Application relationship block request"""
@@ -1113,6 +1183,13 @@ class Alarm_High(Packet):
 
 # PROFINET IO DCE/RPC PDU
 PNIO_RPC_BLOCK_ASSOCIATION = {
+    # I&M Records
+    "0020": IM0Block,
+    "0021": IM1Block,
+    "0022": IM2Block,
+    "0023": IM3Block,
+    "0024": IM4Block,
+
     # requests
     "0101": ARBlockReq,
     "0102": IOCRBlockReq,

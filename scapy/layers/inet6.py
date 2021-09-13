@@ -36,6 +36,7 @@ from scapy.arch import get_if_hwaddr
 from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.base_classes import Gen
 from scapy.compat import chb, orb, raw, plain_str, bytes_encode
+from scapy.consts import WINDOWS
 from scapy.config import conf
 from scapy.data import DLT_IPV6, DLT_RAW, DLT_RAW_ALT, ETHER_ANY, ETH_P_IPV6, \
     MTU
@@ -3351,7 +3352,7 @@ def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(),
     a = TracerouteResult6(a.res)
 
     if verbose:
-        a.display()
+        a.show()
 
     return a, b
 
@@ -4071,7 +4072,12 @@ bind_layers(Ether, IPv6, type=0x86dd)
 bind_layers(CookedLinux, IPv6, proto=0x86dd)
 bind_layers(GRE, IPv6, proto=0x86dd)
 bind_layers(SNAP, IPv6, code=0x86dd)
-bind_layers(Loopback, IPv6, type=socket.AF_INET6)
+# AF_INET6 values are platform-dependent. For a detailed explaination, read
+# https://github.com/the-tcpdump-group/libpcap/blob/f98637ad7f086a34c4027339c9639ae1ef842df3/gencode.c#L3333-L3354  # noqa: E501
+if WINDOWS:
+    bind_layers(Loopback, IPv6, type=0x18)
+else:
+    bind_layers(Loopback, IPv6, type=socket.AF_INET6)
 bind_layers(IPerror6, TCPerror, nh=socket.IPPROTO_TCP)
 bind_layers(IPerror6, UDPerror, nh=socket.IPPROTO_UDP)
 bind_layers(IPv6, TCP, nh=socket.IPPROTO_TCP)
