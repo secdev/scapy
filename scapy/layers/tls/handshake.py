@@ -24,6 +24,7 @@ from scapy.fields import (
     FieldLenField,
     IntField,
     PacketField,
+    PacketLenField,
     PacketListField,
     ShortEnumField,
     ShortField,
@@ -1503,7 +1504,7 @@ class ThreeBytesLenField(FieldLenField):
 _cert_status_cls = {1: OCSP_Response}
 
 
-class _StatusField(PacketField):
+class _StatusField(PacketLenField):
     def m2i(self, pkt, m):
         idtype = pkt.status_type
         cls = self.cls
@@ -1519,7 +1520,8 @@ class TLSCertificateStatus(_TLSHandshake):
                    ByteEnumField("status_type", 1, _cert_status_type),
                    ThreeBytesLenField("responselen", None,
                                       length_of="response"),
-                   _StatusField("response", None, Raw)]
+                   _StatusField("response", None, Raw,
+                                length_from=lambda pkt: pkt.responselen)]
 
 
 ###############################################################################
