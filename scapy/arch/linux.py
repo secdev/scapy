@@ -414,13 +414,17 @@ class LinuxInterfaceProvider(InterfaceProvider):
         data = {}
         ips = in6_getifaddr()
         for i in _get_if_list():
-            ifflags = struct.unpack("16xH14x", get_if(i, SIOCGIFFLAGS))[0]
-            index = get_if_index(i)
-            mac = scapy.utils.str2mac(
-                get_if_raw_hwaddr(i, siocgifhwaddr=SIOCGIFHWADDR)[1]
-            )
-            ip = None  # type: Optional[str]
-            ip = inet_ntop(socket.AF_INET, get_if_raw_addr(i))
+            try:
+                ifflags = struct.unpack("16xH14x", get_if(i, SIOCGIFFLAGS))[0]
+                index = get_if_index(i)
+                mac = scapy.utils.str2mac(
+                    get_if_raw_hwaddr(i, siocgifhwaddr=SIOCGIFHWADDR)[1]
+                )
+                ip = None  # type: Optional[str]
+                ip = inet_ntop(socket.AF_INET, get_if_raw_addr(i))
+            except IOError:
+                warning("Interface %s does not exist!", i)
+                continue
             if ip == "0.0.0.0":
                 ip = None
             ifflags = FlagValue(ifflags, _iff_flags)
