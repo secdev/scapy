@@ -33,6 +33,7 @@ from scapy.modules.six.moves import range, queue
 from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
 from scapy.themes import DefaultTheme, BlackAndWhite
+from scapy.utils import tex_escape
 
 
 # Check UTF-8 support #
@@ -663,6 +664,14 @@ def html_info_line(test_campaign):
         return """Run %s from [%s] by <a href="http://www.secdev.org/projects/UTscapy/">UTscapy</a><br>""" % (time.ctime(), filename)  # noqa: E501
 
 
+def latex_info_line(test_campaign):
+    filename = test_campaign.filename
+    if filename is None:
+        return """by UTscapy""", """%s""" % time.ctime()
+    else:
+        return """from %s by UTscapy""" % tex_escape(filename), """%s""" % time.ctime()
+
+
 #    CAMPAIGN TO something    #
 
 def campaign_to_TEXT(test_campaign, theme):
@@ -792,19 +801,9 @@ def pack_html_campaigns(runned_campaigns, data, local=False, title=None):
 
 
 def campaign_to_LATEX(test_campaign):
-    output = r"""\documentclass{report}
-\usepackage{alltt}
-\usepackage{xcolor}
-\usepackage{a4wide}
-\usepackage{hyperref}
-
-\title{%(title)s}
-\date{%%s}
-
-\begin{document}
-\maketitle
-\tableofcontents
-
+    output = r"""
+\chapter{%(title)s}
+Run %%s on \date{%%s}
 \begin{description}
 \item[Passed:] %(passed)i
 \item[Failed:] %(failed)i
@@ -813,15 +812,16 @@ def campaign_to_LATEX(test_campaign):
 %(headcomments)s
 
 """ % test_campaign
-    output %= info_line(test_campaign)
+    output %= latex_info_line(test_campaign)
 
     for testset in test_campaign:
-        output += "\\chapter{%(name)s}\n\n%(comments)s\n\n" % testset
+        output += "\\section{%(name)s}\n\n%(comments)s\n\n" % testset
         for t in testset:
+            t.comments = tex_escape(t.comments)
             if t.expand:
-                output += r"""\section{%(name)s}
+                output += r"""\subsection{%(name)s}
 
-[%(num)03i] [%(result)s]
+Test result: \textbf{%(result)s}\newline
 
 %(comments)s
 \begin{alltt}
@@ -830,7 +830,30 @@ def campaign_to_LATEX(test_campaign):
 
 """ % t
 
-    output += "\\end{document}\n"
+    return output
+
+
+def pack_latex_campaigns(runned_campaigns, data, local=False, title=None):
+    output = r"""
+\documentclass{report}
+\usepackage{alltt}
+\usepackage{xcolor}
+\usepackage{a4wide}
+\usepackage{hyperref}
+
+\title{%(title)s}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+%(data)s
+\end{document}\n
+"""
+
+    out_dict = {'data': data, 'title': title if title else "UTScapy tests"}
+
+    output %= out_dict
     return output
 
 
@@ -1197,6 +1220,8 @@ def main():
     # Concenate outputs
     if FORMAT == Format.HTML:
         glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
+    if FORMAT == Format.LATEX:
+        glob_output = pack_latex_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
 
     # Write the final output
     # Note: on Python 2, we force-encode to ignore ascii errors

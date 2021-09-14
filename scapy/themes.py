@@ -301,7 +301,7 @@ class LatexTheme2(FormatTheme):
     style_packetlist_proto = r"@`@textcolor@[@blue@]@@[@%s@]@"
     style_packetlist_value = r"@`@textcolor@[@purple@]@@[@%s@]@"
     style_fail = r"@`@textcolor@[@red@]@@[@@`@bfseries@[@@]@%s@]@"
-    style_success = r"@`@textcolor@[@blue@]@@[@@`@bfserices@[@@]@%s@]@"
+    style_success = r"@`@textcolor@[@blue@]@@[@@`@bfseries@[@@]@%s@]@"
     style_even = r"@`@textcolor@[@gray@]@@[@@`@bfseries@[@@]@%s@]@"
 #    style_odd = r"@`@textcolor@[@black@]@@[@@`@bfseries@[@@]@%s@]@"
     style_left = r"@`@textcolor@[@blue@]@@[@%s@]@"
