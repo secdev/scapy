@@ -131,9 +131,11 @@ assert(not s.impl.rx_thread.running)
 
 = Verify that all threads will die when GC collects the socket
 import gc
-s = ISOTPSoftSocket(TestSocket(CAN), sid=0x641, did=0x241)
+cans = TestSocket(CAN)
+s = ISOTPSoftSocket(cans, sid=0x641, did=0x241)
 assert(s.impl.rx_thread.running)
 impl = s.impl
+cans.close()
 s = None
 r = gc.collect()
 assert(not impl.rx_thread.running)
