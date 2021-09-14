@@ -290,5 +290,6 @@ class TestSocket(ObjectPipe, object):
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
         # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
-        sock = [s for s in sockets if isinstance(s, ObjectPipe)]
+        sock = [s for s in sockets if isinstance(s, ObjectPipe)
+                and not s._closed]
         return select_objects(sock, remain)
