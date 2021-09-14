@@ -135,8 +135,8 @@ cans = TestSocket(CAN)
 s = ISOTPSoftSocket(cans, sid=0x641, did=0x241)
 assert(s.impl.rx_thread.running)
 impl = s.impl
-cans.close()
 s = None
+cans.close()
 r = gc.collect()
 assert(not impl.rx_thread.running)
 
