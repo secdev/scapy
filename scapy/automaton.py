@@ -192,7 +192,7 @@ class ObjectPipe:
             if s.closed:
                 results.append(s)
         if results:
-            return results, None
+            return results
         return select_objects(sockets, remain)
 
 

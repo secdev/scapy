@@ -9,16 +9,15 @@
 import os
 import subprocess
 import sys
-import time
 
 from platform import python_implementation
 
 from scapy.main import load_layer, load_contrib
 from scapy.config import conf
-from scapy.error import log_runtime, Scapy_Exception, warning
+from scapy.error import log_runtime, Scapy_Exception
 import scapy.modules.six as six
 from scapy.consts import LINUX
-from scapy.automaton import ObjectPipe
+from scapy.automaton import ObjectPipe, select_objects
 from scapy.data import MTU
 from scapy.packet import Packet
 from scapy.compat import Optional, Type, Tuple, Any
@@ -119,6 +118,11 @@ def cleanup_interfaces():
 
     :return: True on success
     """
+    global open_test_sockets
+    for sock in open_test_sockets:
+        sock.close()
+        del sock
+
     if LINUX and _not_pypy and _root:
         if 0 != subprocess.call(["ip", "link", "delete", iface0]):
             raise Exception("%s could not be deleted" % iface0)
@@ -220,16 +224,20 @@ conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
 # """ Define custom SuperSocket for unit tests """
 # ############################################################################
 
+open_test_sockets = list()
+
 
 class TestSocket(ObjectPipe, object):
-    nonblocking_socket = True  # type: bool
+    nonblocking_socket = False  # type: bool
 
     def __init__(self, basecls=None):
         # type: (Optional[Type[Packet]]) -> None
+        global open_test_sockets
         super(TestSocket, self).__init__()
         self.basecls = basecls
         self.paired_sockets = list()  # type: List[TestSocket]
         self.closed = False
+        open_test_sockets.append(self)
 
     def close(self):
         self.closed = True
@@ -278,3 +286,10 @@ class TestSocket(ObjectPipe, object):
             return SuperSocket.sniff(self, *args, **kargs)
         else:
             return SuperSocket.sniff.im_func(self, *args, **kargs)
+
+    @staticmethod
+    def select(sockets, remain=conf.recv_poll_rate):
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+        sock = [s for s in sockets if isinstance(s, ObjectPipe)
+                and not s._closed]
+        return select_objects(sock, remain)

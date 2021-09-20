@@ -591,7 +591,7 @@ class ISOTPSocketImplementation:
 
     def close(self):
         # type: () -> None
-        if self.rx_thread.thread and self.rx_thread.thread.is_alive():
+        if self.rx_thread.running:
             self.rx_thread.stop(True)
 
     def _rx_timer_handler(self):

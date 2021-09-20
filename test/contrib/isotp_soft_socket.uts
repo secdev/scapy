@@ -6,32 +6,14 @@
 
 = Imports
 
-from scapy.modules.six.moves.queue import Queue
+from scapy.modules.six.moves.queue import Queue, Empty
 from io import BytesIO
 import scapy.modules.six as six
 
 with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
     exec(f.read())
 
-= Definition of constants, utility functions and mock classes
-
-
-class MockCANSocket(SuperSocket):
-    nonblocking_socket = True
-    def __init__(self, rcvd_queue=None):
-        self.rcvd_queue = Queue()
-        self.sent_queue = Queue()
-        if rcvd_queue is not None:
-            for c in rcvd_queue:
-                self.rcvd_queue.put(c)
-    def recv_raw(self, x=MTU):
-        pkt = bytes(self.rcvd_queue.get(True, 2))
-        return CAN, pkt, None
-    def send(self, p):
-        self.sent_queue.put(p)
-    @staticmethod
-    def select(sockets, remain=None):
-        return sockets
+= Definition of utility functions
 
 # hexadecimal to bytes convenience function
 if six.PY2:
@@ -69,79 +51,71 @@ assert(sniffed[0]['ISOTP'].exdst is 0xEA)
 + ISOTPSoftSocket tests
 
 = Create ISOTPSoftSocket
-cans = MockCANSocket()
+cans = TestSocket(CAN)
+stim = TestSocket(CAN)
+cans.pair(stim)
 s = ISOTPSoftSocket(cans, sid=0x641, did=0x241)
 
 = Single-frame receive
-cans.rcvd_queue.put(CAN(identifier=0x241, data=dhex("05 01 02 03 04 05")))
+stim.send(CAN(identifier=0x241, data=dhex("05 01 02 03 04 05")))
 msg = s.recv()
 assert(msg.data == dhex("01 02 03 04 05"))
-assert(cans.sent_queue.empty())
 
 = Single-frame send
 s.send(ISOTP(dhex("01 02 03 04 05")))
-msg = cans.sent_queue.get(True, 1)
+msg = stim.sniff(count=1, timeout=1)[0]
 assert(msg.data == dhex("05 01 02 03 04 05"))
-assert(cans.sent_queue.empty())
-assert(cans.rcvd_queue.empty())
 
 = Two frame receive
-cans.rcvd_queue.put(CAN(identifier=0x241, data=dhex("10 09 01 02 03 04 05 06")))
-c = cans.sent_queue.get(True, 2)
+stim.send(CAN(identifier=0x241, data=dhex("10 09 01 02 03 04 05 06")))
+c = stim.sniff(count=1, timeout=1)[0]
 assert (c.data == dhex("30 00 00"))
-cans.rcvd_queue.put(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
+stim.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
 msg = s.recv()
 
 assert(msg.data == dhex("01 02 03 04 05 06 07 08 09"))
-assert(cans.sent_queue.empty())
-assert(cans.rcvd_queue.empty())
+
 
 = 20000 bytes receive
 data = dhex("01 02 03 04 05")*4000
 
 cf = ISOTP(data, dst=0x241).fragment()
 ff = cf.pop(0)
-cans.rcvd_queue.put(ff)
-c = cans.sent_queue.get(True, 2)
+stim.send(ff)
+c = stim.sniff(count=1, timeout=1)[0]
 assert (c.data == dhex("30 00 00"))
 for f in cf:
-    cans.rcvd_queue.put(f)
+    stim.send(f)
 
 msg = s.recv()
 
 assert(msg.data == data)
-assert(cans.sent_queue.empty())
-assert(cans.rcvd_queue.empty())
 
 = 20000 bytes send
 
 data = dhex("01 02 03 04 05")*4000
 msg = ISOTP(data, dst=0x641)
-succ = threading.Event()
 ready = threading.Event()
 fragments = msg.fragment()
 ack = CAN(identifier=0x241, data=dhex("30 00 00"))
 
-def acker():
-    ready.set()
-    ff = cans.sent_queue.get(True, 2)
-    assert(ff == fragments[0])
-    cans.rcvd_queue.put(ack)
-    for fragment in fragments[1:]:
-        cf = cans.sent_queue.get(True, 2)
-        assert(fragment == cf)
-    succ.set()
+def sender():
+    ready.wait(timeout=5)
+    s.send(msg)
 
-thread = threading.Thread(target=acker, name="acker")
+thread = threading.Thread(target=sender, name="sender")
 thread.start()
-ready.wait(timeout=5)
 
-s.send(msg)
+ready.set()
+ff = stim.sniff(count=1, timeout=1)[0]
+assert (bytes(ff) == bytes(fragments[0]))
+stim.send(ack)
+cfs = stim.sniff(count=len(fragments) - 1, timeout=1)
+for fragment, cf in zip(fragments[1:], cfs):
+    assert (bytes(fragment) == bytes(cf))
 
 thread.join(15)
 assert not thread.is_alive()
-succ.wait(2)
-assert(succ.is_set())
 
 = Close ISOTPSoftSocket
 
@@ -149,34 +123,37 @@ s.close()
 s = None
 
 = Create and close ISOTP soft socket
-with ISOTPSoftSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
+with ISOTPSoftSocket(TestSocket(CAN), sid=0x641, did=0x241) as s:
     assert(s.impl.rx_thread.running)
-    s.close()
-    assert(not s.impl.rx_thread.running)
+
+assert(not s.impl.rx_thread.running)
 
 
 = Verify that all threads will die when GC collects the socket
+~ not_pypy
 import gc
-s = ISOTPSoftSocket(MockCANSocket(), sid=0x641, did=0x241)
+cans = TestSocket(CAN)
+s = ISOTPSoftSocket(cans, sid=0x641, did=0x241)
 assert(s.impl.rx_thread.running)
 impl = s.impl
 s = None
+cans.close()
 r = gc.collect()
 assert(not impl.rx_thread.running)
 
 = Test on_recv function with single frame
-with ISOTPSoftSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
+with ISOTPSoftSocket(TestSocket(CAN), sid=0x641, did=0x241) as s:
     s.ins.on_recv(CAN(identifier=0x241, data=dhex("05 01 02 03 04 05")))
     msg, ts = s.ins.rx_queue.recv()
     assert(msg == dhex("01 02 03 04 05"))
 
 = Test on_recv function with empty frame
-with ISOTPSoftSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
+with ISOTPSoftSocket(TestSocket(CAN), sid=0x641, did=0x241) as s:
     s.ins.on_recv(CAN(identifier=0x241, data=b""))
     assert(s.ins.rx_queue.empty())
 
 = Test on_recv function with single frame and extended addressing
-with ISOTPSoftSocket(MockCANSocket(), sid=0x641, did=0x241, extended_rx_addr=0xea) as s:
+with ISOTPSoftSocket(TestSocket(CAN), sid=0x641, did=0x241, extended_rx_addr=0xea) as s:
     cf = CAN(identifier=0x241, data=dhex("EA 05 01 02 03 04 05"))
     s.ins.on_recv(cf)
     msg, ts = s.ins.rx_queue.recv()
@@ -184,10 +161,12 @@ with ISOTPSoftSocket(MockCANSocket(), sid=0x641, did=0x241, extended_rx_addr=0xe
     assert ts == cf.time
 
 = CF is sent when first frame is received
-cans = MockCANSocket()
+cans = TestSocket(CAN)
+can_out = TestSocket(CAN)
+cans.pair(can_out)
 with ISOTPSoftSocket(cans, sid=0x641, did=0x241) as s:
     s.ins.on_recv(CAN(identifier=0x241, data=dhex("10 20 01 02 03 04 05 06")))
-    can = cans.sent_queue.get(True, 1)
+    can = can_out.sniff(timeout=1, count=1)[0]
     assert(can.identifier == 0x641)
     assert(can.data == dhex("30 00 00"))
 
@@ -507,7 +486,7 @@ with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241) 
     with new_can_socket(iface0) as cans:
         cans.send(CAN(identifier = 0x241, data = dhex("10 11 01 02 03 04 05 06")))
         cans.send(CAN(identifier = 0x241, data = dhex("21 07 08 09 0A 0B 0C 0D")))
-    isotp = s.sniff(timeout=1)
+    isotp = s.sniff(timeout=0.1)
 
 assert(len(isotp) == 0)
 
@@ -515,7 +494,7 @@ assert(len(isotp) == 0)
 with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241) as s:
     with new_can_socket(iface0) as cans:
         cans.send(CAN(identifier = 0x241, data = dhex("10 11 01 02 03 04 05 06")))
-    isotp = s.sniff(timeout=1)
+    isotp = s.sniff(timeout=0.1)
 
 assert(len(isotp) == 0)
 
@@ -541,7 +520,7 @@ evt = threading.Event()
 def acker():
     with new_can_socket(iface0) as cans:
         evt.set()
-        can = cans.sniff(timeout=1, count=1)[0]
+        can = cans.sniff(timeout=0.1, count=1)[0]
         cans.send(CAN(identifier = 0x241, data=dhex("30 04 00")))
 
 thread = Thread(target=acker)
