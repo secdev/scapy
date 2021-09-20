@@ -43,7 +43,7 @@ function to get all information about one specific protocol.
 |                      |                      |                                                        |
 |                      |                      | ISOTPSniffer, ISOTPMessageBuilder, ISOTPSession        |
 |                      |                      |                                                        |
-|                      |                      | ISOTPHeader, ISOTPHeaderEA, isotp_scan                 |
+|                      |                      | ISOTPHeader, ISOTPHeaderEA, ISOTPScan                  |
 |                      |                      |                                                        |
 |                      |                      | ISOTP, ISOTP_SF, ISOTP_FF, ISOTP_CF, ISOTP_FC          |
 +----------------------+----------------------+--------------------------------------------------------+
@@ -930,10 +930,10 @@ Close sockets::
    isoTpSocketVCan1.close()
 
 
-isotp_scan and ISOTPScanner
----------------------------
+ISOTPScan and ISOTPScanner
+--------------------------
 
-isotp_scan is a utility function to find ISOTP-Endpoints on a CAN-Bus.
+ISOTPScan is a utility function to find ISOTP-Endpoints on a CAN-Bus.
 ISOTPScanner is a commandline-utility for the identical function.
 
 .. image:: ../graphics/animations/animation-scapy-isotpscan.svg
@@ -989,7 +989,7 @@ Interactive shell usage example::
     >>> conf.contribs['CANSocket'] = {'use-python-can': False}
     >>> load_contrib('cansocket')
     >>> load_contrib('isotp')
-    >>> socks = isotp_scan(CANSocket("vcan0"), range(0x700, 0x800), can_interface="vcan0")
+    >>> socks = ISOTPScan(CANSocket("vcan0"), range(0x700, 0x800), can_interface="vcan0")
     >>> socks
     [<<ISOTPNativeSocket: read/write packets at a given CAN interface using CAN_ISOTP socket > at 0x7f98e27c8210>,
      <<ISOTPNativeSocket: read/write packets at a given CAN interface using CAN_ISOTP socket > at 0x7f98f9079cd0>,
