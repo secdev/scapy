@@ -185,7 +185,7 @@ class ServiceEnumerator(AutomotiveTestCase):
 
             if socket.closed:
                 log_interactive.critical("[-] Socket closed during scan.")
-                return
+                raise Scapy_Exception("Socket closed during scan")
 
             self._store_result(state, req, res)
 
@@ -229,6 +229,8 @@ class ServiceEnumerator(AutomotiveTestCase):
         """
         if response is None:
             if cast(bool, kwargs.pop("retry_if_none_received", False)):
+                log_interactive.debug(
+                    "[i] Retry %s because None received", repr(request))
                 return self._populate_retry(state, request)
             return cast(bool, kwargs.pop("exit_if_no_answer_received", False))
 
@@ -323,6 +325,9 @@ class ServiceEnumerator(AutomotiveTestCase):
 
         if retry_if_busy_returncode and response.service == 0x7f \
                 and self._get_negative_response_code(response) == 0x21:
+            log_interactive.debug(
+                "[i] Retry %s because retry_if_busy_returncode received",
+                repr(request))
             return self._populate_retry(state, request)
         return False
 
@@ -462,7 +467,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         Helper function to get all results with negative response
         :return: all results with negative response
         """
-        return [cast(_AutomotiveTestCaseFilteredScanResult, r) for r in self._results  # noqa: E501
+        return [r for r in self.results_with_response
                 if r.resp and r.resp.service == 0x7f]
 
     @property
@@ -472,7 +477,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         Helper function to get all results with positive response
         :return: all results with positive response
         """
-        return [cast(_AutomotiveTestCaseFilteredScanResult, r) for r in self._results  # noqa: E501
+        return [r for r in self.results_with_response  # noqa: E501
                 if r.resp and r.resp.service != 0x7f]
 
     @property

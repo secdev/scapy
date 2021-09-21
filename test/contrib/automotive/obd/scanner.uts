@@ -1,5 +1,5 @@
 % Regression tests for obd_scan
-~ needs_root not_pypy automotive_comm
+
 
 + Configuration
 ~ conf
@@ -8,7 +8,6 @@
 
 with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
     exec(f.read())
-
 
 ############
 ############
@@ -20,41 +19,18 @@ load_contrib("automotive.obd.obd", globals_dict=globals())
 + Load OBD_scan
 = imports
 
-from subprocess import call
-
 from scapy.contrib.automotive.obd.scanner import OBD_Scanner
 
 load_contrib("automotive.obd.scanner", globals_dict=globals())
 load_contrib("automotive.ecu", globals_dict=globals())
 
-print("Set delay to lower utilization")
-conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
+conf.contribs['EcuAnsweringMachine']['send_delay'] = 0
+
+ecu = TestSocket(OBD)
+tester = TestSocket(OBD)
+ecu.pair(tester)
 
 = Create answers
-
-s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
-
-s1_pid00 = OBD() / OBD_S01_PR(data_records=[OBD_S01_PR_Record() / OBD_PID00(supported_pids="PID03+PID0B+PID0F")])
-s6_mid00 = OBD() / OBD_S06_PR(data_records=[OBD_S06_PR_Record() / OBD_MID00(supported_mids="")])
-s8_tid00 = OBD() / OBD_S08_PR(data_records=[OBD_S08_PR_Record() / OBD_TID00(supported_tids="")])
-s9_iid00 = OBD() / OBD_S09_PR(data_records=[OBD_S09_PR_Record() / OBD_IID00(supported_iids="")])
-
-
-s1_pid01 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID01()])
-s1_pid03 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID03(fuel_system1=0, fuel_system2=2)])
-s1_pid0B = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0B(data=100)])
-s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)])
-
-example_responses = \
-    [EcuResponse(responses=s3),
-     EcuResponse(responses=s1_pid00),
-     EcuResponse(responses=s6_mid00),
-     EcuResponse(responses=s8_tid00),
-     EcuResponse(responses=s9_iid00),
-     EcuResponse(responses=s1_pid01),
-     EcuResponse(responses=s1_pid03),
-     EcuResponse(responses=s1_pid0B),
-     EcuResponse(responses=s1_pid0F)]
 
 responses = [
     EcuResponse(responses=OBD(service=65)/OBD_S01_PR(data_records=[OBD_S01_PR_Record(pid=0)/OBD_PID00(supported_pids=3191777299)])),
@@ -116,33 +92,35 @@ responses = [
     EcuResponse(responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=4)/OBD_IID04(calibration_identifications=[b'282xxxxxxx300044', b'00090xxxxxx00031'], count=2)])),
     EcuResponse(responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=6)/OBD_IID06(calibration_verification_numbers=[b'\xf9\x10\xb9\xfb', b'&6"e'], count=2)])),
     EcuResponse(responses=OBD(service=73)/OBD_S09_PR(data_records=[OBD_S09_PR_Record(iid=8)/OBD_IID08(data=[9, 189, 8, 9, 0, 0, 8, 9, 0, 0, 22, 9, 0, 0, 0, 0, 8, 9, 0, 0], count=20)])),
-    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=1, response_code=49)),
-    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=10, response_code=49)),
-    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=6, response_code=49)),
-    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=8, response_code=17)),
-    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=9, response_code=49))]
+    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=1, response_code=0x12)),
+    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=2, response_code=0x12)),
+    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=3, response_code=0x12)),
+    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=4, response_code=0x12)),
+    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=5, response_code=0x12)),
+    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=6, response_code=0x12)),
+    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=7, response_code=0x12)),
+    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=8, response_code=0x12)),
+    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=9, response_code=0x12)),
+    EcuResponse(responses=OBD(service=127)/OBD_NR(request_service_id=10, response_code=0x12))]
 
 
 + Simulate scanner
 
 = Run scanner with real world responses short scan
 
-exit_if_no_isotp_module()
+sniff(timeout=0.001, opened_socket=[ecu, tester])
 
-drain_bus(iface0)
+answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
+sim = threading.Thread(target=answering_machine, kwargs={"timeout": 50, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
+sim.start()
+try:
+    s = OBD_Scanner(tester, full_scan=False, timeout=1, retry_if_none_received=True, delay_state_change=0)
+    s.scan()
+    tester.send(b"\xff\xff\xff")
+finally:
+    sim.join(timeout=10)
 
-with new_can_socket0() as isocan_ecu, ISOTPSocket(isocan_ecu, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
-    answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
-    sim = threading.Thread(target=answering_machine, kwargs={"timeout": 60, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
-    sim.start()
-    try:
-        with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
-            s = OBD_Scanner(socket, full_scan=False)
-            s.scan()
-            socket.send(b"\xff\xff\xff")
-            socket.send(b"\xff\xff\xff")
-    finally:
-        sim.join(timeout=10)
+s.show_testcases()
 
 assert len(s.enumerators) == 8
 assert s.enumerators[0].__class__ == OBD_S01_Enumerator
@@ -154,40 +132,38 @@ assert s.enumerators[5].__class__ == OBD_S03_Enumerator
 assert s.enumerators[6].__class__ == OBD_S07_Enumerator
 assert s.enumerators[7].__class__ == OBD_S0A_Enumerator
 
-print(len(s.enumerators[0].results))
+print(len(s.enumerators[0].results_with_response))
 
-assert len(s.enumerators[0].results) == 33   # 32 pos resps + 1 NR
-assert len([tup.resp for tup in s.enumerators[0].results if tup.resp is not None and tup.resp.service == 0x7f]) == 1
-assert len(s.enumerators[1].results) == 1    # 1 NR
-assert len([tup.resp for tup in s.enumerators[1].results if tup.resp is not None and tup.resp.service == 0x7f]) == 1
-assert len(s.enumerators[2].results) == 18   # 17 pos resps + 1 NR
-assert len([tup.resp for tup in s.enumerators[2].results if tup.resp is not None and tup.resp.service == 0x7f]) == 1
-assert len(s.enumerators[3].results) == 1    # 1 NR
-assert len([tup.resp for tup in s.enumerators[3].results if tup.resp is not None and tup.resp.service == 0x7f]) == 1
-assert len(s.enumerators[4].results) == 9    # 8 pos resps + 1 NR
-assert len([tup.resp for tup in s.enumerators[4].results if tup.resp is not None and tup.resp.service == 0x7f]) == 1
-assert len(s.enumerators[5].results) == 1    # 1 PR
-assert len(s.enumerators[6].results) == 1    # 1 PR
-assert len(s.enumerators[7].results) == 1    # 1 PR
+assert len(s.enumerators[0].results_with_response) == 33   # 32 pos resps + 1 NR
+assert len(s.enumerators[0].results_with_negative_response) == 1
+assert len(s.enumerators[1].results_with_response) == 1    # 1 NR
+assert len(s.enumerators[1].results_with_negative_response) == 1
+assert len(s.enumerators[2].results_with_response) == 18   # 17 pos resps + 1 NR
+assert len(s.enumerators[2].results_with_negative_response) == 1
+assert len(s.enumerators[3].results_with_response) == 1    # 1 NR
+assert len(s.enumerators[3].results_with_negative_response) == 1
+assert len(s.enumerators[4].results_with_response) == 9    # 8 pos resps + 1 NR
+assert len(s.enumerators[4].results_with_negative_response) == 1
+assert len(s.enumerators[5].results_with_response) == 1    # 1 PR
+assert len(s.enumerators[6].results_with_response) == 1    # 1 PR
+assert len(s.enumerators[7].results_with_response) == 1    # 1 PR
 
 
 = Run scanner with real world responses full scan
 
-exit_if_no_isotp_module()
+sniff(timeout=0.001, opened_socket=[ecu, tester])
 
-drain_bus(iface0)
+answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
+sim = threading.Thread(target=answering_machine, kwargs={"timeout": 50, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
+sim.start()
+try:
+    s = OBD_Scanner(tester, full_scan=True, timeout=1, delay_state_change=0, retry_if_none_received=True)
+    s.scan()
+    tester.send(b"\xff\xff\xff")
+finally:
+    sim.join(timeout=10)
 
-with new_can_socket0() as isocan_ecu, ISOTPSocket(isocan_ecu, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
-    answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
-    sim = threading.Thread(target=answering_machine, kwargs={"timeout": 60, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
-    sim.start()
-    try:
-        with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
-            s = OBD_Scanner(socket, full_scan=True)
-            s.scan()
-            socket.send(b"\xff\xff\xff")
-    finally:
-        sim.join(timeout=10)
+s.show_testcases()
 
 assert len(s.enumerators) == 8
 assert s.enumerators[0].__class__ == OBD_S01_Enumerator
@@ -199,46 +175,44 @@ assert s.enumerators[5].__class__ == OBD_S03_Enumerator
 assert s.enumerators[6].__class__ == OBD_S07_Enumerator
 assert s.enumerators[7].__class__ == OBD_S0A_Enumerator
 
-assert len(s.enumerators[0].results) == 0x100   # 32 pos resps + 1 NR
+assert len(s.enumerators[0].results_with_response) == 0x100   # 32 pos resps + 1 NR
 print( len(s.enumerators[0].results_with_negative_response))
 assert len(s.enumerators[0].results_with_negative_response) == 0x100 - 32
-print( len(s.enumerators[1].results))
-assert len(s.enumerators[1].results) == 0x100
+print( len(s.enumerators[1].results_with_response))
+assert len(s.enumerators[1].results_with_response) == 0x100
 print( len(s.enumerators[1].results_with_negative_response))
 assert len(s.enumerators[1].results_with_negative_response) == 0x100
-assert len(s.enumerators[2].results) == 0x100   # 17 pos resps
+assert len(s.enumerators[2].results_with_response) == 0x100   # 17 pos resps
 assert len(s.enumerators[2].results_with_negative_response) == 0x100 - 17
-assert len(s.enumerators[3].results) == 0x100
+assert len(s.enumerators[3].results_with_response) == 0x100
 assert len(s.enumerators[3].results_with_negative_response) == 0x100
-assert len(s.enumerators[4].results) == 0x100    # 8 pos resps
+assert len(s.enumerators[4].results_with_response) == 0x100    # 8 pos resps
 assert len(s.enumerators[4].results_with_negative_response) == 0x100 - 8
-assert len(s.enumerators[5].results) == 1    # 1 PR
-assert len(s.enumerators[6].results) == 1    # 1 PR
-assert len(s.enumerators[7].results) == 1    # 1 PR
+assert len(s.enumerators[5].results_with_response) == 1    # 1 PR
+assert len(s.enumerators[6].results_with_response) == 1    # 1 PR
+assert len(s.enumerators[7].results_with_response) == 1    # 1 PR
 
 
 = Run scanner only for Service 01 real world responses
 
-exit_if_no_isotp_module()
+sniff(timeout=0.001, opened_socket=[ecu, tester])
 
-drain_bus(iface0)
+answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
+sim = threading.Thread(target=answering_machine, kwargs={"timeout": 50, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
+sim.start()
+try:
+    s = OBD_Scanner(tester, test_cases=[OBD_S01_Enumerator], full_scan=False, retry_if_none_received=True, timeout=1, delay_state_change=0)
+    s.scan()
+    tester.send(b"\xff\xff\xff")
+finally:
+    sim.join(timeout=10)
 
-with new_can_socket0() as isocan_ecu, ISOTPSocket(isocan_ecu, 0x7e8, 0x7e0, basecls=OBD, padding=True) as ecu:
-    answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
-    sim = threading.Thread(target=answering_machine, kwargs={"timeout": 60, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
-    sim.start()
-    try:
-        with new_can_socket0() as isocan, ISOTPSocket(isocan, 0x7e0, 0x7e8, basecls=OBD, padding=True) as socket:
-            s = OBD_Scanner(socket, test_cases=[OBD_S01_Enumerator], full_scan=False)
-            s.scan()
-            socket.send(b"\xff\xff\xff")
-    finally:
-        sim.join(timeout=10)
+s.show_testcases()
 
 assert len(s.enumerators) == 1
 assert s.enumerators[0].__class__ == OBD_S01_Enumerator
 
-assert len(s.enumerators[0].results) == 33   # 32 pos resps + 1 NR
+assert len(s.enumerators[0].results_with_response) == 33   # 32 pos resps + 1 NR
 assert len(s.enumerators[0].results_with_negative_response) == 1
 
 

@@ -57,9 +57,12 @@ class OBD_Service_Enumerator(OBD_Enumerator):
         for _, _, r, _, _ in self.results_with_positive_response:
             dr = r.data_records[0]
             key = next(iter((dr.lastlayer().fields.keys())))
-            supported += [int(i[-2:], 16) for i in
-                          getattr(dr, key, ["xxx00"])]
-        return [i for i in supported if i % 0x20]
+            try:
+                supported += [int(i[-2:], 16) for i in
+                              getattr(dr, key, ["xxx00"])]
+            except TypeError:
+                pass
+        return list(set([i for i in supported if i % 0x20]))
 
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None

@@ -952,6 +952,8 @@ assert hasattr(dto, "load") == False
 assert dto.MTA0_extension == 0xff
 assert dto.MTA0_address == 0xffffffff
 
++ Cleanup
+
 = Delete vcan interfaces
 
 assert cleanup_interfaces()
