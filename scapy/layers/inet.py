@@ -685,6 +685,29 @@ def in4_chksum(proto, u, p):
     return checksum(psdhdr + p)
 
 
+def _is_ipv6_layer(p):
+    # type: (Packet) -> bytes
+    return (isinstance(p, scapy.layers.inet6.IPv6) or
+            isinstance(p, scapy.layers.inet6._IPv6ExtHdr))
+
+
+def tcp_pseudoheader(tcp):
+    # type: (TCP) -> bytes
+    """Pseudoheader of a TCP packet as bytes
+
+    Requires underlayer to be either IP or IPv6
+    """
+    if isinstance(tcp.underlayer, IP):
+        plen = len(bytes(tcp))
+        return in4_pseudoheader(socket.IPPROTO_TCP, tcp.underlayer, plen)
+    elif conf.ipv6_enabled and _is_ipv6_layer(tcp.underlayer):
+        plen = len(bytes(tcp))
+        return raw(scapy.layers.inet6.in6_pseudoheader(
+            socket.IPPROTO_TCP, tcp.underlayer, plen))
+    else:
+        raise ValueError("TCP packet does not have IP or IPv6 underlayer")
+
+
 class TCP(Packet):
     name = "TCP"
     fields_desc = [ShortEnumField("sport", 20, TCP_SERVICES),
