@@ -301,6 +301,23 @@ md5opt = IP(raw(p))[TCP].options[0]
 md5opt[0] == 'MD5'
 md5opt[1] == md5sig
 
+= TCP options: MD5 IPv4 (depends on default values)
+p = IP() / TCP()
+mac = calc_tcp_md5_hash(p[TCP], b"12345")
+assert mac == bytearray.fromhex("797e69f8dbe44a8b84f687a2832595ed")
+
+= TCP options: MD5 IPv6 (depends on default values)
+p = IPv6() / TCP()
+mac = calc_tcp_md5_hash(p[TCP], b"12345")
+assert mac == bytearray.fromhex("3711309b0305a4269ec5dbc27183e9a0")
+
+= TCP options: MD5 sign (depends on default values)
+p = IP() / TCP()
+sign_tcp_md5(p[TCP], b"12345")
+raw(p[TCP]) == bytearray.fromhex("001400500000000000000000a0022000fec200001312797e69f8dbe44a8b84f687a2832595ed0000")
+md5opt = IP(raw(p))[TCP].options[0]
+md5opt[1] == bytearray.fromhex("797e69f8dbe44a8b84f687a2832595ed")
+
 = TCP options: invalid data offset
 data = b'\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x1b\xb8\x00\x00\x02\x04\x05\xb4\x04\x02\x08\x06\xf7\xa26C\x00\x00\x00\x00\x01\x03\x03\x07'
 p = TCP(data)
