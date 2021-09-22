@@ -309,10 +309,6 @@ random.seed(0x2807)
 pkt = fuzz(pkt)
 options = pkt.options._fix()
 options
-if six.PY2:
-    assert options == [('WScale', (32,)), ('NOP', ''), ('WScale', (145,)), ('WScale', (165,))]
-else:
-    assert options in [[('TFO', (1822729092, 2707522527)), ('Mood', (b'\x19',)), ('WScale', (117,))], [('TFO', (725644109, 3830853589)), ('Timestamp', (2604802746, 4137267106)), ('WScale', (227,)), ('Timestamp', (38044154, 828782501)), ('AltChkSum', (126, 40603))]]
 
 = IP, TCP & UDP checksums (these tests highly depend on default values)
 pkt = IP() / TCP()
