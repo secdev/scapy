@@ -239,6 +239,15 @@ class TestSocket(ObjectPipe, object):
         self.closed = False
         open_test_sockets.append(self)
 
+    def __enter__(self):
+        # type: () -> TestSocket
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # type: (Optional[Type[BaseException]], Optional[BaseException], Optional[Any]) -> None  # noqa: E501
+        """Close the socket"""
+        self.close()
+
     def close(self):
         self.closed = True
         super(TestSocket, self).close()
