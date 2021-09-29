@@ -41,14 +41,14 @@ def create_answer(p):
     ans = TestPacket(identifier=p.identifier + 1, data=p.data + b"_answer")
     receiver.send(ans)
 
-t = AsyncSniffer(timeout=10, prn=create_answer, opened_socket=receiver)
+t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
 t.start()
 
 pks = PacketList()
 
 for i in range(1, 2000, 2):
     txp = TestPacket(identifier=i, data=b"hello"*i)
-    rxp = sender.sr1(txp, verbose=False, timeout=0.01)
+    rxp = sender.sr1(txp, verbose=False, timeout=0.1)
     pks.append(txp)
     pks.append(rxp)
 
@@ -61,10 +61,10 @@ assert len(convs[0]) == 1000
 
 = Simple ping pong with sr
 
-t = AsyncSniffer(timeout=100, prn=create_answer, opened_socket=receiver)
+t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
 t.start()
 txp = TestPacket(identifier=range(1, 2000, 2), data=b"hello"*i)
-rxp = sender.sr(txp, verbose=False, timeout=1)
+rxp = sender.sr(txp, verbose=False, timeout=5)
 t.stop()
 
 assert len(t.results) == 1000
