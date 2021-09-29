@@ -1,0 +1,80 @@
+% Regression tests for TestSocket
+
++ Configuration
+~ conf
+
+= Imports
+
+from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
+
+= Create Dummy Packet
+
+class TestPacket(Packet):
+    fields_desc = [
+        IntField("identifier", 0),
+        StrField("data", b"")
+    ]
+    def answers(self, other):
+        if other.__class__ != self.__class__:
+            return False
+        if self.identifier % 2:
+            return False
+        if self.identifier == (other.identifier + 1):
+            return True
+        return False
+    def hashret(self):
+        # type: () -> bytes
+        return struct.pack('I', self.identifier + (self.identifier % 2))
+
+
+= Create Sockets
+
+sender = TestSocket(TestPacket)
+receiver = TestSocket(TestPacket)
+sender.pair(receiver)
+
++ Basic tests
+
+= Simple ping pong
+
+def create_answer(p):
+    ans = TestPacket(identifier=p.identifier + 1, data=p.data + b"_answer")
+    receiver.send(ans)
+
+t = AsyncSniffer(timeout=10, prn=create_answer, opened_socket=receiver)
+t.start()
+
+pks = PacketList()
+
+for i in range(1, 2000, 2):
+    txp = TestPacket(identifier=i, data=b"hello"*i)
+    rxp = sender.sr1(txp, verbose=False, timeout=0.01)
+    pks.append(txp)
+    pks.append(rxp)
+
+t.stop(join=True)
+convs = pks.sr()
+
+assert len(t.results) == 1000
+assert len(pks) == 2000
+assert len(convs[0]) == 1000
+
+= Simple ping pong with sr
+
+t = AsyncSniffer(timeout=100, prn=create_answer, opened_socket=receiver)
+t.start()
+txp = TestPacket(identifier=range(1, 2000, 2), data=b"hello"*i)
+rxp = sender.sr(txp, verbose=False, timeout=1)
+t.stop()
+
+assert len(t.results) == 1000
+assert len(rxp[0]) == 1000
+
+= Bulk send and receive
+
+
++ Cleanup
+
+= Delete TestSockets
+
+cleanup_testsockets()
