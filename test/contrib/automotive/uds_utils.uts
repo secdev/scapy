@@ -1,5 +1,5 @@
 % Regression tests for uds_utils
-~ needs_root not_pypy automotive_comm
+~ needs_root not_pypy automotive_comm disabled
 
 + Configuration
 ~ conf

@@ -17,11 +17,6 @@ from scapy.config import conf
 from scapy.error import log_runtime, Scapy_Exception
 import scapy.modules.six as six
 from scapy.consts import LINUX
-from scapy.automaton import ObjectPipe, select_objects
-from scapy.data import MTU
-from scapy.packet import Packet
-from scapy.compat import Optional, Type, Tuple, Any
-from scapy.supersocket import SuperSocket
 
 load_layer("can", globals_dict=globals())
 conf.contribs['CAN']['swap-bytes'] = False
@@ -118,11 +113,6 @@ def cleanup_interfaces():
 
     :return: True on success
     """
-    global open_test_sockets
-    for sock in open_test_sockets:
-        sock.close()
-        del sock
-
     if LINUX and _not_pypy and _root:
         if 0 != subprocess.call(["ip", "link", "delete", iface0]):
             raise Exception("%s could not be deleted" % iface0)
@@ -219,86 +209,3 @@ else:
 from scapy.contrib.automotive.ecu import *  # noqa: F403
 log_runtime.debug("Set send delay to lower utilization on CI machines")
 conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
-
-# ############################################################################
-# """ Define custom SuperSocket for unit tests """
-# ############################################################################
-
-open_test_sockets = list()
-
-
-class TestSocket(ObjectPipe, object):
-    nonblocking_socket = False  # type: bool
-
-    def __init__(self, basecls=None):
-        # type: (Optional[Type[Packet]]) -> None
-        global open_test_sockets
-        super(TestSocket, self).__init__()
-        self.basecls = basecls
-        self.paired_sockets = list()  # type: List[TestSocket]
-        self.closed = False
-        open_test_sockets.append(self)
-
-    def __enter__(self):
-        # type: () -> TestSocket
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        # type: (Optional[Type[BaseException]], Optional[BaseException], Optional[Any]) -> None  # noqa: E501
-        """Close the socket"""
-        self.close()
-
-    def close(self):
-        self.closed = True
-        super(TestSocket, self).close()
-
-    def pair(self, sock):
-        # type: (TestSocket) -> None
-        self.paired_sockets += [sock]
-        sock.paired_sockets += [self]
-
-    def send(self, x):
-        # type: (Packet) -> int
-        sx = bytes(x)
-        for r in self.paired_sockets:
-            super(TestSocket, r).send(sx)
-        try:
-            x.sent_time = time.time()
-        except AttributeError:
-            pass
-        return len(sx)
-
-    def recv_raw(self, x=MTU):
-        # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
-        """Returns a tuple containing (cls, pkt_data, time)"""
-        return self.basecls, \
-            super(TestSocket, self).recv(), \
-            time.time()
-
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
-        if six.PY3:
-            return SuperSocket.recv(self, x)
-        else:
-            return SuperSocket.recv.im_func(self, x)
-
-    def sr1(self, *args, **kargs):
-        # type: (Any, Any) -> Optional[Packet]
-        if six.PY3:
-            return SuperSocket.sr1(self, *args, **kargs)
-        else:
-            return SuperSocket.sr1.im_func(self, *args, **kargs)
-
-    def sniff(self, *args, **kargs):
-        # type: (Any, Any) -> PacketList
-        if six.PY3:
-            return SuperSocket.sniff(self, *args, **kargs)
-        else:
-            return SuperSocket.sniff.im_func(self, *args, **kargs)
-
-    @staticmethod
-    def select(sockets, remain=conf.recv_poll_rate):
-        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
-        sock = [s for s in sockets if isinstance(s, ObjectPipe)
-                and not s._closed]
-        return select_objects(sock, remain)

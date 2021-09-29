@@ -5,9 +5,7 @@
 
 = Imports
 
-with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
-    exec(f.read())
-
+from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
 
 ############
 ############
@@ -402,3 +400,9 @@ finally:
 assert success
 
 conf.contribs['UDS']['treat-response-pending-as-answer'] = False
+
++ Cleanup
+
+= Delete TestSockets
+
+cleanup_testsockets()

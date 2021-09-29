@@ -6,8 +6,7 @@
 
 = Imports
 
-with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
-    exec(f.read())
+from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
 
 ############
 ############
@@ -15,6 +14,7 @@ with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
 
 = Load contribution layer
 
+load_layer("can", globals_dict=globals())
 load_contrib("automotive.gm.gmlan", globals_dict=globals())
 load_contrib("automotive.gm.gmlanutils", globals_dict=globals())
 
@@ -1172,3 +1172,9 @@ started.wait(timeout=5)
 res = GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1, retry=1) == payload
 thread.join(timeout=5)
 assert res
+
++ Cleanup
+
+= Delete TestSockets
+
+cleanup_testsockets()

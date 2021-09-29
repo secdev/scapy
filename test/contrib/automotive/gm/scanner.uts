@@ -4,10 +4,12 @@
 ~ conf
 
 = Imports
-import itertools
 
-with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
-    exec(f.read())
+import itertools
+import threading
+from scapy.contrib.isotp import ISOTPMessageBuilder
+
+from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
 
 
 ############
@@ -477,6 +479,6 @@ assert "RequestOutOfRange received " in result
 
 + Cleanup
 
-= Delete vcan interfaces
+= Delete TestSockets
 
-assert cleanup_interfaces()
+cleanup_testsockets()
