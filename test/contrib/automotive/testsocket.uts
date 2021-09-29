@@ -68,16 +68,19 @@ assert len(t.results) == 1000
 assert len(pks) == 2000
 assert len(convs[0]) == 1000
 
-= Simple ping pong with sr
+= Simple ping pong with sr with packet generator
+
+sniff(timeout=0.1, opened_socket=[sender, receiver])
 
 conf.debug_match = True
 
 exception = None
 t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
 t.start()
-txp = TestPacket(identifier=range(1, 2000, 2), data=b"hello")
-rxp = sender.sr(txp, verbose=True, timeout=5, inter=0.001)
-t.stop()
+
+txp = TestPacket(identifier=range(1, 2000, 2), data=b"test1")
+rxp = sender.sr(txp, verbose=False, timeout=5, inter=0.001, threaded=True)
+t.stop(join=True)
 
 print(debug.sent)
 print(debug.recv)
@@ -85,6 +88,26 @@ print(debug.match)
 
 print(rxp)
 print(rxp[0].summary())
+print(exception)
+assert exception is None
+assert len(t.results) == 1000
+assert len(rxp[0]) == 1000
+
+= Simple ping pong with sr with generated packets
+
+sniff(timeout=0.1, opened_socket=[sender, receiver])
+
+conf.debug_match = False
+
+exception = None
+t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
+t.start()
+
+txp = [TestPacket(identifier=i, data=b"hello") for i in range(1, 2000, 2)]
+rxp = sender.sr(txp, verbose=False, timeout=5, inter=0.001, threaded=True)
+t.stop(join=True)
+
+print(rxp)
 print(exception)
 assert exception is None
 assert len(t.results) == 1000
