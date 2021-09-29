@@ -3,6 +3,9 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = TestSocket library for unit tests
+# scapy.contrib.status = library
+
 import time
 
 from scapy.config import conf
