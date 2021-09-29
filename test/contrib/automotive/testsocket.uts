@@ -67,11 +67,10 @@ txp = TestPacket(identifier=range(1, 2000, 2), data=b"hello"*i)
 rxp = sender.sr(txp, verbose=False, timeout=5)
 t.stop()
 
+print(rxp)
+
 assert len(t.results) == 1000
 assert len(rxp[0]) == 1000
-
-= Bulk send and receive
-
 
 + Cleanup
 
