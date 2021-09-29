@@ -37,9 +37,15 @@ sender.pair(receiver)
 
 = Simple ping pong
 
+exception = None
+
 def create_answer(p):
-    ans = TestPacket(identifier=p.identifier + 1, data=p.data + b"_answer")
-    receiver.send(ans)
+    try:
+        ans = TestPacket(identifier=p.identifier + 1, data=p.data + b"_answer")
+        receiver.send(ans)
+    except Exception as e:
+        global exception
+        exception = e
 
 t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
 t.start()
@@ -55,20 +61,32 @@ for i in range(1, 2000, 2):
 t.stop(join=True)
 convs = pks.sr()
 
+print(exception)
+assert exception is None
+
 assert len(t.results) == 1000
 assert len(pks) == 2000
 assert len(convs[0]) == 1000
 
 = Simple ping pong with sr
 
+conf.debug_match = True
+
+exception = None
 t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
 t.start()
-txp = TestPacket(identifier=range(1, 2000, 2), data=b"hello"*i)
-rxp = sender.sr(txp, verbose=False, timeout=5)
+txp = TestPacket(identifier=range(1, 2000, 2), data=b"hello")
+rxp = sender.sr(txp, verbose=True, timeout=5, inter=0.001)
 t.stop()
 
-print(rxp)
+print(debug.sent)
+print(debug.recv)
+print(debug.match)
 
+print(rxp)
+print(rxp[0].summary())
+print(exception)
+assert exception is None
 assert len(t.results) == 1000
 assert len(rxp[0]) == 1000
 
