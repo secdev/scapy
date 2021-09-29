@@ -12,6 +12,9 @@ import scapy.modules.six as six
 with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
     exec(f.read())
 
+from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
+
+
 = Definition of utility functions
 
 # hexadecimal to bytes convenience function
@@ -928,3 +931,4 @@ s = None
 = Delete vcan interfaces
 
 assert cleanup_interfaces()
+cleanup_testsockets()
