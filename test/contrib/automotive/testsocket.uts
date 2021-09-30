@@ -23,7 +23,6 @@ class TestPacket(Packet):
             return True
         return False
     def hashret(self):
-        # type: () -> bytes
         return struct.pack('I', self.identifier + (self.identifier % 2))
 
 
@@ -37,15 +36,9 @@ sender.pair(receiver)
 
 = Simple ping pong
 
-exception = None
-
 def create_answer(p):
-    try:
-        ans = TestPacket(identifier=p.identifier + 1, data=p.data + b"_answer")
-        receiver.send(ans)
-    except Exception as e:
-        global exception
-        exception = e
+    ans = TestPacket(identifier=p.identifier + 1, data=p.data + b"_answer")
+    receiver.send(ans)
 
 t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
 t.start()
@@ -54,32 +47,35 @@ pks = PacketList()
 
 for i in range(1, 2000, 2):
     txp = TestPacket(identifier=i, data=b"hello"*i)
-    rxp = sender.sr1(txp, verbose=False, timeout=0.1)
+    rxp = sender.sr1(txp, verbose=False, timeout=0.5)
     pks.append(txp)
     pks.append(rxp)
 
 t.stop(join=True)
 convs = pks.sr()
 
-print(exception)
-assert exception is None
+sender.close()
+receiver.close()
 
 assert len(t.results) == 1000
 assert len(pks) == 2000
 assert len(convs[0]) == 1000
 
-= Simple ping pong with sr with packet generator
+= Simple ping pong with sr with packet generator 10
 
-sniff(timeout=0.1, opened_socket=[sender, receiver])
+testlen = 10
+
+sender = TestSocket(TestPacket)
+receiver = TestSocket(TestPacket)
+sender.pair(receiver)
 
 conf.debug_match = True
 
-exception = None
 t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
 t.start()
 
-txp = TestPacket(identifier=range(1, 2000, 2), data=b"test1")
-rxp = sender.sr(txp, verbose=False, timeout=5)
+txp = TestPacket(identifier=range(1, testlen * 2, 2), data=b"test1")
+rxp = sender.sr(txp, timeout=5, verbose=False)
 t.stop(join=True)
 
 print(debug.sent)
@@ -88,28 +84,121 @@ print(debug.match)
 
 print(rxp)
 print(rxp[0].summary())
-print(exception)
-assert exception is None
-assert len(t.results) == 1000
-assert len(rxp[0]) == 1000
+
+sender.close()
+receiver.close()
+conf.debug_match = False
+
+assert len(t.results) == testlen
+assert len(rxp[0]) == testlen
+
+= Simple ping pong with sr with packet generator 100
+
+testlen = 100
+
+sender = TestSocket(TestPacket)
+receiver = TestSocket(TestPacket)
+sender.pair(receiver)
+
+conf.debug_match = True
+
+t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
+t.start()
+
+txp = TestPacket(identifier=range(1, testlen * 2, 2), data=b"test1")
+rxp = sender.sr(txp, timeout=5, verbose=False)
+t.stop(join=True)
+
+print(debug.sent)
+print(debug.recv)
+print(debug.match)
+
+print(rxp)
+print(rxp[0].summary())
+
+sender.close()
+receiver.close()
+conf.debug_match = False
+
+assert len(t.results) == testlen
+assert len(rxp[0]) == testlen
+
+= Simple ping pong with sr with packet generator 500
+
+testlen = 500
+
+sender = TestSocket(TestPacket)
+receiver = TestSocket(TestPacket)
+sender.pair(receiver)
+
+conf.debug_match = True
+
+t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
+t.start()
+
+txp = TestPacket(identifier=range(1, testlen * 2, 2), data=b"test1")
+rxp = sender.sr(txp, timeout=5, verbose=False)
+t.stop(join=True)
+
+print(debug.sent)
+print(debug.recv)
+print(debug.match)
+
+print(rxp)
+print(rxp[0].summary())
+
+sender.close()
+receiver.close()
+conf.debug_match = False
+
+assert len(t.results) == testlen
+assert len(rxp[0]) == testlen
+
+= Simple ping pong with sr with packet generator 750
+
+testlen = 750
+
+sender = TestSocket(TestPacket)
+receiver = TestSocket(TestPacket)
+sender.pair(receiver)
+
+conf.debug_match = True
+
+t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
+t.start()
+
+txp = TestPacket(identifier=range(1, testlen * 2, 2), data=b"test1")
+rxp = sender.sr(txp, timeout=5, verbose=False)
+t.stop(join=True)
+
+print(debug.sent)
+print(debug.recv)
+print(debug.match)
+
+print(rxp)
+print(rxp[0].summary())
+
+sender.close()
+receiver.close()
+conf.debug_match = False
+
+assert len(t.results) == testlen
+assert len(rxp[0]) == testlen
 
 = Simple ping pong with sr with generated packets
 
-sniff(timeout=0.1, opened_socket=[sender, receiver])
+sender = TestSocket(TestPacket)
+receiver = TestSocket(TestPacket)
+sender.pair(receiver)
 
-conf.debug_match = False
-
-exception = None
 t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
 t.start()
 
 txp = [TestPacket(identifier=i, data=b"hello") for i in range(1, 2000, 2)]
-rxp = sender.sr(txp, verbose=False, timeout=5)
+rxp = sender.sr(txp, timeout=5, verbose=False)
 t.stop(join=True)
 
 print(rxp)
-print(exception)
-assert exception is None
 assert len(t.results) == 1000
 assert len(rxp[0]) == 1000
 

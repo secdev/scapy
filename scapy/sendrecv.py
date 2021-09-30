@@ -14,7 +14,6 @@ import os
 import re
 import subprocess
 import time
-import types
 
 from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
@@ -147,14 +146,8 @@ class SndRcvHandler(object):
             self.tobesent = pkt  # type: Union[_PacketIterable, SetGen[Packet]]
             self.notans = _flood[0]
         else:
-            if isinstance(pkt, types.GeneratorType) or prebuild:
-                self.tobesent = list(pkt)
-                self.notans = len(self.tobesent)
-            else:
-                self.tobesent = (
-                    SetGen(pkt) if not isinstance(pkt, Gen) else pkt
-                )
-                self.notans = self.tobesent.__iterlen__()
+            self.tobesent = list(pkt)
+            self.notans = len(self.tobesent)
 
         if retry < 0:
             autostop = retry = -retry
