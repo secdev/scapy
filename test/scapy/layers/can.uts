@@ -57,12 +57,10 @@ not any(Raw in pkt or Padding in pkt for pkt in packets)
 
 = Identifiers
 
-print(set(pkt.identifier for pkt in packets))
 assert set(pkt.identifier for pkt in packets) == {0, 1474, 1602, 1825, 1843, 1858, 1891, 2020, 2021}
 
 = Flags
 
-print(set(pkt.flags for pkt in packets))
 assert set(pkt.flags for pkt in packets) == {0}
 
 = Data length
