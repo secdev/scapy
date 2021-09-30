@@ -40,7 +40,7 @@ def create_answer(p):
     ans = TestPacket(identifier=p.identifier + 1, data=p.data + b"_answer")
     receiver.send(ans)
 
-t = AsyncSniffer(timeout=10, prn=create_answer, opened_socket=receiver)
+t = AsyncSniffer(timeout=50, prn=create_answer, opened_socket=receiver)
 t.start()
 
 pks = PacketList()
