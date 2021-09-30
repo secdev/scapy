@@ -40,7 +40,7 @@ def create_answer(p):
     ans = TestPacket(identifier=p.identifier + 1, data=p.data + b"_answer")
     receiver.send(ans)
 
-t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
+t = AsyncSniffer(timeout=10, prn=create_answer, opened_socket=receiver)
 t.start()
 
 pks = PacketList()
@@ -71,11 +71,11 @@ sender.pair(receiver)
 
 conf.debug_match = True
 
-t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
+t = AsyncSniffer(timeout=10, prn=create_answer, opened_socket=receiver)
 t.start()
 
 txp = TestPacket(identifier=range(1, testlen * 2, 2), data=b"test1")
-rxp = sender.sr(txp, timeout=5, verbose=False)
+rxp = sender.sr(txp, timeout=10, verbose=False)
 t.stop(join=True)
 
 print(debug.sent)
@@ -102,11 +102,11 @@ sender.pair(receiver)
 
 conf.debug_match = True
 
-t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
+t = AsyncSniffer(timeout=10, prn=create_answer, opened_socket=receiver)
 t.start()
 
 txp = TestPacket(identifier=range(1, testlen * 2, 2), data=b"test1")
-rxp = sender.sr(txp, timeout=5, verbose=False)
+rxp = sender.sr(txp, timeout=10, verbose=False)
 t.stop(join=True)
 
 print(debug.sent)
@@ -133,11 +133,11 @@ sender.pair(receiver)
 
 conf.debug_match = True
 
-t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
+t = AsyncSniffer(timeout=10, prn=create_answer, opened_socket=receiver)
 t.start()
 
 txp = TestPacket(identifier=range(1, testlen * 2, 2), data=b"test1")
-rxp = sender.sr(txp, timeout=5, verbose=False)
+rxp = sender.sr(txp, timeout=10, verbose=False)
 t.stop(join=True)
 
 print(debug.sent)
@@ -164,11 +164,11 @@ sender.pair(receiver)
 
 conf.debug_match = True
 
-t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
+t = AsyncSniffer(timeout=10, prn=create_answer, opened_socket=receiver)
 t.start()
 
 txp = TestPacket(identifier=range(1, testlen * 2, 2), data=b"test1")
-rxp = sender.sr(txp, timeout=5, verbose=False)
+rxp = sender.sr(txp, timeout=10, verbose=False)
 t.stop(join=True)
 
 print(debug.sent)
@@ -191,11 +191,11 @@ sender = TestSocket(TestPacket)
 receiver = TestSocket(TestPacket)
 sender.pair(receiver)
 
-t = AsyncSniffer(timeout=5, prn=create_answer, opened_socket=receiver)
+t = AsyncSniffer(timeout=10, prn=create_answer, opened_socket=receiver)
 t.start()
 
 txp = [TestPacket(identifier=i, data=b"hello") for i in range(1, 2000, 2)]
-rxp = sender.sr(txp, timeout=5, verbose=False)
+rxp = sender.sr(txp, timeout=10, verbose=False)
 t.stop(join=True)
 
 print(rxp)
