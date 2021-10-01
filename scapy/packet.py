@@ -1139,7 +1139,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 length *= val.__iterlen__()
             elif is_valid_gen_tuple(val):
                 length *= (val[1] - val[0] + 1)
-            elif isinstance(val, list) and not fld.islist:
+            elif (isinstance(val, list) or
+                  (six.PY3 and isinstance(val, range))) and not fld.islist:
                 len2 = 0
                 for x in val:
                     if hasattr(x, "__iterlen__"):
@@ -1148,9 +1149,15 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                         len2 += (x[1] - x[0] + 1)
                     elif isinstance(x, list):
                         len2 += len(x)
+                    elif six.PY3 and isinstance(x, range):
+                        len2 += SetGen(x).__iterlen__()
                     else:
                         len2 += 1
                 length *= len2 or 1
+            elif isinstance(val, types.GeneratorType):
+                temp, new_val = itertools.tee(val, 2)
+                length *= SetGen((x for x in temp)).__iterlen__()
+                self.setfieldval(fld.name, list(new_val))
         if not isinstance(self.payload, NoPayload):
             return length * self.payload.__iterlen__()
         return length
