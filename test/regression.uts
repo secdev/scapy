@@ -1192,6 +1192,27 @@ answer = IP(src='192.168.48.19', dst='10.128.0.7')/ICMP(type=11)/IPerror(id=4267
 assert answer.answers(query)
 conf.checkIPsrc = conf_checkIPsrc
 
+= check Packet iterators with range
+
+class TestPacket(Packet):
+    name = 'TestPacket'
+    fields_desc = [
+        IntField('data', 0)
+    ]
+
+p = TestPacket(data=range(5))
+assert p.__iterlen__() == 5
+pks = [px for px in p]
+assert len(pks) == 5
+assert pks[0].data == 0
+assert pks[-1].data == 4
+
+p = TestPacket(data=range(1, 11, 2))
+assert p.__iterlen__() == 5
+pks = [px for px in p]
+assert len(pks) == 5
+assert pks[0].data == 1
+assert pks[-1].data == 9
 
 ############
 ############

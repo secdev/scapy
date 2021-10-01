@@ -1139,14 +1139,17 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 length *= val.__iterlen__()
             elif is_valid_gen_tuple(val):
                 length *= (val[1] - val[0] + 1)
-            elif isinstance(val, list) and not fld.islist:
+            elif (isinstance(val, list) or
+                  (six.PY3 and isinstance(val, range))) and not fld.islist:
                 len2 = 0
                 for x in val:
                     if hasattr(x, "__iterlen__"):
-                        len2 += x.__iterlen__()
+                        len2 += cast(Packet, x).__iterlen__()
                     elif is_valid_gen_tuple(x):
-                        len2 += (x[1] - x[0] + 1)
-                    elif isinstance(x, list):
+                        t = cast(Tuple[int, int], x)
+                        len2 += t[1] - t[0] + 1
+                    elif isinstance(x, list) or \
+                            (six.PY3 and isinstance(x, range)):
                         len2 += len(x)
                     else:
                         len2 += 1
