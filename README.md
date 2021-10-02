@@ -30,6 +30,7 @@ Scapy supports Python 2.7 and Python 3 (3.4 to 3.9). It's intended to
 be cross platform, and runs on many different platforms (Linux, OSX,
 \*BSD, and Windows).
 
+Check scapy on github explore [scapy](https://github.com/topics/scapy).
 ## Getting started
 
 Scapy is usable either as a **shell** or as a **library**.
