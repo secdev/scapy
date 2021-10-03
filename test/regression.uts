@@ -1582,13 +1582,12 @@ l = [p for p in a]
 len(l) == 7
 
 = Implicit logic 3
-
-# In case there's a single option: __iter__ should return self
+# In case there's a single option: __iter__ should not return self
 a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
 for i in a:
     i.sent_time = 1
 
-assert a.sent_time == 1
+assert a.sent_time is None
 
 # In case they are several, self should never be returned
 a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP(seq=(0, 5))
