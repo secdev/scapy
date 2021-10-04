@@ -41,11 +41,11 @@ from scapy.base_classes import BasePacket
 from scapy import packet
 from functools import reduce
 import scapy.modules.six as six
-from scapy.modules.six.moves import range
 
 from scapy.compat import (
     Any,
     AnyStr,
+    Callable,
     Dict,
     Generic,
     List,
@@ -175,12 +175,13 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
     def extract_packet(self,
                        cls,  # type: Type[ASN1_Packet]
                        s,  # type: bytes
+                       _underlayer=None  # type: Optional[ASN1_Packet]
                        ):
         # type: (...) -> Tuple[ASN1_Packet, bytes]
         try:
-            c = cls(s)
+            c = cls(s, _underlayer=_underlayer)
         except ASN1F_badsequence:
-            c = packet.Raw(s)
+            c = packet.Raw(s, _underlayer=_underlayer)
         cpad = c.getlayer(packet.Raw)
         s = b""
         if cpad is not None:
@@ -545,7 +546,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List['ASN1_Packet'],
         i, s, remain = codec.check_type_check_len(s)
         lst = []
         while s:
-            c, s = self.extract_packet(self.cls, s)
+            c, s = self.extract_packet(self.cls, s, _underlayer=pkt)
             if c:
                 lst.append(c)
         if len(s) > 0:
@@ -702,7 +703,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         if hasattr(choice, "ASN1_root"):
             choice = cast('ASN1_Packet', choice)
             # we don't want to import ASN1_Packet in this module...
-            return self.extract_packet(choice, s)
+            return self.extract_packet(choice, s, _underlayer=pkt)
         elif isinstance(choice, type):
             return choice(self.name, b"").m2i(pkt, s)
         else:
@@ -748,9 +749,11 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
                  context=None,  # type: Optional[Any]
                  implicit_tag=None,  # type: Optional[int]
                  explicit_tag=None,  # type: Optional[int]
+                 next_cls_cb=None,  # type: Optional[Callable[[ASN1_Packet], Type[ASN1_Packet]]]  # noqa: E501
                  ):
         # type: (...) -> None
         self.cls = cls
+        self.next_cls_cb = next_cls_cb
         super(ASN1F_PACKET, self).__init__(
             name, None, context=context,
             implicit_tag=implicit_tag, explicit_tag=explicit_tag
@@ -762,7 +765,11 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[Any, bytes]
-        diff_tag, s = BER_tagging_dec(s, hidden_tag=self.cls.ASN1_root.ASN1_tag,  # noqa: E501
+        if self.next_cls_cb:
+            cls = self.next_cls_cb(pkt) or self.cls
+        else:
+            cls = self.cls
+        diff_tag, s = BER_tagging_dec(s, hidden_tag=cls.ASN1_root.ASN1_tag,  # noqa: E501
                                       implicit_tag=self.implicit_tag,
                                       explicit_tag=self.explicit_tag,
                                       safe=self.flexible_tag)
@@ -773,7 +780,7 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
                 self.explicit_tag = diff_tag
         if not s:
             return None, s
-        return self.extract_packet(self.cls, s)
+        return self.extract_packet(cls, s, _underlayer=pkt)
 
     def i2m(self,
             pkt,  # type: ASN1_Packet
@@ -828,7 +835,8 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
         if len(bit_string.val) % 8 != 0:
             raise BER_Decoding_Error("wrong bit string", remaining=s)
         if bit_string.val_readable:
-            p, s = self.extract_packet(self.cls, bit_string.val_readable)
+            p, s = self.extract_packet(self.cls, bit_string.val_readable,
+                                       _underlayer=pkt)
         else:
             return None, bit_string.val_readable
         if len(s) > 0:
