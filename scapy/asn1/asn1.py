@@ -19,7 +19,6 @@ from scapy.volatile import RandField, RandIP, GeneralizedTime
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
 from scapy.compat import plain_str, bytes_encode, chb, orb
 import scapy.modules.six as six
-from scapy.modules.six.moves import range
 
 from scapy.compat import (
     Any,

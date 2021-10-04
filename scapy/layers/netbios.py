@@ -11,7 +11,7 @@ NetBIOS over TCP/IP
 
 import struct
 
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_bottom_up, bind_layers
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     IPField, IntField, NetBIOSNameField, ShortEnumField, ShortField, \
     StrFixedLenField, XShortField
@@ -275,7 +275,13 @@ class NBTSession(Packet):
                                              0x84: "Retarget Session Response",
                                              0x85: "Session Keepalive"}),
                    BitField("RESERVED", 0x00, 7),
-                   BitField("LENGTH", 0, 17)]
+                   BitField("LENGTH", None, 17)]
+
+    def post_build(self, pkt, pay):
+        if self.LENGTH is None:
+            length = len(pay) & (2**18 - 1)
+            pkt = pkt[:1] + struct.pack("!I", length)[1:]
+        return pkt + pay
 
 
 bind_layers(UDP, NBNSQueryRequest, dport=137)
@@ -289,7 +295,9 @@ bind_layers(NBNSNodeStatusResponseService, NBNSNodeStatusResponseService, )
 bind_layers(NBNSNodeStatusResponseService, NBNSNodeStatusResponseEnd, )
 bind_layers(UDP, NBNSWackResponse, sport=137)
 bind_layers(UDP, NBTDatagram, dport=138)
-bind_layers(TCP, NBTSession, dport=445)
-bind_layers(TCP, NBTSession, sport=445)
-bind_layers(TCP, NBTSession, dport=139)
-bind_layers(TCP, NBTSession, sport=139)
+
+bind_bottom_up(TCP, NBTSession, dport=445)
+bind_bottom_up(TCP, NBTSession, sport=445)
+bind_bottom_up(TCP, NBTSession, dport=139)
+bind_bottom_up(TCP, NBTSession, sport=139)
+bind_layers(TCP, NBTSession, dport=139, sport=139)

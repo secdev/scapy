@@ -651,7 +651,17 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             if isinstance(val, RawVal):
                 p += bytes(val)
             else:
-                p = f.addfield(self, p, val)
+                try:
+                    p = f.addfield(self, p, val)
+                except Exception as ex:
+                    try:
+                        ex.args = (
+                            "While disescting field '%s': " % f.name +
+                            ex.args[0],
+                        ) + ex.args[1:]
+                    except (AttributeError, IndexError):
+                        pass
+                    raise ex
         return p
 
     def do_build_payload(self):
