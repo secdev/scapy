@@ -50,8 +50,8 @@ class ReferenceAM(type):
         return obj
 
 
-@six.add_metaclass(_Generic_metaclass)
 @six.add_metaclass(ReferenceAM)
+@six.add_metaclass(_Generic_metaclass)
 class AnsweringMachine(Generic[_T]):
     function_name = ""
     filter = None  # type: Optional[str]
