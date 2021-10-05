@@ -2154,7 +2154,17 @@ def tcpdump(
         if linktype is None and isinstance(pktlist, str):
             # linktype is unknown but required. Read it from file
             with PcapReader(pktlist) as rd:
-                linktype = rd.linktype
+                if isinstance(rd, PcapNgReader):
+                    # Get the linktype from the first packet
+                    try:
+                        _, metadata = rd._read_packet()
+                        linktype = metadata.linktype
+                    except EOFError:
+                        raise ValueError(
+                            "Cannot get linktype from a PcapNg packet."
+                        )
+                else:
+                    linktype = rd.linktype
         from scapy.arch.common import compile_filter
         compile_filter(flt, linktype=linktype)
         args.append(flt)
