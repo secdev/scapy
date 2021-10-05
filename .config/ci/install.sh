@@ -3,6 +3,8 @@
 # Usage:
 # ./install.sh [install mode]
 
+set
+
 # Detect install mode
 if [[ "${1}" == "libpcap" ]]; then
     SCAPY_USE_LIBPCAP="yes"
@@ -27,12 +29,12 @@ then
   sudo apt-get update
   sudo apt-get -qy install tshark net-tools || exit 1
   sudo apt-get -qy install can-utils build-essential linux-headers-$(uname -r) linux-modules-extra-$(uname -r) || exit 1
-fi
 
-# Make sure libpcap is installed
-if [ ! -z $SCAPY_USE_LIBPCAP ]
-then
-  sudo apt-get -qy install libpcap-dev  || exit 1
+  # Make sure libpcap is installed
+  if [ ! -z $SCAPY_USE_LIBPCAP ]
+  then
+    sudo apt-get -qy install libpcap-dev  || exit 1
+  fi
 fi
 
 # On Travis, "osx" dependencies are installed in .travis.yml
