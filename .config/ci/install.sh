@@ -14,7 +14,7 @@ then
 fi
 
 # Install on osx
-if [ "$OSTYPE" = "darwin"* ] || [ "$TRAVIS_OS_NAME" = "osx" ]
+if [ "${OSTYPE:0:6}" = "darwin" ] || [ "$TRAVIS_OS_NAME" = "osx" ]
 then
   if [ ! -z $SCAPY_USE_LIBPCAP ]
   then
