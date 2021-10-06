@@ -12,7 +12,7 @@ from ctypes.util import find_library
 import os
 
 from scapy.libs.structures import bpf_program
-from scapy.consts import WINDOWS, BSD
+from scapy.consts import WINDOWS, BSD, DARWIN
 
 if WINDOWS:
     # Try to load Npcap, or Winpcap
@@ -34,8 +34,10 @@ else:
     # Try to load libpcap
     SOCKET = c_int
     _lib_name = find_library("pcap")
+    if DARWIN and not _lib_name:
+        _lib_name = find_library("/usr/lib/libpcap")
     if not _lib_name:
-        raise OSError("Cannot find libpcap.so library")
+        raise OSError("Cannot find libpcap library")
     _lib = CDLL(_lib_name)
 
 
