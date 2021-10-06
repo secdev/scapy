@@ -16,6 +16,7 @@ then
 fi
 
 # Install on osx
+echo "DBG $SCAPY_USE_LIBPCAP $OSTYPE $TRAVIS_OS_NAME"
 if [ "$OSTYPE" = "darwin"* ] || [ "$TRAVIS_OS_NAME" = "osx" ]
 then
   if [ ! -z $SCAPY_USE_LIBPCAP ]
