@@ -23,6 +23,7 @@ then
   then
     brew update
     brew install libpcap
+    otool -L /usr/sbin/tcpdump
   fi
 fi
 
