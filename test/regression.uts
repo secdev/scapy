@@ -1896,6 +1896,8 @@ assert all(list(pktpcap[proto]) == list(packets) for proto, packets in pktpcap_f
 
 = Check offline sniff() with a filter (by file object)
 ~ tcpdump
+print(conf.iface)
+print(conf.route)
 fdesc = open(filename, "rb")
 pktpcap_tcp = sniff(offline=fdesc, filter="tcp")
 fdesc.close()
