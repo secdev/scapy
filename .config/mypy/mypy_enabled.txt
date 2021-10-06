@@ -18,6 +18,7 @@ scapy/asn1/ber.py
 scapy/asn1/mib.py
 scapy/asn1fields.py
 scapy/asn1packet.py
+scapy/automaton.py
 scapy/base_classes.py
 scapy/compat.py
 scapy/config.py
