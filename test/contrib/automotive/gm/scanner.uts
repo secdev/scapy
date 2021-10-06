@@ -9,7 +9,7 @@ import itertools
 import threading
 from scapy.contrib.isotp import ISOTPMessageBuilder
 
-from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
+from test.testsocket import TestSocket, cleanup_testsockets
 
 
 ############
@@ -20,7 +20,6 @@ from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
 
 from scapy.contrib.automotive.gm.gmlan import *
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
-from scapy.contrib.automotive.gm.gmlan_ecu_states import *
 from scapy.contrib.automotive.gm.gmlan_scanner import *
 from scapy.contrib.automotive.ecu import *
 load_layer("can")

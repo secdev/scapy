@@ -5,7 +5,7 @@
 
 = Imports
 
-from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
+from test.testsocket import TestSocket, cleanup_testsockets
 
 ############
 ############
@@ -15,8 +15,6 @@ from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
 
 load_contrib("automotive.uds", globals_dict=globals())
 load_contrib("automotive.ecu", globals_dict=globals())
-
-from scapy.contrib.automotive.uds_ecu_states import *
 
 conf.contribs['EcuAnsweringMachine']['send_delay'] = 0
 

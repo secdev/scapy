@@ -6,7 +6,7 @@
 
 = Imports
 
-from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
+from test.testsocket import TestSocket, cleanup_testsockets
 
 ############
 ############
@@ -153,7 +153,8 @@ assert res
 
 
 
-= Positive, pending message from different service interferes while pending
+= Positive, pending message
+interferes while pending
 started = threading.Event()
 def ecusim():
     isotpsock2.sniff(count=1, timeout=1, started_callback=started.set)
@@ -176,7 +177,8 @@ res = GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
 thread.join(timeout=5)
 assert res
 
-= Positive, negative response from different service interferes while pending
+= Positive, negative response
+interferes while pending
 started = threading.Event()
 def ecusim():
     isotpsock2.sniff(count=1, timeout=1, started_callback=started.set)

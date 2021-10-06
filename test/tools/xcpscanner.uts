@@ -4,11 +4,11 @@
 
 = Imports
 
-from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
+from test.testsocket import TestSocket, cleanup_testsockets
 
 + Tests XCPonCAN Scanner
 
-= import XCP modules
+=  modules
 
 load_contrib("automotive.xcp.xcp", globals_dict=globals())
 load_contrib("automotive.xcp.scanner", globals_dict=globals())

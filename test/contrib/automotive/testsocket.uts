@@ -5,7 +5,7 @@
 
 = Imports
 
-from scapy.contrib.automotive.testsocket import TestSocket, cleanup_testsockets
+from test.testsocket import TestSocket, cleanup_testsockets
 
 = Create Dummy Packet
 
