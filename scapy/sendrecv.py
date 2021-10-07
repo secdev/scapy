@@ -9,7 +9,7 @@ Functions to send and receive packets.
 
 from __future__ import absolute_import, print_function
 import itertools
-from threading import Thread, Event, Lock
+from threading import Thread, Event
 import os
 import re
 import subprocess
@@ -26,7 +26,7 @@ from scapy.interfaces import (
 )
 from scapy.packet import Packet
 from scapy.utils import get_temp_file, tcpdump, wrpcap, \
-    ContextManagerSubprocess, PcapReader, ThreadSafeInt, EDecimal
+    ContextManagerSubprocess, PcapReader, EDecimal
 from scapy.plist import (
     PacketList,
     QueryAnswer,
@@ -119,7 +119,7 @@ class SndRcvHandler(object):
                  multi=False,  # type: bool
                  rcv_pks=None,  # type: Optional[SuperSocket]
                  prebuild=False,  # type: bool
-                 _flood=None,  # type: Optional[Tuple[ThreadSafeInt, Callable[[], None]]]  # noqa: E501
+                 _flood=None,  # type: Optional[_FloodGenerator]
                  threaded=False,  # type: bool
                  session=None  # type: Optional[_GlobSessionType]
                  ):
@@ -141,7 +141,6 @@ class SndRcvHandler(object):
         self.multi = multi
         self.timeout = timeout
         self.session = session
-        self._sync_lock = Lock()
         self._send_done = False
         self.notans = 0
         self.noans = 0
@@ -177,7 +176,7 @@ class SndRcvHandler(object):
                 # Ended. Let's close gracefully
                 if self._flood:
                     # Flood: stop send thread
-                    self._flood[1]()
+                    self._flood.stop()
                 snd_thread.join()
             else:
                 self._sndrcv_rcv(self._sndrcv_snd)
@@ -254,13 +253,11 @@ class SndRcvHandler(object):
                     cast(Packet, p).sent_time
             except AttributeError:
                 pass
-
-            with self._sync_lock:
-                if self._flood:
-                    self.notans = self._flood[0].value
-                elif not self._send_done:
-                    self.notans = i
-                self._send_done = True
+            if self._flood:
+                self.notans = self._flood.iterlen
+            elif not self._send_done:
+                self.notans = i
+            self._send_done = True
 
     def _process_packet(self, r):
         # type: (Packet) -> None
@@ -806,6 +803,45 @@ def srploop(pkts,  # type: _PacketIterable
 # SEND/RECV FLOOD METHODS
 
 
+class _FloodGenerator(object):
+    def __init__(self, tobesent, maxretries):
+        # type: (_PacketIterable, Optional[int]) -> None
+        self.tobesent = tobesent
+        self.maxretries = maxretries
+        self.stopevent = Event()
+        self.iterlen = 0
+
+    def __iter__(self):
+        # type: () -> Iterator[Packet]
+        i = 0
+        while True:
+            i += 1
+            j = 0
+            if self.maxretries and i >= self.maxretries:
+                return
+            for p in self.tobesent:
+                if self.stopevent.is_set():
+                    return
+                j += 1
+                yield p
+            if self.iterlen == 0:
+                self.iterlen = j
+
+    @property
+    def sent_time(self):
+        # type: () -> Union[EDecimal, float, None]
+        return cast(Packet, self.tobesent).sent_time
+
+    @sent_time.setter
+    def sent_time(self, val):
+        # type: (Union[EDecimal, float, None]) -> None
+        cast(Packet, self.tobesent).sent_time = val
+
+    def stop(self):
+        # type: () -> None
+        self.stopevent.set()
+
+
 def sndrcvflood(pks,  # type: SuperSocket
                 pkt,  # type: _PacketIterable
                 inter=0,  # type: int
@@ -817,46 +853,12 @@ def sndrcvflood(pks,  # type: SuperSocket
     # type: (...) -> Tuple[SndRcvList, PacketList]
     """sndrcv equivalent for flooding."""
 
-    class FloodGenerator(object):
-        def __init__(self, tobesent, maxretries):
-            # type: (_PacketIterable, Optional[int]) -> None
-            self.tobesent = tobesent
-            self.maxretries = maxretries
-            self.stopevent = Event()
-            self.iterlen = ThreadSafeInt()
-
-        def __iter__(self):
-            # type: () -> Iterator[Packet]
-            i = 0
-            while True:
-                i += 1
-                j = 0
-                if self.maxretries and i >= self.maxretries:
-                    return
-                for p in self.tobesent:
-                    if self.stopevent.is_set():
-                        return
-                    j += 1
-                    yield p
-                if self.iterlen.value == 0:
-                    self.iterlen.value = j
-
-        @property
-        def sent_time(self):
-            # type: () -> Union[EDecimal, float, None]
-            return cast(Packet, self.tobesent).sent_time
-
-        @sent_time.setter
-        def sent_time(self, val):
-            # type: (Union[EDecimal, float, None]) -> None
-            cast(Packet, self.tobesent).sent_time = val
-
-    infinite_gen = FloodGenerator(pkt, maxretries)
+    flood_gen = _FloodGenerator(pkt, maxretries)
     return sndrcv(
-        pks, infinite_gen,
+        pks, flood_gen,
         inter=inter, verbose=verbose,
         chainCC=chainCC, timeout=timeout,
-        _flood=[infinite_gen.iterlen, infinite_gen.stopevent.set]
+        _flood=flood_gen
     )
 
 

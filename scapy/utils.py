@@ -2567,25 +2567,6 @@ def whois(ip_address):
             break
     return b"\n".join(lines[3:])
 
-
-class ThreadSafeInt(object):
-    def __init__(self):
-        # type: () -> None
-        self.__value = 0
-        self.__lock = threading.Lock()
-
-    @property
-    def value(self):
-        # type: () -> int
-        return self.__value
-
-    @value.setter
-    def value(self, val):
-        # type: (int) -> None
-        with self.__lock:
-            self.__value = val
-
-
 #######################
 #   PERIODIC SENDER   #
 #######################
