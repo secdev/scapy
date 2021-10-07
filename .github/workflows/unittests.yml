@@ -90,11 +90,11 @@ jobs:
             mode: root
             installmode: 'libpcap'
           # MacOS tests
-          - os: macos-latest
+          - os: macos-10
             python: 2.7
             mode: both
             installmode: 'libpcap'
-          - os: macos-latest
+          - os: macos-10
             python: 3.9
             mode: both
             installmode: 'libpcap'
