@@ -76,6 +76,7 @@ assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == False
 ############################ Response pending
 = Positive, after response pending
 started = threading.Event()
+
 def ecusim():
     isotpsock2.sniff(count=1, timeout=2, started_callback=started.set)
     pending = GMLAN()/GMLAN_NR(requestServiceId=0x34, returnCode=0x78)
@@ -95,6 +96,7 @@ assert res
 tout = 0.1
 repeats = 4
 started = threading.Event()
+
 def ecusim():
     isotpsock2.sniff(count=1, timeout=1, started_callback=started.set)
     ack = GMLAN()/GMLAN_NR(requestServiceId=0x34, returnCode=0x78)
@@ -153,8 +155,7 @@ assert res
 
 
 
-= Positive, pending message
-interferes while pending
+= Positive, pending message from different service interferes while pending
 started = threading.Event()
 def ecusim():
     isotpsock2.sniff(count=1, timeout=1, started_callback=started.set)
@@ -177,9 +178,9 @@ res = GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
 thread.join(timeout=5)
 assert res
 
-= Positive, negative response
-interferes while pending
+= Positive, negative response from different service interferes while pending
 started = threading.Event()
+
 def ecusim():
     isotpsock2.sniff(count=1, timeout=1, started_callback=started.set)
     pending = GMLAN()/GMLAN_NR(requestServiceId=0x34, returnCode=0x78)
