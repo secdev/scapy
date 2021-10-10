@@ -1,7 +1,7 @@
 # Install Npcap on the machine.
 
 # Config:
-$npcap_oem_file = "npcap-1.31-oem.exe"
+$npcap_oem_file = "npcap-1.55-oem.exe"
 
 # Note: because we need the /S option (silent), this script has two cases:
 #  - The script is runned from a master build, then use the secure variable 'npcap_oem_key' which will be available
@@ -24,7 +24,12 @@ if (Test-Path Env:npcap_oem_key){  # Key is here: on master
     $headers = @{ Authorization = $basicAuthValue }
     $secpasswd = ConvertTo-SecureString $pass -AsPlainText -Force
     $credential = New-Object System.Management.Automation.PSCredential($user, $secpasswd)
-    Invoke-WebRequest -uri (-join("https://nmap.org/npcap/oem/dist/",$npcap_oem_file)) -OutFile $file -Headers $headers -Credential $credential
+    try {
+        Invoke-WebRequest -uri (-join("https://nmap.org/npcap/oem/dist/",$npcap_oem_file)) -OutFile $file -Headers $headers -Credential $credential
+    } catch [System.Net.WebException],[System.IO.IOException] {
+        Write-Error "Error while dowloading npcap !"
+        exit 1
+    }
 } else {  # No key: PRs
     echo "Using backup 0.96"
     $file = $PSScriptRoot+"\npcap-0.96.exe"
@@ -33,8 +38,8 @@ if (Test-Path Env:npcap_oem_key){  # Key is here: on master
     # Now let's check its checksum
     $_chksum = $(CertUtil -hashfile $file SHA256)[1] -replace " ",""
     if ($_chksum -ne "83667e1306fdcf7f9967c10277b36b87e50ee8812e1ee2bb9443bdd065dc04a1"){
-        echo "Checksums does NOT match !"
-        exit
+        Write-Error "Checksums does NOT match !"
+        exit 1
     } else {
         echo "Checksums matches !"
     }
@@ -42,7 +47,11 @@ if (Test-Path Env:npcap_oem_key){  # Key is here: on master
 echo ('Installing: ' + $file)
 
 # Run installer
-Start-Process $file -ArgumentList "/loopback_support=yes /S" -wait
-if($?) {
-    echo "Npcap installation completed"
+$process = Start-Process $file -ArgumentList "/loopback_support=yes /S" -PassThru -Wait
+if($process.ExitCode -eq 0) {
+    echo "Npcap installation completed !"
+    exit 0
+} else {
+    Write-Error "Npcap installation failed !"
+    exit 1
 }
