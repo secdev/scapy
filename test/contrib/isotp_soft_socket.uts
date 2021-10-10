@@ -99,23 +99,15 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as stim, ISOTPSoftSocket(cans, sid
     cans.pair(stim)
     data = dhex("01 02 03 04 05")*4000
     msg = ISOTP(data, dst=0x641)
-    ready = threading.Event()
     fragments = msg.fragment()
     ack = CAN(identifier=0x241, data=dhex("30 00 00"))
-    def sender():
-        ready.wait(timeout=5)
-        s.send(msg)
-    thread = threading.Thread(target=sender, name="sender")
-    thread.start()
-    ready.set()
-    ff = stim.sniff(count=1, timeout=1)[0]
-    assert (bytes(ff) == bytes(fragments[0]))
-    stim.send(ack)
-    cfs = stim.sniff(count=len(fragments) - 1, timeout=1)
-    for fragment, cf in zip(fragments[1:], cfs):
+    sniffer = AsyncSniffer(opened_socket=stim, count=len(fragments), timeout=2, prn=lambda x: stim.send(ack))
+    sniffer.start()
+    s.send(msg)
+    sniffer.stop()
+    cfs = sniffer.results
+    for fragment, cf in zip(fragments, cfs):
         assert (bytes(fragment) == bytes(cf))
-    thread.join(15)
-    assert not thread.is_alive()
 
 = Close ISOTPSoftSocket
 
