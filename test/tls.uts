@@ -1565,3 +1565,16 @@ assert [type(x) for x in pkt.msg] == [TLSServerHello, TLSCertificate, TLSCertifi
 # see test/tls/tests_tls_netaccess.uts
 
 
+###############################################################################
+####################### Decrypt packets from a pcap ##########################
+###############################################################################
+
+bck_conf = conf
+conf.tls_session_enable = True
+conf.tls_nss_filename = scapy_path("doc/notebooks/tls/raw_data/tls_nss_example.keys.txt")
+
+packets = rdpcap(scapy_path("doc/notebooks/tls/raw_data/tls_nss_example.pcap"))
+assert b"GET /secret.txt HTTP/1.0\n" in packets[11].msg[0].data
+assert b"z2|gxarIKOxt,G1d>.Q2MzGY[k@" in packets[13].msg[0].data
+
+conf = bck_conf
