@@ -104,7 +104,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as stim, ISOTPSoftSocket(cans, sid
     sniffer = AsyncSniffer(opened_socket=stim, count=len(fragments), timeout=2, prn=lambda x: stim.send(ack))
     sniffer.start()
     s.send(msg)
-    sniffer.stop()
+    sniffer.join(timeout=3)
     cfs = sniffer.results
     for fragment, cf in zip(fragments, cfs):
         assert (bytes(fragment) == bytes(cf))
