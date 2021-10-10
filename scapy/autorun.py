@@ -11,12 +11,14 @@ from __future__ import print_function
 import code
 import logging
 import sys
+import threading
 import traceback
 
 from scapy.config import conf
 from scapy.themes import NoTheme, DefaultTheme, HTMLTheme2, LatexTheme2
 from scapy.error import log_scapy, Scapy_Exception
 from scapy.utils import tex_escape
+from scapy.modules.six.moves import queue
 import scapy.modules.six as six
 
 
@@ -26,6 +28,10 @@ import scapy.modules.six as six
 
 class StopAutorun(Scapy_Exception):
     code_run = ""
+
+
+class StopAutorunTimeout(StopAutorun):
+    pass
 
 
 class ScapyAutorunInterpreter(code.InteractiveInterpreter):
@@ -87,6 +93,23 @@ def autorun_commands(cmds, my_globals=None, verb=None):
         return six.moves.builtins.__dict__.get("_", None)
 
 
+def autorun_commands_timeout(cmds, timeout=None, **kwargs):
+    if timeout is None:
+        return autorun_commands(cmds, **kwargs)
+
+    q = queue.Queue()
+
+    def _runner():
+        q.put(autorun_commands(cmds, **kwargs))
+    th = threading.Thread(target=_runner)
+    th.daemon = True
+    th.start()
+    th.join(timeout)
+    if th.is_alive():
+        raise StopAutorunTimeout
+    return q.get()
+
+
 class StringWriter(object):
     """Util to mock sys.stdout and sys.stderr, and
     store their output in a 's' var."""
@@ -111,6 +134,7 @@ def autorun_get_interactive_session(cmds, **kargs):
     commands passed as "cmds" and return all output
 
     :param cmds: a list of commands to run
+    :param timeout: timeout in seconds
     :returns: (output, returned) contains both sys.stdout and sys.stderr logs
     """
     sstdout, sstderr, sexcepthook = sys.stdout, sys.stderr, sys.excepthook
@@ -122,7 +146,7 @@ def autorun_get_interactive_session(cmds, **kargs):
         try:
             sys.stdout = sys.stderr = sw
             sys.excepthook = sys.__excepthook__
-            res = autorun_commands(cmds, **kargs)
+            res = autorun_commands_timeout(cmds, **kargs)
         except StopAutorun as e:
             e.code_run = sw.s
             raise
@@ -138,6 +162,7 @@ def autorun_get_interactive_live_session(cmds, **kargs):
     commands passed as "cmds" and return all output
 
     :param cmds: a list of commands to run
+    :param timeout: timeout in seconds
     :returns: (output, returned) contains both sys.stdout and sys.stderr logs
     """
     sstdout, sstderr = sys.stdout, sys.stderr
@@ -145,7 +170,7 @@ def autorun_get_interactive_live_session(cmds, **kargs):
     try:
         try:
             sys.stdout = sys.stderr = sw
-            res = autorun_commands(cmds, **kargs)
+            res = autorun_commands_timeout(cmds, **kargs)
         except StopAutorun as e:
             e.code_run = sw.s
             raise
