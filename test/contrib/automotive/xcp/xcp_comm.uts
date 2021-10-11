@@ -25,7 +25,7 @@ sniffer = AsyncSniffer(opened_socket=sock2, count=1, timeout=5, prn=lambda x: so
 sniffer.start()
 pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
 ans = sock1.sr1(pkt, timeout=0.5, verbose=False)
-sniffer.join()
+sniffer.join(timeout=1)
 
 assert ans.identifier == 0x700
 cto_response = ans["CTOResponse"]
