@@ -883,21 +883,16 @@ sock1 = TestSocket(CCP)
 sock2 = TestSocket(CAN)
 sock1.pair(sock2)
 
-started = threading.Event()
+def answer(pkt):
+    cro = CRO(pkt.data)
+    assert cro.cmd == 0x22
+    assert cro.data == b"\x10\x11\x12\x10\x11\x12"
+    sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x53\x02\x34\x00\x20\x06'))
 
-def ecu():
-    pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
-    if len(pkts) == 1:
-        cro = CRO(pkts[0].data)
-        assert cro.cmd == 0x22
-        assert cro.data == b"\x10\x11\x12\x10\x11\x12"
-        sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x53\x02\x34\x00\x20\x06'))
-
-thread = threading.Thread(target=ecu)
-thread.start()
-started.wait(timeout=5)
+sniffer = AsyncSniffer(opened_socket=sock2, count=1, timeout=5, prn=answer)
+sniffer.start()
 dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x53)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1, verbose=False)
-thread.join(timeout=5)
+sniffer.join(timeout=5)
 sock1.close()
 sock2.close()
 
@@ -914,21 +909,16 @@ sock1 = TestSocket(CCP)
 sock2 = TestSocket(CAN)
 sock1.pair(sock2)
 
-started = threading.Event()
+def answer(pkt):
+    cro = CRO(pkt.data)
+    assert cro.cmd == 0x22
+    assert cro.data == b"\x10\x11\x12\x10\x11\x12"
+    sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x55\x02\x34\x00\x20\x06'))
 
-def ecu():
-    pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
-    if len(pkts) == 1:
-        cro = CRO(pkts[0].data)
-        assert cro.cmd == 0x22
-        assert cro.data == b"\x10\x11\x12\x10\x11\x12"
-        sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x00\x55\x02\x34\x00\x20\x06'))
-
-thread = threading.Thread(target=ecu)
-thread.start()
-started.wait(timeout=5)
+sniffer = AsyncSniffer(opened_socket=sock2, count=1, timeout=5, prn=answer)
+sniffer.start()
 dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x54)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=0.1, verbose=False)
-thread.join(timeout=5)
+sniffer.join(timeout=5)
 sock1.close()
 sock2.close()
 assert dto is None
@@ -940,21 +930,16 @@ sock1 = TestSocket(CCP)
 sock2 = TestSocket(CAN)
 sock1.pair(sock2)
 
-started = threading.Event()
+def answer(pkt):
+    cro = CRO(pkt.data)
+    assert cro.cmd == 0x22
+    assert cro.data == b"\x10\x11\x12\x10\x11\x12"
+    sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x01\x55\xff\xff\xff\xff\xff'))
 
-def ecu():
-    pkts = sock2.sniff(count=1, timeout=1, started_callback=started.set)
-    if len(pkts) == 1:
-        cro = CRO(pkts[0].data)
-        assert cro.cmd == 0x22
-        assert cro.data == b"\x10\x11\x12\x10\x11\x12"
-        sock2.send(CCP(b'\x00\x00\x07\x00\x08\x00\x00\x00\xff\x01\x55\xff\xff\xff\xff\xff'))
-
-thread = threading.Thread(target=ecu)
-thread.start()
-started.wait(timeout=5)
+sniffer = AsyncSniffer(opened_socket=sock2, count=1, timeout=5, prn=answer)
+sniffer.start()
 dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x55)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1, verbose=False)
-thread.join(timeout=5)
+sniffer.join(timeout=5)
 sock1.close()
 sock2.close()
 

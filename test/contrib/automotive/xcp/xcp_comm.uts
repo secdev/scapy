@@ -16,34 +16,16 @@ load_contrib("automotive.xcp.xcp",  globals_dict=globals())
 
 = Connect
 
-evt = threading.Event()
 sock1 = TestSocket(XCPOnCAN)
 sock2 = TestSocket(XCPOnCAN)
 sock1.pair(sock2)
 
-def ecu():
-    global evt
-    response = XCPOnCAN(
-        identifier=0x700) / CTOResponse() / ConnectPositiveResponse(
-        b'\x15\xC0\x08\x08\x00\x10\x10')
-    while True:
-        pkts = sock2.sniff(count=1, timeout=5, started_callback=evt.set)
-        if len(pkts):
-            if pkts[0].identifier == 0x100:
-                break
-            sock2.send(response)
-
-thread = threading.Thread(target=ecu)
-thread.start()
-evt.wait(timeout=10)
+response = XCPOnCAN(identifier=0x700) / CTOResponse() / ConnectPositiveResponse(b'\x15\xC0\x08\x08\x00\x10\x10')
+sniffer = AsyncSniffer(opened_socket=sock2, count=1, timeout=5, prn=lambda x: sock2.send(response))
+sniffer.start()
 pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
-for x in range(10):
-    ans = sock1.sr1(pkt, timeout=0.5)
-    if ans is not None:
-        break
-
-sock1.send(XCPOnCAN(identifier=0x100))
-thread.join(timeout=10)
+ans = sock1.sr1(pkt, timeout=0.5, verbose=False)
+sniffer.join()
 
 assert ans.identifier == 0x700
 cto_response = ans["CTOResponse"]
