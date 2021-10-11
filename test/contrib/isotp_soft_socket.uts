@@ -89,8 +89,10 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as stim, ISOTPSoftSocket(cans, sid
     c = stim.sniff(count=1, timeout=1)[0]
     assert (c.data == dhex("30 00 00"))
     for f in cf:
-        stim.send(f)
-    msg = s.sniff(count=1, timeout=1)[0]
+        _ = stim.send(f)
+    msgs = s.sniff(count=1, timeout=3)
+    print(msgs)
+    msg = msgs[0]
     assert(msg.data == data)
 
 = 20000 bytes send
