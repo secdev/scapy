@@ -1040,7 +1040,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.payload.hide_defaults()
 
     def clone_with(self, payload=None, **kargs):
-        # type: (Optional[Any], bool, **Any) -> Any
+        # type: (Optional[Any], **Any) -> Any
         pkt = self.__class__()
         pkt.explicit = 1
         pkt.fields = kargs
