@@ -55,7 +55,7 @@ assert(sniffed[0]['ISOTP'].exdst is 0xEA)
 with TestSocket(CAN) as cans, TestSocket(CAN) as stim, ISOTPSoftSocket(cans, sid=0x641, did=0x241) as s:
     cans.pair(stim)
     stim.send(CAN(identifier=0x241, data=dhex("05 01 02 03 04 05")))
-    msg = s.recv()
+    msg = s.sniff(count=1, timeout=1)[0]
     assert(msg.data == dhex("01 02 03 04 05"))
 
 = Single-frame send
@@ -74,7 +74,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as stim, ISOTPSoftSocket(cans, sid
     c = stim.sniff(count=1, timeout=1)[0]
     assert (c.data == dhex("30 00 00"))
     stim.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
-    msg = s.recv()
+    msg = s.sniff(count=1, timeout=1)[0]
     assert(msg.data == dhex("01 02 03 04 05 06 07 08 09"))
 
 
@@ -90,7 +90,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as stim, ISOTPSoftSocket(cans, sid
     assert (c.data == dhex("30 00 00"))
     for f in cf:
         stim.send(f)
-    msg = s.recv()
+    msg = s.sniff(count=1, timeout=1)[0]
     assert(msg.data == data)
 
 = 20000 bytes send
@@ -323,7 +323,7 @@ assert not thread.is_alive()
 with TestSocket(CAN) as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241) as s, TestSocket(CAN) as cans:
     cans.pair(isocan)
     cans.send(CAN(identifier = 0x241, data = dhex("05 01 02 03 04 05")))
-    isotp = s.recv()
+    isotp = s.sniff(count=1, timeout=1)[0]
     assert(isotp.data == dhex("01 02 03 04 05"))
     assert(isotp.src == 0x641)
     assert(isotp.dst == 0x241)
@@ -336,7 +336,7 @@ with TestSocket(CAN) as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241) as
 with TestSocket(CAN) as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241, extended_addr=0xc0, extended_rx_addr=0xea) as s, TestSocket(CAN) as cans:
     cans.pair(isocan)
     cans.send(CAN(identifier = 0x241, data = dhex("EA 05 01 02 03 04 05")))
-    isotp = s.recv()
+    isotp = s.sniff(count=1, timeout=1)[0]
     assert(isotp.data == dhex("01 02 03 04 05"))
     assert(isotp.src == 0x641)
     assert(isotp.dst == 0x241)
@@ -480,7 +480,7 @@ with TestSocket(CAN) as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241) as
     cans.pair(isocan)
     cans.send(CAN(identifier = 0x241, data = dhex("10 0B 01 02 03 04 05 06")))
     cans.send(CAN(identifier = 0x241, data = dhex("21 07 08 09 10 11")))
-    isotp = s.recv()
+    isotp = s.sniff(count=1, timeout=1)[0]
     assert(isotp.data == dhex("01 02 03 04 05 06 07 08 09 10 11"))
 
 = Check what happens when a CAN frame with wrong identifier gets received
@@ -880,7 +880,7 @@ with new_can_socket(iface0) as cans:
 with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241, padding=False) as s:
     with new_can_socket(iface0) as cans:
         cans.send(CAN(identifier=0x241, data=dhex("02 05 06 00 00 00 00 00")))
-        res = s.recv()
+        res = s.sniff(count=1, timeout=1)[0]
         assert(res.data == dhex("05 06"))
 
 
@@ -888,7 +888,7 @@ with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241, 
 with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241, padding=True) as s:
     with new_can_socket(iface0) as cans:
         cans.send(CAN(identifier=0x241, data=dhex("02 05 06 00 00 00 00 00")))
-        res = s.recv()
+        res = s.sniff(count=1, timeout=1)[0]
         assert(res.data == dhex("05 06"))
 
 
@@ -896,7 +896,7 @@ with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241, 
 with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241, padding=True) as s:
     with new_can_socket(iface0) as cans:
         cans.send(CAN(identifier=0x241, data=dhex("02 05 06")))
-        res = s.recv()
+        res = s.sniff(count=1, timeout=1)[0]
         assert(res.data == dhex("05 06"))
 
 
@@ -905,7 +905,7 @@ with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241, 
     with new_can_socket(iface0) as cans:
         cans.send(CAN(identifier=0x241, data=dhex("10 09 01 02 03 04 05 06")))
         cans.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
-        res = s.recv()
+        res = s.sniff(count=1, timeout=1)[0]
         assert(res.data == dhex("01 02 03 04 05 06 07 08 09"))
 
 
@@ -914,7 +914,7 @@ with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241, 
     with new_can_socket(iface0) as cans:
         cans.send(CAN(identifier=0x241, data=dhex("10 09 01 02 03 04 05 06")))
         cans.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
-        res = s.recv()
+        res = s.sniff(count=1, timeout=1)[0]
         res.show()
         assert(res.data == dhex("01 02 03 04 05 06 07 08 09"))
 
