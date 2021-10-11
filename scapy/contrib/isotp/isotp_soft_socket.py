@@ -400,7 +400,7 @@ class TimeoutScheduler:
     def _time():
         # type: () -> float
         if six.PY2:
-            return time.clock()
+            return time.time()
         return time.monotonic()
 
     class Handle:
@@ -579,8 +579,6 @@ class ISOTPSocketImplementation:
 
     def on_can_recv(self, p):
         # type: (Packet) -> None
-        if not isinstance(p, CAN):
-            raise Scapy_Exception("argument is not a CAN frame")
         if p.identifier != self.dst_id:
             if not self.filter_warning_emitted and conf.verb >= 2:
                 warning("You should put a filter for identifier=%x on your "
@@ -621,15 +619,16 @@ class ISOTPSocketImplementation:
                 self.tx_state = ISOTP_IDLE
                 self.tx_exception = "TX state was reset due to timeout"
                 self.tx_done.set()
-                raise Scapy_Exception(self.tx_exception)
+                return
             elif self.tx_state == ISOTP_SENDING:
                 # push out the next segmented pdu
                 src_off = len(self.ea_hdr)
                 max_bytes = 7 - src_off
                 if self.tx_buf is None:
+                    self.tx_state = ISOTP_IDLE
                     self.tx_exception = "TX buffer is not filled"
-                    raise Scapy_Exception(self.tx_exception)
-
+                    self.tx_done.set()
+                    return
                 while 1:
                     load = self.ea_hdr
                     load += struct.pack("B", N_PCI_CF + self.tx_sn)
@@ -711,7 +710,7 @@ class ISOTPSocketImplementation:
             self.tx_state = ISOTP_IDLE
             self.tx_exception = "CF frame discarded because it was too short"
             self.tx_done.set()
-            raise Scapy_Exception(self.tx_exception)
+            return
 
         # get communication parameters only from the first FC frame
         if self.tx_state == ISOTP_WAIT_FIRST_FC:
@@ -750,12 +749,12 @@ class ISOTPSocketImplementation:
             self.tx_state = ISOTP_IDLE
             self.tx_exception = "Overflow happened at the receiver side"
             self.tx_done.set()
-            raise Scapy_Exception(self.tx_exception)
+            return
         else:
             self.tx_state = ISOTP_IDLE
             self.tx_exception = "Unknown FC frame type"
             self.tx_done.set()
-            raise Scapy_Exception(self.tx_exception)
+            return
 
     def _recv_sf(self, data, ts):
         # type: (bytes, Union[float, EDecimal]) -> None
@@ -861,7 +860,10 @@ class ISOTPSocketImplementation:
             return
 
         if self.rx_buf is None:
-            raise Scapy_Exception("rx_buf not filled with data!")
+            if conf.verb > 2:
+                warning("rx_buf not filled with data!")
+            self.rx_state = ISOTP_IDLE
+            return
 
         self.rx_sn = (self.rx_sn + 1) % 16
         self.rx_buf += data[1:]
