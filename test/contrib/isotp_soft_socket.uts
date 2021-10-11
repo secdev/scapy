@@ -90,7 +90,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as stim, ISOTPSoftSocket(cans, sid
     assert (c.data == dhex("30 00 00"))
     for f in cf:
         _ = stim.send(f)
-    msgs = s.sniff(count=1, timeout=3)
+    msgs = s.sniff(count=1, timeout=30)
     print(msgs)
     msg = msgs[0]
     assert(msg.data == data)
