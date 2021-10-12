@@ -657,7 +657,7 @@ Creating a CTO message::
     CTORequest() / GetDaqResolutionInfo()
     CTORequest() / GetSeed(mode=0x01, resource=0x00)
 
-To send the message over CAN a header has to be added
+To send the message over CAN a header has to be added::
 
     pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
     sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0'))
