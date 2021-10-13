@@ -303,7 +303,7 @@ class CDPMsgVoIPVLANReply(CDPMsgGeneric):
     name = "VoIP VLAN Reply"
     fields_desc = [XShortEnumField("type", 0x000e, _cdp_tlv_types),
                    ShortField("len", 7),
-                   ByteField("status?", 1),
+                   ByteField("status", 1),
                    ShortField("vlan", 1)]
 
 

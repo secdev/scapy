@@ -117,7 +117,7 @@ class SMB2_Compression_Transform_Header(Packet):
             0x0000: "SMB2_COMPRESSION_FLAG_NONE",
             0x0001: "SMB2_COMPRESSION_FLAG_CHAINED",
         }),
-        XLEIntField("Offset/Length", 0),
+        XLEIntField("Offset_or_Length", 0),
     ]
 
 

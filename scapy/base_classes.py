@@ -337,6 +337,20 @@ class Packet_metaclass(_Generic_metaclass):
                 dct["_%s" % attr] = dct.pop(attr)
             except KeyError:
                 pass
+        # Build and inject signature
+        try:
+            # Py3 only
+            import inspect
+            dct["__signature__"] = inspect.Signature([
+                inspect.Parameter("_pkt", inspect.Parameter.POSITIONAL_ONLY),
+            ] + [
+                inspect.Parameter(f.name,
+                                  inspect.Parameter.KEYWORD_ONLY,
+                                  default=f.default)
+                for f in dct["fields_desc"]
+            ])
+        except (ImportError, AttributeError, KeyError):
+            pass
         newcls = type.__new__(cls, name, bases, dct)
         # Note: below can't be typed because we use attributes
         # created dynamically..

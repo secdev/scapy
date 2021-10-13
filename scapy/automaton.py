@@ -605,6 +605,14 @@ class Automaton_metaclass(type):
                         ioev.atmt_as_supersocket,
                         ioev.atmt_ioname,
                         cast(Type["Automaton"], cls)))
+
+        # Inject signature
+        try:
+            import inspect
+            cls.__signature__ = inspect.signature(cls.parse_args)  # type: ignore  # noqa: E501
+        except (ImportError, AttributeError):
+            pass
+
         return cast(Type["Automaton"], cls)
 
     def build_graph(self):

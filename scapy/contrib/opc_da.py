@@ -721,8 +721,8 @@ _opcDa_auth_classes = {
 class OpcDaAuth3(Packet):
     name = "Auth3"
     fields_desc = [
-        ShortField('code?', 5840),
-        ShortField('code2?', 5840),
+        ShortField('code', 5840),
+        ShortField('code2', 5840),
         ByteField('authType', 10),
         ByteField('authLevel', 2),
         ByteField('authPadLen', 0),
