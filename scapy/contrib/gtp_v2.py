@@ -890,11 +890,11 @@ class IE_Indication(gtp.IE_Base):
         ConditionalField(
         BitField("WPMSI", 0, 1), lambda pkt: pkt.length > 5),
         ConditionalField(
-        BitField("5GSNN26", 0, 1), lambda pkt: pkt.length > 6),
+        BitField("_5GSNN26", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
         BitField("REPREFI", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
-        BitField("5GSIWKI", 0, 1), lambda pkt: pkt.length > 6),
+        BitField("_5GSIWKI", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
         BitField("EEVRSI", 0, 1), lambda pkt: pkt.length > 6),
         ConditionalField(
@@ -914,11 +914,11 @@ class IE_Indication(gtp.IE_Base):
         ConditionalField(
         BitField("N5GNMI", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
-        BitField("5GCNRS", 0, 1), lambda pkt: pkt.length > 7),
+        BitField("_5GCNRS", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
-        BitField("5GCNRI", 0, 1), lambda pkt: pkt.length > 7),
+        BitField("_5GCNRI", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
-        BitField("5SRHOI", 0, 1), lambda pkt: pkt.length > 7),
+        BitField("_5SRHOI", 0, 1), lambda pkt: pkt.length > 7),
         ConditionalField(
         BitField("ETHPDN", 0, 1), lambda pkt: pkt.length > 7),
 

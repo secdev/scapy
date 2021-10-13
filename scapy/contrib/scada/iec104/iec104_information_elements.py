@@ -489,7 +489,7 @@ class IEC104_IE_QOC:
     }
 
     informantion_element_fields = [
-        BitEnumField('s/e', 0, 1, SE_FLAGS),
+        BitEnumField('s_or_e', 0, 1, SE_FLAGS),
         BitEnumField('qu', 0, 5, QU_FLAGS)
     ]
 
@@ -613,7 +613,7 @@ class IEC104_IE_CP56TIME2A(IEC104_IE_CommonQualityFlags):
         BitField('reserved_2', 0, 2),
         BitField('hours', 0, 5),
         BitEnumField('weekday', 0, 3, WEEK_DAY_FLAGS),
-        BitField('day-of-month', 0, 5),
+        BitField('day_of_month', 0, 5),
         BitField('reserved_3', 0, 4),
         BitField('month', 0, 4),
         BitField('reserved_4', 0, 1),
@@ -638,7 +638,7 @@ class IEC104_IE_CP56TIME2A_START_TIME(IEC104_IE_CP56TIME2A):
         BitField('start_hours', 0, 5),
         BitEnumField('start_weekday', 0, 3,
                      IEC104_IE_CP56TIME2A.WEEK_DAY_FLAGS),
-        BitField('start_day-of-month', 0, 5),
+        BitField('start_day_of_month', 0, 5),
         BitField('start_reserved_3', 0, 4),
         BitField('start_month', 0, 4),
         BitField('start_reserved_4', 0, 1),
@@ -663,7 +663,7 @@ class IEC104_IE_CP56TIME2A_STOP_TIME(IEC104_IE_CP56TIME2A):
         BitField('stop_hours', 0, 5),
         BitEnumField('stop_weekday', 0, 3,
                      IEC104_IE_CP56TIME2A.WEEK_DAY_FLAGS),
-        BitField('stop_day-of-month', 0, 5),
+        BitField('stop_day_of_month', 0, 5),
         BitField('stop_reserved_3', 0, 4),
         BitField('stop_month', 0, 4),
         BitField('stop_reserved_4', 0, 1),

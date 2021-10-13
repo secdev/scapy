@@ -25,19 +25,19 @@ class IrLAPHead(Packet):
 class IrLAPCommand(Packet):
     name = "IrDA Link Access Protocol Command"
     fields_desc = [XByteField("Control", 0),
-                   XByteField("Format identifier", 0),
-                   XIntField("Source address", 0),
-                   XIntField("Destination address", 0xffffffff),
-                   XByteField("Discovery flags", 0x1),
-                   ByteEnumField("Slot number", 255, {"final": 255}),
+                   XByteField("Format_identifier", 0),
+                   XIntField("Source_address", 0),
+                   XIntField("Destination_address", 0xffffffff),
+                   XByteField("Discovery_flags", 0x1),
+                   ByteEnumField("Slot_number", 255, {"final": 255}),
                    XByteField("Version", 0)]
 
 
 class IrLMP(Packet):
     name = "IrDA Link Management Protocol"
-    fields_desc = [XShortField("Service hints", 0),
-                   XByteField("Character set", 0),
-                   StrField("Device name", "")]
+    fields_desc = [XShortField("Service_hints", 0),
+                   XByteField("Character_set", 0),
+                   StrField("Device_name", "")]
 
 
 bind_layers(CookedLinux, IrLAPHead, proto=23)

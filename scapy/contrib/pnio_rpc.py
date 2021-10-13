@@ -1170,14 +1170,14 @@ class PNIORealTimeAcyclicPDUHeader(Packet):
 class Alarm_Low(Packet):
     fields_desc = [
         PNIORealTimeAcyclicPDUHeader,
-        PacketField("RTA-SDU", None, AlarmNotification_Low),
+        PacketField("RTA_SDU", None, AlarmNotification_Low),
     ]
 
 
 class Alarm_High(Packet):
     fields_desc = [
         PNIORealTimeAcyclicPDUHeader,
-        PacketField("RTA-SDU", None, AlarmNotification_High),
+        PacketField("RTA_SDU", None, AlarmNotification_High),
     ]
 
 
