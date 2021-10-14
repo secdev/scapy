@@ -579,13 +579,6 @@ isocan.close()
 assert(exception is not None)
 assert(str(exception) == "Overflow happened at the receiver side")
 
-= Close the Socket
-isocan = TestSocket(CAN)
-with ISOTPSoftSocket(isocan, sid=0x641, did=0x241) as s:
-    s.close()
-
-isocan.close()
-
 + More complex operations
 
 = ISOTPSoftSocket sr1
@@ -674,7 +667,7 @@ assert succ
 = bridge and sniff with isotp soft sockets and multiple long packets
 
 N = 3
-T = 20
+T = 3
 
 succ = False
 with TestSocket(CAN) as can0_0, \
@@ -705,7 +698,8 @@ with TestSocket(CAN) as can0_0, \
         isoTpSocket0.send(ISOTP(b'RequestASDF1234567890'))
     packetsVCan1 = isoTpSocket1.sniff(timeout=T, count=N)
     threadBridge.join(timeout=5)
-    assert not threadBridge.is_alive()
+
+assert not threadBridge.is_alive()
 
 assert forwarded == N
 assert len(packetsVCan1) == N
@@ -730,7 +724,7 @@ with TestSocket(CAN) as can0_0, \
         return pkt
     def bridge():
         global succ
-        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=5,
+        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=3,
                          started_callback=evt.set, count=1)
         succ = True
     threadBridge = threading.Thread(target=bridge)
@@ -777,9 +771,9 @@ with TestSocket(CAN) as cs1, ISOTPSoftSocket(cs1, sid=0x641, did=0x241) as s1, \
     for i in range(1, 40, 5):
         isotp = ISOTP(data=bytearray(range(i, i * 2)))
         s2.send(isotp)
-        result = s1.sniff(count=1, timeout=5)
-        assert len(result)
-        assert (result[0].data == isotp.data)
+    result = s1.sniff(count=8, timeout=5)
+
+assert len(result) == 8
 
 
 = Send a single frame ISOTP message with padding
@@ -798,23 +792,27 @@ acks = TestSocket(CAN)
 cans = TestSocket(CAN)
 acks.pair(cans)
 
-acker = AsyncSniffer(opened_socket=acks, store=False, prn=lambda x: acks.send(CAN(identifier = 0x241, data=dhex("30 00 00"))), timeout=1, count=1)
+def send_ack(x):
+    acks.send(CAN(identifier = 0x241, data=dhex("30 00 00")))
+
+acker = AsyncSniffer(opened_socket=acks, store=False, prn=send_ack, timeout=1, count=1)
 acker.start()
+
 with TestSocket(CAN) as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241, padding=True) as s:
     acks.pair(isocan)
     cans.pair(isocan)
     s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
-    can = cans.sniff(timeout=1, count=1)[0]
-    assert(can.identifier == 0x641)
-    assert(can.data == dhex("10 08 01 02 03 04 05 06"))
-    can = cans.sniff(timeout=1, count=1)[0]
-    assert(can.identifier == 0x241)
-    assert(can.data == dhex("30 00 00"))
-    can = cans.sniff(timeout=1, count=1)[0]
-    assert(can.identifier == 0x641)
-    assert(can.data == dhex("21 07 08 CC CC CC CC CC"))
+    canpks = cans.sniff(timeout=1, count=3)
 
 acker.join(timeout=5)
+canpks.sort(key=lambda x:x.identifier)
+assert(canpks[1].identifier == 0x641)
+assert(canpks[1].data == dhex("10 08 01 02 03 04 05 06"))
+assert(canpks[0].identifier == 0x241)
+assert(canpks[0].data == dhex("30 00 00"))
+assert(canpks[2].identifier == 0x641)
+assert(canpks[2].data == dhex("21 07 08 CC CC CC CC CC"))
+
 
 = Receive a padded single frame ISOTP message with padding disabled
 with TestSocket(CAN) as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241, padding=False) as s:
