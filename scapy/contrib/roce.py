@@ -10,9 +10,11 @@
 RoCE: RDMA over Converged Ethernet
 """
 
+import enum
 from scapy.packet import Packet, bind_layers, Raw
-from scapy.fields import ByteEnumField, ByteField, XByteField, \
-    ShortField, XShortField, XLongField, BitField, XBitField, FCSField
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    PacketField, XByteField, ShortField, XIntField, XShortField, XLongField, \
+    BitField, XBitField, FCSField
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.l2 import Ether
@@ -22,7 +24,9 @@ from zlib import crc32
 import struct
 
 from typing import (
-    Tuple
+    Callable,
+    Optional,
+    Tuple,
 )
 
 _transports = {
@@ -31,6 +35,20 @@ _transports = {
     'RD': 0x40,
     'UD': 0x60,
 }
+
+OP_MASK = 0x1f
+TRANSPORT_MASK = 0xe0
+
+
+def transport(opcode):
+    # type: (Optional[int]) -> Optional[int]
+    return opcode is not None and opcode & TRANSPORT_MASK
+
+
+def op(opcode):
+    # type: (int) -> int
+    return opcode & OP_MASK
+
 
 _ops = {
     'SEND_FIRST': 0x00,
@@ -54,10 +72,15 @@ _ops = {
     'ATOMIC_ACKNOWLEDGE': 0x12,
     'COMPARE_SWAP': 0x13,
     'FETCH_ADD': 0x14,
+    'RESYNC': 0x15,
+    'SEND_LAST_WITH_INVALIDATE': 0x16,
+    'SEND_ONLY_WITH_INVALIDATE': 0x17,
 }
 
 
 CNP_OPCODE = 0x81
+UD_SEND_ONLY = _transports['UD'] | _ops['SEND_ONLY']
+UD_SEND_ONLY_IMM = _transports['UD'] | _ops['SEND_ONLY_WITH_IMMEDIATE']
 
 
 def opcode(transport, op):
@@ -65,75 +88,178 @@ def opcode(transport, op):
     return (_transports[transport] + _ops[op], '{}_{}'.format(transport, op))
 
 
+class _ETH(enum.Flag):
+    '''Enum of RDMA extended transport headers'''
+
+    RDETH = enum.auto()
+    DETH = enum.auto()
+    RETH = enum.auto()
+    AtomicETH = enum.auto()
+    AETH = enum.auto()
+    AtomicAckETH = enum.auto()
+    ImmDt = enum.auto()
+    IETH = enum.auto()
+    CNPPadding = enum.auto()
+
+
+def _opcode(transport, op, eth):
+    # type: (str, str, _ETH) -> Tuple[int, Tuple[str, _ETH]]
+    return (_transports[transport] + _ops[op], (f'{transport}_{op}', eth))
+
+
 _bth_opcodes = dict([
-    opcode('RC', 'SEND_FIRST'),
-    opcode('RC', 'SEND_MIDDLE'),
-    opcode('RC', 'SEND_LAST'),
-    opcode('RC', 'SEND_LAST_WITH_IMMEDIATE'),
-    opcode('RC', 'SEND_ONLY'),
-    opcode('RC', 'SEND_ONLY_WITH_IMMEDIATE'),
-    opcode('RC', 'RDMA_WRITE_FIRST'),
-    opcode('RC', 'RDMA_WRITE_MIDDLE'),
-    opcode('RC', 'RDMA_WRITE_LAST'),
-    opcode('RC', 'RDMA_WRITE_LAST_WITH_IMMEDIATE'),
-    opcode('RC', 'RDMA_WRITE_ONLY'),
-    opcode('RC', 'RDMA_WRITE_ONLY_WITH_IMMEDIATE'),
-    opcode('RC', 'RDMA_READ_REQUEST'),
-    opcode('RC', 'RDMA_READ_RESPONSE_FIRST'),
-    opcode('RC', 'RDMA_READ_RESPONSE_MIDDLE'),
-    opcode('RC', 'RDMA_READ_RESPONSE_LAST'),
-    opcode('RC', 'RDMA_READ_RESPONSE_ONLY'),
-    opcode('RC', 'ACKNOWLEDGE'),
-    opcode('RC', 'ATOMIC_ACKNOWLEDGE'),
-    opcode('RC', 'COMPARE_SWAP'),
-    opcode('RC', 'FETCH_ADD'),
+    _opcode('RC', 'SEND_FIRST', _ETH(0)),
+    _opcode('RC', 'SEND_MIDDLE', _ETH(0)),
+    _opcode('RC', 'SEND_LAST', _ETH(0)),
+    _opcode('RC', 'SEND_LAST_WITH_IMMEDIATE', _ETH.ImmDt),
+    _opcode('RC', 'SEND_ONLY', _ETH(0)),
+    _opcode('RC', 'SEND_ONLY_WITH_IMMEDIATE', _ETH.ImmDt),
+    _opcode('RC', 'RDMA_WRITE_FIRST', _ETH.RETH),
+    _opcode('RC', 'RDMA_WRITE_MIDDLE', _ETH(0)),
+    _opcode('RC', 'RDMA_WRITE_LAST', _ETH(0)),
+    _opcode('RC', 'RDMA_WRITE_LAST_WITH_IMMEDIATE', _ETH.ImmDt),
+    _opcode('RC', 'RDMA_WRITE_ONLY', _ETH.RETH),
+    _opcode('RC', 'RDMA_WRITE_ONLY_WITH_IMMEDIATE', _ETH.RETH | _ETH.ImmDt),
+    _opcode('RC', 'RDMA_READ_REQUEST', _ETH.RETH),
+    _opcode('RC', 'RDMA_READ_RESPONSE_FIRST', _ETH.AETH),
+    _opcode('RC', 'RDMA_READ_RESPONSE_MIDDLE', _ETH(0)),
+    _opcode('RC', 'RDMA_READ_RESPONSE_LAST', _ETH.AETH),
+    _opcode('RC', 'RDMA_READ_RESPONSE_ONLY', _ETH.AETH),
+    _opcode('RC', 'ACKNOWLEDGE', _ETH.AETH),
+    _opcode('RC', 'ATOMIC_ACKNOWLEDGE', _ETH.AETH | _ETH.AtomicAckETH),
+    _opcode('RC', 'COMPARE_SWAP', _ETH.AtomicETH),
+    _opcode('RC', 'FETCH_ADD', _ETH.AtomicETH),
+    _opcode('RC', 'SEND_LAST_WITH_INVALIDATE', _ETH.IETH),
+    _opcode('RC', 'SEND_ONLY_WITH_INVALIDATE', _ETH.IETH),
 
-    opcode('UC', 'SEND_FIRST'),
-    opcode('UC', 'SEND_MIDDLE'),
-    opcode('UC', 'SEND_LAST'),
-    opcode('UC', 'SEND_LAST_WITH_IMMEDIATE'),
-    opcode('UC', 'SEND_ONLY'),
-    opcode('UC', 'SEND_ONLY_WITH_IMMEDIATE'),
-    opcode('UC', 'RDMA_WRITE_FIRST'),
-    opcode('UC', 'RDMA_WRITE_MIDDLE'),
-    opcode('UC', 'RDMA_WRITE_LAST'),
-    opcode('UC', 'RDMA_WRITE_LAST_WITH_IMMEDIATE'),
-    opcode('UC', 'RDMA_WRITE_ONLY'),
-    opcode('UC', 'RDMA_WRITE_ONLY_WITH_IMMEDIATE'),
+    _opcode('UC', 'SEND_FIRST', _ETH(0)),
+    _opcode('UC', 'SEND_MIDDLE', _ETH(0)),
+    _opcode('UC', 'SEND_LAST', _ETH(0)),
+    _opcode('UC', 'SEND_LAST_WITH_IMMEDIATE', _ETH.ImmDt),
+    _opcode('UC', 'SEND_ONLY', _ETH(0)),
+    _opcode('UC', 'SEND_ONLY_WITH_IMMEDIATE', _ETH.ImmDt),
+    _opcode('UC', 'RDMA_WRITE_FIRST', _ETH.RETH),
+    _opcode('UC', 'RDMA_WRITE_MIDDLE', _ETH(0)),
+    _opcode('UC', 'RDMA_WRITE_LAST', _ETH(0)),
+    _opcode('UC', 'RDMA_WRITE_LAST_WITH_IMMEDIATE', _ETH.ImmDt),
+    _opcode('UC', 'RDMA_WRITE_ONLY', _ETH.RETH),
+    _opcode('UC', 'RDMA_WRITE_ONLY_WITH_IMMEDIATE', _ETH.RETH | _ETH.ImmDt),
 
-    opcode('RD', 'SEND_FIRST'),
-    opcode('RD', 'SEND_MIDDLE'),
-    opcode('RD', 'SEND_LAST'),
-    opcode('RD', 'SEND_LAST_WITH_IMMEDIATE'),
-    opcode('RD', 'SEND_ONLY'),
-    opcode('RD', 'SEND_ONLY_WITH_IMMEDIATE'),
-    opcode('RD', 'RDMA_WRITE_FIRST'),
-    opcode('RD', 'RDMA_WRITE_MIDDLE'),
-    opcode('RD', 'RDMA_WRITE_LAST'),
-    opcode('RD', 'RDMA_WRITE_LAST_WITH_IMMEDIATE'),
-    opcode('RD', 'RDMA_WRITE_ONLY'),
-    opcode('RD', 'RDMA_WRITE_ONLY_WITH_IMMEDIATE'),
-    opcode('RD', 'RDMA_READ_REQUEST'),
-    opcode('RD', 'RDMA_READ_RESPONSE_FIRST'),
-    opcode('RD', 'RDMA_READ_RESPONSE_MIDDLE'),
-    opcode('RD', 'RDMA_READ_RESPONSE_LAST'),
-    opcode('RD', 'RDMA_READ_RESPONSE_ONLY'),
-    opcode('RD', 'ACKNOWLEDGE'),
-    opcode('RD', 'ATOMIC_ACKNOWLEDGE'),
-    opcode('RD', 'COMPARE_SWAP'),
-    opcode('RD', 'FETCH_ADD'),
+    _opcode('RD', 'SEND_FIRST', _ETH.RDETH | _ETH.DETH),
+    _opcode('RD', 'SEND_MIDDLE', _ETH.RDETH | _ETH.DETH),
+    _opcode('RD', 'SEND_LAST', _ETH.RDETH | _ETH.DETH),
+    _opcode('RD', 'SEND_LAST_WITH_IMMEDIATE', _ETH.RDETH | _ETH.DETH | _ETH.ImmDt),
+    _opcode('RD', 'SEND_ONLY', _ETH.RDETH | _ETH.DETH),
+    _opcode('RD', 'SEND_ONLY_WITH_IMMEDIATE', _ETH.RDETH | _ETH.DETH | _ETH.ImmDt),
+    _opcode('RD', 'RDMA_WRITE_FIRST', _ETH.RDETH | _ETH.DETH | _ETH.RETH),
+    _opcode('RD', 'RDMA_WRITE_MIDDLE', _ETH.RDETH | _ETH.DETH),
+    _opcode('RD', 'RDMA_WRITE_LAST', _ETH.RDETH | _ETH.DETH),
+    _opcode('RD', 'RDMA_WRITE_LAST_WITH_IMMEDIATE',
+            _ETH.RDETH | _ETH.DETH | _ETH.ImmDt),
+    _opcode('RD', 'RDMA_WRITE_ONLY', _ETH.RDETH | _ETH.DETH | _ETH.RETH),
+    _opcode('RD', 'RDMA_WRITE_ONLY_WITH_IMMEDIATE',
+            _ETH.RDETH | _ETH.DETH | _ETH.RETH | _ETH.ImmDt),
+    _opcode('RD', 'RDMA_READ_REQUEST', _ETH.RDETH | _ETH.DETH | _ETH.RETH),
+    _opcode('RD', 'RDMA_READ_RESPONSE_FIRST', _ETH.RDETH | _ETH.AETH),
+    _opcode('RD', 'RDMA_READ_RESPONSE_MIDDLE', _ETH.RDETH),
+    _opcode('RD', 'RDMA_READ_RESPONSE_LAST', _ETH.RDETH | _ETH.AETH),
+    _opcode('RD', 'RDMA_READ_RESPONSE_ONLY', _ETH.RDETH | _ETH.AETH),
+    _opcode('RD', 'ACKNOWLEDGE', _ETH.RDETH | _ETH.AETH),
+    _opcode('RD', 'ATOMIC_ACKNOWLEDGE', _ETH.RDETH | _ETH.AETH | _ETH.AtomicAckETH),
+    _opcode('RD', 'COMPARE_SWAP', _ETH.RDETH | _ETH.DETH | _ETH.AtomicETH),
+    _opcode('RD', 'FETCH_ADD', _ETH.RDETH | _ETH.DETH | _ETH.AtomicETH),
+    _opcode('RD', 'RESYNC', _ETH.RDETH | _ETH.DETH),
 
-    opcode('UD', 'SEND_ONLY'),
-    opcode('UD', 'SEND_ONLY_WITH_IMMEDIATE'),
+    _opcode('UD', 'SEND_ONLY', _ETH.DETH),
+    _opcode('UD', 'SEND_ONLY_WITH_IMMEDIATE', _ETH.DETH | _ETH.ImmDt),
 
-    (CNP_OPCODE, 'CNP'),
+    (CNP_OPCODE, ('CNP', _ETH.CNPPadding)),
 ])
 
 
-class BTH(Packet):
-    name = "BTH"
+_bth_opcode_to_str = {op: s for op, (s, _) in _bth_opcodes.items()}
+
+
+class BTHSubHeader(Packet):
+    def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, Optional[bytes]]
+        return b'', s
+
+
+class DETH(BTHSubHeader):
+    name = "Datagram Extended Transport Header"
     fields_desc = [
-        ByteEnumField("opcode", 0, _bth_opcodes),
+        XIntField("qkey", 0),
+        XByteField("reserved", 0),
+        XBitField("sqp", 0, 24)
+    ]
+
+
+class RETH(BTHSubHeader):
+    name = "RDMA Extended Transport Header"
+    fields_desc = [
+        XLongField("va", 0),
+        XIntField("rkey", 0),
+        XIntField("len", 0),
+    ]
+
+
+class AtomicETH(BTHSubHeader):
+    name = "Atomic Extended Transport Header"
+    fields_desc = [
+        XLongField("va", 0),
+        XIntField("rkey", 0),
+        XLongField("swapdt", 0),
+        XLongField("cmpdt", 0),
+    ]
+
+
+class AETH(BTHSubHeader):
+    name = "ACK Extended Transport Header"
+    fields_desc = [
+        XByteField("syndrome", 0),
+        XBitField("msn", 0, 24),
+    ]
+
+
+class AtomicAckETH(BTHSubHeader):
+    name = "Atomic ACK Extended Transport Header"
+    fields_desc = [
+        XLongField("origremdt", 0),
+    ]
+
+
+class ImmDt(BTHSubHeader):
+    name = "Immediate Data Extended Transport Header"
+    fields_desc = [
+        XIntField("imm", 0)
+    ]
+
+
+class IETH(BTHSubHeader):
+    name = "Invalidate Extended Transport Header"
+    fields_desc = [
+        XIntField("rkey", 0)
+    ]
+
+
+class CNPPadding(BTHSubHeader):
+    name = "Congestion Notification Packet padding"
+    fields_desc = [
+        XLongField("reserved1", 0),
+        XLongField("reserved2", 0),
+    ]
+
+
+def _has_sub_header(eth):
+    # type: (_ETH) -> Callable[[Packet], bool]
+    return lambda pkt: pkt.opcode is not None and eth in _bth_opcodes[pkt.opcode][1]
+
+
+class BTH(Packet):
+    name = "Base Transport Header"
+    fields_desc = [
+        ByteEnumField("opcode", None, _bth_opcode_to_str),
         BitField("solicited", 0, 1),
         BitField("migreq", 0, 1),
         BitField("padcount", 0, 2),
@@ -146,6 +272,23 @@ class BTH(Packet):
         BitField("ackreq", 0, 1),
         BitField("resv7", 0, 7),
         BitField("psn", 0, 24),
+
+        ConditionalField(PacketField("deth", None, DETH),
+                         _has_sub_header(_ETH.DETH)),
+        ConditionalField(PacketField("reth", None, RETH),
+                         _has_sub_header(_ETH.RETH)),
+        ConditionalField(PacketField("atomiceth", None, AtomicETH),
+                         _has_sub_header(_ETH.AtomicETH)),
+        ConditionalField(PacketField("aeth", None, AETH),
+                         _has_sub_header(_ETH.AETH)),
+        ConditionalField(PacketField("atomicacketh", None, AtomicAckETH),
+                         _has_sub_header(_ETH.AtomicAckETH)),
+        ConditionalField(PacketField("immdt", None, ImmDt),
+                         _has_sub_header(_ETH.ImmDt)),
+        ConditionalField(PacketField("ieth", None, IETH),
+                         _has_sub_header(_ETH.IETH)),
+        ConditionalField(PacketField("cnppadding", None, CNPPadding),
+                         _has_sub_header(_ETH.CNPPadding)),
 
         FCSField("icrc", None, fmt="!I")]
 
@@ -213,18 +356,35 @@ class BTH(Packet):
             p = p[:-4] + self.compute_icrc(p)
         return p
 
+    # def guess_opcode(self):
+    #     # type: () -> Optional[int]
+    #     'Guess the opcode based on the following layers.'
+    #     if isinstance(self.payload, DETH):
+    #         if isinstance(self.payload.payload, ImmDt):
+    #             return UD_SEND_ONLY_IMM
+    #         return UD_SEND_ONLY
 
-class CNPPadding(Packet):
-    name = "CNPPadding"
-    fields_desc = [
-        XLongField("reserved1", 0),
-        XLongField("reserved2", 0),
-    ]
+    # def guess_payload_class(self, payload):
+    #     # type: (bytes) -> Type[Packet]
+    #     # opcode = self.opcode
+    #     # if transport(opcode) == _transports['RC'] or \
+    #     #    transport(opcode) == _transports['UC']:
+    #     #     cur_op = op(opcode)
+    #     #     if cur_op in (_ops['SEND_LAST_WITH_IMMEDIATE'],
+    #     #                   _ops['SEND_ONLY_WITH_IMMEDIATE']):
+    #     #         return ImmDt
+    #     # if transport(self.opcode) == _transports['UD']:
+    #     #     return DETH
+    #     return Packet.guess_payload_class(self, payload)
+
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     print(f'__init__({args}, {kwargs})')
 
 
 def cnp(dqpn):
     # type: (int) -> BTH
-    return BTH(opcode=CNP_OPCODE, becn=1, dqpn=dqpn) / CNPPadding()
+    return BTH(opcode=CNP_OPCODE, becn=1, dqpn=dqpn, cnppadding=CNPPadding())
 
 
 class GRH(Packet):
@@ -241,18 +401,6 @@ class GRH(Packet):
     ]
 
 
-class AETH(Packet):
-    name = "AETH"
-    fields_desc = [
-        XByteField("syndrome", 0),
-        XBitField("msn", 0, 24),
-    ]
-
-
-bind_layers(BTH, CNPPadding, opcode=CNP_OPCODE)
-
 bind_layers(Ether, GRH, type=0x8915)
 bind_layers(GRH, BTH)
-bind_layers(BTH, AETH, opcode=opcode('RC', 'ACKNOWLEDGE')[0])
-bind_layers(BTH, AETH, opcode=opcode('RD', 'ACKNOWLEDGE')[0])
 bind_layers(UDP, BTH, dport=4791)
