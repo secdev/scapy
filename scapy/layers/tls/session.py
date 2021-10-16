@@ -37,6 +37,7 @@ def load_nss_keys(filename):
     keys = {}
     try:
         fd = open(filename)
+        fd.close()
     except FileNotFoundError:
         warning("Cannot open NSS Key Log: %s", filename)
         return {}
