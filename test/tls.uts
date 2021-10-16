@@ -1569,11 +1569,31 @@ assert [type(x) for x in pkt.msg] == [TLSServerHello, TLSCertificate, TLSCertifi
 ####################### Decrypt packets from a pcap ##########################
 ###############################################################################
 
++ Decrypt packets from a pcap
+
+= pcap file & external TLS Key Log file
+
 bck_conf = conf
 conf.tls_session_enable = True
 conf.tls_nss_filename = scapy_path("doc/notebooks/tls/raw_data/tls_nss_example.keys.txt")
 
 packets = rdpcap(scapy_path("doc/notebooks/tls/raw_data/tls_nss_example.pcap"))
+assert b"GET /secret.txt HTTP/1.0\n" in packets[11].msg[0].data
+assert b"z2|gxarIKOxt,G1d>.Q2MzGY[k@" in packets[13].msg[0].data
+
+conf = bck_conf
+
+= pcapng file with a Decryption Secrets Block
+~ tshark linux
+
+bck_conf = conf
+
+key_log_path = scapy_path("doc/notebooks/tls/raw_data/tls_nss_example.keys.txt")
+pcap_path = scapy_path("doc/notebooks/tls/raw_data/tls_nss_example.pcap")
+pcapng_path = get_temp_file()
+os.system("editcap --inject-secrets tls,%s %s %s" % (key_log_path, pcap_path, pcapng_path))
+
+packets = rdpcap(pcapng_path)
 assert b"GET /secret.txt HTTP/1.0\n" in packets[11].msg[0].data
 assert b"z2|gxarIKOxt,G1d>.Q2MzGY[k@" in packets[13].msg[0].data
 
