@@ -55,11 +55,12 @@ class _GenericClnsPdu(Packet):
     fields_desc = [
         ByteEnumField("nlpid", 0x00, network_layer_protocol_ids),
         PacketField("rawdata", None, conf.raw_layer)
-    ]  # type: List[Field]
+    ]  # type: List[Field[Any, Any]]
 
 
+# TODO: impossible to make this conform to Type[Packet], and impossible to make `bind_bottom_up` support `Callable[...]`
 def _create_cln_pdu(s, **kwargs):
-    # type: (str, Any) -> Packet
+    # type: (bytes, Any) -> Packet
     pdu_cls = conf.raw_layer
 
     if len(s) >= 1:
