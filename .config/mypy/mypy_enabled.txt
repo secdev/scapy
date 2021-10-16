@@ -42,7 +42,9 @@ scapy/utils.py
 scapy/utils6.py
 
 # LAYERS
+scapy/layers/all.py
 scapy/layers/can.py
+scapy/layers/clns.py
 scapy/layers/l2.py
 
 # CONTRIB
