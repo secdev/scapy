@@ -131,7 +131,7 @@ assert EcuState(session=3, tp=1, security_level=2) in scanner.final_states
 assert EcuState(session=2, tp=1, communication_control=1, security_level=2, request_download=1) in scanner.final_states
 
 = Simulate ECU and test GMLAN_RDBIEnumerator
-
+~ disabled
 
 resps = [EcuResponse(None, [GMLAN()/GMLAN_RDBIPR(dataIdentifier=1)/Raw(b"asdfbeef1")]),
          EcuResponse(None, [GMLAN()/GMLAN_RDBIPR(dataIdentifier=2)/Raw(b"beef2")]),

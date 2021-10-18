@@ -1,5 +1,5 @@
 % Regression tests for ISOTPSoftSocket
-~ automotive_comm
+~ automotive_comm disabled
 
 + Configuration
 ~ conf
@@ -790,6 +790,7 @@ with TestSocket(CAN) as cs1, ISOTPSoftSocket(cs1, sid=0x641, did=0x241, padding=
 
 
 = Send a two-frame ISOTP message with padding
+~ disabled
 
 acks = TestSocket(CAN)
 cans = TestSocket(CAN)
