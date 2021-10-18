@@ -11,6 +11,7 @@ Specs:
 - [MS-SMB] (extension of CIFS - SMB v1)
 """
 
+import socket
 import struct
 
 from scapy.config import conf
@@ -27,6 +28,7 @@ from scapy.fields import (
     PacketLenField,
     PacketListField,
     ReversePadField,
+    ScalingField,
     ShortField,
     StrFixedLenField,
     StrLenField,
@@ -183,6 +185,10 @@ class SMB_Header(Packet):
             return SMBNetlogon_Protocol_Response_Header
         return super(SMB_Header, self).guess_payload_class(payload)
 
+    def answers(self, pkt):
+        return SMB_Header in pkt
+
+
 # SMB Negotiate Request
 
 
@@ -281,7 +287,8 @@ class SMBNegotiate_Response_NoSecurity(_SMBNegotiate_Response):
                    UTCTimeField("ServerTime", None, fmt="<Q",
                                 epoch=[1601, 1, 1, 0, 0, 0],
                                 custom_scaling=1e7),
-                   LEShortField("ServerTimeZone", 0x3c),
+                   ScalingField("ServerTimeZone", 0x3c, fmt="<h",
+                                unit="min-UTC"),
                    ByteField("ChallengeLength", 0),  # aka EncryptionKeyLength
                    LEFieldLenField("ByteCount", None, length_of="DomainName",
                                    adjust=lambda pkt, x: x +
@@ -450,6 +457,7 @@ bind_top_down(SMB_Header, SMBSession_Setup_AndX_Response,
               Command=0x73, Flags=0x80)
 
 # SMB sect 2.2.4.6.2
+# uWu
 
 
 class SMBSession_Setup_AndX_Response_Extended_Security(Packet):
@@ -557,6 +565,7 @@ class SMBNetlogon_Protocol_Response_Tail_SAM(Packet):
                    ShortField("Data41", 0xffff)]
 
 # SMB NetLogon Protocol Response Tail LM2.0
+# coucou bg
 
 
 class SMBNetlogon_Protocol_Response_Tail_LM20(Packet):

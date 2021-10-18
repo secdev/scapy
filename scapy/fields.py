@@ -2756,6 +2756,10 @@ class FlagValue(object):
         return self.__class__(self.value | self._fixvalue(other), self.names)
     __ror__ = __or__
 
+    def __xor__(self, other):
+        # type: (int) -> FlagValue
+        return self.__class__(self.value ^ self._fixvalue(other), self.names)
+
     def __lshift__(self, other):
         # type: (int) -> int
         return self.value << self._fixvalue(other)
@@ -3227,7 +3231,7 @@ class UTCTimeField(Field[float, int]):
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], float) -> str
         if x is None:
-            x = -self.delta
+            x = time.time() - self.delta
         elif self.use_msec:
             x = x / 1e3
         elif self.use_micro:
@@ -3242,7 +3246,18 @@ class UTCTimeField(Field[float, int]):
 
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[float]) -> int
-        return int(x) if x is not None else 0
+        if x is None:
+            x = time.time()
+            if self.use_msec:
+                x = x * 1e3
+            elif self.use_micro:
+                x = x * 1e6
+            elif self.use_nano:
+                x = x * 1e9
+            elif self.custom_scaling:
+                x = x * self.custom_scaling
+            return int(x) - self.delta
+        return int(x)
 
 
 class SecondsIntField(Field[float, int]):
