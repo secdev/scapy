@@ -94,6 +94,10 @@ def autorun_commands(cmds, my_globals=None, verb=None):
 
 
 def autorun_commands_timeout(cmds, timeout=None, **kwargs):
+    """
+    Wraps autorun_commands with a timeout that raises StopAutorunTimeout
+    on expiration.
+    """
     if timeout is None:
         return autorun_commands(cmds, **kwargs)
 
