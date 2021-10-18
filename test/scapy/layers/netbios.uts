@@ -6,12 +6,44 @@
 ############
 + Netbios tests
 
-= NBNSQueryRequest - build
+= NBNSQueryRequest - build & dissect
 
-z = NBNSQueryRequest(SUFFIX="file server service", QUESTION_NAME='TEST1', QUESTION_TYPE='NB')
+z = NBNSHeader()/NBNSQueryRequest(SUFFIX="file server service", QUESTION_NAME='TEST1', QUESTION_TYPE='NB')
 
 assert raw(z) == b'\x00\x00\x01\x10\x00\x01\x00\x00\x00\x00\x00\x00 FEEFFDFEDBCACACACACACACACACACACA\x00\x00 \x00\x01'
 
 pkt = IP(dst='192.168.0.255')/UDP(sport=137, dport='netbios_ns')/z
 pkt = IP(raw(pkt))
 assert pkt.QUESTION_NAME == b'TEST1          '
+
+assert NBNSQueryRequest in NBNSHeader(raw(z))
+
+= NBNSQueryResponse - build & dissect
+
+z = NBNSHeader()/NBNSQueryResponse(RR_NAME="FRED", ADDR_ENTRY=[NBNS_ADD_ENTRY(NB_ADDRESS="192.168.0.13")])
+
+assert raw(z) == b'\x00\x00\x85\x00\x00\x00\x00\x01\x00\x00\x00\x00 EGFCEFEECACACACACACACACACACACAAA\x00\x00 \x00\x01\x00\x04\x93\xe0\x00\x06\x00\x00\xc0\xa8\x00\r'
+pkt = NBNSHeader(raw(z))
+assert NBNSQueryResponse in pkt
+assert pkt.ADDR_ENTRY[0].NB_ADDRESS == "192.168.0.13"
+
+= NBNSNodeStatusResponse - build & dissect
+
+z = NBNSHeader()/NBNSNodeStatusResponse(NODE_NAME=[NBNSNodeStatusResponseService(NETBIOS_NAME="WINDOWS")], MAC_ADDRESS="aa:aa:aa:aa:aa:aa")
+assert raw(z) == b'\x00\x00\x84\x00\x00\x00\x00\x01\x00\x00\x00\x00 HHGJGOGEGPHHHDCACACACACACACACAAA\x00\x00!\x00\x01\x00\x00\x00\x00\x00S\x01WINDOWS\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+pkt = NBNSHeader(raw(z))
+assert pkt.NODE_NAME[0].NETBIOS_NAME == b'WINDOWS\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+assert NBNSNodeStatusResponse in pkt
+
+= NBNSWackResponse - build & dissect
+
+z = NBNSHeader()/NBNSWackResponse(RR_NAME="SARAH")
+assert raw(z) == b'\x00\x00\xbc\x00\x00\x00\x00\x01\x00\x00\x00\x00 FDEBFCEBEICACACACACACACACACACAAA\x00\x00 \x00\x01\x00\x00\x00\x02\x00\x02)\x10'
+pkt = NBNSHeader(raw(z))
+assert pkt[NBNSWackResponse].RR_NAME == b'SARAH          '
+
+= NBTSession
+
+z = raw(TCP()/NBTSession())
+assert z == b'\x00\x8b\x00\x8b\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00\x00\x00\x00\x00'
+assert NBTSession in TCP(z)
