@@ -186,3 +186,25 @@ class AnsweringMachine(Generic[_T]):
     def sniff(self):
         # type: () -> None
         sniff(**self.optsniff)
+
+
+class AnsweringMachineUtils:
+    @staticmethod
+    def reverse_packet(req):
+        # type: (Packet) -> Packet
+        from scapy.layers.l2 import Ether
+        from scapy.layers.inet import IP, TCP, UDP
+        reply = req.copy()
+        for layer in [UDP, TCP]:
+            if req.haslayer(layer):
+                reply[layer].dport, reply[layer].sport = \
+                    req[layer].sport, req[layer].dport
+                reply[layer].chksum = None
+                reply[layer].len = None
+        if req.haslayer(IP):
+            reply[IP].src, reply[IP].dst = req[IP].dst, req[IP].src
+            reply[IP].chksum = None
+            reply[IP].len = None
+        if req.haslayer(Ether):
+            reply[Ether].src, reply[Ether].dst = req[Ether].dst, req[Ether].src
+        return reply
