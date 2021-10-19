@@ -212,6 +212,7 @@ class AEADAlgo(object):
         self.mode = mode
         self.icv_size = icv_size
 
+        # Do not need mode as AEAD algo from cryptography does not have mode...
         #if modes and self.mode is not None:
         #    self.is_aead = issubclass(self.mode,
         #                              modes.ModeWithAuthenticationTag)
