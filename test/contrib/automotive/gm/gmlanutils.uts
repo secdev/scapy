@@ -6,8 +6,7 @@
 
 = Imports
 
-with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
-    exec(f.read())
+from test.testsocket import TestSocket, cleanup_testsockets
 
 ############
 ############
@@ -15,6 +14,7 @@ with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
 
 = Load contribution layer
 
+load_layer("can", globals_dict=globals())
 load_contrib("automotive.gm.gmlan", globals_dict=globals())
 load_contrib("automotive.gm.gmlanutils", globals_dict=globals())
 
@@ -76,6 +76,7 @@ assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == False
 ############################ Response pending
 = Positive, after response pending
 started = threading.Event()
+
 def ecusim():
     isotpsock2.sniff(count=1, timeout=2, started_callback=started.set)
     pending = GMLAN()/GMLAN_NR(requestServiceId=0x34, returnCode=0x78)
@@ -95,6 +96,7 @@ assert res
 tout = 0.1
 repeats = 4
 started = threading.Event()
+
 def ecusim():
     isotpsock2.sniff(count=1, timeout=1, started_callback=started.set)
     ack = GMLAN()/GMLAN_NR(requestServiceId=0x34, returnCode=0x78)
@@ -178,6 +180,7 @@ assert res
 
 = Positive, negative response from different service interferes while pending
 started = threading.Event()
+
 def ecusim():
     isotpsock2.sniff(count=1, timeout=1, started_callback=started.set)
     pending = GMLAN()/GMLAN_NR(requestServiceId=0x34, returnCode=0x78)
@@ -1172,3 +1175,9 @@ started.wait(timeout=5)
 res = GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1, retry=1) == payload
 thread.join(timeout=5)
 assert res
+
++ Cleanup
+
+= Delete TestSockets
+
+cleanup_testsockets()

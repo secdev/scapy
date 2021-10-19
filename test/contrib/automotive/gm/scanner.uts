@@ -4,10 +4,12 @@
 ~ conf
 
 = Imports
-import itertools
 
-with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
-    exec(f.read())
+import itertools
+import threading
+from scapy.contrib.isotp import ISOTPMessageBuilder
+
+from test.testsocket import TestSocket, cleanup_testsockets
 
 
 ############
@@ -18,7 +20,6 @@ with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
 
 from scapy.contrib.automotive.gm.gmlan import *
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
-from scapy.contrib.automotive.gm.gmlan_ecu_states import *
 from scapy.contrib.automotive.gm.gmlan_scanner import *
 from scapy.contrib.automotive.ecu import *
 load_layer("can")
@@ -477,6 +478,6 @@ assert "RequestOutOfRange received " in result
 
 + Cleanup
 
-= Delete vcan interfaces
+= Delete TestSockets
 
-assert cleanup_interfaces()
+cleanup_testsockets()

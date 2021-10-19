@@ -1,6 +1,4 @@
 % Regression tests for the XCP using CANSockets
-~ not_pypy automotive_comm
-# More information at http://www.secdev.org/projects/UTscapy/
 
 ############
 ############
@@ -10,8 +8,7 @@
 
 = Imports
 
-with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
-    exec(f.read())
+from test.testsocket import TestSocket, cleanup_testsockets
 
 = Load module
 
@@ -19,34 +16,16 @@ load_contrib("automotive.xcp.xcp",  globals_dict=globals())
 
 = Connect
 
-evt = threading.Event()
+sock1 = TestSocket(XCPOnCAN)
+sock2 = TestSocket(XCPOnCAN)
+sock1.pair(sock2)
 
-def ecu():
-    global evt
-    with new_can_socket1() as sock2:
-        sock2.basecls = XCPOnCAN
-        response = XCPOnCAN(
-            identifier=0x700) / CTOResponse() / ConnectPositiveResponse(
-            b'\x15\xC0\x08\x08\x00\x10\x10')
-        while True:
-            pkts = sock2.sniff(count=1, timeout=5, started_callback=evt.set)
-            if len(pkts):
-                if pkts[0].identifier == 0x100:
-                    break
-                sock2.send(response)
-
-with new_can_socket1() as sock1:
-    sock1.basecls = XCPOnCAN
-    thread = threading.Thread(target=ecu)
-    thread.start()
-    evt.wait(timeout=10)
-    pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
-    for x in range(10):
-        ans = sock1.sr1(pkt, timeout=0.5)
-        if ans is not None:
-            break
-    sock1.send(XCPOnCAN(identifier=0x100))
-    thread.join(timeout=10)
+response = XCPOnCAN(identifier=0x700) / CTOResponse() / ConnectPositiveResponse(b'\x15\xC0\x08\x08\x00\x10\x10')
+sniffer = AsyncSniffer(opened_socket=sock2, count=1, timeout=5, prn=lambda x: sock2.send(response))
+sniffer.start()
+pkt = XCPOnCAN(identifier=0x700) / CTORequest() / Connect()
+ans = sock1.sr1(pkt, timeout=0.5, verbose=False)
+sniffer.join(timeout=1)
 
 assert ans.identifier == 0x700
 cto_response = ans["CTOResponse"]
@@ -116,7 +95,7 @@ assert not response.answers(request)
 
 + Cleanup
 
-= Delete vcan interfaces
+= Delete TestSockets
 
-assert cleanup_interfaces()
+cleanup_testsockets()
 

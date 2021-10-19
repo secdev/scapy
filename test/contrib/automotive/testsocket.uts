@@ -1,0 +1,109 @@
+% Regression tests for TestSocket
+
++ Configuration
+~ conf
+
+= Imports
+
+from test.testsocket import TestSocket, cleanup_testsockets
+
+= Create Dummy Packet
+
+class TestPacket(Packet):
+    fields_desc = [
+        IntField("identifier", 0),
+        StrField("data", b"")
+    ]
+    def answers(self, other):
+        if other.__class__ != self.__class__:
+            return False
+        if self.identifier % 2:
+            return False
+        if self.identifier == (other.identifier + 1):
+            return True
+        return False
+    def hashret(self):
+        return struct.pack('I', self.identifier + (self.identifier % 2))
+
+
+= Create Sockets
+
+sender = TestSocket(TestPacket)
+receiver = TestSocket(TestPacket)
+sender.pair(receiver)
+
++ Basic tests
+
+= Simple ping pong
+
+def create_answer(p):
+    ans = TestPacket(identifier=p.identifier + 1, data=p.data + b"_answer")
+    receiver.send(ans)
+
+t = AsyncSniffer(timeout=50, prn=create_answer, opened_socket=receiver)
+t.start()
+
+pks = PacketList()
+
+for i in range(1, 2000, 2):
+    txp = TestPacket(identifier=i, data=b"hello"*i)
+    rxp = sender.sr1(txp, verbose=False, timeout=0.5)
+    pks.append(txp)
+    pks.append(rxp)
+
+t.stop(join=True)
+convs = pks.sr()
+
+sender.close()
+receiver.close()
+
+assert len(t.results) == 1000
+assert len(pks) == 2000
+assert len(convs[0]) == 1000
+
+= Simple ping pong with sr with packet generator 500
+
+testlen = 500
+
+sender = TestSocket(TestPacket)
+receiver = TestSocket(TestPacket)
+sender.pair(receiver)
+
+t = AsyncSniffer(timeout=10, prn=create_answer, opened_socket=receiver)
+t.start()
+
+txp = TestPacket(identifier=range(1, testlen * 2, 2), data=b"test1")
+rxp = sender.sr(txp, timeout=10, verbose=False, prebuild=True)
+t.stop(join=True)
+
+print(rxp)
+print(rxp[0].summary())
+
+sender.close()
+receiver.close()
+
+assert len(t.results) == testlen
+assert len(rxp[0]) == testlen
+
+= Simple ping pong with sr with generated packets
+
+sender = TestSocket(TestPacket)
+receiver = TestSocket(TestPacket)
+sender.pair(receiver)
+
+t = AsyncSniffer(timeout=10, prn=create_answer, opened_socket=receiver)
+t.start()
+
+txp = [TestPacket(identifier=i, data=b"hello") for i in range(1, 2000, 2)]
+rxp = sender.sr(txp, timeout=10, verbose=False)
+t.stop(join=True)
+
+print(rxp)
+assert len(t.results) == 1000
+assert len(rxp[0]) == 1000
+
++ Cleanup
+
+= Delete TestSockets
+
+cleanup_testsockets()

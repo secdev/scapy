@@ -1,21 +1,14 @@
 % Regression tests for the XCP_CAN
-~ needs_root not_pypy automotive_comm
-
-# More information at http://www.secdev.org/projects/UTscapy/
-
-############
-############
 
 + Basic operations
 
 = Imports
 
-with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
-    exec(f.read())
+from test.testsocket import TestSocket, cleanup_testsockets
 
 + Tests XCPonCAN Scanner
 
-= import XCP modules
+=  modules
 
 load_contrib("automotive.xcp.xcp", globals_dict=globals())
 load_contrib("automotive.xcp.scanner", globals_dict=globals())
@@ -35,12 +28,9 @@ slave_2_response = XCPOnCAN(identifier=response_id_2) / CTOResponse(packet_code=
 random_xcp_response_1 = XCPOnCAN(identifier=30) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x00\x00")
 random_xcp_response_2 = XCPOnCAN(identifier=40) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x00\x00")
 
-sock1 = new_can_socket0()
-sock1.basecls = XCPOnCAN
-
-sock2 = new_can_socket0()
-sock2.basecls = XCPOnCAN
-
+sock1 = TestSocket(XCPOnCAN)
+sock2 = TestSocket(XCPOnCAN)
+sock1.pair(sock2)
 
 def ecu():
     for i in range(50, 53):
@@ -82,11 +72,9 @@ connect_response = XCPOnCAN(identifier=response_id) / CTOResponse(packet_code=0x
 random_xcp_response_1 = XCPOnCAN(identifier=30) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x00\x00")
 random_xcp_response_2 = XCPOnCAN(identifier=40) / CTOResponse(packet_code=0xFF) / GenericResponse(b"\x10")
 
-sock1 = new_can_socket0()
-sock1.basecls = XCPOnCAN
-
-sock2 = new_can_socket0()
-sock2.basecls = XCPOnCAN
+sock1 = TestSocket(XCPOnCAN)
+sock2 = TestSocket(XCPOnCAN)
+sock1.pair(sock2)
 
 
 def ecu():
@@ -120,6 +108,6 @@ assert result[0].response_id == response_id
 
 + Cleanup
 
-= Delete vcan interfaces
+= Delete TestSockets
 
-assert cleanup_interfaces()
+cleanup_testsockets()

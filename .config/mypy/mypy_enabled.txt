@@ -72,3 +72,6 @@ scapy/contrib/isotp/isotp_scanner.py
 scapy/contrib/isotp/isotp_soft_socket.py
 scapy/contrib/isotp/isotp_utils.py
 scapy/contrib/roce.py
+
+# TEST
+test/testsocket.py
