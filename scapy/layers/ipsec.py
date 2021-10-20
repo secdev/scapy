@@ -182,12 +182,12 @@ else:
 ###############################################################################
 
 
-class AEADAlgo(object):
+class AEAD_Algo(object):
     """
     IPsec AEAD algorithm
     """
 
-    def __init__(self, name, algo, mode, block_size=None, iv_size=None,
+    def __init__(self, name, algo, block_size=None, iv_size=None,
                  key_size=None, icv_size=None, salt_size=None, format_mode_iv=None):  # noqa: E501
         """
         :param name: the name of this encryption algorithm
@@ -209,7 +209,7 @@ class AEADAlgo(object):
         """
         self.name = name
         self.algo = algo
-        self.mode = mode
+        # self.mode = mode
         self.icv_size = icv_size
 
         # Do not need mode as AEAD algo from cryptography does not have mode...
@@ -221,8 +221,6 @@ class AEADAlgo(object):
 
         if block_size is not None:
             self.block_size = block_size
-        elif cipher is not None:
-            self.block_size = cipher.block_size // 8
         else:
             self.block_size = 1
 
@@ -233,8 +231,6 @@ class AEADAlgo(object):
 
         if key_size is not None:
             self.key_size = key_size
-        elif cipher is not None:
-            self.key_size = tuple(i // 8 for i in cipher.key_sizes)
         else:
             self.key_size = None
 
@@ -254,7 +250,7 @@ class AEADAlgo(object):
 
         :param key:    a byte string
         """
-        if self.key_size and not (len(key) == self.key_size or len(key) in self.key_size):  # noqa: E501
+        if self.key_size and not (len(key) == self.key_size or len(key) in self.key_size):
             raise TypeError('invalid key size %s, must be %s' %
                             (len(key), self.key_size))
 
@@ -266,31 +262,31 @@ class AEADAlgo(object):
         # XXX: random bytes for counters, so it is not wrong to do it that way
         return os.urandom(self.iv_size)
 
-    @crypto_validator
-    def new_cipher(self, key, mode_iv, digest=None):
-        """
-        :param key:     the secret key, a byte string
-        :param mode_iv: the initialization vector or nonce, a byte string.
-                        Formatted by `format_mode_iv`.
-        :param digest:  also known as tag or icv. A byte string containing the
-                        digest of the encrypted data. Only use this during
-                        decryption!
+    # @crypto_validator
+    # def new_aead_algo(self, key, mode_iv, digest=None):
+    #     """
+    #     :param key:     the secret key, a byte string
+    #     :param mode_iv: the initialization vector or nonce, a byte string.
+    #                     Formatted by `format_mode_iv`.
+    #     :param digest:  also known as tag or icv. A byte string containing the
+    #                     digest of the encrypted data. Only use this during
+    #                     decryption!
 
-        :returns:    an initialized cipher object for this algo
-        """
-        if self.is_aead and digest is not None:
-            # With AEAD, the mode needs the digest during decryption.
-            return Cipher(
-                self.cipher(key),
-                self.mode(mode_iv, digest, len(digest)),
-                default_backend(),
-            )
-        else:
-            return Cipher(
-                self.cipher(key),
-                self.mode(mode_iv),
-                default_backend(),
-            )
+    #     :returns:    an initialized cipher object for this algo
+    #     """
+    #     if digest is not None:
+    #         # With AEAD, the mode needs the digest during decryption.
+    #         return Cipher(
+    #             self.cipher(key),
+    #             self.mode(mode_iv, digest, len(digest)),
+    #             default_backend(),
+    #         )
+    #     else:
+    #         return Cipher(
+    #             self.cipher(key),
+    #             self.mode(mode_iv),
+    #             default_backend(),
+    #         )
 
     def pad(self, esp):
         """
@@ -342,23 +338,17 @@ class AEADAlgo(object):
         """
         data = esp.data_for_encryption()
 
-        if self.cipher:
-            mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=esp.iv)
-            cipher = self.new_cipher(key, mode_iv)
-            encryptor = cipher.encryptor()
+        algo = self.algo(key)
 
-            if self.is_aead:
-                if esn_en:
-                    aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
-                else:
-                    aad = struct.pack('!LL', esp.spi, esp.seq)
-                encryptor.authenticate_additional_data(aad)
-                data = encryptor.update(data) + encryptor.finalize()
-                data += encryptor.tag[:self.icv_size]
-            else:
-                data = encryptor.update(data) + encryptor.finalize()
+        if esn_en:
+            aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
+        else:
+            aad = struct.pack('!LL', esp.spi, esp.seq)
 
-        return ESP(spi=esp.spi, seq=esp.seq, data=esp.iv + data)
+        # Cipher text contains data and ICV
+        ct = algo.encrypt(esp.iv, data, aad)
+
+        return ESP(spi=esp.spi, seq=esp.seq, data=esp.iv + ct)
 
     def decrypt(self, sa, esp, key, icv_size=None, esn_en=False, esn=0):
         """
@@ -377,46 +367,56 @@ class AEADAlgo(object):
             fails with an AEAD algorithm
         """
         if icv_size is None:
-            icv_size = self.icv_size if self.is_aead else 0
+            icv_size = self.icv_size
 
         iv = esp.data[:self.iv_size]
         data = esp.data[self.iv_size:len(esp.data) - icv_size]
         icv = esp.data[len(esp.data) - icv_size:]
 
-        if self.cipher:
-            mode_iv = self._format_mode_iv(sa=sa, iv=iv)
-            cipher = self.new_cipher(key, mode_iv, icv)
-            decryptor = cipher.decryptor()
+        algo = self.decrypt(esp.iv, data, aad)
 
-            if self.is_aead:
-                # Tag value check is done during the finalize method
-                if esn_en:
-                    decryptor.authenticate_additional_data(
-                        struct.pack('!LLL', esp.spi, esn, esp.seq))
-                else:
-                    decryptor.authenticate_additional_data(
-                        struct.pack('!LL', esp.spi, esp.seq))
-            try:
-                data = decryptor.update(data) + decryptor.finalize()
-            except InvalidTag as err:
-                raise IPSecIntegrityError(err)
+        if esn_en:
+            aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
+        else:
+            aad = struct.pack('!LL', esp.spi, esp.seq)
+
+        try:
+            # Plain text contains data and padding
+            pt = algo.decrypt(esp.iv, data, aad)
+        except InvalidTag as err:
+            raise IPSecIntegrityError(err)
 
         # extract padlen and nh
-        padlen = orb(data[-2])
-        nh = orb(data[-1])
+        padlen = orb(pt[-2])
+        nh = orb(pt[-1])
 
-        # then use padlen to determine data and padding
-        data = data[:len(data) - padlen - 2]
-        padding = data[len(data) - padlen - 2: len(data) - 2]
+        # then use padlen to determine pt and padding
+        pt = pt[:len(pt) - padlen - 2]
+        padding = pt[len(pt) - padlen - 2: len(pt) - 2]
 
         return _ESPPlain(spi=esp.spi,
                          seq=esp.seq,
                          iv=iv,
-                         data=data,
+                         data=pt,
                          padding=padding,
                          padlen=padlen,
                          nh=nh,
                          icv=icv)
+
+AEAD_ALGOS = {
+    'NULL': AEAD_Algo('NULL', algo=None, iv_size=0),
+}
+
+if aead:
+    AEAD_ALGOS['CHACHA20-POLY1305'] = AEAD_Algo('CHACHA20-POLY1305',
+                                       algo=aead.ChaCha20Poly1305)
+    _salt_format_mode_iv = lambda sa, iv, **kw: sa.crypt_salt + iv
+    AEAD_ALGOS['AES-GCM'] = AEAD_Algo('AES-GCM',
+                                       algo=aead.AESGCM,
+                                       salt_size=4,
+                                       iv_size=8,
+                                       icv_size=16,
+                                       format_mode_iv=_salt_format_mode_iv)
 
 ###############################################################################
 if conf.crypto_valid:
@@ -1061,7 +1061,7 @@ class SecurityAssociation(object):
     SUPPORTED_PROTOS = (IP, IPv6)
 
     def __init__(self, proto, spi, seq_num=1, crypt_algo=None, crypt_key=None,
-                 auth_algo=None, auth_key=None, tunnel_header=None, nat_t_header=None, esn_en=False, esn=0):   # noqa: E501
+                 auth_algo=None, auth_key=None, aead_algo=None, aead_key=None, tunnel_header=None, nat_t_header=None, esn_en=False, esn=0):   # noqa: E501
         """
         :param proto: the IPsec proto to use (ESP or AH)
         :param spi: the Security Parameters Index of this SA
@@ -1071,6 +1071,8 @@ class SecurityAssociation(object):
         :param crypt_key: the encryption key (only used with ESP)
         :param auth_algo: the integrity algorithm name
         :param auth_key: the integrity key
+        :param aead_algo: the aead algorithm name
+        :param aead_key: the aead key
         :param tunnel_header: an instance of a IP(v6) header that will be used
                               to encapsulate the encrypted packets.
         :param nat_t_header: an instance of a UDP header that will be used
@@ -1121,6 +1123,16 @@ class SecurityAssociation(object):
         else:
             self.auth_algo = AUTH_ALGOS['NULL']
             self.auth_key = None
+
+        if aead_algo:
+            if aead_algo not in AEAD_ALGOS:
+               raise TypeError('unsupported integrity algo %r, try %r' %
+                                (aead_algo, list(AEAD_ALGOS)))
+            self.aead_algo = AEAD_ALGOS[aead_algo]
+            self.aead_key = aead_key
+        else:
+            self.aead_algo = AEAD_ALGOS['NULL']
+            self.aead_key = None
 
         if tunnel_header and not isinstance(tunnel_header, (IP, IPv6)):
             raise TypeError('tunnel_header must be %s or %s' % (IP.name, IPv6.name))  # noqa: E501
