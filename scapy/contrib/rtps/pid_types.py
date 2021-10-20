@@ -488,7 +488,6 @@ def get_pid_class(
     pkt: Packet, lst: List[Packet], cur: Optional[Packet], remain: str
 ) -> Optional[Packet_metaclass]:
     if hasattr(pkt, "endianess"):
-        # import IPython; IPython.embed()
         endianess = pkt.endianess
     else:
         endianess = e_flags(pkt)
