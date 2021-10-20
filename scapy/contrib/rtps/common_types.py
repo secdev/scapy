@@ -61,46 +61,46 @@ def e_flags(pkt: Packet) -> str:
 
 class EField(object):
     """
-    A field that manages endianess of a nested field passed to the constructor
+    A field that manages endianness of a nested field passed to the constructor
     """
 
-    __slots__ = ["fld", "endianess", "endianess_from"]
+    __slots__ = ["fld", "endianness", "endianness_from"]
 
-    def __init__(self, fld, endianess=FORMAT_BE, endianess_from=e_flags):
+    def __init__(self, fld, endianness=FORMAT_BE, endianness_from=e_flags):
         self.fld = fld
-        self.endianess = endianess
-        self.endianess_from = endianess_from
+        self.endianness = endianness
+        self.endianness_from = endianness_from
 
-    def set_endianess(self, pkt):
-        if getattr(pkt, "endianess", None) is not None:
-            self.endianess = pkt.endianess
-        elif self.endianess_from is not None:
-            self.endianess = self.endianess_from(pkt)
+    def set_endianness(self, pkt):
+        if getattr(pkt, "endianness", None) is not None:
+            self.endianness = pkt.endianness
+        elif self.endianness_from is not None:
+            self.endianness = self.endianness_from(pkt)
 
-        if hasattr(self.fld, "set_endianess"):
-            self.fld.set_endianess(endianess=self.endianess)
+        if hasattr(self.fld, "set_endianness"):
+            self.fld.set_endianness(endianness=self.endianness)
             return
 
-        if hasattr(self.fld, "endianess"):
-            self.fld.endianess = self.endianess
+        if hasattr(self.fld, "endianness"):
+            self.fld.endianness = self.endianness
             return
 
-        if isinstance(self.endianess, str) and self.endianess:
+        if isinstance(self.endianness, str) and self.endianness:
             if hasattr(self.fld, "fmt"):
                 if len(self.fld.fmt) == 1:  # if it's only "I"
                     _end = self.fld.fmt[0]
                 else:  # if it's "<I"
                     _end = self.fld.fmt[1:]
-                self.fld.fmt = self.endianess + _end
+                self.fld.fmt = self.endianness + _end
 
                 self.fld.struct = struct.Struct(self.fld.fmt)
 
     def getfield(self, pkt, buf):
-        self.set_endianess(pkt)
+        self.set_endianness(pkt)
         return self.fld.getfield(pkt, buf)
 
     def addfield(self, pkt, buf, val):
-        self.set_endianess(pkt)
+        self.set_endianness(pkt)
         return self.fld.addfield(pkt, buf, val)
 
     def randval(self):
@@ -111,12 +111,12 @@ class EField(object):
 
 
 class EPacket(Packet):
-    """A packet that manages its endianess"""
+    """A packet that manages its endianness"""
 
-    __slots__ = ["endianess"]
+    __slots__ = ["endianness"]
 
-    def __init__(self, *args, endianess=None, **kwargs):
-        self.endianess = endianess
+    def __init__(self, *args, endianness=None, **kwargs):
+        self.endianness = endianness
         super().__init__(*args, **kwargs)
 
     def extract_padding(self, p):
@@ -125,35 +125,35 @@ class EPacket(Packet):
 
 class EPacketField(PacketField):
     """
-    A packet field that manages its endianess and that of its nested packet
+    A packet field that manages its endianness and that of its nested packet
     """
 
-    __slots__ = ["endianess", "endianess_from", "fuzz_fun"]
+    __slots__ = ["endianness", "endianness_from", "fuzz_fun"]
 
     def __init__(
         self,
         *args,
         fuzz_fun=fuzz,
-        endianess=None,
-        endianess_from=e_flags,
+        endianness=None,
+        endianness_from=e_flags,
         **kwargs,
     ):
-        self.endianess = endianess
-        self.endianess_from = endianess_from
+        self.endianness = endianness
+        self.endianness_from = endianness_from
         self.fuzz_fun = fuzz_fun
         super().__init__(*args, **kwargs)
 
-    def set_endianess(self, pkt):
-        if getattr(pkt, "endianess", None) is not None:
-            self.endianess = pkt.endianess
-        elif self.endianess_from is not None and pkt:
-            self.endianess = self.endianess_from(pkt)
-            assert self.endianess is not None
+    def set_endianness(self, pkt):
+        if getattr(pkt, "endianness", None) is not None:
+            self.endianness = pkt.endianness
+        elif self.endianness_from is not None and pkt:
+            self.endianness = self.endianness_from(pkt)
+            assert self.endianness is not None
 
     def m2i(self, pkt, m):
-        self.set_endianess(pkt)
+        self.set_endianness(pkt)
 
-        _pkt = self.cls(m, endianess=self.endianess)
+        _pkt = self.cls(m, endianness=self.endianness)
 
         return _pkt
 
@@ -169,12 +169,12 @@ class SerializedDataField(StrLenField):
 
 class DataPacketField(EPacketField):
     def m2i(self, pkt, m):
-        self.set_endianess(pkt)
+        self.set_endianness(pkt)
 
         pl_len = pkt.octetsToNextHeader - 24
         _pkt = self.cls(
             m,
-            endianess=self.endianess,
+            endianness=self.endianness,
             writer_entity_id_key=pkt.writerEntityIdKey,
             writer_entity_id_kind=pkt.writerEntityIdKind,
             pl_len=pl_len,

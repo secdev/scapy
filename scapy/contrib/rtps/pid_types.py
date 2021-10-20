@@ -487,12 +487,12 @@ _RTPSParameterIdTypes = {
 def get_pid_class(
     pkt: Packet, lst: List[Packet], cur: Optional[Packet], remain: str
 ) -> Optional[Packet_metaclass]:
-    if hasattr(pkt, "endianess"):
-        endianess = pkt.endianess
+    if hasattr(pkt, "endianness"):
+        endianness = pkt.endianness
     else:
-        endianess = e_flags(pkt)
+        endianness = e_flags(pkt)
 
-    _id = struct.unpack(endianess + "h", remain[0:2])[0]
+    _id = struct.unpack(endianness + "h", remain[0:2])[0]
 
     if _id == 0x0001:  # sentinel
         return None
@@ -502,7 +502,7 @@ def get_pid_class(
     if next_cls is None:
         return None
 
-    next_cls.endianess = endianess
+    next_cls.endianness = endianness
 
     return next_cls
 

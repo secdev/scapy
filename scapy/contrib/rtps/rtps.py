@@ -209,7 +209,7 @@ class DataPacket(EPacket):
         *args,
         writer_entity_id_key=None,
         writer_entity_id_kind=None,
-        endianess=None,
+        endianness=None,
         pl_len=0,
         **kwargs
     ):
@@ -220,7 +220,7 @@ class DataPacket(EPacket):
 
         DataPacket._pl_len = pl_len
 
-        super().__init__(*args, endianess=endianess, **kwargs)
+        super().__init__(*args, endianness=endianness, **kwargs)
 
 
 class RTPSSubMessage_DATA(EPacket):
@@ -423,7 +423,7 @@ class RTPSSubMessage_INFO_DST(EPacket):
     """
 
     name = "RTPS INFO_DTS (0x0e)"
-    endianess = ">"
+    endianness = ">"
 
     fields_desc = [
         XByteField("submessageId", 0x0E),
