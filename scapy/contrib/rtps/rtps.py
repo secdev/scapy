@@ -30,7 +30,6 @@ from scapy.fields import (
     ByteField,
     ConditionalField,
     IntField,
-    MultipleTypeField,
     PacketField,
     PacketListField,
     ShortField,
@@ -46,7 +45,6 @@ from scapy.fields import (
     Field,
     EnumField,
 )
-from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers
 
 from scapy.contrib.rtps.common_types import (
@@ -178,34 +176,31 @@ class DataPacket(EPacket):
     fields_desc = [
         XShortField("encapsulationKind", 0),
         XShortField("encapsulationOptions", 0),
-        MultipleTypeField(
-            [
-                # if payload encoding == PL_CDR_{LE,BE} then parameter list
-                (
-                    EPacketField("parameterList", "", ParameterListPacket),
-                    lambda pkt: pkt.encapsulationKind == 0x0003,
-                ),
-                # if writer entity id == 0x200c2: then participant message data
-                (
-                    EPacketField(
-                        "participantMessageData",
-                        "",
-                        ParticipantMessageDataPacket
-                    ),
-                    lambda pkt: pkt._pl_type == "ParticipantMessageData",
-                ),
-            ],
-            # else (default)
+
+        # if payload encoding == PL_CDR_{LE,BE} then parameter list
+        ConditionalField(
+            EPacketField("parameterList", "", ParameterListPacket),
+            lambda pkt: pkt.encapsulationKind == 0x0003,
+        ),
+
+        # if writer entity id == 0x200c2: then participant message data
+        ConditionalField(
+            EPacketField(
+                "participantMessageData",
+                "",
+                ParticipantMessageDataPacket
+            ),
+            lambda pkt: pkt._pl_type == "ParticipantMessageData",
+        ),
+        # else (neither the cases)
+        ConditionalField(
             SerializedDataField(
                 "serializedData", "", length_from=lambda pkt: pkt._pl_len
             ),
-            # SerializedDataField(
-            #  "serializedData",
-            #  "",
-            #  length_from=lambda pkt: (
-            #    pkt.octets_to_next - 12 - (4 if str(pkt.flags).find("Q")
-            #                                   else 2)),
-            # ),
+            lambda pkt: (
+                pkt.encapsulationKind != 0x0003 and \
+                pkt._pl_type != "ParticipantMessageData"
+            ),
         ),
     ]
 
@@ -232,7 +227,7 @@ class RTPSSubMessage_DATA(EPacket):
     """
     0...2...........7...............15.............23...............31
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    | RTPS_DATA     |X|X|X|X|K|D|Q|E|      octetsToNextHeader       |
+    | RTPS_DATA     |     flags     |      octetsToNextHeader       |
     +---------------+---------------+---------------+---------------+
     | Flags extraFlags              |      octetsToInlineQos        |
     +---------------+---------------+---------------+---------------+
@@ -299,7 +294,7 @@ class RTPSSubMessage_INFO_TS(EPacket):
     """
     0...2...........7...............15.............23...............31
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |   INFO_TS     |X|X|X|X|X|X|T|E|      octetsToNextHeader       |
+    |   INFO_TS     |     flags     |      octetsToNextHeader       |
     +---------------+---------------+---------------+---------------+
     |                                                               |
     + Timestamp timestamp [only if T==1]                            +
@@ -328,7 +323,7 @@ class RTPSSubMessage_ACKNACK(EPacket):
     """
     0...2...........7...............15.............23...............31
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |   ACKNACK     |X|X|X|X|X|X|F|E|      octetsToNextHeader       |
+    |   ACKNACK     |     flags     |      octetsToNextHeader       |
     +---------------+---------------+---------------+---------------+
     | EntityId readerEntityId                                       |
     +---------------+---------------+---------------+---------------+
@@ -372,7 +367,7 @@ class RTPSSubMessage_HEARTBEAT(EPacket):
     """
     0...2...........7...............15.............23...............31
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |   HEARTBEAT   |X|X|X|X|X|X|F|E|      octetsToNextHeader       |
+    |   HEARTBEAT   |     flags     |      octetsToNextHeader       |
     +---------------+---------------+---------------+---------------+
     | EntityId readerEntityId                                       |
     +---------------+---------------+---------------+---------------+
@@ -419,7 +414,7 @@ class RTPSSubMessage_INFO_DST(EPacket):
     """
     0...2...........7...............15.............23...............31
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |   INFO_DST    |X|X|X|X|X|X|X|E|      octetsToNextHeader       |
+    |   INFO_DST    |     flags     |      octetsToNextHeader       |
     +---------------+---------------+---------------+---------------+
     |                                                               |
     + GuidPrefix guidPrefix                                         +
@@ -442,7 +437,7 @@ class RTPSSubMessage_PAD(EPacket):
     """
     0...2...........7...............15.............23...............31
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |   PAD         |X|X|X|X|X|X|X|E|      octetsToNextHeader       |
+    |   PAD         |     flags     |      octetsToNextHeader       |
     +---------------+---------------+---------------+---------------+
     """
 
@@ -526,11 +521,6 @@ class RTPSMessage(Packet):
 
         return next_cls
 
-
-# layer binding
-# for port in range(7400, 7500):  # very ugly hack :-)
-#     bind_layers(UDP, RTPS, dport=port)
-#     bind_layers(TCP, RTPS, dport=port)
 
 bind_layers(RTPS, RTPSMessage, magic=b"RTPS")
 bind_layers(RTPS, RTPSMessage, magic=b"RTPX")
