@@ -532,6 +532,5 @@ class RTPSMessage(Packet):
 #     bind_layers(UDP, RTPS, dport=port)
 #     bind_layers(TCP, RTPS, dport=port)
 
-bind_layers(UDP, RTPS)
 bind_layers(RTPS, RTPSMessage, magic=b"RTPS")
 bind_layers(RTPS, RTPSMessage, magic=b"RTPX")
