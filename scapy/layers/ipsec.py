@@ -254,32 +254,6 @@ class AEAD_Algo(object):
         # XXX: random bytes for counters, so it is not wrong to do it that way
         return os.urandom(self.iv_size)
 
-    # @crypto_validator
-    # def new_aead_algo(self, key, mode_iv, digest=None):
-    #     """
-    #     :param key:     the secret key, a byte string
-    #     :param mode_iv: the initialization vector or nonce, a byte string.
-    #                     Formatted by `format_mode_iv`.
-    #     :param digest:  also known as tag or icv. A byte string containing the
-    #                     digest of the encrypted data. Only use this during
-    #                     decryption!
-
-    #     :returns:    an initialized cipher object for this algo
-    #     """
-    #     if digest is not None:
-    #         # With AEAD, the mode needs the digest during decryption.
-    #         return Cipher(
-    #             self.cipher(key),
-    #             self.mode(mode_iv, digest, len(digest)),
-    #             default_backend(),
-    #         )
-    #     else:
-    #         return Cipher(
-    #             self.cipher(key),
-    #             self.mode(mode_iv),
-    #             default_backend(),
-    #         )
-
     def pad(self, esp):
         """
         Add the correct amount of padding so that the data to encrypt is
@@ -330,12 +304,7 @@ class AEAD_Algo(object):
         """
         data = esp.data_for_encryption()
 
-        
-
         mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=esp.iv)
-
-        # print("key = %s" % key.hex())
-        # print("mode_iv = %s" % mode_iv.hex())
 
         algo = self.algo(key)
         
@@ -344,14 +313,8 @@ class AEAD_Algo(object):
         else:
             aad = struct.pack('!LL', esp.spi, esp.seq)
 
-        # print("aad = %s" % aad.hex())
-        # print("data = %s" % data.hex())
-
         # Cipher text contains data and ICV
         ct = algo.encrypt(mode_iv, data, aad)
-
-        # print("ct = %s" % ct[:len(ct) - self.icv_size].hex())
-        # print("tag = %s" % ct[len(ct) - self.icv_size:].hex())
 
         return ESP(spi=esp.spi, seq=esp.seq, data=esp.iv + ct)
 
@@ -378,9 +341,6 @@ class AEAD_Algo(object):
         data = esp.data[self.iv_size:len(esp.data) - icv_size]
         icv = esp.data[len(esp.data) - icv_size:]
         mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=iv)
-        
-        # print("key = %s" % key.hex())
-        # print("mode_iv = %s" % mode_iv.hex())
 
         algo = self.algo(key)
 
@@ -388,10 +348,6 @@ class AEAD_Algo(object):
             aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
         else:
             aad = struct.pack('!LL', esp.spi, esp.seq)
-        
-        # print("aad = %s" % aad.hex())
-        # print("ct = %s" % data.hex())
-        # print("tag = %s" % icv.hex())
 
         try:
             # Plain text contains data and padding
@@ -431,13 +387,54 @@ if aead:
                                        key_size=32,
                                        block_size=64,
                                        format_mode_iv=_salt_format_mode_iv)
-    
-    AEAD_ALGOS['AES-GCM'] = AEAD_Algo('AES-GCM',
+    #https://datatracker.ietf.org/doc/html/rfc4106
+    AEAD_ALGOS['AES-GCM-128'] = AEAD_Algo('AES-GCM-128',
                                        algo=aead.AESGCM,
                                        salt_size=4,
                                        iv_size=8,
                                        icv_size=16,
                                        key_size=16,
+                                       block_size=16,
+                                       format_mode_iv=_salt_format_mode_iv)
+    AEAD_ALGOS['AES-GCM-192'] = AEAD_Algo('AES-GCM-192',
+                                       algo=aead.AESGCM,
+                                       salt_size=4,
+                                       iv_size=8,
+                                       icv_size=16,
+                                       key_size=24,
+                                       block_size=16,
+                                       format_mode_iv=_salt_format_mode_iv)
+    AEAD_ALGOS['AES-GCM-256'] = AEAD_Algo('AES-GCM-256',
+                                       algo=aead.AESGCM,
+                                       salt_size=4,
+                                       iv_size=8,
+                                       icv_size=16,
+                                       key_size=32,
+                                       block_size=16,
+                                       format_mode_iv=_salt_format_mode_iv)
+    #https://datatracker.ietf.org/doc/html/rfc4309
+    AEAD_ALGOS['AES-CCM-128'] = AEAD_Algo('AES-CCM-128',
+                                       algo=aead.AESCCM,
+                                       salt_size=3,
+                                       iv_size=8,
+                                       icv_size=16,
+                                       key_size=16,
+                                       block_size=16,
+                                       format_mode_iv=_salt_format_mode_iv)
+    AEAD_ALGOS['AES-CCM-192'] = AEAD_Algo('AES-CCM-192',
+                                       algo=aead.AESCCM,
+                                       salt_size=3,
+                                       iv_size=8,
+                                       icv_size=16,
+                                       key_size=24,
+                                       block_size=16,
+                                       format_mode_iv=_salt_format_mode_iv)
+    AEAD_ALGOS['AES-CCM-256'] = AEAD_Algo('AES-CCM-256',
+                                       algo=aead.AESCCM,
+                                       salt_size=3,
+                                       iv_size=8,
+                                       icv_size=16,
+                                       key_size=32,
                                        block_size=16,
                                        format_mode_iv=_salt_format_mode_iv)
 
@@ -1160,9 +1157,6 @@ class SecurityAssociation(object):
             self.aead_algo = AEAD_ALGOS[aead_algo]
             self.aead_key = aead_key[:len(aead_key) - self.aead_algo.salt_size]
             self.aead_salt = aead_key[len(aead_key) - self.aead_algo.salt_size:]
-
-            # print("aead_key : %s" % self.aead_key.hex())
-            # print("aead_salt : %s" % self.aead_salt.hex())
 
         if tunnel_header and not isinstance(tunnel_header, (IP, IPv6)):
             raise TypeError('tunnel_header must be %s or %s' % (IP.name, IPv6.name))  # noqa: E501

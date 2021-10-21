@@ -2212,6 +2212,882 @@ except IPSecIntegrityError as err:
     err
 
 #######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-128
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-128 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-128 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-128 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-192
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-192 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-192 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-192 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-256
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-256 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-256 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-GCM-256 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-128
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-128 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-128 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-128 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-192
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-192 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-192 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesgcmand3nonce',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-192 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-256
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-256 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-256 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - AES-CCM-256 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
 = IPv4 / ESP - Tunnel - AEAD - CHACHA20_POLY1305
 ~ crypto_advanced
 
@@ -2336,6 +3212,882 @@ sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          esn_en = True, esn = 0x82,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-128
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-128 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-128 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-128 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-192
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-192 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-192 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-192 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-256
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-256 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-256 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-GCM-256 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-128
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-128 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-128 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-128 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-192
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-192 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-192 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesgcmand3nonce',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-192 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-256
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-256 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-256 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - AES-CCM-256 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
 e
@@ -3653,6 +5405,971 @@ except IPSecIntegrityError as err:
     err
 
 #######################################
+= IPv6 / ESP - Transport - AEAD - CHACHA20_POLY1305
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - CHACHA20_POLY1305 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - CHACHA20_POLY1305 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - CHACHA20_POLY1305 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-128
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-128 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-128 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-128 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-192
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-192 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-192 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-192 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-256
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-256 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-256 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-GCM-256 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-128
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-128 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-128 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-128 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-192
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-192 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-192 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesgcmand3nonce',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-192 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-256
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-256 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-256 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Transport - AEAD - AES-CCM-256 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+assert(e.src == '11::22' and e.dst == '22::11')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
 = IPv6 / ESP - Tunnel - NULL - NULL
 ~ -crypto
 
@@ -3984,6 +6701,976 @@ assert(e.haslayer(ESP))
 assert(not e.haslayer(TCP))
 assert(e[ESP].spi == sa.spi)
 * after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - CHACHA20_POLY1305
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - CHACHA20_POLY1305 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - CHACHA20_POLY1305 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - CHACHA20_POLY1305 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-128
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-128 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-128 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-128 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+                         aead_key=b'16byteskeyforaes4non',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-192
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-192 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-192 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-192 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+                         aead_key=b'24byteskeyforaesgcmand4nonce',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-256
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-256 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-256 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-GCM-256 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+                         aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-128
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-128 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-128 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-128 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+                         aead_key=b'16bytekeyforaes3non',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-192
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-192 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-192 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesgcmand3nonce',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-192 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+                         aead_key=b'24bytekeyforaesccmand3nonce',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-256
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-256 - altered packet
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-256 -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv6 / ESP - Tunnel - AEAD - AES-CCM-256 - altered packet -- ESN
+~ crypto_advanced
+
+p = IPv6(src='11::22', dst='22::11')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IPv6(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+                         aead_key=b'32byteskeyforaesccm256and3bytenonce',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IPv6))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
+assert(e.nh == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
 assert(b'testdata' not in e[ESP].data)
 
 * simulate the alteration of the packet before decryption
