@@ -330,15 +330,28 @@ class AEAD_Algo(object):
         """
         data = esp.data_for_encryption()
 
-        algo = self.algo(key)
+        
 
+        mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=esp.iv)
+
+        # print("key = %s" % key.hex())
+        # print("mode_iv = %s" % mode_iv.hex())
+
+        algo = self.algo(key)
+        
         if esn_en:
             aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
         else:
             aad = struct.pack('!LL', esp.spi, esp.seq)
 
+        # print("aad = %s" % aad.hex())
+        # print("data = %s" % data.hex())
+
         # Cipher text contains data and ICV
-        ct = algo.encrypt(esp.iv, data, aad)
+        ct = algo.encrypt(mode_iv, data, aad)
+
+        # print("ct = %s" % ct[:len(ct) - self.icv_size].hex())
+        # print("tag = %s" % ct[len(ct) - self.icv_size:].hex())
 
         return ESP(spi=esp.spi, seq=esp.seq, data=esp.iv + ct)
 
@@ -364,17 +377,25 @@ class AEAD_Algo(object):
         iv = esp.data[:self.iv_size]
         data = esp.data[self.iv_size:len(esp.data) - icv_size]
         icv = esp.data[len(esp.data) - icv_size:]
+        mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=iv)
+        
+        # print("key = %s" % key.hex())
+        # print("mode_iv = %s" % mode_iv.hex())
 
-        algo = self.decrypt(esp.iv, data, aad)
+        algo = self.algo(key)
 
         if esn_en:
             aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
         else:
             aad = struct.pack('!LL', esp.spi, esp.seq)
+        
+        # print("aad = %s" % aad.hex())
+        # print("ct = %s" % data.hex())
+        # print("tag = %s" % icv.hex())
 
         try:
             # Plain text contains data and padding
-            pt = algo.decrypt(esp.iv, data, aad)
+            pt = algo.decrypt(mode_iv, data + icv, aad)
         except InvalidTag as err:
             raise IPSecIntegrityError(err)
 
@@ -400,7 +421,8 @@ AEAD_ALGOS = {
 }
 
 if aead:
-    _salt_format_mode_iv = lambda sa, iv, **kw: sa.crypt_salt + iv
+    _salt_format_mode_iv = lambda sa, iv, **kw: sa.aead_salt + iv
+    #https://datatracker.ietf.org/doc/html/rfc7539
     AEAD_ALGOS['CHACHA20-POLY1305'] = AEAD_Algo('CHACHA20-POLY1305',
                                        algo=aead.ChaCha20Poly1305,
                                        salt_size=4,
@@ -1128,12 +1150,19 @@ class SecurityAssociation(object):
             else:
                 self.auth_algo = AUTH_ALGOS['NULL']
                 self.auth_key = None
+
+            self.aead_algo = None
+            self.aead_key = None
         else:
             if aead_algo not in AEAD_ALGOS:
                raise TypeError('unsupported integrity algo %r, try %r' %
                                 (aead_algo, list(AEAD_ALGOS)))
             self.aead_algo = AEAD_ALGOS[aead_algo]
-            self.aead_key = aead_key
+            self.aead_key = aead_key[:len(aead_key) - self.aead_algo.salt_size]
+            self.aead_salt = aead_key[len(aead_key) - self.aead_algo.salt_size:]
+
+            # print("aead_key : %s" % self.aead_key.hex())
+            # print("aead_salt : %s" % self.aead_salt.hex())
 
         if tunnel_header and not isinstance(tunnel_header, (IP, IPv6)):
             raise TypeError('tunnel_header must be %s or %s' % (IP.name, IPv6.name))  # noqa: E501
@@ -1153,11 +1182,19 @@ class SecurityAssociation(object):
 
     def _encrypt_esp(self, pkt, seq_num=None, iv=None, esn_en=None, esn=None):
 
-        if iv is None:
-            iv = self.crypt_algo.generate_iv()
+        # Here we use either aead algo or crypt + auth
+        if self.aead_algo is None:
+            if iv is None:
+                iv = self.crypt_algo.generate_iv()
+            else:
+                if len(iv) != self.crypt_algo.iv_size:
+                    raise TypeError('iv length must be %s' % self.crypt_algo.iv_size)  # noqa: E501
         else:
-            if len(iv) != self.crypt_algo.iv_size:
-                raise TypeError('iv length must be %s' % self.crypt_algo.iv_size)  # noqa: E501
+            if iv is None:
+                iv = self.aead_algo.generate_iv()
+            else:
+                if len(iv) != self.aead_algo.iv_size:
+                    raise TypeError('iv length must be %s' % self.aead_algo.iv_size)
 
         esp = _ESPPlain(spi=self.spi, seq=seq_num or self.seq_num, iv=iv)
 
@@ -1188,7 +1225,7 @@ class SecurityAssociation(object):
             self.auth_algo.sign(esp, self.auth_key)
         else:
             esp = self.aead_algo.pad(esp)
-            esp = self.aead_algo.encrypt(self, esp, self.crypt_key,
+            esp = self.aead_algo.encrypt(self, esp, self.aead_key,
                                         esn_en=esn_en or self.esn_en,
                                         esn=esn or self.esn)
 
@@ -1314,9 +1351,8 @@ class SecurityAssociation(object):
             if verify:
                 self.check_spi(pkt)
 
-            esp = self.aead_algo.decrypt(self, encrypted, self.crypt_key,
-                                        self.crypt_algo.icv_size or
-                                        self.auth_algo.icv_size,
+            esp = self.aead_algo.decrypt(self, encrypted, self.aead_key,
+                                        self.aead_algo.icv_size,
                                         esn_en=esn_en or self.esn_en,
                                         esn=esn or self.esn)
 

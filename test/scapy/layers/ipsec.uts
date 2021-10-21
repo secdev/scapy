@@ -2027,7 +2027,7 @@ d
 assert(d == p)
 
 #######################################
-= IPv4 / ESP - Tunnel - AES-CCM - NULL
+= IPv4 / ESP - Tunnel - AES-CCM - NULL - altered packet
 ~ crypto_advanced
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
@@ -2042,6 +2042,302 @@ sa = SecurityAssociation(ESP, spi=0x222,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - CHACHA20_POLY1305
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - CHACHA20_POLY1305 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce')
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - CHACHA20_POLY1305 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         esn_en = True, esn = 0x852)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Transport - AEAD - CHACHA20_POLY1305 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         esn_en = True, esn = 0x82)
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - CHACHA20_POLY1305
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - CHACHA20_POLY1305 - altered packet
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert(False)
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - CHACHA20_POLY1305 -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         esn_en = True, esn = 0x852,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+
+e =sa.encrypt(p)
+e
+
+assert(isinstance(e, IP))
+* after encryption packet should be encapsulated with the given ip tunnel header
+assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
+assert(e.chksum != p.chksum)
+assert(e.proto == socket.IPPROTO_ESP)
+assert(e.haslayer(ESP))
+assert(not e.haslayer(TCP))
+assert(e[ESP].spi == sa.spi)
+* after encryption the original packet payload should NOT be readable
+assert(b'testdata' not in e[ESP].data)
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert(d == p)
+
+#######################################
+= IPv4 / ESP - Tunnel - AEAD - CHACHA20_POLY1305 - altered packet -- ESN
+~ crypto_advanced
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+                         aead_key=b'32byteskeyforchachaandpoly4bytenonce',
+                         esn_en = True, esn = 0x82,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+
+e =sa.encrypt(p)
 e
 
 assert(isinstance(e, IP))
