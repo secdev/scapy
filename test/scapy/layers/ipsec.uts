@@ -1569,7 +1569,7 @@ p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
-                         auth_algo='NULL', auth_key=None, esn_en = True, esn = 0x1)
+                         auth_algo='NULL', auth_key=None, esn_en=True, esn=0x1)
 
 e = sa.encrypt(p)
 e
@@ -1647,7 +1647,7 @@ try:
     assert(False)
 except IPSecIntegrityError as err:
     err
-    
+
 #######################################
 
 = IPv4 / ESP - Transport - AES-GCM - NULL - altered packet -- ESN
@@ -1660,7 +1660,7 @@ p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
-                         auth_algo='NULL', auth_key=None, esn_en = True, esn = 0x200)
+                         auth_algo='NULL', auth_key=None, esn_en=True, esn=0x200)
 
 e = sa.encrypt(p)
 e
@@ -1678,11 +1678,11 @@ assert(b'testdata' not in e[ESP].data)
 * simulate the alteration of the packet before decryption
 * integrity verification should fail
 try:
-    d = sa.decrypt(e, esn = 0x201)
+    d = sa.decrypt(e, esn=0x201)
     assert(False)
 except IPSecIntegrityError as err:
     err
-    
+
 #######################################
 = IPv4 / ESP - Transport - AES-CCM - NULL
 ~ crypto_advanced
@@ -1893,7 +1893,7 @@ p
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None,
-                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'), esn_en = True, esn = 0x2)
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'), esn_en=True, esn=0x2)
 
 e = sa.encrypt(p)
 e
@@ -1953,7 +1953,7 @@ try:
     assert(False)
 except IPSecIntegrityError as err:
     err
-    
+
 #######################################
 
 = IPv4 / ESP - Tunnel - AES-GCM - NULL - altered packet - ESN
@@ -1967,7 +1967,7 @@ p
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None,
-                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'), esn_en = True, esn = 0x2)
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'), esn_en=True, esn=0x2)
 
 e = sa.encrypt(p)
 e
@@ -1986,10 +1986,10 @@ assert(b'testdata' not in e[ESP].data)
 * simulate the alteration of the packet before decryption
 * integrity verification should fail
 try:
-    d = sa.decrypt(e, esn = 0x3)
+    d = sa.decrypt(e, esn=0x3)
     assert(False)
 except IPSecIntegrityError as err:
-    err    
+    err
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-CCM - NULL
@@ -2075,7 +2075,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce')
 
 
@@ -2109,7 +2109,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce')
 
 
@@ -2147,9 +2147,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -2182,9 +2182,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -2221,7 +2221,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non')
 
 
@@ -2255,7 +2255,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non')
 
 
@@ -2293,9 +2293,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -2328,9 +2328,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -2367,7 +2367,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce')
 
 
@@ -2401,7 +2401,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce')
 
 
@@ -2439,9 +2439,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -2474,9 +2474,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -2513,7 +2513,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce')
 
 
@@ -2547,7 +2547,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce')
 
 
@@ -2585,9 +2585,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -2620,9 +2620,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -2659,7 +2659,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non')
 
 
@@ -2693,7 +2693,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non')
 
 
@@ -2731,9 +2731,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -2766,9 +2766,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -2805,7 +2805,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce')
 
 
@@ -2839,7 +2839,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce')
 
 
@@ -2877,9 +2877,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesgcmand3nonce',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -2912,9 +2912,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -2951,7 +2951,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce')
 
 
@@ -2985,7 +2985,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce')
 
 
@@ -3023,9 +3023,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -3058,9 +3058,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -3097,7 +3097,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3132,7 +3132,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3171,9 +3171,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 
@@ -3207,9 +3207,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 
@@ -3247,7 +3247,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3281,7 +3281,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3319,9 +3319,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -3354,9 +3354,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -3393,7 +3393,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3427,7 +3427,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3465,9 +3465,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -3500,9 +3500,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -3539,7 +3539,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3573,7 +3573,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3611,9 +3611,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -3646,9 +3646,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -3685,7 +3685,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3719,7 +3719,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3757,9 +3757,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -3792,9 +3792,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -3831,7 +3831,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3865,7 +3865,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -3903,9 +3903,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesgcmand3nonce',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -3938,9 +3938,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -3977,7 +3977,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -4011,7 +4011,7 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
@@ -4049,9 +4049,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -4084,9 +4084,9 @@ p /= Raw('testdata')
 p = IP(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e =sa.encrypt(p)
@@ -5414,7 +5414,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce')
 
 
@@ -5446,7 +5446,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce')
 
 
@@ -5482,9 +5482,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -5515,9 +5515,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -5552,7 +5552,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non')
 
 
@@ -5584,7 +5584,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non')
 
 
@@ -5620,9 +5620,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -5653,9 +5653,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -5690,7 +5690,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce')
 
 
@@ -5722,7 +5722,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce')
 
 
@@ -5758,9 +5758,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -5791,9 +5791,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -5828,7 +5828,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce')
 
 
@@ -5860,7 +5860,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce')
 
 
@@ -5896,9 +5896,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -5929,9 +5929,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -5966,7 +5966,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non')
 
 
@@ -5998,7 +5998,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non')
 
 
@@ -6034,9 +6034,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -6067,9 +6067,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -6104,7 +6104,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce')
 
 
@@ -6135,7 +6135,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce')
 
 
@@ -6171,9 +6171,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesgcmand3nonce',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -6204,9 +6204,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -6241,7 +6241,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce')
 
 
@@ -6273,7 +6273,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce')
 
 
@@ -6309,9 +6309,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
-                         esn_en = True, esn = 0x852)
+                         esn_en=True, esn=0x852)
 
 
 e =sa.encrypt(p)
@@ -6342,9 +6342,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
-                         esn_en = True, esn = 0x82)
+                         esn_en=True, esn=0x82)
 
 
 e =sa.encrypt(p)
@@ -6723,7 +6723,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -6756,7 +6756,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -6793,9 +6793,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 
@@ -6827,9 +6827,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='CHACHA20-POLY1305',
                          aead_key=b'32byteskeyforchachaandpoly4bytenonce',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 
@@ -6865,7 +6865,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -6897,7 +6897,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -6933,9 +6933,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -6966,9 +6966,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-128',
                          aead_key=b'16byteskeyforaes4non',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -7003,7 +7003,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -7035,7 +7035,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -7071,9 +7071,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -7104,9 +7104,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-192',
                          aead_key=b'24byteskeyforaesgcmand4nonce',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -7141,7 +7141,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -7173,7 +7173,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -7209,9 +7209,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -7242,9 +7242,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-GCM-256',
                          aead_key=b'32byteskeyforaesgcm256and4bytesnonce',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -7279,7 +7279,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -7311,7 +7311,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -7347,9 +7347,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -7380,9 +7380,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-128',
                          aead_key=b'16bytekeyforaes3non',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -7417,7 +7417,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -7449,7 +7449,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -7485,9 +7485,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesgcmand3nonce',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -7518,9 +7518,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-192',
                          aead_key=b'24bytekeyforaesccmand3nonce',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -7555,7 +7555,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -7587,7 +7587,7 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
@@ -7623,9 +7623,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
-                         esn_en = True, esn = 0x852,
+                         esn_en=True, esn=0x852,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -7656,9 +7656,9 @@ p /= Raw('testdata')
 p = IPv6(raw(p))
 p
 
-sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256', 
+sa = SecurityAssociation(ESP, spi=0x222, aead_algo='AES-CCM-256',
                          aead_key=b'32byteskeyforaesccm256and3bytenonce',
-                         esn_en = True, esn = 0x82,
+                         esn_en=True, esn=0x82,
                          tunnel_header=IPv6(src='aa::bb', dst='bb::aa'))
 
 e =sa.encrypt(p)
@@ -8014,4 +8014,3 @@ e[IPv6ExtHdrRouting].segleft = 0
 * integrity verification should pass
 d = sa.decrypt(e)
 d
-
