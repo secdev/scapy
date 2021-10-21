@@ -9,16 +9,30 @@ SMB (Server Message Block), also known as CIFS.
 Specs:
 - [MS-CIFS] (base)
 - [MS-SMB] (extension of CIFS - SMB v1)
+
+Implements:
+- CIFS/SMB
+- NTLM SMB Relay
 """
 
-import socket
 import struct
+from scapy.asn1.asn1 import ASN1_STRING
+from scapy.automaton import ATMT, Automaton
 
 from scapy.config import conf
+from scapy.layers.ntlm import (
+    NTLM_AUTHENTICATE,
+    NTLM_AUTHENTICATE_V2,
+    NTLM_CHALLENGE,
+    NTLM_NEGOTIATE,
+    NTLM_Client,
+    NTLM_Server,
+)
 from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import (
     ByteEnumField,
     ByteField,
+    FieldLenField,
     FlagsField,
     LEFieldLenField,
     LEIntField,
@@ -39,7 +53,15 @@ from scapy.fields import (
     XStrLenField,
 )
 from scapy.layers.netbios import NBTSession
-from scapy.layers.gssapi import GSSAPI_BLOB
+from scapy.layers.gssapi import (
+    GSSAPI_BLOB,
+    SPNEGO_MechListMIC,
+    SPNEGO_MechType,
+    SPNEGO_Token,
+    SPNEGO_negToken,
+    SPNEGO_negTokenInit,
+    SPNEGO_negTokenResp,
+)
 from scapy.layers.smb2 import SMB2_Header
 
 SMB_COM = {
@@ -153,15 +175,18 @@ class SMB_Header(Packet):
                                "NT_STATUS",
                                "UNICODE"]),
                    LEShortField("PIDHigh", 0x0000),
-                   LELongField("SecurityFeatures", 0x0),
+                   StrFixedLenField("SecuritySignature", b"", length=8),
                    LEShortField("Reserved", 0x0),
                    LEShortField("TID", 0),
-                   LEShortField("PID", 1),
+                   LEShortField("PIDLow", 1),
                    LEShortField("UID", 0),
-                   LEShortField("MID", 2)]
+                   LEShortField("MID", 0)]
 
     def guess_payload_class(self, payload):
         # type: (bytes) -> Packet
+        if not payload:
+            return super(SMB_Header, self).guess_payload_class(payload)
+        WordCount = ord(payload[:1])
         if self.Command == 0x72:
             if self.Flags.REPLY:
                 if self.Flags2.EXTENDED_SECURITY:
@@ -171,12 +196,22 @@ class SMB_Header(Packet):
             else:
                 return SMBNegotiate_Request
         elif self.Command == 0x73:
+            if WordCount == 0:
+                return SMBSession_Null
             if self.Flags.REPLY:
+                if WordCount == 0x04:
+                    return SMBSession_Setup_AndX_Response_Extended_Security
+                elif WordCount == 0x03:
+                    return SMBSession_Setup_AndX_Response
                 if self.Flags2.EXTENDED_SECURITY:
                     return SMBSession_Setup_AndX_Response_Extended_Security
                 else:
                     return SMBSession_Setup_AndX_Response
             else:
+                if WordCount == 0x0C:
+                    return SMBSession_Setup_AndX_Request_Extended_Security
+                elif WordCount == 0x0D:
+                    return SMBSession_Setup_AndX_Request
                 if self.Flags2.EXTENDED_SECURITY:
                     return SMBSession_Setup_AndX_Request_Extended_Security
                 else:
@@ -204,8 +239,7 @@ class SMB_Dialect(Packet):
 class SMBNegotiate_Request(Packet):
     name = "SMB Negotiate Request"
     fields_desc = [ByteField("WordCount", 0),
-                   LEFieldLenField("ByteCount", None, length_of="Dialects",
-                                   adjust=lambda pkt, x: x + 1),
+                   LEFieldLenField("ByteCount", None, length_of="Dialects"),
                    PacketListField(
                        "Dialects", [SMB_Dialect()], SMB_Dialect,
                        length_from=lambda pkt: pkt.ByteCount)
@@ -215,6 +249,32 @@ class SMBNegotiate_Request(Packet):
 bind_layers(SMB_Header, SMBNegotiate_Request, Command=0x72)
 
 # SMBNegociate Protocol Response
+
+
+def _SMBStrNullField(name, default):
+    """
+    Returns a StrNullField that is either normal or UTF-16 depending
+    on the SMB headers.
+    """
+    def _isUTF16(pkt):
+        while not hasattr(pkt, "Flags2") and pkt.underlayer:
+            pkt = pkt.underlayer
+        return hasattr(pkt, "Flags2") and pkt.Flags2.UNICODE
+    return MultipleTypeField(
+        [
+            (StrNullFieldUtf16(name, default),
+             lambda pkt: _isUTF16(pkt))
+        ],
+        StrNullField(name, default),
+    )
+
+
+def _len(pkt, name):
+    """
+    Returns the length of a field, works with Unicode strings.
+    """
+    fld, v = pkt.getfield_and_val(name)
+    return len(fld.addfield(pkt, v, b""))
 
 
 class _SMBNegotiate_Response(Packet):
@@ -279,7 +339,7 @@ class SMBNegotiate_Response_NoSecurity(_SMBNegotiate_Response):
                                "SECURITY_SIGNATURES_REQUIRED"]),
                    LEShortField("MaxMpxCount", 50),
                    LEShortField("MaxNumberVC", 1),
-                   LEIntField("MaxBufferSize", 16144),
+                   LEIntField("MaxBufferSize", 16144),  # Windows: 4356
                    LEIntField("MaxRawSize", 65536),
                    LEIntField("SessionKey", 0x0000),
                    FlagsField("ServerCapabilities", 0xf3f9, -32,
@@ -289,12 +349,13 @@ class SMBNegotiate_Response_NoSecurity(_SMBNegotiate_Response):
                                 custom_scaling=1e7),
                    ScalingField("ServerTimeZone", 0x3c, fmt="<h",
                                 unit="min-UTC"),
-                   ByteField("ChallengeLength", 0),  # aka EncryptionKeyLength
+                   FieldLenField("ChallengeLength", None,  # aka EncryptionKeyLength
+                                 length_of="Challenge", fmt="<B"),
                    LEFieldLenField("ByteCount", None, length_of="DomainName",
                                    adjust=lambda pkt, x: x +
                                    len(pkt.Challenge)),
-                   StrLenField("Challenge", b"",  # aka EncryptionKey
-                               length_from=lambda pkt: pkt.ChallengeLength),
+                   XStrLenField("Challenge", b"",  # aka EncryptionKey
+                                length_from=lambda pkt: pkt.ChallengeLength),
                    StrNullField("DomainName", "WORKGROUP")]
 
 
@@ -310,6 +371,7 @@ class SMBNegotiate_Response_Extended_Security(_SMBNegotiate_Response):
     fields_desc = SMBNegotiate_Response_NoSecurity.fields_desc[:12] + [
         LEFieldLenField("ByteCount", None, length_of="SecurityBlob",
                         adjust=lambda _, x: x + 16),
+        SMBNegotiate_Response_NoSecurity.fields_desc[13],
         UUIDField("GUID", None, uuid_fmt=UUIDField.FORMAT_LE),
         PacketLenField("SecurityBlob", None, GSSAPI_BLOB,
                        length_from=lambda x: x.ByteCount - 16)
@@ -327,12 +389,12 @@ class SMBNegotiate_Response_Security(_SMBNegotiate_Response):
     WordCount = 0x11
     fields_desc = SMBNegotiate_Response_NoSecurity.fields_desc[:12] + [
         LEFieldLenField("ByteCount", None, length_of="DomainName",
-                        adjust=lambda pkt, x: x + len(pkt.Challenge) +
-                        len(pkt.ServerName)),
-        StrLenField("Challenge", b"",  # aka EncryptionKey
-                    length_from=lambda pkt: pkt.ChallengeLength),
-        StrNullField("DomainName", "WORKGROUP"),
-        StrNullFieldUtf16("ServerName", "RMFF1")
+                        adjust=lambda pkt, x: x + 2 + _len(pkt, "Challenge") +
+                        _len(pkt, "ServerName")),
+        XStrLenField("Challenge", b"",  # aka EncryptionKey
+                     length_from=lambda pkt: pkt.ChallengeLength),
+        _SMBStrNullField("DomainName", "WORKGROUP"),
+        _SMBStrNullField("ServerName", "RMFF1")
     ]
 
 
@@ -344,26 +406,15 @@ bind_top_down(SMB_Header, SMBNegotiate_Response_Security,
 # CIFS sect 2.2.4.53
 
 
-def _SMBStrNullField(name, default):
-    return MultipleTypeField(
-        [
-            (StrNullFieldUtf16(name, default),
-             lambda pkt: hasattr(pkt.underlayer, "Flags2") and
-             pkt.underlayer.Flags2.UNICODE)
-        ],
-        StrNullField(name, default),
-    )
-
-
 class SMBSession_Setup_AndX_Request(Packet):
     name = "Session Setup AndX Request (CIFS)"
     fields_desc = [
-        ByteField("WordCount", 13),
-        ByteEnumField("AndXCommand", 0x75,
+        ByteField("WordCount", 0x0D),
+        ByteEnumField("AndXCommand", 0xff,
                       SMB_COM),
         ByteField("AndXReserved", 0),
-        LEShortField("AndXOffset", 96),
-        LEShortField("MaxBufferSize", 2920),
+        LEShortField("AndXOffset", None),
+        LEShortField("MaxBufferSize", 16144),  # Windows: 4356
         LEShortField("MaxMPXCount", 50),
         LEShortField("VCNumber", 0),
         LEIntField("SessionKey", 0),
@@ -374,43 +425,76 @@ class SMBSession_Setup_AndX_Request(Packet):
         LEIntField("Reserved", 0),
         FlagsField("ServerCapabilities", 0x05, -32,
                    _SMB_ServerCapabilities),
-        LEShortField("ByteCount", 35),
+        LEShortField("ByteCount", None),
         XStrLenField("OEMPassword", "Pass",
                      length_from=lambda x: x.OEMPasswordLength),
         XStrLenField("UnicodePassword", "Pass",
                      length_from=lambda x: x.UnicodePasswordLength),
         ReversePadField(
-            StrNullField("AccountName", "GUEST"), 2, b"\0"
+            _SMBStrNullField("AccountName", "GUEST"), 2, b"\0"
         ),
         _SMBStrNullField("PrimaryDomain", ""),
         _SMBStrNullField("NativeOS", "Windows 4.0"),
-        _SMBStrNullField("NativeLanMan", "Windows 4.0"),
-        # Off spec?
-        ByteField("WordCount2", 4),
-        ByteEnumField("AndXCommand2", 0xFF, {0xFF: "SMB_COM_NONE"}),
-        ByteField("Reserved6", 0),
-        LEShortField("AndXOffset2", 0),
-        LEShortField("Flags3", 0x2),
-        LEShortField("PasswordLength", 0x1),
-        LEShortField("ByteCount2", 18),
-        ByteField("Password", 0),
-        StrNullField("Path", "\\\\WIN2K\\IPC$"),
-        StrNullField("Service", "IPC")]
+        _SMBStrNullField("NativeLanMan", "Windows 4.0")]
+
+    def post_build(self, pkt, pay):
+        if self.AndXOffset is None and self.AndXCommand != 0xff:
+            pkt = pkt[:3] + struct.pack("<H", len(pkt) + 32) + pkt[5:]
+        if self.ByteCount is None:
+            pkt = pkt[:27] + struct.pack("<H", len(pkt) - 29) + pkt[29:]
+        if self.payload and hasattr(self.payload, "AndXOffset") and pay:
+            pay = pay[:3] + \
+                struct.pack("<H", len(pkt) + len(pay) + 32) + pay[5:]
+        return pkt + pay
 
 
 bind_top_down(SMB_Header, SMBSession_Setup_AndX_Request,
               Command=0x73)
+
+# SMB sect 2.2.4.7
+
+
+class SMBTree_Connect_AndX(Packet):
+    name = "Session Tree Connect AndX"
+    WordCount = 0x04
+    fields_desc = SMBSession_Setup_AndX_Request.fields_desc[:4] + [
+        FlagsField("Flags", "", -16, ["DISCONNECT_TID",
+                                      "r2",
+                                      "EXTENDED_SIGNATURES",
+                                      "EXTENDED_RESPONSE"]),
+        FieldLenField("PasswordLength", None,
+                      length_of="Password", fmt="<H"),
+        LEShortField("ByteCount", None),
+        XStrLenField("Password", b"",
+                     length_from=lambda pkt: pkt.PasswordLength),
+        ReversePadField(
+            _SMBStrNullField("Path", "\\\\WIN2K\\IPC$"),
+            2
+        ),
+        StrNullField("Service", "?????")
+    ]
+
+    def post_build(self, pkt, pay):
+        pkt += pay
+        if self.ByteCount is None:
+            pkt = pkt[:9] + struct.pack("<H", len(pkt) - 11) + pkt[11:]
+        return pkt
+
+
+bind_layers(SMBSession_Setup_AndX_Request,
+            SMBTree_Connect_AndX, AndXCommand=0x75)
 
 # SMB sect 2.2.4.6.1
 
 
 class SMBSession_Setup_AndX_Request_Extended_Security(Packet):
     name = "Session Setup AndX Extended Security Request (SMB)"
+    WordCount = 0x0C
     fields_desc = SMBSession_Setup_AndX_Request.fields_desc[:8] + [
         LEFieldLenField("SecurityBlobLength", None,
                         length_of="SecurityBlob"),
     ] + SMBSession_Setup_AndX_Request.fields_desc[10:12] + [
-        LEShortField("ByteCount", 35),
+        LEShortField("ByteCount", None),
         PacketLenField("SecurityBlob", None, GSSAPI_BLOB,
                        length_from=lambda x: x.SecurityBlobLength),
         ReversePadField(
@@ -419,6 +503,11 @@ class SMBSession_Setup_AndX_Request_Extended_Security(Packet):
         ),
         _SMBStrNullField("NativeLanMan", "Windows 4.0"),
     ]
+
+    def post_build(self, pkt, pay):
+        if self.ByteCount is None:
+            pkt = pkt[:25] + struct.pack("<H", len(pkt) - 27) + pkt[27:]
+        return pkt + pay
 
 
 bind_top_down(SMB_Header, SMBSession_Setup_AndX_Request_Extended_Security,
@@ -432,15 +521,15 @@ bind_top_down(SMB_Header, SMBSession_Setup_AndX_Request_Extended_Security,
 class SMBSession_Setup_AndX_Response(Packet):
     name = "Session Setup AndX Response (CIFS)"
     fields_desc = [
-        ByteField("WordCount", 3),
-        ByteEnumField("AndXCommand", 0x75,
+        ByteField("WordCount", 0x3),
+        ByteEnumField("AndXCommand", 0xff,
                       SMB_COM),
         ByteField("AndXReserved", 0),
-        LEShortField("AndXOffset", 66),
+        LEShortField("AndXOffset", None),
         LEShortField("Action", 0),
         LEShortField("ByteCount", 25),
         _SMBStrNullField("NativeOS", "Windows 4.0"),
-        _SMBStrNullField("NativeLanManager", "Windows 4.0"),
+        _SMBStrNullField("NativeLanMan", "Windows 4.0"),
         _SMBStrNullField("PrimaryDomain", ""),
         # Off spec?
         ByteField("WordCount2", 3),
@@ -452,6 +541,11 @@ class SMBSession_Setup_AndX_Response(Packet):
         StrNullField("Service", "IPC"),
         StrNullField("NativeFileSystem", "")]
 
+    def post_build(self, pkt, pay):
+        if self.AndXOffset is None:
+            pkt = pkt[:3] + struct.pack("<H", len(pkt) + 32) + pkt[5:]
+        return pkt + pay
+
 
 bind_top_down(SMB_Header, SMBSession_Setup_AndX_Response,
               Command=0x73, Flags=0x80)
@@ -460,24 +554,34 @@ bind_top_down(SMB_Header, SMBSession_Setup_AndX_Response,
 # uWu
 
 
-class SMBSession_Setup_AndX_Response_Extended_Security(Packet):
+class SMBSession_Setup_AndX_Response_Extended_Security(SMBSession_Setup_AndX_Response):
     name = "Session Setup AndX Extended Security Response (SMB)"
-    WordCount = 7
-    fields_desc = SMBSession_Setup_AndX_Response.fields_desc[:5] + [
-        LEFieldLenField("SecurityBlobLength", None,
-                        length_of="SecurityBlob"),
-        LEShortField("ByteCount", 25),
-        PacketLenField("SecurityBlob", None, GSSAPI_BLOB,
-                       length_from=lambda x: x.SecurityBlobLength),
-        ReversePadField(
-            _SMBStrNullField("NativeOS", "Windows 4.0"),
-            2, b"\0",
-        ),
-        _SMBStrNullField("NativeLanMan", "Windows 4.0")]
+    WordCount = 0x4
+    fields_desc = (
+        SMBSession_Setup_AndX_Response.fields_desc[:5] +
+        [SMBSession_Setup_AndX_Request_Extended_Security.fields_desc[8]] +
+        SMBSession_Setup_AndX_Request_Extended_Security.fields_desc[11:]
+    )
+
+    def post_build(self, pkt, pay):
+        if self.ByteCount is None:
+            pkt = pkt[:9] + struct.pack("<H", len(pkt) - 11) + pkt[11:]
+        return super(SMBSession_Setup_AndX_Response_Extended_Security, self).post_build(pkt, pay)
 
 
 bind_top_down(SMB_Header, SMBSession_Setup_AndX_Response_Extended_Security,
               Command=0x73, Flags=0x80, Flags2=0x800)
+
+# SMB null (no wordcount)
+
+
+class SMBSession_Null(Packet):
+    fields_desc = [ByteField("WordCount", 0),
+                   LEShortField("ByteCount", 0)]
+
+
+bind_top_down(SMB_Header, SMBSession_Null,
+              Command=0x73)
 
 # SMB NetLogon Response Header
 
@@ -599,3 +703,411 @@ class SMBNegociate_Protocol_Request_Header_Generic(Packet):
 
 
 bind_layers(NBTSession, SMBNegociate_Protocol_Request_Header_Generic)
+
+# Automatons
+
+
+class NTLM_SMB_Server(NTLM_Server, Automaton):
+    port = 445
+    cls = NBTSession
+
+    def __init__(self, *args, **kwargs):
+        self.PASS_NEGOEX = kwargs.pop("PASS_NEGOEX", None)
+        self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
+        super(NTLM_SMB_Server, self).__init__(*args, **kwargs)
+        if self.PASS_NEGOEX is None:
+            self.PASS_NEGOEX = not self.DROP_MIC
+
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.authenticated = False
+
+    @ATMT.receive_condition(BEGIN)
+    def received_negotiate(self, pkt):
+        if SMBNegotiate_Request in pkt:
+            raise self.NEGOTIATED().action_parameters(pkt)
+
+    @ATMT.action(received_negotiate)
+    def on_negotiate(self, pkt):
+        negoex_token, _, _ = self.get_token()
+        self.smb_header = NBTSession() / SMB_Header(
+            Flags="REPLY+CASE_INSENSITIVE+CANONICALIZED_PATHS",
+            Flags2="LONG_NAMES+EAS+NT_STATUS+SMB_SECURITY_SIGNATURE+UNICODE+EXTENDED_SECURITY",
+            TID=pkt.TID,
+            MID=pkt.MID,
+            UID=pkt.UID,
+            PIDLow=pkt.PIDLow
+        )
+        # Build negotiate response
+        DialectIndex = [
+            x.DialectString for x in pkt[SMBNegotiate_Request].Dialects
+        ].index(b"NT LM 0.12")
+        if self.EXTENDED_SECURITY:
+            cls = SMBNegotiate_Response_Extended_Security
+        else:
+            cls = SMBNegotiate_Response_Security
+        # Extended
+        resp = self.smb_header.copy() / cls(
+            DialectIndex=DialectIndex,
+            ServerCapabilities=(
+                "UNICODE+LARGE_FILES+NT_SMBS+RPC_REMOTE_APIS+STATUS32+"
+                "LEVEL_II_OPLOCKS+LOCK_AND_READ+NT_FIND+"
+                "LWIO+INFOLEVEL_PASSTHRU+LARGE_READX+LARGE_WRITEX"
+            ),
+            SecurityMode=self.get("SecurityMode"),
+            ServerTime=self.get("ServerTime"),
+            ServerTimeZone=self.get("ServerTimeZone")
+        )
+        if self.EXTENDED_SECURITY:
+            resp.ServerCapabilities += "EXTENDED_SECURITY"
+            # Add security blob
+            resp.SecurityBlob = GSSAPI_BLOB(
+                innerContextToken=SPNEGO_negToken(
+                    token=SPNEGO_negTokenInit(
+                        mechTypes=[
+                            # NEGOEX - Optional. See below
+                            # NTLMSSP
+                            SPNEGO_MechType(oid="1.3.6.1.4.1.311.2.2.10")],
+
+                    )
+                )
+            )
+            resp.GUID = self.get("GUID")
+            if self.PASS_NEGOEX:  # NEGOEX handling
+                resp[SMBNegotiate_Response_Extended_Security].SecurityBlob.innerContextToken.token.mechTypes.insert(
+                    0,
+                    # NEGOEX
+                    SPNEGO_MechType(oid="1.3.6.1.4.1.311.2.2.30"),
+                )
+                resp[SMBNegotiate_Response_Extended_Security].SecurityBlob.innerContextToken.token.mechToken = SPNEGO_Token(
+                    value=negoex_token
+                )
+        else:
+            # No security
+            resp.Challenge = self.get("Challenge")
+            resp.DomainName = self.get("DomainName")
+            resp.ServerName = self.get("ServerName")
+            resp.show()
+        if not self.EXTENDED_SECURITY:
+            resp.Flags2 -= "EXTENDED_SECURITY"
+        resp[SMB_Header].Flags2 = resp[SMB_Header].Flags2 - \
+            "SMB_SECURITY_SIGNATURE" + "SMB_SECURITY_SIGNATURE_REQUIRED+IS_LONG_NAME"
+        self.send(resp)
+
+    @ATMT.state()
+    def NEGOTIATED(self):
+        pass
+
+    @ATMT.receive_condition(NEGOTIATED)
+    def receive_setup_andx_request(self, pkt):
+        if SMBSession_Setup_AndX_Request_Extended_Security in pkt or \
+                SMBSession_Setup_AndX_Request in pkt:
+            if SMBSession_Setup_AndX_Request_Extended_Security in pkt:
+                # Extended
+                ntlm_tuple = self._get_token(
+                    pkt[SMBSession_Setup_AndX_Request_Extended_Security].SecurityBlob
+                )
+            else:
+                # Non-extended
+                self.set_cli("AccountName", pkt.getfieldval("AccountName"))
+                self.set_cli("PrimaryDomain",
+                             pkt.getfieldval("PrimaryDomain"))
+                self.set_cli("Path", pkt.getfieldval("Path"))
+                self.set_cli("Service", pkt.getfieldval("Service"))
+                ntlm_tuple = self._get_token(
+                    pkt[SMBSession_Setup_AndX_Request].UnicodePassword
+                )
+            self.set_cli("VCNumber", pkt.VCNumber)
+            self.set_cli("SecuritySignature", pkt.SecuritySignature)
+            self.set_cli("UID", pkt.UID)
+            self.set_cli("MID", pkt.MID)
+            self.set_cli("TID", pkt.TID)
+            self.received_ntlm_token(ntlm_tuple)
+            raise self.RECEIVED_SETUP_ANDX_REQUEST().action_parameters(pkt)
+
+    @ATMT.state()
+    def RECEIVED_SETUP_ANDX_REQUEST(self):
+        pass
+
+    @ATMT.action(receive_setup_andx_request)
+    def on_setup_andx_request(self, pkt):
+        ntlm_token, negResult, MIC = ntlm_tuple = self.get_token()
+        if SMBSession_Setup_AndX_Request_Extended_Security in pkt or SMBSession_Setup_AndX_Request in pkt:
+            # Extended
+            self.smb_header.UID = self.get("UID")
+            self.smb_header.MID = self.get("MID")
+            self.smb_header.TID = self.get("TID")
+            if ntlm_tuple == (None, None, None):
+                # Error
+                resp = self.smb_header.copy() / SMBSession_Null()
+            else:
+                # Negotiation
+                if SMBSession_Setup_AndX_Request_Extended_Security in pkt:
+                    # Extended
+                    resp = self.smb_header.copy() / SMBSession_Setup_AndX_Response_Extended_Security(
+                        NativeOS=self.get("NativeOS"),
+                        NativeLanMan=self.get("NativeLanMan")
+                    )
+                    if isinstance(ntlm_token, NTLM_CHALLENGE):
+                        resp.SecurityBlob = SPNEGO_negToken(
+                            token=SPNEGO_negTokenResp(
+                                negResult=1,
+                                supportedMech=SPNEGO_MechType(
+                                    # NTLMSSP
+                                    oid="1.3.6.1.4.1.311.2.2.10"),
+                                responseToken=SPNEGO_Token(
+                                    value=ntlm_token
+                                )
+                            )
+                        )
+                    elif not ntlm_token:
+                        # No token (e.g. accepted)
+                        resp.SecurityBlob = SPNEGO_negToken(
+                            token=SPNEGO_negTokenResp(
+                                negResult=negResult,
+                            )
+                        )
+                        if MIC and not self.DROP_MIC:  # Drop the MIC?
+                            resp.SecurityBlob.token.mechListMIC = SPNEGO_MechListMIC(
+                                value=MIC
+                            )
+                        if negResult == 0:
+                            self.authenticated = True
+                    else:
+                        resp.SecurityBlob = ntlm_token
+                elif SMBSession_Setup_AndX_Request in pkt:
+                    # Non-extended
+                    resp = self.smb_header.copy() / SMBSession_Setup_AndX_Response(
+                        NativeOS=self.get("NativeOS"),
+                        NativeLanMan=self.get("NativeLanMan")
+                    )
+            resp.Status = self.get("Status")
+
+        self.send(resp)
+
+    @ATMT.condition(RECEIVED_SETUP_ANDX_REQUEST)
+    def wait_for_next_request(self):
+        if self.authenticated:
+            raise self.AUTHENTICATED()
+        else:
+            raise self.NEGOTIATED()
+
+    @ATMT.state()
+    def AUTHENTICATED(self):
+        pass
+
+    @ATMT.receive_condition(AUTHENTICATED)
+    def receive_packet(self, pkt):
+        raise self.AUTHENTICATED().action_parameters(pkt)
+
+    @ATMT.action(receive_packet)
+    def pass_packet(self, pkt):
+        self.echo(pkt)
+
+
+class NTLM_SMB_Client(NTLM_Client, Automaton):
+    port = 445
+    cls = NBTSession
+
+    def __init__(self, *args, **kwargs):
+        self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
+        super(NTLM_SMB_Client, self).__init__(*args, **kwargs)
+
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        pass
+
+    @ATMT.condition(BEGIN)
+    def send_negotiate(self):
+        raise self.SENT_NEGOTIATE()
+
+    @ATMT.action(send_negotiate)
+    def on_negotiate(self):
+        self.smb_header = NBTSession() / SMB_Header(
+            Flags2="LONG_NAMES+EAS+NT_STATUS+UNICODE+SMB_SECURITY_SIGNATURE+EXTENDED_SECURITY",
+            TID=0xFFFF,
+            PIDLow=0xFEFF,
+            UID=0,
+            MID=0
+        )
+        if self.EXTENDED_SECURITY:
+            self.smb_header.Flags2 += "EXTENDED_SECURITY"
+        pkt = self.smb_header.copy() / SMBNegotiate_Request(
+            Dialects=[SMB_Dialect(DialectString=x) for x in ["PC NETWORK PROGRAM 1.0", "LANMAN1.0",
+                                                             "Windows for Workgroups 3.1a", "LM1.2X002", "LANMAN2.1",
+                                                             "NT LM 0.12", "SMB 2.002", "SMB 2.???"]],
+        )
+        if not self.EXTENDED_SECURITY:
+            pkt.Flags2 -= "EXTENDED_SECURITY"
+        pkt[SMB_Header].Flags2 = pkt[SMB_Header].Flags2 - \
+            "SMB_SECURITY_SIGNATURE" + "SMB_SECURITY_SIGNATURE_REQUIRED+IS_LONG_NAME"
+        self.send(pkt)
+
+    @ATMT.state()
+    def SENT_NEGOTIATE(self):
+        pass
+
+    @ATMT.receive_condition(SENT_NEGOTIATE)
+    def receive_negotiate_response(self, pkt):
+        if SMBNegotiate_Response_Security in pkt or SMBNegotiate_Response_Extended_Security in pkt:
+            self.set_srv(
+                "ServerTime",
+                pkt.ServerTime
+            )
+            self.set_srv(
+                "SecurityMode",
+                pkt.SecurityMode
+            )
+            self.set_srv(
+                "ServerTimeZone",
+                pkt.ServerTimeZone
+            )
+        if SMBNegotiate_Response_Extended_Security in pkt:
+            negoex_tuple = self._get_token(
+                pkt[SMBNegotiate_Response_Extended_Security].SecurityBlob
+            )
+            self.set_srv(
+                "GUID",
+                pkt[SMBNegotiate_Response_Extended_Security].GUID
+            )
+            self.received_ntlm_token(negoex_tuple)
+            raise self.NEGOTIATED()
+        elif SMBNegotiate_Response_Security in pkt:
+            self.set_srv("Challenge", pkt.Challenge)
+            self.set_srv("DomainName", pkt.DomainName)
+            self.set_srv("ServerName", pkt.ServerName)
+            self.received_ntlm_token((None, None, None))
+            raise self.NEGOTIATED()
+
+    @ATMT.state()
+    def NEGOTIATED(self):
+        pass
+
+    @ATMT.condition(NEGOTIATED)
+    def should_send_setup_andx_request(self):
+        ntlm_tuple = self.get_token()
+        raise self.SENT_SETUP_ANDX_REQUEST().action_parameters(ntlm_tuple)
+
+    @ATMT.state()
+    def SENT_SETUP_ANDX_REQUEST(self):
+        pass
+
+    @ATMT.action(should_send_setup_andx_request)
+    def send_setup_andx_request(self, ntlm_tuple):
+        ntlm_token, negResult, MIC = ntlm_tuple
+        self.smb_header.UID = self.get("UID", 0)
+        self.smb_header.MID = self.get("MID")
+        self.smb_header.TID = self.get("TID")
+        if self.EXTENDED_SECURITY:
+            # Extended security
+            pkt = self.smb_header.copy() / SMBSession_Setup_AndX_Request_Extended_Security(
+                ServerCapabilities="UNICODE+NT_SMBS+STATUS32+LEVEL_II_OPLOCKS+DYNAMIC_REAUTH+EXTENDED_SECURITY",
+                VCNumber=self.get("VCNumber"),
+                NativeOS=b"",
+                NativeLanMan=b""
+            )
+            pkt.SecuritySignature = self.get("SecuritySignature")
+            if isinstance(ntlm_token, NTLM_NEGOTIATE):
+                pkt.SecurityBlob = GSSAPI_BLOB(
+                    innerContextToken=SPNEGO_negToken(
+                        token=SPNEGO_negTokenInit(
+                            mechTypes=[
+                                # NTLMSSP
+                                SPNEGO_MechType(oid="1.3.6.1.4.1.311.2.2.10")],
+                            mechToken=SPNEGO_Token(
+                                value=ntlm_token
+                            )
+                        )
+                    )
+                )
+            elif isinstance(ntlm_token, (NTLM_AUTHENTICATE, NTLM_AUTHENTICATE_V2)):
+                pkt.SecurityBlob = SPNEGO_negToken(
+                    token=SPNEGO_negTokenResp(
+                        negResult=negResult,
+                    )
+                )
+                # Token may be missing (e.g. STATUS_MORE_PROCESSING_REQUIRED)
+                if ntlm_token:
+                    pkt.SecurityBlob.token.responseToken = SPNEGO_Token(
+                        value=ntlm_token
+                    )
+                if MIC and not self.DROP_MIC:  # Drop the MIC?
+                    pkt.SecurityBlob.token.mechListMIC = SPNEGO_MechListMIC(
+                        value=MIC
+                    )
+        else:
+            # Non-extended security
+            pkt = self.smb_header.copy() / SMBSession_Setup_AndX_Request(
+                ServerCapabilities="UNICODE+NT_SMBS+STATUS32+LEVEL_II_OPLOCKS",
+                VCNumber=self.get("VCNumber"),
+                NativeOS=b"",
+                NativeLanMan=b"",
+                OEMPassword=b"\0" * 24,
+                UnicodePassword=ntlm_token,
+                PrimaryDomain=self.get("PrimaryDomain"),
+                AccountName=self.get("AccountName"),
+            ) / SMBTree_Connect_AndX(
+                Flags="EXTENDED_RESPONSE",
+                Path=self.get("Path"),
+                Service=self.get("Service"),
+                Password=b"\0",
+            )
+        self.send(pkt)
+
+    @ATMT.receive_condition(SENT_SETUP_ANDX_REQUEST)
+    def receive_setup_andx_response(self, pkt):
+        if SMBSession_Null in pkt or SMBSession_Setup_AndX_Response_Extended_Security in pkt or SMBSession_Setup_AndX_Response in pkt:
+            self.set_srv("Status", pkt[SMB_Header].Status)
+            self.set_srv(
+                "UID",
+                pkt[SMB_Header].UID
+            )
+            self.set_srv(
+                "MID",
+                pkt[SMB_Header].MID
+            )
+            self.set_srv(
+                "TID",
+                pkt[SMB_Header].TID
+            )
+            if SMBSession_Null in pkt:
+                # Likely an error
+                self.received_ntlm_token((None, None, None))
+                raise self.NEGOTIATED()
+            elif SMBSession_Setup_AndX_Response_Extended_Security in pkt or SMBSession_Setup_AndX_Response in pkt:
+                self.set_srv(
+                    "NativeOS",
+                    pkt.getfieldval(
+                        "NativeOS")
+                )
+                self.set_srv(
+                    "NativeLanMan",
+                    pkt.getfieldval(
+                        "NativeLanMan")
+                )
+                if SMBSession_Setup_AndX_Response_Extended_Security in pkt:
+                    # Extended
+                    _, negResult, _ = ntlm_tuple = self._get_token(
+                        pkt[SMBSession_Setup_AndX_Response_Extended_Security].SecurityBlob
+                    )
+                    if negResult == 0:  # Authenticated
+                        self.received_ntlm_token(ntlm_tuple)
+                        raise self.AUTHENTICATED()
+                    else:
+                        self.received_ntlm_token(ntlm_tuple)
+                        raise self.NEGOTIATED().action_parameters(pkt)
+                else:
+                    # Non extended
+                    pass
+
+    @ATMT.state()
+    def AUTHENTICATED(self):
+        pass
+
+    @ATMT.receive_condition(AUTHENTICATED)
+    def receive_packet(self, pkt):
+        raise self.AUTHENTICATED().action_parameters(pkt)
+
+    @ATMT.action(receive_packet)
+    def pass_packet(self, pkt):
+        self.echo(pkt)

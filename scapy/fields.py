@@ -1380,7 +1380,7 @@ class StrFieldUtf16(StrField):
 
     def i2h(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
-        return bytes_encode(x).decode('utf-16')
+        return bytes_encode(x).decode('utf-16', errors="replace")
 
 
 K = TypeVar('K', List[BasePacket], BasePacket)
@@ -1454,12 +1454,14 @@ class PacketLenField(PacketField):
                  ):
         # type: (...) -> Tuple[bytes, Packet]
         len_pkt = self.length_from(pkt)
-        try:
-            i = self.m2i(pkt, s[:len_pkt])
-        except Exception:
-            if conf.debug_dissector:
-                raise
-            i = conf.raw_layer(load=s[:len_pkt])
+        i = None
+        if len_pkt:
+            try:
+                i = self.m2i(pkt, s[:len_pkt])
+            except Exception:
+                if conf.debug_dissector:
+                    raise
+                i = conf.raw_layer(load=s[:len_pkt])
         return s[len_pkt:], i
 
 
@@ -1845,30 +1847,8 @@ class XLEStrLenField(XStrLenField):
         return x[:: -1]
 
 
-class StrLenFieldUtf16(StrLenField):
-    def h2i(self, pkt, x):
-        # type: (Optional[Packet], Optional[str]) -> bytes
-        return plain_str(x).encode('utf-16')[2:]
-
-    def any2i(self, pkt, x):
-        # type: (Optional[Packet], Any) -> bytes
-        if isinstance(x, six.text_type):
-            return self.h2i(pkt, x)
-        return super(StrLenFieldUtf16, self).any2i(pkt, x)
-
-    def i2repr(self, pkt, x):
-        # type: (Optional[Packet], bytes) -> str
-        try:
-            return plain_str(self.i2h(pkt, x))
-        except ValueError:
-            return plain_str(x) + " [invalid encoding]"
-
-    def i2h(self,
-            pkt,  # type: Optional[Packet]
-            x,  # type: bytes
-            ):
-        # type: (...) -> str
-        return bytes_encode(x).decode('utf-16')
+class StrLenFieldUtf16(StrLenField, StrFieldUtf16):
+    pass
 
 
 class BoundStrLenField(StrLenField):
@@ -2755,6 +2735,14 @@ class FlagValue(object):
         # type: (int) -> FlagValue
         return self.__class__(self.value | self._fixvalue(other), self.names)
     __ror__ = __or__
+    __add__ = __or__  # + is an alias for |
+
+    def __sub__(self, other):
+        # type: (int) -> FlagValue
+        return self.__class__(
+            self.value & (2 ** len(self.names) - 1 - self._fixvalue(other)),
+            self.names
+        )
 
     def __xor__(self, other):
         # type: (int) -> FlagValue

