@@ -188,7 +188,7 @@ class AEAD_Algo(object):
     """
 
     def __init__(self, name, algo, block_size=None, iv_size=None,
-                 key_size=None, icv_size=None, salt_size=None, format_mode_iv=None):  # noqa: E501
+                 key_size=None, icv_size=None, salt_size=None):  # noqa: E501
         """
         :param name: the name of this encryption algorithm
         :param algo: a Cipher module
@@ -231,10 +231,7 @@ class AEAD_Algo(object):
         else:
             self.salt_size = salt_size
 
-        if format_mode_iv is None:
-            self._format_mode_iv = lambda iv, **kw: iv
-        else:
-            self._format_mode_iv = format_mode_iv
+        self._format_mode_iv = lambda sa, iv, **kw: sa.aead_salt + iv
 
     def check_key(self, key):
         """
@@ -242,9 +239,10 @@ class AEAD_Algo(object):
 
         :param key:    a byte string
         """
-        if self.key_size and not (len(key) == self.key_size or len(key) in self.key_size):
-            raise TypeError('invalid key size %s, must be %s' %
-                            (len(key), self.key_size))
+        if self.key_size:
+            if not (len(key) == self.key_size or len(key) in self.key_size):
+                raise TypeError('invalid key size %s, must be %s' %
+                                (len(key), self.key_size))
 
     def generate_iv(self):
         """
@@ -307,7 +305,7 @@ class AEAD_Algo(object):
         mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=esp.iv)
 
         algo = self.algo(key)
-        
+
         if esn_en:
             aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
         else:
@@ -377,66 +375,58 @@ AEAD_ALGOS = {
 }
 
 if aead:
-    _salt_format_mode_iv = lambda sa, iv, **kw: sa.aead_salt + iv
-    #https://datatracker.ietf.org/doc/html/rfc7539
+    # https://datatracker.ietf.org/doc/html/rfc7539
     AEAD_ALGOS['CHACHA20-POLY1305'] = AEAD_Algo('CHACHA20-POLY1305',
-                                       algo=aead.ChaCha20Poly1305,
-                                       salt_size=4,
-                                       iv_size=8,
-                                       icv_size=16,
-                                       key_size=32,
-                                       block_size=64,
-                                       format_mode_iv=_salt_format_mode_iv)
-    #https://datatracker.ietf.org/doc/html/rfc4106
+                                                algo=aead.ChaCha20Poly1305,
+                                                salt_size=4,
+                                                iv_size=8,
+                                                icv_size=16,
+                                                key_size=32,
+                                                block_size=64)
+    # https://datatracker.ietf.org/doc/html/rfc4106
     AEAD_ALGOS['AES-GCM-128'] = AEAD_Algo('AES-GCM-128',
-                                       algo=aead.AESGCM,
-                                       salt_size=4,
-                                       iv_size=8,
-                                       icv_size=16,
-                                       key_size=16,
-                                       block_size=16,
-                                       format_mode_iv=_salt_format_mode_iv)
+                                          algo=aead.AESGCM,
+                                          salt_size=4,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=16,
+                                          block_size=16)
     AEAD_ALGOS['AES-GCM-192'] = AEAD_Algo('AES-GCM-192',
-                                       algo=aead.AESGCM,
-                                       salt_size=4,
-                                       iv_size=8,
-                                       icv_size=16,
-                                       key_size=24,
-                                       block_size=16,
-                                       format_mode_iv=_salt_format_mode_iv)
+                                          algo=aead.AESGCM,
+                                          salt_size=4,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=24,
+                                          block_size=16)
     AEAD_ALGOS['AES-GCM-256'] = AEAD_Algo('AES-GCM-256',
-                                       algo=aead.AESGCM,
-                                       salt_size=4,
-                                       iv_size=8,
-                                       icv_size=16,
-                                       key_size=32,
-                                       block_size=16,
-                                       format_mode_iv=_salt_format_mode_iv)
-    #https://datatracker.ietf.org/doc/html/rfc4309
+                                          algo=aead.AESGCM,
+                                          salt_size=4,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=32,
+                                          block_size=16)
+    # https://datatracker.ietf.org/doc/html/rfc4309
     AEAD_ALGOS['AES-CCM-128'] = AEAD_Algo('AES-CCM-128',
-                                       algo=aead.AESCCM,
-                                       salt_size=3,
-                                       iv_size=8,
-                                       icv_size=16,
-                                       key_size=16,
-                                       block_size=16,
-                                       format_mode_iv=_salt_format_mode_iv)
+                                          algo=aead.AESCCM,
+                                          salt_size=3,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=16,
+                                          block_size=16)
     AEAD_ALGOS['AES-CCM-192'] = AEAD_Algo('AES-CCM-192',
-                                       algo=aead.AESCCM,
-                                       salt_size=3,
-                                       iv_size=8,
-                                       icv_size=16,
-                                       key_size=24,
-                                       block_size=16,
-                                       format_mode_iv=_salt_format_mode_iv)
+                                          algo=aead.AESCCM,
+                                          salt_size=3,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=24,
+                                          block_size=16)
     AEAD_ALGOS['AES-CCM-256'] = AEAD_Algo('AES-CCM-256',
-                                       algo=aead.AESCCM,
-                                       salt_size=3,
-                                       iv_size=8,
-                                       icv_size=16,
-                                       key_size=32,
-                                       block_size=16,
-                                       format_mode_iv=_salt_format_mode_iv)
+                                          algo=aead.AESCCM,
+                                          salt_size=3,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=32,
+                                          block_size=16)
 
 ###############################################################################
 if conf.crypto_valid:
@@ -1116,8 +1106,8 @@ class SecurityAssociation(object):
         # Get Extended Sequence (32 MSB)
         self.esn = esn
 
-        # Quick backward compatible fix: Here if we decide to use AEAD algo then
-        # Do not use crypt_algo and auth_algo.
+        # Quick backward compatible fix: Here if we decide to use AEAD algo
+        # Then do not use crypt_algo and auth_algo.
         if aead_algo is None:
             if crypt_algo:
                 if crypt_algo not in CRYPT_ALGOS:
@@ -1152,11 +1142,12 @@ class SecurityAssociation(object):
             self.aead_key = None
         else:
             if aead_algo not in AEAD_ALGOS:
-               raise TypeError('unsupported integrity algo %r, try %r' %
+                raise TypeError('unsupported integrity algo %r, try %r' %
                                 (aead_algo, list(AEAD_ALGOS)))
             self.aead_algo = AEAD_ALGOS[aead_algo]
             self.aead_key = aead_key[:len(aead_key) - self.aead_algo.salt_size]
-            self.aead_salt = aead_key[len(aead_key) - self.aead_algo.salt_size:]
+            self.aead_salt = aead_key[len(aead_key) -
+                                      self.aead_algo.salt_size:]
 
         if tunnel_header and not isinstance(tunnel_header, (IP, IPv6)):
             raise TypeError('tunnel_header must be %s or %s' % (IP.name, IPv6.name))  # noqa: E501
@@ -1188,7 +1179,8 @@ class SecurityAssociation(object):
                 iv = self.aead_algo.generate_iv()
             else:
                 if len(iv) != self.aead_algo.iv_size:
-                    raise TypeError('iv length must be %s' % self.aead_algo.iv_size)
+                    raise TypeError('iv length must be %s' %
+                                    self.aead_algo.iv_size)
 
         esp = _ESPPlain(spi=self.spi, seq=seq_num or self.seq_num, iv=iv)
 
@@ -1213,15 +1205,15 @@ class SecurityAssociation(object):
         if self.aead_algo is None:
             esp = self.crypt_algo.pad(esp)
             esp = self.crypt_algo.encrypt(self, esp, self.crypt_key,
-                                        esn_en=esn_en or self.esn_en,
-                                        esn=esn or self.esn)
+                                          esn_en=esn_en or self.esn_en,
+                                          esn=esn or self.esn)
 
             self.auth_algo.sign(esp, self.auth_key)
         else:
             esp = self.aead_algo.pad(esp)
             esp = self.aead_algo.encrypt(self, esp, self.aead_key,
-                                        esn_en=esn_en or self.esn_en,
-                                        esn=esn or self.esn)
+                                         esn_en=esn_en or self.esn_en,
+                                         esn=esn or self.esn)
 
         if self.nat_t_header:
             nat_t_header = self.nat_t_header.copy()
@@ -1337,18 +1329,18 @@ class SecurityAssociation(object):
                 self.auth_algo.verify(encrypted, self.auth_key)
 
             esp = self.crypt_algo.decrypt(self, encrypted, self.crypt_key,
-                                        self.crypt_algo.icv_size or
-                                        self.auth_algo.icv_size,
-                                        esn_en=esn_en or self.esn_en,
-                                        esn=esn or self.esn)
+                                          self.crypt_algo.icv_size or
+                                          self.auth_algo.icv_size,
+                                          esn_en=esn_en or self.esn_en,
+                                          esn=esn or self.esn)
         else:
             if verify:
                 self.check_spi(pkt)
 
             esp = self.aead_algo.decrypt(self, encrypted, self.aead_key,
-                                        self.aead_algo.icv_size,
-                                        esn_en=esn_en or self.esn_en,
-                                        esn=esn or self.esn)
+                                         self.aead_algo.icv_size,
+                                         esn_en=esn_en or self.esn_en,
+                                         esn=esn or self.esn)
 
         if self.tunnel_header:
             # drop the tunnel header and return the payload untouched
