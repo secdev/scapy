@@ -209,15 +209,7 @@ class AEAD_Algo(object):
         """
         self.name = name
         self.algo = algo
-        # self.mode = mode
         self.icv_size = icv_size
-
-        # Do not need mode as AEAD algo from cryptography does not have mode...
-        #if modes and self.mode is not None:
-        #    self.is_aead = issubclass(self.mode,
-        #                              modes.ModeWithAuthenticationTag)
-        #else:
-        #    self.is_aead = False
 
         if block_size is not None:
             self.block_size = block_size
@@ -408,14 +400,23 @@ AEAD_ALGOS = {
 }
 
 if aead:
-    AEAD_ALGOS['CHACHA20-POLY1305'] = AEAD_Algo('CHACHA20-POLY1305',
-                                       algo=aead.ChaCha20Poly1305)
     _salt_format_mode_iv = lambda sa, iv, **kw: sa.crypt_salt + iv
+    AEAD_ALGOS['CHACHA20-POLY1305'] = AEAD_Algo('CHACHA20-POLY1305',
+                                       algo=aead.ChaCha20Poly1305,
+                                       salt_size=4,
+                                       iv_size=8,
+                                       icv_size=16,
+                                       key_size=32,
+                                       block_size=64,
+                                       format_mode_iv=_salt_format_mode_iv)
+    
     AEAD_ALGOS['AES-GCM'] = AEAD_Algo('AES-GCM',
                                        algo=aead.AESGCM,
                                        salt_size=4,
                                        iv_size=8,
                                        icv_size=16,
+                                       key_size=16,
+                                       block_size=16,
                                        format_mode_iv=_salt_format_mode_iv)
 
 ###############################################################################
@@ -1095,44 +1096,44 @@ class SecurityAssociation(object):
         self.esn_en = esn_en
         # Get Extended Sequence (32 MSB)
         self.esn = esn
-        if crypt_algo:
-            if crypt_algo not in CRYPT_ALGOS:
-                raise TypeError('unsupported encryption algo %r, try %r' %
-                                (crypt_algo, list(CRYPT_ALGOS)))
-            self.crypt_algo = CRYPT_ALGOS[crypt_algo]
 
-            if crypt_key:
-                salt_size = self.crypt_algo.salt_size
-                self.crypt_key = crypt_key[:len(crypt_key) - salt_size]
-                self.crypt_salt = crypt_key[len(crypt_key) - salt_size:]
+        # Quick backward compatible fix: Here if we decide to use AEAD algo then
+        # Do not use crypt_algo and auth_algo.
+        if aead_algo is None:
+            if crypt_algo:
+                if crypt_algo not in CRYPT_ALGOS:
+                    raise TypeError('unsupported encryption algo %r, try %r' %
+                                    (crypt_algo, list(CRYPT_ALGOS)))
+                self.crypt_algo = CRYPT_ALGOS[crypt_algo]
+
+                if crypt_key:
+                    salt_size = self.crypt_algo.salt_size
+                    self.crypt_key = crypt_key[:len(crypt_key) - salt_size]
+                    self.crypt_salt = crypt_key[len(crypt_key) - salt_size:]
+                else:
+                    self.crypt_key = None
+                    self.crypt_salt = None
+
             else:
+                self.crypt_algo = CRYPT_ALGOS['NULL']
                 self.crypt_key = None
                 self.crypt_salt = None
 
+            if auth_algo:
+                if auth_algo not in AUTH_ALGOS:
+                    raise TypeError('unsupported integrity algo %r, try %r' %
+                                    (auth_algo, list(AUTH_ALGOS)))
+                self.auth_algo = AUTH_ALGOS[auth_algo]
+                self.auth_key = auth_key
+            else:
+                self.auth_algo = AUTH_ALGOS['NULL']
+                self.auth_key = None
         else:
-            self.crypt_algo = CRYPT_ALGOS['NULL']
-            self.crypt_key = None
-            self.crypt_salt = None
-
-        if auth_algo:
-            if auth_algo not in AUTH_ALGOS:
-                raise TypeError('unsupported integrity algo %r, try %r' %
-                                (auth_algo, list(AUTH_ALGOS)))
-            self.auth_algo = AUTH_ALGOS[auth_algo]
-            self.auth_key = auth_key
-        else:
-            self.auth_algo = AUTH_ALGOS['NULL']
-            self.auth_key = None
-
-        if aead_algo:
             if aead_algo not in AEAD_ALGOS:
                raise TypeError('unsupported integrity algo %r, try %r' %
                                 (aead_algo, list(AEAD_ALGOS)))
             self.aead_algo = AEAD_ALGOS[aead_algo]
             self.aead_key = aead_key
-        else:
-            self.aead_algo = AEAD_ALGOS['NULL']
-            self.aead_key = None
 
         if tunnel_header and not isinstance(tunnel_header, (IP, IPv6)):
             raise TypeError('tunnel_header must be %s or %s' % (IP.name, IPv6.name))  # noqa: E501
@@ -1177,12 +1178,19 @@ class SecurityAssociation(object):
         esp.data = payload
         esp.nh = nh
 
-        esp = self.crypt_algo.pad(esp)
-        esp = self.crypt_algo.encrypt(self, esp, self.crypt_key,
-                                      esn_en=esn_en or self.esn_en,
-                                      esn=esn or self.esn)
+        # Here we use either aead algo or crypt + auth
+        if self.aead_algo is None:
+            esp = self.crypt_algo.pad(esp)
+            esp = self.crypt_algo.encrypt(self, esp, self.crypt_key,
+                                        esn_en=esn_en or self.esn_en,
+                                        esn=esn or self.esn)
 
-        self.auth_algo.sign(esp, self.auth_key)
+            self.auth_algo.sign(esp, self.auth_key)
+        else:
+            esp = self.aead_algo.pad(esp)
+            esp = self.aead_algo.encrypt(self, esp, self.crypt_key,
+                                        esn_en=esn_en or self.esn_en,
+                                        esn=esn or self.esn)
 
         if self.nat_t_header:
             nat_t_header = self.nat_t_header.copy()
@@ -1292,15 +1300,25 @@ class SecurityAssociation(object):
 
         encrypted = pkt[ESP]
 
-        if verify:
-            self.check_spi(pkt)
-            self.auth_algo.verify(encrypted, self.auth_key)
+        if self.aead_algo is None:
+            if verify:
+                self.check_spi(pkt)
+                self.auth_algo.verify(encrypted, self.auth_key)
 
-        esp = self.crypt_algo.decrypt(self, encrypted, self.crypt_key,
-                                      self.crypt_algo.icv_size or
-                                      self.auth_algo.icv_size,
-                                      esn_en=esn_en or self.esn_en,
-                                      esn=esn or self.esn)
+            esp = self.crypt_algo.decrypt(self, encrypted, self.crypt_key,
+                                        self.crypt_algo.icv_size or
+                                        self.auth_algo.icv_size,
+                                        esn_en=esn_en or self.esn_en,
+                                        esn=esn or self.esn)
+        else:
+            if verify:
+                self.check_spi(pkt)
+
+            esp = self.aead_algo.decrypt(self, encrypted, self.crypt_key,
+                                        self.crypt_algo.icv_size or
+                                        self.auth_algo.icv_size,
+                                        esn_en=esn_en or self.esn_en,
+                                        esn=esn or self.esn)
 
         if self.tunnel_header:
             # drop the tunnel header and return the payload untouched
