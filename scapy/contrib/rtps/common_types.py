@@ -249,10 +249,7 @@ class EndpointFlagsPacket(Packet):
         BitField("secureSubscriptionWriter", 0, 1),
         BitField("securePublicationReader", 0, 1),
         BitField("securePublicationWriter", 0, 1),
-        BitField("reserved", 0, 1),
-        BitField("reserved", 0, 1),
-        BitField("reserved", 0, 1),
-        BitField("reserved", 0, 1),
+        BitField("reserved", 0, 4),
         BitField("participantMessageDataReader", 0, 1),
         BitField("participantMessageDataWriter", 0, 1),
         BitField("participantStateDetector", 0, 1),
@@ -302,10 +299,7 @@ class VendorIdPacket(Packet):
         # ByteField("major", 0),
         # ByteField("minor", 0),
         EnumField(
-            name="vendor_id",
-            default=b"\x00\x00",
-            enum=_rtps_vendor_ids,
-            fmt="2s"
+            name="vendor_id", default=b"\x00\x00", enum=_rtps_vendor_ids, fmt="2s"
         ),
     ]
 
