@@ -21,4 +21,5 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 # scapy.contrib.status = loads
 # scapy.contrib.name = rtps
 
-from scapy.contrib.rtps.rtps import * # noqa F403,F401
+from scapy.contrib.rtps.rtps import *  # noqa F403,F401
+from scapy.contrib.rtps.pid_types import *
