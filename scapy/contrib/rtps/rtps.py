@@ -18,10 +18,6 @@ this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
 
-# scapy.contrib.description = RTPS wire protocol
-# scapy.contrib.status = loads
-# scapy.contrib.name = rtps
-
 import struct
 from typing import List, Optional
 
@@ -136,10 +132,7 @@ class RTPS(Packet):
     name = "RTPS Header"
     fields_desc = [
         StrFixedLenField("magic", b"", 4),
-        PacketField(
-            "protocolVersion",
-            ProtocolVersionPacket(),
-            ProtocolVersionPacket),
+        PacketField("protocolVersion", ProtocolVersionPacket(), ProtocolVersionPacket),
         PacketField("vendorId", VendorIdPacket(), VendorIdPacket),
         PacketField("guidPrefix", GUIDPrefixPacket(), GUIDPrefixPacket),
     ]
@@ -176,20 +169,14 @@ class DataPacket(EPacket):
     fields_desc = [
         XShortField("encapsulationKind", 0),
         XShortField("encapsulationOptions", 0),
-
         # if payload encoding == PL_CDR_{LE,BE} then parameter list
         ConditionalField(
             EPacketField("parameterList", "", ParameterListPacket),
             lambda pkt: pkt.encapsulationKind == 0x0003,
         ),
-
         # if writer entity id == 0x200c2: then participant message data
         ConditionalField(
-            EPacketField(
-                "participantMessageData",
-                "",
-                ParticipantMessageDataPacket
-            ),
+            EPacketField("participantMessageData", "", ParticipantMessageDataPacket),
             lambda pkt: pkt._pl_type == "ParticipantMessageData",
         ),
         # else (neither the cases)
@@ -198,8 +185,8 @@ class DataPacket(EPacket):
                 "serializedData", "", length_from=lambda pkt: pkt._pl_len
             ),
             lambda pkt: (
-                pkt.encapsulationKind != 0x0003 and \
-                pkt._pl_type != "ParticipantMessageData"
+                pkt.encapsulationKind != 0x0003
+                and pkt._pl_type != "ParticipantMessageData"
             ),
         ),
     ]
@@ -305,8 +292,7 @@ class RTPSSubMessage_INFO_TS(EPacket):
     name = "RTPS INFO_TS (0x09)"
     fields_desc = [
         XByteField("submessageId", 0x09),
-        FlagsField(
-            "submessageFlags", 0, 8, ["E", "I", "?", "?", "?", "?", "?", "?"]),
+        FlagsField("submessageFlags", 0, 8, ["E", "I", "?", "?", "?", "?", "?", "?"]),
         EField(ShortField("octetsToNextHeader", 0)),
         ConditionalField(
             Field("ts_seconds", default=0, fmt="<l"),
@@ -355,9 +341,7 @@ class RTPSSubMessage_ACKNACK(EPacket):
             enum=_rtps_reserved_entity_ids,
         ),
         XStrLenField(
-            "readerSNState",
-            0,
-            length_from=lambda pkt: pkt.octetsToNextHeader - 8 - 4
+            "readerSNState", 0, length_from=lambda pkt: pkt.octetsToNextHeader - 8 - 4
         ),
         XNBytesField("count", 0, 4),
     ]
