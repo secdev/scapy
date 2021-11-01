@@ -24,7 +24,6 @@ import types
 
 import select
 from collections import deque
-from typing import Dict
 
 from scapy.config import conf
 from scapy.utils import do_graph
@@ -37,18 +36,22 @@ from scapy.consts import WINDOWS
 import scapy.modules.six as six
 
 from scapy.compat import (
-    Union,
+    Any,
+    Callable,
+    DecoratorCallable,
+    Deque,
+    Dict,
+    Generic,
+    Iterator,
     List,
     Optional,
-    Any,
-    Type,
-    Callable,
-    Protocol,
-    Iterator,
-    Tuple,
     Set,
+    Tuple,
+    Type,
     TypeVar,
-    Deque,
+    Union,
+    _Generic_metaclass,
+    cast,
 )
 
 
@@ -76,8 +79,6 @@ def select_objects(inputs, remain):
     :param inputs: objects to process
     :param remain: timeout. If 0, return [].
     """
-    if not remain:
-        return []
     if not WINDOWS:
         return select.select(inputs, [], [], remain)[0]
     natives = []
@@ -95,25 +96,23 @@ def select_objects(inputs, remain):
     if events:
         remainms = int((remain or 0) * 1000)
         if len(events) == 1:
-            if sys.platform == "win32":
-                res = ctypes.windll.kernel32.WaitForSingleObject(
-                    ctypes.c_void_p(events[0].fileno()),
-                    remainms
-                )
+            res = ctypes.windll.kernel32.WaitForSingleObject(
+                ctypes.c_void_p(events[0].fileno()),
+                remainms
+            )
         else:
             # Sadly, the only way to emulate select() is to first check
             # if any object is available using WaitForMultipleObjects
             # then poll the others.
-            if sys.platform == "win32":
-                res = ctypes.windll.kernel32.WaitForMultipleObjects(
-                    len(events),
-                    (ctypes.c_void_p * len(events))(
-                        *[x.fileno() for x in events]
-                    ),
-                    False,
-                    remainms
-                )
-        if sys.platform == "win32" and res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout # noqa: E501
+            res = ctypes.windll.kernel32.WaitForMultipleObjects(
+                len(events),
+                (ctypes.c_void_p * len(events))(
+                    *[x.fileno() for x in events]
+                ),
+                False,
+                remainms
+            )
+        if res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout
             results.add(events[res])
             if len(events) > 1:
                 # Now poll the others, if any
@@ -127,41 +126,42 @@ def select_objects(inputs, remain):
     return list(results)
 
 
-class ObjectPipe:
+_T = TypeVar("_T")
+
+
+@six.add_metaclass(_Generic_metaclass)
+class ObjectPipe(Generic[_T]):
     def __init__(self, name=None):
         # type: (Optional[str]) -> None
         self.name = name or "ObjectPipe"
         self._closed = False
         self.__rd, self.__wr = os.pipe()
-        self.__queue = deque()  # type: Deque[Union[str, bytes, Message]]
+        self.__queue = deque()  # type: Deque[_T]
         if WINDOWS:
             self._wincreate()
 
-    def _wincreate(self):
-        # type: () -> None
-        if sys.platform == "win32":
+    if WINDOWS:
+        def _wincreate(self):
+            # type: () -> None
             self._fd = ctypes.windll.kernel32.CreateEventA(
                 None, True, False,
                 ctypes.create_string_buffer(b"ObjectPipe %f" % random.random())
             )
 
-    def _winset(self):
-        # type: () -> None
-        if sys.platform == "win32":
+        def _winset(self):
+            # type: () -> None
             if ctypes.windll.kernel32.SetEvent(
                     ctypes.c_void_p(self._fd)) == 0:
                 warning(ctypes.FormatError())
 
-    def _winreset(self):
-        # type: () -> None
-        if sys.platform == "win32":
+        def _winreset(self):
+            # type: () -> None
             if ctypes.windll.kernel32.ResetEvent(
                     ctypes.c_void_p(self._fd)) == 0:
                 warning(ctypes.FormatError())
 
-    def _winclose(self):
-        # type: () -> None
-        if sys.platform == "win32":
+        def _winclose(self):
+            # type: () -> None
             if self._fd and ctypes.windll.kernel32.CloseHandle(
                     ctypes.c_void_p(self._fd)) == 0:
                 warning(ctypes.FormatError())
@@ -170,20 +170,19 @@ class ObjectPipe:
     def fileno(self):
         # type: () -> int
         if WINDOWS:
-            if sys.platform == "win32":
-                return self._fd
+            return self._fd
         return self.__rd
 
     def send(self, obj):
-        # type: (Union[str, bytes, Message]) -> int
+        # type: (Union[_T]) -> int
         self.__queue.append(obj)
         if WINDOWS:
             self._winset()
         os.write(self.__wr, b"X")
-        return 0
+        return 1
 
     def write(self, obj):
-        # type: (str) -> None
+        # type: (_T) -> None
         self.send(obj)
 
     def empty(self):
@@ -195,20 +194,17 @@ class ObjectPipe:
         pass
 
     def recv(self, n=0):
-        # type: (Optional[int]) -> Optional[Message]
+        # type: (Optional[int]) -> Optional[_T]
         if self._closed:
             return None
         os.read(self.__rd, 1)
         elt = self.__queue.popleft()
         if WINDOWS and not self.__queue:
             self._winreset()
-        if isinstance(elt, Message):
-            return elt
-        else:
-            return Message(elt)
+        return elt
 
     def read(self, n=0):
-        # type: (Optional[int]) -> Any
+        # type: (Optional[int]) -> Optional[_T]
         return self.recv(n)
 
     def close(self):
@@ -231,7 +227,8 @@ class ObjectPipe:
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
-        # type: (List[SuperSocket], float) -> List[SuperSocket]
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+        # Only handle ObjectPipes
         results = []
         for s in sockets:
             if s.closed:
@@ -241,16 +238,16 @@ class ObjectPipe:
         return select_objects(sockets, remain)
 
 
-class Message(str):
+class Message:
     type = None        # type: str
     pkt = None         # type: Packet
     result = None      # type: str
     state = None       # type: Message
     exc_info = None    # type: Union[Tuple[None, None, None], Tuple[BaseException, Exception, types.TracebackType]] # noqa: E501
 
-    def __new__(cls, *args):
-        # type: (Any) -> Any
-        return str.__new__(cls, *args)
+    def __init__(self, **args):
+        # type: (Any) -> None
+        self.__dict__.update(args)
 
     def __repr__(self):
         # type: () -> str
@@ -295,7 +292,7 @@ class _instance_state:
 #  Automata  #
 ##############
 
-class StateWrapper(Protocol[TypeVar("F", bound=Callable[..., object])]):
+class _StateWrapper:
     __name__ = None             # type: str
     atmt_type = None            # type: str
     atmt_state = None           # type: str
@@ -303,19 +300,15 @@ class StateWrapper(Protocol[TypeVar("F", bound=Callable[..., object])]):
     atmt_final = None           # type: int
     atmt_stop = None            # type: int
     atmt_error = None           # type: int
-    atmt_origfunc = None        # type: StateWrapper
+    atmt_origfunc = None        # type: _StateWrapper
     atmt_prio = None            # type: int
-    atmt_as_supersocket = None  # type: str
+    atmt_as_supersocket = None  # type: Optional[str]
     atmt_condname = None        # type: str
     atmt_ioname = None          # type: str
     atmt_timeout = None         # type: int
     atmt_cond = None            # type: Dict[str, int]
-    __call__ = None             # type: TypeVar("F", bound=Callable[..., object]) # noqa: E501
-
-
-def state_wrapper_decorator(f):
-    # type: (Callable) -> StateWrapper
-    return f
+    __code__ = None             # type: types.CodeType
+    __call__ = None             # type: Callable[..., ATMT.NewStateRequested]
 
 
 class ATMT:
@@ -342,7 +335,7 @@ class ATMT:
             self.action_parameters()  # init action parameters
 
         def action_parameters(self, *args, **kargs):
-            # type: (Any, Any) -> NewStateRequested
+            # type: (Any, Any) -> ATMT.NewStateRequested
             self.action_args = args
             self.action_kargs = kargs
             return self
@@ -355,15 +348,15 @@ class ATMT:
             # type: () -> str
             return "NewStateRequested(%s)" % self.state
 
-    def state(self,
-              initial=0,    # type: int
+    @staticmethod
+    def state(initial=0,    # type: int
               final=0,      # type: int
               stop=0,       # type: int
               error=0       # type: int
               ):
-        # type: (...) -> Callable[[StateWrapper, int, int], Callable[[Any, Any], NewStateRequested]] # noqa: E501
+        # type: (...) -> Callable[[DecoratorCallable], DecoratorCallable]
         def deco(f, initial=initial, final=final):
-            # type: (StateWrapper, int, int) -> Callable[[Any, Any], NewStateRequested] # noqa: E501
+            # type: (_StateWrapper, int, int) -> _StateWrapper
             f.atmt_type = ATMT.STATE
             f.atmt_state = f.__name__
             f.atmt_initial = initial
@@ -371,11 +364,11 @@ class ATMT:
             f.atmt_stop = stop
             f.atmt_error = error
 
-            @state_wrapper_decorator
-            def state_wrapper(self, *args, **kargs):
-                # type: (ATMT, Any, Any) -> NewStateRequested
+            def _state_wrapper(self, *args, **kargs):
+                # type: (ATMT, Any, Any) -> ATMT.NewStateRequested
                 return ATMT.NewStateRequested(f, self, *args, **kargs)
 
+            state_wrapper = cast(_StateWrapper, _state_wrapper)
             state_wrapper.__name__ = "%s_wrapper" % f.__name__
             state_wrapper.atmt_type = ATMT.STATE
             state_wrapper.atmt_state = f.__name__
@@ -385,13 +378,13 @@ class ATMT:
             state_wrapper.atmt_error = error
             state_wrapper.atmt_origfunc = f
             return state_wrapper
-        return deco
+        return deco  # type: ignore
 
     @staticmethod
     def action(cond, prio=0):
-        # type: (Any, int) -> Callable[[StateWrapper, StateWrapper], StateWrapper]  # noqa: E501
+        # type: (Any, int) -> Callable[[_StateWrapper, _StateWrapper], _StateWrapper]  # noqa: E501
         def deco(f, cond=cond):
-            # type: (StateWrapper, StateWrapper) -> StateWrapper
+            # type: (_StateWrapper, _StateWrapper) -> _StateWrapper
             if not hasattr(f, "atmt_type"):
                 f.atmt_cond = {}
             f.atmt_type = ATMT.ACTION
@@ -401,9 +394,9 @@ class ATMT:
 
     @staticmethod
     def condition(state, prio=0):
-        # type: (Any, int) -> Callable[[StateWrapper, StateWrapper], StateWrapper]  # noqa: E501
+        # type: (Any, int) -> Callable[[_StateWrapper, _StateWrapper], _StateWrapper]  # noqa: E501
         def deco(f, state=state):
-            # type: (StateWrapper, StateWrapper) -> Any
+            # type: (_StateWrapper, _StateWrapper) -> Any
             f.atmt_type = ATMT.CONDITION
             f.atmt_state = state.atmt_state
             f.atmt_condname = f.__name__
@@ -413,9 +406,9 @@ class ATMT:
 
     @staticmethod
     def receive_condition(state, prio=0):
-        # type: (StateWrapper, int) -> Callable[[StateWrapper, StateWrapper], StateWrapper]  # noqa: E501
+        # type: (_StateWrapper, int) -> Callable[[_StateWrapper, _StateWrapper], _StateWrapper]  # noqa: E501
         def deco(f, state=state):
-            # type: (StateWrapper, StateWrapper) -> StateWrapper
+            # type: (_StateWrapper, _StateWrapper) -> _StateWrapper
             f.atmt_type = ATMT.RECV
             f.atmt_state = state.atmt_state
             f.atmt_condname = f.__name__
@@ -424,28 +417,28 @@ class ATMT:
         return deco
 
     @staticmethod
-    def ioevent(state,                  # type: StateWrapper
+    def ioevent(state,                  # type: _StateWrapper
                 name,                   # type: str
                 prio=0,                 # type: int
                 as_supersocket=None     # type: Optional[str]
                 ):
-        # type: (...) -> Callable[[StateWrapper, StateWrapper], StateWrapper]
+        # type: (...) -> Callable[[_StateWrapper, _StateWrapper], _StateWrapper]  # noqa: E501
         def deco(f, state=state):
-            # type: (StateWrapper, StateWrapper) -> StateWrapper
+            # type: (_StateWrapper, _StateWrapper) -> _StateWrapper
             f.atmt_type = ATMT.IOEVENT
             f.atmt_state = state.atmt_state
             f.atmt_condname = f.__name__
             f.atmt_ioname = name
             f.atmt_prio = prio
-            f.atmt_as_supersocket = as_supersocket if as_supersocket else ""
+            f.atmt_as_supersocket = as_supersocket
             return f
         return deco
 
     @staticmethod
     def timeout(state, timeout):
-        # type: (StateWrapper, int) -> Callable[[StateWrapper, StateWrapper, int], StateWrapper]  # noqa: E501
+        # type: (_StateWrapper, int) -> Callable[[_StateWrapper, _StateWrapper, int], _StateWrapper]  # noqa: E501
         def deco(f, state=state, timeout=timeout):
-            # type: (StateWrapper, StateWrapper, int) -> StateWrapper
+            # type: (_StateWrapper, _StateWrapper, int) -> _StateWrapper
             f.atmt_type = ATMT.TIMEOUT
             f.atmt_state = state.atmt_state
             f.atmt_timeout = timeout
@@ -475,7 +468,7 @@ class _ATMT_supersocket(SuperSocket):
                  name,          # type: str
                  ioevent,       # type: str
                  automaton,     # type: Type[Automaton]
-                 proto,         # type: Callable[[Message], Any]
+                 proto,         # type: Callable[[bytes], Any]
                  *args,         # type: Any
                  **kargs        # type: Any
                  ):
@@ -484,7 +477,8 @@ class _ATMT_supersocket(SuperSocket):
         self.ioevent = ioevent
         self.proto = proto
         # write, read
-        self.spa, self.spb = ObjectPipe("spa"), ObjectPipe("spb")
+        self.spa, self.spb = ObjectPipe[bytes]("spa"), \
+            ObjectPipe[bytes]("spb")
         kargs["external_fd"] = {ioevent: (self.spa, self.spb)}
         kargs["is_atmt_socket"] = True
         self.atmt = automaton(*args, **kargs)
@@ -529,7 +523,7 @@ class _ATMT_to_supersocket:
         self.automaton = automaton
 
     def __call__(self, proto, *args, **kargs):
-        # type: (Callable[[Message], Any], Any, Any) -> _ATMT_supersocket
+        # type: (Callable[[bytes], Any], Any, Any) -> _ATMT_supersocket
         return _ATMT_supersocket(
             self.name, self.ioevent, self.automaton,
             proto, *args, **kargs
@@ -537,18 +531,17 @@ class _ATMT_to_supersocket:
 
 
 class Automaton_metaclass(type):
-    def __new__(cls, name, bases, dct):
-        # type: (str, Tuple[Any], Dict[str, Any]) -> Automaton_metaclass
+    def __new__(cls, name, bases, dct):  # type: ignore
+        # type: (str, Tuple[Any], Dict[str, Any]) -> Type[Automaton]
         cls = super(Automaton_metaclass, cls).__new__(cls, name, bases, dct)
         cls.states = {}
-        cls.state = StateWrapper()  # type: StateWrapper
-        cls.recv_conditions = {}    # type: Dict[str, List[StateWrapper]]
-        cls.conditions = {}         # type: Dict[str, List[StateWrapper]]
-        cls.ioevents = {}           # type: Dict[str, List[StateWrapper]]
-        cls.timeout = {}            # type: Dict[str, List[Tuple[int, StateWrapper]]] # noqa: E501
-        cls.actions = {}            # type: Dict[str, List[StateWrapper]]
-        cls.initial_states = []     # type: List[StateWrapper]
-        cls.stop_states = []        # type: List[StateWrapper]
+        cls.recv_conditions = {}    # type: Dict[str, List[_StateWrapper]]
+        cls.conditions = {}         # type: Dict[str, List[_StateWrapper]]
+        cls.ioevents = {}           # type: Dict[str, List[_StateWrapper]]
+        cls.timeout = {}            # type: Dict[str, List[Tuple[int, _StateWrapper]]] # noqa: E501
+        cls.actions = {}            # type: Dict[str, List[_StateWrapper]]
+        cls.initial_states = []     # type: List[_StateWrapper]
+        cls.stop_states = []        # type: List[_StateWrapper]
         cls.ionames = []
         cls.iosupersockets = []
 
@@ -562,7 +555,7 @@ class Automaton_metaclass(type):
                     members[k] = v
 
         decorated = [v for v in six.itervalues(members)
-                     if isinstance(v, StateWrapper) and hasattr(v, "atmt_type")]  # noqa: E501
+                     if hasattr(v, "atmt_type")]
 
         for m in decorated:
             if m.atmt_type == ATMT.STATE:
@@ -606,9 +599,12 @@ class Automaton_metaclass(type):
             actlst.sort(key=lambda x: x.atmt_cond[condname])
 
         for ioev in cls.iosupersockets:
-            setattr(cls, ioev.atmt_as_supersocket, _ATMT_to_supersocket(ioev.atmt_as_supersocket, ioev.atmt_ioname, cls))  # noqa: E501
-
-        return cls
+            setattr(cls, ioev.atmt_as_supersocket,
+                    _ATMT_to_supersocket(
+                        ioev.atmt_as_supersocket,
+                        ioev.atmt_ioname,
+                        cast(Type["Automaton"], cls)))
+        return cast(Type["Automaton"], cls)
 
     def build_graph(self):
         # type: () -> str
@@ -641,8 +637,8 @@ class Automaton_metaclass(type):
                         for x in self.actions[f.atmt_condname]:
                             line += "\\l>[%s]" % x.__name__
                         s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, line, c)  # noqa: E501
-        for k, v in six.iteritems(self.timeout):
-            for t, f in v:
+        for k, v2 in six.iteritems(self.timeout):
+            for t, f in v2:
                 if f is None:
                     continue
                 for n in f.__code__.co_names + f.__code__.co_consts:
@@ -660,7 +656,20 @@ class Automaton_metaclass(type):
         return do_graph(s, **kargs)
 
 
-class Automaton(six.with_metaclass(Automaton_metaclass)):
+@six.add_metaclass(Automaton_metaclass)
+class Automaton:
+    states = {}             # type: Dict[str, _StateWrapper]
+    state = None            # type: ATMT.NewStateRequested
+    recv_conditions = {}    # type: Dict[str, List[_StateWrapper]]
+    conditions = {}         # type: Dict[str, List[_StateWrapper]]
+    ioevents = {}           # type: Dict[str, List[_StateWrapper]]
+    timeout = {}            # type: Dict[str, List[Tuple[int, _StateWrapper]]] # noqa: E501
+    actions = {}            # type: Dict[str, List[_StateWrapper]]
+    initial_states = []     # type: List[_StateWrapper]
+    stop_states = []        # type: List[_StateWrapper]
+    ionames = []            # type: List[str]
+    iosupersockets = []     # type: List[SuperSocket]
+
     # Internals
     def __init__(self, *args, **kargs):
         # type: (Any, Any) -> None
@@ -671,20 +680,20 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         self.started = threading.Lock()
         self.threadid = None                # type: Optional[int]
         self.breakpointed = None
-        self.breakpoints = set()            # type: Set[StateWrapper]
-        self.interception_points = set()    # type: Set[StateWrapper]
+        self.breakpoints = set()            # type: Set[_StateWrapper]
+        self.interception_points = set()    # type: Set[_StateWrapper]
         self.intercepted_packet = None      # type: Union[None, Packet]
         self.debug_level = 0
         self.init_args = args
         self.init_kargs = kargs
         self.io = type.__new__(type, "IOnamespace", (), {})
         self.oi = type.__new__(type, "IOnamespace", (), {})
-        self.cmdin = ObjectPipe("cmdin")
-        self.cmdout = ObjectPipe("cmdout")
+        self.cmdin = ObjectPipe[Message]("cmdin")
+        self.cmdout = ObjectPipe[Message]("cmdout")
         self.ioin = {}
         self.ioout = {}
         self.packets = PacketList()                 # type: PacketList
-        for n in self.ionames:
+        for n in self.__class__.ionames:
             extfd = external_fd.get(n)
             if not isinstance(extfd, tuple):
                 extfd = (extfd, extfd)
@@ -729,12 +738,15 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     # Utility classes and exceptions
     class _IO_fdwrapper:
-        def __init__(self, rd, wr):
-            # type: (Union[int, ObjectPipe, None], Union[int, ObjectPipe, None]) -> None  # noqa: E501
+        def __init__(self,
+                     rd,  # type: Union[int, ObjectPipe[bytes], None]
+                     wr  # type: Union[int, ObjectPipe[bytes], None]
+                     ):
+            # type: (...) -> None
             if rd is not None and not isinstance(rd, (int, ObjectPipe)):
-                rd = rd.fileno()
+                rd = rd.fileno()  # type: ignore
             if wr is not None and not isinstance(wr, (int, ObjectPipe)):
-                wr = wr.fileno()
+                wr = wr.fileno()  # type: ignore
             self.rd = rd
             self.wr = wr
 
@@ -747,12 +759,12 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             return 0
 
         def read(self, n=65535):
-            # type: (int) -> Union[bytes, Message, None]
+            # type: (int) -> Optional[bytes]
             if isinstance(self.rd, ObjectPipe):
                 return self.rd.recv(n)
             elif isinstance(self.rd, int):
                 return os.read(self.rd, n)
-            return b''
+            return None
 
         def write(self, msg):
             # type: (bytes) -> int
@@ -763,7 +775,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             return 0
 
         def recv(self, n=65535):
-            # type: (int) -> Union[bytes, Message, None]
+            # type: (int) -> Optional[bytes]
             return self.read(n)
 
         def send(self, msg):
@@ -771,8 +783,11 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             return self.write(msg)
 
     class _IO_mixer:
-        def __init__(self, rd, wr):
-            # type: (Union[int, ObjectPipe], Union[int, ObjectPipe]) -> None
+        def __init__(self,
+                     rd,  # type: ObjectPipe[Any]
+                     wr,  # type: ObjectPipe[Any]
+                     ):
+            # type: (...) -> None
             self.rd = rd
             self.wr = wr
 
@@ -784,10 +799,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
         def recv(self, n=None):
             # type: (Optional[int]) -> Any
-            if isinstance(self.rd, ObjectPipe):
-                return self.rd.recv(n)
-            else:
-                return None
+            return self.rd.recv(n)
 
         def read(self, n=None):
             # type: (Optional[int]) -> Any
@@ -795,10 +807,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
         def send(self, msg):
             # type: (str) -> int
-            if isinstance(self.wr, ObjectPipe):
-                return self.wr.send(msg)
-            else:
-                return 0
+            return self.wr.send(msg)
 
         def write(self, msg):
             # type: (str) -> int
@@ -849,11 +858,14 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         if self.state.state in self.interception_points:
             self.debug(3, "INTERCEPT: packet intercepted: %s" % pkt.summary())
             self.intercepted_packet = pkt
-            cmd = Message(type=_ATMT_Command.INTERCEPT, state=self.state, pkt=pkt)  # noqa: E501
-            self.cmdout.send(cmd)
-            temp = self.cmdin.recv()
-            if temp:
-                cmd = temp
+            self.cmdout.send(
+                Message(type=_ATMT_Command.INTERCEPT,
+                        state=self.state, pkt=pkt)
+            )
+            cmd = self.cmdin.recv()
+            if not cmd:
+                self.debug(3, "CANCELLED")
+                return
             self.intercepted_packet = None
             if cmd.type == _ATMT_Command.REJECT:
                 self.debug(3, "INTERCEPT: packet rejected")
@@ -880,7 +892,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         self.stop()
 
     def _run_condition(self, cond, *args, **kargs):
-        # type: (StateWrapper, Any, Any) -> None
+        # type: (_StateWrapper, Any, Any) -> None
         try:
             self.debug(5, "Trying %s [%s]" % (cond.atmt_type, cond.atmt_condname))  # noqa: E501
             cond(self, *args, **kargs)
@@ -983,7 +995,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             self.threadid = None
 
     def _do_iter(self):
-        # type: () -> Iterator[Union[Automaton.AutomatonException, Automaton.AutomatonStopped, NewStateRequested, None]] # noqa: E501
+        # type: () -> Iterator[Union[Automaton.AutomatonException, Automaton.AutomatonStopped, ATMT.NewStateRequested, None]] # noqa: E501
         while True:
             try:
                 self.debug(1, "## state=[%s]" % self.state.state)
@@ -1115,7 +1127,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             resume=None,    # type: Optional[Message]
             wait=True       # type: Optional[bool]
             ):
-        # type: (...) -> Union[Automaton.AutomatonException, Automaton.AutomatonStopped, str, None]  # noqa: E501
+        # type: (...) -> Any
         if resume is None:
             resume = Message(type=_ATMT_Command.RUN)
         self.cmdin.send(resume)
@@ -1144,7 +1156,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         self.run(resume, wait)
 
     def next(self):
-        # type: () -> Union[Automaton.AutomatonException, Automaton.AutomatonStopped, str, None]  # noqa: E501
+        # type: () -> Any
         return self.run(resume=Message(type=_ATMT_Command.NEXT))
     __next__ = next
 
@@ -1178,7 +1190,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                       pkt=None,     # type: Optional[Packet]
                       wait=False    # type: Optional[bool]
                       ):
-        # type: (...) -> Union[Automaton.AutomatonException, Automaton.AutomatonStopped, str, None]  # noqa: E501
+        # type: (...) -> Any
         rsm = Message()
         if pkt is None:
             rsm.type = _ATMT_Command.ACCEPT
@@ -1190,6 +1202,6 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     def reject_packet(self,
                       wait=False    # type: Optional[bool]
                       ):
-        # type: (...) -> Union[Automaton.AutomatonException, Automaton.AutomatonStopped, str, None]  # noqa: E501
+        # type: (...) -> Any
         rsm = Message(type=_ATMT_Command.REJECT)
         return self.run(resume=rsm, wait=wait)

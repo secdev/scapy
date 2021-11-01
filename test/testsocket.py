@@ -21,7 +21,7 @@ from scapy.supersocket import SuperSocket
 open_test_sockets = list()  # type: List[TestSocket]
 
 
-class TestSocket(ObjectPipe, object):
+class TestSocket(ObjectPipe[Packet], SuperSocket):
     nonblocking_socket = False  # type: bool
 
     def __init__(self, basecls=None):
@@ -56,7 +56,7 @@ class TestSocket(ObjectPipe, object):
         # type: (Packet) -> int
         sx = bytes(x)
         for r in self.paired_sockets:
-            super(TestSocket, r).send(sx)
+            super(TestSocket, r).send(sx)  # type: ignore
         try:
             x.sent_time = time.time()
         except AttributeError:
@@ -70,33 +70,9 @@ class TestSocket(ObjectPipe, object):
             super(TestSocket, self).recv(), \
             time.time()
 
-    def recv(self, x=MTU):
+    def recv(self, x=MTU):  # type: ignore
         # type: (int) -> Optional[Packet]
-        if six.PY3:
-            return SuperSocket.recv(self, x)
-        else:
-            return SuperSocket.recv.im_func(self, x)
-
-    def sr1(self, *args, **kargs):
-        # type: (Any, Any) -> Optional[Packet]
-        if six.PY3:
-            return SuperSocket.sr1(self, *args, **kargs)
-        else:
-            return SuperSocket.sr1.im_func(self, *args, **kargs)
-
-    def sr(self, *args, **kargs):
-        # type: (Any, Any) -> Tuple[SndRcvList, PacketList]
-        if six.PY3:
-            return SuperSocket.sr(self, *args, **kargs)
-        else:
-            return SuperSocket.sr.im_func(self, *args, **kargs)
-
-    def sniff(self, *args, **kargs):
-        # type: (Any, Any) -> PacketList
-        if six.PY3:
-            return SuperSocket.sniff(self, *args, **kargs)
-        else:
-            return SuperSocket.sniff.im_func(self, *args, **kargs)
+        return SuperSocket.recv(self, x=x)
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):

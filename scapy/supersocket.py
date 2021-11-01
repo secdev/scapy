@@ -40,13 +40,14 @@ from scapy.compat import (
     Optional,
     Tuple,
     Type,
-    cast
+    cast,
+    _Generic_metaclass
 )
 
 # Utils
 
 
-class _SuperSocket_metaclass(type):
+class _SuperSocket_metaclass(_Generic_metaclass):
     desc = None   # type: Optional[str]
 
     def __repr__(self):

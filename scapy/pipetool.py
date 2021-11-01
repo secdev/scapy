@@ -20,6 +20,8 @@ from scapy.error import log_runtime, warning
 from scapy.config import conf
 from scapy.utils import get_temp_file, do_graph
 
+from scapy.compat import _Generic_metaclass
+
 
 class PipeEngine(ObjectPipe):
     pipes = {}
@@ -250,7 +252,7 @@ class _ConnectorLogic(object):
         return object.__hash__(self)
 
 
-class _PipeMeta(type):
+class _PipeMeta(_Generic_metaclass):
     def __new__(cls, name, bases, dct):
         c = type.__new__(cls, name, bases, dct)
         PipeEngine.pipes[name] = c

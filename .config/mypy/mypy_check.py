@@ -62,6 +62,28 @@ ARGS = [
     "--show-traceback",
 ] + [os.path.abspath(f) for f in FILES]
 
+if sys.platform.startswith("linux"):
+    ARGS.extend([
+        "--always-true=LINUX",
+        "--always-false=OPENBSD",
+        "--always-false=FREEBSD",
+        "--always-false=NETBSD",
+        "--always-false=DARWIN",
+        "--always-false=WINDOWS",
+        "--always-false=BSD",
+    ])
+if sys.platform.startswith("win32"):
+    ARGS.extend([
+        "--always-false=LINUX",
+        "--always-false=OPENBSD",
+        "--always-false=FREEBSD",
+        "--always-false=NETBSD",
+        "--always-false=DARWIN",
+        "--always-true=WINDOWS",
+        "--always-false=WINDOWS_XP",
+        "--always-false=BSD",
+    ])
+
 # Run mypy over the files
 
 mypy_main(None, sys.stdout, sys.stderr, ARGS)

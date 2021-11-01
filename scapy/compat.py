@@ -39,7 +39,6 @@ __all__ = [
     'NoReturn',
     'Optional',
     'Pattern',
-    'Protocol',
     'Sequence',
     'Set',
     'Sized',
@@ -135,7 +134,6 @@ if not FAKE_TYPING:
         NoReturn,
         Optional,
         Pattern,
-        Protocol,
         Sequence,
         Set,
         Sized,
@@ -167,7 +165,6 @@ else:
     NoReturn = _FakeType("NoReturn")  # type: ignore
     Optional = _FakeType("Optional")
     Pattern = _FakeType("Pattern")  # type: ignore
-    Protocol = _FakeType("Protocol")
     Sequence = _FakeType("Sequence")  # type: ignore
     Sequence = _FakeType("Sequence", list)  # type: ignore
     Set = _FakeType("Set", set)  # type: ignore

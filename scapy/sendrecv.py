@@ -1174,15 +1174,16 @@ class AsyncSniffer(object):
                     "The used select function "
                     "will be the one of the first socket")
 
+        close_pipe = None  # type: Optional[ObjectPipe[None]]
         if not nonblocking_socket:
             # select is blocking: Add special control socket
             from scapy.automaton import ObjectPipe
-            close_pipe = ObjectPipe()
-            sniff_sockets[close_pipe] = "control_socket"
+            close_pipe = ObjectPipe[None]()
+            sniff_sockets[close_pipe] = "control_socket"  # type: ignore
 
             def stop_cb():
                 # type: () -> None
-                if self.running:
+                if self.running and close_pipe:
                     close_pipe.send(None)
                 self.continue_sniff = False
             self.stop_cb = stop_cb
@@ -1192,7 +1193,6 @@ class AsyncSniffer(object):
                 # type: () -> None
                 self.continue_sniff = False
             self.stop_cb = stop_cb
-            close_pipe = None
 
         try:
             if started_callback:
@@ -1212,7 +1212,7 @@ class AsyncSniffer(object):
                 sockets = select_func(list(sniff_sockets.keys()), remain)
                 dead_sockets = []
                 for s in sockets:
-                    if s is close_pipe:
+                    if s is close_pipe:  # type: ignore
                         break
                     try:
                         p = s.recv()
