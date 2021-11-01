@@ -57,6 +57,8 @@ def is_le(pkt):
 def e_flags(pkt: Packet) -> str:
     if is_le(pkt):
         return FORMAT_LE
+    else:
+        return FORMAT_BE
 
 
 class EField(object):
