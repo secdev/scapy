@@ -1,16 +1,16 @@
 % Real-Time Publish-Subscribe Protocol (RTPS) dissection
-% 
+%
 % Copyright (C) 2021 Trend Micro Incorporated
-% 
+%
 % This program is free software; you can redistribute it and/or modify it under
 % the terms of the GNU General Public License as published by the Free Software
 % Foundation; either version 2 of the License, or (at your option) any later
 % version.
-% 
+%
 % This program is distributed in the hope that it will be useful, but WITHOUT ANY
 % WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 % PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-% 
+%
 % You should have received a copy of the GNU General Public License along with
 % this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 % Street, Fifth Floor, Boston, MA  02110-1301, USA.
@@ -41,6 +41,11 @@ pkt = b"\x52\x54\x50\x53\x02\x01\x01\x10\x57\x63\x10\x01\xd6\xab\x40\x7f" \
       b"\x61\x6c\x2f\x30\x2e\x38\x2e\x30\x2f\x4c\x69\x6e\x75\x78\x2f\x4c" \
       b"\x69\x6e\x75\x78\x00\x00\x00\x00\x19\x80\x04\x00\x00\x80\x06\x00" \
       b"\x01\x00\x00\x00"
+
++ Test endianness
+= PID_BUILTIN_ENDPOINT_QOS endianness
+assert(raw(PID_BUILTIN_ENDPOINT_QOS(parameterId=119, parameterLength=0, parameterData=b"")) == b'w\x00\x00\x00')
+
 
 + Test RTPS
 = RTPS default header values

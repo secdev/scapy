@@ -44,6 +44,8 @@ from scapy.contrib.rtps.common_types import (
     ProtocolVersionPacket,
     VendorIdPacket,
     e_flags,
+    FORMAT_BE,
+    FORMAT_LE,
 )
 
 
@@ -112,7 +114,11 @@ class ParameterIdField(XShortField):
 class PIDPacketBase(Packet):
     name = "PID Base Packet"
     fields_desc = [
-        EField(ParameterIdField("parameterId", 0)),
+        EField(
+            ParameterIdField("parameterId", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None,
+        ),
         EField(ShortField("parameterLength", 0)),
         StrLenField(
             "parameterData",
@@ -129,8 +135,7 @@ class PIDPacketBase(Packet):
 class PID_PAD(PIDPacketBase):
     name = "PID_PAD"
     fields_desc = [
-        StrLenField(
-            "parameterId", "", length_from=lambda x: 2, max_length=STR_MAX_LEN)
+        StrLenField("parameterId", "", length_from=lambda x: 2, max_length=STR_MAX_LEN)
     ]
 
 
@@ -487,6 +492,7 @@ _RTPSParameterIdTypes = {
 def get_pid_class(
     pkt: Packet, lst: List[Packet], cur: Optional[Packet], remain: str
 ) -> Optional[Packet_metaclass]:
+
     if hasattr(pkt, "endianness"):
         endianness = pkt.endianness
     else:
