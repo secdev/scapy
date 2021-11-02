@@ -201,8 +201,8 @@ class RandNum(_RandNumeral):
     max = 0
 
     def __init__(self, min, max):
-        self.min = min
-        self.max = max
+        self.min = int(min)
+        self.max = int(max)
 
     def _command_args(self):
         if self.__class__.__name__ == 'RandNum':
