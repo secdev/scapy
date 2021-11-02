@@ -20,13 +20,13 @@ from scapy.compat import Optional, Union, List, Tuple, Any, Type, cast, \
 from scapy.packet import Packet
 from scapy.layers.can import CAN
 import scapy.modules.six as six
-from scapy.modules.six.moves import queue
 from scapy.error import Scapy_Exception, warning, log_runtime
 from scapy.supersocket import SuperSocket
 from scapy.config import conf
 from scapy.consts import LINUX
-from scapy.sendrecv import sniff
+from scapy.sendrecv import AsyncSniffer
 from scapy.utils import EDecimal
+from scapy.automaton import ObjectPipe, select_objects
 from scapy.contrib.isotp.isotp_packet import ISOTP, CAN_MAX_DLEN, N_PCI_SF, \
     N_PCI_CF, N_PCI_FC, N_PCI_FF, ISOTP_MAX_DLEN, ISOTP_MAX_DLEN_2015
 
@@ -97,8 +97,8 @@ class ISOTPSoftSocket(SuperSocket):
     :param extended_rx_addr: the extended address of the received ISOTP
                              frames (can be None)
     :param rx_block_size: block size sent in Flow Control ISOTP frames
-    :param rx_separation_time_min: minimum desired separation time sent in
-                                   Flow Control ISOTP frames
+    :param stmin: minimum desired separation time sent in
+                  Flow Control ISOTP frames
     :param padding: If True, pads sending packets with 0x00 which not
                     count to the payload.
                     Does not affect receiving packets.
@@ -114,7 +114,7 @@ class ISOTPSoftSocket(SuperSocket):
                  extended_addr=None,  # type: Optional[int]
                  extended_rx_addr=None,  # type: Optional[int]
                  rx_block_size=0,  # type: int
-                 rx_separation_time_min=0,  # type: int
+                 stmin=0,  # type: int
                  padding=False,  # type: bool
                  listen_only=False,  # type: bool
                  basecls=ISOTP  # type: Type[Packet]
@@ -140,7 +140,7 @@ class ISOTPSoftSocket(SuperSocket):
             extended_addr=extended_addr,
             extended_rx_addr=extended_rx_addr,
             rx_block_size=rx_block_size,
-            rx_separation_time_min=rx_separation_time_min,
+            stmin=stmin,
             listen_only=listen_only
         )
 
@@ -208,100 +208,13 @@ class ISOTPSoftSocket(SuperSocket):
         sockets to be ready to receive
         """
 
-        def find_ready_sockets(socks):
-            # type: (List[SuperSocket]) -> List[SuperSocket]
-            return [x for x in socks if isinstance(x, ISOTPSoftSocket) and
-                    not x.closed and not x.impl.rx_queue.empty()]
+        obj_pipes = [x.impl.rx_queue for x in sockets if
+                     isinstance(x, ISOTPSoftSocket) and not x.closed]
 
-        ready_sockets = find_ready_sockets(sockets)
+        ready_pipes = select_objects(obj_pipes, remain)
 
-        blocking = remain != 0
-        if len(ready_sockets) > 0 or not blocking:
-            return ready_sockets
-
-        exit_select = Event()
-
-        def my_cb(msg):
-            # type: (Any) -> None
-            exit_select.set()
-
-        try:
-            for s in sockets:
-                if not s.closed and isinstance(s, ISOTPSoftSocket):
-                    s.impl.rx_callbacks.append(my_cb)
-
-            exit_select.wait(remain)
-
-        finally:
-            for s in sockets:
-                if isinstance(s, ISOTPSoftSocket):
-                    try:
-                        s.impl.rx_callbacks.remove(my_cb)
-                    except (ValueError, AttributeError):
-                        pass
-
-        ready_sockets = find_ready_sockets(sockets)
-        return ready_sockets
-
-
-class CANReceiverThread(Thread):
-    """
-    Helper class that receives CAN frames and feeds them to the provided
-    callback. It relies on CAN frames being enqueued in the CANSocket object
-    and not being lost if they come before the sniff method is called. This is
-    true in general since sniff is usually implemented as repeated recv(), but
-    might be false in some implementation of CANSocket
-
-    Initialize the thread. In order for this thread to be able to be
-    stopped by the destructor of another object, it is important to not
-    keep a reference to the object in the callback function.
-
-    :param socket: the CANSocket upon which this class will call the
-                   sniff() method
-    :param callback: function to call whenever a CAN frame is received
-    """
-
-    def __init__(self, can_socket, callback):
-        # type: ("CANSocket", Callable[[Packet], None]) -> None
-        super(CANReceiverThread, self).__init__()
-        self.socket = can_socket
-        self.callback = callback
-        self.exiting = False
-        self._thread_started = Event()
-        self.exception = None  # type: Optional[Exception]
-        self.name = "CANReceiver" + self.name
-
-    def start(self):
-        # type: () -> None
-        super(CANReceiverThread, self).start()
-        if not self._thread_started.wait(5):
-            raise Scapy_Exception("CAN RX thread not started in 5s.")
-
-    def run(self):
-        # type: () -> None
-        self._thread_started.set()
-        try:
-            def prn(msg):
-                # type: (Packet) -> None
-                if not self.exiting:
-                    self.callback(msg)
-
-            while 1:
-                try:
-                    sniff(store=False, timeout=1, count=1,
-                          stop_filter=lambda x: self.exiting,
-                          prn=prn, opened_socket=self.socket)
-                except ValueError as ex:
-                    if not self.exiting:
-                        raise ex
-                if self.exiting:
-                    return
-        except Exception as e:
-            self.exception = e
-
-    def stop(self):
-        # type: () -> None
-        self.exiting = True
+        return [x for x in sockets if isinstance(x, ISOTPSoftSocket) and
+                not x.closed and x.impl.rx_queue in ready_pipes]
 
 
 class TimeoutScheduler:
@@ -487,7 +400,7 @@ class TimeoutScheduler:
     def _time():
         # type: () -> float
         if six.PY2:
-            return time.clock()
+            return time.time()
         return time.monotonic()
 
     class Handle:
@@ -573,7 +486,7 @@ class ISOTPSocketImplementation:
     :param rx_block_size: Block Size byte to be included in every Control
             Flow Frame sent by this object. The default value of 0 means
             that all the data will be received in a single block.
-    :param rx_separation_time_min: Time Minimum Separation byte to be
+    :param stmin: Time Minimum Separation byte to be
             included in every Control Flow Frame sent by this object. The
             default value of 0 indicates that the peer will not wait any
             time between sending frames.
@@ -588,7 +501,7 @@ class ISOTPSocketImplementation:
                  extended_addr=None,  # type: Optional[int]
                  extended_rx_addr=None,  # type: Optional[int]
                  rx_block_size=0,  # type: int
-                 rx_separation_time_min=0,  # type: int
+                 stmin=0,  # type: int
                  listen_only=False  # type: bool
                  ):
         # type: (...) -> None
@@ -608,9 +521,9 @@ class ISOTPSocketImplementation:
         self.listen_only = listen_only
 
         self.rxfc_bs = rx_block_size
-        self.rxfc_stmin = rx_separation_time_min
+        self.rxfc_stmin = stmin
 
-        self.rx_queue = queue.Queue()
+        self.rx_queue = ObjectPipe()
         self.rx_len = -1
         self.rx_buf = None  # type: Optional[bytes]
         self.rx_sn = 0
@@ -632,7 +545,10 @@ class ISOTPSocketImplementation:
 
         self.tx_timeout_handle = None  # type: Optional[TimeoutScheduler.Handle]  # noqa: E501
         self.rx_timeout_handle = None  # type: Optional[TimeoutScheduler.Handle]  # noqa: E501
-        self.rx_thread = CANReceiverThread(can_socket, self.on_can_recv)
+        self.rx_thread_started = Event()
+        self.rx_thread = AsyncSniffer(
+            store=False, opened_socket=can_socket, prn=self.on_can_recv,
+            started_callback=self.rx_thread_started.set)
 
         self.tx_mutex = Lock()
         self.rx_mutex = Lock()
@@ -645,6 +561,7 @@ class ISOTPSocketImplementation:
         self.rx_callbacks = []  # type: List[Callable[[bytes], None]]
 
         self.rx_thread.start()
+        self.rx_thread_started.wait(5)
 
     def __del__(self):
         # type: () -> None
@@ -662,8 +579,6 @@ class ISOTPSocketImplementation:
 
     def on_can_recv(self, p):
         # type: (Packet) -> None
-        if not isinstance(p, CAN):
-            raise Scapy_Exception("argument is not a CAN frame")
         if p.identifier != self.dst_id:
             if not self.filter_warning_emitted and conf.verb >= 2:
                 warning("You should put a filter for identifier=%x on your "
@@ -674,7 +589,8 @@ class ISOTPSocketImplementation:
 
     def close(self):
         # type: () -> None
-        self.rx_thread.stop()
+        if self.rx_thread.running:
+            self.rx_thread.stop(True)
 
     def _rx_timer_handler(self):
         # type: () -> None
@@ -703,15 +619,16 @@ class ISOTPSocketImplementation:
                 self.tx_state = ISOTP_IDLE
                 self.tx_exception = "TX state was reset due to timeout"
                 self.tx_done.set()
-                raise Scapy_Exception(self.tx_exception)
+                return
             elif self.tx_state == ISOTP_SENDING:
                 # push out the next segmented pdu
                 src_off = len(self.ea_hdr)
                 max_bytes = 7 - src_off
                 if self.tx_buf is None:
+                    self.tx_state = ISOTP_IDLE
                     self.tx_exception = "TX buffer is not filled"
-                    raise Scapy_Exception(self.tx_exception)
-
+                    self.tx_done.set()
+                    return
                 while 1:
                     load = self.ea_hdr
                     load += struct.pack("B", N_PCI_CF + self.tx_sn)
@@ -793,7 +710,7 @@ class ISOTPSocketImplementation:
             self.tx_state = ISOTP_IDLE
             self.tx_exception = "CF frame discarded because it was too short"
             self.tx_done.set()
-            raise Scapy_Exception(self.tx_exception)
+            return
 
         # get communication parameters only from the first FC frame
         if self.tx_state == ISOTP_WAIT_FIRST_FC:
@@ -832,12 +749,12 @@ class ISOTPSocketImplementation:
             self.tx_state = ISOTP_IDLE
             self.tx_exception = "Overflow happened at the receiver side"
             self.tx_done.set()
-            raise Scapy_Exception(self.tx_exception)
+            return
         else:
             self.tx_state = ISOTP_IDLE
             self.tx_exception = "Unknown FC frame type"
             self.tx_done.set()
-            raise Scapy_Exception(self.tx_exception)
+            return
 
     def _recv_sf(self, data, ts):
         # type: (bytes, Union[float, EDecimal]) -> None
@@ -856,7 +773,7 @@ class ISOTPSocketImplementation:
             return
 
         msg = data[1:1 + length]
-        self.rx_queue.put((msg, ts))
+        self.rx_queue.send((msg, ts))
         for cb in self.rx_callbacks:
             cb(msg)
 
@@ -943,7 +860,10 @@ class ISOTPSocketImplementation:
             return
 
         if self.rx_buf is None:
-            raise Scapy_Exception("rx_buf not filled with data!")
+            if conf.verb > 2:
+                warning("rx_buf not filled with data!")
+            self.rx_state = ISOTP_IDLE
+            return
 
         self.rx_sn = (self.rx_sn + 1) % 16
         self.rx_buf += data[1:]
@@ -953,7 +873,7 @@ class ISOTPSocketImplementation:
             # we are done
             self.rx_buf = self.rx_buf[0:self.rx_len]
             self.rx_state = ISOTP_IDLE
-            self.rx_queue.put((self.rx_buf, self.rx_ts))
+            self.rx_queue.send((self.rx_buf, self.rx_ts))
             for cb in self.rx_callbacks:
                 cb(self.rx_buf)
             self.rx_buf = None
@@ -1042,6 +962,6 @@ class ISOTPSocketImplementation:
         for at most 'timeout' seconds."""
 
         try:
-            return self.rx_queue.get(timeout is None or timeout > 0, timeout)
-        except queue.Empty:
+            return self.rx_queue.recv()
+        except IndexError:
             return None

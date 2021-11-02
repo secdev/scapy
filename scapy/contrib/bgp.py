@@ -122,7 +122,7 @@ class BGPFieldIPv4(Field):
         return self.i2h(pkt, i)
 
     def i2len(self, pkt, i):
-        mask, ip = i
+        mask, _ = i
         return self.mask2iplen(mask) + 1
 
     def i2m(self, pkt, i):
@@ -198,56 +198,122 @@ def has_extended_length(flags):
     return flags & _BGP_PA_EXTENDED_LENGTH == _BGP_PA_EXTENDED_LENGTH
 
 
+def detect_add_path_prefix46(s, max_bit_length):
+    """
+    Detect IPv4/IPv6 prefixes conform to BGP Additional Path but NOT conform
+    to standard BGP..
+
+    This is an adapted version of wireshark's detect_add_path_prefix46
+    https://github.com/wireshark/wireshark/blob/ed9e958a2ed506220fdab320738f1f96a3c2ffbb/epan/dissectors/packet-bgp.c#L2905
+    Kudos to them !
+    """
+    # Must be compatible with BGP Additional Path
+    i = 0
+    while i + 4 < len(s):
+        i += 4
+        prefix_len = orb(s[i])
+        if prefix_len > max_bit_length:
+            return False
+        addr_len = (prefix_len + 7) // 8
+        i += 1 + addr_len
+        if i > len(s):
+            return False
+        if prefix_len % 8:
+            if orb(s[i - 1]) & (0xFF >> (prefix_len % 8)):
+                return False
+    # Must NOT be compatible with standard BGP
+    i = 0
+    while i + 4 < len(s):
+        prefix_len = orb(s[i])
+        if prefix_len == 0 and len(s) > 1:
+            return True
+        if prefix_len > max_bit_length:
+            return True
+        addr_len = (prefix_len + 7) // 8
+        i += 1 + addr_len
+        if i > len(s):
+            return True
+        if prefix_len % 8:
+            if orb(s[i - 1]) & (0xFF >> (prefix_len % 8)):
+                return True
+    return False
+
+
 class BGPNLRI_IPv4(Packet):
     """
     Packet handling IPv4 NLRI fields.
     """
-
     name = "IPv4 NLRI"
     fields_desc = [BGPFieldIPv4("prefix", "0.0.0.0/0")]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
 
 
 class BGPNLRI_IPv6(Packet):
     """
     Packet handling IPv6 NLRI fields.
     """
-
     name = "IPv6 NLRI"
     fields_desc = [BGPFieldIPv6("prefix", "::/0")]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
+
+class BGPNLRI_IPv4_AP(BGPNLRI_IPv4):
+    """
+    Packet handling IPv4 NLRI fields WITH BGP ADDITIONAL PATH
+    """
+
+    name = "IPv4 NLRI (Additional Path)"
+    fields_desc = [IntField("nlri_path_id", 0),
+                   BGPFieldIPv4("prefix", "0.0.0.0/0")]
+
+
+class BGPNLRI_IPv6_AP(BGPNLRI_IPv6):
+    """
+    Packet handling IPv6 NLRI fields WITH BGP ADDITIONAL PATH
+    """
+
+    name = "IPv6 NLRI (Additional Path)"
+    fields_desc = [IntField("nlri_path_id", 0),
+                   BGPFieldIPv6("prefix", "::/0")]
 
 
 class BGPNLRIPacketListField(PacketListField):
     """
     PacketListField handling NLRI fields.
     """
+    __slots__ = ["max_bit_length", "cls_group", "no_length"]
+
+    def __init__(self, name, default, ip_mode, **kwargs):
+        super(BGPNLRIPacketListField, self).__init__(
+            name, default, Packet, **kwargs
+        )
+        self.max_bit_length, self.cls_group = {
+            "IPv4": (32, [BGPNLRI_IPv4, BGPNLRI_IPv4_AP]),
+            "IPv6": (128, [BGPNLRI_IPv6, BGPNLRI_IPv6_AP]),
+        }[ip_mode]
+        self.no_length = "length_from" not in kwargs
 
     def getfield(self, pkt, s):
-        lst = []
-        length = None
-        ret = b""
-
-        if self.length_from is not None:
-            length = self.length_from(pkt)
-
-        if length is not None:
-            remain, ret = s[:length], s[length:]
-        else:
+        if self.no_length:
             index = s.find(_BGP_HEADER_MARKER)
+            if index == 0:
+                return s, []
             if index != -1:
-                remain = s[:index]
-                ret = s[index:]
-            else:
-                remain = s
+                self.length_from = lambda pkt: index
+        remain = s[:self.length_from(pkt)] if self.length_from else s
 
-        while remain:
-            mask_length_in_bits = orb(remain[0])
-            mask_length_in_bytes = (mask_length_in_bits + 7) // 8
-            current = remain[:mask_length_in_bytes + 1]
-            remain = remain[mask_length_in_bytes + 1:]
-            packet = self.m2i(pkt, current)
-            lst.append(packet)
-
-        return remain + ret, lst
+        cls = self.cls_group[
+            detect_add_path_prefix46(remain, self.max_bit_length)
+        ]
+        self.next_cls_cb = lambda *args: cls
+        res = super(BGPNLRIPacketListField, self).getfield(pkt, s)
+        if self.no_length:
+            self.length_from = None
+        return res
 
 
 class _BGPInvalidDataException(Exception):
@@ -1824,7 +1890,7 @@ class MPReachNLRIPacketListField(PacketListField):
                     length_in_bytes = (mask + 7) // 8
                     current = remain[:length_in_bytes + 1]
                     remain = remain[length_in_bytes + 1:]
-                    prefix = BGPNLRI_IPv6(current)
+                    prefix = self.m2i(pkt, current)
                     lst.append(prefix)
 
         return remain, lst
@@ -1851,7 +1917,7 @@ class BGPPAMPReachNLRI(Packet):
         ConditionalField(IP6Field("nh_v6_link_local", "::"),
                          lambda x: x.afi == 2 and x.nh_addr_len == 32),
         ByteField("reserved", 0),
-        MPReachNLRIPacketListField("nlri", [], Packet)]
+        MPReachNLRIPacketListField("nlri", [], BGPNLRI_IPv6)]
 
     def post_build(self, p, pay):
         if self.nlri is None:
@@ -1870,8 +1936,7 @@ class BGPPAMPUnreachNLRI_IPv6(Packet):
     """
 
     name = "MP_UNREACH_NLRI (IPv6 NLRI)"
-    fields_desc = [BGPNLRIPacketListField(
-        "withdrawn_routes", [], BGPNLRI_IPv6)]
+    fields_desc = [BGPNLRIPacketListField("withdrawn_routes", [], "IPv6")]
 
 
 class MPUnreachNLRIPacketField(PacketField):
@@ -2113,7 +2178,7 @@ class BGPUpdate(BGP):
         BGPNLRIPacketListField(
             "withdrawn_routes",
             [],
-            BGPNLRI_IPv4,
+            "IPv4",
             length_from=lambda p: p.withdrawn_routes_len
         ),
         FieldLenField(
@@ -2128,7 +2193,7 @@ class BGPUpdate(BGP):
             BGPPathAttr,
             length_from=lambda p: p.path_attr_len
         ),
-        BGPNLRIPacketListField("nlri", [], BGPNLRI_IPv4)
+        BGPNLRIPacketListField("nlri", [], "IPv4")
     ]
 
     def post_build(self, p, pay):
@@ -2416,11 +2481,13 @@ class BGPORFEntryPacketListField(PacketListField):
         if self.length_from is not None:
             length = self.length_from(pkt)
         remain = s
+        if length <= 0:
+            return s, []
         if length is not None:
             remain, ret = s[:length], s[length:]
 
         while remain:
-            orf_len = 0
+            orf_len = length
 
             # Get value length, depending on the ORF type
             if pkt.orf_type == 64 or pkt.orf_type == 128:
@@ -2509,7 +2576,12 @@ class BGPRouteRefresh(BGP):
         ShortEnumField("afi", 1, address_family_identifiers),
         ByteEnumField("subtype", 0, rr_message_subtypes),
         ByteEnumField("safi", 1, subsequent_afis),
-        PacketField('orf_data', "", BGPORF)
+        ConditionalField(
+            PacketField('orf_data', "", BGPORF),
+            lambda p: (
+                (p.underlayer and p.underlayer.len or 24) > 23
+            )
+        )
     ]
 
 

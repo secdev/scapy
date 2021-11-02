@@ -207,6 +207,30 @@ p == IODWriteMultipleRes(ARUUID='01234567-89ab-cdef-0123-456789abcdef', recordDa
 ####################################################################
 ####################################################################
 
++ Check I&M
+
+= IM0Block default values
+raw(IM0Block()) == bytearray.fromhex('002000380100000000000000000000000000000000000000000000000000000000000000000000000000000000005600000000000000000001010000')
+
+= IM0Block basic example
+raw(IM0Block(OrderID='foobar', IMSerialNumber='ABCDEF1234567890')) == bytearray.fromhex('0020003801000000666f6f62617200000000000000000000000000004142434445463132333435363738393000005600000000000000000001010000')
+
+= IM1Block default values
+raw(IM1Block()) == bytearray.fromhex('002100380100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
+
+= IM2Block default values
+raw(IM2Block()) == bytearray.fromhex('00220012010000000000000000000000000000000000')
+
+= IM3Block default values
+raw(IM3Block()) == bytearray.fromhex('002300380100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
+
+= IM4Block default values
+raw(IM4Block()) == bytearray.fromhex('002400380100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
+
+
+####################################################################
+####################################################################
+
 + Check ARBlockReq
 
 = ARBlockReq default values
@@ -700,3 +724,67 @@ bytes(p) == bytearray.fromhex(
   '04000000100000000000a0de976cd11182710605040302010200a0de976cd111827100a02442df7d0403020106050807090a0b0c0d0e0f000000000001000000000000000000ffffffff340000000000' + \
   '2000000020000000200000000000000020000000' + \
     '0112001c01000000fedcba9876543210fedcba98765432100000000000020000')
+
+
+### PNIO Alarms
+
+= PNIO Alarm decoding (Alarm_Low)
+
+p = Ether(b'\x00\x11\x22\x33\x44\x55' \
+          b'\x00\x66\x77\x88\x99\xaa' \
+          b'\x81\x00\xa0\x00' \
+          b'\x88\x92' \
+          b'\xfe\x01' \
+          b'\x00\x03\x00\x03\x11\x11\xff\xff\xff\xfe\x00\x36' \
+          b'\x00\x02\x00\x32\x01\x00\x00\x01\x00\x00\x00\x00\x00' \
+          b'\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00' \
+          b'\x81\x00\x0f\x00\x00\x08\x01\x00\x00\x00\x00\x00\x00\x02' \
+          b'\x80\x02\x00\x0f\x2c\x00\x00\x05\x80\x00\x00\x00\x00\x22')
+assert(p[ProfinetIO].frameID == 0xfe01)
+assert(isinstance(p[ProfinetIO].payload, Alarm_Low))
+assert(p[AlarmNotification_Low].block_type == 0x0002)
+assert(isinstance(p[AlarmNotification_Low].AlarmPayload[0], MaintenanceItem))
+assert(p[MaintenanceItem].UserStructureIdentifier == 0x8100)
+assert(isinstance(p[AlarmNotification_Low].AlarmPayload[1], DiagnosisItem))
+assert(p[DiagnosisItem].UserStructureIdentifier == 0x8002)
+
+= PNIO Alarm decoding (Alarm_High)
+p = Ether(b'\x00\x11\x22\x33\x44\x55' \
+          b'\x00\x66\x77\x88\x99\xaa' \
+          b'\x81\x00\xa0\x00' \
+          b'\x88\x92' \
+          b'\xfc\x01' \
+          b'\x00\x03\x00\x03\x11\x11\xff\xff\xff\xfe\x00\x36' \
+          b'\x00\x02\x00\x32\x01\x00\x00\x01\x00\x00\x00\x00\x00' \
+          b'\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00' \
+          b'\x81\x00\x0f\x00\x00\x08\x01\x00\x00\x00\x00\x00\x00\x02' \
+          b'\x80\x02\x00\x0f\x2c\x00\x00\x05\x80\x00\x00\x00\x00\x22')
+assert(p[ProfinetIO].frameID == 0xfc01)
+assert(isinstance(p[ProfinetIO].payload, Alarm_High))
+assert(p[AlarmNotification_High].block_type == 0x0002)
+assert(isinstance(p[AlarmNotification_High].AlarmPayload[0], MaintenanceItem))
+assert(p[MaintenanceItem].UserStructureIdentifier == 0x8100)
+assert(isinstance(p[AlarmNotification_High].AlarmPayload[1], DiagnosisItem))
+assert(p[DiagnosisItem].UserStructureIdentifier ==  0x8002)
+
+= PNIO Alarm DiagnosisItem
+
+p = AlarmNotification_Low(AlarmPayload=[MaintenanceItem(), DiagnosisItem()])
+assert(raw(p) == bytearray.fromhex('0002002c0100000000000000000000000000000000000000000000000000000001000000000000000000000000000000'))
+
+= PNIO Alarm UploadRetrievalItem
+
+p = AlarmNotification_Low(AlarmPayload=[MaintenanceItem(), UploadRetrievalItem()])
+assert(raw(p) == bytearray.fromhex('00020036010000000000000000000000000000000000000000000000000000000100000000000000000000000000010000000000000000000000'))
+
+= PNIO Alarm iParameterItem
+p = AlarmNotification_Low(AlarmPayload=[MaintenanceItem(), iParameterItem()])
+assert(raw(p) == bytearray.fromhex('0002003e0100000000000000000000000000000000000000000000000000000001000000000000000000000000000100000000000000000000000000000000000000'))
+
+= PNIO Alarm RS_AlarmItem
+p = AlarmNotification_Low(AlarmPayload=[MaintenanceItem(), RS_AlarmItem()])
+assert(raw(p) == bytearray.fromhex('0002002801000000000000000000000000000000000000000000000000000000010000000000000000000000'))
+
+= PNIO Alarm PRAL_AlarmItem
+p = AlarmNotification_Low(AlarmPayload=[MaintenanceItem(), PRAL_AlarmItem()])
+assert(raw(p) == bytearray.fromhex('0002002e01000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000'))

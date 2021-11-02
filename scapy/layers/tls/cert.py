@@ -599,24 +599,16 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         self.authorityKeyID = None
 
         self.notBefore_str = tbsCert.validity.not_before.pretty_time
-        notBefore = tbsCert.validity.not_before.val
-        if notBefore[-1] == "Z":
-            notBefore = notBefore[:-1]
         try:
-            _format = tbsCert.validity.not_before._format
-            self.notBefore = time.strptime(notBefore, _format)
-        except Exception:
+            self.notBefore = tbsCert.validity.not_before.datetime.timetuple()
+        except ValueError:
             raise Exception(error_msg)
         self.notBefore_str_simple = time.strftime("%x", self.notBefore)
 
         self.notAfter_str = tbsCert.validity.not_after.pretty_time
-        notAfter = tbsCert.validity.not_after.val
-        if notAfter[-1] == "Z":
-            notAfter = notAfter[:-1]
         try:
-            _format = tbsCert.validity.not_after._format
-            self.notAfter = time.strptime(notAfter, _format)
-        except Exception:
+            self.notAfter = tbsCert.validity.not_after.datetime.timetuple()
+        except ValueError:
             raise Exception(error_msg)
         self.notAfter_str_simple = time.strftime("%x", self.notAfter)
 

@@ -219,7 +219,7 @@ class IEC104_IE_QDP(IEC104_IE_CommonQualityFlags):
         # blocked
         BitEnumField('ei', 0, 1, IEC104_IE_CommonQualityFlags.EI_FLAGS),
         # blocked
-        BitField('reserved', 0, 3)
+        BitField('reserved_qdp', 0, 3)
     ]
 
 
@@ -605,7 +605,7 @@ class IEC104_IE_CP56TIME2A(IEC104_IE_CommonQualityFlags):
 
     informantion_element_fields = [
         LEShortField('sec_milli', 0),
-        BitEnumField('iv', 0, 1, IEC104_IE_CommonQualityFlags.IV_FLAGS),
+        BitEnumField('iv_time', 0, 1, IEC104_IE_CommonQualityFlags.IV_FLAGS),
         BitEnumField('gen', 0, 1, GEN_FLAGS),
         # only valid in monitor direction ToDo: special treatment needed?
         BitField('minutes', 0, 6),

@@ -377,7 +377,7 @@ awaited = """
 Serial: 15459312981008553731928384953135426796
 Issuer: /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Root G3
 Subject: /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Root G3
-Validity: Aug 01 12:00:00 2013 GMT to Jan 15 12:00:00 2038 GMT
+Validity: 2013-08-01 12:00:00 UTC to 2038-01-15 12:00:00 UTC
 """
 
 with ContextManagerCaptureOutput() as cmco:
@@ -452,8 +452,8 @@ awaited = """
 Version: 1
 sigAlg: sha1-with-rsa-signature
 Issuer: /C=US/O=VeriSign, Inc./OU=Class 1 Public Primary Certification Authority
-lastUpdate: Nov 02 00:00:00 2006 GMT
-nextUpdate: Feb 17 23:59:59 2007 GMT
+lastUpdate: 2006-11-02 00:00:00 UTC
+nextUpdate: 2007-02-17 23:59:59 UTC
 """
 
 with ContextManagerCaptureOutput() as cmco:

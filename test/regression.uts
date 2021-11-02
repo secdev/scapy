@@ -1351,7 +1351,7 @@ assert ssid == "ROUTE-821E295"
 * Those tests need network access
 
 = Sending and receiving an ICMP
-~ netaccess IP ICMP icmp_firewall
+~ netaccess needs_root IP ICMP icmp_firewall
 def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
@@ -1365,7 +1365,7 @@ def _test():
 retry_test(_test)
 
 = Sending a TCP syn message at layer 2 and layer 3
-~ netaccess IP
+~ netaccess needs_root IP
 def _test():
     tmp = send(IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S"), return_packets=True, realtime=True)
     assert(len(tmp) == 1)
@@ -1382,7 +1382,7 @@ def _test():
 retry_test(_test)
 
 = Latency check: localhost ICMP
-~ netaccess linux latency
+~ netaccess needs_root linux latency
 
 sock = conf.L3socket
 conf.L3socket = L3RawSocket
@@ -1425,7 +1425,7 @@ for pkt in sniffer.results:
     assert pkt.sniffed_on == iface
 
 = Sending a TCP syn 'forever' at layer 2 and layer 3
-~ netaccess IP
+~ netaccess needs_root IP
 def _test():
     tmp = srloop(IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S"), count=1, timeout=3)
     assert(type(tmp) == tuple and len(tmp[0]) == 1)
@@ -1436,7 +1436,7 @@ def _test():
 retry_test(_test)
 
 = Sending and receiving an TCP syn with flooding methods
-~ netaccess IP flood
+~ netaccess needs_root IP flood
 from functools import partial
 # flooding methods do not support timeout. Packing the test for security
 def _test_flood(ip, flood_function, add_ether=False):
@@ -1582,13 +1582,12 @@ l = [p for p in a]
 len(l) == 7
 
 = Implicit logic 3
-
-# In case there's a single option: __iter__ should return self
+# In case there's a single option: __iter__ should not return self
 a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
 for i in a:
     i.sent_time = 1
 
-assert a.sent_time == 1
+assert a.sent_time is None
 
 # In case they are several, self should never be returned
 a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP(seq=(0, 5))
@@ -1603,7 +1602,7 @@ assert a.sent_time is None
 + Real usages
 
 = Port scan
-~ netaccess IP TCP
+~ netaccess needs_root IP TCP
 def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
@@ -1620,7 +1619,7 @@ def _test():
 retry_test(_test)
 
 = Send & receive with debug_match
-~ netaccess IP ICMP
+~ netaccess needs_root IP ICMP
 def _test():
     old_debug_match = conf.debug_match
     conf.debug_match = True
@@ -1636,7 +1635,7 @@ def _test():
 retry_test(_test)
 
 = Send & receive with retry
-~ netaccess IP ICMP
+~ netaccess needs_root IP ICMP
 def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
@@ -1647,7 +1646,7 @@ def _test():
 retry_test(_test)
 
 = Send & receive with multi
-~ netaccess IP ICMP
+~ netaccess needs_root IP ICMP
 def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
@@ -1658,16 +1657,19 @@ def _test():
 retry_test(_test)
 
 = Traceroute function
-~ netaccess tcpdump
+~ netaccess needs_root tcpdump
 * Let's test traceroute
-ans, unans = traceroute("www.slashdot.org")
-ans.nsummary()
-s,r=ans[0]
-s.show()
-s.show(2)
+def _test():
+    ans, unans = traceroute("www.slashdot.org")
+    ans.nsummary()
+    s,r=ans[0]
+    s.show()
+    s.show(2)
+
+retry_test(_test)
 
 = send() and sniff()
-~ netaccess
+~ netaccess needs_root
 
 def _test():
     sendp(Ether()/IP(src="9.0.0.0")/UDP(), count=3, iface=conf.iface)
@@ -1680,7 +1682,7 @@ r = sniff(timeout=3, count=1,
 assert r
 
 = GH issue 3306
-~ netaccess
+~ netaccess needs_root
 
 send(fuzz(ARP()))
 
@@ -1725,7 +1727,7 @@ assert _test_select()
 True
 
 = Test set of sent_time by sr
-~ netaccess IP ICMP
+~ netaccess needs_root IP ICMP
 def _test():
     packet = IP(dst="8.8.8.8")/ICMP()
     r = sr(packet, timeout=2)
@@ -1734,7 +1736,7 @@ def _test():
 retry_test(_test)
 
 = Test set of sent_time by sr (multiple packets)
-~ netaccess IP ICMP
+~ netaccess needs_root IP ICMP
 def _test():
     packet1 = IP(dst="8.8.8.8")/ICMP()
     packet2 = IP(dst="8.8.4.4")/ICMP()
@@ -1745,7 +1747,7 @@ def _test():
 retry_test(_test)
 
 = Test set of sent_time by srflood
-~ netaccess IP ICMP
+~ netaccess needs_root IP ICMP
 def _test():
     packet = IP(dst="8.8.8.8")/ICMP()
     r = srflood(packet, timeout=2)
@@ -1754,7 +1756,7 @@ def _test():
 retry_test(_test)
 
 = Test set of sent_time by srflood (multiple packets)
-~ netaccess IP ICMP
+~ netaccess needs_root IP ICMP
 def _test():
     packet1 = IP(dst="8.8.8.8")/ICMP()
     packet2 = IP(dst="8.8.4.4")/ICMP()
@@ -1898,6 +1900,21 @@ pktpcap_tcp = sniff(offline=fdesc, filter="tcp")
 fdesc.close()
 assert list(pktpcap[TCP]) == list(pktpcap_tcp)
 os.unlink(filename)
+
+= Check offline sniff() with a PcapNg file and a filter (by file object)
+~ tcpdump
+
+pcapng_data = b'\n\r\r\n`\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x04\x009\x00TShark (Wireshark) 3.2.3 (Git v3.2.3 packaged as 3.2.3-1)\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x01\x00\x00\x00\x14\x00\x00\x00\xe4\x00\x00\x00\xff\xff\x00\x00\x14\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x98\xcd\x05\x00\x19\x83\xf7\x9e\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r<\x00\x00\x00'
+
+fdesc, filename = tempfile.mkstemp()
+os.close(fdesc)
+fd = open(filename, "wb")
+fd.write(pcapng_data)
+fd.close()
+
+packets = sniff(offline=filename, filter="udp")
+os.unlink(filename)
+assert(UDP in packets[0])
 
 = Check offline sniff() with Packets and tcpdump
 ~ tcpdump
@@ -2063,10 +2080,30 @@ l = [ p for p in RawPcapReader(f) ]
 assert len(l) == 1
 
 = Check RawPcapReader on pcap
+~ pcap
 
 fd = get_temp_file()
 wrpcap(fd, [Ether()/IP()/ICMP()])
 assert len([p for p in RawPcapReader(fd)]) == 1
+
+for (x, y) in RawPcapReader(fd):
+    pass
+
+= Check RawPcapWriter
+~ pcap
+
+# GH3256
+fd = get_temp_file()
+with RawPcapWriter(fd, linktype=1) as w:
+    w.write(b"test")
+
+try:
+    fd = get_temp_file()
+    with RawPcapWriter(fd) as w:
+        w.write(b"test")
+    assert False
+except ValueError:
+    pass
 
 = Check tcpdump()
 ~ tcpdump
@@ -2240,7 +2277,7 @@ assert len(conf.temp_files) == tempfile_count
 
 
 = Run scapy's tshark command
-~ netaccess
+~ needs_root
 tshark(count=1, timeout=3)
 
 = Check wireshark()
@@ -3934,6 +3971,24 @@ assert(len(a.list) == 1)
 
 b = TestPacket()
 assert(len(b.list) == 0)
+
+= Test PacketListField deepcopy
+class SubPacket(Packet):
+    name = "SubPacket"
+    fields_desc = [
+        ByteField("mem", 1),
+    ]
+
+class TestPacket(Packet):
+    name = "TestPacket"
+    fields_desc = [
+        PacketListField("packlist", SubPacket(), SubPacket),
+    ]
+
+a = TestPacket()
+b = a.copy()
+fuzz(b)
+assert(a.packlist[0].mem == 1)
 
 = PacketField
 

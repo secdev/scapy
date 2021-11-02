@@ -8,7 +8,7 @@
 + Layer 2 Unit Tests
 
 = Arping
-~ netaccess tcpdump
+~ netaccess needs_root tcpdump
 * This test assumes the local network is a /24. This is bad.
 def _test():
     ip_address = conf.route.route("0.0.0.0")[2]

@@ -78,3 +78,10 @@ assert p4[DHCP].options[0] == ("mud-url", b"https://example.org")
 assert DHCPOptions[33].name == "static-routes"
 assert DHCPOptions[46].name == "NetBIOS_node_type"
 assert DHCPRevOptions['static-routes'][0] == 33
+
+= Check that the dhcpd alias is properly defined and documented
+~ python3_only
+
+assert dhcpd
+import IPython
+assert IPython.lib.pretty.pretty(dhcpd) == '<function scapy.ansmachine.dhcpd(self, pool=Net("192.168.1.128/25"), network=\'192.168.1.0/24\', gw=\'192.168.1.1\', domain=\'localnet\', renewal_time=60, lease_time=1800)>'

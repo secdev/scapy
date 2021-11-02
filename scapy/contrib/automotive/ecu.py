@@ -14,6 +14,7 @@ import copy
 
 from collections import defaultdict
 from types import GeneratorType
+from threading import Lock
 
 from scapy.compat import Any, Union, Iterable, Callable, List, Optional, \
     Tuple, Type, cast, Dict, orb
@@ -42,6 +43,10 @@ class EcuState(object):
             if isinstance(v, GeneratorType):
                 v = list(v)
             self.__setattr__(k, v)
+
+    def __delitem__(self, key):
+        # type: (str) -> None
+        del self.__dict__[key]
 
     def __len__(self):
         # type: () -> int
@@ -594,18 +599,15 @@ class EcuAnsweringMachine(AnsweringMachine[PacketList]):
         :param basecls: Provide a basecls of the used protocol
         :param timeout: Specifies the timeout for sniffing in seconds.
         """
-        self.__ecu_state = EcuState(session=1)
-        # TODO: Apply a cleanup of the initial EcuStates. Maybe provide a way
-        #       to overwrite EcuState.reset to allow the manipulation of the
-        #       initial (default) EcuState.
         self.__main_socket = main_socket  # type: Optional[SuperSocket]
         self.__sockets = [self.__main_socket]
 
         if broadcast_socket is not None:
             self.__sockets.append(broadcast_socket)
 
-        if initial_ecu_state:
-            self.__ecu_state = initial_ecu_state
+        self.__initial_ecu_state = initial_ecu_state or EcuState(session=1)
+        self.__ecu_state_mutex = Lock()
+        self.reset_state()
 
         self.__basecls = basecls  # type: Type[Packet]
         self.__supported_responses = supported_responses
@@ -617,6 +619,11 @@ class EcuAnsweringMachine(AnsweringMachine[PacketList]):
     def state(self):
         # type: () -> EcuState
         return self.__ecu_state
+
+    def reset_state(self):
+        # type: () -> None
+        with self.__ecu_state_mutex:
+            self.__ecu_state = copy.copy(self.__initial_ecu_state)
 
     def is_request(self, req):
         # type: (Packet) -> bool
@@ -643,16 +650,17 @@ class EcuAnsweringMachine(AnsweringMachine[PacketList]):
                     raise TypeError("Unsupported type for response. "
                                     "Please use `EcuResponse` objects.")
 
-                if not resp.supports_state(self.__ecu_state):
-                    continue
+                with self.__ecu_state_mutex:
+                    if not resp.supports_state(self.__ecu_state):
+                        continue
 
-                if not resp.answers(req):
-                    continue
+                    if not resp.answers(req):
+                        continue
 
-                EcuState.get_modified_ecu_state(
-                    resp.key_response, req, self.__ecu_state, True)
+                    EcuState.get_modified_ecu_state(
+                        resp.key_response, req, self.__ecu_state, True)
 
-                return resp.responses
+                    return resp.responses
 
         return PacketList([self.__basecls(
             b"\x7f" + bytes(req)[0:1] + b"\x10")])

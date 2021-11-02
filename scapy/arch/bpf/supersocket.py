@@ -11,6 +11,7 @@ import os
 import platform
 from select import select
 import struct
+import sys
 import time
 
 from scapy.arch.bpf.core import get_dev_bpf, attach_filter
@@ -83,12 +84,27 @@ class _L2bpfSocket(SuperSocket):
         # Note: - trick from libpcap/pcap-bpf.c - monitor_mode()
         #       - it only works on OS X 10.5 and later
         if DARWIN and monitor:
-            dlt_radiotap = struct.pack('I', DLT_IEEE802_11_RADIO)
+            # Convert macOS version to an integer
             try:
-                fcntl.ioctl(self.ins, BIOCSDLT, dlt_radiotap)
-            except IOError:
-                raise Scapy_Exception("Can't set %s into monitor mode!" %
-                                      self.iface)
+                tmp_mac_version = platform.mac_ver()[0].split(".")
+                tmp_mac_version = [int(num) for num in tmp_mac_version]
+                macos_version = tmp_mac_version[0] * 10000
+                macos_version += tmp_mac_version[1] * 100 + tmp_mac_version[2]
+            except (IndexError, ValueError):
+                warning("Could not determine your macOS version!")
+                macos_version = sys.maxint
+
+            # Disable 802.11 monitoring on macOS Catalina (aka 10.15) and upper
+            if macos_version < 101500:
+                dlt_radiotap = struct.pack('I', DLT_IEEE802_11_RADIO)
+                try:
+                    fcntl.ioctl(self.ins, BIOCSDLT, dlt_radiotap)
+                except IOError:
+                    raise Scapy_Exception("Can't set %s into monitor mode!" %
+                                          self.iface)
+            else:
+                warning("Scapy won't activate 802.11 monitoring, "
+                        "as it will crash your macOS kernel!")
 
         # Don't block on read
         try:

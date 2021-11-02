@@ -575,8 +575,8 @@ def valid_mac(mac):
 def str2mac(s):
     # type: (bytes) -> str
     if isinstance(s, str):
-        return ("%02x:" * 6)[:-1] % tuple(map(ord, s))
-    return ("%02x:" * 6)[:-1] % tuple(s)
+        return ("%02x:" * len(s))[:-1] % tuple(map(ord, s))
+    return ("%02x:" * len(s))[:-1] % tuple(s)
 
 
 def randstring(length):
@@ -1194,6 +1194,10 @@ class PcapReader_metaclass(type):
 class RawPcapReader:
     """A stateful pcap reader. Each packet is returned as a string"""
 
+    # TODO: use Generics to properly type the various readers.
+    # As of right now, RawPcapReader is typed as if it returned packets
+    # because all of its child do. Fix that
+
     nonblocking_socket = True
     PacketMetadata = collections.namedtuple("PacketMetadata",
                                             ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
@@ -1237,10 +1241,13 @@ class RawPcapReader:
         implement the iterator protocol on a set of packets in a pcap file
         """
         try:
-            return self.read_packet()
+            return self._read_packet()  # type: ignore
         except EOFError:
             raise StopIteration
-    __next__ = next
+
+    def __next__(self):
+        # type: () -> Packet
+        return self.next()
 
     def _read_packet(self, size=MTU):
         # type: (int) -> Tuple[bytes, RawPcapReader.PacketMetadata]
@@ -1259,9 +1266,9 @@ class RawPcapReader:
 
     def read_packet(self, size=MTU):
         # type: (int) -> Packet
-        return cast(
-            "Packet",
-            self._read_packet()[0]
+        raise Exception(
+            "Cannot call read_packet() in RawPcapReader. Use "
+            "_read_packet()"
         )
 
     def dispatch(self,
@@ -1276,12 +1283,6 @@ class RawPcapReader:
         """
         for p in self:
             callback(p)
-
-    def read_all(self, count=-1):
-        # type: (int) -> PacketList
-        res = self._read_all(count)
-        from scapy import plist
-        return plist.PacketList(res, name=os.path.basename(self.filename))
 
     def _read_all(self, count=-1):
         # type: (int) -> List[Packet]
@@ -1372,6 +1373,19 @@ class PcapReader(RawPcapReader, _SuperSocket):
         # type: (int) -> Packet
         return self.read_packet(size=size)
 
+    def next(self):
+        # type: () -> Packet
+        try:
+            return self.read_packet()
+        except EOFError:
+            raise StopIteration
+
+    def read_all(self, count=-1):
+        # type: (int) -> PacketList
+        res = self._read_all(count)
+        from scapy import plist
+        return plist.PacketList(res, name=os.path.basename(self.filename))
+
 
 class RawPcapNgReader(RawPcapReader):
     """A stateful pcapng reader. Each packet is returned as
@@ -1399,6 +1413,7 @@ class RawPcapNgReader(RawPcapReader):
             2: self._read_block_pkt,
             3: self._read_block_spb,
             6: self._read_block_epb,
+            10: self._read_block_dsb,
         }
         self.endian = "!"  # Will be overwritten by first SHB
 
@@ -1593,8 +1608,60 @@ class RawPcapNgReader(RawPcapReader):
                                                tslow=tslow,
                                                wirelen=wirelen))
 
+    def _read_block_dsb(self, block, size):
+        # type: (bytes, int) -> None
+        """Decryption Secrets Block"""
 
-class PcapNgReader(RawPcapNgReader, _SuperSocket):
+        # Parse the secrets type and length fields
+        try:
+            secrets_type, secrets_length = struct.unpack(
+                self.endian + "II",
+                block[:8],
+            )
+            block = block[8:]
+        except struct.error:
+            warning("PcapNg: DSB is too small %d!", len(block))
+            raise EOFError
+
+        # Compute the secrets length including the padding
+        padded_secrets_length = secrets_length + (4 - secrets_length % 4)
+        if len(block) < padded_secrets_length:
+            warning("PcapNg: invalid DSB secrets length!")
+            raise EOFError
+
+        # Extract secrets data and options
+        secrets_data = block[:padded_secrets_length][:secrets_length]
+        if block[padded_secrets_length:]:
+            warning("PcapNg: DSB options are not supported!")
+
+        # TLS Key Log
+        if secrets_type == 0x544c534b:
+            if getattr(conf, "tls_nss_keys", False) is False:
+                warning("PcapNg: TLS Key Log available, but "
+                        "the TLS layer is not loaded! Scapy won't be able "
+                        "to decrypt the packets.")
+            else:
+                from scapy.layers.tls.session import load_nss_keys
+
+                # Write Key Log to a file and parse it
+                filename = get_temp_file()
+                with open(filename, "wb") as fd:
+                    fd.write(secrets_data)
+                    fd.close()
+
+                keys = load_nss_keys(filename)
+                if not keys:
+                    warning("PcapNg: invalid TLS Key Log in DSB!")
+                else:
+                    # Note: these attributes are only available when the TLS
+                    #       layer is loaded.
+                    conf.tls_nss_keys = keys  # type: ignore
+                    conf.tls_session_enable = True  # type: ignore
+        else:
+            warning("PcapNg: Unknown DSB secrets type (0x%x)!", secrets_type)
+
+
+class PcapNgReader(RawPcapNgReader, PcapReader, _SuperSocket):
 
     alternative = PcapReader
 
@@ -1713,6 +1780,12 @@ class RawPcapWriter:
                     return
             finally:
                 g.close()
+
+        if self.linktype is None:
+            raise ValueError(
+                "linktype could not be guessed. "
+                "Please pass a linktype while creating the writer"
+            )
 
         self.f.write(struct.pack(self.endian + "IHHIIII", 0xa1b23c4d if self.nano else 0xa1b2c3d4,  # noqa: E501
                                  2, 4, 0, 0, self.snaplen, self.linktype))
@@ -2134,7 +2207,17 @@ def tcpdump(
         if linktype is None and isinstance(pktlist, str):
             # linktype is unknown but required. Read it from file
             with PcapReader(pktlist) as rd:
-                linktype = rd.linktype
+                if isinstance(rd, PcapNgReader):
+                    # Get the linktype from the first packet
+                    try:
+                        _, metadata = rd._read_packet()
+                        linktype = metadata.linktype
+                    except EOFError:
+                        raise ValueError(
+                            "Cannot get linktype from a PcapNg packet."
+                        )
+                else:
+                    linktype = rd.linktype
         from scapy.arch.common import compile_filter
         compile_filter(flt, linktype=linktype)
         args.append(flt)

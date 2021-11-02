@@ -31,7 +31,8 @@ from scapy.compat import (
 
 _mib_re_integer = re.compile(r"^[0-9]+$")
 _mib_re_both = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_-]*)\(([0-9]+)\)$")
-_mib_re_oiddecl = re.compile(r"$\s*([a-zA-Z0-9_-]+)\s+OBJECT([^:\{\}]|\{[^:]+\})+::=\s*\{([^\}]+)\}", re.M)  # noqa: E501
+_mib_re_oiddecl = re.compile(
+    r"$\s*([a-zA-Z0-9_-]+)\s+OBJECT([^:\{\}]|\{[^:]+\})+::=\s*\{([^\}]+)\}", re.M)
 _mib_re_strings = re.compile(r'"[^"]*"')
 _mib_re_comments = re.compile(r'--.*(\r|\n)')
 
@@ -569,19 +570,19 @@ evPolicy_oids = {
     '1.2.392.200091.100.721.1': 'EV Security Communication RootCA1',
     '1.2.616.1.113527.2.5.1.1': 'EV Certum Trusted Network CA',
     '1.3.159.1.17.1': 'EV Actualis Authentication Root CA',
-    '1.3.6.1.4.1.13177.10.1.3.10': 'EV Autoridad de Certificacion Firmaprofesional CIF A62634068',  # noqa: E501
+    '1.3.6.1.4.1.13177.10.1.3.10': 'EV Autoridad de Certificacion Firmaprofesional CIF A62634068',
     '1.3.6.1.4.1.14370.1.6': 'EV GeoTrust Primary Certification Authority',
     '1.3.6.1.4.1.14777.6.1.1': 'EV Izenpe.com roots Business',
     '1.3.6.1.4.1.14777.6.1.2': 'EV Izenpe.com roots Government',
-    '1.3.6.1.4.1.17326.10.14.2.1.2': 'EV AC Camerfirma S.A. Chambers of Commerce Root - 2008',  # noqa: E501
-    '1.3.6.1.4.1.17326.10.14.2.2.2': 'EV AC Camerfirma S.A. Chambers of Commerce Root - 2008',  # noqa: E501
-    '1.3.6.1.4.1.17326.10.8.12.1.2': 'EV AC Camerfirma S.A. Global Chambersign Root - 2008',  # noqa: E501
-    '1.3.6.1.4.1.17326.10.8.12.2.2': 'EV AC Camerfirma S.A. Global Chambersign Root - 2008',  # noqa: E501
-    '1.3.6.1.4.1.22234.2.5.2.3.1': 'EV CertPlus Class 2 Primary CA (KEYNECTIS)',  # noqa: E501
+    '1.3.6.1.4.1.17326.10.14.2.1.2': 'EV AC Camerfirma S.A. Chambers of Commerce Root - 2008',
+    '1.3.6.1.4.1.17326.10.14.2.2.2': 'EV AC Camerfirma S.A. Chambers of Commerce Root - 2008',
+    '1.3.6.1.4.1.17326.10.8.12.1.2': 'EV AC Camerfirma S.A. Global Chambersign Root - 2008',
+    '1.3.6.1.4.1.17326.10.8.12.2.2': 'EV AC Camerfirma S.A. Global Chambersign Root - 2008',
+    '1.3.6.1.4.1.22234.2.5.2.3.1': 'EV CertPlus Class 2 Primary CA (KEYNECTIS)',
     '1.3.6.1.4.1.23223.1.1.1': 'EV StartCom Certification Authority',
-    '1.3.6.1.4.1.29836.1.10': 'EV China Internet Network Information Center EV Certificates Root',  # noqa: E501
+    '1.3.6.1.4.1.29836.1.10': 'EV China Internet Network Information Center EV Certificates Root',
     '1.3.6.1.4.1.311.60.2.1.1': 'jurisdictionOfIncorporationLocalityName',
-    '1.3.6.1.4.1.311.60.2.1.2': 'jurisdictionOfIncorporationStateOrProvinceName',  # noqa: E501
+    '1.3.6.1.4.1.311.60.2.1.2': 'jurisdictionOfIncorporationStateOrProvinceName',
     '1.3.6.1.4.1.311.60.2.1.3': 'jurisdictionOfIncorporationCountryName',
     '1.3.6.1.4.1.34697.2.1': 'EV AffirmTrust Commercial',
     '1.3.6.1.4.1.34697.2.2': 'EV AffirmTrust Networking',
@@ -605,12 +606,20 @@ evPolicy_oids = {
     '2.16.840.1.113733.1.7.23.6': 'EV VeriSign Certification Authorities',
     '2.16.840.1.113733.1.7.48.1': 'EV thawte CAs',
     '2.16.840.1.114028.10.1.2': 'EV Entrust Certification Authority',
-    '2.16.840.1.114171.500.9': 'EV Wells Fargo WellsSecure Public Root Certification Authority',  # noqa: E501
+    '2.16.840.1.114171.500.9': 'EV Wells Fargo WellsSecure Public Root Certification Authority',
     '2.16.840.1.114404.1.1.2.4.1': 'EV XRamp Global Certification Authority',
     '2.16.840.1.114412.2.1': 'EV DigiCert High Assurance EV Root CA',
-    '2.16.840.1.114413.1.7.23.3': 'EV ValiCert Class 2 Policy Validation Authority',  # noqa: E501
+    '2.16.840.1.114413.1.7.23.3': 'EV ValiCert Class 2 Policy Validation Authority',
     '2.16.840.1.114414.1.7.23.3': 'EV Starfield Certificate Authority',
-    '2.16.840.1.114414.1.7.24.3': 'EV Starfield Service Certificate Authority'  # noqa: E501
+    '2.16.840.1.114414.1.7.24.3': 'EV Starfield Service Certificate Authority'
+}
+
+#
+
+gssapi_oids = {
+    '1.3.6.1.5.5.2': 'SPNEGO - Simple Protected Negotiation',
+    '1.3.6.1.4.1.311.2.2.10': 'NTLMSSP - Microsoft NTLM Security Support Provider',
+    '1.3.6.1.4.1.311.2.2.30': 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism',
 }
 
 
@@ -630,7 +639,8 @@ x509_oids_sets = [
     x962KeyType_oids,
     x962Signature_oids,
     ansiX962Curve_oids,
-    certicomCurve_oids
+    certicomCurve_oids,
+    gssapi_oids,
 ]
 
 x509_oids = {}

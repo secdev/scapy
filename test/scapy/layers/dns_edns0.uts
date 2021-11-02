@@ -61,7 +61,7 @@ tlv = EDNS0TLV(optcode=2, optdata="")
 raw(tlv) == b'\x00\x02\x00\x00'
 
 = NSID - Live test
-~ netaccess
+~ netaccess needs_root
 
 def _test():
     old_debug_dissector = conf.debug_dissector

@@ -525,6 +525,9 @@ class TrafficSelector(Packet):
                 return RawTrafficSelector
         return IPv4TrafficSelector
 
+    def extract_padding(self, s):
+        return '', s
+
 
 class IPv4TrafficSelector(TrafficSelector):
     name = "IKEv2 IPv4 Traffic Selector"
@@ -586,9 +589,12 @@ class IKEv2_payload_TSi(IKEv2_class):
         ByteEnumField("next_payload", None, IKEv2_payload_type),
         ByteField("res", 0),
         FieldLenField("length", None, "traffic_selector", "H", adjust=lambda pkt, x:x + 8),  # noqa: E501
-        ByteField("number_of_TSs", 0),
+        FieldLenField("number_of_TSs", None, fmt="B",
+                      count_of="traffic_selector"),
         X3BytesField("res2", 0),
-        PacketListField("traffic_selector", None, TrafficSelector, length_from=lambda x:x.length - 8, count_from=lambda x:x.number_of_TSs),  # noqa: E501
+        PacketListField("traffic_selector", None, TrafficSelector,
+                        length_from=lambda x:x.length - 8,
+                        count_from=lambda x:x.number_of_TSs),
     ]
 
 
@@ -599,9 +605,12 @@ class IKEv2_payload_TSr(IKEv2_class):
         ByteEnumField("next_payload", None, IKEv2_payload_type),
         ByteField("res", 0),
         FieldLenField("length", None, "traffic_selector", "H", adjust=lambda pkt, x:x + 8),  # noqa: E501
-        ByteField("number_of_TSs", 0),
+        FieldLenField("number_of_TSs", None, fmt="B",
+                      count_of="traffic_selector"),
         X3BytesField("res2", 0),
-        PacketListField("traffic_selector", None, TrafficSelector, length_from=lambda x:x.length - 8, count_from=lambda x:x.number_of_TSs),  # noqa: E501
+        PacketListField("traffic_selector", None, TrafficSelector,
+                        length_from=lambda x:x.length - 8,
+                        count_from=lambda x:x.number_of_TSs),
     ]
 
 

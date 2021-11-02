@@ -37,7 +37,7 @@ from scapy.compat import (
 _T = TypeVar("_T", Packet, PacketList)
 
 
-class ReferenceAM(type):
+class ReferenceAM(_Generic_metaclass):
     def __new__(cls,  # type: ignore
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
@@ -46,11 +46,20 @@ class ReferenceAM(type):
         # type: (...) -> Type['AnsweringMachine[_T]']
         obj = super(ReferenceAM, cls).__new__(cls, name, bases, dct)
         if obj.function_name:  # type: ignore
-            globals()[obj.function_name] = lambda obj=obj, *args, **kargs: obj(*args, **kargs)()  # type: ignore  # noqa: E501
+            func = lambda obj=obj, *args, **kargs: obj(*args, **kargs)()  # type: ignore  # noqa: E501
+            # Inject signature
+            func.__qualname__ = obj.function_name  # type: ignore
+            try:
+                import inspect
+                func.__signature__ = inspect.signature(  # type: ignore
+                    obj.parse_options  # type: ignore
+                )
+            except (ImportError, AttributeError):
+                pass
+            globals()[obj.function_name] = func  # type: ignore
         return obj
 
 
-@six.add_metaclass(_Generic_metaclass)
 @six.add_metaclass(ReferenceAM)
 class AnsweringMachine(Generic[_T]):
     function_name = ""

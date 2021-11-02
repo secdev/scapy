@@ -12,7 +12,9 @@ import sys
 
 from platform import python_implementation
 
-from scapy.all import load_layer, load_contrib, conf, log_runtime
+from scapy.main import load_layer, load_contrib
+from scapy.config import conf
+from scapy.error import log_runtime, Scapy_Exception
 import scapy.modules.six as six
 from scapy.consts import LINUX
 
@@ -35,6 +37,7 @@ _socket_can_support = False
 
 
 def test_and_setup_socket_can(iface_name):
+    # type: (str) -> None
     if 0 != subprocess.call(("cansend %s 000#" % iface_name).split()):
         # iface_name is not enabled
         if 0 != subprocess.call("modprobe vcan".split()):
@@ -68,7 +71,7 @@ sys.__stderr__.write("SocketCAN support: %s\n" % _socket_can_support)
 # ############################################################################
 if _socket_can_support:
     if six.PY3:
-        from scapy.contrib.cansocket_native import *
+        from scapy.contrib.cansocket_native import *  # noqa: F403
         new_can_socket = NativeCANSocket
         new_can_socket0 = lambda: NativeCANSocket(iface0)
         new_can_socket1 = lambda: NativeCANSocket(iface1)
@@ -76,18 +79,18 @@ if _socket_can_support:
         sys.__stderr__.write("Using NativeCANSocket\n")
 
     else:
-        from scapy.contrib.cansocket_python_can import *
-        new_can_socket = lambda iface: PythonCANSocket(bustype='socketcan', channel=iface, timeout=0.01)
-        new_can_socket0 = lambda: PythonCANSocket(bustype='socketcan', channel=iface0, timeout=0.01)
-        new_can_socket1 = lambda: PythonCANSocket(bustype='socketcan', channel=iface1, timeout=0.01)
+        from scapy.contrib.cansocket_python_can import *  # noqa: F403
+        new_can_socket = lambda iface: PythonCANSocket(bustype='socketcan', channel=iface, timeout=0.01)  # noqa: E501
+        new_can_socket0 = lambda: PythonCANSocket(bustype='socketcan', channel=iface0, timeout=0.01)  # noqa: E501
+        new_can_socket1 = lambda: PythonCANSocket(bustype='socketcan', channel=iface1, timeout=0.01)  # noqa: E501
         can_socket_string_list = ["-i", "socketcan", "-c", iface0]
         sys.__stderr__.write("Using PythonCANSocket socketcan\n")
 
 else:
-    from scapy.contrib.cansocket_python_can import *
-    new_can_socket = lambda iface: PythonCANSocket(bustype='virtual', channel=iface)
-    new_can_socket0 = lambda: PythonCANSocket(bustype='virtual', channel=iface0, timeout=0.01)
-    new_can_socket1 = lambda: PythonCANSocket(bustype='virtual', channel=iface1, timeout=0.01)
+    from scapy.contrib.cansocket_python_can import *  # noqa: F403
+    new_can_socket = lambda iface: PythonCANSocket(bustype='virtual', channel=iface)  # noqa: E501
+    new_can_socket0 = lambda: PythonCANSocket(bustype='virtual', channel=iface0, timeout=0.01)  # noqa: E501
+    new_can_socket1 = lambda: PythonCANSocket(bustype='virtual', channel=iface1, timeout=0.01)  # noqa: E501
     sys.__stderr__.write("Using PythonCANSocket virtual\n")
 
 
@@ -104,17 +107,12 @@ del s
 
 
 def cleanup_interfaces():
+    # type: () -> bool
     """
     Helper function to remove virtual CAN interfaces after test
 
     :return: True on success
     """
-    import threading
-    from scapy.contrib.isotp.isotp_soft_socket import CANReceiverThread
-    for t in threading.enumerate():
-        if isinstance(t, CANReceiverThread):
-            t.join(10)
-
     if LINUX and _not_pypy and _root:
         if 0 != subprocess.call(["ip", "link", "delete", iface0]):
             raise Exception("%s could not be deleted" % iface0)
@@ -124,6 +122,7 @@ def cleanup_interfaces():
 
 
 def drain_bus(iface=iface0, assert_empty=True):
+    # type: (str, bool) -> None
     """
     Utility function for draining a can interface,
     asserting that no packets are there
@@ -154,6 +153,7 @@ ISOTP_KERNEL_MODULE_AVAILABLE = False
 
 
 def exit_if_no_isotp_module():
+    # type: () -> None
     """
     Helper function to exit a test case if ISOTP kernel module is not available
     """
@@ -192,20 +192,20 @@ conf.contribs['ISOTP'] = \
 if six.PY3:
     import importlib
     if "scapy.contrib.isotp" in sys.modules:
-        importlib.reload(scapy.contrib.isotp)
+        importlib.reload(scapy.contrib.isotp)  # type: ignore  # noqa: F405
 
 load_contrib("isotp", globals_dict=globals())
 
 if six.PY3 and ISOTP_KERNEL_MODULE_AVAILABLE:
-    if not ISOTPSocket == ISOTPNativeSocket:
+    if ISOTPSocket is not ISOTPNativeSocket:  # type: ignore
         raise Scapy_Exception("Error in ISOTPSocket import!")
 else:
-    if not ISOTPSocket == ISOTPSoftSocket:
+    if ISOTPSocket is not ISOTPSoftSocket:  # type: ignore
         raise Scapy_Exception("Error in ISOTPSocket import!")
 
 # ############################################################################
 # """ Prepare send_delay on Ecu Answering Machine to stabilize unit tests """
 # ############################################################################
-from scapy.contrib.automotive.ecu import *
+from scapy.contrib.automotive.ecu import *  # noqa: F403
 log_runtime.debug("Set send delay to lower utilization on CI machines")
 conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004

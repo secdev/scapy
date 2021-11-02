@@ -163,18 +163,22 @@ assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), 
 assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x11"), **conf)
 assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x7f"), **conf)
 conf = {"exit_if_service_not_supported": False, "retry_if_busy_returncode": True}
-assert e._retry_pkt == None
+assert e._retry_pkt[EcuState(session=1)] == None
 assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x10"), **conf)
 assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x11"), **conf)
 assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x7f"), **conf)
-assert e._retry_pkt == None
+assert e._retry_pkt[EcuState(session=1)] == None
 assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf)
-assert e._retry_pkt == UDS(b"\x10\x03abcd")
+assert e._retry_pkt[EcuState(session=1)] == UDS(b"\x10\x03abcd")
 assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x7f\x10\x21"), **conf)
-assert e._retry_pkt == None
+assert e._retry_pkt[EcuState(session=1)] == None
 
 assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), UDS(b"\x50\x03\x00"), **conf)
 assert False == e._evaluate_response(EcuState(session=1), UDS(b"\x11\x03abcd"), UDS(b"\x51\x03\x00"), **conf)
+conf = {"retry_if_none_received": True}
+assert True == e._evaluate_response(EcuState(session=1), UDS(b"\x10\x03abcd"), None, **conf)
+assert e._retry_pkt[EcuState(session=1)] is not None
+
 
 = ServiceEnumerator execute
 
@@ -256,14 +260,14 @@ e = MyTestCase()
 
 e.execute(sock, EcuState(session=1), exit_if_service_not_supported=True)
 
-assert e._retry_pkt is None
+assert e._retry_pkt[EcuState(session=1)] is None
 assert len(e.results_with_response) == 1
 assert len(e.results_with_negative_response) == 1
 assert e.completed
 
 e.execute(sock, EcuState(session=2), exit_if_service_not_supported=True)
 
-assert e._retry_pkt is None
+assert e._retry_pkt[EcuState(session=2)] is None
 assert len(e.results_with_response) == 2
 assert len(e.results_with_negative_response) == 2
 assert e.completed
@@ -277,7 +281,7 @@ e = MyTestCase()
 
 e.execute(sock, EcuState(session=1))
 
-assert e._retry_pkt is not None
+assert e._retry_pkt[EcuState(session=1)] is not None
 assert len(e.results_with_response) == 1
 assert len(e.results_with_negative_response) == 1
 assert len(e.results_without_response) == 0
@@ -285,7 +289,7 @@ assert not e.completed
 
 e.execute(sock, EcuState(session=1))
 
-assert e._retry_pkt is None
+assert e._retry_pkt[EcuState(session=1)] is None
 assert len(e.results_with_response) == 2
 assert len(e.results_with_negative_response) == 2
 assert len(e.results_without_response) == 9
@@ -300,7 +304,7 @@ e = MyTestCase()
 
 e.execute(sock, EcuState(session=1), retry_if_busy_returncode=False)
 
-assert e._retry_pkt is None
+assert e._retry_pkt[EcuState(session=1)] is None
 assert len(e.results_with_response) == 1
 assert len(e.results_with_negative_response) == 1
 assert len(e.results_without_response) == 9
@@ -315,7 +319,7 @@ e = MyTestCase()
 
 e.execute(sock, EcuState(session=1), execution_time=-1)
 
-assert e._retry_pkt is None
+assert e._retry_pkt[EcuState(session=1)] is None
 assert len(e.results_with_response) == 1
 assert len(e.results_with_negative_response) == 1
 assert len(e.results_without_response) == 0
@@ -328,6 +332,7 @@ assert not e.has_completed(EcuState(session=1))
 = Definitions
 
 class MockSock(object):
+    closed = False
     def sr1(self, *args, **kwargs):
         raise OSError
 
@@ -478,7 +483,7 @@ assert tce.target_state == EcuState(session=1)
 = Reconnect Handler tests
 
 class MockSocket2:
-    pass
+    closed = False
 
 def reconnect_func():
     return MockSocket2()
@@ -496,12 +501,13 @@ assert isinstance(tce.socket._inner, MockSocket2)
 closed = False
 
 class MockSocket1:
+    closed = False
     def close(self):
         global closed
         closed = True
 
 class MockSocket2:
-    pass
+    closed = False
 
 def reconnect_func():
     return MockSocket2()

@@ -60,7 +60,20 @@ assert 5 == state.ses
 assert "42" == state.myinfo
 assert repr(state) == "myinfo42ses5"
 
+= Delete Attribute Test
 
+state = EcuState(myinfo="42")
+
+state.ses = 5
+assert state.ses == 5
+
+del state.ses
+
+try:
+    x = state.ses
+    assert False
+except (KeyError, AttributeError):
+    assert state.myinfo == "42"
 
 = Copy tests
 
@@ -483,7 +496,7 @@ assert unanswered_packets[0].diagnosticSessionType == 4
 
 = Analyze multiple UDS messages
 
-with PcapReader("test/contrib/automotive/ecu_trace.pcap.gz") as sock:
+with PcapReader(scapy_path("test/pcaps/ecu_trace.pcap.gz")) as sock:
      udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock, timeout=3)
 
 assert len(udsmsgs) == 50
@@ -513,7 +526,7 @@ assert len(ecu.log["TransferData"]) == 2
 
 session = EcuSession()
 
-with PcapReader("test/contrib/automotive/ecu_trace.pcap.gz") as sock:
+with PcapReader(scapy_path("test/pcaps/ecu_trace.pcap.gz")) as sock:
      udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock, timeout=3)
 
 assert len(udsmsgs) == 50
@@ -541,7 +554,7 @@ assert len(ecu.log["TransferData"]) == 2
 
 session = EcuSession()
 
-with CandumpReader("test/contrib/automotive/gmlan_trace.candump") as sock:
+with CandumpReader(scapy_path("test/pcaps/gmlan_trace.candump.gz")) as sock:
     gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=2, opened_socket=sock, timeout=3)
     ecu = session.ecu
     print("Check 1 after change to diagnostic mode")
@@ -575,7 +588,7 @@ session = EcuSession(verbose=False, store_supported_responses=False)
 
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
 
-with CandumpReader("test/contrib/automotive/gmlan_trace.candump") as sock:
+with CandumpReader(scapy_path("test/pcaps/gmlan_trace.candump.gz")) as sock:
      gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=200, opened_socket=sock, timeout=6)
 
 ecu = session.ecu

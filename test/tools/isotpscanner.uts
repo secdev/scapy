@@ -6,12 +6,8 @@
 ~ conf
 
 = Imports
-import scapy.modules.six as six
-
-if six.PY3:
-    exec(open("test/contrib/automotive/interface_mockup.py").read())
-else:
-    execfile("test/contrib/automotive/interface_mockup.py")
+with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
+    exec(f.read())
 
 ISOTPSocket = ISOTPSoftSocket
 

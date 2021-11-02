@@ -195,9 +195,9 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
                 if self.__current_kwargs is not None and con_kwargs is not None:  # noqa: E501
                     self.__current_kwargs.update(con_kwargs)
 
-            log_interactive.debug("[i] Stage AutomotiveTestCase %s kwargs: %s",
-                                  self.current_test_case.__class__.__name__,
-                                  self.__current_kwargs)
+        log_interactive.debug("[i] Stage AutomotiveTestCase %s kwargs: %s",
+                              self.current_test_case.__class__.__name__,
+                              self.__current_kwargs)
 
         self.current_test_case.pre_execute(socket, state, global_configuration)
 

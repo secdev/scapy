@@ -8,6 +8,7 @@
 TLS session handler.
 """
 
+import binascii
 import socket
 import struct
 
@@ -23,6 +24,54 @@ from scapy.layers.inet import TCP
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.layers.tls.crypto.prf import PRF
+
+# Typing imports
+from scapy.compat import Dict
+
+
+def load_nss_keys(filename):
+    # type: (str) -> Dict[str, bytes]
+    """
+    Parses a NSS Keys log and returns unpacked keys in a dictionary.
+    """
+    keys = {}
+    try:
+        fd = open(filename)
+        fd.close()
+    except FileNotFoundError:
+        warning("Cannot open NSS Key Log: %s", filename)
+        return {}
+    else:
+        with open(filename) as fd:
+            for line in fd:
+                if line.startswith("#"):
+                    continue
+                data = line.strip().split(" ")
+                if len(data) != 3 or data[0] != data[0].upper():
+                    warning("Invalid NSS Key Log Entry: %s", line.strip())
+                    return {}
+
+                try:
+                    client_random = binascii.unhexlify(data[1])
+                except binascii.Error:
+                    warning("Invalid ClientRandom: %s", data[1])
+                    return {}
+
+                try:
+                    secret = binascii.unhexlify(data[2])
+                except binascii.Error:
+                    warning("Invalid Secret: %s", data[2])
+                    return {}
+
+                # Warn that a duplicated entry was detected. The latest one
+                # will be kept in the resulting dictionary.
+                if data[0] in keys:
+                    warning("Duplicated entry for %s !", data[0])
+
+                keys[data[0]] = {"ClientRandom": client_random,
+                                 "Secret": secret}
+        return keys
+
 
 # Note the following import may happen inside connState.__init__()
 # in order to avoid to avoid cyclical dependencies.
@@ -366,6 +415,10 @@ class tlsSession(object):
         self.server_rsa_key = None
         # self.server_ecdsa_key = None
 
+        # A dictionary containing keys extracted from a NSS Keys Log using
+        # the load_nss_keys() function.
+        self.nss_keys = None
+
         # Back in the dreadful EXPORT days, US servers were forbidden to use
         # RSA keys longer than 512 bits for RSAkx. When their usual RSA key
         # was longer than this, they had to create a new key and send it via
@@ -546,7 +599,14 @@ class tlsSession(object):
             log_runtime.debug("TLS: master secret: %s", repr_hex(ms))
 
     def compute_ms_and_derive_keys(self):
-        self.compute_master_secret()
+        # Load the master secret from an NSS Key dictionary
+        if self.nss_keys and self.nss_keys.get("CLIENT_RANDOM", False) and \
+           self.nss_keys["CLIENT_RANDOM"].get("Secret", False):
+            self.master_secret = self.nss_keys["CLIENT_RANDOM"]["Secret"]
+
+        if not self.master_secret:
+            self.compute_master_secret()
+
         self.prcs.derive_keys(client_random=self.client_random,
                               server_random=self.server_random,
                               master_secret=self.master_secret)
@@ -894,15 +954,25 @@ class _GenericTLSSessionInheritance(Packet):
                 self.tls_session.ipdst = tcp.underlayer.dst
             except AttributeError:
                 pass
+
+            # Load a NSS Key Log file
+            if conf.tls_nss_filename is not None:
+                if conf.tls_nss_keys is None:
+                    conf.tls_nss_keys = load_nss_keys(conf.tls_nss_filename)
+
             if conf.tls_session_enable:
                 if newses:
                     s = conf.tls_sessions.find(self.tls_session)
                     if s:
+                        if conf.tls_nss_keys is not None:
+                            s.nss_keys = conf.tls_nss_keys
                         if s.dport == self.tls_session.dport:
                             self.tls_session = s
                         else:
                             self.tls_session = s.mirror()
                     else:
+                        if conf.tls_nss_keys is not None:
+                            self.tls_session.nss_keys = conf.tls_nss_keys
                         conf.tls_sessions.add(self.tls_session)
             if self.tls_session.connection_end == "server":
                 srk = conf.tls_sessions.server_rsa_key
@@ -1110,3 +1180,7 @@ class TLSSession(DefaultSession):
 conf.tls_sessions = _tls_sessions()
 conf.tls_session_enable = False
 conf.tls_verbose = False
+# Filename containing NSS Keys Log
+conf.tls_nss_filename = None
+# Dictionary containing parsed NSS Keys
+conf.tls_nss_keys = None

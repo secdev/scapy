@@ -1,0 +1,263 @@
+% Regression tests for ISOTP Message Builder
+
++ Configuration
+~ conf
+
+= Definition of utility functions
+
+# hexadecimal to bytes convenience function
+if six.PY2:
+    dhex = lambda s: "".join(s.split()).decode('hex')
+else:
+    dhex = bytes.fromhex
+
+= Import isotp
+
+conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+
+load_layer("can", globals_dict=globals())
+load_contrib("isotp", globals_dict=globals())
+
+
++ Testing ISOTPMessageBuilder
+
+= Create ISOTPMessageBuilder
+m = ISOTPMessageBuilder()
+
+= Feed packets to machine
+ff = CAN(identifier=0x241, data=dhex("10 28 01 02 03 04 05 06"))
+ff.time = 1000
+m.feed(ff)
+m.feed(CAN(identifier=0x641, data=dhex("30 03 00"               )))
+m.feed(CAN(identifier=0x241, data=dhex("21 07 08 09 0A 0B 0C 0D")))
+m.feed(CAN(identifier=0x241, data=dhex("22 0E 0F 10 11 12 13 14")))
+m.feed(CAN(identifier=0x241, data=dhex("23 15 16 17 18 19 1A 1B")))
+m.feed(CAN(identifier=0x641, data=dhex("30 03 00"               )))
+m.feed(CAN(identifier=0x241, data=dhex("24 1C 1D 1E 1F 20 21 22")))
+m.feed(CAN(identifier=0x241, data=dhex("25 23 24 25 26 27 28"   )))
+
+= Verify there is a ready message in the machine
+assert(m.count == 1)
+
+= Extract the message from the machine
+msg = m.pop()
+assert(m.count == 0)
+assert(msg.dst == 0x241)
+assert(msg.exdst is None)
+assert(msg.src == 0x641)
+assert(msg.exsrc is None)
+assert(msg.time == 1000)
+expected = dhex("01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28")
+assert(msg.data == expected)
+
+= Verify that no error happens when there is not enough data
+m = ISOTPMessageBuilder()
+m.feed(CAN(identifier=0x241, data=dhex("04 AB CD EF")))
+msg = m.pop()
+assert(msg is None)
+
+= Verify that no error happens when there is no data
+m = ISOTPMessageBuilder()
+m.feed(CAN(identifier=0x241, data=dhex("")))
+msg = m.pop()
+assert(msg is None)
+
+= Verify a single frame without EA
+m = ISOTPMessageBuilder()
+m.feed(CAN(identifier=0x241, data=dhex("04 AB CD EF 04")))
+msg = m.pop()
+assert(msg.dst == 0x241)
+assert(msg.exdst is None)
+assert(msg.data == dhex("AB CD EF 04"))
+
+= Single frame without EA, with excessive bytes in CAN frame
+m = ISOTPMessageBuilder()
+m.feed(CAN(identifier=0x241, data=dhex("03 AB CD EF AB CD EF AB")))
+msg = m.pop()
+assert(msg.dst == 0x241)
+assert(msg.exdst is None)
+assert(msg.data == dhex("AB CD EF"))
+
+= Verify a single frame with EA
+m = ISOTPMessageBuilder()
+m.feed(CAN(identifier=0x241, data=dhex("E2 04 01 02 03 04")))
+msg = m.pop()
+assert(msg.dst == 0x241)
+assert(msg.exdst is 0xE2)
+assert(msg.data == dhex("01 02 03 04"))
+
+= Single CAN frame that has 2 valid interpretations
+m = ISOTPMessageBuilder()
+m.feed(CAN(identifier=0x241, data=dhex("04 01 02 03 04")))
+msg = m.pop(0x241, None)
+assert(msg.dst == 0x241)
+assert(msg.exdst is None)
+assert(msg.data == dhex("01 02 03 04"))
+msg = m.pop()
+assert(msg.dst == 0x241)
+assert(msg.exdst == 0x04)
+assert(msg.data == dhex("02"))
+
+= Verify multiple frames with EA
+m = ISOTPMessageBuilder()
+ff = CAN(identifier=0x241, data=dhex("EA 10 28 01 02 03 04 05"))
+ff.time = 1005
+m.feed(ff)
+m.feed(CAN(identifier=0x641, data=dhex("EA 30 03 00"            )))
+m.feed(CAN(identifier=0x241, data=dhex("EA 21 06 07 08 09 0A 0B")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 22 0C 0D 0E 0F 10 11")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 23 12 13 14 15 16 17")))
+m.feed(CAN(identifier=0x641, data=dhex("EA 30 03 00"            )))
+m.feed(CAN(identifier=0x241, data=dhex("EA 24 18 19 1A 1B 1C 1D")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 25 1E 1F 20 21 22 23")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 26 24 25 26 27 28"   )))
+msg = m.pop()
+assert(msg.dst == 0x241)
+assert(msg.exdst is 0xEA)
+assert(msg.src == 0x641)
+assert(msg.exsrc is 0xEA)
+assert(msg.time == 1005)
+assert(msg.data == dhex("01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28"))
+
+= Verify multiple frames with EA 2
+m = ISOTPMessageBuilder()
+m.feed(CAN(identifier=0x241, data=dhex("EA 10 28 01 02 03 04 05")))
+m.feed(CAN(identifier=0x641, data=dhex("AE 30 03 00"            )))
+m.feed(CAN(identifier=0x241, data=dhex("EA 21 06 07 08 09 0A 0B")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 22 0C 0D 0E 0F 10 11")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 23 12 13 14 15 16 17")))
+m.feed(CAN(identifier=0x641, data=dhex("AE 30 03 00"            )))
+m.feed(CAN(identifier=0x241, data=dhex("EA 24 18 19 1A 1B 1C 1D")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 25 1E 1F 20 21 22 23")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 26 24 25 26 27 28"   )))
+msg = m.pop()
+assert(msg.dst == 0x241)
+assert(msg.exdst is 0xEA)
+assert(msg.src == 0x641)
+assert(msg.exsrc is 0xAE)
+assert(msg.data == dhex("01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28"))
+
+= Verify that an EA starting with 1 will still work
+m = ISOTPMessageBuilder()
+m.feed(CAN(identifier=0x241, data=dhex("1A 10 14 01 02 03 04 05")))
+m.feed(CAN(identifier=0x641, data=dhex("1A 30 03 00"            )))
+m.feed(CAN(identifier=0x241, data=dhex("1A 21 06 07 08 09 0A 0B")))
+m.feed(CAN(identifier=0x241, data=dhex("1A 22 0C 0D 0E 0F 10 11")))
+m.feed(CAN(identifier=0x241, data=dhex("1A 23 12 13 14 15 16 17")))
+msg = m.pop()
+assert(msg.dst == 0x241)
+assert(msg.exdst is 0x1A)
+assert(msg.src == 0x641)
+assert(msg.exsrc is 0x1A)
+assert(msg.data == dhex("01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14"))
+
+= Verify that an EA of 07 will still work
+m = ISOTPMessageBuilder()
+m.feed(CAN(identifier=0x241, data=dhex("07 10 0A 01 02 03 04 05")))
+m.feed(CAN(identifier=0x641, data=dhex("07 30 03 00"            )))
+m.feed(CAN(identifier=0x241, data=dhex("07 21 06 07 08 09 0A 0B")))
+msg = m.pop(0x241, 0x07)
+assert(msg.dst == 0x241)
+assert(msg.exdst is 0x07)
+assert(msg.src == 0x641)
+assert(msg.exsrc is 0x07)
+assert(msg.data == dhex("01 02 03 04 05 06 07 08 09 0A"))
+
+= Verify that three interleaved messages can be sniffed simultaneously on the same identifier and extended address (very unrealistic)
+m = ISOTPMessageBuilder()
+ff = CAN(identifier=0x241, data=dhex("EA 10 28 01 02 03 04 05"))
+ff.time = 300
+m.feed(ff) # start of message A
+m.feed(CAN(identifier=0x641, data=dhex("EA 30 03 00"            )))
+m.feed(CAN(identifier=0x241, data=dhex("EA 21 06 07 08 09 0A 0B")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 22 0C 0D 0E 0F 10 11")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 23 12 13 14 15 16 17")))
+ff = CAN(identifier=0x241, data=dhex("EA 10 10 31 32 33 34 35"))
+ff.time = 400
+m.feed(ff) # start of message B
+m.feed(CAN(identifier=0x641, data=dhex("EA 30 03 00"            )))
+sf = CAN(identifier=0x241, data=dhex("EA 03 A6 A7 A8"         ))
+sf.time = 200
+m.feed(sf) # single-frame message C
+m.feed(CAN(identifier=0x641, data=dhex("EA 30 03 00"            )))
+m.feed(CAN(identifier=0x241, data=dhex("EA 24 18 19 1A 1B 1C 1D")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 21 36 37 38 39 3A 3B")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 22 3C 3D 3E 3F 40"   ))) # end of message B
+m.feed(CAN(identifier=0x241, data=dhex("EA 25 1E 1F 20 21 22 23")))
+m.feed(CAN(identifier=0x241, data=dhex("EA 26 24 25 26 27 28"   ))) # end of message A
+msg = m.pop()
+assert(msg.dst == 0x241)
+assert(msg.exdst is 0xEA)
+assert(msg.data == dhex("A6 A7 A8"))
+assert(msg.time == 200)
+msg = m.pop()
+assert(msg.dst == 0x241)
+assert(msg.exdst is 0xEA)
+assert(msg.src == 0x641)
+assert(msg.exsrc is 0xEA)
+assert(msg.time == 400)
+assert(msg.data == dhex("31 32 33 34 35 36 37 38 39 3A 3B 3C 3D 3E 3F 40"))
+msg = m.pop()
+assert(msg.dst == 0x241)
+assert(msg.exdst is 0xEA)
+assert(msg.src == 0x641)
+assert(msg.exsrc is 0xEA)
+assert(msg.time == 300)
+assert(msg.data == dhex("01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28"))
+
+
+= Verify multiple frames with EA from list
+m = ISOTPMessageBuilder()
+msgs = [
+    CAN(identifier=0x241, data=dhex("EA 10 28 01 02 03 04 05")),
+    CAN(identifier=0x641, data=dhex("EA 30 03 00"            )),
+    CAN(identifier=0x241, data=dhex("EA 21 06 07 08 09 0A 0B")),
+    CAN(identifier=0x241, data=dhex("EA 22 0C 0D 0E 0F 10 11")),
+    CAN(identifier=0x241, data=dhex("EA 23 12 13 14 15 16 17")),
+    CAN(identifier=0x641, data=dhex("EA 30 03 00"            )),
+    CAN(identifier=0x241, data=dhex("EA 24 18 19 1A 1B 1C 1D")),
+    CAN(identifier=0x241, data=dhex("EA 25 1E 1F 20 21 22 23")),
+    CAN(identifier=0x241, data=dhex("EA 26 24 25 26 27 28"   ))]
+m.feed(msgs)
+msg = m.pop()
+assert(msg.dst == 0x241)
+assert(msg.exdst is 0xEA)
+assert(msg.src == 0x641)
+assert(msg.exsrc is 0xEA)
+assert(msg.data == dhex("01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28"))
+
+= Verify multiple frames with EA from list and iterator
+m = ISOTPMessageBuilder()
+msgs = [
+    CAN(identifier=0x241, data=dhex("EA 10 28 01 02 03 04 05")),
+    CAN(identifier=0x641, data=dhex("EA 30 03 00"            )),
+    CAN(identifier=0x241, data=dhex("EA 21 06 07 08 09 0A 0B")),
+    CAN(identifier=0x241, data=dhex("EA 22 0C 0D 0E 0F 10 11")),
+    CAN(identifier=0x241, data=dhex("EA 23 12 13 14 15 16 17")),
+    CAN(identifier=0x641, data=dhex("EA 30 03 00"            )),
+    CAN(identifier=0x241, data=dhex("EA 24 18 19 1A 1B 1C 1D")),
+    CAN(identifier=0x241, data=dhex("EA 25 1E 1F 20 21 22 23")),
+    CAN(identifier=0x241, data=dhex("EA 26 24 25 26 27 28"   )),
+    CAN(identifier=0x241, data=dhex("EA 03 A6 A7 A8"         )),
+    CAN(identifier=0x241, data=dhex("EA 03 A6 A7 A8"))]
+m.feed(msgs)
+assert m.count == 3
+assert len(m) == 3
+
+isotpmsgs = [x for x in m]
+assert len(isotpmsgs) == 3
+msg = isotpmsgs[0]
+assert(msg.dst == 0x241)
+assert(msg.exdst is 0xEA)
+assert(msg.src == 0x641)
+assert(msg.exsrc is 0xEA)
+assert(msg.data == dhex("01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F 20 21 22 23 24 25 26 27 28"))
+
+assert isotpmsgs[1] == isotpmsgs[2]
+
+= Verify a single frame without EA and different basecls
+m = ISOTPMessageBuilder(basecls=Raw)
+m.feed(CAN(identifier=0x241, data=dhex("04 AB CD EF 04")))
+msg = m.pop()
+assert(msg.load == dhex("AB CD EF 04"))
+assert(type(msg) == Raw)

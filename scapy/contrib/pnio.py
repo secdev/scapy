@@ -111,6 +111,12 @@ class ProfinetIO(Packet):
         if self.frameID in [0xfefe, 0xfeff, 0xfefd]:
             from scapy.contrib.pnio_dcp import ProfinetDCP
             return ProfinetDCP
+        elif self.frameID == 0xFE01:
+            from scapy.contrib.pnio_rpc import Alarm_Low
+            return Alarm_Low
+        elif self.frameID == 0xFC01:
+            from scapy.contrib.pnio_rpc import Alarm_High
+            return Alarm_High
         elif (
                 (0x0100 <= self.frameID < 0x1000) or
                 (0x8000 <= self.frameID < 0xFC00)
