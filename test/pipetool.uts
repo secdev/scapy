@@ -85,7 +85,7 @@ assert len(b.high_sources) == 1
 a
 b
 
-a = AutoSource()
+a = Sink()
 b = AutoSource()
 a << b
 assert len(a.high_sinks) == 0
@@ -95,16 +95,16 @@ assert len(b.high_sources) == 0
 a
 b
 
-a = AutoSource()
-b = AutoSource()
-a == b
+a = Sink()
+b = Sink()
+a % b
 assert len(a.sinks) == 1
 assert len(a.sources) == 1
 assert len(b.sinks) == 1
 assert len(b.sources) == 1
 
-a = AutoSource()
-b = AutoSource()
+a = Sink()
+b = Sink()
 a//b
 assert len(a.high_sinks) == 1
 assert len(a.high_sources) == 1
@@ -112,7 +112,7 @@ assert len(b.high_sinks) == 1
 assert len(b.high_sources) == 1
 
 a = AutoSource()
-b = AutoSource()
+b = Sink()
 a^b
 assert len(b.trigger_sources) == 1
 assert len(a.trigger_sinks) == 1
@@ -722,66 +722,3 @@ p.stop()
 
 assert result.startswith(b"HTTP/1.1 200 OK")
 
-= Packet conversion (ConvertPipe)
-
-class PacketA(Packet):
-    fields_desc = [LEShortField('foo', None)]
-
-class PacketB(Packet):
-    fields_desc = [ShortField('bar', None)]
-    def convert_to(self, other_cls, **kwargs):
-        if other_cls is PacketA:
-            return PacketA(foo=self.bar)
-        return Packet.convert_to(self, other_cls, **kwargs)
-    @classmethod
-    def convert_packet(cls, pkt, **kwargs):
-        if isinstance(pkt, PacketA):
-            return cls(bar=pkt.foo)
-        return Packet.convert_packet(pkt, **kwargs)
-
-p = PipeEngine()
-s = CLIFeeder()
-sh = CLIHighFeeder()
-c = ConvertPipe(low_type=PacketA)
-d = QueueSink()
-
-s > c > d
-sh >> c >> d
-
-p.add(s)
-p.start()
-
-# QueueSink puts all packets in the same queue, and this can race on Windows
-s.send(PacketB(bar=1234))
-r0 = d.q.get(timeout=5)
-
-sh.send(PacketB(bar=1234))
-r1 = d.q.get(timeout=5)
-p.stop()
-
-# Debug info
-r0, raw(r0)
-r1, raw(r1)
-
-assert raw(r0) == b'\xd2\x04'
-assert raw(r1) == b'\x04\xd2'
-assert isinstance(r0, PacketA)
-assert isinstance(r1, PacketB)
-
-# Try converting on high
-c.high_type = PacketB
-c.low_type = None
-
-p.start()
-s.send(PacketA(foo=1234))
-r0 = d.q.get(timeout=5)
-sh.send(PacketA(foo=1234))
-r1 = d.q.get(timeout=5)
-p.stop()
-
-r0, raw(r0)
-r1, raw(r1)
-assert raw(r0) == b'\xd2\x04'
-assert raw(r1) == b'\x04\xd2'
-assert isinstance(r0, PacketA)
-assert isinstance(r1, PacketB)

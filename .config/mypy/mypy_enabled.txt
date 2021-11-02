@@ -31,10 +31,12 @@ scapy/fields.py
 scapy/interfaces.py
 scapy/main.py
 scapy/packet.py
+scapy/pipetool.py
 scapy/plist.py
 scapy/pton_ntop.py
 scapy/route.py
 scapy/route6.py
+scapy/scapypipes.py
 scapy/sendrecv.py
 scapy/sessions.py
 scapy/supersocket.py
