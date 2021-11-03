@@ -23,12 +23,12 @@ from typing import List, Optional
 
 from scapy.base_classes import Packet_metaclass
 from scapy.fields import (
-    ByteField,
     ConditionalField,
     IntField,
     PacketField,
     PacketListField,
     ShortField,
+    StrField,
     StrFixedLenField,
     StrLenField,
     X3BytesField,
@@ -435,37 +435,37 @@ class RTPSSubMessage_PAD(EPacket):
 
 class RTPSSubMessage_DATA_FRAG(EPacket):
     name = "RTPS DATA_FRAG (0x16)"
-    fields_desc = [ByteField("uninterpreted_data", 0)]
+    fields_desc = [StrField("uninterpreted_data", 0)]
 
 
 class RTPSSubMessage_SEC_PREFIX(EPacket):
     name = "RTPS SEC_PREFIX (0x31)"
-    fields_desc = [ByteField("uninterpreted_data", 0)]
+    fields_desc = [StrField("uninterpreted_data", 0)]
 
 
 class RTPSSubMessage_SEC_POSTFIX(EPacket):
     name = "RTPS SEC_POSTFIX (0x32)"
-    fields_desc = [ByteField("uninterpreted_data", 0)]
+    fields_desc = [StrField("uninterpreted_data", 0)]
 
 
 class RTPSSubMessage_SEC_BODY(EPacket):
     name = "RTPS SEC_BODY (0x30)"
-    fields_desc = [ByteField("uninterpreted_data", 0)]
+    fields_desc = [StrField("uninterpreted_data", 0)]
 
 
 class RTPSSubMessage_SRTPS_PREFIX(EPacket):
     name = "RTPS SRPTS_PREFIX (0x33)"
-    fields_desc = [ByteField("uninterpreted_data", 0)]
+    fields_desc = [StrField("uninterpreted_data", 0)]
 
 
 class RTPSSubMessage_SRTPS_POSTFIX(EPacket):
     name = "RTPS SRPTS_POSTFIX (0x34)"
-    fields_desc = [ByteField("uninterpreted_data", 0)]
+    fields_desc = [StrField("uninterpreted_data", 0)]
 
 
 class RTPSSubMessage_GAP(EPacket):
     name = "RTPS GAP (0x08)"
-    fields_desc = [ByteField("uninterpreted_data", 0)]
+    fields_desc = [StrField("uninterpreted_data", 0)]
 
 
 _RTPSSubMessageTypes = {
@@ -486,24 +486,21 @@ _RTPSSubMessageTypes = {
 }
 
 
+def _next_cls_cb(
+    pkt: Packet, lst: List[Packet], p: Optional[Packet], remain: str
+) -> Optional[Packet_metaclass]:
+
+    sm_id = struct.unpack("!b", remain[0:1])[0]
+    next_cls = _RTPSSubMessageTypes.get(sm_id, None)
+
+    return next_cls
+
+
 class RTPSMessage(Packet):
     name = "RTPS Message"
     fields_desc = [
-        PacketListField(
-            "submessages",
-            [],
-            next_cls_cb=lambda pkt, *args: pkt._next_cls_cb(pkt, *args),
-        )
+        PacketListField("submessages", [], next_cls_cb=_next_cls_cb)
     ]
-
-    def _next_cls_cb(
-        self, pkt: Packet, lst: List[Packet], p: Optional[Packet], remain: str
-    ) -> Optional[Packet_metaclass]:
-        sm_id = struct.unpack("!b", remain[0:1])[0]
-
-        next_cls = _RTPSSubMessageTypes.get(sm_id, None)
-
-        return next_cls
 
 
 bind_layers(RTPS, RTPSMessage, magic=b"RTPS")
