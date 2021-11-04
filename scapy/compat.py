@@ -25,6 +25,7 @@ __all__ = [
     'AnyStr',
     'Callable',
     'DefaultDict',
+    'Deque',
     'Dict',
     'Generic',
     'IO',
@@ -122,6 +123,7 @@ if not FAKE_TYPING:
         AnyStr,
         Callable,
         DefaultDict,
+        Deque,
         Dict,
         Generic,
         IO,
@@ -152,6 +154,7 @@ else:
     Callable = _FakeType("Callable")
     DefaultDict = _FakeType("DefaultDict",  # type: ignore
                             collections.defaultdict)
+    Deque = _FakeType("Deque")  # type: ignore
     Dict = _FakeType("Dict", dict)  # type: ignore
     Generic = _FakeType("Generic")
     IO = _FakeType("IO")  # type: ignore
