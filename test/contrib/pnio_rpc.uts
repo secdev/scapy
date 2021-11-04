@@ -3,6 +3,7 @@
 + Syntax check
 = Import the PNIO RPC layer
 from scapy.contrib.dce_rpc import *
+from scapy.contrib.pnio import *
 from scapy.contrib.pnio_rpc import *
 from scapy.modules.six import itervalues
 
