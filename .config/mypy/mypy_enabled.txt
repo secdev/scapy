@@ -13,6 +13,7 @@ scapy/arch/__init__.py
 scapy/arch/common.py
 scapy/arch/linux.py
 scapy/arch/unix.py
+scapy/asn1/__init__.py
 scapy/asn1/asn1.py
 scapy/asn1/ber.py
 scapy/asn1/mib.py
