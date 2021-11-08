@@ -301,7 +301,10 @@ class VendorIdPacket(Packet):
         # ByteField("major", 0),
         # ByteField("minor", 0),
         EnumField(
-            name="vendor_id", default=b"\x00\x00", enum=_rtps_vendor_ids, fmt="2s"
+            name="vendor_id",
+            default=b"\x00\x00",
+            enum=_rtps_vendor_ids,
+            fmt="2s"
         ),
     ]
 

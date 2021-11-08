@@ -193,7 +193,7 @@ class DataPacket(EPacket):
                 "serializedData", "", length_from=lambda pkt: pkt._pl_len
             ),
             lambda pkt: (
-                pkt.encapsulationKind != 0x0003
+                pkt.encapsulationKind != 0x0003 \
                 and pkt._pl_type != "ParticipantMessageData"
             ),
         ),

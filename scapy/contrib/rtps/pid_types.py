@@ -45,7 +45,6 @@ from scapy.contrib.rtps.common_types import (
     ProtocolVersionPacket,
     VendorIdPacket,
     e_flags,
-    FORMAT_BE,
     FORMAT_LE,
 )
 
@@ -121,7 +120,9 @@ class PIDPacketBase(Packet):
             endianness_from=None,
         ),
         EField(
-            ShortField("parameterLength", 0), endianness=FORMAT_LE, endianness_from=None
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
         ),
         StrLenField(
             "parameterData",
@@ -138,7 +139,10 @@ class PIDPacketBase(Packet):
 class PID_PAD(PIDPacketBase):
     name = "PID_PAD"
     fields_desc = [
-        StrLenField("parameterId", "", length_from=lambda x: 2, max_length=STR_MAX_LEN)
+        StrLenField(
+            "parameterId", "",
+            length_from=lambda x: 2,
+            max_length=STR_MAX_LEN)
     ]
 
 
@@ -239,7 +243,9 @@ class PID_PROTOCOL_VERSION(PIDPacketBase):
             endianness_from=None,
         ),
         EField(
-            ShortField("parameterLength", 0), endianness=FORMAT_LE, endianness_from=None
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
         ),
         PacketField("protocolVersion", "", ProtocolVersionPacket),
         StrLenField(
@@ -260,7 +266,9 @@ class PID_VENDOR_ID(PIDPacketBase):
             endianness_from=None,
         ),
         EField(
-            ShortField("parameterLength", 0), endianness=FORMAT_LE, endianness_from=None
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
         ),
         PacketField("vendorId", "", VendorIdPacket),
         StrLenField(
@@ -281,7 +289,9 @@ class PID_UNICAST_LOCATOR(PIDPacketBase):
             endianness_from=None,
         ),
         EField(
-            ShortField("parameterLength", 0), endianness=FORMAT_LE, endianness_from=None
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
         ),
         PacketField("locator", "", LocatorPacket),
     ]
@@ -296,7 +306,9 @@ class PID_MULTICAST_LOCATOR(PIDPacketBase):
             endianness_from=None,
         ),
         EField(
-            ShortField("parameterLength", 0), endianness=FORMAT_LE, endianness_from=None
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
         ),
         StrLenField(
             "parameterData",
@@ -320,7 +332,9 @@ class PID_DEFAULT_UNICAST_LOCATOR(PIDPacketBase):
             endianness_from=None,
         ),
         EField(
-            ShortField("parameterLength", 0), endianness=FORMAT_LE, endianness_from=None
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
         ),
         PacketField("locator", "", LocatorPacket),
     ]
@@ -335,7 +349,9 @@ class PID_DEFAULT_MULTICAST_LOCATOR(PIDPacketBase):
             endianness_from=None,
         ),
         EField(
-            ShortField("parameterLength", 0), endianness=FORMAT_LE, endianness_from=None
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
         ),
         PacketField("locator", "", LocatorPacket),
     ]
@@ -354,7 +370,9 @@ class PID_METATRAFFIC_UNICAST_LOCATOR(PIDPacketBase):
             endianness_from=None,
         ),
         EField(
-            ShortField("parameterLength", 0), endianness=FORMAT_LE, endianness_from=None
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
         ),
         PacketField("locator", "", LocatorPacket),
     ]
@@ -369,7 +387,9 @@ class PID_METATRAFFIC_MULTICAST_LOCATOR(PIDPacketBase):
             endianness_from=None,
         ),
         EField(
-            ShortField("parameterLength", 0), endianness=FORMAT_LE, endianness_from=None
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
         ),
         PacketField("locator", "", LocatorPacket),
     ]
@@ -432,7 +452,9 @@ class PID_ENDPOINT_GUID(PIDPacketBase):
             endianness_from=None,
         ),
         EField(
-            ShortField("parameterLength", 0), endianness=FORMAT_LE, endianness_from=None
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
         ),
         PacketField("guid", "", GUIDPacket),
     ]
