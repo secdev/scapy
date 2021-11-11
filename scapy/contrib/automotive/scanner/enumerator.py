@@ -71,14 +71,29 @@ class ServiceEnumerator(AutomotiveTestCase):
 
     def _get_table_entry_x(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
+        """
+        Provides a table entry for the column which gets print during `show()`.
+        :param tup: A results tuple
+        :return: A string which describes the state
+        """
         return str(tup[0])
 
     def _get_table_entry_y(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
+        """
+        Provides a table entry for the line which gets print during `show()`.
+        :param tup: A results tuple
+        :return: A string which describes the request
+        """
         return repr(tup[1])
 
     def _get_table_entry_z(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
+        """
+        Provides a table entry for the field which gets print during `show()`.
+        :param tup: A results tuple
+        :return: A string which describes the response
+        """
         return repr(tup[2])
 
     @staticmethod
@@ -342,19 +357,18 @@ class ServiceEnumerator(AutomotiveTestCase):
         stats = list()  # type: List[Tuple[str, str, str]]
 
         for desc, data in data_sets:
-            answered = [r for r in data if r.resp is not None]
+            answered = [cast(_AutomotiveTestCaseFilteredScanResult, r)
+                        for r in data if r.resp is not None and
+                        r.resp_ts is not None]
             unanswered = [r for r in data if r.resp is None]
-            answertimes = [float(x.resp_ts) - float(x.req_ts) for x in answered if  # noqa: E501
-                           x.resp_ts is not None and x.req_ts is not None]
-            answertimes_nr = [float(x.resp_ts) - float(x.req_ts) for x in answered if x.resp  # noqa: E501
-                              is not None and x.resp_ts is not None and
-                              x.req_ts is not None and x.resp.service == 0x7f]
-            answertimes_pr = [float(x.resp_ts) - float(x.req_ts) for x in answered if x.resp  # noqa: E501
-                              is not None and x.resp_ts is not None and
-                              x.req_ts is not None and x.resp.service != 0x7f]
+            answertimes = [float(x.resp_ts) - float(x.req_ts)
+                           for x in answered]
+            answertimes_nr = [float(x.resp_ts) - float(x.req_ts)
+                              for x in answered if x.resp.service == 0x7f]
+            answertimes_pr = [float(x.resp_ts) - float(x.req_ts)
+                              for x in answered if x.resp.service != 0x7f]
 
-            nrs = [r.resp for r in data if r.resp is not None and
-                   r.resp.service == 0x7f]
+            nrs = [r.resp for r in answered if r.resp.service == 0x7f]
             stats.append((desc, "num_answered", str(len(answered))))
             stats.append((desc, "num_unanswered", str(len(unanswered))))
             stats.append((desc, "num_negative_resps", str(len(nrs))))
@@ -440,12 +454,9 @@ class ServiceEnumerator(AutomotiveTestCase):
     @property
     def filtered_results(self):
         # type: () -> List[_AutomotiveTestCaseFilteredScanResult]
-        filtered_results = list()
+        filtered_results = self.results_with_positive_response
 
-        for r in self.results_with_response:
-            if r.resp.service != 0x7f:
-                filtered_results.append(r)
-                continue
+        for r in self.results_with_negative_response:
             nrc = self._get_negative_response_code(r.resp)
             if nrc not in self.negative_response_blacklist:
                 filtered_results.append(r)

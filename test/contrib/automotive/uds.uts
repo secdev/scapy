@@ -135,10 +135,9 @@ assert erpr.powerDownTime == 0x10
 
 = Check UDS_ERPR modifies ecu state
 
-erpr = UDS(b'\x51\x04\x10')
+erpr = UDS(b'\x51\x01')
 assert erpr.service == 0x51
-assert erpr.resetType == 0x04
-assert erpr.powerDownTime == 0x10
+assert erpr.resetType == 0x01
 
 ecu = Ecu()
 ecu.state.security_level = 5

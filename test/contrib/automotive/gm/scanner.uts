@@ -34,11 +34,14 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
     tester = TestSocket(GMLAN)
     ecu.pair(tester)
     answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=GMLAN, verbose=False)
+    def reset():
+        answering_machine.reset_state()
+        sniff(timeout=0.01, opened_socket=[ecu, tester])
     sim = threading.Thread(target=answering_machine, kwargs={'timeout': 1000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:
         scanner = GMLAN_Scanner(
-            tester, reset_handler=answering_machine.reset_state,
+            tester, reset_handler=reset,
             test_cases=enumerators, timeout=0.5, retry_if_none_received=True,
             unittest=True, delay_state_change=0, **kwargs)
         scanner.scan(timeout=200)
@@ -50,7 +53,8 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
 
 = Load packets from candump
 
-pkts = rdcandump(scapy_path("test/pcaps/candump_gmlan_scanner.log.gz"))
+conf.contribs['CAN']['swap-bytes'] = True
+pkts = rdpcap(scapy_path("test/pcaps/candump_gmlan_scanner.pcap.gz"))
 assert len(pkts)
 
 = Create GMLAN messages from packets
@@ -147,6 +151,10 @@ assert scanner.scan_completed
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+
 assert len(tc.results_with_negative_response) == 256 - 4
 assert len(tc.results_with_positive_response) == 4
 assert len(tc.scanned_states) == 1
@@ -203,6 +211,10 @@ assert scanner.scan_completed
 tc = scanner.configuration.test_cases[0][0]
 
 assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+
 assert len(tc.results_with_negative_response) == 256 - 4
 assert len(tc.results_with_positive_response) == 4
 assert len(tc.scanned_states) == 1
@@ -226,6 +238,10 @@ assert 0xff in ids
 tc = scanner.configuration.test_cases[0][1]
 
 assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+
 assert len(tc.results_with_negative_response) == 0
 assert len(tc.results_with_positive_response) == 4
 assert len(tc.scanned_states) == 1
@@ -256,6 +272,10 @@ assert scanner.scan_completed
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+
 assert len(tc.results_with_negative_response) == 0x200 - 4
 assert len(tc.results_with_positive_response) == 4
 assert len(tc.scanned_states) == 1
@@ -286,6 +306,10 @@ assert scanner.scan_completed
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+
 assert len(tc.results_with_negative_response) == 0
 assert len(tc.results_with_positive_response) == 2
 assert len(tc.scanned_states) == 2
@@ -306,6 +330,10 @@ assert scanner.scan_completed
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+
 assert len(tc.results_with_negative_response) == 256 - 4
 assert len(tc.results_with_positive_response) == 4
 assert len(tc.scanned_states) == 1
@@ -347,6 +375,10 @@ assert scanner.scan_completed
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+
 assert len(tc.results_with_negative_response) == 0x1ff - 4
 assert len(tc.results_with_positive_response) == 4
 assert len(tc.scanned_states) == 1
@@ -356,12 +388,27 @@ result = tc.show(dump=True)
 assert "RequestOutOfRange received " in result
 
 = Simulate ECU and test GMLAN_RMBAEnumerator 1
+~ not_pypy
 
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 2
 
 memory = dict()
 
-for addr in itertools.chain(range(0x800), range(0xf000, 0xf800), range(0xa100, 0xaf00), range(0x3000, 0x3f00)):
+mem_areas = [(0x100, 0x1f00), (0xd000, 0xff00), (0xa000, 0xc000), (0x3000, 0x5f00)]
+
+mem_ranges = [range(s, e) for s, e in mem_areas]
+
+mem_inner_borders = [s for s, _ in mem_areas]
+mem_inner_borders += [e - 1 for _, e in mem_areas]
+
+mem_outer_borders = [s - 1 for s, _ in mem_areas]
+mem_outer_borders += [e for _, e in mem_areas]
+
+mem_random_test_points = []
+for _ in range(100):
+    mem_random_test_points += [random.choice(list(itertools.chain(*mem_ranges)))]
+
+for addr in itertools.chain(*mem_ranges):
     memory[addr] = addr & 0xff
 
 def answers_rmba(resp, req):
@@ -390,7 +437,7 @@ assert scanner.scan_completed
 tc1 = scanner.configuration.test_cases[0]
 
 assert len(tc1.results_without_response) < 10
-assert len(tc1.results_with_negative_response) > 80
+assert len(tc1.results_with_negative_response) > 10
 assert len(tc1.results_with_positive_response) > 50
 assert len(tc1.scanned_states) == 1
 
@@ -398,40 +445,24 @@ result = tc1.show(dump=True)
 
 assert "RequestOutOfRange received " in result
 
-###################################################
-scanner = executeScannerInVirtualEnvironment(resps, [GMLAN_RMBAEnumerator])
 
-assert scanner.scan_completed
-tc2 = scanner.configuration.test_cases[0]
-
-assert len(tc2.results_without_response) < 10
-assert len(tc2.results_with_negative_response) > 80
-assert len(tc2.results_with_positive_response) > 50
-assert len(tc2.scanned_states) == 1
-
-result = tc2.show(dump=True)
-
-assert "RequestOutOfRange received " in result
+def _get_memory_addresses_from_results(results):
+    mem_areas = [
+        range(tup.req.memoryAddress, tup.req.memoryAddress + tup.req.memorySize)
+        for tup in results]
+    return set(list(itertools.chain.from_iterable(mem_areas)))
 
 ############################################################
 
-addrs = [t.req.memoryAddress for t in tc1.results_with_positive_response] + \
-        [t.req.memoryAddress for t in tc2.results_with_positive_response]
+addrs = _get_memory_addresses_from_results(tc1.results_with_positive_response)
 
-assert 0 in addrs
-assert 0x10 in addrs
-assert 0x7f0 in addrs
-assert 0x3000 in addrs
-assert 0x3ef0 in addrs
-assert 0xa100 in addrs
-assert 0xa1f0 in addrs
-assert 0xa200 in addrs
-assert 0xaef0 in addrs
-assert 0xf000 in addrs
-assert 0xf7f0 in addrs
-assert 0xf800 not in addrs
-assert 0xeff0 not in addrs
-assert 0x2000 not in addrs
+print([tp in addrs for tp in mem_inner_borders].count(True) / len(mem_inner_borders))
+assert [tp in addrs for tp in mem_inner_borders].count(True) / len(mem_inner_borders) > 0.8
+print([tp in addrs for tp in mem_random_test_points].count(True) / len(mem_random_test_points))
+assert [tp in addrs for tp in mem_random_test_points].count(True) / len(mem_random_test_points) > 0.8
+print([tp not in addrs for tp in mem_outer_borders].count(True) / len(mem_outer_borders))
+assert [tp not in addrs for tp in mem_outer_borders].count(True) / len(mem_outer_borders) > 0.8
+
 
 = Simulate ECU and test GMLAN_RMBAEnumerator 2
 * This test takes very long to execute
@@ -454,6 +485,10 @@ assert scanner.scan_completed
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+
 assert len(tc.results_with_negative_response) > 350
 assert len(tc.results_with_positive_response) > 50
 assert len(tc.scanned_states) == 1

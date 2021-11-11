@@ -53,6 +53,10 @@ __all__ = ["GMLAN_Scanner", "GMLAN_ServiceEnumerator", "GMLAN_RDBIEnumerator",
 
 @six.add_metaclass(abc.ABCMeta)
 class GMLAN_Enumerator(ServiceEnumerator):
+    """
+    Abstract base class for GMLAN service enumerators. This class
+    implements GMLAN specific functions.
+    """
     @staticmethod
     def _get_negative_response_code(resp):
         # type: (Packet) -> int
@@ -78,6 +82,11 @@ class GMLAN_Enumerator(ServiceEnumerator):
 
 
 class GMLAN_ServiceEnumerator(GMLAN_Enumerator, StateGeneratingServiceEnumerator):  # noqa: E501
+    """
+    This enumerator scans for all services identifiers of GMLAN. During this
+    scan, corrupted packets might be sent to an ECU and mainly negative
+    responses will be received.
+    """
     _description = "Available services and negative response per state"
 
     def _get_initial_requests(self, **kwargs):
@@ -96,6 +105,10 @@ class GMLAN_ServiceEnumerator(GMLAN_Enumerator, StateGeneratingServiceEnumerator
 
 
 class GMLAN_TPEnumerator(GMLAN_Enumerator, StateGeneratingServiceEnumerator):
+    """
+    Performs a check if TesterPresent is available. If a positive response is
+    received, a new system state is generated and returned.
+    """
     _description = "TesterPresent supported"
 
     def _get_initial_requests(self, **kwargs):
@@ -232,7 +245,8 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
-        return (GMLAN() / GMLAN_SA(subfunction=x) for x in range(1, 10, 2))
+        scan_range = kwargs.pop("scan_range", range(1, 10, 2))
+        return (GMLAN() / GMLAN_SA(subfunction=x) for x in scan_range)
 
     def _get_table_entry_y(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
@@ -263,7 +277,10 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
 
         if response.service == 0x7f and \
                 self._get_negative_response_code(response) in [0x22, 0x37]:
-            # requiredTimeDelayNotExpired or requestSequenceError
+            log_interactive.debug(
+                "[i] Retry %s because requiredTimeDelayNotExpired or "
+                "requestSequenceError received",
+                repr(request))
             return super(GMLAN_SAEnumerator, self)._populate_retry(
                 state, request)
         return False
@@ -323,7 +340,6 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
     @staticmethod
     def get_key_pkt(seed, keyfunction, level=1):
         # type: (Packet, Callable[[int], int], int) -> Optional[Packet]
-
         try:
             s = seed.securitySeed
         except AttributeError:
