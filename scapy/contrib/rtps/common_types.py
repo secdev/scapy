@@ -23,12 +23,12 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 # scapy.contrib.name = rtps
 
 import struct
+import warnings
 
 from scapy.fields import (
     BitField,
     EnumField,
     ByteField,
-    Field,
     IntField,
     IPField,
     LEIntField,
@@ -36,7 +36,6 @@ from scapy.fields import (
     ReversePadField,
     StrField,
     StrLenField,
-    XByteField,
     XIntField,
 )
 from scapy.packet import Packet, fuzz
@@ -44,6 +43,7 @@ from scapy.packet import Packet, fuzz
 FORMAT_LE = "<"
 FORMAT_BE = ">"
 STR_MAX_LEN = 8192
+DEFAULT_ENDIANESS = FORMAT_LE
 
 
 def is_le(pkt):
@@ -150,7 +150,11 @@ class EPacketField(PacketField):
             self.endianness = pkt.endianness
         elif self.endianness_from is not None and pkt:
             self.endianness = self.endianness_from(pkt)
-            assert self.endianness is not None
+            if self.endianness is None:
+                warnings.warn(
+                    'Endianess should never be None.'
+                    'Setting it to default: {}', DEFAULT_ENDIANESS)
+                self.endianness = DEFAULT_ENDIANESS
 
     def m2i(self, pkt, m):
         self.set_endianness(pkt)
@@ -193,22 +197,6 @@ class PIDPadField(StrField):
     def getfield(self, pkt, s):
         len_pkt = 2  # TODO this is dynamic
         return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
-
-
-class FourBytesField(ByteField):
-    def __init__(self, name, default):
-        Field.__init__(self, name, default, ">I")
-
-    def addfield(self, pkt, s, val):
-        return s + struct.pack(self.fmt, self.i2m(pkt, val))[:4]
-
-    def getfield(self, pkt, s):
-        return s[3:], self.m2i(pkt, struct.unpack(self.fmt, s[:4])[0])
-
-
-class X4BytesField(FourBytesField, XByteField):
-    def i2repr(self, pkt, x):
-        return f"0x{x:08x}"
 
 
 class GUIDPacket(Packet):
