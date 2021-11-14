@@ -241,6 +241,214 @@ ecu.update(cc)
 ecu.update(ccpr)
 assert ecu.state.communication_control == 1
 
+= Check UDS_AUTH
+
+auth = UDS(b"\x29\x00")
+assert auth.service == 0x29
+assert auth.subFunction == 0x0
+
+= CHECK UDS_AUTHPR
+
+authpr = UDS(b"\x69\x00\x00")
+assert authpr.service == 0x69
+assert authpr.subFunction == 0x0
+assert authpr.returnValue == 0x0
+
+assert authpr.answers(auth)
+
+= Check UDS_AUTH
+
+auth = UDS(b"\x29\x01\x01\x00\x01\xFF\x00\x01\xFF")
+assert auth.service == 0x29
+assert auth.subFunction == 0x1
+assert auth.communicationConfiguration == 0x1
+assert auth.lengthOfCertificateClient == 0x1
+assert auth.certificateClient == b"\xFF"
+assert auth.lengthOfChallengeClient == 0x1
+assert auth.challengeClient == b"\xFF"
+
+= CHECK UDS_AUTHPR
+
+authpr = UDS(b"\x69\x01\x00\x00\x01\xFF\x00\x01\xFE")
+assert authpr.service == 0x69
+assert authpr.subFunction == 0x1
+assert authpr.returnValue == 0x0
+assert authpr.lengthOfChallengeServer == 0x1
+assert authpr.challengeServer == b"\xFF"
+assert authpr.lengthOfEphemeralPublicKeyServer == 0x1
+assert authpr.ephemeralPublicKeyServer == b"\xFE"
+
+assert authpr.answers(auth)
+
+= Check UDS_AUTH
+
+auth = UDS(b"\x29\x02\x01\x00\x01\xFF\x00\x01\xFF")
+assert auth.service == 0x29
+assert auth.subFunction == 0x2
+assert auth.communicationConfiguration == 0x1
+assert auth.lengthOfCertificateClient == 0x1
+assert auth.certificateClient == b"\xFF"
+assert auth.lengthOfChallengeClient == 0x1
+assert auth.challengeClient == b"\xFF"
+
+= CHECK UDS_AUTHPR
+
+authpr = UDS(b"\x69\x02\x00\x00\x01\xFF\x00\x03\xC0\xFF\xEE\x00\x01\x56\x00" +
+             b"\x01\xFE")
+assert authpr.service == 0x69
+assert authpr.subFunction == 0x2
+assert authpr.returnValue == 0x0
+assert authpr.lengthOfChallengeServer == 0x1
+assert authpr.challengeServer == b"\xFF"
+assert authpr.lengthOfCertificateServer == 0x3
+assert authpr.certificateServer == b"\xC0\xFF\xEE"
+assert authpr.lengthOfProofOfOwnershipServer == 0x1
+assert authpr.proofOfOwnershipServer == b"\x56"
+assert authpr.lengthOfEphemeralPublicKeyServer == 0x1
+assert authpr.ephemeralPublicKeyServer == b"\xFE"
+
+assert authpr.answers(auth)
+
+= Check UDS_AUTH
+
+auth = UDS(b"\x29\x03\x00\x01\xFF\x00\x02\xFF\xFE")
+assert auth.service == 0x29
+assert auth.subFunction == 0x3
+assert auth.lengthOfProofOfOwnershipClient == 0x1
+assert auth.proofOfOwnershipClient == b"\xFF"
+assert auth.lengthOfEphemeralPublicKeyClient == 0x2
+assert auth.ephemeralPublicKeyClient == b"\xFF\xFE"
+
+= CHECK UDS_AUTHPR
+
+authpr = UDS(b"\x69\x03\x00\x00\x01\xFE")
+assert authpr.service == 0x69
+assert authpr.subFunction == 0x3
+assert authpr.returnValue == 0x0
+assert authpr.lengthOfSessionKeyInfo == 0x1
+assert authpr.sessionKeyInfo == b"\xFE"
+
+assert authpr.answers(auth)
+
+= Check UDS_AUTH
+
+auth = UDS(b"\x29\x04\x00\x03\x00\x05\xFF\x00\x02\xFF\xFE")
+assert auth.service == 0x29
+assert auth.subFunction == 0x4
+assert auth.certificateEvaluationId == 0x3
+assert auth.lengthOfCertificateData == 0x5
+assert auth.certificateData == b"\xFF\x00\x02\xFF\xFE"
+
+= CHECK UDS_AUTHPR
+
+authpr = UDS(b"\x69\x04\x00")
+assert authpr.service == 0x69
+assert authpr.subFunction == 0x4
+assert authpr.returnValue == 0x0
+
+assert authpr.answers(auth)
+
+= Check UDS_AUTH
+
+auth = UDS(b"\x29\x05\x01\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE\x34\x56\x03" +
+           b"\xFF\xEE\x20\x01")
+assert auth.service == 0x29
+assert auth.subFunction == 0x5
+assert auth.communicationConfiguration == 0x1
+assert auth.algorithmIndicator == (b"\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE" +
+                                  b"\x34\x56\x03\xFF\xEE\x20\x01")
+
+= CHECK UDS_AUTHPR
+
+authpr = UDS(b"\x69\x05\x00\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE\x34\x56\x03" +
+             b"\xFF\xEE\x20\x01\x00\x01\xFF\x00\x00")
+assert authpr.service == 0x69
+assert authpr.subFunction == 0x5
+assert authpr.returnValue == 0x0
+assert authpr.algorithmIndicator == (b"\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE" +
+                                     b"\x34\x56\x03\xFF\xEE\x20\x01")
+assert authpr.lengthOfChallengeServer == 0x1
+assert authpr.challengeServer == b"\xFF"
+assert authpr.lengthOfNeededAdditionalParameter == 0x0
+assert authpr.neededAdditionalParameter == b""
+
+assert authpr.answers(auth)
+
+= Check UDS_AUTH
+
+auth = UDS(b"\x29\x06\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE\x34\x56\x03\xFF" +
+           b"\xEE\x20\x01\x00\x01\xFF\x00\x01\xFF\x00\x00")
+assert auth.service == 0x29
+assert auth.subFunction == 0x6
+assert auth.algorithmIndicator == (b"\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE" +
+                                  b"\x34\x56\x03\xFF\xEE\x20\x01")
+assert auth.lengthOfProofOfOwnershipClient == 0x1
+assert auth.proofOfOwnershipClient == b"\xFF"
+assert auth.lengthOfChallengeClient == 0x1
+assert auth.challengeClient == b"\xFF"
+assert auth.lengthOfAdditionalParameter == 0x0
+assert auth.additionalParameter == b""
+
+= CHECK UDS_AUTHPR
+
+authpr = UDS(b"\x69\x06\x00\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE\x34\x56\x03" +
+             b"\xFF\xEE\x20\x01\x00\x01\xFE")
+assert authpr.service == 0x69
+assert authpr.subFunction == 0x6
+assert authpr.returnValue == 0x0
+assert auth.algorithmIndicator == (b"\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE" +
+                                  b"\x34\x56\x03\xFF\xEE\x20\x01")
+assert authpr.lengthOfSessionKeyInfo == 0x1
+assert authpr.sessionKeyInfo == b"\xFE"
+
+assert authpr.answers(auth)
+
+= Check UDS_AUTH
+
+auth = UDS(b"\x29\x07\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE\x34\x56\x03\xFF" +
+           b"\xEE\x20\x01\x00\x01\xFF\x00\x01\xFF\x00\x02\xC0\xCA")
+assert auth.service == 0x29
+assert auth.subFunction == 0x7
+assert auth.algorithmIndicator == (b"\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE" +
+                                  b"\x34\x56\x03\xFF\xEE\x20\x01")
+assert auth.lengthOfProofOfOwnershipClient == 0x1
+assert auth.proofOfOwnershipClient == b"\xFF"
+assert auth.lengthOfChallengeClient == 0x1
+assert auth.challengeClient == b"\xFF"
+assert auth.lengthOfAdditionalParameter == 0x2
+assert auth.additionalParameter == b"\xC0\xCA"
+
+= CHECK UDS_AUTHPR
+
+authpr = UDS(b"\x69\x07\x00\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE\x34\x56\x03" +
+             b"\xFF\xEE\x20\x01\x00\x02\xFE\x20\x00\x01\xFE")
+assert authpr.service == 0x69
+assert authpr.subFunction == 0x7
+assert authpr.returnValue == 0x0
+assert auth.algorithmIndicator == (b"\x03\x00\x05\xFF\x00\x02\xFF\xFE\xBE" +
+                                  b"\x34\x56\x03\xFF\xEE\x20\x01")
+assert authpr.lengthOfProofOfOwnershipServer == 0x2
+assert authpr.proofOfOwnershipServer == b"\xFE\x20"
+assert authpr.lengthOfSessionKeyInfo == 0x1
+assert authpr.sessionKeyInfo == b"\xFE"
+
+assert authpr.answers(auth)
+
+= Check UDS_AUTH
+
+auth = UDS(b"\x29\x08")
+assert auth.service == 0x29
+assert auth.subFunction == 0x8
+
+= CHECK UDS_AUTHPR
+
+authpr = UDS(b"\x69\x08\x00")
+assert authpr.service == 0x69
+assert authpr.subFunction == 0x8
+assert authpr.returnValue == 0x0
+
+assert authpr.answers(auth)
+
 = Check UDS_TP
 
 tp = UDS(b'\x3E\x01')
@@ -285,15 +493,33 @@ assert atppr.timingParameterResponseRecord == b'coffee'
 
 = Check UDS_SDT
 
-sdt = UDS(b'\x84coffee')
+sdt = UDS(b'\x84\x80\x00\x01\x12\x34\x13\x37\x01coffee')
 assert sdt.service == 0x84
-assert sdt.securityDataRequestRecord == b'coffee'
+assert sdt.requestMessage == 0x1
+assert sdt.preEstablishedKeyUsed == 0x0
+assert sdt.encryptedMessage == 0x0
+assert sdt.signedMessage == 0x0
+assert sdt.signedResponseRequested == 0x0
+assert sdt.signatureEncryptionCalculation == 0x1
+assert sdt.signatureLength == 0x1234
+assert sdt.antiReplayCounter == 0x1337
+assert sdt.internalMessageServiceRequestId == 0x1
+assert sdt.dataRecord == b'coffee'
 
 = Check UDS_SDTPR
 
-sdtpr = UDS(b'\xC4coffee')
+sdtpr = UDS(b'\xC4\x04\x00\x01\x12\x34\x13\x37\x01coffee')
 assert sdtpr.service == 0xC4
-assert sdtpr.securityDataResponseRecord == b'coffee'
+assert sdtpr.requestMessage == 0x0
+assert sdtpr.preEstablishedKeyUsed == 0x0
+assert sdtpr.encryptedMessage == 0x0
+assert sdtpr.signedMessage == 0x1
+assert sdtpr.signedResponseRequested == 0x0
+assert sdtpr.signatureEncryptionCalculation == 0x1
+assert sdtpr.signatureLength == 0x1234
+assert sdtpr.antiReplayCounter == 0x1337
+assert sdtpr.internalMessageServiceResponseId == 0x1
+assert sdtpr.dataRecord == b'coffee'
 
 assert sdtpr.answers(sdt)
 
