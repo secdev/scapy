@@ -47,6 +47,7 @@ from types import ModuleType
 
 if TYPE_CHECKING:
     # Do not import at runtime
+    import scapy.as_resolvers
     from scapy.packet import Packet
     import scapy.asn1.asn1
     import scapy.asn1.mib
@@ -702,7 +703,8 @@ class Conf(ConfClass):
     commands = CommandsList()  # type: CommandsList
     #: Codec used by default for ASN1 objects
     ASN1_default_codec = None  # type: 'scapy.asn1.asn1.ASN1Codec'
-    AS_resolver = None  #: choose the AS resolver class to use
+    #: choose the AS resolver class to use
+    AS_resolver = None  # type: scapy.as_resolvers.AS_resolver
     dot15d4_protocol = None  # Used in dot15d4.py
     logLevel = Interceptor("logLevel", log_scapy.level, _loglevel_changer)
     #: if 0, doesn't check that IPID matches between IP sent and
