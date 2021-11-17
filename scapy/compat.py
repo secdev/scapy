@@ -42,6 +42,7 @@ __all__ = [
     'Sequence',
     'Set',
     'Sized',
+    'TextIO',
     'Tuple',
     'Type',
     'TypeVar',
@@ -137,6 +138,7 @@ if not FAKE_TYPING:
         Sequence,
         Set,
         Sized,
+        TextIO,
         Tuple,
         Type,
         TypeVar,
@@ -168,6 +170,7 @@ else:
     Sequence = _FakeType("Sequence")  # type: ignore
     Sequence = _FakeType("Sequence", list)  # type: ignore
     Set = _FakeType("Set", set)  # type: ignore
+    TextIO = _FakeType("TextIO")  # type: ignore
     Tuple = _FakeType("Tuple")
     Type = _FakeType("Type", type)
     TypeVar = _FakeType("TypeVar")  # type: ignore
