@@ -42,6 +42,7 @@ from scapy.compat import (
     Deque,
     Dict,
     Generic,
+    Iterable,
     Iterator,
     List,
     Optional,
@@ -56,7 +57,7 @@ from scapy.compat import (
 
 
 def select_objects(inputs, remain):
-    # type: (List[Any], Union[float, int, None]) -> List[Any]
+    # type: (Iterable[Any], Union[float, int, None]) -> List[Any]
     """
     Select objects. Same than:
     ``select.select(inputs, [], [], remain)``
