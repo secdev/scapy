@@ -134,6 +134,7 @@ class StringWriter(six.StringIO):
         # type: (Optional[TextIO]) -> None
         self.s = ""
         self.debug = debug
+        six.StringIO.__init__(self)
 
     def write(self, x):
         # type: (str) -> int
