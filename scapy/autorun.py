@@ -18,6 +18,15 @@ from scapy.config import conf
 from scapy.themes import NoTheme, DefaultTheme, HTMLTheme2, LatexTheme2
 from scapy.error import log_scapy, Scapy_Exception
 from scapy.utils import tex_escape
+
+from scapy.compat import (
+    Any,
+    Optional,
+    TextIO,
+    Dict,
+    Tuple,
+)
+
 from scapy.modules.six.moves import queue
 import scapy.modules.six as six
 
@@ -36,21 +45,23 @@ class StopAutorunTimeout(StopAutorun):
 
 class ScapyAutorunInterpreter(code.InteractiveInterpreter):
     def __init__(self, *args, **kargs):
+        # type: (*Any, **Any) -> None
         code.InteractiveInterpreter.__init__(self, *args, **kargs)
 
     def write(self, data):
+        # type: (str) -> None
         pass
 
 
-def autorun_commands(cmds, my_globals=None, verb=None):
+def autorun_commands(_cmds, my_globals=None, verb=None):
+    # type: (str, Optional[Dict[str, Any]], Optional[int]) -> Any
     sv = conf.verb
     try:
         try:
-            interp = ScapyAutorunInterpreter()
             if my_globals is None:
                 from scapy.main import _scapy_builtins
                 my_globals = _scapy_builtins()
-            interp.locals = my_globals
+            interp = ScapyAutorunInterpreter(locals=my_globals)
             try:
                 del six.moves.builtins.__dict__["scapy_session"]["_"]
             except KeyError:
@@ -58,7 +69,7 @@ def autorun_commands(cmds, my_globals=None, verb=None):
             if verb is not None:
                 conf.verb = verb
             cmd = ""
-            cmds = cmds.splitlines()
+            cmds = _cmds.splitlines()
             cmds.append("")  # ensure we finish multi-line commands
             cmds.reverse()
             while True:
@@ -94,6 +105,7 @@ def autorun_commands(cmds, my_globals=None, verb=None):
 
 
 def autorun_commands_timeout(cmds, timeout=None, **kwargs):
+    # type: (str, Optional[int], **Any) -> Any
     """
     Wraps autorun_commands with a timeout that raises StopAutorunTimeout
     on expiration.
@@ -104,6 +116,7 @@ def autorun_commands_timeout(cmds, timeout=None, **kwargs):
     q = queue.Queue()
 
     def _runner():
+        # type: () -> None
         q.put(autorun_commands(cmds, **kwargs))
     th = threading.Thread(target=_runner)
     th.daemon = True
@@ -114,26 +127,31 @@ def autorun_commands_timeout(cmds, timeout=None, **kwargs):
     return q.get()
 
 
-class StringWriter(object):
+class StringWriter(six.StringIO):
     """Util to mock sys.stdout and sys.stderr, and
     store their output in a 's' var."""
     def __init__(self, debug=None):
+        # type: (Optional[TextIO]) -> None
         self.s = ""
         self.debug = debug
 
     def write(self, x):
+        # type: (str) -> int
         # Object can be in the middle of being destroyed.
-        if getattr(self, "debug", None):
+        if getattr(self, "debug", None) and self.debug:
             self.debug.write(x)
         if getattr(self, "s", None) is not None:
             self.s += x
+        return len(x)
 
     def flush(self):
-        if getattr(self, "debug", None):
+        # type: () -> None
+        if getattr(self, "debug", None) and self.debug:
             self.debug.flush()
 
 
 def autorun_get_interactive_session(cmds, **kargs):
+    # type: (str, **Any) -> Tuple[str, Any]
     """Create an interactive session and execute the
     commands passed as "cmds" and return all output
 
@@ -162,6 +180,7 @@ def autorun_get_interactive_session(cmds, **kargs):
 
 
 def autorun_get_interactive_live_session(cmds, **kargs):
+    # type: (str, **Any) -> Tuple[str, Any]
     """Create an interactive session and execute the
     commands passed as "cmds" and return all output
 
@@ -184,6 +203,7 @@ def autorun_get_interactive_live_session(cmds, **kargs):
 
 
 def autorun_get_text_interactive_session(cmds, **kargs):
+    # type: (str, **Any) -> Tuple[str, Any]
     ct = conf.color_theme
     try:
         conf.color_theme = NoTheme()
@@ -194,6 +214,7 @@ def autorun_get_text_interactive_session(cmds, **kargs):
 
 
 def autorun_get_live_interactive_session(cmds, **kargs):
+    # type: (str, **Any) -> Tuple[str, Any]
     ct = conf.color_theme
     try:
         conf.color_theme = DefaultTheme()
@@ -204,6 +225,7 @@ def autorun_get_live_interactive_session(cmds, **kargs):
 
 
 def autorun_get_ansi_interactive_session(cmds, **kargs):
+    # type: (str, **Any) -> Tuple[str, Any]
     ct = conf.color_theme
     try:
         conf.color_theme = DefaultTheme()
@@ -214,8 +236,12 @@ def autorun_get_ansi_interactive_session(cmds, **kargs):
 
 
 def autorun_get_html_interactive_session(cmds, **kargs):
+    # type: (str, **Any) -> Tuple[str, Any]
     ct = conf.color_theme
-    to_html = lambda s: s.replace("<", "&lt;").replace(">", "&gt;").replace("#[#", "<").replace("#]#", ">")  # noqa: E501
+
+    def to_html(s):
+        # type: (str) -> str
+        return s.replace("<", "&lt;").replace(">", "&gt;").replace("#[#", "<").replace("#]#", ">")  # noqa: E501
     try:
         try:
             conf.color_theme = HTMLTheme2()
@@ -230,8 +256,12 @@ def autorun_get_html_interactive_session(cmds, **kargs):
 
 
 def autorun_get_latex_interactive_session(cmds, **kargs):
+    # type: (str, **Any) -> Tuple[str, Any]
     ct = conf.color_theme
-    to_latex = lambda s: tex_escape(s).replace("@[@", "{").replace("@]@", "}").replace("@`@", "\\")  # noqa: E501
+
+    def to_latex(s):
+        # type: (str) -> str
+        return tex_escape(s).replace("@[@", "{").replace("@]@", "}").replace("@`@", "\\")  # noqa: E501
     try:
         try:
             conf.color_theme = LatexTheme2()
