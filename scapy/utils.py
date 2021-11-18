@@ -1624,7 +1624,7 @@ class RawPcapNgReader(RawPcapReader):
             raise EOFError
 
         # Compute the secrets length including the padding
-        padded_secrets_length = secrets_length + (4 - secrets_length % 4)
+        padded_secrets_length = secrets_length + (-secrets_length) % 4
         if len(block) < padded_secrets_length:
             warning("PcapNg: invalid DSB secrets length!")
             raise EOFError
