@@ -523,7 +523,7 @@ class ISOTPSocketImplementation:
         self.rxfc_bs = rx_block_size
         self.rxfc_stmin = stmin
 
-        self.rx_queue = ObjectPipe()
+        self.rx_queue = ObjectPipe[Tuple[bytes, Union[float, EDecimal]]]()
         self.rx_len = -1
         self.rx_buf = None  # type: Optional[bytes]
         self.rx_sn = 0

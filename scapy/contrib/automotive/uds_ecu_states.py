@@ -34,7 +34,8 @@ def UDS_ERPR_modify_ecu_state(self, req, state):
 @EcuState.extend_pkt_with_modifier(UDS_SAPR)
 def UDS_SAPR_modify_ecu_state(self, req, state):
     # type: (Packet, Packet, EcuState) -> None
-    if self.securityAccessType % 2 == 0:
+    if self.securityAccessType % 2 == 0 and \
+            self.securityAccessType > 0 and len(req) >= 3:
         state.security_level = self.securityAccessType  # type: ignore
 
 

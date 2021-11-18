@@ -29,7 +29,7 @@ import zlib
 
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
-from scapy.modules.six.moves import range, queue
+from scapy.modules.six.moves import range
 from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
 from scapy.themes import DefaultTheme, BlackAndWhite
@@ -521,18 +521,14 @@ def remove_empty_testsets(test_campaign):
 
 def _run_test_timeout(test, get_interactive_session, verb=3, my_globals=None):
     """Run a test with timeout"""
-    q = queue.Queue()
-
-    def _runner():
-        output, res = get_interactive_session(test, verb=verb, my_globals=my_globals)
-        q.put((output, res))
-    th = threading.Thread(target=_runner)
-    th.daemon = True
-    th.start()
-    th.join(60 * 3)  # 3 min timeout
-    if th.is_alive():
-        return "Test timed out", False
-    return q.get()
+    from scapy.autorun import StopAutorunTimeout
+    try:
+        return get_interactive_session(test,
+                                       timeout=3 * 60,  # 3 min
+                                       verb=verb,
+                                       my_globals=my_globals)
+    except StopAutorunTimeout:
+        return "-- Test timed out ! --", False
 
 
 def run_test(test, get_interactive_session, theme, verb=3,
@@ -1242,7 +1238,6 @@ def main():
 
     # Check active threads
     if VERB > 2:
-        import threading
         if threading.active_count() > 1:
             print("\nWARNING: UNFINISHED THREADS")
             print(threading.enumerate())
@@ -1251,6 +1246,8 @@ def main():
         if processes:
             print("\nWARNING: UNFINISHED PROCESSES")
             print(processes)
+
+    sys.stdout.flush()
 
     # Return state
     return glob_result

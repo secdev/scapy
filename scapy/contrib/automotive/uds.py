@@ -9,7 +9,6 @@
 import struct
 import time
 
-from itertools import product
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
@@ -17,7 +16,7 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     FieldLenField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
-from scapy.error import log_loading
+from scapy.error import log_loading, log_interactive, Scapy_Exception
 from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
 from scapy.compat import Dict, Union
@@ -182,7 +181,7 @@ class UDS_ERPR(Packet):
     ]
 
     def answers(self, other):
-        return isinstance(other, UDS_ER)
+        return isinstance(other, UDS_ER) and other.resetType == self.resetType
 
 
 bind_layers(UDS, UDS_ERPR, service=0x51)
@@ -566,6 +565,7 @@ bind_layers(UDS, UDS_RSDBIPR, service=0x64)
 
 # #########################RDBPI###################################
 class UDS_RDBPI(Packet):
+    periodicDataIdentifiers = ObservableDict()
     transmissionModes = {
         0: 'ISOSAEReserved',
         1: 'sendAtSlowRate',
@@ -576,7 +576,7 @@ class UDS_RDBPI(Packet):
     name = 'ReadDataByPeriodicIdentifier'
     fields_desc = [
         ByteEnumField('transmissionMode', 0, transmissionModes),
-        ByteField('periodicDataIdentifier', 0),
+        ByteEnumField('periodicDataIdentifier', 0, periodicDataIdentifiers),
         StrField('furtherPeriodicDataIdentifier', b"", fmt="B")
     ]
 
@@ -1212,72 +1212,12 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
         # type: () -> None
         while not self._stopped.is_set() and not self._socket.closed:
             for p in self._pkts:
-                self._socket.sr1(p, timeout=0.3, verbose=False)
+                try:
+                    self._socket.sr1(p, timeout=0.3, verbose=False)
+                except (OSError, ValueError, Scapy_Exception) as e:
+                    log_interactive.critical(
+                        "[!] Exception in TesterPresentSender: %s", e)
+                    break
                 time.sleep(self._interval)
                 if self._stopped.is_set() or self._socket.closed:
                     break
-
-
-def UDS_SessionEnumerator(sock, session_range=range(0x100), reset_wait=1.5):
-    """ Enumerates session ID's in given range
-        and returns list of UDS()/UDS_DSC() packets
-        with valid session types
-
-    Args:
-        sock: socket where packets are sent
-        session_range: range for session ID's
-        reset_wait: wait time in sec after every packet
-    """
-    pkts = (req for tup in
-            product(UDS() / UDS_DSC(diagnosticSessionType=session_range),
-                    UDS() / UDS_ER(resetType='hardReset')) for req in tup)
-    results, _ = sock.sr(pkts, timeout=len(session_range) * reset_wait * 2 + 1,
-                         verbose=False, inter=reset_wait)
-    return [req for req, res in results if req is not None and
-            req.service != 0x11 and
-            (res.service == 0x50 or
-             res.negativeResponseCode not in [0x10, 0x11, 0x12])]
-
-
-def UDS_ServiceEnumerator(sock, session="DefaultSession",
-                          filter_responses=True):
-    """ Enumerates every service ID
-        and returns list of tuples. Each tuple contains
-        the session and the respective positive response
-
-    Args:
-        sock: socket where packet is sent periodically
-        session: session in which the services are enumerated
-    """
-    pkts = (UDS(service=x) for x in set(x & ~0x40 for x in range(0x100)))
-    found_services = sock.sr(pkts, timeout=5, verbose=False)
-    return [(session, p) for _, p in found_services[0] if
-            p.service != 0x7f or
-            (p.negativeResponseCode not in [0x10, 0x11] or not
-            filter_responses)]
-
-
-def getTableEntry(tup):
-    """ Helping function for make_lined_table.
-        Returns the session and response code of tup.
-
-    Args:
-        tup: tuple with session and UDS response package
-
-    Example:
-        make_lined_table([('DefaultSession', UDS()/UDS_SAPR(),
-                           'ExtendedDiagnosticSession', UDS()/UDS_IOCBI())],
-                           getTableEntry)
-    """
-    session, pkt = tup
-    if pkt.service == 0x7f:
-        return (session,
-                "0x%02x: %s" % (pkt.requestServiceId,
-                                pkt.sprintf("%UDS_NR.requestServiceId%")),
-                pkt.sprintf("%UDS_NR.negativeResponseCode%"))
-    else:
-        return (session,
-                "0x%02x: %s" % (pkt.service & ~0x40,
-                                pkt.get_field('service').
-                                i2s[pkt.service & ~0x40]),
-                "PositiveResponse")

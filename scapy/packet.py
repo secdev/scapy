@@ -1634,69 +1634,6 @@ values.
             c += "/" + pc
         return c
 
-    def convert_to(self, other_cls, **kwargs):
-        # type: (Type[Packet], **Any) -> Packet
-        """Converts this Packet to another type.
-
-        This is not guaranteed to be a lossless process.
-
-        By default, this only implements conversion to ``Raw``.
-
-        :param other_cls: Reference to a Packet class to convert to.
-        :type other_cls: Type[scapy.packet.Packet]
-        :return: Converted form of the packet.
-        :rtype: other_cls
-        :raises TypeError: When conversion is not possible
-        """
-        if not issubtype(other_cls, Packet):
-            raise TypeError("{} must implement Packet".format(other_cls))
-
-        if other_cls is Raw:
-            return Raw(raw(self))
-
-        if "_internal" not in kwargs:
-            return other_cls.convert_packet(self, _internal=True, **kwargs)
-
-        raise TypeError("Cannot convert {} to {}".format(
-            type(self).__name__, other_cls.__name__))
-
-    @classmethod
-    def convert_packet(cls, pkt, **kwargs):
-        # type: (Packet, **Any) -> Packet
-        """Converts another packet to be this type.
-
-        This is not guaranteed to be a lossless process.
-
-        :param pkt: The packet to convert.
-        :type pkt: scapy.packet.Packet
-        :return: Converted form of the packet.
-        :rtype: cls
-        :raises TypeError: When conversion is not possible
-        """
-        if not isinstance(pkt, Packet):
-            raise TypeError("Can only convert Packets")
-
-        if "_internal" not in kwargs:
-            return pkt.convert_to(cls, _internal=True, **kwargs)
-
-        raise TypeError("Cannot convert {} to {}".format(
-            type(pkt).__name__, cls.__name__))
-
-    @classmethod
-    def convert_packets(cls,
-                        pkts,  # type: List[Packet]
-                        **kwargs  # type: Any
-                        ):
-        # type: (...) -> Iterator[Iterator[Packet]]
-        """Converts many packets to this type.
-
-        This is implemented as a generator.
-
-        See ``Packet.convert_packet``.
-        """
-        for pkt in pkts:
-            yield cls.convert_packet(pkt, **kwargs)
-
 
 class NoPayload(Packet):
     def __new__(cls, *args, **kargs):
@@ -1894,11 +1831,6 @@ class Raw(Packet):
             else:
                 return "Raw %r" % self.load
         return Packet.mysummary(self)
-
-    @classmethod
-    def convert_packet(cls, pkt, **kwargs):
-        # type: (Packet, **Any) -> Raw
-        return Raw(raw(pkt))
 
 
 class Padding(Raw):
