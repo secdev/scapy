@@ -166,270 +166,6 @@ class _ESPPlain(Packet):
 
 
 ###############################################################################
-if conf.crypto_valid_advanced:
-    from cryptography.exceptions import InvalidTag
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.ciphers import (
-        aead,
-    )
-else:
-    log_loading.info("Can't import python-cryptography v1.7+. "
-                     "Disabled IPsec encryption/authentication.")
-    default_backend = None
-    InvalidTag = Exception
-    aead = None
-
-###############################################################################
-
-
-class AEAD_Algo(object):
-    """
-    IPsec AEAD algorithm
-    """
-
-    def __init__(self, name, algo, block_size=None, iv_size=None,
-                 key_size=None, icv_size=None, salt_size=None):  # noqa: E501
-        """
-        :param name: the name of this encryption algorithm
-        :param algo: a Cipher module
-        :param block_size: the length a block for this algo. Defaults to the
-                           `block_size` of the cipher.
-        :param iv_size: the length of the initialization vector of this algo.
-                        Defaults to the `block_size` of the cipher.
-        :param key_size: an integer or list/tuple of integers. If specified,
-                         force the secret keys length to one of the values.
-                         Defaults to the `key_size` of the cipher.
-        :param icv_size: the length of the Integrity Check Value of this algo.
-                         Used by Combined Mode Algorithms e.g. GCM
-        :param salt_size: the length of the salt to use as the IV prefix.
-                          Usually used by Counter modes e.g. CTR
-        :param format_mode_iv: function to format the Initialization Vector
-                               e.g. handle the salt value
-                               Default is the random buffer from `generate_iv`
-        """
-        self.name = name
-        self.algo = algo
-        self.icv_size = icv_size
-
-        if block_size is not None:
-            self.block_size = block_size
-        else:
-            self.block_size = 1
-
-        if iv_size is None:
-            self.iv_size = self.block_size
-        else:
-            self.iv_size = iv_size
-
-        if key_size is not None:
-            self.key_size = key_size
-        else:
-            self.key_size = None
-
-        if salt_size is None:
-            self.salt_size = 0
-        else:
-            self.salt_size = salt_size
-
-        self._format_mode_iv = lambda sa, iv, **kw: sa.aead_salt + iv
-
-    def check_key(self, key):
-        """
-        Check that the key length is valid.
-
-        :param key:    a byte string
-        """
-        if self.key_size:
-            if not (len(key) == self.key_size or len(key) in self.key_size):
-                raise TypeError('invalid key size %s, must be %s' %
-                                (len(key), self.key_size))
-
-    def generate_iv(self):
-        """
-        Generate a random initialization vector.
-        """
-        # XXX: Handle counter modes with real counters? RFCs allow the use of
-        # XXX: random bytes for counters, so it is not wrong to do it that way
-        return os.urandom(self.iv_size)
-
-    def pad(self, esp):
-        """
-        Add the correct amount of padding so that the data to encrypt is
-        exactly a multiple of the algorithm's block size.
-
-        Also, make sure that the total ESP packet length is a multiple of 4
-        bytes.
-
-        :param esp:    an unencrypted _ESPPlain packet
-
-        :returns:    an unencrypted _ESPPlain packet with valid padding
-        """
-        # 2 extra bytes for padlen and nh
-        data_len = len(esp.data) + 2
-
-        # according to the RFC4303, section 2.4. Padding (for Encryption)
-        # the size of the ESP payload must be a multiple of 32 bits
-        align = _lcm(self.block_size, 4)
-
-        # pad for block size
-        esp.padlen = -data_len % align
-
-        # Still according to the RFC, the default value for padding *MUST* be an  # noqa: E501
-        # array of bytes starting from 1 to padlen
-        # TODO: Handle padding function according to the encryption algo
-        esp.padding = struct.pack("B" * esp.padlen, *range(1, esp.padlen + 1))
-
-        # If the following test fails, it means that this algo does not comply
-        # with the RFC
-        payload_len = len(esp.iv) + len(esp.data) + len(esp.padding) + 2
-        if payload_len % 4 != 0:
-            raise ValueError('The size of the ESP data is not aligned to 32 bits after padding.')  # noqa: E501
-
-        return esp
-
-    def encrypt(self, sa, esp, key, esn_en=False, esn=0):
-        """
-        Encrypt an ESP packet
-
-        :param sa:   the SecurityAssociation associated with the ESP packet.
-        :param esp:  an unencrypted _ESPPlain packet with valid padding
-        :param key:  the secret key used for encryption
-        :esn_en:     extended sequence number enable which allows to use 64-bit
-                     sequence number instead of 32-bit when using an AEAD
-                     algorithm
-        :esn:        extended sequence number (32 MSB)
-        :return:    a valid ESP packet encrypted with this algorithm
-        """
-        data = esp.data_for_encryption()
-
-        mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=esp.iv)
-
-        algo = self.algo(key)
-
-        if esn_en:
-            aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
-        else:
-            aad = struct.pack('!LL', esp.spi, esp.seq)
-
-        # Cipher text contains data and ICV
-        ct = algo.encrypt(mode_iv, data, aad)
-
-        return ESP(spi=esp.spi, seq=esp.seq, data=esp.iv + ct)
-
-    def decrypt(self, sa, esp, key, icv_size=None, esn_en=False, esn=0):
-        """
-        Decrypt an ESP packet
-
-        :param sa: the SecurityAssociation associated with the ESP packet.
-        :param esp: an encrypted ESP packet
-        :param key: the secret key used for encryption
-        :param icv_size: the length of the icv used for integrity check
-        :param esn_en: extended sequence number enable which allows to use
-                       64-bit sequence number instead of 32-bit when using an
-                       AEAD algorithm
-        :param esn: extended sequence number (32 MSB)
-        :returns: a valid ESP packet encrypted with this algorithm
-        :raise scapy.layers.ipsec.IPSecIntegrityError: if the integrity check
-            fails with an AEAD algorithm
-        """
-        if icv_size is None:
-            icv_size = self.icv_size
-
-        iv = esp.data[:self.iv_size]
-        data = esp.data[self.iv_size:len(esp.data) - icv_size]
-        icv = esp.data[len(esp.data) - icv_size:]
-        mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=iv)
-
-        algo = self.algo(key)
-
-        if esn_en:
-            aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
-        else:
-            aad = struct.pack('!LL', esp.spi, esp.seq)
-
-        try:
-            # Plain text contains data and padding
-            pt = algo.decrypt(mode_iv, data + icv, aad)
-        except InvalidTag as err:
-            raise IPSecIntegrityError(err)
-
-        # extract padlen and nh
-        padlen = orb(pt[-2])
-        nh = orb(pt[-1])
-
-        # then use padlen to determine pt and padding
-        pt = pt[:len(pt) - padlen - 2]
-        padding = pt[len(pt) - padlen - 2: len(pt) - 2]
-
-        return _ESPPlain(spi=esp.spi,
-                         seq=esp.seq,
-                         iv=iv,
-                         data=pt,
-                         padding=padding,
-                         padlen=padlen,
-                         nh=nh,
-                         icv=icv)
-
-
-AEAD_ALGOS = {
-    'NULL': AEAD_Algo('NULL', algo=None, iv_size=0),
-}
-
-if aead:
-    # https://datatracker.ietf.org/doc/html/rfc7539
-    AEAD_ALGOS['CHACHA20-POLY1305'] = AEAD_Algo('CHACHA20-POLY1305',
-                                                algo=aead.ChaCha20Poly1305,
-                                                salt_size=4,
-                                                iv_size=8,
-                                                icv_size=16,
-                                                key_size=32,
-                                                block_size=64)
-    # https://datatracker.ietf.org/doc/html/rfc4106
-    AEAD_ALGOS['AES-GCM-128'] = AEAD_Algo('AES-GCM-128',
-                                          algo=aead.AESGCM,
-                                          salt_size=4,
-                                          iv_size=8,
-                                          icv_size=16,
-                                          key_size=16,
-                                          block_size=16)
-    AEAD_ALGOS['AES-GCM-192'] = AEAD_Algo('AES-GCM-192',
-                                          algo=aead.AESGCM,
-                                          salt_size=4,
-                                          iv_size=8,
-                                          icv_size=16,
-                                          key_size=24,
-                                          block_size=16)
-    AEAD_ALGOS['AES-GCM-256'] = AEAD_Algo('AES-GCM-256',
-                                          algo=aead.AESGCM,
-                                          salt_size=4,
-                                          iv_size=8,
-                                          icv_size=16,
-                                          key_size=32,
-                                          block_size=16)
-    # https://datatracker.ietf.org/doc/html/rfc4309
-    AEAD_ALGOS['AES-CCM-128'] = AEAD_Algo('AES-CCM-128',
-                                          algo=aead.AESCCM,
-                                          salt_size=3,
-                                          iv_size=8,
-                                          icv_size=16,
-                                          key_size=16,
-                                          block_size=16)
-    AEAD_ALGOS['AES-CCM-192'] = AEAD_Algo('AES-CCM-192',
-                                          algo=aead.AESCCM,
-                                          salt_size=3,
-                                          iv_size=8,
-                                          icv_size=16,
-                                          key_size=24,
-                                          block_size=16)
-    AEAD_ALGOS['AES-CCM-256'] = AEAD_Algo('AES-CCM-256',
-                                          algo=aead.AESCCM,
-                                          salt_size=3,
-                                          iv_size=8,
-                                          icv_size=16,
-                                          key_size=32,
-                                          block_size=16)
-
-###############################################################################
 if conf.crypto_valid:
     from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.backends import default_backend
@@ -926,6 +662,216 @@ if CMAC and algorithms:
                                          digestmod=algorithms.AES,
                                          icv_size=12,
                                          key_size=(16,))
+
+###############################################################################
+if conf.crypto_valid_advanced:
+    from cryptography.exceptions import InvalidTag
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.ciphers import (
+        aead,
+    )
+else:
+    log_loading.info("Can't import python-cryptography v1.7+. "
+                     "Disabled IPsec encryption/authentication.")
+    default_backend = None
+    InvalidTag = Exception
+    aead = None
+
+###############################################################################
+
+
+class AEAD_Algo(CryptAlgo, AuthAlgo):
+    """
+    IPsec AEAD algorithm
+    """
+
+    def __init__(self, name, algo, block_size=None, iv_size=None,
+                 key_size=None, icv_size=None, salt_size=None):  # noqa: E501
+        """
+        :param name: the name of this encryption algorithm
+        :param algo: a Cipher module
+        :param block_size: the length a block for this algo. Defaults to the
+                           `block_size` of the cipher.
+        :param iv_size: the length of the initialization vector of this algo.
+                        Defaults to the `block_size` of the cipher.
+        :param key_size: an integer or list/tuple of integers. If specified,
+                         force the secret keys length to one of the values.
+                         Defaults to the `key_size` of the cipher.
+        :param icv_size: the length of the Integrity Check Value of this algo.
+                         Used by Combined Mode Algorithms e.g. GCM
+        :param salt_size: the length of the salt to use as the IV prefix.
+                          Usually used by Counter modes e.g. CTR
+        :param format_mode_iv: function to format the Initialization Vector
+                               e.g. handle the salt value
+                               Default is the random buffer from `generate_iv`
+        """
+        self.name = name
+        self.algo = algo
+        self.icv_size = icv_size
+
+        if block_size is not None:
+            self.block_size = block_size
+        else:
+            self.block_size = 1
+
+        if iv_size is None:
+            self.iv_size = self.block_size
+        else:
+            self.iv_size = iv_size
+
+        if key_size is not None:
+            self.key_size = key_size
+        else:
+            self.key_size = None
+
+        if salt_size is None:
+            self.salt_size = 0
+        else:
+            self.salt_size = salt_size
+
+        self._format_mode_iv = lambda sa, iv, **kw: sa.aead_salt + iv
+
+    def encrypt(self, sa, esp, key, esn_en=False, esn=0):
+        """
+        Encrypt an ESP packet
+
+        :param sa:   the SecurityAssociation associated with the ESP packet.
+        :param esp:  an unencrypted _ESPPlain packet with valid padding
+        :param key:  the secret key used for encryption
+        :esn_en:     extended sequence number enable which allows to use 64-bit
+                     sequence number instead of 32-bit when using an AEAD
+                     algorithm
+        :esn:        extended sequence number (32 MSB)
+        :return:    a valid ESP packet encrypted with this algorithm
+        """
+        data = esp.data_for_encryption()
+
+        mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=esp.iv)
+
+        algo = self.algo(key)
+
+        if esn_en:
+            aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
+        else:
+            aad = struct.pack('!LL', esp.spi, esp.seq)
+
+        # Cipher text contains data and ICV
+        ct = algo.encrypt(mode_iv, data, aad)
+
+        return ESP(spi=esp.spi, seq=esp.seq, data=esp.iv + ct)
+
+    def decrypt(self, sa, esp, key, icv_size=None, esn_en=False, esn=0):
+        """
+        Decrypt an ESP packet
+
+        :param sa: the SecurityAssociation associated with the ESP packet.
+        :param esp: an encrypted ESP packet
+        :param key: the secret key used for encryption
+        :param icv_size: the length of the icv used for integrity check
+        :param esn_en: extended sequence number enable which allows to use
+                       64-bit sequence number instead of 32-bit when using an
+                       AEAD algorithm
+        :param esn: extended sequence number (32 MSB)
+        :returns: a valid ESP packet encrypted with this algorithm
+        :raise scapy.layers.ipsec.IPSecIntegrityError: if the integrity check
+            fails with an AEAD algorithm
+        """
+        if icv_size is None:
+            icv_size = self.icv_size
+
+        iv = esp.data[:self.iv_size]
+        data = esp.data[self.iv_size:len(esp.data) - icv_size]
+        icv = esp.data[len(esp.data) - icv_size:]
+        mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=iv)
+
+        algo = self.algo(key)
+
+        if esn_en:
+            aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
+        else:
+            aad = struct.pack('!LL', esp.spi, esp.seq)
+
+        try:
+            # Plain text contains data and padding
+            pt = algo.decrypt(mode_iv, data + icv, aad)
+        except InvalidTag as err:
+            raise IPSecIntegrityError(err)
+
+        # extract padlen and nh
+        padlen = orb(pt[-2])
+        nh = orb(pt[-1])
+
+        # then use padlen to determine pt and padding
+        pt = pt[:len(pt) - padlen - 2]
+        padding = pt[len(pt) - padlen - 2: len(pt) - 2]
+
+        return _ESPPlain(spi=esp.spi,
+                         seq=esp.seq,
+                         iv=iv,
+                         data=pt,
+                         padding=padding,
+                         padlen=padlen,
+                         nh=nh,
+                         icv=icv)
+
+
+AEAD_ALGOS = {
+    'NULL': AEAD_Algo('NULL', algo=None, iv_size=0),
+}
+
+if aead:
+    # https://datatracker.ietf.org/doc/html/rfc7539
+    AEAD_ALGOS['CHACHA20-POLY1305'] = AEAD_Algo('CHACHA20-POLY1305',
+                                                algo=aead.ChaCha20Poly1305,
+                                                salt_size=4,
+                                                iv_size=8,
+                                                icv_size=16,
+                                                key_size=32,
+                                                block_size=64)
+    # https://datatracker.ietf.org/doc/html/rfc4106
+    AEAD_ALGOS['AES-GCM-128'] = AEAD_Algo('AES-GCM-128',
+                                          algo=aead.AESGCM,
+                                          salt_size=4,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=16,
+                                          block_size=16)
+    AEAD_ALGOS['AES-GCM-192'] = AEAD_Algo('AES-GCM-192',
+                                          algo=aead.AESGCM,
+                                          salt_size=4,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=24,
+                                          block_size=16)
+    AEAD_ALGOS['AES-GCM-256'] = AEAD_Algo('AES-GCM-256',
+                                          algo=aead.AESGCM,
+                                          salt_size=4,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=32,
+                                          block_size=16)
+    # https://datatracker.ietf.org/doc/html/rfc4309
+    AEAD_ALGOS['AES-CCM-128'] = AEAD_Algo('AES-CCM-128',
+                                          algo=aead.AESCCM,
+                                          salt_size=3,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=16,
+                                          block_size=16)
+    AEAD_ALGOS['AES-CCM-192'] = AEAD_Algo('AES-CCM-192',
+                                          algo=aead.AESCCM,
+                                          salt_size=3,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=24,
+                                          block_size=16)
+    AEAD_ALGOS['AES-CCM-256'] = AEAD_Algo('AES-CCM-256',
+                                          algo=aead.AESCCM,
+                                          salt_size=3,
+                                          iv_size=8,
+                                          icv_size=16,
+                                          key_size=32,
+                                          block_size=16)
 
 ###############################################################################
 
