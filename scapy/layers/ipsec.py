@@ -61,6 +61,33 @@ from scapy.modules.six.moves import range
 from scapy.layers.inet6 import IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt, \
     IPv6ExtHdrRouting
 
+# Import cryptography:
+if conf.crypto_valid:
+    from cryptography.exceptions import InvalidTag
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.ciphers import (
+        Cipher,
+        algorithms,
+        modes,
+    )
+    from cryptography.hazmat.primitives.hmac import HMAC
+    from cryptography.hazmat.primitives.cmac import CMAC
+    from cryptography.hazmat.primitives import hashes
+    if conf.crypto_valid_advanced:
+        from cryptography.hazmat.primitives.ciphers import (
+            aead,
+        )
+    else:
+        aead = None
+else:
+    log_loading.info("Can't import python-cryptography v1.7+. "
+                     "Disabled IPsec encryption/authentication/combo algos.")
+    default_backend = None
+    InvalidTag = Exception
+    Cipher = algorithms = modes = None
+    HMAC = CMAC = hashes = None
+    aead = None
+
 
 ###############################################################################
 class AH(Packet):
@@ -166,22 +193,6 @@ class _ESPPlain(Packet):
 
 
 ###############################################################################
-if conf.crypto_valid:
-    from cryptography.exceptions import InvalidTag
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.ciphers import (
-        Cipher,
-        algorithms,
-        modes,
-    )
-else:
-    log_loading.info("Can't import python-cryptography v1.7+. "
-                     "Disabled IPsec encryption/authentication.")
-    default_backend = None
-    InvalidTag = Exception
-    Cipher = algorithms = modes = None
-
-###############################################################################
 
 
 def _lcm(a, b):
@@ -223,7 +234,11 @@ class CryptAlgo(object):
         self.name = name
         self.cipher = cipher
         self.mode = mode
-        self.icv_size = icv_size
+
+        if icv_size is not None:
+            self.icv_size = icv_size
+        else:
+            self.icv_size = 0
 
         if modes and self.mode is not None:
             self.is_aead = issubclass(self.mode,
@@ -486,15 +501,6 @@ if algorithms:
                                     mode=modes.CBC)
 
 ###############################################################################
-if conf.crypto_valid:
-    from cryptography.hazmat.primitives.hmac import HMAC
-    from cryptography.hazmat.primitives.cmac import CMAC
-    from cryptography.hazmat.primitives import hashes
-else:
-    # no error if cryptography is not available but authentication won't be supported  # noqa: E501
-    HMAC = CMAC = hashes = None
-
-###############################################################################
 
 
 class IPSecIntegrityError(Exception):
@@ -523,7 +529,11 @@ class AuthAlgo(object):
         self.mac = mac
         self.digestmod = digestmod
         self.icv_size = icv_size
-        self.key_size = key_size
+
+        if key_size is not None:
+            self.key_size = key_size
+        else:
+            self.key_size = 0
 
     def check_key(self, key):
         """
@@ -664,20 +674,6 @@ if CMAC and algorithms:
                                          key_size=(16,))
 
 ###############################################################################
-if conf.crypto_valid_advanced:
-    from cryptography.exceptions import InvalidTag
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.ciphers import (
-        aead,
-    )
-else:
-    log_loading.info("Can't import python-cryptography v1.7+. "
-                     "Disabled IPsec encryption/authentication.")
-    default_backend = None
-    InvalidTag = Exception
-    aead = None
-
-###############################################################################
 
 
 class AEAD_Algo(CryptAlgo, AuthAlgo):
@@ -707,7 +703,11 @@ class AEAD_Algo(CryptAlgo, AuthAlgo):
         """
         self.name = name
         self.algo = algo
-        self.icv_size = icv_size
+
+        if icv_size is not None:
+            self.icv_size = icv_size
+        else:
+            self.icv_size = 0
 
         if block_size is not None:
             self.block_size = block_size
@@ -1018,7 +1018,8 @@ class SecurityAssociation(object):
     SUPPORTED_PROTOS = (IP, IPv6)
 
     def __init__(self, proto, spi, seq_num=1, crypt_algo=None, crypt_key=None,
-                 auth_algo=None, auth_key=None, aead_algo=None, aead_key=None, tunnel_header=None, nat_t_header=None, esn_en=False, esn=0):   # noqa: E501
+                 auth_algo=None, auth_key=None, aead_algo=None, aead_key=None,
+                 tunnel_header=None, nat_t_header=None, esn_en=False, esn=0):   # noqa: E501
         """
         :param proto: the IPsec proto to use (ESP or AH)
         :param spi: the Security Parameters Index of this SA
