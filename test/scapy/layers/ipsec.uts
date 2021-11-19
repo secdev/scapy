@@ -1569,7 +1569,7 @@ p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
-                         auth_algo='NULL', auth_key=None, esn_en=True, esn=0x1)
+                         auth_algo='NULL', auth_key=None, esn_en = True, esn = 0x1)
 
 e = sa.encrypt(p)
 e
@@ -1647,7 +1647,7 @@ try:
     assert(False)
 except IPSecIntegrityError as err:
     err
-
+    
 #######################################
 
 = IPv4 / ESP - Transport - AES-GCM - NULL - altered packet -- ESN
@@ -1660,7 +1660,7 @@ p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
-                         auth_algo='NULL', auth_key=None, esn_en=True, esn=0x200)
+                         auth_algo='NULL', auth_key=None, esn_en = True, esn = 0x200)
 
 e = sa.encrypt(p)
 e
@@ -1678,11 +1678,11 @@ assert(b'testdata' not in e[ESP].data)
 * simulate the alteration of the packet before decryption
 * integrity verification should fail
 try:
-    d = sa.decrypt(e, esn=0x201)
+    d = sa.decrypt(e, esn = 0x201)
     assert(False)
 except IPSecIntegrityError as err:
     err
-
+    
 #######################################
 = IPv4 / ESP - Transport - AES-CCM - NULL
 ~ crypto_advanced
@@ -1893,7 +1893,7 @@ p
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None,
-                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'), esn_en=True, esn=0x2)
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'), esn_en = True, esn = 0x2)
 
 e = sa.encrypt(p)
 e
@@ -1953,7 +1953,7 @@ try:
     assert(False)
 except IPSecIntegrityError as err:
     err
-
+    
 #######################################
 
 = IPv4 / ESP - Tunnel - AES-GCM - NULL - altered packet - ESN
@@ -1967,7 +1967,7 @@ p
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
                          auth_algo='NULL', auth_key=None,
-                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'), esn_en=True, esn=0x2)
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'), esn_en = True, esn = 0x2)
 
 e = sa.encrypt(p)
 e
@@ -1986,10 +1986,10 @@ assert(b'testdata' not in e[ESP].data)
 * simulate the alteration of the packet before decryption
 * integrity verification should fail
 try:
-    d = sa.decrypt(e, esn=0x3)
+    d = sa.decrypt(e, esn = 0x3)
     assert(False)
 except IPSecIntegrityError as err:
-    err
+    err    
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-CCM - NULL
@@ -2027,7 +2027,7 @@ d
 assert(d == p)
 
 #######################################
-= IPv4 / ESP - Tunnel - AES-CCM - NULL - altered packet
+= IPv4 / ESP - Tunnel - AES-CCM - NULL
 ~ crypto_advanced
 
 p = IP(src='1.1.1.1', dst='2.2.2.2')
@@ -8014,3 +8014,4 @@ e[IPv6ExtHdrRouting].segleft = 0
 * integrity verification should pass
 d = sa.decrypt(e)
 d
+

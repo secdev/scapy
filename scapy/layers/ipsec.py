@@ -80,7 +80,7 @@ if conf.crypto_valid:
     else:
         aead = None
 else:
-    log_loading.info("Can't import python-cryptography v1.7+. "
+    log_loading.info("Can't import python-cryptography v2.0+. "
                      "Disabled IPsec encryption/authentication/combo algos.")
     default_backend = None
     InvalidTag = Exception
