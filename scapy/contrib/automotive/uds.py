@@ -13,7 +13,7 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
     ShortField, ObservableDict, XShortEnumField, XByteEnumField, StrLenField, \
-    FieldLenField
+    FieldLenField, XStrFixedLenField, XStrLenField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import log_loading, log_interactive, Scapy_Exception
@@ -48,6 +48,7 @@ class UDS(ISOTP):
          0x24: 'ReadScalingDataByIdentifier',
          0x27: 'SecurityAccess',
          0x28: 'CommunicationControl',
+         0x29: 'Authentication',
          0x2A: 'ReadDataPeriodicIdentifier',
          0x2C: 'DynamicallyDefineDataIdentifier',
          0x2E: 'WriteDataByIdentifier',
@@ -69,6 +70,7 @@ class UDS(ISOTP):
          0x64: 'ReadScalingDataByIdentifierPositiveResponse',
          0x67: 'SecurityAccessPositiveResponse',
          0x68: 'CommunicationControlPositiveResponse',
+         0x69: 'AuthenticationPositiveResponse',
          0x6A: 'ReadDataPeriodicIdentifierPositiveResponse',
          0x6C: 'DynamicallyDefineDataIdentifierPositiveResponse',
          0x6E: 'WriteDataByIdentifierPositiveResponse',
@@ -273,6 +275,162 @@ class UDS_CCPR(Packet):
 bind_layers(UDS, UDS_CCPR, service=0x68)
 
 
+# #########################AUTH###################################
+class UDS_AUTH(Packet):
+    subFunctions = {
+        0x00: 'deAuthenticate',
+        0x01: 'verifyCertificateUnidirectional',
+        0x02: 'verifyCertificateBidirectional',
+        0x03: 'proofOfOwnership',
+        0x04: 'transmitCertificate',
+        0x05: 'requestChallengeForAuthentication',
+        0x06: 'verifyProofOfOwnershipUnidirectional',
+        0x07: 'verifyProofOfOwnershipBidirectional',
+        0x08: 'authenticationConfiguration',
+        0x7F: 'ISOSAEReserved'
+    }
+    name = "Authentication"
+    fields_desc = [
+        ByteEnumField('subFunction', 0, subFunctions),
+        ConditionalField(XByteField('communicationConfiguration', 0),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02, 0x5]),
+        ConditionalField(XShortField('certificateEvaluationId', 0),
+                         lambda pkt: pkt.subFunction == 0x04),
+        ConditionalField(XStrFixedLenField('algorithmIndicator', 0, length=16),
+                         lambda pkt: pkt.subFunction in [0x05, 0x06, 0x07]),
+        ConditionalField(FieldLenField('lengthOfCertificateClient', None,
+                                       fmt="H", length_of='certificateClient'),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02]),
+        ConditionalField(XStrLenField('certificateClient', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfCertificateClient),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02]),
+        ConditionalField(FieldLenField('lengthOfProofOfOwnershipClient', None,
+                                       fmt="H",
+                                       length_of='proofOfOwnershipClient'),
+                         lambda pkt: pkt.subFunction in [0x03, 0x06, 0x07]),
+        ConditionalField(XStrLenField('proofOfOwnershipClient', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfProofOfOwnershipClient),
+                         lambda pkt: pkt.subFunction in [0x03, 0x06, 0x07]),
+        ConditionalField(FieldLenField('lengthOfChallengeClient', None,
+                                       fmt="H", length_of='challengeClient'),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02, 0x06,
+                                                         0x07]),
+        ConditionalField(XStrLenField('challengeClient', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfChallengeClient),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02, 0x06,
+                                                         0x07]),
+        ConditionalField(FieldLenField('lengthOfEphemeralPublicKeyClient',
+                                       None, fmt="H",
+                                       length_of='ephemeralPublicKeyClient'),
+                         lambda pkt: pkt.subFunction == 0x03),
+        ConditionalField(XStrLenField('ephemeralPublicKeyClient', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfEphemeralPublicKeyClient),
+                         lambda pkt: pkt.subFunction == 0x03),
+        ConditionalField(FieldLenField('lengthOfCertificateData', None,
+                                       fmt="H", length_of='certificateData'),
+                         lambda pkt: pkt.subFunction == 0x04),
+        ConditionalField(XStrLenField('certificateData', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfCertificateData),
+                         lambda pkt: pkt.subFunction == 0x04),
+        ConditionalField(FieldLenField('lengthOfAdditionalParameter', None,
+                                       fmt="H",
+                                       length_of='additionalParameter'),
+                         lambda pkt: pkt.subFunction in [0x06, 0x07]),
+        ConditionalField(XStrLenField('additionalParameter', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfAdditionalParameter),
+                         lambda pkt: pkt.subFunction in [0x06, 0x07]),
+    ]
+
+
+bind_layers(UDS, UDS_AUTH, service=0x29)
+
+
+class UDS_AUTHPR(Packet):
+    authenticationReturnParameterTypes = {
+        0x00: 'requestAccepted',
+        0x01: 'generalReject',
+        # Authentication with PKI Certificate Exchange (ACPE)
+        0x02: 'authenticationConfigurationAPCE',
+        # Authentication with Challenge-Response (ACR)
+        0x03: 'authenticationConfigurationACRWithAsymmetricCryptography',
+        0x04: 'authenticationConfigurationACRWithSymmetricCryptography',
+        0x05: 'ISOSAEReserved',
+        0x0F: 'ISOSAEReserved',
+        0x10: 'deAuthenticationSuccessful',
+        0x11: 'certificateVerifiedOwnershipVerificationNecessary',
+        0x12: 'ownershipVerifiedAuthenticationComplete',
+        0x13: 'certificateVerified',
+        0x14: 'ISOSAEReserved',
+        0x9F: 'ISOSAEReserved',
+        0xFF: 'ISOSAEReserved'
+    }
+    name = 'AuthenticationPositiveResponse'
+    fields_desc = [
+        ByteEnumField('subFunction', 0, UDS_AUTH.subFunctions),
+        ByteEnumField('returnValue', 0, authenticationReturnParameterTypes),
+        ConditionalField(XStrFixedLenField('algorithmIndicator', 0, length=16),
+                         lambda pkt: pkt.subFunction in [0x05, 0x06, 0x07]),
+        ConditionalField(FieldLenField('lengthOfChallengeServer', None,
+                                       fmt="H", length_of='challengeServer'),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02, 0x05]),
+        ConditionalField(XStrLenField('challengeServer', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfChallengeServer),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02, 0x05]),
+        ConditionalField(FieldLenField('lengthOfCertificateServer', None,
+                                       fmt="H", length_of='certificateServer'),
+                         lambda pkt: pkt.subFunction == 0x02),
+        ConditionalField(XStrLenField('certificateServer', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfCertificateServer),
+                         lambda pkt: pkt.subFunction == 0x02),
+        ConditionalField(FieldLenField('lengthOfProofOfOwnershipServer', None,
+                                       fmt="H",
+                                       length_of='proofOfOwnershipServer'),
+                         lambda pkt: pkt.subFunction in [0x02, 0x07]),
+        ConditionalField(XStrLenField('proofOfOwnershipServer', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfProofOfOwnershipServer),
+                         lambda pkt: pkt.subFunction in [0x02, 0x07]),
+        ConditionalField(FieldLenField('lengthOfSessionKeyInfo', None, fmt="H",
+                                       length_of='sessionKeyInfo'),
+                         lambda pkt: pkt.subFunction in [0x03, 0x06, 0x07]),
+        ConditionalField(XStrLenField('sessionKeyInfo', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfSessionKeyInfo),
+                         lambda pkt: pkt.subFunction in [0x03, 0x06, 0x07]),
+        ConditionalField(FieldLenField('lengthOfEphemeralPublicKeyServer',
+                                       None, fmt="H",
+                                       length_of='ephemeralPublicKeyServer'),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02]),
+        ConditionalField(XStrLenField('ephemeralPublicKeyServer', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfEphemeralPublicKeyServer),
+                         lambda pkt: pkt.subFunction in [0x1, 0x02]),
+        ConditionalField(FieldLenField('lengthOfNeededAdditionalParameter',
+                                       None, fmt="H",
+                                       length_of='neededAdditionalParameter'),
+                         lambda pkt: pkt.subFunction == 0x05),
+        ConditionalField(XStrLenField('neededAdditionalParameter', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfNeededAdditionalParameter),
+                         lambda pkt: pkt.subFunction == 0x05),
+    ]
+
+    def answers(self, other):
+        return isinstance(other, UDS_AUTH) \
+            and other.subFunction == self.subFunction
+
+
+bind_layers(UDS, UDS_AUTHPR, service=0x69)
+
+
 # #########################TP###################################
 class UDS_TP(Packet):
     name = 'TesterPresent'
@@ -337,10 +495,23 @@ bind_layers(UDS, UDS_ATPPR, service=0xC3)
 
 
 # #########################SDT###################################
+# TODO: Implement correct internal message service handling here,
+# instead of using just the dataRecord
 class UDS_SDT(Packet):
     name = 'SecuredDataTransmission'
     fields_desc = [
-        StrField('securityDataRequestRecord', b"")
+        BitField('requestMessage', 0, 1),
+        BitField('ISOSAEReservedBackwardsCompatibility', 0, 2),
+        BitField('preEstablishedKeyUsed', 0, 1),
+        BitField('encryptedMessage', 0, 1),
+        BitField('signedMessage', 0, 1),
+        BitField('signedResponseRequested', 0, 1),
+        BitField('ISOSAEReserved', 0, 9),
+        ByteField('signatureEncryptionCalculation', 0),
+        XShortField('signatureLength', 0),
+        XShortField('antiReplayCounter', 0),
+        ByteField('internalMessageServiceRequestId', 0),
+        StrField('dataRecord', b"", fmt="B")
     ]
 
 
@@ -350,7 +521,18 @@ bind_layers(UDS, UDS_SDT, service=0x84)
 class UDS_SDTPR(Packet):
     name = 'SecuredDataTransmissionPositiveResponse'
     fields_desc = [
-        StrField('securityDataResponseRecord', b"")
+        BitField('requestMessage', 0, 1),
+        BitField('ISOSAEReservedBackwardsCompatibility', 0, 2),
+        BitField('preEstablishedKeyUsed', 0, 1),
+        BitField('encryptedMessage', 0, 1),
+        BitField('signedMessage', 0, 1),
+        BitField('signedResponseRequested', 0, 1),
+        BitField('ISOSAEReserved', 0, 9),
+        ByteField('signatureEncryptionCalculation', 0),
+        XShortField('signatureLength', 0),
+        XShortField('antiReplayCounter', 0),
+        ByteField('internalMessageServiceResponseId', 0),
+        StrField('dataRecord', b"", fmt="B")
     ]
 
     def answers(self, other):
@@ -1033,7 +1215,7 @@ class UDS_RFT(Packet):
 
     fields_desc = [
         XByteEnumField('modeOfOperation', 0, modeOfOperations),
-        FieldLenField('filePathAndNameLength', 0,
+        FieldLenField('filePathAndNameLength', None,
                       length_of='filePathAndName', fmt='H'),
         StrLenField('filePathAndName', b"",
                     length_from=lambda p: p.filePathAndNameLength),
@@ -1041,7 +1223,8 @@ class UDS_RFT(Packet):
                          lambda p: p.modeOfOperation not in [2, 5]),
         ConditionalField(BitField('encryptingMethod', 0, 4),
                          lambda p: p.modeOfOperation not in [2, 5]),
-        ConditionalField(FieldLenField('fileSizeParameterLength', 0, fmt="B",
+        ConditionalField(FieldLenField('fileSizeParameterLength', None,
+                                       fmt="B",
                                        length_of='fileSizeUnCompressed'),
                          lambda p: UDS_RFT._contains_file_size(p)),
         ConditionalField(StrLenField('fileSizeUnCompressed', b"",
@@ -1067,7 +1250,7 @@ class UDS_RFTPR(Packet):
 
     fields_desc = [
         XByteEnumField('modeOfOperation', 0, UDS_RFT.modeOfOperations),
-        ConditionalField(FieldLenField('lengthFormatIdentifier', 0,
+        ConditionalField(FieldLenField('lengthFormatIdentifier', None,
                                        length_of='maxNumberOfBlockLength',
                                        fmt='B'),
                          lambda p: p.modeOfOperation != 2),
@@ -1078,7 +1261,8 @@ class UDS_RFTPR(Packet):
                          lambda p: p.modeOfOperation != 0x02),
         ConditionalField(BitField('encryptingMethod', 0, 4),
                          lambda p: p.modeOfOperation != 0x02),
-        ConditionalField(FieldLenField('fileSizeOrDirInfoParameterLength', 0,
+        ConditionalField(FieldLenField('fileSizeOrDirInfoParameterLength',
+                         None,
                          length_of='fileSizeUncompressedOrDirInfoLength'),
                          lambda p: p.modeOfOperation not in [1, 2, 3]),
         ConditionalField(StrLenField('fileSizeUncompressedOrDirInfoLength',
@@ -1149,6 +1333,7 @@ class UDS_NR(Packet):
         0x35: 'invalidKey',
         0x36: 'exceedNumberOfAttempts',
         0x37: 'requiredTimeDelayNotExpired',
+        0x3A: 'secureDataVerificationFailed',
         0x70: 'uploadDownloadNotAccepted',
         0x71: 'transferDataSuspended',
         0x72: 'generalProgrammingFailure',
