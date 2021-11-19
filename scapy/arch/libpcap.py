@@ -293,7 +293,7 @@ if conf.use_pcap:
 
         def setfilter(self, f):
             filter_exp = create_string_buffer(f.encode("utf8"))
-            if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:  # noqa: E501
+            if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 1, -1) == -1:  # noqa: E501
                 log_runtime.error("Could not compile filter expression %s", f)
                 return False
             else:

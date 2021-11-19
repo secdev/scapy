@@ -137,7 +137,7 @@ def compile_filter(filter_exp,  # type: str
             linktype = ARPHDR_ETHER
     if linktype is not None:
         ret = pcap_compile_nopcap(
-            MTU, linktype, ctypes.byref(bpf), bpf_filter, 0, -1
+            MTU, linktype, ctypes.byref(bpf), bpf_filter, 1, -1
         )
     elif iface:
         err = create_string_buffer(PCAP_ERRBUF_SIZE)
@@ -149,7 +149,7 @@ def compile_filter(filter_exp,  # type: str
         if error:
             raise OSError(error)
         ret = pcap_compile(
-            pcap, ctypes.byref(bpf), bpf_filter, 0, -1
+            pcap, ctypes.byref(bpf), bpf_filter, 1, -1
         )
         pcap_close(pcap)
     if ret == -1:
