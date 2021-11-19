@@ -549,10 +549,12 @@ class EDNS0TLV(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         # type: (Optional[bytes], *Any, **Any) -> Type[Packet]
+        if _pkt is None:
+            return EDNS0TLV
         if len(_pkt) < 2:
             return Raw
         edns0type = struct.unpack("!H", _pkt[:2])[0]
-        if edns0type == 7:
+        if edns0type == 8:
             return EDNS0ClientSubnet
         return EDNS0TLV
 
