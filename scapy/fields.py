@@ -280,7 +280,7 @@ class Field(Generic[I, M]):
         return copy.copy(self)
 
     def randval(self):
-        # type: () -> VolatileValue
+        # type: () -> VolatileValue[Any]
         """Return a volatile object whose value is both random and suitable for this field"""  # noqa: E501
         fmtt = self.fmt[-1]
         if fmtt in "BbHhIiQq":
@@ -295,7 +295,11 @@ class Field(Generic[I, M]):
                 value = int(self.fmt[1:-1])
             return RandBin(value)
         else:
-            warning("no random class for [%s] (fmt=%s).", self.name, self.fmt)
+            raise ValueError(
+                "no random class for [%s] (fmt=%s)." % (
+                    self.name, self.fmt
+                )
+            )
 
 
 class _FieldContainer(object):
@@ -1426,7 +1430,7 @@ class _PacketField(_StrField[K]):
         return remain, i
 
     def randval(self):
-        # type: () -> K
+        # type: () -> Packet
         from scapy.packet import fuzz
         return fuzz(self.cls())  # type: ignore
 
@@ -1708,10 +1712,9 @@ class StrFixedLenField(StrField):
     def randval(self):
         # type: () -> RandBin
         try:
-            len_pkt = self.length_from(None)  # type: ignore
+            return RandBin(self.length_from(None))  # type: ignore
         except Exception:
-            len_pkt = RandNum(0, 200)
-        return RandBin(len_pkt)
+            return RandBin(RandNum(0, 200))
 
 
 class StrFixedLenEnumField(StrFixedLenField):
@@ -2623,7 +2626,7 @@ class ByteEnumKeysField(ByteEnumField):
 
     def randval(self):
         # type: () -> RandEnumKeys
-        return RandEnumKeys(self.i2s)
+        return RandEnumKeys(self.i2s or {})
 
 
 class ShortEnumKeysField(ShortEnumField):
@@ -2631,7 +2634,7 @@ class ShortEnumKeysField(ShortEnumField):
 
     def randval(self):
         # type: () -> RandEnumKeys
-        return RandEnumKeys(self.i2s)
+        return RandEnumKeys(self.i2s or {})
 
 
 class IntEnumKeysField(IntEnumField):
@@ -2639,7 +2642,7 @@ class IntEnumKeysField(IntEnumField):
 
     def randval(self):
         # type: () -> RandEnumKeys
-        return RandEnumKeys(self.i2s)
+        return RandEnumKeys(self.i2s or {})
 
 
 # Little endian fixed length field

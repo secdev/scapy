@@ -94,6 +94,16 @@ except ImportError:
 # Import or create fake types
 
 
+# If your class uses a metaclass AND Generic, you'll need to
+# extend this class in the metaclass to avoid conflicts...
+# Of course we wouldn't need this on Python 3 :/
+class _Generic_metaclass(type):
+    if FAKE_TYPING:
+        def __getitem__(self, typ):
+            # type: (Any) -> Any
+            return self
+
+
 def _FakeType(name, cls=object):
     # type: (str, Optional[type]) -> Any
     class _FT(object):
@@ -158,7 +168,6 @@ else:
                             collections.defaultdict)
     Deque = _FakeType("Deque")  # type: ignore
     Dict = _FakeType("Dict", dict)  # type: ignore
-    Generic = _FakeType("Generic")
     IO = _FakeType("IO")  # type: ignore
     Iterable = _FakeType("Iterable")  # type: ignore
     Iterator = _FakeType("Iterator")  # type: ignore
@@ -167,7 +176,6 @@ else:
     NoReturn = _FakeType("NoReturn")  # type: ignore
     Optional = _FakeType("Optional")
     Pattern = _FakeType("Pattern")  # type: ignore
-    Sequence = _FakeType("Sequence")  # type: ignore
     Sequence = _FakeType("Sequence", list)  # type: ignore
     Set = _FakeType("Set", set)  # type: ignore
     TextIO = _FakeType("TextIO")  # type: ignore
@@ -177,6 +185,10 @@ else:
     Union = _FakeType("Union")
 
     class Sized(object):  # type: ignore
+        pass
+
+    @six.add_metaclass(_Generic_metaclass)
+    class Generic(object):  # type: ignore
         pass
 
     overload = lambda x: x
@@ -218,13 +230,6 @@ else:
     class AddressFamily:
         AF_INET = socket.AF_INET
         AF_INET6 = socket.AF_INET6
-
-
-class _Generic_metaclass(type):
-    if FAKE_TYPING:
-        def __getitem__(self, typ):
-            # type: (Any) -> Any
-            return self
 
 
 ###########

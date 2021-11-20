@@ -27,7 +27,6 @@ import warnings
 import scapy
 from scapy.error import Scapy_Exception
 from scapy.consts import WINDOWS
-import scapy.modules.six as six
 
 from scapy.modules.six.moves import range
 
@@ -54,7 +53,6 @@ except ImportError:
 _T = TypeVar("_T")
 
 
-@six.add_metaclass(_Generic_metaclass)
 class Gen(Generic[_T]):
     __slots__ = []  # type: List[str]
 

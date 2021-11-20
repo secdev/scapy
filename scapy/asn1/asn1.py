@@ -70,7 +70,7 @@ except ImportError:
     timezone.utc = UTC()  # type: ignore
 
 
-class RandASN1Object(RandField):
+class RandASN1Object(RandField["ASN1_Object[Any]"]):
     def __init__(self, objlist=None):
         # type: (Optional[List[Type[ASN1_Object[Any]]]]) -> None
         if objlist:
@@ -97,12 +97,12 @@ class RandASN1Object(RandField):
             z = GeneralizedTime()._fix()
             return o(z)
         elif issubclass(o, ASN1_STRING):
-            z = int(random.expovariate(0.05) + 1)
-            return o("".join(random.choice(self.chars) for _ in range(z)))
+            z1 = int(random.expovariate(0.05) + 1)
+            return o("".join(random.choice(self.chars) for _ in range(z1)))
         elif issubclass(o, ASN1_SEQUENCE) and (n < 10):
-            z = int(random.expovariate(0.08) + 1)
+            z2 = int(random.expovariate(0.08) + 1)
             return o([self.__class__(objlist=self.objlist)._fix(n + 1)
-                      for _ in range(z)])
+                      for _ in range(z2)])
         return ASN1_INTEGER(int(random.gauss(0, 1000)))
 
 

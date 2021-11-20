@@ -22,7 +22,6 @@ from scapy.compat import (
     TypeVar,
     Union,
     cast,
-    _Generic_metaclass,
 )
 
 ###############################
@@ -55,7 +54,6 @@ _K = TypeVar('_K')  # Key type
 _V = TypeVar('_V')  # Value type
 
 
-@six.add_metaclass(_Generic_metaclass)
 class DADict(Generic[_K, _V]):
     """
     Direct Access Dictionary
