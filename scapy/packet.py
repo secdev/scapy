@@ -710,7 +710,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         """
         DEV: called right after the current layer is build.
 
-        :param str pkt: the current packet (build by self_buil function)
+        :param str pkt: the current packet (build by self_build function)
         :param str pay: the packet payload (build by do_build_payload function)
         :return: a string of the packet with the payload
         """

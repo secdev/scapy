@@ -1464,7 +1464,7 @@ class PacketLenField(PacketField):
 
 
 class PacketListField(_PacketField[List[BasePacket]]):
-    """PacketListField represents a list containing a series of Packet instances 
+    """PacketListField represents a list containing a series of Packet instances
     that might occur right in the middle of another Packet field.
     This field type may also be used to indicate that a series of Packet
     instances have a sibling semantic instead of a parent/child relationship
