@@ -46,6 +46,7 @@ scapy/supersocket.py
 scapy/themes.py
 scapy/utils.py
 scapy/utils6.py
+scapy/volatile.py
 
 # LAYERS
 scapy/layers/can.py

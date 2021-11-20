@@ -34,7 +34,7 @@ from scapy.volatile import (
     RandNum,
     RandOID,
     RandString,
-    VolatileValue,
+    RandField,
 )
 from scapy.compat import raw
 from scapy.base_classes import BasePacket
@@ -54,7 +54,6 @@ from scapy.compat import (
     Type,
     TypeVar,
     Union,
-    _Generic_metaclass,
     cast,
     TYPE_CHECKING,
 )
@@ -79,7 +78,6 @@ _I = TypeVar('_I')  # Internal storage
 _A = TypeVar('_A')  # ASN.1 object
 
 
-@six.add_metaclass(_Generic_metaclass)
 class ASN1F_field(ASN1F_element, Generic[_I, _A]):
     holds_packets = 0
     islist = 0
@@ -228,7 +226,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         return repr(self)
 
     def randval(self):
-        # type: () -> VolatileValue
+        # type: () -> RandField[Any]
         return RandInt()
 
 
@@ -381,7 +379,7 @@ class ASN1F_IA5_STRING(ASN1F_STRING):
 class ASN1F_UTC_TIME(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.UTC_TIME
 
-    def randval(self):
+    def randval(self):  # type: ignore
         # type: () -> GeneralizedTime
         return GeneralizedTime()
 
@@ -389,7 +387,7 @@ class ASN1F_UTC_TIME(ASN1F_STRING):
 class ASN1F_GENERALIZED_TIME(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
 
-    def randval(self):
+    def randval(self):  # type: ignore
         # type: () -> GeneralizedTime
         return GeneralizedTime()
 

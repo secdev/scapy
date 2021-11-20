@@ -422,7 +422,7 @@ def in6_getLocalUniquePrefix():
     btod = struct.pack("!II", i, j)
     mac = RandMAC()
     # construct modified EUI-64 ID
-    eui64 = inet_pton(socket.AF_INET6, '::' + in6_mactoifaceid(mac))[8:]
+    eui64 = inet_pton(socket.AF_INET6, '::' + in6_mactoifaceid(str(mac)))[8:]
     import hashlib
     globalid = hashlib.sha1(btod + eui64).digest()[:5]
     return inet_ntop(socket.AF_INET6, b'\xfd' + globalid + b'\x00' * 10)
