@@ -22,7 +22,6 @@ class AutomotiveTestCaseExecutorConfiguration(object):
     The following keywords are used in the AutomotiveTestCaseExecutor:
         verbose: Enables verbose output and logging
         debug:  Will raise Exceptions on internal errors
-        delay_state_change: After a state change, a defined time is waited
 
     :param test_cases: List of AutomotiveTestCase classes or instances.
                        Classes will get instantiated in this initializer.
@@ -66,6 +65,8 @@ class AutomotiveTestCaseExecutorConfiguration(object):
         # apply global config
         val = self.__getattribute__(test_case_cls.__name__)
         for kwargs_key, kwargs_val in self.global_kwargs.items():
+            if "_kwargs" in kwargs_key:
+                continue
             if kwargs_key not in val.keys():
                 val[kwargs_key] = kwargs_val
         self.__setattr__(test_case_cls.__name__, val)
@@ -103,7 +104,6 @@ class AutomotiveTestCaseExecutorConfiguration(object):
         # type: (Union[List[Union[AutomotiveTestCaseABC, Type[AutomotiveTestCaseABC]]], List[Type[AutomotiveTestCaseABC]]], Any) -> None  # noqa: E501
         self.verbose = kwargs.get("verbose", False)
         self.debug = kwargs.get("debug", False)
-        self.delay_state_change = kwargs.get("delay_state_change", 0.5)
         self.unittest = kwargs.pop("unittest", False)
         self.state_graph = Graph()
         self.test_cases = list()  # type: List[AutomotiveTestCaseABC]

@@ -100,7 +100,7 @@ def get_isotp_socket(csock, source, destination):
 
 def run_scan(isock, enumerators, full_scan, verbose, timeout):
     s = OBD_Scanner(isock, test_cases=enumerators, full_scan=full_scan,
-                    verbose=verbose,
+                    debug=verbose,
                     timeout=timeout)
     print("Starting OBD-Scan...")
     s.scan()

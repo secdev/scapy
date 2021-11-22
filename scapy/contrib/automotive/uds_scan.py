@@ -79,6 +79,27 @@ class UDS_Enumerator(ServiceEnumerator, ABC):
 
 class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
     _description = "Available sessions"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'delay_state_change': int,
+        'overwrite_timeout': bool
+    })
+
+    _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
+        :param int delay_state_change: Specifies an additional delay after
+                                       after a session is modified from
+                                       the transition function. In unit-test
+                                       scenarios, this delay should be set to
+                                       zero.
+        :param bool overwrite_timeout: True by default. This enumerator
+                                       overwrites the timeout argument, since
+                                       most ECUs take some time until a session
+                                       is changed. This ensures that more
+                                       results are gathered by default. In
+                                       unit-test scenarios, this value should
+                                       be set to False, in order to use the
+                                       timeout specified by the 'timeout'
+                                       argument."""
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -98,6 +119,8 @@ class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
             kwargs["timeout"] = 3
 
         super(UDS_DSCEnumerator, self).execute(socket, state, **kwargs)
+
+    execute.__doc__ = _supported_kwargs_doc
 
     def _get_table_entry_y(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
@@ -256,8 +279,11 @@ class UDS_ServiceEnumerator(UDS_Enumerator):
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
-        # Only generate services with unset positive response bit (0x40)
-        return (UDS(service=x) for x in range(0x100) if not x & 0x40)
+        # Only generate services with unset positive response bit (0x40) as
+        # default scan_range
+        scan_range = kwargs.pop("scan_range",
+                                (x for x in range(0x100) if not x & 0x40))
+        return (UDS(service=x) for x in scan_range)
 
     def _evaluate_response(self,
                            state,  # type: EcuState
@@ -335,7 +361,7 @@ class UDS_RDBISelectiveEnumerator(StagedAutomotiveTestCase):
                                for identifier in pois))
             if pr_in_block:
                 generators.append(range(start, end))
-        scan_range = itertools.chain.from_iterable(generators)
+        scan_range = list(itertools.chain.from_iterable(generators))
         return scan_range
 
     def __init__(self):
@@ -389,6 +415,22 @@ class UDS_RDBIRandomEnumerator(UDS_RDBIEnumerator):
 
 class UDS_WDBIEnumerator(UDS_Enumerator):
     _description = "Writeable data identifier per state"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'rdbi_enumerator': UDS_RDBIEnumerator
+    })
+
+    _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
+        :param rdbi_enumerator: Specifies an instance of an UDS_RDBIEnumerator
+                                which is used to extract possible data
+                                identifiers.
+        :type rdbi_enumerator: UDS_RDBIEnumerator"""
+
+    def execute(self, socket, state, **kwargs):
+        # type: (_SocketUnion, EcuState, Any) -> None
+        super(UDS_WDBIEnumerator, self).execute(socket, state, **kwargs)
+
+    execute.__doc__ = _supported_kwargs_doc
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -454,7 +496,8 @@ class UDS_SAEnumerator(UDS_Enumerator):
             # this is a retry execute. Wait much longer than usual because
             # a required time delay not expired could have been received
             # on the previous attempt
-            time.sleep(11)
+            if not global_configuration.unittest:
+                time.sleep(11)
 
     def _evaluate_retry(self,
                         state,  # type: EcuState
@@ -580,6 +623,9 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
             if not seed_pkt:
                 return False
 
+        if not any(seed_pkt.securitySeed):
+            return False
+
         key_pkt = UDS_SA_XOR_Enumerator.get_key_pkt(seed_pkt, level)
         if key_pkt is None:
             return False
@@ -634,6 +680,15 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
 
 class UDS_RCEnumerator(UDS_Enumerator):
     _description = "Available RoutineControls and negative response per state"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'type_list': list
+    })
+
+    _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
+        :param list type_list: A list of RoutineControlTypes which should
+                               be enumerated. Possible values = [1, 2, 3].
+                               """
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -775,6 +830,21 @@ class UDS_RMBAEnumeratorABC(UDS_Enumerator):
 
 
 class UDS_RMBARandomEnumerator(UDS_RMBAEnumeratorABC):
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'unittest': bool
+    })
+
+    _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
+        :param bool unittest: Enables smaller search space for unit-test
+                              scenarios. This safes execution time."""
+
+    def execute(self, socket, state, **kwargs):
+        # type: (_SocketUnion, EcuState, Any) -> None
+        super(UDS_RMBARandomEnumerator, self).execute(socket, state, **kwargs)
+
+    execute.__doc__ = _supported_kwargs_doc
+
     @staticmethod
     def _random_memory_addr_pkt(addr_len=None, size_len=None, size=None):
         # type: (Optional[int], Optional[int], Optional[int]) -> Packet
@@ -803,6 +873,23 @@ class UDS_RMBARandomEnumerator(UDS_RMBAEnumeratorABC):
 
 
 class UDS_RMBASequentialEnumerator(UDS_RMBAEnumeratorABC):
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'points_of_interest': list
+    })
+
+    _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
+        :param list points_of_interest: A list of _PointOfInterest objects as
+                                        starting points for sequential search.
+                                        """
+
+    def execute(self, socket, state, **kwargs):
+        # type: (_SocketUnion, EcuState, Any) -> None
+        super(UDS_RMBASequentialEnumerator, self).execute(
+            socket, state, **kwargs)
+
+    execute.__doc__ = _supported_kwargs_doc
+
     def __init__(self):
         # type: () -> None
         super(UDS_RMBASequentialEnumerator, self).__init__()
@@ -895,6 +982,8 @@ class UDS_RMBASequentialEnumerator(UDS_RMBAEnumeratorABC):
             self._state_completed[state] = False
             self._request_iterators[state] = new_requests
             self.__points_of_interest[state] = list()
+        else:
+            self._request_iterators[state] = list()
 
     def _evaluate_response(self,
                            state,  # type: EcuState
@@ -961,6 +1050,20 @@ class UDS_RMBAEnumerator(StagedAutomotiveTestCase):
 
 class UDS_RDEnumerator(UDS_Enumerator):
     _description = "RequestDownload supported"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'unittest': bool
+    })
+
+    _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
+        :param bool unittest: Enables smaller search space for unit-test
+                              scenarios. This safes execution time."""
+
+    def execute(self, socket, state, **kwargs):
+        # type: (_SocketUnion, EcuState, Any) -> None
+        super(UDS_RDEnumerator, self).execute(socket, state, **kwargs)
+
+    execute.__doc__ = _supported_kwargs_doc
 
     @staticmethod
     def _random_memory_addr_pkt(addr_len=None):  # noqa: E501
@@ -1009,6 +1112,28 @@ class UDS_TDEnumerator(UDS_Enumerator):
 
 
 class UDS_Scanner(AutomotiveTestCaseExecutor):
+    """
+    Example:
+        >>> def reconnect():
+        >>>     return UDS_DoIPSocket("169.254.186.237")
+        >>>
+        >>> es = [UDS_ServiceEnumerator, UDS_WDBISelectiveEnumerator]
+        >>>
+        >>> s = UDS_Scanner(reconnect(), reconnect_handler=reconnect,
+        >>>                 reset_handler=reset_ecu, test_cases=es,
+        >>>                 UDS_DSCEnumerator_kwargs={
+        >>>                     "timeout": 20,
+        >>>                     "overwrite_timeout": False,
+        >>>                     "scan_range": [1, 3]})
+        >>>
+        >>> try:
+        >>>     s.scan()
+        >>> except KeyboardInterrupt:
+        >>>     pass
+        >>>
+        >>> s.show_testcases_status()
+        >>> s.show_testcases()
+    """
     @property
     def default_test_case_clss(self):
         # type: () -> List[Type[AutomotiveTestCaseABC]]

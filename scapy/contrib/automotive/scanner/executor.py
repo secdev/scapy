@@ -31,6 +31,16 @@ class AutomotiveTestCaseExecutor:
     Base class for different automotive scanners. This class handles
     the connection to a scan target, ensures the execution of all it's
     test cases, and stores the system state machine
+
+
+    :param socket: A socket object to communicate with the scan target
+    :param reset_handler: A function to reset the scan target
+    :param reconnect_handler: In case the communication needs to be
+                              established after a reset, provide a
+                              reconnect function which returns a socket object
+    :param test_cases: A list of TestCase instances or classes
+    :param kwargs: Arguments for the internal
+                   AutomotiveTestCaseExecutorConfiguration instance
     """
     @property
     def __initial_ecu_state(self):
@@ -45,6 +55,7 @@ class AutomotiveTestCaseExecutor:
             test_cases=None,  # type: Optional[List[Union[AutomotiveTestCaseABC, Type[AutomotiveTestCaseABC]]]]  # noqa: E501
             **kwargs  # type: Optional[Dict[str, Any]]
     ):  # type: (...) -> None
+
         # The TesterPresentSender can interfere with a test_case, since a
         # target may only allow one request at a time.
         # The SingleConversationSocket prevents interleaving requests.

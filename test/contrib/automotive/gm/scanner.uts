@@ -43,7 +43,7 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
         scanner = GMLAN_Scanner(
             tester, reset_handler=reset,
             test_cases=enumerators, timeout=0.5, retry_if_none_received=True,
-            unittest=True, delay_state_change=0, **kwargs)
+            unittest=True, **kwargs)
         scanner.scan(timeout=200)
     finally:
         tester.send(Raw(b"\xff\xff\xff"))
