@@ -9,6 +9,7 @@
 
 import abc
 import time
+import copy
 from collections import defaultdict, OrderedDict
 from itertools import chain
 
@@ -46,7 +47,61 @@ _AutomotiveTestCaseFilteredScanResult = NamedTuple(
 
 @six.add_metaclass(abc.ABCMeta)
 class ServiceEnumerator(AutomotiveTestCase):
-    """ Base class for ServiceEnumerators of automotive diagnostic protocols"""
+    """
+    Base class for ServiceEnumerators of automotive diagnostic protocols
+    """
+
+    _supported_kwargs = copy.copy(AutomotiveTestCase._supported_kwargs)
+    _supported_kwargs.update({
+        'timeout': (int, float),
+        'execution_time': int,
+        'state_allow_list': (list, EcuState),
+        'state_block_list': (list, EcuState),
+        'retry_if_none_received': bool,
+        'exit_if_no_answer_received': bool,
+        'exit_if_service_not_supported': bool,
+        'exit_scan_on_first_negative_response': bool,
+        'retry_if_busy_returncode': bool,
+        'debug': bool,
+        'scan_range': (list, tuple, range)
+    })
+
+    _supported_kwargs_doc = AutomotiveTestCase._supported_kwargs_doc + """
+        :param timeout: Timeout until a response will arrive after a request
+        :type timeout: integer or float
+        :param int execution_time: Time in seconds until the execution of
+                                   this enumerator is stopped.
+        :param state_allow_list: List of EcuState objects or EcuState object
+                                 in which the the execution of this enumerator
+                                 is allowed. If provided, other states will not
+                                 be executed.
+        :type state_allow_list: EcuState or list
+        :param state_block_list: List of EcuState objects or EcuState object
+                                 in which the the execution of this enumerator
+                                 is blocked.
+        :type state_block_list: EcuState or list
+        :param bool retry_if_none_received: Specifies if a request will be send
+                                            again, if None was received
+                                            (usually because of a timeout).
+        :param bool exit_if_no_answer_received: Specifies to finish the
+                                                execution of this enumerator
+                                                once None is  received.
+        :param bool exit_if_service_not_supported: Specifies to finish the
+                                                   execution of this
+                                                   enumerator, once the
+                                                   negative return code
+                                                   'serviceNotSupported' is
+                                                   received.
+        :param bool exit_scan_on_first_negative_response: Specifies to finish
+                                                          the execution once a
+                                                          negative response is
+                                                          received.
+        :param bool retry_if_busy_returncode: Specifies to retry a request, if
+                                              the 'busyRepeatRequest' negative
+                                              response code is received.
+        :param bool debug: Enables debug functions during execute.
+        :param scan_range: Specifies the identifiers to be scanned.
+        :type scan_range: list or tuple or range or iterable"""
 
     def __init__(self):
         # type: () -> None
@@ -154,8 +209,10 @@ class ServiceEnumerator(AutomotiveTestCase):
         if retry_entry is None:
             return []
         elif isinstance(retry_entry, Packet):
+            log_interactive.debug("[i] Provide retry packet")
             return [retry_entry]
         else:
+            log_interactive.debug("[i] Provide retry iterator")
             # assume self.retry_pkt is a generator or list
             return retry_entry
 
@@ -174,8 +231,24 @@ class ServiceEnumerator(AutomotiveTestCase):
 
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None
+        self.check_kwargs(kwargs)
         timeout = kwargs.pop('timeout', 1)
         execution_time = kwargs.pop("execution_time", 1200)
+
+        state_block_list = kwargs.get('state_block_list', list())
+
+        if state_block_list and state in state_block_list:
+            self._state_completed[state] = True
+            log_interactive.debug("[i] State %s in block list!", repr(state))
+            return
+
+        state_allow_list = kwargs.get('state_allow_list', list())
+
+        if state_allow_list and state not in state_allow_list:
+            self._state_completed[state] = True
+            log_interactive.debug("[i] State %s not in allow list!",
+                                  repr(state))
+            return
 
         it = self.__get_request_iterator(state, **kwargs)
 
@@ -189,16 +262,15 @@ class ServiceEnumerator(AutomotiveTestCase):
             try:
                 res = socket.sr1(req, timeout=timeout, verbose=False)
             except (OSError, ValueError, Scapy_Exception) as e:
-                if self._retry_pkt[state] is None:
-                    log_interactive.debug(
-                        "[-] Exception '%s' in execute. Prepare for retry", e)
-                    self._retry_pkt[state] = req
-                else:
+                if not self._populate_retry(state, req):
                     log_interactive.critical(
                         "[-] Exception during retry. This is bad")
                 raise e
 
             if socket.closed:
+                if not self._populate_retry(state, req):
+                    log_interactive.critical(
+                        "[-] Socket closed during retry. This is bad")
                 log_interactive.critical("[-] Socket closed during scan.")
                 raise Scapy_Exception("Socket closed during scan")
 
@@ -219,6 +291,8 @@ class ServiceEnumerator(AutomotiveTestCase):
         self._state_completed[state] = True
         log_interactive.debug("[i] States completed %s",
                               repr(self._state_completed))
+
+    execute.__doc__ = _supported_kwargs_doc
 
     def _evaluate_response(self,
                            state,  # type: EcuState

@@ -7,7 +7,7 @@
 import io
 import pickle
 from scapy.contrib.isotp import ISOTPMessageBuilder
-from test.testsocket import TestSocket, cleanup_testsockets
+from test.testsocket import TestSocket, cleanup_testsockets, UnstableSocket
 
 ############
 ############
@@ -25,25 +25,34 @@ load_layer("can")
 
 = Define Testfunction
 
-conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.0
+conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.01
 
-def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwargs):
+def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstable_socket=True, **kwargs):
+    TesterSocket = UnstableSocket if unstable_socket else TestSocket
     ecu = TestSocket(UDS)
-    tester = TestSocket(UDS)
+    tester = TesterSocket(UDS)
     def reset():
         answering_machine.state.reset()
         answering_machine.state["session"] = 1
-        sniff(timeout=0.01, opened_socket=[ecu, tester])
+        sniff(timeout=0.001, opened_socket=[ecu, tester])
+    def reconnect():
+        tester = TesterSocket(UDS)
+        ecu.pair(tester)
+        return tester
     ecu.pair(tester)
     answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=UDS, verbose=False)
     sim = threading.Thread(target=answering_machine, kwargs={'timeout': 1000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:
         scanner = UDS_Scanner(
-            tester, reset_handler=reset, test_cases=enumerators, timeout=0.5,
-            retry_if_none_received=True, unittest=True, delay_state_change=0,
+            tester, reset_handler=reset, reconnect_handler=reconnect, test_cases=enumerators, timeout=0.1,
+            retry_if_none_received=True, unittest=True,
             **kwargs)
-        scanner.scan(timeout=200)
+        for i in range(100):
+            scanner.scan(timeout=20)
+            if scanner.scan_completed:
+                print("Scan completed after %d iterations" % i)
+                break
     finally:
         tester.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)
@@ -124,8 +133,15 @@ assert e._retry_pkt[s] == None
 scanner = executeScannerInVirtualEnvironment(
     mEcu.supported_responses,
     [UDS_SA_XOR_Enumerator, UDS_DSCEnumerator, UDS_ServiceEnumerator],
-    UDS_DSCEnumerator_kwargs={"scan_range": range(5)},
-    UDS_SA_XOR_Enumerator_kwargs={"scan_range": range(5)})
+    UDS_DSCEnumerator_kwargs={"scan_range": range(5), "delay_state_change": 0,
+                              "overwrite_timeout": False},
+    UDS_SA_XOR_Enumerator_kwargs={"scan_range": range(5)},
+    UDS_ServiceEnumerator_kwargs={"scan_range": [0x10, 0x11, 0x14, 0x19, 0x22,
+                                                 0x23, 0x24, 0x27, 0x28, 0x29,
+                                                 0x2A, 0x2C, 0x2E, 0x2F, 0x31,
+                                                 0x34, 0x35, 0x36, 0x37, 0x38,
+                                                 0x3D, 0x3E, 0x83, 0x84, 0x85,
+                                                 0x87]})
 
 assert len(scanner.state_paths) == 5
 assert scanner.scan_completed
@@ -174,14 +190,14 @@ assert len(tc.results_without_response) < 10
 if tc.results_without_response:
     tc.show()
 
-assert len(tc.results_with_negative_response) == 640
+assert len(tc.results_with_negative_response) == 130
 assert len(tc.results_with_positive_response) == 0
 assert len(tc.scanned_states) == 5
 
 result = tc.show(dump=True)
 
 assert "incorrectMessageLengthOrInvalidFormat received 34 times" in result
-assert "serviceNotSupported received 585 times" in result
+assert "serviceNotSupported received 75 times" in result
 assert "serviceNotSupportedInActiveSession received 19 times" in result
 assert "securityAccessDenied received 2 times" in result
 
@@ -225,6 +241,7 @@ assert 3 in ids
 assert 0xff in ids
 
 = UDS_RDBISelectiveEnumerator
+~ not_pypy
 
 resps = [EcuResponse(None, [UDS()/UDS_RDBIPR(dataIdentifier=0x101)/Raw(b"asdfbeef1")]),
          EcuResponse(None, [UDS()/UDS_RDBIPR(dataIdentifier=0x102)/Raw(b"beef2")]),
@@ -742,7 +759,8 @@ resps = [EcuResponse(None, [UDS()/UDS_RDPR()], answers=answers_rd),
 
 #######################################################
 scanner = executeScannerInVirtualEnvironment(
-    resps, [UDS_RDEnumerator], UDS_RDEnumerator_kwargs={"unittest": True})
+    resps, [UDS_RDEnumerator], unstable_socket=False,
+    UDS_RDEnumerator_kwargs={"unittest": True})
 
 assert scanner.scan_completed
 tc1 = scanner.configuration.test_cases[0]
@@ -807,7 +825,7 @@ resps = [EcuResponse(None, [UDS()/UDS_RMBAPR(dataRecord=b'')], answers=answers_r
 
 #######################################################
 scanner = executeScannerInVirtualEnvironment(
-    resps, [UDS_RMBAEnumerator],
+    resps, [UDS_RMBAEnumerator], unstable_socket=False,
     UDS_RMBARandomEnumerator_kwargs={"unittest": True})
 
 assert scanner.scan_completed

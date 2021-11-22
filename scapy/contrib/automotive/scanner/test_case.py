@@ -17,6 +17,7 @@ import scapy.modules.six as six
 from scapy.supersocket import SuperSocket
 from scapy.contrib.automotive.scanner.graph import _Edge
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse
+from scapy.error import Scapy_Exception
 
 
 if TYPE_CHECKING:
@@ -41,6 +42,10 @@ class AutomotiveTestCaseABC:
     manipulates a device under test (DUT), to enter a certain state. In this
     state, the TestCase object gets executed.
     """
+
+    _supported_kwargs = {}  # type: Dict[str, Any]
+    _supported_kwargs_doc = ""
+
     @abc.abstractmethod
     def has_completed(self, state):
         # type: (EcuState) -> bool
@@ -137,6 +142,8 @@ class AutomotiveTestCase(AutomotiveTestCaseABC):
     """ Base class for TestCases"""
 
     _description = "AutomotiveTestCase"
+    _supported_kwargs = AutomotiveTestCaseABC._supported_kwargs
+    _supported_kwargs_doc = AutomotiveTestCaseABC._supported_kwargs_doc
 
     def __init__(self):
         # type: () -> None
@@ -145,6 +152,18 @@ class AutomotiveTestCase(AutomotiveTestCaseABC):
     def has_completed(self, state):
         # type: (EcuState) -> bool
         return self._state_completed[state]
+
+    @classmethod
+    def check_kwargs(cls, kwargs):
+        # type: (Dict[str, Any]) -> None
+        for k, v in kwargs.items():
+            if k not in cls._supported_kwargs.keys():
+                raise Scapy_Exception("Keyword-Argument %s not supported" % k)
+            ti = cls._supported_kwargs[k]
+            if ti is not None and not isinstance(v, ti):
+                raise Scapy_Exception(
+                    "Keyword-Value '%s' is not instance of type %s" %
+                    (k, str(ti)))
 
     @property
     def completed(self):

@@ -198,8 +198,48 @@ class GMLAN_IDOEnumerator(GMLAN_Enumerator, StateGeneratingServiceEnumerator):
         return "InitiateDiagnosticOperation:"
 
 
+class GMLAN_RDBIEnumerator(GMLAN_Enumerator):
+    _description = "Readable data identifier per state"
+
+    def _get_initial_requests(self, **kwargs):
+        # type: (Any) -> Iterable[Packet]
+        scan_range = kwargs.pop("scan_range", range(0x100))
+        return (GMLAN() / GMLAN_RDBI(dataIdentifier=x) for x in scan_range)
+
+    @staticmethod
+    def print_information(resp):
+        # type: (Packet) -> str
+        load = bytes(resp)[2:] if len(resp) > 3 else b"No data available"
+        return "PR: %r" % ((load[:17] + b"...") if len(load) > 20 else load)
+
+    def _get_table_entry_y(self, tup):
+        # type: (_AutomotiveTestCaseScanResult) -> str
+        return "0x%04x: %s" % (tup[1].dataIdentifier,
+                               tup[1].sprintf("%GMLAN_RDBI.dataIdentifier%"))
+
+    def _get_table_entry_z(self, tup):
+        # type: (_AutomotiveTestCaseScanResult) -> str
+        return self._get_label(tup[2], self.print_information)
+
+
 class GMLAN_WDBIEnumerator(GMLAN_Enumerator):
     _description = "Writeable data identifier per state"
+    _supported_kwargs = copy.copy(GMLAN_Enumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'rdbi_enumerator': GMLAN_RDBIEnumerator
+    })
+
+    _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
+        :param rdbi_enumerator: Specifies an instance of a GMLAN_RDBIEnumerator
+                                which is used to extract possible data
+                                identifiers.
+        :type rdbi_enumerator: GMLAN_RDBIEnumerator"""
+
+    def execute(self, socket, state, **kwargs):
+        # type: (_SocketUnion, EcuState, Any) -> None
+        super(GMLAN_WDBIEnumerator, self).execute(socket, state, **kwargs)
+
+    execute.__doc__ = _supported_kwargs_doc
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -242,6 +282,21 @@ class GMLAN_WDBISelectiveEnumerator(StagedAutomotiveTestCase):
 class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
     _description = "SecurityAccess supported"
     _transition_function_args = dict()  # type: Dict[_Edge, Tuple[int, Optional[Callable[[int], int]]]]  # noqa: E501
+    _supported_kwargs = copy.copy(GMLAN_Enumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'keyfunction': None
+    })
+
+    _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
+        :param keyfunction: Specifies a function to generate the key from a
+                            given seed.
+        :type keyfunction: Callable[[int], int]"""
+
+    def execute(self, socket, state, **kwargs):
+        # type: (_SocketUnion, EcuState, Any) -> None
+        super(GMLAN_SAEnumerator, self).execute(socket, state, **kwargs)
+
+    execute.__doc__ = _supported_kwargs_doc
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -483,30 +538,6 @@ class GMLAN_PMEnumerator(GMLAN_Enumerator, StateGeneratingServiceEnumerator):
         return "ProgrammingMode:"
 
 
-class GMLAN_RDBIEnumerator(GMLAN_Enumerator):
-    _description = "Readable data identifier per state"
-
-    def _get_initial_requests(self, **kwargs):
-        # type: (Any) -> Iterable[Packet]
-        scan_range = kwargs.pop("scan_range", range(0x100))
-        return (GMLAN() / GMLAN_RDBI(dataIdentifier=x) for x in scan_range)
-
-    @staticmethod
-    def print_information(resp):
-        # type: (Packet) -> str
-        load = bytes(resp)[2:] if len(resp) > 3 else b"No data available"
-        return "PR: %r" % ((load[:17] + b"...") if len(load) > 20 else load)
-
-    def _get_table_entry_y(self, tup):
-        # type: (_AutomotiveTestCaseScanResult) -> str
-        return "0x%04x: %s" % (tup[1].dataIdentifier,
-                               tup[1].sprintf("%GMLAN_RDBI.dataIdentifier%"))
-
-    def _get_table_entry_z(self, tup):
-        # type: (_AutomotiveTestCaseScanResult) -> str
-        return self._get_label(tup[2], self.print_information)
-
-
 class GMLAN_RDBPIEnumerator(GMLAN_Enumerator):
     _description = "Readable parameter identifier per state"
 
@@ -528,6 +559,25 @@ class GMLAN_RDBPIEnumerator(GMLAN_Enumerator):
 
 class GMLAN_RMBAEnumerator(GMLAN_Enumerator):
     _description = "Readable Memory Addresses and negative response per state"
+
+    _supported_kwargs = copy.copy(GMLAN_Enumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'probe_width': int,
+        'random_probes_len': int,
+        'sequential_probes_len': int
+    })
+
+    _supported_kwargs_doc = GMLAN_Enumerator._supported_kwargs_doc + """
+        :param int probe_width: Memory size of a probe.
+        :param int random_probes_len: Number of probes.
+        :param int sequential_probes_len: Size of a memory block during
+                                          sequential probing."""
+
+    def execute(self, socket, state, **kwargs):
+        # type: (_SocketUnion, EcuState, Any) -> None
+        super(GMLAN_RMBAEnumerator, self).execute(socket, state, **kwargs)
+
+    execute.__doc__ = _supported_kwargs_doc
 
     def __init__(self):
         # type: () -> None

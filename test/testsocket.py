@@ -7,13 +7,13 @@
 # scapy.contrib.status = library
 
 import time
+import random
 
 from scapy.config import conf
-import scapy.modules.six as six
 from scapy.automaton import ObjectPipe, select_objects
 from scapy.data import MTU
 from scapy.packet import Packet
-from scapy.plist import PacketList, SndRcvList
+from scapy.error import Scapy_Exception
 from scapy.compat import Optional, Type, Tuple, Any, List, cast
 from scapy.supersocket import SuperSocket
 
@@ -44,6 +44,11 @@ class TestSocket(ObjectPipe[Packet], SuperSocket):
 
     def close(self):
         # type: () -> None
+        for s in self.paired_sockets:
+            try:
+                s.paired_sockets.remove(self)
+            except ValueError:
+                pass
         self.closed = True
         super(TestSocket, self).close()
 
@@ -80,6 +85,25 @@ class TestSocket(ObjectPipe[Packet], SuperSocket):
         sock = [s for s in sockets if isinstance(s, ObjectPipe) and
                 not s._closed]
         return cast(List[SuperSocket], select_objects(sock, remain))
+
+
+class UnstableSocket(TestSocket):
+    """
+    This is an unstable socket which randomly fires exceptions or loses
+    packets on recv.
+    """
+
+    def recv(self, x=MTU):  # type: ignore
+        # type: (int) -> Optional[Packet]
+        if random.randint(0, 1000) == 42:
+            raise OSError("Socket closed")
+        if random.randint(0, 1000) == 13:
+            raise Scapy_Exception("Socket closed")
+        if random.randint(0, 1000) == 7:
+            raise ValueError("Socket closed")
+        if random.randint(0, 1000) == 113:
+            return None
+        return super(UnstableSocket, self).recv(x)
 
 
 def cleanup_testsockets():
