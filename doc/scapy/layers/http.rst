@@ -112,10 +112,10 @@ Send an HTTPRequest to ``www.secdev.org`` and write the result in a file:
         Pragma=b'no-cache'
     )
     a = TCP_client.tcplink(HTTP, "www.secdev.org", 80)
-    answser = a.sr1(req)
+    answer = a.sr1(req)
     a.close()
     with open("www.secdev.org.html", "wb") as file:
-        file.write(answser.load)
+        file.write(answer.load)
 
 ``TCP_client.tcplink`` makes it feel like it only received one packet, but in reality it was recombined in ``TCPSession``.
 If you performed a plain ``sniff()``, you would have seen those packets.
