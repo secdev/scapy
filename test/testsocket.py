@@ -44,6 +44,7 @@ class TestSocket(ObjectPipe[Packet], SuperSocket):
 
     def close(self):
         # type: () -> None
+        global open_test_sockets
         for s in self.paired_sockets:
             try:
                 s.paired_sockets.remove(self)
@@ -51,6 +52,10 @@ class TestSocket(ObjectPipe[Packet], SuperSocket):
                 pass
         self.closed = True
         super(TestSocket, self).close()
+        try:
+            open_test_sockets.remove(self)
+        except ValueError:
+            pass
 
     def pair(self, sock):
         # type: (TestSocket) -> None
@@ -86,6 +91,10 @@ class TestSocket(ObjectPipe[Packet], SuperSocket):
                 not s._closed]
         return cast(List[SuperSocket], select_objects(sock, remain))
 
+    def __del__(self):
+        # type: () -> None
+        self.close()
+
 
 class UnstableSocket(TestSocket):
     """
@@ -111,7 +120,5 @@ def cleanup_testsockets():
     """
     Helper function to remove TestSocket objects after a test
     """
-    global open_test_sockets
     for sock in open_test_sockets:
         sock.close()
-        del sock
