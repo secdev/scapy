@@ -2479,6 +2479,7 @@ def fuzz(p,  # type: Packet
                 for key, val in six.iteritems(new_default_fields)
             }
             q.default_fields.update(new_default_fields)
+            new_default_fields.clear()
             # add the random values of the MultipleTypeFields
             for name in multiple_type_fields:
                 fld = cast(MultipleTypeField, q.get_field(name))
