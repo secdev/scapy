@@ -2577,6 +2577,7 @@ def fuzz(p,  # type: _P
                 for key, val in new_default_fields.items()
             }
             q.default_fields.update(new_default_fields)
+            new_default_fields.clear()
             # add the random values of the MultipleTypeFields
             for name in multiple_type_fields:
                 fld = cast(MultipleTypeField, q.get_field(name))
