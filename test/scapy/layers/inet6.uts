@@ -51,6 +51,14 @@ GRE in p and p[GRE:1].proto == 0x6558 and p[GRE:2].proto == 0x86DD and IPv6 in p
 = IPv6 ma_addr coverage on hashret
 IPv6(dst="ff00::1:ff28:9c5a", src="::").hashret() == b';'
 
+= PseudoIPv6
+p = PseudoIPv6(src="fd00::abcd", dst="fd00::1234", uplen=64, nh=socket.IPPROTO_UDP)
+raw(p) == b"\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xab\xcd\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x12\x34\x00\x00\x00\x40\x00\x00\x00\x11"
+
+= in6_chksum is computed on UDP or TCP build
+p = IPv6(raw(IPv6()/UDP()/Raw(load="somedata")))
+assert p.chksum == 0x45cb
+
 ########### IPv6ExtHdrRouting Class ###########################
 
 = IPv6ExtHdrRouting Class - No address - build
