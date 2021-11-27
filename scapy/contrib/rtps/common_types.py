@@ -18,9 +18,8 @@ this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
 
-# scapy.contrib.description = RTPS wire protocol
-# scapy.contrib.status = loads
-# scapy.contrib.name = rtps
+# scapy.contrib.description = RTPS common types
+# scapy.contrib.status = library
 
 import struct
 import warnings
