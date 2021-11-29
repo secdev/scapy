@@ -50,7 +50,12 @@ assert(raw(PID_BUILTIN_ENDPOINT_QOS(parameterId=119, parameterLength=0, paramete
 
 + Test RTPS
 = RTPS default header values
-assert(raw(RTPS()) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+pkt2 = RTPS()/RTPSMessage(submessages=[
+    RTPSSubMessage_HEARTBEAT(),
+    RTPSSubMessage_INFO_TS(),
+    RTPSSubMessage_DATA(),
+])
+assert(bytes(RTPS()) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 
 = RTPS header dissect
 p = RTPS(pkt)

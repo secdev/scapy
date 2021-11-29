@@ -28,6 +28,8 @@ from scapy.base_classes import Packet_metaclass
 from scapy.fields import (
     ConditionalField,
     IntField,
+    LELongField,
+    LongField,
     PacketField,
     PacketListField,
     ShortField,
@@ -37,6 +39,8 @@ from scapy.fields import (
     X3BytesField,
     XByteField,
     XIntField,
+    XLELongField,
+    XLongField,
     XNBytesField,
     XShortField,
     XStrLenField,
@@ -396,10 +400,8 @@ class RTPSSubMessage_HEARTBEAT(EPacket):
             fmt="4s",
             enum=_rtps_reserved_entity_ids,
         ),
-        EField(IntField("firstAvailableSeqNumHi", 0)),
-        EField(IntField("firstAvailableSeqNumLow", 0)),
-        EField(IntField("lastSeqNumHi", 0)),
-        EField(IntField("lastSeqNumLow", 0)),
+        XLongField("firstAvailableSeqNum", 0),
+        XLongField("lastSeqNum", 0),
         EField(IntField("count", 0)),
     ]
 
