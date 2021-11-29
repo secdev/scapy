@@ -524,7 +524,7 @@ def _run_test_timeout(test, get_interactive_session, verb=3, my_globals=None):
     from scapy.autorun import StopAutorunTimeout
     try:
         return get_interactive_session(test,
-                                       timeout=3 * 60,  # 3 min
+                                       timeout=5 * 60,  # 5 min
                                        verb=verb,
                                        my_globals=my_globals)
     except StopAutorunTimeout:
