@@ -28,8 +28,6 @@ from scapy.base_classes import Packet_metaclass
 from scapy.fields import (
     ConditionalField,
     IntField,
-    LELongField,
-    LongField,
     PacketField,
     PacketListField,
     ShortField,
@@ -39,7 +37,6 @@ from scapy.fields import (
     X3BytesField,
     XByteField,
     XIntField,
-    XLELongField,
     XLongField,
     XNBytesField,
     XShortField,

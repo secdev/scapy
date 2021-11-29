@@ -17,7 +17,7 @@ this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
 
-# scapy.contrib.description = Real-Time Publish-Subscribe Protocol (RTPS) protocol
+# scapy.contrib.description = Real-Time Publish-Subscribe Protocol (RTPS)
 # scapy.contrib.status = loads
 # scapy.contrib.name = rtps
 
