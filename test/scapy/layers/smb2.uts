@@ -12,19 +12,18 @@ assert pkt[NBTSession].LENGTH == 236
 assert SMB2_Header in pkt
 smb2 = pkt[SMB2_Header]
 # Check header values
-print(smb2.show())
+
 assert smb2.Start == b'\xfeSMB'
-assert smb2.HeaderLength == 64
+assert smb2.StructureSize == 64
 assert smb2.CreditCharge == 1
 assert smb2.ChannelSequence == 0
 assert smb2.Command == 0
 assert smb2.CreditsRequested == 0
 assert smb2.Flags == 0
-assert smb2.ChainOffset == 0
-assert smb2.MessageID == 0
-assert smb2.ProcessID == 0
-assert smb2.TreeID == 0
-assert smb2.SessionID == 0
+assert smb2.NextCommand == 0
+assert smb2.MessageId == 0
+assert smb2.AsyncID == 0
+assert smb2.SessionId == 0
 assert smb2.Signature == 0xffeeddccbbaa99887766554433221100
 
 # KO test
@@ -55,7 +54,7 @@ assert pkt[NBTSession].TYPE == 0x00         # session message
 smb2 = pkt[SMB2_Header]
 assert smb2.Start == b'\xfeSMB'
 
-+ SMB2 Negociate Procotol Request Header dissecting
++ SMB2 Negotiate Procotol Request Header dissecting
 
 = Common fields in header
 
@@ -67,16 +66,16 @@ assert TCP in pkt
 assert NBTSession in pkt
 assert pkt[NBTSession].LENGTH == 236
 assert SMB2_Header in pkt
-assert SMB2_Negociate_Protocol_Request_Header in pkt
-nego_req = pkt[SMB2_Negociate_Protocol_Request_Header]
+assert SMB2_Negotiate_Protocol_Request in pkt
+nego_req = pkt[SMB2_Negotiate_Protocol_Request]
 # Check field values
 assert nego_req.StructureSize == 0x24
 assert nego_req.DialectCount == 4
 assert nego_req.SecurityMode == 0
-assert nego_req.Capabilities == 0x7f000000 
+assert nego_req.Capabilities == 0x7f
 assert str(nego_req.ClientGUID) == 'f1849e59-619d-99ce-1f50-5c044474b10a'
-assert nego_req.NegociateContextOffset == 0x70
-assert nego_req.NegociateCount == 4
+assert nego_req.NegotiateContextOffset == 0x70
+assert nego_req.NegotiateCount == 4
 for dialect in nego_req.Dialects:
     assert dialect in SMB_DIALECTS.keys()
 
@@ -88,11 +87,11 @@ assert 0x300 in nego_req.Dialects
 assert 0x302 in nego_req.Dialects
 # Check SMB 3.1.1
 assert 0x311 in nego_req.Dialects
-assert len(nego_req.NegociateContexts) == nego_req.NegociateCount
+assert len(nego_req.NegotiateContexts) == nego_req.NegotiateCount
 
-= SMB2 Negociate Context in Request - type PREAUTH - disassemble
+= SMB2 Negotiate Context in Request - type PREAUTH - disassemble
 
-preauth = nego_req.NegociateContexts[0]
+preauth = nego_req.NegotiateContexts[0]
 assert preauth.ContextType == 0x1
 assert preauth.DataLength == 38
 assert preauth.HashAlgorithmCount == 1
@@ -101,9 +100,9 @@ assert preauth.Salt == b'\x75\x06\x05\xed\x60\x88\x9e\xcb\x5e\x79\xbb\xe8\x44\x5
 assert len(preauth.HashAlgorithms) == 1
 assert preauth.HashAlgorithms[0] == 0x1
 
-= SMB2 Negociate Context in Request - type ENCRYPTION disassemble
+= SMB2 Negotiate Context in Request - type ENCRYPTION disassemble
 
-enc = nego_req.NegociateContexts[1]
+enc = nego_req.NegotiateContexts[1]
 assert enc.ContextType == 0x2
 assert enc.DataLength == 6
 assert enc.CipherCount == 2
@@ -112,9 +111,9 @@ assert enc.Ciphers[0] == 1
 assert enc.Ciphers[1] == 2
 
 
-= SMB2 Negociate Context in Request - type COMPRESSION
+= SMB2 Negotiate Context in Request - type COMPRESSION
 
-comp = nego_req.NegociateContexts[2]
+comp = nego_req.NegotiateContexts[2]
 assert comp.ContextType == 0x3
 assert comp.DataLength == 16
 assert comp.CompressionAlgorithmCount == 4
@@ -125,28 +124,28 @@ assert comp.CompressionAlgorithms[2] == 3
 assert comp.CompressionAlgorithms[3] == 4
 
 
-= SMB2 Negociate Context in Request - type NETNAME NEGOCIATE
+= SMB2 Negotiate Context in Request - type NETNAME NEGOCIATE
 
-netname = nego_req.NegociateContexts[3]
+netname = nego_req.NegotiateContexts[3]
 assert netname.ContextType == 0x5
 assert netname.DataLength == 28
 assert netname.NetName == '192.168.178.21'
 
-= test SMB2 Negociate Protocol Request Header - assembling
+= test SMB2 Negotiate Protocol Request Header - assembling
 
-pkt = IP() / TCP() / NBTSession() / SMB2_Header() / SMB2_Negociate_Protocol_Request_Header()
+pkt = IP() / TCP() / NBTSession() / SMB2_Header() / SMB2_Negotiate_Protocol_Request()
 pkt = IP(raw(pkt))
-assert SMB2_Negociate_Protocol_Request_Header in pkt
+assert SMB2_Negotiate_Protocol_Request in pkt
 
 = Request with no 0x0311 in dialects
 
 preauth = SMB2_Preauth_Integrity_Capabilities()
-preauth_context = SMB2_Negociate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
+preauth_context = SMB2_Negotiate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
 
-pkt = SMB2_Negociate_Protocol_Request_Header(Dialects=[0x0202], NegociateContexts=[preauth_context])
-assert pkt.__class__(raw(pkt)).NegociateContexts is None
+pkt = SMB2_Negotiate_Protocol_Request(Dialects=[0x0202], NegotiateContexts=[preauth_context])
+assert pkt.__class__(raw(pkt)).NegotiateContexts is None
 
-+ SMB2 Negociate Protocol Response Header dissecting
++ SMB2 Negotiate Protocol Response Header dissecting
 
 = Common fields in header
 
@@ -157,30 +156,30 @@ assert TCP in pkt
 assert NBTSession in pkt
 assert pkt[NBTSession].LENGTH == 530
 assert SMB2_Header in pkt
-assert SMB2_Negociate_Protocol_Response_Header in pkt
-nego_resp = pkt[SMB2_Negociate_Protocol_Response_Header]
+assert SMB2_Negotiate_Protocol_Response in pkt
+nego_resp = pkt[SMB2_Negotiate_Protocol_Response]
 # check field values
-print(nego_resp.show())
+
 print(repr(nego_resp.SecurityMode))
 print(dir(nego_resp.SecurityMode))
 assert nego_resp.StructureSize == 0x41
-assert str(nego_resp.SecurityMode) == 'Signing Enabled'
-assert nego_resp.Dialect == 0x0311
-assert nego_resp.NegociateCount == 0x3
+assert str(nego_resp.SecurityMode) == 'Signing Required'
+assert nego_resp.DialectRevision == 0x0311
+assert nego_resp.NegotiateCount == 0x3
 assert str(nego_resp.ServerGUID) == '1cdd6d53-1f30-4244-a5c8-88737a6805e1'
-assert nego_resp.Capabilities == 0x2f000000
+assert nego_resp.Capabilities == 0x2f
 assert nego_resp.MaxTransactionSize == 0x00800000
 assert nego_resp.MaxReadSize == 0x00800000
 assert nego_resp.MaxWriteSize == 0x00800000
-assert nego_resp.SecurityBufferOffset == 0x00000080
-assert nego_resp.SecurityBufferLength == 320
-assert nego_resp.NegociateContextOffset == 0x1c0
-assert nego_resp.SecurityBuffer == b"`\x82\x01<\x06\x06+\x06\x01\x05\x05\x02\xa0\x82\x0100\x82\x01,\xa0\x1a0\x18\x06\n+\x06\x01\x04\x01\x827\x02\x02\x1e\x06\n+\x06\x01\x04\x01\x827\x02\x02\n\xa2\x82\x01\x0c\x04\x82\x01\x08NEGOEXTS\x01\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00p\x00\x00\x00\x11p\xff\xd0\xfa\xf1O\xa2o@\\\x94UhS\xcf\xa1w\x02z2\xa9bx\n!\xfb\x9e,^\xe9x\xeb\xab\xee\x91\xfd\xfc\xda\x0f\xc5\x91\x03n\xf8\xfdL\x08\x00\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\\3S\r\xea\xf9\rM\xb2\xecJ\xe3xn\xc3\x08NEGOEXTS\x03\x00\x00\x00\x01\x00\x00\x00@\x00\x00\x00\x98\x00\x00\x00\x11p\xff\xd0\xfa\xf1O\xa2o@\\\x94UhS\xcf\\3S\r\xea\xf9\rM\xb2\xecJ\xe3xn\xc3\x08@\x00\x00\x00X\x00\x00\x000V\xa0T0R0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key"
-assert len(nego_resp.NegociateContexts) == 3
+assert nego_resp.SecurityBlobOffset == 0x00000080
+assert nego_resp.SecurityBlobLength == 320
+assert nego_resp.NegotiateContextOffset == 0x1c0
+assert nego_resp.SecurityBlob.innerContextToken.token.mechToken.value.val == b"NEGOEXTS\x01\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00p\x00\x00\x00\x11p\xff\xd0\xfa\xf1O\xa2o@\\\x94UhS\xcf\xa1w\x02z2\xa9bx\n!\xfb\x9e,^\xe9x\xeb\xab\xee\x91\xfd\xfc\xda\x0f\xc5\x91\x03n\xf8\xfdL\x08\x00\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\\3S\r\xea\xf9\rM\xb2\xecJ\xe3xn\xc3\x08NEGOEXTS\x03\x00\x00\x00\x01\x00\x00\x00@\x00\x00\x00\x98\x00\x00\x00\x11p\xff\xd0\xfa\xf1O\xa2o@\\\x94UhS\xcf\\3S\r\xea\xf9\rM\xb2\xecJ\xe3xn\xc3\x08@\x00\x00\x00X\x00\x00\x000V\xa0T0R0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key"
+assert len(nego_resp.NegotiateContexts) == 3
 
-= SMB2 Negociate Context in Response - Type PREAUTH
+= SMB2 Negotiate Context in Response - Type PREAUTH
 
-preauth = nego_resp.NegociateContexts[0]
+preauth = nego_resp.NegotiateContexts[0]
 assert preauth.ContextType == 0x0001
 assert preauth.DataLength == 38
 assert preauth.HashAlgorithmCount == 1
@@ -189,39 +188,39 @@ assert preauth.Salt == b"\x09\x33\xe9\xe8\xcb\xf4\x8a\x5c\x61\x4d\x38\x42\xa1\x5
 assert len(preauth.HashAlgorithms) == 1
 assert preauth.HashAlgorithms[0] == 0x1
 
-= SMB2 Negociate Context in Response - Type ENCRYPTION
+= SMB2 Negotiate Context in Response - Type ENCRYPTION
 
-enc = nego_resp.NegociateContexts[1]
+enc = nego_resp.NegotiateContexts[1]
 assert enc.ContextType == 0x0002
 assert enc.DataLength == 4
 assert enc.CipherCount == 1
 assert len(enc.Ciphers) == 1
 assert enc.Ciphers[0] == 1
 
-= SMB2 Negociate Context in Response - Type COMPRESSION
+= SMB2 Negotiate Context in Response - Type COMPRESSION
 
-comp = nego_resp.NegociateContexts[2]
+comp = nego_resp.NegotiateContexts[2]
 assert comp.ContextType == 0x0003
 assert comp.DataLength  == 10
 assert comp.CompressionAlgorithmCount == 1
 assert len(comp.CompressionAlgorithms) == 1
 assert comp.CompressionAlgorithms[0] == 1
 
-= SMB2 Negociate Protocol Response Header assembling
+= SMB2 Negotiate Protocol Response Header assembling
 
-pkt = IP() / TCP() / NBTSession() / SMB2_Header() / SMB2_Negociate_Protocol_Response_Header()
+pkt = IP() / TCP() / NBTSession() / SMB2_Header() / SMB2_Negotiate_Protocol_Response()
 pkt = IP(raw(pkt))
-assert SMB2_Negociate_Protocol_Response_Header in pkt
+assert SMB2_Negotiate_Protocol_Response in pkt
 
 = Response with dialect different from 0x0311
 
 preauth = SMB2_Preauth_Integrity_Capabilities()
-preauth_context = SMB2_Negociate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
+preauth_context = SMB2_Negotiate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
 
-pkt = SMB2_Negociate_Protocol_Response_Header(Dialect=0x0202, NegociateContexts=[preauth_context])
-assert pkt.__class__(raw(pkt)).NegociateContexts is None
+pkt = SMB2_Negotiate_Protocol_Response(DialectRevision=0x0202, NegotiateContexts=[preauth_context])
+assert pkt.__class__(raw(pkt)).NegotiateContexts is None
 
-+ SMB2 Negociate Procotol Request Header with 1 dialect
++ SMB2 Negotiate Procotol Request Header with 1 dialect
 
 = Common fields in header
 
@@ -233,26 +232,26 @@ assert TCP in pkt
 assert NBTSession in pkt
 assert pkt[NBTSession].LENGTH == 228
 assert SMB2_Header in pkt
-assert SMB2_Negociate_Protocol_Request_Header in pkt
-nego_req = pkt[SMB2_Negociate_Protocol_Request_Header]
+assert SMB2_Negotiate_Protocol_Request in pkt
+nego_req = pkt[SMB2_Negotiate_Protocol_Request]
 # Check field values
 assert nego_req.StructureSize == 0x24
 assert nego_req.DialectCount == 1
 assert nego_req.SecurityMode == 0
-assert nego_req.Capabilities == 0x7f000000
+assert nego_req.Capabilities == 0x7f
 assert str(nego_req.ClientGUID) == 'f1849e59-619d-99ce-1f50-5c044474b10a'
-assert nego_req.NegociateContextOffset == 0x68
-assert nego_req.NegociateCount == 4
+assert nego_req.NegotiateContextOffset == 0x68
+assert nego_req.NegotiateCount == 4
 for dialect in nego_req.Dialects:
     assert dialect in SMB_DIALECTS.keys()
 
 # Check SMB 3.1.1
 assert 0x311 in nego_req.Dialects
-assert len(nego_req.NegociateContexts) == nego_req.NegociateCount
+assert len(nego_req.NegotiateContexts) == nego_req.NegotiateCount
 
-= SMB2 Negociate Context in Request - type PREAUTH - disassemble
+= SMB2 Negotiate Context in Request - type PREAUTH - disassemble
 
-preauth = nego_req.NegociateContexts[0]
+preauth = nego_req.NegotiateContexts[0]
 assert preauth.ContextType == 0x1
 assert preauth.DataLength == 38
 assert preauth.HashAlgorithmCount == 1
@@ -261,9 +260,9 @@ assert preauth.Salt == b'\x75\x06\x05\xed\x60\x88\x9e\xcb\x5e\x79\xbb\xe8\x44\x5
 assert len(preauth.HashAlgorithms) == 1
 assert preauth.HashAlgorithms[0] == 0x1
 
-= SMB2 Negociate Context in Request - type ENCRYPTION disassemble
+= SMB2 Negotiate Context in Request - type ENCRYPTION disassemble
 
-enc = nego_req.NegociateContexts[1]
+enc = nego_req.NegotiateContexts[1]
 assert enc.ContextType == 0x2
 assert enc.DataLength == 6
 assert enc.CipherCount == 2
@@ -272,9 +271,9 @@ assert enc.Ciphers[0] == 1
 assert enc.Ciphers[1] == 2
 
 
-= SMB2 Negociate Context in Request - type COMPRESSION
+= SMB2 Negotiate Context in Request - type COMPRESSION
 
-comp = nego_req.NegociateContexts[2]
+comp = nego_req.NegotiateContexts[2]
 assert comp.ContextType == 0x3
 assert comp.DataLength == 16
 assert comp.CompressionAlgorithmCount == 4
@@ -285,51 +284,51 @@ assert comp.CompressionAlgorithms[2] == 3
 assert comp.CompressionAlgorithms[3] == 4
 
 
-= SMB2 Negociate Context in Request - type NETNAME NEGOCIATE
+= SMB2 Negotiate Context in Request - type NETNAME NEGOCIATE
 
-netname = nego_req.NegociateContexts[3]
+netname = nego_req.NegotiateContexts[3]
 assert netname.ContextType == 0x5
 assert netname.DataLength == 28
 assert netname.NetName == '192.168.178.21'
 
-+ SMB2 Negociate Protocol Request Header default values
++ SMB2 Negotiate Protocol Request Header default values
 
 = Default DialectCount
 
-pkt = SMB2_Negociate_Protocol_Request_Header()
+pkt = SMB2_Negotiate_Protocol_Request()
 assert len(pkt.Dialects) == pkt.__class__(raw(pkt)).DialectCount
 
-= Default NegociateCount
+= Default NegotiateCount
 
 preauth = SMB2_Preauth_Integrity_Capabilities()
-preauth_context = SMB2_Negociate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
+preauth_context = SMB2_Negotiate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
 
-pkt = SMB2_Negociate_Protocol_Request_Header(Dialects=[0x0311], NegociateContexts=[preauth_context], NegociateContextOffset=0x68)
-assert len(pkt.NegociateContexts) == pkt.__class__(raw(pkt)).NegociateCount
+pkt = SMB2_Negotiate_Protocol_Request(Dialects=[0x0311], NegotiateContexts=[preauth_context], NegotiateContextOffset=0x68)
+assert len(pkt.NegotiateContexts) == pkt.__class__(raw(pkt)).NegotiateCount
 
-+ Negociate Request without manual padding of Negociate Contexts
++ Negotiate Request without manual padding of Negotiate Contexts
 
-= SMB2 Negociate Context in Request - type PREAUTH - disassemble
+= SMB2 Negotiate Context in Request - type PREAUTH - disassemble
 
 preauth = SMB2_Preauth_Integrity_Capabilities()
-preauth_context = SMB2_Negociate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
+preauth_context = SMB2_Negotiate_Context(ContextType = 1, DataLength = len(preauth)) / preauth
 
 enc = SMB2_Encryption_Capabilities()
-enc_context = SMB2_Negociate_Context(ContextType = 2, DataLength = len(enc)) / enc
+enc_context = SMB2_Negotiate_Context(ContextType = 2, DataLength = len(enc)) / enc
 
 comp = SMB2_Compression_Capabilities()
-comp_context = SMB2_Negociate_Context(ContextType = 3, DataLength = len(comp)) / comp
+comp_context = SMB2_Negotiate_Context(ContextType = 3, DataLength = len(comp)) / comp
 
-netname = SMB2_Netname_Negociate_Context_ID("192.168.178.21".encode("utf-16le"))
-netname_context = SMB2_Negociate_Context(ContextType = 5, DataLength = len(netname)) / netname
+netname = SMB2_Netname_Negotiate_Context_ID("192.168.178.21".encode("utf-16le"))
+netname_context = SMB2_Negotiate_Context(ContextType = 5, DataLength = len(netname)) / netname
 
-pkt = SMB2_Header() / SMB2_Negociate_Protocol_Request_Header(Dialects=[0x0311], NegociateContexts=[preauth_context, enc_context, comp_context, netname_context], NegociateContextOffset=0x68)
+pkt = SMB2_Header() / SMB2_Negotiate_Protocol_Request(Dialects=[0x0311], NegotiateContexts=[preauth_context, enc_context, comp_context, netname_context], NegotiateContextOffset=0x68)
 
 pkt = SMB2_Header(raw(pkt))
 
-nego_req = pkt[SMB2_Negociate_Protocol_Request_Header]
+nego_req = pkt[SMB2_Negotiate_Protocol_Request]
 
-preauth_dissected = nego_req.NegociateContexts[0]
+preauth_dissected = nego_req.NegotiateContexts[0]
 assert preauth_dissected.ContextType == preauth_context.ContextType
 assert preauth_dissected.DataLength == preauth_context.DataLength
 assert preauth_dissected.HashAlgorithmCount == preauth_context.HashAlgorithmCount
@@ -337,26 +336,46 @@ assert preauth_dissected.SaltLength == preauth_context.SaltLength
 assert len(preauth_dissected.HashAlgorithms) == len(preauth_context.HashAlgorithms)
 assert preauth_dissected.HashAlgorithms[0] == preauth_context.HashAlgorithms[0]
 
-= SMB2 Negociate Context in Request - type ENCRYPTION disassemble
+= SMB2 Negotiate Context in Request - type ENCRYPTION disassemble
 
-enc_dissected = nego_req.NegociateContexts[1]
+enc_dissected = nego_req.NegotiateContexts[1]
 assert enc_dissected.ContextType == enc_context.ContextType
 assert enc_dissected.DataLength == enc_context.DataLength
 assert enc_dissected.CipherCount == enc_context.CipherCount
 assert len(enc_dissected.Ciphers) == len(enc_context.Ciphers)
 assert enc_dissected.Ciphers[0] == enc_context.Ciphers[0]
 
-= SMB2 Negociate Context in Request - type COMPRESSION
+= SMB2 Negotiate Context in Request - type COMPRESSION
 
-comp_dissected = nego_req.NegociateContexts[2]
+comp_dissected = nego_req.NegotiateContexts[2]
 assert comp_dissected.ContextType == comp_context.ContextType
 assert comp_dissected.DataLength == comp_context.DataLength
 assert comp_dissected.CompressionAlgorithmCount == comp_context.CompressionAlgorithmCount
 assert len(comp_dissected.CompressionAlgorithms) == len(comp_context.CompressionAlgorithms)
 
-= SMB2 Negociate Context in Request - type NETNAME NEGOCIATE
+= SMB2 Negotiate Context in Request - type NETNAME NEGOCIATE
 
-netname_dissected = nego_req.NegociateContexts[3]
+netname_dissected = nego_req.NegotiateContexts[3]
 assert netname_dissected.ContextType == netname_context.ContextType
 assert netname_dissected.DataLength == netname_context.DataLength
 assert netname_dissected.NetName == netname_context.NetName
+
++ SMB 2 Setup Session
+
+= Setup Session Request
+
+from scapy.layers.ntlm import *
+
+setup_sess = NBTSession(b'\x00\x00\x00\xa2\xfeSMB@\x00\x01\x00\x00\x00\x00\x00\x01\x00!\x00\x10\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x19\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x00X\x00J\x00\x00\x00\x00\x00\x00\x00\x00\x00`H\x06\x06+\x06\x01\x05\x05\x02\xa0>0<\xa0\x0e0\x0c\x06\n+\x06\x01\x04\x01\x827\x02\x02\n\xa2*\x04(NTLMSSP\x00\x01\x00\x00\x00\x97\x82\x08\xe2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x00aJ\x00\x00\x00\x0f')
+assert isinstance(setup_sess.Buffer[0][1].innerContextToken.token.mechToken.value, NTLM_NEGOTIATE)
+assert setup_sess.Buffer[0][1].innerContextToken.token.mechToken.value.ProductBuild == 19041
+
+= Setup Session Response
+
+from scapy.layers.ntlm import *
+
+setup_sess = NBTSession(b'\x00\x00\x00\xe7\xfeSMB@\x00\x01\x00\x16\x00\x00\xc0\x01\x00\x01\x00\x11\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00d\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\t\x00\x00\x00H\x00\x9f\x00\xa1\x81\x9c0\x81\x99\xa0\x03\n\x01\x01\xa1\x0c\x06\n+\x06\x01\x04\x01\x827\x02\x02\n\xa2\x81\x83\x04\x81\x80NTLMSSP\x00\x02\x00\x00\x00\x08\x00\x08\x008\x00\x00\x00\x15\x82\x8a\xe2\xe0\x14\xe7\xbf\xfd@\x01+\x00\x00\x00\x00\x00\x00\x00\x00@\x00@\x00@\x00\x00\x00\n\x00aJ\x00\x00\x00\x0fW\x00I\x00N\x001\x00\x02\x00\x08\x00W\x00I\x00N\x001\x00\x01\x00\x08\x00W\x00I\x00N\x001\x00\x04\x00\x08\x00W\x00I\x00N\x001\x00\x03\x00\x08\x00W\x00I\x00N\x001\x00\x07\x00\x08\x00\xef\x1f\x0e\tE\xe6\xd7\x01\x00\x00\x00\x00')
+assert isinstance(setup_sess.Buffer[0][1].token.responseToken.value, NTLM_CHALLENGE)
+assert setup_sess.Buffer[0][1].token.responseToken.value
+assert setup_sess.Buffer[0][1].token.responseToken.value.Payload[0] == ('TargetName', 'WIN1')
+assert setup_sess.Buffer[0][1].token.responseToken.value.Payload[1][1][-1].AvId == 0

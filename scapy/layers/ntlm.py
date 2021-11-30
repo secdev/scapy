@@ -78,8 +78,9 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
             offset = pkt.getfieldval(field.name + "BufferOffset") - self.offset
             if offset < 0:
                 continue
-            results.append((offset, field.name, field.getfield(
-                pkt, x[offset:offset + length])[1]))
+            if x[offset:offset + length]:
+                results.append((offset, field.name, field.getfield(
+                    pkt, x[offset:offset + length])[1]))
         results.sort(key=lambda x: x[0])
         return [x[1:] for x in results]
 
@@ -90,8 +91,8 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
             if field_name not in self.fields_map:
                 continue
             field = self.fields_map[field_name]
-            offset = pkt.getfieldval(
-                field_name + "BufferOffset") or len(buf)
+            offset = (-self.offset + pkt.getfieldval(
+                field_name + "BufferOffset")) or len(buf)
             buf.append(field.addfield(pkt, b"", value), offset + 1)
         return bytes(buf)
 
