@@ -1,6 +1,12 @@
-"""
-RTCP (Real-time Transport Control Protocol).
-"""
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# Copyright (C) Pavel Oborin <oborin.p@gmail.com>
+# This program is published under a GPLv2 license
+
+# RFC 3550
+# scapy.contrib.description = Real-Time Transport Control Protocol
+# scapy.contrib.status = loads
+
 import struct
 
 from scapy.packet import Packet, bind_layers, Padding, Raw
@@ -20,6 +26,19 @@ _rtcp_packet_types = {
     203: 'BYE',
     204: 'APP'
 }
+
+
+class RTCPHeader(Packet):
+    name = "RTCP header"
+    fields_desc = [BitField('version', 2, 2),
+                   BitField('padding', 0, 1),
+                   BitFieldLenField('report_count', 0, 5, count_of='report_blocks'),
+                   ByteEnumField('packet_type', 0, _rtcp_packet_types),
+                   LenField('length', None, fmt='!h')
+    ]
+
+    def __new__(cls, name, bases, dct):
+        raise NotImplementedError()
 
 
 class SenderInfo(Packet):
@@ -45,25 +64,13 @@ class ReceptionReport(Packet):
     ]
 
 
-class RTCPHeader(Packet):
-    name = "RTCP header"
-    fields_desc = [BitField('version', 2, 2),
-                   BitField('padding', 0, 1),
-                   BitFieldLenField('record_count', 0, 5, count_of='sender_reports'),
-                   ByteEnumField('packet_type', 0, _rtcp_packet_types),
-                   LenField('length', None, fmt='!h'),
-                   IntField('sourcesync', 0)
-    ]
-
-    def __new__(cls, name, bases, dct):
-        raise NotImplementedError()
-
-
 class RTCPSenderReport(Packet):
-    name = "SenderReport"
+    name = "RTCP sender report"
     fields_desc = [
         RTCPHeader,
-        PacketField('sender_info', SenderInfo(), SenderInfo)
+        IntField('sourcesync', 0),
+        PacketField('sender_info', SenderInfo(), SenderInfo),
+        PacketListField('report_blocks', None, pkt_cls=ReceptionReport, count_from=lambda pkt: pkt.record_count)
     ]
     packet_type = 200
 

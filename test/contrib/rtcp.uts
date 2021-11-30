@@ -1,0 +1,24 @@
+# RTCP unit tests
+# run with:
+#   test/run_tests  -P "load_contrib('rtcp')" -t test/contrib/rtcp.uts -F
+
+% RTCP regression tests for Scapy
+
+############
+# RTCP
+############
+
++ RTCP SenderReport tests
+
+= test layer creation
+
+created = RTCPSenderReport(sourcesync=0xdeadbeef)
+assert raw(created) == b'\x80\xc8\x00\x06\xde\xad\xbe\xef\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00', raw(created)
+parsed = RTCPSenderReport(raw(created))
+assert parsed.version == 2
+assert parsed.padding == 0
+assert parsed.report_count == 0
+assert parsed.packet_type == 200
+assert parsed.length == 6
+assert parsed.sourcesync == 0xdeadbeef, parsed.show()
+assert len(parsed.report_blocks) == 0
