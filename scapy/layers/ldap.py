@@ -421,6 +421,8 @@ bind_layers(LDAP, LDAP)
 
 bind_bottom_up(TCP, LDAP, dport=389)
 bind_bottom_up(TCP, LDAP, sport=389)
+bind_bottom_up(TCP, LDAP, dport=3268)
+bind_bottom_up(TCP, LDAP, sport=3268)
 bind_layers(TCP, LDAP, sport=389, dport=389)
 
 # CLDAP - rfc1798
