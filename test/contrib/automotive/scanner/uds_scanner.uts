@@ -282,7 +282,7 @@ resps = [EcuResponse(None, [UDS()/UDS_RDBIPR(dataIdentifier=0x101)/Raw(b"asdfbee
 
 es = [UDS_RDBISelectiveEnumerator]
 
-scanner = executeScannerInVirtualEnvironment(resps, es)
+scanner = executeScannerInVirtualEnvironment(resps, es, UDS_RDBIRandomEnumerator_kwargs={"probe_start": 0, "probe_end": 0x500})
 
 assert scanner.scan_completed
 tc = scanner.configuration.stages[0][0]
@@ -293,7 +293,7 @@ assert len(tc.results_without_response) < 10
 if tc.results_without_response:
     tc.show()
 
-assert len(tc.results_with_negative_response) > 1000
+assert len(tc.results_with_negative_response) > 100
 assert len(tc.results_with_positive_response) >= 1
 assert len(tc.scanned_states) == 1
 
@@ -614,12 +614,12 @@ assert 3 in ids
 resps = [EcuResponse(None, [UDS()/UDS_RCPR(routineControlType=1, routineIdentifier=1)/Raw(b"asdfbeef1")]),
          EcuResponse(None, [UDS()/UDS_RCPR(routineControlType=2, routineIdentifier=2)/Raw(b"beef2")]),
          EcuResponse(None, [UDS()/UDS_RCPR(routineControlType=3, routineIdentifier=3)/Raw(b"beef3")]),
-         EcuResponse(None, [UDS()/UDS_RCPR(routineControlType=1, routineIdentifier=0xff)/Raw(b"beefff")]),
+         EcuResponse(None, [UDS()/UDS_RCPR(routineControlType=1, routineIdentifier=0x10)/Raw(b"beefff")]),
          EcuResponse(None, [UDS()/UDS_NR(negativeResponseCode="subFunctionNotSupported", requestServiceId="RoutineControl")])]
 
 es = [UDS_RCEnumerator]
 
-scanner = executeScannerInVirtualEnvironment(resps, es, UDS_RCEnumerator_kwargs={"scan_range": range(0x100)})
+scanner = executeScannerInVirtualEnvironment(resps, es, UDS_RCEnumerator_kwargs={"scan_range": range(0x11)})
 
 assert scanner.scan_completed
 tc = scanner.configuration.test_cases[0]
@@ -628,7 +628,7 @@ assert len(tc.results_without_response) < 10
 if tc.results_without_response:
     tc.show()
 
-assert len(tc.results_with_negative_response) == 0x100 * 3 - 4
+assert len(tc.results_with_negative_response) == 0x11 * 3 - 4
 assert len(tc.results_with_positive_response) == 4
 assert len(tc.scanned_states) == 1
 
@@ -641,7 +641,7 @@ ids = [t.req.routineIdentifier for t in tc.results_with_positive_response]
 assert 1 in ids
 assert 2 in ids
 assert 3 in ids
-assert 0xff in ids
+assert 0x10 in ids
 
 
 = UDS_RCSelectiveEnumerator
@@ -649,12 +649,12 @@ assert 0xff in ids
 resps = [EcuResponse(None, [UDS()/UDS_RCPR(routineControlType=1, routineIdentifier=1)/Raw(b"asdfbeef1")]),
          EcuResponse(None, [UDS()/UDS_RCPR(routineControlType=2, routineIdentifier=1)/Raw(b"beef2")]),
          EcuResponse(None, [UDS()/UDS_RCPR(routineControlType=3, routineIdentifier=1)/Raw(b"beef3")]),
-         EcuResponse(None, [UDS()/UDS_RCPR(routineControlType=1, routineIdentifier=0xff)/Raw(b"beefff")]),
+         EcuResponse(None, [UDS()/UDS_RCPR(routineControlType=1, routineIdentifier=0x10)/Raw(b"beefff")]),
          EcuResponse(None, [UDS()/UDS_NR(negativeResponseCode="subFunctionNotSupported", requestServiceId="RoutineControl")])]
 
 es = [UDS_RCSelectiveEnumerator]
 
-scanner = executeScannerInVirtualEnvironment(resps, es, UDS_RCStartEnumerator_kwargs={"scan_range": range(0x100)})
+scanner = executeScannerInVirtualEnvironment(resps, es, UDS_RCStartEnumerator_kwargs={"scan_range": range(0x11)})
 
 assert scanner.scan_completed
 tc = scanner.configuration.stages[0][0]
@@ -663,7 +663,7 @@ assert len(tc.results_without_response) < 10
 if tc.results_without_response:
     tc.show()
 
-assert len(tc.results_with_negative_response) == 0x100 - 2
+assert len(tc.results_with_negative_response) == 0x11 - 2
 assert len(tc.results_with_positive_response) == 2
 assert len(tc.scanned_states) == 1
 
@@ -674,7 +674,7 @@ assert "subFunctionNotSupported received" in result
 ids = [t.req.routineIdentifier for t in tc.results_with_positive_response]
 
 assert 1 in ids
-assert 0xff in ids
+assert 0x10 in ids
 
 tc = scanner.configuration.stages[0][1]
 
@@ -682,7 +682,7 @@ assert len(tc.results_without_response) < 10
 if tc.results_without_response:
     tc.show()
 
-assert len(tc.results_with_negative_response) == 1016
+assert len(tc.results_with_negative_response) == 538
 assert len(tc.results_with_positive_response) == 2
 assert len(tc.scanned_states) == 1
 
@@ -778,7 +778,7 @@ result = tc1.show(dump=True)
 assert "requestOutOfRange received " in result
 
 = UDS_RMBAEnumerator
-~ not_pypy
+~ not_pypy disabled
 
 memory = dict()
 
@@ -835,7 +835,7 @@ assert len(tc1.results_without_response) < 30
 if len(tc1.results_without_response):
     tc1.show()
 
-assert len(tc1.results_with_negative_response) > 100
+assert len(tc1.results_with_negative_response) > 10
 assert len(tc1.results_with_positive_response) > 300
 assert len(tc1.scanned_states) == 1
 

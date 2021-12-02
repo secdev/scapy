@@ -372,7 +372,22 @@ class UDS_RDBISelectiveEnumerator(StagedAutomotiveTestCase):
 
 
 class UDS_RDBIRandomEnumerator(UDS_RDBIEnumerator):
+    _supported_kwargs = copy.copy(UDS_RDBIEnumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'probe_start': int,
+        'probe_end': int
+    })
     block_size = 2 ** 6
+
+    _supported_kwargs_doc = UDS_RDBIEnumerator._supported_kwargs_doc + """
+        :param int probe_start: Specifies the start identifier for probing.
+        :param int probe_end: Specifies the end identifier for probing."""
+
+    def execute(self, socket, state, **kwargs):
+        # type: (_SocketUnion, EcuState, Any) -> None
+        super(UDS_RDBIRandomEnumerator, self).execute(socket, state, **kwargs)
+
+    execute.__doc__ = _supported_kwargs_doc
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -395,7 +410,12 @@ class UDS_RDBIRandomEnumerator(UDS_RDBIEnumerator):
         }
         to_scan = []
         block_size = UDS_RDBIRandomEnumerator.block_size
-        for block_index, start in enumerate(range(0, 2 ** 16, block_size)):
+
+        probe_start = kwargs.pop("probe_start", 0)
+        probe_end = kwargs.pop("probe_end", 0x10000)
+        probe_range = range(probe_start, probe_end, block_size)
+
+        for block_index, start in enumerate(probe_range):
             end = start + block_size
             count_samples = samples_per_block.get(block_index, 1)
             to_scan += random.sample(range(start, end), count_samples)
@@ -837,7 +857,7 @@ class UDS_RMBARandomEnumerator(UDS_RMBAEnumeratorABC):
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
         :param bool unittest: Enables smaller search space for unit-test
-                              scenarios. This safes execution time."""
+                              scenarios. This saves execution time."""
 
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None

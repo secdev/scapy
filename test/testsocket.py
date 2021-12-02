@@ -48,13 +48,13 @@ class TestSocket(ObjectPipe[Packet], SuperSocket):
         for s in self.paired_sockets:
             try:
                 s.paired_sockets.remove(self)
-            except ValueError:
+            except (ValueError, AttributeError, TypeError):
                 pass
         self.closed = True
         super(TestSocket, self).close()
         try:
             open_test_sockets.remove(self)
-        except ValueError:
+        except (ValueError, AttributeError, TypeError):
             pass
 
     def pair(self, sock):
