@@ -25,7 +25,7 @@ class L2TP(Packet):
                                   'res06', 'sequence', 'res08', 'res09', 'length', 'control']),  # noqa: E501
         BitEnumField("version", 2, 4, {2: 'L2TPv2'}),
 
-        ConditionalField(ShortField("len", 0),
+        ConditionalField(ShortField("len", None),
                          lambda pkt: pkt.hdr & 'control+length'),
         ShortField("tunnel_id", 0),
         ShortField("session_id", 0),
