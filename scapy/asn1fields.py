@@ -201,15 +201,15 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         return s
 
     def do_copy(self, x):
-        # type: (I) -> I
+        # type: (Any) -> Any
         if isinstance(x, list):
-            x = x[:]  # type: ignore
+            x = x[:]
             for i in range(len(x)):
                 if isinstance(x[i], BasePacket):
                     x[i] = x[i].copy()
-            return x  # type: ignore
+            return x
         if hasattr(x, "copy"):
-            return x.copy()  # type: ignore
+            return x.copy()
         return x
 
     def set_val(self, pkt, val):
