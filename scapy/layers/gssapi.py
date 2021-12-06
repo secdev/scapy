@@ -80,7 +80,7 @@ class _SPNEGO_Token_Field(ASN1F_STRING):
     def i2m(self, pkt, x):
         if x is None:
             x = b""
-        return super().i2m(pkt, bytes(x))
+        return super(_SPNEGO_Token_Field, self).i2m(pkt, bytes(x))
 
     def m2i(self, pkt, s):
         dat, r = super(_SPNEGO_Token_Field, self).m2i(pkt, s)

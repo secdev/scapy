@@ -72,7 +72,8 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         self.fields_map = {field.name: field for field in fields}
         super(_NTLMPayloadField, self).__init__(
             name,
-            [(field.name, field.default) for field in fields]
+            [(field.name, field.default) for field in fields
+             if field.default is not None]
         )
 
     def m2i(self, pkt, x):
@@ -101,8 +102,11 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
             if field_name not in self.fields_map:
                 continue
             field = self.fields_map[field_name]
-            offset = (-self.offset + pkt.getfieldval(
-                field_name + "BufferOffset")) or len(buf)
+            offset = pkt.getfieldval(field_name + "BufferOffset")
+            if offset is not None:
+                offset -= self.offset
+            else:
+                offset = len(buf)
             buf.append(field.addfield(pkt, b"", value), offset + 1)
         return bytes(buf)
 
@@ -536,7 +540,7 @@ class _NTLM_Automaton(Automaton):
         self.token_pipe.send(ntlm)
 
     def get(self, attr, default=None):
-        if default is not None:
+        if default != None:
             return self.values.get(attr, default)
         return self.values[attr]
 
@@ -548,6 +552,10 @@ class NTLM_Client(_NTLM_Automaton):
     """
     port = 445
     cls = conf.raw_layer
+
+    def __init__(self, *args, **kwargs):
+        self.client_pipe = ObjectPipe()
+        super(NTLM_Client, self).__init__(*args, **kwargs)
 
     def bind(self, srv_atmt):
         # type: (NTLM_Server) -> None
@@ -561,6 +569,11 @@ class NTLM_Client(_NTLM_Automaton):
 
     def echo(self, pkt):
         return self.srv_atmt.send(pkt)
+
+    def wait_server(self):
+        kwargs = self.client_pipe.recv()
+        self.client_pipe.close()
+        return kwargs
 
 
 class NTLM_Server(_NTLM_Automaton):
@@ -584,14 +597,18 @@ class NTLM_Server(_NTLM_Automaton):
     def echo(self, pkt):
         return self.cli_atmt.send(pkt)
 
+    def start_client(self, **kwargs):
+        self.cli_atmt.client_pipe.send(kwargs)
+
 
 def ntlm_relay(serverCls,
                remoteIP,
                remoteClientCls,
                # Classic attacks
                DROP_MIC=False,
-               DOWNGRADE_SECURITY=False,
+               DROP_EXTENDED_SECURITY=False,
                # Optional arguments
+               ALLOW_SMB2=None,
                server_kwargs={},
                client_kwargs={},
                iface=None):
@@ -622,14 +639,15 @@ def ntlm_relay(serverCls,
     ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ssock.bind(
         (get_if_addr(iface or conf.iface), serverCls.port))
-    ssock.listen()
+    ssock.listen(5)
     sniffers = []
     if DROP_MIC:
-        client_kwargs["DROP_MIC"] = True
-        server_kwargs["DROP_MIC"] = True
-    if DOWNGRADE_SECURITY:
+        client_kwargs["DROP_MIC"] = server_kwargs["DROP_MIC"] = True
+    if DROP_EXTENDED_SECURITY:
         client_kwargs["EXTENDED_SECURITY"] = False
         server_kwargs["EXTENDED_SECURITY"] = False
+    if ALLOW_SMB2 is not None:
+        client_kwargs["ALLOW_SMB2"] = server_kwargs["ALLOW_SMB2"] = ALLOW_SMB2
     try:
         while True:
             clientsocket, address = ssock.accept()

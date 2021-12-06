@@ -32,6 +32,7 @@ from scapy.fields import (
     UTCTimeField,
     UUIDField,
     XLEIntField,
+    XLELongField,
     XLEShortField,
     XNBytesField,
     XStrLenField,
@@ -43,9 +44,9 @@ from scapy.layers.ntlm import _NTLMPayloadField
 
 # EnumField
 SMB_DIALECTS = {
-    0x0202: 'SMB 2.0.2',
+    0x0202: 'SMB 2.002',
     0x0210: 'SMB 2.1',
-    0x02ff: 'SMB 2.?',
+    0x02ff: 'SMB 2.???',
     0x0300: 'SMB 3.0',
     0x0302: 'SMB 3.0.2',
     0x0311: 'SMB 3.1.1',
@@ -130,8 +131,7 @@ class SMB2_Header(Packet):
         StrFixedLenField("Start", b"\xfeSMB", 4),
         LEShortField("StructureSize", 64),
         LEShortField("CreditCharge", 0),
-        LEShortField("ChannelSequence", 0),
-        LEShortField("Unused", 0),
+        LEIntField("Status", 0),
         LEShortEnumField("Command", 0, SMB2_COM),
         LEShortField("CreditsRequested", 0),
         FlagsField("Flags", 0, -32, {
@@ -144,9 +144,9 @@ class SMB2_Header(Packet):
         }),
         XLEIntField("NextCommand", 0),
         LELongField("MessageId", 0),
-        LELongField("AsyncID", 0),
+        LELongField("AsyncId", 0),
         LELongField("SessionId", 0),
-        XNBytesField("Signature", 0, 16),
+        XNBytesField("SecuritySignature", 0, 16),
     ]
 
     def guess_payload_class(self, payload):
@@ -192,7 +192,7 @@ class SMB2_Negotiate_Context(Packet):
 class SMB2_Negotiate_Protocol_Request(Packet):
     name = "SMB2 Negotiate Protocol Request"
     fields_desc = [
-        XLEShortField("StructureSize", 0),
+        XLEShortField("StructureSize", 0x24),
         FieldLenField(
             "DialectCount", None,
             fmt="<H",
@@ -356,7 +356,7 @@ bind_layers(
 class SMB2_Negotiate_Protocol_Response(Packet):
     name = "SMB2 Negotiate Protocol Response"
     fields_desc = [
-        XLEShortField("StructureSize", 0),
+        XLEShortField("StructureSize", 0x41),
         FlagsField("SecurityMode", 0, -16, {
             0x1: "Signing Required",
             0x2: "Signing Enabled",
@@ -367,26 +367,33 @@ class SMB2_Negotiate_Protocol_Response(Packet):
             fmt="<H",
             count_of="NegotiateContexts"
         ),
-        UUIDField("ServerGUID", 0x0,
+        UUIDField("GUID", 0x0,
                   uuid_fmt=UUIDField.FORMAT_LE),
         # Capabilities
         FlagsField("Capabilities", 0, -32, SMB2_CAPABILITIES),
-        LEIntField("MaxTransactionSize", 0),
-        LEIntField("MaxReadSize", 0),
-        LEIntField("MaxWriteSize", 0),
-        UTCTimeField("SystemTime", None, fmt="<Q",
+        LEIntField("MaxTransactionSize", 65536),
+        LEIntField("MaxReadSize", 65536),
+        LEIntField("MaxWriteSize", 65536),
+        UTCTimeField("ServerTime", None, fmt="<Q",
                      epoch=[1601, 1, 1, 0, 0, 0],
                      custom_scaling=1e7),
         UTCTimeField("ServerStartTime", None, fmt="<Q",
                      epoch=[1601, 1, 1, 0, 0, 0],
                      custom_scaling=1e7),
-        XLEShortField("SecurityBlobOffset", 0),
+        FieldLenField(
+            "SecurityBlobOffset", None,
+            fmt="<H",
+            length_of="SecurityBlobPad",
+            adjust=lambda pkt, x: x + 0x80
+        ),
         FieldLenField(
             "SecurityBlobLength", None,
             fmt="<H",
             length_of="SecurityBlob"
         ),
         XLEIntField("NegotiateContextOffset", 0),
+        XStrLenField("SecurityBlobPad", "",
+                     length_from=lambda pkt: pkt.SecurityBlobOffset - 0x80),
         PacketLenField("SecurityBlob", None, GSSAPI_BLOB,
                        length_from=lambda x: x.SecurityBlobLength),
         # Field only exists if Dialect is 0x0311
@@ -414,9 +421,9 @@ bind_top_down(
 
 class SMB2_Session_Setup_Request(Packet):
     name = "SMB2 Session Setup Request"
-    OFFSET = 16 + 64
+    OFFSET = 24 + 64
     fields_desc = [
-        XLEShortField("StructureSize", 0),
+        XLEShortField("StructureSize", 0x19),
         FlagsField("Flags", 0, -8, ["SMB2_SESSION_FLAG_BINDING"]),
         FlagsField("SecurityMode", 0, -8, {
             0x1: "Signing Required",
@@ -425,16 +432,28 @@ class SMB2_Session_Setup_Request(Packet):
         FlagsField("Capabilities", 0, -32, SMB2_CAPABILITIES),
         LEIntField("Channel", 0),
         XLEShortField("SecurityBufferOffset", None),
-        FieldLenField(
-            "SecurityLen", None,
-            fmt="<H",
-            length_of="Security"
-        ),
+        LEShortField("SecurityLen", None),
+        XLELongField("PreviousSessionId", 0),
         _NTLMPayloadField(
             'Buffer', OFFSET, [
                 PacketField("Security", None, GSSAPI_BLOB),
             ])
     ]
+
+    def __getattr__(self, attr):
+        # Ease SMB1 backward compatibility
+        if attr == "SecurityBlob":
+            return (super(SMB2_Session_Setup_Request, self).__getattr__(
+                "Buffer"
+            ) or [(None, None)])[0][1]
+        return super(SMB2_Session_Setup_Request, self).__getattr__(attr)
+
+    def setfieldval(self, attr, val):
+        if attr == "SecurityBlob":
+            return super(SMB2_Session_Setup_Request, self).setfieldval(
+                "Buffer", [("Security", val)]
+            )
+        return super(SMB2_Session_Setup_Request, self).setfieldval(attr, val)
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
@@ -447,7 +466,6 @@ bind_top_down(
     SMB2_Header,
     SMB2_Session_Setup_Request,
     Command=0x0001,
-    Flags=1  # SMB2_FLAGS_SERVER_TO_REDIR
 )
 
 # sect 2.2.6
@@ -457,23 +475,34 @@ class SMB2_Session_Setup_Response(Packet):
     name = "SMB2 Session Setup Response"
     OFFSET = 8 + 64
     fields_desc = [
-        XLEShortField("StructureSize", 0),
+        XLEShortField("StructureSize", 0x9),
         FlagsField("SessionFlags", 0, -16, {
             0x0001: "IS_GUEST",
             0x0002: "IS_NULL",
             0x0004: "ENCRYPT_DATE",
         }),
         XLEShortField("SecurityBufferOffset", None),
-        FieldLenField(
-            "SecurityLen", None,
-            fmt="<H",
-            length_of="Security"
-        ),
+        LEShortField("SecurityLen", None),
         _NTLMPayloadField(
             'Buffer', OFFSET, [
                 PacketField("Security", None, GSSAPI_BLOB),
             ])
     ]
+
+    def __getattr__(self, attr):
+        # Ease SMB1 backward compatibility
+        if attr == "SecurityBlob":
+            return (super(SMB2_Session_Setup_Response, self).__getattr__(
+                "Buffer"
+            ) or [(None, None)])[0][1]
+        return super(SMB2_Session_Setup_Response, self).__getattr__(attr)
+
+    def setfieldval(self, attr, val):
+        if attr == "SecurityBlob":
+            return super(SMB2_Session_Setup_Response, self).setfieldval(
+                "Buffer", [("Security", val)]
+            )
+        return super(SMB2_Session_Setup_Response, self).setfieldval(attr, val)
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes

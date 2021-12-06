@@ -3544,7 +3544,7 @@ class UUIDField(Field[UUID, bytes]):
                 u = self.m2i(pkt, bytes_encode(x))
             else:
                 u = UUID(plain_str(x))
-        elif isinstance(x, UUID):
+        elif isinstance(x, (UUID, RandUUID)):
             u = x
         else:
             return None

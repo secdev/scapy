@@ -16,10 +16,10 @@ Implements:
 """
 
 import struct
-from scapy.asn1.asn1 import ASN1_STRING
 from scapy.automaton import ATMT, Automaton
 
 from scapy.config import conf
+from scapy.compat import plain_str
 from scapy.layers.ntlm import (
     NTLM_AUTHENTICATE,
     NTLM_AUTHENTICATE_V2,
@@ -36,7 +36,6 @@ from scapy.fields import (
     FlagsField,
     LEFieldLenField,
     LEIntField,
-    LELongField,
     LEShortField,
     MultipleTypeField,
     PacketLenField,
@@ -45,13 +44,14 @@ from scapy.fields import (
     ScalingField,
     ShortField,
     StrFixedLenField,
-    StrLenField,
     StrNullField,
     StrNullFieldUtf16,
     UTCTimeField,
     UUIDField,
     XStrLenField,
 )
+from scapy.volatile import RandUUID
+
 from scapy.layers.netbios import NBTSession
 from scapy.layers.gssapi import (
     GSSAPI_BLOB,
@@ -62,7 +62,14 @@ from scapy.layers.gssapi import (
     SPNEGO_negTokenInit,
     SPNEGO_negTokenResp,
 )
-from scapy.layers.smb2 import SMB2_Header
+from scapy.layers.smb2 import (
+    SMB2_Header,
+    SMB2_Negotiate_Protocol_Request,
+    SMB2_Negotiate_Protocol_Response,
+    SMB2_Session_Setup_Request,
+    SMB2_Session_Setup_Response,
+)
+
 
 SMB_COM = {
     0x00: "SMB_COM_CREATE_DIRECTORY",
@@ -714,6 +721,8 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
     def __init__(self, *args, **kwargs):
         self.PASS_NEGOEX = kwargs.pop("PASS_NEGOEX", None)
         self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
+        self.ALLOW_SMB2 = kwargs.pop("ALLOW_SMB2", True)
+        self.SMB2 = False
         super(NTLM_SMB_Server, self).__init__(*args, **kwargs)
         if self.PASS_NEGOEX is None:
             self.PASS_NEGOEX = not self.DROP_MIC
@@ -725,41 +734,115 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
     @ATMT.receive_condition(BEGIN)
     def received_negotiate(self, pkt):
         if SMBNegotiate_Request in pkt:
+            self.start_client()
             raise self.NEGOTIATED().action_parameters(pkt)
+
+    @ATMT.receive_condition(BEGIN)
+    def received_negotiate_smb2_begin(self, pkt):
+        if SMB2_Negotiate_Protocol_Request in pkt:
+            self.SMB2 = True
+            self.start_client(
+                CONTINUE_SMB2=True,
+                SMB2_INIT_PARAMS={
+                    "ClientGUID": pkt.ClientGUID
+                }
+            )
+            raise self.NEGOTIATED().action_parameters(pkt)
+
+    @ATMT.action(received_negotiate_smb2_begin)
+    def on_negotiate_smb2_begin(self, pkt):
+        self.on_negotiate(pkt)
 
     @ATMT.action(received_negotiate)
     def on_negotiate(self, pkt):
         negoex_token, _, _ = self.get_token()
-        self.smb_header = NBTSession() / SMB_Header(
-            Flags="REPLY+CASE_INSENSITIVE+CANONICALIZED_PATHS",
-            Flags2="LONG_NAMES+EAS+NT_STATUS+SMB_SECURITY_SIGNATURE+UNICODE+EXTENDED_SECURITY",
-            TID=pkt.TID,
-            MID=pkt.MID,
-            UID=pkt.UID,
-            PIDLow=pkt.PIDLow
-        )
+        if not self.get("GUID", 0):
+            self.EXTENDED_SECURITY = False
+            self.SMB2 = False
         # Build negotiate response
-        DialectIndex = [
-            x.DialectString for x in pkt[SMBNegotiate_Request].Dialects
-        ].index(b"NT LM 0.12")
-        if self.EXTENDED_SECURITY:
-            cls = SMBNegotiate_Response_Extended_Security
+        DialectIndex = None
+        DialectRevision = None
+        if SMB2_Negotiate_Protocol_Request in pkt:
+            # SMB2
+            DialectRevisions = pkt[SMB2_Negotiate_Protocol_Request].Dialects
+            DialectRevisions.sort()
+            DialectRevision = DialectRevisions[0]
+            if DialectRevision >= 0x300:  # SMB3
+                raise ValueError(
+                    "SMB client requires SMB3 which is unimplemented.")
         else:
-            cls = SMBNegotiate_Response_Security
-        # Extended
-        resp = self.smb_header.copy() / cls(
-            DialectIndex=DialectIndex,
-            ServerCapabilities=(
-                "UNICODE+LARGE_FILES+NT_SMBS+RPC_REMOTE_APIS+STATUS32+"
-                "LEVEL_II_OPLOCKS+LOCK_AND_READ+NT_FIND+"
-                "LWIO+INFOLEVEL_PASSTHRU+LARGE_READX+LARGE_WRITEX"
-            ),
-            SecurityMode=self.get("SecurityMode"),
-            ServerTime=self.get("ServerTime"),
-            ServerTimeZone=self.get("ServerTimeZone")
-        )
-        if self.EXTENDED_SECURITY:
-            resp.ServerCapabilities += "EXTENDED_SECURITY"
+            DialectIndexes = [
+                x.DialectString for x in pkt[SMBNegotiate_Request].Dialects
+            ]
+            if self.ALLOW_SMB2:
+                # Find a value matching SMB2, fallback to SMB1
+                for key, rev in [(b"SMB 2.???", 0x02ff), (b"SMB 2.002", 0x0202)]:
+                    try:
+                        DialectIndex = DialectIndexes.index(key)
+                        DialectRevision = rev
+                        self.SMB2 = True
+                        break
+                    except ValueError:
+                        pass
+                else:
+                    DialectIndex = DialectIndexes.index(b"NT LM 0.12")
+            else:
+                # Enforce SMB1
+                DialectIndex = DialectIndexes.index(b"NT LM 0.12")
+        cls = None
+        if self.SMB2:
+            # SMB2
+            cls = SMB2_Negotiate_Protocol_Response
+            self.smb_header = NBTSession() / SMB2_Header(
+                CreditsRequested=1,
+            )
+            if SMB2_Negotiate_Protocol_Request in pkt:
+                self.smb_header.MessageId = pkt.MessageId
+                self.smb_header.AsyncId = pkt.AsyncId
+                self.smb_header.SessionId = pkt.SessionId
+        else:
+            # SMB1
+            self.smb_header = NBTSession() / SMB_Header(
+                Flags="REPLY+CASE_INSENSITIVE+CANONICALIZED_PATHS",
+                Flags2="LONG_NAMES+EAS+NT_STATUS+SMB_SECURITY_SIGNATURE+UNICODE+EXTENDED_SECURITY",
+                TID=pkt.TID,
+                MID=pkt.MID,
+                UID=pkt.UID,
+                PIDLow=pkt.PIDLow
+            )
+            if self.EXTENDED_SECURITY:
+                cls = SMBNegotiate_Response_Extended_Security
+            else:
+                cls = SMBNegotiate_Response_Security
+        if self.SMB2:
+            # SMB2
+            resp = self.smb_header.copy() / cls(
+                DialectRevision=DialectRevision,
+                Capabilities="DFS",
+                SecurityMode=self.get("SecurityMode"),
+                ServerTime=self.get("ServerTime"),
+                ServerStartTime=0,
+                MaxTransactionSize=65536,
+                MaxReadSize=65536,
+                MaxWriteSize=65536,
+            )
+        else:
+            # SMB1
+            resp = self.smb_header.copy() / cls(
+                DialectIndex=DialectIndex,
+                ServerCapabilities=(
+                    "UNICODE+LARGE_FILES+NT_SMBS+RPC_REMOTE_APIS+STATUS32+"
+                    "LEVEL_II_OPLOCKS+LOCK_AND_READ+NT_FIND+"
+                    "LWIO+INFOLEVEL_PASSTHRU+LARGE_READX+LARGE_WRITEX"
+                ),
+                SecurityMode=self.get("SecurityMode"),
+                ServerTime=self.get("ServerTime"),
+                ServerTimeZone=self.get("ServerTimeZone")
+            )
+            if self.EXTENDED_SECURITY:
+                resp.ServerCapabilities += "EXTENDED_SECURITY"
+        if self.EXTENDED_SECURITY or self.SMB2:
+            # Extended SMB1 / SMB2
             # Add security blob
             resp.SecurityBlob = GSSAPI_BLOB(
                 innerContextToken=SPNEGO_negToken(
@@ -774,24 +857,23 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
             )
             resp.GUID = self.get("GUID")
             if self.PASS_NEGOEX:  # NEGOEX handling
-                resp[SMBNegotiate_Response_Extended_Security].SecurityBlob.innerContextToken.token.mechTypes.insert(
+                resp.SecurityBlob.innerContextToken.token.mechTypes.insert(
                     0,
                     # NEGOEX
                     SPNEGO_MechType(oid="1.3.6.1.4.1.311.2.2.30"),
                 )
-                resp[SMBNegotiate_Response_Extended_Security].SecurityBlob.innerContextToken.token.mechToken = SPNEGO_Token(
+                resp.SecurityBlob.innerContextToken.token.mechToken = SPNEGO_Token(
                     value=negoex_token
                 )
         else:
-            # No security
+            # Non-extended SMB1
             resp.Challenge = self.get("Challenge")
             resp.DomainName = self.get("DomainName")
             resp.ServerName = self.get("ServerName")
-            resp.show()
-        if not self.EXTENDED_SECURITY:
             resp.Flags2 -= "EXTENDED_SECURITY"
-        resp[SMB_Header].Flags2 = resp[SMB_Header].Flags2 - \
-            "SMB_SECURITY_SIGNATURE" + "SMB_SECURITY_SIGNATURE_REQUIRED+IS_LONG_NAME"
+        if not self.SMB2:
+            resp[SMB_Header].Flags2 = resp[SMB_Header].Flags2 - \
+                "SMB_SECURITY_SIGNATURE" + "SMB_SECURITY_SIGNATURE_REQUIRED+IS_LONG_NAME"
         self.send(resp)
 
     @ATMT.state()
@@ -799,9 +881,19 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
         pass
 
     @ATMT.receive_condition(NEGOTIATED)
+    def received_negotiate_smb2(self, pkt):
+        if SMB2_Negotiate_Protocol_Request in pkt:
+            raise self.NEGOTIATED().action_parameters(pkt)
+
+    @ATMT.action(received_negotiate_smb2)
+    def on_negotiate_smb2(self, pkt):
+        self.on_negotiate(pkt)
+
+    @ATMT.receive_condition(NEGOTIATED)
     def receive_setup_andx_request(self, pkt):
         if SMBSession_Setup_AndX_Request_Extended_Security in pkt or \
                 SMBSession_Setup_AndX_Request in pkt:
+            # SMB1
             if SMBSession_Setup_AndX_Request_Extended_Security in pkt:
                 # Extended
                 ntlm_tuple = self._get_token(
@@ -824,6 +916,16 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
             self.set_cli("TID", pkt.TID)
             self.received_ntlm_token(ntlm_tuple)
             raise self.RECEIVED_SETUP_ANDX_REQUEST().action_parameters(pkt)
+        elif SMB2_Session_Setup_Request in pkt:
+            # SMB2
+            ntlm_tuple = self._get_token(pkt.SecurityBlob)
+            self.set_cli("SecuritySignature", pkt.SecuritySignature)
+            self.set_cli("MessageId", pkt.MessageId)
+            self.set_cli("AsyncId", pkt.AsyncId)
+            self.set_cli("SessionId", pkt.SessionId)
+            self.set_cli("SecurityMode", pkt.SecurityMode)
+            self.received_ntlm_token(ntlm_tuple)
+            raise self.RECEIVED_SETUP_ANDX_REQUEST().action_parameters(pkt)
 
     @ATMT.state()
     def RECEIVED_SETUP_ANDX_REQUEST(self):
@@ -832,22 +934,41 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
     @ATMT.action(receive_setup_andx_request)
     def on_setup_andx_request(self, pkt):
         ntlm_token, negResult, MIC = ntlm_tuple = self.get_token()
-        if SMBSession_Setup_AndX_Request_Extended_Security in pkt or SMBSession_Setup_AndX_Request in pkt:
-            # Extended
-            self.smb_header.UID = self.get("UID")
-            self.smb_header.MID = self.get("MID")
-            self.smb_header.TID = self.get("TID")
+        if SMBSession_Setup_AndX_Request_Extended_Security in pkt or \
+                SMBSession_Setup_AndX_Request in pkt or\
+                SMB2_Session_Setup_Request in pkt:
+            if SMB2_Session_Setup_Request in pkt:
+                # SMB2
+                self.smb_header.MessageId = self.get("MessageId")
+                self.smb_header.AsyncId = self.get("AsyncId")
+                self.smb_header.SessionId = self.get("SessionId")
+            else:
+                # SMB1
+                self.smb_header.UID = self.get("UID")
+                self.smb_header.MID = self.get("MID")
+                self.smb_header.TID = self.get("TID")
             if ntlm_tuple == (None, None, None):
                 # Error
-                resp = self.smb_header.copy() / SMBSession_Null()
+                if SMB2_Session_Setup_Request in pkt:
+                    # SMB2
+                    resp = self.smb_header.copy() / SMB2_Session_Setup_Response()
+                else:
+                    # SMB1
+                    resp = self.smb_header.copy() / SMBSession_Null()
             else:
                 # Negotiation
-                if SMBSession_Setup_AndX_Request_Extended_Security in pkt:
-                    # Extended
-                    resp = self.smb_header.copy() / SMBSession_Setup_AndX_Response_Extended_Security(
-                        NativeOS=self.get("NativeOS"),
-                        NativeLanMan=self.get("NativeLanMan")
-                    )
+                if SMBSession_Setup_AndX_Request_Extended_Security in pkt or\
+                        SMB2_Session_Setup_Request in pkt:
+                    # SMB1 extended / SMB2
+                    if SMB2_Session_Setup_Request in pkt:
+                        # SMB2
+                        resp = self.smb_header.copy() / SMB2_Session_Setup_Response()
+                    else:
+                        # SMB1 extended
+                        resp = self.smb_header.copy() / SMBSession_Setup_AndX_Response_Extended_Security(
+                            NativeOS=self.get("NativeOS"),
+                            NativeLanMan=self.get("NativeLanMan")
+                        )
                     if isinstance(ntlm_token, NTLM_CHALLENGE):
                         resp.SecurityBlob = SPNEGO_negToken(
                             token=SPNEGO_negTokenResp(
@@ -882,7 +1003,6 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
                         NativeLanMan=self.get("NativeLanMan")
                     )
             resp.Status = self.get("Status")
-
         self.send(resp)
 
     @ATMT.condition(RECEIVED_SETUP_ANDX_REQUEST)
@@ -911,6 +1031,8 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
 
     def __init__(self, *args, **kwargs):
         self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
+        self.ALLOW_SMB2 = kwargs.pop("ALLOW_SMB2", True)
+        self.SMB2 = False
         super(NTLM_SMB_Client, self).__init__(*args, **kwargs)
 
     @ATMT.state(initial=1)
@@ -918,6 +1040,18 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
         pass
 
     @ATMT.condition(BEGIN)
+    def continue_smb2(self):
+        kwargs = self.wait_server()
+        self.CONTINUE_SMB2 = kwargs.pop("CONTINUE_SMB2", False)
+        self.SMB2_INIT_PARAMS = kwargs.pop("SMB2_INIT_PARAMS", {})
+        if self.CONTINUE_SMB2:
+            self.SMB2 = True
+            self.smb_header = NBTSession() / SMB2_Header(
+                AsyncId=0xfeff
+            )
+            raise self.SMB2_NEGOTIATE()
+
+    @ATMT.condition(BEGIN, prio=1)
     def send_negotiate(self):
         raise self.SENT_NEGOTIATE()
 
@@ -933,9 +1067,12 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
         if self.EXTENDED_SECURITY:
             self.smb_header.Flags2 += "EXTENDED_SECURITY"
         pkt = self.smb_header.copy() / SMBNegotiate_Request(
-            Dialects=[SMB_Dialect(DialectString=x) for x in ["PC NETWORK PROGRAM 1.0", "LANMAN1.0",
-                                                             "Windows for Workgroups 3.1a", "LM1.2X002", "LANMAN2.1",
-                                                             "NT LM 0.12", "SMB 2.002", "SMB 2.???"]],
+            Dialects=[SMB_Dialect(DialectString=x) for x in [
+                "PC NETWORK PROGRAM 1.0", "LANMAN1.0",
+                "Windows for Workgroups 3.1a", "LM1.2X002", "LANMAN2.1",
+                "NT LM 0.12"
+            ] + (["SMB 2.002", "SMB 2.???"] if self.ALLOW_SMB2 else [])
+            ],
         )
         if not self.EXTENDED_SECURITY:
             pkt.Flags2 -= "EXTENDED_SECURITY"
@@ -949,7 +1086,9 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
 
     @ATMT.receive_condition(SENT_NEGOTIATE)
     def receive_negotiate_response(self, pkt):
-        if SMBNegotiate_Response_Security in pkt or SMBNegotiate_Response_Extended_Security in pkt:
+        if SMBNegotiate_Response_Security in pkt or\
+                SMBNegotiate_Response_Extended_Security in pkt or\
+                SMB2_Negotiate_Protocol_Response in pkt:
             self.set_srv(
                 "ServerTime",
                 pkt.ServerTime
@@ -958,26 +1097,60 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
                 "SecurityMode",
                 pkt.SecurityMode
             )
-            self.set_srv(
-                "ServerTimeZone",
-                pkt.ServerTimeZone
-            )
-        if SMBNegotiate_Response_Extended_Security in pkt:
+            if SMB2_Negotiate_Protocol_Response in pkt:
+                # SMB2
+                self.SMB2 = True  # We are using SMB2 to talk to the server
+                self.smb_header = NBTSession() / SMB2_Header(
+                    AsyncId=0xfeff
+                )
+            else:
+                # SMB1
+                self.set_srv(
+                    "ServerTimeZone",
+                    pkt.ServerTimeZone
+                )
+        if SMBNegotiate_Response_Extended_Security in pkt or\
+                SMB2_Negotiate_Protocol_Response in pkt:
+            # Extended SMB1 / SMB2
             negoex_tuple = self._get_token(
-                pkt[SMBNegotiate_Response_Extended_Security].SecurityBlob
+                pkt.SecurityBlob
             )
             self.set_srv(
                 "GUID",
-                pkt[SMBNegotiate_Response_Extended_Security].GUID
+                pkt.GUID
             )
             self.received_ntlm_token(negoex_tuple)
-            raise self.NEGOTIATED()
+            if SMB2_Negotiate_Protocol_Response in pkt and pkt.DialectRevision in [0x02ff, 0x03ff]:
+                # There will be a second negotiate protocol request
+                self.smb_header.MessageId += 1
+                raise self.SMB2_NEGOTIATE()
+            else:
+                raise self.NEGOTIATED()
         elif SMBNegotiate_Response_Security in pkt:
+            # Non-extended SMB1
             self.set_srv("Challenge", pkt.Challenge)
             self.set_srv("DomainName", pkt.DomainName)
             self.set_srv("ServerName", pkt.ServerName)
             self.received_ntlm_token((None, None, None))
             raise self.NEGOTIATED()
+
+    @ATMT.state()
+    def SMB2_NEGOTIATE(self):
+        pass
+
+    @ATMT.condition(SMB2_NEGOTIATE)
+    def send_negotiate_smb2(self):
+        raise self.SENT_NEGOTIATE()
+
+    @ATMT.action(send_negotiate_smb2)
+    def on_negotiate_smb2(self):
+        pkt = self.smb_header.copy() / SMB2_Negotiate_Protocol_Request(
+            Dialects=[0x0202],  # Only ask for SMB 2.0.2 because it has the lowest security
+            Capabilities="DFS+Leasing+LargeMTU+MultiChannel+PersistentHandles+DirectoryLeasing+Encryption",
+            SecurityMode=1,
+            ClientGUID=self.SMB2_INIT_PARAMS.get("ClientGUID", RandUUID()),
+        )
+        self.send(pkt)
 
     @ATMT.state()
     def NEGOTIATED(self):
@@ -995,17 +1168,31 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
     @ATMT.action(should_send_setup_andx_request)
     def send_setup_andx_request(self, ntlm_tuple):
         ntlm_token, negResult, MIC = ntlm_tuple
-        self.smb_header.UID = self.get("UID", 0)
-        self.smb_header.MID = self.get("MID")
-        self.smb_header.TID = self.get("TID")
-        if self.EXTENDED_SECURITY:
-            # Extended security
-            pkt = self.smb_header.copy() / SMBSession_Setup_AndX_Request_Extended_Security(
-                ServerCapabilities="UNICODE+NT_SMBS+STATUS32+LEVEL_II_OPLOCKS+DYNAMIC_REAUTH+EXTENDED_SECURITY",
-                VCNumber=self.get("VCNumber"),
-                NativeOS=b"",
-                NativeLanMan=b""
-            )
+        if self.SMB2:
+            self.smb_header.MessageId = self.get("MessageId")
+            self.smb_header.AsyncId = self.get("AsyncId")
+            self.smb_header.SessionId = self.get("SessionId")
+        else:
+            self.smb_header.UID = self.get("UID", 0)
+            self.smb_header.MID = self.get("MID")
+            self.smb_header.TID = self.get("TID")
+        if self.SMB2 or self.EXTENDED_SECURITY:
+            # SMB1 extended / SMB2
+            if self.SMB2:
+                # SMB2
+                pkt = self.smb_header.copy() / SMB2_Session_Setup_Request(
+                    Capabilities="DFS",
+                    SecurityMode=self.get("SecurityMode"),
+                )
+                pkt.CreditsRequested = 33
+            else:
+                # SMB1 extended
+                pkt = self.smb_header.copy() / SMBSession_Setup_AndX_Request_Extended_Security(
+                    ServerCapabilities="UNICODE+NT_SMBS+STATUS32+LEVEL_II_OPLOCKS+DYNAMIC_REAUTH+EXTENDED_SECURITY",
+                    VCNumber=self.get("VCNumber"),
+                    NativeOS=b"",
+                    NativeLanMan=b""
+                )
             pkt.SecuritySignature = self.get("SecuritySignature")
             if isinstance(ntlm_token, NTLM_NEGOTIATE):
                 pkt.SecurityBlob = GSSAPI_BLOB(
@@ -1056,7 +1243,10 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
 
     @ATMT.receive_condition(SENT_SETUP_ANDX_REQUEST)
     def receive_setup_andx_response(self, pkt):
-        if SMBSession_Null in pkt or SMBSession_Setup_AndX_Response_Extended_Security in pkt or SMBSession_Setup_AndX_Response in pkt:
+        if SMBSession_Null in pkt or \
+                SMBSession_Setup_AndX_Response_Extended_Security in pkt or \
+                SMBSession_Setup_AndX_Response in pkt:
+            # SMB1
             self.set_srv("Status", pkt[SMB_Header].Status)
             self.set_srv(
                 "UID",
@@ -1074,7 +1264,8 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
                 # Likely an error
                 self.received_ntlm_token((None, None, None))
                 raise self.NEGOTIATED()
-            elif SMBSession_Setup_AndX_Response_Extended_Security in pkt or SMBSession_Setup_AndX_Response in pkt:
+            elif SMBSession_Setup_AndX_Response_Extended_Security in pkt or \
+                    SMBSession_Setup_AndX_Response in pkt:
                 self.set_srv(
                     "NativeOS",
                     pkt.getfieldval(
@@ -1085,20 +1276,28 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
                     pkt.getfieldval(
                         "NativeLanMan")
                 )
-                if SMBSession_Setup_AndX_Response_Extended_Security in pkt:
-                    # Extended
-                    _, negResult, _ = ntlm_tuple = self._get_token(
-                        pkt[SMBSession_Setup_AndX_Response_Extended_Security].SecurityBlob
-                    )
-                    if negResult == 0:  # Authenticated
-                        self.received_ntlm_token(ntlm_tuple)
-                        raise self.AUTHENTICATED()
-                    else:
-                        self.received_ntlm_token(ntlm_tuple)
-                        raise self.NEGOTIATED().action_parameters(pkt)
-                else:
-                    # Non extended
-                    pass
+        if SMB2_Session_Setup_Response in pkt:
+            # SMB2
+            self.set_srv("Status", pkt.Status)
+            self.set_srv("SecuritySignature", pkt.SecuritySignature)
+            self.set_srv("MessageId", pkt.MessageId)
+            self.set_srv("AsyncId", pkt.AsyncId)
+            self.set_srv("SessionId", pkt.SessionId)
+        if SMBSession_Setup_AndX_Response_Extended_Security in pkt or \
+                SMB2_Session_Setup_Response in pkt:
+            # SMB1 extended / SMB2
+            _, negResult, _ = ntlm_tuple = self._get_token(
+                pkt.SecurityBlob
+            )
+            if negResult == 0:  # Authenticated
+                self.received_ntlm_token(ntlm_tuple)
+                raise self.AUTHENTICATED()
+            else:
+                self.received_ntlm_token(ntlm_tuple)
+                raise self.NEGOTIATED().action_parameters(pkt)
+        elif SMBSession_Setup_AndX_Response_Extended_Security in pkt:
+            # SMB1 non-extended
+            pass
 
     @ATMT.state()
     def AUTHENTICATED(self):
