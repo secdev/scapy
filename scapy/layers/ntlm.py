@@ -45,7 +45,6 @@ from scapy.packet import Packet
 from scapy.sessions import StringBuffer
 from scapy.supersocket import StreamSocket
 
-import scapy.modules.six as six
 from scapy.compat import (
     Any,
     Dict,
@@ -123,7 +122,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         return results
 
 
-def _NTML_post_build(self, p, pay_offset, fields):
+def _NTLM_post_build(self, p, pay_offset, fields):
     # type: (Packet, bytes, int, Dict[str, Tuple[str, int]]) -> bytes
     """Util function to build the offset and populate the lengths"""
     for field_name, value in self.Payload:
@@ -264,7 +263,7 @@ class NTLM_NEGOTIATE(Packet):
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
-        return _NTML_post_build(self, pkt, self.OFFSET, {
+        return _NTLM_post_build(self, pkt, self.OFFSET, {
             "DomainName": 16,
             "WorkstationName": 24,
         }) + pay
@@ -354,7 +353,7 @@ class NTLM_CHALLENGE(Packet):
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
-        return _NTML_post_build(self, pkt, self.OFFSET, {
+        return _NTLM_post_build(self, pkt, self.OFFSET, {
             "TargetName": 12,
             "TargetInfo": 40,
         }) + pay
@@ -463,7 +462,7 @@ class NTLM_AUTHENTICATE(Packet):
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
-        return _NTML_post_build(self, pkt, self.OFFSET, {
+        return _NTLM_post_build(self, pkt, self.OFFSET, {
             "LmChallengeResponse": 12,
             "NtChallengeResponse": 20,
             "DomainName": 28,
@@ -512,6 +511,7 @@ class _NTLM_Automaton(Automaton):
         MIC = None
         if not token:
             return None, negResult, MIC
+
         if isinstance(token, bytes):
             return NTLM_Header(token), negResult, MIC
         if isinstance(token, conf.raw_layer):
@@ -540,7 +540,7 @@ class _NTLM_Automaton(Automaton):
         self.token_pipe.send(ntlm)
 
     def get(self, attr, default=None):
-        if default != None:
+        if default is not None:
             return self.values.get(attr, default)
         return self.values[attr]
 
@@ -552,6 +552,7 @@ class NTLM_Client(_NTLM_Automaton):
     """
     port = 445
     cls = conf.raw_layer
+    kwargs_cls = {}
 
     def __init__(self, *args, **kwargs):
         self.client_pipe = ObjectPipe()
@@ -606,7 +607,7 @@ def ntlm_relay(serverCls,
                remoteClientCls,
                # Classic attacks
                DROP_MIC=False,
-               DROP_EXTENDED_SECURITY=False,
+               DROP_EXTENDED_SECURITY=False,  # SMB1
                # Optional arguments
                ALLOW_SMB2=None,
                server_kwargs={},
@@ -648,6 +649,7 @@ def ntlm_relay(serverCls,
         server_kwargs["EXTENDED_SECURITY"] = False
     if ALLOW_SMB2 is not None:
         client_kwargs["ALLOW_SMB2"] = server_kwargs["ALLOW_SMB2"] = ALLOW_SMB2
+    server_kwargs.update(remoteClientCls.kwargs_cls.get(serverCls, {}))
     try:
         while True:
             clientsocket, address = ssock.accept()

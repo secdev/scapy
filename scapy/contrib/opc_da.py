@@ -67,7 +67,6 @@ from scapy.fields import (
     StrField,
     StrFixedLenField,
     StrLenField,
-    ThreeBytesField,
     UUIDField,
     _FieldContainer,
     _PacketField,

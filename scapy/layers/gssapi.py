@@ -28,9 +28,24 @@ from scapy.asn1fields import (
     ASN1F_optional
 )
 from scapy.asn1packet import ASN1_Packet
-from scapy.fields import FieldListField, LEIntEnumField, LEIntField, LELongField, LEShortField, PacketListField, StrFixedLenField, UUIDField, XStrFixedLenField
-from scapy.layers.ntlm import NTLM_Header, _NTLMPayloadField, _NTML_post_build
+from scapy.fields import (
+    FieldListField,
+    LEIntEnumField,
+    LEIntField,
+    LELongField,
+    LEShortField,
+    PacketListField,
+    StrFixedLenField,
+    UUIDField,
+    XStrFixedLenField
+)
+from scapy.layers.ntlm import NTLM_Header, _NTLMPayloadField
 from scapy.packet import Packet
+
+from scapy.compat import (
+    Dict,
+    Tuple,
+)
 
 
 # https://datatracker.ietf.org/doc/html/rfc1508#page-48
