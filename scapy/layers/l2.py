@@ -306,7 +306,7 @@ class CookedLinux(Packet):
                    StrFixedLenField("src", b"", 8),
                    XShortEnumField("proto", 0x800, ETHER_TYPES)]
 
-    
+
 class CookedLinuxV2(Packet):
     # Documentation: http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL2.html
     name = "cooked linux v2"
