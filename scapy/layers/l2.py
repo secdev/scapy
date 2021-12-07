@@ -27,6 +27,7 @@ from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
 from scapy.error import warning, ScapyNoDstMacException, log_runtime
 from scapy.fields import (
     BCDFloatField,
+    ByteEnumField,
     BitField,
     ByteField,
     ConditionalField,
@@ -305,7 +306,24 @@ class CookedLinux(Packet):
                    StrFixedLenField("src", b"", 8),
                    XShortEnumField("proto", 0x800, ETHER_TYPES)]
 
+    
+class CookedLinuxV2(Packet):
+    # Documentation: http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL2.html
+    name = "cooked linux v2"
+    # from wireshark's database
+    fields_desc = [XShortEnumField("proto", 0x800, ETHER_TYPES),
+                   ShortField("reserved", 0),
+                   IntField("ifindex", 0),
+                   XShortField("lladdrtype", 512),
+                   ByteEnumField("pkttype", 0, {0: "unicast",
+                                         1: "broadcast",
+                                         2: "multicast",
+                                         3: "unicast-to-another-host",
+                                         4: "sent-by-us"}),
+                   ByteField("lladdrlen", 0),
+                   StrFixedLenField("src", "", 8)]
 
+    
 class MPacketPreamble(Packet):
     # IEEE 802.3br Figure 99-3
     name = "MPacket Preamble"
