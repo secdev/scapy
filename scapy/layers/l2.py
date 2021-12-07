@@ -323,7 +323,7 @@ class CookedLinuxV2(Packet):
                    ByteField("lladdrlen", 0),
                    StrFixedLenField("src", "", 8)]
 
-    
+
 class MPacketPreamble(Packet):
     # IEEE 802.3br Figure 99-3
     name = "MPacket Preamble"
