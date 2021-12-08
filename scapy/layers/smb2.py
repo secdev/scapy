@@ -12,6 +12,7 @@ import struct
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import (
+    ByteField,
     ConditionalField,
     FieldLenField,
     FieldListField,
@@ -36,6 +37,8 @@ from scapy.fields import (
     XLEShortField,
     XNBytesField,
     XStrLenField,
+    XStrFixedLenField,
+    XStrField,
 )
 
 from scapy.layers.gssapi import GSSAPI_BLOB
@@ -158,6 +161,8 @@ class SMB2_Header(Packet):
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_Session_Setup_Response
             return SMB2_Session_Setup_Request
+        elif self.Command == 0x000B:  # IOCTL
+            return SMB2_IOCTL_Request
         return super(SMB2_Header, self).guess_payload_class(payload)
 
 
@@ -176,6 +181,30 @@ class SMB2_Compression_Transform_Header(Packet):
         }),
         XLEIntField("Offset_or_Length", 0),
     ]
+
+# sect 2.2.2
+
+
+class SMB2_Error_Response(Packet):
+    name = "SMB2 Negotiate Context"
+    fields_desc = [
+        XLEShortField("StructureSize", 0x09),
+        ByteField("ErrorContextCount", 0),
+        ByteField("Reserved", 0),
+        FieldLenField(
+            "ByteCount", None,
+            fmt="<I",
+            count_of="ErrorData"
+        ),
+        XStrLenField("ErrorData", b"",
+                     length_from=lambda pkt: pkt.ByteCount)
+    ]
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Error_Response,
+    Flags=1  # SMB2_FLAGS_SERVER_TO_REDIR
+)
 
 # sect 2.2.3
 
@@ -238,7 +267,6 @@ bind_top_down(
     SMB2_Header,
     SMB2_Negotiate_Protocol_Request,
     Command=0x0000,
-    Flags=0
 )
 
 # sect 2.2.3.1.1
@@ -515,5 +543,54 @@ bind_top_down(
     SMB2_Header,
     SMB2_Session_Setup_Response,
     Command=0x0001,
+    Flags=1  # SMB2_FLAGS_SERVER_TO_REDIR
+)
+
+# sect 2.2.31
+
+
+class SMB2_IOCTL_Request(Packet):
+    name = "SMB2 IOCTL Request"
+    # Barely implemented
+    fields_desc = [
+        XLEShortField("StructureSize", 0x39),
+        LEShortField("Reserved", 0),
+        LEIntField("CtlCode", 0),
+        XStrFixedLenField("FileId", b"", length=16),
+        LEIntField("InputOffset", 0),
+        LEIntField("InputCount", 0),
+        LEIntField("MaxInputResponse", 0),
+        LEIntField("OutputOffset", 0),
+        LEIntField("OutputCount", 0),
+        LEIntField("MaxOutputResponse", 0),
+        LEIntField("Flags", 0),
+        LEIntField("Reserved2", 0),
+        XStrField("Buffer", b""),
+    ]
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_IOCTL_Request,
+    Command=0x000B,
+)
+
+# sect 2.2.32
+
+
+class SMB2_IOCTL_Response(Packet):
+    name = "SMB2 IOCTL Request"
+    # Barely implemented
+    fields_desc = (
+        SMB2_IOCTL_Request.fields_desc[:6] +
+        SMB2_IOCTL_Request.fields_desc[7:9] +
+        SMB2_IOCTL_Request.fields_desc[10:]
+    )
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_IOCTL_Response,
+    Command=0x000B,
     Flags=1  # SMB2_FLAGS_SERVER_TO_REDIR
 )

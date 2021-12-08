@@ -1180,15 +1180,17 @@ class Automaton:
                 for fd in r:
                     fd.recv()
 
-    def stop(self):
-        # type: () -> None
+    def stop(self, wait=True):
+        # type: (bool) -> None
         self.cmdin.send(Message(type=_ATMT_Command.STOP))
-        self._flush_inout()
+        if wait:
+            self._flush_inout()
 
-    def forcestop(self):
-        # type: () -> None
+    def forcestop(self, wait=True):
+        # type: (bool) -> None
         self.cmdin.send(Message(type=_ATMT_Command.FORCESTOP))
-        self._flush_inout()
+        if wait:
+            self._flush_inout()
 
     def restart(self, *args, **kargs):
         # type: (Any, Any) -> None

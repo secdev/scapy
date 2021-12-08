@@ -483,7 +483,7 @@ class NTLM_LDAP_Client(NTLM_Client, Automaton):
         pkt = LDAP(
             messageID=self.messageID,
             protocolOp=LDAP_BindRequest(
-                version=3,
+                version=2,
                 authentication=LDAP_SaslCredentials(
                     mechanism="GSS-SPNEGO",
                     credentials=ntlm_token

