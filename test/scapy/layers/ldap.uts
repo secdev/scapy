@@ -30,10 +30,10 @@ assert isinstance(pkt[LDAP].protocolOp, LDAP_BindRequest)
 assert isinstance(pkt[LDAP].protocolOp.authentication, LDAP_SaslCredentials)
 ntlm = NTLM_Header(pkt[LDAP].protocolOp.authentication.credentials.val)
 assert isinstance(ntlm, NTLM_AUTHENTICATE_V2)
-assert ntlm.Payload[1] == ('UserName', 'toto')
-assert ntlm.Payload[2] == ('Workstation', 'WIN2')
-assert isinstance(ntlm.Payload[4][1], NTLMv2_RESPONSE)
-assert ntlm.Payload[4][1].AvPairs[8].Value == 'ldap/192.168.122.156'
+assert ntlm.Payload[0] == ('UserName', 'toto')
+assert ntlm.Payload[1] == ('Workstation', 'WIN2')
+assert isinstance(ntlm.Payload[3][1], NTLMv2_RESPONSE)
+assert ntlm.Payload[3][1].AvPairs[8].Value == 'ldap/192.168.122.156'
 
 = LDAP_BindResponse
 
