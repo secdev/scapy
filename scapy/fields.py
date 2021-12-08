@@ -2871,14 +2871,14 @@ class FlagsField(_BitField[Optional[Union[int, FlagValue]]]):
        >>> class FlagsTest2(Packet):
                fields_desc = [
                    FlagsField("flags", 0x2, 16, {
-                       1: "1",  # 1st bit
-                       8: "2"   # 8th bit
+                       0x0001: "A",
+                       0x0008: "B",
                    })
                ]
 
    :param name: field's name
    :param default: default value for the field
-   :param size: number of bits in the field (in bits)
+   :param size: number of bits in the field (in bits). if negative, LE
    :param names: (list or str or dict) label for each flag
        If it's a str or a list, the least Significant Bit tag's name
        is written first.
@@ -2895,9 +2895,9 @@ class FlagsField(_BitField[Optional[Union[int, FlagValue]]]):
         # type: (...) -> None
         # Convert the dict to a list
         if isinstance(names, dict):
-            tmp = ["bit_%d" % i for i in range(size)]
+            tmp = ["bit_%d" % i for i in range(abs(size))]
             for i, v in six.viewitems(names):
-                tmp[i] = v
+                tmp[int(math.floor(math.log(i, 2)))] = v
             names = tmp
         # Store the names as str or list
         self.names = names

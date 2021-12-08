@@ -1587,17 +1587,20 @@ assert a.sprintf("%flags%") == "FS"
 class FlagsTest2(Packet):
     fields_desc = [
         FlagsField("flags", 0x2, 16, {
-            0: "A",  # 0 bit
-            7: "B"   # 7 bit
+            0x0001: "A", 
+            0x0008: "B",
+            0x1000: "C",
         })
     ]
 
-a = FlagsTest2(flags=255)
+a = FlagsTest2(flags=9)
 a.sprintf("%flags%")
 assert a.flags.A
 assert a.flags.B
-assert a.sprintf("%flags%") == "A+bit_1+bit_2+bit_3+bit_4+bit_5+bit_6+B"
+assert a.sprintf("%flags%") == "A+B"
 
+b = FlagsTest2(flags="B+C")
+assert b.flags == 0x1000 | 0x0008
 
 ########
 ########
