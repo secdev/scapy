@@ -58,7 +58,11 @@ from scapy.contrib.rtps.common_types import (
     SerializedDataField,
     VendorIdPacket,
 )
-from scapy.contrib.rtps.pid_types import ParameterListPacket, get_pid_class
+from scapy.contrib.rtps.pid_types import (
+    ParameterListPacket,
+    get_pid_class,
+    PID_SENTINEL
+)
 
 
 _rtps_reserved_entity_ids = {
@@ -150,6 +154,7 @@ class InlineQoSPacket(EPacket):
 
     fields_desc = [
         PacketListField("parameters", [], next_cls_cb=get_pid_class),
+        PacketField("sentinel", "", PID_SENTINEL),
     ]
 
 
