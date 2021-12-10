@@ -1018,7 +1018,7 @@ class NBytesField(Field[int, List[int]]):
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[int]) -> List[int]
         if x is None:
-            return []
+            return [0] * self.sz
         x2m = list()
         for _ in range(self.sz):
             x2m.append(x % 256)

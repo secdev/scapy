@@ -28,7 +28,7 @@ from scapy.layers.ntlm import (
     NTLM_Client,
     NTLM_Server,
 )
-from scapy.packet import Packet, bind_layers, bind_top_down
+from scapy.packet import Packet, Raw, bind_layers, bind_top_down
 from scapy.fields import (
     ByteEnumField,
     ByteField,
@@ -70,6 +70,7 @@ from scapy.layers.smb2 import (
     SMB2_Session_Setup_Response,
     SMB2_IOCTL_Request,
     SMB2_Error_Response,
+    SMB2_Tree_Connect_Request,
 )
 
 
@@ -840,7 +841,7 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
             resp = self.smb_header.copy() / cls(
                 DialectRevision=DialectRevision,
                 Capabilities="DFS",
-                SecurityMode=self.get("SecurityMode", 1),
+                SecurityMode=0,  # self.get("SecurityMode", 1),
                 ServerTime=self.get("ServerTime", time.time() + 11644473600),
                 ServerStartTime=0,
                 MaxTransactionSize=65536,
@@ -1048,7 +1049,13 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
         """Dev: overload this"""
         pass
 
-    @ATMT.receive_condition(AUTHENTICATED)
+    @ATMT.condition(AUTHENTICATED, prio=0)
+    def should_end(self):
+        if not self.ECHO:
+            # Close connection
+            raise self.END()
+
+    @ATMT.receive_condition(AUTHENTICATED, prio=1)
     def receive_packet(self, pkt):
         if self.ECHO:
             raise self.AUTHENTICATED().action_parameters(pkt)
@@ -1065,7 +1072,29 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
                     "\\\\%s\\" % self.REAL_HOSTNAME +
                     pkt.Path[2:].split("\\", 1)[1]
                 )
+        else:
+            self.smb_header.MessageId += 1
+            # SMB2
+            if SMB2_IOCTL_Request in pkt and pkt.CtlCode == 0x00140204:
+                # FSCTL_VALIDATE_NEGOTIATE_INFO
+                # This is a security measure asking the server to validate
+                # what flags were negociated during the SMBNegotiate exchange.
+                # This packet is ALWAYS signed.
+                # A SMB server < SMB3 (e.g. Windows 7) will reply with STATUS_FILE_CLOSED,
+                # which is what we do here, however we CANNOT SIGN the response. Most clients
+                # will abort the connection after receiving this, despite our best effort..
+                pkt = self.smb_header.copy() / \
+                    SMB2_Error_Response(ErrorData=b"\xff")
+                pkt.Status = 0xc0000128  # STATUS_FILE_CLOSED
+                pkt.Command = "SMB2_IOCTL"
+                pkt.Flags = "SMB2_FLAGS_SERVER_TO_REDIR+SMB2_FLAGS_SIGNED"
+                self.send(pkt)
+                return
         self.echo(pkt)
+
+    @ATMT.state(final=1)
+    def END(self):
+        self.end()
 
 
 class NTLM_SMB_Client(NTLM_Client, Automaton):
@@ -1078,6 +1107,8 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
     def __init__(self, *args, **kwargs):
         self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
         self.ALLOW_SMB2 = kwargs.pop("ALLOW_SMB2", True)
+        self.REAL_HOSTNAME = kwargs.pop("REAL_HOSTNAME", None)
+        self.RUN_SCRIPT = kwargs.pop("RUN_SCRIPT", None)
         self.SMB2 = False
         super(NTLM_SMB_Client, self).__init__(*args, **kwargs)
 
@@ -1202,7 +1233,7 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
                 "DFS+Leasing+LargeMTU+MultiChannel+"
                 "PersistentHandles+DirectoryLeasing+Encryption"
             ),
-            SecurityMode=1,
+            SecurityMode=0,
             ClientGUID=self.SMB2_INIT_PARAMS.get("ClientGUID", RandUUID()),
         )
         self.send(pkt)
@@ -1237,7 +1268,7 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
                 # SMB2
                 pkt = self.smb_header.copy() / SMB2_Session_Setup_Request(
                     Capabilities="DFS",
-                    SecurityMode=self.get("SecurityMode"),
+                    SecurityMode=0,
                 )
                 pkt.CreditsRequested = 33
             else:
@@ -1363,6 +1394,11 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
     def AUTHENTICATED(self):
         pass
 
+    @ATMT.condition(AUTHENTICATED)
+    def should_run_script(self):
+        if self.RUN_SCRIPT:
+            raise self.DO_RUN_SCRIPT()
+
     @ATMT.receive_condition(AUTHENTICATED)
     def receive_packet(self, pkt):
         raise self.AUTHENTICATED().action_parameters(pkt)
@@ -1370,3 +1406,23 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
     @ATMT.action(receive_packet)
     def pass_packet(self, pkt):
         self.echo(pkt)
+
+    @ATMT.state(final=1)
+    def DO_RUN_SCRIPT(self):
+        # This is an example script, mostly unimplemented...
+        # Tree connect
+        self.smb_header.MessageId += 1
+        self.send(
+            self.smb_header.copy() /
+            SMB2_Tree_Connect_Request(
+                Buffer=[('Path', '\\\\%s\\IPC$' % self.REAL_HOSTNAME)]
+            )
+        )
+        # Create srvsvc
+        self.smb_header.MessageId += 1
+        pkt = self.smb_header.copy()
+        pkt.Command = "SMB2_CREATE"
+        pkt /= Raw(load=b'9\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x9f\x01\x12\x00\x00\x00\x00\x00\x07\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00x\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00s\x00r\x00v\x00s\x00v\x00c\x00')
+        self.send(pkt)
+        #... run something?
+        self.end()

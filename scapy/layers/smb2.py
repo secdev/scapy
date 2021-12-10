@@ -12,6 +12,7 @@ import struct
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import (
+    ByteEnumField,
     ByteField,
     ConditionalField,
     FieldLenField,
@@ -110,7 +111,7 @@ SMB2_COMPRESSION_ALGORITHMS = {
 
 def _SMB2_post_build(self, p, pay_offset, fields):
     """Util function to build the offset and populate the lengths"""
-    for field_name, value in self.Buffer:
+    for field_name, value in self.fields["Buffer"]:
         length = self.get_field(
             "Buffer").fields_map[field_name].i2len(self, value)
         offset = fields[field_name]
@@ -161,6 +162,10 @@ class SMB2_Header(Packet):
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_Session_Setup_Response
             return SMB2_Session_Setup_Request
+        elif self.Command == 0x0003:  # TREE connect
+            if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
+                return SMB2_Tree_Connect_Response
+            return SMB2_Tree_Connect_Request
         elif self.Command == 0x000B:  # IOCTL
             return SMB2_IOCTL_Request
         return super(SMB2_Header, self).guess_payload_class(payload)
@@ -199,6 +204,7 @@ class SMB2_Error_Response(Packet):
         XStrLenField("ErrorData", b"",
                      length_from=lambda pkt: pkt.ByteCount)
     ]
+
 
 bind_top_down(
     SMB2_Header,
@@ -546,6 +552,80 @@ bind_top_down(
     Flags=1  # SMB2_FLAGS_SERVER_TO_REDIR
 )
 
+
+# sect 2.2.9
+
+
+class SMB2_Tree_Connect_Request(Packet):
+    name = "SMB2 TREE_CONNECT Request"
+    OFFSET = 8 + 64
+    fields_desc = [
+        XLEShortField("StructureSize", 0x9),
+        FlagsField("Flags", 0, -16, ["CLUSTER_RECONNECT",
+                                     "REDIRECT_TO_OWNER",
+                                     "EXTENSION_PRESENT"]),
+        XLEShortField("PathBufferOffset", None),
+        LEShortField("PathLen", None),
+        _NTLMPayloadField(
+            'Buffer', OFFSET, [
+                StrFieldUtf16("Path", b""),
+            ])
+    ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return _SMB2_post_build(self, pkt, self.OFFSET, {
+            "Path": 4,
+        }) + pay
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Tree_Connect_Request,
+    Command=0x0003,
+)
+
+# sect 2.2.10
+
+
+class SMB2_Tree_Connect_Response(Packet):
+    name = "SMB2 TREE_CONNECT Response"
+    OFFSET = 8 + 64
+    fields_desc = [
+        XLEShortField("StructureSize", 0x9),
+        ByteEnumField("ShareType", 0, {0x01: "DISK",
+                                       0x02: "PIPE",
+                                       0x03: "PRINT"}),
+        ByteField("Reserved", 0),
+        FlagsField("ShareFlags", 0, -32, {
+            0x00000010: "AUTO_CACHING",
+            0x00000020: "VDO_CACHING",
+            0x00000030: "NO_CACHING",
+            0x00000001: "DFS",
+            0x00000002: "DFS_ROOT",
+            0x00000100: "RESTRICT_EXCLUSIVE_OPENS",
+            0x00000200: "FORCE_SHARED_DELETE",
+            0x00000400: "ALLOW_NAMESPACE_CACHING",
+            0x00000800: "ACCESS_BASED_DIRECTORY_ENUM",
+            0x00001000: "FORCE_LEVELII_OPLOCK",
+            0x00002000: "ENABLE_HASH_V1",
+            0x00004000: "ENABLE_HASH_V2",
+            0x00008000: "ENCRYPT_DATA",
+            0x00040000: "IDENTITY_REMOTING",
+            0x00100000: "COMPRESS_DATA",
+        }),
+        FlagsField("Capabilities", 0, -32, {}),
+        XLEIntField("MaximalAccess", 0),
+    ]
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Tree_Connect_Response,
+    Command=0x0003,
+    Flags=1
+)
+
 # sect 2.2.31
 
 
@@ -581,6 +661,7 @@ bind_top_down(
 class SMB2_IOCTL_Response(Packet):
     name = "SMB2 IOCTL Request"
     # Barely implemented
+    StructureSize = 0x31
     fields_desc = (
         SMB2_IOCTL_Request.fields_desc[:6] +
         SMB2_IOCTL_Request.fields_desc[7:9] +

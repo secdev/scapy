@@ -18,6 +18,19 @@ ________
 .. code::
     ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_SMB_Client, iface="virbr0")
 
+.. warning::
+    The legitimate client will the validity of the negotiated flags by using a signed IOCTL ``FSCTL_VALIDATE_NEGOTIATE_INFO`` which we cannot fake, therefore losing the connection.
+    We however still have created an authenticated illegitimate client to the server, where we won't be performing that check, that we can use. See the case right below.
+
+**SMB <-> SMB: Perform a SMB2 relay. Close the legitimate client & run commands on the server**
+
+.. note::
+    Setting ``ECHO`` to ``False`` on the server instantly terminates the connection once Authentication is successful.
+    We set ``RUN_SCRIPT`` to ``True`` to run a script (in ``DO_RUN_SCRIPT`` in the automaton) once Authentication is successful. Note that ``REAL_HOSTNAME`` is required in this case.
+
+.. code::
+    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_SMB_Client, iface="virbr0", server_kwargs={"ECHO": False}, client_kwargs={"REAL_HOSTNAME": "WIN1", "RUN_SCRIPT": True})
+
 **SMB <-> SMB: SMB relay with force downgrade to SMB1**
 
 .. note::

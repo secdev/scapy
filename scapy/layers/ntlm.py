@@ -123,11 +123,23 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
                 (field_name, self.fields_map[field_name].i2h(pkt, value)))
         return results
 
+    def h2i(self, pkt, x):
+        # type: (Optional[Packet], bytes) -> List[Tuple[str, str]]
+        if not pkt or not x:
+            return []
+        results = []
+        for field_name, value in x:
+            if field_name not in self.fields_map:
+                continue
+            results.append(
+                (field_name, self.fields_map[field_name].h2i(pkt, value)))
+        return results
+
 
 def _NTLM_post_build(self, p, pay_offset, fields):
     # type: (Packet, bytes, int, Dict[str, Tuple[str, int]]) -> bytes
     """Util function to build the offset and populate the lengths"""
-    for field_name, value in self.Payload:
+    for field_name, value in self.fields["Payload"]:
         length = self.get_field(
             "Payload").fields_map[field_name].i2len(self, value)
         offset = fields[field_name]
@@ -567,6 +579,10 @@ class _NTLM_Automaton(Automaton):
             return self.values.get(attr, default)
         return self.values[attr]
 
+    def end(self):
+        self.listen_sock.close()
+        self.stop()
+
 
 class NTLM_Client(_NTLM_Automaton):
     """
@@ -672,7 +688,9 @@ def ntlm_relay(serverCls,
         server_kwargs["EXTENDED_SECURITY"] = False
     if ALLOW_SMB2 is not None:
         client_kwargs["ALLOW_SMB2"] = server_kwargs["ALLOW_SMB2"] = ALLOW_SMB2
-    server_kwargs.update(remoteClientCls.kwargs_cls.get(serverCls, {}))
+    for k, v in remoteClientCls.kwargs_cls.get(serverCls, {}).items():
+        if k not in server_kwargs:
+            server_kwargs[k] = v
     try:
         evt = threading.Event()
         while not evt.is_set():
