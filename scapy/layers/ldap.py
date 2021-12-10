@@ -515,6 +515,6 @@ class NTLM_LDAP_Client(NTLM_Client, Automaton):
             else:
                 raise self.WAIT_FOR_TOKEN()
 
-    @ATMT.state()
+    @ATMT.state(final=1)
     def AUTHENTICATED(self):
         pass

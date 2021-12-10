@@ -1383,7 +1383,7 @@ class StrFieldUtf16(StrField):
         return bytes_encode(x).decode('utf-16', errors="replace")
 
 
-K = TypeVar('K', List[BasePacket], BasePacket)
+K = TypeVar('K', List[BasePacket], BasePacket, Optional[BasePacket])
 
 
 class _PacketField(_StrField[K]):
@@ -1435,7 +1435,7 @@ class PacketField(_PacketField[BasePacket]):
     pass
 
 
-class PacketLenField(PacketField):
+class PacketLenField(_PacketField[Optional[BasePacket]]):
     __slots__ = ["length_from"]
 
     def __init__(self,
@@ -1452,7 +1452,7 @@ class PacketLenField(PacketField):
                  pkt,  # type: Packet
                  s,  # type: bytes
                  ):
-        # type: (...) -> Tuple[bytes, Packet]
+        # type: (...) -> Tuple[bytes, Optional[Packet]]
         len_pkt = self.length_from(pkt)
         i = None
         if len_pkt:

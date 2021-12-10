@@ -273,7 +273,7 @@ def _SMBStrNullField(name, default):
     return MultipleTypeField(
         [
             (StrNullFieldUtf16(name, default),
-             lambda pkt: _isUTF16(pkt))
+             _isUTF16)
         ],
         StrNullField(name, default),
     )
@@ -1078,11 +1078,12 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
             if SMB2_IOCTL_Request in pkt and pkt.CtlCode == 0x00140204:
                 # FSCTL_VALIDATE_NEGOTIATE_INFO
                 # This is a security measure asking the server to validate
-                # what flags were negociated during the SMBNegotiate exchange.
+                # what flags were negotiated during the SMBNegotiate exchange.
                 # This packet is ALWAYS signed.
-                # A SMB server < SMB3 (e.g. Windows 7) will reply with STATUS_FILE_CLOSED,
-                # which is what we do here, however we CANNOT SIGN the response. Most clients
-                # will abort the connection after receiving this, despite our best effort..
+                # A SMB server < SMB3 (e.g. Windows 7) will reply with
+                # STATUS_FILE_CLOSED, which is what we do here, however we
+                # CANNOT SIGN the response. Most clients will abort the
+                # connection after receiving this, despite our best effort..
                 pkt = self.smb_header.copy() / \
                     SMB2_Error_Response(ErrorData=b"\xff")
                 pkt.Status = 0xc0000128  # STATUS_FILE_CLOSED
@@ -1422,7 +1423,7 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
         self.smb_header.MessageId += 1
         pkt = self.smb_header.copy()
         pkt.Command = "SMB2_CREATE"
-        pkt /= Raw(load=b'9\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x9f\x01\x12\x00\x00\x00\x00\x00\x07\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00x\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00s\x00r\x00v\x00s\x00v\x00c\x00')
+        pkt /= Raw(load=b'9\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x9f\x01\x12\x00\x00\x00\x00\x00\x07\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00x\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00s\x00r\x00v\x00s\x00v\x00c\x00')  # noqa: E501
         self.send(pkt)
-        #... run something?
+        # ... run something?
         self.end()

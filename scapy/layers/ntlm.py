@@ -649,8 +649,8 @@ def ntlm_relay(serverCls,
                DROP_EXTENDED_SECURITY=False,  # SMB1
                # Optional arguments
                ALLOW_SMB2=None,
-               server_kwargs={},
-               client_kwargs={},
+               server_kwargs=None,
+               client_kwargs=None,
                iface=None):
     """
     NTLM Relay
@@ -675,12 +675,13 @@ def ntlm_relay(serverCls,
         remoteClientCls, NTLM_Client), "Specify a correct NTLM client class"
     assert remoteIP, "Specify a valid remote IP address"
 
-    from scapy.supersocket import StreamSocket
     ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ssock.bind(
         (get_if_addr(iface or conf.iface), serverCls.port))
     ssock.listen(5)
     sniffers = []
+    server_kwargs = server_kwargs or {}
+    client_kwargs = client_kwargs or {}
     if DROP_MIC:
         client_kwargs["DROP_MIC"] = server_kwargs["DROP_MIC"] = True
     if DROP_EXTENDED_SECURITY:

@@ -2076,7 +2076,6 @@ def fragleak2(target, timeout=0.4, onlyasc=0, count=None):
 class ICMPEcho_am(AnsweringMachine):
     """Responds to ICMP Echo-Requests (ping)"""
     function_name = "icmpechod"
-    sniff_options = {"store": 0, "L2socket": conf.L3socket}
 
     def is_request(self, req):
         if req.haslayer(ICMP):
@@ -2094,7 +2093,7 @@ class ICMPEcho_am(AnsweringMachine):
         reply[ICMP].type = 0  # echo-reply
         # Force re-generation of the checksum
         reply[ICMP].chksum = None
-        return reply
+        return reply[ICMP].underlayer
 
 
 conf.stats_classic_protocols += [TCP, UDP, ICMP]
