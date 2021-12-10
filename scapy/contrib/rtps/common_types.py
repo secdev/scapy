@@ -312,6 +312,7 @@ _rtps_vendor_ids = {
     b"\x01\x0E": "Technicolor Inc. - Qeo",
     b"\x01\x0F": "eProsima - Fast-RTPS",
     b"\x01\x10": "ADLINK - Cyclone DDS",
+    b"\x01\x11": "GurumNetworks - GurumDDS",
 }
 
 
