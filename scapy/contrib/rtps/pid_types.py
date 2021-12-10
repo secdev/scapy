@@ -654,7 +654,7 @@ class PID_VENDOR_BUILTIN_ENDPOINT_SET(PIDPacketBase):
 
 _RTPSParameterIdTypes = {
     0x0000: PID_PAD,
-    # 0x0001: PID_SENTINEL,
+    0x0001: PID_SENTINEL,
     0x0002: PID_PARTICIPANT_LEASE_DURATION,
     0x0004: PID_TIME_BASED_FILTER,
     0x0005: PID_TOPIC_NAME,
@@ -728,9 +728,6 @@ def get_pid_class(
         endianness = e_flags(pkt)
 
     _id = struct.unpack(endianness + "h", remain[0:2])[0]
-
-    if _id == 0x0001:  # sentinel
-        return None
 
     _id = _id & 0xffff
 
