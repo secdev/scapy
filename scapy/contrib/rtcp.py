@@ -15,7 +15,8 @@ from scapy.fields import (
     PacketListField, BitFieldLenField,
     LongField, PacketField, ByteField,
     X3BytesField, LenField, PacketLenField,
-    FieldListField
+    FieldListField, StrLenField, PadField,
+    FieldLenField
 )
 
 
@@ -26,19 +27,6 @@ _rtcp_packet_types = {
     203: 'BYE',
     204: 'APP'
 }
-
-
-class RTCPHeader(Packet):
-    name = "RTCP header"
-    fields_desc = [BitField('version', 2, 2),
-                   BitField('padding', 0, 1),
-                   BitFieldLenField('report_count', 0, 5, count_of='report_blocks'),
-                   ByteEnumField('packet_type', 0, _rtcp_packet_types),
-                   LenField('length', None, fmt='!h')
-    ]
-
-    def __new__(cls, name, bases, dct):
-        raise NotImplementedError()
 
 
 class SenderInfo(Packet):
@@ -64,15 +52,56 @@ class ReceptionReport(Packet):
     ]
 
 
-class RTCPSenderReport(Packet):
-    name = "RTCP sender report"
+_sdes_chunk_types = {
+    0: "END",
+    1: "CNAME",
+    2: "NAME",
+    3: "EMAIL",
+    4: "PHONE",
+    5: "LOC",
+    6: "TOOL",
+    7: "NOTE",
+    8: "PRIV"
+}
+
+
+class SDESItem(Packet):
+    name = "SDES item"
     fields_desc = [
-        RTCPHeader,
-        IntField('sourcesync', 0),
-        PacketField('sender_info', SenderInfo(), SenderInfo),
-        PacketListField('report_blocks', None, pkt_cls=ReceptionReport, count_from=lambda pkt: pkt.record_count)
+        ByteEnumField('chunk_type', None, _sdes_chunk_types),
+        FieldLenField('length', None, fmt='!b', length_of='value'),
+        StrLenField('value', None, length_from=lambda pkt: pkt.length)
     ]
-    packet_type = 200
+
+    def extract_padding(self, p):
+        return "", p
+
+
+class SDESChunk(Packet):
+    name = "SDES chunk"
+    fields_desc = [
+        IntField('sourcesync', None),
+        PacketListField('items', None, pkt_cls=SDESItem)
+    ]
+
+
+class RTCP(Packet):
+    name = "RTCP"
+
+    fields_desc = [
+        # HEADER
+        BitField('version', 2, 2),
+        BitField('padding', 0, 1),
+        BitFieldLenField('count', 0, 5, count_of='report_blocks'),
+        ByteEnumField('packet_type', 0, _rtcp_packet_types),
+        LenField('length', None, fmt='!h'),
+        # SR/RR
+        ConditionalField(IntField('sourcesync', 0), lambda pkt: pkt.packet_type in (200, 201)),
+        ConditionalField(PacketField('sender_info', SenderInfo(), SenderInfo), lambda pkt: pkt.packet_type == 200),
+        ConditionalField(PacketListField('report_blocks', None, pkt_cls=ReceptionReport, count_from=lambda pkt: pkt.count), lambda pkt: pkt.packet_type in (200, 201)),
+        # SDES
+        ConditionalField(PacketListField('sdes_chunks', None, pkt_cls=SDESChunk, count_from=lambda pkt: pkt.count), lambda pkt: pkt.packet_type == 202),
+    ]
 
     def post_build(self, pkt, pay):
         pkt += pay
