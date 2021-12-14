@@ -505,6 +505,10 @@ class NTLM_LDAP_Client(NTLM_Client, Automaton):
             elif pkt.protocolOp.resultCode == 0x0:  # Auth success
                 ntlm_tuple = (None, 0, None)
                 self.authenticated = True
+            elif pkt.protocolOp.resultCode == 0x35:  # UnwillingToPerform
+                print("Error:")
+                pkt.show()
+                raise self.ERRORED()
             else:
                 ntlm_tuple = self._get_token(
                     pkt.protocolOp.serverSaslCreds.val
@@ -516,5 +520,14 @@ class NTLM_LDAP_Client(NTLM_Client, Automaton):
                 raise self.WAIT_FOR_TOKEN()
 
     @ATMT.state(final=1)
+    def ERRORED(self):
+        pass
+
+    @ATMT.state(final=1)
     def AUTHENTICATED(self):
         pass
+
+
+class NTLM_LDAPS_Client(NTLM_LDAP_Client):
+    port = 636
+    ssl = True

@@ -9,6 +9,7 @@ NTLM
 https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-NLMP/%5bMS-NLMP%5d.pdf
 """
 
+import ssl
 import socket
 import struct
 import threading
@@ -45,7 +46,7 @@ from scapy.fields import (
 )
 from scapy.packet import Packet
 from scapy.sessions import StringBuffer
-from scapy.supersocket import StreamSocket
+from scapy.supersocket import SSLStreamSocket, StreamSocket
 
 from scapy.compat import (
     Any,
@@ -591,6 +592,7 @@ class NTLM_Client(_NTLM_Automaton):
     """
     port = 445
     cls = conf.raw_layer
+    ssl = False
     kwargs_cls = {}
 
     def __init__(self, *args, **kwargs):
@@ -703,9 +705,19 @@ def ntlm_relay(serverCls,
             _sock.connect(
                 (remoteIP, remoteClientCls.port)
             )
+            remote_sock = None
+            # SSL?
+            if remoteClientCls.ssl:
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                # Disable all SSL checks...
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+                _sock = context.wrap_socket(_sock)
+                remote_sock = SSLStreamSocket(_sock, remoteClientCls.cls)
+            else:
+                remote_sock = StreamSocket(_sock, remoteClientCls.cls)
             print("%s connected -> %s" %
                   (repr(address), repr(_sock.getsockname())))
-            remote_sock = StreamSocket(_sock, remoteClientCls.cls)
             cli_atmt = remoteClientCls(remote_sock, debug=4, **client_kwargs)
             sock_tup = ((srv_atmt, cli_atmt), (sock, remote_sock))
             sniffers.append(sock_tup)

