@@ -607,7 +607,10 @@ class CandumpReader:
     def recv(self, size=CAN_MTU):
         # type: (int) -> Optional[Packet]
         """Emulation of SuperSocket"""
-        return self.read_packet(size=size)
+        try:
+            return self.read_packet(size=size)
+        except EOFError:
+            return None
 
     def fileno(self):
         # type: () -> int
