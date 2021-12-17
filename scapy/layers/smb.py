@@ -1085,12 +1085,14 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
                 # A SMB server < SMB3 (e.g. Windows 7) will reply with
                 # STATUS_FILE_CLOSED, which is what we do here, however we
                 # CANNOT SIGN the response. Most clients will abort the
-                # connection after receiving this, despite our best effort..
+                # connection after receiving this, despite our best effort,
+                # as our answer is unsigned...
                 pkt = self.smb_header.copy() / \
                     SMB2_Error_Response(ErrorData=b"\xff")
                 pkt.Status = 0xc0000128  # STATUS_FILE_CLOSED
                 pkt.Command = "SMB2_IOCTL"
-                pkt.Flags = "SMB2_FLAGS_SERVER_TO_REDIR+SMB2_FLAGS_SIGNED"
+                pkt.Flags = pkt.Flags + "SMB2_FLAGS_SERVER_TO_REDIR" - \
+                    "SMB2_FLAGS_SIGNED"
                 self.send(pkt)
                 return
         self.echo(pkt)

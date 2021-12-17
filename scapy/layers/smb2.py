@@ -166,7 +166,13 @@ class SMB2_Header(Packet):
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_Tree_Connect_Response
             return SMB2_Tree_Connect_Request
+        elif self.Command == 0x0006:  # Close
+            if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
+                pass
+            return SMB2_Close_Request
         elif self.Command == 0x000B:  # IOCTL
+            if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
+                pass
             return SMB2_IOCTL_Request
         return super(SMB2_Header, self).guess_payload_class(payload)
 
@@ -625,6 +631,36 @@ bind_top_down(
     Command=0x0003,
     Flags=1
 )
+
+# sect 2.2.14.1
+
+
+class SMB2_FILEID(Packet):
+    fields_desc = [
+        LELongField("Persistent", 0),
+        LELongField("Volatile", 0)
+    ]
+
+# sect 2.2.15
+
+
+class SMB2_Close_Request(Packet):
+    name = "SMB2 CLOSE Request"
+    fields_desc = [
+        XLEShortField("StructureSize", 0x18),
+        FlagsField("Flags", 0, -16,
+                   ["POSTQUERY_ATTRIB"]),
+        LEIntField("Reserved", 0),
+        PacketField("FileId", SMB2_FILEID(), SMB2_FILEID)
+    ]
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Close_Request,
+    Command=0x0006,
+)
+
 
 # sect 2.2.31
 
