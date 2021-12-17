@@ -45,6 +45,7 @@ except ImportError:
     # Python 2 compat - don't bother typing it
     class UTC(tzinfo):
         """UTC"""
+
         def utcoffset(self, dt):  # type: ignore
             return timedelta(0)
 
@@ -562,6 +563,10 @@ class ASN1_VIDEOTEX_STRING(ASN1_STRING):
 
 class ASN1_IA5_STRING(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.IA5_STRING
+
+
+class ASN1_GENERAL_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.GENERAL_STRING
 
 
 class ASN1_GENERALIZED_TIME(ASN1_STRING):

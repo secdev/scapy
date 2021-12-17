@@ -220,6 +220,7 @@ def BER_tagging_dec(s,  # type: bytes
                     implicit_tag=None,  # type: Optional[int]
                     explicit_tag=None,  # type: Optional[int]
                     safe=False,  # type: Optional[bool]
+                    _fname="",  # type: str
                     ):
     # type: (...) -> Tuple[Optional[int], bytes]
     # We output the 'real_tag' if it is different from the (im|ex)plicit_tag.
@@ -227,14 +228,15 @@ def BER_tagging_dec(s,  # type: bytes
     if len(s) > 0:
         err_msg = (
             "BER_tagging_dec: observed tag 0x%.02x does not "
-            "match expected tag 0x%.02x"
+            "match expected tag 0x%.02x (%s)"
         )
         if implicit_tag is not None:
             ber_id, s = BER_id_dec(s)
             if ber_id != implicit_tag:
                 if not safe and ber_id & 0x1f != implicit_tag & 0x1f:
-                    raise BER_Decoding_Error(err_msg % (ber_id, implicit_tag),
-                                             remaining=s)
+                    raise BER_Decoding_Error(err_msg % (
+                        ber_id, implicit_tag, _fname),
+                        remaining=s)
                 else:
                     real_tag = ber_id
             s = chb(hash(hidden_tag)) + s
@@ -242,8 +244,9 @@ def BER_tagging_dec(s,  # type: bytes
             ber_id, s = BER_id_dec(s)
             if ber_id != explicit_tag:
                 if not safe:
-                    raise BER_Decoding_Error(err_msg % (ber_id, explicit_tag),
-                                             remaining=s)
+                    raise BER_Decoding_Error(
+                        err_msg % (ber_id, explicit_tag, _fname),
+                        remaining=s)
                 else:
                     real_tag = ber_id
             l, s = BER_len_dec(s)
@@ -593,6 +596,10 @@ class BERcodec_VIDEOTEX_STRING(BERcodec_STRING):
 
 class BERcodec_IA5_STRING(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IA5_STRING
+
+
+class BERcodec_GENERAL_STRING(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.GENERAL_STRING
 
 
 class BERcodec_UTC_TIME(BERcodec_STRING):

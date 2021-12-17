@@ -136,7 +136,8 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         diff_tag, s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
                                       implicit_tag=self.implicit_tag,
                                       explicit_tag=self.explicit_tag,
-                                      safe=self.flexible_tag)
+                                      safe=self.flexible_tag,
+                                      _fname=self.name)
         if diff_tag is not None:
             # this implies that flexible_tag was True
             if self.implicit_tag is not None:
@@ -377,6 +378,10 @@ class ASN1F_IA5_STRING(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.IA5_STRING
 
 
+class ASN1F_GENERAL_STRING(ASN1F_STRING):
+    ASN1_tag = ASN1_Class_UNIVERSAL.GENERAL_STRING
+
+
 class ASN1F_UTC_TIME(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.UTC_TIME
 
@@ -462,7 +467,8 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         diff_tag, s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
                                       implicit_tag=self.implicit_tag,
                                       explicit_tag=self.explicit_tag,
-                                      safe=self.flexible_tag)
+                                      safe=self.flexible_tag,
+                                      _fname=pkt.name)
         if diff_tag is not None:
             if self.implicit_tag is not None:
                 self.implicit_tag = diff_tag
@@ -499,22 +505,38 @@ class ASN1F_SET(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_UNIVERSAL.SET
 
 
-class ASN1F_SEQUENCE_OF(ASN1F_field[List['ASN1_Packet'],
-                                    List['ASN1_Packet']]):
+_SEQ_T = Union['ASN1_Packet', Type[ASN1F_field], 'ASN1F_PACKET']
+
+
+class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
+                                    List[ASN1_Object[Any]]]):
+    """
+    Two types are allowed as cls: ASN1_Packet, ASN1F_field
+    """
     ASN1_tag = ASN1_Class_UNIVERSAL.SEQUENCE
-    holds_packets = 1
     islist = 1
 
     def __init__(self,
                  name,  # type: str
-                 default,  # type: List[ASN1_Packet]
-                 cls,  # type: Type[ASN1_Packet]
+                 default,  # type: Any
+                 cls,  # type: _SEQ_T
                  context=None,  # type: Optional[Any]
                  implicit_tag=None,  # type: Optional[Any]
                  explicit_tag=None,  # type: Optional[Any]
                  ):
         # type: (...) -> None
-        self.cls = cls
+        if isinstance(cls, type) and issubclass(cls, ASN1F_field):
+            self.fld = cast(Type[ASN1F_field[Any, Any]], cls)
+            self._extract_packet = lambda s, pkt: self.fld(
+                self.name, b"").m2i(pkt, s)
+            self.holds_packets = 0
+        elif hasattr(cls, "ASN1_root") or callable(cls):
+            self.cls = cast("Type[ASN1_Packet]", cls)
+            self._extract_packet = lambda s, pkt: self.extract_packet(
+                self.cls, s, _underlayer=pkt)
+            self.holds_packets = 1
+        else:
+            raise ValueError("cls should be an ASN1_Packet or ASN1_field")
         super(ASN1F_SEQUENCE_OF, self).__init__(
             name, None, context=context,
             implicit_tag=implicit_tag, explicit_tag=explicit_tag
@@ -531,7 +553,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List['ASN1_Packet'],
             pkt,  # type: ASN1_Packet
             s,  # type: bytes
             ):
-        # type: (...) -> Tuple[List[ASN1_Packet], bytes]
+        # type: (...) -> Tuple[List[Any], bytes]
         diff_tag, s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
                                       implicit_tag=self.implicit_tag,
                                       explicit_tag=self.explicit_tag,
@@ -545,7 +567,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List['ASN1_Packet'],
         i, s, remain = codec.check_type_check_len(s)
         lst = []
         while s:
-            c, s = self.extract_packet(self.cls, s, _underlayer=pkt)
+            c, s = self._extract_packet(s, pkt)  # type: ignore
             if c:
                 lst.append(c)
         if len(s) > 0:
@@ -557,7 +579,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List['ASN1_Packet'],
         val = getattr(pkt, self.name)
         if isinstance(val, ASN1_Object) and \
                 val.tag == ASN1_Class_UNIVERSAL.RAW:
-            s = cast(Union[List[ASN1_Packet], bytes], val)
+            s = cast(Union[List[_SEQ_T], bytes], val)
         elif val is None:
             s = b""
         else:
@@ -565,8 +587,11 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List['ASN1_Packet'],
         return self.i2m(pkt, s)
 
     def randval(self):
-        # type: () -> ASN1_Packet
-        return packet.fuzz(self.cls())
+        # type: () -> Any
+        if self.holds_packets:
+            return packet.fuzz(self.cls())
+        else:
+            return self.fld(self.name, b"").randval()
 
     def __repr__(self):
         # type: () -> str
@@ -780,7 +805,8 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
         diff_tag, s = BER_tagging_dec(s, hidden_tag=cls.ASN1_root.ASN1_tag,  # noqa: E501
                                       implicit_tag=self.implicit_tag,
                                       explicit_tag=self.explicit_tag,
-                                      safe=self.flexible_tag)
+                                      safe=self.flexible_tag,
+                                      _fname=self.name)
         if diff_tag is not None:
             if self.implicit_tag is not None:
                 self.implicit_tag = diff_tag

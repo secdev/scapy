@@ -1360,11 +1360,9 @@ random.seed(0x2807)
 o = bytes(a)
 o
 assert o in [
-    b'\x02\x02\xfe\x92',
-    b'A\x02\x07q',
-    b'\x15\x10E55WW2a7yrh9XEck',
-    b'C\x02\xfe\x92',
-    b'\x1e\x023V'
+    b'\x1e\x023V',  # PyPy 2.7
+    b'A\x02\x07q',  # Python 2.7
+    b'B\x02\xfe\x92',  # python 3.7-3.9
 ]
 
 = ASN1 - ASN1_BIT_STRING
