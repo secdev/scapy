@@ -733,15 +733,13 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
         self.CLIENT_PROVIDES_NEGOEX = kwargs.pop(
             "CLIENT_PROVIDES_NEGOEX", False)
         self.ECHO = kwargs.pop("ECHO", False)
-        self.PASS_NEGOEX = kwargs.pop("PASS_NEGOEX", None)
+        self.PASS_NEGOEX = kwargs.pop("PASS_NEGOEX", False)
         self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
         self.ALLOW_SMB2 = kwargs.pop("ALLOW_SMB2", True)
         self.REAL_HOSTNAME = kwargs.pop(
             "REAL_HOSTNAME", None)  # Compulsory for SMB1 !!!
         self.SMB2 = False
         super(NTLM_SMB_Server, self).__init__(*args, **kwargs)
-        if self.PASS_NEGOEX is None:
-            self.PASS_NEGOEX = not self.DROP_MIC
 
     @ATMT.state(initial=1)
     def BEGIN(self):
@@ -879,6 +877,10 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
             )
             resp.GUID = self.get("GUID", RandUUID())
             if self.PASS_NEGOEX:  # NEGOEX handling
+                # NOTE: NegoEX has no effect on the default SMB client.
+                # If you try to drop NTLMSSP from the mechTypes, the client
+                # keeps trying to re-negotiate the SMB session and never sends
+                # an auth.
                 resp.SecurityBlob.innerContextToken.token.mechTypes.insert(
                     0,
                     # NEGOEX

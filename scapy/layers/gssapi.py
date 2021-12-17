@@ -9,9 +9,11 @@ Generic Security Services (GSS) API
 Implements parts of
 - GSSAPI: RFC2743
 - GSSAPI SPNEGO: RFC4178 > RFC2478
+- GSSAPI SPNEGO NEGOEX: [MS-NEGOEX]
 """
 
 import struct
+from uuid import UUID
 
 from scapy.asn1.asn1 import ASN1_SEQUENCE, ASN1_Class_UNIVERSAL, ASN1_Codecs
 from scapy.asn1.ber import BERcodec_SEQUENCE
@@ -32,15 +34,20 @@ from scapy.fields import (
     FieldListField,
     LEIntEnumField,
     LEIntField,
+    LELongEnumField,
     LELongField,
     LEShortField,
+    PacketField,
     PacketListField,
     StrFixedLenField,
+    UUIDEnumField,
     UUIDField,
-    XStrFixedLenField
+    StrField,
+    XStrFixedLenField,
+    XStrLenField
 )
 from scapy.layers.ntlm import NTLM_Header, _NTLMPayloadField
-from scapy.packet import Packet
+from scapy.packet import Packet, bind_layers
 
 from scapy.compat import (
     Dict,
@@ -88,6 +95,7 @@ class SPNEGO_MechListMIC(ASN1_Packet):
 
 _mechDissector = {
     "1.3.6.1.4.1.311.2.2.10": NTLM_Header,   # NTLM
+    # "1.2.840.113554.1.2.2": ...  # Kerberos 5
 }
 
 
@@ -198,6 +206,13 @@ class SPNEGO_negToken(ASN1_Packet):
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-negoex/0ad7a003-ab56-4839-a204-b555ca6759a2
 
 
+_NEGOEX_AUTH_SCHEMES = {
+    # Reversed. Is there any doc related to this?
+    # The NEGOEX doc is very ellusive
+    UUID("5c33530d-eaf9-0d4d-b2ec-4ae3786ec308"): "UUID('[NTLM-UUID]')",
+}
+
+
 class NEGOEX_MESSAGE_HEADER(Packet):
     fields_desc = [
         StrFixedLenField("Signature", "NEGOEXTS", length=8),
@@ -217,16 +232,16 @@ class NEGOEX_MESSAGE_HEADER(Packet):
 
     def post_build(self, pkt, pay):
         if self.cbHeaderLength is None:
-            pkt = pkt[16:] + struct.pack("<H", len(pkt)) + pkt[20:]
+            pkt = pkt[16:] + struct.pack("<I", len(pkt)) + pkt[20:]
         if self.cbMessageLength is None:
-            pkt = pkt[20:] + struct.pack("<H", len(pkt) + len(pay)) + pkt[24:]
+            pkt = pkt[20:] + struct.pack("<I", len(pkt) + len(pay)) + pkt[24:]
         return pkt + pay
 
 
 def _NEGOEX_post_build(self, p, pay_offset, fields):
     # type: (Packet, bytes, int, Dict[str, Tuple[str, int]]) -> bytes
     """Util function to build the offset and populate the lengths"""
-    for field_name, value in self.Payload:
+    for field_name, value in self.fields["Payload"]:
         length = self.get_field(
             "Payload").fields_map[field_name].i2len(self, value)
         count = self.get_field(
@@ -244,15 +259,26 @@ def _NEGOEX_post_build(self, p, pay_offset, fields):
     return p
 
 
-class NEGOEX_EXTENSION_VECTOR(Packet):
+class NEGOEX_BYTE_VECTOR(Packet):
     fields_desc = [
         LEIntField("ByteArrayBufferOffset", 0),
         LEIntField("ByteArrayLength", 0)
     ]
 
+    def guess_payload_class(self, payload):
+        return conf.padding_layer
+
+
+class NEGOEX_EXTENSION_VECTOR(Packet):
+    fields_desc = [
+        LELongField("ExtensionArrayOffset", 0),
+        LEShortField("ExtensionCount", 0)
+    ]
+
 
 class NEGOEX_NEGO_MESSAGE(Packet):
-    OFFSET = 76
+    OFFSET = 92
+    show_indent = 0
     fields_desc = [
         NEGOEX_MESSAGE_HEADER,
         XStrFixedLenField("Random", b"", length=32),
@@ -264,21 +290,109 @@ class NEGOEX_NEGO_MESSAGE(Packet):
         # Payload
         _NTLMPayloadField(
             'Payload', OFFSET, [
-                FieldListField("AuthScheme", [], UUIDField("", None),
+                FieldListField("AuthScheme", [],
+                               UUIDEnumField("", None, _NEGOEX_AUTH_SCHEMES),
                                count_from=lambda pkt: pkt.AuthSchemeCount),
                 PacketListField("Extension", [], NEGOEX_EXTENSION_VECTOR,
                                 count_from=lambda pkt: pkt.ExtensionCount),
 
-            ]),
+            ],
+            length_from=lambda pkt: pkt.cbMessageLength - 92),
         # TODO: dissect extensions
     ]
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
         return _NEGOEX_post_build(self, pkt, self.OFFSET, {
-            "AuthScheme": 64,
-            "Extension": 70,
+            "AuthScheme": 96,
+            "Extension": 102,
         }) + pay
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 12:
+            MessageType = struct.unpack("<I", _pkt[8:12])[0]
+            if MessageType in [0, 1]:
+                return NEGOEX_NEGO_MESSAGE
+            elif MessageType in [2, 3]:
+                return NEGOEX_EXCHANGE_MESSAGE
+        return cls
+
+
+# RFC3961
+_checksum_types = {
+    1: "CRC32",
+    2: "RSA-MD4",
+    3: "RSA-MD4-DES",
+    4: "DES-MAC",
+    5: "DES-MAC-K",
+    6: "RSA-MDA-DES-K",
+    7: "RSA-MD5",
+    8: "RSA-MD5-DES",
+    9: "RSA-MD5-DES3",
+    10: "SHA1",
+    12: "HMAC-SHA1-DES3-KD",
+    13: "HMAC-SHA1-DES3",
+    14: "SHA1",
+    15: "HMAC-SHA1-96-AES128",
+    16: "HMAC-SHA1-96-AES256"
+}
+
+
+def _checksum_size(pkt):
+    if pkt.ChecksumType == 1:
+        return 4
+    elif pkt.ChecksumType in [2, 4, 6, 7]:
+        return 16
+    elif pkt.ChecksumType in [3, 8, 9]:
+        return 24
+    elif pkt.ChecksumType == 5:
+        return 8
+    elif pkt.ChecksumType in [10, 12, 13, 14, 15, 16]:
+        return 20
+    return 0
+
+
+class NEGOEX_CHECKSUM(Packet):
+    fields_desc = [
+        LELongField("cbHeaderLength", 20),
+        LELongEnumField("ChecksumScheme", 1, {1: "CHECKSUM_SCHEME_RFC3961"}),
+        LELongEnumField("ChecksumType", None, _checksum_types),
+        XStrLenField("ChecksumValue", b"", length_from=_checksum_size)
+    ]
+
+
+class NEGOEX_EXCHANGE_MESSAGE(Packet):
+    OFFSET = 64
+    show_indent = 0
+    fields_desc = [
+        NEGOEX_MESSAGE_HEADER,
+        UUIDEnumField("AuthScheme", None, _NEGOEX_AUTH_SCHEMES),
+        LEIntField("ExchangeBufferOffset", 0),
+        LEIntField("ExchangeLen", 0),
+        _NTLMPayloadField(
+            'Payload', OFFSET, [
+                # TODO: it is likely possible to reverse the following blob
+                # (appears to be ASN.1 containing some sort of X509 cert)
+                # The NEGOEX doc mentions it as an "opaque handshake for the
+                # client authentication scheme"
+                StrField("Exchange", b"")
+            ],
+            length_from=lambda pkt: pkt.cbMessageLength - pkt.cbHeaderLength),
+    ]
+
+
+class NEGOEX_VERIFY_MESSAGE(Packet):
+    show_indent = 0
+    fields_desc = [
+        NEGOEX_MESSAGE_HEADER,
+        UUIDEnumField("AuthScheme", None, _NEGOEX_AUTH_SCHEMES),
+        PacketField("Checksum", NEGOEX_CHECKSUM(),
+                    NEGOEX_CHECKSUM)
+    ]
+
+
+bind_layers(NEGOEX_NEGO_MESSAGE, NEGOEX_NEGO_MESSAGE)
 
 
 _mechDissector["1.3.6.1.4.1.311.2.2.30"] = NEGOEX_NEGO_MESSAGE

@@ -64,7 +64,23 @@ assert smb_nego_resp.SecurityBlob.MechType.oidname == 'SPNEGO - Simple Protected
 assert smb_nego_resp.SecurityBlob.innerContextToken.token.mechTypes[0].oid.oidname == 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism'
 assert smb_nego_resp.ServerCapabilities.EXTENDED_SECURITY
 assert smb_nego_resp.Flags2.EXTENDED_SECURITY
-assert smb_nego_resp.SecurityBlob.innerContextToken.token.mechToken.value  # TODO: Implement
+
+from uuid import UUID
+
+negoex_nego = smb_nego_resp.SecurityBlob.innerContextToken.token.mechToken.value
+assert negoex_nego.MessageType == 1
+assert negoex_nego.SequenceNum == 0
+assert len(negoex_nego.Payload) == 1
+assert negoex_nego.sprintf("%Payload%") == '[(\'AuthScheme\', "[UUID(\'[NTLM-UUID]\')]")]'
+assert negoex_nego.ConversationId == UUID('313c2a3a-c72b-3ca9-6dac-3874a7dd1d5b')
+
+negoex_exch = negoex_nego.payload
+assert negoex_exch.MessageType == 3
+assert negoex_exch.SequenceNum == 1
+assert negoex_exch.sprintf("%AuthScheme%") == "UUID('[NTLM-UUID]')"
+assert negoex_exch.ExchangeLen == len(negoex_exch.Payload[0][1])
+assert negoex_exch.Payload[0][0] == "Exchange"
+assert negoex_exch.Payload[0][1] == b"0V\xa0T0R0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key"
 
 = SMB Setup AndX Request (ES)
 

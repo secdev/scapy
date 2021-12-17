@@ -50,6 +50,7 @@ from scapy.supersocket import SSLStreamSocket, StreamSocket
 
 from scapy.compat import (
     Any,
+    Callable,
     Dict,
     List,
     Tuple,
@@ -64,14 +65,20 @@ from scapy.compat import (
 class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
     """Special field used to dissect NTLM payloads.
     This isn't trivial because the offsets are variable."""
-    __slots__ = ["fields", "fields_map", "offset"]
+    __slots__ = ["fields", "fields_map", "offset", "length_from"]
     islist = True
 
-    def __init__(self, name, offset, fields):
-        # type: (str, int, List[Field[Any, Any]]) -> None
+    def __init__(self,
+                 name,  # type: str
+                 offset,  # type: int
+                 fields,  # type: List[Field[Any, Any]]
+                 length_from=None  # type: Optional[Callable[[Packet], int]]
+                 ):
+        # type: (...) -> None
         self.offset = offset
         self.fields = fields
         self.fields_map = {field.name: field for field in fields}
+        self.length_from = length_from
         super(_NTLMPayloadField, self).__init__(
             name,
             [(field.name, field.default) for field in fields
@@ -112,29 +119,38 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
             buf.append(field.addfield(pkt, b"", value), offset + 1)
         return bytes(buf)
 
-    def i2h(self, pkt, x):
-        # type: (Optional[Packet], bytes) -> List[Tuple[str, str]]
+    def _on_payload(self, pkt, x, func):
+        # type: (Optional[Packet], bytes, str) -> List[Tuple[str, Any]]
         if not pkt or not x:
             return []
         results = []
         for field_name, value in x:
             if field_name not in self.fields_map:
                 continue
-            results.append(
-                (field_name, self.fields_map[field_name].i2h(pkt, value)))
+            results.append((
+                field_name,
+                getattr(self.fields_map[field_name], func)(pkt, value)
+            ))
         return results
+
+    def i2h(self, pkt, x):
+        # type: (Optional[Packet], bytes) -> List[Tuple[str, str]]
+        return self._on_payload(pkt, x, "i2h")
 
     def h2i(self, pkt, x):
         # type: (Optional[Packet], bytes) -> List[Tuple[str, str]]
-        if not pkt or not x:
-            return []
-        results = []
-        for field_name, value in x:
-            if field_name not in self.fields_map:
-                continue
-            results.append(
-                (field_name, self.fields_map[field_name].h2i(pkt, value)))
-        return results
+        return self._on_payload(pkt, x, "h2i")
+
+    def i2repr(self, pkt, x):
+        # type: (Optional[Packet], bytes) -> str
+        return repr(self._on_payload(pkt, x, "i2repr"))
+
+    def getfield(self, pkt, s):
+        # type: (Packet, bytes) -> Tuple[bytes, bytes]
+        if self.length_from is None:
+            return b"", self.m2i(pkt, s)
+        len_pkt = self.length_from(pkt)
+        return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
 
 
 def _NTLM_post_build(self, p, pay_offset, fields):

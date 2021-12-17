@@ -39,7 +39,6 @@ from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
 from scapy.base_classes import Gen, Net, BasePacket, Field_metaclass
 from scapy.error import warning
 import scapy.modules.six as six
-from scapy.modules.six.moves import range
 from scapy.modules.six import integer_types
 
 # Typing imports
@@ -2327,16 +2326,17 @@ class _EnumField(Field[Union[List[I], I], I]):
             s2i = self.s2i = {}
             self.i2s_cb = None
             self.s2i_cb = None
+            keys = []  # type: List[I]
             if isinstance(enum, list):
-                keys = list(range(len(enum)))
+                keys = list(range(len(enum)))  # type: ignore
             elif isinstance(enum, DADict):
                 keys = enum.keys()
             else:
-                keys = list(enum)
+                keys = list(enum)  # type: ignore
                 if any(isinstance(x, str) for x in keys):
                     i2s, s2i = s2i, i2s  # type: ignore
             for k in keys:
-                value = cast(str, enum[k])
+                value = cast(str, enum[k])  # type: ignore
                 i2s[k] = value
                 s2i[value] = k
         Field.__init__(self, name, default, fmt)
@@ -2462,6 +2462,12 @@ class LEShortEnumField(EnumField[int]):
     def __init__(self, name, default, enum):
         # type: (str, int, Union[Dict[int, str], List[str]]) -> None
         EnumField.__init__(self, name, default, enum, "<H")
+
+
+class LELongEnumField(EnumField[int]):
+    def __init__(self, name, default, enum):
+        # type: (str, int, Union[Dict[int, str], List[str]]) -> None
+        EnumField.__init__(self, name, default, enum, "<Q")
 
 
 class ByteEnumField(EnumField[int]):
@@ -3554,6 +3560,26 @@ class UUIDField(Field[UUID, bytes]):
     def randval():
         # type: () -> RandUUID
         return RandUUID()
+
+
+class UUIDEnumField(UUIDField, _EnumField[UUID]):
+    __slots__ = EnumField.__slots__
+
+    def __init__(self, name, default, enum, uuid_fmt=0):
+        # type: (str, Optional[int], Any, int) -> None
+        _EnumField.__init__(self, name, default, enum, "16s")  # type: ignore
+        UUIDField.__init__(self, name, default, uuid_fmt=uuid_fmt)
+
+    def any2i(self, pkt, x):
+        # type: (Optional[Packet], Any) -> UUID
+        return _EnumField.any2i(self, pkt, x)  # type: ignore
+
+    def i2repr(self,
+               pkt,  # type: Optional[Packet]
+               x,  # type: UUID
+               ):
+        # type: (...) -> Any
+        return _EnumField.i2repr(self, pkt, x)
 
 
 class BitExtendedField(Field[Optional[int], bytes]):
