@@ -46,10 +46,10 @@ with TestSocket(CAN) as s, TestSocket(CAN) as tx_sock:
     sniffed = sniff(opened_socket=s, session=ISOTPSession, timeout=1, count=1)
 
 assert sniffed[0]['ISOTP'].data == bytearray(range(1, 0x29))
-assert(sniffed[0]['ISOTP'].src == 0x641)
-assert(sniffed[0]['ISOTP'].exsrc is 0xEA)
-assert(sniffed[0]['ISOTP'].dst == 0x241)
-assert(sniffed[0]['ISOTP'].exdst is 0xEA)
+assert(sniffed[0]['ISOTP'].tx_id == 0x641)
+assert(sniffed[0]['ISOTP'].ext_address is 0xEA)
+assert(sniffed[0]['ISOTP'].rx_id == 0x241)
+assert(sniffed[0]['ISOTP'].rx_ext_address is 0xEA)
 
 + ISOTPSoftSocket tests
 
@@ -330,10 +330,10 @@ with TestSocket(CAN) as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241) as
     cans.send(CAN(identifier = 0x241, data = dhex("05 01 02 03 04 05")))
     isotp = s.sniff(count=1, timeout=1)[0]
     assert(isotp.data == dhex("01 02 03 04 05"))
-    assert(isotp.src == 0x641)
-    assert(isotp.dst == 0x241)
-    assert(isotp.exsrc == None)
-    assert(isotp.exdst == None)
+    assert(isotp.tx_id == 0x641)
+    assert(isotp.rx_id == 0x241)
+    assert(isotp.ext_address == None)
+    assert(isotp.rx_ext_address == None)
 
 
 = Receive a single frame ISOTP message, with extended addressing
@@ -343,10 +343,10 @@ with TestSocket(CAN) as isocan, ISOTPSoftSocket(isocan, sid=0x641, did=0x241, ex
     cans.send(CAN(identifier = 0x241, data = dhex("EA 05 01 02 03 04 05")))
     isotp = s.sniff(count=1, timeout=1)[0]
     assert(isotp.data == dhex("01 02 03 04 05"))
-    assert(isotp.src == 0x641)
-    assert(isotp.dst == 0x241)
-    assert(isotp.exsrc == 0xc0)
-    assert(isotp.exdst == 0xea)
+    assert(isotp.tx_id == 0x641)
+    assert(isotp.rx_id == 0x241)
+    assert(isotp.ext_address == 0xc0)
+    assert(isotp.rx_ext_address == 0xea)
 
 
 = Receive frames from CandumpReader
@@ -375,11 +375,11 @@ with ISOTPSoftSocket(CandumpReader(candump_fd), sid=0x241, did=0x541, listen_onl
     assert(len(pkts) == 6)
     isotp = pkts[0]
     print(repr(isotp))
-    print(hex(isotp.src))
-    print(hex(isotp.dst))
+    print(hex(isotp.tx_id))
+    print(hex(isotp.rx_id))
     assert(isotp.data == dhex("DE AD BE EF AA AA AA AA AA AA"))
-    assert(isotp.src == 0x241)
-    assert(isotp.dst == 0x541)
+    assert(isotp.tx_id == 0x241)
+    assert(isotp.rx_id == 0x541)
 
 = Receive frames from CandumpReader with ISOTPSniffer without extended addressing
 candump_fd = BytesIO(b'''  vcan0  541   [8]  10 0A DE AD BE EF AA AA
@@ -402,11 +402,11 @@ candump_fd = BytesIO(b'''  vcan0  541   [8]  10 0A DE AD BE EF AA AA
   vcan0  241   [3]  30 00 00
   vcan0  541   [5]  21 AA AA AA AA''')
 
-pkts = sniff(opened_socket=CandumpReader(candump_fd), session=ISOTPSession, timeout=1, session_kwargs={"use_ext_addr": False})
+pkts = sniff(opened_socket=CandumpReader(candump_fd), session=ISOTPSession, timeout=1, session_kwargs={"use_ext_address": False})
 assert(len(pkts) == 6)
 isotp = pkts[0]
 assert(isotp.data == dhex("DE AD BE EF AA AA AA AA AA AA"))
-assert (isotp.dst == 0x541)
+assert (isotp.rx_id == 0x541)
 
 = Receive frames from CandumpReader with ISOTPSniffer
 * all flow control frames are detected as single frame with extended address
@@ -435,10 +435,10 @@ pkts = sniff(opened_socket=CandumpReader(candump_fd), session=ISOTPSession, time
 assert(len(pkts) == 12)
 isotp = pkts[1]
 assert(isotp.data == dhex("DE AD BE EF AA AA AA AA AA AA"))
-assert (isotp.dst == 0x541)
+assert (isotp.rx_id == 0x541)
 isotp = pkts[0]
 assert(isotp.data == dhex(""))
-assert (isotp.dst == 0x241)
+assert (isotp.rx_id == 0x241)
 
 = Receive frames from CandumpReader with ISOTPSniffer and count
 * all flow control frames are detected as single frame with extended address
@@ -467,10 +467,10 @@ pkts = sniff(opened_socket=CandumpReader(candump_fd), session=ISOTPSession, time
 assert(len(pkts) == 2)
 isotp = pkts[1]
 assert(isotp.data == dhex("DE AD BE EF AA AA AA AA AA AA"))
-assert (isotp.dst == 0x541)
+assert (isotp.rx_id == 0x541)
 isotp = pkts[0]
 assert(isotp.data == dhex(""))
-assert (isotp.dst == 0x241)
+assert (isotp.rx_id == 0x241)
 
 = ISOTPSession tests
 

@@ -568,7 +568,7 @@ class EcuAnsweringMachine(AnsweringMachine[PacketList]):
 
     Usage:
         >>> resp = EcuResponse(session=range(0,255), security_level=0, responses=UDS() / UDS_NR(negativeResponseCode=0x7f, requestServiceId=0x10))
-        >>> sock = ISOTPSocket(can_iface, sid=0x700, did=0x600, basecls=UDS)
+        >>> sock = ISOTPSocket(can_iface, tx_id=0x700, rx_id=0x600, basecls=UDS)
         >>> answering_machine = EcuAnsweringMachine(supported_responses=[resp], main_socket=sock, basecls=UDS)
         >>> sim = threading.Thread(target=answering_machine, kwargs={'count': 4, 'timeout':5})
         >>> sim.start()

@@ -59,7 +59,7 @@ assert len(pkts)
 
 = Create GMLAN messages from packets
 
-builder = ISOTPMessageBuilder(basecls=GMLAN, use_ext_addr=False, did=[0x241, 0x641])
+builder = ISOTPMessageBuilder(basecls=GMLAN, use_ext_address=False, rx_id=[0x241, 0x641])
 msgs = list()
 
 for p in pkts:

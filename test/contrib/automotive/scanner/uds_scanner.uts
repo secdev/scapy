@@ -75,7 +75,7 @@ assert len(pkts)
 
 = Create UDS messages from packets
 
-builder = ISOTPMessageBuilder(basecls=UDS, use_ext_addr=False, did=[0x641, 0x651])
+builder = ISOTPMessageBuilder(basecls=UDS, use_ext_address=False, rx_id=[0x641, 0x651])
 msgs = list()
 
 for p in pkts:
