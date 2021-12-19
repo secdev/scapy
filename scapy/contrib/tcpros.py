@@ -25,18 +25,16 @@ TCPROS transport layer for ROS Melodic Morenia 1.14.5
 # scapy.contrib.name = tcpros
 
 import struct
+from scapy.compat import raw
 from scapy.fields import (
     LEIntField,
     StrLenField,
     FieldLenField,
     StrFixedLenField,
-    PacketField,
     ByteField,
-    StrField,
 )
-from scapy.layers.inet import TCP
 from scapy.layers.http import HTTP, HTTPRequest, HTTPResponse
-from scapy.packet import *
+from scapy.packet import Packet, Raw, PacketListField
 
 
 class TCPROS(Packet):
@@ -122,9 +120,9 @@ class TCPROS(Packet):
                     break
 
         if (
-            "callerid" in string_payload
-            and flag_encoding_format
-            and flag_encoding_format_subfields
+            "callerid" in string_payload and
+                flag_encoding_format and
+                flag_encoding_format_subfields
         ):
             return TCPROSHeader
         elif flag_encoding_format and flag_encoding_format_subfields:
@@ -224,7 +222,7 @@ class TCPROSHeader(Packet):
         # To retrieve nfields, we need to go through the
         # whole header and dynamically count on the fields:
         nfields = 0
-        total_length = len(s)
+        # total_length = len(s)
         # print("total_length: " + str(total_length))
         total_header_length = struct.unpack("<I", raw(s)[:4])[0]
         # print("total_header_length: " + str(total_header_length))
@@ -232,7 +230,7 @@ class TCPROSHeader(Packet):
         while remain:
             field_len_bytes = struct.unpack("<I", remain[:4])[0]
             # print("field_len_bytes: " + str(field_len_bytes))
-            current = remain[:4 + field_len_bytes]
+            # current = remain[:4 + field_len_bytes]
             # print("current: " + str(current))
             remain = remain[4 + field_len_bytes:]
             # print("remain: " + str(remain))
@@ -297,7 +295,7 @@ class TCPROSBody(Packet):
         # To retrieve nfields_body, we need to go through the
         # whole header and dynamically count on the fields:
         nfields_body = 0
-        total_length = len(s)
+        # total_length = len(s)
         # print("total_length: " + str(total_length))
         total_header_length = struct.unpack("<I", raw(s)[:4])[0]
         # print("total_header_length: " + str(total_header_length))
@@ -305,7 +303,7 @@ class TCPROSBody(Packet):
         while remain:
             field_len_bytes = struct.unpack("<I", remain[:4])[0]
             # print("field_len_bytes: " + str(field_len_bytes))
-            current = remain[:4 + field_len_bytes]
+            # current = remain[:4 + field_len_bytes]
             # print("current: " + str(current))
             remain = remain[4 + field_len_bytes:]
             # print("remain: " + str(remain))
@@ -514,7 +512,7 @@ class XMLRPC(Packet):
 
     def guess_payload_class(self, payload):
         string_payload = payload.decode("iso-8859-1")  # decode for search
-        total_length = len(payload)
+        # total_length = len(payload)
 
         if "xml" in string_payload and "version='1.0'" in string_payload:
             if type(self.underlayer) == HTTPRequest:
@@ -543,7 +541,6 @@ class XMLRPCSeparator(ByteField):
     """
 
     def __init__(self, name, default="0x0a"):
-        # type: (str, Optional[int]) -> None
         ByteField.__init__(self, name, default)
 
 
@@ -631,15 +628,15 @@ class XMLRPCCall(Packet):
 
         methodname_size = len(
             decoded_s[
-                decoded_s.find("<methodName>")
-                + len("<methodName>"):decoded_s.find("</methodName>")
+                decoded_s.find("<methodName>") +
+                len("<methodName>"):decoded_s.find("</methodName>")
             ]
         )
 
         params_size = len(
             decoded_s[
-                decoded_s.find("<params>\n")
-                + len("<params>\n"):decoded_s.find("</params>")
+                decoded_s.find("<params>\n") +
+                len("<params>\n"):decoded_s.find("</params>")
             ]
         )
 
@@ -723,8 +720,8 @@ class XMLRPCResponse(Packet):
 
         params_size = len(
             decoded_s[
-                decoded_s.find("<params>\n")
-                + len("<params>\n"):decoded_s.find("</params>")
+                decoded_s.find("<params>\n") +
+                len("<params>\n"):decoded_s.find("</params>")
             ]
         )
 
