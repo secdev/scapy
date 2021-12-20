@@ -1406,25 +1406,24 @@ finally:
 # This test sniffs on the same interface twice at the same time, to
 # simulate sniffing on multiple interfaces.
 
-iface = conf.route.route("www.google.com")[0]
-port = int(RandShort())
-pkt = IP(dst="www.google.com")/TCP(sport=port, dport=80, flags="S")
+def _test():
+	iface = conf.route.route("www.google.com")[0]
+	port = int(RandShort())
+	pkt = IP(dst="www.google.com")/TCP(sport=port, dport=80, flags="S")
+	def cb():
+	    sr1(pkt, timeout=3)
+	sniffer = AsyncSniffer(started_callback=cb,
+			       iface=[iface, iface],
+			       lfilter=lambda x: TCP in x and x[TCP].dport == port,
+			       prn=lambda x: x.summary(),
+			       count=2)
+	sniffer.start()
+	sniffer.join(timeout=3)
+	assert len(sniffer.results) == 2
+	for pkt in sniffer.results:
+	    assert pkt.sniffed_on == iface
 
-def cb():
-    sr1(pkt, timeout=3)
-
-sniffer = AsyncSniffer(started_callback=cb,
-                       iface=[iface, iface],
-                       lfilter=lambda x: TCP in x and x[TCP].dport == port,
-                       prn=lambda x: x.summary(),
-                       count=2)
-sniffer.start()
-sniffer.join(timeout=3)
-
-assert len(sniffer.results) == 2
-
-for pkt in sniffer.results:
-    assert pkt.sniffed_on == iface
+retry_test(_test)
 
 = Sending a TCP syn 'forever' at layer 2 and layer 3
 ~ netaccess needs_root IP
