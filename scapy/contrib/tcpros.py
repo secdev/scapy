@@ -269,7 +269,8 @@ class TCPROSBody(Packet):
                       default=None, length_of="list", fmt="<I"),
         # header
         PacketListField(
-            "list", None, TCPROSElement, count_from=lambda pkt: pkt.nfields_body
+            "list", None, TCPROSElement,
+            count_from=lambda pkt: pkt.nfields_body
         ),
     ]
 
@@ -372,7 +373,8 @@ class TCPROSBodyVariation(TCPROSBody):
         StrFixedLenField("signature", None, length=13),
         # list
         PacketListField(
-            "list", None, TCPROSElement, count_from=lambda pkt: pkt.nfields_body
+            "list", None, TCPROSElement,
+            count_from=lambda pkt: pkt.nfields_body
         ),
     ]
 
