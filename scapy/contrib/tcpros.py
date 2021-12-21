@@ -35,6 +35,7 @@ from scapy.fields import (
 )
 from scapy.layers.http import HTTP, HTTPRequest, HTTPResponse
 from scapy.packet import Packet, Raw, PacketListField
+from scapy.config import conf
 
 
 class TCPROS(Packet):
@@ -95,13 +96,13 @@ class TCPROS(Packet):
             total_length_payload == remain_len
         )
 
-        # # Debug
-        # print(payload)
-        # print(string_payload)
-        # print("total_length: " + str(total_length))
-        # print("total_length_payload: " + str(total_length_payload))
-        # print("remain: " + str(remain))
-        # print(flag_encoding_format)
+        if conf.debug_dissector:
+            print(payload)
+            print(string_payload)
+            print("total_length: " + str(total_length))
+            print("total_length_payload: " + str(total_length_payload))
+            print("remain: " + str(remain))
+            print(flag_encoding_format)
 
         flag_encoding_format_subfields = False
         if flag_encoding_format:
@@ -516,19 +517,13 @@ class XMLRPC(Packet):
 
         if "xml" in string_payload and "version='1.0'" in string_payload:
             if type(self.underlayer) == HTTPRequest:
-                # print("found an XMLRPCCall")  # debug
-                # if type(self.underlayer) == HTTPROSRequest:
                 return XMLRPCCall
             elif type(self.underlayer) == HTTPResponse:
-                # print("found an XMLRPCResponse")  # debug
-                # elif type(self.underlayer) == HTTPROSResponse:
                 return XMLRPCResponse
             else:
-                print("failed to match")  # debug
+                print("failed to match")
                 return Raw
         else:
-            # print("failed to match xml")  # debug
-            # return Packet.guess_payload_class(self, payload)
             return Raw(self, payload)  # returns Raw layer grouping not only
             # the payload but this layer itself.
 
@@ -640,8 +635,9 @@ class XMLRPCCall(Packet):
             ]
         )
 
-        # print(methodname_size)  # debug
-        # print(params_size)  # debug
+        if conf.debug_dissector:
+            print(methodname_size)
+            print(params_size)
         return s
 
     def do_dissect_payload(self, s):
@@ -725,7 +721,8 @@ class XMLRPCResponse(Packet):
             ]
         )
 
-        # print(params_size)  # debug
+        if conf.debug_dissector:
+            print(params_size)
         return s
 
     def do_dissect_payload(self, s):
