@@ -62,11 +62,11 @@ class ISOTPMessageBuilder(object):
     CAN frames are fed to an ISOTPMessageBuilder object with the feed() method
     and the resulting ISOTP frames can be extracted using the pop() method.
 
-    :param use_ext_addr: True for only attempting to defragment with
+    :param use_ext_address: True for only attempting to defragment with
                          extended addressing, False for only attempting
                          to defragment without extended addressing,
                          or None for both
-    :param did: Destination Identifier
+    :param rx_id: Destination Identifier
     :param basecls: The class of packets that will be returned,
                     defaults to ISOTP
     """
@@ -82,8 +82,8 @@ class ISOTPMessageBuilder(object):
             self.total_len = total_len
             self.current_len = 0
             self.ready = None  # type: Optional[bytes]
-            self.src = None  # type: Optional[int]
-            self.exsrc = None  # type: Optional[int]
+            self.tx_id = None  # type: Optional[int]
+            self.ext_address = None  # type: Optional[int]
             self.time = ts  # type: Union[float, EDecimal]
             self.push(first_piece)
 
@@ -100,27 +100,27 @@ class ISOTPMessageBuilder(object):
 
     def __init__(
             self,
-            use_ext_addr=None,  # type: Optional[bool]
-            did=None,  # type: Optional[Union[int, List[int], Iterable[int]]]
+            use_ext_address=None,  # type: Optional[bool]
+            rx_id=None,  # type: Optional[Union[int, List[int], Iterable[int]]]
             basecls=ISOTP  # type: Type[Packet]
     ):
         # type: (...) -> None
         self.ready = []  # type: List[Tuple[int, Optional[int], ISOTPMessageBuilder.Bucket]]  # noqa: E501
         self.buckets = {}  # type: Dict[Tuple[Optional[int], int, int], ISOTPMessageBuilder.Bucket]  # noqa: E501
-        self.use_ext_addr = use_ext_addr
+        self.use_ext_addr = use_ext_address
         self.basecls = basecls
-        self.dst_ids = None  # type: Optional[Iterable[int]]
+        self.rx_ids = None  # type: Optional[Iterable[int]]
         self.last_ff = None  # type: Optional[Tuple[Optional[int], int, int]]
         self.last_ff_ex = None  # type: Optional[Tuple[Optional[int], int, int]]  # noqa: E501
-        if did is not None:
-            if isinstance(did, list):
-                self.dst_ids = did
-            elif isinstance(did, int):
-                self.dst_ids = [did]
-            elif hasattr(did, "__iter__"):
-                self.dst_ids = did
+        if rx_id is not None:
+            if isinstance(rx_id, list):
+                self.rx_ids = rx_id
+            elif isinstance(rx_id, int):
+                self.rx_ids = [rx_id]
+            elif hasattr(rx_id, "__iter__"):
+                self.rx_ids = rx_id
             else:
-                raise TypeError("Invalid type for argument did!")
+                raise TypeError("Invalid type for argument rx_id!")
 
     def feed(self, can):
         # type: (Union[Iterable[Packet], Packet]) -> None
@@ -133,7 +133,7 @@ class ISOTPMessageBuilder(object):
         if not isinstance(can, Packet):
             return
 
-        if self.dst_ids is not None and can.identifier not in self.dst_ids:
+        if self.rx_ids is not None and can.identifier not in self.rx_ids:
             return
 
         data = bytes(can.data)
@@ -196,14 +196,14 @@ class ISOTPMessageBuilder(object):
         bucket = t[2]
         data = bucket.ready or b""
         p = basecls(data)
-        if hasattr(p, "dst"):
-            p.dst = t[0]
-        if hasattr(p, "exdst"):
-            p.exdst = t[1]
-        if hasattr(p, "src"):
-            p.src = bucket.src
-        if hasattr(p, "exsrc"):
-            p.exsrc = bucket.exsrc
+        if hasattr(p, "rx_id"):
+            p.rx_id = t[0]
+        if hasattr(p, "rx_ext_address"):
+            p.rx_ext_address = t[1]
+        if hasattr(p, "tx_id"):
+            p.tx_id = bucket.tx_id
+        if hasattr(p, "ext_address"):
+            p.ext_address = bucket.ext_address
         if hasattr(p, "time"):
             p.time = bucket.time
         return p
@@ -296,8 +296,8 @@ class ISOTPMessageBuilder(object):
         for key, bucket in zip(keys, buckets):
             if bucket is None:
                 continue
-            bucket.src = identifier
-            bucket.exsrc = ea
+            bucket.tx_id = identifier
+            bucket.ext_address = ea
             self.buckets[key] = bucket
         return True
 
@@ -325,8 +325,8 @@ class ISOTPSession(DefaultSession):
         # type: (Any, Any) -> None
         super(ISOTPSession, self).__init__(*args, **kwargs)
         self.m = ISOTPMessageBuilder(
-            use_ext_addr=kwargs.pop("use_ext_addr", None),
-            did=kwargs.pop("did", None),
+            use_ext_address=kwargs.pop("use_ext_address", None),
+            rx_id=kwargs.pop("rx_id", None),
             basecls=kwargs.pop("basecls", ISOTP))
 
     def on_packet_received(self, pkt):

@@ -78,25 +78,25 @@ class ISOTPSoftSocket(SuperSocket):
     Example (with NativeCANSocket underneath):
         >>> conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
         >>> load_contrib('isotp')
-        >>> with ISOTPSocket("can0", sid=0x641, did=0x241) as sock:
+        >>> with ISOTPSocket("can0", tx_id=0x641, rx_id=0x241) as sock:
         >>>     sock.send(...)
 
     Example (with PythonCANSocket underneath):
         >>> conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
         >>> conf.contribs['CANSocket'] = {'use-python-can': True}
         >>> load_contrib('isotp')
-        >>> with ISOTPSocket(CANSocket(bustype='socketcan', channel="can0"), sid=0x641, did=0x241) as sock:
+        >>> with ISOTPSocket(CANSocket(bustype='socketcan', channel="can0"), tx_id=0x641, rx_id=0x241) as sock:
         >>>     sock.send(...)
 
     :param can_socket: a CANSocket instance, preferably filtering only can
-                       frames with identifier equal to did
-    :param sid: the CAN identifier of the sent CAN frames
-    :param did: the CAN identifier of the received CAN frames
-    :param extended_addr: the extended address of the sent ISOTP frames
+                       frames with identifier equal to rx_id
+    :param tx_id: the CAN identifier of the sent CAN frames
+    :param rx_id: the CAN identifier of the received CAN frames
+    :param ext_address: the extended address of the sent ISOTP frames
                           (can be None)
-    :param extended_rx_addr: the extended address of the received ISOTP
+    :param rx_ext_address: the extended address of the received ISOTP
                              frames (can be None)
-    :param rx_block_size: block size sent in Flow Control ISOTP frames
+    :param bs: block size sent in Flow Control ISOTP frames
     :param stmin: minimum desired separation time sent in
                   Flow Control ISOTP frames
     :param padding: If True, pads sending packets with 0x00 which not
@@ -109,11 +109,11 @@ class ISOTPSoftSocket(SuperSocket):
 
     def __init__(self,
                  can_socket=None,  # type: Optional["CANSocket"]
-                 sid=0,  # type: int
-                 did=0,  # type: int
-                 extended_addr=None,  # type: Optional[int]
-                 extended_rx_addr=None,  # type: Optional[int]
-                 rx_block_size=0,  # type: int
+                 tx_id=0,  # type: int
+                 rx_id=0,  # type: int
+                 ext_address=None,  # type: Optional[int]
+                 rx_ext_address=None,  # type: Optional[int]
+                 bs=0,  # type: int
                  stmin=0,  # type: int
                  padding=False,  # type: bool
                  listen_only=False,  # type: bool
@@ -127,19 +127,19 @@ class ISOTPSoftSocket(SuperSocket):
         elif isinstance(can_socket, six.string_types):
             raise Scapy_Exception("Provide a CANSocket object instead")
 
-        self.exsrc = extended_addr
-        self.exdst = extended_rx_addr
-        self.src = sid
-        self.dst = did
+        self.ext_address = ext_address
+        self.rx_ext_address = rx_ext_address
+        self.tx_id = tx_id
+        self.rx_id = rx_id
 
         impl = ISOTPSocketImplementation(
             can_socket,
-            src_id=sid,
-            dst_id=did,
+            src_id=tx_id,
+            dst_id=rx_id,
             padding=padding,
-            extended_addr=extended_addr,
-            extended_rx_addr=extended_rx_addr,
-            rx_block_size=rx_block_size,
+            extended_addr=ext_address,
+            extended_rx_addr=rx_ext_address,
+            rx_block_size=bs,
             stmin=stmin,
             listen_only=listen_only
         )
@@ -191,14 +191,14 @@ class ISOTPSoftSocket(SuperSocket):
         if msg is None:
             return None
 
-        if hasattr(msg, "src"):
-            msg.src = self.src
-        if hasattr(msg, "dst"):
-            msg.dst = self.dst
-        if hasattr(msg, "exsrc"):
-            msg.exsrc = self.exsrc
-        if hasattr(msg, "exdst"):
-            msg.exdst = self.exdst
+        if hasattr(msg, "tx_id"):
+            msg.tx_id = self.tx_id
+        if hasattr(msg, "rx_id"):
+            msg.rx_id = self.rx_id
+        if hasattr(msg, "ext_address"):
+            msg.ext_address = self.ext_address
+        if hasattr(msg, "rx_ext_address"):
+            msg.rx_ext_address = self.rx_ext_address
         return msg
 
     @staticmethod
@@ -470,7 +470,7 @@ class ISOTPSocketImplementation:
     collected by the GC.
 
     :param can_socket: a CANSocket instance, preferably filtering only can
-                       frames with identifier equal to did
+                       frames with identifier equal to rx_id
     :param src_id: the CAN identifier of the sent CAN frames
     :param dst_id: the CAN identifier of the received CAN frames
     :param padding: If True, pads sending packets with 0x00 which not

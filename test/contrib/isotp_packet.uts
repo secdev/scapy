@@ -25,39 +25,39 @@ else:
 = Creation of an empty ISOTP packet
 p = ISOTP()
 assert(p.data == b"")
-assert(p.src is None and p.dst is None and p.exsrc is None and p.exdst is None)
+assert(p.tx_id is None and p.rx_id is None and p.ext_address is None and p.rx_ext_address is None)
 assert(bytes(p) == b"")
 
-= Creation of a simple ISOTP packet with src
-p = ISOTP(b"eee", src=0x241)
-assert(p.src == 0x241)
+= Creation of a simple ISOTP packet with tx_id
+p = ISOTP(b"eee", tx_id=0x241)
+assert(p.tx_id == 0x241)
 assert(p.data == b"eee")
 assert(bytes(p) == b"eee")
 
-= Creation of a simple ISOTP packet with exsrc
-p = ISOTP(b"eee", exsrc=0x41)
-assert(p.exsrc == 0x41)
+= Creation of a simple ISOTP packet with ext_address
+p = ISOTP(b"eee", ext_address=0x41)
+assert(p.ext_address == 0x41)
 assert(p.data == b"eee")
 assert(bytes(p) == b"eee")
 
-= Creation of a simple ISOTP packet with dst
-p = ISOTP(b"eee", dst=0x241)
-assert(p.dst == 0x241)
+= Creation of a simple ISOTP packet with rx_id
+p = ISOTP(b"eee", rx_id=0x241)
+assert(p.rx_id == 0x241)
 assert(p.data == b"eee")
 assert(bytes(p) == b"eee")
 
-= Creation of a simple ISOTP packet with exdst
-p = ISOTP(b"eee", exdst=0x41)
-assert(p.exdst == 0x41)
+= Creation of a simple ISOTP packet with rx_ext_address
+p = ISOTP(b"eee", rx_ext_address=0x41)
+assert(p.rx_ext_address == 0x41)
 assert(p.data == b"eee")
 assert(bytes(p) == b"eee")
 
-= Creation of a simple ISOTP packet with src, dst, exsrc, exdst
-p = ISOTP(b"eee", src=1, dst=2, exsrc=3, exdst=4)
-assert(p.dst == 2)
-assert(p.exdst == 4)
-assert(p.src == 1)
-assert(p.exsrc == 3)
+= Creation of a simple ISOTP packet with tx_id, rx_id, ext_address, rx_ext_address
+p = ISOTP(b"eee", tx_id=1, rx_id=2, ext_address=3, rx_ext_address=4)
+assert(p.rx_id == 2)
+assert(p.rx_ext_address == 4)
+assert(p.tx_id == 1)
+assert(p.ext_address == 3)
 assert(p.data == b"eee")
 assert(bytes(p) == b"eee")
 
@@ -69,38 +69,38 @@ assert(p.answers(r))
 assert(not p.answers(Raw()))
 
 
-= Creation of a simple ISOTP packet with src validation error
+= Creation of a simple ISOTP packet with tx_id validation error
 ex = False
 try:
-    p = ISOTP(b"eee", src=0x1000000000, dst=2, exsrc=3, exdst=4)
+    p = ISOTP(b"eee", tx_id=0x1000000000, rx_id=2, ext_address=3, rx_ext_address=4)
 except Scapy_Exception:
     ex = True
 
 assert ex
 
-= Creation of a simple ISOTP packet with dst validation error
+= Creation of a simple ISOTP packet with rx_id validation error
 ex = False
 try:
-    p = ISOTP(b"eee", src=0x10, dst=0x20000000000, exsrc=3, exdst=4)
+    p = ISOTP(b"eee", tx_id=0x10, rx_id=0x20000000000, ext_address=3, rx_ext_address=4)
 except Scapy_Exception:
     ex = True
 
 assert ex
 
-= Creation of a simple ISOTP packet with exsrc validation error
+= Creation of a simple ISOTP packet with ext_address validation error
 ex = False
 try:
-    p = ISOTP(b"eee", src=0x10, dst=2, exsrc=3000, exdst=4)
+    p = ISOTP(b"eee", tx_id=0x10, rx_id=2, ext_address=3000, rx_ext_address=4)
 except Scapy_Exception:
     ex = True
 
 assert ex
 
 
-= Creation of a simple ISOTP packet with exdst validation error
+= Creation of a simple ISOTP packet with rx_ext_address validation error
 ex = False
 try:
-    p = ISOTP(b"eee", src=0x10, dst=2, exsrc=30, exdst=400)
+    p = ISOTP(b"eee", tx_id=0x10, rx_id=2, ext_address=30, rx_ext_address=400)
 except Scapy_Exception:
     ex = True
 
@@ -298,7 +298,7 @@ assert(len(fragments) == 1)
 assert(fragments[0].data == b"\0")
 
 = Fragment a 4 bytes long ISOTP message
-fragments = ISOTP(b"data", src=0x241).fragment()
+fragments = ISOTP(b"data", tx_id=0x241).fragment()
 assert(len(fragments) == 1)
 assert(isinstance(fragments[0], CAN))
 fragment = CAN(bytes(fragments[0]))
@@ -308,7 +308,7 @@ assert(fragment.length == 5)
 assert(fragment.reserved == 0)
 
 = Fragment a 4 bytes long ISOTP message extended
-fragments = ISOTP(b"data", dst=0x1fff0000).fragment()
+fragments = ISOTP(b"data", rx_id=0x1fff0000).fragment()
 assert(len(fragments) == 1)
 assert(isinstance(fragments[0], CAN))
 fragment = CAN(bytes(fragments[0]))
@@ -318,7 +318,7 @@ assert(fragment.reserved == 0)
 assert(fragment.flags == 4)
 
 = Fragment a 8 bytes long ISOTP message extended
-fragments = ISOTP(b"datadata", dst=0x1fff0000).fragment()
+fragments = ISOTP(b"datadata", rx_id=0x1fff0000).fragment()
 assert(len(fragments) == 2)
 assert(isinstance(fragments[0], CAN))
 fragment = CAN(bytes(fragments[0]))
@@ -344,20 +344,20 @@ assert(fragments[0].data == b"\x10\x08abcdef")
 assert(fragments[1].data == b"\x21gh")
 
 = Fragment an ISOTP message with extended addressing
-isotp = ISOTP(b"abcdef", exdst=ord('A'))
+isotp = ISOTP(b"abcdef", rx_ext_address=ord('A'))
 fragments = isotp.fragment()
 assert(len(fragments) == 1)
 assert(fragments[0].data == b"A\x06abcdef")
 
 = Fragment a 7 bytes ISOTP message with destination identifier
-isotp = ISOTP(b"abcdefg", dst=0x64f)
+isotp = ISOTP(b"abcdefg", rx_id=0x64f)
 fragments = isotp.fragment()
 assert(len(fragments)  == 1)
 assert(fragments[0].data == b"\x07abcdefg")
 assert(fragments[0].identifier == 0x64f)
 
 = Fragment a 16 bytes ISOTP message with extended addressing
-isotp = ISOTP(b"abcdefghijklmnop", dst=0x64f, exdst=ord('A'))
+isotp = ISOTP(b"abcdefghijklmnop", rx_id=0x64f, rx_ext_address=ord('A'))
 fragments = isotp.fragment()
 assert(len(fragments) == 3)
 assert(fragments[0].data == b"A\x10\x10abcde")
@@ -369,7 +369,7 @@ assert(fragments[2].identifier == 0x64f)
 
 = Fragment a huge ISOTP message, 4997 bytes long
 data = b"T" * 4997
-isotp = ISOTP(b"T" * 4997, dst=0x345)
+isotp = ISOTP(b"T" * 4997, rx_id=0x345)
 fragments = isotp.fragment()
 assert(len(fragments) == 715)
 assert(fragments[0].data == dhex("10 00 00 00 13 85") + b"TT")
@@ -382,7 +382,7 @@ fragments = [CAN(identifier=0x641, data=b"\x04test")]
 isotp = ISOTP.defragment(fragments)
 isotp.show()
 assert(isotp.data == b"test")
-assert(isotp.dst == 0x641)
+assert(isotp.rx_id == 0x641)
 
 = Defragment non ISOTP message
 fragments = [CAN(identifier=0x641, data=b"\xa4test")]
@@ -393,7 +393,7 @@ assert isotp is None
 fragments = [CAN(identifier=0x641, data=b"\x04test"), CAN(identifier=0x642, data=b"\x04test")]
 isotp = ISOTP.defragment(fragments)
 assert(isotp.data == b"test")
-assert(isotp.dst == 0x641)
+assert(isotp.rx_id == 0x641)
 
 = Defragment exception
 fragments = []
@@ -424,11 +424,11 @@ fragments = [
 isotp = ISOTP.defragment(fragments)
 isotp.show()
 assert(isotp.data == dhex("61 62 63 64 65 66 67 68 69 6A 6B 6C 6D 6E 6F 70"))
-assert(isotp.dst == 0x641)
-assert(isotp.exdst == 0x41)
+assert(isotp.rx_id == 0x641)
+assert(isotp.rx_ext_address == 0x41)
 
 = Check if fragmenting a message and defragmenting it back yields the original message
-isotp1 = ISOTP(b"abcdef", exdst=ord('A'))
+isotp1 = ISOTP(b"abcdef", rx_ext_address=ord('A'))
 fragments = isotp1.fragment()
 isotp2 = ISOTP.defragment(fragments)
 isotp2.show()
@@ -440,13 +440,13 @@ isotp2 = ISOTP.defragment(fragments)
 isotp2.show()
 assert(isotp1 == isotp2)
 
-isotp1 = ISOTP(b"abcdefghijklmnop", exdst=ord('A'))
+isotp1 = ISOTP(b"abcdefghijklmnop", rx_ext_address=ord('A'))
 fragments = isotp1.fragment()
 isotp2 = ISOTP.defragment(fragments)
 isotp2.show()
 assert(isotp1 == isotp2)
 
-isotp1 = ISOTP(b"T"*5000, exdst=ord('A'))
+isotp1 = ISOTP(b"T"*5000, rx_ext_address=ord('A'))
 fragments = isotp1.fragment()
 isotp2 = ISOTP.defragment(fragments)
 isotp2.show()
@@ -457,9 +457,9 @@ fragments = [CAN(identifier=0x641, data=dhex("02 01 AA"))]
 isotp = ISOTP.defragment(fragments, False)
 isotp.show()
 assert(isotp.data == dhex("01 AA"))
-assert(isotp.exdst == None)
+assert(isotp.rx_ext_address == None)
 isotpex = ISOTP.defragment(fragments, True)
 isotpex.show()
 assert(isotpex.data == dhex("AA"))
-assert(isotpex.exdst == 0x02)
+assert(isotpex.rx_ext_address == 0x02)
 
