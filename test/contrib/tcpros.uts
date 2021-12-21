@@ -21,7 +21,7 @@
 = Import the RTPS layer
 from scapy.contrib.tcpros import *
 
-bind_layers(TCP, TCPROS)
+bind_layers(TCP, TCPROS, sport=11311)
 bind_layers(HTTPRequest, XMLRPC)
 bind_layers(HTTPResponse, XMLRPC)
 
