@@ -277,12 +277,13 @@ class TCPROSBody(Packet):
     """
 
     name = "TCPROSBody"
+    __slots__ = Packet.__slots__ + ["nfields_body"]
     fields_desc = [
         FieldLenField(name="body_length",
                       default=None, length_of="list", fmt="<I"),
         # header
         PacketListField(
-            "list", None, TCPROSElement, count_from=lambda pkt: nfields_body
+            "list", None, TCPROSElement, count_from=lambda pkt: pkt.nfields_body
         ),
     ]
 
@@ -290,25 +291,24 @@ class TCPROSBody(Packet):
         """
         Called to prepare the layer before dissection
         """
-        # Obtain the number of fields in the body
-        global nfields_body
-
         # To retrieve nfields_body, we need to go through the
         # whole header and dynamically count on the fields:
-        nfields_body = 0
-        # total_length = len(s)
-        # print("total_length: " + str(total_length))
+        self.nfields_body = 0
         total_header_length = struct.unpack("<I", raw(s)[:4])[0]
-        # print("total_header_length: " + str(total_header_length))
         remain = raw(s)[4:total_header_length]
+        if conf.debug_dissector:
+            total_length = len(s)
+            print("total_length: " + str(total_length))
+            print("total_header_length: " + str(total_header_length))
         while remain:
             field_len_bytes = struct.unpack("<I", remain[:4])[0]
-            # print("field_len_bytes: " + str(field_len_bytes))
-            # current = remain[:4 + field_len_bytes]
-            # print("current: " + str(current))
             remain = remain[4 + field_len_bytes:]
-            # print("remain: " + str(remain))
-            nfields_body += 1
+            if conf.debug_dissector:
+                print("field_len_bytes: " + str(field_len_bytes))
+                current = remain[:4 + field_len_bytes]
+                print("current: " + str(current))
+                print("remain: " + str(remain))
+            self.nfields_body += 1
         return s
 
     def do_dissect_payload(self, s):
