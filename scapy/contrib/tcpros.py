@@ -386,7 +386,7 @@ class TCPROSBodyVariation(TCPROSBody):
         StrFixedLenField("signature", None, length=13),
         # list
         PacketListField(
-            "list", None, TCPROSElement, count_from=lambda pkt: nfields_body
+            "list", None, TCPROSElement, count_from=lambda pkt: pkt.nfields_body
         ),
     ]
 
@@ -578,6 +578,7 @@ class XMLRPCCall(Packet):
     """
 
     name = "XMLRPCCall"
+    __slots__ = Packet.__slots__ + ["methodname_size", "params_size"]
     fields_desc = [
         # <?xml version='1.0'?>.<methodCall>.
         StrFixedLenField(
@@ -590,7 +591,7 @@ class XMLRPCCall(Packet):
         # <methodName>getParam</methodName>.
         StrFixedLenField("methodname_opentag", "<methodName>", length=12),
         StrLenField("methodname", "getParam",
-                    length_from=lambda pkt: methodname_size),
+                    length_from=lambda pkt: pkt.methodname_size),
         StrFixedLenField("methodname_closetag", "</methodName>\n", length=14),
         # <params>.
         StrFixedLenField("params_opentag", "<params>\n", length=9),
@@ -599,7 +600,7 @@ class XMLRPCCall(Packet):
             "params",
             "<param>\n<value><string>/rosparam-82043" + \
             "</string></value>\n</param>\n",
-            length_from=lambda pkt: params_size,
+            length_from=lambda pkt: pkt.params_size,
         ),
         # </params>.</methodCall>.
         StrFixedLenField("params_closetag", "</params>\n", length=10),
@@ -617,18 +618,14 @@ class XMLRPCCall(Packet):
         """
         decoded_s = s.decode("iso-8859-1")  # from bytes, to string
 
-        # Obtain the number of fields in the body
-        global methodname_size
-        global params_size
-
-        methodname_size = len(
+        self.methodname_size = len(
             decoded_s[
                 decoded_s.find("<methodName>") +
                 len("<methodName>"):decoded_s.find("</methodName>")
             ]
         )
 
-        params_size = len(
+        self.params_size = len(
             decoded_s[
                 decoded_s.find("<params>\n") +
                 len("<params>\n"):decoded_s.find("</params>")
@@ -636,8 +633,8 @@ class XMLRPCCall(Packet):
         )
 
         if conf.debug_dissector:
-            print(methodname_size)
-            print(params_size)
+            print(self.methodname_size)
+            print(self.params_size)
         return s
 
     def do_dissect_payload(self, s):
@@ -679,6 +676,7 @@ class XMLRPCResponse(Packet):
     """
 
     name = "XMLRPCResponse"
+    __slots__ = Packet.__slots__ + ["params_size"]
     fields_desc = [
         # <?xml version='1.0'?>\n
         StrFixedLenField("version", "<?xml version='1.0'?>\n", length=22),
@@ -694,7 +692,7 @@ class XMLRPCResponse(Packet):
         #   <value><string>Parameter [/rosdistro]</string></value>\n
         #   <value><string>melodic\n</string></value>\n
         #   </data></array></value>\n</param>\n
-        StrLenField("params", "", length_from=lambda pkt: params_size),
+        StrLenField("params", "", length_from=lambda pkt: pkt.params_size),
         # </params>\n</methodResponse>\n
         StrFixedLenField("params_closetag", "</params>\n", length=10),
         StrFixedLenField("methodcall_closetag", "</methodResponse>\n",
@@ -711,10 +709,8 @@ class XMLRPCResponse(Packet):
             for the unpack (e.g. "<I") options
         """
         decoded_s = s.decode("iso-8859-1")  # from bytes, to string
-        # Obtain the number of fields in the body
-        global params_size
 
-        params_size = len(
+        self.params_size = len(
             decoded_s[
                 decoded_s.find("<params>\n") +
                 len("<params>\n"):decoded_s.find("</params>")
@@ -722,7 +718,7 @@ class XMLRPCResponse(Packet):
         )
 
         if conf.debug_dissector:
-            print(params_size)
+            print(self.params_size)
         return s
 
     def do_dissect_payload(self, s):
