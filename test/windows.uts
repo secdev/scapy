@@ -101,10 +101,13 @@ True
 = Ping
 ~ netaccess needs_root
 
-with conf.L3socket() as a:
-    answer = a.sr1(IP(dst="www.google.com", ttl=128)/ICMP(id=1, seq=seq)/"abcdefghijklmnopqrstuvwabcdefghi", timeout=2)
-    answer.show()
-    assert ICMP in answer
+def _test():
+    with conf.L3socket() as a:
+        answer = a.sr1(IP(dst="www.google.com", ttl=128)/ICMP(id=1, seq=seq)/"abcdefghijklmnopqrstuvwabcdefghi", timeout=2)
+        answer.show()
+        assert ICMP in answer
+
+retry_test(_test)
 
 = DNS lookup
 ~ netaccess needs_root require_gui
