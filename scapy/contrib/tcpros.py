@@ -504,9 +504,9 @@ class XMLRPC(Packet):
         # total_length = len(payload)
 
         if "xml" in string_payload and "version='1.0'" in string_payload:
-            if type(self.underlayer) == HTTPRequest:
+            if isinstance(self.underlayer, HTTPRequest):
                 return XMLRPCCall
-            elif type(self.underlayer) == HTTPResponse:
+            elif isinstance(self.underlayer, HTTPResponse):
                 return XMLRPCResponse
             else:
                 print("failed to match")
