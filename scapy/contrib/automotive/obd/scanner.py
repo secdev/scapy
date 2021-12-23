@@ -8,6 +8,8 @@
 # scapy.contrib.description = OnBoardDiagnosticScanner
 # scapy.contrib.status = loads
 
+import copy
+
 from scapy.compat import List, Type, Any, Iterable
 from scapy.contrib.automotive.obd.obd import OBD, OBD_S03, OBD_S07, OBD_S0A, \
     OBD_S01, OBD_S06, OBD_S08, OBD_S09, OBD_NR, OBD_S02, OBD_S02_Record
@@ -25,6 +27,17 @@ from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
 
 
 class OBD_Enumerator(ServiceEnumerator):
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'full_scan': bool,
+    })
+
+    _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
+        :param bool full_scan: Specifies if the entire scan range is tested, or
+                               if the bitmask with supported identifiers is
+                               queried and only supported identifiers
+                               are scanned."""
+
     @staticmethod
     def _get_negative_response_code(resp):
         # type: (Packet) -> int
@@ -47,6 +60,10 @@ class OBD_Enumerator(ServiceEnumerator):
 
 
 class OBD_Service_Enumerator(OBD_Enumerator):
+    """
+    Base class for OBD_Service_Enumerators
+    """
+
     def get_supported(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> List[int]
         super(OBD_Service_Enumerator, self).execute(
@@ -74,6 +91,8 @@ class OBD_Service_Enumerator(OBD_Enumerator):
             del self._request_iterators[state]
             super(OBD_Service_Enumerator, self).execute(
                 socket, state, scan_range=supported_pids, **kwargs)
+
+    execute.__doc__ = OBD_Enumerator._supported_kwargs_doc
 
     @staticmethod
     def print_payload(resp):
@@ -145,6 +164,8 @@ class OBD_S0A_Enumerator(OBD_DTC_Enumerator):
 
 
 class OBD_S01_Enumerator(OBD_Service_Enumerator):
+    """OBD_S01_Enumerator"""
+
     _description = "Available data in OBD service 01"
 
     def _get_initial_requests(self, **kwargs):

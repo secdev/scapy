@@ -392,5 +392,5 @@ def GMLAN_BroadcastSocket(interface):
     :param interface: interface name
     :return: ISOTPSocket configured as GMLAN Broadcast Socket
     """
-    return ISOTPSocket(interface, sid=0x101, did=0x0, basecls=GMLAN,
-                       extended_addr=0xfe, padding=True)
+    return ISOTPSocket(interface, tx_id=0x101, rx_id=0x0, basecls=GMLAN,
+                       ext_address=0xfe, padding=True)

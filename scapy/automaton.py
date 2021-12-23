@@ -42,6 +42,7 @@ from scapy.compat import (
     Deque,
     Dict,
     Generic,
+    Iterable,
     Iterator,
     List,
     Optional,
@@ -56,7 +57,7 @@ from scapy.compat import (
 
 
 def select_objects(inputs, remain):
-    # type: (List[Any], Union[float, int, None]) -> List[Any]
+    # type: (Iterable[Any], Union[float, int, None]) -> List[Any]
     """
     Select objects. Same than:
     ``select.select(inputs, [], [], remain)``
@@ -604,6 +605,14 @@ class Automaton_metaclass(type):
                         ioev.atmt_as_supersocket,
                         ioev.atmt_ioname,
                         cast(Type["Automaton"], cls)))
+
+        # Inject signature
+        try:
+            import inspect
+            cls.__signature__ = inspect.signature(cls.parse_args)  # type: ignore  # noqa: E501
+        except (ImportError, AttributeError):
+            pass
+
         return cast(Type["Automaton"], cls)
 
     def build_graph(self):

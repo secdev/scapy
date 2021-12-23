@@ -44,7 +44,6 @@ assert len(config.stages) == 0
 assert len(config.staged_test_cases) == 0
 assert config.verbose == False
 assert config.debug == False
-assert config.delay_state_change > 0
 
 
 = creation of config with instances
@@ -58,7 +57,6 @@ assert len(config.stages) == 0
 assert len(config.staged_test_cases) == 0
 assert config.verbose == False
 assert config.debug == False
-assert config.delay_state_change > 0
 
 
 = creation of config with instances and classes
@@ -72,7 +70,6 @@ assert len(config.stages) == 0
 assert len(config.staged_test_cases) == 0
 assert config.verbose == False
 assert config.debug == False
-assert config.delay_state_change > 0
 
 
 = creation of config with instances and classes and global configuration and local configuration
@@ -87,7 +84,6 @@ assert len(config.stages) == 0
 assert len(config.staged_test_cases) == 0
 assert config.verbose == True
 assert config.debug == False
-assert config.delay_state_change > 0
 assert config["MyTestCase2"]["global_config"] == 42
 assert config["MyTestCase2"]["local_config"] == 41
 assert config["MyTestCase2"]["verbose"] == True
@@ -120,7 +116,6 @@ assert len(config.stages) == 1
 assert len(config.staged_test_cases) == 2
 assert config.verbose == False
 assert config.debug == False
-assert config.delay_state_change > 0
 assert config.staged_test_cases[0].__class__ == MyTestCase1
 assert config.staged_test_cases[1].__class__ == MyTestCase2
 assert config.stages[0].__class__ == StagedAutomotiveTestCase
@@ -147,11 +142,3 @@ assert config.staged_test_cases[1].__class__ == MyTestCase2
 assert config.stages[0].__class__ == myStagedTestCase
 assert config.verbose == False
 assert config.debug == False
-assert config.delay_state_change > 0
-
-
-
-
-
-
-

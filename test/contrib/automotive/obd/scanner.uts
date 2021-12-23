@@ -106,7 +106,7 @@ answering_machine = EcuAnsweringMachine(supported_responses=responses, main_sock
 sim = threading.Thread(target=answering_machine, kwargs={"timeout": 50, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
 sim.start()
 try:
-    s = OBD_Scanner(tester, full_scan=False, timeout=1, retry_if_none_received=True, delay_state_change=0)
+    s = OBD_Scanner(tester, full_scan=False, timeout=1, retry_if_none_received=True)
     s.scan()
     tester.send(b"\xff\xff\xff")
 finally:
@@ -149,7 +149,7 @@ answering_machine = EcuAnsweringMachine(supported_responses=responses, main_sock
 sim = threading.Thread(target=answering_machine, kwargs={"timeout": 50, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
 sim.start()
 try:
-    s = OBD_Scanner(tester, full_scan=True, timeout=1, delay_state_change=0, retry_if_none_received=True)
+    s = OBD_Scanner(tester, full_scan=True, timeout=1, retry_if_none_received=True)
     s.scan()
     tester.send(b"\xff\xff\xff")
 finally:
@@ -193,7 +193,7 @@ answering_machine = EcuAnsweringMachine(supported_responses=responses, main_sock
 sim = threading.Thread(target=answering_machine, kwargs={"timeout": 50, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
 sim.start()
 try:
-    s = OBD_Scanner(tester, test_cases=[OBD_S01_Enumerator], full_scan=False, retry_if_none_received=True, timeout=1, delay_state_change=0)
+    s = OBD_Scanner(tester, test_cases=[OBD_S01_Enumerator], full_scan=False, retry_if_none_received=True, timeout=1)
     s.scan()
     tester.send(b"\xff\xff\xff")
 finally:

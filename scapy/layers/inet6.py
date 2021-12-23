@@ -554,7 +554,7 @@ class PseudoIPv6(Packet):  # IPv6 Pseudo-header for checksum computation
     name = "Pseudo IPv6 Header"
     fields_desc = [IP6Field("src", "::"),
                    IP6Field("dst", "::"),
-                   ShortField("uplen", None),
+                   IntField("uplen", None),
                    BitField("zero", 0, 24),
                    ByteField("nh", 0)]
 

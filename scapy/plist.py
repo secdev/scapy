@@ -741,39 +741,6 @@ class _PacketList(Generic[_Inner]):
             name, stats
         )
 
-    def convert_to(self,
-                   other_cls,  # type: Type[Packet]
-                   name=None,  # type: Optional[str]
-                   stats=None  # type: Optional[List[Type[Packet]]]
-                   ):
-        # type: (...) -> PacketList
-        """Converts all packets to another type.
-
-        See ``Packet.convert_to`` for more info.
-
-        :param other_cls: reference to a Packet class to convert to
-        :type other_cls: Type[scapy.packet.Packet]
-
-        :param name: optional name for the new PacketList
-        :type name: Optional[str]
-
-        :param stats: optional list of protocols to give stats on;
-                      if not specified, inherits from this PacketList.
-        :type stats: Optional[List[Type[scapy.packet.Packet]]]
-
-        :rtype: scapy.plist.PacketList
-        """
-        if name is None:
-            name = "{} converted to {}".format(
-                self.listname, other_cls.__name__)
-        if stats is None:
-            stats = self.stats
-
-        return PacketList(
-            [self._elt2pkt(p).convert_to(other_cls) for p in self.res],
-            name, stats
-        )
-
 
 class PacketList(_PacketList[Packet],
                  BasePacketList[Packet],

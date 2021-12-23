@@ -251,6 +251,26 @@ assert not e.has_completed(EcuState(session=3))
 assert not e.completed
 assert len(e.scanned_states) == 3
 
+e.execute(sock, EcuState(session=42), state_block_list=[EcuState(session=42)])
+
+assert e.has_completed(EcuState(session=42))
+assert len(e.scanned_states) == 3
+
+e.execute(sock, EcuState(session=13), state_block_list=EcuState(session=13))
+
+assert e.has_completed(EcuState(session=13))
+assert len(e.scanned_states) == 3
+
+e.execute(sock, EcuState(session=41), state_allow_list=[EcuState(session=42)])
+
+assert e.has_completed(EcuState(session=41))
+assert len(e.scanned_states) == 3
+
+e.execute(sock, EcuState(session=12), state_allow_list=EcuState(session=13))
+
+assert e.has_completed(EcuState(session=12))
+assert len(e.scanned_states) == 3
+
 = Test negative response code service not supported
 
 sock.rcvd_queue.put(b"\x7f\x01\x11")
@@ -351,21 +371,20 @@ class Scanner(AutomotiveTestCaseExecutor):
 = Basic tests
 
 tce = Scanner(MockSock(), test_cases=[TestCase1, TestCase2, MyTestCase],
-              verbose=True, delay_state_change=42, debug=True,
+              verbose=True, debug=True,
               global_arg="Whatever", TestCase1_kwargs={"local_kwarg": 42})
 
 config = tce.configuration  # type: AutomotiveTestCaseExecutorConfiguration
-assert config.delay_state_change == 42
 assert config.verbose
 assert config.debug
 assert len(config.test_cases) == 3
 assert len(config.stages) == 0
 assert len(config.staged_test_cases) == 0
 assert len(config.test_case_clss) == 3
-assert len(config.TestCase1.items()) == 5
-assert len(config.TestCase2.items()) == 4
-assert len(config["TestCase1"].items()) == 5
-assert len(config.MyTestCase.items()) == 4
+assert len(config.TestCase1.items()) == 4
+assert len(config.TestCase2.items()) == 3
+assert len(config["TestCase1"].items()) == 4
+assert len(config.MyTestCase.items()) == 3
 assert config.TestCase1["verbose"]
 assert config.TestCase1["debug"]
 assert config.TestCase1["local_kwarg"] == 42
@@ -380,7 +399,6 @@ assert isinstance(tce.socket, SingleConversationSocket)
 tce = Scanner(MockSock())
 
 config = tce.configuration  # type: AutomotiveTestCaseExecutorConfiguration
-assert config.delay_state_change == 0.5
 assert not config.verbose
 assert not config.debug
 assert len(config.test_cases) == 1
@@ -402,7 +420,6 @@ pipeline = StagedAutomotiveTestCase([tc1, tc2], [None, connector])
 tce = Scanner(MockSock(), test_cases=[pipeline])
 
 config = tce.configuration  # type: AutomotiveTestCaseExecutorConfiguration
-assert config.delay_state_change == 0.5
 assert not config.verbose
 assert not config.debug
 assert len(config.test_cases) == 1
@@ -431,7 +448,6 @@ pipeline2 = StagedTest([MyTestCase(), MyTestCase()])
 tce = Scanner(MockSock(), test_cases=[pipeline, pipeline2], verbose=True)
 
 config = tce.configuration  # type: AutomotiveTestCaseExecutorConfiguration
-assert config.delay_state_change == 0.5
 assert config.verbose
 assert not config.debug
 assert len(config.test_cases) == 2
@@ -536,7 +552,6 @@ class TestCase42(MyTestCase):
         global pre_exec
         assert state == EcuState(session=1)
         assert global_configuration.TestCase42["local_kwarg"] == 42
-        assert global_configuration.TestCase42["delay_state_change"] == 42
         assert global_configuration.TestCase42["verbose"]
         assert global_configuration.TestCase42["debug"]
         global_configuration.TestCase42["local_kwarg"] = 1
@@ -546,7 +561,6 @@ class TestCase42(MyTestCase):
         assert verbose
         assert debug
         assert local_kwarg == 1
-        assert kwargs["delay_state_change"] == 42
         execute = True
     def post_execute(self,
                      socket,  # type: _SocketUnion
@@ -555,14 +569,13 @@ class TestCase42(MyTestCase):
                      ):  # type: (...) -> None
         global post_exec
         assert global_configuration.TestCase42["local_kwarg"] == 1
-        assert global_configuration.TestCase42["delay_state_change"] == 42
         assert global_configuration.TestCase42["verbose"]
         assert global_configuration.TestCase42["debug"]
         post_exec = True
 
 
 tce = Scanner(MockSock(), test_cases=[TestCase42],
-              verbose=True, delay_state_change=42, debug=True,
+              verbose=True, debug=True,
               TestCase42_kwargs={"local_kwarg": 42})
 
 tce.execute_test_case(TestCase42())

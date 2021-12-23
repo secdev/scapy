@@ -1,0 +1,165 @@
+% Real-Time Publish-Subscribe Protocol (RTPS) dissection
+%
+% Copyright (C) 2021 Trend Micro Incorporated
+% Copyright (C) 2021 Alias Robotics S.L.
+%
+% This program is free software; you can redistribute it and/or modify it under
+% the terms of the GNU General Public License as published by the Free Software
+% Foundation; either version 2 of the License, or (at your option) any later
+% version.
+%
+% This program is distributed in the hope that it will be useful, but WITHOUT ANY
+% WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+% PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License along with
+% this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+% Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+% RTPS layer test campaign
+
++ Syntax check
+= Import the RTPS layer
+from scapy.contrib.rtps import *
+pkt = b"\x52\x54\x50\x53\x02\x01\x01\x10\x57\x63\x10\x01\xd6\xab\x40\x7f" \
+      b"\x5b\xd9\xbb\x1c\x0e\x01\x0c\x00\x88\x2a\x10\x01\x5d\x8c\x97\x40" \
+      b"\x78\xb6\x2d\xc2\x09\x01\x08\x00\xf4\x50\x81\x60\x51\xdd\x5c\x1c" \
+      b"\x15\x05\x10\x01\x00\x00\x10\x00\x00\x01\x00\xc7\x00\x01\x00\xc2" \
+      b"\x00\x00\x00\x00\x01\x00\x00\x00\x00\x03\x00\x00\x15\x00\x04\x00" \
+      b"\x02\x01\x00\x00\x16\x00\x04\x00\x01\x10\x00\x00\x02\x00\x08\x00" \
+      b"\x0a\x00\x00\x00\x00\x00\x00\x00\x50\x00\x10\x00\x57\x63\x10\x01" \
+      b"\xd6\xab\x40\x7f\x5b\xd9\xbb\x1c\x00\x00\x01\xc1\x58\x00\x04\x00" \
+      b"\x3f\x0c\x00\x00\x0f\x00\x04\x00\x00\x00\x00\x00\x31\x00\x18\x00" \
+      b"\x01\x00\x00\x00\xbd\xeb\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" \
+      b"\x00\x00\x00\x00\xac\x11\x00\x02\x48\x00\x18\x00\x01\x00\x00\x00" \
+      b"\xe9\x1c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" \
+      b"\xef\xff\x00\x01\x32\x00\x18\x00\x01\x00\x00\x00\xbd\xeb\x00\x00" \
+      b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xac\x11\x00\x02" \
+      b"\x33\x00\x18\x00\x01\x00\x00\x00\xe8\x1c\x00\x00\x00\x00\x00\x00" \
+      b"\x00\x00\x00\x00\x00\x00\x00\x00\xef\xff\x00\x01\x07\x80\x38\x00" \
+      b"\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" \
+      b"\x00\x00\x00\x00\x1d\x00\x00\x00\x74\x65\x73\x74\x2e\x6c\x6f\x63" \
+      b"\x61\x6c\x2f\x30\x2e\x38\x2e\x30\x2f\x4c\x69\x6e\x75\x78\x2f\x4c" \
+      b"\x69\x6e\x75\x78\x00\x00\x00\x00\x19\x80\x04\x00\x00\x80\x06\x00" \
+      b"\x01\x00\x00\x00"
+
++ Test endianness
+= PID_BUILTIN_ENDPOINT_QOS endianness
+assert(raw(PID_BUILTIN_ENDPOINT_QOS(parameterId=119, parameterLength=0, parameterData=b"")) == b'w\x00\x00\x00')
+
+
++ Test RTPS
+= RTPS default header values
+pkt2 = RTPS()/RTPSMessage(submessages=[
+    RTPSSubMessage_HEARTBEAT(),
+    RTPSSubMessage_INFO_TS(),
+    RTPSSubMessage_DATA(),
+])
+assert(bytes(RTPS()) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+
+= RTPS header dissect
+p = RTPS(pkt)
+assert(p.magic == b'\x52\x54\x50\x53')
+assert(p.protocolVersion.major == 2)
+assert(p.protocolVersion.minor == 1)
+assert(p.vendorId.vendor_id == b'\x01\x10')
+assert(p.guidPrefix.hostId == 0x57631001)
+assert(p.guidPrefix.appId == 0xd6ab407f)
+assert(p.guidPrefix.instanceId == 0x5bd9bb1c)
+assert(len(p.submessages) == 3)
+
+= RTPS INFO_DST Submessage
+assert(p.submessages[0].submessageId == 0x0E)
+assert(p.submessages[0].submessageFlags == 0x1)
+assert(p.submessages[0].octetsToNextHeader == 12)
+assert(p.submessages[0].guidPrefix.hostId == 0x882a1001)
+assert(p.submessages[0].guidPrefix.appId == 0x5d8c9740)
+assert(p.submessages[0].guidPrefix.instanceId == 0x78b62dc2)
+
+= RTPS INFO_TS Submessage
+assert(p.submessages[1].submessageId == 0x09)
+assert(p.submessages[1].submessageFlags == 'E')
+assert(p.submessages[1].octetsToNextHeader == 8)
+assert(p.submessages[1].ts_seconds == 1619087604)
+assert(p.submessages[1].ts_fraction == 475848017)
+
+= RTPS DATA Submessage
+assert(p.submessages[2].submessageId == 0x15)
+assert(p.submessages[2].submessageFlags == 0x05)
+assert(p.submessages[2].octetsToNextHeader == 272)
+assert(p.submessages[2].extraFlags == 0x00)
+assert(p.submessages[2].octetsToInlineQoS == 16)
+assert(p.submessages[2].readerEntityIdKey == 0x100)
+assert(p.submessages[2].readerEntityIdKind == 0xc7)
+assert(p.submessages[2].writerEntityIdKey == 0x100)
+assert(p.submessages[2].writerEntityIdKind == 0xc2)
+assert(p.submessages[2].writerSeqNumHi == 0)
+assert(p.submessages[2].writerSeqNumLow == 1)
+assert(isinstance(p.submessages[2].data, DataPacket))
+
+assert(p.submessages[2].data.encapsulationKind == 0x3)
+assert(p.submessages[2].data.encapsulationOptions == 0x0)
+assert(len(p.submessages[2].data.parameterList.parameterValues) == 12)
+
+assert(p.submessages[2].data.parameterList.parameterValues[0].parameterId == 0x15)
+assert(p.submessages[2].data.parameterList.parameterValues[0].parameterLength == 4)
+assert(p.submessages[2].data.parameterList.parameterValues[0].protocolVersion.minor == 1)
+assert(p.submessages[2].data.parameterList.parameterValues[0].protocolVersion.major == 2)
+assert(p.submessages[2].data.parameterList.parameterValues[0].padding == b'\x00\x00')
+
+assert(p.submessages[2].data.parameterList.parameterValues[1].parameterId == 0x16)
+assert(p.submessages[2].data.parameterList.parameterValues[1].parameterLength == 4)
+assert(p.submessages[2].data.parameterList.parameterValues[1].vendorId.vendor_id == b'\x01\x10')
+assert(p.submessages[2].data.parameterList.parameterValues[1].padding == b'\x00\x00')
+
+assert(p.submessages[2].data.parameterList.parameterValues[2].parameterId == 0x02)
+assert(p.submessages[2].data.parameterList.parameterValues[2].parameterLength == 8)
+assert(p.submessages[2].data.parameterList.parameterValues[2].parameterData == b'\x0a\x00\x00\x00\x00\x00\x00\x00')
+
+assert(p.submessages[2].data.parameterList.parameterValues[3].parameterId == 0x50)
+assert(p.submessages[2].data.parameterList.parameterValues[3].parameterLength == 16)
+assert(p.submessages[2].data.parameterList.parameterValues[3].parameterData == b'Wc\x10\x01\xd6\xab@\x7f[\xd9\xbb\x1c\x00\x00\x01\xc1')
+
+assert(p.submessages[2].data.parameterList.parameterValues[4].parameterId == 0x58)
+assert(p.submessages[2].data.parameterList.parameterValues[4].parameterLength == 4)
+assert(p.submessages[2].data.parameterList.parameterValues[4].parameterData == b'\x3f\x0c\x00\x00')
+
+assert(p.submessages[2].data.parameterList.parameterValues[5].parameterId == 0x0f)
+assert(p.submessages[2].data.parameterList.parameterValues[5].parameterLength == 4)
+assert(p.submessages[2].data.parameterList.parameterValues[5].parameterData == b'\x00\x00\x00\x00')
+
+assert(p.submessages[2].data.parameterList.parameterValues[6].parameterId == 0x31)
+assert(p.submessages[2].data.parameterList.parameterValues[6].parameterLength == 24)
+assert(p.submessages[2].data.parameterList.parameterValues[6].locator.locatorKind == 0x1000000)
+assert(p.submessages[2].data.parameterList.parameterValues[6].locator.port == 60349)
+assert(p.submessages[2].data.parameterList.parameterValues[6].locator.address == '172.17.0.2')
+
+assert(p.submessages[2].data.parameterList.parameterValues[7].parameterId == 0x48)
+assert(p.submessages[2].data.parameterList.parameterValues[7].parameterLength == 24)
+assert(p.submessages[2].data.parameterList.parameterValues[7].locator.locatorKind == 0x1000000)
+assert(p.submessages[2].data.parameterList.parameterValues[7].locator.port == 7401)
+assert(p.submessages[2].data.parameterList.parameterValues[7].locator.address == '239.255.0.1')
+
+assert(p.submessages[2].data.parameterList.parameterValues[8].parameterId == 0x32)
+assert(p.submessages[2].data.parameterList.parameterValues[8].parameterLength == 24)
+assert(p.submessages[2].data.parameterList.parameterValues[8].locator.locatorKind == 0x1000000)
+assert(p.submessages[2].data.parameterList.parameterValues[8].locator.port == 60349)
+assert(p.submessages[2].data.parameterList.parameterValues[8].locator.address == '172.17.0.2')
+
+assert(p.submessages[2].data.parameterList.parameterValues[9].parameterId == 0x33)
+assert(p.submessages[2].data.parameterList.parameterValues[9].parameterLength == 24)
+assert(p.submessages[2].data.parameterList.parameterValues[9].locator.locatorKind == 0x1000000)
+assert(p.submessages[2].data.parameterList.parameterValues[9].locator.port == 7400)
+assert(p.submessages[2].data.parameterList.parameterValues[9].locator.address == '239.255.0.1')
+
+assert(p.submessages[2].data.parameterList.parameterValues[10].parameterId == 0x8007)
+assert(p.submessages[2].data.parameterList.parameterValues[10].parameterLength == 56)
+assert(p.submessages[2].data.parameterList.parameterValues[10].parameterData == b'\x00\x00\x00\x00,\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1d\x00\x00\x00test.local/0.8.0/Linux/Linux\x00\x00\x00\x00')
+
+assert(p.submessages[2].data.parameterList.parameterValues[11].parameterId == 0x8019)
+assert(p.submessages[2].data.parameterList.parameterValues[11].parameterLength == 4)
+assert(p.submessages[2].data.parameterList.parameterValues[11].parameterData == b'\x00\x80\x06\x00')
+
+assert(p.submessages[2].data.parameterList.sentinel.parameterId == 0x1)
+assert(p.submessages[2].data.parameterList.sentinel.parameterLength == 0)
+assert(p.submessages[2].data.parameterList.sentinel.parameterData == b'')

@@ -26,13 +26,15 @@ try:
 except ImportError:
     from urllib2 import urlopen
 
+filename = 'nmap-os-fingerprints' + str(RandString(6))
+
 def _test():
-    with open('nmap-os-fingerprints', 'wb') as fd:
+    with open(filename, 'wb') as fd:
         fd.write(urlopen('https://raw.githubusercontent.com/nmap/nmap/9efe1892/nmap-os-fingerprints').read())
 
 retry_test(_test)
 
-conf.nmap_base = 'nmap-os-fingerprints'
+conf.nmap_base = filename
 
 = Database loading
 ~ netaccess

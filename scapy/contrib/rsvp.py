@@ -137,7 +137,7 @@ class RSVP_Object(Packet):
     name = "RSVP_Object"
     fields_desc = [ShortField("Length", 4),
                    ByteEnumField("Class", 0x01, rsvptypes),
-                   ByteField("C-Type", 1)]
+                   ByteField("C_Type", 1)]
 
     def guess_payload_class(self, payload):
         if self.Class == 0x03:

@@ -303,9 +303,9 @@ def test_isotpscan_code(sniff_time=0.02):
     thread1.join(timeout=10)
     thread2.join(timeout=10)
     thread_noise.join(timeout=10)
-    s1 = "ISOTPSocket(can0, sid=0x602, did=0x702, " \
+    s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, " \
          "padding=False, basecls=ISOTP)\n"
-    s2 = "ISOTPSocket(can0, sid=0x603, did=0x703, " \
+    s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, " \
          "padding=False, basecls=ISOTP)\n"
     print(result)
     assert s1 in result
@@ -342,7 +342,7 @@ def test_isotpscan_code_noise(sniff_time=0.02):
     thread1.join(timeout=10)
     thread2.join(timeout=10)
     thread_noise.join(timeout=10)
-    s2 = "ISOTPSocket(can0, sid=0x603, did=0x703, " \
+    s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, " \
          "padding=False, basecls=ISOTP)\n"
     print(result)
     assert s2 in result
@@ -383,10 +383,10 @@ def test_extended_isotpscan_code(sniff_time=0.02):
         thread1.join(timeout=10)
         thread2.join(timeout=10)
         thread_noise.join(timeout=10)
-    s1 = "ISOTPSocket(can0, sid=0x602, did=0x702, padding=False, " \
-         "extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
-    s2 = "ISOTPSocket(can0, sid=0x603, did=0x703, padding=False, " \
-         "extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
+    s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, padding=False, " \
+         "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
+    s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, padding=False, " \
+         "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
     print(result)
     assert s1 in result
     assert s2 in result
@@ -428,10 +428,10 @@ def test_extended_isotpscan_code_extended_can_id(sniff_time=0.02):
         thread1.join(timeout=10)
         thread2.join(timeout=10)
         thread_noise.join(timeout=10)
-    s1 = "ISOTPSocket(can0, sid=0x1ffff602, did=0x1ffff702, padding=False, " \
-         "extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
-    s2 = "ISOTPSocket(can0, sid=0x1ffff603, did=0x1ffff703, padding=False, " \
-         "extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
+    s1 = "ISOTPSocket(can0, tx_id=0x1ffff602, rx_id=0x1ffff702, padding=False, " \
+         "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
+    s2 = "ISOTPSocket(can0, tx_id=0x1ffff603, rx_id=0x1ffff703, padding=False, " \
+         "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
     print(result)
     assert s1 in result
     assert s2 in result
@@ -461,7 +461,7 @@ def test_isotpscan_none(sniff_time=0.02):
                                 sniff_time=sniff_time,
                                 noise_listen_time=sniff_time * 6,
                                 verbose=True)
-        result = sorted(result, key=lambda x: x.src)
+        result = sorted(result, key=lambda x: x.tx_id)
         with new_can_socket0() as cans:
             cans.send(CAN(identifier=0x601, data=b'\x01\xaa'))
             cans.send(CAN(identifier=0x602, data=b'\x01\xaa'))
@@ -478,10 +478,10 @@ def test_isotpscan_none(sniff_time=0.02):
             thread2.join(timeout=10)
             thread_noise.join(timeout=10)
     assert len(result) == 2
-    assert 0x602 == result[0].src
-    assert 0x702 == result[0].dst
-    assert 0x603 == result[1].src
-    assert 0x703 == result[1].dst
+    assert 0x602 == result[0].tx_id
+    assert 0x702 == result[0].rx_id
+    assert 0x603 == result[1].tx_id
+    assert 0x703 == result[1].rx_id
     for s in result:
         del s
 
@@ -510,7 +510,7 @@ def test_isotpscan_none_2(sniff_time=0.02):
                                 sniff_time=sniff_time,
                                 noise_listen_time=sniff_time * 6,
                                 verbose=True)
-        result = sorted(result, key=lambda x: x.src)
+        result = sorted(result, key=lambda x: x.tx_id)
         with new_can_socket0() as cans:
             cans.send(CAN(identifier=0x609, data=b'\x01\xaa'))
             cans.send(CAN(identifier=0x608, data=b'\x01\xaa'))
@@ -526,10 +526,10 @@ def test_isotpscan_none_2(sniff_time=0.02):
             thread2.join(timeout=10)
             thread_noise.join(timeout=10)
     assert len(result) == 2
-    assert 0x608 == result[0].src
-    assert 0x708 == result[0].dst
-    assert 0x609 == result[1].src
-    assert 0x709 == result[1].dst
+    assert 0x608 == result[0].tx_id
+    assert 0x708 == result[0].rx_id
+    assert 0x609 == result[1].tx_id
+    assert 0x709 == result[1].rx_id
     for s in result:
         del s
 
@@ -561,7 +561,7 @@ def test_extended_isotpscan_none(sniff_time=0.02):
                                 sniff_time=sniff_time,
                                 noise_listen_time=sniff_time * 6,
                                 verbose=True)
-        result = sorted(result, key=lambda x: x.src)
+        result = sorted(result, key=lambda x: x.tx_id)
         with new_can_socket0() as cans:
             cans.send(CAN(identifier=0x602, data=b'\x22\x01\xaa'))
             cans.send(CAN(identifier=0x603, data=b'\x22\x01\xaa'))
@@ -583,14 +583,14 @@ def test_extended_isotpscan_none(sniff_time=0.02):
         thread2.join(timeout=10)
         thread_noise.join(timeout=10)
     assert len(result) == 2
-    assert 0x602 == result[0].src
-    assert 0x702 == result[0].dst
-    assert 0x22 == result[0].exsrc
-    assert 0x11 == result[0].exdst
-    assert 0x603 == result[1].src
-    assert 0x703 == result[1].dst
-    assert 0x22 == result[1].exsrc
-    assert 0x11 == result[1].exdst
+    assert 0x602 == result[0].tx_id
+    assert 0x702 == result[0].rx_id
+    assert 0x22 == result[0].ext_address
+    assert 0x11 == result[0].rx_ext_address
+    assert 0x603 == result[1].tx_id
+    assert 0x703 == result[1].rx_id
+    assert 0x22 == result[1].ext_address
+    assert 0x11 == result[1].rx_ext_address
     for s in result:
         del s
 
@@ -624,7 +624,7 @@ def test_isotpscan_none_random_ids(sniff_time=0.02):
                                 noise_listen_time=sniff_time * 6,
                                 sniff_time=sniff_time,
                                 verbose=True)
-            result = sorted(result, key=lambda x: x.src)
+            result = sorted(result, key=lambda x: x.tx_id)
         with new_can_socket0() as cans:
             for i in ids:
                 # This helps to close ISOTPSoftSockets
@@ -635,19 +635,19 @@ def test_isotpscan_none_random_ids(sniff_time=0.02):
                 cans.send(CAN(identifier=0x100 + i, data=b'\x01\xaa'))
             for s in result:
                 # This helps to close ISOTPSoftSockets
-                cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
-                cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=s.rx_id, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=s.tx_id, data=b'\x01\xaa'))
                 s.close()
                 time.sleep(0)
-                cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
-                cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=s.rx_id, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=s.tx_id, data=b'\x01\xaa'))
             [t.join(timeout=10) for t in threads]
             thread_noise.join(timeout=10)
     assert len(result) == len(ids)
     ids = sorted(ids)
     for i, s in zip(ids, result):
-        assert i == s.src
-        assert i + 0x100 == s.dst
+        assert i == s.tx_id
+        assert i + 0x100 == s.rx_id
     for s in result:
         del s
 
@@ -679,7 +679,7 @@ def test_isotpscan_none_random_ids_padding(sniff_time=0.02):
                                 noise_listen_time=sniff_time * 6,
                                 sniff_time=sniff_time,
                                 verbose=True)
-            result = sorted(result, key=lambda x: x.src)
+            result = sorted(result, key=lambda x: x.tx_id)
         with new_can_socket0() as cans:
             for i in ids:
                 # This helps to close ISOTPSoftSockets
@@ -690,19 +690,19 @@ def test_isotpscan_none_random_ids_padding(sniff_time=0.02):
                 cans.send(CAN(identifier=0x100 + i, data=b'\x01\xaa'))
             for s in result:
                 # This helps to close ISOTPSoftSockets
-                cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
-                cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=s.rx_id, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=s.tx_id, data=b'\x01\xaa'))
                 s.close()
-                cans.send(CAN(identifier=s.dst, data=b'\x01\xaa'))
-                cans.send(CAN(identifier=s.src, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=s.rx_id, data=b'\x01\xaa'))
+                cans.send(CAN(identifier=s.tx_id, data=b'\x01\xaa'))
                 time.sleep(0)
         [t.join(timeout=10) for t in threads]
         thread_noise.join(timeout=10)
     assert len(result) == len(ids)
     ids = sorted(ids)
     for i, s in zip(ids, result):
-        assert i == s.src
-        assert i + 0x100 == s.dst
+        assert i == s.tx_id
+        assert i + 0x100 == s.rx_id
         if isinstance(s, ISOTPSoftSocket):
             assert s.impl.padding is True
     for s in result:

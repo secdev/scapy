@@ -114,14 +114,12 @@ assert smb_sax_req_2.AndXCommand == 255
 assert smb_sax_req_2.SecurityBlob.token.negResult == 1
 ntlm_authenticate = NTLM_Header(smb_sax_req_2.SecurityBlob.token.responseToken.value.val)
 assert isinstance(ntlm_authenticate, NTLM_AUTHENTICATE)
-assert len(ntlm_authenticate.Payload) == 6
-assert ntlm_authenticate.Payload[0] == ('DomainName', '')
-assert ntlm_authenticate.Payload[1] == ('UserName', '')
-assert ntlm_authenticate.Payload[2] == ('Workstation', 'DESKTOP-V1FA0UQ')
-assert ntlm_authenticate.Payload[3][0] == 'LmChallengeResponse'
-assert isinstance(ntlm_authenticate.Payload[3][1], LMv2_RESPONSE)
-assert ntlm_authenticate.Payload[4][0] == 'NtChallengeResponse'
-assert  ntlm_authenticate.Payload[4][1].AvPairs[0].sprintf("%AvId%") == 'MsvAvEOL'
+assert len(ntlm_authenticate.Payload) == 3
+assert ntlm_authenticate.Payload[0] == ('Workstation', 'DESKTOP-V1FA0UQ')
+assert ntlm_authenticate.Payload[1][0] == 'LmChallengeResponse'
+assert isinstance(ntlm_authenticate.Payload[1][1], LMv2_RESPONSE)
+assert ntlm_authenticate.Payload[2][0] == 'EncryptedRandomSessionKey'
+assert ntlm_authenticate.Payload[2][1] == b'/\t\x13+\x81\xa6\x15\x14\xb9\x11\x8b\xe0\x00\x88\xd7\x1f'
 
 = SMB Setup AndX Response - accept complete (ES)
 

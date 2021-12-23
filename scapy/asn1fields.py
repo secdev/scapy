@@ -678,6 +678,8 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 else:
                     # should be ASN1F_field instance
                     self.choices[p.network_tag] = p
+                    if p.implicit_tag is not None:
+                        self.choices[p.implicit_tag & 0x1f] = p
                     self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
@@ -696,10 +698,17 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         if tag in self.choices:
             choice = self.choices[tag]
         else:
-            if self.flexible_tag:
+            if tag & 0x1f in self.choices:  # Try resolve only the tag number
+                choice = self.choices[tag & 0x1f]
+            elif self.flexible_tag:
                 choice = ASN1F_field
             else:
-                raise ASN1_Error("ASN1F_CHOICE: unexpected field")
+                raise ASN1_Error(
+                    "ASN1F_CHOICE: unexpected field in '%s' "
+                    "(tag %s not in possible tags %s)" % (
+                        self.name, tag, list(self.choices.keys())
+                    )
+                )
         if hasattr(choice, "ASN1_root"):
             choice = cast('ASN1_Packet', choice)
             # we don't want to import ASN1_Packet in this module...
@@ -758,8 +767,8 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
             name, None, context=context,
             implicit_tag=implicit_tag, explicit_tag=explicit_tag
         )
-        if cls.ASN1_root.ASN1_tag == ASN1_Class_UNIVERSAL.SEQUENCE:
-            if implicit_tag is None and explicit_tag is None:
+        if implicit_tag is None and explicit_tag is None:
+            if cls.ASN1_root.ASN1_tag == ASN1_Class_UNIVERSAL.SEQUENCE:
                 self.network_tag = 16 | 0x20
         self.default = default
 

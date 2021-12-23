@@ -102,7 +102,7 @@ drain_bus(iface0)
 started = threading.Event()
 
 def isotpserver():
-    with new_can_socket(iface0) as isocan, ISOTPSocket(isocan, sid=0x700, did=0x600) as s:
+    with new_can_socket(iface0) as isocan, ISOTPSocket(isocan, tx_id=0x700, rx_id=0x600) as s:
         s.sniff(timeout=200, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
@@ -119,6 +119,8 @@ std_out2, std_err2 = result.communicate()
 send_returncode = subprocess.call(['cansend', iface0, '600#01aa'])
 sniffer.join(timeout=10)
 
+print(std_out1)
+print(std_err1)
 assert 0 == send_returncode
 assert returncode1 == 0
 assert returncode2 == 0
@@ -134,7 +136,7 @@ drain_bus(iface0)
 started = threading.Event()
 
 def isotpserver():
-    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, tx_id=0x700, rx_id=0x601, ext_address=0xaa, rx_ext_address=0xbb) as s:
         s.sniff(timeout=200, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
@@ -165,7 +167,7 @@ drain_bus(iface0)
 started = threading.Event()
 
 def isotpserver():
-    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, tx_id=0x700, rx_id=0x601, ext_address=0xaa, rx_ext_address=0xbb) as s:
         s.sniff(timeout=200, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
@@ -197,7 +199,7 @@ drain_bus(iface0)
 started = threading.Event()
 
 def isotpserver():
-    with new_can_socket0() as isocan, ISOTPSocket(isocan, sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
+    with new_can_socket0() as isocan, ISOTPSocket(isocan, tx_id=0x700, rx_id=0x601, ext_address=0xaa, rx_ext_address=0xbb) as s:
         s.sniff(timeout=200, count=1, started_callback=started.set)
 
 sniffer = threading.Thread(target=isotpserver)
@@ -218,8 +220,8 @@ sniffer.join(timeout=10)
 assert 0 == send_returncode
 assert returncode1 == 0 == returncode2
 
-expected_output = [b'sid=0x601', b'did=0x700', b'padding=False', b'extended_addr=0xbb', b'extended_rx_addr=0xaa']
-
+expected_output = [b'tx_id=0x601', b'rx_id=0x700', b'padding=False', b'ext_address=0xbb', b'rx_ext_address=0xaa']
+print(std_out1)
 for out in expected_output:
     assert plain_str(out) in plain_str(std_out1 + std_out2)
 

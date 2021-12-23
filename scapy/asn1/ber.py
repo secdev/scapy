@@ -9,6 +9,8 @@
 Basic Encoding Rules (BER) for ASN.1
 """
 
+# Good read: https://luca.ntop.org/Teaching/Appunti/asn1.html
+
 from __future__ import absolute_import
 from scapy.error import warning
 from scapy.compat import chb, orb, bytes_encode
@@ -223,12 +225,16 @@ def BER_tagging_dec(s,  # type: bytes
     # We output the 'real_tag' if it is different from the (im|ex)plicit_tag.
     real_tag = None
     if len(s) > 0:
-        err_msg = "BER_tagging_dec: observed tag does not match expected tag"
+        err_msg = (
+            "BER_tagging_dec: observed tag 0x%.02x does not "
+            "match expected tag 0x%.02x"
+        )
         if implicit_tag is not None:
             ber_id, s = BER_id_dec(s)
             if ber_id != implicit_tag:
-                if not safe:
-                    raise BER_Decoding_Error(err_msg, remaining=s)
+                if not safe and ber_id & 0x1f != implicit_tag & 0x1f:
+                    raise BER_Decoding_Error(err_msg % (ber_id, implicit_tag),
+                                             remaining=s)
                 else:
                     real_tag = ber_id
             s = chb(hash(hidden_tag)) + s
@@ -236,7 +242,8 @@ def BER_tagging_dec(s,  # type: bytes
             ber_id, s = BER_id_dec(s)
             if ber_id != explicit_tag:
                 if not safe:
-                    raise BER_Decoding_Error(err_msg, remaining=s)
+                    raise BER_Decoding_Error(err_msg % (ber_id, explicit_tag),
+                                             remaining=s)
                 else:
                     real_tag = ber_id
             l, s = BER_len_dec(s)

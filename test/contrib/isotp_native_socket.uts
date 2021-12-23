@@ -24,7 +24,7 @@ exit_if_no_isotp_module()
 
 message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14"
 
-with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x642, did=0x242) as s:
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, tx_id=0x642, rx_id=0x242) as s:
     p = subprocess.Popen(["isotpsend", "-s", "242", "-d", "642", iface0], stdin=subprocess.PIPE, universal_newlines=True)
     p.communicate(message)
     r = p.returncode
@@ -37,7 +37,7 @@ with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x642, did=0x242) 
 exit_if_no_isotp_module()
 message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14"
 
-with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x644, did=0x244, extended_addr=0xaa, extended_rx_addr=0xee) as s:
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, tx_id=0x644, rx_id=0x244, ext_address=0xaa, rx_ext_address=0xee) as s:
     p = subprocess.Popen(["isotpsend", "-s", "244", "-d", "644", "-x", "ee:aa", iface0], stdin=subprocess.PIPE, universal_newlines=True)
     p.communicate(message)
     r = p.returncode
@@ -52,7 +52,7 @@ exit_if_no_isotp_module()
 isotp = ISOTP(data=bytearray(range(1,20)))
 p = subprocess.Popen(["isotprecv", "-s", "243", "-d", "643", "-b", "3", iface0], stdout=subprocess.PIPE)
 time.sleep(0.1)
-with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x643, did=0x243) as s:
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, tx_id=0x643, rx_id=0x243) as s:
     s.send(isotp)
 
 timer = threading.Timer(1, lambda: p.terminate() if p.poll() else p.wait())
@@ -81,7 +81,7 @@ isotp = ISOTP(data=bytearray(range(1,20)))
 cmd = ["isotprecv", "-s245", "-d645", "-b3", "-x", "ee:aa", iface0]
 p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 time.sleep(0.1)  # Give some time for starting reception
-with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, sid=0x645, did=0x245, extended_addr=0xaa, extended_rx_addr=0xee) as s:
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, tx_id=0x645, rx_id=0x245, ext_address=0xaa, rx_ext_address=0xee) as s:
     s.send(isotp)
 
 timer = threading.Timer(1, lambda: p.terminate() if p.poll() else p.wait())
@@ -108,13 +108,13 @@ assert not timer.is_alive()
 
 = Create ISOTP socket
 exit_if_no_isotp_module()
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
+s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241)
 
 = Send single frame ISOTP message
 exit_if_no_isotp_module()
 
 with new_can_socket(iface0) as cans:
-    s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
+    s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241)
     s.send(ISOTP(data=dhex("01 02 03 04 05")))
     can = cans.sniff(timeout=1, count=1)[0]
     assert(can.identifier == 0x641)
@@ -124,7 +124,7 @@ with new_can_socket(iface0) as cans:
 = Send single frame ISOTP message Test init with CANSocket
 exit_if_no_isotp_module()
 cans = CANSocket(iface0)
-s = ISOTPNativeSocket(cans, sid=0x641, did=0x241)
+s = ISOTPNativeSocket(cans, tx_id=0x641, rx_id=0x241)
 s.send(ISOTP(data=dhex("01 02 03 04 05")))
 can = cans.sniff(timeout=1, count=1)[0]
 assert(can.identifier == 0x641)
@@ -136,7 +136,7 @@ cans.close()
 exit_if_no_isotp_module()
 exception_catched = False
 try:
-    s = ISOTPNativeSocket(42, sid=0x641, did=0x241)
+    s = ISOTPNativeSocket(42, tx_id=0x641, rx_id=0x241)
 except Scapy_Exception:
     exception_catched = True
 
@@ -156,7 +156,7 @@ def acker():
 with new_can_socket(iface0) as cans:
     t = Thread(target=acker)
     t.start()
-    s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
+    s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241)
     evt.wait(timeout=5)
     s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
     can = cans.sniff(timeout=1, count=1)[0]
@@ -173,7 +173,7 @@ with new_can_socket(iface0) as cans:
 
 = Send a single frame ISOTP message with padding
 exit_if_no_isotp_module()
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241, padding=True)
+s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241, padding=True)
 
 with new_can_socket(iface0) as cans:
     s.send(ISOTP(data=dhex("01")))
@@ -195,7 +195,7 @@ with new_can_socket(iface0) as cans:
     thread = Thread(target=acker)
     thread.start()
     acker_ready.wait(timeout=5)
-    s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241, padding=True)
+    s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241, padding=True)
     s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
     can = cans.sniff(timeout=1, count=1)[0]
     assert(can.identifier == 0x641)
@@ -212,7 +212,7 @@ with new_can_socket(iface0) as cans:
 
 = Receive a padded single frame ISOTP message with padding disabled
 exit_if_no_isotp_module()
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241, padding=False)
+s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241, padding=False)
 with new_can_socket(iface0) as cans:
     cans.send(CAN(identifier=0x241, data=dhex("02 05 06 00 00 00 00 00")))
     res = s.recv()
@@ -221,7 +221,7 @@ with new_can_socket(iface0) as cans:
 
 = Receive a padded single frame ISOTP message with padding enabled
 exit_if_no_isotp_module()
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241, padding=True)
+s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241, padding=True)
 with new_can_socket(iface0) as cans:
     cans.send(CAN(identifier=0x241, data=dhex("02 05 06 00 00 00 00 00")))
     res = s.recv()
@@ -230,7 +230,7 @@ with new_can_socket(iface0) as cans:
 
 = Receive a non-padded single frame ISOTP message with padding enabled
 exit_if_no_isotp_module()
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241, padding=True)
+s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241, padding=True)
 with new_can_socket(iface0) as cans:
     cans.send(CAN(identifier=0x241, data=dhex("02 05 06")))
     res = s.recv()
@@ -239,7 +239,7 @@ with new_can_socket(iface0) as cans:
 
 = Receive a padded two-frame ISOTP message with padding enabled
 exit_if_no_isotp_module()
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241, padding=True)
+s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241, padding=True)
 with new_can_socket(iface0) as cans:
     cans.send(CAN(identifier=0x241, data=dhex("10 09 01 02 03 04 05 06")))
     cans.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
@@ -249,7 +249,7 @@ with new_can_socket(iface0) as cans:
 
 = Receive a padded two-frame ISOTP message with padding disabled
 exit_if_no_isotp_module()
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241, padding=False)
+s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241, padding=False)
 with new_can_socket(iface0) as cans:
     cans.send(CAN(identifier=0x241, data=dhex("10 09 01 02 03 04 05 06")))
     cans.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
@@ -259,33 +259,33 @@ with new_can_socket(iface0) as cans:
 
 = Receive a single frame ISOTP message
 exit_if_no_isotp_module()
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
+s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241)
 with new_can_socket(iface0) as cans:
     cans.send(CAN(identifier = 0x241, data = dhex("05 01 02 03 04 05")))
     isotp = s.recv()
     assert(isotp.data == dhex("01 02 03 04 05"))
-    assert(isotp.src == 0x641)
-    assert(isotp.dst == 0x241)
-    assert(isotp.exsrc == None)
-    assert(isotp.exdst == None)
+    assert(isotp.tx_id == 0x641)
+    assert(isotp.rx_id == 0x241)
+    assert(isotp.ext_address == None)
+    assert(isotp.rx_ext_address == None)
 
 
 = Receive a single frame ISOTP message, with extended addressing
 exit_if_no_isotp_module()
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241, extended_addr=0xc0, extended_rx_addr=0xea)
+s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241, ext_address=0xc0, rx_ext_address=0xea)
 with new_can_socket(iface0) as cans:
     cans.send(CAN(identifier = 0x241, data = dhex("EA 05 01 02 03 04 05")))
     isotp = s.recv()
     assert(isotp.data == dhex("01 02 03 04 05"))
-    assert(isotp.src == 0x641)
-    assert(isotp.dst == 0x241)
-    assert(isotp.exsrc == 0xc0)
-    assert(isotp.exdst == 0xea)
+    assert(isotp.tx_id == 0x641)
+    assert(isotp.rx_id == 0x241)
+    assert(isotp.ext_address == 0xc0)
+    assert(isotp.rx_ext_address == 0xea)
 
 
 = Receive a two-frame ISOTP message
 exit_if_no_isotp_module()
-s = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
+s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241)
 with new_can_socket(iface0) as cans:
     cans.send(CAN(identifier = 0x241, data = dhex("10 0B 01 02 03 04 05 06")))
     cans.send(CAN(identifier = 0x241, data = dhex("21 07 08 09 10 11")))
@@ -294,7 +294,7 @@ with new_can_socket(iface0) as cans:
 
 = Receive a two-frame ISOTP message and test python with statement
 exit_if_no_isotp_module()
-with ISOTPNativeSocket(iface0, sid=0x641, did=0x241) as s:
+with ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241) as s:
     with new_can_socket(iface0) as cans:
         cans.send(CAN(identifier = 0x241, data = dhex("10 0B 01 02 03 04 05 06")))
         cans.send(CAN(identifier = 0x241, data = dhex("21 07 08 09 10 11")))
@@ -305,7 +305,7 @@ with ISOTPNativeSocket(iface0, sid=0x641, did=0x241) as s:
 = ISOTP Socket sr1 test
 exit_if_no_isotp_module()
 
-txSock = ISOTPNativeSocket(iface0, sid=0x123, did=0x321, basecls=ISOTP)
+txSock = ISOTPNativeSocket(iface0, tx_id=0x123, rx_id=0x321, basecls=ISOTP)
 txmsg = ISOTP(b'\x11\x22\x33')
 rx2 = None
 
@@ -454,10 +454,10 @@ assert(succ)
 = bridge and sniff with isotp native sockets set up vcan0 and vcan1 for package forwarding vcan1
 exit_if_no_isotp_module()
 
-isoTpSocket0 = ISOTPNativeSocket(iface0, sid=0x241, did=0x641)
-isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
-bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
-bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
+isoTpSocket0 = ISOTPNativeSocket(iface0, tx_id=0x241, rx_id=0x641)
+isoTpSocket1 = ISOTPNativeSocket(iface1, tx_id=0x641, rx_id=0x241)
+bSocket0 = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241)
+bSocket1 = ISOTPNativeSocket(iface1, tx_id=0x241, rx_id=0x641)
 
 bridgeStarted = threading.Event()
 def bridge():
@@ -491,10 +491,10 @@ assert(bSucc)
 = bridge and sniff with isotp native sockets set up vcan0 and vcan1 for package change to vcan1
 exit_if_no_isotp_module()
 
-isoTpSocket0 = ISOTPNativeSocket(iface0, sid=0x241, did=0x641)
-isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
-bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
-bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
+isoTpSocket0 = ISOTPNativeSocket(iface0, tx_id=0x241, rx_id=0x641)
+isoTpSocket1 = ISOTPNativeSocket(iface1, tx_id=0x641, rx_id=0x241)
+bSocket0 = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241)
+bSocket1 = ISOTPNativeSocket(iface1, tx_id=0x241, rx_id=0x641)
 
 bSucc = False
 
@@ -532,10 +532,10 @@ exit_if_no_isotp_module()
 
 bSucc = False
 
-isoTpSocket0 = ISOTPNativeSocket(iface0, sid=0x241, did=0x641)
-isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
-bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
-bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
+isoTpSocket0 = ISOTPNativeSocket(iface0, tx_id=0x241, rx_id=0x641)
+isoTpSocket1 = ISOTPNativeSocket(iface1, tx_id=0x641, rx_id=0x241)
+bSocket0 = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241)
+bSocket1 = ISOTPNativeSocket(iface1, tx_id=0x241, rx_id=0x641)
 
 bridgeStarted = threading.Event()
 def bridge():
@@ -576,10 +576,10 @@ exit_if_no_isotp_module()
 
 bSucc = False
 
-isoTpSocket0 = ISOTPNativeSocket(iface0, sid=0x241, did=0x641)
-isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
-bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
-bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
+isoTpSocket0 = ISOTPNativeSocket(iface0, tx_id=0x241, rx_id=0x641)
+isoTpSocket1 = ISOTPNativeSocket(iface1, tx_id=0x641, rx_id=0x241)
+bSocket0 = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241)
+bSocket1 = ISOTPNativeSocket(iface1, tx_id=0x241, rx_id=0x641)
 
 bridgeStarted = threading.Event()
 def bridge():

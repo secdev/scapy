@@ -873,7 +873,7 @@ class IE_PrivateExtension(IE_Base):
     name = "Private Extension"
     fields_desc = [ByteEnumField("ietype", 255, IEType),
                    ShortField("length", 1),
-                   ByteField("extension identifier", 0),
+                   ByteField("extension_identifier", 0),
                    StrLenField("extention_value", "",
                                length_from=lambda x: x.length)]
 
