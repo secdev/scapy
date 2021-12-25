@@ -1,7 +1,6 @@
 # Readthedocs config file.
 
 # See https://docs.readthedocs.io/en/stable/config-file/v2.html#supported-settings
-# Copied from https://github.com/pycontribs/jira/blob/master/.readthedocs.yml
 
 version: 2
 
@@ -10,10 +9,11 @@ formats:
   - pdf
 
 build:
-  image: latest
+  os: ubuntu-20.04
+  tools:
+    python: "3.9"
 
 python:
-  version: 3.7
   install:
     - method: pip
       path: .
