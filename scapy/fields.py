@@ -1387,6 +1387,38 @@ class StrFieldUtf16(StrField):
         return bytes_encode(x).decode('utf-16', errors="replace")
 
 
+class _StrEnumField:
+    def __init__(self, **kwargs):
+        # type: (**Any) -> None
+        self.enum = kwargs.pop("enum", {})
+
+    def i2repr(self, pkt, v):
+        # type: (Optional[Packet], bytes) -> str
+        r = v.rstrip(b"\0")
+        rr = repr(r)
+        if self.enum:
+            if v in self.enum:
+                rr = "%s (%s)" % (rr, self.enum[v])
+            elif r in self.enum:
+                rr = "%s (%s)" % (rr, self.enum[r])
+        return rr
+
+
+class StrEnumField(_StrEnumField, StrField):
+    __slots__ = ["enum"]
+
+    def __init__(
+            self,
+            name,  # type: str
+            default,  # type: bytes
+            enum=None,  # type: Optional[Dict[str, str]]
+            **kwargs  # type: Any
+    ):
+        # type: (...) -> None
+        StrField.__init__(self, name, default, **kwargs)  # type: ignore
+        self.enum = enum
+
+
 K = TypeVar('K', List[BasePacket], BasePacket, Optional[BasePacket])
 
 
@@ -1719,32 +1751,20 @@ class StrFixedLenField(StrField):
             return RandBin(RandNum(0, 200))
 
 
-class StrFixedLenEnumField(StrFixedLenField):
+class StrFixedLenEnumField(_StrEnumField, StrFixedLenField):
     __slots__ = ["enum"]
 
     def __init__(
             self,
             name,  # type: str
             default,  # type: bytes
-            length=None,  # type: Optional[int]
             enum=None,  # type: Optional[Dict[str, str]]
+            length=None,  # type: Optional[int]
             length_from=None  # type: Optional[Callable[[Optional[Packet]], int]]  # noqa: E501
     ):
         # type: (...) -> None
         StrFixedLenField.__init__(self, name, default, length=length, length_from=length_from)  # noqa: E501
         self.enum = enum
-
-    def i2repr(self, pkt, w):
-        # type: (Optional[Packet], bytes) -> str
-        v = plain_str(w)
-        r = v.rstrip("\0")
-        rr = repr(r)
-        if self.enum:
-            if v in self.enum:
-                rr = "%s (%s)" % (rr, self.enum[v])
-            elif r in self.enum:
-                rr = "%s (%s)" % (rr, self.enum[r])
-        return rr
 
 
 class NetBIOSNameField(StrFixedLenField):
