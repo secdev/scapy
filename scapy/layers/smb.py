@@ -877,10 +877,10 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
             )
             resp.GUID = self.get("GUID", RandUUID())
             if self.PASS_NEGOEX:  # NEGOEX handling
-                # NOTE: NegoEX has no effect on the default SMB client.
-                # If you try to drop NTLMSSP from the mechTypes, the client
-                # keeps trying to re-negotiate the SMB session and never sends
-                # an auth.
+                # NOTE: NegoEX has an effect on how the SecurityContext is
+                # initialized, as detailed in [MS-AUTHSOD] sect 3.3.2
+                # But the format that the Exchange token uses appears not to
+                # be documented :/
                 resp.SecurityBlob.innerContextToken.token.mechTypes.insert(
                     0,
                     # NEGOEX

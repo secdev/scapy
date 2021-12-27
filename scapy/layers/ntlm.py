@@ -15,10 +15,17 @@ import struct
 import threading
 
 from scapy.arch import get_if_addr
-from scapy.asn1.asn1 import ASN1_STRING
+from scapy.asn1.asn1 import ASN1_STRING, ASN1_Codecs
+from scapy.asn1.mib import conf  # loads conf.mib
+from scapy.asn1fields import (
+    ASN1F_OID,
+    ASN1F_PRINTABLE_STRING,
+    ASN1F_SEQUENCE,
+    ASN1F_SEQUENCE_OF
+)
+from scapy.asn1packet import ASN1_Packet
 from scapy.automaton import Automaton, ObjectPipe
 from scapy.compat import bytes_base64
-from scapy.config import conf
 from scapy.fields import (
     Field,
     ByteEnumField,
@@ -127,9 +134,12 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         for field_name, value in x:
             if field_name not in self.fields_map:
                 continue
+            if not isinstance(self.fields_map[field_name],
+                              (PacketField, PacketListField)):
+                value = getattr(self.fields_map[field_name], func)(pkt, value)
             results.append((
                 field_name,
-                getattr(self.fields_map[field_name], func)(pkt, value)
+                value
             ))
         return results
 
@@ -355,7 +365,7 @@ class AV_PAIR(Packet):
 
 
 class NTLM_CHALLENGE(Packet):
-    name = "NTLM Negotiate"
+    name = "NTLM Challenge"
     messageType = 2
     OFFSET = 56
     fields_desc = [
@@ -758,3 +768,40 @@ def ntlm_relay(serverCls,
                 except Exception:
                     pass
         ssock.close()
+
+
+# Experimental - Reversed stuff
+
+# This is the GSSAPI NegoEX Exchange metadata blob. This is not documented
+# but described as an "opaque blob": this was reversed and everything is a
+# placeholder.
+
+class NEGOEX_EXCHANGE_NTLM_ITEM(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE(
+            ASN1F_SEQUENCE(
+                ASN1F_OID("oid", ""),
+                ASN1F_PRINTABLE_STRING("token", ""),
+                explicit_tag=0x31
+            ),
+            explicit_tag=0x80
+        )
+    )
+
+
+class NEGOEX_EXCHANGE_NTLM(ASN1_Packet):
+    """
+    GSSAPI NegoEX Exchange metadata blob
+    This was reversed and may be meaningless
+    """
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE(
+            ASN1F_SEQUENCE_OF(
+                "items", [],
+                NEGOEX_EXCHANGE_NTLM_ITEM
+            ),
+            implicit_tag=0xa0
+        ),
+    )

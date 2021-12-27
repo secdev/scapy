@@ -37,6 +37,7 @@ from scapy.fields import (
     LELongEnumField,
     LELongField,
     LEShortField,
+    MultipleTypeField,
     PacketField,
     PacketListField,
     StrFixedLenField,
@@ -46,7 +47,11 @@ from scapy.fields import (
     XStrFixedLenField,
     XStrLenField
 )
-from scapy.layers.ntlm import NTLM_Header, _NTLMPayloadField
+from scapy.layers.ntlm import (
+    NEGOEX_EXCHANGE_NTLM,
+    NTLM_Header,
+    _NTLMPayloadField,
+)
 from scapy.packet import Packet, bind_layers
 
 from scapy.compat import (
@@ -372,11 +377,18 @@ class NEGOEX_EXCHANGE_MESSAGE(Packet):
         LEIntField("ExchangeLen", 0),
         _NTLMPayloadField(
             'Payload', OFFSET, [
-                # TODO: it is likely possible to reverse the following blob
-                # (appears to be ASN.1 containing some sort of X509 cert)
-                # The NEGOEX doc mentions it as an "opaque handshake for the
-                # client authentication scheme"
-                StrField("Exchange", b"")
+                # The NEGOEX doc mentions the following blob as as an
+                # "opaque handshake for the client authentication scheme".
+                # NEGOEX_EXCHANGE_NTLM is a reversed interpretation, and is
+                # probably not accurate.
+                MultipleTypeField(
+                    [
+                        (PacketField("Exchange", None, NEGOEX_EXCHANGE_NTLM),
+                         lambda pkt: pkt.AuthScheme == \
+                            UUID("5c33530d-eaf9-0d4d-b2ec-4ae3786ec308")),
+                    ],
+                    StrField("Exchange", b"")
+                )
             ],
             length_from=lambda pkt: pkt.cbMessageLength - pkt.cbHeaderLength),
     ]

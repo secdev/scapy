@@ -80,7 +80,9 @@ assert negoex_exch.SequenceNum == 1
 assert negoex_exch.sprintf("%AuthScheme%") == "UUID('[NTLM-UUID]')"
 assert negoex_exch.ExchangeLen == len(negoex_exch.Payload[0][1])
 assert negoex_exch.Payload[0][0] == "Exchange"
-assert negoex_exch.Payload[0][1] == b"0V\xa0T0R0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key"
+assert bytes(negoex_exch.Payload[0][1]) == b"0V\xa0T0R0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key0'\x80%0#1!0\x1f\x06\x03U\x04\x03\x13\x18Token Signing Public Key"
+assert negoex_exch.Payload[0][1].items[0].token == b"Token Signing Public Key"
+assert negoex_exch.Payload[0][1].items[0].oid == "2.5.4.3"
 
 = SMB Setup AndX Request (ES)
 
