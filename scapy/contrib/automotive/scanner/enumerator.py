@@ -282,7 +282,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     execute.__doc__ = _supported_kwargs_doc
 
     def sr1_with_retry_on_error(self, req, socket, state, timeout):
-        # type: (Packet, _SocketUnion, EcuState, int) -> Packet
+        # type: (Packet, _SocketUnion, EcuState, int) -> Optional[Packet]
         try:
             res = socket.sr1(req, timeout=timeout, verbose=False)
             if socket.closed:
