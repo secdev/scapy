@@ -259,20 +259,7 @@ class ServiceEnumerator(AutomotiveTestCase):
             "[i] Start execution of enumerator: %s", time.ctime(start_time))
 
         for req in it:
-            try:
-                res = socket.sr1(req, timeout=timeout, verbose=False)
-            except (OSError, ValueError, Scapy_Exception) as e:
-                if not self._populate_retry(state, req):
-                    log_interactive.critical(
-                        "[-] Exception during retry. This is bad")
-                raise e
-
-            if socket.closed:
-                if not self._populate_retry(state, req):
-                    log_interactive.critical(
-                        "[-] Socket closed during retry. This is bad")
-                log_interactive.critical("[-] Socket closed during scan.")
-                raise Scapy_Exception("Socket closed during scan")
+            res = self.sr1_with_retry_on_error(req, socket, state, timeout)
 
             self._store_result(state, req, res)
 
@@ -293,6 +280,20 @@ class ServiceEnumerator(AutomotiveTestCase):
                               repr(self._state_completed))
 
     execute.__doc__ = _supported_kwargs_doc
+
+    def sr1_with_retry_on_error(self, req, socket, state, timeout):
+        # type: (Packet, _SocketUnion, EcuState, int) -> Packet
+        try:
+            res = socket.sr1(req, timeout=timeout, verbose=False)
+            if socket.closed:
+                log_interactive.critical("[-] Socket closed during scan.")
+                raise Scapy_Exception("Socket closed during scan")
+        except (OSError, ValueError, Scapy_Exception) as e:
+            if not self._populate_retry(state, req):
+                log_interactive.critical(
+                    "[-] Exception during retry. This is bad")
+            raise e
+        return res
 
     def _evaluate_response(self,
                            state,  # type: EcuState

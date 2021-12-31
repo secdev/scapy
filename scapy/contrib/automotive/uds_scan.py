@@ -11,6 +11,7 @@ import random
 import time
 import itertools
 import copy
+import inspect
 
 from collections import defaultdict
 from typing import Sequence
@@ -596,7 +597,7 @@ class UDS_SAEnumerator(UDS_Enumerator):
 
 class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
     _description = "XOR SecurityAccess supported"
-    _transition_function_args = dict()  # type: Dict[_Edge, int]
+    _transition_function_args = dict()  # type: Dict[_Edge, Dict[str, Any]]
 
     @staticmethod
     def get_key_pkt(seed, level=1):
@@ -633,32 +634,48 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
         else:
             return None
 
-    @staticmethod
-    def get_security_access(sock, level=1, seed_pkt=None):
+    def get_security_access(self, sock, level=1, seed_pkt=None):
         # type: (_SocketUnion, int, Optional[Packet]) -> bool
         log_interactive.info(
             "Try bootloader security access for level %d" % level)
         if seed_pkt is None:
-            seed_pkt = UDS_SAEnumerator.get_seed_pkt(sock, level)
+            seed_pkt = self.get_seed_pkt(sock, level)
             if not seed_pkt:
                 return False
 
         if not any(seed_pkt.securitySeed):
             return False
 
-        key_pkt = UDS_SA_XOR_Enumerator.get_key_pkt(seed_pkt, level)
+        key_pkt = self.get_key_pkt(seed_pkt, level)
         if key_pkt is None:
             return False
 
-        res = sock.sr1(key_pkt, timeout=5, verbose=False)
-        return UDS_SA_XOR_Enumerator.evaluate_security_access_response(
+        last_seed_req = self._results[-1].req
+        last_state = self._results[-1].state
+
+        try:
+            res = sock.sr1(key_pkt, timeout=5, verbose=False)
+            if sock.closed:
+                log_interactive.critical("[-] Socket closed during scan.")
+                raise Scapy_Exception("Socket closed during scan")
+        except (OSError, ValueError, Scapy_Exception) as e:
+            if not self._populate_retry(last_state, last_seed_req):
+                log_interactive.critical(
+                    "[-] Exception during retry. This is bad")
+            raise e
+
+        return self.evaluate_security_access_response(
             res, seed_pkt, key_pkt)
 
-    @staticmethod
-    def transition_function(sock, _, kwargs):
+    def transition_function(self, sock, _, kwargs):
         # type: (_SocketUnion, AutomotiveTestCaseExecutorConfiguration, Dict[str, Any]) -> bool  # noqa: E501
-        return UDS_SA_XOR_Enumerator.get_security_access(
-            sock, kwargs["sec_level"])
+        if six.PY3:
+            spec = inspect.getfullargspec(self.get_security_access)
+        else:
+            spec = inspect.getargspec(self.get_security_access)
+
+        func_kwargs = {k: kwargs[k] for k in spec.args if k in kwargs.keys()}
+        return self.get_security_access(sock, **func_kwargs)
 
     def get_new_edge(self, socket, config):
         # type: (_SocketUnion, AutomotiveTestCaseExecutorConfiguration) -> Optional[_Edge]  # noqa: E501
@@ -684,7 +701,8 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
                 if last_state == new_state:
                     return None
                 edge = (last_state, new_state)
-                self._transition_function_args[edge] = sec_lvl
+                self._transition_function_args[edge] = \
+                    {"level": sec_lvl, "desc": "SA=%d" % sec_lvl}
                 return edge
         except AttributeError:
             pass
@@ -693,9 +711,9 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
 
     def get_transition_function(self, socket, edge):
         # type: (_SocketUnion, _Edge) -> Optional[_TransitionTuple]
-        return self.transition_function, {
-            "sec_level": self._transition_function_args[edge],
-            "desc": "SA=%d" % self._transition_function_args[edge]}, None
+        return self.transition_function, \
+            self._transition_function_args[edge], \
+            None
 
 
 class UDS_RCEnumerator(UDS_Enumerator):
