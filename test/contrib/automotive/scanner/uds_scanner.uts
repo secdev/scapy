@@ -160,7 +160,7 @@ if tc.results_without_response:
     tc.show()
 
 assert len(tc.results_with_negative_response) == 19
-assert len(tc.results_with_positive_response) == 6
+assert len(tc.results_with_positive_response) >= 6
 assert len(tc.scanned_states) == 5
 
 result = tc.show(dump=True)
