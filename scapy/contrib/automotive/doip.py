@@ -289,10 +289,12 @@ class DoIPSocket(StreamSocket):
                 resp.routing_activation_response == 0x10:
             self.target_address = target_address or \
                 resp.logical_address_doip_entity
-            print("Routing activation successful! "
-                  "Target address set to: 0x%x" % self.target_address)
+            log_interactive.info(
+                "Routing activation successful! Target address set to: 0x%x",
+                self.target_address)
         else:
-            print("Routing activation failed! Response: %s" % repr(resp))
+            log_interactive.error(
+                "Routing activation failed! Response: %s", repr(resp))
 
 
 class DoIPSocket6(DoIPSocket):
