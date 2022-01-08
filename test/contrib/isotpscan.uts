@@ -75,7 +75,7 @@ sockets = list()
 for idx in range(1, 4):
     sock_recv = TestSocket(CAN)
     sock_sender.pair(sock_recv)
-    sockets.append(ISOTPSoftSocket(sock_recv, sid=0x700 + idx, did=0x600 + idx))
+    sockets.append(ISOTPSoftSocket(sock_recv, tx_id=0x700 + idx, rx_id=0x600 + idx))
 
 found_packets = scan(sock_sender, range(0x5ff, 0x604),
                      noise_ids=[0x701], sniff_time=0.02, verbose=True)
@@ -93,7 +93,7 @@ sock_sender = TestSocket(CAN)
 sock_recv = TestSocket(CAN)
 sock_sender.pair(sock_recv)
 
-with ISOTPSoftSocket(sock_recv, sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb):
+with ISOTPSoftSocket(sock_recv, tx_id=0x700, rx_id=0x601, ext_address=0xaa, rx_ext_address=0xbb):
     found_packets = scan_extended(sock_sender, [0x600, 0x601],
                                   extended_scan_range=range(0xb0, 0xc0),
                                   sniff_time=0.02)
@@ -114,7 +114,7 @@ sock_sender.pair(sock_recv2)
 sock_noise = TestSocket(CAN)
 sock_sender.pair(sock_noise)
 
-with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602), ISOTPSoftSocket(sock_recv2, sid=0x703, did=0x603):
+with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock_recv2, tx_id=0x703, rx_id=0x603):
     pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
     make_noise(pkt, 0.01)
     result = isotp_scan(sock_sender, range(0x5ff, 0x604 + 1),
@@ -141,7 +141,7 @@ sock_sender.pair(sock_recv2)
 sock_noise = TestSocket(CAN)
 sock_sender.pair(sock_noise)
 
-with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602, padding=True), ISOTPSoftSocket(sock_recv2, sid=0x703, did=0x603, padding=True):
+with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602, padding=True), ISOTPSoftSocket(sock_recv2, tx_id=0x703, rx_id=0x603, padding=True):
     pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
     make_noise(pkt, 0.01)
     result = isotp_scan(sock_sender, range(0x5ff, 0x604 + 1),
@@ -168,7 +168,7 @@ sock_sender.pair(sock_recv2)
 sock_noise = TestSocket(CAN)
 sock_sender.pair(sock_noise)
 
-with ISOTPSoftSocket(sock_recv1, sid=0x1ffff702, did=0x1ffff602), ISOTPSoftSocket(sock_recv2, sid=0x1ffff703, did=0x1ffff603):
+with ISOTPSoftSocket(sock_recv1, tx_id=0x1ffff702, rx_id=0x1ffff602), ISOTPSoftSocket(sock_recv2, tx_id=0x1ffff703, rx_id=0x1ffff603):
     pkt = CAN(identifier=0x1ffff701, flags="extended", length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
     make_noise(pkt, 0.01)
     result = isotp_scan(sock_sender, range(0x1ffff5ff, 0x1ffff604 + 1),
@@ -196,7 +196,7 @@ sock_sender.pair(sock_recv2)
 sock_noise = TestSocket(CAN)
 sock_sender.pair(sock_noise)
 
-with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602), ISOTPSoftSocket(sock_recv2, sid=0x703, did=0x603):
+with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock_recv2, tx_id=0x703, rx_id=0x603):
     pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
     make_noise(pkt, 0.01)
     result = isotp_scan(sock_sender, range(0x5ff, 0x604 + 1),
@@ -206,9 +206,9 @@ with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602), ISOTPSoftSocket(sock_rec
                         can_interface="can0",
                         verbose=True)
 
-s1 = "ISOTPSocket(can0, sid=0x602, did=0x702, " \
+s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, " \
      "padding=False, basecls=ISOTP)\n"
-s2 = "ISOTPSocket(can0, sid=0x603, did=0x703, " \
+s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, " \
      "padding=False, basecls=ISOTP)\n"
 assert s1 in result
 assert s2 in result
@@ -223,7 +223,7 @@ sock_sender.pair(sock_recv2)
 sock_noise = TestSocket(CAN)
 sock_sender.pair(sock_noise)
 
-with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602), ISOTPSoftSocket(sock_recv2, sid=0x703, did=0x603):
+with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock_recv2, tx_id=0x703, rx_id=0x603):
     pkt = CAN(identifier=0x702, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
     make_noise(pkt, 0.01)
     result = isotp_scan(sock_sender, range(0x5ff, 0x604 + 1),
@@ -233,9 +233,9 @@ with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602), ISOTPSoftSocket(sock_rec
                         can_interface="can0",
                         verbose=True)
 
-s1 = "ISOTPSocket(can0, sid=0x602, did=0x702, " \
+s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, " \
      "padding=False, basecls=ISOTP)\n"
-s2 = "ISOTPSocket(can0, sid=0x603, did=0x703, " \
+s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, " \
      "padding=False, basecls=ISOTP)\n"
 assert s1 not in result
 assert s2 in result
@@ -250,7 +250,7 @@ sock_sender.pair(sock_recv2)
 sock_noise = TestSocket(CAN)
 sock_sender.pair(sock_noise)
 
-with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602, extended_addr=0x11, extended_rx_addr=0x22), ISOTPSoftSocket(sock_recv2, sid=0x703, did=0x603, extended_addr=0x11, extended_rx_addr=0x22):
+with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602, ext_address=0x11, rx_ext_address=0x22), ISOTPSoftSocket(sock_recv2, tx_id=0x703, rx_id=0x603, ext_address=0x11, rx_ext_address=0x22):
     pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
     make_noise(pkt, 0.01)
     result = isotp_scan(sock_sender, range(0x5ff, 0x604 + 1),
@@ -262,10 +262,10 @@ with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602, extended_addr=0x11, exten
                         can_interface="can0",
                         verbose=True)
 
-s1 = "ISOTPSocket(can0, sid=0x602, did=0x702, padding=False, " \
-         "extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
-s2 = "ISOTPSocket(can0, sid=0x603, did=0x703, padding=False, " \
-     "extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
+s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, padding=False, " \
+         "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
+s2 = "ISOTPSocket(can0, tx_id=0x603, rx_id=0x703, padding=False, " \
+     "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
 assert s1 in result
 assert s2 in result
 
@@ -279,7 +279,7 @@ sock_sender.pair(sock_recv2)
 sock_noise = TestSocket(CAN)
 sock_sender.pair(sock_noise)
 
-with ISOTPSoftSocket(sock_recv1, sid=0x1ffff702, did=0x1ffff602, extended_addr=0x11, extended_rx_addr=0x22), ISOTPSoftSocket(sock_recv2, sid=0x1ffff703, did=0x1ffff603, extended_addr=0x11, extended_rx_addr=0x22):
+with ISOTPSoftSocket(sock_recv1, tx_id=0x1ffff702, rx_id=0x1ffff602, ext_address=0x11, rx_ext_address=0x22), ISOTPSoftSocket(sock_recv2, tx_id=0x1ffff703, rx_id=0x1ffff603, ext_address=0x11, rx_ext_address=0x22):
     pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
     make_noise(pkt, 0.01)
     result = isotp_scan(sock_sender, range(0x1ffff5ff, 0x1ffff604 + 1),
@@ -291,10 +291,10 @@ with ISOTPSoftSocket(sock_recv1, sid=0x1ffff702, did=0x1ffff602, extended_addr=0
                         can_interface="can0",
                         verbose=True)
 
-s1 = "ISOTPSocket(can0, sid=0x1ffff602, did=0x1ffff702, padding=False, " \
-     "extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
-s2 = "ISOTPSocket(can0, sid=0x1ffff603, did=0x1ffff703, padding=False, " \
-     "extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
+s1 = "ISOTPSocket(can0, tx_id=0x1ffff602, rx_id=0x1ffff702, padding=False, " \
+     "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
+s2 = "ISOTPSocket(can0, tx_id=0x1ffff603, rx_id=0x1ffff703, padding=False, " \
+     "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
 print(result)
 assert s1 in result
 assert s2 in result
@@ -309,7 +309,7 @@ sock_sender.pair(sock_recv2)
 sock_noise = TestSocket(CAN)
 sock_sender.pair(sock_noise)
 
-with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602), ISOTPSoftSocket(sock_recv2, sid=0x703, did=0x603):
+with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock_recv2, tx_id=0x703, rx_id=0x603):
     pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
     make_noise(pkt, 0.01)
     result = isotp_scan(sock_sender, range(0x5ff, 0x604 + 1),
@@ -318,10 +318,10 @@ with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602), ISOTPSoftSocket(sock_rec
                         can_interface=new_can_socket0(),
                         verbose=True)
 
-assert 0x602 == result[0].src
-assert 0x702 == result[0].dst
-assert 0x603 == result[1].src
-assert 0x703 == result[1].dst
+assert 0x602 == result[0].tx_id
+assert 0x702 == result[0].rx_id
+assert 0x603 == result[1].tx_id
+assert 0x703 == result[1].rx_id
 
 for s in result:
     s.close()
@@ -337,7 +337,7 @@ sock_sender.pair(sock_recv2)
 sock_noise = TestSocket(CAN)
 sock_sender.pair(sock_noise)
 
-with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602, extended_addr=0x11, extended_rx_addr=0x22), ISOTPSoftSocket(sock_recv2, sid=0x703, did=0x603, extended_addr=0x11, extended_rx_addr=0x22):
+with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602, ext_address=0x11, rx_ext_address=0x22), ISOTPSoftSocket(sock_recv2, tx_id=0x703, rx_id=0x603, ext_address=0x11, rx_ext_address=0x22):
     pkt = CAN(identifier=0x701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
     make_noise(pkt, 0.01)
     result = isotp_scan(sock_sender, range(0x5ff, 0x604 + 1),
@@ -348,14 +348,14 @@ with ISOTPSoftSocket(sock_recv1, sid=0x702, did=0x602, extended_addr=0x11, exten
                         can_interface=new_can_socket0(),
                         verbose=True)
 
-assert 0x602 == result[0].src
-assert 0x702 == result[0].dst
-assert 0x22 == result[0].exsrc
-assert 0x11 == result[0].exdst
-assert 0x603 == result[1].src
-assert 0x703 == result[1].dst
-assert 0x22 == result[1].exsrc
-assert 0x11 == result[1].exdst
+assert 0x602 == result[0].tx_id
+assert 0x702 == result[0].rx_id
+assert 0x22 == result[0].ext_address
+assert 0x11 == result[0].rx_ext_address
+assert 0x603 == result[1].tx_id
+assert 0x703 == result[1].rx_id
+assert 0x22 == result[1].ext_address
+assert 0x11 == result[1].rx_ext_address
 
 for s in result:
     s.close()
