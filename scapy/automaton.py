@@ -95,7 +95,8 @@ def select_objects(inputs, remain):
     if natives:
         results = results.union(set(select.select(natives, [], [], remain)[0]))
     if events:
-        remainms = int((remain or 0) * 1000)
+        # 0xFFFFFFFF = INFINITE
+        remainms = int(remain * 1000 if remain else 0xFFFFFFFF)
         if len(events) == 1:
             res = ctypes.windll.kernel32.WaitForSingleObject(
                 ctypes.c_void_p(events[0].fileno()),
