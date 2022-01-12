@@ -185,6 +185,9 @@ _rt_channelflags2 = ['res1', 'res2', 'res3', 'res4', 'Turbo', 'CCK',
                      '40MHz_ext_channel_below',
                      'res5', 'res6', 'res7', 'res8', 'res9']
 
+_rt_tsflags = ['32-bit_counter', 'Accuracy', 'res1', 'res2', 'res3',
+               'res4', 'res5', 'res6']
+
 _rt_knownmcs = ['MCS_bandwidth', 'MCS_index', 'guard_interval', 'HT_format',
                 'FEC_type', 'STBC_streams', 'Ness', 'Ness_MSB']
 
@@ -465,32 +468,38 @@ class RadioTap(Packet):
             LEShortField("ts_accuracy", 0),
             lambda pkt: pkt.present and pkt.present.timestamp),
         ConditionalField(
-            ByteField("ts_position", 0),
+            BitEnumField("ts_unit", 0, 4, {
+                0: 'milliseconds',
+                1: 'microseconds',
+                2: 'nanoseconds'}),
             lambda pkt: pkt.present and pkt.present.timestamp),
         ConditionalField(
-            ByteField("ts_flags", 0),
+            BitField("ts_position", 0, 4),
+            lambda pkt: pkt.present and pkt.present.timestamp),
+        ConditionalField(
+            FlagsField("ts_flags", None, 8, _rt_tsflags),
             lambda pkt: pkt.present and pkt.present.timestamp),
         # HE - XXX not complete
         ConditionalField(
             ReversePadField(
-                ShortField("he_data1", 0),
+                LEShortField("he_data1", 0),
                 2
             ),
             lambda pkt: pkt.present and pkt.present.HE),
         ConditionalField(
-            ShortField("he_data2", 0),
+            LEShortField("he_data2", 0),
             lambda pkt: pkt.present and pkt.present.HE),
         ConditionalField(
-            ShortField("he_data3", 0),
+            LEShortField("he_data3", 0),
             lambda pkt: pkt.present and pkt.present.HE),
         ConditionalField(
-            ShortField("he_data4", 0),
+            LEShortField("he_data4", 0),
             lambda pkt: pkt.present and pkt.present.HE),
         ConditionalField(
-            ShortField("he_data5", 0),
+            LEShortField("he_data5", 0),
             lambda pkt: pkt.present and pkt.present.HE),
         ConditionalField(
-            ShortField("he_data6", 0),
+            LEShortField("he_data6", 0),
             lambda pkt: pkt.present and pkt.present.HE),
         # HE_MU
         ConditionalField(
@@ -503,12 +512,12 @@ class RadioTap(Packet):
             LEShortField("hemu_flags2", 0),
             lambda pkt: pkt.present and pkt.present.HE_MU),
         ConditionalField(
-            FieldListField("RU_channel1", [], ByteField,
-                           count_from=lambda x: 4),
+            FieldListField("RU_channel1", [], ByteField('', 0),
+                           length_from=lambda x: 4),
             lambda pkt: pkt.present and pkt.present.HE_MU),
         ConditionalField(
-            FieldListField("RU_channel2", [], ByteField,
-                           count_from=lambda x: 4),
+            FieldListField("RU_channel2", [], ByteField('', 0),
+                           length_from=lambda x: 4),
             lambda pkt: pkt.present and pkt.present.HE_MU),
         # HE_MU_other_user
         ConditionalField(
@@ -535,10 +544,10 @@ class RadioTap(Packet):
             ),
             lambda pkt: pkt.present and pkt.present.L_SIG),
         ConditionalField(
-            BitField("lsig_length", 0, 12),
+            BitField("lsig_length", 0, 12, tot_size=-2),
             lambda pkt: pkt.present and pkt.present.L_SIG),
         ConditionalField(
-            BitField("lsig_rate", 0, 4),
+            BitField("lsig_rate", 0, 4, end_tot_size=-2),
             lambda pkt: pkt.present and pkt.present.L_SIG),
         # TLV fields
         ConditionalField(
@@ -597,8 +606,10 @@ _dot11_subtypes = {
         14: "Action No Ack",
     },
     1: {  # Control
+        2: "Trigger",
+        3: "TACK",
         4: "Beamforming Report Poll",
-        5: "VHT NDP Announcement",
+        5: "VHT/HE NDP Announcement",
         6: "Control Frame Extension",
         7: "Control Wrapper",
         8: "Block Ack Request",
@@ -628,7 +639,8 @@ _dot11_subtypes = {
         15: "QoS CF-Ack+CF-Poll (no data)"
     },
     3: {  # Extension
-        0: "DMG Beacon"
+        0: "DMG Beacon",
+        1: "S1G Beacon"
     }
 }
 
