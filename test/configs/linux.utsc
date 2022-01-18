@@ -1,9 +1,9 @@
 {
   "testfiles": [
-    "test/tools/*.uts",
     "test/*.uts",
     "test/scapy/layers/*.uts",
     "test/contrib/*.uts",
+    "test/tools/*.uts",
     "test/contrib/automotive/*.uts",
     "test/contrib/automotive/obd/*.uts",
     "test/contrib/automotive/scanner/*.uts",
