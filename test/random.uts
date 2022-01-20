@@ -134,3 +134,97 @@ assert de.command() == "DelayedEval(expr='3 + 1')"
 v = IncrementalValue(restart=2)
 assert v == 0 and v == 1 and v == 2 and v == 0
 assert v.command() == "IncrementalValue(restart=2)"
+
+= CyclicPattern charset 0
+
+cs0 = b'AAAaAA0AABAAbAA1AACAAcAA2AADAAdAA3AAEAAeAA4AAFAAfAA5AAGAAgAA6AAHAAhAA7AAIAAiAA8AAJAAjAA9AAKAAkAALAAlAAMAAmAANAAnAAOAAoAAPAApAAQAAqAARAArAASAAsAATAAtAAUAAuAAVAAvAAWAAwAAXAAxAAYAAyAAZAAzAaaAa0AaBAabAa1AaCAacAa2AaDAadAa3AaEAaeAa4AaFAafAa5AaGAagAa6AaHAahAa7AaIAaiAa8AaJ'
+
+p = Raw(load=CyclicPattern())
+b = bytes(p)
+if len(b):
+    if len(b) > len(cs0):
+        assert cs0 in b
+    else:
+        assert b in cs0 or b == cs0
+
+p = Raw(load=CyclicPattern(5))
+b = bytes(p)
+assert len(b) == 5
+assert b == b'AAAaA'
+
+p = Raw(load=CyclicPattern(2, 3))
+b = bytes(p)
+print(b)
+assert len(b) == 2
+assert b == b'aA'
+
+= CyclicPattern charset 1
+
+cs1 = b'AAA%AAsAABAA$AAnAACAA-AA(AADAA;AA)AAEAAaAA0AAFAAbAA1AAGAAcAA2AAHAAdAA3AAIAAeAA4AAJAAfAA5AAKAAgAA6AALAAhAA7AAMAAiAA8AANAAjAA9AAOAAkAAPAAlAAQAAmAARAAoAASAApAATAAqAAUAArAAVAAtAAWAAuAAXAAvAAYAAwAAZAAxAAyAAzA%%A%sA%BA%$A%nA%CA%-A%(A%DA%;A%)A%EA%aA%0A%FA%bA%1A%GA%'
+
+p = Raw(load=CyclicPattern(None, 0, 1))
+b = bytes(p)
+if len(b):
+    if len(b) > len(cs1):
+        assert cs1 in b
+    else:
+        assert b in cs1 or b == cs1
+
+p = Raw(load=CyclicPattern(10, 0, 1))
+b = bytes(p)
+assert len(b) == 10
+assert b == b'AAA%AAsAAB'
+
+p = Raw(load=CyclicPattern(2, 8, 1))
+b = bytes(p)
+print(b)
+assert len(b) == 2
+assert b == b'AB'
+
+= CyclicPattern charset 2
+
+cs2 = b'AAAaAA0AA!AABAAbAA1AA"AACAAcAA2AA#AADAAdAA3AA$AAEAAeAA4AA%AAFAAfAA5AA&AAGAAgAA6AA\'AAHAAhAA7AA(AAIAAiAA8AA)AAJAAjAA9AA*AAKAAkAA+AALAAlAA,AAMAAmAA-AANAAnAA.AAOAAoAA/AAPAApAA:AAQAAqAA;AARAArAA<AASAAsAA=AATAAtAA>AAUAAuAA?AAVAAvAA@AAWAAwAA[AAXAAxAA\\AAYAAyAA]AAZAAzAA^AA_AA`AA{AA|AA}AA~AaaAa0Aa!AaBAabAa1Aa"Aa'
+
+p = Raw(load=CyclicPattern(None, 0, 2))
+b = bytes(p)
+if len(b):
+    if len(b) > len(cs2):
+        assert cs2 in b
+    else:
+        assert b in cs2 or b == cs2
+
+p = Raw(load=CyclicPattern(10, 0, 2))
+b = bytes(p)
+assert len(b) == 10
+assert b == b'AAAaAA0AA!'
+
+p = Raw(load=CyclicPattern(2, 8, 2))
+b = bytes(p)
+print(b)
+assert len(b) == 2
+assert b == b'A!'
+
+= CyclicPattern command
+
+p = Raw(load=CyclicPattern(2, 8, 2))
+cmd = p.command()
+
+assert "charset_type=2" in cmd
+assert "start=8" in cmd
+assert "size=2" in cmd
+
+p = Raw(load=CyclicPattern(2))
+cmd = p.command()
+
+assert "charset_type" not in cmd
+assert "start" not in cmd
+assert "size=2" in cmd
+
+p = Raw(load=CyclicPattern())
+cmd = p.command()
+
+assert "charset_type" not in cmd
+assert "start" not in cmd
+assert "size" not in cmd
+
+
