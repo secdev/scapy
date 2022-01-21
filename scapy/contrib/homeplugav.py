@@ -53,7 +53,6 @@ from scapy.fields import (
     XShortField,
 )
 from scapy.layers.l2 import Ether
-from scapy.modules.six.moves import range
 
 HPAVTypeList = {0xA000: "'Get Device/sw version Request'",
                 0xA001: "'Get Device/sw version Confirmation'",

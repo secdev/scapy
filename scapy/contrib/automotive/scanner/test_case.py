@@ -13,7 +13,7 @@ from collections import defaultdict
 from scapy.compat import Any, Union, List, Optional, \
     Dict, Tuple, Set, Callable, TYPE_CHECKING
 from scapy.utils import make_lined_table, SingleConversationSocket
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.supersocket import SuperSocket
 from scapy.contrib.automotive.scanner.graph import _Edge
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse

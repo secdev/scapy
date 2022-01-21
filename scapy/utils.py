@@ -29,8 +29,8 @@ import threading
 import time
 import warnings
 
-import scapy.modules.six as six
-from scapy.modules.six.moves import range, input, zip_longest
+import scapy.libs.six as six
+from scapy.libs.six.moves import range, input, zip_longest
 
 from scapy.config import conf
 from scapy.consts import DARWIN, OPENBSD, WINDOWS

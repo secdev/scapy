@@ -36,8 +36,8 @@ from scapy.pton_ntop import inet_ntop, inet_pton
 from scapy.utils import atol, itom, mac2str, str2mac
 from scapy.utils6 import construct_source_candidate_set, in6_getscope
 from scapy.data import ARPHDR_ETHER, load_manuf
-import scapy.modules.six as six
-from scapy.modules.six.moves import input, winreg
+import scapy.libs.six as six
+from scapy.libs.six.moves import input, winreg
 from scapy.compat import plain_str
 from scapy.supersocket import SuperSocket
 

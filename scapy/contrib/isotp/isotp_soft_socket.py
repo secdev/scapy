@@ -19,7 +19,7 @@ from scapy.compat import Optional, Union, List, Tuple, Any, Type, cast, \
     Callable, TYPE_CHECKING
 from scapy.packet import Packet
 from scapy.layers.can import CAN
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.error import Scapy_Exception, warning, log_runtime
 from scapy.supersocket import SuperSocket
 from scapy.config import conf

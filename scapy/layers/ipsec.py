@@ -56,8 +56,7 @@ from scapy.fields import ByteEnumField, ByteField, IntField, PacketField, \
     ShortField, StrField, XIntField, XStrField, XStrLenField
 from scapy.packet import Packet, bind_layers, Raw
 from scapy.layers.inet import IP, UDP
-import scapy.modules.six as six
-from scapy.modules.six.moves import range
+import scapy.libs.six as six
 from scapy.layers.inet6 import IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt, \
     IPv6ExtHdrRouting
 

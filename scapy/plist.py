@@ -27,8 +27,7 @@ from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
 from scapy.extlib import plt, Line2D, \
     MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
-import scapy.modules.six as six
-from scapy.modules.six.moves import range, zip
+import scapy.libs.six as six
 
 # typings
 from scapy.compat import (

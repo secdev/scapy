@@ -13,7 +13,7 @@ CANSocket.
 from scapy.error import log_loading
 from scapy.consts import LINUX
 from scapy.config import conf
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 PYTHON_CAN = False
 

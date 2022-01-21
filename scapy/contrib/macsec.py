@@ -26,7 +26,7 @@ from scapy.layers.inet6 import IPv6
 from scapy.compat import raw
 from scapy.data import ETH_P_MACSEC, ETHER_TYPES, ETH_P_IP, ETH_P_IPV6
 from scapy.error import log_loading
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend

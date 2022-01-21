@@ -19,7 +19,7 @@ from typing import Sequence
 from scapy.compat import Dict, Optional, List, Type, Any, Iterable, \
     cast, Union, NamedTuple, orb, Set
 from scapy.packet import Raw, Packet
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.error import Scapy_Exception, log_interactive
 from scapy.contrib.automotive.uds import UDS, UDS_NR, UDS_DSC, UDS_TP, \
     UDS_RDBI, UDS_WDBI, UDS_SA, UDS_RC, UDS_IOCBI, UDS_RMBA, UDS_ER, \

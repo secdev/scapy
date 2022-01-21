@@ -16,7 +16,7 @@ from collections import defaultdict
 from scapy.compat import Optional, List, Type, Any, Tuple, Iterable, Dict, \
     cast, Callable, orb
 from scapy.packet import Packet
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_interactive, warning

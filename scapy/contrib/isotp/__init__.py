@@ -7,7 +7,7 @@
 # scapy.contrib.status = loads
 
 from scapy.consts import LINUX
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.config import conf
 from scapy.error import log_loading
 

@@ -47,7 +47,7 @@ from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
 from scapy.error import Scapy_Exception, log_runtime, warning
 from scapy.extlib import PYX
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 # Typing imports
 from scapy.compat import (

@@ -39,7 +39,6 @@ from scapy.contrib.ethercat import LEBitEnumField, LEBitField
 from scapy.layers.bluetooth import EIR_Hdr, L2CAP_Hdr
 from scapy.layers.ppi import PPI_Element, PPI_Hdr
 
-from scapy.modules.six.moves import range
 from scapy.utils import mac2str, str2mac
 
 ####################

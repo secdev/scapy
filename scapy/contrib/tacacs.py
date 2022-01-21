@@ -29,7 +29,6 @@ from scapy.fields import FieldLenField, ConditionalField, StrLenField
 from scapy.layers.inet import TCP
 from scapy.compat import chb, orb
 from scapy.config import conf
-from scapy.modules.six.moves import range
 
 SECRET = 'test'
 

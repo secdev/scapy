@@ -28,7 +28,7 @@ from scapy.asn1.asn1 import (
     ASN1_Object,
     _ASN1_ERROR,
 )
-from scapy.modules import six
+from scapy.libs import six
 
 from scapy.compat import (
     Any,

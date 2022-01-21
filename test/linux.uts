@@ -294,7 +294,7 @@ test_read_routes()
 ~ linux needs_root
 
 from scapy.arch.linux import L3PacketSocket
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 if six.PY3:
     import mock, socket

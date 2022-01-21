@@ -22,7 +22,7 @@ import string
 from scapy.base_classes import Net
 from scapy.compat import bytes_encode, chb, plain_str
 from scapy.utils import corrupt_bits, corrupt_bytes
-from scapy.modules.six.moves import zip_longest
+from scapy.libs.six.moves import zip_longest
 
 from scapy.compat import (
     List,

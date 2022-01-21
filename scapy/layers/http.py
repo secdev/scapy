@@ -61,7 +61,7 @@ from scapy.utils import get_temp_file, ContextManagerSubprocess
 
 from scapy.layers.inet import TCP, TCP_client
 
-from scapy.modules import six
+from scapy.libs import six
 
 try:
     import brotli

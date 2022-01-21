@@ -12,7 +12,7 @@ from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, IntEnumField, FieldListField, LongField, \
     XIntField, XLongField, ConditionalField, PacketListField, StrLenField, \
     PacketField
-from scapy.modules.six import integer_types
+from scapy.libs.six import integer_types
 
 nfsstat3 = {
     0: 'NFS3_OK',

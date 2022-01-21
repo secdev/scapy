@@ -13,7 +13,7 @@ import socket
 
 from scapy.compat import Optional, Union, Tuple, Type, cast
 from scapy.packet import Packet
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.error import Scapy_Exception, warning
 from scapy.supersocket import SuperSocket
 from scapy.data import SO_TIMESTAMPNS

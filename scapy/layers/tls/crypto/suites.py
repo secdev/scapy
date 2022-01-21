@@ -15,7 +15,7 @@ from scapy.layers.tls.crypto.kx_algs import _tls_kx_algs
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import _tls_hmac_algs
 from scapy.layers.tls.crypto.ciphers import _tls_cipher_algs
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 
 def get_algs_from_ciphersuite_name(ciphersuite_name):

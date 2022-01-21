@@ -27,7 +27,6 @@ from scapy.fields import BitField, IPField, IntField, ShortField, StrField, \
     XBitField
 from scapy.layers.inet import UDP
 from scapy.layers.inet import TCP
-from scapy.modules.six.moves import range
 from scapy.config import conf
 from scapy.utils import inet_aton, inet_ntoa
 

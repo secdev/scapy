@@ -16,7 +16,6 @@ from scapy.fields import PacketListField, ShortEnumField, ShortField, \
     StrNullField
 from scapy.automaton import ATMT, Automaton
 from scapy.layers.inet import UDP, IP
-from scapy.modules.six.moves import range
 from scapy.config import conf
 from scapy.volatile import RandShort
 

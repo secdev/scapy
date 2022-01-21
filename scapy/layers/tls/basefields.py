@@ -10,7 +10,7 @@ upon the TLS version or ciphersuite, the packet has to provide a TLS context.
 import struct
 
 from scapy.fields import ByteField, ShortEnumField, ShortField, StrField
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.compat import orb
 
 _tls_type = {20: "change_cipher_spec",

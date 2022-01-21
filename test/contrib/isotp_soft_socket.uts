@@ -7,7 +7,7 @@
 = Imports
 import time
 from io import BytesIO
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.layers.can import *
 from scapy.contrib.isotp import *
 from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler

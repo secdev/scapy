@@ -40,7 +40,7 @@ from scapy.compat import raw
 from scapy.base_classes import BasePacket
 from scapy import packet
 from functools import reduce
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 from scapy.compat import (
     Any,

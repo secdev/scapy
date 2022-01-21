@@ -27,8 +27,8 @@ from scapy.compat import (
     Tuple,
 )
 
-from scapy.modules.six.moves import queue
-import scapy.modules.six as six
+from scapy.libs.six.moves import queue
+import scapy.libs.six as six
 
 
 #########################

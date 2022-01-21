@@ -17,7 +17,7 @@ from scapy.compat import Any, Union, List, Optional, Iterable, \
     Dict, Tuple, Set, Callable, cast, NamedTuple, orb
 from scapy.error import Scapy_Exception, log_interactive
 from scapy.utils import make_lined_table, EDecimal
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.packet import Packet
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCase, \
