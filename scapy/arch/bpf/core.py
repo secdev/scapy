@@ -28,7 +28,6 @@ from scapy.error import Scapy_Exception, warning
 from scapy.interfaces import InterfaceProvider, IFACES, NetworkInterface, \
     network_name
 from scapy.pton_ntop import inet_ntop
-from scapy.modules.six.moves import range
 
 if LINUX:
     raise OSError("BPF conflicts with Linux")

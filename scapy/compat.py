@@ -16,7 +16,7 @@ import socket
 import struct
 import sys
 
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 # Very important: will issue typing errors otherwise
 __all__ = [

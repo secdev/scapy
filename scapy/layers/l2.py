@@ -51,7 +51,7 @@ from scapy.fields import (
     XShortEnumField,
     XShortField,
 )
-from scapy.modules.six import viewitems
+from scapy.libs.six import viewitems
 from scapy.packet import bind_layers, Packet
 from scapy.plist import (
     PacketList,

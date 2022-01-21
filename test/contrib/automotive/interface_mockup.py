@@ -15,7 +15,7 @@ from platform import python_implementation
 from scapy.main import load_layer, load_contrib
 from scapy.config import conf
 from scapy.error import log_runtime, Scapy_Exception
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.consts import LINUX
 
 load_layer("can", globals_dict=globals())

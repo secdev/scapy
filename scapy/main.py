@@ -30,7 +30,7 @@ from scapy.error import (
     log_loading,
     Scapy_Exception,
 )
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS
 

@@ -13,7 +13,7 @@ import re
 
 from ast import literal_eval
 
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.config import conf
 from scapy.consts import LINUX
 

@@ -71,7 +71,7 @@ from scapy.layers.tls.crypto.suites import _tls_cipher_suites, \
     _tls_cipher_suites_cls
 from scapy.layers.tls.crypto.groups import _tls_named_groups
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
-from scapy.modules import six
+from scapy.libs import six
 from scapy.packet import Raw
 from scapy.compat import bytes_encode
 

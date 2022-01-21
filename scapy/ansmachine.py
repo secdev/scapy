@@ -21,7 +21,7 @@ from scapy.sendrecv import send, sniff, AsyncSniffer
 from scapy.packet import Packet
 from scapy.plist import PacketList
 
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 from scapy.compat import (
     Any,

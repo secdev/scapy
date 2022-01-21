@@ -28,8 +28,7 @@ import warnings
 import zlib
 
 from scapy.consts import WINDOWS
-import scapy.modules.six as six
-from scapy.modules.six.moves import range
+import scapy.libs.six as six
 from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
 from scapy.themes import DefaultTheme, BlackAndWhite
@@ -71,7 +70,7 @@ class Bunch:
 def retry_test(func):
     """Retries the passed function 3 times before failing"""
     success = False
-    for _ in six.moves.range(3):
+    for _ in range(3):
         try:
             result = func()
         except Exception:

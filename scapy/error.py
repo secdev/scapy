@@ -18,7 +18,7 @@ import time
 import warnings
 
 from scapy.consts import WINDOWS
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 # Typing imports
 from logging import LogRecord

@@ -395,7 +395,7 @@ assert chb(1) == b"\x01"
 
 = Pickle and unpickle a packet
 
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 a = IP(dst="192.168.0.1")/UDP()
 

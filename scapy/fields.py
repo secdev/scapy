@@ -38,8 +38,9 @@ from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
     in6_isaddrTeredo, in6_ptop, Net6, teredoAddrExtractInfo
 from scapy.base_classes import Gen, Net, BasePacket, Field_metaclass
 from scapy.error import warning
-import scapy.modules.six as six
-from scapy.modules.six import integer_types
+
+import scapy.libs.six as six
+from scapy.libs.six import integer_types
 
 # Typing imports
 from scapy.compat import (

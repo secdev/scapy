@@ -36,7 +36,7 @@ from scapy.fields import (
 
 from scapy.compat import hex_bytes, orb, raw
 from scapy.config import conf
-from scapy.modules import six
+from scapy.libs import six
 from scapy.packet import Packet, Raw, Padding
 from scapy.utils import randstring, repr_hex
 from scapy.layers.x509 import OCSP_Response

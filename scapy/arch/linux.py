@@ -49,8 +49,7 @@ from scapy.packet import Packet, Padding
 from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
 
-import scapy.modules.six as six
-from scapy.modules.six.moves import range
+import scapy.libs.six as six
 
 # Typing imports
 from scapy.compat import (

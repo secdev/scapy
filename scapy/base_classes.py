@@ -28,7 +28,7 @@ import scapy
 from scapy.error import Scapy_Exception
 from scapy.consts import WINDOWS
 
-from scapy.modules.six.moves import range
+from scapy.libs.six.moves import range
 
 from scapy.compat import (
     Any,

@@ -36,7 +36,7 @@ from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.common import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
-import scapy.modules.six as six
+import scapy.libs.six as six
 if conf.crypto_valid_advanced:
     from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 

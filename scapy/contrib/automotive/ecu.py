@@ -17,7 +17,7 @@ from collections import defaultdict
 from types import GeneratorType
 from threading import Lock
 
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.compat import Any, Union, Iterable, Callable, List, Optional, \
     Tuple, Type, cast, Dict, orb, ValuesView
 from scapy.packet import Raw, Packet

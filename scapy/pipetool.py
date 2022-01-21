@@ -7,7 +7,7 @@ from __future__ import print_function
 import os
 import subprocess
 import time
-import scapy.modules.six as six
+import scapy.libs.six as six
 from threading import Lock, Thread
 
 from scapy.automaton import (

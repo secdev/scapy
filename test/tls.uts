@@ -1332,7 +1332,7 @@ assert not TLSHelloRequest().tls_session_update(None)
 
 
 = Cryptography module is unavailable
-import scapy.modules.six as six
+import scapy.libs.six as six
 import mock
 
 @mock.patch("scapy.layers.tls.crypto.suites.get_algs_from_ciphersuite_name")

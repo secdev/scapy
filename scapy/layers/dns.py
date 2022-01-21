@@ -24,8 +24,7 @@ from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field, IP6Field
 from scapy.error import log_runtime, warning, Scapy_Exception
-import scapy.modules.six as six
-from scapy.modules.six.moves import range
+import scapy.libs.six as six
 
 
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4

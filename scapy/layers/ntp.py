@@ -25,8 +25,7 @@ from scapy.layers.inet import UDP
 from scapy.utils import lhex
 from scapy.compat import orb
 from scapy.config import conf
-import scapy.modules.six as six
-from scapy.modules.six.moves import range
+import scapy.libs.six as six
 
 
 #############################################################################

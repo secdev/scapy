@@ -4,7 +4,7 @@
 = Import the PNIO RPC layer
 from scapy.contrib.dce_rpc import *
 from scapy.contrib.pnio_rpc import *
-from scapy.modules.six import itervalues
+from scapy.libs.six import itervalues
 
 = Check that we have UUIDs
 

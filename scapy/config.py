@@ -25,7 +25,7 @@ from scapy import VERSION
 from scapy.base_classes import BasePacket
 from scapy.consts import DARWIN, WINDOWS, LINUX, BSD, SOLARIS
 from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
-from scapy.modules import six
+from scapy.libs import six
 from scapy.themes import NoTheme, apply_ipython_style
 
 from scapy.compat import (

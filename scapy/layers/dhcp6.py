@@ -35,7 +35,7 @@ from scapy.packet import Packet, bind_bottom_up
 from scapy.pton_ntop import inet_pton
 from scapy.themes import Color
 from scapy.utils6 import in6_addrtovendor, in6_islladdr
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 #############################################################################
 # Helpers                                                                  ##

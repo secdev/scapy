@@ -38,7 +38,7 @@ from scapy.fields import (
     XShortField,
     XStrLenField,
 )
-from scapy.modules import six
+from scapy.libs import six
 
 
 class PPPoE(Packet):

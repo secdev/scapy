@@ -10,7 +10,7 @@ Stream ciphers.
 from __future__ import absolute_import
 from scapy.config import conf
 from scapy.layers.tls.crypto.common import CipherError
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms

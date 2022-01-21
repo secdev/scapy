@@ -17,7 +17,7 @@ from scapy.packet import Packet
 from scapy.sessions import DefaultSession
 from scapy.contrib.isotp.isotp_packet import ISOTP, N_PCI_CF, N_PCI_SF, \
     N_PCI_FF, N_PCI_FC
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 
 class ISOTPMessageBuilderIter(object):

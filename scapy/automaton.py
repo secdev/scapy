@@ -33,7 +33,7 @@ from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.packet import Packet
 from scapy.consts import WINDOWS
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 from scapy.compat import (
     Any,

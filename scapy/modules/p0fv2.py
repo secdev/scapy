@@ -23,8 +23,7 @@ from scapy.packet import NoPayload, Packet
 from scapy.error import warning, Scapy_Exception, log_runtime
 from scapy.volatile import RandInt, RandByte, RandNum, RandShort, RandString
 from scapy.sendrecv import sniff
-from scapy.modules import six
-from scapy.modules.six.moves import map, range
+from scapy.libs import six
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route  # noqa: F401
