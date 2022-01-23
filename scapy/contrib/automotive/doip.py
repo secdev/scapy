@@ -143,7 +143,8 @@ class DoIP(Packet):
         ConditionalField(XShortField("source_address", 0),
                          lambda p: p.payload_type in [5, 8, 0x8001, 0x8002, 0x8003]),  # noqa: E501
         ConditionalField(XByteEnumField("activation_type", 0, {
-            0: "Default", 1: "WWH-OBD", 0xe0: "Central security"
+            0: "Default", 1: "WWH-OBD", 0xe0: "Central security",
+            0x16: "Default", 0x116: "Diagnostic", 0xe016: "Central security"
         }), lambda p: p.payload_type in [5]),
         ConditionalField(XShortField("logical_address_tester", 0),
                          lambda p: p.payload_type in [6]),
