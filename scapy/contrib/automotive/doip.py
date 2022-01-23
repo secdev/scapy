@@ -14,7 +14,7 @@ import time
 
 from scapy.fields import ByteEnumField, ConditionalField, \
     XByteField, XShortField, XIntField, XShortEnumField, XByteEnumField, \
-    IntField, StrFixedLenField
+    IntField, StrFixedLenField, XStrField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.supersocket import StreamSocket
 from scapy.layers.inet import TCP, UDP
@@ -167,7 +167,7 @@ class DoIP(Packet):
         }), lambda p: p.payload_type in [6]),
         ConditionalField(XIntField("reserved_iso", 0),
                          lambda p: p.payload_type in [5, 6]),
-        ConditionalField(XIntField("reserved_oem", 0),
+        ConditionalField(XStrField("reserved_oem", b""),
                          lambda p: p.payload_type in [5, 6]),
         ConditionalField(XByteEnumField("diagnostic_power_mode", 0, {
             0: "not ready", 1: "ready", 2: "not supported"
@@ -249,6 +249,8 @@ class DoIPSocket(StreamSocket):
                            determined if routing activation request is sent
     :param activation_type: This allows to set a different activation type for
                             the routing activation request
+    :param reserved_oem: Optional parameter to set value for reserved_oem field
+                         of routing activation request
 
     Example:
         >>> socket = DoIPSocket("169.254.0.131")
@@ -257,8 +259,8 @@ class DoIPSocket(StreamSocket):
     """  # noqa: E501
     def __init__(self, ip='127.0.0.1', port=13400, activate_routing=True,
                  source_address=0xe80, target_address=0,
-                 activation_type=0):
-        # type: (str, int, bool, int, int, int) -> None
+                 activation_type=0, reserved_oem=b""):
+        # type: (str, int, bool, int, int, int, bytes) -> None
         self.ip = ip
         self.port = port
         self.source_address = source_address
@@ -266,7 +268,7 @@ class DoIPSocket(StreamSocket):
 
         if activate_routing:
             self._activate_routing(
-                source_address, target_address, activation_type)
+                source_address, target_address, activation_type, reserved_oem)
 
     def _init_socket(self, sock_family=socket.AF_INET):
         # type: (int) -> None
@@ -279,11 +281,12 @@ class DoIPSocket(StreamSocket):
     def _activate_routing(self,
                           source_address,  # type: int
                           target_address,  # type: int
-                          activation_type  # type: int
+                          activation_type,  # type: int
+                          reserved_oem=b""  # type: bytes
                           ):  # type: (...) -> None
         resp = self.sr1(
             DoIP(payload_type=0x5, activation_type=activation_type,
-                 source_address=source_address),
+                 source_address=source_address, reserved_oem=reserved_oem),
             verbose=False, timeout=1)
         if resp and resp.payload_type == 0x6 and \
                 resp.routing_activation_response == 0x10:
@@ -311,6 +314,8 @@ class DoIPSocket6(DoIPSocket):
                            determined if routing activation request is sent
     :param activation_type: This allows to set a different activation type for
                             the routing activation request
+    :param reserved_oem: Optional parameter to set value for reserved_oem field
+                         of routing activation request
 
     Example:
         >>> socket = DoIPSocket6("2001:16b8:3f0e:2f00:21a:37ff:febf:edb9")
@@ -319,8 +324,8 @@ class DoIPSocket6(DoIPSocket):
     """  # noqa: E501
     def __init__(self, ip='::1', port=13400, activate_routing=True,
                  source_address=0xe80, target_address=0,
-                 activation_type=0):
-        # type: (str, int, bool, int, int, int) -> None
+                 activation_type=0, reserved_oem=b""):
+        # type: (str, int, bool, int, int, int, bytes) -> None
         self.ip = ip
         self.port = port
         self.source_address = source_address
@@ -328,7 +333,7 @@ class DoIPSocket6(DoIPSocket):
 
         if activate_routing:
             super(DoIPSocket6, self)._activate_routing(
-                source_address, target_address, activation_type)
+                source_address, target_address, activation_type, reserved_oem)
 
 
 class UDS_DoIPSocket(DoIPSocket):
