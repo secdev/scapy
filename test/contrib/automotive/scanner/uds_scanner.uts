@@ -39,7 +39,7 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
         return tester
     ecu.pair(tester)
     answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=UDS, verbose=False)
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 1000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 2000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:
         scanner = UDS_Scanner(

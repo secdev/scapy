@@ -275,6 +275,74 @@ assert s1 != s2
 assert s2 not in s1
 assert s1 not in s2
 
+s1 = EcuState(ses=range(4), security=[None, 5])
+s2 = EcuState(ses=1)
+
+assert s1 != s2
+assert s2 in s1
+assert s1 not in s2
+
+s1 = EcuState(ses=range(4), security=[None, 5])
+s2 = EcuState(ses=range(2))
+
+assert s1 != s2
+assert s2 in s1
+assert s1 not in s2
+
+s1 = EcuState(ses=range(4), security=[None, 5])
+s2 = EcuState(ses=range(2), security=5)
+
+assert s1 != s2
+assert s2 in s1
+assert s1 not in s2
+
+s1 = EcuState(ses=range(4), security=[None, 5])
+s2 = EcuState(ses=range(5))
+
+assert s1 != s2
+assert s2 not in s1
+assert s1 not in s2
+
+s1 = EcuState(ses=range(4), security=[None, range(5)])
+s2 = EcuState(ses=3)
+
+print(s1._expand())
+print(s2._expand())
+
+assert s1 != s2
+assert s2 in s1
+assert s1 not in s2
+
+s1 = EcuState(ses=range(4), security=[None, range(5), [5, 7, range(4), [range(10), 10]]])
+s2 = EcuState(ses=3, security=10)
+
+print(s1._expand())
+print(s2._expand())
+
+assert s1 != s2
+assert s2 in s1
+assert s1 not in s2
+
+s1 = EcuState(ses=range(4), security=[None, range(5), [5, 7, range(4), [range(10), "B"]]])
+s2 = EcuState(ses=3, security="B")
+
+print(s1._expand())
+print(s2._expand())
+
+assert s1 != s2
+assert s2 in s1
+assert s1 not in s2
+
+s1 = EcuState(ses=range(4), security=[None, range(5), [5, 7, range(4), [range(10), "B"]]])
+s2 = EcuState(ses=3, security="C")
+
+print(s1._expand())
+print(s2._expand())
+
+assert s1 != s2
+assert s2 not in s1
+assert s1 not in s2
+
 s1 = EcuState(ses=range(3), security=5)
 s2 = EcuState(ses=1, security=5)
 

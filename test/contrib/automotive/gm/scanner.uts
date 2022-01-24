@@ -35,14 +35,14 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
     def reset():
         answering_machine.reset_state()
         sniff(timeout=0.01, opened_socket=[ecu, tester])
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 1000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
+    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 2000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:
         scanner = GMLAN_Scanner(
             tester, reset_handler=reset,
             test_cases=enumerators, timeout=0.5, retry_if_none_received=True,
             unittest=True, **kwargs)
-        scanner.scan(timeout=200)
+        scanner.scan(timeout=1000)
     finally:
         tester.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)

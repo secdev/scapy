@@ -47,6 +47,7 @@ __all__ = [
     'Type',
     'TypeVar',
     'Union',
+    'ValuesView',
     'cast',
     'overload',
     'FAKE_TYPING',
@@ -153,6 +154,7 @@ if not FAKE_TYPING:
         Type,
         TypeVar,
         Union,
+        ValuesView,
         cast,
         overload,
     )
@@ -183,6 +185,7 @@ else:
     Type = _FakeType("Type", type)
     TypeVar = _FakeType("TypeVar")  # type: ignore
     Union = _FakeType("Union")
+    ValuesView = _FakeType("List", list)  # type: ignore
 
     class Sized(object):  # type: ignore
         pass
