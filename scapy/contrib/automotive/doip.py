@@ -158,7 +158,8 @@ class DoIP(Packet):
             0x04: "Routing activation denied due to missing authentication.",
             0x05: "Routing activation denied due to rejected confirmation.",
             0x06: "Routing activation denied due to unsupported routing activation type.",  # noqa: E501
-            0x07: "Reserved by ISO 13400.", 0x08: "Reserved by ISO 13400.",
+            0x07: "Routing activation denied because the specified activation type requires a secure TLS TCP_DATA socket.",  # noqa: E501
+            0x08: "Reserved by ISO 13400.",
             0x09: "Reserved by ISO 13400.", 0x0a: "Reserved by ISO 13400.",
             0x0b: "Reserved by ISO 13400.", 0x0c: "Reserved by ISO 13400.",
             0x0d: "Reserved by ISO 13400.", 0x0e: "Reserved by ISO 13400.",
@@ -176,7 +177,7 @@ class DoIP(Packet):
         ConditionalField(ByteEnumField("node_type", 0, {
             0: "DoIP gateway", 1: "DoIP node"
         }), lambda p: p.payload_type in [0x4002]),
-        ConditionalField(XByteField("max_open_sockets", 0),
+        ConditionalField(XByteField("max_open_sockets", 1),
                          lambda p: p.payload_type in [0x4002]),
         ConditionalField(XByteField("cur_open_sockets", 0),
                          lambda p: p.payload_type in [0x4002]),
