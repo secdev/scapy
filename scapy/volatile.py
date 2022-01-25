@@ -20,11 +20,10 @@ import uuid
 import struct
 import string
 
-import six
-
 from scapy.base_classes import Net
 from scapy.compat import bytes_encode, chb, plain_str
 from scapy.utils import corrupt_bits, corrupt_bytes
+import scapy.modules.six as six
 
 from scapy.compat import (
     List,
