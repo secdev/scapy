@@ -11,6 +11,7 @@ Fields that hold random numbers.
 
 from __future__ import absolute_import
 import copy
+import itertools
 import random
 import time
 import math
@@ -1454,10 +1455,9 @@ class CyclicPattern(VolatileValue[bytes]):
         if charset_type == 2:  # maximum type
             charset += [string.punctuation]
 
-        mixed_charset = ''
-        for k in range(max(len(cs) for cs in charset)):
-            for i in range(len(charset)):
-                mixed_charset += charset[i][k:k + 1]
+        mixed_charset = ""
+        for k in itertools.zip_longest(*charset, fillvalue=""):
+            mixed_charset += "".join(k)
         return mixed_charset
 
     @staticmethod
