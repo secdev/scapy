@@ -168,7 +168,7 @@ assert p.inverse_version == 0xfd
 assert p.payload_length == 7
 assert p.payload_type == 0x4002
 assert p.node_type == 0
-assert p.max_open_sockets == 0
+assert p.max_open_sockets == 1
 assert p.cur_open_sockets == 0
 assert p.max_data_size == 0
 
