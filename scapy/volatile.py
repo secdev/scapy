@@ -20,6 +20,8 @@ import uuid
 import struct
 import string
 
+import six
+
 from scapy.base_classes import Net
 from scapy.compat import bytes_encode, chb, plain_str
 from scapy.utils import corrupt_bits, corrupt_bytes
@@ -1456,8 +1458,12 @@ class CyclicPattern(VolatileValue[bytes]):
             charset += [string.punctuation]
 
         mixed_charset = ""
-        for k in itertools.zip_longest(*charset, fillvalue=""):
-            mixed_charset += "".join(k)
+        if six.PY2:
+            for k in itertools.izip_longest(*charset, fillvalue=""):
+                mixed_charset += "".join(k)
+        else:
+            for k in itertools.zip_longest(*charset, fillvalue=""):
+                mixed_charset += "".join(k)
         return mixed_charset
 
     @staticmethod
