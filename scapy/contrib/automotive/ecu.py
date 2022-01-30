@@ -93,7 +93,6 @@ class EcuState(object):
 
     def __getitem__(self, item):
         # type: (str) -> Any
-        self.__cache__ = None
         return self.__dict__[item]
 
     def __setitem__(self, key, value):
@@ -280,7 +279,7 @@ class Ecu(object):
     def __init__(self, logging=True, verbose=True,
                  store_supported_responses=True, lookahead=10):
         # type: (bool, bool, bool, int) -> None
-        self.state = EcuState()
+        self.state = EcuState(session=1)
         self.verbose = verbose
         self.logging = logging
         self.store_supported_responses = store_supported_responses
