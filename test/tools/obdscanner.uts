@@ -8,6 +8,8 @@
 with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
     exec(f.read())
 
+load_contrib("automotive.ecu", globals_dict=globals())
+
 + Usage tests
 
 = Test wrong usage

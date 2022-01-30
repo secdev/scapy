@@ -27,8 +27,6 @@ load_layer("can")
 
 = Define Testfunction
 
-conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.0
-
 def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwargs):
     ecu = TestSocket(GMLAN)
     tester = TestSocket(GMLAN)

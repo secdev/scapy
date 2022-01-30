@@ -202,10 +202,3 @@ if six.PY3 and ISOTP_KERNEL_MODULE_AVAILABLE:
 else:
     if ISOTPSocket is not ISOTPSoftSocket:  # type: ignore
         raise Scapy_Exception("Error in ISOTPSocket import!")
-
-# ############################################################################
-# """ Prepare send_delay on Ecu Answering Machine to stabilize unit tests """
-# ############################################################################
-from scapy.contrib.automotive.ecu import *  # noqa: F403
-log_runtime.debug("Set send delay to lower utilization on CI machines")
-conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004
