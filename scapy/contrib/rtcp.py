@@ -7,16 +7,29 @@
 # scapy.contrib.description = Real-Time Transport Control Protocol
 # scapy.contrib.status = loads
 
+"""
+RTCP (rfc 3550)
+
+Use bind_layers(UDP, RTCP, dport=...) to start using it
+"""
+
 import struct
 
-from scapy.packet import Packet, bind_layers, Padding, Raw
+from scapy.packet import Packet
 from scapy.fields import (
-    BitField, ByteEnumField, IntField, ConditionalField,
-    PacketListField, BitFieldLenField,
-    LongField, PacketField, ByteField,
-    X3BytesField, LenField, PacketLenField,
-    FieldListField, StrLenField, PadField,
-    FieldLenField
+    BitField,
+    BitFieldLenField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    FieldLenField,
+    IntField,
+    LenField,
+    LongField,
+    PacketField,
+    PacketListField,
+    StrLenField,
+    X3BytesField,
 )
 
 
@@ -96,11 +109,25 @@ class RTCP(Packet):
         ByteEnumField('packet_type', 0, _rtcp_packet_types),
         LenField('length', None, fmt='!h'),
         # SR/RR
-        ConditionalField(IntField('sourcesync', 0), lambda pkt: pkt.packet_type in (200, 201)),
-        ConditionalField(PacketField('sender_info', SenderInfo(), SenderInfo), lambda pkt: pkt.packet_type == 200),
-        ConditionalField(PacketListField('report_blocks', None, pkt_cls=ReceptionReport, count_from=lambda pkt: pkt.count), lambda pkt: pkt.packet_type in (200, 201)),
+        ConditionalField(
+            IntField('sourcesync', 0),
+            lambda pkt: pkt.packet_type in (200, 201)
+        ),
+        ConditionalField(
+            PacketField('sender_info', SenderInfo(), SenderInfo),
+            lambda pkt: pkt.packet_type == 200
+        ),
+        ConditionalField(
+            PacketListField('report_blocks', None, pkt_cls=ReceptionReport,
+                            count_from=lambda pkt: pkt.count),
+            lambda pkt: pkt.packet_type in (200, 201)
+        ),
         # SDES
-        ConditionalField(PacketListField('sdes_chunks', None, pkt_cls=SDESChunk, count_from=lambda pkt: pkt.count), lambda pkt: pkt.packet_type == 202),
+        ConditionalField(
+            PacketListField('sdes_chunks', None, pkt_cls=SDESChunk,
+                            count_from=lambda pkt: pkt.count),
+            lambda pkt: pkt.packet_type == 202
+        ),
     ]
 
     def post_build(self, pkt, pay):
