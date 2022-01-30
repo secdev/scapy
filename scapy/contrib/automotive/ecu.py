@@ -279,7 +279,7 @@ class Ecu(object):
     def __init__(self, logging=True, verbose=True,
                  store_supported_responses=True, lookahead=10):
         # type: (bool, bool, bool, int) -> None
-        self.state = EcuState(session=1)
+        self.state = EcuState()
         self.verbose = verbose
         self.logging = logging
         self.store_supported_responses = store_supported_responses
