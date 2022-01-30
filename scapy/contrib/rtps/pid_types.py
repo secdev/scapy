@@ -27,11 +27,14 @@ from typing import List, Optional
 
 from scapy.base_classes import Packet_metaclass
 from scapy.fields import (
+    IntField,
     PacketField,
     PacketListField,
     ShortField,
     StrLenField,
+    XIntField,
     XShortField,
+    XStrFixedLenField,
 )
 from scapy.packet import Packet
 
@@ -40,8 +43,11 @@ from scapy.contrib.rtps.common_types import (
     EField,
     EPacket,
     GUIDPacket,
+    LeaseDurationPacket,
     LocatorPacket,
+    ProductVersionPacket,
     ProtocolVersionPacket,
+    TransportInfoPacket,
     VendorIdPacket,
     e_flags,
     FORMAT_LE,
@@ -104,6 +110,12 @@ class ParameterIdField(XShortField):
         0x0071,
         0x0077,
         0x4014,
+        0x8000,
+        0x8001,
+        0x800f,
+        0x8010,
+        0x8016,
+        0x8017
     ]
 
     def randval(self):
@@ -440,6 +452,19 @@ class PID_CONTENT_FILTER_PROPERTY(PIDPacketBase):
 
 class PID_PARTICIPANT_GUID(PIDPacketBase):
     name = "PID_PARTICIPANT_GUID"
+    fields_desc = [
+        EField(
+            ParameterIdField("parameterId", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None,
+        ),
+        EField(
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
+        ),
+        PacketField("guid", "", GUIDPacket),
+    ]
 
 
 class PID_ENDPOINT_GUID(PIDPacketBase):
@@ -507,6 +532,126 @@ class PID_UNKNOWN(PIDPacketBase):
     name = "PID_UNKNOWN"
 
 
+class PID_PRODUCT_VERSION(PIDPacketBase):
+    name = "PID_PRODUCT_VERSION"
+    fields_desc = [
+        EField(
+            ParameterIdField("parameterId", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None,
+        ),
+        EField(
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
+        ),
+        PacketField("productVersion", "", ProductVersionPacket),
+    ]
+
+
+class PID_PLUGIN_PROMISCUITY_KIND(PIDPacketBase):
+    name = "PID_PLUGIN_PROMISCUITY_KIND"
+    fields_desc = [
+        EField(
+            ParameterIdField("parameterId", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None,
+        ),
+        EField(
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
+        ),
+        EField(
+            XIntField("promiscuityKind", 0x0),
+            endianness=FORMAT_LE,
+            endianness_from=None
+        )
+    ]
+
+
+class PID_RTI_DOMAIN_ID(PIDPacketBase):
+    name = "PID_RTI_DOMAIN_ID"
+    fields_desc = [
+        EField(
+            ParameterIdField("parameterId", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None,
+        ),
+        EField(
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
+        ),
+        EField(
+            IntField("domainId", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
+        )
+    ]
+
+
+class PID_TRANSPORT_INFO_LIST(PIDPacketBase):
+    name = "PID_TRANSPORT_INFO_LIST"
+    fields_desc = [
+        EField(
+            ParameterIdField("parameterId", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None,
+        ),
+        EField(
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
+        ),
+        XStrFixedLenField("padding", "", 4),
+        EField(
+            PacketListField(
+                "transportInfo", [],
+                TransportInfoPacket,
+                length_from=lambda p: p.parameterLength - 4)
+        )
+    ]
+
+
+class PID_REACHABILITY_LEASE_DURATION(PIDPacketBase):
+    name = "PID_REACHABILITY_LEASE_DURATION"
+    fields_desc = [
+        EField(
+            ParameterIdField("parameterId", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None,
+        ),
+        EField(
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
+        ),
+        PacketField("lease_duration", "", LeaseDurationPacket),
+    ]
+
+
+class PID_VENDOR_BUILTIN_ENDPOINT_SET(PIDPacketBase):
+    name = "PID_VENDOR_BUILTIN_ENDPOINT_SET"
+    fields_desc = [
+        EField(
+            ParameterIdField("parameterId", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None,
+        ),
+        EField(
+            ShortField("parameterLength", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
+        ),
+        EField(
+            XIntField("flags", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None
+        )
+    ]
+
+
 _RTPSParameterIdTypes = {
     0x0000: PID_PAD,
     # 0x0001: PID_SENTINEL,
@@ -564,6 +709,12 @@ _RTPSParameterIdTypes = {
     0x0071: PID_STATUS_INFO,
     0x0077: PID_BUILTIN_ENDPOINT_QOS,
     0x4014: PID_DOMAIN_TAG,
+    0x8000: PID_PRODUCT_VERSION,
+    0x8001: PID_PLUGIN_PROMISCUITY_KIND,
+    0x800f: PID_RTI_DOMAIN_ID,
+    0x8010: PID_TRANSPORT_INFO_LIST,
+    0x8016: PID_REACHABILITY_LEASE_DURATION,
+    0x8017: PID_VENDOR_BUILTIN_ENDPOINT_SET
 }
 
 
@@ -578,13 +729,12 @@ def get_pid_class(
 
     _id = struct.unpack(endianness + "h", remain[0:2])[0]
 
-    if _id == 0x0001:  # sentinel
+    if _id == 0x0001:
         return None
+
+    _id = _id & 0xffff
 
     next_cls = _RTPSParameterIdTypes.get(_id, PID_UNKNOWN)
-
-    if next_cls is None:
-        return None
 
     next_cls.endianness = endianness
 
