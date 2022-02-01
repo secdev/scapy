@@ -51,7 +51,7 @@ import subprocess, sys
 def process_file(file):
     proc = subprocess.Popen(
         [sys.executable, "-c",
-         "import %s" % file],
+         "print(%s)" % file],
          stderr=subprocess.PIPE,
          encoding="utf8")
     errs = ""
