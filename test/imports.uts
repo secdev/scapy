@@ -8,6 +8,10 @@
 import os
 import glob
 import subprocess
+import re
+import time
+import sys
+from scapy.consts import WINDOWS
 
 # DEV: to add your file to this list, make sure you have
 # a GREAT reason.
@@ -42,47 +46,48 @@ ALL_FILES = [
     x.split(".")[1] not in EXCEPTION_PACKAGES
 ]
 
-import importlib
-from multiprocessing import Pool
-
-process_file_code = """# This was automatically generated
-import subprocess, sys
-
-def process_file(file):
-    proc = subprocess.Popen(
-        [sys.executable, "-c",
-         "import %s" % file],
-         stderr=subprocess.PIPE,
-         encoding="utf8")
-    errs = ""
-    try:
-        _, errs = proc.communicate(timeout=30)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        errs = "Timed out (>30s)!"
-    if proc.returncode != 0:
-        return "Importing the file '%s' failed !\\n%s" % (file, errs)
-    return None
-"""
-
-tmp = get_temp_file(autoext=".py", keep=True)
-print(tmp)
-with open(tmp, "w") as fd:
-    fd.write(process_file_code)
-
-fld, file = os.path.split(tmp)
-sys.path.append(fld)
-pkg = importlib.import_module(os.path.splitext(file)[0])
-
 NB_PROC = 1 if WINDOWS else 4
 
+def append_processes(processes, filename):
+    processes.append(
+        (subprocess.Popen(
+            [sys.executable, "-c", "import %s" % filename],
+            stderr=subprocess.PIPE, encoding="utf8"),
+         time.time(),
+         filename))
+
+def check_processes(processes):
+    for i, tup in enumerate(processes):
+        proc, start_ts, file = tup
+        errs = ""
+        try:
+            _, errs = proc.communicate(timeout=0.5)
+        except subprocess.TimeoutExpired:
+            if time.time() - start_ts > 30:
+                proc.kill()
+                errs = "Timed out (>30s)!"
+        if proc.returncode is None:
+            continue
+        else:
+            print("Finished %s with %d after %f sec" %
+                  (file, proc.returncode, time.time() - start_ts))
+            if proc.returncode != 0:
+                for p in processes:
+                    p[0].kill()
+                raise Exception(
+                    "Importing the file '%s' failed !\\n%s" % (file, errs))
+            del processes[i]
+            return
+
+
 def import_all(FILES):
-    with Pool(processes=NB_PROC) as pool:
-        for err in pool.imap_unordered(pkg.process_file, FILES):
-            if err:
-                print(err)
-                pool.terminate()
-                raise ImportError
+    processes = list()
+    while len(processes) == NB_PROC:
+        check_processes(processes)
+    for filename in FILES:
+        check_processes(processes)
+        if len(processes) < NB_PROC:
+            append_processes(processes, filename)
 
 
 = Try importing all core separately
