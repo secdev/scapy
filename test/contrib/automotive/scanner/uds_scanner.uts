@@ -776,7 +776,7 @@ result = tc1.show(dump=True)
 assert "requestOutOfRange received " in result
 
 = UDS_RMBAEnumerator
-~ not_pypy disabled
+~ not_pypy
 
 memory = dict()
 
