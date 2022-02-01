@@ -17,8 +17,6 @@ load_contrib("automotive.uds", globals_dict=globals())
 load_contrib("automotive.ecu", globals_dict=globals())
 load_contrib("automotive.uds_ecu_states", globals_dict=globals())
 
-conf.contribs['EcuAnsweringMachine']['send_delay'] = 0
-
 ecu = TestSocket(UDS)
 tester = TestSocket(UDS)
 ecu.pair(tester)

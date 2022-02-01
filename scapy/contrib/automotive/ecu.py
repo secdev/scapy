@@ -22,7 +22,6 @@ from scapy.packet import Raw, Packet
 from scapy.plist import PacketList
 from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
-from scapy.config import conf
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception
 
@@ -558,9 +557,6 @@ class EcuResponse:
     __hash__ = None  # type: ignore
 
 
-conf.contribs['EcuAnsweringMachine'] = {'send_delay': 0}
-
-
 class EcuAnsweringMachine(AnsweringMachine[PacketList]):
     """AnsweringMachine which emulates the basic behaviour of a real world ECU.
     Provide a list of ``EcuResponse`` objects to configure the behaviour of a
@@ -675,7 +671,6 @@ class EcuAnsweringMachine(AnsweringMachine[PacketList]):
         :param reply: List of packets to be sent.
         """
         for p in reply:
-            time.sleep(conf.contribs['EcuAnsweringMachine']['send_delay'])
             if len(reply) > 1:
                 time.sleep(random.uniform(0.01, 0.5))
             if self._main_socket:
