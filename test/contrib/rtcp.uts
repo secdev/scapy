@@ -1,0 +1,78 @@
+# RTCP unit tests
+# run with:
+#   test/run_tests  -P "load_contrib('rtcp')" -t test/contrib/rtcp.uts -F
+
+% RTCP regression tests for Scapy
+
+############
+# RTCP
+############
+
++ RTCP Sender Report tests
+
+= test sender report parse
+
+raw = b'\x80\xc8\x00\x06\x9c\xe9\xc6\x48\xe5\x61\xe4\x4b\x63\x8a\x19\xc9\x98\x64\xea\x2e\x00\x00\x00\x49\x00\x00\x09\x69'
+parsed = RTCP(raw)
+assert parsed.version == 2
+assert parsed.padding == 0
+assert parsed.count == 0
+assert parsed.packet_type == 200
+assert parsed.length == 6
+assert parsed.sourcesync == 0x9ce9c648
+assert parsed.sender_info.ntp_timestamp == 0xe561e44b638a19c9
+assert parsed.sender_info.rtp_timestamp == 2556750382
+assert parsed.sender_info.sender_packet_count == 73
+assert parsed.sender_info.sender_octet_count == 2409
+
++ RTCP Receiver Report tests
+
+= test receiver report parse
+
+raw = b'\x81\xc9\x00\x07\xa2\xdf\x02\x72\x49\x6e\x93\xbd\x00\xff\xff\xff\x00\x00\x59\x47\x00\x00\x00\x00\xe4\x8f\xb9\x3a\x00\x03\x3f\x1b'
+parsed = RTCP(raw)
+assert parsed.version == 2
+assert parsed.padding == 0
+assert parsed.count == 1
+assert parsed.packet_type == 201
+assert parsed.length == 7
+assert parsed.sourcesync == 0xa2df0272
+assert parsed.report_blocks[0].sourcesync == 0x496e93bd
+assert parsed.report_blocks[0].fraction_lost == 0
+assert parsed.report_blocks[0].cumulative_lost == 0xffffff
+assert parsed.report_blocks[0].highest_seqnum_recv == 22855
+assert parsed.report_blocks[0].interarrival_jitter == 0
+assert parsed.report_blocks[0].last_SR_timestamp == 0xe48fb93a
+assert parsed.report_blocks[0].delay_since_last_SR == 212763
+
++ RTCP Source Description tests
+
+= test source description report parse
+
+raw = b"\x81\xca\x00\x0c\xa2\xdf\x02\x72\x01\x1c\x75\x73\x65\x72\x31\x35" \
+      b"\x30\x33\x34\x38\x38\x39\x30\x31\x40\x68\x6f\x73\x74\x2d\x65\x37" \
+      b"\x32\x64\x62\x34\x33\x64\x06\x09\x47\x53\x74\x72\x65\x61\x6d\x65" \
+      b"\x72\x00\x00\x00"
+parsed = RTCP(raw)
+assert parsed.version == 2
+assert parsed.padding == 0
+assert parsed.count == 1
+assert parsed.packet_type == 202
+assert parsed.length == 12
+assert parsed.sdes_chunks[0].sourcesync == 0xa2df0272
+assert parsed.sdes_chunks[0].items[0].chunk_type == 1
+assert parsed.sdes_chunks[0].items[0].length == 28
+assert parsed.sdes_chunks[0].items[0].value == b'user1503488901@host-e72db43d'
+assert parsed.sdes_chunks[0].items[1].chunk_type == 6
+assert parsed.sdes_chunks[0].items[1].length == 9
+assert parsed.sdes_chunks[0].items[1].value == b'GStreamer'
+
++ RTCP parsing tests
+
+= test parse SR and SDES stacked
+raw = b"\x81\xc9\x00\x07\xa2\xdf\x02\x72\x49\x6e\x93\xbd\x00\xff\xff\xff" \
+      b"\x00\x00\x59\x47\x00\x00\x00\x00\xe4\x8f\xb9\x3a\x00\x03\x3f\x1b" \
+      b"\x81\xca\x00\x0c\xa2\xdf\x02\x72\x01\x1c\x75\x73\x65\x72\x31\x35" \
+      b"\x30\x33\x34\x38\x38\x39\x30\x31\x40\x68\x6f\x73\x74\x2d\x65\x37" \
+      b"\x32\x64\x62\x34\x33\x64\x06\x09\x47\x53\x74\x72\x65\x61\x6d\x65" \
+      b"\x72\x00\x00\x00"
