@@ -89,7 +89,7 @@ echo UT_FLAGS=$UT_FLAGS
 echo TOXENV=$TOXENV
 
 # Launch Scapy unit tests
-TOX_PARALLEL_NO_SPINNER=1 tox --parallel -- ${UT_FLAGS} || exit 1
+TOX_PARALLEL_NO_SPINNER=1 tox -- ${UT_FLAGS} || exit 1
 
 # Stop if NO_BASH_TESTS is set
 if [ ! -z "$SIMPLE_TESTS" ]
