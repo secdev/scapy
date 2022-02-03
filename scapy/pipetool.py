@@ -32,6 +32,7 @@ from scapy.compat import (
     Type,
     TypeVar,
     _Generic_metaclass,
+    cast,
 )
 
 
@@ -132,7 +133,7 @@ class PipeEngine(ObjectPipe[str]):
                 p.start()
             sources = self.active_sources
             sources.add(self)
-            exhausted = set([])  # type: Set[Pipe]
+            exhausted = set([])  # type: Set[Union[Source, PipeEngine]]
             RUN = True
             STOP_IF_EXHAUSTED = False
             while RUN and (not STOP_IF_EXHAUSTED or len(sources) > 1):
@@ -236,13 +237,14 @@ class PipeEngine(ObjectPipe[str]):
 
 
 class _PipeMeta(_Generic_metaclass):
-    def __new__(cls,  # type: ignore
+    def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
                 dct  # type: Dict[str, Any]
                 ):
         # type: (...) -> Type[Pipe]
-        c = type.__new__(cls, name, bases, dct)
+        c = cast('Type[Pipe]',
+                 super(_PipeMeta, cls).__new__(cls, name, bases, dct))
         PipeEngine.pipes[name] = c
         return c
 

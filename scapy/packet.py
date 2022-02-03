@@ -1642,7 +1642,7 @@ class NoPayload(Packet):
         if singl is None:
             cls.__singl__ = singl = Packet.__new__(cls)
             Packet.__init__(singl)
-        return singl  # type: ignore
+        return singl
 
     def __init__(self, *args, **kargs):
         # type: (*Any, **Any) -> None

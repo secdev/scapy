@@ -28,40 +28,42 @@ from scapy.compat import (
     Callable,
     Dict,
     Generic,
-    _Generic_metaclass,
     Optional,
     Tuple,
     Type,
     TypeVar,
+    _Generic_metaclass,
+    cast,
 )
 
 _T = TypeVar("_T", Packet, PacketList)
 
 
 class ReferenceAM(_Generic_metaclass):
-    def __new__(cls,  # type: ignore
+    def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
                 dct  # type: Dict[str, Any]
                 ):
         # type: (...) -> Type['AnsweringMachine[_T]']
-        obj = super(ReferenceAM, cls).__new__(cls, name, bases, dct)
+        obj = cast('Type[AnsweringMachine[_T]]',
+                   super(ReferenceAM, cls).__new__(cls, name, bases, dct))
         try:
             import inspect
             obj.__signature__ = inspect.signature(  # type: ignore
-                obj.parse_options  # type: ignore
+                obj.parse_options
             )
         except (ImportError, AttributeError):
             pass
-        if obj.function_name:  # type: ignore
+        if obj.function_name:
             func = lambda obj=obj, *args, **kargs: obj(*args, **kargs)()  # type: ignore  # noqa: E501
             # Inject signature
-            func.__qualname__ = obj.function_name  # type: ignore
+            func.__name__ = func.__qualname__ = obj.function_name
             try:
                 func.__signature__ = obj.__signature__  # type: ignore
             except (AttributeError):
                 pass
-            globals()[obj.function_name] = func  # type: ignore
+            globals()[obj.function_name] = func
         return obj
 
 
@@ -130,11 +132,11 @@ class AnsweringMachine(Generic[_T]):
             elif mode == 2 and kargs:
                 k = self.optam0.copy()
                 k.update(kargs)
-                self.parse_options(**k)  # type: ignore
+                self.parse_options(**k)
                 kargs = k
             omode = self.__dict__.get("mode", 0)
             self.__dict__["mode"] = mode
-            self.parse_options(**kargs)  # type: ignore
+            self.parse_options(**kargs)
             self.__dict__["mode"] = omode
         return sendopt, sniffopt
 

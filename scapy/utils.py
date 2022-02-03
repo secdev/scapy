@@ -626,7 +626,7 @@ except socket.error:
         else:
             return socket.inet_aton(ip_string)
 else:
-    inet_aton = socket.inet_aton
+    inet_aton = socket.inet_aton  # type: ignore
 
 inet_ntoa = socket.inet_ntoa
 
@@ -1395,7 +1395,7 @@ class RawPcapNgReader(RawPcapReader):
 
     alternative = RawPcapReader  # type: Type[Any]
 
-    PacketMetadata = collections.namedtuple("PacketMetadataNg",
+    PacketMetadata = collections.namedtuple("PacketMetadataNg",  # type: ignore
                                             ["linktype", "tsresol",
                                              "tshigh", "tslow", "wirelen"])
 
