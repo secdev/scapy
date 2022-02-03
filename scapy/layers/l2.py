@@ -848,8 +848,8 @@ class ARP_am(AnsweringMachine[Packet]):
                                          pdst=arp.psrc)
         return resp
 
-    def send_reply(self, reply):
-        # type: (Packet) -> None
+    def send_reply(self, reply, send_function=None):
+        # type: (Packet, Any) -> None
         if 'iface' in self.optsend:
             self.send_function(reply, **self.optsend)
         else:

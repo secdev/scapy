@@ -998,7 +998,7 @@ class Automaton:
                 self.cmdout.send(c)
             except Exception as e:
                 exc_info = sys.exc_info()
-                self.debug(3, "Transferring exception from tid=%i:\n%s" % (self.threadid, traceback.format_exception(*exc_info)))  # noqa: E501
+                self.debug(3, "Transferring exception from tid=%i:\n%s" % (self.threadid, "".join(traceback.format_exception(*exc_info))))  # noqa: E501
                 m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)  # noqa: E501
                 self.cmdout.send(m)
             self.debug(3, "Stopping control thread (tid=%i)" % self.threadid)
@@ -1181,15 +1181,17 @@ class Automaton:
                 for fd in r:
                     fd.recv()
 
-    def stop(self):
-        # type: () -> None
+    def stop(self, wait=True):
+        # type: (bool) -> None
         self.cmdin.send(Message(type=_ATMT_Command.STOP))
-        self._flush_inout()
+        if wait:
+            self._flush_inout()
 
-    def forcestop(self):
-        # type: () -> None
+    def forcestop(self, wait=True):
+        # type: (bool) -> None
         self.cmdin.send(Message(type=_ATMT_Command.FORCESTOP))
-        self._flush_inout()
+        if wait:
+            self._flush_inout()
 
     def restart(self, *args, **kargs):
         # type: (Any, Any) -> None

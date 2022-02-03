@@ -151,6 +151,9 @@ class _GMTUnixTimeField(UTCTimeField):
             return x
         return 0
 
+    def i2m(self, pkt, x):
+        return int(x) if x is not None else 0
+
 
 class _TLSRandomBytesField(StrFixedLenField):
     def i2repr(self, pkt, x):

@@ -661,8 +661,8 @@ class EcuAnsweringMachine(AnsweringMachine[PacketList]):
         return PacketList([self._basecls(
             b"\x7f" + bytes(req)[0:1] + b"\x10")])
 
-    def send_reply(self, reply):
-        # type: (PacketList) -> None
+    def send_reply(self, reply, send_function=None):
+        # type: (PacketList, Optional[Any]) -> None
         """
         Sends all Packets of a EcuResponse object. This allows to send multiple
         packets up on a request. If the list contains more than one packet,

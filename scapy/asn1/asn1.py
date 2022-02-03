@@ -359,6 +359,10 @@ class ASN1_Object(Generic[_K]):
         # type: (Any) -> bool
         return bool(self.val != other)
 
+    def command(self):
+        # type: () -> str
+        return "%s(%s)" % (self.__class__.__name__, repr(self.val))
+
 
 #######################
 #     ASN1 objects    #
