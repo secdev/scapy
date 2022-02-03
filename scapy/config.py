@@ -730,7 +730,7 @@ class Conf(ConfClass):
     promisc = True
     sniff_promisc = 1  #: default mode for sniff()
     raw_layer = None  # type: Type[Packet]
-    raw_summary = False
+    raw_summary = False  # type: Union[bool, Callable[[bytes], Any]]
     padding_layer = None  # type: Type[Packet]
     default_l2 = None  # type: Type[Packet]
     l2types = Num2Layer()

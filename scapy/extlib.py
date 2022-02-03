@@ -15,6 +15,15 @@ from scapy.error import log_loading
 # in interactive mode, because it needs to be called after the
 # logger has been setup, to be able to print the warning messages
 
+__all__ = [
+    "Line2D",
+    "MATPLOTLIB",
+    "MATPLOTLIB_DEFAULT_PLOT_KARGS",
+    "MATPLOTLIB_INLINED",
+    "PYX",
+    "plt",
+]
+
 # MATPLOTLIB
 
 try:

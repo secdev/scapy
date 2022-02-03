@@ -2940,7 +2940,7 @@ used in *2i() and i2*() methods.
         return "None" if x is None else str(self._fixup_val(x))
 
 
-MultiFlagsEntry = collections.namedtuple('MultiFlagEntry', ['short', 'long'])
+MultiFlagsEntry = collections.namedtuple('MultiFlagsEntry', ['short', 'long'])
 
 
 class MultiFlagsField(_BitField[Set[str]]):
@@ -3554,7 +3554,7 @@ class UUIDField(Field[UUID, bytes]):
             else:
                 u = UUID(plain_str(x))
         elif isinstance(x, (UUID, RandUUID)):
-            u = x
+            u = cast(UUID, x)
         else:
             return None
         return u

@@ -533,9 +533,11 @@ class _ATMT_to_supersocket:
 
 
 class Automaton_metaclass(type):
-    def __new__(cls, name, bases, dct):  # type: ignore
+    def __new__(cls, name, bases, dct):
         # type: (str, Tuple[Any], Dict[str, Any]) -> Type[Automaton]
-        cls = super(Automaton_metaclass, cls).__new__(cls, name, bases, dct)
+        cls = super(Automaton_metaclass, cls).__new__(  # type: ignore
+            cls, name, bases, dct
+        )
         cls.states = {}
         cls.recv_conditions = {}    # type: Dict[str, List[_StateWrapper]]
         cls.conditions = {}         # type: Dict[str, List[_StateWrapper]]

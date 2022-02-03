@@ -168,7 +168,7 @@ def autorun_get_interactive_session(cmds, **kargs):
     try:
         try:
             sys.stdout = sys.stderr = sw
-            sys.excepthook = sys.__excepthook__
+            sys.excepthook = sys.__excepthook__  # type: ignore
             res = autorun_commands_timeout(cmds, **kargs)
         except StopAutorun as e:
             e.code_run = sw.s

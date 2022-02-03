@@ -207,7 +207,7 @@ class ASN1_Class_metaclass(Enum_metaclass):
     element_class = ASN1Tag
 
     # XXX factorise a bit with Enum_metaclass.__new__()
-    def __new__(cls,  # type: ignore
+    def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
                 dct  # type: Dict[str, Any]
@@ -228,7 +228,8 @@ class ASN1_Class_metaclass(Enum_metaclass):
                 rdict[v] = v
         dct["__rdict__"] = rdict
 
-        ncls = type.__new__(cls, name, bases, dct)  # type: Type[ASN1_Class]
+        ncls = cast('Type[ASN1_Class]',
+                    type.__new__(cls, name, bases, dct))
         for v in six.itervalues(ncls.__dict__):
             if isinstance(v, ASN1Tag):
                 # overwrite ASN1Tag contexts, even cloned ones
@@ -284,15 +285,16 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
 
 
 class ASN1_Object_metaclass(_Generic_metaclass):
-    def __new__(cls,  # type: ignore
+    def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
                 dct  # type: Dict[str, Any]
                 ):
         # type: (...) -> Type[ASN1_Object[Any]]
-        c = super(ASN1_Object_metaclass, cls).__new__(
-            cls, name, bases, dct
-        )  # type: Type[ASN1_Object[Any]]
+        c = cast(
+            'Type[ASN1_Object[Any]]',
+            super(ASN1_Object_metaclass, cls).__new__(cls, name, bases, dct)
+        )
         try:
             c.tag.register_asn1_object(c)
         except Exception:

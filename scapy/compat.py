@@ -173,7 +173,7 @@ else:
     Iterator = _FakeType("Iterator")  # type: ignore
     List = _FakeType("List", list)  # type: ignore
     NewType = _FakeType("NewType")
-    NoReturn = _FakeType("NoReturn")  # type: ignore
+    NoReturn = _FakeType("NoReturn")
     Optional = _FakeType("Optional")
     Pattern = _FakeType("Pattern")  # type: ignore
     Sequence = _FakeType("Sequence", list)  # type: ignore
