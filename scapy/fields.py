@@ -3554,7 +3554,7 @@ class UUIDField(Field[UUID, bytes]):
             else:
                 u = UUID(plain_str(x))
         elif isinstance(x, (UUID, RandUUID)):
-            u = x
+            u = x  # type: ignore
         else:
             return None
         return u
