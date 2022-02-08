@@ -1,7 +1,7 @@
 # Install Npcap on the machine.
 
 # Config:
-$npcap_oem_file = "npcap-1.55-oem.exe"
+$npcap_oem_file = "npcap-1.60-oem.exe"
 
 # Note: because we need the /S option (silent), this script has two cases:
 #  - The script is runned from a master build, then use the secure variable 'npcap_oem_key' which will be available
@@ -28,6 +28,7 @@ if (Test-Path Env:npcap_oem_key){  # Key is here: on master
         Invoke-WebRequest -uri (-join("https://nmap.org/npcap/oem/dist/",$npcap_oem_file)) -OutFile $file -Headers $headers -Credential $credential
     } catch [System.Net.WebException],[System.IO.IOException] {
         Write-Error "Error while dowloading npcap !"
+        Write-Warning $Error[0]
         exit 1
     }
 } else {  # No key: PRs
