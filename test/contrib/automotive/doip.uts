@@ -82,12 +82,40 @@ p = DoIP(bytes(DoIP(payload_type=5)))
 
 assert p.protocol_version == 0x02
 assert p.inverse_version == 0xfd
+assert p.payload_length == 7
+assert p.payload_type == 5
+assert p.source_address == 0
+assert p.activation_type == 0
+assert p.reserved_iso == 0
+assert p.reserved_oem == b""
+
+= Build test 5.1
+
+p = DoIP(bytes(DoIP(payload_type=5, reserved_oem=b"1234")))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
 assert p.payload_length == 11
 assert p.payload_type == 5
 assert p.source_address == 0
 assert p.activation_type == 0
 assert p.reserved_iso == 0
-assert p.reserved_oem == 0
+p.show()
+print(p.reserved_oem)
+assert p.reserved_oem == b"1234"
+
+= Build test 5.2
+
+p = DoIP(bytes(DoIP(payload_type=5, reserved_oem=b"12")))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 9
+assert p.payload_type == 5
+assert p.source_address == 0
+assert p.activation_type == 0
+assert p.reserved_iso == 0
+assert p.reserved_oem == b"12"
 
 = Build test 6
 
@@ -95,12 +123,12 @@ p = DoIP(bytes(DoIP(payload_type=6)))
 
 assert p.protocol_version == 0x02
 assert p.inverse_version == 0xfd
-assert p.payload_length == 13
+assert p.payload_length == 9
 assert p.payload_type == 6
 assert p.logical_address_tester == 0
 assert p.logical_address_doip_entity == 0
 assert p.reserved_iso == 0
-assert p.reserved_oem == 0
+assert p.reserved_oem == b""
 
 = Build test 7
 
@@ -140,7 +168,7 @@ assert p.inverse_version == 0xfd
 assert p.payload_length == 7
 assert p.payload_type == 0x4002
 assert p.node_type == 0
-assert p.max_open_sockets == 0
+assert p.max_open_sockets == 1
 assert p.cur_open_sockets == 0
 assert p.max_data_size == 0
 
@@ -220,7 +248,7 @@ assert p.payload_type == 0x5
 assert p.source_address == 0xe80
 assert p.activation_type == 0
 assert p.reserved_iso == 0
-assert p.reserved_oem == 0
+assert p.reserved_oem == b"\x00\x00\x00\x00"
 
 = dissect test of routing activation pkts resp
 

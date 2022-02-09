@@ -14,7 +14,7 @@ import time
 
 from scapy.fields import ByteEnumField, ConditionalField, \
     XByteField, XShortField, XIntField, XShortEnumField, XByteEnumField, \
-    IntField, StrFixedLenField
+    IntField, StrFixedLenField, XStrField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.supersocket import StreamSocket
 from scapy.layers.inet import TCP, UDP
@@ -143,7 +143,8 @@ class DoIP(Packet):
         ConditionalField(XShortField("source_address", 0),
                          lambda p: p.payload_type in [5, 8, 0x8001, 0x8002, 0x8003]),  # noqa: E501
         ConditionalField(XByteEnumField("activation_type", 0, {
-            0: "Default", 1: "WWH-OBD", 0xe0: "Central security"
+            0: "Default", 1: "WWH-OBD", 0xe0: "Central security",
+            0x16: "Default", 0x116: "Diagnostic", 0xe016: "Central security"
         }), lambda p: p.payload_type in [5]),
         ConditionalField(XShortField("logical_address_tester", 0),
                          lambda p: p.payload_type in [6]),
@@ -157,7 +158,8 @@ class DoIP(Packet):
             0x04: "Routing activation denied due to missing authentication.",
             0x05: "Routing activation denied due to rejected confirmation.",
             0x06: "Routing activation denied due to unsupported routing activation type.",  # noqa: E501
-            0x07: "Reserved by ISO 13400.", 0x08: "Reserved by ISO 13400.",
+            0x07: "Routing activation denied because the specified activation type requires a secure TLS TCP_DATA socket.",  # noqa: E501
+            0x08: "Reserved by ISO 13400.",
             0x09: "Reserved by ISO 13400.", 0x0a: "Reserved by ISO 13400.",
             0x0b: "Reserved by ISO 13400.", 0x0c: "Reserved by ISO 13400.",
             0x0d: "Reserved by ISO 13400.", 0x0e: "Reserved by ISO 13400.",
@@ -167,7 +169,7 @@ class DoIP(Packet):
         }), lambda p: p.payload_type in [6]),
         ConditionalField(XIntField("reserved_iso", 0),
                          lambda p: p.payload_type in [5, 6]),
-        ConditionalField(XIntField("reserved_oem", 0),
+        ConditionalField(XStrField("reserved_oem", b""),
                          lambda p: p.payload_type in [5, 6]),
         ConditionalField(XByteEnumField("diagnostic_power_mode", 0, {
             0: "not ready", 1: "ready", 2: "not supported"
@@ -175,7 +177,7 @@ class DoIP(Packet):
         ConditionalField(ByteEnumField("node_type", 0, {
             0: "DoIP gateway", 1: "DoIP node"
         }), lambda p: p.payload_type in [0x4002]),
-        ConditionalField(XByteField("max_open_sockets", 0),
+        ConditionalField(XByteField("max_open_sockets", 1),
                          lambda p: p.payload_type in [0x4002]),
         ConditionalField(XByteField("cur_open_sockets", 0),
                          lambda p: p.payload_type in [0x4002]),
@@ -249,6 +251,8 @@ class DoIPSocket(StreamSocket):
                            determined if routing activation request is sent
     :param activation_type: This allows to set a different activation type for
                             the routing activation request
+    :param reserved_oem: Optional parameter to set value for reserved_oem field
+                         of routing activation request
 
     Example:
         >>> socket = DoIPSocket("169.254.0.131")
@@ -257,8 +261,8 @@ class DoIPSocket(StreamSocket):
     """  # noqa: E501
     def __init__(self, ip='127.0.0.1', port=13400, activate_routing=True,
                  source_address=0xe80, target_address=0,
-                 activation_type=0):
-        # type: (str, int, bool, int, int, int) -> None
+                 activation_type=0, reserved_oem=b""):
+        # type: (str, int, bool, int, int, int, bytes) -> None
         self.ip = ip
         self.port = port
         self.source_address = source_address
@@ -266,7 +270,7 @@ class DoIPSocket(StreamSocket):
 
         if activate_routing:
             self._activate_routing(
-                source_address, target_address, activation_type)
+                source_address, target_address, activation_type, reserved_oem)
 
     def _init_socket(self, sock_family=socket.AF_INET):
         # type: (int) -> None
@@ -279,11 +283,12 @@ class DoIPSocket(StreamSocket):
     def _activate_routing(self,
                           source_address,  # type: int
                           target_address,  # type: int
-                          activation_type  # type: int
+                          activation_type,  # type: int
+                          reserved_oem=b""  # type: bytes
                           ):  # type: (...) -> None
         resp = self.sr1(
             DoIP(payload_type=0x5, activation_type=activation_type,
-                 source_address=source_address),
+                 source_address=source_address, reserved_oem=reserved_oem),
             verbose=False, timeout=1)
         if resp and resp.payload_type == 0x6 and \
                 resp.routing_activation_response == 0x10:
@@ -311,6 +316,8 @@ class DoIPSocket6(DoIPSocket):
                            determined if routing activation request is sent
     :param activation_type: This allows to set a different activation type for
                             the routing activation request
+    :param reserved_oem: Optional parameter to set value for reserved_oem field
+                         of routing activation request
 
     Example:
         >>> socket = DoIPSocket6("2001:16b8:3f0e:2f00:21a:37ff:febf:edb9")
@@ -319,8 +326,8 @@ class DoIPSocket6(DoIPSocket):
     """  # noqa: E501
     def __init__(self, ip='::1', port=13400, activate_routing=True,
                  source_address=0xe80, target_address=0,
-                 activation_type=0):
-        # type: (str, int, bool, int, int, int) -> None
+                 activation_type=0, reserved_oem=b""):
+        # type: (str, int, bool, int, int, int, bytes) -> None
         self.ip = ip
         self.port = port
         self.source_address = source_address
@@ -328,7 +335,7 @@ class DoIPSocket6(DoIPSocket):
 
         if activate_routing:
             super(DoIPSocket6, self)._activate_routing(
-                source_address, target_address, activation_type)
+                source_address, target_address, activation_type, reserved_oem)
 
 
 class UDS_DoIPSocket(DoIPSocket):
