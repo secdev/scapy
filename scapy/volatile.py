@@ -23,7 +23,7 @@ import string
 from scapy.base_classes import Net
 from scapy.compat import bytes_encode, chb, plain_str
 from scapy.utils import corrupt_bits, corrupt_bytes
-import scapy.modules.six as six
+from scapy.modules.six.moves import zip_longest
 
 from scapy.compat import (
     List,
@@ -1456,14 +1456,8 @@ class CyclicPattern(VolatileValue[bytes]):
         if charset_type == 2:  # maximum type
             charset += [string.punctuation]
 
-        mixed_charset = ""
-        if six.PY2:
-            for k in itertools.izip_longest(*charset, fillvalue=""):
-                mixed_charset += "".join(k)
-        else:
-            for k in itertools.zip_longest(*charset, fillvalue=""):
-                mixed_charset += "".join(k)
-        return mixed_charset
+        return "".join(
+            ["".join(k) for k in zip_longest(*charset, fillvalue="")])
 
     @staticmethod
     def de_bruijn(charset, n, maxlen):
