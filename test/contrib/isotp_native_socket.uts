@@ -103,6 +103,76 @@ assert(result_data == isotp.data)
 timer.join(5)
 assert not timer.is_alive()
 
+= Compatibility ISOTPSoftSocket ISOTPNativeSocket
+exit_if_no_isotp_module()
+
+message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14"
+
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, tx_id=0x642, rx_id=0x242) as s, ISOTPNativeSocket(iface0, tx_id=0x242, rx_id=0x642) as ns:
+    ns.send(ISOTP(bytes.fromhex(message)))
+    isotp = s.recv()
+    assert(isotp.data == dhex(message))
+
+= Compatibility ISOTPSoftSocket ISOTPNativeSocket bs
+exit_if_no_isotp_module()
+
+message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14" * 5
+
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, tx_id=0x642, rx_id=0x242, bs=1) as s, ISOTPNativeSocket(iface0, tx_id=0x242, rx_id=0x642) as ns:
+    ns.send(ISOTP(bytes.fromhex(message)))
+    isotp = s.recv()
+    assert(isotp.data == dhex(message))
+
+= Compatibility ISOTPSoftSocket ISOTPNativeSocket bs 2
+exit_if_no_isotp_module()
+
+message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14" * 5
+
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, tx_id=0x642, rx_id=0x242, bs=4) as s, ISOTPNativeSocket(iface0, tx_id=0x242, rx_id=0x642) as ns:
+    ns.send(ISOTP(bytes.fromhex(message)))
+    isotp = s.recv()
+    assert(isotp.data == dhex(message))
+
+= Compatibility ISOTPSoftSocket ISOTPNativeSocket bs 3
+exit_if_no_isotp_module()
+
+message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14" * 5
+
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, tx_id=0x642, rx_id=0x242, bs=1) as s, ISOTPNativeSocket(iface0, tx_id=0x242, rx_id=0x642, bs=1) as ns:
+    s.send(ISOTP(bytes.fromhex(message)))
+    isotp = ns.recv()
+    assert(isotp.data == dhex(message))
+
+= Compatibility ISOTPSoftSocket ISOTPNativeSocket bs 4
+exit_if_no_isotp_module()
+
+message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14" * 5
+
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, tx_id=0x642, rx_id=0x242, bs=4) as s, ISOTPNativeSocket(iface0, tx_id=0x242, rx_id=0x642, bs=4) as ns:
+    s.send(ISOTP(bytes.fromhex(message)))
+    isotp = ns.recv()
+    assert(isotp.data == dhex(message))
+
+= Compatibility ISOTPSoftSocket ISOTPNativeSocket stmin
+exit_if_no_isotp_module()
+
+message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14" * 5
+
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, tx_id=0x642, rx_id=0x242, stmin=100) as s, ISOTPNativeSocket(iface0, tx_id=0x242, rx_id=0x642) as ns:
+    ns.send(ISOTP(bytes.fromhex(message)))
+    isotp = s.recv()
+    assert(isotp.data == dhex(message))
+
+= Compatibility ISOTPSoftSocket ISOTPNativeSocket stmin 2
+exit_if_no_isotp_module()
+
+message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14" * 5
+
+with new_can_socket0() as isocan, ISOTPSoftSocket(isocan, tx_id=0x642, rx_id=0x242, stmin=100) as s, ISOTPNativeSocket(iface0, tx_id=0x242, rx_id=0x642, stmin=100) as ns:
+    s.send(ISOTP(bytes.fromhex(message)))
+    isotp = ns.recv()
+    assert(isotp.data == dhex(message))
+
 
 + ISOTPNativeSocket tests
 

@@ -92,15 +92,15 @@ class ISOTPSoftSocket(SuperSocket):
     :param tx_id: the CAN identifier of the sent CAN frames
     :param rx_id: the CAN identifier of the received CAN frames
     :param ext_address: the extended address of the sent ISOTP frames
-                          (can be None)
-    :param rx_ext_address: the extended address of the received ISOTP
-                             frames (can be None)
+    :param rx_ext_address: the extended address of the received ISOTP frames
     :param bs: block size sent in Flow Control ISOTP frames
     :param stmin: minimum desired separation time sent in
                   Flow Control ISOTP frames
     :param padding: If True, pads sending packets with 0x00 which not
                     count to the payload.
                     Does not affect receiving packets.
+    :param listen_only: Does not send Flow Control frames if a First Frame is 
+                        received
     :param basecls: base class of the packets emitted by this socket
     """  # noqa: E501
 
@@ -897,6 +897,7 @@ class ISOTPSocketImplementation:
                 load = self.ea_hdr
                 load += struct.pack("BBB", N_PCI_FC, self.rxfc_bs,
                                     self.rxfc_stmin)
+                self.rx_bs = 0
                 self.can_send(load)
 
         # wait for another CF
