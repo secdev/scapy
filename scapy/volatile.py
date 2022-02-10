@@ -11,7 +11,6 @@ Fields that hold random numbers.
 
 from __future__ import absolute_import
 import copy
-import itertools
 import random
 import time
 import math
