@@ -71,7 +71,7 @@ thread.join(timeout=5)
 assert res
 
 = Negative, timeout
-assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == False
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=0.1) == False
 
 ############################ Response pending
 = Positive, after response pending
@@ -149,7 +149,7 @@ thread = threading.Thread(target=ecusim)
 sniff(timeout=0.01, opened_socket=[isotpsock, isotpsock2])
 thread.start()
 started.wait(timeout=5)
-res = GMLAN_RequestDownload(isotpsock, 4, timeout=0.3) == False
+res = GMLAN_RequestDownload(isotpsock, 4, timeout=0.2) == False
 thread.join(timeout=5)
 assert res
 
@@ -335,7 +335,7 @@ assert res
 
 = Negative, timeout
 
-assert GMLAN_TransferData(isotpsock, 0x4000, payload, timeout=1) == False
+assert GMLAN_TransferData(isotpsock, 0x4000, payload, timeout=0.1) == False
 
 
 = Positive, long payload
@@ -675,7 +675,7 @@ assert res
 started = threading.Event()
 def ecusim():
     # timeout
-    requ = isotpsock2.sniff(count=1, timeout=1, started_callback=started.set)
+    requ = isotpsock2.sniff(count=1, timeout=0.1, started_callback=started.set)
     # wait for request
     requ = isotpsock2.sniff(count=1, timeout=3)
     seedmsg = GMLAN()/GMLAN_SAPR(subfunction=1, securitySeed=0xdead)
@@ -703,7 +703,7 @@ def ecusim():
     seedmsg = GMLAN()/GMLAN_SAPR(subfunction=1, securitySeed=0xdead)
     # timeout
     time.sleep(0.1)
-    requ = isotpsock2.sniff(count=1, timeout=1, started_callback=lambda:isotpsock2.send(seedmsg))
+    requ = isotpsock2.sniff(count=1, timeout=0.1, started_callback=lambda:isotpsock2.send(seedmsg))
     # retry from start
     time.sleep(0.1)
     requ = isotpsock2.sniff(count=1, timeout=3)
@@ -1154,7 +1154,7 @@ thread.join(timeout=5)
 assert res
 
 = Negative, timeout
-assert GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1) is None
+assert GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=0.1) is None
 
 ###### RETRY
 = Positive, negative response, retry succeeds
