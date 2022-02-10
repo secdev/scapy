@@ -69,13 +69,7 @@ jobs:
         include:
           # Linux non-root only tests
           - os: ubuntu-latest
-            python: 3.6
-            mode: non_root
-          - os: ubuntu-latest
-            python: 3.7
-            mode: non_root
-          - os: ubuntu-latest
-            python: 3.8
+            python: [3.6, 3.7, 3.8]
             mode: non_root
           # PyPy tests: root only
           - os: ubuntu-latest
