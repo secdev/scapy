@@ -99,7 +99,7 @@ class ISOTPSoftSocket(SuperSocket):
     :param padding: If True, pads sending packets with 0x00 which not
                     count to the payload.
                     Does not affect receiving packets.
-    :param listen_only: Does not send Flow Control frames if a First Frame is 
+    :param listen_only: Does not send Flow Control frames if a First Frame is
                         received
     :param basecls: base class of the packets emitted by this socket
     """  # noqa: E501
