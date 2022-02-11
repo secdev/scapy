@@ -1467,6 +1467,21 @@ retry_test(_test_srpflood)
 _test_srp1flood = partial(_test_flood, "www.google.co.uk", srp1flood, True)
 retry_test(_test_srp1flood)
 
+= test chainEX
+~ netaccess
+
+import socket
+sck = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+ssck = StreamSocket(sck)
+
+try:
+    r = ssck.sr1(ICMP(type='echo-request'), timeout=0.1, chainEX=True)
+    assert False
+except Exception:
+    assert True
+finally:
+    sck.close()
+
 = Sending and receiving an ICMPv6EchoRequest
 ~ netaccess ipv6
 def _test():
