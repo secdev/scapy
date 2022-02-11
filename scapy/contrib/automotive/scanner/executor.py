@@ -238,6 +238,10 @@ class AutomotiveTestCaseExecutor:
                     log_interactive.critical("[-] Exception: %s", e)
                     if self.configuration.debug:
                         raise e
+                    if isinstance(e, OSError):
+                        log_interactive.critical(
+                            "[-] OSError occurred, closing socket")
+                        self.socket.close()
                     if cast(SuperSocket, self.socket).closed and \
                             self.reconnect_handler is None:
                         log_interactive.critical(

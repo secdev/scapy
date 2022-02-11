@@ -106,6 +106,17 @@ class UnstableSocket(TestSocket):
         # type: (Optional[Type[Packet]]) -> None
         super(UnstableSocket, self).__init__(basecls)
         self.last_rx_was_error = False
+        self.last_tx_was_error = False
+
+    def send(self, x):
+        # type: (Packet) -> int
+        if not self.last_tx_was_error:
+            if random.randint(0, 1000) == 42:
+                self.last_tx_was_error = True
+                print("SOCKET CLOSED")
+                raise OSError("Socket closed")
+        self.last_tx_was_error = False
+        return super(UnstableSocket, self).send(x)
 
     def recv(self, x=MTU):  # type: ignore
         # type: (int) -> Optional[Packet]

@@ -77,17 +77,22 @@ class debug:
 _DOC_SNDRCV_PARAMS = """
     :param pks: SuperSocket instance to send/receive packets
     :param pkt: the packet to send
-    :param rcv_pks: if set, will be used instead of pks to receive packets.
-        packets will still be sent through pks
-    :param nofilter: put 1 to avoid use of BPF filters
+    :param timeout: how much time to wait after the last packet has been sent
+    :param inter: delay between two packets during sending
+    :param verbose: set verbosity level
+    :param chainCC: if True, KeyboardInterrupts will be forwarded
     :param retry: if positive, how many times to resend unanswered packets
         if negative, how many times to retry when no more packets
         are answered
-    :param timeout: how much time to wait after the last packet has been sent
-    :param verbose: set verbosity level
     :param multi: whether to accept multiple answers for the same stimulus
+    :param rcv_pks: if set, will be used instead of pks to receive packets.
+        packets will still be sent through pks
     :param prebuild: pre-build the packets before starting to send them.
         Automatically enabled when a generator is passed as the packet
+    :param _flood:
+    :param threaded: if True, packets will be sent in an individual thread
+    :param session: a flow decoder used to handle stream of packets
+    :param chainEX: if True, exceptions during send will be forwarded
     """
 
 
@@ -121,7 +126,8 @@ class SndRcvHandler(object):
                  prebuild=False,  # type: bool
                  _flood=None,  # type: Optional[_FloodGenerator]
                  threaded=False,  # type: bool
-                 session=None  # type: Optional[_GlobSessionType]
+                 session=None,  # type: Optional[_GlobSessionType]
+                 chainEX=False  # type: bool
                  ):
         # type: (...) -> None
         # Instantiate all arguments
@@ -141,6 +147,7 @@ class SndRcvHandler(object):
         self.multi = multi
         self.timeout = timeout
         self.session = session
+        self.chainEX = chainEX
         self._send_done = False
         self.notans = 0
         self.noans = 0
@@ -246,7 +253,10 @@ class SndRcvHandler(object):
         except SystemExit:
             pass
         except Exception:
-            log_runtime.exception("--- Error sending packets")
+            if self.chainEX:
+                raise
+            else:
+                log_runtime.exception("--- Error sending packets")
         finally:
             try:
                 cast(Packet, self.tobesent).sent_time = \

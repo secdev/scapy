@@ -284,10 +284,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     def sr1_with_retry_on_error(self, req, socket, state, timeout):
         # type: (Packet, _SocketUnion, EcuState, int) -> Optional[Packet]
         try:
-            res = socket.sr1(req, timeout=timeout, verbose=False)
-            if socket.closed:
-                log_interactive.critical("[-] Socket closed during scan.")
-                raise Scapy_Exception("Socket closed during scan")
+            res = socket.sr1(req, timeout=timeout, verbose=False, chainEX=True)
         except (OSError, ValueError, Scapy_Exception) as e:
             if not self._populate_retry(state, req):
                 log_interactive.critical(
@@ -750,7 +747,7 @@ class StateGeneratingServiceEnumerator(ServiceEnumerator, StateGenerator):
             return False
 
         try:
-            res = sock.sr1(req, timeout=20, verbose=False)
+            res = sock.sr1(req, timeout=20, verbose=False, chainEX=True)
             return res is not None and res.service != 0x7f
         except (OSError, ValueError, Scapy_Exception) as e:
             log_interactive.critical(
