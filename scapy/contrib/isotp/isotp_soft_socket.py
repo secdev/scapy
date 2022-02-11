@@ -127,17 +127,17 @@ class ISOTPSoftSocket(SuperSocket):
             raise Scapy_Exception("Provide a CANSocket object instead")
 
         self.ext_address = ext_address
-        self.rx_ext_address = rx_ext_address
+        self.rx_ext_address = rx_ext_address or ext_address
         self.tx_id = tx_id
         self.rx_id = rx_id
 
         impl = ISOTPSocketImplementation(
             can_socket,
-            tx_id=tx_id,
-            rx_id=rx_id,
+            tx_id=self.tx_id,
+            rx_id=self.rx_id,
             padding=padding,
-            ext_address=ext_address,
-            rx_ext_address=rx_ext_address,
+            ext_address=self.ext_address,
+            rx_ext_address=self.rx_ext_address,
             bs=bs,
             stmin=stmin,
             listen_only=listen_only
