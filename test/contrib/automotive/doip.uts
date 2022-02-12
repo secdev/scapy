@@ -291,7 +291,7 @@ assert p.payload_length == 7
 assert p.payload_type == 0x8003
 assert p.source_address == 0xA
 assert p.target_address == 0xC
-assert p.ack_code == 0
+assert p.nack_code == 0
 assert p.previous_msg == b'\x10\x03'
 
 + pcap based tests
