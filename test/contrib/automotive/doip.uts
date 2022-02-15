@@ -215,6 +215,39 @@ assert p.payload_type == 0x8002
 assert p.source_address == 0
 assert p.target_address == 0
 assert p.ack_code == 0
+assert p.previous_msg == b''
+
+p = DoIP(bytes(DoIP(payload_type=0x8002, previous_msg=b'\x22\xfd\x32')))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 8
+assert p.payload_type == 0x8002
+assert p.source_address == 0
+assert p.target_address == 0
+assert p.ack_code == 0
+assert p.previous_msg == b'\x22\xfd\x32'
+
+p = DoIP(bytes(DoIP(payload_type=0x8002, previous_msg=b'\x19\x02\x09\x9C\x00')))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 10
+assert p.payload_type == 0x8002
+assert p.source_address == 0
+assert p.target_address == 0
+assert p.ack_code == 0
+assert p.previous_msg == b'\x19\x02\t\x9c\x00'
+
+p = DoIP(b'\x02\xfd\x80\x02\x00\x00\x00\x07\x00\x08\x00\x0e\x00\x10\x01')
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xFD
+assert p.payload_length == 7
+assert p.payload_type == 0x8002
+assert p.source_address == 0x8
+assert p.target_address == 0xE
+assert p.ack_code == 0
+assert p.previous_msg == b'\x10\x01'
 
 = Build test 8003
 
@@ -228,9 +261,57 @@ assert p.source_address == 0
 assert p.target_address == 0
 assert p.nack_code == 0
 
+
+p = DoIP(bytes(DoIP(payload_type=0x8003, previous_msg=b'\x2E\xfd\x32\x01\x02')))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 10
+assert p.payload_type == 0x8003
+assert p.source_address == 0
+assert p.target_address == 0
+assert p.nack_code == 0
+assert p.previous_msg == b'.\xfd2\x01\x02'
+
+p = DoIP(bytes(DoIP(payload_type=0x8003, previous_msg=b'\x19\x02\x09\x9A\x00')))
+
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xfd
+assert p.payload_length == 10
+assert p.payload_type == 0x8003
+assert p.source_address == 0
+assert p.target_address == 0
+assert p.nack_code == 0
+assert p.previous_msg == b'\x19\x02\t\x9a\x00'
+
+p = DoIP(b'\x02\xfd\x80\x03\x00\x00\x00\x07\x00\x0A\x00\x0C\x00\x10\x03')
+assert p.protocol_version == 0x02
+assert p.inverse_version == 0xFD
+assert p.payload_length == 7
+assert p.payload_type == 0x8003
+assert p.source_address == 0xA
+assert p.target_address == 0xC
+assert p.nack_code == 0
+assert p.previous_msg == b'\x10\x03'
+
 + pcap based tests
 
-= read pcap file
+= read diag_ack pcap file
+pkt = rdpcap("test/pcaps/doip_ack.pcap").res[0]
+
+assert len(pkt) == 70
+
+= dissect test of diag ACK with previous_msg field filled
+assert pkt.protocol_version == 0x02
+assert pkt.inverse_version == 0xFD
+assert pkt.payload_length == 8
+assert pkt.source_address == 0x4B
+assert pkt.target_address == 0xE00
+assert pkt.ack_code == 0
+assert pkt.previous_msg == b'\x22\xFD\x31'
+
+
+= read main pcap file
 
 pkts = rdpcap("test/pcaps/doip.pcap.gz")
 ips = [p for p in pkts if p.proto == 6]

@@ -194,6 +194,8 @@ class DoIP(Packet):
             0x06: "Target unreachable", 0x07: "Unknown network",
             0x08: "Transport protocol error"
         }), lambda p: p.payload_type in [0x8003]),
+        ConditionalField(XStrField("previous_msg", b""),
+                         lambda p: p.payload_type in [0x8002, 0x8003])
     ]
 
     def answers(self, other):
