@@ -821,57 +821,59 @@ AEAD_ALGOS = {
 
 if aead:
     # https://datatracker.ietf.org/doc/html/rfc7539
+    # Block_size removed : see RFC7539 section 2.4
+    # "There is no requirement for the plaintext to be an integral multiple of 512 bits."
     AEAD_ALGOS['CHACHA20-POLY1305'] = AEAD_Algo('CHACHA20-POLY1305',
                                                 algo=aead.ChaCha20Poly1305,
                                                 salt_size=4,
                                                 iv_size=8,
                                                 icv_size=16,
-                                                key_size=32,
-                                                block_size=64)
+                                                key_size=32)
     # https://datatracker.ietf.org/doc/html/rfc4106
+    # Block_size removed : see RFC4106 section 3.2
+    # "Implementations that do not seek to hide the length of the plaintext
+    # SHOULD use the minimum amount of padding required, which will be less
+    # than four octets."
     AEAD_ALGOS['AES-GCM-128'] = AEAD_Algo('AES-GCM-128',
                                           algo=aead.AESGCM,
                                           salt_size=4,
                                           iv_size=8,
                                           icv_size=16,
-                                          key_size=16,
-                                          block_size=16)
+                                          key_size=16)
     AEAD_ALGOS['AES-GCM-192'] = AEAD_Algo('AES-GCM-192',
                                           algo=aead.AESGCM,
                                           salt_size=4,
                                           iv_size=8,
                                           icv_size=16,
-                                          key_size=24,
-                                          block_size=16)
+                                          key_size=24)
     AEAD_ALGOS['AES-GCM-256'] = AEAD_Algo('AES-GCM-256',
                                           algo=aead.AESGCM,
                                           salt_size=4,
                                           iv_size=8,
                                           icv_size=16,
-                                          key_size=32,
-                                          block_size=16)
+                                          key_size=32)
     # https://datatracker.ietf.org/doc/html/rfc4309
+    # Block_size removed : see RFC4309 section 3.2
+    # "AES CCM mode does not require plaintext padding."
+    # Same for all key_length of AES_CCM
     AEAD_ALGOS['AES-CCM-128'] = AEAD_Algo('AES-CCM-128',
                                           algo=aead.AESCCM,
                                           salt_size=3,
                                           iv_size=8,
                                           icv_size=16,
-                                          key_size=16,
-                                          block_size=16)
+                                          key_size=16)
     AEAD_ALGOS['AES-CCM-192'] = AEAD_Algo('AES-CCM-192',
                                           algo=aead.AESCCM,
                                           salt_size=3,
                                           iv_size=8,
                                           icv_size=16,
-                                          key_size=24,
-                                          block_size=16)
+                                          key_size=24)
     AEAD_ALGOS['AES-CCM-256'] = AEAD_Algo('AES-CCM-256',
                                           algo=aead.AESCCM,
                                           salt_size=3,
                                           iv_size=8,
                                           icv_size=16,
-                                          key_size=32,
-                                          block_size=16)
+                                          key_size=32)
 
 ###############################################################################
 
