@@ -650,15 +650,14 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
         if key_pkt is None:
             return False
 
-        last_seed_req = self._results[-1].req
-        last_state = self._results[-1].state
-
         try:
             res = sock.sr1(key_pkt, timeout=5, verbose=False)
             if sock.closed:
                 log_interactive.critical("[-] Socket closed during scan.")
                 raise Scapy_Exception("Socket closed during scan")
         except (OSError, ValueError, Scapy_Exception) as e:
+            last_seed_req = self._results[-1].req
+            last_state = self._results[-1].state
             if not self._populate_retry(last_state, last_seed_req):
                 log_interactive.critical(
                     "[-] Exception during retry. This is bad")
