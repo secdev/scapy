@@ -308,6 +308,9 @@ class TCPSession(IPSession):
         if relative_seq is None:
             relative_seq = metadata["relative_seq"] = seq - 1
         seq = seq - relative_seq
+        # If the seq < 0 means the segment is out of order
+        if seq < 0:
+            return None
         # Add the data to the buffer
         # Note that this take care of retransmission packets.
         data.append(new_data, seq)
