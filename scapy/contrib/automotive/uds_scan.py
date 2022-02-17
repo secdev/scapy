@@ -656,11 +656,14 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
                 log_interactive.critical("[-] Socket closed during scan.")
                 raise Scapy_Exception("Socket closed during scan")
         except (OSError, ValueError, Scapy_Exception) as e:
-            last_seed_req = self._results[-1].req
-            last_state = self._results[-1].state
-            if not self._populate_retry(last_state, last_seed_req):
-                log_interactive.critical(
-                    "[-] Exception during retry. This is bad")
+            try:
+                last_seed_req = self._results[-1].req
+                last_state = self._results[-1].state
+                if not self._populate_retry(last_state, last_seed_req):
+                    log_interactive.critical(
+                        "[-] Exception during retry. This is bad")
+            except IndexError:
+                log_interactive.warning("[-] Couldn't populate retry.")
             raise e
 
         return self.evaluate_security_access_response(
