@@ -1054,6 +1054,7 @@ path_attributes = {
     27: "PE Distinguisher Labels",  # RFC 6514
     28: "BGP Entropy Label Capability Attribute (deprecated)",  # RFC 6790, RFC 7447  # noqa: E501
     29: "BGP-LS Attribute",  # RFC 7752
+    32: "LARGE_COMMUNITY", #RFC 8092, RFC 8195
     40: "BGP Prefix-SID",  # (TEMPORARY - registered 2015-09-30, expires 2016-09-30)  # noqa: E501
     # draft-ietf-idr-bgp-prefix-sid
     128: "ATTR_SET",  # RFC 6368
@@ -1091,6 +1092,7 @@ attributes_flags = {
     27: 0xc0,   # PE Distinguisher Labels (RFC 6514)
     28: 0xc0,   # BGP Entropy Label Capability Attribute
     29: 0x80,   # BGP-LS Attribute
+    32: 0xc0,   # LARGE_COMMUNITY
     40: 0xc0,   # BGP Prefix-SID
     128: 0xc0   # ATTR_SET (RFC 6368)
 }
@@ -2005,6 +2007,31 @@ class BGPPAAS4Path(Packet):
 
 
 #
+# LARGE_COMMUNITY
+#
+
+class BGPPALargeCommunity(Packet):
+    """
+    Provides an implementation of the LARGE_COMMUNITY attribute.
+    References: RFC 8092, RFC 8195
+    """
+
+    class LargeCommunitySegment(Packet):
+        """
+        Provides an implementation for LARGE_COMMUNITY segments with 3*4 bytes integers.
+        """
+
+        fields_desc = [
+            IntField("global_administrator", None),
+            IntField("local_data_part1", None),
+            IntField("local_data_part2", None)
+        ]
+
+
+    name = "LARGE_COMMUNITY"
+    fields_desc = [PacketListField("segments",[],LargeCommunitySegment)]
+
+#
 # AS4_AGGREGATOR
 #
 
@@ -2035,7 +2062,8 @@ _path_attr_objects = {
     0x0F: "BGPPAMPUnreachNLRI",
     0x10: "BGPPAExtComms",
     0x11: "BGPPAAS4Path",
-    0x19: "BGPPAIPv6AddressSpecificExtComm"
+    0x19: "BGPPAIPv6AddressSpecificExtComm",
+    0x20: "BGPPALargeCommunity"
 }
 
 
