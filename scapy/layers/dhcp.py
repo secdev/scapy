@@ -17,6 +17,10 @@ except ImportError:
 import random
 import struct
 
+import math
+import socket
+import re
+
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
 from scapy.compat import chb, orb, bytes_encode
@@ -86,6 +90,83 @@ class _DHCPParamReqFieldListField(FieldListField):
             s, val = FieldListField.getfield(self, pkt, s)
             ret.append(val)
         return b"", [x[0] for x in ret]
+
+class ClasslessStaticRoutesField(FieldListField):
+    """
+    RFC 3442 defines classless static routes as up to 9 bytes per entry:
+     Code Len Destination 1    Router 1
+    +-----+---+----+-----+----+----+----+----+----+
+    | 121 | n | d1 | ... | dN | r1 | r2 | r3 | r4 |
+    +-----+---+----+-----+----+----+----+----+----+
+    Destination first byte contains one octet describing the width followed
+    by all the significant octets of the subnet.
+    """
+    def m2i(self, pkt, x):
+        # b'\x20\x01\x02\x03\x04\t\x08\x07\x06' -> (1.2.3.4/32:9.8.7.6)
+        offset = 0
+        if six.PY2:
+            prefix = struct.unpack('B', x[offset])[0]
+        elif six.PY3:
+            prefix = x[offset]
+
+        octets = int(math.ceil(prefix/8))
+        offset += 1
+        # Create the destination IP by using the number of octets
+        # and padding up to 4 bytes to ensure a valid IP.
+        dest = x[offset:offset+octets]
+        dest = socket.inet_ntoa(dest.ljust(4, b'\x00'))
+        offset += octets
+
+        router = x[offset:offset+4]
+        router = socket.inet_ntoa(router)
+        offset += 4
+
+        new_route = dest + "/" + str(prefix) + ":" + router
+        return new_route
+
+    def i2m(self, pkt, x):
+        # (1.2.3.4/32:9.8.7.6) -> b'\x20\x01\x02\x03\x04\t\x08\x07\x06'
+        bin_route = b''
+        if not x:
+            return bin_route
+
+        spx = re.split('/|:', x)
+        prefix = int(spx[1])
+        octets = math.ceil(prefix/8)
+        dest = socket.inet_aton(spx[0])[:int(octets)]
+        router = socket.inet_aton(spx[2])
+        bin_route = struct.pack('b', prefix) + dest + router
+
+        return bin_route
+
+    def i2h(self, pkt, x):
+        return x
+
+    def h2i(self, pkt, x):
+        return x
+
+    def addfield(self, pkt, x, val):
+        if val is None:
+            val = []
+        for v in val:
+            x = x + self.i2m(pkt, v)
+        return x
+
+    def getfield(self, pkt, s):
+        ret = []
+        route = b''
+
+        while s:
+            if six.PY2:
+                route_len = int(math.ceil(struct.unpack('b', s[0])[0]/8)) + 5
+            elif six.PY3:
+                route_len = int(math.ceil(s[0]/8)) + 5
+
+            route = self.m2i(pkt, s[:route_len])
+            ret.append(route)
+            s = s[route_len:]
+
+        return b"", ret
 
 # DHCP_UNKNOWN, DHCP_IP, DHCP_IPLIST, DHCP_TYPE \
 # = range(4)
@@ -209,6 +290,7 @@ DHCPOptions = {
     116: ByteField("auto-config", 0),
     117: ShortField("name-service-search", 0,),
     118: IPField("subnet-selection", "0.0.0.0"),
+    121: ClasslessStaticRoutesField("classless_static_routes", [], ByteField("route", 0), length_from=lambda x: 1),
     124: "vendor_class",
     125: "vendor_specific_information",
     128: IPField("tftp_server_ip_address", "0.0.0.0"),
