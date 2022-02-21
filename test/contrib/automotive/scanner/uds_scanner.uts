@@ -125,6 +125,27 @@ assert False == e._evaluate_response(s, UDS(b"\x27\x01"), UDS(b"\x67\x02ab"), **
 assert e._retry_pkt[s] == None
 
 
+= Test UDS_SA_XOR_Enumerator stand alone mode
+
+TesterSocket = TestSocket
+ecu = TestSocket(UDS)
+tester = TesterSocket(UDS)
+ecu.pair(tester)
+answering_machine = EcuAnsweringMachine(supported_responses=mEcu.supported_responses, main_socket=ecu, basecls=UDS, verbose=False)
+sim = threading.Thread(target=answering_machine, kwargs={'timeout': 1000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
+sim.start()
+try:
+    resp = tester.sr1(UDS()/UDS_TP(b"\x00"), verbose=False, timeout=1)
+    print(repr(resp))
+    assert resp and resp.service != 0x7f
+    resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=3), verbose=False, timeout=1)
+    print(repr(resp))
+    assert resp and resp.service != 0x7f
+    assert UDS_SA_XOR_Enumerator().get_security_access(tester, 1)
+finally:
+    tester.send(Raw(b"\xff\xff\xff"))
+    sim.join(timeout=2)
+
 
 = Simulate ECU and run Scanner
 
