@@ -10,7 +10,8 @@
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteField, ShortField, ByteEnumField, X3BytesField, \
     StrField, StrFixedLenField, LEIntField, LEThreeBytesField, \
-    PacketListField, IntField, IPField, ThreeBytesField, ShortEnumField
+    PacketListField, IntField, IPField, ThreeBytesField, ShortEnumField, \
+    XStrFixedLenField
 from scapy.contrib.automotive.uds import UDS, UDS_RDBI, UDS_DSC, UDS_IOCBI, \
     UDS_RC, UDS_RD, UDS_RSDBI, UDS_RDBIPR
 
@@ -247,7 +248,7 @@ UDS.services[0xa5] = 'UnpackDS2Service'
 class SVK_DateField(LEThreeBytesField):
     def i2repr(self, pkt, x):
         x = self.addfield(pkt, b"", x)
-        return "%02X.%02X.20%02X" % (x[0], x[1], x[2])
+        return "%02X.%02X.20%02X" % (x[2], x[1], x[0])
 
 
 class SVK_Entry(Packet):
@@ -255,7 +256,7 @@ class SVK_Entry(Packet):
         ByteEnumField("processClass", 0, {1: "HWEL", 2: "HWAP", 4: "GWTB",
                                           5: "CAFD", 6: "BTLD", 7: "FLSL",
                                           8: "SWFL"}),
-        StrFixedLenField("svk_id", b"", length=4),
+        XStrFixedLenField("svk_id", b"", length=4),
         ByteField("mainVersion", 0),
         ByteField("subVersion", 0),
         ByteField("patchVersion", 0)]
