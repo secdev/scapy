@@ -2080,7 +2080,7 @@ class _PathAttrPacketField(PacketField):
         if type_code == 0 or type_code == 255:
             ret = conf.raw_layer(m)
         # Unassigned
-        elif (type_code >= 30 and type_code <= 39) or\
+        elif (type_code >= 33 and type_code <= 39) or\
             (type_code >= 41 and type_code <= 127) or\
                 (type_code >= 129 and type_code <= 254):
             ret = conf.raw_layer(m)
@@ -2088,6 +2088,8 @@ class _PathAttrPacketField(PacketField):
         else:
             if type_code == 0x02 and not bgp_module_conf.use_2_bytes_asn:
                 ret = BGPPAAS4BytesPath(m)
+            elif type_code == 0x20:
+                ret=BGPPALargeCommunity(m)
             else:
                 ret = _get_cls(
                     _path_attr_objects.get(type_code, conf.raw_layer))(m)
