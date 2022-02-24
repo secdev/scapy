@@ -120,7 +120,7 @@ class USBpcap(Packet):
             return USBpcapTransferInterrupt
         elif self.transfer == 2:
             return USBpcapTransferControl
-        return return super(USBpcap, self).guess_payload_class(payload)
+        return super(USBpcap, self).guess_payload_class(payload)
 
 
 class USBpcapTransferIsochronous(Packet):
