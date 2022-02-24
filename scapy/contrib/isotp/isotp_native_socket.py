@@ -89,6 +89,25 @@ class ifreq(ctypes.Structure):
 
 
 class ISOTPNativeSocket(SuperSocket):
+    """
+    ISOTPSocket using the can-isotp kernel module
+
+    :param iface: a CANSocket instance or an interface name
+    :param tx_id: the CAN identifier of the sent CAN frames
+    :param rx_id: the CAN identifier of the received CAN frames
+    :param ext_address: the extended address of the sent ISOTP frames
+    :param rx_ext_address: the extended address of the received ISOTP frames
+    :param bs: block size sent in Flow Control ISOTP frames
+    :param stmin: minimum desired separation time sent in
+                  Flow Control ISOTP frames
+    :param padding: If True, pads sending packets with 0x00 which not
+                    count to the payload.
+                    Does not affect receiving packets.
+    :param listen_only: Does not send Flow Control frames if a First Frame is
+                        received
+    :param frame_txtime: Separation time between two CAN frames during send
+    :param basecls: base class of the packets emitted by this socket
+    """
     desc = "read/write packets at a given CAN interface using CAN_ISOTP socket "  # noqa: E501
     can_isotp_options_fmt = "@2I4B"
     can_isotp_fc_options_fmt = "@3B"
@@ -266,10 +285,11 @@ class ISOTPNativeSocket(SuperSocket):
                  rx_id=0,  # type: int
                  ext_address=None,  # type: Optional[int]
                  rx_ext_address=None,  # type: Optional[int]
-                 listen_only=False,  # type: bool
+                 bs=CAN_ISOTP_DEFAULT_RECV_BS,  # type: int
+                 stmin=CAN_ISOTP_DEFAULT_RECV_STMIN,  # type: int
                  padding=False,  # type: bool
-                 frame_txtime=100,  # type: int
-                 stmin=0,  # type: int
+                 listen_only=False,  # type: bool
+                 frame_txtime=CAN_ISOTP_DEFAULT_FRAME_TXTIME,  # type: int
                  basecls=ISOTP  # type: Type[Packet]
                  ):
         # type: (...) -> None
@@ -306,7 +326,7 @@ class ISOTPNativeSocket(SuperSocket):
         self.can_socket.setsockopt(SOL_CAN_ISOTP,
                                    CAN_ISOTP_RECV_FC,
                                    self.__build_can_isotp_fc_options(
-                                       stmin=stmin))
+                                       stmin=stmin, bs=bs))
         self.can_socket.setsockopt(SOL_CAN_ISOTP,
                                    CAN_ISOTP_LL_OPTS,
                                    self.__build_can_isotp_ll_options())
