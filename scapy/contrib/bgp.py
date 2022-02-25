@@ -1054,7 +1054,7 @@ path_attributes = {
     27: "PE Distinguisher Labels",  # RFC 6514
     28: "BGP Entropy Label Capability Attribute (deprecated)",  # RFC 6790, RFC 7447  # noqa: E501
     29: "BGP-LS Attribute",  # RFC 7752
-    32: "LARGE_COMMUNITY", #RFC 8092, RFC 8195
+    32: "LARGE_COMMUNITY",  # RFC 8092, RFC 8195
     40: "BGP Prefix-SID",  # (TEMPORARY - registered 2015-09-30, expires 2016-09-30)  # noqa: E501
     # draft-ietf-idr-bgp-prefix-sid
     128: "ATTR_SET",  # RFC 6368
@@ -2010,30 +2010,32 @@ class BGPPAAS4Path(Packet):
 # LARGE_COMMUNITY
 #
 
+class BGPLargeCommunitySegment(Packet):
+    """
+    Provides an implementation for LARGE_COMMUNITY segments
+    which holds 3*4 bytes integers.
+    """
+
+    fields_desc = [
+        IntField("global_administrator", None),
+        IntField("local_data_part1", None),
+        IntField("local_data_part2", None)
+    ]
+
+
 class BGPPALargeCommunity(Packet):
     """
     Provides an implementation of the LARGE_COMMUNITY attribute.
     References: RFC 8092, RFC 8195
     """
 
-    class LargeCommunitySegment(Packet):
-        """
-        Provides an implementation for LARGE_COMMUNITY segments with 3*4 bytes integers.
-        """
-
-        fields_desc = [
-            IntField("global_administrator", None),
-            IntField("local_data_part1", None),
-            IntField("local_data_part2", None)
-        ]
-
-
     name = "LARGE_COMMUNITY"
-    fields_desc = [PacketListField("segments",[],LargeCommunitySegment)]
+    fields_desc = [PacketListField("segments", [], BGPLargeCommunitySegment)]
 
 #
 # AS4_AGGREGATOR
 #
+
 
 class BGPPAAS4Aggregator(Packet):
     """
@@ -2089,7 +2091,7 @@ class _PathAttrPacketField(PacketField):
             if type_code == 0x02 and not bgp_module_conf.use_2_bytes_asn:
                 ret = BGPPAAS4BytesPath(m)
             elif type_code == 0x20:
-                ret=BGPPALargeCommunity(m)
+                ret = BGPPALargeCommunity(m)
             else:
                 ret = _get_cls(
                     _path_attr_objects.get(type_code, conf.raw_layer))(m)

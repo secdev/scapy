@@ -604,7 +604,7 @@ a.aggregator_asn == 644566565 and a.speaker_address == "192.0.2.1"
 raw(BGPPALargeCommunity()) == b''
 
 = BGPPALargeCommunity - Instantiation with specific values
-raw(BGPPALargeCommunity(segments=BGPPALargeCommunity.LargeCommunitySegment(global_administrator=161,local_data_part1=0,local_data_part2=0))) == b'\x00\x00\x00\xa1\x00\x00\x00\x00\x00\x00\x00\x00'
+raw(BGPPALargeCommunity(segments=BGPLargeCommunitySegment(global_administrator=161,local_data_part1=0,local_data_part2=0))) == b'\x00\x00\x00\xa1\x00\x00\x00\x00\x00\x00\x00\x00'
 
 = BGPPALargeCommunity - Dissection
 a = BGPPALargeCommunity(b'\x00\x00\x00\xa1\x00\x00\x00\x00\x00\x00\x00\x00')
