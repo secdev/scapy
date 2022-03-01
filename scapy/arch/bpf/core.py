@@ -38,7 +38,7 @@ if LINUX:
 
 LIBC = cdll.LoadLibrary(find_library("c"))
 
-LIBC.ioctl.argtypes = [c_int, c_ulong, c_char_p]
+LIBC.ioctl.argtypes = [c_int, c_ulong, ]
 LIBC.ioctl.restype = c_int
 
 # The following is implemented as of Python >= 3.3
