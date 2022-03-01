@@ -105,7 +105,7 @@ class ClasslessStaticRoutesField(FieldListField):
         # b'\x20\x01\x02\x03\x04\t\x08\x07\x06' -> (1.2.3.4/32:9.8.7.6)
         offset = 0
         if six.PY2:
-            prefix = struct.unpack('B', x[offset])[0]
+            prefix = orb(x[offset])
         elif six.PY3:
             prefix = x[offset]
 
@@ -164,7 +164,7 @@ class ClasslessStaticRoutesField(FieldListField):
         while s:
             route_len = 5
             if six.PY2:
-                route_len = route_len + int((struct.unpack('b', s[0])[0] + 7)/8)
+                route_len = route_len + int((orb(s[0]) + 7)/8)
             elif six.PY3:
                 route_len = route_len + int((s[0] + 7)/8)
 
