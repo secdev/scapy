@@ -8,6 +8,7 @@ DNS: Domain Name System.
 """
 
 from __future__ import absolute_import
+import operator
 import socket
 import struct
 import time
@@ -583,23 +584,23 @@ class ClientSubnetv4(StrLenField):
 
     def getfield(self, pkt, s):
         # type: (Packet, bytes) -> Tuple[bytes, I]
-        sz = self.length_from(pkt) // 8
-        sz = min(sz, self.af_length // 8)
+        sz = operator.floordiv(self.length_from(pkt), 8)
+        sz = min(sz, operator.floordiv(self.af_length, 8))
         return s[sz:], self.m2i(pkt, s[:sz])
 
     def m2i(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
         padding = self.af_length - self.length_from(pkt)
         if padding:
-            x += b"\x00" * (padding // 8)
-        x = x[: self.af_length // 8]
+            x += b"\x00" * operator.floordiv(padding, 8)
+        x = x[: operator.floordiv(self.af_length, 8)]
         return socket.inet_ntop(self.af_familly, x)
 
     def _pack_subnet(self, subnet):
         # type: (bytes) -> bytes
         packed_subnet = socket.inet_pton(self.af_familly, plain_str(subnet))
-        for i in list(range(self.af_length // 8))[::-1]:
-            if packed_subnet[i] != 0:
+        for i in list(range(operator.floordiv(self.af_length, 8)))[::-1]:
+            if orb(packed_subnet[i]) != 0:
                 i += 1
                 break
         return packed_subnet[:i]
@@ -610,7 +611,7 @@ class ClientSubnetv4(StrLenField):
             return self.af_default
         try:
             return self._pack_subnet(x)
-        except OSError:
+        except (OSError, socket.error):
             pkt.family = 2
             return ClientSubnetv6("", "")._pack_subnet(x)
 
@@ -620,7 +621,7 @@ class ClientSubnetv4(StrLenField):
             return 1
         try:
             return len(self._pack_subnet(x))
-        except OSError:
+        except (OSError, socket.error):
             pkt.family = 2
             return len(ClientSubnetv6("", "")._pack_subnet(x))
 
