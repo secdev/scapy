@@ -654,7 +654,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 except Exception as ex:
                     try:
                         ex.args = (
-                            "While disescting field '%s': " % f.name +
+                            "While dissecting field '%s': " % f.name +
                             ex.args[0],
                         ) + ex.args[1:]
                     except (AttributeError, IndexError):
