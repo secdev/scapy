@@ -17,7 +17,6 @@ except ImportError:
 import random
 import struct
 
-import math
 import socket
 import re
 
@@ -102,6 +101,7 @@ class ClasslessStaticRoutesField(FieldListField):
     by all the significant octets of the subnet.
     """
     def m2i(self, pkt, x):
+        # type: (Packet, bytes) -> str
         # b'\x20\x01\x02\x03\x04\t\x08\x07\x06' -> (1.2.3.4/32:9.8.7.6)
         offset = 0
         if six.PY2:
@@ -109,7 +109,7 @@ class ClasslessStaticRoutesField(FieldListField):
         elif six.PY3:
             prefix = x[offset]
 
-        octets = int(math.ceil(prefix/8))
+        octets = int((prefix + 7)/8)
         offset += 1
         # Create the destination IP by using the number of octets
         # and padding up to 4 bytes to ensure a valid IP.
@@ -125,6 +125,7 @@ class ClasslessStaticRoutesField(FieldListField):
         return new_route
 
     def i2m(self, pkt, x):
+        # type: (Packet, str) -> bytes
         # (1.2.3.4/32:9.8.7.6) -> b'\x20\x01\x02\x03\x04\t\x08\x07\x06'
         bin_route = b''
         if not x:
@@ -132,7 +133,7 @@ class ClasslessStaticRoutesField(FieldListField):
 
         spx = re.split('/|:', x)
         prefix = int(spx[1])
-        octets = math.ceil(prefix/8)
+        octets = (prefix + 7)/8
         dest = socket.inet_aton(spx[0])[:int(octets)]
         router = socket.inet_aton(spx[2])
         bin_route = struct.pack('b', prefix) + dest + router
@@ -140,12 +141,15 @@ class ClasslessStaticRoutesField(FieldListField):
         return bin_route
 
     def i2h(self, pkt, x):
+        # type: (Packet, str) -> str
         return x
 
     def h2i(self, pkt, x):
+        # type: (Packet, str) -> str
         return x
 
     def addfield(self, pkt, x, val):
+        # type: (Packet, bytes, str) -> bytes
         if val is None:
             val = []
         for v in val:
@@ -153,14 +157,16 @@ class ClasslessStaticRoutesField(FieldListField):
         return x
 
     def getfield(self, pkt, s):
+        # type: (Packet, bytes) -> list
         ret = []
         route = b''
 
         while s:
+            route_len = 5
             if six.PY2:
-                route_len = int(math.ceil(struct.unpack('b', s[0])[0]/8)) + 5
+                route_len = route_len + int((struct.unpack('b', s[0])[0] + 7)/8)
             elif six.PY3:
-                route_len = int(math.ceil(s[0]/8)) + 5
+                route_len = route_len + int((s[0] + 7)/8)
 
             route = self.m2i(pkt, s[:route_len])
             ret.append(route)
