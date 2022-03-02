@@ -104,10 +104,7 @@ class ClasslessStaticRoutesField(FieldListField):
         # type: (Packet, bytes) -> str
         # b'\x20\x01\x02\x03\x04\t\x08\x07\x06' -> (1.2.3.4/32:9.8.7.6)
         offset = 0
-        if six.PY2:
-            prefix = orb(x[offset])
-        elif six.PY3:
-            prefix = x[offset]
+        prefix = orb(x[offset])
 
         octets = int((prefix + 7)/8)
         offset += 1
@@ -162,11 +159,14 @@ class ClasslessStaticRoutesField(FieldListField):
         route = b''
 
         while s:
-            route_len = 5
-            if six.PY2:
-                route_len = route_len + int((orb(s[0]) + 7)/8)
-            elif six.PY3:
-                route_len = route_len + int((s[0] + 7)/8)
+            prefix = orb(s[0])
+            # if prefix is invalid value ( 0 > prefix > 32 ) then break
+            if prefix > 32 or prefix < 0:
+                warning("Invalid prefix value: 0x%x", prefix)
+                break
+
+            octets = int((prefix + 7)/8)
+            route_len = 5 + octets
 
             route = self.m2i(pkt, s[:route_len])
             ret.append(route)
