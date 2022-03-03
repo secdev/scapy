@@ -149,4 +149,4 @@ Dissect a pcap which contains a JPEG image that was sent over HTTP using chunks.
 HTTP 2.X
 --------
 
-The HTTP 2 documentation is available as a Jupyther notebook over here: `HTTP 2 Tuto <https://github.com/secdev/scapy/blob/master/doc/notebooks/HTTP_2_Tuto.ipynb>`_
+The HTTP 2 documentation is available as a Jupyter notebook over here: `HTTP 2 Tuto <https://github.com/secdev/scapy/blob/master/doc/notebooks/HTTP_2_Tuto.ipynb>`_
