@@ -782,10 +782,12 @@ _tls_alert_description = {
     50: "decode_error", 51: "decrypt_error",
     60: "export_restriction_RESERVED", 70: "protocol_version",
     71: "insufficient_security", 80: "internal_error",
-    90: "user_canceled", 100: "no_renegotiation",
+    86: "inappropriate_fallback", 90: "user_canceled",
+    100: "no_renegotiation", 109: "missing_extension",
     110: "unsupported_extension", 111: "certificate_unobtainable",
     112: "unrecognized_name", 113: "bad_certificate_status_response",
-    114: "bad_certificate_hash_value", 115: "unknown_psk_identity"}
+    114: "bad_certificate_hash_value", 115: "unknown_psk_identity",
+    116: "certificate_required", 120: "no_application_protocol"}
 
 
 class TLSAlert(_GenericTLSSessionInheritance):
