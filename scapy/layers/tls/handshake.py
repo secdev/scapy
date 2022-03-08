@@ -455,7 +455,7 @@ class TLS13ClientHello(_TLSHandshake):
             s.sid = self.sid
             s.middlebox_compatibility = True
 
-        self.random_bytes = msg_str[10:38]
+        self.random_bytes = msg_str[6:38]
         s.client_random = self.random_bytes
         if self.ext:
             for e in self.ext:
