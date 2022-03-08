@@ -17,6 +17,24 @@ import subprocess
 _SCAPY_PKG_DIR = os.path.dirname(__file__)
 
 
+def _parse_tag(tag):
+    # type: (str) -> str
+    """
+    Parse a tag from ``git describe`` into a version.
+
+    Example::
+
+        v2.3.2-346-g164a52c075c8 -> '2.3.2.dev346'
+    """
+    match = re.match('^v?(.+?)-(\\d+)-g[a-f0-9]+$', tag)
+    if match:
+        # remove the 'v' prefix and add a '.devN' suffix
+        return '%s.dev%s' % (match.group(1), match.group(2))
+    else:
+        # just remove the 'v' prefix
+        return re.sub('^v', '', tag)
+
+
 def _version_from_git_describe():
     # type: () -> str
     """
@@ -64,13 +82,7 @@ def _version_from_git_describe():
         # Upstream was not fetched
         commit = _git("git rev-list --tags --max-count=1")
         tag = _git("git describe --tags --always --long %s" % commit)
-    match = re.match('^v?(.+?)-(\\d+)-g[a-f0-9]+$', tag)
-    if match:
-        # remove the 'v' prefix and add a '.devN' suffix
-        return '%s.dev%s' % (match.group(1), match.group(2))
-    else:
-        # just remove the 'v' prefix
-        return re.sub('^v', '', tag)
+    return _parse_tag(tag)
 
 
 def _version():
@@ -96,11 +108,16 @@ def _version():
         except Exception:
             # Rely on git archive "export-subst" git attribute.
             # See 'man gitattributes' for more details.
-            git_archive_id = '$Format:%h %d$'
-            sha1 = git_archive_id.strip().split()[0]
-            match = re.search('tag:(\\S+)', git_archive_id)
-            if match:
-                return "git-archive.dev" + match.group(1)
+            # Note: describe is only supported with git >= 2.32.0
+            # but we use it to workaround GH#3121
+            git_archive_id = '$Format:%h %(describe:tags)$'.strip().split()
+            sha1 = git_archive_id[0]
+            tag = git_archive_id[1]
+            if "describe" in tag:
+                # git is too old !
+                tag = None
+            if tag:
+                return _parse_tag(tag)
             elif sha1:
                 return "git-archive.dev" + sha1
             else:
