@@ -130,6 +130,10 @@ class ClasslessStaticRoutesField(FieldListField):
 
         spx = re.split('/|:', x)
         prefix = int(spx[1])
+            # if prefix is invalid value ( 0 > prefix > 32 ) then break
+        if prefix > 32 or prefix < 0:
+            warning("Invalid prefix value: %d (0x%x)", prefix, prefix)
+            return b''
         octets = (prefix + 7)/8
         dest = socket.inet_aton(spx[0])[:int(octets)]
         router = socket.inet_aton(spx[2])
@@ -162,7 +166,7 @@ class ClasslessStaticRoutesField(FieldListField):
             prefix = orb(s[0])
             # if prefix is invalid value ( 0 > prefix > 32 ) then break
             if prefix > 32 or prefix < 0:
-                warning("Invalid prefix value: 0x%x", prefix)
+                warning("Invalid prefix value: %d (0x%x)", prefix, prefix)
                 break
 
             octets = int((prefix + 7)/8)
