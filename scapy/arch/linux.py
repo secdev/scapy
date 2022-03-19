@@ -547,7 +547,7 @@ class L2Socket(SuperSocket):
         if self.closed:
             return
         try:
-            if self.promisc and self.ins:
+            if self.promisc and getattr(self, "ins", None):
                 set_promisc(self.ins, self.iface, 0)
         except (AttributeError, OSError):
             pass
