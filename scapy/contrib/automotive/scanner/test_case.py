@@ -191,33 +191,29 @@ class AutomotiveTestCase(AutomotiveTestCaseABC):
         # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
         pass
 
-    def _show_header(self, dump=False):
-        # type: (bool) -> Optional[str]
+    def _show_header(self, **kwargs):
+        # type: (Any) -> str
         s = "\n\n" + "=" * (len(self._description) + 10) + "\n"
         s += " " * 5 + self._description + "\n"
         s += "-" * (len(self._description) + 10) + "\n"
 
-        if dump:
-            return s + "\n"
-        else:
-            print(s)
-            return None
+        return s + "\n"
 
-    def _show_state_information(self, dump):
-        # type: (bool) -> Optional[str]
+    def _show_state_information(self, **kwargs):
+        # type: (Any) -> str
         completed = [(state, self._state_completed[state])
                      for state in self.scanned_states]
         return make_lined_table(
             completed, lambda tup: ("Scan state completed", tup[0], tup[1]),
-            dump=dump)
+            dump=True) or ""
 
     def show(self, dump=False, filtered=True, verbose=False):
         # type: (bool, bool, bool) -> Optional[str]
 
-        s = self._show_header(dump) or ""
+        s = self._show_header()
 
         if verbose:
-            s += self._show_state_information(dump) or ""
+            s += self._show_state_information()
 
         if dump:
             return s + "\n"
