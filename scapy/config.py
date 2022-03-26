@@ -832,6 +832,7 @@ class Conf(ConfClass):
         'llmnr',
         'lltd',
         'mgcp',
+        'mle',
         'mobileip',
         'netbios',
         'netflow',

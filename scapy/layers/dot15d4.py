@@ -4,7 +4,7 @@
 # Copyright (C) Ryan Speers <ryan@rmspeers.com> 2011-2012
 # Copyright (C) Roger Meyer <roger.meyer@csus.edu>: 2012-03-10 Added frames
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>: 2018
-# Copyright (C) 2020 Dimitrios-Georgios Akestoridis <akestoridis@cmu.edu>
+# Copyright (C) 2020, 2022 Dimitrios-Georgios Akestoridis <akestoridis@cmu.edu>
 # This program is published under a GPLv2 license
 
 """
@@ -36,6 +36,7 @@ from scapy.fields import (
     XByteField,
     XLEIntField,
     XLEShortField,
+    XStrField,
 )
 
 # Fields #
@@ -233,8 +234,35 @@ class Dot15d4Data(Packet):
                          lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),  # noqa: E501
         # Security field present if fcf_security == True
         ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security")),  # noqa: E501
+        # Secured Payload (variable length)
+        ConditionalField(
+            XStrField("sec_payload", ""),
+            lambda pkt:pkt.underlayer.getfieldval("fcf_security"),
+        ),
+        # Message Integrity Code (variable length)
+        ConditionalField(
+            XStrField("mic", ""),
+            lambda pkt:pkt.underlayer.getfieldval("fcf_security"),
+        ),
     ]
+
+    def post_dissect(self, s):
+        if self.underlayer.getfieldval("fcf_security"):
+            if self.aux_sec_header.sec_sc_seclevel in {1, 5}:
+                mic_length = 4
+            elif self.aux_sec_header.sec_sc_seclevel in {2, 6}:
+                mic_length = 8
+            elif self.aux_sec_header.sec_sc_seclevel in {3, 7}:
+                mic_length = 16
+            else:
+                mic_length = 0
+            self.sec_payload = bytes(self.aux_sec_header.payload)
+            self.aux_sec_header.remove_payload()
+            if mic_length > 0 and mic_length <= len(self.sec_payload):
+                self.mic = self.sec_payload[-mic_length:]
+                self.sec_payload = self.sec_payload[:-mic_length]
+        return s
 
     def guess_payload_class(self, payload):
         # TODO: See how it's done in wireshark:
@@ -268,7 +296,7 @@ class Dot15d4Beacon(Packet):
         dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"),
         # Security field present if fcf_security == True
         ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security")),  # noqa: E501
 
         # Superframe spec field:
         BitField("sf_sforder", 15, 4),  # not used by ZigBee
@@ -303,11 +331,136 @@ class Dot15d4Beacon(Packet):
         FieldListField("pa_long_addresses", [],
                        dot15d4AddressField("", 0, adjust=lambda pkt, x: 8),
                        count_from=lambda pkt: pkt.pa_num_long),
-        # TODO beacon payload
+        # Secured Payload (variable length)
+        ConditionalField(
+            XStrField("sec_payload", ""),
+            lambda pkt:pkt.underlayer.getfieldval("fcf_security"),
+        ),
+        # Message Integrity Code (variable length)
+        ConditionalField(
+            XStrField("mic", ""),
+            lambda pkt:pkt.underlayer.getfieldval("fcf_security"),
+        ),
     ]
+
+    def post_dissect(self, s):
+        if self.underlayer.getfieldval("fcf_security"):
+            if self.aux_sec_header.sec_sc_seclevel in {1, 5}:
+                mic_length = 4
+            elif self.aux_sec_header.sec_sc_seclevel in {2, 6}:
+                mic_length = 8
+            elif self.aux_sec_header.sec_sc_seclevel in {3, 7}:
+                mic_length = 16
+            else:
+                mic_length = 0
+            self.sec_payload = bytes(self.aux_sec_header.payload)
+            self.aux_sec_header.remove_payload()
+            if mic_length > 0 and mic_length <= len(self.sec_payload):
+                self.mic = self.sec_payload[-mic_length:]
+                self.sec_payload = self.sec_payload[:-mic_length]
+            i = 0
+            if len(self.sec_payload) > i:
+                if isinstance(self.sec_payload[i], str):
+                    tmp_val = struct.unpack(">B", self.sec_payload[i])[0]
+                else:
+                    tmp_val = self.sec_payload[i]
+                self.sf_sforder = (tmp_val >> 4) & 0b1111
+                self.sf_beaconorder = tmp_val & 0b1111
+                i += 1
+            if len(self.sec_payload) > i:
+                if isinstance(self.sec_payload[i], str):
+                    tmp_val = struct.unpack(">B", self.sec_payload[i])[0]
+                else:
+                    tmp_val = self.sec_payload[i]
+                self.sf_assocpermit = (tmp_val >> 7) & 0b1
+                self.sf_pancoord = (tmp_val >> 6) & 0b1
+                self.sf_reserved = (tmp_val >> 5) & 0b1
+                self.sf_battlifeextend = (tmp_val >> 4) & 0b1
+                self.sf_finalcapslot = tmp_val & 0b1111
+                i += 1
+            if len(self.sec_payload) > i:
+                if isinstance(self.sec_payload[i], str):
+                    tmp_val = struct.unpack(">B", self.sec_payload[i])[0]
+                else:
+                    tmp_val = self.sec_payload[i]
+                self.gts_spec_permit = (tmp_val >> 7) & 0b1
+                self.gts_spec_reserved = (tmp_val >> 3) & 0b1111
+                self.gts_spec_desccount = tmp_val & 0b111
+                i += 1
+                if self.gts_spec_desccount != 0 and len(self.sec_payload) > i:
+                    if isinstance(self.sec_payload[i], str):
+                        tmp_val = struct.unpack(">B", self.sec_payload[i])[0]
+                    else:
+                        tmp_val = self.sec_payload[i]
+                    self.gts_dir_reserved = (tmp_val >> 7) & 0b1
+                    self.gts_dir_mask = tmp_val & 0b1111111
+                    i += 1
+                    # TODO: Update the GTS List field
+            if len(self.sec_payload) > i:
+                if isinstance(self.sec_payload[i], str):
+                    tmp_val = struct.unpack(">B", self.sec_payload[i])[0]
+                else:
+                    tmp_val = self.sec_payload[i]
+                self.pa_reserved_1 = (tmp_val >> 7) & 0b1
+                self.pa_num_long = (tmp_val >> 4) & 0b111
+                self.pa_reserved_2 = (tmp_val >> 3) & 0b1
+                self.pa_num_short = tmp_val & 0b111
+                i += 1
+            for _ in range(self.pa_num_short):
+                if len(self.sec_payload) > i + 1:
+                    if isinstance(self.sec_payload[i], str):
+                        tmp_val = (
+                            struct.unpack("<H", self.sec_payload[i:i + 2])[0]
+                        )
+                    else:
+                        tmp_val = (
+                            self.sec_payload[i] +
+                            (self.sec_payload[i + 1] << 8)
+                        )
+                    self.pa_short_addresses.append(tmp_val)
+                    i += 2
+            for _ in range(self.pa_num_long):
+                if len(self.sec_payload) > i + 7:
+                    if isinstance(self.sec_payload[i], str):
+                        tmp_val = (
+                            struct.unpack("<Q", self.sec_payload[i:i + 8])[0]
+                        )
+                    else:
+                        tmp_val = (
+                            self.sec_payload[i] +
+                            (self.sec_payload[i + 1] << 8) +
+                            (self.sec_payload[i + 2] << 16) +
+                            (self.sec_payload[i + 3] << 24) +
+                            (self.sec_payload[i + 4] << 32) +
+                            (self.sec_payload[i + 5] << 40) +
+                            (self.sec_payload[i + 6] << 48) +
+                            (self.sec_payload[i + 7] << 56)
+                        )
+                    self.pa_long_addresses.append(tmp_val)
+                    i += 8
+            self.sec_payload = self.sec_payload[i:]
+        return s
 
     def mysummary(self):
         return self.sprintf("802.15.4 Beacon ( %Dot15d4Beacon.src_panid%:%Dot15d4Beacon.src_addr% ) assocPermit(%Dot15d4Beacon.sf_assocpermit%) panCoord(%Dot15d4Beacon.sf_pancoord%)")  # noqa: E501
+
+    def guess_payload_class(self, payload):
+        from scapy.layers.sixlowpan import ThreadBeacon
+        from scapy.layers.zigbee import ZigBeeBeacon
+        if len(payload) > 0:
+            if (
+                (isinstance(payload[0], int) and payload[0] == 0x03) or
+                (isinstance(payload[0], bytes) and payload[0] == b'\x03')
+            ):
+                # https://gitlab.com/wireshark/wireshark/-/blob/5ecb57cb9026cebf0cfa4918c4a86942620c5ecf/epan/dissectors/packet-thread.c#L2223-2225  # noqa: E501
+                return ThreadBeacon
+            elif (
+                (isinstance(payload[0], int) and payload[0] == 0x00) or
+                (isinstance(payload[0], bytes) and payload[0] == b'\x00')
+            ):
+                # https://gitlab.com/wireshark/wireshark/-/blob/5ecb57cb9026cebf0cfa4918c4a86942620c5ecf/epan/dissectors/packet-zbee-nwk.c#L1507-1509  # noqa: E501
+                return ZigBeeBeacon
+        return Packet.guess_payload_class(self, payload)
 
 
 class Dot15d4Cmd(Packet):
@@ -323,7 +476,7 @@ class Dot15d4Cmd(Packet):
                          lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),  # noqa: E501
         # Security field present if fcf_security == True
         ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security")),  # noqa: E501
         ByteEnumField("cmd_id", 0, {
             1: "AssocReq",  # Association request
             2: "AssocResp",  # Association response
@@ -336,8 +489,40 @@ class Dot15d4Cmd(Packet):
             9: "GTSReq"  # GTS request
             # 0x0a - 0xff reserved
         }),
-        # TODO command payload
+        # Secured Payload (variable length)
+        ConditionalField(
+            XStrField("sec_payload", ""),
+            lambda pkt: pkt.underlayer.getfieldval("fcf_security"),
+        ),
+        # Message Integrity Code (variable length)
+        ConditionalField(
+            XStrField("mic", ""),
+            lambda pkt: pkt.underlayer.getfieldval("fcf_security"),
+        ),
     ]
+
+    def post_dissect(self, s):
+        if self.underlayer.getfieldval("fcf_security"):
+            if self.aux_sec_header.sec_sc_seclevel in {1, 5}:
+                mic_length = 4
+            elif self.aux_sec_header.sec_sc_seclevel in {2, 6}:
+                mic_length = 8
+            elif self.aux_sec_header.sec_sc_seclevel in {3, 7}:
+                mic_length = 16
+            else:
+                mic_length = 0
+            self.sec_payload = bytes(self.aux_sec_header.payload)
+            self.aux_sec_header.remove_payload()
+            if mic_length > 0 and mic_length <= len(self.sec_payload):
+                self.mic = self.sec_payload[-mic_length:]
+                self.sec_payload = self.sec_payload[:-mic_length]
+            if len(self.sec_payload) > 0:
+                if isinstance(self.sec_payload[0], str):
+                    self.cmd_id = struct.unpack(">B", self.sec_payload[0])[0]
+                else:
+                    self.cmd_id = self.sec_payload[0]
+                self.sec_payload = self.sec_payload[1:]
+        return s
 
     def mysummary(self):
         return self.sprintf("802.15.4 Command %Dot15d4Cmd.cmd_id% ( %Dot15dCmd.src_panid%:%Dot15d4Cmd.src_addr% -> %Dot15d4Cmd.dest_panid%:%Dot15d4Cmd.dest_addr% )")  # noqa: E501
