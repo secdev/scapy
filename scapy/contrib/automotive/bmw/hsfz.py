@@ -11,12 +11,12 @@ import struct
 import socket
 import time
 
-from scapy.compat import Optional, Tuple, Type
+from scapy.compat import Optional, Tuple, Type, Iterable, List, Union
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import IntField, ShortEnumField, XByteField
 from scapy.layers.inet import TCP
 from scapy.supersocket import StreamSocket
-from scapy.contrib.automotive.uds import UDS
+from scapy.contrib.automotive.uds import UDS, UDS_TP
 from scapy.data import MTU
 from scapy.error import log_interactive
 
@@ -120,3 +120,40 @@ class UDS_HSFZSocket(HSFZSocket):
             return self.outputcls(bytes(pkt.payload))
         else:
             return pkt
+
+
+def hsfz_scan(ip,  # type: str
+              scan_range=range(0x100),  # type: Iterable[int]
+              src=0xf4,  # type: int
+              timeout=0.1,  # type: Union[int, float]
+              verbose=True  # type: bool
+              ):
+    # type: (...) -> List[UDS_HSFZSocket]
+    """
+    Helper function to scan for HSFZ endpoints.
+
+    Example:
+        >>> sockets = hsfz_scan("192.168.0.42")
+
+    :param ip: IPv4 address of target to scan
+    :param scan_range: Range for HSFZ destination address
+    :param src: HSFZ source address, used during the scan
+    :param timeout: Timeout for each request
+    :param verbose: Show information during scan, if True
+    :return: A list of open UDS_HSFZSockets
+    """
+    results = list()
+    for i in scan_range:
+        with UDS_HSFZSocket(src, i, ip) as sock:
+            try:
+                resp = sock.sr1(UDS() / UDS_TP(),
+                                timeout=timeout,
+                                verbose=False)
+                if resp:
+                    results.append((i, resp))
+                if resp and verbose:
+                    print(
+                        "Found endpoint %s, src=0x%x, dst=0x%x" % (ip, src, i))
+            except Exception as e:
+                print("Error %s at destination address 0x%x" % (e, i))
+    return [UDS_HSFZSocket(0xf4, dst, ip) for dst, _ in results]
