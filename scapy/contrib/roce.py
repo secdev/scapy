@@ -9,7 +9,7 @@
 """
 RoCE: RDMA over Converged Ethernet
 """
-
+from scapy.layers.inet6 import IPv6
 from scapy.packet import Packet, bind_layers, Raw
 from scapy.fields import ByteEnumField, ByteField, XByteField, \
     ShortField, XShortField, XLongField, BitField, XBitField, FCSField
@@ -157,30 +157,37 @@ class BTH(Packet):
             warning("Expecting UDP underlayer to compute checksum. Got %s.",
                     udp and udp.name)
             return self.pack_icrc(0)
+
         ip = udp.underlayer
-        if isinstance(ip, IP):
-            # pseudo-LRH / IP / UDP / BTH / payload
-            pshdr = Raw(b'\xff' * 8) / ip.copy()
+        # pseudo-LRH / IP / UDP / BTH / payload
+        pshdr = Raw(b'\xff' * 8) / ip.copy()
+        if isinstance(ip, IP):  # IPv4
             pshdr.chksum = 0xffff
             pshdr.ttl = 0xff
             pshdr.tos = 0xff
-            pshdr[UDP].chksum = 0xffff
-            pshdr[BTH].fecn = 1
-            pshdr[BTH].becn = 1
-            pshdr[BTH].resv6 = 0xff
-            bth = pshdr[BTH].self_build()
-            payload = raw(pshdr[BTH].payload)
-            # add ICRC placeholder just to get the right IP.totlen and
-            # UDP.length
-            icrc_placeholder = b'\xff\xff\xff\xff'
-            pshdr[UDP].payload = Raw(bth + payload + icrc_placeholder)
-            icrc = crc32(raw(pshdr)[:-4]) & 0xffffffff
-            return self.pack_icrc(icrc)
+
+        elif isinstance(ip, IPv6):  # IPv6
+            pshdr.fl = 0xfffff
+            pshdr.tc = 0xff
+            pshdr.hlim = 0xff
+
         else:
-            # TODO support IPv6
-            warning("The underlayer protocol %s is not supported.",
-                    ip and ip.name)
-            return self.pack_icrc(0)
+            logger.warning(f"The underlayer protocol {ip and ip.name} is not supported.")
+            return struct.pack("!I", 0 & 0xffffffff)[::-1]
+
+        pshdr[UDP].chksum = 0xffff
+        pshdr[BTH].fecn = 1
+        pshdr[BTH].becn = 1
+        pshdr[BTH].resv6 = 0xff
+        bth = pshdr[BTH].self_build()
+        payload = raw(pshdr[BTH].payload)
+
+        # add ICRC placeholder just to get the right IP.totlen and
+        # UDP.length
+        icrc_placeholder = b'\xff\xff\xff\xff'
+        pshdr[UDP].payload = Raw(bth + payload + icrc_placeholder)
+        icrc = crc32(raw(pshdr)[:-4]) & 0xffffffff
+        return self.pack_icrc(icrc)
 
     # RoCE packets end with ICRC - a 32-bit CRC of the packet payload and
     # pseudo-header. Add the ICRC header if it is missing and calculate its
