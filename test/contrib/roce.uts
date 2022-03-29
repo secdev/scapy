@@ -76,6 +76,7 @@ assert pkt.opcode == CNP_OPCODE
 del pkt.icrc
 pkt = Ether(pkt.build())
 assert pkt.icrc == 0x82fd002a
+assert int(pkt[BTH].compute_icrc(pkt).hex(), 16) == pkt.icrc
 
 = RoCE v1 RC RDMA WRITE ONLY
 
@@ -124,3 +125,29 @@ assert not pkt[BTH].ackreq
 assert pkt[AETH].syndrome == 0
 assert pkt[AETH].msn == 5
 assert pkt.icrc == 0x25f0c038
+
+= RoCE v2 RC ACKNOWLEDGE
+
+pkt = Ether(import_hexcap('''\
+0000   98 03 9b 99 51 3e 98 03 9b 99 51 42 81 00 60 00
+0010   86 dd 60 e0 00 00 00 1c 11 80 20 00 00 11 02 37
+0020   00 00 9a 03 9b ff fe 99 51 42 20 00 00 11 02 37
+0030   00 00 9a 03 9b ff fe 99 51 3e c1 a2 12 b7 00 1c
+0040   00 00 11 40 ff ff 00 00 0b af 00 08 0c 7b 00 00
+0050   00 01 84 06 28 9a
+'''))
+
+assert BTH in pkt.layers()
+assert AETH in pkt.layers()
+assert pkt[IPv6].version == 6
+assert pkt[IPv6].tc == 14
+assert pkt[IPv6].fl == 0
+assert pkt[IPv6].plen == 28
+assert pkt[BTH].opcode == 0x11
+assert pkt[BTH].padcount == 0
+assert pkt[BTH].dqpn == 0x000baf
+assert not pkt[BTH].ackreq
+assert pkt[AETH].syndrome == 0
+assert pkt[AETH].msn == 1
+assert pkt.icrc == 0x8406289a
+assert int(pkt[BTH].compute_icrc(pkt).hex(), 16) == pkt.icrc
