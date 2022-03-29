@@ -407,6 +407,8 @@ except Scapy_Exception:
 assert ex
 
 = Fragment exception
+~ not_pypy
+
 ex = False
 try:
     fragments = ISOTP(b"a" * (1 << 32)).fragment()
