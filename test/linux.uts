@@ -12,11 +12,10 @@
 ~ netaccess IP TCP linux needs_root
 
 old_l3socket = conf.L3socket
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = False
 conf.L3socket = L3RawSocket
-x = sr1(IP(dst="www.google.com")/TCP(sport=RandShort(), dport=80, flags="S"),timeout=3)
-conf.debug_dissector = old_debug_dissector
+with no_debug_dissector():
+    x = sr1(IP(dst="www.google.com")/TCP(sport=RandShort(), dport=80, flags="S"),timeout=3)
+
 conf.L3socket = old_l3socket
 x
 assert x[IP].ottl() in [32, 64, 128, 255]

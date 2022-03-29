@@ -44,14 +44,18 @@ assert len(conf.nmap_kdb.get_base()) > 100
 
 = fingerprint test: www.secdev.org
 ~ netaccess needs_root
-score, fprint = nmap_fp('www.secdev.org')
+with no_debug_dissector():
+    score, fprint = nmap_fp('www.secdev.org')
+
 print(score, fprint)
 assert score > 0.5
 assert fprint
 
 = fingerprint test: gateway
 ~ netaccess needs_root
-score, fprint = nmap_fp(conf.route.route('0.0.0.0')[2])
+with no_debug_dissector():
+    score, fprint = nmap_fp(conf.route.route('0.0.0.0')[2])
+
 print(score, fprint)
 assert score > 0.5
 assert fprint
@@ -61,7 +65,9 @@ assert fprint
 
 import re as re_
 
-a = nmap_sig("www.secdev.org", 80, 81)
+with no_debug_dissector():
+    a = nmap_sig("www.secdev.org", 80, 81)
+
 a
 for x in nmap_sig2txt(a).split("\n"):
     assert re_.match(r"\w{2,4}\(.*\)", x)
@@ -69,7 +75,9 @@ for x in nmap_sig2txt(a).split("\n"):
 = nmap_udppacket_sig test: www.google.com
 ~ netaccess needs_root
 
-a = nmap_sig("www.google.com", ucport=80)
+with no_debug_dissector():
+    a = nmap_sig("www.google.com", ucport=80)
+
 assert len(a) > 3
 assert len(a["PU"]) > 0
 

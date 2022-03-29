@@ -1365,10 +1365,8 @@ assert ssid == "ROUTE-821E295"
 = Sending and receiving an ICMP
 ~ netaccess needs_root IP ICMP icmp_firewall
 def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+    	x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
     x
     assert x[IP].ottl() in [32, 64, 128, 255]
     assert 0 <= x[IP].hops() <= 126
@@ -1451,14 +1449,12 @@ retry_test(_test)
 from functools import partial
 # flooding methods do not support timeout. Packing the test for security
 def _test_flood(ip, flood_function, add_ether=False):
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    p = IP(dst=ip)/TCP(sport=RandShort(), dport=80, flags="S")
-    if add_ether:
-        p = Ether()/p
-    p.show2()
-    x = flood_function(p, timeout=0.5, maxretries=10)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+        p = IP(dst=ip)/TCP(sport=RandShort(), dport=80, flags="S")
+        if add_ether:
+            p = Ether()/p
+        p.show2()
+        x = flood_function(p, timeout=0.5, maxretries=10)
     if type(x) == tuple:
         x = x[0][0][1]
     x
@@ -1495,10 +1491,8 @@ finally:
 = Sending and receiving an ICMPv6EchoRequest
 ~ netaccess ipv6
 def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+        x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
     x
     assert x[IPv6].ottl() in [32, 64, 128, 255]
     assert 0 <= x[IPv6].hops() <= 126
@@ -1630,10 +1624,8 @@ assert a.sent_time is None
 = Port scan
 ~ netaccess needs_root IP TCP
 def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]), timeout=2)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+        ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]), timeout=2)
     
     # Backward compatibility: Python 2 only
     if six.PY2:
@@ -1649,13 +1641,11 @@ retry_test(_test)
 def _test():
     old_debug_match = conf.debug_match
     conf.debug_match = True
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans, unans = sr(IP(dst="www.google.fr") / TCP(sport=RandShort(), dport=80, flags="S"), timeout=2)
-    assert ans[0].query == ans[0][0]
-    assert ans[0].answer == ans[0][1]
+    with no_debug_dissector():
+        ans, unans = sr(IP(dst="www.google.fr") / TCP(sport=RandShort(), dport=80, flags="S"), timeout=2)
+        assert ans[0].query == ans[0][0]
+        assert ans[0].answer == ans[0][1]
     conf.debug_match = old_debug_match
-    conf.debug_dissector = old_debug_dissector
     assert ans and not unans
 
 retry_test(_test)
@@ -1663,10 +1653,8 @@ retry_test(_test)
 = Send & receive with retry
 ~ netaccess needs_root IP ICMP
 def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / TCP(sport=RandShort(), dport=53, flags="S"), timeout=2, retry=1)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+        ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / TCP(sport=RandShort(), dport=53, flags="S"), timeout=2, retry=1)
     assert len(ans) == 1 and len(unans) == 1
 
 retry_test(_test)
@@ -1674,10 +1662,8 @@ retry_test(_test)
 = Send & receive with multi
 ~ netaccess needs_root IP ICMP
 def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / TCP(sport=RandShort(), dport=53, flags="S"), timeout=2, multi=1)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+        ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / TCP(sport=RandShort(), dport=53, flags="S"), timeout=2, multi=1)
     assert len(ans) >= 1 and len(unans) == 1
 
 retry_test(_test)

@@ -93,6 +93,17 @@ def scapy_path(fname):
         os.path.dirname(__file__), '../../', fname
     ))
 
+
+class no_debug_dissector:
+    """Context object used to disable conf.debug_dissector"""
+    def __enter__(self):
+        self.old_dbg = conf.debug_dissector
+        conf.debug_dissector = False
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        conf.debug_dissector = self.old_dbg
+
+
 #    Import tool    #
 
 
@@ -570,6 +581,7 @@ def import_UTscapy_tools(ses):
     ses["Bunch"] = Bunch
     ses["retry_test"] = retry_test
     ses["scapy_path"] = scapy_path
+    ses["no_debug_dissector"] = no_debug_dissector
     if WINDOWS:
         from scapy.arch.windows import _route_add_loopback
         _route_add_loopback()
