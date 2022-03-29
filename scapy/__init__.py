@@ -29,7 +29,7 @@ def _parse_tag(tag):
     match = re.match('^v?(.+?)-(\\d+)-g[a-f0-9]+$', tag)
     if match:
         # remove the 'v' prefix and add a '.devN' suffix
-        return '%s.dev%s' % (match.group(1), match.group(2))
+        return '%s.dev%s' % (match.group(1), match.group(2).strip("0"))
     else:
         # just remove the 'v' prefix
         return re.sub('^v', '', tag)
@@ -81,7 +81,7 @@ def _version_from_git_describe():
     if not tag.startswith("v"):
         # Upstream was not fetched
         commit = _git("git rev-list --tags --max-count=1")
-        tag = _git("git describe --tags --always --long %s" % commit)
+        tag = _git("git describe --tags --always --long --exact-match %s" % commit)
     return _parse_tag(tag)
 
 
