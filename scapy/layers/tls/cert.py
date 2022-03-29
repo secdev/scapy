@@ -445,7 +445,7 @@ class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
 
     def resignCert(self, cert):
         """ Rewrite the signature of either a Cert or an X509_Cert. """
-        return self.signTBSCert(cert.tbsCertificate)
+        return self.signTBSCert(cert.tbsCertificate, h=None)
 
     def verifyCert(self, cert):
         """ Verifies either a Cert or an X509_Cert. """
