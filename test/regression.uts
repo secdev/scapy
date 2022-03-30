@@ -45,7 +45,6 @@ assert not _version_checker(FakeModule2, (5, 143, 4))
 assert _version_checker(FakeModule3, (2, 4, 2))
 
 = Check Scapy version
-~ disabled
 
 import scapy
 from scapy import _parse_tag, _version_from_git_describe
