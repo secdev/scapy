@@ -53,7 +53,6 @@ class GitModuleScapy(object):
     __version__ = _version_from_git_describe()
 
 assert _parse_tag("v2.3.2-346-g164a52c075c8") == '2.3.2.dev346'
-assert _version_checker(GitModuleScapy, (2, 4, 5))
 
 = List layers
 ~ conf command
