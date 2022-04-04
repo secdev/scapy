@@ -172,7 +172,8 @@ class BTH(Packet):
             pshdr.hlim = 0xff
 
         else:
-            logger.warning(f"The underlayer protocol {ip and ip.name} is not supported.")
+            warning(f"The underlayer protocol %s is not supported.",
+                    ip and ip.name)
             return struct.pack("!I", 0 & 0xffffffff)[::-1]
 
         pshdr[UDP].chksum = 0xffff
