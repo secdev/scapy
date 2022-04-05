@@ -2363,6 +2363,53 @@ with mock.patch("scapy.utils.warning") as warning:
     os.remove(filename)
     assert any("Inconsistent" in arg for arg in warning.call_args[0])
 
+############
+############
++ ERF Ethernet format support 
+
+= Variable creations
+erffile = BytesIO(b'3;!E_9\x92_\x02\x04\x00p\x00\x00\x00P\x00\x00\x00\x0fS?\xca\xc0\x1cjz\x18\x90\xed\x81\x00\x01:\x08\x00E\x00\x00(\xdf\xab@\x00;\x06\xb3s\n\x01]\xdb\n\xfb9\xda\xc3v\x84\xecD\x16\xb9\xab\xda\xa1b\xf9P\x10f\x98\x18\xcb\x00\x00\x00\x00\x90\x9e\xd7\xd2_\x929_\x0f\x9e\xcd\x1f\x01\x88\xb9\x15[/s<\x01\x88\xb9\x15[/\xcd\x1f\x01\x88\xb9\x15[/0\xcd"E_9\x92_\x02\x04\x00p\x00\x00\x00P\x00\x00\x1cjz\x18\x90\xed\x00\x0fS?\xca\xc0\x08\x00E\x00\x00(\xa2\xdd@\x00@\x06\xebA\n\xfb9\xda\n\x01]\xdb\x84\xec\xc3v\xda\xa1b\xf9D\x16\xb9\xacP\x10\x9a\xf0\xe4q\x00\x00\x00\x00\x00\x00\x00\x00o\xbc\xe2{_\x929_\x0f\x9f+3\x01\x88\xb9\x15u\x1e(^\x01\x88\xb9\x15u\x1e+3\x01\x88\xb9\x15u\x1e')
+erffilewithheader = BytesIO(b'4;!E_9\x92_\x82\x00\x00x\x00\x00\x00P\x00\x00\x1a+<M^o\x00\x00\x00\x0fS?\xca\xc0\x1cjz\x18\x90\xed\x81\x00\x01:\x08\x00E\x00\x00(\xdf\xab@\x00;\x06\xb3s\n\x01]\xdb\n\xfb9\xda\xc3v\x84\xecD\x16\xb9\xab\xda\xa1b\xf9P\x10f\x98\x18\xcb\x00\x00\x00\x00\x90\x9e\xd7\xd2_\x929_\x0f\x9e\xcd\x1f\x01\x88\xb9\x15[/s<\x01\x88\xb9\x15[/\xcd\x1f\x01\x88\xb9\x15[/0\xcd"E_9\x92_\x82\x00\x00x\x00\x00\x00P\x00\x00\x1a+<M^o\x00\x00\x1cjz\x18\x90\xed\x00\x0fS?\xca\xc0\x08\x00E\x00\x00(\xa2\xdd@\x00@\x06\xebA\n\xfb9\xda\n\x01]\xdb\x84\xec\xc3v\xda\xa1b\xf9D\x16\xb9\xacP\x10\x9a\xf0\xe4q\x00\x00\x00\x00\x00\x00\x00\x00o\xbc\xe2{_\x929_\x0f\x9f+3\x01\x88\xb9\x15u\x1e(^\x01\x88\xb9\x15u\x1e+3\x01\x88\xb9\x15u\x1e')
+
+= Check reading of ERF Ethernet file
+pkterf = rderf(erffile)
+assert pkterf[0].time == 1603418463.270038318
+assert pkterf[0][IP].src == "10.1.93.219"
+assert pkterf[0][IP].dst == "10.251.57.218"
+assert pkterf[0][Ether].src == "1c:6a:7a:18:90:ed"
+assert pkterf[0][Ether].dst == "00:0f:53:3f:ca:c0"
+
+= Check writing of ERF Ethernet file
+import os, tempfile
+fdesc, filename = tempfile.mkstemp()
+fdesc = os.fdopen(fdesc, "wb")
+wrerf(fdesc, pkterf)
+fdesc.close()
+newpkterf = rderf(filename)
+
+assert pkterf[1][Ether].src == newpkterf[1][Ether].src
+
+assert len(pkterf) == len(newpkterf)
+assert newpkterf[0].time is not None
+assert newpkterf[0].wirelen is not None
+assert newpkterf[0].time == pkterf[0].time
+assert newpkterf[0].wirelen == pkterf[0].wirelen
+assert newpkterf[1].time is not None
+assert newpkterf[1].wirelen is not None
+assert newpkterf[1].time == pkterf[1].time
+assert newpkterf[1].wirelen == pkterf[1].wirelen
+
+_, filename = tempfile.mkstemp()
+wrerf(filename, pkterf, append=True)
+wrerf(filename, pkterf, append=True)
+newdoublepkterf = rderf(filename)
+
+assert len(newpkterf) * 2 == len(newdoublepkterf)
+
+= Check rderf
+pkterf = rderf(erffilewithheader)
+assert pkterf[1].time == 1603418463.270062279
+assert pkterf[1][Ether].src == "00:0f:53:3f:ca:c0"
 
 ############
 ############
