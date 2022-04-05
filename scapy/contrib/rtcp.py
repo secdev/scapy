@@ -15,7 +15,7 @@ Use bind_layers(UDP, RTCP, dport=...) to start using it
 
 import struct
 
-from scapy.packet import Packet
+from scapy.packet import Packet, bind_layers
 from scapy.fields import (
     BitField,
     BitFieldLenField,
@@ -30,6 +30,7 @@ from scapy.fields import (
     PacketListField,
     StrLenField,
     X3BytesField,
+    PadField
 )
 
 
@@ -51,6 +52,9 @@ class SenderInfo(Packet):
         IntField('sender_octet_count', None)
     ]
 
+    def extract_padding(self, p):
+        return "", p
+
 
 class ReceptionReport(Packet):
     name = "Reception report"
@@ -63,6 +67,9 @@ class ReceptionReport(Packet):
         IntField('last_SR_timestamp', None),
         IntField('delay_since_last_SR', None)
     ]
+
+    def extract_padding(self, p):
+        return "", p
 
 
 _sdes_chunk_types = {
@@ -87,15 +94,25 @@ class SDESItem(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return "", p.lstrip(b"\x00") if self.chunk_type == 0 else p
 
 
 class SDESChunk(Packet):
     name = "SDES chunk"
     fields_desc = [
         IntField('sourcesync', None),
-        PacketListField('items', None, pkt_cls=SDESItem)
+        PacketListField(
+            'items',
+            None,
+            pkt_cls=SDESItem,
+            next_cls_cb=lambda pkt, lst, cur, remain:
+                None if cur and cur.chunk_type == 0
+                else SDESItem
+        )
     ]
+
+    def extract_padding(self, p):
+        return "", p
 
 
 class RTCP(Packet):
@@ -105,7 +122,7 @@ class RTCP(Packet):
         # HEADER
         BitField('version', 2, 2),
         BitField('padding', 0, 1),
-        BitFieldLenField('count', 0, 5, count_of='report_blocks'),
+        BitFieldLenField('count', 0, 5),
         ByteEnumField('packet_type', 0, _rtcp_packet_types),
         LenField('length', None, fmt='!h'),
         # SR/RR
@@ -135,3 +152,6 @@ class RTCP(Packet):
         if self.length is None:
             pkt = pkt[:2] + struct.pack("!h", len(pkt) // 4 - 1) + pkt[4:]
         return pkt
+
+
+bind_layers(RTCP, RTCP)
