@@ -220,7 +220,7 @@ class GTP_ExtensionHeader(Packet):
 
 
 class GTP_UDPPort_ExtensionHeader(GTP_ExtensionHeader):
-    fields_desc = [ByteField("length", 0x40),
+    fields_desc = [ByteField("length", 0x01),
                    ShortField("udp_port", None),
                    ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
 
