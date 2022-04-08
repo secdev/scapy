@@ -158,7 +158,7 @@ def scan(sock,  # type: SuperSocket
          noise_ids=None,  # type: Optional[List[int]]
          sniff_time=0.1,  # type: float
          extended_can_id=False,  # type: bool
-         verify_results=True, # type: bool
+         verify_results=True,  # type: bool
          verbose=False  # type: bool
          ):  # type: (...) -> Dict[int, Tuple[Packet, int]]
     """Scan and return dictionary of detections
