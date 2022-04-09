@@ -28,7 +28,7 @@ if [ "$OSTYPE" = "linux-gnu" ] || [ "$TRAVIS_OS_NAME" = "linux" ]
 then
   sudo apt-get update
   sudo apt-get -qy install tshark net-tools || exit 1
-  sudo apt-get -qy install can-utils build-essential linux-headers-$(uname -r) linux-modules-extra-$(uname -r) || exit 1
+  sudo apt-get -qy install can-utils || exit 1
 
   # Make sure libpcap is installed
   if [ ! -z $SCAPY_USE_LIBPCAP ]
