@@ -158,6 +158,7 @@ def scan(sock,  # type: SuperSocket
          noise_ids=None,  # type: Optional[List[int]]
          sniff_time=0.1,  # type: float
          extended_can_id=False,  # type: bool
+         verify_results=True,  # type: bool
          verbose=False  # type: bool
          ):  # type: (...) -> Dict[int, Tuple[Packet, int]]
     """Scan and return dictionary of detections
@@ -172,6 +173,8 @@ def scan(sock,  # type: SuperSocket
     :param sniff_time: time the scan waits for isotp flow control responses
                        after sending a first frame
     :param extended_can_id: Send extended can frames
+    :param verify_results: Verify scan results. This will cause a second scan
+                           of all possible candidates for ISOTP Sockets
     :param verbose: displays information during scan
     :return: Dictionary with all found packets
     """
@@ -184,6 +187,9 @@ def scan(sock,  # type: SuperSocket
                                                 noise_ids, False, pkt,
                                                 verbose),
                    timeout=sniff_time, store=False)
+
+    if not verify_results:
+        return return_values
 
     cleaned_ret_val = dict()  # type: Dict[int, Tuple[Packet, int]]
     for tested_id in return_values.keys():
@@ -270,6 +276,7 @@ def isotp_scan(sock,  # type: SuperSocket
                output_format=None,  # type: Optional[str]
                can_interface=None,  # type: Optional[str]
                extended_can_id=False,  # type: bool
+               verify_results=True,  # type: bool
                verbose=False  # type: bool
                ):
     # type: (...) -> Union[str, List[SuperSocket]]
@@ -296,6 +303,8 @@ def isotp_scan(sock,  # type: SuperSocket
                           "text". Default is "socket".
     :param can_interface: interface used to create the returned code/sockets
     :param extended_can_id: Use Extended CAN-Frames
+    :param verify_results: Verify scan results. This will cause a second scan
+                           of all possible candidates for ISOTP Sockets
     :param verbose: displays information during scan
     :return:
     """
@@ -325,6 +334,7 @@ def isotp_scan(sock,  # type: SuperSocket
                              noise_ids=noise_ids,
                              sniff_time=sniff_time,
                              extended_can_id=extended_can_id,
+                             verify_results=verify_results,
                              verbose=verbose)
 
     filter_periodic_packets(found_packets, verbose)
