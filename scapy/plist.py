@@ -12,6 +12,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os
 from collections import defaultdict
+from typing import TYPE_CHECKING
 
 from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
@@ -24,8 +25,6 @@ from scapy.base_classes import (
 )
 from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
     make_tex_table, issubtype
-from scapy.extlib import plt, Line2D, \
-    MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
 import scapy.libs.six as six
 
@@ -47,6 +46,8 @@ from scapy.compat import (
 )
 from scapy.packet import Packet
 
+if TYPE_CHECKING:
+    from extlib_matplotlib import Line2D
 
 #############
 #  Results  #
@@ -289,6 +290,13 @@ class _PacketList(Generic[_Inner]):
 
         lfilter: a truth function that decides whether a packet must be plotted
         """
+        # Defer imports of matplotlib until its needed
+        # because it has a heavy dep chain
+        from scapy.extlib_matplotlib import (
+            plt,
+            MATPLOTLIB_INLINED,
+            MATPLOTLIB_DEFAULT_PLOT_KARGS
+        )
 
         # Python 2 backward compatibility
         f = lambda_tuple_converter(f)
@@ -327,6 +335,13 @@ class _PacketList(Generic[_Inner]):
 
         A list of matplotlib.lines.Line2D is returned.
         """
+        # Defer imports of matplotlib until its needed
+        # because it has a heavy dep chain
+        from scapy.extlib_matplotlib import (
+            plt,
+            MATPLOTLIB_INLINED,
+            MATPLOTLIB_DEFAULT_PLOT_KARGS
+        )
 
         # Get the list of packets
         if lfilter is None:
@@ -360,6 +375,13 @@ class _PacketList(Generic[_Inner]):
 
         A list of matplotlib.lines.Line2D is returned.
         """
+        # Defer imports of matplotlib until its needed
+        # because it has a heavy dep chain
+        from scapy.extlib_matplotlib import (
+            plt,
+            MATPLOTLIB_INLINED,
+            MATPLOTLIB_DEFAULT_PLOT_KARGS
+        )
 
         # Python 2 backward compatibility
         f = lambda_tuple_converter(f)

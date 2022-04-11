@@ -27,8 +27,6 @@ from scapy.layers.l2 import Ether, Dot3, getmacbyip, CookedLinux, GRE, SNAP, \
     Loopback
 from scapy.compat import raw, chb, orb, bytes_encode, Optional
 from scapy.config import conf
-from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, \
-    MATPLOTLIB_DEFAULT_PLOT_KARGS
 from scapy.fields import (
     BitEnumField,
     BitField,
@@ -1282,6 +1280,13 @@ def defragment(plist):
 # Add timeskew_graph() method to PacketList
 def _packetlist_timeskew_graph(self, ip, **kargs):
     """Tries to graph the timeskew between the timestamps and real time for a given ip"""  # noqa: E501
+    # Defer imports of matplotlib until its needed
+    # because it has a heavy dep chain
+    from scapy.extlib_matplotlib import (
+        plt,
+        MATPLOTLIB_INLINED,
+        MATPLOTLIB_DEFAULT_PLOT_KARGS
+    )
 
     # Filter TCP segments which source address is 'ip'
     tmp = (self._elt2pkt(x) for x in self.res)
@@ -1534,6 +1539,8 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
 
         # Check that the geoip2 module can be imported
         # Doc: http://geoip2.readthedocs.io/en/latest/
+        from scapy.extlib_matplotlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED
+
         try:
             # GeoIP2 modules need to be imported as below
             import geoip2.database

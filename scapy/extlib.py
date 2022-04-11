@@ -16,34 +16,8 @@ from scapy.error import log_loading
 # logger has been setup, to be able to print the warning messages
 
 __all__ = [
-    "Line2D",
-    "MATPLOTLIB",
-    "MATPLOTLIB_DEFAULT_PLOT_KARGS",
-    "MATPLOTLIB_INLINED",
     "PYX",
-    "plt",
 ]
-
-# MATPLOTLIB
-
-try:
-    from matplotlib import get_backend as matplotlib_get_backend
-    from matplotlib import pyplot as plt
-    from matplotlib.lines import Line2D
-    MATPLOTLIB = 1
-    if "inline" in matplotlib_get_backend():
-        MATPLOTLIB_INLINED = 1
-    else:
-        MATPLOTLIB_INLINED = 0
-    MATPLOTLIB_DEFAULT_PLOT_KARGS = {"marker": "+"}
-# RuntimeError to catch gtk "Cannot open display" error
-except (ImportError, RuntimeError):
-    plt = None
-    Line2D = None
-    MATPLOTLIB = 0
-    MATPLOTLIB_INLINED = 0
-    MATPLOTLIB_DEFAULT_PLOT_KARGS = dict()
-    log_loading.info("Can't import matplotlib. Won't be able to plot.")
 
 # PYX
 
