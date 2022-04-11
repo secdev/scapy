@@ -494,7 +494,7 @@ class L2Socket(SuperSocket):
             if filter is not None:
                 try:
                     attach_filter(self.ins, filter, self.iface)
-                except ImportError as ex:
+                except (ImportError, Scapy_Exception) as ex:
                     log_runtime.error("Cannot set filter: %s", ex)
         if self.promisc:
             set_promisc(self.ins, self.iface)
