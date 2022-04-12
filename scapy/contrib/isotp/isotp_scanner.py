@@ -158,6 +158,7 @@ def scan(sock,  # type: SuperSocket
          noise_ids=None,  # type: Optional[List[int]]
          sniff_time=0.1,  # type: float
          extended_can_id=False,  # type: bool
+         verify_results=True,  # type: bool
          verbose=False  # type: bool
          ):  # type: (...) -> Dict[int, Tuple[Packet, int]]
     """Scan and return dictionary of detections
@@ -172,6 +173,8 @@ def scan(sock,  # type: SuperSocket
     :param sniff_time: time the scan waits for isotp flow control responses
                        after sending a first frame
     :param extended_can_id: Send extended can frames
+    :param verify_results: Verify scan results. This will cause a second scan
+                           of all possible candidates for ISOTP Sockets
     :param verbose: displays information during scan
     :return: Dictionary with all found packets
     """
@@ -179,24 +182,23 @@ def scan(sock,  # type: SuperSocket
     for value in scan_range:
         if noise_ids and value in noise_ids:
             continue
-
+        sock.send(get_isotp_packet(value, False, extended_can_id))
         sock.sniff(prn=lambda pkt: get_isotp_fc(value, return_values,
                                                 noise_ids, False, pkt,
                                                 verbose),
-                   timeout=sniff_time,
-                   started_callback=lambda: sock.send(
-                       get_isotp_packet(value, False, extended_can_id)))
+                   timeout=sniff_time, store=False)
+
+    if not verify_results:
+        return return_values
 
     cleaned_ret_val = dict()  # type: Dict[int, Tuple[Packet, int]]
-
     for tested_id in return_values.keys():
         for value in range(max(0, tested_id - 2), tested_id + 2, 1):
+            sock.send(get_isotp_packet(value, False, extended_can_id))
             sock.sniff(prn=lambda pkt: get_isotp_fc(value, cleaned_ret_val,
                                                     noise_ids, False, pkt,
                                                     verbose),
-                       timeout=sniff_time * 10,
-                       started_callback=lambda: sock.send(
-                           get_isotp_packet(value, False, extended_can_id)))
+                       timeout=sniff_time * 10, store=False)
 
     return cleaned_ret_val
 
@@ -240,12 +242,11 @@ def scan_extended(sock,  # type: SuperSocket
         id_list = []  # type: List[int]
         r = list(extended_scan_range)
         for ext_isotp_id in range(r[0], r[-1], scan_block_size):
+            send_multiple_ext(sock, ext_isotp_id, pkt, scan_block_size)
             sock.sniff(prn=lambda p: get_isotp_fc(ext_isotp_id, id_list,
                                                   noise_ids, True, p,
                                                   verbose),
-                       timeout=sniff_time * 3,
-                       started_callback=lambda: send_multiple_ext(
-                           sock, ext_isotp_id, pkt, scan_block_size))
+                       timeout=sniff_time * 3, store=False)
             # sleep to prevent flooding
             time.sleep(sniff_time)
 
@@ -256,12 +257,12 @@ def scan_extended(sock,  # type: SuperSocket
                                 min(ext_isotp_id + scan_block_size + 2, 256)):
                 pkt.extended_address = ext_id
                 full_id = (value << 8) + ext_id
+                sock.send(pkt)
                 sock.sniff(prn=lambda pkt: get_isotp_fc(full_id,
                                                         return_values,
                                                         noise_ids, True,
                                                         pkt, verbose),
-                           timeout=sniff_time * 2,
-                           started_callback=lambda: sock.send(pkt))
+                           timeout=sniff_time * 2, store=False)
 
     return return_values
 
@@ -275,6 +276,7 @@ def isotp_scan(sock,  # type: SuperSocket
                output_format=None,  # type: Optional[str]
                can_interface=None,  # type: Optional[str]
                extended_can_id=False,  # type: bool
+               verify_results=True,  # type: bool
                verbose=False  # type: bool
                ):
     # type: (...) -> Union[str, List[SuperSocket]]
@@ -301,6 +303,8 @@ def isotp_scan(sock,  # type: SuperSocket
                           "text". Default is "socket".
     :param can_interface: interface used to create the returned code/sockets
     :param extended_can_id: Use Extended CAN-Frames
+    :param verify_results: Verify scan results. This will cause a second scan
+                           of all possible candidates for ISOTP Sockets
     :param verbose: displays information during scan
     :return:
     """
@@ -330,6 +334,7 @@ def isotp_scan(sock,  # type: SuperSocket
                              noise_ids=noise_ids,
                              sniff_time=sniff_time,
                              extended_can_id=extended_can_id,
+                             verify_results=verify_results,
                              verbose=verbose)
 
     filter_periodic_packets(found_packets, verbose)

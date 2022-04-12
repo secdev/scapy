@@ -15,7 +15,7 @@ from platform import python_implementation
 from scapy.main import load_layer, load_contrib
 from scapy.config import conf
 from scapy.error import log_runtime, Scapy_Exception
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.consts import LINUX
 
 load_layer("can", globals_dict=globals())
@@ -57,10 +57,13 @@ def test_and_setup_socket_can(iface_name):
 
 
 if LINUX and _root and _not_pypy:
-    test_and_setup_socket_can(iface0)
-    test_and_setup_socket_can(iface1)
-    log_runtime.debug("CAN should work now")
-    _socket_can_support = True
+    try:
+        test_and_setup_socket_can(iface0)
+        test_and_setup_socket_can(iface1)
+        log_runtime.debug("CAN should work now")
+        _socket_can_support = True
+    except Exception as e:
+        sys.__stderr__.write("ERROR %s!\n" % e)
 
 
 sys.__stderr__.write("SocketCAN support: %s\n" % _socket_can_support)
@@ -113,7 +116,7 @@ def cleanup_interfaces():
 
     :return: True on success
     """
-    if LINUX and _not_pypy and _root:
+    if _socket_can_support:
         if 0 != subprocess.call(["ip", "link", "delete", iface0]):
             raise Exception("%s could not be deleted" % iface0)
         if 0 != subprocess.call(["ip", "link", "delete", iface1]):
@@ -168,7 +171,7 @@ def exit_if_no_isotp_module():
 # ############################################################################
 # """ Evaluate if ISOTP kernel module is installed and available """
 # ############################################################################
-if LINUX and _root and six.PY3:
+if LINUX and _root and six.PY3 and _socket_can_support:
     p1 = subprocess.Popen(['lsmod'], stdout=subprocess.PIPE)
     p2 = subprocess.Popen(['grep', '^can_isotp'],
                           stdout=subprocess.PIPE, stdin=p1.stdout)
@@ -202,10 +205,3 @@ if six.PY3 and ISOTP_KERNEL_MODULE_AVAILABLE:
 else:
     if ISOTPSocket is not ISOTPSoftSocket:  # type: ignore
         raise Scapy_Exception("Error in ISOTPSocket import!")
-
-# ############################################################################
-# """ Prepare send_delay on Ecu Answering Machine to stabilize unit tests """
-# ############################################################################
-from scapy.contrib.automotive.ecu import *  # noqa: F403
-log_runtime.debug("Set send delay to lower utilization on CI machines")
-conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.004

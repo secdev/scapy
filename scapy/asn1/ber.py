@@ -28,7 +28,7 @@ from scapy.asn1.asn1 import (
     ASN1_Object,
     _ASN1_ERROR,
 )
-from scapy.modules import six
+from scapy.libs import six
 
 from scapy.compat import (
     Any,
@@ -263,15 +263,14 @@ def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
 
 
 class BERcodec_metaclass(_Generic_metaclass):
-    def __new__(cls,  # type: ignore
+    def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
                 dct  # type: Dict[str, Any]
                 ):
         # type: (...) -> Type[BERcodec_Object[Any]]
-        c = super(BERcodec_metaclass, cls).__new__(
-            cls, name, bases, dct
-        )  # type: Type[BERcodec_Object[Any]]
+        c = cast('Type[BERcodec_Object[Any]]',
+                 super(BERcodec_metaclass, cls).__new__(cls, name, bases, dct))
         try:
             c.tag.register(c.codec, c)
         except Exception:

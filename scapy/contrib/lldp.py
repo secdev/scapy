@@ -51,7 +51,6 @@ from scapy.fields import MACField, IPField, BitField, \
     ShortField, XStrLenField, ByteField, ConditionalField, \
     MultipleTypeField
 from scapy.packet import Packet, bind_layers
-from scapy.modules.six.moves import range
 from scapy.data import ETHER_TYPES
 from scapy.compat import orb
 
@@ -106,7 +105,6 @@ class LLDPDU(Packet):
         0x06: 'system description',
         0x07: 'system capabilities',
         0x08: 'management address',
-        range(0x09, 0x7e): 'reserved - future standardization',
         127: 'organisation specific TLV'
     }
 
@@ -302,7 +300,6 @@ class LLDPDUChassisID(LLDPDU):
         0x05: 'network address',
         0x06: 'interface name',
         0x07: 'locally assigned',
-        range(0x08, 0xff): 'reserved'
     }
 
     SUBTYPE_RESERVED = 0x00
@@ -358,7 +355,6 @@ class LLDPDUPortID(LLDPDU):
         0x05: 'interface name',
         0x06: 'agent circuit ID',
         0x07: 'locally assigned',
-        range(0x08, 0xff): 'reserved'
     }
 
     SUBTYPE_RESERVED = 0x00

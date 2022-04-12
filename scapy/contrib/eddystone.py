@@ -27,7 +27,7 @@ from scapy.fields import IntField, SignedByteField, StrField, BitField, \
     StrFixedLenField, ShortField, FixedPointField, ByteEnumField
 from scapy.layers.bluetooth import EIR_Hdr, EIR_ServiceData16BitUUID, \
     EIR_CompleteList16BitServiceUUIDs, LowEnergyBeaconHelper
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.packet import bind_layers, Packet
 
 EDDYSTONE_UUID = 0xfeaa

@@ -10,6 +10,7 @@ RFC 1777 - LDAP v2
 RFC 4511 - LDAP v3
 """
 
+from scapy.automaton import Automaton, ATMT
 from scapy.asn1.asn1 import ASN1_STRING, ASN1_Class_UNIVERSAL, ASN1_Codecs
 from scapy.asn1.ber import BERcodec_SEQUENCE
 from scapy.asn1fields import (
@@ -29,6 +30,7 @@ from scapy.asn1packet import ASN1_Packet
 from scapy.packet import bind_bottom_up, bind_layers
 
 from scapy.layers.inet import TCP, UDP
+from scapy.layers.ntlm import NTLM_Client
 
 # Elements of protocol
 # https://datatracker.ietf.org/doc/html/rfc1777#section-4
@@ -444,3 +446,88 @@ bind_layers(CLDAP, CLDAP)
 bind_bottom_up(UDP, CLDAP, dport=389)
 bind_bottom_up(UDP, CLDAP, sport=389)
 bind_layers(UDP, CLDAP, sport=389, dport=389)
+
+
+# NTLM Automata
+
+
+class NTLM_LDAP_Client(NTLM_Client, Automaton):
+    port = 389
+    cls = LDAP
+
+    def __init__(self, *args, **kwargs):
+        self.messageID = 1
+        self.authenticated = False
+        super(NTLM_LDAP_Client, self).__init__(*args, **kwargs)
+
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.wait_server()
+
+    @ATMT.condition(BEGIN)
+    def begin(self):
+        raise self.WAIT_FOR_TOKEN()
+
+    @ATMT.state()
+    def WAIT_FOR_TOKEN(self):
+        pass
+
+    @ATMT.condition(WAIT_FOR_TOKEN)
+    def should_send_bind(self):
+        ntlm_tuple = self.get_token()
+        raise self.SENT_BIND().action_parameters(ntlm_tuple)
+
+    @ATMT.action(should_send_bind)
+    def send_bind(self, ntlm_tuple):
+        ntlm_token, _, _ = ntlm_tuple
+        pkt = LDAP(
+            messageID=self.messageID,
+            protocolOp=LDAP_BindRequest(
+                version=2,
+                authentication=LDAP_SaslCredentials(
+                    mechanism="GSS-SPNEGO",
+                    credentials=ntlm_token
+                )
+            )
+        )
+        self.send(pkt)
+        self.messageID += 1
+
+    @ATMT.state()
+    def SENT_BIND(self):
+        pass
+
+    @ATMT.receive_condition(SENT_BIND)
+    def receive_bind_response(self, pkt):
+        if isinstance(pkt.protocolOp, LDAP_BindResponse):
+            if pkt.protocolOp.resultCode == 0x31:  # Invalid credentials
+                ntlm_tuple = (None, None, None)
+            elif pkt.protocolOp.resultCode == 0x0:  # Auth success
+                ntlm_tuple = (None, 0, None)
+                self.authenticated = True
+            elif pkt.protocolOp.resultCode == 0x35:  # UnwillingToPerform
+                print("Error:")
+                pkt.show()
+                raise self.ERRORED()
+            else:
+                ntlm_tuple = self._get_token(
+                    pkt.protocolOp.serverSaslCreds.val
+                )
+            self.received_ntlm_token(ntlm_tuple)
+            if self.authenticated:
+                raise self.AUTHENTICATED()
+            else:
+                raise self.WAIT_FOR_TOKEN()
+
+    @ATMT.state(final=1)
+    def ERRORED(self):
+        pass
+
+    @ATMT.state(final=1)
+    def AUTHENTICATED(self):
+        pass
+
+
+class NTLM_LDAPS_Client(NTLM_LDAP_Client):
+    port = 636
+    ssl = True

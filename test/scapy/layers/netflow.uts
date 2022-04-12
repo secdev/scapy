@@ -93,7 +93,7 @@ assert nfv9_defrag[0].records[0].IPV4_SRC_ADDR == "127.0.0.1"
 ~ netflow
 
 header = Ether()/IP()/UDP()
-netflow_header = NetflowHeader()/NetflowHeaderV9()
+netflow_header = NetflowHeader()/NetflowHeaderV9(unixSecs=0)
 
 flowset = NetflowFlowsetV9(
     templates=[NetflowTemplateV9(

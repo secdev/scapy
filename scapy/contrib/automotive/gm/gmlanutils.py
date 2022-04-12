@@ -77,7 +77,8 @@ def GMLAN_InitDiagnostics(
         broadcast_socket=None,  # type: Optional[SuperSocket]
         timeout=None,  # type: Optional[int]
         verbose=None,  # type: Optional[bool]
-        retry=0  # type: int
+        retry=0,  # type: int
+        unittest=False  # type: bool
 ):
     # type: (...) -> bool
     """ Send messages to put an ECU into diagnostic/programming state.
@@ -89,6 +90,7 @@ def GMLAN_InitDiagnostics(
     :param timeout: timeout for sending, receiving or sniffing packages.
     :param verbose: set verbosity level
     :param retry: number of retries in case of failure.
+    :param unittest: disable delays
     :return: True on success else False
     """
     # Helper function
@@ -115,7 +117,9 @@ def GMLAN_InitDiagnostics(
             if verbose:
                 print("Sending %s as broadcast" % repr(p))
             broadcast_socket.send(p)
-        time.sleep(0.05)
+
+        if not unittest:
+            time.sleep(0.05)
 
         # ReportProgrammedState
         p = GMLAN(service="ReportProgrammingState")
@@ -125,7 +129,9 @@ def GMLAN_InitDiagnostics(
         p = GMLAN() / GMLAN_PM(subfunction="requestProgrammingMode")
         if not _send_and_check_response(sock, p, timeout, verbose):
             continue
-        time.sleep(0.05)
+
+        if not unittest:
+            time.sleep(0.05)
 
         # InitiateProgramming enableProgramming
         # No response expected
@@ -143,7 +149,8 @@ def GMLAN_GetSecurityAccess(
         level=1,  # type: int
         timeout=None,  # type: Optional[int]
         verbose=None,  # type: Optional[bool]
-        retry=0  # type: int
+        retry=0,  # type: int
+        unittest=False  # type: bool
 ):
     # type: (...) -> bool
     """ Authenticate on ECU. Implements Seey-Key procedure.
@@ -154,6 +161,7 @@ def GMLAN_GetSecurityAccess(
     :param timeout: timeout for sending, receiving or sniffing packages.
     :param verbose: set verbosity level
     :param retry: number of retries in case of failure.
+    :param unittest: disable internal delays
     :return: True on success.
     """
     if verbose is None:
@@ -178,7 +186,8 @@ def GMLAN_GetSecurityAccess(
             if resp is not None and resp.returnCode == 0x37 and retry:
                 if verbose:
                     print("RequiredTimeDelayNotExpired. Wait 10s.")
-                time.sleep(10)
+                if not unittest:
+                    time.sleep(10)
             if verbose:
                 print("Negative Response.")
             continue

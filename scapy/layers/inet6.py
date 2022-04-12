@@ -49,7 +49,7 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
 from scapy.layers.inet import IP, IPTools, TCP, TCPerror, TracerouteResult, \
     UDP, UDPerror
 from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.sendrecv import sendp, sniff, sr, srp1
 from scapy.supersocket import SuperSocket, L3RawSocket
@@ -559,11 +559,10 @@ class PseudoIPv6(Packet):  # IPv6 Pseudo-header for checksum computation
                    ByteField("nh", 0)]
 
 
-def in6_chksum(nh, u, p):
+def in6_pseudoheader(nh, u, plen):
+    # type: (int, IP, int) -> PseudoIPv6
     """
-    As Specified in RFC 2460 - 8.1 Upper-Layer Checksums
-
-    Performs IPv6 Upper Layer checksum computation.
+    Build an PseudoIPv6 instance as specified in RFC 2460 8.1
 
     This function operates by filling a pseudo header class instance
     (PseudoIPv6) with:
@@ -580,9 +579,8 @@ def in6_chksum(nh, u, p):
     :param u: upper layer instance (TCP, UDP, ICMPv6*, ). Instance must be
         provided with all under layers (IPv6 and all extension headers,
         for example)
-    :param p: the payload of the upper layer provided as a string
+    :param plen: the length of the upper layer and payload
     """
-
     ph6 = PseudoIPv6()
     ph6.nh = nh
     rthdr = 0
@@ -605,7 +603,7 @@ def in6_chksum(nh, u, p):
         u = u.underlayer
     if u is None:
         warning("No IPv6 underlayer to compute checksum. Leaving null.")
-        return 0
+        return None
     if hahdr:
         ph6.src = hahdr
     else:
@@ -614,7 +612,25 @@ def in6_chksum(nh, u, p):
         ph6.dst = rthdr
     else:
         ph6.dst = u.dst
-    ph6.uplen = len(p)
+    ph6.uplen = plen
+    return ph6
+
+
+def in6_chksum(nh, u, p):
+    """
+    As Specified in RFC 2460 - 8.1 Upper-Layer Checksums
+
+    See also `.in6_pseudoheader`
+
+    :param nh: value of upper layer protocol
+    :param u: upper layer instance (TCP, UDP, ICMPv6*, ). Instance must be
+        provided with all under layers (IPv6 and all extension headers,
+        for example)
+    :param p: the payload of the upper layer provided as a string
+    """
+    ph6 = in6_pseudoheader(nh, u, len(p))
+    if ph6 is None:
+        return 0
     ph6s = raw(ph6)
     return checksum(ph6s + p)
 

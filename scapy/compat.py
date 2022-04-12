@@ -16,7 +16,7 @@ import socket
 import struct
 import sys
 
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 # Very important: will issue typing errors otherwise
 __all__ = [
@@ -47,6 +47,7 @@ __all__ = [
     'Type',
     'TypeVar',
     'Union',
+    'ValuesView',
     'cast',
     'overload',
     'FAKE_TYPING',
@@ -153,6 +154,7 @@ if not FAKE_TYPING:
         Type,
         TypeVar,
         Union,
+        ValuesView,
         cast,
         overload,
     )
@@ -173,7 +175,7 @@ else:
     Iterator = _FakeType("Iterator")  # type: ignore
     List = _FakeType("List", list)  # type: ignore
     NewType = _FakeType("NewType")
-    NoReturn = _FakeType("NoReturn")  # type: ignore
+    NoReturn = _FakeType("NoReturn")
     Optional = _FakeType("Optional")
     Pattern = _FakeType("Pattern")  # type: ignore
     Sequence = _FakeType("Sequence", list)  # type: ignore
@@ -183,6 +185,7 @@ else:
     Type = _FakeType("Type", type)
     TypeVar = _FakeType("TypeVar")  # type: ignore
     Union = _FakeType("Union")
+    ValuesView = _FakeType("List", list)  # type: ignore
 
     class Sized(object):  # type: ignore
         pass

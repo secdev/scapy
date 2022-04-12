@@ -14,7 +14,6 @@ from __future__ import absolute_import
 import socket
 import re
 import binascii
-from scapy.modules.six.moves import range
 from scapy.compat import plain_str, hex_bytes, bytes_encode, bytes_hex
 
 from scapy.compat import (

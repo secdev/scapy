@@ -31,7 +31,6 @@ from scapy.fields import (
     PacketListField,
     StrLenField,
     X3BytesField,
-    PadField
 )
 
 
@@ -42,7 +41,7 @@ _rtcp_packet_types = {
     203: 'BYE',
     204: 'APP',
     205: 'Transport layer FB message',
-    206: 'Payload-specific FB message'
+    206: 'Payload-specific FB message',
 }
 
 

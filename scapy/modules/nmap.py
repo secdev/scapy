@@ -28,7 +28,7 @@ from scapy.layers.inet import IP, TCP, UDP, ICMP, UDPerror, IPerror
 from scapy.packet import NoPayload
 from scapy.sendrecv import sr
 from scapy.compat import plain_str, raw
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 
 if WINDOWS:

@@ -21,7 +21,7 @@ from scapy.data import MTU, ETH_P_IP, SOL_PACKET, SO_TIMESTAMPNS
 from scapy.compat import raw
 from scapy.error import warning, log_runtime
 from scapy.interfaces import network_name
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.packet import Packet
 import scapy.packet
 from scapy.plist import (

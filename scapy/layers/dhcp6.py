@@ -33,10 +33,9 @@ from scapy.layers.inet6 import DomainNameListField, IP6Field, IP6ListField, \
     IPv6
 from scapy.packet import Packet, bind_bottom_up
 from scapy.pton_ntop import inet_pton
-from scapy.sendrecv import send
 from scapy.themes import Color
 from scapy.utils6 import in6_addrtovendor, in6_islladdr
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 #############################################################################
 # Helpers                                                                  ##
@@ -1380,7 +1379,6 @@ bind_bottom_up(UDP, _dhcp6_dispatcher, {"dport": 546})
 class DHCPv6_am(AnsweringMachine):
     function_name = "dhcp6d"
     filter = "udp and port 546 and port 547"
-    send_function = staticmethod(send)
 
     def usage(self):
         msg = """

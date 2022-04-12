@@ -47,7 +47,7 @@ from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
 from scapy.error import Scapy_Exception, log_runtime, warning
 from scapy.extlib import PYX
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 # Typing imports
 from scapy.compat import (
@@ -654,7 +654,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 except Exception as ex:
                     try:
                         ex.args = (
-                            "While disescting field '%s': " % f.name +
+                            "While dissecting field '%s': " % f.name +
                             ex.args[0],
                         ) + ex.args[1:]
                     except (AttributeError, IndexError):
@@ -1642,7 +1642,7 @@ class NoPayload(Packet):
         if singl is None:
             cls.__singl__ = singl = Packet.__new__(cls)
             Packet.__init__(singl)
-        return singl  # type: ignore
+        return singl
 
     def __init__(self, *args, **kargs):
         # type: (*Any, **Any) -> None

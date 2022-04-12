@@ -113,14 +113,14 @@ class USBpcap(Packet):
     def guess_payload_class(self, payload):
         if self.headerLen == 27:
             # No Transfer layer
-            return conf.raw_layer
+            return super(USBpcap, self).guess_payload_class(payload)
         if self.transfer == 0:
             return USBpcapTransferIsochronous
         elif self.transfer == 1:
             return USBpcapTransferInterrupt
         elif self.transfer == 2:
             return USBpcapTransferControl
-        return conf.raw_layer
+        return super(USBpcap, self).guess_payload_class(payload)
 
 
 class USBpcapTransferIsochronous(Packet):

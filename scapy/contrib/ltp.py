@@ -26,7 +26,7 @@
 # scapy.contrib.description = Licklider Transmission Protocol (LTP)
 # scapy.contrib.status = loads
 
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import BitEnumField, BitField, BitFieldLenField, \
     ByteEnumField, ConditionalField, PacketListField, StrLenField

@@ -103,6 +103,60 @@ assert(result_data == isotp.data)
 timer.join(5)
 assert not timer.is_alive()
 
+= Compatibility ISOTPSoftSocket ISOTPNativeSocket various configs
+exit_if_no_isotp_module()
+
+message = "01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14" * 5
+
+kwargs = [({"tx_id": 0x242, "rx_id": 0x642, "bs": 0, "stmin": 0, "padding": False, "ext_address": None, "rx_ext_address": None},
+           {"tx_id": 0x642, "rx_id": 0x242, "bs": 0, "stmin": 0, "padding": False, "ext_address": None, "rx_ext_address": None}),
+          ({"tx_id": 0x242, "rx_id": 0x642, "bs": 2, "stmin": 0, "padding": False, "ext_address": None, "rx_ext_address": None},
+           {"tx_id": 0x642, "rx_id": 0x242, "bs": 0, "stmin": 0, "padding": False, "ext_address": None, "rx_ext_address": None}),
+          ({"tx_id": 0x242, "rx_id": 0x642, "bs": 5, "stmin": 0, "padding": False, "ext_address": None, "rx_ext_address": None},
+           {"tx_id": 0x642, "rx_id": 0x242, "bs": 0, "stmin": 0, "padding": False, "ext_address": None, "rx_ext_address": None}),
+          ({"tx_id": 0x242, "rx_id": 0x642, "bs": 0, "stmin": 5, "padding": False, "ext_address": None, "rx_ext_address": None},
+           {"tx_id": 0x642, "rx_id": 0x242, "bs": 0, "stmin": 0, "padding": False, "ext_address": None, "rx_ext_address": None}),
+          ({"tx_id": 0x242, "rx_id": 0x642, "bs": 0, "stmin": 10, "padding": False, "ext_address": None, "rx_ext_address": None},
+           {"tx_id": 0x642, "rx_id": 0x242, "bs": 0, "stmin": 0, "padding": False, "ext_address": None, "rx_ext_address": None}),
+          ({"tx_id": 0x242, "rx_id": 0x642, "bs": 4, "stmin": 130, "padding": False, "ext_address": None, "rx_ext_address": None},
+           {"tx_id": 0x642, "rx_id": 0x242, "bs": 0, "stmin": 0, "padding": False, "ext_address": None, "rx_ext_address": None}),
+          ({"tx_id": 0x242, "rx_id": 0x642, "bs": 3, "stmin": 0, "padding": True, "ext_address": None, "rx_ext_address": None},
+           {"tx_id": 0x642, "rx_id": 0x242, "bs": 0, "stmin": 0, "padding": True, "ext_address": None, "rx_ext_address": None}),
+          ({"tx_id": 0x242, "rx_id": 0x642, "bs": 0, "stmin": 0, "padding": False, "ext_address": 0xfe, "rx_ext_address": None},
+           {"tx_id": 0x642, "rx_id": 0x242, "bs": 0, "stmin": 0, "padding": False, "ext_address": 0xfe, "rx_ext_address": None}),
+          ({"tx_id": 0x242, "rx_id": 0x642, "bs": 0, "stmin": 0, "padding": False, "ext_address": 0xfe, "rx_ext_address": 0xef},
+           {"tx_id": 0x642, "rx_id": 0x242, "bs": 0, "stmin": 0, "padding": False, "ext_address": 0xef, "rx_ext_address": 0xfe}),
+          ({"tx_id": 0x242, "rx_id": 0x642, "bs": 6, "stmin": 10, "padding": True, "ext_address": 0x12, "rx_ext_address": 0x23},
+           {"tx_id": 0x642, "rx_id": 0x242, "bs": 6, "stmin": 5, "padding": True, "ext_address": 0x23, "rx_ext_address": 0x12}),
+          ({"tx_id": 0x242, "rx_id": 0x642, "bs": 0, "stmin": 0, "padding": True, "ext_address": 0x45, "rx_ext_address": None},
+           {"tx_id": 0x642, "rx_id": 0x242, "bs": 0, "stmin": 40, "padding": True, "ext_address": 0x45, "rx_ext_address": None}),
+          ({"tx_id": 0x123, "rx_id": 0x642, "bs": 1, "stmin": 1, "padding": False, "ext_address": None, "rx_ext_address": None},
+           {"tx_id": 0x642, "rx_id": 0x123, "bs": 1, "stmin": 1, "padding": False, "ext_address": None, "rx_ext_address": None}),]
+
+for kwargs1, kwargs2 in kwargs:
+    print("Testing config %s, %s" % (kwargs1, kwargs2))
+    with NativeCANSocket(iface0) as cs:
+        cs.sniff(timeout=0.01)
+        with ISOTPSoftSocket(iface0, **kwargs1) as s, ISOTPNativeSocket(iface0, **kwargs2) as ns:
+            ns.send(ISOTP(bytes.fromhex(message)))
+            isotp = s.recv()
+            assert(isotp.data == dhex(message))
+            ns.send(ISOTP(bytes.fromhex("00 11 22")))
+            isotp = s.recv()
+            assert (isotp.data == dhex("00 11 22"))
+            pks1 = cs.sniff(timeout=0.01)
+        with ISOTPNativeSocket(iface0, **kwargs1) as s, ISOTPSoftSocket(iface0, **kwargs2) as ns:
+            ns.send(ISOTP(bytes.fromhex(message)))
+            isotp = s.recv()
+            assert(isotp.data == dhex(message))
+            ns.send(ISOTP(bytes.fromhex("00 11 22")))
+            isotp = s.recv()
+            assert (isotp.data == dhex("00 11 22"))
+            pks2 = cs.sniff(timeout=0.01)
+        assert len(pks1) == len(pks2) and len(pks2) > 0
+        for p1, p2 in zip(pks1, pks2):
+            assert bytes(p1) == bytes(p2)
+
 
 + ISOTPNativeSocket tests
 

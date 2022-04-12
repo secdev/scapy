@@ -28,7 +28,7 @@ from scapy.layers.inet import IP, ICMP, checksum
 from scapy.layers.inet6 import IP6Field
 from scapy.error import warning
 from scapy.contrib.mpls import MPLS
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.config import conf
 
 

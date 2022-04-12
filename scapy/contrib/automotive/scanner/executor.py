@@ -17,7 +17,7 @@ from scapy.contrib.automotive.scanner.graph import Graph
 from scapy.error import Scapy_Exception, log_interactive
 from scapy.supersocket import SuperSocket
 from scapy.utils import make_lined_table, SingleConversationSocket
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse, Ecu
 from scapy.contrib.automotive.scanner.configuration import \
     AutomotiveTestCaseExecutorConfiguration
@@ -238,6 +238,10 @@ class AutomotiveTestCaseExecutor:
                     log_interactive.critical("[-] Exception: %s", e)
                     if self.configuration.debug:
                         raise e
+                    if isinstance(e, OSError):
+                        log_interactive.critical(
+                            "[-] OSError occurred, closing socket")
+                        self.socket.close()
                     if cast(SuperSocket, self.socket).closed and \
                             self.reconnect_handler is None:
                         log_interactive.critical(

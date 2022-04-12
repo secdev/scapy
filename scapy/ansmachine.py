@@ -11,56 +11,59 @@ Answering machines.
 #  Answering machines  #
 ########################
 
-from __future__ import absolute_import
-from __future__ import print_function
-
+import functools
+import socket
 import warnings
 
+from scapy.arch import get_if_addr
 from scapy.config import conf
-from scapy.sendrecv import send, sniff
+from scapy.sendrecv import send, sniff, AsyncSniffer
 from scapy.packet import Packet
 from scapy.plist import PacketList
 
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 from scapy.compat import (
     Any,
+    Callable,
     Dict,
     Generic,
-    _Generic_metaclass,
     Optional,
     Tuple,
     Type,
     TypeVar,
+    _Generic_metaclass,
+    cast,
 )
 
 _T = TypeVar("_T", Packet, PacketList)
 
 
 class ReferenceAM(_Generic_metaclass):
-    def __new__(cls,  # type: ignore
+    def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
                 dct  # type: Dict[str, Any]
                 ):
         # type: (...) -> Type['AnsweringMachine[_T]']
-        obj = super(ReferenceAM, cls).__new__(cls, name, bases, dct)
+        obj = cast('Type[AnsweringMachine[_T]]',
+                   super(ReferenceAM, cls).__new__(cls, name, bases, dct))
         try:
             import inspect
             obj.__signature__ = inspect.signature(  # type: ignore
-                obj.parse_options  # type: ignore
+                obj.parse_options
             )
         except (ImportError, AttributeError):
             pass
-        if obj.function_name:  # type: ignore
+        if obj.function_name:
             func = lambda obj=obj, *args, **kargs: obj(*args, **kargs)()  # type: ignore  # noqa: E501
             # Inject signature
-            func.__qualname__ = obj.function_name  # type: ignore
+            func.__name__ = func.__qualname__ = obj.function_name
             try:
                 func.__signature__ = obj.__signature__  # type: ignore
             except (AttributeError):
                 pass
-            globals()[obj.function_name] = func  # type: ignore
+            globals()[obj.function_name] = func
         return obj
 
 
@@ -129,11 +132,11 @@ class AnsweringMachine(Generic[_T]):
             elif mode == 2 and kargs:
                 k = self.optam0.copy()
                 k.update(kargs)
-                self.parse_options(**k)  # type: ignore
+                self.parse_options(**k)
                 kargs = k
             omode = self.__dict__.get("mode", 0)
             self.__dict__["mode"] = mode
-            self.parse_options(**kargs)  # type: ignore
+            self.parse_options(**kargs)
             self.__dict__["mode"] = omode
         return sendopt, sniffopt
 
@@ -145,9 +148,12 @@ class AnsweringMachine(Generic[_T]):
         # type: (Packet) -> _T
         return req
 
-    def send_reply(self, reply):
-        # type: (_T) -> None
-        self.send_function(reply, **self.optsend)
+    def send_reply(self, reply, send_function=None):
+        # type: (_T, Optional[Callable[..., None]]) -> None
+        if send_function:
+            send_function(reply)
+        else:
+            self.send_function(reply, **self.optsend)
 
     def print_reply(self, req, reply):
         # type: (Packet, _T) -> None
@@ -157,12 +163,22 @@ class AnsweringMachine(Generic[_T]):
         else:
             print("%s ==> %s" % (req.summary(), reply.summary()))
 
-    def reply(self, pkt):
-        # type: (Packet) -> None
+    def reply(self, pkt, send_function=None, address=None):
+        # type: (Packet, Optional[Callable[..., None]], Optional[Any]) -> None
         if not self.is_request(pkt):
             return
-        reply = self.make_reply(pkt)
-        self.send_reply(reply)
+        if address:
+            # Only on AnsweringMachineTCP
+            reply = self.make_reply(pkt, address=address)  # type: ignore
+        else:
+            reply = self.make_reply(pkt)
+        if not reply:
+            return
+        if send_function:
+            self.send_reply(reply, send_function=send_function)
+        else:
+            # Retro-compability. Remove this if eventually
+            self.send_reply(reply)
         if self.verbose:
             self.print_reply(pkt, reply)
 
@@ -212,3 +228,53 @@ class AnsweringMachineUtils:
         if req.haslayer(Ether):
             reply[Ether].src, reply[Ether].dst = req[Ether].dst, req[Ether].src
         return reply
+
+
+class AnsweringMachineTCP(AnsweringMachine[Packet]):
+    """
+    An answering machine that use the classic socket.socket to
+    answer multiple clients
+    """
+    def parse_options(self, port=80, cls=conf.raw_layer):
+        # type: (int, Type[Packet]) -> None
+        self.port = port
+        self.cls = conf.raw_layer
+
+    def close(self):
+        # type: () -> None
+        pass
+
+    def sniff(self):
+        # type: () -> None
+        from scapy.supersocket import StreamSocket
+        ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ssock.bind(
+            (get_if_addr(self.optsniff.get("iface", conf.iface)), self.port))
+        ssock.listen()
+        sniffers = []
+        try:
+            while True:
+                clientsocket, address = ssock.accept()
+                print("%s connected" % repr(address))
+                sock = StreamSocket(clientsocket, self.cls)
+                optsniff = self.optsniff.copy()
+                optsniff["prn"] = functools.partial(self.reply,
+                                                    send_function=sock.send,
+                                                    address=address)
+                del optsniff["iface"]
+                sniffer = AsyncSniffer(opened_socket=sock, **optsniff)
+                sniffer.start()
+                sniffers.append((sniffer, sock))
+        finally:
+            for (sniffer, sock) in sniffers:
+                try:
+                    sniffer.stop()
+                except Exception:
+                    pass
+                sock.close()
+            self.close()
+            ssock.close()
+
+    def make_reply(self, req, address=None):
+        # type: (Packet, Optional[Any]) -> Packet
+        return super(AnsweringMachineTCP, self).make_reply(req)

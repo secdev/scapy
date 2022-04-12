@@ -19,13 +19,13 @@ from collections import defaultdict
 
 from scapy.utils import checksum, do_graph, incremental_label, \
     linehexdump, strxor, whois, colgen
-from scapy.ansmachine import AnsweringMachine
+from scapy.ansmachine import AnsweringMachine, AnsweringMachineUtils
 from scapy.base_classes import Gen, Net
 from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
 from scapy.layers.l2 import Ether, Dot3, getmacbyip, CookedLinux, GRE, SNAP, \
     Loopback
-from scapy.compat import raw, chb, orb, bytes_encode
+from scapy.compat import raw, chb, orb, bytes_encode, Optional
 from scapy.config import conf
 from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, \
     MATPLOTLIB_DEFAULT_PLOT_KARGS
@@ -64,8 +64,7 @@ from scapy.pton_ntop import inet_pton
 
 import scapy.as_resolvers
 
-import scapy.modules.six as six
-from scapy.modules.six.moves import range
+import scapy.libs.six as six
 
 ####################
 #  IP Tools class  #
@@ -300,8 +299,10 @@ TCPOptions = (
      8: ("Timestamp", "!II"),
      14: ("AltChkSum", "!BH"),
      15: ("AltChkSumOpt", None),
+     19: ("MD5", "16s"),
      25: ("Mood", "!p"),
      28: ("UTO", "!H"),
+     29: ("AO", None),
      34: ("TFO", "!II"),
      # RFC 3692
      # 253: ("Experiment", "!HHHH"),
@@ -316,10 +317,30 @@ TCPOptions = (
      "Timestamp": 8,
      "AltChkSum": 14,
      "AltChkSumOpt": 15,
+     "MD5": 19,
      "Mood": 25,
      "UTO": 28,
+     "AO": 29,
      "TFO": 34,
      })
+
+
+class TCPAOValue(Packet):
+    """Value of TCP-AO option"""
+    fields_desc = [
+        ByteField("keyid", None),
+        ByteField("rnextkeyid", None),
+        StrLenField("mac", "", length_from=lambda p:len(p.original) - 2),
+    ]
+
+
+def get_tcpao(tcphdr):
+    # type: (TCP) -> Optional[TCPAOValue]
+    """Get the TCP-AO option from the header"""
+    for optid, optval in tcphdr.options:
+        if optid == 'AO':
+            return optval
+    return None
 
 
 class RandTCPOptions(VolatileValue):
@@ -398,6 +419,8 @@ class TCPOptionsField(StrField):
                 oname, ofmt = TCPOptions[0][onum]
                 if onum == 5:  # SAck
                     ofmt += "%iI" % (len(oval) // 4)
+                if onum == 29:  # AO
+                    oval = TCPAOValue(oval)
                 if ofmt and struct.calcsize(ofmt) == len(oval):
                     oval = struct.unpack(ofmt, oval)
                     if len(oval) == 1:
@@ -435,6 +458,8 @@ class TCPOptionsField(StrField):
                         if not isinstance(oval, tuple):
                             oval = (oval,)
                         oval = struct.pack(ofmt, *oval)
+                    if onum == 29:  # AO
+                        oval = bytes(oval)
                 else:
                     warning("Option [%s] unknown. Skipped.", oname)
                     continue
@@ -632,18 +657,14 @@ class IP(Packet, IPTools):
         return lst
 
 
-def in4_chksum(proto, u, p):
-    """
-    As Specified in RFC 2460 - 8.1 Upper-Layer Checksums
+def in4_pseudoheader(proto, u, plen):
+    # type: (int, IP, int) -> bytes
+    """IPv4 Pseudo Header as defined in RFC793 as bytes
 
-    Performs IPv4 Upper Layer checksum computation. Provided parameters are:
-    - 'proto' : value of upper layer protocol
-    - 'u'  : IP upper layer instance
-    - 'p'  : the payload of the upper layer provided as a string
+    :param proto: value of upper layer protocol
+    :param u: IP layer instance
+    :param plen: the length of the upper layer and payload
     """
-    if not isinstance(u, IP):
-        warning("No IP underlayer to compute checksum. Leaving null.")
-        return 0
     if u.len is not None:
         if u.ihl is None:
             olen = sum(len(x) for x in u.options)
@@ -652,7 +673,7 @@ def in4_chksum(proto, u, p):
             ihl = u.ihl
         ln = max(u.len - 4 * ihl, 0)
     else:
-        ln = len(p)
+        ln = plen
 
     # Filter out IPOption_LSRR and IPOption_SSRR
     sr_options = [opt for opt in u.options if isinstance(opt, IPOption_LSRR) or
@@ -667,12 +688,72 @@ def in4_chksum(proto, u, p):
         message += "Falling back to IP.dst for checksum computation."
         warning(message, len_sr_options)
 
-    psdhdr = struct.pack("!4s4sHH",
-                         inet_pton(socket.AF_INET, u.src),
-                         inet_pton(socket.AF_INET, u.dst),
-                         proto,
-                         ln)
+    return struct.pack("!4s4sHH",
+                       inet_pton(socket.AF_INET, u.src),
+                       inet_pton(socket.AF_INET, u.dst),
+                       proto,
+                       ln)
+
+
+def in4_chksum(proto, u, p):
+    # type: (int, IP, bytes) -> int
+    """IPv4 Pseudo Header checksum as defined in RFC793
+
+    :param nh: value of upper layer protocol
+    :param u: upper layer instance
+    :param p: the payload of the upper layer provided as a string
+    """
+    if not isinstance(u, IP):
+        warning("No IP underlayer to compute checksum. Leaving null.")
+        return 0
+    psdhdr = in4_pseudoheader(proto, u, len(p))
     return checksum(psdhdr + p)
+
+
+def _is_ipv6_layer(p):
+    # type: (Packet) -> bytes
+    return (isinstance(p, scapy.layers.inet6.IPv6) or
+            isinstance(p, scapy.layers.inet6._IPv6ExtHdr))
+
+
+def tcp_pseudoheader(tcp):
+    # type: (TCP) -> bytes
+    """Pseudoheader of a TCP packet as bytes
+
+    Requires underlayer to be either IP or IPv6
+    """
+    if isinstance(tcp.underlayer, IP):
+        plen = len(bytes(tcp))
+        return in4_pseudoheader(socket.IPPROTO_TCP, tcp.underlayer, plen)
+    elif conf.ipv6_enabled and _is_ipv6_layer(tcp.underlayer):
+        plen = len(bytes(tcp))
+        return raw(scapy.layers.inet6.in6_pseudoheader(
+            socket.IPPROTO_TCP, tcp.underlayer, plen))
+    else:
+        raise ValueError("TCP packet does not have IP or IPv6 underlayer")
+
+
+def calc_tcp_md5_hash(tcp, key):
+    # type: (TCP, bytes) -> bytes
+    """Calculate TCP-MD5 hash from packet and return a 16-byte string"""
+    import hashlib
+
+    h = hashlib.md5()  # nosec
+    tcp_bytes = bytes(tcp)
+    h.update(tcp_pseudoheader(tcp))
+    h.update(tcp_bytes[:16])
+    h.update(b"\x00\x00")
+    h.update(tcp_bytes[18:])
+    h.update(key)
+
+    return h.digest()
+
+
+def sign_tcp_md5(tcp, key):
+    # type: (TCP, bytes) -> None
+    """Append TCP-MD5 signature to tcp packet"""
+    sig = calc_tcp_md5_hash(tcp, key)
+    tcp.options = tcp.options + [('MD5', sig)]
 
 
 class TCP(Packet):
@@ -1802,6 +1883,7 @@ class TCP_client(Automaton):
     :param ip: the ip to connect to
     :param port:
     """
+
     def parse_args(self, ip, port, *args, **kargs):
         from scapy.sessions import TCPSession
         self.dst = str(Net(ip))
@@ -2088,16 +2170,11 @@ class ICMPEcho_am(AnsweringMachine):
         print("Replying %s to %s" % (reply.getlayer(IP).dst, req.dst))
 
     def make_reply(self, req):
-        reply = req.copy()
+        reply = AnsweringMachineUtils.reverse_packet(req)
         reply[ICMP].type = 0  # echo-reply
         # Force re-generation of the checksum
         reply[ICMP].chksum = None
-        if req.haslayer(IP):
-            reply[IP].src, reply[IP].dst = req[IP].dst, req[IP].src
-            reply[IP].chksum = None
-        if req.haslayer(Ether):
-            reply[Ether].src, reply[Ether].dst = req[Ether].dst, req[Ether].src
-        return reply
+        return reply[ICMP].underlayer
 
 
 conf.stats_classic_protocols += [TCP, UDP, ICMP]

@@ -23,7 +23,7 @@ from scapy.layers.l2 import Ether
 from scapy.layers.inet import TCP
 from scapy.packet import Packet, Raw, bind_bottom_up, bind_top_down
 from scapy.utils import binrepr
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 
 # If prereq_autocomplete is True then match prerequisites will be

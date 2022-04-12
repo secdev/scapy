@@ -19,7 +19,7 @@ from scapy.config import conf
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.common import CipherError
 from scapy.utils import strxor
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # noqa: E501

@@ -16,7 +16,7 @@ from collections import defaultdict
 from scapy.compat import Optional, List, Type, Any, Tuple, Iterable, Dict, \
     cast, Callable, orb
 from scapy.packet import Packet
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_interactive, warning
@@ -313,7 +313,8 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
 
     def pre_execute(self, socket, state, global_configuration):
         # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
-        if cast(ServiceEnumerator, self)._retry_pkt[state] is not None:
+        if cast(ServiceEnumerator, self)._retry_pkt[state] is not None and \
+                not global_configuration.unittest:
             # this is a retry execute. Wait much longer than usual because
             # a required time delay not expired could have been received
             # on the previous attempt
@@ -492,9 +493,10 @@ class GMLAN_PMEnumerator(GMLAN_Enumerator, StateGeneratingServiceEnumerator):
 
     def execute(self, socket, state, timeout=1, execution_time=1200, **kwargs):
         # type: (_SocketUnion, EcuState, int, int, Any) -> None
-        supported = GMLAN_InitDiagnostics(cast(SuperSocket, socket),
-                                          timeout=20,
-                                          verbose=kwargs.get("debug", False))
+        supported = GMLAN_InitDiagnostics(
+            cast(SuperSocket, socket), timeout=20,
+            verbose=kwargs.get("debug", False),
+            unittest=kwargs.get("unittest", False))
         # TODO: Refactor result storage
         if supported:
             self._store_result(
@@ -521,7 +523,7 @@ class GMLAN_PMEnumerator(GMLAN_Enumerator, StateGeneratingServiceEnumerator):
         # type: (_SocketUnion, AutomotiveTestCaseExecutorConfiguration, Dict[str, Any]) -> bool  # noqa: E501
         GMLAN_TPEnumerator.enter(sock, conf, kwargs)
         res = GMLAN_InitDiagnostics(cast(SuperSocket, sock), timeout=20,
-                                    verbose=False)
+                                    verbose=False, unittest=conf.unittest)
         if not res:
             GMLAN_TPEnumerator.cleanup(sock, conf)
             return False

@@ -43,7 +43,6 @@ from scapy.fields import (
 from scapy.layers.inet import checksum
 from scapy.layers.l2 import SNAP
 from scapy.compat import orb, chb
-from scapy.modules.six.moves import range
 from scapy.config import conf
 
 

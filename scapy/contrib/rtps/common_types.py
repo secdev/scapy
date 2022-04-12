@@ -26,6 +26,7 @@ import warnings
 
 from scapy.fields import (
     BitField,
+    ConditionalField,
     EnumField,
     ByteField,
     IntField,
@@ -36,6 +37,7 @@ from scapy.fields import (
     StrField,
     StrLenField,
     XIntField,
+    XStrFixedLenField,
 )
 from scapy.packet import Packet, fuzz
 
@@ -211,16 +213,47 @@ class GUIDPacket(Packet):
         return b"", p
 
 
-class LocatorPacket(Packet):
+class LocatorPacket(EPacket):
     name = "RTPS Locator"
     fields_desc = [
-        XIntField("locatorKind", 0),
-        LEIntField("port", 0),
-        ReversePadField(IPField("address", "0.0.0.0"), 20),
+        EField(
+            XIntField("locatorKind", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None),
+        EField(
+            IntField("port", 0),
+            endianness=FORMAT_LE,
+            endianness_from=None),
+        ConditionalField(
+            ReversePadField(IPField("address", "0.0.0.0"), 20),
+            lambda p: p.locatorKind == 0x1
+        ),
+        ConditionalField(
+            XStrFixedLenField("hostId", 0x0, 16),
+            lambda p: p.locatorKind == 0x01000000
+        )
     ]
 
     def extract_padding(self, p):
         return b"", p
+
+
+class ProductVersionPacket(EPacket):
+    name = "Product Version"
+    fields_desc = [
+        ByteField("major", 0),
+        ByteField("minor", 0),
+        ByteField("release", 0),
+        ByteField("revision", 0),
+    ]
+
+
+class TransportInfoPacket(EPacket):
+    name = "Transport Info"
+    fields_desc = [
+        LEIntField("classID", 0),
+        LEIntField("messageSizeMax", 0)
+    ]
 
 
 class EndpointFlagsPacket(Packet):
@@ -279,6 +312,7 @@ _rtps_vendor_ids = {
     b"\x01\x0E": "Technicolor Inc. - Qeo",
     b"\x01\x0F": "eProsima - Fast-RTPS",
     b"\x01\x10": "ADLINK - Cyclone DDS",
+    b"\x01\x11": "GurumNetworks - GurumDDS",
 }
 
 

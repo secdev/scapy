@@ -13,6 +13,7 @@ scapy/arch/__init__.py
 scapy/arch/common.py
 scapy/arch/linux.py
 scapy/arch/unix.py
+scapy/arch/solaris.py
 scapy/as_resolvers.py
 scapy/asn1/__init__.py
 scapy/asn1/asn1.py
@@ -80,6 +81,7 @@ scapy/contrib/isotp/isotp_scanner.py
 scapy/contrib/isotp/isotp_soft_socket.py
 scapy/contrib/isotp/isotp_utils.py
 scapy/contrib/roce.py
+scapy/contrib/tcpao.py
 
 # TEST
 test/testsocket.py

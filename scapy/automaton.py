@@ -33,7 +33,7 @@ from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.packet import Packet
 from scapy.consts import WINDOWS
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 from scapy.compat import (
     Any,
@@ -96,7 +96,7 @@ def select_objects(inputs, remain):
         results = results.union(set(select.select(natives, [], [], remain)[0]))
     if events:
         # 0xFFFFFFFF = INFINITE
-        remainms = int(remain * 1000 if remain else 0xFFFFFFFF)
+        remainms = int(remain * 1000 if remain is not None else 0xFFFFFFFF)
         if len(events) == 1:
             res = ctypes.windll.kernel32.WaitForSingleObject(
                 ctypes.c_void_p(events[0].fileno()),
@@ -533,9 +533,11 @@ class _ATMT_to_supersocket:
 
 
 class Automaton_metaclass(type):
-    def __new__(cls, name, bases, dct):  # type: ignore
+    def __new__(cls, name, bases, dct):
         # type: (str, Tuple[Any], Dict[str, Any]) -> Type[Automaton]
-        cls = super(Automaton_metaclass, cls).__new__(cls, name, bases, dct)
+        cls = super(Automaton_metaclass, cls).__new__(  # type: ignore
+            cls, name, bases, dct
+        )
         cls.states = {}
         cls.recv_conditions = {}    # type: Dict[str, List[_StateWrapper]]
         cls.conditions = {}         # type: Dict[str, List[_StateWrapper]]
@@ -998,7 +1000,7 @@ class Automaton:
                 self.cmdout.send(c)
             except Exception as e:
                 exc_info = sys.exc_info()
-                self.debug(3, "Transferring exception from tid=%i:\n%s" % (self.threadid, traceback.format_exception(*exc_info)))  # noqa: E501
+                self.debug(3, "Transferring exception from tid=%i:\n%s" % (self.threadid, "".join(traceback.format_exception(*exc_info))))  # noqa: E501
                 m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)  # noqa: E501
                 self.cmdout.send(m)
             self.debug(3, "Stopping control thread (tid=%i)" % self.threadid)
@@ -1181,15 +1183,17 @@ class Automaton:
                 for fd in r:
                     fd.recv()
 
-    def stop(self):
-        # type: () -> None
+    def stop(self, wait=True):
+        # type: (bool) -> None
         self.cmdin.send(Message(type=_ATMT_Command.STOP))
-        self._flush_inout()
+        if wait:
+            self._flush_inout()
 
-    def forcestop(self):
-        # type: () -> None
+    def forcestop(self, wait=True):
+        # type: (bool) -> None
         self.cmdin.send(Message(type=_ATMT_Command.FORCESTOP))
-        self._flush_inout()
+        if wait:
+            self._flush_inout()
 
     def restart(self, *args, **kargs):
         # type: (Any, Any) -> None

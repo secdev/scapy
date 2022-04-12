@@ -25,7 +25,7 @@ from scapy import VERSION
 from scapy.base_classes import BasePacket
 from scapy.consts import DARWIN, WINDOWS, LINUX, BSD, SOLARIS
 from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
-from scapy.modules import six
+from scapy.libs import six
 from scapy.themes import NoTheme, apply_ipython_style
 
 from scapy.compat import (
@@ -730,7 +730,7 @@ class Conf(ConfClass):
     promisc = True
     sniff_promisc = 1  #: default mode for sniff()
     raw_layer = None  # type: Type[Packet]
-    raw_summary = False
+    raw_summary = False  # type: Union[bool, Callable[[bytes], Any]]
     padding_layer = None  # type: Type[Packet]
     default_l2 = None  # type: Type[Packet]
     l2types = Num2Layer()
@@ -835,6 +835,7 @@ class Conf(ConfClass):
         'mobileip',
         'netbios',
         'netflow',
+        'ntlm',
         'ntp',
         'ppi',
         'ppp',

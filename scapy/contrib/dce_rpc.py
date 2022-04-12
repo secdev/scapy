@@ -24,11 +24,19 @@ Isn't reliable for all packets and for building
 
 import struct
 
-# TODO: namespace locally used fields
 from scapy.packet import Packet, Raw, bind_layers
-from scapy.fields import BitEnumField, ByteEnumField, ByteField, \
-    FlagsField, IntField, LenField, ShortField, UUIDField, XByteField, \
-    XShortField
+from scapy.fields import (
+    BitEnumField,
+    ByteEnumField,
+    ByteField,
+    FlagsField,
+    IntField,
+    LenField,
+    ShortField,
+    UUIDField,
+    XByteField,
+    XShortField,
+)
 
 
 # Fields

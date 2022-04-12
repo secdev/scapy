@@ -13,7 +13,6 @@ from scapy.utils import strxor
 
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import _tls_hmac_algs
-from scapy.modules.six.moves import range
 from scapy.compat import bytes_encode
 
 

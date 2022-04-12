@@ -33,8 +33,7 @@ import os
 import time
 
 from scapy.config import conf, crypto_validator
-import scapy.modules.six as six
-from scapy.modules.six.moves import range
+import scapy.libs.six as six
 from scapy.error import warning
 from scapy.utils import binrepr
 from scapy.asn1.asn1 import ASN1_BIT_STRING
@@ -446,7 +445,7 @@ class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
 
     def resignCert(self, cert):
         """ Rewrite the signature of either a Cert or an X509_Cert. """
-        return self.signTBSCert(cert.tbsCertificate)
+        return self.signTBSCert(cert.tbsCertificate, h=None)
 
     def verifyCert(self, cert):
         """ Verifies either a Cert or an X509_Cert. """

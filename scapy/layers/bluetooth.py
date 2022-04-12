@@ -50,7 +50,7 @@ from scapy.consts import WINDOWS
 from scapy.error import warning
 from scapy.utils import lhex, mac2str, str2mac
 from scapy.volatile import RandMAC
-from scapy.modules import six
+from scapy.libs import six
 
 
 ##########

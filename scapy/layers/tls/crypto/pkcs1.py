@@ -13,7 +13,7 @@ Ubuntu or OSX. This is why we reluctantly keep some legacy crypto here.
 
 from __future__ import absolute_import
 from scapy.compat import bytes_encode, hex_bytes, bytes_hex
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 from scapy.config import conf, crypto_validator
 from scapy.error import warning

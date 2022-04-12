@@ -27,8 +27,6 @@ load_layer("can")
 
 = Define Testfunction
 
-conf.contribs['EcuAnsweringMachine']['send_delay'] = 0.0
-
 def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwargs):
     ecu = TestSocket(GMLAN)
     tester = TestSocket(GMLAN)
@@ -36,7 +34,7 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
     answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=GMLAN, verbose=False)
     def reset():
         answering_machine.reset_state()
-        sniff(timeout=0.01, opened_socket=[ecu, tester])
+        sniff(timeout=0.001, opened_socket=[ecu, tester])
     sim = threading.Thread(target=answering_machine, kwargs={'timeout': 1000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:
@@ -120,10 +118,11 @@ keyfunction = securityAccess_Algorithm1
 
 scanner = executeScannerInVirtualEnvironment(
     mEcu.supported_responses,
-    [GMLAN_ServiceEnumerator, GMLAN_IDOEnumerator, GMLAN_PMEnumerator, GMLAN_RDEnumerator, GMLAN_SAEnumerator],
-    GMLAN_SAEnumerator_kwargs={"keyfunction": keyfunction})
+    [GMLAN_IDOEnumerator, GMLAN_PMEnumerator, GMLAN_RDEnumerator, GMLAN_SAEnumerator],
+    GMLAN_SAEnumerator_kwargs={"keyfunction": keyfunction, "scan_range": range(2)},
+    GMLAN_PMEnumerator_kwargs={"unittest": True})
 
-assert len(scanner.state_paths) == 11
+assert len(scanner.state_paths) == 9
 assert scanner.scan_completed
 
 assert EcuState(session=1) in scanner.final_states
@@ -135,7 +134,6 @@ assert EcuState(session=3, tp=1, security_level=2) in scanner.final_states
 assert EcuState(session=2, tp=1, communication_control=1, security_level=2, request_download=1) in scanner.final_states
 
 = Simulate ECU and test GMLAN_RDBIEnumerator
-~ disabled
 
 resps = [EcuResponse(None, [GMLAN()/GMLAN_RDBIPR(dataIdentifier=1)/Raw(b"asdfbeef1")]),
          EcuResponse(None, [GMLAN()/GMLAN_RDBIPR(dataIdentifier=2)/Raw(b"beef2")]),

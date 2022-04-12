@@ -224,10 +224,19 @@ aomWcyGW1mRxNJUI0GQ5EHB5Vvy4mcxKG1DMYxG/rGf/EHk+xPJXpITIugbispbm
 uA==
 -----END CERTIFICATE-----
 """)
+# tbs_signed's signature computed using sha256 by default (while signature algorithm is sha1 in c_tosign)
 tbs_signed = pkey_sign.signTBSCert(c_tosign.tbsCertificate)
 assert raw(tbs_signed.signatureValue) == b"BH\xdb@>\x82\x08b\xbc\xaf\x04%_\xeaV\xf5_\xa8\xf4\xf3\xd1\x0f\x86\xbd\x1b\xe2U\xfb\xf5/\rN\xc2\r\xbc\xa0Hn\xed\xb7\x18\xb2\xb3\xa5\x08m9\x9fY\xa6\xb32\xcd:\xd7\xab\xac\x8c\xcf@\xbb\x08Gt2\xb7\x93\x95\x92\x17\xa7j\x99\xa7)\xab\xbc\x07HP\xca\x00M$\xfb.\xb9\xb8\xac%i\x8c\xa2+\xe7ny!\xa1\xd2l\x0f>j\xd6\xb0\x9e\xcat)+\xbc\x16'\x9d\x1e\x80\x89\x01.\x9dS\xbb\xa0-\xb8\x0c\xe9\xe9:a\xbe\x14p\xd1\xbb\xf0I\xa2\x8fio`2\x1b7\xb8]\t3\xced`\x86\x97\x01\x82t\xd0\xc3c%\xa7\xda\\[]9\xfa\xba\r\x83\x8b\r\xa2(\x87\xe87C\xb7\\\x11\x163\x8e\xbf\xe2\x80\x7f\xf2\x93\xa4\x04w\xddG\x88\x1e#\xa6l\x15\xa1\xc6\xda\x1f\xd4\xb4$T\xa1\xd0\xe9\xd5t\xc4\xe4q\xbe\xa2\xd2\xba\x1b!/\x1dK\x17}\xc6.\xba\x81;\x00ft\x8du)\x15\n\t\x08\x1b\xb2Ol\xe1\x94g\xc8\xc0\xd6>"
-pkey_sign.resignCert(c_tosign)
-assert pkey_sign.verifyCert(c_tosign)
+
+= PrivKey class : resign cert
+
+# Keep the correct cert signature but set a dummy value to make sure signature is recomputed
+correct_sha1_sig = c_tosign.signatureValue
+c_tosign.x509Cert.signatureValue.val = 512*'0'
+
+c_resigned = pkey_sign.resignCert(c_tosign)
+assert pkey_sign.verifyCert(c_resigned)
+assert raw(c_resigned.signatureValue) == correct_sha1_sig
 
 
 ########### Keys crypto tests #######################################

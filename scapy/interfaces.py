@@ -17,8 +17,8 @@ from scapy.consts import WINDOWS
 from scapy.utils import pretty_list
 from scapy.utils6 import in6_isvalid
 
-from scapy.modules.six.moves import UserDict
-import scapy.modules.six as six
+from scapy.libs.six.moves import UserDict
+import scapy.libs.six as six
 
 # Typing imports
 import scapy

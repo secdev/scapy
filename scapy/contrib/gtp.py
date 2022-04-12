@@ -45,7 +45,6 @@ from scapy.fields import (
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6, IP6Field
 from scapy.layers.ppp import PPP
-from scapy.modules.six.moves import range
 from scapy.packet import bind_layers, bind_bottom_up, bind_top_down, \
     Packet, Raw
 from scapy.volatile import RandInt, RandIP, RandNum, RandString
@@ -221,7 +220,7 @@ class GTP_ExtensionHeader(Packet):
 
 
 class GTP_UDPPort_ExtensionHeader(GTP_ExtensionHeader):
-    fields_desc = [ByteField("length", 0x40),
+    fields_desc = [ByteField("length", 0x01),
                    ShortField("udp_port", None),
                    ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
 

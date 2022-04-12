@@ -24,6 +24,7 @@ from scapy.arch.common import get_if_raw_hwaddr  # noqa: F401, F403, E402
 
 
 def get_working_if():
+    # type: () -> str
     """Return an interface that works"""
     try:
         # return the interface associated with the route with smallest

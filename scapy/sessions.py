@@ -185,7 +185,7 @@ class StringBuffer(object):
         # for ifrag in self.incomplete:
         #     if [???]:
         #         self.incomplete.remove([???])
-        memoryview(self.content)[seq:seq + data_len] = data  # type: ignore
+        memoryview(self.content)[seq:seq + data_len] = data
 
     def full(self):
         # type: () -> bool

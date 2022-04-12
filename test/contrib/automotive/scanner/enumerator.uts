@@ -182,7 +182,7 @@ assert e._retry_pkt[EcuState(session=1)] is not None
 
 = ServiceEnumerator execute
 
-from scapy.modules.six.moves.queue import Queue
+from scapy.libs.six.moves.queue import Queue
 from scapy.supersocket import SuperSocket
 
 class MockISOTPSocket(SuperSocket):

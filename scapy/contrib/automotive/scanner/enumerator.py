@@ -17,7 +17,7 @@ from scapy.compat import Any, Union, List, Optional, Iterable, \
     Dict, Tuple, Set, Callable, cast, NamedTuple, orb
 from scapy.error import Scapy_Exception, log_interactive
 from scapy.utils import make_lined_table, EDecimal
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.packet import Packet
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCase, \
@@ -284,10 +284,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     def sr1_with_retry_on_error(self, req, socket, state, timeout):
         # type: (Packet, _SocketUnion, EcuState, int) -> Optional[Packet]
         try:
-            res = socket.sr1(req, timeout=timeout, verbose=False)
-            if socket.closed:
-                log_interactive.critical("[-] Socket closed during scan.")
-                raise Scapy_Exception("Socket closed during scan")
+            res = socket.sr1(req, timeout=timeout, verbose=False, chainEX=True)
         except (OSError, ValueError, Scapy_Exception) as e:
             if not self._populate_retry(state, req):
                 log_interactive.critical(
@@ -472,8 +469,8 @@ class ServiceEnumerator(AutomotiveTestCase):
 
         return stats
 
-    def _show_statistics(self, dump=False):
-        # type: (bool) -> Union[str, None]
+    def _show_statistics(self, **kwargs):
+        # type: (Any) -> str
         stats = self._compute_statistics()
 
         s = "%d requests were sent, %d answered, %d unanswered" % \
@@ -485,11 +482,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         s += make_lined_table(stats, lambda x: x, dump=True, sortx=str,
                               sorty=str) or ""
 
-        if dump:
-            return s + "\n"
-        else:
-            print(s)
-            return None
+        return s + "\n"
 
     def _prepare_negative_response_blacklist(self):
         # type: () -> None
@@ -575,8 +568,8 @@ class ServiceEnumerator(AutomotiveTestCase):
         """
         return [r for r in self._results if r.resp is None]
 
-    def _show_negative_response_details(self, dump=False):
-        # type: (bool) -> Optional[str]
+    def _show_negative_response_details(self, **kwargs):
+        # type: (Any) -> str
         nrc_dict = defaultdict(int)  # type: Dict[int, int]
         for nr in self.results_with_negative_response:
             nrc_dict[self._get_negative_response_code(nr.resp)] += 1
@@ -588,67 +581,56 @@ class ServiceEnumerator(AutomotiveTestCase):
                 nrc, self._get_negative_response_desc(nrc), nr_count)
             s += "\n"
 
-        if dump:
-            return s + "\n"
-        else:
-            print(s)
-            return None
+        return s + "\n"
 
-    def _show_negative_response_information(self, dump, filtered=True):
-        # type: (bool, bool) -> Optional[str]
+    def _show_negative_response_information(self, **kwargs):
+        # type: (Any) -> str
+        filtered = kwargs.get("filtered", True)
         s = "%d negative responses were received\n" % \
             len(self.results_with_negative_response)
 
-        if not dump:
-            print(s)
-            s = ""
-        else:
-            s += "\n"
+        s += "\n"
 
-        s += self._show_negative_response_details(dump) or "" + "\n"
+        s += self._show_negative_response_details(**kwargs) or "" + "\n"
         if filtered and len(self.negative_response_blacklist):
             s += "The following negative response codes are blacklisted: %s\n"\
                  % [self._get_negative_response_desc(nr)
                     for nr in self.negative_response_blacklist]
 
-        if dump:
-            return s + "\n"
-        else:
-            print(s)
-            return None
+        return s + "\n"
 
-    def _show_results_information(self, dump, filtered):
-        # type: (bool, bool) -> Optional[str]
+    def _show_results_information(self, **kwargs):
+        # type: (Any) -> str
         def _get_table_entry(
                 tup  # type: _AutomotiveTestCaseScanResult
         ):  # type: (...) -> Tuple[str, str, str]
             return self._get_table_entry_x(tup), \
                 self._get_table_entry_y(tup), \
                 self._get_table_entry_z(tup)
+
+        filtered = kwargs.get("filtered", True)
         s = "=== No data to display ===\n"
         data = self._results if not filtered else self.filtered_results  # type: Union[List[_AutomotiveTestCaseScanResult], List[_AutomotiveTestCaseFilteredScanResult]]  # noqa: E501
         if len(data):
             s = make_lined_table(
-                data, _get_table_entry, dump=dump, sortx=str) or ""
+                data, _get_table_entry, dump=True, sortx=str) or ""
 
-        if dump:
-            return s + "\n"
-        else:
-            print(s)
-            return None
+        return s + "\n"
 
     def show(self, dump=False, filtered=True, verbose=False):
         # type: (bool, bool, bool) -> Optional[str]
         if filtered:
             self._prepare_negative_response_blacklist()
 
-        s = self._show_header(dump) or ""
-        s += self._show_statistics(dump) or ""
-        s += self._show_negative_response_information(dump, filtered) or ""
-        s += self._show_results_information(dump, filtered) or ""
+        show_functions = [self._show_header,
+                          self._show_statistics,
+                          self._show_negative_response_information,
+                          self._show_results_information]
 
         if verbose:
-            s += self._show_state_information(dump) or ""
+            show_functions.append(self._show_state_information)
+
+        s = "\n".join(x(filtered=filtered) for x in show_functions)
 
         if dump:
             return s + "\n"
@@ -674,7 +656,6 @@ class ServiceEnumerator(AutomotiveTestCase):
     @property
     def supported_responses(self):
         # type: () -> List[EcuResponse]
-
         supported_resps = list()
         all_responses = [p for p in self.__result_packets.values()
                          if orb(bytes(p)[0]) & 0x40]
@@ -750,7 +731,7 @@ class StateGeneratingServiceEnumerator(ServiceEnumerator, StateGenerator):
             return False
 
         try:
-            res = sock.sr1(req, timeout=20, verbose=False)
+            res = sock.sr1(req, timeout=20, verbose=False, chainEX=True)
             return res is not None and res.service != 0x7f
         except (OSError, ValueError, Scapy_Exception) as e:
             log_interactive.critical(

@@ -12,7 +12,7 @@ Packet holding data in Abstract Syntax Notation (ASN.1).
 from __future__ import absolute_import
 from scapy.base_classes import Packet_metaclass
 from scapy.packet import Packet
-import scapy.modules.six as six
+import scapy.libs.six as six
 
 from scapy.compat import (
     Any,
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 class ASN1Packet_metaclass(Packet_metaclass):
-    def __new__(cls,  # type: ignore
+    def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
                 dct  # type: Dict[str, Any]

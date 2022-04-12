@@ -1,0 +1,374 @@
+% Tests for RFC5925 TCP Authentication Option (TCP-AO)
+~ tcp tcpao
+# Some data from https://datatracker.ietf.org/doc/html/draft-touch-tcpm-ao-test-vectors-02
+
++ Test Utilities
+= Test Utilities
+
+# Tolerate all whitespace like py37+ bytes.fromhex
+def fromhex(hex):
+    return bytes(bytearray.fromhex(hex.replace(" ", "").replace("\n", "")))
+
++ TCP-AO Test Vectors
+= TCP-AO Test Vectors Utilities
+from scapy.contrib import tcpao
+master_key = b"testvector"
+client_keyid = 61
+server_keyid = 84
+
+def check(
+        packet_hex,
+        traffic_key_hex,
+        mac_hex,
+        src_isn,
+        dst_isn,
+        include_options=True,
+        alg_name="HMAC-SHA-1-96",
+        sne=0,
+    ):
+        packet_bytes = fromhex(packet_hex)
+        # sanity check for ip version
+        ipv = orb(packet_bytes[0]) >> 4
+        if ipv == 4:
+            p = IP(fromhex(packet_hex))
+            assert p[IP].proto == socket.IPPROTO_TCP
+        elif ipv == 6:
+            p = IPv6(fromhex(packet_hex))
+            assert p[IPv6].nh == socket.IPPROTO_TCP
+        else:
+            raise ValueError("bad ipv={}".format(ipv))
+        # sanity check for seq/ack in SYN/ACK packets
+        if p[TCP].flags.S and p[TCP].flags.A is False:
+            assert p[TCP].seq == src_isn
+            assert p[TCP].ack == 0
+        if p[TCP].flags.S and p[TCP].flags.A:
+            assert p[TCP].seq == src_isn
+            assert p[TCP].ack == dst_isn + 1
+        # check option bytes in header
+        opt = get_tcpao(p[TCP])
+        assert opt is not None
+        assert opt.keyid in [client_keyid, server_keyid]
+        assert opt.rnextkeyid in [client_keyid, server_keyid]
+        assert opt.mac == fromhex(mac_hex), "match parsed mac"
+        # check traffic key
+        alg = get_alg(alg_name)
+        context_bytes = tcpao.build_context_from_packet(p, src_isn, dst_isn)
+        traffic_key = alg.kdf(master_key, context_bytes)
+        assert traffic_key == fromhex(traffic_key_hex), "match traffic key"
+        # check mac
+        message_bytes = tcpao.build_message_from_packet(
+            p, include_options=include_options, sne=sne
+        )
+        mac = alg.mac(traffic_key, message_bytes)
+        assert mac == fromhex(mac_hex), "match computed mac"
+
+= TCP-AO Test Vector 4.1.1: SHA-1 Send Syn
+client_isn_41x = 0xFBFBAB5A
+server_isn_41x = 0x11C14261
+
+check(
+    """
+    45 e0 00 4c dd 0f 40 00 ff 06 bf 6b 0a 0b 0c 0d
+    ac 1b 1c 1d e9 d7 00 b3 fb fb ab 5a 00 00 00 00
+    e0 02 ff ff ca c4 00 00 02 04 05 b4 01 03 03 08
+    04 02 08 0a 00 15 5a b7 00 00 00 00 1d 10 3d 54
+    2e e4 37 c6 f8 ed e6 d7 c4 d6 02 e7
+    """,
+    "6d 63 ef 1b 02 fe 15 09 d4 b1 40 27 07 fd 7b 04 16 ab b7 4f",
+    "2e e4 37 c6 f8 ed e6 d7 c4 d6 02 e7",
+    client_isn_41x,
+    0,
+)
+
+= TCP-AO Test Vector 4.1.2 SHA-1 Recv Syn-Ack
+check(
+    """
+    45 e0 00 4c 65 06 40 00 ff 06 37 75 ac 1b 1c 1d
+    0a 0b 0c 0d 00 b3 e9 d7 11 c1 42 61 fb fb ab 5b
+    e0 12 ff ff 37 76 00 00 02 04 05 b4 01 03 03 08
+    04 02 08 0a 84 a5 0b eb 00 15 5a b7 1d 10 54 3d
+    ee ab 0f e2 4c 30 10 81 51 16 b3 be
+    """,
+    "d9 e2 17 e4 83 4a 80 ca 2f 3f d8 de 2e 41 b8 e6 79 7f ea 96",
+    "ee ab 0f e2 4c 30 10 81 51 16 b3 be",
+    server_isn_41x,
+    client_isn_41x,
+)
+
+= TCP-AO Test Vector 4.1.3 SHA-1 Send Other
+check(
+    """
+    45 e0 00 87 36 a1 40 00 ff 06 65 9f 0a 0b 0c 0d
+    ac 1b 1c 1d e9 d7 00 b3 fb fb ab 5b 11 c1 42 62
+    c0 18 01 04 a1 62 00 00 01 01 08 0a 00 15 5a c1
+    84 a5 0b eb 1d 10 3d 54 70 64 cf 99 8c c6 c3 15
+    c2 c2 e2 bf ff ff ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff 00 43 01 04 da bf 00 b4 0a 0b 0c 0d
+    26 02 06 01 04 00 01 00 01 02 02 80 00 02 02 02
+    00 02 02 42 00 02 06 41 04 00 00 da bf 02 08 40
+    06 00 64 00 01 01 00
+    """,
+    "d2 e5 9c 65 ff c7 b1 a3 93 47 65 64 63 b7 0e dc 24 a1 3d 71",
+    "70 64 cf 99 8c c6 c3 15 c2 c2 e2 bf",
+    client_isn_41x,
+    server_isn_41x,
+)
+
+= TCP-AO Test Vector 4.1.4 SHA-1 Recv Other
+check(
+    """
+    45 e0 00 87 1f a9 40 00 ff 06 7c 97 ac 1b 1c 1d
+    0a 0b 0c 0d 00 b3 e9 d7 11 c1 42 62 fb fb ab 9e
+    c0 18 01 00 40 0c 00 00 01 01 08 0a 84 a5 0b f5
+    00 15 5a c1 1d 10 54 3d a6 3f 0e cb bb 2e 63 5c
+    95 4d ea c7 ff ff ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff 00 43 01 04 da c0 00 b4 ac 1b 1c 1d
+    26 02 06 01 04 00 01 00 01 02 02 80 00 02 02 02
+    00 02 02 42 00 02 06 41 04 00 00 da c0 02 08 40
+    06 00 64 00 01 01 00
+    """,
+    "d9 e2 17 e4 83 4a 80 ca 2f 3f d8 de 2e 41 b8 e6 79 7f ea 96",
+    "a6 3f 0e cb bb 2e 63 5c 95 4d ea c7",
+    server_isn_41x,
+    client_isn_41x,
+)
+
+= TCP-AO Test Vector 4.2.1
+client_isn_42x = 0xCB0EFBEE
+server_isn_42x = 0xACD5B5E1
+check(
+    """
+    45 e0 00 4c 53 99 40 00 ff 06 48 e2 0a 0b 0c 0d
+    ac 1b 1c 1d ff 12 00 b3 cb 0e fb ee 00 00 00 00
+    e0 02 ff ff 54 1f 00 00 02 04 05 b4 01 03 03 08
+    04 02 08 0a 00 02 4c ce 00 00 00 00 1d 10 3d 54
+    80 af 3c fe b8 53 68 93 7b 8f 9e c2
+    """,
+    "30 ea a1 56 0c f0 be 57 da b5 c0 45 22 9f b1 0a 42 3c d7 ea",
+    "80 af 3c fe b8 53 68 93 7b 8f 9e c2",
+    client_isn_42x,
+    0,
+    include_options=False,
+)
+
+= TCP-AO Test Vector 4.2.2
+check(
+    """
+    45 e0 00 4c 32 84 40 00 ff 06 69 f7 ac 1b 1c 1d
+    0a 0b 0c 0d 00 b3 ff 12 ac d5 b5 e1 cb 0e fb ef
+    e0 12 ff ff 38 8e 00 00 02 04 05 b4 01 03 03 08
+    04 02 08 0a 57 67 72 f3 00 02 4c ce 1d 10 54 3d
+    09 30 6f 9a ce a6 3a 8c 68 cb 9a 70
+    """,
+    "b5 b2 89 6b b3 66 4e 81 76 b0 ed c6 e7 99 52 41 01 a8 30 7f",
+    "09 30 6f 9a ce a6 3a 8c 68 cb 9a 70",
+    server_isn_42x,
+    client_isn_42x,
+    include_options=False,
+)
+
+= TCP-AO Test Vector 4.2.3
+check(
+    """
+    45 e0 00 87 a8 f5 40 00 ff 06 f3 4a 0a 0b 0c 0d
+    ac 1b 1c 1d ff 12 00 b3 cb 0e fb ef ac d5 b5 e2
+    c0 18 01 04 6c 45 00 00 01 01 08 0a 00 02 4c ce
+    57 67 72 f3 1d 10 3d 54 71 06 08 cc 69 6c 03 a2
+    71 c9 3a a5 ff ff ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff 00 43 01 04 da bf 00 b4 0a 0b 0c 0d
+    26 02 06 01 04 00 01 00 01 02 02 80 00 02 02 02
+    00 02 02 42 00 02 06 41 04 00 00 da bf 02 08 40
+    06 00 64 00 01 01 00
+    """,
+    "f3 db 17 93 d7 91 0e cd 80 6c 34 f1 55 ea 1f 00 34 59 53 e3",
+    "71 06 08 cc 69 6c 03 a2 71 c9 3a a5",
+    client_isn_42x,
+    server_isn_42x,
+    include_options=False,
+)
+
+= TCP-AO Test Vector 4.2.4
+check(
+    """
+    45 e0 00 87 54 37 40 00 ff 06 48 09 ac 1b 1c 1d
+    0a 0b 0c 0d 00 b3 ff 12 ac d5 b5 e2 cb 0e fc 32
+    c0 18 01 00 46 b6 00 00 01 01 08 0a 57 67 72 f3
+    00 02 4c ce 1d 10 54 3d 97 76 6e 48 ac 26 2d e9
+    ae 61 b4 f9 ff ff ff ff ff ff ff ff ff ff ff ff
+    ff ff ff ff 00 43 01 04 da c0 00 b4 ac 1b 1c 1d
+    26 02 06 01 04 00 01 00 01 02 02 80 00 02 02 02
+    00 02 02 42 00 02 06 41 04 00 00 da c0 02 08 40
+    06 00 64 00 01 01 00
+    """,
+    "b5 b2 89 6b b3 66 4e 81 76 b0 ed c6 e7 99 52 41 01 a8 30 7f",
+    "97 76 6e 48 ac 26 2d e9 ae 61 b4 f9",
+    server_isn_42x,
+    client_isn_42x,
+    include_options=False,
+)
+
+= TCP-AO Test Vector 5.1.1
+check(
+    """
+    45 e0 00 4c 7b 9f 40 00 ff 06 20 dc 0a 0b 0c 0d
+    ac 1b 1c 1d c4 fa 00 b3 78 7a 1d df 00 00 00 00
+    e0 02 ff ff 5a 0f 00 00 02 04 05 b4 01 03 03 08
+    04 02 08 0a 00 01 7e d0 00 00 00 00 1d 10 3d 54
+    e4 77 e9 9c 80 40 76 54 98 e5 50 91
+    """,
+    "f5 b8 b3 d5 f3 4f db b6 eb 8d 4a b9 66 0e 60 e3",
+    "e4 77 e9 9c 80 40 76 54 98 e5 50 91",
+    0x787A1DDF,
+    0,
+    include_options=True,
+    alg_name="AES-128-CMAC-96",
+)
+
+= TCP-AO Test Vector 6.1.1
+client_isn_61x = 0x176A833F
+server_isn_61x = 0x3F51994B
+check(
+    """
+    6e 08 91 dc 00 38 06 40 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 01 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 02 f7 e4 00 b3 17 6a 83 3f
+    00 00 00 00 e0 02 ff ff 47 21 00 00 02 04 05 a0
+    01 03 03 08 04 02 08 0a 00 41 d0 87 00 00 00 00
+    1d 10 3d 54 90 33 ec 3d 73 34 b6 4c 5e dd 03 9f
+    """,
+    "62 5e c0 9d 57 58 36 ed c9 b6 42 84 18 bb f0 69 89 a3 61 bb",
+    "90 33 ec 3d 73 34 b6 4c 5e dd 03 9f",
+    client_isn_61x,
+    0,
+    include_options=True,
+)
+
+= TCP-AO Test Vector 6.1.2
+check(
+    """
+    6e 01 00 9e 00 38 06 40 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 02 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 01 00 b3 f7 e4 3f 51 99 4b
+    17 6a 83 40 e0 12 ff ff bf ec 00 00 02 04 05 a0
+    01 03 03 08 04 02 08 0a bd 33 12 9b 00 41 d0 87
+    1d 10 54 3d f1 cb a3 46 c3 52 61 63 f7 1f 1f 55
+    """,
+    "e4 a3 7a da 2a 0a fc a8 71 14 34 91 3f e1 38 c7 71 eb cb 4a",
+    "f1 cb a3 46 c3 52 61 63 f7 1f 1f 55",
+    server_isn_61x,
+    client_isn_61x,
+    include_options=True,
+)
+
+= TCP-AO Test Vector 6.2.2
+client_isn_62x = 0x020C1E69
+server_isn_62x = 0xEBA3734D
+check(
+    """
+    6e 0a 7e 1f 00 38 06 40 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 02 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 01 00 b3 c6 cd eb a3 73 4d
+    02 0c 1e 6a e0 12 ff ff 77 4d 00 00 02 04 05 a0
+    01 03 03 08 04 02 08 0a 5e c9 9b 70 00 9d b9 5b
+    1d 10 54 3d 3c 54 6b ad 97 43 f1 2d f8 b8 01 0d
+    """,
+    "40 51 08 94 7f 99 65 75 e7 bd bc 26 d4 02 16 a2 c7 fa 91 bd",
+    "3c 54 6b ad 97 43 f1 2d f8 b8 01 0d",
+    server_isn_62x,
+    client_isn_62x,
+    include_options=False,
+)
+
+= TCP-AO Test Vector 6.2.4
+check(
+    """
+    6e 0a 7e 1f 00 73 06 40 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 02 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 01 00 b3 c6 cd eb a3 73 4e
+    02 0c 1e ad c0 18 01 00 71 6a 00 00 01 01 08 0a
+    5e c9 9b 7a 00 9d b9 65 1d 10 54 3d 55 9a 81 94
+    45 b4 fd e9 8d 9e 13 17 ff ff ff ff ff ff ff ff
+    ff ff ff ff ff ff ff ff 00 43 01 04 fd e8 00 b4
+    01 01 01 7a 26 02 06 01 04 00 01 00 01 02 02 80
+    00 02 02 02 00 02 02 42 00 02 06 41 04 00 00 fd
+    e8 02 08 40 06 00 64 00 01 01 00
+    """,
+    "40 51 08 94 7f 99 65 75 e7 bd bc 26 d4 02 16 a2 c7 fa 91 bd",
+    "55 9a 81 94 45 b4 fd e9 8d 9e 13 17",
+    server_isn_62x,
+    client_isn_62x,
+    include_options=False,
+)
+
+= TCP-AO Test Vector 7.1.2
+server_isn_71x = 0xA6744ECB
+client_isn_71x = 0x193CCCEC
+check(
+    """
+    6e 06 15 20 00 38 06 40 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 02 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 01 00 b3 f8 5a a6 74 4e cb
+    19 3c cc ed e0 12 ff ff ea bb 00 00 02 04 05 a0
+    01 03 03 08 04 02 08 0a 71 da ab c8 13 e4 ab 99
+    1d 10 54 3d dc 28 43 a8 4e 78 a6 bc fd c5 ed 80
+    """,
+    "cf 1b 1e 22 5e 06 a6 36 16 76 4a 06 7b 46 f4 b1",
+    "dc 28 43 a8 4e 78 a6 bc fd c5 ed 80",
+    server_isn_71x,
+    client_isn_71x,
+    alg_name="AES-128-CMAC-96",
+    include_options=True,
+)
+
+= TCP-AO Test Vector 7.1.4
+check(
+    """
+    6e 06 15 20 00 73 06 40 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 02 fd 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 01 00 b3 f8 5a a6 74 4e cc
+    19 3c cd 30 c0 18 01 00 52 f4 00 00 01 01 08 0a
+    71 da ab d3 13 e4 ab a3 1d 10 54 3d c1 06 9b 7d
+    fd 3d 69 3a 6d f3 f2 89 ff ff ff ff ff ff ff ff
+    ff ff ff ff ff ff ff ff 00 43 01 04 fd e8 00 b4
+    01 01 01 7a 26 02 06 01 04 00 01 00 01 02 02 80
+    00 02 02 02 00 02 02 42 00 02 06 41 04 00 00 fd
+    e8 02 08 40 06 00 64 00 01 01 00
+    """,
+    "cf 1b 1e 22 5e 06 a6 36 16 76 4a 06 7b 46 f4 b1",
+    "c1 06 9b 7d fd 3d 69 3a 6d f3 f2 89",
+    server_isn_71x,
+    client_isn_71x,
+    alg_name="AES-128-CMAC-96",
+    include_options=True,
+)
+
++ TCP-AO Signature API
+= TCP-AO sign SYN packet build from scratch
+master_key = b"hello"
+alg = TCPAOAlg_HMAC_SHA1()
+keyid = 12
+rnextkeyid = 34
+
+p = IP() / TCP()
+p[TCP].flags == "S"
+sisn = p[TCP].seq
+disn = 0
+
+# sign
+traffic_key = calc_tcpao_traffic_key(p, alg, master_key, sisn, disn)
+sign_tcpao(p, alg, traffic_key, keyid, rnextkeyid)
+mac = calc_tcpao_mac(p, alg, traffic_key)
+
+# parse
+p2 = IP(raw(p))
+ao = get_tcpao(p2[TCP])
+ao is not None
+ao.keyid == keyid
+ao.rnextkeyid == rnextkeyid
+ao.mac == mac
+
+# calculate signature again on parsed packet
+traffic_key2 = calc_tcpao_traffic_key(p2, alg, master_key, p2[TCP].seq, 0)
+traffic_key == traffic_key2
+mac2 = calc_tcpao_mac(p2, alg, traffic_key2)
+mac == mac2

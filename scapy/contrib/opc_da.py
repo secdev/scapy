@@ -39,9 +39,6 @@ DCOM Remote Protocol.
 [MS-DCOM]: Distributed Component Object Model (DCOM) Remote Protocol
 https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dcom/4a893f3d-bd29-48cd-9f43-d9777a4415b0
 XXX TODO: does not appear to have been linked to RPC
-
-NT LAN Manager (NTLM) Authentication Protocol
-https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/b38c36ed-2804-4868-a9ff-8dd3182128e4
 """
 
 import struct
@@ -70,12 +67,12 @@ from scapy.fields import (
     StrField,
     StrFixedLenField,
     StrLenField,
-    ThreeBytesField,
     UUIDField,
     _FieldContainer,
     _PacketField,
 )
 from scapy.packet import Packet
+from scapy.layers.ntlm import NTLM_Header
 
 # Defined values
 _tagOPCDataSource = {
@@ -653,68 +650,10 @@ class AV_PAIR(Packet):
 AV_PAIRLE = _make_le(AV_PAIR)
 
 
-class NTLMSSP(Packet):
-    # [MS-NLMP] v16.2 sect 2.2.1
-    name = 'NTLM Authentication Protocol'
-    deprecated_fields_desc = {
-        'identifier': ('signature', '2.5.0'),
-    }
-    fields_desc = [
-        StrFixedLenField('signature', b'NTLMSSP\0', length=8),
-        IntEnumField('messageType', 3, {1: 'NEGOTIATE_MESSAGE',
-                                        2: 'CHALLENGE_MESSAGE',
-                                        3: 'AUTHENTICATE_MESSAGE'}),
-        # TODO: ONLY AUTHENTICATE_MESSAGE IMPLEMENTED
-        # sect 2.2.1.3
-        ShortField('lmChallengeResponseLen', 0),
-        ShortField('lmChallengeResponseMaxLen', 0),
-        IntField('lmChallengeResponseBufferOffset', 0),
-        ShortField('ntChallengeResponseLen', 0),
-        ShortField('ntChallengeResponseMaxLen', 0),
-        IntField('ntChallengeResponseBufferOffset', 0),
-        ShortField('domainNameLen', 0),
-        ShortField('domainNameMax', 0),
-        IntField('domainNameOffset', 0),
-        ShortField('userNameLen', 0),
-        ShortField('userNameMax', 0),
-        IntField('userNameOffset', 0),
-        ShortField('workstationLen', 0),
-        ShortField('workstationMaxLen', 0),
-        IntField('workstationBufferOffset', 0),
-        ShortField('encryptedRandomSessionKeyLen', 0),
-        ShortField('encryptedRandomSessionKeyMaxLen', 0),
-        IntField('encryptedRandomSessionKeyBufferOffset', 0),
-        FlagsField('negociateFlags', 0, 32, _negociate_flags),
-        ByteField('productMajorVersion', 0),
-        ByteField('productMinorVersion', 0),
-        ShortField('productBuild', 0),
-        ThreeBytesField('reserved', 0),
-        ByteField('NTLMRevisionCurrent', 0),
-        StrFixedLenField('MIC', '', 16),
-        # payload field.
-        # TODO: those challenges are structures that should be defined
-        StrLenField('lmChallengeResponse', '',
-                    length_from=lambda pkt: pkt.lmChallengeResponseLen),
-        StrLenField('ntChallengeResponse', '',
-                    length_from=lambda pkt: pkt.ntChallengeResponseLen),
-        StrLenField('domainName', '',
-                    length_from=lambda pkt: pkt.domainNameLen),
-        StrLenField('userName', '',
-                    length_from=lambda pkt: pkt.userNameLen),
-        StrLenField('workstation', '',
-                    length_from=lambda pkt: pkt.workstationLen),
-        StrLenField('encryptedRandomSessionKey', '',
-                    length_from=lambda pkt: pkt.encryptedRandomSessionKeyLen)
-    ]
-
-    def extract_padding(self, p):
-        return b"", p
-
-
-NTLMSSPLE = _make_le(NTLMSSP)
+# NTLM
 
 _opcDa_auth_classes = {
-    10: [NTLMSSP, NTLMSSPLE],
+    10: [NTLM_Header, NTLM_Header],
 }
 
 

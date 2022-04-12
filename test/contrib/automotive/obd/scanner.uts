@@ -7,14 +7,12 @@
 = Imports
 
 from test.testsocket import TestSocket, cleanup_testsockets
+from scapy.contrib.automotive.ecu import *  # noqa: F403
 
 = Load contribution layer
 
 load_contrib("automotive.obd.obd", globals_dict=globals())
 load_contrib("automotive.obd.scanner", globals_dict=globals())
-load_contrib("automotive.ecu", globals_dict=globals())
-
-conf.contribs['EcuAnsweringMachine']['send_delay'] = 0
 
 = Create sockets
 

@@ -17,7 +17,7 @@ import binascii
 from scapy.compat import Tuple, Optional, Type, List, Union, Callable, IO, \
     Any, cast
 
-import scapy.modules.six as six
+import scapy.libs.six as six
 from scapy.config import conf
 from scapy.compat import orb
 from scapy.data import DLT_CAN_SOCKETCAN

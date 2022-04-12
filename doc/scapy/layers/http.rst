@@ -112,10 +112,10 @@ Send an HTTPRequest to ``www.secdev.org`` and write the result in a file:
         Pragma=b'no-cache'
     )
     a = TCP_client.tcplink(HTTP, "www.secdev.org", 80)
-    answser = a.sr1(req)
+    answer = a.sr1(req)
     a.close()
     with open("www.secdev.org.html", "wb") as file:
-        file.write(answser.load)
+        file.write(answer.load)
 
 ``TCP_client.tcplink`` makes it feel like it only received one packet, but in reality it was recombined in ``TCPSession``.
 If you performed a plain ``sniff()``, you would have seen those packets.
@@ -149,4 +149,4 @@ Dissect a pcap which contains a JPEG image that was sent over HTTP using chunks.
 HTTP 2.X
 --------
 
-The HTTP 2 documentation is available as a Jupyther notebook over here: `HTTP 2 Tuto <https://github.com/secdev/scapy/blob/master/doc/notebooks/HTTP_2_Tuto.ipynb>`_
+The HTTP 2 documentation is available as a Jupyter notebook over here: `HTTP 2 Tuto <https://github.com/secdev/scapy/blob/master/doc/notebooks/HTTP_2_Tuto.ipynb>`_
