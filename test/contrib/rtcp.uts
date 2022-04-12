@@ -113,3 +113,14 @@ custom_rtcp_bytes = (
       b'\x00\x00)\xe0\x81\xca\x00\x0cpUdf\x01\x1cuser3030930739@host-edc1a89a\x06\t'
       b'GStreamer\x00\x00\x00'
 )
+
+= test parse PLI
+raw = b"\x81\xce\x00\x02\x14\x03\x00\x02\x1a\x68\x98\xf9"
+pli = RTCP(raw)
+
+assert pli.version == 2
+assert pli.padding == 0
+assert pli.ps_feedback_message_type == 1
+assert pli.packet_type == 206
+assert pli.sender_ssrc == 0x14030002
+assert pli.media_source_ssrc == 0x1a6898f9

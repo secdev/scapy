@@ -18,6 +18,7 @@ import struct
 from scapy.packet import Packet, bind_layers
 from scapy.fields import (
     BitField,
+    BitEnumField,
     BitFieldLenField,
     ByteEnumField,
     ByteField,
@@ -39,7 +40,9 @@ _rtcp_packet_types = {
     201: 'Receiver report',
     202: 'Source description',
     203: 'BYE',
-    204: 'APP'
+    204: 'APP',
+    205: 'Transport layer FB message',
+    206: 'Payload-specific FB message'
 }
 
 
@@ -115,6 +118,19 @@ class SDESChunk(Packet):
         return "", p
 
 
+_transport_layer_feedback_messages = {
+    1: "Generic NACK"
+}
+
+
+_payload_specific_feedback_messages = {
+    1: "Picture Loss Indication",
+    2: "Slice Loss Indication",
+    3: "Reference Picture Selection Indication",
+    15: "Application layer FB message",
+}
+
+
 class RTCP(Packet):
     name = "RTCP"
 
@@ -122,7 +138,18 @@ class RTCP(Packet):
         # HEADER
         BitField('version', 2, 2),
         BitField('padding', 0, 1),
-        BitFieldLenField('count', 0, 5),
+        ConditionalField(
+            BitFieldLenField('count', 0, 5),
+            lambda pkt: pkt.packet_type not in (205, 206)
+        ),
+        ConditionalField(
+            BitEnumField('tl_feedback_message_type', 0, 5, _transport_layer_feedback_messages),
+            lambda pkt: pkt.packet_type == 205
+        ),
+        ConditionalField(
+            BitEnumField('ps_feedback_message_type', 0, 5, _payload_specific_feedback_messages),
+            lambda pkt: pkt.packet_type == 206
+        ),
         ByteEnumField('packet_type', 0, _rtcp_packet_types),
         LenField('length', None, fmt='!h'),
         # SR/RR
@@ -144,6 +171,15 @@ class RTCP(Packet):
             PacketListField('sdes_chunks', None, pkt_cls=SDESChunk,
                             count_from=lambda pkt: pkt.count),
             lambda pkt: pkt.packet_type == 202
+        ),
+        # PLI
+        ConditionalField(
+            IntField('sender_ssrc', 0),
+            lambda pkt: pkt.packet_type == 206
+        ),
+        ConditionalField(
+            IntField('media_source_ssrc', 0),
+            lambda pkt: pkt.packet_type == 206
         ),
     ]
 
