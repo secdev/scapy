@@ -510,7 +510,7 @@ class GMLAN_DPBAPR(Packet):
             and other.parameterIdentifier == self.parameterIdentifier
 
 
-bind_layers(GMLAN, GMLAN_DPBA, service=0x6D)
+bind_layers(GMLAN, GMLAN_DPBAPR, service=0x6D)
 
 
 # ########################RD###################################
