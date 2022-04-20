@@ -1904,6 +1904,124 @@ class RawPcapWriter(object):
         self.close()
 
 
+class RawPcapNgWriter(object):
+    """A stream pcapng writer with more control than wrpcap()"""
+
+    def __init__(self,
+                 filename,  # type: str
+                 ):
+        # type: (...) -> None
+        self.header_present = False
+        # tcpdump only support little-endian in PCAPng files
+        self.endian = "<"
+        self.endian_magic = b"\x4d\x3c\x2b\x1a"
+        self.tsresol = 1000000
+
+        self.filename = filename
+        self.f = open(filename, "wb", 4096)
+
+    def fileno(self):
+        # type: () -> int
+        return -1 if WINDOWS else self.f.fileno()
+
+    def build_block(self, block_type, block_body):
+        # type: (bytes, bytes) -> bytes
+
+        # Pad Block Body to 32 bits
+        if len(block_body) % 4 != 0:
+            padding = b"\x00" * (4 - len(block_body) % 4)
+            block_body += padding
+
+        # An empty block is 12 bytes long
+        block_total_length = 12 + len(block_body)
+
+        # Block Type
+        block = block_type
+        # Block Total Length$
+        block += struct.pack(self.endian + "I", block_total_length)
+        # Block Body
+        block += block_body
+        # Block Total Length$
+        block += struct.pack(self.endian + "I", block_total_length)
+
+        return block
+
+    def write_header(self):
+        # type: () -> None
+        if not self.header_present:
+            self.header_present = True
+            self._write_block_shb()
+
+    def _write_block_shb(self):
+        # type: () -> None
+
+        # Block Type
+        block_type = b"\x0A\x0D\x0D\x0A"
+        # Byte-Order Magic
+        block_shb = self.endian_magic
+        # Major Version
+        block_shb += struct.pack(self.endian + "H", 1)
+        # Minor Version
+        block_shb += struct.pack(self.endian + "H", 0)
+        # Section Length
+        block_shb += struct.pack(self.endian + "Q", 0)
+
+        self.f.write(self.build_block(block_type, block_shb))
+
+    def _write_block_idb(self):
+        # type: () -> None
+
+        # Block Type
+        block_type = struct.pack(self.endian + "I", 1)
+        # LinkType
+        block_idb = struct.pack(self.endian + "H", 1)
+        # Reserved
+        block_idb += struct.pack(self.endian + "H", 0)
+        # SnapLen
+        block_idb += struct.pack(self.endian + "I", 262144)
+
+        self.f.write(self.build_block(block_type, block_idb))
+
+    def _write_block_spb(self, raw_pkt):
+        # type: (bytes) -> None
+
+        # Block Type
+        block_type = struct.pack(self.endian + "I", 3)
+        # Original Packet Length
+        block_spb = struct.pack(self.endian + "I", len(raw_pkt))
+        # Packet Data
+        block_spb += raw_pkt
+
+        self.f.write(self.build_block(block_type, block_spb))
+
+    def _write_block_epb(self, raw_pkt, timestamp=None):
+        # type: (bytes, Optional[Union[EDecimal, float]]) -> None
+
+        if timestamp:
+            tmp_ts = int(timestamp * self.tsresol)
+            ts_high = tmp_ts >> 32
+            ts_low = tmp_ts & 0xFFFFFFFF
+        else:
+            ts_high = ts_low = 0
+
+        # Block Type
+        block_type = struct.pack(self.endian + "I", 6)
+        # Interface ID
+        block_epb = struct.pack(self.endian + "I", 0)
+        # Timestamp (High)
+        block_epb += struct.pack(self.endian + "I", ts_high)
+        # Timestamp (Low)
+        block_epb += struct.pack(self.endian + "I", ts_low)
+        # Captured Packet Length
+        block_epb += struct.pack(self.endian + "I", len(raw_pkt))
+        # Original Packet Length
+        block_epb += struct.pack(self.endian + "I", len(raw_pkt))
+        # Packet Data
+        block_epb += raw_pkt
+
+        self.f.write(self.build_block(block_type, block_epb))
+
+
 class PcapWriter(RawPcapWriter):
     """A stream PCAP writer with more control than wrpcap()"""
 
