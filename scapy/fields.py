@@ -1811,19 +1811,20 @@ class XStrField(StrField):
 
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
-        if x is None:
-            return repr(x)
-        return bytes_hex(x).decode()
+        if isinstance(x, bytes):
+            return bytes_hex(x).decode()
+        return super(XStrField, self).i2repr(pkt, x)
 
 
 class _XStrLenField:
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
-        if not x:
-            return repr(x)
-        return bytes_hex(
-            x[:(self.length_from or (lambda x: 0))(pkt)]  # type: ignore
-        ).decode()
+        if isinstance(x, bytes):
+            return bytes_hex(
+                x[:(self.length_from or (lambda x: 0))(pkt)]  # type: ignore
+            ).decode()
+        # cannot use super() since _XStrLenField does not inherit from Field
+        return Field.i2repr(self, pkt, x)
 
 
 class XStrLenField(_XStrLenField, StrLenField):
