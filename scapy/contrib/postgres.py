@@ -17,9 +17,14 @@
 # scapy.contrib.status = loads
 
 
+from scapy.fields import (ByteField, CharEnumField, FieldLenField,
+                          IntEnumField, IntField, PacketListField, ShortField, SignedIntField, SignedShortField,
+                          StrLenField, StrNullField, XNBytesField)
 from scapy.packet import Packet
-from scapy.fields import ByteField, CharEnumField, IntEnumField, FieldLenField, IntField, PacketListField, StrLenField, XNBytesField
 
+__all__ = ["AuthenticationRequest", "BasePacket", "ColumnDescription", "CommandCompletion", "ErrorResponse", "KeyData", "ParameterStatus", "Ready", "RowDescription", "SimpleQuery", "Startup"]
+
+# Based heavily on the information provided here https://beta.pgcon.org/2014/schedule/attachments/330_postgres-for-the-wire.pdf
 
 FRONTEND_MSG_TYPE = {
     b'B' : 'Bind',
@@ -133,17 +138,36 @@ class ParameterStatus(PgComponentPacket):
         StrLenField("keyvalue", "", length_from = lambda pkt: pkt.len - 4),
     ]
 
+class SimpleQuery(PgComponentPacket):
+    name = 'Simple Query'
+    fields_desc = [
+        CharEnumField("tag", b'Q', FRONTEND_MSG_TYPE),
+        FieldLenField("len", None, length_of="query", fmt="I", adjust=lambda pkt, x: x + 4),
+        StrLenField("query", "", length_from = lambda pkt: pkt.len - 4),
+    ]
+
+class CommandCompletion(PgComponentPacket):
+    name = 'Command Completion Response'
+    fields_desc = [
+        CharEnumField("tag", b'C', FRONTEND_MSG_TYPE),
+        FieldLenField("len", None, length_of="cmdtag", fmt="I", adjust=lambda pkt, x: x + 4),
+        StrLenField("cmdtag", "", length_from = lambda pkt: pkt.len - 4),
+    ]
+
+
 class KeyData(PgComponentPacket):
     name = 'Backend Key Data'
     fields_desc = [
         CharEnumField("tag", b'K', BACKEND_MSG_TYPE),
         FieldLenField("len", None,  fmt="I"),
-        IntField("pid", 0),
-        IntField("key", 0),
+        SignedIntField("pid", 0),
+        SignedIntField("key", 0),
     ]
 
 STATUS_TYPE = {
-    b'I': "Idle" # TODO: Get more
+    b'E': "E",
+    b'I': "Idle",
+    b'T': "T",
 }
 
 class Ready(PgComponentPacket):
@@ -151,7 +175,38 @@ class Ready(PgComponentPacket):
     fields_desc = [
         CharEnumField("tag", b'Z', BACKEND_MSG_TYPE),
         FieldLenField("len", None,  fmt="I",),
-        CharEnumField("status", b'', STATUS_TYPE),
+        CharEnumField("status", b'I', STATUS_TYPE),
+    ]
+
+class ColumnDescription(Packet):
+    name = 'Column Description'
+    fields_desc = [
+        StrNullField("col", None),
+        SignedIntField("tableoid", 0),
+        SignedShortField("colno", 0),
+        SignedIntField("typeoid", 0),
+        SignedShortField("typelen", 0),
+        SignedIntField("typemod", 0),
+        SignedShortField("format", 0),
+    ]
+
+class RowDescription(PgComponentPacket):
+    name = 'Row Description'
+    fields_desc = [
+        CharEnumField("tag", b'T', BACKEND_MSG_TYPE),
+        FieldLenField("len", 0,  fmt="I",),
+        SignedShortField("numfields", 0),
+        PacketListField('cols', [], ColumnDescription, length_from=lambda pkt: pkt.len - 6)
+    ]
+
+class DataRow(PgComponentPacket):
+    name = 'Data Row'
+    fields_desc = [
+        CharEnumField("tag", b'D', BACKEND_MSG_TYPE),
+        FieldLenField("len", 0,  fmt="I",),
+        SignedShortField("numfields", 0),
+        SignedIntField("fieldlen", 0),
+        PacketListField('data', [], ColumnDescription, length_from=lambda pkt: pkt.len - 6)
     ]
 
 class ErrorResponse(PgComponentPacket):
@@ -164,8 +219,12 @@ class ErrorResponse(PgComponentPacket):
     ]
 
 TAG_TO_PACKET_CLS = {
+    b'C': CommandCompletion,
+    b'D': DataRow,
     b'R': AuthenticationRequest,
     b'S': ParameterStatus,
+    b'T': RowDescription,
     b'K': KeyData,
-    b'Z': Ready
+    b'Z': Ready,
+    b'Q': SimpleQuery
 }
