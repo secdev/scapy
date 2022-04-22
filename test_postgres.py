@@ -11,7 +11,7 @@ b"\x4e\x31\x32\x35\x32\x00\x00"
 )
 
 assert startup.length == 87
-# TODO : Fix assert startup.protocol_version_major == 3, startup.options
+assert startup.protocol_version_major == 3, startup.options
 assert startup.protocol_version_minor == 0x00
 assert startup.options == b'user\x00postgres\x00database\x00postgres\x00application_name\x00psql\x00client_encoding\x00WIN1252\x00'
 

@@ -22,7 +22,7 @@ from scapy.fields import (ByteField, CharEnumField, FieldLenField,
                           StrLenField, StrNullField, XNBytesField)
 from scapy.packet import Packet
 
-__all__ = ["AuthenticationRequest", "BasePacket", "ColumnDescription", "CommandCompletion", "ErrorResponse", "KeyData", "ParameterStatus", "Ready", "RowDescription", "SimpleQuery", "Startup"]
+__all__ = ["AuthenticationRequest", "BasePacket", "ColumnDescription", "CommandCompletion", "DataRow", "ErrorResponse", "KeyData", "ParameterStatus", "Ready", "RowDescription", "SimpleQuery", "Startup"]
 
 # Based heavily on the information provided here https://beta.pgcon.org/2014/schedule/attachments/330_postgres-for-the-wire.pdf
 
@@ -93,8 +93,8 @@ class Startup(Packet):
     name = 'Startup Request Packet'
     fields_desc = [
         FieldLenField("length", None, length_of="options", fmt="I", adjust=lambda pkt, x: x + 9),
-        XNBytesField("protocol_version_major", 0x3, 2),
-        XNBytesField("protocol_version_minor", 0x0, 2),
+        ShortField("protocol_version_major", 3),
+        ShortField("protocol_version_minor", 0),
         StrLenField("options", "", length_from = lambda pkt: pkt.length - 9),
         ByteField("padding", 0x00)
     ]
@@ -206,7 +206,7 @@ class DataRow(PgComponentPacket):
         FieldLenField("len", 0,  fmt="I",),
         SignedShortField("numfields", 0),
         SignedIntField("fieldlen", 0),
-        PacketListField('data', [], ColumnDescription, length_from=lambda pkt: pkt.len - 6)
+        StrLenField('data', None, length_from=lambda pkt: pkt.len - 10)
     ]
 
 class ErrorResponse(PgComponentPacket):
