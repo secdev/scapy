@@ -11,5 +11,7 @@ test/*.html
 .ipynb_checkpoints
 .mypy_cache
 .vscode
+[.]venv/
+__pycache__/
 doc/scapy/_build
 doc/scapy/api
