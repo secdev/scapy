@@ -17,7 +17,7 @@ for k, v in o.items():
     result += k + b'\0' + v + b'\0'
 
 sport = random.randint(1024,65535)
-dest = Ether()/IP(dst='192.168.86.237')
+dest = Ether()/IP(dst='127.0.0.1')
 
 syn = TCP(sport=sport, dport=5432, flags='S', seq=0)
 synack = srp1(dest/syn)

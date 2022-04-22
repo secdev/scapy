@@ -18,7 +18,7 @@
 
 
 from scapy.packet import Packet
-from scapy.fields import ByteField, CharEnumField, IntEnumField, FieldLenField, PacketListField, StrLenField, XNBytesField
+from scapy.fields import ByteField, CharEnumField, IntEnumField, FieldLenField, IntField, PacketListField, StrLenField, XNBytesField
 
 
 FRONTEND_MSG_TYPE = {
@@ -95,20 +95,26 @@ class Startup(Packet):
     ]
 
 def determine_pg_field(pkt, lst, cur, remain):
-    if pkt.tag in TAG_TO_PACKET_CLS:
-        return TAG_TO_PACKET_CLS[pkt.tag]
+    key = b''
+    if remain:
+        key = bytes(chr(remain[0]), 'ascii')
+    if key in TAG_TO_PACKET_CLS:
+        return TAG_TO_PACKET_CLS[key]
     else:
-        return Packet
+        return None
 
 class BasePacket(Packet):
     name = 'Regular packet'
     fields_desc = [
-        CharEnumField("tag", b'R', FRONTEND_MSG_TYPE),
-        FieldLenField("len", None, fmt="I"),
-        PacketListField("payload", [], next_cls_cb=determine_pg_field)
+        PacketListField("contents", [], next_cls_cb=determine_pg_field)
     ]
 
-class AuthenticationRequest(Packet):
+class PgComponentPacket(Packet):
+
+    def extract_padding(self, p):
+        return b"", p
+
+class AuthenticationRequest(PgComponentPacket):
     name = 'Authentication Request'
     fields_desc = [
         CharEnumField("tag", b'R', BACKEND_MSG_TYPE),
@@ -117,15 +123,38 @@ class AuthenticationRequest(Packet):
         StrLenField("optional", None, length_from = lambda pkt: pkt.len - 8)
     ]
 
-class ParameterStatus(Packet):
+
+
+class ParameterStatus(PgComponentPacket):
     name = 'Parameter Status'
     fields_desc = [
         CharEnumField("tag", b'S', BACKEND_MSG_TYPE),
-        FieldLenField("len", None, length_of="keyvalue", fmt="I", adjust=lambda pkt, x: x + 8),
-        StrLenField("keyvalue", "", length_from = lambda pkt: pkt.len - 8),
+        FieldLenField("len", None, length_of="keyvalue", fmt="I", adjust=lambda pkt, x: x + 4),
+        StrLenField("keyvalue", "", length_from = lambda pkt: pkt.len - 4),
     ]
 
-class ErrorResponse(Packet):
+class KeyData(PgComponentPacket):
+    name = 'Backend Key Data'
+    fields_desc = [
+        CharEnumField("tag", b'K', BACKEND_MSG_TYPE),
+        FieldLenField("len", None,  fmt="I"),
+        IntField("pid", 0),
+        IntField("key", 0),
+    ]
+
+STATUS_TYPE = {
+    b'I': "Idle" # TODO: Get more
+}
+
+class Ready(PgComponentPacket):
+    name = 'Ready Signal'
+    fields_desc = [
+        CharEnumField("tag", b'Z', BACKEND_MSG_TYPE),
+        FieldLenField("len", None,  fmt="I",),
+        CharEnumField("status", b'', STATUS_TYPE),
+    ]
+
+class ErrorResponse(PgComponentPacket):
     name = 'Error Response'
     fields_desc = [
         ByteField("tag", b'E'),
@@ -137,4 +166,6 @@ class ErrorResponse(Packet):
 TAG_TO_PACKET_CLS = {
     b'R': AuthenticationRequest,
     b'S': ParameterStatus,
+    b'K': KeyData,
+    b'Z': Ready
 }
