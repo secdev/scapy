@@ -1871,6 +1871,19 @@ l = rdpcap(tmpfile)
 assert b"Scapy" in l[0][Raw].load
 assert l[0].time == ts
 
+= Check wrpcapng()
+
+tmpfile = get_temp_file(autoext=".pcapng")
+p = Ether()/"Hello Scapy!!!"
+p.time = 1632568366.384185
+wrpcapng(tmpfile, p)
+
+assert os.stat(tmpfile).st_size == 108
+
+l = rdpcap(tmpfile)
+assert b"Scapy" in l[0][Raw].load
+assert l[0].time == ts
+
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
 
