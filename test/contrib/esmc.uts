@@ -1,0 +1,33 @@
+% ESMC unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('esmc')" -t test/contrib/esmc.uts
+
++ ESMC
+
+= Build & dissect ESMC and QLTLV
+
+pkt = Ether(src="00:13:c4:12:0f:0d") / SlowProtocol() / ESMC(event=1) / QLTLV(ssmCode=0x2)
+pkt.show()
+s = raw(pkt)
+raw_pkt = b'\x01\x80\xc2\x00\x00\x02\x00\x13\xc4\x12\x0f\x0d\x88\x09\x0a\x00\x19\xa7\x00' \
+	  b'\x01\x18\x00\x00\x00\x01\x00\x04\x02'
+assert(s == raw_pkt)
+
+p = Ether(s)
+assert(SlowProtocol in p and ESMC in p and QLTLV in p)
+assert(raw(p) == raw_pkt)
+
+= Build & dissect ESMC and EQLTLV
+
+pkt = pkt / EQLTLV(clockIdentity=b'\x11\x22\x33\x44\x55\x66\x77\x88')
+pkt.show()
+s = raw(pkt)
+raw_pkt = b'\x01\x80\xc2\x00\x00\x02\x00\x13\xc4\x12\x0f\x0d\x88\x09\x0a\x00\x19\xa7\x00' \
+	  b'\x01\x18\x00\x00\x00\x01\x00\x04\x02\x02\x00\x14\xff\x11\x22\x33\x44\x55\x66' \
+	  b'\x77\x88\x00\x01\x00\x00\x00\x00\x00\x00'
+assert(s == raw_pkt)
+
+p = Ether(s)
+assert(SlowProtocol in p and ESMC in p and QLTLV in p and EQLTLV in p)
+assert(raw(p) == raw_pkt)
