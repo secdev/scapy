@@ -18,11 +18,20 @@
 
 
 from scapy.fields import (ByteField, CharEnumField, FieldLenField,
-                          IntEnumField, IntField, PacketListField, ShortField, SignedIntField, SignedShortField,
-                          StrLenField, StrNullField, XNBytesField)
+                          IntEnumField, PacketListField, ShortField, 
+                          SignedIntField, SignedShortField,
+                          StrLenField, StrNullField)
 from scapy.packet import Packet
+from scapy.layers.inet import IP, TCP
+from scapy.layers.l2 import Ether
 
-__all__ = ["AuthenticationRequest", "BasePacket", "ColumnDescription", "CommandCompletion", "DataRow", "ErrorResponse", "KeyData", "ParameterStatus", "Ready", "RowDescription", "SimpleQuery", "Startup"]
+__all__ = [
+    "AuthenticationRequest", "BasePacket",
+    "ColumnDescription", "CommandCompletion",
+    "DataRow", "ErrorResponse", "KeyData",
+    "ParameterStatus", "ReadyForQuery",
+    "RowDescription", "SimpleQuery", "Startup",
+]
 
 # Based heavily on the information provided here https://beta.pgcon.org/2014/schedule/attachments/330_postgres-for-the-wire.pdf
 
@@ -170,7 +179,7 @@ STATUS_TYPE = {
     b'T': "T",
 }
 
-class Ready(PgComponentPacket):
+class ReadyForQuery(PgComponentPacket):
     name = 'Ready Signal'
     fields_desc = [
         CharEnumField("tag", b'Z', BACKEND_MSG_TYPE),
@@ -225,6 +234,6 @@ TAG_TO_PACKET_CLS = {
     b'S': ParameterStatus,
     b'T': RowDescription,
     b'K': KeyData,
-    b'Z': Ready,
+    b'Z': ReadyForQuery,
     b'Q': SimpleQuery
 }

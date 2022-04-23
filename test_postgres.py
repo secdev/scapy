@@ -1,4 +1,8 @@
 from scapy.contrib.postgres import *
+from scapy.sendrecv import sniff
+from scapy.utils import PcapReader
+from scapy.layers.inet import IP, TCP
+from scapy.layers.l2 import Ether
 
 ssl_request = "\x00\x00\x00\x08\x04\xd2\x16\x2f"
 
@@ -80,4 +84,11 @@ assert len(command_response.contents) == 4
 assert isinstance(command_response.contents[0], RowDescription)
 assert isinstance(command_response.contents[1], DataRow)
 assert isinstance(command_response.contents[2], CommandCompletion)
-assert isinstance(command_response.contents[3], Ready)
+assert isinstance(command_response.contents[3], ReadyForQuery)
+
+with PcapReader('psql.pcap') as pcap:
+    for i, pkt in enumerate(pcap):
+        if i == 0:
+            Startup(pkt[TCP].load).show()
+        else:
+            BasePacket(pkt[TCP].load).show()
