@@ -2102,3 +2102,18 @@ assert isinstance(p.packet.short1, RandShort)
 assert isinstance(p.packet.byte, RandByte)
 assert isinstance(p.packet.long, RandLong)
 assert isinstance(p.short2, RandShort)
+
+############
+############
++ XStr(*)Field tests
+
+= i2repr
+~ field xstrfield
+
+from collections import namedtuple
+MockPacket = namedtuple('MockPacket', ['type'])
+
+mp = MockPacket(0)
+f = XStrField('test', None)
+x = f.i2repr(mp, RandBin())
+assert x == '<RandBin>'
