@@ -17,24 +17,7 @@
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteField, MACField, ShortField, ByteEnumField, IntField, XStrFixedLenField  # noqa: E501
-from scapy.layers.l2 import Ether
-from scapy.data import ETHER_TYPES
-
-
-ETHER_TYPES[0x8809] = 'SlowProtocol'
-SLOW_SUB_TYPES = {
-    'Unused': 0,
-    'LACP': 1,
-    'Marker Protocol': 2,
-}
-
-
-class SlowProtocol(Packet):
-    name = "SlowProtocol"
-    fields_desc = [ByteEnumField("subtype", 0, SLOW_SUB_TYPES)]
-
-
-bind_layers(Ether, SlowProtocol, type=0x8809, dst='01:80:c2:00:00:02')
+from scapy.contrib.slowprot import SlowProtocol
 
 
 class LACP(Packet):
