@@ -83,3 +83,27 @@ assert isinstance(p.payload, NoPayload)
 
 p = ARP(pdst='192.168.178.0/24')
 assert "Net" in repr(p)
+
+
+############
+############
++ CookedLinux
+
+= CookedLinux - Basic Dissection
+
+cl = CookedLinux(b'\x00\x00\x03\x04\x00\x06\x00\x00\x00\x00\x00\x00\x6f\x50\x08\x00')
+assert cl.pkttype == 0 # unicast
+assert cl.lladdrtype == 772 # loopback
+assert cl.lladdrlen == 6
+assert cl.src == b'\x00\x00\x00\x00\x00\x00\x6f\x50'
+assert cl.proto == 2048
+
+= CookedLinuxV2 - Basic Dissection
+
+clv2 = CookedLinuxV2(b'\x08\x00\x00\x00\x00\x00\x00\x03\x00\x01\x00\x06\xaa\x1f\x9c\xc0\x5a\x7e\x00\x00')
+assert clv2.proto == 2048
+assert clv2.ifindex == 3
+assert clv2.lladdrtype == 1 # ether
+assert clv2.pkttype == 0 # unicast
+assert clv2.lladdrlen == 6
+assert clv2.src == b'\xaa\x1f\x9c\xc0\x5a\x7e\x00\000'
