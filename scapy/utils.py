@@ -2117,12 +2117,12 @@ class GenericPcapWriter(object):
                   usec  # type: Optional[int]
                   ):
         # type: (...) -> Tuple[float, int]
-        if hasattr(packet, "time"):
+        if isinstance(packet, Packet):
             if sec is None:
-                tmp = int(packet.time)  # type: ignore
-                usec = int(round((packet.time - tmp) *  # type: ignore
+                tmp = int(packet.time)
+                usec = int(round((packet.time - tmp) *
                            (1000000000 if self.nano else 1000000)))
-                sec = float(packet.time)  # type: ignore
+                sec = float(packet.time)
         if usec is None:
             usec = 0
         return sec, usec  # type: ignore
@@ -2191,9 +2191,9 @@ class PcapNgWriter(GenericPcapWriter, RawPcapNgWriter):
                   usec  # type: Optional[int]
                   ):
         # type: (...) -> Tuple[float, int]
-        if hasattr(packet, "time"):
+        if isinstance(packet, Packet):
             if sec is None:
-                sec = float(packet.time)  # type: ignore
+                sec = float(packet.time)
 
         if usec is None:
             usec = 0
