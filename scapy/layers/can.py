@@ -127,7 +127,7 @@ class CAN(Packet):
 
         This is based on a copy of the Packet.self_build default method.
         The goal is to affect only the CAN layer data and keep
-        under layers (e.g LinuxCooked) unchanged
+        under layers (e.g CookedLinux) unchanged
         """
         if conf.contribs['CAN']['swap-bytes']:
             data = CAN.inv_endianness(pkt)  # type: bytes
