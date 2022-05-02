@@ -905,8 +905,8 @@ from mock import patch
 def _r(*args, **kwargs):
     raise OSError
 
-with patch("scapy.libs.pyx.subprocess.check_call", _r):
-    from scapy.libs.pyx import _test_pyx
+with patch("scapy.libs.test_pyx.subprocess.check_call", _r):
+    from scapy.libs.test_pyx import _test_pyx
     assert _test_pyx() == False
 
 = Test matplotlib detection functions
