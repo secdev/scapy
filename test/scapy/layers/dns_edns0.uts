@@ -64,10 +64,8 @@ raw(tlv) == b'\x00\x02\x00\x00'
 ~ netaccess needs_root
 
 def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    r = sr1(IP(dst="l.root-servers.net")/UDP()/DNS(qd=[DNSQR(qtype="SOA", qname=".")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="NSID")])]), timeout=1)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+        r = sr1(IP(dst="l.root-servers.net")/UDP()/DNS(qd=[DNSQR(qtype="SOA", qname=".")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="NSID")])]), timeout=1)
     len(r.ar) and DNSRROPT in r.ar and len(r.ar[DNSRROPT].rdata) and len([x for x in r.ar[DNSRROPT].rdata if x.optcode == 3])
 
 retry_test(_test)
