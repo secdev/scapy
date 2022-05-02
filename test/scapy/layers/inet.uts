@@ -568,9 +568,9 @@ def test_summary():
 test_summary()
 
 import mock
-import scapy.lib.matplotlib
+import scapy.libs.matplotlib
 
-@mock.patch("scapy.lib.matplotlib.plt")
+@mock.patch("scapy.libs.matplotlib.plt")
 def test_timeskew_graph(mock_plt):
     def fake_plot(data, **kwargs):
         return data

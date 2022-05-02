@@ -913,29 +913,29 @@ with patch("scapy.libs.pyx.subprocess.check_call", _r):
 
 from mock import MagicMock, patch
 
-bck_scapy_ext_lib = sys.modules.get("scapy.lib.matplotlib", None)
+bck_scapy_ext_lib = sys.modules.get("scapy.libs.matplotlib", None)
 if bck_scapy_ext_lib:
-    del(sys.modules["scapy.lib.matplotlib"])
+    del(sys.modules["scapy.libs.matplotlib"])
 
 mock_matplotlib = MagicMock()
 mock_matplotlib.get_backend.return_value = "inline"
 mock_matplotlib.pyplot = MagicMock()
 mock_matplotlib.pyplot.plt = None
 with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib}):
-    from scapy.lib.matplotlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS, Line2D
+    from scapy.libs.matplotlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS, Line2D
     assert MATPLOTLIB == 1
     assert MATPLOTLIB_INLINED == 1
     assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
 
 mock_matplotlib.get_backend.return_value = "ko"
 with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib}):
-    from scapy.lib.matplotlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+    from scapy.libs.matplotlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
     assert MATPLOTLIB == 1
     assert MATPLOTLIB_INLINED == 0
     assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
 
 if bck_scapy_ext_lib:
-    sys.modules["scapy.lib.matplotlib"] = bck_scapy_ext_lib
+    sys.modules["scapy.libs.matplotlib"] = bck_scapy_ext_lib
 
 
 ############
@@ -4398,9 +4398,9 @@ assert all(bytes(a[0]) == bytes(b[0]) for a, b in zip(unp, srl))
 = plot()
 
 import mock
-import scapy.lib.matplotlib
+import scapy.libs.matplotlib
 
-@mock.patch("scapy.lib.matplotlib.plt")
+@mock.patch("scapy.libs.matplotlib.plt")
 def test_plot(mock_plt):
     def fake_plot(data, **kwargs):
         return data
@@ -4414,9 +4414,9 @@ test_plot()
 = diffplot()
 
 import mock
-import scapy.lib.matplotlib
+import scapy.libs.matplotlib
 
-@mock.patch("scapy.lib.matplotlib.plt")
+@mock.patch("scapy.libs.matplotlib.plt")
 def test_diffplot(mock_plt):
     def fake_plot(data, **kwargs):
         return data
@@ -4430,9 +4430,9 @@ test_diffplot()
 = multiplot()
 
 import mock
-import scapy.lib.matplotlib
+import scapy.libs.matplotlib
 
-@mock.patch("scapy.lib.matplotlib.plt")
+@mock.patch("scapy.libs.matplotlib.plt")
 def test_multiplot(mock_plt):
     def fake_plot(data, **kwargs):
         return data
