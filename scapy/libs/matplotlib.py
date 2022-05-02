@@ -34,10 +34,10 @@ try:
         MATPLOTLIB_INLINED = 0
     MATPLOTLIB_DEFAULT_PLOT_KARGS = {"marker": "+"}
 # RuntimeError to catch gtk "Cannot open display" error
-except (ImportError, RuntimeError):
+except (ImportError, RuntimeError) as ex:
     plt = None
     Line2D = None
     MATPLOTLIB = 0
     MATPLOTLIB_INLINED = 0
     MATPLOTLIB_DEFAULT_PLOT_KARGS = dict()
-    log_loading.info("Can't import matplotlib. Won't be able to plot.")
+    log_loading.info("Can't import matplotlib: %s. Won't be able to plot.", ex)
