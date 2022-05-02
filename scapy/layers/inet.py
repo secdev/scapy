@@ -1282,7 +1282,7 @@ def _packetlist_timeskew_graph(self, ip, **kargs):
     """Tries to graph the timeskew between the timestamps and real time for a given ip"""  # noqa: E501
     # Defer imports of matplotlib until its needed
     # because it has a heavy dep chain
-    from scapy.libs.matplotlib import (
+    from scapy.libs.matplot import (
         plt,
         MATPLOTLIB_INLINED,
         MATPLOTLIB_DEFAULT_PLOT_KARGS
@@ -1539,7 +1539,7 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
 
         # Check that the geoip2 module can be imported
         # Doc: http://geoip2.readthedocs.io/en/latest/
-        from scapy.libs.matplotlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED
+        from scapy.libs.matplot import plt, MATPLOTLIB, MATPLOTLIB_INLINED
 
         try:
             # GeoIP2 modules need to be imported as below

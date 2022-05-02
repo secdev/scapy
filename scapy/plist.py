@@ -47,7 +47,7 @@ from scapy.compat import (
 from scapy.packet import Packet
 
 if TYPE_CHECKING:
-    from scapy.libs.matplotlib import Line2D
+    from scapy.libs.matplot import Line2D
 
 #############
 #  Results  #
@@ -292,7 +292,7 @@ class _PacketList(Generic[_Inner]):
         """
         # Defer imports of matplotlib until its needed
         # because it has a heavy dep chain
-        from scapy.libs.matplotlib import (
+        from scapy.libs.matplot import (
             plt,
             MATPLOTLIB_INLINED,
             MATPLOTLIB_DEFAULT_PLOT_KARGS
@@ -337,7 +337,7 @@ class _PacketList(Generic[_Inner]):
         """
         # Defer imports of matplotlib until its needed
         # because it has a heavy dep chain
-        from scapy.libs.matplotlib import (
+        from scapy.libs.matplot import (
             plt,
             MATPLOTLIB_INLINED,
             MATPLOTLIB_DEFAULT_PLOT_KARGS
@@ -377,7 +377,7 @@ class _PacketList(Generic[_Inner]):
         """
         # Defer imports of matplotlib until its needed
         # because it has a heavy dep chain
-        from scapy.libs.matplotlib import (
+        from scapy.libs.matplot import (
             plt,
             MATPLOTLIB_INLINED,
             MATPLOTLIB_DEFAULT_PLOT_KARGS
