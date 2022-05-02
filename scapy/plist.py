@@ -292,7 +292,7 @@ class _PacketList(Generic[_Inner]):
         """
         # Defer imports of matplotlib until its needed
         # because it has a heavy dep chain
-        from scapy.extlib_matplotlib import (
+        from scapy.libs.matplotlib import (
             plt,
             MATPLOTLIB_INLINED,
             MATPLOTLIB_DEFAULT_PLOT_KARGS
@@ -337,7 +337,7 @@ class _PacketList(Generic[_Inner]):
         """
         # Defer imports of matplotlib until its needed
         # because it has a heavy dep chain
-        from scapy.extlib_matplotlib import (
+        from scapy.libs.matplotlib import (
             plt,
             MATPLOTLIB_INLINED,
             MATPLOTLIB_DEFAULT_PLOT_KARGS
@@ -377,7 +377,7 @@ class _PacketList(Generic[_Inner]):
         """
         # Defer imports of matplotlib until its needed
         # because it has a heavy dep chain
-        from scapy.extlib_matplotlib import (
+        from scapy.libs.matplotlib import (
             plt,
             MATPLOTLIB_INLINED,
             MATPLOTLIB_DEFAULT_PLOT_KARGS
