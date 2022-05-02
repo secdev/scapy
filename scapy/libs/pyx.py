@@ -4,7 +4,7 @@
 # This program is published under a GPLv2 license
 
 """
-External link to programs
+External link to pyx
 """
 
 import os
