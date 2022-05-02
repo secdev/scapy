@@ -911,34 +911,57 @@ with patch("scapy.libs.pyx.subprocess.check_call", _r):
 
 = Test matplotlib detection functions
 
-from mock import MagicMock, patch
+import sys
+from mock import MagicMock
+
+bck_matplotlib = sys.modules.get("matplotlib", None)
+if bck_matplotlib:
+    del sys.modules["matplotlib"]
+
+bck_matplotlib_lines = sys.modules.get("matplotlib.lines", None)
+if bck_matplotlib_lines:
+    del sys.modules["matplotlib.lines"]
 
 bck_scapy_libs_matplotlib = sys.modules.get("scapy.libs.matplotlib", None)
 if bck_scapy_libs_matplotlib:
-    del(sys.modules["scapy.libs.matplotlib"])
+    del sys.modules["scapy.libs.matplotlib"]
 
 mock_matplotlib = MagicMock()
 mock_matplotlib_lines = MagicMock()
 mock_matplotlib.get_backend.return_value = "inline"
 mock_matplotlib.pyplot = MagicMock()
 mock_matplotlib.pyplot.plt = None
-with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib_lines}):
-    import matplotlib
-    from scapy.libs.matplotlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS, Line2D
-    assert MATPLOTLIB == 1
-    assert MATPLOTLIB_INLINED == 1
-    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+sys.modules["matplotlib"] = mock_matplotlib
+sys.modules["matplotlib.lines"] = mock_matplotlib_lines
+
+from scapy.libs.matplotlib import (
+    MATPLOTLIB,
+    MATPLOTLIB_INLINED,
+    MATPLOTLIB_DEFAULT_PLOT_KARGS,
+    Line2D,
+)
+
+assert MATPLOTLIB == 1
+assert MATPLOTLIB_INLINED == 1
+assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
 
 mock_matplotlib.get_backend.return_value = "ko"
-with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib_lines}):
-    from scapy.libs.matplotlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
-    assert MATPLOTLIB == 1
-    assert MATPLOTLIB_INLINED == 0
-    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+del sys.modules["scapy.libs.matplotlib"]
+from scapy.libs.matplotlib import (
+    MATPLOTLIB,
+    MATPLOTLIB_INLINED,
+    MATPLOTLIB_DEFAULT_PLOT_KARGS,
+)
+
+assert MATPLOTLIB == 1
+assert MATPLOTLIB_INLINED == 0
+assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
 
 if bck_scapy_libs_matplotlib:
     sys.modules["scapy.libs.matplotlib"] = bck_scapy_libs_matplotlib
 
+sys.modules["matplotlib"] = bck_matplotlib
+sys.modules["matplotlib.lines"] = bck_matplotlib_lines
 
 ############
 ############
