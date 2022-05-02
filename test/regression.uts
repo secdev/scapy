@@ -913,8 +913,8 @@ with patch("scapy.libs.pyx.subprocess.check_call", _r):
 
 from mock import MagicMock, patch
 
-bck_scapy_ext_lib = sys.modules.get("scapy.libs.matplotlib", None)
-if bck_scapy_ext_lib:
+bck_scapy_libs_matplotlib = sys.modules.get("scapy.libs.matplotlib", None)
+if bck_scapy_libs_matplotlib:
     del(sys.modules["scapy.libs.matplotlib"])
 
 mock_matplotlib = MagicMock()
@@ -934,8 +934,8 @@ with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.li
     assert MATPLOTLIB_INLINED == 0
     assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
 
-if bck_scapy_ext_lib:
-    sys.modules["scapy.libs.matplotlib"] = bck_scapy_ext_lib
+if bck_scapy_libs_matplotlib:
+    sys.modules["scapy.libs.matplotlib"] = bck_scapy_libs_matplotlib
 
 
 ############
