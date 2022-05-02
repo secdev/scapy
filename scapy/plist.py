@@ -47,7 +47,7 @@ from scapy.compat import (
 from scapy.packet import Packet
 
 if TYPE_CHECKING:
-    from extlib_matplotlib import Line2D
+    from scapy.libs.matplotlib import Line2D
 
 #############
 #  Results  #
