@@ -922,14 +922,15 @@ mock_matplotlib_lines = MagicMock()
 mock_matplotlib.get_backend.return_value = "inline"
 mock_matplotlib.pyplot = MagicMock()
 mock_matplotlib.pyplot.plt = None
-with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib_lines}), patch("matplotlib.get_backend", MagicMock(return_value="inline")), patch("matplotlib.pyplot", mock_matplotlib.pyplot), patch("matplotlib.lines", mock_matplotlib_lines):
+with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib_lines}):
+    import matplotlib
     from scapy.libs.matplotlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS, Line2D
     assert MATPLOTLIB == 1
     assert MATPLOTLIB_INLINED == 1
     assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
 
 mock_matplotlib.get_backend.return_value = "ko"
-with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib_lines}), patch("matplotlib.get_backend", MagicMock(return_value="ko")), patch("matplotlib.pyplot", mock_matplotlib.pyplot), patch("matplotlib.lines", mock_matplotlib_lines):
+with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib_lines}):
     from scapy.libs.matplotlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
     assert MATPLOTLIB == 1
     assert MATPLOTLIB_INLINED == 0
