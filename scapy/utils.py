@@ -1719,20 +1719,116 @@ class PcapNgReader(RawPcapNgReader, PcapReader, _SuperSocket):
         return self.read_packet()
 
 
-class GenericRawPcapWriter(object):
+class GenericPcapWriter(object):
+    nano = False
+    linktype = None  # type: Optional[int]
+
+    def _write_header(self, pkt):
+        # type: (Optional[Union[Packet, bytes]]) -> None
+        raise NotImplementedError
+
+    def _write_packet(self,
+                      packet,  # type: Union[bytes, Packet]
+                      sec=None,  # type: Optional[float]
+                      usec=None,  # type: Optional[int]
+                      caplen=None,  # type: Optional[int]
+                      wirelen=None  # type: Optional[int]
+                      ):
+        # type: (...) -> None
+        raise NotImplementedError
+
+    def _get_time(self,
+                  packet,  # type: Union[bytes, Packet]
+                  sec,  # type: Optional[float]
+                  usec  # type: Optional[int]
+                  ):
+        # type: (...) -> Tuple[float, int]
+        if hasattr(packet, "time"):
+            if sec is None:
+                packet_time = packet.time  # type: ignore
+                tmp = int(packet_time)
+                usec = int(round((packet_time - tmp) *
+                           (1000000000 if self.nano else 1000000)))
+                sec = float(packet_time)
+        if sec is not None and usec is None:
+            usec = 0
+        return sec, usec  # type: ignore
+
+    def write_header(self, pkt):
+        # type: (Optional[Union[Packet, bytes]]) -> None
+        if self.linktype is None:
+            try:
+                if pkt is None or isinstance(pkt, bytes):
+                    # Can't guess LL
+                    raise KeyError
+                self.linktype = conf.l2types.layer2num[
+                    pkt.__class__
+                ]
+            except KeyError:
+                msg = "%s: unknown LL type for %s. Using type 1 (Ethernet)"
+                warning(msg, self.__class__.__name__, pkt.__class__.__name__)
+                self.linktype = DLT_EN10MB
+        self._write_header(pkt)
+
+    def write_packet(self,
+                     packet,  # type: Union[bytes, Packet]
+                     sec=None,  # type: Optional[float]
+                     usec=None,  # type: Optional[int]
+                     caplen=None,  # type: Optional[int]
+                     wirelen=None,  # type: Optional[int]
+                     ):
+        # type: (...) -> None
+        """
+        Writes a single packet to the pcap file.
+
+        :param packet: Packet, or bytes for a single packet
+        :type packet: scapy.packet.Packet or bytes
+        :param sec: time the packet was captured, in seconds since epoch. If
+                    not supplied, defaults to now.
+        :type sec: float
+        :param usec: If ``nano=True``, then number of nanoseconds after the
+                     second that the packet was captured. If ``nano=False``,
+                     then the number of microseconds after the second the
+                     packet was captured. If ``sec`` is not specified,
+                     this value is ignored.
+        :type usec: int or long
+        :param caplen: The length of the packet in the capture file. If not
+                       specified, uses ``len(raw(packet))``.
+        :type caplen: int
+        :param wirelen: The length of the packet on the wire. If not
+                        specified, tries ``packet.wirelen``, otherwise uses
+                        ``caplen``.
+        :type wirelen: int
+        :return: None
+        :rtype: None
+        """
+        f_sec, usec = self._get_time(packet, sec, usec)
+
+        rawpkt = bytes_encode(packet)
+        caplen = len(rawpkt) if caplen is None else caplen
+
+        if wirelen is None:
+            if hasattr(packet, "wirelen"):
+                wirelen = packet.wirelen  # type: ignore
+        if wirelen is None:
+            wirelen = caplen
+
+        self._write_packet(
+            rawpkt,
+            sec=f_sec, usec=usec,
+            caplen=caplen, wirelen=wirelen
+        )
+
+
+class GenericRawPcapWriter(GenericPcapWriter):
     header_present = False
     nano = False
     sync = False
     f = None  # type: Union[IO[bytes], gzip.GzipFile]
-    linktype = None  # type: Optional[int]
 
     def fileno(self):
         # type: () -> int
         return -1 if WINDOWS else self.f.fileno()
-
-    def write_header(self, pkt):
-        # type: (Optional[Union[Packet, bytes]]) -> None
-        self._write_header(bytes_encode(pkt))
 
     def flush(self):
         # type: () -> Optional[Any]
@@ -1753,19 +1849,21 @@ class GenericRawPcapWriter(object):
         self.flush()
         self.close()
 
-    def write_packet(self,
-                     packet,  # type: Union[bytes, Packet]
-                     sec=None,  # type: Optional[float]
-                     usec=None,  # type: Optional[int]
-                     caplen=None,  # type: Optional[int]
-                     wirelen=None,  # type: Optional[int]
-                     ):
-        # type: (...) -> None
-        self._write_packet(
-            bytes(packet),
-            sec=sec, usec=usec,
-            caplen=caplen, wirelen=wirelen
-        )
+#    def write_packet(self,
+#                     packet,  # type: Union[bytes, Packet]
+#                     sec=None,  # type: Optional[float]
+#                     usec=None,  # type: Optional[int]
+#                     caplen=None,  # type: Optional[int]
+#                     wirelen=None,  # type: Optional[int]
+#                     ):
+#        # type: (...) -> None
+#        if sec is None and usec is None and hasattr(packet, "time"):
+#           sec, usec = self._get_time(packet, sec, usec)
+#        self._write_packet(
+#            bytes(packet),
+#            sec=sec, usec=usec,
+#            caplen=caplen, wirelen=wirelen
+#        )
 
     def write(self, pkt):
         # type: (Union[_PacketIterable, bytes]) -> None
@@ -1946,6 +2044,21 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         self.filename = filename
         self.f = open(filename, "wb", 4096)
 
+    def _get_time(self,
+                  packet,  # type: Union[bytes, Packet]
+                  sec,  # type: Optional[float]
+                  usec  # type: Optional[int]
+                  ):
+        # type: (...) -> Tuple[float, int]
+        if hasattr(packet, "time"):
+            if sec is None:
+                sec = float(packet.time)  # type: ignore
+
+        if usec is None:
+            usec = 0
+
+        return sec, usec  # type: ignore
+
     def build_block(self, block_type, block_body):
         # type: (bytes, bytes) -> bytes
 
@@ -2091,98 +2204,12 @@ class RawPcapNgWriter(GenericRawPcapWriter):
             self.f.flush()
 
 
-class GenericPcapWriter(object):
-    nano = False
-    linktype = None  # type: Optional[int]
-
-    def write_header(self, pkt):
-        # type: (Optional[Union[Packet, bytes]]) -> None
-        if self.linktype is None:
-            try:
-                if pkt is None or isinstance(pkt, bytes):
-                    # Can't guess LL
-                    raise KeyError
-                self.linktype = conf.l2types.layer2num[
-                    pkt.__class__
-                ]
-            except KeyError:
-                msg = "%s: unknown LL type for %s. Using type 1 (Ethernet)"
-                warning(msg, self.__class__, pkt.__class__.__name__)
-                self.linktype = DLT_EN10MB
-        self._write_header(pkt)
-
-    def _get_time(self,
-                  packet,  # type: Union[bytes, Packet]
-                  sec,  # type: Optional[float]
-                  usec  # type: Optional[int]
-                  ):
-        # type: (...) -> Tuple[float, int]
-        if isinstance(packet, Packet):
-            if sec is None:
-                tmp = int(packet.time)
-                usec = int(round((packet.time - tmp) *
-                           (1000000000 if self.nano else 1000000)))
-                sec = float(packet.time)
-        if sec is not None and usec is None:
-            usec = 0
-        return sec, usec  # type: ignore
-
-    def write_packet(self,
-                     packet,  # type: Union[bytes, Packet]
-                     sec=None,  # type: Optional[float]
-                     usec=None,  # type: Optional[int]
-                     caplen=None,  # type: Optional[int]
-                     wirelen=None,  # type: Optional[int]
-                     ):
-        # type: (...) -> None
-        """
-        Writes a single packet to the pcap file.
-
-        :param packet: Packet, or bytes for a single packet
-        :type packet: scapy.packet.Packet or bytes
-        :param sec: time the packet was captured, in seconds since epoch. If
-                    not supplied, defaults to now.
-        :type sec: float
-        :param usec: If ``nano=True``, then number of nanoseconds after the
-                     second that the packet was captured. If ``nano=False``,
-                     then the number of microseconds after the second the
-                     packet was captured. If ``sec`` is not specified,
-                     this value is ignored.
-        :type usec: int or long
-        :param caplen: The length of the packet in the capture file. If not
-                       specified, uses ``len(raw(packet))``.
-        :type caplen: int
-        :param wirelen: The length of the packet on the wire. If not
-                        specified, tries ``packet.wirelen``, otherwise uses
-                        ``caplen``.
-        :type wirelen: int
-        :return: None
-        :rtype: None
-        """
-        f_sec, usec = self._get_time(packet, sec, usec)
-
-        rawpkt = bytes_encode(packet)
-        caplen = len(rawpkt) if caplen is None else caplen
-
-        if wirelen is None:
-            if hasattr(packet, "wirelen"):
-                wirelen = packet.wirelen  # type: ignore
-        if wirelen is None:
-            wirelen = caplen
-
-        self._write_packet(
-            rawpkt,
-            sec=f_sec, usec=usec,
-            caplen=caplen, wirelen=wirelen
-        )
-
-
-class PcapWriter(GenericPcapWriter, RawPcapWriter):
+class PcapWriter(RawPcapWriter):
     """A stream PCAP writer with more control than wrpcap()"""
     pass
 
 
-class PcapNgWriter(GenericPcapWriter, RawPcapNgWriter):
+class PcapNgWriter(RawPcapNgWriter):
     """A stream pcapng writer with more control than wrpcapng()"""
 
     def _get_time(self,
@@ -2191,9 +2218,9 @@ class PcapNgWriter(GenericPcapWriter, RawPcapNgWriter):
                   usec  # type: Optional[int]
                   ):
         # type: (...) -> Tuple[float, int]
-        if isinstance(packet, Packet):
+        if hasattr(packet, "time"):
             if sec is None:
-                sec = float(packet.time)
+                sec = float(packet.time)  # type: ignore
 
         if usec is None:
             usec = 0

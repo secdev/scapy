@@ -2152,13 +2152,10 @@ fd = get_temp_file()
 with RawPcapWriter(fd, linktype=1) as w:
     w.write(b"test")
 
-try:
-    fd = get_temp_file()
-    with RawPcapWriter(fd) as w:
-        w.write(b"test")
-    assert False
-except ValueError:
-    pass
+fd = get_temp_file()
+with RawPcapWriter(fd) as w:
+    w.write(b"test")
+    assert w.linktype == 1
 
 = Check tcpdump()
 ~ tcpdump
