@@ -2123,7 +2123,7 @@ class GenericPcapWriter(object):
                 usec = int(round((packet.time - tmp) *
                            (1000000000 if self.nano else 1000000)))
                 sec = float(packet.time)
-        if usec is None:
+        if sec is not None and usec is None:
             usec = 0
         return sec, usec  # type: ignore
 
