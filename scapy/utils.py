@@ -1849,22 +1849,6 @@ class GenericRawPcapWriter(GenericPcapWriter):
         self.flush()
         self.close()
 
-#    def write_packet(self,
-#                     packet,  # type: Union[bytes, Packet]
-#                     sec=None,  # type: Optional[float]
-#                     usec=None,  # type: Optional[int]
-#                     caplen=None,  # type: Optional[int]
-#                     wirelen=None,  # type: Optional[int]
-#                     ):
-#        # type: (...) -> None
-#        if sec is None and usec is None and hasattr(packet, "time"):
-#           sec, usec = self._get_time(packet, sec, usec)
-#        self._write_packet(
-#            bytes(packet),
-#            sec=sec, usec=usec,
-#            caplen=caplen, wirelen=wirelen
-#        )
-
     def write(self, pkt):
         # type: (Union[_PacketIterable, bytes]) -> None
         """
