@@ -82,13 +82,48 @@ command_response = BasePacket(command_response_packet)
 
 assert len(command_response.contents) == 4
 assert isinstance(command_response.contents[0], RowDescription)
+rd = command_response.contents[0]
+assert rd.len == 32
+assert rd.numfields == 1
+assert rd.cols[0].col == b'version'
+assert rd.cols[0].tableoid == 0
+assert rd.cols[0].colno == 0
+assert rd.cols[0].typeoid == 25
+assert rd.cols[0].typelen == -1
+assert rd.cols[0].format == 0
+assert rd.cols[0].typemod == -1
+
 assert isinstance(command_response.contents[1], DataRow)
+assert command_response.contents[1].len == 133
+assert command_response.contents[1].data == b"\x50\x6f\x73\x74\x67\x72\x65\x53\x51\x4c\x20\x31\x34\x2e\x32\x20" \
+b"\x28\x44\x65\x62\x69\x61\x6e\x20\x31\x34\x2e\x32\x2d\x31\x2e\x70" \
+b"\x67\x64\x67\x31\x31\x30\x2b\x31\x29\x20\x6f\x6e\x20\x78\x38\x36" \
+b"\x5f\x36\x34\x2d\x70\x63\x2d\x6c\x69\x6e\x75\x78\x2d\x67\x6e\x75" \
+b"\x2c\x20\x63\x6f\x6d\x70\x69\x6c\x65\x64\x20\x62\x79\x20\x67\x63" \
+b"\x63\x20\x28\x44\x65\x62\x69\x61\x6e\x20\x31\x30\x2e\x32\x2e\x31" \
+b"\x2d\x36\x29\x20\x31\x30\x2e\x32\x2e\x31\x20\x32\x30\x32\x31\x30" \
+b"\x31\x31\x30\x2c\x20\x36\x34\x2d\x62\x69\x74"
+
 assert isinstance(command_response.contents[2], CommandCompletion)
 assert isinstance(command_response.contents[3], ReadyForQuery)
 
+three_col_rd = RowDescription(b"\x54\x00\x00\x00\x55\x00\x03\x6e\x61\x6d\x65\x00\x00\x00\x00\x00" \
+    b"\x00\x00\x00\x00\x00\x19\xff\xff\xff\xff\xff\xff\x00\x00\x73\x65" \
+    b"\x74\x74\x69\x6e\x67\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x19" \
+    b"\xff\xff\xff\xff\xff\xff\x00\x00\x64\x65\x73\x63\x72\x69\x70\x74" \
+    b"\x69\x6f\x6e\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x19\xff\xff" \
+    b"\xff\xff\xff\xff\x00\x00"
+    )
+assert three_col_rd.len == 85
+assert three_col_rd.numfields == 3
+assert len(three_col_rd.cols) == 3
+
+p = []
 with PcapReader('psql.pcap') as pcap:
     for i, pkt in enumerate(pcap):
         if i == 0:
-            Startup(pkt[TCP].load).show()
+            p.append((pkt, Startup(pkt[TCP].load)))
         else:
-            BasePacket(pkt[TCP].load).show()
+            p.append((pkt, BasePacket(pkt[TCP].load)))
+
+# assert len(p[9].contents) == 9

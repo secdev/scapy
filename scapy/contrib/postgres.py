@@ -205,7 +205,7 @@ class RowDescription(PgComponentPacket):
         CharEnumField("tag", b'T', BACKEND_MSG_TYPE),
         FieldLenField("len", 0,  fmt="I",),
         SignedShortField("numfields", 0),
-        PacketListField('cols', [], ColumnDescription, length_from=lambda pkt: pkt.len - 6)
+        PacketListField('cols', [], ColumnDescription, count_from=lambda pkt: pkt.numfields)
     ]
 
 class DataRow(PgComponentPacket):
