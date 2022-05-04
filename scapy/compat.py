@@ -390,6 +390,13 @@ else:
     html_escape = html.escape
 
 
+if six.PY34:
+    from pathlib import PurePath
+    file_path_types = (str, bytes, PurePath)  # type: Tuple[Type[Any], ...]
+else:
+    file_path_types = (str, bytes)
+
+
 if six.PY2:
     from StringIO import StringIO
 

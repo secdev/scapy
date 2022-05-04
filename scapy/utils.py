@@ -35,8 +35,17 @@ from scapy.libs.six.moves import range, input, zip_longest
 from scapy.config import conf
 from scapy.consts import DARWIN, OPENBSD, WINDOWS
 from scapy.data import MTU, DLT_EN10MB
-from scapy.compat import orb, plain_str, chb, bytes_base64,\
-    base64_bytes, hex_bytes, lambda_tuple_converter, bytes_encode
+from scapy.compat import (
+    base64_bytes,
+    bytes_base64,
+    bytes_encode,
+    chb,
+    file_path_types,
+    hex_bytes,
+    lambda_tuple_converter,
+    orb,
+    plain_str,
+)
 from scapy.error import log_runtime, Scapy_Exception, warning
 from scapy.pton_ntop import inet_pton
 
@@ -63,6 +72,7 @@ if TYPE_CHECKING:
     from scapy.packet import Packet
     from scapy.plist import _PacketIterable, PacketList
     from scapy.supersocket import SuperSocket
+    import pathlib
     _SuperSocket = SuperSocket
 else:
     _SuperSocket = object
@@ -1142,7 +1152,7 @@ class PcapReader_metaclass(type):
         return newcls
 
     def __call__(cls, filename):  # type: ignore
-        # type: (Union[IO[bytes], str]) -> Any
+        # type: (Union[IO[bytes], str, bytes, pathlib.PurePath]) -> Any
         """Creates a cls instance, use the `alternative` if that
         fails.
 
@@ -1171,12 +1181,15 @@ class PcapReader_metaclass(type):
         raise Scapy_Exception("Not a supported capture file")
 
     @staticmethod
-    def open(fname  # type: Union[IO[bytes], str]
+    def open(fname  # type: Union[IO[bytes], str, bytes, pathlib.PurePath]
              ):
         # type: (...) -> Tuple[str, _ByteStream, bytes]
         """Open (if necessary) filename, and read the magic."""
-        if isinstance(fname, str):
-            filename = fname
+        if isinstance(fname, file_path_types):
+            if isinstance(fname, (str, bytes)):
+                filename = plain_str(fname)
+            else:
+                filename = fname.name
             try:
                 fdesc = gzip.open(filename, "rb")  # type: _ByteStream
                 magic = fdesc.read(4)
@@ -1184,7 +1197,7 @@ class PcapReader_metaclass(type):
                 fdesc = open(filename, "rb")
                 magic = fdesc.read(4)
         else:
-            fdesc = fname
+            fdesc = cast("IO[bytes]", fname)
             filename = getattr(fdesc, "name", "No name")
             magic = fdesc.read(4)
         return filename, fdesc, magic
