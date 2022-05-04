@@ -1,6 +1,6 @@
 from scapy.contrib.postgres import *
 from scapy.sendrecv import sniff
-from scapy.utils import PcapReader
+from scapy.sessions import TCPSession
 from scapy.layers.inet import IP, TCP
 from scapy.layers.l2 import Ether
 
@@ -47,23 +47,24 @@ b"\x65\x5a\x6f\x6e\x65\x00\x45\x74\x63\x2f\x55\x54\x43\x00\x4b\x00" \
 b"\x00\x00\x0c\x00\x00\x01\x7f\x43\x4c\x36\xa5\x5a\x00\x00\x00\x05\x49"
 
 
-init = BasePacket(init_packet)
+init = PostgresBackend(init_packet)
 
-assert isinstance(init.contents[0], AuthenticationRequest)
+assert isinstance(init.contents[0], Authentication)
 assert init.contents[0].len == 8
 assert init.contents[0].method == 0
 assert len(init.contents) == 16
 assert isinstance(init.contents[1], ParameterStatus)
 assert init.contents[1].len == 26
-assert init.contents[1].keyvalue == b'application_name\x00psql\x00'
+assert init.contents[1].key == b'application_name'
+assert init.contents[1].value == b'psql'
 
 simple_query_packet = b"\x51\x00\x00\x00\x15\x53\x45\x4c\x45\x43\x54\x20\x56\x45\x52\x53" \
 b"\x49\x4f\x4e\x28\x29\x00"
-simple_query = BasePacket(simple_query_packet)
+simple_query = PostgresFrontend(simple_query_packet)
 
-assert isinstance(simple_query.contents[0], SimpleQuery)
+assert isinstance(simple_query.contents[0], Query)
 assert simple_query.contents[0].len == 21
-assert simple_query.contents[0].query == b"SELECT VERSION()\x00"
+assert simple_query.contents[0].query == b"SELECT VERSION()"
 
 command_response_packet = b"\x54\x00\x00\x00\x20\x00\x01\x76\x65\x72\x73\x69\x6f\x6e\x00\x00" \
 b"\x00\x00\x00\x00\x00\x00\x00\x00\x19\xff\xff\xff\xff\xff\xff\x00" \
@@ -78,7 +79,7 @@ b"\x31\x30\x2e\x32\x2e\x31\x20\x32\x30\x32\x31\x30\x31\x31\x30\x2c" \
 b"\x20\x36\x34\x2d\x62\x69\x74\x43\x00\x00\x00\x0d\x53\x45\x4c\x45" \
 b"\x43\x54\x20\x31\x00\x5a\x00\x00\x00\x05\x49"
 
-command_response = BasePacket(command_response_packet)
+command_response = PostgresBackend(command_response_packet)
 
 assert len(command_response.contents) == 4
 assert isinstance(command_response.contents[0], RowDescription)
@@ -104,7 +105,7 @@ b"\x63\x20\x28\x44\x65\x62\x69\x61\x6e\x20\x31\x30\x2e\x32\x2e\x31" \
 b"\x2d\x36\x29\x20\x31\x30\x2e\x32\x2e\x31\x20\x32\x30\x32\x31\x30" \
 b"\x31\x31\x30\x2c\x20\x36\x34\x2d\x62\x69\x74"
 
-assert isinstance(command_response.contents[2], CommandCompletion)
+assert isinstance(command_response.contents[2], CommandComplete)
 assert isinstance(command_response.contents[3], ReadyForQuery)
 
 three_col_rd = RowDescription(b"\x54\x00\x00\x00\x55\x00\x03\x6e\x61\x6d\x65\x00\x00\x00\x00\x00" \
@@ -118,12 +119,6 @@ assert three_col_rd.len == 85
 assert three_col_rd.numfields == 3
 assert len(three_col_rd.cols) == 3
 
-p = []
-with PcapReader('psql.pcap') as pcap:
-    for i, pkt in enumerate(pcap):
-        if i == 0:
-            p.append((pkt, Startup(pkt[TCP].load)))
-        else:
-            p.append((pkt, BasePacket(pkt[TCP].load)))
+pcap = sniff(offline="psql.pcap", session=TCPSession, prn=lambda pkt: pkt.show())
 
-# assert len(p[9].contents) == 9
+assert pcap
