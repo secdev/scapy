@@ -1841,6 +1841,35 @@ assert Ether in pktpcapngdefaults[0]
 pktcapng = sniff(offline=scapy_path("/test/pcaps/macos.pcapng.gz"))
 assert len(pktcapng) != 0
 
+= Write a pcapng
+
+tmpfile = get_temp_file(autoext=".pcapng")
+r = RawPcapNgWriter(tmpfile)
+r._write_block_shb()
+r._write_block_idb()
+ts = 1632568366.384185
+r._write_block_epb(raw(Ether()/"Hello Scapy!!!"), ts)
+r.f.close()
+
+assert os.stat(tmpfile).st_size == 108
+
+l = rdpcap(tmpfile)
+assert b"Scapy" in l[0][Raw].load
+assert l[0].time == ts
+
+= Check wrpcapng()
+
+tmpfile = get_temp_file(autoext=".pcapng")
+p = Ether()/"Hello Scapy!!!"
+p.time = 1632568366.384185
+wrpcapng(tmpfile, p)
+
+assert os.stat(tmpfile).st_size == 108
+
+l = rdpcap(tmpfile)
+assert b"Scapy" in l[0][Raw].load
+assert l[0].time == ts
+
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
 
@@ -2109,13 +2138,10 @@ fd = get_temp_file()
 with RawPcapWriter(fd, linktype=1) as w:
     w.write(b"test")
 
-try:
-    fd = get_temp_file()
-    with RawPcapWriter(fd) as w:
-        w.write(b"test")
-    assert False
-except ValueError:
-    pass
+fd = get_temp_file()
+with RawPcapWriter(fd) as w:
+    w.write(b"test")
+    assert w.linktype == 1
 
 = Check tcpdump()
 ~ tcpdump
