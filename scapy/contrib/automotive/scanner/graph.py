@@ -84,7 +84,7 @@ class Graph(object):
         Get a set of all nodes in this Graph
         :return:
         """
-        return set([n for _, p in self.edges.items() for n in p])
+        return set([n for k, p in self.edges.items() for n in p + [k]])
 
     def render(self, filename="SystemStateGraph.gv", view=True):
         # type: (str, bool) -> None
