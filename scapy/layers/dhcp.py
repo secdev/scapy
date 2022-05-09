@@ -90,93 +90,68 @@ class _DHCPParamReqFieldListField(FieldListField):
             ret.append(val)
         return b"", [x[0] for x in ret]
 
-class ClasslessStaticRoutesField(FieldListField):
+
+class ClasslessStaticRoutesField(Field):
     """
     RFC 3442 defines classless static routes as up to 9 bytes per entry:
-     Code Len Destination 1    Router 1
+
+    # Code Len Destination 1    Router 1
     +-----+---+----+-----+----+----+----+----+----+
     | 121 | n | d1 | ... | dN | r1 | r2 | r3 | r4 |
     +-----+---+----+-----+----+----+----+----+----+
+
     Destination first byte contains one octet describing the width followed
     by all the significant octets of the subnet.
     """
     def m2i(self, pkt, x):
         # type: (Packet, bytes) -> str
         # b'\x20\x01\x02\x03\x04\t\x08\x07\x06' -> (1.2.3.4/32:9.8.7.6)
-        offset = 0
-        prefix = orb(x[offset])
+        prefix = orb(x[0])
 
-        octets = int((prefix + 7)/8)
-        offset += 1
+        octets = (prefix + 7) // 8
         # Create the destination IP by using the number of octets
         # and padding up to 4 bytes to ensure a valid IP.
-        dest = x[offset:offset+octets]
+        dest = x[1:1 + octets]
         dest = socket.inet_ntoa(dest.ljust(4, b'\x00'))
-        offset += octets
 
-        router = x[offset:offset+4]
+        router = x[1 + octets:5 + octets]
         router = socket.inet_ntoa(router)
-        offset += 4
 
-        new_route = dest + "/" + str(prefix) + ":" + router
-        return new_route
+        return dest + "/" + str(prefix) + ":" + router
 
     def i2m(self, pkt, x):
         # type: (Packet, str) -> bytes
         # (1.2.3.4/32:9.8.7.6) -> b'\x20\x01\x02\x03\x04\t\x08\x07\x06'
-        bin_route = b''
         if not x:
-            return bin_route
+            return b''
 
         spx = re.split('/|:', x)
         prefix = int(spx[1])
-            # if prefix is invalid value ( 0 > prefix > 32 ) then break
+        # if prefix is invalid value ( 0 > prefix > 32 ) then break
         if prefix > 32 or prefix < 0:
             warning("Invalid prefix value: %d (0x%x)", prefix, prefix)
             return b''
-        octets = (prefix + 7)/8
-        dest = socket.inet_aton(spx[0])[:int(octets)]
+        octets = (prefix + 7) // 8
+        dest = socket.inet_aton(spx[0])[:octets]
         router = socket.inet_aton(spx[2])
-        bin_route = struct.pack('b', prefix) + dest + router
-
-        return bin_route
-
-    def i2h(self, pkt, x):
-        # type: (Packet, str) -> str
-        return x
-
-    def h2i(self, pkt, x):
-        # type: (Packet, str) -> str
-        return x
-
-    def addfield(self, pkt, x, val):
-        # type: (Packet, bytes, str) -> bytes
-        if val is None:
-            val = []
-        for v in val:
-            x = x + self.i2m(pkt, v)
-        return x
+        return struct.pack('b', prefix) + dest + router
 
     def getfield(self, pkt, s):
-        # type: (Packet, bytes) -> list
-        ret = []
-        route = b''
+        if not s:
+            return None
 
-        while s:
-            prefix = orb(s[0])
-            # if prefix is invalid value ( 0 > prefix > 32 ) then break
-            if prefix > 32 or prefix < 0:
-                warning("Invalid prefix value: %d (0x%x)", prefix, prefix)
-                break
+        prefix = orb(s[0])
+        # if prefix is invalid value ( 0 > prefix > 32 ) then break
+        if prefix > 32 or prefix < 0:
+            warning("Invalid prefix value: %d (0x%x)", prefix, prefix)
+            return s, []
 
-            octets = int((prefix + 7)/8)
-            route_len = 5 + octets
+        route_len = 5 + (prefix + 7) // 8
+        return s[route_len:], self.m2i(pkt, s[:route_len])
 
-            route = self.m2i(pkt, s[:route_len])
-            ret.append(route)
-            s = s[route_len:]
+    def addfield(self, pkt, s, val):
+        return s + self.i2m(pkt, val)
 
-        return b"", ret
 
 # DHCP_UNKNOWN, DHCP_IP, DHCP_IPLIST, DHCP_TYPE \
 # = range(4)
@@ -300,7 +275,9 @@ DHCPOptions = {
     116: ByteField("auto-config", 0),
     117: ShortField("name-service-search", 0,),
     118: IPField("subnet-selection", "0.0.0.0"),
-    121: ClasslessStaticRoutesField("classless_static_routes", [], ByteField("route", 0), length_from=lambda x: 1),
+    121: FieldListField("classless_static_routes",
+                        [],
+                        ClasslessStaticRoutesField("route", 0)),
     124: "vendor_class",
     125: "vendor_specific_information",
     128: IPField("tftp_server_ip_address", "0.0.0.0"),
