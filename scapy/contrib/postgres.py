@@ -96,20 +96,18 @@ AUTH_CODES = {
     12: "AuthenticationSASLFinal",
 }
 
+
 class KeepAlive(Packet):
     name = "Keep Alive"
     fields_desc = [
-        FieldLenField(
-            "length", None, fmt="I"
-        ),
+        FieldLenField("length", None, fmt="I"),
     ]
+
 
 class SSLRequest(Packet):
     name = "SSL request code message"
     fields_desc = [
-        FieldLenField(
-            "length", None, fmt="I"
-        ),
+        FieldLenField("length", None, fmt="I"),
         SignedIntField("request_code", 0),
     ]
 
@@ -278,6 +276,13 @@ class RowDescription(_ZeroPadding):
         ),
     ]
 
+class SignedIntStrPair(_ZeroPadding):
+    name = "Bytes data"
+    fields_desc = [
+        FieldLenField("len", 0, length_of="data", fmt="I"),
+        StrLenField("data", None, length_from=lambda pkt: pkt.len),
+    ]
+
 
 class DataRow(_ZeroPadding):
     name = "Data Row"
@@ -289,8 +294,13 @@ class DataRow(_ZeroPadding):
             fmt="I",
         ),
         SignedShortField("numfields", 0),
-        SignedIntField("fieldlen", 0),
-        StrLenField("data", None, length_from=lambda pkt: pkt.len - 10),
+        PacketListField(
+            "data",
+            [],
+            pkt_cls=SignedIntStrPair,
+            count_from=lambda pkt: pkt.numfields,
+            length_from=lambda pkt: pkt.len - 6,
+        ),
     ]
 
 
@@ -417,19 +427,48 @@ class Parse(_ZeroPadding):
     ]
 
 
+class Execute(_ZeroPadding):
+    name = "Execute Request"
+    fields_desc = [
+        ByteField("tag", b"E"),
+        FieldLenField("len", None, fmt="I"),
+        StrNullField(
+            "portal",
+            "",
+        ),
+        SignedIntField("rows", 0),
+    ]
+
+
+class PasswordMessage(_ZeroPadding):
+    """
+    Identifies the message as a password response.
+    Note that this is also used for GSSAPI, SSPI and SASL
+    response messages. The exact message type can be deduced
+    from the context.
+    """
+
+    name = "Password Request Response"
+    fields_desc = [
+        ByteField("tag", b"p"),
+        FieldLenField("len", None, fmt="I"),
+        StrLenField("password", None, length_from=lambda pkt: pkt.len - 4),
+    ]
+
+
 FRONTEND_TAG_TO_PACKET_CLS = {
-    # b'B' : 'Bind',
+    # b'B' : 'Bind',  # TODO
     b"C": Close,
     # TODO : Implement copy stream.
     # b'd': 'CopyData',
     # b'c': 'CopyDone',
     # b'f': 'CopyFail',
     b"D": Describe,
-    # b'E': 'Execute',
+    b"E": Execute,
     b"H": Flush,
-    # b'F': 'FunctionCall',
+    # b'F': 'FunctionCall',  # TODO
     b"P": Parse,
-    # b'p': 'PasswordMessage',
+    b"p": PasswordMessage,
     b"Q": Query,
     b"S": Sync,
     b"X": Terminate,
