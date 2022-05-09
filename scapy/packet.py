@@ -46,7 +46,7 @@ from scapy.volatile import RandField, VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
 from scapy.error import Scapy_Exception, log_runtime, warning
-from scapy.extlib import PYX
+from scapy.libs.test_pyx import PYX
 import scapy.libs.six as six
 
 # Typing imports

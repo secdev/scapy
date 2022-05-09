@@ -30,7 +30,6 @@ scapy/consts.py
 scapy/dadict.py
 scapy/data.py
 scapy/error.py
-scapy/extlib.py
 scapy/fields.py
 scapy/interfaces.py
 scapy/main.py
