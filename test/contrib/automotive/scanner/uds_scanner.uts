@@ -796,6 +796,25 @@ result = tc1.show(dump=True)
 
 assert "requestOutOfRange received " in result
 
+= UDS_RMBARandomEnumerator
+
+pkt = UDS_RMBARandomEnumerator._random_memory_addr_pkt(4, 4, 10)
+
+assert pkt.memorySizeLen == 4
+assert pkt.memoryAddressLen == 4
+assert pkt.memorySize4 == 10
+assert pkt.memoryAddress4 is not None
+
+pkt = UDS_RMBARandomEnumerator._random_memory_addr_pkt()
+
+assert pkt.memorySizeLen in [1, 2, 3, 4]
+assert pkt.memoryAddressLen in [1, 2, 3, 4]
+
+pkt2 = UDS_RMBARandomEnumerator._random_memory_addr_pkt()
+
+assert pkt != pkt2
+
+
 = UDS_RMBAEnumerator
 ~ linux not_pypy
 
