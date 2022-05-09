@@ -1755,7 +1755,8 @@ class GenericPcapWriter(object):
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
-                      wirelen=None  # type: Optional[int]
+                      wirelen=None,  # type: Optional[int]
+                      comment=None  # type: Optional[bytes]
                       ):
         # type: (...) -> None
         raise NotImplementedError
@@ -1836,10 +1837,16 @@ class GenericPcapWriter(object):
         if wirelen is None:
             wirelen = caplen
 
+        if hasattr(packet, "comment"):
+            comment = packet.comment  # type: ignore
+        else:
+            comment = None
+
         self._write_packet(
             rawpkt,
             sec=f_sec, usec=usec,
-            caplen=caplen, wirelen=wirelen
+            caplen=caplen, wirelen=wirelen,
+            comment=comment
         )
 
 
@@ -1988,7 +1995,8 @@ class RawPcapWriter(GenericRawPcapWriter):
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
-                      wirelen=None  # type: Optional[int]
+                      wirelen=None,  # type: Optional[int]
+                      comment=None  # type: Optional[bytes]
                       ):
         # type: (...) -> None
         """
@@ -2066,13 +2074,21 @@ class RawPcapNgWriter(GenericRawPcapWriter):
 
         return sec, usec  # type: ignore
 
-    def build_block(self, block_type, block_body):
-        # type: (bytes, bytes) -> bytes
+    def _add_padding(self, raw_data):
+        # type: (bytes) -> bytes
+        if len(raw_data) % 4 != 0:
+            padding = b"\x00" * (4 - len(raw_data) % 4)
+            raw_data += padding
+        return raw_data
+
+    def build_block(self, block_type, block_body, options=None):
+        # type: (bytes, bytes, Optional[bytes]) -> bytes
 
         # Pad Block Body to 32 bits
-        if len(block_body) % 4 != 0:
-            padding = b"\x00" * (4 - len(block_body) % 4)
-            block_body += padding
+        block_body = self._add_padding(block_body)
+
+        if options:
+            block_body += options
 
         # An empty block is 12 bytes long
         block_total_length = 12 + len(block_body)
@@ -2141,7 +2157,8 @@ class RawPcapNgWriter(GenericRawPcapWriter):
                          raw_pkt,  # type: bytes
                          timestamp=None,  # type: Optional[Union[EDecimal, float]]  # noqa: E501
                          caplen=None,  # type: Optional[int]
-                         orglen=None  # type: Optional[int]
+                         orglen=None,  # type: Optional[int]
+                         comment=None  # type: Optional[bytes]
                          ):
         # type: (...) -> None
 
@@ -2173,14 +2190,27 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         # Packet Data
         block_epb += raw_pkt
 
-        self.f.write(self.build_block(block_type, block_epb))
+        # Comment option
+        comment_opt = None
+        if comment:
+            if not comment.endswith(b"\n"):
+                comment += b"\n"
+            comment_opt = struct.pack(self.endian + "HH", 1, len(comment))
+
+            # Pad Option Value to 32 bits
+            comment_opt += self._add_padding(bytes_encode(comment))
+            comment_opt += struct.pack(self.endian + "HH", 0, 0)
+
+        self.f.write(self.build_block(block_type, block_epb,
+                                      options=comment_opt))
 
     def _write_packet(self,
                       packet,  # type: bytes
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
-                      wirelen=None  # type: Optional[int]
+                      wirelen=None,  # type: Optional[int]
+                      comment=None  # type: Optional[bytes]
                       ):
         # type: (...) -> None
         """
@@ -2206,7 +2236,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
             wirelen = caplen
 
         self._write_block_epb(packet, timestamp=sec, caplen=caplen,
-                              orglen=wirelen)
+                              orglen=wirelen, comment=comment)
         if self.sync:
             self.f.flush()
 
