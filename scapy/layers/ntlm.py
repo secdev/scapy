@@ -646,7 +646,6 @@ class NTLM_Client(_NTLM_Automaton):
         self.client_pipe.close()
         return kwargs
 
-
 class NTLM_Server(_NTLM_Automaton):
     """
     A class to overload to create a server automaton when using the
@@ -655,20 +654,74 @@ class NTLM_Server(_NTLM_Automaton):
     port = 445
     cls = conf.raw_layer
 
+    def __init__(self, *args, **kwargs):
+        self.cli_atmt = None
+        self.cli_values = dict()
+        self.ntlm_values = kwargs.get("NTLM_VALUES", dict())
+        self.ntlm_state = 0
+        super(NTLM_Server, self).__init__(*args, **kwargs)
+
     def bind(self, cli_atmt):
         # type: (NTLM_Client) -> None
         self.cli_atmt = cli_atmt
 
     def get_token(self):
-        return self.cli_atmt.token_pipe.recv()
+        from scapy.layers.gssapi import (
+            SPNEGO_negToken,
+            SPNEGO_negTokenResp,
+        )
+        from random import randint
+        if self.cli_atmt:
+            return self.cli_atmt.token_pipe.recv()
+        elif self.ntlm_state == 0:
+            self.ntlm_state = 1
+            return NTLM_CHALLENGE(
+                    ServerChallenge=self.ntlm_values.get("ServerChallenge", struct.pack("<Q", randint(0, 2**64))),
+                    MessageType=2,
+                    NegotiateFlags=self.ntlm_values.get("NegotiateFlags", 0xe2898215),
+                    ProductMajorVersion=self.ntlm_values.get("ProductMajorVersion", 10),
+                    ProductMinorVersion=self.ntlm_values.get("ProductMinorVersion", 0),
+                    Payload=[
+                        ('TargetName', self.ntlm_values.get("TargetName", "")),
+                        ('TargetInfo', [
+                            # MsvAvNbComputerName
+                            AV_PAIR(AvId=1, Value=self.ntlm_values.get("NetbiosComputerName", "")),
+                               #  "T1-SRV-DHCP"),
+                            # MsvAvNbDomainName
+                            AV_PAIR(AvId=2, Value=self.ntlm_values.get("NetbiosDomainName", "")),
+                               #  "TESTDOMAIN"),
+                            # MsvAvDnsComputerName
+                            AV_PAIR(AvId=3, Value=self.ntlm_values.get("DnsComputerName", "")),
+                                # "T1-SRV-DHCP.TESTDOMAIN.local"),
+                            # MsvAvDnsDomainName
+                            AV_PAIR(AvId=4, Value=self.ntlm_values.get("DnsDomainName", "")),
+                                # TESTDOMAIN.local"),
+                            # MsvAvDnsTreeName
+                            AV_PAIR(AvId=5, Value=self.ntlm_values.get("DnsTreeName", "")),
+                                # TESTDOMAIN.local"),
+                            # MsvAvTimestamp
+                            AV_PAIR(AvId=7, Value=self.ntlm_values.get("Timestamp", 0.0)),
+                            # MsvAvEOL
+                            AV_PAIR(AvId=0),
+                        ]),
+                    ]
+                ), None, None
+        elif self.ntlm_state == 1:
+            self.ntlm_state = 0
+            return None, 0, None
 
     def set_cli(self, attr, value):
-        self.cli_atmt.values[attr] = value
+        if self.cli_atmt:
+            self.cli_atmt.values[attr] = value
+        else:
+            self.cli_values[attr] = value
 
     def echo(self, pkt):
-        return self.cli_atmt.send(pkt)
+        if self.cli_atmt:
+            return self.cli_atmt.send(pkt)
 
     def start_client(self, **kwargs):
+        assert(self.cli_atmt), "Cannot start NTLM client: not provided"
         self.cli_atmt.client_pipe.send(kwargs)
 
 
