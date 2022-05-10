@@ -36,53 +36,6 @@ from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import TCP
 from scapy.volatile import VolatileValue
 
-
-# Based heavily on the information provided here https://beta.pgcon.org/2014/schedule/attachments/330_postgres-for-the-wire.pdf
-
-FRONTEND_MSG_TYPE = {
-    b"B": "Bind",
-    b"C": "Close",
-    b"d": "CopyData",
-    b"c": "CopyDone",
-    b"f": "CopyFail",
-    b"D": "Describe",
-    b"E": "Execute",
-    b"H": "Flush",
-    b"F": "FunctionCall",
-    b"P": "Parse",
-    b"p": "PasswordMessage",
-    b"Q": "Query",
-    b"S": "Sync",
-    b"X": "Terminate",
-}
-
-BACKEND_MSG_TYPE = {
-    b"R": "Authentication",
-    b"K": "BackendKeyData",
-    b"2": "BindComplete",
-    b"3": "CloseComplete",
-    b"C": "CommandComplete",
-    b"d": "CopyData",  # backend and frontend message
-    b"c": "CopyDone",  # backend and frontend message
-    b"G": "CopyInResponse",
-    b"H": "CopyOutResponse",
-    b"W": "CopyBothResponse",
-    b"D": "DataRow",
-    b"I": "EmptyQueryResponse",
-    b"E": "ErrorResponse",
-    b"V": "FunctionCallResponse",
-    b"v": "NegotiateProtocolVersion",
-    b"n": "NoData",
-    b"N": "NoticeResponse",
-    b"A": "NotificationResponse",
-    b"t": "ParameterDescription",
-    b"S": "ParameterStatus",
-    b"1": "ParseComplete",
-    b"s": "PortalSuspended",
-    b"Z": "ReadyForQuery",
-    b"T": "RowDescription",
-}
-
 AUTH_CODES = {
     0: "AuthenticationOk",
     1: "AuthenticationKerberosV4",
@@ -134,7 +87,7 @@ def determine_pg_field(pkt, lst, cur, remain):
         key = bytes(chr(remain[0]), "ascii")
     if key in pkt.cls_mapping:
         return pkt.cls_mapping[key]
-    elif remain[0] == 0:
+    elif remain[0] == 0 and len(remain) >= 4:
         length = struct.unpack("!I", remain[0:3])[0]
         if length == 0:
             return KeepAlive
@@ -202,14 +155,15 @@ class ParameterStatus(_ZeroPadding):
         ),
     ]
 
+
 class Query(_ZeroPadding):
     name = "Simple Query"
     fields_desc = [
         ByteTagField(b"Q"),
         FieldLenField(
-            "len", None, length_of="query", fmt="I", adjust=lambda pkt, x: x + 4
+            "len", None, length_of="query", fmt="I", adjust=lambda pkt, x: x + 5
         ),
-        StrNullField("query", ""),
+        StrNullField("query", None),
     ]
 
 
@@ -359,6 +313,7 @@ class ErrorResponse(_ZeroPadding):
             ErrorResponseField("value", None),
             length_from=lambda pkt: pkt.len - 5,
         ),
+        ByteField("terminator", None),
     ]
 
 
@@ -515,6 +470,7 @@ class NoticeResponse(_ZeroPadding):
             ErrorResponseField("value", None),
             length_from=lambda pkt: pkt.len - 5,
         ),
+        ByteField("terminator", None),
     ]
 
 
@@ -539,6 +495,7 @@ class NegotiateProtocolVersion(_ZeroPadding):
         StrNullField("option", None),
     ]
 
+
 class FunctionCallResponse(_ZeroPadding):
     name = "Function Call Response"
     fields_desc = [
@@ -549,17 +506,12 @@ class FunctionCallResponse(_ZeroPadding):
     ]
 
 
-
 class ParameterDescription(_ZeroPadding):
     name = "Parameter Description"
     fields_desc = [
         ByteTagField(b"t"),
-        SignedIntField(
-            "len", None
-        ),
-        SignedShortField(
-            "param_len", 0
-        ),
+        SignedIntField("len", None),
+        SignedShortField("param_len", 0),
         FieldListField(
             "notice_fields",
             [],
@@ -573,9 +525,12 @@ class CopyData(_ZeroPadding):
     name = "Copy Data"
     fields_desc = [
         ByteTagField(b"d"),
-        FieldLenField("len", None, fmt="I", length_of="data", adjust=lambda pkt, x: x+4),
+        FieldLenField(
+            "len", None, fmt="I", length_of="data", adjust=lambda pkt, x: x + 4
+        ),
         StrLenField("data", None, length_from=lambda pkt: pkt.len - 4),
     ]
+
 
 class CopyDone(_ZeroPadding):
     name = "Copy Done"
@@ -584,20 +539,24 @@ class CopyDone(_ZeroPadding):
         SignedIntField("len", 0),
     ]
 
+
 class CopyFail(_ZeroPadding):
     name = "Copy Fail Reason"
     fields_desc = [
         ByteTagField(b"f"),
-        FieldLenField("len", None, fmt="I", length_of="reason", adjust=lambda pkt, x: x+4),
+        FieldLenField(
+            "len", None, fmt="I", length_of="reason", adjust=lambda pkt, x: x + 4
+        ),
         StrLenField("reason", None, length_from=lambda pkt: pkt.len - 4),
     ]
+
 
 FRONTEND_TAG_TO_PACKET_CLS = {
     # b'B' : 'Bind',  # TODO
     b"C": Close,
-    b'd': CopyData,
-    b'c': CopyDone,
-    b'f': CopyFail,
+    b"d": CopyData,
+    b"c": CopyDone,
+    b"f": CopyFail,
     b"D": Describe,
     b"E": Execute,
     b"H": Flush,
@@ -615,8 +574,8 @@ BACKEND_TAG_TO_PACKET_CLS = {
     b"2": BindComplete,
     b"3": CloseComplete,
     b"C": CommandComplete,
-    b'd': CopyData,
-    b'c': CopyDone,
+    b"d": CopyData,
+    b"c": CopyDone,
     # TODO: Implement COPY stream
     # b'G': 'CopyInResponse',
     # b'H': 'CopyOutResponse',
@@ -624,12 +583,12 @@ BACKEND_TAG_TO_PACKET_CLS = {
     b"D": DataRow,
     b"I": EmptyQueryResponse,
     b"E": ErrorResponse,
-    b'V': FunctionCallResponse,
-    b'v': NegotiateProtocolVersion,
+    b"V": FunctionCallResponse,
+    b"v": NegotiateProtocolVersion,
     b"n": NoData,
-    b'N': NoticeResponse,
-    b'A': NotificationResponse,
-    b't': ParameterDescription,
+    b"N": NoticeResponse,
+    b"A": NotificationResponse,
+    b"t": ParameterDescription,
     b"S": ParameterStatus,
     b"1": ParseComplete,
     b"s": PortalSuspended,
