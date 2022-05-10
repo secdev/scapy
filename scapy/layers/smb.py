@@ -728,6 +728,7 @@ bind_layers(NBTSession, SMBNegociate_Protocol_Request_Header_Generic)
 class NTLM_SMB_Server(NTLM_Server, Automaton):
     port = 445
     cls = NBTSession
+    ntlm_auth_callback = None
 
     def __init__(self, *args, **kwargs):
         self.CLIENT_PROVIDES_NEGOEX = kwargs.pop(
@@ -748,19 +749,21 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
     @ATMT.receive_condition(BEGIN)
     def received_negotiate(self, pkt):
         if SMBNegotiate_Request in pkt:
-            self.start_client()
+            if self.cli_atmt:
+                self.start_client()
             raise self.NEGOTIATED().action_parameters(pkt)
 
     @ATMT.receive_condition(BEGIN)
     def received_negotiate_smb2_begin(self, pkt):
         if SMB2_Negotiate_Protocol_Request in pkt:
             self.SMB2 = True
-            self.start_client(
-                CONTINUE_SMB2=True,
-                SMB2_INIT_PARAMS={
-                    "ClientGUID": pkt.ClientGUID
-                }
-            )
+            if self.cli_atmt:
+                self.start_client(
+                    CONTINUE_SMB2=True,
+                    SMB2_INIT_PARAMS={
+                        "ClientGUID": pkt.ClientGUID
+                    }
+                )
             raise self.NEGOTIATED().action_parameters(pkt)
 
     @ATMT.action(received_negotiate_smb2_begin)
@@ -944,6 +947,8 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
         elif SMB2_Session_Setup_Request in pkt:
             # SMB2
             ntlm_tuple = self._get_token(pkt.SecurityBlob)
+            if ntlm_tuple[0] and ntlm_tuple[0].MessageType == 3 and self.__class__.ntlm_auth_callback:
+                self.__class__.ntlm_auth_callback(ntlm_tuple[0])
             self.set_cli("SecuritySignature", pkt.SecuritySignature)
             self.set_cli("MessageId", pkt.MessageId)
             self.set_cli("AsyncId", pkt.AsyncId)
