@@ -1,8 +1,11 @@
-from scapy.contrib.postgres import *
-from scapy.sendrecv import sniff
-from scapy.sessions import TCPSession
-from scapy.layers.inet import IP, TCP
-from scapy.layers.l2 import Ether
+# Postgres Related regression tests
+# 
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('postgres')" -t test/contrib/postgres.uts
+
++ postgres
+
+= Postgres initialization
 
 ssl_request = "\x00\x00\x00\x08\x04\xd2\x16\x2f"
 
@@ -156,6 +159,22 @@ assert (
     three_col_dr.data[2].data
     == b"Allows modifications of the structure of system tables."
 )
-# pcap = sniff(offline="psql.pcap", session=TCPSession, prn=lambda pkt: pkt.show())
+
+error_response = ErrorResponse(
+    b"\x45\x00\x00\x00\x69\x53\x45\x52\x52\x4f\x52\x00\x56\x45\x52\x52"
+    b"\x4f\x52\x00\x43\x34\x32\x50\x30\x31\x00\x4d\x72\x65\x6c\x61\x74"
+    b"\x69\x6f\x6e\x20\x22\x66\x6f\x6f\x62\x61\x72\x22\x20\x64\x6f\x65"
+    b"\x73\x20\x6e\x6f\x74\x20\x65\x78\x69\x73\x74\x00\x50\x31\x35\x00"
+    b"\x46\x70\x61\x72\x73\x65\x5f\x72\x65\x6c\x61\x74\x69\x6f\x6e\x2e"
+    b"\x63\x00\x4c\x31\x33\x38\x31\x00\x52\x70\x61\x72\x73\x65\x72\x4f"
+    b"\x70\x65\x6e\x54\x61\x62\x6c\x65\x00\x00"
+)
+
+assert len(error_response.error_fields) == 8
+assert error_response.error_fields[0] == ("Severity", b"ERROR")
+assert error_response.error_fields[7] == ("Routine", b"parserOpenTable")
+
+
+# pcap = sniff(offline="psql.pcap", session=TCPSession, prn=lambda pkt: pkt.show2())
 
 # assert pcap

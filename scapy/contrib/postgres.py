@@ -22,6 +22,7 @@ from scapy.fields import (
     ByteField,
     CharEnumField,
     FieldLenField,
+    FieldListField,
     IntEnumField,
     PacketListField,
     ShortField,
@@ -167,9 +168,9 @@ class _ZeroPadding(Packet):
 class Authentication(_ZeroPadding):
     name = "Authentication Request"
     fields_desc = [
-        CharEnumField("tag", b"R", BACKEND_MSG_TYPE),
+        ByteField("tag", b"R"),
         FieldLenField(
-            "len", None, length_of="optional", fmt="I", adjust=lambda pkt, x: x + 8
+            "len", 0, length_of="optional", fmt="I", adjust=lambda pkt, x: x + 8
         ),
         IntEnumField("method", default=0, enum=AUTH_CODES),
         StrLenField("optional", None, length_from=lambda pkt: pkt.len - 8),
@@ -179,8 +180,8 @@ class Authentication(_ZeroPadding):
 class ParameterStatus(_ZeroPadding):
     name = "Parameter Status"
     fields_desc = [
-        CharEnumField("tag", b"S", BACKEND_MSG_TYPE),
-        FieldLenField("len", None, fmt="I"),
+        ByteField("tag", b"S"),
+        FieldLenField("len", 0, fmt="I"),
         StrNullField(
             "key",
             "",
@@ -195,9 +196,9 @@ class ParameterStatus(_ZeroPadding):
 class Query(_ZeroPadding):
     name = "Simple Query"
     fields_desc = [
-        CharEnumField("tag", b"Q", FRONTEND_MSG_TYPE),
+        ByteField("tag", b"Q"),
         FieldLenField(
-            "len", None, length_of="query", fmt="I", adjust=lambda pkt, x: x + 4
+            "len", 0, length_of="query", fmt="I", adjust=lambda pkt, x: x + 4
         ),
         StrNullField("query", ""),
     ]
@@ -206,9 +207,9 @@ class Query(_ZeroPadding):
 class CommandComplete(_ZeroPadding):
     name = "Command Completion Response"
     fields_desc = [
-        CharEnumField("tag", b"C", FRONTEND_MSG_TYPE),
+        ByteField("tag", b"C"),
         FieldLenField(
-            "len", None, length_of="cmdtag", fmt="I", adjust=lambda pkt, x: x + 4
+            "len", 0, length_of="cmdtag", fmt="I", adjust=lambda pkt, x: x + 4
         ),
         StrLenField("cmdtag", "", length_from=lambda pkt: pkt.len - 4),
     ]
@@ -217,8 +218,8 @@ class CommandComplete(_ZeroPadding):
 class BackendKeyData(_ZeroPadding):
     name = "Backend Key Data"
     fields_desc = [
-        CharEnumField("tag", b"K", BACKEND_MSG_TYPE),
-        FieldLenField("len", None, fmt="I"),
+        ByteField("tag", b"K"),
+        FieldLenField("len", 0, fmt="I"),
         SignedIntField("pid", 0),
         SignedIntField("key", 0),
     ]
@@ -234,7 +235,7 @@ STATUS_TYPE = {
 class ReadyForQuery(_ZeroPadding):
     name = "Ready Signal"
     fields_desc = [
-        CharEnumField("tag", b"Z", BACKEND_MSG_TYPE),
+        ByteField("tag", b"Z"),
         FieldLenField(
             "len",
             None,
@@ -260,7 +261,7 @@ class ColumnDescription(_ZeroPadding):
 class RowDescription(_ZeroPadding):
     name = "Row Description"
     fields_desc = [
-        CharEnumField("tag", b"T", BACKEND_MSG_TYPE),
+        ByteField("tag", b"T"),
         FieldLenField(
             "len",
             0,
@@ -276,6 +277,7 @@ class RowDescription(_ZeroPadding):
         ),
     ]
 
+
 class SignedIntStrPair(_ZeroPadding):
     name = "Bytes data"
     fields_desc = [
@@ -287,7 +289,7 @@ class SignedIntStrPair(_ZeroPadding):
 class DataRow(_ZeroPadding):
     name = "Data Row"
     fields_desc = [
-        CharEnumField("tag", b"D", BACKEND_MSG_TYPE),
+        ByteField("tag", b"D"),
         FieldLenField(
             "len",
             0,
@@ -304,15 +306,50 @@ class DataRow(_ZeroPadding):
     ]
 
 
+# See https://www.postgresql.org/docs/current/protocol-error-fields.html
+ERROR_FIELD = {
+    "S": "Severity",
+    "V": "SeverityNonLocalized",
+    "C": "Code",
+    "M": "Message",
+    "D": "Detail",
+    "H": "Hint",
+    "P": "Position",
+    "p": "InternalPosition",
+    "q": "InternalQuery",
+    "W": "Where",
+    "s": "SchemaName",
+    "t": "TableName",
+    "c": "ColumnName",
+    "d": "DataTypeName",
+    "n": "ConstraintName",
+    "F": "File",
+    "L": "Line",
+    "R": "Routine",
+}
+
+
+class ErrorResponseField(StrNullField):
+    def m2i(self, pkt, x):
+        """Unpack into a tuple of Field, Value."""
+        i = super(ErrorResponseField, self).m2i(pkt, x)
+        i_code = chr(i[0])
+        return (ERROR_FIELD.get(i_code, i_code), i[1:])
+
+
 class ErrorResponse(_ZeroPadding):
     name = "Error Response"
     fields_desc = [
         ByteField("tag", b"E"),
         FieldLenField(
-            "len", None, length_of="optional", fmt="I", adjust=lambda pkt, x: x + 4
+            "len", 0, length_of="error_fields", fmt="I", adjust=lambda pkt, x: x + 5
         ),
-        IntEnumField("method", default=0, enum=AUTH_CODES),
-        StrLenField("optional", "\0", length_from=lambda pkt: pkt.len - 4),
+        FieldListField(
+            "error_fields",
+            [],
+            ErrorResponseField("value", None),
+            length_from=lambda pkt: pkt.len - 5,
+        ),
     ]
 
 
@@ -320,7 +357,7 @@ class Terminate(_ZeroPadding):
     name = "Termination Request"
     fields_desc = [
         ByteField("tag", b"X"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
     ]
 
 
@@ -328,7 +365,7 @@ class BindComplete(_ZeroPadding):
     name = "Bind Complete"
     fields_desc = [
         ByteField("tag", b"2"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
     ]
 
 
@@ -340,7 +377,7 @@ class Close(_ZeroPadding):
     fields_desc = [
         ByteField("tag", b"C"),
         FieldLenField(
-            "len", None, length_of="statement", fmt="I", adjust=lambda pkt, x: x + 5
+            "len", 0, length_of="statement", fmt="I", adjust=lambda pkt, x: x + 5
         ),
         CharEnumField("close_type", b"S", enum=CLOSE_DESCRIBE_TYPE),
         StrLenField("statement", None, length_from=lambda pkt: pkt.len - 5),
@@ -351,7 +388,7 @@ class CloseComplete(_ZeroPadding):
     name = "Close Complete"
     fields_desc = [
         ByteField("tag", b"3"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
     ]
 
 
@@ -360,7 +397,7 @@ class Describe(_ZeroPadding):
     fields_desc = [
         ByteField("tag", b"C"),
         FieldLenField(
-            "len", None, length_of="statement", fmt="I", adjust=lambda pkt, x: x + 5
+            "len", 0, length_of="statement", fmt="I", adjust=lambda pkt, x: x + 5
         ),
         CharEnumField("close_type", b"S", enum=CLOSE_DESCRIBE_TYPE),
         StrLenField("statement", None, length_from=lambda pkt: pkt.len - 5),
@@ -371,7 +408,7 @@ class EmptyQueryResponse(_ZeroPadding):
     name = "Empty Query Response"
     fields_desc = [
         ByteField("tag", b"I"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
     ]
 
 
@@ -379,7 +416,7 @@ class Flush(_ZeroPadding):
     name = "Flush Request"
     fields_desc = [
         ByteField("tag", b"F"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
     ]
 
 
@@ -387,7 +424,7 @@ class NoData(_ZeroPadding):
     name = "No Data Response"
     fields_desc = [
         ByteField("tag", b"n"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
     ]
 
 
@@ -395,7 +432,7 @@ class ParseComplete(_ZeroPadding):
     name = "Parse Complete Response"
     fields_desc = [
         ByteField("tag", b"1"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
     ]
 
 
@@ -403,7 +440,7 @@ class PortalSuspended(_ZeroPadding):
     name = "Portal Suspended Response"
     fields_desc = [
         ByteField("tag", b"s"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
     ]
 
 
@@ -411,7 +448,7 @@ class Sync(_ZeroPadding):
     name = "Sync Request"
     fields_desc = [
         ByteField("tag", b"S"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
     ]
 
 
@@ -419,7 +456,7 @@ class Parse(_ZeroPadding):
     name = "Parse Request"
     fields_desc = [
         ByteField("tag", b"P"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
         StrNullField("destination", None),
         StrNullField("query", None),
         FieldLenField("num_param_dtypes", 0, fmt="H"),
@@ -431,7 +468,7 @@ class Execute(_ZeroPadding):
     name = "Execute Request"
     fields_desc = [
         ByteField("tag", b"E"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
         StrNullField(
             "portal",
             "",
@@ -451,18 +488,107 @@ class PasswordMessage(_ZeroPadding):
     name = "Password Request Response"
     fields_desc = [
         ByteField("tag", b"p"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", 0, fmt="I"),
         StrLenField("password", None, length_from=lambda pkt: pkt.len - 4),
     ]
 
 
+class NoticeResponse(_ZeroPadding):
+    name = "Notice Response"
+    fields_desc = [
+        ByteField("tag", b"N"),
+        FieldLenField(
+            "len", 0, length_of="notice_fields", fmt="I", adjust=lambda pkt, x: x + 5
+        ),
+        FieldListField(
+            "notice_fields",
+            [],
+            ErrorResponseField("value", None),
+            length_from=lambda pkt: pkt.len - 5,
+        ),
+    ]
+
+
+class NotificationResponse(_ZeroPadding):
+    name = "Password Request Response"
+    fields_desc = [
+        ByteField("tag", b"A"),
+        FieldLenField("len", 0, fmt="I"),
+        SignedIntField("process_id", 0),
+        StrNullField("channel", None),
+        StrNullField("payload", None),
+    ]
+
+
+class NegotiateProtocolVersion(_ZeroPadding):
+    name = "Negotiate Protocol Version Response"
+    fields_desc = [
+        ByteField("tag", b"v"),
+        FieldLenField("len", 0, fmt="I"),
+        SignedIntField("min_minor_version", 0),
+        SignedIntField("unrecognized_options", 0),
+        StrNullField("option", None),
+    ]
+
+class FunctionCallResponse(_ZeroPadding):
+    name = "Function Call Response"
+    fields_desc = [
+        ByteField("tag", b"V"),
+        FieldLenField("len", 0, fmt="I"),
+        FieldLenField("result_len", 0, length_of="result"),
+        StrLenField("result", None, length_from=lambda pkt: pkt.result_len),
+    ]
+
+
+
+class ParameterDescription(_ZeroPadding):
+    name = "Parameter Description"
+    fields_desc = [
+        ByteField("tag", b"t"),
+        SignedIntField(
+            "len", 0
+        ),
+        SignedShortField(
+            "param_len", 0
+        ),
+        FieldListField(
+            "notice_fields",
+            [],
+            SignedIntField("object_id", None),
+            count_from=lambda pkt: pkt.param_len,
+        ),
+    ]
+
+
+class CopyData(_ZeroPadding):
+    name = "Copy Data"
+    fields_desc = [
+        ByteField("tag", b"d"),
+        FieldLenField("len", 0, fmt="I", length_of="data", adjust=lambda pkt, x: x+4),
+        StrLenField("data", None, length_from=lambda pkt: pkt.len - 4),
+    ]
+
+class CopyDone(_ZeroPadding):
+    name = "Copy Done"
+    fields_desc = [
+        ByteField("tag", b"c"),
+        SignedIntField("len", 0),
+    ]
+
+class CopyFail(_ZeroPadding):
+    name = "Copy Fail Reason"
+    fields_desc = [
+        ByteField("tag", b"f"),
+        FieldLenField("len", 0, fmt="I", length_of="reason", adjust=lambda pkt, x: x+4),
+        StrLenField("reason", None, length_from=lambda pkt: pkt.len - 4),
+    ]
+
 FRONTEND_TAG_TO_PACKET_CLS = {
     # b'B' : 'Bind',  # TODO
     b"C": Close,
-    # TODO : Implement copy stream.
-    # b'd': 'CopyData',
-    # b'c': 'CopyDone',
-    # b'f': 'CopyFail',
+    b'd': CopyData,
+    b'c': CopyDone,
+    b'f': CopyFail,
     b"D": Describe,
     b"E": Execute,
     b"H": Flush,
@@ -480,21 +606,21 @@ BACKEND_TAG_TO_PACKET_CLS = {
     b"2": BindComplete,
     b"3": CloseComplete,
     b"C": CommandComplete,
+    b'd': CopyData,
+    b'c': CopyDone,
     # TODO: Implement COPY stream
-    # b'd': 'CopyData', # backend and frontend message
-    # b'c': 'CopyDone', # backend and frontend message
     # b'G': 'CopyInResponse',
     # b'H': 'CopyOutResponse',
     # b'W': 'CopyBothResponse',
     b"D": DataRow,
     b"I": EmptyQueryResponse,
-    # b'E': 'ErrorResponse',
-    # b'V': 'FunctionCallResponse',
-    # b'v': 'NegotiateProtocolVersion',
+    b"E": ErrorResponse,
+    b'V': FunctionCallResponse,
+    b'v': NegotiateProtocolVersion,
     b"n": NoData,
-    # b'N': 'NoticeResponse',
-    # b'A': 'NotificationResponse',
-    # b't': 'ParameterDescription',
+    b'N': NoticeResponse,
+    b'A': NotificationResponse,
+    b't': ParameterDescription,
     b"S": ParameterStatus,
     b"1": ParseComplete,
     b"s": PortalSuspended,
