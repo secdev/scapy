@@ -134,7 +134,10 @@ class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
                     configuration,  # type: AutomotiveTestCaseExecutorConfiguration  # noqa: E501
                     request  # type: Packet
                     ):  # type: (...) -> bool
-        timeout = configuration[UDS_DSCEnumerator.__name__].get("timeout", 3)
+        try:
+            timeout = configuration[UDS_DSCEnumerator.__name__]["timeout"]
+        except KeyError:
+            timeout = 3
         ans = socket.sr1(request, timeout=timeout, verbose=False)
         if ans is not None:
             if configuration.verbose:
@@ -165,7 +168,10 @@ class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
         UDS_TPEnumerator.enter(sock, conf, kwargs)
         # Wait 5 seconds, since some ECUs require time
         # to switch to the bootloader
-        delay = conf[UDS_DSCEnumerator.__name__].get("delay_state_change", 5)
+        try:
+            delay = conf[UDS_DSCEnumerator.__name__]["delay_state_change"]
+        except KeyError:
+            delay = 5
         time.sleep(delay)
         state_changed = UDS_DSCEnumerator.enter_state(
             sock, conf, kwargs["req"])
