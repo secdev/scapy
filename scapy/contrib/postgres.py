@@ -56,7 +56,7 @@ AUTH_CODES = {
 class KeepAlive(Packet):
     name = "Keep Alive"
     fields_desc = [
-        FieldLenField("length", None, fmt="I"),
+        SignedIntField("len", 4),
     ]
 
 
@@ -144,7 +144,7 @@ class ParameterStatus(_ZeroPadding):
     name = "Parameter Status"
     fields_desc = [
         ByteTagField(b"S"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", None, fmt="I"), # TODO : length_of
         StrNullField(
             "key",
             "",
@@ -202,7 +202,7 @@ class ReadyForQuery(_ZeroPadding):
         FieldLenField(
             "len",
             None,
-            fmt="I",
+            fmt="I", # TODO: length_of
         ),
         CharEnumField("status", b"I", STATUS_TYPE),
     ]
@@ -228,7 +228,7 @@ class RowDescription(_ZeroPadding):
         FieldLenField(
             "len",
             None,
-            fmt="I",
+            fmt="I", # TODO : length_of
         ),
         SignedShortField("numfields", 0),
         PacketListField(
@@ -256,7 +256,7 @@ class DataRow(_ZeroPadding):
         FieldLenField(
             "len",
             None,
-            fmt="I",
+            fmt="I", # TODO : length_of
         ),
         SignedShortField("numfields", 0),
         PacketListField(
@@ -321,7 +321,7 @@ class Terminate(_ZeroPadding):
     name = "Termination Request"
     fields_desc = [
         ByteTagField(b"X"),
-        FieldLenField("len", None, fmt="I"),
+        SignedIntField("len", 4),
     ]
 
 
@@ -329,7 +329,7 @@ class BindComplete(_ZeroPadding):
     name = "Bind Complete"
     fields_desc = [
         ByteTagField(b"2"),
-        FieldLenField("len", None, fmt="I"),
+        SignedIntField("len", 4),
     ]
 
 
@@ -352,7 +352,7 @@ class CloseComplete(_ZeroPadding):
     name = "Close Complete"
     fields_desc = [
         ByteTagField(b"3"),
-        FieldLenField("len", None, fmt="I"),
+        SignedIntField("len", 4),
     ]
 
 
@@ -372,7 +372,7 @@ class EmptyQueryResponse(_ZeroPadding):
     name = "Empty Query Response"
     fields_desc = [
         ByteTagField(b"I"),
-        FieldLenField("len", None, fmt="I"),
+        SignedIntField("len", 4),
     ]
 
 
@@ -380,7 +380,7 @@ class Flush(_ZeroPadding):
     name = "Flush Request"
     fields_desc = [
         ByteTagField(b"F"),
-        FieldLenField("len", None, fmt="I"),
+        SignedIntField("len", 4),
     ]
 
 
@@ -388,7 +388,7 @@ class NoData(_ZeroPadding):
     name = "No Data Response"
     fields_desc = [
         ByteTagField(b"n"),
-        FieldLenField("len", None, fmt="I"),
+        SignedIntField("len", 4),
     ]
 
 
@@ -396,7 +396,7 @@ class ParseComplete(_ZeroPadding):
     name = "Parse Complete Response"
     fields_desc = [
         ByteTagField(b"1"),
-        FieldLenField("len", None, fmt="I"),
+        SignedIntField("len", 4),
     ]
 
 
@@ -404,7 +404,7 @@ class PortalSuspended(_ZeroPadding):
     name = "Portal Suspended Response"
     fields_desc = [
         ByteTagField(b"s"),
-        FieldLenField("len", None, fmt="I"),
+        SignedIntField("len", 4),
     ]
 
 
@@ -412,7 +412,7 @@ class Sync(_ZeroPadding):
     name = "Sync Request"
     fields_desc = [
         ByteTagField(b"S"),
-        FieldLenField("len", None, fmt="I"),
+        SignedIntField("len", 4),
     ]
 
 
@@ -420,7 +420,7 @@ class Parse(_ZeroPadding):
     name = "Parse Request"
     fields_desc = [
         ByteTagField(b"P"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", None, fmt="I", length_of="query", adjust=lambda pkt, x: x + 4), # TODO : Length of
         StrNullField("destination", None),
         StrNullField("query", None),
         FieldLenField("num_param_dtypes", None, fmt="H", count_of="params"),
@@ -432,7 +432,7 @@ class Execute(_ZeroPadding):
     name = "Execute Request"
     fields_desc = [
         ByteTagField(b"E"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", None, fmt="I", length_of="portal", adjust=lambda pkt, x: x + 8),
         StrNullField(
             "portal",
             "",
@@ -452,7 +452,7 @@ class PasswordMessage(_ZeroPadding):
     name = "Password Request Response"
     fields_desc = [
         ByteTagField(b"p"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", None, fmt="I", length_of="password", adjust=lambda pkt, x: x + 4),
         StrLenField("password", None, length_from=lambda pkt: pkt.len - 4),
     ]
 
@@ -478,7 +478,7 @@ class NotificationResponse(_ZeroPadding):
     name = "Password Request Response"
     fields_desc = [
         ByteTagField(b"A"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", None, fmt="I"), # TODO : Length_of
         SignedIntField("process_id", 0),
         StrNullField("channel", None),
         StrNullField("payload", None),
@@ -489,7 +489,7 @@ class NegotiateProtocolVersion(_ZeroPadding):
     name = "Negotiate Protocol Version Response"
     fields_desc = [
         ByteTagField(b"v"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", None, fmt="I"), # TODO: Length_of
         SignedIntField("min_minor_version", 0),
         SignedIntField("unrecognized_options", 0),
         StrNullField("option", None),
@@ -500,7 +500,7 @@ class FunctionCallResponse(_ZeroPadding):
     name = "Function Call Response"
     fields_desc = [
         ByteTagField(b"V"),
-        FieldLenField("len", None, fmt="I"),
+        FieldLenField("len", None, fmt="I"), # TODO : length_of
         FieldLenField("result_len", None, length_of="result"),
         StrLenField("result", None, length_from=lambda pkt: pkt.result_len),
     ]
@@ -510,7 +510,7 @@ class ParameterDescription(_ZeroPadding):
     name = "Parameter Description"
     fields_desc = [
         ByteTagField(b"t"),
-        SignedIntField("len", None),
+        SignedIntField("len", None), # TODO : Implement length_of
         SignedShortField("param_len", 0),
         FieldListField(
             "notice_fields",
@@ -536,7 +536,7 @@ class CopyDone(_ZeroPadding):
     name = "Copy Done"
     fields_desc = [
         ByteTagField(b"c"),
-        SignedIntField("len", 0),
+        SignedIntField("len", 4),
     ]
 
 
