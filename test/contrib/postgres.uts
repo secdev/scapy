@@ -7,6 +7,8 @@
 
 = Postgres initialization
 
+from scapy.contrib.postgres import *
+
 ssl_request = "\x00\x00\x00\x08\x04\xd2\x16\x2f"
 
 startup = Startup(

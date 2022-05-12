@@ -26,7 +26,6 @@ from scapy.fields import (
     FieldLenField,
     FieldListField,
     IntEnumField,
-    LenField,
     PacketListField,
     ShortField,
     SignedIntField,
