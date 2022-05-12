@@ -18,7 +18,7 @@ startup = Startup(
     b"\x4e\x31\x32\x35\x32\x00\x00"
 )
 
-assert startup.length == 87
+assert startup.len == 87
 assert startup.protocol_version_major == 3
 assert startup.protocol_version_minor == 0
 assert (
@@ -64,7 +64,7 @@ assert init.contents[0].method == 0
 assert len(init.contents) == 16
 assert isinstance(init.contents[1], ParameterStatus)
 assert init.contents[1].len == 26
-assert init.contents[1].key == b"application_name"
+assert init.contents[1].parameter == b"application_name"
 assert init.contents[1].value == b"psql"
 
 simple_query_packet = (
@@ -173,8 +173,3 @@ error_response = ErrorResponse(
 assert len(error_response.error_fields) == 8
 assert error_response.error_fields[0] == ("Severity", b"ERROR")
 assert error_response.error_fields[7] == ("Routine", b"parserOpenTable")
-
-
-# pcap = sniff(offline="psql.pcap", session=TCPSession, prn=lambda pkt: pkt.show2())
-
-# assert pcap

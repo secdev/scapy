@@ -2,7 +2,7 @@ from scapy.all import *
 from scapy.contrib.postgres import *
 
 sock=socket.socket()
-sock.connect(("192.168.86.244",5432))
+sock.connect(("127.0.0.1",5432))
 
 o = {
     b'user': b'postgres',
@@ -16,14 +16,21 @@ for k, v in o.items():
     result += k + b'\0' + v + b'\0'
 
 mystream=StreamSocket(sock)
-init_packet = Startup(options=result)
-init_packet.show2()
-r = mystream.sr1(init_packet)
-PostgresBackend(r.load).show2()
 
-fuzz_payload = Query(query=RandString())
-fuzz_payload.show2()
-r = mystream.sr1(fuzz_payload)
-r_backend = PostgresBackend(r.load)
-r_backend.show2()
+test_packets = [
+    Startup(options=result),
+    Query(query=RandString()),
+    Describe(statement=RandString()),
+    Close(statement=RandString()),
+    Execute(portal="foo"),
+    Flush(),
+    Parse(destination="foo", query="baz", num_param_dtypes=3, params=[1,2,3]),
+    Parse(destination="fig", query="bar", num_param_dtypes=2, params=[1,2,]),
+    CancelRequest(process_id=11234, secret=123455),
+    Terminate(),
+]
 
+for p in test_packets:
+    resp = mystream.sr1(p, timeout=2)
+    if resp:
+        PostgresBackend(resp.load).show2()

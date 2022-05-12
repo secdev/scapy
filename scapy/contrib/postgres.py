@@ -22,9 +22,11 @@ from typing import Any
 from scapy.fields import (
     ByteField,
     CharEnumField,
+    Field,
     FieldLenField,
     FieldListField,
     IntEnumField,
+    LenField,
     PacketListField,
     ShortField,
     SignedIntField,
@@ -64,7 +66,7 @@ class SSLRequest(Packet):
     name = "SSL request code message"
     fields_desc = [
         FieldLenField("length", None, fmt="I"),
-        SignedIntField("request_code", 0),
+        SignedIntField("request_code", 80877103),
     ]
 
 
@@ -79,6 +81,40 @@ class Startup(Packet):
         StrLenField("options", "", length_from=lambda pkt: pkt.len - 9),
         ByteField("padding", 0x00),
     ]
+
+
+class _FieldsLenField(Field[int, int]):
+    """Same as FieldLenField but takes a tuple of fields for length_of."""
+
+    __slots__ = ["length_of", "adjust"]
+
+    def __init__(
+        self,
+        name,  # type: str
+        default,  # type: Optional[Any]
+        length_of=None,  # type: Optional[Tuple[str]]
+        fmt="H",  # type: str
+        adjust=lambda pkt, x: x,  # type: Callable[[Packet, int], int]
+    ):
+        # type: (...) -> None
+        Field.__init__(self, name, default, fmt)
+        self.length_of = length_of
+        self.adjust = adjust
+
+    def i2m(self, pkt, x):
+        # type: (Optional[Packet], Optional[int]) -> int
+        if x is None and pkt is not None:
+            if self.length_of is not None:
+                f = 0
+                for length_of_field in self.length_of:
+                    fld, fval = pkt.getfield_and_val(length_of_field)
+                    f += fld.i2len(pkt, fval)
+            else:
+                raise ValueError("Field should have either length_of or count_of")
+            x = self.adjust(pkt, f)
+        elif x is None:
+            x = 0
+        return x
 
 
 def determine_pg_field(pkt, lst, cur, remain):
@@ -144,9 +180,15 @@ class ParameterStatus(_ZeroPadding):
     name = "Parameter Status"
     fields_desc = [
         ByteTagField(b"S"),
-        FieldLenField("len", None, fmt="I"), # TODO : length_of
+        FieldLenField(
+            "len",
+            None,
+            fmt="I",
+            length_of=("parameter", "value"),
+            adjust=lambda pkt, x: x + 4,
+        ),
         StrNullField(
-            "key",
+            "parameter",
             "",
         ),
         StrNullField(
@@ -199,11 +241,7 @@ class ReadyForQuery(_ZeroPadding):
     name = "Ready Signal"
     fields_desc = [
         ByteTagField(b"Z"),
-        FieldLenField(
-            "len",
-            None,
-            fmt="I", # TODO: length_of
-        ),
+        SignedIntField("len", 6),
         CharEnumField("status", b"I", STATUS_TYPE),
     ]
 
@@ -226,9 +264,7 @@ class RowDescription(_ZeroPadding):
     fields_desc = [
         ByteTagField(b"T"),
         FieldLenField(
-            "len",
-            None,
-            fmt="I", # TODO : length_of
+            "len", None, fmt="I", length_of="cols", adjust=lambda pkt, x: x + 6
         ),
         SignedShortField("numfields", 0),
         PacketListField(
@@ -254,9 +290,7 @@ class DataRow(_ZeroPadding):
     fields_desc = [
         ByteTagField(b"D"),
         FieldLenField(
-            "len",
-            None,
-            fmt="I", # TODO : length_of
+            "len", None, fmt="I", length_of="data", adjust=lambda pkt, x: x + 6
         ),
         SignedShortField("numfields", 0),
         PacketListField(
@@ -341,10 +375,13 @@ class Close(_ZeroPadding):
     fields_desc = [
         ByteTagField(b"C"),
         FieldLenField(
-            "len", None, length_of="statement", fmt="I", adjust=lambda pkt, x: x + 5
+            "len", None, fmt="I", length_of="statement", adjust=lambda pkt, x: x + 6
         ),
         CharEnumField("close_type", b"S", enum=CLOSE_DESCRIBE_TYPE),
-        StrLenField("statement", None, length_from=lambda pkt: pkt.len - 5),
+        StrNullField(
+            "statement",
+            "",
+        ),
     ]
 
 
@@ -359,12 +396,12 @@ class CloseComplete(_ZeroPadding):
 class Describe(_ZeroPadding):
     name = "Describe"
     fields_desc = [
-        ByteTagField(b"C"),
+        ByteTagField(b"D"),
         FieldLenField(
-            "len", None, length_of="statement", fmt="I", adjust=lambda pkt, x: x + 5
+            "len", None, fmt="I", length_of="statement", adjust=lambda pkt, x: x + 6
         ),
         CharEnumField("close_type", b"S", enum=CLOSE_DESCRIBE_TYPE),
-        StrLenField("statement", None, length_from=lambda pkt: pkt.len - 5),
+        StrNullField("statement", ""),
     ]
 
 
@@ -379,7 +416,7 @@ class EmptyQueryResponse(_ZeroPadding):
 class Flush(_ZeroPadding):
     name = "Flush Request"
     fields_desc = [
-        ByteTagField(b"F"),
+        ByteTagField(b"H"),
         SignedIntField("len", 4),
     ]
 
@@ -420,11 +457,22 @@ class Parse(_ZeroPadding):
     name = "Parse Request"
     fields_desc = [
         ByteTagField(b"P"),
-        FieldLenField("len", None, fmt="I", length_of="query", adjust=lambda pkt, x: x + 4), # TODO : Length of
-        StrNullField("destination", None),
-        StrNullField("query", None),
+        _FieldsLenField(
+            "len",
+            None,
+            fmt="I",
+            length_of=("destination", "query", "params"),
+            adjust=lambda pkt, x: x + 8,
+        ),
+        StrNullField("destination", ""),
+        StrNullField("query", ""),
         FieldLenField("num_param_dtypes", None, fmt="H", count_of="params"),
-        StrLenField("params", None, length_from=lambda pkt: pkt.num_param_dtypes * 4),
+        FieldListField(
+            "params",
+            [],
+            SignedIntField("param", None),
+            count_from="num_param_dtypes",
+        ),
     ]
 
 
@@ -432,7 +480,9 @@ class Execute(_ZeroPadding):
     name = "Execute Request"
     fields_desc = [
         ByteTagField(b"E"),
-        FieldLenField("len", None, fmt="I", length_of="portal", adjust=lambda pkt, x: x + 8),
+        FieldLenField(
+            "len", None, fmt="I", length_of="portal", adjust=lambda pkt, x: x + 9
+        ),
         StrNullField(
             "portal",
             "",
@@ -452,7 +502,9 @@ class PasswordMessage(_ZeroPadding):
     name = "Password Request Response"
     fields_desc = [
         ByteTagField(b"p"),
-        FieldLenField("len", None, fmt="I", length_of="password", adjust=lambda pkt, x: x + 4),
+        FieldLenField(
+            "len", None, fmt="I", length_of="password", adjust=lambda pkt, x: x + 4
+        ),
         StrLenField("password", None, length_from=lambda pkt: pkt.len - 4),
     ]
 
@@ -478,7 +530,13 @@ class NotificationResponse(_ZeroPadding):
     name = "Password Request Response"
     fields_desc = [
         ByteTagField(b"A"),
-        FieldLenField("len", None, fmt="I"), # TODO : Length_of
+        _FieldsLenField(
+            "len",
+            None,
+            fmt="I",
+            length_of=("channel", "payload"),
+            adjust=lambda pkt, x: x + 8,
+        ),
         SignedIntField("process_id", 0),
         StrNullField("channel", None),
         StrNullField("payload", None),
@@ -489,7 +547,9 @@ class NegotiateProtocolVersion(_ZeroPadding):
     name = "Negotiate Protocol Version Response"
     fields_desc = [
         ByteTagField(b"v"),
-        FieldLenField("len", None, fmt="I"), # TODO: Length_of
+        FieldLenField(
+            "len", None, fmt="I", length_of="option", adjust=lambda pkt, x: x + 12
+        ),
         SignedIntField("min_minor_version", 0),
         SignedIntField("unrecognized_options", 0),
         StrNullField("option", None),
@@ -500,7 +560,9 @@ class FunctionCallResponse(_ZeroPadding):
     name = "Function Call Response"
     fields_desc = [
         ByteTagField(b"V"),
-        FieldLenField("len", None, fmt="I"), # TODO : length_of
+        FieldLenField(
+            "len", None, fmt="I", length_of="result", adjust=lambda pkt, x: x + 8
+        ),
         FieldLenField("result_len", None, length_of="result"),
         StrLenField("result", None, length_from=lambda pkt: pkt.result_len),
     ]
@@ -510,12 +572,14 @@ class ParameterDescription(_ZeroPadding):
     name = "Parameter Description"
     fields_desc = [
         ByteTagField(b"t"),
-        SignedIntField("len", None), # TODO : Implement length_of
-        SignedShortField("param_len", 0),
+        FieldLenField(
+            "len", None, length_of="parameter_dtypes", adjust=lambda pkt, x: x + 6
+        ),
+        SignedShortField("parameter_dtypes_len", 0),
         FieldListField(
-            "notice_fields",
+            "parameter_dtypes",
             [],
-            SignedIntField("object_id", None),
+            SignedIntField("dtype", None),
             count_from=lambda pkt: pkt.param_len,
         ),
     ]
@@ -548,6 +612,24 @@ class CopyFail(_ZeroPadding):
             "len", None, fmt="I", length_of="reason", adjust=lambda pkt, x: x + 4
         ),
         StrLenField("reason", None, length_from=lambda pkt: pkt.len - 4),
+    ]
+
+
+class CancelRequest(Packet):
+    name = "Cancel Request"
+    fields_desc = [
+        SignedIntField("len", 16),
+        SignedIntField("request_code", 80877102),
+        SignedIntField("process_id", 0),
+        SignedIntField("secret", 0),
+    ]
+
+
+class GSSENCRequest(Packet):
+    name = "GSSENC Request"
+    fields_desc = [
+        SignedIntField("len", 8),
+        SignedIntField("request_code", 80877104),
     ]
 
 
