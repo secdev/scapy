@@ -461,6 +461,14 @@ p
 p.show()
 IP in p and TCP in p and UDP in p and p[TCP].seq == 1234567
 
+= Test parent reference
+~ field lengthfield
+x=TestPLF(plist=[IP()/TCP(), IP()/UDP()])
+p = TestPLF(raw(x))
+p
+p.show()
+p.getlayer(IP, 1).parent == p and p.getlayer(IP, 2).parent == p
+
 = Nested PacketListField
 ~ field lengthfield
 y=IP()/TCP(seq=111111)/TestPLF(plist=[IP()/TCP(seq=222222),IP()/UDP()])

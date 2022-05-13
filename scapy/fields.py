@@ -1422,6 +1422,7 @@ class _PacketField(_StrField[K]):
                  ):
         # type: (...) -> Tuple[bytes, K]
         i = self.m2i(pkt, s)
+        i.add_parent(pkt)
         remain = b""
         if conf.padding_layer in i:
             r = i[conf.padding_layer]
@@ -1474,7 +1475,8 @@ class PacketListField(_PacketField[List[BasePacket]]):
     that might occur right in the middle of another Packet field.
     This field type may also be used to indicate that a series of Packet
     instances have a sibling semantic instead of a parent/child relationship
-    (i.e. a stack of layers).
+    (i.e. a stack of layers). All elements in PacketListField have current
+    packet referenced in parent field.
     """
     __slots__ = ["count_from", "length_from", "next_cls_cb"]
     islist = 1
@@ -1666,6 +1668,8 @@ class PacketListField(_PacketField[List[BasePacket]]):
                             c += 1
                 else:
                     remain = b""
+            if isinstance(p, BasePacket):
+                p.add_parent(pkt)
             lst.append(p)
         return remain + ret, lst
 
