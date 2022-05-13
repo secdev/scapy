@@ -117,13 +117,10 @@ class _FieldsLenField(Field[int, int]):
 def determine_pg_field(pkt, lst, cur, remain):
     key = b""
     if remain:
-        if isinstance(remain[0], int):
-            key = bytes(chr(remain[0]), "ascii")
-        else:  # Python 2
-            key = remain[0]
+        key = remain[0:1]  # Python 2/3 compat
     if key in pkt.cls_mapping:
         return pkt.cls_mapping[key]
-    elif remain[0] == 0 and len(remain) >= 4:
+    elif remain[0:1] == b"\x00" and len(remain) >= 4:
         length = struct.unpack("!I", remain[0:3])[0]
         if length == 0:
             return KeepAlive
@@ -152,7 +149,7 @@ class _BasePostgres(Packet):
 
     @classmethod
     def tcp_reassemble(cls, data, metadata):
-        if data[0] == 0:
+        if data and data[0:1] == b"\x00":
             length = struct.unpack("!I", data[0:3])[0]
             if length == 8:
                 return SSLRequest(data)
@@ -333,10 +330,7 @@ class ErrorResponseField(StrNullField):
     def m2i(self, pkt, x):
         """Unpack into a tuple of Field, Value."""
         i = super(ErrorResponseField, self).m2i(pkt, x)
-        if isinstance(i[0], int):
-            i_code = chr(i[0])
-        else:
-            i_code = i[0]  # Python 2
+        i_code = i[0:1]  # Python 2/3 compatible
         return (ERROR_FIELD.get(i_code, i_code), i[1:])
 
 
