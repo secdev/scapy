@@ -1666,6 +1666,7 @@ class PacketListField(_PacketField[List[BasePacket]]):
                             c += 1
                 else:
                     remain = b""
+            p.add_underlayer(pkt)
             lst.append(p)
         return remain + ret, lst
 
