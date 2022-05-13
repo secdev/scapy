@@ -117,7 +117,10 @@ class _FieldsLenField(Field[int, int]):
 def determine_pg_field(pkt, lst, cur, remain):
     key = b""
     if remain:
-        key = bytes(chr(remain[0]), "ascii")
+        if isinstance(remain[0], int):
+            key = bytes(chr(remain[0]), "ascii")
+        else:  # Python 2
+            key = remain[0]
     if key in pkt.cls_mapping:
         return pkt.cls_mapping[key]
     elif remain[0] == 0 and len(remain) >= 4:
@@ -330,7 +333,10 @@ class ErrorResponseField(StrNullField):
     def m2i(self, pkt, x):
         """Unpack into a tuple of Field, Value."""
         i = super(ErrorResponseField, self).m2i(pkt, x)
-        i_code = chr(i[0])
+        if isinstance(i[0], int):
+            i_code = chr(i[0])
+        else:
+            i_code = i[0]  # Python 2
         return (ERROR_FIELD.get(i_code, i_code), i[1:])
 
 
