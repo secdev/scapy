@@ -17,7 +17,6 @@
 # scapy.contrib.status = loads
 
 import struct
-from typing import Any
 
 from scapy.fields import (
     ByteField,
@@ -35,7 +34,6 @@ from scapy.fields import (
 )
 from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import TCP
-from scapy.volatile import VolatileValue
 
 AUTH_CODES = {
     0: "AuthenticationOk",
@@ -135,10 +133,13 @@ def determine_pg_field(pkt, lst, cur, remain):
 
 
 class ByteTagField(ByteField):
-    def __init__(self, default: bytes):
+    def __init__(
+        self, 
+        default # type: bytes
+    ):
         super(ByteTagField, self).__init__("tag", ord(default))
 
-    def randval(self) -> VolatileValue[Any]:
+    def randval(self):
         return ord(self.default)
 
 
@@ -688,3 +689,4 @@ class PostgresBackend(_BasePostgres):
 
 bind_layers(TCP, PostgresFrontend, dport=5432)
 bind_layers(TCP, PostgresBackend, sport=5432)
+ 
