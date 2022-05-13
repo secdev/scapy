@@ -94,7 +94,7 @@ class _FieldsLenField(Field[int, int]):
         adjust=lambda pkt, x: x,  # type: Callable[[Packet, int], int]
     ):
         # type: (...) -> None
-        Field.__init__(self, name, default, fmt)
+        super(_FieldsLenField, self).__init__(name, default, fmt)
         self.length_of = length_of
         self.adjust = adjust
 
@@ -137,8 +137,8 @@ def determine_pg_field(pkt, lst, cur, remain):
 
 class ByteTagField(ByteField):
     def __init__(
-        self, 
-        default # type: bytes
+        self,
+        default  # type: bytes
     ):
         super(ByteTagField, self).__init__("tag", ord(default))
 
