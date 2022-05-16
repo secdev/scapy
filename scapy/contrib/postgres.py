@@ -134,8 +134,7 @@ def determine_pg_field(pkt, lst, cur, remain):
 
 class ByteTagField(ByteField):
     def __init__(
-        self,
-        default  # type: bytes
+        self, default  # type: bytes
     ):
         super(ByteTagField, self).__init__("tag", ord(default))
 
@@ -632,6 +631,7 @@ class GSSENCRequest(Packet):
         SignedIntField("request_code", 80877104),
     ]
 
+
 class CopyInResponse(_ZeroPadding):
     name = "Copy in Response"
     fields_desc = [
@@ -648,6 +648,7 @@ class CopyInResponse(_ZeroPadding):
             count_from=lambda pkt: pkt.ncols,
         ),
     ]
+
 
 class CopyOutResponse(_ZeroPadding):
     name = "Copy out Response"
@@ -666,6 +667,7 @@ class CopyOutResponse(_ZeroPadding):
         ),
     ]
 
+
 class CopyBothResponse(_ZeroPadding):
     name = "Copy both Response"
     fields_desc = [
@@ -682,6 +684,7 @@ class CopyBothResponse(_ZeroPadding):
             count_from=lambda pkt: pkt.ncols,
         ),
     ]
+
 
 FRONTEND_TAG_TO_PACKET_CLS = {
     # b'B' : 'Bind',  # TODO
@@ -708,9 +711,9 @@ BACKEND_TAG_TO_PACKET_CLS = {
     b"C": CommandComplete,
     b"d": CopyData,
     b"c": CopyDone,
-    b'G': CopyInResponse,
-    b'H': CopyOutResponse,
-    b'W': CopyBothResponse,
+    b"G": CopyInResponse,
+    b"H": CopyOutResponse,
+    b"W": CopyBothResponse,
     b"D": DataRow,
     b"I": EmptyQueryResponse,
     b"E": ErrorResponse,
@@ -738,4 +741,3 @@ class PostgresBackend(_BasePostgres):
 
 bind_layers(TCP, PostgresFrontend, dport=5432)
 bind_layers(TCP, PostgresBackend, sport=5432)
- 
