@@ -29,6 +29,7 @@ from scapy.fields import (
     ShortField,
     SignedIntField,
     SignedShortField,
+    StrField,
     StrLenField,
     StrNullField,
 )
@@ -67,16 +68,35 @@ class SSLRequest(Packet):
     ]
 
 
+class _DictStrField(StrField):
+    """ Takes a dictionary as an argument and packs back into a byte string. """
+    def i2m(self, pkt, x):
+        if isinstance(x, bytes):
+            return x
+        if isinstance(x, dict):
+            result = bytes()
+            for k, v in x.items():
+                result += k + b'\x00' + v + b'\x00'
+            return result + b"\x00"
+        else:
+            return super(_DictStrField, self).i2m(pkt, x)
+    
+    def i2len(self, pkt, x):
+        # type: (Optional[Packet], Any) -> int
+        if x is None:
+            return 0
+        return len(self.i2m(pkt, x))
+
+
 class Startup(Packet):
     name = "Startup Request Packet"
     fields_desc = [
         FieldLenField(
-            "len", None, length_of="options", fmt="I", adjust=lambda pkt, x: x + 9
+            "len", None, length_of="options", fmt="I", adjust=lambda pkt, x: x + 8
         ),
         ShortField("protocol_version_major", 3),
         ShortField("protocol_version_minor", 0),
-        StrLenField("options", "", length_from=lambda pkt: pkt.len - 9),
-        ByteField("padding", 0x00),
+        _DictStrField("options", None),
     ]
 
 
