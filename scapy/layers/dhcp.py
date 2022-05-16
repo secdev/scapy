@@ -17,6 +17,9 @@ except ImportError:
 import random
 import struct
 
+import socket
+import re
+
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
 from scapy.compat import chb, orb, bytes_encode
@@ -86,6 +89,69 @@ class _DHCPParamReqFieldListField(FieldListField):
             s, val = FieldListField.getfield(self, pkt, s)
             ret.append(val)
         return b"", [x[0] for x in ret]
+
+
+class ClasslessStaticRoutesField(Field):
+    """
+    RFC 3442 defines classless static routes as up to 9 bytes per entry:
+
+    # Code Len Destination 1    Router 1
+    +-----+---+----+-----+----+----+----+----+----+
+    | 121 | n | d1 | ... | dN | r1 | r2 | r3 | r4 |
+    +-----+---+----+-----+----+----+----+----+----+
+
+    Destination first byte contains one octet describing the width followed
+    by all the significant octets of the subnet.
+    """
+    def m2i(self, pkt, x):
+        # type: (Packet, bytes) -> str
+        # b'\x20\x01\x02\x03\x04\t\x08\x07\x06' -> (1.2.3.4/32:9.8.7.6)
+        prefix = orb(x[0])
+
+        octets = (prefix + 7) // 8
+        # Create the destination IP by using the number of octets
+        # and padding up to 4 bytes to ensure a valid IP.
+        dest = x[1:1 + octets]
+        dest = socket.inet_ntoa(dest.ljust(4, b'\x00'))
+
+        router = x[1 + octets:5 + octets]
+        router = socket.inet_ntoa(router)
+
+        return dest + "/" + str(prefix) + ":" + router
+
+    def i2m(self, pkt, x):
+        # type: (Packet, str) -> bytes
+        # (1.2.3.4/32:9.8.7.6) -> b'\x20\x01\x02\x03\x04\t\x08\x07\x06'
+        if not x:
+            return b''
+
+        spx = re.split('/|:', x)
+        prefix = int(spx[1])
+        # if prefix is invalid value ( 0 > prefix > 32 ) then break
+        if prefix > 32 or prefix < 0:
+            warning("Invalid prefix value: %d (0x%x)", prefix, prefix)
+            return b''
+        octets = (prefix + 7) // 8
+        dest = socket.inet_aton(spx[0])[:octets]
+        router = socket.inet_aton(spx[2])
+        return struct.pack('b', prefix) + dest + router
+
+    def getfield(self, pkt, s):
+        if not s:
+            return None
+
+        prefix = orb(s[0])
+        # if prefix is invalid value ( 0 > prefix > 32 ) then break
+        if prefix > 32 or prefix < 0:
+            warning("Invalid prefix value: %d (0x%x)", prefix, prefix)
+            return s, []
+
+        route_len = 5 + (prefix + 7) // 8
+        return s[route_len:], self.m2i(pkt, s[:route_len])
+
+    def addfield(self, pkt, s, val):
+        return s + self.i2m(pkt, val)
+
 
 # DHCP_UNKNOWN, DHCP_IP, DHCP_IPLIST, DHCP_TYPE \
 # = range(4)
@@ -209,6 +275,9 @@ DHCPOptions = {
     116: ByteField("auto-config", 0),
     117: ShortField("name-service-search", 0,),
     118: IPField("subnet-selection", "0.0.0.0"),
+    121: FieldListField("classless_static_routes",
+                        [],
+                        ClasslessStaticRoutesField("route", 0)),
     124: "vendor_class",
     125: "vendor_specific_information",
     128: IPField("tftp_server_ip_address", "0.0.0.0"),
