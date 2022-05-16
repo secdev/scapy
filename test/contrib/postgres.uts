@@ -5,7 +5,7 @@
 
 + postgres
 
-= Postgres initialization
+= postgres initialization
 
 from scapy.contrib.postgres import *
 
@@ -57,6 +57,7 @@ init_packet = (
     b"\x00\x00\x0c\x00\x00\x01\x7f\x43\x4c\x36\xa5\x5a\x00\x00\x00\x05\x49"
 )
 
+= postgres backend sequence
 
 init = PostgresBackend(init_packet)
 
@@ -68,6 +69,8 @@ assert isinstance(init.contents[1], ParameterStatus)
 assert init.contents[1].len == 26
 assert init.contents[1].parameter == b"application_name"
 assert init.contents[1].value == b"psql"
+
+= simple queries
 
 simple_query_packet = (
     b"\x51\x00\x00\x00\x15\x53\x45\x4c\x45\x43\x54\x20\x56\x45\x52\x53"
@@ -98,6 +101,8 @@ command_response_packet = (
     b"\x20\x36\x34\x2d\x62\x69\x74\x43\x00\x00\x00\x0d\x53\x45\x4c\x45"
     b"\x43\x54\x20\x31\x00\x5a\x00\x00\x00\x05\x49"
 )
+
+= row data response
 
 command_response = PostgresBackend(command_response_packet)
 
@@ -162,6 +167,8 @@ assert (
     == b"Allows modifications of the structure of system tables."
 )
 
+= errors
+
 error_response = ErrorResponse(
     b"\x45\x00\x00\x00\x69\x53\x45\x52\x52\x4f\x52\x00\x56\x45\x52\x52"
     b"\x4f\x52\x00\x43\x34\x32\x50\x30\x31\x00\x4d\x72\x65\x6c\x61\x74"
@@ -175,3 +182,59 @@ error_response = ErrorResponse(
 assert len(error_response.error_fields) == 8
 assert error_response.error_fields[0] == ("Severity", b"ERROR")
 assert error_response.error_fields[7] == ("Routine", b"parserOpenTable")
+
+= copy data response and request
+
+copyin_response = CopyInResponse(b"\x47\x00\x00\x00\x0f\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00")
+
+assert copyin_response.len == 15
+assert copyin_response.format == 0  # Text
+assert len(copyin_response.cols) == 4
+assert copyin_response.ncols == 4
+assert copyin_response.cols[0] == 0  # Text
+assert copyin_response.cols[1] == 0  # Text
+assert copyin_response.cols[2] == 0  # Text
+assert copyin_response.cols[3] == 0  # Text
+
+copydata_in = PostgresFrontend(b"\x64\x00\x00\x00\x10\x31\x2c\x42\x6f\x62\x2c\x32\x33\x2c\x31\x0d" \
+b"\x0a\x64\x00\x00\x00\x12\x32\x2c\x53\x61\x6c\x6c\x79\x2c\x34\x33" \
+b"\x2c\x32\x0d\x0a\x64\x00\x00\x00\x14\x33\x2c\x50\x61\x72\x64\x65" \
+b"\x65\x70\x2c\x35\x34\x2c\x33\x0d\x0a\x64\x00\x00\x00\x0f\x34\x2c" \
+b"\x53\x75\x2c\x33\x32\x2c\x34\x0d\x0a\x64\x00\x00\x00\x0f\x35\x2c" \
+b"\x58\x69\x2c\x34\x33\x2c\x35\x0d\x0a\x64\x00\x00\x00\x0e\x36\x2c" \
+b"\x50\x69\x70\x2c\x36\x36\x2c\x36\x63\x00\x00\x00\x04"
+)
+
+copyout_response = CopyOutResponse(b"\x48\x00\x00\x00\x0f\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00")
+assert copyout_response.len == 15
+
+# Combined message
+copydata_out = PostgresBackend(b"\x48\x00\x00\x00\x0f\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00" \
+b"\x64\x00\x00\x00\x0f\x31\x09\x42\x6f\x62\x09\x32\x33\x09\x31\x0a" \
+b"\x64\x00\x00\x00\x11\x32\x09\x53\x61\x6c\x6c\x79\x09\x34\x33\x09" \
+b"\x32\x0a\x64\x00\x00\x00\x13\x33\x09\x50\x61\x72\x64\x65\x65\x70" \
+b"\x09\x35\x34\x09\x33\x0a\x64\x00\x00\x00\x0e\x34\x09\x53\x75\x09" \
+b"\x33\x32\x09\x34\x0a\x64\x00\x00\x00\x0e\x35\x09\x58\x69\x09\x34" \
+b"\x33\x09\x35\x0a\x64\x00\x00\x00\x0f\x36\x09\x50\x69\x70\x09\x36" \
+b"\x36\x09\x36\x0a\x63\x00\x00\x00\x04\x43\x00\x00\x00\x0b\x43\x4f" \
+b"\x50\x59\x20\x36\x00\x5a\x00\x00\x00\x05\x49")
+
+assert len(copydata_out.contents) == 10
+assert copydata_out.contents[0].len == 15
+assert isinstance(copydata_out.contents[0], CopyOutResponse)
+assert isinstance(copydata_out.contents[1], CopyData)
+assert copydata_out.contents[1].len == 15
+assert copydata_out.contents[1].data == b'1\tBob\t23\t1\n'
+assert isinstance(copydata_out.contents[2], CopyData)
+assert copydata_out.contents[2].data == b'2\tSally\t43\t2\n'
+assert isinstance(copydata_out.contents[3], CopyData)
+assert copydata_out.contents[3].data == b'3\tPardeep\t54\t3\n'
+assert isinstance(copydata_out.contents[4], CopyData)
+assert copydata_out.contents[4].data == b'4\tSu\t32\t4\n'
+assert isinstance(copydata_out.contents[5], CopyData)
+assert copydata_out.contents[5].data == b'5\tXi\t43\t5\n'
+assert isinstance(copydata_out.contents[6], CopyData)
+assert copydata_out.contents[6].data == b'6\tPip\t66\t6\n'
+assert isinstance(copydata_out.contents[7], CopyDone)
+assert isinstance(copydata_out.contents[8], CommandComplete)
+assert isinstance(copydata_out.contents[9], ReadyForQuery)

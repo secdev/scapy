@@ -305,24 +305,24 @@ class DataRow(_ZeroPadding):
 
 # See https://www.postgresql.org/docs/current/protocol-error-fields.html
 ERROR_FIELD = {
-    "S": "Severity",
-    "V": "SeverityNonLocalized",
-    "C": "Code",
-    "M": "Message",
-    "D": "Detail",
-    "H": "Hint",
-    "P": "Position",
-    "p": "InternalPosition",
-    "q": "InternalQuery",
-    "W": "Where",
-    "s": "SchemaName",
-    "t": "TableName",
-    "c": "ColumnName",
-    "d": "DataTypeName",
-    "n": "ConstraintName",
-    "F": "File",
-    "L": "Line",
-    "R": "Routine",
+    b"S": "Severity",
+    b"V": "SeverityNonLocalized",
+    b"C": "Code",
+    b"M": "Message",
+    b"D": "Detail",
+    b"H": "Hint",
+    b"P": "Position",
+    b"p": "InternalPosition",
+    b"q": "InternalQuery",
+    b"W": "Where",
+    b"s": "SchemaName",
+    b"t": "TableName",
+    b"c": "ColumnName",
+    b"d": "DataTypeName",
+    b"n": "ConstraintName",
+    b"F": "File",
+    b"L": "Line",
+    b"R": "Routine",
 }
 
 
@@ -573,14 +573,14 @@ class ParameterDescription(_ZeroPadding):
     fields_desc = [
         ByteTagField(b"t"),
         FieldLenField(
-            "len", None, length_of="parameter_dtypes", adjust=lambda pkt, x: x + 6
+            "len", None, fmt="I", length_of="dtypes", adjust=lambda pkt, x: x + 6
         ),
-        SignedShortField("parameter_dtypes_len", 0),
+        SignedShortField("dtypes_len", 0),
         FieldListField(
-            "parameter_dtypes",
+            "dtypes",
             [],
             SignedIntField("dtype", None),
-            count_from=lambda pkt: pkt.param_len,
+            count_from=lambda pkt: pkt.dtypes_len,
         ),
     ]
 
@@ -632,6 +632,56 @@ class GSSENCRequest(Packet):
         SignedIntField("request_code", 80877104),
     ]
 
+class CopyInResponse(_ZeroPadding):
+    name = "Copy in Response"
+    fields_desc = [
+        ByteTagField(b"G"),
+        FieldLenField(
+            "len", None, fmt="I", length_of="cols", adjust=lambda pkt, x: x + 7
+        ),
+        ByteField("format", 0),
+        ShortField("ncols", 0),
+        FieldListField(
+            "cols",
+            [],
+            ShortField("format", None),
+            count_from=lambda pkt: pkt.ncols,
+        ),
+    ]
+
+class CopyOutResponse(_ZeroPadding):
+    name = "Copy out Response"
+    fields_desc = [
+        ByteTagField(b"H"),
+        FieldLenField(
+            "len", None, fmt="I", length_of="cols", adjust=lambda pkt, x: x + 7
+        ),
+        ByteField("format", 0),
+        ShortField("ncols", 0),
+        FieldListField(
+            "cols",
+            [],
+            ShortField("format", None),
+            count_from=lambda pkt: pkt.ncols,
+        ),
+    ]
+
+class CopyBothResponse(_ZeroPadding):
+    name = "Copy both Response"
+    fields_desc = [
+        ByteTagField(b"W"),
+        FieldLenField(
+            "len", None, fmt="I", length_of="cols", adjust=lambda pkt, x: x + 7
+        ),
+        ByteField("format", 0),
+        ShortField("ncols", 0),
+        FieldListField(
+            "cols",
+            [],
+            ShortField("format", None),
+            count_from=lambda pkt: pkt.ncols,
+        ),
+    ]
 
 FRONTEND_TAG_TO_PACKET_CLS = {
     # b'B' : 'Bind',  # TODO
@@ -658,10 +708,9 @@ BACKEND_TAG_TO_PACKET_CLS = {
     b"C": CommandComplete,
     b"d": CopyData,
     b"c": CopyDone,
-    # TODO: Implement COPY stream
-    # b'G': 'CopyInResponse',
-    # b'H': 'CopyOutResponse',
-    # b'W': 'CopyBothResponse',
+    b'G': CopyInResponse,
+    b'H': CopyOutResponse,
+    b'W': CopyBothResponse,
     b"D": DataRow,
     b"I": EmptyQueryResponse,
     b"E": ErrorResponse,
