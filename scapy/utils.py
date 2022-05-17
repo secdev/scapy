@@ -2193,6 +2193,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         # Comment option
         comment_opt = None
         if comment:
+            comment = bytes_encode(comment)
             if not comment.endswith(b"\n"):
                 comment += b"\n"
             comment_opt = struct.pack(self.endian + "HH", 1, len(comment))
