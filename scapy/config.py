@@ -38,9 +38,10 @@ from scapy.compat import (
     NoReturn,
     Optional,
     Set,
-    Type,
     Tuple,
+    Type,
     Union,
+    overload,
     TYPE_CHECKING,
 )
 from types import ModuleType
@@ -211,7 +212,17 @@ class Num2Layer:
         # type: (int, Type[Packet]) -> None
         self.layer2num[layer] = num
 
+    @overload
     def __getitem__(self, item):
+        # type: (Type[Packet]) -> int
+        pass
+
+    @overload
+    def __getitem__(self, item):  # noqa: F811
+        # type: (int) -> Type[Packet]
+        pass
+
+    def __getitem__(self, item):  # noqa: F811
         # type: (Union[int, Type[Packet]]) -> Union[int, Type[Packet]]
         if isinstance(item, int):
             return self.num2layer[item]
@@ -728,7 +739,8 @@ class Conf(ConfClass):
     #: default mode for listening socket (to get answers if you
     #: spoof on a lan)
     promisc = True
-    sniff_promisc = 1  #: default mode for sniff()
+    #: default mode for sniff()
+    sniff_promisc = True  # type: bool
     raw_layer = None  # type: Type[Packet]
     raw_summary = False  # type: Union[bool, Callable[[bytes], Any]]
     padding_layer = None  # type: Type[Packet]
@@ -764,7 +776,7 @@ class Conf(ConfClass):
     #: holds the Scapy interface list and manager
     ifaces = None  # type: 'scapy.interfaces.NetworkInterfaceDict'
     #: holds the cache of interfaces loaded from Libpcap
-    cache_pcapiflist = {}  # type: Dict[str, Tuple[str, List[str], int]]
+    cache_pcapiflist = {}  # type: Dict[str, Tuple[str, List[str], Any, str]]
     neighbor = None  # type: 'scapy.layers.l2.Neighbor'
     # `neighbor` will be filed by scapy.layers.l2
     #: holds the Scapy IPv4 routing table and provides methods to

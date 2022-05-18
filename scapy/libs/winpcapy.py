@@ -329,6 +329,12 @@ try:
     pcap_activate = _lib.pcap_activate
     pcap_activate.restype = c_int
     pcap_activate.argtypes = [POINTER(pcap_t)]
+
+    # int pcap_inject (pcap_t *p, u_char *buf, int size)
+    #   Send a raw packet.
+    pcap_inject = _lib.pcap_inject
+    pcap_inject.restype = c_int
+    pcap_inject.argtypes = [POINTER(pcap_t), c_void_p, c_int]
 except AttributeError:
     pass
 
@@ -425,10 +431,10 @@ pcap_breakloop.restype = None
 pcap_breakloop.argtypes = [POINTER(pcap_t)]
 
 # int pcap_sendpacket (pcap_t *p, u_char *buf, int size)
-#   Send a raw packet.
+#   Send a raw packet, but it returns 0 on success,
+#   rather than returning the number of bytes written.
 pcap_sendpacket = _lib.pcap_sendpacket
 pcap_sendpacket.restype = c_int
-# pcap_sendpacket.argtypes = [POINTER(pcap_t), POINTER(u_char), c_int]
 pcap_sendpacket.argtypes = [POINTER(pcap_t), c_void_p, c_int]
 
 # void pcap_dump (u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
