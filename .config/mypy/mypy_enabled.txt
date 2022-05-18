@@ -51,6 +51,7 @@ scapy/volatile.py
 # LAYERS
 scapy/layers/can.py
 scapy/layers/l2.py
+scapy/layers/dot11.py
 
 # CONTRIB
 scapy/contrib/automotive/bmw/hsfz.py
