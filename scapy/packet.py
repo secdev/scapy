@@ -85,8 +85,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         "packetfields",
         "original", "explicit", "raw_packet_cache",
         "raw_packet_cache_fields", "_pkt", "post_transforms",
-        # then payload and underlayer
-        "payload", "underlayer",
+        # then payload, underlayer and parent
+        "payload", "underlayer", "parent",
         "name",
         # used for sr()
         "_answered",
@@ -131,6 +131,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                  post_transform=None,  # type: Any
                  _internal=0,  # type: int
                  _underlayer=None,  # type: Optional[Packet]
+                 _parent=None,  # type: Optional[Packet]
                  **fields  # type: Any
                  ):
         # type: (...) -> None
@@ -148,6 +149,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.payload = NoPayload()
         self.init_fields()
         self.underlayer = _underlayer
+        self.parent = _parent
         self.original = _pkt
         self.explicit = 0
         self.raw_packet_cache = None  # type: Optional[bytes]
@@ -367,6 +369,20 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
     def remove_underlayer(self, other):
         # type: (Packet) -> None
         self.underlayer = None
+
+    def add_parent(self, parent):
+        # type: (Packet) -> None
+        """Set packet parent.
+        When packet is an element in PacketListField, parent field would
+        point to the list owner packet."""
+        self.parent = parent
+
+    def remove_parent(self, other):
+        # type: (Packet) -> None
+        """Remove packet parent.
+        When packet is an element in PacketListField, parent field would
+        point to the list owner packet."""
+        self.parent = None
 
     def copy(self):
         # type: () -> Packet
@@ -1665,6 +1681,14 @@ class NoPayload(Packet):
         pass
 
     def remove_underlayer(self, other):
+        # type: (Packet) -> None
+        pass
+
+    def add_parent(self, parent):
+        # type: (Any) -> None
+        pass
+
+    def remove_parent(self, other):
         # type: (Packet) -> None
         pass
 
