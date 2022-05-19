@@ -1585,7 +1585,7 @@ class RawPcapNgReader(RawPcapReader):
 
         # Compute the options offset taking padding into account
         if caplen % 4:
-            opt_offset = 20 + caplen + (4 - (caplen % 4))
+            opt_offset = 20 + caplen + (-caplen) % 4
         else:
             opt_offset = 20 + caplen
 
@@ -1837,10 +1837,7 @@ class GenericPcapWriter(object):
         if wirelen is None:
             wirelen = caplen
 
-        if hasattr(packet, "comment"):
-            comment = packet.comment  # type: ignore
-        else:
-            comment = None
+        comment = getattr(packet, "comment", None)
 
         self._write_packet(
             rawpkt,
@@ -2076,9 +2073,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
 
     def _add_padding(self, raw_data):
         # type: (bytes) -> bytes
-        if len(raw_data) % 4 != 0:
-            padding = b"\x00" * (4 - len(raw_data) % 4)
-            raw_data += padding
+        raw_data += ((-len(raw_data)) % 4) * b"\x00"
         return raw_data
 
     def build_block(self, block_type, block_body, options=None):
