@@ -192,8 +192,9 @@ class MQTTPublish(Packet):
                          lambda pkt: (pkt.underlayer.QOS == 1 or
                                       pkt.underlayer.QOS == 2)),
         StrLenField("value", "",
-                    length_from=lambda pkt: (pkt.underlayer.len -
-                                             pkt.length - 2)),
+                    length_from=lambda pkt: pkt.underlayer.len - pkt.length - 2
+                    if pkt.underlayer.QOS == 0 else
+                    pkt.underlayer.len - pkt.length - 4)
     ]
 
 

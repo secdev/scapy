@@ -31,6 +31,27 @@ assert(publish[MQTTPublish].length == 4)
 assert(publish[MQTTPublish].topic == b'test')
 assert(publish[MQTTPublish].value == b'test')
 
+= MQTTPublish
+
+topicC = "testtopic/command"
+
+p1 = MQTT(
+            QOS=1
+        ) / MQTTPublish(
+            topic=topicC,
+            msgid=1234,
+            value="msg1"
+        )
+p2 = MQTT(
+            QOS=1
+        ) / MQTTPublish(
+            topic=topicC,
+            msgid=1235,
+            value="msg2"
+        )
+
+p = MQTT(raw(p1 / p2))
+assert p[1].msgid == 1234
 
 = MQTTConnect, packet instantiation
 c = MQTT()/MQTTConnect(clientIdlen=5, clientId='newid')
