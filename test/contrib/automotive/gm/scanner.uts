@@ -28,14 +28,23 @@ load_layer("can")
 = Define Testfunction
 
 def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwargs):
-    ecu = TestSocket(GMLAN)
     tester = TestSocket(GMLAN)
-    ecu.pair(tester)
-    answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=GMLAN, verbose=False)
     def reset():
         answering_machine.reset_state()
         sniff(timeout=0.001, opened_socket=[ecu, tester])
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 1000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
+    def answering_machine_thread():
+        global ecu
+        global answering_machine
+        while True:
+            try:
+                ecu = TestSocket(GMLAN)
+                tester.pair(ecu)
+                answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=GMLAN, verbose=False)
+                answering_machine(timeout=1000, stop_filter=lambda x: bytes(x) == b"\xff\xff\xff")
+                return
+            except OSError:
+                continue
+    sim = threading.Thread(target=answering_machine_thread)
     sim.start()
     try:
         scanner = GMLAN_Scanner(
