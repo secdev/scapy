@@ -6,7 +6,6 @@
 = Imports
 
 import itertools
-import threading
 from scapy.contrib.isotp import ISOTPMessageBuilder
 
 from test.testsocket import TestSocket, cleanup_testsockets
