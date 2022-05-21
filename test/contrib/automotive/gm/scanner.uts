@@ -29,6 +29,7 @@ load_layer("can")
 
 def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwargs):
     tester = TestSocket(GMLAN)
+    answering_machine_started = threading.Event()
     def reset():
         answering_machine.reset_state()
         sniff(timeout=0.001, opened_socket=[ecu, tester])
@@ -40,12 +41,14 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
                 ecu = TestSocket(GMLAN)
                 tester.pair(ecu)
                 answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=GMLAN, verbose=False)
+                answering_machine_started.set()
                 answering_machine(timeout=1000, stop_filter=lambda x: bytes(x) == b"\xff\xff\xff")
                 return
             except OSError:
                 continue
     sim = threading.Thread(target=answering_machine_thread)
     sim.start()
+    answering_machine_started.wait(timeout=10)
     try:
         scanner = GMLAN_Scanner(
             tester, reset_handler=reset,
