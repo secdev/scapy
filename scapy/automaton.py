@@ -951,8 +951,10 @@ class Automaton:
 
             # Start the automaton
             self.state = self.initial_states[0](self)
-            self.send_sock = self.send_sock_class(**self.socket_kargs)
-            self.listen_sock = self.recv_sock_class(**self.socket_kargs)
+            self.send_sock = self.send_sock_class(**self.socket_kargs) \
+                if self.send_sock_class is not None else None
+            self.listen_sock = self.recv_sock_class(**self.socket_kargs) \
+                if self.recv_sock_class is not None else None
             self.packets = PacketList(name="session[%s]" % self.__class__.__name__)  # noqa: E501
 
             singlestep = True
