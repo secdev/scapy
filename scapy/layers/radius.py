@@ -992,6 +992,21 @@ class RadiusAttr_Framed_Protocol(_RadiusAttrIntEnumVal):
     val = 7
 
 
+class RadiusAttr_Acct_Status_Type(_RadiusAttrIntEnumVal):
+    """RFC 2866"""
+    val = 40
+
+
+class RadiusAttr_Acct_Authentic(_RadiusAttrIntEnumVal):
+    """RFC 2866"""
+    val = 45
+
+
+class RadiusAttr_Acct_Terminate_Cause(_RadiusAttrIntEnumVal):
+    """RFC 2866"""
+    val = 49
+
+
 class RadiusAttr_NAS_Port_Type(_RadiusAttrIntEnumVal):
     """RFC 2865"""
     val = 61
