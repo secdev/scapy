@@ -446,6 +446,7 @@ if algorithms:
     CRYPT_ALGOS['AES-CTR'] = CryptAlgo('AES-CTR',
                                        cipher=algorithms.AES,
                                        mode=modes.CTR,
+                                       block_size=1,
                                        iv_size=8,
                                        salt_size=4,
                                        format_mode_iv=_aes_ctr_format_mode_iv)
@@ -454,6 +455,7 @@ if algorithms:
                                        cipher=algorithms.AES,
                                        mode=modes.GCM,
                                        salt_size=4,
+                                       block_size=1,
                                        iv_size=8,
                                        icv_size=16,
                                        format_mode_iv=_salt_format_mode_iv)
@@ -461,6 +463,7 @@ if algorithms:
         CRYPT_ALGOS['AES-CCM'] = CryptAlgo('AES-CCM',
                                            cipher=algorithms.AES,
                                            mode=modes.CCM,
+                                           block_size=1,
                                            iv_size=8,
                                            salt_size=3,
                                            icv_size=16,

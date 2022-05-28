@@ -1992,6 +1992,77 @@ except IPSecIntegrityError as err:
     err    
 
 #######################################
+= IPv4 / ESP - Tunnel - AES-CTR - NULL - verify no cipher align padding
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= UDP(sport=1000, dport=1001)
+p /= Raw("\x00" * 3)
+p
+print("len p: {}".format(len(p)))
+
+# oiphdr esphdr iiphdr udphdr data esptail iv
+#   20  +  8   +  20  +  8   + 3   +  2   + 8 = 69
+# CipherInput: iiphdr udphdr data esptail
+#                20  +  8   + 3   +  2   = 33
+#   good: (33 % 4) == 1, pad == (4-1) == 3, len == 36+33+3 == 72
+#   bad: (33 % 16) == 1, pad == (16-1) == 15, len == 36+33+15 == 84
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-CTR', crypt_key=b'16bytekey+4bytenonce',
+                         auth_algo='NULL', auth_key=None,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+print("crypt_algo.icv_size {}".format(sa.crypt_algo.icv_size))
+print("auth_algo.icv_size {}".format(sa.auth_algo.icv_size))
+
+e = sa.encrypt(p)
+e
+print("len e: {}".format(len(e)))
+
+esp = sa.crypt_algo.decrypt(sa, e[ESP], sa.crypt_key,
+                            sa.crypt_algo.icv_size or
+                            sa.auth_algo.icv_size,
+                            esn_en=sa.esn_en,
+                            esn=sa.esn)
+esp
+print("len(esp.data): {}".format(len(esp.data)))
+
+* after encryption packet should be padded for 4 byte alignment
+assert len(e) == 72 and esp.padlen == 3, "bad length/padding {}/{}".format(len(e), esp.padlen)
+
+#######################################
+= IPv4 / ESP - Tunnel - AES-GCM - NULL - verify no cipher align padding
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= UDP(sport=1000, dport=1001)
+p /= Raw("\x00" * 1418)
+print("len p: {}".format(len(p)))
+
+# oiphdr esphdr iiphdr udphdr data esptail iv icv
+#   20  +  8   +  20  +  8   +1418 + 2    +8 +16 = 1500
+# CipherInput: iiphdr udphdr data esptail
+#                20  +  8   +1418 + 2 = 1448
+#   good: (1448 % 4) == 0, pad == 0, len == 52+1448+0 == 1500
+#   bad: (1448 % 16) == 8, pad == (16-8) == 8, len == 52+1448+8 == 1508
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
+                         auth_algo='NULL', auth_key=None,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e = sa.encrypt(p)
+print("len e: {}".format(len(e)))
+
+esp = sa.crypt_algo.decrypt(sa, e[ESP], sa.crypt_key,
+                            sa.crypt_algo.icv_size or
+                            sa.auth_algo.icv_size,
+                            esn_en=sa.esn_en,
+                            esn=sa.esn)
+print("len(esp.data): {}".format(len(esp.data)))
+
+* after encryption packet should be padded for 4 byte alignment
+assert len(e) == 1500 and esp.padlen == 0, "bad length/padding {}/{}".format(len(e), esp.padlen)
+
+#######################################
 = IPv4 / ESP - Tunnel - AES-CCM - NULL
 ~ crypto_advanced
 
