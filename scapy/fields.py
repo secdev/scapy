@@ -1414,7 +1414,11 @@ class _PacketField(_StrField[K]):
 
     def m2i(self, pkt, m):
         # type: (Optional[Packet], bytes) -> Packet
-        return self.cls(m)
+        try:
+            # we want to set parent wherever possible
+            return self.cls(m, _parent=pkt)  # type: ignore
+        except TypeError:
+            return self.cls(m)
 
     def getfield(self,
                  pkt,  # type: Packet
@@ -1648,7 +1652,11 @@ class PacketListField(_PacketField[List[BasePacket]]):
                 c -= 1
             try:
                 if cls is not None:
-                    p = cls(remain)
+                    try:
+                        # we want to set parent wherever possible
+                        p = cls(remain, _parent=pkt)
+                    except TypeError:
+                        p = cls(remain)
                 else:
                     p = self.m2i(pkt, remain)
             except Exception:
