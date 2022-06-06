@@ -14,6 +14,8 @@ import os
 import re
 import subprocess
 
+from scapy.consts import DARWIN
+
 _SCAPY_PKG_DIR = os.path.dirname(__file__)
 
 
@@ -76,6 +78,9 @@ def _version_from_git_describe():
             return out.decode().strip()
         else:
             raise subprocess.CalledProcessError(process.returncode, err)
+
+    if DARWIN:
+        _git("git config --global --add safe.directory %s" % os.getcwd())
 
     tag = _git("git describe --always")
     if not tag.startswith("v"):
