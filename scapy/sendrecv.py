@@ -613,26 +613,6 @@ def _parse_tcpreplay_result(stdout_b, stderr_b, argv):
         return {}
 
 
-@conf.commands.register
-def sr(x,  # type: _PacketIterable
-       promisc=None,  # type: Optional[bool]
-       filter=None,  # type: Optional[str]
-       iface=None,  # type: Optional[_GlobInterfaceType]
-       nofilter=0,  # type: int
-       *args,  # type: Any
-       **kargs  # type: Any
-       ):
-    # type: (...) -> Tuple[SndRcvList, PacketList]
-    """
-    Send and receive packets at layer 3
-    """
-    s = conf.L3socket(promisc=promisc, filter=filter,
-                      iface=iface, nofilter=nofilter)
-    result = sndrcv(s, x, *args, **kargs)
-    s.close()
-    return result
-
-
 def _interface_selection(iface,  # type: Optional[_GlobInterfaceType]
                          packet  # type: _PacketIterable
                          ):
@@ -652,24 +632,34 @@ def _interface_selection(iface,  # type: Optional[_GlobInterfaceType]
 
 
 @conf.commands.register
-def sr1(x,  # type: _PacketIterable
-        promisc=None,  # type: Optional[bool]
-        filter=None,  # type: Optional[str]
-        iface=None,  # type: Optional[_GlobInterfaceType]
-        nofilter=0,  # type: int
-        *args,  # type: Any
-        **kargs  # type: Any
-        ):
-    # type: (...) -> Optional[Packet]
+def sr(x,  # type: _PacketIterable
+       promisc=None,  # type: Optional[bool]
+       filter=None,  # type: Optional[str]
+       iface=None,  # type: Optional[_GlobInterfaceType]
+       nofilter=0,  # type: int
+       *args,  # type: Any
+       **kargs  # type: Any
+       ):
+    # type: (...) -> Tuple[SndRcvList, PacketList]
     """
-    Send packets at layer 3 and return only the first answer
+    Send and receive packets at layer 3
     """
     iface = _interface_selection(iface, x)
     s = conf.L3socket(promisc=promisc, filter=filter,
-                      nofilter=nofilter, iface=iface)
-    ans, _ = sndrcv(s, x, *args, **kargs)
+                      iface=iface, nofilter=nofilter)
+    result = sndrcv(s, x, *args, **kargs)
     s.close()
-    if len(ans) > 0:
+    return result
+
+
+@conf.commands.register
+def sr1(*args, **kargs):
+    # type: (*Packet, **Any) -> Optional[Packet]
+    """
+    Send packets at layer 3 and return only the first answer
+    """
+    ans, _ = sr(*args, **kargs)
+    if ans:
         return cast(Packet, ans[0][1])
     return None
 
