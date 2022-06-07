@@ -509,20 +509,20 @@ Let's begin with a simple example. I take the convention to write states with ca
     class HelloWorld(Automaton):
         @ATMT.state(initial=1)
         def BEGIN(self):
-            print "State=BEGIN"
+            print("State=BEGIN")
     
         @ATMT.condition(BEGIN)
         def wait_for_nothing(self):
-            print "Wait for nothing..."
+            print("Wait for nothing...")
             raise self.END()
     
         @ATMT.action(wait_for_nothing)
         def on_nothing(self):
-            print "Action on 'nothing' condition"
+            print("Action on 'nothing' condition")
     
         @ATMT.state(final=1)
         def END(self):
-            print "State=END"
+            print("State=END")
 
 In this example, we can see 3 decorators:
 
@@ -558,7 +558,7 @@ As an example, let's consider the following state::
 
     @ATMT.state()
     def MY_STATE(self, param1, param2):
-        print "state=MY_STATE. param1=%r param2=%r" % (param1, param2)
+        print("state=MY_STATE. param1=%r param2=%r" % (param1, param2))
 
 This state will be reached with the following code::
 
@@ -780,16 +780,16 @@ Actions are methods that are decorated by the return of ``ATMT.action`` function
     
         @ATMT.action(maybe_go_to_end)
         def maybe_action(self):
-            print "We are lucky..."
+            print("We are lucky...")
 
         @ATMT.action(certainly_go_to_end)
         def certainly_action(self):
-            print "We are not lucky..."
+            print("We are not lucky...")
 
         @ATMT.action(maybe_go_to_end, prio=1)
         @ATMT.action(certainly_go_to_end, prio=1)
         def always_action(self):
-            print "This wasn't luck!..."
+            print("This wasn't luck!...")
 
 The two possible outputs are::
 
