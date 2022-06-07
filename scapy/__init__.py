@@ -81,8 +81,7 @@ def _version_from_git_describe():
 
     if DARWIN:
         import getpass
-        print("sudo chown -R %s:%s %s" % (getpass.getuser(), getpass.getuser(), _SCAPY_PKG_DIR))
-        _git("sudo chown -R %s:%s %s" % (getpass.getuser(), getpass.getuser(), _SCAPY_PKG_DIR))
+        _git("sudo chown -R %s %s" % (getpass.getuser(), _SCAPY_PKG_DIR))
 
     tag = _git("git describe --always")
     if not tag.startswith("v"):
