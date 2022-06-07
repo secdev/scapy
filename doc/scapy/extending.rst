@@ -48,22 +48,22 @@ This is a more complex example which does an ARP ping and reports what it found 
     
     import sys
     if len(sys.argv) != 2:
-        print "Usage: arping2tex <net>\n  eg: arping2tex 192.168.1.0/24"
+        print("Usage: arping2tex <net>\n  eg: arping2tex 192.168.1.0/24")
         sys.exit(1)
     
-    from scapy.all import srp,Ether,ARP,conf
-    conf.verb=0
-    ans,unans=srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=sys.argv[1]),
-                  timeout=2)
+    from scapy.all import srp, Ether, ARP, conf
+    conf.verb = 0
+    ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=sys.argv[1]),
+                     timeout=2)
     
-    print r"\begin{tabular}{|l|l|}"
-    print r"\hline"
-    print r"MAC & IP\\"
-    print r"\hline"
+    print(r"\begin{tabular}{|l|l|}")
+    print(r"\hline")
+    print(r"MAC & IP\\")
+    print(r"\hline")
     for snd,rcv in ans:
-        print rcv.sprintf(r"%Ether.src% & %ARP.psrc%\\")
-    print r"\hline"
-    print r"\end{tabular}"
+        print(rcv.sprintf(r"%Ether.src% & %ARP.psrc%\\"))
+    print(r"\hline")
+    print(r"\end{tabular}")
 
 Here is another tool that will constantly monitor all interfaces on a machine and print all ARP request it sees, even on 802.11 frames from a Wi-Fi card in monitor mode. Note the store=0 parameter to sniff() to avoid storing all packets in memory for nothing::
 
