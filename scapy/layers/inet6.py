@@ -823,7 +823,7 @@ class _OptionsField(PacketListField):
             autopad = 1
 
         if not autopad:
-            return b"".join(map(str, x))
+            return b"".join(map(bytes, x))
 
         curpos = self.curpos
         s = b""
