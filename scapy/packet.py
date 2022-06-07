@@ -94,6 +94,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         "direction", "sniffed_on",
         # handle snaplen Vs real length
         "wirelen",
+        "comment"
     ]
     name = None
     fields_desc = []  # type: Sequence[AnyField]
@@ -157,6 +158,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.wirelen = None  # type: Optional[int]
         self.direction = None  # type: Optional[int]
         self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
+        self.comment = None  # type: Optional[bytes]
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -192,7 +194,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         Optional[Union[EDecimal, float, None]],
         Optional[int],
         Optional[_GlobInterfaceType],
-        Optional[int]
+        Optional[int],
+        Optional[bytes],
     ]
 
     def __reduce__(self):
@@ -204,6 +207,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.direction,
             self.sniffed_on,
             self.wirelen,
+            self.comment
         ))
 
     def __setstate__(self, state):
@@ -214,6 +218,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.direction = state[2]
         self.sniffed_on = state[3]
         self.wirelen = state[4]
+        self.comment = state[5]
         return self
 
     def __deepcopy__(self,
@@ -402,6 +407,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         clone.payload = self.payload.copy()
         clone.payload.add_underlayer(clone)
         clone.time = self.time
+        clone.comment = self.comment
         return clone
 
     def _resolve_alias(self, attr):
@@ -1080,6 +1086,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.raw_packet_cache_fields
         )
         pkt.wirelen = self.wirelen
+        pkt.comment = self.comment
         if payload is not None:
             pkt.add_payload(payload)
         return pkt
