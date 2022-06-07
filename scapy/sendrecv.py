@@ -659,7 +659,7 @@ def sr1(*args, **kargs):
     Send packets at layer 3 and return only the first answer
     """
     ans, _ = sr(*args, **kargs)
-    if len(ans) > 0:
+    if ans:
         return cast(Packet, ans[0][1])
     return None
 
