@@ -80,7 +80,9 @@ def _version_from_git_describe():
             raise subprocess.CalledProcessError(process.returncode, err)
 
     if DARWIN:
-        _git("git config --global --add safe.directory %s" % _SCAPY_PKG_DIR)
+        import getpass
+        print("sudo chown -R %s:%s %s" % (getpass.getuser(), getpass.getuser(), _SCAPY_PKG_DIR))
+        _git("sudo chown -R %s:%s %s" % (getpass.getuser(), getpass.getuser(), _SCAPY_PKG_DIR))
 
     tag = _git("git describe --always")
     if not tag.startswith("v"):
