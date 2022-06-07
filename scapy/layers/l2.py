@@ -210,6 +210,30 @@ class SourceMACField(MACField):
 
 # Layers
 
+HARDWARE_TYPES = {
+    1: "Ethernet (10Mb)",
+    2: "Ethernet (3Mb)",
+    3: "AX.25",
+    4: "Proteon ProNET Token Ring",
+    5: "Chaos",
+    6: "IEEE 802 Networks",
+    7: "ARCNET",
+    8: "Hyperchannel",
+    9: "Lanstar",
+    10: "Autonet Short Address",
+    11: "LocalTalk",
+    12: "LocalNet",
+    13: "Ultra link",
+    14: "SMDS",
+    15: "Frame relay",
+    16: "ATM",
+    17: "HDLC",
+    18: "Fibre Channel",
+    19: "ATM",
+    20: "Serial Line",
+    21: "ATM",
+}
+
 ETHER_TYPES[0x88a8] = '802_AD'
 ETHER_TYPES[ETH_P_MACSEC] = '802_1AE'
 
@@ -402,7 +426,7 @@ class STP(Packet):
 class ARP(Packet):
     name = "ARP"
     fields_desc = [
-        XShortField("hwtype", 0x0001),
+        XShortEnumField("hwtype", 0x0001, HARDWARE_TYPES),
         XShortEnumField("ptype", 0x0800, ETHER_TYPES),
         FieldLenField("hwlen", None, fmt="B", length_of="hwsrc"),
         FieldLenField("plen", None, fmt="B", length_of="psrc"),

@@ -5,6 +5,11 @@
 
 """
 DHCP (Dynamic Host Configuration Protocol) and BOOTP
+
+Implements:
+- rfc951 - BOOTSTRAP PROTOCOL (BOOTP)
+- rfc1542 - Clarifications and Extensions for the Bootstrap Protocol
+- rfc1533 - DHCP Options and BOOTP Vendor Extensions
 """
 
 from __future__ import absolute_import
@@ -23,13 +28,25 @@ import re
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
 from scapy.compat import chb, orb, bytes_encode
-from scapy.fields import ByteEnumField, ByteField, Field, FieldListField, \
-    FlagsField, IntField, IPField, ShortField, StrField
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    Field,
+    FieldListField,
+    FlagsField,
+    IntField,
+    IPField,
+    ShortField,
+    StrEnumField,
+    StrField,
+    StrFixedLenField,
+    XIntField,
+)
 from scapy.layers.inet import UDP, IP
-from scapy.layers.l2 import Ether
+from scapy.layers.l2 import Ether, HARDWARE_TYPES
 from scapy.packet import bind_layers, bind_bottom_up, Packet
-from scapy.utils import atol, itom, ltoa, sane
-from scapy.volatile import RandBin, RandField, RandNum, RandNumExpo
+from scapy.utils import atol, itom, ltoa, sane, str2mac
+from scapy.volatile import RandBin, RandField, RandInt, RandNum, RandNumExpo
 
 from scapy.arch import get_if_raw_hwaddr
 from scapy.sendrecv import srp1, sendp
@@ -40,23 +57,34 @@ from scapy.config import conf
 dhcpmagic = b"c\x82Sc"
 
 
+class _BOOTP_chaddr(StrFixedLenField):
+    def i2repr(self, pkt, v):
+        if pkt.htype == 1:  # Ethernet
+            if v[6:] == b"\x00" * 10:  # Default padding
+                return "%s (+ 10 nul pad)" % str2mac(v[:6])
+            else:
+                return "%s (pad: %s)" % (str2mac(v[:6]), v[6:])
+        return super(_BOOTP_chaddr, self).i2repr(pkt, v)
+
+
 class BOOTP(Packet):
     name = "BOOTP"
-    fields_desc = [ByteEnumField("op", 1, {1: "BOOTREQUEST", 2: "BOOTREPLY"}),
-                   ByteField("htype", 1),
-                   ByteField("hlen", 6),
-                   ByteField("hops", 0),
-                   IntField("xid", 0),
-                   ShortField("secs", 0),
-                   FlagsField("flags", 0, 16, "???????????????B"),
-                   IPField("ciaddr", "0.0.0.0"),
-                   IPField("yiaddr", "0.0.0.0"),
-                   IPField("siaddr", "0.0.0.0"),
-                   IPField("giaddr", "0.0.0.0"),
-                   Field("chaddr", b"", "16s"),
-                   Field("sname", b"", "64s"),
-                   Field("file", b"", "128s"),
-                   StrField("options", b"")]
+    fields_desc = [
+        ByteEnumField("op", 1, {1: "BOOTREQUEST", 2: "BOOTREPLY"}),
+        ByteEnumField("htype", 1, HARDWARE_TYPES),
+        ByteField("hlen", 6),
+        ByteField("hops", 0),
+        XIntField("xid", 0),
+        ShortField("secs", 0),
+        FlagsField("flags", 0, 16, "???????????????B"),
+        IPField("ciaddr", "0.0.0.0"),
+        IPField("yiaddr", "0.0.0.0"),
+        IPField("siaddr", "0.0.0.0"),
+        IPField("giaddr", "0.0.0.0"),
+        _BOOTP_chaddr("chaddr", b"", length=16),
+        StrFixedLenField("sname", b"", length=64),
+        StrFixedLenField("file", b"", length=128),
+        StrEnumField("options", b"", {dhcpmagic: "DHCP magic"})]
 
     def guess_payload_class(self, payload):
         if self.options[:len(dhcpmagic)] == dhcpmagic:
@@ -156,6 +184,8 @@ class ClasslessStaticRoutesField(Field):
 # DHCP_UNKNOWN, DHCP_IP, DHCP_IPLIST, DHCP_TYPE \
 # = range(4)
 #
+
+# DHCP Options and BOOTP Vendor Extensions
 
 
 DHCPTypes = {
@@ -337,6 +367,12 @@ class RandDHCPOptions(RandField):
 
 
 class DHCPOptionsField(StrField):
+    """
+    A field that builds and dissects DHCP options.
+    The internal value is a list of tuples with the format
+    [("option_name", <option_value>), ...]
+    Where expected names and values can be found using `DHCPOptions`
+    """
     islist = 1
 
     def i2repr(self, pkt, x):
@@ -348,8 +384,7 @@ class DHCPOptionsField(StrField):
                     vv = ",".join(f.i2repr(pkt, val) for val in v[1:])
                 else:
                     vv = ",".join(repr(val) for val in v[1:])
-                r = "%s=%s" % (v[0], vv)
-                s.append(r)
+                s.append("%s=%s" % (v[0], vv))
             else:
                 s.append(sane(v))
         return "[%s]" % (" ".join(s))
@@ -442,6 +477,12 @@ class DHCP(Packet):
     name = "DHCP options"
     fields_desc = [DHCPOptionsField("options", b"")]
 
+    def mysummary(self):
+        for id in self.options:
+            if isinstance(id, tuple) and id[0] == "message-type":
+                return "DHCP %s" % DHCPTypes.get(id[1], "").capitalize()
+        return super(DHCP, self).mysummary()
+
 
 bind_layers(UDP, BOOTP, dport=67, sport=68)
 bind_layers(UDP, BOOTP, dport=68, sport=67)
@@ -450,17 +491,60 @@ bind_layers(BOOTP, DHCP, options=b'c\x82Sc')
 
 
 @conf.commands.register
-def dhcp_request(iface=None, **kargs):
-    """Send a DHCP discover request and return the answer"""
+def dhcp_request(hw=None,
+                 req_type='discover',
+                 server_id=None,
+                 requested_addr=None,
+                 hostname=None,
+                 iface=None,
+                 **kargs):
+    """
+    Send a DHCP discover request and return the answer.
+
+    Usage::
+
+        >>> dhcp_request()  # send DHCP discover
+        >>> dhcp_request(req_type='request',
+        ...              requested_addr='10.53.4.34')  # send DHCP request
+    """
     if conf.checkIPaddr:
         warning(
             "conf.checkIPaddr is enabled, may not be able to match the answer"
         )
-    if iface is None:
-        iface = conf.iface
-    fam, hw = get_if_raw_hwaddr(iface)
-    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff") / IP(src="0.0.0.0", dst="255.255.255.255") / UDP(sport=68, dport=67) /  # noqa: E501
-                BOOTP(chaddr=hw) / DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)  # noqa: E501
+    if hw is None:
+        if iface is None:
+            iface = conf.iface
+        _, hw = get_if_raw_hwaddr(iface)
+    dhcp_options = [
+        ('message-type', req_type),
+        ('client_id', b'\x01' + hw),
+    ]
+    if requested_addr is not None:
+        dhcp_options.append(('requested_addr', requested_addr))
+    elif req_type == 'request':
+        warning("DHCP Request without requested_addr will likely be ignored")
+    if server_id is not None:
+        dhcp_options.append(('server_id', server_id))
+    if hostname is not None:
+        dhcp_options.extend([
+            ('hostname', hostname),
+            ('client_FQDN', b'\x00\x00\x00' + bytes_encode(hostname)),
+        ])
+    dhcp_options.extend([
+        ('vendor_class_id', b'MSFT 5.0'),
+        ('param_req_list', [
+            1, 3, 6, 15, 31, 33, 43, 44, 46, 47, 119, 121, 249, 252
+        ]),
+        'end'
+    ])
+    return srp1(
+        Ether(dst="ff:ff:ff:ff:ff:ff", src=hw) /
+        IP(src="0.0.0.0", dst="255.255.255.255") /
+        UDP(sport=68, dport=67) /
+        BOOTP(chaddr=hw, xid=RandInt(), flags="B") /
+        DHCP(options=dhcp_options),
+        iface=iface, **kargs
+    )
 
 
 class BOOTP_am(AnsweringMachine):
