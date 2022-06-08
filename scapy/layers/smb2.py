@@ -10,6 +10,7 @@ SMB (Server Message Block), also known as CIFS - version 2
 import struct
 
 from scapy.config import conf
+from scapy.error import log_runtime
 from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import (
     ByteEnumField,
@@ -21,6 +22,7 @@ from scapy.fields import (
     IntEnumField,
     IntField,
     LEIntField,
+    LEIntEnumField,
     LELongField,
     LEShortEnumField,
     LEShortField,
@@ -36,10 +38,8 @@ from scapy.fields import (
     XLEIntField,
     XLELongField,
     XLEShortField,
-    XNBytesField,
     XStrLenField,
     XStrFixedLenField,
-    XStrField,
 )
 
 from scapy.layers.gssapi import GSSAPI_BLOB
@@ -54,6 +54,17 @@ SMB_DIALECTS = {
     0x0300: 'SMB 3.0',
     0x0302: 'SMB 3.0.2',
     0x0311: 'SMB 3.1.1',
+}
+
+# SMB2 sect 3.3.5.15 + [MS-ERREF]
+STATUS_ERREF = {
+    0x00000000: "STATUS_SUCCESS",
+    0xC000009A: "STATUS_INSUFFICIENT_RESOURCES",
+    0xC0000022: "STATUS_ACCESS_DENIED",
+    0xC0000128: "STATUS_FILE_CLOSED",  # backup error for older Win versions
+    0xC000000D: "STATUS_INVALID_PARAMETER",
+    0xC00000BB: "STATUS_NOT_SUPPORTED",
+    0x80000005: "STATUS_BUFFER_OVERFLOW",
 }
 
 # SMB2 sect 2.2.1.1
@@ -85,6 +96,9 @@ SMB2_NEGOTIATE_CONTEXT_TYPES = {
     0x0002: 'SMB2_ENCRYPTION_CAPABILITIES',
     0x0003: 'SMB2_COMPRESSION_CAPABILITIES',
     0x0005: 'SMB2_NETNAME_NEGOTIATE_CONTEXT_ID',
+    0x0006: 'SMB2_TRANSPORT_CAPABILITIES',
+    0x0007: 'SMB2_RDMA_TRANSFORM_CAPABILITIES',
+    0x0008: 'SMB2_SIGNING_CAPABILITIES',
 }
 
 # FlagField
@@ -115,14 +129,20 @@ def _SMB2_post_build(self, p, pay_offset, fields):
         length = self.get_field(
             "Buffer").fields_map[field_name].i2len(self, value)
         offset = fields[field_name]
+        i = 0
+        r = lambda y: {2: "H", 4: "I", 8: "Q"}[y]
         # Offset
         if self.getfieldval(field_name + "BufferOffset") is None:
-            p = p[:offset] + \
-                struct.pack("<H", pay_offset) + p[offset + 2:]
+            sz = self.get_field(field_name + "BufferOffset").sz
+            p = p[:offset + i] + \
+                struct.pack("<%s" % r(sz), pay_offset) + p[offset + sz:]
+            i += sz
         # Len
         if self.getfieldval(field_name + "Len") is None:
-            p = p[:offset + 2] + \
-                struct.pack("<H", length) + p[offset + 4:]
+            sz = self.get_field(field_name + "Len").sz
+            p = p[:offset + i] + \
+                struct.pack("<%s" % r(sz), length) + p[offset + i + sz:]
+            i += sz
         pay_offset += length
     return p
 
@@ -135,7 +155,7 @@ class SMB2_Header(Packet):
         StrFixedLenField("Start", b"\xfeSMB", 4),
         LEShortField("StructureSize", 64),
         LEShortField("CreditCharge", 0),
-        LEIntField("Status", 0),
+        LEIntEnumField("Status", 0, STATUS_ERREF),
         LEShortEnumField("Command", 0, SMB2_COM),
         LEShortField("CreditsRequested", 0),
         FlagsField("Flags", 0, -32, {
@@ -147,10 +167,21 @@ class SMB2_Header(Packet):
             0x20000000: "SMB2_FLAGS_REPLAY_OPERATION",
         }),
         XLEIntField("NextCommand", 0),
-        LELongField("MessageId", 0),
-        LELongField("AsyncId", 0),
+        LELongField("MID", 0),  # MessageID
+        # ASYNC
+        ConditionalField(
+            LELongField("AsyncId", 0),
+            lambda pkt: pkt.Flags.SMB2_FLAGS_ASYNC_COMMAND),
+        # SYNC
+        ConditionalField(
+            LEIntField("PID", 0),  # Reserved, but PID per wireshark
+            lambda pkt: not pkt.Flags.SMB2_FLAGS_ASYNC_COMMAND),
+        ConditionalField(
+            LEIntField("TID", 0),  # TreeID
+            lambda pkt: not pkt.Flags.SMB2_FLAGS_ASYNC_COMMAND),
+        # COMMON
         LELongField("SessionId", 0),
-        XNBytesField("SecuritySignature", 0, 16),
+        XStrFixedLenField("SecuritySignature", 0, length=16),
     ]
 
     def guess_payload_class(self, payload):
@@ -176,6 +207,30 @@ class SMB2_Header(Packet):
             return SMB2_IOCTL_Request
         return super(SMB2_Header, self).guess_payload_class(payload)
 
+    def sign(self, dialect, SigningSessionKey):
+        self.SecuritySignature = b"\x00" * 16
+        s = bytes(self)
+        if len(s) <= 64:
+            log_runtime.warning("Cannot sign invalid SMB packet !")
+            return s
+        if dialect == 0x0311:  # SMB 3.1.1
+            raise Exception("SMB 3.1.1 signing unimplemented")
+        elif dialect in [0x0300, 0x0302]:  # other SMB 3
+            from cryptography.hazmat.primitives import cmac
+            from cryptography.hazmat.primitives.ciphers import algorithms
+            c = cmac.CMAC(algorithms.AES(SigningSessionKey))
+            c.update(s)
+            sig = c.finalize()
+        elif dialect in [0x0210, 0x0202]:  # SMB 2.1 or SMB 2.0.2
+            from scapy.layers.tls.crypto.h_mac import Hmac_SHA256
+            sig = Hmac_SHA256(SigningSessionKey).digest(s)
+            sig = sig[:16]
+        else:
+            log_runtime.warning(
+                "Unknown SMB Version %s ! Cannot sign." % dialect)
+            sig = s[:-16] + b"\x00" * 16
+        self.SecuritySignature = sig
+
 
 class SMB2_Compression_Transform_Header(Packet):
     name = "SMB2 Compression Transform Header"
@@ -197,7 +252,7 @@ class SMB2_Compression_Transform_Header(Packet):
 
 
 class SMB2_Error_Response(Packet):
-    name = "SMB2 Negotiate Context"
+    name = "SMB2 Error Response"
     fields_desc = [
         XLEShortField("StructureSize", 0x09),
         ByteField("ErrorContextCount", 0),
@@ -389,6 +444,28 @@ bind_layers(
     SMB2_Netname_Negotiate_Context_ID,
     ContextType=0x0005
 )
+
+# sect 2.2.3.1.5
+
+
+class SMB2_Transport_Capabilities(Packet):
+    name = "SMB2 Transport Capabilities"
+    fields_desc = [
+        FlagsField("Flags", 0x0, -32, {
+            0x00000001: "SMB2_ACCEPT_TRANSPORT_LEVEL_SECURITY",
+        }),
+    ]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
+
+bind_layers(
+    SMB2_Negotiate_Context,
+    SMB2_Transport_Capabilities,
+    ContextType=0x0006
+)
+
 
 # sect 2.2.4
 
@@ -598,7 +675,7 @@ class SMB2_Tree_Connect_Response(Packet):
     name = "SMB2 TREE_CONNECT Response"
     OFFSET = 8 + 64
     fields_desc = [
-        XLEShortField("StructureSize", 0x9),
+        XLEShortField("StructureSize", 0x10),
         ByteEnumField("ShareType", 0, {0x01: "DISK",
                                        0x02: "PIPE",
                                        0x03: "PRINT"}),
@@ -620,8 +697,37 @@ class SMB2_Tree_Connect_Response(Packet):
             0x00040000: "IDENTITY_REMOTING",
             0x00100000: "COMPRESS_DATA",
         }),
-        FlagsField("Capabilities", 0, -32, {}),
-        XLEIntField("MaximalAccess", 0),
+        FlagsField("Capabilities", 0, -32, {
+            0x00000008: "DFS",
+            0x00000010: "CONTINUOUS_AVAILABILITY",
+            0x00000020: "SCALEOUT",
+            0x00000040: "CLUSTER",
+            0x00000080: "ASYMETRIC",
+            0x00000100: "REDIRECT_TO_OWNER",
+        }),
+        FlagsField("MaximalAccess", 0, -32, {
+            # sect 2.2.13.1.2
+            0x00000001: "FILE_LIST_DIRECTORY",
+            0x00000002: "FILE_ADD_FILE",
+            0x00000004: "FILE_ADD_SUBDIRECTORY",
+            0x00000008: "FILE_READ_EA",
+            0x00000010: "FILE_WRITE_EA",
+            0x00000020: "FILE_TRAVERSE",
+            0x00000040: "FILE_DELETE_CHILD",
+            0x00000080: "FILE_READ_ATTRIBUTES",
+            0x00000100: "FILE_WRITE_ATTRIBUTES",
+            0x00010000: "DELETE",
+            0x00020000: "READ_CONTROL",
+            0x00040000: "WRITE_DAC",
+            0x00080000: "WRITE_OWNER",
+            0x00100000: "SYNCHRONIZE",
+            0x01000000: "ACCESS_SYSTEM_SECURITY",
+            0x02000000: "MAXIMUM_ALLOWED",
+            0x10000000: "GENERIC_ALL",
+            0x20000000: "GENERIC_EXECUTE",
+            0x40000000: "GENERIC_WRITE",
+            0x80000000: "GENERIC_READ",
+        }),
     ]
 
 
@@ -637,9 +743,12 @@ bind_top_down(
 
 class SMB2_FILEID(Packet):
     fields_desc = [
-        LELongField("Persistent", 0),
-        LELongField("Volatile", 0)
+        XLELongField("Persistent", 0),
+        XLELongField("Volatile", 0)
     ]
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
 
 # sect 2.2.15
 
@@ -662,27 +771,84 @@ bind_top_down(
 )
 
 
+# sect 2.2.31.4
+
+class SMB2_IOCTL_Validate_Negotiate_Info(Packet):
+    name = "SMB2 IOCTL Validate Negotiate Info"
+    fields_desc = (
+        SMB2_Negotiate_Protocol_Request.fields_desc[4:6] +  # Cap/GUID
+        SMB2_Negotiate_Protocol_Request.fields_desc[1:3][::-1] +  # SecMod/DC
+        [SMB2_Negotiate_Protocol_Request.fields_desc[9]]  # Dialects
+    )
+
+
+class _SMB2_IOCTL_PacketLenField(PacketLenField):
+    def m2i(self, pkt, m):
+        if pkt.CtlCode == 0x00140204:  # FSCTL_VALIDATE_NEGOTIATE_INFO
+            return SMB2_IOCTL_Validate_Negotiate_Info(m)
+        return conf.raw_layer(m)
+
+
 # sect 2.2.31
 
 
 class SMB2_IOCTL_Request(Packet):
     name = "SMB2 IOCTL Request"
-    # Barely implemented
+    OFFSET = 56 + 64
+    deprecated_fields = {
+        "IntputCount": ("InputLen", "alias"),
+        "OutputCount": ("OutputLen", "alias"),
+    }
     fields_desc = [
         XLEShortField("StructureSize", 0x39),
         LEShortField("Reserved", 0),
-        LEIntField("CtlCode", 0),
-        XStrFixedLenField("FileId", b"", length=16),
-        LEIntField("InputOffset", 0),
-        LEIntField("InputCount", 0),
+        LEIntEnumField("CtlCode", 0, {
+            0x00060194: "FSCTL_DFS_GET_REFERRALS",
+            0x00060194: "FSCTL_DFS_GET_REFERRALS",
+            0x0011400C: "FSCTL_PIPE_PEEK",
+            0x00110018: "FSCTL_PIPE_WAIT",
+            0x0011C017: "FSCTL_PIPE_TRANSCEIVE",
+            0x001440F2: "FSCTL_SRV_COPYCHUNK",
+            0x00144064: "FSCTL_SRV_ENUMERATE_SNAPSHOTS",
+            0x00140078: "FSCTL_SRV_REQUEST_RESUME_KEY",
+            0x001441bb: "FSCTL_SRV_READ_HASH",
+            0x001480F2: "FSCTL_SRV_COPYCHUNK_WRITE",
+            0x001401D4: "FSCTL_LMR_REQUEST_RESILIENCY",
+            0x001401FC: "FSCTL_QUERY_NETWORK_INTERFACE_INFO",
+            0x000900A4: "FSCTL_SET_REPARSE_POINT",
+            0x000601B0: "FSCTL_DFS_GET_REFERRALS_EX",
+            0x00098208: "FSCTL_FILE_LEVEL_TRIM",
+            0x00140204: "FSCTL_VALIDATE_NEGOTIATE_INFO",
+        }),
+        PacketField("FileId", SMB2_FILEID(), SMB2_FILEID),
+        LEIntField("InputBufferOffset", None),
+        LEIntField("InputLen", None),  # Called InputCount but it's a length
         LEIntField("MaxInputResponse", 0),
-        LEIntField("OutputOffset", 0),
-        LEIntField("OutputCount", 0),
+        LEIntField("OutputBufferOffset", None),
+        LEIntField("OutputLen", None),  # Called OutputCount.
         LEIntField("MaxOutputResponse", 0),
-        LEIntField("Flags", 0),
+        FlagsField("Flags", 0, -32, {
+            0x00000001: "SMB2_0_IOCTL_IS_FSCTL"
+        }),
         LEIntField("Reserved2", 0),
-        XStrField("Buffer", b""),
+        _NTLMPayloadField(
+            'Buffer', OFFSET, [
+                _SMB2_IOCTL_PacketLenField(
+                    "Input", None, conf.raw_layer,
+                    length_from=lambda pkt: pkt.InputLen),
+                _SMB2_IOCTL_PacketLenField(
+                    "Output", None, conf.raw_layer,
+                    length_from=lambda pkt: pkt.OutputLen),
+            ],
+        ),
     ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return _SMB2_post_build(self, pkt, self.OFFSET, {
+            "Input": 24,
+            "Output": 36,
+        }) + pay
 
 
 bind_top_down(

@@ -64,6 +64,15 @@ from scapy.compat import (
     Optional,
 )
 
+# Crypto imports
+
+from scapy.layers.tls.crypto.hash import Hash_MD4
+
+if conf.crypto_valid:
+    from cryptography.hazmat.primitives import hashes, hmac
+else:
+    hashes = hmac = None
+
 ##########
 # Fields #
 ##########
@@ -163,6 +172,34 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
 
 
+class _NTLMPacket(Packet):
+    def __getattr__(self, attr):
+        # Ease compatibility with _NTLMPayloadField
+        try:
+            return super(_NTLMPacket, self).__getattr__(attr)
+        except AttributeError:
+            return next(
+                x[1]
+                for x in super(_NTLMPacket, self).__getattr__("Payload")
+                if x[0] == attr
+            )
+
+    def setfieldval(self, attr, val):
+        # Ease compatibility with _NTLMPayloadField
+        try:
+            return super(_NTLMPacket, self).setfieldval(attr, val)
+        except AttributeError:
+            Payload = super(_NTLMPacket, self).__getattr__("Payload")
+            Payload.pop(next(
+                i
+                for i, x in enumerate(
+                    super(_NTLMPacket, self).__getattr__("Payload"))
+                if x[0] == attr
+            ))
+            Payload.append([attr, val])
+            super(_NTLMPacket, self).setfieldval("Payload", Payload)
+
+
 def _NTLM_post_build(self, p, pay_offset, fields):
     # type: (Packet, bytes, int, Dict[str, Tuple[str, int]]) -> bytes
     """Util function to build the offset and populate the lengths"""
@@ -218,38 +255,38 @@ class NTLM_Header(Packet):
 
 # Sect 2.2.2.5
 _negotiateFlags = [
-    "A",  # NTLMSSP_NEGOTIATE_UNICODE
-    "B",  # NTLM_NEGOTIATE_OEM
-    "C",  # NTLMSSP_REQUEST_TARGET
+    "NTLMSSP_NEGOTIATE_UNICODE",  # A
+    "NTLM_NEGOTIATE_OEM",  # B
+    "NTLMSSP_REQUEST_TARGET",  # C
     "r10",
-    "D",  # NTLMSSP_NEGOTIATE_SIGN
-    "E",  # NTLMSSP_NEGOTIATE_SEAL
-    "F",  # NTLMSSP_NEGOTIATE_DATAGRAM
-    "G",  # NTLMSSP_NEGOTIATE_LM_KEY
+    "NTLMSSP_NEGOTIATE_SIGN",  # D
+    "NTLMSSP_NEGOTIATE_SEAL",  # E
+    "NTLMSSP_NEGOTIATE_DATAGRAM",  # F
+    "NTLMSSP_NEGOTIATE_LM_KEY",  # G
     "r9",
-    "H",  # NTLMSSP_NEGOTIATE_NTLM
+    "NTLMSSP_NEGOTIATE_NTLM",  # H
     "r8",
     "J",
-    "K",  # NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED
-    "L",  # NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED
+    "NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED",  # K
+    "NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED",  # L
     "r7",
-    "M",  # NTLMSSP_NEGOTIATE_ALWAYS_SIGN
-    "N",  # NTLMSSP_TARGET_TYPE_DOMAIN
-    "O",  # NTLMSSP_TARGET_TYPE_SERVER
+    "NTLMSSP_NEGOTIATE_ALWAYS_SIGN",  # M
+    "NTLMSSP_TARGET_TYPE_DOMAIN",  # N
+    "NTLMSSP_TARGET_TYPE_SERVER",  # O
     "r6",
-    "P",  # NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY
-    "Q",  # NTLMSSP_NEGOTIATE_IDENTIFY
+    "NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY",  # P
+    "NTLMSSP_NEGOTIATE_IDENTIFY",  # Q
     "r5",
-    "R",  # NTLMSSP_REQUEST_NON_NT_SESSION_KEY
-    "S",  # NTLMSSP_NEGOTIATE_TARGET_INFO
+    "NTLMSSP_REQUEST_NON_NT_SESSION_KEY",  # R
+    "NTLMSSP_NEGOTIATE_TARGET_INFO",  # S
     "r4",
-    "T",  # NTLMSSP_NEGOTIATE_VERSION
+    "NTLMSSP_NEGOTIATE_VERSION",  # T
     "r3",
     "r2",
     "r1",
-    "U",  # NTLMSSP_NEGOTIATE_128
-    "V",  # NTLMSSP_NEGOTIATE_KEY_EXCH
-    "W",  # NTLMSSP_NEGOTIATE_56
+    "NTLMSSP_NEGOTIATE_128",  # U
+    "NTLMSSP_NEGOTIATE_KEY_EXCH",  # V
+    "NTLMSSP_NEGOTIATE_56",  # W
 ]
 
 
@@ -257,7 +294,7 @@ def _NTLMStrField(name, default):
     return MultipleTypeField(
         [
             (StrFieldUtf16(name, default),
-             lambda pkt: pkt.NegotiateFlags.A)
+             lambda pkt: pkt.NegotiateFlags.NTLMSSP_NEGOTIATE_UNICODE)
         ],
         StrField(name, default),
     )
@@ -277,7 +314,7 @@ class _NTLM_Version(Packet):
 # Sect 2.2.1.1
 
 
-class NTLM_NEGOTIATE(Packet):
+class NTLM_NEGOTIATE(_NTLMPacket):
     name = "NTLM Negotiate"
     messageType = 1
     OFFSET = 40
@@ -364,7 +401,7 @@ class AV_PAIR(Packet):
         return conf.padding_layer
 
 
-class NTLM_CHALLENGE(Packet):
+class NTLM_CHALLENGE(_NTLMPacket):
     name = "NTLM Challenge"
     messageType = 2
     OFFSET = 56
@@ -442,7 +479,7 @@ class NTLMv2_RESPONSE(Packet):
     ]
 
 
-class NTLM_AUTHENTICATE(Packet):
+class NTLM_AUTHENTICATE(_NTLMPacket):
     name = "NTLM Authenticate"
     messageType = 3
     OFFSET = 88
@@ -546,6 +583,9 @@ class _NTLM_Automaton(Automaton):
         )
 
     def _get_token(self, token):
+        if not token:
+            return None, None, None, None
+
         from scapy.layers.gssapi import (
             GSSAPI_BLOB,
             SPNEGO_negToken,
@@ -554,32 +594,32 @@ class _NTLM_Automaton(Automaton):
 
         negResult = None
         MIC = None
-        if not token:
-            return None, negResult, MIC
+        rawToken = False
 
-        if isinstance(token, bytes):
-            ntlm = NTLM_Header(token)
-        elif isinstance(token, conf.raw_layer):
-            ntlm = NTLM_Header(token.load)
-        else:
-            if isinstance(token, GSSAPI_BLOB):
-                token = token.innerContextToken
-            if isinstance(token, SPNEGO_negToken):
-                token = token.token
-            if hasattr(token, "mechListMIC") and token.mechListMIC:
-                MIC = token.mechListMIC.value
-            if hasattr(token, "negResult"):
-                negResult = token.negResult
-            try:
-                ntlm = token.mechToken
-            except AttributeError:
-                ntlm = token.responseToken
-            if isinstance(ntlm, SPNEGO_Token):
-                ntlm = ntlm.value
-            if isinstance(ntlm, ASN1_STRING):
-                ntlm = NTLM_Header(ntlm.val)
-            if isinstance(ntlm, conf.raw_layer):
-                ntlm = NTLM_Header(ntlm.load)
+        if isinstance(token, (NTLM_NEGOTIATE,
+                              NTLM_CHALLENGE,
+                              NTLM_AUTHENTICATE,
+                              NTLM_AUTHENTICATE_V2)):
+            ntlm = token
+            rawToken = True
+        if isinstance(token, GSSAPI_BLOB):
+            token = token.innerContextToken
+        if isinstance(token, SPNEGO_negToken):
+            token = token.token
+        if hasattr(token, "mechListMIC") and token.mechListMIC:
+            MIC = token.mechListMIC.value
+        if hasattr(token, "negResult"):
+            negResult = token.negResult
+        try:
+            ntlm = token.mechToken
+        except AttributeError:
+            ntlm = token.responseToken
+        if isinstance(ntlm, SPNEGO_Token):
+            ntlm = ntlm.value
+        if isinstance(ntlm, ASN1_STRING):
+            ntlm = NTLM_Header(ntlm.val)
+        if isinstance(ntlm, conf.raw_layer):
+            ntlm = NTLM_Header(ntlm.load)
         if self.DROP_MIC_v1 or self.DROP_MIC_v2:
             if isinstance(ntlm, NTLM_AUTHENTICATE):
                 ntlm.MIC = b"\0" * 16
@@ -599,7 +639,7 @@ class _NTLM_Automaton(Automaton):
                         i + 1,
                         AV_PAIR(AvId="MsvAvFlags", Value=0)
                     )
-        return ntlm, negResult, MIC
+        return ntlm, negResult, MIC, rawToken
 
     def received_ntlm_token(self, ntlm):
         self.token_pipe.send(ntlm)
@@ -646,6 +686,7 @@ class NTLM_Client(_NTLM_Automaton):
         self.client_pipe.close()
         return kwargs
 
+
 class NTLM_Server(_NTLM_Automaton):
     """
     A class to overload to create a server automaton when using the
@@ -657,8 +698,10 @@ class NTLM_Server(_NTLM_Automaton):
     def __init__(self, *args, **kwargs):
         self.cli_atmt = None
         self.cli_values = dict()
-        self.ntlm_values = kwargs.get("NTLM_VALUES", dict())
+        self.ntlm_values = kwargs.pop("NTLM_VALUES", dict())
         self.ntlm_state = 0
+        self.IDENTITIES = kwargs.pop("IDENTITIES", None)
+        self.SigningSessionKey = None
         super(NTLM_Server, self).__init__(*args, **kwargs)
 
     def bind(self, cli_atmt):
@@ -666,49 +709,76 @@ class NTLM_Server(_NTLM_Automaton):
         self.cli_atmt = cli_atmt
 
     def get_token(self):
-        from scapy.layers.gssapi import (
-            SPNEGO_negToken,
-            SPNEGO_negTokenResp,
-        )
         from random import randint
         if self.cli_atmt:
             return self.cli_atmt.token_pipe.recv()
         elif self.ntlm_state == 0:
             self.ntlm_state = 1
             return NTLM_CHALLENGE(
-                    ServerChallenge=self.ntlm_values.get("ServerChallenge", struct.pack("<Q", randint(0, 2**64))),
-                    MessageType=2,
-                    NegotiateFlags=self.ntlm_values.get("NegotiateFlags", 0xe2898215),
-                    ProductMajorVersion=self.ntlm_values.get("ProductMajorVersion", 10),
-                    ProductMinorVersion=self.ntlm_values.get("ProductMinorVersion", 0),
-                    Payload=[
-                        ('TargetName', self.ntlm_values.get("TargetName", "")),
-                        ('TargetInfo', [
-                            # MsvAvNbComputerName
-                            AV_PAIR(AvId=1, Value=self.ntlm_values.get("NetbiosComputerName", "")),
-                               #  "T1-SRV-DHCP"),
-                            # MsvAvNbDomainName
-                            AV_PAIR(AvId=2, Value=self.ntlm_values.get("NetbiosDomainName", "")),
-                               #  "TESTDOMAIN"),
-                            # MsvAvDnsComputerName
-                            AV_PAIR(AvId=3, Value=self.ntlm_values.get("DnsComputerName", "")),
-                                # "T1-SRV-DHCP.TESTDOMAIN.local"),
-                            # MsvAvDnsDomainName
-                            AV_PAIR(AvId=4, Value=self.ntlm_values.get("DnsDomainName", "")),
-                                # TESTDOMAIN.local"),
-                            # MsvAvDnsTreeName
-                            AV_PAIR(AvId=5, Value=self.ntlm_values.get("DnsTreeName", "")),
-                                # TESTDOMAIN.local"),
-                            # MsvAvTimestamp
-                            AV_PAIR(AvId=7, Value=self.ntlm_values.get("Timestamp", 0.0)),
-                            # MsvAvEOL
-                            AV_PAIR(AvId=0),
-                        ]),
-                    ]
-                ), None, None
+                ServerChallenge=self.ntlm_values.get(
+                    "ServerChallenge", struct.pack("<Q", randint(0, 2**64))),
+                MessageType=2,
+                NegotiateFlags=self.ntlm_values.get(
+                    "NegotiateFlags", 0xe2898215),
+                ProductMajorVersion=self.ntlm_values.get(
+                    "ProductMajorVersion", 10),
+                ProductMinorVersion=self.ntlm_values.get(
+                    "ProductMinorVersion", 0),
+                Payload=[
+                    ('TargetName', self.ntlm_values.get("TargetName", "")),
+                    ('TargetInfo', [
+                        # MsvAvNbComputerName
+                        AV_PAIR(AvId=1, Value=self.ntlm_values.get(
+                                "NetbiosComputerName", "")),
+                        #  "T1-SRV-DHCP"),
+                        # MsvAvNbDomainName
+                        AV_PAIR(AvId=2, Value=self.ntlm_values.get(
+                                "NetbiosDomainName", "")),
+                        #  "TESTDOMAIN"),
+                        # MsvAvDnsComputerName
+                        AV_PAIR(AvId=3, Value=self.ntlm_values.get(
+                                "DnsComputerName", "")),
+                        # "T1-SRV-DHCP.TESTDOMAIN.local"),
+                        # MsvAvDnsDomainName
+                        AV_PAIR(AvId=4, Value=self.ntlm_values.get(
+                                "DnsDomainName", "")),
+                        # TESTDOMAIN.local"),
+                        # MsvAvDnsTreeName
+                        AV_PAIR(AvId=5, Value=self.ntlm_values.get(
+                                "DnsTreeName", "")),
+                        # TESTDOMAIN.local"),
+                        # MsvAvTimestamp
+                        AV_PAIR(AvId=7, Value=self.ntlm_values.get(
+                                "Timestamp", 0.0)),
+                        # MsvAvEOL
+                        AV_PAIR(AvId=0),
+                    ]),
+                ]
+            ), None, None, False
         elif self.ntlm_state == 1:
             self.ntlm_state = 0
-            return None, 0, None
+            return None, 0, None, False
+
+    def received_ntlm_token(self, ntlm_tuple):
+        ntlm = ntlm_tuple[0]
+        if isinstance(ntlm, NTLM_AUTHENTICATE_V2) and self.IDENTITIES:
+            username = ntlm.UserName
+            if username in self.IDENTITIES:
+                SessionBaseKey = NTLMv2_ComputeSessionBaseKey(
+                    self.IDENTITIES[username],
+                    ntlm.NtChallengeResponse.NTProofStr
+                )
+                # [MS-NLMP] sect 3.2.5.1.2
+                KeyExchangeKey = SessionBaseKey  # Only true for NTLMv2
+                if ntlm.NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH:
+                    ExportedSessionKey = RC4K(
+                        KeyExchangeKey,
+                        ntlm.EncryptedRandomSessionKey
+                    )
+                else:
+                    ExportedSessionKey = KeyExchangeKey
+                self.SigningSessionKey = ExportedSessionKey  # For SMB
+        super(NTLM_Server, self).received_ntlm_token(ntlm_tuple)
 
     def set_cli(self, attr, value):
         if self.cli_atmt:
@@ -829,6 +899,46 @@ def ntlm_relay(serverCls,
         ssock.close()
 
 
+def ntlm_server(serverCls,
+                server_kwargs=None,
+                iface=None):
+    """
+    Starts a standalone NTLM server class
+    """
+    assert issubclass(
+        serverCls, NTLM_Server), "Specify a correct NTLM server class"
+
+    ssock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    ssock.bind(
+        (get_if_addr(iface or conf.iface), serverCls.port))
+    ssock.listen(5)
+    sniffers = []
+    server_kwargs = server_kwargs or {}
+    try:
+        evt = threading.Event()
+        while not evt.is_set():
+            clientsocket, address = ssock.accept()
+            sock = StreamSocket(clientsocket, serverCls.cls)
+            srv_atmt = serverCls(sock, debug=4, **server_kwargs)
+            sniffers.append((srv_atmt, sock))
+            print("%s connected " % repr(address))
+            # Start automatons
+            srv_atmt.runbg()
+    except KeyboardInterrupt:
+        print("Exiting.")
+    finally:
+        for atmt, sock in sniffers:
+            try:
+                atmt.forcestop(wait=False)
+            except Exception:
+                pass
+            try:
+                sock.close()
+            except Exception:
+                pass
+        ssock.close()
+
+
 # Experimental - Reversed stuff
 
 # This is the GSSAPI NegoEX Exchange metadata blob. This is not documented
@@ -864,3 +974,59 @@ class NEGOEX_EXCHANGE_NTLM(ASN1_Packet):
             implicit_tag=0xa0
         ),
     )
+
+
+# Crypto - [MS-NLMP]
+
+
+def HMAC_MD5(key, data):
+    h = hmac.HMAC(key, hashes.MD5())
+    h.update(data)
+    return h.finalize()
+
+
+def MD4(x):
+    return Hash_MD4().digest(x)
+
+
+def Z(n):
+    return b"\x00" * n
+
+
+def RC4K(key, data):
+    """Alleged RC4"""
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+    algorithm = algorithms.ARC4(key)
+    cipher = Cipher(algorithm, mode=None)
+    encryptor = cipher.encryptor()
+    return encryptor.update(data) + encryptor.finalize()
+
+# sect 3.3.2
+
+
+def NTOWFv2(Passwd, User, UserDom):
+    """Computes the ResponseKeyNT"""
+    return HMAC_MD5(MD4(Passwd.encode("utf-16le")),
+                    (User.upper() + UserDom).encode("utf-16le"))
+
+
+def NTLMv2_ComputeSessionBaseKey(ResponseKeyNT, NTProofStr):
+    return HMAC_MD5(ResponseKeyNT, NTProofStr)
+
+
+# def _NTLMv2_ComputeResponse(ResponseKeyNT,
+#                             ServerChallenge, ClientChallenge, Time,
+#                             ServerName):
+#     """
+#     Compute the NTLMv2 response : NtChallengeResponse + SessionBaseKey
+#
+#     Remember ServerName = AvPairs
+#     """
+#     Responserversion = b"\x01"
+#     HiResponserversion = b"\x01"
+#     temp = b"".join([Responserversion, HiResponserversion,
+#                      Z(6), Time, ClientChallenge, Z(4), ServerName, Z(4)])
+#     NTProofStr = HMAC_MD5(ResponseKeyNT, ServerChallenge + temp)
+#     NtChallengeResponse = NTProofStr + temp
+#     SessionBaseKey = NTLMv2_ComputeSessionBaseKey(ResponseKeyNT, NTProofStr)
+#     return NtChallengeResponse, SessionBaseKey

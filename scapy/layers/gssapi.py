@@ -437,4 +437,8 @@ class GSSAPI_BLOB(ASN1_Packet):
                 # the session what to use here. For now: hardcode SPNEGO
                 # (THIS IS A VERY STRONG ASSUMPTION)
                 return SPNEGO_negToken
+            if _pkt[:7] == b"NTLMSSP":
+                # XXX: if no mechTypes are provided during SPNEGO exchange,
+                # Windows falls back to a plain NTLM_Header.
+                return NTLM_Header.dispatch_hook(_pkt=_pkt, *args, **kargs)
         return cls

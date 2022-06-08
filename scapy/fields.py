@@ -78,6 +78,7 @@ class RawVal:
         b'F\x00####\x00\x01\x00\x005\xb5\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00'
 
     """
+
     def __init__(self, val=b""):
         # type: (bytes) -> None
         self.val = bytes_encode(val)
@@ -103,6 +104,7 @@ class ObservableDict(Dict[int, str]):
     """
     Helper class to specify a protocol extendable for runtime modifications
     """
+
     def __init__(self, *args, **kw):
         # type: (*Dict[int, str], **Any) -> None
         self.observers = []  # type: List[_EnumField[Any]]
@@ -306,6 +308,7 @@ class _FieldContainer(object):
     """
     A field that acts as a container for another field
     """
+
     def __getattr__(self, attr):
         # type: (str) -> Any
         return getattr(self.fld, attr)
@@ -1836,11 +1839,7 @@ class StrLenField(StrField):
         return RandBin(RandNum(0, self.max_length or 1200))
 
 
-class XStrField(StrField):
-    """
-    StrField which value is printed as hexadecimal.
-    """
-
+class _XStrField:
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
         if isinstance(x, bytes):
@@ -1848,24 +1847,19 @@ class XStrField(StrField):
         return super(XStrField, self).i2repr(pkt, x)
 
 
-class _XStrLenField:
-    def i2repr(self, pkt, x):
-        # type: (Optional[Packet], bytes) -> str
-        if isinstance(x, bytes):
-            return bytes_hex(
-                x[:(self.length_from or (lambda x: 0))(pkt)]  # type: ignore
-            ).decode()
-        # cannot use super() since _XStrLenField does not inherit from Field
-        return Field.i2repr(self, pkt, x)
+class XStrField(_XStrField, StrField):
+    """
+    StrField which value is printed as hexadecimal.
+    """
 
 
-class XStrLenField(_XStrLenField, StrLenField):
+class XStrLenField(_XStrField, StrLenField):
     """
     StrLenField which value is printed as hexadecimal.
     """
 
 
-class XStrFixedLenField(_XStrLenField, StrFixedLenField):
+class XStrFixedLenField(_XStrField, StrFixedLenField):
     """
     StrFixedLenField which value is printed as hexadecimal.
     """
@@ -3432,6 +3426,7 @@ class BitScalingField(_ScalingField, BitField):  # type: ignore
     """
     A ScalingField that is a BitField
     """
+
     def __init__(self, name, default, size, *args, **kwargs):
         # type: (str, int, int, *Any, **Any) -> None
         _ScalingField.__init__(self, name, default, *args, **kwargs)
@@ -3442,6 +3437,7 @@ class OUIField(X3BytesField):
     """
     A field designed to carry a OUI (3 bytes)
     """
+
     def i2repr(self, pkt, val):
         # type: (Optional[Packet], int) -> str
         by_val = struct.pack("!I", val or 0)[1:]
