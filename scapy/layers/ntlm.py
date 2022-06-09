@@ -172,32 +172,46 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
 
 
-class _NTLMPacket(Packet):
+class _NTLMPayloadPacket(Packet):
+    _NTLM_PAYLOAD_FIELD_NAME = "Payload"
+
     def __getattr__(self, attr):
         # Ease compatibility with _NTLMPayloadField
         try:
-            return super(_NTLMPacket, self).__getattr__(attr)
+            return super(_NTLMPayloadPacket, self).__getattr__(attr)
         except AttributeError:
-            return next(
-                x[1]
-                for x in super(_NTLMPacket, self).__getattr__("Payload")
-                if x[0] == attr
-            )
+            try:
+                return next(
+                    x[1]
+                    for x in super(_NTLMPayloadPacket, self).__getattr__(
+                        self._NTLM_PAYLOAD_FIELD_NAME
+                    )
+                    if x[0] == attr
+                )
+            except StopIteration:
+                raise AttributeError(attr)
 
     def setfieldval(self, attr, val):
         # Ease compatibility with _NTLMPayloadField
         try:
-            return super(_NTLMPacket, self).setfieldval(attr, val)
+            return super(_NTLMPayloadPacket, self).setfieldval(attr, val)
         except AttributeError:
-            Payload = super(_NTLMPacket, self).__getattr__("Payload")
+            Payload = super(_NTLMPayloadPacket, self).__getattr__(
+                self.self._NTLM_PAYLOAD_FIELD_NAME
+            )
             Payload.pop(next(
                 i
                 for i, x in enumerate(
-                    super(_NTLMPacket, self).__getattr__("Payload"))
+                    super(_NTLMPayloadPacket, self).__getattr__(
+                        self.self._NTLM_PAYLOAD_FIELD_NAME
+                    ))
                 if x[0] == attr
             ))
             Payload.append([attr, val])
-            super(_NTLMPacket, self).setfieldval("Payload", Payload)
+            super(_NTLMPayloadPacket, self).setfieldval(
+                self.self._NTLM_PAYLOAD_FIELD_NAME,
+                Payload
+            )
 
 
 def _NTLM_post_build(self, p, pay_offset, fields):
@@ -314,7 +328,7 @@ class _NTLM_Version(Packet):
 # Sect 2.2.1.1
 
 
-class NTLM_NEGOTIATE(_NTLMPacket):
+class NTLM_NEGOTIATE(_NTLMPayloadPacket):
     name = "NTLM Negotiate"
     messageType = 1
     OFFSET = 40
@@ -401,7 +415,7 @@ class AV_PAIR(Packet):
         return conf.padding_layer
 
 
-class NTLM_CHALLENGE(_NTLMPacket):
+class NTLM_CHALLENGE(_NTLMPayloadPacket):
     name = "NTLM Challenge"
     messageType = 2
     OFFSET = 56
@@ -479,7 +493,7 @@ class NTLMv2_RESPONSE(Packet):
     ]
 
 
-class NTLM_AUTHENTICATE(_NTLMPacket):
+class NTLM_AUTHENTICATE(_NTLMPayloadPacket):
     name = "NTLM Authenticate"
     messageType = 3
     OFFSET = 88
@@ -596,6 +610,9 @@ class _NTLM_Automaton(Automaton):
         MIC = None
         rawToken = False
 
+        if isinstance(token, bytes):
+            # SMB 1 - non extended
+            return (token, None, None, True)
         if isinstance(token, (NTLM_NEGOTIATE,
                               NTLM_CHALLENGE,
                               NTLM_AUTHENTICATE,
@@ -656,8 +673,8 @@ class _NTLM_Automaton(Automaton):
 
 class NTLM_Client(_NTLM_Automaton):
     """
-    A class to overload to create a client automaton when using the
-    NTLM relay.
+    A class to overload to create a client automaton when using
+    NTLM.
     """
     port = 445
     cls = conf.raw_layer
@@ -689,8 +706,8 @@ class NTLM_Client(_NTLM_Automaton):
 
 class NTLM_Server(_NTLM_Automaton):
     """
-    A class to overload to create a server automaton when using the
-    NTLM relay.
+    A class to overload to create a server automaton when using
+    NTLM.
     """
     port = 445
     cls = conf.raw_layer

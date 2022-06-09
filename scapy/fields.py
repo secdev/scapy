@@ -1844,7 +1844,7 @@ class _XStrField:
         # type: (Optional[Packet], bytes) -> str
         if isinstance(x, bytes):
             return bytes_hex(x).decode()
-        return super(XStrField, self).i2repr(pkt, x)
+        return super(_XStrField, self).i2repr(pkt, x)
 
 
 class XStrField(_XStrField, StrField):
