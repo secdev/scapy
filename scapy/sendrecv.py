@@ -489,7 +489,7 @@ def sendpfast(x,  # type: _PacketIterable
               pps=None,  # type: Optional[float]
               mbps=None,  # type: Optional[float]
               realtime=False,  # type: bool
-              loop=0,  # type: int
+              loop=None,  # type: Optional[int]
               file_cache=False,  # type: bool
               iface=None,  # type: Optional[_GlobInterfaceType]
               replay_args=None,  # type: Optional[List[str]]
@@ -501,7 +501,8 @@ def sendpfast(x,  # type: _PacketIterable
     :param pps:  packets per second
     :param mbps: MBits per second
     :param realtime: use packet's timestamp, bending time with real-time value
-    :param loop: number of times to process the packet list
+    :param loop: number of times to process the packet list. 0 implies
+        infinite loop
     :param file_cache: cache packets in RAM instead of reading from
         disk at each iteration
     :param iface: output interface
@@ -522,7 +523,7 @@ def sendpfast(x,  # type: _PacketIterable
     else:
         argv.append("--topspeed")
 
-    if loop:
+    if loop is not None:
         argv.append("--loop=%i" % loop)
     if file_cache:
         argv.append("--preload-pcap")
