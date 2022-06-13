@@ -314,6 +314,21 @@ else:
     conf.route6.ipv6_ifaces = set([conf.loopback_name])
     True
 
+= Build HBHOptUnknown for IPv6ExtHdrHopByHop with disabled autopad
+~ ipv6 hbh opt
+* Build the HBHOptUnknown of IPv6ExtHdrHopByHop with autopad=0
+v6Opt = HBHOptUnknown(otype=3, optlen=7, optdata="Beijing")
+pkt = Ether()/IPv6()/IPv6ExtHdrHopByHop(autopad=0, options=[v6Opt, ])
+pkt.build()
+
+= Build HBHOptUnknown for IPv6ExtHdrDestOpt with disabled autopad
+~ ipv6 hbh opt
+* Build the HBHOptUnknown of IPv6ExtHdrDestOpt with autopad=0
+v6Opt = HBHOptUnknown(otype=3, optlen=6, optdata="Haikou")
+pkt = Ether()/IPv6()/IPv6ExtHdrDestOpt(autopad=0, options=[v6Opt, ])
+pkt.build()
+
+
 = Test read_routes6() - check mandatory routes
 
 conf.route6
