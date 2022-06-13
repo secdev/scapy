@@ -31,7 +31,8 @@ from scapy.fields import BitField, ByteField, BitEnumField, ByteEnumField, \
     LenField, MACField, PadField, PacketField, PacketListField, \
     ShortEnumField, ShortField, StrFixedLenField, StrLenField, \
     UUIDField, XByteField, XIntField, XShortEnumField, XShortField
-from scapy.contrib.dce_rpc import DceRpc, EndiannessField, DceRpcPayload
+from scapy.layers.dcerpc import DceRpc, DceRpcPayload
+from scapy.contrib.rtps.common_types import EField
 from scapy.compat import bytes_hex
 from scapy.volatile import RandUUID
 
@@ -611,6 +612,7 @@ bind_layers(FParametersBlock, conf.padding_layer)
 #     IODWriteMultipleRe{q,s}
 class PadFieldWithLen(PadField):
     """PadField which handles the i2len function to include padding"""
+
     def i2len(self, pkt, val):
         """get the length of the field, including the padding length"""
         fld_len = self.fld.i2len(pkt, val)
@@ -1478,18 +1480,18 @@ def dce_rpc_endianess(pkt):
 class NDRData(Packet):
     """Base NDRData to centralize some fields. It can't be instantiated"""
     fields_desc = [
-        EndiannessField(
+        EField(
             FieldLenField("args_length", None, fmt="I", length_of="blocks"),
-            endianess_from=dce_rpc_endianess),
-        EndiannessField(
+            endianness_from=dce_rpc_endianess),
+        EField(
             FieldLenField("max_count", None, fmt="I", length_of="blocks"),
-            endianess_from=dce_rpc_endianess),
-        EndiannessField(
+            endianness_from=dce_rpc_endianess),
+        EField(
             IntField("offset", 0),
-            endianess_from=dce_rpc_endianess),
-        EndiannessField(
+            endianness_from=dce_rpc_endianess),
+        EField(
             FieldLenField("actual_count", None, fmt="I", length_of="blocks"),
-            endianess_from=dce_rpc_endianess),
+            endianness_from=dce_rpc_endianess),
         PacketListField("blocks", [], _guess_block_class,
                         length_from=lambda p: p.args_length)
     ]
@@ -1501,9 +1503,9 @@ class NDRData(Packet):
 class PNIOServiceReqPDU(Packet):
     """PNIO PDU for RPC Request"""
     fields_desc = [
-        EndiannessField(
+        EField(
             FieldLenField("args_max", None, fmt="I", length_of="blocks"),
-            endianess_from=dce_rpc_endianess),
+            endianness_from=dce_rpc_endianess),
         NDRData,
     ]
     overload_fields = {
@@ -1521,7 +1523,7 @@ class PNIOServiceReqPDU(Packet):
     def can_handle(cls, pkt, rpc):
         """heuristic guess_payload_class"""
         # type = 0 => request
-        if rpc.getfieldval("type") == 0 and \
+        if rpc.type == 0 and \
                 str(rpc.object_uuid).startswith("dea00000-6c97-11d1-8271-"):
             return True
         return False
@@ -1533,8 +1535,8 @@ DceRpcPayload.register_possible_payload(PNIOServiceReqPDU)
 class PNIOServiceResPDU(Packet):
     """PNIO PDU for RPC Response"""
     fields_desc = [
-        EndiannessField(IntEnumField("status", 0, ["OK"]),
-                        endianess_from=dce_rpc_endianess),
+        EField(IntEnumField("status", 0, ["OK"]),
+               endianness_from=dce_rpc_endianess),
         NDRData,
     ]
     overload_fields = {
@@ -1553,7 +1555,7 @@ class PNIOServiceResPDU(Packet):
     def can_handle(cls, pkt, rpc):
         """heuristic guess_payload_class"""
         # type = 2 => response
-        if rpc.getfieldval("type") == 2 and \
+        if rpc.type == 2 and \
                 str(rpc.object_uuid).startswith("dea00000-6c97-11d1-8271-"):
             return True
         return False

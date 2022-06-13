@@ -7,6 +7,7 @@
 Kerberos V5
 
 Implements parts of
+- Kerberos Network Authentication Service (V5): RFC4120
 - Kerberos Version 5 GSS-API: RFC1964
 """
 
@@ -26,7 +27,13 @@ from scapy.asn1fields import (
     ASN1F_optional,
 )
 from scapy.asn1packet import ASN1_Packet
-from scapy.packet import bind_bottom_up, bind_layers
+from scapy.fields import (
+    LEShortEnumField,
+    LEShortField,
+    PadField,
+    XStrFixedLenField,
+)
+from scapy.packet import Packet, bind_bottom_up, bind_layers
 from scapy.volatile import GeneralizedTime
 
 from scapy.layers.inet import UDP
@@ -149,9 +156,10 @@ class EncryptedData(ASN1_Packet):
     )
 
 
-EncryptionKey = ASN1F_SEQUENCE(
+EncryptionKey = lambda **kwargs: ASN1F_SEQUENCE(
     Int32("keytype", 0, explicit_tag=0x0),
     ASN1F_STRING("keyvalue", "", explicit_tag=0x1),
+    **kwargs
 )
 PAENCTIMESTAMP = EncryptedData
 KerberosFlags = ASN1F_FLAGS
@@ -336,6 +344,72 @@ class KRB_TGS_REP(ASN1_Packet):
     )
 
 
+# sect 5.5.1
+
+class KRB_AP_REQ(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_KRB_APPLICATION(
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("pvno", 5, explicit_tag=0xa0),
+            ASN1F_enum_INTEGER("msgType", 14, KRB_MSG_TYPES,
+                               explicit_tag=0xa1),
+            KerberosFlags("apOptions", "", [
+                "reserved",
+                "use-session-key",
+                "mutual-required",
+            ], explicit_tag=0xa2),
+            ASN1F_PACKET("ticket", None, KRB_Ticket,
+                         explicit_tag=0xa3),
+            ASN1F_PACKET("authenticator", None, EncryptedData,
+                         explicit_tag=0xa4),
+        ),
+        implicit_tag=14,
+    )
+
+
+class KRB_Authenticator(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_KRB_APPLICATION(
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("authenticatorPvno", 5, explicit_tag=0xa0),
+            Realm("crealm", "", explicit_tag=0xa1),
+            ASN1F_PACKET("cname", None, PrincipalName,
+                         explicit_tag=0xa2),
+            ASN1F_optional(
+                Checksum(explicit_tag=0x3)
+            ),
+            Microseconds("cusec", 0, explicit_tag=0xa4),
+            KerberosTime("ctime", 0, explicit_tag=0xa5),
+            ASN1F_optional(
+                EncryptionKey(explicit_tag=0xa6),
+            ),
+            ASN1F_optional(
+                UInt32("seqNumber", 0, explicit_tag=0xa7),
+            ),
+            ASN1F_optional(
+                AuthorizationData("authorizationData", explicit_tag=0xa8)
+            )
+        ),
+        implicit_tag=2,
+    )
+
+
+# sect 5.5.2
+
+class KRB_AP_REP(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_KRB_APPLICATION(
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("pvno", 5, explicit_tag=0xa0),
+            ASN1F_enum_INTEGER("msgType", 15, KRB_MSG_TYPES,
+                               explicit_tag=0xa1),
+            ASN1F_PACKET("encPart", None, EncryptedData,
+                         explicit_tag=0xa2),
+        ),
+        implicit_tag=15,
+    )
+
+
 # sect 5.9.1
 
 class KRB_ERROR(ASN1_Packet):
@@ -385,10 +459,13 @@ class Kerberos(ASN1_Packet):
         "root",
         None,
         KRB_Ticket,  # [APPLICATION 1]
+        KRB_Authenticator,  # [APPLICATION 2]
         KRB_AS_REQ,  # [APPLICATION 10]
         KRB_AS_REP,  # [APPLICATION 11]
         KRB_TGS_REQ,  # [APPLICATION 12]
         KRB_TGS_REP,  # [APPLICATION 13]
+        KRB_AP_REQ,  # [APPLICATION 14]
+        KRB_AP_REP,  # [APPLICATION 15]
         KRB_ERROR,  # [APPLICATION 30]
     )
 
@@ -396,3 +473,35 @@ class Kerberos(ASN1_Packet):
 bind_bottom_up(UDP, Kerberos, sport=88)
 bind_bottom_up(UDP, Kerberos, dport=88)
 bind_layers(UDP, Kerberos, sport=88, dport=88)
+
+
+# RFC 1964 - Kerberos V5 GSS-API
+
+# sect 1.2.2
+
+class KRB5_GSS_Wrap(Packet):
+    name = "Kerberos v5 GSS_Wrap"
+    fields_desc = [
+        XStrFixedLenField("TOK_ID", b"\x02\x01", length=2),
+        LEShortEnumField("SGN_ALG", 0, {
+            0: "DES MAC MD5",
+            1: "MD2.5",
+            2: "DES MAC",
+        }),
+        LEShortEnumField("SEAL_ALG", 0, {
+            0: "DES",
+            0xffff: "none",
+        }),
+        LEShortField("reserved", 0xffff),
+        XStrFixedLenField("SND_SEQ", b"", length=8),
+        PadField(  # sect 1.2.2.3
+            XStrFixedLenField("SGN_CKSUM", b"", length=8),
+            align=8,
+            padwith=b"\x04",
+        ),
+        # sect 1.2.2.3
+        XStrFixedLenField("CONFOUNDER", b"", length=8),
+    ]
+
+
+bind_layers(KRB5_GSS_Wrap, Kerberos)

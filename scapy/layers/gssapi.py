@@ -47,12 +47,18 @@ from scapy.fields import (
     XStrFixedLenField,
     XStrLenField
 )
+from scapy.packet import Packet, bind_layers
+
+# Providers
+from scapy.layers.kerberos import (
+    Kerberos,
+    KRB5_GSS_Wrap,
+)
 from scapy.layers.ntlm import (
     NEGOEX_EXCHANGE_NTLM,
     NTLM_Header,
     _NTLMPayloadField,
 )
-from scapy.packet import Packet, bind_layers
 
 from scapy.compat import (
     Dict,
@@ -100,7 +106,8 @@ class SPNEGO_MechListMIC(ASN1_Packet):
 
 _mechDissector = {
     "1.3.6.1.4.1.311.2.2.10": NTLM_Header,   # NTLM
-    # "1.2.840.113554.1.2.2": ...  # Kerberos 5
+    "1.2.840.48018.1.2.2": Kerberos,  # MS KRB5 - Microsoft Kerberos 5
+    "1.2.840.113554.1.2.2": Kerberos,  # Kerberos 5
 }
 
 
@@ -414,7 +421,8 @@ _mechDissector["1.3.6.1.4.1.311.2.2.30"] = NEGOEX_NEGO_MESSAGE
 
 
 _GSSAPI_OIDS = {
-    "1.3.6.1.5.5.2": SPNEGO_negToken,  # SPNEGO: RFC rfc2478
+    "1.3.6.1.5.5.2": SPNEGO_negToken,  # SPNEGO: RFC 2478
+    "1.2.840.113554.1.2.2": KRB5_GSS_Wrap,  # RFC 1964 : sec 1.2.2
 }
 
 # sect 3.1

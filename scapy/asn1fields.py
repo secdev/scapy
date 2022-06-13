@@ -8,7 +8,8 @@
 Classes that implement ASN.1 data structures.
 """
 
-from __future__ import absolute_import
+from functools import reduce
+
 from scapy.asn1.asn1 import (
     ASN1_BIT_STRING,
     ASN1_BOOLEAN,
@@ -27,6 +28,8 @@ from scapy.asn1.ber import (
     BER_tagging_dec,
     BER_tagging_enc,
 )
+from scapy.base_classes import BasePacket
+from scapy.compat import raw
 from scapy.volatile import (
     GeneralizedTime,
     RandChoice,
@@ -36,10 +39,8 @@ from scapy.volatile import (
     RandString,
     RandField,
 )
-from scapy.compat import raw
-from scapy.base_classes import BasePacket
+
 from scapy import packet
-from functools import reduce
 import scapy.libs.six as six
 
 from scapy.compat import (
@@ -802,6 +803,9 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
             cls = self.next_cls_cb(pkt) or self.cls
         else:
             cls = self.cls
+        if not hasattr(cls, "ASN1_root"):
+            # A normal Packet (!= ASN1)
+            return self.extract_packet(cls, s, _underlayer=pkt)
         diff_tag, s = BER_tagging_dec(s, hidden_tag=cls.ASN1_root.ASN1_tag,  # noqa: E501
                                       implicit_tag=self.implicit_tag,
                                       explicit_tag=self.explicit_tag,

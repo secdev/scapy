@@ -33,13 +33,15 @@ from scapy.fields import (
     IPField,
     LEIntField,
     PacketField,
+    PacketListField,
     ReversePadField,
     StrField,
     StrLenField,
+    UUIDField,
     XIntField,
     XStrFixedLenField,
 )
-from scapy.packet import Packet, fuzz
+from scapy.packet import Packet
 
 FORMAT_LE = "<"
 FORMAT_BE = ">"
@@ -69,7 +71,7 @@ class EField(object):
 
     __slots__ = ["fld", "endianness", "endianness_from"]
 
-    def __init__(self, fld, endianness=FORMAT_BE, endianness_from=e_flags):
+    def __init__(self, fld, endianness=None, endianness_from=None):
         self.fld = fld
         self.endianness = endianness
         self.endianness_from = endianness_from
@@ -89,13 +91,16 @@ class EField(object):
             return
 
         if isinstance(self.endianness, str) and self.endianness:
-            if hasattr(self.fld, "fmt"):
+            if isinstance(self.fld, UUIDField):
+                self.fld.uuid_fmt = (UUIDField.FORMAT_LE if
+                                     self.endianness == '<'
+                                     else UUIDField.FORMAT_BE)
+            elif hasattr(self.fld, "fmt"):
                 if len(self.fld.fmt) == 1:  # if it's only "I"
                     _end = self.fld.fmt[0]
                 else:  # if it's "<I"
                     _end = self.fld.fmt[1:]
                 self.fld.fmt = self.endianness + _end
-
                 self.fld.struct = struct.Struct(self.fld.fmt)
 
     def getfield(self, pkt, buf):
@@ -126,7 +131,7 @@ class EPacket(Packet):
         return b"", p
 
 
-class EPacketField(PacketField):
+class _EPacketField(object):
     """
     A packet field that manages its endianness and that of its nested packet
     """
@@ -136,7 +141,6 @@ class EPacketField(PacketField):
     def __init__(self, *args, **kwargs):
         self.endianness = kwargs.pop("endianness", None)
         self.endianness_from = kwargs.pop("endianness_from", e_flags)
-        self.fuzz_fun = kwargs.pop("fuzz_fun", fuzz)
         super(EPacketField, self).__init__(*args, **kwargs)
 
     def set_endianness(self, pkt):
@@ -150,17 +154,24 @@ class EPacketField(PacketField):
                     'Setting it to default: {}', DEFAULT_ENDIANESS)
                 self.endianness = DEFAULT_ENDIANESS
 
+
+class EPacketField(_EPacketField, PacketField):
+    """
+    A PacketField that manages its endianness and that of its nested packet
+    """
+
     def m2i(self, pkt, m):
-        self.set_endianness(pkt)
+        return self.cls(m, endianness=pkt.endianness)
 
-        _pkt = self.cls(m, endianness=self.endianness)
 
-        return _pkt
+class EPacketListField(_EPacketField, PacketListField):
+    """
+    A PacketListField that manages its endianness and
+    that of its nested packet
+    """
 
-    def randval(self):
-        if self.fuzz_fun is not None:
-            return self.fuzz_fun(self.cls())
-        return super(EPacketField, self).randval()
+    def m2i(self, pkt, m):
+        return self.cls(m, endianness=pkt.endianness)
 
 
 class SerializedDataField(StrLenField):

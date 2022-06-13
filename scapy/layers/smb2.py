@@ -1210,9 +1210,10 @@ class _SMB2_IOCTL_PacketLenField(PacketLenField):
 # sect 2.2.31
 
 
-class SMB2_IOCTL_Request(Packet):
+class SMB2_IOCTL_Request(_NTLMPayloadPacket):
     name = "SMB2 IOCTL Request"
     OFFSET = 56 + 64
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     deprecated_fields = {
         "IntputCount": ("InputLen", "alias"),
         "OutputCount": ("OutputLen", "alias"),
@@ -1278,7 +1279,7 @@ bind_top_down(
 
 
 class SMB2_IOCTL_Response(Packet):
-    name = "SMB2 IOCTL Request"
+    name = "SMB2 IOCTL Response"
     # Barely implemented
     StructureSize = 0x31
     fields_desc = (
