@@ -46,7 +46,15 @@ from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether, HARDWARE_TYPES
 from scapy.packet import bind_layers, bind_bottom_up, Packet
 from scapy.utils import atol, itom, ltoa, sane, str2mac
-from scapy.volatile import RandBin, RandField, RandInt, RandNum, RandNumExpo
+from scapy.volatile import (
+    RandBin,
+    RandByte,
+    RandField,
+    RandIP,
+    RandInt,
+    RandNum,
+    RandNumExpo,
+)
 
 from scapy.arch import get_if_raw_hwaddr
 from scapy.sendrecv import srp1, sendp
@@ -111,12 +119,28 @@ class BOOTP(Packet):
 
 
 class _DHCPParamReqFieldListField(FieldListField):
-    def getfield(self, pkt, s):
-        ret = []
-        while s:
-            s, val = FieldListField.getfield(self, pkt, s)
-            ret.append(val)
-        return b"", [x[0] for x in ret]
+    def randval(self):
+        class _RandReqFieldList(RandField):
+            def _fix(self):
+                return [RandByte()] * int(RandByte())
+        return _RandReqFieldList()
+
+
+class RandClasslessStaticRoutesField(RandField):
+    """
+    A RandValue for classless static routes
+    """
+
+    def _fix(self):
+        return "%s/%d:%s" % (RandIP(), RandByte(), RandIP())
+
+
+class ClasslessFieldListField(FieldListField):
+    def randval(self):
+        class _RandClasslessField(RandField):
+            def _fix(self):
+                return [RandClasslessStaticRoutesField()] * int(RandNum(1, 28))
+        return _RandClasslessField()
 
 
 class ClasslessStaticRoutesField(Field):
@@ -131,6 +155,7 @@ class ClasslessStaticRoutesField(Field):
     Destination first byte contains one octet describing the width followed
     by all the significant octets of the subnet.
     """
+
     def m2i(self, pkt, x):
         # type: (Packet, bytes) -> str
         # b'\x20\x01\x02\x03\x04\t\x08\x07\x06' -> (1.2.3.4/32:9.8.7.6)
@@ -153,7 +178,7 @@ class ClasslessStaticRoutesField(Field):
         if not x:
             return b''
 
-        spx = re.split('/|:', x)
+        spx = re.split('/|:', str(x))
         prefix = int(spx[1])
         # if prefix is invalid value ( 0 > prefix > 32 ) then break
         if prefix > 32 or prefix < 0:
@@ -179,6 +204,9 @@ class ClasslessStaticRoutesField(Field):
 
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)
+
+    def randval(self):
+        return RandClasslessStaticRoutesField()
 
 
 # DHCP_UNKNOWN, DHCP_IP, DHCP_IPLIST, DHCP_TYPE \
@@ -260,7 +288,9 @@ DHCPOptions = {
     52: ByteField("dhcp-option-overload", 100),
     53: ByteEnumField("message-type", 1, DHCPTypes),
     54: IPField("server_id", "0.0.0.0"),
-    55: _DHCPParamReqFieldListField("param_req_list", [], ByteField("opcode", 0), length_from=lambda x: 1),  # noqa: E501
+    55: _DHCPParamReqFieldListField(
+        "param_req_list", [],
+        ByteField("opcode", 0)),
     56: "error_message",
     57: ShortField("max_dhcp_size", 1500),
     58: IntField("renewal_time", 21600),
@@ -305,9 +335,10 @@ DHCPOptions = {
     116: ByteField("auto-config", 0),
     117: ShortField("name-service-search", 0,),
     118: IPField("subnet-selection", "0.0.0.0"),
-    121: FieldListField("classless_static_routes",
-                        [],
-                        ClasslessStaticRoutesField("route", 0)),
+    121: ClasslessFieldListField(
+        "classless_static_routes",
+        [],
+        ClasslessStaticRoutesField("route", 0)),
     124: "vendor_class",
     125: "vendor_specific_information",
     128: IPField("tftp_server_ip_address", "0.0.0.0"),
@@ -362,7 +393,10 @@ class RandDHCPOptions(RandField):
             if isinstance(o, str):
                 op.append((o, self.rndstr * 1))
             else:
-                op.append((o.name, o.randval()._fix()))
+                r = o.randval()._fix()
+                if isinstance(r, bytes):
+                    r = r[:255]
+                op.append((o.name, r))
         return op
 
 
@@ -457,8 +491,7 @@ class DHCPOptionsField(StrField):
                     warning("Unknown field option %s", name)
                     continue
 
-                s += chb(onum)
-                s += chb(len(oval))
+                s += struct.pack("!BB", onum, len(oval))
                 s += oval
 
             elif (isinstance(o, str) and o in DHCPRevOptions and
@@ -471,6 +504,9 @@ class DHCPOptionsField(StrField):
             else:
                 warning("Malformed option %s", o)
         return s
+
+    def randval(self):
+        return RandDHCPOptions()
 
 
 class DHCP(Packet):
