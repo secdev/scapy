@@ -19,7 +19,7 @@ IPsec layer
 Example of use:
 
 >>> sa = SecurityAssociation(ESP, spi=0xdeadbeef, crypt_algo='AES-CBC',
-...                          crypt_key='sixteenbytes key')
+...                          crypt_key=b'sixteenbytes key')
 >>> p = IP(src='1.1.1.1', dst='2.2.2.2')
 >>> p /= TCP(sport=45012, dport=80)
 >>> p /= Raw('testdata')
