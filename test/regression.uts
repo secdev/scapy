@@ -46,13 +46,19 @@ assert _version_checker(FakeModule3, (2, 4, 2))
 
 = Check Scapy version
 
+import mock
+
 import scapy
 from scapy import _parse_tag, _version_from_git_describe
+from scapy.config import _version_checker
 
-class GitModuleScapy(object):
-    __version__ = _version_from_git_describe()
+b = Bunch(returncode=0, communicate=lambda *args, **kargs: (b"v2.4.5rc1-261-g44b98e14", None))
+with mock.patch('scapy.subprocess.Popen', return_value=b) as popen:
+    class GitModuleScapy(object):
+        __version__ = _version_from_git_describe()
 
-assert _parse_tag("v2.3.2-346-g164a52c075c8") == '2.3.2.dev346'
+assert GitModuleScapy.__version__ == '2.4.5rc1.dev261'
+assert _version_checker(GitModuleScapy, (2, 4, 5))
 
 = List layers
 ~ conf command
@@ -4674,20 +4680,20 @@ assert pl[1][Ether].dst == '00:22:33:44:55:66'
 + Scapy version
 
 = _version()
-~ ci_only
 
 import os
 version_filename = os.path.join(scapy._SCAPY_PKG_DIR, "VERSION")
 
-version = scapy._version()
-assert(os.path.exists(version_filename))
+version = "2.0.0"
+with open(version_filename, "w") as fd:
+    fd.write(version)
 
 import mock
 with mock.patch("scapy._version_from_git_describe") as version_mocked:
-  version_mocked.side_effect = Exception()
-  assert(scapy._version() == version)
-  os.unlink(version_filename)
-  assert(scapy._version() == "git-archive.dev$Format:%h")
+    version_mocked.side_effect = Exception()
+    assert(scapy._version() == version)
+    os.unlink(version_filename)
+    assert(scapy._version() == "unknown.version")
 
 
 = UTscapy HTML output

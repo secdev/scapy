@@ -68,7 +68,7 @@ if ($success -ne 0){
 Write-Output ('Installing: ' + $file)
 
 # Run installer
-$process = Start-Process $file -ArgumentList "/loopback_support=yes /S" -PassThru -Wait
+$process = Start-Process $file -ArgumentList "/loopback_support=yes /winpcap_mode=no /S" -PassThru -Wait
 if($process.ExitCode -eq 0) {
     echo "Npcap installation completed !"
     exit 0
