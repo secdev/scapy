@@ -47,6 +47,7 @@ except ImportError:
 import os
 import socket
 import struct
+import warnings
 
 from scapy.config import conf, crypto_validator
 from scapy.compat import orb, raw
@@ -468,10 +469,6 @@ if algorithms:
                                            salt_size=3,
                                            icv_size=16,
                                            format_mode_iv=_salt_format_mode_iv)
-    # XXX: Flagged as weak by 'cryptography'. Kept for backward compatibility
-    CRYPT_ALGOS['Blowfish'] = CryptAlgo('Blowfish',
-                                        cipher=algorithms.Blowfish,
-                                        mode=modes.CBC)
     # XXX: RFC7321 states that DES *MUST NOT* be implemented.
     # XXX: Keep for backward compatibility?
     # Using a TripleDES cipher algorithm for DES is done by using the same 64
@@ -483,9 +480,24 @@ if algorithms:
     CRYPT_ALGOS['3DES'] = CryptAlgo('3DES',
                                     cipher=algorithms.TripleDES,
                                     mode=modes.CBC)
-    CRYPT_ALGOS['CAST'] = CryptAlgo('CAST',
-                                    cipher=algorithms.CAST5,
-                                    mode=modes.CBC)
+    try:
+        from cryptography import CryptographyDeprecationWarning
+        with warnings.catch_warnings():
+            # Hide deprecation warnings
+            warnings.filterwarnings("ignore",
+                                    category=CryptographyDeprecationWarning)
+            CRYPT_ALGOS['CAST'] = CryptAlgo('CAST',
+                                            cipher=algorithms.CAST5,
+                                            mode=modes.CBC)
+            # XXX: Flagged as weak by 'cryptography'.
+            # Kept for backward compatibility
+            CRYPT_ALGOS['Blowfish'] = CryptAlgo('Blowfish',
+                                                cipher=algorithms.Blowfish,
+                                                mode=modes.CBC)
+    except AttributeError:
+        # Future-proof, if ever removed from cryptography
+        pass
+
 
 ###############################################################################
 if conf.crypto_valid:
