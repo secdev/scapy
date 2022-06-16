@@ -35,9 +35,8 @@ from scapy.fields import (
     XIntField,
     XShortField,
 )
-from scapy.layers.inet import IP
-from scapy.layers.inet6 import IP6Field
-from scapy.layers.inet6 import IPv6
+from scapy.layers.inet import IP, IPerror
+from scapy.layers.inet6 import IP6Field, IPv6, IPerror6
 
 IPPROTO_SCTP = 132
 
@@ -244,9 +243,9 @@ class _SCTPChunkGuessPayload:
 
 
 class SCTP(_SCTPChunkGuessPayload, Packet):
-    fields_desc = [ShortField("sport", None),
-                   ShortField("dport", None),
-                   XIntField("tag", None),
+    fields_desc = [ShortField("sport", 0),
+                   ShortField("dport", 0),
+                   XIntField("tag", 0),
                    XIntField("chksum", None), ]
 
     def answers(self, other):
@@ -264,6 +263,23 @@ class SCTP(_SCTPChunkGuessPayload, Packet):
             crc = crc32c(raw(p))
             p = p[:8] + struct.pack(">I", crc) + p[12:]
         return p
+
+
+class SCTPerror(SCTP):
+    name = "SCTP in ICMP"
+
+    def answers(self, other):
+        if not isinstance(other, SCTP):
+            return 0
+        if conf.checkIPsrc:
+            if not ((self.sport == other.sport) and
+                    (self.dport == other.dport)):
+                return 0
+        return 1
+
+    def mysummary(self):
+        return Packet.mysummary(self)
+
 
 # SCTP Chunk variable params
 
@@ -689,4 +705,6 @@ class SCTPChunkAddressConfAck(SCTPChunkAddressConf):
 
 
 bind_layers(IP, SCTP, proto=IPPROTO_SCTP)
+bind_layers(IPerror, SCTPerror, proto=IPPROTO_SCTP)
 bind_layers(IPv6, SCTP, nh=IPPROTO_SCTP)
+bind_layers(IPerror6, SCTPerror, proto=IPPROTO_SCTP)
