@@ -12,7 +12,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os
 from collections import defaultdict
-from typing import TYPE_CHECKING
 
 from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
@@ -43,6 +42,7 @@ from scapy.compat import (
     Type,
     TypeVar,
     Union,
+    TYPE_CHECKING,
 )
 from scapy.packet import Packet
 
