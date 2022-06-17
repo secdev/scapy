@@ -276,6 +276,44 @@ IOCR_BLOCK_REQ_IOCR_PROPERTIES = {
     0x4: "RT_CLASS_UDP",
 }
 
+MAU_TYPE = {
+    0x0000: "Radio",
+    0x001e: "1000-BaseT-FD"
+}
+
+MAU_EXTENSION = {
+    0x0000: "None",
+    0x0100: "Polymeric-Optical-Fiber"
+}
+
+LINKSTATE_LINK = {
+    0x0000: "Reserved",
+    0x0001: "Up",
+    0x0002: "Down",
+    0x0003: "Testing",
+    0x0004: "Unknown",
+    0x0005: "Dormant",
+    0x0006: "NotPresent",
+    0x0007: "LowerLayerDown",
+}
+
+LINKSTATE_PORT = {
+    0x0000: "Unknown",
+    0x0001: "Disabled/Discarding",
+    0x0002: "Blocking",
+    0x0003: "Listening",
+    0x0004: "Learning",
+    0x0005: "Forwarding",
+    0x0006: "Broken",
+    0x0007: "Reserved",
+}
+
+MEDIA_TYPE = {
+    0x00: "Unknown",
+    0x01: "Copper cable",
+    0x02: "Fiber optic cable",
+    0x03: "Radio communication"
+}
 
 # List of all valid activity UUIDs for the DceRpc layer with PROFINET RPC
 # endpoint.
@@ -846,6 +884,128 @@ class IOCRBlockRes(Block):
     block_type = 0x8102
 
 
+class AdjustLinkState(Block):
+    fields_desc = [
+        BlockHeader,
+        StrFixedLenField("padding", "", length=2),
+        XShortEnumField("LinkState", 0, LINKSTATE_LINK),
+        ShortField("AdjustProperties", 0)
+    ]
+
+    block_type = 0x021B
+
+
+class AdjustPeerToPeerBoundary(Block):
+    fields_desc = [
+        BlockHeader,
+        StrFixedLenField("padding1", "", length=2),
+        IntField("peerToPeerBoundary", 0),
+        ShortField("adjustProperties", 0),
+        PadField(ShortField("padding2", 0), 2),
+    ]
+
+    block_type = 0x0224
+
+
+class AdjustDomainBoundary(Block):
+    fields_desc = [
+        BlockHeader,
+        StrFixedLenField("padding1", "", length=2),
+        IntEnumField("DomainBoundaryIngress", 0, {
+            0x00: "No Block",
+            0x01: "Block",
+        }),
+        IntEnumField("DomainBoundaryEgress", 0, {
+            0x00: "No Block",
+            0x01: "Block",
+        }),
+        ShortField("adjustProperties", 0),
+        PadField(ShortField("padding2", 0), 2)
+    ]
+
+    block_type = 0x0209
+
+
+class AdjustMulticastBoundary(Block):
+    fields_desc = [
+        BlockHeader,
+        StrFixedLenField("padding1", "", length=2),
+        IntField("MulticastAddress", 0),
+        ShortField("adjustProperties", 0),
+        PadField(ShortField("padding2", 0), 2)
+    ]
+
+    block_type = 0x0210
+
+
+class AdjustMauType(Block):
+    fields_desc = [
+        BlockHeader,
+        PadField(ShortField("padding", 0), 2),
+        XShortEnumField("MAUType", 1, MAU_TYPE),
+        ShortField("adjustProperties", 0),
+    ]
+
+    block_type = 0x020E
+
+
+class AdjustMauTypeExtension(Block):
+    fields_desc = [
+        BlockHeader,
+        PadField(ShortField("padding", 0), 2),
+        XShortEnumField("MAUTypeExtension", 0, MAU_EXTENSION),
+        ShortField("adjustProperties", 0),
+    ]
+
+    block_type = 0x0229
+
+
+class AdjustDCPBoundary(Block):
+    fields_desc = [
+        BlockHeader,
+        StrFixedLenField("padding1", "", length=2),
+        IntField("dcpBoundary", 0),
+        ShortField("adjustProperties", 0),
+        PadField(ShortField("padding2", 0), 2),
+    ]
+
+    block_type = 0x0225
+
+
+PDPORT_ADJUST_BLOCK_ASSOCIATION = {
+    0x0209: AdjustDomainBoundary,
+    0x020e: AdjustMauType,
+    0x0210: AdjustMulticastBoundary,
+    0x021b: AdjustLinkState,
+    0x0224: AdjustPeerToPeerBoundary,
+    0x0225: AdjustDCPBoundary,
+    0x0229: AdjustMauTypeExtension,
+}
+
+
+def _guess_pdportadjust_block(_pkt, *args, **kargs):
+    cls = Block
+
+    btype = struct.unpack("!H", _pkt[:2])[0]
+    if btype in PDPORT_ADJUST_BLOCK_ASSOCIATION:
+        cls = PDPORT_ADJUST_BLOCK_ASSOCIATION[btype]
+
+    return cls(_pkt, *args, **kargs)
+
+
+class PDPortDataAdjust(Block):
+    fields_desc = [
+        BlockHeader,
+        StrFixedLenField("padding", "", length=2),
+        XShortField("slotNumber", 0),
+        XShortField("subslotNumber", 0),
+        PacketListField("blocks", [], _guess_pdportadjust_block,
+                        length_from=lambda p: p.block_length)
+    ]
+
+    block_type = 0x0202
+
+
 #     ExpectedSubmoduleBlockReq
 class ExpectedSubmoduleDataDescription(Packet):
     """Description of the data of a submodule"""
@@ -1203,6 +1363,7 @@ PNIO_RPC_BLOCK_ASSOCIATION = {
     "0116": IODControlReq,
     "0117": IODControlReq,
     "0118": IODControlReq,
+    "0202": PDPortDataAdjust,
 
     # responses
     "8101": ARBlockRes,

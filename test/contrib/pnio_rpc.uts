@@ -788,3 +788,17 @@ assert(raw(p) == bytearray.fromhex('00020028010000000000000000000000000000000000
 = PNIO Alarm PRAL_AlarmItem
 p = AlarmNotification_Low(AlarmPayload=[MaintenanceItem(), PRAL_AlarmItem()])
 assert(raw(p) == bytearray.fromhex('0002002e01000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000'))
+
+= PNIO PDPortDataAdjust Decoding
+raw = bytearray.fromhex('0402280000000000dea000006c9711d182710001000305f9dea000016' \
+                        'c9711d1827100a02442df7d0777bc51ddaa4d07addb7075183fc28b00' \
+                        '00000000000001000000000002ffffffff007c0000000000000000000' \
+                        '000680000004000000000000000688009003c0100000002ba501cd47e' \
+                        '40d3a0b545fd4ac70eb900000000000080020000802f0000002800000' \
+                        '000000000000000000000000000000000000000000002020024010000' \
+                        '00000080020224000c010000000000000100000000021b00080100000' \
+                        '000010000')
+p = DceRpc(raw)
+assert(p[PDPortDataAdjust].subslotNumber == 0x8002)
+assert(p[AdjustPeerToPeerBoundary].peerToPeerBoundary == 0x1)
+assert(LINKSTATE_LINK[p[AdjustLinkState].LinkState] == 'Up')
