@@ -406,6 +406,38 @@ assert s2 in s1
 assert s1 not in s2
 
 
+s1 = EcuState(ses=1, sa="SEC")
+s2 = EcuState(ses=1, sa="SOC")
+
+assert s1 not in s2
+assert s2 not in s1
+assert s1 != s2
+
+s1 = EcuState(ses=1, sa="SEC")
+s2 = EcuState(ses=1, sa="SEC")
+
+assert s1 in s2
+assert s2 in s1
+assert s1 == s2
+
+
+s1 = EcuState(ses=1, sa="SEC")
+s2 = EcuState(ses=1, sa=["SEC", "SOL"])
+
+
+assert s1 in s2
+assert s2 not in s1
+assert s1 != s2
+
+
+s1 = EcuState(ses=1, sa=b"SEC")
+s2 = EcuState(ses=1, sa=[b"SEC", "SOL"])
+
+assert s1 in s2
+assert s2 not in s1
+assert s1 != s2
+
+
 + EcuState modification tests
 
 = Basic definitions for tests
