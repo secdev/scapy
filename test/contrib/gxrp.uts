@@ -103,6 +103,7 @@ for p in pkts:
         assert p[GVRP] is not None
 
 = GARP tshark check
+~ tshark
 
 import tempfile, os
 pkt = Dot3(dst="01:80:c2:00:00:21")/LLC_GARP(dsap=0x42, ssap=0x42, ctrl=3)/GARP(
@@ -119,6 +120,7 @@ os.close(fd)
 os.unlink(pcapfilename)
 
 = GARP tshark check
+~ tshark
 
 import tempfile, os
 pkt = Dot3(dst="01:80:c2:00:00:20")/LLC_GARP(dsap=0x42, ssap=0x42, ctrl=3)/GARP(
