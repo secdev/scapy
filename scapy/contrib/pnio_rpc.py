@@ -512,6 +512,53 @@ class IODWriteRes(Block):
     block_type = 0x8008
 
 
+#     IODReadRe{q,s}
+class IODReadReq(Block):
+    """IODRead request block"""
+    fields_desc = [
+        BlockHeader,
+        ShortField("seqNum", 0),
+        UUIDField("ARUUID", None),
+        XIntField("API", 0),
+        XShortField("slotNumber", 0),
+        XShortField("subslotNumber", 0),
+        StrFixedLenField("padding", "", length=2),
+        XShortEnumField("index", 0, IOD_WRITE_REQ_INDEX),
+        LenField("recordDataLength", None, fmt="I"),
+        StrFixedLenField("RWPadding", "", length=24),
+    ]
+    block_type = 0x0009
+
+    def payload_length(self):
+        return self.recordDataLength
+
+    def get_response(self):
+        res = IODReadRes()
+        for field in ["seqNum", "ARUUID", "API", "slotNumber",
+                      "subslotNumber", "index"]:
+            res.setfieldval(field, self.getfieldval(field))
+        return res
+
+
+class IODReadRes(Block):
+    """IODRead response block"""
+    fields_desc = [
+        BlockHeader,
+        ShortField("seqNum", 0),
+        UUIDField("ARUUID", None),
+        XIntField("API", 0),
+        XShortField("slotNumber", 0),
+        XShortField("subslotNumber", 0),
+        StrFixedLenField("padding", "", length=2),
+        XShortEnumField("index", 0, IOD_WRITE_REQ_INDEX),
+        LenField("recordDataLength", None, fmt="I"),
+        XShortField("additionalValue1", 0),
+        XShortField("additionalValue2", 0),
+        StrFixedLenField("RWPadding", "", length=20),
+    ]
+    block_type = 0x8009
+
+
 F_PARAMETERS_BLOCK_ID = [
     "No_F_WD_Time2_No_F_iPar_CRC", "No_F_WD_Time2_F_iPar_CRC",
     "F_WD_Time2_No_F_iPar_CRC", "F_WD_Time2_F_iPar_CRC",
@@ -1390,11 +1437,17 @@ def _guess_block_class(_pkt, *args, **kargs):
         else:
             cls = IODWriteReq
 
+    elif _pkt[:2] == b'\x00\x09':  # IODReadReq
+        cls = IODReadReq
+
     elif _pkt[:2] == b'\x80\x08':    # IODWriteRes
         if _pkt[34:36] == b'\xe0@':  # IODWriteMultipleRes
             cls = IODWriteMultipleRes
         else:
             cls = IODWriteRes
+
+    elif _pkt[:2] == b'\x80\x09':  # IODReadRes
+        cls = IODReadRes
 
     # Common cases
     else:

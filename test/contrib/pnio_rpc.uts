@@ -3,6 +3,7 @@
 + Syntax check
 = Import the PNIO RPC layer
 from scapy.contrib.dce_rpc import *
+from scapy.contrib.pnio import *
 from scapy.contrib.pnio_rpc import *
 from scapy.libs.six import itervalues
 
@@ -202,6 +203,52 @@ p == IODWriteMultipleRes(ARUUID='01234567-89ab-cdef-0123-456789abcdef', recordDa
       index=0x1234, recordDataLength=0, padding=b'\0'*2, RWPadding=b'\0'*16, block_length=60
       ),
     ]) / conf.padding_layer(b'\xef')
+
+
+####################################################################
+
++ Check IODReadReq
+
+= IODReadReq default values
+bytes(IODReadReq()) == bytearray.fromhex('0009003c010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
+
+= IODReadReq basic example
+bytes(IODReadReq(
+  ARUUID='01234567-89ab-cdef-0123-456789abcdef', seqNum=1, API=1, slotNumber=2, subslotNumber=3,
+  index=0x4321)
+  ) == bytearray.fromhex('0009003c010000010123456789abcdef0123456789abcdef00000001000200030000432100000000000000000000000000000000000000000000000000000000')
+
+= IODReadReq dissection
+p = IODReadReq(bytearray.fromhex('0009003c010000010123456789abcdef0123456789abcdef00000001000200030000432100000002000000000000000000000000000000000000000000000000abcdef'))
+p == IODReadReq(ARUUID='01234567-89ab-cdef-0123-456789abcdef', seqNum=1, API=1, slotNumber=2, subslotNumber=3,
+  index=0x4321, block_length=60, recordDataLength=2, padding='\0\0', RWPadding=b'\0'*24
+  ) / b'\xab\xcd' / conf.padding_layer(b'\xef')
+
+= IODReadReq response
+p = p.get_response()
+p == IODReadRes(ARUUID='01234567-89ab-cdef-0123-456789abcdef', seqNum=1, API=1, slotNumber=2, subslotNumber=3,
+  index=0x4321)
+
+
+####################################################################
+
++ Check IODReadRes
+
+= IODReadRes default values
+bytes(IODReadRes()) == bytearray.fromhex('8009003c010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
+
+= IODReadRes basic example
+bytes(IODReadRes(
+    ARUUID='01234567-89ab-cdef-0123-456789abcdef', seqNum=1, API=1, slotNumber=2, subslotNumber=3,
+    index=0x4321)) == bytearray.fromhex('8009003c010000010123456789abcdef0123456789abcdef00000001000200030000432100000000000000000000000000000000000000000000000000000000')
+
+= IODReadRes dissection
+
+p = IODReadRes(bytearray.fromhex('8009003c010000010123456789abcdef0123456789abcdef00000001000200030000432100000000000000000000000000000000000000000000000000000000ef'))
+p == IODReadRes(
+    ARUUID='01234567-89ab-cdef-0123-456789abcdef', seqNum=1, API=1, slotNumber=2, subslotNumber=3,
+    index=0x4321, recordDataLength=0, block_length=60, padding=b'\0\0', RWPadding=b'\0'*20
+    ) / conf.padding_layer(b'\xef')
 
 
 ####################################################################
