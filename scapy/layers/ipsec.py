@@ -170,6 +170,7 @@ if conf.crypto_valid:
     from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives.ciphers import (
+        aead,
         Cipher,
         algorithms,
         modes,
@@ -225,11 +226,18 @@ class CryptAlgo(object):
         self.mode = mode
         self.icv_size = icv_size
 
-        if modes and self.mode is not None:
-            self.is_aead = issubclass(self.mode,
-                                      modes.ModeWithAuthenticationTag)
-        else:
-            self.is_aead = False
+        self.is_aead = False
+        # If using cryptography.hazmat.primitives.cipher.aead
+        self.ciphers_aead_api = False
+
+        if modes:
+            if self.mode is not None:
+                self.is_aead = issubclass(self.mode,
+                                          modes.ModeWithAuthenticationTag)
+            elif self.cipher in (aead.AESGCM, aead.AESCCM,
+                                 aead.ChaCha20Poly1305):
+                self.is_aead = True
+                self.ciphers_aead_api = True
 
         if block_size is not None:
             self.block_size = block_size
@@ -339,36 +347,49 @@ class CryptAlgo(object):
 
         return esp
 
-    def encrypt(self, sa, esp, key, esn_en=False, esn=0):
+    def encrypt(self, sa, esp, key, icv_size=None, esn_en=False, esn=0):
         """
         Encrypt an ESP packet
 
         :param sa:   the SecurityAssociation associated with the ESP packet.
         :param esp:  an unencrypted _ESPPlain packet with valid padding
         :param key:  the secret key used for encryption
+        :param icv_size: the length of the icv used for integrity check
         :esn_en:     extended sequence number enable which allows to use 64-bit
                      sequence number instead of 32-bit when using an AEAD
                      algorithm
         :esn:        extended sequence number (32 MSB)
         :return:    a valid ESP packet encrypted with this algorithm
         """
+        if icv_size is None:
+            icv_size = self.icv_size if self.is_aead else 0
         data = esp.data_for_encryption()
 
         if self.cipher:
             mode_iv = self._format_mode_iv(algo=self, sa=sa, iv=esp.iv)
-            cipher = self.new_cipher(key, mode_iv)
-            encryptor = cipher.encryptor()
-
+            aad = None
             if self.is_aead:
                 if esn_en:
                     aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
                 else:
                     aad = struct.pack('!LL', esp.spi, esp.seq)
-                encryptor.authenticate_additional_data(aad)
-                data = encryptor.update(data) + encryptor.finalize()
-                data += encryptor.tag[:self.icv_size]
+            if self.ciphers_aead_api:
+                # New API
+                if self.cipher == aead.AESCCM:
+                    cipher = self.cipher(key, tag_length=icv_size)
+                else:
+                    cipher = self.cipher(key)
+                data = cipher.encrypt(mode_iv, data, aad)
             else:
-                data = encryptor.update(data) + encryptor.finalize()
+                cipher = self.new_cipher(key, mode_iv)
+                encryptor = cipher.encryptor()
+
+                if self.is_aead:
+                    encryptor.authenticate_additional_data(aad)
+                    data = encryptor.update(data) + encryptor.finalize()
+                    data += encryptor.tag[:icv_size]
+                else:
+                    data = encryptor.update(data) + encryptor.finalize()
 
         return ESP(spi=esp.spi, seq=esp.seq, data=esp.iv + data)
 
@@ -397,21 +418,33 @@ class CryptAlgo(object):
 
         if self.cipher:
             mode_iv = self._format_mode_iv(sa=sa, iv=iv)
-            cipher = self.new_cipher(key, mode_iv, icv)
-            decryptor = cipher.decryptor()
-
+            aad = None
             if self.is_aead:
-                # Tag value check is done during the finalize method
                 if esn_en:
-                    decryptor.authenticate_additional_data(
-                        struct.pack('!LLL', esp.spi, esn, esp.seq))
+                    aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
                 else:
-                    decryptor.authenticate_additional_data(
-                        struct.pack('!LL', esp.spi, esp.seq))
-            try:
-                data = decryptor.update(data) + decryptor.finalize()
-            except InvalidTag as err:
-                raise IPSecIntegrityError(err)
+                    aad = struct.pack('!LL', esp.spi, esp.seq)
+            if self.ciphers_aead_api:
+                # New API
+                if self.cipher == aead.AESCCM:
+                    cipher = self.cipher(key, tag_length=icv_size)
+                else:
+                    cipher = self.cipher(key)
+                try:
+                    data = cipher.decrypt(mode_iv, data + icv, aad)
+                except InvalidTag as err:
+                    raise IPSecIntegrityError(err)
+            else:
+                cipher = self.new_cipher(key, mode_iv, icv)
+                decryptor = cipher.decryptor()
+
+                if self.is_aead:
+                    # Tag value check is done during the finalize method
+                    decryptor.authenticate_additional_data(aad)
+                try:
+                    data = decryptor.update(data) + decryptor.finalize()
+                except InvalidTag as err:
+                    raise IPSecIntegrityError(err)
 
         # extract padlen and nh
         padlen = orb(data[-2])
@@ -453,22 +486,33 @@ if algorithms:
                                        format_mode_iv=_aes_ctr_format_mode_iv)
     _salt_format_mode_iv = lambda sa, iv, **kw: sa.crypt_salt + iv
     CRYPT_ALGOS['AES-GCM'] = CryptAlgo('AES-GCM',
-                                       cipher=algorithms.AES,
-                                       mode=modes.GCM,
+                                       cipher=aead.AESGCM,
+                                       key_size=(16, 24, 32),
+                                       mode=None,
                                        salt_size=4,
                                        block_size=1,
                                        iv_size=8,
                                        icv_size=16,
                                        format_mode_iv=_salt_format_mode_iv)
-    if hasattr(modes, 'CCM'):
-        CRYPT_ALGOS['AES-CCM'] = CryptAlgo('AES-CCM',
-                                           cipher=algorithms.AES,
-                                           mode=modes.CCM,
-                                           block_size=1,
-                                           iv_size=8,
-                                           salt_size=3,
-                                           icv_size=16,
-                                           format_mode_iv=_salt_format_mode_iv)
+    CRYPT_ALGOS['AES-CCM'] = CryptAlgo('AES-CCM',
+                                       cipher=aead.AESCCM,
+                                       mode=None,
+                                       key_size=(16, 24, 32),
+                                       block_size=1,
+                                       iv_size=8,
+                                       salt_size=3,
+                                       icv_size=16,
+                                       format_mode_iv=_salt_format_mode_iv)
+    CRYPT_ALGOS['CHACHA20-POLY1305'] = CryptAlgo('CHACHA20-POLY1305',
+                                                 cipher=aead.ChaCha20Poly1305,
+                                                 mode=None,
+                                                 key_size=32,
+                                                 block_size=1,
+                                                 iv_size=8,
+                                                 salt_size=4,
+                                                 icv_size=16,
+                                                 format_mode_iv=_salt_format_mode_iv)  # noqa: E501
+
     # XXX: RFC7321 states that DES *MUST NOT* be implemented.
     # XXX: Keep for backward compatibility?
     # Using a TripleDES cipher algorithm for DES is done by using the same 64
@@ -822,7 +866,9 @@ class SecurityAssociation(object):
     SUPPORTED_PROTOS = (IP, IPv6)
 
     def __init__(self, proto, spi, seq_num=1, crypt_algo=None, crypt_key=None,
-                 auth_algo=None, auth_key=None, tunnel_header=None, nat_t_header=None, esn_en=False, esn=0):   # noqa: E501
+                 crypt_icv_size=None,
+                 auth_algo=None, auth_key=None,
+                 tunnel_header=None, nat_t_header=None, esn_en=False, esn=0):
         """
         :param proto: the IPsec proto to use (ESP or AH)
         :param spi: the Security Parameters Index of this SA
@@ -830,6 +876,8 @@ class SecurityAssociation(object):
                         packets
         :param crypt_algo: the encryption algorithm name (only used with ESP)
         :param crypt_key: the encryption key (only used with ESP)
+        :param crypt_icv_size: change the default size of the crypt_algo
+                               (only used with ESP)
         :param auth_algo: the integrity algorithm name
         :param auth_key: the integrity key
         :param tunnel_header: an instance of a IP(v6) header that will be used
@@ -872,6 +920,7 @@ class SecurityAssociation(object):
             self.crypt_algo = CRYPT_ALGOS['NULL']
             self.crypt_key = None
             self.crypt_salt = None
+        self.crypt_icv_size = crypt_icv_size
 
         if auth_algo:
             if auth_algo not in AUTH_ALGOS:
@@ -928,6 +977,7 @@ class SecurityAssociation(object):
 
         esp = self.crypt_algo.pad(esp)
         esp = self.crypt_algo.encrypt(self, esp, self.crypt_key,
+                                      self.crypt_icv_size,
                                       esn_en=esn_en or self.esn_en,
                                       esn=esn or self.esn)
 
@@ -1046,6 +1096,7 @@ class SecurityAssociation(object):
             self.auth_algo.verify(encrypted, self.auth_key)
 
         esp = self.crypt_algo.decrypt(self, encrypted, self.crypt_key,
+                                      self.crypt_icv_size or
                                       self.crypt_algo.icv_size or
                                       self.auth_algo.icv_size,
                                       esn_en=esn_en or self.esn_en,
