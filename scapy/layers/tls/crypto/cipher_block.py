@@ -7,7 +7,8 @@
 Block ciphers.
 """
 
-from __future__ import absolute_import
+import warnings
+
 from scapy.config import conf
 from scapy.layers.tls.crypto.common import CipherError
 import scapy.libs.six as six
@@ -19,6 +20,7 @@ if conf.crypto_valid:
                                                         CipherAlgorithm)
     from cryptography.hazmat.backends.openssl.backend import (backend,
                                                               GetCipherByName)
+    from cryptography import CryptographyDeprecationWarning
 
 
 _tls_block_cipher_algs = {}
@@ -127,6 +129,8 @@ if conf.crypto_valid:
 
 # Mostly deprecated ciphers
 
+_sslv2_block_cipher_algs = {}
+
 if conf.crypto_valid:
     class Cipher_DES_CBC(_BlockCipher):
         pc_cls = algorithms.TripleDES
@@ -152,27 +156,32 @@ if conf.crypto_valid:
         block_size = 8
         key_len = 24
 
-    class Cipher_IDEA_CBC(_BlockCipher):
-        pc_cls = algorithms.IDEA
-        pc_cls_mode = modes.CBC
-        block_size = 8
-        key_len = 16
+    _sslv2_block_cipher_algs["DES_192_EDE3_CBC"] = Cipher_3DES_EDE_CBC
 
-    class Cipher_SEED_CBC(_BlockCipher):
-        pc_cls = algorithms.SEED
-        pc_cls_mode = modes.CBC
-        block_size = 16
-        key_len = 16
+    try:
+        with warnings.catch_warnings():
+            # Hide deprecation warnings
+            warnings.filterwarnings("ignore",
+                                    category=CryptographyDeprecationWarning)
 
+            class Cipher_IDEA_CBC(_BlockCipher):
+                pc_cls = algorithms.IDEA
+                pc_cls_mode = modes.CBC
+                block_size = 8
+                key_len = 16
 
-_sslv2_block_cipher_algs = {}
+            class Cipher_SEED_CBC(_BlockCipher):
+                pc_cls = algorithms.SEED
+                pc_cls_mode = modes.CBC
+                block_size = 16
+                key_len = 16
 
-if conf.crypto_valid:
-    _sslv2_block_cipher_algs.update({
-        "IDEA_128_CBC": Cipher_IDEA_CBC,
-        "DES_64_CBC": Cipher_DES_CBC,
-        "DES_192_EDE3_CBC": Cipher_3DES_EDE_CBC
-    })
+            _sslv2_block_cipher_algs.update({
+                "IDEA_128_CBC": Cipher_IDEA_CBC,
+                "DES_64_CBC": Cipher_DES_CBC,
+            })
+    except AttributeError:
+        pass
 
 
 # We need some black magic for RC2, which is not registered by default
