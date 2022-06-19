@@ -885,6 +885,7 @@ scapy_delete_temp_files()
 = Test load_services
 
 data_services = """
+itu-bicc-stc	3097/sctp
 cvsup		5999/udp			# CVSup
 x11		6000-6063/tcp			# X Window System
 x11		6000-6063/udp			# X Window System
@@ -895,13 +896,15 @@ services = get_temp_file()
 with open(services, "w") as w:
     w.write(data_services)
 
-tcp, udp = load_services(services)
+tcp, udp, sctp = load_services(services)
 assert tcp[6002] == "x11"
 assert tcp.ndl_ahp_svc == 6064
 assert tcp.x11 in range(6000, 6093)
 assert udp[6002] == "x11"
 assert udp.x11 in range(6000, 6093)
 assert udp.cvsup == 5999
+assert sctp[3097] == "itu_bicc_stc"
+assert sctp.itu_bicc_stc == 3097
 
 scapy_delete_temp_files()
 
