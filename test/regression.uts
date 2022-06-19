@@ -135,6 +135,55 @@ result = [x.strip() for x in result.split("\n")]
 output = [x.strip() for x in rfc(IP, ret=True).strip().split("\n")]
 assert result == output
 
+result = """
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |      CODE     |       ID      |              LEN              |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |      TYPE     |L|M|S|RES|VERSI|          MESSAGE LEN          |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                               |              DATA             |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                           Fig. EAP_TTLS
+""".strip()
+result = [x.strip() for x in result.split("\n")]
+output = [x.strip() for x in rfc(EAP_TTLS, ret=True).strip().split("\n")]
+assert result == output
+
+
+result = """
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |VERSION|       TC      |                   FL                  |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |              PLEN             |       NH      |      HLIM     |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                              SRC                              |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                              DST                              |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                             Fig. IPv6
+""".strip()
+result = [x.strip() for x in result.split("\n")]
+output = [x.strip() for x in rfc(IPv6, ret=True).strip().split("\n")]
+assert result == output
+
 = Check that all contrib modules are well-configured
 ~ command
 list_contrib(_debug=True)
