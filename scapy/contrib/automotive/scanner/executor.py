@@ -73,9 +73,6 @@ class AutomotiveTestCaseExecutor:
         self.configuration = AutomotiveTestCaseExecutorConfiguration(
             test_cases or self.default_test_case_clss, **kwargs)
 
-        self.configuration.state_graph.add_edge(
-            (self.__initial_ecu_state, self.__initial_ecu_state))
-
     def __reduce__(self):  # type: ignore
         f, t, d = super(AutomotiveTestCaseExecutor, self).__reduce__()  # type: ignore  # noqa: E501
         try:
