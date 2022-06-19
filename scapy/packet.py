@@ -128,7 +128,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))  # noqa: E501
 
     def __init__(self,
-                 _pkt=b"",  # type: bytes
+                 _pkt=b"",  # type: Union[bytes, bytearray]
                  post_transform=None,  # type: Any
                  _internal=0,  # type: int
                  _underlayer=None,  # type: Optional[Packet]
@@ -151,6 +151,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.init_fields()
         self.underlayer = _underlayer
         self.parent = _parent
+        if isinstance(_pkt, bytearray):
+            _pkt = bytes(_pkt)
         self.original = _pkt
         self.explicit = 0
         self.raw_packet_cache = None  # type: Optional[bytes]
