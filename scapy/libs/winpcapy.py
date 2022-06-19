@@ -1,8 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Massimo Ciani (2009)
-#               Gabriel Potter (2016-2019)
-# This program is published under a GPLv2 license
+# Copyright (C) Gabriel Potter
 
 # Modified for scapy's usage - To support Npcap/Monitor mode
 

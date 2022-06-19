@@ -1,3 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Copyright (C) Sebastian Baar <sebastian.baar@gmx.de>
+
 # MIT License
 
 # Copyright (c) 2018 Jose Amores
@@ -20,10 +25,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) Sebastian Baar <sebastian.baar@gmx.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = Scalable service-Oriented MiddlewarE/IP (SOME/IP)
 # scapy.contrib.status = loads

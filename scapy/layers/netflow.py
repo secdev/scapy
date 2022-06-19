@@ -1,9 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
+
 # Netflow V5 appended by spaceB0x and Guillaume Valadon
-# Netflow V9/10 appended ny Gabriel Potter
+# Netflow V9/10 appended by Gabriel Potter
 
 """
 Cisco NetFlow protocol v1, v5, v9 and v10 (IPFix)

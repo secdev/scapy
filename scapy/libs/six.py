@@ -18,7 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# This file is published as part of Scapy under GPLv2 or later
+# This file is published as part of Scapy
 
 """Utilities for writing code that runs on Python 2 and 3"""
 

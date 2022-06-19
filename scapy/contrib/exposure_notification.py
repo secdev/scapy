@@ -1,13 +1,11 @@
-# -*- mode: python3; indent-tabs-mode: nil; tab-width: 4 -*-
-# exposure_notification.py - Apple/Google Exposure Notification System
-#
+# SPDX-License-Identifier: GPL-2.0-or-later
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) 2020 Michael Farrell <micolous+git@gmail.com>
-# This program is published under a GPLv2 (or later) license
-#
+
 # scapy.contrib.description = Apple/Google Exposure Notification System (ENS)
 # scapy.contrib.status = loads
+
 """
 Apple/Google Exposure Notification System (ENS), formerly known as
 Privacy-Preserving Contact Tracing Project.

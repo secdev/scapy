@@ -1,9 +1,9 @@
 #!/usr/local/bin/bash
 
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 pkg update
 pkg install --yes git python2 python3 py37-virtualenv py27-sqlite3 py37-sqlite3 bash rust

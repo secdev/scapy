@@ -1,10 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) 2019 Freie Universitaet Berlin
-# This program is published under GPLv2 license
-#
-# Specification:
-#   http://www.mqtt.org/new/wp-content/uploads/2009/06/MQTT-SN_spec_v1.2.pdf
+
+"""
+MQTT for Sensor Networks (MQTT-SN)
+
+Specification:
+http://www.mqtt.org/new/wp-content/uploads/2009/06/MQTT-SN_spec_v1.2.pdf
+"""
+
 
 # scapy.contrib.description = MQTT for Sensor Networks (MQTT-SN)
 # scapy.contrib.status = loads

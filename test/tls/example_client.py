@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-## This file is part of Scapy
-## This program is published under a GPLv2 license
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
 
 """
 Basic TLS client. A ciphersuite may be commanded via a first argument.

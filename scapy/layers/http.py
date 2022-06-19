@@ -1,10 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) 2019 Gabriel Potter <gabriel@potter.fr>
+# See https://scapy.net/ for more information
 # Copyright (C) 2012 Luca Invernizzi <invernizzi.l@gmail.com>
 # Copyright (C) 2012 Steeve Barbeau <http://www.sbarbeau.fr>
-
-# This program is published under a GPLv2 license
+# Copyright (C) 2019 Gabriel Potter <gabriel[]potter[]fr>
 
 """
 HTTP 1.0 layer.
@@ -39,7 +38,6 @@ You can turn auto-decompression/auto-compression off with:
 # This file is a modified version of the former scapy_http plugin.
 # It was reimplemented for scapy 2.4.3+ using sessions, stream handling.
 # Original Authors : Steeve Barbeau, Luca Invernizzi
-# Originally published under a GPLv2 license
 
 import io
 import os

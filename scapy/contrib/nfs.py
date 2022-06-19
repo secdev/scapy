@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Lucas Preston <lucas.preston@infinite.io>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = Network File System (NFS) v3
 # scapy.contrib.status = loads
