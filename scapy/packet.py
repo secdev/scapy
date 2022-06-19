@@ -2428,7 +2428,7 @@ def rfc(cls, ret=False, legend=True):
         # The last field of above is shared with below
         if above[-1][2] == below[0][2]:
             # where the field in "above" starts
-            pos_above = sum(x[1] for x in above[:-1])
+            pos_above = sum(x[1] for x in above[:-1]) + len(above[:-1]) - 1
             # where the field in "below" ends
             pos_below = below[0][1]
             if pos_above < pos_below:
