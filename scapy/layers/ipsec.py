@@ -481,7 +481,7 @@ if algorithms:
                                     cipher=algorithms.TripleDES,
                                     mode=modes.CBC)
     try:
-        from cryptography import CryptographyDeprecationWarning
+        from cryptography.utils import CryptographyDeprecationWarning
         with warnings.catch_warnings():
             # Hide deprecation warnings
             warnings.filterwarnings("ignore",
