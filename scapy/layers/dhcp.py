@@ -132,7 +132,7 @@ class RandClasslessStaticRoutesField(RandField):
     """
 
     def _fix(self):
-        return "%s/%d:%s" % (RandIP(), RandByte(), RandIP())
+        return "%s/%d:%s" % (RandIP(), RandNum(0, 32), RandIP())
 
 
 class ClasslessFieldListField(FieldListField):
