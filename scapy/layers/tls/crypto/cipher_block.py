@@ -14,13 +14,15 @@ from scapy.layers.tls.crypto.common import CipherError
 import scapy.libs.six as six
 
 if conf.crypto_valid:
-    from cryptography.utils import register_interface
+    from cryptography.utils import (
+        register_interface,
+        CryptographyDeprecationWarning,
+    )
     from cryptography.hazmat.primitives.ciphers import (Cipher, algorithms, modes,  # noqa: E501
                                                         BlockCipherAlgorithm,
                                                         CipherAlgorithm)
     from cryptography.hazmat.backends.openssl.backend import (backend,
                                                               GetCipherByName)
-    from cryptography import CryptographyDeprecationWarning
 
 
 _tls_block_cipher_algs = {}

@@ -135,7 +135,7 @@ if six.PY2:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            from cryptography import CryptographyDeprecationWarning
+            from cryptography.utils import CryptographyDeprecationWarning
         warnings.filterwarnings("ignore",
                                 category=CryptographyDeprecationWarning)
     except ImportError:
