@@ -29,6 +29,8 @@ load_layer("can")
 def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstable_socket=True, **kwargs):
     TesterSocket = UnstableSocket if unstable_socket else TestSocket
     answering_machine_started = threading.Event()
+    answering_machine_running = threading.Event()
+    answering_machine_running.set()
     def reset():
         answering_machine.state.reset()
         answering_machine.state["session"] = 1
@@ -41,13 +43,13 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
     def answering_machine_thread():
         global ecu
         global answering_machine
-        while True:
+        while answering_machine_running.is_set():
             try:
                 ecu = TestSocket(UDS)
                 tester.pair(ecu)
                 answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=UDS, verbose=False)
                 answering_machine_started.set()
-                answering_machine(timeout=1000, stop_filter=lambda x: bytes(x) == b"\xff\xff\xff")
+                answering_machine(timeout=120, stop_filter=lambda x: bytes(x) == b"\xff\xff\xff")
                 return
             except OSError:
                 continue
@@ -60,11 +62,12 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
             retry_if_none_received=True, unittest=True,
             **kwargs)
         for i in range(100):
-            scanner.scan(timeout=20)
+            scanner.scan(timeout=10)
             if scanner.scan_completed:
                 print("Scan completed after %d iterations" % i)
                 break
     finally:
+        answering_machine_running.clear()
         tester.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)
     if six.PY3 and LINUX:
