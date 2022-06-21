@@ -106,7 +106,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     def __init__(self):
         # type: () -> None
         super(ServiceEnumerator, self).__init__()
-        self.__result_packets = OrderedDict()  # type: Dict[bytes, Packet]
+        self._result_packets = OrderedDict()  # type: Dict[bytes, Packet]
         self._results = list()  # type: List[_AutomotiveTestCaseScanResult]
         self._request_iterators = dict()  # type: Dict[EcuState, Iterable[Packet]]  # noqa: E501
         self._retry_pkt = defaultdict(lambda: None)  # type: Dict[EcuState, Optional[Union[Packet, Iterable[Packet]]]]  # noqa: E501
@@ -190,20 +190,20 @@ class ServiceEnumerator(AutomotiveTestCase):
 
     def _store_result(self, state, req, res):
         # type: (EcuState, Packet, Optional[Packet]) -> None
-        if bytes(req) not in self.__result_packets:
-            self.__result_packets[bytes(req)] = req
+        if bytes(req) not in self._result_packets:
+            self._result_packets[bytes(req)] = req
 
-        if res and bytes(res) not in self.__result_packets:
-            self.__result_packets[bytes(res)] = res
+        if res and bytes(res) not in self._result_packets:
+            self._result_packets[bytes(res)] = res
 
         self._results.append(_AutomotiveTestCaseScanResult(
             state,
-            self.__result_packets[bytes(req)],
-            self.__result_packets[bytes(res)] if res is not None else None,
+            self._result_packets[bytes(req)],
+            self._result_packets[bytes(res)] if res is not None else None,
             req.sent_time or 0.0,
             res.time if res is not None else None))
 
-    def __get_retry_iterator(self, state):
+    def _get_retry_iterator(self, state):
         # type: (EcuState) -> Iterable[Packet]
         retry_entry = self._retry_pkt[state]
         if retry_entry is None:
@@ -216,7 +216,7 @@ class ServiceEnumerator(AutomotiveTestCase):
             # assume self.retry_pkt is a generator or list
             return retry_entry
 
-    def __get_initial_request_iterator(self, state, **kwargs):
+    def _get_initial_request_iterator(self, state, **kwargs):
         # type: (EcuState, Any) -> Iterable[Packet]
         if state not in self._request_iterators:
             self._request_iterators[state] = iter(
@@ -224,10 +224,10 @@ class ServiceEnumerator(AutomotiveTestCase):
 
         return self._request_iterators[state]
 
-    def __get_request_iterator(self, state, **kwargs):
+    def _get_request_iterator(self, state, **kwargs):
         # type: (EcuState, Optional[Dict[str, Any]]) -> Iterable[Packet]
-        return chain(self.__get_retry_iterator(state),
-                     self.__get_initial_request_iterator(state, **kwargs))
+        return chain(self._get_retry_iterator(state),
+                     self._get_initial_request_iterator(state, **kwargs))
 
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None
@@ -250,7 +250,7 @@ class ServiceEnumerator(AutomotiveTestCase):
                                   repr(state))
             return
 
-        it = self.__get_request_iterator(state, **kwargs)
+        it = self._get_request_iterator(state, **kwargs)
 
         # log_interactive.debug("[i] Using iterator %s in state %s", it, state)
 
@@ -657,7 +657,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     def supported_responses(self):
         # type: () -> List[EcuResponse]
         supported_resps = list()
-        all_responses = [p for p in self.__result_packets.values()
+        all_responses = [p for p in self._result_packets.values()
                          if orb(bytes(p)[0]) & 0x40]
         for resp in all_responses:
             states = list(set([t.state for t in self.results_with_response

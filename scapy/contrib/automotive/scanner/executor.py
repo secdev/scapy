@@ -73,9 +73,6 @@ class AutomotiveTestCaseExecutor:
         self.configuration = AutomotiveTestCaseExecutorConfiguration(
             test_cases or self.default_test_case_clss, **kwargs)
 
-        self.configuration.state_graph.add_edge(
-            (self.__initial_ecu_state, self.__initial_ecu_state))
-
     def __reduce__(self):  # type: ignore
         f, t, d = super(AutomotiveTestCaseExecutor, self).__reduce__()  # type: ignore  # noqa: E501
         try:
@@ -186,18 +183,25 @@ class AutomotiveTestCaseExecutor:
         test_case.post_execute(
             self.socket, self.target_state, self.configuration)
 
+        self.check_new_states(test_case)
+        self.check_new_testcases(test_case)
+
+    def check_new_testcases(self, test_case):
+        # type: (AutomotiveTestCaseABC) -> None
+        if isinstance(test_case, TestCaseGenerator):
+            new_test_case = test_case.get_generated_test_case()
+            if new_test_case:
+                log_interactive.debug("Testcase generated %s", new_test_case)
+                self.configuration.add_test_case(new_test_case)
+
+    def check_new_states(self, test_case):
+        # type: (AutomotiveTestCaseABC) -> None
         if isinstance(test_case, StateGenerator):
             edge = test_case.get_new_edge(self.socket, self.configuration)
             if edge:
                 log_interactive.debug("Edge found %s", edge)
                 tf = test_case.get_transition_function(self.socket, edge)
                 self.state_graph.add_edge(edge, tf)
-
-        if isinstance(test_case, TestCaseGenerator):
-            new_test_case = test_case.get_generated_test_case()
-            if new_test_case:
-                log_interactive.debug("Testcase generated %s", new_test_case)
-                self.configuration.add_test_case(new_test_case)
 
     def scan(self, timeout=None):
         # type: (Optional[int]) -> None
