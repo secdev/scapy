@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0
+# SPDX-License-Identifier: GPL-2.0-or-later
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) 2010 Florian Duraffourg
