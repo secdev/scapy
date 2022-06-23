@@ -69,6 +69,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     _supported_kwargs_doc = AutomotiveTestCase._supported_kwargs_doc + """
         :param timeout: Timeout until a response will arrive after a request
         :type timeout: integer or float
+        :param integer count: Number of request to be sent in one execution
         :param int execution_time: Time in seconds until the execution of
                                    this enumerator is stopped.
         :param state_allow_list: List of EcuState objects or EcuState object
@@ -233,6 +234,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         # type: (_SocketUnion, EcuState, Any) -> None
         self.check_kwargs(kwargs)
         timeout = kwargs.pop('timeout', 1)
+        count = kwargs.pop('count', None)
         execution_time = kwargs.pop("execution_time", 1200)
 
         state_block_list = kwargs.get('state_block_list', list())
@@ -266,6 +268,11 @@ class ServiceEnumerator(AutomotiveTestCase):
             if self._evaluate_response(state, req, res, **kwargs):
                 log_interactive.debug("[i] Stop test_case execution because "
                                       "of response evaluation")
+                return
+
+            if count is not None and count == 0:
+                log_interactive.debug(
+                    "[i] Finished execution count of enumerator")
                 return
 
             if (start_time + execution_time) < time.time():
