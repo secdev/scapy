@@ -270,10 +270,13 @@ class ServiceEnumerator(AutomotiveTestCase):
                                       "of response evaluation")
                 return
 
-            if count is not None and count == 0:
-                log_interactive.debug(
-                    "[i] Finished execution count of enumerator")
-                return
+            if count is not None:
+                if count <= 0:
+                    log_interactive.debug(
+                        "[i] Finished execution count of enumerator")
+                    return
+                else:
+                    count -= 1
 
             if (start_time + execution_time) < time.time():
                 log_interactive.debug(
