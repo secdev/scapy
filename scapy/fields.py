@@ -1839,7 +1839,7 @@ class StrLenField(StrField):
         return RandBin(RandNum(0, self.max_length or 1200))
 
 
-class _XStrField:
+class _XStrField(Field[bytes, bytes]):
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
         if isinstance(x, bytes):
