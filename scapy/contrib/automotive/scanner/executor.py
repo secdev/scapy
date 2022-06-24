@@ -43,7 +43,7 @@ class AutomotiveTestCaseExecutor:
                    AutomotiveTestCaseExecutorConfiguration instance
     """
     @property
-    def __initial_ecu_state(self):
+    def _initial_ecu_state(self):
         # type: () -> EcuState
         return EcuState(session=1)
 
@@ -64,7 +64,7 @@ class AutomotiveTestCaseExecutor:
         else:
             self.socket = socket
 
-        self.target_state = self.__initial_ecu_state
+        self.target_state = self._initial_ecu_state
         self.reset_handler = reset_handler
         self.reconnect_handler = reconnect_handler
 
@@ -108,11 +108,11 @@ class AutomotiveTestCaseExecutor:
         objects.
         :return: A list of paths.
         """
-        paths = [Graph.dijkstra(self.state_graph, self.__initial_ecu_state, s)
+        paths = [Graph.dijkstra(self.state_graph, self._initial_ecu_state, s)
                  for s in self.state_graph.nodes
-                 if s != self.__initial_ecu_state]
+                 if s != self._initial_ecu_state]
         return sorted(
-            [p for p in paths if p] + [[self.__initial_ecu_state]],
+            [p for p in paths if p] + [[self._initial_ecu_state]],
             key=lambda x: x[-1])
 
     @property
@@ -136,7 +136,7 @@ class AutomotiveTestCaseExecutor:
         log_interactive.info("[i] Target reset")
         if self.reset_handler:
             self.reset_handler()
-        self.target_state = self.__initial_ecu_state
+        self.target_state = self._initial_ecu_state
 
     def reconnect(self):
         # type: () -> None
@@ -270,7 +270,7 @@ class AutomotiveTestCaseExecutor:
         :param path: Path to be applied to the scan target.
         :return: True, if all transition functions could be executed.
         """
-        if path[0] != self.__initial_ecu_state:
+        if path[0] != self._initial_ecu_state:
             raise Scapy_Exception(
                 "Initial state of path not equal reset state of the target")
 
