@@ -78,6 +78,7 @@ class RawVal:
         b'F\x00####\x00\x01\x00\x005\xb5\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00'
 
     """
+
     def __init__(self, val=b""):
         # type: (bytes) -> None
         self.val = bytes_encode(val)
@@ -103,6 +104,7 @@ class ObservableDict(Dict[int, str]):
     """
     Helper class to specify a protocol extendable for runtime modifications
     """
+
     def __init__(self, *args, **kw):
         # type: (*Dict[int, str], **Any) -> None
         self.observers = []  # type: List[_EnumField[Any]]
@@ -306,6 +308,7 @@ class _FieldContainer(object):
     """
     A field that acts as a container for another field
     """
+
     def __getattr__(self, attr):
         # type: (str) -> Any
         return getattr(self.fld, attr)
@@ -643,17 +646,51 @@ class ReversePadField(PadField):
         ), self._padwith) + sval
 
 
-class FCSField(Field[int, int]):
+class TrailerBytes(bytes):
+    """
+    Reverses slice operations to take from the back of the packet,
+    not the front
+    """
+
+    def __getitem__(self, item):  # type: ignore
+        # type: (Union[int, slice]) -> Union[int, bytes]
+        if isinstance(item, int):
+            if item < 0:
+                item = 1 + item
+            else:
+                item = len(self) - 1 - item
+        elif isinstance(item, slice):
+            start, stop, step = item.start, item.stop, item.step
+            new_start = -stop if stop else None
+            new_stop = -start if start else None
+            item = slice(new_start, new_stop, step)
+        return super(self.__class__, self).__getitem__(item)
+
+    if six.PY2:
+        def __getslice__(self, i, j):
+            # Python 2 compat
+            return self.__getitem__(slice(i, j))
+
+
+class TrailerField(_FieldContainer):
     """Special Field that gets its value from the end of the *packet*
     (Note: not layer, but packet).
 
     Mostly used for FCS
     """
+    __slots__ = ["fld"]
+
+    def __init__(self, fld):
+        # type: (Field[Any, Any]) -> None
+        self.fld = fld
+
+    # Note: this is ugly. Very ugly.
+    # Do not copy this crap elsewhere, so that if one day we get
+    # brave enough to refactor it, it'll be easier.
 
     def getfield(self, pkt, s):
         # type: (Packet, bytes) -> Tuple[bytes, int]
         previous_post_dissect = pkt.post_dissect
-        val = self.m2i(pkt, struct.unpack(self.fmt, s[-self.sz:])[0])
 
         def _post_dissect(self, s):
             # type: (Packet, bytes) -> bytes
@@ -662,12 +699,14 @@ class FCSField(Field[int, int]):
             self.post_dissect = previous_post_dissect  # type: ignore
             return previous_post_dissect(s)
         pkt.post_dissect = MethodType(_post_dissect, pkt)  # type: ignore
-        return s[:-self.sz], val
+        s = TrailerBytes(s)
+        s, val = self.fld.getfield(pkt, s)
+        return bytes(s), val
 
     def addfield(self, pkt, s, val):
         # type: (Packet, bytes, Optional[int]) -> bytes
         previous_post_build = pkt.post_build
-        value = struct.pack(self.fmt, self.i2m(pkt, val))
+        value = self.fld.addfield(pkt, b"", val)
 
         def _post_build(self, p, pay):
             # type: (Packet, bytes, bytes) -> bytes
@@ -676,6 +715,16 @@ class FCSField(Field[int, int]):
             return previous_post_build(p, pay)
         pkt.post_build = MethodType(_post_build, pkt)  # type: ignore
         return s
+
+
+class FCSField(TrailerField):
+    """
+    A FCS field that gets appended at the end of the *packet* (not layer).
+    """
+
+    def __init__(self, *args, **kwargs):
+        # type: (*Any, **Any) -> None
+        super(FCSField, self).__init__(Field(*args, **kwargs))
 
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], int) -> str
@@ -3432,6 +3481,7 @@ class BitScalingField(_ScalingField, BitField):  # type: ignore
     """
     A ScalingField that is a BitField
     """
+
     def __init__(self, name, default, size, *args, **kwargs):
         # type: (str, int, int, *Any, **Any) -> None
         _ScalingField.__init__(self, name, default, *args, **kwargs)
@@ -3442,6 +3492,7 @@ class OUIField(X3BytesField):
     """
     A field designed to carry a OUI (3 bytes)
     """
+
     def i2repr(self, pkt, val):
         # type: (Optional[Packet], int) -> str
         by_val = struct.pack("!I", val or 0)[1:]
