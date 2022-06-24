@@ -7,7 +7,7 @@
 Hash classes.
 """
 
-from __future__ import absolute_import
+import hashlib
 from hashlib import md5, sha1, sha224, sha256, sha384, sha512
 import scapy.libs.six as six
 
@@ -40,6 +40,11 @@ class Hash_NULL(_GenericHash):
 
     def digest(self, tbd):
         return b""
+
+
+class Hash_MD4(_GenericHash):
+    hash_cls = lambda _, x: hashlib.new('md4', x)
+    hash_len = 16
 
 
 class Hash_MD5(_GenericHash):

@@ -1885,36 +1885,27 @@ class StrLenField(StrField):
         return RandBin(RandNum(0, self.max_length or 1200))
 
 
-class XStrField(StrField):
-    """
-    StrField which value is printed as hexadecimal.
-    """
-
+class _XStrField(Field[bytes, bytes]):
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
         if isinstance(x, bytes):
             return bytes_hex(x).decode()
-        return super(XStrField, self).i2repr(pkt, x)
+        return super(_XStrField, self).i2repr(pkt, x)
 
 
-class _XStrLenField:
-    def i2repr(self, pkt, x):
-        # type: (Optional[Packet], bytes) -> str
-        if isinstance(x, bytes):
-            return bytes_hex(
-                x[:(self.length_from or (lambda x: 0))(pkt)]  # type: ignore
-            ).decode()
-        # cannot use super() since _XStrLenField does not inherit from Field
-        return Field.i2repr(self, pkt, x)
+class XStrField(_XStrField, StrField):
+    """
+    StrField which value is printed as hexadecimal.
+    """
 
 
-class XStrLenField(_XStrLenField, StrLenField):
+class XStrLenField(_XStrField, StrLenField):
     """
     StrLenField which value is printed as hexadecimal.
     """
 
 
-class XStrFixedLenField(_XStrLenField, StrFixedLenField):
+class XStrFixedLenField(_XStrField, StrFixedLenField):
     """
     StrFixedLenField which value is printed as hexadecimal.
     """
