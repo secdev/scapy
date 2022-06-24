@@ -434,8 +434,7 @@ if conf.use_pcap:
             self.outs = None
             if iface is None:
                 iface = conf.iface
-            else:
-                self.iface = iface
+            self.iface = iface
             if promisc is not None:
                 self.promisc = promisc
             else:
@@ -482,8 +481,7 @@ if conf.use_pcap:
             # type: (...) -> None
             if iface is None:
                 iface = conf.iface
-            else:
-                self.iface = iface
+            self.iface = iface
             if promisc is not None:
                 self.promisc = promisc
             else:
