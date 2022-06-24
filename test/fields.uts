@@ -2089,6 +2089,32 @@ pkt = TestPacket(raw(pkt))
 assert pkt.fcs == 0xbeef
 
 
+= FCSField: multiple
+
+class TestPacket2(Packet):
+    fields_desc = [
+        ByteField("a", 0),
+        LEShortField("b", 15),
+        FCSField("fcs1", None),
+        LEIntField("c", 7),
+        FCSField("fcs2", None),
+        IntField("bottom", 0),
+    ]
+
+bind_layers(TestPacket2, Ether)
+
+pkt = TestPacket2(a=12, fcs1=0xbeef, fcs2=0xfeed, bottom=123)/Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IP(src="127.0.0.1", dst="127.0.0.1")
+
+assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01\xfe\xed\xbe\xef'
+assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01\xfe\xed\xbe\xef'
+
+pkt = TestPacket2(raw(pkt))
+assert pkt.fcs1 == 0xbeef
+assert pkt.fcs2 == 0xfeed
+assert pkt.bottom == 123
+assert pkt.a == 12
+
+
 ############
 ############
 + PacketField

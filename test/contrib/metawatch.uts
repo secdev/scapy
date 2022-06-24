@@ -1,0 +1,19 @@
+# Arista Metawatch unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('metawatch')" -t test/contrib/metawatch.uts
+
++ Metawatch
+
+= MetawatchEther, basic instantiation
+
+m = MetawatchEther()
+assert m.type == 0x9000
+
+= MetawatchEther, build & dissect
+
+r = raw(MetawatchEther(dst="00:01:02:03:04:05", src="06:07:08:09:10:11"))
+assert r == b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x10\x11\x90\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+m = MetawatchEther(r)
+assert m.dst == "00:01:02:03:04:05" and m.src == "06:07:08:09:10:11" and m.type == 0x9000
