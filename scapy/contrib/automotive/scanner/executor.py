@@ -112,7 +112,7 @@ class AutomotiveTestCaseExecutor:
                  for s in self.state_graph.nodes
                  if s != self.__initial_ecu_state]
         return sorted(
-            [p for p in paths if p is not None] + [[self.__initial_ecu_state]],
+            [p for p in paths if p] + [[self.__initial_ecu_state]],
             key=lambda x: x[-1])
 
     @property
