@@ -54,6 +54,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     _supported_kwargs = copy.copy(AutomotiveTestCase._supported_kwargs)
     _supported_kwargs.update({
         'timeout': (int, float),
+        'count': int,
         'execution_time': int,
         'state_allow_list': (list, EcuState),
         'state_block_list': (list, EcuState),
