@@ -601,7 +601,7 @@ _dot11_subtypes = {
         9: "ATIM",
         10: "Disassociation",
         11: "Authentication",
-        12: "Deauthentification",
+        12: "Deauthentication",
         13: "Action",
         14: "Action No Ack",
     },
@@ -1008,6 +1008,8 @@ _dot11_id_enum = (
 )
 
 
+# 802.11-2020 9.4.2.1
+
 class Dot11Elt(Packet):
     """
     A Generic 802.11 Element
@@ -1071,6 +1073,8 @@ class Dot11Elt(Packet):
         return p + pay
 
 
+# 802.11-2020 9.4.2.4
+
 class Dot11EltDSSSet(Dot11Elt):
     name = "802.11 DSSS Parameter Set"
     match_subclass = True
@@ -1080,6 +1084,8 @@ class Dot11EltDSSSet(Dot11Elt):
         ByteField("channel", 0),
     ]
 
+
+# 802.11-2020 9.4.2.11
 
 class Dot11EltERP(Dot11Elt):
     name = "802.11 ERP"
@@ -1093,6 +1099,8 @@ class Dot11EltERP(Dot11Elt):
         BitField("res", 0, 5),
     ]
 
+
+# 802.11-2020 9.4.2.24.2
 
 class RSNCipherSuite(Packet):
     name = "Cipher suite"
@@ -1119,6 +1127,8 @@ class RSNCipherSuite(Packet):
     def extract_padding(self, s):
         return "", s
 
+
+# 802.11-2020 9.4.2.24.3
 
 class AKMSuite(Packet):
     name = "AKM suite"
@@ -1151,6 +1161,8 @@ class AKMSuite(Packet):
         return "", s
 
 
+# 802.11-2020 9.4.2.24.5
+
 class PMKIDListPacket(Packet):
     name = "PMKIDs"
     fields_desc = [
@@ -1166,6 +1178,8 @@ class PMKIDListPacket(Packet):
     def extract_padding(self, s):
         return "", s
 
+
+# 802.11-2020 9.4.2.24.1
 
 class Dot11EltRSN(Dot11Elt):
     name = "802.11 RSN information"
@@ -1197,13 +1211,22 @@ class Dot11EltRSN(Dot11Elt):
             AKMSuite,
             count_from=lambda p: p.nb_akm_suites
         ),
+        # RSN Capabilities
+        # 802.11-2020 9.4.2.24.4
         BitField("mfp_capable", 1, 1),
         BitField("mfp_required", 1, 1),
         BitField("gtksa_replay_counter", 0, 2),
         BitField("ptksa_replay_counter", 0, 2),
         BitField("no_pairwise", 0, 1),
         BitField("pre_auth", 0, 1),
-        BitField("reserved", 0, 8),
+        BitField("reserved", 0, 1),
+        BitField("ocvc", 0, 1),
+        BitField("extended_key_id", 0, 1),
+        BitField("pbac", 0, 1),
+        BitField("spp_a_msdu_required", 0, 1),
+        BitField("spp_a_msdu_capable", 0, 1),
+        BitField("peer_key_enabled", 0, 1),
+        BitField("joint_multiband_rsna", 0, 1),
         # Theoretically we could use mfp_capable/mfp_required to know if those
         # fields are present, but some implementations poorly implement it.
         # In practice, do as wireshark: guess using offset.
@@ -1227,8 +1250,9 @@ class Dot11EltRSN(Dot11Elt):
                     12 +
                     (pkt.nb_pairwise_cipher_suites or 0) * 4 +
                     (pkt.nb_akm_suites or 0) * 4 +
+                    (2 if pkt.pmkids else 0) +
                     (pkt.pmkids and pkt.pmkids.nb_pmkids or 0) * 16
-                ) >= 2
+                ) >= 4
             )
         )
     ]
