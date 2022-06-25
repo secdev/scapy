@@ -69,3 +69,23 @@ def _test():
     len(r.ar) and DNSRROPT in r.ar and len(r.ar[DNSRROPT].rdata) and len([x for x in r.ar[DNSRROPT].rdata if x.optcode == 3])
 
 retry_test(_test)
+
+
++ EDNS0 - Client Subnet
+
+= Basic instantiation & dissection
+
+raw_d = b'\x00\x00)\x10\x00\x00\x00\x00\x00\x00\n\x00\x08\x00\x06\x00\x01\x10\x00\xc0\xa8'
+
+d = DNSRROPT(z=0, rdata=[EDNS0ClientSubnet()])
+assert raw(d) == raw_d
+
+d = DNSRROPT(raw_d)
+assert EDNS0ClientSubnet in d.rdata[0] and d.rdata[0].family == 1 and d.rdata[0].address == "192.168.0.0"
+
+raw_d  = b'\x00\x00)\x10\x00\x00\x00\x00\x00\x00\x0c\x00\x08\x00\x08\x00\x02 \x00 \x01\r\xb8'
+d = DNSRROPT(z=0, rdata=[EDNS0ClientSubnet(address="2001:db8::")])
+assert raw(d) == raw_d
+
+d = DNSRROPT(raw_d)
+assert EDNS0ClientSubnet in d.rdata[0] and d.rdata[0].family == 2 and d.rdata[0].address == "2001:db8::"
