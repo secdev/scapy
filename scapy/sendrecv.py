@@ -1254,6 +1254,10 @@ class AsyncSniffer(object):
                 # Removed dead sockets
                 for s in dead_sockets:
                     del sniff_sockets[s]
+                    if len(sniff_sockets) == 1 and \
+                            close_pipe in sniff_sockets:  # type: ignore
+                        # Only the close_pipe left
+                        del sniff_sockets[close_pipe]  # type: ignore
         except KeyboardInterrupt:
             pass
         self.running = False
