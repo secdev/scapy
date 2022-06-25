@@ -35,6 +35,7 @@ from scapy.fields import (
     XIntField,
     XShortField,
 )
+from scapy.data import SCTP_SERVICES
 from scapy.layers.inet import IP, IPerror
 from scapy.layers.inet6 import IP6Field, IPv6, IPerror6
 
@@ -243,8 +244,8 @@ class _SCTPChunkGuessPayload:
 
 
 class SCTP(_SCTPChunkGuessPayload, Packet):
-    fields_desc = [ShortField("sport", 0),
-                   ShortField("dport", 0),
+    fields_desc = [ShortEnumField("sport", 0, SCTP_SERVICES),
+                   ShortEnumField("dport", 0, SCTP_SERVICES),
                    XIntField("tag", 0),
                    XIntField("chksum", None), ]
 

@@ -902,6 +902,9 @@ class Conf(ConfClass):
         if attr == "services_tcp":
             from scapy.data import TCP_SERVICES
             return TCP_SERVICES
+        if attr == "services_sctp":
+            from scapy.data import SCTP_SERVICES
+            return SCTP_SERVICES
         if attr == "iface6":
             warnings.warn(
                 "conf.iface6 is deprecated in favor of conf.iface",
