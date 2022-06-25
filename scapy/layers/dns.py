@@ -14,19 +14,21 @@ import struct
 import time
 import warnings
 
+from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
 from scapy.config import conf
+from scapy.compat import orb, raw, chb, bytes_encode, plain_str
+from scapy.error import log_runtime, warning, Scapy_Exception
 from scapy.packet import Packet, bind_layers, NoPayload, Raw
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, Field, FieldLenField, FlagsField, IntField, \
     PacketListField, ShortEnumField, ShortField, StrField, \
     StrLenField, MultipleTypeField, UTCTimeField, I
-from scapy.compat import orb, raw, chb, bytes_encode, plain_str
-from scapy.ansmachine import AnsweringMachine
 from scapy.sendrecv import sr1
+from scapy.pton_ntop import inet_ntop, inet_pton
+
 from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field, IP6Field
-from scapy.error import log_runtime, warning, Scapy_Exception
 import scapy.libs.six as six
 
 
@@ -594,11 +596,11 @@ class ClientSubnetv4(StrLenField):
         if padding:
             x += b"\x00" * operator.floordiv(padding, 8)
         x = x[: operator.floordiv(self.af_length, 8)]
-        return socket.inet_ntop(self.af_familly, x)
+        return inet_ntop(self.af_familly, x)
 
     def _pack_subnet(self, subnet):
         # type: (bytes) -> bytes
-        packed_subnet = socket.inet_pton(self.af_familly, plain_str(subnet))
+        packed_subnet = inet_pton(self.af_familly, plain_str(subnet))
         for i in list(range(operator.floordiv(self.af_length, 8)))[::-1]:
             if orb(packed_subnet[i]) != 0:
                 i += 1
