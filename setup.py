@@ -58,6 +58,9 @@ setup(
             'sphinx>=3.0.0',
             'sphinx_rtd_theme>=0.4.3',
             'tox>=3.0.0'
+        ],
+        'usbmon': [
+            'enum34 ; python_version < "3.5"'
         ]
     },
     # We use __file__ in scapy/__init__.py, therefore Scapy isn't zip safe
