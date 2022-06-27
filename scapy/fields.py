@@ -42,6 +42,11 @@ from scapy.error import warning
 import scapy.libs.six as six
 from scapy.libs.six import integer_types
 
+try:
+    from enum import Enum
+except ImportError:
+    Enum = None  # type: ignore
+
 # Typing imports
 from scapy.compat import (
     Any,
@@ -2371,7 +2376,7 @@ class _EnumField(Field[Union[List[I], I], I]):
     def __init__(self,
                  name,  # type: str
                  default,  # type: Optional[I]
-                 enum,  # type: Union[Dict[I, str], Dict[str, I], List[str], DADict[I, str], Tuple[Callable[[I], str], Callable[[str], I]]]  # noqa: E501
+                 enum,  # type: Union[Dict[I, str], Dict[str, I], List[str], DADict[I, str], Type[Enum], Tuple[Callable[[I], str], Callable[[str], I]]]  # noqa: E501
                  fmt="H",  # type: str
                  ):
         # type: (...) -> None
@@ -2379,14 +2384,14 @@ class _EnumField(Field[Union[List[I], I], I]):
 
         @param name:    name of this field
         @param default: default value of this field
-        @param enum:    either a dict or a tuple of two callables. Dict keys are  # noqa: E501
-                        the internal values, while the dict values are the
-                        user-friendly representations. If the tuple is provided,  # noqa: E501
-                        the first callable receives the internal value as
-                        parameter and returns the user-friendly representation
-                        and the second callable does the converse. The first
-                        callable may return None to default to a literal string
-                        (repr()) representation.
+        @param enum:    either an enum, a dict or a tuple of two callables.
+                        Dict keys are the internal values, while the dict
+                        values are the user-friendly representations. If the
+                        tuple is provided, the first callable receives the
+                        internal value as parameter and returns the
+                        user-friendly representation and the second callable
+                        does the converse. The first callable may return None
+                        to default to a literal string (repr()) representation.
         @param fmt:     struct.pack format used to parse and serialize the
                         internal value from and to machine representation.
         """
@@ -2398,6 +2403,17 @@ class _EnumField(Field[Union[List[I], I], I]):
             self.s2i_cb = enum[1]  # type: Optional[Callable[[str], I]]
             self.i2s = None  # type: Optional[Dict[I, str]]
             self.s2i = None  # type: Optional[Dict[str, I]]
+        elif Enum and isinstance(enum, type) and issubclass(enum, Enum):
+            # Python's Enum
+            i2s = self.i2s = {}
+            s2i = self.s2i = {}
+            self.i2s_cb = None
+            self.s2i_cb = None
+            names = [x.name for x in enum]
+            for n in names:
+                value = enum[n].value
+                i2s[value] = n
+                s2i[n] = value
         else:
             i2s = self.i2s = {}
             s2i = self.s2i = {}

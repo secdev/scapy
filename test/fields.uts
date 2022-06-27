@@ -1122,6 +1122,26 @@ assert(fcb.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
 
 True
 
+= EnumField with Enum
+~ python3_only
+
+# not available on Python 2...
+
+from enum import Enum
+
+class JUICE(Enum):
+    APPLE = 0
+    ORANGE = 1
+    PINEAPPLE = 2
+
+
+class Breakfast(Packet):
+    fields_desc = [EnumField("juice", 1, JUICE, fmt="H")]
+
+
+assert raw(Breakfast(juice="ORANGE")) == b"\x00\x01"
+
+
 ############
 ############
 + CharEnumField tests
