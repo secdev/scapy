@@ -1322,6 +1322,7 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
         self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
         self.ALLOW_SMB2 = kwargs.pop("ALLOW_SMB2", True)
         self.REAL_HOSTNAME = kwargs.pop("REAL_HOSTNAME", None)
+        self.RETURN_SOCKET = kwargs.pop("RETURN_SOCKET", None)
         self.RUN_SCRIPT = kwargs.pop("RUN_SCRIPT", None)
         self.SMB2 = False
         super(NTLM_SMB_Client, self).__init__(*args, **kwargs)
@@ -1616,12 +1617,14 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
     def AUTHENTICATED(self):
         pass
 
-    @ATMT.condition(AUTHENTICATED)
-    def should_run_script(self):
+    @ATMT.condition(AUTHENTICATED, prio=0)
+    def authenticated_post_actions(self):
+        if self.RETURN_SOCKET:
+            raise self.SOCKET_MODE()
         if self.RUN_SCRIPT:
             raise self.DO_RUN_SCRIPT()
 
-    @ATMT.receive_condition(AUTHENTICATED)
+    @ATMT.receive_condition(AUTHENTICATED, prio=1)
     def receive_packet(self, pkt):
         raise self.AUTHENTICATED().action_parameters(pkt)
 
@@ -1648,3 +1651,24 @@ class NTLM_SMB_Client(NTLM_Client, Automaton):
         self.send(pkt)
         # ... run something?
         self.end()
+
+    @ATMT.state()
+    def SOCKET_MODE(self):
+        pass
+
+    @ATMT.receive_condition(SOCKET_MODE)
+    def incoming_data_received(self, pkt):
+        raise self.SOCKET_MODE().action_parameters(pkt)
+
+    @ATMT.action(incoming_data_received)
+    def receive_data(self, pkt):
+        self.oi.smbpipe.send(bytes(pkt))
+
+    @ATMT.ioevent(SOCKET_MODE, name="smbpipe", as_supersocket="smblink")
+    def outgoing_data_received(self, fd):
+        raise self.ESTABLISHED().action_parameters(fd.recv())
+
+    @ATMT.action(outgoing_data_received)
+    def send_data(self, d):
+        self.smb_header.MID += 1
+        self.send(self.smb_header.copy() / d)
