@@ -326,8 +326,9 @@ class CommandsList(List[Callable[..., Any]]):
         # type: () -> str
         s = []
         for li in sorted(self, key=lambda x: x.__name__):
-            doc = li.__doc__.split("\n")[0] if li.__doc__ else "--"
-            s.append("%-20s: %s" % (li.__name__, doc))
+            doc = li.__doc__ if li.__doc__ else "--"
+            doc = doc.lstrip().split('\n', 1)[0]
+            s.append("%-22s: %s" % (li.__name__, doc))
         return "\n".join(s)
 
     def register(self, cmd):
