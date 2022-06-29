@@ -1166,7 +1166,8 @@ class UDS_Scanner(AutomotiveTestCaseExecutor):
         >>> es = [UDS_ServiceEnumerator, UDS_DSCEnumerator]
         >>>
         >>> def reset():
-        >>>     reconnect().sr1(UDS()/UDS_ER(resetType="hardReset"), verbose=False, timeout=1)
+        >>>     reconnect().sr1(UDS()/UDS_ER(resetType="hardReset"),
+        >>>                     verbose=False, timeout=1)
         >>>
         >>> s = UDS_Scanner(reconnect(), reconnect_handler=reconnect,
         >>>                 reset_handler=reset, test_cases=es,
