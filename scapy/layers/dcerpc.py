@@ -27,11 +27,11 @@ https://pubs.opengroup.org/onlinepubs/9629399/toc.pdf
 """
 
 from collections import namedtuple
-from socket import socket
+# from socket import socket
 import struct
 from uuid import UUID
 
-from scapy.automaton import ATMT, Automaton
+# from scapy.automaton import ATMT, Automaton
 from scapy.config import conf
 from scapy.layers.gssapi import GSSAPI_BLOB
 from scapy.packet import Packet, Raw, bind_bottom_up, bind_layers
@@ -75,7 +75,7 @@ from scapy.contrib.rtps.common_types import (
     EPacketField,
     EPacketListField,
 )
-from scapy.supersocket import StreamSocket
+# from scapy.supersocket import StreamSocket
 
 
 # DCE/RPC Packet
@@ -814,32 +814,32 @@ class NDRContextHandle(Packet):
 # --- DCE/RPC client
 
 
-class DCERPC_Client(Automaton):
-    def __init__(self, sock, **kwargs):
-        super(DCERPC_Client, self).__init__(
-            recvsock=lambda **_: sock, ll=lambda **_: sock, **kwargs
-        )
-
-    @ATMT.state(initial=1)
-    def BEGIN(self):
-        pass
-
-    def send_epm_bind(self):
-        self.send()
-
-
-def dcerpc_connect(remoteIP, use_smb=False, remotePort=135):
-    """
-    Initiale a connection using DCE/RPC
-    """
-    if use_smb:
-        # TODO - Use NTLM_SMB_Client.smblink as a socket
-        raise Exception("use_smb unimplemented")
-    sock = socket.socket()
-    sock.connect((remoteIP, remotePort))
-    remote_sock = StreamSocket(sock, DceRpc)
-    print("connected to %s" % repr(sock.getsockname()))
-    DCERPC_Client(remote_sock, debug=4).run()
+# class DCERPC_Client(Automaton):
+#     def __init__(self, sock, **kwargs):
+#         super(DCERPC_Client, self).__init__(
+#             recvsock=lambda **_: sock, ll=lambda **_: sock, **kwargs
+#         )
+#
+#     @ATMT.state(initial=1)
+#     def BEGIN(self):
+#         pass
+#
+#     def send_epm_bind(self):
+#         self.send()
+#
+#
+# def dcerpc_connect(remoteIP, use_smb=False, remotePort=135):
+#     """
+#     Initiale a connection using DCE/RPC
+#     """
+#     if use_smb:
+#         # TODO - Use NTLM_SMB_Client.smblink as a socket
+#         raise Exception("use_smb unimplemented")
+#     sock = socket.socket()
+#     sock.connect((remoteIP, remotePort))
+#     remote_sock = StreamSocket(sock, DceRpc)
+#     print("connected to %s" % repr(sock.getsockname()))
+#     DCERPC_Client(remote_sock, debug=4).run()
 
 
 # --- TODO cleanup below
