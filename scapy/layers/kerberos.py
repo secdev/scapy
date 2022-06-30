@@ -8,7 +8,7 @@ Kerberos V5
 
 Implements parts of
 - Kerberos Network Authentication Service (V5): RFC4120
-- Kerberos Version 5 GSS-API: RFC1964
+- Kerberos Version 5 GSS-API: RFC1964, RFC4121
 """
 
 from scapy.asn1.asn1 import ASN1_SEQUENCE, ASN1_Class_UNIVERSAL, ASN1_Codecs
@@ -28,11 +28,13 @@ from scapy.asn1fields import (
 )
 from scapy.asn1packet import ASN1_Packet
 from scapy.fields import (
+    ByteField,
+    FlagsField,
     LEIntField,
     LEShortEnumField,
     LEShortField,
     PadField,
-    StrEnumField,
+    ShortField,
     StrFixedLenEnumField,
     XStrFixedLenField,
 )
@@ -478,12 +480,16 @@ bind_bottom_up(UDP, Kerberos, dport=88)
 bind_layers(UDP, Kerberos, sport=88, dport=88)
 
 
-# RFC 1964 - Kerberos V5 GSS-API
+# Kerberos V5 GSS-API - RFC1964 and RFC4121
 
 _TOK_IDS = {
-    b"\x01\x01": "GSS_GetMIC",
-    b"\x02\x01": "GSS_Wrap",
-    b"\x01\x02": "GSS_Delete_sec_context",
+    # RFC 1964
+    b"\x01\x01": "GSS_GetMIC-RFC1964",
+    b"\x02\x01": "GSS_Wrap-RFC1964",
+    b"\x01\x02": "GSS_Delete_sec_context-RFC1964",
+    # RFC 4121
+    b"\x04\x04": "GSS_GetMIC",
+    b"\x05\x04": "GSS_Wrap"
 }
 _SGN_ALGS = {
     0: "DES MAC MD5",
@@ -495,11 +501,11 @@ _SEAL_ALGS = {
     0xffff: "none",
 }
 
-# sect 1.2.1
+# RFC 1964 - sect 1.2.1
 
 
-class KRB5_GSS_GetMIC(Packet):
-    name = "Kerberos v5 GSS_GetMIC"
+class KRB5_GSS_GetMIC_RFC1964(Packet):
+    name = "Kerberos v5 GSS_GetMIC (RFC1964)"
     fields_desc = [
         StrFixedLenEnumField("TOK_ID", b"\x01\x01", _TOK_IDS, length=2),
         LEShortEnumField("SGN_ALG", 0, _SGN_ALGS),
@@ -513,13 +519,13 @@ class KRB5_GSS_GetMIC(Packet):
     ]
 
 
-bind_layers(KRB5_GSS_GetMIC, Kerberos)
+bind_layers(KRB5_GSS_GetMIC_RFC1964, Kerberos)
 
-# sect 1.2.2
+# RFC 1964 - sect 1.2.2
 
 
-class KRB5_GSS_Wrap(Packet):
-    name = "Kerberos v5 GSS_Wrap"
+class KRB5_GSS_Wrap_RFC1964(Packet):
+    name = "Kerberos v5 GSS_Wrap (RFC1964)"
     fields_desc = [
         StrFixedLenEnumField("TOK_ID", b"\x02\x01", _TOK_IDS, length=2),
         LEShortEnumField("SGN_ALG", 0, _SGN_ALGS),
@@ -536,28 +542,80 @@ class KRB5_GSS_Wrap(Packet):
     ]
 
 
-bind_layers(KRB5_GSS_Wrap, Kerberos)
+bind_layers(KRB5_GSS_Wrap_RFC1964, Kerberos)
 
-# sect 1.2.2
+# RFC 1964 - sect 1.2.2
 
 
-class KRB5_GSS_Delete_sec_context(Packet):
-    name = "Kerberos v5 GSS_Delete_sec_context"
+class KRB5_GSS_Delete_sec_context_RFC1964(Packet):
+    name = "Kerberos v5 GSS_Delete_sec_context (RFC1964)"
     TOK_ID = b"\x01\x02"
-    fields_desc = KRB5_GSS_GetMIC.fields_desc
+    fields_desc = KRB5_GSS_GetMIC_RFC1964.fields_desc
 
 
-bind_layers(KRB5_GSS_Wrap, Kerberos)
+bind_layers(KRB5_GSS_Wrap_RFC1964, Kerberos)
 
+
+# RFC 4121 - sect 4.2.2
+
+_KRB5_GSS_Flags = [
+    "SentByAcceptor",
+    "Sealed",
+    "AcceptorSubkey",
+]
+
+
+# RFC 4121 - sect 4.2.6.1
+
+
+class KRB5_GSS_GetMIC(Packet):
+    name = "Kerberos v5 GSS_GetMIC"
+    fields_desc = [
+        StrFixedLenEnumField("TOK_ID", b"\x04\x04", _TOK_IDS, length=2),
+        FlagsField("Flags", 8, 0, _KRB5_GSS_Flags),
+        LEIntField("reserved", 0xffffffff),
+        XStrFixedLenField("SND_SEQ", b"", length=8),
+        PadField(
+            XStrFixedLenField("SGN_CKSUM", b"", length=8),
+            align=8,
+            padwith=b"\x04",
+        ),
+    ]
+
+# RFC 4121 - sect 4.2.6.2
+
+
+class KRB5_GSS_Wrap(Packet):
+    name = "Kerberos v5 GSS_Wrap"
+    fields_desc = [
+        StrFixedLenEnumField("TOK_ID", b"\x05\x04", _TOK_IDS, length=2),
+        FlagsField("Flags", 8, 0, _KRB5_GSS_Flags),
+        ByteField("reserved", 0xff),
+        ShortField("EC", 0),  # Big endian
+        ShortField("RRC", 0),  # Big endian
+        XStrFixedLenField("SND_SEQ", b"", length=8),
+        PadField(
+            XStrFixedLenField("SGN_CKSUM", b"", length=8),
+            align=8,
+            padwith=b"\x04",
+        ),
+    ]
+
+
+# Main class
 
 class KRB5_GSS(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 2:
             if _pkt[:2] == b"\x01\x01":
-                return KRB5_GSS_GetMIC
+                return KRB5_GSS_GetMIC_RFC1964
             elif _pkt[:2] == b"\x02\x01":
-                return KRB5_GSS_Wrap
+                return KRB5_GSS_Wrap_RFC1964
             elif _pkt[:2] == b"\x01\x02":
-                return KRB5_GSS_Delete_sec_context
+                return KRB5_GSS_Delete_sec_context_RFC1964
+            elif _pkt[:2] == b"\x04\x04":
+                return KRB5_GSS_GetMIC
+            elif _pkt[:2] == b"\x05\x04":
+                return KRB5_GSS_Wrap
         return KRB5_GSS_Wrap
