@@ -23,9 +23,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import random
 import struct
-from typing import List, Optional
 
-from scapy.base_classes import Packet_metaclass
 from scapy.fields import (
     IntField,
     PacketField,
@@ -718,9 +716,7 @@ _RTPSParameterIdTypes = {
 }
 
 
-def get_pid_class(
-    pkt: Packet, lst: List[Packet], cur: Optional[Packet], remain: str
-) -> Optional[Packet_metaclass]:
+def get_pid_class(pkt, lst, cur, remain):
 
     if hasattr(pkt, "endianness"):
         endianness = pkt.endianness

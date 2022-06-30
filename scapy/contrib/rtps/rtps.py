@@ -22,9 +22,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 # scapy.contrib.status = library
 
 import struct
-from typing import List, Optional
 
-from scapy.base_classes import Packet_metaclass
 from scapy.fields import (
     ConditionalField,
     IntField,
@@ -204,15 +202,10 @@ class DataPacket(EPacket):
         ),
     ]
 
-    def __init__(
-        self,
-        *args,
-        writer_entity_id_key=None,
-        writer_entity_id_kind=None,
-        endianness=None,
-        pl_len=0,
-        **kwargs
-    ):
+    def __init__(self, *args, **kwargs):
+        writer_entity_id_key = kwargs.pop("writer_entity_id_key", None)
+        writer_entity_id_kind = kwargs.pop("writer_entity_id_kind", None)
+        pl_len = kwargs.pop("pl_len", 0)
         if writer_entity_id_key == 0x200 and writer_entity_id_kind == 0xC2:
             DataPacket._pl_type = "ParticipantMessageData"
         else:
@@ -220,7 +213,7 @@ class DataPacket(EPacket):
 
         DataPacket._pl_len = pl_len
 
-        super().__init__(*args, endianness=endianness, **kwargs)
+        super(DataPacket, self).__init__(*args, **kwargs)
 
 
 class RTPSSubMessage_DATA(EPacket):
@@ -500,10 +493,7 @@ _RTPSSubMessageTypes = {
 }
 
 
-def _next_cls_cb(
-    pkt: Packet, lst: List[Packet], p: Optional[Packet], remain: str
-) -> Optional[Packet_metaclass]:
-
+def _next_cls_cb(pkt, lst, p, remain):
     sm_id = struct.unpack("!b", remain[0:1])[0]
     next_cls = _RTPSSubMessageTypes.get(sm_id, None)
 
