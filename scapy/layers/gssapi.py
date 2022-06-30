@@ -52,7 +52,7 @@ from scapy.packet import Packet, bind_layers
 # Providers
 from scapy.layers.kerberos import (
     Kerberos,
-    KRB5_GSS_Wrap,
+    KRB5_GSS,
 )
 from scapy.layers.ntlm import (
     NEGOEX_EXCHANGE_NTLM,
@@ -422,7 +422,7 @@ _mechDissector["1.3.6.1.4.1.311.2.2.30"] = NEGOEX_NEGO_MESSAGE
 
 _GSSAPI_OIDS = {
     "1.3.6.1.5.5.2": SPNEGO_negToken,  # SPNEGO: RFC 2478
-    "1.2.840.113554.1.2.2": KRB5_GSS_Wrap,  # RFC 1964 : sec 1.2.2
+    "1.2.840.113554.1.2.2": KRB5_GSS,  # RFC 1964
 }
 
 # sect 3.1

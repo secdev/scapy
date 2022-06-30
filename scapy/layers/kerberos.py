@@ -28,9 +28,12 @@ from scapy.asn1fields import (
 )
 from scapy.asn1packet import ASN1_Packet
 from scapy.fields import (
+    LEIntField,
     LEShortEnumField,
     LEShortField,
     PadField,
+    StrEnumField,
+    StrFixedLenEnumField,
     XStrFixedLenField,
 )
 from scapy.packet import Packet, bind_bottom_up, bind_layers
@@ -477,21 +480,50 @@ bind_layers(UDP, Kerberos, sport=88, dport=88)
 
 # RFC 1964 - Kerberos V5 GSS-API
 
+_TOK_IDS = {
+    b"\x01\x01": "GSS_GetMIC",
+    b"\x02\x01": "GSS_Wrap",
+    b"\x01\x02": "GSS_Delete_sec_context",
+}
+_SGN_ALGS = {
+    0: "DES MAC MD5",
+    1: "MD2.5",
+    2: "DES MAC",
+}
+_SEAL_ALGS = {
+    0: "DES",
+    0xffff: "none",
+}
+
+# sect 1.2.1
+
+
+class KRB5_GSS_GetMIC(Packet):
+    name = "Kerberos v5 GSS_GetMIC"
+    fields_desc = [
+        StrFixedLenEnumField("TOK_ID", b"\x01\x01", _TOK_IDS, length=2),
+        LEShortEnumField("SGN_ALG", 0, _SGN_ALGS),
+        LEIntField("reserved", 0xffffffff),
+        XStrFixedLenField("SND_SEQ", b"", length=8),
+        PadField(  # sect 1.2.2.3
+            XStrFixedLenField("SGN_CKSUM", b"", length=8),
+            align=8,
+            padwith=b"\x04",
+        ),
+    ]
+
+
+bind_layers(KRB5_GSS_GetMIC, Kerberos)
+
 # sect 1.2.2
+
 
 class KRB5_GSS_Wrap(Packet):
     name = "Kerberos v5 GSS_Wrap"
     fields_desc = [
-        XStrFixedLenField("TOK_ID", b"\x02\x01", length=2),
-        LEShortEnumField("SGN_ALG", 0, {
-            0: "DES MAC MD5",
-            1: "MD2.5",
-            2: "DES MAC",
-        }),
-        LEShortEnumField("SEAL_ALG", 0, {
-            0: "DES",
-            0xffff: "none",
-        }),
+        StrFixedLenEnumField("TOK_ID", b"\x02\x01", _TOK_IDS, length=2),
+        LEShortEnumField("SGN_ALG", 0, _SGN_ALGS),
+        LEShortEnumField("SEAL_ALG", 0, _SEAL_ALGS),
         LEShortField("reserved", 0xffff),
         XStrFixedLenField("SND_SEQ", b"", length=8),
         PadField(  # sect 1.2.2.3
@@ -505,3 +537,27 @@ class KRB5_GSS_Wrap(Packet):
 
 
 bind_layers(KRB5_GSS_Wrap, Kerberos)
+
+# sect 1.2.2
+
+
+class KRB5_GSS_Delete_sec_context(Packet):
+    name = "Kerberos v5 GSS_Delete_sec_context"
+    TOK_ID = b"\x01\x02"
+    fields_desc = KRB5_GSS_GetMIC.fields_desc
+
+
+bind_layers(KRB5_GSS_Wrap, Kerberos)
+
+
+class KRB5_GSS(Packet):
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 2:
+            if _pkt[:2] == b"\x01\x01":
+                return KRB5_GSS_GetMIC
+            elif _pkt[:2] == b"\x02\x01":
+                return KRB5_GSS_Wrap
+            elif _pkt[:2] == b"\x01\x02":
+                return KRB5_GSS_Delete_sec_context
+        return KRB5_GSS_Wrap
