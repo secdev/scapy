@@ -436,7 +436,7 @@ bind_layers(DceRpc5, DceRpc5Response, ptype=2)
 # handling the dissection, False otherwise
 
 
-class DceRpcPayload(Packet):
+class DceRpc4Payload(Packet):
     """Dummy class which use the dispatch_hook to find the payload class"""
     _payload_class = []
 
@@ -457,4 +457,4 @@ class DceRpcPayload(Packet):
         cls._payload_class.append(pay)
 
 
-bind_layers(DceRpc4, DceRpcPayload)
+bind_layers(DceRpc4, DceRpc4Payload)

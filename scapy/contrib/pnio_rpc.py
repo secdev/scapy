@@ -31,7 +31,7 @@ from scapy.fields import BitField, ByteField, BitEnumField, ByteEnumField, \
     LenField, MACField, PadField, PacketField, PacketListField, \
     ShortEnumField, ShortField, StrFixedLenField, StrLenField, \
     UUIDField, XByteField, XIntField, XShortEnumField, XShortField
-from scapy.layers.dcerpc import DceRpc, DceRpcPayload
+from scapy.layers.dcerpc import DceRpc4, DceRpc4Payload
 from scapy.contrib.rtps.common_types import EField
 from scapy.compat import bytes_hex
 from scapy.volatile import RandUUID
@@ -1463,7 +1463,7 @@ def _guess_block_class(_pkt, *args, **kargs):
 def dce_rpc_endianess(pkt):
     """determine the symbol for the endianness of a the DCE/RPC"""
     try:
-        endianness = pkt.underlayer.endianness
+        endianness = pkt.underlayer.endian
     except AttributeError:
         # handle the case where a PNIO class is
         # built without its DCE-RPC under-layer
@@ -1509,13 +1509,13 @@ class PNIOServiceReqPDU(Packet):
         NDRData,
     ]
     overload_fields = {
-        DceRpc: {
-            # random object_uuid in the appropriate range
-            "object_uuid": RandUUID("dea00000-6c97-11d1-8271-******"),
+        DceRpc4: {
+            # random object in the appropriate range
+            "object": RandUUID("dea00000-6c97-11d1-8271-******"),
             # interface uuid to send to a device
-            "interface_uuid": RPC_INTERFACE_UUID["UUID_IO_DeviceInterface"],
+            "if_id": RPC_INTERFACE_UUID["UUID_IO_DeviceInterface"],
             # Request DCE/RPC type
-            "type": 0,
+            "ptype": 0,
         },
     }
 
@@ -1523,13 +1523,13 @@ class PNIOServiceReqPDU(Packet):
     def can_handle(cls, pkt, rpc):
         """heuristic guess_payload_class"""
         # type = 0 => request
-        if rpc.type == 0 and \
-                str(rpc.object_uuid).startswith("dea00000-6c97-11d1-8271-"):
+        if rpc.ptype == 0 and \
+                str(rpc.object).startswith("dea00000-6c97-11d1-8271-"):
             return True
         return False
 
 
-DceRpcPayload.register_possible_payload(PNIOServiceReqPDU)
+DceRpc4Payload.register_possible_payload(PNIOServiceReqPDU)
 
 
 class PNIOServiceResPDU(Packet):
@@ -1540,14 +1540,14 @@ class PNIOServiceResPDU(Packet):
         NDRData,
     ]
     overload_fields = {
-        DceRpc: {
-            # random object_uuid in the appropriate range
-            "object_uuid": RandUUID("dea00000-6c97-11d1-8271-******"),
+        DceRpc4: {
+            # random object in the appropriate range
+            "object": RandUUID("dea00000-6c97-11d1-8271-******"),
             # interface uuid to send to a host
-            "interface_uuid": RPC_INTERFACE_UUID[
+            "if_id": RPC_INTERFACE_UUID[
                 "UUID_IO_ControllerInterface"],
             # Request DCE/RPC type
-            "type": 2,
+            "ptype": 2,
         },
     }
 
@@ -1555,10 +1555,10 @@ class PNIOServiceResPDU(Packet):
     def can_handle(cls, pkt, rpc):
         """heuristic guess_payload_class"""
         # type = 2 => response
-        if rpc.type == 2 and \
-                str(rpc.object_uuid).startswith("dea00000-6c97-11d1-8271-"):
+        if rpc.ptype == 2 and \
+                str(rpc.object).startswith("dea00000-6c97-11d1-8271-"):
             return True
         return False
 
 
-DceRpcPayload.register_possible_payload(PNIOServiceResPDU)
+DceRpc4Payload.register_possible_payload(PNIOServiceResPDU)

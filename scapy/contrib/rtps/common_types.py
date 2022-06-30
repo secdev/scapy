@@ -136,12 +136,10 @@ class _EPacketField(object):
     A packet field that manages its endianness and that of its nested packet
     """
 
-    __slots__ = ["endianness", "endianness_from", "fuzz_fun"]
-
     def __init__(self, *args, **kwargs):
         self.endianness = kwargs.pop("endianness", None)
         self.endianness_from = kwargs.pop("endianness_from", e_flags)
-        super(EPacketField, self).__init__(*args, **kwargs)
+        super(_EPacketField, self).__init__(*args, **kwargs)
 
     def set_endianness(self, pkt):
         if getattr(pkt, "endianness", None) is not None:
@@ -154,14 +152,15 @@ class _EPacketField(object):
                     'Setting it to default: {}', DEFAULT_ENDIANESS)
                 self.endianness = DEFAULT_ENDIANESS
 
+    def m2i(self, pkt, m):
+        return self.cls(m, endianness=pkt.endianness)
+
 
 class EPacketField(_EPacketField, PacketField):
     """
     A PacketField that manages its endianness and that of its nested packet
     """
-
-    def m2i(self, pkt, m):
-        return self.cls(m, endianness=pkt.endianness)
+    __slots__ = ["endianness", "endianness_from", "fuzz_fun"]
 
 
 class EPacketListField(_EPacketField, PacketListField):
@@ -169,9 +168,7 @@ class EPacketListField(_EPacketField, PacketListField):
     A PacketListField that manages its endianness and
     that of its nested packet
     """
-
-    def m2i(self, pkt, m):
-        return self.cls(m, endianness=pkt.endianness)
+    __slots__ = ["endianness", "endianness_from", "fuzz_fun"]
 
 
 class SerializedDataField(StrLenField):

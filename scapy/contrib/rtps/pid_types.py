@@ -47,7 +47,6 @@ from scapy.contrib.rtps.common_types import (
     ProtocolVersionPacket,
     TransportInfoPacket,
     VendorIdPacket,
-    e_flags,
     FORMAT_LE,
 )
 
