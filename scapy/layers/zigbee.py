@@ -4,7 +4,7 @@
 # Copyright (C) Ryan Speers <ryan@rmspeers.com> 2011-2012
 # Copyright (C) Roger Meyer <roger.meyer@csus.edu>: 2012-03-10 Added frames
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>: 2018
-# Copyright (C) 2020-2021 Dimitrios-Georgios Akestoridis <akestoridis@cmu.edu>
+# Copyright (C) 2020-2022 Dimitrios-Georgios Akestoridis <akestoridis@cmu.edu>
 # This program is published under a GPLv2 license
 
 """
@@ -20,8 +20,7 @@ from scapy.fields import BitField, ByteField, XLEIntField, ConditionalField, \
     IntField, PacketListField, ShortField, StrField, StrFixedLenField, \
     StrLenField, XLEShortField, XStrField
 
-from scapy.layers.dot15d4 import dot15d4AddressField, Dot15d4Beacon, Dot15d4, \
-    Dot15d4FCS
+from scapy.layers.dot15d4 import dot15d4AddressField, Dot15d4, Dot15d4FCS
 from scapy.layers.inet import UDP
 from scapy.layers.ntp import TimeStampField
 
@@ -1483,7 +1482,6 @@ class ZEP1(ZEP2):
 # bind_layers( Dot15d4Data, ZigbeeNWK)
 
 bind_layers(ZigbeeAppDataPayload, ZigbeeAppCommandPayload, frametype=1)
-bind_layers(Dot15d4Beacon, ZigBeeBeacon)
 
 bind_bottom_up(UDP, ZEP2, sport=17754)
 bind_bottom_up(UDP, ZEP2, sport=17754)

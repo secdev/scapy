@@ -29,18 +29,20 @@ assert Dot15d4FCS in pkt.layers()
 pkt = Ether()/IP()/Dot15d4FCS()
 assert pkt[Dot15d4]
 
-= Dot15d4FCS - Beacon (without pending addresses)
+= Dot15d4FCS - Zigbee Beacon (without pending addresses)
 
 pkt = Dot15d4FCS(b'\x00\x80\x89\xaa\x99\x00\x00\xff\xcf\x00\x00\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00X\xa4')
 assert Dot15d4FCS in pkt.layers()
-assert pkt[Dot15d4FCS].fcf_frametype == 0
+assert pkt[Dot15d4FCS].fcf_frametype == 0b000
 assert pkt[Dot15d4FCS].fcf_security == False
 assert pkt[Dot15d4FCS].fcf_pending == False
 assert pkt[Dot15d4FCS].fcf_ackreq == False
 assert pkt[Dot15d4FCS].fcf_panidcompress == False
-assert pkt[Dot15d4FCS].fcf_destaddrmode == 0
-assert pkt[Dot15d4FCS].fcf_framever == 0
-assert pkt[Dot15d4FCS].fcf_srcaddrmode == 2
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b00
+assert pkt[Dot15d4FCS].fcf_framever == 0b00
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b10
 assert pkt[Dot15d4FCS].seqnum == 137
 assert Dot15d4Beacon in pkt.layers()
 assert pkt[Dot15d4Beacon].src_panid == 0x99aa
@@ -59,20 +61,34 @@ assert pkt[Dot15d4Beacon].pa_num_long == 0
 assert pkt[Dot15d4Beacon].pa_short_addresses == []
 assert pkt[Dot15d4Beacon].pa_long_addresses == []
 assert raw(pkt[Dot15d4Beacon].payload) == b'\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00'
+assert ZigBeeBeacon in pkt.layers()
+assert pkt[ZigBeeBeacon].proto_id == 0x00
+assert pkt[ZigBeeBeacon].stack_profile == 0b0010
+assert pkt[ZigBeeBeacon].nwkc_protocol_version == 0b0010
+assert pkt[ZigBeeBeacon].reserved == 0b00
+assert pkt[ZigBeeBeacon].router_capacity == 0b1
+assert pkt[ZigBeeBeacon].device_depth == 0b0000
+assert pkt[ZigBeeBeacon].end_device_capacity == 0b1
+assert pkt[ZigBeeBeacon].extended_pan_id == 0xfacefeedbeefcafe
+assert pkt[ZigBeeBeacon].tx_offset == 16777215
+assert pkt[ZigBeeBeacon].update_id == 0
+assert raw(pkt[ZigBeeBeacon].payload) == b''
 assert pkt[Dot15d4FCS].fcs == 0xa458
 
-= Dot15d4FCS - Beacon (with pending addresses)
+= Dot15d4FCS - Zigbee Beacon (with pending addresses)
 
 pkt = Dot15d4FCS(b'\x00\x80\x89\xaa\x99\x00\x00\xff\xcf\x00\x124\x12xV\x88wfUD3"\x11\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00\x96\xd3')
 assert Dot15d4FCS in pkt.layers()
-assert pkt[Dot15d4FCS].fcf_frametype == 0
+assert pkt[Dot15d4FCS].fcf_frametype == 0b000
 assert pkt[Dot15d4FCS].fcf_security == False
 assert pkt[Dot15d4FCS].fcf_pending == False
 assert pkt[Dot15d4FCS].fcf_ackreq == False
 assert pkt[Dot15d4FCS].fcf_panidcompress == False
-assert pkt[Dot15d4FCS].fcf_destaddrmode == 0
-assert pkt[Dot15d4FCS].fcf_framever == 0
-assert pkt[Dot15d4FCS].fcf_srcaddrmode == 2
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b00
+assert pkt[Dot15d4FCS].fcf_framever == 0b00
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b10
 assert pkt[Dot15d4FCS].seqnum == 137
 assert Dot15d4Beacon in pkt.layers()
 assert pkt[Dot15d4Beacon].src_panid == 0x99aa
@@ -91,20 +107,160 @@ assert pkt[Dot15d4Beacon].pa_num_long == 1
 assert pkt[Dot15d4Beacon].pa_short_addresses == [0x1234, 0x5678]
 assert pkt[Dot15d4Beacon].pa_long_addresses == [0x1122334455667788]
 assert raw(pkt[Dot15d4Beacon].payload) == b'\x00"\x84\xfe\xca\xef\xbe\xed\xfe\xce\xfa\xff\xff\xff\x00'
+assert ZigBeeBeacon in pkt.layers()
+assert pkt[ZigBeeBeacon].proto_id == 0x00
+assert pkt[ZigBeeBeacon].stack_profile == 0b0010
+assert pkt[ZigBeeBeacon].nwkc_protocol_version == 0b0010
+assert pkt[ZigBeeBeacon].reserved == 0b00
+assert pkt[ZigBeeBeacon].router_capacity == 0b1
+assert pkt[ZigBeeBeacon].device_depth == 0b0000
+assert pkt[ZigBeeBeacon].end_device_capacity == 0b1
+assert pkt[ZigBeeBeacon].extended_pan_id == 0xfacefeedbeefcafe
+assert pkt[ZigBeeBeacon].tx_offset == 16777215
+assert pkt[ZigBeeBeacon].update_id == 0
+assert raw(pkt[ZigBeeBeacon].payload) == b''
 assert pkt[Dot15d4FCS].fcs == 0xd396
+
+= Dot15d4FCS - Thread Beacon
+
+pkt = Dot15d4FCS(b'\x00\xc0\xed\xee\xdd\x01\x00\x00\x00\x00\x99\x99\x99\xff\x0f\x00\x00\x03 TestName\x00\x00\x00\x00\x00\x00\x00\x00\xfa\xce\xfe\xed\xbe\xef\xca\xfef\xaa')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0b000
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == False
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b00
+assert pkt[Dot15d4FCS].fcf_framever == 0b00
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b11
+assert pkt[Dot15d4FCS].seqnum == 237
+assert Dot15d4Beacon in pkt.layers()
+assert pkt[Dot15d4Beacon].src_panid == 0xddee
+assert pkt[Dot15d4Beacon].src_addr == 0x9999990000000001
+assert pkt[Dot15d4Beacon].sf_beaconorder == 15
+assert pkt[Dot15d4Beacon].sf_sforder == 15
+assert pkt[Dot15d4Beacon].sf_finalcapslot == 15
+assert pkt[Dot15d4Beacon].sf_battlifeextend == False
+assert pkt[Dot15d4Beacon].sf_pancoord == False
+assert pkt[Dot15d4Beacon].sf_assocpermit == False
+assert pkt[Dot15d4Beacon].gts_spec_permit == False
+assert pkt[Dot15d4Beacon].gts_spec_reserved == 0
+assert pkt[Dot15d4Beacon].gts_spec_desccount == 0
+assert pkt[Dot15d4Beacon].pa_num_short == 0
+assert pkt[Dot15d4Beacon].pa_num_long == 0
+assert pkt[Dot15d4Beacon].pa_short_addresses == []
+assert pkt[Dot15d4Beacon].pa_long_addresses == []
+assert ThreadBeacon in pkt.layers()
+assert pkt[ThreadBeacon].protocol_id == 0x03
+assert pkt[ThreadBeacon].version == 0b0010
+assert pkt[ThreadBeacon].native == 0b0
+assert pkt[ThreadBeacon].reserved == 0b00
+assert pkt[ThreadBeacon].joining == 0b0
+assert pkt[ThreadBeacon].network_name == b'TestName\x00\x00\x00\x00\x00\x00\x00\x00'
+assert pkt[ThreadBeacon].extended_pan_id == 0xfacefeedbeefcafe
+assert raw(pkt[ThreadBeacon].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0xaa66
+
+= Dot15d4FCS - Secured MAC Beacon (MIC-64)
+
+pkt = Dot15d4FCS(b'\x08\xd0\xbd\xdd\xcc\x01\x00\x00\x00\x00www\x02Q\x01\x00\x00\xff\xcf\x00\x124\x12xV\x88wfUD3"\x11PAYLOAD\x13\x1ae\x02\xec-\xe9\x1d*\xc4')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0b000
+assert pkt[Dot15d4FCS].fcf_security == True
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == False
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b00
+assert pkt[Dot15d4FCS].fcf_framever == 0b01
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b11
+assert pkt[Dot15d4FCS].seqnum == 189
+assert Dot15d4Beacon in pkt.layers()
+assert pkt[Dot15d4Beacon].src_panid == 0xccdd
+assert pkt[Dot15d4Beacon].src_addr == 0x7777770000000001
+assert raw(pkt[Dot15d4Beacon].aux_sec_header) == b'\x02Q\x01\x00\x00'
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_sc_seclevel == 0b010
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_sc_keyidmode == 0b00
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_sc_reserved == 0b000
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_framecounter == 337
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_keyid_keysource == b''
+assert pkt[Dot15d4Beacon].sf_beaconorder == 15
+assert pkt[Dot15d4Beacon].sf_sforder == 15
+assert pkt[Dot15d4Beacon].sf_finalcapslot == 15
+assert pkt[Dot15d4Beacon].sf_battlifeextend == False
+assert pkt[Dot15d4Beacon].sf_pancoord == True
+assert pkt[Dot15d4Beacon].sf_assocpermit == True
+assert pkt[Dot15d4Beacon].gts_spec_permit == False
+assert pkt[Dot15d4Beacon].gts_spec_reserved == 0
+assert pkt[Dot15d4Beacon].gts_spec_desccount == 0
+assert pkt[Dot15d4Beacon].pa_num_short == 2
+assert pkt[Dot15d4Beacon].pa_num_long == 1
+assert pkt[Dot15d4Beacon].pa_short_addresses == [0x1234, 0x5678]
+assert pkt[Dot15d4Beacon].pa_long_addresses == [0x1122334455667788]
+assert pkt[Dot15d4Beacon].sec_payload == b'PAYLOAD'
+assert pkt[Dot15d4Beacon].mic == b'\x13\x1ae\x02\xec-\xe9\x1d'
+assert raw(pkt[Dot15d4Beacon].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0xc42a
+
+= Dot15d4FCS - Secured MAC Beacon (ENC)
+
+pkt = Dot15d4FCS(b'\x08\xd0\xbd\xdd\xcc\x01\x00\x00\x00\x00www\x04\xb5\x01\x00\x00\xff\xcf\x00\x00U+\x9bW]\x92\xd3\xebE')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0b000
+assert pkt[Dot15d4FCS].fcf_security == True
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == False
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b00
+assert pkt[Dot15d4FCS].fcf_framever == 0b01
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b11
+assert pkt[Dot15d4FCS].seqnum == 189
+assert Dot15d4Beacon in pkt.layers()
+assert pkt[Dot15d4Beacon].src_panid == 0xccdd
+assert pkt[Dot15d4Beacon].src_addr == 0x7777770000000001
+assert raw(pkt[Dot15d4Beacon].aux_sec_header) == b'\x04\xb5\x01\x00\x00'
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_sc_seclevel == 0b100
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_sc_keyidmode == 0b00
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_sc_reserved == 0b000
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_framecounter == 437
+assert pkt[Dot15d4Beacon].aux_sec_header.sec_keyid_keysource == b''
+assert pkt[Dot15d4Beacon].sf_beaconorder == 15
+assert pkt[Dot15d4Beacon].sf_sforder == 15
+assert pkt[Dot15d4Beacon].sf_finalcapslot == 15
+assert pkt[Dot15d4Beacon].sf_battlifeextend == False
+assert pkt[Dot15d4Beacon].sf_pancoord == True
+assert pkt[Dot15d4Beacon].sf_assocpermit == True
+assert pkt[Dot15d4Beacon].gts_spec_permit == False
+assert pkt[Dot15d4Beacon].gts_spec_reserved == 0
+assert pkt[Dot15d4Beacon].gts_spec_desccount == 0
+assert pkt[Dot15d4Beacon].pa_num_short == 0
+assert pkt[Dot15d4Beacon].pa_num_long == 0
+assert pkt[Dot15d4Beacon].pa_short_addresses == []
+assert pkt[Dot15d4Beacon].pa_long_addresses == []
+assert pkt[Dot15d4Beacon].sec_payload == b'U+\x9bW]\x92\xd3'
+assert pkt[Dot15d4Beacon].mic == b''
+assert raw(pkt[Dot15d4Beacon].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0x45eb
 
 = Dot15d4FCS - Coordinator Realignment (without the channel page)
 
 pkt = Dot15d4FCS(b'#\xcc\x89\xff\xff\x88wfUD3"\x11\xaa\x99\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x08\xaa\x99\xde\xc0\x14\xad\xde\\!')
 assert Dot15d4FCS in pkt.layers()
-assert pkt[Dot15d4FCS].fcf_frametype == 3
+assert pkt[Dot15d4FCS].fcf_frametype == 0b011
 assert pkt[Dot15d4FCS].fcf_security == False
 assert pkt[Dot15d4FCS].fcf_pending == False
 assert pkt[Dot15d4FCS].fcf_ackreq == True
 assert pkt[Dot15d4FCS].fcf_panidcompress == False
-assert pkt[Dot15d4FCS].fcf_destaddrmode == 3
-assert pkt[Dot15d4FCS].fcf_framever == 0
-assert pkt[Dot15d4FCS].fcf_srcaddrmode == 3
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b11
+assert pkt[Dot15d4FCS].fcf_framever == 0b00
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b11
 assert pkt[Dot15d4FCS].seqnum == 137
 assert Dot15d4Cmd in pkt.layers()
 assert pkt[Dot15d4Cmd].dest_panid == 0xffff
@@ -124,14 +280,16 @@ assert pkt[Dot15d4FCS].fcs == 0x215c
 
 pkt = Dot15d4FCS(b'#\xcc\x89\xff\xff\x88wfUD3"\x11\xaa\x99\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x08\xaa\x99\xde\xc0\x14\xad\xde\x00\xc8\x98')
 assert Dot15d4FCS in pkt.layers()
-assert pkt[Dot15d4FCS].fcf_frametype == 3
+assert pkt[Dot15d4FCS].fcf_frametype == 0b011
 assert pkt[Dot15d4FCS].fcf_security == False
 assert pkt[Dot15d4FCS].fcf_pending == False
 assert pkt[Dot15d4FCS].fcf_ackreq == True
 assert pkt[Dot15d4FCS].fcf_panidcompress == False
-assert pkt[Dot15d4FCS].fcf_destaddrmode == 3
-assert pkt[Dot15d4FCS].fcf_framever == 0
-assert pkt[Dot15d4FCS].fcf_srcaddrmode == 3
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b11
+assert pkt[Dot15d4FCS].fcf_framever == 0b00
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b11
 assert pkt[Dot15d4FCS].seqnum == 137
 assert Dot15d4Cmd in pkt.layers()
 assert pkt[Dot15d4Cmd].dest_panid == 0xffff
@@ -148,6 +306,123 @@ assert Dot15d4CmdCoordRealignPage in pkt.layers()
 assert pkt[Dot15d4CmdCoordRealignPage].channel_page == 0
 assert raw(pkt[Dot15d4CmdCoordRealignPage].payload) == b''
 assert pkt[Dot15d4FCS].fcs == 0x98c8
+
+= Dot15d4FCS - Data Request (with MAC-layer security disabled)
+
+pkt = Dot15d4FCS(b'c\x88d\xcc\xbb\x00\x00z\xfe\x04-\xbb')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0b011
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == True
+assert pkt[Dot15d4FCS].fcf_panidcompress == True
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b10
+assert pkt[Dot15d4FCS].fcf_framever == 0b00
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b10
+assert pkt[Dot15d4FCS].seqnum == 100
+assert Dot15d4Cmd in pkt.layers()
+assert pkt[Dot15d4Cmd].dest_panid == 0xbbcc
+assert pkt[Dot15d4Cmd].dest_addr == 0x0000
+assert pkt[Dot15d4Cmd].src_addr == 0xfe7a
+assert pkt[Dot15d4Cmd].cmd_id == 0x04
+assert raw(pkt[Dot15d4Cmd].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0xbb2d
+
+= Dot15d4FCS - Data Request (with MAC-layer security enabled)
+
+pkt = Dot15d4FCS(b'k\x98\x91\xde\xc0\x00\x84\x01\x84\r\x89\x00\x00\x00\x01\x04\x9cP\x8c\x958\xca')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0b011
+assert pkt[Dot15d4FCS].fcf_security == True
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == True
+assert pkt[Dot15d4FCS].fcf_panidcompress == True
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b10
+assert pkt[Dot15d4FCS].fcf_framever == 0b01
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b10
+assert pkt[Dot15d4FCS].seqnum == 145
+assert Dot15d4Cmd in pkt.layers()
+assert pkt[Dot15d4Cmd].dest_panid == 0xc0de
+assert pkt[Dot15d4Cmd].dest_addr == 0x8400
+assert pkt[Dot15d4Cmd].src_addr == 0x8401
+assert raw(pkt[Dot15d4Cmd].aux_sec_header) == b'\r\x89\x00\x00\x00\x01'
+assert pkt[Dot15d4Cmd].aux_sec_header.sec_sc_seclevel == 0b101
+assert pkt[Dot15d4Cmd].aux_sec_header.sec_sc_keyidmode == 0b01
+assert pkt[Dot15d4Cmd].aux_sec_header.sec_sc_reserved == 0b000
+assert pkt[Dot15d4Cmd].aux_sec_header.sec_framecounter == 137
+assert pkt[Dot15d4Cmd].aux_sec_header.sec_keyid_keysource == b''
+assert pkt[Dot15d4Cmd].aux_sec_header.sec_keyid_keyindex == 0x01
+assert pkt[Dot15d4Cmd].cmd_id == 0x04
+assert pkt[Dot15d4Cmd].sec_payload == b''
+assert pkt[Dot15d4Cmd].mic == b'\x9cP\x8c\x95'
+assert raw(pkt[Dot15d4Cmd].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0xca38
+
+= Dot15d4FCS - Secured MAC Data (MIC-32)
+
+pkt = Dot15d4FCS(b'y\xdc\xf9\xdd\xcc\x03\x00\x00\x00\x00www\x02\x00\x00\x00\x00www\t\xa0%&\x00\x01PAYLOAD\xdf\xdb\\K\xa2\x00')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0b001
+assert pkt[Dot15d4FCS].fcf_security == True
+assert pkt[Dot15d4FCS].fcf_pending == True
+assert pkt[Dot15d4FCS].fcf_ackreq == True
+assert pkt[Dot15d4FCS].fcf_panidcompress == True
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b11
+assert pkt[Dot15d4FCS].fcf_framever == 0b01
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b11
+assert pkt[Dot15d4FCS].seqnum == 249
+assert Dot15d4Data in pkt.layers()
+assert pkt[Dot15d4Data].dest_panid == 0xccdd
+assert pkt[Dot15d4Data].dest_addr == 0x7777770000000003
+assert pkt[Dot15d4Data].src_addr == 0x7777770000000002
+assert raw(pkt[Dot15d4Data].aux_sec_header) == b'\t\xa0%&\x00\x01'
+assert pkt[Dot15d4Data].aux_sec_header.sec_sc_seclevel == 0b001
+assert pkt[Dot15d4Data].aux_sec_header.sec_sc_keyidmode == 0b01
+assert pkt[Dot15d4Data].aux_sec_header.sec_sc_reserved == 0b000
+assert pkt[Dot15d4Data].aux_sec_header.sec_framecounter == 2500000
+assert pkt[Dot15d4Data].aux_sec_header.sec_keyid_keysource == b''
+assert pkt[Dot15d4Data].aux_sec_header.sec_keyid_keyindex == 0x01
+assert pkt[Dot15d4Data].sec_payload == b'PAYLOAD'
+assert pkt[Dot15d4Data].mic == b'\xdf\xdb\\K'
+assert raw(pkt[Dot15d4Data].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0x00a2
+
+= Dot15d4FCS - Secured MAC Data (ENC-MIC-32)
+
+pkt = Dot15d4FCS(b'y\xdc\xf9\xdd\xcc\x03\x00\x00\x00\x00www\x02\x00\x00\x00\x00www\r@KL\x00\x01\xf4\xf9o\xbf\xf2z;5\x902\xefc<')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0b001
+assert pkt[Dot15d4FCS].fcf_security == True
+assert pkt[Dot15d4FCS].fcf_pending == True
+assert pkt[Dot15d4FCS].fcf_ackreq == True
+assert pkt[Dot15d4FCS].fcf_panidcompress == True
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b11
+assert pkt[Dot15d4FCS].fcf_framever == 0b01
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b11
+assert pkt[Dot15d4FCS].seqnum == 249
+assert Dot15d4Data in pkt.layers()
+assert pkt[Dot15d4Data].dest_panid == 0xccdd
+assert pkt[Dot15d4Data].dest_addr == 0x7777770000000003
+assert pkt[Dot15d4Data].src_addr == 0x7777770000000002
+assert raw(pkt[Dot15d4Data].aux_sec_header) == b'\r@KL\x00\x01'
+assert pkt[Dot15d4Data].aux_sec_header.sec_sc_seclevel == 0b101
+assert pkt[Dot15d4Data].aux_sec_header.sec_sc_keyidmode == 0b01
+assert pkt[Dot15d4Data].aux_sec_header.sec_sc_reserved == 0b000
+assert pkt[Dot15d4Data].aux_sec_header.sec_framecounter == 5000000
+assert pkt[Dot15d4Data].aux_sec_header.sec_keyid_keysource == b''
+assert pkt[Dot15d4Data].aux_sec_header.sec_keyid_keyindex == 0x01
+assert pkt[Dot15d4Data].sec_payload == b'\xf4\xf9o\xbf\xf2z;'
+assert pkt[Dot15d4Data].mic == b'5\x902\xef'
+assert raw(pkt[Dot15d4Data].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0x3c63
 
 ###################
 #### SixLoWPAN ####
@@ -544,6 +819,213 @@ assert packet._nhField == 0x06
 assert packet._hopLimit == 128
 packet.show2()
 
+= SixLoWPAN - First Fragment
+
+pkt = Dot15d4FCS(b'q\xdc\xd3\xde\xc0\x04\x00\x00\x00\x00\x99\x99\x99\x03\x00\x00\x00\x00\x99\x99\x99\xc2\xc8\xf0\x02\x7f3\xf0MLML\xb0\x01FRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENT`\xc2')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0b001
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == True
+assert pkt[Dot15d4FCS].fcf_ackreq == True
+assert pkt[Dot15d4FCS].fcf_panidcompress == True
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b11
+assert pkt[Dot15d4FCS].fcf_framever == 0b01
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b11
+assert pkt[Dot15d4FCS].seqnum == 211
+assert Dot15d4Data in pkt.layers()
+assert pkt[Dot15d4Data].dest_panid == 0xc0de
+assert pkt[Dot15d4Data].dest_addr == 0x9999990000000004
+assert pkt[Dot15d4Data].src_addr == 0x9999990000000003
+assert LoWPANFragmentationFirst in pkt.layers()
+assert pkt[LoWPANFragmentationFirst].reserved == 0b11000
+assert pkt[LoWPANFragmentationFirst].datagramSize == 712
+assert pkt[LoWPANFragmentationFirst].datagramTag == 0xf002
+assert LoWPAN_IPHC in pkt.layers()
+assert pkt[LoWPAN_IPHC].reserved == 0b011
+assert pkt[LoWPAN_IPHC].tf == 0b11
+assert pkt[LoWPAN_IPHC].nh == 0b1
+assert pkt[LoWPAN_IPHC].hlim == 0b11
+assert pkt[LoWPAN_IPHC].cid == 0b0
+assert pkt[LoWPAN_IPHC].sac == 0b0
+assert pkt[LoWPAN_IPHC].sam == 0b11
+assert pkt[LoWPAN_IPHC].m == 0b0
+assert pkt[LoWPAN_IPHC].dac == 0b0
+assert pkt[LoWPAN_IPHC].dam == 0b11
+assert pkt[LoWPAN_IPHC].src == "fe80::9b99:9900:0:3"
+assert pkt[LoWPAN_IPHC].dst == "fe80::9b99:9900:0:4"
+assert LoWPAN_NHC in pkt.layers()
+assert len(pkt[LoWPAN_NHC].exts) == 1
+assert pkt[LoWPAN_NHC].exts[0].res == 0b11110
+assert pkt[LoWPAN_NHC].exts[0].C == 0b0
+assert pkt[LoWPAN_NHC].exts[0].P == 0b00
+assert pkt[LoWPAN_NHC].exts[0].udpSourcePort == 19788
+assert pkt[LoWPAN_NHC].exts[0].udpDestPort == 19788
+assert pkt[LoWPAN_NHC].exts[0].udpChecksum == 0xb001
+assert raw(pkt[LoWPAN_NHC].payload) == b'FRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENT'
+assert pkt[Dot15d4FCS].fcs == 0xc260
+
+= SixLoWPAN - Subsequent Fragment
+
+pkt = Dot15d4FCS(b'q\xdc\xd4\xde\xc0\x04\x00\x00\x00\x00\x99\x99\x99\x03\x00\x00\x00\x00\x99\x99\x99\xe2\xc8\xf0\x02\x11FRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTs\x80')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0b001
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == True
+assert pkt[Dot15d4FCS].fcf_ackreq == True
+assert pkt[Dot15d4FCS].fcf_panidcompress == True
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b11
+assert pkt[Dot15d4FCS].fcf_framever == 0b01
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b11
+assert pkt[Dot15d4FCS].seqnum == 212
+assert Dot15d4Data in pkt.layers()
+assert pkt[Dot15d4Data].dest_panid == 0xc0de
+assert pkt[Dot15d4Data].dest_addr == 0x9999990000000004
+assert pkt[Dot15d4Data].src_addr == 0x9999990000000003
+assert LoWPANFragmentationSubsequent in pkt.layers()
+assert pkt[LoWPANFragmentationSubsequent].reserved == 0b11100
+assert pkt[LoWPANFragmentationSubsequent].datagramSize == 712
+assert pkt[LoWPANFragmentationSubsequent].datagramTag == 0xf002
+assert pkt[LoWPANFragmentationSubsequent].datagramOffset == 0x11
+assert raw(pkt[LoWPANFragmentationSubsequent].payload) == b'FRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENTFRAGMENT'
+assert pkt[Dot15d4FCS].fcs == 0x8073
+
+###################
+####### MLE #######
+###################
+
+= MLE - Discovery Request (with MAC-layer and MLE-layer security disabled)
+
+pkt = Dot15d4FCS(b'\x01\xd8\xe4\xff\xff\xff\xff\xef\xdb\x05\x00\x00\x00\x00\x99\x99\x99\x7f;\x02\xf0MLMLa\xf9\xff\x10\x1a\x04\x80\x028\x00\xba\x8f')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0b001
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == False
+assert pkt[Dot15d4FCS].fcf_panidcompress == False
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b10
+assert pkt[Dot15d4FCS].fcf_framever == 0b01
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b11
+assert pkt[Dot15d4FCS].seqnum == 228
+assert Dot15d4Data in pkt.layers()
+assert pkt[Dot15d4Data].dest_panid == 0xffff
+assert pkt[Dot15d4Data].dest_addr == 0xffff
+assert pkt[Dot15d4Data].src_panid == 0xdbef
+assert pkt[Dot15d4Data].src_addr == 0x9999990000000005
+assert LoWPAN_IPHC in pkt.layers()
+assert pkt[LoWPAN_IPHC].reserved == 0b011
+assert pkt[LoWPAN_IPHC].tf == 0b11
+assert pkt[LoWPAN_IPHC].nh == 0b1
+assert pkt[LoWPAN_IPHC].hlim == 0b11
+assert pkt[LoWPAN_IPHC].cid == 0b0
+assert pkt[LoWPAN_IPHC].sac == 0b0
+assert pkt[LoWPAN_IPHC].sam == 0b11
+assert pkt[LoWPAN_IPHC].m == 0b1
+assert pkt[LoWPAN_IPHC].dac == 0b0
+assert pkt[LoWPAN_IPHC].dam == 0b11
+assert pkt[LoWPAN_IPHC].src == "fe80::9b99:9900:0:5"
+assert pkt[LoWPAN_IPHC].dst == "ff02::2"
+assert LoWPAN_NHC in pkt.layers()
+assert len(pkt[LoWPAN_NHC].exts) == 1
+assert pkt[LoWPAN_NHC].exts[0].res == 0b11110
+assert pkt[LoWPAN_NHC].exts[0].C == 0b0
+assert pkt[LoWPAN_NHC].exts[0].P == 0b00
+assert pkt[LoWPAN_NHC].exts[0].udpSourcePort == 19788
+assert pkt[LoWPAN_NHC].exts[0].udpDestPort == 19788
+assert pkt[LoWPAN_NHC].exts[0].udpChecksum == 0x61f9
+assert IPv6 in pkt.layers()
+assert pkt[IPv6].version == 6
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].fl == 0
+assert pkt[IPv6].plen == 16
+assert pkt[IPv6].nh == 17
+assert pkt[IPv6].hlim == 255
+assert pkt[IPv6].src == "fe80::9b99:9900:0:5"
+assert pkt[IPv6].dst == "ff02::2"
+assert UDP in pkt.layers()
+assert pkt[UDP].sport == 19788
+assert pkt[UDP].dport == 19788
+assert pkt[UDP].len == 16
+assert pkt[UDP].chksum == 0x61f9
+assert MLE in pkt.layers()
+assert pkt[MLE].sec_suite == 0xff
+assert MLECmd in pkt.layers()
+assert pkt[MLECmd].cmd_type == 0x10
+assert raw(pkt[MLECmd].payload) == b'\x1a\x04\x80\x028\x00'
+assert pkt[Dot15d4FCS].fcs == 0x8fba
+
+= MLE - MLE command (with only MLE-layer security enabled)
+
+pkt = Dot15d4FCS(b'A\xd8\xa5\xde\xc0\xff\xff\x06\x00\x00\x00\x00\x99\x99\x99\x7f;\x02\xf0MLMLD\x14\x00\x15\xed\x00\x00\x00\x00\x00\x00\x00\x01\x8f\x1e\x847\xa6\x98\xa6s\xbb\xae\xc3\xab\x93\xc6\x89\xdff\xf8\x1f\xbb\xac\xd7\xaa\x11\xd39!')
+assert Dot15d4FCS in pkt.layers()
+assert pkt[Dot15d4FCS].fcf_frametype == 0b001
+assert pkt[Dot15d4FCS].fcf_security == False
+assert pkt[Dot15d4FCS].fcf_pending == False
+assert pkt[Dot15d4FCS].fcf_ackreq == False
+assert pkt[Dot15d4FCS].fcf_panidcompress == True
+assert pkt[Dot15d4FCS].fcf_reserved_1 == 0b0
+assert pkt[Dot15d4FCS].fcf_reserved_2 == 0b00
+assert pkt[Dot15d4FCS].fcf_destaddrmode == 0b10
+assert pkt[Dot15d4FCS].fcf_framever == 0b01
+assert pkt[Dot15d4FCS].fcf_srcaddrmode == 0b11
+assert pkt[Dot15d4FCS].seqnum == 165
+assert Dot15d4Data in pkt.layers()
+assert pkt[Dot15d4Data].dest_panid == 0xc0de
+assert pkt[Dot15d4Data].dest_addr == 0xffff
+assert pkt[Dot15d4Data].src_addr == 0x9999990000000006
+assert LoWPAN_IPHC in pkt.layers()
+assert pkt[LoWPAN_IPHC].reserved == 0b011
+assert pkt[LoWPAN_IPHC].tf == 0b11
+assert pkt[LoWPAN_IPHC].nh == 0b1
+assert pkt[LoWPAN_IPHC].hlim == 0b11
+assert pkt[LoWPAN_IPHC].cid == 0b0
+assert pkt[LoWPAN_IPHC].sac == 0b0
+assert pkt[LoWPAN_IPHC].sam == 0b11
+assert pkt[LoWPAN_IPHC].m == 0b1
+assert pkt[LoWPAN_IPHC].dac == 0b0
+assert pkt[LoWPAN_IPHC].dam == 0b11
+assert pkt[LoWPAN_IPHC].src == "fe80::9b99:9900:0:6"
+assert pkt[LoWPAN_IPHC].dst == "ff02::2"
+assert LoWPAN_NHC in pkt.layers()
+assert len(pkt[LoWPAN_NHC].exts) == 1
+assert pkt[LoWPAN_NHC].exts[0].res == 0b11110
+assert pkt[LoWPAN_NHC].exts[0].C == 0b0
+assert pkt[LoWPAN_NHC].exts[0].P == 0b00
+assert pkt[LoWPAN_NHC].exts[0].udpSourcePort == 19788
+assert pkt[LoWPAN_NHC].exts[0].udpDestPort == 19788
+assert pkt[LoWPAN_NHC].exts[0].udpChecksum == 0x4414
+assert IPv6 in pkt.layers()
+assert pkt[IPv6].version == 6
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].fl == 0
+assert pkt[IPv6].plen == 44
+assert pkt[IPv6].nh == 17
+assert pkt[IPv6].hlim == 255
+assert pkt[IPv6].src == "fe80::9b99:9900:0:6"
+assert pkt[IPv6].dst == "ff02::2"
+assert UDP in pkt.layers()
+assert pkt[UDP].sport == 19788
+assert pkt[UDP].dport == 19788
+assert pkt[UDP].len == 44
+assert pkt[UDP].chksum == 0x4414
+assert MLE in pkt.layers()
+assert pkt[MLE].sec_suite == 0x00
+assert raw(pkt[MLE].aux_sec_header) == b'\x15\xed\x00\x00\x00\x00\x00\x00\x00\x01'
+assert pkt[MLE].aux_sec_header.sec_sc_seclevel == 0b101
+assert pkt[MLE].aux_sec_header.sec_sc_keyidmode == 0b10
+assert pkt[MLE].aux_sec_header.sec_sc_reserved == 0b000
+assert pkt[MLE].aux_sec_header.sec_framecounter == 237
+assert pkt[MLE].aux_sec_header.sec_keyid_keysource == 0x00000000
+assert pkt[MLE].aux_sec_header.sec_keyid_keyindex == 0x01
+assert pkt[MLE].sec_payload == b'\x8f\x1e\x847\xa6\x98\xa6s\xbb\xae\xc3\xab\x93\xc6\x89\xdff\xf8\x1f\xbb\xac'
+assert pkt[MLE].mic == b'\xd7\xaa\x11\xd3'
+assert raw(pkt[MLE].payload) == b''
+assert pkt[Dot15d4FCS].fcs == 0x2139
 
 ###################
 #### Zigbee ####

@@ -3,6 +3,7 @@
 # Copyright (C) Cesar A. Bernardini <mesarpe@gmail.com>
 #               Intern at INRIA Grand Nancy Est
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>
+# Copyright (C) 2022 Dimitrios-Georgios Akestoridis <akestoridis@cmu.edu>
 # This program is published under a GPLv2 license
 """
 6LoWPAN Protocol Stack
@@ -73,7 +74,10 @@ from scapy.fields import (
     XShortField,
 )
 
-from scapy.layers.dot15d4 import Dot15d4Data
+from scapy.layers.dot15d4 import (
+    Dot15d4Data,
+    dot15d4AddressField,
+)
 from scapy.layers.inet6 import (
     IP6Field,
     IPv6,
@@ -156,6 +160,10 @@ class LoWPANMesh(Packet):
         BitEnumField("v", 0x0, 1, ["EUI-64", "Short"]),
         BitEnumField("f", 0x0, 1, ["EUI-64", "Short"]),
         BitField("hopsLeft", 0x0, 4),
+        ConditionalField(
+            ByteField("deepHopsLeft", 0x0),
+            lambda pkt: pkt.hopsLeft == 0b1111,
+        ),
         MultipleTypeField(
             [(XShortField("src", 0x0), lambda pkt: pkt.v == 1)],
             XLongField("src", 0x0)
@@ -520,11 +528,12 @@ def _extract_upperaddress(pkt, source=True):
     elif type(underlayer) == Dot15d4Data:
         addr = underlayer.src_addr if source else underlayer.dest_addr
         addr = struct.pack(">Q", addr)
-        if underlayer.underlayer.fcf_destaddrmode == 3:  # Extended/long
+        addrmode = underlayer.underlayer.fcf_srcaddrmode if source else underlayer.underlayer.fcf_destaddrmode  # noqa: E501
+        if addrmode == 3:  # Extended/long
             tmp_ip = LINK_LOCAL_PREFIX[0:8] + addr
             # Turn off the bit 7.
             return tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
-        elif underlayer.underlayer.fcf_destaddrmode == 2:  # Short
+        elif addrmode == 2:  # Short
             return (
                 LINK_LOCAL_PREFIX[0:8] +
                 b"\x00\x00\x00\xff\xfe\x00" +
@@ -547,33 +556,79 @@ class LoWPAN_IPHC(Packet):
     __slots__ = ["_ipv6"]
     # the LOWPAN_IPHC encoding utilizes 13 bits, 5 dispatch type
     name = "LoWPAN IP Header Compression Packet"
-    _address_modes = ["Unspecified (0)", "1", "16-bits inline (3)",
-                      "Compressed (3)"]
-    _state_mode = ["Stateless (0)", "Stateful (1)"]
+    _compression_modes = ["Stateless (0)", "Stateful (1)"]
+    _stateless_unicast_address_modes = [
+        "128 bits are present (0)",
+        "64 bits are present (1)",
+        "16 bits are present (2)",
+        "0 bits are present (3)",
+    ]
     deprecated_fields = {
         "_nhField": ("nhField", "2.4.4"),
         "_hopLimit": ("hopLimit", "2.4.4"),
         "sourceAddr": ("src", "2.4.4"),
         "destinyAddr": ("dst", "2.4.4"),
         "udpDestinyPort": ("udpDestPort", "2.4.4"),
+        "_reserved": ("reserved", "2.5.0"),
     }
     fields_desc = [
-        # Base Format https://tools.ietf.org/html/rfc6282#section-3.1.2
-        BitField("_reserved", 0x03, 3),
-        BitField("tf", 0x0, 2),
-        BitEnumField("nh", 0x0, 1, ["Inline", "Compressed"]),
-        BitEnumField("hlim", 0x0, 2, {0: "Inline",
-                                      1: "Compressed/HL1",
-                                      2: "Compressed/HL64",
-                                      3: "Compressed/HL255"}),
-        BitEnumField("cid", 0x0, 1, {1: "Present (1)"}),
-        BitEnumField("sac", 0x0, 1, _state_mode),
-        BitEnumField("sam", 0x0, 2, _address_modes),
-        BitEnumField("m", 0x0, 1, {1: "multicast (1)"}),
-        BitEnumField("dac", 0x0, 1, _state_mode),
-        BitEnumField("dam", 0x0, 2, _address_modes),
-        # https://tools.ietf.org/html/rfc6282#section-3.1.2
+        # Base Format
+        # https://tools.ietf.org/html/rfc6282#section-3.1.1
+        BitField("reserved", 0x03, 3),
+        BitEnumField("tf", 0x0, 2, ["In-line ECN, DSCP, and FL (0)",
+                                    "In-line ECN and FL; Compressed DSCP (1)",
+                                    "In-line ECN and DSCP; Compressed FL (2)",
+                                    "Compressed ECN, DSCP, and FL (3)"]),
+        BitEnumField("nh", 0x0, 1, ["In-line (0)", "Compressed (1)"]),
+        BitEnumField("hlim", 0x0, 2, ["In-line (0)",
+                                      "Compressed; Hop limit is 1 (1)",
+                                      "Compressed; Hop limit is 64 (2)",
+                                      "Compressed; Hop limit is 255 (3)"]),
+        BitEnumField("cid", 0x0, 1, ["Absent (0)", "Present (1)"]),
+        BitEnumField("sac", 0x0, 1, _compression_modes),
+        MultipleTypeField(
+            [
+                (
+                    BitEnumField("sam", 0x0, 2, ["Unspecified address (0)",
+                                                 "64 bits are present (1)",
+                                                 "16 bits are present (2)",
+                                                 "0 bits are present (3)"]),
+                    lambda pkt: pkt.sac == 1,
+                ),
+            ],
+            BitEnumField("sam", 0x0, 2, _stateless_unicast_address_modes),
+        ),
+        BitEnumField("m", 0x0, 1, ["Not multicasting (0)",
+                                   "Multicasting (1)"]),
+        BitEnumField("dac", 0x0, 1, _compression_modes),
+        MultipleTypeField(
+            [
+                (
+                    BitEnumField("dam", 0x0, 2, ["Reserved (0)",
+                                                 "64 bits are present (1)",
+                                                 "16 bits are present (2)",
+                                                 "0 bits are present (3)"]),
+                    lambda pkt: pkt.m == 0 and pkt.dac == 1,
+                ),
+                (
+                    BitEnumField("dam", 0x0, 2, ["128 bits are present (0)",
+                                                 "48 bits are present (1)",
+                                                 "32 bits are present (2)",
+                                                 "8 bits are present (3)"]),
+                    lambda pkt: pkt.m == 1 and pkt.dac == 0,
+                ),
+                (
+                    BitEnumField("dam", 0x0, 2, ["48 bits are present (0)",
+                                                 "Reserved (1)",
+                                                 "Reserved (2)",
+                                                 "Reserved (3)"]),
+                    lambda pkt: pkt.m == 1 and pkt.dac == 1,
+                ),
+            ],
+            BitEnumField("dam", 0x0, 2, _stateless_unicast_address_modes),
+        ),
         # Context Identifier Extension
+        # https://tools.ietf.org/html/rfc6282#section-3.1.2
         ConditionalField(
             BitField("sci", 0, 4),
             lambda pkt: pkt.cid == 0x1
@@ -582,6 +637,7 @@ class LoWPAN_IPHC(Packet):
             BitField("dci", 0, 4),
             lambda pkt: pkt.cid == 0x1
         ),
+        # Traffic Class and Flow Label Compression
         # https://tools.ietf.org/html/rfc6282#section-3.2.1
         ConditionalField(
             BitField("tc_ecn", 0, 2),
@@ -602,7 +658,8 @@ class LoWPAN_IPHC(Packet):
             BitField("flowlabel", 0, 20),
             lambda pkt: pkt.tf in [0, 1]
         ),
-        # Inline fields https://tools.ietf.org/html/rfc6282#section-3.1.1
+        # In-line Fields
+        # https://tools.ietf.org/html/rfc6282#section-3.1.1
         ConditionalField(
             ByteEnumField("nhField", 0x0, ipv6nh),
             lambda pkt: pkt.nh == 0x0
@@ -815,7 +872,7 @@ class LoWPAN_IPHC(Packet):
             return Packet.do_build(self)
         ipv6 = _cur.payload
 
-        self._reserved = 0x03
+        self.reserved = 0x03
 
         # NEW COMPRESSION TECHNIQUE!
         # a ) Compression Techniques
@@ -1084,6 +1141,7 @@ class LoWPAN_NHC(Packet):
 ######################
 
 # https://tools.ietf.org/html/rfc4944#section-5.1
+# https://doi.org/10.17487/rfc6282
 
 class SixLoWPAN_ESC(Packet):
     name = "SixLoWPAN Dispatcher ESC"
@@ -1098,22 +1156,22 @@ class SixLoWPAN(Packet):
         """Depending on the payload content, the frame type we should interpretate"""  # noqa: E501
         if _pkt and len(_pkt) >= 1:
             fb = ord(_pkt[:1])
-            if fb == 0x41:
-                return LoWPANUncompressedIPv6
-            if fb == 0x42:
-                return LoWPAN_HC1
+            if fb >> 6 == 0x02:
+                return LoWPANMesh
             if fb == 0x50:
                 return LoWPANBroadcast
-            if fb == 0x7f:
-                return SixLoWPAN_ESC
             if fb >> 3 == 0x18:
                 return LoWPANFragmentationFirst
             if fb >> 3 == 0x1C:
                 return LoWPANFragmentationSubsequent
-            if fb >> 6 == 0x02:
-                return LoWPANMesh
-            if fb >> 6 == 0x01:
+            if fb >> 5 == 0x03:
                 return LoWPAN_IPHC
+            if fb == 0x40:
+                return SixLoWPAN_ESC
+            if fb == 0x41:
+                return LoWPANUncompressedIPv6
+            if fb == 0x42:
+                return LoWPAN_HC1
         return cls
 
 
@@ -1168,6 +1226,34 @@ def sixlowpan_defragment(packet_list):
             tag = p[cls].datagramTag
             results[tag] = results.get(tag, b"") + p[cls].payload.load  # noqa: E501
     return {tag: SixLoWPAN(x) for tag, x in results.items()}
+
+
+##################
+# Beacon Payload #
+##################
+
+
+class ThreadBeacon(Packet):
+    name = "Thread Beacon Payload"
+    fields_desc = [
+        # https://gitlab.com/wireshark/wireshark/-/blob/5ecb57cb9026cebf0cfa4918c4a86942620c5ecf/epan/dissectors/packet-thread.c#L3293-3315  # noqa: E501
+        # https://gitlab.com/wireshark/wireshark/-/blob/5ecb57cb9026cebf0cfa4918c4a86942620c5ecf/epan/dissectors/packet-thread.c#L2147-2169  # noqa: E501
+        ByteField("protocol_id", 3),
+        BitField("version", 2, 4),
+        BitField("native", 0, 1),
+        BitField("reserved", 0, 2),
+        BitField("joining", 0, 1),
+        StrFixedLenField("network_name", None, 16),
+        dot15d4AddressField(
+            "extended_pan_id",
+            0,
+            fmt=">H",
+            adjust=lambda pkt, x: 8,
+        ),
+        # https://gitlab.com/wireshark/wireshark/-/blob/5ecb57cb9026cebf0cfa4918c4a86942620c5ecf/epan/dissectors/packet-thread.c#L2171-2174  # noqa: E501
+        # TODO: Check for additional fields
+    ]
+
 
 ############
 # Bindings #
