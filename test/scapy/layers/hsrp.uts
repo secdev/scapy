@@ -5,11 +5,27 @@
 ############
 + HSRP tests
 
-= HSRP - build & dissection
+= HSRP V1 - build & dissection
 defaddr = conf.route.route('0.0.0.0')[1]
+
 pkt = IP(raw(IP()/UDP(dport=1985, sport=1985)/HSRP()/HSRPmd5()))
 assert pkt[IP].dst == "224.0.0.2" and pkt[UDP].sport == pkt[UDP].dport == 1985
-assert pkt[HSRP].opcode == 0 and pkt[HSRP].state == 16
+assert pkt[HSRP].version == 0 and pkt[HSRP].opcode == 0 and pkt[HSRP].state == 16
+assert pkt[HSRP].hellotime == 3 and pkt[HSRP].holdtime == 10
 assert pkt[HSRPmd5].type == 4 and pkt[HSRPmd5].sourceip == defaddr
 
+= HSRP V2 with IPv4 and MD5 Auth - build & dissection
+pkt = IP(raw(IP()/UDP(dport=1985, sport=1985)/HSRPv2(version = 2)/HSRPmd5()))
+assert pkt[IP].dst == "224.0.0.2" and pkt[UDP].sport == pkt[UDP].dport == 1985
+assert pkt[HSRPv2].ipVer == 4 and pkt[HSRPv2].padding == b"\x00" * 12
+assert pkt[HSRPv2].version == 2 and pkt[HSRPv2].opcode == 0 and pkt[HSRPv2].state == 16
+assert pkt[HSRPv2].hellotime == 3000 and pkt[HSRPv2].holdtime == 10000
+assert pkt[HSRPmd5].type == 4 and pkt[HSRPmd5].sourceip == defaddr
 
+= HSRP V2 with IPv6 and default text auth - build & dissection
+pkt = IPv6(raw(IPv6()/UDP(dport=2029, sport=2029)/HSRPv2(version = 2, virtualIP="FE80::01")/HSRPv2TextAuth()))
+assert pkt[IPv6].dst == "ff02::66" and pkt[UDP].sport == pkt[UDP].dport == 2029
+assert pkt[HSRPv2].ipVer == 6 and pkt[HSRPv2].padding == None
+assert pkt[HSRPv2].version == 2 and pkt[HSRPv2].opcode == 0 and pkt[HSRPv2].state == 16
+assert pkt[HSRPv2].hellotime == 3000 and pkt[HSRPv2].holdtime == 10000
+assert pkt[HSRPv2TextAuth].type == 3 and pkt[HSRPv2TextAuth].auth == b"cisco\x00\x00\x00"
