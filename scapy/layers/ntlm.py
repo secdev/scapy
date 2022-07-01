@@ -197,19 +197,24 @@ class _NTLMPayloadPacket(Packet):
             return super(_NTLMPayloadPacket, self).setfieldval(attr, val)
         except AttributeError:
             Payload = super(_NTLMPayloadPacket, self).__getattr__(
-                self.self._NTLM_PAYLOAD_FIELD_NAME
+                self._NTLM_PAYLOAD_FIELD_NAME
             )
-            Payload.pop(next(
-                i
-                for i, x in enumerate(
-                    super(_NTLMPayloadPacket, self).__getattr__(
-                        self.self._NTLM_PAYLOAD_FIELD_NAME
-                    ))
-                if x[0] == attr
-            ))
+            if attr not in self.get_field(self._NTLM_PAYLOAD_FIELD_NAME).fields_map:
+                raise AttributeError(attr)
+            try:
+                Payload.pop(next(
+                    i
+                    for i, x in enumerate(
+                        super(_NTLMPayloadPacket, self).__getattr__(
+                            self._NTLM_PAYLOAD_FIELD_NAME
+                        ))
+                    if x[0] == attr
+                ))
+            except StopIteration:
+                pass
             Payload.append([attr, val])
             super(_NTLMPayloadPacket, self).setfieldval(
-                self.self._NTLM_PAYLOAD_FIELD_NAME,
+                self._NTLM_PAYLOAD_FIELD_NAME,
                 Payload
             )
 
@@ -708,6 +713,18 @@ class NTLM_Server(_NTLM_Automaton):
     """
     A class to overload to create a server automaton when using
     NTLM.
+
+    Optional parameters:
+    - NTLM_VALUES: a dict whose keys are
+      - "NetbiosDomainName"
+      - "NetbiosComputerName"
+      - "DnsDomainName"
+      - "DnsComputerName"
+      - "DnsTreeName"
+      - "Flags"
+      - "Timestamp"
+    - IDENTITIES: a dict {"username": NTOWFv2("password", "username", "domain")}
+      (this is the KeyResponseNT)
     """
     port = 445
     cls = conf.raw_layer
@@ -715,7 +732,7 @@ class NTLM_Server(_NTLM_Automaton):
     def __init__(self, *args, **kwargs):
         self.cli_atmt = None
         self.cli_values = dict()
-        self.ntlm_values = kwargs.pop("NTLM_VALUES", dict())
+        self.ntlm_values = kwargs.pop("NTLM_VALUES", None)
         self.ntlm_state = 0
         self.IDENTITIES = kwargs.pop("IDENTITIES", None)
         self.SigningSessionKey = None
@@ -725,55 +742,74 @@ class NTLM_Server(_NTLM_Automaton):
         # type: (NTLM_Client) -> None
         self.cli_atmt = cli_atmt
 
-    def get_token(self):
+    def get_token(self, negoex=False):
+        if negoex:
+            # Special case: negoex
+            if self.cli_atmt:
+                return self.cli_atmt.token_pipe.recv()
+            return None, None, None, None
         from random import randint
-        if self.cli_atmt:
-            return self.cli_atmt.token_pipe.recv()
-        elif self.ntlm_state == 0:
+        if self.ntlm_state == 0:
+            # First token asked (after negotiate)
             self.ntlm_state = 1
-            return NTLM_CHALLENGE(
-                ServerChallenge=self.ntlm_values.get(
-                    "ServerChallenge", struct.pack("<Q", randint(0, 2**64))),
+            negResult, MIC, rawToken = None, None, False
+            # Take a default token
+            tok = NTLM_CHALLENGE(
+                ServerChallenge=struct.pack("<Q", randint(0, 2**64)),
                 MessageType=2,
-                NegotiateFlags=self.ntlm_values.get(
-                    "NegotiateFlags", 0xe2898215),
-                ProductMajorVersion=self.ntlm_values.get(
-                    "ProductMajorVersion", 10),
-                ProductMinorVersion=self.ntlm_values.get(
-                    "ProductMinorVersion", 0),
-                Payload=[
-                    ('TargetName', self.ntlm_values.get("TargetName", "")),
-                    ('TargetInfo', [
-                        # MsvAvNbComputerName
-                        AV_PAIR(AvId=1, Value=self.ntlm_values.get(
-                                "NetbiosComputerName", "")),
-                        #  "T1-SRV-DHCP"),
-                        # MsvAvNbDomainName
-                        AV_PAIR(AvId=2, Value=self.ntlm_values.get(
-                                "NetbiosDomainName", "")),
-                        #  "TESTDOMAIN"),
-                        # MsvAvDnsComputerName
-                        AV_PAIR(AvId=3, Value=self.ntlm_values.get(
-                                "DnsComputerName", "")),
-                        # "T1-SRV-DHCP.TESTDOMAIN.local"),
-                        # MsvAvDnsDomainName
-                        AV_PAIR(AvId=4, Value=self.ntlm_values.get(
-                                "DnsDomainName", "")),
-                        # TESTDOMAIN.local"),
-                        # MsvAvDnsTreeName
-                        AV_PAIR(AvId=5, Value=self.ntlm_values.get(
-                                "DnsTreeName", "")),
-                        # TESTDOMAIN.local"),
-                        # MsvAvTimestamp
-                        AV_PAIR(AvId=7, Value=self.ntlm_values.get(
-                                "Timestamp", 0.0)),
-                        # MsvAvEOL
-                        AV_PAIR(AvId=0),
-                    ]),
-                ]
-            ), None, None, False
+                NegotiateFlags=0xe2898215,
+                ProductMajorVersion=10,
+                ProductMinorVersion=0,
+                Payload=[('TargetName', ""),
+                         ('TargetInfo', [
+                          # MsvAvNbComputerName
+                          AV_PAIR(AvId=1, Value="SRV"),
+                          # MsvAvNbDomainName
+                          AV_PAIR(AvId=2, Value="DOMAIN"),
+                          # MsvAvDnsComputerName
+                          AV_PAIR(AvId=3, Value="SRV.DOMAIN.local"),
+                          # MsvAvDnsDomainName
+                          AV_PAIR(AvId=4, Value="DOMAIN.local"),
+                          # MsvAvDnsTreeName
+                          AV_PAIR(AvId=5, Value="DOMAIN.local"),
+                          # MsvAvTimestamp
+                          AV_PAIR(AvId=7, Value=0.0),
+                          # MsvAvEOL
+                          AV_PAIR(AvId=0),
+                          ])]
+            )
+            if self.cli_atmt:
+                # from client
+                tok, negResult, MIC, rawToken = self.cli_atmt.token_pipe.recv()
+            if self.ntlm_values:
+                # Update that token with the customs one
+                for key in ["ServerChallenge",
+                            "NegotiateFlags",
+                            "ProductMajorVersion",
+                            "ProductMinorVersion",
+                            "TargetName"]:
+                    if key in self.ntlm_values:
+                        setattr(tok, key, self.ntlm_values[key])
+                avpairs = {x.AvId: x.Value for x in tok.TargetInfo}
+                tok.TargetInfo = [
+                    AV_PAIR(AvId=i, Value=self.ntlm_values.get(x, avpairs[i]))
+                    for (i, x) in [
+                        (2, "NetbiosDomainName"),
+                        (1, "NetbiosComputerName"),
+                        (4, "DnsDomainName"),
+                        (3, "DnsComputerName"),
+                        (5, "DnsTreeName"),
+                        (6, "Flags"),
+                        (7, "Timestamp"),
+                        (0, None),
+                    ]
+                    if (x in self.ntlm_values) or (i in avpairs)]
+            return tok, negResult, MIC, rawToken
         elif self.ntlm_state == 1:
+            # After auth. We return "success"
             self.ntlm_state = 0
+            if self.cli_atmt:
+                return self.cli_atmt.token_pipe.recv()
             return None, 0, None, False
 
     def received_ntlm_token(self, ntlm_tuple):

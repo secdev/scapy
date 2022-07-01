@@ -1721,7 +1721,7 @@ class PacketListField(_PacketField[List[BasePacket]]):
               val,  # type: List[Packet]
               ):
         # type: (...) -> int
-        return sum(len(p) for p in val)
+        return sum(len(self.i2m(pkt, p)) for p in val)
 
     def getfield(self, pkt, s):
         # type: (Packet, bytes) -> Tuple[bytes, List[BasePacket]]
