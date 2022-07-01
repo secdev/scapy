@@ -157,7 +157,7 @@ class _DceRpcPayload(Packet):
 # sect 12.5
 
 _drep = [
-    BitEnumField("endian", 0, 4, ["big", "little"]),
+    BitEnumField("endian", 1, 4, ["big", "little"]),
     BitEnumField("encoding", 0, 4, ["ASCII", "EBCDIC"]),
     ByteEnumField("float", 0, ["IEEE", "VAX", "CRAY", "IBM"]),
     ByteField("reserved1", 0),
@@ -266,15 +266,17 @@ class DceRpc5(Packet):
             ByteEnumField(
                 "rpc_vers", 5, {4: "4 (connection-less)", 5: "5 (connection-oriented)"}
             ),
-            ByteField("rpc_vers_minor", 1),
+            ByteField("rpc_vers_minor", 0),
             ByteEnumField("ptype", 0, DCE_RPC_TYPE),
             FlagsField("pfc_flags", 0, 8, _DCE_RPC_5_FLAGS),
         ] +
         _drep +
         [
             ByteField("reserved2", 0),
-            _EField(LenField("frag_len", None, fmt="H")),
-            _EField(LenField("auth_len", None, fmt="H")),
+            _EField(ShortField("frag_len", None)),
+            _EField(FieldLenField("auth_len", None, fmt="H",
+                                  length_of="auth_verifier",
+                                  adjust=lambda pkt, x: 0 if not x else (x - 8))),
             _EField(IntField("call_id", None)),
             ConditionalField(
                 TrailerField(
@@ -285,10 +287,17 @@ class DceRpc5(Packet):
                         length_from=lambda pkt: pkt.auth_len + 8,
                     )
                 ),
-                lambda pkt: pkt.auth_len,
+                lambda pkt: pkt.auth_len != 0,
             ),
         ]
     )
+
+    def post_build(self, pkt, pay):
+        if self.frag_len is None:
+            length = len(pkt) + len(pay)
+            pkt = pkt[:8] + \
+                self.get_field("frag_len").addfield(self, b"", length) + pkt[10:]
+        return pkt + pay
 
 
 # sec 12.6.3.1
@@ -338,7 +347,7 @@ class DceRpc5Context(EPacket):
     name = "Presentation Context (p_cont_elem_t)"
     fields_desc = [
         _EField(ShortField("context_id", 0)),
-        FieldLenField("n_transfer_syn", None, length_of="transfer_syntaxes", fmt="B"),
+        FieldLenField("n_transfer_syn", None, count_of="transfer_syntaxes", fmt="B"),
         ByteField("reserved", 0),
         EPacketField("abstract_syntax", None, DceRpc5AbstractSyntax),
         EPacketListField(
@@ -439,7 +448,7 @@ class DceRpc5Bind(_DceRpcPayload):
         _EField(IntField("assoc_group_id", 0)),
         # p_cont_list_t
         _EField(
-            FieldLenField("n_context_elem", None, length_of="context_elem", fmt="B")
+            FieldLenField("n_context_elem", None, count_of="context_elem", fmt="B")
         ),
         StrFixedLenField("reserved", 0, length=3),
         EPacketListField(
@@ -808,15 +817,15 @@ class NDRContextHandle(Packet):
 #         super(DCERPC_Client, self).__init__(
 #             recvsock=lambda **_: sock, ll=lambda **_: sock, **kwargs
 #         )
-#
+
 #     @ATMT.state(initial=1)
 #     def BEGIN(self):
 #         pass
-#
+
 #     def send_epm_bind(self):
 #         self.send()
-#
-#
+
+
 # def dcerpc_connect(remoteIP, use_smb=False, remotePort=135):
 #     """
 #     Initiale a connection using DCE/RPC
@@ -829,7 +838,6 @@ class NDRContextHandle(Packet):
 #     remote_sock = StreamSocket(sock, DceRpc)
 #     print("connected to %s" % repr(sock.getsockname()))
 #     DCERPC_Client(remote_sock, debug=4).run()
-
 
 # --- TODO cleanup below
 

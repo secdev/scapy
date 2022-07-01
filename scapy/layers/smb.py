@@ -813,7 +813,7 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
     @ATMT.action(received_negotiate)
     def on_negotiate(self, pkt):
         if self.CLIENT_PROVIDES_NEGOEX:
-            negoex_token, _, _, _ = self.get_token()
+            negoex_token, _, _, _ = self.get_token(negoex=True)
         else:
             negoex_token = None
         if not self.SMB2 and not self.get("GUID", 0):
