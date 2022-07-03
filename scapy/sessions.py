@@ -140,6 +140,7 @@ class IPSession(DefaultSession):
                         defragmented_packet = defragmented_packet.__class__(
                             raw(defragmented_packet)
                         )
+                        defragmented_packet.time = packet.time
                         return defragmented_packet
                 finally:
                     del self.fragments[uniq]
