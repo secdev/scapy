@@ -1767,9 +1767,16 @@ class PacketListField(_PacketField[List[BasePacket]]):
             lst.append(p)
         return remain + ret, lst
 
+    def i2m(self,
+            pkt,  # type: Optional[Packet]
+            i,  # type: Any
+            ):
+        # type: (...) -> bytes
+        return bytes_encode(i)
+
     def addfield(self, pkt, s, val):
         # type: (Packet, bytes, Any) -> bytes
-        return s + b"".join(bytes_encode(v) for v in val)
+        return s + b"".join(self.i2m(pkt, v) for v in val)
 
 
 class StrFixedLenField(StrField):

@@ -55,6 +55,7 @@ from scapy.contrib.rtps.common_types import (
     STR_MAX_LEN,
     SerializedDataField,
     VendorIdPacket,
+    e_flags,
 )
 from scapy.contrib.rtps.pid_types import (
     ParameterListPacket,
@@ -161,7 +162,8 @@ class ParticipantMessageDataPacket(EPacket):
     fields_desc = [
         PacketField("guidPrefix", "", GUIDPrefixPacket),
         XIntField("kind", 0),
-        EField(XIntField("sequenceSize", 0)),  # octets
+        EField(XIntField("sequenceSize", 0),
+               endianness_from=e_flags),  # octets
         StrLenField(
             "serializedData",
             "",
@@ -246,9 +248,11 @@ class RTPSSubMessage_DATA(EPacket):
     fields_desc = [
         XByteField("submessageId", 0x15),
         XByteField("submessageFlags", 0x00),
-        EField(ShortField("octetsToNextHeader", 0)),
+        EField(ShortField("octetsToNextHeader", 0),
+               endianness_from=e_flags),
         XNBytesField("extraFlags", 0x0000, 2),
-        EField(ShortField("octetsToInlineQoS", 0)),
+        EField(ShortField("octetsToInlineQoS", 0),
+               endianness_from=e_flags),
         X3BytesField("readerEntityIdKey", 0),
         XByteField("readerEntityIdKind", 0),
         X3BytesField("writerEntityIdKey", 0),
@@ -265,19 +269,23 @@ class RTPSSubMessage_DATA(EPacket):
         #     fmt="4s",
         #     enum=_rtps_reserved_entity_ids,
         # ),
-        EField(IntField("writerSeqNumHi", 0)),
-        EField(IntField("writerSeqNumLow", 0)),
+        EField(IntField("writerSeqNumHi", 0),
+               endianness_from=e_flags),
+        EField(IntField("writerSeqNumLow", 0),
+               endianness_from=e_flags),
         # -------------------------------------
         ConditionalField(
             InlineQoSPacketField("inlineQoS", "", InlineQoSPacket),
             lambda pkt: pkt.submessageFlags & 0b00000010 == 0b00000010,
         ),
         ConditionalField(
-            DataPacketField("key", "", DataPacket),
+            DataPacketField("key", "", DataPacket,
+                            endianness_from=e_flags),
             lambda pkt: pkt.submessageFlags & 0b00001000 == 0b00001000,
         ),
         ConditionalField(
-            DataPacketField("data", "", DataPacket),
+            DataPacketField("data", "", DataPacket,
+                            endianness_from=e_flags),
             lambda pkt: pkt.submessageFlags & 0b00000100 == 0b00000100,
         ),
     ]
@@ -301,7 +309,8 @@ class RTPSSubMessage_INFO_TS(EPacket):
         FlagsField(
             "submessageFlags", 0, 8,
             ["E", "I", "?", "?", "?", "?", "?", "?"]),
-        EField(ShortField("octetsToNextHeader", 0)),
+        EField(ShortField("octetsToNextHeader", 0),
+               endianness_from=e_flags),
         ConditionalField(
             Field("ts_seconds", default=0, fmt="<l"),
             lambda pkt: str(pkt.submessageFlags).find("I"),
@@ -335,7 +344,8 @@ class RTPSSubMessage_ACKNACK(EPacket):
     fields_desc = [
         XByteField("submessageId", 0x06),
         XByteField("submessageFlags", 0x00),
-        EField(ShortField("octetsToNextHeader", 0)),
+        EField(ShortField("octetsToNextHeader", 0),
+               endianness_from=e_flags),
         EnumField(
             "reader_id",
             default=b"\x00\x00\x00\x00",
@@ -382,7 +392,8 @@ class RTPSSubMessage_HEARTBEAT(EPacket):
     fields_desc = [
         XByteField("submessageId", 0x07),
         XByteField("submessageFlags", 0),
-        EField(ShortField("octetsToNextHeader", 0)),
+        EField(ShortField("octetsToNextHeader", 0),
+               endianness_from=e_flags),
         EnumField(
             "reader_id",
             default=b"\x00\x00\x00\x00",
@@ -397,7 +408,8 @@ class RTPSSubMessage_HEARTBEAT(EPacket):
         ),
         XLongField("firstAvailableSeqNum", 0),
         XLongField("lastSeqNum", 0),
-        EField(IntField("count", 0)),
+        EField(IntField("count", 0),
+               endianness_from=e_flags),
     ]
 
 
@@ -419,7 +431,8 @@ class RTPSSubMessage_INFO_DST(EPacket):
     fields_desc = [
         XByteField("submessageId", 0x0E),
         XByteField("submessageFlags", 0),
-        EField(ShortField("octetsToNextHeader", 0)),
+        EField(ShortField("octetsToNextHeader", 0),
+               endianness_from=e_flags),
         PacketField("guidPrefix", "", GUIDPrefixPacket),
     ]
 
@@ -436,7 +449,8 @@ class RTPSSubMessage_PAD(EPacket):
     fields_desc = [
         XByteField("submessageId", 0x01),
         XByteField("submessageFlags", 0),
-        EField(ShortField("octetsToNextHeader", 0)),
+        EField(ShortField("octetsToNextHeader", 0),
+               endianness_from=e_flags),
     ]
 
 

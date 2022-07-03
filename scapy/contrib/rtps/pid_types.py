@@ -47,7 +47,6 @@ from scapy.contrib.rtps.common_types import (
     ProtocolVersionPacket,
     TransportInfoPacket,
     VendorIdPacket,
-    e_flags,
     FORMAT_LE,
 )
 
@@ -718,10 +717,7 @@ _RTPSParameterIdTypes = {
 
 def get_pid_class(pkt, lst, cur, remain):
 
-    if hasattr(pkt, "endianness"):
-        endianness = pkt.endianness
-    else:
-        endianness = e_flags(pkt)
+    endianness = getattr(pkt, "endianness", None)
 
     _id = struct.unpack(endianness + "h", remain[0:2])[0]
 
