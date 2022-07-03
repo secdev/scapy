@@ -88,7 +88,7 @@ class TestSocket(ObjectPipe[Packet], SuperSocket):
     def select(sockets, remain=conf.recv_poll_rate):
         # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
         sock = [s for s in sockets if isinstance(s, ObjectPipe) and
-                not s._closed]
+                not s.closed]
         return cast(List[SuperSocket], select_objects(sock, remain))
 
     def __del__(self):

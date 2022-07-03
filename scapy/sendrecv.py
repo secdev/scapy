@@ -1168,7 +1168,7 @@ class AsyncSniffer(object):
         # Get select information from the sockets
         _main_socket = next(iter(sniff_sockets))
         select_func = _main_socket.select
-        nonblocking_socket = _main_socket.nonblocking_socket
+        nonblocking_socket = getattr(_main_socket, "nonblocking_socket", False)
         # We check that all sockets use the same select(), or raise a warning
         if not all(select_func == sock.select for sock in sniff_sockets):
             warning("Warning: inconsistent socket types ! "

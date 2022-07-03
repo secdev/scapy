@@ -1768,23 +1768,23 @@ assert r
 = sniff() with socket failure
 * GH issue 3631
 
+REFPACKET = Ether()/IP()/UDP()
+
 # A socket that fails after 10 packets
 class OOPipe(ObjectPipe):
-     nonblocking_socket = False
-     def recv(self, x):
+     def recv(self, x=MTU):
          self.i = getattr(self, "i", 0) + 1
          if self.i == 11:
              self.close()
              raise OSError("Giant failure")
          pkt = super(OOPipe, self).recv(x)
-         self.send(b"\0"*64)
+         self.send(REFPACKET)
          return pkt
 
 o = OOPipe()
-o.send(b"\0"*64)
+o.send(REFPACKET)
 
-a = SimpleSocket(o)
-pkts = sniff(opened_socket=[a], timeout=3)
+pkts = sniff(opened_socket=[o], timeout=3)
 assert len(pkts) == 10
 
 = GH issue 3306

@@ -136,7 +136,7 @@ class ObjectPipe(Generic[_T]):
     def __init__(self, name=None):
         # type: (Optional[str]) -> None
         self.name = name or "ObjectPipe"
-        self._closed = False
+        self.closed = False
         self.__rd, self.__wr = os.pipe()
         self.__queue = deque()  # type: Deque[_T]
         if WINDOWS:
@@ -197,7 +197,7 @@ class ObjectPipe(Generic[_T]):
 
     def recv(self, n=0):
         # type: (Optional[int]) -> Optional[_T]
-        if self._closed:
+        if self.closed:
             return None
         os.read(self.__rd, 1)
         elt = self.__queue.popleft()
@@ -211,8 +211,8 @@ class ObjectPipe(Generic[_T]):
 
     def close(self):
         # type: () -> None
-        if not self._closed:
-            self._closed = True
+        if not self.closed:
+            self.closed = True
             os.close(self.__rd)
             os.close(self.__wr)
             self.__queue.clear()
