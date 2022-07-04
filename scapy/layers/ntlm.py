@@ -714,17 +714,17 @@ class NTLM_Server(_NTLM_Automaton):
     A class to overload to create a server automaton when using
     NTLM.
 
-    Optional parameters:
-    - NTLM_VALUES: a dict whose keys are
-      - "NetbiosDomainName"
-      - "NetbiosComputerName"
-      - "DnsDomainName"
-      - "DnsComputerName"
-      - "DnsTreeName"
-      - "Flags"
-      - "Timestamp"
-    - IDENTITIES: a dict {"username": NTOWFv2("password", "username", "domain")}
-      (this is the KeyResponseNT)
+    :param NTLM_VALUES: a dict whose keys are
+        - "NetbiosDomainName"
+        - "NetbiosComputerName"
+        - "DnsDomainName"
+        - "DnsComputerName"
+        - "DnsTreeName"
+        - "Flags"
+        - "Timestamp"
+
+    :param IDENTITIES: a dict {"username": NTOWFv2("password", "username", "domain")}
+                       (this is the KeyResponseNT)
     """
     port = 445
     cls = conf.raw_layer

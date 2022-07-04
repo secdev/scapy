@@ -578,7 +578,7 @@ class HTTP(Packet):
 
     # tcp_reassemble is used by TCPSession in session.py
     @classmethod
-    def tcp_reassemble(cls, data, metadata):
+    def tcp_reassemble(cls, data, metadata, _):
         detect_end = metadata.get("detect_end", None)
         is_unknown = metadata.get("detect_unknown", True)
         if not detect_end or is_unknown:

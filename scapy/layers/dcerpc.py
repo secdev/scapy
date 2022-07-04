@@ -22,7 +22,7 @@ from uuid import UUID
 
 # from scapy.automaton import ATMT, Automaton
 from scapy.config import conf
-from scapy.layers.gssapi import GSSAPI_BLOB
+from scapy.error import log_runtime
 from scapy.packet import Packet, Raw, bind_bottom_up, bind_layers
 from scapy.fields import (
     _FieldContainer,
@@ -56,6 +56,10 @@ from scapy.fields import (
     XLEIntField,
     XShortField,
 )
+from scapy.sessions import DefaultSession
+
+from scapy.layers.kerberos import KRB5_GSS_Wrap_RFC1964, KRB5_GSS_Wrap
+from scapy.layers.gssapi import GSSAPI_BLOB
 from scapy.layers.inet import TCP
 
 from scapy.contrib.rtps.common_types import (
@@ -240,6 +244,12 @@ class CommonAuthVerifier(Packet):
         ),
     ]
 
+    def is_encrypted(self):
+        if self.auth_type == 9 and isinstance(self.auth_value, GSSAPI_BLOB):
+            return isinstance(self.auth_value.innerContextToken,
+                              (KRB5_GSS_Wrap_RFC1964, KRB5_GSS_Wrap))
+        return False
+
 
 # sect 12.6
 
@@ -299,8 +309,27 @@ class DceRpc5(Packet):
                 self.get_field("frag_len").addfield(self, b"", length) + pkt[10:]
         return pkt + pay
 
+    def answers(self, pkt):
+        return isinstance(pkt, DceRpc5) and pkt[DceRpc5].call_id == self.call_id
+
+    @classmethod
+    def tcp_reassemble(cls, data, _, session):
+        if data[0:1] != b"\x05":
+            return
+        endian = struct.unpack("!B", data[4:5])[0] >> 4
+        if endian not in [0, 1]:
+            return
+        length = struct.unpack(("<" if endian else ">") + "H", data[8:10])[0]
+        if len(data) == length:
+            # Start a DCE/RPC session for this TCP stream
+            dcerpc_session = session.get("dcerpc_session", None)
+            if not dcerpc_session:
+                dcerpc_session = session["dcerpc_session"] = DceRpcSession()
+            pkt = dcerpc_session._process_dcerpc_packet(DceRpc5(data))
+            return pkt
 
 # sec 12.6.3.1
+
 
 DCE_RPC_INTERFACES_NAMES = {}
 DCE_RPC_INTERFACES_NAMES_rev = {}
@@ -398,8 +427,8 @@ class DceRpc5PortAny(EPacket):
 class DceRpc5AlterContext(_DceRpcPayload):
     name = "DCE/RPC v5 - AlterContext"
     fields_desc = [
-        _EField(ShortField("max_xmit_frag", 0)),
-        _EField(ShortField("max_recv_frag", 0)),
+        _EField(ShortField("max_xmit_frag", 5840)),
+        _EField(ShortField("max_recv_frag", 8192)),
         _EField(IntField("assoc_group_id", 0)),
         # p_result_list_t
         _EField(FieldLenField("n_results", None, length_of="results", fmt="B")),
@@ -419,8 +448,8 @@ bind_layers(DceRpc5, DceRpc5AlterContext, ptype=14)
 class DceRpc5AlterContextResp(_DceRpcPayload):
     name = "DCE/RPC v5 - AlterContextResp"
     fields_desc = [
-        _EField(ShortField("max_xmit_frag", 0)),
-        _EField(ShortField("max_recv_frag", 0)),
+        _EField(ShortField("max_xmit_frag", 5840)),
+        _EField(ShortField("max_recv_frag", 8192)),
         _EField(IntField("assoc_group_id", 0)),
         PadField(
             EPacketField("sec_addr", None, DceRpc5PortAny),
@@ -443,8 +472,8 @@ bind_layers(DceRpc5, DceRpc5AlterContextResp, ptype=15)
 class DceRpc5Bind(_DceRpcPayload):
     name = "DCE/RPC v5 - Bind"
     fields_desc = [
-        _EField(ShortField("max_xmit_frag", 0)),
-        _EField(ShortField("max_recv_frag", 0)),
+        _EField(ShortField("max_xmit_frag", 5840)),
+        _EField(ShortField("max_recv_frag", 8192)),
         _EField(IntField("assoc_group_id", 0)),
         # p_cont_list_t
         _EField(
@@ -469,8 +498,8 @@ bind_layers(DceRpc5, DceRpc5Bind, ptype=11)
 class DceRpc5BindAck(_DceRpcPayload):
     name = "DCE/RPC v5 - Bind Ack"
     fields_desc = [
-        _EField(ShortField("max_xmit_frag", 0)),
-        _EField(ShortField("max_recv_frag", 0)),
+        _EField(ShortField("max_xmit_frag", 5840)),
+        _EField(ShortField("max_recv_frag", 8192)),
         _EField(IntField("assoc_group_id", 0)),
         PadField(
             EPacketField("sec_addr", None, DceRpc5PortAny),
@@ -529,6 +558,17 @@ DceRpcOp = namedtuple("DceRpcOp", ["request", "response"])
 DCE_RPC_INTERFACES = {}
 
 
+class DceRpcInterface:
+    def __init__(self, name, uuid, version, opnums):
+        self.name = name
+        self.uuid = uuid
+        self.version = version
+        self.opnums = opnums
+
+    def __repr__(self):
+        return "<DCE/RPC Interface %s v%s>" % (self.name, self.version)
+
+
 def register_dcerpc_interface(name, uuid, version, opnums):
     """
     Register a DCE/RPC interface
@@ -537,12 +577,12 @@ def register_dcerpc_interface(name, uuid, version, opnums):
         raise ValueError("Interface is already registered !")
     DCE_RPC_INTERFACES_NAMES[uuid] = "%s (v%s)" % (name.upper(), version)
     DCE_RPC_INTERFACES_NAMES_rev[name.upper()] = uuid
-    DCE_RPC_INTERFACES[uuid] = {
-        "name": name,
-        "uuid": uuid,
-        "version": version,
-        "opnums": opnums,
-    }
+    DCE_RPC_INTERFACES[uuid] = DceRpcInterface(
+        name,
+        uuid,
+        version,
+        opnums,
+    )
 
 
 # --- NDR fields
@@ -807,6 +847,75 @@ class NDRContextHandle(Packet):
 
     def guess_payload_class(self, payload):
         return conf.padding_layer
+
+
+# --- DCE/RPC session
+
+class DceRpcSession(DefaultSession):
+    """
+    A DCE/RPC session within a TCP socket.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.rpc_bind_interface = None
+        self.ndr64 = False
+        self.map_callid_opnum = {}
+        super(DceRpcSession, self).__init__(*args, **kwargs)
+
+    def _process_dcerpc_packet(self, pkt):
+        opnum = None
+        if DceRpc5Bind in pkt:
+            # bind => get which RPC interface
+            for ctx in pkt.context_elem:
+                if_uuid = ctx.abstract_syntax.if_uuid
+                try:
+                    self.rpc_bind_interface = DCE_RPC_INTERFACES[if_uuid]
+                except KeyError:
+                    log_runtime.warning(
+                        "Unknown RPC interface %s. Try loading the IDL" % if_uuid)
+        elif DceRpc5BindAck in pkt:
+            # bind ack => is it NDR64
+            for res in pkt[DceRpc5BindAck].results:
+                if res.result == 0:  # Accepted
+                    if res.transfer_syntax.sprintf("%if_uuid%") == "NDR64":
+                        self.ndr64 = True
+        elif DceRpc5Request in pkt:
+            # request => match opnum with callID
+            opnum = self.map_callid_opnum[pkt.call_id] = pkt.opnum
+        elif DceRpc5Response in pkt:
+            # response => get opnum from table
+            try:
+                opnum = self.map_callid_opnum[pkt.call_id]
+                del self.map_callid_opnum[pkt.call_id]
+            except KeyError:
+                pass
+        # Check for encrypted payloads
+        if pkt.auth_verifier and pkt.auth_verifier.is_encrypted():
+            return pkt
+        # Try to parse the payload
+        if opnum is not None and self.rpc_bind_interface and conf.raw_layer in pkt:
+            # use opnum to parse the payload
+            is_response = DceRpc5Response in pkt
+            try:
+                cls = self.rpc_bind_interface.opnums[opnum][is_response]
+            except KeyError:
+                log_runtime.warning(
+                    "Unknown opnum %s for interface %s"
+                    % (opnum, self.rpc_bind_interface)
+                )
+                return
+            # Dissect payload using class
+            payload = cls(pkt[conf.raw_layer].load, ndr64=self.ndr64)
+            pkt[conf.raw_layer].underlayer.remove_payload()
+            pkt = pkt / payload
+        return pkt
+
+    def on_packet_received(self, pkt):
+        if DceRpc5 in pkt:
+            return super(DceRpcSession, self).on_packet_received(
+                self._process_dcerpc_packet(pkt)
+            )
+        return super(DceRpcSession, self).on_packet_received(pkt)
 
 
 # --- DCE/RPC client
