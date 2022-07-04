@@ -1,23 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 # This file is part of Scapy
-# Scapy is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 2 of the License, or
-# any later version.
-#
-# Scapy is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Scapy. If not, see <http://www.gnu.org/licenses/>.
+# See https://scapy.net/ for more information
+# Copyright (C) 2020  Sebastien Dudek (@FlUxIuS)
 
 # scapy.contrib.description = LoRa PHY to WAN Layer
 # scapy.contrib.status = loads
 
 """
-Copyright (C) 2020  Sebastien Dudek (@FlUxIuS)
-initially developed @PentHertz
+LoRa PHY to WAN Layer
+
+Initially developed @PentHertz
 and improved at @Trend Micro
 
 Spec: lorawantm_specification v1.1

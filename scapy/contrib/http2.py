@@ -1,23 +1,14 @@
-#############################################################################
-#                                                                           #
-#  http2.py --- HTTP/2 support for Scapy                                    #
-#               see RFC7540 and RFC7541                                     #
-#               for more information                                        #
-#                                                                           #
-#  Copyright (C) 2016  Florian Maury <florian.maury@ssi.gouv.fr>            #
-#                                                                           #
-#  This file is part of Scapy                                               #
-#  Scapy is free software: you can redistribute it and/or modify it         #
-#  under the terms of the GNU General Public License version 2 as           #
-#  published by the Free Software Foundation.                               #
-#                                                                           #
-#  This program is distributed in the hope that it will be useful, but      #
-#  WITHOUT ANY WARRANTY; without even the implied warranty of               #
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU        #
-#  General Public License for more details.                                 #
-#                                                                           #
-#############################################################################
-"""http2 Module
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Copyright (C) 2016  Florian Maury <florian.maury@ssi.gouv.fr>
+
+"""
+http2
+
+HTTP/2 support for Scapy
+see RFC7540 and RFC7541 for more information
+
 Implements packets and fields required to encode/decode HTTP/2 Frames
 and HPack encoded headers
 """
