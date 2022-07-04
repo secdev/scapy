@@ -122,12 +122,20 @@ class _EPacketField(object):
         self.endianness_from = kwargs.pop("endianness_from", e_flags)
         super(_EPacketField, self).__init__(*args, **kwargs)
 
+    def set_endianness(self, pkt):
+        if getattr(pkt, "endianness", None) is not None:
+            self.endianness = pkt.endianness
+        elif self.endianness_from is not None:
+            self.endianness = self.endianness_from(pkt)
+
     def m2i(self, pkt, m):
-        return self.cls(m, endianness=pkt.endianness)
+        self.set_endianness(pkt)
+        return self.cls(m, endianness=self.endianness)
 
     def i2m(self, pkt, m):
         if m:
-            m.endianness = pkt.endianness
+            self.set_endianness(pkt)
+            m.endianness = self.endianness
         return super(_EPacketField, self).i2m(pkt, m)
 
 
@@ -153,7 +161,6 @@ class SerializedDataField(StrLenField):
 class DataPacketField(EPacketField):
     def m2i(self, pkt, m):
         self.set_endianness(pkt)
-
         pl_len = pkt.octetsToNextHeader - 24
         _pkt = self.cls(
             m,
