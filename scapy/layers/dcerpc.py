@@ -582,6 +582,15 @@ def register_dcerpc_interface(name, uuid, version, opnums):
     )
 
 
+def find_dcerpc_interface(name):
+    """
+    Find an interface object through the name in the IDL
+    """
+    return next(
+        x for x in DCE_RPC_INTERFACES.values() if x.name == name
+    )
+
+
 # --- NDR fields
 
 
