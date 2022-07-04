@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) Gabriel Potter
-# This program is published under a GPLv2 license
+# See https://scapy.net/ for more information
+# Copyright (C) Gabriel Potter <gabriel[]potter[]fr>
 
 r"""
 Kerberos V5
@@ -1328,13 +1328,17 @@ _TOK_IDS = {
     b"\x05\x04": "GSS_Wrap",
 }
 _SGN_ALGS = {
-    0: "DES MAC MD5",
-    1: "MD2.5",
-    2: "DES MAC",
+    0x00: "DES MAC MD5",
+    0x01: "MD2.5",
+    0x02: "DES MAC",
+    # RFC 4757
+    0x11: "HMAC",
 }
 _SEAL_ALGS = {
     0: "DES",
     0xFFFF: "none",
+    # RFC 4757
+    0x10: "RC4",
 }
 
 
