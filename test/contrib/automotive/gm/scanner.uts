@@ -55,7 +55,7 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
             tester, reset_handler=reset,
             test_cases=enumerators, timeout=0.2, retry_if_none_received=True,
             unittest=True, **kwargs)
-        for i in range(100):
+        for i in range(12):
             scanner.scan(timeout=10)
             if scanner.scan_completed:
                 print("Scan completed after %d iterations" % i)
@@ -65,6 +65,7 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
         tester.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)
         assert not sim.is_alive()
+        cleanup_testsockets()
     return scanner
 
 = Load packets from candump

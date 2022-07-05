@@ -8,6 +8,7 @@
 
 import time
 import random
+from socket import socket
 
 from scapy.config import conf
 from scapy.automaton import ObjectPipe, select_objects
@@ -21,9 +22,7 @@ from scapy.supersocket import SuperSocket
 open_test_sockets = list()  # type: List[TestSocket]
 
 
-class TestSocket(ObjectPipe[Packet], SuperSocket):
-    nonblocking_socket = False  # type: bool
-
+class TestSocket(SuperSocket):
     def __init__(self, basecls=None):
         # type: (Optional[Type[Packet]]) -> None
         global open_test_sockets
@@ -31,6 +30,7 @@ class TestSocket(ObjectPipe[Packet], SuperSocket):
         self.basecls = basecls
         self.paired_sockets = list()  # type: List[TestSocket]
         self.closed = False
+        self.ins = self.outs = cast(socket, ObjectPipe(name="TestSocket"))
         open_test_sockets.append(self)
 
     def __enter__(self):
@@ -66,7 +66,7 @@ class TestSocket(ObjectPipe[Packet], SuperSocket):
         # type: (Packet) -> int
         sx = bytes(x)
         for r in self.paired_sockets:
-            super(TestSocket, r).send(sx)  # type: ignore
+            r.ins.send(sx)
         try:
             x.sent_time = time.time()
         except AttributeError:
@@ -76,24 +76,16 @@ class TestSocket(ObjectPipe[Packet], SuperSocket):
     def recv_raw(self, x=MTU):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
         """Returns a tuple containing (cls, pkt_data, time)"""
-        return self.basecls, \
-            super(TestSocket, self).recv(), \
-            time.time()
-
-    def recv(self, x=MTU):  # type: ignore
-        # type: (int) -> Optional[Packet]
-        return SuperSocket.recv(self, x=x)
-
-    @staticmethod
-    def select(sockets, remain=conf.recv_poll_rate):
-        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
-        sock = [s for s in sockets if isinstance(s, ObjectPipe) and
-                not s.closed]
-        return cast(List[SuperSocket], select_objects(sock, remain))
+        return self.basecls, self.ins.recv(0), time.time()
 
     def __del__(self):
         # type: () -> None
         self.close()
+
+    @staticmethod
+    def select(sockets, remain=conf.recv_poll_rate):
+        # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
+        return select_objects(sockets, remain)
 
 
 class UnstableSocket(TestSocket):
@@ -118,7 +110,7 @@ class UnstableSocket(TestSocket):
         self.last_tx_was_error = False
         return super(UnstableSocket, self).send(x)
 
-    def recv(self, x=MTU):  # type: ignore
+    def recv(self, x=MTU):
         # type: (int) -> Optional[Packet]
         if not self.last_rx_was_error:
             if random.randint(0, 1000) == 42:

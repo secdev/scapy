@@ -101,11 +101,11 @@ responses = [
 sniff(timeout=0.001, opened_socket=[ecu, tester])
 
 answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
-sim = threading.Thread(target=answering_machine, kwargs={"timeout": 50, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
+sim = threading.Thread(target=answering_machine, kwargs={"timeout": 100, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
 sim.start()
 try:
     s = OBD_Scanner(tester, full_scan=False, timeout=1, retry_if_none_received=True)
-    s.scan()
+    s.scan(timeout=100)
     tester.send(b"\xff\xff\xff")
 finally:
     sim.join(timeout=10)
@@ -144,11 +144,11 @@ assert len(s.enumerators[7].results_with_response) == 1    # 1 PR
 sniff(timeout=0.001, opened_socket=[ecu, tester])
 
 answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
-sim = threading.Thread(target=answering_machine, kwargs={"timeout": 50, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
+sim = threading.Thread(target=answering_machine, kwargs={"timeout": 100, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
 sim.start()
 try:
     s = OBD_Scanner(tester, full_scan=True, timeout=1, retry_if_none_received=True)
-    s.scan()
+    s.scan(timeout=100)
     tester.send(b"\xff\xff\xff")
 finally:
     sim.join(timeout=10)
@@ -188,11 +188,11 @@ assert len(s.enumerators[7].results_with_response) == 1    # 1 PR
 sniff(timeout=0.001, opened_socket=[ecu, tester])
 
 answering_machine = EcuAnsweringMachine(supported_responses=responses, main_socket=ecu, basecls=OBD)
-sim = threading.Thread(target=answering_machine, kwargs={"timeout": 50, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
+sim = threading.Thread(target=answering_machine, kwargs={"timeout": 100, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
 sim.start()
 try:
     s = OBD_Scanner(tester, test_cases=[OBD_S01_Enumerator], full_scan=False, retry_if_none_received=True, timeout=1)
-    s.scan()
+    s.scan(timeout=100)
     tester.send(b"\xff\xff\xff")
 finally:
     sim.join(timeout=10)
