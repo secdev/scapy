@@ -70,6 +70,8 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
         answering_machine_running.clear()
         tester.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)
+        assert not sim.is_alive()
+        cleanup_testsockets()
     if six.PY3 and LINUX:
         pickle_test(scanner)
     return scanner
@@ -161,6 +163,7 @@ try:
 finally:
     tester.send(Raw(b"\xff\xff\xff"))
     sim.join(timeout=2)
+    cleanup_testsockets()
 
 
 = Simulate ECU and run Scanner
