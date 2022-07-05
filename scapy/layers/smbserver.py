@@ -39,27 +39,13 @@ from scapy.layers.smb import (
     SMBTree_Connect_AndX,
 )
 from scapy.layers.smb2 import (
-    SMB2_FILEID,
-    SMB2_Close_Request,
-    SMB2_Close_Response,
-    SMB2_Create_Request,
-    SMB2_Create_Response,
     SMB2_Header,
     SMB2_Negotiate_Protocol_Request,
     SMB2_Negotiate_Protocol_Response,
-    SMB2_Query_Info_Request,
-    SMB2_Query_Info_Response,
-    SMB2_Read_Request,
-    SMB2_Read_Response,
     SMB2_Session_Setup_Request,
     SMB2_Session_Setup_Response,
     SMB2_IOCTL_Request,
     SMB2_Error_Response,
-    SMB2_Tree_Connect_Request,
-    SMB2_Tree_Connect_Response,
-    FileStandardInformation,
-    SMB2_Write_Request,
-    SMB2_Write_Response,
 )
 
 
@@ -71,7 +57,6 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
         self.CLIENT_PROVIDES_NEGOEX = kwargs.pop(
             "CLIENT_PROVIDES_NEGOEX", False)
         self.ECHO = kwargs.pop("ECHO", False)
-        self.SERVE_FILES = kwargs.pop("SERVE_FILES", [])
         self.ANONYMOUS_LOGIN = kwargs.pop("ANONYMOUS_LOGIN", False)
         self.GUEST_LOGIN = kwargs.pop("GUEST_LOGIN", False)
         self.PASS_NEGOEX = kwargs.pop("PASS_NEGOEX", False)
@@ -102,9 +87,6 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
         assert \
             not self.ECHO or self.cli_atmt, \
             "Cannot use ECHO without binding to a client !"
-        assert \
-            not (self.cli_atmt and self.SERVE_FILES), \
-            "Cannot use SERVE_FILES if a client is bound !"
 
     @ATMT.receive_condition(BEGIN)
     def received_negotiate(self, pkt):
@@ -436,12 +418,6 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
         """Dev: overload this"""
         pass
 
-    @ATMT.condition(AUTHENTICATED, prio=0)
-    def should_serve(self):
-        if self.SERVE_FILES:
-            # Serve files
-            raise self.SERVING()
-
     @ATMT.condition(AUTHENTICATED, prio=1)
     def should_end(self):
         if not self.ECHO:
@@ -496,135 +472,6 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
                 self._response_validate_negotiate_info()
                 return
         self.echo(pkt)
-
-    @ATMT.state()
-    def SERVING(self):
-        """
-        Main state when serving files
-        """
-        pass
-
-    @ATMT.receive_condition(SERVING)
-    def receive_tree_connect(self, pkt):
-        if SMB2_Tree_Connect_Request in pkt:
-            raise self.SERVING().action_parameters(pkt)
-
-    @ATMT.action(receive_tree_connect)
-    def send_tree_connect_response(self, pkt):
-        self.smb_header.TID = 0x1
-        self.smb_header.MID = pkt.MID
-        self.send(self.smb_header / SMB2_Tree_Connect_Response(
-            ShareType="PIPE",
-            ShareFlags="AUTO_CACHING+NO_CACHING",
-            Capabilities=0,
-            MaximalAccess="+".join(
-                ['FILE_LIST_DIRECTORY',
-                 'FILE_ADD_FILE',
-                 'FILE_ADD_SUBDIRECTORY',
-                 'FILE_READ_EA',
-                 'FILE_WRITE_EA',
-                 'FILE_TRAVERSE',
-                 'FILE_DELETE_CHILD',
-                 'FILE_READ_ATTRIBUTES',
-                 'FILE_WRITE_ATTRIBUTES',
-                 'DELETE',
-                 'READ_CONTROL',
-                 'WRITE_DAC',
-                 'WRITE_OWNER',
-                 'SYNCHRONIZE',
-                 'ACCESS_SYSTEM_SECURITY'])
-        ))
-
-    @ATMT.receive_condition(SERVING)
-    def receive_ioctl(self, pkt):
-        if SMB2_IOCTL_Request in pkt:
-            raise self.SERVING().action_parameters(pkt)
-
-    @ATMT.action(receive_ioctl)
-    def send_ioctl_response(self, pkt):
-        self.smb_header.MID = pkt.MID
-        self._response_validate_negotiate_info()
-
-    @ATMT.receive_condition(SERVING)
-    def receive_create_file(self, pkt):
-        if SMB2_Create_Request in pkt:
-            raise self.SERVING().action_parameters(pkt)
-
-    @ATMT.action(receive_create_file)
-    def send_create_file_response(self, pkt):
-        self.smb_header.MID = pkt.MID
-        self.send(
-            self.smb_header.copy() / SMB2_Create_Response(
-                FileId=SMB2_FILEID(Persistent=0x4000000012,
-                                   Volatile=0x4000000001)
-            )
-        )
-
-    @ATMT.receive_condition(SERVING)
-    def receive_query_info(self, pkt):
-        if SMB2_Query_Info_Request in pkt:
-            raise self.SERVING().action_parameters(pkt)
-
-    @ATMT.action(receive_query_info)
-    def send_query_info_response(self, pkt):
-        self.smb_header.MID = pkt.MID
-        if pkt.InfoType == 0x01:  # SMB2_0_INFO_FILE
-            if pkt.FileInfoClass == 0x05:  # FileStandardInformation
-                self.send(
-                    self.smb_header.copy() / SMB2_Query_Info_Response(
-                        Buffer=[('Output',
-                                 FileStandardInformation(
-                                     AllocationSize=4096,
-                                     DeletePending=1))]
-                    )
-                )
-
-    @ATMT.state()
-    def PIPE_WRITTEN(self):
-        pass
-
-    @ATMT.receive_condition(SERVING)
-    def receive_write_request(self, pkt):
-        if SMB2_Write_Request in pkt:
-            fi = pkt.FileId
-            if fi.Persistent == 0x4000000012 and fi.Volatile == 0x4000000001:
-                # The srvsvc file
-                raise self.PIPE_WRITTEN().action_parameters(pkt)
-            raise self.SERVING().action_parameters(pkt)
-
-    @ATMT.action(receive_write_request)
-    def send_write_response(self, pkt):
-        self.smb_header.MID = pkt.MID
-        self.send(
-            self.smb_header.copy() / SMB2_Write_Response(
-                Count=len(pkt.Data)
-            )
-        )
-
-    @ATMT.receive_condition(PIPE_WRITTEN)
-    def receive_read_request(self, pkt):
-        if SMB2_Read_Request in pkt:
-            raise self.SERVING().action_parameters(pkt)
-
-    @ATMT.action(receive_read_request)
-    def send_read_response(self, pkt):
-        self.smb_header.MID = pkt.MID
-        # TODO - implement pipe logic
-        self.send(
-            self.smb_header.copy() / SMB2_Read_Response()
-        )
-
-    @ATMT.receive_condition(SERVING)
-    def receive_close_request(self, pkt):
-        if SMB2_Close_Request in pkt:
-            raise self.SERVING().action_parameters(pkt)
-
-    @ATMT.action(receive_close_request)
-    def send_close_response(self, pkt):
-        self.smb_header.MID = pkt.MID
-        self.send(
-            self.smb_header.copy() / SMB2_Close_Response()
-        )
 
     @ATMT.state(final=1)
     def END(self):
