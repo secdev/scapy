@@ -7,8 +7,9 @@
 Hash classes.
 """
 
-import hashlib
 from hashlib import md5, sha1, sha224, sha256, sha384, sha512
+from scapy.layers.tls.crypto.md4 import MD4 as md4
+
 import scapy.libs.six as six
 
 
@@ -43,7 +44,7 @@ class Hash_NULL(_GenericHash):
 
 
 class Hash_MD4(_GenericHash):
-    hash_cls = lambda _, x: hashlib.new('md4', x)
+    hash_cls = md4
     hash_len = 16
 
 
