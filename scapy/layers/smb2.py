@@ -596,9 +596,10 @@ bind_top_down(
 # sect 2.2.5
 
 
-class SMB2_Session_Setup_Request(Packet):
+class SMB2_Session_Setup_Request(_NTLMPayloadPacket):
     name = "SMB2 Session Setup Request"
     OFFSET = 24 + 64
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
         XLEShortField("StructureSize", 0x19),
         FlagsField("Flags", 0, -8, ["SMB2_SESSION_FLAG_BINDING"]),
@@ -648,9 +649,10 @@ bind_top_down(
 # sect 2.2.6
 
 
-class SMB2_Session_Setup_Response(Packet):
+class SMB2_Session_Setup_Response(_NTLMPayloadPacket):
     name = "SMB2 Session Setup Response"
     OFFSET = 8 + 64
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
         XLEShortField("StructureSize", 0x9),
         FlagsField("SessionFlags", 0, -16, {
@@ -699,9 +701,10 @@ bind_top_down(
 # sect 2.2.9
 
 
-class SMB2_Tree_Connect_Request(Packet):
+class SMB2_Tree_Connect_Request(_NTLMPayloadPacket):
     name = "SMB2 TREE_CONNECT Request"
     OFFSET = 8 + 64
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
         XLEShortField("StructureSize", 0x9),
         FlagsField("Flags", 0, -16, ["CLUSTER_RECONNECT",
@@ -804,9 +807,10 @@ bind_top_down(
 # sect 2.2.14.2
 
 
-class SMB2_Create_Context(Packet):
+class SMB2_Create_Context(_NTLMPayloadPacket):
     name = "SMB2 CREATE CONTEXT"
     OFFSET = 16
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
         LEIntField("Next", 0),
         XLEShortField("NameBufferOffset", None),
@@ -846,9 +850,10 @@ SMB2_OPLOCK_LEVELS = {
 }
 
 
-class SMB2_Create_Request(Packet):
+class SMB2_Create_Request(_NTLMPayloadPacket):
     name = "SMB2 CREATE Request"
     OFFSET = 56 + 64
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
         XLEShortField("StructureSize", 0x39),
         ByteField("ShareType", 0),
@@ -1334,9 +1339,10 @@ class SMB2_Query_Quota_Info(Packet):
     ]
 
 
-class SMB2_Query_Info_Request(Packet):
+class SMB2_Query_Info_Request(_NTLMPayloadPacket):
     name = "SMB2 QUERY INFO Request"
     OFFSET = 40 + 64
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
         XLEShortField("StructureSize", 0x29),
         ByteEnumField("InfoType", 0, {
