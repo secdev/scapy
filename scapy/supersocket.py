@@ -81,7 +81,7 @@ class tpacket_auxdata(ctypes.Structure):
 
 @six.add_metaclass(_SuperSocket_metaclass)
 class SuperSocket:
-    closed = 0    # type: int
+    closed = False  # type: bool
     nonblocking_socket = False  # type: bool
     auxdata_available = False   # type: bool
 
@@ -377,7 +377,6 @@ class L3RawSocket(SuperSocket):
 
 class SimpleSocket(SuperSocket):
     desc = "wrapper around a classic socket"
-    nonblocking_socket = True
 
     def __init__(self, sock):
         # type: (socket.socket) -> None
@@ -387,6 +386,7 @@ class SimpleSocket(SuperSocket):
 
 class StreamSocket(SimpleSocket):
     desc = "transforms a stream socket into a layer 2"
+    nonblocking_socket = True
 
     def __init__(self, sock, basecls=None):
         # type: (socket.socket, Optional[Type[Packet]]) -> None

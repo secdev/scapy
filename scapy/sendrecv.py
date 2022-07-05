@@ -1168,7 +1168,7 @@ class AsyncSniffer(object):
         # Get select information from the sockets
         _main_socket = next(iter(sniff_sockets))
         select_func = _main_socket.select
-        nonblocking_socket = _main_socket.nonblocking_socket
+        nonblocking_socket = getattr(_main_socket, "nonblocking_socket", False)
         # We check that all sockets use the same select(), or raise a warning
         if not all(select_func == sock.select for sock in sniff_sockets):
             warning("Warning: inconsistent socket types ! "
@@ -1254,6 +1254,10 @@ class AsyncSniffer(object):
                 # Removed dead sockets
                 for s in dead_sockets:
                     del sniff_sockets[s]
+                    if len(sniff_sockets) == 1 and \
+                            close_pipe in sniff_sockets:  # type: ignore
+                        # Only the close_pipe left
+                        del sniff_sockets[close_pipe]  # type: ignore
         except KeyboardInterrupt:
             pass
         self.running = False

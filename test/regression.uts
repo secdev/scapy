@@ -1765,6 +1765,28 @@ r = sniff(timeout=3, count=1,
 
 assert r
 
+= sniff() with socket failure
+* GH issue 3631
+
+REFPACKET = Ether()/IP()/UDP()
+
+# A socket that fails after 10 packets
+class OOPipe(ObjectPipe):
+     def recv(self, x=MTU):
+         self.i = getattr(self, "i", 0) + 1
+         if self.i == 11:
+             self.close()
+             raise OSError("Giant failure")
+         pkt = super(OOPipe, self).recv(x)
+         self.send(REFPACKET)
+         return pkt
+
+o = OOPipe()
+o.send(REFPACKET)
+
+pkts = sniff(opened_socket=[o], timeout=3)
+assert len(pkts) == 10
+
 = GH issue 3306
 ~ netaccess needs_root
 
