@@ -506,12 +506,45 @@ class DceRpc5BindAck(_DceRpcPayload):
         _EField(FieldLenField("n_results", None, length_of="results", fmt="B")),
         StrFixedLenField("reserved", 0, length=3),
         EPacketListField(
-            "results", [], DceRpc5Result, endianness_from=_dce_rpc_endianess
+            "results",
+            [],
+            DceRpc5Result,
+            endianness_from=_dce_rpc_endianess,
+            count_from=lambda pkt: pkt.n_results,
         ),
     ]
 
 
 bind_layers(DceRpc5, DceRpc5BindAck, ptype=12)
+
+# sec 12.6.4.5
+
+
+class DceRpc5Version(Packet):
+    name = "version_t"
+    fields_desc = [
+        ByteField("major", 0),
+        ByteField("minor", 0),
+    ]
+
+
+class DceRpc5BindNak(_DceRpcPayload):
+    name = "DCE/RPC v5 - Bind Nak"
+    fields_desc = [
+        _EField(ShortField("provider_reject_reason", 0)),
+        # p_rt_versions_supported_t
+        _EField(FieldLenField("n_protocols", None, length_of="protocols", fmt="B")),
+        EPacketListField(
+            "protocols",
+            [],
+            DceRpc5Version,
+            count_from=lambda pkt: pkt.n_protocols,
+            endianness_from=_dce_rpc_endianess,
+        ),
+    ]
+
+
+bind_layers(DceRpc5, DceRpc5BindNak, ptype=13)
 
 # sec 12.6.4.9
 
