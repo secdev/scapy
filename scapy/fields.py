@@ -454,7 +454,8 @@ use.
         self.name = self.dflt.name
         if any(x[0].name != self.name for x in self.flds):
             warnings.warn(
-                "All fields should have the same name in a MultipleTypeField",
+                ("All fields should have the same name in a "
+                 "MultipleTypeField (%s)") % self.name,
                 SyntaxWarning
             )
 
@@ -1832,6 +1833,10 @@ class StrFixedLenField(StrField):
             return RandBin(self.length_from(None))  # type: ignore
         except Exception:
             return RandBin(RandNum(0, 200))
+
+
+class StrFixedLenFieldUtf16(StrFixedLenField, StrFieldUtf16):
+    pass
 
 
 class StrFixedLenEnumField(_StrEnumField, StrFixedLenField):
