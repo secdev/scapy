@@ -429,7 +429,7 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
         if self.ECHO:
             raise self.AUTHENTICATED().action_parameters(pkt)
 
-    def _response_validate_negotiate_info(self):
+    def _ioctl_not_supported(self):
         pkt = self.smb_header.copy() / \
             SMB2_Error_Response(ErrorData=b"\xff")
         pkt.Status = "STATUS_NOT_SUPPORTED"
@@ -469,7 +469,7 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
                 # Since we can't sign the response, modern clients will abort
                 # the connection after receiving this, despite our best
                 # efforts...
-                self._response_validate_negotiate_info()
+                self._ioctl_not_supported()
                 return
         self.echo(pkt)
 

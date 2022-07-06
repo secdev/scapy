@@ -1093,7 +1093,7 @@ class SMB2_Read_Response(_NTLMPayloadPacket):
     OFFSET = 16 + 64
     _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
-        XLEShortField("StructureSize", 0x31),
+        XLEShortField("StructureSize", 0x11),
         LEShortField("DataBufferOffset", None),
         LEIntField("DataLen", None),
         LEIntField("DataRemaining", 0),
@@ -1110,7 +1110,7 @@ class SMB2_Read_Response(_NTLMPayloadPacket):
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
         return _SMB2_post_build(self, pkt, self.OFFSET, {
-            "Data": 4,
+            "Data": 2,
         }) + pay
 
 
