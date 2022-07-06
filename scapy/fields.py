@@ -598,8 +598,8 @@ class PadField(_FieldContainer):
         self._align = align
         self._padwith = padwith or b"\x00"
 
-    def padlen(self, flen):
-        # type: (int) -> int
+    def padlen(self, flen, pkt):
+        # type: (int, Packet) -> int
         return -flen % self._align
 
     def getfield(self,
@@ -608,7 +608,7 @@ class PadField(_FieldContainer):
                  ):
         # type: (...) -> Tuple[bytes, Any]
         remain, val = self.fld.getfield(pkt, s)
-        padlen = self.padlen(len(s) - len(remain))
+        padlen = self.padlen(len(s) - len(remain), pkt)
         return remain[padlen:], val
 
     def addfield(self,
@@ -620,7 +620,7 @@ class PadField(_FieldContainer):
         sval = self.fld.addfield(pkt, b"", val)
         return s + sval + struct.pack(
             "%is" % (
-                self.padlen(len(sval))
+                self.padlen(len(sval), pkt)
             ),
             self._padwith
         )
@@ -630,13 +630,17 @@ class ReversePadField(PadField):
     """Add bytes BEFORE the proxified field so that it starts at the specified
        alignment from its beginning"""
 
+    def original_length(self, pkt):
+        # type: (Packet) -> int
+        return len(pkt.original)
+
     def getfield(self,
                  pkt,  # type: Packet
                  s,  # type: bytes
                  ):
         # type: (...) -> Tuple[bytes, Any]
         # We need to get the length that has already been dissected
-        padlen = self.padlen(len(pkt.original) - len(s))
+        padlen = self.padlen(self.original_length(pkt) - len(s), pkt)
         remain, val = self.fld.getfield(pkt, s[padlen:])
         return remain, val
 
@@ -648,7 +652,7 @@ class ReversePadField(PadField):
         # type: (...) -> bytes
         sval = self.fld.addfield(pkt, b"", val)
         return s + struct.pack("%is" % (
-            self.padlen(len(s))
+            self.padlen(len(s), pkt)
         ), self._padwith) + sval
 
 

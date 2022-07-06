@@ -11,7 +11,7 @@
 DCE/RPC
 Distributed Computing Environment / Remote Procedure Calls
 
-Based on [C706] - DCE/RPC 1.1
+Based on [C706] - aka DCE/RPC 1.1
 https://pubs.opengroup.org/onlinepubs/9629399/toc.pdf
 """
 
@@ -47,11 +47,14 @@ from scapy.fields import (
     StrFixedLenField,
     StrLenField,
     StrLenFieldUtf16,
+    StrNullField,
+    StrNullFieldUtf16,
     TrailerField,
     UUIDEnumField,
     UUIDField,
     XByteField,
     XLEIntField,
+    XLELongField,
     XShortField,
 )
 from scapy.sessions import DefaultSession
@@ -359,6 +362,8 @@ class DceRpc5TransferSyntax(EPacket):
                 "if_uuid",
                 None,
                 {
+                    UUID("00000000-0000-0000-0000-000000000000"): "NULL",
+                    UUID("6cb71c2c-9812-4540-0300-000000000000"): "Bind Time Feature Negotiation",
                     UUID("8a885d04-1ceb-11c9-9fe8-08002b104860"): "NDR 2.0",
                     UUID("71710533-beba-4937-8319-b5dbef9ccc36"): "NDR64",
                 },
@@ -428,10 +433,14 @@ class DceRpc5AlterContext(_DceRpcPayload):
         _EField(ShortField("max_recv_frag", 8192)),
         _EField(IntField("assoc_group_id", 0)),
         # p_result_list_t
-        _EField(FieldLenField("n_results", None, length_of="results", fmt="B")),
+        _EField(FieldLenField("n_results", None, count_of="results", fmt="B")),
         StrFixedLenField("reserved", 0, length=3),
         EPacketListField(
-            "results", [], DceRpc5Result, endianness_from=_dce_rpc_endianess
+            "results",
+            [],
+            DceRpc5Result,
+            count_from=lambda pkt: pkt.n_results,
+            endianness_from=_dce_rpc_endianess
         ),
     ]
 
@@ -453,10 +462,14 @@ class DceRpc5AlterContextResp(_DceRpcPayload):
             align=4,
         ),
         # p_result_list_t
-        _EField(FieldLenField("n_results", None, length_of="results", fmt="B")),
+        _EField(FieldLenField("n_results", None, count_of="results", fmt="B")),
         StrFixedLenField("reserved", 0, length=3),
         EPacketListField(
-            "results", [], DceRpc5Result, endianness_from=_dce_rpc_endianess
+            "results",
+            [],
+            DceRpc5Result,
+            count_from=lambda pkt: pkt.n_results,
+            endianness_from=_dce_rpc_endianess
         ),
     ]
 
@@ -503,7 +516,7 @@ class DceRpc5BindAck(_DceRpcPayload):
             align=4,
         ),
         # p_result_list_t
-        _EField(FieldLenField("n_results", None, length_of="results", fmt="B")),
+        _EField(FieldLenField("n_results", None, count_of="results", fmt="B")),
         StrFixedLenField("reserved", 0, length=3),
         EPacketListField(
             "results",
@@ -624,7 +637,7 @@ def find_dcerpc_interface(name):
     )
 
 
-# --- NDR fields
+# --- NDR fields - [C706] chap 14
 
 
 class NDRPacket(Packet):
@@ -661,39 +674,75 @@ class NDRPacket(Packet):
         return conf.padding_layer
 
 
-class NDRAlign(PadField):
-    """
-    PadField but aligned on the size of the field.
-    """
-
-    def __init__(self, fld, **kwargs):
-        super(NDRAlign, self).__init__(fld, fld.sz, **kwargs)
-
-
 class _NDR64Field:
     def set_fmt(self, fmt):
         self.fmt = fmt
         self.sz = struct.calcsize(self.fmt)
 
 
+class NDRAlign(_NDR64Field, ReversePadField):
+    """
+    ReversePadField modified to fit NDR.
+
+    - If no align size is specified, use the one from the inner field
+    - Size is calculated from the beggining of the NDR stream
+    """
+
+    def __init__(self, fld, align=None, padwith=None):
+        super(NDRAlign, self).__init__(fld, align=align, padwith=padwith)
+
+    def set_fmt(self, fmt):
+        if isinstance(self.fld, _NDR64Field):
+            self.fld.set_fmt(fmt)
+
+    def padlen(self, flen, pkt):
+        print(self.name, self._align and self._align[pkt.ndr64] or self.fld.sz)
+        return -flen % (self._align and self._align[pkt.ndr64] or self.fld.sz)
+
+    def original_length(self, pkt):
+        # Find the length of the NDR frag to be able to pad properly
+        while pkt:
+            par = pkt.parent or pkt.underlayer
+            if par and isinstance(par, NDRPacket):
+                pkt = par
+            else:
+                break
+        return len(pkt.original)
+
+
 class NDRPointer(NDRPacket):
     fields_desc = [
         MultipleTypeField(
-            [(LELongField("referent_id", 1), lambda pkt: pkt.ndr64)],
-            LEIntField("referent_id", 1),
+            [(XLELongField("referent_id", 1), lambda pkt: pkt.ndr64)],
+            XLEIntField("referent_id", 1),
         ),
         PacketField("value", None, conf.raw_layer),
     ]
 
 
-class NDRPointerField(_FieldContainer, _NDR64Field):
+class NDRRefPointerField(Field, _NDR64Field):
     """
-    A NDR pointer field encapsulation
+    A NDR Reference pointer
+    """
+
+    def __init__(self, name):
+        super(NDRRefPointerField, self).__init__(name, 0, fmt="I")
+
+
+class NDRFullPointerField(_FieldContainer, _NDR64Field):
+    """
+    A NDR Full/Unique pointer field encapsulation
     """
 
     def __init__(self, fld, fmt="I"):
         self.fld = fld
         self.set_fmt(fmt)
+
+    def set_fmt(self, fmt):
+        super(NDRFullPointerField, self).set_fmt(fmt)
+        if isinstance(self.fld, _NDR64Field):
+            # Propagate
+            self.fld.set_fmt(fmt)
 
     def getfield(self, pkt, s):
         if s[: self.sz] == b"\0" * self.sz:
@@ -708,7 +757,7 @@ class NDRPointerField(_FieldContainer, _NDR64Field):
         return s + bytes(val)
 
 
-class _NDRPacketListField(PacketListField):
+class _NDRPacketListField(_NDR64Field, PacketListField):
     """
     A PacketListField that can optionally pack the packets into NDRPointers
     """
@@ -726,6 +775,7 @@ class _NDRPacketListField(PacketListField):
             return s[self.sz:], 0
         referent_id = struct.unpack(self.fmt, s[: self.sz])[0]
         return NDRPointer(
+            ndr64=pkt.ndr64,
             referent_id=referent_id,
             value=super(_NDRPacketListField, self).m2i(pkt, s[self.sz:]),
         )
@@ -763,7 +813,10 @@ class _NDRVarField(_NDR64Field):
         actual_count = struct.unpack(self.fmt, s[self.sz: self.sz * 2])[0]
         remain, val = super(_NDRVarField, self).getfield(pkt, s[self.sz * 2:])
         return remain, NDRVaryingArray(
-            offset=offset, actual_count=actual_count, value=val
+            ndr64=pkt.ndr64,
+            offset=offset,
+            actual_count=actual_count,
+            value=val,
         )
 
     def addfield(self, pkt, s, val):
@@ -800,7 +853,11 @@ class _NDRConfField(_NDR64Field):
     def getfield(self, pkt, s):
         max_count = struct.unpack(self.fmt, s[: self.sz])[0]
         remain, val = super(_NDRConfField, self).getfield(pkt, s[self.sz:])
-        return remain, NDRConformantArray(max_count=max_count, value=val)
+        return remain, NDRConformantArray(
+            ndr64=pkt.ndr64,
+            max_count=max_count,
+            value=val
+        )
 
     def addfield(self, pkt, s, val):
         return s + bytes(val)
@@ -854,7 +911,23 @@ class NDRConfVarStrLenFieldUtf16(_NDRConfField, _NDRVarField, StrLenFieldUtf16):
     pass
 
 
-class NDRRecursiveField(Field, _NDR64Field):
+class NDRConfVarStrNullField(_NDRConfField, _NDRVarField, StrNullField):
+    """
+    NDR Conformant Varying StrNullFieldUtf16
+    """
+
+    pass
+
+
+class NDRConfVarStrNullFieldUtf16(_NDRConfField, _NDRVarField, StrNullFieldUtf16):
+    """
+    NDR Conformant Varying StrNullFieldUtf16
+    """
+
+    pass
+
+
+class NDRRecursiveField(_NDR64Field, Field):
     """
     A special Field that is used for pointer recursion
     """
@@ -873,6 +946,47 @@ class NDRRecursiveField(Field, _NDR64Field):
         if val is None:
             return s + b"\0" * self.sz
         return s + bytes(val)
+
+
+class NDRUnion(Packet):
+    # Unlike the others NDRXXXX objects, this is only used as
+    # a container, not for building/dissecting
+    fields_desc = [
+        IntField("tag", 0),
+        PacketField("value", None, conf.raw_layer),
+    ]
+
+
+class NDRUnionField(_NDR64Field, MultipleTypeField):
+    def __init__(self, flds, dflt, fmt="<I"):
+        super(NDRUnionField, self).__init__(flds, dflt)
+        self.set_fmt(fmt)
+
+    def set_fmt(self, fmt):
+        # Union tag is half the ndr size
+        if fmt == "<Q":  # ndr64
+            fmt = "<I"
+        elif fmt == "<I":
+            fmt = "<H"
+        else:
+            assert False, "unknown union length"
+        super(NDRUnionField, self).set_fmt(fmt)
+        for fld in self.flds:
+            # Propagate
+            if isinstance(fld, _NDR64Field):
+                fld.set_fmt(fmt)
+
+    def getfield(self, pkt, s):
+        tag = struct.unpack(self.fmt, s[: self.sz])[0]
+        remain, val = super(NDRUnionField, self).getfield(pkt, s[self.sz:])
+        return remain, NDRUnion(tag=tag, value=val)
+
+    def addfield(self, pkt, s, val):
+        return (
+            s +
+            struct.pack(self.fmt, val.tag) +
+            super(NDRUnionField, self).addfield(pkt, b"", val.value)
+        )
 
 
 # The very few NDR-specific structures
