@@ -68,7 +68,7 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
                 break
     finally:
         answering_machine_running.clear()
-        tester.send(Raw(b"\xff\xff\xff"))
+        ecu.ins.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)
         assert not sim.is_alive()
         cleanup_testsockets()

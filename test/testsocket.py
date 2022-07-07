@@ -97,35 +97,37 @@ class UnstableSocket(TestSocket):
     def __init__(self, basecls=None):
         # type: (Optional[Type[Packet]]) -> None
         super(UnstableSocket, self).__init__(basecls)
-        self.last_rx_was_error = False
-        self.last_tx_was_error = False
+        self.no_error_for_x_rx_pkts = 0
+        self.no_error_for_x_tx_pkts = 0
 
     def send(self, x):
         # type: (Packet) -> int
-        if not self.last_tx_was_error:
+        if self.no_error_for_x_tx_pkts == 0:
             if random.randint(0, 1000) == 42:
-                self.last_tx_was_error = True
+                self.no_error_for_x_tx_pkts = 10
                 print("SOCKET CLOSED")
                 raise OSError("Socket closed")
-        self.last_tx_was_error = False
+        if self.no_error_for_x_tx_pkts > 0:
+            self.no_error_for_x_tx_pkts -= 1
         return super(UnstableSocket, self).send(x)
 
     def recv(self, x=MTU):
         # type: (int) -> Optional[Packet]
-        if not self.last_rx_was_error:
+        if self.no_error_for_x_tx_pkts == 0:
             if random.randint(0, 1000) == 42:
-                self.last_rx_was_error = True
+                self.no_error_for_x_tx_pkts = 10
                 raise OSError("Socket closed")
             if random.randint(0, 1000) == 13:
-                self.last_rx_was_error = True
+                self.no_error_for_x_tx_pkts = 10
                 raise Scapy_Exception("Socket closed")
             if random.randint(0, 1000) == 7:
-                self.last_rx_was_error = True
+                self.no_error_for_x_tx_pkts = 10
                 raise ValueError("Socket closed")
             if random.randint(0, 1000) == 113:
-                self.last_rx_was_error = True
+                self.no_error_for_x_tx_pkts = 10
                 return None
-        self.last_rx_was_error = False
+        if self.no_error_for_x_tx_pkts > 0:
+            self.no_error_for_x_tx_pkts -= 1
         return super(UnstableSocket, self).recv(x)
 
 
