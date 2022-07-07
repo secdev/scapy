@@ -15,9 +15,10 @@ Based on [C706] - aka DCE/RPC 1.1
 https://pubs.opengroup.org/onlinepubs/9629399/toc.pdf
 """
 
-from collections import namedtuple
+from collections import namedtuple, deque
 import struct
 from uuid import UUID
+from scapy.base_classes import Packet_metaclass
 
 from scapy.config import conf
 from scapy.error import log_runtime
@@ -32,9 +33,17 @@ from scapy.fields import (
     FieldLenField,
     FieldListField,
     FlagsField,
+    IEEEDoubleField,
+    IEEEFloatField,
     IntField,
+    LEIntEnumField,
     LEIntField,
     LELongField,
+    LEShortEnumField,
+    LEShortField,
+    LESignedIntField,
+    LESignedLongField,
+    LESignedShortField,
     LenField,
     MultipleTypeField,
     PacketField,
@@ -44,6 +53,7 @@ from scapy.fields import (
     ReversePadField,
     ShortEnumField,
     ShortField,
+    SignedByteField,
     StrFixedLenField,
     StrLenField,
     StrLenFieldUtf16,
@@ -69,6 +79,8 @@ from scapy.contrib.rtps.common_types import (
     EPacketField,
     EPacketListField,
 )
+
+import scapy.libs.six as six
 
 
 # DCE/RPC Packet
@@ -246,8 +258,10 @@ class CommonAuthVerifier(Packet):
 
     def is_encrypted(self):
         if self.auth_type == 9 and isinstance(self.auth_value, GSSAPI_BLOB):
-            return isinstance(self.auth_value.innerContextToken,
-                              (KRB5_GSS_Wrap_RFC1964, KRB5_GSS_Wrap))
+            return isinstance(
+                self.auth_value.innerContextToken,
+                (KRB5_GSS_Wrap_RFC1964, KRB5_GSS_Wrap),
+            )
         return False
 
 
@@ -284,9 +298,15 @@ class DceRpc5(Packet):
         [
             ByteField("reserved2", 0),
             _EField(ShortField("frag_len", None)),
-            _EField(FieldLenField("auth_len", None, fmt="H",
-                                  length_of="auth_verifier",
-                                  adjust=lambda pkt, x: 0 if not x else (x - 8))),
+            _EField(
+                FieldLenField(
+                    "auth_len",
+                    None,
+                    fmt="H",
+                    length_of="auth_verifier",
+                    adjust=lambda pkt, x: 0 if not x else (x - 8),
+                )
+            ),
             _EField(IntField("call_id", None)),
             ConditionalField(
                 TrailerField(
@@ -305,8 +325,11 @@ class DceRpc5(Packet):
     def post_build(self, pkt, pay):
         if self.frag_len is None:
             length = len(pkt) + len(pay)
-            pkt = pkt[:8] + \
-                self.get_field("frag_len").addfield(self, b"", length) + pkt[10:]
+            pkt = (
+                pkt[:8] +
+                self.get_field("frag_len").addfield(self, b"", length) +
+                pkt[10:]
+            )
         return pkt + pay
 
     def answers(self, pkt):
@@ -327,6 +350,7 @@ class DceRpc5(Packet):
                 dcerpc_session = session["dcerpc_session"] = DceRpcSession()
             pkt = dcerpc_session._process_dcerpc_packet(DceRpc5(data))
             return pkt
+
 
 # sec 12.6.3.1
 
@@ -363,7 +387,9 @@ class DceRpc5TransferSyntax(EPacket):
                 None,
                 {
                     UUID("00000000-0000-0000-0000-000000000000"): "NULL",
-                    UUID("6cb71c2c-9812-4540-0300-000000000000"): "Bind Time Feature Negotiation",
+                    UUID(
+                        "6cb71c2c-9812-4540-0300-000000000000"
+                    ): "Bind Time Feature Negotiation",
                     UUID("8a885d04-1ceb-11c9-9fe8-08002b104860"): "NDR 2.0",
                     UUID("71710533-beba-4937-8319-b5dbef9ccc36"): "NDR64",
                 },
@@ -440,7 +466,7 @@ class DceRpc5AlterContext(_DceRpcPayload):
             [],
             DceRpc5Result,
             count_from=lambda pkt: pkt.n_results,
-            endianness_from=_dce_rpc_endianess
+            endianness_from=_dce_rpc_endianess,
         ),
     ]
 
@@ -469,7 +495,7 @@ class DceRpc5AlterContextResp(_DceRpcPayload):
             [],
             DceRpc5Result,
             count_from=lambda pkt: pkt.n_results,
-            endianness_from=_dce_rpc_endianess
+            endianness_from=_dce_rpc_endianess,
         ),
     ]
 
@@ -632,55 +658,54 @@ def find_dcerpc_interface(name):
     """
     Find an interface object through the name in the IDL
     """
-    return next(
-        x for x in DCE_RPC_INTERFACES.values() if x.name == name
-    )
+    return next(x for x in DCE_RPC_INTERFACES.values() if x.name == name)
 
 
 # --- NDR fields - [C706] chap 14
 
 
-class NDRPacket(Packet):
-    """
-    A NDR Packet. Handles pointer size & endianness
-    """
-
-    __slots__ = ["ndr64"]
+class _NDRPacket(Packet):
+    __slots__ = ["ndr64", "defered_pointers"]
 
     def __init__(self, *args, **kwargs):
-        self.ndr64 = kwargs.pop("ndr64", False)
-        super(NDRPacket, self).__init__(*args, **kwargs)
+        self.ndr64 = kwargs.pop("ndr64", True)
+        self.defered_pointers = []
+        super(_NDRPacket, self).__init__(*args, **kwargs)
 
     def _update_fields(self):
         _up = self.parent or self.underlayer
-        if _up and isinstance(_up, NDRPacket):
+        if _up and isinstance(_up, _NDRPacket):
             self.ndr64 = _up.ndr64
-        ptr_fmt = "<" + (self.ndr64 and "Q" or "I")
-        for f in self.fields_desc:
-            if isinstance(f, _NDR64Field):
-                f.set_fmt(ptr_fmt)
-            else:
-                f.fmt = "<" + (f.fmt[1:] if f.fmt[0] in ["!", "<", ">"] else f.fmt)
 
     def build(self):
         self._update_fields()
-        return super(NDRPacket, self).build()
+        return super(_NDRPacket, self).build()
 
     def dissect(self, s):
         self._update_fields()
-        return super(NDRPacket, self).dissect(s)
+        return super(_NDRPacket, self).dissect(s)
 
     def default_payload_class(self, pkt):
         return conf.padding_layer
 
 
-class _NDR64Field:
-    def set_fmt(self, fmt):
-        self.fmt = fmt
-        self.sz = struct.calcsize(self.fmt)
+class _NDRAlign:
+    def padlen(self, flen, pkt):
+        assert pkt.ndr64
+        return -flen % self._align[pkt.ndr64]
+
+    def original_length(self, pkt):
+        # Find the length of the NDR frag to be able to pad properly
+        while pkt:
+            par = pkt.parent or pkt.underlayer
+            if par and isinstance(par, _NDRPacket):
+                pkt = par
+            else:
+                break
+        return len(pkt.original)
 
 
-class NDRAlign(_NDR64Field, ReversePadField):
+class NDRAlign(_NDRAlign, ReversePadField):
     """
     ReversePadField modified to fit NDR.
 
@@ -688,117 +713,353 @@ class NDRAlign(_NDR64Field, ReversePadField):
     - Size is calculated from the beggining of the NDR stream
     """
 
-    def __init__(self, fld, align=None, padwith=None):
+    def __init__(self, fld, align, padwith=None):
         super(NDRAlign, self).__init__(fld, align=align, padwith=padwith)
 
-    def set_fmt(self, fmt):
-        if isinstance(self.fld, _NDR64Field):
-            self.fld.set_fmt(fmt)
 
-    def padlen(self, flen, pkt):
-        print(self.name, self._align and self._align[pkt.ndr64] or self.fld.sz)
-        return -flen % (self._align and self._align[pkt.ndr64] or self.fld.sz)
-
-    def original_length(self, pkt):
-        # Find the length of the NDR frag to be able to pad properly
-        while pkt:
-            par = pkt.parent or pkt.underlayer
-            if par and isinstance(par, NDRPacket):
-                pkt = par
+class _NDRPacketMetaclass(Packet_metaclass):
+    def __new__(cls, name, bases, dct):
+        newcls = super(_NDRPacketMetaclass, cls).__new__(cls, name, bases, dct)
+        conformants = dct.get("CONFORMANT_COUNT", 0)
+        if conformants:
+            if conformants == 1:
+                newcls.fields_desc.insert(
+                    0,
+                    MultipleTypeField(
+                        [
+                            (
+                                NDRLongField("max_count", 0),
+                                lambda pkt: pkt and pkt.ndr64,
+                            )
+                        ],
+                        NDRIntField("max_count", 0),
+                    ),
+                )
             else:
-                break
-        return len(pkt.original)
+                newcls.fields_desc.insert(
+                    0,
+                    MultipleTypeField(
+                        [
+                            (
+                                NDRAlign(
+                                    FieldListField(
+                                        "max_counts",
+                                        0,
+                                        LELongField("", 0),
+                                        count_from=lambda _: conformants,
+                                    ),
+                                    align=(8, 8),
+                                ),
+                                lambda pkt: pkt and pkt.ndr64,
+                            )
+                        ],
+                        NDRAlign(
+                            FieldListField(
+                                "max_counts",
+                                0,
+                                LEIntField("", 0),
+                                count_from=lambda _: conformants,
+                            ),
+                            align=(4, 4),
+                        ),
+                    ),
+                )
+        if "ALIGNMENT" not in dct:
+            # ALIGNMENT only appears on non-top-level fields. This means
+            # we're in a toplevel field
+            for f in newcls.fields_desc:
+                if isinstance(f, NDRConstructedType):
+                    f.handles_deferred = False
+                    for fld in f.ndr_fields:
+                        if isinstance(fld, NDRConstructedType):
+                            fld.rec_check_deferral()
+        return newcls  # type: ignore
 
 
-class NDRPointer(NDRPacket):
+@six.add_metaclass(_NDRPacketMetaclass)
+class NDRPacket(_NDRPacket):
+    """
+    A NDR Packet. Handles pointer size & endianness
+    """
+
+    __slots__ = ["_align"]
+
+    # NDR64 pad strucutres
+    # [MS-RPCE] 2.2.5.3.4.1
+    ALIGNMENT = (1, 1)
+    # Conformants max_count can be added to the beginning
+    CONFORMANT_COUNT = 0
+
+
+# Primitive types
+NDRByteField = ByteField
+NDRSignedByteField = SignedByteField
+
+
+class NDRShortField(NDRAlign):
+    def __init__(self, *args, **kwargs):
+        super(NDRShortField, self).__init__(LEShortField(*args, **kwargs), align=(2, 2))
+
+
+class NDRSignedShortField(NDRAlign):
+    def __init__(self, *args, **kwargs):
+        super(NDRSignedShortField, self).__init__(
+            LESignedShortField(*args, **kwargs), align=(2, 2)
+        )
+
+
+class NDRIntField(NDRAlign):
+    def __init__(self, *args, **kwargs):
+        super(NDRIntField, self).__init__(LEIntField(*args, **kwargs), align=(4, 4))
+
+
+class NDRSignedIntField(NDRAlign):
+    def __init__(self, *args, **kwargs):
+        super(NDRSignedIntField, self).__init__(
+            LESignedIntField(*args, **kwargs), align=(4, 4)
+        )
+
+
+class NDRLongField(NDRAlign):
+    def __init__(self, *args, **kwargs):
+        super(NDRLongField, self).__init__(LELongField(*args, **kwargs), align=(8, 8))
+
+
+class NDRSignedLongField(NDRAlign):
+    def __init__(self, *args, **kwargs):
+        super(NDRSignedLongField, self).__init__(
+            LESignedLongField(*args, **kwargs), align=(8, 8)
+        )
+
+
+class NDRIEEEFloatField(NDRAlign):
+    def __init__(self, *args, **kwargs):
+        super(NDRIEEEFloatField, self).__init__(
+            IEEEFloatField(*args, **kwargs), align=(4, 4)
+        )
+
+
+class NDRIEEEDoubleField(NDRAlign):
+    def __init__(self, *args, **kwargs):
+        super(NDRIEEEDoubleField, self).__init__(
+            IEEEDoubleField(*args, **kwargs), align=(8, 8)
+        )
+
+
+# Enum types
+
+
+class NDRShortEnumField(NDRAlign):
+    def __init__(self, *args, **kwargs):
+        super(NDRShortEnumField, self).__init__(
+            LEShortEnumField(*args, **kwargs), align=(2, 2)
+        )
+
+
+class NDRIntEnumField(NDRAlign):
+    def __init__(self, *args, **kwargs):
+        super(NDRShortEnumField, self).__init__(
+            LEIntEnumField(*args, **kwargs), align=(4, 4)
+        )
+
+
+# Pointer types
+
+
+class NDRPointer(_NDRPacket):
     fields_desc = [
         MultipleTypeField(
-            [(XLELongField("referent_id", 1), lambda pkt: pkt.ndr64)],
+            [(XLELongField("referent_id", 1), lambda pkt: pkt and pkt.ndr64)],
             XLEIntField("referent_id", 1),
         ),
         PacketField("value", None, conf.raw_layer),
     ]
 
 
-class NDRRefPointerField(Field, _NDR64Field):
+class NDRFullPointerField(_FieldContainer):
     """
-    A NDR Reference pointer
-    """
+    A NDR Full/Unique pointer field encapsulation.
 
-    def __init__(self, name):
-        super(NDRRefPointerField, self).__init__(name, 0, fmt="I")
-
-
-class NDRFullPointerField(_FieldContainer, _NDR64Field):
-    """
-    A NDR Full/Unique pointer field encapsulation
+    :param deferred: This pointer is deferred. This means that it's representation
+                     will not appear after the pointer.
+                     See [C706] 14.3.12.3 - Algorithm for Deferral of Referents
     """
 
-    def __init__(self, fld, fmt="I"):
+    EMBEDDED = False
+
+    def __init__(self, fld, deferred=False, fmt="I"):
         self.fld = fld
-        self.set_fmt(fmt)
-
-    def set_fmt(self, fmt):
-        super(NDRFullPointerField, self).set_fmt(fmt)
-        if isinstance(self.fld, _NDR64Field):
-            # Propagate
-            self.fld.set_fmt(fmt)
+        self.deferred = deferred
 
     def getfield(self, pkt, s):
-        if s[: self.sz] == b"\0" * self.sz:
-            return s[self.sz:], None
-        referent_id = struct.unpack(self.fmt, s[: self.sz])[0]
-        remain, val = self.fld.getfield(pkt, s[self.sz:])
+        fmt = ["<I", "<Q"][pkt.ndr64]
+        remain, referent_id = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).getfield(
+            pkt, s
+        )
+        if not self.EMBEDDED and referent_id == 0:
+            return remain, None
+        if self.deferred:
+            # deferred
+            ptr = NDRPointer(ndr64=pkt.ndr64, referent_id=referent_id)
+            pkt.defered_pointers.append((ptr, self.fld, pkt))
+            return remain, ptr
+        remain, val = self.fld.getfield(pkt, remain)
         return remain, NDRPointer(ndr64=pkt.ndr64, referent_id=referent_id, value=val)
 
     def addfield(self, pkt, s, val):
-        if val is None:
-            return s + b"\0" * self.sz
+        sz = [4, 8][pkt.ndr64]
+        if not self.EMBEDDED and val is None:
+            return s + b"\0" * sz
         return s + bytes(val)
 
+    def i2repr(self, pkt, val):
+        return repr(val)
 
-class _NDRPacketListField(_NDR64Field, PacketListField):
+
+class NDRRefEmbPointerField(NDRFullPointerField):
     """
-    A PacketListField that can optionally pack the packets into NDRPointers
+    A NDR Embedded Reference pointer
     """
 
-    __slots__ = ["ptr_pack"]
+    EMBEDDED = True
 
-    def __init__(self, *args, **kwargs):
+
+# Constructed types
+
+
+# Note: this is utterly complex and will drive you crazy
+
+
+class NDRConstructedType:
+    def __init__(self, fields):
+        self.handles_deferred = False
+        self.ndr_fields = fields
+        self.rec_check_deferral()
+
+    def rec_check_deferral(self):
+        # We iterate through the fields within this constructed type.
+        # If we have a pointer, mark this field as handling deferrance
+        # and make all sub-constructed types not.
+        for f in self.ndr_fields:
+            if isinstance(f, NDRConstructedType):
+                if f.handles_deferred:
+                    self.handles_deferred = True
+                    f.handles_deferred = False
+            if isinstance(f, NDRFullPointerField) and f.deferred:
+                self.handles_deferred = True
+
+    def getfield(self, pkt, s):
+        s, fval = super(NDRConstructedType, self).getfield(pkt, s)
+        if isinstance(fval, NDRPacket) and not self.handles_deferred:
+            # If a sub-packet we just dissected has deferred pointers,
+            # pass it to parent packet.
+            pkt.defered_pointers.extend(fval.defered_pointers)
+            fval.defered_pointers.clear()
+        if self.handles_deferred:
+            # Now read content of the pointers that were deferred
+            q = deque()
+            q.extend(pkt.defered_pointers)
+            pkt.defered_pointers.clear()
+            while q:
+                # Recursively resolve pointers that were deferred
+                ptr, fld, spkt = q.popleft()
+                s, val = fld.getfield(spkt, s)
+                ptr.value = val
+                if isinstance(val, NDRPacket):
+                    # Pointer resolves to a packet.. that may have deferred pointers?
+                    q.extend(val.defered_pointers)
+                    val.defered_pointers.clear()
+        return s, fval
+
+
+class _NDRPacketField(PacketField):
+    def m2i(self, pkt, m):
+        return self.cls(m, ndr64=pkt.ndr64, _parent=pkt)
+
+
+# class _NDRPacketPadField(PadField):
+#     def padlen(self, flen, pkt):
+#         return -flen % self._align[pkt.ndr64]
+
+
+class NDRPacketField(NDRConstructedType, NDRAlign):
+    def __init__(self, name, default, pkt_cls, **kwargs):
+        fld = _NDRPacketField(name, default, pkt_cls=pkt_cls, **kwargs)
+        NDRAlign.__init__(
+            self,
+            # There is supposed to be padding after a struct in NDR64?
+            # _NDRPacketPadField(fld, align=pkt_cls.ALIGNMENT),
+            fld,
+            align=pkt_cls.ALIGNMENT,
+        )
+        NDRConstructedType.__init__(self, pkt_cls.fields_desc)
+
+
+# Array types
+
+
+class _NDRPacketListField(NDRConstructedType, PacketListField):
+    """
+    A PacketListField for NDR that can optionally pack the packets into NDRPointers
+    """
+
+    islist = 1
+    holds_packets = 1
+
+    __slots__ = ["ptr_pack", "fld"]
+
+    def __init__(self, name, default, pkt_cls, **kwargs):
         self.ptr_pack = kwargs.pop("ptr_pack", False)
-        super(_NDRPacketListField, self).__init__(*args, **kwargs)
+        PacketListField.__init__(self, name, default, pkt_cls=pkt_cls, **kwargs)
+        self.fld = NDRPacketField("", None, pkt_cls)
+        NDRConstructedType.__init__(self, [self.fld])
 
     def m2i(self, pkt, s):
         if not self.ptr_pack:
-            return super(_NDRPacketListField, self).m2i(pkt, s)
-        if s[: self.sz] == b"\0" * self.sz:
-            return s[self.sz:], 0
-        referent_id = struct.unpack(self.fmt, s[: self.sz])[0]
-        return NDRPointer(
+            remain, val = self.fld.getfield(pkt, s)
+            # A mistake here would be to use / instead of add_payload. It adds a copy
+            # which breaks pointer defferal. Same applies elsewhere
+            val.add_payload(conf.padding_layer(remain))
+            return val
+        else:
+            fmt = ["<I", "<Q"][pkt.ndr64]
+            # We need to follow alignment for pointers
+            remain, referent_id = NDRAlign(
+                Field("", 0, fmt=fmt), align=(4, 8)
+            ).getfield(pkt, s)
+            if referent_id == 0:
+                ptr = NDRPointer(ndr64=pkt.ndr64, referent_id=0, value=None)
+                ptr.add_payload(conf.padding_layer(remain))
+                return ptr
+        remain, val = self.fld.getfield(pkt, remain)
+        ptr = NDRPointer(
             ndr64=pkt.ndr64,
             referent_id=referent_id,
-            value=super(_NDRPacketListField, self).m2i(pkt, s[self.sz:]),
+            value=val,
         )
+        ptr.add_payload(conf.padding_layer(remain))
+        return ptr
 
     def i2m(self, pkt, val):
         if not self.ptr_pack:
-            return super(_NDRPacketListField, self).i2m(pkt, val)
-        if val is None:
-            return b"\0" * self.sz + super(_NDRPacketListField, self).i2m(pkt, val)
-        return bytes(val)
+            return self.fld.addfield(pkt, b"", val)
+        fmt = ["<I", "<Q"][pkt.ndr64]
+        return NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
+            pkt, b"", val and val.referent_id or 0
+        ) + (self.fld.addfield(pkt, b"", val.value) if val.value is not None else b"")
 
 
-class NDRVaryingArray(NDRPacket):
+class NDRVaryingArray(_NDRPacket):
     fields_desc = [
         MultipleTypeField(
-            [(LELongField("offset", 0), lambda pkt: pkt.ndr64)],
+            [(LELongField("offset", 0), lambda pkt: pkt and pkt.ndr64)],
             LEIntField("offset", 0),
         ),
         MultipleTypeField(
             [
                 (
                     FieldLenField("actual_count", None, fmt="<Q", length_of="value"),
-                    lambda pkt: pkt.ndr64,
+                    lambda pkt: pkt and pkt.ndr64,
                 )
             ],
             FieldLenField("actual_count", None, fmt="<I", length_of="value"),
@@ -807,11 +1068,16 @@ class NDRVaryingArray(NDRPacket):
     ]
 
 
-class _NDRVarField(_NDR64Field):
+class _NDRVarField:
+    holds_packets = 1
+
     def getfield(self, pkt, s):
-        offset = struct.unpack(self.fmt, s[: self.sz])[0]
-        actual_count = struct.unpack(self.fmt, s[self.sz: self.sz * 2])[0]
-        remain, val = super(_NDRVarField, self).getfield(pkt, s[self.sz * 2:])
+        fmt = ["<I", "<Q"][pkt.ndr64]
+        remain, offset = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).getfield(pkt, s)
+        remain, actual_count = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).getfield(
+            pkt, remain
+        )
+        remain, val = super(_NDRVarField, self).getfield(pkt, remain)
         return remain, NDRVaryingArray(
             ndr64=pkt.ndr64,
             offset=offset,
@@ -822,50 +1088,52 @@ class _NDRVarField(_NDR64Field):
     def addfield(self, pkt, s, val):
         return s + bytes(val)
 
-
-class NDRVarFieldListField(_NDRVarField, FieldListField):
-    """
-    NDR Varying FieldListField
-    """
-
-    pass
+    def i2repr(self, pkt, val):
+        return repr(val)
 
 
-class NDRVarPacketListField(_NDRVarField, _NDRPacketListField):
-    """
-    NDR Varying PacketListField
-    """
-
-    pass
-
-
-class NDRConformantArray(NDRPacket):
+class NDRConformantArray(_NDRPacket):
     fields_desc = [
         MultipleTypeField(
-            [(LELongField("max_count", 0), lambda pkt: pkt.ndr64)],
+            [(LELongField("max_count", 0), lambda pkt: pkt and pkt.ndr64)],
             LEIntField("max_count", 0),
         ),
-        PacketField("value", None, conf.raw_layer),
+        PacketListField(
+            "value", [], conf.raw_layer, count_from=lambda pkt: pkt.max_count
+        ),
     ]
 
 
-class _NDRConfField(_NDR64Field):
+class _NDRConfField:
+    holds_packets = 1
+
+    def __init__(self, *args, **kwargs):
+        self.conformant_in_struct = kwargs.pop("conformant_in_struct", False)
+        super(_NDRConfField, self).__init__(*args, **kwargs)
+
     def getfield(self, pkt, s):
-        max_count = struct.unpack(self.fmt, s[: self.sz])[0]
-        remain, val = super(_NDRConfField, self).getfield(pkt, s[self.sz:])
+        # [C706] - 14.3.7 Structures Containing Arrays
+        fmt = ["<I", "<Q"][pkt.ndr64]
+        if self.conformant_in_struct:
+            return super(_NDRConfField, self).getfield(pkt, s)
+        remain, max_count = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).getfield(
+            pkt, s
+        )
+        remain, val = super(_NDRConfField, self).getfield(pkt, remain)
         return remain, NDRConformantArray(
-            ndr64=pkt.ndr64,
-            max_count=max_count,
-            value=val
+            ndr64=pkt.ndr64, max_count=max_count, value=val
         )
 
     def addfield(self, pkt, s, val):
         return s + bytes(val)
 
+    def i2repr(self, pkt, val):
+        return repr(val)
 
-class NDRConfFieldListField(_NDRConfField, FieldListField):
+
+class NDRVarPacketListField(_NDRVarField, _NDRPacketListField):
     """
-    NDR Conformant FieldListField
+    NDR Varying PacketListField
     """
 
     pass
@@ -879,6 +1147,14 @@ class NDRConfPacketListField(_NDRConfField, _NDRPacketListField):
     pass
 
 
+class NDRConfVarPacketListField(_NDRConfField, _NDRVarField, _NDRPacketListField):
+    """
+    NDR Conformant Varying PacketListField
+    """
+
+    pass
+
+
 class NDRConfVarFieldListField(_NDRConfField, _NDRVarField, FieldListField):
     """
     NDR Conformant Varying FieldListField
@@ -887,9 +1163,20 @@ class NDRConfVarFieldListField(_NDRConfField, _NDRVarField, FieldListField):
     pass
 
 
-class NDRConfVarPacketListField(_NDRConfField, _NDRVarField, _NDRPacketListField):
+# NDR String fields
+
+
+class NDRConfStrLenField(_NDRConfField, StrLenField):
     """
-    NDR Conformant Varying PacketListField
+    NDR Conformant StrLenField
+    """
+
+    pass
+
+
+class NDRConfStrLenFieldUtf16(_NDRConfField, StrLenFieldUtf16):
+    """
+    NDR Conformant StrLenField
     """
 
     pass
@@ -927,25 +1214,7 @@ class NDRConfVarStrNullFieldUtf16(_NDRConfField, _NDRVarField, StrNullFieldUtf16
     pass
 
 
-class NDRRecursiveField(_NDR64Field, Field):
-    """
-    A special Field that is used for pointer recursion
-    """
-
-    def __init__(self, name, fmt="I"):
-        super(NDRRecursiveField, self).__init__(name, None, fmt=fmt)
-
-    def getfield(self, pkt, s):
-        if s[: self.sz] == b"\0" * self.sz:
-            return s[self.sz:], None
-        referent_id = struct.unpack(self.fmt, s[: self.sz])[0]
-        remain, val = PacketField("", None, pkt.__class__).getfield(pkt, s[self.sz:])
-        return remain, NDRPointer(ndr64=pkt.ndr64, referent_id=referent_id, value=val)
-
-    def addfield(self, pkt, s, val):
-        if val is None:
-            return s + b"\0" * self.sz
-        return s + bytes(val)
+# Union type
 
 
 class NDRUnion(Packet):
@@ -957,42 +1226,60 @@ class NDRUnion(Packet):
     ]
 
 
-class NDRUnionField(_NDR64Field, MultipleTypeField):
-    def __init__(self, flds, dflt, fmt="<I"):
-        super(NDRUnionField, self).__init__(flds, dflt)
-        self.set_fmt(fmt)
-
-    def set_fmt(self, fmt):
-        # Union tag is half the ndr size
-        if fmt == "<Q":  # ndr64
-            fmt = "<I"
-        elif fmt == "<I":
-            fmt = "<H"
-        else:
-            assert False, "unknown union length"
-        super(NDRUnionField, self).set_fmt(fmt)
-        for fld in self.flds:
-            # Propagate
-            if isinstance(fld, _NDR64Field):
-                fld.set_fmt(fmt)
-
+class _NDRUnionField(MultipleTypeField):
     def getfield(self, pkt, s):
-        tag = struct.unpack(self.fmt, s[: self.sz])[0]
-        remain, val = super(NDRUnionField, self).getfield(pkt, s[self.sz:])
+        fmt, sz = [("<H", 2), ("<I", 4)][pkt.ndr64]  # special for union
+        tag = struct.unpack(fmt, s[:sz])[0]
+        remain, val = super(_NDRUnionField, self).getfield(pkt, s[sz:])
         return remain, NDRUnion(tag=tag, value=val)
 
     def addfield(self, pkt, s, val):
+        fmt = ["<I", "<Q"][pkt.ndr64]
         return (
             s +
-            struct.pack(self.fmt, val.tag) +
-            super(NDRUnionField, self).addfield(pkt, b"", val.value)
+            struct.pack(fmt, val.tag) +
+            super(_NDRUnionField, self).addfield(pkt, b"", val.value)
         )
+
+
+class NDRUnionField(NDRConstructedType, NDRAlign):
+    def __init__(self, flds, dflt, align):
+        align = max(align[0], 2), max(align[1], 4)
+        NDRAlign.__init__(self, _NDRUnionField(flds, dflt), align=align)
+        NDRConstructedType.__init__(self, [x[0] for x in flds] + [dflt])
+
+
+# Misc
+
+
+class NDRRecursiveField(Field):
+    """
+    A special Field that is used for pointer recursion
+    """
+
+    def __init__(self, name, fmt="I"):
+        super(NDRRecursiveField, self).__init__(name, None, fmt=fmt)
+
+    def getfield(self, pkt, s):
+        fmt, sz = [("<I", 4), ("<Q", 8)][pkt.ndr64]
+        if s[:sz] == b"\0" * sz:
+            return s[sz:], None
+        referent_id = struct.unpack(fmt, s[:sz])[0]
+        remain, val = NDRPacketField("", None, pkt.__class__).getfield(pkt, s[sz:])
+        return remain, NDRPointer(ndr64=pkt.ndr64, referent_id=referent_id, value=val)
+
+    def addfield(self, pkt, s, val):
+        if val is None:
+            sz = [4, 8][pkt.ndr64]
+            return s + b"\0" * sz
+        return s + bytes(val)
 
 
 # The very few NDR-specific structures
 
 
-class NDRContextHandle(Packet):
+class NDRContextHandle(NDRPacket):
+    ALIGNMENT = (4, 4)
     fields_desc = [
         LEIntField("attributes", 0),
         StrFixedLenField("uuid", b"", length=16),
@@ -1003,6 +1290,7 @@ class NDRContextHandle(Packet):
 
 
 # --- DCE/RPC session
+
 
 class DceRpcSession(DefaultSession):
     """
@@ -1025,7 +1313,8 @@ class DceRpcSession(DefaultSession):
                     self.rpc_bind_interface = DCE_RPC_INTERFACES[if_uuid]
                 except KeyError:
                     log_runtime.warning(
-                        "Unknown RPC interface %s. Try loading the IDL" % if_uuid)
+                        "Unknown RPC interface %s. Try loading the IDL" % if_uuid
+                    )
         elif DceRpc5BindAck in pkt:
             # bind ack => is it NDR64
             for res in pkt[DceRpc5BindAck].results:

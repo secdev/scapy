@@ -641,8 +641,7 @@ class ReversePadField(PadField):
         # type: (...) -> Tuple[bytes, Any]
         # We need to get the length that has already been dissected
         padlen = self.padlen(self.original_length(pkt) - len(s), pkt)
-        remain, val = self.fld.getfield(pkt, s[padlen:])
-        return remain, val
+        return self.fld.getfield(pkt, s[padlen:])
 
     def addfield(self,
                  pkt,  # type: Packet
