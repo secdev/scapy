@@ -1407,3 +1407,23 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
                 time.sleep(self._interval)
                 if self._stopped.is_set() or self._socket.closed:
                     break
+
+
+# ##################################################################
+# ######################## New Gen Uds #############################
+# ##################################################################
+
+class Uds(ISOTP):
+    subPackets = ObservableDict(
+        {0x10: UDS_DSC,
+         0x11: UDS_ER,
+         0x14: UDS_CDTCI,
+         0x19: UDS_RDTCI,
+         0x22: UDS_RDBI,
+         0x7f: UDS_NR})  # type: Dict[int, Type[Packet]]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 1:
+            return cls.subPackets[int(_pkt[0])]
+        return UDS
