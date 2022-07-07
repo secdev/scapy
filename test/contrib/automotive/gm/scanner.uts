@@ -39,6 +39,10 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
         global answering_machine
         while answering_machine_running.is_set():
             try:
+                try:
+                    ecu.close()
+                except Exception:
+                    pass
                 ecu = TestSocket(GMLAN)
                 tester.pair(ecu)
                 answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=GMLAN, verbose=False)
