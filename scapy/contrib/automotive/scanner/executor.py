@@ -22,7 +22,8 @@ from scapy.contrib.automotive.ecu import EcuState, EcuResponse, Ecu
 from scapy.contrib.automotive.scanner.configuration import \
     AutomotiveTestCaseExecutorConfiguration
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
-    _SocketUnion, _CleanupCallable, StateGenerator, TestCaseGenerator, AutomotiveTestCase
+    _SocketUnion, _CleanupCallable, StateGenerator, TestCaseGenerator, \
+    AutomotiveTestCase
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -205,6 +206,7 @@ class AutomotiveTestCaseExecutor:
                 self.state_graph.add_edge(edge, tf)
 
     def validate_test_case_kwargs(self):
+        # type: () -> None
         for test_case in self.configuration.test_cases:
             if isinstance(test_case, AutomotiveTestCase):
                 test_case_kwargs = self.configuration[test_case.__class__.__name__]
