@@ -26,6 +26,12 @@ pkts = [
 ]
 
 class MyTestCase(ServiceEnumerator):
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'local_kwarg': ((int, str), None),
+        'verbose': (bool, None),
+        'global_arg': (str, None)
+    })
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
         return UDS(service=range(1, 11))
@@ -337,7 +343,7 @@ sock.rcvd_queue.put(b"\x7f\x01\x10")
 
 e = MyTestCase()
 
-e.execute(sock, EcuState(session=1), execution_time=-1)
+e.execute(sock, EcuState(session=1), execution_time=0)
 
 assert e._retry_pkt[EcuState(session=1)] is None
 assert len(e.results_with_response) == 1
