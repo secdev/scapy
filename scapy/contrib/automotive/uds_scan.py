@@ -82,9 +82,11 @@ class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
     _description = "Available sessions"
     _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
     _supported_kwargs.update({
-        'delay_state_change': int,
-        'overwrite_timeout': bool
+        'delay_state_change': (int, lambda x: x >= 0),
+        'overwrite_timeout': (bool, None)
     })
+    _supported_kwargs["scan_range"] = (
+        (list, tuple, range), lambda x: max(x) < 0x100 and min(x) >= 0)
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
         :param int delay_state_change: Specifies an additional delay after
@@ -230,6 +232,9 @@ class UDS_TPEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
 
 class UDS_EREnumerator(UDS_Enumerator):
     _description = "ECUReset supported"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs["scan_range"] = \
+        ((list, tuple, range), lambda x: max(x) < 0x100 and min(x) >= 0)
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -244,6 +249,9 @@ class UDS_EREnumerator(UDS_Enumerator):
 
 class UDS_CCEnumerator(UDS_Enumerator):
     _description = "CommunicationControl supported"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs["scan_range"] = \
+        ((list, tuple, range), lambda x: max(x) < 0x100 and min(x) >= 0)
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -260,6 +268,9 @@ class UDS_CCEnumerator(UDS_Enumerator):
 
 class UDS_RDBPIEnumerator(UDS_Enumerator):
     _description = "ReadDataByPeriodicIdentifier supported"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs["scan_range"] = (
+        (list, tuple, range), lambda x: max(x) < 0x100 and min(x) >= 0)
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -283,6 +294,9 @@ class UDS_RDBPIEnumerator(UDS_Enumerator):
 
 class UDS_ServiceEnumerator(UDS_Enumerator):
     _description = "Available services and negative response per state"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs["scan_range"] = \
+        ((list, tuple, range), lambda x: max(x) < 0x100 and min(x) >= 0)
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -316,6 +330,9 @@ class UDS_ServiceEnumerator(UDS_Enumerator):
 
 class UDS_RDBIEnumerator(UDS_Enumerator):
     _description = "Readable data identifier per state"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs["scan_range"] = \
+        ((list, tuple, range), lambda x: max(x) < 0x10000 and min(x) >= 0)
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -381,8 +398,8 @@ class UDS_RDBISelectiveEnumerator(StagedAutomotiveTestCase):
 class UDS_RDBIRandomEnumerator(UDS_RDBIEnumerator):
     _supported_kwargs = copy.copy(UDS_RDBIEnumerator._supported_kwargs)
     _supported_kwargs.update({
-        'probe_start': int,
-        'probe_end': int
+        'probe_start': (int, lambda x: 0 <= x <= 0xffff),
+        'probe_end': (int, lambda x: 0 <= x <= 0xffff)
     })
     block_size = 2 ** 6
 
@@ -444,8 +461,10 @@ class UDS_WDBIEnumerator(UDS_Enumerator):
     _description = "Writeable data identifier per state"
     _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
     _supported_kwargs.update({
-        'rdbi_enumerator': UDS_RDBIEnumerator
+        'rdbi_enumerator': (UDS_RDBIEnumerator, None)
     })
+    _supported_kwargs["scan_range"] = \
+        ((list, tuple, range), lambda x: max(x) < 0x100 and min(x) >= 0)
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
         :param rdbi_enumerator: Specifies an instance of an UDS_RDBIEnumerator
@@ -503,6 +522,9 @@ class UDS_WDBISelectiveEnumerator(StagedAutomotiveTestCase):
 
 class UDS_SAEnumerator(UDS_Enumerator):
     _description = "Available security seeds with access type and state"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs["scan_range"] = \
+        ((list, tuple, range), lambda x: max(x) < 0x100 and min(x) >= 0)
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -728,8 +750,10 @@ class UDS_RCEnumerator(UDS_Enumerator):
     _description = "Available RoutineControls and negative response per state"
     _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
     _supported_kwargs.update({
-        'type_list': list
+        'type_list': (list, lambda x: max(x) < 0x100 and min(x) >= 0)
     })
+    _supported_kwargs["scan_range"] = \
+        ((list, tuple, range), lambda x: max(x) < 0x10000 and min(x) >= 0)
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
         :param list type_list: A list of RoutineControlTypes which should
@@ -805,6 +829,9 @@ class UDS_RCSelectiveEnumerator(StagedAutomotiveTestCase):
 class UDS_IOCBIEnumerator(UDS_Enumerator):
     _description = "Available Input Output Controls By Identifier " \
                    "and negative response per state"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs["scan_range"] = \
+        ((list, tuple, range), lambda x: max(x) < 0x10000 and min(x) >= 0)
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -878,7 +905,7 @@ class UDS_RMBAEnumeratorABC(UDS_Enumerator):
 class UDS_RMBARandomEnumerator(UDS_RMBAEnumeratorABC):
     _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
     _supported_kwargs.update({
-        'unittest': bool
+        'unittest': (bool, None)
     })
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
@@ -921,7 +948,7 @@ class UDS_RMBARandomEnumerator(UDS_RMBAEnumeratorABC):
 class UDS_RMBASequentialEnumerator(UDS_RMBAEnumeratorABC):
     _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
     _supported_kwargs.update({
-        'points_of_interest': list
+        'points_of_interest': (list, None)
     })
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
@@ -1098,7 +1125,7 @@ class UDS_RDEnumerator(UDS_Enumerator):
     _description = "RequestDownload supported"
     _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
     _supported_kwargs.update({
-        'unittest': bool
+        'unittest': (bool, None)
     })
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
@@ -1144,6 +1171,9 @@ class UDS_RDEnumerator(UDS_Enumerator):
 
 class UDS_TDEnumerator(UDS_Enumerator):
     _description = "TransferData supported"
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs["scan_range"] = \
+        ((list, tuple, range), lambda x: max(x) < 0x100 and min(x) >= 0)
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
