@@ -97,8 +97,8 @@ class UnstableSocket(TestSocket):
     def __init__(self, basecls=None):
         # type: (Optional[Type[Packet]]) -> None
         super(UnstableSocket, self).__init__(basecls)
-        self.no_error_for_x_rx_pkts = 0
-        self.no_error_for_x_tx_pkts = 0
+        self.no_error_for_x_rx_pkts = 10
+        self.no_error_for_x_tx_pkts = 10
 
     def send(self, x):
         # type: (Packet) -> int
