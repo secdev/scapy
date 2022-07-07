@@ -343,7 +343,7 @@ sock.rcvd_queue.put(b"\x7f\x01\x10")
 
 e = MyTestCase()
 
-e.execute(sock, EcuState(session=1), execution_time=0)
+e.execute(sock, EcuState(session=1), execution_time=-1)
 
 assert e._retry_pkt[EcuState(session=1)] is None
 assert len(e.results_with_response) == 1

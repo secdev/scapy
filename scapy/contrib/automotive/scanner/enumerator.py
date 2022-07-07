@@ -55,7 +55,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     _supported_kwargs.update({
         'timeout': ((int, float), lambda x: x >= 0),
         'count': (int, lambda x: x >= 0),
-        'execution_time': (int, lambda x: x >= 0),
+        'execution_time': (int, None),
         'state_allow_list': ((list, EcuState), None),
         'state_block_list': ((list, EcuState), None),
         'retry_if_none_received': (bool, None),
