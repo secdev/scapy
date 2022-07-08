@@ -18,7 +18,7 @@ from scapy.config import conf
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, warning
 from scapy.packet import Packet
-from scapy.layers.can import CAN, CAN_MTU
+from scapy.layers.can import CAN, CAN_MTU, CAN_FD_MTU
 from scapy.arch.linux import get_last_packet_timestamp
 from scapy.compat import List, Dict, Type, Any, Optional, Tuple, raw, cast
 
@@ -46,6 +46,7 @@ class NativeCANSocket(SuperSocket):
                  receive_own_messages=False,  # type: bool
                  can_filters=None,  # type: Optional[List[Dict[str, int]]]
                  basecls=CAN,  # type: Type[Packet]
+                 fd=False, # type: bool
                  **kwargs  # type: Dict[str, Any]
                  ):
         # type: (...) -> None
@@ -56,6 +57,8 @@ class NativeCANSocket(SuperSocket):
                     "the correct one to achieve compatibility with python-can"
                     "/PythonCANSocket. \n'bustype=socketcan'")
 
+        self.MTU = CAN_MTU
+        self.fd = fd
         self.basecls = basecls
         self.channel = conf.contribs['NativeCANSocket']['channel'] if \
             channel is None else channel
@@ -70,6 +73,17 @@ class NativeCANSocket(SuperSocket):
             raise Scapy_Exception(
                 "Could not modify receive own messages (%s)", exception
             )
+
+        if self.fd:
+            try:
+                self.ins.setsockopt(socket.SOL_CAN_RAW,
+                                    socket.CAN_RAW_FD_FRAMES, 
+                                    1)
+                self.MTU = CAN_FD_MTU
+            except Exception as exception:
+                raise Scapy_Exception(
+                    "Could not modify CAN FD support (%s)", exception
+                )
 
         if can_filters is None:
             can_filters = [{
@@ -95,7 +109,10 @@ class NativeCANSocket(SuperSocket):
         """Returns a tuple containing (cls, pkt_data, time)"""
         pkt = None
         try:
-            pkt = self.ins.recv(x)
+            if self.fd:
+                pkt = self.ins.recv(CAN_FD_MTU)
+            else:
+                pkt = self.ins.recv(CAN_MTU)
         except BlockingIOError:  # noqa: F821
             warning("Captured no data, socket in non-blocking mode.")
         except socket.timeout:
@@ -107,7 +124,10 @@ class NativeCANSocket(SuperSocket):
         # need to change the byte order of the first four bytes,
         # required by the underlying Linux SocketCAN frame format
         if not conf.contribs['CAN']['swap-bytes'] and pkt is not None:
-            pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
+            if self.fd:
+                pkt = struct.pack("<I68s", *struct.unpack(">I68s", pkt))
+            else:
+                pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
 
         return self.basecls, pkt, get_last_packet_timestamp(self.ins)
 
@@ -122,8 +142,11 @@ class NativeCANSocket(SuperSocket):
         # required by the underlying Linux SocketCAN frame format
         bs = raw(x)
         if not conf.contribs['CAN']['swap-bytes']:
-            bs = bs + b'\x00' * (CAN_MTU - len(bs))
-            bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
+            bs = bs + b'\x00' * (self.MTU - len(bs))
+            if self.fd:
+                bs = struct.pack("<I68s", *struct.unpack(">I68s", bs))
+            else:
+                bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
 
         return super(NativeCANSocket, self).send(bs)  # type: ignore
 
