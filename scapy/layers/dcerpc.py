@@ -15,14 +15,16 @@ Based on [C706] - aka DCE/RPC 1.1
 https://pubs.opengroup.org/onlinepubs/9629399/toc.pdf
 """
 
+from functools import partial
 from collections import namedtuple, deque
+
 import struct
 from uuid import UUID
 from scapy.base_classes import Packet_metaclass
 
 from scapy.config import conf
 from scapy.error import log_runtime
-from scapy.packet import Packet, Raw, bind_bottom_up, bind_layers
+from scapy.packet import Packet, Raw, bind_bottom_up, bind_layers, bind_top_down
 from scapy.fields import (
     _FieldContainer,
     BitEnumField,
@@ -358,6 +360,13 @@ class DceRpc5(Packet):
 DCE_RPC_INTERFACES_NAMES = {}
 DCE_RPC_INTERFACES_NAMES_rev = {}
 
+DCE_RPC_TRANSFER_SYNTAXES = {
+    UUID("00000000-0000-0000-0000-000000000000"): "NULL",
+    UUID("6cb71c2c-9812-4540-0300-000000000000"): "Bind Time Feature Negotiation",
+    UUID("8a885d04-1ceb-11c9-9fe8-08002b104860"): "NDR 2.0",
+    UUID("71710533-beba-4937-8319-b5dbef9ccc36"): "NDR64",
+}
+
 
 class DceRpc5AbstractSyntax(EPacket):
     name = "Presentation Syntax (p_syntax_id_t)"
@@ -385,14 +394,7 @@ class DceRpc5TransferSyntax(EPacket):
             UUIDEnumField(
                 "if_uuid",
                 None,
-                {
-                    UUID("00000000-0000-0000-0000-000000000000"): "NULL",
-                    UUID(
-                        "6cb71c2c-9812-4540-0300-000000000000"
-                    ): "Bind Time Feature Negotiation",
-                    UUID("8a885d04-1ceb-11c9-9fe8-08002b104860"): "NDR 2.0",
-                    UUID("71710533-beba-4937-8319-b5dbef9ccc36"): "NDR64",
-                },
+                DCE_RPC_TRANSFER_SYNTAXES,
             )
         ),
         _EField(ShortField("if_version", 3)),
@@ -652,6 +654,9 @@ def register_dcerpc_interface(name, uuid, version, opnums):
         version,
         opnums,
     )
+    # bind for build
+    for opnum, operations in opnums.items():
+        bind_top_down(DceRpc5Request, operations.request, opnum=opnum)
 
 
 def find_dcerpc_interface(name):
@@ -677,9 +682,9 @@ class _NDRPacket(Packet):
         if _up and isinstance(_up, _NDRPacket):
             self.ndr64 = _up.ndr64
 
-    def build(self):
+    def do_build(self):
         self._update_fields()
-        return super(_NDRPacket, self).build()
+        return super(_NDRPacket, self).do_build()
 
     def dissect(self, s):
         self._update_fields()
@@ -688,10 +693,23 @@ class _NDRPacket(Packet):
     def default_payload_class(self, pkt):
         return conf.padding_layer
 
+    def clone_with(self, *args, **kwargs):
+        pkt = super(_NDRPacket, self).clone_with(*args, **kwargs)
+        # We need to copy defered_pointers to not break pointer deferral
+        # on build.
+        pkt.defered_pointers = self.defered_pointers
+        pkt.ndr64 = self.ndr64
+        return pkt
+
+    def copy(self):
+        pkt = super(_NDRPacket, self).copy()
+        pkt.defered_pointers = self.defered_pointers
+        pkt.ndr64 = self.ndr64
+        return pkt
+
 
 class _NDRAlign:
     def padlen(self, flen, pkt):
-        assert pkt.ndr64
         return -flen % self._align[pkt.ndr64]
 
     def original_length(self, pkt):
@@ -710,7 +728,7 @@ class NDRAlign(_NDRAlign, ReversePadField):
     ReversePadField modified to fit NDR.
 
     - If no align size is specified, use the one from the inner field
-    - Size is calculated from the beggining of the NDR stream
+    - Size is calculated from the beginning of the NDR stream
     """
 
     def __init__(self, fld, align, padwith=None):
@@ -784,7 +802,7 @@ class NDRPacket(_NDRPacket):
 
     __slots__ = ["_align"]
 
-    # NDR64 pad strucutres
+    # NDR64 pad structures
     # [MS-RPCE] 2.2.5.3.4.1
     ALIGNMENT = (1, 1)
     # Conformants max_count can be added to the beginning
@@ -858,9 +876,28 @@ class NDRShortEnumField(NDRAlign):
 
 class NDRIntEnumField(NDRAlign):
     def __init__(self, *args, **kwargs):
-        super(NDRShortEnumField, self).__init__(
+        super(NDRIntEnumField, self).__init__(
             LEIntEnumField(*args, **kwargs), align=(4, 4)
         )
+
+
+# Special types
+
+
+class NDRInt3264Field(Field):
+    FMTS = ["<I", "<Q"]
+
+    def getfield(self, pkt, s):
+        fmt = self.FMTS[pkt.ndr64]
+        return NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).getfield(pkt, s)
+
+    def addfield(self, pkt, s, val):
+        fmt = self.FMTS[pkt.ndr64]
+        return NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(pkt, s, val)
+
+
+class NDRSignedInt3264Field(NDRInt3264Field):
+    FMTS = ["<i", "<q"]
 
 
 # Pointer types
@@ -901,16 +938,25 @@ class NDRFullPointerField(_FieldContainer):
         if self.deferred:
             # deferred
             ptr = NDRPointer(ndr64=pkt.ndr64, referent_id=referent_id)
-            pkt.defered_pointers.append((ptr, self.fld, pkt))
+            pkt.defered_pointers.append((ptr, partial(self.fld.getfield, pkt)))
             return remain, ptr
         remain, val = self.fld.getfield(pkt, remain)
         return remain, NDRPointer(ndr64=pkt.ndr64, referent_id=referent_id, value=val)
 
     def addfield(self, pkt, s, val):
-        sz = [4, 8][pkt.ndr64]
+        fmt = ["<I", "<Q"][pkt.ndr64]
+        fld = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8))
         if not self.EMBEDDED and val is None:
-            return s + b"\0" * sz
-        return s + bytes(val)
+            return fld.addfield(pkt, s, 0)
+        else:
+            s = fld.addfield(pkt, s, val.referent_id)
+        if self.deferred:
+            # deferred
+            pkt.defered_pointers.append(
+                ((lambda s: self.fld.addfield(pkt, s, val.value)), val)
+            )
+            return s
+        return self.fld.addfield(pkt, s, val.value)
 
     def i2repr(self, pkt, val):
         return repr(val)
@@ -950,11 +996,6 @@ class NDRConstructedType:
 
     def getfield(self, pkt, s):
         s, fval = super(NDRConstructedType, self).getfield(pkt, s)
-        if isinstance(fval, NDRPacket) and not self.handles_deferred:
-            # If a sub-packet we just dissected has deferred pointers,
-            # pass it to parent packet.
-            pkt.defered_pointers.extend(fval.defered_pointers)
-            fval.defered_pointers.clear()
         if self.handles_deferred:
             # Now read content of the pointers that were deferred
             q = deque()
@@ -962,14 +1003,37 @@ class NDRConstructedType:
             pkt.defered_pointers.clear()
             while q:
                 # Recursively resolve pointers that were deferred
-                ptr, fld, spkt = q.popleft()
-                s, val = fld.getfield(spkt, s)
+                ptr, getfld = q.popleft()
+                s, val = getfld(s)
                 ptr.value = val
-                if isinstance(val, NDRPacket):
+                if isinstance(val, _NDRPacket):
                     # Pointer resolves to a packet.. that may have deferred pointers?
                     q.extend(val.defered_pointers)
                     val.defered_pointers.clear()
+        elif isinstance(fval, _NDRPacket):
+            # If a sub-packet we just dissected has deferred pointers,
+            # pass it to parent packet to propagate.
+            pkt.defered_pointers.extend(fval.defered_pointers)
+            fval.defered_pointers.clear()
         return s, fval
+
+    def addfield(self, pkt, s, val):
+        # Same logic than above, same comments.
+        s = super(NDRConstructedType, self).addfield(pkt, s, val)
+        if self.handles_deferred:
+            q = deque()
+            q.extend(pkt.defered_pointers)
+            pkt.defered_pointers.clear()
+            while q:
+                addfld, fval = q.popleft()
+                s = addfld(s)
+                if isinstance(fval, NDRPointer) and isinstance(fval.value, _NDRPacket):
+                    q.extend(fval.value.defered_pointers)
+                    fval.value.defered_pointers.clear()
+        elif isinstance(val, _NDRPacket):
+            pkt.defered_pointers.extend(val.defered_pointers)
+            val.defered_pointers.clear()
+        return s
 
 
 class _NDRPacketField(PacketField):
@@ -1082,11 +1146,18 @@ class _NDRVarField:
             ndr64=pkt.ndr64,
             offset=offset,
             actual_count=actual_count,
-            value=val,
+            value=super(_NDRVarField, self).i2h(pkt, val),
         )
 
     def addfield(self, pkt, s, val):
-        return s + bytes(val)
+        fmt = ["<I", "<Q"][pkt.ndr64]
+        s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(pkt, s, val.offset)
+        s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
+            pkt, s, val.actual_count
+        )
+        return super(_NDRVarField, self).addfield(
+            pkt, s, super(_NDRVarField, self).h2i(pkt, val.value)
+        )
 
     def i2repr(self, pkt, val):
         return repr(val)
@@ -1125,7 +1196,19 @@ class _NDRConfField:
         )
 
     def addfield(self, pkt, s, val):
-        return s + bytes(val)
+        if self.conformant_in_struct:
+            return super(_NDRConfField, self).addfield(pkt, s, val)
+        if isinstance(val.value[0], NDRVaryingArray):
+            value = val.value[0]
+        else:
+            value = val.value
+        fmt = ["<I", "<Q"][pkt.ndr64]
+        s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
+            pkt,
+            s,
+            val.max_count,
+        )
+        return super(_NDRConfField, self).addfield(pkt, s, value)
 
     def i2repr(self, pkt, val):
         return repr(val)
@@ -1150,6 +1233,14 @@ class NDRConfPacketListField(_NDRConfField, _NDRPacketListField):
 class NDRConfVarPacketListField(_NDRConfField, _NDRVarField, _NDRPacketListField):
     """
     NDR Conformant Varying PacketListField
+    """
+
+    pass
+
+
+class NDRConfFieldListField(_NDRConfField, FieldListField):
+    """
+    NDR Conformant FieldListField
     """
 
     pass
@@ -1272,7 +1363,7 @@ class NDRRecursiveField(Field):
         if val is None:
             sz = [4, 8][pkt.ndr64]
             return s + b"\0" * sz
-        return s + bytes(val)
+        return s + bytes(val)  # FIXME
 
 
 # The very few NDR-specific structures
