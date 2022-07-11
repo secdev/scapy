@@ -35,13 +35,14 @@ __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
            "BESignedSignalField", "BEUnsignedSignalField", "rdcandump",
            "CandumpReader", "SignalHeader", "CAN_MTU", "CAN_FD_MTU", "CAN_MAX_IDENTIFIER",
-           "CAN_MAX_DLEN", "CAN_INV_FILTER"]
+           "CAN_MAX_DLEN", "CAN_FD_MAX_DLEN", "CAN_INV_FILTER"]
 
 # CONSTANTS
 CAN_MAX_IDENTIFIER = (1 << 29) - 1  # Maximum 29-bit identifier
 CAN_MTU = 16
 CAN_FD_MTU = 72
 CAN_MAX_DLEN = 8
+CAN_FD_MAX_DLEN = 64
 CAN_INV_FILTER = 0x20000000
 
 # Mimics the Wireshark CAN dissector parameter
