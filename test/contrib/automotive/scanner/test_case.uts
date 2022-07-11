@@ -13,7 +13,7 @@ from scapy.contrib.automotive.ecu import EcuState
 
 class MyTestCase(AutomotiveTestCase):
     _description = "MyTestCase"
-    _supported_kwargs = {"testarg": int}
+    _supported_kwargs = {"testarg": (int, None)}
     def supported_responses(self):
         return []
 
