@@ -62,9 +62,9 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
                 return
             except OSError:
                 continue
+    sim = threading.Thread(target=answering_machine_thread)
     try:
         assert len(open_test_sockets) < 3
-        sim = threading.Thread(target=answering_machine_thread)
         sim.start()
         answering_machine_started.wait(timeout=10)
         scanner = UDS_Scanner(
