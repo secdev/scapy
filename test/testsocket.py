@@ -8,7 +8,9 @@
 
 import time
 import random
+
 from socket import socket
+from threading import Lock
 
 from scapy.config import conf
 from scapy.automaton import ObjectPipe, select_objects
@@ -23,6 +25,9 @@ open_test_sockets = list()  # type: List[TestSocket]
 
 
 class TestSocket(SuperSocket):
+
+    test_socket_mutex = Lock()
+
     def __init__(self, basecls=None):
         # type: (Optional[Type[Packet]]) -> None
         global open_test_sockets
@@ -45,22 +50,28 @@ class TestSocket(SuperSocket):
     def close(self):
         # type: () -> None
         global open_test_sockets
-        for s in self.paired_sockets:
+
+        with self.test_socket_mutex:
+            if self.closed:
+                return
+
+            self.closed = True
+            for s in self.paired_sockets:
+                try:
+                    s.paired_sockets.remove(self)
+                except (ValueError, AttributeError, TypeError):
+                    pass
+            super(TestSocket, self).close()
             try:
-                s.paired_sockets.remove(self)
+                open_test_sockets.remove(self)
             except (ValueError, AttributeError, TypeError):
                 pass
-        self.closed = True
-        super(TestSocket, self).close()
-        try:
-            open_test_sockets.remove(self)
-        except (ValueError, AttributeError, TypeError):
-            pass
 
     def pair(self, sock):
         # type: (TestSocket) -> None
-        self.paired_sockets += [sock]
-        sock.paired_sockets += [self]
+        with self.test_socket_mutex:
+            self.paired_sockets += [sock]
+            sock.paired_sockets += [self]
 
     def send(self, x):
         # type: (Packet) -> int
