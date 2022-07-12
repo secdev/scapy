@@ -116,7 +116,7 @@ assert len(msgs)
 
 = Create ECU-Clone from packets
 
-mEcu = Ecu(logging=False, verbose=False, store_supported_responses=True)
+mEcu = Ecu(logging=False, verbose=False, store_supported_responses=True, lookahead=3)
 
 for p in msgs:
     if isinstance(p, CAN) and p.data == b"ECURESET":
