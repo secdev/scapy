@@ -147,5 +147,9 @@ def cleanup_testsockets():
     """
     Helper function to remove TestSocket objects after a test
     """
-    for sock in open_test_sockets:
+    count = 100
+    while len(open_test_sockets) and count > 0:
+        print(open_test_sockets)
+        count -= 1
+        sock = open_test_sockets[0]
         sock.close()
