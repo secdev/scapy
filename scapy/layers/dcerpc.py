@@ -561,7 +561,7 @@ bind_layers(DceRpc5, DceRpc5BindAck, ptype=12)
 # sec 12.6.4.5
 
 
-class DceRpc5Version(Packet):
+class DceRpc5Version(EPacket):
     name = "version_t"
     fields_desc = [
         ByteField("major", 0),
@@ -782,15 +782,6 @@ class _NDRPacketMetaclass(Packet_metaclass):
                         ),
                     ),
                 )
-        if "ALIGNMENT" not in dct:
-            # ALIGNMENT only appears on non-top-level fields. This means
-            # we're in a toplevel field
-            for f in newcls.fields_desc:
-                if isinstance(f, NDRConstructedType):
-                    f.handles_deferred = False
-                    for fld in f.ndr_fields:
-                        if isinstance(fld, NDRConstructedType):
-                            fld.rec_check_deferral()
         return newcls  # type: ignore
 
 
@@ -944,6 +935,10 @@ class NDRFullPointerField(_FieldContainer):
         return remain, NDRPointer(ndr64=pkt.ndr64, referent_id=referent_id, value=val)
 
     def addfield(self, pkt, s, val):
+        if val is not None and not isinstance(val, NDRPointer):
+            raise ValueError(
+                "Expected NDRPointer in %s. You are using it wrong!" % self.name
+            )
         fmt = ["<I", "<Q"][pkt.ndr64]
         fld = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8))
         if not self.EMBEDDED and val is None:
@@ -1020,6 +1015,9 @@ class NDRConstructedType:
     def addfield(self, pkt, s, val):
         # Same logic than above, same comments.
         s = super(NDRConstructedType, self).addfield(pkt, s, val)
+        if isinstance(val, _NDRPacket):
+            pkt.defered_pointers.extend(val.defered_pointers)
+            val.defered_pointers.clear()
         if self.handles_deferred:
             q = deque()
             q.extend(pkt.defered_pointers)
@@ -1030,9 +1028,6 @@ class NDRConstructedType:
                 if isinstance(fval, NDRPointer) and isinstance(fval.value, _NDRPacket):
                     q.extend(fval.value.defered_pointers)
                     fval.value.defered_pointers.clear()
-        elif isinstance(val, _NDRPacket):
-            pkt.defered_pointers.extend(val.defered_pointers)
-            val.defered_pointers.clear()
         return s
 
 
@@ -1076,7 +1071,7 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
         self.ptr_pack = kwargs.pop("ptr_pack", False)
         PacketListField.__init__(self, name, default, pkt_cls=pkt_cls, **kwargs)
         self.fld = NDRPacketField("", None, pkt_cls)
-        NDRConstructedType.__init__(self, [self.fld])
+        NDRConstructedType.__init__(self, self.fld.ndr_fields)
 
     def m2i(self, pkt, s):
         if not self.ptr_pack:
@@ -1122,11 +1117,11 @@ class NDRVaryingArray(_NDRPacket):
         MultipleTypeField(
             [
                 (
-                    FieldLenField("actual_count", None, fmt="<Q", length_of="value"),
+                    FieldLenField("actual_count", None, fmt="<Q"),
                     lambda pkt: pkt and pkt.ndr64,
                 )
             ],
-            FieldLenField("actual_count", None, fmt="<I", length_of="value"),
+            FieldLenField("actual_count", None, fmt="<I"),
         ),
         PacketField("value", None, conf.raw_layer),
     ]
@@ -1150,24 +1145,38 @@ class _NDRVarField:
         )
 
     def addfield(self, pkt, s, val):
+        if not isinstance(val, NDRVaryingArray):
+            raise ValueError(
+                "Expected NDRVaryingArray in %s. You are using it wrong!" % self.name
+            )
         fmt = ["<I", "<Q"][pkt.ndr64]
-        s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(pkt, s, val.offset)
         s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
-            pkt, s, val.actual_count
+            pkt,
+            s,
+            val.offset
+        )
+        s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
+            pkt,
+            s,
+            val.actual_count is None and len(val.value) or val.actual_count
         )
         return super(_NDRVarField, self).addfield(
             pkt, s, super(_NDRVarField, self).h2i(pkt, val.value)
         )
 
-    def i2repr(self, pkt, val):
-        return repr(val)
+    def i2len(self, pkt, x):
+        return len(self.addfield(pkt, b"", x))
+
+    any2i = Field.any2i
+    i2repr = Field.i2repr
+    i2count = Field.i2count
 
 
 class NDRConformantArray(_NDRPacket):
     fields_desc = [
         MultipleTypeField(
-            [(LELongField("max_count", 0), lambda pkt: pkt and pkt.ndr64)],
-            LEIntField("max_count", 0),
+            [(LELongField("max_count", None), lambda pkt: pkt and pkt.ndr64)],
+            LEIntField("max_count", None),
         ),
         PacketListField(
             "value", [], conf.raw_layer, count_from=lambda pkt: pkt.max_count
@@ -1198,6 +1207,10 @@ class _NDRConfField:
     def addfield(self, pkt, s, val):
         if self.conformant_in_struct:
             return super(_NDRConfField, self).addfield(pkt, s, val)
+        if not isinstance(val, NDRConformantArray):
+            raise ValueError(
+                "Expected NDRConformantArray in %s. You are using it wrong!" % self.name
+            )
         if isinstance(val.value[0], NDRVaryingArray):
             value = val.value[0]
         else:
@@ -1210,8 +1223,12 @@ class _NDRConfField:
         )
         return super(_NDRConfField, self).addfield(pkt, s, value)
 
-    def i2repr(self, pkt, val):
-        return repr(val)
+    def i2len(self, pkt, x):
+        return len(self.addfield(pkt, b"", x))
+
+    any2i = Field.any2i
+    i2repr = Field.i2repr
+    i2count = Field.i2count
 
 
 class NDRVarPacketListField(_NDRVarField, _NDRPacketListField):
@@ -1259,7 +1276,10 @@ class NDRConfVarFieldListField(_NDRConfField, _NDRVarField, FieldListField):
 
 class NDRConfStrLenField(_NDRConfField, StrLenField):
     """
-    NDR Conformant StrLenField
+    NDR Conformant StrLenField.
+
+    This is not a "string" per NDR, but an a conformant byte array
+    (e.g. tower_octet_string)
     """
 
     pass
@@ -1267,7 +1287,25 @@ class NDRConfStrLenField(_NDRConfField, StrLenField):
 
 class NDRConfStrLenFieldUtf16(_NDRConfField, StrLenFieldUtf16):
     """
-    NDR Conformant StrLenField
+    NDR Conformant StrLenField.
+
+    See NDRConfLenStrField for comment.
+    """
+
+    pass
+
+
+class NDRVarStrLenField(_NDRVarField, StrLenField):
+    """
+    NDR Varying StrLenField
+    """
+
+    pass
+
+
+class NDRVarStrLenFieldUtf16(_NDRVarField, StrLenFieldUtf16):
+    """
+    NDR Varying StrLenField
     """
 
     pass
@@ -1421,7 +1459,7 @@ class DceRpcSession(DefaultSession):
                 opnum = self.map_callid_opnum[pkt.call_id]
                 del self.map_callid_opnum[pkt.call_id]
             except KeyError:
-                pass
+                log_runtime.info("Unknown call_id %s in DCE/RPC session" % pkt.call_id)
         # Check for encrypted payloads
         if pkt.auth_verifier and pkt.auth_verifier.is_encrypted():
             return pkt
