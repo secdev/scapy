@@ -33,6 +33,7 @@ from scapy.fields import (
     LEIntField,
     LEShortEnumField,
     LEShortField,
+    LenField,
     PadField,
     ShortField,
     StrFixedLenEnumField,
@@ -41,7 +42,7 @@ from scapy.fields import (
 from scapy.packet import Packet, bind_bottom_up, bind_layers
 from scapy.volatile import GeneralizedTime
 
-from scapy.layers.inet import UDP
+from scapy.layers.inet import TCP, UDP
 
 # kerberos APPLICATION
 
@@ -478,6 +479,18 @@ class Kerberos(ASN1_Packet):
 bind_bottom_up(UDP, Kerberos, sport=88)
 bind_bottom_up(UDP, Kerberos, dport=88)
 bind_layers(UDP, Kerberos, sport=88, dport=88)
+
+# sect 7.2.2
+
+
+class KerberosTCPHeader(Packet):
+    fields_desc = [LenField("len", None, fmt="!I")]
+
+
+bind_layers(KerberosTCPHeader, Kerberos)
+
+bind_bottom_up(TCP, KerberosTCPHeader, sport=88)
+bind_layers(TCP, KerberosTCPHeader, dport=88)
 
 
 # Kerberos V5 GSS-API - RFC1964 and RFC4121
