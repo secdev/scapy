@@ -6,7 +6,7 @@
 """
 Kerberos V5
 
-Implements parts of
+Implements parts of:
 - Kerberos Network Authentication Service (V5): RFC4120
 - Kerberos Version 5 GSS-API: RFC1964, RFC4121
 - Kerberos Pre-Authentication: RFC6113 (FAST)
@@ -227,6 +227,66 @@ class EncryptedData(ASN1_Packet):
         ASN1F_STRING("cipher", "", explicit_tag=0xA2),
     )
 
+    def get_usage_number(self):
+        """
+        Get current key usage number
+        """
+        # RFC 4120 sect 7.5.1
+        if self.underlayer:
+            raise ValueError(
+                "Could not guess key usage number. Please specify key_usage_number"
+            )
+        # TODO...
+        raise Exception("unimplemented. specify key_usage_number")
+
+    def get_key_from_pass(self, password, salt, params=None):
+        """
+        Generate a Key object from password and salt of the correct type
+
+        :param password: the password
+        :param salt: the salt to use for decryption (typically, DOMAIN.LOCALusername)
+        :param params: the parameters.
+                       Mostly for AES: iteration count (struct.pack(">L", it))
+        """
+        from scapy.libs.rfc3961 import Key
+        return Key.string_to_key(self.etype.val, password, salt, params=params)
+
+    def get_key(self, val):
+        """
+        Generate a Key object from the hashed key
+
+        :param val: the key
+        """
+        from scapy.libs.rfc3961 import Key
+        return Key(self.etype.val, key=val)
+
+    def decrypt(self, key, key_usage_number=None):
+        """
+        Decrypt and return the data contained in cipher.
+
+        :param key: the key to use for decryption
+        :param key_usage_number: (optional) specify the key usage number.
+                                 Guessed otherwise
+
+        """
+        if key_usage_number is None:
+            key_usage_number = self.get_usage_number()
+        return key.decrypt(key_usage_number, self.cipher.val)
+
+    def encrypt(self, key, text, confounder=None, key_usage_number=None):
+        """
+        Encrypt text and set it into cipher.
+
+        :param key: the key to use for encryption
+        :param text: the bytes value to encode
+        :param confounder: (optional) specify the confounder bytes. Random otherwise
+        :param key_usage_number: (optional) specify the key usage number.
+                                 Guessed otherwise
+        """
+        if key_usage_number is None:
+            key_usage_number = self.get_usage_number()
+        self.cipher = key.encrypt(key_usage_number, text, confounder=confounder)
+
 
 EncryptionKey = lambda **kwargs: ASN1F_SEQUENCE(
     Int32("keytype", 0, explicit_tag=0x0),
@@ -299,9 +359,50 @@ class PADATA(ASN1_Packet):
     )
 
 
-# PADATA Extended with RFC6113
+# RFC 4120 sect 5.2.7.4
 
-# RFC6113 sect
+
+class ETYPE_INFO_ENTRY(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_enum_INTEGER("etype", 0x1, _KRB_E_TYPES, explicit_tag=0xA0),
+        ASN1F_optional(
+            ASN1F_STRING("salt", "", explicit_tag=0xA1),
+        ),
+    )
+
+
+class ETYPE_INFO(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF("seq", [ETYPE_INFO_ENTRY()], ETYPE_INFO_ENTRY)
+
+
+_PADATA_CLASSES[11] = ETYPE_INFO
+
+# RFC 4120 sect 5.2.7.5
+
+
+class ETYPE_INFO_ENTRY2(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_enum_INTEGER("etype", 0x1, _KRB_E_TYPES, explicit_tag=0xA0),
+        ASN1F_optional(
+            KerberosString("salt", "", explicit_tag=0xA1),
+        ),
+        ASN1F_optional(
+            ASN1F_STRING("s2kparams", "", explicit_tag=0xA2),
+        ),
+    )
+
+
+class ETYPE_INFO2(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF("seq", [ETYPE_INFO_ENTRY2()], ETYPE_INFO_ENTRY2)
+
+
+_PADATA_CLASSES[19] = ETYPE_INFO2
+
+# PADATA Extended with RFC6113
 
 
 class PA_AUTHENTICATION_SET_ELEM(ASN1_Packet):

@@ -23,7 +23,14 @@ assert isinstance(pkt.root, KRB_ERROR)
 assert pkt.root.cname.nameString[0] == b"LOCALDC$"
 assert pkt.root.realm == b"SAMBA.EXAMPLE.COM"
 assert pkt.root.eText == b"NEEDED_PREAUTH"
-assert len(pkt.root.eData.val) == 384
+assert len(pkt.root.eData.seq) == 4
+assert pkt.root.eData.seq[0].padataType == 0x88
+assert pkt.root.eData.seq[1].padataType == 0x13
+assert pkt.root.eData.seq[3].padataType == 0x85
+assert pkt.root.eData.seq[3].padataValue == b"MIT"
+
+etype_info2 = pkt.root.eData.seq[1]
+assert etype_info2.padataValue.seq[0].salt == b'SAMBA.EXAMPLE.COMhostlocaldc.samba.example.com'
 
 = AS-REP
 
@@ -76,5 +83,46 @@ pkt = GSSAPI_BLOB(b'`\x82\n\xc2\x06\x06+\x06\x01\x05\x05\x02\xa0\x82\n\xb60\x82\
 assert isinstance(pkt.innerContextToken.token.mechToken.value.root, KRB_InitialContextToken)
 assert pkt.innerContextToken.token.mechToken.value.root.innerContextToken.TOK_ID == b'\x01\x00'
 krb = pkt.innerContextToken.token.mechToken.value.root.innerContextToken.payload
-assert isinstance(Kerberos, pkt)
+assert isinstance(krb, Kerberos)
 assert krb.root.ticket.sname.nameString == [b"cifs", b"localdc"]
+
++ Crypto tests
+~ disabled
+
+# disabled because pycryptodome but they work !
+
+= Test vectors for KRB-FX-CF2
+
+# https://datatracker.ietf.org/doc/html/rfc6113.html#appendix-A
+
+from scapy.libs.rfc3961 import Key, EncryptionType, KRB_FX_CF2
+
+def test_krb_fx_cf2(etype):
+    k1 = Key.string_to_key(etype, b"key1", b"key1")
+    k2 = Key.string_to_key(etype, b"key2", b"key2")
+    return bytes_hex(KRB_FX_CF2(k1, k2, b"a", b"b"))
+
+assert test_krb_fx_cf2(EncryptionType.AES128) == b"97df97e4b798b29eb31ed7280287a92a"
+assert test_krb_fx_cf2(EncryptionType.AES256) == b"4d6ca4e629785c1f01baf55e2e548566b9617ae3a96868c337cb93b5e72b1c7b"
+assert test_krb_fx_cf2(EncryptionType.RC4) == b'24d7f6b6bae4e5c00d2082c5ebab3672'
+
+= Test vectors for AES
+
+from scapy.libs.rfc3961 import Key, EncryptionType
+
+# https://datatracker.ietf.org/doc/html/rfc3962#appendix-B
+
+# Iteration count = 1200
+# Pass phrase = "password"
+# Salt = "ATHENA.MIT.EDUraeburn"
+
+k = Key.string_to_key(EncryptionType.AES128, b"password", b"ATHENA.MIT.EDUraeburn", struct.pack(">L", 1200))
+assert bytes_hex(k.key) == b"4c01cd46d632d01e6dbe230a01ed642a"
+
+# Iteration count = 1200
+# Pass phrase = (65 characters)
+#   "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+# Salt = "pass phrase exceeds block size"
+
+k = Key.string_to_key(EncryptionType.AES256, b"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", b"pass phrase exceeds block size", struct.pack(">L", 1200))
+assert bytes_hex(k.key) == b"d78c5c9cb872a8c9dad4697f0bb5b2d21496c82beb2caeda2112fceea057401b"
