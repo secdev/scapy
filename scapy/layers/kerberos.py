@@ -83,7 +83,22 @@ UInt32 = ASN1F_INTEGER
 class PrincipalName(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        Int32("nameType", 0, explicit_tag=0xA0),
+        ASN1F_enum_INTEGER(
+            "nameType",
+            0,
+            {
+                0: "NT-UNKNOWN",
+                1: "NT-PRINCIPAL",
+                2: "NT-SRV-INST",
+                3: "NT-SRV-HST",
+                4: "NT-SRV-XHST",
+                5: "NT-UID",
+                6: "NT-X500-PRINCIPAL",
+                7: "NT-SMTP-NAME",
+                10: "NT-ENTERPRISE",
+            },
+            explicit_tag=0xA0,
+        ),
         ASN1F_SEQUENCE_OF("nameString", [], KerberosString, explicit_tag=0xA1),
     )
 
@@ -95,7 +110,23 @@ Microseconds = ASN1F_INTEGER
 class HostAddress(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        Int32("addrType", 0, explicit_tag=0xA0),
+        ASN1F_enum_INTEGER(
+            "addrType",
+            0,
+            {
+                # RFC4120 sect 7.5.3
+                2: "IPv4",
+                3: "Directional",
+                5: "ChaosNet",
+                6: "XNS",
+                7: "ISO",
+                12: "DECNET Phase IV",
+                16: "AppleTalk DDP",
+                20: "NetBios",
+                24: "IPv6",
+            },
+            explicit_tag=0xA0,
+        ),
         ASN1F_STRING("address", "", explicit_tag=0xA1),
     )
 
@@ -108,7 +139,27 @@ HostAddresses = lambda name, **kwargs: ASN1F_SEQUENCE_OF(
 class AuthorizationDataItem(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        Int32("adType", 0, explicit_tag=0xA0),
+        ASN1F_enum_INTEGER(
+            "adType",
+            0,
+            {
+                # RFC4120 sect 7.5.4
+                1: "AD-IF-RELEVANT",
+                2: "AD-INTENDED-FOR-SERVER",
+                3: "AD-INTENDED-FOR-APPLICATION-CLASS",
+                4: "AD-KDC-ISSUED",
+                5: "AD-AND-OR",
+                6: "AD-MANDATORY-TICKET-EXTENSIONS",
+                7: "AD-IN-TICKET-EXTENSIONS",
+                8: "AD-MANDATORY-FOR-KDC",
+                64: "OSF-DCE",
+                65: "SESAME",
+                66: "AD-OSD-DCE-PKI-CERTID",
+                128: "AD-WIN2K-PAC",
+                129: "AD-ETYPE-NEGOTIATION",
+            },
+            explicit_tag=0xA0,
+        ),
         ASN1F_STRING("adData", "", explicit_tag=0xA1),
     )
 
@@ -118,7 +169,29 @@ AuthorizationData = lambda name, **kwargs: ASN1F_SEQUENCE_OF(
 )
 ADIFRELEVANT = AuthorizationData
 Checksum = lambda **kwargs: ASN1F_SEQUENCE(
-    Int32("chksumtype", 0, explicit_tag=0xA0),
+    ASN1F_enum_INTEGER(
+        "checksumtype",
+        0,
+        {
+            # RFC3961 sect 8
+            1: "CRC32",
+            2: "RSA-MD4",
+            3: "RSA-MD4-DES",
+            4: "DES-MAC",
+            5: "DES-MAC-K",
+            6: "RSA-MD4-DES-K",
+            7: "RSA-MD5",
+            8: "RSA-MD5-DES",
+            9: "RSA-MD5-DES3",
+            10: "SHA1",
+            12: "HMAC-SHA1-DES3-KD",
+            13: "HMAC-SHA1-DES3",
+            14: "SHA1",
+            15: "HMAC-SHA1-96-AES128",
+            16: "HMAC-SHA1-96-AES256",
+        },
+        explicit_tag=0xA0,
+    ),
     ASN1F_STRING("checksum", "", explicit_tag=0xA1),
     **kwargs
 )
@@ -200,7 +273,10 @@ class _PADATA_value_Field(ASN1F_STRING):
         if pkt.padataType.val in _PADATA_CLASSES:
             cls = _PADATA_CLASSES[pkt.padataType.val]
             if isinstance(cls, tuple):
-                is_reply = isinstance(pkt.underlayer, (KRB_AS_REP, KRB_TGS_REP))
+                is_reply = (
+                    pkt.underlayer.underlayer is not None and
+                    isinstance(pkt.underlayer.underlayer, KRB_ERROR)
+                ) or isinstance(pkt.underlayer, (KRB_AS_REP, KRB_TGS_REP))
                 cls = cls[is_reply]
             return cls(val[0].val), b""
         return val
@@ -254,11 +330,28 @@ _PADATA_CLASSES[134] = PA_AUTHENTICATION_SET
 # RFC6113 sect 5.4.1
 
 
+class _KrbFastArmor_value_Field(ASN1F_STRING):
+    holds_packets = 1
+
+    def m2i(self, pkt, s):
+        val = super(_KrbFastArmor_value_Field, self).m2i(pkt, s)
+        if pkt.armorType.val == 1:  # FX_FAST_ARMOR_AP_REQUEST
+            return KRB_AP_REQ(val[0].val, _underlayer=pkt), b""
+        return val
+
+    def i2m(self, pkt, val):
+        if isinstance(val, ASN1_Packet):
+            val = ASN1_STRING(bytes(val))
+        return super(_KrbFastArmor_value_Field, self).i2m(pkt, val)
+
+
 class KrbFastArmor(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        Int32("armorType", 0, explicit_tag=0xA0),
-        ASN1F_STRING("armorValue", "", explicit_tag=0xA1),
+        ASN1F_enum_INTEGER(
+            "armorType", 1, {1: "FX_FAST_ARMOR_AP_REQUEST"}, explicit_tag=0xA0
+        ),
+        _KrbFastArmor_value_Field("armorValue", "", explicit_tag=0xA1),
     )
 
 
@@ -508,7 +601,7 @@ class KRB_KDC_REQ_BODY(ASN1_Packet):
         ASN1F_optional(
             ASN1F_PACKET("sname", None, PrincipalName, explicit_tag=0xA3),
         ),
-        ASN1F_optional(KerberosTime("from", GeneralizedTime(), explicit_tag=0xA4)),
+        ASN1F_optional(KerberosTime("from", None, explicit_tag=0xA4)),
         KerberosTime("till", GeneralizedTime(), explicit_tag=0xA5),
         ASN1F_optional(KerberosTime("rtime", GeneralizedTime(), explicit_tag=0xA6)),
         UInt32("nonce", 0, explicit_tag=0xA7),
@@ -651,6 +744,26 @@ class KRB_AP_REP(ASN1_Packet):
 # sect 5.9.1
 
 
+class MethodData(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF("seq", [PADATA()], PADATA)
+
+
+class _KRBERROR_data_Field(ASN1F_STRING):
+    holds_packets = 1
+
+    def m2i(self, pkt, s):
+        val = super(_KRBERROR_data_Field, self).m2i(pkt, s)
+        if pkt.errorCode.val == 25:  # KDC_ERR_PREAUTH_REQUIRED
+            return MethodData(val[0].val, _underlayer=pkt), b""
+        return val
+
+    def i2m(self, pkt, val):
+        if isinstance(val, ASN1_Packet):
+            val = ASN1_STRING(bytes(val))
+        return super(_KRBERROR_data_Field, self).i2m(pkt, val)
+
+
 class KRB_ERROR(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_KRB_APPLICATION(
@@ -665,7 +778,82 @@ class KRB_ERROR(ASN1_Packet):
             ),
             KerberosTime("stime", GeneralizedTime(), explicit_tag=0xA4),
             Microseconds("susec", 0, explicit_tag=0xA5),
-            ASN1F_INTEGER("errorCode", 0, explicit_tag=0xA6),
+            ASN1F_enum_INTEGER(
+                "errorCode",
+                0,
+                {
+                    # RFC4120 sect 7.5.9
+                    0: "KDC_ERR_NONE",
+                    1: "KDC_ERR_NAME_EXP",
+                    2: "KDC_ERR_SERVICE_EXP",
+                    3: "KDC_ERR_BAD_PVNO",
+                    4: "KDC_ERR_C_OLD_MAST_KVNO",
+                    5: "KDC_ERR_S_OLD_MAST_KVNO",
+                    6: "KDC_ERR_C_PRINCIPAL_UNKNOWN",
+                    7: "KDC_ERR_S_PRINCIPAL_UNKNOWN",
+                    8: "KDC_ERR_PRINCIPAL_NOT_UNIQUE",
+                    9: "KDC_ERR_NULL_KEY",
+                    10: "KDC_ERR_CANNOT_POSTDATE",
+                    11: "KDC_ERR_NEVER_VALID",
+                    12: "KDC_ERR_POLICY",
+                    13: "KDC_ERR_BADOPTION",
+                    14: "KDC_ERR_ETYPE_NOSUPP",
+                    15: "KDC_ERR_SUMTYPE_NOSUPP",
+                    16: "KDC_ERR_PADATA_TYPE_NOSUPP",
+                    17: "KDC_ERR_TRTYPE_NOSUPP",
+                    18: "KDC_ERR_CLIENT_REVOKED",
+                    19: "KDC_ERR_SERVICE_REVOKED",
+                    20: "KDC_ERR_TGT_REVOKED",
+                    21: "KDC_ERR_CLIENT_NOTYET",
+                    22: "KDC_ERR_SERVICE_NOTYET",
+                    23: "KDC_ERR_KEY_EXPIRED",
+                    24: "KDC_ERR_PREAUTH_FAILED",
+                    25: "KDC_ERR_PREAUTH_REQUIRED",
+                    26: "KDC_ERR_SERVER_NOMATCH",
+                    27: "KDC_ERR_MUST_USE_USER2USER",
+                    28: "KDC_ERR_PATH_NOT_ACCEPTED",
+                    29: "KDC_ERR_SVC_UNAVAILABLE",
+                    31: "KRB_AP_ERR_BAD_INTEGRITY",
+                    32: "KRB_AP_ERR_TKT_EXPIRED",
+                    33: "KRB_AP_ERR_TKT_NYV",
+                    34: "KRB_AP_ERR_REPEAT",
+                    35: "KRB_AP_ERR_NOT_US",
+                    36: "KRB_AP_ERR_BADMATCH",
+                    37: "KRB_AP_ERR_SKEW",
+                    38: "KRB_AP_ERR_BADADDR",
+                    39: "KRB_AP_ERR_BADVERSION",
+                    40: "KRB_AP_ERR_MSG_TYPE",
+                    41: "KRB_AP_ERR_MODIFIED",
+                    42: "KRB_AP_ERR_BADORDER",
+                    44: "KRB_AP_ERR_BADKEYVER",
+                    45: "KRB_AP_ERR_NOKEY",
+                    46: "KRB_AP_ERR_MUT_FAIL",
+                    47: "KRB_AP_ERR_BADDIRECTION",
+                    48: "KRB_AP_ERR_METHOD",
+                    49: "KRB_AP_ERR_BADSEQ",
+                    50: "KRB_AP_ERR_INAPP_CKSUM",
+                    51: "KRB_AP_PATH_NOT_ACCEPTED",
+                    52: "KRB_ERR_RESPONSE_TOO_BIG",
+                    60: "KRB_ERR_GENERIC",
+                    61: "KRB_ERR_FIELD_TOOLONG",
+                    62: "KDC_ERROR_CLIENT_NOT_TRUSTED",
+                    63: "KDC_ERROR_KDC_NOT_TRUSTED",
+                    64: "KDC_ERROR_INVALID_SIG",
+                    65: "KDC_ERR_KEY_TOO_WEAK",
+                    66: "KDC_ERR_CERTIFICATE_MISMATCH",
+                    67: "KRB_AP_ERR_NO_TGT",
+                    68: "KDC_ERR_WRONG_REALM",
+                    69: "KRB_AP_ERR_USER_TO_USER_REQUIRED",
+                    70: "KDC_ERR_CANT_VERIFY_CERTIFICATE",
+                    71: "KDC_ERR_INVALID_CERTIFICATE",
+                    72: "KDC_ERR_REVOKED_CERTIFICATE",
+                    73: "KDC_ERR_REVOCATION_STATUS_UNKNOWN",
+                    74: "KDC_ERR_REVOCATION_STATUS_UNAVAILABLE",
+                    75: "KDC_ERR_CLIENT_NAME_MISMATCH",
+                    76: "KDC_ERR_KDC_NAME_MISMATCH",
+                },
+                explicit_tag=0xA6,
+            ),
             ASN1F_optional(Realm("crealm", "", explicit_tag=0xA7)),
             ASN1F_optional(
                 ASN1F_PACKET("cname", None, PrincipalName, explicit_tag=0xA8),
@@ -673,7 +861,7 @@ class KRB_ERROR(ASN1_Packet):
             Realm("realm", "", explicit_tag=0xA9),
             ASN1F_PACKET("sname", None, PrincipalName, explicit_tag=0xAA),
             ASN1F_optional(KerberosString("eText", "", explicit_tag=0xAB)),
-            ASN1F_optional(ASN1F_STRING("eData", "", explicit_tag=0xAC)),
+            ASN1F_optional(_KRBERROR_data_Field("eData", "", explicit_tag=0xAC)),
         ),
         implicit_tag=30,
     )
