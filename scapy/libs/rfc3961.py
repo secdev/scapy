@@ -225,7 +225,6 @@ class _SimplifiedEncryptionProfile(_EncryptionAlgorithmProfile):
         hmac = bytearray(HMAC.new(ki.key, basic_plaintext, cls.hashmod).digest())
         expmac = hmac[: cls.macsize]
         if not _mac_equal(mac, expmac):
-            print(repr(mac), repr(expmac))
             raise ValueError("ciphertext integrity failure")
         # Discard the confounder.
         return bytes(basic_plaintext[cls.blocksize:])

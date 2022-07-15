@@ -3,14 +3,35 @@
 # Copyright (C) Gabriel Potter
 # This program is published under a GPLv2 license
 
-"""
+r"""
 Kerberos V5
 
 Implements parts of:
 - Kerberos Network Authentication Service (V5): RFC4120
 - Kerberos Version 5 GSS-API: RFC1964, RFC4121
 - Kerberos Pre-Authentication: RFC6113 (FAST)
+
+Example decryption:
+
+>>> from scapy.libs.rfc3961 import Key, EncryptionType
+>>> pkt = Ether(hex_bytes("525400695813525400216c2b08004500015da71840008006dc\
+83c0a87a9cc0a87a11c209005854f6ab2392c25bd650182014b6e00000000001316a8201\
+2d30820129a103020105a20302010aa3633061304ca103020102a24504433041a0030201\
+12a23a043848484decb01c9b62a1cabfbc3f2d1ed85aa5e093ba8358a8cea34d4393af93\
+bf211e274fa58e814878db9f0d7a28d94e7327660db4f3704b3011a10402020080a20904\
+073005a0030101ffa481b73081b4a00703050040810010a1123010a003020101a1093007\
+1b0577696e3124a20e1b0c444f4d41494e2e4c4f43414ca321301fa003020102a1183016\
+1b066b72627467741b0c444f4d41494e2e4c4f43414ca511180f32303337303931333032\
+343830355aa611180f32303337303931333032343830355aa7060204701cc5d1a8153013\
+0201120201110201170201180202ff79020103a91d301b3019a003020114a11204105749\
+4e31202020202020202020202020"))
+>>> enc = pkt[Kerberos].root.padata[0].padataValue
+>>> k = Key(enc.etype.val, key=hex_bytes("7fada4e566ae4fb270e2800a23a\
+e87127a819d42e69b5e22de0ddc63da80096d"))
+>>> enc.decrypt(k)
 """
+
+import struct
 
 import scapy.asn1.mib  # noqa: F401
 from scapy.asn1.asn1 import (
@@ -21,6 +42,7 @@ from scapy.asn1.asn1 import (
 )
 from scapy.asn1.ber import BERcodec_SEQUENCE
 from scapy.asn1fields import (
+    ASN1F_BOOLEAN,
     ASN1F_CHOICE,
     ASN1F_FLAGS,
     ASN1F_GENERAL_STRING,
@@ -227,51 +249,37 @@ class EncryptedData(ASN1_Packet):
         ASN1F_STRING("cipher", "", explicit_tag=0xA2),
     )
 
-    def get_usage_number(self):
+    def get_usage(self):
         """
-        Get current key usage number
+        Get current key usage number and encrypted class
         """
         # RFC 4120 sect 7.5.1
         if self.underlayer:
-            raise ValueError(
-                "Could not guess key usage number. Please specify key_usage_number"
-            )
-        # TODO...
-        raise Exception("unimplemented. specify key_usage_number")
+            if isinstance(self.underlayer, PADATA):
+                patype = self.underlayer.padataType
+                if patype == 2:  # PA-ENC-TIMESTAMP
+                    return 1, PA_ENC_TS_ENC
+                print(patype)
+        raise ValueError(
+            "Could not guess key usage number. Please specify key_usage_number"
+        )
 
-    def get_key_from_pass(self, password, salt, params=None):
-        """
-        Generate a Key object from password and salt of the correct type
-
-        :param password: the password
-        :param salt: the salt to use for decryption (typically, DOMAIN.LOCALusername)
-        :param params: the parameters.
-                       Mostly for AES: iteration count (struct.pack(">L", it))
-        """
-        from scapy.libs.rfc3961 import Key
-        return Key.string_to_key(self.etype.val, password, salt, params=params)
-
-    def get_key(self, val):
-        """
-        Generate a Key object from the hashed key
-
-        :param val: the key
-        """
-        from scapy.libs.rfc3961 import Key
-        return Key(self.etype.val, key=val)
-
-    def decrypt(self, key, key_usage_number=None):
+    def decrypt(self, key, key_usage_number=None, cls=None):
         """
         Decrypt and return the data contained in cipher.
 
         :param key: the key to use for decryption
         :param key_usage_number: (optional) specify the key usage number.
                                  Guessed otherwise
-
+        :param cls: (optional) the class of the decrypted payload
+                               Guessed otherwise (or bytes)
         """
         if key_usage_number is None:
-            key_usage_number = self.get_usage_number()
-        return key.decrypt(key_usage_number, self.cipher.val)
+            key_usage_number, cls = self.get_usage()
+        d = key.decrypt(key_usage_number, self.cipher.val)
+        if cls:
+            return cls(d)
+        return d
 
     def encrypt(self, key, text, confounder=None, key_usage_number=None):
         """
@@ -284,7 +292,7 @@ class EncryptedData(ASN1_Packet):
                                  Guessed otherwise
         """
         if key_usage_number is None:
-            key_usage_number = self.get_usage_number()
+            key_usage_number = self.get_usage()[0]
         self.cipher = key.encrypt(key_usage_number, text, confounder=confounder)
 
 
@@ -293,7 +301,6 @@ EncryptionKey = lambda **kwargs: ASN1F_SEQUENCE(
     ASN1F_STRING("keyvalue", "", explicit_tag=0x1),
     **kwargs
 )
-PAENCTIMESTAMP = EncryptedData
 KerberosFlags = ASN1F_FLAGS
 
 
@@ -302,14 +309,20 @@ _PADATA_TYPES = {
     2: "PA-ENC-TIMESTAMP",
     3: "PA-PW-SALT",
     11: "PA-ETYPE-INFO",
+    14: "PA-PK-AS-REQ-OLD",
+    15: "PA-PK-AS-REP-OLD",
     16: "PA-PK-AS-REQ",
     17: "PA-PK-AS-REP",
     19: "PA-ETYPE-INFO2",
+    20: "PA-SVR-REFERRAL-INFO",
+    128: "PA-PAC-REQUEST",
     133: "PA-FX-COOKIE",
     134: "PA-AUTHENTICATION-SET",
     135: "PA-AUTH-SET-SELECTED",
     136: "PA-FX-FAST",
     137: "PA-FX-ERROR",
+    165: "PA-SUPPORTED-ENCTYPES",
+    167: "PA-PAC-OPTIONS",
 }
 
 _PADATA_CLASSES = {
@@ -338,7 +351,9 @@ class _PADATA_value_Field(ASN1F_STRING):
                     isinstance(pkt.underlayer.underlayer, KRB_ERROR)
                 ) or isinstance(pkt.underlayer, (KRB_AS_REP, KRB_TGS_REP))
                 cls = cls[is_reply]
-            return cls(val[0].val), b""
+            if not val[0].val:
+                return val
+            return cls(val[0].val, _underlayer=pkt), b""
         return val
 
     def i2m(self, pkt, val):
@@ -357,6 +372,20 @@ class PADATA(ASN1_Packet):
             explicit_tag=0xA2,
         ),
     )
+
+
+# RFC 4120 sect 5.2.7.2
+
+
+class PA_ENC_TS_ENC(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        KerberosTime("patimestamp", GeneralizedTime(), explicit_tag=0xA0),
+        ASN1F_optional(Microseconds("pausec", 0, explicit_tag=0xA1)),
+    )
+
+
+_PADATA_CLASSES[2] = EncryptedData
 
 
 # RFC 4120 sect 5.2.7.4
@@ -427,6 +456,66 @@ class PA_AUTHENTICATION_SET(ASN1_Packet):
 
 _PADATA_CLASSES[134] = PA_AUTHENTICATION_SET
 
+# [MS-KILE] sect 2.2.3
+
+
+class PA_PAC_REQUEST(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BOOLEAN("includePac", True, explicit_tag=0xA0),
+    )
+
+
+_PADATA_CLASSES[128] = PA_PAC_REQUEST
+
+
+# [MS-KILE] sect 2.2.8
+
+
+class PA_SUPPORTED_ENCTYPES(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = KerberosFlags(
+        "flags",
+        0,
+        [
+            "DES-CBC-CRC",
+            "DES-CBC-MD5",
+            "RC4-HMAC",
+            "AES128-CTS-HMAC-SHA1-96",
+            "AES256-CTS-HMAC-SHA1-96",
+        ] +
+        ["bit_%d" % i for i in range(11)] +
+        [
+            "FAST-supported",
+            "Compount-identity-supported",
+            "Claims-supported",
+            "Resource-SID-compression-disabled",
+        ],
+    )
+
+
+_PADATA_CLASSES[165] = PA_SUPPORTED_ENCTYPES
+
+# [MS-KILE] sect 2.2.10
+
+
+class PA_PAC_OPTIONS(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        KerberosFlags(
+            "options",
+            0,
+            [
+                "Claims",
+                "Branch-Aware",
+                "Forward-to-Full-DC",
+            ],
+        )
+    )
+
+
+_PADATA_CLASSES[167] = PA_PAC_OPTIONS
+
 
 # RFC6113 sect 5.4.1
 
@@ -436,6 +525,8 @@ class _KrbFastArmor_value_Field(ASN1F_STRING):
 
     def m2i(self, pkt, s):
         val = super(_KrbFastArmor_value_Field, self).m2i(pkt, s)
+        if not val[0].val:
+            return val
         if pkt.armorType.val == 1:  # FX_FAST_ARMOR_AP_REQUEST
             return KRB_AP_REQ(val[0].val, _underlayer=pkt), b""
         return val
@@ -855,9 +946,11 @@ class _KRBERROR_data_Field(ASN1F_STRING):
 
     def m2i(self, pkt, s):
         val = super(_KRBERROR_data_Field, self).m2i(pkt, s)
+        if not val[0].val:
+            return val
         if pkt.errorCode.val == 25:  # KDC_ERR_PREAUTH_REQUIRED
             return MethodData(val[0].val, _underlayer=pkt), b""
-        return val
+        return val, b""
 
     def i2m(self, pkt, val):
         if isinstance(val, ASN1_Packet):
@@ -1160,6 +1253,9 @@ class Kerberos(ASN1_Packet):
         KRB_ERROR,  # [APPLICATION 30]
     )
 
+    def mysummary(self):
+        return self.root.summary()
+
 
 bind_bottom_up(UDP, Kerberos, sport=88)
 bind_bottom_up(UDP, Kerberos, dport=88)
@@ -1176,6 +1272,14 @@ bind_layers(KRB5_GSS_Wrap_RFC1964, Kerberos)
 
 class KerberosTCPHeader(Packet):
     fields_desc = [LenField("len", None, fmt="!I")]
+
+    @classmethod
+    def tcp_reassemble(cls, data, *args, **kwargs):
+        if len(data) < 4:
+            return None
+        length = struct.unpack("!I", data[:4])[0]
+        if len(data) == length + 4:
+            return cls(data)
 
 
 bind_layers(KerberosTCPHeader, Kerberos)
