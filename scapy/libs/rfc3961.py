@@ -72,7 +72,12 @@ def _n_fold(s, n):
     def rot13(x, nb):
         x = bytes_int(x)
         mod = (1 << (nb * 8)) - 1
-        return int_bytes(((x >> 13) | (x << (nb * 8 - 13))) & mod, nb)
+        if nb == 0:
+            return x
+        elif nb == 1:
+            return int_bytes(((x >> 5) | (x << (nb * 8 - 5))) & mod, nb)
+        else:
+            return int_bytes(((x >> 13) | (x << (nb * 8 - 13))) & mod, nb)
 
     def ocadd(x, y, nb):
         v = [a + b for a, b in zip(x, y)]
@@ -245,7 +250,6 @@ class _SimplifiedEncryptionProfile(_EncryptionAlgorithmProfile):
 
 
 class _DESCBC(_SimplifiedEncryptionProfile):
-    etype = EncryptionType.DES_MD5
     keysize = 8
     seedsize = 8
     blocksize = 8
@@ -338,17 +342,17 @@ class _DESCBC(_SimplifiedEncryptionProfile):
             odd = not odd
             tempstring = XOR(tempstring, temp56)
 
-        tempkey = b"".join(chb(byte) for byte in addparity(tempstring))
-        if tempkey in WEAK_DES_KEYS:
-            tempkey[7] = chb(ord(tempkey[7]) ^ 0xF0)
+        tempkey = bytearray(b"".join(chb(byte) for byte in addparity(tempstring)))
+        if bytes(tempkey) in WEAK_DES_KEYS:
+            tempkey[7] = tempkey[7] ^ 0xF0
 
         cipher = DES.new(tempkey, DES.MODE_CBC, tempkey)
         chekcsumkey = cipher.encrypt(s)[-8:]
-        chekcsumkey = fixparity(chekcsumkey)
-        if chekcsumkey in WEAK_DES_KEYS:
-            chekcsumkey[7] = chr(ord(chekcsumkey[7]) ^ 0xF0)
+        chekcsumkey = bytearray(fixparity(chekcsumkey))
+        if bytes(chekcsumkey) in WEAK_DES_KEYS:
+            chekcsumkey[7] = chekcsumkey[7] ^ 0xF0
 
-        return Key(cls.etype, key=chekcsumkey)
+        return Key(cls.etype, key=bytes(chekcsumkey))
 
     @classmethod
     def basic_encrypt(cls, key, plaintext):
@@ -368,6 +372,16 @@ class _DESCBC(_SimplifiedEncryptionProfile):
             raise ValueError("Invalid DES string-to-key parameters")
         key = cls.mit_des_string_to_key(string, salt)
         return key
+
+
+class _DESMD5(_DESCBC):
+    etype = EncryptionType.DES_MD5
+    hashmod = MD5
+
+
+class _DESMD4(_DESCBC):
+    etype = EncryptionType.DES_MD4
+    hashmod = MD4
 
 
 class _DES3CBC(_SimplifiedEncryptionProfile):
@@ -610,7 +624,8 @@ class _HMACMD5(_ChecksumProfile):
 
 
 _enctypes = {
-    EncryptionType.DES_MD5: _DESCBC,
+    EncryptionType.DES_MD5: _DESMD5,
+    EncryptionType.DES_MD4: _DESMD4,
     EncryptionType.DES3: _DES3CBC,
     EncryptionType.AES128: _AES128CTS,
     EncryptionType.AES256: _AES256CTS,

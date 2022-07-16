@@ -106,6 +106,53 @@ assert test_krb_fx_cf2(EncryptionType.AES128) == b"97df97e4b798b29eb31ed7280287a
 assert test_krb_fx_cf2(EncryptionType.AES256) == b"4d6ca4e629785c1f01baf55e2e548566b9617ae3a96868c337cb93b5e72b1c7b"
 assert test_krb_fx_cf2(EncryptionType.RC4) == b'24d7f6b6bae4e5c00d2082c5ebab3672'
 
+= Test vectors for _n_fold
+
+from scapy.libs.rfc3961 import _n_fold
+
+# https://datatracker.ietf.org/doc/html/rfc3961.html#appendix-A.1
+
+assert bytes_hex(_n_fold(b"012345", 8)) == b"be072631276b1955"
+assert bytes_hex(_n_fold(b"password", 7)) == b"78a07b6caf85fa"
+assert bytes_hex(_n_fold(b"Rough Consensus, and Running Code", 8)) == b"bb6ed30870b7f0e0"
+assert bytes_hex(_n_fold(b"password", 21)) == b"59e4a8ca7c0385c3c37b3f6d2000247cb6e6bd5b3e"
+assert bytes_hex(_n_fold(b"MASSACHVSETTS INSTITVTE OF TECHNOLOGY", 24)) == b"db3b0d8f0b061e603282b308a50841229ad798fab9540c1b"
+assert bytes_hex(_n_fold(b"Q", 21)) == b"518a54a215a8452a518a54a215a8452a518a54a215"
+assert bytes_hex(_n_fold(b"ba", 21)) ==b"fb25d531ae8974499f52fd92ea9857c4ba24cf297e"
+
+
+= Test vectors for mit_des_string_to_key
+
+# https://datatracker.ietf.org/doc/html/rfc3961.html#appendix-A.2
+
+from scapy.libs.rfc3961 import Key, EncryptionType
+
+def _mit_des_string_to_key(text, salt):
+    k = Key.string_to_key(EncryptionType.DES_MD5, text, salt)
+    return bytes_hex(k.key)
+
+assert _mit_des_string_to_key(b"password", b"ATHENA.MIT.EDUraeburn") == b"cbc22fae235298e3"
+assert _mit_des_string_to_key(b"potatoe", b"WHITEHOUSE.GOVdanny") == b"df3d32a74fd92a01"
+assert _mit_des_string_to_key((u"\U0001d11e").encode(), b"EXAMPLE.COMpianist") == b"4ffb26bab0cd9413"
+assert _mit_des_string_to_key((u"\xdf").encode(), (u"ATHENA.MIT.EDUJuri\u0161i\u0107").encode()) == b"62c81a5232b5e69d"
+assert _mit_des_string_to_key(b"11119999", b"AAAAAAAA") == b"984054d0f1a73e31"
+assert _mit_des_string_to_key(b"NNNN6666", b"FFFFAAAA") == b"c4bf6b25adf7a4f8"
+
+= Test vectors for DES3
+
+# https://datatracker.ietf.org/doc/html/rfc3961.html#appendix-A.4
+
+def _des3_string_to_key(text, salt):
+    k = Key.string_to_key(EncryptionType.DES3, text, salt)
+    return bytes_hex(k.key)
+
+assert _des3_string_to_key(b"password", b"ATHENA.MIT.EDUraeburn") == b"850bb51358548cd05e86768c313e3bfef7511937dcf72c3e"
+assert _des3_string_to_key(b"potatoe", b"WHITEHOUSE.GOVdanny") == b"dfcd233dd0a43204ea6dc437fb15e061b02979c1f74f377a"
+assert _des3_string_to_key(b"penny", b"EXAMPLE.COMbuckaroo") == b"6d2fcdf2d6fbbc3ddcadb5da5710a23489b0d3b69d5d9d4a"
+assert _des3_string_to_key((u"\xdf").encode(), (u"ATHENA.MIT.EDUJuri\u0161i\u0107").encode()) == b"16d5a40e1ce3bacb61b9dce00470324c831973a7b952feb0"
+assert _des3_string_to_key((u"\U0001d11e").encode(), b"EXAMPLE.COMpianist") == b"85763726585dbc1cce6ec43e1f751f07f1c4cbb098f40b19"
+
+
 = Test vectors for AES
 
 from scapy.libs.rfc3961 import Key, EncryptionType
