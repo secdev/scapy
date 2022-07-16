@@ -24,6 +24,8 @@ from scapy.base_classes import Packet_metaclass
 
 from scapy.config import conf
 from scapy.error import log_runtime
+from scapy.layers.dns import DNSStrField
+from scapy.layers.ntlm import NTLM_Header
 from scapy.packet import Packet, Raw, bind_bottom_up, bind_layers, bind_top_down
 from scapy.fields import (
     _FieldContainer,
@@ -67,11 +69,13 @@ from scapy.fields import (
     XByteField,
     XLEIntField,
     XLELongField,
+    XLEShortField,
     XShortField,
+    XStrFixedLenField,
 )
 from scapy.sessions import DefaultSession
 
-from scapy.layers.kerberos import KRB5_GSS_Wrap_RFC1964, KRB5_GSS_Wrap
+from scapy.layers.kerberos import KRB5_GSS_Wrap_RFC1964, KRB5_GSS_Wrap, Kerberos
 from scapy.layers.gssapi import GSSAPI_BLOB
 from scapy.layers.inet import TCP
 
@@ -217,7 +221,113 @@ class DceRpc4(Packet):
     )
 
 
+# Exceptionally, we define those 2 here.
+
+
+class NetlogonAuthMessage(Packet):
+    # [MS-NRPC] sect 2.2.1.3.1
+    name = "NL_AUTH_MESSAGE"
+    fields_desc = [
+        LEIntEnumField(
+            "MessageType",
+            0x00000000,
+            {
+                0x00000000: "Request",
+                0x00000001: "Response",
+            },
+        ),
+        FlagsField(
+            "Flags",
+            0,
+            -32,
+            [
+                "NETBIOS_DOMAIN_NAME",
+                "NETBIOS_COMPUTER_NAME",
+                "DNS_DOMAIN_NAME",
+                "DNS_HOST_NAME",
+                "NETBIOS_COMPUTER_NAME_UTF8",
+            ],
+        ),
+        ConditionalField(
+            StrNullField("NetbiosDomainName", ""),
+            lambda pkt: pkt.Flags.NETBIOS_DOMAIN_NAME,
+        ),
+        ConditionalField(
+            StrNullField("NetbiosComputerName", ""),
+            lambda pkt: pkt.Flags.NETBIOS_COMPUTER_NAME,
+        ),
+        ConditionalField(
+            DNSStrField("DnsDomainName", ""),
+            lambda pkt: pkt.Flags.DNS_DOMAIN_NAME,
+        ),
+        ConditionalField(
+            DNSStrField("DnsHostName", ""),
+            lambda pkt: pkt.Flags.DNS_HOST_NAME,
+        ),
+        ConditionalField(
+            StrNullField("NetbiosComputerNameUtf8", ""),
+            lambda pkt: pkt.Flags.NETBIOS_COMPUTER_NAME_UTF8,
+        ),
+    ]
+
+
+class NetlogonAuthSignature(Packet):
+    # [MS-NRPC] sect 2.2.1.3.2/2.2.1.3.3
+    name = "NL_AUTH_(SHA2_)SIGNATURE"
+    fields_desc = [
+        LEShortEnumField(
+            "SignatureAlgorithm",
+            0x0077,
+            {
+                0x0077: "HMAC-MD5",
+                0x0013: "HMAC-SHA256",
+            },
+        ),
+        LEShortEnumField(
+            "SealAlgorithm",
+            0xFFFF,
+            {
+                0xFFFF: "Unencrypted",
+                0x007A: "RC4",
+                0x00A1: "AES-128",
+            },
+        ),
+        XLEShortField("Pad", 0xFFFF),
+        ShortField("Reserved", 0),
+        XLELongField("SequenceNumber", 0),
+        XStrFixedLenField("Checksum", b"", length=8),
+        XStrFixedLenField("Confounder", b"", length=8),
+        ConditionalField(
+            StrFixedLenField("Reserved2", b"", length=24),
+            lambda pkt: pkt.SignatureAlgorithm == 0x0013,
+        ),
+    ]
+
+
 # sect 13.2.6.1
+
+
+_MSRPCE_SECURITY_PROVIDERS = {
+    # [MS-RPCE] sect 2.2.1.1.7
+    0x00: "None",
+    0x09: "SPNEGO",
+    0x0A: "NTLM",
+    0x0E: "TLS",
+    0x10: "Kerberos",
+    0x44: "Netlogon",
+    0xFF: "NTLM",
+}
+
+_MSRPCE_SECURITY_AUTHLEVELS = {
+    # [MS-RPCE] sect 2.2.1.1.7
+    0x00: "RPC_C_AUTHN_LEVEL_DEFAULT",
+    0x01: "RPC_C_AUTHN_LEVEL_NONE",
+    0x02: "RPC_C_AUTHN_LEVEL_CONNECT",
+    0x03: "RPC_C_AUTHN_LEVEL_CALL",
+    0x04: "RPC_C_AUTHN_LEVEL_PKT",
+    0x05: "RPC_C_AUTHN_LEVEL_PKT_INTEGRITY",
+    0x06: "RPC_C_AUTHN_LEVEL_PRIVACY",
+}
 
 
 class CommonAuthVerifier(Packet):
@@ -227,13 +337,11 @@ class CommonAuthVerifier(Packet):
             ByteEnumField(
                 "auth_type",
                 0,
-                {
-                    9: "SPNEGO",
-                },
+                _MSRPCE_SECURITY_PROVIDERS,
             ),
             align=4,
         ),
-        ByteField("auth_level", 0),
+        ByteEnumField("auth_level", 0, _MSRPCE_SECURITY_AUTHLEVELS),
         ByteField("auth_pad_length", 0),
         ByteField("auth_reserved", 0),
         XLEIntField("auth_context_id", 0),
@@ -246,8 +354,48 @@ class CommonAuthVerifier(Packet):
                         GSSAPI_BLOB,
                         length_from=lambda pkt: pkt.parent.auth_len,
                     ),
-                    lambda pkt: pkt.auth_type == 9,
-                )
+                    lambda pkt: pkt.auth_type == 0x09,
+                ),
+                (
+                    PacketLenField(
+                        "auth_value",
+                        NTLM_Header(),
+                        NTLM_Header,
+                        length_from=lambda pkt: pkt.parent.auth_len,
+                    ),
+                    lambda pkt: pkt.auth_type in [0x0A, 0xFF],
+                ),
+                (
+                    PacketLenField(
+                        "auth_value",
+                        Kerberos(),
+                        Kerberos,
+                        length_from=lambda pkt: pkt.parent.auth_len,
+                    ),
+                    lambda pkt: pkt.auth_type == 0x10,
+                ),
+                # NetLogon
+                (
+                    PacketLenField(
+                        "auth_value",
+                        NetlogonAuthMessage(),
+                        NetlogonAuthMessage,
+                        length_from=lambda pkt: pkt.parent.auth_len,
+                    ),
+                    lambda pkt: pkt.auth_type == 0x44 and
+                    pkt.parent and
+                    pkt.parent.ptype in [11, 12, 13],
+                ),
+                (
+                    PacketLenField(
+                        "auth_value",
+                        NetlogonAuthSignature(),
+                        NetlogonAuthSignature,
+                        length_from=lambda pkt: pkt.parent.auth_len,
+                    ),
+                    lambda pkt: pkt.auth_type == 0x44 and
+                    (not pkt.parent or pkt.parent.ptype not in [11, 12, 13]),
+                ),
             ],
             PacketLenField(
                 "auth_value",
@@ -1150,15 +1298,9 @@ class _NDRVarField:
                 "Expected NDRVaryingArray in %s. You are using it wrong!" % self.name
             )
         fmt = ["<I", "<Q"][pkt.ndr64]
+        s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(pkt, s, val.offset)
         s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
-            pkt,
-            s,
-            val.offset
-        )
-        s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
-            pkt,
-            s,
-            val.actual_count is None and len(val.value) or val.actual_count
+            pkt, s, val.actual_count is None and len(val.value) or val.actual_count
         )
         return super(_NDRVarField, self).addfield(
             pkt, s, super(_NDRVarField, self).h2i(pkt, val.value)
