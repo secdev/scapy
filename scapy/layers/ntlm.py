@@ -624,24 +624,25 @@ class _NTLM_Automaton(Automaton):
                               NTLM_AUTHENTICATE_V2)):
             ntlm = token
             rawToken = True
-        if isinstance(token, GSSAPI_BLOB):
-            token = token.innerContextToken
-        if isinstance(token, SPNEGO_negToken):
-            token = token.token
-        if hasattr(token, "mechListMIC") and token.mechListMIC:
-            MIC = token.mechListMIC.value
-        if hasattr(token, "negResult"):
-            negResult = token.negResult
-        try:
-            ntlm = token.mechToken
-        except AttributeError:
-            ntlm = token.responseToken
-        if isinstance(ntlm, SPNEGO_Token):
-            ntlm = ntlm.value
-        if isinstance(ntlm, ASN1_STRING):
-            ntlm = NTLM_Header(ntlm.val)
-        if isinstance(ntlm, conf.raw_layer):
-            ntlm = NTLM_Header(ntlm.load)
+        else:
+            if isinstance(token, GSSAPI_BLOB):
+                token = token.innerContextToken
+            if isinstance(token, SPNEGO_negToken):
+                token = token.token
+            if hasattr(token, "mechListMIC") and token.mechListMIC:
+                MIC = token.mechListMIC.value
+            if hasattr(token, "negResult"):
+                negResult = token.negResult
+            try:
+                ntlm = token.mechToken
+            except AttributeError:
+                ntlm = token.responseToken
+            if isinstance(ntlm, SPNEGO_Token):
+                ntlm = ntlm.value
+            if isinstance(ntlm, ASN1_STRING):
+                ntlm = NTLM_Header(ntlm.val)
+            if isinstance(ntlm, conf.raw_layer):
+                ntlm = NTLM_Header(ntlm.load)
         if self.DROP_MIC_v1 or self.DROP_MIC_v2:
             if isinstance(ntlm, NTLM_AUTHENTICATE):
                 ntlm.MIC = b"\0" * 16
@@ -747,6 +748,8 @@ class NTLM_Server(_NTLM_Automaton):
             # Special case: negoex
             if self.cli_atmt:
                 return self.cli_atmt.token_pipe.recv()
+            else:
+                self.token_pipe.clear()
             return None, None, None, None
         from random import randint
         if self.ntlm_state == 0:
@@ -781,6 +784,9 @@ class NTLM_Server(_NTLM_Automaton):
             if self.cli_atmt:
                 # from client
                 tok, negResult, MIC, rawToken = self.cli_atmt.token_pipe.recv()
+            else:
+                # we act as a standalone server
+                rawToken = self.token_pipe.recv()[3]
             if self.ntlm_values:
                 # Update that token with the customs one
                 for key in ["ServerChallenge",
@@ -808,9 +814,13 @@ class NTLM_Server(_NTLM_Automaton):
         elif self.ntlm_state == 1:
             # After auth. We return "success"
             self.ntlm_state = 0
+            rawToken = False
             if self.cli_atmt:
                 return self.cli_atmt.token_pipe.recv()
-            return None, 0, None, False
+            else:
+                # we act as a standalone server
+                rawToken = self.token_pipe.recv()[3]
+            return None, 0, None, rawToken
 
     def received_ntlm_token(self, ntlm_tuple):
         ntlm = ntlm_tuple[0]

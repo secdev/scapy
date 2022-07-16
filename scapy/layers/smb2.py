@@ -237,6 +237,10 @@ class SMB2_Header(Packet):
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_Session_Setup_Response
             return SMB2_Session_Setup_Request
+        elif self.Command == 0x0002:  # Logoff
+            if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
+                return SMB2_Session_Logoff_Response
+            return SMB2_Session_Logoff_Request
         elif self.Command == 0x0003:  # TREE connect
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_Tree_Connect_Response
@@ -697,6 +701,40 @@ bind_top_down(
     Flags=1  # SMB2_FLAGS_SERVER_TO_REDIR
 )
 
+# sect 2.2.7
+
+
+class SMB2_Session_Logoff_Request(Packet):
+    name = "SMB2 LOGOFF Request"
+    fields_desc = [
+        XLEShortField("StructureSize", 0x4),
+        ShortField("reserved", 0),
+    ]
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Session_Logoff_Request,
+    Command=0x0002,
+)
+
+# sect 2.2.8
+
+
+class SMB2_Session_Logoff_Response(Packet):
+    name = "SMB2 LOGOFF Request"
+    fields_desc = [
+        XLEShortField("StructureSize", 0x4),
+        ShortField("reserved", 0),
+    ]
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Session_Logoff_Response,
+    Command=0x0002,
+    Flags=1  # SMB2_FLAGS_SERVER_TO_REDIR
+)
 
 # sect 2.2.9
 
