@@ -7,9 +7,13 @@ r"""
 Kerberos V5
 
 Implements parts of:
+
 - Kerberos Network Authentication Service (V5): RFC4120
 - Kerberos Version 5 GSS-API: RFC1964, RFC4121
 - Kerberos Pre-Authentication: RFC6113 (FAST)
+
+You will find more complete documentation for this layer over
+`Kerberos <https://scapy.readthedocs.io/en/latest/layers/kerberos.html>`_
 
 Example decryption:
 
