@@ -1646,6 +1646,11 @@ values.
                 fv = fv.command()
             elif fld.islist and fld.holds_packets and isinstance(fv, list):
                 fv = "[%s]" % ",".join(map(Packet.command, fv))
+            elif fld.islist and isinstance(fv, list):
+                fv = "[%s]" % ", ".join(
+                    getattr(x, 'command', lambda: repr(x))()
+                    for x in fv
+                )
             elif isinstance(fld, FlagsField):
                 fv = int(fv)
             elif callable(getattr(fv, 'command', None)):
