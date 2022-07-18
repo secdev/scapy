@@ -59,13 +59,18 @@ from scapy.asn1fields import (
 from scapy.asn1packet import ASN1_Packet
 from scapy.fields import (
     ByteField,
+    FieldLenField,
     FlagsField,
+    LEIntEnumField,
     LEIntField,
+    LELongField,
     LenField,
     LEShortEnumField,
     LEShortField,
+    PacketListField,
     PadField,
     ShortField,
+    StrField,
     StrFixedLenEnumField,
     XStrFixedLenField,
 )
@@ -93,7 +98,7 @@ class ASN1F_KRB_APPLICATION(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_KRB.APPLICATION
 
 
-# sect 5.2
+# RFC4120 sect 5.2
 
 
 KerberosString = ASN1F_GENERAL_STRING
@@ -157,39 +162,6 @@ HostAddresses = lambda name, **kwargs: ASN1F_SEQUENCE_OF(
     name, [], HostAddress, **kwargs
 )
 
-
-class AuthorizationDataItem(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_enum_INTEGER(
-            "adType",
-            0,
-            {
-                # RFC4120 sect 7.5.4
-                1: "AD-IF-RELEVANT",
-                2: "AD-INTENDED-FOR-SERVER",
-                3: "AD-INTENDED-FOR-APPLICATION-CLASS",
-                4: "AD-KDC-ISSUED",
-                5: "AD-AND-OR",
-                6: "AD-MANDATORY-TICKET-EXTENSIONS",
-                7: "AD-IN-TICKET-EXTENSIONS",
-                8: "AD-MANDATORY-FOR-KDC",
-                64: "OSF-DCE",
-                65: "SESAME",
-                66: "AD-OSD-DCE-PKI-CERTID",
-                128: "AD-WIN2K-PAC",
-                129: "AD-ETYPE-NEGOTIATION",
-            },
-            explicit_tag=0xA0,
-        ),
-        ASN1F_STRING("adData", "", explicit_tag=0xA1),
-    )
-
-
-AuthorizationData = lambda name, **kwargs: ASN1F_SEQUENCE_OF(
-    name, [], AuthorizationDataItem, **kwargs
-)
-ADIFRELEVANT = AuthorizationData
 Checksum = lambda **kwargs: ASN1F_SEQUENCE(
     ASN1F_enum_INTEGER(
         "checksumtype",
@@ -217,19 +189,144 @@ Checksum = lambda **kwargs: ASN1F_SEQUENCE(
     ASN1F_STRING("checksum", "", explicit_tag=0xA1),
     **kwargs
 )
-ADKDCIssued = ASN1F_SEQUENCE(
-    Checksum(explicit_tag=0xA0),
-    ASN1F_optional(
-        Realm("iRealm", "", explicit_tag=0xA1),
-    ),
-    ASN1F_optional(ASN1F_PACKET("iSname", None, PrincipalName, explicit_tag=0xA2)),
-    AuthorizationData("elements", explicit_tag=0xA3),
-)
-ASANDOR = ASN1F_SEQUENCE(
-    Int32("conditionCount", 0, explicit_tag=0xA1),
-    AuthorizationData("elements", explicit_tag=0xA1),
-)
+
+_AUTHORIZATIONDATA_VALUES = {
+    # Filled below
+}
+
+
+class _AuthorizationData_value_Field(ASN1F_STRING):
+    holds_packets = 1
+
+    def m2i(self, pkt, s):
+        val = super(_AuthorizationData_value_Field, self).m2i(pkt, s)
+        if pkt.adType.val in _PADATA_CLASSES:
+            cls = _AUTHORIZATIONDATA_VALUES.get(pkt.adType.val, None)
+            if not val[0].val:
+                return val
+            if cls:
+                return cls(val[0].val, _underlayer=pkt), b""
+        return val
+
+    def i2m(self, pkt, val):
+        if isinstance(val, ASN1_Packet):
+            val = ASN1_STRING(bytes(val))
+        return super(_AuthorizationData_value_Field, self).i2m(pkt, val)
+
+
+class AuthorizationDataItem(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_enum_INTEGER(
+            "adType",
+            0,
+            {
+                # RFC4120 sect 7.5.4
+                1: "AD-IF-RELEVANT",
+                2: "AD-INTENDED-FOR-SERVER",
+                3: "AD-INTENDED-FOR-APPLICATION-CLASS",
+                4: "AD-KDC-ISSUED",
+                5: "AD-AND-OR",
+                6: "AD-MANDATORY-TICKET-EXTENSIONS",
+                7: "AD-IN-TICKET-EXTENSIONS",
+                8: "AD-MANDATORY-FOR-KDC",
+                64: "OSF-DCE",
+                65: "SESAME",
+                66: "AD-OSD-DCE-PKI-CERTID",
+                128: "AD-WIN2K-PAC",
+                129: "AD-ETYPE-NEGOTIATION",
+            },
+            explicit_tag=0xA0,
+        ),
+        _AuthorizationData_value_Field("adData", "", explicit_tag=0xA1),
+    )
+
+
+class AuthorizationData(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "seq", [AuthorizationDataItem()], AuthorizationDataItem
+    )
+
+
+AD_IF_RELEVANT = AuthorizationData
+_AUTHORIZATIONDATA_VALUES[1] = AD_IF_RELEVANT
+
+
+class AD_KDCIssued(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        Checksum(explicit_tag=0xA0),
+        ASN1F_optional(
+            Realm("iRealm", "", explicit_tag=0xA1),
+        ),
+        ASN1F_optional(ASN1F_PACKET("iSname", None, PrincipalName, explicit_tag=0xA2)),
+        ASN1F_PACKET("elements", None, AuthorizationData, explicit_tag=0xA3),
+    )
+
+
+_AUTHORIZATIONDATA_VALUES[4] = AD_KDCIssued
+
+
+class AD_AND_OR(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        Int32("conditionCount", 0, explicit_tag=0xA0),
+        ASN1F_PACKET("elements", None, AuthorizationData, explicit_tag=0xA1),
+    )
+
+
+_AUTHORIZATIONDATA_VALUES[5] = AD_AND_OR
+
 ADMANDATORYFORKDC = AuthorizationData
+_AUTHORIZATIONDATA_VALUES[8] = ADMANDATORYFORKDC
+
+
+# [MS-PAC]
+
+
+# sect 2.4
+class PAC_INFO_BUFFER(Packet):
+    fields_desc = [
+        LEIntEnumField(
+            "ulType",
+            0x00000001,
+            {
+                0x00000001: "Logon information",
+                0x00000002: "Credentials information",
+                0x00000006: "Server checksum",
+                0x00000007: "KDC checksum",
+                0x0000000A: "Client name and ticket information",
+                0x0000000B: "Constrained delegation information",
+                0x0000000C: "UPN and DNS information",
+                0x0000000D: "Client claims information",
+                0x0000000E: "Device information",
+                0x0000000F: "Device claims information",
+                0x00000010: "Ticket checksum",
+            },
+        ),
+        LEIntField("cbBufferSize", 0),
+        LELongField("Offset", 0),
+    ]
+
+
+class PACTYPE(Packet):
+    fields_desc = [
+        FieldLenField("cBuffers", None, count_of="Buffers", fmt="<I"),
+        LEIntField("Version", 0x00000000),
+        PacketListField(
+            "Buffers",
+            [PAC_INFO_BUFFER()],
+            PAC_INFO_BUFFER,
+            length_from=lambda pkt: pkt.cBuffers,
+        ),
+        StrField("Payload", ""),  # TODO: this is encoded with NDR :o
+    ]
+
+
+_AUTHORIZATIONDATA_VALUES[128] = PACTYPE  # AD-WIN2K-PAC
+
+# back to RFC4120
 
 
 _KRB_E_TYPES = {
@@ -257,9 +354,18 @@ class EncryptedData(ASN1_Packet):
         if self.underlayer:
             if isinstance(self.underlayer, PADATA):
                 patype = self.underlayer.padataType
-                if patype == 2:  # PA-ENC-TIMESTAMP
+                if patype == 2:
+                    # AS-REQ PA-ENC-TIMESTAMP padata timestamp
                     return 1, PA_ENC_TS_ENC
-                print(patype)
+            elif isinstance(self.underlayer, KRB_Ticket):
+                # AS-REP Ticket and TGS-REP Ticket
+                return 2, EncTicketPart
+            elif isinstance(self.underlayer, KRB_AP_REQ):
+                # AP-REQ Authenticator
+                return 11, KRB_Authenticator
+            elif isinstance(self.underlayer, KrbFastArmoredReq):
+                # KEY_USAGE_FAST_ENC
+                return 51, KrbFastReq
         raise ValueError(
             "Could not guess key usage number. Please specify key_usage_number"
         )
@@ -296,11 +402,14 @@ class EncryptedData(ASN1_Packet):
         self.cipher = key.encrypt(key_usage_number, text, confounder=confounder)
 
 
-EncryptionKey = lambda **kwargs: ASN1F_SEQUENCE(
-    Int32("keytype", 0, explicit_tag=0x0),
-    ASN1F_STRING("keyvalue", "", explicit_tag=0x1),
-    **kwargs
-)
+class EncryptionKey(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_enum_INTEGER("keytype", 0, _KRB_E_TYPES, explicit_tag=0xA0),
+        ASN1F_STRING("keyvalue", "", explicit_tag=0xA1),
+    )
+
+
 KerberosFlags = ASN1F_FLAGS
 
 
@@ -510,6 +619,7 @@ class PA_PAC_OPTIONS(ASN1_Packet):
                 "Branch-Aware",
                 "Forward-to-Full-DC",
             ],
+            explicit_tag=0xA0,
         )
     )
 
@@ -572,25 +682,6 @@ class PA_FX_FAST_REQUEST(ASN1_Packet):
     )
 
 
-class KrbFastReq(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE(
-        KerberosFlags(
-            "fastOptions",
-            "",
-            [
-                "RESERVED",
-                "hide-client-names",
-            ] +
-            ["res%d" % i for i in range(2, 16)] +
-            ["kdc-follow-referrals"],
-            explicit_tag=0xA0,
-        ),
-        ASN1F_SEQUENCE_OF("padata", [PADATA()], PADATA, explicit_tag=0xA1),
-        ASN1F_PACKET("reqBody", None, EncryptedData, explicit_tag=0xA2),
-    )
-
-
 # RFC6113 sect 5.4.3
 
 
@@ -627,7 +718,9 @@ class KrbFastResponse(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_SEQUENCE_OF("padata", [PADATA()], PADATA, explicit_tag=0xA0),
-        ASN1F_optional(EncryptionKey(explicit_tag=0xA1)),
+        ASN1F_optional(
+            ASN1F_PACKET("stengthenKey", None, EncryptionKey, explicit_tag=0xA1)
+        ),
         ASN1F_optional(
             ASN1F_PACKET(
                 "finished", KrbFastFinished(), KrbFastFinished, explicit_tag=0xA2
@@ -749,6 +842,66 @@ class KRB_Ticket(ASN1_Packet):
     )
 
 
+class TransitedEncoding(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        Int32("trType", 0, explicit_tag=0xA0),
+        ASN1F_STRING("contents", "", explicit_tag=0xA1),
+    )
+
+
+class EncTicketPart(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_KRB_APPLICATION(
+        ASN1F_SEQUENCE(
+            KerberosFlags(
+                "flags",
+                0,
+                [
+                    "reserved",
+                    "forwardable",
+                    "forwarded",
+                    "proxiable",
+                    "proxy",
+                    "may-postdate",
+                    "postdated",
+                    "invalid",
+                    "renewable",
+                    "initial",
+                    "pre-authent",
+                    "hw-authent",
+                    "transited-since-policy-checked",
+                    "ok-as-delegate",
+                ],
+                explicit_tag=0xA0,
+            ),
+            ASN1F_PACKET("key", None, EncryptionKey, explicit_tag=0xA1),
+            Realm("crealm", "", explicit_tag=0xA2),
+            ASN1F_PACKET("cname", None, PrincipalName, explicit_tag=0xA3),
+            ASN1F_PACKET(
+                "transited", TransitedEncoding(), TransitedEncoding, explicit_tag=0xA4
+            ),
+            KerberosTime("authtime", GeneralizedTime(), explicit_tag=0xA5),
+            ASN1F_optional(
+                KerberosTime("starttime", GeneralizedTime(), explicit_tag=0xA6)
+            ),
+            KerberosTime("endtime", GeneralizedTime(), explicit_tag=0xA7),
+            ASN1F_optional(
+                KerberosTime("renewTill", GeneralizedTime(), explicit_tag=0xA8),
+            ),
+            ASN1F_optional(
+                HostAddresses("addresses", explicit_tag=0xA9),
+            ),
+            ASN1F_optional(
+                ASN1F_PACKET(
+                    "authorizationData", None, AuthorizationData, explicit_tag=0xAA
+                ),
+            ),
+        ),
+        implicit_tag=3,
+    )
+
+
 # sect 5.4.1
 
 
@@ -818,6 +971,26 @@ KRB_KDC_REQ = ASN1F_SEQUENCE(
     ASN1F_optional(ASN1F_SEQUENCE_OF("padata", [], PADATA, explicit_tag=0xA3)),
     ASN1F_PACKET("reqBody", KRB_KDC_REQ_BODY(), KRB_KDC_REQ_BODY, explicit_tag=0xA4),
 )
+
+
+class KrbFastReq(ASN1_Packet):
+    # RFC6113 sect 5.4.2
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        KerberosFlags(
+            "fastOptions",
+            "",
+            [
+                "RESERVED",
+                "hide-client-names",
+            ] +
+            ["res%d" % i for i in range(2, 16)] +
+            ["kdc-follow-referrals"],
+            explicit_tag=0xA0,
+        ),
+        ASN1F_SEQUENCE_OF("padata", [PADATA()], PADATA, explicit_tag=0xA1),
+        ASN1F_PACKET("reqBody", None, KRB_KDC_REQ_BODY, explicit_tag=0xA2),
+    )
 
 
 class KRB_AS_REQ(ASN1_Packet):
@@ -907,12 +1080,16 @@ class KRB_Authenticator(ASN1_Packet):
             Microseconds("cusec", 0, explicit_tag=0xA4),
             KerberosTime("ctime", GeneralizedTime(), explicit_tag=0xA5),
             ASN1F_optional(
-                EncryptionKey(explicit_tag=0xA6),
+                ASN1F_PACKET("subkey", None, EncryptionKey, explicit_tag=0xA6),
             ),
             ASN1F_optional(
                 UInt32("seqNumber", 0, explicit_tag=0xA7),
             ),
-            ASN1F_optional(AuthorizationData("authorizationData", explicit_tag=0xA8)),
+            ASN1F_optional(
+                ASN1F_PACKET(
+                    "encAuthorizationData", None, AuthorizationData, explicit_tag=0xA8
+                ),
+            ),
         ),
         implicit_tag=2,
     )

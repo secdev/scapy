@@ -20,9 +20,15 @@ import struct
 from scapy.compat import orb, chb, int_bytes, bytes_int, plain_str
 
 try:
-    from Cryptodome.Cipher import AES, DES3, ARC4, DES
-    from Cryptodome.Hash import HMAC, MD4, MD5, SHA
-    from Cryptodome.Protocol.KDF import PBKDF2
+    try:
+        from Cryptodome.Cipher import AES, DES3, ARC4, DES
+        from Cryptodome.Hash import HMAC, MD4, MD5, SHA
+        from Cryptodome.Protocol.KDF import PBKDF2
+    except ImportError:
+        # Backward compatibility
+        from Crypto.Cipher import AES, DES3, ARC4, DES
+        from Crypto.Hash import HMAC, MD4, MD5, SHA
+        from Crypto.Protocol.KDF import PBKDF2
 except ImportError:
     raise ImportError(
         "To use kerberos cryptography, you need to install pycryptodome.\n"
@@ -724,6 +730,11 @@ def KRB_FX_CF2(key1, key2, pepper1, pepper2):
             count += 1
         return out[: key.ep.seedsize]
 
-    return _xorbytes(
-        bytearray(prfplus(key1, pepper1)), bytearray(prfplus(key2, pepper2))
+    return Key(
+        key1.eptype,
+        key=bytes(
+            _xorbytes(
+                bytearray(prfplus(key1, pepper1)), bytearray(prfplus(key2, pepper2))
+            )
+        ),
     )
