@@ -921,8 +921,8 @@ print(float([tp in addrs for tp in mem_inner_borders].count(True)) / len(mem_inn
 assert float([tp in addrs for tp in mem_inner_borders].count(True)) / len(mem_inner_borders) > 0.8
 print(float([tp in addrs for tp in mem_random_test_points].count(True)) / len(mem_random_test_points))
 assert float([tp in addrs for tp in mem_random_test_points].count(True)) / len(mem_random_test_points) > 0.8
-print(float([tp in addrs for tp in mem_outer_borders].count(True)) / len(mem_outer_borders))
-assert float([tp not in addrs for tp in mem_outer_borders].count(True)) / len(mem_outer_borders) > 0.8
+print(float([tp not in addrs for tp in mem_outer_borders].count(True)) / len(mem_outer_borders))
+assert float([tp not in addrs for tp in mem_outer_borders].count(True)) / len(mem_outer_borders) > 0.7
 
 
 = UDS_TDEnumerator
