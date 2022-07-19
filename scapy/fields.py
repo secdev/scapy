@@ -1527,7 +1527,11 @@ class _PacketField(_StrField[K]):
 
 
 class PacketField(_PacketField[BasePacket]):
-    pass
+    def any2i(self, pkt, x):
+        # type: (Optional[Packet], BasePacket) -> BasePacket
+        if x and pkt and hasattr(x, "add_parent"):
+            cast("Packet", x).add_parent(pkt)
+        return super(PacketField, self).any2i(pkt, x)
 
 
 class PacketLenField(_PacketField[Optional[BasePacket]]):
@@ -1693,9 +1697,15 @@ class PacketListField(_PacketField[List[BasePacket]]):
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Any) -> List[BasePacket]
         if not isinstance(x, list):
+            if x and pkt and hasattr(x, "add_parent"):
+                x.add_parent(pkt)
             return [x]
-        else:
-            return x
+        elif pkt:
+            for i in x:
+                if not i or not hasattr(i, "add_parent"):
+                    continue
+                i.add_parent(pkt)
+        return x
 
     def i2count(self,
                 pkt,  # type: Optional[Packet]

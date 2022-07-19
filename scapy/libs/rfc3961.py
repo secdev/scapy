@@ -674,7 +674,7 @@ class Key(object):
         )
 
     def encrypt(self, keyusage, plaintext, confounder=None):
-        return self.ep.encrypt(self, keyusage, bytes(plaintext), bytes(confounder))
+        return self.ep.encrypt(self, keyusage, bytes(plaintext), confounder)
 
     def decrypt(self, keyusage, ciphertext):
         # Throw InvalidChecksum on checksum failure.  Throw ValueError on

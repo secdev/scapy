@@ -35,10 +35,19 @@ e87127a819d42e69b5e22de0ddc63da80096d"))
 >>> enc.decrypt(k)
 """
 
+from collections import namedtuple
+from datetime import datetime, timedelta, timezone
+import re
+import socket
 import struct
 
 import scapy.asn1.mib  # noqa: F401
 from scapy.asn1.asn1 import (
+    ASN1_BIT_STRING,
+    ASN1_BOOLEAN,
+    ASN1_GENERAL_STRING,
+    ASN1_GENERALIZED_TIME,
+    ASN1_INTEGER,
     ASN1_SEQUENCE,
     ASN1_STRING,
     ASN1_Class_UNIVERSAL,
@@ -61,6 +70,9 @@ from scapy.asn1fields import (
     ASN1F_optional,
 )
 from scapy.asn1packet import ASN1_Packet
+from scapy.automaton import Automaton, ATMT
+from scapy.compat import bytes_encode
+from scapy.error import log_runtime
 from scapy.fields import (
     ByteField,
     FieldLenField,
@@ -80,7 +92,8 @@ from scapy.fields import (
 )
 from scapy.layers.inet import TCP, UDP
 from scapy.packet import Packet, bind_bottom_up, bind_layers
-from scapy.volatile import GeneralizedTime
+from scapy.supersocket import StreamSocket
+from scapy.volatile import GeneralizedTime, RandNum
 
 # kerberos APPLICATION
 
@@ -199,9 +212,21 @@ _AUTHORIZATIONDATA_VALUES = {
 }
 
 
-class _AuthorizationData_value_Field(ASN1F_STRING):
+class _ASN1FString_PacketField(ASN1F_STRING):
     holds_packets = 1
 
+    def i2m(self, pkt, val):
+        if isinstance(val, ASN1_Packet):
+            val = ASN1_STRING(bytes(val))
+        return super(_ASN1FString_PacketField, self).i2m(pkt, val)
+
+    def any2i(self, pkt, x):
+        if hasattr(x, "add_underlayer"):
+            x.add_underlayer(pkt)
+        return super(_ASN1FString_PacketField, self).any2i(pkt, x)
+
+
+class _AuthorizationData_value_Field(_ASN1FString_PacketField):
     def m2i(self, pkt, s):
         val = super(_AuthorizationData_value_Field, self).m2i(pkt, s)
         if pkt.adType.val in _PADATA_CLASSES:
@@ -211,11 +236,6 @@ class _AuthorizationData_value_Field(ASN1F_STRING):
             if cls:
                 return cls(val[0].val, _underlayer=pkt), b""
         return val
-
-    def i2m(self, pkt, val):
-        if isinstance(val, ASN1_Packet):
-            val = ASN1_STRING(bytes(val))
-        return super(_AuthorizationData_value_Field, self).i2m(pkt, val)
 
 
 class AuthorizationDataItem(ASN1_Packet):
@@ -364,6 +384,9 @@ class EncryptedData(ASN1_Packet):
             elif isinstance(self.underlayer, KRB_Ticket):
                 # AS-REP Ticket and TGS-REP Ticket
                 return 2, EncTicketPart
+            elif isinstance(self.underlayer, KRB_AS_REP):
+                # AS-REP encrypted part
+                return 3, EncASRepPart
             elif isinstance(self.underlayer, KRB_AP_REQ):
                 # AP-REQ Authenticator
                 return 11, KRB_Authenticator
@@ -403,6 +426,7 @@ class EncryptedData(ASN1_Packet):
         """
         if key_usage_number is None:
             key_usage_number = self.get_usage()[0]
+        self.etype = key.eptype
         self.cipher = key.encrypt(key_usage_number, text, confounder=confounder)
 
 
@@ -412,6 +436,10 @@ class EncryptionKey(ASN1_Packet):
         ASN1F_enum_INTEGER("keytype", 0, _KRB_E_TYPES, explicit_tag=0xA0),
         ASN1F_STRING("keyvalue", "", explicit_tag=0xA1),
     )
+
+    def toKey(self):
+        from scapy.libs.rfc3961 import Key
+        return Key(self.keytype.val, key=self.keyvalue.val)
 
 
 KerberosFlags = ASN1F_FLAGS
@@ -446,13 +474,11 @@ _PADATA_CLASSES = {
 # RFC4120
 
 
-class _PADATA_value_Field(ASN1F_STRING):
+class _PADATA_value_Field(_ASN1FString_PacketField):
     """
     A special field that properly dispatches PA-DATA values according to
     padata-type and if the paquet is a request or a response.
     """
-
-    holds_packets = 1
 
     def m2i(self, pkt, s):
         val = super(_PADATA_value_Field, self).m2i(pkt, s)
@@ -468,11 +494,6 @@ class _PADATA_value_Field(ASN1F_STRING):
                 return val
             return cls(val[0].val, _underlayer=pkt), b""
         return val
-
-    def i2m(self, pkt, val):
-        if isinstance(val, ASN1_Packet):
-            val = ASN1_STRING(bytes(val))
-        return super(_PADATA_value_Field, self).i2m(pkt, val)
 
 
 class PADATA(ASN1_Packet):
@@ -585,26 +606,28 @@ _PADATA_CLASSES[128] = PA_PAC_REQUEST
 # [MS-KILE] sect 2.2.8
 
 
-class PA_SUPPORTED_ENCTYPES(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = KerberosFlags(
-        "flags",
-        0,
-        [
-            "DES-CBC-CRC",
-            "DES-CBC-MD5",
-            "RC4-HMAC",
-            "AES128-CTS-HMAC-SHA1-96",
-            "AES256-CTS-HMAC-SHA1-96",
-        ] +
-        ["bit_%d" % i for i in range(11)] +
-        [
-            "FAST-supported",
-            "Compount-identity-supported",
-            "Claims-supported",
-            "Resource-SID-compression-disabled",
-        ],
-    )
+class PA_SUPPORTED_ENCTYPES(Packet):
+    fields_desc = [
+        FlagsField(
+            "flags",
+            0,
+            -32,
+            [
+                "DES-CBC-CRC",
+                "DES-CBC-MD5",
+                "RC4-HMAC",
+                "AES128-CTS-HMAC-SHA1-96",
+                "AES256-CTS-HMAC-SHA1-96",
+            ] +
+            ["bit_%d" % i for i in range(11)] +
+            [
+                "FAST-supported",
+                "Compount-identity-supported",
+                "Claims-supported",
+                "Resource-SID-compression-disabled",
+            ],
+        )
+    ]
 
 
 _PADATA_CLASSES[165] = PA_SUPPORTED_ENCTYPES
@@ -634,9 +657,7 @@ _PADATA_CLASSES[167] = PA_PAC_OPTIONS
 # RFC6113 sect 5.4.1
 
 
-class _KrbFastArmor_value_Field(ASN1F_STRING):
-    holds_packets = 1
-
+class _KrbFastArmor_value_Field(_ASN1FString_PacketField):
     def m2i(self, pkt, s):
         val = super(_KrbFastArmor_value_Field, self).m2i(pkt, s)
         if not val[0].val:
@@ -644,11 +665,6 @@ class _KrbFastArmor_value_Field(ASN1F_STRING):
         if pkt.armorType.val == 1:  # FX_FAST_ARMOR_AP_REQUEST
             return KRB_AP_REQ(val[0].val, _underlayer=pkt), b""
         return val
-
-    def i2m(self, pkt, val):
-        if isinstance(val, ASN1_Packet):
-            val = ASN1_STRING(bytes(val))
-        return super(_KrbFastArmor_value_Field, self).i2m(pkt, val)
 
 
 class KrbFastArmor(ASN1_Packet):
@@ -854,6 +870,24 @@ class TransitedEncoding(ASN1_Packet):
     )
 
 
+_TICKET_FLAGS = [
+    "reserved",
+    "forwardable",
+    "forwarded",
+    "proxiable",
+    "proxy",
+    "may-postdate",
+    "postdated",
+    "invalid",
+    "renewable",
+    "initial",
+    "pre-authent",
+    "hw-authent",
+    "transited-since-policy-checked",
+    "ok-as-delegate",
+]
+
+
 class EncTicketPart(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_KRB_APPLICATION(
@@ -861,22 +895,7 @@ class EncTicketPart(ASN1_Packet):
             KerberosFlags(
                 "flags",
                 0,
-                [
-                    "reserved",
-                    "forwardable",
-                    "forwarded",
-                    "proxiable",
-                    "proxy",
-                    "may-postdate",
-                    "postdated",
-                    "invalid",
-                    "renewable",
-                    "initial",
-                    "pre-authent",
-                    "hw-authent",
-                    "transited-since-policy-checked",
-                    "ok-as-delegate",
-                ],
+                _TICKET_FLAGS,
                 explicit_tag=0xA0,
             ),
             ASN1F_PACKET("key", None, EncryptionKey, explicit_tag=0xA1),
@@ -1044,6 +1063,63 @@ class KRB_TGS_REP(ASN1_Packet):
     )
 
 
+class LastReqItem(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        Int32("lrType", 0, explicit_tag=0xA0),
+        KerberosTime("lrValue", GeneralizedTime(), explicit_tag=0xA1),
+    )
+
+
+EncKDCRepPart = ASN1F_SEQUENCE(
+    ASN1F_PACKET("key", None, EncryptionKey, explicit_tag=0xA0),
+    ASN1F_SEQUENCE_OF("lastReq", [], LastReqItem, explicit_tag=0xA1),
+    UInt32("nonce", 0, explicit_tag=0xA2),
+    ASN1F_optional(
+        KerberosTime("keyExpiration", GeneralizedTime(), explicit_tag=0xA3),
+    ),
+    KerberosFlags(
+        "flags",
+        0,
+        _TICKET_FLAGS,
+        explicit_tag=0xA4,
+    ),
+    KerberosTime("authtime", GeneralizedTime(), explicit_tag=0xA5),
+    ASN1F_optional(
+        KerberosTime("starttime", GeneralizedTime(), explicit_tag=0xA6),
+    ),
+    KerberosTime("endtime", GeneralizedTime(), explicit_tag=0xA7),
+    ASN1F_optional(
+        KerberosTime("renewTill", GeneralizedTime(), explicit_tag=0xA8),
+    ),
+    Realm("srealm", "", explicit_tag=0xA9),
+    ASN1F_PACKET("sname", PrincipalName(), PrincipalName, explicit_tag=0xAA),
+    ASN1F_optional(
+        HostAddresses("caddr", explicit_tag=0xAB),
+    ),
+    # RFC6806 sect 11
+    # ASN1F_optional(
+    ASN1F_SEQUENCE_OF("encryptedPaData", [], PADATA, explicit_tag=0xAC),
+    # ),
+)
+
+
+class EncASRepPart(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_KRB_APPLICATION(
+        EncKDCRepPart,
+        implicit_tag=25,
+    )
+
+
+class EncTGSRepPart(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_KRB_APPLICATION(
+        EncKDCRepPart,
+        implicit_tag=26,
+    )
+
+
 # sect 5.5.1
 
 
@@ -1122,21 +1198,16 @@ class MethodData(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE_OF("seq", [PADATA()], PADATA)
 
 
-class _KRBERROR_data_Field(ASN1F_STRING):
-    holds_packets = 1
-
+class _KRBERROR_data_Field(_ASN1FString_PacketField):
     def m2i(self, pkt, s):
         val = super(_KRBERROR_data_Field, self).m2i(pkt, s)
         if not val[0].val:
             return val
-        if pkt.errorCode.val == 25:  # KDC_ERR_PREAUTH_REQUIRED
+        if pkt.errorCode.val in [24, 25]:
+            # 24: KDC_ERR_PREAUTH_FAILED
+            # 25: KDC_ERR_PREAUTH_REQUIRED
             return MethodData(val[0].val, _underlayer=pkt), b""
         return val, b""
-
-    def i2m(self, pkt, val):
-        if isinstance(val, ASN1_Packet):
-            val = ASN1_STRING(bytes(val))
-        return super(_KRBERROR_data_Field, self).i2m(pkt, val)
 
 
 class KRB_ERROR(ASN1_Packet):
@@ -1467,3 +1538,216 @@ bind_layers(KerberosTCPHeader, Kerberos)
 
 bind_bottom_up(TCP, KerberosTCPHeader, sport=88)
 bind_layers(TCP, KerberosTCPHeader, dport=88)
+
+
+# Util functions
+
+
+class KerberosClient(Automaton):
+    RES = namedtuple("AS_Result", ["asrep", "sessionkey"])
+
+    def __init__(
+        self, ip=None, host=None, user=None, domain=None, key=None, port=88, **kwargs
+    ):
+        import scapy.libs.rfc3961  # Trigger error if any  # noqa: F401
+
+        if not ip:
+            raise ValueError("Invalid IP")
+        if not host:
+            raise ValueError("Invalid host")
+        if not user:
+            raise ValueError("Invalid user")
+        if not domain:
+            raise ValueError("Invalid domain")
+
+        self.result = None  # Result
+
+        sock = socket.socket()
+        sock.settimeout(5.0)
+        sock.connect((ip, port))
+        sock = StreamSocket(sock, KerberosTCPHeader)
+
+        self.host = bytes_encode(host).upper()
+        self.user = bytes_encode(user)
+        self.domain = bytes_encode(domain).upper()
+        self.key = key
+        self.pre_auth = False
+        super(KerberosClient, self).__init__(
+            recvsock=lambda **_: sock, ll=lambda **_: sock, **kwargs
+        )
+
+    def send(self, pkt):
+        super(KerberosClient, self).send(KerberosTCPHeader() / pkt)
+
+    def ap_req(self):
+        from scapy.libs.rfc3961 import EncryptionType
+
+        now_time = datetime.now(timezone.utc).replace(microsecond=0)
+
+        apreq = Kerberos(
+            root=KRB_AS_REQ(
+                padata=[
+                    PADATA(
+                        padataType=ASN1_INTEGER(128),
+                        padataValue=PA_PAC_REQUEST(includePac=ASN1_BOOLEAN(-1)),
+                    )
+                ],
+                reqBody=KRB_KDC_REQ_BODY(
+                    etype=[
+                        ASN1_INTEGER(EncryptionType.AES256),
+                        ASN1_INTEGER(EncryptionType.AES128),
+                        ASN1_INTEGER(EncryptionType.RC4),
+                        ASN1_INTEGER(EncryptionType.DES_MD5),
+                    ],
+                    addresses=[
+                        HostAddress(
+                            addrType=ASN1_INTEGER(20),  # Netbios
+                            address=ASN1_STRING(self.host.ljust(16, b" ")),
+                        )
+                    ],
+                    additionalTickets=None,
+                    # forwardable + renewable + canonicalize (default)
+                    kdcOptions=ASN1_BIT_STRING("01000000100000010000000000010000"),
+                    cname=PrincipalName(
+                        nameString=[ASN1_GENERAL_STRING(self.user)],
+                        nameType=ASN1_INTEGER(1),  # NT-PRINCIPAL
+                    ),
+                    realm=ASN1_GENERAL_STRING(self.domain),
+                    sname=PrincipalName(
+                        nameString=[
+                            ASN1_GENERAL_STRING(b"krbtgt"),
+                            ASN1_GENERAL_STRING(self.domain),
+                        ],
+                        nameType=ASN1_INTEGER(2),  # NT-SRV-INST
+                    ),
+                    till=ASN1_GENERALIZED_TIME(now_time + timedelta(hours=10)),
+                    rtime=ASN1_GENERALIZED_TIME(now_time + timedelta(hours=10)),
+                    nonce=ASN1_INTEGER(RandNum(0, 0x7FFFFFFF)),
+                    # Fun fact: the doc says nonce=UInt32 but if
+                    # you use something greater than 0x7fffffff, the server
+                    # sends back garbage... (bad cast? ^^)
+                ),
+            )
+        )
+        if self.pre_auth:
+            apreq.root.padata = [
+                PADATA(
+                    padataType=0x2,  # PA-ENC-TIMESTAMP
+                    padataValue=EncryptedData(),
+                ),
+                apreq.root.padata[0],
+            ]
+            apreq.root.padata[0].padataValue.encrypt(
+                self.key, PA_ENC_TS_ENC(patimestamp=ASN1_GENERALIZED_TIME(now_time))
+            )
+        return apreq
+
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        pass
+
+    @ATMT.condition(BEGIN)
+    def should_send_ap_req(self):
+        raise self.SENT_AP_REQ()
+
+    @ATMT.action(should_send_ap_req)
+    def send_ap_req(self):
+        self.send(self.ap_req())
+
+    @ATMT.state()
+    def SENT_AP_REQ(self):
+        pass
+
+    @ATMT.receive_condition(SENT_AP_REQ)
+    def receive_krb_error_ap_req(self, pkt):
+        if Kerberos in pkt and isinstance(pkt.root, KRB_ERROR):
+            if pkt.root.errorCode == 25:  # KDC_ERR_PREAUTH_REQUIRED
+                if not self.key:
+                    log_runtime.warning(
+                        "Got 'KDC_ERR_PREAUTH_REQUIRED', but no key was passed."
+                    )
+                    raise self.FINAL()
+                self.pre_auth = True
+                raise self.BEGIN()
+            else:
+                log_runtime.warning("Received KRB_ERROR")
+                pkt.show()
+                raise self.FINAL()
+
+    @ATMT.receive_condition(SENT_AP_REQ)
+    def receive_ap_rep(self, pkt):
+        if Kerberos in pkt and isinstance(pkt.root, KRB_AS_REP):
+            raise self.FINAL().action_parameters(pkt)
+
+    @ATMT.action(receive_ap_rep)
+    def decrypt_ap_rep(self, pkt):
+        # Decrypt
+        enc = pkt.root.encPart
+        res = enc.decrypt(self.key)
+        self.result = self.RES(pkt.root, res.key)
+
+    @ATMT.state(final=1)
+    def FINAL(self):
+        pass
+
+
+def krb_as_req(upn, ip, key=None, password=None, **kwargs):
+    r"""
+    Kerberos AS-Req
+
+    :param upn: the user principal name formatted as "DOMAIN\user" or "user@DOMAIN"
+    :param ip: the KDC ip
+    :param key: (optional) pass the Key object
+    :param password: (optional) otherwise, pass the user's password
+
+    :return: returns a named tuple (asrep=<...>, sessionkey=<...>)
+
+    Example::
+
+        >>> # The KDC is on 192.168.122.17, we ask a TGT for user1
+        >>> krb_as_req("user1@DOMAIN.LOCAL", "192.168.122.17", password="Password1")
+
+    Equivalent::
+
+        >>> from scapy.libs.rfc3961 import Key, EncryptionType
+        >>> key = Key(EncryptionType.AES256, key=hex_bytes("6d0748c546f4e99205
+        ...: e78f8da7681d4ec5520ae4815543720c2a647c1ae814c9"))
+        >>> krb_as_req("user1@DOMAIN.LOCAL", "192.168.122.17", key=key)
+    """
+    m = re.match(r"^([^@\\]+)(@|\\)([^@\\]+)$", upn)
+    if not m:
+        raise ValueError("Invalid UPN !")
+    if m.group(2) == "@":
+        user = m.group(1)
+        domain = m.group(3)
+    else:
+        user = m.group(3)
+        domain = m.group(1)
+    if key is None:
+        if password is None:
+            try:
+                from prompt_toolkit import prompt
+
+                password = prompt("Enter password: ", is_password=True)
+            except ImportError:
+                password = input("Enter password: ")
+        if user.endswith("$"):
+            # Machine account
+            salt = (
+                domain.upper().encode() +
+                b"host" +
+                user.lower().encode() +
+                b"." +
+                domain.lower().encode()
+            )
+        else:
+            salt = domain.upper().encode() + user.encode()
+        from scapy.libs.rfc3961 import Key, EncryptionType
+
+        key = Key.string_to_key(EncryptionType.AES256, password.encode(), salt)
+    cli = KerberosClient(
+        domain=domain, ip=ip, host="WIN1", user=user, key=key, **kwargs
+    )
+    cli.run()
+    cli.stop()
+    return cli.result

@@ -3,6 +3,52 @@ Kerberos
 
 .. note:: Kerberos per `RFC4120 <https://datatracker.ietf.org/doc/html/rfc6113.html>`_ + `RFC6113 <https://datatracker.ietf.org/doc/html/rfc6113.html>`_ (FAST)
 
+High-Level
+__________
+
+Scapy includes a (tiny) kerberos client, that has basic functionalities such as:
+
+AS-REQ
+------
+
+.. note:: Full doc at :func:`~scapy.layers.kerberos.krb_as_req`. ``krb_as_req`` actually calls a Scapy automaton.
+
+.. code:: pycon
+
+    >>> res = krb_as_req("user1@DOMAIN.LOCAL", "192.168.122.17", password="Password1")
+
+This is what it looks like with wireshark:
+
+.. image:: ../graphics/kerberos/wireshark_asreq.png
+   :align: center
+
+The result is a named tuple with both the full AP-REP and the decrypted session key:
+
+.. code:: pycon
+
+    >>> res.asrep.show()
+    ###[ KRB_AS_REP ]### 
+        pvno      = 0x5 <ASN1_INTEGER[5]>
+        msgType   = 'AS-REP' 0xb <ASN1_INTEGER[11]>
+        \padata    \
+        |###[ PADATA ]### 
+        |  padataType= 'PA-ETYPE-INFO2' 0x13 <ASN1_INTEGER[19]>
+        |  \padataValue\
+        |   |###[ ETYPE_INFO2 ]### 
+        |   |  \seq       \
+        |   |   |###[ ETYPE_INFO_ENTRY2 ]### 
+        |   |   |  etype     = 'AES-256' 0x12 <ASN1_INTEGER[18]>
+        |   |   |  salt      = <ASN1_GENERAL_STRING[b'DOMAIN.LOCALuser1']>
+        |   |   |  s2kparams = None
+        crealm    = <ASN1_GENERAL_STRING[b'DOMAIN.LOCAL']>
+        [...]
+    >>> res.sessionkey.toKey()
+    <Key 18 (32 octets)>
+
+
+Low-level
+_________
+
 Decrypt kerberos packets
 ------------------------
 
@@ -236,9 +282,11 @@ We can therefore decrypt the first payload:
 
 We can see the ticket session key in there, let's retrieve it and build a ``Key`` object:
 
+.. note:: We use the ``.toKey()`` function in the ``EncryptedKey`` type which is a shorthand for ``Key(<keytype>, key=<keyvalue>)``
+
 .. code:: pycon
 
-    >>> ticket_session_key = Key(encticketpart.key.keytype.val, key=encticketpart.key.keyvalue.val)
+    >>> ticket_session_key = encticketpart.key.toKey()
     >>> ticket_session_key.key
     b'\xe3\xa2\x0f\x8e\xb2\xe1*\xe0\x7f\x86\xcc\x88\xe6,\x08>B\xd8)m/G\x82B;\x9f+\x86\xcd\xcd\xf4\x05'
 
@@ -271,7 +319,7 @@ Again, we see inside this the subkey that is used to compute the armor key. We g
 
 .. code:: pycon
 
-    >>> subkey = Key(authenticator.subkey.keytype.val, key=authenticator.subkey.keyvalue.val)
+    >>> subkey = authenticator.subkey.toKey()
     >>> subkey.key
     b'%\xa4n\xe1\xd0\xf5\x8d\xc4\x8d\xecv\xe8\x9c\xd3\xc9\xee\x1bu\xc9\xa5\xa6\xf8\x83f\x98\xa1\xd9\xe7*I\x9b\xf8'
 
@@ -332,3 +380,26 @@ Encryption
 ----------
 
 A  :func:`~scapy.libs.rfc3961.Key.encrypt` function exists in the :class:`~scapy.libs.rfc3961.Key` object in order to do the opposite of :func:`~scapy.libs.rfc3961.Key.decrypt`.
+
+
+For instance, during pre-authentication, encode ``PA-ENC-TIMESTAMP``:
+
+.. code:: pycon
+
+    >>> from datetime import datetime
+    >>> from scapy.libs.rfc3961 import Key, EncryptionType
+    >>> # Create the PADATA layer with its EncryptedValue
+    >>> pkt = PADATA(padataType=0x2, padataValue=EncryptedData())
+    >>> # Compute the key
+    >>> key = Key.string_to_key(EncryptionType.AES256, b"Password1", b"DOMAIN.LOCALUser1")
+    >>> now_time = datetime.now(timezone.utc).replace(microsecond=0)  # Current time with no milliseconds
+    >>> # Encrypt
+    >>> pkt.padataValue.encrypt(key, PA_ENC_TS_ENC(patimestamp=ASN1_GENERALIZED_TIME(now_time)))
+    >>> pkt.show()
+    ###[ PADATA ]### 
+        padataType= 2
+        \padataValue\
+        |###[ EncryptedData ]### 
+        |  etype     = 18
+        |  kvno      = 0x0 <ASN1_INTEGER[0]>
+        |  cipher    = b"\xc1\x9a\xaf\x89V\x16\x82\xb6\x9a\xcb\x15[\xaf\xed\xd9\xfc\x04\xbf\x18\xd4&\x91\xb3\xcf~tEk,\x98m\xee\xa4O\x05=\x11b\xe05\xca\x92+80\x99\xb1'~\x8d\xdbtz\xa8"
