@@ -36,7 +36,7 @@ e87127a819d42e69b5e22de0ddc63da80096d"))
 """
 
 from collections import namedtuple
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import re
 import socket
 import struct
@@ -1582,7 +1582,7 @@ class KerberosClient(Automaton):
     def ap_req(self):
         from scapy.libs.rfc3961 import EncryptionType
 
-        now_time = datetime.now(timezone.utc).replace(microsecond=0)
+        now_time = datetime.utcnow().replace(microsecond=0)
 
         apreq = Kerberos(
             root=KRB_AS_REQ(
