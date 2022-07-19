@@ -793,7 +793,7 @@ class KRB_KDC_REQ_BODY(ASN1_Packet):
         ASN1F_optional(
             ASN1F_PACKET("sname", None, PrincipalName, explicit_tag=0xA3),
         ),
-        ASN1F_optional(KerberosTime("from", None, explicit_tag=0xA4)),
+        ASN1F_optional(KerberosTime("from_", None, explicit_tag=0xA4)),
         KerberosTime("till", GeneralizedTime(), explicit_tag=0xA5),
         ASN1F_optional(KerberosTime("rtime", GeneralizedTime(), explicit_tag=0xA6)),
         UInt32("nonce", 0, explicit_tag=0xA7),
