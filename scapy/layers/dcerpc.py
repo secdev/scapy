@@ -331,18 +331,15 @@ _MSRPCE_SECURITY_AUTHLEVELS = {
 
 
 class CommonAuthVerifier(Packet):
-    name = "Common Authentication Verifier (auth_verifier_co_t)"
+    name = "Common Authentication Verifier (sec_trailer)"
     fields_desc = [
-        ReversePadField(
-            ByteEnumField(
-                "auth_type",
-                0,
-                _MSRPCE_SECURITY_PROVIDERS,
-            ),
-            align=4,
+        ByteEnumField(
+            "auth_type",
+            0,
+            _MSRPCE_SECURITY_PROVIDERS,
         ),
         ByteEnumField("auth_level", 0, _MSRPCE_SECURITY_AUTHLEVELS),
-        ByteField("auth_pad_length", 0),
+        ByteField("auth_pad_length", None),
         ByteField("auth_reserved", 0),
         XLEIntField("auth_context_id", 0),
         MultipleTypeField(
@@ -469,11 +466,31 @@ class DceRpc5(Packet):
                 ),
                 lambda pkt: pkt.auth_len != 0,
             ),
+            ConditionalField(
+                TrailerField(
+                    StrLenField(
+                        "auth_pad",
+                        None,
+                        length_from=lambda pkt: pkt.auth_verifier.auth_pad_length or 0,
+                    )
+                ),
+                lambda pkt: pkt.auth_verifier and pkt.auth_verifier.auth_pad_length,
+            ),
         ]
     )
 
     def post_build(self, pkt, pay):
+        if self.auth_verifier and self.auth_pad is None:
+            # Compute auth_len and add padding
+            auth_len = self.get_field("auth_len").getfield(self, pkt[10:12])[1] + 8
+            auth_verifier, pay = pay[-auth_len:], pay[:-auth_len]
+            padlen = (-(len(pkt) + len(pay) - 8)) % 16
+            auth_verifier = (
+                auth_verifier[:2] + struct.pack("B", padlen) + auth_verifier[3:]
+            )
+            pay = pay + (padlen * b"\x00") + auth_verifier
         if self.frag_len is None:
+            # Compute frag_len
             length = len(pkt) + len(pay)
             pkt = (
                 pkt[:8] +
