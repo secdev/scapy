@@ -251,7 +251,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         pkts_tbs = len(self.scanned_states) * self._requests_per_state_estimated
         pkts_snt = len(self.results)
 
-        return pkts_tbs, pkts_snt, pkts_snt / pkts_tbs
+        return pkts_tbs, pkts_snt, float(pkts_snt) / pkts_tbs
 
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None

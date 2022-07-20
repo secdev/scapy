@@ -8,7 +8,7 @@
 
 
 from scapy.compat import Any, List, Optional, Dict, Callable, cast, \
-    TYPE_CHECKING
+    TYPE_CHECKING, Tuple
 from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.scanner.graph import _Edge
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse, Ecu
@@ -258,9 +258,9 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
             if cur_est:
                 return len(self.test_cases), \
                     self.__stage_index, \
-                    self.__stage_index / len(self.test_cases) + \
+                    float(self.__stage_index) / len(self.test_cases) + \
                     cur_est[2] / len(self.test_cases)
 
         return len(self.test_cases), \
             self.__stage_index, \
-            self.__stage_index / len(self.test_cases)
+            float(self.__stage_index) / len(self.test_cases)

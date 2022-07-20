@@ -204,7 +204,7 @@ class AutomotiveTestCaseExecutor:
         if hasattr(test_case, "runtime_estimation"):
             estimation = test_case.runtime_estimation()  # type: ignore
             if estimation is not None:
-                log_interactive.debug(
+                log_automotive.debug(
                     "[i] Test_case %s: TODO %d, "
                     "DONE %d, TOTAL %0.2f",
                     test_case.__class__.__name__, estimation[0],
