@@ -1218,42 +1218,24 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
     def __init__(self, name, default, pkt_cls, **kwargs):
         self.ptr_pack = kwargs.pop("ptr_pack", False)
         PacketListField.__init__(self, name, default, pkt_cls=pkt_cls, **kwargs)
-        self.fld = NDRPacketField("", None, pkt_cls)
-        NDRConstructedType.__init__(self, self.fld.ndr_fields)
+        if self.ptr_pack:
+            self.fld = NDRFullPointerField(
+                NDRPacketField("", None, pkt_cls), deferred=True
+            )
+            NDRConstructedType.__init__(self, [self.fld])
+        else:
+            self.fld = NDRPacketField("", None, pkt_cls)
+            NDRConstructedType.__init__(self, self.fld.ndr_fields)
 
     def m2i(self, pkt, s):
-        if not self.ptr_pack:
-            remain, val = self.fld.getfield(pkt, s)
-            # A mistake here would be to use / instead of add_payload. It adds a copy
-            # which breaks pointer defferal. Same applies elsewhere
-            val.add_payload(conf.padding_layer(remain))
-            return val
-        else:
-            fmt = ["<I", "<Q"][pkt.ndr64]
-            # We need to follow alignment for pointers
-            remain, referent_id = NDRAlign(
-                Field("", 0, fmt=fmt), align=(4, 8)
-            ).getfield(pkt, s)
-            if referent_id == 0:
-                ptr = NDRPointer(ndr64=pkt.ndr64, referent_id=0, value=None)
-                ptr.add_payload(conf.padding_layer(remain))
-                return ptr
-        remain, val = self.fld.getfield(pkt, remain)
-        ptr = NDRPointer(
-            ndr64=pkt.ndr64,
-            referent_id=referent_id,
-            value=val,
-        )
-        ptr.add_payload(conf.padding_layer(remain))
-        return ptr
+        remain, val = self.fld.getfield(pkt, s)
+        # A mistake here would be to use / instead of add_payload. It adds a copy
+        # which breaks pointer defferal. Same applies elsewhere
+        val.add_payload(conf.padding_layer(remain))
+        return val
 
     def i2m(self, pkt, val):
-        if not self.ptr_pack:
-            return self.fld.addfield(pkt, b"", val)
-        fmt = ["<I", "<Q"][pkt.ndr64]
-        return NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
-            pkt, b"", val and val.referent_id or 0
-        ) + (self.fld.addfield(pkt, b"", val.value) if val.value is not None else b"")
+        return self.fld.addfield(pkt, b"", val)
 
 
 class NDRVaryingArray(_NDRPacket):
