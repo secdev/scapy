@@ -115,6 +115,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         self._retry_pkt = defaultdict(
             lambda: None)  # type: Dict[EcuState, Optional[Union[Packet, Iterable[Packet]]]]  # noqa: E501
         self._negative_response_blacklist = [0x10, 0x11]  # type: List[int]
+        self._requests_per_state_estimated = None  # type: Optional[int]
 
     @staticmethod
     @abc.abstractmethod
@@ -233,12 +234,33 @@ class ServiceEnumerator(AutomotiveTestCase):
         return chain(self._get_retry_iterator(state),
                      self._get_initial_request_iterator(state, **kwargs))
 
+    def _prepare_runtime_estimation(self, **kwargs):
+        # type: (Optional[Dict[str, Any]]) -> None
+        if self._requests_per_state_estimated is None:
+            try:
+                initial_requests = self._get_initial_requests(**kwargs)
+                self._requests_per_state_estimated = len(list(initial_requests))
+            except NotImplementedError:
+                pass
+
+    def runtime_estimation(self):
+        # type: () -> Optional[Tuple[int, int, float]]
+        if self._requests_per_state_estimated is None:
+            return None
+
+        pkts_tbs = len(self.scanned_states) * self._requests_per_state_estimated
+        pkts_snt = len(self.results)
+
+        return pkts_tbs, pkts_snt, pkts_snt / pkts_tbs
+
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None
         self.check_kwargs(kwargs)
         timeout = kwargs.pop('timeout', 1)
         count = kwargs.pop('count', None)
         execution_time = kwargs.pop("execution_time", 1200)
+
+        self._prepare_runtime_estimation(**kwargs)
 
         state_block_list = kwargs.get('state_block_list', list())
 

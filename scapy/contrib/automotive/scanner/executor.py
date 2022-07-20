@@ -201,6 +201,15 @@ class AutomotiveTestCaseExecutor:
         self.check_new_states(test_case)
         self.check_new_testcases(test_case)
 
+        if hasattr(test_case, "runtime_estimation"):
+            estimation = test_case.runtime_estimation()  # type: ignore
+            if estimation is not None:
+                log_interactive.debug(
+                    "[i] Test_case %s: TODO %d, "
+                    "DONE %d, TOTAL %0.2f",
+                    test_case.__class__.__name__, estimation[0],
+                    estimation[1], estimation[2])
+
     def check_new_testcases(self, test_case):
         # type: (AutomotiveTestCaseABC) -> None
         if isinstance(test_case, TestCaseGenerator):
@@ -225,6 +234,19 @@ class AutomotiveTestCaseExecutor:
                 test_case_kwargs = self.configuration[test_case.__class__.__name__]
                 test_case.check_kwargs(test_case_kwargs)
 
+    def progress(self):
+        # type: () -> float
+        progress = []
+        for tc in self.configuration.test_cases:
+            if not hasattr(tc, "runtime_estimation"):
+                continue
+            est = tc.runtime_estimation()  # type: ignore
+            if est is None:
+                continue
+            progress.append(est[2])
+
+        return sum(progress) / len(progress) if len(progress) else 0.0
+
     def scan(self, timeout=None):
         # type: (Optional[int]) -> None
         """
@@ -236,7 +258,8 @@ class AutomotiveTestCaseExecutor:
         log_automotive.debug("Set kill_time to %s" % time.ctime(kill_time))
         while kill_time > time.time():
             test_case_executed = False
-            log_automotive.debug("Scan paths %s", self.state_paths)
+            log_automotive.info("[i] Scan progress %0.2f", self.progress())
+            log_automotive.debug("[i] Scan paths %s", self.state_paths)
             for p, test_case in product(
                     self.state_paths, self.configuration.test_cases):
                 log_automotive.info("Scan path %s", p)
