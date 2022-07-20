@@ -160,16 +160,20 @@ class AutomotiveTestCaseExecutor:
             raise Scapy_Exception(
                 "Socket closed even after reconnect. Stop scan!")
 
-    def execute_test_case(self, test_case):
-        # type: (AutomotiveTestCaseABC) -> None
+    def execute_test_case(self, test_case, kill_time=None):
+        # type: (AutomotiveTestCaseABC, Optional[float]) -> None
         """
         This function ensures the correct execution of a testcase, including
         the pre_execute, execute and post_execute.
         Finally the testcase is asked if a new edge or a new testcase was
         generated.
+
         :param test_case: A test case to be executed
+        :param kill_time: If set, this defines the maximum execution time for
+                          the current test_case
         :return: None
         """
+
         test_case.pre_execute(
             self.socket, self.target_state, self.configuration)
 
@@ -177,6 +181,12 @@ class AutomotiveTestCaseExecutor:
             test_case_kwargs = self.configuration[test_case.__class__.__name__]
         except KeyError:
             test_case_kwargs = dict()
+
+        if kill_time:
+            max_execution_time = max(int(kill_time - time.time()), 5)
+            cur_execution_time = test_case_kwargs.get("execution_time", 1200)
+            test_case_kwargs["execution_time"] = min(max_execution_time,
+                                                     cur_execution_time)
 
         log_interactive.debug("[i] Execute test_case %s with args %s",
                               test_case.__class__.__name__, test_case_kwargs)
@@ -220,13 +230,14 @@ class AutomotiveTestCaseExecutor:
         :return: None
         """
         kill_time = time.time() + (timeout or 0xffffffff)
+        log_interactive.debug("[i] Set kill_time to %s" % time.ctime(kill_time))
         while kill_time > time.time():
             test_case_executed = False
             log_interactive.debug("[i] Scan paths %s", self.state_paths)
             for p, test_case in product(
                     self.state_paths, self.configuration.test_cases):
                 log_interactive.info("[i] Scan path %s", p)
-                terminate = kill_time < time.time()
+                terminate = kill_time <= time.time()
                 if terminate:
                     log_interactive.debug(
                         "[-] Execution time exceeded. Terminating scan!")
@@ -245,7 +256,7 @@ class AutomotiveTestCaseExecutor:
                         continue
                     log_interactive.info(
                         "[i] Execute %s for path %s", str(test_case), p)
-                    self.execute_test_case(test_case)
+                    self.execute_test_case(test_case, kill_time)
                     test_case_executed = True
                 except (OSError, ValueError, Scapy_Exception) as e:
                     log_interactive.critical("[-] Exception: %s", e)
