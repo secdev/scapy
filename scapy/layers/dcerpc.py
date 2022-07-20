@@ -811,7 +811,10 @@ def find_dcerpc_interface(name):
     """
     Find an interface object through the name in the IDL
     """
-    return next(x for x in DCE_RPC_INTERFACES.values() if x.name == name)
+    try:
+        return next(x for x in DCE_RPC_INTERFACES.values() if x.name == name)
+    except StopIteration:
+        raise AttributeError("Unknown interface !")
 
 
 # --- NDR fields - [C706] chap 14
