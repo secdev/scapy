@@ -28,14 +28,17 @@ class TestSocket(SuperSocket):
 
     test_socket_mutex = Lock()
 
-    def __init__(self, basecls=None):
-        # type: (Optional[Type[Packet]]) -> None
+    def __init__(self,
+                 basecls=None,  # type: Optional[Type[Packet]]
+                 external_obj_pipe=None  # type: Optional[ObjectPipe[bytes]]
+                 ):
+        # type: (...) -> None
         global open_test_sockets
-        super(TestSocket, self).__init__()
         self.basecls = basecls
         self.paired_sockets = list()  # type: List[TestSocket]
-        self.closed = False
-        self.ins = self.outs = cast(socket, ObjectPipe(name="TestSocket"))
+        self.ins = external_obj_pipe or ObjectPipe(name="TestSocket")  # type: ignore
+        self._has_external_obj_pip = external_obj_pipe is not None
+        self.outs = None
         open_test_sockets.append(self)
 
     def __enter__(self):
@@ -51,27 +54,30 @@ class TestSocket(SuperSocket):
         # type: () -> None
         global open_test_sockets
 
-        with self.test_socket_mutex:
-            if self.closed:
-                return
+        if self.closed:
+            return
 
-            self.closed = True
-            for s in self.paired_sockets:
-                try:
-                    s.paired_sockets.remove(self)
-                except (ValueError, AttributeError, TypeError):
-                    pass
-            super(TestSocket, self).close()
+        for s in self.paired_sockets:
             try:
-                open_test_sockets.remove(self)
+                s.paired_sockets.remove(self)
             except (ValueError, AttributeError, TypeError):
                 pass
 
+        if not self._has_external_obj_pip:
+            super(TestSocket, self).close()
+        else:
+            # We don't close external object pipes
+            self.closed = True
+
+        try:
+            open_test_sockets.remove(self)
+        except (ValueError, AttributeError, TypeError):
+            pass
+
     def pair(self, sock):
         # type: (TestSocket) -> None
-        with self.test_socket_mutex:
-            self.paired_sockets += [sock]
-            sock.paired_sockets += [self]
+        self.paired_sockets += [sock]
+        sock.paired_sockets += [self]
 
     def send(self, x):
         # type: (Packet) -> int
@@ -89,10 +95,6 @@ class TestSocket(SuperSocket):
         """Returns a tuple containing (cls, pkt_data, time)"""
         return self.basecls, self.ins.recv(0), time.time()
 
-    def __del__(self):
-        # type: () -> None
-        self.close()
-
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
         # type: (List[SuperSocket], Optional[float]) -> List[SuperSocket]
@@ -105,9 +107,12 @@ class UnstableSocket(TestSocket):
     packets on recv.
     """
 
-    def __init__(self, basecls=None):
-        # type: (Optional[Type[Packet]]) -> None
-        super(UnstableSocket, self).__init__(basecls)
+    def __init__(self,
+                 basecls=None,  # type: Optional[Type[Packet]]
+                 external_obj_pipe=None  # type: Optional[ObjectPipe[bytes]]
+                 ):
+        # type: (...) -> None
+        super(UnstableSocket, self).__init__(basecls, external_obj_pipe)
         self.no_error_for_x_rx_pkts = 10
         self.no_error_for_x_tx_pkts = 10
 
@@ -147,9 +152,8 @@ def cleanup_testsockets():
     """
     Helper function to remove TestSocket objects after a test
     """
-    count = 100
-    while len(open_test_sockets) and count > 0:
-        print(open_test_sockets)
-        count -= 1
+    count = max(len(open_test_sockets), 1)
+    while len(open_test_sockets) and count:
         sock = open_test_sockets[0]
         sock.close()
+        count -= 1

@@ -7,7 +7,8 @@
 import io
 import pickle
 from scapy.contrib.isotp import ISOTPMessageBuilder
-from test.testsocket import TestSocket, cleanup_testsockets, UnstableSocket, open_test_sockets
+from test.testsocket import TestSocket, cleanup_testsockets, UnstableSocket
+from scapy.automaton import ObjectPipe
 
 ############
 ############
@@ -27,61 +28,51 @@ load_layer("can")
 = Define Testfunction
 
 def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstable_socket=True, **kwargs):
+    tester_obj_pipe = ObjectPipe(name="TesterPipe")
+    ecu_obj_pipe = ObjectPipe(name="ECUPipe")
     TesterSocket = UnstableSocket if unstable_socket else TestSocket
-    answering_machine_started = threading.Event()
-    answering_machine_running = threading.Event()
-    answering_machine_running.set()
+    tester = TesterSocket(UDS, tester_obj_pipe)
+    ecu = TestSocket(UDS, ecu_obj_pipe)
+    tester.pair(ecu)
+    answering_machine = EcuAnsweringMachine(
+        supported_responses=supported_responses, main_socket=ecu,
+        basecls=UDS, verbose=False)
     def reset():
         answering_machine.state.reset()
         answering_machine.state["session"] = 1
         sniff(timeout=0.001, opened_socket=[ecu, tester])
     def reconnect():
-        global tester
         try:
             tester.close()
         except Exception:
             pass
-        tester = TesterSocket(UDS)
+        tester = TesterSocket(UDS, tester_obj_pipe)
         ecu.pair(tester)
         return tester
     def answering_machine_thread():
-        global ecu
-        global answering_machine
-        while answering_machine_running.is_set():
-            try:
-                try:
-                    ecu.close()
-                except Exception:
-                    pass
-                assert len(open_test_sockets) < 3
-                ecu = TestSocket(UDS)
-                tester.pair(ecu)
-                answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=UDS, verbose=False)
-                answering_machine_started.set()
-                answering_machine(timeout=120, stop_filter=lambda x: bytes(x) == b"\xff\xff\xff")
-                return
-            except OSError:
-                continue
+        answering_machine(
+            timeout=120, stop_filter=lambda x: bytes(x) == b"\xff\xff\xff")
     sim = threading.Thread(target=answering_machine_thread)
     try:
-        assert len(open_test_sockets) < 3
         sim.start()
-        answering_machine_started.wait(timeout=10)
         scanner = UDS_Scanner(
-            reconnect(), reset_handler=reset, reconnect_handler=reconnect, test_cases=enumerators, timeout=0.1,
+            tester, reset_handler=reset, reconnect_handler=reconnect,
+            test_cases=enumerators, timeout=0.1,
             retry_if_none_received=True, unittest=True,
             **kwargs)
-        for i in range(100):
+        for i in range(12):
+            print("Starting scan")
             scanner.scan(timeout=10)
             if scanner.scan_completed:
                 print("Scan completed after %d iterations" % i)
                 break
     finally:
-        answering_machine_running.clear()
         ecu.ins.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)
         assert not sim.is_alive()
         cleanup_testsockets()
+        tester_obj_pipe.close()
+        ecu_obj_pipe.close()
     if six.PY3 and LINUX:
         pickle_test(scanner)
     return scanner
@@ -156,22 +147,22 @@ assert e._retry_pkt[s] == None
 = Test UDS_SA_XOR_Enumerator stand alone mode
 
 TesterSocket = TestSocket
-ecu = TestSocket(UDS)
-tester = TesterSocket(UDS)
-ecu.pair(tester)
-answering_machine = EcuAnsweringMachine(supported_responses=mEcu.supported_responses, main_socket=ecu, basecls=UDS, verbose=False)
+ecu_sock = TestSocket(UDS)
+mTester = TesterSocket(UDS)
+ecu_sock.pair(mTester)
+answering_machine = EcuAnsweringMachine(supported_responses=mEcu.supported_responses, main_socket=ecu_sock, basecls=UDS, verbose=False)
 sim = threading.Thread(target=answering_machine, kwargs={'timeout': 1000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
 sim.start()
 try:
-    resp = tester.sr1(UDS()/UDS_TP(b"\x00"), verbose=False, timeout=1)
+    resp = mTester.sr1(UDS()/UDS_TP(b"\x00"), verbose=False, timeout=1)
     print(repr(resp))
     assert resp and resp.service != 0x7f
-    resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=3), verbose=False, timeout=1)
+    resp = mTester.sr1(UDS()/UDS_DSC(diagnosticSessionType=3), verbose=False, timeout=1)
     print(repr(resp))
     assert resp and resp.service != 0x7f
-    assert UDS_SA_XOR_Enumerator().get_security_access(tester, 1)
+    assert UDS_SA_XOR_Enumerator().get_security_access(mTester, 1)
 finally:
-    tester.send(Raw(b"\xff\xff\xff"))
+    mTester.send(Raw(b"\xff\xff\xff"))
     sim.join(timeout=2)
     cleanup_testsockets()
 
