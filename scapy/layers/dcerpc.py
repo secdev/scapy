@@ -265,7 +265,9 @@ class NetlogonAuthMessage(Packet):
             lambda pkt: pkt.Flags.DNS_HOST_NAME,
         ),
         ConditionalField(
-            StrNullField("NetbiosComputerNameUtf8", ""),
+            # What the fuck? Why are they doing this
+            # The spec is just wrong
+            DNSStrField("NetbiosComputerNameUtf8", ""),
             lambda pkt: pkt.Flags.NETBIOS_COMPUTER_NAME_UTF8,
         ),
     ]
