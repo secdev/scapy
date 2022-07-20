@@ -1126,6 +1126,12 @@ class NDRFullPointerField(_FieldContainer):
     def i2repr(self, pkt, val):
         return repr(val)
 
+    def h2i(self, pkt, x):
+        return x
+
+    any2i = Field.any2i
+    i2count = Field.i2count
+
 
 class NDRRefEmbPointerField(NDRFullPointerField):
     """
@@ -1304,14 +1310,21 @@ class _NDRVarField:
         fmt = ["<I", "<Q"][pkt.ndr64]
         s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(pkt, s, val.offset)
         s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
-            pkt, s, val.actual_count is None and len(val.value) or val.actual_count
+            pkt,
+            s,
+            val.actual_count is None and
+            super(_NDRVarField, self).i2len(pkt, val.value) or
+            val.actual_count,
         )
         return super(_NDRVarField, self).addfield(
             pkt, s, super(_NDRVarField, self).h2i(pkt, val.value)
         )
 
     def i2len(self, pkt, x):
-        return len(self.addfield(pkt, b"", x))
+        return super(_NDRVarField, self).i2len(pkt, x.value)
+
+    def h2i(self, pkt, x):
+        return x
 
     any2i = Field.any2i
     i2repr = Field.i2repr
@@ -1365,12 +1378,21 @@ class _NDRConfField:
         s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
             pkt,
             s,
+            val.max_count is None and
+            super(_NDRConfField, self).i2len(pkt, value) or
             val.max_count,
         )
         return super(_NDRConfField, self).addfield(pkt, s, value)
 
     def i2len(self, pkt, x):
-        return len(self.addfield(pkt, b"", x))
+        if isinstance(x.value[0], NDRVaryingArray):
+            value = x.value[0]
+        else:
+            value = x.value
+        return super(_NDRConfField, self).i2len(pkt, value)
+
+    def h2i(self, pkt, x):
+        return x
 
     any2i = Field.any2i
     i2repr = Field.i2repr

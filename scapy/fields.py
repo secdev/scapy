@@ -2125,6 +2125,10 @@ class StrNullField(StrField):
         # type: () -> RandTermString
         return RandTermString(RandNum(0, 1200), self.DELIMITER)
 
+    def i2len(self, pkt, x):
+        # type: (Optional[Packet], Any) -> int
+        return super(StrNullField, self).i2len(pkt, x) + 1
+
 
 class StrNullFieldUtf16(StrNullField, StrFieldUtf16):
     DELIMITER = b"\x00\x00"
