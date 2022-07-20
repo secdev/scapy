@@ -781,7 +781,7 @@ class DceRpcInterface:
     def __init__(self, name, uuid, version, opnums):
         self.name = name
         self.uuid = uuid
-        self.version = version
+        self.version, self.minor_version = map(int, version.split("."))
         self.opnums = opnums
 
     def __repr__(self):
