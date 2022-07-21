@@ -2465,7 +2465,9 @@ class _EnumField(Field[Union[List[I], I], I]):
 
     def any2i_one(self, pkt, x):
         # type: (Optional[Packet], Any) -> I
-        if isinstance(x, str):
+        if Enum and isinstance(x, Enum):
+            return cast(I, x.value)
+        elif isinstance(x, str):
             if self.s2i:
                 x = self.s2i[x]
             elif self.s2i_cb:
