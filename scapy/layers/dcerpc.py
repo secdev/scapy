@@ -840,10 +840,13 @@ def find_dcerpc_interface(name):
 
 
 class _NDRPacket(Packet):
-    __slots__ = ["ndr64", "defered_pointers"]
+    __slots__ = ["ndr64", "defered_pointers", "request_packet"]
 
     def __init__(self, *args, **kwargs):
         self.ndr64 = kwargs.pop("ndr64", True)
+        # request_packet is used in the session, so that a response packet
+        # can resolve union arms if the case parameter is in the request.
+        self.request_packet = kwargs.pop("request_packet", None)
         self.defered_pointers = []
         super(_NDRPacket, self).__init__(*args, **kwargs)
 
@@ -876,6 +879,18 @@ class _NDRPacket(Packet):
         pkt.defered_pointers = self.defered_pointers
         pkt.ndr64 = self.ndr64
         return pkt
+
+    def getfield_and_val(self, attr):
+        try:
+            return Packet.getfield_and_val(self, attr)
+        except ValueError:
+            if self.request_packet:
+                # Try to resolve the field from the request on failure
+                try:
+                    return self.request_packet.getfield_and_val(attr)
+                except AttributeError:
+                    pass
+            raise
 
 
 class _NDRAlign:
@@ -1275,11 +1290,11 @@ class NDRVaryingArray(_NDRPacket):
         MultipleTypeField(
             [
                 (
-                    FieldLenField("actual_count", None, fmt="<Q"),
+                    LELongField("actual_count", None),
                     lambda pkt: pkt and pkt.ndr64,
                 )
             ],
-            FieldLenField("actual_count", None, fmt="<I"),
+            LEIntField("actual_count", None),
         ),
         PacketField("value", None, conf.raw_layer),
     ]
@@ -1602,6 +1617,7 @@ class DceRpcSession(DefaultSession):
 
     def _process_dcerpc_packet(self, pkt):
         opnum = None
+        opts = {}
         if DceRpc5Bind in pkt:
             # bind => get which RPC interface
             for ctx in pkt.context_elem:
@@ -1620,11 +1636,12 @@ class DceRpcSession(DefaultSession):
                         self.ndr64 = True
         elif DceRpc5Request in pkt:
             # request => match opnum with callID
-            opnum = self.map_callid_opnum[pkt.call_id] = pkt.opnum
+            opnum = pkt.opnum
+            self.map_callid_opnum[pkt.call_id] = opnum, pkt[DceRpc5Request].payload
         elif DceRpc5Response in pkt:
             # response => get opnum from table
             try:
-                opnum = self.map_callid_opnum[pkt.call_id]
+                opnum, opts["request_packet"] = self.map_callid_opnum[pkt.call_id]
                 del self.map_callid_opnum[pkt.call_id]
             except KeyError:
                 log_runtime.info("Unknown call_id %s in DCE/RPC session" % pkt.call_id)
@@ -1644,7 +1661,7 @@ class DceRpcSession(DefaultSession):
                 )
                 return
             # Dissect payload using class
-            payload = cls(pkt[conf.raw_layer].load, ndr64=self.ndr64)
+            payload = cls(pkt[conf.raw_layer].load, ndr64=self.ndr64, **opts)
             pkt[conf.raw_layer].underlayer.remove_payload()
             pkt = pkt / payload
         return pkt
