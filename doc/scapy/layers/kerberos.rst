@@ -155,12 +155,17 @@ Let's run a few examples:
     b'4c01cd46d632d01e6dbe230a01ed642a'
 
 
-Decrypt FAST exchange
----------------------
+Decrypt FAST
+------------
 
 .. note:: Have a look at `RFC6113 <https://datatracker.ietf.org/doc/html/rfc6113.html>`_ for Kerberos FAST
 
 Let's take a Kerberos AS-REQ packet with FAST armoring (RFC6113):
+
+.. figure:: ../graphics/kerberos/as_req_fast.png
+   :align: center
+
+   FAST armoring in AS-REQ. Courtesy of Aurélien Bordes
 
 .. code:: pycon
 
