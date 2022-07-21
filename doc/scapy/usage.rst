@@ -1450,8 +1450,25 @@ and receiving the answers::
 Visualizing the results in a list::
 
     >>> res.nsummary(prn=lambda s,r: r.src, lfilter=lambda s,r: r.haslayer(ISAKMP) ) 
-    
-  
+
+
+Netbios
+-------
+
+Answer all queries
+^^^^^^^^^^^^^^^^^^
+
+::
+
+    >>> netbios_announce(iface="eth0")  # With local IP
+    >>> netbios_announce(iface="eth0", ip="192.168.122.17")  # With some other IP
+
+Node status request (get NetbiosName from IP)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code::
+
+    >>> sr1(IP(dst="192.168.122.17")/UDP()/NBNSHeader()/NBNSNodeStatusRequest())
 
 Advanced traceroute
 -------------------
