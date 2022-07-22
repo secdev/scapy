@@ -156,3 +156,39 @@ bytes(DceRpc4(ptype='response', endian='little', opnum=3) / b'\x00\x01\x02\x03')
 = DCE/RPC little-endian dissection
 p = DceRpc(hex_bytes('04020000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000300ffffffff04000000000000010203'))
 p.ptype == 2 and p.opnum == 3 and p.len == 4
+
++ NDR tests
+
+= Create NDR Packet
+
+# from [MS-SRVS]
+class LPSHARE_INFO_1(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRFullPointerField(
+            NDRConfVarStrNullFieldUtf16("shi1_netname", ""),
+        ),
+        NDRIntField("shi1_type", 0),
+        NDRFullPointerField(
+            NDRConfVarStrNullFieldUtf16("shi1_remark", ""),
+        ),
+    ]
+
+= Check user friendliness
+
+pkt = LPSHARE_INFO_1(shi1_netname=b"ADMIN1$")
+val = pkt.fields['shi1_netname']
+assert isinstance(val, NDRPointer)
+assert isinstance(val.value, NDRConformantArray)
+assert isinstance(val.value.value[0], NDRVaryingArray)
+assert val.value.value[0].value == b"ADMIN1$"
+
+= Try building it
+
+assert bytes(pkt) == b'\x00\x00\x02\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00A\x00D\x00M\x00I\x00N\x001\x00$\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= Same thing with NDR32
+
+pkt = LPSHARE_INFO_1(shi1_netname=b"ADMIN1$", ndr64=False)
+assert bytes(pkt) == b'\x00\x00\x02\x00\x08\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00A\x00D\x00M\x00I\x00N\x001\x00$\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
