@@ -1173,15 +1173,21 @@ class NDRConstructedType:
         # If we have a pointer, mark this field as handling deferrance
         # and make all sub-constructed types not.
         for f in self.ndr_fields:
+            if isinstance(f, NDRFullPointerField) and f.deferred:
+                self.handles_deferred = True
             if isinstance(f, NDRConstructedType):
+                f.rec_check_deferral()
                 if f.handles_deferred:
                     self.handles_deferred = True
                     f.handles_deferred = False
-            if isinstance(f, NDRFullPointerField) and f.deferred:
-                self.handles_deferred = True
 
     def getfield(self, pkt, s):
         s, fval = super(NDRConstructedType, self).getfield(pkt, s)
+        if isinstance(fval, _NDRPacket):
+            # If a sub-packet we just dissected has deferred pointers,
+            # pass it to parent packet to propagate.
+            pkt.defered_pointers.extend(fval.defered_pointers)
+            fval.defered_pointers.clear()
         if self.handles_deferred:
             # Now read content of the pointers that were deferred
             q = deque()
@@ -1196,11 +1202,6 @@ class NDRConstructedType:
                     # Pointer resolves to a packet.. that may have deferred pointers?
                     q.extend(val.defered_pointers)
                     val.defered_pointers.clear()
-        elif isinstance(fval, _NDRPacket):
-            # If a sub-packet we just dissected has deferred pointers,
-            # pass it to parent packet to propagate.
-            pkt.defered_pointers.extend(fval.defered_pointers)
-            fval.defered_pointers.clear()
         return s, fval
 
     def addfield(self, pkt, s, val):
@@ -1229,7 +1230,10 @@ class _NDRPacketField(PacketField):
 
 # class _NDRPacketPadField(PadField):
 #     def padlen(self, flen, pkt):
-#         return -flen % self._align[pkt.ndr64]
+#         if pkt.ndr64:
+#             return -flen % self._align[1]
+#         else:
+#             return 0
 
 
 class NDRPacketField(NDRConstructedType, NDRAlign):
@@ -1265,10 +1269,9 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
             self.fld = NDRFullPointerField(
                 NDRPacketField("", None, pkt_cls), deferred=True
             )
-            NDRConstructedType.__init__(self, [self.fld])
         else:
             self.fld = NDRPacketField("", None, pkt_cls)
-            NDRConstructedType.__init__(self, self.fld.ndr_fields)
+        NDRConstructedType.__init__(self, [self.fld])
 
     def m2i(self, pkt, s):
         remain, val = self.fld.getfield(pkt, s)
