@@ -1064,6 +1064,11 @@ bind_top_down(
 
 class SMB2_Close_Response(Packet):
     name = "SMB2 CLOSE Response"
+    FileAttributes = 0
+    CreationTime = 0
+    LastAccessTime = 0
+    LastWriteTime = 0
+    ChangeTime = 0
     fields_desc = [
         XLEShortField("StructureSize", 0x3c),
         FlagsField("Flags", 0, -16,
