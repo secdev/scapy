@@ -838,6 +838,14 @@ def find_dcerpc_interface(name):
 
 # --- NDR fields - [C706] chap 14
 
+def _set_ndr_on(f, ndr64):
+    if isinstance(f, _NDRPacket):
+        f.ndr64 = ndr64
+    if isinstance(f, list):
+        for x in f:
+            if isinstance(x, _NDRPacket):
+                x.ndr64 = ndr64
+
 
 class _NDRPacket(Packet):
     __slots__ = ["ndr64", "defered_pointers", "request_packet"]
@@ -850,18 +858,16 @@ class _NDRPacket(Packet):
         self.defered_pointers = []
         super(_NDRPacket, self).__init__(*args, **kwargs)
 
-    def _update_fields(self):
+    def dissect(self, s):
         _up = self.parent or self.underlayer
         if _up and isinstance(_up, _NDRPacket):
             self.ndr64 = _up.ndr64
+        return super(_NDRPacket, self).dissect(s)
 
     def do_build(self):
-        self._update_fields()
+        for f in self.fields.values():
+            _set_ndr_on(f, self.ndr64)
         return super(_NDRPacket, self).do_build()
-
-    def dissect(self, s):
-        self._update_fields()
-        return super(_NDRPacket, self).dissect(s)
 
     def default_payload_class(self, pkt):
         return conf.padding_layer
@@ -1130,6 +1136,7 @@ class NDRFullPointerField(_FieldContainer):
         if not self.EMBEDDED and val is None:
             return fld.addfield(pkt, s, 0)
         else:
+            _set_ndr_on(val.value, pkt.ndr64)
             s = fld.addfield(pkt, s, val.referent_id)
         if self.deferred:
             # deferred
@@ -1292,6 +1299,9 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
     def i2m(self, pkt, val):
         return self.fld.addfield(pkt, b"", val)
 
+    def i2len(self, pkt, x):
+        return len(x)
+
 
 class NDRVaryingArray(_NDRPacket):
     fields_desc = [
@@ -1335,6 +1345,7 @@ class _NDRVarField:
                 "Expected NDRVaryingArray in %s. You are using it wrong!" % self.name
             )
         fmt = ["<I", "<Q"][pkt.ndr64]
+        _set_ndr_on(val.value, pkt.ndr64)
         s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(pkt, s, val.offset)
         s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
             pkt,
@@ -1358,7 +1369,6 @@ class _NDRVarField:
         if not isinstance(x, NDRVaryingArray):
             return NDRVaryingArray(
                 value=super(_NDRVarField, self).any2i(pkt, x),
-                ndr64=getattr(pkt, "ndr64", True),
             )
         return x
 
@@ -1405,11 +1415,12 @@ class _NDRConfField:
             raise ValueError(
                 "Expected NDRConformantArray in %s. You are using it wrong!" % self.name
             )
+        fmt = ["<I", "<Q"][pkt.ndr64]
+        _set_ndr_on(val.value, pkt.ndr64)
         if isinstance(val.value[0], NDRVaryingArray):
             value = val.value[0]
         else:
             value = val.value
-        fmt = ["<I", "<Q"][pkt.ndr64]
         s = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).addfield(
             pkt,
             s,
@@ -1434,7 +1445,6 @@ class _NDRConfField:
         if not isinstance(x, NDRConformantArray):
             return NDRConformantArray(
                 value=super(_NDRConfField, self).any2i(pkt, x),
-                ndr64=getattr(pkt, "ndr64", True),
             )
         return x
 
@@ -1569,7 +1579,7 @@ class _NDRUnionField(MultipleTypeField):
         fmt, sz = [("<H", 2), ("<I", 4)][pkt.ndr64]  # special for union
         tag = struct.unpack(fmt, s[:sz])[0]
         remain, val = super(_NDRUnionField, self).getfield(pkt, s[sz:])
-        return remain, NDRUnion(tag=tag, value=val)
+        return remain, NDRUnion(tag=tag, value=val, ndr64=pkt.ndr64)
 
     def addfield(self, pkt, s, val):
         fmt = ["<I", "<Q"][pkt.ndr64]
@@ -1577,6 +1587,7 @@ class _NDRUnionField(MultipleTypeField):
             raise ValueError(
                 "Expected NDRUnion in %s. You are using it wrong!" % self.name
             )
+        _set_ndr_on(val.value, pkt.ndr64)
         return (
             s +
             struct.pack(fmt, val.tag) +
