@@ -169,10 +169,13 @@ class FileStandardInformation(Packet):
 
 def _SMB2_post_build(self, p, pay_offset, fields):
     """Util function to build the offset and populate the lengths"""
-    for field_name, value in self.fields["Buffer"]:
-        length = self.get_field(
-            "Buffer").fields_map[field_name].i2len(self, value)
-        offset = fields[field_name]
+    for field_name, offset in fields.items():
+        try:
+            value = next(x[1] for x in self.fields["Buffer"] if x[0] == field_name)
+            length = self.get_field(
+                "Buffer").fields_map[field_name].i2len(self, value)
+        except StopIteration:
+            length = 0
         i = 0
         r = lambda y: {2: "H", 4: "I", 8: "Q"}[y]
         # Offset
@@ -267,7 +270,7 @@ class SMB2_Header(Packet):
             return SMB2_Query_Info_Request
         elif self.Command == 0x000B:  # IOCTL
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
-                pass
+                return SMB2_IOCTL_Response
             return SMB2_IOCTL_Request
         return super(SMB2_Header, self).guess_payload_class(payload)
 
@@ -806,7 +809,7 @@ class SMB2_Tree_Connect_Response(Packet):
                                        0x02: "PIPE",
                                        0x03: "PRINT"}),
         ByteField("Reserved", 0),
-        FlagsField("ShareFlags", 0, -32, {
+        FlagsField("ShareFlags", 0x30, -32, {
             0x00000010: "AUTO_CACHING",
             0x00000020: "VDO_CACHING",
             0x00000030: "NO_CACHING",
@@ -1234,7 +1237,7 @@ bind_top_down(
 # sect 2.2.31.4
 
 
-class SMB2_IOCTL_Validate_Negotiate_Info(Packet):
+class SMB2_IOCTL_Validate_Negotiate_Info_Request(Packet):
     name = "SMB2 IOCTL Validate Negotiate Info"
     fields_desc = (
         SMB2_Negotiate_Protocol_Request.fields_desc[4:6] +  # Cap/GUID
@@ -1243,14 +1246,13 @@ class SMB2_IOCTL_Validate_Negotiate_Info(Packet):
     )
 
 
-class _SMB2_IOCTL_PacketLenField(PacketLenField):
+# sect 2.2.31
+
+class _SMB2_IOCTL_Request_PacketLenField(PacketLenField):
     def m2i(self, pkt, m):
         if pkt.CtlCode == 0x00140204:  # FSCTL_VALIDATE_NEGOTIATE_INFO
-            return SMB2_IOCTL_Validate_Negotiate_Info(m)
+            return SMB2_IOCTL_Validate_Negotiate_Info_Request(m)
         return conf.raw_layer(m)
-
-
-# sect 2.2.31
 
 
 class SMB2_IOCTL_Request(_NTLMPayloadPacket):
@@ -1294,10 +1296,10 @@ class SMB2_IOCTL_Request(_NTLMPayloadPacket):
         LEIntField("Reserved2", 0),
         _NTLMPayloadField(
             'Buffer', OFFSET, [
-                _SMB2_IOCTL_PacketLenField(
+                _SMB2_IOCTL_Request_PacketLenField(
                     "Input", None, conf.raw_layer,
                     length_from=lambda pkt: pkt.InputLen),
-                _SMB2_IOCTL_PacketLenField(
+                _SMB2_IOCTL_Request_PacketLenField(
                     "Output", None, conf.raw_layer,
                     length_from=lambda pkt: pkt.OutputLen),
             ],
@@ -1318,18 +1320,53 @@ bind_top_down(
     Command=0x000B,
 )
 
+# sect 2.2.32.6
+
+
+class SMB2_IOCTL_Validate_Negotiate_Info_Response(Packet):
+    name = "SMB2 IOCTL Validate Negotiate Info"
+    fields_desc = (
+        SMB2_Negotiate_Protocol_Response.fields_desc[4:6][::-1] +  # Cap/GUID
+        SMB2_Negotiate_Protocol_Response.fields_desc[1:3]  # SecMod/DialectRevision
+    )
+
 # sect 2.2.32
+
+
+class _SMB2_IOCTL_Response_PacketLenField(PacketLenField):
+    def m2i(self, pkt, m):
+        if pkt.CtlCode == 0x00140204:  # FSCTL_VALIDATE_NEGOTIATE_INFO
+            return SMB2_IOCTL_Validate_Negotiate_Info_Response(m)
+        return conf.raw_layer(m)
 
 
 class SMB2_IOCTL_Response(Packet):
     name = "SMB2 IOCTL Response"
-    # Barely implemented
+    OFFSET = 48 + 64
     StructureSize = 0x31
     fields_desc = (
         SMB2_IOCTL_Request.fields_desc[:6] +
         SMB2_IOCTL_Request.fields_desc[7:9] +
-        SMB2_IOCTL_Request.fields_desc[10:]
+        SMB2_IOCTL_Request.fields_desc[10:12] + [
+            _NTLMPayloadField(
+                'Buffer', OFFSET, [
+                    _SMB2_IOCTL_Response_PacketLenField(
+                        "Input", None, conf.raw_layer,
+                        length_from=lambda pkt: pkt.InputLen),
+                    _SMB2_IOCTL_Response_PacketLenField(
+                        "Output", None, conf.raw_layer,
+                        length_from=lambda pkt: pkt.OutputLen),
+                ],
+            ),
+        ]
     )
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return _SMB2_post_build(self, pkt, self.OFFSET, {
+            "Input": 24,
+            "Output": 32,
+        }) + pay
 
 
 bind_top_down(

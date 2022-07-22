@@ -385,7 +385,7 @@ assert ioctl_req.CtlCode == 1311236
 assert ioctl_req.InputBufferOffset == 120
 assert ioctl_req.InputLen == 34
 validate_neg = ioctl_req.Buffer[0][1]
-assert isinstance(validate_neg, SMB2_IOCTL_Validate_Negotiate_Info)
+assert isinstance(validate_neg, SMB2_IOCTL_Validate_Negotiate_Info_Request)
 assert validate_neg.SecurityMode.SMB2_NEGOTIATE_SIGNING_ENABLED
 assert validate_neg.Dialects == [514, 528, 768, 770, 785]
 
