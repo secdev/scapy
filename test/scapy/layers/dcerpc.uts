@@ -187,8 +187,20 @@ assert val.value.value[0].value == b"ADMIN1$"
 
 assert bytes(pkt) == b'\x00\x00\x02\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00A\x00D\x00M\x00I\x00N\x001\x00$\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
+= Re-dissect
+z = LPSHARE_INFO_1(bytes(pkt))
+val = z.fields['shi1_netname']
+assert val.value.max_count == 8
+assert val.value.value[0].actual_count == 8
+assert val.value.value[0].value == b"ADMIN1$"
+
 = Same thing with NDR32
 
 pkt = LPSHARE_INFO_1(shi1_netname=b"ADMIN1$", ndr64=False)
 assert bytes(pkt) == b'\x00\x00\x02\x00\x08\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00A\x00D\x00M\x00I\x00N\x001\x00$\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
+z = LPSHARE_INFO_1(bytes(pkt), ndr64=False)
+val = z.fields['shi1_netname']
+assert val.value.max_count == 8
+assert val.value.value[0].actual_count == 8
+assert val.value.value[0].value == b"ADMIN1$"

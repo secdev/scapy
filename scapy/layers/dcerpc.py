@@ -1102,6 +1102,7 @@ class NDRFullPointerField(_FieldContainer):
 
     def __init__(self, fld, deferred=False, fmt="I"):
         self.fld = fld
+        self.default = None
         self.deferred = deferred
 
     def getfield(self, pkt, s):
@@ -1144,7 +1145,18 @@ class NDRFullPointerField(_FieldContainer):
     def h2i(self, pkt, x):
         return x
 
-    any2i = Field.any2i
+    def any2i(self, pkt, x):
+        # User-friendly helper
+        if isinstance(x, _NDRPacket):
+            x.ndr64 = pkt.ndr64
+        if x and not isinstance(x, NDRPointer):
+            return NDRPointer(
+                referent_id=0x20000,
+                value=self.fld.any2i(pkt, x),
+                ndr64=getattr(pkt, "ndr64", True),
+            )
+        return x
+
     i2count = Field.i2count
 
 
@@ -1344,7 +1356,17 @@ class _NDRVarField:
     def h2i(self, pkt, x):
         return x
 
-    any2i = Field.any2i
+    def any2i(self, pkt, x):
+        # User-friendly helper
+        if isinstance(x, _NDRPacket):
+            x.ndr64 = pkt.ndr64
+        if x and not isinstance(x, NDRVaryingArray):
+            return NDRVaryingArray(
+                value=super(_NDRVarField, self).any2i(pkt, x),
+                ndr64=getattr(pkt, "ndr64", True),
+            )
+        return x
+
     i2repr = Field.i2repr
     i2count = Field.i2count
 
@@ -1412,7 +1434,17 @@ class _NDRConfField:
     def h2i(self, pkt, x):
         return x
 
-    any2i = Field.any2i
+    def any2i(self, pkt, x):
+        # User-friendly helper
+        if isinstance(x, _NDRPacket):
+            x.ndr64 = pkt.ndr64
+        if x and not isinstance(x, NDRConformantArray):
+            return NDRConformantArray(
+                value=super(_NDRConfField, self).any2i(pkt, x),
+                ndr64=getattr(pkt, "ndr64", True),
+            )
+        return x
+
     i2repr = Field.i2repr
     i2count = Field.i2count
 
