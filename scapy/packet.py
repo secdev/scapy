@@ -399,6 +399,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         clone.default_fields = self.copy_fields_dict(self.default_fields)
         clone.overloaded_fields = self.overloaded_fields.copy()
         clone.underlayer = self.underlayer
+        clone.parent = self.parent
         clone.explicit = self.explicit
         clone.raw_packet_cache = self.raw_packet_cache
         clone.raw_packet_cache_fields = self.copy_fields_dict(
@@ -1082,6 +1083,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         pkt.overloaded_fields = self.overloaded_fields.copy()
         pkt.time = self.time
         pkt.underlayer = self.underlayer
+        pkt.parent = self.parent
         pkt.post_transforms = self.post_transforms
         pkt.raw_packet_cache = self.raw_packet_cache
         pkt.raw_packet_cache_fields = self.copy_fields_dict(
