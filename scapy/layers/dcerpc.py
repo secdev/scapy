@@ -1147,13 +1147,10 @@ class NDRFullPointerField(_FieldContainer):
 
     def any2i(self, pkt, x):
         # User-friendly helper
-        if isinstance(x, _NDRPacket):
-            x.ndr64 = pkt.ndr64
-        if x and not isinstance(x, NDRPointer):
+        if x is not None and not isinstance(x, NDRPointer):
             return NDRPointer(
                 referent_id=0x20000,
                 value=self.fld.any2i(pkt, x),
-                ndr64=getattr(pkt, "ndr64", True),
             )
         return x
 
@@ -1358,9 +1355,7 @@ class _NDRVarField:
 
     def any2i(self, pkt, x):
         # User-friendly helper
-        if isinstance(x, _NDRPacket):
-            x.ndr64 = pkt.ndr64
-        if x and not isinstance(x, NDRVaryingArray):
+        if not isinstance(x, NDRVaryingArray):
             return NDRVaryingArray(
                 value=super(_NDRVarField, self).any2i(pkt, x),
                 ndr64=getattr(pkt, "ndr64", True),
@@ -1436,9 +1431,7 @@ class _NDRConfField:
 
     def any2i(self, pkt, x):
         # User-friendly helper
-        if isinstance(x, _NDRPacket):
-            x.ndr64 = pkt.ndr64
-        if x and not isinstance(x, NDRConformantArray):
+        if not isinstance(x, NDRConformantArray):
             return NDRConformantArray(
                 value=super(_NDRConfField, self).any2i(pkt, x),
                 ndr64=getattr(pkt, "ndr64", True),
@@ -1564,9 +1557,7 @@ class NDRConfVarStrNullFieldUtf16(_NDRConfField, _NDRVarField, StrNullFieldUtf16
 # Union type
 
 
-class NDRUnion(Packet):
-    # Unlike the others NDRXXXX objects, this is only used as
-    # a container, not for building/dissecting
+class NDRUnion(_NDRPacket):
     fields_desc = [
         IntField("tag", 0),
         PacketField("value", None, conf.raw_layer),
@@ -1582,6 +1573,10 @@ class _NDRUnionField(MultipleTypeField):
 
     def addfield(self, pkt, s, val):
         fmt = ["<I", "<Q"][pkt.ndr64]
+        if not isinstance(val, NDRUnion):
+            raise ValueError(
+                "Expected NDRUnion in %s. You are using it wrong!" % self.name
+            )
         return (
             s +
             struct.pack(fmt, val.tag) +
@@ -1595,6 +1590,14 @@ class NDRUnionField(NDRConstructedType, NDRAlign):
         NDRAlign.__init__(self, _NDRUnionField(flds, dflt), align=align)
         NDRConstructedType.__init__(self, [x[0] for x in flds] + [dflt])
 
+    def any2i(self, pkt, x):
+        # User-friendly helper
+        if x:
+            if not isinstance(x, NDRUnion):
+                raise ValueError("Invalid value for %s; should be NDRUnion" % self.name)
+            else:
+                x.value = _NDRUnionField.any2i(self, pkt, x.value)
+        return x
 
 # Misc
 
