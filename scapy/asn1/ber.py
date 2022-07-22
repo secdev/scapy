@@ -253,11 +253,11 @@ def BER_tagging_dec(s,  # type: bytes
     return real_tag, s
 
 
-def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
-    # type: (bytes, Optional[int], Optional[int]) -> bytes
+def BER_tagging_enc(s, hidden_tag=None, implicit_tag=None, explicit_tag=None):
+    # type: (bytes, Optional[Any], Optional[int], Optional[int]) -> bytes
     if len(s) > 0:
         if implicit_tag is not None:
-            s = BER_id_enc(implicit_tag) + s[1:]
+            s = BER_id_enc((hash(hidden_tag) & ~(0x1f)) | implicit_tag) + s[1:]
         elif explicit_tag is not None:
             s = BER_id_enc(explicit_tag) + BER_len_enc(len(s)) + s
     return s

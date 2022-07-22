@@ -165,7 +165,8 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                 raise ASN1_Error("Encoding Error: got %r instead of an %r for field [%s]" % (x, self.ASN1_tag, self.name))  # noqa: E501
         else:
             s = self.ASN1_tag.get_codec(pkt.ASN1_codec).enc(x)
-        return BER_tagging_enc(s, implicit_tag=self.implicit_tag,
+        return BER_tagging_enc(s, hidden_tag=self.ASN1_tag,
+                               implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag)
 
     def any2i(self, pkt, x):
@@ -752,7 +753,8 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
             s = raw(x)
             if hash(type(x)) in self.pktchoices:
                 imp, exp = self.pktchoices[hash(type(x))]
-                s = BER_tagging_enc(s, implicit_tag=imp,
+                s = BER_tagging_enc(s, hidden_tag=self.ASN1_tag,
+                                    implicit_tag=imp,
                                     explicit_tag=exp)
         return BER_tagging_enc(s, explicit_tag=self.explicit_tag)
 
@@ -836,7 +838,8 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
                 s = b""
         else:
             s = raw(x)
-        return BER_tagging_enc(s, implicit_tag=self.implicit_tag,
+        return BER_tagging_enc(s, hidden_tag=self.ASN1_tag,
+                               implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag)
 
     def randval(self):
