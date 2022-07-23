@@ -1322,7 +1322,7 @@ class NDRVaryingArray(_NDRPacket):
     ]
 
 
-class _NDRVarField:
+class _NDRVarField(object):
     holds_packets = 1
 
     def getfield(self, pkt, s):
@@ -1388,7 +1388,7 @@ class NDRConformantArray(_NDRPacket):
     ]
 
 
-class _NDRConfField:
+class _NDRConfField(object):
     holds_packets = 1
 
     def __init__(self, *args, **kwargs):
