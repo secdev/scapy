@@ -32,8 +32,8 @@ if PYTHON_CAN:
     from scapy.contrib.cansocket_python_can import (PythonCANSocket, CANSocket)  # noqa: E501 F401
 
 elif LINUX and six.PY3 and not conf.use_pypy:
-        log_loading.info("Using native CANSockets.\nSpecify 'conf.contribs['CANSocket'] = {'use-python-can': True}' to enable python-can CANSockets.")  # noqa: E501
-        from scapy.contrib.cansocket_native import (NativeCANSocket, CANSocket)  # noqa: E501 F401
+    log_loading.info("Using native CANSockets.\nSpecify 'conf.contribs['CANSocket'] = {'use-python-can': True}' to enable python-can CANSockets.")  # noqa: E501
+    from scapy.contrib.cansocket_native import (NativeCANSocket, CANSocket)  # noqa: E501 F401
 
 else:
     log_loading.info("No CAN support available. Install python-can or use Linux and python3.")  # noqa: E501
