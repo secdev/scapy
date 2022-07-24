@@ -2213,3 +2213,65 @@ mp = MockPacket(0)
 f = XStrField('test', None)
 x = f.i2repr(mp, RandBin())
 assert x == '<RandBin>'
+
+
+############
+############
+
+= Test MultiplePacketField
+
+
+class Payload1(Packet):
+    fields_desc = [
+        XByteField("f0", 0),
+        XByteField("f1", 1)
+    ]
+
+
+class Payload2(Packet):
+    fields_desc = [
+        XByteField("f2", 0),
+        XByteField("f3", 1)
+    ]
+
+
+class TestPacket(Packet):
+    fields_desc = [
+        XByteField("mux", None),
+        MultiplePacketField(
+            "data",
+            [
+                (Payload1, "mux", 1),
+                (Payload2, "mux", 2)
+            ],
+            Raw)
+    ]
+
+
+p = TestPacket(b"\x0123")
+assert p.mux == 1
+assert p.data.f0 == 0x32
+assert p.data.f1 == 0x33
+
+r = TestPacket(data=Payload2(f2=2, f3=4))
+r.show()
+assert r.mux == 2
+assert r.data.f2 == 2
+assert r.data.f3 == 4
+
+
+class Payload3(Packet):
+    fields_desc = [
+        XByteField("f5", 0),
+    ]
+
+TestPacket.data.flds.append((PacketField("payload", None, Payload3), "mux", 4))
+
+print(TestPacket.data.flds)
+
+r = TestPacket(data=Payload3(f5=2))
+r.show()
+assert r.mux == 4
+assert r.data.f5 == 2
+
+assert False

@@ -587,6 +587,80 @@ the value to set is also known) of ._find_fld_pkt() instead.
         return self._find_fld()
 
 
+class MultiplePacketField(MultipleTypeField):
+    """MultiplePacketField are used for fields that can be implemented by
+various Field subclasses, depending on conditions on the packet.
+
+It is initialized with `flds` and `dflt`.
+
+`dflt` is the default field type, to be used when none of the
+conditions matched the current packet.
+
+`flds` is a list of tuples (`fld`, `cond`), where `fld` if a field
+type, and `cond` a "condition" to determine if `fld` is the field type
+that should be used.
+
+`cond` is either:
+
+  - a callable `cond_pkt` that accepts one argument (the packet) and
+    returns True if `fld` should be used, False otherwise.
+
+  - a tuple (`cond_pkt`, `cond_pkt_val`), where `cond_pkt` is the same
+    as in the previous case and `cond_pkt_val` is a callable that
+    accepts two arguments (the packet, and the value to be set) and
+    returns True if `fld` should be used, False otherwise.
+
+See scapy.layers.l2.ARP (type "help(ARP)" in Scapy) for an example of
+use.
+
+    """
+
+    __slots__ = ["flds", "dflt", "name", "default"]
+
+    def __init__(self,
+                 name,  # type: str
+                 pkts,  # type: List[Tuple[Type[Packet], str, Any]]
+                 dflt  # type: Type[Packet]
+                 ):
+        # type: (...) -> None
+        self.default = None  # So that we can detect changes in defaults
+        self.name = name
+        self.flds = [self._pkt_to_field(cls, cond, val)
+                     for cls, cond, val in pkts]
+        self.dflt = PacketField(name, None, dflt)
+
+    def _pkt_to_field(self, cls, cond, val):
+        return PacketField(self.name, None, cls), cond, val
+
+    def _find_fld_pkt(self, pkt):
+        # type: (Packet) -> Field[Any, Any]
+        for cls, fld, val in self.flds:
+            if pkt.getfieldval(fld) == val:
+                return cls
+        return self.dflt
+
+    def _find_fld_pkt_val(self,
+                          pkt,  # type: Optional[Packet]
+                          val,  # type: Any
+                          ):
+        # type: (...) -> Tuple[Field[Any, Any], Any]
+        for cls, c, v in self.flds:
+            if type(val) == cls.cls:
+                pkt.setfieldval(c, v)
+                return cls, val
+
+        fld = self._find_fld_pkt(pkt)
+        if val is None:
+            val = fld.default
+        return fld, val
+
+    def register_owner(self, cls):
+        # type: (Type[Packet]) -> None
+        for fld, name, value in self.flds:
+            fld.owners.append(cls)
+        self.dflt.owners.append(cls)
+
+
 class PadField(_FieldContainer):
     """Add bytes after the proxified field so that it ends at the specified
        alignment from its beginning"""

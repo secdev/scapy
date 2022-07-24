@@ -14,8 +14,9 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
     ShortField, ObservableDict, XShortEnumField, XByteEnumField, StrLenField, \
-    FieldLenField, XStrFixedLenField, XStrLenField
-from scapy.packet import Packet, bind_layers, NoPayload
+    FieldLenField, XStrFixedLenField, XStrLenField, MultipleTypeField, PacketListField, StrFixedLenField, \
+    LEIntField, PacketField
+from scapy.packet import Packet, bind_layers, NoPayload, Raw
 from scapy.config import conf
 from scapy.error import log_loading, Scapy_Exception
 from scapy.utils import PeriodicSenderThread
@@ -1413,17 +1414,291 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
 # ######################## New Gen Uds #############################
 # ##################################################################
 
+
 class Uds(ISOTP):
-    subPackets = ObservableDict(
-        {0x10: UDS_DSC,
-         0x11: UDS_ER,
-         0x14: UDS_CDTCI,
-         0x19: UDS_RDTCI,
-         0x22: UDS_RDBI,
-         0x7f: UDS_NR})  # type: Dict[int, Type[Packet]]
+    sub_packets = dict()  # type: Dict[int, Type[Packet]]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 1:
-            return cls.subPackets[int(_pkt[0])]
-        return UDS
+            return cls.sub_packets[int(_pkt[0])]
+        return Uds
+
+    services = ObservableDict(
+        {0x10: 'DiagnosticSessionControl',
+         0x11: 'ECUReset',
+         0x14: 'ClearDiagnosticInformation',
+         0x19: 'ReadDTCInformation',
+         0x22: 'ReadDataByIdentifier',
+         0x23: 'ReadMemoryByAddress',
+         0x24: 'ReadScalingDataByIdentifier',
+         0x27: 'SecurityAccess',
+         0x28: 'CommunicationControl',
+         0x29: 'Authentication',
+         0x2A: 'ReadDataPeriodicIdentifier',
+         0x2C: 'DynamicallyDefineDataIdentifier',
+         0x2E: 'WriteDataByIdentifier',
+         0x2F: 'InputOutputControlByIdentifier',
+         0x31: 'RoutineControl',
+         0x34: 'RequestDownload',
+         0x35: 'RequestUpload',
+         0x36: 'TransferData',
+         0x37: 'RequestTransferExit',
+         0x38: 'RequestFileTransfer',
+         0x3D: 'WriteMemoryByAddress',
+         0x3E: 'TesterPresent',
+         0x50: 'DiagnosticSessionControlPositiveResponse',
+         0x51: 'ECUResetPositiveResponse',
+         0x54: 'ClearDiagnosticInformationPositiveResponse',
+         0x59: 'ReadDTCInformationPositiveResponse',
+         0x62: 'ReadDataByIdentifierPositiveResponse',
+         0x63: 'ReadMemoryByAddressPositiveResponse',
+         0x64: 'ReadScalingDataByIdentifierPositiveResponse',
+         0x67: 'SecurityAccessPositiveResponse',
+         0x68: 'CommunicationControlPositiveResponse',
+         0x69: 'AuthenticationPositiveResponse',
+         0x6A: 'ReadDataPeriodicIdentifierPositiveResponse',
+         0x6C: 'DynamicallyDefineDataIdentifierPositiveResponse',
+         0x6E: 'WriteDataByIdentifierPositiveResponse',
+         0x6F: 'InputOutputControlByIdentifierPositiveResponse',
+         0x71: 'RoutineControlPositiveResponse',
+         0x74: 'RequestDownloadPositiveResponse',
+         0x75: 'RequestUploadPositiveResponse',
+         0x76: 'TransferDataPositiveResponse',
+         0x77: 'RequestTransferExitPositiveResponse',
+         0x78: 'RequestFileTransferPositiveResponse',
+         0x7D: 'WriteMemoryByAddressPositiveResponse',
+         0x7E: 'TesterPresentPositiveResponse',
+         0x83: 'AccessTimingParameter',
+         0x84: 'SecuredDataTransmission',
+         0x85: 'ControlDTCSetting',
+         0x86: 'ResponseOnEvent',
+         0x87: 'LinkControl',
+         0xC3: 'AccessTimingParameterPositiveResponse',
+         0xC4: 'SecuredDataTransmissionPositiveResponse',
+         0xC5: 'ControlDTCSettingPositiveResponse',
+         0xC6: 'ResponseOnEventPositiveResponse',
+         0xC7: 'LinkControlPositiveResponse',
+         0x7f: 'NegativeResponse'})  # type: Dict[int, str]
+
+    fields_desc = [
+        XByteEnumField('service', 0, services)
+    ]
+
+    def answers(self, other):
+        # type: (Union[Uds, Packet]) -> bool
+        if not issubclass(other.__class__, Uds):
+            return False
+        if self.service == 0x7f:
+            return True
+        if self.service == (other.service + 0x40):
+            return True
+        return False
+
+    def hashret(self):
+        # type: () -> bytes
+        if self.service == 0x7f:
+            return struct.pack('B', self.requestServiceId)
+        return struct.pack('B', self.service & ~0x40)
+
+
+class UdsDsc(Uds):
+    diagnosticSessionTypes = ObservableDict({
+        0x00: 'ISOSAEReserved',
+        0x01: 'defaultSession',
+        0x02: 'programmingSession',
+        0x03: 'extendedDiagnosticSession',
+        0x04: 'safetySystemDiagnosticSession',
+        0x7F: 'ISOSAEReserved'})
+
+    name = 'DiagnosticSessionControl'
+    fields_desc = [
+        XByteEnumField('service', 0x10, Uds.services),
+        ByteEnumField('diagnosticSessionType', 0, diagnosticSessionTypes)
+    ]
+
+
+class UdsDscPr(Uds):
+    name = 'DiagnosticSessionControlPositiveResponse'
+    fields_desc = [
+        XByteEnumField('service', 0x50, Uds.services),
+        ByteEnumField('diagnosticSessionType', 0,
+                      UDS_DSC.diagnosticSessionTypes),
+        StrField('sessionParameterRecord', b"")
+    ]
+
+    def answers(self, other):
+        return super(UdsDscPr, self).answers(other) and \
+               isinstance(other, UdsDsc) and \
+               other.diagnosticSessionType == self.diagnosticSessionType
+
+
+class UdsRdbi(Uds):
+    dataIdentifiers = ObservableDict()
+    name = 'ReadDataByIdentifier'
+    fields_desc = [
+        XByteEnumField('service', 0x22, Uds.services),
+        FieldListField("identifiers", None,
+                       XShortEnumField('dataIdentifier', 0,
+                                       dataIdentifiers))
+    ]
+
+
+class Payload1(Packet):
+    fields_desc = [
+        XByteField("f0", 0),
+        XByteField("f1", 1)
+    ]
+
+
+class Payload2(Packet):
+    fields_desc = [
+        XByteField("f2", 0),
+        XByteField("f3", 1)
+    ]
+
+
+class UdsRdbiPr(Uds):
+    name = 'ReadDataByIdentifierPositiveResponse'
+    fields_desc = [
+        XByteEnumField('service', 0x62, Uds.services),
+        XShortEnumField('dataIdentifier', 0,
+                        UDS_RDBI.dataIdentifiers),
+        MultipleTypeField([
+            (PacketField("data", None, Payload1),
+             (lambda p: p.dataIdentifier == 1,
+              lambda p, v: p.dataIdentifier == 1 and len(v) >= 2)),
+            (PacketField("data", None, Payload2),
+             lambda p: p.dataIdentifier == 2),
+        ],
+            PacketField("data", None, Raw)
+        )
+    ]
+
+    def answers(self, other):
+        return super(UdsRdbiPr, self).answers(other) and \
+               isinstance(other, UdsRdbi) and \
+               self.dataIdentifier in other.identifiers
+
+
+class UdsNr(Uds):
+    negativeResponseCodes = {
+        0x00: 'positiveResponse',
+        0x10: 'generalReject',
+        0x11: 'serviceNotSupported',
+        0x12: 'subFunctionNotSupported',
+        0x13: 'incorrectMessageLengthOrInvalidFormat',
+        0x14: 'responseTooLong',
+        0x20: 'ISOSAEReserved',
+        0x21: 'busyRepeatRequest',
+        0x22: 'conditionsNotCorrect',
+        0x23: 'ISOSAEReserved',
+        0x24: 'requestSequenceError',
+        0x25: 'noResponseFromSubnetComponent',
+        0x26: 'failurePreventsExecutionOfRequestedAction',
+        0x31: 'requestOutOfRange',
+        0x33: 'securityAccessDenied',
+        0x35: 'invalidKey',
+        0x36: 'exceedNumberOfAttempts',
+        0x37: 'requiredTimeDelayNotExpired',
+        0x3A: 'secureDataVerificationFailed',
+        0x70: 'uploadDownloadNotAccepted',
+        0x71: 'transferDataSuspended',
+        0x72: 'generalProgrammingFailure',
+        0x73: 'wrongBlockSequenceCounter',
+        0x78: 'requestCorrectlyReceived-ResponsePending',
+        0x7E: 'subFunctionNotSupportedInActiveSession',
+        0x7F: 'serviceNotSupportedInActiveSession',
+        0x80: 'ISOSAEReserved',
+        0x81: 'rpmTooHigh',
+        0x82: 'rpmTooLow',
+        0x83: 'engineIsRunning',
+        0x84: 'engineIsNotRunning',
+        0x85: 'engineRunTimeTooLow',
+        0x86: 'temperatureTooHigh',
+        0x87: 'temperatureTooLow',
+        0x88: 'vehicleSpeedTooHigh',
+        0x89: 'vehicleSpeedTooLow',
+        0x8a: 'throttle/PedalTooHigh',
+        0x8b: 'throttle/PedalTooLow',
+        0x8c: 'transmissionRangeNotInNeutral',
+        0x8d: 'transmissionRangeNotInGear',
+        0x8e: 'ISOSAEReserved',
+        0x8f: 'brakeSwitch(es)NotClosed',
+        0x90: 'shifterLeverNotInPark',
+        0x91: 'torqueConverterClutchLocked',
+        0x92: 'voltageTooHigh',
+        0x93: 'voltageTooLow',
+    }
+    name = 'NegativeResponse'
+    fields_desc = [
+        XByteEnumField('service', 0x7f, Uds.services),
+        XByteEnumField('requestServiceId', 0, UDS.services),
+        ByteEnumField('negativeResponseCode', 0, negativeResponseCodes)
+    ]
+
+    def answers(self, other):
+        return \
+            super(UdsNr, self).answers(other) and \
+            self.requestServiceId == other.service and \
+            (self.negativeResponseCode != 0x78 or
+             conf.contribs['UDS']['treat-response-pending-as-answer'])
+
+
+Uds.sub_packets[0x10] = UdsDsc
+Uds.sub_packets[0x50] = UdsDscPr
+Uds.sub_packets[0x22] = UdsRdbi
+Uds.sub_packets[0x62] = UdsRdbiPr
+Uds.sub_packets[0x7f] = UdsNr
+
+
+res = Uds(b'\x50\x03\x22\x44')
+req = Uds(b'\x10\x03\x22\x44')
+print(repr(res))
+print(res.answers(req))
+print(repr(req))
+
+res = Uds(b'\x50\x02\x22\x44')
+req = Uds(b'\x10\x03\x22\x44')
+print(repr(res))
+print(res.answers(req))
+print(repr(req))
+
+res = Uds(b'\x50\x03\x22\x44')
+req = Uds(b'\x10')
+print(repr(res))
+print(res.answers(req))
+print(repr(req))
+
+res = Uds(b'\x50')
+req = Uds(b'\x10')
+print(repr(res))
+print(res.answers(req))
+print(repr(req))
+
+res = Uds(b'\x50')
+req = Uds(b'\x10\x01')
+print(repr(res))
+print(res.answers(req))
+print(repr(req))
+
+
+res = Uds(b'\x7f\x10\x22')
+req = Uds(b'\x10\x03\x22\x44')
+print(repr(res))
+print(res.answers(req))
+print(repr(req))
+
+print(repr(UdsDsc(diagnosticSessionType=4)))
+
+res = Uds(b'\x62\x00\x02\x44\x55')
+req = Uds(b'\x22\x00\x02')
+print(repr(res))
+print(res.answers(req))
+print(repr(req))
+
+res = Uds(b'\x62\x00\x01\x33\x55')
+req = Uds(b'\x22\x00\x01')
+print(repr(res))
+print(res.answers(req))
+print(repr(req))
