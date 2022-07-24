@@ -22,7 +22,8 @@ from scapy.contrib.automotive.ecu import EcuState, EcuResponse, Ecu
 from scapy.contrib.automotive.scanner.configuration import \
     AutomotiveTestCaseExecutorConfiguration
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
-    _SocketUnion, _CleanupCallable, StateGenerator, TestCaseGenerator
+    _SocketUnion, _CleanupCallable, StateGenerator, TestCaseGenerator, \
+    AutomotiveTestCase
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -72,6 +73,7 @@ class AutomotiveTestCaseExecutor:
 
         self.configuration = AutomotiveTestCaseExecutorConfiguration(
             test_cases or self.default_test_case_clss, **kwargs)
+        self.validate_test_case_kwargs()
 
     def __reduce__(self):  # type: ignore
         f, t, d = super(AutomotiveTestCaseExecutor, self).__reduce__()  # type: ignore  # noqa: E501
@@ -202,6 +204,13 @@ class AutomotiveTestCaseExecutor:
                 log_interactive.debug("Edge found %s", edge)
                 tf = test_case.get_transition_function(self.socket, edge)
                 self.state_graph.add_edge(edge, tf)
+
+    def validate_test_case_kwargs(self):
+        # type: () -> None
+        for test_case in self.configuration.test_cases:
+            if isinstance(test_case, AutomotiveTestCase):
+                test_case_kwargs = self.configuration[test_case.__class__.__name__]
+                test_case.check_kwargs(test_case_kwargs)
 
     def scan(self, timeout=None):
         # type: (Optional[int]) -> None

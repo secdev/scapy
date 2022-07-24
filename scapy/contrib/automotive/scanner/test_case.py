@@ -43,7 +43,7 @@ class AutomotiveTestCaseABC:
     state, the TestCase object gets executed.
     """
 
-    _supported_kwargs = {}  # type: Dict[str, Any]
+    _supported_kwargs = {}  # type: Dict[str, Tuple[Any, Optional[Callable[[Any], bool]]]]  # noqa: E501
     _supported_kwargs_doc = ""
 
     @abc.abstractmethod
@@ -158,12 +158,19 @@ class AutomotiveTestCase(AutomotiveTestCaseABC):
         # type: (Dict[str, Any]) -> None
         for k, v in kwargs.items():
             if k not in cls._supported_kwargs.keys():
-                raise Scapy_Exception("Keyword-Argument %s not supported" % k)
-            ti = cls._supported_kwargs[k]
+                raise Scapy_Exception(
+                    "Keyword-Argument %s not supported for %s" %
+                    (k, cls.__name__))
+            ti, vf = cls._supported_kwargs[k]
             if ti is not None and not isinstance(v, ti):
                 raise Scapy_Exception(
                     "Keyword-Value '%s' is not instance of type %s" %
                     (k, str(ti)))
+            if vf is not None and not vf(v):
+                raise Scapy_Exception(
+                    "Validation Error: '%s: %s' is not in the allowed "
+                    "value range" % (k, str(v))
+                )
 
     @property
     def completed(self):

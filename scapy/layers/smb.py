@@ -652,7 +652,7 @@ class SMBMailSlot(Packet):
     name = "SMB Mail Slot Protocol"
     fields_desc = [LEShortField("opcode", 1),
                    LEShortField("priority", 1),
-                   LEShortField("class", 2),
+                   LEShortField("class_", 2),
                    LEShortField("size", 135),
                    StrNullField("name", "\\MAILSLOT\\NET\\GETDC660")]
 

@@ -53,18 +53,19 @@ class ServiceEnumerator(AutomotiveTestCase):
 
     _supported_kwargs = copy.copy(AutomotiveTestCase._supported_kwargs)
     _supported_kwargs.update({
-        'timeout': (int, float),
-        'count': int,
-        'execution_time': int,
-        'state_allow_list': (list, EcuState),
-        'state_block_list': (list, EcuState),
-        'retry_if_none_received': bool,
-        'exit_if_no_answer_received': bool,
-        'exit_if_service_not_supported': bool,
-        'exit_scan_on_first_negative_response': bool,
-        'retry_if_busy_returncode': bool,
-        'debug': bool,
-        'scan_range': (list, tuple, range)
+        'timeout': ((int, float), lambda x: x >= 0),
+        'count': (int, lambda x: x >= 0),
+        'execution_time': (int, None),
+        'state_allow_list': ((list, EcuState), None),
+        'state_block_list': ((list, EcuState), None),
+        'retry_if_none_received': (bool, None),
+        'exit_if_no_answer_received': (bool, None),
+        'exit_if_service_not_supported': (bool, None),
+        'exit_scan_on_first_negative_response': (bool, None),
+        'retry_if_busy_returncode': (bool, None),
+        'debug': (bool, None),
+        'scan_range': ((list, tuple, range), None),
+        'unittest': (bool, None)
     })
 
     _supported_kwargs_doc = AutomotiveTestCase._supported_kwargs_doc + """

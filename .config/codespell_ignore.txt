@@ -1,3 +1,4 @@
+Ether
 aci
 ans
 archtypes
@@ -8,6 +9,7 @@ cas
 cros
 doas
 doubleclick
+ether
 eventtypes
 fo
 gost
@@ -18,6 +20,7 @@ mitre
 nd
 negociate
 ot
+potatoe
 referer
 ser
 te
@@ -28,5 +31,3 @@ vas
 wan
 wanna
 webp
-Ether
-ether

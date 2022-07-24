@@ -7,7 +7,7 @@
 import io
 import pickle
 from scapy.contrib.isotp import ISOTPMessageBuilder
-from test.testsocket import TestSocket, cleanup_testsockets, UnstableSocket
+from test.testsocket import TestSocket, cleanup_testsockets, UnstableSocket, open_test_sockets
 
 ############
 ############
@@ -37,6 +37,10 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
         sniff(timeout=0.001, opened_socket=[ecu, tester])
     def reconnect():
         global tester
+        try:
+            tester.close()
+        except Exception:
+            pass
         tester = TesterSocket(UDS)
         ecu.pair(tester)
         return tester
@@ -45,6 +49,11 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
         global answering_machine
         while answering_machine_running.is_set():
             try:
+                try:
+                    ecu.close()
+                except Exception:
+                    pass
+                assert len(open_test_sockets) < 3
                 ecu = TestSocket(UDS)
                 tester.pair(ecu)
                 answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=UDS, verbose=False)
@@ -54,9 +63,10 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
             except OSError:
                 continue
     sim = threading.Thread(target=answering_machine_thread)
-    sim.start()
-    answering_machine_started.wait(timeout=10)
     try:
+        assert len(open_test_sockets) < 3
+        sim.start()
+        answering_machine_started.wait(timeout=10)
         scanner = UDS_Scanner(
             reconnect(), reset_handler=reset, reconnect_handler=reconnect, test_cases=enumerators, timeout=0.1,
             retry_if_none_received=True, unittest=True,
@@ -68,7 +78,7 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
                 break
     finally:
         answering_machine_running.clear()
-        tester.send(Raw(b"\xff\xff\xff"))
+        ecu.ins.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)
         assert not sim.is_alive()
         cleanup_testsockets()
@@ -106,7 +116,7 @@ assert len(msgs)
 
 = Create ECU-Clone from packets
 
-mEcu = Ecu(logging=False, verbose=False, store_supported_responses=True)
+mEcu = Ecu(logging=False, verbose=False, store_supported_responses=True, lookahead=3)
 
 for p in msgs:
     if isinstance(p, CAN) and p.data == b"ECURESET":
@@ -165,6 +175,17 @@ finally:
     sim.join(timeout=2)
     cleanup_testsockets()
 
+
+= Test configuration validation
+
+try:
+    scanner = UDS_Scanner(TestSocket(UDS),
+                          test_cases=[UDS_SA_XOR_Enumerator, UDS_DSCEnumerator, UDS_ServiceEnumerator],
+                          UDS_DSCEnumerator_kwargs={"scan_range": range(0x1000), "delay_state_change": 0,
+                                                    "overwrite_timeout": False})
+    assert False
+except Scapy_Exception:
+    pass
 
 = Simulate ECU and run Scanner
 
@@ -988,5 +1009,6 @@ assert 0xffff in ids
 + Cleanup
 
 = Delete testsockets
+
 
 cleanup_testsockets()

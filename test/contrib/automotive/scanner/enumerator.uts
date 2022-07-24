@@ -26,6 +26,12 @@ pkts = [
 ]
 
 class MyTestCase(ServiceEnumerator):
+    _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs.update({
+        'local_kwarg': ((int, str), None),
+        'verbose': (bool, None),
+        'global_arg': (str, None)
+    })
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
         return UDS(service=range(1, 11))

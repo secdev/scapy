@@ -174,14 +174,16 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 value = fields.pop(fname)
             except KeyError:
                 continue
-            self.fields[fname] = self.get_field(fname).any2i(self, value)
+            self.fields[fname] = value if isinstance(value, RawVal) else \
+                self.get_field(fname).any2i(self, value)
         # The remaining fields are unknown
         for fname in fields:
             if fname in self.deprecated_fields:
                 # Resolve deprecated fields
                 value = fields[fname]
                 fname = self._resolve_alias(fname)
-                self.fields[fname] = self.get_field(fname).any2i(self, value)
+                self.fields[fname] = value if isinstance(value, RawVal) else \
+                    self.get_field(fname).any2i(self, value)
                 continue
             raise AttributeError(fname)
         if isinstance(post_transform, list):
@@ -453,7 +455,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         except ValueError:
             return self.payload.__getattr__(attr)
         if fld is not None:
-            return fld.i2h(self, v)
+            return v if isinstance(v, RawVal) else fld.i2h(self, v)
         return v
 
     def setfieldval(self, attr, val):
@@ -1646,6 +1648,11 @@ values.
                 fv = fv.command()
             elif fld.islist and fld.holds_packets and isinstance(fv, list):
                 fv = "[%s]" % ",".join(map(Packet.command, fv))
+            elif fld.islist and isinstance(fv, list):
+                fv = "[%s]" % ", ".join(
+                    getattr(x, 'command', lambda: repr(x))()
+                    for x in fv
+                )
             elif isinstance(fld, FlagsField):
                 fv = int(fv)
             elif callable(getattr(fv, 'command', None)):
