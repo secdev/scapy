@@ -67,6 +67,7 @@ STATUS_ERREF = {
     0xC0000128: "STATUS_FILE_CLOSED",  # backup error for older Win versions
     0xC000000D: "STATUS_INVALID_PARAMETER",
     0xC00000BB: "STATUS_NOT_SUPPORTED",
+    0xC000019C: "STATUS_FS_DRIVER_REQUIRED",
     0x80000005: "STATUS_BUFFER_OVERFLOW",
 }
 
@@ -850,7 +851,7 @@ bind_top_down(
 
 class SMB2_Create_Context(_NTLMPayloadPacket):
     name = "SMB2 CREATE CONTEXT"
-    OFFSET = 16
+    OFFSET = 14
     _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
         LEIntField("Next", 0),
