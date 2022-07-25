@@ -1452,19 +1452,31 @@ Visualizing the results in a list::
     >>> res.nsummary(prn=lambda s,r: r.src, lfilter=lambda s,r: r.haslayer(ISAKMP) ) 
 
 
-Netbios
--------
+DNS spoof
+---------
 
-Answer all queries
-^^^^^^^^^^^^^^^^^^
+See :class:`~scapy.layers.dns.DNS_am`::
 
-::
+    >>> dns_spoof(iface="tap0", joker="192.168.1.1")
 
-    >>> netbios_announce(iface="eth0")  # With local IP
-    >>> netbios_announce(iface="eth0", ip="192.168.122.17")  # With some other IP
+LLMNR spoof
+-----------
+
+See :class:`~scapy.layers.llmnr.LLMNR_am`::
+
+    >>> conf.iface = "tap0"
+    >>> dns_spoof(iface="tap0", filter_ips=Net("10.0.0.1/24"))
+
+Netbios spoof
+-------------
+
+See :class:`~scapy.layers.netbios.NBNS_am`::
+
+    >>> nbns_spoof(iface="eth0")  # With local IP
+    >>> nbns_spoof(iface="eth0", ip="192.168.122.17")  # With some other IP
 
 Node status request (get NetbiosName from IP)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------------------------
 
 .. code::
 

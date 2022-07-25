@@ -11,6 +11,7 @@ NetBIOS over TCP/IP
 
 import struct
 from scapy.arch import get_if_addr
+from scapy.base_classes import Net
 from scapy.ansmachine import AnsweringMachine, AnsweringMachineUtils
 from scapy.config import conf
 
@@ -32,7 +33,7 @@ from scapy.fields import (
     XShortField,
     XStrFixedLenField
 )
-from scapy.layers.inet import UDP, TCP
+from scapy.layers.inet import IP, UDP, TCP
 from scapy.layers.l2 import SourceMACField
 
 
@@ -353,15 +354,25 @@ bind_layers(TCP, NBTSession, dport=139, sport=139)
 
 
 class NBNS_am(AnsweringMachine):
-    function_name = "netbios_announce"
+    function_name = "nbns_spoof"
     filter = "udp port 137"
-    sniff_options = {"store": 0, "L2socket": conf.L3socket}
+    sniff_options = {"store": 0}
 
-    def parse_options(self, server_name=None, ip=None):
+    def parse_options(self, server_name=None, from_ip=None, ip=None):
+        """
+        NBNS answering machine
+
+        :param server_name: the netbios server name to match
+        :param from_ip: an IP (can have a netmask) to filter on
+        :param ip: the IP to answer with
+        """
         self.ServerName = server_name
         self.ip = ip
+        self.from_ip = from_ip and Net(from_ip)
 
     def is_request(self, req):
+        if self.from_ip and IP in req and req[IP].src not in self.from_ip:
+            return False
         return NBNSQueryRequest in req and (
             not self.ServerName or
             req[NBNSQueryRequest].QUESTION_NAME.decode().strip() ==
@@ -371,7 +382,6 @@ class NBNS_am(AnsweringMachine):
     def make_reply(self, req):
         # type: (Packet) -> Packet
         resp = AnsweringMachineUtils.reverse_packet(req)
-        resp[UDP].remove_payload()
         address = self.ip or get_if_addr(
             self.optsniff.get("iface", conf.iface))
         resp /= NBNSHeader() / NBNSQueryResponse(

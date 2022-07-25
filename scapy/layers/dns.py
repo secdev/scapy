@@ -14,7 +14,8 @@ import struct
 import time
 import warnings
 
-from scapy.ansmachine import AnsweringMachine
+from scapy.arch import get_if_addr
+from scapy.ansmachine import AnsweringMachine, AnsweringMachineUtils
 from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.compat import orb, raw, chb, bytes_encode, plain_str
@@ -1108,22 +1109,35 @@ RFC2136
 class DNS_am(AnsweringMachine):
     function_name = "dns_spoof"
     filter = "udp port 53"
+    cls = DNS  # We use this automaton for llmnr_spoof
 
-    def parse_options(self, joker="192.168.1.1", match=None):
+    def parse_options(self, joker=None, match=None, filter_ips=None):
+        """
+        :param joker: default IP
+        :param match: a dictionary of names:ip
+        :param filter_ips: an source IP to filter. Can contain a netmask
+        """
         if match is None:
             self.match = {}
         else:
             self.match = match
         self.joker = joker
+        self.filter_ips = filter_ips and Net(filter_ips)
 
     def is_request(self, req):
-        return req.haslayer(DNS) and req.getlayer(DNS).qr == 0
+        return (
+            req.haslayer(self.cls) and
+            req.getlayer(self.cls).qr == 0 and
+            (not self.filter_ips or req[IP].src in self.filter_ips)
+        )
 
     def make_reply(self, req):
-        ip = req.getlayer(IP)
-        dns = req.getlayer(DNS)
-        resp = IP(dst=ip.src, src=ip.dst) / UDP(dport=ip.sport, sport=ip.dport)
-        rdata = self.match.get(dns.qd.qname, self.joker)
-        resp /= DNS(id=dns.id, qr=1, qd=dns.qd,
-                    an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata))
+        resp = AnsweringMachineUtils.reverse_packet(req)
+        dns = req.getlayer(self.cls)
+        rdata = self.match.get(
+            dns.qd.qname,
+            self.joker or get_if_addr(self.optsniff.get("iface", conf.iface))
+        )
+        resp /= self.cls(id=dns.id, qr=1, qd=dns.qd,
+                         an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata))
         return resp
