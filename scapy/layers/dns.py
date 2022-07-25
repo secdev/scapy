@@ -14,7 +14,7 @@ import struct
 import time
 import warnings
 
-from scapy.arch import get_if_addr
+from scapy.arch import get_if_addr, get_if_addr6
 from scapy.ansmachine import AnsweringMachine, AnsweringMachineUtils
 from scapy.base_classes import Net
 from scapy.config import conf
@@ -1111,10 +1111,14 @@ class DNS_am(AnsweringMachine):
     filter = "udp port 53"
     cls = DNS  # We use this automaton for llmnr_spoof
 
-    def parse_options(self, joker=None, match=None, filter_ips=None):
+    def parse_options(self, joker=None,
+                      match=None, joker6=None, filter_ips=None):
         """
-        :param joker: default IP
-        :param match: a dictionary of names:ip
+        :param joker: default IPv4 for unresolved domains. (Default: None)
+                      Set to False to disable, None to mirror the interface's IP.
+        :param joker6: default IPv6 for unresolved domains (Default: False)
+                       set to False to disable, None to mirror the interface's IPv6.
+        :param match: a dictionary of {names: (ip, ipv6)}
         :param filter_ips: an source IP to filter. Can contain a netmask
         """
         if match is None:
@@ -1122,22 +1126,48 @@ class DNS_am(AnsweringMachine):
         else:
             self.match = match
         self.joker = joker
+        self.joker6 = joker6
         self.filter_ips = filter_ips and Net(filter_ips)
 
     def is_request(self, req):
+        from scapy.layers.inet6 import IPv6
         return (
             req.haslayer(self.cls) and
             req.getlayer(self.cls).qr == 0 and
-            (not self.filter_ips or req[IP].src in self.filter_ips)
+            (not self.filter_ips or (
+                req[IPv6].src in req if IPv6 in req else req[IP].src
+            ) in self.filter_ips)
         )
 
     def make_reply(self, req):
         resp = AnsweringMachineUtils.reverse_packet(req)
         dns = req.getlayer(self.cls)
-        rdata = self.match.get(
-            dns.qd.qname,
-            self.joker or get_if_addr(self.optsniff.get("iface", conf.iface))
-        )
-        resp /= self.cls(id=dns.id, qr=1, qd=dns.qd,
-                         an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata))
+        if req.qd.qtype == 28:
+            # AAAA
+            if self.joker6 is False:
+                return
+            rdata = self.match.get(
+                dns.qd.qname,
+                self.joker or get_if_addr6(self.optsniff.get("iface", conf.iface))
+            )
+            if isinstance(rdata, (tuple, list)):
+                rdata = rdata[1]
+            else:
+                # For IPv6, abort.
+                return
+            resp /= self.cls(id=dns.id, qr=1, qd=dns.qd,
+                             an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata,
+                                      type=28))
+        else:
+            if self.joker is False:
+                return
+            rdata = self.match.get(
+                dns.qd.qname,
+                self.joker or get_if_addr(self.optsniff.get("iface", conf.iface))
+            )
+            if isinstance(rdata, (tuple, list)):
+                # Fallback
+                rdata = rdata[0]
+            resp /= self.cls(id=dns.id, qr=1, qd=dns.qd,
+                             an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata))
         return resp
