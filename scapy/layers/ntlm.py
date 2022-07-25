@@ -101,40 +101,6 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
              if field.default is not None]
         )
 
-    def m2i(self, pkt, x):
-        # type: (Optional[Packet], bytes) -> List[Tuple[str, str]]
-        if not pkt or not x:
-            return []
-        results = []
-        for field in self.fields:
-            offset = pkt.getfieldval(field.name + "BufferOffset") - self.offset
-            try:
-                length = pkt.getfieldval(field.name + "Len")
-            except AttributeError:
-                length = len(x) - offset
-            if offset < 0:
-                continue
-            if x[offset:offset + length]:
-                results.append((offset, field.name, field.getfield(
-                    pkt, x[offset:offset + length])[1]))
-        results.sort(key=lambda x: x[0])
-        return [x[1:] for x in results]
-
-    def i2m(self, pkt, x):
-        # type: (Optional[Packet], Optional[List[Tuple[str, str]]]) -> bytes
-        buf = StringBuffer()
-        for field_name, value in x:
-            if field_name not in self.fields_map:
-                continue
-            field = self.fields_map[field_name]
-            offset = pkt.getfieldval(field_name + "BufferOffset")
-            if offset is not None:
-                offset -= self.offset
-            else:
-                offset = len(buf)
-            buf.append(field.addfield(pkt, b"", value), offset + 1)
-        return bytes(buf)
-
     def _on_payload(self, pkt, x, func):
         # type: (Optional[Packet], bytes, str) -> List[Tuple[str, Any]]
         if not pkt or not x:
@@ -164,12 +130,48 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         # type: (Optional[Packet], bytes) -> str
         return repr(self._on_payload(pkt, x, "i2repr"))
 
+    def addfield(self, pkt, s, val):
+        # type: (Optional[Packet], bytes, Optional[List[Tuple[str, str]]]) -> bytes
+        buf = StringBuffer()
+        for field_name, value in val:
+            if field_name not in self.fields_map:
+                continue
+            field = self.fields_map[field_name]
+            offset = pkt.getfieldval(field_name + "BufferOffset")
+            if offset is not None:
+                offset -= self.offset
+            else:
+                offset = len(buf)
+            buf.append(field.addfield(pkt, b"", value), offset + 1)
+        return s + bytes(buf)
+
     def getfield(self, pkt, s):
-        # type: (Packet, bytes) -> Tuple[bytes, bytes]
+        # type: (Packet, bytes) -> Tuple[bytes, List[Tuple[str, str]]]
         if self.length_from is None:
-            return b"", self.m2i(pkt, s)
-        len_pkt = self.length_from(pkt)
-        return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
+            ret, remain = b"", s
+        else:
+            len_pkt = self.length_from(pkt)
+            ret, remain = s[len_pkt:], s[:len_pkt]
+        if not pkt or not remain:
+            return s, []
+        results = []
+        max_offset = 0
+        for field in self.fields:
+            offset = pkt.getfieldval(field.name + "BufferOffset") - self.offset
+            try:
+                length = pkt.getfieldval(field.name + "Len")
+            except AttributeError:
+                length = len(remain) - offset
+            if offset < 0:
+                continue
+            max_offset = max(offset + length, max_offset)
+            if remain[offset:offset + length]:
+                results.append((offset, field.name, field.getfield(
+                    pkt, remain[offset:offset + length])[1]))
+        if max_offset:
+            ret += remain[max_offset:]
+        results.sort(key=lambda x: x[0])
+        return ret, [x[1:] for x in results]
 
 
 class _NTLMPayloadPacket(Packet):

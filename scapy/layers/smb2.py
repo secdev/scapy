@@ -868,10 +868,14 @@ class SMB2_Create_Context(_NTLMPayloadPacket):
                              length_from=lambda pkt: pkt.DataLen),
             ]),
         StrLenField("pad", b"",
-                    length_from=lambda x: (x.Next -
-                                           x.NameLen -
-                                           x.DataLen - 14) if x.Next else 0)
+                    length_from=lambda x: (
+                        x.Next -
+                        max(x.DataBufferOffset + x.DataLen,
+                            x.NameBufferOffset + x.NameLen)) if x.Next else 0)
     ]
+
+    def default_payload_class(self, _):
+        return conf.padding_layer
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
@@ -987,7 +991,7 @@ class SMB2_FILEID(Packet):
 # sect 2.2.14
 
 
-class SMB2_Create_Response(Packet):
+class SMB2_Create_Response(_NTLMPayloadPacket):
     name = "SMB2 CREATE Response"
     OFFSET = 88 + 64
     fields_desc = [
