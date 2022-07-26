@@ -21,7 +21,7 @@ from scapy.data import (
     IPV6_ADDR_GLOBAL
 )
 from scapy.error import Scapy_Exception
-from scapy.interfaces import NetworkInterface
+from scapy.interfaces import NetworkInterface, network_name
 from scapy.pton_ntop import inet_pton, inet_ntop
 
 # Typing imports
@@ -84,13 +84,14 @@ def get_if_hwaddr(iff):
         raise Scapy_Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily, iff))  # noqa: E501
 
 
-def get_if_addr6(iff):
+def get_if_addr6(niff):
     # type: (NetworkInterface) -> Optional[str]
     """
     Returns the main global unicast address associated with provided
     interface, in human readable form. If no global address is found,
     None is returned.
     """
+    iff = network_name(niff)
     return next((x[0] for x in in6_getifaddr()
                  if x[2] == iff and x[1] == IPV6_ADDR_GLOBAL), None)
 

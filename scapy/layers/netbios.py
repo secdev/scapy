@@ -368,7 +368,10 @@ class NBNS_am(AnsweringMachine):
         """
         self.ServerName = server_name
         self.ip = ip
-        self.from_ip = from_ip and Net(from_ip)
+        if isinstance(from_ip, str):
+            self.from_ip = Net(from_ip)
+        else:
+            self.from_ip = from_ip
 
     def is_request(self, req):
         if self.from_ip and IP in req and req[IP].src not in self.from_ip:

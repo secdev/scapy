@@ -1465,7 +1465,7 @@ LLMNR spoof
 See :class:`~scapy.layers.llmnr.LLMNR_am`::
 
     >>> conf.iface = "tap0"
-    >>> dns_spoof(iface="tap0", filter_ips=Net("10.0.0.1/24"))
+    >>> llmnr_spoof(iface="tap0", filter_ips=Net("10.0.0.1/24"))
 
 Netbios spoof
 -------------

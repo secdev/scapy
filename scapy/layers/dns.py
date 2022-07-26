@@ -1112,14 +1112,14 @@ class DNS_am(AnsweringMachine):
     cls = DNS  # We use this automaton for llmnr_spoof
 
     def parse_options(self, joker=None,
-                      match=None, joker6=None, filter_ips=None):
+                      match=None, joker6=None, from_ip=None):
         """
         :param joker: default IPv4 for unresolved domains. (Default: None)
                       Set to False to disable, None to mirror the interface's IP.
         :param joker6: default IPv6 for unresolved domains (Default: False)
                        set to False to disable, None to mirror the interface's IPv6.
         :param match: a dictionary of {names: (ip, ipv6)}
-        :param filter_ips: an source IP to filter. Can contain a netmask
+        :param from_ip: an source IP to filter. Can contain a netmask
         """
         if match is None:
             self.match = {}
@@ -1127,16 +1127,19 @@ class DNS_am(AnsweringMachine):
             self.match = match
         self.joker = joker
         self.joker6 = joker6
-        self.filter_ips = filter_ips and Net(filter_ips)
+        if isinstance(from_ip, str):
+            self.from_ip = Net(from_ip)
+        else:
+            self.from_ip = from_ip
 
     def is_request(self, req):
         from scapy.layers.inet6 import IPv6
         return (
             req.haslayer(self.cls) and
             req.getlayer(self.cls).qr == 0 and
-            (not self.filter_ips or (
+            (not self.from_ip or (
                 req[IPv6].src in req if IPv6 in req else req[IP].src
-            ) in self.filter_ips)
+            ) in self.from_ip)
         )
 
     def make_reply(self, req):
@@ -1152,9 +1155,6 @@ class DNS_am(AnsweringMachine):
             )
             if isinstance(rdata, (tuple, list)):
                 rdata = rdata[1]
-            else:
-                # For IPv6, abort.
-                return
             resp /= self.cls(id=dns.id, qr=1, qd=dns.qd,
                              an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata,
                                       type=28))
