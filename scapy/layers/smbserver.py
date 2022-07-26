@@ -431,14 +431,11 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
         if self.ECHO:
             raise self.AUTHENTICATED().action_parameters(pkt)
 
-    def _smb2_error(self, Command="SMB2_IOCTL", Status="STATUS_NOT_SUPPORTED"):
+    def _ioctl_error(self, Status="STATUS_NOT_SUPPORTED"):
         pkt = self.smb_header.copy() / SMB2_Error_Response(ErrorData=b"\xff")
         pkt.Status = Status
-        pkt.Command = Command
+        pkt.Command = "SMB2_IOCTL"
         self.send(pkt)
-
-    def _ioctl_error(self, Status="STATUS_NOT_SUPPORTED"):
-        return self._smb2_error(Command="SMB2_IOCTL")
 
     @ATMT.action(receive_packet_echo)
     def pass_packet(self, pkt):

@@ -239,6 +239,10 @@ class SMB2_Header(Packet):
     ]
 
     def guess_payload_class(self, payload):
+        if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
+            # Check status for responses
+            if self.Status != 0x0000:  # SUCCESS
+                return SMB2_Error_Response
         if self.Command == 0x0000:  # Negotiate
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_Negotiate_Protocol_Response
