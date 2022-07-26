@@ -330,9 +330,7 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
                     self.smb_header.AsyncId = self.get(
                         "AsyncId", self.smb_header.AsyncId
                     )
-                self.smb_header.SessionId = self.get(
-                    "SessionId", 0x0001000000000015
-                )
+                self.smb_header.SessionId = self.get("SessionId", 0x0001000000000015)
             else:
                 # SMB1
                 self.smb_header.UID = self.get("UID")
@@ -433,11 +431,14 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
         if self.ECHO:
             raise self.AUTHENTICATED().action_parameters(pkt)
 
-    def _ioctl_error(self, Status="STATUS_NOT_SUPPORTED"):
+    def _smb2_error(self, Command="SMB2_IOCTL", Status="STATUS_NOT_SUPPORTED"):
         pkt = self.smb_header.copy() / SMB2_Error_Response(ErrorData=b"\xff")
         pkt.Status = Status
-        pkt.Command = "SMB2_IOCTL"
+        pkt.Command = Command
         self.send(pkt)
+
+    def _ioctl_error(self, Status="STATUS_NOT_SUPPORTED"):
+        return self._smb2_error(Command="SMB2_IOCTL")
 
     @ATMT.action(receive_packet_echo)
     def pass_packet(self, pkt):
@@ -474,14 +475,19 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
                         CtlCode=0x00140204,
                         FileId=pkt[SMB2_IOCTL_Request].FileId,
                         Buffer=[
-                            ("Output", SMB2_IOCTL_Validate_Negotiate_Info_Response(
-                                GUID=self.GUID,
-                                DialectRevision=self.Dialect,
-                                Capabilities="DFS",
-                                SecurityMode=3
-                                if self.REQUIRE_SIGNATURE
-                                else self.get("SecurityMode", bool(self.IDENTITIES)),
-                            ))
+                            (
+                                "Output",
+                                SMB2_IOCTL_Validate_Negotiate_Info_Response(
+                                    GUID=self.GUID,
+                                    DialectRevision=self.Dialect,
+                                    Capabilities="DFS",
+                                    SecurityMode=3
+                                    if self.REQUIRE_SIGNATURE
+                                    else self.get(
+                                        "SecurityMode", bool(self.IDENTITIES)
+                                    ),
+                                ),
+                            )
                         ],
                     )
                 else:
