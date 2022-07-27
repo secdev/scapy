@@ -17,6 +17,7 @@ from threading import Thread, Event, RLock
 
 from scapy.compat import Optional, Union, List, Tuple, Any, Type, cast, \
     Callable, TYPE_CHECKING
+from scapy.contrib.isotp import log_isotp
 from scapy.packet import Packet
 from scapy.layers.can import CAN
 import scapy.libs.six as six
@@ -534,12 +535,12 @@ class ISOTPSocketImplementation:
 
     def failure_analysis(self):
         # type: () -> None
-        print("Failure analysis")
-        print("Last_rx_call: %s" % str(self.last_rx_call))
-        print("self.rx_handle: %s" % self.rx_handle)
-        print("self.rx_handle._cb: %s" % self.rx_handle._cb)
-        print("self.rx_handle._when: %s" % self.rx_handle._when)
-        print("Now: %s" % TimeoutScheduler._time())
+        log_isotp.debug("Failure analysis")
+        log_isotp.debug("Last_rx_call: %s", str(self.last_rx_call))
+        log_isotp.debug("self.rx_handle: %s", str(self.rx_handle))
+        log_isotp.debug("self.rx_handle._cb: %s", str(self.rx_handle._cb))
+        log_isotp.debug("self.rx_handle._when: %s", str(self.rx_handle._when))
+        log_isotp.debug("Now: %s", TimeoutScheduler._time())
 
     def __del__(self):
         # type: () -> None

@@ -8,6 +8,7 @@
 # scapy.contrib.description = ISO-TP (ISO 15765-2) Utilities
 # scapy.contrib.status = library
 
+import logging
 import struct
 
 from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict, Any, \
@@ -18,6 +19,9 @@ from scapy.sessions import DefaultSession
 from scapy.contrib.isotp.isotp_packet import ISOTP, N_PCI_CF, N_PCI_SF, \
     N_PCI_FF, N_PCI_FC
 import scapy.libs.six as six
+
+
+log_isotp = logging.getLogger("scapy.contrib.isotp")
 
 
 class ISOTPMessageBuilderIter(object):
