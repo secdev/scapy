@@ -3365,7 +3365,7 @@ class UTCTimeField(Field[float, int]):
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[float]) -> int
         if x is None:
-            x = time.time()
+            x = time.time() - self.delta
             if self.use_msec:
                 x = x * 1e3
             elif self.use_micro:
@@ -3374,7 +3374,7 @@ class UTCTimeField(Field[float, int]):
                 x = x * 1e9
             elif self.custom_scaling:
                 x = x * self.custom_scaling
-            return int(x) - self.delta
+            return int(x)
         return int(x)
 
 
