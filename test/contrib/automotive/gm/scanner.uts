@@ -28,35 +28,17 @@ load_layer("can")
 
 def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwargs):
     tester = TestSocket(GMLAN)
-    answering_machine_started = threading.Event()
-    answering_machine_running = threading.Event()
-    answering_machine_running.set()
+    ecu = TestSocket(GMLAN)
+    tester.pair(ecu)
+    answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=GMLAN, verbose=False)
     def reset():
         answering_machine.reset_state()
         sniff(timeout=0.001, opened_socket=[ecu, tester])
     def answering_machine_thread():
-        global ecu
-        global answering_machine
-        while answering_machine_running.is_set():
-            try:
-                try:
-                    ecu.close()
-                except Exception:
-                    pass
-                assert len(open_test_sockets) < 3
-                ecu = TestSocket(GMLAN)
-                tester.pair(ecu)
-                answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=GMLAN, verbose=False)
-                answering_machine_started.set()
-                answering_machine(timeout=120, stop_filter=lambda x: bytes(x) == b"\xff\xff\xff")
-                return
-            except OSError:
-                continue
+        answering_machine(timeout=120, stop_filter=lambda x: bytes(x) == b"\xff\xff\xff")
     sim = threading.Thread(target=answering_machine_thread)
     sim.start()
-    answering_machine_started.wait(timeout=10)
     try:
-        assert len(open_test_sockets) < 3
         scanner = GMLAN_Scanner(
             tester, reset_handler=reset,
             test_cases=enumerators, timeout=0.2, retry_if_none_received=True,
@@ -68,7 +50,6 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
                 print("Scan completed after %d iterations" % i)
                 break
     finally:
-        answering_machine_running.clear()
         tester.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)
         assert not sim.is_alive()
