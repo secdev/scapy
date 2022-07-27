@@ -27,6 +27,7 @@ from scapy.fields import (
     LEShortEnumField,
     LEShortField,
     MultipleTypeField,
+    PadField,
     PacketField,
     PacketLenField,
     PacketListField,
@@ -35,6 +36,7 @@ from scapy.fields import (
     ShortField,
     StrFieldUtf16,
     StrFixedLenField,
+    StrLenFieldUtf16,
     StrLenField,
     UTCTimeField,
     UUIDField,
@@ -70,6 +72,7 @@ STATUS_ERREF = {
     0xC0000120: "STATUS_CANCELLED",
     0xC0000128: "STATUS_FILE_CLOSED",  # backup error for older Win versions
     0xC000000D: "STATUS_INVALID_PARAMETER",
+    0xC000000F: "STATUS_NO_SUCH_FILE",
     0xC00000BB: "STATUS_NOT_SUPPORTED",
     0xC000019C: "STATUS_FS_DRIVER_REQUIRED",
     0xC0000225: "STATUS_NOT_FOUND",
@@ -159,14 +162,103 @@ FileAttributes = {
 
 # [MS-FSCC] sect 2.4
 FileInformationClasses = {
-    5: "FileStandardInformation",
+    0x01: "FileDirectoryInformation",
+    0x02: "FileFullDirectoryInformation",
+    0x03: "FileBothDirectoryInformation",
+    0x05: "FileStandardInformation",
+    0x06: "FileInternalInformation",
+    0x22: "FileNetworkOpenInformation",
+    0x25: "FileIdBothDirectoryInformation",
+    0x26: "FileIdFullDirectoryInformation",
+    0x0C: "FileNamesInformation",
+    0x3C: "FileIdExtdDirectoryInformation",
 }
+
+
+# [MS-FSCC] 2.4.29 FileNetworkOpenInformation
+
+
+class FileNetworkOpenInformation(Packet):
+    fields_desc = [
+        UTCTimeField("CreationTime", None, fmt="<Q",
+                     epoch=[1601, 1, 1, 0, 0, 0],
+                     custom_scaling=1e7),
+        UTCTimeField("LastAccessTime", None, fmt="<Q",
+                     epoch=[1601, 1, 1, 0, 0, 0],
+                     custom_scaling=1e7),
+        UTCTimeField("LastWriteTime", None, fmt="<Q",
+                     epoch=[1601, 1, 1, 0, 0, 0],
+                     custom_scaling=1e7),
+        UTCTimeField("ChangeTime", None, fmt="<Q",
+                     epoch=[1601, 1, 1, 0, 0, 0],
+                     custom_scaling=1e7),
+        LELongField("AllocationSize", 4096),
+        LELongField("EnfofFile", 4096),
+        FlagsField("FileAttributes", 0x00000080, -32, FileAttributes),
+        IntField("Reserved2", 0),
+    ]
+
+# [MS-FSCC] 2.4.17 FileIdBothDirectoryInformation
+
+
+class FILE_ID_BOTH_DIR_INFORMATION(Packet):
+    fields_desc = [
+        LEIntField("NextEntryOffset", 0),  # 0 = no next entry
+        LEIntField("FileIndex", 0),
+    ] + FileNetworkOpenInformation.fields_desc[:7] + [
+        FieldLenField("FileNameLength", None, fmt="<I", length_of="FileName"),
+        LEIntField("EaSize", 0),
+        ByteField("ShortNameLength", 0),
+        ByteField("Reserved1", 0),
+        StrFixedLenField("ShortName", b"", length=24),
+        LEShortField("Reserved2", 0),
+        LELongField("FileId", 0),
+        PadField(
+            StrLenFieldUtf16(
+                "FileName",
+                b".",
+                length_from=lambda pkt: pkt.FileNameLength
+            ),
+            align=8,
+        ),
+    ]
+
+    def default_payload_class(self, s):
+        return conf.padding_layer
+
+
+class _FileIdBothDirectoryInformationField(PacketListField):
+    def addfield(self, pkt, s, val):
+        # we use this field to set NextEntryOffset
+        res = b""
+        for i, v in enumerate(val):
+            x = self.i2m(pkt, v)
+            if i != len(v) - 1:
+                x = struct.pack("<I", len(x)) + x[4:]
+            res += x
+        return s + res
+
+
+class FileIdBothDirectoryInformation(Packet):
+    fields_desc = [
+        _FileIdBothDirectoryInformationField("files", [], FILE_ID_BOTH_DIR_INFORMATION),
+    ]
+
+# [MS-FSCC] 2.4.22 FileInternalInformation
+
+
+class FileInternalInformation(Packet):
+    fields_desc = [
+        LELongField("IndexNumber", 0),
+    ]
+
+# [MS-FSCC] 2.4.41 FileStandardInformation
 
 
 class FileStandardInformation(Packet):
     fields_desc = [
-        LELongField("AllocationSize", 0),
-        LELongField("EndOfFile", 0),
+        LELongField("AllocationSize", 4096),
+        LELongField("EndOfFile", 4096),
         LEIntField("NumberOfLinks", 1),
         ByteField("DeletePending", 0),
         ByteField("Directory", 0),
@@ -1006,6 +1098,9 @@ class SMB2_FILEID(Packet):
         XLELongField("Volatile", 0)
     ]
 
+    def __hash__(self):
+        return self.Persistent + self.Volatile << 64
+
     def default_payload_class(self, payload):
         return conf.padding_layer
 
@@ -1025,22 +1120,7 @@ class SMB2_Create_Response(_SMB2_Payload, _NTLMPayloadPacket):
             0x00000002: "FILE_CREATED",
             0x00000003: "FILE_OVERWRITEN",
         }),
-        UTCTimeField("CreationTime", None, fmt="<Q",
-                     epoch=[1601, 1, 1, 0, 0, 0],
-                     custom_scaling=1e7),
-        UTCTimeField("LastAccessTime", None, fmt="<Q",
-                     epoch=[1601, 1, 1, 0, 0, 0],
-                     custom_scaling=1e7),
-        UTCTimeField("LastWriteTime", None, fmt="<Q",
-                     epoch=[1601, 1, 1, 0, 0, 0],
-                     custom_scaling=1e7),
-        UTCTimeField("ChangeTime", None, fmt="<Q",
-                     epoch=[1601, 1, 1, 0, 0, 0],
-                     custom_scaling=1e7),
-        LELongField("AllocationSize", 0),
-        LELongField("EnfofFile", 0),
-        FlagsField("FileAttributes", 0x00000080, -32, FileAttributes),
-        IntField("Reserved2", 0),
+        FileNetworkOpenInformation,
         PacketField("FileId", SMB2_FILEID(), SMB2_FILEID),
         XLEIntField("CreateContextsBufferOffset", None),
         LEIntField("CreateContextsLen", None),
@@ -1100,7 +1180,7 @@ class SMB2_Close_Response(_SMB2_Payload):
         FlagsField("Flags", 0, -16,
                    ["SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB"]),
         LEIntField("Reserved", 0),
-    ] + SMB2_Create_Response.fields_desc[4:11]
+    ] + FileNetworkOpenInformation.fields_desc[:7]
 
 
 bind_top_down(
@@ -1433,15 +1513,7 @@ class SMB2_Query_Directory_Request(_SMB2_Payload, _NTLMPayloadPacket):
     _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
         XLEShortField("StructureSize", 0x21),
-        ByteEnumField("FileInformationClass", 0x1, {
-            0x01: "FileDirectoryInformation",
-            0x02: "FileFullDirectoryInformation",
-            0x03: "FileBothDirectoryInformation",
-            0x25: "FileIdBothDirectoryInformation",
-            0x26: "FileIdFullDirectoryInformation",
-            0x0C: "FileNamesInformation",
-            0x3C: "FileIdExtdDirectoryInformation",
-        }),
+        ByteEnumField("FileInformationClass", 0x1, FileInformationClasses),
         FlagsField("Flags", 0, -8, {
             0x01: "SMB2_RESTART_SCANS",
             0x02: "SMB2_RETURN_SINGLE_ENTRY",

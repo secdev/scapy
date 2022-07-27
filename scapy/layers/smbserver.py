@@ -185,7 +185,6 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
             # SMB2
             resp = self.smb_header.copy() / cls(
                 DialectRevision=DialectRevision,
-                Capabilities="DFS",
                 SecurityMode=3
                 if self.REQUIRE_SIGNATURE
                 else self.get("SecurityMode", bool(self.IDENTITIES)),
@@ -477,7 +476,6 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
                                 SMB2_IOCTL_Validate_Negotiate_Info_Response(
                                     GUID=self.GUID,
                                     DialectRevision=self.Dialect,
-                                    Capabilities="DFS",
                                     SecurityMode=3
                                     if self.REQUIRE_SIGNATURE
                                     else self.get(

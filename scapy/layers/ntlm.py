@@ -516,9 +516,6 @@ class NTLMv2_RESPONSE(Packet):
                 if x.AvId == 0:
                     return
         ServerName = b"".join(iter(ServerNameGen()))
-        print(repr(ServerName))
-        print(repr(ServerChallenge))
-        print(repr(self.ChallengeFromClient))
         temp = b"".join([
             Responserversion,
             HiResponserversion,
@@ -867,8 +864,6 @@ class NTLM_Server(_NTLM_Automaton):
                             self.IDENTITIES[username],
                             self.Challenge.ServerChallenge,
                         )
-                        print(repr(NTProofStr))
-                        print(repr(auth_tok.NtChallengeResponse.NTProofStr))
                         if NTProofStr == auth_tok.NtChallengeResponse.NTProofStr:
                             return None, 0, None, rawToken  # "success"
                     # Bad NTProofStr or unknown user
