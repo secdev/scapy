@@ -386,7 +386,7 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
                     elif isinstance(ntlm_token, NTLM_CHALLENGE) and not rawToken:
                         resp.SecurityBlob = SPNEGO_negToken(
                             token=SPNEGO_negTokenResp(
-                                negResult=1,
+                                negResult=negResult or 1,
                                 supportedMech=SPNEGO_MechType(
                                     # NTLMSSP
                                     oid="1.3.6.1.4.1.311.2.2.10"

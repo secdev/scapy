@@ -487,7 +487,7 @@ class NTLMv2_CLIENT_CHALLENGE(Packet):
         LEIntField("Reserved2", 0),
         UTCTimeField("TimeStamp", None, fmt="<Q", epoch=[
                      1601, 1, 1, 0, 0, 0], custom_scaling=1e7),
-        StrFixedLenField("ChallengeFromClient", b"", length=8),
+        StrFixedLenField("ChallengeFromClient", b"12345678", length=8),
         LEIntField("Reserved3", 0),
         PacketListField("AvPairs", [AV_PAIR()], AV_PAIR)
     ]
@@ -498,6 +498,38 @@ class NTLMv2_RESPONSE(Packet):
         XStrFixedLenField("NTProofStr", b"", length=16),
         NTLMv2_CLIENT_CHALLENGE
     ]
+
+    def computeNTProofStr(self, ResponseKeyNT, ServerChallenge):
+        """
+        Set temp to ConcatenationOf(Responserversion, HiResponserversion,
+            Z(6), Time, ClientChallenge, Z(4), ServerName, Z(4))
+        Set NTProofStr to HMAC_MD5(ResponseKeyNT,
+            ConcatenationOf(CHALLENGE_MESSAGE.ServerChallenge,temp))
+
+        Remember ServerName = AvPairs
+        """
+        Responserversion = b"\x01"
+        HiResponserversion = b"\x01"
+        def ServerNameGen():
+            for x in self.AvPairs:
+                yield bytes(x)
+                if x.AvId == 0:
+                    return
+        ServerName = b"".join(iter(ServerNameGen()))
+        print(repr(ServerName))
+        print(repr(ServerChallenge))
+        print(repr(self.ChallengeFromClient))
+        temp = b"".join([
+            Responserversion,
+            HiResponserversion,
+            b"\x00" * 6,
+            struct.pack("<Q", self.TimeStamp),
+            self.ChallengeFromClient,
+            b"\x00" * 4,
+            ServerName,
+            b"\x00" * 4,
+        ])
+        return HMAC_MD5(ResponseKeyNT, ServerChallenge + temp)
 
 
 class NTLM_AUTHENTICATE(_NTLMPayloadPacket):
@@ -727,7 +759,8 @@ class NTLM_Server(_NTLM_Automaton):
         - "Timestamp"
 
     :param IDENTITIES: a dict {"username": NTOWFv2("password", "username", "domain")}
-                       (this is the KeyResponseNT)
+                       (this is the KeyResponseNT). Setting this value enables
+                       signature computation and authenticates inbound users.
     """
     port = 445
     cls = conf.raw_layer
@@ -739,6 +772,7 @@ class NTLM_Server(_NTLM_Automaton):
         self.ntlm_state = 0
         self.IDENTITIES = kwargs.pop("IDENTITIES", None)
         self.SigningSessionKey = None
+        self.Challenge = None
         super(NTLM_Server, self).__init__(*args, **kwargs)
 
     def bind(self, cli_atmt):
@@ -812,6 +846,7 @@ class NTLM_Server(_NTLM_Automaton):
                         (0, None),
                     ]
                     if (x in self.ntlm_values) or (i in avpairs)]
+            self.Challenge = tok
             return tok, negResult, MIC, rawToken
         elif self.ntlm_state == 1:
             # After auth. We return "success"
@@ -821,8 +856,28 @@ class NTLM_Server(_NTLM_Automaton):
                 return self.cli_atmt.token_pipe.recv()
             else:
                 # we act as a standalone server
-                rawToken = self.token_pipe.recv()[3]
-            return None, 0, None, rawToken
+                auth_tok, _, _, rawToken = self.token_pipe.recv()
+                if NTLM_AUTHENTICATE_V2 not in auth_tok:
+                    raise ValueError("Unexpected state :(")
+                username = auth_tok.UserName
+                if self.IDENTITIES:
+                    # We should know this user's KeyResponseNT. Check it
+                    if username in self.IDENTITIES:
+                        NTProofStr = auth_tok.NtChallengeResponse.computeNTProofStr(
+                            self.IDENTITIES[username],
+                            self.Challenge.ServerChallenge,
+                        )
+                        print(repr(NTProofStr))
+                        print(repr(auth_tok.NtChallengeResponse.NTProofStr))
+                        if NTProofStr == auth_tok.NtChallengeResponse.NTProofStr:
+                            return None, 0, None, rawToken  # "success"
+                    # Bad NTProofStr or unknown user
+                    self.Challenge.ServerChallenge = struct.pack(
+                        "<Q",
+                        randint(0, 2**64)
+                    )
+                    return self.Challenge, 2, None, rawToken  # fail
+                return None, 0, None, rawToken  # "success"
 
     def received_ntlm_token(self, ntlm_tuple):
         ntlm = ntlm_tuple[0]
@@ -1054,10 +1109,6 @@ def MD4(x):
     return Hash_MD4().digest(x)
 
 
-def Z(n):
-    return b"\x00" * n
-
-
 def RC4K(key, data):
     """Alleged RC4"""
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
@@ -1077,7 +1128,6 @@ def NTOWFv2(Passwd, User, UserDom):
 
 def NTLMv2_ComputeSessionBaseKey(ResponseKeyNT, NTProofStr):
     return HMAC_MD5(ResponseKeyNT, NTProofStr)
-
 
 # def _NTLMv2_ComputeResponse(ResponseKeyNT,
 #                             ServerChallenge, ClientChallenge, Time,

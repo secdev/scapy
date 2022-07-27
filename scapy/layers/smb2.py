@@ -350,7 +350,7 @@ class SMB2_Error_Response(_SMB2_Payload):
         FieldLenField(
             "ByteCount", None,
             fmt="<I",
-            count_of="ErrorData"
+            length_of="ErrorData"
         ),
         XStrLenField("ErrorData", b"",
                      length_from=lambda pkt: pkt.ByteCount)
