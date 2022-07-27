@@ -9,8 +9,8 @@
 from collections import defaultdict
 
 from scapy.compat import Union, List, Optional, Dict, Tuple, Set, TYPE_CHECKING
+from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.ecu import EcuState
-from scapy.error import log_interactive
 
 _Edge = Tuple[EcuState, EcuState]
 
@@ -97,7 +97,7 @@ class Graph(object):
         try:
             from graphviz import Digraph
         except ImportError:
-            log_interactive.info("Please install graphviz.")
+            log_automotive.info("Please install graphviz.")
             return
 
         ps = Digraph(name="SystemStateGraph",

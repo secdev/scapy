@@ -8,3 +8,9 @@
 """
 Package of contrib automotive modules that have to be loaded explicitly.
 """
+
+import logging
+
+log_automotive = logging.getLogger("scapy.contrib.automotive")
+
+log_automotive.setLevel(logging.INFO)
