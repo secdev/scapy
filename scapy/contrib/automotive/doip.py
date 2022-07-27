@@ -12,6 +12,7 @@ import struct
 import socket
 import time
 
+from scapy.contrib.automotive import log_automotive
 from scapy.fields import ByteEnumField, ConditionalField, \
     XByteField, XShortField, XIntField, XShortEnumField, XByteEnumField, \
     IntField, StrFixedLenField, XStrField
@@ -21,7 +22,6 @@ from scapy.layers.inet import TCP, UDP
 from scapy.contrib.automotive.uds import UDS
 from scapy.data import MTU
 from scapy.compat import Union, Tuple, Optional
-from scapy.error import log_interactive
 
 
 class DoIP(Packet):
@@ -296,11 +296,11 @@ class DoIPSocket(StreamSocket):
                 resp.routing_activation_response == 0x10:
             self.target_address = target_address or \
                 resp.logical_address_doip_entity
-            log_interactive.info(
+            log_automotive.info(
                 "Routing activation successful! Target address set to: 0x%x",
                 self.target_address)
         else:
-            log_interactive.error(
+            log_automotive.error(
                 "Routing activation failed! Response: %s", repr(resp))
 
 

@@ -13,8 +13,9 @@ from itertools import product
 
 from scapy.compat import Any, Union, List, Optional, \
     Dict, Callable, Type, cast
+from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.scanner.graph import Graph
-from scapy.error import Scapy_Exception, log_interactive
+from scapy.error import Scapy_Exception
 from scapy.supersocket import SuperSocket
 from scapy.utils import make_lined_table, SingleConversationSocket
 import scapy.libs.six as six
@@ -43,6 +44,7 @@ class AutomotiveTestCaseExecutor:
     :param kwargs: Arguments for the internal
                    AutomotiveTestCaseExecutorConfiguration instance
     """
+
     @property
     def _initial_ecu_state(self):
         # type: () -> EcuState
@@ -53,7 +55,8 @@ class AutomotiveTestCaseExecutor:
             socket,  # type: _SocketUnion
             reset_handler=None,  # type: Optional[Callable[[], None]]
             reconnect_handler=None,  # type: Optional[Callable[[], _SocketUnion]]  # noqa: E501
-            test_cases=None,  # type: Optional[List[Union[AutomotiveTestCaseABC, Type[AutomotiveTestCaseABC]]]]  # noqa: E501
+            test_cases=None,
+            # type: Optional[List[Union[AutomotiveTestCaseABC, Type[AutomotiveTestCaseABC]]]]  # noqa: E501
             **kwargs  # type: Optional[Dict[str, Any]]
     ):  # type: (...) -> None
 
@@ -135,7 +138,7 @@ class AutomotiveTestCaseExecutor:
 
     def reset_target(self):
         # type: () -> None
-        log_interactive.info("[i] Target reset")
+        log_automotive.info("Target reset")
         if self.reset_handler:
             self.reset_handler()
         self.target_state = self._initial_ecu_state
@@ -146,10 +149,10 @@ class AutomotiveTestCaseExecutor:
             try:
                 self.socket.close()
             except Exception as e:
-                log_interactive.debug(
-                    "[i] Exception '%s' during socket.close", e)
+                log_automotive.exception(
+                    "Exception '%s' during socket.close", e)
 
-            log_interactive.info("[i] Target reconnect")
+            log_automotive.info("Target reconnect")
             socket = self.reconnect_handler()
             if not isinstance(socket, SingleConversationSocket):
                 self.socket = SingleConversationSocket(socket)
@@ -188,8 +191,8 @@ class AutomotiveTestCaseExecutor:
             test_case_kwargs["execution_time"] = min(max_execution_time,
                                                      cur_execution_time)
 
-        log_interactive.debug("[i] Execute test_case %s with args %s",
-                              test_case.__class__.__name__, test_case_kwargs)
+        log_automotive.debug("Execute test_case %s with args %s",
+                             test_case.__class__.__name__, test_case_kwargs)
 
         test_case.execute(self.socket, self.target_state, **test_case_kwargs)
         test_case.post_execute(
@@ -203,7 +206,7 @@ class AutomotiveTestCaseExecutor:
         if isinstance(test_case, TestCaseGenerator):
             new_test_case = test_case.get_generated_test_case()
             if new_test_case:
-                log_interactive.debug("Testcase generated %s", new_test_case)
+                log_automotive.debug("Testcase generated %s", new_test_case)
                 self.configuration.add_test_case(new_test_case)
 
     def check_new_states(self, test_case):
@@ -211,7 +214,7 @@ class AutomotiveTestCaseExecutor:
         if isinstance(test_case, StateGenerator):
             edge = test_case.get_new_edge(self.socket, self.configuration)
             if edge:
-                log_interactive.debug("Edge found %s", edge)
+                log_automotive.debug("Edge found %s", edge)
                 tf = test_case.get_transition_function(self.socket, edge)
                 self.state_graph.add_edge(edge, tf)
 
@@ -230,53 +233,53 @@ class AutomotiveTestCaseExecutor:
         :return: None
         """
         kill_time = time.time() + (timeout or 0xffffffff)
-        log_interactive.debug("[i] Set kill_time to %s" % time.ctime(kill_time))
+        log_automotive.debug("Set kill_time to %s" % time.ctime(kill_time))
         while kill_time > time.time():
             test_case_executed = False
-            log_interactive.debug("[i] Scan paths %s", self.state_paths)
+            log_automotive.debug("Scan paths %s", self.state_paths)
             for p, test_case in product(
                     self.state_paths, self.configuration.test_cases):
-                log_interactive.info("[i] Scan path %s", p)
+                log_automotive.info("Scan path %s", p)
                 terminate = kill_time <= time.time()
                 if terminate:
-                    log_interactive.debug(
-                        "[-] Execution time exceeded. Terminating scan!")
+                    log_automotive.debug(
+                        "Execution time exceeded. Terminating scan!")
                     break
 
                 final_state = p[-1]
                 if test_case.has_completed(final_state):
-                    log_interactive.debug("[+] State %s for %s completed",
-                                          repr(final_state), test_case)
+                    log_automotive.debug("State %s for %s completed",
+                                         repr(final_state), test_case)
                     continue
 
                 try:
                     if not self.enter_state_path(p):
-                        log_interactive.error(
-                            "[-] Error entering path %s", p)
+                        log_automotive.error(
+                            "Error entering path %s", p)
                         continue
-                    log_interactive.info(
-                        "[i] Execute %s for path %s", str(test_case), p)
+                    log_automotive.info(
+                        "Execute %s for path %s", str(test_case), p)
                     self.execute_test_case(test_case, kill_time)
                     test_case_executed = True
                 except (OSError, ValueError, Scapy_Exception) as e:
-                    log_interactive.critical("[-] Exception: %s", e)
+                    log_automotive.exception("Exception: %s", e)
                     if self.configuration.debug:
                         raise e
                     if isinstance(e, OSError):
-                        log_interactive.critical(
-                            "[-] OSError occurred, closing socket")
+                        log_automotive.exception(
+                            "OSError occurred, closing socket")
                         self.socket.close()
                     if cast(SuperSocket, self.socket).closed and \
                             self.reconnect_handler is None:
-                        log_interactive.critical(
+                        log_automotive.critical(
                             "Socket went down. Need to leave scan")
                         raise e
                 finally:
                     self.cleanup_state()
 
             if not test_case_executed:
-                log_interactive.info(
-                    "[i] Execute failure or scan completed. Exit scan!")
+                log_automotive.info(
+                    "Execute failure or scan completed. Exit scan!")
                 break
 
         self.cleanup_state()
@@ -322,7 +325,7 @@ class AutomotiveTestCaseExecutor:
         funcs = self.state_graph.get_transition_tuple_for_edge(edge)
 
         if funcs is None:
-            log_interactive.error("[!] No transition function for %s", edge)
+            log_automotive.error("No transition function for %s", edge)
             return False
 
         trans_func, trans_kwargs, clean_func = funcs
@@ -335,7 +338,7 @@ class AutomotiveTestCaseExecutor:
                 self.cleanup_functions += [clean_func]
             return True
         else:
-            log_interactive.info("[-] Transition for edge %s failed", edge)
+            log_automotive.info("Transition for edge %s failed", edge)
             return False
 
     def cleanup_state(self):
@@ -349,10 +352,10 @@ class AutomotiveTestCaseExecutor:
                 continue
             try:
                 if not f(self.socket, self.configuration):
-                    log_interactive.info(
-                        "[-] Cleanup function %s failed", repr(f))
+                    log_automotive.info(
+                        "Cleanup function %s failed", repr(f))
             except (OSError, ValueError, Scapy_Exception) as e:
-                log_interactive.critical("[!] Exception during cleanup: %s", e)
+                log_automotive.critical("Exception during cleanup: %s", e)
 
         self.cleanup_functions = list()
 

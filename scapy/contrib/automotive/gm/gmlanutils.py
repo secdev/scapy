@@ -10,6 +10,7 @@
 import time
 
 from scapy.compat import Optional, cast, Callable
+from scapy.contrib.automotive import log_automotive
 
 from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SA, GMLAN_RD, \
     GMLAN_TD, GMLAN_PM, GMLAN_RMBA
@@ -37,14 +38,12 @@ except KeyError:
 
 
 # Helper function
-def _check_response(resp, verbose):
-    # type: (Optional[Packet], Optional[bool]) -> bool
+def _check_response(resp):
+    # type: (Optional[Packet]) -> bool
     if resp is None:
-        if verbose:
-            print("Timeout.")
+        log_automotive.debug("Timeout.")
         return False
-    if verbose:
-        resp.show()
+    log_automotive.debug("%s", repr(resp))
     return resp.service != 0x7f  # NegativeResponse
 
 
@@ -73,8 +72,7 @@ class GMLAN_TesterPresentSender(PeriodicSenderThread):
 def GMLAN_InitDiagnostics(
         sock,  # type: SuperSocket
         broadcast_socket=None,  # type: Optional[SuperSocket]
-        timeout=None,  # type: Optional[int]
-        verbose=None,  # type: Optional[bool]
+        timeout=1,  # type: int
         retry=0,  # type: int
         unittest=False  # type: bool
 ):
@@ -86,21 +84,17 @@ def GMLAN_InitDiagnostics(
                              will be sent as broadcast. Recommended when used
                              on a network with several ECUs.
     :param timeout: timeout for sending, receiving or sniffing packages.
-    :param verbose: set verbosity level
     :param retry: number of retries in case of failure.
     :param unittest: disable delays
     :return: True on success else False
     """
     # Helper function
-    def _send_and_check_response(sock, req, timeout, verbose):
-        # type: (SuperSocket, Packet, Optional[int], Optional[bool]) -> bool
-        if verbose:
-            print("Sending %s" % repr(req))
+    def _send_and_check_response(sock, req, timeout):
+        # type: (SuperSocket, Packet, int) -> bool
+        log_automotive.debug("Sending %s", repr(req))
         resp = sock.sr1(req, timeout=timeout, verbose=False)
-        return _check_response(resp, verbose)
+        return _check_response(resp)
 
-    if verbose is None:
-        verbose = conf.verb > 0
     retry = abs(retry)
 
     while retry >= 0:
@@ -109,11 +103,10 @@ def GMLAN_InitDiagnostics(
         # DisableNormalCommunication
         p = GMLAN(service="DisableNormalCommunication")
         if broadcast_socket is None:
-            if not _send_and_check_response(sock, p, timeout, verbose):
+            if not _send_and_check_response(sock, p, timeout):
                 continue
         else:
-            if verbose:
-                print("Sending %s as broadcast" % repr(p))
+            log_automotive.debug("Sending %s as broadcast", repr(p))
             broadcast_socket.send(p)
 
         if not unittest:
@@ -121,11 +114,11 @@ def GMLAN_InitDiagnostics(
 
         # ReportProgrammedState
         p = GMLAN(service="ReportProgrammingState")
-        if not _send_and_check_response(sock, p, timeout, verbose):
+        if not _send_and_check_response(sock, p, timeout):
             continue
         # ProgrammingMode requestProgramming
         p = GMLAN() / GMLAN_PM(subfunction="requestProgrammingMode")
-        if not _send_and_check_response(sock, p, timeout, verbose):
+        if not _send_and_check_response(sock, p, timeout):
             continue
 
         if not unittest:
@@ -134,8 +127,7 @@ def GMLAN_InitDiagnostics(
         # InitiateProgramming enableProgramming
         # No response expected
         p = GMLAN() / GMLAN_PM(subfunction="enableProgrammingMode")
-        if verbose:
-            print("Sending %s" % repr(p))
+        log_automotive.debug("Sending %s", repr(p))
         sock.sr1(p, timeout=0.001, verbose=False)
         return True
     return False
@@ -146,7 +138,6 @@ def GMLAN_GetSecurityAccess(
         key_function,  # type: Callable[[int], int]
         level=1,  # type: int
         timeout=None,  # type: Optional[int]
-        verbose=None,  # type: Optional[bool]
         retry=0,  # type: int
         unittest=False  # type: bool
 ):
@@ -157,13 +148,10 @@ def GMLAN_GetSecurityAccess(
     :param key_function: function implementing the key algorithm.
     :param level: level of access
     :param timeout: timeout for sending, receiving or sniffing packages.
-    :param verbose: set verbosity level
     :param retry: number of retries in case of failure.
     :param unittest: disable internal delays
     :return: True on success.
     """
-    if verbose is None:
-        verbose = conf.verb > 0
     retry = abs(retry)
 
     if key_function is None:
@@ -177,51 +165,42 @@ def GMLAN_GetSecurityAccess(
         retry -= 1
 
         request = GMLAN() / GMLAN_SA(subfunction=level)
-        if verbose:
-            print("Requesting seed..")
-        resp = sock.sr1(request, timeout=timeout, verbose=0)
-        if not _check_response(resp, verbose):
+        log_automotive.debug("Requesting seed..")
+        resp = sock.sr1(request, timeout=timeout, verbose=False)
+        if not _check_response(resp):
             if resp is not None and resp.returnCode == 0x37 and retry:
-                if verbose:
-                    print("RequiredTimeDelayNotExpired. Wait 10s.")
+                log_automotive.debug("RequiredTimeDelayNotExpired. Wait 10s.")
                 if not unittest:
                     time.sleep(10)
-            if verbose:
-                print("Negative Response.")
+            log_automotive.debug("Negative Response.")
             continue
 
         seed = cast(Packet, resp).securitySeed
         if seed == 0:
-            if verbose:
-                print("ECU security already unlocked. (seed is 0x0000)")
+            log_automotive.debug("ECU security already unlocked. (seed is 0x0000)")
             return True
 
         keypkt = GMLAN() / GMLAN_SA(subfunction=level + 1,
                                     securityKey=key_function(seed))
-        if verbose:
-            print("Responding with key..")
-        resp = sock.sr1(keypkt, timeout=timeout, verbose=0)
+        log_automotive.debug("Responding with key..")
+        resp = sock.sr1(keypkt, timeout=timeout, verbose=False)
         if resp is None:
-            if verbose:
-                print("Timeout.")
+            log_automotive.debug("Timeout.")
             continue
-        if verbose:
-            resp.show()
+        log_automotive.debug("%s", repr(resp))
         if resp.service == 0x67:
-            if verbose:
-                print("SecurityAccess granted.")
+            log_automotive.debug("SecurityAccess granted.")
             return True
         # Invalid Key
         elif resp.service == 0x7f and resp.returnCode == 0x35:
-            if verbose:
-                print("Key invalid")
+            log_automotive.debug("Key invalid")
             continue
 
     return False
 
 
-def GMLAN_RequestDownload(sock, length, timeout=None, verbose=None, retry=0):
-    # type: (SuperSocket, int, Optional[int], Optional[bool], int) -> bool
+def GMLAN_RequestDownload(sock, length, timeout=None, retry=0):
+    # type: (SuperSocket, int, Optional[int], int) -> bool
     """ Send RequestDownload message.
 
         Usually used before calling TransferData.
@@ -229,23 +208,20 @@ def GMLAN_RequestDownload(sock, length, timeout=None, verbose=None, retry=0):
     :param sock: socket to send the message on.
     :param length: value for the message's parameter 'unCompressedMemorySize'.
     :param timeout: timeout for sending, receiving or sniffing packages.
-    :param verbose: set verbosity level.
     :param retry: number of retries in case of failure.
     :return: True on success
     """
-    if verbose is None:
-        verbose = conf.verb > 0
     retry = abs(retry)
 
     while retry >= 0:
         # RequestDownload
         pkt = GMLAN() / GMLAN_RD(memorySize=length)
-        resp = sock.sr1(pkt, timeout=timeout, verbose=0)
-        if _check_response(resp, verbose):
+        resp = sock.sr1(pkt, timeout=timeout, verbose=False)
+        if _check_response(resp):
             return True
         retry -= 1
-        if retry >= 0 and verbose:
-            print("Retrying..")
+        if retry >= 0:
+            log_automotive.debug("Retrying..")
     return False
 
 
@@ -255,7 +231,6 @@ def GMLAN_TransferData(
         payload,  # type: bytes
         maxmsglen=None,  # type: Optional[int]
         timeout=None,  # type: Optional[int]
-        verbose=None,  # type: Optional[bool]
         retry=0  # type: int
 ):
     # type: (...) -> bool
@@ -269,13 +244,9 @@ def GMLAN_TransferData(
     :param maxmsglen: maximum length of a single iso-tp message.
                       default: maximum length
     :param timeout: timeout for sending, receiving or sniffing packages.
-    :param verbose: set verbosity level.
     :param retry: number of retries in case of failure.
     :return: True on success.
     """
-    if verbose is None:
-        verbose = conf.verb > 0
-
     retry = abs(retry)
     startretry = retry
 
@@ -300,13 +271,12 @@ def GMLAN_TransferData(
                 transdata = payload[i:]
             pkt = GMLAN() / GMLAN_TD(startingAddress=addr + i,
                                      dataRecord=transdata)
-            resp = sock.sr1(pkt, timeout=timeout, verbose=0)
-            if _check_response(resp, verbose):
+            resp = sock.sr1(pkt, timeout=timeout, verbose=False)
+            if _check_response(resp):
                 break
             retry -= 1
             if retry >= 0:
-                if verbose:
-                    print("Retrying..")
+                log_automotive.debug("Retrying..")
             else:
                 return False
 
@@ -319,7 +289,6 @@ def GMLAN_TransferPayload(
         payload,  # type: bytes
         maxmsglen=None,  # type: Optional[int]
         timeout=None,  # type: Optional[int]
-        verbose=None,  # type: Optional[bool]
         retry=0  # type: int
 ):
     # type: (...) -> bool
@@ -331,15 +300,14 @@ def GMLAN_TransferPayload(
     :param maxmsglen: maximum length of a single iso-tp message.
                       default: maximum length
     :param timeout: timeout for sending, receiving or sniffing packages.
-    :param verbose: set verbosity level.
     :param retry: number of retries in case of failure.
     :return: True on success.
     """
     if not GMLAN_RequestDownload(sock, len(payload), timeout=timeout,
-                                 verbose=verbose, retry=retry):
+                                 retry=retry):
         return False
     if not GMLAN_TransferData(sock, addr, payload, maxmsglen=maxmsglen,
-                              timeout=timeout, verbose=verbose, retry=retry):
+                              timeout=timeout, retry=retry):
         return False
     return True
 
@@ -349,7 +317,6 @@ def GMLAN_ReadMemoryByAddress(
         addr,  # type: int
         length,  # type: int
         timeout=None,  # type: Optional[int]
-        verbose=None,  # type: Optional[bool]
         retry=0  # type: int
 ):
     # type: (...) -> Optional[bytes]
@@ -359,12 +326,9 @@ def GMLAN_ReadMemoryByAddress(
     :param addr: source memory address on the ECU.
     :param length: bytes to read.
     :param timeout: timeout for sending, receiving or sniffing packages.
-    :param verbose: set verbosity level.
     :param retry: number of retries in case of failure.
     :return: bytes red or None
     """
-    if verbose is None:
-        verbose = conf.verb > 0
     retry = abs(retry)
 
     scheme = conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']
@@ -383,12 +347,12 @@ def GMLAN_ReadMemoryByAddress(
     while retry >= 0:
         # RequestDownload
         pkt = GMLAN() / GMLAN_RMBA(memoryAddress=addr, memorySize=length)
-        resp = sock.sr1(pkt, timeout=timeout, verbose=0)
-        if _check_response(resp, verbose):
+        resp = sock.sr1(pkt, timeout=timeout, verbose=False)
+        if _check_response(resp):
             return cast(Packet, resp).dataRecord
         retry -= 1
-        if retry >= 0 and verbose:
-            print("Retrying..")
+        if retry >= 0:
+            log_automotive.debug("Retrying..")
     return None
 
 

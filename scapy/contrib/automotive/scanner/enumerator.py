@@ -15,7 +15,8 @@ from itertools import chain
 
 from scapy.compat import Any, Union, List, Optional, Iterable, \
     Dict, Tuple, Set, Callable, cast, NamedTuple, orb
-from scapy.error import Scapy_Exception, log_interactive
+from scapy.contrib.automotive import log_automotive
+from scapy.error import Scapy_Exception
 from scapy.utils import make_lined_table, EDecimal
 import scapy.libs.six as six
 from scapy.packet import Packet
@@ -25,7 +26,6 @@ from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCase, \
 from scapy.contrib.automotive.scanner.configuration import \
     AutomotiveTestCaseExecutorConfiguration
 from scapy.contrib.automotive.scanner.graph import _Edge
-
 
 # Definition outside the class ServiceEnumerator to allow pickling
 _AutomotiveTestCaseScanResult = NamedTuple(
@@ -112,7 +112,8 @@ class ServiceEnumerator(AutomotiveTestCase):
         self._result_packets = OrderedDict()  # type: Dict[bytes, Packet]
         self._results = list()  # type: List[_AutomotiveTestCaseScanResult]
         self._request_iterators = dict()  # type: Dict[EcuState, Iterable[Packet]]  # noqa: E501
-        self._retry_pkt = defaultdict(lambda: None)  # type: Dict[EcuState, Optional[Union[Packet, Iterable[Packet]]]]  # noqa: E501
+        self._retry_pkt = defaultdict(
+            lambda: None)  # type: Dict[EcuState, Optional[Union[Packet, Iterable[Packet]]]]  # noqa: E501
         self._negative_response_blacklist = [0x10, 0x11]  # type: List[int]
 
     @staticmethod
@@ -212,10 +213,10 @@ class ServiceEnumerator(AutomotiveTestCase):
         if retry_entry is None:
             return []
         elif isinstance(retry_entry, Packet):
-            log_interactive.debug("[i] Provide retry packet")
+            log_automotive.debug("Provide retry packet")
             return [retry_entry]
         else:
-            log_interactive.debug("[i] Provide retry iterator")
+            log_automotive.debug("Provide retry iterator")
             # assume self.retry_pkt is a generator or list
             return retry_entry
 
@@ -243,24 +244,24 @@ class ServiceEnumerator(AutomotiveTestCase):
 
         if state_block_list and state in state_block_list:
             self._state_completed[state] = True
-            log_interactive.debug("[i] State %s in block list!", repr(state))
+            log_automotive.debug("State %s in block list!", repr(state))
             return
 
         state_allow_list = kwargs.get('state_allow_list', list())
 
         if state_allow_list and state not in state_allow_list:
             self._state_completed[state] = True
-            log_interactive.debug("[i] State %s not in allow list!",
-                                  repr(state))
+            log_automotive.debug("State %s not in allow list!",
+                                 repr(state))
             return
 
         it = self._get_request_iterator(state, **kwargs)
 
-        # log_interactive.debug("[i] Using iterator %s in state %s", it, state)
+        # log_automotive.debug("[i] Using iterator %s in state %s", it, state)
 
         start_time = time.time()
-        log_interactive.debug(
-            "[i] Start execution of enumerator: %s", time.ctime(start_time))
+        log_automotive.debug(
+            "Start execution of enumerator: %s", time.ctime(start_time))
 
         for req in it:
             res = self.sr1_with_retry_on_error(req, socket, state, timeout)
@@ -268,27 +269,27 @@ class ServiceEnumerator(AutomotiveTestCase):
             self._store_result(state, req, res)
 
             if self._evaluate_response(state, req, res, **kwargs):
-                log_interactive.debug("[i] Stop test_case execution because "
-                                      "of response evaluation")
+                log_automotive.debug(
+                    "Stop test_case execution because of response evaluation")
                 return
 
             if count is not None:
                 count -= 1
                 if count <= 0:
-                    log_interactive.debug(
-                        "[i] Finished execution count of enumerator")
+                    log_automotive.debug(
+                        "Finished execution count of enumerator")
                     return
 
             if (start_time + execution_time) < time.time():
-                log_interactive.debug(
+                log_automotive.debug(
                     "[i] Finished execution time of enumerator: %s",
                     time.ctime())
                 return
 
-        log_interactive.info("[i] Finished iterator execution")
+        log_automotive.info("Finished iterator execution")
         self._state_completed[state] = True
-        log_interactive.debug("[i] States completed %s",
-                              repr(self._state_completed))
+        log_automotive.debug("States completed %s",
+                             repr(self._state_completed))
 
     execute.__doc__ = _supported_kwargs_doc
 
@@ -298,8 +299,8 @@ class ServiceEnumerator(AutomotiveTestCase):
             res = socket.sr1(req, timeout=timeout, verbose=False, chainEX=True)
         except (OSError, ValueError, Scapy_Exception) as e:
             if not self._populate_retry(state, req):
-                log_interactive.critical(
-                    "[-] Exception during retry. This is bad")
+                log_automotive.exception(
+                    "Exception during retry. This is bad")
             raise e
         return res
 
@@ -327,8 +328,8 @@ class ServiceEnumerator(AutomotiveTestCase):
         """
         if response is None:
             if cast(bool, kwargs.pop("retry_if_none_received", False)):
-                log_interactive.debug(
-                    "[i] Retry %s because None received", repr(request))
+                log_automotive.debug(
+                    "Retry %s because None received", repr(request))
                 return self._populate_retry(state, request)
             return cast(bool, kwargs.pop("exit_if_no_answer_received", False))
 
@@ -354,8 +355,8 @@ class ServiceEnumerator(AutomotiveTestCase):
         if EcuState.is_modifier_pkt(response):
             if state != EcuState.get_modified_ecu_state(
                     response, request, state):
-                log_interactive.debug(
-                    "[-] Exit execute. Ecu state was modified!")
+                log_automotive.debug(
+                    "Exit execute. Ecu state was modified!")
                 return True
         return False
 
@@ -377,9 +378,9 @@ class ServiceEnumerator(AutomotiveTestCase):
             if response_code in [0x11, 0x7f]:
                 names = {0x11: "serviceNotSupported",
                          0x7f: "serviceNotSupportedInActiveSession"}
-                msg = "[-] Exit execute because negative response " \
-                      "%s received!" % names[response_code]
-                log_interactive.debug(msg)
+                log_automotive.debug(
+                    "Exit execute because negative response %s received!",
+                    names[response_code])
                 # execute of current state is completed,
                 # since a serviceNotSupported negative response was received
                 self._state_completed[state] = True
@@ -404,12 +405,12 @@ class ServiceEnumerator(AutomotiveTestCase):
         if self._retry_pkt[state] is None:
             # This was no retry since the retry_pkt is None
             self._retry_pkt[state] = request
-            log_interactive.debug(
-                "[-] Exit execute. Retry packet next time!")
+            log_automotive.debug(
+                "Exit execute. Retry packet next time!")
             return True
         else:
             # This was a unsuccessful retry, continue execute
-            log_interactive.debug("[-] Unsuccessful retry!")
+            log_automotive.debug("Unsuccessful retry!")
             return False
 
     def _evaluate_retry(self,
@@ -423,8 +424,8 @@ class ServiceEnumerator(AutomotiveTestCase):
 
         if retry_if_busy_returncode and response.service == 0x7f \
                 and self._get_negative_response_code(response) == 0x21:
-            log_interactive.debug(
-                "[i] Retry %s because retry_if_busy_returncode received",
+            log_automotive.debug(
+                "Retry %s because retry_if_busy_returncode received",
                 repr(request))
             return self._populate_retry(state, request)
         return False
@@ -505,11 +506,11 @@ class ServiceEnumerator(AutomotiveTestCase):
         for nrc, nr_count in nrc_dict.items():
             if nrc not in self.negative_response_blacklist and \
                     nr_count > 30 and (nr_count / total_nr_count) > 0.3:
-                log_interactive.info("Added NRC 0x%02x to filter", nrc)
+                log_automotive.info("Added NRC 0x%02x to filter", nrc)
                 self.negative_response_blacklist.append(nrc)
 
             if nrc in self.negative_response_blacklist and nr_count < 10:
-                log_interactive.info("Removed NRC 0x%02x to filter", nrc)
+                log_automotive.info("Removed NRC 0x%02x to filter", nrc)
                 self.negative_response_blacklist.remove(nrc)
 
     @property
@@ -604,7 +605,7 @@ class ServiceEnumerator(AutomotiveTestCase):
 
         s += self._show_negative_response_details(**kwargs) or "" + "\n"
         if filtered and len(self.negative_response_blacklist):
-            s += "The following negative response codes are blacklisted: %s\n"\
+            s += "The following negative response codes are blacklisted: %s\n" \
                  % [self._get_negative_response_desc(nr)
                     for nr in self.negative_response_blacklist]
 
@@ -745,8 +746,8 @@ class StateGeneratingServiceEnumerator(ServiceEnumerator, StateGenerator):
             res = sock.sr1(req, timeout=20, verbose=False, chainEX=True)
             return res is not None and res.service != 0x7f
         except (OSError, ValueError, Scapy_Exception) as e:
-            log_interactive.critical(
-                "[-] Exception in transition function: %s", e)
+            log_automotive.exception(
+                "Exception in transition function: %s", e)
             return False
 
     def get_transition_function_description(self, edge):
