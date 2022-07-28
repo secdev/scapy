@@ -1149,9 +1149,6 @@ class NDRFullPointerField(_FieldContainer):
     def i2repr(self, pkt, val):
         return repr(val)
 
-    def h2i(self, pkt, x):
-        return x
-
     def any2i(self, pkt, x):
         # User-friendly helper
         if x is not None and not isinstance(x, NDRPointer):
@@ -1161,6 +1158,8 @@ class NDRFullPointerField(_FieldContainer):
             )
         return x
 
+    h2i = Field.h2i
+    i2h = Field.i2h
     i2count = Field.i2count
 
 
@@ -1361,9 +1360,6 @@ class _NDRVarField(object):
     def i2len(self, pkt, x):
         return super(_NDRVarField, self).i2len(pkt, x.value)
 
-    def h2i(self, pkt, x):
-        return x
-
     def any2i(self, pkt, x):
         # User-friendly helper
         if not isinstance(x, NDRVaryingArray):
@@ -1372,6 +1368,8 @@ class _NDRVarField(object):
             )
         return x
 
+    h2i = Field.h2i
+    i2h = Field.i2h
     i2repr = Field.i2repr
     i2count = Field.i2count
 
@@ -1578,7 +1576,8 @@ class _NDRUnionField(MultipleTypeField):
     def getfield(self, pkt, s):
         fmt, sz = [("<H", 2), ("<I", 4)][pkt.ndr64]  # special for union
         tag = struct.unpack(fmt, s[:sz])[0]
-        remain, val = super(_NDRUnionField, self).getfield(pkt, s[sz:])
+        fld, _ = super(_NDRUnionField, self)._find_fld_pkt_val(pkt, NDRUnion(tag=tag))
+        remain, val = fld.getfield(pkt, s[sz:])
         return remain, NDRUnion(tag=tag, value=val, ndr64=pkt.ndr64)
 
     def addfield(self, pkt, s, val):
@@ -1591,8 +1590,17 @@ class _NDRUnionField(MultipleTypeField):
         return (
             s +
             struct.pack(fmt, val.tag) +
-            super(_NDRUnionField, self).addfield(pkt, b"", val.value)
+            super(_NDRUnionField, self).addfield(pkt, b"", val)
         )
+
+    def _find_fld_pkt_val(self, pkt, val):
+        fld, val = super(_NDRUnionField, self)._find_fld_pkt_val(pkt, val)
+        return fld, val.value
+
+    h2i = Field.h2i
+    i2h = Field.i2h
+    i2repr = Field.i2repr
+
 
 
 class NDRUnionField(NDRConstructedType, NDRAlign):
@@ -1607,7 +1615,7 @@ class NDRUnionField(NDRConstructedType, NDRAlign):
             if not isinstance(x, NDRUnion):
                 raise ValueError("Invalid value for %s; should be NDRUnion" % self.name)
             else:
-                x.value = _NDRUnionField.any2i(self, pkt, x.value)
+                x.value = _NDRUnionField.any2i(self, pkt, x)
         return x
 
 # Misc

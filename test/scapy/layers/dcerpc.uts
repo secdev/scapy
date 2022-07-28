@@ -204,3 +204,155 @@ val = z.fields['shi1_netname']
 assert val.value.max_count == 8
 assert val.value.value[0].actual_count == 8
 assert val.value.value[0].value == b"ADMIN1$"
+
++ Real tests on complex packets
+
+= Define structs
+
+# From [MS-WKST]
+
+class LPWKSTA_USER_INFO_0(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRFullPointerField(
+            NDRConfVarStrNullFieldUtf16("wkui0_username", ""), deferred=True
+        )
+    ]
+
+
+class LPWKSTA_USER_INFO_0_CONTAINER(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRIntField("EntriesRead", 0),
+        NDRFullPointerField(
+            NDRConfPacketListField(
+                "Buffer",
+                [LPWKSTA_USER_INFO_0()],
+                LPWKSTA_USER_INFO_0,
+                count_from=lambda pkt: pkt.EntriesRead,
+            ),
+            deferred=True,
+        ),
+    ]
+
+
+class LPWKSTA_USER_INFO_1(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRFullPointerField(
+            NDRConfVarStrNullFieldUtf16("wkui1_username", ""), deferred=True
+        ),
+        NDRFullPointerField(
+            NDRConfVarStrNullFieldUtf16("wkui1_logon_domain", ""), deferred=True
+        ),
+        NDRFullPointerField(
+            NDRConfVarStrNullFieldUtf16("wkui1_oth_domains", ""), deferred=True
+        ),
+        NDRFullPointerField(
+            NDRConfVarStrNullFieldUtf16("wkui1_logon_server", ""), deferred=True
+        ),
+    ]
+
+
+class LPWKSTA_USER_INFO_1_CONTAINER(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRIntField("EntriesRead", 0),
+        NDRFullPointerField(
+            NDRConfPacketListField(
+                "Buffer",
+                [LPWKSTA_USER_INFO_1()],
+                LPWKSTA_USER_INFO_1,
+                count_from=lambda pkt: pkt.EntriesRead,
+            ),
+            deferred=True,
+        ),
+    ]
+
+
+class LPWKSTA_USER_ENUM_STRUCT(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRIntField("Level", 0),
+        NDRUnionField(
+            [
+                (
+                    NDRFullPointerField(
+                        NDRPacketField(
+                            "WkstaUserInfo",
+                            LPWKSTA_USER_INFO_0_CONTAINER(),
+                            LPWKSTA_USER_INFO_0_CONTAINER,
+                        ),
+                        deferred=True,
+                    ),
+                    (
+                        (lambda pkt: getattr(pkt, "Level", None) == 0),
+                        (lambda _, val: val.tag == 0),
+                    ),
+                ),
+                (
+                    NDRFullPointerField(
+                        NDRPacketField(
+                            "WkstaUserInfo",
+                            LPWKSTA_USER_INFO_1_CONTAINER(),
+                            LPWKSTA_USER_INFO_1_CONTAINER,
+                        ),
+                        deferred=True,
+                    ),
+                    (
+                        (lambda pkt: getattr(pkt, "Level", None) == 1),
+                        (lambda _, val: val.tag == 1),
+                    ),
+                ),
+            ],
+            StrFixedLenField("WkstaUserInfo", "", length=0),
+            align=(4, 8),
+        ),
+    ]
+
+
+class NetrWkstaUserEnum_Request(NDRPacket):
+    fields_desc = [
+        NDRFullPointerField(NDRConfVarStrNullFieldUtf16("ServerName", "")),
+        NDRPacketField(
+            "UserInfo", LPWKSTA_USER_ENUM_STRUCT(), LPWKSTA_USER_ENUM_STRUCT
+        ),
+        NDRIntField("PreferredMaximumLength", 0),
+        NDRFullPointerField(NDRIntField("ResumeHandle", 0)),
+    ]
+
+
+class NetrWkstaUserEnum_Response(NDRPacket):
+    fields_desc = [
+        NDRPacketField(
+            "UserInfo", LPWKSTA_USER_ENUM_STRUCT(), LPWKSTA_USER_ENUM_STRUCT
+        ),
+        NDRIntField("TotalEntries", 0),
+        NDRFullPointerField(NDRIntField("ResumeHandle", 0)),
+        NDRIntField("status", 0),
+    ]
+
+= Build test
+
+pkt = NetrWkstaUserEnum_Request(
+    ServerName="test",
+    UserInfo=LPWKSTA_USER_ENUM_STRUCT(
+        WkstaUserInfo=NDRUnion(
+            tag=0,
+            value=LPWKSTA_USER_INFO_0_CONTAINER(
+                EntriesRead=1,
+                Buffer=[
+                    LPWKSTA_USER_INFO_0(wkui0_username="test")
+                ]
+            )
+        )
+    )
+)
+
+assert bytes(pkt) == b'\x00\x00\x02\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00t\x00e\x00s\x00t\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00t\x00e\x00s\x00t\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= Dissect test
+
+pkt = NetrWkstaUserEnum_Request(bytes(pkt))
+assert pkt.ServerName.value.value[0].value == b"test"
+assert pkt.UserInfo.WkstaUserInfo.value.value.Buffer.value.value[0].wkui0_username.value.value[0].value == b"test"
