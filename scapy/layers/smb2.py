@@ -1695,7 +1695,7 @@ bind_top_down(
 
 
 class SMB2_Query_Directory_Request(_SMB2_Payload, _NTLMPayloadPacket):
-    name = "SMB2 QUERY DIRETORY Request"
+    name = "SMB2 QUERY DIRECTORY Request"
     OFFSET = 32 + 64
     _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
@@ -1735,7 +1735,7 @@ bind_top_down(
 
 
 class SMB2_Query_Directory_Response(_SMB2_Payload, _NTLMPayloadPacket):
-    name = "SMB2 QUERY DIRETORY Response"
+    name = "SMB2 QUERY DIRECTORY Response"
     OFFSET = 8 + 64
     _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
