@@ -1516,7 +1516,6 @@ class _PacketField(_StrField[K]):
                  ):
         # type: (...) -> Tuple[bytes, K]
         i = self.m2i(pkt, s)
-        i.add_parent(pkt)
         remain = b""
         if conf.padding_layer in i:
             r = i[conf.padding_layer]
@@ -1776,8 +1775,6 @@ class PacketListField(_PacketField[List[BasePacket]]):
                             c += 1
                 else:
                     remain = b""
-            if isinstance(p, BasePacket):
-                p.add_parent(pkt)
             lst.append(p)
         return remain + ret, lst
 
@@ -1807,6 +1804,7 @@ class StrFixedLenField(StrField):
         super(StrFixedLenField, self).__init__(name, default)
         self.length_from = length_from or (lambda x: 0)
         if length is not None:
+            self.sz = length
             self.length_from = lambda x, length=length: length  # type: ignore
 
     def i2repr(self,

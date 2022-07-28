@@ -66,9 +66,11 @@ SMB_DIALECTS = {
 STATUS_ERREF = {
     0x00000000: "STATUS_SUCCESS",
     0x00000103: "STATUS_PENDING",
-    0xC000009A: "STATUS_INSUFFICIENT_RESOURCES",
+    0x0000010C: "STATUS_NOTIFY_ENUM_DIR",
+    0xC0000016: "STATUS_MORE_PROCESSING_REQUIRED",
     0xC0000022: "STATUS_ACCESS_DENIED",
     0xC0000034: "STATUS_OBJECT_NAME_NOT_FOUND",
+    0xC000009A: "STATUS_INSUFFICIENT_RESOURCES",
     0xC0000120: "STATUS_CANCELLED",
     0xC0000128: "STATUS_FILE_CLOSED",  # backup error for older Win versions
     0xC000000D: "STATUS_INVALID_PARAMETER",
@@ -203,7 +205,7 @@ class FileNetworkOpenInformation(Packet):
 
 class FILE_ID_BOTH_DIR_INFORMATION(Packet):
     fields_desc = [
-        LEIntField("NextEntryOffset", 0),  # 0 = no next entry
+        LEIntField("Next", None),  # 0 = no next entry
         LEIntField("FileIndex", 0),
     ] + FileNetworkOpenInformation.fields_desc[:7] + [
         FieldLenField("FileNameLength", None, fmt="<I", length_of="FileName"),
@@ -227,13 +229,13 @@ class FILE_ID_BOTH_DIR_INFORMATION(Packet):
         return conf.padding_layer
 
 
-class _FileIdBothDirectoryInformationField(PacketListField):
+class _NextPacketListField(PacketListField):
     def addfield(self, pkt, s, val):
         # we use this field to set NextEntryOffset
         res = b""
         for i, v in enumerate(val):
             x = self.i2m(pkt, v)
-            if i != len(v) - 1:
+            if v.Next is None and i != len(v) - 1:
                 x = struct.pack("<I", len(x)) + x[4:]
             res += x
         return s + res
@@ -241,7 +243,7 @@ class _FileIdBothDirectoryInformationField(PacketListField):
 
 class FileIdBothDirectoryInformation(Packet):
     fields_desc = [
-        _FileIdBothDirectoryInformationField("files", [], FILE_ID_BOTH_DIR_INFORMATION),
+        _NextPacketListField("files", [], FILE_ID_BOTH_DIR_INFORMATION),
     ]
 
 # [MS-FSCC] 2.4.22 FileInternalInformation
@@ -330,10 +332,19 @@ class SMB2_Header(Packet):
         XStrFixedLenField("SecuritySignature", 0, length=16),
     ]
 
+    _SMB2_OK_RETURNCODES = (
+        # sect 3.3.4.4
+        0x00000000,  # SUCCESS
+        0xC0000016,  # STATUS_MORE_PROCESSING_REQUIRED
+        0x80000005,  # STATUS_BUFFER_OVERFLOW
+        0xC000000D,  # STATUS_INVALID_PARAMETER
+        0x0000010C,  # STATUS_NOTIFY_ENUM_DIR
+    )
+
     def guess_payload_class(self, payload):
         if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
             # Check status for responses
-            if self.Status != 0x0000:  # SUCCESS
+            if self.Status not in SMB2_Header._SMB2_OK_RETURNCODES:
                 return SMB2_Error_Response
         if self.Command == 0x0000:  # Negotiate
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
@@ -521,7 +532,7 @@ bind_top_down(
 # sect 2.2.3.1.1
 
 
-class SMB2_Preauth_Integrity_Capabilities(_SMB2_Payload):
+class SMB2_Preauth_Integrity_Capabilities(Packet):
     name = "SMB2 Preauth Integrity Capabilities"
     fields_desc = [
         # According to the spec, this field value must be greater than 0
@@ -552,7 +563,7 @@ bind_layers(
 # sect 2.2.3.1.2
 
 
-class SMB2_Encryption_Capabilities(_SMB2_Payload):
+class SMB2_Encryption_Capabilities(Packet):
     name = "SMB2 Encryption Capabilities"
     fields_desc = [
         # According to the spec, this field value must be greater than 0
@@ -577,7 +588,7 @@ bind_layers(
 # sect 2.2.3.1.3
 
 
-class SMB2_Compression_Capabilities(_SMB2_Payload):
+class SMB2_Compression_Capabilities(Packet):
     name = "SMB2 Compression Capabilities"
     fields_desc = [
         FieldLenField(
@@ -611,7 +622,7 @@ bind_layers(
 # sect 2.2.3.1.4
 
 
-class SMB2_Netname_Negotiate_Context_ID(_SMB2_Payload):
+class SMB2_Netname_Negotiate_Context_ID(Packet):
     name = "SMB2 Netname Negotiate Context ID"
     fields_desc = [
         StrFieldUtf16("NetName", "")
@@ -630,7 +641,7 @@ bind_layers(
 # sect 2.2.3.1.5
 
 
-class SMB2_Transport_Capabilities(_SMB2_Payload):
+class SMB2_Transport_Capabilities(Packet):
     name = "SMB2 Transport Capabilities"
     fields_desc = [
         FlagsField("Flags", 0x0, -32, {
@@ -960,15 +971,165 @@ bind_top_down(
     Flags=1
 )
 
+# sect 2.2.14.1
+
+
+class SMB2_FILEID(Packet):
+    fields_desc = [
+        XLELongField("Persistent", 0),
+        XLELongField("Volatile", 0)
+    ]
+
+    def __hash__(self):
+        return self.Persistent + self.Volatile << 64
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
 # sect 2.2.14.2
 
 
-class SMB2_Create_Context(_SMB2_Payload, _NTLMPayloadPacket):
+class SMB2_CREATE_DURABLE_HANDLE_RESPONSE(Packet):
+    fields_desc = [
+        XStrFixedLenField("Reserved", b"\x00" * 8, length=8),
+    ]
+
+
+class SMB2_CREATE_QUERY_MAXIMAL_ACCESS_RESPONSE(Packet):
+    fields_desc = [
+        LEIntEnumField("QueryStatus", 0, STATUS_ERREF),
+        FlagsField("MaximalAccess", 0, -32, SMB2_ACCESS_FLAGS),
+    ]
+
+
+class SMB2_CREATE_QUERY_ON_DISK_ID(Packet):
+    fields_desc = [
+        LELongField("DiskFileId", 0),
+        LELongField("VolumeId", 0),
+        XStrFixedLenField("Reserved", b"", length=16),
+    ]
+
+
+class SMB2_CREATE_RESPONSE_LEASE(Packet):
+    fields_desc = [
+        XStrFixedLenField("LeaseKey", b"", length=16),
+        FlagsField("LeaseState", 0x7, -32, {
+            0x01: "SMB2_LEASE_READ_CACHING",
+            0x02: "SMB2_LEASE_HANDLE_CACHING",
+            0x04: "SMB2_LEASE_WRITE_CACHING",
+        }),
+        FlagsField("LeaseFlags", 0, -32, {
+            0x02: "SMB2_LEASE_FLAG_BREAK_IN_PROGRESS",
+            0x04: "SMB2_LEASE_FLAG_PARENT_LEASE_KEY_SET",
+        }),
+        LELongField("LeaseDuration", 0),
+    ]
+
+
+class SMB2_CREATE_RESPONSE_LEASE_V2(Packet):
+    fields_desc = [
+        SMB2_CREATE_RESPONSE_LEASE,
+        XStrFixedLenField("ParentLeaseKey", b"", length=16),
+        LEShortField("Epoch", 0),
+        LEShortField("Reserved", 0),
+    ]
+
+
+class SMB2_CREATE_DURABLE_HANDLE_RESPONSE_V2(Packet):
+    fields_desc = [
+        LEIntField("Timeout", 0),
+        FlagsField("Flags", 0, -32, {
+            0x02: "SMB2_DHANDLE_FLAG_PERSISTENT",
+        }),
+    ]
+
+# sect 2.2.13
+
+
+class SMB2_CREATE_DURABLE_HANDLE_REQUEST(Packet):
+    fields_desc = [
+        XStrFixedLenField("DurableRequest", b"", length=16),
+    ]
+
+
+class SMB2_CREATE_DURABLE_HANDLE_RECONNECT(Packet):
+    fields_desc = [
+        PacketField("Data", SMB2_FILEID(), SMB2_FILEID),
+    ]
+
+
+class SMB2_CREATE_QUERY_MAXIMAL_ACCESS_REQUEST(Packet):
+    fields_desc = [
+        LELongField("Timestamp", 0),
+    ]
+
+
+class SMB2_CREATE_ALLOCATION_SIZE(Packet):
+    fields_desc = [
+        LELongField("AllocationSize", 0),
+    ]
+
+
+class SMB2_CREATE_TIMEWARP_TOKEN(Packet):
+    fields_desc = [
+        LELongField("Timestamp", 0),
+    ]
+
+
+class SMB2_CREATE_REQUEST_LEASE(Packet):
+    fields_desc = [
+        SMB2_CREATE_RESPONSE_LEASE,
+    ]
+
+
+class SMB2_CREATE_REQUEST_LEASE_V2(Packet):
+    fields_desc = [
+        SMB2_CREATE_RESPONSE_LEASE_V2,
+    ]
+
+
+class SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2(Packet):
+    fields_desc = [
+        SMB2_CREATE_DURABLE_HANDLE_RESPONSE_V2,
+        XStrFixedLenField("Reserved", b"", length=8),
+        UUIDField("CreateGuid", 0x0, uuid_fmt=UUIDField.FORMAT_LE),
+    ]
+
+
+class SMB2_CREATE_DURABLE_HANDLE_RECONNECT_V2(Packet):
+    fields_desc = [
+        PacketField("FileId", SMB2_FILEID(), SMB2_FILEID),
+        UUIDField("CreateGuid", 0x0, uuid_fmt=UUIDField.FORMAT_LE),
+        FlagsField("Flags", 0, -32, {
+            0x02: "SMB2_DHANDLE_FLAG_PERSISTENT",
+        }),
+    ]
+
+
+class SMB2_CREATE_APP_INSTANCE_ID(Packet):
+    fields_desc = [
+        XLEShortField("StructureSize", 0x14),
+        LEShortField("Reserved", 0),
+        XStrFixedLenField("AppInstanceId", b"", length=16),
+    ]
+
+
+class SMB2_CREATE_APP_INSTANCE_VERSION(Packet):
+    fields_desc = [
+        XLEShortField("StructureSize", 0x18),
+        LEShortField("Reserved", 0),
+        LEIntField("Padding", 0),
+        LELongField("AppInstanceVersionHigh", 0),
+        LELongField("AppInstanceVersionLow", 0),
+    ]
+
+
+class SMB2_Create_Context(_NTLMPayloadPacket):
     name = "SMB2 CREATE CONTEXT"
     OFFSET = 14
     _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
-        LEIntField("Next", 0),
+        LEIntField("Next", None),
         XLEShortField("NameBufferOffset", None),
         LEShortField("NameLen", None),
         ShortField("Reserved", 0),
@@ -978,8 +1139,8 @@ class SMB2_Create_Context(_SMB2_Payload, _NTLMPayloadPacket):
             'Buffer', OFFSET, [
                 StrLenField("Name", b"",
                             length_from=lambda pkt: pkt.NameLen),
-                XStrLenField("Data", b"",
-                             length_from=lambda pkt: pkt.DataLen),
+                PacketLenField("Data", None, conf.raw_layer,
+                               length_from=lambda pkt: pkt.DataLen),
             ]),
         StrLenField("pad", b"",
                     length_from=lambda x: (
@@ -987,6 +1148,44 @@ class SMB2_Create_Context(_SMB2_Payload, _NTLMPayloadPacket):
                         max(x.DataBufferOffset + x.DataLen,
                             x.NameBufferOffset + x.NameLen)) if x.Next else 0)
     ]
+
+    def post_dissect(self, s):
+        if not self.DataLen:
+            return s
+        try:
+            if isinstance(self.parent, SMB2_Create_Request):
+                data_cls = {
+                    b"DHnQ": SMB2_CREATE_DURABLE_HANDLE_REQUEST,
+                    b"DHnC": SMB2_CREATE_DURABLE_HANDLE_RECONNECT,
+                    b"AISi": SMB2_CREATE_ALLOCATION_SIZE,
+                    b"MxAc": SMB2_CREATE_QUERY_MAXIMAL_ACCESS_REQUEST,
+                    b"TWrp": SMB2_CREATE_TIMEWARP_TOKEN,
+                    b"QFid": SMB2_CREATE_QUERY_ON_DISK_ID,
+                    b"RqLs": SMB2_CREATE_REQUEST_LEASE,
+                    b"DH2Q": SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2,
+                    b"DH2C": SMB2_CREATE_DURABLE_HANDLE_RECONNECT_V2,
+                    # 3.1.1 only
+                    b'E\xbc\xa6j\xef\xa7\xf7J\x90\x08\xfaF.\x14Mt': SMB2_CREATE_APP_INSTANCE_ID,  # noqa: E501
+                    b'\xb9\x82\xd0\xb7;V\x07O\xa0{RJ\x81\x16\xa0\x10': SMB2_CREATE_APP_INSTANCE_VERSION,  # noqa: E501
+                }[self.Name]
+                if self.Name == b"RqLs" and self.DataLen > 32:
+                    data_cls = SMB2_CREATE_REQUEST_LEASE_V2
+            elif isinstance(self.parent, SMB2_Create_Response):
+                data_cls = {
+                    b"DHnQ": SMB2_CREATE_DURABLE_HANDLE_RESPONSE,
+                    b"MxAc": SMB2_CREATE_QUERY_MAXIMAL_ACCESS_RESPONSE,
+                    b"QFid": SMB2_CREATE_QUERY_ON_DISK_ID,
+                    b"RqLs": SMB2_CREATE_RESPONSE_LEASE,
+                    b"DH2Q": SMB2_CREATE_DURABLE_HANDLE_RESPONSE_V2,
+                }[self.Name]
+                if self.Name == b"RqLs" and self.DataLen > 32:
+                    data_cls = SMB2_CREATE_RESPONSE_LEASE_V2
+            else:
+                return s
+        except KeyError:
+            return s
+        self.Data = data_cls(self.Data.load)
+        return s
 
     def default_payload_class(self, _):
         return conf.padding_layer
@@ -1070,8 +1269,8 @@ class SMB2_Create_Request(_SMB2_Payload, _NTLMPayloadPacket):
         _NTLMPayloadField(
             'Buffer', OFFSET, [
                 StrFieldUtf16("Name", b""),
-                PacketListField("CreateContexts", [], SMB2_Create_Context,
-                                length_from=lambda pkt: pkt.CreateContextsLen),
+                _NextPacketListField("CreateContexts", [], SMB2_Create_Context,
+                                     length_from=lambda pkt: pkt.CreateContextsLen),
             ])
     ]
 
@@ -1089,20 +1288,6 @@ bind_top_down(
     Command=0x0005
 )
 
-# sect 2.2.14.1
-
-
-class SMB2_FILEID(Packet):
-    fields_desc = [
-        XLELongField("Persistent", 0),
-        XLELongField("Volatile", 0)
-    ]
-
-    def __hash__(self):
-        return self.Persistent + self.Volatile << 64
-
-    def default_payload_class(self, payload):
-        return conf.padding_layer
 
 # sect 2.2.14
 
@@ -1110,6 +1295,7 @@ class SMB2_FILEID(Packet):
 class SMB2_Create_Response(_SMB2_Payload, _NTLMPayloadPacket):
     name = "SMB2 CREATE Response"
     OFFSET = 88 + 64
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     fields_desc = [
         XLEShortField("StructureSize", 0x59),
         ByteEnumField("OplockLevel", 0, SMB2_OPLOCK_LEVELS),
@@ -1126,8 +1312,8 @@ class SMB2_Create_Response(_SMB2_Payload, _NTLMPayloadPacket):
         LEIntField("CreateContextsLen", None),
         _NTLMPayloadField(
             'Buffer', OFFSET, [
-                PacketListField("CreateContexts", [], SMB2_Create_Context,
-                                length_from=lambda pkt: pkt.CreateContextsLen),
+                _NextPacketListField("CreateContexts", [], SMB2_Create_Context,
+                                     length_from=lambda pkt: pkt.CreateContextsLen),
             ])
     ]
 
@@ -1471,6 +1657,7 @@ class _SMB2_IOCTL_Response_PacketLenField(PacketLenField):
 class SMB2_IOCTL_Response(_SMB2_Payload, _NTLMPayloadPacket):
     name = "SMB2 IOCTL Response"
     OFFSET = 48 + 64
+    _NTLM_PAYLOAD_FIELD_NAME = "Buffer"
     StructureSize = 0x31
     fields_desc = (
         SMB2_IOCTL_Request.fields_desc[:6] +

@@ -510,6 +510,7 @@ class NTLMv2_RESPONSE(Packet):
         """
         Responserversion = b"\x01"
         HiResponserversion = b"\x01"
+
         def ServerNameGen():
             for x in self.AvPairs:
                 yield bytes(x)
