@@ -14,14 +14,14 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
     ShortField, ObservableDict, XShortEnumField, XByteEnumField, StrLenField, \
-    FieldLenField, XStrFixedLenField, XStrLenField, MultipleTypeField, PacketListField, StrFixedLenField, \
+    FieldLenField, XStrFixedLenField, XStrLenField, MultipleTypeField, MultiplePacketField, StrFixedLenField, \
     LEIntField, PacketField
 from scapy.packet import Packet, bind_layers, NoPayload, Raw
 from scapy.config import conf
 from scapy.error import log_loading, Scapy_Exception
 from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
-from scapy.compat import Dict, Union
+from scapy.compat import Dict, Union, Type, Any
 
 """
 UDS
@@ -1417,6 +1417,17 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
 
 class Uds(ISOTP):
     sub_packets = dict()  # type: Dict[int, Type[Packet]]
+    data_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]
+    routine_control_option_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]
+    session_parameter_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]
+
+    @staticmethod
+    def bind_pkt_to_record(record,  # type: ObservableDict[Type[Packet], Dict[str, Any]]
+                           cls,  # type: Type[Packet]
+                           **kwargs  # type: Dict[str, Any]
+        ):
+        # type: (...) -> None
+        record[cls] = kwargs
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -1424,65 +1435,8 @@ class Uds(ISOTP):
             return cls.sub_packets[int(_pkt[0])]
         return Uds
 
-    services = ObservableDict(
-        {0x10: 'DiagnosticSessionControl',
-         0x11: 'ECUReset',
-         0x14: 'ClearDiagnosticInformation',
-         0x19: 'ReadDTCInformation',
-         0x22: 'ReadDataByIdentifier',
-         0x23: 'ReadMemoryByAddress',
-         0x24: 'ReadScalingDataByIdentifier',
-         0x27: 'SecurityAccess',
-         0x28: 'CommunicationControl',
-         0x29: 'Authentication',
-         0x2A: 'ReadDataPeriodicIdentifier',
-         0x2C: 'DynamicallyDefineDataIdentifier',
-         0x2E: 'WriteDataByIdentifier',
-         0x2F: 'InputOutputControlByIdentifier',
-         0x31: 'RoutineControl',
-         0x34: 'RequestDownload',
-         0x35: 'RequestUpload',
-         0x36: 'TransferData',
-         0x37: 'RequestTransferExit',
-         0x38: 'RequestFileTransfer',
-         0x3D: 'WriteMemoryByAddress',
-         0x3E: 'TesterPresent',
-         0x50: 'DiagnosticSessionControlPositiveResponse',
-         0x51: 'ECUResetPositiveResponse',
-         0x54: 'ClearDiagnosticInformationPositiveResponse',
-         0x59: 'ReadDTCInformationPositiveResponse',
-         0x62: 'ReadDataByIdentifierPositiveResponse',
-         0x63: 'ReadMemoryByAddressPositiveResponse',
-         0x64: 'ReadScalingDataByIdentifierPositiveResponse',
-         0x67: 'SecurityAccessPositiveResponse',
-         0x68: 'CommunicationControlPositiveResponse',
-         0x69: 'AuthenticationPositiveResponse',
-         0x6A: 'ReadDataPeriodicIdentifierPositiveResponse',
-         0x6C: 'DynamicallyDefineDataIdentifierPositiveResponse',
-         0x6E: 'WriteDataByIdentifierPositiveResponse',
-         0x6F: 'InputOutputControlByIdentifierPositiveResponse',
-         0x71: 'RoutineControlPositiveResponse',
-         0x74: 'RequestDownloadPositiveResponse',
-         0x75: 'RequestUploadPositiveResponse',
-         0x76: 'TransferDataPositiveResponse',
-         0x77: 'RequestTransferExitPositiveResponse',
-         0x78: 'RequestFileTransferPositiveResponse',
-         0x7D: 'WriteMemoryByAddressPositiveResponse',
-         0x7E: 'TesterPresentPositiveResponse',
-         0x83: 'AccessTimingParameter',
-         0x84: 'SecuredDataTransmission',
-         0x85: 'ControlDTCSetting',
-         0x86: 'ResponseOnEvent',
-         0x87: 'LinkControl',
-         0xC3: 'AccessTimingParameterPositiveResponse',
-         0xC4: 'SecuredDataTransmissionPositiveResponse',
-         0xC5: 'ControlDTCSettingPositiveResponse',
-         0xC6: 'ResponseOnEventPositiveResponse',
-         0xC7: 'LinkControlPositiveResponse',
-         0x7f: 'NegativeResponse'})  # type: Dict[int, str]
-
     fields_desc = [
-        XByteEnumField('service', 0, services)
+        XByteEnumField('service', 0, UDS.services)
     ]
 
     def answers(self, other):
@@ -1503,18 +1457,10 @@ class Uds(ISOTP):
 
 
 class UdsDsc(Uds):
-    diagnosticSessionTypes = ObservableDict({
-        0x00: 'ISOSAEReserved',
-        0x01: 'defaultSession',
-        0x02: 'programmingSession',
-        0x03: 'extendedDiagnosticSession',
-        0x04: 'safetySystemDiagnosticSession',
-        0x7F: 'ISOSAEReserved'})
-
     name = 'DiagnosticSessionControl'
     fields_desc = [
         XByteEnumField('service', 0x10, Uds.services),
-        ByteEnumField('diagnosticSessionType', 0, diagnosticSessionTypes)
+        ByteEnumField('diagnosticSessionType', 0, UDS_DSC.diagnosticSessionTypes)
     ]
 
 
@@ -1524,7 +1470,9 @@ class UdsDscPr(Uds):
         XByteEnumField('service', 0x50, Uds.services),
         ByteEnumField('diagnosticSessionType', 0,
                       UDS_DSC.diagnosticSessionTypes),
-        StrField('sessionParameterRecord', b"")
+        MultiplePacketField('sessionParameterRecord',
+                            Uds.session_parameter_record_pkts,
+                            Raw)
     ]
 
     def answers(self, other):
@@ -1533,14 +1481,65 @@ class UdsDscPr(Uds):
                other.diagnosticSessionType == self.diagnosticSessionType
 
 
+class UdsEr(Packet):
+    name = 'ECUReset'
+    fields_desc = [
+        XByteEnumField('service', 0x11, Uds.services),
+        ByteEnumField('resetType', 0, UDS_ER.resetTypes)
+    ]
+
+
+class UdsErPr(Packet):
+    name = 'ECUResetPositiveResponse'
+    fields_desc = [
+        XByteEnumField('service', 0x51, Uds.services),
+        ByteEnumField('resetType', 0, UDS_ER.resetTypes),
+        ConditionalField(ByteField('powerDownTime', 0),
+                         lambda pkt: pkt.resetType == 0x04)
+    ]
+
+    def answers(self, other):
+        return super(UdsErPr, self).answers(other) and \
+               isinstance(other, UdsEr) and \
+               other.resetType == self.resetType
+
+
+class UdsSa(Packet):
+    name = 'SecurityAccess'
+    fields_desc = [
+        XByteEnumField('service', 0x27, Uds.services),
+        ByteField('securityAccessType', 0),
+        ConditionalField(StrField('securityAccessDataRecord', b""),
+                         lambda pkt: pkt.securityAccessType % 2 == 1),
+        ConditionalField(StrField('securityKey', b""),
+                         lambda pkt: pkt.securityAccessType % 2 == 0)
+    ]
+
+
+class UdsSaPr(Packet):
+    name = 'SecurityAccessPositiveResponse'
+    fields_desc = [
+        XByteEnumField('service', 0x67, Uds.services),
+        ByteField('securityAccessType', 0),
+        ConditionalField(StrField('securitySeed', b""),
+                         lambda pkt: pkt.securityAccessType % 2 == 1),
+    ]
+
+    def answers(self, other):
+        return super(UdsSaPr, self).answers(other) and \
+               isinstance(other, UdsSa) \
+            and other.securityAccessType == self.securityAccessType
+
+# TODO
+
 class UdsRdbi(Uds):
-    dataIdentifiers = ObservableDict()
+    data_types = ObservableDict({})
     name = 'ReadDataByIdentifier'
     fields_desc = [
         XByteEnumField('service', 0x22, Uds.services),
         FieldListField("identifiers", None,
                        XShortEnumField('dataIdentifier', 0,
-                                       dataIdentifiers))
+                                       UDS_RDBI.dataIdentifiers))
     ]
 
 
@@ -1564,15 +1563,9 @@ class UdsRdbiPr(Uds):
         XByteEnumField('service', 0x62, Uds.services),
         XShortEnumField('dataIdentifier', 0,
                         UDS_RDBI.dataIdentifiers),
-        MultipleTypeField([
-            (PacketField("data", None, Payload1),
-             (lambda p: p.dataIdentifier == 1,
-              lambda p, v: p.dataIdentifier == 1 and len(v) >= 2)),
-            (PacketField("data", None, Payload2),
-             lambda p: p.dataIdentifier == 2),
-        ],
-            PacketField("data", None, Raw)
-        )
+        MultiplePacketField('dataRecord',
+                            Uds.data_record_types,
+                            Raw)
     ]
 
     def answers(self, other):
@@ -1582,59 +1575,11 @@ class UdsRdbiPr(Uds):
 
 
 class UdsNr(Uds):
-    negativeResponseCodes = {
-        0x00: 'positiveResponse',
-        0x10: 'generalReject',
-        0x11: 'serviceNotSupported',
-        0x12: 'subFunctionNotSupported',
-        0x13: 'incorrectMessageLengthOrInvalidFormat',
-        0x14: 'responseTooLong',
-        0x20: 'ISOSAEReserved',
-        0x21: 'busyRepeatRequest',
-        0x22: 'conditionsNotCorrect',
-        0x23: 'ISOSAEReserved',
-        0x24: 'requestSequenceError',
-        0x25: 'noResponseFromSubnetComponent',
-        0x26: 'failurePreventsExecutionOfRequestedAction',
-        0x31: 'requestOutOfRange',
-        0x33: 'securityAccessDenied',
-        0x35: 'invalidKey',
-        0x36: 'exceedNumberOfAttempts',
-        0x37: 'requiredTimeDelayNotExpired',
-        0x3A: 'secureDataVerificationFailed',
-        0x70: 'uploadDownloadNotAccepted',
-        0x71: 'transferDataSuspended',
-        0x72: 'generalProgrammingFailure',
-        0x73: 'wrongBlockSequenceCounter',
-        0x78: 'requestCorrectlyReceived-ResponsePending',
-        0x7E: 'subFunctionNotSupportedInActiveSession',
-        0x7F: 'serviceNotSupportedInActiveSession',
-        0x80: 'ISOSAEReserved',
-        0x81: 'rpmTooHigh',
-        0x82: 'rpmTooLow',
-        0x83: 'engineIsRunning',
-        0x84: 'engineIsNotRunning',
-        0x85: 'engineRunTimeTooLow',
-        0x86: 'temperatureTooHigh',
-        0x87: 'temperatureTooLow',
-        0x88: 'vehicleSpeedTooHigh',
-        0x89: 'vehicleSpeedTooLow',
-        0x8a: 'throttle/PedalTooHigh',
-        0x8b: 'throttle/PedalTooLow',
-        0x8c: 'transmissionRangeNotInNeutral',
-        0x8d: 'transmissionRangeNotInGear',
-        0x8e: 'ISOSAEReserved',
-        0x8f: 'brakeSwitch(es)NotClosed',
-        0x90: 'shifterLeverNotInPark',
-        0x91: 'torqueConverterClutchLocked',
-        0x92: 'voltageTooHigh',
-        0x93: 'voltageTooLow',
-    }
     name = 'NegativeResponse'
     fields_desc = [
         XByteEnumField('service', 0x7f, Uds.services),
         XByteEnumField('requestServiceId', 0, UDS.services),
-        ByteEnumField('negativeResponseCode', 0, negativeResponseCodes)
+        ByteEnumField('negativeResponseCode', 0, UDS_NR.negativeResponseCodes)
     ]
 
     def answers(self, other):

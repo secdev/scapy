@@ -2236,25 +2236,27 @@ class Payload2(Packet):
 
 
 class TestPacket(Packet):
+    data_types = ObservableDict({
+        Payload1: {"mux": 1},
+        Payload2: {"mux": 2}
+    })
     fields_desc = [
         XByteField("mux", None),
+        XByteField("max", None),
         MultiplePacketField(
             "data",
-            [
-                (Payload1, "mux", 1),
-                (Payload2, "mux", 2)
-            ],
+            data_types,
             Raw)
     ]
 
 
-p = TestPacket(b"\x0123")
+p = TestPacket(b"\x01234")
+p.show()
 assert p.mux == 1
-assert p.data.f0 == 0x32
-assert p.data.f1 == 0x33
+assert p.data.f0 == 0x33
+assert p.data.f1 == 0x34
 
 r = TestPacket(data=Payload2(f2=2, f3=4))
-r.show()
 assert r.mux == 2
 assert r.data.f2 == 2
 assert r.data.f3 == 4
@@ -2265,13 +2267,21 @@ class Payload3(Packet):
         XByteField("f5", 0),
     ]
 
-TestPacket.data.flds.append((PacketField("payload", None, Payload3), "mux", 4))
-
-print(TestPacket.data.flds)
+TestPacket.data_types[Payload3] = {"mux": 4}
 
 r = TestPacket(data=Payload3(f5=2))
-r.show()
 assert r.mux == 4
 assert r.data.f5 == 2
 
-assert False
+
+class Payload4(Packet):
+    fields_desc = [
+        StrField("paystr", b""),
+    ]
+
+TestPacket.data_types[Payload4] = {"mux": 5, "max": 42}
+
+r = TestPacket(data=Payload4(b"hello"))
+r.show()
+assert r.mux == 5
+assert r.max == 42

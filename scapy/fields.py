@@ -105,28 +105,33 @@ class RawVal:
         return "<RawVal [%r]>" % self.val
 
 
-class ObservableDict(Dict[int, str]):
+DK = TypeVar('DK')
+DV = TypeVar('DV')
+
+
+class ObservableDict(Dict[DK, DV]):
     """
     Helper class to specify a protocol extendable for runtime modifications
     """
 
     def __init__(self, *args, **kw):
-        # type: (*Dict[int, str], **Any) -> None
-        self.observers = []  # type: List[_EnumField[Any]]
+        # type: (*Dict[DK, DV], **Any) -> None
+        self.observers = []  # type: List[Any]
         super(ObservableDict, self).__init__(*args, **kw)
 
     def observe(self, observer):
-        # type: (_EnumField[Any]) -> None
+        # type: (Any) -> None
         self.observers.append(observer)
 
     def __setitem__(self, key, value):
-        # type: (int, str) -> None
+        # type: (DK, DV) -> None
         for o in self.observers:
-            o.notify_set(self, key, value)
+            if hasattr(o, "notify_set"):
+                o.notify_set(self, key, value)
         super(ObservableDict, self).__setitem__(key, value)
 
     def __delitem__(self, key):
-        # type: (int) -> None
+        # type: (DK) -> None
         for o in self.observers:
             o.notify_del(self, key)
         super(ObservableDict, self).__delitem__(key)
@@ -588,54 +593,39 @@ the value to set is also known) of ._find_fld_pkt() instead.
 
 
 class MultiplePacketField(MultipleTypeField):
-    """MultiplePacketField are used for fields that can be implemented by
-various Field subclasses, depending on conditions on the packet.
-
-It is initialized with `flds` and `dflt`.
-
-`dflt` is the default field type, to be used when none of the
-conditions matched the current packet.
-
-`flds` is a list of tuples (`fld`, `cond`), where `fld` if a field
-type, and `cond` a "condition" to determine if `fld` is the field type
-that should be used.
-
-`cond` is either:
-
-  - a callable `cond_pkt` that accepts one argument (the packet) and
-    returns True if `fld` should be used, False otherwise.
-
-  - a tuple (`cond_pkt`, `cond_pkt_val`), where `cond_pkt` is the same
-    as in the previous case and `cond_pkt_val` is a callable that
-    accepts two arguments (the packet, and the value to be set) and
-    returns True if `fld` should be used, False otherwise.
-
-See scapy.layers.l2.ARP (type "help(ARP)" in Scapy) for an example of
-use.
-
-    """
-
     __slots__ = ["flds", "dflt", "name", "default"]
 
     def __init__(self,
                  name,  # type: str
-                 pkts,  # type: List[Tuple[Type[Packet], str, Any]]
+                 pkts,  # type: Dict[Type[Packet], Dict[str, Any]]
                  dflt  # type: Type[Packet]
                  ):
         # type: (...) -> None
         self.default = None  # So that we can detect changes in defaults
         self.name = name
-        self.flds = [self._pkt_to_field(cls, cond, val)
-                     for cls, cond, val in pkts]
+        self.flds = [
+            (PacketField(self.name, None, cls), conds)
+            for cls, conds in pkts.items()]
         self.dflt = PacketField(name, None, dflt)
+        if isinstance(pkts, ObservableDict):
+            pkts.observe(self)
 
-    def _pkt_to_field(self, cls, cond, val):
-        return PacketField(self.name, None, cls), cond, val
+    def notify_set(self,
+                   dic,  # type: ObservableDict[Type[Packet], Dict[str, Any]]
+                   key,  # type: Type[Packet]
+                   value  # type: Dict[str, Any]
+                   ):
+        # type: (...) -> None
+        self.flds.append(
+            (PacketField(self.name, None, key), value)
+        )
 
     def _find_fld_pkt(self, pkt):
-        # type: (Packet) -> Field[Any, Any]
-        for cls, fld, val in self.flds:
-            if pkt.getfieldval(fld) == val:
+        # type: (Optional[Packet]) -> Field[Any, Any]
+        if pkt is None:
+            return self.dflt
+        for cls, conds in self.flds:
+            if all(pkt.getfieldval(fld) == val for fld, val in conds.items()):
                 return cls
         return self.dflt
 
@@ -644,9 +634,12 @@ use.
                           val,  # type: Any
                           ):
         # type: (...) -> Tuple[Field[Any, Any], Any]
-        for cls, c, v in self.flds:
-            if type(val) == cls.cls:
-                pkt.setfieldval(c, v)
+        if pkt is None:
+            return self.dflt, val
+        for cls, conds in self.flds:
+            if val and isinstance(cls, PacketField) and type(val) == cls.cls:
+                for c, v in conds.items():
+                    pkt.setfieldval(c, v)
                 return cls, val
 
         fld = self._find_fld_pkt(pkt)
@@ -656,7 +649,7 @@ use.
 
     def register_owner(self, cls):
         # type: (Type[Packet]) -> None
-        for fld, name, value in self.flds:
+        for fld, conds in self.flds:
             fld.owners.append(cls)
         self.dflt.owners.append(cls)
 
@@ -2506,7 +2499,7 @@ class _EnumField(Field[Union[List[I], I], I]):
                         internal value from and to machine representation.
         """
         if isinstance(enum, ObservableDict):
-            cast(ObservableDict, enum).observe(self)
+            enum.observe(self)
 
         if isinstance(enum, tuple):
             self.i2s_cb = enum[0]  # type: Optional[Callable[[I], str]]
@@ -2584,7 +2577,7 @@ class _EnumField(Field[Union[List[I], I], I]):
             return self.i2repr_one(pkt, x)
 
     def notify_set(self, enum, key, value):
-        # type: (ObservableDict, I, str) -> None
+        # type: (ObservableDict[int, str], I, str) -> None
         ks = "0x%x" if isinstance(key, int) else "%s"
         log_runtime.debug(
             "At %s: Change to %s at " + ks, self, value, key
@@ -2594,7 +2587,7 @@ class _EnumField(Field[Union[List[I], I], I]):
             self.s2i[value] = key
 
     def notify_del(self, enum, key):
-        # type: (ObservableDict, I) -> None
+        # type: (ObservableDict[int, str], I) -> None
         ks = "0x%x" if isinstance(key, int) else "%s"
         log_runtime.debug("At %s: Delete value at " + ks, self, key)
         if self.i2s is not None and self.s2i is not None:
