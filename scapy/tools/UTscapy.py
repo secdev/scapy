@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Unit testing infrastructure for Scapy
@@ -92,6 +92,17 @@ def scapy_path(fname):
     return os.path.abspath(os.path.join(
         os.path.dirname(__file__), '../../', fname
     ))
+
+
+class no_debug_dissector:
+    """Context object used to disable conf.debug_dissector"""
+    def __enter__(self):
+        self.old_dbg = conf.debug_dissector
+        conf.debug_dissector = False
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        conf.debug_dissector = self.old_dbg
+
 
 #    Import tool    #
 
@@ -570,6 +581,7 @@ def import_UTscapy_tools(ses):
     ses["Bunch"] = Bunch
     ses["retry_test"] = retry_test
     ses["scapy_path"] = scapy_path
+    ses["no_debug_dissector"] = no_debug_dissector
     if WINDOWS:
         from scapy.arch.windows import _route_add_loopback
         _route_add_loopback()

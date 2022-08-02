@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+
 """Module implementing Krack Attack on client, as a custom WPA Access Point
 
 Requires the python cryptography package v1.7+. See https://cryptography.io/

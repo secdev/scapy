@@ -1,8 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Massimo Ciani (2009)
-#               Gabriel Potter (2016-2019)
-# This program is published under a GPLv2 license
+# Copyright (C) Gabriel Potter
 
 # Modified for scapy's usage - To support Npcap/Monitor mode
 
@@ -329,6 +329,12 @@ try:
     pcap_activate = _lib.pcap_activate
     pcap_activate.restype = c_int
     pcap_activate.argtypes = [POINTER(pcap_t)]
+
+    # int pcap_inject (pcap_t *p, u_char *buf, int size)
+    #   Send a raw packet.
+    pcap_inject = _lib.pcap_inject
+    pcap_inject.restype = c_int
+    pcap_inject.argtypes = [POINTER(pcap_t), c_void_p, c_int]
 except AttributeError:
     pass
 
@@ -425,10 +431,10 @@ pcap_breakloop.restype = None
 pcap_breakloop.argtypes = [POINTER(pcap_t)]
 
 # int pcap_sendpacket (pcap_t *p, u_char *buf, int size)
-#   Send a raw packet.
+#   Send a raw packet, but it returns 0 on success,
+#   rather than returning the number of bytes written.
 pcap_sendpacket = _lib.pcap_sendpacket
 pcap_sendpacket.restype = c_int
-# pcap_sendpacket.argtypes = [POINTER(pcap_t), POINTER(u_char), c_int]
 pcap_sendpacket.argtypes = [POINTER(pcap_t), c_void_p, c_int]
 
 # void pcap_dump (u_char *user, const struct pcap_pkthdr *h, const u_char *sp)

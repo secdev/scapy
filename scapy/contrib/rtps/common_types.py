@@ -1,21 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Copyright (C) 2021 Trend Micro Incorporated
+# Copyright (C) 2021 Alias Robotics S.L.
+
 """
 Real-Time Publish-Subscribe Protocol (RTPS) dissection
-
-Copyright (C) 2021 Trend Micro Incorporated
-Copyright (C) 2021 Alias Robotics S.L.
-
-This program is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation; either version 2 of the License, or (at your option) any later
-version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with
-this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
-Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
 
 # scapy.contrib.description = RTPS common types
@@ -33,13 +23,15 @@ from scapy.fields import (
     IPField,
     LEIntField,
     PacketField,
+    PacketListField,
     ReversePadField,
     StrField,
     StrLenField,
+    UUIDField,
     XIntField,
     XStrFixedLenField,
 )
-from scapy.packet import Packet, fuzz
+from scapy.packet import Packet
 
 FORMAT_LE = "<"
 FORMAT_BE = ">"
@@ -55,7 +47,7 @@ def is_le(pkt):
     return False
 
 
-def e_flags(pkt: Packet) -> str:
+def e_flags(pkt):
     if is_le(pkt):
         return FORMAT_LE
     else:
@@ -69,7 +61,7 @@ class EField(object):
 
     __slots__ = ["fld", "endianness", "endianness_from"]
 
-    def __init__(self, fld, endianness=FORMAT_BE, endianness_from=e_flags):
+    def __init__(self, fld, endianness=None, endianness_from=None):
         self.fld = fld
         self.endianness = endianness
         self.endianness_from = endianness_from
@@ -89,13 +81,16 @@ class EField(object):
             return
 
         if isinstance(self.endianness, str) and self.endianness:
-            if hasattr(self.fld, "fmt"):
+            if isinstance(self.fld, UUIDField):
+                self.fld.uuid_fmt = (UUIDField.FORMAT_LE if
+                                     self.endianness == '<'
+                                     else UUIDField.FORMAT_BE)
+            elif hasattr(self.fld, "fmt"):
                 if len(self.fld.fmt) == 1:  # if it's only "I"
                     _end = self.fld.fmt[0]
                 else:  # if it's "<I"
                     _end = self.fld.fmt[1:]
                 self.fld.fmt = self.endianness + _end
-
                 self.fld.struct = struct.Struct(self.fld.fmt)
 
     def getfield(self, pkt, buf):
@@ -118,33 +113,23 @@ class EPacket(Packet):
 
     __slots__ = ["endianness"]
 
-    def __init__(self, *args, endianness=None, **kwargs):
-        self.endianness = endianness
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        self.endianness = kwargs.pop("endianness", None)
+        super(EPacket, self).__init__(*args, **kwargs)
 
     def extract_padding(self, p):
         return b"", p
 
 
-class EPacketField(PacketField):
+class _EPacketField(object):
     """
     A packet field that manages its endianness and that of its nested packet
     """
 
-    __slots__ = ["endianness", "endianness_from", "fuzz_fun"]
-
-    def __init__(
-        self,
-        *args,
-        fuzz_fun=fuzz,
-        endianness=None,
-        endianness_from=e_flags,
-        **kwargs,
-    ):
-        self.endianness = endianness
-        self.endianness_from = endianness_from
-        self.fuzz_fun = fuzz_fun
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        self.endianness = kwargs.pop("endianness", None)
+        self.endianness_from = kwargs.pop("endianness_from", e_flags)
+        super(_EPacketField, self).__init__(*args, **kwargs)
 
     def set_endianness(self, pkt):
         if getattr(pkt, "endianness", None) is not None:
@@ -158,16 +143,22 @@ class EPacketField(PacketField):
                 self.endianness = DEFAULT_ENDIANESS
 
     def m2i(self, pkt, m):
-        self.set_endianness(pkt)
+        return self.cls(m, endianness=pkt.endianness)
 
-        _pkt = self.cls(m, endianness=self.endianness)
 
-        return _pkt
+class EPacketField(_EPacketField, PacketField):
+    """
+    A PacketField that manages its endianness and that of its nested packet
+    """
+    __slots__ = ["endianness", "endianness_from", "fuzz_fun"]
 
-    def randval(self):
-        if self.fuzz_fun is not None:
-            return self.fuzz_fun(self.cls())
-        return super().randval()
+
+class EPacketListField(_EPacketField, PacketListField):
+    """
+    A PacketListField that manages its endianness and
+    that of its nested packet
+    """
+    __slots__ = ["endianness", "endianness_from", "fuzz_fun"]
 
 
 class SerializedDataField(StrLenField):
@@ -295,24 +286,24 @@ class ProtocolVersionPacket(Packet):
 
 
 _rtps_vendor_ids = {
-    b"\x00\x00": "VENDOR_ID_UNKNOWN (0x0000)",
-    b"\x01\x01": "Real-Time Innovations, Inc. - Connext DDS",
-    b"\x01\x02": "PrismTech Inc. - OpenSplice DDS",
-    b"\x01\x03": "Object Computing Incorporated, Inc. (OCI) - OpenDDS",
-    b"\x01\x04": "MilSoft",
-    b"\x01\x05": "Gallium Visual Systems Inc. - InterCOM DDS",
-    b"\x01\x06": "TwinOaks Computing, Inc. - CoreDX DDS",
-    b"\x01\x07": "Lakota Technical Solutions, Inc.",
-    b"\x01\x08": "ICOUP Consulting",
-    b"\x01\x09": "ETRI Electronics and Telecommunication Research Institute",
-    b"\x01\x0A": "Real-Time Innovations, Inc. (RTI) - Connext DDS Micro",
-    b"\x01\x0B": "PrismTech - OpenSplice Mobile",
-    b"\x01\x0C": "PrismTech - OpenSplice Gateway",
-    b"\x01\x0D": "PrismTech - OpenSplice Lite",
-    b"\x01\x0E": "Technicolor Inc. - Qeo",
-    b"\x01\x0F": "eProsima - Fast-RTPS",
-    b"\x01\x10": "ADLINK - Cyclone DDS",
-    b"\x01\x11": "GurumNetworks - GurumDDS",
+    0x0000: "VENDOR_ID_UNKNOWN (0x0000)",
+    0x0101: "Real-Time Innovations, Inc. - Connext DDS",
+    0x0102: "PrismTech Inc. - OpenSplice DDS",
+    0x0103: "Object Computing Incorporated, Inc. (OCI) - OpenDDS",
+    0x0104: "MilSoft",
+    0x0105: "Gallium Visual Systems Inc. - InterCOM DDS",
+    0x0106: "TwinOaks Computing, Inc. - CoreDX DDS",
+    0x0107: "Lakota Technical Solutions, Inc.",
+    0x0108: "ICOUP Consulting",
+    0x0109: "ETRI Electronics and Telecommunication Research Institute",
+    0x010A: "Real-Time Innovations, Inc. (RTI) - Connext DDS Micro",
+    0x010B: "PrismTech - OpenSplice Mobile",
+    0x010C: "PrismTech - OpenSplice Gateway",
+    0x010D: "PrismTech - OpenSplice Lite",
+    0x010E: "Technicolor Inc. - Qeo",
+    0x010F: "eProsima - Fast-RTPS",
+    0x0110: "ADLINK - Cyclone DDS",
+    0x0111: "GurumNetworks - GurumDDS",
 }
 
 
@@ -323,9 +314,8 @@ class VendorIdPacket(Packet):
         # ByteField("minor", 0),
         EnumField(
             name="vendor_id",
-            default=b"\x00\x00",
+            default=0,
             enum=_rtps_vendor_ids,
-            fmt="2s"
         ),
     ]
 

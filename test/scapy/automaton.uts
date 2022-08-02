@@ -352,19 +352,92 @@ r = x
 r
 assert(r == "Venus")
 
+= Automaton timer function
+~ run timers
+
+class TimerTest(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.count1 = 0
+        self.count2 = 0
+    @ATMT.timer(BEGIN, 0.1)
+    def count1(self):
+        self.count1 += 1
+    @ATMT.timer(BEGIN, 0.15)
+    def count2(self):
+        self.count2 += 1
+    @ATMT.timeout(BEGIN, 1)
+    def goto_end(self):
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        pass
+
+sm = TimerTest(ll=lambda: None, recvsock=lambda: None)
+sm.run()
+
+assert sm.timer_by_name("count0") is None
+assert sm.timer_by_name("count1") is not None
+assert sm.timer_by_name("count1")._timeout == 0.1
+assert sm.timer_by_name("count2") is not None
+assert sm.timer_by_name("count2")._timeout == 0.15
+assert sm.timer_by_name("goto_end") is not None
+assert sm.timer_by_name("goto_end")._timeout == 1
+assert sm.count1 == 10
+assert sm.count2 == 6
+
+~ reconfigure timers
+
+sm = TimerTest(ll=lambda: None, recvsock=lambda: None)
+sm.timer_by_name("count1").set(0.2)
+sm.timer_by_name("count2").set(0.25)
+sm.run()
+assert sm.count1 == 5
+assert sm.count2 == 4
+
+~ timeout
+
+class TimerTest(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.count1 = 0
+        self.count2 = 0
+    @ATMT.timeout(BEGIN, 0.1)
+    def count1(self):
+        self.count1 += 1
+    @ATMT.timer(BEGIN, 0.15)
+    def count2(self):
+        self.count2 += 1
+    @ATMT.timeout(BEGIN, 1)
+    def goto_end(self):
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        pass
+
+sm = TimerTest(ll=lambda: None, recvsock=lambda: None)
+sm.run()
+
+assert sm.count1 == 1
+assert sm.count2 == 6
+
 = Automaton graph
 ~ automaton
 
 class HelloWorld(Automaton):
     @ATMT.state(initial=1)
     def BEGIN(self):
-        pass
-    @ATMT.condition(BEGIN)
-    def wait_for_nothing(self):
+        self.count1 = 0
+        self.count2 = 0
+    @ATMT.timer(BEGIN, 0.1)
+    def count1(self):
+        self.count1 += 1
+    @ATMT.timer(BEGIN, 0.15)
+    def count2(self):
+        self.count2 += 1
+    @ATMT.timeout(BEGIN, 1)
+    def goto_end(self):
         raise self.END()
-    @ATMT.action(wait_for_nothing)
-    def on_nothing(self):
-        pass
     @ATMT.state(final=1)
     def END(self):
         pass

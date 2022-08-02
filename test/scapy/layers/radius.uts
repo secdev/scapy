@@ -221,12 +221,10 @@ assert pkt.attributes[2].type == 24
 assert pkt.attributes[2].len == 18
 
 conf.contribs.setdefault("radius", {})["auto-defrag"] = False
-_od = conf.debug_dissector
-conf.debug_dissector = False
 
-pkt = Radius(s)
+with no_debug_dissector():
+    pkt = Radius(s)
 
-conf.debug_dissector = _od
 assert len(pkt.attributes) == 4
 assert pkt.attributes[0].type == 79
 assert pkt.attributes[1].type == 79

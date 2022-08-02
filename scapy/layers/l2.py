@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Classes and functions for layer 2 protocols.
@@ -21,13 +21,14 @@ from scapy.compat import chb, orb
 from scapy.config import conf
 from scapy import consts
 from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
-    DLT_ETHERNET_MPACKET, DLT_LINUX_IRDA, DLT_LINUX_SLL, DLT_LOOP, \
-    DLT_NULL, ETHER_ANY, ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, \
+    DLT_ETHERNET_MPACKET, DLT_LINUX_IRDA, DLT_LINUX_SLL, DLT_LINUX_SLL2, \
+    DLT_LOOP, DLT_NULL, ETHER_ANY, ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, \
     ETH_P_MACSEC
 from scapy.error import warning, ScapyNoDstMacException, log_runtime
 from scapy.fields import (
     BCDFloatField,
     BitField,
+    ByteEnumField,
     ByteField,
     ConditionalField,
     FCSField,
@@ -209,6 +210,30 @@ class SourceMACField(MACField):
 
 # Layers
 
+HARDWARE_TYPES = {
+    1: "Ethernet (10Mb)",
+    2: "Ethernet (3Mb)",
+    3: "AX.25",
+    4: "Proteon ProNET Token Ring",
+    5: "Chaos",
+    6: "IEEE 802 Networks",
+    7: "ARCNET",
+    8: "Hyperchannel",
+    9: "Lanstar",
+    10: "Autonet Short Address",
+    11: "LocalTalk",
+    12: "LocalNet",
+    13: "Ultra link",
+    14: "SMDS",
+    15: "Frame relay",
+    16: "ATM",
+    17: "HDLC",
+    18: "Fibre Channel",
+    19: "ATM",
+    20: "Serial Line",
+    21: "ATM",
+}
+
 ETHER_TYPES[0x88a8] = '802_AD'
 ETHER_TYPES[ETH_P_MACSEC] = '802_1AE'
 
@@ -291,19 +316,36 @@ conf.neighbor.register_l3(Ether, LLC, l2_register_l3)
 conf.neighbor.register_l3(Dot3, LLC, l2_register_l3)
 
 
+COOKED_LINUX_PACKET_TYPES = {
+    0: "unicast",
+    1: "broadcast",
+    2: "multicast",
+    3: "unicast-to-another-host",
+    4: "sent-by-us"
+}
+
+
 class CookedLinux(Packet):
     # Documentation: http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html
     name = "cooked linux"
     # from wireshark's database
-    fields_desc = [ShortEnumField("pkttype", 0, {0: "unicast",
-                                                 1: "broadcast",
-                                                 2: "multicast",
-                                                 3: "unicast-to-another-host",
-                                                 4: "sent-by-us"}),
+    fields_desc = [ShortEnumField("pkttype", 0, COOKED_LINUX_PACKET_TYPES),
                    XShortField("lladdrtype", 512),
                    ShortField("lladdrlen", 0),
                    StrFixedLenField("src", b"", 8),
                    XShortEnumField("proto", 0x800, ETHER_TYPES)]
+
+
+class CookedLinuxV2(CookedLinux):
+    # Documentation: https://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL2.html
+    name = "cooked linux v2"
+    fields_desc = [XShortEnumField("proto", 0x800, ETHER_TYPES),
+                   ShortField("reserved", 0),
+                   IntField("ifindex", 0),
+                   XShortField("lladdrtype", 512),
+                   ByteEnumField("pkttype", 0, COOKED_LINUX_PACKET_TYPES),
+                   ByteField("lladdrlen", 0),
+                   StrFixedLenField("src", b"", 8)]
 
 
 class MPacketPreamble(Packet):
@@ -384,7 +426,7 @@ class STP(Packet):
 class ARP(Packet):
     name = "ARP"
     fields_desc = [
-        XShortField("hwtype", 0x0001),
+        XShortEnumField("hwtype", 0x0001, HARDWARE_TYPES),
         XShortEnumField("ptype", 0x0800, ETHER_TYPES),
         FieldLenField("hwlen", None, fmt="B", length_of="hwsrc"),
         FieldLenField("plen", None, fmt="B", length_of="psrc"),
@@ -674,6 +716,7 @@ conf.l2types.register_num2layer(ARPHDR_METRICOM, Ether)
 conf.l2types.register_num2layer(ARPHDR_LOOPBACK, Ether)
 conf.l2types.register_layer2num(ARPHDR_ETHER, Dot3)
 conf.l2types.register(DLT_LINUX_SLL, CookedLinux)
+conf.l2types.register(DLT_LINUX_SLL2, CookedLinuxV2)
 conf.l2types.register(DLT_ETHERNET_MPACKET, MPacketPreamble)
 conf.l2types.register_num2layer(DLT_LINUX_IRDA, CookedLinux)
 conf.l2types.register(DLT_LOOP, Loopback)

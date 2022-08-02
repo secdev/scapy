@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Scapy: create, send, sniff, dissect and manipulate network packets.
@@ -91,6 +91,24 @@ def _version():
 
     :return: the Scapy version
     """
+    # Rely on git archive "export-subst" git attribute.
+    # See 'man gitattributes' for more details.
+    # Note: describe is only supported with git >= 2.32.0
+    # but we use it to workaround GH#3121
+    git_archive_id = '$Format:%h %(describe)$'.strip().split()
+    sha1 = git_archive_id[0]
+    tag = git_archive_id[1]
+    if "Format" not in sha1:
+        # We are in a git archive
+        if "describe" in tag:
+            # git is too old!
+            tag = ""
+        if tag:
+            return _parse_tag(tag)
+        elif sha1:
+            return "git-archive." + sha1
+        return 'unknown.version'
+    # Fallback to calling git
     version_file = os.path.join(_SCAPY_PKG_DIR, 'VERSION')
     try:
         tag = _version_from_git_describe()
@@ -106,22 +124,7 @@ def _version():
                 tag = fdsec.read()
             return tag
         except Exception:
-            # Rely on git archive "export-subst" git attribute.
-            # See 'man gitattributes' for more details.
-            # Note: describe is only supported with git >= 2.32.0
-            # but we use it to workaround GH#3121
-            git_archive_id = '$Format:%h %(describe:tags)$'.strip().split()
-            sha1 = git_archive_id[0]
-            tag = git_archive_id[1]
-            if "describe" in tag:
-                # git is too old !
-                tag = None
-            if tag:
-                return _parse_tag(tag)
-            elif sha1:
-                return "git-archive.dev" + sha1
-            else:
-                return 'unknown.version'
+            return 'unknown.version'
 
 
 VERSION = __version__ = _version()

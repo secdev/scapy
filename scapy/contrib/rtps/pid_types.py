@@ -1,21 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Copyright (C) 2021 Trend Micro Incorporated
+# Copyright (C) 2021 Alias Robotics S.L.
+
 """
 Real-Time Publish-Subscribe Protocol (RTPS) dissection
-
-Copyright (C) 2021 Trend Micro Incorporated
-Copyright (C) 2021 Alias Robotics S.L.
-
-This program is free software; you can redistribute it and/or modify it under
-the terms of the GNU General Public License as published by the Free Software
-Foundation; either version 2 of the License, or (at your option) any later
-version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with
-this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
-Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
 
 # scapy.contrib.description = RTPS PID type definitions
@@ -23,9 +13,7 @@ Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import random
 import struct
-from typing import List, Optional
 
-from scapy.base_classes import Packet_metaclass
 from scapy.fields import (
     IntField,
     PacketField,
@@ -49,7 +37,6 @@ from scapy.contrib.rtps.common_types import (
     ProtocolVersionPacket,
     TransportInfoPacket,
     VendorIdPacket,
-    e_flags,
     FORMAT_LE,
 )
 
@@ -718,14 +705,9 @@ _RTPSParameterIdTypes = {
 }
 
 
-def get_pid_class(
-    pkt: Packet, lst: List[Packet], cur: Optional[Packet], remain: str
-) -> Optional[Packet_metaclass]:
+def get_pid_class(pkt, lst, cur, remain):
 
-    if hasattr(pkt, "endianness"):
-        endianness = pkt.endianness
-    else:
-        endianness = e_flags(pkt)
+    endianness = getattr(pkt, "endianness", None)
 
     _id = struct.unpack(endianness + "h", remain[0:2])[0]
 

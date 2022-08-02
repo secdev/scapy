@@ -13,11 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: "3.10"
       - name: Install tox
         run: pip install tox
       - name: Run flake8 tests
@@ -31,11 +31,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: "3.10"
       - name: Install tox
         run: pip install tox
       - name: Build docs
@@ -45,11 +45,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: "3.10"
       - name: Install tox
         run: pip install tox
       - name: Run mypy
@@ -63,47 +63,47 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python: [2.7, 3.9]
+        python: ["2.7", "3.10"]
         mode: [both]
         installmode: ['']
         include:
           # Linux non-root only tests
           - os: ubuntu-latest
-            python: 3.6
+            python: "3.7"
             mode: non_root
           - os: ubuntu-latest
-            python: 3.7
+            python: "3.8"
             mode: non_root
           - os: ubuntu-latest
-            python: 3.8
+            python: "3.9"
             mode: non_root
           # PyPy tests: root only
           - os: ubuntu-latest
-            python: pypy2
+            python: "pypy2.7"
             mode: root
           - os: ubuntu-latest
-            python: pypy3
+            python: "pypy3.9"
             mode: root
           # Libpcap test
           - os: ubuntu-latest
-            python: 3.9
+            python: "3.10"
             mode: root
             installmode: 'libpcap'
           # MacOS tests
           - os: macos-10.15
-            python: 2.7
+            python: "2.7"
             mode: both
           - os: macos-10.15
-            python: 3.9
+            python: "3.10"
             mode: both
     steps:
       - name: Checkout Scapy
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         # Codecov requires a fetch-depth > 1
         with:
           fetch-depth: 2
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python }}
       - name: Install Tox and any other packages
@@ -111,7 +111,7 @@ jobs:
       - name: Run Tox
         run: ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
       - name: Codecov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v2
         with:
             file: /home/runner/work/scapy/scapy/.coverage
 
@@ -123,12 +123,12 @@ jobs:
       security-events: write
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 2
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v1
+      uses: github/codeql-action/init@v2
       with:
          languages: 'python'
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v1
+      uses: github/codeql-action/analyze@v2

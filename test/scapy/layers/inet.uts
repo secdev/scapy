@@ -519,6 +519,10 @@ assert(len(l) == 6)
 assert([len(raw(p[IP].payload)) for p in l] == [8, 8, 8, 8, 8, 8])
 assert([(p.frag, p.flags.MF) for p in [IP(raw(p)) for p in l]] == [(0, True), (1, True), (2, True), (0, True), (1, True), (2, False)])
 
+= IPv4 - ICMP hashret
+for x in ICMP(type=range(0,40),code=range(0,40)):
+    (IP()/x).hashret()
+
 = IPv4 - traceroute utilities
 ip_ttl = [("192.168.0.%d" % i, i) for i in six.moves.range(1, 10)]
 
@@ -568,8 +572,9 @@ def test_summary():
 test_summary()
 
 import mock
+import scapy.libs.matplot
 
-@mock.patch("scapy.layers.inet.plt")
+@mock.patch("scapy.libs.matplot.plt")
 def test_timeskew_graph(mock_plt):
     def fake_plot(data, **kwargs):
         return data

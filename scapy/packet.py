@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Packet class
@@ -46,7 +46,7 @@ from scapy.volatile import RandField, VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
 from scapy.error import Scapy_Exception, log_runtime, warning
-from scapy.extlib import PYX
+from scapy.libs.test_pyx import PYX
 import scapy.libs.six as six
 
 # Typing imports
@@ -85,8 +85,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         "packetfields",
         "original", "explicit", "raw_packet_cache",
         "raw_packet_cache_fields", "_pkt", "post_transforms",
-        # then payload and underlayer
-        "payload", "underlayer",
+        # then payload, underlayer and parent
+        "payload", "underlayer", "parent",
         "name",
         # used for sr()
         "_answered",
@@ -94,6 +94,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         "direction", "sniffed_on",
         # handle snaplen Vs real length
         "wirelen",
+        "comment"
     ]
     name = None
     fields_desc = []  # type: Sequence[AnyField]
@@ -127,10 +128,11 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))  # noqa: E501
 
     def __init__(self,
-                 _pkt=b"",  # type: bytes
+                 _pkt=b"",  # type: Union[bytes, bytearray]
                  post_transform=None,  # type: Any
                  _internal=0,  # type: int
                  _underlayer=None,  # type: Optional[Packet]
+                 _parent=None,  # type: Optional[Packet]
                  **fields  # type: Any
                  ):
         # type: (...) -> None
@@ -148,6 +150,9 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.payload = NoPayload()
         self.init_fields()
         self.underlayer = _underlayer
+        self.parent = _parent
+        if isinstance(_pkt, bytearray):
+            _pkt = bytes(_pkt)
         self.original = _pkt
         self.explicit = 0
         self.raw_packet_cache = None  # type: Optional[bytes]
@@ -155,6 +160,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.wirelen = None  # type: Optional[int]
         self.direction = None  # type: Optional[int]
         self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
+        self.comment = None  # type: Optional[bytes]
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -168,14 +174,16 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 value = fields.pop(fname)
             except KeyError:
                 continue
-            self.fields[fname] = self.get_field(fname).any2i(self, value)
+            self.fields[fname] = value if isinstance(value, RawVal) else \
+                self.get_field(fname).any2i(self, value)
         # The remaining fields are unknown
         for fname in fields:
             if fname in self.deprecated_fields:
                 # Resolve deprecated fields
                 value = fields[fname]
                 fname = self._resolve_alias(fname)
-                self.fields[fname] = self.get_field(fname).any2i(self, value)
+                self.fields[fname] = value if isinstance(value, RawVal) else \
+                    self.get_field(fname).any2i(self, value)
                 continue
             raise AttributeError(fname)
         if isinstance(post_transform, list):
@@ -190,7 +198,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         Optional[Union[EDecimal, float, None]],
         Optional[int],
         Optional[_GlobInterfaceType],
-        Optional[int]
+        Optional[int],
+        Optional[bytes],
     ]
 
     def __reduce__(self):
@@ -202,6 +211,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.direction,
             self.sniffed_on,
             self.wirelen,
+            self.comment
         ))
 
     def __setstate__(self, state):
@@ -212,6 +222,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.direction = state[2]
         self.sniffed_on = state[3]
         self.wirelen = state[4]
+        self.comment = state[5]
         return self
 
     def __deepcopy__(self,
@@ -368,6 +379,20 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         # type: (Packet) -> None
         self.underlayer = None
 
+    def add_parent(self, parent):
+        # type: (Packet) -> None
+        """Set packet parent.
+        When packet is an element in PacketListField, parent field would
+        point to the list owner packet."""
+        self.parent = parent
+
+    def remove_parent(self, other):
+        # type: (Packet) -> None
+        """Remove packet parent.
+        When packet is an element in PacketListField, parent field would
+        point to the list owner packet."""
+        self.parent = None
+
     def copy(self):
         # type: () -> Packet
         """Returns a deep copy of the instance."""
@@ -386,6 +411,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         clone.payload = self.payload.copy()
         clone.payload.add_underlayer(clone)
         clone.time = self.time
+        clone.comment = self.comment
         return clone
 
     def _resolve_alias(self, attr):
@@ -429,7 +455,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         except ValueError:
             return self.payload.__getattr__(attr)
         if fld is not None:
-            return fld.i2h(self, v)
+            return v if isinstance(v, RawVal) else fld.i2h(self, v)
         return v
 
     def setfieldval(self, attr, val):
@@ -1064,6 +1090,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.raw_packet_cache_fields
         )
         pkt.wirelen = self.wirelen
+        pkt.comment = self.comment
         if payload is not None:
             pkt.add_payload(payload)
         return pkt
@@ -1621,6 +1648,11 @@ values.
                 fv = fv.command()
             elif fld.islist and fld.holds_packets and isinstance(fv, list):
                 fv = "[%s]" % ",".join(map(Packet.command, fv))
+            elif fld.islist and isinstance(fv, list):
+                fv = "[%s]" % ", ".join(
+                    getattr(x, 'command', lambda: repr(x))()
+                    for x in fv
+                )
             elif isinstance(fld, FlagsField):
                 fv = int(fv)
             elif callable(getattr(fv, 'command', None)):
@@ -1665,6 +1697,14 @@ class NoPayload(Packet):
         pass
 
     def remove_underlayer(self, other):
+        # type: (Packet) -> None
+        pass
+
+    def add_parent(self, parent):
+        # type: (Any) -> None
+        pass
+
+    def remove_parent(self, other):
         # type: (Packet) -> None
         pass
 
@@ -2395,7 +2435,7 @@ def rfc(cls, ret=False, legend=True):
         # The last field of above is shared with below
         if above[-1][2] == below[0][2]:
             # where the field in "above" starts
-            pos_above = sum(x[1] for x in above[:-1])
+            pos_above = sum(x[1] for x in above[:-1]) + len(above[:-1]) - 1
             # where the field in "below" ends
             pos_below = below[0][1]
             if pos_above < pos_below:

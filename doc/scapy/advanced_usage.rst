@@ -509,20 +509,20 @@ Let's begin with a simple example. I take the convention to write states with ca
     class HelloWorld(Automaton):
         @ATMT.state(initial=1)
         def BEGIN(self):
-            print "State=BEGIN"
+            print("State=BEGIN")
     
         @ATMT.condition(BEGIN)
         def wait_for_nothing(self):
-            print "Wait for nothing..."
+            print("Wait for nothing...")
             raise self.END()
     
         @ATMT.action(wait_for_nothing)
         def on_nothing(self):
-            print "Action on 'nothing' condition"
+            print("Action on 'nothing' condition")
     
         @ATMT.state(final=1)
         def END(self):
-            print "State=END"
+            print("State=END")
 
 In this example, we can see 3 decorators:
 
@@ -558,7 +558,7 @@ As an example, let's consider the following state::
 
     @ATMT.state()
     def MY_STATE(self, param1, param2):
-        print "state=MY_STATE. param1=%r param2=%r" % (param1, param2)
+        print("state=MY_STATE. param1=%r param2=%r" % (param1, param2))
 
 This state will be reached with the following code::
 
@@ -723,7 +723,7 @@ The ``START`` event is ``initial=1``, the ``STOP`` event is ``stop=1`` and the `
 Decorators for transitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Transitions are methods decorated by the result of one of ``ATMT.condition``, ``ATMT.receive_condition``, ``ATMT.timeout``. They all take as argument the state method they are related to. ``ATMT.timeout`` also have a mandatory ``timeout`` parameter to provide the timeout value in seconds. ``ATMT.condition`` and ``ATMT.receive_condition`` have an optional ``prio`` parameter so that the order in which conditions are evaluated can be forced. The default priority is 0. Transitions with the same priority level are called in an undetermined order.
+Transitions are methods decorated by the result of one of ``ATMT.condition``, ``ATMT.receive_condition``, ``ATMT.timeout``, ``ATMT.timer``. They all take as argument the state method they are related to. ``ATMT.timeout`` and ``ATMT.timer`` also have a mandatory ``timeout`` parameter to provide the timeout value in seconds. The difference between ``ATMT.timeout`` and ``ATMT.timer`` is that ``ATMT.timeout`` gets triggered only once. ``ATMT.timer`` get reloaded automatically, which is useful for sending keep-alive packets. ``ATMT.condition`` and ``ATMT.receive_condition`` have an optional ``prio`` parameter so that the order in which conditions are evaluated can be forced. The default priority is 0. Transitions with the same priority level are called in an undetermined order.
 
 When the automaton switches to a given state, the state's method is executed. Then transitions methods are called at specific moments until one triggers a new state (something like ``raise self.MY_NEW_STATE()``). First, right after the state's method returns, the ``ATMT.condition`` decorated methods are run by growing prio. Then each time a packet is received and accepted by the master filter all ``ATMT.receive_condition`` decorated hods are called by growing prio. When a timeout is reached since the time we entered into the current space, the corresponding ``ATMT.timeout`` decorated method is called.
 
@@ -780,16 +780,16 @@ Actions are methods that are decorated by the return of ``ATMT.action`` function
     
         @ATMT.action(maybe_go_to_end)
         def maybe_action(self):
-            print "We are lucky..."
+            print("We are lucky...")
 
         @ATMT.action(certainly_go_to_end)
         def certainly_action(self):
-            print "We are not lucky..."
+            print("We are not lucky...")
 
         @ATMT.action(maybe_go_to_end, prio=1)
         @ATMT.action(certainly_go_to_end, prio=1)
         def always_action(self):
-            print "This wasn't luck!..."
+            print("This wasn't luck!...")
 
 The two possible outputs are::
 
@@ -833,6 +833,29 @@ Two methods are hooks to be overloaded:
 * The ``parse_args()`` method is called with arguments given at ``__init__()`` and ``run()``. Use that to parametrize the behavior of your automaton.
 
 * The ``master_filter()`` method is called each time a packet is sniffed and decides if it is interesting for the automaton. When working on a specific protocol, this is where you will ensure the packet belongs to the connection you are being part of, so that you do not need to make all the sanity checks in each transition.
+
+Timer configuration
+^^^^^^^^^^^^^^^^^^^
+
+Some protocols allow timer configuration. In order to configure timeout values during class initialization one may use ``timer_by_name()`` method, which returns ``Timer`` object associated with the given function name::
+
+    class Example(Automaton):
+	def __init__(self, *args, **kwargs):
+	    super(Example, self).__init__(*args, **kwargs)
+	    timer = self.timer_by_name("waiting_timeout")
+	    timer.set(1)
+
+	@ATMT.state(initial=1)
+	def WAITING(self):
+	    pass
+
+	@ATMT.state(final=1)
+	def END(self):
+	    pass
+
+	@ATMT.timeout(WAITING, 10.0)
+	def waiting_timeout(self):
+	    raise self.END()
 
 .. _pipetools:
 

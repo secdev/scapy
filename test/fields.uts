@@ -461,6 +461,35 @@ p
 p.show()
 IP in p and TCP in p and UDP in p and p[TCP].seq == 1234567
 
+= Test parent reference
+~ field lengthfield
+x=TestPLF(plist=[IP()/TCP(), IP()/UDP()])
+assert p.getlayer(IP, 1).parent == p and p.getlayer(IP, 2).parent == p
+p = TestPLF(raw(x))
+assert p.getlayer(IP, 1).parent == p and p.getlayer(IP, 2).parent == p
+
+= Test parent reference in guess_payload_class
+
+class TestGuessPLFInner(Packet):
+    name="test guess inner"
+    fields_desc=[ LenField("foo", None) ]
+    def guess_payload_class(self, payload):
+        self.parentflag = True
+        if self.parent is None:
+            # all exceptions are caught, so have to use flag
+            self.parentflag = False
+        return super(TestGuessPLFInner, self).guess_payload_class(payload)
+
+class TestGuessPLF(Packet):
+    name="test guess"
+    fields_desc=[PacketListField("plist", None, TestGuessPLFInner,
+                                 next_cls_cb=lambda p,l,c,r: TestGuessPLFInner if len(l) == 0 else None)]
+
+x=TestGuessPLF(plist=TestGuessPLFInner()/Raw(b'123'))
+p=TestGuessPLF(raw(x))
+assert p[TestGuessPLFInner].parentflag
+assert p[TestGuessPLFInner].parent == p
+
 = Nested PacketListField
 ~ field lengthfield
 y=IP()/TCP(seq=111111)/TestPLF(plist=[IP()/TCP(seq=222222),IP()/UDP()])
@@ -1092,6 +1121,26 @@ assert(lf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
 assert(fcb.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
 
 True
+
+= EnumField with Enum
+~ python3_only
+
+# not available on Python 2...
+
+from enum import Enum
+
+class JUICE(Enum):
+    APPLE = 0
+    ORANGE = 1
+    PINEAPPLE = 2
+
+
+class Breakfast(Packet):
+    fields_desc = [EnumField("juice", 1, JUICE, fmt="H")]
+
+
+assert raw(Breakfast(juice="ORANGE")) == b"\x00\x01"
+
 
 ############
 ############
@@ -2060,6 +2109,32 @@ pkt = TestPacket(raw(pkt))
 assert pkt.fcs == 0xbeef
 
 
+= FCSField: multiple
+
+class TestPacket2(Packet):
+    fields_desc = [
+        ByteField("a", 0),
+        LEShortField("b", 15),
+        FCSField("fcs1", None),
+        LEIntField("c", 7),
+        FCSField("fcs2", None),
+        IntField("bottom", 0),
+    ]
+
+bind_layers(TestPacket2, Ether)
+
+pkt = TestPacket2(a=12, fcs1=0xbeef, fcs2=0xfeed, bottom=123)/Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IP(src="127.0.0.1", dst="127.0.0.1")
+
+assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01\xfe\xed\xbe\xef'
+assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01\xfe\xed\xbe\xef'
+
+pkt = TestPacket2(raw(pkt))
+assert pkt.fcs1 == 0xbeef
+assert pkt.fcs2 == 0xfeed
+assert pkt.bottom == 123
+assert pkt.a == 12
+
+
 ############
 ############
 + PacketField
@@ -2102,3 +2177,39 @@ assert isinstance(p.packet.short1, RandShort)
 assert isinstance(p.packet.byte, RandByte)
 assert isinstance(p.packet.long, RandLong)
 assert isinstance(p.short2, RandShort)
+
+= Test parent reference in guess_payload_class
+
+class TestGuessInner(Packet):
+    name="test guess inner"
+    fields_desc=[ ByteField("foo", 0) ]
+    def guess_payload_class(self, payload):
+        self.parentflag = True
+        if self.parent is None:
+            # all exceptions are caught, so have to use flag
+            self.parentflag = False
+        return super(TestGuessInner, self).guess_payload_class(payload)
+
+class TestGuess(Packet):
+    name="test guess"
+    fields_desc=[ PacketField("pf", None, TestGuessInner) ]
+
+x=TestGuess(pf=TestGuessInner()/Raw(b'123'))
+p=TestGuess(raw(x))
+assert p[TestGuessInner].parentflag
+assert p[TestGuessInner].parent == p
+
+############
+############
++ XStr(*)Field tests
+
+= i2repr
+~ field xstrfield
+
+from collections import namedtuple
+MockPacket = namedtuple('MockPacket', ['type'])
+
+mp = MockPacket(0)
+f = XStrField('test', None)
+x = f.i2repr(mp, RandBin())
+assert x == '<RandBin>'

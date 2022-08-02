@@ -8,6 +8,7 @@ import io
 import pickle
 from scapy.contrib.isotp import ISOTPMessageBuilder
 from test.testsocket import TestSocket, cleanup_testsockets, UnstableSocket
+from scapy.automaton import ObjectPipe
 
 ############
 ############
@@ -20,40 +21,58 @@ from scapy.contrib.automotive.uds import *
 from scapy.contrib.automotive.uds_ecu_states import *
 from scapy.contrib.automotive.uds_scan import *
 from scapy.contrib.automotive.ecu import *
+
 load_layer("can")
 
 
 = Define Testfunction
 
 def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstable_socket=True, **kwargs):
+    tester_obj_pipe = ObjectPipe(name="TesterPipe")
+    ecu_obj_pipe = ObjectPipe(name="ECUPipe")
     TesterSocket = UnstableSocket if unstable_socket else TestSocket
-    ecu = TestSocket(UDS)
-    tester = TesterSocket(UDS)
+    tester = TesterSocket(UDS, tester_obj_pipe)
+    ecu = TestSocket(UDS, ecu_obj_pipe)
+    tester.pair(ecu)
+    answering_machine = EcuAnsweringMachine(
+        supported_responses=supported_responses, main_socket=ecu,
+        basecls=UDS, verbose=False)
     def reset():
         answering_machine.state.reset()
         answering_machine.state["session"] = 1
         sniff(timeout=0.001, opened_socket=[ecu, tester])
     def reconnect():
-        tester = TesterSocket(UDS)
+        try:
+            tester.close()
+        except Exception:
+            pass
+        tester = TesterSocket(UDS, tester_obj_pipe)
         ecu.pair(tester)
         return tester
-    ecu.pair(tester)
-    answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=UDS, verbose=False)
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 1000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
-    sim.start()
+    def answering_machine_thread():
+        answering_machine(
+            timeout=120, stop_filter=lambda x: bytes(x) == b"\xff\xff\xff")
+    sim = threading.Thread(target=answering_machine_thread)
     try:
+        sim.start()
         scanner = UDS_Scanner(
-            tester, reset_handler=reset, reconnect_handler=reconnect, test_cases=enumerators, timeout=0.1,
+            tester, reset_handler=reset, reconnect_handler=reconnect,
+            test_cases=enumerators, timeout=0.1,
             retry_if_none_received=True, unittest=True,
             **kwargs)
-        for i in range(100):
-            scanner.scan(timeout=20)
+        for i in range(12):
+            print("Starting scan")
+            scanner.scan(timeout=10)
             if scanner.scan_completed:
                 print("Scan completed after %d iterations" % i)
                 break
     finally:
-        tester.send(Raw(b"\xff\xff\xff"))
+        ecu.ins.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)
+        assert not sim.is_alive()
+        cleanup_testsockets()
+        tester_obj_pipe.close()
+        ecu_obj_pipe.close()
     if six.PY3 and LINUX:
         pickle_test(scanner)
     return scanner
@@ -88,7 +107,7 @@ assert len(msgs)
 
 = Create ECU-Clone from packets
 
-mEcu = Ecu(logging=False, verbose=False, store_supported_responses=True)
+mEcu = Ecu(logging=False, verbose=False, store_supported_responses=True, lookahead=3)
 
 for p in msgs:
     if isinstance(p, CAN) and p.data == b"ECURESET":
@@ -128,24 +147,36 @@ assert e._retry_pkt[s] == None
 = Test UDS_SA_XOR_Enumerator stand alone mode
 
 TesterSocket = TestSocket
-ecu = TestSocket(UDS)
-tester = TesterSocket(UDS)
-ecu.pair(tester)
-answering_machine = EcuAnsweringMachine(supported_responses=mEcu.supported_responses, main_socket=ecu, basecls=UDS, verbose=False)
+ecu_sock = TestSocket(UDS)
+mTester = TesterSocket(UDS)
+ecu_sock.pair(mTester)
+answering_machine = EcuAnsweringMachine(supported_responses=mEcu.supported_responses, main_socket=ecu_sock, basecls=UDS, verbose=False)
 sim = threading.Thread(target=answering_machine, kwargs={'timeout': 1000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
 sim.start()
 try:
-    resp = tester.sr1(UDS()/UDS_TP(b"\x00"), verbose=False, timeout=1)
+    resp = mTester.sr1(UDS()/UDS_TP(b"\x00"), verbose=False, timeout=1)
     print(repr(resp))
     assert resp and resp.service != 0x7f
-    resp = tester.sr1(UDS()/UDS_DSC(diagnosticSessionType=3), verbose=False, timeout=1)
+    resp = mTester.sr1(UDS()/UDS_DSC(diagnosticSessionType=3), verbose=False, timeout=1)
     print(repr(resp))
     assert resp and resp.service != 0x7f
-    assert UDS_SA_XOR_Enumerator().get_security_access(tester, 1)
+    assert UDS_SA_XOR_Enumerator().get_security_access(mTester, 1)
 finally:
-    tester.send(Raw(b"\xff\xff\xff"))
+    mTester.send(Raw(b"\xff\xff\xff"))
     sim.join(timeout=2)
+    cleanup_testsockets()
 
+
+= Test configuration validation
+
+try:
+    scanner = UDS_Scanner(TestSocket(UDS),
+                          test_cases=[UDS_SA_XOR_Enumerator, UDS_DSCEnumerator, UDS_ServiceEnumerator],
+                          UDS_DSCEnumerator_kwargs={"scan_range": range(0x1000), "delay_state_change": 0,
+                                                    "overwrite_timeout": False})
+    assert False
+except Scapy_Exception:
+    pass
 
 = Simulate ECU and run Scanner
 
@@ -162,6 +193,7 @@ scanner = executeScannerInVirtualEnvironment(
                                                  0x3D, 0x3E, 0x83, 0x84, 0x85,
                                                  0x87]})
 
+scanner.show_testcases()
 assert len(scanner.state_paths) == 5
 assert scanner.scan_completed
 
@@ -796,6 +828,25 @@ result = tc1.show(dump=True)
 
 assert "requestOutOfRange received " in result
 
+= UDS_RMBARandomEnumerator
+
+pkt = UDS_RMBARandomEnumerator._random_memory_addr_pkt(4, 4, 10)
+
+assert pkt.memorySizeLen == 4
+assert pkt.memoryAddressLen == 4
+assert pkt.memorySize4 == 10
+assert pkt.memoryAddress4 is not None
+
+pkt = UDS_RMBARandomEnumerator._random_memory_addr_pkt()
+
+assert pkt.memorySizeLen in [1, 2, 3, 4]
+assert pkt.memoryAddressLen in [1, 2, 3, 4]
+
+pkt2 = UDS_RMBARandomEnumerator._random_memory_addr_pkt()
+
+assert pkt != pkt2
+
+
 = UDS_RMBAEnumerator
 ~ linux not_pypy
 
@@ -870,8 +921,8 @@ print(float([tp in addrs for tp in mem_inner_borders].count(True)) / len(mem_inn
 assert float([tp in addrs for tp in mem_inner_borders].count(True)) / len(mem_inner_borders) > 0.8
 print(float([tp in addrs for tp in mem_random_test_points].count(True)) / len(mem_random_test_points))
 assert float([tp in addrs for tp in mem_random_test_points].count(True)) / len(mem_random_test_points) > 0.8
-print(float([tp in addrs for tp in mem_outer_borders].count(True)) / len(mem_outer_borders))
-assert float([tp not in addrs for tp in mem_outer_borders].count(True)) / len(mem_outer_borders) > 0.8
+print(float([tp not in addrs for tp in mem_outer_borders].count(True)) / len(mem_outer_borders))
+assert float([tp not in addrs for tp in mem_outer_borders].count(True)) / len(mem_outer_borders) > 0.7
 
 
 = UDS_TDEnumerator
@@ -949,5 +1000,6 @@ assert 0xffff in ids
 + Cleanup
 
 = Delete testsockets
+
 
 cleanup_testsockets()

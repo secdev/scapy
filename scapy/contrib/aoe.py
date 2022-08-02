@@ -1,6 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
 # Copyright (C) 2018 antoine.torre <torreantoine1@gmail.com>
-##
-# This program is published under a GPLv2 license
 
 
 # scapy.contrib.description = ATA Over Internet

@@ -1,8 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
 # Copyright (C) Enrico Pozzobon <enrico.pozzobon@gmail.com>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = General Motors Local Area Network (GMLAN)
 # scapy.contrib.status = loads
@@ -510,7 +510,7 @@ class GMLAN_DPBAPR(Packet):
             and other.parameterIdentifier == self.parameterIdentifier
 
 
-bind_layers(GMLAN, GMLAN_DPBA, service=0x6D)
+bind_layers(GMLAN, GMLAN_DPBAPR, service=0x6D)
 
 
 # ########################RD###################################

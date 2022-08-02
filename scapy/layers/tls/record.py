@@ -1,9 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
+# See https://scapy.net/ for more information
 # Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
 #               2015, 2016, 2017 Maxence Tury
 #               2019 Romain Perez
 #               2019 Gabriel Potter
-# This program is published under a GPLv2 license
 
 """
 Common TLS fields & bindings.
@@ -338,8 +339,11 @@ class TLS(_GenericTLSSessionInheritance):
                     return _TLSEncryptedContent
                 # Check TLS 1.3
                 if s and _tls_version_check(s.tls_version, 0x0304):
-                    if (s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL) and
-                            byte0 == 0x17):
+                    _has_cipher = lambda x: (
+                        x and not isinstance(x.cipher, Cipher_NULL)
+                    )
+                    if (_has_cipher(s.rcs) or _has_cipher(s.prcs)) and \
+                            byte0 == 0x17:
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
             if plen < 5:

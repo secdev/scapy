@@ -1,10 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
+# See https://scapy.net/ for more information
 
 """
-External link to programs
+External link to pyx
 """
 
 import os
@@ -16,34 +15,8 @@ from scapy.error import log_loading
 # logger has been setup, to be able to print the warning messages
 
 __all__ = [
-    "Line2D",
-    "MATPLOTLIB",
-    "MATPLOTLIB_DEFAULT_PLOT_KARGS",
-    "MATPLOTLIB_INLINED",
     "PYX",
-    "plt",
 ]
-
-# MATPLOTLIB
-
-try:
-    from matplotlib import get_backend as matplotlib_get_backend
-    from matplotlib import pyplot as plt
-    from matplotlib.lines import Line2D
-    MATPLOTLIB = 1
-    if "inline" in matplotlib_get_backend():
-        MATPLOTLIB_INLINED = 1
-    else:
-        MATPLOTLIB_INLINED = 0
-    MATPLOTLIB_DEFAULT_PLOT_KARGS = {"marker": "+"}
-# RuntimeError to catch gtk "Cannot open display" error
-except (ImportError, RuntimeError):
-    plt = None
-    Line2D = None
-    MATPLOTLIB = 0
-    MATPLOTLIB_INLINED = 0
-    MATPLOTLIB_DEFAULT_PLOT_KARGS = dict()
-    log_loading.info("Can't import matplotlib. Won't be able to plot.")
 
 # PYX
 

@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = ServiceEnumerator definitions
 # scapy.contrib.status = library
@@ -53,22 +53,25 @@ class ServiceEnumerator(AutomotiveTestCase):
 
     _supported_kwargs = copy.copy(AutomotiveTestCase._supported_kwargs)
     _supported_kwargs.update({
-        'timeout': (int, float),
-        'execution_time': int,
-        'state_allow_list': (list, EcuState),
-        'state_block_list': (list, EcuState),
-        'retry_if_none_received': bool,
-        'exit_if_no_answer_received': bool,
-        'exit_if_service_not_supported': bool,
-        'exit_scan_on_first_negative_response': bool,
-        'retry_if_busy_returncode': bool,
-        'debug': bool,
-        'scan_range': (list, tuple, range)
+        'timeout': ((int, float), lambda x: x > 0),
+        'count': (int, lambda x: x >= 0),
+        'execution_time': (int, None),
+        'state_allow_list': ((list, EcuState), None),
+        'state_block_list': ((list, EcuState), None),
+        'retry_if_none_received': (bool, None),
+        'exit_if_no_answer_received': (bool, None),
+        'exit_if_service_not_supported': (bool, None),
+        'exit_scan_on_first_negative_response': (bool, None),
+        'retry_if_busy_returncode': (bool, None),
+        'debug': (bool, None),
+        'scan_range': ((list, tuple, range), None),
+        'unittest': (bool, None)
     })
 
     _supported_kwargs_doc = AutomotiveTestCase._supported_kwargs_doc + """
         :param timeout: Timeout until a response will arrive after a request
         :type timeout: integer or float
+        :param integer count: Number of request to be sent in one execution
         :param int execution_time: Time in seconds until the execution of
                                    this enumerator is stopped.
         :param state_allow_list: List of EcuState objects or EcuState object
@@ -106,7 +109,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     def __init__(self):
         # type: () -> None
         super(ServiceEnumerator, self).__init__()
-        self.__result_packets = OrderedDict()  # type: Dict[bytes, Packet]
+        self._result_packets = OrderedDict()  # type: Dict[bytes, Packet]
         self._results = list()  # type: List[_AutomotiveTestCaseScanResult]
         self._request_iterators = dict()  # type: Dict[EcuState, Iterable[Packet]]  # noqa: E501
         self._retry_pkt = defaultdict(lambda: None)  # type: Dict[EcuState, Optional[Union[Packet, Iterable[Packet]]]]  # noqa: E501
@@ -190,20 +193,20 @@ class ServiceEnumerator(AutomotiveTestCase):
 
     def _store_result(self, state, req, res):
         # type: (EcuState, Packet, Optional[Packet]) -> None
-        if bytes(req) not in self.__result_packets:
-            self.__result_packets[bytes(req)] = req
+        if bytes(req) not in self._result_packets:
+            self._result_packets[bytes(req)] = req
 
-        if res and bytes(res) not in self.__result_packets:
-            self.__result_packets[bytes(res)] = res
+        if res and bytes(res) not in self._result_packets:
+            self._result_packets[bytes(res)] = res
 
         self._results.append(_AutomotiveTestCaseScanResult(
             state,
-            self.__result_packets[bytes(req)],
-            self.__result_packets[bytes(res)] if res is not None else None,
+            self._result_packets[bytes(req)],
+            self._result_packets[bytes(res)] if res is not None else None,
             req.sent_time or 0.0,
             res.time if res is not None else None))
 
-    def __get_retry_iterator(self, state):
+    def _get_retry_iterator(self, state):
         # type: (EcuState) -> Iterable[Packet]
         retry_entry = self._retry_pkt[state]
         if retry_entry is None:
@@ -216,7 +219,7 @@ class ServiceEnumerator(AutomotiveTestCase):
             # assume self.retry_pkt is a generator or list
             return retry_entry
 
-    def __get_initial_request_iterator(self, state, **kwargs):
+    def _get_initial_request_iterator(self, state, **kwargs):
         # type: (EcuState, Any) -> Iterable[Packet]
         if state not in self._request_iterators:
             self._request_iterators[state] = iter(
@@ -224,15 +227,16 @@ class ServiceEnumerator(AutomotiveTestCase):
 
         return self._request_iterators[state]
 
-    def __get_request_iterator(self, state, **kwargs):
+    def _get_request_iterator(self, state, **kwargs):
         # type: (EcuState, Optional[Dict[str, Any]]) -> Iterable[Packet]
-        return chain(self.__get_retry_iterator(state),
-                     self.__get_initial_request_iterator(state, **kwargs))
+        return chain(self._get_retry_iterator(state),
+                     self._get_initial_request_iterator(state, **kwargs))
 
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None
         self.check_kwargs(kwargs)
         timeout = kwargs.pop('timeout', 1)
+        count = kwargs.pop('count', None)
         execution_time = kwargs.pop("execution_time", 1200)
 
         state_block_list = kwargs.get('state_block_list', list())
@@ -250,7 +254,7 @@ class ServiceEnumerator(AutomotiveTestCase):
                                   repr(state))
             return
 
-        it = self.__get_request_iterator(state, **kwargs)
+        it = self._get_request_iterator(state, **kwargs)
 
         # log_interactive.debug("[i] Using iterator %s in state %s", it, state)
 
@@ -267,6 +271,13 @@ class ServiceEnumerator(AutomotiveTestCase):
                 log_interactive.debug("[i] Stop test_case execution because "
                                       "of response evaluation")
                 return
+
+            if count is not None:
+                count -= 1
+                if count <= 0:
+                    log_interactive.debug(
+                        "[i] Finished execution count of enumerator")
+                    return
 
             if (start_time + execution_time) < time.time():
                 log_interactive.debug(
@@ -657,7 +668,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     def supported_responses(self):
         # type: () -> List[EcuResponse]
         supported_resps = list()
-        all_responses = [p for p in self.__result_packets.values()
+        all_responses = [p for p in self._result_packets.values()
                          if orb(bytes(p)[0]) & 0x40]
         for resp in all_responses:
             states = list(set([t.state for t in self.results_with_response

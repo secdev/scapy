@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = Graph library for AutomotiveTestCaseExecutor
 # scapy.contrib.status = library
@@ -84,7 +84,7 @@ class Graph(object):
         Get a set of all nodes in this Graph
         :return:
         """
-        return set([n for _, p in self.edges.items() for n in p])
+        return set([n for k, p in self.edges.items() for n in p + [k]])
 
     def render(self, filename="SystemStateGraph.gv", view=True):
         # type: (str, bool) -> None

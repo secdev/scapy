@@ -1,8 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# Modified by Maxence Tury <maxence.tury@ssi.gouv.fr>
-# This program is published under a GPLv2 license
+# Acknowledgment: Maxence Tury <maxence.tury@ssi.gouv.fr>
 
 """
 ASN.1 (Abstract Syntax Notation One)
@@ -45,6 +45,7 @@ except ImportError:
     # Python 2 compat - don't bother typing it
     class UTC(tzinfo):
         """UTC"""
+
         def utcoffset(self, dt):  # type: ignore
             return timedelta(0)
 
@@ -562,6 +563,10 @@ class ASN1_VIDEOTEX_STRING(ASN1_STRING):
 
 class ASN1_IA5_STRING(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.IA5_STRING
+
+
+class ASN1_GENERAL_STRING(ASN1_STRING):
+    tag = ASN1_Class_UNIVERSAL.GENERAL_STRING
 
 
 class ASN1_GENERALIZED_TIME(ASN1_STRING):

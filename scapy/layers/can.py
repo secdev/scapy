@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 
 """A minimal implementation of the CANopen protocol, based on
@@ -127,7 +127,7 @@ class CAN(Packet):
 
         This is based on a copy of the Packet.self_build default method.
         The goal is to affect only the CAN layer data and keep
-        under layers (e.g LinuxCooked) unchanged
+        under layers (e.g CookedLinux) unchanged
         """
         if conf.contribs['CAN']['swap-bytes']:
             data = CAN.inv_endianness(pkt)  # type: bytes

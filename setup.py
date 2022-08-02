@@ -71,7 +71,7 @@ setup(
     description='Scapy: interactive packet manipulation tool',
     long_description=get_long_description(),
     long_description_content_type='text/markdown',
-    license='GPLv2',
+    license='GPL-2.0-only',
     url='https://scapy.net',
     project_urls={
         'Documentation': 'https://scapy.readthedocs.io',
@@ -97,6 +97,7 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Security",
         "Topic :: System :: Networking",
         "Topic :: System :: Networking :: Monitoring",

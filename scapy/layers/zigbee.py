@@ -1,11 +1,10 @@
-# This program is published under a GPLv2 license
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Ryan Speers <ryan@rmspeers.com> 2011-2012
 # Copyright (C) Roger Meyer <roger.meyer@csus.edu>: 2012-03-10 Added frames
-# Copyright (C) Gabriel Potter <gabriel@potter.fr>: 2018
+# Copyright (C) Gabriel Potter <gabriel[]potter[]fr>: 2018
 # Copyright (C) 2020-2021 Dimitrios-Georgios Akestoridis <akestoridis@cmu.edu>
-# This program is published under a GPLv2 license
 
 """
 ZigBee bindings for IEEE 802.15.4.

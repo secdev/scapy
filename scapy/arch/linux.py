@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Linux specific functions.
@@ -494,7 +494,7 @@ class L2Socket(SuperSocket):
             if filter is not None:
                 try:
                     attach_filter(self.ins, filter, self.iface)
-                except ImportError as ex:
+                except (ImportError, Scapy_Exception) as ex:
                     log_runtime.error("Cannot set filter: %s", ex)
         if self.promisc:
             set_promisc(self.ins, self.iface)

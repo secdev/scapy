@@ -13,8 +13,30 @@ from scapy.contrib.automotive.ecu import EcuState
 
 class MyTestCase(AutomotiveTestCase):
     _description = "MyTestCase"
+    _supported_kwargs = {"testarg": (int, None)}
     def supported_responses(self):
         return []
+
+= Check supported kwargs
+
+try:
+    MyTestCase.check_kwargs({"testarg": 5})
+except Scapy_Exception as e:
+    assert False
+
+try:
+    MyTestCase.check_kwargs({"test": 5})
+    assert False
+except Scapy_Exception as e:
+    assert "Keyword-Argument test not supported" in str(e)
+
+try:
+    MyTestCase.check_kwargs({"testarg": 5.5})
+    assert False
+except Scapy_Exception as e:
+    assert "Keyword-Value" in str(e)
+    assert "is not instance of type <class 'int'>" in str(e) or \
+           "is not instance of type <type 'int'>" in str(e)
 
 = Create instance of test class
 

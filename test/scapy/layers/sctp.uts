@@ -258,3 +258,9 @@ assert(p.params == [])
 ~ sctp
 param1, param2 = SCTPChunkParamRandom(), SCTPChunkParamRandom()
 assert(param1.random != param2.random)
+
+= SCTP in ICMP
+~ sctp icmp
+p1 = IP(raw(IP(src=RandIP(), dst=RandIP()) / SCTP(sport=RandShort(), dport=RandShort())))
+p2 = IP(raw(IP(src=RandIP(), dst=p1[IP].src) / ICMP(type=3, code=1) / p1))
+assert(p2.answers(p1))

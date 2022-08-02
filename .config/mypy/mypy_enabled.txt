@@ -11,6 +11,7 @@ scapy/all.py
 scapy/ansmachine.py
 scapy/arch/__init__.py
 scapy/arch/common.py
+scapy/arch/libpcap.py
 scapy/arch/linux.py
 scapy/arch/unix.py
 scapy/arch/solaris.py
@@ -30,7 +31,6 @@ scapy/consts.py
 scapy/dadict.py
 scapy/data.py
 scapy/error.py
-scapy/extlib.py
 scapy/fields.py
 scapy/interfaces.py
 scapy/main.py

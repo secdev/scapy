@@ -1,7 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
 # Copyright (C) 2019 Juciano Cardoso <cjuciano@gmail.com>
 #               2019 Guillaume Valadon <guillaume.valadon@netatmo.com>
-##
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = Concox CRX1 unit tests
 # scapy.contrib.status = loads

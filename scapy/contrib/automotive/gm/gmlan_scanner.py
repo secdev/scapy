@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = GMLAN AutomotiveTestCaseExecutor Utilities
 # scapy.contrib.status = loads
@@ -226,7 +226,7 @@ class GMLAN_WDBIEnumerator(GMLAN_Enumerator):
     _description = "Writeable data identifier per state"
     _supported_kwargs = copy.copy(GMLAN_Enumerator._supported_kwargs)
     _supported_kwargs.update({
-        'rdbi_enumerator': GMLAN_RDBIEnumerator
+        'rdbi_enumerator': (GMLAN_RDBIEnumerator, None)
     })
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
@@ -284,7 +284,7 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
     _transition_function_args = dict()  # type: Dict[_Edge, Tuple[int, Optional[Callable[[int], int]]]]  # noqa: E501
     _supported_kwargs = copy.copy(GMLAN_Enumerator._supported_kwargs)
     _supported_kwargs.update({
-        'keyfunction': None
+        'keyfunction': (None, None)
     })
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
@@ -564,9 +564,9 @@ class GMLAN_RMBAEnumerator(GMLAN_Enumerator):
 
     _supported_kwargs = copy.copy(GMLAN_Enumerator._supported_kwargs)
     _supported_kwargs.update({
-        'probe_width': int,
-        'random_probes_len': int,
-        'sequential_probes_len': int
+        'probe_width': (int, lambda x: x >= 0),
+        'random_probes_len': (int, lambda x: x >= 0),
+        'sequential_probes_len': (int, lambda x: x >= 0)
     })
 
     _supported_kwargs_doc = GMLAN_Enumerator._supported_kwargs_doc + """

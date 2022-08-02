@@ -1,22 +1,11 @@
-#############################################################################
-#                                                                           #
-#  inet6.py --- IPv6 support for Scapy                                      #
-#               see http://natisbad.org/IPv6/                               #
-#               for more information                                        #
-#                                                                           #
-#  Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>          #
-#                      Arnaud Ebalard <arnaud.ebalard@eads.net>             #
-#                                                                           #
-#  This program is free software; you can redistribute it and/or modify it  #
-#  under the terms of the GNU General Public License version 2 as           #
-#  published by the Free Software Foundation.                               #
-#                                                                           #
-#  This program is distributed in the hope that it will be useful, but      #
-#  WITHOUT ANY WARRANTY; without even the implied warranty of               #
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU        #
-#  General Public License for more details.                                 #
-#                                                                           #
-#############################################################################
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Copyright (C) Guillaume Valadon <guedou@hongo.wide.ad.jp>
+# Copyright (C) Arnaud Ebalard <arnaud.ebalard@eads.net>
+
+# Cool history about this file: http://natisbad.org/scapy/index.html
+
 
 """
 IPv6 (Internet Protocol v6).
@@ -823,7 +812,7 @@ class _OptionsField(PacketListField):
             autopad = 1
 
         if not autopad:
-            return b"".join(map(str, x))
+            return b"".join(map(bytes, x))
 
         curpos = self.curpos
         s = b""

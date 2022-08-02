@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 IPv4 (Internet Protocol v4).
@@ -27,8 +27,6 @@ from scapy.layers.l2 import Ether, Dot3, getmacbyip, CookedLinux, GRE, SNAP, \
     Loopback
 from scapy.compat import raw, chb, orb, bytes_encode, Optional
 from scapy.config import conf
-from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, \
-    MATPLOTLIB_DEFAULT_PLOT_KARGS
 from scapy.fields import (
     BitEnumField,
     BitField,
@@ -952,13 +950,16 @@ icmpcodes = {3: {0: "network-unreachable",
                   5: "need-authorization", }, }
 
 
+icmp_id_seq_types = [0, 8, 13, 14, 15, 16, 17, 18, 37, 38]
+
+
 class ICMP(Packet):
     name = "ICMP"
     fields_desc = [ByteEnumField("type", 8, icmptypes),
                    MultiEnumField("code", 0, icmpcodes, depends_on=lambda pkt:pkt.type, fmt="B"),  # noqa: E501
                    XShortField("chksum", None),
-                   ConditionalField(XShortField("id", 0), lambda pkt:pkt.type in [0, 8, 13, 14, 15, 16, 17, 18]),  # noqa: E501
-                   ConditionalField(XShortField("seq", 0), lambda pkt:pkt.type in [0, 8, 13, 14, 15, 16, 17, 18]),  # noqa: E501
+                   ConditionalField(XShortField("id", 0), lambda pkt:pkt.type in icmp_id_seq_types),  # noqa: E501
+                   ConditionalField(XShortField("seq", 0), lambda pkt:pkt.type in icmp_id_seq_types),  # noqa: E501
                    ConditionalField(ICMPTimeStampField("ts_ori", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
                    ConditionalField(ICMPTimeStampField("ts_rx", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
                    ConditionalField(ICMPTimeStampField("ts_tx", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
@@ -987,7 +988,7 @@ class ICMP(Packet):
         return p
 
     def hashret(self):
-        if self.type in [0, 8, 13, 14, 15, 16, 17, 18, 33, 34, 35, 36, 37, 38]:
+        if self.type in icmp_id_seq_types:
             return struct.pack("HH", self.id, self.seq) + self.payload.hashret()  # noqa: E501
         return self.payload.hashret()
 
@@ -1282,6 +1283,13 @@ def defragment(plist):
 # Add timeskew_graph() method to PacketList
 def _packetlist_timeskew_graph(self, ip, **kargs):
     """Tries to graph the timeskew between the timestamps and real time for a given ip"""  # noqa: E501
+    # Defer imports of matplotlib until its needed
+    # because it has a heavy dep chain
+    from scapy.libs.matplot import (
+        plt,
+        MATPLOTLIB_INLINED,
+        MATPLOTLIB_DEFAULT_PLOT_KARGS
+    )
 
     # Filter TCP segments which source address is 'ip'
     tmp = (self._elt2pkt(x) for x in self.res)
@@ -1534,6 +1542,8 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
 
         # Check that the geoip2 module can be imported
         # Doc: http://geoip2.readthedocs.io/en/latest/
+        from scapy.libs.matplot import plt, MATPLOTLIB, MATPLOTLIB_INLINED
+
         try:
             # GeoIP2 modules need to be imported as below
             import geoip2.database

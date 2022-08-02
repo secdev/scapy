@@ -1,11 +1,9 @@
-#! /usr/bin/env python
-
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Fabian Wiche <f.wiche@gmx.de>
 # Copyright (C) Tabea Spahn <tabea.spahn@e-mundo.de>
 
-# This program is published under a GPLv2 license
 import argparse
 import signal
 import sys

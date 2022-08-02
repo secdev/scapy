@@ -1,10 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
 # Copyright (C) 2018 Leonardo Monteiro <decastromonteiro@gmail.com>
 #               2017 Alexis Sultan    <alexis.sultan@sfr.com>
 #               2017 Alessio Deiana <adeiana@gmail.com>
 #               2014 Guillaume Valadon <guillaume.valadon@ssi.gouv.fr>
 #               2012 ffranz <ffranz@iniqua.com>
-##
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = GPRS Tunneling Protocol (GTP)
 # scapy.contrib.status = loads

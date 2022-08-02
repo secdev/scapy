@@ -1,9 +1,7 @@
-#! /usr/bin/env python
-
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = Helper class for tracking Ecu states (Ecu)
 # scapy.contrib.status = loads
@@ -25,7 +23,7 @@ from scapy.plist import PacketList
 from scapy.sessions import DefaultSession
 from scapy.ansmachine import AnsweringMachine
 from scapy.supersocket import SuperSocket
-from scapy.error import Scapy_Exception, warning
+from scapy.error import Scapy_Exception
 
 
 __all__ = ["EcuState", "Ecu", "EcuResponse", "EcuSession",
@@ -44,12 +42,9 @@ class EcuState(object):
         # type: (Any) -> None
         self.__cache__ = None  # type: Optional[Tuple[List[EcuState], ValuesView[Any]]]  # noqa: E501
         for k, v in kwargs.items():
-            if isinstance(v, (six.string_types, bytes)):
-                warning("Be careful on usages of 'comparisons' and "
-                        "'if x in y' if you provide a string type as value")
             if isinstance(v, GeneratorType):
                 v = list(v)
-            self.__setattr__(k, v)
+            self.__setitem__(k, v)
 
     def _expand(self):
         # type: () -> List[EcuState]
@@ -70,7 +65,9 @@ class EcuState(object):
     @staticmethod
     def _flatten(x):
         # type: (Any) -> List[Any]
-        if hasattr(x, "__iter__") and hasattr(x, "__len__") and len(x) == 1:
+        if isinstance(x, (six.string_types, bytes)):
+            return [x]
+        elif hasattr(x, "__iter__") and hasattr(x, "__len__") and len(x) == 1:
             return list(*x)
         elif not hasattr(x, "__iter__"):
             return [x]

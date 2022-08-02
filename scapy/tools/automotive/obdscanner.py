@@ -1,11 +1,9 @@
-#! /usr/bin/env python
-
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Andreas Korb <andreas.korb@e-mundo.de>
 # Copyright (C) Friedrich Feigel <friedrich.feigel@e-mundo.de>
 # Copyright (C) Nils Weiss <nils@we155.de>
-# This program is published under a GPLv2 license
 
 from __future__ import print_function
 

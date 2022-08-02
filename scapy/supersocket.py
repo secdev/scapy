@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 SuperSocket.
@@ -81,7 +81,7 @@ class tpacket_auxdata(ctypes.Structure):
 
 @six.add_metaclass(_SuperSocket_metaclass)
 class SuperSocket:
-    closed = 0    # type: int
+    closed = False  # type: bool
     nonblocking_socket = False  # type: bool
     auxdata_available = False   # type: bool
 
@@ -95,8 +95,8 @@ class SuperSocket:
         # type: (...) -> None
         self.ins = socket.socket(family, type, proto)  # type: socket.socket
         self.outs = self.ins  # type: Optional[socket.socket]
-        self.promisc = None
-        self.iface = iface
+        self.promisc = conf.sniff_promisc
+        self.iface = iface or conf.iface
 
     def send(self, x):
         # type: (Packet) -> int
@@ -203,10 +203,10 @@ class SuperSocket:
         self.closed = True
         if getattr(self, "outs", None):
             if getattr(self, "ins", None) != self.outs:
-                if self.outs and (WINDOWS or self.outs.fileno() != -1):
+                if self.outs and self.outs.fileno() != -1:
                     self.outs.close()
         if getattr(self, "ins", None):
-            if WINDOWS or self.ins.fileno() != -1:
+            if self.ins.fileno() != -1:
                 self.ins.close()
 
     def sr(self, *args, **kargs):
@@ -297,10 +297,12 @@ class L3RawSocket(SuperSocket):
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)  # noqa: E501
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
-        self.iface = iface
         if iface is not None:
             iface = network_name(iface)
+            self.iface = iface
             self.ins.bind((iface, type))
+        else:
+            self.iface = "any"
         if not six.PY2:
             try:
                 # Receive Auxiliary Data (VLAN tags)
@@ -375,7 +377,6 @@ class L3RawSocket(SuperSocket):
 
 class SimpleSocket(SuperSocket):
     desc = "wrapper around a classic socket"
-    nonblocking_socket = True
 
     def __init__(self, sock):
         # type: (socket.socket) -> None
@@ -385,6 +386,7 @@ class SimpleSocket(SuperSocket):
 
 class StreamSocket(SimpleSocket):
     desc = "transforms a stream socket into a layer 2"
+    nonblocking_socket = True
 
     def __init__(self, sock, basecls=None):
         # type: (socket.socket, Optional[Type[Packet]]) -> None
@@ -455,7 +457,7 @@ class L2ListenTcpdump(SuperSocket):
 
     def __init__(self,
                  iface=None,  # type: Optional[_GlobInterfaceType]
-                 promisc=False,  # type: bool
+                 promisc=None,  # type: Optional[bool]
                  filter=None,  # type: Optional[str]
                  nofilter=False,  # type: bool
                  prog=None,  # type: Optional[str]
@@ -465,9 +467,11 @@ class L2ListenTcpdump(SuperSocket):
         # type: (...) -> None
         self.outs = None
         args = ['-w', '-', '-s', '65535']
+        self.iface = "any"
         if iface is None and (WINDOWS or DARWIN):
-            iface = conf.iface
-        self.iface = iface
+            self.iface = iface = conf.iface
+        if promisc is None:
+            promisc = conf.sniff_promisc
         if iface is not None:
             args.extend(['-i', network_name(iface)])
         if not promisc:

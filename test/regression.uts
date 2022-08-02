@@ -46,13 +46,19 @@ assert _version_checker(FakeModule3, (2, 4, 2))
 
 = Check Scapy version
 
+import mock
+
 import scapy
 from scapy import _parse_tag, _version_from_git_describe
+from scapy.config import _version_checker
 
-class GitModuleScapy(object):
-    __version__ = _version_from_git_describe()
+b = Bunch(returncode=0, communicate=lambda *args, **kargs: (b"v2.4.5rc1-261-g44b98e14", None))
+with mock.patch('scapy.subprocess.Popen', return_value=b) as popen:
+    class GitModuleScapy(object):
+        __version__ = _version_from_git_describe()
 
-assert _parse_tag("v2.3.2-346-g164a52c075c8") == '2.3.2.dev346'
+assert GitModuleScapy.__version__ == '2.4.5rc1.dev261'
+assert _version_checker(GitModuleScapy, (2, 4, 5))
 
 = List layers
 ~ conf command
@@ -127,6 +133,55 @@ result = """
 """.strip()
 result = [x.strip() for x in result.split("\n")]
 output = [x.strip() for x in rfc(IP, ret=True).strip().split("\n")]
+assert result == output
+
+result = """
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |      CODE     |       ID      |              LEN              |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |      TYPE     |L|M|S|RES|VERSI|          MESSAGE LEN          |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                               |              DATA             |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                           Fig. EAP_TTLS
+""".strip()
+result = [x.strip() for x in result.split("\n")]
+output = [x.strip() for x in rfc(EAP_TTLS, ret=True).strip().split("\n")]
+assert result == output
+
+
+result = """
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |VERSION|       TC      |                   FL                  |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |              PLEN             |       NH      |      HLIM     |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                              SRC                              |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                              DST                              |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                             Fig. IPv6
+""".strip()
+result = [x.strip() for x in result.split("\n")]
+output = [x.strip() for x in rfc(IPv6, ret=True).strip().split("\n")]
 assert result == output
 
 = Check that all contrib modules are well-configured
@@ -313,6 +368,21 @@ else:
     conf.route6.routes.append(("::1", 128, "::", conf.loopback_name, ["::1"], 1))
     conf.route6.ipv6_ifaces = set([conf.loopback_name])
     True
+
+= Build HBHOptUnknown for IPv6ExtHdrHopByHop with disabled autopad
+~ ipv6 hbh opt
+* Build the HBHOptUnknown of IPv6ExtHdrHopByHop with autopad=0
+v6Opt = HBHOptUnknown(otype=3, optlen=7, optdata="Beijing")
+pkt = Ether()/IPv6()/IPv6ExtHdrHopByHop(autopad=0, options=[v6Opt, ])
+pkt.build()
+
+= Build HBHOptUnknown for IPv6ExtHdrDestOpt with disabled autopad
+~ ipv6 hbh opt
+* Build the HBHOptUnknown of IPv6ExtHdrDestOpt with autopad=0
+v6Opt = HBHOptUnknown(otype=3, optlen=6, optdata="Haikou")
+pkt = Ether()/IPv6()/IPv6ExtHdrDestOpt(autopad=0, options=[v6Opt, ])
+pkt.build()
+
 
 = Test read_routes6() - check mandatory routes
 
@@ -815,6 +885,7 @@ scapy_delete_temp_files()
 = Test load_services
 
 data_services = """
+itu-bicc-stc	3097/sctp
 cvsup		5999/udp			# CVSup
 x11		6000-6063/tcp			# X Window System
 x11		6000-6063/udp			# X Window System
@@ -825,13 +896,15 @@ services = get_temp_file()
 with open(services, "w") as w:
     w.write(data_services)
 
-tcp, udp = load_services(services)
+tcp, udp, sctp = load_services(services)
 assert tcp[6002] == "x11"
 assert tcp.ndl_ahp_svc == 6064
 assert tcp.x11 in range(6000, 6093)
 assert udp[6002] == "x11"
 assert udp.x11 in range(6000, 6093)
 assert udp.cvsup == 5999
+assert sctp[3097] == "itu_bicc_stc"
+assert sctp.itu_bicc_stc == 3097
 
 scapy_delete_temp_files()
 
@@ -905,36 +978,37 @@ from mock import patch
 def _r(*args, **kwargs):
     raise OSError
 
-with patch("scapy.extlib.subprocess.check_call", _r):
-    from scapy.extlib import _test_pyx
+with patch("scapy.libs.test_pyx.subprocess.check_call", _r):
+    from scapy.libs.test_pyx import _test_pyx
     assert _test_pyx() == False
 
 = Test matplotlib detection functions
 
 from mock import MagicMock, patch
 
-bck_scapy_ext_lib = sys.modules.get("scapy.extlib", None)
-del(sys.modules["scapy.extlib"])
+bck_scapy_libs_matplot = sys.modules.get("scapy.libs.matplot", None)
+if bck_scapy_libs_matplot:
+    del(sys.modules["scapy.libs.matplot"])
 
 mock_matplotlib = MagicMock()
 mock_matplotlib.get_backend.return_value = "inline"
 mock_matplotlib.pyplot = MagicMock()
 mock_matplotlib.pyplot.plt = None
 with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib}):
-    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS, Line2D
+    from scapy.libs.matplot import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS, Line2D
     assert MATPLOTLIB == 1
     assert MATPLOTLIB_INLINED == 1
     assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
 
 mock_matplotlib.get_backend.return_value = "ko"
 with patch.dict("sys.modules", **{ "matplotlib": mock_matplotlib, "matplotlib.lines": mock_matplotlib}):
-    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+    from scapy.libs.matplot import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
     assert MATPLOTLIB == 1
     assert MATPLOTLIB_INLINED == 0
     assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
 
-if bck_scapy_ext_lib:
-    sys.modules["scapy.extlib"] = bck_scapy_ext_lib
+if bck_scapy_libs_matplot:
+    sys.modules["scapy.libs.matplot"] = bck_scapy_libs_matplot
 
 
 ############
@@ -1289,11 +1363,9 @@ random.seed(0x2807)
 o = bytes(a)
 o
 assert o in [
-    b'\x02\x02\xfe\x92',
-    b'A\x02\x07q',
-    b'\x15\x10E55WW2a7yrh9XEck',
-    b'C\x02\xfe\x92',
-    b'\x1e\x023V'
+    b'\x1e\x023V',  # PyPy 2.7
+    b'A\x02\x07q',  # Python 2.7
+    b'B\x02\xfe\x92',  # python 3.7-3.9
 ]
 
 = ASN1 - ASN1_BIT_STRING
@@ -1365,10 +1437,8 @@ assert ssid == "ROUTE-821E295"
 = Sending and receiving an ICMP
 ~ netaccess needs_root IP ICMP icmp_firewall
 def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+    	x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
     x
     assert x[IP].ottl() in [32, 64, 128, 255]
     assert 0 <= x[IP].hops() <= 126
@@ -1451,14 +1521,12 @@ retry_test(_test)
 from functools import partial
 # flooding methods do not support timeout. Packing the test for security
 def _test_flood(ip, flood_function, add_ether=False):
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    p = IP(dst=ip)/TCP(sport=RandShort(), dport=80, flags="S")
-    if add_ether:
-        p = Ether()/p
-    p.show2()
-    x = flood_function(p, timeout=0.5, maxretries=10)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+        p = IP(dst=ip)/TCP(sport=RandShort(), dport=80, flags="S")
+        if add_ether:
+            p = Ether()/p
+        p.show2()
+        x = flood_function(p, timeout=0.5, maxretries=10)
     if type(x) == tuple:
         x = x[0][0][1]
     x
@@ -1495,10 +1563,8 @@ finally:
 = Sending and receiving an ICMPv6EchoRequest
 ~ netaccess ipv6
 def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+        x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
     x
     assert x[IPv6].ottl() in [32, 64, 128, 255]
     assert 0 <= x[IPv6].hops() <= 126
@@ -1630,10 +1696,8 @@ assert a.sent_time is None
 = Port scan
 ~ netaccess needs_root IP TCP
 def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]), timeout=2)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+        ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]), timeout=2)
     
     # Backward compatibility: Python 2 only
     if six.PY2:
@@ -1649,13 +1713,11 @@ retry_test(_test)
 def _test():
     old_debug_match = conf.debug_match
     conf.debug_match = True
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans, unans = sr(IP(dst="www.google.fr") / TCP(sport=RandShort(), dport=80, flags="S"), timeout=2)
-    assert ans[0].query == ans[0][0]
-    assert ans[0].answer == ans[0][1]
+    with no_debug_dissector():
+        ans, unans = sr(IP(dst="www.google.fr") / TCP(sport=RandShort(), dport=80, flags="S"), timeout=2)
+        assert ans[0].query == ans[0][0]
+        assert ans[0].answer == ans[0][1]
     conf.debug_match = old_debug_match
-    conf.debug_dissector = old_debug_dissector
     assert ans and not unans
 
 retry_test(_test)
@@ -1663,10 +1725,8 @@ retry_test(_test)
 = Send & receive with retry
 ~ netaccess needs_root IP ICMP
 def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / TCP(sport=RandShort(), dport=53, flags="S"), timeout=2, retry=1)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+        ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / TCP(sport=RandShort(), dport=53, flags="S"), timeout=2, retry=1)
     assert len(ans) == 1 and len(unans) == 1
 
 retry_test(_test)
@@ -1674,10 +1734,8 @@ retry_test(_test)
 = Send & receive with multi
 ~ netaccess needs_root IP ICMP
 def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / TCP(sport=RandShort(), dport=53, flags="S"), timeout=2, multi=1)
-    conf.debug_dissector = old_debug_dissector
+    with no_debug_dissector():
+        ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / TCP(sport=RandShort(), dport=53, flags="S"), timeout=2, multi=1)
     assert len(ans) >= 1 and len(unans) == 1
 
 retry_test(_test)
@@ -1706,6 +1764,28 @@ r = sniff(timeout=3, count=1,
           started_callback=_test)
 
 assert r
+
+= sniff() with socket failure
+* GH issue 3631
+
+REFPACKET = Ether()/IP()/UDP()
+
+# A socket that fails after 10 packets
+class OOPipe(ObjectPipe):
+     def recv(self, x=MTU):
+         self.i = getattr(self, "i", 0) + 1
+         if self.i == 11:
+             self.close()
+             raise OSError("Giant failure")
+         pkt = super(OOPipe, self).recv(x)
+         self.send(REFPACKET)
+         return pkt
+
+o = OOPipe()
+o.send(REFPACKET)
+
+pkts = sniff(opened_socket=[o], timeout=3)
+assert len(pkts) == 10
 
 = GH issue 3306
 ~ netaccess needs_root
@@ -1854,6 +1934,41 @@ assert Ether in pktpcapngdefaults[0]
 = Read a pcapng with little-endian SHB
 pktcapng = sniff(offline=scapy_path("/test/pcaps/macos.pcapng.gz"))
 assert len(pktcapng) != 0
+
+= Write a pcapng
+
+tmpfile = get_temp_file(autoext=".pcapng")
+r = RawPcapNgWriter(tmpfile)
+r._write_block_shb()
+r._write_block_idb()
+ts = 1632568366.384185
+r._write_block_epb(raw(Ether()/"Hello Scapy!!!"), ts)
+r.f.close()
+
+assert os.stat(tmpfile).st_size == 108
+
+l = rdpcap(tmpfile)
+assert b"Scapy" in l[0][Raw].load
+assert l[0].time == ts
+
+= Check wrpcapng()
+
+tmpfile = get_temp_file(autoext=".pcapng")
+p = Ether()/"Hello Scapy!!!"
+p.time = 1632568366.384185
+wrpcapng(tmpfile, p)
+
+assert os.stat(tmpfile).st_size == 108
+
+l = rdpcap(tmpfile)
+assert b"Scapy" in l[0][Raw].load
+assert l[0].time == ts
+
+p = Ether() / IPv6() / TCP()
+p.comment = b"Hello Scapy!"
+wrpcapng(tmpfile, p)
+l = rdpcap(tmpfile)
+assert l[0].comment.strip() == p.comment
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
@@ -2123,13 +2238,10 @@ fd = get_temp_file()
 with RawPcapWriter(fd, linktype=1) as w:
     w.write(b"test")
 
-try:
-    fd = get_temp_file()
-    with RawPcapWriter(fd) as w:
-        w.write(b"test")
-    assert False
-except ValueError:
-    pass
+fd = get_temp_file()
+with RawPcapWriter(fd) as w:
+    w.write(b"test")
+    assert w.linktype == 1
 
 = Check tcpdump()
 ~ tcpdump
@@ -4397,7 +4509,9 @@ assert all(bytes(a[0]) == bytes(b[0]) for a, b in zip(unp, srl))
 = plot()
 
 import mock
-@mock.patch("scapy.plist.plt")
+import scapy.libs.matplot
+
+@mock.patch("scapy.libs.matplot.plt")
 def test_plot(mock_plt):
     def fake_plot(data, **kwargs):
         return data
@@ -4411,7 +4525,9 @@ test_plot()
 = diffplot()
 
 import mock
-@mock.patch("scapy.plist.plt")
+import scapy.libs.matplot
+
+@mock.patch("scapy.libs.matplot.plt")
 def test_diffplot(mock_plt):
     def fake_plot(data, **kwargs):
         return data
@@ -4425,7 +4541,9 @@ test_diffplot()
 = multiplot()
 
 import mock
-@mock.patch("scapy.plist.plt")
+import scapy.libs.matplot
+
+@mock.patch("scapy.libs.matplot.plt")
 def test_multiplot(mock_plt):
     def fake_plot(data, **kwargs):
         return data
@@ -4634,20 +4752,20 @@ assert pl[1][Ether].dst == '00:22:33:44:55:66'
 + Scapy version
 
 = _version()
-~ ci_only
 
 import os
 version_filename = os.path.join(scapy._SCAPY_PKG_DIR, "VERSION")
 
-version = scapy._version()
-assert(os.path.exists(version_filename))
+version = "2.0.0"
+with open(version_filename, "w") as fd:
+    fd.write(version)
 
 import mock
 with mock.patch("scapy._version_from_git_describe") as version_mocked:
-  version_mocked.side_effect = Exception()
-  assert(scapy._version() == version)
-  os.unlink(version_filename)
-  assert(scapy._version() == "git-archive.dev$Format:%h")
+    version_mocked.side_effect = Exception()
+    assert(scapy._version() == version)
+    os.unlink(version_filename)
+    assert(scapy._version() == "unknown.version")
 
 
 = UTscapy HTML output

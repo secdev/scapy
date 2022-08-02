@@ -6,10 +6,9 @@
 = Imports
 
 import itertools
-import threading
 from scapy.contrib.isotp import ISOTPMessageBuilder
 
-from test.testsocket import TestSocket, cleanup_testsockets
+from test.testsocket import TestSocket, cleanup_testsockets, open_test_sockets
 
 
 ############
@@ -28,25 +27,33 @@ load_layer("can")
 = Define Testfunction
 
 def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwargs):
-    ecu = TestSocket(GMLAN)
     tester = TestSocket(GMLAN)
-    ecu.pair(tester)
+    ecu = TestSocket(GMLAN)
+    tester.pair(ecu)
     answering_machine = EcuAnsweringMachine(supported_responses=supported_responses, main_socket=ecu, basecls=GMLAN, verbose=False)
     def reset():
         answering_machine.reset_state()
         sniff(timeout=0.001, opened_socket=[ecu, tester])
-    sim = threading.Thread(target=answering_machine, kwargs={'timeout': 1000, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
+    def answering_machine_thread():
+        answering_machine(timeout=120, stop_filter=lambda x: bytes(x) == b"\xff\xff\xff")
+    sim = threading.Thread(target=answering_machine_thread)
     sim.start()
     try:
         scanner = GMLAN_Scanner(
             tester, reset_handler=reset,
-            test_cases=enumerators, timeout=0.5, retry_if_none_received=True,
+            test_cases=enumerators, timeout=0.2, retry_if_none_received=True,
             unittest=True, **kwargs)
-        scanner.scan(timeout=200)
+        for i in range(12):
+            print("Starting scan")
+            scanner.scan(timeout=10)
+            if scanner.scan_completed:
+                print("Scan completed after %d iterations" % i)
+                break
     finally:
         tester.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)
         assert not sim.is_alive()
+        cleanup_testsockets()
     return scanner
 
 = Load packets from candump
