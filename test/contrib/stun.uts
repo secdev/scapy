@@ -78,7 +78,7 @@ assert parsed.length == 44
 assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0xcfacb2a43aa2de5a9d56d85a, parsed.transaction_id
 assert parsed.tlvlist == [
-      STUNXorMappedAddress(xport=48946, xip=2366022760),
+      STUNXorMappedAddress(xport=40480, xip="172.20.0.42"),
       STUNMessageIntegrity(hmac_sha1=0x7d968d4241fa89d8e3f8ffe302c8975823c91fb7),
       STUNFingerprint(crc_32=0xea9b6559)
 ]
@@ -100,7 +100,7 @@ assert parsed.length == 88
 assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0x3479476534635936316a796a, parsed.transaction_id
 assert parsed.tlvlist == [
-      STUNXorMappedAddress(xport=16570, xip=2366022794),
+      STUNXorMappedAddress(xport=25000, xip="172.20.0.200"),
       STUNUsername(length=37, username="Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25:oNph"),
       STUNMessageIntegrity(hmac_sha1=0x317065df81598d6cc8ca3bd684ca65fb6d03674b),
       STUNFingerprint(crc_32=0x4041e9c3)

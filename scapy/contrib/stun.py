@@ -13,13 +13,17 @@
     TLV code derived from the DTP implementation. (Thanks to Nicolas Bareil, Arnaud Ebalard, Jochen Bartl)
 """
 
+import hmac
 import struct
+import hashlib
 import itertools
 
+from scapy.all import raw
 from scapy.layers.inet import UDP, TCP
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers
-from scapy.fields import BitField, BitEnumField, LenField, IntField, PadField, StrLenField, PacketListField, XShortField, FieldLenField, ShortField, LongField, NBytesField, ByteEnumField, ByteField, XNBytesField, XLongField, XIntField, XBitField
+from scapy.utils import inet_ntoa, inet_aton
+from scapy.fields import BitField, BitEnumField, LenField, IntField, PadField, StrLenField, PacketListField, XShortField, FieldLenField, ShortField, LongField, NBytesField, ByteEnumField, ByteField, XNBytesField, XLongField, XIntField, XBitField, IPField
 
 _stun_class = {
     "request": 0b00,
@@ -80,8 +84,12 @@ class STUNMessageIntegrity(STUNGenericTlv):
     fields_desc = [
         XShortField("type", 0x0008),
         ShortField("length", 20),
-        XNBytesField("hmac_sha1", None, 20)
+        XNBytesField("hmac_sha1", 0, 20)
     ]
+
+    def post_build(self, pkt, pay):
+        pkt += pay
+        return pkt
 
 
 class STUNPriority(STUNGenericTlv):
@@ -100,6 +108,26 @@ _xor_mapped_address_family = {
 }
 
 
+class XorPort(ShortField):
+
+    def m2i(self, pkt, x):
+        return x ^ 0x2112
+
+    def i2m(self, pkt, x):
+        return x ^ 0x2112
+
+
+class XorIp(IPField):
+
+    def m2i(self, pkt, x):
+        return inet_ntoa((int.from_bytes(x, byteorder="big") ^ 0x2112A442).to_bytes(4, byteorder="big"))
+
+    def i2m(self, pkt, x):
+        if x is None:
+            return b"\x00\x00\x00\x00"
+        return (int.from_bytes(inet_aton(x), byteorder="big") ^ 0x2112A442).to_bytes(4, byteorder="big")
+
+
 class STUNXorMappedAddress(STUNGenericTlv):
     name = "STUN XOR Mapped Address"
 
@@ -108,8 +136,8 @@ class STUNXorMappedAddress(STUNGenericTlv):
         ShortField("length", 8),
         ByteField("RESERVED", 0),
         ByteEnumField("address_family", 1, _xor_mapped_address_family),
-        ShortField("xport", 0),
-        IntField("xip", 0)
+        XorPort("xport", 0),
+        XorIp("xip", 0)     # FIXME <- only IPv4 addresses will work
     ]
 
 
@@ -201,8 +229,14 @@ class STUN(Packet):
         pkt += pay
         if self.length is None:
             pkt = pkt[:2] + struct.pack("!h", (len(pkt) - 20) // 4) + pkt[4:]
+        for attr in self.tlvlist:
+            if isinstance(attr, STUNMessageIntegrity):
+                pass    # TODO Fill hmac-sha1 in MESSAGE-INTEGRITY attribute
         return pkt
 
 
 bind_layers(UDP, STUN, dport=3478)
 bind_layers(TCP, STUN, dport=3478)
+
+from scapy.all import Raw
+Raw(STUN(tlvlist=[STUNMessageIntegrity()]))
