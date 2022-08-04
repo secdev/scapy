@@ -284,6 +284,8 @@ class DNSStrField(StrLenField):
     def h2i(self, pkt, x):
         if not x:
             return b"."
+        if x[-1:] != b".":
+            return x + b"."
         return x
 
     def i2m(self, pkt, x):
