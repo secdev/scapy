@@ -27,7 +27,7 @@ assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding
 assert parsed.length == 100
 assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0xcfacb2a43aa2de5a9d56d85a, parsed.transaction_id
-assert parsed.tlvlist == [
+assert parsed.attributes == [
       STUNUseCandidate(),
       STUNPriority(priority=1847591167),
       STUNIceControlling(tie_breaker=0x1b0ab98b6e8effa6),
@@ -53,7 +53,7 @@ assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding
 assert parsed.length == 108
 assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0x3479476534635936316a796a
-assert parsed.tlvlist == [
+assert parsed.attributes == [
       STUNUsername(length=37, username='Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25:oNph'),
       STUNGoogNetworkInfo(),
       STUNIceControlling(tie_breaker=0xa696819e91c937da),
@@ -77,7 +77,7 @@ assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding
 assert parsed.length == 44
 assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0xcfacb2a43aa2de5a9d56d85a, parsed.transaction_id
-assert parsed.tlvlist == [
+assert parsed.attributes == [
       STUNXorMappedAddress(xport=40480, xip="172.20.0.42"),
       STUNMessageIntegrity(hmac_sha1=0x7d968d4241fa89d8e3f8ffe302c8975823c91fb7),
       STUNFingerprint(crc_32=0xea9b6559)
@@ -99,7 +99,7 @@ assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding
 assert parsed.length == 88
 assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0x3479476534635936316a796a, parsed.transaction_id
-assert parsed.tlvlist == [
+assert parsed.attributes == [
       STUNXorMappedAddress(xport=25000, xip="172.20.0.200"),
       STUNUsername(length=37, username="Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25:oNph"),
       STUNMessageIntegrity(hmac_sha1=0x317065df81598d6cc8ca3bd684ca65fb6d03674b),
@@ -117,7 +117,7 @@ assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding
 assert parsed.length == 8
 assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0x293d687b0fbc447c01b58d2e, parsed.transaction_id
-assert parsed.tlvlist == [
+assert parsed.attributes == [
       STUNFingerprint(crc_32=0xc884fe99)
 ]
 
@@ -132,6 +132,6 @@ assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding
 assert parsed.length == 8
 assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0x1d9357a1e94a2051271996d9, parsed.transaction_id
-assert parsed.tlvlist == [
+assert parsed.attributes == [
       STUNFingerprint(crc_32=0x53800d81)
 ]

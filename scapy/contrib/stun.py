@@ -10,20 +10,40 @@
 """
     STUN (RFC 5389)
 
-    TLV code derived from the DTP implementation. (Thanks to Nicolas Bareil, Arnaud Ebalard, Jochen Bartl)
+    TLV code derived from the DTP implementation:
+      Thanks to Nicolas Bareil,
+                Arnaud Ebalard,
+                Jochen Bartl.
 """
 
-import hmac
 import struct
-import hashlib
 import itertools
 
-from scapy.all import raw
 from scapy.layers.inet import UDP, TCP
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers
 from scapy.utils import inet_ntoa, inet_aton
-from scapy.fields import BitField, BitEnumField, LenField, IntField, PadField, StrLenField, PacketListField, XShortField, FieldLenField, ShortField, LongField, NBytesField, ByteEnumField, ByteField, XNBytesField, XLongField, XIntField, XBitField, IPField
+from scapy.fields import (
+    BitField,
+    BitEnumField,
+    LenField,
+    IntField,
+    PadField,
+    StrLenField,
+    PacketListField,
+    XShortField,
+    FieldLenField,
+    ShortField,
+    ByteEnumField,
+    ByteField,
+    XNBytesField,
+    XLongField,
+    XIntField,
+    XBitField,
+    IPField
+)
+
+MAGIC_COOKIE = 0x2112A442
 
 _stun_class = {
     "request": 0b00,
@@ -38,12 +58,13 @@ _stun_method = {
 
 # fmt: off
 _stun_message_type = {
-    f"{method} {class_}": (method_code & 0b000000001111)      |    # noqa: E221
-                          (class_code  & 0b01)           << 4 |    # noqa: E221
-                          (method_code & 0b000001110000) << 5 |    # noqa: E221
-                          (class_code  & 0b10)           << 7 |    # noqa: E221
+    f"{method} {class_}": (method_code & 0b000000001111)      |    # noqa: E221,W504
+                          (class_code  & 0b01)           << 4 |    # noqa: E221,W504
+                          (method_code & 0b000001110000) << 5 |    # noqa: E221,W504
+                          (class_code  & 0b10)           << 7 |    # noqa: E221,W504
                           (method_code & 0b111110000000) << 9
-    for (method, method_code), (class_, class_code) in itertools.product(_stun_method.items(), _stun_class.items())
+    for (method, method_code), (class_, class_code) in
+        itertools.product(_stun_method.items(), _stun_class.items())
 }
 # fmt: on
 
@@ -58,13 +79,13 @@ class STUNGenericTlv(Packet):
     ]
 
     @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+    def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         if _pkt and len(_pkt) >= 2:
             t = struct.unpack("!H", _pkt[:2])[0]
-            cls = _stun_tlv_class.get(t, "STUNGenericTlv")
+            return _stun_tlv_class.get(t, "STUNGenericTlv")
         return cls
 
-    def guess_payload_class(self, p):
+    def guess_payload_class(self, payload):
         return conf.padding_layer
 
 
@@ -74,7 +95,10 @@ class STUNUsername(STUNGenericTlv):
     fields_desc = [
         XShortField("type", 0x0006),
         FieldLenField("length", None, length_of="username"),
-        PadField(StrLenField("username", '', length_from=lambda pkt: pkt.length), align=4)
+        PadField(
+            StrLenField("username", '', length_from=lambda pkt: pkt.length),
+            align=4, padwith=b"\x20"
+        )
     ]
 
 
@@ -111,21 +135,25 @@ _xor_mapped_address_family = {
 class XorPort(ShortField):
 
     def m2i(self, pkt, x):
-        return x ^ 0x2112
+        return x ^ (MAGIC_COOKIE >> 16)
 
     def i2m(self, pkt, x):
-        return x ^ 0x2112
+        return x ^ (MAGIC_COOKIE >> 16)
 
 
 class XorIp(IPField):
 
     def m2i(self, pkt, x):
-        return inet_ntoa((int.from_bytes(x, byteorder="big") ^ 0x2112A442).to_bytes(4, byteorder="big"))
+        return inet_ntoa((
+            int.from_bytes(x, byteorder="big") ^ MAGIC_COOKIE
+            ).to_bytes(4, byteorder="big"))
 
     def i2m(self, pkt, x):
         if x is None:
             return b"\x00\x00\x00\x00"
-        return (int.from_bytes(inet_aton(x), byteorder="big") ^ 0x2112A442).to_bytes(4, byteorder="big")
+        return (
+            int.from_bytes(inet_aton(x), byteorder="big") ^ MAGIC_COOKIE
+        ).to_bytes(4, byteorder="big")
 
 
 class STUNXorMappedAddress(STUNGenericTlv):
@@ -220,15 +248,15 @@ class STUN(Packet):
         BitField('RESERVED', 0b00, size=2),   # <- always zeroes
         BitEnumField('stun_message_type', None, 14, _stun_message_type),
         LenField('length', None, fmt='!h'),
-        XIntField('magic_cookie', 0x2112A442),
+        XIntField('magic_cookie', MAGIC_COOKIE),
         XBitField('transaction_id', None, 96),
-        PacketListField("tlvlist", [], STUNGenericTlv)
+        PacketListField("attributes", [], STUNGenericTlv)
     ]
 
     def post_build(self, pkt, pay):
         pkt += pay
         if self.length is None:
-            pkt = pkt[:2] + struct.pack("!h", (len(pkt) - 20) // 4) + pkt[4:]
+            pkt = pkt[:2] + struct.pack("!h", len(pkt) - 20) + pkt[4:]
         for attr in self.tlvlist:
             if isinstance(attr, STUNMessageIntegrity):
                 pass    # TODO Fill hmac-sha1 in MESSAGE-INTEGRITY attribute
@@ -237,6 +265,3 @@ class STUN(Packet):
 
 bind_layers(UDP, STUN, dport=3478)
 bind_layers(TCP, STUN, dport=3478)
-
-from scapy.all import Raw
-Raw(STUN(tlvlist=[STUNMessageIntegrity()]))
