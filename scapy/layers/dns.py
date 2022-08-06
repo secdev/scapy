@@ -252,7 +252,7 @@ def dns_compress(pkt):
             new_val = kept_string + replace_pointer
             rep[0].setfieldval(rep[1], new_val)
             try:
-                del(rep[0].rdlen)
+                del rep[0].rdlen
             except AttributeError:
                 pass
     # End of the compression algorithm

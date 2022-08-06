@@ -146,8 +146,8 @@ def _mib_register(ident,  # type: str
             k = keys[i]
             if _mib_register(k, unresolved[k], the_mib, {}, alias):
                 # Now resolved: we can remove it from unresolved
-                del(unresolved[k])
-                del(keys[i])
+                del unresolved[k]
+                del keys[i]
                 i = 0
             else:
                 i += 1

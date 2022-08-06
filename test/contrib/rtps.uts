@@ -45,7 +45,7 @@ pkt = b"\x52\x54\x50\x53\x02\x01\x01\x10\x57\x63\x10\x01\xd6\xab\x40\x7f" \
 
 + Test endianness
 = PID_BUILTIN_ENDPOINT_QOS endianness
-assert(raw(PID_BUILTIN_ENDPOINT_QOS(parameterId=119, parameterLength=0, parameterData=b"")) == b'w\x00\x00\x00')
+assert raw(PID_BUILTIN_ENDPOINT_QOS(parameterId=119, parameterLength=0, parameterData=b"")) == b'w\x00\x00\x00'
 
 
 + Test RTPS
@@ -55,7 +55,7 @@ pkt2 = RTPS()/RTPSMessage(submessages=[
     RTPSSubMessage_INFO_TS(),
     RTPSSubMessage_DATA(),
 ])
-assert(bytes(RTPS()) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+assert bytes(RTPS()) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 = RTPS packet declaration
 pkt3 = RTPS(

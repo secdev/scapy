@@ -76,7 +76,7 @@ class IGMPv3(IGMP):
         else:
             exp = 0
             value >>= 3
-            while(value > 31):
+            while value > 31:
                 exp += 1
                 value >>= 1
             exp <<= 4

@@ -47,9 +47,9 @@ if exit_status == 0:
     print(get_if_list())
     conf.route.resync()
     print(conf.route.routes)
-    assert(conf.route.route("198.51.100.254") == ("scapy0", "198.51.100.1", "0.0.0.0"))
+    assert conf.route.route("198.51.100.254") == ("scapy0", "198.51.100.1", "0.0.0.0")
     route_alias = (3325256704, 4294967040, "0.0.0.0", "scapy0", "198.51.100.1", 0)
-    assert(route_alias in conf.route.routes)
+    assert route_alias in conf.route.routes
     exit_status = os.system("ip link add link scapy0 name scapy0.42 type vlan id 42")
     exit_status = os.system("ip addr add 203.0.113.42/24 dev scapy0.42")
     exit_status = os.system("ip link set scapy0.42 up")
@@ -57,9 +57,9 @@ if exit_status == 0:
     print(get_if_list())
     conf.route.resync()
     print(conf.route.routes)
-    assert(conf.route.route("192.0.2.43") == ("scapy0.42", "203.0.113.42", "203.0.113.41"))
+    assert conf.route.route("192.0.2.43") == ("scapy0.42", "203.0.113.42", "203.0.113.41")
     route_specific = (3221226027, 4294967295, "203.0.113.41", "scapy0.42", "203.0.113.42", 0)
-    assert(route_specific in conf.route.routes)
+    assert route_specific in conf.route.routes
     exit_status = os.system("ip link del name dev scapy0")
 else:
     assert True
@@ -81,15 +81,15 @@ import os, socket
 from mock import patch
 
 exit_status = os.system("ip link add name scapy_lo type dummy")
-assert(exit_status == 0)
+assert exit_status == 0
 exit_status = os.system("ip link set dev scapy_lo up")
-assert(exit_status == 0)
+assert exit_status == 0
 
 with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
     routes = read_routes()
 
 exit_status = os.system("ip addr add dev scapy_lo 10.10.0.1/24")
-assert(exit_status == 0)
+assert exit_status == 0
 
 with patch('scapy.arch.linux.conf.loopback_name', 'scapy_lo'):
     routes = read_routes()
@@ -99,17 +99,17 @@ for route in routes:
     dst_int, msk_int, gw_str, if_name, if_addr, metric = route
     if if_name == 'scapy_lo':
         got_lo_device = True
-        assert(if_addr == '10.10.0.1')
+        assert if_addr == '10.10.0.1'
         dst_addr = socket.inet_ntoa(struct.pack("!I", dst_int))
-        assert(dst_addr == '10.10.0.0')
+        assert dst_addr == '10.10.0.0'
         msk = socket.inet_ntoa(struct.pack("!I", msk_int))
         assert (msk == '255.255.255.0')
         break
 
-assert(got_lo_device)
+assert got_lo_device
 
 exit_status = os.system("ip link del dev scapy_lo")
-assert(exit_status == 0)
+assert exit_status == 0
 
 = IPv6 link-local address selection
 
@@ -197,7 +197,7 @@ try:
               iface='veth_scapy_0',
               count=2)
         t_sniffer.join(1)
-        assert(frm_count == 2)
+        assert frm_count == 2
 
     if_list = get_if_list()
     assert ('veth_scapy_0' not in if_list)
@@ -256,7 +256,7 @@ sendp(Ether(type=0xbeef)/Raw(b'0123456789'),
       iface='veth_scapy_0',
       count=2)
 t_sniffer.join(1)
-assert(frm_count == 2)
+assert frm_count == 2
 
 try:
     veth.down()
@@ -360,7 +360,7 @@ cond_started.wait()
 sendp(Ether()/IP(dst="198.51.100.2")/ICMP(), iface='vlanleft0', count=2)
 
 t_sniffer.join(1)
-assert(dot1q_count == 2)
+assert dot1q_count == 2
 
 veth.destroy()
 

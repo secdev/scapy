@@ -639,9 +639,9 @@ class IP(Packet, IPTools):
             nb = (len(s) - lastfragsz + fragsize - 1) // fragsize + 1
             for i in range(nb):
                 q = p.copy()
-                del(q[fnb].payload)
-                del(q[fnb].chksum)
-                del(q[fnb].len)
+                del q[fnb].payload
+                del q[fnb].chksum
+                del q[fnb].len
                 if i != nb - 1:
                     q[fnb].flags |= 1
                     fragend = (i + 1) * fragsize
@@ -1149,9 +1149,9 @@ def fragment(pkt, fragsize=1480):
         nb = (len(s) - lastfragsz + fragsize - 1) // fragsize + 1
         for i in range(nb):
             q = p.copy()
-            del(q[IP].payload)
-            del(q[IP].chksum)
-            del(q[IP].len)
+            del q[IP].payload
+            del q[IP].chksum
+            del q[IP].len
             if i != nb - 1:
                 q[IP].flags |= 1
                 fragend = (i + 1) * fragsize
@@ -1177,7 +1177,7 @@ overlap_fragsize: the fragment size of the overlapping packet"""
     if overlap_fragsize is None:
         overlap_fragsize = fragsize
     q = p.copy()
-    del(q[IP].payload)
+    del q[IP].payload
     q[IP].add_payload(overlap)
 
     qfrag = fragment(q, overlap_fragsize)
@@ -1194,7 +1194,7 @@ def _defrag_list(lst, defrag, missfrag):
         return
     p = p.copy()
     if conf.padding_layer in p:
-        del(p[conf.padding_layer].underlayer.payload)
+        del p[conf.padding_layer].underlayer.payload
     ip = p[IP]
     if ip.len is None or ip.ihl is None:
         clen = len(ip.payload)
@@ -1212,14 +1212,14 @@ def _defrag_list(lst, defrag, missfrag):
         else:
             clen += q[IP].len - (q[IP].ihl << 2)
         if conf.padding_layer in q:
-            del(q[conf.padding_layer].underlayer.payload)
+            del q[conf.padding_layer].underlayer.payload
         txt.add_payload(q[IP].payload.copy())
         if q.time > p.time:
             p.time = q.time
     else:
         ip.flags.MF = False
-        del(ip.chksum)
-        del(ip.len)
+        del ip.chksum
+        del ip.len
         p = p / txt
         p._defrag_pos = max(x._defrag_pos for x in lst)
         defrag.append(p)

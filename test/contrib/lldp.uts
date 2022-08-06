@@ -43,8 +43,8 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / \
       LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / \
       LLDPDUTimeToLive() / \
       LLDPDUEndOfLLDPDU()
-assert(len(raw(frm)) == 60)
-assert(len(raw(Ether(raw(frm))[Padding])) == 24)
+assert len(raw(frm)) == 60
+assert len(raw(Ether(raw(frm))[Padding])) == 24
 
 frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / \
       LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth012345678901234567890123') / \
@@ -268,14 +268,14 @@ three_b_enum_field = ThreeBytesEnumField('test', 0x00,
                                              0x112233: '1#2#3'
                                          })
 
-assert(three_b_enum_field.i2repr(None, 0) == 'zero')
-assert(three_b_enum_field.i2repr(None, 0x0e) == 'fourteen')
-assert(three_b_enum_field.i2repr(None, 0x5566) == 'five-six')
-assert(three_b_enum_field.i2repr(None, 0x112233) == '1#2#3')
-assert(three_b_enum_field.i2repr(None, 0x0e0000) == 'fourteen-zero-zero')
-assert(three_b_enum_field.i2repr(None, 0x0e0100) == 'fourteen-one-zero')
-assert(three_b_enum_field.i2repr(None, 0x01) == '1')
-assert(three_b_enum_field.i2repr(None, 0x49763) == '300899')
+assert three_b_enum_field.i2repr(None, 0) == 'zero'
+assert three_b_enum_field.i2repr(None, 0x0e) == 'fourteen'
+assert three_b_enum_field.i2repr(None, 0x5566) == 'five-six'
+assert three_b_enum_field.i2repr(None, 0x112233) == '1#2#3'
+assert three_b_enum_field.i2repr(None, 0x0e0000) == 'fourteen-zero-zero'
+assert three_b_enum_field.i2repr(None, 0x0e0100) == 'fourteen-one-zero'
+assert three_b_enum_field.i2repr(None, 0x01) == '1'
+assert three_b_enum_field.i2repr(None, 0x49763) == '300899'
 
 = LLDPDUGenericOrganisationSpecific tests
 
@@ -292,11 +292,11 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
 frm = frm.build()
 frm = Ether(frm)
 org_spec_layer = frm[LLDPDUGenericOrganisationSpecific]
-assert(org_spec_layer)
-assert(org_spec_layer._type == 127)
-assert(org_spec_layer.org_code == LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO)
-assert(org_spec_layer.subtype == 0x42)
-assert(org_spec_layer._length == 34)
+assert org_spec_layer
+assert org_spec_layer._type == 127
+assert org_spec_layer.org_code == LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO
+assert org_spec_layer.subtype == 0x42
+assert org_spec_layer._length == 34
 
 l="A" * 24
 c=LLDPDUChassisID.SUBTYPE_CHASSIS_COMPONENT

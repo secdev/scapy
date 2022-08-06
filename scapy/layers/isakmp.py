@@ -103,10 +103,10 @@ for n in ISAKMPTransformTypes:
     for e in val[1]:
         tmp[val[1][e]] = e
     ISAKMPTransformNum[val[0]] = (n, tmp, val[2])
-del(n)
-del(e)
-del(tmp)
-del(val)
+del n
+del e
+del tmp
+del val
 
 
 class ISAKMPTransformSetField(StrLenField):

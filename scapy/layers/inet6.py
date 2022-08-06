@@ -1099,7 +1099,7 @@ def defragment6(packets):
                 min_pos = 0
                 min_offset = cur_offset
         res.append(lst[min_pos])
-        del(lst[min_pos])
+        del lst[min_pos]
 
     # regenerate the fragmentable part
     fragmentable = b""
@@ -1118,7 +1118,7 @@ def defragment6(packets):
     q[IPv6ExtHdrFragment].underlayer.plen = len(fragmentable)
     del q[IPv6ExtHdrFragment].underlayer.payload
     q /= conf.raw_layer(load=fragmentable)
-    del(q.plen)
+    del q.plen
 
     if q[IPv6].underlayer:
         q[IPv6] = IPv6(raw(q[IPv6]))
@@ -1149,8 +1149,8 @@ def fragment6(pkt, fragSize):
         frag = IPv6ExtHdrFragment(nh=layer3.nh)
 
         layer3.remove_payload()
-        del(layer3.nh)
-        del(layer3.plen)
+        del layer3.nh
+        del layer3.plen
 
         frag.add_payload(data)
         layer3.add_payload(frag)
@@ -3382,7 +3382,7 @@ def IPv6inIP(dst='203.178.135.36', src=None):
     if not conf.L3socket == _IPv6inIP:
         _IPv6inIP.cls = conf.L3socket
     else:
-        del(conf.L3socket)
+        del conf.L3socket
     return _IPv6inIP
 
 
@@ -3935,7 +3935,7 @@ def NDP_Attack_Kill_Default_Router(iface=None, mac_src_filter=None,
         while ICMPv6NDOptPrefixInfo in tmp:
             pio = tmp[ICMPv6NDOptPrefixInfo]
             tmp = pio.payload
-            del(pio.payload)
+            del pio.payload
             rep /= pio
 
         # ... and source link layer address option

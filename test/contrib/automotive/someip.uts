@@ -40,47 +40,47 @@ load_contrib("automotive.someip", globals_dict=globals())
 p = SOMEIP()
 pstr = bytes(p)
 binstr = b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
-assert(pstr == binstr)
+assert pstr == binstr
 
 = Build with empty payload
 p.payload = Raw(b"")
 pstr = bytes(p)
 binstr = b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
-assert(pstr == binstr)
+assert pstr == binstr
 
 = Build with non-empty payload
 p.payload = Raw(b"\xde\xad\xbe\xef")
 pstr = bytes(p)
 binstr = b"\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x00\x00\xde\xad\xbe\xef"
-assert(pstr == binstr)
+assert pstr == binstr
 
 = Dissect EVENT_ID packet
 p = SOMEIP(b"\x11\x11\x81\x11\x00\x00\x00\x04\x33\x33\x44\x44\x02\x03\x04\x05")
 
-assert(p.srv_id == 0x1111)
-assert(p.sub_id == 0x1)
-assert(p.method_id == None)
-assert(p.event_id == 0x0111)
-assert(p.client_id == 0x3333)
-assert(p.session_id == 0x4444)
-assert(p.proto_ver == 0x02)
-assert(p.iface_ver == 0x03)
-assert(p.msg_type == 0x04)
-assert(p.retcode == 0x05)
+assert p.srv_id == 0x1111
+assert p.sub_id == 0x1
+assert p.method_id == None
+assert p.event_id == 0x0111
+assert p.client_id == 0x3333
+assert p.session_id == 0x4444
+assert p.proto_ver == 0x02
+assert p.iface_ver == 0x03
+assert p.msg_type == 0x04
+assert p.retcode == 0x05
 
 = Dissect METHOD_ID packet
 p = SOMEIP(b"\x11\x11\x01\x11\x00\x00\x00\x04\x33\x33\x44\x44\x02\x03\x04\x05")
 
-assert(p.srv_id == 0x1111)
-assert(p.sub_id == 0x0)
-assert(p.method_id == 0x0111)
-assert(p.event_id == None)
-assert(p.client_id == 0x3333)
-assert(p.session_id == 0x4444)
-assert(p.proto_ver == 0x02)
-assert(p.iface_ver == 0x03)
-assert(p.msg_type == 0x04)
-assert(p.retcode == 0x05)
+assert p.srv_id == 0x1111
+assert p.sub_id == 0x0
+assert p.method_id == 0x0111
+assert p.event_id == None
+assert p.client_id == 0x3333
+assert p.session_id == 0x4444
+assert p.proto_ver == 0x02
+assert p.iface_ver == 0x03
+assert p.msg_type == 0x04
+assert p.retcode == 0x05
 
 + SOME/IP-TP operation
 
@@ -91,30 +91,30 @@ p.msg_type = 0x20
 pstr = bytes(p)
 print(pstr)
 binstr = b'\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x20\x00\x00\x00\x00\x00'
-assert(pstr == binstr)
+assert pstr == binstr
 
 p.more_seg = 1
 pstr = bytes(p)
 binstr = b'\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x20\x00\x00\x00\x00\x01'
-assert(pstr == binstr)
+assert pstr == binstr
 
 p.msg_type = 0x00
 pstr = bytes(p)
 binstr = b'\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00'
-assert(pstr == binstr)
+assert pstr == binstr
 
 = Dissect TP
 p = SOMEIP(b'\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x21\x00\x00\x00\x00\x01')
 
-assert(p.msg_type == 0x21)
-assert(p.more_seg == 1)
-assert(p.len == 12)
+assert p.msg_type == 0x21
+assert p.more_seg == 1
+assert p.len == 12
 
 p.msg_type = 0x00
 
 pstr = bytes(p)
 binstr = b"\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x01\x01\x00\x00"
-assert(pstr == binstr)
+assert pstr == binstr
 
 = Build TP fragmented
 p = SOMEIP()
@@ -123,18 +123,18 @@ p.add_payload(Raw("A"*1400))
 
 f = p.fragment()
 
-assert(f[0].len == 1404)
-assert(f[1].len == 20)
-assert(f[0].payload == Raw("A"*1392))
-assert(f[1].payload == Raw("A"*8))
-assert(f[0].more_seg == 1)
-assert(f[1].more_seg == 0)
+assert f[0].len == 1404
+assert f[1].len == 20
+assert f[0].payload == Raw("A"*1392)
+assert f[1].payload == Raw("A"*8)
+assert f[0].more_seg == 1
+assert f[1].more_seg == 0
 
 + SD Entry Service
 
 = Check packet length on empty build
 p = SDEntry_Service()
-assert(len(bytes(p)) == SDENTRY_OVERALL_LEN)
+assert len(bytes(p)) == SDENTRY_OVERALL_LEN
 
 = Build 1
 p = SDEntry_Service(type = SDENTRY_TYPE_SRV_OFFERSERVICE,
@@ -143,33 +143,33 @@ p = SDEntry_Service(type = SDENTRY_TYPE_SRV_OFFERSERVICE,
 					ttl = 0x666666, minor_ver = 0xdeadbeef)
 p_str = bytes(p)
 bin_str = b"\x01\x11\x22\x00\x33\x33\x44\x44\x55\x66\x66\x66\xde\xad\xbe\xef"
-assert(p_str == bin_str)
-assert(len(p_str) == SDENTRY_OVERALL_LEN)
+assert p_str == bin_str
+assert len(p_str) == SDENTRY_OVERALL_LEN
 
 = Build 2
 p = SDEntry_Service(n_opt_1 = 0xf1, n_opt_2 = 0xf2)
 p_str = bytes(p)
 bin_str = b"\x00\x00\x00\x12\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-assert(p_str == bin_str)
-assert(len(p_str) == SDENTRY_OVERALL_LEN)
+assert p_str == bin_str
+assert len(p_str) == SDENTRY_OVERALL_LEN
 
 = Dissect
 p = SDEntry_Service(
     b"\x01\x22\x33\x00\x44\x44\x55\x55\x66\x77\x77\x77\xde\xad\xbe\xef")
-assert(p.type == SDENTRY_TYPE_SRV_OFFERSERVICE)
-assert(p.index_1 == 0x22)
-assert(p.index_2 == 0x33)
-assert(p.srv_id == 0x4444)
-assert(p.inst_id == 0x5555)
-assert(p.major_ver == 0x66)
-assert(p.ttl == 0x777777)
-assert(p.minor_ver == 0xdeadbeef)
+assert p.type == SDENTRY_TYPE_SRV_OFFERSERVICE
+assert p.index_1 == 0x22
+assert p.index_2 == 0x33
+assert p.srv_id == 0x4444
+assert p.inst_id == 0x5555
+assert p.major_ver == 0x66
+assert p.ttl == 0x777777
+assert p.minor_ver == 0xdeadbeef
 
 + SD Entry Eventgroup
 
 = Check packet length on empty build
 p = SDEntry_EventGroup()
-assert(len(bytes(p)) == SDENTRY_OVERALL_LEN)
+assert len(bytes(p)) == SDENTRY_OVERALL_LEN
 
 = Build
 p = SDEntry_EventGroup(index_1 = 0x11, index_2 = 0x22, srv_id = 0x3333,
@@ -177,69 +177,69 @@ p = SDEntry_EventGroup(index_1 = 0x11, index_2 = 0x22, srv_id = 0x3333,
 					   cnt = 0x7, eventgroup_id = 0x8888)
 p_str = bytes(p)
 bin_str = b"\x06\x11\x22\x00\x33\x33\x44\x44\x55\x66\x66\x66\x00\x07\x88\x88"
-assert(p_str == bin_str)
-assert(len(bytes(p)) == SDENTRY_OVERALL_LEN)
+assert p_str == bin_str
+assert len(bytes(p)) == SDENTRY_OVERALL_LEN
 
 = Dissect
 p = SDEntry_EventGroup(
     b"\x06\x11\x22\x00\x33\x33\x44\x44\x55\x66\x66\x66\x00\x07\x88\x88")
-assert(p.index_1 == 0x11)
-assert(p.index_2 == 0x22)
-assert(p.srv_id == 0x3333)
-assert(p.inst_id == 0x4444)
-assert(p.major_ver == 0x55)
-assert(p.ttl == 0x666666)
-assert(p.cnt == 0x7)
-assert(p.eventgroup_id == 0x8888)
+assert p.index_1 == 0x11
+assert p.index_2 == 0x22
+assert p.srv_id == 0x3333
+assert p.inst_id == 0x4444
+assert p.major_ver == 0x55
+assert p.ttl == 0x666666
+assert p.cnt == 0x7
+assert p.eventgroup_id == 0x8888
 
 + SD Flags
 
 = Build and check flags
 p = SD()
 p.set_flag("REBOOT", 1)
-assert(p.flags == 0x80)
+assert p.flags == 0x80
 
 p.set_flag("REBOOT", 0)
-assert(p.flags == 0x00)
+assert p.flags == 0x00
 
 p.set_flag("UNICAST", 1)
-assert(p.flags == 0x40)
+assert p.flags == 0x40
 
 p.set_flag("UNICAST", 0)
-assert(p.flags == 0x00)
+assert p.flags == 0x00
 
 p.set_flag("REBOOT", 1)
 p.set_flag("UNICAST", 1)
-assert(p.flags == 0xc0)
+assert p.flags == 0xc0
 
 + SD Get SOME/IP Packet
 
 = Build empty
 p = SOMEIP() / SD()
-assert(len(bytes(p)) == SOMEIP._OVERALL_LEN_NOPAYLOAD + 12)
+assert len(bytes(p)) == SOMEIP._OVERALL_LEN_NOPAYLOAD + 12
 
 = Verify constants against spec TR_SOMEIP_00250
-assert(SD.SOMEIP_MSGID_SRVID == 0xffff)
-assert(SD.SOMEIP_MSGID_SUBID == 0x1)
-assert(SD.SOMEIP_MSGID_EVENTID == 0x0100)
-assert(SD.SOMEIP_CLIENT_ID == 0x0000)
-assert(SD.SOMEIP_MINIMUM_SESSION_ID == 0x0001)
-assert(SD.SOMEIP_PROTO_VER == 0x01)
-assert(SD.SOMEIP_IFACE_VER == 0x01)
-assert(SD.SOMEIP_MSG_TYPE == 0x02)
-assert(SD.SOMEIP_RETCODE == 0x00)
+assert SD.SOMEIP_MSGID_SRVID == 0xffff
+assert SD.SOMEIP_MSGID_SUBID == 0x1
+assert SD.SOMEIP_MSGID_EVENTID == 0x0100
+assert SD.SOMEIP_CLIENT_ID == 0x0000
+assert SD.SOMEIP_MINIMUM_SESSION_ID == 0x0001
+assert SD.SOMEIP_PROTO_VER == 0x01
+assert SD.SOMEIP_IFACE_VER == 0x01
+assert SD.SOMEIP_MSG_TYPE == 0x02
+assert SD.SOMEIP_RETCODE == 0x00
 
 = check that values are bound
-assert(p[SOMEIP].srv_id == SD.SOMEIP_MSGID_SRVID)
-assert(p[SOMEIP].sub_id == SD.SOMEIP_MSGID_SUBID)
-assert(p[SOMEIP].event_id == SD.SOMEIP_MSGID_EVENTID)
-assert(p[SOMEIP].client_id == SD.SOMEIP_CLIENT_ID)
-assert(p[SOMEIP].session_id != 0x0000)
-assert(p[SOMEIP].session_id >= SD.SOMEIP_MINIMUM_SESSION_ID)
-assert(p[SOMEIP].proto_ver == SD.SOMEIP_PROTO_VER)
-assert(p[SOMEIP].iface_ver == SD.SOMEIP_IFACE_VER)
-assert(p[SOMEIP].msg_type == SD.SOMEIP_MSG_TYPE)
-assert(p[SOMEIP].retcode == SD.SOMEIP_RETCODE)
+assert p[SOMEIP].srv_id == SD.SOMEIP_MSGID_SRVID
+assert p[SOMEIP].sub_id == SD.SOMEIP_MSGID_SUBID
+assert p[SOMEIP].event_id == SD.SOMEIP_MSGID_EVENTID
+assert p[SOMEIP].client_id == SD.SOMEIP_CLIENT_ID
+assert p[SOMEIP].session_id != 0x0000
+assert p[SOMEIP].session_id >= SD.SOMEIP_MINIMUM_SESSION_ID
+assert p[SOMEIP].proto_ver == SD.SOMEIP_PROTO_VER
+assert p[SOMEIP].iface_ver == SD.SOMEIP_IFACE_VER
+assert p[SOMEIP].msg_type == SD.SOMEIP_MSG_TYPE
+assert p[SOMEIP].retcode == SD.SOMEIP_RETCODE
 
 # FIXME: Service Discovery messages shell be transported over UDP
 # (TR_SOMEIP_00248)
@@ -250,28 +250,28 @@ assert(p[SOMEIP].retcode == SD.SOMEIP_RETCODE)
 
 = Check length of package without entries nor options
 p = SD()
-assert(len(bytes(p)) == 12)
+assert len(bytes(p)) == 12
 
 = Check entries to array and size check
 p.set_entryArray([SDEntry_Service(), SDEntry_EventGroup()])
-assert(struct.unpack("!L", bytes(p)[4:8])[0] == 32)
+assert struct.unpack("!L", bytes(p)[4:8])[0] == 32
 
 p.set_entryArray([])
-assert(struct.unpack("!L", bytes(p)[4:8])[0] == 0)
+assert struct.unpack("!L", bytes(p)[4:8])[0] == 0
 
 = Check Options to array and size check
 p.set_optionArray([SDOption_IP4_EndPoint(), SDOption_IP4_EndPoint()])
-assert(struct.unpack("!L", bytes(p)[8:12])[0] == 24)
+assert struct.unpack("!L", bytes(p)[8:12])[0] == 24
 
 p.set_optionArray([])
-assert(struct.unpack("!L", bytes(p)[8:12])[0] == 0)
+assert struct.unpack("!L", bytes(p)[8:12])[0] == 0
 
 = Check Entries & Options to array and size check
 p.set_entryArray([SDEntry_Service(), SDEntry_EventGroup()])
 p.set_optionArray([SDOption_IP4_EndPoint(), SDOption_IP4_EndPoint()])
 
-assert(struct.unpack("!L", bytes(p)[4:8])[0] == 32)
-assert(struct.unpack("!L", bytes(p)[40:44])[0] == 24)
+assert struct.unpack("!L", bytes(p)[4:8])[0] == 32
+assert struct.unpack("!L", bytes(p)[40:44])[0] == 24
 
 
 + Git issue 2348: SOME/IP-SD Entry-Array is broken by building it from RAW
@@ -294,25 +294,25 @@ ea2.eventgroup_id = 0x1357
 
 sd1 = SD()
 sd1.set_entryArray([ea1])
-# this is computed on build, but we need it sooner for the assert()
+# this is computed on build, but we need it sooner for the assert 
 sd1.len_entry_array = 16
 sd1.len_option_array = 0
 
-assert(sd1.show(dump=True) == SD(sd1.build()).show(dump=True))
+assert sd1.show(dump=True) == SD(sd1.build()).show(dump=True)
 
 = Double SD entry
 sd2 = SD()
 sd2.set_entryArray([ea2,ea1])
-# this is computed on build, but we need it sooner for the assert()
+# this is computed on build, but we need it sooner for the assert 
 sd2.len_entry_array = 32
 sd2.len_option_array = 0
 
-assert(sd2.show(dump=True) == SD(sd2.build()).show(dump=True))
+assert sd2.show(dump=True) == SD(sd2.build()).show(dump=True)
 
 = Flipped double SD entry
 # flip the order
 sd2.set_entryArray([ea1,ea2])
-assert(sd2.show(dump=True) == SD(sd2.build()).show(dump=True))
+assert sd2.show(dump=True) == SD(sd2.build()).show(dump=True)
 
 
 
@@ -320,27 +320,27 @@ assert(sd2.show(dump=True) == SD(sd2.build()).show(dump=True))
 
 + SD Options (individual)
 = Verifying constants against spec
-assert(SDOPTION_CFG_TYPE == 0x01)
-assert(SDOPTION_LOADBALANCE_TYPE == 0x02)
-assert(SDOPTION_LOADBALANCE_LEN == 0x05)
-assert(SDOPTION_IP4_ENDPOINT_TYPE == 0x04)
-assert(SDOPTION_IP4_ENDPOINT_LEN == 0x0009)
-assert(SDOPTION_IP4_MCAST_TYPE == 0x14)
-assert(SDOPTION_IP4_MCAST_LEN == 0x0009)
-assert(SDOPTION_IP4_SDENDPOINT_TYPE == 0x24)
-assert(SDOPTION_IP4_SDENDPOINT_LEN == 0x0009)
-assert(SDOPTION_IP6_ENDPOINT_TYPE == 0x06)
-assert(SDOPTION_IP6_ENDPOINT_LEN == 0x0015)
-assert(SDOPTION_IP6_MCAST_TYPE == 0x16)
-assert(SDOPTION_IP6_MCAST_LEN == 0x0015)
-assert(SDOPTION_IP6_SDENDPOINT_TYPE == 0x26)
-assert(SDOPTION_IP6_SDENDPOINT_LEN == 0x0015)
+assert SDOPTION_CFG_TYPE == 0x01
+assert SDOPTION_LOADBALANCE_TYPE == 0x02
+assert SDOPTION_LOADBALANCE_LEN == 0x05
+assert SDOPTION_IP4_ENDPOINT_TYPE == 0x04
+assert SDOPTION_IP4_ENDPOINT_LEN == 0x0009
+assert SDOPTION_IP4_MCAST_TYPE == 0x14
+assert SDOPTION_IP4_MCAST_LEN == 0x0009
+assert SDOPTION_IP4_SDENDPOINT_TYPE == 0x24
+assert SDOPTION_IP4_SDENDPOINT_LEN == 0x0009
+assert SDOPTION_IP6_ENDPOINT_TYPE == 0x06
+assert SDOPTION_IP6_ENDPOINT_LEN == 0x0015
+assert SDOPTION_IP6_MCAST_TYPE == 0x16
+assert SDOPTION_IP6_MCAST_LEN == 0x0015
+assert SDOPTION_IP6_SDENDPOINT_TYPE == 0x26
+assert SDOPTION_IP6_SDENDPOINT_LEN == 0x0015
 
 ### SDOption_Config
 = SDOption_Config: Verify make_string() method from dict
 data = { "hello": "world" }
 out = SDOption_Config.make_string(data)
-assert(out == b"\x0bhello=world\x00")
+assert out == b"\x0bhello=world\x00"
 
 = SDOption_Config: Verify make_string() method from list
 data = [
@@ -349,349 +349,349 @@ data = [
 	("123", "456")
 ]
 out = SDOption_Config.make_string(data)
-assert(out == b"\x03x=y\x07abc=def\x07123=456\x00")
+assert out == b"\x03x=y\x07abc=def\x07123=456\x00"
 
 = SDOption_Config: Build and dissect empty
 opt = SDOption_Config()
 optraw = opt.build()
-assert(optraw == b"\x00\x02\x01\x00\x00")
+assert optraw == b"\x00\x02\x01\x00\x00"
 
 opt = SDOption_Config(optraw)
-assert(opt.len == 0x2)
-assert(opt.type == SDOPTION_CFG_TYPE)
-assert(opt.res_hdr == 0x0)
-assert(opt.cfg_str == b"\x00")
+assert opt.len == 0x2
+assert opt.type == SDOPTION_CFG_TYPE
+assert opt.res_hdr == 0x0
+assert opt.cfg_str == b"\x00"
 
 = SDOption_Config: Build and dissect spec example
 tststr = b"\x05abc=x\x07def=123\x00"
 opt = SDOption_Config(cfg_str=tststr)
 optraw = opt.build()
-assert(optraw == b"\x00\x10\x01\x00" + tststr)
+assert optraw == b"\x00\x10\x01\x00" + tststr
 
 opt = SDOption_Config(optraw)
-assert(opt.len == 0x10)
-assert(opt.type == SDOPTION_CFG_TYPE)
-assert(opt.res_hdr == 0x00)
-assert(opt.cfg_str == tststr)
+assert opt.len == 0x10
+assert opt.type == SDOPTION_CFG_TYPE
+assert opt.res_hdr == 0x00
+assert opt.cfg_str == tststr
 
 = SDOption_Config: Build and dissect fully populated
 tststr = b"abcdefghijklmnopqrstuvwxyz"
 opt = SDOption_Config(len=0x1234, type=0x56, res_hdr=0x78, cfg_str=tststr)
 optraw = opt.build()
-assert(optraw == b"\x12\x34\x56\x78" + tststr)
+assert optraw == b"\x12\x34\x56\x78" + tststr
 
 opt = SDOption_Config(optraw)
-assert(opt.len == 0x1234)
-assert(opt.type == 0x56)
-assert(opt.res_hdr == 0x78)
-assert(opt.cfg_str == tststr)
+assert opt.len == 0x1234
+assert opt.type == 0x56
+assert opt.res_hdr == 0x78
+assert opt.cfg_str == tststr
 
 
 ### SDOption_LoadBalance
 = SDOption_LoadBalance: Build and dissect empty
 opt = SDOption_LoadBalance()
 optraw = opt.build()
-assert(optraw == b"\x00\x05\x02\x00\x00\x00\x00\x00")
+assert optraw == b"\x00\x05\x02\x00\x00\x00\x00\x00"
 
 opt = SDOption_LoadBalance(optraw)
-assert(opt.len == SDOPTION_LOADBALANCE_LEN)
-assert(opt.type == SDOPTION_LOADBALANCE_TYPE)
-assert(opt.res_hdr == 0x0)
-assert(opt.priority == 0x0)
-assert(opt.weight == 0x0)
+assert opt.len == SDOPTION_LOADBALANCE_LEN
+assert opt.type == SDOPTION_LOADBALANCE_TYPE
+assert opt.res_hdr == 0x0
+assert opt.priority == 0x0
+assert opt.weight == 0x0
 
 = SDOption_LoadBalance: Build and dissect example
 opt = SDOption_LoadBalance(priority=0x1234, weight=0x5678)
 optraw = opt.build()
-assert(optraw == b"\x00\x05\x02\x00\x12\x34\x56\x78")
+assert optraw == b"\x00\x05\x02\x00\x12\x34\x56\x78"
 
 opt = SDOption_LoadBalance(optraw)
-assert(opt.len == SDOPTION_LOADBALANCE_LEN)
-assert(opt.type == SDOPTION_LOADBALANCE_TYPE)
-assert(opt.res_hdr == 0x00)
-assert(opt.priority == 0x1234)
-assert(opt.weight == 0x5678)
+assert opt.len == SDOPTION_LOADBALANCE_LEN
+assert opt.type == SDOPTION_LOADBALANCE_TYPE
+assert opt.res_hdr == 0x00
+assert opt.priority == 0x1234
+assert opt.weight == 0x5678
 
 = SDOption_LoadBalance: Build and dissect fully populated
 opt = SDOption_LoadBalance(len=0x1234, type=0x56, res_hdr=0x78, priority=0x9abc, weight=0xdef0)
 optraw = opt.build()
-assert(optraw == b"\x12\x34\x56\x78\x9a\xbc\xde\xf0")
+assert optraw == b"\x12\x34\x56\x78\x9a\xbc\xde\xf0"
 
 opt = SDOption_LoadBalance(optraw)
-assert(opt.len == 0x1234)
-assert(opt.type == 0x56)
-assert(opt.res_hdr == 0x78)
-assert(opt.priority == 0x9abc)
-assert(opt.weight == 0xdef0)
+assert opt.len == 0x1234
+assert opt.type == 0x56
+assert opt.res_hdr == 0x78
+assert opt.priority == 0x9abc
+assert opt.weight == 0xdef0
 
 
 ### SDOption_IP4_EndPoint
 = SDOption_IP4_EndPoint: Build and dissect empty
 opt = SDOption_IP4_EndPoint()
 optraw = opt.build()
-assert(optraw == b"\x00\x09\x04\x00\x00\x00\x00\x00\x00\x11\x00\x00")
+assert optraw == b"\x00\x09\x04\x00\x00\x00\x00\x00\x00\x11\x00\x00"
 
 opt = SDOption_IP4_EndPoint(optraw)
-assert(opt.len == SDOPTION_IP4_ENDPOINT_LEN)
-assert(opt.type == SDOPTION_IP4_ENDPOINT_TYPE)
-assert(opt.res_hdr == 0x0)
-assert(opt.addr == "0.0.0.0")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x11)
-assert(opt.port == 0x0)
+assert opt.len == SDOPTION_IP4_ENDPOINT_LEN
+assert opt.type == SDOPTION_IP4_ENDPOINT_TYPE
+assert opt.res_hdr == 0x0
+assert opt.addr == "0.0.0.0"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x11
+assert opt.port == 0x0
 
 
 = SDOption_IP4_EndPoint: Build and dissect example
 opt = SDOption_IP4_EndPoint(addr = "192.168.123.45", l4_proto = "TCP", port = 0x1234)
 optraw = opt.build()
-assert(optraw == b"\x00\x09\x04\x00\xc0\xa8\x7b\x2d\x00\x06\x12\x34")
+assert optraw == b"\x00\x09\x04\x00\xc0\xa8\x7b\x2d\x00\x06\x12\x34"
 
 opt = SDOption_IP4_EndPoint(optraw)
-assert(opt.len == SDOPTION_IP4_ENDPOINT_LEN)
-assert(opt.type == SDOPTION_IP4_ENDPOINT_TYPE)
-assert(opt.res_hdr == 0x00)
-assert(opt.addr == "192.168.123.45")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x06)
-assert(opt.port == 0x1234)
+assert opt.len == SDOPTION_IP4_ENDPOINT_LEN
+assert opt.type == SDOPTION_IP4_ENDPOINT_TYPE
+assert opt.res_hdr == 0x00
+assert opt.addr == "192.168.123.45"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x06
+assert opt.port == 0x1234
 
 = SDOption_IP4_EndPoint: Build and dissect fully populated
 opt = SDOption_IP4_EndPoint(len=0x1234, type=0x56, res_hdr=0x78, addr = "11.22.33.44", res_tail = 0x9a, l4_proto = 0xbc, port = 0xdef0)
 optraw = opt.build()
-assert(optraw == b"\x12\x34\x56\x78\x0b\x16\x21\x2c\x9a\xbc\xde\xf0")
+assert optraw == b"\x12\x34\x56\x78\x0b\x16\x21\x2c\x9a\xbc\xde\xf0"
 
 opt = SDOption_IP4_EndPoint(optraw)
-assert(opt.len == 0x1234)
-assert(opt.type == 0x56)
-assert(opt.res_hdr == 0x78)
-assert(opt.addr == "11.22.33.44")
-assert(opt.res_tail == 0x9a)
-assert(opt.l4_proto == 0xbc)
-assert(opt.port == 0xdef0)
+assert opt.len == 0x1234
+assert opt.type == 0x56
+assert opt.res_hdr == 0x78
+assert opt.addr == "11.22.33.44"
+assert opt.res_tail == 0x9a
+assert opt.l4_proto == 0xbc
+assert opt.port == 0xdef0
 
 
 ### SDOption_IP4_Multicast
 = SDOption_IP4_Multicast: Build and dissect empty
 opt = SDOption_IP4_Multicast()
 optraw = opt.build()
-assert(optraw == b"\x00\x09\x14\x00\x00\x00\x00\x00\x00\x11\x00\x00")
+assert optraw == b"\x00\x09\x14\x00\x00\x00\x00\x00\x00\x11\x00\x00"
 
 opt = SDOption_IP4_Multicast(optraw)
-assert(opt.len == SDOPTION_IP4_MCAST_LEN)
-assert(opt.type == SDOPTION_IP4_MCAST_TYPE)
-assert(opt.res_hdr == 0x0)
-assert(opt.addr == "0.0.0.0")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x11)
-assert(opt.port == 0x0)
+assert opt.len == SDOPTION_IP4_MCAST_LEN
+assert opt.type == SDOPTION_IP4_MCAST_TYPE
+assert opt.res_hdr == 0x0
+assert opt.addr == "0.0.0.0"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x11
+assert opt.port == 0x0
 
 
 = SDOption_IP4_Multicast: Build and dissect example
 opt = SDOption_IP4_Multicast(addr = "192.168.123.45", l4_proto = "TCP", port = 0x1234)
 optraw = opt.build()
-assert(optraw == b"\x00\x09\x14\x00\xc0\xa8\x7b\x2d\x00\x06\x12\x34")
+assert optraw == b"\x00\x09\x14\x00\xc0\xa8\x7b\x2d\x00\x06\x12\x34"
 
 opt = SDOption_IP4_Multicast(optraw)
-assert(opt.len == SDOPTION_IP4_MCAST_LEN)
-assert(opt.type == SDOPTION_IP4_MCAST_TYPE)
-assert(opt.res_hdr == 0x00)
-assert(opt.addr == "192.168.123.45")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x06)
-assert(opt.port == 0x1234)
+assert opt.len == SDOPTION_IP4_MCAST_LEN
+assert opt.type == SDOPTION_IP4_MCAST_TYPE
+assert opt.res_hdr == 0x00
+assert opt.addr == "192.168.123.45"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x06
+assert opt.port == 0x1234
 
 = SDOption_IP4_Multicast: Build and dissect fully populated
 opt = SDOption_IP4_Multicast(len=0x1234, type=0x56, res_hdr=0x78, addr = "11.22.33.44", res_tail = 0x9a, l4_proto = 0xbc, port = 0xdef0)
 optraw = opt.build()
-assert(optraw == b"\x12\x34\x56\x78\x0b\x16\x21\x2c\x9a\xbc\xde\xf0")
+assert optraw == b"\x12\x34\x56\x78\x0b\x16\x21\x2c\x9a\xbc\xde\xf0"
 
 opt = SDOption_IP4_Multicast(optraw)
-assert(opt.len == 0x1234)
-assert(opt.type == 0x56)
-assert(opt.res_hdr == 0x78)
-assert(opt.addr == "11.22.33.44")
-assert(opt.res_tail == 0x9a)
-assert(opt.l4_proto == 0xbc)
-assert(opt.port == 0xdef0)
+assert opt.len == 0x1234
+assert opt.type == 0x56
+assert opt.res_hdr == 0x78
+assert opt.addr == "11.22.33.44"
+assert opt.res_tail == 0x9a
+assert opt.l4_proto == 0xbc
+assert opt.port == 0xdef0
 
 
 ### SDOption_IP4_SD_EndPoint
 = SDOption_IP4_SD_EndPoint: Build and dissect empty
 opt = SDOption_IP4_SD_EndPoint()
 optraw = opt.build()
-assert(optraw == b"\x00\x09\x24\x00\x00\x00\x00\x00\x00\x11\x00\x00")
+assert optraw == b"\x00\x09\x24\x00\x00\x00\x00\x00\x00\x11\x00\x00"
 
 opt = SDOption_IP4_SD_EndPoint(optraw)
-assert(opt.len == SDOPTION_IP4_SDENDPOINT_LEN)
-assert(opt.type == SDOPTION_IP4_SDENDPOINT_TYPE)
-assert(opt.res_hdr == 0x0)
-assert(opt.addr == "0.0.0.0")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x11)
-assert(opt.port == 0x0)
+assert opt.len == SDOPTION_IP4_SDENDPOINT_LEN
+assert opt.type == SDOPTION_IP4_SDENDPOINT_TYPE
+assert opt.res_hdr == 0x0
+assert opt.addr == "0.0.0.0"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x11
+assert opt.port == 0x0
 
 
 = SDOption_IP4_SD_EndPoint: Build and dissect example
 opt = SDOption_IP4_SD_EndPoint(addr = "192.168.123.45", l4_proto = "TCP", port = 0x1234)
 optraw = opt.build()
-assert(optraw == b"\x00\x09\x24\x00\xc0\xa8\x7b\x2d\x00\x06\x12\x34")
+assert optraw == b"\x00\x09\x24\x00\xc0\xa8\x7b\x2d\x00\x06\x12\x34"
 
 opt = SDOption_IP4_SD_EndPoint(optraw)
-assert(opt.len == SDOPTION_IP4_SDENDPOINT_LEN)
-assert(opt.type == SDOPTION_IP4_SDENDPOINT_TYPE)
-assert(opt.res_hdr == 0x00)
-assert(opt.addr == "192.168.123.45")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x06)
-assert(opt.port == 0x1234)
+assert opt.len == SDOPTION_IP4_SDENDPOINT_LEN
+assert opt.type == SDOPTION_IP4_SDENDPOINT_TYPE
+assert opt.res_hdr == 0x00
+assert opt.addr == "192.168.123.45"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x06
+assert opt.port == 0x1234
 
 = SDOption_IP4_SD_EndPoint: Build and dissect fully populated
 opt = SDOption_IP4_SD_EndPoint(len=0x1234, type=0x56, res_hdr=0x78, addr = "11.22.33.44", res_tail = 0x9a, l4_proto = 0xbc, port = 0xdef0)
 optraw = opt.build()
-assert(optraw == b"\x12\x34\x56\x78\x0b\x16\x21\x2c\x9a\xbc\xde\xf0")
+assert optraw == b"\x12\x34\x56\x78\x0b\x16\x21\x2c\x9a\xbc\xde\xf0"
 
 opt = SDOption_IP4_SD_EndPoint(optraw)
-assert(opt.len == 0x1234)
-assert(opt.type == 0x56)
-assert(opt.res_hdr == 0x78)
-assert(opt.addr == "11.22.33.44")
-assert(opt.res_tail == 0x9a)
-assert(opt.l4_proto == 0xbc)
-assert(opt.port == 0xdef0)
+assert opt.len == 0x1234
+assert opt.type == 0x56
+assert opt.res_hdr == 0x78
+assert opt.addr == "11.22.33.44"
+assert opt.res_tail == 0x9a
+assert opt.l4_proto == 0xbc
+assert opt.port == 0xdef0
 
 ### SDOption_IP6_EndPoint
 = SDOption_IP6_EndPoint: Build and dissect empty
 opt = SDOption_IP6_EndPoint()
 optraw = opt.build()
-assert(optraw == b"\x00\x15\x06\x00" + b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" + b"\x00\x11\x00\x00")
+assert optraw == b"\x00\x15\x06\x00" + b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" + b"\x00\x11\x00\x00"
 
 opt = SDOption_IP6_EndPoint(optraw)
-assert(opt.len == SDOPTION_IP6_ENDPOINT_LEN)
-assert(opt.type == SDOPTION_IP6_ENDPOINT_TYPE)
-assert(opt.res_hdr == 0x0)
-assert(opt.addr == "::")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x11)
-assert(opt.port == 0x0)
+assert opt.len == SDOPTION_IP6_ENDPOINT_LEN
+assert opt.type == SDOPTION_IP6_ENDPOINT_TYPE
+assert opt.res_hdr == 0x0
+assert opt.addr == "::"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x11
+assert opt.port == 0x0
 
 
 = SDOption_IP6_EndPoint: Build and dissect example
 opt = SDOption_IP6_EndPoint(addr = "2001:cdba::3257:9652", l4_proto = "TCP", port = 0x1234)
 optraw = opt.build()
-assert(optraw == b"\x00\x15\x06\x00" + b"\x20\x01\xcd\xba\x00\x00\x00\x00\x00\x00\x00\x00\x32\x57\x96\x52" + b"\x00\x06\x12\x34")
+assert optraw == b"\x00\x15\x06\x00" + b"\x20\x01\xcd\xba\x00\x00\x00\x00\x00\x00\x00\x00\x32\x57\x96\x52" + b"\x00\x06\x12\x34"
 
 opt = SDOption_IP6_EndPoint(optraw)
-assert(opt.len == SDOPTION_IP6_ENDPOINT_LEN)
-assert(opt.type == SDOPTION_IP6_ENDPOINT_TYPE)
-assert(opt.res_hdr == 0x00)
-assert(opt.addr == "2001:cdba::3257:9652")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x06)
-assert(opt.port == 0x1234)
+assert opt.len == SDOPTION_IP6_ENDPOINT_LEN
+assert opt.type == SDOPTION_IP6_ENDPOINT_TYPE
+assert opt.res_hdr == 0x00
+assert opt.addr == "2001:cdba::3257:9652"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x06
+assert opt.port == 0x1234
 
 = SDOption_IP6_EndPoint: Build and dissect fully populated
 opt = SDOption_IP6_EndPoint(len=0x1234, type=0x56, res_hdr=0x78, addr = "1234:5678:9abc:def0:0fed:cba9:8765:4321", res_tail = 0x9a, l4_proto = 0xbc, port = 0xdef0)
 optraw = opt.build()
-assert(optraw == b"\x12\x34\x56\x78" + b"\x12\x34\x56\x78\x9a\xbc\xde\xf0\x0f\xed\xcb\xa9\x87\x65\x43\x21" + b"\x9a\xbc\xde\xf0")
+assert optraw == b"\x12\x34\x56\x78" + b"\x12\x34\x56\x78\x9a\xbc\xde\xf0\x0f\xed\xcb\xa9\x87\x65\x43\x21" + b"\x9a\xbc\xde\xf0"
 
 opt = SDOption_IP6_EndPoint(optraw)
-assert(opt.len == 0x1234)
-assert(opt.type == 0x56)
-assert(opt.res_hdr == 0x78)
-assert(opt.addr == "1234:5678:9abc:def0:fed:cba9:8765:4321")
-assert(opt.res_tail == 0x9a)
-assert(opt.l4_proto == 0xbc)
-assert(opt.port == 0xdef0)
+assert opt.len == 0x1234
+assert opt.type == 0x56
+assert opt.res_hdr == 0x78
+assert opt.addr == "1234:5678:9abc:def0:fed:cba9:8765:4321"
+assert opt.res_tail == 0x9a
+assert opt.l4_proto == 0xbc
+assert opt.port == 0xdef0
 
 
 ### SDOption_IP6_Multicast
 = SDOption_IP6_Multicast: Build and dissect empty
 opt = SDOption_IP6_Multicast()
 optraw = opt.build()
-assert(optraw == b"\x00\x15\x16\x00" + b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" + b"\x00\x11\x00\x00")
+assert optraw == b"\x00\x15\x16\x00" + b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" + b"\x00\x11\x00\x00"
 
 opt = SDOption_IP6_Multicast(optraw)
-assert(opt.len == SDOPTION_IP6_MCAST_LEN)
-assert(opt.type == SDOPTION_IP6_MCAST_TYPE)
-assert(opt.res_hdr == 0x0)
-assert(opt.addr == "::")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x11)
-assert(opt.port == 0x0)
+assert opt.len == SDOPTION_IP6_MCAST_LEN
+assert opt.type == SDOPTION_IP6_MCAST_TYPE
+assert opt.res_hdr == 0x0
+assert opt.addr == "::"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x11
+assert opt.port == 0x0
 
 
 = SDOption_IP6_Multicast: Build and dissect example
 opt = SDOption_IP6_Multicast(addr = "2001:cdba::3257:9652", l4_proto = "TCP", port = 0x1234)
 optraw = opt.build()
-assert(optraw == b"\x00\x15\x16\x00" + b"\x20\x01\xcd\xba\x00\x00\x00\x00\x00\x00\x00\x00\x32\x57\x96\x52" + b"\x00\x06\x12\x34")
+assert optraw == b"\x00\x15\x16\x00" + b"\x20\x01\xcd\xba\x00\x00\x00\x00\x00\x00\x00\x00\x32\x57\x96\x52" + b"\x00\x06\x12\x34"
 
 opt = SDOption_IP6_Multicast(optraw)
-assert(opt.len == SDOPTION_IP6_MCAST_LEN)
-assert(opt.type == SDOPTION_IP6_MCAST_TYPE)
-assert(opt.res_hdr == 0x00)
-assert(opt.addr == "2001:cdba::3257:9652")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x06)
-assert(opt.port == 0x1234)
+assert opt.len == SDOPTION_IP6_MCAST_LEN
+assert opt.type == SDOPTION_IP6_MCAST_TYPE
+assert opt.res_hdr == 0x00
+assert opt.addr == "2001:cdba::3257:9652"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x06
+assert opt.port == 0x1234
 
 = SDOption_IP6_Multicast: Build and dissect fully populated
 opt = SDOption_IP6_Multicast(len=0x1234, type=0x56, res_hdr=0x78, addr = "1234:5678:9abc:def0:0fed:cba9:8765:4321", res_tail = 0x9a, l4_proto = 0xbc, port = 0xdef0)
 optraw = opt.build()
-assert(optraw == b"\x12\x34\x56\x78" + b"\x12\x34\x56\x78\x9a\xbc\xde\xf0\x0f\xed\xcb\xa9\x87\x65\x43\x21" + b"\x9a\xbc\xde\xf0")
+assert optraw == b"\x12\x34\x56\x78" + b"\x12\x34\x56\x78\x9a\xbc\xde\xf0\x0f\xed\xcb\xa9\x87\x65\x43\x21" + b"\x9a\xbc\xde\xf0"
 
 opt = SDOption_IP6_Multicast(optraw)
-assert(opt.len == 0x1234)
-assert(opt.type == 0x56)
-assert(opt.res_hdr == 0x78)
-assert(opt.addr == "1234:5678:9abc:def0:fed:cba9:8765:4321")
-assert(opt.res_tail == 0x9a)
-assert(opt.l4_proto == 0xbc)
-assert(opt.port == 0xdef0)
+assert opt.len == 0x1234
+assert opt.type == 0x56
+assert opt.res_hdr == 0x78
+assert opt.addr == "1234:5678:9abc:def0:fed:cba9:8765:4321"
+assert opt.res_tail == 0x9a
+assert opt.l4_proto == 0xbc
+assert opt.port == 0xdef0
 
 
 ### SDOption_IP6_SD_EndPoint
 = SDOption_IP6_SD_EndPoint: Build and dissect empty
 opt = SDOption_IP6_SD_EndPoint()
 optraw = opt.build()
-assert(optraw == b"\x00\x15\x26\x00" + b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" + b"\x00\x11\x00\x00")
+assert optraw == b"\x00\x15\x26\x00" + b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" + b"\x00\x11\x00\x00"
 
 opt = SDOption_IP6_SD_EndPoint(optraw)
-assert(opt.len == SDOPTION_IP6_SDENDPOINT_LEN)
-assert(opt.type == SDOPTION_IP6_SDENDPOINT_TYPE)
-assert(opt.res_hdr == 0x0)
-assert(opt.addr == "::")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x11)
-assert(opt.port == 0x0)
+assert opt.len == SDOPTION_IP6_SDENDPOINT_LEN
+assert opt.type == SDOPTION_IP6_SDENDPOINT_TYPE
+assert opt.res_hdr == 0x0
+assert opt.addr == "::"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x11
+assert opt.port == 0x0
 
 
 = SDOption_IP6_SD_EndPoint: Build and dissect example
 opt = SDOption_IP6_SD_EndPoint(addr = "2001:cdba::3257:9652", l4_proto = "TCP", port = 0x1234)
 optraw = opt.build()
-assert(optraw == b"\x00\x15\x26\x00" + b"\x20\x01\xcd\xba\x00\x00\x00\x00\x00\x00\x00\x00\x32\x57\x96\x52" + b"\x00\x06\x12\x34")
+assert optraw == b"\x00\x15\x26\x00" + b"\x20\x01\xcd\xba\x00\x00\x00\x00\x00\x00\x00\x00\x32\x57\x96\x52" + b"\x00\x06\x12\x34"
 
 opt = SDOption_IP6_SD_EndPoint(optraw)
-assert(opt.len == SDOPTION_IP6_SDENDPOINT_LEN)
-assert(opt.type == SDOPTION_IP6_SDENDPOINT_TYPE)
-assert(opt.res_hdr == 0x00)
-assert(opt.addr == "2001:cdba::3257:9652")
-assert(opt.res_tail == 0x0)
-assert(opt.l4_proto == 0x06)
-assert(opt.port == 0x1234)
+assert opt.len == SDOPTION_IP6_SDENDPOINT_LEN
+assert opt.type == SDOPTION_IP6_SDENDPOINT_TYPE
+assert opt.res_hdr == 0x00
+assert opt.addr == "2001:cdba::3257:9652"
+assert opt.res_tail == 0x0
+assert opt.l4_proto == 0x06
+assert opt.port == 0x1234
 
 = SDOption_IP6_SD_EndPoint: Build and dissect fully populated
 opt = SDOption_IP6_SD_EndPoint(len=0x1234, type=0x56, res_hdr=0x78, addr = "1234:5678:9abc:def0:0fed:cba9:8765:4321", res_tail = 0x9a, l4_proto = 0xbc, port = 0xdef0)
 optraw = opt.build()
-assert(optraw == b"\x12\x34\x56\x78" + b"\x12\x34\x56\x78\x9a\xbc\xde\xf0\x0f\xed\xcb\xa9\x87\x65\x43\x21" + b"\x9a\xbc\xde\xf0")
+assert optraw == b"\x12\x34\x56\x78" + b"\x12\x34\x56\x78\x9a\xbc\xde\xf0\x0f\xed\xcb\xa9\x87\x65\x43\x21" + b"\x9a\xbc\xde\xf0"
 
 opt = SDOption_IP6_SD_EndPoint(optraw)
-assert(opt.len == 0x1234)
-assert(opt.type == 0x56)
-assert(opt.res_hdr == 0x78)
-assert(opt.addr == "1234:5678:9abc:def0:fed:cba9:8765:4321")
-assert(opt.res_tail == 0x9a)
-assert(opt.l4_proto == 0xbc)
-assert(opt.port == 0xdef0)
+assert opt.len == 0x1234
+assert opt.type == 0x56
+assert opt.res_hdr == 0x78
+assert opt.addr == "1234:5678:9abc:def0:fed:cba9:8765:4321"
+assert opt.res_tail == 0x9a
+assert opt.l4_proto == 0xbc
+assert opt.port == 0xdef0
 
 = verify building and parsing of multiple SDOptions
 def _opts_check(opts):
@@ -702,7 +702,7 @@ def _opts_check(opts):
 	sd.len_option_array = optslen
 	sd.show()
 	SD(sd.build()).show()
-	assert(sd.show(dump=True) == SD(sd.build()).show(dump=True))
+	assert sd.show(dump=True) == SD(sd.build()).show(dump=True)
 
 # options are built and reparsed, to make sure all is calculated
 opts = [

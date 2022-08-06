@@ -85,92 +85,92 @@ COMMIT_Reply(status=1)
 = Layer Bindings for NFS Calls
 from scapy.contrib.oncrpc import *
 pkt = RPC()/RPC_Call()/NULL_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 0))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 0)
 pkt = RPC()/RPC_Call()/GETATTR_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 1))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 1)
 pkt = RPC()/RPC_Call()/SETATTR_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 2))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 2)
 pkt = RPC()/RPC_Call()/LOOKUP_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 3))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 3)
 pkt = RPC()/RPC_Call()/ACCESS_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 4))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 4)
 pkt = RPC()/RPC_Call()/READLINK_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 5))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 5)
 pkt = RPC()/RPC_Call()/READ_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 6))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 6)
 pkt = RPC()/RPC_Call()/WRITE_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 7))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 7)
 pkt = RPC()/RPC_Call()/CREATE_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 8))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 8)
 pkt = RPC()/RPC_Call()/MKDIR_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 9))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 9)
 pkt = RPC()/RPC_Call()/SYMLINK_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 10))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 10)
 pkt = RPC()/RPC_Call()/REMOVE_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 12))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 12)
 pkt = RPC()/RPC_Call()/RMDIR_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 13))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 13)
 pkt = RPC()/RPC_Call()/RENAME_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 14))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 14)
 pkt = RPC()/RPC_Call()/LINK_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 15))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 15)
 pkt = RPC()/RPC_Call()/READDIR_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 16))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 16)
 pkt = RPC()/RPC_Call()/READDIRPLUS_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 17))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 17)
 pkt = RPC()/RPC_Call()/FSSTAT_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 18))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 18)
 pkt = RPC()/RPC_Call()/FSINFO_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 19))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 19)
 pkt = RPC()/RPC_Call()/PATHCONF_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 20))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 20)
 pkt = RPC()/RPC_Call()/COMMIT_Call()
-assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 21))
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 21)
 
 = Layer Bindings for NFS Replies
 from scapy.contrib.oncrpc import *
 pkt = RPC()/RPC_Reply()/NULL_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/GETATTR_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/SETATTR_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/LOOKUP_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/ACCESS_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/READLINK_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/READ_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/WRITE_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/CREATE_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/MKDIR_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/SYMLINK_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/REMOVE_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/RMDIR_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/RENAME_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/LINK_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/READDIR_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/READDIRPLUS_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/FSSTAT_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/FSINFO_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/PATHCONF_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 pkt = RPC()/RPC_Reply()/COMMIT_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 
 + Test Built Packets Against Raw Strings
 

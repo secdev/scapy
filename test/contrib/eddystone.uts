@@ -45,7 +45,7 @@ assert d == hex_bytes('1000006578616d706c650068656c6c6f0b2e68746d6c')
 
 = Eddystone URL (encode unsupported scheme)
 
-assert(expect_exception(Exception, lambda: Eddystone_URL.from_url('gopher://example.com')))
+assert expect_exception(Exception, lambda: Eddystone_URL.from_url('gopher://example.com'))
 
 = Eddystone URL (encode advertising report)
 

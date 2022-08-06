@@ -148,7 +148,7 @@ conf_nak = PPP() / PPP_LCP_Configure(code='Configure-Nak', id=42,
                                      options=[PPP_LCP_MRU_Option(), PPP_LCP_ACCM_Option(accm=0xffff0000)])
 conf_nak_ref_data = hex_bytes('c021032a000e010405dc0206ffff0000')
 
-assert(raw(conf_nak) == conf_nak_ref_data)
+assert raw(conf_nak) == conf_nak_ref_data
 
 conf_nak_pkt = PPP(conf_nak_ref_data)
 
@@ -174,7 +174,7 @@ conf_reject = PPP() / PPP_LCP_Configure(code='Configure-Reject', id=42,
                                                                          message='test')])
 conf_reject_ref_data = hex_bytes('c021042a000b0d070274657374')
 
-assert(raw(conf_reject) == conf_reject_ref_data)
+assert raw(conf_reject) == conf_reject_ref_data
 
 conf_reject_pkt = PPP(conf_reject_ref_data)
 
@@ -202,7 +202,7 @@ conf_req = PPP() / PPP_LCP_Configure(id=42, options=[PPP_LCP_MRU_Option(max_recv
                                                      PPP_LCP_Callback_Option(operation='Distinguished name',message='test')])
 conf_req_ref_data = hex_bytes('c021012a0027010413880206f0f0f0f00304c0230408c025746573740506000010920d070474657374')
 
-assert(raw(conf_req) == conf_req_ref_data)
+assert raw(conf_req) == conf_req_ref_data
 
 conf_req_pkt = PPP(conf_req_ref_data)
 
@@ -230,7 +230,7 @@ assert options[5].message == b'test'
 pap = PPP_LCP_Auth_Protocol_Option()
 pap_ref_data = hex_bytes('0304c023')
 
-assert(raw(pap) == pap_ref_data)
+assert raw(pap) == pap_ref_data
 
 pap_pkt = PPP_LCP_Option(pap_ref_data)
 assert isinstance(pap_pkt, PPP_LCP_Auth_Protocol_Option)

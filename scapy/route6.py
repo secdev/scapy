@@ -157,7 +157,7 @@ class Route6:
             i = self.routes.index(to_del[0])
             self.invalidate_cache()
             self.remove_ipv6_iface(self.routes[i][3])
-            del(self.routes[i])
+            del self.routes[i]
 
     def ifchange(self, iff, addr):
         # type: (str, str) -> None

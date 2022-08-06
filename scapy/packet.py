@@ -492,7 +492,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
     def delfieldval(self, attr):
         # type: (str) -> None
         if attr in self.fields:
-            del(self.fields[attr])
+            del self.fields[attr]
             self.explicit = 0  # in case a default value must be explicit
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
@@ -1327,7 +1327,7 @@ values.
 
     def __delitem__(self, cls):
         # type: (Type[Packet]) -> None
-        del(self[cls].underlayer.payload)
+        del self[cls].underlayer.payload
 
     def __setitem__(self, cls, val):
         # type: (Type[Packet], Packet) -> None
@@ -2003,7 +2003,7 @@ def split_top_down(lower,  # type: Type[Packet]
         if any(k not in ofval or ofval[k] != v for k, v in six.iteritems(fval)):  # noqa: E501
             return
         upper._overload_fields = upper._overload_fields.copy()
-        del(upper._overload_fields[lower])
+        del upper._overload_fields[lower]
 
 
 @conf.commands.register

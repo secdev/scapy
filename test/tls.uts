@@ -784,12 +784,12 @@ t4 = TLS(p4_certstat_ske_shd, tls_session=t3.tls_session)
 
 = Reading TLS test session - TLS Record header
 # We leave the possibility for some attributes to be either '' or None.
-assert(t1.type == 0x16)
-assert(t1.version == 0x0301)
-assert(t1.len == 213)
-assert(not t1.iv)
-assert(not t1.mac)
-assert(not t1.pad and not t1.padlen)
+assert t1.type == 0x16
+assert t1.version == 0x0301
+assert t1.len == 213
+assert not t1.iv
+assert not t1.mac
+assert not t1.pad and not t1.padlen
 len(t1.msg) == 1
 
 
@@ -799,18 +799,18 @@ TLSClientHello in t1
 
 = Reading TLS test session - ClientHello
 ch = t1.msg[0]
-assert(isinstance(ch, TLSClientHello))
-assert(ch.msgtype == 1)
-assert(ch.msglen == 209)
-assert(ch.version == 0x0303)
-assert(ch.gmt_unix_time == 0x17f24dc3)
-assert(ch.random_bytes == b'|\x19\xdb\xc3<\xb5J\x0b\x8d5\x81\xc5\xce\t 2\x08\xd8\xec\xd1\xf8"B\x9cW\xd0\x16v')
-assert(ch.sidlen == 0)
-assert(not ch.sid)
-assert(ch.cipherslen == 22)
-assert(ch.ciphers == [49195, 49199, 49162, 49161, 49171, 49172, 51, 57, 47, 53, 10])
-assert(ch.complen == 1)
-assert(ch.comp == [0])
+assert isinstance(ch, TLSClientHello)
+assert ch.msgtype == 1
+assert ch.msglen == 209
+assert ch.version == 0x0303
+assert ch.gmt_unix_time == 0x17f24dc3
+assert ch.random_bytes == b'|\x19\xdb\xc3<\xb5J\x0b\x8d5\x81\xc5\xce\t 2\x08\xd8\xec\xd1\xf8"B\x9cW\xd0\x16v'
+assert ch.sidlen == 0
+assert not ch.sid
+assert ch.cipherslen == 22
+assert ch.ciphers == [49195, 49199, 49162, 49161, 49171, 49172, 51, 57, 47, 53, 10]
+assert ch.complen == 1
+assert ch.comp == [0]
 
 
 = Reading TLS test session - ClientHello extensions
@@ -820,58 +820,58 @@ TLS_Ext_SupportedPointFormat, TLS_Ext_SessionTicket, TLS_Ext_NPN,
 TLS_Ext_ALPN, TLS_Ext_SignatureAlgorithms, TLS_Ext_CSR,
 OCSPStatusRequest)
 
-assert(ch.extlen == 146)
+assert ch.extlen == 146
 ext = ch.ext
-assert(len(ext) == 9)
-assert(isinstance(ext[0], TLS_Ext_ServerName))
-assert(ext[0].type == 0)
-assert(ext[0].len == 31)
-assert(ext[0].servernameslen == 29)
-assert(len(ext[0].servernames) == 1)
-assert(ext[0].servernames[0].nametype == 0)
-assert(ext[0].servernames[0].namelen == 26)
-assert(ext[0].servernames[0].servername == b"camo.githubusercontent.com")
-assert(isinstance(ext[1], TLS_Ext_RenegotiationInfo))
-assert(not ext[1].renegotiated_connection)
-assert(isinstance(ext[2], TLS_Ext_SupportedGroups))
-assert(ext[2].groups == [0x17, 0x18, 0x19])
-assert(isinstance(ext[3], TLS_Ext_SupportedPointFormat))
-assert(ext[3].ecpl == [0])
-assert(isinstance(ext[4], TLS_Ext_SessionTicket))
-assert(not ext[4].ticket)
-assert(isinstance(ext[5], TLS_Ext_NPN))
-assert(ext[5].protocols == [])
-assert(isinstance(ext[6], TLS_Ext_ALPN))
-assert(len(ext[6].protocols) == 6)
-assert(ext[6].protocols[-1].protocol == b"http/1.1")
-assert(isinstance(ext[7], TLS_Ext_CSR))
-assert(isinstance(ext[7].req[0], OCSPStatusRequest))
-assert(isinstance(ext[8], TLS_Ext_SignatureAlgorithms))
-assert(len(ext[8].sig_algs) == 10)
+assert len(ext) == 9
+assert isinstance(ext[0], TLS_Ext_ServerName)
+assert ext[0].type == 0
+assert ext[0].len == 31
+assert ext[0].servernameslen == 29
+assert len(ext[0].servernames) == 1
+assert ext[0].servernames[0].nametype == 0
+assert ext[0].servernames[0].namelen == 26
+assert ext[0].servernames[0].servername == b"camo.githubusercontent.com"
+assert isinstance(ext[1], TLS_Ext_RenegotiationInfo)
+assert not ext[1].renegotiated_connection
+assert isinstance(ext[2], TLS_Ext_SupportedGroups)
+assert ext[2].groups == [0x17, 0x18, 0x19]
+assert isinstance(ext[3], TLS_Ext_SupportedPointFormat)
+assert ext[3].ecpl == [0]
+assert isinstance(ext[4], TLS_Ext_SessionTicket)
+assert not ext[4].ticket
+assert isinstance(ext[5], TLS_Ext_NPN)
+assert ext[5].protocols == []
+assert isinstance(ext[6], TLS_Ext_ALPN)
+assert len(ext[6].protocols) == 6
+assert ext[6].protocols[-1].protocol == b"http/1.1"
+assert isinstance(ext[7], TLS_Ext_CSR)
+assert isinstance(ext[7].req[0], OCSPStatusRequest)
+assert isinstance(ext[8], TLS_Ext_SignatureAlgorithms)
+assert len(ext[8].sig_algs) == 10
 ext[8].sig_algs[-1] == 0x0202
 
 
 = Reading TLS test session - ServerHello
 from scapy.layers.tls.handshake import TLSServerHello
 
-assert(TLSServerHello in t2)
+assert TLSServerHello in t2
 sh = t2.msg[0]
-assert(isinstance(sh, TLSServerHello))
-assert(sh.gmt_unix_time == 0x46076ee2)
-assert(sh.random_bytes == b'\x0c\x97g\xb7o\xb6\x9b\x14\x19\xbd\xdd1\x80@\xaaQ+\xc2,\x19\x15"\x82\xe8\xc5,\xe8\x12')
-assert(sh.cipher == 0xc02f)
-assert(len(sh.ext) == 6)
+assert isinstance(sh, TLSServerHello)
+assert sh.gmt_unix_time == 0x46076ee2
+assert sh.random_bytes == b'\x0c\x97g\xb7o\xb6\x9b\x14\x19\xbd\xdd1\x80@\xaaQ+\xc2,\x19\x15"\x82\xe8\xc5,\xe8\x12'
+assert sh.cipher == 0xc02f
+assert len(sh.ext) == 6
 sh.ext[-1].protocols[-1].protocol == b"http/1.1"
 
 
 = Reading TLS test session - Certificate
 from scapy.layers.tls.cert import Cert
 cert = t3.msg[0]
-assert(cert.certslen == 2670)
-assert(len(cert.certs) == 2)
+assert cert.certslen == 2670
+assert len(cert.certs) == 2
 srv_cert = cert.certs[0][1]
-assert(isinstance(srv_cert, Cert))
-assert(srv_cert.serial == 0x077a5dc3362301f989fe54f7f86f3e64)
+assert isinstance(srv_cert, Cert)
+assert srv_cert.serial == 0x077a5dc3362301f989fe54f7f86f3e64
 srv_cert.subject['commonName'] == 'www.github.com'
 
 
@@ -884,8 +884,8 @@ isinstance(t4.payload.payload.payload, NoPayload)
 
 = Reading TLS test session - CertificateStatus
 from scapy.layers.tls.handshake import TLSCertificateStatus
-assert(isinstance(cert_stat, TLSCertificateStatus))
-assert(cert_stat.responselen == 471)
+assert isinstance(cert_stat, TLSCertificateStatus)
+assert cert_stat.responselen == 471
 cert_stat.response[0].responseStatus == 0
 # we leave the remaining OCSP tests to x509.uts
 
@@ -893,33 +893,33 @@ cert_stat.response[0].responseStatus == 0
 = Reading TLS test session - ServerKeyExchange
 from scapy.layers.tls.handshake import TLSServerKeyExchange
 from scapy.layers.tls.keyexchange import ServerECDHNamedCurveParams
-assert(isinstance(ske, TLSServerKeyExchange))
+assert isinstance(ske, TLSServerKeyExchange)
 p = ske.params
-assert(isinstance(p, ServerECDHNamedCurveParams))
-assert(p.named_curve == 0x0017)
-assert(orb(p.point[0]) == 4 and p.point[1:5] == b'\xc3\x9d\x1cD' and p.point[-4:] == b'X\x19\x03u')
-assert(ske.sig.sig_alg == 0x0601)
+assert isinstance(p, ServerECDHNamedCurveParams)
+assert p.named_curve == 0x0017
+assert orb(p.point[0]) == 4 and p.point[1:5] == b'\xc3\x9d\x1cD' and p.point[-4:] == b'X\x19\x03u'
+assert ske.sig.sig_alg == 0x0601
 ske.sig.sig_val[:4] == b'y\x8aQ\x11' and ske.sig.sig_val[-4:] == b'`15\xef'
 
 
 = Reading TLS test session - ServerHelloDone
 from scapy.layers.tls.handshake import TLSServerHelloDone
-assert(isinstance(shd, TLSServerHelloDone))
+assert isinstance(shd, TLSServerHelloDone)
 shd.msglen == 0
 
 = Reading TLS test session - Context checks after 1st RTT
 t = shd.tls_session
-assert(len(t.handshake_messages) == 6)
-assert(t.handshake_messages_parsed[-1] is shd)
-assert(t.tls_version == 0x0303)
-assert(t.client_kx_ffdh_params is None)
-assert(t.client_kx_ecdh_params is not None)
+assert len(t.handshake_messages) == 6
+assert t.handshake_messages_parsed[-1] is shd
+assert t.tls_version == 0x0303
+assert t.client_kx_ffdh_params is None
+assert t.client_kx_ecdh_params is not None
 pn = t.server_kx_pubkey.public_numbers()
 x = pkcs_i2osp(pn.x, pn.curve.key_size/8)
 y = pkcs_i2osp(pn.y, pn.curve.key_size/8)
-assert(x[:4] == b'\xc3\x9d\x1cD' and y[-4:] == b'X\x19\x03u')
-assert(t.rcs.row == "read")
-assert(t.wcs.row == "write")
+assert x[:4] == b'\xc3\x9d\x1cD' and y[-4:] == b'X\x19\x03u'
+assert t.rcs.row == "read"
+assert t.wcs.row == "write"
 t.rcs.ciphersuite.val == 0
 
 
@@ -937,28 +937,28 @@ ccs = t5.payload.msg[0]
 rec_fin = t5.payload.payload
 fin = t5.payload.payload.msg[0]
 isinstance(t5.payload.payload.payload, NoPayload)
-assert(isinstance(cke, TLSClientKeyExchange))
+assert isinstance(cke, TLSClientKeyExchange)
 k = cke.exchkeys
-assert(isinstance(k, ClientECDiffieHellmanPublic))
-assert(k.ecdh_Yclen == 65)
-assert(k.ecdh_Yc[:4] == b'\x04\xd2\x07\xce' and k.ecdh_Yc[-4:] == b'\xdc\x86[\xe7')
+assert isinstance(k, ClientECDiffieHellmanPublic)
+assert k.ecdh_Yclen == 65
+assert k.ecdh_Yc[:4] == b'\x04\xd2\x07\xce' and k.ecdh_Yc[-4:] == b'\xdc\x86[\xe7'
 
 
 = Reading TLS test session - ChangeCipherSpec
 from scapy.layers.tls.record import TLSChangeCipherSpec
-assert(isinstance(ccs, TLSChangeCipherSpec))
+assert isinstance(ccs, TLSChangeCipherSpec)
 ccs.msgtype == 1
 
 
 = Reading TLS test session - Finished
-assert(rec_fin.version == 0x0303)
-assert(rec_fin.deciphered_len == 16)
-assert(rec_fin.len == 40)
-assert(rec_fin.iv == b'\x00\x00\x00\x00\x00\x00\x00\x00')
-assert(rec_fin.mac == b'\xc7^\xc1\x8e\x81M\xff\x00\x0f}G\xf2\x8c\xab\n=')
-assert(not rec_fin.pad and not rec_fin.padlen)
+assert rec_fin.version == 0x0303
+assert rec_fin.deciphered_len == 16
+assert rec_fin.len == 40
+assert rec_fin.iv == b'\x00\x00\x00\x00\x00\x00\x00\x00'
+assert rec_fin.mac == b'\xc7^\xc1\x8e\x81M\xff\x00\x0f}G\xf2\x8c\xab\n='
+assert not rec_fin.pad and not rec_fin.padlen
 from scapy.layers.tls.record import _TLSEncryptedContent
-assert(isinstance(fin, _TLSEncryptedContent))
+assert isinstance(fin, _TLSEncryptedContent)
 fin.load == b'\xd9\xcb,\x8cM\xfd\xbc9\xaa\x05\xf3\xd3\xf3Z\x8a-'
 
 
@@ -966,17 +966,17 @@ fin.load == b'\xd9\xcb,\x8cM\xfd\xbc9\xaa\x05\xf3\xd3\xf3Z\x8a-'
 from scapy.layers.tls.handshake import TLSNewSessionTicket
 t6 = TLS(p6_tick_ccs_fin, tls_session=t5.tls_session.mirror())
 tick = t6.msg[0]
-assert(isinstance(tick, TLSNewSessionTicket))
-assert(tick.msgtype == 4)
-assert(tick.lifetime == 1200)
-assert(tick.ticketlen == 192)
-assert(tick.ticket[:4] == b'c\xccwJ' and tick.ticket[-4:] == b'\xf3.\xcf\x04')
+assert isinstance(tick, TLSNewSessionTicket)
+assert tick.msgtype == 4
+assert tick.lifetime == 1200
+assert tick.ticketlen == 192
+assert tick.ticket[:4] == b'c\xccwJ' and tick.ticket[-4:] == b'\xf3.\xcf\x04'
 ccs = t6.payload.msg[0]
-assert(isinstance(ccs, TLSChangeCipherSpec))
+assert isinstance(ccs, TLSChangeCipherSpec)
 rec_fin = t6.getlayer(4)
-assert(rec_fin.iv == b'\xd8m\x92\t5YZ:')
-assert(rec_fin.mac == b'\xecguD\xa8\x87$<7+\n\x94\x1e9\x96\xfa')
-assert(isinstance(rec_fin.msg[0], _TLSEncryptedContent))
+assert rec_fin.iv == b'\xd8m\x92\t5YZ:'
+assert rec_fin.mac == b'\xecguD\xa8\x87$<7+\n\x94\x1e9\x96\xfa'
+assert isinstance(rec_fin.msg[0], _TLSEncryptedContent)
 rec_fin.msg[0].load == b'7\\)`\xaa`\x7ff\xcd\x10\xa9v\xa3*\x17\x1a'
 
 = Building x25519 ecdh_Yc
@@ -1090,10 +1090,10 @@ assert pkt[TLS].msg[0].lifetime == 3600
 
 = Reading TLS test session - ApplicationData
 t7 = TLS(p7_data, tls_session=t6.tls_session.mirror())
-assert(t7.iv == b'\x00\x00\x00\x00\x00\x00\x00\x01')
-assert(t7.mac == b'>\x1dLb5\x8e+\x01n\xcb\x19\xcc\x17Ey\xc8')
-assert(not t7.pad and not t7.padlen)
-assert(isinstance(t7.msg[0], _TLSEncryptedContent))
+assert t7.iv == b'\x00\x00\x00\x00\x00\x00\x00\x01'
+assert t7.mac == b'>\x1dLb5\x8e+\x01n\xcb\x19\xcc\x17Ey\xc8'
+assert not t7.pad and not t7.padlen
+assert isinstance(t7.msg[0], _TLSEncryptedContent)
 len(t7.msg[0].load) == 478
 
 = Reading TLS msg dissect - Packet too small
@@ -1193,9 +1193,9 @@ t.tls_session.server_rsa_key = key
 t = TLS(ck, tls_session=t.tls_session.mirror())
 t = TLS(fin, tls_session=t.tls_session.mirror())
 t = TLS(data, tls_session=t.tls_session.mirror())
-assert(len(t.msg) == 1)
-assert(isinstance(t.msg[0], TLSApplicationData))
-assert(t.msg[0].data == b"")
+assert len(t.msg) == 1
+assert isinstance(t.msg[0], TLSApplicationData)
+assert t.msg[0].data == b""
 t.getlayer(TLS, 2).msg[0].data == b"To boldly go where no man has gone before...\n"
 
 = Auto provide the session
@@ -1289,18 +1289,18 @@ from scapy.layers.tls.crypto.cipher_block import Cipher_AES_256_CBC
 sh = TLSServerHello(gmt_unix_time=0x41414141, random_bytes='B'*28, cipher=0xc014)
 t = TLS(msg=sh)
 t.raw_stateful()
-assert(isinstance(t.tls_session.pwcs.ciphersuite, TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA))
-assert(isinstance(t.tls_session.pwcs.key_exchange, KX_ECDHE_RSA))
-assert(isinstance(t.tls_session.pwcs.cipher, Cipher_AES_256_CBC))
-assert(isinstance(t.tls_session.pwcs.hmac, Hmac_SHA))
+assert isinstance(t.tls_session.pwcs.ciphersuite, TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA)
+assert isinstance(t.tls_session.pwcs.key_exchange, KX_ECDHE_RSA)
+assert isinstance(t.tls_session.pwcs.cipher, Cipher_AES_256_CBC)
+assert isinstance(t.tls_session.pwcs.hmac, Hmac_SHA)
 t.tls_session.server_random == b'A'*4+b'B'*28
 
 
 = Building packets - ChangeCipherSpec with forged, forbidden field values
 t = TLS(msg=TLSChangeCipherSpec())
-assert(raw(t) == b'\x14\x03\x03\x00\x01\x01')
+assert raw(t) == b'\x14\x03\x03\x00\x01\x01'
 t.len = 0
-assert(raw(t) == b'\x14\x03\x03\x00\x00\x01')
+assert raw(t) == b'\x14\x03\x03\x00\x00\x01'
 t.type = 0xde
 t.version = 0xadbe
 t.len = 0xefff
@@ -1579,7 +1579,7 @@ if shutil.which("editcap"):
     pcap_path = scapy_path("doc/notebooks/tls/raw_data/tls_nss_example.pcap")
     pcapng_path = get_temp_file()
     exit_status = os.system("editcap --inject-secrets tls,%s %s %s" % (key_log_path, pcap_path, pcapng_path))
-    assert(exit_status == 0)
+    assert exit_status == 0
     packets = rdpcap(pcapng_path)
     assert b"GET /secret.txt HTTP/1.0\n" in packets[11].msg[0].data
     assert b"z2|gxarIKOxt,G1d>.Q2MzGY[k@" in packets[13].msg[0].data

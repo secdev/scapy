@@ -92,12 +92,12 @@ t2 = TLS(serverHello, tls_session=t1.tls_session.mirror())
 
 = Reading TLS 1.3 session - TLS Record header
 # We leave the possibility for some attributes to be either '' or None.
-assert(t1.type == 0x16)
-assert(t1.version == 0x0301)
-assert(t1.len == 196)
-assert(not t1.iv)
-assert(not t1.mac)
-assert(not t1.pad and not t1.padlen)
+assert t1.type == 0x16
+assert t1.version == 0x0301
+assert t1.len == 196
+assert not t1.iv
+assert not t1.mac
+assert not t1.pad and not t1.padlen
 len(t1.msg) == 1
 
 
@@ -108,18 +108,18 @@ TLSClientHello in t1
 
 = Reading TLS 1.3 session - ClientHello
 ch = t1.msg[0]
-assert(isinstance(ch, TLSClientHello))
-assert(ch.msgtype == 1)
-assert(ch.msglen == 192)
-assert(ch.version == 0x0303)
-assert(ch.gmt_unix_time == 0xcb34ecb1)
-assert(ch.random_bytes == b'\xe7\x81c\xba\x1c8\xc6\xda\xcb\x19jm\xff\xa2\x1a\x8d\x99\x12\xec\x18\xa2\xefb\x83\x02M\xec\xe7')
-assert(ch.sidlen == 0)
-assert(not ch.sid)
-assert(ch.cipherslen == 6)
-assert(ch.ciphers == [4865, 4867, 4866])
-assert(ch.complen == 1)
-assert(ch.comp == [0])
+assert isinstance(ch, TLSClientHello)
+assert ch.msgtype == 1
+assert ch.msglen == 192
+assert ch.version == 0x0303
+assert ch.gmt_unix_time == 0xcb34ecb1
+assert ch.random_bytes == b'\xe7\x81c\xba\x1c8\xc6\xda\xcb\x19jm\xff\xa2\x1a\x8d\x99\x12\xec\x18\xa2\xefb\x83\x02M\xec\xe7'
+assert ch.sidlen == 0
+assert not ch.sid
+assert ch.cipherslen == 6
+assert ch.ciphers == [4865, 4867, 4866]
+assert ch.complen == 1
+assert ch.comp == [0]
 
 
 = Reading TLS 1.3 session - ClientHello extensions
@@ -131,43 +131,43 @@ TLS_Ext_RecordSizeLimit)
 
 from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_CH
 
-assert(ch.extlen == 145)
+assert ch.extlen == 145
 ext = ch.ext
-assert(len(ext) == 9)
-assert(isinstance(ext[0], TLS_Ext_ServerName))
-assert(ext[0].type == 0)
-assert(ext[0].len == 11)
-assert(ext[0].servernameslen == 9)
-assert(len(ext[0].servernames) == 1)
-assert(ext[0].servernames[0].nametype == 0)
-assert(ext[0].servernames[0].namelen == 6)
-assert(ext[0].servernames[0].servername == b"server")
-assert(isinstance(ext[1], TLS_Ext_RenegotiationInfo))
-assert(not ext[1].renegotiated_connection)
-assert(isinstance(ext[2], TLS_Ext_SupportedGroups))
-assert(ext[2].groups == [29, 23, 24, 25, 256, 257, 258, 259, 260])
-assert(isinstance(ext[3], TLS_Ext_SessionTicket))
-assert(not ext[3].ticket)
-assert(isinstance(ext[4], TLS_Ext_KeyShare_CH))
-assert(ext[4].client_shares_len == 36)
-assert(len(ext[4].client_shares) == 1)
-assert(ext[4].client_shares[0].group == 29)
-assert(ext[4].client_shares[0].kxlen == 32)
-assert(ext[4].client_shares[0].key_exchange == b'\x998\x1d\xe5`\xe4\xbdC\xd2=\x8eCZ}\xba\xfe\xb3\xc0nQ\xc1<\xaeMT\x13i\x1eR\x9a\xaf,')
-assert(isinstance(ext[5],TLS_Ext_SupportedVersion_CH))
-assert(ext[5].len == 3)
-assert(ext[5].versionslen == 2)
-assert(ext[5].versions == [772])
-assert(isinstance(ext[6], TLS_Ext_SignatureAlgorithms))
-assert(ext[6].sig_algs_len == 30)
-assert(len(ext[6].sig_algs) == 15)
-assert(ext[6].sig_algs[0] == 1027)
-assert(ext[6].sig_algs[-1] == 514)
-assert(isinstance(ext[7], TLS_Ext_PSKKeyExchangeModes))
-assert(ext[7].kxmodeslen == 1)
-assert(ext[7].kxmodes[0] == 1)
-assert(isinstance(ext[8], TLS_Ext_RecordSizeLimit))
-assert(ext[8].record_size_limit == 16385)
+assert len(ext) == 9
+assert isinstance(ext[0], TLS_Ext_ServerName)
+assert ext[0].type == 0
+assert ext[0].len == 11
+assert ext[0].servernameslen == 9
+assert len(ext[0].servernames) == 1
+assert ext[0].servernames[0].nametype == 0
+assert ext[0].servernames[0].namelen == 6
+assert ext[0].servernames[0].servername == b"server"
+assert isinstance(ext[1], TLS_Ext_RenegotiationInfo)
+assert not ext[1].renegotiated_connection
+assert isinstance(ext[2], TLS_Ext_SupportedGroups)
+assert ext[2].groups == [29, 23, 24, 25, 256, 257, 258, 259, 260]
+assert isinstance(ext[3], TLS_Ext_SessionTicket)
+assert not ext[3].ticket
+assert isinstance(ext[4], TLS_Ext_KeyShare_CH)
+assert ext[4].client_shares_len == 36
+assert len(ext[4].client_shares) == 1
+assert ext[4].client_shares[0].group == 29
+assert ext[4].client_shares[0].kxlen == 32
+assert ext[4].client_shares[0].key_exchange == b'\x998\x1d\xe5`\xe4\xbdC\xd2=\x8eCZ}\xba\xfe\xb3\xc0nQ\xc1<\xaeMT\x13i\x1eR\x9a\xaf,'
+assert isinstance(ext[5],TLS_Ext_SupportedVersion_CH)
+assert ext[5].len == 3
+assert ext[5].versionslen == 2
+assert ext[5].versions == [772]
+assert isinstance(ext[6], TLS_Ext_SignatureAlgorithms)
+assert ext[6].sig_algs_len == 30
+assert len(ext[6].sig_algs) == 15
+assert ext[6].sig_algs[0] == 1027
+assert ext[6].sig_algs[-1] == 514
+assert isinstance(ext[7], TLS_Ext_PSKKeyExchangeModes)
+assert ext[7].kxmodeslen == 1
+assert ext[7].kxmodes[0] == 1
+assert isinstance(ext[8], TLS_Ext_RecordSizeLimit)
+assert ext[8].record_size_limit == 16385
 
 
 = Reading TLS 1.3 session - ServerHello
@@ -175,19 +175,19 @@ from scapy.layers.tls.handshake import TLS13ServerHello
 from scapy.layers.tls.extensions import TLS_Ext_SupportedVersion_SH
 from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_SH
 
-assert(TLS13ServerHello in t2)
+assert TLS13ServerHello in t2
 sh = t2.msg[0]
 ext = sh.ext
-assert(isinstance(sh, TLS13ServerHello))
-assert(sh.random_bytes == b'\xa6\xaf\x06\xa4\x12\x18`\xdc^n`$\x9c\xd3L\x95\x93\x0c\x8a\xc5\xcb\x144\xda\xc1Uw.\xd3\xe2i(')
-assert(sh.cipher == 0x1301)
-assert(len(sh.ext) == 2)
-assert(isinstance(ext[0], TLS_Ext_KeyShare_SH))
-assert(ext[0].len == 36)
-assert(ext[0].server_share.group == 29)
-assert(ext[0].server_share.key_exchange == b'\xc9\x82\x88v\x11 \x95\xfefv+\xdb\xf7\xc6r\xe1V\xd6\xcc%;\x83=\xf1\xddi\xb1\xb0Nu\x1f\x0f')
-assert(isinstance(ext[1], TLS_Ext_SupportedVersion_SH))
-assert(ext[1].version == 0x0304)
+assert isinstance(sh, TLS13ServerHello)
+assert sh.random_bytes == b'\xa6\xaf\x06\xa4\x12\x18`\xdc^n`$\x9c\xd3L\x95\x93\x0c\x8a\xc5\xcb\x144\xda\xc1Uw.\xd3\xe2i('
+assert sh.cipher == 0x1301
+assert len(sh.ext) == 2
+assert isinstance(ext[0], TLS_Ext_KeyShare_SH)
+assert ext[0].len == 36
+assert ext[0].server_share.group == 29
+assert ext[0].server_share.key_exchange == b'\xc9\x82\x88v\x11 \x95\xfefv+\xdb\xf7\xc6r\xe1V\xd6\xcc%;\x83=\xf1\xddi\xb1\xb0Nu\x1f\x0f'
+assert isinstance(ext[1], TLS_Ext_SupportedVersion_SH)
+assert ext[1].version == 0x0304
 
 
 = Reading TLS 1.3 session - TLS parsing (with encryption) does not throw any error
@@ -196,9 +196,9 @@ t3 = TLS13(serverEncHS, tls_session=t2.tls_session)
 
 
 = Reading TLS 1.3 session - TLS13 Record header
-assert(t3.type == 0x17)
-assert(t3.version == 0x0303)
-assert(t3.len == 674)
+assert t3.type == 0x17
+assert t3.version == 0x0303
+assert t3.len == 674
 
 
 = Reading TLS 1.3 session - TLS13 Record __getitem__
@@ -207,8 +207,8 @@ TLS13 in t3
 = Reading TLS 1.3 session - TLS13 ApplicationData
 from scapy.layers.tls.record_tls13 import TLSInnerPlaintext
 TLSInnerPlaintext in t3
-assert(len(t3.auth_tag) == 16)
-assert(t3.auth_tag == b'\xbf\x02S\xfeQu\xbe\x89\x8eu\x0e\xdcS7\r+')
+assert len(t3.auth_tag) == 16
+assert t3.auth_tag == b'\xbf\x02S\xfeQu\xbe\x89\x8eu\x0e\xdcS7\r+'
 
 
 + Decrypt a TLS 1.3 session
@@ -230,27 +230,27 @@ x25519_clt_pub = clean("""
    """)
 
 t = TLS(clientHello)
-assert(len(t.msg) == 1)
-assert(t.msg[0].msgtype == 1)
-assert(t.msg[0].extlen == 145)
-assert(len(t.msg[0].ext) == 9)
+assert len(t.msg) == 1
+assert t.msg[0].msgtype == 1
+assert t.msg[0].extlen == 145
+assert len(t.msg[0].ext) == 9
 e = t.msg[0].ext
-assert(isinstance(e[0], TLS_Ext_ServerName))
-assert(isinstance(e[1], TLS_Ext_RenegotiationInfo))
-assert(isinstance(e[2], TLS_Ext_SupportedGroups))
-assert(isinstance(e[3],TLS_Ext_SessionTicket))
-assert(e[3].len == 0)
-assert(isinstance(e[4], TLS_Ext_KeyShare_CH))
-assert(len(e[4].client_shares) == 1)
-assert(e[4].client_shares[0].group == 29)
-assert(e[4].client_shares[0].key_exchange == x25519_clt_pub)
-assert(isinstance(e[5], TLS_Ext_SupportedVersion_CH))
-assert(isinstance(e[6], TLS_Ext_SignatureAlgorithms))
-assert(isinstance(e[7], TLS_Ext_PSKKeyExchangeModes))
-assert(e[7].kxmodeslen == 1)
-assert(len(e[7].kxmodes) == 1)
-assert(e[7].kxmodes[0] == 1)
-assert(isinstance(e[8], TLS_Ext_RecordSizeLimit))
+assert isinstance(e[0], TLS_Ext_ServerName)
+assert isinstance(e[1], TLS_Ext_RenegotiationInfo)
+assert isinstance(e[2], TLS_Ext_SupportedGroups)
+assert isinstance(e[3],TLS_Ext_SessionTicket)
+assert e[3].len == 0
+assert isinstance(e[4], TLS_Ext_KeyShare_CH)
+assert len(e[4].client_shares) == 1
+assert e[4].client_shares[0].group == 29
+assert e[4].client_shares[0].key_exchange == x25519_clt_pub
+assert isinstance(e[5], TLS_Ext_SupportedVersion_CH)
+assert isinstance(e[6], TLS_Ext_SignatureAlgorithms)
+assert isinstance(e[7], TLS_Ext_PSKKeyExchangeModes)
+assert e[7].kxmodeslen == 1
+assert len(e[7].kxmodes) == 1
+assert e[7].kxmodes[0] == 1
+assert isinstance(e[8], TLS_Ext_RecordSizeLimit)
 
 
 = Decrypt a TLS 1.3 session - Parse server Hello
@@ -275,14 +275,14 @@ t.tls_session.tls13_client_privshares["x25519"] = privkey
 
 t = TLS(serverHello, tls_session=t.tls_session.mirror())
 
-assert(len(t.msg) == 1)
-assert(isinstance(t.msg[0], TLS13ServerHello))
-assert(len(t.msg[0].ext) == 2)
+assert len(t.msg) == 1
+assert isinstance(t.msg[0], TLS13ServerHello)
+assert len(t.msg[0].ext) == 2
 e = t.msg[0].ext
-assert(isinstance(e[0], TLS_Ext_KeyShare_SH))
-assert(e[0].server_share.group == 29)
-assert(e[0].server_share.key_exchange == x25519_srv_pub)
-assert(isinstance(e[1], TLS_Ext_SupportedVersion_SH))
+assert isinstance(e[0], TLS_Ext_KeyShare_SH)
+assert e[0].server_share.group == 29
+assert e[0].server_share.key_exchange == x25519_srv_pub
+assert isinstance(e[1], TLS_Ext_SupportedVersion_SH)
 
 
 = Decrypt a TLS 1.3 session - Handshake traffic secret derivation 
@@ -314,16 +314,16 @@ server_handshake_traffic_secret = clean("""
         37 b4 e9 c9 12 bc de d9 10 5d 42 be fd 59 d3 91 ad 38
 """)
 
-assert(len(t.tls_session.tls13_derived_secrets) == 5)
-assert(t.tls_session.tls13_early_secret is not None)
-assert(t.tls_session.tls13_early_secret == early_secret)
-assert(t.tls_session.tls13_dhe_secret == ecdhe_secret)
-assert(t.tls_session.tls13_handshake_secret is not None)
-assert(t.tls_session.tls13_handshake_secret == handshake_secret)
-assert( 'client_handshake_traffic_secret' in t.tls_session.tls13_derived_secrets)
-assert( t.tls_session.tls13_derived_secrets['client_handshake_traffic_secret'] == client_handshake_traffic_secret)
-assert( 'server_handshake_traffic_secret' in t.tls_session.tls13_derived_secrets)
-assert(t.tls_session.tls13_derived_secrets['server_handshake_traffic_secret'] == server_handshake_traffic_secret)
+assert len(t.tls_session.tls13_derived_secrets) == 5
+assert t.tls_session.tls13_early_secret is not None
+assert t.tls_session.tls13_early_secret == early_secret
+assert t.tls_session.tls13_dhe_secret == ecdhe_secret
+assert t.tls_session.tls13_handshake_secret is not None
+assert t.tls_session.tls13_handshake_secret == handshake_secret
+assert  'client_handshake_traffic_secret' in t.tls_session.tls13_derived_secrets
+assert  t.tls_session.tls13_derived_secrets['client_handshake_traffic_secret'] == client_handshake_traffic_secret
+assert  'server_handshake_traffic_secret' in t.tls_session.tls13_derived_secrets
+assert t.tls_session.tls13_derived_secrets['server_handshake_traffic_secret'] == server_handshake_traffic_secret
 
 
 = Decrypt a TLS 1.3 session - Server handshake traffic key calculation 
@@ -339,8 +339,8 @@ server_hs_traffic_iv = clean("""
              5d 31 3e b2 67 12 76 ee 13 00 0b 30
 """)
 
-assert(t.tls_session.prcs.cipher.key == server_hs_traffic_key)
-assert(t.tls_session.prcs.cipher.fixed_iv == server_hs_traffic_iv)
+assert t.tls_session.prcs.cipher.key == server_hs_traffic_key
+assert t.tls_session.prcs.cipher.fixed_iv == server_hs_traffic_iv
 
 = Decrypt a TLS 1.3 session - Decrypt and parse server encrypted handshake
 ~ crypto_advanced
@@ -352,10 +352,10 @@ server_finished = clean("""
    """)
 
 t = TLS13(serverEncHS, tls_session=t.tls_session)
-assert(t.deciphered_len == 658)
-assert(t.inner.type == 22)
-assert(len(t.inner.msg) == 4)
-assert(t.auth_tag == b'\xbf\x02S\xfeQu\xbe\x89\x8eu\x0e\xdcS7\r+')
+assert t.deciphered_len == 658
+assert t.inner.type == 22
+assert len(t.inner.msg) == 4
+assert t.auth_tag == b'\xbf\x02S\xfeQu\xbe\x89\x8eu\x0e\xdcS7\r+'
 
 m = t.inner.msg
 
@@ -363,18 +363,18 @@ m = t.inner.msg
 ~ crypto_advanced
 
 from scapy.layers.tls.handshake import TLSEncryptedExtensions
-assert(isinstance(m[0], TLSEncryptedExtensions))
-assert(m[0].msgtype == 8)
-assert(m[0].msglen == 36)
-assert(m[0].extlen == 34)
-assert(len(m[0].ext) == 3)
-assert(isinstance(m[0].ext[0], TLS_Ext_SupportedGroups))
-assert(m[0].ext[0].groupslen == 18)
-assert(m[0].ext[0].groups == [29, 23, 24, 25, 256, 257, 258, 259, 260])
-assert(isinstance(m[0].ext[1], TLS_Ext_RecordSizeLimit))
-assert(m[0].ext[1].record_size_limit == 16385)
-assert(isinstance(m[0].ext[2], TLS_Ext_ServerName))
-assert(m[0].ext[2].len == 0)
+assert isinstance(m[0], TLSEncryptedExtensions)
+assert m[0].msgtype == 8
+assert m[0].msglen == 36
+assert m[0].extlen == 34
+assert len(m[0].ext) == 3
+assert isinstance(m[0].ext[0], TLS_Ext_SupportedGroups)
+assert m[0].ext[0].groupslen == 18
+assert m[0].ext[0].groups == [29, 23, 24, 25, 256, 257, 258, 259, 260]
+assert isinstance(m[0].ext[1], TLS_Ext_RecordSizeLimit)
+assert m[0].ext[1].record_size_limit == 16385
+assert isinstance(m[0].ext[2], TLS_Ext_ServerName)
+assert m[0].ext[2].len == 0
 
 = Decrypt a TLS 1.3 session - Parse decrypted TLS13Certificate
 ~ crypto_advanced
@@ -382,27 +382,27 @@ assert(m[0].ext[2].len == 0)
 from scapy.layers.tls.cert import Cert
 from scapy.layers.tls.handshake import (_ASN1CertAndExt, TLS13Certificate)
 
-assert(isinstance(m[1], TLS13Certificate))
-assert(m[1].msgtype == 11)
-assert(m[1].msglen == 441)
-assert(m[1].cert_req_ctxt_len == 0)
-assert(m[1].cert_req_ctxt == b'')
-assert(m[1].certslen == 437)
-assert(len(m[1].certs) == 1)
-assert(isinstance(m[1].certs[0], _ASN1CertAndExt))
-assert(m[1].certs[0].cert[0] == 432)
-assert(isinstance(m[1].certs[0].cert[1], Cert))
-assert(m[1].certs[0].cert[1].cA == False)
-assert(m[1].certs[0].cert[1].isSelfSigned() == True)
-assert(m[1].certs[0].cert[1].issuer['commonName'] == 'rsa')
-assert(m[1].certs[0].cert[1].keyUsage == ['digitalSignature', 'keyEncipherment'])
-assert(m[1].certs[0].cert[1].notAfter_str == '2026-07-30 01:23:59 UTC')
-assert(m[1].certs[0].cert[1].notBefore_str == '2016-07-30 01:23:59 UTC')
-assert(m[1].certs[0].cert[1].serial == 2)
-assert(m[1].certs[0].cert[1].sigAlg == 'sha256WithRSAEncryption')
-assert(m[1].certs[0].cert[1].signatureLen == 128)
-assert(m[1].certs[0].cert[1].subject['commonName'] == 'rsa')
-assert(m[1].certs[0].cert[1].version == 3)
+assert isinstance(m[1], TLS13Certificate)
+assert m[1].msgtype == 11
+assert m[1].msglen == 441
+assert m[1].cert_req_ctxt_len == 0
+assert m[1].cert_req_ctxt == b''
+assert m[1].certslen == 437
+assert len(m[1].certs) == 1
+assert isinstance(m[1].certs[0], _ASN1CertAndExt)
+assert m[1].certs[0].cert[0] == 432
+assert isinstance(m[1].certs[0].cert[1], Cert)
+assert m[1].certs[0].cert[1].cA == False
+assert m[1].certs[0].cert[1].isSelfSigned() == True
+assert m[1].certs[0].cert[1].issuer['commonName'] == 'rsa'
+assert m[1].certs[0].cert[1].keyUsage == ['digitalSignature', 'keyEncipherment']
+assert m[1].certs[0].cert[1].notAfter_str == '2026-07-30 01:23:59 UTC'
+assert m[1].certs[0].cert[1].notBefore_str == '2016-07-30 01:23:59 UTC'
+assert m[1].certs[0].cert[1].serial == 2
+assert m[1].certs[0].cert[1].sigAlg == 'sha256WithRSAEncryption'
+assert m[1].certs[0].cert[1].signatureLen == 128
+assert m[1].certs[0].cert[1].subject['commonName'] == 'rsa'
+assert m[1].certs[0].cert[1].version == 3
 
 
 = Decrypt a TLS 1.3 session - Parse decrypted TLSCertificateVerify
@@ -410,14 +410,14 @@ assert(m[1].certs[0].cert[1].version == 3)
 
 from scapy.layers.tls.handshake import TLSCertificateVerify
 from scapy.layers.tls.keyexchange import _TLSSignature
-assert(isinstance(m[2], TLSCertificateVerify))
-assert(isinstance(m[2], TLSCertificateVerify))
-assert(m[2].msgtype == 15)
-assert(m[2].msglen == 132)
-assert(isinstance(m[2].sig, _TLSSignature))
-assert(m[2].sig.sig_alg == 2052)
-assert(m[2].sig.sig_len == 128)
-assert(m[2].sig.sig_val == b"Zt|]\x88\xfa\x9b\xd2\xe5Z\xb0\x85\xa6\x10\x15\xb7!\x1f\x82L\xd4\x84\x14Z\xb3\xffR\xf1\xfd\xa8G{\x0bz\xbc\x90\xdbx\xe2\xd3:\\\x14\x1a\x07\x86S\xfak\xefx\x0c^\xa2H\xee\xaa\xa7\x85\xc4\xf3\x94\xca\xb6\xd3\x0b\xbe\x8dHY\xeeQ\x1f`)W\xb1T\x11\xac\x02vqE\x9eFD\\\x9e\xa5\x8c\x18\x1e\x81\x8e\x95\xb8\xc3\xfb\x0b\xf3'\x84\t\xd3\xbe\x15*=\xa5\x04>\x06=\xdae\xcd\xf5\xae\xa2\rS\xdf\xac\xd4/t\xf3")
+assert isinstance(m[2], TLSCertificateVerify)
+assert isinstance(m[2], TLSCertificateVerify)
+assert m[2].msgtype == 15
+assert m[2].msglen == 132
+assert isinstance(m[2].sig, _TLSSignature)
+assert m[2].sig.sig_alg == 2052
+assert m[2].sig.sig_len == 128
+assert m[2].sig.sig_val == b"Zt|]\x88\xfa\x9b\xd2\xe5Z\xb0\x85\xa6\x10\x15\xb7!\x1f\x82L\xd4\x84\x14Z\xb3\xffR\xf1\xfd\xa8G{\x0bz\xbc\x90\xdbx\xe2\xd3:\\\x14\x1a\x07\x86S\xfak\xefx\x0c^\xa2H\xee\xaa\xa7\x85\xc4\xf3\x94\xca\xb6\xd3\x0b\xbe\x8dHY\xeeQ\x1f`)W\xb1T\x11\xac\x02vqE\x9eFD\\\x9e\xa5\x8c\x18\x1e\x81\x8e\x95\xb8\xc3\xfb\x0b\xf3'\x84\t\xd3\xbe\x15*=\xa5\x04>\x06=\xdae\xcd\xf5\xae\xa2\rS\xdf\xac\xd4/t\xf3"
 
 = Decrypt a TLS 1.3 session - Parse decrypted TLSFinished
 ~ crypto_advanced
@@ -427,10 +427,10 @@ server_finished = clean("""
          9b 9b 14 1d 90 63 37 fb d2 cb dc e7 1d f4
          de da 4a b4 2c 30 95 72 cb 7f ff ee 54 54 b7 8f 07 18
    """)
-assert(isinstance(m[3], TLSFinished))
-assert(m[3].msgtype == 20)
-assert(m[3].msglen == 32)
-assert(m[3].vdata == server_finished)
+assert isinstance(m[3], TLSFinished)
+assert m[3].msgtype == 20
+assert m[3].msglen == 32
+assert m[3].vdata == server_finished
 
 
 = Decrypt a TLS 1.3 session - Client handshake traffic key calculation
@@ -444,8 +444,8 @@ client_hs_traffic_iv = clean("""
           5b d3 c7 1b 83 6e 0b 76 bb 73 26 5f
    """)
 
-assert(t.tls_session.pwcs.cipher.key == client_hs_traffic_key)
-assert(t.tls_session.pwcs.cipher.fixed_iv == client_hs_traffic_iv)
+assert t.tls_session.pwcs.cipher.key == client_hs_traffic_key
+assert t.tls_session.pwcs.cipher.fixed_iv == client_hs_traffic_iv
 
 = Decrypt a TLS 1.3 session - Decrypt and parse client encrypted handshake 
 ~ crypto_advanced
@@ -456,12 +456,12 @@ client_finished = clean("""
    """)
 
 t = TLS13(clientEncHS, tls_session=t.tls_session.mirror())
-assert(t.deciphered_len == 37)
-assert(t.inner.type == 22)
-assert(len(t.inner.msg) == 1)
+assert t.deciphered_len == 37
+assert t.inner.type == 22
+assert len(t.inner.msg) == 1
 m = t.inner.msg
-assert(isinstance(m[0], TLSFinished))
-assert(m[0].vdata == client_finished)
+assert isinstance(m[0], TLSFinished)
+assert m[0].vdata == client_finished
 
 = Decrypt a TLS 1.3 session - Application traffic secret derivation
 ~ crypto_advanced
@@ -493,23 +493,23 @@ resumption_master_secret = clean("""
    """)
 
 
-assert(t.tls_session.tls13_master_secret is not None)
-assert(t.tls_session.tls13_master_secret == master_secret)
+assert t.tls_session.tls13_master_secret is not None
+assert t.tls_session.tls13_master_secret == master_secret
 
-assert(len(t.tls_session.tls13_derived_secrets) == 9)
-assert('client_traffic_secrets' in  t.tls_session.tls13_derived_secrets)
-assert(len(t.tls_session.tls13_derived_secrets['client_traffic_secrets']) == 1)
-assert(t.tls_session.tls13_derived_secrets['client_traffic_secrets'][0] == client_application_traffic_secret_0)
+assert len(t.tls_session.tls13_derived_secrets) == 9
+assert 'client_traffic_secrets' in  t.tls_session.tls13_derived_secrets
+assert len(t.tls_session.tls13_derived_secrets['client_traffic_secrets']) == 1
+assert t.tls_session.tls13_derived_secrets['client_traffic_secrets'][0] == client_application_traffic_secret_0
 
-assert('server_traffic_secrets' in  t.tls_session.tls13_derived_secrets)
-assert(len(t.tls_session.tls13_derived_secrets['server_traffic_secrets']) == 1)
-assert(t.tls_session.tls13_derived_secrets['server_traffic_secrets'][0] == server_application_traffic_secret_0)
+assert 'server_traffic_secrets' in  t.tls_session.tls13_derived_secrets
+assert len(t.tls_session.tls13_derived_secrets['server_traffic_secrets']) == 1
+assert t.tls_session.tls13_derived_secrets['server_traffic_secrets'][0] == server_application_traffic_secret_0
 
-assert('exporter_secret' in t.tls_session.tls13_derived_secrets)
-assert(t.tls_session.tls13_derived_secrets['exporter_secret'] == exporter_master_secret)
+assert 'exporter_secret' in t.tls_session.tls13_derived_secrets
+assert t.tls_session.tls13_derived_secrets['exporter_secret'] == exporter_master_secret
 
-assert('resumption_secret' in t.tls_session.tls13_derived_secrets)
-assert(t.tls_session.tls13_derived_secrets['resumption_secret'] == resumption_master_secret)
+assert 'resumption_secret' in t.tls_session.tls13_derived_secrets
+assert t.tls_session.tls13_derived_secrets['resumption_secret'] == resumption_master_secret
 
 = Decrypt a TLS 1.3 session - Application traffic keys calculation 
 ~ crypto_advanced
@@ -532,10 +532,10 @@ server_ap_traffic_iv = clean("""
         cf 78 2b 88 dd 83 54 9a ad f1 e9 84
    """)
 
-assert(t.tls_session.rcs.cipher.key == client_ap_traffic_key)
-assert(t.tls_session.rcs.cipher.fixed_iv == client_ap_traffic_iv)
-assert(t.tls_session.wcs.cipher.key == server_ap_traffic_key)
-assert(t.tls_session.wcs.cipher.fixed_iv == server_ap_traffic_iv)
+assert t.tls_session.rcs.cipher.key == client_ap_traffic_key
+assert t.tls_session.rcs.cipher.fixed_iv == client_ap_traffic_iv
+assert t.tls_session.wcs.cipher.key == server_ap_traffic_key
+assert t.tls_session.wcs.cipher.fixed_iv == server_ap_traffic_iv
 
 = Decrypt a TLS 1.3 session - Decrypt and parse server NewSessionTicket
 ~ crypto_advanced
@@ -557,21 +557,21 @@ serverEncTicket = clean("""
          """)
 t = TLS13(serverEncTicket, tls_session=t.tls_session.mirror())
 
-assert(t.deciphered_len == 206)
-assert(t.inner.type == 22)
-assert(t.auth_tag == b'\x9c\x81SUk;lgy\xb3{\xf1Y\x85hO')
-assert(len(t.inner.msg) == 1)
+assert t.deciphered_len == 206
+assert t.inner.type == 22
+assert t.auth_tag == b'\x9c\x81SUk;lgy\xb3{\xf1Y\x85hO'
+assert len(t.inner.msg) == 1
 m = t.inner.msg[0]
-assert(m.msgtype == 4)
-assert(m.ticket_lifetime == 30)
-assert(m.ticket_age_add == 4208372421)
-assert(m.noncelen == 2)
-assert(len(m.ticket_nonce) == 2)
-assert(m.ticket_nonce == b'\x00\x00')
-assert(m.ticket == b',\x03]\x82\x93Y\xee_\xf7\xafN\xc9\x00\x00\x00\x00&*d\x94\xdcHm,\x8a4\xcb3\xfa\x90\xbf\x1b\x00p\xad<I\x88\x83\xc96|\t\xa2\xbexZ\xbcU\xcd"`\x97\xa3\xa9\x82\x11r\x83\xf8*\x03\xa1C\xef\xd3\xff]\xd3md\xe8a\xbe\x7f\xd6\x1d(\'\xdb\'\x9c\xce\x14Pw\xd4T\xa3fMNm\xa4\xd2\x9e\xe07%\xa6\xa4\xda\xfc\xd0\xfcg\xd2\xae\xa7\x05)Q>=\xa2g\x7f\xa5\x90l[?}\x8f\x92\xf2(\xbd\xa4\r\xdar\x14p\xf9\xfb\xf2\x97\xb5\xae\xa6\x17do\xac\\\x03\'.\x97\x07\'\xc6!\xa7\x91A\xef_}\xe6P^[\xfb\xc3\x88\xe93Ci@\x93\x93J\xe4\xd3W')
-assert(len(m.ext) == 1)
-assert(isinstance(m.ext[0], TLS_Ext_EarlyDataIndicationTicket))
-assert(m.ext[0].max_early_data_size == 1024)
+assert m.msgtype == 4
+assert m.ticket_lifetime == 30
+assert m.ticket_age_add == 4208372421
+assert m.noncelen == 2
+assert len(m.ticket_nonce) == 2
+assert m.ticket_nonce == b'\x00\x00'
+assert m.ticket == b',\x03]\x82\x93Y\xee_\xf7\xafN\xc9\x00\x00\x00\x00&*d\x94\xdcHm,\x8a4\xcb3\xfa\x90\xbf\x1b\x00p\xad<I\x88\x83\xc96|\t\xa2\xbexZ\xbcU\xcd"`\x97\xa3\xa9\x82\x11r\x83\xf8*\x03\xa1C\xef\xd3\xff]\xd3md\xe8a\xbe\x7f\xd6\x1d(\'\xdb\'\x9c\xce\x14Pw\xd4T\xa3fMNm\xa4\xd2\x9e\xe07%\xa6\xa4\xda\xfc\xd0\xfcg\xd2\xae\xa7\x05)Q>=\xa2g\x7f\xa5\x90l[?}\x8f\x92\xf2(\xbd\xa4\r\xdar\x14p\xf9\xfb\xf2\x97\xb5\xae\xa6\x17do\xac\\\x03\'.\x97\x07\'\xc6!\xa7\x91A\xef_}\xe6P^[\xfb\xc3\x88\xe93Ci@\x93\x93J\xe4\xd3W'
+assert len(m.ext) == 1
+assert isinstance(m.ext[0], TLS_Ext_EarlyDataIndicationTicket)
+assert m.ext[0].max_early_data_size == 1024
 
 
 = Decrypt a TLS 1.3 session - Compute the PSK associated with the ticket
@@ -590,8 +590,8 @@ psk_resumption = clean("""
          a4 c5 85 1a 27 7f d4 13 11 c9 e6 2d 2c 94 92 e1 c4 f3
       """)
 
-assert(hash_len == 32) 
-assert(tls13_psk_secret == psk_resumption)
+assert hash_len == 32 
+assert tls13_psk_secret == psk_resumption
 
 = Decrypt a TLS 1.3 session - Decrypt and parse client Application Data
 ~ crypto_advanced
@@ -612,12 +612,12 @@ clientEncAppData = clean("""
       """)
 t = TLS13(clientEncAppData, tls_session=t.tls_session.mirror())
 
-assert(t.deciphered_len == 51)
-assert(len(t.inner.msg) == 1)
-assert(t.inner.type == 23)
+assert t.deciphered_len == 51
+assert len(t.inner.msg) == 1
+assert t.inner.type == 23
 m = t.inner.msg[0]
-assert(isinstance(m, TLSApplicationData))
-assert(m.data == payload)
+assert isinstance(m, TLSApplicationData)
+assert m.data == payload
 
 = Decrypt a TLS 1.3 session - Decrypt and parse server Application Data
 ~ crypto_advanced
@@ -636,12 +636,12 @@ serverEncAppData = clean("""
       """)
 
 t = TLS13(serverEncAppData, tls_session=t.tls_session.mirror())
-assert(t.deciphered_len == 51)
-assert(len(t.inner.msg) == 1)
-assert(t.inner.type == 23)
+assert t.deciphered_len == 51
+assert len(t.inner.msg) == 1
+assert t.inner.type == 23
 m = t.inner.msg[0]
-assert(isinstance(m, TLSApplicationData))
-assert(m.data == payload)
+assert isinstance(m, TLSApplicationData)
+assert m.data == payload
 
 = Decrypt a TLS 1.3 session - Decrypt client Alert
 ~ crypto_advanced
@@ -653,13 +653,13 @@ clientEncAlert = clean("""
    """)
 
 t = TLS13(clientEncAlert, tls_session=t.tls_session.mirror())
-assert(t.deciphered_len == 3)
-assert(len(t.inner.msg) == 1)
-assert(t.inner.type == 21)
+assert t.deciphered_len == 3
+assert len(t.inner.msg) == 1
+assert t.inner.type == 21
 m = t.inner.msg[0]
-assert(isinstance(m, TLSAlert))
-assert(m.level == 1)
-assert(m.descr == 0)
+assert isinstance(m, TLSAlert)
+assert m.level == 1
+assert m.descr == 0
 
 = Decrypt a TLS 1.3 session - Decrypt server Alert
 ~ crypto_advanced
@@ -669,13 +669,13 @@ serverEncAlert = clean("""
          99 d2 47 20 cf be 7e fa 7a 88 64 a9
    """)
 t = TLS13(serverEncAlert, tls_session=t.tls_session.mirror())
-assert(t.deciphered_len == 3)
-assert(len(t.inner.msg) == 1)
-assert(t.inner.type == 21)
+assert t.deciphered_len == 3
+assert len(t.inner.msg) == 1
+assert t.inner.type == 21
 m = t.inner.msg[0]
-assert(isinstance(m, TLSAlert))
-assert(m.level == 1)
-assert(m.descr == 0)
+assert isinstance(m, TLSAlert)
+assert m.level == 1
+assert m.descr == 0
 
 
 ########### HelloRetryRequest ###############################################
@@ -707,25 +707,25 @@ clientHello1 = clean("""
    """)
 
 t = TLS(clientHello1)
-assert(len(t.msg) == 1)
-assert(t.msg[0].msgtype == 1)
-assert(t.msg[0].extlen == 129)
-assert(len(t.msg[0].ext) == 8)
+assert len(t.msg) == 1
+assert t.msg[0].msgtype == 1
+assert t.msg[0].extlen == 129
+assert len(t.msg[0].ext) == 8
 e = t.msg[0].ext
-assert(isinstance(e[0], TLS_Ext_ServerName))
-assert(isinstance(e[1], TLS_Ext_RenegotiationInfo))
-assert(isinstance(e[2], TLS_Ext_SupportedGroups))
-assert(isinstance(e[3],TLS_Ext_KeyShare_CH))
-assert(len(e[3].client_shares) == 1)
-assert(e[3].client_shares[0].group == 29)
-assert(e[3].client_shares[0].key_exchange == x25519_clt_pub)
-assert(isinstance(e[4], TLS_Ext_SupportedVersion_CH))
-assert(isinstance(e[5], TLS_Ext_SignatureAlgorithms))
-assert(isinstance(e[6], TLS_Ext_PSKKeyExchangeModes))
-assert(e[6].kxmodeslen == 1)
-assert(len(e[6].kxmodes) == 1)
-assert(e[6].kxmodes[0] == 1)
-assert(isinstance(e[7], TLS_Ext_RecordSizeLimit))
+assert isinstance(e[0], TLS_Ext_ServerName)
+assert isinstance(e[1], TLS_Ext_RenegotiationInfo)
+assert isinstance(e[2], TLS_Ext_SupportedGroups)
+assert isinstance(e[3],TLS_Ext_KeyShare_CH)
+assert len(e[3].client_shares) == 1
+assert e[3].client_shares[0].group == 29
+assert e[3].client_shares[0].key_exchange == x25519_clt_pub
+assert isinstance(e[4], TLS_Ext_SupportedVersion_CH)
+assert isinstance(e[5], TLS_Ext_SignatureAlgorithms)
+assert isinstance(e[6], TLS_Ext_PSKKeyExchangeModes)
+assert e[6].kxmodeslen == 1
+assert len(e[6].kxmodes) == 1
+assert e[6].kxmodes[0] == 1
+assert isinstance(e[7], TLS_Ext_RecordSizeLimit)
 
 
 
@@ -763,24 +763,24 @@ helloRetryRequest = clean("""
    """)
 
 t = TLS(helloRetryRequest, tls_session=t.tls_session.mirror())
-assert(len(t.msg) == 1)
-assert(t.msg[0].msgtype == 2)
+assert len(t.msg) == 1
+assert t.msg[0].msgtype == 2
 digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
 digest.update(b"HelloRetryRequest")
-assert(t.msg[0].random_bytes == digest.finalize())
-assert(t.msg[0].extlen == 132)
-assert(len(t.msg[0].ext) == 3)
+assert t.msg[0].random_bytes == digest.finalize()
+assert t.msg[0].extlen == 132
+assert len(t.msg[0].ext) == 3
 e = t.msg[0].ext
-assert(isinstance(e[0], TLS_Ext_KeyShare_HRR))
-assert(e[0].type == 51)
-assert(e[0].len == 2)
-assert(e[0].selected_group == 23)
-assert(isinstance(e[1], TLS_Ext_Cookie))
-assert(e[1].type == 44)
-assert(e[1].len == 116)
-assert(e[1].cookielen == 114)
-assert(e[1].cookie == b'q\xdc\xd0K\xb8\x8b\xc3\x18\x91\x199\x8a\x00\x00\x00\x00\xee\xfa\xfcv\xc1F\xb8#\xb0\x96\xf8\xaa\xca\xd3e\xdd\x000\x95?N\xdfbV6\xe5\xf2\x1b\xb2\xe2?\xcceK\x1b[@1\x8d\x10\xd17\xab\xcb\xb8ut\xe3n\x8a\x1f\x02_}\xfa]nPx\x1b^\xdaJ\xa1[\x0c\x8b\xe7x%}\x16\xaa00\xe9\xe7\x84\x1d\xd9\xe4\xc04"g\xe8\xca\x0c\xafW\x1f\xb2\xb7\xcf\xf0\xf94\xb0')
-assert(isinstance(e[2], TLS_Ext_SupportedVersion_SH))
+assert isinstance(e[0], TLS_Ext_KeyShare_HRR)
+assert e[0].type == 51
+assert e[0].len == 2
+assert e[0].selected_group == 23
+assert isinstance(e[1], TLS_Ext_Cookie)
+assert e[1].type == 44
+assert e[1].len == 116
+assert e[1].cookielen == 114
+assert e[1].cookie == b'q\xdc\xd0K\xb8\x8b\xc3\x18\x91\x199\x8a\x00\x00\x00\x00\xee\xfa\xfcv\xc1F\xb8#\xb0\x96\xf8\xaa\xca\xd3e\xdd\x000\x95?N\xdfbV6\xe5\xf2\x1b\xb2\xe2?\xcceK\x1b[@1\x8d\x10\xd17\xab\xcb\xb8ut\xe3n\x8a\x1f\x02_}\xfa]nPx\x1b^\xdaJ\xa1[\x0c\x8b\xe7x%}\x16\xaa00\xe9\xe7\x84\x1d\xd9\xe4\xc04"g\xe8\xca\x0c\xafW\x1f\xb2\xb7\xcf\xf0\xf94\xb0'
+assert isinstance(e[2], TLS_Ext_SupportedVersion_SH)
 
 
 = Decrypt a TLS 1.3 session with a retry - Parse second ClientHello
@@ -829,30 +829,30 @@ clientHello2 = clean("""
    """)
 
 t = TLS(clientHello2, tls_session=t.tls_session.mirror())
-assert(len(t.msg) == 1)
-assert(t.msg[0].msgtype == 1)
-assert(t.msg[0].extlen == 461)
-assert(len(t.msg[0].ext) == 10)
+assert len(t.msg) == 1
+assert t.msg[0].msgtype == 1
+assert t.msg[0].extlen == 461
+assert len(t.msg[0].ext) == 10
 e = t.msg[0].ext
-assert(isinstance(e[0], TLS_Ext_ServerName))
-assert(isinstance(e[1], TLS_Ext_RenegotiationInfo))
-assert(isinstance(e[2], TLS_Ext_SupportedGroups))
-assert(isinstance(e[3],TLS_Ext_KeyShare_CH))
-assert(len(e[3].client_shares) == 1)
-assert(e[3].client_shares[0].group == 23)
-assert(e[3].client_shares[0].key_exchange == secp256_clt_pub)
-assert(isinstance(e[4], TLS_Ext_SupportedVersion_CH))
-assert(isinstance(e[5], TLS_Ext_SignatureAlgorithms))
-assert(isinstance(e[6], TLS_Ext_Cookie))
-assert(e[6].cookie == b'q\xdc\xd0K\xb8\x8b\xc3\x18\x91\x199\x8a\x00\x00\x00\x00\xee\xfa\xfcv\xc1F\xb8#\xb0\x96\xf8\xaa\xca\xd3e\xdd\x000\x95?N\xdfbV6\xe5\xf2\x1b\xb2\xe2?\xcceK\x1b[@1\x8d\x10\xd17\xab\xcb\xb8ut\xe3n\x8a\x1f\x02_}\xfa]nPx\x1b^\xdaJ\xa1[\x0c\x8b\xe7x%}\x16\xaa00\xe9\xe7\x84\x1d\xd9\xe4\xc04"g\xe8\xca\x0c\xafW\x1f\xb2\xb7\xcf\xf0\xf94\xb0')
-assert(isinstance(e[7], TLS_Ext_PSKKeyExchangeModes))
-assert(e[7].kxmodeslen == 1)
-assert(len(e[7].kxmodes) == 1)
-assert(e[7].kxmodes[0] == 1)
-assert(isinstance(e[8], TLS_Ext_RecordSizeLimit))
-assert(isinstance(e[9], TLS_Ext_Padding))
-assert(e[9].len == 175)
-assert(e[9].padding == 175*b'\x00')
+assert isinstance(e[0], TLS_Ext_ServerName)
+assert isinstance(e[1], TLS_Ext_RenegotiationInfo)
+assert isinstance(e[2], TLS_Ext_SupportedGroups)
+assert isinstance(e[3],TLS_Ext_KeyShare_CH)
+assert len(e[3].client_shares) == 1
+assert e[3].client_shares[0].group == 23
+assert e[3].client_shares[0].key_exchange == secp256_clt_pub
+assert isinstance(e[4], TLS_Ext_SupportedVersion_CH)
+assert isinstance(e[5], TLS_Ext_SignatureAlgorithms)
+assert isinstance(e[6], TLS_Ext_Cookie)
+assert e[6].cookie == b'q\xdc\xd0K\xb8\x8b\xc3\x18\x91\x199\x8a\x00\x00\x00\x00\xee\xfa\xfcv\xc1F\xb8#\xb0\x96\xf8\xaa\xca\xd3e\xdd\x000\x95?N\xdfbV6\xe5\xf2\x1b\xb2\xe2?\xcceK\x1b[@1\x8d\x10\xd17\xab\xcb\xb8ut\xe3n\x8a\x1f\x02_}\xfa]nPx\x1b^\xdaJ\xa1[\x0c\x8b\xe7x%}\x16\xaa00\xe9\xe7\x84\x1d\xd9\xe4\xc04"g\xe8\xca\x0c\xafW\x1f\xb2\xb7\xcf\xf0\xf94\xb0'
+assert isinstance(e[7], TLS_Ext_PSKKeyExchangeModes)
+assert e[7].kxmodeslen == 1
+assert len(e[7].kxmodes) == 1
+assert e[7].kxmodes[0] == 1
+assert isinstance(e[8], TLS_Ext_RecordSizeLimit)
+assert isinstance(e[9], TLS_Ext_Padding)
+assert e[9].len == 175
+assert e[9].padding == 175*b'\x00'
 
 = Decrypt a TLS 1.3 session with a retry - Parse ServerHello
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateNumbers
@@ -872,14 +872,14 @@ serverHello = clean("""
    """)
 
 t = TLS(serverHello, tls_session=t.tls_session.mirror())
-assert(len(t.msg) == 1)
-assert(isinstance(t.msg[0], TLS13ServerHello))
-assert(len(t.msg[0].ext) == 2)
+assert len(t.msg) == 1
+assert isinstance(t.msg[0], TLS13ServerHello)
+assert len(t.msg[0].ext) == 2
 e = t.msg[0].ext
-assert(isinstance(e[0], TLS_Ext_KeyShare_SH))
-assert(e[0].server_share.group == 23)
-assert(e[0].server_share.key_exchange == secp256_srv_pub)
-assert(isinstance(e[1], TLS_Ext_SupportedVersion_SH))
+assert isinstance(e[0], TLS_Ext_KeyShare_SH)
+assert e[0].server_share.group == 23
+assert e[0].server_share.key_exchange == secp256_srv_pub
+assert isinstance(e[1], TLS_Ext_SupportedVersion_SH)
 
 = Decrypt a TLS 1.3 session with a retry - Handshake traffic secret derivation
 
@@ -909,16 +909,16 @@ server_handshake_traffic_secret = clean("""
          95 a1 ab f1 62 de 83 a9 79 27 c3 76 72 a4 a0 ce f8 a1
    """)
 
-assert(len(t.tls_session.tls13_derived_secrets) == 5)
-assert(t.tls_session.tls13_early_secret is not None)
-assert(t.tls_session.tls13_early_secret == early_secret)
-assert(t.tls_session.tls13_dhe_secret == ecdhe_secret)
-assert(t.tls_session.tls13_handshake_secret is not None)
-assert(t.tls_session.tls13_handshake_secret == handshake_secret)
-assert( 'client_handshake_traffic_secret' in t.tls_session.tls13_derived_secrets)
-assert( t.tls_session.tls13_derived_secrets['client_handshake_traffic_secret'] == client_handshake_traffic_secret)
-assert( 'server_handshake_traffic_secret' in t.tls_session.tls13_derived_secrets)
-assert(t.tls_session.tls13_derived_secrets['server_handshake_traffic_secret'] == server_handshake_traffic_secret)
+assert len(t.tls_session.tls13_derived_secrets) == 5
+assert t.tls_session.tls13_early_secret is not None
+assert t.tls_session.tls13_early_secret == early_secret
+assert t.tls_session.tls13_dhe_secret == ecdhe_secret
+assert t.tls_session.tls13_handshake_secret is not None
+assert t.tls_session.tls13_handshake_secret == handshake_secret
+assert  'client_handshake_traffic_secret' in t.tls_session.tls13_derived_secrets
+assert  t.tls_session.tls13_derived_secrets['client_handshake_traffic_secret'] == client_handshake_traffic_secret
+assert  'server_handshake_traffic_secret' in t.tls_session.tls13_derived_secrets
+assert t.tls_session.tls13_derived_secrets['server_handshake_traffic_secret'] == server_handshake_traffic_secret
 
 
 = Decrypt a TLS 1.3 session with a retry - Server handshake traffic key calculation
@@ -931,8 +931,8 @@ server_hs_traffic_iv = clean("""
          c7 d3 95 c0 8d 62 f2 97 d1 37 68 ea
    """)
 
-assert(t.tls_session.prcs.cipher.key == server_hs_traffic_key)
-assert(t.tls_session.prcs.cipher.fixed_iv == server_hs_traffic_iv)
+assert t.tls_session.prcs.cipher.key == server_hs_traffic_key
+assert t.tls_session.prcs.cipher.fixed_iv == server_hs_traffic_iv
 
 
 = Decrypt a TLS 1.3 session with a retry - Decrypt and parse server handshake 
@@ -979,18 +979,18 @@ server_finished = clean("""
    """)
 
 t = TLS13(serverEncHS, tls_session=t.tls_session)
-assert(t.deciphered_len == 646)
-assert(len(t.inner.msg) == 4)
+assert t.deciphered_len == 646
+assert len(t.inner.msg) == 4
 m = t.inner.msg
-assert(isinstance(m[0], TLSEncryptedExtensions))
-assert(len(m[0].ext) == 3)
-assert(isinstance(m[0].ext[0], TLS_Ext_SupportedGroups))
-assert(isinstance(m[0].ext[1], TLS_Ext_RecordSizeLimit))
-assert(isinstance(m[0].ext[2], TLS_Ext_ServerName))
-assert(isinstance(m[1], TLS13Certificate))
-assert(isinstance(m[2], TLSCertificateVerify))
-assert(isinstance(m[3], TLSFinished))
-assert(m[3].vdata == server_finished)
+assert isinstance(m[0], TLSEncryptedExtensions)
+assert len(m[0].ext) == 3
+assert isinstance(m[0].ext[0], TLS_Ext_SupportedGroups)
+assert isinstance(m[0].ext[1], TLS_Ext_RecordSizeLimit)
+assert isinstance(m[0].ext[2], TLS_Ext_ServerName)
+assert isinstance(m[1], TLS13Certificate)
+assert isinstance(m[2], TLSCertificateVerify)
+assert isinstance(m[3], TLSFinished)
+assert m[3].vdata == server_finished
 
 = Decrypt a TLS 1.3 session with a retry - Client handshake traffic key calculation
 # Values from RFC8448, section 5
@@ -1002,8 +1002,8 @@ client_hs_traffic_iv = clean("""
          41 4d 54 85 23 5e 1a 68 87 93 bd 74
    """)
 
-assert(t.tls_session.pwcs.cipher.key == client_hs_traffic_key)
-assert(t.tls_session.pwcs.cipher.fixed_iv == client_hs_traffic_iv)
+assert t.tls_session.pwcs.cipher.key == client_hs_traffic_key
+assert t.tls_session.pwcs.cipher.fixed_iv == client_hs_traffic_iv
 
 
 = Decrypt a TLS 1.3 session with a retry - Decrypt and parse client finished
@@ -1021,11 +1021,11 @@ clientEncHS = clean("""
    """)
 
 t = TLS13(clientEncHS, tls_session=t.tls_session.mirror())
-assert(t.deciphered_len == 37)
-assert(len(t.inner.msg) == 1)
-assert(isinstance(t.inner.msg[0], TLSFinished))
-assert(t.inner.msg[0].vdata == clientFinished)
-assert(t.inner.type == 22)
+assert t.deciphered_len == 37
+assert len(t.inner.msg) == 1
+assert isinstance(t.inner.msg[0], TLSFinished)
+assert t.inner.msg[0].vdata == clientFinished
+assert t.inner.type == 22
 
 = Decrypt a TLS 1.3 session with a retry - Application traffic secret derivation 
 # Values from RFC8448, section 5
@@ -1055,23 +1055,23 @@ resumption_master_secret = clean("""
    """)
 
 
-assert(t.tls_session.tls13_master_secret is not None)
-assert(t.tls_session.tls13_master_secret == master_secret)
+assert t.tls_session.tls13_master_secret is not None
+assert t.tls_session.tls13_master_secret == master_secret
 
-assert(len(t.tls_session.tls13_derived_secrets) == 9)
-assert('client_traffic_secrets' in  t.tls_session.tls13_derived_secrets)
-assert(len(t.tls_session.tls13_derived_secrets['client_traffic_secrets']) == 1)
-assert(t.tls_session.tls13_derived_secrets['client_traffic_secrets'][0] == client_application_traffic_secret_0)
+assert len(t.tls_session.tls13_derived_secrets) == 9
+assert 'client_traffic_secrets' in  t.tls_session.tls13_derived_secrets
+assert len(t.tls_session.tls13_derived_secrets['client_traffic_secrets']) == 1
+assert t.tls_session.tls13_derived_secrets['client_traffic_secrets'][0] == client_application_traffic_secret_0
 
-assert('server_traffic_secrets' in  t.tls_session.tls13_derived_secrets)
-assert(len(t.tls_session.tls13_derived_secrets['server_traffic_secrets']) == 1)
-assert(t.tls_session.tls13_derived_secrets['server_traffic_secrets'][0] == server_application_traffic_secret_0)
+assert 'server_traffic_secrets' in  t.tls_session.tls13_derived_secrets
+assert len(t.tls_session.tls13_derived_secrets['server_traffic_secrets']) == 1
+assert t.tls_session.tls13_derived_secrets['server_traffic_secrets'][0] == server_application_traffic_secret_0
 
-assert('exporter_secret' in t.tls_session.tls13_derived_secrets)
-assert(t.tls_session.tls13_derived_secrets['exporter_secret'] == exporter_master_secret)
+assert 'exporter_secret' in t.tls_session.tls13_derived_secrets
+assert t.tls_session.tls13_derived_secrets['exporter_secret'] == exporter_master_secret
 
-assert('resumption_secret' in t.tls_session.tls13_derived_secrets)
-assert(t.tls_session.tls13_derived_secrets['resumption_secret'] == resumption_master_secret)
+assert 'resumption_secret' in t.tls_session.tls13_derived_secrets
+assert t.tls_session.tls13_derived_secrets['resumption_secret'] == resumption_master_secret
 
 = Decrypt a TLS 1.3 session with a retry - Application traffic keys calculation 
 # Values from RFC8448, section 5
@@ -1093,10 +1093,10 @@ server_ap_traffic_iv = clean("""
          0d d6 31 f7 b7 1c bb c7 97 c3 5f e7
    """)
 
-assert(t.tls_session.rcs.cipher.key == client_ap_traffic_key)
-assert(t.tls_session.rcs.cipher.fixed_iv == client_ap_traffic_iv)
-assert(t.tls_session.wcs.cipher.key == server_ap_traffic_key)
-assert(t.tls_session.wcs.cipher.fixed_iv == server_ap_traffic_iv)
+assert t.tls_session.rcs.cipher.key == client_ap_traffic_key
+assert t.tls_session.rcs.cipher.fixed_iv == client_ap_traffic_iv
+assert t.tls_session.wcs.cipher.key == server_ap_traffic_key
+assert t.tls_session.wcs.cipher.fixed_iv == server_ap_traffic_iv
 
 = Decrypt a TLS 1.3 session with a retry - Decrypt and parse client Alert 
 # Values from RFC8448, section 5
@@ -1106,13 +1106,13 @@ clientEncAlert = clean("""
    """)
 
 t = TLS13(clientEncAlert, tls_session = t.tls_session)
-assert(t.deciphered_len == 3)
-assert(len(t.inner.msg) == 1)
-assert(t.inner.type == 21)
+assert t.deciphered_len == 3
+assert len(t.inner.msg) == 1
+assert t.inner.type == 21
 m = t.inner.msg[0]
-assert(isinstance(m, TLSAlert))
-assert(m.level == 1)
-assert(m.descr == 0)
+assert isinstance(m, TLSAlert)
+assert m.level == 1
+assert m.descr == 0
 
 
 = Decrypt a TLS 1.3 session with a retry - Decrypt and parse server Alert 
@@ -1123,13 +1123,13 @@ serverEncAlert = clean("""
    """)
 
 t = TLS13(serverEncAlert, tls_session = t.tls_session.mirror())
-assert(t.deciphered_len == 3)
-assert(len(t.inner.msg) == 1)
-assert(t.inner.type == 21)
+assert t.deciphered_len == 3
+assert len(t.inner.msg) == 1
+assert t.inner.type == 21
 m = t.inner.msg[0]
-assert(isinstance(m, TLSAlert))
-assert(m.level == 1)
-assert(m.descr == 0)
+assert isinstance(m, TLSAlert)
+assert m.level == 1
+assert m.descr == 0
 
 # --- Misc
 

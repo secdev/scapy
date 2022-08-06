@@ -104,7 +104,7 @@ class Route:
         route = self.make_route(*args, **kargs)
         try:
             i = self.routes.index(route)
-            del(self.routes[i])
+            del self.routes[i]
         except ValueError:
             raise ValueError("No matching route found!")
 

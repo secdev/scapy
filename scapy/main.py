@@ -343,18 +343,18 @@ def save_session(fname="", session=None, pickleProto=-1):
     for k in list(to_be_saved):
         i = to_be_saved[k]
         if k[0] == "_":
-            del(to_be_saved[k])
+            del to_be_saved[k]
         elif hasattr(i, "__module__") and i.__module__.startswith("IPython"):
-            del(to_be_saved[k])
+            del to_be_saved[k]
         elif isinstance(i, ConfClass):
-            del(to_be_saved[k])
+            del to_be_saved[k]
         elif k in ignore or k in hard_ignore:
-            del(to_be_saved[k])
+            del to_be_saved[k]
         elif isinstance(i, (type, types.ModuleType)):
             if k[0] != "_":
                 log_interactive.warning("[%s] (%s) can't be saved.", k,
                                         type(to_be_saved[k]))
-            del(to_be_saved[k])
+            del to_be_saved[k]
 
     try:
         os.rename(fname, fname + ".bak")

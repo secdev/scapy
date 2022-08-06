@@ -404,7 +404,7 @@ class StreamSocket(SimpleSocket):
         pkt = self.basecls(data)  # type: Packet
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
-            del(pad.underlayer.payload)
+            del pad.underlayer.payload
         from scapy.packet import NoPayload
         while pad is not None and not isinstance(pad, NoPayload):
             x -= len(pad.load)
@@ -444,7 +444,7 @@ class SSLStreamSocket(StreamSocket):
             pad = pkt.getlayer(conf.padding_layer)
 
             if pad is not None and pad.underlayer is not None:
-                del(pad.underlayer.payload)
+                del pad.underlayer.payload
             while pad is not None and not isinstance(pad, scapy.packet.NoPayload):   # noqa: E501
                 x -= len(pad.load)
                 pad = pad.payload

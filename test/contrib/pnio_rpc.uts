@@ -10,7 +10,7 @@ from scapy.libs.six import itervalues
 = Check that we have UUIDs
 
 for v in itervalues(RPC_INTERFACE_UUID):
-    assert(isinstance(v, UUID))
+    assert isinstance(v, UUID)
 
 + Check Block
 
@@ -787,13 +787,13 @@ p = Ether(b'\x00\x11\x22\x33\x44\x55' \
           b'\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00' \
           b'\x81\x00\x0f\x00\x00\x08\x01\x00\x00\x00\x00\x00\x00\x02' \
           b'\x80\x02\x00\x0f\x2c\x00\x00\x05\x80\x00\x00\x00\x00\x22')
-assert(p[ProfinetIO].frameID == 0xfe01)
-assert(isinstance(p[ProfinetIO].payload, Alarm_Low))
-assert(p[AlarmNotification_Low].block_type == 0x0002)
-assert(isinstance(p[AlarmNotification_Low].AlarmPayload[0], MaintenanceItem))
-assert(p[MaintenanceItem].UserStructureIdentifier == 0x8100)
-assert(isinstance(p[AlarmNotification_Low].AlarmPayload[1], DiagnosisItem))
-assert(p[DiagnosisItem].UserStructureIdentifier == 0x8002)
+assert p[ProfinetIO].frameID == 0xfe01
+assert isinstance(p[ProfinetIO].payload, Alarm_Low)
+assert p[AlarmNotification_Low].block_type == 0x0002
+assert isinstance(p[AlarmNotification_Low].AlarmPayload[0], MaintenanceItem)
+assert p[MaintenanceItem].UserStructureIdentifier == 0x8100
+assert isinstance(p[AlarmNotification_Low].AlarmPayload[1], DiagnosisItem)
+assert p[DiagnosisItem].UserStructureIdentifier == 0x8002
 
 = PNIO Alarm decoding (Alarm_High)
 p = Ether(b'\x00\x11\x22\x33\x44\x55' \
@@ -806,35 +806,35 @@ p = Ether(b'\x00\x11\x22\x33\x44\x55' \
           b'\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00' \
           b'\x81\x00\x0f\x00\x00\x08\x01\x00\x00\x00\x00\x00\x00\x02' \
           b'\x80\x02\x00\x0f\x2c\x00\x00\x05\x80\x00\x00\x00\x00\x22')
-assert(p[ProfinetIO].frameID == 0xfc01)
-assert(isinstance(p[ProfinetIO].payload, Alarm_High))
-assert(p[AlarmNotification_High].block_type == 0x0002)
-assert(isinstance(p[AlarmNotification_High].AlarmPayload[0], MaintenanceItem))
-assert(p[MaintenanceItem].UserStructureIdentifier == 0x8100)
-assert(isinstance(p[AlarmNotification_High].AlarmPayload[1], DiagnosisItem))
-assert(p[DiagnosisItem].UserStructureIdentifier ==  0x8002)
+assert p[ProfinetIO].frameID == 0xfc01
+assert isinstance(p[ProfinetIO].payload, Alarm_High)
+assert p[AlarmNotification_High].block_type == 0x0002
+assert isinstance(p[AlarmNotification_High].AlarmPayload[0], MaintenanceItem)
+assert p[MaintenanceItem].UserStructureIdentifier == 0x8100
+assert isinstance(p[AlarmNotification_High].AlarmPayload[1], DiagnosisItem)
+assert p[DiagnosisItem].UserStructureIdentifier ==  0x8002
 
 = PNIO Alarm DiagnosisItem
 
 p = AlarmNotification_Low(AlarmPayload=[MaintenanceItem(), DiagnosisItem()])
-assert(raw(p) == bytearray.fromhex('0002002c0100000000000000000000000000000000000000000000000000000001000000000000000000000000000000'))
+assert raw(p) == bytearray.fromhex('0002002c0100000000000000000000000000000000000000000000000000000001000000000000000000000000000000')
 
 = PNIO Alarm UploadRetrievalItem
 
 p = AlarmNotification_Low(AlarmPayload=[MaintenanceItem(), UploadRetrievalItem()])
-assert(raw(p) == bytearray.fromhex('00020036010000000000000000000000000000000000000000000000000000000100000000000000000000000000010000000000000000000000'))
+assert raw(p) == bytearray.fromhex('00020036010000000000000000000000000000000000000000000000000000000100000000000000000000000000010000000000000000000000')
 
 = PNIO Alarm iParameterItem
 p = AlarmNotification_Low(AlarmPayload=[MaintenanceItem(), iParameterItem()])
-assert(raw(p) == bytearray.fromhex('0002003e0100000000000000000000000000000000000000000000000000000001000000000000000000000000000100000000000000000000000000000000000000'))
+assert raw(p) == bytearray.fromhex('0002003e0100000000000000000000000000000000000000000000000000000001000000000000000000000000000100000000000000000000000000000000000000')
 
 = PNIO Alarm RS_AlarmItem
 p = AlarmNotification_Low(AlarmPayload=[MaintenanceItem(), RS_AlarmItem()])
-assert(raw(p) == bytearray.fromhex('0002002801000000000000000000000000000000000000000000000000000000010000000000000000000000'))
+assert raw(p) == bytearray.fromhex('0002002801000000000000000000000000000000000000000000000000000000010000000000000000000000')
 
 = PNIO Alarm PRAL_AlarmItem
 p = AlarmNotification_Low(AlarmPayload=[MaintenanceItem(), PRAL_AlarmItem()])
-assert(raw(p) == bytearray.fromhex('0002002e01000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000'))
+assert raw(p) == bytearray.fromhex('0002002e01000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000')
 
 = PNIO PDPortDataAdjust Decoding
 raw = bytearray.fromhex('0402280000000000dea000006c9711d182710001000305f9dea000016' \
@@ -846,6 +846,6 @@ raw = bytearray.fromhex('0402280000000000dea000006c9711d182710001000305f9dea0000
                         '00000080020224000c010000000000000100000000021b00080100000' \
                         '000010000')
 p = DceRpc4(raw)
-assert(p[PDPortDataAdjust].subslotNumber == 0x8002)
-assert(p[AdjustPeerToPeerBoundary].peerToPeerBoundary == 0x1)
-assert(LINKSTATE_LINK[p[AdjustLinkState].LinkState] == 'Up')
+assert p[PDPortDataAdjust].subslotNumber == 0x8002
+assert p[AdjustPeerToPeerBoundary].peerToPeerBoundary == 0x1
+assert LINKSTATE_LINK[p[AdjustLinkState].LinkState] == 'Up'

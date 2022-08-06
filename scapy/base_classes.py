@@ -321,7 +321,7 @@ class Packet_metaclass(_Generic_metaclass):
                 if f.name in dct:
                     f = f.copy()
                     f.default = dct[f.name]
-                    del(dct[f.name])
+                    del dct[f.name]
                 final_fld.append(f)
 
             dct["fields_desc"] = final_fld

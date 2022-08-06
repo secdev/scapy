@@ -794,8 +794,8 @@ class PacketList(_PacketList[Packet],
                         remain[i]._answered = 1
                         remain[j]._answered = 2
                         continue
-                    del(remain[j])
-                    del(remain[i])
+                    del remain[j]
+                    del remain[i]
                     i -= 1
                     break
             i += 1

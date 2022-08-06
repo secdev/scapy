@@ -757,41 +757,41 @@ assert p.payload.payload.data == 1115 * b"X"
 
 = MQTTSN without payload
 p = MQTTSN()
-assert(bytes(p) == b"\x02\x00")
+assert bytes(p) == b"\x02\x00"
 
 = MQTTSN without payload -- invalid lengths
 p = MQTTSN(len=1)
 try:
     bytes(p)        # expect Scapy_Exception
-    assert(false)
+    assert false
 except Scapy_Exception:
     pass
 
 p = MQTTSN(len=0x10000)
 try:
     bytes(p)        # expect Scapy_Exception
-    assert(false)
+    assert false
 except Scapy_Exception:
     pass
 
 b = '\x01'
 try:
     p = MQTTSN(b)   # expect Scapy_Exception
-    assert(false)
+    assert false
 except Scapy_Exception:
     pass
 
 b = '\x01\x02'
 try:
     p = MQTTSN(b)   # expect Scapy_Exception
-    assert(false)
+    assert false
 except Scapy_Exception:
     pass
 
 
 = MQTT-SN RandVariableFieldLen
-assert(type(MQTTSN().fieldtype["len"].randval()) == RandVariableFieldLen)
-assert(type(MQTTSN().fieldtype["len"].randval() + 0) == int)
+assert type(MQTTSN().fieldtype["len"].randval()) == RandVariableFieldLen
+assert type(MQTTSN().fieldtype["len"].randval() + 0) == int
 
 = Disect full IPv6 packages
 ~ dport == 1883 (0x75b)

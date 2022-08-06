@@ -188,7 +188,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         if cpad is not None:
             s = cpad.load
             if cpad.underlayer:
-                del(cpad.underlayer.payload)
+                del cpad.underlayer.payload
         return c, s
 
     def build(self, pkt):
