@@ -853,9 +853,16 @@ class ARP_am(AnsweringMachine[Packet]):
     filter = "arp"
     send_function = staticmethod(sendp)
 
-    def parse_options(self, IP_addr=None, ARP_addr=None):
-        # type: (Optional[str], Optional[str]) -> None
-        self.IP_addr = IP_addr
+    def parse_options(self, IP_addr=None, ARP_addr=None, from_ip=None):
+        # type: (Optional[str], Optional[str], Optional[str]) -> None
+        if isinstance(IP_addr, str):
+            self.IP_addr = Net(IP_addr)  # type: Optional[Net]
+        else:
+            self.IP_addr = IP_addr
+        if isinstance(from_ip, str):
+            self.from_ip = Net(from_ip)  # type: Optional[Net]
+        else:
+            self.from_ip = from_ip
         self.ARP_addr = ARP_addr
 
     def is_request(self, req):
@@ -863,8 +870,11 @@ class ARP_am(AnsweringMachine[Packet]):
         if not req.haslayer(ARP):
             return False
         arp = req[ARP]
-        return arp.op == 1 and \
-            (self.IP_addr is None or self.IP_addr == arp.pdst)  # noqa: E501
+        return (
+            arp.op == 1 and
+            (self.IP_addr is None or arp.pdst in self.IP_addr) and
+            (self.from_ip is None or arp.psrc in self.from_ip)
+        )
 
     def make_reply(self, req):
         # type: (Packet) -> Packet

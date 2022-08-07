@@ -14,7 +14,8 @@ import struct
 import time
 import warnings
 
-from scapy.ansmachine import AnsweringMachine
+from scapy.arch import get_if_addr, get_if_addr6
+from scapy.ansmachine import AnsweringMachine, AnsweringMachineUtils
 from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.compat import orb, raw, chb, bytes_encode, plain_str
@@ -1108,22 +1109,65 @@ RFC2136
 class DNS_am(AnsweringMachine):
     function_name = "dns_spoof"
     filter = "udp port 53"
+    cls = DNS  # We use this automaton for llmnr_spoof
 
-    def parse_options(self, joker="192.168.1.1", match=None):
+    def parse_options(self, joker=None,
+                      match=None, joker6=None, from_ip=None):
+        """
+        :param joker: default IPv4 for unresolved domains. (Default: None)
+                      Set to False to disable, None to mirror the interface's IP.
+        :param joker6: default IPv6 for unresolved domains (Default: False)
+                       set to False to disable, None to mirror the interface's IPv6.
+        :param match: a dictionary of {names: (ip, ipv6)}
+        :param from_ip: an source IP to filter. Can contain a netmask
+        """
         if match is None:
             self.match = {}
         else:
             self.match = match
         self.joker = joker
+        self.joker6 = joker6
+        if isinstance(from_ip, str):
+            self.from_ip = Net(from_ip)
+        else:
+            self.from_ip = from_ip
 
     def is_request(self, req):
-        return req.haslayer(DNS) and req.getlayer(DNS).qr == 0
+        from scapy.layers.inet6 import IPv6
+        return (
+            req.haslayer(self.cls) and
+            req.getlayer(self.cls).qr == 0 and
+            (not self.from_ip or (
+                req[IPv6].src in req if IPv6 in req else req[IP].src
+            ) in self.from_ip)
+        )
 
     def make_reply(self, req):
-        ip = req.getlayer(IP)
-        dns = req.getlayer(DNS)
-        resp = IP(dst=ip.src, src=ip.dst) / UDP(dport=ip.sport, sport=ip.dport)
-        rdata = self.match.get(dns.qd.qname, self.joker)
-        resp /= DNS(id=dns.id, qr=1, qd=dns.qd,
-                    an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata))
+        resp = AnsweringMachineUtils.reverse_packet(req)
+        dns = req.getlayer(self.cls)
+        if req.qd.qtype == 28:
+            # AAAA
+            if self.joker6 is False:
+                return
+            rdata = self.match.get(
+                dns.qd.qname,
+                self.joker or get_if_addr6(self.optsniff.get("iface", conf.iface))
+            )
+            if isinstance(rdata, (tuple, list)):
+                rdata = rdata[1]
+            resp /= self.cls(id=dns.id, qr=1, qd=dns.qd,
+                             an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata,
+                                      type=28))
+        else:
+            if self.joker is False:
+                return
+            rdata = self.match.get(
+                dns.qd.qname,
+                self.joker or get_if_addr(self.optsniff.get("iface", conf.iface))
+            )
+            if isinstance(rdata, (tuple, list)):
+                # Fallback
+                rdata = rdata[0]
+            resp /= self.cls(id=dns.id, qr=1, qd=dns.qd,
+                             an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata))
         return resp

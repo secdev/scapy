@@ -59,6 +59,7 @@ class ReferenceAM(_Generic_metaclass):
             func = lambda obj=obj, *args, **kargs: obj(*args, **kargs)()  # type: ignore  # noqa: E501
             # Inject signature
             func.__name__ = func.__qualname__ = obj.function_name
+            func.__doc__ = obj.__doc__ or obj.parse_options.__doc__
             try:
                 func.__signature__ = obj.__signature__  # type: ignore
             except (AttributeError):
@@ -210,24 +211,27 @@ class AnsweringMachine(Generic[_T]):
 
 class AnsweringMachineUtils:
     @staticmethod
-    def reverse_packet(req):
-        # type: (Packet) -> Packet
-        from scapy.layers.l2 import Ether
+    def reverse_packet(req, mirror_src=False):
+        # type: (Packet, bool) -> Optional[Packet]
         from scapy.layers.inet import IP, TCP, UDP
-        reply = req.copy()
+        from scapy.layers.inet6 import IPv6
+        if IP in req:
+            resp = IP(
+                dst=req[IP].src,
+                src=mirror_src and req[IP].dst or None,
+            )
+        elif IPv6 in req:
+            resp = IPv6(
+                dst=req[IPv6].src,
+                src=mirror_src and req[IPv6].dst or None,
+            )
+        else:
+            return None
         for layer in [UDP, TCP]:
             if req.haslayer(layer):
-                reply[layer].dport, reply[layer].sport = \
-                    req[layer].sport, req[layer].dport
-                reply[layer].chksum = None
-                reply[layer].len = None
-        if req.haslayer(IP):
-            reply[IP].src, reply[IP].dst = req[IP].dst, req[IP].src
-            reply[IP].chksum = None
-            reply[IP].len = None
-        if req.haslayer(Ether):
-            reply[Ether].src, reply[Ether].dst = req[Ether].dst, req[Ether].src
-        return reply
+                resp /= layer(dport=req.sport, sport=req.dport)
+                break
+        return cast(Packet, resp)
 
 
 class AnsweringMachineTCP(AnsweringMachine[Packet]):

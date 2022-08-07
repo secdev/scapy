@@ -58,7 +58,8 @@ def check_DNS_am_reply(packet):
 
 test_am(DNS_am,
         IP()/UDP()/DNS(qd=DNSQR(qname="www.secdev.org")),
-        check_DNS_am_reply)
+        check_DNS_am_reply,
+        joker="192.168.1.1")
 
 = DHCPv6_am - Basic Instantiaion
 ~ osx netaccess
