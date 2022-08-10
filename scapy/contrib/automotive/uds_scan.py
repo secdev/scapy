@@ -909,6 +909,7 @@ class UDS_RMBARandomEnumerator(UDS_RMBAEnumeratorABC):
     _supported_kwargs.update({
         'unittest': (bool, None)
     })
+    del _supported_kwargs["scan_range"]
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
         :param bool unittest: Enables smaller search space for unit-test
