@@ -17,6 +17,11 @@ def _test():
 
 dns_ans = retry_test(_test)
 
+= DNS labels
+~ DNS
+query = DNSQR(qname=b"www.secdev.org")
+assert query.qname == query.__class__(raw(query)).qname
+
 = DNS packet manipulation
 ~ netaccess needs_root IP UDP DNS
 dns_ans.show()
