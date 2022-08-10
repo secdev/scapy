@@ -145,6 +145,13 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
     return name, pointer, bytes_left, len(processed_pointers) != 0
 
 
+def _is_ptr(x):
+    return b"." not in x and (
+        (x and orb(x[-1]) == 0) or
+        (len(x) >= 2 and (orb(x[-2]) & 0xc0) == 0xc0)
+    )
+
+
 def dns_encode(x, check_built=False):
     """Encodes a bytes string into the DNS format
 
@@ -155,10 +162,7 @@ def dns_encode(x, check_built=False):
     if not x or x == b".":
         return b"\x00"
 
-    if check_built and b"." not in x and (
-        (x and orb(x[-1]) == 0) or
-        (len(x) >= 2 and (orb(x[-2]) & 0xc0) == 0xc0)
-    ):
+    if check_built and _is_ptr(x):
         # The value has already been processed. Do not process it again
         return x
 
@@ -284,7 +288,7 @@ class DNSStrField(StrLenField):
     def h2i(self, pkt, x):
         if not x:
             return b"."
-        if x[-1:] != b".":
+        if x[-1:] != b"." and not _is_ptr(x):
             return x + b"."
         return x
 
