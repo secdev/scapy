@@ -1146,9 +1146,6 @@ class NDRFullPointerField(_FieldContainer):
             return s
         return self.fld.addfield(pkt, s, val.value)
 
-    def i2repr(self, pkt, val):
-        return repr(val)
-
     def any2i(self, pkt, x):
         # User-friendly helper
         if x is not None and not isinstance(x, NDRPointer):
@@ -1158,9 +1155,18 @@ class NDRFullPointerField(_FieldContainer):
             )
         return x
 
-    h2i = Field.h2i
-    i2h = Field.i2h
-    i2count = Field.i2count
+    # Can't use i2repr = Field.i2repr and so on on PY2 :/
+    def i2repr(self, pkt, val):
+        return repr(val)
+
+    def i2h(self, pkt, x):
+        return x
+
+    def h2i(self, pkt, x):
+        return x
+
+    def i2count(self, pkt, x):
+        return 1
 
 
 class NDRRefEmbPointerField(NDRFullPointerField):
@@ -1177,7 +1183,7 @@ class NDRRefEmbPointerField(NDRFullPointerField):
 # Note: this is utterly complex and will drive you crazy
 
 
-class NDRConstructedType:
+class NDRConstructedType(object):
     def __init__(self, fields):
         self.handles_deferred = False
         self.ndr_fields = fields
@@ -1202,12 +1208,12 @@ class NDRConstructedType:
             # If a sub-packet we just dissected has deferred pointers,
             # pass it to parent packet to propagate.
             pkt.defered_pointers.extend(fval.defered_pointers)
-            fval.defered_pointers.clear()
+            del fval.defered_pointers[:]
         if self.handles_deferred:
             # Now read content of the pointers that were deferred
             q = deque()
             q.extend(pkt.defered_pointers)
-            pkt.defered_pointers.clear()
+            del pkt.defered_pointers[:]
             while q:
                 # Recursively resolve pointers that were deferred
                 ptr, getfld = q.popleft()
@@ -1216,7 +1222,7 @@ class NDRConstructedType:
                 if isinstance(val, _NDRPacket):
                     # Pointer resolves to a packet.. that may have deferred pointers?
                     q.extend(val.defered_pointers)
-                    val.defered_pointers.clear()
+                    del val.defered_pointers[:]
         return s, fval
 
     def addfield(self, pkt, s, val):
@@ -1224,17 +1230,17 @@ class NDRConstructedType:
         s = super(NDRConstructedType, self).addfield(pkt, s, val)
         if isinstance(val, _NDRPacket):
             pkt.defered_pointers.extend(val.defered_pointers)
-            val.defered_pointers.clear()
+            del val.defered_pointers[:]
         if self.handles_deferred:
             q = deque()
             q.extend(pkt.defered_pointers)
-            pkt.defered_pointers.clear()
+            del pkt.defered_pointers[:]
             while q:
                 addfld, fval = q.popleft()
                 s = addfld(s)
                 if isinstance(fval, NDRPointer) and isinstance(fval.value, _NDRPacket):
                     q.extend(fval.value.defered_pointers)
-                    fval.value.defered_pointers.clear()
+                    del fval.value.defered_pointers[:]
         return s
 
 
@@ -1368,10 +1374,18 @@ class _NDRVarField(object):
             )
         return x
 
-    h2i = Field.h2i
-    i2h = Field.i2h
-    i2repr = Field.i2repr
-    i2count = Field.i2count
+    # Can't use i2repr = Field.i2repr and so on on PY2 :/
+    def i2repr(self, pkt, val):
+        return repr(val)
+
+    def i2h(self, pkt, x):
+        return x
+
+    def h2i(self, pkt, x):
+        return x
+
+    def i2count(self, pkt, x):
+        return 1
 
 
 class NDRConformantArray(_NDRPacket):
@@ -1435,9 +1449,6 @@ class _NDRConfField(object):
             value = x.value
         return super(_NDRConfField, self).i2len(pkt, value)
 
-    def h2i(self, pkt, x):
-        return x
-
     def any2i(self, pkt, x):
         # User-friendly helper
         if not isinstance(x, NDRConformantArray):
@@ -1446,8 +1457,18 @@ class _NDRConfField(object):
             )
         return x
 
-    i2repr = Field.i2repr
-    i2count = Field.i2count
+    # Can't use i2repr = Field.i2repr and so on on PY2 :/
+    def i2repr(self, pkt, val):
+        return repr(val)
+
+    def i2h(self, pkt, x):
+        return x
+
+    def h2i(self, pkt, x):
+        return x
+
+    def i2count(self, pkt, x):
+        return 1
 
 
 class NDRVarPacketListField(_NDRVarField, _NDRPacketListField):
@@ -1597,10 +1618,15 @@ class _NDRUnionField(MultipleTypeField):
         fld, val = super(_NDRUnionField, self)._find_fld_pkt_val(pkt, val)
         return fld, val.value
 
-    h2i = Field.h2i
-    i2h = Field.i2h
-    i2repr = Field.i2repr
+    # Can't use i2repr = Field.i2repr and so on on PY2 :/
+    def i2repr(self, pkt, val):
+        return repr(val)
 
+    def i2h(self, pkt, x):
+        return x
+
+    def h2i(self, pkt, x):
+        return x
 
 
 class NDRUnionField(NDRConstructedType, NDRAlign):
@@ -1615,7 +1641,7 @@ class NDRUnionField(NDRConstructedType, NDRAlign):
             if not isinstance(x, NDRUnion):
                 raise ValueError("Invalid value for %s; should be NDRUnion" % self.name)
             else:
-                x.value = _NDRUnionField.any2i(self, pkt, x)
+                x.value = self.fld.any2i(pkt, x)
         return x
 
 # Misc

@@ -354,5 +354,6 @@ assert bytes(pkt) == b'\x00\x00\x02\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\
 = Dissect test
 
 pkt = NetrWkstaUserEnum_Request(bytes(pkt))
+pkt.ServerName
 assert pkt.ServerName.value.value[0].value == b"test"
 assert pkt.UserInfo.WkstaUserInfo.value.value.Buffer.value.value[0].wkui0_username.value.value[0].value == b"test"
