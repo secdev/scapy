@@ -1516,7 +1516,7 @@ class _PacketField(_StrField[K]):
         remain = b""
         if conf.padding_layer in i:
             r = i[conf.padding_layer]
-            del(r.underlayer.payload)
+            del r.underlayer.payload
             remain = r.load
         return remain, i
 
@@ -1764,7 +1764,7 @@ class PacketListField(_PacketField[List[BasePacket]]):
                 if conf.padding_layer in p:
                     pad = p[conf.padding_layer]
                     remain = pad.load
-                    del(pad.underlayer.payload)
+                    del pad.underlayer.payload
                     if self.next_cls_cb is not None:
                         cls = self.next_cls_cb(pkt, lst, p, remain)
                         if cls is not None:

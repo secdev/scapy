@@ -16,7 +16,7 @@ raw(ofm) == b'\x04\x02\x00\x08\x00\x00\x00\x00'
 
 = OFPMatch(), check padding
 ofm = OFPMatch(oxm_fields=OFBEthType(eth_type=0x86dd))
-assert(len(raw(ofm))%8 == 0)
+assert len(raw(ofm))%8 == 0
 raw(ofm) == b'\x00\x01\x00\x0a\x80\x00\x0a\x02\x86\xdd\x00\x00\x00\x00\x00\x00'
 
 = OpenFlow3(), generic method test with OFPTEchoRequest()
@@ -26,13 +26,13 @@ isinstance(OpenFlow3(s), OFPTEchoRequest)
 
 = OFPTFlowMod(), check codes and defaults values
 ofm = OFPTFlowMod(cmd='OFPFC_DELETE', out_group='ALL', flags='CHECK_OVERLAP+NO_PKT_COUNTS')
-assert(ofm.cmd == 3)
-assert(ofm.out_port == 0xffffffff)
-assert(ofm.out_group == 0xfffffffc)
+assert ofm.cmd == 3
+assert ofm.out_port == 0xffffffff
+assert ofm.out_group == 0xfffffffc
 ofm.flags == 10
 
 = OFBIPv6ExtHdrHMID(), check creation of last OXM classes
-assert(hasattr(OFBIPv6ExtHdr(), 'ipv6_ext_hdr_flags'))
+assert hasattr(OFBIPv6ExtHdr(), 'ipv6_ext_hdr_flags')
 OFBIPv6ExtHdrHMID().field == 39
 
 + Complex OFv1.3 messages
@@ -78,8 +78,8 @@ assert fpti.instruction_ids[1].type == 5
 ofm = OFPTPacketIn(data=Ether()/IP()/ICMP())
 p = OFPTPacketIn(raw(ofm))
 dat = p.data
-assert(isinstance(dat, Ether))
-assert(isinstance(dat.payload, IP))
+assert isinstance(dat, Ether)
+assert isinstance(dat.payload, IP)
 isinstance(dat.payload.payload, ICMP)
 
 = OFPTGroupMod()
@@ -153,7 +153,7 @@ assert pkt[OFPTHello].elements[0].len == 8
 = complete Ether()/IP()/TCP()/OFPTFeaturesRequest()
 ofm = Ether(src='00:11:22:33:44:55',dst='01:23:45:67:89:ab')/IP(src='10.0.0.7',dst='192.168.0.42')/TCP(sport=6633)/OFPTFeaturesRequest(xid=23)
 s = b'\x01#Eg\x89\xab\x00\x11"3DU\x08\x00E\x00\x000\x00\x01\x00\x00@\x06\xaf\xee\n\x00\x00\x07\xc0\xa8\x00*\x19\xe9\x19\xfd\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x8c\xf7\x00\x00\x04\x05\x00\x08\x00\x00\x00\x17'
-assert(raw(ofm) == s)
+assert raw(ofm) == s
 e = Ether(s)
 e.show2()
 e[OFPTFeaturesRequest].xid == 23

@@ -15,7 +15,7 @@ OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=0, \
     versionMajor=0,versionMinor=0,stubdata='')))
 elem2 = raw(opcdaRequestPacket_Build)
 
-assert( elem1 == elem2 )
+assert  elem1 == elem2
 
 = OpcDaRequestLE
 opcdaRequestLEPacket_Dissect = hex_bytes(b'050000831000000064000000150000003c000000060005001dc400009c0a0000d7028c761299f7bf000000000000000000000000512d4e34ab431449a2cf7784b21b3ea1')
@@ -32,7 +32,7 @@ OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=0, \
     stubdata=b'\x00\x00\x00\x00\x00\x00\x00\x00Q-N4\xabC\x14I\xa2\xcfw\x84\xb2\x1b>\xa1')))
 elem2 = raw(opcdaRequestLEPacket_Build)
 
-assert( elem1 == elem2 )
+assert  elem1 == elem2
 
 
 + Test Ping Packet
@@ -48,7 +48,7 @@ opcdaPingPacket_Build = OpcDaMessage(OpcDaMessage= \
     / OpcDaPing()) / '\x00'
 elem2 = raw(opcdaPingPacket_Build)
 
-assert( elem1 == elem2 )
+assert  elem1 == elem2
 
 
 + Test Response Packets
@@ -65,7 +65,7 @@ opcDaResponsePacket_Build = OpcDaMessage(OpcDaMessage= \
         stubData=b'0'*(212-32)))
 elem2 = raw(opcDaResponsePacket_Build)
 
-assert( elem1 == elem2 )
+assert  elem1 == elem2
 
 = OpcDaResponseLE
 opcDaResponseLEPacket_Dissect = hex_bytes(b'0500020310000000d400000015000000bc00000006000000303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030')
@@ -80,7 +80,7 @@ opcDaResponseLEPacket_Build = OpcDaMessage(OpcDaMessage= \
         stubData=b'0'*(212-32)))
 elem2 = raw(opcDaResponseLEPacket_Build)
 
-assert( elem1 == elem2 )
+assert  elem1 == elem2
 
 # + Test Fault Packet
 # No example yet

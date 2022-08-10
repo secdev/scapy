@@ -364,10 +364,10 @@ IKEv2Transforms = {}
 for n in IKEv2TransformTypes:
     IKEv2Transforms[IKEv2TransformTypes[n][0]] = n
 
-del(n)
-del(e)
-del(tmp)
-del(val)
+del n
+del e
+del tmp
+del val
 
 # Note: Transform and Proposal can only be used inside the SA payload
 IKEv2_payload_type = ["None", "", "Proposal", "Transform"]

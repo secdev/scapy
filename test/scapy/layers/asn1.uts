@@ -22,9 +22,9 @@ repr(ASN1_GENERALIZED_TIME("19991231235959")).startswith("1999-12-31 23:59:59 <"
 = with microseconds
 repr(ASN1_GENERALIZED_TIME("19991231235959.999")).startswith("1999-12-31 23:59:59.999 <")
 = with microseconds (invalid)
-assert("invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.99")))
-assert("invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.99x")))
-assert("invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.9999")))
+assert "invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.99"))
+assert "invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.99x"))
+assert "invalid" in repr(ASN1_GENERALIZED_TIME("1999123125959.9999"))
 
 
 + ASN.1 Generalized Time (Zulu)
@@ -51,8 +51,8 @@ repr(ASN1_GENERALIZED_TIME("19991231235959.999+0100")).startswith("1999-12-31 23
 = offset negative
 repr(ASN1_GENERALIZED_TIME("19991231235959-2359")).startswith("1999-12-31 23:59:59 -2359 <")
 = offset invalid (offset >= 24h)
-assert("invalid" in repr(ASN1_GENERALIZED_TIME("19991231235959-2400")))
-assert("invalid" in repr(ASN1_GENERALIZED_TIME("19991231235959+2400")))
+assert "invalid" in repr(ASN1_GENERALIZED_TIME("19991231235959-2400"))
+assert "invalid" in repr(ASN1_GENERALIZED_TIME("19991231235959+2400"))
 
 
 + ASN.1 UTC Time
@@ -84,7 +84,7 @@ ASN1_GENERALIZED_TIME("19991231235959").datetime == datetime(1999, 12, 31, 23, 5
 = datetime assignment
 x = ASN1_GENERALIZED_TIME("19991231235959.999")
 x.datetime = datetime(2020, 12, 31)
-assert(x.val == "20201231000000")
+assert x.val == "20201231000000"
 x.datetime = x.datetime.replace(tzinfo=timezone.utc)
 x.val == "20201231000000Z"
 = datetime construction

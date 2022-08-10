@@ -808,7 +808,7 @@ class NTLM_Server(_NTLM_Automaton):
             return self.cli_atmt.send(pkt)
 
     def start_client(self, **kwargs):
-        assert(self.cli_atmt), "Cannot start NTLM client: not provided"
+        assert self.cli_atmt, "Cannot start NTLM client: not provided"
         self.cli_atmt.client_pipe.send(kwargs)
 
 

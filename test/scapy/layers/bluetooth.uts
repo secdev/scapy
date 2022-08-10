@@ -57,33 +57,33 @@ assert L2CAP_InfoReq in pkt
 
 # Request data
 cmd = HCI_Hdr(hex_bytes("010d2019600060000001123456677890001800280000002a0000000000"))
-assert(HCI_Cmd_LE_Create_Connection in cmd)
-assert(cmd[HCI_Cmd_LE_Create_Connection].paddr == '90:78:67:56:34:12')
-assert(cmd[HCI_Cmd_LE_Create_Connection].patype == 1)
+assert HCI_Cmd_LE_Create_Connection in cmd
+assert cmd[HCI_Cmd_LE_Create_Connection].paddr == '90:78:67:56:34:12'
+assert cmd[HCI_Cmd_LE_Create_Connection].patype == 1
 
 # Response data
 pending = HCI_Hdr(hex_bytes("040f0400020d20"))
-assert(pending.answers(cmd))
+assert pending.answers(cmd)
 
 complete = HCI_Hdr(hex_bytes("043e1301020000000112345667789000000000000000"))
-assert(HCI_LE_Meta_Connection_Complete in complete)
-assert(complete[HCI_LE_Meta_Connection_Complete].paddr == '90:78:67:56:34:12')
-assert(complete.answers(cmd))
+assert HCI_LE_Meta_Connection_Complete in complete
+assert complete[HCI_LE_Meta_Connection_Complete].paddr == '90:78:67:56:34:12'
+assert complete.answers(cmd)
 
 # Invalid combinations
-assert(not cmd.answers(cmd))
-assert(not pending.answers(pending))
-assert(not complete.answers(complete))
-assert(not pending.answers(complete))
-assert(not complete.answers(pending))
+assert not cmd.answers(cmd)
+assert not pending.answers(pending)
+assert not complete.answers(complete)
+assert not pending.answers(complete)
+assert not complete.answers(pending)
 
 = LE Create Connection Cancel
 
 # Craft a request...
 expected_cmd_raw_data = hex_bytes("010e2000")
 cmd = HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Create_Connection_Cancel()
-assert(expected_cmd_raw_data == raw(cmd))
-assert(raw(HCI_Hdr(expected_cmd_raw_data)) == expected_cmd_raw_data)
+assert expected_cmd_raw_data == raw(cmd)
+assert raw(HCI_Hdr(expected_cmd_raw_data)) == expected_cmd_raw_data
 
 other_raw_data = hex_bytes("01060403341213")
 other_cmd = HCI_Hdr(other_raw_data)
@@ -97,18 +97,18 @@ for p in (
     # For debugging
     res
     # Check that the response packet thinks it is an answer to the request
-    assert(res.answers(cmd))
+    assert res.answers(cmd)
     # Check that it self isn't a match
-    assert(not res.answers(res))
+    assert not res.answers(res)
     # Check that another request wouldn't match
-    assert(not res.answers(other_cmd))
+    assert not res.answers(other_cmd)
     "OK!"
 
 
 = Disconnect
 expected_cmd_raw_data = hex_bytes("01060403341213")
 cmd_raw_data = raw(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Disconnect(handle=0x1234))
-assert(expected_cmd_raw_data == cmd_raw_data)
+assert expected_cmd_raw_data == cmd_raw_data
 
 = LE Connection Update Command
 expected_cmd_raw_data = hex_bytes("0113200e47000a00140001003c000100ffff")
@@ -116,17 +116,17 @@ cmd_raw_data = raw(
     HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Connection_Update(
         handle=0x47, min_interval=10, max_interval=20, latency=1, timeout=60,
         min_ce=1, max_ce=0xffff))
-assert(expected_cmd_raw_data == cmd_raw_data)
+assert expected_cmd_raw_data == cmd_raw_data
 
 
 + HCI Events
 = LE Connection Update Event
 evt_raw_data = hex_bytes("043e0a03004800140001003c00")
 evt_pkt =  HCI_Hdr(evt_raw_data)
-assert(evt_pkt[HCI_LE_Meta_Connection_Update_Complete].handle == 0x48)
-assert(evt_pkt[HCI_LE_Meta_Connection_Update_Complete].interval == 20)
-assert(evt_pkt[HCI_LE_Meta_Connection_Update_Complete].latency == 1)
-assert(evt_pkt[HCI_LE_Meta_Connection_Update_Complete].timeout == 60)
+assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].handle == 0x48
+assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].interval == 20
+assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].latency == 1
+assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].timeout == 60
 
 
 + Bluetooth LE Advertising / Scan Response Data Parsing
@@ -137,10 +137,10 @@ ad_report_raw_data = \
               "506562626c652054696d65204c452037314536020a0cde")
 scapy_packet = HCI_Hdr(ad_report_raw_data)
 
-assert(scapy_packet[EIR_Flags].flags == 0x02)
-assert(scapy_packet[EIR_CompleteList16BitServiceUUIDs].svc_uuids == [0xfed9])
-assert(scapy_packet[EIR_CompleteLocalName].local_name == b'Pebble Time LE 71E6')
-assert(scapy_packet[EIR_TX_Power_Level].level == 12)
+assert scapy_packet[EIR_Flags].flags == 0x02
+assert scapy_packet[EIR_CompleteList16BitServiceUUIDs].svc_uuids == [0xfed9]
+assert scapy_packet[EIR_CompleteLocalName].local_name == b'Pebble Time LE 71E6'
+assert scapy_packet[EIR_TX_Power_Level].level == 12
 
 = Parse EIR_Manufacturer_Specific_Data
 
@@ -149,8 +149,8 @@ scan_resp_raw_data = \
               "3134374432343631fc00030c0000de")
 scapy_packet = HCI_Hdr(scan_resp_raw_data)
 
-assert(raw(scapy_packet[EIR_Manufacturer_Specific_Data].payload) == b'\x00_B31147D2461\xfc\x00\x03\x0c\x00\x00')
-assert(scapy_packet[EIR_Manufacturer_Specific_Data].company_id == 0x154)
+assert raw(scapy_packet[EIR_Manufacturer_Specific_Data].payload) == b'\x00_B31147D2461\xfc\x00\x03\x0c\x00\x00'
+assert scapy_packet[EIR_Manufacturer_Specific_Data].company_id == 0x154
 
 = Parse EIR_Manufacturer_Specific_Data with magic
 

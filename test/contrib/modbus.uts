@@ -13,213 +13,213 @@ raw(ModbusADURequest() / b'\x00\x01\x02') == b'\x00\x00\x00\x00\x00\x04\xff\x00\
 
 = MBAP Guess Payload ModbusPDU01ReadCoilsRequest (simple case)
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x06\xff\x01\x00\x00\x00\x01')
-assert(isinstance(p.payload, ModbusPDU01ReadCoilsRequest))
+assert isinstance(p.payload, ModbusPDU01ReadCoilsRequest)
 = MBAP Guess Payload ModbusPDU01ReadCoilsResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x04\xff\x01\x01\x01')
-assert(isinstance(p.payload, ModbusPDU01ReadCoilsResponse))
+assert isinstance(p.payload, ModbusPDU01ReadCoilsResponse)
 = MBAP Guess Payload ModbusPDU01ReadCoilsError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x81\x02')
-assert(isinstance(p.payload, ModbusPDU01ReadCoilsError))
+assert isinstance(p.payload, ModbusPDU01ReadCoilsError)
 
 = MBAP Guess Payload ModbusPDU02ReadDiscreteInputsRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x06\xff\x02\x00\x00\x00\x01')
-assert(isinstance(p.payload, ModbusPDU02ReadDiscreteInputsRequest))
+assert isinstance(p.payload, ModbusPDU02ReadDiscreteInputsRequest)
 = MBAP Guess Payload ModbusPDU02ReadDiscreteInputsResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x04\xff\x02\x01\x00')
-assert(isinstance(p.payload, ModbusPDU02ReadDiscreteInputsResponse))
+assert isinstance(p.payload, ModbusPDU02ReadDiscreteInputsResponse)
 = MBAP Guess Payload ModbusPDU02ReadDiscreteInputsError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x82\x01')
-assert(isinstance(p.payload, ModbusPDU02ReadDiscreteInputsError))
+assert isinstance(p.payload, ModbusPDU02ReadDiscreteInputsError)
 
 = MBAP Guess Payload ModbusPDU03ReadHoldingRegistersRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x06\xff\x03\x00\x00\x00\x01')
-assert(isinstance(p.payload, ModbusPDU03ReadHoldingRegistersRequest))
+assert isinstance(p.payload, ModbusPDU03ReadHoldingRegistersRequest)
 = MBAP Guess Payload ModbusPDU03ReadHoldingRegistersResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x05\xff\x03\x02\x00\x00')
-assert(isinstance(p.payload, ModbusPDU03ReadHoldingRegistersResponse))
+assert isinstance(p.payload, ModbusPDU03ReadHoldingRegistersResponse)
 = MBAP Guess Payload ModbusPDU03ReadHoldingRegistersError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x83\x01')
-assert(isinstance(p.payload, ModbusPDU03ReadHoldingRegistersError))
+assert isinstance(p.payload, ModbusPDU03ReadHoldingRegistersError)
 
 = MBAP Guess Payload ModbusPDU04ReadInputRegistersRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x06\xff\x04\x00\x00\x00\x01')
-assert(isinstance(p.payload, ModbusPDU04ReadInputRegistersRequest))
+assert isinstance(p.payload, ModbusPDU04ReadInputRegistersRequest)
 = MBAP Guess Payload ModbusPDU04ReadInputRegistersResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x05\xff\x04\x02\x00\x00')
-assert(isinstance(p.payload, ModbusPDU04ReadInputRegistersResponse))
+assert isinstance(p.payload, ModbusPDU04ReadInputRegistersResponse)
 = MBAP Guess Payload ModbusPDU04ReadInputRegistersError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x84\x01')
-assert(isinstance(p.payload, ModbusPDU04ReadInputRegistersError))
+assert isinstance(p.payload, ModbusPDU04ReadInputRegistersError)
 
 = MBAP Guess Payload ModbusPDU05WriteSingleCoilRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x06\xff\x05\x00\x00\x00\x00')
-assert(isinstance(p.payload, ModbusPDU05WriteSingleCoilRequest))
+assert isinstance(p.payload, ModbusPDU05WriteSingleCoilRequest)
 = MBAP Guess Payload ModbusPDU05WriteSingleCoilResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x06\xff\x05\x00\x00\x00\x00')
-assert(isinstance(p.payload, ModbusPDU05WriteSingleCoilResponse))
+assert isinstance(p.payload, ModbusPDU05WriteSingleCoilResponse)
 = MBAP Guess Payload ModbusPDU05WriteSingleCoilError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x85\x01')
-assert(isinstance(p.payload, ModbusPDU05WriteSingleCoilError))
+assert isinstance(p.payload, ModbusPDU05WriteSingleCoilError)
 
 = MBAP Guess Payload ModbusPDU06WriteSingleRegisterRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x06\xff\x06\x00\x00\x00\x00')
-assert(isinstance(p.payload, ModbusPDU06WriteSingleRegisterRequest))
+assert isinstance(p.payload, ModbusPDU06WriteSingleRegisterRequest)
 = MBAP Guess Payload ModbusPDU06WriteSingleRegisterResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x06\xff\x06\x00\x00\x00\x00')
-assert(isinstance(p.payload, ModbusPDU06WriteSingleRegisterResponse))
+assert isinstance(p.payload, ModbusPDU06WriteSingleRegisterResponse)
 = MBAP Guess Payload ModbusPDU06WriteSingleRegisterError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x86\x01')
-assert(isinstance(p.payload, ModbusPDU06WriteSingleRegisterError))
+assert isinstance(p.payload, ModbusPDU06WriteSingleRegisterError)
 
 = MBAP Guess Payload ModbusPDU07ReadExceptionStatusRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x02\xff\x07')
-assert(isinstance(p.payload, ModbusPDU07ReadExceptionStatusRequest))
+assert isinstance(p.payload, ModbusPDU07ReadExceptionStatusRequest)
 = MBAP Guess Payload ModbusPDU07ReadExceptionStatusResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x07\x00')
-assert(isinstance(p.payload, ModbusPDU07ReadExceptionStatusResponse))
+assert isinstance(p.payload, ModbusPDU07ReadExceptionStatusResponse)
 = MBAP Guess Payload ModbusPDU07ReadExceptionStatusError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x87\x01')
-assert(isinstance(p.payload, ModbusPDU07ReadExceptionStatusError))
+assert isinstance(p.payload, ModbusPDU07ReadExceptionStatusError)
 
 = MBAP Guess Payload ModbusPDU08DiagnosticsRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x06\xff\x08\x00\x00\x00\x00')
-assert(isinstance(p.payload, ModbusPDU08DiagnosticsRequest))
+assert isinstance(p.payload, ModbusPDU08DiagnosticsRequest)
 = MBAP Guess Payload ModbusPDU08DiagnosticsResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x06\xff\x08\x00\x00\x00\x00')
-assert(isinstance(p.payload, ModbusPDU08DiagnosticsResponse))
+assert isinstance(p.payload, ModbusPDU08DiagnosticsResponse)
 = MBAP Guess Payload ModbusPDU08DiagnosticsError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x88\x01')
-assert(isinstance(p.payload, ModbusPDU08DiagnosticsError))
+assert isinstance(p.payload, ModbusPDU08DiagnosticsError)
 
 = MBAP Guess Payload ModbusPDU0BGetCommEventCounterRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x02\xff\x0b')
-assert(isinstance(p.payload, ModbusPDU0BGetCommEventCounterRequest))
+assert isinstance(p.payload, ModbusPDU0BGetCommEventCounterRequest)
 = MBAP Guess Payload ModbusPDU0BGetCommEventCounterResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x06\xff\x0b\x00\x00\xff\xff')
-assert(isinstance(p.payload, ModbusPDU0BGetCommEventCounterResponse))
+assert isinstance(p.payload, ModbusPDU0BGetCommEventCounterResponse)
 = MBAP Guess Payload ModbusPDU0BGetCommEventCounterError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x8b\x01')
-assert(isinstance(p.payload, ModbusPDU0BGetCommEventCounterError))
+assert isinstance(p.payload, ModbusPDU0BGetCommEventCounterError)
 
 = MBAP Guess Payload ModbusPDU0CGetCommEventLogRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x02\xff\x0c')
-assert(isinstance(p.payload, ModbusPDU0CGetCommEventLogRequest))
+assert isinstance(p.payload, ModbusPDU0CGetCommEventLogRequest)
 = MBAP Guess Payload ModbusPDU0CGetCommEventLogResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x0c')
-assert(isinstance(p.payload, ModbusPDU0CGetCommEventLogResponse))
+assert isinstance(p.payload, ModbusPDU0CGetCommEventLogResponse)
 = MBAP Guess Payload ModbusPDU0CGetCommEventLogError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x8c\x01')
-assert(isinstance(p.payload, ModbusPDU0CGetCommEventLogError))
+assert isinstance(p.payload, ModbusPDU0CGetCommEventLogError)
 
 = MBAP Guess Payload ModbusPDU0FWriteMultipleCoilsRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x08\xff\x0f\x00\x00\x00\x01\x01\x00')
-assert(isinstance(p.payload, ModbusPDU0FWriteMultipleCoilsRequest))
+assert isinstance(p.payload, ModbusPDU0FWriteMultipleCoilsRequest)
 = MBAP Guess Payload ModbusPDU0FWriteMultipleCoilsResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x06\xff\x0f\x00\x00\x00\x01')
-assert(isinstance(p.payload, ModbusPDU0FWriteMultipleCoilsResponse))
+assert isinstance(p.payload, ModbusPDU0FWriteMultipleCoilsResponse)
 = MBAP Guess Payload ModbusPDU0FWriteMultipleCoilsError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x8f\x01')
-assert(isinstance(p.payload, ModbusPDU0FWriteMultipleCoilsError))
+assert isinstance(p.payload, ModbusPDU0FWriteMultipleCoilsError)
 
 = MBAP Guess Payload ModbusPDU10WriteMultipleRegistersRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\t\xff\x10\x00\x00\x00\x01\x02\x00\x00')
-assert(isinstance(p.payload, ModbusPDU10WriteMultipleRegistersRequest))
+assert isinstance(p.payload, ModbusPDU10WriteMultipleRegistersRequest)
 = MBAP Guess Payload ModbusPDU10WriteMultipleRegistersResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x06\xff\x10\x00\x00\x00\x01')
-assert(isinstance(p.payload, ModbusPDU10WriteMultipleRegistersResponse))
+assert isinstance(p.payload, ModbusPDU10WriteMultipleRegistersResponse)
 = MBAP Guess Payload ModbusPDU10WriteMultipleRegistersError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x90\x01')
-assert(isinstance(p.payload, ModbusPDU10WriteMultipleRegistersError))
+assert isinstance(p.payload, ModbusPDU10WriteMultipleRegistersError)
 
 = MBAP Guess Payload ModbusPDU11ReportSlaveIdRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x02\xff\x11')
-assert(isinstance(p.payload, ModbusPDU11ReportSlaveIdRequest))
+assert isinstance(p.payload, ModbusPDU11ReportSlaveIdRequest)
 = MBAP Guess Payload ModbusPDU11ReportSlaveIdResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x11\x00')
-assert(isinstance(p.payload, ModbusPDU11ReportSlaveIdResponse))
+assert isinstance(p.payload, ModbusPDU11ReportSlaveIdResponse)
 = MBAP Guess Payload ModbusPDU11ReportSlaveIdError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x91\x01')
-assert(isinstance(p.payload, ModbusPDU11ReportSlaveIdError))
+assert isinstance(p.payload, ModbusPDU11ReportSlaveIdError)
 
 = MBAP Guess Payload ModbusPDU14ReadFileRecordRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x03\xff\x14\x00')
-assert(isinstance(p.payload, ModbusPDU14ReadFileRecordRequest))
+assert isinstance(p.payload, ModbusPDU14ReadFileRecordRequest)
 = MBAP Guess Payload ModbusPDU14ReadFileRecordResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x14\x00')
-assert(isinstance(p.payload, ModbusPDU14ReadFileRecordResponse))
+assert isinstance(p.payload, ModbusPDU14ReadFileRecordResponse)
 = MBAP Guess Payload ModbusPDU14ReadFileRecordError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x91\x01')
-assert(isinstance(p.payload, ModbusPDU11ReportSlaveIdError))
+assert isinstance(p.payload, ModbusPDU11ReportSlaveIdError)
 
 = MBAP Guess Payload ModbusPDU15WriteFileRecordRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x03\xff\x15\x00')
-assert(isinstance(p.payload, ModbusPDU15WriteFileRecordRequest))
+assert isinstance(p.payload, ModbusPDU15WriteFileRecordRequest)
 = MBAP Guess Payload ModbusPDU15WriteFileRecordResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x15\x00')
-assert(isinstance(p.payload, ModbusPDU15WriteFileRecordResponse))
+assert isinstance(p.payload, ModbusPDU15WriteFileRecordResponse)
 = MBAP Guess Payload ModbusPDU15WriteFileRecordError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x95\x01')
-assert(isinstance(p.payload, ModbusPDU15WriteFileRecordError))
+assert isinstance(p.payload, ModbusPDU15WriteFileRecordError)
 
 = MBAP Guess Payload ModbusPDU16MaskWriteRegisterRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x08\xff\x16\x00\x00\xff\xff\x00\x00')
-assert(isinstance(p.payload, ModbusPDU16MaskWriteRegisterRequest))
+assert isinstance(p.payload, ModbusPDU16MaskWriteRegisterRequest)
 = MBAP Guess Payload ModbusPDU16MaskWriteRegisterResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x08\xff\x16\x00\x00\xff\xff\x00\x00')
-assert(isinstance(p.payload, ModbusPDU16MaskWriteRegisterResponse))
+assert isinstance(p.payload, ModbusPDU16MaskWriteRegisterResponse)
 = MBAP Guess Payload ModbusPDU16MaskWriteRegisterError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x96\x01')
-assert(isinstance(p.payload, ModbusPDU16MaskWriteRegisterError))
+assert isinstance(p.payload, ModbusPDU16MaskWriteRegisterError)
 
 = MBAP Guess Payload ModbusPDU16MaskWriteRegisterRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x08\xff\x16\x00\x00\xff\xff\x00\x00')
-assert(isinstance(p.payload, ModbusPDU16MaskWriteRegisterRequest))
+assert isinstance(p.payload, ModbusPDU16MaskWriteRegisterRequest)
 = MBAP Guess Payload ModbusPDU16MaskWriteRegisterResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x08\xff\x16\x00\x00\xff\xff\x00\x00')
-assert(isinstance(p.payload, ModbusPDU16MaskWriteRegisterResponse))
+assert isinstance(p.payload, ModbusPDU16MaskWriteRegisterResponse)
 = MBAP Guess Payload ModbusPDU16MaskWriteRegisterError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x96\x01')
-assert(isinstance(p.payload, ModbusPDU16MaskWriteRegisterError))
+assert isinstance(p.payload, ModbusPDU16MaskWriteRegisterError)
 
 = MBAP Guess Payload ModbusPDU17ReadWriteMultipleRegistersRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\r\xff\x17\x00\x00\x00\x01\x00\x00\x00\x01\x02\x00\x00')
-assert(isinstance(p.payload, ModbusPDU17ReadWriteMultipleRegistersRequest))
+assert isinstance(p.payload, ModbusPDU17ReadWriteMultipleRegistersRequest)
 = MBAP Guess Payload ModbusPDU17ReadWriteMultipleRegistersResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x05\xff\x17\x02\x00\x00')
-assert(isinstance(p.payload, ModbusPDU17ReadWriteMultipleRegistersResponse))
+assert isinstance(p.payload, ModbusPDU17ReadWriteMultipleRegistersResponse)
 = MBAP Guess Payload ModbusPDU17ReadWriteMultipleRegistersError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x97\x01')
-assert(isinstance(p.payload, ModbusPDU17ReadWriteMultipleRegistersError))
+assert isinstance(p.payload, ModbusPDU17ReadWriteMultipleRegistersError)
 
 = MBAP Guess Payload ModbusPDU18ReadFIFOQueueRequest
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x04\xff\x18\x00\x00')
-assert(isinstance(p.payload, ModbusPDU18ReadFIFOQueueRequest))
+assert isinstance(p.payload, ModbusPDU18ReadFIFOQueueRequest)
 = MBAP Guess Payload ModbusPDU18ReadFIFOQueueResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x06\xff\x18\x00\x02\x00\x00')
-assert(isinstance(p.payload, ModbusPDU18ReadFIFOQueueResponse))
+assert isinstance(p.payload, ModbusPDU18ReadFIFOQueueResponse)
 = MBAP Guess Payload ModbusPDU18ReadFIFOQueueError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\x98\x01')
-assert(isinstance(p.payload, ModbusPDU18ReadFIFOQueueError))
+assert isinstance(p.payload, ModbusPDU18ReadFIFOQueueError)
 
 = MBAP Guess Payload ModbusPDU2B0EReadDeviceIdentificationRequest (2 level test)
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x04\xff+\x0e\x01\x00')
-assert(isinstance(p.payload, ModbusPDU2B0EReadDeviceIdentificationRequest))
+assert isinstance(p.payload, ModbusPDU2B0EReadDeviceIdentificationRequest)
 = MBAP Guess Payload ModbusPDU2B0EReadDeviceIdentificationResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x1b\xff+\x0e\x01\x83\x00\x00\x03\x00\x08Pymodbus\x01\x02PM\x02\x031.0')
-assert(isinstance(p.payload, ModbusPDU2B0EReadDeviceIdentificationResponse))
+assert isinstance(p.payload, ModbusPDU2B0EReadDeviceIdentificationResponse)
 = MBAP Guess Payload ModbusPDU2B0EReadDeviceIdentificationError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\xab\x01')
-assert(isinstance(p.payload, ModbusPDU2B0EReadDeviceIdentificationError))
+assert isinstance(p.payload, ModbusPDU2B0EReadDeviceIdentificationError)
 
 = MBAP Guess Payload Reserved Function Request (Invalid payload)
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x02\xff\x5b')
-assert(isinstance(p.payload,ModbusPDUReservedFunctionCodeRequest))
+assert isinstance(p.payload,ModbusPDUReservedFunctionCodeRequest)
 = MBAP Guess Payload Reserved Function Response (Invalid payload)
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x7e')
-assert(isinstance(p.payload, ModbusPDUReservedFunctionCodeResponse))
+assert isinstance(p.payload, ModbusPDUReservedFunctionCodeResponse)
 = MBAP Guess Payload Reserved Function Error (Invalid payload)
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x8a')
-assert(isinstance(p.payload, ModbusPDUReservedFunctionCodeError))
+assert isinstance(p.payload, ModbusPDUReservedFunctionCodeError)
 
 = MBAP Guess Payload ModbusPDU02ReadDiscreteInputsResponse
 assert raw(ModbusPDU02ReadDiscreteInputsResponse()) == b'\x02\x01\x00'
@@ -260,8 +260,8 @@ raw(ModbusPDU01ReadCoilsRequest()) == b'\x01\x00\x00\x00\x01'
 raw(ModbusPDU01ReadCoilsRequest(startAddr=16, quantity=2)) == b'\x01\x00\x10\x00\x02'
 = ModbusPDU01ReadCoilsRequest dissection
 p = ModbusPDU01ReadCoilsRequest(b'\x01\x00\x10\x00\x02')
-assert(p.startAddr == 16)
-assert(p.quantity == 2)
+assert p.startAddr == 16
+assert p.quantity == 2
 
 = ModbusPDU01ReadCoilsResponse
 raw(ModbusPDU01ReadCoilsResponse()) == b'\x01\x01\x00'
@@ -269,8 +269,8 @@ raw(ModbusPDU01ReadCoilsResponse()) == b'\x01\x01\x00'
 raw(ModbusPDU01ReadCoilsResponse(coilStatus=[0x10]*3)) == b'\x01\x03\x10\x10\x10'
 = ModbusPDU01ReadCoilsResponse dissection
 p = ModbusPDU01ReadCoilsResponse(b'\x01\x03\x10\x10\x10')
-assert(p.coilStatus == [16, 16, 16])
-assert(p.byteCount == 3)
+assert p.coilStatus == [16, 16, 16]
+assert p.byteCount == 3
 
 = ModbusPDU01ReadCoilsError
 raw(ModbusPDU01ReadCoilsError()) == b'\x81\x01'
@@ -278,8 +278,8 @@ raw(ModbusPDU01ReadCoilsError()) == b'\x81\x01'
 raw(ModbusPDU01ReadCoilsError(exceptCode=2)) == b'\x81\x02'
 = ModbusPDU81ReadCoilsError dissection
 p = ModbusPDU01ReadCoilsError(b'\x81\x02')
-assert(p.funcCode == 0x81)
-assert(p.exceptCode == 2)
+assert p.funcCode == 0x81
+assert p.exceptCode == 2
 
 # 0x02/0x82 Read Discrete Inputs Registers ------------------------------------------
 = ModbusPDU02ReadDiscreteInputsRequest
@@ -293,8 +293,8 @@ raw(ModbusPDU02ReadDiscreteInputsResponse()) == b'\x02\x01\x00'
 raw(ModbusPDU02ReadDiscreteInputsResponse(inputStatus=[0x02, 0x01])) == b'\x02\x02\x02\x01'
 = ModbusPDU02ReadDiscreteInputsRequest dissection
 p = ModbusPDU02ReadDiscreteInputsResponse(b'\x02\x02\x02\x01')
-assert(p.byteCount == 2)
-assert(p.inputStatus == [0x02, 0x01])
+assert p.byteCount == 2
+assert p.inputStatus == [0x02, 0x01]
 
 = ModbusPDU02ReadDiscreteInputsError
 raw(ModbusPDU02ReadDiscreteInputsError()) == b'\x82\x01'
@@ -311,8 +311,8 @@ raw(ModbusPDU03ReadHoldingRegistersResponse()) == b'\x03\x02\x00\x00'
 1==1
 = ModbusPDU03ReadHoldingRegistersResponse dissection
 p = ModbusPDU03ReadHoldingRegistersResponse(b'\x03\x06\x02+\x00\x00\x00d')
-assert(p.byteCount == 6)
-assert(p.registerVal == [555, 0, 100])
+assert p.byteCount == 6
+assert p.registerVal == [555, 0, 100]
 
 = ModbusPDU03ReadHoldingRegistersError
 raw(ModbusPDU03ReadHoldingRegistersError()) == b'\x83\x01'
@@ -430,21 +430,21 @@ raw(ModbusPDU11ReportSlaveIdError()) == b'\x91\x01'
 # 0x14/944 Read File Record ---------------------------------------------------------
 = ModbusPDU14ReadFileRecordRequest len parameters
 p = raw(ModbusPDU14ReadFileRecordRequest()/ModbusReadFileSubRequest()/ModbusReadFileSubRequest())
-assert(p == b'\x14\x0e\x06\x00\x01\x00\x00\x00\x01\x06\x00\x01\x00\x00\x00\x01')
+assert p == b'\x14\x0e\x06\x00\x01\x00\x00\x00\x01\x06\x00\x01\x00\x00\x00\x01'
 = ModbusPDU14ReadFileRecordRequest minimal parameters
 p = raw(ModbusPDU14ReadFileRecordRequest()/ModbusReadFileSubRequest(fileNumber=4, recordNumber=1, recordLength=2)/ModbusReadFileSubRequest(fileNumber=3, recordNumber=9, recordLength=2))
-assert(p == b'\x14\x0e\x06\x00\x04\x00\x01\x00\x02\x06\x00\x03\x00\t\x00\x02')
+assert p == b'\x14\x0e\x06\x00\x04\x00\x01\x00\x02\x06\x00\x03\x00\t\x00\x02'
 = ModbusPDU14ReadFileRecordRequest dissection
 p = ModbusPDU14ReadFileRecordRequest(b'\x14\x0e\x06\x00\x04\x00\x01\x00\x02\x06\x00\x03\x00\t\x00\x02')
-assert(isinstance(p.payload, ModbusReadFileSubRequest))
-assert(isinstance(p.payload.payload, ModbusReadFileSubRequest))
+assert isinstance(p.payload, ModbusReadFileSubRequest)
+assert isinstance(p.payload.payload, ModbusReadFileSubRequest)
 
 = ModbusPDU14ReadFileRecordResponse minimal parameters
 raw(ModbusPDU14ReadFileRecordResponse()/ModbusReadFileSubResponse(recData=[0x0dfe, 0x0020])/ModbusReadFileSubResponse(recData=[0x33cd, 0x0040])) == b'\x14\x0c\x05\x06\r\xfe\x00 \x05\x063\xcd\x00@'
 = ModbusPDU14ReadFileRecordResponse dissection
 p = ModbusPDU14ReadFileRecordResponse(b'\x14\x0c\x05\x06\r\xfe\x00 \x05\x063\xcd\x00@')
-assert(isinstance(p.payload, ModbusReadFileSubResponse))
-assert(isinstance(p.payload.payload, ModbusReadFileSubResponse))
+assert isinstance(p.payload, ModbusReadFileSubResponse)
+assert isinstance(p.payload.payload, ModbusReadFileSubResponse)
 
 = ModbusPDU14ReadFileRecordError
 raw(ModbusPDU14ReadFileRecordError()) == b'\x94\x01'
@@ -454,15 +454,15 @@ raw(ModbusPDU14ReadFileRecordError()) == b'\x94\x01'
 raw(ModbusPDU15WriteFileRecordRequest()/ModbusWriteFileSubRequest(fileNumber=4, recordNumber=7, recordData=[0x06af, 0x04be, 0x100d])) == b'\x15\r\x06\x00\x04\x00\x07\x00\x03\x06\xaf\x04\xbe\x10\r'
 = ModbusPDU15WriteFileRecordRequest dissection
 p = ModbusPDU15WriteFileRecordRequest(b'\x15\x0d\x06\x00\x04\x00\x07\x00\x03\x06\xaf\x04\xbe\x10\r')
-assert(isinstance(p.payload, ModbusWriteFileSubRequest))
-assert(p.payload.recordLength == 3)
+assert isinstance(p.payload, ModbusWriteFileSubRequest)
+assert p.payload.recordLength == 3
 
 = ModbusPDU15WriteFileRecordResponse minimal parameters
 raw(ModbusPDU15WriteFileRecordResponse()/ModbusWriteFileSubResponse(fileNumber=4, recordNumber=7, recordData=[0x06af, 0x04be, 0x100d])) == b'\x15\r\x06\x00\x04\x00\x07\x00\x03\x06\xaf\x04\xbe\x10\r'
 = ModbusPDU15WriteFileRecordResponse dissection
 p = ModbusPDU15WriteFileRecordResponse(b'\x15\x0d\x06\x00\x04\x00\x07\x00\x03\x06\xaf\x04\xbe\x10\r')
-assert(isinstance(p.payload, ModbusWriteFileSubResponse))
-assert(p.payload.recordLength == 3)
+assert isinstance(p.payload, ModbusWriteFileSubResponse)
+assert p.payload.recordLength == 3
 
 = ModbusPDU15WriteFileRecordError
 raw(ModbusPDU15WriteFileRecordError()) == b'\x95\x01'
@@ -484,8 +484,8 @@ raw(ModbusPDU17ReadWriteMultipleRegistersRequest()) == b'\x17\x00\x00\x00\x01\x0
 raw(ModbusPDU17ReadWriteMultipleRegistersRequest(writeRegistersValue=[0x0001, 0x0002])) == b'\x17\x00\x00\x00\x01\x00\x00\x00\x02\x04\x00\x01\x00\x02'
 = ModbusPDU17ReadWriteMultipleRegistersRequest dissection
 p = ModbusPDU17ReadWriteMultipleRegistersRequest(b'\x17\x00\x00\x00\x01\x00\x00\x00\x02\x04\x00\x01\x00\x02')
-assert(p.byteCount == 4)
-assert(p.writeQuantityRegisters == 2)
+assert p.byteCount == 4
+assert p.writeQuantityRegisters == 2
 
 = ModbusPDU17ReadWriteMultipleRegistersResponse
 raw(ModbusPDU17ReadWriteMultipleRegistersResponse()) == b'\x17\x02\x00\x00'
@@ -508,8 +508,8 @@ raw(ModbusPDU18ReadFIFOQueueResponse()) == b'\x18\x00\x02\x00\x00'
 raw(ModbusPDU18ReadFIFOQueueResponse(FIFOVal=[0x0001, 0x0002, 0x0003])) == b'\x18\x00\x08\x00\x03\x00\x01\x00\x02\x00\x03'
 = ModbusPDU18ReadFIFOQueueResponse dissection
 p = ModbusPDU18ReadFIFOQueueResponse(b'\x18\x00\x08\x00\x03\x00\x01\x00\x02\x00\x03')
-assert(p.byteCount == 8)
-assert(p.FIFOCount == 3)
+assert p.byteCount == 8
+assert p.FIFOCount == 3
 
 = ModbusPDU18ReadFIFOQueueError
 raw(ModbusPDU18ReadFIFOQueueError()) == b'\x98\x01'
@@ -525,12 +525,12 @@ raw(ModbusPDU2B0EReadDeviceIdentificationRequest()) == b'+\x0e\x01\x00'
 raw(ModbusPDU2B0EReadDeviceIdentificationResponse()) == b'+\x0e\x04\x01\x00\x00\x00'
 = ModbusPDU2B0EReadDeviceIdentificationResponse complete response
 p = raw(ModbusPDU2B0EReadDeviceIdentificationResponse(objCount=2)/ModbusObjectId(id=0, value="Obj1")/ModbusObjectId(id=1, value="Obj2"))
-assert(p == b'+\x0e\x04\x01\x00\x00\x02\x00\x04Obj1\x01\x04Obj2')
+assert p == b'+\x0e\x04\x01\x00\x00\x02\x00\x04Obj1\x01\x04Obj2'
 = ModbusPDU2B0EReadDeviceIdentificationResponse dissection
 p = ModbusPDU2B0EReadDeviceIdentificationResponse(b'+\x0e\x01\x83\x00\x00\x03\x00\x08Pymodbus\x01\x02PM\x02\x031.0')
-assert(p.payload.payload.payload.id == 2)
-assert(p.payload.payload.id == 1)
-assert(p.payload.id == 0)
+assert p.payload.payload.payload.id == 2
+assert p.payload.payload.id == 1
+assert p.payload.id == 0
 
 = ModbusPDU2B0EReadDeviceIdentificationError
 raw(ModbusPDU2B0EReadDeviceIdentificationError()) == b'\xab\x01'

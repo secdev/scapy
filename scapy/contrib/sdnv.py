@@ -54,7 +54,7 @@ class SDNV:
             temp.append(thisByte)
             foo = temp + foo
 
-        return(foo)
+        return foo
 
     def decode(self, ba, offset):
         number = 0
@@ -71,7 +71,7 @@ class SDNV:
             numBytes += 1
         if (number > self.maxValue):
             raise SDNVValueError(self.maxValue)
-        return(number, numBytes)
+        return number, numBytes
 
 
 SDNVUtil = SDNV()

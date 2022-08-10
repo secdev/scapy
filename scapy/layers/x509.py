@@ -863,7 +863,7 @@ class _PacketFieldRaw(PacketField):
         remain = ""
         if conf.raw_layer in i:
             r = i[conf.raw_layer]
-            del(r.underlayer.payload)
+            del r.underlayer.payload
             remain = r.load
         return remain, i
 

@@ -16,14 +16,10 @@ r =  b'\x65\x00\x04\x00\x00\x00\x00\x00'
 raw(PCOMResponse() / b'\x00\x00\x00\x00')[2:] == r
 
 = PCOM/TCP Guess Payload Class
-assert(isinstance(PCOMRequest(b'\x00\x00\x65\x00\x01\x00\x00\x00').payload,
-PCOMAsciiRequest))
-assert(isinstance(PCOMResponse(b'\x00\x00\x65\x00\x01\x00\x00\x00').payload,
-PCOMAsciiResponse))
-assert(isinstance(PCOMRequest(b'\x00\x00\x66\x00\x01\x00\x00\x00').payload,
-PCOMBinaryRequest))
-assert(isinstance(PCOMResponse(b'\x00\x00\x66\x00\x01\x00\x00\x00').payload,
-PCOMBinaryResponse))
+assert isinstance(PCOMRequest(b'\x00\x00\x65\x00\x01\x00\x00\x00').payload, PCOMAsciiRequest)
+assert isinstance(PCOMResponse(b'\x00\x00\x65\x00\x01\x00\x00\x00').payload, PCOMAsciiResponse)
+assert isinstance(PCOMRequest(b'\x00\x00\x66\x00\x01\x00\x00\x00').payload, PCOMBinaryRequest)
+assert isinstance(PCOMResponse(b'\x00\x00\x66\x00\x01\x00\x00\x00').payload, PCOMBinaryResponse)
 
 + Test PCOM/Ascii
 = PCOM/ASCII Default values
@@ -40,8 +36,8 @@ raw(PCOMResponse() / PCOMAsciiResponse(unitId='00',command='ID'))[2:] == r
 
 = PCOM/ASCII Known Codes
 f = PCOMAsciiCommandField('command', '',  length_from= None)
-assert(f.i2repr(None, 'CCS') == 'Send Stop Command \'CCS\'')
-assert(f.i2repr(None, 'CC') == 'Reply of Admin Commands (CC*) \'CC\'')
+assert f.i2repr(None, 'CCS') == 'Send Stop Command \'CCS\''
+assert f.i2repr(None, 'CC') == 'Reply of Admin Commands (CC*) \'CC\''
 
 + Test PCOM/Binary
 = PCOM/Binary Default values
@@ -65,4 +61,4 @@ commandSpecific='\x00\x00\x00\x00\x00\x01', len=4, data= data))[2:] == r
 
 = PCOM/Binary Known Codes
 f = PCOMBinaryCommandField('command', None)
-assert(f.i2repr(None, 0x4d) == 'Read Operands Request - 0x4d')
+assert f.i2repr(None, 0x4d) == 'Read Operands Request - 0x4d'

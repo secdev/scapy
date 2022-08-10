@@ -704,7 +704,7 @@ def http_request(host, path="/", port=80, timeout=3,
         iptables_rule = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
         if iptables:
             host = str(Net(host))
-            assert(os.system(iptables_rule % ('A', host)) == 0)
+            assert os.system(iptables_rule % ('A', host)) == 0
         sock = TCP_client.tcplink(HTTP, host, port, debug=verbose,
                                   iface=iface)
     else:
@@ -724,7 +724,7 @@ def http_request(host, path="/", port=80, timeout=3,
         sock.close()
         if raw and iptables:
             host = str(Net(host))
-            assert(os.system(iptables_rule % ('D', host)) == 0)
+            assert os.system(iptables_rule % ('D', host)) == 0
     if ans:
         if display:
             if Raw not in ans:

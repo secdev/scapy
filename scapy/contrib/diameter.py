@@ -4788,7 +4788,7 @@ def getCmdParams(cmd, request, **fields):
                     found = True
                     break
             if not found:
-                del(fields['drAppId'])
+                del fields['drAppId']
                 warning(
                     'Application ID with name %s not found in AppIDsEnum dictionary.' %  # noqa: E501
                     val)

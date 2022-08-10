@@ -214,12 +214,12 @@ class PNIORealTimeCyclicPDU(Packet):
             pad_len = len(self.getfieldval("padding"))
 
         # Constraints from IEC-61158-6-10/FDIS ED 3, Table 163
-        assert(0 <= pad_len <= 40)
+        assert 0 <= pad_len <= 40
         q = self
         while not isinstance(q, UDP) and hasattr(q, "underlayer"):
             q = q.underlayer
         if isinstance(q, UDP):
-            assert(0 <= pad_len <= 12)
+            assert 0 <= pad_len <= 12
         return pad_len
 
     def next_cls_cb(self, _lst, _p, _remain):
@@ -356,7 +356,7 @@ class PROFIsafe(Packet):
 
     @staticmethod
     def build_PROFIsafe_class(cls, data_length):
-        assert(cls.get_max_data_length() >= data_length)
+        assert cls.get_max_data_length() >= data_length
         return type(
             "{}Len{}".format(cls.__name__, data_length),
             (cls,),

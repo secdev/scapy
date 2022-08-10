@@ -17,7 +17,7 @@ raw(ofm) == b'\x01\x02\x00\x08\x00\x00\x00\x00'
 = OFPMatch(), check wildcard completion
 ofm = OFPMatch(in_port=1, nw_tos=8)
 ofm = OFPMatch(raw(ofm))
-assert(ofm.wildcards1 == 0x1)
+assert ofm.wildcards1 == 0x1
 ofm.wildcards2 == 0xee
 
 = OpenFlow(), generic method test with OFPTEchoRequest()
@@ -27,9 +27,9 @@ isinstance(OpenFlow(s), OFPTEchoRequest)
 
 = OFPTFlowMod(), check codes and defaults values
 ofm = OFPTFlowMod(cmd='OFPFC_DELETE', out_port='CONTROLLER', flags='CHECK_OVERLAP+EMERG')
-assert(ofm.cmd == 3)
-assert(ofm.buffer_id == 0xffffffff)
-assert(ofm.out_port == 0xfffd)
+assert ofm.cmd == 3
+assert ofm.buffer_id == 0xffffffff
+assert ofm.out_port == 0xfffd
 ofm.flags == 6
 
 + Complex OFv1.0 messages
@@ -55,8 +55,8 @@ raw(ofm) == s
 ofm = OFPTPacketIn(data=Ether()/IP()/ICMP())
 p = OFPTPacketIn(raw(ofm))
 dat = p.data
-assert(isinstance(dat, Ether))
-assert(isinstance(dat.payload, IP))
+assert isinstance(dat, Ether)
+assert isinstance(dat.payload, IP)
 isinstance(dat.payload.payload, ICMP)
 
 = OFPTStatsReplyFlow()
@@ -93,7 +93,7 @@ isinstance(p[TCP].payload, OFPTHello)
 = complete Ether()/IP()/TCP()/OFPTFeaturesRequest()
 ofm = Ether(src='00:11:22:33:44:55',dst='01:23:45:67:89:ab')/IP(src='10.0.0.7',dst='192.168.0.42')/TCP(sport=6633, dport=6633)/OFPTFeaturesRequest(xid=23)
 s = b'\x01#Eg\x89\xab\x00\x11"3DU\x08\x00E\x00\x000\x00\x01\x00\x00@\x06\xaf\xee\n\x00\x00\x07\xc0\xa8\x00*\x19\xe9\x19\xe9\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x90\x0b\x00\x00\x01\x05\x00\x08\x00\x00\x00\x17'
-assert(raw(ofm) == s)
+assert raw(ofm) == s
 e = Ether(s)
 e.show2()
 e[OFPTFeaturesRequest].xid == 23

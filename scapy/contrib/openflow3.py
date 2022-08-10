@@ -676,7 +676,7 @@ class MatchField(PacketField):
             if Padding in r:
                 p = r[Padding]
                 i.payload = p
-                del(r.payload)
+                del r.payload
             return r.load, i
         else:
             return b"", i
