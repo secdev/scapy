@@ -82,7 +82,7 @@ class STUNGenericTlv(Packet):
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         if _pkt and len(_pkt) >= 2:
             t = struct.unpack("!H", _pkt[:2])[0]
-            return _stun_tlv_class.get(t, "STUNGenericTlv")
+            return _stun_tlv_class.get(t, cls)
         return cls
 
     def guess_payload_class(self, payload):
