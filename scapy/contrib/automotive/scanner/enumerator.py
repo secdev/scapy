@@ -8,6 +8,7 @@
 
 
 import abc
+import threading
 import time
 import copy
 from collections import defaultdict, OrderedDict
@@ -64,7 +65,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         'exit_if_service_not_supported': (bool, None),
         'exit_scan_on_first_negative_response': (bool, None),
         'retry_if_busy_returncode': (bool, None),
-        'stop_event': (Event, None),
+        'stop_event': (threading._Event if six.PY2 else threading.Event, None),  # type: ignore  # noqa: E501
         'debug': (bool, None),
         'scan_range': ((list, tuple, range), None),
         'unittest': (bool, None)
