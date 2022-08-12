@@ -64,7 +64,7 @@ _stun_message_type = {
                           (class_code  & 0b10)           << 7 |    # noqa: E221,W504
                           (method_code & 0b111110000000) << 9
     for (method, method_code), (class_, class_code) in
-        itertools.product(_stun_method.items(), _stun_class.items())
+        itertools.product(_stun_method.items(), _stun_class.items())    # noqa: E131
 }
 # fmt: on
 
@@ -146,7 +146,7 @@ class XorIp(IPField):
     def m2i(self, pkt, x):
         return inet_ntoa((
             int.from_bytes(x, byteorder="big") ^ MAGIC_COOKIE
-            ).to_bytes(4, byteorder="big"))
+        ).to_bytes(4, byteorder="big"))
 
     def i2m(self, pkt, x):
         if x is None:
