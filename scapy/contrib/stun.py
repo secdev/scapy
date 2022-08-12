@@ -58,11 +58,12 @@ _stun_method = {
 
 # fmt: off
 _stun_message_type = {
-    f"{method} {class_}": (method_code & 0b000000001111)      |    # noqa: E221,W504
-                          (class_code  & 0b01)           << 4 |    # noqa: E221,W504
-                          (method_code & 0b000001110000) << 5 |    # noqa: E221,W504
-                          (class_code  & 0b10)           << 7 |    # noqa: E221,W504
-                          (method_code & 0b111110000000) << 9
+    "{} {}".format(method, class_):
+        (method_code & 0b000000001111)      |    # noqa: E221,W504
+        (class_code  & 0b01)           << 4 |    # noqa: E221,W504
+        (method_code & 0b000001110000) << 5 |    # noqa: E221,W504
+        (class_code  & 0b10)           << 7 |    # noqa: E221,W504
+        (method_code & 0b111110000000) << 9
     for (method, method_code), (class_, class_code) in
         itertools.product(_stun_method.items(), _stun_class.items())    # noqa: E131
 }
