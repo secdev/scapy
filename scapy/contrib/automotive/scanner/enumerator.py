@@ -12,6 +12,7 @@ import time
 import copy
 from collections import defaultdict, OrderedDict
 from itertools import chain
+from threading import Event
 
 from scapy.compat import Any, Union, List, Optional, Iterable, \
     Dict, Tuple, Set, Callable, cast, NamedTuple, orb
@@ -63,6 +64,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         'exit_if_service_not_supported': (bool, None),
         'exit_scan_on_first_negative_response': (bool, None),
         'retry_if_busy_returncode': (bool, None),
+        'stop_event': (Event, None),
         'debug': (bool, None),
         'scan_range': ((list, tuple, range), None),
         'unittest': (bool, None)
@@ -103,6 +105,7 @@ class ServiceEnumerator(AutomotiveTestCase):
                                               the 'busyRepeatRequest' negative
                                               response code is received.
         :param bool debug: Enables debug functions during execute.
+        :param Event stop_event: Signals immediate stop of the execution.
         :param scan_range: Specifies the identifiers to be scanned.
         :type scan_range: list or tuple or range or iterable"""
 
@@ -259,6 +262,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         timeout = kwargs.pop('timeout', 1)
         count = kwargs.pop('count', None)
         execution_time = kwargs.pop("execution_time", 1200)
+        stop_event = kwargs.pop("stop_event", None)  # type: Optional[Event]
 
         self._prepare_runtime_estimation(**kwargs)
 
@@ -306,6 +310,11 @@ class ServiceEnumerator(AutomotiveTestCase):
                 log_automotive.debug(
                     "[i] Finished execution time of enumerator: %s",
                     time.ctime())
+                return
+
+            if stop_event is not None and stop_event.is_set():
+                log_automotive.info(
+                    "Stop test_case execution because of stop event")
                 return
 
         log_automotive.info("Finished iterator execution")
