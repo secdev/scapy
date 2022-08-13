@@ -6,7 +6,7 @@
 
 # scapy.contrib.description = ISO-TP (ISO 15765-2) Soft Socket Library
 # scapy.contrib.status = library
-
+import logging
 import struct
 import time
 import traceback
@@ -17,7 +17,6 @@ from threading import Thread, Event, RLock
 
 from scapy.compat import Optional, Union, List, Tuple, Any, Type, cast, \
     Callable, TYPE_CHECKING
-from scapy.contrib.isotp import log_isotp
 from scapy.packet import Packet
 from scapy.layers.can import CAN
 import scapy.libs.six as six
@@ -32,6 +31,8 @@ from scapy.contrib.isotp.isotp_packet import ISOTP, CAN_MAX_DLEN, N_PCI_SF, \
 
 if TYPE_CHECKING:
     from scapy.contrib.cansocket import CANSocket
+
+log_isotp = logging.getLogger("scapy.contrib.isotp")
 
 # Enum states
 ISOTP_IDLE = 0

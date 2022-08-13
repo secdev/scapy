@@ -7,9 +7,9 @@
 # scapy.contrib.status = library
 
 import struct
+import logging
 
 from scapy.compat import Optional, List, Tuple, Any, Type
-from scapy.contrib.isotp import log_isotp
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ConditionalField, \
@@ -17,6 +17,8 @@ from scapy.fields import BitField, FlagsField, StrLenField, \
 from scapy.compat import chb, orb
 from scapy.layers.can import CAN
 from scapy.error import Scapy_Exception
+
+log_isotp = logging.getLogger("scapy.contrib.isotp")
 
 CAN_MAX_IDENTIFIER = (1 << 29) - 1  # Maximum 29-bit identifier
 CAN_MTU = 16
