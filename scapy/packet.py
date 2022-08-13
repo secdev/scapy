@@ -784,6 +784,7 @@ class Packet(
         
         for potential_state in potential_states:
             state = {
+                'active': False,
                 'done': False,
                 'combinations': 0
             }
@@ -820,10 +821,13 @@ class Packet(
                 fields = state['fields']
                 print(f"Now fuzzing: {fields}")
                 
-                for field_name in fields:
-                    field_obj = self.locate_field(self, field_name)
-                    field_obj.state_pos = field_obj.min
-                    
+                # Mark it as active, and reset the values
+                if not state['active']:
+                    state['active'] = True
+                    for field_item in fields:
+                        field_obj = self.locate_field(self, field_item['name'])
+                        field_obj.state_pos = field_obj.min
+                        
                 break
             
         if state_fuzzed is None: # Means we couldn't find a state to fuzz
@@ -833,7 +837,7 @@ class Packet(
 
         # Find the first field that is not done and move it forward
         found_a_fuzzable_field = False
-        for field, indx in state_fuzzed['fields']:
+        for indx, field in enumerate(state_fuzzed['fields']):
             if not field['done']:
                 field_fuzzed = self.locate_field(self, field['name'])
         
@@ -873,8 +877,10 @@ class Packet(
         if not found_a_fuzzable_field:
             # We reached the end...
             state['done'] = True
+            state['active'] = False
         
-        (states, found_a_fuzzable_field) = self.forward(states)
+            # Try to find the next one that is fuzzable (state)
+            (states, found_a_fuzzable_field) = self.forward(states)
         
         return (states, found_a_fuzzable_field)
 
