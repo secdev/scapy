@@ -25,6 +25,7 @@ except ImportError:
 log_stream = StringIO()
 handler = logging.StreamHandler(log_stream)
 log_runtime.addHandler(handler)
+log_isotp.addHandler(handler)
 
 = Definition of utility functions
 
