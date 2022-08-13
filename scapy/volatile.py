@@ -230,6 +230,7 @@ class RandNum(_RandNumeral[int]):
     """Instances evaluate to random integers in selected range"""
     min = 0
     max = 0
+    state_pos = None
 
     def __init__(self, min, max):
         # type: (int, int) -> None
@@ -244,7 +245,12 @@ class RandNum(_RandNumeral[int]):
 
     def _fix(self):
         # type: () -> int
-        return random.randrange(self.min, self.max + 1)
+        if self.state_pos is None:
+            return self.min
+            #
+            # return random.randrange(self.min, self.max + 1)
+        
+        return self.state_pos
 
     def __lshift__(self, other):
         # type: (int) -> int

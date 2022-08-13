@@ -719,6 +719,110 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         # type: () -> bytes
         return self.payload.build_padding()
 
+    def return_relevant_fields(self, p):
+        """
+        Recursively collect all the fields that we can fuzz
+        """
+        relevant_fields = []
+        
+        for f in p.default_fields:
+            class_name = type(p.default_fields[f]).__name__
+            if class_name.startswith('Rand'):
+                if class_name == 'RandIP': # We don't fuzz this atm
+                    continue
+                
+                relevant_fields.append(f"{p._name}-{f}")
+                
+        if type(p.payload).__name__ != 'NoPayload':
+            relevant_fields += self.return_relevant_fields(p.payload)
+                
+        return relevant_fields
+    
+    def locate_field(self, p, name):
+        packet_type = name[0:name.index('-')]
+        packet_field = name[name.index('-')+1:]
+        
+        if p._name == packet_type:
+            if packet_field not in p.default_fields:
+                raise ValueError(f"Cannot find {packet_field} inside {packet_type}")
+            return p.default_fields[packet_field]
+        else:
+            return p.locate_field(p.payload, name)
+        
+        return None
+        
+    def forward(self, states = None):
+        """
+        Go through each field, find if they can still move
+        if they can great, move them, otherwise reset them to default
+        and move to the next one
+        """
+        
+        if states is None:
+            states = {}
+            
+        first_run = False
+        if len(states) == 0:
+            first_run = True
+        
+        relevant_fields = self.return_relevant_fields(self)
+                
+        if first_run and len(relevant_fields) > 0:
+            print(f"Now fuzzing: {relevant_fields[0]}")
+            # mark it as being fuzzed atm
+            states[relevant_fields[0]] = {'fuzzed': True, 'combinations': 0}
+            # mark it that it should be fuzzed
+            
+            default_field = self.locate_field(self, relevant_fields[0])
+            default_field.state_pos = default_field.min
+        
+        field_fuzzed = None
+        for field_name in states.keys():
+            if states[field_name]['fuzzed']: # If the field we found is the one fuzzed... return it
+                field_fuzzed = field_name
+            else:
+                # Mark that the field is not being fuzzed
+                self.locate_field(self, field_name).state_pos = None
+                
+        if field_fuzzed is None: # Nothing is being fuzzed, so we are done
+            raise ValueError("Nothing being fuzzed, reached the end")
+        
+        default_field_fuzzed = self.locate_field(self, field_fuzzed)
+        
+        # If there are more than 128 combinations, do jumps
+        states[field_fuzzed]['combinations'] += 1
+
+        if default_field_fuzzed.max - default_field_fuzzed.min > 128:
+            jump = round((default_field_fuzzed.max - default_field_fuzzed.min) / 128)
+            default_field_fuzzed.state_pos += jump
+        else:
+            default_field_fuzzed.state_pos += 1
+        
+        if default_field_fuzzed.state_pos > default_field_fuzzed.max:
+            # Reset it to "zero"
+            default_field_fuzzed.state_pos = None
+            states[field_fuzzed]['fuzzed'] = False
+            
+            pos = relevant_fields.index(field_fuzzed)
+            
+            if pos + 1 >= len(relevant_fields):
+                raise ValueError("End of combinations")
+            
+            field_fuzzed = relevant_fields[pos+1]
+            print(f"Now fuzzing: {field_fuzzed}")
+            # mark it as being fuzzed atm
+            
+            states[field_fuzzed] = {'fuzzed': True, 'combinations': 1}
+            
+            # mark it that it should be fuzzed
+            default_field_fuzzed = self.locate_field(self, field_fuzzed)
+            default_field_fuzzed.state_pos = default_field_fuzzed.min
+            default_field_fuzzed.state_pos += 1
+        
+        # print(f"{default_field_fuzzed}")
+            
+        return states
+
     def build(self):
         # type: () -> bytes
         """
