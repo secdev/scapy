@@ -13,7 +13,6 @@ import time
 import copy
 from collections import defaultdict, OrderedDict
 from itertools import chain
-from threading import Event
 
 from scapy.compat import Any, Union, List, Optional, Iterable, \
     Dict, Tuple, Set, Callable, cast, NamedTuple, orb

@@ -20,7 +20,7 @@ from scapy.packet import Packet
 import scapy.libs.six as six
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
-from scapy.error import Scapy_Exception, warning
+from scapy.error import Scapy_Exception
 from scapy.contrib.automotive.gm.gmlanutils import GMLAN_InitDiagnostics, \
     GMLAN_TesterPresentSender
 from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SA, GMLAN_RD, \
@@ -685,7 +685,8 @@ class GMLAN_RMBAEnumerator(GMLAN_Enumerator):
 
             ih.tofile("RMBA_dump.hex", format="hex")
         except ImportError:
-            warning("Install 'intelhex' to create a hex file of the memory")
+            log_automotive.warning(
+                "Install 'intelhex' to create a hex file of the memory")
 
         if dump and s is not None:
             return s + "\n"

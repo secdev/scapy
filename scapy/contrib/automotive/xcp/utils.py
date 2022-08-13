@@ -6,9 +6,9 @@
 # scapy.contrib.status = skip
 
 import struct
-from logging import warning
 
 from scapy.config import conf
+from scapy.contrib.automotive import log_automotive
 from scapy.fields import StrLenField
 from scapy.volatile import RandBin, RandNum
 
@@ -18,7 +18,7 @@ def get_max_cto():
     if max_cto:
         return max_cto
 
-    warning("Define conf.contribs['XCP']['MAX_CTO'].")
+    log_automotive.warning("Define conf.contribs['XCP']['MAX_CTO'].")
     raise KeyError("conf.contribs['XCP']['MAX_CTO'] not defined")
 
 
@@ -27,7 +27,7 @@ def get_max_dto():
     if max_dto:
         return max_dto
     else:
-        warning("Define conf.contribs['XCP']['MAX_DTO'].")
+        log_automotive.warning("Define conf.contribs['XCP']['MAX_DTO'].")
         raise KeyError("conf.contribs['XCP']['MAX_DTO'] not defined")
 
 
@@ -36,8 +36,9 @@ def get_ag():
     if address_granularity and address_granularity in [1, 2, 4]:
         return address_granularity
     else:
-        warning("Define conf.contribs['XCP']['Address_Granularity_Byte']."
-                "Assign either 1, 2 or 4")
+        log_automotive.warning(
+            "Define conf.contribs['XCP']['Address_Granularity_Byte']."
+            "Assign either 1, 2 or 4")
         return 1
 
 
