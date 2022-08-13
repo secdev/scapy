@@ -819,10 +819,10 @@ class Packet(
             if not state['done']:
                 state_fuzzed = state
                 fields = state['fields']
-                print(f"Now fuzzing: {fields}")
                 
                 # Mark it as active, and reset the values
                 if not state['active']:
+                    print(f"Now fuzzing: {fields}")
                     state['active'] = True
                     for field_item in fields:
                         field_obj = self.locate_field(self, field_item['name'])
@@ -850,31 +850,39 @@ class Packet(
                 if field_fuzzed.state_pos > field_fuzzed.max:
                     # Reset the position back
                     field_fuzzed.state_pos = field_fuzzed.min
+                    field['done'] = True
+                    
+                    curr_pos = indx
                     
                     # Make sure we aren't the last one
-                    are_we_last = (indx + 1) == len(state_fuzzed['fields'])
-                    next_field = None
-                    if not are_we_last:
-                        next_field = state_fuzzed['fields'][indx+1]
+                    are_we_last = (curr_pos + 1) == len(state_fuzzed['fields'])                        
                         
-                    if not are_we_last and not next_field['done']:                        
-                        # Move to the next item
-                        field_fuzzed = self.locate_field(self, next_field['name'])
+                    while not are_we_last:
+                        next_field = state_fuzzed['fields'][curr_pos+1]
                         
-                        # Reset its position back to min (the next field)
-                        field_fuzzed.state_pos = field_fuzzed.min
-                        field_fuzzed.state_pos += 1
+                        if not next_field['done']:
+                            # Try to move to the next item
+                            field_fuzzed = self.locate_field(self, next_field['name'])
                         
-                        field['combinations'] += 1
-                        state_fuzzed['combinations'] += 1
-
-                        found_a_fuzzable_field = True
+                            field_fuzzed.state_pos += 1
+                            if field_fuzzed.state_pos > field_fuzzed.max:
+                                field_fuzzed.state_pos = field_fuzzed.min
+                                next_field['done'] = True
+                            else:
+                                # Reset the item before us to not done
+                                state_fuzzed['fields'][curr_pos]['done'] = False
+                                
+                                # Reset the previous item pos to the begining
+                                field_fuzzed = self.locate_field(self, state_fuzzed['fields'][curr_pos]['name'])
+                                field_fuzzed.state_pos = field_fuzzed.min
+                                
+                                field['combinations'] += 1
+                                state_fuzzed['combinations'] += 1
+                                found_a_fuzzable_field = True
+                                break
                         
-                        # Exit the loop
-                        break
-                    else:
-                        # If we were the last, or the next one is done, mark us as done
-                        field['done'] = True
+                        curr_pos += 1
+                        are_we_last = (curr_pos + 1) == len(state_fuzzed['fields'])
                         
                 else:
                     field['combinations'] += 1
