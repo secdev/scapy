@@ -791,7 +791,7 @@ class Packet(
             
             fields = []
             for field in potential_state:
-                fields.append({'name': field, 'done': False, 'combinations': 0})
+                fields.append({'name': field, 'done': False, 'combinations': 0, 'active': False})
                 
             state['fields'] = fields
             
@@ -833,8 +833,6 @@ class Packet(
         if state_fuzzed is None: # Means we couldn't find a state to fuzz
             return (states, False)
         
-        state_fuzzed['combinations'] += 1
-
         # Find the first field that is not done and move it forward
         found_a_fuzzable_field = False
         for indx, field in enumerate(state_fuzzed['fields']):
@@ -861,6 +859,8 @@ class Packet(
                         field_fuzzed.state_pos = field_fuzzed.min
                         field_fuzzed.state_pos += 1
                         field['combinations'] += 1
+                        state_fuzzed['combinations'] += 1
+
                         found_a_fuzzable_field = True
                         
                         # Exit the loop
@@ -870,6 +870,8 @@ class Packet(
                         field['done'] = True
                 else:
                     field['combinations'] += 1
+                    state_fuzzed['combinations'] += 1
+
                     found_a_fuzzable_field = True
                     
                     break
