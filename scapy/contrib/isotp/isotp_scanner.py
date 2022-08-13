@@ -180,7 +180,7 @@ def scan(sock,  # type: SuperSocket
         sock.send(get_isotp_packet(value, False, extended_can_id))
         sock.sniff(prn=lambda pkt: get_isotp_fc(value, return_values,
                                                 noise_ids, False, pkt),
-                   timeout=sniff_time, store=False)
+                   timeout=sniff_time, store=False, chainCC=True)
 
     if not verify_results:
         return return_values
@@ -191,7 +191,7 @@ def scan(sock,  # type: SuperSocket
             sock.send(get_isotp_packet(value, False, extended_can_id))
             sock.sniff(prn=lambda pkt: get_isotp_fc(value, cleaned_ret_val,
                                                     noise_ids, False, pkt),
-                       timeout=sniff_time * 10, store=False)
+                       timeout=sniff_time * 10, store=False, chainCC=True)
 
     return cleaned_ret_val
 
@@ -236,7 +236,7 @@ def scan_extended(sock,  # type: SuperSocket
             send_multiple_ext(sock, ext_isotp_id, pkt, scan_block_size)
             sock.sniff(prn=lambda p: get_isotp_fc(ext_isotp_id, id_list,
                                                   noise_ids, True, p),
-                       timeout=sniff_time * 3, store=False)
+                       timeout=sniff_time * 3, store=False, chainCC=True)
             # sleep to prevent flooding
             time.sleep(sniff_time)
 
@@ -252,7 +252,7 @@ def scan_extended(sock,  # type: SuperSocket
                                                         return_values,
                                                         noise_ids, True,
                                                         pkt),
-                           timeout=sniff_time * 2, store=False)
+                           timeout=sniff_time * 2, store=False, chainCC=True)
 
     return return_values
 
@@ -308,9 +308,10 @@ def isotp_scan(sock,  # type: SuperSocket
     dummy_pkt = CAN(identifier=0x123,
                     data=b'\xaa\xbb\xcc\xdd\xee\xff\xaa\xbb')
 
-    background_pkts = sock.sniff(timeout=noise_listen_time,
-                                 started_callback=lambda:
-                                 sock.send(dummy_pkt))
+    background_pkts = sock.sniff(
+        timeout=noise_listen_time,
+        started_callback=lambda: sock.send(dummy_pkt),
+        chainCC=True)
 
     noise_ids = list(set(pkt.identifier for pkt in background_pkts))
 

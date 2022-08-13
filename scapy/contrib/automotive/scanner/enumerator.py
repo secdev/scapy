@@ -13,6 +13,7 @@ import time
 import copy
 from collections import defaultdict, OrderedDict
 from itertools import chain
+from threading import Event
 
 from scapy.compat import Any, Union, List, Optional, Iterable, \
     Dict, Tuple, Set, Callable, cast, NamedTuple, orb
@@ -327,7 +328,8 @@ class ServiceEnumerator(AutomotiveTestCase):
     def sr1_with_retry_on_error(self, req, socket, state, timeout):
         # type: (Packet, _SocketUnion, EcuState, int) -> Optional[Packet]
         try:
-            res = socket.sr1(req, timeout=timeout, verbose=False, chainEX=True)
+            res = socket.sr1(req, timeout=timeout, verbose=False,
+                             chainEX=True, chainCC=True)
         except (OSError, ValueError, Scapy_Exception) as e:
             if not self._populate_retry(state, req):
                 log_automotive.exception(
