@@ -9,13 +9,14 @@
 import struct
 
 from scapy.compat import Optional, List, Tuple, Any, Type
+from scapy.contrib.isotp import log_isotp
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ConditionalField, \
     BitEnumField, ByteField, XByteField, BitFieldLenField, StrField
 from scapy.compat import chb, orb
 from scapy.layers.can import CAN
-from scapy.error import Scapy_Exception, warning
+from scapy.error import Scapy_Exception
 
 CAN_MAX_IDENTIFIER = (1 << 29) - 1  # Maximum 29-bit identifier
 CAN_MTU = 16
@@ -26,7 +27,6 @@ ISOTP_TYPES = {0: 'single',
                1: 'first',
                2: 'consecutive',
                3: 'flow_control'}
-
 
 N_PCI_SF = 0x00  # /* single frame */
 N_PCI_FF = 0x10  # /* first frame */
@@ -159,7 +159,7 @@ class ISOTP(Packet):
 
         dst = can_frames[0].identifier
         if any(frame.identifier != dst for frame in can_frames):
-            warning("Not all CAN frames have the same identifier")
+            log_isotp.warning("Not all CAN frames have the same identifier")
 
         parser = ISOTPMessageBuilder(use_extended_addressing)
         parser.feed(can_frames)
@@ -177,8 +177,9 @@ class ISOTP(Packet):
             return None
 
         if len(results) > 1:
-            warning("More than one ISOTP frame could be defragmented from the "
-                    "provided CAN frames, only returning the first one.")
+            log_isotp.warning(
+                "More than one ISOTP frame could be defragmented from the "
+                "provided CAN frames, only returning the first one.")
 
         return results[0]
 
