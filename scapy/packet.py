@@ -852,12 +852,19 @@ class Packet(
                     field_fuzzed.state_pos = field_fuzzed.min
                     
                     # Make sure we aren't the last one
-                    if len(state_fuzzed['fields']) < indx and not state_fuzzed['fields'][indx+1]['done']:                        
+                    are_we_last = (indx + 1) == len(state_fuzzed['fields'])
+                    next_field = None
+                    if not are_we_last:
+                        next_field = state_fuzzed['fields'][indx+1]
+                        
+                    if not are_we_last and not next_field['done']:                        
                         # Move to the next item
-                        field = state_fuzzed['fields'][indx+1]
-                        field_fuzzed = self.locate_field(self, field['name'])
+                        field_fuzzed = self.locate_field(self, next_field['name'])
+                        
+                        # Reset its position back to min (the next field)
                         field_fuzzed.state_pos = field_fuzzed.min
                         field_fuzzed.state_pos += 1
+                        
                         field['combinations'] += 1
                         state_fuzzed['combinations'] += 1
 
@@ -868,6 +875,7 @@ class Packet(
                     else:
                         # If we were the last, or the next one is done, mark us as done
                         field['done'] = True
+                        
                 else:
                     field['combinations'] += 1
                     state_fuzzed['combinations'] += 1
