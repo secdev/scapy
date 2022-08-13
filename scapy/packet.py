@@ -774,8 +774,32 @@ class Packet(
             return p.locate_field(p.payload, name)
         
         return None
+    
+    def prepare_combinations(self, complexity: int) -> Dict:
+        relevant_fields = self.return_relevant_fields(self)
+
+        potential_states = itertools.combinations(relevant_fields, complexity)
         
-    def forward(self, states = None):
+        states = []
+        
+        for potential_state in potential_states:
+            state = {
+                'done': False,
+                'combinations': 0
+            }
+            
+            fields = []
+            for field in potential_state:
+                fields.append({'name': field, 'done': False, 'combinations': 0})
+                
+            state['fields'] = fields
+            
+            states.append(state)
+            
+        return states
+        
+    
+    def forward(self, states):
         """
         Go through each field, find if they can still move
         if they can great, move them, otherwise reset them to default
@@ -783,69 +807,76 @@ class Packet(
         """
         
         if states is None:
-            states = {}
+            raise ValueError("Please provide states")
             
-        first_run = False
         if len(states) == 0:
-            first_run = True
-        
-        relevant_fields = self.return_relevant_fields(self)
+            raise ValueError("States should include at least one permutation")
+          
+        # Find the first state that has 'done' False
+        state_fuzzed = None
+        for state in states:
+            if not state['done']:
+                state_fuzzed = state
+                fields = state['fields']
+                print(f"Now fuzzing: {fields}")
                 
-        if first_run and len(relevant_fields) > 0:
-            print(f"Now fuzzing: {relevant_fields[0]}")
-            # mark it as being fuzzed atm
-            states[relevant_fields[0]] = {'fuzzed': True, 'combinations': 0}
-            # mark it that it should be fuzzed
+                for field_name in fields:
+                    field_obj = self.locate_field(self, field_name)
+                    field_obj.state_pos = field_obj.min
+                    
+                break
             
-            default_field = self.locate_field(self, relevant_fields[0])
-            default_field.state_pos = default_field.min
+        if state_fuzzed is None: # Means we couldn't find a state to fuzz
+            return (states, False)
         
-        field_fuzzed = None
-        for field_name in states.keys():
-            if states[field_name]['fuzzed']: # If the field we found is the one fuzzed... return it
-                field_fuzzed = field_name
-            else:
-                # Mark that the field is not being fuzzed
-                self.locate_field(self, field_name).state_pos = None
-                
-        if field_fuzzed is None: # Nothing is being fuzzed, so we are done
-            raise ValueError("Nothing being fuzzed, reached the end")
-        
-        default_field_fuzzed = self.locate_field(self, field_fuzzed)
-        
-        # If there are more than 128 combinations, do jumps
-        states[field_fuzzed]['combinations'] += 1
+        state_fuzzed['combinations'] += 1
 
-        if default_field_fuzzed.max - default_field_fuzzed.min > 128:
-            jump = round((default_field_fuzzed.max - default_field_fuzzed.min) / 128)
-            default_field_fuzzed.state_pos += jump
-        else:
-            default_field_fuzzed.state_pos += 1
+        # Find the first field that is not done and move it forward
+        found_a_fuzzable_field = False
+        for field, indx in state_fuzzed['fields']:
+            if not field['done']:
+                field_fuzzed = self.locate_field(self, field['name'])
         
-        if default_field_fuzzed.state_pos > default_field_fuzzed.max:
-            # Reset it to "zero"
-            default_field_fuzzed.state_pos = None
-            states[field_fuzzed]['fuzzed'] = False
-            
-            pos = relevant_fields.index(field_fuzzed)
-            
-            if pos + 1 >= len(relevant_fields):
-                raise ValueError("End of combinations")
-            
-            field_fuzzed = relevant_fields[pos+1]
-            print(f"Now fuzzing: {field_fuzzed}")
-            # mark it as being fuzzed atm
-            
-            states[field_fuzzed] = {'fuzzed': True, 'combinations': 1}
-            
-            # mark it that it should be fuzzed
-            default_field_fuzzed = self.locate_field(self, field_fuzzed)
-            default_field_fuzzed.state_pos = default_field_fuzzed.min
-            default_field_fuzzed.state_pos += 1
+                # If there are more than 128 combinations, do jumps
+                if field_fuzzed.max - field_fuzzed.min > 128:
+                    jump = round((field_fuzzed.max - field_fuzzed.min) / 128)
+                    field_fuzzed.state_pos += jump
+                else:
+                    field_fuzzed.state_pos += 1
+                
+                # If we recached max for this field, try the next one
+                if field_fuzzed.state_pos > field_fuzzed.max:
+                    # Reset the position back
+                    field_fuzzed.state_pos = field_fuzzed.min
+                    
+                    # Make sure we aren't the last one
+                    if len(state_fuzzed['fields']) < indx and not state_fuzzed['fields'][indx+1]['done']:                        
+                        # Move to the next item
+                        field = state_fuzzed['fields'][indx+1]
+                        field_fuzzed = self.locate_field(self, field['name'])
+                        field_fuzzed.state_pos = field_fuzzed.min
+                        field_fuzzed.state_pos += 1
+                        field['combinations'] += 1
+                        found_a_fuzzable_field = True
+                        
+                        # Exit the loop
+                        break
+                    else:
+                        # If we were the last, or the next one is done, mark us as done
+                        field['done'] = True
+                else:
+                    field['combinations'] += 1
+                    found_a_fuzzable_field = True
+                    
+                    break
+                
+        if not found_a_fuzzable_field:
+            # We reached the end...
+            state['done'] = True
         
-        # print(f"{default_field_fuzzed}")
-            
-        return states
+        (states, found_a_fuzzable_field) = self.forward(states)
+        
+        return (states, found_a_fuzzable_field)
 
     def build(self):
         # type: () -> bytes
