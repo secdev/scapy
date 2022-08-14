@@ -8,6 +8,7 @@
 
 
 import abc
+import threading
 import time
 import copy
 from collections import defaultdict, OrderedDict
@@ -63,6 +64,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         'exit_if_service_not_supported': (bool, None),
         'exit_scan_on_first_negative_response': (bool, None),
         'retry_if_busy_returncode': (bool, None),
+        'stop_event': (threading._Event if six.PY2 else threading.Event, None),  # type: ignore  # noqa: E501
         'debug': (bool, None),
         'scan_range': ((list, tuple, range), None),
         'unittest': (bool, None)
@@ -103,6 +105,7 @@ class ServiceEnumerator(AutomotiveTestCase):
                                               the 'busyRepeatRequest' negative
                                               response code is received.
         :param bool debug: Enables debug functions during execute.
+        :param Event stop_event: Signals immediate stop of the execution.
         :param scan_range: Specifies the identifiers to be scanned.
         :type scan_range: list or tuple or range or iterable"""
 
@@ -259,6 +262,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         timeout = kwargs.pop('timeout', 1)
         count = kwargs.pop('count', None)
         execution_time = kwargs.pop("execution_time", 1200)
+        stop_event = kwargs.pop("stop_event", None)  # type: Optional[threading.Event]  # noqa: E501
 
         self._prepare_runtime_estimation(**kwargs)
 
@@ -308,6 +312,11 @@ class ServiceEnumerator(AutomotiveTestCase):
                     time.ctime())
                 return
 
+            if stop_event is not None and stop_event.is_set():
+                log_automotive.info(
+                    "Stop test_case execution because of stop event")
+                return
+
         log_automotive.info("Finished iterator execution")
         self._state_completed[state] = True
         log_automotive.debug("States completed %s",
@@ -318,7 +327,8 @@ class ServiceEnumerator(AutomotiveTestCase):
     def sr1_with_retry_on_error(self, req, socket, state, timeout):
         # type: (Packet, _SocketUnion, EcuState, int) -> Optional[Packet]
         try:
-            res = socket.sr1(req, timeout=timeout, verbose=False, chainEX=True)
+            res = socket.sr1(req, timeout=timeout, verbose=False,
+                             chainEX=True, chainCC=True)
         except (OSError, ValueError, Scapy_Exception) as e:
             if not self._populate_retry(state, req):
                 log_automotive.exception(

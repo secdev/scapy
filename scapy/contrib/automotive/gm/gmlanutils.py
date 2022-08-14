@@ -18,7 +18,6 @@ from scapy.config import conf
 from scapy.packet import Packet
 from scapy.supersocket import SuperSocket
 from scapy.contrib.isotp import ISOTPSocket
-from scapy.error import warning, log_loading
 from scapy.utils import PeriodicSenderThread
 
 __all__ = ["GMLAN_TesterPresentSender", "GMLAN_InitDiagnostics",
@@ -26,11 +25,10 @@ __all__ = ["GMLAN_TesterPresentSender", "GMLAN_InitDiagnostics",
            "GMLAN_TransferData", "GMLAN_TransferPayload",
            "GMLAN_ReadMemoryByAddress", "GMLAN_BroadcastSocket"]
 
-
-log_loading.info("\"conf.contribs['GMLAN']"
-                 "['treat-response-pending-as-answer']\" set to True). This "
-                 "is required by the GMLAN-Utils module to operate "
-                 "correctly.")
+log_automotive.info("\"conf.contribs['GMLAN']"
+                    "['treat-response-pending-as-answer']\" set to True). This "
+                    "is required by the GMLAN-Utils module to operate "
+                    "correctly.")
 try:
     conf.contribs['GMLAN']['treat-response-pending-as-answer'] = False
 except KeyError:
@@ -88,6 +86,7 @@ def GMLAN_InitDiagnostics(
     :param unittest: disable delays
     :return: True on success else False
     """
+
     # Helper function
     def _send_and_check_response(sock, req, timeout):
         # type: (SuperSocket, Packet, int) -> bool
@@ -158,7 +157,7 @@ def GMLAN_GetSecurityAccess(
         return False
 
     if level % 2 == 0:
-        warning("Parameter Error: Level must be an odd number.")
+        log_automotive.warning("Parameter Error: Level must be an odd number.")
         return False
 
     while retry >= 0:
@@ -251,9 +250,9 @@ def GMLAN_TransferData(
     startretry = retry
 
     scheme = conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']
-    if addr < 0 or addr >= 2**(8 * scheme):
-        warning("Error: Invalid address %s for scheme %s",
-                hex(addr), str(scheme))
+    if addr < 0 or addr >= 2 ** (8 * scheme):
+        log_automotive.warning("Error: Invalid address %s for scheme %s",
+                               hex(addr), str(scheme))
         return False
 
     # max size of dataRecord according to gmlan protocol
@@ -332,16 +331,16 @@ def GMLAN_ReadMemoryByAddress(
     retry = abs(retry)
 
     scheme = conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']
-    if addr < 0 or addr >= 2**(8 * scheme):
-        warning("Error: Invalid address %s for scheme %s",
-                hex(addr), str(scheme))
+    if addr < 0 or addr >= 2 ** (8 * scheme):
+        log_automotive.warning("Error: Invalid address %s for scheme %s",
+                               hex(addr), str(scheme))
         return None
 
     # max size of dataRecord according to gmlan protocol
     if length <= 0 or length > (4094 - scheme):
-        warning("Error: Invalid length %s for scheme %s. "
-                "Choose between 0x1 and %s",
-                hex(length), str(scheme), hex(4094 - scheme))
+        log_automotive.warning("Error: Invalid length %s for scheme %s. "
+                               "Choose between 0x1 and %s",
+                               hex(length), str(scheme), hex(4094 - scheme))
         return None
 
     while retry >= 0:
