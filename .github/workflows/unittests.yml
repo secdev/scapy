@@ -1,11 +1,11 @@
-name: Scapy unit tests
+name: Scapy Unit Tests
 
-on:
-  push:
-    branches: [master]
-  pull_request:
-    # The branches below must be a subset of the branches above
-    branches: [master]
+#on:
+#  push:
+#    branches: [master]
+#  pull_request:
+#    # The branches below must be a subset of the branches above
+#    branches: [master]
 
 permissions:
   contents: read
@@ -149,7 +149,6 @@ jobs:
     - name: Run tests
       run: tox -e cryptography
 
-  # CODE-QL
   analyze:
     name: CodeQL analysis
     runs-on: ubuntu-latest
