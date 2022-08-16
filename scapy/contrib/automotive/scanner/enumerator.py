@@ -251,7 +251,8 @@ class ServiceEnumerator(AutomotiveTestCase):
         if self._requests_per_state_estimated is None:
             return None
 
-        pkts_tbs = len(self.scanned_states) * self._requests_per_state_estimated
+        pkts_tbs = max(
+            len(self.scanned_states) * self._requests_per_state_estimated, 1)
         pkts_snt = len(self.results)
 
         return pkts_tbs, pkts_snt, float(pkts_snt) / pkts_tbs
