@@ -209,6 +209,12 @@ class ObjectPipe(Generic[_T]):
         # type: (Optional[int]) -> Optional[_T]
         return self.recv(n)
 
+    def clear(self):
+        # type: () -> None
+        if not self.closed:
+            while not self.empty():
+                self.recv()
+
     def close(self):
         # type: () -> None
         if not self.closed:

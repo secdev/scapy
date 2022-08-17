@@ -807,7 +807,7 @@ Those sessions can be used using the ``session=`` parameter of ``sniff()``. Exam
 How to use TCPSession to defragment TCP packets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The layer on which the decompression is applied must be immediately following the TCP layer. You need to implement a class function called ``tcp_reassemble`` that accepts the binary data and a metada dictionary as argument and returns, when full, a packet. Let's study the (pseudo) example of TLS:
+The layer on which the decompression is applied must be immediately following the TCP layer. You need to implement a class function called ``tcp_reassemble`` that accepts the binary data, a metadata dictionary as argument and returns, when full, a packet. Let's study the (pseudo) example of TLS:
 
 .. code::
 
@@ -815,7 +815,7 @@ The layer on which the decompression is applied must be immediately following th
         [...]
 
         @classmethod
-        def tcp_reassemble(cls, data, metadata):
+        def tcp_reassemble(cls, data, metadata, session):
             length = struct.unpack("!H", data[3:5])[0] + 5
             if len(data) == length:
                 return TLS(data)

@@ -7,10 +7,14 @@ Sessions: decode flow of packets when sniffing
 """
 
 from collections import defaultdict
-from scapy.compat import raw
+import socket
+import struct
+
+from scapy.compat import raw, orb
 from scapy.config import conf
 from scapy.packet import NoPayload, Packet
 from scapy.plist import PacketList
+from scapy.pton_ntop import inet_pton
 
 # Typing imports
 from scapy.compat import (
@@ -165,6 +169,7 @@ class StringBuffer(object):
     If a TCP fragment is missed, this class will fill the missing space with
     zeros.
     """
+
     def __init__(self):
         # type: () -> None
         self.content = bytearray(b"")
@@ -222,9 +227,12 @@ class TCPSession(IPSession):
     DEV: implement a class-function `tcp_reassemble` in your Packet class::
 
         @classmethod
-        def tcp_reassemble(cls, data, metadata):
+        def tcp_reassemble(cls, data, metadata, session):
             # data = the reassembled data from the same request/flow
             # metadata = empty dictionary, that can be used to store data
+            #            during TCP reassembly
+            # session = a dictionary proper to the bidirectional TCP session,
+            #           that can be used to store anything
             [...]
             # If the packet is available, return it. Otherwise don't.
             # Whenever you return a packet, the buffer will be discarded.
@@ -241,9 +249,6 @@ class TCPSession(IPSession):
                 TCP socket. Default to False
     """
 
-    fmt = ('TCP {IP:%IP.src%}{IPv6:%IPv6.src%}:%r,TCP.sport% > ' +
-           '{IP:%IP.dst%}{IPv6:%IPv6.dst%}:%r,TCP.dport%')
-
     def __init__(self, app=False, *args, **kwargs):
         # type: (bool, *Any, **Any) -> None
         super(TCPSession, self).__init__(*args, **kwargs)
@@ -251,12 +256,32 @@ class TCPSession(IPSession):
         if app:
             self.data = b""
             self.metadata = {}  # type: Dict[str, Any]
+            self.session = {}  # type: Dict[str, Any]
         else:
             # The StringBuffer() is used to build a global
             # string from fragments and their seq nulber
             self.tcp_frags = defaultdict(
                 lambda: (StringBuffer(), {})
-            )  # type: DefaultDict[str, Tuple[StringBuffer, Dict[str, Any]]]
+            )  # type: DefaultDict[bytes, Tuple[StringBuffer, Dict[str, Any]]]
+            self.tcp_sessions = defaultdict(
+                dict
+            )  # type: DefaultDict[bytes, Dict[str, Any]]
+
+    def _get_ident(self, pkt, session=False):
+        # type: (Packet, bool) -> bytes
+        underlayer = pkt["TCP"].underlayer
+        af = socket.AF_INET6 if "IPv6" in pkt else socket.AF_INET
+        src = underlayer and inet_pton(af, underlayer.src) or b""
+        dst = underlayer and inet_pton(af, underlayer.dst) or b""
+        if session:
+            # Bidirectional
+            def xor(x, y):
+                # type: (bytes, bytes) -> bytes
+                return bytes(orb(a) ^ orb(b) for a, b in zip(x, y))
+            return struct.pack("!4sH", xor(src, dst), pkt.dport ^ pkt.sport)
+        else:
+            # Uni-directional
+            return src + dst + struct.pack("!HH", pkt.dport, pkt.sport)
 
     def _process_packet(self, pkt):
         # type: (Packet) -> Optional[Packet]
@@ -271,7 +296,7 @@ class TCPSession(IPSession):
                 # when a packet ends.
                 return pkt
             self.data += bytes(pkt)
-            pkt = pay_class.tcp_reassemble(self.data, self.metadata)
+            pkt = pay_class.tcp_reassemble(self.data, self.metadata, self.session)
             if pkt:
                 self.data = b""
                 self.metadata = {}
@@ -285,10 +310,11 @@ class TCPSession(IPSession):
         if isinstance(pay, (NoPayload, conf.padding_layer)):
             return pkt
         new_data = pay.original
-        # Match packets by a uniqute TCP identifier
+        # Match packets by a unique TCP identifier
         seq = pkt[TCP].seq
-        ident = pkt.sprintf(self.fmt)
+        ident = self._get_ident(pkt)
         data, metadata = self.tcp_frags[ident]
+        tcp_session = self.tcp_sessions[self._get_ident(pkt, True)]
         # Let's guess which class is going to be used
         if "pay_class" not in metadata:
             pay_class = pay.__class__
@@ -300,9 +326,10 @@ class TCPSession(IPSession):
                 return pkt
             metadata["pay_class"] = pay_class
             metadata["tcp_reassemble"] = tcp_reassemble
-            metadata["seq"] = seq
         else:
             tcp_reassemble = metadata["tcp_reassemble"]
+        if "seq" not in metadata:
+            metadata["seq"] = seq
         # Get a relative sequence number for a storage purpose
         relative_seq = metadata.get("relative_seq", None)
         if relative_seq is None:
@@ -324,14 +351,17 @@ class TCPSession(IPSession):
         packet = None  # type: Optional[Packet]
         if data.full():
             # Reassemble using all previous packets
-            packet = tcp_reassemble(bytes(data), metadata)
+            packet = tcp_reassemble(bytes(data), metadata, tcp_session)
         # Stack the result on top of the previous frames
         if packet:
             if "seq" in metadata:
                 pkt[TCP].seq = metadata["seq"]
+            # Clear buffer
             data.clear()
+            # Clear TCP reassembly metadata
             metadata.clear()
             del self.tcp_frags[ident]
+            # Rebuild resulting packet
             pay.underlayer.remove_payload()
             if IP in pkt:
                 pkt[IP].len = None

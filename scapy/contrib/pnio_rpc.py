@@ -605,7 +605,7 @@ class PadFieldWithLen(PadField):
     def i2len(self, pkt, val):
         """get the length of the field, including the padding length"""
         fld_len = self.fld.i2len(pkt, val)
-        return fld_len + self.padlen(fld_len)
+        return fld_len + self.padlen(fld_len, pkt)
 
 
 class IODWriteMultipleReq(Block):
@@ -642,7 +642,7 @@ class IODWriteMultipleReq(Block):
         fld, val = self.getfield_and_val("blocks")
         if fld.i2count(self, val) > 0:
             length = len(val[-1])
-            pad = fld.field.padlen(length)
+            pad = fld.field.padlen(length, self)
             if pad > 0:
                 p = p[:-pad]
                 # also reduce the recordDataLength accordingly

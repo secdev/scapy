@@ -101,40 +101,6 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
              if field.default is not None]
         )
 
-    def m2i(self, pkt, x):
-        # type: (Optional[Packet], bytes) -> List[Tuple[str, str]]
-        if not pkt or not x:
-            return []
-        results = []
-        for field in self.fields:
-            offset = pkt.getfieldval(field.name + "BufferOffset") - self.offset
-            try:
-                length = pkt.getfieldval(field.name + "Len")
-            except AttributeError:
-                length = len(x) - offset
-            if offset < 0:
-                continue
-            if x[offset:offset + length]:
-                results.append((offset, field.name, field.getfield(
-                    pkt, x[offset:offset + length])[1]))
-        results.sort(key=lambda x: x[0])
-        return [x[1:] for x in results]
-
-    def i2m(self, pkt, x):
-        # type: (Optional[Packet], Optional[List[Tuple[str, str]]]) -> bytes
-        buf = StringBuffer()
-        for field_name, value in x:
-            if field_name not in self.fields_map:
-                continue
-            field = self.fields_map[field_name]
-            offset = pkt.getfieldval(field_name + "BufferOffset")
-            if offset is not None:
-                offset -= self.offset
-            else:
-                offset = len(buf)
-            buf.append(field.addfield(pkt, b"", value), offset + 1)
-        return bytes(buf)
-
     def _on_payload(self, pkt, x, func):
         # type: (Optional[Packet], bytes, str) -> List[Tuple[str, Any]]
         if not pkt or not x:
@@ -164,12 +130,48 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         # type: (Optional[Packet], bytes) -> str
         return repr(self._on_payload(pkt, x, "i2repr"))
 
+    def addfield(self, pkt, s, val):
+        # type: (Optional[Packet], bytes, Optional[List[Tuple[str, str]]]) -> bytes
+        buf = StringBuffer()
+        for field_name, value in val:
+            if field_name not in self.fields_map:
+                continue
+            field = self.fields_map[field_name]
+            offset = pkt.getfieldval(field_name + "BufferOffset")
+            if offset is not None:
+                offset -= self.offset
+            else:
+                offset = len(buf)
+            buf.append(field.addfield(pkt, b"", value), offset + 1)
+        return s + bytes(buf)
+
     def getfield(self, pkt, s):
-        # type: (Packet, bytes) -> Tuple[bytes, bytes]
+        # type: (Packet, bytes) -> Tuple[bytes, List[Tuple[str, str]]]
         if self.length_from is None:
-            return b"", self.m2i(pkt, s)
-        len_pkt = self.length_from(pkt)
-        return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
+            ret, remain = b"", s
+        else:
+            len_pkt = self.length_from(pkt)
+            ret, remain = s[len_pkt:], s[:len_pkt]
+        if not pkt or not remain:
+            return s, []
+        results = []
+        max_offset = 0
+        for field in self.fields:
+            offset = pkt.getfieldval(field.name + "BufferOffset") - self.offset
+            try:
+                length = pkt.getfieldval(field.name + "Len")
+            except AttributeError:
+                length = len(remain) - offset
+            if offset < 0:
+                continue
+            max_offset = max(offset + length, max_offset)
+            if remain[offset:offset + length]:
+                results.append((offset, field.name, field.getfield(
+                    pkt, remain[offset:offset + length])[1]))
+        if max_offset:
+            ret += remain[max_offset:]
+        results.sort(key=lambda x: x[0])
+        return ret, [x[1:] for x in results]
 
 
 class _NTLMPayloadPacket(Packet):
@@ -197,19 +199,24 @@ class _NTLMPayloadPacket(Packet):
             return super(_NTLMPayloadPacket, self).setfieldval(attr, val)
         except AttributeError:
             Payload = super(_NTLMPayloadPacket, self).__getattr__(
-                self.self._NTLM_PAYLOAD_FIELD_NAME
+                self._NTLM_PAYLOAD_FIELD_NAME
             )
-            Payload.pop(next(
-                i
-                for i, x in enumerate(
-                    super(_NTLMPayloadPacket, self).__getattr__(
-                        self.self._NTLM_PAYLOAD_FIELD_NAME
-                    ))
-                if x[0] == attr
-            ))
+            if attr not in self.get_field(self._NTLM_PAYLOAD_FIELD_NAME).fields_map:
+                raise AttributeError(attr)
+            try:
+                Payload.pop(next(
+                    i
+                    for i, x in enumerate(
+                        super(_NTLMPayloadPacket, self).__getattr__(
+                            self._NTLM_PAYLOAD_FIELD_NAME
+                        ))
+                    if x[0] == attr
+                ))
+            except StopIteration:
+                pass
             Payload.append([attr, val])
             super(_NTLMPayloadPacket, self).setfieldval(
-                self.self._NTLM_PAYLOAD_FIELD_NAME,
+                self._NTLM_PAYLOAD_FIELD_NAME,
                 Payload
             )
 
@@ -480,7 +487,7 @@ class NTLMv2_CLIENT_CHALLENGE(Packet):
         LEIntField("Reserved2", 0),
         UTCTimeField("TimeStamp", None, fmt="<Q", epoch=[
                      1601, 1, 1, 0, 0, 0], custom_scaling=1e7),
-        StrFixedLenField("ChallengeFromClient", b"", length=8),
+        StrFixedLenField("ChallengeFromClient", b"12345678", length=8),
         LEIntField("Reserved3", 0),
         PacketListField("AvPairs", [AV_PAIR()], AV_PAIR)
     ]
@@ -491,6 +498,36 @@ class NTLMv2_RESPONSE(Packet):
         XStrFixedLenField("NTProofStr", b"", length=16),
         NTLMv2_CLIENT_CHALLENGE
     ]
+
+    def computeNTProofStr(self, ResponseKeyNT, ServerChallenge):
+        """
+        Set temp to ConcatenationOf(Responserversion, HiResponserversion,
+            Z(6), Time, ClientChallenge, Z(4), ServerName, Z(4))
+        Set NTProofStr to HMAC_MD5(ResponseKeyNT,
+            ConcatenationOf(CHALLENGE_MESSAGE.ServerChallenge,temp))
+
+        Remember ServerName = AvPairs
+        """
+        Responserversion = b"\x01"
+        HiResponserversion = b"\x01"
+
+        def ServerNameGen():
+            for x in self.AvPairs:
+                yield bytes(x)
+                if x.AvId == 0:
+                    return
+        ServerName = b"".join(iter(ServerNameGen()))
+        temp = b"".join([
+            Responserversion,
+            HiResponserversion,
+            b"\x00" * 6,
+            struct.pack("<Q", self.TimeStamp),
+            self.ChallengeFromClient,
+            b"\x00" * 4,
+            ServerName,
+            b"\x00" * 4,
+        ])
+        return HMAC_MD5(ResponseKeyNT, ServerChallenge + temp)
 
 
 class NTLM_AUTHENTICATE(_NTLMPayloadPacket):
@@ -619,24 +656,25 @@ class _NTLM_Automaton(Automaton):
                               NTLM_AUTHENTICATE_V2)):
             ntlm = token
             rawToken = True
-        if isinstance(token, GSSAPI_BLOB):
-            token = token.innerContextToken
-        if isinstance(token, SPNEGO_negToken):
-            token = token.token
-        if hasattr(token, "mechListMIC") and token.mechListMIC:
-            MIC = token.mechListMIC.value
-        if hasattr(token, "negResult"):
-            negResult = token.negResult
-        try:
-            ntlm = token.mechToken
-        except AttributeError:
-            ntlm = token.responseToken
-        if isinstance(ntlm, SPNEGO_Token):
-            ntlm = ntlm.value
-        if isinstance(ntlm, ASN1_STRING):
-            ntlm = NTLM_Header(ntlm.val)
-        if isinstance(ntlm, conf.raw_layer):
-            ntlm = NTLM_Header(ntlm.load)
+        else:
+            if isinstance(token, GSSAPI_BLOB):
+                token = token.innerContextToken
+            if isinstance(token, SPNEGO_negToken):
+                token = token.token
+            if hasattr(token, "mechListMIC") and token.mechListMIC:
+                MIC = token.mechListMIC.value
+            if hasattr(token, "negResult"):
+                negResult = token.negResult
+            try:
+                ntlm = token.mechToken
+            except AttributeError:
+                ntlm = token.responseToken
+            if isinstance(ntlm, SPNEGO_Token):
+                ntlm = ntlm.value
+            if isinstance(ntlm, ASN1_STRING):
+                ntlm = NTLM_Header(ntlm.val)
+            if isinstance(ntlm, conf.raw_layer):
+                ntlm = NTLM_Header(ntlm.load)
         if self.DROP_MIC_v1 or self.DROP_MIC_v2:
             if isinstance(ntlm, NTLM_AUTHENTICATE):
                 ntlm.MIC = b"\0" * 16
@@ -708,6 +746,19 @@ class NTLM_Server(_NTLM_Automaton):
     """
     A class to overload to create a server automaton when using
     NTLM.
+
+    :param NTLM_VALUES: a dict whose keys are
+        - "NetbiosDomainName"
+        - "NetbiosComputerName"
+        - "DnsDomainName"
+        - "DnsComputerName"
+        - "DnsTreeName"
+        - "Flags"
+        - "Timestamp"
+
+    :param IDENTITIES: a dict {"username": NTOWFv2("password", "username", "domain")}
+                       (this is the KeyResponseNT). Setting this value enables
+                       signature computation and authenticates inbound users.
     """
     port = 445
     cls = conf.raw_layer
@@ -715,66 +766,114 @@ class NTLM_Server(_NTLM_Automaton):
     def __init__(self, *args, **kwargs):
         self.cli_atmt = None
         self.cli_values = dict()
-        self.ntlm_values = kwargs.pop("NTLM_VALUES", dict())
+        self.ntlm_values = kwargs.pop("NTLM_VALUES", None)
         self.ntlm_state = 0
         self.IDENTITIES = kwargs.pop("IDENTITIES", None)
         self.SigningSessionKey = None
+        self.Challenge = None
         super(NTLM_Server, self).__init__(*args, **kwargs)
 
     def bind(self, cli_atmt):
         # type: (NTLM_Client) -> None
         self.cli_atmt = cli_atmt
 
-    def get_token(self):
+    def get_token(self, negoex=False):
+        if negoex:
+            # Special case: negoex
+            if self.cli_atmt:
+                return self.cli_atmt.token_pipe.recv()
+            else:
+                self.token_pipe.clear()
+            return None, None, None, None
         from random import randint
-        if self.cli_atmt:
-            return self.cli_atmt.token_pipe.recv()
-        elif self.ntlm_state == 0:
+        if self.ntlm_state == 0:
+            # First token asked (after negotiate)
             self.ntlm_state = 1
-            return NTLM_CHALLENGE(
-                ServerChallenge=self.ntlm_values.get(
-                    "ServerChallenge", struct.pack("<Q", randint(0, 2**64))),
+            negResult, MIC, rawToken = None, None, False
+            # Take a default token
+            tok = NTLM_CHALLENGE(
+                ServerChallenge=struct.pack("<Q", randint(0, 2**64)),
                 MessageType=2,
-                NegotiateFlags=self.ntlm_values.get(
-                    "NegotiateFlags", 0xe2898215),
-                ProductMajorVersion=self.ntlm_values.get(
-                    "ProductMajorVersion", 10),
-                ProductMinorVersion=self.ntlm_values.get(
-                    "ProductMinorVersion", 0),
-                Payload=[
-                    ('TargetName', self.ntlm_values.get("TargetName", "")),
-                    ('TargetInfo', [
-                        # MsvAvNbComputerName
-                        AV_PAIR(AvId=1, Value=self.ntlm_values.get(
-                                "NetbiosComputerName", "")),
-                        #  "T1-SRV-DHCP"),
-                        # MsvAvNbDomainName
-                        AV_PAIR(AvId=2, Value=self.ntlm_values.get(
-                                "NetbiosDomainName", "")),
-                        #  "TESTDOMAIN"),
-                        # MsvAvDnsComputerName
-                        AV_PAIR(AvId=3, Value=self.ntlm_values.get(
-                                "DnsComputerName", "")),
-                        # "T1-SRV-DHCP.TESTDOMAIN.local"),
-                        # MsvAvDnsDomainName
-                        AV_PAIR(AvId=4, Value=self.ntlm_values.get(
-                                "DnsDomainName", "")),
-                        # TESTDOMAIN.local"),
-                        # MsvAvDnsTreeName
-                        AV_PAIR(AvId=5, Value=self.ntlm_values.get(
-                                "DnsTreeName", "")),
-                        # TESTDOMAIN.local"),
-                        # MsvAvTimestamp
-                        AV_PAIR(AvId=7, Value=self.ntlm_values.get(
-                                "Timestamp", 0.0)),
-                        # MsvAvEOL
-                        AV_PAIR(AvId=0),
-                    ]),
-                ]
-            ), None, None, False
+                NegotiateFlags=0xe2898215,
+                ProductMajorVersion=10,
+                ProductMinorVersion=0,
+                Payload=[('TargetName', ""),
+                         ('TargetInfo', [
+                          # MsvAvNbComputerName
+                          AV_PAIR(AvId=1, Value="SRV"),
+                          # MsvAvNbDomainName
+                          AV_PAIR(AvId=2, Value="DOMAIN"),
+                          # MsvAvDnsComputerName
+                          AV_PAIR(AvId=3, Value="SRV.DOMAIN.local"),
+                          # MsvAvDnsDomainName
+                          AV_PAIR(AvId=4, Value="DOMAIN.local"),
+                          # MsvAvDnsTreeName
+                          AV_PAIR(AvId=5, Value="DOMAIN.local"),
+                          # MsvAvTimestamp
+                          AV_PAIR(AvId=7, Value=0.0),
+                          # MsvAvEOL
+                          AV_PAIR(AvId=0),
+                          ])]
+            )
+            if self.cli_atmt:
+                # from client
+                tok, negResult, MIC, rawToken = self.cli_atmt.token_pipe.recv()
+            else:
+                # we act as a standalone server
+                rawToken = self.token_pipe.recv()[3]
+            if self.ntlm_values:
+                # Update that token with the customs one
+                for key in ["ServerChallenge",
+                            "NegotiateFlags",
+                            "ProductMajorVersion",
+                            "ProductMinorVersion",
+                            "TargetName"]:
+                    if key in self.ntlm_values:
+                        setattr(tok, key, self.ntlm_values[key])
+                avpairs = {x.AvId: x.Value for x in tok.TargetInfo}
+                tok.TargetInfo = [
+                    AV_PAIR(AvId=i, Value=self.ntlm_values.get(x, avpairs[i]))
+                    for (i, x) in [
+                        (2, "NetbiosDomainName"),
+                        (1, "NetbiosComputerName"),
+                        (4, "DnsDomainName"),
+                        (3, "DnsComputerName"),
+                        (5, "DnsTreeName"),
+                        (6, "Flags"),
+                        (7, "Timestamp"),
+                        (0, None),
+                    ]
+                    if (x in self.ntlm_values) or (i in avpairs)]
+            self.Challenge = tok
+            return tok, negResult, MIC, rawToken
         elif self.ntlm_state == 1:
+            # After auth. We return "success"
             self.ntlm_state = 0
-            return None, 0, None, False
+            rawToken = False
+            if self.cli_atmt:
+                return self.cli_atmt.token_pipe.recv()
+            else:
+                # we act as a standalone server
+                auth_tok, _, _, rawToken = self.token_pipe.recv()
+                if NTLM_AUTHENTICATE_V2 not in auth_tok:
+                    raise ValueError("Unexpected state :(")
+                username = auth_tok.UserName
+                if self.IDENTITIES:
+                    # We should know this user's KeyResponseNT. Check it
+                    if username in self.IDENTITIES:
+                        NTProofStr = auth_tok.NtChallengeResponse.computeNTProofStr(
+                            self.IDENTITIES[username],
+                            self.Challenge.ServerChallenge,
+                        )
+                        if NTProofStr == auth_tok.NtChallengeResponse.NTProofStr:
+                            return None, 0, None, rawToken  # "success"
+                    # Bad NTProofStr or unknown user
+                    self.Challenge.ServerChallenge = struct.pack(
+                        "<Q",
+                        randint(0, 2**64)
+                    )
+                    return self.Challenge, 2, None, rawToken  # fail
+                return None, 0, None, rawToken  # "success"
 
     def received_ntlm_token(self, ntlm_tuple):
         ntlm = ntlm_tuple[0]
@@ -1006,10 +1105,6 @@ def MD4(x):
     return Hash_MD4().digest(x)
 
 
-def Z(n):
-    return b"\x00" * n
-
-
 def RC4K(key, data):
     """Alleged RC4"""
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
@@ -1029,7 +1124,6 @@ def NTOWFv2(Passwd, User, UserDom):
 
 def NTLMv2_ComputeSessionBaseKey(ResponseKeyNT, NTProofStr):
     return HMAC_MD5(ResponseKeyNT, NTProofStr)
-
 
 # def _NTLMv2_ComputeResponse(ResponseKeyNT,
 #                             ServerChallenge, ClientChallenge, Time,

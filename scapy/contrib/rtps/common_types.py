@@ -12,9 +12,9 @@ Real-Time Publish-Subscribe Protocol (RTPS) dissection
 # scapy.contrib.status = library
 
 import struct
-import warnings
 
 from scapy.fields import (
+    _FieldContainer,
     BitField,
     ConditionalField,
     EnumField,
@@ -54,7 +54,7 @@ def e_flags(pkt):
         return FORMAT_BE
 
 
-class EField(object):
+class EField(_FieldContainer):
     """
     A field that manages endianness of a nested field passed to the constructor
     """
@@ -71,14 +71,6 @@ class EField(object):
             self.endianness = pkt.endianness
         elif self.endianness_from is not None:
             self.endianness = self.endianness_from(pkt)
-
-        if hasattr(self.fld, "set_endianness"):
-            self.fld.set_endianness(endianness=self.endianness)
-            return
-
-        if hasattr(self.fld, "endianness"):
-            self.fld.endianness = self.endianness
-            return
 
         if isinstance(self.endianness, str) and self.endianness:
             if isinstance(self.fld, UUIDField):
@@ -101,12 +93,6 @@ class EField(object):
         self.set_endianness(pkt)
         return self.fld.addfield(pkt, buf, val)
 
-    def randval(self):
-        return self.fld.randval()
-
-    def __getattr__(self, attr):
-        return getattr(self.fld, attr)
-
 
 class EPacket(Packet):
     """A packet that manages its endianness"""
@@ -116,6 +102,11 @@ class EPacket(Packet):
     def __init__(self, *args, **kwargs):
         self.endianness = kwargs.pop("endianness", None)
         super(EPacket, self).__init__(*args, **kwargs)
+
+    def clone_with(self, *args, **kwargs):
+        pkt = super(EPacket, self).clone_with(*args, **kwargs)
+        pkt.endianness = self.endianness
+        return pkt
 
     def extract_padding(self, p):
         return b"", p
@@ -134,23 +125,25 @@ class _EPacketField(object):
     def set_endianness(self, pkt):
         if getattr(pkt, "endianness", None) is not None:
             self.endianness = pkt.endianness
-        elif self.endianness_from is not None and pkt:
+        elif self.endianness_from is not None:
             self.endianness = self.endianness_from(pkt)
-            if self.endianness is None:
-                warnings.warn(
-                    'Endianess should never be None.'
-                    'Setting it to default: {}', DEFAULT_ENDIANESS)
-                self.endianness = DEFAULT_ENDIANESS
 
     def m2i(self, pkt, m):
-        return self.cls(m, endianness=pkt.endianness)
+        self.set_endianness(pkt)
+        return self.cls(m, endianness=self.endianness)
+
+    def i2m(self, pkt, m):
+        if m:
+            self.set_endianness(pkt)
+            m.endianness = self.endianness
+        return super(_EPacketField, self).i2m(pkt, m)
 
 
 class EPacketField(_EPacketField, PacketField):
     """
     A PacketField that manages its endianness and that of its nested packet
     """
-    __slots__ = ["endianness", "endianness_from", "fuzz_fun"]
+    __slots__ = ["endianness", "endianness_from"]
 
 
 class EPacketListField(_EPacketField, PacketListField):
@@ -158,7 +151,7 @@ class EPacketListField(_EPacketField, PacketListField):
     A PacketListField that manages its endianness and
     that of its nested packet
     """
-    __slots__ = ["endianness", "endianness_from", "fuzz_fun"]
+    __slots__ = ["endianness", "endianness_from"]
 
 
 class SerializedDataField(StrLenField):
@@ -168,7 +161,6 @@ class SerializedDataField(StrLenField):
 class DataPacketField(EPacketField):
     def m2i(self, pkt, m):
         self.set_endianness(pkt)
-
         pl_len = pkt.octetsToNextHeader - 24
         _pkt = self.cls(
             m,
