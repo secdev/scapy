@@ -6,10 +6,6 @@
 = Imports
 from scapy.contrib.isotp.isotp_scanner import send_multiple_ext, filter_periodic_packets, scan_extended, scan
 from test.testsocket import TestSocket
-from scapy.contrib.isotp.isotp_utils import log_isotp
-import logging
-
-log_isotp.setLevel(logging.DEBUG)
 
 with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
     exec(f.read())
