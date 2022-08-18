@@ -28,6 +28,7 @@ __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
 USE_CAN_ISOTP_KERNEL_MODULE = False
 
 log_isotp = logging.getLogger("scapy.contrib.isotp")
+log_isotp.setLevel(logging.INFO)
 
 if six.PY3 and LINUX:
     try:
