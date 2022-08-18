@@ -833,7 +833,7 @@ def _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric):
         cset = construct_source_candidate_set(dpref, dp, devaddrs)
     if not cset:
         return
-    # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS, METRIC)
+    # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATES, METRIC)
     routes.append((dpref, dp, nh, iface, cset, metric))
 
 

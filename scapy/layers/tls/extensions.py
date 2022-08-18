@@ -420,7 +420,7 @@ class TLS_Ext_ServerCertType(TLS_Ext_Unknown):                      # RFC 5081
 def _TLS_Ext_CertTypeDispatcher(m, *args, **kargs):
     """
     We need to select the correct one on dissection. We use the length for
-    that, as 1 for client version would emply an empty list.
+    that, as 1 for client version would imply an empty list.
     """
     tmp_len = struct.unpack("!H", m[2:4])[0]
     if tmp_len == 1:

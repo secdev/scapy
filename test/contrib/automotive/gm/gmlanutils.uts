@@ -900,7 +900,7 @@ thread.join(timeout=5)
 assert res
 assert ecusimSuccessfullyExecuted == True
 
-###### negative respone
+###### negative response
 = timeout DisableNormalCommunication
 ecusimSuccessfullyExecuted = True
 started = threading.Event()

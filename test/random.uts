@@ -41,20 +41,20 @@ assert rm.command() == "RandMAC(template='00:01:02:03:04:0-7')"
 = RandOID
 
 random.seed(0x2807)
-ro = RandOID()
-assert ro == "7.222.44.194.276.116.320.6.84.97.31.5.25.20.13.84.104.18"
-assert ro.command() == "RandOID()"
+rand_obj = RandOID()
+assert rand_obj == "7.222.44.194.276.116.320.6.84.97.31.5.25.20.13.84.104.18"
+assert rand_obj.command() == "RandOID()"
 
-ro = RandOID("1.2.3.*")
-assert ro == "1.2.3.41"
-assert ro.command() == "RandOID(fmt='1.2.3.*')"
+rand_obj = RandOID("1.2.3.*")
+assert rand_obj == "1.2.3.41"
+assert rand_obj.command() == "RandOID(fmt='1.2.3.*')"
 
-ro = RandOID("1.2.3.0-28")
-assert ro == ("1.2.3.11" if six.PY2 else "1.2.3.12")
-assert ro.command() == "RandOID(fmt='1.2.3.0-28')"
+rand_obj = RandOID("1.2.3.0-28")
+assert rand_obj == ("1.2.3.11" if six.PY2 else "1.2.3.12")
+assert rand_obj.command() == "RandOID(fmt='1.2.3.0-28')"
 
-ro = RandOID("1.2.3.0-28", depth=RandNumExpo(0.2), idnum=RandNumExpo(0.02))
-assert ro.command() == "RandOID(fmt='1.2.3.0-28', depth=RandNumExpo(lambd=0.2), idnum=RandNumExpo(lambd=0.02))"
+rand_obj = RandOID("1.2.3.0-28", depth=RandNumExpo(0.2), idnum=RandNumExpo(0.02))
+assert rand_obj.command() == "RandOID(fmt='1.2.3.0-28', depth=RandNumExpo(lambd=0.2), idnum=RandNumExpo(lambd=0.02))"
 
 = RandRegExp
 ~ not_pyannotate

@@ -256,7 +256,7 @@ class LLDPDU(Packet):
         super(LLDPDU, self).dissection_done(pkt)
 
     def _check(self):
-        """Overwrited by LLDPU objects"""
+        """Overwritten by LLDPU objects"""
         pass
 
     def post_dissect(self, s):
