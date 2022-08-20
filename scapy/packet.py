@@ -817,6 +817,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         for indx, field in enumerate(state_fuzzed['fields']):
             if not field['done']:
                 field_fuzzed = self.locate_field(self, field['name'])
+                if "state_pos" not in dir(field_fuzzed):
+                    continue
         
                 # If there are more than 128 combinations, do jumps
                 if field_fuzzed.max - field_fuzzed.min > 128:
