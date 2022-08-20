@@ -826,7 +826,7 @@ class Packet(
                     state['active'] = True
                     for field_item in fields:
                         field_obj = self.locate_field(self, field_item['name'])
-                        if "min" in field_obj: # Some fields don't have a min
+                        if "min" in dir(field_obj): # Some fields don't have a min
                             field_obj.state_pos = field_obj.min
                         else:
                             continue
