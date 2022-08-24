@@ -362,6 +362,10 @@ class SMB2_Header(Packet):
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_Tree_Connect_Response
             return SMB2_Tree_Connect_Request
+        elif self.Command == 0x0004:  # TREE disconnect
+            if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
+                return SMB2_Tree_Disconnect_Response
+            return SMB2_Tree_Disconnect_Request
         elif self.Command == 0x0005:  # Create
             if self.Flags.SMB2_FLAGS_SERVER_TO_REDIR:
                 return SMB2_Create_Response
@@ -928,7 +932,6 @@ SMB2_ACCESS_FLAGS = {
 
 class SMB2_Tree_Connect_Response(_SMB2_Payload):
     name = "SMB2 TREE_CONNECT Response"
-    OFFSET = 8 + 64
     fields_desc = [
         XLEShortField("StructureSize", 0x10),
         ByteEnumField("ShareType", 0, {0x01: "DISK",
@@ -970,6 +973,42 @@ bind_top_down(
     Command=0x0003,
     Flags=1
 )
+
+# sect 2.2.11
+
+
+class SMB2_Tree_Disconnect_Request(_SMB2_Payload):
+    name = "SMB2 TREE_DISCONNECT Request"
+    fields_desc = [
+        XLEShortField("StructureSize", 0x4),
+        XLEShortField("Reserved", 0),
+    ]
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Tree_Disconnect_Request,
+    Command=0x0004
+)
+
+# sect 2.2.12
+
+
+class SMB2_Tree_Disconnect_Response(_SMB2_Payload):
+    name = "SMB2 TREE_DISCONNECT Response"
+    fields_desc = [
+        XLEShortField("StructureSize", 0x4),
+        XLEShortField("Reserved", 0),
+    ]
+
+
+bind_top_down(
+    SMB2_Header,
+    SMB2_Tree_Disconnect_Response,
+    Command=0x0004,
+    Flags=1
+)
+
 
 # sect 2.2.14.1
 
