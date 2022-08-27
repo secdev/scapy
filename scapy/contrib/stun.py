@@ -3,7 +3,7 @@
 # See https://scapy.net/ for more information
 # Copyright (C) Pavel Oborin <oborin.p@gmail.com>
 
-# RFC 5389
+# RFC 8489
 # scapy.contrib.description = Session Traversal Utilities for NAT (STUN)
 # scapy.contrib.status = loads
 
