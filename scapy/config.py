@@ -827,6 +827,7 @@ class Conf(ConfClass):
     load_layers = [
         'bluetooth',
         'bluetooth4LE',
+        'dcerpc',
         'dhcp',
         'dhcp6',
         'dns',
@@ -863,6 +864,8 @@ class Conf(ConfClass):
         'skinny',
         'smb',
         'smb2',
+        'smbclient',
+        'smbserver',
         'snmp',
         'tftp',
         'vrrp',

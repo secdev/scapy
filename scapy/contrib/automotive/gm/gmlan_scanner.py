@@ -15,11 +15,12 @@ from collections import defaultdict
 
 from scapy.compat import Optional, List, Type, Any, Tuple, Iterable, Dict, \
     cast, Callable, orb
+from scapy.contrib.automotive import log_automotive
 from scapy.packet import Packet
 import scapy.libs.six as six
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
-from scapy.error import Scapy_Exception, log_interactive, warning
+from scapy.error import Scapy_Exception
 from scapy.contrib.automotive.gm.gmlanutils import GMLAN_InitDiagnostics, \
     GMLAN_TesterPresentSender
 from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SA, GMLAN_RD, \
@@ -165,8 +166,8 @@ class GMLAN_IDOEnumerator(GMLAN_Enumerator, StateGeneratingServiceEnumerator):
         ans = socket.sr1(
             GMLAN() / GMLAN_IDO(subfunction=2), timeout=5, verbose=False)
         if ans is not None and ans.service == 0x7f:
-            log_interactive.debug(
-                "[-] InitiateDiagnosticOperation received negative response!\n"
+            log_automotive.debug(
+                "InitiateDiagnosticOperation received negative response!\n"
                 "%s", repr(ans))
         return ans is not None and ans.service != 0x7f
 
@@ -333,8 +334,8 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
 
         if response.service == 0x7f and \
                 self._get_negative_response_code(response) in [0x22, 0x37]:
-            log_interactive.debug(
-                "[i] Retry %s because requiredTimeDelayNotExpired or "
+            log_automotive.debug(
+                "Retry %s because requiredTimeDelayNotExpired or "
                 "requestSequenceError received",
                 repr(request))
             return super(GMLAN_SAEnumerator, self)._populate_retry(
@@ -353,7 +354,7 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
 
         if response is not None and \
                 response.service == 0x67 and response.subfunction % 2 == 1:
-            log_interactive.debug("[i] Seed received. Leave scan to try a key")
+            log_automotive.debug("Seed received. Leave scan to try a key")
             return True
         return False
 
@@ -367,13 +368,13 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
                 return None
             elif seed.service == 0x7f and \
                     GMLAN_Enumerator._get_negative_response_code(seed) != 0x37:
-                log_interactive.info(
+                log_automotive.info(
                     "Security access no seed! NR: %s", repr(seed))
                 return None
 
             elif seed.service == 0x7f and \
                     GMLAN_Enumerator._get_negative_response_code(seed) == 0x37:
-                log_interactive.info("Security access retry to get seed")
+                log_automotive.info("Security access retry to get seed")
                 time.sleep(10)
                 continue
             else:
@@ -384,13 +385,13 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
     def evaluate_security_access_response(res, seed, key):
         # type: (Optional[Packet], Packet, Optional[Packet]) -> bool
         if res is None or res.service == 0x7f:
-            log_interactive.debug(repr(seed))
-            log_interactive.debug(repr(key))
-            log_interactive.debug(repr(res))
-            log_interactive.info("Security access error!")
+            log_automotive.debug(repr(seed))
+            log_automotive.debug(repr(key))
+            log_automotive.debug(repr(res))
+            log_automotive.info("Security access error!")
             return False
         else:
-            log_interactive.info("Security access granted!")
+            log_automotive.info("Security access granted!")
             return True
 
     @staticmethod
@@ -407,7 +408,7 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
     @staticmethod
     def get_security_access(sock, level=1, seed_pkt=None, keyfunction=None):
         # type: (_SocketUnion, int, Optional[Packet], Optional[Callable[[int], int]]) -> bool  # noqa: E501
-        log_interactive.info(
+        log_automotive.info(
             "Try bootloader security access for level %d" % level)
         if seed_pkt is None:
             seed_pkt = GMLAN_SAEnumerator.get_seed_pkt(sock, level)
@@ -450,7 +451,7 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
 
             if self.get_security_access(socket, level=sec_lvl,
                                         seed_pkt=seed, keyfunction=kf):
-                log_interactive.debug("Security Access found.")
+                log_automotive.debug("Security Access found.")
                 # create edge
                 new_state = copy.copy(last_state)
                 new_state.security_level = seed.subfunction + 1  # type: ignore  # noqa: E501
@@ -495,7 +496,6 @@ class GMLAN_PMEnumerator(GMLAN_Enumerator, StateGeneratingServiceEnumerator):
         # type: (_SocketUnion, EcuState, int, int, Any) -> None
         supported = GMLAN_InitDiagnostics(
             cast(SuperSocket, socket), timeout=20,
-            verbose=kwargs.get("debug", False),
             unittest=kwargs.get("unittest", False))
         # TODO: Refactor result storage
         if supported:
@@ -523,7 +523,7 @@ class GMLAN_PMEnumerator(GMLAN_Enumerator, StateGeneratingServiceEnumerator):
         # type: (_SocketUnion, AutomotiveTestCaseExecutorConfiguration, Dict[str, Any]) -> bool  # noqa: E501
         GMLAN_TPEnumerator.enter(sock, conf, kwargs)
         res = GMLAN_InitDiagnostics(cast(SuperSocket, sock), timeout=20,
-                                    verbose=False, unittest=conf.unittest)
+                                    unittest=conf.unittest)
         if not res:
             GMLAN_TPEnumerator.cleanup(sock, conf)
             return False
@@ -616,7 +616,7 @@ class GMLAN_RMBAEnumerator(GMLAN_Enumerator):
             return
 
         if not self.random_probe_finished[state]:
-            log_interactive.info("[i] Random memory probing finished")
+            log_automotive.info("Random memory probing finished")
             self.random_probe_finished[state] = True
             for tup in [t for t in self.results_with_positive_response
                         if t.state == state]:
@@ -628,8 +628,8 @@ class GMLAN_RMBAEnumerator(GMLAN_Enumerator):
         if not len(self.points_of_interest[state]):
             return
 
-        log_interactive.info(
-            "[i] Create %d memory points for sequential probing" %
+        log_automotive.info(
+            "Create %d memory points for sequential probing" %
             len(self.points_of_interest[state]))
 
         tested_addrs = [tup.req.memoryAddress for tup in self.results]
@@ -668,8 +668,8 @@ class GMLAN_RMBAEnumerator(GMLAN_Enumerator):
             self._state_completed[state] = False
             self._request_iterators[state] = new_requests
             self.points_of_interest[state] = new_points_of_interest
-            log_interactive.info(
-                "[i] Created %d pkts for sequential probing" %
+            log_automotive.info(
+                "Created %d pkts for sequential probing" %
                 len(new_requests))
 
     def show(self, dump=False, filtered=True, verbose=False):
@@ -685,7 +685,8 @@ class GMLAN_RMBAEnumerator(GMLAN_Enumerator):
 
             ih.tofile("RMBA_dump.hex", format="hex")
         except ImportError:
-            warning("Install 'intelhex' to create a hex file of the memory")
+            log_automotive.warning(
+                "Install 'intelhex' to create a hex file of the memory")
 
         if dump and s is not None:
             return s + "\n"

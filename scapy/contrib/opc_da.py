@@ -762,7 +762,7 @@ OpcDaResponseLE = _make_le(OpcDaResponse)
 
 # The fault PDU is used to indicate either an RPC run-time, RPC stub, or
 #  RPC-specific exception to the client.
-# Length of the stubdata egal allochint less header
+# Length of the stubdata equal allochint less header
 class OpcDaFault(Packet):
     # DCE 1.1 RPC - 12.6.4.7
     name = "OpcDaFault"

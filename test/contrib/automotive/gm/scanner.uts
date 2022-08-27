@@ -6,6 +6,9 @@
 = Imports
 
 import itertools
+import logging
+import threading
+import time
 from scapy.contrib.isotp import ISOTPMessageBuilder
 
 from test.testsocket import TestSocket, cleanup_testsockets, open_test_sockets
@@ -23,6 +26,8 @@ from scapy.contrib.automotive.gm.gmlan_scanner import *
 from scapy.contrib.automotive.ecu import *
 load_layer("can")
 
+log_automotive.setLevel(logging.DEBUG)
+
 
 = Define Testfunction
 
@@ -34,21 +39,26 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, **kwarg
     def reset():
         answering_machine.reset_state()
         sniff(timeout=0.001, opened_socket=[ecu, tester])
-    def answering_machine_thread():
-        answering_machine(timeout=120, stop_filter=lambda x: bytes(x) == b"\xff\xff\xff")
-    sim = threading.Thread(target=answering_machine_thread)
+    sim = threading.Thread(target=answering_machine, kwargs={
+        "timeout": 30, "stop_filter": lambda x: bytes(x) == b"\xff\xff\xff"})
     sim.start()
     try:
         scanner = GMLAN_Scanner(
             tester, reset_handler=reset,
             test_cases=enumerators, timeout=0.2, retry_if_none_received=True,
             unittest=True, **kwargs)
-        for i in range(12):
-            print("Starting scan")
-            scanner.scan(timeout=10)
-            if scanner.scan_completed:
-                print("Scan completed after %d iterations" % i)
-                break
+        def scanner_thread():
+            for i in range(3):
+                print("Starting scan")
+                scanner.scan(timeout=10)
+                if scanner.scan_completed:
+                    print("Scan completed after %d iterations" % i)
+                    return
+        scanner_t = threading.Thread(target=scanner_thread)
+        scanner_t.start()
+        scanner_t.join(timeout=120)
+        if scanner_t.is_alive():
+            scanner.stop_scan()
     finally:
         tester.send(Raw(b"\xff\xff\xff"))
         sim.join(timeout=2)

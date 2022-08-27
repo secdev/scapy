@@ -9,8 +9,8 @@
 import inspect
 
 from scapy.compat import Any, Union, List, Type, Set, cast
+from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.scanner.graph import Graph
-from scapy.error import log_interactive
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC
 from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTestCase  # noqa: E501
 
@@ -115,5 +115,5 @@ class AutomotiveTestCaseExecutorConfiguration(object):
         for tc in test_cases:
             self.add_test_case(tc)
 
-        log_interactive.debug("The following configuration was created")
-        log_interactive.debug(self.__dict__)
+        log_automotive.debug("The following configuration was created")
+        log_automotive.debug(self.__dict__)

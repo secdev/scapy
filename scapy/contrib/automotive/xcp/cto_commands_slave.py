@@ -5,9 +5,8 @@
 
 # scapy.contrib.status = skip
 
-from logging import warning
-
 from scapy.config import conf
+from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.xcp.utils import get_max_cto, get_ag, \
     XCPEndiannessField, StrVarLenField
 from scapy.fields import ByteEnumField, ByteField, ShortField, StrLenField, \
@@ -79,8 +78,8 @@ class ConnectPositiveResponse(Packet):
                 conf.contribs["XCP"]["byte_order"] = new_value
 
                 desc = "Big Endian" if new_value else "Little Endian"
-                warning("Byte order changed to {0} because of received "
-                        "positive connect packet".format(desc))
+                log_automotive.warning("Byte order changed to {0} because of received "
+                                       "positive connect packet".format(desc))
 
         if conf.contribs["XCP"]["allow_ag_change"]:
             conf.contribs["XCP"][
@@ -102,7 +101,7 @@ class ConnectPositiveResponse(Packet):
                 comm_mode_basic.address_granularity_1:
             return 4
         else:
-            warning(
+            log_automotive.warning(
                 "Getting address granularity from packet failed:"
                 "both flags are 1")
 

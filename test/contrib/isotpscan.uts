@@ -78,7 +78,7 @@ for idx in range(1, 4):
     sockets.append(ISOTPSoftSocket(sock_recv, tx_id=0x700 + idx, rx_id=0x600 + idx))
 
 found_packets = scan(sock_sender, range(0x5ff, 0x604),
-                     noise_ids=[0x701], sniff_time=0.02, verbose=True)
+                     noise_ids=[0x701], sniff_time=0.02)
 
 for s in sockets:
     s.close()

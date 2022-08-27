@@ -85,3 +85,6 @@ scapy/contrib/tcpao.py
 
 # TEST
 test/testsocket.py
+
+# TOOLS
+scapy/tools/automotive/isotpscanner.py

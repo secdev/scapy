@@ -1085,7 +1085,7 @@ class _GenericTLSSessionInheritance(Packet):
                                 getattr(self, "_name", self.name))
 
     @classmethod
-    def tcp_reassemble(cls, data, metadata):
+    def tcp_reassemble(cls, data, metadata, session):
         # Used with TLSSession
         from scapy.layers.tls.record import TLS
         from scapy.layers.tls.record_tls13 import TLS13
@@ -1096,8 +1096,7 @@ class _GenericTLSSessionInheritance(Packet):
             elif len(data) > length:
                 pkt = cls(data)
                 if hasattr(pkt.payload, "tcp_reassemble"):
-                    if pkt.payload.tcp_reassemble(data[length:], metadata):
-                        return pkt
+                    return pkt.payload.tcp_reassemble(data[length:], metadata, session)
                 else:
                     return pkt
         else:

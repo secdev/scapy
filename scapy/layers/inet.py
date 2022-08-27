@@ -1197,20 +1197,20 @@ def _defrag_list(lst, defrag, missfrag):
         del p[conf.padding_layer].underlayer.payload
     ip = p[IP]
     if ip.len is None or ip.ihl is None:
-        clen = len(ip.payload)
+        c_len = len(ip.payload)
     else:
-        clen = ip.len - (ip.ihl << 2)
+        c_len = ip.len - (ip.ihl << 2)
     txt = conf.raw_layer()
     for q in lst[1:]:
-        if clen != q.frag << 3:  # Wrong fragmentation offset
-            if clen > q.frag << 3:
-                warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag << 3, p, txt, q))  # noqa: E501
+        if c_len != q.frag << 3:  # Wrong fragmentation offset
+            if c_len > q.frag << 3:
+                warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (c_len, q.frag << 3, p, txt, q))  # noqa: E501
             missfrag.extend(lst)
             break
         if q[IP].len is None or q[IP].ihl is None:
-            clen += len(q[IP].payload)
+            c_len += len(q[IP].payload)
         else:
-            clen += q[IP].len - (q[IP].ihl << 2)
+            c_len += q[IP].len - (q[IP].ihl << 2)
         if conf.padding_layer in q:
             del q[conf.padding_layer].underlayer.payload
         txt.add_payload(q[IP].payload.copy())

@@ -454,7 +454,8 @@ use.
         self.name = self.dflt.name
         if any(x[0].name != self.name for x in self.flds):
             warnings.warn(
-                "All fields should have the same name in a MultipleTypeField",
+                ("All fields should have the same name in a "
+                 "MultipleTypeField (%s)") % self.name,
                 SyntaxWarning
             )
 
@@ -597,8 +598,8 @@ class PadField(_FieldContainer):
         self._align = align
         self._padwith = padwith or b"\x00"
 
-    def padlen(self, flen):
-        # type: (int) -> int
+    def padlen(self, flen, pkt):
+        # type: (int, Packet) -> int
         return -flen % self._align
 
     def getfield(self,
@@ -607,7 +608,7 @@ class PadField(_FieldContainer):
                  ):
         # type: (...) -> Tuple[bytes, Any]
         remain, val = self.fld.getfield(pkt, s)
-        padlen = self.padlen(len(s) - len(remain))
+        padlen = self.padlen(len(s) - len(remain), pkt)
         return remain[padlen:], val
 
     def addfield(self,
@@ -619,7 +620,7 @@ class PadField(_FieldContainer):
         sval = self.fld.addfield(pkt, b"", val)
         return s + sval + struct.pack(
             "%is" % (
-                self.padlen(len(sval))
+                self.padlen(len(sval), pkt)
             ),
             self._padwith
         )
@@ -629,15 +630,18 @@ class ReversePadField(PadField):
     """Add bytes BEFORE the proxified field so that it starts at the specified
        alignment from its beginning"""
 
+    def original_length(self, pkt):
+        # type: (Packet) -> int
+        return len(pkt.original)
+
     def getfield(self,
                  pkt,  # type: Packet
                  s,  # type: bytes
                  ):
         # type: (...) -> Tuple[bytes, Any]
         # We need to get the length that has already been dissected
-        padlen = self.padlen(len(pkt.original) - len(s))
-        remain, val = self.fld.getfield(pkt, s[padlen:])
-        return remain, val
+        padlen = self.padlen(self.original_length(pkt) - len(s), pkt)
+        return self.fld.getfield(pkt, s[padlen:])
 
     def addfield(self,
                  pkt,  # type: Packet
@@ -647,7 +651,7 @@ class ReversePadField(PadField):
         # type: (...) -> bytes
         sval = self.fld.addfield(pkt, b"", val)
         return s + struct.pack("%is" % (
-            self.padlen(len(s))
+            self.padlen(len(s), pkt)
         ), self._padwith) + sval
 
 
@@ -1512,7 +1516,6 @@ class _PacketField(_StrField[K]):
                  ):
         # type: (...) -> Tuple[bytes, K]
         i = self.m2i(pkt, s)
-        i.add_parent(pkt)
         remain = b""
         if conf.padding_layer in i:
             r = i[conf.padding_layer]
@@ -1721,7 +1724,7 @@ class PacketListField(_PacketField[List[BasePacket]]):
               val,  # type: List[Packet]
               ):
         # type: (...) -> int
-        return sum(len(p) for p in val)
+        return sum(len(self.i2m(pkt, p)) for p in val)
 
     def getfield(self, pkt, s):
         # type: (Packet, bytes) -> Tuple[bytes, List[BasePacket]]
@@ -1772,8 +1775,6 @@ class PacketListField(_PacketField[List[BasePacket]]):
                             c += 1
                 else:
                     remain = b""
-            if isinstance(p, BasePacket):
-                p.add_parent(pkt)
             lst.append(p)
         return remain + ret, lst
 
@@ -1803,6 +1804,7 @@ class StrFixedLenField(StrField):
         super(StrFixedLenField, self).__init__(name, default)
         self.length_from = length_from or (lambda x: 0)
         if length is not None:
+            self.sz = length
             self.length_from = lambda x, length=length: length  # type: ignore
 
     def i2repr(self,
@@ -1832,6 +1834,10 @@ class StrFixedLenField(StrField):
             return RandBin(self.length_from(None))  # type: ignore
         except Exception:
             return RandBin(RandNum(0, 200))
+
+
+class StrFixedLenFieldUtf16(StrFixedLenField, StrFieldUtf16):
+    pass
 
 
 class StrFixedLenEnumField(_StrEnumField, StrFixedLenField):
@@ -2116,6 +2122,10 @@ class StrNullField(StrField):
     def randval(self):
         # type: () -> RandTermString
         return RandTermString(RandNum(0, 1200), self.DELIMITER)
+
+    def i2len(self, pkt, x):
+        # type: (Optional[Packet], Any) -> int
+        return super(StrNullField, self).i2len(pkt, x) + 1
 
 
 class StrNullFieldUtf16(StrNullField, StrFieldUtf16):
@@ -2453,7 +2463,9 @@ class _EnumField(Field[Union[List[I], I], I]):
 
     def any2i_one(self, pkt, x):
         # type: (Optional[Packet], Any) -> I
-        if isinstance(x, str):
+        if Enum and isinstance(x, Enum):
+            return cast(I, x.value)
+        elif isinstance(x, str):
             if self.s2i:
                 x = self.s2i[x]
             elif self.s2i_cb:
@@ -3351,7 +3363,7 @@ class UTCTimeField(Field[float, int]):
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[float]) -> int
         if x is None:
-            x = time.time()
+            x = time.time() - self.delta
             if self.use_msec:
                 x = x * 1e3
             elif self.use_micro:
@@ -3360,7 +3372,7 @@ class UTCTimeField(Field[float, int]):
                 x = x * 1e9
             elif self.custom_scaling:
                 x = x * self.custom_scaling
-            return int(x) - self.delta
+            return int(x)
         return int(x)
 
 

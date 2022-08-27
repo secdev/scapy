@@ -55,10 +55,11 @@ dnstypes = {
     45: "IPSECKEY", 46: "RRSIG", 47: "NSEC", 48: "DNSKEY", 49: "DHCID",
     50: "NSEC3", 51: "NSEC3PARAM", 52: "TLSA", 53: "SMIMEA", 55: "HIP",
     56: "NINFO", 57: "RKEY", 58: "TALINK", 59: "CDS", 60: "CDNSKEY",
-    61: "OPENPGPKEY", 62: "CSYNC", 99: "SPF", 100: "UINFO", 101: "UID",
-    102: "GID", 103: "UNSPEC", 104: "NID", 105: "L32", 106: "L64", 107: "LP",
-    108: "EUI48", 109: "EUI64", 249: "TKEY", 250: "TSIG", 256: "URI",
-    257: "CAA", 258: "AVC", 32768: "TA", 32769: "DLV", 65535: "RESERVED"
+    61: "OPENPGPKEY", 62: "CSYNC", 63: "ZONEMD", 64: "SVCB", 65: "HTTPS",
+    99: "SPF", 100: "UINFO", 101: "UID", 102: "GID", 103: "UNSPEC", 104: "NID",
+    105: "L32", 106: "L64", 107: "LP", 108: "EUI48", 109: "EUI64", 249: "TKEY",
+    250: "TSIG", 256: "URI", 257: "CAA", 258: "AVC", 259: "DOA",
+    260: "AMTRELAY", 32768: "TA", 32769: "DLV", 65535: "RESERVED"
 }
 
 

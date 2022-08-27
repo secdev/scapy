@@ -6,6 +6,8 @@
 # scapy.contrib.description = ISO-TP (ISO 15765-2)
 # scapy.contrib.status = loads
 
+import logging
+
 from scapy.consts import LINUX
 import scapy.libs.six as six
 from scapy.config import conf
@@ -21,9 +23,12 @@ from scapy.contrib.isotp.isotp_scanner import isotp_scan
 __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
            "ISOTP_CF", "ISOTP_FC", "ISOTPSoftSocket", "ISOTPSession",
            "ISOTPSocket", "ISOTPMessageBuilder", "isotp_scan",
-           "USE_CAN_ISOTP_KERNEL_MODULE"]
+           "USE_CAN_ISOTP_KERNEL_MODULE", "log_isotp"]
 
 USE_CAN_ISOTP_KERNEL_MODULE = False
+
+log_isotp = logging.getLogger("scapy.contrib.isotp")
+log_isotp.setLevel(logging.INFO)
 
 if six.PY3 and LINUX:
     try:

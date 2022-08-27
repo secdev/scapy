@@ -18,9 +18,10 @@ from typing import Sequence
 
 from scapy.compat import Dict, Optional, List, Type, Any, Iterable, \
     cast, Union, NamedTuple, orb, Set
+from scapy.contrib.automotive import log_automotive
 from scapy.packet import Raw, Packet
 import scapy.libs.six as six
-from scapy.error import Scapy_Exception, log_interactive
+from scapy.error import Scapy_Exception
 from scapy.contrib.automotive.uds import UDS, UDS_NR, UDS_DSC, UDS_TP, \
     UDS_RDBI, UDS_WDBI, UDS_SA, UDS_RC, UDS_IOCBI, UDS_RMBA, UDS_ER, \
     UDS_TesterPresentSender, UDS_CC, UDS_RDBPI, UDS_RD, UDS_TD
@@ -31,7 +32,8 @@ from scapy.contrib.automotive.scanner.enumerator import ServiceEnumerator, \
     StateGeneratingServiceEnumerator
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
     _SocketUnion, _TransitionTuple, StateGenerator
-from scapy.contrib.automotive.scanner.configuration import AutomotiveTestCaseExecutorConfiguration  # noqa: E501
+from scapy.contrib.automotive.scanner.configuration import \
+    AutomotiveTestCaseExecutorConfiguration  # noqa: E501
 from scapy.contrib.automotive.scanner.graph import _Edge
 from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTestCase  # noqa: E501
 from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor  # noqa: E501
@@ -43,6 +45,7 @@ if six.PY34:
     from abc import ABC
 else:
     from abc import ABCMeta
+
     ABC = ABCMeta('ABC', (), {})  # type: ignore
 
 # Definition outside the class UDS_RMBASequentialEnumerator
@@ -143,7 +146,7 @@ class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
         ans = socket.sr1(request, timeout=timeout, verbose=False)
         if ans is not None:
             if configuration.verbose:
-                log_interactive.debug(
+                log_automotive.debug(
                     "Try to enter session req: %s, resp: %s" %
                     (repr(request), repr(ans)))
             return cast(int, ans.service) != 0x7f
@@ -222,7 +225,7 @@ class UDS_TPEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
             configuration["tps"].stop()
             configuration["tps"] = None
         except (AttributeError, KeyError) as e:
-            log_interactive.debug("Cleanup TP-Sender Error: %s", e)
+            log_automotive.debug("Cleanup TP-Sender Error: %s", e)
         return True
 
     def get_transition_function(self, socket, edge):
@@ -313,7 +316,7 @@ class UDS_ServiceEnumerator(UDS_Enumerator):
                            **kwargs  # type: Optional[Dict[str, Any]]
                            ):  # type: (...) -> bool
         if response and response.service == 0x51:
-            log_interactive.warning(
+            log_automotive.warning(
                 "ECUResetPositiveResponse detected! This might have changed "
                 "the state of the ECU under test.")
 
@@ -484,10 +487,10 @@ class UDS_WDBIEnumerator(UDS_Enumerator):
         rdbi_enumerator = kwargs.pop("rdbi_enumerator", None)
 
         if rdbi_enumerator is None:
-            log_interactive.debug("[i] Use entire scan range")
+            log_automotive.debug("Use entire scan range")
             return (UDS() / UDS_WDBI(dataIdentifier=x) for x in scan_range)
         elif isinstance(rdbi_enumerator, UDS_RDBIEnumerator):
-            log_interactive.debug("[i] Selective scan based on RDBI results")
+            log_automotive.debug("Selective scan based on RDBI results")
             return (UDS() / UDS_WDBI(dataIdentifier=t.resp.dataIdentifier) /
                     Raw(load=bytes(t.resp)[3:])
                     for t in rdbi_enumerator.results_with_positive_response
@@ -561,8 +564,8 @@ class UDS_SAEnumerator(UDS_Enumerator):
 
         if response.service == 0x7f and \
                 self._get_negative_response_code(response) in [0x24, 0x37]:
-            log_interactive.debug(
-                "[i] Retry %s because requiredTimeDelayNotExpired or "
+            log_automotive.debug(
+                "Retry %s because requiredTimeDelayNotExpired or "
                 "requestSequenceError received",
                 repr(request))
             return super(UDS_SAEnumerator, self)._populate_retry(
@@ -582,7 +585,7 @@ class UDS_SAEnumerator(UDS_Enumerator):
         if response is not None and \
                 response.service == 0x67 and \
                 response.securityAccessType % 2 == 1:
-            log_interactive.debug("[i] Seed received. Leave scan to try a key")
+            log_automotive.debug("Seed received. Leave scan to try a key")
             return True
         return False
 
@@ -597,12 +600,12 @@ class UDS_SAEnumerator(UDS_Enumerator):
                 return None
             elif seed.service == 0x7f and \
                     UDS_Enumerator._get_negative_response_code(seed) != 0x37:
-                log_interactive.info(
+                log_automotive.info(
                     "Security access no seed! NR: %s", repr(seed))
                 return None
 
             elif seed.service == 0x7f and seed.negativeResponseCode == 0x37:
-                log_interactive.info("Security access retry to get seed")
+                log_automotive.info("Security access retry to get seed")
                 time.sleep(10)
                 continue
             else:
@@ -613,13 +616,13 @@ class UDS_SAEnumerator(UDS_Enumerator):
     def evaluate_security_access_response(res, seed, key):
         # type: (Optional[Packet], Packet, Optional[Packet]) -> bool
         if res is None or res.service == 0x7f:
-            log_interactive.info(repr(seed))
-            log_interactive.info(repr(key))
-            log_interactive.info(repr(res))
-            log_interactive.info("Security access error!")
+            log_automotive.info(repr(seed))
+            log_automotive.info(repr(key))
+            log_automotive.info(repr(res))
+            log_automotive.info("Security access error!")
             return False
         else:
-            log_interactive.info("Security access granted!")
+            log_automotive.info("Security access granted!")
             return True
 
 
@@ -664,7 +667,7 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
 
     def get_security_access(self, sock, level=1, seed_pkt=None):
         # type: (_SocketUnion, int, Optional[Packet]) -> bool
-        log_interactive.info(
+        log_automotive.info(
             "Try bootloader security access for level %d" % level)
         if seed_pkt is None:
             seed_pkt = self.get_seed_pkt(sock, level)
@@ -681,17 +684,17 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
         try:
             res = sock.sr1(key_pkt, timeout=5, verbose=False)
             if sock.closed:
-                log_interactive.critical("[-] Socket closed during scan.")
+                log_automotive.critical("Socket closed during scan.")
                 raise Scapy_Exception("Socket closed during scan")
         except (OSError, ValueError, Scapy_Exception) as e:
             try:
                 last_seed_req = self._results[-1].req
                 last_state = self._results[-1].state
                 if not self._populate_retry(last_state, last_seed_req):
-                    log_interactive.critical(
-                        "[-] Exception during retry. This is bad")
+                    log_automotive.exception(
+                        "Exception during retry. This is bad")
             except IndexError:
-                log_interactive.warning("[-] Couldn't populate retry.")
+                log_automotive.warning("Couldn't populate retry.")
             raise e
 
         return self.evaluate_security_access_response(
@@ -724,7 +727,7 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
             sec_lvl = seed.securityAccessType
 
             if self.get_security_access(socket, sec_lvl, seed):
-                log_interactive.debug("Security Access found.")
+                log_automotive.debug("Security Access found.")
                 # create edge
                 new_state = copy.copy(last_state)
                 new_state.security_level = seed.securityAccessType + 1  # type: ignore  # noqa: E501
@@ -742,8 +745,7 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
     def get_transition_function(self, socket, edge):
         # type: (_SocketUnion, _Edge) -> Optional[_TransitionTuple]
         return self.transition_function, \
-            self._transition_function_args[edge], \
-            None
+            self._transition_function_args[edge], None
 
 
 class UDS_RCEnumerator(UDS_Enumerator):
@@ -907,6 +909,7 @@ class UDS_RMBARandomEnumerator(UDS_RMBAEnumeratorABC):
     _supported_kwargs.update({
         'unittest': (bool, None)
     })
+    del _supported_kwargs["scan_range"]
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
         :param bool unittest: Enables smaller search space for unit-test
@@ -966,7 +969,8 @@ class UDS_RMBASequentialEnumerator(UDS_RMBAEnumeratorABC):
     def __init__(self):
         # type: () -> None
         super(UDS_RMBASequentialEnumerator, self).__init__()
-        self.__points_of_interest = defaultdict(list)  # type: Dict[EcuState, List[_PointOfInterest]]  # noqa: E501
+        self.__points_of_interest = defaultdict(
+            list)  # type: Dict[EcuState, List[_PointOfInterest]]  # noqa: E501
         self.__initial_points_of_interest = None  # type: Optional[List[_PointOfInterest]]  # noqa: E501
 
     def _get_memory_addresses_from_results(self, results):
@@ -1086,7 +1090,7 @@ class UDS_RMBASequentialEnumerator(UDS_RMBAEnumeratorABC):
             ih.tofile("RMBA_dump.hex", format="hex")
         except ImportError:
             err_msg = "Install 'intelhex' to create a hex file of the memory"
-            log_interactive.critical(err_msg)
+            log_automotive.exception(err_msg)
             with open("RMBA_dump.hex", "w") as file:
                 file.write(err_msg)
 
@@ -1214,6 +1218,7 @@ class UDS_Scanner(AutomotiveTestCaseExecutor):
         >>> s.show_testcases_status()
         >>> s.show_testcases()
     """
+
     @property
     def default_test_case_clss(self):
         # type: () -> List[Type[AutomotiveTestCaseABC]]
