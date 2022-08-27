@@ -8,14 +8,13 @@
 # scapy.contrib.status = loads
 
 """
-    STUN (RFC 5389)
+    STUN (RFC 8489)
 
     TLV code derived from the DTP implementation:
       Thanks to Nicolas Bareil,
                 Arnaud Ebalard,
                 Jochen Bartl.
 """
-
 import struct
 import itertools
 
@@ -145,16 +144,12 @@ class XorPort(ShortField):
 class XorIp(IPField):
 
     def m2i(self, pkt, x):
-        return inet_ntoa((
-            int.from_bytes(x, byteorder="big") ^ MAGIC_COOKIE
-        ).to_bytes(4, byteorder="big"))
+        return inet_ntoa(struct.pack(">i", (struct.unpack(">i", x)[0] ^ MAGIC_COOKIE)))
 
     def i2m(self, pkt, x):
         if x is None:
             return b"\x00\x00\x00\x00"
-        return (
-            int.from_bytes(inet_aton(x), byteorder="big") ^ MAGIC_COOKIE
-        ).to_bytes(4, byteorder="big")
+        return struct.pack(">i", struct.unpack(">i", inet_aton(x)) ^ MAGIC_COOKIE)
 
 
 class STUNXorMappedAddress(STUNGenericTlv):

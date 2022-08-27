@@ -99,6 +99,7 @@ assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding
 assert parsed.length == 88
 assert parsed.magic_cookie == 0x2112A442
 assert parsed.transaction_id == 0x3479476534635936316a796a, parsed.transaction_id
+assert parsed.attributes[0] == STUNXorMappedAddress(xport=25000, xip="172.20.0.200"), parsed.attributes
 assert parsed.attributes == [
       STUNXorMappedAddress(xport=25000, xip="172.20.0.200"),
       STUNUsername(length=37, username="Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25:oNph"),
