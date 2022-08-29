@@ -259,6 +259,11 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
     def NEGOTIATED(self):
         pass
 
+    def update_smbheader(self, pkt):
+        self.smb_header.TID = pkt.TID
+        self.smb_header.MID = pkt.MID
+        self.smb_header.PID = pkt.PID
+
     @ATMT.receive_condition(NEGOTIATED)
     def received_negotiate_smb2(self, pkt):
         if SMB2_Negotiate_Protocol_Request in pkt:

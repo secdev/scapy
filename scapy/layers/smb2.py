@@ -38,6 +38,7 @@ from scapy.fields import (
     StrFixedLenField,
     StrLenFieldUtf16,
     StrLenField,
+    StrNullFieldUtf16,
     UTCTimeField,
     UUIDField,
     XLEIntField,
@@ -169,12 +170,21 @@ FileInformationClasses = {
     0x03: "FileBothDirectoryInformation",
     0x05: "FileStandardInformation",
     0x06: "FileInternalInformation",
+    0x07: "FileEaInformation",
     0x22: "FileNetworkOpenInformation",
     0x25: "FileIdBothDirectoryInformation",
     0x26: "FileIdFullDirectoryInformation",
     0x0C: "FileNamesInformation",
     0x3C: "FileIdExtdDirectoryInformation",
 }
+
+
+# [MS-FSCC] 2.4.12 FileEaInformation
+
+class FileEaInformation(Packet):
+    fields_desc = [
+        LEIntField("EaSize", 0),
+    ]
 
 
 # [MS-FSCC] 2.4.29 FileNetworkOpenInformation
@@ -265,6 +275,81 @@ class FileStandardInformation(Packet):
         ByteField("DeletePending", 0),
         ByteField("Directory", 0),
         ShortField("Reserved", 0),
+    ]
+
+# [MS-FSCC] 2.4.43 FileStreamInformation
+
+
+class FileStreamInformation(Packet):
+    fields_desc = [
+        LEIntField("Next", 0),
+        FieldLenField("StreamNameLength", None, length_of="StreamName", fmt="<I"),
+        LELongField("StreamSize", 0),
+        LELongField("StreamAllocationSize", 0),
+        StrLenFieldUtf16("StreamName", b"::$DATA",
+                         length_from=lambda pkt: pkt.StreamNameLength)
+    ]
+
+# [MS-DTYP] 2.4.6 SECURITY_DESCRIPTOR
+
+
+class SECURITY_DESCRIPTOR(Packet):
+    fields_desc = [
+        ByteField("Revision", 0x01),
+        ByteField("Sbz1", 0x00),
+        FlagsField("Control", 0x00, -16, [
+            "SelfRelative",
+            "RMControlValid",
+            "SACLProtected",
+            "DACLProtected",
+            "SACLAutoInherited",
+            "DACLAutoInheriter",
+            "SACLComputer",
+            "DACLComputer",
+            "ServerSecurity",
+            "DACLTrusted",
+            "SACLDefaulted",
+            "SACLPresent",
+            "DACLDefaulted",
+            "DACLPresent",
+            "GroupDefaulted",
+            "OwnerDefaulted",
+        ]),
+        LEIntField("OffsetOwner", 0),
+        LEIntField("OffsetGroup", 0),
+        LEIntField("OffsetSacl", 0),
+        LEIntField("OffsetDacl", 0),
+        ConditionalField(
+            XStrLenField("OwnerSid", b""),
+            lambda pkt: pkt.OffsetOwner
+        ),
+        ConditionalField(
+            XStrLenField("GroupSid", b""),
+            lambda pkt: pkt.OffsetGroup
+        ),
+        ConditionalField(
+            XStrLenField("Sacl", b""),
+            lambda pkt: pkt.Control.SACLPresent,
+        ),
+        ConditionalField(
+            XStrLenField("Dacl", b""),
+            lambda pkt: pkt.Control.DACLPresent,
+        )
+    ]
+
+# [MS-FSCC] 2.5.9 FileFsVolumeInformation
+
+
+class FileFsVolumeInformation(Packet):
+    fields_desc = [
+        UTCTimeField("VolumeCreationTime", None, fmt="<Q",
+                     epoch=[1601, 1, 1, 0, 0, 0],
+                     custom_scaling=1e7),
+        LEIntField("VolumeSerialNumber", 0),
+        LEIntField("VolumeLabelLength", 0),
+        ByteField("SupportsObjects", 1),
+        ByteField("Reserved", 0),
+        StrNullFieldUtf16("VolumeLabel", b"C"),
     ]
 
 
