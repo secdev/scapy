@@ -857,8 +857,11 @@ class NTLM_Server(_NTLM_Automaton):
                 auth_tok, _, _, rawToken = self.token_pipe.recv()
                 if NTLM_AUTHENTICATE_V2 not in auth_tok:
                     raise ValueError("Unexpected state :(")
-                username = auth_tok.UserName
                 if self.IDENTITIES:
+                    if auth_tok.UserNameLen:
+                        username = auth_tok.UserName
+                    else:
+                        username = None
                     # We should know this user's KeyResponseNT. Check it
                     if username in self.IDENTITIES:
                         NTProofStr = auth_tok.NtChallengeResponse.computeNTProofStr(
@@ -878,7 +881,10 @@ class NTLM_Server(_NTLM_Automaton):
     def received_ntlm_token(self, ntlm_tuple):
         ntlm = ntlm_tuple[0]
         if isinstance(ntlm, NTLM_AUTHENTICATE_V2) and self.IDENTITIES:
-            username = ntlm.UserName
+            if ntlm.UserNameLen:
+                username = ntlm.UserName
+            else:
+                username = None
             if username in self.IDENTITIES:
                 SessionBaseKey = NTLMv2_ComputeSessionBaseKey(
                     self.IDENTITIES[username],
