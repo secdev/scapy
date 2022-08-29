@@ -238,3 +238,70 @@ assert copydata_out.contents[6].data == b'6\tPip\t66\t6\n'
 assert isinstance(copydata_out.contents[7], CopyDone)
 assert isinstance(copydata_out.contents[8], CommandComplete)
 assert isinstance(copydata_out.contents[9], ReadyForQuery)
+
+= Check example request packet
+
+request = PostgresFrontend(
+    b"\x50\x00\x00\x00\x64\x00\x53\x45\x4c\x45\x43\x54\x20\x44\x5f\x4e"
+    b"\x45\x58\x54\x5f\x4f\x5f\x49\x44\x2c\x20\x44\x5f\x54\x41\x58\x20"
+    b"\x20\x20\x46\x52\x4f\x4d\x20\x64\x69\x73\x74\x72\x69\x63\x74\x20"
+    b"\x57\x48\x45\x52\x45\x20\x44\x5f\x57\x5f\x49\x44\x20\x3d\x20\x24"
+    b"\x31\x20\x41\x4e\x44\x20\x44\x5f\x49\x44\x20\x3d\x20\x24\x32\x20"
+    b"\x46\x4f\x52\x20\x55\x50\x44\x41\x54\x45\x00\x00\x02\x00\x00\x00"
+    b"\x17\x00\x00\x00\x17\x42\x00\x00\x00\x20\x00\x00\x00\x02\x00\x01"
+    b"\x00\x01\x00\x02\x00\x00\x00\x04\x00\x00\x00\x14\x00\x00\x00\x04"
+    b"\x00\x00\x00\x0a\x00\x00\x44\x00\x00\x00\x06\x50\x00\x45\x00\x00"
+    b"\x00\x09\x00\x00\x00\x00\x00\x53\x00\x00\x00\x04"
+)
+
+assert len(request.contents) == 5
+assert isinstance(request.contents[0], Parse)
+assert isinstance(request.contents[1], Bind)
+assert isinstance(request.contents[2], Describe)
+assert isinstance(request.contents[3], Execute)
+assert isinstance(request.contents[4], Sync)
+
+= Check parse decoding
+
+parse_msg = request.contents[0]
+assert parse_msg.len == 100
+assert parse_msg.destination == b""
+assert parse_msg.query == b"SELECT D_NEXT_O_ID, D_TAX   FROM district WHERE D_W_ID = $1 AND D_ID = $2 FOR UPDATE"
+assert parse_msg.num_param_dtypes == 2
+assert parse_msg.params[0] == 23
+assert parse_msg.params[1] == 23
+
+= Check bind decoding
+
+bind_msg = request.contents[1]
+assert bind_msg.len == 32
+assert bind_msg.destination == b""
+assert bind_msg.statement == b""
+assert bind_msg.codes_count == 2
+assert bind_msg.codes[0] == 1
+assert bind_msg.codes[1] == 1
+assert bind_msg.values_count == 2
+assert bind_msg.values[0].len == 4
+assert bind_msg.values[0].data == b"\x00\x00\x00\x14"
+assert bind_msg.values[1].len == 4
+assert bind_msg.values[1].data == b"\x00\x00\x00\x0a"
+assert bind_msg.results_count == 0
+
+= Check describe decoding
+
+describe_msg = request.contents[2]
+assert describe_msg.len == 6
+assert describe_msg.close_type == b"P"
+assert describe_msg.statement == b""
+
+= Check execute decoding
+
+exec_msg = request.contents[3]
+assert exec_msg.len == 9
+assert exec_msg.portal == b""
+assert exec_msg.rows == 0
+
+= Check sync decoding
+
+sync_msg = request.contents[4]
+assert sync_msg.len == 4

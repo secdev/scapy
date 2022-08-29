@@ -777,7 +777,7 @@ class PostgresFrontend(_BasePostgres):
     @classmethod
     def tcp_reassemble(cls, data, metadata):
         msgs = PostgresFrontend(data)
-        if len(msgs.contents) > 0 and "Sync" in msgs.contents[-1]:
+        if msgs.contents and "Sync" in msgs.contents[-1]:
             return msgs
 
 
@@ -787,7 +787,7 @@ class PostgresBackend(_BasePostgres):
     @classmethod
     def tcp_reassemble(cls, data, metadata):
         msgs = PostgresBackend(data)
-        if len(msgs.contents) > 0 and "ReadyForQuery" in msgs.contents[-1]:
+        if msgs.contents and "ReadyForQuery" in msgs.contents[-1]:
             return msgs
 
 
