@@ -235,7 +235,7 @@ class _NextPacketListField(PacketListField):
         res = b""
         for i, v in enumerate(val):
             x = self.i2m(pkt, v)
-            if v.Next is None and i != len(v) - 1:
+            if v.Next is None and i != len(val) - 1:
                 x = struct.pack("<I", len(x)) + x[4:]
             res += x
         return s + res
@@ -260,7 +260,7 @@ class FileInternalInformation(Packet):
 class FileStandardInformation(Packet):
     fields_desc = [
         LELongField("AllocationSize", 4096),
-        LELongField("EndOfFile", 4096),
+        LELongField("EndOfFile", 0),
         LEIntField("NumberOfLinks", 1),
         ByteField("DeletePending", 0),
         ByteField("Directory", 0),
