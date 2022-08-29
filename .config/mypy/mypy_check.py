@@ -98,13 +98,13 @@ elif PLATFORM.startswith("win32"):
     ])
     FILES = [
         x for x in FILES if (
-            x not in [
+            x not in {
                 # Disabled on Windows
                 "scapy/arch/linux.py",
                 "scapy/arch/solaris.py",
                 "scapy/contrib/cansocket_native.py",
                 "scapy/contrib/isotp/isotp_native_socket.py",
-            ]
+            }
         ) and not x.startswith("scapy/arch/bpf")
     ]
 else:
