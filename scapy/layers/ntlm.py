@@ -928,7 +928,8 @@ def ntlm_relay(serverCls,
                ALLOW_SMB2=None,
                server_kwargs=None,
                client_kwargs=None,
-               iface=None):
+               iface=None,
+               debug=2):
     """
     NTLM Relay
 
@@ -976,7 +977,7 @@ def ntlm_relay(serverCls,
         while not evt.is_set():
             clientsocket, address = ssock.accept()
             sock = StreamSocket(clientsocket, serverCls.cls)
-            srv_atmt = serverCls(sock, debug=4, **server_kwargs)
+            srv_atmt = serverCls(sock, debug=debug, **server_kwargs)
             # Connect to real server
             _sock = socket.socket()
             _sock.connect(
@@ -995,7 +996,7 @@ def ntlm_relay(serverCls,
                 remote_sock = StreamSocket(_sock, remoteClientCls.cls)
             print("%s connected -> %s" %
                   (repr(address), repr(_sock.getsockname())))
-            cli_atmt = remoteClientCls(remote_sock, debug=4, **client_kwargs)
+            cli_atmt = remoteClientCls(remote_sock, debug=debug, **client_kwargs)
             sock_tup = ((srv_atmt, cli_atmt), (sock, remote_sock))
             sniffers.append(sock_tup)
             # Bind NTLM functions
@@ -1023,7 +1024,8 @@ def ntlm_relay(serverCls,
 
 def ntlm_server(serverCls,
                 server_kwargs=None,
-                iface=None):
+                iface=None,
+                debug=2):
     """
     Starts a standalone NTLM server class
     """
@@ -1034,6 +1036,9 @@ def ntlm_server(serverCls,
     ssock.bind(
         (get_if_addr(iface or conf.iface), serverCls.port))
     ssock.listen(5)
+    print(conf.color_theme.green(
+        "Server %s started. Waiting..." % serverCls.__name__
+    ))
     sniffers = []
     server_kwargs = server_kwargs or {}
     try:
@@ -1041,9 +1046,9 @@ def ntlm_server(serverCls,
         while not evt.is_set():
             clientsocket, address = ssock.accept()
             sock = StreamSocket(clientsocket, serverCls.cls)
-            srv_atmt = serverCls(sock, debug=4, **server_kwargs)
+            srv_atmt = serverCls(sock, debug=debug, **server_kwargs)
             sniffers.append((srv_atmt, sock))
-            print("%s connected " % repr(address))
+            print(conf.color_theme.gold("-> %s connected " % repr(address)))
             # Start automatons
             srv_atmt.runbg()
     except KeyboardInterrupt:
