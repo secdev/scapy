@@ -450,7 +450,7 @@ class _CanvasDumpExtended(object):
         if filename is None:
             fname = get_temp_file(autoext=kargs.get("suffix", ".eps"))
             canvas.writeEPSfile(fname)
-            if WINDOWS and conf.prog.psreader is None:
+            if WINDOWS and not conf.prog.psreader:
                 os.startfile(fname)
             else:
                 with ContextManagerSubprocess(conf.prog.psreader):
@@ -475,7 +475,7 @@ class _CanvasDumpExtended(object):
         if filename is None:
             fname = get_temp_file(autoext=kargs.get("suffix", ".pdf"))
             canvas.writePDFfile(fname)
-            if WINDOWS and conf.prog.pdfreader is None:
+            if WINDOWS and not conf.prog.pdfreader:
                 os.startfile(fname)
             else:
                 with ContextManagerSubprocess(conf.prog.pdfreader):
@@ -500,7 +500,7 @@ class _CanvasDumpExtended(object):
         if filename is None:
             fname = get_temp_file(autoext=kargs.get("suffix", ".svg"))
             canvas.writeSVGfile(fname)
-            if WINDOWS and conf.prog.svgreader is None:
+            if WINDOWS and not conf.prog.svgreader:
                 os.startfile(fname)
             else:
                 with ContextManagerSubprocess(conf.prog.svgreader):

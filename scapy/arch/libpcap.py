@@ -38,6 +38,7 @@ from scapy.utils import str2mac
 import scapy.consts
 
 from scapy.compat import (
+    cast,
     Dict,
     List,
     NoReturn,
@@ -140,7 +141,7 @@ if conf.use_pcap:
         from scapy.libs.winpcapy import pcap_setmintocopy, pcap_getevent
     else:
         from scapy.libs.winpcapy import pcap_get_selectable_fd
-    from ctypes import POINTER, byref, create_string_buffer, c_ubyte, cast
+    from ctypes import POINTER, byref, create_string_buffer, c_ubyte, cast as ccast
 
     # Part of the Winpcapy integration was inspired by phaethon/scapy
     # but he destroyed the commit history, so there is no link to that
@@ -201,10 +202,10 @@ if conf.use_pcap:
                         family = a.contents.addr.contents.sa_family
                         ap = a.contents.addr
                         if family == socket.AF_INET:
-                            val = cast(ap, POINTER(sockaddr_in))
+                            val = ccast(ap, POINTER(sockaddr_in))
                             addr_raw = val.contents.sin_addr[:]
                         elif family == socket.AF_INET6:
-                            val = cast(ap, POINTER(sockaddr_in6))
+                            val = ccast(ap, POINTER(sockaddr_in6))
                             addr_raw = val.contents.sin6_addr[:]
                         elif family == socket.AF_LINK:
                             # Special case: MAC
@@ -258,6 +259,8 @@ if conf.use_pcap:
                 conf.use_npcap = True
                 conf.loopback_name = conf.loopback_name = "Npcap Loopback Adapter"  # noqa: E501
 
+if WINDOWS:
+    NPCAP_PATH = ""
 if conf.use_pcap:
     class _PcapWrapper_libpcap:  # noqa: F811
         """Wrapper for the libpcap calls"""
@@ -340,10 +343,10 @@ if conf.use_pcap:
         def fileno(self):
             # type: () -> int
             if WINDOWS:
-                return pcap_getevent(self.pcap)
+                return cast(int, pcap_getevent(self.pcap))
             else:
                 # This does not exist under Windows
-                return pcap_get_selectable_fd(self.pcap)  # type: ignore
+                return cast(int, pcap_get_selectable_fd(self.pcap))
 
         def setfilter(self, f):
             # type: (str) -> bool
@@ -445,11 +448,12 @@ if conf.use_pcap:
             )
             super(L2pcapListenSocket, self).__init__(fd)
             try:
-                ioctl(
-                    self.pcap_fd.fileno(),
-                    BIOCIMMEDIATE,
-                    struct.pack("I", 1)
-                )
+                if not WINDOWS:
+                    ioctl(
+                        self.pcap_fd.fileno(),
+                        BIOCIMMEDIATE,
+                        struct.pack("I", 1)
+                    )
             except Exception:
                 pass
             if type == ETH_P_ALL:  # Do not apply any filter if Ethernet type is given  # noqa: E501
@@ -490,11 +494,12 @@ if conf.use_pcap:
                            monitor=monitor)
             super(L2pcapSocket, self).__init__(fd)
             try:
-                ioctl(
-                    self.pcap_fd.fileno(),
-                    BIOCIMMEDIATE,
-                    struct.pack("I", 1)
-                )
+                if not WINDOWS:
+                    ioctl(
+                        self.pcap_fd.fileno(),
+                        BIOCIMMEDIATE,
+                        struct.pack("I", 1)
+                    )
             except Exception:
                 pass
             if nofilter:
@@ -548,7 +553,3 @@ if conf.use_pcap:
             except AttributeError:
                 pass
             return self.pcap_fd.send(sx)
-else:
-    # No libpcap installed
-    if WINDOWS:
-        NPCAP_PATH = ""

@@ -111,7 +111,7 @@ class SuperSocket:
         else:
             return 0
 
-    if six.PY2:
+    if six.PY2 or WINDOWS:
         def _recv_raw(self, sock, x):
             # type: (socket.socket, int) -> Tuple[bytes, Any, Optional[float]]
             """Internal function to receive a Packet"""
@@ -283,96 +283,97 @@ class SuperSocket:
         self.close()
 
 
-class L3RawSocket(SuperSocket):
-    desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
+if not WINDOWS:
+    class L3RawSocket(SuperSocket):
+        desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
 
-    def __init__(self,
-                 type=ETH_P_IP,  # type: int
-                 filter=None,  # type: Optional[str]
-                 iface=None,  # type: Optional[_GlobInterfaceType]
-                 promisc=None,  # type: Optional[bool]
-                 nofilter=0  # type: int
-                 ):
-        # type: (...) -> None
-        self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)  # noqa: E501
-        self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
-        if iface is not None:
-            iface = network_name(iface)
-            self.iface = iface
-            self.ins.bind((iface, type))
-        else:
-            self.iface = "any"
-        if not six.PY2:
+        def __init__(self,
+                     type=ETH_P_IP,  # type: int
+                     filter=None,  # type: Optional[str]
+                     iface=None,  # type: Optional[_GlobInterfaceType]
+                     promisc=None,  # type: Optional[bool]
+                     nofilter=0  # type: int
+                     ):
+            # type: (...) -> None
+            self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)  # noqa: E501
+            self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
+            self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
+            if iface is not None:
+                iface = network_name(iface)
+                self.iface = iface
+                self.ins.bind((iface, type))
+            else:
+                self.iface = "any"
+            if not six.PY2:
+                try:
+                    # Receive Auxiliary Data (VLAN tags)
+                    self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
+                    self.ins.setsockopt(
+                        socket.SOL_SOCKET,
+                        SO_TIMESTAMPNS,
+                        1
+                    )
+                    self.auxdata_available = True
+                except OSError:
+                    # Note: Auxiliary Data is only supported since
+                    #       Linux 2.6.21
+                    msg = "Your Linux Kernel does not support Auxiliary Data!"
+                    log_runtime.info(msg)
+
+        def recv(self, x=MTU):
+            # type: (int) -> Optional[Packet]
+            data, sa_ll, ts = self._recv_raw(self.ins, x)
+            if sa_ll[2] == socket.PACKET_OUTGOING:
+                return None
+            if sa_ll[3] in conf.l2types:
+                cls = conf.l2types.num2layer[sa_ll[3]]  # type: Type[Packet]
+                lvl = 2
+            elif sa_ll[1] in conf.l3types:
+                cls = conf.l3types.num2layer[sa_ll[1]]
+                lvl = 3
+            else:
+                cls = conf.default_l2
+                warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], cls.name)  # noqa: E501
+                lvl = 3
+
             try:
-                # Receive Auxiliary Data (VLAN tags)
-                self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
-                self.ins.setsockopt(
-                    socket.SOL_SOCKET,
-                    SO_TIMESTAMPNS,
-                    1
-                )
-                self.auxdata_available = True
-            except OSError:
-                # Note: Auxiliary Data is only supported since
-                #       Linux 2.6.21
-                msg = "Your Linux Kernel does not support Auxiliary Data!"
-                log_runtime.info(msg)
-
-    def recv(self, x=MTU):
-        # type: (int) -> Optional[Packet]
-        data, sa_ll, ts = self._recv_raw(self.ins, x)
-        if sa_ll[2] == socket.PACKET_OUTGOING:
-            return None
-        if sa_ll[3] in conf.l2types:
-            cls = conf.l2types.num2layer[sa_ll[3]]  # type: Type[Packet]
-            lvl = 2
-        elif sa_ll[1] in conf.l3types:
-            cls = conf.l3types.num2layer[sa_ll[1]]
-            lvl = 3
-        else:
-            cls = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], cls.name)  # noqa: E501
-            lvl = 3
-
-        try:
-            pkt = cls(data)
-        except KeyboardInterrupt:
-            raise
-        except Exception:
-            if conf.debug_dissector:
+                pkt = cls(data)
+            except KeyboardInterrupt:
                 raise
-            pkt = conf.raw_layer(data)
+            except Exception:
+                if conf.debug_dissector:
+                    raise
+                pkt = conf.raw_layer(data)
 
-        if lvl == 2:
-            pkt = pkt.payload
+            if lvl == 2:
+                pkt = pkt.payload
 
-        if pkt is not None:
-            if ts is None:
-                from scapy.arch.linux import get_last_packet_timestamp
-                ts = get_last_packet_timestamp(self.ins)
-            pkt.time = ts
-        return pkt
+            if pkt is not None:
+                if ts is None:
+                    from scapy.arch.linux import get_last_packet_timestamp
+                    ts = get_last_packet_timestamp(self.ins)
+                pkt.time = ts
+            return pkt
 
-    def send(self, x):
-        # type: (Packet) -> int
-        try:
-            sx = raw(x)
-            if self.outs:
-                x.sent_time = time.time()
-                return self.outs.sendto(
-                    sx,
-                    (x.dst, 0)
+        def send(self, x):
+            # type: (Packet) -> int
+            try:
+                sx = raw(x)
+                if self.outs:
+                    x.sent_time = time.time()
+                    return self.outs.sendto(
+                        sx,
+                        (x.dst, 0)
+                    )
+            except AttributeError:
+                raise ValueError(
+                    "Missing 'dst' attribute in the first layer to be "
+                    "sent using a native L3 socket ! (make sure you passed the "
+                    "IP layer)"
                 )
-        except AttributeError:
-            raise ValueError(
-                "Missing 'dst' attribute in the first layer to be "
-                "sent using a native L3 socket ! (make sure you passed the "
-                "IP layer)"
-            )
-        except socket.error as msg:
-            log_runtime.error(msg)
-        return 0
+            except socket.error as msg:
+                log_runtime.error(msg)
+            return 0
 
 
 class SimpleSocket(SuperSocket):

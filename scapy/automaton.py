@@ -140,39 +140,40 @@ class ObjectPipe(Generic[_T]):
         self.__rd, self.__wr = os.pipe()
         self.__queue = deque()  # type: Deque[_T]
         if WINDOWS:
+            self._fd = None  # type: Optional[int]
             self._wincreate()
 
     if WINDOWS:
         def _wincreate(self):
             # type: () -> None
-            self._fd = ctypes.windll.kernel32.CreateEventA(
+            self._fd = cast(int, ctypes.windll.kernel32.CreateEventA(
                 None, True, False,
                 ctypes.create_string_buffer(b"ObjectPipe %f" % random.random())
-            )
+            ))
 
         def _winset(self):
             # type: () -> None
             if ctypes.windll.kernel32.SetEvent(
                     ctypes.c_void_p(self._fd)) == 0:
-                warning(ctypes.FormatError())
+                warning(ctypes.FormatError(ctypes.GetLastError()))
 
         def _winreset(self):
             # type: () -> None
             if ctypes.windll.kernel32.ResetEvent(
                     ctypes.c_void_p(self._fd)) == 0:
-                warning(ctypes.FormatError())
+                warning(ctypes.FormatError(ctypes.GetLastError()))
 
         def _winclose(self):
             # type: () -> None
             if self._fd and ctypes.windll.kernel32.CloseHandle(
                     ctypes.c_void_p(self._fd)) == 0:
-                warning(ctypes.FormatError())
+                warning(ctypes.FormatError(ctypes.GetLastError()))
                 self._fd = None
 
     def fileno(self):
         # type: () -> int
         if WINDOWS:
-            return self._fd
+            return self._fd if self._fd is not None else -1
         return self.__rd
 
     def send(self, obj):

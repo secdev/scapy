@@ -29,6 +29,7 @@ from scapy.libs import six
 from scapy.themes import NoTheme, apply_ipython_style
 
 from scapy.compat import (
+    cast,
     Any,
     Callable,
     DecoratorCallable,
@@ -50,6 +51,7 @@ if TYPE_CHECKING:
     # Do not import at runtime
     import scapy.as_resolvers
     from scapy.packet import Packet
+    from scapy.supersocket import SuperSocket  # noqa: F401
     import scapy.asn1.asn1
     import scapy.asn1.mib
 
@@ -630,8 +632,13 @@ def _set_conf_sockets():
     if LINUX:
         from scapy.arch.linux import L3PacketSocket, L2Socket, L2ListenSocket
         conf.L3socket = L3PacketSocket
-        conf.L3socket6 = functools.partial(  # type: ignore
-            L3PacketSocket, filter="ip6")
+        conf.L3socket6 = cast(
+            "Type[SuperSocket]",
+            functools.partial(
+                L3PacketSocket,
+                filter="ip6"
+            )
+        )
         conf.L2socket = L2Socket
         conf.L2listen = L2ListenSocket
         conf.ifaces.reload()
@@ -646,10 +653,11 @@ def _set_conf_sockets():
         conf.ifaces.reload()
         # No need to update globals on Windows
         return
-    from scapy.supersocket import L3RawSocket
-    from scapy.layers.inet6 import L3RawSocket6
-    conf.L3socket = L3RawSocket
-    conf.L3socket6 = L3RawSocket6
+    else:
+        from scapy.supersocket import L3RawSocket
+        from scapy.layers.inet6 import L3RawSocket6
+        conf.L3socket = L3RawSocket
+        conf.L3socket6 = L3RawSocket6
 
 
 def _socket_changer(attr, val, old):
