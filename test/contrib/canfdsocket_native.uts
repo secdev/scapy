@@ -1,0 +1,83 @@
+% Regression tests for nativecansocket
+~ python3_only not_pypy vcan_socket needs_root linux
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ Configuration of CAN virtual sockets
+~ conf
+
+= Load module
+load_layer("can", globals_dict=globals())
+conf.contribs['CANSocket'] = {'use-python-can': False}
+from scapy.contrib.cansocket_native import *
+conf.contribs['CAN'] = {'swap-bytes': False, 'remove-padding': True}
+
+
+= Setup string for vcan
+bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
+
+= Load os
+import os
+import threading
+from time import sleep
+from subprocess import call
+
+= Setup vcan0
+assert 0 == os.system(bashCommand)
+
++ Basic Packet Tests()
+= CAN FD Packet init
+canfdframe = CANFD(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08\xaa')
+assert bytes(canfdframe) == b'\x00\x00\x07\xff\x08\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\xaa'
+
++ Basic Socket Tests()
+= CAN FD Socket Init
+sock1 = CANSocket(channel="vcan0", fd=True)
+
+= CAN Socket send recv small packet without remove padding
+
+conf.contribs['CAN'] = {'swap-bytes': False, 'remove-padding': False}
+
+sock2 = CANSocket(channel="vcan0", fd=True)
+sock2.send(CANFD(identifier=0x7ff,length=9,data=b'\x01\x02\x03\x04\x05\x06\x07\x08\xaa'))
+sock2.close()
+
+rx = sock1.recv()
+print(repr(rx))
+assert rx == CANFD(identifier=0x7ff,length=9,data=b'\x01\x02\x03\x04\x05\x06\x07\x08\xaa') / Padding(b"\x00" * 52)
+
+
+= CAN Socket send recv
+
+conf.contribs['CAN'] = {'swap-bytes': False, 'remove-padding': True}
+
+sock2 = CANSocket(channel="vcan0", fd=True)
+sock2.send(CANFD(identifier=0x7ff,length=9,data=b'\x01\x02\x03\x04\x05\x06\x07\x08\xaa'))
+sock2.close()
+
+rx = sock1.recv()
+assert rx == CAN(identifier=0x7ff,length=9,data=b'\x01\x02\x03\x04\x05\x06\x07\x08\xaa')
+
+= CAN Socket basecls test
+
+
+sock2 = CANSocket(channel="vcan0", fd=True)
+sock2.send(CANFD(identifier=0x7ff,length=9,data=b'\x01\x02\x03\x04\x05\x06\x07\x08\xaa'))
+sock2.close()
+
+sock1.basecls = Raw
+rx = sock1.recv()
+assert rx == Raw(bytes(CANFD(identifier=0x7ff,length=9,data=b'\x00\x00\x07\\xff\t\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\\xaa\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')))
+sock1.basecls = CANFD
+
+
+= Delete vcan interfaces
+
+if 0 != call(["sudo", "ip", "link", "delete", "vcan0"]):
+        raise Exception("vcan0 could not be deleted")
+
+if 0 != call(["sudo", "ip", "link", "delete", "vcan1"]):
+        raise Exception("vcan1 could not be deleted")

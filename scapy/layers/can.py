@@ -12,7 +12,6 @@ Wireshark dissectors. See https://wiki.wireshark.org/CANopen
 import os
 import gzip
 import struct
-import binascii
 
 from scapy.compat import Tuple, Optional, Type, List, Union, Callable, IO, \
     Any, cast
@@ -35,13 +34,16 @@ __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
            "BESignedSignalField", "BEUnsignedSignalField", "rdcandump",
            "CandumpReader", "SignalHeader", "CAN_MTU", "CAN_MAX_IDENTIFIER",
-           "CAN_MAX_DLEN", "CAN_INV_FILTER"]
+           "CAN_MAX_DLEN", "CAN_INV_FILTER", "CANFD", "CAN_FD_MTU", 
+           "CAN_FD_MAX_DLEN"]
 
 # CONSTANTS
 CAN_MAX_IDENTIFIER = (1 << 29) - 1  # Maximum 29-bit identifier
 CAN_MTU = 16
 CAN_MAX_DLEN = 8
 CAN_INV_FILTER = 0x20000000
+CAN_FD_MTU = 72
+CAN_FD_MAX_DLEN = 64
 
 # Mimics the Wireshark CAN dissector parameter
 # 'Byte-swap the CAN ID/flags field'.
@@ -144,6 +146,17 @@ class CAN(Packet):
 
 conf.l2types.register(DLT_CAN_SOCKETCAN, CAN)
 bind_layers(CookedLinux, CAN, proto=12)
+
+
+class CANFD(CAN):
+    """
+    This class is used for distinction of CAN FD packets.
+    """
+    pass
+
+
+conf.l2types.register(DLT_CAN_SOCKETCAN, CANFD)
+bind_layers(CookedLinux, CANFD, proto=13)
 
 
 class SignalField(ScalingField):
@@ -544,7 +557,12 @@ class CandumpReader:
 
         if is_log_file_format:
             t_b, intf, f = line.split()
-            idn, data = f.split(b'#')
+            if '##' in f:
+                idn, data = f.split(b'##')
+                # removing FD flags for now
+                data = data[1:]
+            else:
+                idn, data = f.split(b'#')
             le = None
             t = float(t_b[1:-1])  # type: Optional[float]
         else:
@@ -559,7 +577,11 @@ class CandumpReader:
         data = data.replace(b' ', b'')
         data = data.strip()
 
-        pkt = CAN(identifier=int(idn, 16), data=binascii.unhexlify(data))
+        if len(data) <= 8:
+            pkt = CAN(identifier=int(idn, 16), data=bytes.fromhex(data))
+        else:
+            pkt = CANFD(identifier=int(idn, 16), data=bytes.fromhex(data))
+
         if le is not None:
             pkt.length = int(le[1:])
         else:
