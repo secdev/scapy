@@ -33,6 +33,7 @@ from scapy.fields import (
     ByteEnumField,
     ByteField,
     ConditionalField,
+    EnumField,
     Field,
     FieldLenField,
     FieldListField,
@@ -1049,14 +1050,28 @@ class NDRIEEEDoubleField(NDRAlign):
 # Enum types
 
 
-class NDRShortEnumField(NDRAlign):
+class _NDREnumField(EnumField):
+    # [MS-RPCE] sect 2.2.5.2 - Enums are 4 octets in NDR64
+    FMTS = ["<H", "<I"]
+
+    def getfield(self, pkt, s):
+        fmt = self.FMTS[pkt.ndr64]
+        return NDRAlign(Field("", 0, fmt=fmt), align=(2, 4)).getfield(pkt, s)
+
+    def addfield(self, pkt, s, val):
+        fmt = self.FMTS[pkt.ndr64]
+        return NDRAlign(Field("", 0, fmt=fmt), align=(2, 4)).addfield(pkt, s, val)
+
+
+class NDRInt3264EnumField(NDRAlign):
     def __init__(self, *args, **kwargs):
-        super(NDRShortEnumField, self).__init__(
-            LEShortEnumField(*args, **kwargs), align=(2, 2)
+        super(NDRInt3264EnumField, self).__init__(
+            _NDREnumField(*args, **kwargs), align=(2, 4)
         )
 
 
 class NDRIntEnumField(NDRAlign):
+    # v1_enum are always 4-octets, even in NDR32
     def __init__(self, *args, **kwargs):
         super(NDRIntEnumField, self).__init__(
             LEIntEnumField(*args, **kwargs), align=(4, 4)
@@ -1328,8 +1343,6 @@ class NDRVaryingArray(_NDRPacket):
 
 
 class _NDRVarField(object):
-    holds_packets = 1
-
     def getfield(self, pkt, s):
         fmt = ["<I", "<Q"][pkt.ndr64]
         remain, offset = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).getfield(pkt, s)
@@ -1401,8 +1414,6 @@ class NDRConformantArray(_NDRPacket):
 
 
 class _NDRConfField(object):
-    holds_packets = 1
-
     def __init__(self, *args, **kwargs):
         self.conformant_in_struct = kwargs.pop("conformant_in_struct", False)
         super(_NDRConfField, self).__init__(*args, **kwargs)
@@ -1532,7 +1543,7 @@ class NDRConfStrLenFieldUtf16(_NDRConfField, StrLenFieldUtf16):
     See NDRConfLenStrField for comment.
     """
 
-    pass
+    ON_WIRE_SIZE_UTF16 = False
 
 
 class NDRVarStrLenField(_NDRVarField, StrLenField):
@@ -1548,7 +1559,7 @@ class NDRVarStrLenFieldUtf16(_NDRVarField, StrLenFieldUtf16):
     NDR Varying StrLenField
     """
 
-    pass
+    ON_WIRE_SIZE_UTF16 = False
 
 
 class NDRConfVarStrLenField(_NDRConfField, _NDRVarField, StrLenField):
@@ -1564,7 +1575,7 @@ class NDRConfVarStrLenFieldUtf16(_NDRConfField, _NDRVarField, StrLenFieldUtf16):
     NDR Conformant Varying StrLenField
     """
 
-    pass
+    ON_WIRE_SIZE_UTF16 = False
 
 
 class NDRConfVarStrNullField(_NDRConfField, _NDRVarField, StrNullField):
@@ -1580,7 +1591,7 @@ class NDRConfVarStrNullFieldUtf16(_NDRConfField, _NDRVarField, StrNullFieldUtf16
     NDR Conformant Varying StrNullFieldUtf16
     """
 
-    pass
+    ON_WIRE_SIZE_UTF16 = False
 
 
 # Union type
@@ -1599,7 +1610,7 @@ class _NDRUnionField(MultipleTypeField):
         tag = struct.unpack(fmt, s[:sz])[0]
         fld, _ = super(_NDRUnionField, self)._find_fld_pkt_val(pkt, NDRUnion(tag=tag))
         remain, val = fld.getfield(pkt, s[sz:])
-        return remain, NDRUnion(tag=tag, value=val, ndr64=pkt.ndr64)
+        return remain, NDRUnion(tag=tag, value=val, ndr64=pkt.ndr64, _parent=pkt)
 
     def addfield(self, pkt, s, val):
         fmt = ["<I", "<Q"][pkt.ndr64]
