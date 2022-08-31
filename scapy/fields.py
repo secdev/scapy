@@ -1961,7 +1961,7 @@ class XLEStrLenField(XStrLenField):
 
 
 class StrLenFieldUtf16(StrLenField, StrFieldUtf16):
-    UTF16 = True
+    pass
 
 
 class BoundStrLenField(StrLenField):
