@@ -429,6 +429,29 @@ _DCE_RPC_5_FLAGS = {
     0x80: "OBJECT_UUID",
 }
 
+_DCE_RPC_ERROR_CODES = {
+    # Appendix E
+    0x1c000008: "nca_rpc_version_mismatch",
+    0x1c000009: "nca_unspec_reject",
+    0x1c00000A: "nca_s_bad_actid",
+    0x1c00000b: "nca_who_are_you_failed",
+    0x1c00000c: "nca_manager_not_entered",
+    0x1c010002: "nca_op_rng_error",
+    0x1c010003: "nca_unk_if",
+    0x1c010006: "nca_wrong_boot_time",
+    0x1c010009: "nca_s_you_crashed",
+    0x1c01000b: "nca_proto_error",
+    0x1c010013: "nca_out_args_too_big",
+    0x1c010014: "nca_server_too_busy",
+    0x1c010017: "nca_unsupported_type",
+    0x1c00001c: "nca_invalid_pres_context_id",
+    0x1c00001d: "nca_unsupported_authn_level",
+    0x1c00001f: "nca_invalid_checksum",
+    0x1c000020: "nca_invalid_crc",
+    # [MS-ERREF]
+    0x000006F7: "RPC_X_BAD_STUB_DATA",
+}
+
 
 class DceRpc5(Packet):
     """
@@ -755,6 +778,24 @@ class DceRpc5BindNak(_DceRpcPayload):
 
 
 bind_layers(DceRpc5, DceRpc5BindNak, ptype=13)
+
+# sec 12.6.4.7
+
+
+class DceRpc5Fault(_DceRpcPayload):
+    name = "DCE/RPC v5 - Fault"
+    fields_desc = [
+        _EField(IntField("alloc_hint", 0)),
+        _EField(ShortField("cont_id", 0)),
+        ByteField("cancel_count", 0),
+        ByteField("reserved", 0),
+        _EField(LEIntEnumField("status", 0, _DCE_RPC_ERROR_CODES)),
+        IntField("reserved2", 0),
+    ]
+
+
+bind_layers(DceRpc5, DceRpc5Fault, ptype=3)
+
 
 # sec 12.6.4.9
 
