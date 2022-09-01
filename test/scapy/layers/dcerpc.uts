@@ -357,3 +357,6 @@ pkt = NetrWkstaUserEnum_Request(bytes(pkt))
 pkt.ServerName
 assert pkt.ServerName.value.value[0].value == b"test"
 assert pkt.UserInfo.WkstaUserInfo.value.value.Buffer.value.value[0].wkui0_username.value.value[0].value == b"test"
+assert pkt.PreferredMaximumLength == 0
+assert pkt.ResumeHandle is None
+

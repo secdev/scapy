@@ -59,6 +59,7 @@ from scapy.fields import (
     ShortEnumField,
     ShortField,
     SignedByteField,
+    StrField,
     StrFixedLenField,
     StrLenField,
     StrLenFieldUtf16,
@@ -839,6 +840,7 @@ def find_dcerpc_interface(name):
 
 # --- NDR fields - [C706] chap 14
 
+
 def _set_ndr_on(f, ndr64):
     if isinstance(f, _NDRPacket):
         f.ndr64 = ndr64
@@ -1413,7 +1415,19 @@ class NDRConformantArray(_NDRPacket):
     ]
 
 
+class NDRConformantString(_NDRPacket):
+    fields_desc = [
+        MultipleTypeField(
+            [(LELongField("max_count", None), lambda pkt: pkt and pkt.ndr64)],
+            LEIntField("max_count", None),
+        ),
+        StrField("value", ""),
+    ]
+
+
 class _NDRConfField(object):
+    CONFORMANT_STRING = False
+
     def __init__(self, *args, **kwargs):
         self.conformant_in_struct = kwargs.pop("conformant_in_struct", False)
         super(_NDRConfField, self).__init__(*args, **kwargs)
@@ -1427,20 +1441,25 @@ class _NDRConfField(object):
             pkt, s
         )
         remain, val = super(_NDRConfField, self).getfield(pkt, remain)
-        return remain, NDRConformantArray(
-            ndr64=pkt.ndr64, max_count=max_count, value=val
-        )
+        return remain, (
+            NDRConformantString if self.CONFORMANT_STRING else NDRConformantArray
+        )(ndr64=pkt.ndr64, max_count=max_count, value=val)
 
     def addfield(self, pkt, s, val):
         if self.conformant_in_struct:
             return super(_NDRConfField, self).addfield(pkt, s, val)
-        if not isinstance(val, NDRConformantArray):
+        if self.CONFORMANT_STRING and not isinstance(val, NDRConformantString):
+            raise ValueError(
+                "Expected NDRConformantString in %s. You are using it wrong!"
+                % self.name
+            )
+        elif not isinstance(val, NDRConformantArray):
             raise ValueError(
                 "Expected NDRConformantArray in %s. You are using it wrong!" % self.name
             )
         fmt = ["<I", "<Q"][pkt.ndr64]
         _set_ndr_on(val.value, pkt.ndr64)
-        if isinstance(val.value[0], NDRVaryingArray):
+        if not self.CONFORMANT_STRING and isinstance(val.value[0], NDRVaryingArray):
             value = val.value[0]
         else:
             value = val.value
@@ -1454,7 +1473,7 @@ class _NDRConfField(object):
         return super(_NDRConfField, self).addfield(pkt, s, value)
 
     def i2len(self, pkt, x):
-        if isinstance(x.value[0], NDRVaryingArray):
+        if not self.CONFORMANT_STRING and isinstance(x.value[0], NDRVaryingArray):
             value = x.value[0]
         else:
             value = x.value
@@ -1462,7 +1481,13 @@ class _NDRConfField(object):
 
     def any2i(self, pkt, x):
         # User-friendly helper
-        if not isinstance(x, NDRConformantArray):
+        if self.conformant_in_struct:
+            return x
+        if self.CONFORMANT_STRING and not isinstance(x, NDRConformantString):
+            return NDRConformantString(
+                value=super(_NDRConfField, self).any2i(pkt, x),
+            )
+        elif not isinstance(x, NDRConformantArray):
             return NDRConformantArray(
                 value=super(_NDRConfField, self).any2i(pkt, x),
             )
@@ -1533,7 +1558,7 @@ class NDRConfStrLenField(_NDRConfField, StrLenField):
     (e.g. tower_octet_string)
     """
 
-    pass
+    CONFORMANT_STRING = True
 
 
 class NDRConfStrLenFieldUtf16(_NDRConfField, StrLenFieldUtf16):
@@ -1543,6 +1568,7 @@ class NDRConfStrLenFieldUtf16(_NDRConfField, StrLenFieldUtf16):
     See NDRConfLenStrField for comment.
     """
 
+    CONFORMANT_STRING = True
     ON_WIRE_SIZE_UTF16 = False
 
 
@@ -1654,6 +1680,7 @@ class NDRUnionField(NDRConstructedType, NDRAlign):
             else:
                 x.value = self.fld.any2i(pkt, x)
         return x
+
 
 # Misc
 
