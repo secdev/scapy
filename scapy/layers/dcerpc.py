@@ -930,6 +930,11 @@ class _NDRPacket(Packet):
         pkt.ndr64 = self.ndr64
         return pkt
 
+    def show2(self, dump=False, indent=3, lvl="", label_lvl=""):
+        return self.__class__(bytes(self), ndr64=self.ndr64).show(
+            dump, indent, lvl, label_lvl
+        )
+
     def getfield_and_val(self, attr):
         try:
             return Packet.getfield_and_val(self, attr)
