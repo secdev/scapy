@@ -759,6 +759,9 @@ class NTLM_Server(_NTLM_Automaton):
     :param IDENTITIES: a dict {"username": NTOWFv2("password", "username", "domain")}
                        (this is the KeyResponseNT). Setting this value enables
                        signature computation and authenticates inbound users.
+    :param DOMAIN_AUTH: a tuple ("<DC IP>", "machineName", b"machinePassword") to
+                        use for domain authentication, used to establish the netlogon
+                        session. (UNIMPLEMENTED)
     """
     port = 445
     cls = conf.raw_layer
@@ -768,7 +771,9 @@ class NTLM_Server(_NTLM_Automaton):
         self.cli_values = dict()
         self.ntlm_values = kwargs.pop("NTLM_VALUES", None)
         self.ntlm_state = 0
+        self.DOMAIN_AUTH = kwargs.pop("DOMAIN_AUTH", None)
         self.IDENTITIES = kwargs.pop("IDENTITIES", None)
+        self.CHECK_LOGIN = bool(self.IDENTITIES) or bool(self.DOMAIN_AUTH)
         self.SigningSessionKey = None
         self.Challenge = None
         super(NTLM_Server, self).__init__(*args, **kwargs)
@@ -857,19 +862,24 @@ class NTLM_Server(_NTLM_Automaton):
                 auth_tok, _, _, rawToken = self.token_pipe.recv()
                 if NTLM_AUTHENTICATE_V2 not in auth_tok:
                     raise ValueError("Unexpected state :(")
-                if self.IDENTITIES:
+                if self.CHECK_LOGIN:
                     if auth_tok.UserNameLen:
                         username = auth_tok.UserName
                     else:
                         username = None
-                    # We should know this user's KeyResponseNT. Check it
-                    if username in self.IDENTITIES:
-                        NTProofStr = auth_tok.NtChallengeResponse.computeNTProofStr(
-                            self.IDENTITIES[username],
-                            self.Challenge.ServerChallenge,
-                        )
-                        if NTProofStr == auth_tok.NtChallengeResponse.NTProofStr:
+                    # Check the NTProofStr
+                    if self.SigningSessionKey:
+                        if self.DOMAIN_AUTH:
+                            # Domain auth: if we have the session key, ntproofstr was ok
                             return None, 0, None, rawToken  # "success"
+                        elif username in self.IDENTITIES:
+                            # Local auth: We should know this user's KeyResponseNT
+                            NTProofStr = auth_tok.NtChallengeResponse.computeNTProofStr(
+                                self.IDENTITIES[username],
+                                self.Challenge.ServerChallenge,
+                            )
+                            if NTProofStr == auth_tok.NtChallengeResponse.NTProofStr:
+                                return None, 0, None, rawToken  # "success"
                     # Bad NTProofStr or unknown user
                     self.Challenge.ServerChallenge = struct.pack(
                         "<Q",
@@ -878,28 +888,33 @@ class NTLM_Server(_NTLM_Automaton):
                     return self.Challenge, 2, None, rawToken  # fail
                 return None, 0, None, rawToken  # "success"
 
+    def get_SigningSessionKey(self, ntlm):
+        if ntlm.UserNameLen:
+            username = ntlm.UserName
+        else:
+            username = None
+        if self.IDENTITIES and username in self.IDENTITIES:
+            SessionBaseKey = NTLMv2_ComputeSessionBaseKey(
+                self.IDENTITIES[username],
+                ntlm.NtChallengeResponse.NTProofStr
+            )
+            # [MS-NLMP] sect 3.2.5.1.2
+            KeyExchangeKey = SessionBaseKey  # Only true for NTLMv2
+            if ntlm.NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH:
+                ExportedSessionKey = RC4K(
+                    KeyExchangeKey,
+                    ntlm.EncryptedRandomSessionKey
+                )
+            else:
+                ExportedSessionKey = KeyExchangeKey
+            return ExportedSessionKey  # For SMB, = SigningSessionKey
+
     def received_ntlm_token(self, ntlm_tuple):
         ntlm = ntlm_tuple[0]
-        if isinstance(ntlm, NTLM_AUTHENTICATE_V2) and self.IDENTITIES:
-            if ntlm.UserNameLen:
-                username = ntlm.UserName
-            else:
-                username = None
-            if username in self.IDENTITIES:
-                SessionBaseKey = NTLMv2_ComputeSessionBaseKey(
-                    self.IDENTITIES[username],
-                    ntlm.NtChallengeResponse.NTProofStr
-                )
-                # [MS-NLMP] sect 3.2.5.1.2
-                KeyExchangeKey = SessionBaseKey  # Only true for NTLMv2
-                if ntlm.NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH:
-                    ExportedSessionKey = RC4K(
-                        KeyExchangeKey,
-                        ntlm.EncryptedRandomSessionKey
-                    )
-                else:
-                    ExportedSessionKey = KeyExchangeKey
-                self.SigningSessionKey = ExportedSessionKey  # For SMB
+        if isinstance(ntlm, NTLM_AUTHENTICATE_V2) and self.CHECK_LOGIN:
+            SigningSessionKey = self.get_SigningSessionKey(ntlm)
+            if SigningSessionKey:
+                self.SigningSessionKey = SigningSessionKey
         super(NTLM_Server, self).received_ntlm_token(ntlm_tuple)
 
     def set_cli(self, attr, value):
