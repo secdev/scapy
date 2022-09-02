@@ -888,33 +888,32 @@ class NTLM_Server(_NTLM_Automaton):
                     return self.Challenge, 2, None, rawToken  # fail
                 return None, 0, None, rawToken  # "success"
 
-    def get_SigningSessionKey(self, ntlm):
+    def get_SessionBaseKey(self, ntlm):
         if ntlm.UserNameLen:
             username = ntlm.UserName
         else:
             username = None
         if self.IDENTITIES and username in self.IDENTITIES:
-            SessionBaseKey = NTLMv2_ComputeSessionBaseKey(
+            return NTLMv2_ComputeSessionBaseKey(
                 self.IDENTITIES[username],
                 ntlm.NtChallengeResponse.NTProofStr
             )
-            # [MS-NLMP] sect 3.2.5.1.2
-            KeyExchangeKey = SessionBaseKey  # Only true for NTLMv2
-            if ntlm.NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH:
-                ExportedSessionKey = RC4K(
-                    KeyExchangeKey,
-                    ntlm.EncryptedRandomSessionKey
-                )
-            else:
-                ExportedSessionKey = KeyExchangeKey
-            return ExportedSessionKey  # For SMB, = SigningSessionKey
 
     def received_ntlm_token(self, ntlm_tuple):
         ntlm = ntlm_tuple[0]
         if isinstance(ntlm, NTLM_AUTHENTICATE_V2) and self.CHECK_LOGIN:
-            SigningSessionKey = self.get_SigningSessionKey(ntlm)
-            if SigningSessionKey:
-                self.SigningSessionKey = SigningSessionKey
+            SessionBaseKey = self.get_SessionBaseKey(ntlm)
+            if SessionBaseKey:
+                # [MS-NLMP] sect 3.2.5.1.2
+                KeyExchangeKey = SessionBaseKey  # Only true for NTLMv2
+                if ntlm.NegotiateFlags.NTLMSSP_NEGOTIATE_KEY_EXCH:
+                    ExportedSessionKey = RC4K(
+                        KeyExchangeKey,
+                        ntlm.EncryptedRandomSessionKey
+                    )
+                else:
+                    ExportedSessionKey = KeyExchangeKey
+                self.SigningSessionKey = ExportedSessionKey  # For SMB
         super(NTLM_Server, self).received_ntlm_token(ntlm_tuple)
 
     def set_cli(self, attr, value):
