@@ -431,23 +431,23 @@ _DCE_RPC_5_FLAGS = {
 
 _DCE_RPC_ERROR_CODES = {
     # Appendix E
-    0x1c000008: "nca_rpc_version_mismatch",
-    0x1c000009: "nca_unspec_reject",
-    0x1c00000A: "nca_s_bad_actid",
-    0x1c00000b: "nca_who_are_you_failed",
-    0x1c00000c: "nca_manager_not_entered",
-    0x1c010002: "nca_op_rng_error",
-    0x1c010003: "nca_unk_if",
-    0x1c010006: "nca_wrong_boot_time",
-    0x1c010009: "nca_s_you_crashed",
-    0x1c01000b: "nca_proto_error",
-    0x1c010013: "nca_out_args_too_big",
-    0x1c010014: "nca_server_too_busy",
-    0x1c010017: "nca_unsupported_type",
-    0x1c00001c: "nca_invalid_pres_context_id",
-    0x1c00001d: "nca_unsupported_authn_level",
-    0x1c00001f: "nca_invalid_checksum",
-    0x1c000020: "nca_invalid_crc",
+    0x1C000008: "nca_rpc_version_mismatch",
+    0x1C000009: "nca_unspec_reject",
+    0x1C00000A: "nca_s_bad_actid",
+    0x1C00000B: "nca_who_are_you_failed",
+    0x1C00000C: "nca_manager_not_entered",
+    0x1C010002: "nca_op_rng_error",
+    0x1C010003: "nca_unk_if",
+    0x1C010006: "nca_wrong_boot_time",
+    0x1C010009: "nca_s_you_crashed",
+    0x1C01000B: "nca_proto_error",
+    0x1C010013: "nca_out_args_too_big",
+    0x1C010014: "nca_server_too_busy",
+    0x1C010017: "nca_unsupported_type",
+    0x1C00001C: "nca_invalid_pres_context_id",
+    0x1C00001D: "nca_unsupported_authn_level",
+    0x1C00001F: "nca_invalid_checksum",
+    0x1C000020: "nca_invalid_crc",
     # [MS-ERREF]
     0x000006F7: "RPC_X_BAD_STUB_DATA",
 }
@@ -1672,24 +1672,32 @@ class NDRUnion(_NDRPacket):
 
 
 class _NDRUnionField(MultipleTypeField):
+    __slots__ = ["switch_fmt", "align"]
+
+    def __init__(self, flds, dflt, align, switch_fmt):
+        self.switch_fmt = switch_fmt
+        self.align = align
+        super(_NDRUnionField, self).__init__(flds, dflt)
+
     def getfield(self, pkt, s):
-        fmt, sz = [("<H", 2), ("<I", 4)][pkt.ndr64]  # special for union
-        tag = struct.unpack(fmt, s[:sz])[0]
+        fmt = self.switch_fmt[pkt.ndr64]
+        remain, tag = NDRAlign(Field("", 0, fmt=fmt), align=self.align).getfield(pkt, s)
         fld, _ = super(_NDRUnionField, self)._find_fld_pkt_val(pkt, NDRUnion(tag=tag))
-        remain, val = fld.getfield(pkt, s[sz:])
+        remain, val = fld.getfield(pkt, remain)
         return remain, NDRUnion(tag=tag, value=val, ndr64=pkt.ndr64, _parent=pkt)
 
     def addfield(self, pkt, s, val):
-        fmt = ["<I", "<Q"][pkt.ndr64]
+        fmt = self.switch_fmt[pkt.ndr64]
         if not isinstance(val, NDRUnion):
             raise ValueError(
                 "Expected NDRUnion in %s. You are using it wrong!" % self.name
             )
         _set_ndr_on(val.value, pkt.ndr64)
-        return (
-            s +
-            struct.pack(fmt, val.tag) +
-            super(_NDRUnionField, self).addfield(pkt, b"", val)
+        # First, align the whole tag+union against the align param
+        s = NDRAlign(Field("", 0, fmt=fmt), align=self.align).addfield(pkt, s, val.tag)
+        # Then, compute the subfield with its own alignment
+        return super(_NDRUnionField, self).addfield(
+            pkt, s, val
         )
 
     def _find_fld_pkt_val(self, pkt, val):
@@ -1707,10 +1715,9 @@ class _NDRUnionField(MultipleTypeField):
         return x
 
 
-class NDRUnionField(NDRConstructedType, NDRAlign):
-    def __init__(self, flds, dflt, align):
-        align = max(align[0], 2), max(align[1], 4)
-        NDRAlign.__init__(self, _NDRUnionField(flds, dflt), align=align)
+class NDRUnionField(NDRConstructedType, _NDRUnionField):
+    def __init__(self, flds, dflt, align, switch_fmt):
+        _NDRUnionField.__init__(self, flds, dflt, align=align, switch_fmt=switch_fmt)
         NDRConstructedType.__init__(self, [x[0] for x in flds] + [dflt])
 
     def any2i(self, pkt, x):
@@ -1719,7 +1726,7 @@ class NDRUnionField(NDRConstructedType, NDRAlign):
             if not isinstance(x, NDRUnion):
                 raise ValueError("Invalid value for %s; should be NDRUnion" % self.name)
             else:
-                x.value = self.fld.any2i(pkt, x)
+                x.value = _NDRUnionField.any2i(self, pkt, x)
         return x
 
 
