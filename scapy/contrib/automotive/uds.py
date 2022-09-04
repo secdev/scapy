@@ -14,14 +14,13 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
     ShortField, ObservableDict, XShortEnumField, XByteEnumField, StrLenField, \
-    FieldLenField, XStrFixedLenField, XStrLenField, MultipleTypeField, MultiplePacketField, StrFixedLenField, \
-    LEIntField, PacketField
+    FieldLenField, XStrFixedLenField, XStrLenField, MultiplePacketField
 from scapy.packet import Packet, bind_layers, NoPayload, Raw
 from scapy.config import conf
 from scapy.error import log_loading, Scapy_Exception
 from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
-from scapy.compat import Dict, Union, Type, Any
+from scapy.compat import Dict, Union, Type, Any, bytes_int
 
 """
 UDS
@@ -1417,20 +1416,19 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
 
 class Uds(ISOTP):
     sub_packets = dict()  # type: Dict[int, Type[Packet]]
-    routine_control_option_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]
+    routine_control_option_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]  # noqa: E501
 
     @staticmethod
     def bind_pkt_to_record(record,  # type: ObservableDict[Type[Packet], Dict[str, Any]]
                            cls,  # type: Type[Packet]
                            **kwargs  # type: Dict[str, Any]
-        ):
-        # type: (...) -> None
+                           ):  # type: (...) -> None
         record[cls] = kwargs
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 1:
-            return cls.sub_packets[int(_pkt[0])]
+            return cls.sub_packets[bytes_int(_pkt[0])]
         return Uds
 
     fields_desc = [
@@ -1465,7 +1463,7 @@ class UdsDsc(Uds):
 
 
 class UdsDscPr(Uds):
-    session_parameter_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]
+    session_parameter_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]  # noqa: E501
     name = 'DiagnosticSessionControlPositiveResponse'
     fields_desc = [
         XByteEnumField('service', 0x50, UDS.services),
@@ -1478,16 +1476,17 @@ class UdsDscPr(Uds):
 
     def answers(self, other):
         return super(UdsDscPr, self).answers(other) and \
-               isinstance(other, UdsDsc) and \
-               other.diagnosticSessionType == self.diagnosticSessionType
+            isinstance(other, UdsDsc) and \
+            other.diagnosticSessionType == self.diagnosticSessionType
 
     @staticmethod
     def bind_session_parameter_record(
             cls,  # type: Type[Packet]
             diagnosticSessionType  # type: int
-        ):  # type: (...) -> None
+    ):  # type: (...) -> None
         Uds.bind_pkt_to_record(UdsDscPr.session_parameter_record_pkts, cls,
                                diagnosticSessionType=diagnosticSessionType)
+
 
 # ######################## ER ###################################
 
@@ -1510,8 +1509,8 @@ class UdsErPr(Uds):
 
     def answers(self, other):
         return super(UdsErPr, self).answers(other) and \
-               isinstance(other, UdsEr) and \
-               other.resetType == self.resetType
+            isinstance(other, UdsEr) and \
+            other.resetType == self.resetType
 
 
 # ######################## SA ###################################
@@ -1539,8 +1538,8 @@ class UdsSaPr(Uds):
 
     def answers(self, other):
         return super(UdsSaPr, self).answers(other) and \
-               isinstance(other, UdsSa) \
-               and other.securityAccessType == self.securityAccessType
+            isinstance(other, UdsSa) \
+            and other.securityAccessType == self.securityAccessType
 
 
 # ######################## CC ###################################
@@ -1586,8 +1585,8 @@ class UdsCcPr(Uds):
 
     def answers(self, other):
         return super(UdsCcPr, self).answers(other) and \
-               isinstance(other, UdsCc) \
-               and other.controlType == self.controlType
+            isinstance(other, UdsCc) \
+            and other.controlType == self.controlType
 
 
 # ######################## AUTH ###################################
@@ -1710,8 +1709,8 @@ class UdsAuthPr(Uds):
 
     def answers(self, other):
         return super(UdsAuthPr, self).answers(other) and \
-               isinstance(other, UdsAuth) \
-               and other.subFunction == self.subFunction
+            isinstance(other, UdsAuth) \
+            and other.subFunction == self.subFunction
 
 
 # ######################## TP ###################################
@@ -1733,7 +1732,7 @@ class UdsTpPr(Uds):
 
     def answers(self, other):
         return super(UdsTpPr, self).answers(other) and \
-               isinstance(other, UdsTp)
+            isinstance(other, UdsTp)
 
 
 # ######################## ATP ###################################
@@ -1761,9 +1760,9 @@ class UdsAtpPr(Uds):
 
     def answers(self, other):
         return super(UdsAtpPr, self).answers(other) and \
-               isinstance(other, UdsAtp) \
-               and other.timingParameterAccessType == \
-               self.timingParameterAccessType
+            isinstance(other, UdsAtp) \
+            and other.timingParameterAccessType == \
+            self.timingParameterAccessType
 
 
 # ######################## RDBI ###################################
@@ -1779,7 +1778,7 @@ class UdsRdbi(Uds):
 
 
 class UdsRdbiPr(Uds):
-    data_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]
+    data_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]  # noqa: E501
     name = 'ReadDataByIdentifierPositiveResponse'
     fields_desc = [
         XByteEnumField('service', 0x62, UDS.services),
@@ -1792,13 +1791,13 @@ class UdsRdbiPr(Uds):
 
     def answers(self, other):
         return super(UdsRdbiPr, self).answers(other) and \
-               isinstance(other, UdsRdbi) and \
-               self.dataIdentifier in other.identifiers
+            isinstance(other, UdsRdbi) and \
+            self.dataIdentifier in other.identifiers
 
     @staticmethod
     def bind_data_record(cls,  # type: Type[Packet]
                          dataIdentifier  # type: int
-        ):  # type: (...) -> None
+                         ):  # type: (...) -> None
         Uds.bind_pkt_to_record(UdsRdbiPr.data_record_pkts, cls,
                                dataIdentifier=dataIdentifier)
 
@@ -1821,7 +1820,18 @@ class UdsNr(Uds):
 
 Uds.sub_packets[0x10] = UdsDsc
 Uds.sub_packets[0x50] = UdsDscPr
+Uds.sub_packets[0x11] = UdsEr
+Uds.sub_packets[0x51] = UdsErPr
+Uds.sub_packets[0x27] = UdsSa
+Uds.sub_packets[0x67] = UdsSaPr
+Uds.sub_packets[0x28] = UdsCc
+Uds.sub_packets[0x68] = UdsCcPr
+Uds.sub_packets[0x29] = UdsAuth
+Uds.sub_packets[0x69] = UdsAuthPr
+Uds.sub_packets[0x3e] = UdsTp
+Uds.sub_packets[0x7e] = UdsTpPr
+Uds.sub_packets[0x83] = UdsAtp
+Uds.sub_packets[0xc3] = UdsAtpPr
 Uds.sub_packets[0x22] = UdsRdbi
 Uds.sub_packets[0x62] = UdsRdbiPr
 Uds.sub_packets[0x7f] = UdsNr
-

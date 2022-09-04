@@ -483,7 +483,7 @@ bind_layers(KWP, KWP_WDBLIPR, service=0x7B)
 
 # ######################### KWP_RDBI ###################################
 class KWP_RDBI(Packet):
-    dataIdentifiers = ObservableDict()
+    dataIdentifiers = ObservableDict()  # type: ObservableDict[int, str]
     name = 'ReadDataByIdentifier'
     fields_desc = [
         XShortEnumField('identifier', 0, dataIdentifiers)

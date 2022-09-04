@@ -647,12 +647,6 @@ class MultiplePacketField(MultipleTypeField):
             val = fld.default
         return fld, val
 
-    def register_owner(self, cls):
-        # type: (Type[Packet]) -> None
-        for fld, conds in self.flds:
-            fld.owners.append(cls)
-        self.dflt.owners.append(cls)
-
 
 class PadField(_FieldContainer):
     """Add bytes after the proxified field so that it ends at the specified
