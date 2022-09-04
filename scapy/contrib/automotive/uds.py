@@ -1459,7 +1459,7 @@ class Uds(ISOTP):
 class UdsDsc(Uds):
     name = 'DiagnosticSessionControl'
     fields_desc = [
-        XByteEnumField('service', 0x10, Uds.services),
+        XByteEnumField('service', 0x10, UDS.services),
         ByteEnumField('diagnosticSessionType', 0, UDS_DSC.diagnosticSessionTypes)
     ]
 
@@ -1467,7 +1467,7 @@ class UdsDsc(Uds):
 class UdsDscPr(Uds):
     name = 'DiagnosticSessionControlPositiveResponse'
     fields_desc = [
-        XByteEnumField('service', 0x50, Uds.services),
+        XByteEnumField('service', 0x50, UDS.services),
         ByteEnumField('diagnosticSessionType', 0,
                       UDS_DSC.diagnosticSessionTypes),
         MultiplePacketField('sessionParameterRecord',
@@ -1484,7 +1484,7 @@ class UdsDscPr(Uds):
 class UdsEr(Packet):
     name = 'ECUReset'
     fields_desc = [
-        XByteEnumField('service', 0x11, Uds.services),
+        XByteEnumField('service', 0x11, UDS.services),
         ByteEnumField('resetType', 0, UDS_ER.resetTypes)
     ]
 
@@ -1492,7 +1492,7 @@ class UdsEr(Packet):
 class UdsErPr(Packet):
     name = 'ECUResetPositiveResponse'
     fields_desc = [
-        XByteEnumField('service', 0x51, Uds.services),
+        XByteEnumField('service', 0x51, UDS.services),
         ByteEnumField('resetType', 0, UDS_ER.resetTypes),
         ConditionalField(ByteField('powerDownTime', 0),
                          lambda pkt: pkt.resetType == 0x04)
@@ -1507,7 +1507,7 @@ class UdsErPr(Packet):
 class UdsSa(Packet):
     name = 'SecurityAccess'
     fields_desc = [
-        XByteEnumField('service', 0x27, Uds.services),
+        XByteEnumField('service', 0x27, UDS.services),
         ByteField('securityAccessType', 0),
         ConditionalField(StrField('securityAccessDataRecord', b""),
                          lambda pkt: pkt.securityAccessType % 2 == 1),
@@ -1519,7 +1519,7 @@ class UdsSa(Packet):
 class UdsSaPr(Packet):
     name = 'SecurityAccessPositiveResponse'
     fields_desc = [
-        XByteEnumField('service', 0x67, Uds.services),
+        XByteEnumField('service', 0x67, UDS.services),
         ByteField('securityAccessType', 0),
         ConditionalField(StrField('securitySeed', b""),
                          lambda pkt: pkt.securityAccessType % 2 == 1),
@@ -1536,7 +1536,7 @@ class UdsRdbi(Uds):
     data_types = ObservableDict({})
     name = 'ReadDataByIdentifier'
     fields_desc = [
-        XByteEnumField('service', 0x22, Uds.services),
+        XByteEnumField('service', 0x22, UDS.services),
         FieldListField("identifiers", None,
                        XShortEnumField('dataIdentifier', 0,
                                        UDS_RDBI.dataIdentifiers))
@@ -1560,11 +1560,11 @@ class Payload2(Packet):
 class UdsRdbiPr(Uds):
     name = 'ReadDataByIdentifierPositiveResponse'
     fields_desc = [
-        XByteEnumField('service', 0x62, Uds.services),
+        XByteEnumField('service', 0x62, UDS.services),
         XShortEnumField('dataIdentifier', 0,
                         UDS_RDBI.dataIdentifiers),
         MultiplePacketField('dataRecord',
-                            Uds.data_record_types,
+                            Uds.data_record_pkts,
                             Raw)
     ]
 
@@ -1577,7 +1577,7 @@ class UdsRdbiPr(Uds):
 class UdsNr(Uds):
     name = 'NegativeResponse'
     fields_desc = [
-        XByteEnumField('service', 0x7f, Uds.services),
+        XByteEnumField('service', 0x7f, UDS.services),
         XByteEnumField('requestServiceId', 0, UDS.services),
         ByteEnumField('negativeResponseCode', 0, UDS_NR.negativeResponseCodes)
     ]
@@ -1596,54 +1596,3 @@ Uds.sub_packets[0x22] = UdsRdbi
 Uds.sub_packets[0x62] = UdsRdbiPr
 Uds.sub_packets[0x7f] = UdsNr
 
-
-res = Uds(b'\x50\x03\x22\x44')
-req = Uds(b'\x10\x03\x22\x44')
-print(repr(res))
-print(res.answers(req))
-print(repr(req))
-
-res = Uds(b'\x50\x02\x22\x44')
-req = Uds(b'\x10\x03\x22\x44')
-print(repr(res))
-print(res.answers(req))
-print(repr(req))
-
-res = Uds(b'\x50\x03\x22\x44')
-req = Uds(b'\x10')
-print(repr(res))
-print(res.answers(req))
-print(repr(req))
-
-res = Uds(b'\x50')
-req = Uds(b'\x10')
-print(repr(res))
-print(res.answers(req))
-print(repr(req))
-
-res = Uds(b'\x50')
-req = Uds(b'\x10\x01')
-print(repr(res))
-print(res.answers(req))
-print(repr(req))
-
-
-res = Uds(b'\x7f\x10\x22')
-req = Uds(b'\x10\x03\x22\x44')
-print(repr(res))
-print(res.answers(req))
-print(repr(req))
-
-print(repr(UdsDsc(diagnosticSessionType=4)))
-
-res = Uds(b'\x62\x00\x02\x44\x55')
-req = Uds(b'\x22\x00\x02')
-print(repr(res))
-print(res.answers(req))
-print(repr(req))
-
-res = Uds(b'\x62\x00\x01\x33\x55')
-req = Uds(b'\x22\x00\x01')
-print(repr(res))
-print(res.answers(req))
-print(repr(req))

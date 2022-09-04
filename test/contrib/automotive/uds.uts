@@ -1393,3 +1393,101 @@ nrc = UDS(b'\x7f\x22\x33')
 assert nrc.service == 0x7f
 assert nrc.requestServiceId == 0x22
 assert nrc.negativeResponseCode == 0x33
+
+
++ Uds new_gen tests
+
+= Uds Dsc dissection test 1
+
+res = Uds(b'\x50\x03\x22\x44')
+req = Uds(b'\x10\x03\x22\x44')
+
+assert res.answers(req)
+assert res.service == 0x50
+assert req.service == 0x10
+assert res.diagnosticSessionType == 3
+assert req.diagnosticSessionType == 3
+
+= Uds Dsc dissection test 2
+
+res = Uds(b'\x50\x02\x22\x44')
+req = Uds(b'\x10\x03\x22\x44')
+
+assert not res.answers(req)
+assert res.service == 0x50
+assert req.service == 0x10
+assert res.diagnosticSessionType == 2
+assert req.diagnosticSessionType == 3
+
+= Uds Dsc dissection test 3
+
+res = Uds(b'\x50\x03\x22\x44')
+req = Uds(b'\x10')
+
+assert not res.answers(req)
+assert res.service == 0x50
+assert req.service == 0x10
+assert res.diagnosticSessionType == 3
+
+
+= Uds Dsc dissection test 4
+
+res = Uds(b'\x50')
+req = Uds(b'\x10')
+
+assert res.answers(req)
+assert res.service == 0x50
+assert req.service == 0x10
+
+= Uds Dsc dissection test 5
+
+res = Uds(b'\x50')
+req = Uds(b'\x10\x01')
+
+assert not res.answers(req)
+assert res.service == 0x50
+assert req.service == 0x10
+assert req.diagnosticSessionType == 1
+
+= Uds Dsc dissection test 6
+
+res = Uds(b'\x7f\x10\x22')
+req = Uds(b'\x10\x03\x22\x44')
+
+assert res.answers(req)
+assert res.service == 0x7f
+assert req.service == 0x10
+assert res.requestServiceId == 16
+assert req.diagnosticSessionType == 3
+
+
+= Uds Dsc build test 1
+
+p = UdsDsc(diagnosticSessionType=4)
+print(repr(p))
+assert p.service == 0x10
+assert p.diagnosticSessionType == 4
+
+
+= Uds Rdbi dissection test 1
+
+res = Uds(b'\x62\x00\x02\x44\x55')
+req = Uds(b'\x22\x00\x02')
+
+assert res.answers(req)
+assert res.service == 0x62
+assert req.service == 0x22
+assert res.dataIdentifier == 2
+assert req.identifiers == [2]
+
+
+= Uds Rdbi dissection test 2
+
+res = Uds(b'\x62\x00\x01\x33\x55')
+req = Uds(b'\x22\x00\x01')
+
+assert res.answers(req)
+assert res.service == 0x62
+assert req.service == 0x22
+assert res.dataIdentifier == 1
+assert req.identifiers == [1]
