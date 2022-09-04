@@ -1554,5 +1554,5 @@ res = UdsRdbiPr(dataRecord=Payload3(ip="192.168.178.1", mask="255.255.252.0"))
 assert res.answers(req)
 assert res.dataIdentifier == 3
 assert res.service == 0x62
-assert res.service == 0x22
+assert req.service == 0x22
 assert bytes(res) == bytes.fromhex("620003c0a8b201fffffc00")
