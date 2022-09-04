@@ -1543,20 +1543,6 @@ class UdsRdbi(Uds):
     ]
 
 
-class Payload1(Packet):
-    fields_desc = [
-        XByteField("f0", 0),
-        XByteField("f1", 1)
-    ]
-
-
-class Payload2(Packet):
-    fields_desc = [
-        XByteField("f2", 0),
-        XByteField("f3", 1)
-    ]
-
-
 class UdsRdbiPr(Uds):
     name = 'ReadDataByIdentifierPositiveResponse'
     fields_desc = [
@@ -1572,6 +1558,12 @@ class UdsRdbiPr(Uds):
         return super(UdsRdbiPr, self).answers(other) and \
                isinstance(other, UdsRdbi) and \
                self.dataIdentifier in other.identifiers
+
+    @staticmethod
+    def bind_data_record(cls,  # type: Type[Packet]
+                         dataIdentifier  # type: int
+        ):  # type: (...) -> None
+        Uds.bind_pkt_to_record(Uds.data_record_pkts, cls, dataIdentifier=dataIdentifier)
 
 
 class UdsNr(Uds):

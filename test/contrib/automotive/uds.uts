@@ -1491,3 +1491,29 @@ assert res.service == 0x62
 assert req.service == 0x22
 assert res.dataIdentifier == 1
 assert req.identifiers == [1]
+
+= Test custom payload class for rdbi payload
+
+class Payload1(Packet):
+    fields_desc = [
+        XByteField("f0", 0),
+        XByteField("f1", 1)
+    ]
+
+
+class Payload2(Packet):
+    fields_desc = [
+        XByteField("f2", 0),
+        XByteField("f3", 1)
+    ]
+
+Uds.bind_pkt_to_record(Uds.data_record_pkts, Payload1, dataIdentifier=0x1)
+UdsRdbiPr.bind_data_record(Payload2, 0x2)
+
+res = Uds(b'\x62\x00\x01\x33\x55')
+res.f0 = 0x33
+res.f1 = 0x55
+
+res = Uds(b'\x62\x00\x02\x33\x55')
+res.f2 = 0x33
+res.f3 = 0x55
