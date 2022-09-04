@@ -20,7 +20,7 @@ from scapy.config import conf
 from scapy.error import log_loading, Scapy_Exception
 from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
-from scapy.compat import Dict, Union, Type, Any, bytes_int
+from scapy.compat import Dict, Union, Type, Any, orb
 
 """
 UDS
@@ -1428,7 +1428,7 @@ class Uds(ISOTP):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 1:
-            return cls.sub_packets[bytes_int(_pkt[0])]
+            return cls.sub_packets[orb(_pkt[0])]
         return Uds
 
     fields_desc = [
