@@ -1417,9 +1417,7 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
 
 class Uds(ISOTP):
     sub_packets = dict()  # type: Dict[int, Type[Packet]]
-    data_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]
     routine_control_option_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]
-    session_parameter_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]
 
     @staticmethod
     def bind_pkt_to_record(record,  # type: ObservableDict[Type[Packet], Dict[str, Any]]
@@ -1456,6 +1454,8 @@ class Uds(ISOTP):
         return struct.pack('B', self.service & ~0x40)
 
 
+# ######################## DSC ###################################
+
 class UdsDsc(Uds):
     name = 'DiagnosticSessionControl'
     fields_desc = [
@@ -1465,13 +1465,14 @@ class UdsDsc(Uds):
 
 
 class UdsDscPr(Uds):
+    session_parameter_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]
     name = 'DiagnosticSessionControlPositiveResponse'
     fields_desc = [
         XByteEnumField('service', 0x50, UDS.services),
         ByteEnumField('diagnosticSessionType', 0,
                       UDS_DSC.diagnosticSessionTypes),
         MultiplePacketField('sessionParameterRecord',
-                            Uds.session_parameter_record_pkts,
+                            session_parameter_record_pkts,
                             Raw)
     ]
 
@@ -1480,8 +1481,17 @@ class UdsDscPr(Uds):
                isinstance(other, UdsDsc) and \
                other.diagnosticSessionType == self.diagnosticSessionType
 
+    @staticmethod
+    def bind_session_parameter_record(
+            cls,  # type: Type[Packet]
+            diagnosticSessionType  # type: int
+        ):  # type: (...) -> None
+        Uds.bind_pkt_to_record(UdsDscPr.session_parameter_record_pkts, cls,
+                               diagnosticSessionType=diagnosticSessionType)
 
-class UdsEr(Packet):
+# ######################## ER ###################################
+
+class UdsEr(Uds):
     name = 'ECUReset'
     fields_desc = [
         XByteEnumField('service', 0x11, UDS.services),
@@ -1489,7 +1499,7 @@ class UdsEr(Packet):
     ]
 
 
-class UdsErPr(Packet):
+class UdsErPr(Uds):
     name = 'ECUResetPositiveResponse'
     fields_desc = [
         XByteEnumField('service', 0x51, UDS.services),
@@ -1504,7 +1514,9 @@ class UdsErPr(Packet):
                other.resetType == self.resetType
 
 
-class UdsSa(Packet):
+# ######################## SA ###################################
+
+class UdsSa(Uds):
     name = 'SecurityAccess'
     fields_desc = [
         XByteEnumField('service', 0x27, UDS.services),
@@ -1516,7 +1528,7 @@ class UdsSa(Packet):
     ]
 
 
-class UdsSaPr(Packet):
+class UdsSaPr(Uds):
     name = 'SecurityAccessPositiveResponse'
     fields_desc = [
         XByteEnumField('service', 0x67, UDS.services),
@@ -1528,12 +1540,235 @@ class UdsSaPr(Packet):
     def answers(self, other):
         return super(UdsSaPr, self).answers(other) and \
                isinstance(other, UdsSa) \
-            and other.securityAccessType == self.securityAccessType
+               and other.securityAccessType == self.securityAccessType
 
-# TODO
+
+# ######################## CC ###################################
+
+class UdsCc(Uds):
+    name = 'CommunicationControl'
+    fields_desc = [
+        XByteEnumField('service', 0x28, UDS.services),
+        ByteEnumField('controlType', 0, UDS_CC.controlTypes),
+        BitEnumField('communicationType0', 0, 2,
+                     {0: 'ISOSAEReserved',
+                      1: 'normalCommunicationMessages',
+                      2: 'networkManagmentCommunicationMessages',
+                      3: 'networkManagmentCommunicationMessages and '
+                         'normalCommunicationMessages'}),
+        BitField('communicationType1', 0, 2),
+        BitEnumField('communicationType2', 0, 4,
+                     {0: 'Disable/Enable specified communication Type',
+                      1: 'Disable/Enable specific subnet',
+                      2: 'Disable/Enable specific subnet',
+                      3: 'Disable/Enable specific subnet',
+                      4: 'Disable/Enable specific subnet',
+                      5: 'Disable/Enable specific subnet',
+                      6: 'Disable/Enable specific subnet',
+                      7: 'Disable/Enable specific subnet',
+                      8: 'Disable/Enable specific subnet',
+                      9: 'Disable/Enable specific subnet',
+                      10: 'Disable/Enable specific subnet',
+                      11: 'Disable/Enable specific subnet',
+                      12: 'Disable/Enable specific subnet',
+                      13: 'Disable/Enable specific subnet',
+                      14: 'Disable/Enable specific subnet',
+                      15: 'Disable/Enable network'})
+    ]
+
+
+class UdsCcPr(Uds):
+    name = 'CommunicationControlPositiveResponse'
+    fields_desc = [
+        XByteEnumField('service', 0x68, UDS.services),
+        ByteEnumField('controlType', 0, UDS_CC.controlTypes)
+    ]
+
+    def answers(self, other):
+        return super(UdsCcPr, self).answers(other) and \
+               isinstance(other, UdsCc) \
+               and other.controlType == self.controlType
+
+
+# ######################## AUTH ###################################
+
+class UdsAuth(Uds):
+    name = "Authentication"
+    fields_desc = [
+        XByteEnumField('service', 0x29, UDS.services),
+        ByteEnumField('subFunction', 0, UDS_AUTH.subFunctions),
+        ConditionalField(XByteField('communicationConfiguration', 0),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02, 0x5]),
+        ConditionalField(XShortField('certificateEvaluationId', 0),
+                         lambda pkt: pkt.subFunction == 0x04),
+        ConditionalField(XStrFixedLenField('algorithmIndicator', 0, length=16),
+                         lambda pkt: pkt.subFunction in [0x05, 0x06, 0x07]),
+        ConditionalField(FieldLenField('lengthOfCertificateClient', None,
+                                       fmt="H", length_of='certificateClient'),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02]),
+        ConditionalField(XStrLenField('certificateClient', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfCertificateClient),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02]),
+        ConditionalField(FieldLenField('lengthOfProofOfOwnershipClient', None,
+                                       fmt="H",
+                                       length_of='proofOfOwnershipClient'),
+                         lambda pkt: pkt.subFunction in [0x03, 0x06, 0x07]),
+        ConditionalField(XStrLenField('proofOfOwnershipClient', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfProofOfOwnershipClient),
+                         lambda pkt: pkt.subFunction in [0x03, 0x06, 0x07]),
+        ConditionalField(FieldLenField('lengthOfChallengeClient', None,
+                                       fmt="H", length_of='challengeClient'),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02, 0x06,
+                                                         0x07]),
+        ConditionalField(XStrLenField('challengeClient', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfChallengeClient),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02, 0x06,
+                                                         0x07]),
+        ConditionalField(FieldLenField('lengthOfEphemeralPublicKeyClient',
+                                       None, fmt="H",
+                                       length_of='ephemeralPublicKeyClient'),
+                         lambda pkt: pkt.subFunction == 0x03),
+        ConditionalField(XStrLenField('ephemeralPublicKeyClient', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfEphemeralPublicKeyClient),
+                         lambda pkt: pkt.subFunction == 0x03),
+        ConditionalField(FieldLenField('lengthOfCertificateData', None,
+                                       fmt="H", length_of='certificateData'),
+                         lambda pkt: pkt.subFunction == 0x04),
+        ConditionalField(XStrLenField('certificateData', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfCertificateData),
+                         lambda pkt: pkt.subFunction == 0x04),
+        ConditionalField(FieldLenField('lengthOfAdditionalParameter', None,
+                                       fmt="H",
+                                       length_of='additionalParameter'),
+                         lambda pkt: pkt.subFunction in [0x06, 0x07]),
+        ConditionalField(XStrLenField('additionalParameter', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfAdditionalParameter),
+                         lambda pkt: pkt.subFunction in [0x06, 0x07]),
+    ]
+
+
+class UdsAuthPr(Uds):
+    name = 'AuthenticationPositiveResponse'
+    fields_desc = [
+        XByteEnumField('service', 0x69, UDS.services),
+        ByteEnumField('subFunction', 0, UDS_AUTH.subFunctions),
+        ByteEnumField('returnValue', 0, UDS_AUTHPR.authenticationReturnParameterTypes),
+        ConditionalField(XStrFixedLenField('algorithmIndicator', b"", length=16),
+                         lambda pkt: pkt.subFunction in [0x05, 0x06, 0x07]),
+        ConditionalField(FieldLenField('lengthOfChallengeServer', None,
+                                       fmt="H", length_of='challengeServer'),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02, 0x05]),
+        ConditionalField(XStrLenField('challengeServer', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfChallengeServer),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02, 0x05]),
+        ConditionalField(FieldLenField('lengthOfCertificateServer', None,
+                                       fmt="H", length_of='certificateServer'),
+                         lambda pkt: pkt.subFunction == 0x02),
+        ConditionalField(XStrLenField('certificateServer', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfCertificateServer),
+                         lambda pkt: pkt.subFunction == 0x02),
+        ConditionalField(FieldLenField('lengthOfProofOfOwnershipServer', None,
+                                       fmt="H",
+                                       length_of='proofOfOwnershipServer'),
+                         lambda pkt: pkt.subFunction in [0x02, 0x07]),
+        ConditionalField(XStrLenField('proofOfOwnershipServer', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfProofOfOwnershipServer),
+                         lambda pkt: pkt.subFunction in [0x02, 0x07]),
+        ConditionalField(FieldLenField('lengthOfSessionKeyInfo', None, fmt="H",
+                                       length_of='sessionKeyInfo'),
+                         lambda pkt: pkt.subFunction in [0x03, 0x06, 0x07]),
+        ConditionalField(XStrLenField('sessionKeyInfo', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfSessionKeyInfo),
+                         lambda pkt: pkt.subFunction in [0x03, 0x06, 0x07]),
+        ConditionalField(FieldLenField('lengthOfEphemeralPublicKeyServer',
+                                       None, fmt="H",
+                                       length_of='ephemeralPublicKeyServer'),
+                         lambda pkt: pkt.subFunction in [0x01, 0x02]),
+        ConditionalField(XStrLenField('ephemeralPublicKeyServer', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfEphemeralPublicKeyServer),
+                         lambda pkt: pkt.subFunction in [0x1, 0x02]),
+        ConditionalField(FieldLenField('lengthOfNeededAdditionalParameter',
+                                       None, fmt="H",
+                                       length_of='neededAdditionalParameter'),
+                         lambda pkt: pkt.subFunction == 0x05),
+        ConditionalField(XStrLenField('neededAdditionalParameter', b"",
+                                      length_from=lambda p:
+                                      p.lengthOfNeededAdditionalParameter),
+                         lambda pkt: pkt.subFunction == 0x05),
+    ]
+
+    def answers(self, other):
+        return super(UdsAuthPr, self).answers(other) and \
+               isinstance(other, UdsAuth) \
+               and other.subFunction == self.subFunction
+
+
+# ######################## TP ###################################
+
+class UdsTp(Uds):
+    name = 'TesterPresent'
+    fields_desc = [
+        XByteEnumField('service', 0x3E, UDS.services),
+        ByteField('subFunction', 0)
+    ]
+
+
+class UdsTpPr(Uds):
+    name = 'TesterPresentPositiveResponse'
+    fields_desc = [
+        XByteEnumField('service', 0x7E, UDS.services),
+        ByteField('zeroSubFunction', 0)
+    ]
+
+    def answers(self, other):
+        return super(UdsTpPr, self).answers(other) and \
+               isinstance(other, UdsTp)
+
+
+# ######################## ATP ###################################
+
+class UdsAtp(Uds):
+    name = 'AccessTimingParameter'
+    fields_desc = [
+        XByteEnumField('service', 0x83, UDS.services),
+        ByteEnumField('timingParameterAccessType', 0,
+                      UDS_ATP.timingParameterAccessTypes),
+        ConditionalField(StrField('timingParameterRequestRecord', b""),
+                         lambda pkt: pkt.timingParameterAccessType == 0x4)
+    ]
+
+
+class UdsAtpPr(Uds):
+    name = 'AccessTimingParameterPositiveResponse'
+    fields_desc = [
+        XByteEnumField('service', 0xC3, UDS.services),
+        ByteEnumField('timingParameterAccessType', 0,
+                      UDS_ATP.timingParameterAccessTypes),
+        ConditionalField(StrField('timingParameterResponseRecord', b""),
+                         lambda pkt: pkt.timingParameterAccessType == 0x3)
+    ]
+
+    def answers(self, other):
+        return super(UdsAtpPr, self).answers(other) and \
+               isinstance(other, UdsAtp) \
+               and other.timingParameterAccessType == \
+               self.timingParameterAccessType
+
+
+# ######################## RDBI ###################################
 
 class UdsRdbi(Uds):
-    data_types = ObservableDict({})
     name = 'ReadDataByIdentifier'
     fields_desc = [
         XByteEnumField('service', 0x22, UDS.services),
@@ -1544,13 +1779,14 @@ class UdsRdbi(Uds):
 
 
 class UdsRdbiPr(Uds):
+    data_record_pkts = ObservableDict()  # type: ObservableDict[Type[Packet], Dict[str, Any]]
     name = 'ReadDataByIdentifierPositiveResponse'
     fields_desc = [
         XByteEnumField('service', 0x62, UDS.services),
         XShortEnumField('dataIdentifier', 0,
                         UDS_RDBI.dataIdentifiers),
         MultiplePacketField('dataRecord',
-                            Uds.data_record_pkts,
+                            data_record_pkts,
                             Raw)
     ]
 
@@ -1563,7 +1799,8 @@ class UdsRdbiPr(Uds):
     def bind_data_record(cls,  # type: Type[Packet]
                          dataIdentifier  # type: int
         ):  # type: (...) -> None
-        Uds.bind_pkt_to_record(Uds.data_record_pkts, cls, dataIdentifier=dataIdentifier)
+        Uds.bind_pkt_to_record(UdsRdbiPr.data_record_pkts, cls,
+                               dataIdentifier=dataIdentifier)
 
 
 class UdsNr(Uds):
