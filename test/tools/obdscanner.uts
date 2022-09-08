@@ -1,5 +1,5 @@
 % Regression tests for obdscanner
-~ vcan_socket needs_root linux not_pypy automotive_comm
+~ vcan_socket needs_root linux not_pypy automotive_comm scanner
 
 + Configuration
 ~ conf
