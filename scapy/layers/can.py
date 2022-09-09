@@ -34,7 +34,7 @@ __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
            "BESignedSignalField", "BEUnsignedSignalField", "rdcandump",
            "CandumpReader", "SignalHeader", "CAN_MTU", "CAN_MAX_IDENTIFIER",
-           "CAN_MAX_DLEN", "CAN_INV_FILTER", "CANFD", "CAN_FD_MTU", 
+           "CAN_MAX_DLEN", "CAN_INV_FILTER", "CANFD", "CAN_FD_MTU",
            "CAN_FD_MAX_DLEN"]
 
 # CONSTANTS
@@ -557,7 +557,7 @@ class CandumpReader:
 
         if is_log_file_format:
             t_b, intf, f = line.split()
-            if '##' in f:
+            if b'##' in f:
                 idn, data = f.split(b'##')
                 # removing FD flags for now
                 data = data[1:]

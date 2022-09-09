@@ -292,7 +292,7 @@ class ISOTPNativeSocket(SuperSocket):
                  padding=False,  # type: bool
                  listen_only=False,  # type: bool
                  frame_txtime=CAN_ISOTP_DEFAULT_FRAME_TXTIME,  # type: int
-                 fd=False, # type: bool
+                 fd=False,  # type: bool
                  basecls=ISOTP  # type: Type[Packet]
                  ):
         # type: (...) -> None
@@ -334,9 +334,9 @@ class ISOTPNativeSocket(SuperSocket):
         self.can_socket.setsockopt(SOL_CAN_ISOTP,
                                    CAN_ISOTP_LL_OPTS,
                                    self.__build_can_isotp_ll_options(
-                                       mtu = CAN_ISOTP_CANFD_MTU if fd 
+                                       mtu=CAN_ISOTP_CANFD_MTU if fd
                                        else CAN_ISOTP_DEFAULT_LL_MTU,
-                                       tx_dl = CAN_FD_ISOTP_DEFAULT_LL_TX_DL if fd 
+                                       tx_dl=CAN_FD_ISOTP_DEFAULT_LL_TX_DL if fd
                                        else CAN_ISOTP_DEFAULT_LL_TX_DL))
         self.can_socket.setsockopt(
             socket.SOL_SOCKET,
