@@ -578,9 +578,9 @@ class CandumpReader:
         data = data.strip()
 
         if len(data) <= 8:
-            pkt = CAN(identifier=int(idn, 16), data=bytes.fromhex(data))
+            pkt = CAN(identifier=int(idn, 16), data=data)
         else:
-            pkt = CANFD(identifier=int(idn, 16), data=bytes.fromhex(data))
+            pkt = CANFD(identifier=int(idn, 16), data=data)
 
         if le is not None:
             pkt.length = int(le[1:])
