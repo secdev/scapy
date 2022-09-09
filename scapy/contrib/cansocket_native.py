@@ -45,8 +45,8 @@ class NativeCANSocket(SuperSocket):
                  channel=None,  # type: Optional[str]
                  receive_own_messages=False,  # type: bool
                  can_filters=None,  # type: Optional[List[Dict[str, int]]]
-                 fd=False, # type: bool
-                 basecls=None,  # type: Type[Packet]
+                 fd=False,  # type: bool
+                 basecls=CAN,  # type: Type[Packet]
                  **kwargs  # type: Dict[str, Any]
                  ):
         # type: (...) -> None
@@ -77,7 +77,7 @@ class NativeCANSocket(SuperSocket):
         if self.fd:
             try:
                 self.ins.setsockopt(socket.SOL_CAN_RAW,
-                                    socket.CAN_RAW_FD_FRAMES, 
+                                    socket.CAN_RAW_FD_FRAMES,
                                     1)
                 self.MTU = CAN_FD_MTU
             except Exception as exception:
@@ -118,6 +118,8 @@ class NativeCANSocket(SuperSocket):
             # something bad happened (e.g. the interface went down)
             warning("Captured no data.")
 
+        basecls = self.basecls or (CAN if len(pkt) <= 16 else CANFD)
+
         # need to change the byte order of the first four bytes,
         # required by the underlying Linux SocketCAN frame format
         if not conf.contribs['CAN']['swap-bytes'] and pkt is not None:
@@ -125,8 +127,6 @@ class NativeCANSocket(SuperSocket):
                 pkt = struct.pack("<I68s", *struct.unpack(">I68s", pkt))
             else:
                 pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
-
-        basecls = self.basecls or (CAN if len(pkt) <=16 else CANFD)
 
         return basecls, pkt, get_last_packet_timestamp(self.ins)
 
