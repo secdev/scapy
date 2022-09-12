@@ -31,11 +31,13 @@ environment:
       TOXENV: "py37-windows"
       WINPCAP: "false"
       UT_FLAGS: "-k scanner"
-    allow_failures:
-      - UT_FLAGS: "-k scanner"
 
 # There is no build phase for Scapy
 build: off
+
+matrix:
+  allow_failures:
+    - UT_FLAGS: "-k scanner"
 
 install:
   # Install the npcap, windump and wireshark suites
