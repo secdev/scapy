@@ -1,0 +1,14 @@
+{
+  "testfiles": [
+    "test/tls*.uts",
+    "test/scapy/layers/ipsec.uts"
+  ],
+  "breakfailed": true,
+  "onlyfailed": true,
+  "preexec": {
+    "test/tls*.uts": "load_layer(\"tls\")"
+  },
+  "kw_ko": [
+    "mock"
+  ]
+}
