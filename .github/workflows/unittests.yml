@@ -156,11 +156,6 @@ utscapy-scanner:
           - os: ubuntu-latest
             python: "pypy3.9"
             mode: root
-          # Libpcap test
-          - os: ubuntu-latest
-            python: "3.10"
-            mode: root
-            installmode: 'libpcap'
           # MacOS tests
           - os: macos-10.15
             python: "3.10"
