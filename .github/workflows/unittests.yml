@@ -137,7 +137,7 @@ jobs:
     - name: Run tests
       run: tox -e cryptography
 
-utscapy-scanner:
+  utscapy-scanner:
     name: scanner ${{ matrix.os }} ${{ matrix.installmode }} ${{ matrix.python }} ${{ matrix.mode }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
