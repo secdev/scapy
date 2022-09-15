@@ -13,6 +13,9 @@ Distributed Computing Environment / Remote Procedure Calls
 
 Based on [C706] - aka DCE/RPC 1.1
 https://pubs.opengroup.org/onlinepubs/9629399/toc.pdf
+
+And on [MS-RPCE]
+https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rpce/290c38b1-92fe-4229-91e6-4fc376610c15
 """
 
 from functools import partial
@@ -1701,9 +1704,7 @@ class _NDRUnionField(MultipleTypeField):
         # First, align the whole tag+union against the align param
         s = NDRAlign(Field("", 0, fmt=fmt), align=self.align).addfield(pkt, s, val.tag)
         # Then, compute the subfield with its own alignment
-        return super(_NDRUnionField, self).addfield(
-            pkt, s, val
-        )
+        return super(_NDRUnionField, self).addfield(pkt, s, val)
 
     def _find_fld_pkt_val(self, pkt, val):
         fld, val = super(_NDRUnionField, self)._find_fld_pkt_val(pkt, val)
@@ -1774,6 +1775,60 @@ class NDRContextHandle(NDRPacket):
     def guess_payload_class(self, payload):
         return conf.padding_layer
 
+
+# --- Type Serialization Version 1 - [MSRPCE] sect 2.2.6
+
+
+class NDRSerialization1Header(Packet):
+    fields_desc = [
+        ByteField("Version", 1),
+        ByteEnumField("Endianness", 0, {0x00: "Big-endian", 0x10: "Little-endian"}),
+        LEShortField("CommonHeaderLength", 8),
+        XLEIntField("Filler", 0xCCCCCCCC),
+    ]
+
+
+class NDRSerialization1PrivateHeader(Packet):
+    fields_desc = [
+        LEIntField("ObjectBufferLength", 0),
+        LEIntField("Filler", 0),
+    ]
+
+
+def ndr_deserialize1(b, cls, ndr64=False):
+    """
+    Deserialize Type Serialization Version 1 according to [MS-RPCE] sect 2.2.6
+    """
+    if issubclass(cls, NDRPacket):
+        return (
+            NDRSerialization1Header(b[:8]) /
+            NDRSerialization1PrivateHeader(b[8:16]) /
+            NDRPointer(
+                ndr64=ndr64,
+                referent_id=struct.unpack("<I", b[16:20])[0],
+                value=cls(b[20:], ndr64=ndr64),
+            )
+        )
+    return NDRSerialization1Header(b[:8]) / cls(b[8:])
+
+
+def ndr_serialize1(pkt, ndr64=False):
+    """
+    Serialize Type Serialization Version 1
+    """
+    pkt = pkt.copy()
+    if not isinstance(pkt, NDRSerialization1Header):
+        if isinstance(pkt, NDRPacket):
+            if not isinstance(pkt, NDRPointer):
+                pkt = NDRPointer(ndr64=ndr64, referent_id=0x20000, value=pkt)
+            pkt = NDRSerialization1Header() / NDRSerialization1PrivateHeader(
+                ObjectBufferLength=len(pkt.value),
+            ) / pkt
+        else:
+            return bytes(NDRSerialization1Header() / pkt)
+    pay = struct.pack("<I", pkt.referent_id) + bytes(pkt.value)
+    pkt[NDRPointer].underlayer.remove_payload()
+    return bytes(pkt) + pay
 
 # --- DCE/RPC session
 

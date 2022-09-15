@@ -1660,7 +1660,7 @@ values.
             elif callable(getattr(fv, 'command', None)):
                 fv = fv.command()
             else:
-                fv = repr(fv)
+                fv = repr(fld.i2h(self, fv))
             f.append("%s=%s" % (fn, fv))
         c = "%s(%s)" % (self.__class__.__name__, ", ".join(f))
         pc = self.payload.command()

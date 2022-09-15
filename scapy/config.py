@@ -857,6 +857,7 @@ class Conf(ConfClass):
         'lltd',
         'mgcp',
         'mobileip',
+        'mspac',
         'netbios',
         'netflow',
         'ntlm',
