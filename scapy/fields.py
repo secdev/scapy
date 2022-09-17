@@ -1889,7 +1889,14 @@ class NetBIOSNameField(StrFixedLenField):
 
 
 class StrLenField(StrField):
+    """
+    StrField with a length
+
+    :param length_from: a function that returns the size of the string
+    :param max_length: max size to use as randval
+    """
     __slots__ = ["length_from", "max_length"]
+    ON_WIRE_SIZE_UTF16 = True
 
     def __init__(
             self,
@@ -1906,6 +1913,8 @@ class StrLenField(StrField):
     def getfield(self, pkt, s):
         # type: (Any, bytes) -> Tuple[bytes, bytes]
         len_pkt = (self.length_from or (lambda x: 0))(pkt)
+        if not self.ON_WIRE_SIZE_UTF16:
+            len_pkt *= 2
         return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
 
     def randval(self):
