@@ -1330,7 +1330,6 @@ assert not TLSHelloRequest().tls_session_update(None)
 
 
 = Cryptography module is unavailable
-~ mock
 import scapy.libs.six as six
 import mock
 
