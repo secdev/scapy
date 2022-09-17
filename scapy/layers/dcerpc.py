@@ -33,7 +33,6 @@ from scapy.fields import (
     ByteEnumField,
     ByteField,
     ConditionalField,
-    EnumField,
     Field,
     FieldLenField,
     FieldListField,
@@ -59,7 +58,6 @@ from scapy.fields import (
     ShortEnumField,
     ShortField,
     SignedByteField,
-    StrField,
     StrFixedLenField,
     StrLenField,
     StrLenFieldUtf16,
@@ -429,29 +427,6 @@ _DCE_RPC_5_FLAGS = {
     0x80: "OBJECT_UUID",
 }
 
-_DCE_RPC_ERROR_CODES = {
-    # Appendix E
-    0x1C000008: "nca_rpc_version_mismatch",
-    0x1C000009: "nca_unspec_reject",
-    0x1C00000A: "nca_s_bad_actid",
-    0x1C00000B: "nca_who_are_you_failed",
-    0x1C00000C: "nca_manager_not_entered",
-    0x1C010002: "nca_op_rng_error",
-    0x1C010003: "nca_unk_if",
-    0x1C010006: "nca_wrong_boot_time",
-    0x1C010009: "nca_s_you_crashed",
-    0x1C01000B: "nca_proto_error",
-    0x1C010013: "nca_out_args_too_big",
-    0x1C010014: "nca_server_too_busy",
-    0x1C010017: "nca_unsupported_type",
-    0x1C00001C: "nca_invalid_pres_context_id",
-    0x1C00001D: "nca_unsupported_authn_level",
-    0x1C00001F: "nca_invalid_checksum",
-    0x1C000020: "nca_invalid_crc",
-    # [MS-ERREF]
-    0x000006F7: "RPC_X_BAD_STUB_DATA",
-}
-
 
 class DceRpc5(Packet):
     """
@@ -779,24 +754,6 @@ class DceRpc5BindNak(_DceRpcPayload):
 
 bind_layers(DceRpc5, DceRpc5BindNak, ptype=13)
 
-# sec 12.6.4.7
-
-
-class DceRpc5Fault(_DceRpcPayload):
-    name = "DCE/RPC v5 - Fault"
-    fields_desc = [
-        _EField(IntField("alloc_hint", 0)),
-        _EField(ShortField("cont_id", 0)),
-        ByteField("cancel_count", 0),
-        ByteField("reserved", 0),
-        _EField(LEIntEnumField("status", 0, _DCE_RPC_ERROR_CODES)),
-        IntField("reserved2", 0),
-    ]
-
-
-bind_layers(DceRpc5, DceRpc5Fault, ptype=3)
-
-
 # sec 12.6.4.9
 
 
@@ -881,7 +838,6 @@ def find_dcerpc_interface(name):
 
 # --- NDR fields - [C706] chap 14
 
-
 def _set_ndr_on(f, ndr64):
     if isinstance(f, _NDRPacket):
         f.ndr64 = ndr64
@@ -929,11 +885,6 @@ class _NDRPacket(Packet):
         pkt.defered_pointers = self.defered_pointers
         pkt.ndr64 = self.ndr64
         return pkt
-
-    def show2(self, dump=False, indent=3, lvl="", label_lvl=""):
-        return self.__class__(bytes(self), ndr64=self.ndr64).show(
-            dump, indent, lvl, label_lvl
-        )
 
     def getfield_and_val(self, attr):
         try:
@@ -1098,28 +1049,14 @@ class NDRIEEEDoubleField(NDRAlign):
 # Enum types
 
 
-class _NDREnumField(EnumField):
-    # [MS-RPCE] sect 2.2.5.2 - Enums are 4 octets in NDR64
-    FMTS = ["<H", "<I"]
-
-    def getfield(self, pkt, s):
-        fmt = self.FMTS[pkt.ndr64]
-        return NDRAlign(Field("", 0, fmt=fmt), align=(2, 4)).getfield(pkt, s)
-
-    def addfield(self, pkt, s, val):
-        fmt = self.FMTS[pkt.ndr64]
-        return NDRAlign(Field("", 0, fmt=fmt), align=(2, 4)).addfield(pkt, s, val)
-
-
-class NDRInt3264EnumField(NDRAlign):
+class NDRShortEnumField(NDRAlign):
     def __init__(self, *args, **kwargs):
-        super(NDRInt3264EnumField, self).__init__(
-            _NDREnumField(*args, **kwargs), align=(2, 4)
+        super(NDRShortEnumField, self).__init__(
+            LEShortEnumField(*args, **kwargs), align=(2, 2)
         )
 
 
 class NDRIntEnumField(NDRAlign):
-    # v1_enum are always 4-octets, even in NDR32
     def __init__(self, *args, **kwargs):
         super(NDRIntEnumField, self).__init__(
             LEIntEnumField(*args, **kwargs), align=(4, 4)
@@ -1391,6 +1328,8 @@ class NDRVaryingArray(_NDRPacket):
 
 
 class _NDRVarField(object):
+    holds_packets = 1
+
     def getfield(self, pkt, s):
         fmt = ["<I", "<Q"][pkt.ndr64]
         remain, offset = NDRAlign(Field("", 0, fmt=fmt), align=(4, 8)).getfield(pkt, s)
@@ -1461,18 +1400,8 @@ class NDRConformantArray(_NDRPacket):
     ]
 
 
-class NDRConformantString(_NDRPacket):
-    fields_desc = [
-        MultipleTypeField(
-            [(LELongField("max_count", None), lambda pkt: pkt and pkt.ndr64)],
-            LEIntField("max_count", None),
-        ),
-        StrField("value", ""),
-    ]
-
-
 class _NDRConfField(object):
-    CONFORMANT_STRING = False
+    holds_packets = 1
 
     def __init__(self, *args, **kwargs):
         self.conformant_in_struct = kwargs.pop("conformant_in_struct", False)
@@ -1487,25 +1416,20 @@ class _NDRConfField(object):
             pkt, s
         )
         remain, val = super(_NDRConfField, self).getfield(pkt, remain)
-        return remain, (
-            NDRConformantString if self.CONFORMANT_STRING else NDRConformantArray
-        )(ndr64=pkt.ndr64, max_count=max_count, value=val)
+        return remain, NDRConformantArray(
+            ndr64=pkt.ndr64, max_count=max_count, value=val
+        )
 
     def addfield(self, pkt, s, val):
         if self.conformant_in_struct:
             return super(_NDRConfField, self).addfield(pkt, s, val)
-        if self.CONFORMANT_STRING and not isinstance(val, NDRConformantString):
-            raise ValueError(
-                "Expected NDRConformantString in %s. You are using it wrong!"
-                % self.name
-            )
-        elif not isinstance(val, NDRConformantArray):
+        if not isinstance(val, NDRConformantArray):
             raise ValueError(
                 "Expected NDRConformantArray in %s. You are using it wrong!" % self.name
             )
         fmt = ["<I", "<Q"][pkt.ndr64]
         _set_ndr_on(val.value, pkt.ndr64)
-        if not self.CONFORMANT_STRING and isinstance(val.value[0], NDRVaryingArray):
+        if isinstance(val.value[0], NDRVaryingArray):
             value = val.value[0]
         else:
             value = val.value
@@ -1519,7 +1443,7 @@ class _NDRConfField(object):
         return super(_NDRConfField, self).addfield(pkt, s, value)
 
     def i2len(self, pkt, x):
-        if not self.CONFORMANT_STRING and isinstance(x.value[0], NDRVaryingArray):
+        if isinstance(x.value[0], NDRVaryingArray):
             value = x.value[0]
         else:
             value = x.value
@@ -1527,13 +1451,7 @@ class _NDRConfField(object):
 
     def any2i(self, pkt, x):
         # User-friendly helper
-        if self.conformant_in_struct:
-            return x
-        if self.CONFORMANT_STRING and not isinstance(x, NDRConformantString):
-            return NDRConformantString(
-                value=super(_NDRConfField, self).any2i(pkt, x),
-            )
-        elif not isinstance(x, NDRConformantArray):
+        if not isinstance(x, NDRConformantArray):
             return NDRConformantArray(
                 value=super(_NDRConfField, self).any2i(pkt, x),
             )
@@ -1604,7 +1522,7 @@ class NDRConfStrLenField(_NDRConfField, StrLenField):
     (e.g. tower_octet_string)
     """
 
-    CONFORMANT_STRING = True
+    pass
 
 
 class NDRConfStrLenFieldUtf16(_NDRConfField, StrLenFieldUtf16):
@@ -1614,8 +1532,7 @@ class NDRConfStrLenFieldUtf16(_NDRConfField, StrLenFieldUtf16):
     See NDRConfLenStrField for comment.
     """
 
-    CONFORMANT_STRING = True
-    ON_WIRE_SIZE_UTF16 = False
+    pass
 
 
 class NDRVarStrLenField(_NDRVarField, StrLenField):
@@ -1631,7 +1548,7 @@ class NDRVarStrLenFieldUtf16(_NDRVarField, StrLenFieldUtf16):
     NDR Varying StrLenField
     """
 
-    ON_WIRE_SIZE_UTF16 = False
+    pass
 
 
 class NDRConfVarStrLenField(_NDRConfField, _NDRVarField, StrLenField):
@@ -1647,7 +1564,7 @@ class NDRConfVarStrLenFieldUtf16(_NDRConfField, _NDRVarField, StrLenFieldUtf16):
     NDR Conformant Varying StrLenField
     """
 
-    ON_WIRE_SIZE_UTF16 = False
+    pass
 
 
 class NDRConfVarStrNullField(_NDRConfField, _NDRVarField, StrNullField):
@@ -1663,7 +1580,7 @@ class NDRConfVarStrNullFieldUtf16(_NDRConfField, _NDRVarField, StrNullFieldUtf16
     NDR Conformant Varying StrNullFieldUtf16
     """
 
-    ON_WIRE_SIZE_UTF16 = False
+    pass
 
 
 # Union type
@@ -1677,32 +1594,24 @@ class NDRUnion(_NDRPacket):
 
 
 class _NDRUnionField(MultipleTypeField):
-    __slots__ = ["switch_fmt", "align"]
-
-    def __init__(self, flds, dflt, align, switch_fmt):
-        self.switch_fmt = switch_fmt
-        self.align = align
-        super(_NDRUnionField, self).__init__(flds, dflt)
-
     def getfield(self, pkt, s):
-        fmt = self.switch_fmt[pkt.ndr64]
-        remain, tag = NDRAlign(Field("", 0, fmt=fmt), align=self.align).getfield(pkt, s)
+        fmt, sz = [("<H", 2), ("<I", 4)][pkt.ndr64]  # special for union
+        tag = struct.unpack(fmt, s[:sz])[0]
         fld, _ = super(_NDRUnionField, self)._find_fld_pkt_val(pkt, NDRUnion(tag=tag))
-        remain, val = fld.getfield(pkt, remain)
-        return remain, NDRUnion(tag=tag, value=val, ndr64=pkt.ndr64, _parent=pkt)
+        remain, val = fld.getfield(pkt, s[sz:])
+        return remain, NDRUnion(tag=tag, value=val, ndr64=pkt.ndr64)
 
     def addfield(self, pkt, s, val):
-        fmt = self.switch_fmt[pkt.ndr64]
+        fmt = ["<I", "<Q"][pkt.ndr64]
         if not isinstance(val, NDRUnion):
             raise ValueError(
                 "Expected NDRUnion in %s. You are using it wrong!" % self.name
             )
         _set_ndr_on(val.value, pkt.ndr64)
-        # First, align the whole tag+union against the align param
-        s = NDRAlign(Field("", 0, fmt=fmt), align=self.align).addfield(pkt, s, val.tag)
-        # Then, compute the subfield with its own alignment
-        return super(_NDRUnionField, self).addfield(
-            pkt, s, val
+        return (
+            s +
+            struct.pack(fmt, val.tag) +
+            super(_NDRUnionField, self).addfield(pkt, b"", val)
         )
 
     def _find_fld_pkt_val(self, pkt, val):
@@ -1720,9 +1629,10 @@ class _NDRUnionField(MultipleTypeField):
         return x
 
 
-class NDRUnionField(NDRConstructedType, _NDRUnionField):
-    def __init__(self, flds, dflt, align, switch_fmt):
-        _NDRUnionField.__init__(self, flds, dflt, align=align, switch_fmt=switch_fmt)
+class NDRUnionField(NDRConstructedType, NDRAlign):
+    def __init__(self, flds, dflt, align):
+        align = max(align[0], 2), max(align[1], 4)
+        NDRAlign.__init__(self, _NDRUnionField(flds, dflt), align=align)
         NDRConstructedType.__init__(self, [x[0] for x in flds] + [dflt])
 
     def any2i(self, pkt, x):
@@ -1731,9 +1641,8 @@ class NDRUnionField(NDRConstructedType, _NDRUnionField):
             if not isinstance(x, NDRUnion):
                 raise ValueError("Invalid value for %s; should be NDRUnion" % self.name)
             else:
-                x.value = _NDRUnionField.any2i(self, pkt, x)
+                x.value = self.fld.any2i(pkt, x)
         return x
-
 
 # Misc
 

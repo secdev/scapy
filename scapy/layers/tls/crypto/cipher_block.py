@@ -16,6 +16,7 @@ import scapy.libs.six as six
 
 if conf.crypto_valid:
     from cryptography.utils import (
+        register_interface,
         CryptographyDeprecationWarning,
     )
     from cryptography.hazmat.primitives.ciphers import (Cipher, algorithms, modes,  # noqa: E501
@@ -192,7 +193,9 @@ if conf.crypto_valid:
 # silently not declared, and the corresponding suites will have 'usable' False.
 
 if conf.crypto_valid:
-    class _ARC2(BlockCipherAlgorithm, CipherAlgorithm):
+    @register_interface(BlockCipherAlgorithm)
+    @register_interface(CipherAlgorithm)
+    class _ARC2(object):
         name = "RC2"
         block_size = 64
         key_sizes = frozenset([128])
