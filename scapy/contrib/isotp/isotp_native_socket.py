@@ -21,7 +21,7 @@ from scapy.data import SO_TIMESTAMPNS
 from scapy.config import conf
 from scapy.arch.linux import get_last_packet_timestamp, SIOCGIFINDEX
 from scapy.contrib.isotp.isotp_packet import ISOTP
-from scapy.layers.can import CAN_MTU, CAN_MAX_DLEN
+from scapy.layers.can import CAN_MTU, CAN_FD_MTU, CAN_MAX_DLEN, CAN_FD_MAX_DLEN
 
 LIBC = ctypes.cdll.LoadLibrary(find_library("c"))  # type: ignore
 
@@ -58,7 +58,9 @@ CAN_ISOTP_DEFAULT_RECV_BS = 0
 CAN_ISOTP_DEFAULT_RECV_STMIN = 0x00
 CAN_ISOTP_DEFAULT_RECV_WFTMAX = 0
 CAN_ISOTP_DEFAULT_LL_MTU = CAN_MTU
+CAN_ISOTP_CANFD_MTU = CAN_FD_MTU
 CAN_ISOTP_DEFAULT_LL_TX_DL = CAN_MAX_DLEN
+CAN_FD_ISOTP_DEFAULT_LL_TX_DL = CAN_FD_MAX_DLEN
 CAN_ISOTP_DEFAULT_LL_TX_FLAGS = 0
 
 
@@ -290,6 +292,7 @@ class ISOTPNativeSocket(SuperSocket):
                  padding=False,  # type: bool
                  listen_only=False,  # type: bool
                  frame_txtime=CAN_ISOTP_DEFAULT_FRAME_TXTIME,  # type: int
+                 fd=False,  # type: bool
                  basecls=ISOTP  # type: Type[Packet]
                  ):
         # type: (...) -> None
@@ -329,7 +332,11 @@ class ISOTPNativeSocket(SuperSocket):
                                        stmin=stmin, bs=bs))
         self.can_socket.setsockopt(SOL_CAN_ISOTP,
                                    CAN_ISOTP_LL_OPTS,
-                                   self.__build_can_isotp_ll_options())
+                                   self.__build_can_isotp_ll_options(
+                                       mtu=CAN_ISOTP_CANFD_MTU if fd
+                                       else CAN_ISOTP_DEFAULT_LL_MTU,
+                                       tx_dl=CAN_FD_ISOTP_DEFAULT_LL_TX_DL if fd
+                                       else CAN_ISOTP_DEFAULT_LL_TX_DL))
         self.can_socket.setsockopt(
             socket.SOL_SOCKET,
             SO_TIMESTAMPNS,
