@@ -544,7 +544,7 @@ class UDS_SAEnumerator(UDS_Enumerator):
 
     def pre_execute(self, socket, state, global_configuration):
         # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
-        if cast(ServiceEnumerator, self)._retry_pkt[state] is not None:
+        if cast(ServiceEnumerator, self)._retry_pkt[state]:
             # this is a retry execute. Wait much longer than usual because
             # a required time delay not expired could have been received
             # on the previous attempt
