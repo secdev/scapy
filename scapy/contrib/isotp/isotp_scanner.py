@@ -137,8 +137,8 @@ def get_isotp_fc(
         isotp_fc = orb(packet.data[index]) & 0x0f
         if isotp_pci == 3 and 0 <= isotp_fc <= 2:
             log_isotp.info("Found flow-control frame from identifier "
-                            "0x%03x when testing identifier 0x%03x",
-                            packet.identifier, id_value)
+                           "0x%03x when testing identifier 0x%03x",
+                           packet.identifier, id_value)
             if isinstance(id_list, dict):
                 id_list[id_value] = (packet, packet.identifier)
             elif isinstance(id_list, list):
