@@ -110,21 +110,21 @@ s = EcuState(session=1)
 
 assert False == e._evaluate_response(s, GMLAN(b"\x27\x01"), None, **config)
 config = {"exit_if_service_not_supported": True}
-assert e._retry_pkt[s] == None
+assert not e._retry_pkt[s]
 assert True == e._evaluate_response(s, GMLAN(b"\x27\x01"), GMLAN(b"\x7f\x27\x11"), **config)
-assert e._retry_pkt[s] == None
+assert not e._retry_pkt[s]
 assert True == e._evaluate_response(s, GMLAN(b"\x27\x01"), GMLAN(b"\x7f\x27\x22"), **config)
 assert e._retry_pkt[s] == GMLAN(b"\x27\x01")
 assert False == e._evaluate_response(s, GMLAN(b"\x27\x02"), GMLAN(b"\x7f\x27\x22"), **config)
-assert e._retry_pkt[s] is None
+assert not e._retry_pkt[s]
 assert True == e._evaluate_response(s, GMLAN(b"\x27\x01"), GMLAN(b"\x7f\x27\x37"), **config)
 assert e._retry_pkt[s] == GMLAN(b"\x27\x01")
 assert False == e._evaluate_response(s, GMLAN(b"\x27\x01"), GMLAN(b"\x7f\x27\x37"), **config)
-assert e._retry_pkt[s] == None
+assert not e._retry_pkt[s]
 assert True == e._evaluate_response(s, GMLAN(b"\x27\x01"), GMLAN(b"\x67\x01ab"), **config)
-assert e._retry_pkt[s] == None
+assert not e._retry_pkt[s]
 assert False == e._evaluate_response(s, GMLAN(b"\x27\x01"), GMLAN(b"\x67\x02ab"), **config)
-assert e._retry_pkt[s] == None
+assert not e._retry_pkt[s]
 
 
 = Simulate ECU and run Scanner
