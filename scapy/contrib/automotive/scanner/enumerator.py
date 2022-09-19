@@ -115,7 +115,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         self._result_packets = OrderedDict()  # type: Dict[bytes, Packet]
         self._results = list()  # type: List[_AutomotiveTestCaseScanResult]
         self._request_iterators = dict()  # type: Dict[EcuState, Iterable[Packet]]  # noqa: E501
-        self._retry_pkt = defaultdict(list)  # type: Dict[EcuState, Optional[Union[Packet, Iterable[Packet]]]]  # noqa: E501
+        self._retry_pkt = defaultdict(list)  # type: Dict[EcuState, Union[Packet, Iterable[Packet]]]  # noqa: E501
         self._negative_response_blacklist = [0x10, 0x11]  # type: List[int]
         self._requests_per_state_estimated = None  # type: Optional[int]
 
