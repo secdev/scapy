@@ -356,6 +356,17 @@ with ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241) as s:
     assert isotp.data == dhex("01 02 03 04 05 06 07 08 09 10 11")
 
 
+= Send single CANFD frame ISOTP message
+exit_if_no_isotp_module()
+
+with new_can_socket(iface0, fd=True) as cans:
+    s = ISOTPNativeSocket(iface0, tx_id=0x641, rx_id=0x241, fd=True)
+    s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08 09")))
+    can = cans.sniff(timeout=1, count=1)[0]
+    assert can.identifier == 0x641
+    assert can.data == dhex("09 01 02 03 04 05 06 07 08 09")
+
+
 = ISOTP Socket sr1 test
 exit_if_no_isotp_module()
 
