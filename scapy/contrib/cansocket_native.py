@@ -118,7 +118,7 @@ class NativeCANSocket(SuperSocket):
             # something bad happened (e.g. the interface went down)
             warning("Captured no data.")
 
-        basecls = self.basecls or (CAN if len(pkt) <= 16 else CANFD)
+        basecls = CAN if len(pkt) <= 16 else CANFD
 
         # need to change the byte order of the first four bytes,
         # required by the underlying Linux SocketCAN frame format
