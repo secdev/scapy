@@ -1374,6 +1374,18 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
         return len(x)
 
 
+class _NDRFieldListField(NDRConstructedType, FieldListField):
+    """
+    A FieldListField for NDR
+    """
+
+    islist = 1
+
+    def __init__(self, *args, **kwargs):
+        FieldListField.__init__(self, *args, **kwargs)
+        NDRConstructedType.__init__(self, [self.field])
+
+
 class NDRVaryingArray(_NDRPacket):
     fields_desc = [
         MultipleTypeField(
@@ -1502,13 +1514,13 @@ class _NDRConfField(object):
                 "Expected NDRConformantString in %s. You are using it wrong!"
                 % self.name
             )
-        elif not isinstance(val, NDRConformantArray):
+        elif not self.CONFORMANT_STRING and not isinstance(val, NDRConformantArray):
             raise ValueError(
                 "Expected NDRConformantArray in %s. You are using it wrong!" % self.name
             )
         fmt = ["<I", "<Q"][pkt.ndr64]
         _set_ndr_on(val.value, pkt.ndr64)
-        if not self.CONFORMANT_STRING and isinstance(val.value[0], NDRVaryingArray):
+        if isinstance(val.value[0], NDRVaryingArray):
             value = val.value[0]
         else:
             value = val.value
@@ -1580,7 +1592,7 @@ class NDRConfVarPacketListField(_NDRConfField, _NDRVarField, _NDRPacketListField
     pass
 
 
-class NDRConfFieldListField(_NDRConfField, FieldListField):
+class NDRConfFieldListField(_NDRConfField, _NDRFieldListField):
     """
     NDR Conformant FieldListField
     """
@@ -1588,7 +1600,7 @@ class NDRConfFieldListField(_NDRConfField, FieldListField):
     pass
 
 
-class NDRConfVarFieldListField(_NDRConfField, _NDRVarField, FieldListField):
+class NDRConfVarFieldListField(_NDRConfField, _NDRVarField, _NDRFieldListField):
     """
     NDR Conformant Varying FieldListField
     """
@@ -1821,14 +1833,19 @@ def ndr_serialize1(pkt, ndr64=False):
         if isinstance(pkt, NDRPacket):
             if not isinstance(pkt, NDRPointer):
                 pkt = NDRPointer(ndr64=ndr64, referent_id=0x20000, value=pkt)
-            pkt = NDRSerialization1Header() / NDRSerialization1PrivateHeader(
-                ObjectBufferLength=len(pkt.value),
-            ) / pkt
+            pkt = (
+                NDRSerialization1Header() /
+                NDRSerialization1PrivateHeader(
+                    ObjectBufferLength=len(pkt.value),
+                ) /
+                pkt
+            )
         else:
             return bytes(NDRSerialization1Header() / pkt)
     pay = struct.pack("<I", pkt.referent_id) + bytes(pkt.value)
     pkt[NDRPointer].underlayer.remove_payload()
     return bytes(pkt) + pay
+
 
 # --- DCE/RPC session
 

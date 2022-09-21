@@ -14,14 +14,19 @@ import struct
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.fields import (
+    ConditionalField,
     FieldLenField,
     FieldListField,
+    FlagsField,
     LEIntEnumField,
     LELongField,
     LEIntField,
     LEShortField,
+    MultipleTypeField,
+    PacketLenField,
     PacketListField,
     StrField,
+    StrFieldUtf16,
     StrFixedLenField,
     StrLenFieldUtf16,
     UTCTimeField,
@@ -31,22 +36,37 @@ from scapy.fields import (
 from scapy.packet import Packet
 from scapy.layers.kerberos import _AUTHORIZATIONDATA_VALUES
 from scapy.layers.dcerpc import (
+    _NDRConfField,
     NDRByteField,
+    NDRConfStrLenField,
+    NDRConfVarStrLenField,
     NDRConfVarStrLenFieldUtf16,
     NDRConfPacketListField,
     NDRConfFieldListField,
+    NDRConfVarStrNullFieldUtf16,
+    NDRConformantString,
     NDRFullPointerField,
+    NDRInt3264EnumField,
     NDRIntField,
+    NDRLongField,
     NDRPacket,
     NDRPacketField,
     NDRSerialization1Header,
     NDRShortField,
+    NDRSignedLongField,
+    NDRUnionField,
     ndr_deserialize1,
     ndr_serialize1,
 )
-
+from scapy.layers.ntlm import (
+    _NTLMPayloadField,
+    _NTLMPayloadPacket,
+    _NTLM_post_build,
+)
 
 # sect 2.4
+
+
 class PAC_INFO_BUFFER(Packet):
     fields_desc = [
         LEIntEnumField(
@@ -64,6 +84,8 @@ class PAC_INFO_BUFFER(Packet):
                 0x0000000E: "Device information",
                 0x0000000F: "Device claims information",
                 0x00000010: "Ticket checksum",
+                0x00000011: "PAC Attributes",
+                0x00000012: "PAC Requestor",
             },
         ),
         LEIntField("cbBufferSize", None),
@@ -287,17 +309,322 @@ _PACTYPES[0x10] = PAC_SIGNATURE_DATA
 # sect 2.10
 
 
-class UPN_DNS_INFO(Packet):
+class UPN_DNS_INFO(_NTLMPayloadPacket):
     fields_desc = [
-        LEShortField("UpnLength", 0),
-        LEShortField("UpnOffset", 0),
-        LEShortField("DnsDomainNameLength", 0),
-        LEShortField("DnsDomainNameOffset", 0),
-        LEIntField("Flags", 0),
+        LEShortField("UpnLen", None),
+        LEShortField("UpnBufferOffset", None),
+        LEShortField("DnsDomainNameLen", None),
+        LEShortField("DnsDomainNameBufferOffset", None),
+        FlagsField(
+            "Flags",
+            0,
+            -32,
+            [
+                "U",
+                "S",  # Extended
+            ],
+        ),
+        ConditionalField(
+            # Extended
+            LEShortField("SamNameLen", None),
+            lambda pkt: pkt.Flags.S,
+        ),
+        ConditionalField(
+            # Extended
+            LEShortField("SamNameBufferOffset", None),
+            lambda pkt: pkt.Flags.S,
+        ),
+        ConditionalField(
+            # Extended
+            LEShortField("SidLen", None),
+            lambda pkt: pkt.Flags.S,
+        ),
+        ConditionalField(
+            # Extended
+            LEShortField("SidBufferOffset", None),
+            lambda pkt: pkt.Flags.S,
+        ),
+        MultipleTypeField(
+            [
+                (
+                    # Extended
+                    _NTLMPayloadField(
+                        "Payload",
+                        20,
+                        [
+                            StrFieldUtf16("Upn", b""),
+                            StrFieldUtf16("DnsDomainName", b""),
+                            StrFieldUtf16("SamName", b""),
+                            XStrField("Sid", b""),
+                        ],
+                    ),
+                    lambda pkt: pkt.Flags.S,
+                )
+            ],
+            # Not-extended
+            _NTLMPayloadField(
+                "Payload",
+                12,
+                [
+                    StrFieldUtf16("Upn", b""),
+                    StrFieldUtf16("DnsDomainName", b""),
+                ],
+            ),
+        ),
     ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        return (
+            _NTLM_post_build(
+                self,
+                pkt,
+                self.OFFSET,
+                {
+                    "Upn": 0,
+                    "DnsDomainName": 4,
+                },
+            ) +
+            pay
+        )
 
 
 _PACTYPES[0xC] = UPN_DNS_INFO
+
+# sect 2.11 - NDR PACKETS AUTO-GENERATED
+
+try:
+    from enum import IntEnum
+except ImportError:
+    IntEnum = object
+
+
+class CLAIM_TYPE(IntEnum):
+    CLAIM_TYPE_INT64 = 1
+    CLAIM_TYPE_UINT64 = 2
+    CLAIM_TYPE_STRING = 3
+    CLAIM_TYPE_BOOLEAN = 6
+
+
+class CLAIMS_SOURCE_TYPE(IntEnum):
+    CLAIMS_SOURCE_TYPE_AD = 1
+    CLAIMS_SOURCE_TYPE_CERTIFICATE = 2
+
+
+class CLAIMS_COMPRESSION_FORMAT(IntEnum):
+    COMPRESSION_FORMAT_NONE = 0
+    COMPRESSION_FORMAT_LZNT1 = 2
+    COMPRESSION_FORMAT_XPRESS = 3
+    COMPRESSION_FORMAT_XPRESS_HUFF = 4
+
+
+class u_sub0(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRIntField("ValueCount", 0),
+        NDRFullPointerField(
+            NDRConfFieldListField(
+                "Int64Values",
+                [],
+                NDRSignedLongField,
+                count_from=lambda pkt: pkt.ValueCount,
+            ),
+            deferred=True,
+        ),
+    ]
+
+
+class u_sub1(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRIntField("ValueCount", 0),
+        NDRFullPointerField(
+            NDRConfFieldListField(
+                "Uint64Values", [], NDRLongField, count_from=lambda pkt: pkt.ValueCount
+            ),
+            deferred=True,
+        ),
+    ]
+
+
+class u_sub2(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRIntField("ValueCount", 0),
+        NDRFullPointerField(
+            NDRConfFieldListField(
+                "StringValues",
+                [],
+                NDRFullPointerField(
+                    NDRConfVarStrNullFieldUtf16("StringVal", ""),
+                    deferred=True,
+                ),
+                count_from=lambda pkt: pkt.ValueCount,
+            ),
+            deferred=True,
+        ),
+    ]
+
+
+class u_sub3(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRIntField("ValueCount", 0),
+        NDRFullPointerField(
+            NDRConfFieldListField(
+                "BooleanValues", [], NDRLongField, count_from=lambda pkt: pkt.ValueCount
+            ),
+            deferred=True,
+        ),
+    ]
+
+
+class CLAIM_ENTRY(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRFullPointerField(NDRConfVarStrNullFieldUtf16("Id", ""), deferred=True),
+        NDRInt3264EnumField("Type", 0, CLAIM_TYPE),
+        NDRUnionField(
+            [
+                (
+                    NDRPacketField("Values", u_sub0(), u_sub0),
+                    (
+                        (
+                            lambda pkt: getattr(pkt, "Type", None) ==
+                            CLAIM_TYPE.CLAIM_TYPE_INT64
+                        ),
+                        (lambda _, val: val.tag == CLAIM_TYPE.CLAIM_TYPE_INT64),
+                    ),
+                ),
+                (
+                    NDRPacketField("Values", u_sub1(), u_sub1),
+                    (
+                        (
+                            lambda pkt: getattr(pkt, "Type", None) ==
+                            CLAIM_TYPE.CLAIM_TYPE_UINT64
+                        ),
+                        (lambda _, val: val.tag == CLAIM_TYPE.CLAIM_TYPE_UINT64),
+                    ),
+                ),
+                (
+                    NDRPacketField("Values", u_sub2(), u_sub2),
+                    (
+                        (
+                            lambda pkt: getattr(pkt, "Type", None) ==
+                            CLAIM_TYPE.CLAIM_TYPE_STRING
+                        ),
+                        (lambda _, val: val.tag == CLAIM_TYPE.CLAIM_TYPE_STRING),
+                    ),
+                ),
+                (
+                    NDRPacketField("Values", u_sub3(), u_sub3),
+                    (
+                        (
+                            lambda pkt: getattr(pkt, "Type", None) ==
+                            CLAIM_TYPE.CLAIM_TYPE_BOOLEAN
+                        ),
+                        (lambda _, val: val.tag == CLAIM_TYPE.CLAIM_TYPE_BOOLEAN),
+                    ),
+                ),
+            ],
+            StrFixedLenField("Values", "", length=0),
+            align=(2, 8),
+            switch_fmt=("<H", "<I"),
+        ),
+    ]
+
+
+class CLAIMS_ARRAY(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRInt3264EnumField("usClaimsSourceType", 0, CLAIMS_SOURCE_TYPE),
+        NDRIntField("ulClaimsCount", 0),
+        NDRFullPointerField(
+            NDRConfPacketListField(
+                "ClaimEntries",
+                [CLAIM_ENTRY()],
+                CLAIM_ENTRY,
+                count_from=lambda pkt: pkt.ulClaimsCount,
+            ),
+            deferred=True,
+        ),
+    ]
+
+
+class CLAIMS_SET(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRIntField("ulClaimsArrayCount", 0),
+        NDRFullPointerField(
+            NDRConfPacketListField(
+                "ClaimsArrays",
+                [CLAIMS_ARRAY()],
+                CLAIMS_ARRAY,
+                count_from=lambda pkt: pkt.ulClaimsArrayCount,
+            ),
+            deferred=True,
+        ),
+        NDRShortField("usReservedType", 0),
+        NDRIntField("ulReservedFieldSize", 0),
+        NDRFullPointerField(
+            NDRConfStrLenField(
+                "ReservedField", "", length_from=lambda pkt: pkt.ulReservedFieldSize
+            ),
+            deferred=True,
+        ),
+    ]
+
+
+class CLAIMS_SET_WRAP(NDRPacket):
+    # Extra packing class to handle all deferred pointers
+    # (usually, this would be the packing RPC request/response)
+    fields_desc = [NDRPacketField("data", None, CLAIMS_SET)]
+
+
+class _CLAIMSClaimSet(_NDRConfField, PacketLenField):
+    def m2i(self, pkt, s):
+        if pkt.usCompressionFormat == CLAIMS_COMPRESSION_FORMAT.COMPRESSION_FORMAT_NONE:
+            return ndr_deserialize1(s, CLAIMS_SET_WRAP)
+        else:
+            # TODO: There are 3 funky compression formats... see sect 2.2.18.4
+            return NDRConformantString(value=s)
+
+
+class CLAIMS_SET_METADATA(NDRPacket):
+    ALIGNMENT = (4, 8)
+    fields_desc = [
+        NDRIntField("ulClaimsSetSize", 0),
+        NDRFullPointerField(
+            _CLAIMSClaimSet(
+                "ClaimsSet", None, None, length_from=lambda pkt: pkt.ulClaimsSetSize
+            ),
+            deferred=True,
+        ),
+        NDRInt3264EnumField(
+            "usCompressionFormat",
+            0,
+            CLAIMS_COMPRESSION_FORMAT,
+        ),
+        NDRIntField("ulUncompressedClaimsSetSize", 0),
+        NDRShortField("usReservedType", 0),
+        NDRIntField("ulReservedFieldSize", 0),
+        NDRFullPointerField(
+            NDRConfVarStrLenField(
+                "ReservedField", "", length_from=lambda pkt: pkt.ulReservedFieldSize
+            ),
+            deferred=True,
+        ),
+    ]
+
+
+class PAC_CLIENT_CLAIMS_INFO(NDRPacket):
+    fields_desc = [NDRPacketField("Claims", None, CLAIMS_SET_METADATA)]
+
+
+if IntEnum != object:
+    # If not available, ignore. I can't be bothered
+    _PACTYPES[0xD] = PAC_CLIENT_CLAIMS_INFO
+
 
 # sect 2.12 - NDR PACKETS AUTO-GENERATED
 
@@ -368,6 +695,40 @@ class PAC_DEVICE_INFO_WRAP(NDRPacket):
 
 _PACTYPES[0xE] = PAC_DEVICE_INFO_WRAP
 
+# sect 2.14 - PAC_ATTRIBUTES_INFO
+
+
+class PAC_ATTRIBUTES_INFO(Packet):
+    fields_desc = [
+        LEIntField("FlagsLength", 0),
+        FieldListField(
+            "Flags",
+            [],
+            FlagsField(
+                "",
+                0,
+                -32,
+                {
+                    0x00000001: "PAC_WAS_REQUESTED",
+                    0x00000002: "PAC_WAS_GIVEN_IMPLICITLY",
+                },
+            ),
+            count_from=lambda pkt: (pkt.FlagsLength + 7) // 8,
+        ),
+    ]
+
+
+_PACTYPES[0x11] = PAC_ATTRIBUTES_INFO
+
+# sect 2.15 - PAC_REQUESTOR
+
+
+class PAC_REQUESTOR(Packet):
+    fields_desc = [XStrField("Sid", b"")]
+
+
+_PACTYPES[0x12] = PAC_REQUESTOR
+
 # sect 2.3
 
 
@@ -415,13 +776,19 @@ class _PACTYPEPayloads(PacketListField):
                     )
                 else:
                     val = cls(s[offset: offset + buf.cbBufferSize])
+                if conf.raw_layer in val:
+                    pad = conf.padding_layer(load=val[conf.raw_layer].load)
+                    lay = val[conf.raw_layer].underlayer
+                    lay.remove_payload()
+                    lay.add_payload(pad)
             except KeyError:
-                val = conf.raw_layer(s[offset: offset + buf.cbBufferSize])
+                val = conf.padding_layer(s[offset: offset + buf.cbBufferSize])
             result.append(val)
         return b"", result
 
 
 class PACTYPE(Packet):
+    name = "PACTYPE - PAC"
     fields_desc = [
         FieldLenField("cBuffers", None, count_of="Buffers", fmt="<I"),
         LEIntField("Version", 0x00000000),

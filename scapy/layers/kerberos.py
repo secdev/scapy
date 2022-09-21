@@ -230,7 +230,7 @@ class _AuthorizationData_value_Field(_ASN1FString_PacketField):
             if not val[0].val:
                 return val
             if cls:
-                return cls(val[0].val, _underlayer=pkt), b""
+                return cls(val[0].val, _underlayer=pkt), val[1]
         return val
 
 
@@ -445,7 +445,7 @@ class _PADATA_value_Field(_ASN1FString_PacketField):
                 cls = cls[is_reply]
             if not val[0].val:
                 return val
-            return cls(val[0].val, _underlayer=pkt), b""
+            return cls(val[0].val, _underlayer=pkt), val[1]
         return val
 
 
@@ -616,7 +616,7 @@ class _KrbFastArmor_value_Field(_ASN1FString_PacketField):
         if not val[0].val:
             return val
         if pkt.armorType.val == 1:  # FX_FAST_ARMOR_AP_REQUEST
-            return KRB_AP_REQ(val[0].val, _underlayer=pkt), b""
+            return KRB_AP_REQ(val[0].val, _underlayer=pkt), val[1]
         return val
 
 
@@ -1159,8 +1159,8 @@ class _KRBERROR_data_Field(_ASN1FString_PacketField):
         if pkt.errorCode.val in [24, 25]:
             # 24: KDC_ERR_PREAUTH_FAILED
             # 25: KDC_ERR_PREAUTH_REQUIRED
-            return MethodData(val[0].val, _underlayer=pkt), b""
-        return val, b""
+            return MethodData(val[0].val, _underlayer=pkt), val[1]
+        return val
 
 
 class KRB_ERROR(ASN1_Packet):
