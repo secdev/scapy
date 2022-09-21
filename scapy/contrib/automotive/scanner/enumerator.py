@@ -115,8 +115,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         self._result_packets = OrderedDict()  # type: Dict[bytes, Packet]
         self._results = list()  # type: List[_AutomotiveTestCaseScanResult]
         self._request_iterators = dict()  # type: Dict[EcuState, Iterable[Packet]]  # noqa: E501
-        self._retry_pkt = defaultdict(
-            lambda: None)  # type: Dict[EcuState, Optional[Union[Packet, Iterable[Packet]]]]  # noqa: E501
+        self._retry_pkt = defaultdict(list)  # type: Dict[EcuState, Union[Packet, Iterable[Packet]]]  # noqa: E501
         self._negative_response_blacklist = [0x10, 0x11]  # type: List[int]
         self._requests_per_state_estimated = None  # type: Optional[int]
 
@@ -173,12 +172,14 @@ class ServiceEnumerator(AutomotiveTestCase):
     def __reduce__(self):  # type: ignore
         f, t, d = super(ServiceEnumerator, self).__reduce__()  # type: ignore
         try:
-            del d["_request_iterators"]
+            for k, v in six.iteritems(d["_request_iterators"]):
+                d["_request_iterators"][k] = list(v)
         except KeyError:
             pass
 
         try:
-            del d["_retry_pkt"]
+            for k in d["_retry_pkt"]:
+                d["_retry_pkt"][k] = list(self._get_retry_iterator(k))
         except KeyError:
             pass
         return f, t, d
@@ -214,9 +215,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     def _get_retry_iterator(self, state):
         # type: (EcuState) -> Iterable[Packet]
         retry_entry = self._retry_pkt[state]
-        if retry_entry is None:
-            return []
-        elif isinstance(retry_entry, Packet):
+        if isinstance(retry_entry, Packet):
             log_automotive.debug("Provide retry packet")
             return [retry_entry]
         else:
@@ -376,7 +375,7 @@ class ServiceEnumerator(AutomotiveTestCase):
             return True
 
         # cleanup retry packet
-        self._retry_pkt[state] = None
+        self._retry_pkt[state] = []
 
         return self._evaluate_ecu_state_modifications(state, request, response)
 
@@ -435,7 +434,7 @@ class ServiceEnumerator(AutomotiveTestCase):
                  current execution was already a retry execution.
         """
 
-        if self._retry_pkt[state] is None:
+        if not self._get_retry_iterator(state):
             # This was no retry since the retry_pkt is None
             self._retry_pkt[state] = request
             log_automotive.debug(

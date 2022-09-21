@@ -314,7 +314,7 @@ class GMLAN_SAEnumerator(GMLAN_Enumerator, StateGenerator):
 
     def pre_execute(self, socket, state, global_configuration):
         # type: (_SocketUnion, EcuState, AutomotiveTestCaseExecutorConfiguration) -> None  # noqa: E501
-        if cast(ServiceEnumerator, self)._retry_pkt[state] is not None and \
+        if cast(ServiceEnumerator, self)._retry_pkt[state] and \
                 not global_configuration.unittest:
             # this is a retry execute. Wait much longer than usual because
             # a required time delay not expired could have been received
