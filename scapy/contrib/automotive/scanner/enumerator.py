@@ -172,13 +172,13 @@ class ServiceEnumerator(AutomotiveTestCase):
     def __reduce__(self):  # type: ignore
         f, t, d = super(ServiceEnumerator, self).__reduce__()  # type: ignore
         try:
-            for k, v in d["_request_iterators"].items():
+            for k, v in six.iteritems(d["_request_iterators"]):
                 d["_request_iterators"][k] = list(v)
         except KeyError:
             pass
 
         try:
-            for k in d["_retry_pkt"].keys():
+            for k in d["_retry_pkt"]:
                 d["_retry_pkt"][k] = list(self._get_retry_iterator(k))
         except KeyError:
             pass
