@@ -540,6 +540,7 @@ Running this example gives the following result::
     Wait for nothing...
     Action on 'nothing' condition
     State=END
+    >>> a.destroy()
 
 This simple automaton can be described with the following graph:
 
@@ -548,6 +549,10 @@ This simple automaton can be described with the following graph:
 The graph can be automatically drawn from the code with::
 
     >>> HelloWorld.graph()
+
+.. note:: An ``Automaton`` can be reset using ``restart()``. It is then possible to run it again.
+
+.. warning:: Remember to call ``destroy()`` once you're done using an Automaton. (especially on PyPy)
 
 Changing states
 ---------------
@@ -671,7 +676,9 @@ Here is a real example take from Scapy. It implements a TFTP client that can iss
 
 It can be run like this, for instance::
 
-    >>> TFTP_read("my_file", "192.168.1.128").run()
+    >>> atmt = TFTP_read("my_file", "192.168.1.128")
+    >>> atmt.run()
+    >>> atmt.destroy()
 
 Detailed documentation
 ----------------------
@@ -760,6 +767,8 @@ Actions are methods that are decorated by the return of ``ATMT.action`` function
 
 ::
 
+    from random import random
+
     class Example(Automaton):
         @ATMT.state(initial=1)
         def BEGIN(self):
@@ -800,6 +809,7 @@ The two possible outputs are::
     >>> a.run()
     We are lucky...
     This wasn't luck!...
+    >>> a.destroy()
 
 
 .. note:: If you want to pass a parameter to an action, you can use the ``action_parameters`` function while raising the next state.

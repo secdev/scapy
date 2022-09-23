@@ -33,7 +33,7 @@ from scapy.interfaces import (
 from scapy.packet import Packet
 from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
-from scapy.utils import str2mac
+from scapy.utils import str2mac, decode_locale_str
 
 import scapy.consts
 
@@ -126,7 +126,9 @@ class _L2libpcapSocket(SuperSocket):
         if self.closed:
             return
         self.closed = True
-        self.pcap_fd.close()
+        if hasattr(self, "pcap_fd"):
+            # If failed to open, won't exist
+            self.pcap_fd.close()
 
 
 ##########
@@ -297,7 +299,7 @@ if conf.use_pcap:
                 self.pcap = pcap_open_live(self.iface,
                                            snaplen, promisc, to_ms,
                                            self.errbuf)
-                error = bytes(bytearray(self.errbuf)).strip(b"\x00")
+                error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
                 if error:
                     raise OSError(error)
 
