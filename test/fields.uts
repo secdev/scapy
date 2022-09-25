@@ -294,25 +294,25 @@ p.len == 4 and p.str == b"ABC" and Raw in p
 = BitFieldLenField test
 ~ field
 class TestBFLenF(Packet):
-    fields_desc = [ BitFieldLenField("len", None, 4, length_of="str" , adjust=lambda pkt,x:x+1),
-                    BitField("nothing",0xfff, 12),
+    fields_desc = [ BitFieldLenField("len", None, 4, length_of="str" , adjust=lambda pkt,x:x+1, tot_size=-2),
+                    BitField("nothing",0xfff, 12, end_tot_size=-2),
                     StrLenField("str", "default", length_from=lambda pkt:pkt.len-1, ) ]
 
 a=TestBFLenF()
 r = raw(a)
 r
-assert r == b"\x8f\xffdefault"
+assert r == b"\xff\x8fdefault"
 
 a.str=""
 r = raw(a)
 r
-assert r == b"\x1f\xff"
+assert r == b"\xff\x1f"
 
-p = TestBFLenF(b"\x1f\xff@@")
+p = TestBFLenF(b"\xff\x1f@@")
 p
 assert p.len == 1 and p.str == b"" and Raw in p and p[Raw].load == b"@@"
 
-p = TestBFLenF(b"\x6f\xffabcdeFGH")
+p = TestBFLenF(b"\xff\x6fabcdeFGH")
 p
 assert p.len == 6 and p.str == b"abcde" and Raw in p and p[Raw].load == b"FGH"
 
