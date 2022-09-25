@@ -2377,7 +2377,7 @@ class BitFixedLenField(BitField):
 
 
 class BitFieldLenField(BitField):
-    __slots__ = ["length_of", "count_of", "adjust"]
+    __slots__ = ["length_of", "count_of", "adjust", "tot_size", "end_tot_size"]
 
     def __init__(self,
                  name,  # type: str
@@ -2386,9 +2386,12 @@ class BitFieldLenField(BitField):
                  length_of=None,  # type: Optional[Union[Callable[[Optional[Packet]], int], str]]  # noqa: E501
                  count_of=None,  # type: Optional[str]
                  adjust=lambda pkt, x: x,  # type: Callable[[Optional[Packet], int], int]  # noqa: E501
+                 tot_size=0,  # type: int
+                 end_tot_size=0,  # type: int
                  ):
         # type: (...) -> None
-        super(BitFieldLenField, self).__init__(name, default, size)
+        super(BitFieldLenField, self).__init__(name, default, size,
+                                               tot_size, end_tot_size)
         self.length_of = length_of
         self.count_of = count_of
         self.adjust = adjust
