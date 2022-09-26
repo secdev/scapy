@@ -118,12 +118,12 @@ class NativeCANSocket(SuperSocket):
             # something bad happened (e.g. the interface went down)
             warning("Captured no data.")
 
-        basecls = CAN if len(pkt) <= 16 else CANFD
+        basecls = CAN if pkt.__len__() <= 16 else CANFD
 
         # need to change the byte order of the first four bytes,
         # required by the underlying Linux SocketCAN frame format
         if not conf.contribs['CAN']['swap-bytes'] and pkt is not None:
-            if len(pkt) > 16:
+            if pkt.__len__() > 16:
                 pkt = struct.pack("<I68s", *struct.unpack(">I68s", pkt))
             else:
                 pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
