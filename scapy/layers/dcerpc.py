@@ -1374,7 +1374,7 @@ class _NDRPacketListField(NDRConstructedType, PacketListField):
         return len(x)
 
 
-class _NDRFieldListField(NDRConstructedType, FieldListField):
+class NDRFieldListField(NDRConstructedType, FieldListField):
     """
     A FieldListField for NDR
     """
@@ -1592,7 +1592,7 @@ class NDRConfVarPacketListField(_NDRConfField, _NDRVarField, _NDRPacketListField
     pass
 
 
-class NDRConfFieldListField(_NDRConfField, _NDRFieldListField):
+class NDRConfFieldListField(_NDRConfField, NDRFieldListField):
     """
     NDR Conformant FieldListField
     """
@@ -1600,7 +1600,7 @@ class NDRConfFieldListField(_NDRConfField, _NDRFieldListField):
     pass
 
 
-class NDRConfVarFieldListField(_NDRConfField, _NDRVarField, _NDRFieldListField):
+class NDRConfVarFieldListField(_NDRConfField, _NDRVarField, NDRFieldListField):
     """
     NDR Conformant Varying FieldListField
     """
