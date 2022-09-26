@@ -14,7 +14,7 @@ import gzip
 import struct
 
 from scapy.compat import Tuple, Optional, Type, List, Union, Callable, IO, \
-    Any, cast
+    Any, cast, hex_bytes
 
 import scapy.libs.six as six
 from scapy.config import conf
@@ -577,6 +577,7 @@ class CandumpReader:
         data = data.replace(b' ', b'')
         data = data.strip()
 
+        pkt = CAN(identifier=int(idn, 16), data=hex_bytes(data))
         if len(data) <= 8:
             pkt = CAN(identifier=int(idn, 16), data=data)
         else:
