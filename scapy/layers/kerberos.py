@@ -75,25 +75,21 @@ from scapy.compat import bytes_encode
 from scapy.error import log_runtime
 from scapy.fields import (
     ByteField,
-    FieldLenField,
     FlagsField,
-    LEIntEnumField,
     LEIntField,
-    LELongField,
     LenField,
     LEShortEnumField,
     LEShortField,
-    PacketListField,
     PadField,
     ShortField,
-    StrField,
     StrFixedLenEnumField,
     XStrFixedLenField,
 )
-from scapy.layers.inet import TCP, UDP
 from scapy.packet import Packet, bind_bottom_up, bind_layers
 from scapy.supersocket import StreamSocket
 from scapy.volatile import GeneralizedTime, RandNum
+
+from scapy.layers.inet import TCP, UDP
 
 # kerberos APPLICATION
 
@@ -234,7 +230,7 @@ class _AuthorizationData_value_Field(_ASN1FString_PacketField):
             if not val[0].val:
                 return val
             if cls:
-                return cls(val[0].val, _underlayer=pkt), b""
+                return cls(val[0].val, _underlayer=pkt), val[1]
         return val
 
 
@@ -305,50 +301,6 @@ _AUTHORIZATIONDATA_VALUES[5] = AD_AND_OR
 ADMANDATORYFORKDC = AuthorizationData
 _AUTHORIZATIONDATA_VALUES[8] = ADMANDATORYFORKDC
 
-
-# [MS-PAC]
-
-
-# sect 2.4
-class PAC_INFO_BUFFER(Packet):
-    fields_desc = [
-        LEIntEnumField(
-            "ulType",
-            0x00000001,
-            {
-                0x00000001: "Logon information",
-                0x00000002: "Credentials information",
-                0x00000006: "Server checksum",
-                0x00000007: "KDC checksum",
-                0x0000000A: "Client name and ticket information",
-                0x0000000B: "Constrained delegation information",
-                0x0000000C: "UPN and DNS information",
-                0x0000000D: "Client claims information",
-                0x0000000E: "Device information",
-                0x0000000F: "Device claims information",
-                0x00000010: "Ticket checksum",
-            },
-        ),
-        LEIntField("cbBufferSize", 0),
-        LELongField("Offset", 0),
-    ]
-
-
-class PACTYPE(Packet):
-    fields_desc = [
-        FieldLenField("cBuffers", None, count_of="Buffers", fmt="<I"),
-        LEIntField("Version", 0x00000000),
-        PacketListField(
-            "Buffers",
-            [PAC_INFO_BUFFER()],
-            PAC_INFO_BUFFER,
-            length_from=lambda pkt: pkt.cBuffers,
-        ),
-        StrField("Payload", ""),  # TODO: this is encoded with NDR :o
-    ]
-
-
-_AUTHORIZATIONDATA_VALUES[128] = PACTYPE  # AD-WIN2K-PAC
 
 # back to RFC4120
 
@@ -439,6 +391,7 @@ class EncryptionKey(ASN1_Packet):
 
     def toKey(self):
         from scapy.libs.rfc3961 import Key
+
         return Key(self.keytype.val, key=self.keyvalue.val)
 
 
@@ -492,7 +445,7 @@ class _PADATA_value_Field(_ASN1FString_PacketField):
                 cls = cls[is_reply]
             if not val[0].val:
                 return val
-            return cls(val[0].val, _underlayer=pkt), b""
+            return cls(val[0].val, _underlayer=pkt), val[1]
         return val
 
 
@@ -663,7 +616,7 @@ class _KrbFastArmor_value_Field(_ASN1FString_PacketField):
         if not val[0].val:
             return val
         if pkt.armorType.val == 1:  # FX_FAST_ARMOR_AP_REQUEST
-            return KRB_AP_REQ(val[0].val, _underlayer=pkt), b""
+            return KRB_AP_REQ(val[0].val, _underlayer=pkt), val[1]
         return val
 
 
@@ -1206,8 +1159,8 @@ class _KRBERROR_data_Field(_ASN1FString_PacketField):
         if pkt.errorCode.val in [24, 25]:
             # 24: KDC_ERR_PREAUTH_FAILED
             # 25: KDC_ERR_PREAUTH_REQUIRED
-            return MethodData(val[0].val, _underlayer=pkt), b""
-        return val, b""
+            return MethodData(val[0].val, _underlayer=pkt), val[1]
+        return val
 
 
 class KRB_ERROR(ASN1_Packet):
