@@ -133,8 +133,9 @@ assert Test(raw(Test())).sourceip == defaddr
 
 assert IP(dst="0.0.0.0").src == defaddr
 assert IP(raw(IP(dst="0.0.0.0"))).src == defaddr
-assert IP(dst="0.0.0.0/31").src == defaddr
-assert IP(raw(IP(dst="0.0.0.0/31"))).src == defaddr
+defaddr = conf.route.route('1.1.1.1')[1]
+assert IP(dst="1.1.1.1").src == defaddr
+assert IP(raw(IP(dst="1.1.1.1"))).src == defaddr
 
 
 #= ByteField

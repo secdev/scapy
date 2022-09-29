@@ -14,7 +14,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define "freebsd" do |bsd|
-    bsd.vm.box = "freebsd/FreeBSD-13.0-RELEASE"
+    bsd.vm.box = "freebsd/FreeBSD-13.1-RELEASE"
     bsd.vm.provision "shell", path: "provision_freebsd.sh"
   end
 
