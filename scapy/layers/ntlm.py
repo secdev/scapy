@@ -55,6 +55,8 @@ from scapy.packet import Packet
 from scapy.sessions import StringBuffer
 from scapy.supersocket import SSLStreamSocket, StreamSocket
 
+from scapy.layers.tls.crypto.hash import Hash_MD5
+
 from scapy.compat import (
     Any,
     Callable,
@@ -1138,6 +1140,16 @@ def RC4K(key, data):
     encryptor = cipher.encryptor()
     return encryptor.update(data) + encryptor.finalize()
 
+# sect 2.2.2.9 - With Extended Session Security
+
+
+class NTLMSSP_MESSAGE_SIGNATURE(Packet):
+    fields_desc = [
+        LEIntField("Version", 1),
+        StrFixedLenField("Checksum", b"", length=8),
+        LEIntField("SeqNum", 0),
+    ]
+
 # sect 3.3.2
 
 
@@ -1149,6 +1161,62 @@ def NTOWFv2(Passwd, User, UserDom):
 
 def NTLMv2_ComputeSessionBaseKey(ResponseKeyNT, NTProofStr):
     return HMAC_MD5(ResponseKeyNT, NTProofStr)
+
+
+# sect 3.4.4.2 - With Extended Session Security
+
+def MAC(SealingKey, SigningKey, SeqNum, Message):
+    chksum = HMAC_MD5(SigningKey, struct.pack("<I", SeqNum) + Message)[:8]
+    if SealingKey:
+        chksum = RC4K(SealingKey, chksum)
+    return NTLMSSP_MESSAGE_SIGNATURE(
+        Version=0x00000001,
+        Checksum=chksum,
+        SeqNum=SeqNum,
+    )
+
+# sect 3.4.3
+
+
+def SEAL(SealingKey, SigningKey, SeqNum, Message):
+    sealed_message = RC4K(SealingKey, Message)
+    signature = MAC(SealingKey, SigningKey, SeqNum, Message)
+
+# sect 3.4.5.2
+
+
+def SIGNKEY(NegFlg, ExportedSessionKey, Mode):
+    if NegFlg.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
+        if Mode == "Client":
+            return Hash_MD5(ExportedSessionKey + b"session key to client-to-server signing key magic constant")
+        else:
+            return Hash_MD5(ExportedSessionKey + b"session key to server-to-client signing key magic constant")
+    else:
+        return None
+
+# sect 3.4.5.3
+
+
+def SEALKEY(NegFlg, ExportedSessionKey, Mode):
+    if NegFlg.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
+        if NegFlg.NTLMSSP_NEGOTIATE_128:
+            SealKey = ExportedSessionKey
+        elif NegFlg.NTLMSSP_NEGOTIATE_56:
+            SealKey = ExportedSessionKey[:6]
+        else:
+            SealKey = ExportedSessionKey[:4]
+        if Mode == "Client":
+            return Hash_MD5(SealKey + b"session key to client-to-server sealing key magic constant")
+        else:
+            return Hash_MD5(SealKey + b"session key to server-to-client signing key magic constant")
+    elif NegFlg.NTLMSSP_NEGOTIATE_LM_KEY:
+        if NegFlg.NTLMSSP_NEGOTIATE_56:
+            return ExportedSessionKey[:6] + b"\xA0"
+        else:
+            return ExportedSessionKey[:4] + b"\xe5\x38\xb0"
+    else:
+        return ExportedSessionKey
+
 
 # def _NTLMv2_ComputeResponse(ResponseKeyNT,
 #                             ServerChallenge, ClientChallenge, Time,
