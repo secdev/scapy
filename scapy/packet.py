@@ -582,8 +582,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
     else:
         def __str__(self):
             # type: () -> str
-            warning("Calling str(pkt) on Python 3 makes no sense!")
-            return str(self.build())
+            return self.summary()
 
     def __bytes__(self):
         # type: () -> bytes
