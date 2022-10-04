@@ -1115,26 +1115,33 @@ pkt_1 = NTP(
     sent=RawVal(time_stamp),
 )
 
+# This field is intentionally set here, rather than in the constructor above,
+# to cover a different code path:
+pkt_1.recv = RawVal(time_stamp)
+
 assert (isinstance(pkt_1.precision, RawVal)), type(pkt_1.precision)
 assert (isinstance(pkt_1.dispersion, RawVal)), type(pkt_1.dispersion)
 assert (isinstance(pkt_1.orig, RawVal)), type(pkt_1.orig)
 assert (isinstance(pkt_1.sent, RawVal)), type(pkt_1.sent)
+assert (isinstance(pkt_1.recv, RawVal)), type(pkt_1.recv)
 
 assert (pkt_1.precision.val == precision, pkt_1.precision.val)
 assert (pkt_1.dispersion.val == dispersion, pkt_1.dispersion.val)
 assert (pkt_1.orig.val == time_stamp, pkt_1.orig.val)
 assert (pkt_1.sent.val == time_stamp, pkt_1.sent.val)
+assert (pkt_1.recv.val == time_stamp, pkt_1.recv.val)
 
 time_stamp_hex = 0x00000000e67d6774
 pkt_2 = NTP(
     precision=236,
     dispersion=Decimal('0.948455810546875'),
     orig=time_stamp_hex,
-    sent=time_stamp_hex
+    sent=time_stamp_hex,
+    recv=time_stamp_hex
 )
 
 raw_pkt = (b"#\x02\n\xec\x00\x00\x00\x00\x00\x00\xf2\xce\x7f\x00\x00\x01\x00"
-           b"\x00\x00\x00\x00\x00\x00\x00\xe6}gt\x00\x00\x00\x00\x00\x00\x00"
-           b"\x00\x00\x00\x00\x00\xe6}gt\x00\x00\x00\x00")
+           b"\x00\x00\x00\x00\x00\x00\x00\xe6}gt\x00\x00\x00\x00\xe6}gt\x00"
+           b"\x00\x00\x00\xe6}gt\x00\x00\x00\x00")
 
 assert raw(pkt_1) == raw(pkt_2) == raw_pkt

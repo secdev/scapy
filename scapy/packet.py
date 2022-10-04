@@ -469,7 +469,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 any2i = lambda x, y: y  # type: Callable[..., Any]
             else:
                 any2i = fld.any2i
-            self.fields[attr] = any2i(self, val)
+            self.fields[attr] = val if isinstance(val, RawVal) else \
+                any2i(self, val)
             self.explicit = 0
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
