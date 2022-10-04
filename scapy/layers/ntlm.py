@@ -915,7 +915,7 @@ class NTLM_Server(_NTLM_Automaton):
                     )
                 else:
                     ExportedSessionKey = KeyExchangeKey
-                self.SigningSessionKey = ExportedSessionKey  # For SMB
+                self.SigningSessionKey = ExportedSessionKey  # [MS-SMB] 3.2.5.3
         super(NTLM_Server, self).received_ntlm_token(ntlm_tuple)
 
     def set_cli(self, attr, value):
@@ -1132,8 +1132,24 @@ def MD4(x):
     return Hash_MD4().digest(x)
 
 
-def RC4K(key, data):
+def RC4Init(key):
     """Alleged RC4"""
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+    algorithm = algorithms.ARC4(key)
+    cipher = Cipher(algorithm, mode=None)
+    encryptor = cipher.encryptor()
+    return encryptor
+
+
+def RC4(handle, data):
+    """The RC4 Encryption Algorithm"""
+    return handle.update(data)
+
+
+def RC4K(key, data):
+    """Indicates the encryption of data item D with the key K using the
+    RC4 algorithm.
+    """
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
     algorithm = algorithms.ARC4(key)
     cipher = Cipher(algorithm, mode=None)
@@ -1165,10 +1181,10 @@ def NTLMv2_ComputeSessionBaseKey(ResponseKeyNT, NTProofStr):
 
 # sect 3.4.4.2 - With Extended Session Security
 
-def MAC(SealingKey, SigningKey, SeqNum, Message):
-    chksum = HMAC_MD5(SigningKey, struct.pack("<I", SeqNum) + Message)[:8]
-    if SealingKey:
-        chksum = RC4K(SealingKey, chksum)
+def MAC(Handle, SigningKey, SeqNum, Message):
+    chksum = HMAC_MD5(SigningKey, struct.pack("<i", SeqNum) + Message)[:8]
+    if Handle:
+        chksum = RC4(Handle, chksum)
     return NTLMSSP_MESSAGE_SIGNATURE(
         Version=0x00000001,
         Checksum=chksum,
@@ -1178,9 +1194,10 @@ def MAC(SealingKey, SigningKey, SeqNum, Message):
 # sect 3.4.3
 
 
-def SEAL(SealingKey, SigningKey, SeqNum, Message):
-    sealed_message = RC4K(SealingKey, Message)
-    signature = MAC(SealingKey, SigningKey, SeqNum, Message)
+def SEAL(Handle, SigningKey, SeqNum, Message):
+    sealed_message = RC4(Handle, Message)
+    signature = MAC(Handle, SigningKey, SeqNum, Message)
+    return sealed_message, signature
 
 # sect 3.4.5.2
 
@@ -1188,9 +1205,15 @@ def SEAL(SealingKey, SigningKey, SeqNum, Message):
 def SIGNKEY(NegFlg, ExportedSessionKey, Mode):
     if NegFlg.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
         if Mode == "Client":
-            return Hash_MD5(ExportedSessionKey + b"session key to client-to-server signing key magic constant")
+            return Hash_MD5().digest(
+                ExportedSessionKey +
+                b"session key to client-to-server signing key magic constant\x00"
+            )
         else:
-            return Hash_MD5(ExportedSessionKey + b"session key to server-to-client signing key magic constant")
+            return Hash_MD5().digest(
+                ExportedSessionKey +
+                b"session key to server-to-client signing key magic constant\x00"
+            )
     else:
         return None
 
@@ -1202,13 +1225,19 @@ def SEALKEY(NegFlg, ExportedSessionKey, Mode):
         if NegFlg.NTLMSSP_NEGOTIATE_128:
             SealKey = ExportedSessionKey
         elif NegFlg.NTLMSSP_NEGOTIATE_56:
-            SealKey = ExportedSessionKey[:6]
+            SealKey = ExportedSessionKey[:7]
         else:
-            SealKey = ExportedSessionKey[:4]
+            SealKey = ExportedSessionKey[:5]
         if Mode == "Client":
-            return Hash_MD5(SealKey + b"session key to client-to-server sealing key magic constant")
+            return Hash_MD5().digest(
+                SealKey +
+                b"session key to client-to-server sealing key magic constant\x00"
+            )
         else:
-            return Hash_MD5(SealKey + b"session key to server-to-client signing key magic constant")
+            return Hash_MD5().digest(
+                SealKey +
+                b"session key to server-to-client sealing key magic constant\x00"
+            )
     elif NegFlg.NTLMSSP_NEGOTIATE_LM_KEY:
         if NegFlg.NTLMSSP_NEGOTIATE_56:
             return ExportedSessionKey[:6] + b"\xA0"
