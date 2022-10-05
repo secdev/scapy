@@ -494,7 +494,7 @@ class NTLM_SMB_Server(NTLM_Server, Automaton):
                     # Since we can't sign the response, modern clients will abort
                     # the connection after receiving this, despite our best
                     # efforts...
-                    self._ioctl_error()
+                    self._ioctl_error(Status="STATUS_FILE_CLOSED")
                     return
         self.echo(pkt)
 
