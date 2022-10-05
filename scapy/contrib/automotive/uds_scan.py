@@ -675,7 +675,9 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
                 return False
 
         if not any(seed_pkt.securitySeed):
-            return False
+            log_automotive.info(
+                "Security access for level %d already granted!" % level)
+            return True
 
         key_pkt = self.get_key_pkt(seed_pkt, level)
         if key_pkt is None:

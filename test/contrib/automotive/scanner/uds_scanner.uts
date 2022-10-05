@@ -228,13 +228,13 @@ assert len(tc.results_without_response) < 10
 if tc.results_without_response:
     tc.show()
 
-assert len(tc.results_with_negative_response) == 17
-assert len(tc.results_with_positive_response) == 8
+assert len(tc.results_with_negative_response) == 20
+assert len(tc.results_with_positive_response) == 5
 assert len(tc.scanned_states) == 5
 
 result = tc.show(dump=True)
 
-assert "incorrectMessageLengthOrInvalidFormat received 17 times" in result
+assert "incorrectMessageLengthOrInvalidFormat received 20 times" in result
 
 ###################### UDS_ServiceEnumerator ###################
 tc = scanner.configuration.test_cases[2]

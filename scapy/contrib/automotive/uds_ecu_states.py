@@ -5,7 +5,6 @@
 
 # scapy.contrib.description = UDS EcuState modifications
 # scapy.contrib.status = library
-
 from scapy.contrib.automotive.uds import UDS_DSCPR, UDS_ERPR, UDS_SAPR, \
     UDS_RDBPIPR, UDS_CCPR, UDS_TPPR, UDS_RDPR, UDS
 from scapy.packet import Packet
@@ -22,6 +21,10 @@ __all__ = ["UDS_DSCPR_modify_ecu_state", "UDS_CCPR_modify_ecu_state",
 def UDS_DSCPR_modify_ecu_state(self, req, state):
     # type: (Packet, Packet, EcuState) -> None
     state.session = self.diagnosticSessionType  # type: ignore
+    try:
+        del state.security_level  # type: ignore
+    except AttributeError:
+        pass
 
 
 @EcuState.extend_pkt_with_modifier(UDS_ERPR)
@@ -37,6 +40,10 @@ def UDS_SAPR_modify_ecu_state(self, req, state):
     if self.securityAccessType % 2 == 0 and \
             self.securityAccessType > 0 and len(req) >= 3:
         state.security_level = self.securityAccessType  # type: ignore
+    elif self.securityAccessType % 2 == 1 and \
+            self.securityAccessType > 0 and \
+            len(req) >= 3 and not any(self.securitySeed):
+        state.security_level = self.securityAccessType + 1  # type: ignore
 
 
 @EcuState.extend_pkt_with_modifier(UDS_CCPR)
