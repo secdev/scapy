@@ -506,25 +506,18 @@ class DceRpc5(Packet):
                 ),
                 lambda pkt: pkt.auth_len != 0,
             ),
-            ConditionalField(
-                TrailerField(
-                    StrLenField(
-                        "auth_pad",
-                        None,
-                        length_from=lambda pkt: pkt.auth_verifier.auth_pad_length or 0,
-                    )
-                ),
-                lambda pkt: pkt.auth_verifier and pkt.auth_verifier.auth_pad_length,
-            ),
         ]
     )
 
     def post_build(self, pkt, pay):
-        if self.auth_verifier and self.auth_pad is None:
+        if self.auth_verifier and self.auth_verifier.auth_pad_length is None:
             # Compute auth_len and add padding
             auth_len = self.get_field("auth_len").getfield(self, pkt[10:12])[1] + 8
             auth_verifier, pay = pay[-auth_len:], pay[:-auth_len]
-            padlen = (-(len(pkt) + len(pay) - 8)) % 16
+            # [MS-RPCE]
+            # > The sec_trailer structure MUST be 16-byte aligned
+            # > with respect to the beginning of the PDU Body<
+            padlen = (-(len(pay) - 8)) % 16
             auth_verifier = (
                 auth_verifier[:2] + struct.pack("B", padlen) + auth_verifier[3:]
             )
@@ -1862,7 +1855,7 @@ class DceRpcSession(DefaultSession):
             )
             return
         # Dissect payload using class
-        payload = cls(pkt[conf.raw_layer].load, ndr64=self.ndr64, **opts)
+        payload = cls(bytes(pkt[conf.raw_layer]), ndr64=self.ndr64, **opts)
         pkt[conf.raw_layer].underlayer.remove_payload()
         return pkt / payload
 
