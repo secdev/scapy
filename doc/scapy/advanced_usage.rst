@@ -897,7 +897,7 @@ The engine is pretty straightforward:
 
 Let's run it:
 
-.. image:: https://scapy.net/files/doc/pipetool_demo.gif
+.. image:: graphics/animations/pipetool_demo.gif
 
 Class Types
 -----------
