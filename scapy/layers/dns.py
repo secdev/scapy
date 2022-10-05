@@ -15,7 +15,7 @@ import time
 import warnings
 
 from scapy.arch import get_if_addr, get_if_addr6
-from scapy.ansmachine import AnsweringMachine, AnsweringMachineUtils
+from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.compat import orb, raw, chb, bytes_encode, plain_str
@@ -29,7 +29,7 @@ from scapy.sendrecv import sr1
 from scapy.pton_ntop import inet_ntop, inet_pton
 
 from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
-from scapy.layers.inet6 import DestIP6Field, IP6Field
+from scapy.layers.inet6 import IPv6, DestIP6Field, IP6Field
 import scapy.libs.six as six
 
 
@@ -1150,7 +1150,8 @@ class DNS_am(AnsweringMachine):
         )
 
     def make_reply(self, req):
-        resp = AnsweringMachineUtils.reverse_packet(req)
+        IPcls = IPv6 if IPv6 in req else IP
+        resp = IPcls(dst=req[IPcls].src) / UDP(sport=req.dport, dport=req.sport)
         dns = req.getlayer(self.cls)
         if req.qd.qtype == 28:
             # AAAA

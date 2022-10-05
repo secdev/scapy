@@ -50,6 +50,16 @@ test_am(ARP_am,
         IP_addr="10.28.7.1",
         ARP_addr="00:01:02:03:04:05")
 
+= ICMPEcho_am
+def check_ICMP_am_reply(packet):
+    packet.show()
+    assert IP in packet and ICMP in packet
+    assert packet[IP].dst == "1.1.1.1"
+    assert packet[ICMP].seq == 12
+
+test_am(ICMPEcho_am,
+        Ether()/IP(src="1.1.1.1", dst="2.2.2.2")/ICMP(seq=12),
+        check_ICMP_am_reply)
 
 = DNS_am
 def check_DNS_am_reply(packet):

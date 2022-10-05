@@ -731,7 +731,7 @@ conf.l3types.register(ETH_P_ARP, ARP)
 @conf.commands.register
 def arpcachepoison(target, victim, interval=60):
     # type: (str, str, int) -> None
-    """Poison target's cache with (your MAC,victim's IP) couple
+    """Poison target's cache with (victim's IP, your MAC) couple
 arpcachepoison(target, victim, [interval=60]) -> None
 """
     tmac = getmacbyip(target)

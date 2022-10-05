@@ -209,31 +209,6 @@ class AnsweringMachine(Generic[_T]):
         sniff(**self.optsniff)
 
 
-class AnsweringMachineUtils:
-    @staticmethod
-    def reverse_packet(req, mirror_src=False):
-        # type: (Packet, bool) -> Optional[Packet]
-        from scapy.layers.inet import IP, TCP, UDP
-        from scapy.layers.inet6 import IPv6
-        if IP in req:
-            resp = IP(
-                dst=req[IP].src,
-                src=mirror_src and req[IP].dst or None,
-            )
-        elif IPv6 in req:
-            resp = IPv6(
-                dst=req[IPv6].src,
-                src=mirror_src and req[IPv6].dst or None,
-            )
-        else:
-            return None
-        for layer in [UDP, TCP]:
-            if req.haslayer(layer):
-                resp /= layer(dport=req.sport, sport=req.dport)
-                break
-        return cast(Packet, resp)
-
-
 class AnsweringMachineTCP(AnsweringMachine[Packet]):
     """
     An answering machine that use the classic socket.socket to

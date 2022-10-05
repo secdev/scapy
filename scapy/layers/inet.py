@@ -19,7 +19,7 @@ from collections import defaultdict
 
 from scapy.utils import checksum, do_graph, incremental_label, \
     linehexdump, strxor, whois, colgen
-from scapy.ansmachine import AnsweringMachine, AnsweringMachineUtils
+from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Gen, Net
 from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
@@ -2180,11 +2180,13 @@ class ICMPEcho_am(AnsweringMachine):
         print("Replying %s to %s" % (reply.getlayer(IP).dst, req.dst))
 
     def make_reply(self, req):
-        reply = AnsweringMachineUtils.reverse_packet(req)
+        reply = IP(dst=req[IP].src) / ICMP()
         reply[ICMP].type = 0  # echo-reply
+        reply[ICMP].seq = req[ICMP].seq
+        reply[ICMP].id = req[ICMP].id
         # Force re-generation of the checksum
         reply[ICMP].chksum = None
-        return reply[ICMP].underlayer
+        return reply
 
 
 conf.stats_classic_protocols += [TCP, UDP, ICMP]

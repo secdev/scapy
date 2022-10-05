@@ -12,7 +12,7 @@ NetBIOS over TCP/IP
 import struct
 from scapy.arch import get_if_addr
 from scapy.base_classes import Net
-from scapy.ansmachine import AnsweringMachine, AnsweringMachineUtils
+from scapy.ansmachine import AnsweringMachine
 from scapy.config import conf
 
 from scapy.packet import Packet, bind_bottom_up, bind_layers, bind_top_down
@@ -384,7 +384,7 @@ class NBNS_am(AnsweringMachine):
 
     def make_reply(self, req):
         # type: (Packet) -> Packet
-        resp = AnsweringMachineUtils.reverse_packet(req)
+        resp = IP(dst=req[IP].src) / UDP(sport=req.dport, dport=req.sport)
         address = self.ip or get_if_addr(
             self.optsniff.get("iface", conf.iface))
         resp /= NBNSHeader() / NBNSQueryResponse(
