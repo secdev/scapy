@@ -7,8 +7,6 @@ environment:
   # Python versions that will be tested
   # Note: it defines variables that can be used later
   matrix:
-    allow_failures:
-      - UT_FLAGS: "-k scanner"
     - PYTHON: "C:\\Python27-x64"
       PYTHON_VERSION: "2.7.x"
       PYTHON_ARCH: "64"
@@ -55,6 +53,8 @@ install:
 for:
   -
     matrix:
+      allow_failures:
+        - UT_FLAGS: "-k scanner"
       only:
         - WINPCAP: "true"
     install:
