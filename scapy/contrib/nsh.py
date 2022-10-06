@@ -27,7 +27,7 @@ class NSHTLV(Packet):
     "NSH MD-type 2 - Variable Length Context Headers"
     name = "NSHTLV"
     fields_desc = [
-        ShortField('class', 0),
+        ShortField('class_', 0),
         BitField('type', 0, 8),
         BitField('reserved', 0, 1),
         BitField('length', 0, 7),
