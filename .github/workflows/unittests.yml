@@ -59,9 +59,10 @@ jobs:
         run: tox -e mypy
 
   utscapy:
-    name: ${{ matrix.os }} ${{ matrix.installmode }} ${{ matrix.python }} ${{ matrix.mode }}
+    name: ${{ matrix.os }} ${{ matrix.installmode }} ${{ matrix.python }} ${{ matrix.mode }} ${{ matrix.flags }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    continue-on-error: ${{ matrix.allow_failure }}
     strategy:
       fail-fast: false
       matrix:
@@ -69,6 +70,8 @@ jobs:
         python: ["2.7", "3.10"]
         mode: [both]
         installmode: ['']
+        flags: ['']
+        allow_failure: [false]
         include:
           # Linux non-root only tests
           - os: ubuntu-latest
@@ -99,6 +102,22 @@ jobs:
           - os: macos-10.15
             python: "3.10"
             mode: both
+          - os: ubuntu-latest
+            python: "pypy2.7"
+            mode: root
+            allow_failure: true
+            flags: " -k scanner"
+          - os: ubuntu-latest
+            python: "pypy3.9"
+            mode: root
+            allow_failure: true
+            flags: " -k scanner"
+          # MacOS tests
+          - os: macos-10.15
+            python: "3.10"
+            mode: both
+            allow_failure: true
+            flags: " -k scanner"
     steps:
       - name: Checkout Scapy
         uses: actions/checkout@v3
@@ -112,7 +131,7 @@ jobs:
       - name: Install Tox and any other packages
         run: ./.config/ci/install.sh ${{ matrix.installmode }}
       - name: Run Tox
-        run: ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
+        run: UT_FLAGS=${{ matrix.flags }} ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
       - name: Codecov
         uses: codecov/codecov-action@v2
         with:
@@ -136,48 +155,6 @@ jobs:
       run: pip install cryptography
     - name: Run tests
       run: tox -e cryptography
-
-  utscapy-scanner:
-    name: scanner ${{ matrix.os }} ${{ matrix.installmode }} ${{ matrix.python }} ${{ matrix.mode }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ ubuntu-latest ]
-        python: [ "2.7", "3.10" ]
-        mode: [ both ]
-        installmode: [ '' ]
-        include:
-          - os: ubuntu-latest
-            python: "pypy2.7"
-            mode: root
-          - os: ubuntu-latest
-            python: "pypy3.9"
-            mode: root
-          # MacOS tests
-          - os: macos-10.15
-            python: "3.10"
-            mode: both
-    steps:
-      - name: Checkout Scapy
-        uses: actions/checkout@v3
-        # Codecov requires a fetch-depth > 1
-        with:
-          fetch-depth: 2
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python }}
-      - name: Install Tox and any other packages
-        run: ./.config/ci/install.sh ${{ matrix.installmode }}
-      - name: Run Tox
-        run: UT_FLAGS=" -k scanner" ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
-      - name: Codecov
-        uses: codecov/codecov-action@v2
-        with:
-          file: /home/runner/work/scapy/scapy/.coverage
 
   # CODE-QL
   analyze:
