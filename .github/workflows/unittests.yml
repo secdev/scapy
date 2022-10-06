@@ -62,7 +62,7 @@ jobs:
     name: ${{ matrix.os }} ${{ matrix.installmode }} ${{ matrix.python }} ${{ matrix.mode }} ${{ matrix.flags }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
-    continue-on-error: ${{ matrix.allowfailure }}
+    continue-on-error: ${{ matrix.allow-failure }}
     strategy:
       fail-fast: false
       matrix:
@@ -71,52 +71,60 @@ jobs:
         mode: [both]
         installmode: ['']
         flags: ['']
-        allowfailure: [false]
+        allow-failure: [false]
         include:
           # Linux non-root only tests
           - os: ubuntu-latest
             python: "3.7"
             mode: non_root
+            allow-failure: false
           - os: ubuntu-latest
             python: "3.8"
             mode: non_root
+            allow-failure: false
           - os: ubuntu-latest
             python: "3.9"
             mode: non_root
+            allow-failure: false
           # PyPy tests: root only
           - os: ubuntu-latest
             python: "pypy2.7"
             mode: root
+            allow-failure: false
           - os: ubuntu-latest
             python: "pypy3.9"
             mode: root
+            allow-failure: false
           # Libpcap test
           - os: ubuntu-latest
             python: "3.10"
             mode: root
             installmode: 'libpcap'
+            allow-failure: false
           # MacOS tests
           - os: macos-10.15
             python: "2.7"
             mode: both
+            allow-failure: false
           - os: macos-10.15
             python: "3.10"
             mode: both
+            allow-failure: false
           - os: ubuntu-latest
             python: "pypy2.7"
             mode: root
-            allowfailure: true
+            allow-failure: true
             flags: " -k scanner"
           - os: ubuntu-latest
             python: "pypy3.9"
             mode: root
-            allowfailure: true
+            allow-failure: true
             flags: " -k scanner"
           # MacOS tests
           - os: macos-10.15
             python: "3.10"
             mode: both
-            allowfailure: true
+            allow-failure: true
             flags: " -k scanner"
     steps:
       - name: Checkout Scapy
