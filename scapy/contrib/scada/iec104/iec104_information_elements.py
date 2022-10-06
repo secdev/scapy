@@ -1327,7 +1327,7 @@ class IEC104_IE_SOF:
 
     informantion_element_fields = [
         BitEnumField('fa', 0, 1, FA_FLAGS),
-        BitEnumField('for', 0, 1, FOR_FLAGS),
+        BitEnumField('for_', 0, 1, FOR_FLAGS),
         BitEnumField('lfd', 0, 1, LFD_FLAGS),
         BitEnumField('status', 0, 5, STATUS_FLAGS)
     ]
