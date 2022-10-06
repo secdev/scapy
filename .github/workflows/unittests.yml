@@ -62,7 +62,7 @@ jobs:
     name: ${{ matrix.os }} ${{ matrix.installmode }} ${{ matrix.python }} ${{ matrix.mode }} ${{ matrix.flags }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
-    continue-on-error: ${{ matrix.allow_failure }}
+    continue-on-error: ${{ matrix.allowfailure }}
     strategy:
       fail-fast: false
       matrix:
@@ -71,7 +71,7 @@ jobs:
         mode: [both]
         installmode: ['']
         flags: ['']
-        allow_failure: [false]
+        allowfailure: [false]
         include:
           # Linux non-root only tests
           - os: ubuntu-latest
@@ -105,18 +105,18 @@ jobs:
           - os: ubuntu-latest
             python: "pypy2.7"
             mode: root
-            allow_failure: true
+            allowfailure: true
             flags: " -k scanner"
           - os: ubuntu-latest
             python: "pypy3.9"
             mode: root
-            allow_failure: true
+            allowfailure: true
             flags: " -k scanner"
           # MacOS tests
           - os: macos-10.15
             python: "3.10"
             mode: both
-            allow_failure: true
+            allowfailure: true
             flags: " -k scanner"
     steps:
       - name: Checkout Scapy
