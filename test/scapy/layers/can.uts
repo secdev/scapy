@@ -422,8 +422,8 @@ assert packets[0].data == b'\x11\x22\x33\x44'
 assert packets[8].data == b'\x11\x22\x33\x44\x55\x66\x77\x88'
 assert packets[8].identifier == 0x55
 assert packets[8].flags == 0b100
-assert packets[8].length == 9
-assert packets[8].data == b'\x11\x22\x33\x44\x55\x66\x77\x88\x99'
+assert packets[9].length == 9
+assert packets[9].data == b'\x11\x22\x33\x44\x55\x66\x77\x88\x99'
 
 
 = interface not log file format
