@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 PacketList: holds several packets and allows to do operations on them.
@@ -12,7 +12,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os
 from collections import defaultdict
-from typing import TYPE_CHECKING
 
 from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
@@ -43,6 +42,7 @@ from scapy.compat import (
     Type,
     TypeVar,
     Union,
+    TYPE_CHECKING,
 )
 from scapy.packet import Packet
 
@@ -794,8 +794,8 @@ class PacketList(_PacketList[Packet],
                         remain[i]._answered = 1
                         remain[j]._answered = 2
                         continue
-                    del(remain[j])
-                    del(remain[i])
+                    del remain[j]
+                    del remain[i]
                     i -= 1
                     break
             i += 1

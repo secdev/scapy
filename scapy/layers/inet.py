@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 IPv4 (Internet Protocol v4).
@@ -19,7 +19,7 @@ from collections import defaultdict
 
 from scapy.utils import checksum, do_graph, incremental_label, \
     linehexdump, strxor, whois, colgen
-from scapy.ansmachine import AnsweringMachine, AnsweringMachineUtils
+from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Gen, Net
 from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
@@ -639,9 +639,9 @@ class IP(Packet, IPTools):
             nb = (len(s) - lastfragsz + fragsize - 1) // fragsize + 1
             for i in range(nb):
                 q = p.copy()
-                del(q[fnb].payload)
-                del(q[fnb].chksum)
-                del(q[fnb].len)
+                del q[fnb].payload
+                del q[fnb].chksum
+                del q[fnb].len
                 if i != nb - 1:
                     q[fnb].flags |= 1
                     fragend = (i + 1) * fragsize
@@ -950,13 +950,16 @@ icmpcodes = {3: {0: "network-unreachable",
                   5: "need-authorization", }, }
 
 
+icmp_id_seq_types = [0, 8, 13, 14, 15, 16, 17, 18, 37, 38]
+
+
 class ICMP(Packet):
     name = "ICMP"
     fields_desc = [ByteEnumField("type", 8, icmptypes),
                    MultiEnumField("code", 0, icmpcodes, depends_on=lambda pkt:pkt.type, fmt="B"),  # noqa: E501
                    XShortField("chksum", None),
-                   ConditionalField(XShortField("id", 0), lambda pkt:pkt.type in [0, 8, 13, 14, 15, 16, 17, 18]),  # noqa: E501
-                   ConditionalField(XShortField("seq", 0), lambda pkt:pkt.type in [0, 8, 13, 14, 15, 16, 17, 18]),  # noqa: E501
+                   ConditionalField(XShortField("id", 0), lambda pkt:pkt.type in icmp_id_seq_types),  # noqa: E501
+                   ConditionalField(XShortField("seq", 0), lambda pkt:pkt.type in icmp_id_seq_types),  # noqa: E501
                    ConditionalField(ICMPTimeStampField("ts_ori", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
                    ConditionalField(ICMPTimeStampField("ts_rx", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
                    ConditionalField(ICMPTimeStampField("ts_tx", None), lambda pkt:pkt.type in [13, 14]),  # noqa: E501
@@ -985,7 +988,7 @@ class ICMP(Packet):
         return p
 
     def hashret(self):
-        if self.type in [0, 8, 13, 14, 15, 16, 17, 18, 33, 34, 35, 36, 37, 38]:
+        if self.type in icmp_id_seq_types:
             return struct.pack("HH", self.id, self.seq) + self.payload.hashret()  # noqa: E501
         return self.payload.hashret()
 
@@ -1146,9 +1149,9 @@ def fragment(pkt, fragsize=1480):
         nb = (len(s) - lastfragsz + fragsize - 1) // fragsize + 1
         for i in range(nb):
             q = p.copy()
-            del(q[IP].payload)
-            del(q[IP].chksum)
-            del(q[IP].len)
+            del q[IP].payload
+            del q[IP].chksum
+            del q[IP].len
             if i != nb - 1:
                 q[IP].flags |= 1
                 fragend = (i + 1) * fragsize
@@ -1174,7 +1177,7 @@ overlap_fragsize: the fragment size of the overlapping packet"""
     if overlap_fragsize is None:
         overlap_fragsize = fragsize
     q = p.copy()
-    del(q[IP].payload)
+    del q[IP].payload
     q[IP].add_payload(overlap)
 
     qfrag = fragment(q, overlap_fragsize)
@@ -1191,32 +1194,32 @@ def _defrag_list(lst, defrag, missfrag):
         return
     p = p.copy()
     if conf.padding_layer in p:
-        del(p[conf.padding_layer].underlayer.payload)
+        del p[conf.padding_layer].underlayer.payload
     ip = p[IP]
     if ip.len is None or ip.ihl is None:
-        clen = len(ip.payload)
+        c_len = len(ip.payload)
     else:
-        clen = ip.len - (ip.ihl << 2)
+        c_len = ip.len - (ip.ihl << 2)
     txt = conf.raw_layer()
     for q in lst[1:]:
-        if clen != q.frag << 3:  # Wrong fragmentation offset
-            if clen > q.frag << 3:
-                warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag << 3, p, txt, q))  # noqa: E501
+        if c_len != q.frag << 3:  # Wrong fragmentation offset
+            if c_len > q.frag << 3:
+                warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (c_len, q.frag << 3, p, txt, q))  # noqa: E501
             missfrag.extend(lst)
             break
         if q[IP].len is None or q[IP].ihl is None:
-            clen += len(q[IP].payload)
+            c_len += len(q[IP].payload)
         else:
-            clen += q[IP].len - (q[IP].ihl << 2)
+            c_len += q[IP].len - (q[IP].ihl << 2)
         if conf.padding_layer in q:
-            del(q[conf.padding_layer].underlayer.payload)
+            del q[conf.padding_layer].underlayer.payload
         txt.add_payload(q[IP].payload.copy())
         if q.time > p.time:
             p.time = q.time
     else:
         ip.flags.MF = False
-        del(ip.chksum)
-        del(ip.len)
+        del ip.chksum
+        del ip.len
         p = p / txt
         p._defrag_pos = max(x._defrag_pos for x in lst)
         defrag.append(p)
@@ -2177,11 +2180,13 @@ class ICMPEcho_am(AnsweringMachine):
         print("Replying %s to %s" % (reply.getlayer(IP).dst, req.dst))
 
     def make_reply(self, req):
-        reply = AnsweringMachineUtils.reverse_packet(req)
+        reply = IP(dst=req[IP].src) / ICMP()
         reply[ICMP].type = 0  # echo-reply
+        reply[ICMP].seq = req[ICMP].seq
+        reply[ICMP].id = req[ICMP].id
         # Force re-generation of the checksum
         reply[ICMP].chksum = None
-        return reply[ICMP].underlayer
+        return reply
 
 
 conf.stats_classic_protocols += [TCP, UDP, ICMP]

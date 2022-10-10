@@ -37,24 +37,24 @@ isinstance(p.payload, ProfinetIO) and p.frameID == 0x0102
 = ProfinetIO PNIORealTime_IOxS parsing of a single status
 
 p = PNIORealTime_IOxS(b'\x80')
-assert(p.dataState == 1)
-assert(p.instance == 0)
-assert(p.reserved == 0)
-assert(p.extension == 0)
+assert p.dataState == 1
+assert p.instance == 0
+assert p.reserved == 0
+assert p.extension == 0
 
 p = PNIORealTime_IOxS(b'\xe1')
-assert(p.dataState == 1)
-assert(p.instance == 3)
-assert(p.reserved == 0)
-assert(p.extension == 1)
+assert p.dataState == 1
+assert p.instance == 3
+assert p.reserved == 0
+assert p.extension == 1
 True
 
 = ProfinetIO PNIORealTime_IOxS building of a single status
 p = PNIORealTime_IOxS(dataState = 'good', instance='subslot', extension=0)
-assert(raw(p) == b'\x80')
+assert raw(p) == b'\x80'
 
 p = PNIORealTime_IOxS(dataState = 'bad', instance='device', extension=1)
-assert(raw(p) == b'\x41')
+assert raw(p) == b'\x41'
 True
 
 = ProfinetIO PNIORealTime_IOxS parsing with multiple statuses
@@ -70,38 +70,38 @@ TestPacket = type(
 )
 
 p = TestPacket(b'\x81\xe1\x01\x80')
-assert(len(p.data) == 4)
-assert(p.data[0].dataState == 1)
-assert(p.data[0].instance == 0)
-assert(p.data[0].reserved == 0)
-assert(p.data[0].extension == 1)
-assert(p.data[1].dataState == 1)
-assert(p.data[1].instance == 3)
-assert(p.data[1].reserved == 0)
-assert(p.data[1].extension == 1)
-assert(p.data[2].dataState == 0)
-assert(p.data[2].instance == 0)
-assert(p.data[2].reserved == 0)
-assert(p.data[2].extension == 1)
-assert(p.data[3].dataState == 1)
-assert(p.data[3].instance == 0)
-assert(p.data[3].reserved == 0)
-assert(p.data[3].extension == 0)
+assert len(p.data) == 4
+assert p.data[0].dataState == 1
+assert p.data[0].instance == 0
+assert p.data[0].reserved == 0
+assert p.data[0].extension == 1
+assert p.data[1].dataState == 1
+assert p.data[1].instance == 3
+assert p.data[1].reserved == 0
+assert p.data[1].extension == 1
+assert p.data[2].dataState == 0
+assert p.data[2].instance == 0
+assert p.data[2].reserved == 0
+assert p.data[2].extension == 1
+assert p.data[3].dataState == 1
+assert p.data[3].instance == 0
+assert p.data[3].reserved == 0
+assert p.data[3].extension == 0
 
 = ProfinetIO RTC PDU parsing without configuration
 p = Ether(b'\x00\x02\x04\x06\x08\x0a\x01\x03\x05\x07\x09\x0B\x88\x92\x80\x00\x01\x02\x03\x04\xf0\x00\x35\x00')
-assert(p[Ether].dst == '00:02:04:06:08:0a')
-assert(p[Ether].src == '01:03:05:07:09:0b')
-assert(p[Ether].type == 0x8892)
-assert(p[ProfinetIO].frameID == 0x8000)
-assert(isinstance(p[ProfinetIO].payload, PNIORealTimeCyclicPDU))
-assert(len(p[PNIORealTimeCyclicPDU].data) == 1)
-assert(isinstance(p[PNIORealTimeCyclicPDU].data[0], PNIORealTimeCyclicDefaultRawData))
-assert(p[PNIORealTimeCyclicDefaultRawData].data == b'\x01\x02\x03\x04')
-assert(p[PNIORealTimeCyclicPDU].padding == b'')
-assert(p[PNIORealTimeCyclicPDU].cycleCounter == 0xf000)
-assert(p[PNIORealTimeCyclicPDU].dataStatus == 0x35)
-assert(p[PNIORealTimeCyclicPDU].transferStatus == 0)
+assert p[Ether].dst == '00:02:04:06:08:0a'
+assert p[Ether].src == '01:03:05:07:09:0b'
+assert p[Ether].type == 0x8892
+assert p[ProfinetIO].frameID == 0x8000
+assert isinstance(p[ProfinetIO].payload, PNIORealTimeCyclicPDU)
+assert len(p[PNIORealTimeCyclicPDU].data) == 1
+assert isinstance(p[PNIORealTimeCyclicPDU].data[0], PNIORealTimeCyclicDefaultRawData)
+assert p[PNIORealTimeCyclicDefaultRawData].data == b'\x01\x02\x03\x04'
+assert p[PNIORealTimeCyclicPDU].padding == b''
+assert p[PNIORealTimeCyclicPDU].cycleCounter == 0xf000
+assert p[PNIORealTimeCyclicPDU].dataStatus == 0x35
+assert p[PNIORealTimeCyclicPDU].transferStatus == 0
 True
 
 = ProfinetIO RTC PDU building
@@ -149,80 +149,80 @@ p = Ether(
     b'\x00'
 )
 
-assert(p[Ether].dst == '00:02:04:06:08:0a')
-assert(p[Ether].src == '01:03:05:07:09:0b')
-assert(p[Ether].type == 0x8892)
-assert(p[ProfinetIO].frameID == 0x8010)
-assert(isinstance(p[ProfinetIO].payload, PNIORealTimeCyclicPDU))
-assert(len(p[PNIORealTimeCyclicPDU].data) == 3)
-assert(isinstance(p[PNIORealTimeCyclicPDU].data[0], scapy.config.conf.raw_layer))
-assert(p[PNIORealTimeCyclicPDU].data[0].data == b'\x01\x02\x03\x04\x05')
-assert(isinstance(p[PNIORealTimeCyclicPDU].data[1], scapy.config.conf.raw_layer))
-assert(p[PNIORealTimeCyclicPDU].data[1].data == b'\x01\x02\x03')
-assert(isinstance(p[PNIORealTimeCyclicPDU].data[2], scapy.config.conf.raw_layer))
-assert(p[PNIORealTimeCyclicPDU].data[2].data == b'\x01\x02')
-assert(p[PNIORealTimeCyclicPDU].padding == b'\x00' * 2)
-assert(p[PNIORealTimeCyclicPDU].cycleCounter == 0xf000)
-assert(p[PNIORealTimeCyclicPDU].dataStatus == 0x35)
-assert(p[PNIORealTimeCyclicPDU].transferStatus == 0)
+assert p[Ether].dst == '00:02:04:06:08:0a'
+assert p[Ether].src == '01:03:05:07:09:0b'
+assert p[Ether].type == 0x8892
+assert p[ProfinetIO].frameID == 0x8010
+assert isinstance(p[ProfinetIO].payload, PNIORealTimeCyclicPDU)
+assert len(p[PNIORealTimeCyclicPDU].data) == 3
+assert isinstance(p[PNIORealTimeCyclicPDU].data[0], scapy.config.conf.raw_layer)
+assert p[PNIORealTimeCyclicPDU].data[0].data == b'\x01\x02\x03\x04\x05'
+assert isinstance(p[PNIORealTimeCyclicPDU].data[1], scapy.config.conf.raw_layer)
+assert p[PNIORealTimeCyclicPDU].data[1].data == b'\x01\x02\x03'
+assert isinstance(p[PNIORealTimeCyclicPDU].data[2], scapy.config.conf.raw_layer)
+assert p[PNIORealTimeCyclicPDU].data[2].data == b'\x01\x02'
+assert p[PNIORealTimeCyclicPDU].padding == b'\x00' * 2
+assert p[PNIORealTimeCyclicPDU].cycleCounter == 0xf000
+assert p[PNIORealTimeCyclicPDU].dataStatus == 0x35
+assert p[PNIORealTimeCyclicPDU].transferStatus == 0
 
 p = Ether(b'\x00\x02\x04\x06\x08\x0a\x01\x03\x05\x07\x09\x0B\x88\x92\x80\x00\x01\x02\x03\x04\xf0\x00\x35\x00')
-assert(p[Ether].dst == '00:02:04:06:08:0a')
-assert(p[Ether].src == '01:03:05:07:09:0b')
-assert(p[Ether].type == 0x8892)
-assert(p[ProfinetIO].frameID == 0x8000)
-assert(isinstance(p[ProfinetIO].payload, PNIORealTimeCyclicPDU))
-assert(len(p[PNIORealTimeCyclicPDU].data) == 1)
-assert(isinstance(p[PNIORealTimeCyclicPDU].data[0], PNIORealTimeCyclicDefaultRawData))
-assert(p[PNIORealTimeCyclicDefaultRawData].data == b'\x01\x02\x03\x04')
-assert(p[PNIORealTimeCyclicPDU].padding == b'')
-assert(p[PNIORealTimeCyclicPDU].cycleCounter == 0xf000)
-assert(p[PNIORealTimeCyclicPDU].dataStatus == 0x35)
-assert(p[PNIORealTimeCyclicPDU].transferStatus == 0)
+assert p[Ether].dst == '00:02:04:06:08:0a'
+assert p[Ether].src == '01:03:05:07:09:0b'
+assert p[Ether].type == 0x8892
+assert p[ProfinetIO].frameID == 0x8000
+assert isinstance(p[ProfinetIO].payload, PNIORealTimeCyclicPDU)
+assert len(p[PNIORealTimeCyclicPDU].data) == 1
+assert isinstance(p[PNIORealTimeCyclicPDU].data[0], PNIORealTimeCyclicDefaultRawData)
+assert p[PNIORealTimeCyclicDefaultRawData].data == b'\x01\x02\x03\x04'
+assert p[PNIORealTimeCyclicPDU].padding == b''
+assert p[PNIORealTimeCyclicPDU].cycleCounter == 0xf000
+assert p[PNIORealTimeCyclicPDU].dataStatus == 0x35
+assert p[PNIORealTimeCyclicPDU].transferStatus == 0
 True
 
 = PROFIsafe parsing (query with F_CRC_SEED=0)
 p = PROFIsafe.build_PROFIsafe_class(PROFIsafeControl, 2)(b'\x80\x80\x40\x01\x02\x03')
-assert(p.data == b'\x80\x80')
-assert(p.control == 0x40)
-assert(p.crc == 0x010203)
+assert p.data == b'\x80\x80'
+assert p.control == 0x40
+assert p.crc == 0x010203
 True
 
 = PROFIsafe parsing (query with F_CRC_SEED=1)
 p = PROFIsafe.build_PROFIsafe_class(PROFIsafeControlCRCSeed, 2)(b'\x80\x80\x40\x01\x02\x03\x04')
-assert(p.data == b'\x80\x80')
-assert(p.control == 0x40)
-assert(p.crc == 0x01020304)
+assert p.data == b'\x80\x80'
+assert p.control == 0x40
+assert p.crc == 0x01020304
 True
 
 = PROFIsafe parsing (response with F_CRC_SEED=0)
 p = PROFIsafe.build_PROFIsafe_class(PROFIsafeStatus, 1)(b'\x80\x40\x01\x02\x03')
-assert(p.data == b'\x80')
-assert(p.status == 0x40)
-assert(p.crc == 0x010203)
+assert p.data == b'\x80'
+assert p.status == 0x40
+assert p.crc == 0x010203
 True
 
 = PROFIsafe parsing (response with F_CRC_SEED=1)
 p = PROFIsafe.build_PROFIsafe_class(PROFIsafeStatusCRCSeed, 1)(b'\x80\x40\x01\x02\x03\x04')
-assert(p.data == b'\x80')
-assert(p.status == 0x40)
-assert(p.crc == 0x01020304)
+assert p.data == b'\x80'
+assert p.status == 0x40
+assert p.crc == 0x01020304
 True
 
 = PROFIsafe building (query with F_CRC_SEED=0)
 p = PROFIsafe.build_PROFIsafe_class(PROFIsafeControl, 2)(data = b'\x81\x80', control=0x40, crc=0x040506)
-assert(raw(p) == b'\x81\x80\x40\x04\x05\x06')
+assert raw(p) == b'\x81\x80\x40\x04\x05\x06'
 
 = PROFIsafe building (query with F_CRC_SEED=1)
 p = PROFIsafe.build_PROFIsafe_class(PROFIsafeControlCRCSeed, 2)(data = b'\x81\x80', control=0x02, crc=0x04050607)
-assert(raw(p) == b'\x81\x80\x02\x04\x05\x06\x07')
+assert raw(p) == b'\x81\x80\x02\x04\x05\x06\x07'
 
 = PROFIsafe building (response with F_CRC_SEED=0)
 p = PROFIsafe.build_PROFIsafe_class(PROFIsafeStatus, 3)(data = b'\x01\x81\x00', status=0x01, crc=0x040506)
-assert(raw(p) == b'\x01\x81\x00\x01\x04\x05\x06')
+assert raw(p) == b'\x01\x81\x00\x01\x04\x05\x06'
 
 = PROFIsafe building (response with F_CRC_SEED=1)
 p = PROFIsafe.build_PROFIsafe_class(PROFIsafeStatusCRCSeed, 3)(data = b'\x01\x81\x80', status=0x01, crc=0x04050607)
-assert(raw(p) == b'\x01\x81\x80\x01\x04\x05\x06\x07')
+assert raw(p) == b'\x01\x81\x80\x01\x04\x05\x06\x07'
 
 conf.debug_dissector = old_conf_dissector

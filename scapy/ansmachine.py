@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Answering machines.
@@ -59,6 +59,7 @@ class ReferenceAM(_Generic_metaclass):
             func = lambda obj=obj, *args, **kargs: obj(*args, **kargs)()  # type: ignore  # noqa: E501
             # Inject signature
             func.__name__ = func.__qualname__ = obj.function_name
+            func.__doc__ = obj.__doc__ or obj.parse_options.__doc__
             try:
                 func.__signature__ = obj.__signature__  # type: ignore
             except (AttributeError):
@@ -206,28 +207,6 @@ class AnsweringMachine(Generic[_T]):
     def sniff(self):
         # type: () -> None
         sniff(**self.optsniff)
-
-
-class AnsweringMachineUtils:
-    @staticmethod
-    def reverse_packet(req):
-        # type: (Packet) -> Packet
-        from scapy.layers.l2 import Ether
-        from scapy.layers.inet import IP, TCP, UDP
-        reply = req.copy()
-        for layer in [UDP, TCP]:
-            if req.haslayer(layer):
-                reply[layer].dport, reply[layer].sport = \
-                    req[layer].sport, req[layer].dport
-                reply[layer].chksum = None
-                reply[layer].len = None
-        if req.haslayer(IP):
-            reply[IP].src, reply[IP].dst = req[IP].dst, req[IP].src
-            reply[IP].chksum = None
-            reply[IP].len = None
-        if req.haslayer(Ether):
-            reply[Ether].src, reply[Ether].dst = req[Ether].dst, req[Ether].src
-        return reply
 
 
 class AnsweringMachineTCP(AnsweringMachine[Packet]):

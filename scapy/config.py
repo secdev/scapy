@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Implementation of the configuration object.
@@ -29,6 +29,7 @@ from scapy.libs import six
 from scapy.themes import NoTheme, apply_ipython_style
 
 from scapy.compat import (
+    cast,
     Any,
     Callable,
     DecoratorCallable,
@@ -38,9 +39,10 @@ from scapy.compat import (
     NoReturn,
     Optional,
     Set,
-    Type,
     Tuple,
+    Type,
     Union,
+    overload,
     TYPE_CHECKING,
 )
 from types import ModuleType
@@ -49,6 +51,7 @@ if TYPE_CHECKING:
     # Do not import at runtime
     import scapy.as_resolvers
     from scapy.packet import Packet
+    from scapy.supersocket import SuperSocket  # noqa: F401
     import scapy.asn1.asn1
     import scapy.asn1.mib
 
@@ -211,7 +214,17 @@ class Num2Layer:
         # type: (int, Type[Packet]) -> None
         self.layer2num[layer] = num
 
+    @overload
     def __getitem__(self, item):
+        # type: (Type[Packet]) -> int
+        pass
+
+    @overload
+    def __getitem__(self, item):  # noqa: F811
+        # type: (int) -> Type[Packet]
+        pass
+
+    def __getitem__(self, item):  # noqa: F811
         # type: (Union[int, Type[Packet]]) -> Union[int, Type[Packet]]
         if isinstance(item, int):
             return self.num2layer[item]
@@ -315,8 +328,9 @@ class CommandsList(List[Callable[..., Any]]):
         # type: () -> str
         s = []
         for li in sorted(self, key=lambda x: x.__name__):
-            doc = li.__doc__.split("\n")[0] if li.__doc__ else "--"
-            s.append("%-20s: %s" % (li.__name__, doc))
+            doc = li.__doc__ if li.__doc__ else "--"
+            doc = doc.lstrip().split('\n', 1)[0]
+            s.append("%-22s: %s" % (li.__name__, doc))
         return "\n".join(s)
 
     def register(self, cmd):
@@ -618,8 +632,13 @@ def _set_conf_sockets():
     if LINUX:
         from scapy.arch.linux import L3PacketSocket, L2Socket, L2ListenSocket
         conf.L3socket = L3PacketSocket
-        conf.L3socket6 = functools.partial(  # type: ignore
-            L3PacketSocket, filter="ip6")
+        conf.L3socket6 = cast(
+            "Type[SuperSocket]",
+            functools.partial(
+                L3PacketSocket,
+                filter="ip6"
+            )
+        )
         conf.L2socket = L2Socket
         conf.L2listen = L2ListenSocket
         conf.ifaces.reload()
@@ -634,10 +653,11 @@ def _set_conf_sockets():
         conf.ifaces.reload()
         # No need to update globals on Windows
         return
-    from scapy.supersocket import L3RawSocket
-    from scapy.layers.inet6 import L3RawSocket6
-    conf.L3socket = L3RawSocket
-    conf.L3socket6 = L3RawSocket6
+    else:
+        from scapy.supersocket import L3RawSocket
+        from scapy.layers.inet6 import L3RawSocket6
+        conf.L3socket = L3RawSocket
+        conf.L3socket6 = L3RawSocket6
 
 
 def _socket_changer(attr, val, old):
@@ -728,7 +748,8 @@ class Conf(ConfClass):
     #: default mode for listening socket (to get answers if you
     #: spoof on a lan)
     promisc = True
-    sniff_promisc = 1  #: default mode for sniff()
+    #: default mode for sniff()
+    sniff_promisc = True  # type: bool
     raw_layer = None  # type: Type[Packet]
     raw_summary = False  # type: Union[bool, Callable[[bytes], Any]]
     padding_layer = None  # type: Type[Packet]
@@ -764,7 +785,7 @@ class Conf(ConfClass):
     #: holds the Scapy interface list and manager
     ifaces = None  # type: 'scapy.interfaces.NetworkInterfaceDict'
     #: holds the cache of interfaces loaded from Libpcap
-    cache_pcapiflist = {}  # type: Dict[str, Tuple[str, List[str], int]]
+    cache_pcapiflist = {}  # type: Dict[str, Tuple[str, List[str], Any, str]]
     neighbor = None  # type: 'scapy.layers.l2.Neighbor'
     # `neighbor` will be filed by scapy.layers.l2
     #: holds the Scapy IPv4 routing table and provides methods to
@@ -814,6 +835,7 @@ class Conf(ConfClass):
     load_layers = [
         'bluetooth',
         'bluetooth4LE',
+        'dcerpc',
         'dhcp',
         'dhcp6',
         'dns',
@@ -827,12 +849,15 @@ class Conf(ConfClass):
         'ipsec',
         'ir',
         'isakmp',
+        'kerberos',
         'l2',
         'l2tp',
+        'ldap',
         'llmnr',
         'lltd',
         'mgcp',
         'mobileip',
+        'mspac',
         'netbios',
         'netflow',
         'ntlm',
@@ -848,6 +873,8 @@ class Conf(ConfClass):
         'skinny',
         'smb',
         'smb2',
+        'smbclient',
+        'smbserver',
         'snmp',
         'tftp',
         'vrrp',
@@ -888,6 +915,9 @@ class Conf(ConfClass):
         if attr == "services_tcp":
             from scapy.data import TCP_SERVICES
             return TCP_SERVICES
+        if attr == "services_sctp":
+            from scapy.data import SCTP_SERVICES
+            return SCTP_SERVICES
         if attr == "iface6":
             warnings.warn(
                 "conf.iface6 is deprecated in favor of conf.iface",

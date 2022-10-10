@@ -62,9 +62,6 @@ Interpreting results can help users that don't know what a port scan is but it c
 Quick demo
 ==========
 
-.. image:: graphics/animations/animation-scapy-demo.svg
-   :align: center
-
 First, we play a bit and create four IP packets at once. Let's see how it works. We first instantiate the IP class. Then, we instantiate it again and we provide a destination that is worth four IP addresses (/30 gives the netmask). Using a Python idiom, we develop this implicit packet in a set of explicit packets. Then, we quit the interpreter. As we provided a session file, the variables we were working on are saved, then reloaded::
 
     # ./run_scapy -s mysession

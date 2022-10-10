@@ -1,30 +1,45 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 DNS: Domain Name System.
 """
 
 from __future__ import absolute_import
+import operator
+import socket
 import struct
 import time
 import warnings
 
+from scapy.arch import get_if_addr, get_if_addr6
+from scapy.ansmachine import AnsweringMachine
+from scapy.base_classes import Net
 from scapy.config import conf
-from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.compat import orb, raw, chb, bytes_encode, plain_str
+from scapy.error import log_runtime, warning, Scapy_Exception
+from scapy.packet import Packet, bind_layers, NoPayload, Raw
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, Field, FieldLenField, FlagsField, IntField, \
     PacketListField, ShortEnumField, ShortField, StrField, \
-    StrLenField, MultipleTypeField, UTCTimeField
-from scapy.compat import orb, raw, chb, bytes_encode
-from scapy.ansmachine import AnsweringMachine
+    StrLenField, MultipleTypeField, UTCTimeField, I
 from scapy.sendrecv import sr1
+from scapy.pton_ntop import inet_ntop, inet_pton
+
 from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
-from scapy.layers.inet6 import DestIP6Field, IP6Field
-from scapy.error import log_runtime, warning, Scapy_Exception
+from scapy.layers.inet6 import IPv6, DestIP6Field, IP6Field
 import scapy.libs.six as six
+
+
+from scapy.compat import (
+    Any,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
@@ -40,10 +55,11 @@ dnstypes = {
     45: "IPSECKEY", 46: "RRSIG", 47: "NSEC", 48: "DNSKEY", 49: "DHCID",
     50: "NSEC3", 51: "NSEC3PARAM", 52: "TLSA", 53: "SMIMEA", 55: "HIP",
     56: "NINFO", 57: "RKEY", 58: "TALINK", 59: "CDS", 60: "CDNSKEY",
-    61: "OPENPGPKEY", 62: "CSYNC", 99: "SPF", 100: "UINFO", 101: "UID",
-    102: "GID", 103: "UNSPEC", 104: "NID", 105: "L32", 106: "L64", 107: "LP",
-    108: "EUI48", 109: "EUI64", 249: "TKEY", 250: "TSIG", 256: "URI",
-    257: "CAA", 258: "AVC", 32768: "TA", 32769: "DLV", 65535: "RESERVED"
+    61: "OPENPGPKEY", 62: "CSYNC", 63: "ZONEMD", 64: "SVCB", 65: "HTTPS",
+    99: "SPF", 100: "UINFO", 101: "UID", 102: "GID", 103: "UNSPEC", 104: "NID",
+    105: "L32", 106: "L64", 107: "LP", 108: "EUI48", 109: "EUI64", 249: "TKEY",
+    250: "TSIG", 256: "URI", 257: "CAA", 258: "AVC", 259: "DOA",
+    260: "AMTRELAY", 32768: "TA", 32769: "DLV", 65535: "RESERVED"
 }
 
 
@@ -130,6 +146,13 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
     return name, pointer, bytes_left, len(processed_pointers) != 0
 
 
+def _is_ptr(x):
+    return b"." not in x and (
+        (x and orb(x[-1]) == 0) or
+        (len(x) >= 2 and (orb(x[-2]) & 0xc0) == 0xc0)
+    )
+
+
 def dns_encode(x, check_built=False):
     """Encodes a bytes string into the DNS format
 
@@ -140,10 +163,7 @@ def dns_encode(x, check_built=False):
     if not x or x == b".":
         return b"\x00"
 
-    if check_built and b"." not in x and (
-        (x and orb(x[-1]) == 0) or
-        (len(x) >= 2 and (orb(x[-2]) & 0xc0) == 0xc0)
-    ):
+    if check_built and _is_ptr(x):
         # The value has already been processed. Do not process it again
         return x
 
@@ -238,7 +258,7 @@ def dns_compress(pkt):
             new_val = kept_string + replace_pointer
             rep[0].setfieldval(rep[1], new_val)
             try:
-                del(rep[0].rdlen)
+                del rep[0].rdlen
             except AttributeError:
                 pass
     # End of the compression algorithm
@@ -269,6 +289,8 @@ class DNSStrField(StrLenField):
     def h2i(self, pkt, x):
         if not x:
             return b"."
+        if x[-1:] != b"." and not _is_ptr(x):
+            return x + b"."
         return x
 
     def i2m(self, pkt, x):
@@ -520,14 +542,32 @@ class DNS(Packet):
 
 # RFC 2671 - Extension Mechanisms for DNS (EDNS0)
 
+edns0types = {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Reserved",
+              5: "PING", 8: "edns-client-subnet"}
+
+
 class EDNS0TLV(Packet):
     name = "DNS EDNS0 TLV"
-    fields_desc = [ShortEnumField("optcode", 0, {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Reserved", 5: "PING"}),  # noqa: E501
+    fields_desc = [ShortEnumField("optcode", 0, edns0types),
                    FieldLenField("optlen", None, "optdata", fmt="H"),
-                   StrLenField("optdata", "", length_from=lambda pkt: pkt.optlen)]  # noqa: E501
+                   StrLenField("optdata", "",
+                               length_from=lambda pkt: pkt.optlen)]
 
     def extract_padding(self, p):
+        # type: (bytes) -> Tuple[bytes, Optional[bytes]]
         return "", p
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Type[Packet]
+        if _pkt is None:
+            return EDNS0TLV
+        if len(_pkt) < 2:
+            return Raw
+        edns0type = struct.unpack("!H", _pkt[:2])[0]
+        if edns0type == 8:
+            return EDNS0ClientSubnet
+        return EDNS0TLV
 
 
 class DNSRROPT(InheritOriginDNSStrPacket):
@@ -541,7 +581,88 @@ class DNSRROPT(InheritOriginDNSStrPacket):
                    BitEnumField("z", 32768, 16, {32768: "D0"}),
                    # D0 means DNSSEC OK from RFC 3225
                    FieldLenField("rdlen", None, length_of="rdata", fmt="H"),
-                   PacketListField("rdata", [], EDNS0TLV, length_from=lambda pkt: pkt.rdlen)]  # noqa: E501
+                   PacketListField("rdata", [], EDNS0TLV,
+                                   length_from=lambda pkt: pkt.rdlen)]
+
+
+# RFC 7871 - Client Subnet in DNS Queries
+
+class ClientSubnetv4(StrLenField):
+    af_familly = socket.AF_INET
+    af_length = 32
+    af_default = b"\xc0"  # 192.0.0.0
+
+    def getfield(self, pkt, s):
+        # type: (Packet, bytes) -> Tuple[bytes, I]
+        sz = operator.floordiv(self.length_from(pkt), 8)
+        sz = min(sz, operator.floordiv(self.af_length, 8))
+        return s[sz:], self.m2i(pkt, s[:sz])
+
+    def m2i(self, pkt, x):
+        # type: (Optional[Packet], bytes) -> str
+        padding = self.af_length - self.length_from(pkt)
+        if padding:
+            x += b"\x00" * operator.floordiv(padding, 8)
+        x = x[: operator.floordiv(self.af_length, 8)]
+        return inet_ntop(self.af_familly, x)
+
+    def _pack_subnet(self, subnet):
+        # type: (bytes) -> bytes
+        packed_subnet = inet_pton(self.af_familly, plain_str(subnet))
+        for i in list(range(operator.floordiv(self.af_length, 8)))[::-1]:
+            if orb(packed_subnet[i]) != 0:
+                i += 1
+                break
+        return packed_subnet[:i]
+
+    def i2m(self, pkt, x):
+        # type: (Optional[Packet], Optional[Union[str, Net]]) -> bytes
+        if x is None:
+            return self.af_default
+        try:
+            return self._pack_subnet(x)
+        except (OSError, socket.error):
+            pkt.family = 2
+            return ClientSubnetv6("", "")._pack_subnet(x)
+
+    def i2len(self, pkt, x):
+        # type: (Packet, Any) -> int
+        if x is None:
+            return 1
+        try:
+            return len(self._pack_subnet(x))
+        except (OSError, socket.error):
+            pkt.family = 2
+            return len(ClientSubnetv6("", "")._pack_subnet(x))
+
+
+class ClientSubnetv6(ClientSubnetv4):
+    af_familly = socket.AF_INET6
+    af_length = 128
+    af_default = b"\x20"  # 2000::
+
+
+class EDNS0ClientSubnet(Packet):
+    name = "DNS EDNS0 Client Subnet"
+    fields_desc = [ShortEnumField("optcode", 8, edns0types),
+                   FieldLenField("optlen", None, "address", fmt="H",
+                                 adjust=lambda pkt, x: x + 4),
+                   ShortField("family", 1),
+                   FieldLenField("source_plen", None,
+                                 length_of="address",
+                                 fmt="B",
+                                 adjust=lambda pkt, x: x * 8),
+                   ByteField("scope_plen", 0),
+                   MultipleTypeField(
+                       [(ClientSubnetv4("address", "192.168.0.0",
+                         length_from=lambda p: p.source_plen),
+                         lambda pkt: pkt.family == 1),
+                        (ClientSubnetv6("address", "2001:db8::",
+                         length_from=lambda p: p.source_plen),
+                         lambda pkt: pkt.family == 2)],
+                       ClientSubnetv4("address", "192.168.0.0",
+                                      length_from=lambda p: p.source_plen))]
+
 
 # RFC 4034 - Resource Records for the DNS Security Extensions
 
@@ -995,22 +1116,66 @@ RFC2136
 class DNS_am(AnsweringMachine):
     function_name = "dns_spoof"
     filter = "udp port 53"
+    cls = DNS  # We use this automaton for llmnr_spoof
 
-    def parse_options(self, joker="192.168.1.1", match=None):
+    def parse_options(self, joker=None,
+                      match=None, joker6=None, from_ip=None):
+        """
+        :param joker: default IPv4 for unresolved domains. (Default: None)
+                      Set to False to disable, None to mirror the interface's IP.
+        :param joker6: default IPv6 for unresolved domains (Default: False)
+                       set to False to disable, None to mirror the interface's IPv6.
+        :param match: a dictionary of {names: (ip, ipv6)}
+        :param from_ip: an source IP to filter. Can contain a netmask
+        """
         if match is None:
             self.match = {}
         else:
             self.match = match
         self.joker = joker
+        self.joker6 = joker6
+        if isinstance(from_ip, str):
+            self.from_ip = Net(from_ip)
+        else:
+            self.from_ip = from_ip
 
     def is_request(self, req):
-        return req.haslayer(DNS) and req.getlayer(DNS).qr == 0
+        from scapy.layers.inet6 import IPv6
+        return (
+            req.haslayer(self.cls) and
+            req.getlayer(self.cls).qr == 0 and
+            (not self.from_ip or (
+                req[IPv6].src in req if IPv6 in req else req[IP].src
+            ) in self.from_ip)
+        )
 
     def make_reply(self, req):
-        ip = req.getlayer(IP)
-        dns = req.getlayer(DNS)
-        resp = IP(dst=ip.src, src=ip.dst) / UDP(dport=ip.sport, sport=ip.dport)
-        rdata = self.match.get(dns.qd.qname, self.joker)
-        resp /= DNS(id=dns.id, qr=1, qd=dns.qd,
-                    an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata))
+        IPcls = IPv6 if IPv6 in req else IP
+        resp = IPcls(dst=req[IPcls].src) / UDP(sport=req.dport, dport=req.sport)
+        dns = req.getlayer(self.cls)
+        if req.qd.qtype == 28:
+            # AAAA
+            if self.joker6 is False:
+                return
+            rdata = self.match.get(
+                dns.qd.qname,
+                self.joker or get_if_addr6(self.optsniff.get("iface", conf.iface))
+            )
+            if isinstance(rdata, (tuple, list)):
+                rdata = rdata[1]
+            resp /= self.cls(id=dns.id, qr=1, qd=dns.qd,
+                             an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata,
+                                      type=28))
+        else:
+            if self.joker is False:
+                return
+            rdata = self.match.get(
+                dns.qd.qname,
+                self.joker or get_if_addr(self.optsniff.get("iface", conf.iface))
+            )
+            if isinstance(rdata, (tuple, list)):
+                # Fallback
+                rdata = rdata[0]
+            resp /= self.cls(id=dns.id, qr=1, qd=dns.qd,
+                             an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata))
         return resp

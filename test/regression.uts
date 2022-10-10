@@ -46,13 +46,19 @@ assert _version_checker(FakeModule3, (2, 4, 2))
 
 = Check Scapy version
 
+import mock
+
 import scapy
 from scapy import _parse_tag, _version_from_git_describe
+from scapy.config import _version_checker
 
-class GitModuleScapy(object):
-    __version__ = _version_from_git_describe()
+b = Bunch(returncode=0, communicate=lambda *args, **kargs: (b"v2.4.5rc1-261-g44b98e14", None))
+with mock.patch('scapy.subprocess.Popen', return_value=b) as popen:
+    class GitModuleScapy(object):
+        __version__ = _version_from_git_describe()
 
-assert _parse_tag("v2.3.2-346-g164a52c075c8") == '2.3.2.dev346'
+assert GitModuleScapy.__version__ == '2.4.5rc1.dev261'
+assert _version_checker(GitModuleScapy, (2, 4, 5))
 
 = List layers
 ~ conf command
@@ -89,8 +95,8 @@ def test_list_contrib():
     with ContextManagerCaptureOutput() as cmco:
         list_contrib()
         result_list_contrib = cmco.get_output()
-    assert("http2               : HTTP/2 (RFC 7540, RFC 7541)              status=loads" in result_list_contrib)
-    assert(len(result_list_contrib.split('\n')) > 40)
+    assert "http2               : HTTP/2 (RFC 7540, RFC 7541)              status=loads" in result_list_contrib
+    assert len(result_list_contrib.split('\n')) > 40
 
 test_list_contrib()
 
@@ -127,6 +133,55 @@ result = """
 """.strip()
 result = [x.strip() for x in result.split("\n")]
 output = [x.strip() for x in rfc(IP, ret=True).strip().split("\n")]
+assert result == output
+
+result = """
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |      CODE     |       ID      |              LEN              |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |      TYPE     |L|M|S|RES|VERSI|          MESSAGE LEN          |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                               |              DATA             |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                           Fig. EAP_TTLS
+""".strip()
+result = [x.strip() for x in result.split("\n")]
+output = [x.strip() for x in rfc(EAP_TTLS, ret=True).strip().split("\n")]
+assert result == output
+
+
+result = """
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |VERSION|       TC      |                   FL                  |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |              PLEN             |       NH      |      HLIM     |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                              SRC                              |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ |                              DST                              |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +                                                               +
+ |                                                               |
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                             Fig. IPv6
+""".strip()
+result = [x.strip() for x in result.split("\n")]
+output = [x.strip() for x in rfc(IPv6, ret=True).strip().split("\n")]
 assert result == output
 
 = Check that all contrib modules are well-configured
@@ -314,6 +369,21 @@ else:
     conf.route6.ipv6_ifaces = set([conf.loopback_name])
     True
 
+= Build HBHOptUnknown for IPv6ExtHdrHopByHop with disabled autopad
+~ ipv6 hbh opt
+* Build the HBHOptUnknown of IPv6ExtHdrHopByHop with autopad=0
+v6Opt = HBHOptUnknown(otype=3, optlen=7, optdata="Beijing")
+pkt = Ether()/IPv6()/IPv6ExtHdrHopByHop(autopad=0, options=[v6Opt, ])
+pkt.build()
+
+= Build HBHOptUnknown for IPv6ExtHdrDestOpt with disabled autopad
+~ ipv6 hbh opt
+* Build the HBHOptUnknown of IPv6ExtHdrDestOpt with autopad=0
+v6Opt = HBHOptUnknown(otype=3, optlen=6, optdata="Haikou")
+pkt = Ether()/IPv6()/IPv6ExtHdrDestOpt(autopad=0, options=[v6Opt, ])
+pkt.build()
+
+
 = Test read_routes6() - check mandatory routes
 
 conf.route6
@@ -321,7 +391,7 @@ conf.route6
 # Doesn't pass on Travis Bionic XXX
 if len(routes6) > 2 and not WINDOWS:
     # Identify routes to fe80::/64
-    assert(sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1)
+    assert sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1
     if not OPENBSD and len(iflist) >= 2:
         assert sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) >= 1
         try:
@@ -423,7 +493,7 @@ def set_var(var, value):
     six.moves.builtins.__dict__["scapy_session"][var] = value
 
 def del_var(var):
-    del(six.moves.builtins.__dict__["scapy_session"][var])
+    del six.moves.builtins.__dict__["scapy_session"][var]
 
 init_session(None, {"init_value": 123})
 set_var("test_value", "8.8.8.8") # test_value = "8.8.8.8"
@@ -467,15 +537,15 @@ scapy_delete_temp_files()
 tmpfile = get_temp_file(autoext=".ut")
 tmpfile
 if WINDOWS:
-    assert("scapy" in tmpfile and tmpfile.lower().startswith('c:\\users\\appveyor\\appdata\\local\\temp'))
+    assert "scapy" in tmpfile and tmpfile.lower().startswith('c:\\users\\appveyor\\appdata\\local\\temp')
 else:
     import platform
     BYPASS_TMP = platform.python_implementation().lower() == "pypy" or DARWIN
-    assert("scapy" in tmpfile and (BYPASS_TMP == True or "/tmp/" in tmpfile))
+    assert "scapy" in tmpfile and (BYPASS_TMP == True or "/tmp/" in tmpfile)
 
-assert(conf.temp_files[0].endswith(".ut"))
+assert conf.temp_files[0].endswith(".ut")
 scapy_delete_temp_files()
-assert(len(conf.temp_files) == 0)
+assert len(conf.temp_files) == 0
 
 = Emulate interact()
 import mock, sys
@@ -595,9 +665,9 @@ except:
 sane("A\x00\xFFB") == "A..B"
 
 = Test lhex function
-assert(lhex(42) == "0x2a")
-assert(lhex((28,7)) == "(0x1c, 0x7)")
-assert(lhex([28,7]) == "[0x1c, 0x7]")
+assert lhex(42) == "0x2a"
+assert lhex((28,7)) == "(0x1c, 0x7)"
+assert lhex([28,7]) == "[0x1c, 0x7]"
 
 = Test restart function
 import mock
@@ -639,8 +709,8 @@ repr_hex("scapy") == "7363617079"
 hexstr(b"A\x00\xFFB") == "41 00 FF 42  A..B"
 
 = Test fletcher16 functions
-assert(fletcher16_checksum(b"\x28\x07") == 22319)
-assert(fletcher16_checkbytes(b"\x28\x07", 1) == b"\xaf(")
+assert fletcher16_checksum(b"\x28\x07") == 22319
+assert fletcher16_checkbytes(b"\x28\x07", 1) == b"\xaf("
 
 = Test hexdiff function
 ~ not_pypy
@@ -722,8 +792,8 @@ def test_export_import_object():
     with ContextManagerCaptureOutput() as cmco:
         export_object(2807)
         result_export_object = cmco.get_output(eval_bytes=True)
-    assert(result_export_object.startswith("eNprYPL9zqUHAAdrAf8="))
-    assert(import_object(result_export_object) == 2807)
+    assert result_export_object.startswith("eNprYPL9zqUHAAdrAf8=")
+    assert import_object(result_export_object) == 2807
 
 test_export_import_object()
 
@@ -732,39 +802,39 @@ tex_escape("$#_") == "\\$\\#\\_"
 
 = Test colgen function
 f = colgen(range(3))
-assert(len([next(f) for i in range(2)]) == 2)
+assert len([next(f) for i in range(2)]) == 2
 
 = Test incremental_label function
 f = incremental_label()
-assert([next(f) for i in range(2)] == ["tag00000", "tag00001"])
+assert [next(f) for i in range(2)] == ["tag00000", "tag00001"]
 
 = Test corrupt_* functions
 import random
 random.seed(0x2807)
-assert(corrupt_bytes("ABCDE") in [b"ABCDW", b"ABCDX"])
-assert(sane(corrupt_bytes("ABCDE", n=3)) in ["A.8D4", ".2.DE"])
+assert corrupt_bytes("ABCDE") in [b"ABCDW", b"ABCDX"]
+assert sane(corrupt_bytes("ABCDE", n=3)) in ["A.8D4", ".2.DE"]
 
-assert(corrupt_bits("ABCDE") in [b"EBCDE", b"ABCDG"])
-assert(sane(corrupt_bits("ABCDE", n=3)) in ["AF.EE", "QB.TE"])
+assert corrupt_bits("ABCDE") in [b"EBCDE", b"ABCDG"]
+assert sane(corrupt_bits("ABCDE", n=3)) in ["AF.EE", "QB.TE"]
 
 = Test save_object and load_object functions
 import tempfile
 fd, fname = tempfile.mkstemp()
 save_object(fname, 2807)
-assert(load_object(fname) == 2807)
+assert load_object(fname) == 2807
 
 = Test whois function
 ~ netaccess
 
 if not WINDOWS:
     result = whois("193.0.6.139")
-    assert(b"inetnum" in result and b"Amsterdam" in result)
+    assert b"inetnum" in result and b"Amsterdam" in result
 
 = Test manuf DB methods
 ~ manufdb
-assert(conf.manufdb._resolve_MAC("00:00:0F:01:02:03") == "Next:01:02:03")
-assert(conf.manufdb._get_short_manuf("00:00:0F:01:02:03") == "Next")
-assert(in6_addrtovendor("fe80::0200:0fff:fe01:0203").lower().startswith("next"))
+assert conf.manufdb._resolve_MAC("00:00:0F:01:02:03") == "Next:01:02:03"
+assert conf.manufdb._get_short_manuf("00:00:0F:01:02:03") == "Next"
+assert in6_addrtovendor("fe80::0200:0fff:fe01:0203").lower().startswith("next")
 
 assert conf.manufdb.lookup("00:00:0F:01:02:03") == ('Next', 'Next, Inc.')
 assert "00:00:0F" in conf.manufdb.reverse_lookup("Next")
@@ -815,6 +885,7 @@ scapy_delete_temp_files()
 = Test load_services
 
 data_services = """
+itu-bicc-stc	3097/sctp
 cvsup		5999/udp			# CVSup
 x11		6000-6063/tcp			# X Window System
 x11		6000-6063/udp			# X Window System
@@ -825,13 +896,15 @@ services = get_temp_file()
 with open(services, "w") as w:
     w.write(data_services)
 
-tcp, udp = load_services(services)
+tcp, udp, sctp = load_services(services)
 assert tcp[6002] == "x11"
 assert tcp.ndl_ahp_svc == 6064
 assert tcp.x11 in range(6000, 6093)
 assert udp[6002] == "x11"
 assert udp.x11 in range(6000, 6093)
 assert udp.cvsup == 5999
+assert sctp[3097] == "itu_bicc_stc"
+assert sctp.itu_bicc_stc == 3097
 
 scapy_delete_temp_files()
 
@@ -845,15 +918,15 @@ atol("www.secdev.org") == 3642339845
 
 ret = autorun_get_text_interactive_session("IP().src")
 ret
-assert(ret == (">>> IP().src\n'127.0.0.1'\n", '127.0.0.1'))
+assert ret == (">>> IP().src\n'127.0.0.1'\n", '127.0.0.1')
 
 ret = autorun_get_html_interactive_session("IP().src")
 ret
-assert(ret == ("<span class=prompt>&gt;&gt;&gt; </span>IP().src\n'127.0.0.1'\n", '127.0.0.1'))
+assert ret == ("<span class=prompt>&gt;&gt;&gt; </span>IP().src\n'127.0.0.1'\n", '127.0.0.1')
 
 ret = autorun_get_latex_interactive_session("IP().src")
 ret
-assert(ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP().src\n'127.0.0.1'\n", '127.0.0.1'))
+assert ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP().src\n'127.0.0.1'\n", '127.0.0.1')
 
 ret = autorun_get_text_interactive_session("scapy_undefined")
 assert "NameError" in ret[0]
@@ -886,7 +959,7 @@ os.write(fd, b"conf.verb = 42\n")
 os.close(fd)
 from scapy.main import _read_config_file
 _read_config_file(fname, globals(), locals())
-assert(conf.verb == 42)
+assert conf.verb == 42
 conf.verb = saved_conf_verb
 
 = Test config file functions failures
@@ -915,7 +988,7 @@ from mock import MagicMock, patch
 
 bck_scapy_libs_matplot = sys.modules.get("scapy.libs.matplot", None)
 if bck_scapy_libs_matplot:
-    del(sys.modules["scapy.libs.matplot"])
+    del sys.modules["scapy.libs.matplot"]
 
 mock_matplotlib = MagicMock()
 mock_matplotlib.get_backend.return_value = "inline"
@@ -948,30 +1021,30 @@ if bck_scapy_libs_matplot:
 = Packet class methods
 p = IP()/ICMP()
 ret = p.do_build_ps()                                                                                                                             
-assert(ret[0] == b"@\x00\x00\x00\x00\x01\x00\x00@\x01\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\x00\x00\x00\x00\x00\x00")
-assert(len(ret[1]) == 2)
+assert ret[0] == b"@\x00\x00\x00\x00\x01\x00\x00@\x01\x00\x00\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\x00\x00\x00\x00\x00\x00"
+assert len(ret[1]) == 2
 
-assert(p[ICMP].firstlayer() == p)
+assert p[ICMP].firstlayer() == p
 
-assert(p.command() == "IP()/ICMP()")
+assert p.command() == "IP()/ICMP()"
 
 p.decode_payload_as(UDP)
-assert(p.sport == 2048 and p.dport == 63487)
+assert p.sport == 2048 and p.dport == 63487
 
 = hide_defaults
 conf_color_theme = conf.color_theme
 conf.color_theme = BlackAndWhite()
 p = IP(ttl=64)/ICMP()
-assert(repr(p) in ["<IP  frag=0 ttl=64 proto=icmp |<ICMP  |>>", "<IP  frag=0 ttl=64 proto=1 |<ICMP  |>>"])
+assert repr(p) in ["<IP  frag=0 ttl=64 proto=icmp |<ICMP  |>>", "<IP  frag=0 ttl=64 proto=1 |<ICMP  |>>"]
 p.hide_defaults()
-assert(repr(p) in ["<IP  frag=0 proto=icmp |<ICMP  |>>", "<IP  frag=0 proto=1 |<ICMP  |>>"])
+assert repr(p) in ["<IP  frag=0 proto=icmp |<ICMP  |>>", "<IP  frag=0 proto=1 |<ICMP  |>>"]
 conf.color_theme = conf_color_theme
 
 = split_layers
 p = IP()/ICMP()
 s = raw(p)
 split_layers(IP, ICMP, proto=1)
-assert(Raw in IP(s))
+assert Raw in IP(s)
 bind_layers(IP, ICMP, frag=0, proto=1)
 
 = fuzz
@@ -1011,13 +1084,13 @@ IP().summary()
 a=IP(ttl=4)/TCP()
 a.ttl
 a.ttl=10
-del(a.ttl)
+del a.ttl
 a.ttl
 TCP in a
 a[TCP]
 a[TCP].dport=[80,443]
 a
-assert(a.copy().time == a.time)
+assert a.copy().time == a.time
 a=3
 
 = Bind string array as payload
@@ -1213,27 +1286,27 @@ conf.checkIPsrc = conf_checkIPsrc
 = Padding assembly
 r = raw(Padding("abc"))
 r
-assert(r == b"abc" )
+assert r == b"abc" 
 r = raw(Padding("abc")/Padding("def"))
 r
-assert(r == b"abcdef" )
+assert r == b"abcdef" 
 r = raw(Raw("ABC")/Padding("abc")/Padding("def"))
 r
-assert(r == b"ABCabcdef" )
+assert r == b"ABCabcdef" 
 r = raw(Raw("ABC")/Padding("abc")/Raw("DEF")/Padding("def"))
 r
-assert(r == b"ABCDEFabcdef")
+assert r == b"ABCDEFabcdef"
 
 = Padding and length computation
 p = IP(raw(IP()/Padding("abc")))
 p
-assert(p.len == 20 and len(p) == 23)
+assert p.len == 20 and len(p) == 23
 p = IP(raw(IP()/Raw("ABC")/Padding("abc")))
 p
-assert(p.len == 23 and len(p) == 26)
+assert p.len == 23 and len(p) == 26
 p = IP(raw(IP()/Raw("ABC")/Padding("abc")/Padding("def")))
 p
-assert(p.len == 23 and len(p) == 29)
+assert p.len == 23 and len(p) == 29
 
 = PadField test
 ~ PadField padding
@@ -1266,10 +1339,10 @@ class IPv3(IP):
 a = IPv3()
 v,t = a.version, a.ttl
 v,t
-assert((v,t) == (3,32))
+assert (v,t) == (3,32)
 r = raw(a)
 r
-assert(r == b'5\x00\x00\x14\x00\x01\x00\x00 \x00\xac\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01')
+assert r == b'5\x00\x00\x14\x00\x01\x00\x00 \x00\xac\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01'
 
 ############
 ############
@@ -1290,11 +1363,9 @@ random.seed(0x2807)
 o = bytes(a)
 o
 assert o in [
-    b'\x02\x02\xfe\x92',
-    b'A\x02\x07q',
-    b'\x15\x10E55WW2a7yrh9XEck',
-    b'C\x02\xfe\x92',
-    b'\x1e\x023V'
+    b'\x1e\x023V',  # PyPy 2.7
+    b'A\x02\x07q',  # Python 2.7
+    b'B\x02\xfe\x92',  # python 3.7-3.9
 ]
 
 = ASN1 - ASN1_BIT_STRING
@@ -1379,16 +1450,16 @@ retry_test(_test)
 ~ netaccess needs_root IP
 def _test():
     tmp = send(IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S"), return_packets=True, realtime=True)
-    assert(len(tmp) == 1)
+    assert len(tmp) == 1
     
     tmp = sendp(Ether()/IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S"), return_packets=True, realtime=True)
-    assert(len(tmp) == 1)
+    assert len(tmp) == 1
     
     p = Ether()/IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S")
     from decimal import Decimal
     p.time = Decimal(p.time)
     tmp = sendp(p, return_packets=True, realtime=True)
-    assert(len(tmp) == 1)
+    assert len(tmp) == 1
 
 retry_test(_test)
 
@@ -1438,10 +1509,10 @@ retry_test(_test)
 ~ netaccess needs_root IP
 def _test():
     tmp = srloop(IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S"), count=1, timeout=3)
-    assert(type(tmp) == tuple and len(tmp[0]) == 1)
+    assert type(tmp) == tuple and len(tmp[0]) == 1
     
     tmp = srploop(Ether()/IP(dst="8.8.8.8")/TCP(sport=RandShort(), dport=53, flags="S"), count=1, timeout=3)
-    assert(type(tmp) == tuple and len(tmp[0]) == 1)
+    assert type(tmp) == tuple and len(tmp[0]) == 1
 
 retry_test(_test)
 
@@ -1542,8 +1613,8 @@ Bulk mode; whois.cymru.com [2017-10-03 08:38:08 +0000]
 26496   | 68.178.213.61    | AS-26496-GO-DADDY-COM-LLC - GoDaddy.com, LLC, US
 """
 tmp = AS_resolver_cymru().parse(cymru_bulk_data)
-assert(len(tmp) == 3)
-assert([l[1] for l in tmp] == ['AS24776', 'AS36459', 'AS26496'])
+assert len(tmp) == 3
+assert [l[1] for l in tmp] == ['AS24776', 'AS36459', 'AS26496']
 
 = AS resolver - IPv6
 ~ netaccess IP
@@ -1693,6 +1764,28 @@ r = sniff(timeout=3, count=1,
           started_callback=_test)
 
 assert r
+
+= sniff() with socket failure
+* GH issue 3631
+
+REFPACKET = Ether()/IP()/UDP()
+
+# A socket that fails after 10 packets
+class OOPipe(ObjectPipe):
+     def recv(self, x=MTU):
+         self.i = getattr(self, "i", 0) + 1
+         if self.i == 11:
+             self.close()
+             raise OSError("Giant failure")
+         pkt = super(OOPipe, self).recv(x)
+         self.send(REFPACKET)
+         return pkt
+
+o = OOPipe()
+o.send(REFPACKET)
+
+pkts = sniff(opened_socket=[o], timeout=3)
+assert len(pkts) == 10
 
 = GH issue 3306
 ~ netaccess needs_root
@@ -1871,6 +1964,12 @@ l = rdpcap(tmpfile)
 assert b"Scapy" in l[0][Raw].load
 assert l[0].time == ts
 
+p = Ether() / IPv6() / TCP()
+p.comment = b"Hello Scapy!"
+wrpcapng(tmpfile, p)
+l = rdpcap(tmpfile)
+assert l[0].comment.strip() == p.comment
+
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
 
@@ -1919,7 +2018,7 @@ fdesc.close()
 = Check offline sniff() (by PacketList)
 l=sniff(offline=PacketList([IP()/TCP(),IP()/TCP()]))
 assert len(l) == 2
-assert(all(TCP in p for p in l))
+assert all(TCP in p for p in l)
 
 = Check offline sniff() (by filename)
 assert list(pktpcap) == list(sniff(offline=filename))
@@ -1956,18 +2055,18 @@ fd.close()
 
 packets = sniff(offline=filename, filter="udp")
 os.unlink(filename)
-assert(UDP in packets[0])
+assert UDP in packets[0]
 
 = Check offline sniff() with Packets and tcpdump
 ~ tcpdump
 
 l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="udp")
 assert len(l) == 2
-assert(all(UDP in p for p in l))
+assert all(UDP in p for p in l)
 
 l = sniff(offline=[p for p in IP()/UDP(sport=(10000, 10001))], filter="udp")
 assert len(l) == 2
-assert(all(UDP in p for p in l))
+assert all(UDP in p for p in l)
 
 l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
 assert len(l) == 0
@@ -2345,7 +2444,7 @@ import tempfile
 filename = tempfile.mktemp(suffix=".pcap")
 wrpcap(filename, [IP()/UDP(), IPv6()/UDP()], linktype=DLT_RAW)
 packets = rdpcap(filename)
-assert(isinstance(packets[0], IP) and isinstance(packets[1], IPv6))
+assert isinstance(packets[0], IP) and isinstance(packets[1], IPv6)
 
 = Check wrpcap() with no packet
 
@@ -2479,8 +2578,8 @@ default            link#11            UCSI            1        0 bridge1
     scapy.arch.unix.NETBSD = False
     scapy.arch.unix.OPENBSD = False
     routes = read_routes()
-    assert(len(routes) == 4)
-    assert([r for r in routes if r[3] == "bridge10"])
+    assert len(routes) == 4
+    assert [r for r in routes if r[3] == "bridge10"]
 
 
 test_osx_netstat_truncated()
@@ -2538,7 +2637,7 @@ default            192.168.28.1       UGSc           82        0     en0
     routes = read_routes()
     for r in routes:
         print(r)
-    assert(len(routes) == 15)
+    assert len(routes) == 15
     default_route = [r for r in routes if r[0] == 0][0]
     assert default_route[3] == "en0" and default_route[4] == "192.168.28.18"
 
@@ -2746,19 +2845,19 @@ results_dict = _parse_tcpreplay_result(stdout, stderr, argv)
 
 results_dict
 
-assert(results_dict["packets"] == 1024)
-assert(results_dict["bytes"] == 198929)
-assert(results_dict["time"] == 67.88)
-assert(results_dict["bps"] == 2930.6)
-assert(results_dict["mbps"] == 0.02)
-assert(results_dict["pps"] == 15.09)
-assert(results_dict["attempted"] == 1024)
-assert(results_dict["successful"] == 1024)
-assert(results_dict["failed"] == 0)
-assert(results_dict["retried_enobufs"] == 0)
-assert(results_dict["retried_eagain"] == 0)
-assert(results_dict["command"] == " ".join(argv))
-assert(len(results_dict["warnings"]) == 3)
+assert results_dict["packets"] == 1024
+assert results_dict["bytes"] == 198929
+assert results_dict["time"] == 67.88
+assert results_dict["bps"] == 2930.6
+assert results_dict["mbps"] == 0.02
+assert results_dict["pps"] == 15.09
+assert results_dict["attempted"] == 1024
+assert results_dict["successful"] == 1024
+assert results_dict["failed"] == 0
+assert results_dict["retried_enobufs"] == 0
+assert results_dict["retried_eagain"] == 0
+assert results_dict["command"] == " ".join(argv)
+assert len(results_dict["warnings"]) == 3
 
 = Test more recent version with flows
 
@@ -2874,8 +2973,8 @@ ff02::%en0/32                           link#4                          UmCI    
     routes = read_routes6()
     for r in routes:
         print(r)
-    assert(len(routes) == 6)
-    assert(check_mandatory_ipv6_routes(routes))
+    assert len(routes) == 6
+    assert check_mandatory_ipv6_routes(routes)
 
 test_osx_10_9_5()
 
@@ -2924,11 +3023,11 @@ ff02::%lo0/32                           ::1                             UmCI    
     from scapy.arch.unix import read_routes6
     routes = read_routes6()
     print(routes)
-    assert(valid_output_read_routes6(routes))
+    assert valid_output_read_routes6(routes)
     for r in routes:
         print(r)
-    assert(len(routes) == 11)
-    assert(check_mandatory_ipv6_routes(routes))
+    assert len(routes) == 11
+    assert check_mandatory_ipv6_routes(routes)
 
 test_osx_10_9_5_global()
 
@@ -2970,8 +3069,8 @@ ff02::%en0/32                           link#4                          UmCI    
     routes = read_routes6()
     for r in routes:
         print(r)
-    assert(len(routes) == 5)
-    assert(check_mandatory_ipv6_routes(routes))
+    assert len(routes) == 5
+    assert check_mandatory_ipv6_routes(routes)
 
 test_osx_10_10_4()
 
@@ -3016,8 +3115,8 @@ ff02::%lo0/32                     ::1                           U           lo0
     scapy.arch.unix.OPENBSD = False
     for r in routes:
         print(r)
-    assert(len(routes) == 3)
-    assert(check_mandatory_ipv6_routes(routes))
+    assert len(routes) == 3
+    assert check_mandatory_ipv6_routes(routes)
 
 test_freebsd_10_2()
 
@@ -3062,8 +3161,8 @@ default            10.0.0.1           UGS         3   1500     vtnet0
     scapy.arch.unix.OPENBSD = False
     for r in routes:
         print(r)
-        assert(r[3] in ["vtnet0", "lo0"])
-    assert(len(routes) == 4)
+        assert r[3] in ["vtnet0", "lo0"]
+    assert len(routes) == 4
 
 test_freebsd_13()
 
@@ -3123,8 +3222,8 @@ ff02::%lo0/32                      fe80::1%lo0                    UC         0  
     routes = read_routes6()
     for r in routes:
         print(r)
-    assert(len(routes) == 5)
-    assert(check_mandatory_ipv6_routes(routes))
+    assert len(routes) == 5
+    assert check_mandatory_ipv6_routes(routes)
 
 test_openbsd_5_5()
 
@@ -3176,8 +3275,8 @@ ff02::%lo0/32                      ::1                            UC          - 
     routes = read_routes6()
     for r in routes:
         print(r)
-    assert(len(routes) == 5)
-    assert(check_mandatory_ipv6_routes(routes))
+    assert len(routes) == 5
+    assert check_mandatory_ipv6_routes(routes)
 
 test_netbsd_7_0()
 
@@ -3266,7 +3365,7 @@ old_iface = conf.iface
 conf.route6.ipv6_ifaces = set(['eth1', 'lo'])
 conf.iface = "eth0"
 conf.route6.routes = [("fe80::", 64, "::", "eth1", ["fe80::a00:28ff:fe07:1980"], 256), ("::1", 128, "::", "lo", ["::1"], 0), ("fe80::a00:28ff:fe07:1980", 128, "::", "lo", ["::1"], 0)]
-assert(conf.route6.route("fe80::2807") == ("eth1", "fe80::a00:28ff:fe07:1980", "::"))
+assert conf.route6.route("fe80::2807") == ("eth1", "fe80::a00:28ff:fe07:1980", "::")
 conf.iface = old_iface
 conf.route6.resync()
 
@@ -3299,7 +3398,7 @@ ssck.basecls = DNSTCP
 
 r = ssck.sr1(DNSTCP(dns=DNS(rd=1, qd=DNSQR(qname="www.example.com"))), timeout=3)
 sck.close()
-assert(DNSTCP in r and len(r.dns.an))
+assert DNSTCP in r and len(r.dns.an)
 
 ############
 + Tests of SSLStreamContext
@@ -3333,18 +3432,18 @@ s = MockSocket()
 ss = SSLStreamSocket(s, basecls=TestPacket)
 
 p = ss.recv()
-assert(p.data == 1)
+assert p.data == 1
 p = ss.recv()
-assert(p.data == 2)
+assert p.data == 2
 p = ss.recv()
-assert(p.data == 3)
+assert p.data == 3
 try:
     ss.recv()
     ret = False
 except socket.error:
     ret = True
 
-assert(ret)
+assert ret
 
 = Test with recv() calls that return twice as much data as the exact packet-length
 ~ sslraweamsocket
@@ -3375,20 +3474,20 @@ s = MockSocket()
 ss = SSLStreamSocket(s, basecls=TestPacket)
 
 p = ss.recv()
-assert(p.data == 1)
+assert p.data == 1
 p = ss.recv()
-assert(p.data == 2)
+assert p.data == 2
 p = ss.recv()
-assert(p.data == 3)
+assert p.data == 3
 p = ss.recv()
-assert(p.data == 4)
+assert p.data == 4
 try:
     ss.recv()
     ret = False
 except socket.error:
     ret = True
 
-assert(ret)
+assert ret
 
 = Test with recv() calls that return not enough data
 ~ sslraweamsocket
@@ -3424,34 +3523,34 @@ try:
 except:
     ret = True
 
-assert(ret)
+assert ret
 p = ss.recv()
-assert(p.data == 1)
+assert p.data == 1
 try:
     p = ss.recv()
     ret = False
 except:
     ret = True
 
-assert(ret)
+assert ret
 p = ss.recv()
-assert(p.data == 2)
+assert p.data == 2
 try:
     p = ss.recv()
     ret = False
 except:
     ret = True
 
-assert(ret)
+assert ret
 try:
     p = ss.recv()
     ret = False
 except:
     ret = True
 
-assert(ret)
+assert ret
 p = ss.recv()
-assert(p.data == 3)
+assert p.data == 3
 
 
 ############
@@ -3492,7 +3591,7 @@ addr1, addr2 = inet_ntop(socket.AF_INET6, binfrm), _inet6_ntop(binfrm)
 # representation anyway.
 assert(addr1 in ['1111:2222:3333:4444:5555:6666:0:8888',
                  '1111:2222:3333:4444:5555:6666::8888'])
-assert(addr2 == '1111:2222:3333:4444:5555:6666:0:8888')
+assert addr2 == '1111:2222:3333:4444:5555:6666:0:8888'
 
 = IPv6 bin to rawing conversion - Illegal sizes
 for binfrm in ["\x00" * 15, b"\x00" * 17]:
@@ -3939,9 +4038,9 @@ os.write(fd, b"-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
 os.close(fd)
 
 load_mib(fname)
-assert(sum(1 for k in six.itervalues(conf.mib.d) if "scapy" in k) == 1)
+assert sum(1 for k in six.itervalues(conf.mib.d) if "scapy" in k) == 1
 
-assert(sum(1 for oid in conf.mib) > 100)
+assert sum(1 for oid in conf.mib) > 100
 
 = MIB - graph
 ~ mib
@@ -4016,7 +4115,7 @@ except BER_BadTag_Decoding_Error:
 else:
     ret = False
 
-assert(ret)
+assert ret
 
 = BER trigger failures
 
@@ -4042,8 +4141,8 @@ class Test(Packet):
     ]
 
 pkt = Test(raw(Test(Values=[0, 0, 0, 0, 1, 1, 1, 1])))
-assert(pkt.BitCount == 8)
-assert(pkt.ByteCount == 1)
+assert pkt.BitCount == 8
+assert pkt.ByteCount == 1
 
 = PacketListField
 
@@ -4053,10 +4152,10 @@ class TestPacket(Packet):
 
 a = TestPacket()
 a.list.append(1)
-assert(len(a.list) == 1)
+assert len(a.list) == 1
 
 b = TestPacket()
-assert(len(b.list) == 0)
+assert len(b.list) == 0
 
 = Test PacketListField deepcopy
 class SubPacket(Packet):
@@ -4074,7 +4173,7 @@ class TestPacket(Packet):
 a = TestPacket()
 b = a.copy()
 fuzz(b)
-assert(a.packlist[0].mem == 1)
+assert a.packlist[0].mem == 1
 
 = PacketField
 
@@ -4269,9 +4368,9 @@ assert re.match(r'01234567-89ab-[0-9a-f]{4}-01[0-9a-f]{2}-[0-9a-f]{8}c[0-9]ef', 
 = MPLS - build/dissection
 from scapy.contrib.mpls import EoMCW, MPLS
 p1 = MPLS()/IP()/UDP()
-assert(p1[MPLS].s == 1)
+assert p1[MPLS].s == 1
 p2 = MPLS()/MPLS()/IP()/UDP()
-assert(p2[MPLS].s == 0)
+assert p2[MPLS].s == 0
 
 p1[MPLS]
 p1[IP]
@@ -4284,16 +4383,16 @@ p = Ether(dst="11:11:11:11:11:11", src="22:22:22:22:22:22")
 p /= MPLS(label=1)/EoMCW(seq=1234)
 p /= Ether(dst="33:33:33:33:33:33", src="44:44:44:44:44:44")/IP()
 p = Ether(raw(p))
-assert(p[EoMCW].zero == 0)
-assert(p[EoMCW].reserved == 0)
-assert(p[EoMCW].seq == 1234)
+assert p[EoMCW].zero == 0
+assert p[EoMCW].reserved == 0
+assert p[EoMCW].seq == 1234
 
 =  MPLS encapsulated Ethernet without CW - build/dissection
 p = Ether(dst="11:11:11:11:11:11", src="22:22:22:22:22:22")
 p /= MPLS(label=2)/MPLS(label=1)
 p /= Ether(dst="33:33:33:33:33:33", src="44:44:44:44:44:44")/IP()
 p = Ether(raw(p))
-assert(p[Ether:2].type == 0x0800)
+assert p[Ether:2].type == 0x0800
 
 try:
     p[EoMCW]
@@ -4302,8 +4401,8 @@ except IndexError:
 else:
     ret = False
 
-assert(ret)
-assert(p[Ether:2].type == 0x0800)
+assert ret
+assert p[Ether:2].type == 0x0800
 
 = MPLS encapsulated IP - build/dissection
 p = Ether(dst="11:11:11:11:11:11", src="22:22:22:22:22:22")
@@ -4317,7 +4416,7 @@ except IndexError:
 else:
     ret = False
 
-assert(ret)
+assert ret
 
 try:
     p[Ether:2]
@@ -4326,7 +4425,7 @@ except IndexError:
 else:
     ret = False
 
-assert(ret)
+assert ret
 
 p[IP]
 
@@ -4419,7 +4518,7 @@ def test_plot(mock_plt):
     mock_plt.plot = fake_plot
     plist = PacketList([IP(id=i)/TCP() for i in range(10)])
     lines = plist.plot(lambda p: (p.time, p.id))
-    assert(len(lines) == 10)
+    assert len(lines) == 10
 
 test_plot()
 
@@ -4435,7 +4534,7 @@ def test_diffplot(mock_plt):
     mock_plt.plot = fake_plot
     plist = PacketList([IP(id=i)/TCP() for i in range(10)])
     lines = plist.diffplot(lambda x,y: (x.time, y.id-x.id))
-    assert(len(lines) == 9)
+    assert len(lines) == 9
 
 test_diffplot()
 
@@ -4452,8 +4551,8 @@ def test_multiplot(mock_plt):
     tmp = [IP(id=i)/TCP() for i in range(10)]
     plist = PacketList([tuple(tmp[i-2:i]) for i in range(2, 10, 2)])
     lines = plist.multiplot(lambda x: (x[1][IP].src, (x[1].time, x[1][IP].id)))
-    assert(len(lines) == 1)
-    assert(len(lines[0]) == 4)
+    assert len(lines) == 1
+    assert len(lines[0]) == 4
 
 test_multiplot()
 
@@ -4464,8 +4563,8 @@ def test_rawhexdump():
         p = PacketList([IP()/TCP() for i in range(2)])
         p.rawhexdump()
         result_pl_rawhexdump = cmco.get_output()
-    assert(len(result_pl_rawhexdump.split('\n')) == 7)
-    assert(result_pl_rawhexdump.startswith("0000  45 00 00 28"))
+    assert len(result_pl_rawhexdump.split('\n')) == 7
+    assert result_pl_rawhexdump.startswith("0000  45 00 00 28")
 
 test_rawhexdump()
 
@@ -4476,8 +4575,8 @@ def test_hexraw():
         p = PacketList([IP()/Raw(str(i)) for i in range(2)])
         p.hexraw()
         result_pl_hexraw = cmco.get_output()
-    assert(len(result_pl_hexraw.split('\n')) == 5)
-    assert("0000  30" in result_pl_hexraw)
+    assert len(result_pl_hexraw.split('\n')) == 5
+    assert "0000  30" in result_pl_hexraw
 
 test_hexraw()
 
@@ -4488,8 +4587,8 @@ def test_hexdump():
         p = PacketList([IP()/Raw(str(i)) for i in range(2)])
         p.hexdump()
         result_pl_hexdump = cmco.get_output()
-    assert(len(result_pl_hexdump.split('\n')) == 7)
-    assert("0010  7F 00 00 01 31" in result_pl_hexdump)
+    assert len(result_pl_hexdump.split('\n')) == 7
+    assert "0010  7F 00 00 01 31" in result_pl_hexdump
 
 test_hexdump()
 
@@ -4531,8 +4630,8 @@ def test_padding():
         p = PacketList([IP()/conf.padding_layer(str(i)) for i in range(2)])
         p.padding()
         result_pl_padding = cmco.get_output()
-    assert(len(result_pl_padding.split('\n')) == 5)
-    assert("0000  30" in result_pl_padding)
+    assert len(result_pl_padding.split('\n')) == 5
+    assert "0000  30" in result_pl_padding
 
 test_padding()
 
@@ -4543,8 +4642,8 @@ def test_nzpadding():
         p = PacketList([IP()/conf.padding_layer("A%s" % i) for i in range(2)])
         p.nzpadding()
         result_pl_nzpadding = cmco.get_output()
-    assert(len(result_pl_nzpadding.split('\n')) == 5)
-    assert("0000  41 30" in result_pl_nzpadding)
+    assert len(result_pl_nzpadding.split('\n')) == 5
+    assert "0000  41 30" in result_pl_nzpadding
 
 test_nzpadding()
 
@@ -4562,10 +4661,10 @@ def test_conversations(mock_do_graph):
     plist.extend([IPv6(src="::2", dst="::1")/TCP(sport=i) for i in range(2)])
     plist.extend([Ether()/ARP(pdst="127.0.0.1")])
     result_conversations = plist.conversations()
-    assert(len(result_conversations.split('\n')) == 8)
-    assert(result_conversations.startswith('digraph "conv" {'))
-    assert("127.0.0.1" in result_conversations)
-    assert("::1" in result_conversations)
+    assert len(result_conversations.split('\n')) == 8
+    assert result_conversations.startswith('digraph "conv" {')
+    assert "127.0.0.1" in result_conversations
+    assert "::1" in result_conversations
 
 test_conversations()
 
@@ -4574,7 +4673,7 @@ test_conversations()
 pl = PacketList([Ether()/IPv6()/ICMPv6EchoRequest(), Ether()/IPv6()/IPv6()])
 pl.extend([Ether()/IP()/IP(), Ether()/ARP()])
 pl.extend([Ether()/Ether()/IP()])
-assert(len(pl.sessions().keys()) == 5)
+assert len(pl.sessions().keys()) == 5
 
 = afterglow()
 
@@ -4587,8 +4686,8 @@ def test_afterglow(mock_do_graph):
     plist = PacketList([IP(dst="127.0.0.2")/TCP(dport=i) for i in range(2)])
     plist.extend([IP(src="127.0.0.2")/TCP(sport=i) for i in range(2)])
     result_afterglow = plist.afterglow()
-    assert(len(result_afterglow.split('\n')) == 19)
-    assert(result_afterglow.startswith('digraph "afterglow" {'))
+    assert len(result_afterglow.split('\n')) == 19
+    assert result_afterglow.startswith('digraph "afterglow" {')
 
 test_afterglow()
 
@@ -4601,7 +4700,7 @@ if PYX:
     filename = tempfile.mktemp(suffix=".eps")
     plist = PacketList([IP()/TCP()])
     plist.psdump(filename)
-    assert(os.path.exists(filename))
+    assert os.path.exists(filename)
     os.unlink(filename)
 
 = pdfdump()
@@ -4613,7 +4712,7 @@ if PYX:
     filename = tempfile.mktemp(suffix=".pdf")
     plist = PacketList([IP()/TCP()])
     plist.pdfdump(filename)
-    assert(os.path.exists(filename))
+    assert os.path.exists(filename)
     os.unlink(filename)
 
 = svgdump()
@@ -4625,7 +4724,7 @@ if PYX and not six.PY2:
     filename = tempfile.mktemp(suffix=".svg")
     plist = PacketList([IP()/TCP()])
     plist.svgdump(filename)
-    assert(os.path.exists(filename))
+    assert os.path.exists(filename)
     os.unlink(filename)
 
 = __getstate__ / __setstate__ (used by pickle)
@@ -4653,20 +4752,20 @@ assert pl[1][Ether].dst == '00:22:33:44:55:66'
 + Scapy version
 
 = _version()
-~ ci_only
 
 import os
 version_filename = os.path.join(scapy._SCAPY_PKG_DIR, "VERSION")
 
-version = scapy._version()
-assert(os.path.exists(version_filename))
+version = "2.0.0"
+with open(version_filename, "w") as fd:
+    fd.write(version)
 
 import mock
 with mock.patch("scapy._version_from_git_describe") as version_mocked:
-  version_mocked.side_effect = Exception()
-  assert(scapy._version() == version)
-  os.unlink(version_filename)
-  assert(scapy._version() == "git-archive.dev$Format:%h")
+    version_mocked.side_effect = Exception()
+    assert scapy._version() == version
+    os.unlink(version_filename)
+    assert scapy._version() == "unknown.version"
 
 
 = UTscapy HTML output

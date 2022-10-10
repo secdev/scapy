@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 NetBIOS over TCP/IP
@@ -11,7 +11,8 @@ NetBIOS over TCP/IP
 
 import struct
 from scapy.arch import get_if_addr
-from scapy.ansmachine import AnsweringMachine, AnsweringMachineUtils
+from scapy.base_classes import Net
+from scapy.ansmachine import AnsweringMachine
 from scapy.config import conf
 
 from scapy.packet import Packet, bind_bottom_up, bind_layers, bind_top_down
@@ -29,9 +30,10 @@ from scapy.fields import (
     ShortEnumField,
     ShortField,
     StrFixedLenField,
-    XShortField
+    XShortField,
+    XStrFixedLenField
 )
-from scapy.layers.inet import UDP, TCP
+from scapy.layers.inet import IP, UDP, TCP
 from scapy.layers.l2 import SourceMACField
 
 
@@ -128,7 +130,6 @@ class NBNSHeader(Packet):
     ]
 
 # Name Query Request
-# Node Status Request
 
 
 class NBNSQueryRequest(Packet):
@@ -148,36 +149,6 @@ class NBNSQueryRequest(Packet):
 bind_layers(NBNSHeader, NBNSQueryRequest,
             OPCODE=0x0, NM_FLAGS=0x11, QDCOUNT=1)
 
-# Name Registration Request
-
-
-class NBNSRegistrationRequest(Packet):
-    name = "NBNS registration request"
-    fields_desc = [ShortField("NAME_TRN_ID", 0),
-                   ShortField("FLAGS", 0x2910),
-                   ShortField("QDCOUNT", 1),
-                   ShortField("ANCOUNT", 0),
-                   ShortField("NSCOUNT", 0),
-                   ShortField("ARCOUNT", 1),
-                   NetBIOSNameField("QUESTION_NAME", "Windows"),
-                   ShortEnumField("SUFFIX", 0x4141, _NETBIOS_SUFFIXES),
-                   ByteField("NULL", 0),
-                   ShortEnumField("QUESTION_TYPE", 0x20, _NETBIOS_QRTYPES),
-                   ShortEnumField("QUESTION_CLASS", 1, _NETBIOS_QRCLASS),
-                   ShortEnumField("RR_NAME", 0xC00C, _NETBIOS_RNAMES),
-                   ShortEnumField("RR_TYPE", 0x20, _NETBIOS_QRTYPES),
-                   ShortEnumField("RR_CLASS", 1, _NETBIOS_QRCLASS),
-                   IntField("TTL", 0),
-                   ShortField("RDLENGTH", 6),
-                   BitEnumField("G", 0, 1, _NETBIOS_GNAMES),
-                   BitEnumField("OWNER_NODE_TYPE", 00, 2,
-                                _NETBIOS_OWNER_MODE_TYPES),
-                   BitEnumField("UNUSED", 0, 13, {0: "Unused"}),
-                   IPField("NB_ADDRESS", "127.0.0.1")]
-
-
-bind_layers(NBNSHeader, NBNSRegistrationRequest,
-            OPCODE=0x5, NM_FLAGS=0x11, QDCOUNT=1, ARCOUNT=1)
 
 # Name Query Response
 
@@ -218,12 +189,29 @@ class NBNSQueryResponse(Packet):
 bind_layers(NBNSHeader, NBNSQueryResponse,
             OPCODE=0x0, NM_FLAGS=0x50, RESPONSE=1, ANCOUNT=1)
 
+# Node Status Request
+
+
+class NBNSNodeStatusRequest(NBNSQueryRequest):
+    name = "NBNS status request"
+    QUESTION_NAME = b"*" + b"\x00" * 14
+    QUESTION_TYPE = 0x21
+
+    def mysummary(self):
+        return "NBNSNodeStatusRequest who has '\\\\%s'" % (
+            self.QUESTION_NAME.strip().decode()
+        )
+
+
+bind_bottom_up(NBNSHeader, NBNSNodeStatusRequest, OPCODE=0x0, NM_FLAGS=0, QDCOUNT=1)
+bind_layers(NBNSHeader, NBNSNodeStatusRequest, OPCODE=0x0, NM_FLAGS=1, QDCOUNT=1)
 
 # Node Status Response
 
+
 class NBNSNodeStatusResponseService(Packet):
     name = "NBNS Node Status Response Service"
-    fields_desc = [StrFixedLenField("NETBIOS_NAME", "WINDOWS         ", 16),
+    fields_desc = [StrFixedLenField("NETBIOS_NAME", "WINDOWS         ", 15),
                    ByteEnumField("SUFFIX", 0, {0: "workstation",
                                                0x03: "messenger service",
                                                0x20: "file server service",
@@ -254,11 +242,44 @@ class NBNSNodeStatusResponse(Packet):
                                    NBNSNodeStatusResponseService,
                                    count_from=lambda pkt: pkt.NUM_NAMES),
                    SourceMACField("MAC_ADDRESS"),
-                   BitField("STATISTICS", 0, 57 * 8)]
+                   XStrFixedLenField("STATISTICS", b"", 46)]
+
+    def answers(self, other):
+        return (
+            isinstance(other, NBNSNodeStatusRequest) and
+            other.QUESTION_NAME == self.RR_NAME
+        )
 
 
 bind_layers(NBNSHeader, NBNSNodeStatusResponse,
             OPCODE=0x0, NM_FLAGS=0x40, RESPONSE=1, ANCOUNT=1)
+
+# Name Registration Request
+
+
+class NBNSRegistrationRequest(Packet):
+    name = "NBNS registration request"
+    fields_desc = [
+        NetBIOSNameField("QUESTION_NAME", "Windows"),
+        ShortEnumField("SUFFIX", 0x4141, _NETBIOS_SUFFIXES),
+        ByteField("NULL", 0),
+        ShortEnumField("QUESTION_TYPE", 0x20, _NETBIOS_QRTYPES),
+        ShortEnumField("QUESTION_CLASS", 1, _NETBIOS_QRCLASS),
+        ShortEnumField("RR_NAME", 0xC00C, _NETBIOS_RNAMES),
+        ShortEnumField("RR_TYPE", 0x20, _NETBIOS_QRTYPES),
+        ShortEnumField("RR_CLASS", 1, _NETBIOS_QRCLASS),
+        IntField("TTL", 0),
+        ShortField("RDLENGTH", 6),
+        BitEnumField("G", 0, 1, _NETBIOS_GNAMES),
+        BitEnumField("OWNER_NODE_TYPE", 00, 2,
+                     _NETBIOS_OWNER_MODE_TYPES),
+        BitEnumField("UNUSED", 0, 13, {0: "Unused"}),
+        IPField("NB_ADDRESS", "127.0.0.1")
+    ]
+
+
+bind_layers(NBNSHeader, NBNSRegistrationRequest,
+            OPCODE=0x5, NM_FLAGS=0x11, QDCOUNT=1, ARCOUNT=1)
 
 
 # Wait for Acknowledgement Response
@@ -333,15 +354,28 @@ bind_layers(TCP, NBTSession, dport=139, sport=139)
 
 
 class NBNS_am(AnsweringMachine):
-    function_name = "netbios_announce"
+    function_name = "nbns_spoof"
     filter = "udp port 137"
-    sniff_options = {"store": 0, "L2socket": conf.L3socket}
+    sniff_options = {"store": 0}
 
-    def parse_options(self, server_name=None, ip=None):
+    def parse_options(self, server_name=None, from_ip=None, ip=None):
+        """
+        NBNS answering machine
+
+        :param server_name: the netbios server name to match
+        :param from_ip: an IP (can have a netmask) to filter on
+        :param ip: the IP to answer with
+        """
         self.ServerName = server_name
         self.ip = ip
+        if isinstance(from_ip, str):
+            self.from_ip = Net(from_ip)
+        else:
+            self.from_ip = from_ip
 
     def is_request(self, req):
+        if self.from_ip and IP in req and req[IP].src not in self.from_ip:
+            return False
         return NBNSQueryRequest in req and (
             not self.ServerName or
             req[NBNSQueryRequest].QUESTION_NAME.decode().strip() ==
@@ -350,8 +384,7 @@ class NBNS_am(AnsweringMachine):
 
     def make_reply(self, req):
         # type: (Packet) -> Packet
-        resp = AnsweringMachineUtils.reverse_packet(req)
-        resp[UDP].remove_payload()
+        resp = IP(dst=req[IP].src) / UDP(sport=req.dport, dport=req.sport)
         address = self.ip or get_if_addr(
             self.optsniff.get("iface", conf.iface))
         resp /= NBNSHeader() / NBNSQueryResponse(

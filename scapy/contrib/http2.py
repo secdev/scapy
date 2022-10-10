@@ -1,23 +1,14 @@
-#############################################################################
-#                                                                           #
-#  http2.py --- HTTP/2 support for Scapy                                    #
-#               see RFC7540 and RFC7541                                     #
-#               for more information                                        #
-#                                                                           #
-#  Copyright (C) 2016  Florian Maury <florian.maury@ssi.gouv.fr>            #
-#                                                                           #
-#  This file is part of Scapy                                               #
-#  Scapy is free software: you can redistribute it and/or modify it         #
-#  under the terms of the GNU General Public License version 2 as           #
-#  published by the Free Software Foundation.                               #
-#                                                                           #
-#  This program is distributed in the hope that it will be useful, but      #
-#  WITHOUT ANY WARRANTY; without even the implied warranty of               #
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU        #
-#  General Public License for more details.                                 #
-#                                                                           #
-#############################################################################
-"""http2 Module
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Copyright (C) 2016  Florian Maury <florian.maury@ssi.gouv.fr>
+
+"""
+http2
+
+HTTP/2 support for Scapy
+see RFC7540 and RFC7541 for more information
+
 Implements packets and fields required to encode/decode HTTP/2 Frames
 and HPack encoded headers
 """
@@ -72,9 +63,9 @@ class HPackMagicBitField(fields.BitField):
         :return: None
         :raises: AssertionError
         """
-        assert(default >= 0)
+        assert default >= 0
         # size can be negative if encoding is little-endian (see rev property of bitfields)  # noqa: E501
-        assert(size != 0)
+        assert size != 0
         self._magic = default
         super(HPackMagicBitField, self).__init__(name, default, size)
 
@@ -197,8 +188,8 @@ class AbstractUVarIntField(fields.Field):
         :return: None
         :raises: AssertionError
         """
-        assert(default is None or (isinstance(default, six.integer_types) and default >= 0))  # noqa: E501
-        assert(0 < size <= 8)
+        assert default is None or (isinstance(default, six.integer_types) and default >= 0)  # noqa: E501
+        assert 0 < size <= 8
         super(AbstractUVarIntField, self).__init__(name, default)
         self.size = size
         self._max_value = (1 << self.size) - 1
@@ -215,7 +206,7 @@ class AbstractUVarIntField(fields.Field):
         :return: int|None: the converted value.
         :raises: AssertionError
         """
-        assert(not isinstance(x, six.integer_types) or x >= 0)
+        assert not isinstance(x, six.integer_types) or x >= 0
         return x
 
     def i2h(self, pkt, x):
@@ -238,7 +229,7 @@ class AbstractUVarIntField(fields.Field):
         :return: bool: True if multibyte repr detected, else False.
         :raises: AssertionError
         """
-        assert(isinstance(fb, int) or len(fb) == 1)
+        assert isinstance(fb, int) or len(fb) == 1
         return (orb(fb) & self._max_value) == self._max_value
 
     def _parse_multi_byte(self, s):
@@ -252,7 +243,7 @@ class AbstractUVarIntField(fields.Field):
         :raises:: Scapy_Exception if the input value encodes an integer larger than 1<<64  # noqa: E501
         """
 
-        assert(len(s) >= 2)
+        assert len(s) >= 2
 
         tmp_len = len(s)
 
@@ -274,7 +265,7 @@ class AbstractUVarIntField(fields.Field):
         value += byte << (7 * (i - 1))
         value += self._max_value
 
-        assert(value >= 0)
+        assert value >= 0
         return value
 
     def m2i(self, pkt, x):
@@ -288,7 +279,7 @@ class AbstractUVarIntField(fields.Field):
         :param str|(str, int) x: the string to convert. If bits were consumed by a previous bitfield-compatible field.  # noqa: E501
         :raises: AssertionError
         """
-        assert(isinstance(x, bytes) or (isinstance(x, tuple) and x[1] >= 0))
+        assert isinstance(x, bytes) or (isinstance(x, tuple) and x[1] >= 0)
 
         if isinstance(x, tuple):
             assert (8 - x[1]) == self.size, 'EINVAL: x: not enough bits remaining in current byte to read the prefix'  # noqa: E501
@@ -302,7 +293,7 @@ class AbstractUVarIntField(fields.Field):
         else:
             ret = orb(val[0]) & self._max_value
 
-        assert(ret >= 0)
+        assert ret >= 0
         return ret
 
     def i2m(self, pkt, x):
@@ -313,7 +304,7 @@ class AbstractUVarIntField(fields.Field):
         :return: str: the converted value.
         :raises: AssertionError
         """
-        assert(x >= 0)
+        assert x >= 0
 
         if x < self._max_value:
             return chb(x)
@@ -342,9 +333,9 @@ class AbstractUVarIntField(fields.Field):
         if isinstance(x, type(None)):
             return x
         if isinstance(x, six.integer_types):
-            assert(x >= 0)
+            assert x >= 0
             ret = self.h2i(pkt, x)
-            assert(isinstance(ret, six.integer_types) and ret >= 0)
+            assert isinstance(ret, six.integer_types) and ret >= 0
             return ret
         elif isinstance(x, bytes):
             ret = self.m2i(pkt, x)
@@ -382,14 +373,14 @@ class AbstractUVarIntField(fields.Field):
           field.
         :raises: AssertionError
         """
-        assert(val >= 0)
+        assert val >= 0
         if isinstance(s, bytes):
             assert self.size == 8, 'EINVAL: s: tuple expected when prefix_len is not a full byte'  # noqa: E501
             return s + self.i2m(pkt, val)
 
         # s is a tuple
-        # assert(s[1] >= 0)
-        # assert(s[2] >= 0)
+        # assert s[1] >= 0
+        # assert s[2] >= 0
         # assert (8 - s[1]) == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'  # noqa: E501
 
         if val >= self._max_value:
@@ -410,7 +401,7 @@ class AbstractUVarIntField(fields.Field):
         :return: The bytelength of the AbstractUVarIntField.
         :raises: AssertionError
         """
-        assert(len(s) >= 2)
+        assert len(s) >= 2
         tmp_len = len(s)
 
         i = 1
@@ -419,7 +410,7 @@ class AbstractUVarIntField(fields.Field):
             assert i < tmp_len, 'EINVAL: s: out-of-bound read: unfinished AbstractUVarIntField detected'  # noqa: E501
         ret = i + 1
 
-        assert(ret >= 0)
+        assert ret >= 0
         return ret
 
     def i2len(self, pkt, x):
@@ -429,7 +420,7 @@ class AbstractUVarIntField(fields.Field):
         :param int x: the positive or null value whose binary size if requested.  # noqa: E501
         :raises: AssertionError
         """
-        assert(x >= 0)
+        assert x >= 0
         if x < self._max_value:
             return 1
 
@@ -443,7 +434,7 @@ class AbstractUVarIntField(fields.Field):
             i += 1
 
         ret = i
-        assert(ret >= 0)
+        assert ret >= 0
         return ret
 
     def getfield(self, pkt, s):
@@ -460,10 +451,10 @@ class AbstractUVarIntField(fields.Field):
         :raises: AssertionError
         """
         if isinstance(s, tuple):
-            assert(len(s) == 2)
+            assert len(s) == 2
             temp = s  # type: Tuple[str, int]
             ts, ti = temp
-            assert(ti >= 0)
+            assert ti >= 0
             assert 8 - ti == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'  # noqa: E501
             val = ts
         else:
@@ -476,7 +467,7 @@ class AbstractUVarIntField(fields.Field):
             tmp_len = 1
 
         ret = val[tmp_len:], self.m2i(pkt, s)
-        assert(ret[1] >= 0)
+        assert ret[1] >= 0
         return ret
 
     def randval(self):
@@ -495,8 +486,8 @@ class UVarIntField(AbstractUVarIntField):
         :param default: the default value for this field instance. default must be positive or null.  # noqa: E501
         :raises: AssertionError
         """
-        assert(default >= 0)
-        assert(0 < size <= 8)
+        assert default >= 0
+        assert 0 < size <= 8
 
         super(UVarIntField, self).__init__(name, default, size)
         self.size = size
@@ -516,7 +507,7 @@ class UVarIntField(AbstractUVarIntField):
         :raises: AssertionError
         """
         ret = super(UVarIntField, self).h2i(pkt, x)
-        assert(not isinstance(ret, type(None)) and ret >= 0)
+        assert not isinstance(ret, type(None)) and ret >= 0
         return ret
 
     def i2h(self, pkt, x):
@@ -529,7 +520,7 @@ class UVarIntField(AbstractUVarIntField):
         :raises: AssertionError
         """
         ret = super(UVarIntField, self).i2h(pkt, x)
-        assert(not isinstance(ret, type(None)) and ret >= 0)
+        assert not isinstance(ret, type(None)) and ret >= 0
         return ret
 
     def any2i(self, pkt, x):
@@ -542,7 +533,7 @@ class UVarIntField(AbstractUVarIntField):
         :raises: AssertionError
         """
         ret = super(UVarIntField, self).any2i(pkt, x)
-        assert(not isinstance(ret, type(None)) and ret >= 0)
+        assert not isinstance(ret, type(None)) and ret >= 0
         return ret
 
     def i2repr(self, pkt, x):
@@ -577,8 +568,8 @@ class FieldUVarLenField(AbstractUVarIntField):
         :return: None
         :raises: AssertionError
         """
-        assert(default is None or default >= 0)
-        assert(0 < size <= 8)
+        assert default is None or default >= 0
+        assert 0 < size <= 8
 
         super(FieldUVarLenField, self).__init__(name, default, size)
         self._length_of = length_of
@@ -633,7 +624,7 @@ class FieldUVarLenField(AbstractUVarIntField):
         fld, fval = pkt.getfield_and_val(self._length_of)
         val = fld.i2len(pkt, fval)
         ret = self._adjust(val)
-        assert(ret >= 0)
+        assert ret >= 0
         return ret
 
 ###############################################################################
@@ -1015,7 +1006,7 @@ class HPackZString(HPackStringsInterface):
         if isinstance(c, EOS):
             return cls.static_huffman_code[-1]
         else:
-            assert(isinstance(c, int) or len(c) == 1)
+            assert isinstance(c, int) or len(c) == 1
         return cls.static_huffman_code[orb(c)]
 
     @classmethod
@@ -1042,7 +1033,7 @@ class HPackZString(HPackStringsInterface):
             ibl += padlen
 
         ret = i, ibl
-        assert(ret[0] >= 0)
+        assert ret[0] >= 0
         assert (ret[1] >= 0)
         return ret
 
@@ -1056,12 +1047,12 @@ class HPackZString(HPackStringsInterface):
         :return: str: the string decoded from the bitstring
         :raises: AssertionError, InvalidEncodingException
         """
-        assert(i >= 0)
-        assert(ibl >= 0)
+        assert i >= 0
+        assert ibl >= 0
 
         if isinstance(cls.static_huffman_tree, type(None)):
             cls.huffman_compute_decode_tree()
-        assert(not isinstance(cls.static_huffman_tree, type(None)))
+        assert not isinstance(cls.static_huffman_tree, type(None))
 
         s = []
         j = 0
@@ -1115,8 +1106,8 @@ class HPackZString(HPackStringsInterface):
         :return: str: the converted bitstring as a bytestring.
         :raises: AssertionError
         """
-        assert(bit_str >= 0)
-        assert(bit_len >= 0)
+        assert bit_str >= 0
+        assert bit_len >= 0
 
         byte_len = bit_len // 8
         rem_bit = bit_len % 8
@@ -1150,8 +1141,8 @@ class HPackZString(HPackStringsInterface):
             i = (i << 8) + orb(c)
 
         ret = i, ibl
-        assert(ret[0] >= 0)
-        assert(ret[1] >= 0)
+        assert ret[0] >= 0
+        assert ret[1] >= 0
         return ret
 
     @classmethod
@@ -1280,9 +1271,9 @@ class HPackStrLenField(fields.Field):
         :raises: AssertionError, InvalidEncodingException
         """
         if isinstance(x, bytes):
-            assert(isinstance(pkt, packet.Packet))
+            assert isinstance(pkt, packet.Packet)
             return self.m2i(pkt, x)
-        assert(isinstance(x, HPackStringsInterface))
+        assert isinstance(x, HPackStringsInterface)
         return x
 
     def i2m(self, pkt, x):
@@ -1478,7 +1469,7 @@ class H2PaddedDataFrame(H2DataFrame):
         padding_len_len = fld.i2len(self, fval)
 
         ret = self.s_len - padding_len_len - padding_len
-        assert(ret >= 0)
+        assert ret >= 0
         return ret
 
     def pre_dissect(self, s):
@@ -1559,7 +1550,7 @@ class H2PaddedHeadersFrame(H2AbstractHeadersFrame):
         padding_len_len = fld.i2len(self, fval)
 
         ret = self.s_len - padding_len_len - padding_len
-        assert(ret >= 0)
+        assert ret >= 0
         return ret
 
     def pre_dissect(self, s):
@@ -1637,7 +1628,7 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
                   (bit_cnt / 8) -
                   weight_len
                   )
-        assert(ret >= 0)
+        assert ret >= 0
         return ret
 
     def pre_dissect(self, s):
@@ -1778,7 +1769,7 @@ class H2SettingsFrame(H2FramePayload):
         """
 
         # RFC7540 par6.5 p36
-        assert(
+        assert (
             len(args) == 0 or (
                 isinstance(args[0], bytes) and
                 len(args[0]) % 6 == 0
@@ -1848,7 +1839,7 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
                   padding_len -
                   (bit_len / 8)
                   )
-        assert(ret >= 0)
+        assert ret >= 0
         return ret
 
     def pre_dissect(self, s):
@@ -1885,7 +1876,7 @@ class H2PingFrame(H2FramePayload):
         :raises: AssertionError
         """
         # RFC7540 par6.7 p42
-        assert(
+        assert (
             len(args) == 0 or (
                 isinstance(args[0], (bytes, str)) and
                 len(args[0]) == 8
@@ -1928,7 +1919,7 @@ class H2WindowUpdateFrame(H2FramePayload):
         :raises: AssertionError
         """
         # RFC7540 par6.9 p46
-        assert(
+        assert (
             len(args) == 0 or (
                 isinstance(args[0], (bytes, str)) and
                 len(args[0]) == 4
@@ -2073,7 +2064,7 @@ class H2Frame(packet.Packet):
         # This logic, while awkward in the post_build and more reasonable in
         # a self_build is implemented here for performance tricks reason
         if self.getfieldval('len') is None:
-            assert(len(pay) < (1 << 24)), 'Invalid length: payload is too long'
+            assert len(pay) < (1 << 24), 'Invalid length: payload is too long'
             p = struct.pack('!L', len(pay))[1:] + p[3:]
         return super(H2Frame, self).post_build(p, pay)
 
@@ -2132,7 +2123,7 @@ class HPackHdrEntry(Sized):
         """
         :raises: AssertionError
         """
-        assert(len(name) > 0)
+        assert len(name) > 0
 
         self._name = name.lower()
         self._value = value
@@ -2298,7 +2289,7 @@ class HPackHdrTable(Sized):
           raised
         :raises: KeyError, AssertionError
         """
-        assert(idx >= 0)
+        assert idx >= 0
         if idx > type(self)._static_entries_last_idx:
             idx -= type(self)._static_entries_last_idx + 1
             if idx >= len(self._dynamic_table):
@@ -2331,7 +2322,7 @@ class HPackHdrTable(Sized):
         :param int nc: the new cap of the dynamic table (that is the maximum-maximum size)  # noqa: E501
         :raises: AssertionError
         """
-        assert(nc >= 0)
+        assert nc >= 0
         t = self._dynamic_table_cap_size > nc
         self._dynamic_table_cap_size = nc
 
@@ -2350,7 +2341,7 @@ class HPackHdrTable(Sized):
         the RFC7541 definition of the size of an entry)
         :raises: AssertionError
         """
-        assert(new_entry_size >= 0)
+        assert new_entry_size >= 0
         cur_sz = len(self)
         dyn_tbl_sz = len(self._dynamic_table)
         while dyn_tbl_sz > 0 and cur_sz + new_entry_size > self._dynamic_table_max_size:  # noqa: E501
@@ -2402,7 +2393,7 @@ class HPackHdrTable(Sized):
             # then throw an assertion error if the new entry does not fit in
             new_entry_len = len(entry)
             self._reduce_dynamic_table(new_entry_len)
-            assert(new_entry_len <= self._dynamic_table_max_size)
+            assert new_entry_len <= self._dynamic_table_max_size
             self._dynamic_table.insert(0, entry)
 
     def get_idx_by_name(self, name):

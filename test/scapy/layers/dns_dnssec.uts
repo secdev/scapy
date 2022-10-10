@@ -141,6 +141,6 @@ raw(t) == b"\nSAMPLE-ALG\x07EXAMPLE\x00\x00\xfa\x00\x01\x00\x00\x00\x00\x00\x1b\
 = TimeField methods
 
 packed_data = b"\x00\x002\xe4\x07\x00"
-assert(TimeSignedField("", 0).i2m("", 853804800) == packed_data)
-assert(TimeSignedField("", 0).m2i("", packed_data) == 853804800)
-assert(TimeSignedField("", 0).i2repr("", 853804800) == "Tue Jan 21 00:00:00 1997")
+assert TimeSignedField("", 0).i2m("", 853804800) == packed_data
+assert TimeSignedField("", 0).m2i("", packed_data) == 853804800
+assert TimeSignedField("", 0).i2repr("", 853804800) == "Tue Jan 21 00:00:00 1997"

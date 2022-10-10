@@ -1,9 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
 # Copyright (C) Enrico Pozzobon <enricopozzobon@gmail.com>
 # Copyright (C) Alexander Schroeder <alexander1.schroeder@st.othr.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = ISO-TP (ISO 15765-2) Utilities
 # scapy.contrib.status = library

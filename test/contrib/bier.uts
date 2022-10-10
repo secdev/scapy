@@ -10,9 +10,9 @@
 from scapy.contrib.mpls import MPLS
 
 p1 = MPLS()/BIER(length=BIERLength.BIER_LEN_256)/IP()/UDP()
-assert(p1[MPLS].s == 1)
+assert p1[MPLS].s == 1
 p2 = BIFT()/BIER(length=BIERLength.BIER_LEN_64)/IP()/UDP()
-assert(p2[BIFT].s == 1)
+assert p2[BIFT].s == 1
 
 p1[MPLS]
 p1[BIER]

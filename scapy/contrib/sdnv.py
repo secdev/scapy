@@ -1,26 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 # This file is part of Scapy
-# Scapy is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 2 of the License, or
-# any later version.
-#
-# Scapy is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Scapy. If not, see <http://www.gnu.org/licenses/>.
+# See https://scapy.net/ for more information
+# Copyright 2012 (C) The MITRE Corporation
 
 """
- Copyright 2012, The MITRE Corporation::
-
-                              NOTICE
+.. centered::
+    NOTICE
     This software/technical data was produced for the U.S. Government
     under Prime Contract No. NASA-03001 and JPL Contract No. 1295026
-      and is subject to FAR 52.227-14 (6/87) Rights in Data General,
-        and Article GP-51, Rights in Data  General, respectively.
-       This software is publicly released under MITRE case #12-3054
+    and is subject to FAR 52.227-14 (6/87) Rights in Data General,
+    and Article GP-51, Rights in Data  General, respectively.
+    This software is publicly released under MITRE case #12-3054
 """
 
 # scapy.contrib.description = Self-Delimiting Numeric Values (SDNV)
@@ -64,7 +54,7 @@ class SDNV:
             temp.append(thisByte)
             foo = temp + foo
 
-        return(foo)
+        return foo
 
     def decode(self, ba, offset):
         number = 0
@@ -81,7 +71,7 @@ class SDNV:
             numBytes += 1
         if (number > self.maxValue):
             raise SDNVValueError(self.maxValue)
-        return(number, numBytes)
+        return number, numBytes
 
 
 SDNVUtil = SDNV()

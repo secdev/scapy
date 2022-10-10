@@ -1,7 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
+# See https://scapy.net/ for more information
 # Copyright (C) 2008 Arnaud Ebalard <arno@natisbad.org>
 #   2015, 2016, 2017 Maxence Tury <maxence.tury@ssi.gouv.fr>
-# This program is published under a GPLv2 license
 
 """
 PKCS #1 methods as defined in RFC 3447.
@@ -18,7 +19,6 @@ import scapy.libs.six as six
 from scapy.config import conf, crypto_validator
 from scapy.error import warning
 if conf.crypto_valid:
-    from cryptography import utils
     from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes
@@ -95,8 +95,7 @@ _get_hash = None
 if conf.crypto_valid:
 
     # first, we add the "md5-sha1" hash from openssl to python-cryptography
-    @utils.register_interface(HashAlgorithm)
-    class MD5_SHA1(object):
+    class MD5_SHA1(HashAlgorithm):
         name = "md5-sha1"
         digest_size = 36
         block_size = 64

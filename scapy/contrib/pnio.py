@@ -1,18 +1,6 @@
-# coding: utf8
+# SPDX-License-Identifier: GPL-2.0-or-later
 # This file is part of Scapy
-# Scapy is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 2 of the License, or
-# any later version.
-#
-# Scapy is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Scapy. If not, see <http://www.gnu.org/licenses/>.
-
+# See https://scapy.net/ for more information
 # Copyright (C) 2016 Gauthier Sebaux
 
 # scapy.contrib.description = ProfinetIO RTC (+Profisafe) layer
@@ -226,12 +214,12 @@ class PNIORealTimeCyclicPDU(Packet):
             pad_len = len(self.getfieldval("padding"))
 
         # Constraints from IEC-61158-6-10/FDIS ED 3, Table 163
-        assert(0 <= pad_len <= 40)
+        assert 0 <= pad_len <= 40
         q = self
         while not isinstance(q, UDP) and hasattr(q, "underlayer"):
             q = q.underlayer
         if isinstance(q, UDP):
-            assert(0 <= pad_len <= 12)
+            assert 0 <= pad_len <= 12
         return pad_len
 
     def next_cls_cb(self, _lst, _p, _remain):
@@ -368,7 +356,7 @@ class PROFIsafe(Packet):
 
     @staticmethod
     def build_PROFIsafe_class(cls, data_length):
-        assert(cls.get_max_data_length() >= data_length)
+        assert cls.get_max_data_length() >= data_length
         return type(
             "{}Len{}".format(cls.__name__, data_length),
             (cls,),

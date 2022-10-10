@@ -1,8 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) Philippe Biondi <phil@secdev.org>
-# Vincent Mauge   <vmauge.nospam@nospam.gmail.com>
-# This program is published under a GPLv2 license
+# See https://scapy.net/ for more information
+# Acknowledgment: Vincent Mauge <vmauge.nospam@nospam.gmail.com>
 
 """
 RADIUS (Remote Authentication Dial In User Service)
@@ -990,6 +989,21 @@ class RadiusAttr_Service_Type(_RadiusAttrIntEnumVal):
 class RadiusAttr_Framed_Protocol(_RadiusAttrIntEnumVal):
     """RFC 2865"""
     val = 7
+
+
+class RadiusAttr_Acct_Status_Type(_RadiusAttrIntEnumVal):
+    """RFC 2866"""
+    val = 40
+
+
+class RadiusAttr_Acct_Authentic(_RadiusAttrIntEnumVal):
+    """RFC 2866"""
+    val = 45
+
+
+class RadiusAttr_Acct_Terminate_Cause(_RadiusAttrIntEnumVal):
+    """RFC 2866"""
+    val = 49
 
 
 class RadiusAttr_NAS_Port_Type(_RadiusAttrIntEnumVal):

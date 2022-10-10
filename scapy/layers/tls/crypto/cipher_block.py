@@ -1,19 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
+# See https://scapy.net/ for more information
 # Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
 #               2015, 2016, 2017 Maxence Tury
-# This program is published under a GPLv2 license
 
 """
 Block ciphers.
 """
 
-from __future__ import absolute_import
+import warnings
+
 from scapy.config import conf
 from scapy.layers.tls.crypto.common import CipherError
 import scapy.libs.six as six
 
 if conf.crypto_valid:
-    from cryptography.utils import register_interface
+    from cryptography.utils import (
+        CryptographyDeprecationWarning,
+    )
     from cryptography.hazmat.primitives.ciphers import (Cipher, algorithms, modes,  # noqa: E501
                                                         BlockCipherAlgorithm,
                                                         CipherAlgorithm)
@@ -127,6 +131,8 @@ if conf.crypto_valid:
 
 # Mostly deprecated ciphers
 
+_sslv2_block_cipher_algs = {}
+
 if conf.crypto_valid:
     class Cipher_DES_CBC(_BlockCipher):
         pc_cls = algorithms.TripleDES
@@ -152,27 +158,32 @@ if conf.crypto_valid:
         block_size = 8
         key_len = 24
 
-    class Cipher_IDEA_CBC(_BlockCipher):
-        pc_cls = algorithms.IDEA
-        pc_cls_mode = modes.CBC
-        block_size = 8
-        key_len = 16
+    _sslv2_block_cipher_algs["DES_192_EDE3_CBC"] = Cipher_3DES_EDE_CBC
 
-    class Cipher_SEED_CBC(_BlockCipher):
-        pc_cls = algorithms.SEED
-        pc_cls_mode = modes.CBC
-        block_size = 16
-        key_len = 16
+    try:
+        with warnings.catch_warnings():
+            # Hide deprecation warnings
+            warnings.filterwarnings("ignore",
+                                    category=CryptographyDeprecationWarning)
 
+            class Cipher_IDEA_CBC(_BlockCipher):
+                pc_cls = algorithms.IDEA
+                pc_cls_mode = modes.CBC
+                block_size = 8
+                key_len = 16
 
-_sslv2_block_cipher_algs = {}
+            class Cipher_SEED_CBC(_BlockCipher):
+                pc_cls = algorithms.SEED
+                pc_cls_mode = modes.CBC
+                block_size = 16
+                key_len = 16
 
-if conf.crypto_valid:
-    _sslv2_block_cipher_algs.update({
-        "IDEA_128_CBC": Cipher_IDEA_CBC,
-        "DES_64_CBC": Cipher_DES_CBC,
-        "DES_192_EDE3_CBC": Cipher_3DES_EDE_CBC
-    })
+            _sslv2_block_cipher_algs.update({
+                "IDEA_128_CBC": Cipher_IDEA_CBC,
+                "DES_64_CBC": Cipher_DES_CBC,
+            })
+    except AttributeError:
+        pass
 
 
 # We need some black magic for RC2, which is not registered by default
@@ -181,9 +192,7 @@ if conf.crypto_valid:
 # silently not declared, and the corresponding suites will have 'usable' False.
 
 if conf.crypto_valid:
-    @register_interface(BlockCipherAlgorithm)
-    @register_interface(CipherAlgorithm)
-    class _ARC2(object):
+    class _ARC2(BlockCipherAlgorithm, CipherAlgorithm):
         name = "RC2"
         block_size = 64
         key_sizes = frozenset([128])

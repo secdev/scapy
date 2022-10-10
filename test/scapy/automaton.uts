@@ -44,16 +44,16 @@ class ATMT1(Automaton):
 a=ATMT1(init="a", ll=lambda: None, recvsock=lambda: None)
 r = a.run()
 r
-assert(r == 'aabaaababaaabaaababab')
+assert r == 'aabaaababaaabaaababab'
 r = a.result
 r
-assert(r == 'aabaaababaaabaaababab')
+assert r == 'aabaaababaaabaaababab'
 a = ATMT1(init="b", ll=lambda: None, recvsock=lambda: None)
 r = a.run()
 r
-assert(r == 'babababababababababababababab')
+assert r == 'babababababababababababababab'
 r = a.result
-assert(r == 'babababababababababababababab')
+assert r == 'babababababababababababababab'
 
 = Simple automaton stuck test
 ~ automaton
@@ -76,19 +76,19 @@ class ATMT2(ATMT1):
 a=ATMT2(init="a", ll=lambda: None, recvsock=lambda: None)
 r = a.run()
 r
-assert(r == 'ccccccacabacccacababacccccacabacccacababab')
+assert r == 'ccccccacabacccacababacccccacabacccacababab'
 
 
 r = a.result
 r
-assert(r == 'ccccccacabacccacababacccccacabacccacababab')
+assert r == 'ccccccacabacccacababacccccacabacccacababab'
 a=ATMT2(init="b", ll=lambda: None, recvsock=lambda: None)
 r = a.run()
 r
-assert(r == 'cccccbaccbabaccccbaccbabab')
+assert r == 'cccccbaccbabaccccbaccbabab'
 r = a.result
 r
-assert(r == 'cccccbaccbabaccccbaccbabab')
+assert r == 'cccccbaccbabaccccbaccbabab'
 
 
 = Automaton condition overloading
@@ -103,18 +103,18 @@ class ATMT3(ATMT2):
 a=ATMT3(init="a", ll=lambda: None, recvsock=lambda: None)
 r = a.run()
 r
-assert(r == 'cccccacabdacccacabdabda')
+assert r == 'cccccacabdacccacabdabda'
 r = a.result
 r
-assert(r == 'cccccacabdacccacabdabda')
+assert r == 'cccccacabdacccacabdabda'
 a=ATMT3(init="b", ll=lambda: None, recvsock=lambda: None)
 r = a.run()
 r
-assert(r == 'cccccbdaccbdabdaccccbdaccbdabdab')
+assert r == 'cccccbdaccbdabdaccccbdaccbdabdab'
 
 r = a.result
 r
-assert(r == 'cccccbdaccbdabdaccccbdaccbdabdab')
+assert r == 'cccccbdaccbdabdaccccbdaccbdabdab'
 
 
 = Automaton action overloading
@@ -127,17 +127,17 @@ class ATMT4(ATMT3):
 a=ATMT4(init="a", ll=lambda: None, recvsock=lambda: None)
 r = a.run()
 r
-assert(r == 'cccccacabdacccacabdabda')
+assert r == 'cccccacabdacccacabdabda'
 r = a.result
 r
-assert(r == 'ecccccacabdacccacabdabdae')
+assert r == 'ecccccacabdacccacabdabdae'
 a=ATMT4(init="b", ll=lambda: None, recvsock=lambda: None)
 r = a.run()
 r
-assert(r == 'cccccbdaccbdabdaccccbdaccbdabdab')
+assert r == 'cccccbdaccbdabdaccccbdaccbdabdab'
 r = a.result
 r
-assert(r == 'ecccccbdaccbdabdaccccbdaccbdabdabe')
+assert r == 'ecccccbdaccbdabdaccccbdaccbdabdabe'
 
 
 = Automaton priorities
@@ -172,7 +172,7 @@ class ATMT5(Automaton):
 a=ATMT5(ll=lambda: None, recvsock=lambda: None)
 r = a.run()
 r
-assert(r == 'Jupiter')
+assert r == 'Jupiter'
 
 = Automaton test same action for many conditions
 ~ automaton
@@ -208,12 +208,12 @@ class ATMT6(Automaton):
 
 a=ATMT6(ll=lambda: None, recvsock=lambda: None)
 r = a.run()
-assert(r == 'Mercury')
+assert r == 'Mercury'
 
 a.restart()
 r = a.run()
 r
-assert(r == 'Mercury')
+assert r == 'Mercury'
 
 = Automaton test io event
 ~ automaton
@@ -246,7 +246,7 @@ r
 a.io.tst.send(r)
 r = a.run()
 r
-assert(r == "Saturn")
+assert r == "Saturn"
 
 a.restart()
 a.run(wait=False)
@@ -256,7 +256,7 @@ r
 a.io.tst.send(r)
 r = a.run()
 r
-assert(r == "Saturn")
+assert r == "Saturn"
 
 = Automaton test io event from external fd
 ~ automaton
@@ -300,7 +300,7 @@ writeOn(w, b"nu")
 
 r = a.run()
 r
-assert(r == b"Uranus")
+assert r == b"Uranus"
 
 a.restart()
 a.run(wait=False)
@@ -308,7 +308,7 @@ writeOn(w, b"ra")
 writeOn(w, b"nu")
 r = a.run()
 r
-assert(r == b"Uranus")
+assert r == b"Uranus"
 
 = Automaton test interception_points, and restart
 ~ automaton
@@ -331,12 +331,12 @@ class ATMT9(Automaton):
 a=ATMT9(debug=5, ll=lambda: None, recvsock=lambda: None)
 r = a.run()
 r
-assert(r == "VENUs")
+assert r == "VENUs"
 
 a.restart()
 r = a.run()
 r
-assert(r == "VENUs")
+assert r == "VENUs"
 
 a.restart()
 a.BEGIN.intercepts()
@@ -350,7 +350,76 @@ while True:
 
 r = x
 r
-assert(r == "Venus")
+assert r == "Venus"
+
+= Automaton timer function
+~ run timers
+
+class TimerTest(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.count1 = 0
+        self.count2 = 0
+    @ATMT.timer(BEGIN, 0.1)
+    def count1(self):
+        self.count1 += 1
+    @ATMT.timer(BEGIN, 0.15)
+    def count2(self):
+        self.count2 += 1
+    @ATMT.timeout(BEGIN, 1)
+    def goto_end(self):
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        pass
+
+sm = TimerTest(ll=lambda: None, recvsock=lambda: None)
+sm.run()
+
+assert sm.timer_by_name("count0") is None
+assert sm.timer_by_name("count1") is not None
+assert sm.timer_by_name("count1")._timeout == 0.1
+assert sm.timer_by_name("count2") is not None
+assert sm.timer_by_name("count2")._timeout == 0.15
+assert sm.timer_by_name("goto_end") is not None
+assert sm.timer_by_name("goto_end")._timeout == 1
+assert sm.count1 == 10
+assert sm.count2 == 6
+
+~ reconfigure timers
+
+sm = TimerTest(ll=lambda: None, recvsock=lambda: None)
+sm.timer_by_name("count1").set(0.2)
+sm.timer_by_name("count2").set(0.25)
+sm.run()
+assert sm.count1 == 5
+assert sm.count2 == 4
+
+~ timeout
+
+class TimerTest(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.count1 = 0
+        self.count2 = 0
+    @ATMT.timeout(BEGIN, 0.1)
+    def count1(self):
+        self.count1 += 1
+    @ATMT.timer(BEGIN, 0.15)
+    def count2(self):
+        self.count2 += 1
+    @ATMT.timeout(BEGIN, 1)
+    def goto_end(self):
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        pass
+
+sm = TimerTest(ll=lambda: None, recvsock=lambda: None)
+sm.run()
+
+assert sm.count1 == 1
+assert sm.count2 == 6
 
 = Automaton graph
 ~ automaton
@@ -358,13 +427,17 @@ assert(r == "Venus")
 class HelloWorld(Automaton):
     @ATMT.state(initial=1)
     def BEGIN(self):
-        pass
-    @ATMT.condition(BEGIN)
-    def wait_for_nothing(self):
+        self.count1 = 0
+        self.count2 = 0
+    @ATMT.timer(BEGIN, 0.1)
+    def count1(self):
+        self.count1 += 1
+    @ATMT.timer(BEGIN, 0.15)
+    def count2(self):
+        self.count2 += 1
+    @ATMT.timeout(BEGIN, 1)
+    def goto_end(self):
         raise self.END()
-    @ATMT.action(wait_for_nothing)
-    def on_nothing(self):
-        pass
     @ATMT.state(final=1)
     def END(self):
         pass
@@ -385,7 +458,7 @@ if LINUX:
     import os
     IPTABLE_RULE = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
     # Drop packets from SECDEV_IP4
-    assert(os.system(IPTABLE_RULE % ('A', SECDEV_IP4)) == 0)
+    assert os.system(IPTABLE_RULE % ('A', SECDEV_IP4)) == 0
 
 load_layer("http")
 
@@ -424,5 +497,5 @@ if LINUX:
     finally:
         if LINUX:
             # Remove the iptables rule
-            assert(os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0)
+            assert os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0
 

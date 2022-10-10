@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Logging subsystem and basic exception class.
@@ -135,7 +135,7 @@ if six.PY2:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            from cryptography import CryptographyDeprecationWarning
+            from cryptography.utils import CryptographyDeprecationWarning
         warnings.filterwarnings("ignore",
                                 category=CryptographyDeprecationWarning)
     except ImportError:

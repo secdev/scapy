@@ -1,18 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
-# Scapy is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 2 of the License, or
-# any later version.
-#
-# Scapy is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Scapy. If not, see <http://www.gnu.org/licenses/>.
-
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 
 """
@@ -184,6 +172,9 @@ _rt_channelflags2 = ['res1', 'res2', 'res3', 'res4', 'Turbo', 'CCK',
                      '20MHz', '40MHz_ext_channel_above',
                      '40MHz_ext_channel_below',
                      'res5', 'res6', 'res7', 'res8', 'res9']
+
+_rt_tsflags = ['32-bit_counter', 'Accuracy', 'res1', 'res2', 'res3',
+               'res4', 'res5', 'res6']
 
 _rt_knownmcs = ['MCS_bandwidth', 'MCS_index', 'guard_interval', 'HT_format',
                 'FEC_type', 'STBC_streams', 'Ness', 'Ness_MSB']
@@ -465,32 +456,38 @@ class RadioTap(Packet):
             LEShortField("ts_accuracy", 0),
             lambda pkt: pkt.present and pkt.present.timestamp),
         ConditionalField(
-            ByteField("ts_position", 0),
+            BitEnumField("ts_unit", 0, 4, {
+                0: 'milliseconds',
+                1: 'microseconds',
+                2: 'nanoseconds'}),
             lambda pkt: pkt.present and pkt.present.timestamp),
         ConditionalField(
-            ByteField("ts_flags", 0),
+            BitField("ts_position", 0, 4),
+            lambda pkt: pkt.present and pkt.present.timestamp),
+        ConditionalField(
+            FlagsField("ts_flags", None, 8, _rt_tsflags),
             lambda pkt: pkt.present and pkt.present.timestamp),
         # HE - XXX not complete
         ConditionalField(
             ReversePadField(
-                ShortField("he_data1", 0),
+                LEShortField("he_data1", 0),
                 2
             ),
             lambda pkt: pkt.present and pkt.present.HE),
         ConditionalField(
-            ShortField("he_data2", 0),
+            LEShortField("he_data2", 0),
             lambda pkt: pkt.present and pkt.present.HE),
         ConditionalField(
-            ShortField("he_data3", 0),
+            LEShortField("he_data3", 0),
             lambda pkt: pkt.present and pkt.present.HE),
         ConditionalField(
-            ShortField("he_data4", 0),
+            LEShortField("he_data4", 0),
             lambda pkt: pkt.present and pkt.present.HE),
         ConditionalField(
-            ShortField("he_data5", 0),
+            LEShortField("he_data5", 0),
             lambda pkt: pkt.present and pkt.present.HE),
         ConditionalField(
-            ShortField("he_data6", 0),
+            LEShortField("he_data6", 0),
             lambda pkt: pkt.present and pkt.present.HE),
         # HE_MU
         ConditionalField(
@@ -503,12 +500,12 @@ class RadioTap(Packet):
             LEShortField("hemu_flags2", 0),
             lambda pkt: pkt.present and pkt.present.HE_MU),
         ConditionalField(
-            FieldListField("RU_channel1", [], ByteField,
-                           count_from=lambda x: 4),
+            FieldListField("RU_channel1", [], ByteField('', 0),
+                           length_from=lambda x: 4),
             lambda pkt: pkt.present and pkt.present.HE_MU),
         ConditionalField(
-            FieldListField("RU_channel2", [], ByteField,
-                           count_from=lambda x: 4),
+            FieldListField("RU_channel2", [], ByteField('', 0),
+                           length_from=lambda x: 4),
             lambda pkt: pkt.present and pkt.present.HE_MU),
         # HE_MU_other_user
         ConditionalField(
@@ -535,10 +532,10 @@ class RadioTap(Packet):
             ),
             lambda pkt: pkt.present and pkt.present.L_SIG),
         ConditionalField(
-            BitField("lsig_length", 0, 12),
+            BitField("lsig_length", 0, 12, tot_size=-2),
             lambda pkt: pkt.present and pkt.present.L_SIG),
         ConditionalField(
-            BitField("lsig_rate", 0, 4),
+            BitField("lsig_rate", 0, 4, end_tot_size=-2),
             lambda pkt: pkt.present and pkt.present.L_SIG),
         # TLV fields
         ConditionalField(
@@ -592,13 +589,15 @@ _dot11_subtypes = {
         9: "ATIM",
         10: "Disassociation",
         11: "Authentication",
-        12: "Deauthentification",
+        12: "Deauthentication",
         13: "Action",
         14: "Action No Ack",
     },
     1: {  # Control
+        2: "Trigger",
+        3: "TACK",
         4: "Beamforming Report Poll",
-        5: "VHT NDP Announcement",
+        5: "VHT/HE NDP Announcement",
         6: "Control Frame Extension",
         7: "Control Wrapper",
         8: "Block Ack Request",
@@ -628,7 +627,8 @@ _dot11_subtypes = {
         15: "QoS CF-Ack+CF-Poll (no data)"
     },
     3: {  # Extension
-        0: "DMG Beacon"
+        0: "DMG Beacon",
+        1: "S1G Beacon"
     }
 }
 
@@ -996,6 +996,8 @@ _dot11_id_enum = (
 )
 
 
+# 802.11-2020 9.4.2.1
+
 class Dot11Elt(Packet):
     """
     A Generic 802.11 Element
@@ -1059,6 +1061,8 @@ class Dot11Elt(Packet):
         return p + pay
 
 
+# 802.11-2020 9.4.2.4
+
 class Dot11EltDSSSet(Dot11Elt):
     name = "802.11 DSSS Parameter Set"
     match_subclass = True
@@ -1068,6 +1072,8 @@ class Dot11EltDSSSet(Dot11Elt):
         ByteField("channel", 0),
     ]
 
+
+# 802.11-2020 9.4.2.11
 
 class Dot11EltERP(Dot11Elt):
     name = "802.11 ERP"
@@ -1081,6 +1087,8 @@ class Dot11EltERP(Dot11Elt):
         BitField("res", 0, 5),
     ]
 
+
+# 802.11-2020 9.4.2.24.2
 
 class RSNCipherSuite(Packet):
     name = "Cipher suite"
@@ -1107,6 +1115,8 @@ class RSNCipherSuite(Packet):
     def extract_padding(self, s):
         return "", s
 
+
+# 802.11-2020 9.4.2.24.3
 
 class AKMSuite(Packet):
     name = "AKM suite"
@@ -1139,6 +1149,8 @@ class AKMSuite(Packet):
         return "", s
 
 
+# 802.11-2020 9.4.2.24.5
+
 class PMKIDListPacket(Packet):
     name = "PMKIDs"
     fields_desc = [
@@ -1154,6 +1166,8 @@ class PMKIDListPacket(Packet):
     def extract_padding(self, s):
         return "", s
 
+
+# 802.11-2020 9.4.2.24.1
 
 class Dot11EltRSN(Dot11Elt):
     name = "802.11 RSN information"
@@ -1185,13 +1199,22 @@ class Dot11EltRSN(Dot11Elt):
             AKMSuite,
             count_from=lambda p: p.nb_akm_suites
         ),
+        # RSN Capabilities
+        # 802.11-2020 9.4.2.24.4
         BitField("mfp_capable", 1, 1),
         BitField("mfp_required", 1, 1),
         BitField("gtksa_replay_counter", 0, 2),
         BitField("ptksa_replay_counter", 0, 2),
         BitField("no_pairwise", 0, 1),
         BitField("pre_auth", 0, 1),
-        BitField("reserved", 0, 8),
+        BitField("reserved", 0, 1),
+        BitField("ocvc", 0, 1),
+        BitField("extended_key_id", 0, 1),
+        BitField("pbac", 0, 1),
+        BitField("spp_a_msdu_required", 0, 1),
+        BitField("spp_a_msdu_capable", 0, 1),
+        BitField("peer_key_enabled", 0, 1),
+        BitField("joint_multiband_rsna", 0, 1),
         # Theoretically we could use mfp_capable/mfp_required to know if those
         # fields are present, but some implementations poorly implement it.
         # In practice, do as wireshark: guess using offset.
@@ -1215,8 +1238,9 @@ class Dot11EltRSN(Dot11Elt):
                     12 +
                     (pkt.nb_pairwise_cipher_suites or 0) * 4 +
                     (pkt.nb_akm_suites or 0) * 4 +
+                    (2 if pkt.pmkids else 0) +
                     (pkt.pmkids and pkt.pmkids.nb_pmkids or 0) * 16
-                ) >= 2
+                ) >= 4
             )
         )
     ]
@@ -1710,7 +1734,7 @@ iwconfig wlan0 mode managed
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
         pay = raw(tcp.payload)
-        del(p.payload.payload.payload)
+        del p.payload.payload.payload
         p.FCfield = "from-DS"
         p.addr1, p.addr2 = p.addr2, p.addr1
         p /= IP(src=ip.dst, dst=ip.src)

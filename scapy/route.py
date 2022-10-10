@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Routing and handling of network interfaces.
@@ -104,7 +104,7 @@ class Route:
         route = self.make_route(*args, **kargs)
         try:
             i = self.routes.index(route)
-            del(self.routes[i])
+            del self.routes[i]
         except ValueError:
             raise ValueError("No matching route found!")
 

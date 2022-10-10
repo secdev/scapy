@@ -8,11 +8,12 @@
 + Configuration of scapy
 = Load gmlan layer
 ~ conf
+
 load_contrib("automotive.ecu", globals_dict=globals())
 load_contrib("automotive.gm.gmlan", globals_dict=globals())
 
 from scapy.contrib.automotive.gm.gmlan_ecu_states import *
-
+from scapy.contrib.automotive.gm.gmlan_logging import *
 
 + Basic Packet Tests()
 = Set GMLAN ECU AddressingScheme
@@ -485,3 +486,130 @@ assert resp.CPIDNumber == 20
 assert resp.answers(req)
 assert resp.hashret() == req.hashret()
 
+= Logging tests
+
+
+def get_log(pkt):
+    for layer in pkt.layers():
+        if not hasattr(layer, "get_log"):
+            continue
+        try:
+            return layer.get_log(pkt)
+        except TypeError:
+            return layer.get_log.im_func(pkt)
+
+pkt = GMLAN()/GMLAN_RFRD(subfunction=1)
+log = get_log(pkt)
+assert len(log) == 2
+assert log[1] == "readFailureRecordIdentifiers"
+assert log[0] == "ReadFailureRecordData"
+
+pkt = GMLAN()/GMLAN_RFRDPR(subfunction=1)
+log = get_log(pkt)
+assert len(log) == 2
+assert log[1] == "readFailureRecordIdentifiers"
+assert log[0] == "ReadFailureRecordDataPositiveResponse"
+
+pkt = GMLAN()/GMLAN_RDBPI(identifiers=[5])
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1] == '[OBD_EngineCoolantTemperature]'
+assert log[0] == "ReadDataByParameterIdentifier"
+
+pkt = GMLAN()/GMLAN_RDBPIPR(parameterIdentifier=5)
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1] == 'OBD_EngineCoolantTemperature'
+assert log[0] == "ReadDataByParameterIdentifierPositiveResponse"
+
+
+pkt = GMLAN()/GMLAN_RDBPKTI(subfunction=0)
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1] == 'stopSending'
+assert log[0] == "ReadDataByPacketIdentifier"
+
+pkt = GMLAN()/GMLAN_RMBA(memoryAddress=0)
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1] == '0x0'
+assert log[0] == "ReadMemoryByAddress"
+
+pkt = GMLAN()/GMLAN_RMBAPR(memoryAddress=0, dataRecord=b"deadbeef")
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1][0] == '0x0'
+assert log[1][1] == b'deadbeef'
+assert log[0] == "ReadMemoryByAddressPositiveResponse"
+
+pkt = GMLAN()/GMLAN_DDM(DPIDIdentifier=0, PIDData=b"deadbeef")
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1][0] == '0x0'
+assert log[1][1] == b'deadbeef'
+assert log[0] == "DynamicallyDefineMessage"
+
+pkt = GMLAN()/GMLAN_DDMPR(DPIDIdentifier=0)
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1] == '0x0'
+assert log[0] == "DynamicallyDefineMessagePositiveResponse"
+
+pkt = GMLAN()/GMLAN_DPBA(parameterIdentifier=0, memoryAddress=1, memorySize=3)
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1][0] == 0
+assert log[1][1] == 1
+assert log[1][2] == 3
+assert log[0] == "DefinePIDByAddress"
+
+pkt = GMLAN()/GMLAN_DPBAPR(parameterIdentifier=0)
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1] == 0
+assert log[0] == "DefinePIDByAddressPositiveResponse"
+
+pkt = GMLAN()/GMLAN_WDBI(dataIdentifier=0, dataRecord=b"deadbeef")
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1][0] == "0x0"
+assert log[1][1] == b"deadbeef"
+assert log[0] == "WriteDataByIdentifier"
+
+pkt = GMLAN()/GMLAN_WDBIPR(dataIdentifier=0)
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1] == "0x0"
+assert log[0] == "WriteDataByIdentifierPositiveResponse"
+
+pkt = GMLAN()/GMLAN_RDI(subfunction=0x80)
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1] == "readStatusOfDTCByDTCNumber"
+assert log[0] == "ReadDiagnosticInformation"
+
+pkt = GMLAN()/GMLAN_DC(CPIDNumber=0x80)
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1] == "0x80"
+assert log[0] == "DeviceControl"
+
+pkt = GMLAN()/GMLAN_DCPR(CPIDNumber=0x80)
+log = get_log(pkt)
+print(log)
+assert len(log) == 2
+assert log[1] == "0x80"
+assert log[0] == "DeviceControlPositiveResponse"

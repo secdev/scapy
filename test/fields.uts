@@ -7,13 +7,13 @@
 #= Field class
 #~ core field
 #Field("foo", None, fmt="H").i2m(None,0xabcdef)
-#assert( _ == b"\xcd\xef" )
+#assert  _ == b"\xcd\xef" 
 #Field("foo", None, fmt="<I").i2m(None,0x12cdef)
-#assert( _ == b"\xef\xcd\x12\x00" )
+#assert  _ == b"\xef\xcd\x12\x00" 
 #Field("foo", None, fmt="B").addfield(None, "FOO", 0x12)
-#assert( _ == b"FOO\x12" )
+#assert  _ == b"FOO\x12" 
 #Field("foo", None, fmt="I").getfield(None, b"\x12\x34\x56\x78ABCD")
-#assert( _ == ("ABCD",0x12345678) )
+#assert  _ == ("ABCD",0x12345678) 
 
 
 = ConditionnalField class
@@ -93,7 +93,7 @@ r
 assert r == (b"ABCD","c0:01:be:ef:ba:be") 
 r = m.addfield(None, b"FOO", "c0:01:be:ef:ba:be")
 r
-assert(r == b"FOO\xc0\x01\xbe\xef\xba\xbe" )
+assert r == b"FOO\xc0\x01\xbe\xef\xba\xbe" 
 
 = SourceMACField
 conf.route.add(net="1.2.3.4/32", dev=conf.iface)
@@ -155,10 +155,10 @@ class TestThreeBytesField(Packet):
     ]
 
 p = TestThreeBytesField(test1=0x123456, test2=123456, test3=0xfedbca, test4=567890)
-assert(raw(p) == b'\x12\x34\x56\x01\xe2\x40\xca\xdb\xfe\x52\xaa\x08')
+assert raw(p) == b'\x12\x34\x56\x01\xe2\x40\xca\xdb\xfe\x52\xaa\x08'
 print(p.sprintf('%test1% %test2% %test3% %test4%'))
-assert(p.sprintf('%test1% %test2% %test3% %test4%') == '0x123456 123456 0xfedbca 567890')
-assert(repr(p.test1) == '1193046')
+assert p.sprintf('%test1% %test2% %test3% %test4%') == '0x123456 123456 0xfedbca 567890'
+assert repr(p.test1) == '1193046'
 
 
 = NBytesField
@@ -174,13 +174,13 @@ class TestNBytesField(Packet):
 
 p = TestNBytesField(test1=0x00112233445566, test2=824650445619, test3=0xffeeddccbbaa9988776655, test4=0xffeeddccbbaa9988776655)
 print(raw(p))
-assert(raw(p) == b'\x00\x11\x22\x33\x44\x55\x66\xc0\x00\xff\x33\x33\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x77\x66\x55\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x77\x66\x55')
+assert raw(p) == b'\x00\x11\x22\x33\x44\x55\x66\xc0\x00\xff\x33\x33\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x77\x66\x55\xff\xee\xdd\xcc\xbb\xaa\x99\x88\x77\x66\x55'
 print(p.sprintf('%test1% %test2% %test3% %test4%'))
-assert(p.sprintf('%test1% %test2% %test3% %test4%') == '18838586676582 0xc000ff3333 0xffeeddccbbaa9988776655 309404098707666285700277845')
-assert(p.test1 == 0x112233445566)
-assert(p.test2 == 0xc000ff3333)
-assert(p.test3 == 0xffeeddccbbaa9988776655)
-assert(p.test4 == 309404098707666285700277845)
+assert p.sprintf('%test1% %test2% %test3% %test4%') == '18838586676582 0xc000ff3333 0xffeeddccbbaa9988776655 309404098707666285700277845'
+assert p.test1 == 0x112233445566
+assert p.test2 == 0xc000ff3333
+assert p.test3 == 0xffeeddccbbaa9988776655
+assert p.test4 == 309404098707666285700277845
 
 
 = StrField
@@ -195,9 +195,9 @@ class TestStrField(Packet):
     ]
 
 p = TestStrField(s1="cafe", s2="deadbeef")
-assert(raw(p) == b'\x04\x00cafedeadbeef')
+assert raw(p) == b'\x04\x00cafedeadbeef'
 print(p.sprintf("%s1% %s2%"))
-assert(p.sprintf("%s1% %s2%") == "'cafe' 'deadbeef'")
+assert p.sprintf("%s1% %s2%") == "'cafe' 'deadbeef'"
 
 
 = StrFieldUtf16
@@ -211,8 +211,8 @@ class TestStrLenFieldUtf16(Packet):
     ]
 
 p = TestStrLenFieldUtf16(s1='cafe')
-assert(raw(p) == b'\x08\x00c\x00a\x00f\x00e\x00')
-assert(p.sprintf("%s1%") == 'cafe')
+assert raw(p) == b'\x08\x00c\x00a\x00f\x00e\x00'
+assert p.sprintf("%s1%") == 'cafe'
 
 = StrFieldUtf16
 ~ field strfieldutf16
@@ -224,8 +224,8 @@ class TestStrFieldUtf16(Packet):
     ]
 
 p = TestStrFieldUtf16(s1='cafe')
-assert(raw(p) == b'c\x00a\x00f\x00e\x00')
-assert(p.sprintf("%s1%") == 'cafe')
+assert raw(p) == b'c\x00a\x00f\x00e\x00'
+assert p.sprintf("%s1%") == 'cafe'
 
 ############
 ############
@@ -251,11 +251,11 @@ class TestAction(Packet):
 ~ field actionfield
 
 t = TestAction()
-assert(t._val == t._fld == t._priv1 == t._priv2 == None)
+assert t._val == t._fld == t._priv1 == t._priv2 == None
 t.tst=42
-assert(t._priv1 == 1)
-assert(t._priv2 == 2)
-assert(t._val == 42)
+assert t._priv1 == 1
+assert t._priv2 == 2
+assert t._val == 42
 
 
 ############
@@ -294,25 +294,25 @@ p.len == 4 and p.str == b"ABC" and Raw in p
 = BitFieldLenField test
 ~ field
 class TestBFLenF(Packet):
-    fields_desc = [ BitFieldLenField("len", None, 4, length_of="str" , adjust=lambda pkt,x:x+1),
-                    BitField("nothing",0xfff, 12),
+    fields_desc = [ BitFieldLenField("len", None, 4, length_of="str" , adjust=lambda pkt,x:x+1, tot_size=-2),
+                    BitField("nothing",0xfff, 12, end_tot_size=-2),
                     StrLenField("str", "default", length_from=lambda pkt:pkt.len-1, ) ]
 
 a=TestBFLenF()
 r = raw(a)
 r
-assert r == b"\x8f\xffdefault"
+assert r == b"\xff\x8fdefault"
 
 a.str=""
 r = raw(a)
 r
-assert r == b"\x1f\xff"
+assert r == b"\xff\x1f"
 
-p = TestBFLenF(b"\x1f\xff@@")
+p = TestBFLenF(b"\xff\x1f@@")
 p
 assert p.len == 1 and p.str == b"" and Raw in p and p[Raw].load == b"@@"
 
-p = TestBFLenF(b"\x6f\xffabcdeFGH")
+p = TestBFLenF(b"\xff\x6fabcdeFGH")
 p
 assert p.len == 6 and p.str == b"abcde" and Raw in p and p[Raw].load == b"FGH"
 
@@ -464,10 +464,31 @@ IP in p and TCP in p and UDP in p and p[TCP].seq == 1234567
 = Test parent reference
 ~ field lengthfield
 x=TestPLF(plist=[IP()/TCP(), IP()/UDP()])
+assert p.getlayer(IP, 1).parent == p and p.getlayer(IP, 2).parent == p
 p = TestPLF(raw(x))
-p
-p.show()
-p.getlayer(IP, 1).parent == p and p.getlayer(IP, 2).parent == p
+assert p.getlayer(IP, 1).parent == p and p.getlayer(IP, 2).parent == p
+
+= Test parent reference in guess_payload_class
+
+class TestGuessPLFInner(Packet):
+    name="test guess inner"
+    fields_desc=[ LenField("foo", None) ]
+    def guess_payload_class(self, payload):
+        self.parentflag = True
+        if self.parent is None:
+            # all exceptions are caught, so have to use flag
+            self.parentflag = False
+        return super(TestGuessPLFInner, self).guess_payload_class(payload)
+
+class TestGuessPLF(Packet):
+    name="test guess"
+    fields_desc=[PacketListField("plist", None, TestGuessPLFInner,
+                                 next_cls_cb=lambda p,l,c,r: TestGuessPLFInner if len(l) == 0 else None)]
+
+x=TestGuessPLF(plist=TestGuessPLFInner()/Raw(b'123'))
+p=TestGuessPLF(raw(x))
+assert p[TestGuessPLFInner].parentflag
+assert p[TestGuessPLFInner].parent == p
 
 = Nested PacketListField
 ~ field lengthfield
@@ -506,22 +527,22 @@ assert r == b'\x00\x04\x00\x00\x00\x03ABDdBD'
 a /= "123456"
 b = TestPLF2(raw(a))
 b.show()
-assert(b.len1 == 4 and b.len2 == 3)
-assert(b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244)
-assert(b[TestPkt:2].f1 == 100)
-assert(Raw in b and b[Raw].load == b"123456")
+assert b.len1 == 4 and b.len2 == 3
+assert b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244
+assert b[TestPkt:2].f1 == 100
+assert Raw in b and b[Raw].load == b"123456"
 
 a.plist.append(TestPkt(f1=200))
 b = TestPLF2(raw(a))
 b.show()
-assert(b.len1 == 5 and b.len2 == 5)
-assert(b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244)
-assert(b[TestPkt:2].f1 == 100)
-assert(b[TestPkt:3].f1 == 200)
-assert(b.getlayer(TestPkt,4) is None)
-assert(Raw in b and b[Raw].load == b"123456")
+assert b.len1 == 5 and b.len2 == 5
+assert b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244
+assert b[TestPkt:2].f1 == 100
+assert b[TestPkt:3].f1 == 200
+assert b.getlayer(TestPkt,4) is None
+assert Raw in b and b[Raw].load == b"123456"
 hexdiff(a,b)
-assert( raw(a) == raw(b) )
+assert  raw(a) == raw(b) 
 
 ############
 ############
@@ -603,22 +624,22 @@ assert r == b'\x00\x04\x00\x00\x00\x03ABDdBD'
 a /= "123456"
 b = TestPLF2(raw(a))
 b.show()
-assert(b.len1 == 4 and b.len2 == 3)
-assert(b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244)
-assert(b[TestPkt:2].f1 == 100)
-assert(Raw in b and b[Raw].load == b"123456")
+assert b.len1 == 4 and b.len2 == 3
+assert b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244
+assert b[TestPkt:2].f1 == 100
+assert Raw in b and b[Raw].load == b"123456"
 
 a.plist.append(TestPkt(f1=200))
 b = TestPLF2(raw(a))
 b.show()
-assert(b.len1 == 5 and b.len2 == 5)
-assert(b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244)
-assert(b[TestPkt:2].f1 == 100)
-assert(b[TestPkt:3].f1 == 200)
-assert(b.getlayer(TestPkt,4) is None)
-assert(Raw in b and b[Raw].load == b"123456")
+assert b.len1 == 5 and b.len2 == 5
+assert b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244
+assert b[TestPkt:2].f1 == 100
+assert b[TestPkt:3].f1 == 200
+assert b.getlayer(TestPkt,4) is None
+assert Raw in b and b[Raw].load == b"123456"
 hexdiff(a,b)
-assert( raw(a) == raw(b) )
+assert  raw(a) == raw(b) 
 
 = Create layers for heterogeneous PacketListField
 ~ field lengthfield
@@ -657,32 +678,32 @@ class TestPLFH3(Packet):
 ~ field lengthfield
 
 p = TestPLFH3(b'\x02\x01\x01\xc1\x02\x80\x04toto')
-assert(isinstance(p.data[0], TestPLFH1))
-assert(p.data[0].data == 0x2)
-assert(isinstance(p.data[1], TestPLFH2))
-assert(p.data[1].data == 0x101)
-assert(isinstance(p.data[2], TestPLFH1))
-assert(p.data[2].data == 0xc1)
-assert(isinstance(p.data[3], TestPLFH1))
-assert(p.data[3].data == 0x2)
-assert(isinstance(p.data[4], TestPLFH2))
-assert(p.data[4].data == 0x8004)
-assert(isinstance(p.payload, conf.raw_layer))
-assert(p.payload.load == b'toto')
+assert isinstance(p.data[0], TestPLFH1)
+assert p.data[0].data == 0x2
+assert isinstance(p.data[1], TestPLFH2)
+assert p.data[1].data == 0x101
+assert isinstance(p.data[2], TestPLFH1)
+assert p.data[2].data == 0xc1
+assert isinstance(p.data[3], TestPLFH1)
+assert p.data[3].data == 0x2
+assert isinstance(p.data[4], TestPLFH2)
+assert p.data[4].data == 0x8004
+assert isinstance(p.payload, conf.raw_layer)
+assert p.payload.load == b'toto'
 
 p = TestPLFH3(b'\x02\x01\x01\xc1\x02\x80\x02to')
-assert(isinstance(p.data[0], TestPLFH1))
-assert(p.data[0].data == 0x2)
-assert(isinstance(p.data[1], TestPLFH2))
-assert(p.data[1].data == 0x101)
-assert(isinstance(p.data[2], TestPLFH1))
-assert(p.data[2].data == 0xc1)
-assert(isinstance(p.data[3], TestPLFH1))
-assert(p.data[3].data == 0x2)
-assert(isinstance(p.data[4], TestPLFH2))
-assert(p.data[4].data == 0x8002)
-assert(isinstance(p.payload, conf.raw_layer))
-assert(p.payload.load == b'to')
+assert isinstance(p.data[0], TestPLFH1)
+assert p.data[0].data == 0x2
+assert isinstance(p.data[1], TestPLFH2)
+assert p.data[1].data == 0x101
+assert isinstance(p.data[2], TestPLFH1)
+assert p.data[2].data == 0xc1
+assert isinstance(p.data[3], TestPLFH1)
+assert p.data[3].data == 0x2
+assert isinstance(p.data[4], TestPLFH2)
+assert p.data[4].data == 0x8002
+assert isinstance(p.payload, conf.raw_layer)
+assert p.payload.load == b'to'
 
 = Create layers for heterogeneous PacketListField with memory
 ~ field lengthfield
@@ -719,16 +740,16 @@ class TestPLFH6(Packet):
 ~ field lengthfield
 
 p = TestPLFH6(b'\x01\x02\x03\xc1\x02toto')
-assert(isinstance(p.data[0], TestPLFH4))
-assert(p.data[0].data == 0x1)
-assert(isinstance(p.data[1], TestPLFH4))
-assert(p.data[1].data == 0x2)
-assert(isinstance(p.data[2], TestPLFH4))
-assert(p.data[2].data == 0x3)
-assert(isinstance(p.data[3], TestPLFH5))
-assert(p.data[3].data == 0xc102)
-assert(isinstance(p.payload, conf.raw_layer))
-assert(p.payload.load == b'toto')
+assert isinstance(p.data[0], TestPLFH4)
+assert p.data[0].data == 0x1
+assert isinstance(p.data[1], TestPLFH4)
+assert p.data[1].data == 0x2
+assert isinstance(p.data[2], TestPLFH4)
+assert p.data[2].data == 0x3
+assert isinstance(p.data[3], TestPLFH5)
+assert p.data[3].data == 0xc102
+assert isinstance(p.payload, conf.raw_layer)
+assert p.payload.load == b'toto'
 
 
 ############
@@ -756,54 +777,54 @@ f = MultiFlagsField('flags', set(), 3, {
 
 mp = MockPacket(0)
 x = f.any2i(mp, set())
-assert(isinstance(x, set))
-assert(len(x) == 0)
+assert isinstance(x, set)
+assert len(x) == 0
 x = f.any2i(mp, {'A'})
-assert(isinstance(x, set))
-assert(len(x) == 1)
-assert('A' in x)
-assert('B' not in x)
-assert('+' not in x)
+assert isinstance(x, set)
+assert len(x) == 1
+assert 'A' in x
+assert 'B' not in x
+assert '+' not in x
 x = f.any2i(mp, {'A', 'B'})
-assert(isinstance(x, set))
-assert(len(x) == 2)
-assert('A' in x)
-assert('B' in x)
-assert('+' not in x)
-assert('*' not in x)
+assert isinstance(x, set)
+assert len(x) == 2
+assert 'A' in x
+assert 'B' in x
+assert '+' not in x
+assert '*' not in x
 x = f.any2i(mp, 3)
-assert(isinstance(x, set))
-assert(len(x) == 2)
-assert('A' in x)
-assert('B' in x)
-assert('+' not in x)
-assert('*' not in x)
+assert isinstance(x, set)
+assert len(x) == 2
+assert 'A' in x
+assert 'B' in x
+assert '+' not in x
+assert '*' not in x
 x = f.any2i(mp, 7)
-assert(isinstance(x, set))
-assert(len(x) == 3)
-assert('A' in x)
-assert('B' in x)
-assert('bit 2' in x)
-assert('+' not in x)
-assert('*' not in x)
+assert isinstance(x, set)
+assert len(x) == 3
+assert 'A' in x
+assert 'B' in x
+assert 'bit 2' in x
+assert '+' not in x
+assert '*' not in x
 mp = MockPacket(1)
 x = f.any2i(mp, {'+', '*'})
-assert(isinstance(x, set))
-assert(len(x) == 2)
-assert('+' in x)
-assert('*' in x)
-assert('A' not in x)
-assert('B' not in x)
+assert isinstance(x, set)
+assert len(x) == 2
+assert '+' in x
+assert '*' in x
+assert 'A' not in x
+assert 'B' not in x
 try:
     x = f.any2i(mp, {'A'})
     ret = False
 except AssertionError:
     ret = True
 
-assert(ret)
+assert ret
 #Following test demonstrate a non-sensical yet acceptable usage :(
 x = f.any2i(None, {'Toto'})
-assert('Toto' in x)
+assert 'Toto' in x
 
 = Test calls on MultiFlagsField.i2m
 ~ multiflagsfield
@@ -826,24 +847,24 @@ f = MultiFlagsField('flags', set(), 3, {
 
 mp = MockPacket(0)
 x = f.i2m(mp, set())
-assert(isinstance(x, six.integer_types))
-assert(x == 0)
+assert isinstance(x, six.integer_types)
+assert x == 0
 x = f.i2m(mp, {'A'})
-assert(isinstance(x, six.integer_types))
-assert(x == 1)
+assert isinstance(x, six.integer_types)
+assert x == 1
 x = f.i2m(mp, {'A', 'B'})
-assert(isinstance(x, six.integer_types))
-assert(x == 3)
+assert isinstance(x, six.integer_types)
+assert x == 3
 x = f.i2m(mp, {'A', 'B', 'bit 2'})
-assert(isinstance(x, six.integer_types))
-assert(x == 7)
+assert isinstance(x, six.integer_types)
+assert x == 7
 try:
     x = f.i2m(mp, {'+'})
     ret = False
 except:
     ret = True
 
-assert(ret)
+assert ret
 
 = Test calls on MultiFlagsField.m2i
 ~ multiflagsfield
@@ -866,28 +887,28 @@ f = MultiFlagsField('flags', set(), 3, {
 
 mp = MockPacket(0)
 x = f.m2i(mp, 2)
-assert(isinstance(x, set))
-assert(len(x) == 1)
-assert('B' in x)
-assert('A' not in x)
-assert('*' not in x)
+assert isinstance(x, set)
+assert len(x) == 1
+assert 'B' in x
+assert 'A' not in x
+assert '*' not in x
 
 x = f.m2i(mp, 7)
-assert(isinstance(x, set))
-assert('B' in x)
-assert('A' in x)
-assert('bit 2' in x)
-assert('*' not in x)
-assert('+' not in x)
+assert isinstance(x, set)
+assert 'B' in x
+assert 'A' in x
+assert 'bit 2' in x
+assert '*' not in x
+assert '+' not in x
 x = f.m2i(mp, 0)
-assert(len(x) == 0)
+assert len(x) == 0
 mp = MockPacket(1)
 x = f.m2i(mp, 2)
-assert(isinstance(x, set))
-assert(len(x) == 1)
-assert('*' in x)
-assert('+' not in x)
-assert('B' not in x)
+assert isinstance(x, set)
+assert len(x) == 1
+assert '*' in x
+assert '+' not in x
+assert 'B' not in x
 
 = Test calls on MultiFlagsField.i2repr
 ~ multiflagsfield
@@ -910,13 +931,13 @@ f = MultiFlagsField('flags', set(), 3, {
 
 mp = MockPacket(0)
 x = f.i2repr(mp, {'A', 'B'})
-assert(re.match(r'^.*OptionA \(A\).*$', x) is not None)
-assert(re.match(r'^.*OptionB \(B\).*$', x) is not None)
+assert re.match(r'^.*OptionA \(A\).*$', x) is not None
+assert re.match(r'^.*OptionB \(B\).*$', x) is not None
 mp = MockPacket(1)
 x = f.i2repr(mp, {'*', '+', 'bit 2'})
-assert(re.match(r'^.*Star \(\*\).*$', x) is not None)
-assert(re.match(r'^.*Plus \(\+\).*$', x) is not None)
-assert(re.match(r'^.*bit 2.*$', x) is not None)
+assert re.match(r'^.*Star \(\*\).*$', x) is not None
+assert re.match(r'^.*Plus \(\+\).*$', x) is not None
+assert re.match(r'^.*bit 2.*$', x) is not None
 
 ############
 ############
@@ -948,158 +969,178 @@ def expect_exception(e, c):
 = EnumField.any2i_one
 ~ field enumfield
 
-assert(f.any2i_one(None, 'Foo') == 0)
-assert(f.any2i_one(None, 'Bar') == 1)
-assert(f.any2i_one(None, 2) == 2)
+assert f.any2i_one(None, 'Foo') == 0
+assert f.any2i_one(None, 'Bar') == 1
+assert f.any2i_one(None, 2) == 2
 expect_exception(KeyError, 'f.any2i_one(None, "Baz")')
 
-assert(rf.any2i_one(None, 'Foo') == 0)
-assert(rf.any2i_one(None, 'Bar') == 1)
-assert(rf.any2i_one(None, 2) == 2)
+assert rf.any2i_one(None, 'Foo') == 0
+assert rf.any2i_one(None, 'Bar') == 1
+assert rf.any2i_one(None, 2) == 2
 expect_exception(KeyError, 'rf.any2i_one(None, "Baz")')
 
-assert(lf.any2i_one(None, 'Foo') == 0)
-assert(lf.any2i_one(None, 'Bar') == 1)
-assert(lf.any2i_one(None, 2) == 2)
+assert lf.any2i_one(None, 'Foo') == 0
+assert lf.any2i_one(None, 'Bar') == 1
+assert lf.any2i_one(None, 2) == 2
 expect_exception(KeyError, 'lf.any2i_one(None, "Baz")')
 
-assert(fcb.any2i_one(None, 'Foo') == 0)
-assert(fcb.any2i_one(None, 'Bar') == 1)
-assert(fcb.any2i_one(None, 5) == 5)
+assert fcb.any2i_one(None, 'Foo') == 0
+assert fcb.any2i_one(None, 'Bar') == 1
+assert fcb.any2i_one(None, 5) == 5
 expect_exception(ValueError, 'fcb.any2i_one(None, "Baz")')
 
 = EnumField.any2i
 ~ field enumfield
 
-assert(f.any2i(None, 'Foo') == 0)
-assert(f.any2i(None, 'Bar') == 1)
-assert(f.any2i(None, 2) == 2)
+assert f.any2i(None, 'Foo') == 0
+assert f.any2i(None, 'Bar') == 1
+assert f.any2i(None, 2) == 2
 expect_exception(KeyError, 'f.any2i(None, "Baz")')
-assert(f.any2i(None, ['Foo', 'Bar', 2]) == [0, 1, 2])
+assert f.any2i(None, ['Foo', 'Bar', 2]) == [0, 1, 2]
 
-assert(rf.any2i(None, 'Foo') == 0)
-assert(rf.any2i(None, 'Bar') == 1)
-assert(rf.any2i(None, 2) == 2)
+assert rf.any2i(None, 'Foo') == 0
+assert rf.any2i(None, 'Bar') == 1
+assert rf.any2i(None, 2) == 2
 expect_exception(KeyError, 'rf.any2i(None, "Baz")')
-assert(rf.any2i(None, ['Foo', 'Bar', 2]) == [0, 1, 2])
+assert rf.any2i(None, ['Foo', 'Bar', 2]) == [0, 1, 2]
 
-assert(lf.any2i(None, 'Foo') == 0)
-assert(lf.any2i(None, 'Bar') == 1)
-assert(lf.any2i(None, 2) == 2)
+assert lf.any2i(None, 'Foo') == 0
+assert lf.any2i(None, 'Bar') == 1
+assert lf.any2i(None, 2) == 2
 expect_exception(KeyError, 'lf.any2i(None, "Baz")')
-assert(lf.any2i(None, ['Foo', 'Bar', 2]) == [0, 1, 2])
+assert lf.any2i(None, ['Foo', 'Bar', 2]) == [0, 1, 2]
 
-assert(fcb.any2i(None, 'Foo') == 0)
-assert(fcb.any2i(None, 'Bar') == 1)
-assert(fcb.any2i(None, 5) == 5)
+assert fcb.any2i(None, 'Foo') == 0
+assert fcb.any2i(None, 'Bar') == 1
+assert fcb.any2i(None, 5) == 5
 expect_exception(ValueError, 'fcb.any2i(None, "Baz")')
-assert(f.any2i(None, ['Foo', 'Bar', 5]) == [0, 1, 5])
+assert f.any2i(None, ['Foo', 'Bar', 5]) == [0, 1, 5]
 
 True
 
 = EnumField.i2repr_one
 ~ field enumfield
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == 'Bar')
-assert(f.i2repr_one(None, 2) == '2')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == 'Bar'
+assert f.i2repr_one(None, 2) == '2'
 
-assert(rf.i2repr_one(None, 0) == 'Foo')
-assert(rf.i2repr_one(None, 1) == 'Bar')
-assert(rf.i2repr_one(None, 2) == '2')
+assert rf.i2repr_one(None, 0) == 'Foo'
+assert rf.i2repr_one(None, 1) == 'Bar'
+assert rf.i2repr_one(None, 2) == '2'
 
-assert(lf.i2repr_one(None, 0) == 'Foo')
-assert(lf.i2repr_one(None, 1) == 'Bar')
-assert(lf.i2repr_one(None, 2) == '2')
+assert lf.i2repr_one(None, 0) == 'Foo'
+assert lf.i2repr_one(None, 1) == 'Bar'
+assert lf.i2repr_one(None, 2) == '2'
 
-assert(fcb.i2repr_one(None, 0) == 'Foo')
-assert(fcb.i2repr_one(None, 1) == 'Bar')
-assert(fcb.i2repr_one(None, 5) == 'Bar')
-assert(fcb.i2repr_one(None, 11) == repr(11))
+assert fcb.i2repr_one(None, 0) == 'Foo'
+assert fcb.i2repr_one(None, 1) == 'Bar'
+assert fcb.i2repr_one(None, 5) == 'Bar'
+assert fcb.i2repr_one(None, 11) == repr(11)
 
 conf.noenum.add(f, rf, lf, fcb)
 
-assert(f.i2repr_one(None, 0) == repr(0))
-assert(f.i2repr_one(None, 1) == repr(1))
-assert(f.i2repr_one(None, 2) == repr(2))
+assert f.i2repr_one(None, 0) == repr(0)
+assert f.i2repr_one(None, 1) == repr(1)
+assert f.i2repr_one(None, 2) == repr(2)
 
-assert(rf.i2repr_one(None, 0) == repr(0))
-assert(rf.i2repr_one(None, 1) == repr(1))
-assert(rf.i2repr_one(None, 2) == repr(2))
+assert rf.i2repr_one(None, 0) == repr(0)
+assert rf.i2repr_one(None, 1) == repr(1)
+assert rf.i2repr_one(None, 2) == repr(2)
 
-assert(lf.i2repr_one(None, 0) == repr(0))
-assert(lf.i2repr_one(None, 1) == repr(1))
-assert(lf.i2repr_one(None, 2) == repr(2))
+assert lf.i2repr_one(None, 0) == repr(0)
+assert lf.i2repr_one(None, 1) == repr(1)
+assert lf.i2repr_one(None, 2) == repr(2)
 
-assert(fcb.i2repr_one(None, 0) == repr(0))
-assert(fcb.i2repr_one(None, 1) == repr(1))
-assert(fcb.i2repr_one(None, 5) == repr(5))
-assert(fcb.i2repr_one(None, 11) == repr(11))
+assert fcb.i2repr_one(None, 0) == repr(0)
+assert fcb.i2repr_one(None, 1) == repr(1)
+assert fcb.i2repr_one(None, 5) == repr(5)
+assert fcb.i2repr_one(None, 11) == repr(11)
 
 conf.noenum.remove(f, rf, lf, fcb)
 
-assert(f.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
-assert(rf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
-assert(lf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
-assert(fcb.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
+assert f.i2repr_one(None, RandNum(0, 10)) == '<RandNum>'
+assert rf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>'
+assert lf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>'
+assert fcb.i2repr_one(None, RandNum(0, 10)) == '<RandNum>'
 
 True
 
 = EnumField.i2repr
 ~ field enumfield
 
-assert(f.i2repr(None, 0) == 'Foo')
-assert(f.i2repr(None, 1) == 'Bar')
-assert(f.i2repr(None, 2) == '2')
-assert(f.i2repr(None, [0, 1]) == ['Foo', 'Bar'])
+assert f.i2repr(None, 0) == 'Foo'
+assert f.i2repr(None, 1) == 'Bar'
+assert f.i2repr(None, 2) == '2'
+assert f.i2repr(None, [0, 1]) == ['Foo', 'Bar']
 
-assert(rf.i2repr(None, 0) == 'Foo')
-assert(rf.i2repr(None, 1) == 'Bar')
-assert(rf.i2repr(None, 2) == '2')
-assert(rf.i2repr(None, [0, 1]) == ['Foo', 'Bar'])
+assert rf.i2repr(None, 0) == 'Foo'
+assert rf.i2repr(None, 1) == 'Bar'
+assert rf.i2repr(None, 2) == '2'
+assert rf.i2repr(None, [0, 1]) == ['Foo', 'Bar']
 
-assert(lf.i2repr(None, 0) == 'Foo')
-assert(lf.i2repr(None, 1) == 'Bar')
-assert(lf.i2repr(None, 2) == '2')
-assert(lf.i2repr(None, [0, 1]) == ['Foo', 'Bar'])
+assert lf.i2repr(None, 0) == 'Foo'
+assert lf.i2repr(None, 1) == 'Bar'
+assert lf.i2repr(None, 2) == '2'
+assert lf.i2repr(None, [0, 1]) == ['Foo', 'Bar']
 
-assert(fcb.i2repr(None, 0) == 'Foo')
-assert(fcb.i2repr(None, 1) == 'Bar')
-assert(fcb.i2repr(None, 5) == 'Bar')
-assert(fcb.i2repr(None, 11) == repr(11))
-assert(fcb.i2repr(None, [0, 1, 5, 11]) == ['Foo', 'Bar', 'Bar', repr(11)])
+assert fcb.i2repr(None, 0) == 'Foo'
+assert fcb.i2repr(None, 1) == 'Bar'
+assert fcb.i2repr(None, 5) == 'Bar'
+assert fcb.i2repr(None, 11) == repr(11)
+assert fcb.i2repr(None, [0, 1, 5, 11]) == ['Foo', 'Bar', 'Bar', repr(11)]
 
 conf.noenum.add(f, rf, lf, fcb)
 
-assert(f.i2repr(None, 0) == repr(0))
-assert(f.i2repr(None, 1) == repr(1))
-assert(f.i2repr(None, 2) == repr(2))
-assert(f.i2repr(None, [0, 1, 2]) == [repr(0), repr(1), repr(2)])
+assert f.i2repr(None, 0) == repr(0)
+assert f.i2repr(None, 1) == repr(1)
+assert f.i2repr(None, 2) == repr(2)
+assert f.i2repr(None, [0, 1, 2]) == [repr(0), repr(1), repr(2)]
 
-assert(rf.i2repr(None, 0) == repr(0))
-assert(rf.i2repr(None, 1) == repr(1))
-assert(rf.i2repr(None, 2) == repr(2))
-assert(rf.i2repr(None, [0, 1, 2]) == [repr(0), repr(1), repr(2)])
+assert rf.i2repr(None, 0) == repr(0)
+assert rf.i2repr(None, 1) == repr(1)
+assert rf.i2repr(None, 2) == repr(2)
+assert rf.i2repr(None, [0, 1, 2]) == [repr(0), repr(1), repr(2)]
 
-assert(lf.i2repr(None, 0) == repr(0))
-assert(lf.i2repr(None, 1) == repr(1))
-assert(lf.i2repr(None, 2) == repr(2))
-assert(lf.i2repr(None, [0, 1, 2]) == [repr(0), repr(1), repr(2)])
+assert lf.i2repr(None, 0) == repr(0)
+assert lf.i2repr(None, 1) == repr(1)
+assert lf.i2repr(None, 2) == repr(2)
+assert lf.i2repr(None, [0, 1, 2]) == [repr(0), repr(1), repr(2)]
 
-assert(fcb.i2repr(None, 0) == repr(0))
-assert(fcb.i2repr(None, 1) == repr(1))
-assert(fcb.i2repr(None, 5) == repr(5))
-assert(fcb.i2repr(None, 11) == repr(11))
-assert(fcb.i2repr(None, [0, 1, 5, 11]) == [repr(0), repr(1), repr(5), repr(11)])
+assert fcb.i2repr(None, 0) == repr(0)
+assert fcb.i2repr(None, 1) == repr(1)
+assert fcb.i2repr(None, 5) == repr(5)
+assert fcb.i2repr(None, 11) == repr(11)
+assert fcb.i2repr(None, [0, 1, 5, 11]) == [repr(0), repr(1), repr(5), repr(11)]
 
 conf.noenum.remove(f, rf, lf, fcb)
 
-assert(f.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
-assert(rf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
-assert(lf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
-assert(fcb.i2repr_one(None, RandNum(0, 10)) == '<RandNum>')
+assert f.i2repr_one(None, RandNum(0, 10)) == '<RandNum>'
+assert rf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>'
+assert lf.i2repr_one(None, RandNum(0, 10)) == '<RandNum>'
+assert fcb.i2repr_one(None, RandNum(0, 10)) == '<RandNum>'
 
 True
+
+= EnumField with Enum
+~ python3_only
+
+# not available on Python 2...
+
+from enum import Enum
+
+class JUICE(Enum):
+    APPLE = 0
+    ORANGE = 1
+    PINEAPPLE = 2
+
+
+class Breakfast(Packet):
+    fields_desc = [EnumField("juice", 1, JUICE, fmt="H")]
+
+
+assert raw(Breakfast(juice="ORANGE")) == b"\x00\x01"
+
 
 ############
 ############
@@ -1130,13 +1171,13 @@ True
 = CharEnumField.any2i_one
 ~ field charenumfield
 
-assert(fc.any2i_one(None, 'Foo') == 'f')
-assert(fc.any2i_one(None, 'Bar') == 'b')
+assert fc.any2i_one(None, 'Foo') == 'f'
+assert fc.any2i_one(None, 'Bar') == 'b'
 expect_exception(KeyError, 'fc.any2i_one(None, "Baz")')
 
-assert(fcb.any2i_one(None, 'Foo') == 'a')
-assert(fcb.any2i_one(None, 'Bar') == 'b')
-assert(fcb.any2i_one(None, 'Baz') == '')
+assert fcb.any2i_one(None, 'Foo') == 'a'
+assert fcb.any2i_one(None, 'Bar') == 'b'
+assert fcb.any2i_one(None, 'Baz') == ''
 
 True
 
@@ -1169,13 +1210,13 @@ True
 = XByteEnumField.i2repr_one
 ~ field xbyteenumfield
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == 'Bar')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == 'Bar'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == 'Bar')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == 'Bar'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
 True
 
@@ -1193,28 +1234,28 @@ True
 = XByteEnumField.i2repr_one with update
 ~ field xbyteenumfield
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == 'Bar')
-assert(f.i2repr_one(None, 2) == '0x2')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == 'Bar'
+assert f.i2repr_one(None, 2) == '0x2'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == 'Bar')
-assert(f.i2repr_one(None, 2) == '0x2')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == 'Bar'
+assert f.i2repr_one(None, 2) == '0x2'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
 del enum[1]
 enum[2] = 'Baz'
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == '0x1')
-assert(f.i2repr_one(None, 2) == 'Baz')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == '0x1'
+assert f.i2repr_one(None, 2) == 'Baz'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == '0x1')
-assert(f.i2repr_one(None, 2) == 'Baz')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == '0x1'
+assert f.i2repr_one(None, 2) == 'Baz'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
 True
 
@@ -1247,13 +1288,13 @@ True
 = XShortEnumField.i2repr_one
 ~ field xshortenumfield
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == 'Bar')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == 'Bar'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == 'Bar')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == 'Bar'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
 True
 
@@ -1271,28 +1312,28 @@ True
 = XShortEnumField.i2repr_one with update
 ~ field xshortenumfield
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == 'Bar')
-assert(f.i2repr_one(None, 2) == '0x2')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == 'Bar'
+assert f.i2repr_one(None, 2) == '0x2'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == 'Bar')
-assert(f.i2repr_one(None, 2) == '0x2')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == 'Bar'
+assert f.i2repr_one(None, 2) == '0x2'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
 del enum[1]
 enum[2] = 'Baz'
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == '0x1')
-assert(f.i2repr_one(None, 2) == 'Baz')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == '0x1'
+assert f.i2repr_one(None, 2) == 'Baz'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
-assert(f.i2repr_one(None, 0) == 'Foo')
-assert(f.i2repr_one(None, 1) == '0x1')
-assert(f.i2repr_one(None, 2) == 'Baz')
-assert(f.i2repr_one(None, 0xff) == '0xff')
+assert f.i2repr_one(None, 0) == 'Foo'
+assert f.i2repr_one(None, 1) == '0x1'
+assert f.i2repr_one(None, 2) == 'Baz'
+assert f.i2repr_one(None, 0xff) == '0xff'
 
 True
 
@@ -1303,11 +1344,11 @@ True
 = Raise exception - test data
 
 dnsf = DNSStrField("test", "")
-assert(dnsf.getfield(None, b"\x01x\x00") == (b"", b"x."))
+assert dnsf.getfield(None, b"\x01x\x00") == (b"", b"x.")
 
 try:
     dnsf.getfield(None, b"\xc0\xff")
-    assert(False)
+    assert False
 except (Scapy_Exception, IndexError):
     pass
 
@@ -1316,47 +1357,47 @@ except (Scapy_Exception, IndexError):
 = default usage
 
 yn_bf = YesNoByteField('test', 0x00)
-assert(yn_bf.i2repr(None, 0x00) == 'no')
-assert(yn_bf.i2repr(None, 0x01) == 'yes')
-assert(yn_bf.i2repr(None, 0x02) == 'yes')
-assert(yn_bf.i2repr(None, 0xff) == 'yes')
+assert yn_bf.i2repr(None, 0x00) == 'no'
+assert yn_bf.i2repr(None, 0x01) == 'yes'
+assert yn_bf.i2repr(None, 0x02) == 'yes'
+assert yn_bf.i2repr(None, 0xff) == 'yes'
 
 = inverted yes - no (scalar config)
 yn_bf = YesNoByteField('test', 0x00, config={'yes': 0x00, 'no': 0x01})
-assert(yn_bf.i2repr(None, 0x00) == 'yes')
-assert(yn_bf.i2repr(None, 0x01) == 'no')
-assert(yn_bf.i2repr(None, 0x02) == 2)
-assert(yn_bf.i2repr(None, 0xff) == 255)
+assert yn_bf.i2repr(None, 0x00) == 'yes'
+assert yn_bf.i2repr(None, 0x01) == 'no'
+assert yn_bf.i2repr(None, 0x02) == 2
+assert yn_bf.i2repr(None, 0xff) == 255
 
 = inverted yes - no (range config)
 yn_bf = YesNoByteField('test', 0x00, config={'yes': 0x00, 'no': (0x01, 0xff)})
-assert(yn_bf.i2repr(None, 0x00) == 'yes')
-assert(yn_bf.i2repr(None, 0x01) == 'no')
-assert(yn_bf.i2repr(None, 0x02) == 'no')
-assert(yn_bf.i2repr(None, 0xff) == 'no')
+assert yn_bf.i2repr(None, 0x00) == 'yes'
+assert yn_bf.i2repr(None, 0x01) == 'no'
+assert yn_bf.i2repr(None, 0x02) == 'no'
+assert yn_bf.i2repr(None, 0xff) == 'no'
 
 = yes - no (using sets)
 yn_bf = YesNoByteField('test', 0x00, config={'yes': [0x00, 0x02], 'no': [0x01, 0x04, 0xff]})
-assert(yn_bf.i2repr(None, 0x00) == 'yes')
-assert(yn_bf.i2repr(None, 0x01) == 'no')
-assert(yn_bf.i2repr(None, 0x02) == 'yes')
-assert(yn_bf.i2repr(None, 0x03) == 3)
-assert(yn_bf.i2repr(None, 0x04) == 'no')
-assert(yn_bf.i2repr(None, 0x05) == 5)
-assert(yn_bf.i2repr(None, 0xff) == 'no')
+assert yn_bf.i2repr(None, 0x00) == 'yes'
+assert yn_bf.i2repr(None, 0x01) == 'no'
+assert yn_bf.i2repr(None, 0x02) == 'yes'
+assert yn_bf.i2repr(None, 0x03) == 3
+assert yn_bf.i2repr(None, 0x04) == 'no'
+assert yn_bf.i2repr(None, 0x05) == 5
+assert yn_bf.i2repr(None, 0xff) == 'no'
 
 = yes, no and invalid
 yn_bf = YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': 0x01, 'invalid': (0x02, 0xff)})
-assert(yn_bf.i2repr(None, 0x00) == 'no')
-assert(yn_bf.i2repr(None, 0x01) == 'yes')
-assert(yn_bf.i2repr(None, 0x02) == 'invalid')
-assert(yn_bf.i2repr(None, 0xff) == 'invalid')
+assert yn_bf.i2repr(None, 0x00) == 'no'
+assert yn_bf.i2repr(None, 0x01) == 'yes'
+assert yn_bf.i2repr(None, 0x02) == 'invalid'
+assert yn_bf.i2repr(None, 0xff) == 'invalid'
 
 = invalid scalar spec
 
 try:
     YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': 256})
-    assert(False)
+    assert False
 except FieldValueRangeException:
     pass
 
@@ -1364,7 +1405,7 @@ except FieldValueRangeException:
 
 try:
     YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': (0x00, 0x02, 0x02)})
-    assert(False)
+    assert False
 except FieldAttributeException:
     pass
 
@@ -1372,13 +1413,13 @@ except FieldAttributeException:
 
 try:
     YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': (0x100, 0x01)})
-    assert(False)
+    assert False
 except FieldValueRangeException:
     pass
 
 try:
     YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': (0x00, 0x100)})
-    assert(False)
+    assert False
 except FieldValueRangeException:
     pass
 
@@ -1386,7 +1427,7 @@ except FieldValueRangeException:
 
 try:
     YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': [0x01, 0x101]})
-    assert(False)
+    assert False
 except FieldValueRangeException:
     pass
 
@@ -1900,7 +1941,7 @@ class DebugPacket(Packet):
     ]
 
 a = DebugPacket(val=1234)
-assert(a.val == 1234)
+assert a.val == 1234
 
 = BitExtendedField i2m: corner values
 * 7 bits of data = 0
@@ -1909,21 +1950,21 @@ for i in range(8):
     m = BitExtendedField("foo", None, extension_bit=i)
     r = m.i2m(None, 0)
     r = int(codecs.encode(r, 'hex'), 16)
-    assert(r == 0)
+    assert r == 0
 
 * 7 bits of data = 1
 for i in range(8):
     m = BitExtendedField("foo", None, extension_bit=i)
     r = m.i2m(None, 0b1111111)
     r = int(codecs.encode(r, 'hex'), 16)
-    assert(r == 0xff - 2**i)
+    assert r == 0xff - 2**i
 
 = BitExtendedField i2m: field expansion
 * If there is 8 bits of data, we need to add a byte
 m = BitExtendedField("foo", None, extension_bit=0)
 r = m.i2m(None, 0b10000000)
 r = int(codecs.encode(r, 'hex'), 16)
-assert(r == 0x0300)
+assert r == 0x0300
 
 = BitExtendedField i2m: test all FX bit positions
 * Data is 0b10000001 (129) and all str values are precomputed
@@ -1937,21 +1978,21 @@ for i in range(8):
     r = m.i2m(None, data_129["extended"])
     data_129["str_with_fx"].append(r)
     r = int(codecs.encode(r, 'hex'), 16)
-    assert(r == data_129["int_with_fx"][i])
+    assert r == data_129["int_with_fx"][i]
 
 = BitExtendedField m2i: test all FX bit positions
 * Data is 0b10000001 (129) and all str values are precomputed
 for i in range(8):
     m = BitExtendedField("foo", None, extension_bit=i)
     r = m.m2i(None, data_129["str_with_fx"][i])
-    assert(r == data_129["extended"])
+    assert r == data_129["extended"]
 
 = BitExtendedField m2i: stop at FX zero
 * 1 byte of zeroes (FX stop) then 1 byte of ones : ignore 2nd byte
 for i in range(8):
     m = BitExtendedField("foo", None, extension_bit=i)
     r = m.m2i(None, b'\x00\xff')
-    assert(r == 0)
+    assert r == 0
 
 = BitExtendedField m2i: multiple bytes
 * 0b00000011 0b11111110 --> 0xff
@@ -1962,14 +2003,14 @@ data_254 = {
 for i in range(len(data_254['str_with_fx'])):
     m = BitExtendedField("foo", None, extension_bit=i)
     r = m.m2i(None, data_254["str_with_fx"][i])
-    assert(r == data_254['extended'])
+    assert r == data_254['extended']
 
 = BitExtendedField m2i: invalid field with no stopping bit
 * 1 byte of one (no FX stop) shall return an error
 for i in range(8):
     m = BitExtendedField("foo", None, extension_bit=i)
     r = m.m2i(None, b'\xff')
-    assert(r == None)
+    assert r == None
 
 = LSBExtendedField
 * Test i2m and m2i
@@ -1982,11 +2023,11 @@ m = LSBExtendedField("foo", None)
 r = m.i2m(None, data_129["extended"])
 data_129["str_with_fx"] = r
 r = int(codecs.encode(r, 'hex'), 16)
-assert(r == data_129["int_with_fx"])
+assert r == data_129["int_with_fx"]
 
 m = LSBExtendedField("foo", None)
 r = m.m2i(None, data_129["str_with_fx"])
-assert(r == data_129["extended"])
+assert r == data_129["extended"]
 
 = MSBExtendedField
 * Test i2m and m2i
@@ -1999,11 +2040,11 @@ m = MSBExtendedField("foo", None)
 r = m.i2m(None, data_129["extended"])
 data_129["str_with_fx"] = r
 r = int(codecs.encode(r, 'hex'), 16)
-assert(r == data_129["int_with_fx"])
+assert r == data_129["int_with_fx"]
 
 m = MSBExtendedField("foo", None)
 r = m.m2i(None, data_129["str_with_fx"])
-assert(r == data_129["extended"])
+assert r == data_129["extended"]
 
 
 ############
@@ -2068,6 +2109,32 @@ pkt = TestPacket(raw(pkt))
 assert pkt.fcs == 0xbeef
 
 
+= FCSField: multiple
+
+class TestPacket2(Packet):
+    fields_desc = [
+        ByteField("a", 0),
+        LEShortField("b", 15),
+        FCSField("fcs1", None),
+        LEIntField("c", 7),
+        FCSField("fcs2", None),
+        IntField("bottom", 0),
+    ]
+
+bind_layers(TestPacket2, Ether)
+
+pkt = TestPacket2(a=12, fcs1=0xbeef, fcs2=0xfeed, bottom=123)/Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IP(src="127.0.0.1", dst="127.0.0.1")
+
+assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01\xfe\xed\xbe\xef'
+assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\x08\x00E\x00\x00\x14\x00\x01\x00\x00@\x00|\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01\xfe\xed\xbe\xef'
+
+pkt = TestPacket2(raw(pkt))
+assert pkt.fcs1 == 0xbeef
+assert pkt.fcs2 == 0xfeed
+assert pkt.bottom == 123
+assert pkt.a == 12
+
+
 ############
 ############
 + PacketField
@@ -2110,6 +2177,27 @@ assert isinstance(p.packet.short1, RandShort)
 assert isinstance(p.packet.byte, RandByte)
 assert isinstance(p.packet.long, RandLong)
 assert isinstance(p.short2, RandShort)
+
+= Test parent reference in guess_payload_class
+
+class TestGuessInner(Packet):
+    name="test guess inner"
+    fields_desc=[ ByteField("foo", 0) ]
+    def guess_payload_class(self, payload):
+        self.parentflag = True
+        if self.parent is None:
+            # all exceptions are caught, so have to use flag
+            self.parentflag = False
+        return super(TestGuessInner, self).guess_payload_class(payload)
+
+class TestGuess(Packet):
+    name="test guess"
+    fields_desc=[ PacketField("pf", None, TestGuessInner) ]
+
+x=TestGuess(pf=TestGuessInner()/Raw(b'123'))
+p=TestGuess(raw(x))
+assert p[TestGuessInner].parentflag
+assert p[TestGuessInner].parent == p
 
 ############
 ############

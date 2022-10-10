@@ -26,20 +26,20 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Transport - DES - NULL
@@ -57,22 +57,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an ESP layer
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 # Generated with Linux 4.4.0-62-generic #83-Ubuntu
 # ip xfrm state add src 10.125.0.2 dst 10.125.0.1 proto esp spi 546 reqid 1 \
@@ -91,7 +91,7 @@ d_ref = sa.decrypt(ref)
 d_ref
 
 * Check for ICMP layer in decrypted reference
-assert(d_ref.haslayer(ICMP))
+assert d_ref.haslayer(ICMP)
 
 #######################################
 = IPv4 / ESP - Transport - 3DES - NULL
@@ -109,22 +109,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an ESP layer
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 # Generated with Linux 4.4.0-62-generic #83-Ubuntu
 # ip xfrm state add src 10.125.0.2 dst 10.125.0.1 proto esp spi 546 reqid 1 \
@@ -143,7 +143,7 @@ d_ref = sa.decrypt(ref)
 d_ref
 
 * Check for ICMP layer in decrypted reference
-assert(d_ref.haslayer(ICMP))
+assert d_ref.haslayer(ICMP)
 
 #######################################
 = IPv4 / ESP - Transport - AES-CBC - NULL
@@ -161,21 +161,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 # Generated with Linux 4.4.0-62-generic #83-Ubuntu
 # ip xfrm state add src 10.125.0.2 dst 10.125.0.1 proto esp spi 546 reqid 1 \
@@ -195,7 +195,7 @@ d_ref = sa.decrypt(ref)
 d_ref
 
 * Check for ICMP layer in decrypted reference
-assert(d_ref.haslayer(ICMP))
+assert d_ref.haslayer(ICMP)
 
 #######################################
 = IPv4 / ESP - Transport - AES-CTR - NULL
@@ -213,21 +213,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 # Generated with Linux 4.4.0-62-generic #83-Ubuntu
 # ip xfrm state add src 10.125.0.2 dst 10.125.0.1 proto esp spi 546 reqid 1 \
@@ -246,7 +246,7 @@ d_ref = sa.decrypt(ref)
 d_ref
 
 * Check for ICMP layer in decrypted reference
-assert(d_ref.haslayer(ICMP))
+assert d_ref.haslayer(ICMP)
 
 #######################################
 = IPv4 / ESP - Transport - Blowfish - NULL
@@ -264,21 +264,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 # Generated with Linux 4.4.0-62-generic #83-Ubuntu
 # ip xfrm state add src 10.125.0.2 dst 10.125.0.1 proto esp spi 546 reqid 1 \
@@ -297,7 +297,7 @@ d_ref = sa.decrypt(ref)
 d_ref
 
 * Check for ICMP layer in decrypted reference
-assert(d_ref.haslayer(ICMP))
+assert d_ref.haslayer(ICMP)
 
 #######################################
 = IPv4 / ESP - Transport - CAST - NULL
@@ -315,21 +315,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 # Generated with Linux 4.4.0-62-generic #83-Ubuntu
 # ip xfrm state add src 10.125.0.2 dst 10.125.0.1 proto esp spi 546 reqid 1 \
@@ -348,7 +348,7 @@ d_ref = sa.decrypt(ref)
 d_ref
 
 * Check for ICMP layer in decrypted reference
-assert(d_ref.haslayer(ICMP))
+assert d_ref.haslayer(ICMP)
 
 ###############################################################################
 + IPv4 / ESP - Tunnel - Encryption Algorithms
@@ -371,21 +371,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Tunnel - DES - NULL
@@ -404,23 +404,23 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
 * the encrypted packet should have an ESP layer
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Tunnel - 3DES - NULL
@@ -439,23 +439,23 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
 * the encrypted packet should have an ESP layer
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-CBC - NULL
@@ -474,22 +474,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-CTR - NULL
@@ -508,22 +508,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Tunnel - Blowfish - NULL
@@ -542,22 +542,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Tunnel - CAST - NULL
@@ -576,22 +576,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 ###############################################################################
 + IPv4 / ESP - Transport - Authentication Algorithms
@@ -612,20 +612,20 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Transport - NULL - HMAC-SHA1-96 - altered packet
@@ -643,14 +643,14 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -658,7 +658,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -678,21 +678,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet should be preserved
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / ESP - Transport - NULL - SHA2-256-128 - altered packet
@@ -710,15 +710,15 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -726,7 +726,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -746,21 +746,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet should be preserved
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / ESP - Transport - NULL - SHA2-384-192 - altered packet
@@ -778,15 +778,15 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -794,7 +794,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -814,21 +814,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet should be preserved
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / ESP - Transport - NULL - SHA2-512-256 - altered packet
@@ -846,15 +846,15 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -862,7 +862,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -882,21 +882,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet should be preserved
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / ESP - Transport - NULL - HMAC-MD5-96 - altered packet
@@ -914,15 +914,15 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -930,7 +930,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -950,21 +950,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet should be preserved
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / ESP - Transport - NULL - AES-CMAC-96 - altered packet
@@ -982,15 +982,15 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -998,7 +998,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -1022,21 +1022,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Tunnel - NULL - HMAC-SHA1-96 - altered packet
@@ -1055,15 +1055,15 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1071,7 +1071,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -1092,22 +1092,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet should be preserved
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / ESP - Tunnel - NULL - SHA2-256-128 - altered packet
@@ -1126,16 +1126,16 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1143,7 +1143,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -1164,22 +1164,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet should be preserved
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / ESP - Tunnel - NULL - SHA2-384-192 - altered packet
@@ -1198,16 +1198,16 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1215,7 +1215,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -1236,22 +1236,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet should be preserved
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / ESP - Tunnel - NULL - SHA2-512-256 - altered packet
@@ -1270,16 +1270,16 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1287,7 +1287,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -1308,22 +1308,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet should be preserved
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / ESP - Tunnel - NULL - HMAC-MD5-96 - altered packet
@@ -1342,16 +1342,16 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1359,7 +1359,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -1380,22 +1380,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet should be preserved
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / ESP - Tunnel - NULL - AES-CMAC-96 - altered packet
@@ -1414,16 +1414,16 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should be readable
-assert(b'testdata' in e[ESP].data)
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -1431,7 +1431,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -1454,21 +1454,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Transport - AES-CBC - HMAC-SHA1-96 - altered packet
@@ -1486,15 +1486,15 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -1502,7 +1502,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -1522,21 +1522,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 # Generated with Linux 4.4.0-62-generic #83-Ubuntu
 # ip xfrm state add src 10.125.0.2 dst 10.125.0.1 proto esp spi 546 reqid 1 \
@@ -1556,7 +1556,7 @@ d_ref = sa.decrypt(ref)
 d_ref
 
 * Check for ICMP layer in decrypted reference
-assert(d_ref.haslayer(ICMP))
+assert d_ref.haslayer(ICMP)
 
 #######################################
 = IPv4 / ESP - Transport - AES-GCM - NULL -- ESN
@@ -1574,21 +1574,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 # Generated with Linux 4.4.0-62-generic #83-Ubuntu
 # ip xfrm state add src 10.125.0.2 dst 10.125.0.1 proto esp spi 546 reqid 1 \
@@ -1608,7 +1608,7 @@ d_ref = sa.decrypt(ref)
 d_ref
 
 * Check for ICMP layer in decrypted reference
-assert(d_ref.haslayer(ICMP))
+assert d_ref.haslayer(ICMP)
 
 
 #######################################
@@ -1628,15 +1628,15 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -1644,7 +1644,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
     
@@ -1665,21 +1665,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 * integrity verification should fail
 try:
     d = sa.decrypt(e, esn = 0x201)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
     
@@ -1695,27 +1695,28 @@ p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='AES-CCM', crypt_key=b'16bytekey3bytenonce',
+                         crypt_icv_size=8,
                          auth_algo='NULL', auth_key=None)
 
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d == p)
+assert d == p
 
 # Generated with Linux 4.4.0-62-generic #83-Ubuntu
 # ip xfrm state add src 10.125.0.2 dst 10.125.0.1 proto esp spi 546 reqid 1 \
@@ -1735,7 +1736,7 @@ d_ref = sa.decrypt(ref)
 d_ref
 
 * Check for ICMP layer in decrypted reference
-assert(d_ref.haslayer(ICMP))
+assert d_ref.haslayer(ICMP)
 
 #######################################
 = IPv4 / ESP - Transport - AES-CCM - NULL - altered packet
@@ -1749,21 +1750,22 @@ p
 
 sa = SecurityAssociation(ESP, spi=0x222,
                          crypt_algo='AES-CCM', crypt_key=b'16bytekey3bytenonce',
-                         auth_algo='NULL', auth_key=None)
+                         auth_algo='NULL', auth_key=None,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
 
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -1771,7 +1773,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -1792,22 +1794,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-CBC - HMAC-SHA1-96 - altered packet
@@ -1826,16 +1828,16 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -1843,7 +1845,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -1864,22 +1866,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-GCM - NULL -- ESN
@@ -1898,22 +1900,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 
@@ -1933,16 +1935,16 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -1950,7 +1952,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
     
@@ -1972,24 +1974,95 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 * integrity verification should fail
 try:
     d = sa.decrypt(e, esn = 0x3)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err    
+
+#######################################
+= IPv4 / ESP - Tunnel - AES-CTR - NULL - verify no cipher align padding
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= UDP(sport=1000, dport=1001)
+p /= Raw("\x00" * 3)
+p
+print("len p: {}".format(len(p)))
+
+# oiphdr esphdr iiphdr udphdr data esptail iv
+#   20  +  8   +  20  +  8   + 3   +  2   + 8 = 69
+# CipherInput: iiphdr udphdr data esptail
+#                20  +  8   + 3   +  2   = 33
+#   good: (33 % 4) == 1, pad == (4-1) == 3, len == 36+33+3 == 72
+#   bad: (33 % 16) == 1, pad == (16-1) == 15, len == 36+33+15 == 84
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-CTR', crypt_key=b'16bytekey+4bytenonce',
+                         auth_algo='NULL', auth_key=None,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+print("crypt_algo.icv_size {}".format(sa.crypt_algo.icv_size))
+print("auth_algo.icv_size {}".format(sa.auth_algo.icv_size))
+
+e = sa.encrypt(p)
+e
+print("len e: {}".format(len(e)))
+
+esp = sa.crypt_algo.decrypt(sa, e[ESP], sa.crypt_key,
+                            sa.crypt_algo.icv_size or
+                            sa.auth_algo.icv_size,
+                            esn_en=sa.esn_en,
+                            esn=sa.esn)
+esp
+print("len(esp.data): {}".format(len(esp.data)))
+
+* after encryption packet should be padded for 4 byte alignment
+assert len(e) == 72 and esp.padlen == 3, "bad length/padding {}/{}".format(len(e), esp.padlen)
+
+#######################################
+= IPv4 / ESP - Tunnel - AES-GCM - NULL - verify no cipher align padding
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= UDP(sport=1000, dport=1001)
+p /= Raw("\x00" * 1418)
+print("len p: {}".format(len(p)))
+
+# oiphdr esphdr iiphdr udphdr data esptail iv icv
+#   20  +  8   +  20  +  8   +1418 + 2    +8 +16 = 1500
+# CipherInput: iiphdr udphdr data esptail
+#                20  +  8   +1418 + 2 = 1448
+#   good: (1448 % 4) == 0, pad == 0, len == 52+1448+0 == 1500
+#   bad: (1448 % 16) == 8, pad == (16-8) == 8, len == 52+1448+8 == 1508
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-GCM', crypt_key=b'16bytekey+4bytenonce',
+                         auth_algo='NULL', auth_key=None,
+                         tunnel_header=IP(src='11.11.11.11', dst='22.22.22.22'))
+
+e = sa.encrypt(p)
+print("len e: {}".format(len(e)))
+
+esp = sa.crypt_algo.decrypt(sa, e[ESP], sa.crypt_key,
+                            sa.crypt_algo.icv_size or
+                            sa.auth_algo.icv_size,
+                            esn_en=sa.esn_en,
+                            esn=sa.esn)
+print("len(esp.data): {}".format(len(esp.data)))
+
+* after encryption packet should be padded for 4 byte alignment
+assert len(e) == 1500 and esp.padlen == 0, "bad length/padding {}/{}".format(len(e), esp.padlen)
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-CCM - NULL
@@ -2009,22 +2082,22 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / ESP - Tunnel - AES-CCM - NULL
@@ -2044,16 +2117,16 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
+assert isinstance(e, IP)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -2061,7 +2134,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2083,14 +2156,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2100,7 +2173,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / AH - Transport - HMAC-SHA1-96 - altered packet
@@ -2117,14 +2190,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before decryption
 e[TCP].sport = 5
@@ -2132,7 +2205,7 @@ e[TCP].sport = 5
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2151,14 +2224,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2168,7 +2241,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / AH - Transport - SHA2-256-128 - altered packet
@@ -2185,14 +2258,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e[TCP].dport = 46
@@ -2200,7 +2273,7 @@ e[TCP].dport = 46
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2219,14 +2292,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2236,7 +2309,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / AH - Transport - SHA2-384-192 - altered packet
@@ -2253,14 +2326,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e[TCP].dport = 46
@@ -2268,7 +2341,7 @@ e[TCP].dport = 46
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2287,14 +2360,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2304,7 +2377,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / AH - Transport - SHA2-512-256 - altered packet
@@ -2321,14 +2394,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e[TCP].dport = 46
@@ -2336,7 +2409,7 @@ e[TCP].dport = 46
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2355,14 +2428,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2372,7 +2445,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / AH - Transport - HMAC-MD5-96 - altered packet
@@ -2389,14 +2462,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e[TCP].dport = 46
@@ -2404,7 +2477,7 @@ e[TCP].dport = 46
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2423,14 +2496,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2440,7 +2513,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / AH - Transport - AES-CMAC-96 - altered packet
@@ -2457,14 +2530,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e[TCP].dport = 46
@@ -2472,7 +2545,7 @@ e[TCP].dport = 46
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2492,14 +2565,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2509,7 +2582,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / AH - Transport - AES-CMAC-96 - altered packet -- ESN
@@ -2527,14 +2600,14 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '1.1.1.1' and e.dst == '2.2.2.2')
-assert(e.chksum != p.chksum)
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
 * the encrypted packet should have an AH layer
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e[TCP].dport = 46
@@ -2542,7 +2615,7 @@ e[TCP].dport = 46
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2565,13 +2638,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2581,7 +2654,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv4 / AH - Tunnel - HMAC-SHA1-96 - altered packet
@@ -2599,13 +2672,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e.dst = '4.4.4.4'
@@ -2613,7 +2686,7 @@ e.dst = '4.4.4.4'
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2633,13 +2706,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2649,7 +2722,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / AH - Tunnel - SHA2-256-128 - altered packet
@@ -2667,13 +2740,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e.dst = '4.4.4.4'
@@ -2681,7 +2754,7 @@ e.dst = '4.4.4.4'
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2701,13 +2774,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2717,7 +2790,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / AH - Tunnel - SHA2-384-192 - altered packet
@@ -2735,13 +2808,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e.dst = '4.4.4.4'
@@ -2749,7 +2822,7 @@ e.dst = '4.4.4.4'
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2769,13 +2842,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2785,7 +2858,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / AH - Tunnel - SHA2-512-256 - altered packet
@@ -2803,13 +2876,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e.dst = '4.4.4.4'
@@ -2817,7 +2890,7 @@ e.dst = '4.4.4.4'
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2837,13 +2910,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2853,7 +2926,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / AH - Tunnel - HMAC-MD5-96 - altered packet
@@ -2871,13 +2944,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e.dst = '4.4.4.4'
@@ -2885,7 +2958,7 @@ e.dst = '4.4.4.4'
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2905,13 +2978,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2921,7 +2994,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / AH - Tunnel - AES-CMAC-96 - altered packet
@@ -2939,13 +3012,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e.dst = '4.4.4.4'
@@ -2953,7 +3026,7 @@ e.dst = '4.4.4.4'
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -2974,13 +3047,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.ttl = 2
@@ -2990,7 +3063,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet should be unaltered
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv4 / AH - Tunnel - AES-CMAC-96 - altered packet -- ESN
@@ -3009,13 +3082,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IP))
-assert(e.src == '11.11.11.11' and e.dst == '22.22.22.22')
-assert(e.chksum != p.chksum)
-assert(e.proto == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert isinstance(e, IP)
+assert e.src == '11.11.11.11' and e.dst == '22.22.22.22'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e.dst = '4.4.4.4'
@@ -3023,7 +3096,7 @@ e.dst = '4.4.4.4'
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3047,19 +3120,19 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Transport - AES-CBC - NULL
@@ -3077,20 +3150,20 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Transport - NULL - HMAC-SHA1-96
@@ -3108,19 +3181,19 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Transport - NULL - HMAC-SHA1-96 - altered packet
@@ -3138,13 +3211,13 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -3152,7 +3225,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3172,20 +3245,20 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Transport - AES-CBC - HMAC-SHA1-96 - altered packet
@@ -3203,14 +3276,14 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -3218,7 +3291,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3238,20 +3311,20 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Transport - AES-GCM - NULL - altered packet
@@ -3269,14 +3342,14 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -3284,7 +3357,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3305,20 +3378,20 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Transport - AES-CCM - NULL - altered packet
@@ -3337,14 +3410,14 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -3352,7 +3425,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3374,20 +3447,20 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Tunnel - AES-CBC - NULL
@@ -3406,21 +3479,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Tunnel - NULL - HMAC-SHA1-96
@@ -3439,20 +3512,20 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 * integrity verification should pass
 d = sa.decrypt(e)
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Tunnel - NULL - HMAC-SHA1-96 - altered packet
@@ -3471,14 +3544,14 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
-assert(b'testdata' in e[ESP].data)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+assert b'testdata' in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
@@ -3486,7 +3559,7 @@ e[ESP].data = e[ESP].data.replace(b'\x01', b'\x21')
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3507,21 +3580,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Tunnel - AES-CBC - HMAC-SHA1-96 - altered packet
@@ -3540,15 +3613,15 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -3556,7 +3629,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3577,21 +3650,21 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Tunnel - AES-GCM - NULL - altered packet
@@ -3610,15 +3683,15 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -3626,7 +3699,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3648,20 +3721,20 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IPv6)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 d = sa.decrypt(e)
 d
 
 * after decryption original packet should be preserved
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / ESP - Tunnel - AES-CCM - NULL - altered packet
@@ -3681,14 +3754,14 @@ sa = SecurityAssociation(ESP, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
-assert(e.nh == socket.IPPROTO_ESP)
-assert(e.haslayer(ESP))
-assert(not e.haslayer(TCP))
-assert(e[ESP].spi == sa.spi)
+assert isinstance(e, IPv6)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
 * after encryption the original packet payload should NOT be readable
-assert(b'testdata' not in e[ESP].data)
+assert b'testdata' not in e[ESP].data
 
 * simulate the alteration of the packet before decryption
 e[ESP].seq += 1
@@ -3696,7 +3769,7 @@ e[ESP].seq += 1
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3719,13 +3792,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
 * the encrypted packet should have an AH layer
-assert(e.nh == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.nh == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.hlim = 2
@@ -3735,7 +3808,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / AH - Transport - HMAC-SHA1-96 - altered packet
@@ -3752,13 +3825,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
 * the encrypted packet should have an AH layer
-assert(e.nh == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.nh == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e[TCP].dport = 46
@@ -3766,7 +3839,7 @@ e[TCP].dport = 46
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3785,13 +3858,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
 * the encrypted packet should have an AH layer
-assert(e.nh == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.nh == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.hlim = 2
@@ -3801,7 +3874,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d[TCP] == p[TCP])
+assert d[TCP] == p[TCP]
 
 #######################################
 = IPv6 / AH - Transport - SHA2-256-128 - altered packet
@@ -3818,13 +3891,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
-assert(e.src == '11::22' and e.dst == '22::11')
+assert isinstance(e, IPv6)
+assert e.src == '11::22' and e.dst == '22::11'
 * the encrypted packet should have an AH layer
-assert(e.nh == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.nh == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e[TCP].dport = 46
@@ -3832,7 +3905,7 @@ e[TCP].dport = 46
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3852,13 +3925,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.hlim = 2
@@ -3868,7 +3941,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv6 / AH - Tunnel - HMAC-SHA1-96 - altered packet
@@ -3886,13 +3959,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e.src = 'cc::ee'
@@ -3900,7 +3973,7 @@ e.src = 'cc::ee'
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3920,13 +3993,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * alter mutable fields in the packet
 e.hlim = 2
@@ -3936,7 +4009,7 @@ d = sa.decrypt(e)
 d
 
 * after decryption the original packet payload should be unaltered
-assert(d == p)
+assert d == p
 
 #######################################
 = IPv6 / AH - Tunnel - SHA2-256-128 - altered packet
@@ -3954,13 +4027,13 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(isinstance(e, IPv6))
+assert isinstance(e, IPv6)
 * after encryption packet should be encapsulated with the given ip tunnel header
-assert(e.src == 'aa::bb' and e.dst == 'bb::aa')
-assert(e.nh == socket.IPPROTO_AH)
-assert(e.haslayer(AH))
-assert(e.haslayer(TCP))
-assert(e[AH].spi == sa.spi)
+assert e.src == 'aa::bb' and e.dst == 'bb::aa'
+assert e.nh == socket.IPPROTO_AH
+assert e.haslayer(AH)
+assert e.haslayer(TCP)
+assert e[AH].spi == sa.spi
 
 * simulate the alteration of the packet before verification
 e.src = 'cc::ee'
@@ -3968,7 +4041,7 @@ e.src = 'cc::ee'
 * integrity verification should fail
 try:
     d = sa.decrypt(e)
-    assert(False)
+    assert False
 except IPSecIntegrityError as err:
     err
 
@@ -3995,10 +4068,10 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(e.src == '11::22' and e.dst == '22::11')
+assert e.src == '11::22' and e.dst == '22::11'
 * AH header should be inserted between the routing header and the dest options header
-assert(isinstance(e[AH].underlayer, IPv6ExtHdrRouting))
-assert(isinstance(e[AH].payload, IPv6ExtHdrDestOpt))
+assert isinstance(e[AH].underlayer, IPv6ExtHdrRouting)
+assert isinstance(e[AH].payload, IPv6ExtHdrDestOpt)
 
 #######################################
 = IPv6 + Routing Header / AH - Transport
@@ -4017,10 +4090,10 @@ sa = SecurityAssociation(AH, spi=0x222,
 e = sa.encrypt(p)
 e
 
-assert(e.src == '11::22' and e.dst == '22::11')
+assert e.src == '11::22' and e.dst == '22::11'
 * AH header should be inserted between the routing header and TCP
-assert(isinstance(e[AH].underlayer, IPv6ExtHdrRouting))
-assert(isinstance(e[AH].payload, TCP))
+assert isinstance(e[AH].underlayer, IPv6ExtHdrRouting)
+assert isinstance(e[AH].payload, TCP)
 
 * reorder the routing header as the receiver will get it
 final = e[IPv6ExtHdrRouting].addresses.pop()

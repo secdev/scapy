@@ -68,17 +68,17 @@ tbs.serialNumber == ASN1_INTEGER(0xb45e7043e7090b71)
 
 = Cert class : Signature algorithm (as advertised by TBSCertificate)
 from scapy.layers.x509 import X509_AlgorithmIdentifier
-assert(type(tbs.signature) is X509_AlgorithmIdentifier)
+assert type(tbs.signature) is X509_AlgorithmIdentifier
 tbs.signature.algorithm == ASN1_OID("sha1-with-rsa-signature")
 
 = Cert class : Issuer structure
 from scapy.layers.x509 import X509_AttributeTypeAndValue
 from scapy.layers.x509 import X509_RDN
-assert(type(tbs.issuer) is list)
-assert(len(tbs.issuer) == 7)
-assert(type(tbs.issuer[0]) is X509_RDN)
-assert(type(tbs.issuer[0].rdn) is list)
-assert(type(tbs.issuer[0].rdn[0]) is X509_AttributeTypeAndValue)
+assert type(tbs.issuer) is list
+assert len(tbs.issuer) == 7
+assert type(tbs.issuer[0]) is X509_RDN
+assert type(tbs.issuer[0].rdn) is list
+assert type(tbs.issuer[0].rdn[0]) is X509_AttributeTypeAndValue
 
 = Cert class : Issuer first attribute
 tbs.issuer[0].rdn[0].type == ASN1_OID("countryName") and tbs.issuer[0].rdn[0].value == ASN1_PRINTABLE_STRING(b"FR")
@@ -88,15 +88,15 @@ tbs.get_issuer_str() == '/C=FR/ST=Paris/L=Paris/O=Mushroom Corp./OU=Mushroom VPN
 
 = Cert class : Validity
 from scapy.layers.x509 import X509_Validity
-assert(type(tbs.validity) is X509_Validity)
+assert type(tbs.validity) is X509_Validity
 tbs.validity.not_before == ASN1_UTC_TIME("060713073859Z") and tbs.validity.not_after == ASN1_UTC_TIME("260330073859Z")
 
 = Cert class : Subject structure
-assert(type(tbs.subject) is list)
-assert(len(tbs.subject) == 7)
-assert(type(tbs.subject[0]) is X509_RDN)
-assert(type(tbs.subject[0].rdn) is list)
-assert(type(tbs.subject[0].rdn[0]) is X509_AttributeTypeAndValue)
+assert type(tbs.subject) is list
+assert len(tbs.subject) == 7
+assert type(tbs.subject[0]) is X509_RDN
+assert type(tbs.subject[0].rdn) is list
+assert type(tbs.subject[0].rdn[0]) is X509_AttributeTypeAndValue
 
 = Cert class : Subject last attribute
 tbs.issuer[6].rdn[0].type == ASN1_OID("emailAddress") and tbs.issuer[6].rdn[0].value == ASN1_IA5_STRING(b"ikev2-test@mushroom.corp")
@@ -106,33 +106,33 @@ tbs.get_subject_str() == '/C=FR/ST=Paris/L=Paris/O=Mushroom Corp./OU=Mushroom VP
 
 = Cert class : SubjectPublicKey algorithm
 from scapy.layers.x509 import X509_SubjectPublicKeyInfo
-assert(type(tbs.subjectPublicKeyInfo) is X509_SubjectPublicKeyInfo)
+assert type(tbs.subjectPublicKeyInfo) is X509_SubjectPublicKeyInfo
 spki = tbs.subjectPublicKeyInfo
 spki.signatureAlgorithm.algorithm == ASN1_OID("rsaEncryption")
 
 = Cert class : SubjectPublicKey value
 from scapy.layers.x509 import RSAPublicKey
-assert(type(spki.subjectPublicKey) is RSAPublicKey)
+assert type(spki.subjectPublicKey) is RSAPublicKey
 spki.subjectPublicKey.modulus == ASN1_INTEGER(19231328316532061413420367242571475005688288081144416166988378525696075445024135424022026378563116068168327239354659928492979285632474448448624869172454076124150405352043642781483254546569202103296262513098482624188672299255268092629150366527784294463900039290024710152521604731213565912934889752122898104556895316819303096201441834849255370122572613047779766933573375974464479123135292080801384304131606933504677232323037116557327478512106367095125103346134248056463878553619525193565824925835325216545121044922690971718737998420984924512388011040969150550056783451476150234324593710633552558175109683813482739004163) and spki.subjectPublicKey.publicExponent == ASN1_INTEGER(65537)
 
 = Cert class : Extensions structure
 ext = tbs.extensions
-assert(type(ext) is list)
-assert(len(ext) == 3)
+assert type(ext) is list
+assert len(ext) == 3
 
 = Cert class : Subject key identifier extension info
 from scapy.layers.x509 import X509_Extension
-assert(type(ext[0]) is X509_Extension)
+assert type(ext[0]) is X509_Extension
 ext[0].extnID == ASN1_OID("subjectKeyIdentifier") and ext[0].critical == None
 
 = Cert class : Subject key identifier extension value
 from scapy.layers.x509 import X509_ExtSubjectKeyIdentifier
-assert(type(ext[0].extnValue) is X509_ExtSubjectKeyIdentifier)
+assert type(ext[0].extnValue) is X509_ExtSubjectKeyIdentifier
 ext[0].extnValue.keyIdentifier == ASN1_STRING(b'\xf3\xd8N\xde\x90\xf7\xe6]\xd2\xce3\xcd\\V\x8co\x97\x141K')
 
 = Cert class : Signature algorithm
 from scapy.layers.x509 import X509_AlgorithmIdentifier
-assert(type(x.signatureAlgorithm) is X509_AlgorithmIdentifier)
+assert type(x.signatureAlgorithm) is X509_AlgorithmIdentifier
 x.signatureAlgorithm.algorithm == ASN1_OID("sha1-with-rsa-signature")
 
 = Cert class : Signature value
@@ -166,15 +166,15 @@ tbs = x.tbsCertList
 tbs.version == None
 
 = CRL class : Signature algorithm (as advertised by TBSCertList)
-assert(type(tbs.signature) is X509_AlgorithmIdentifier)
+assert type(tbs.signature) is X509_AlgorithmIdentifier
 tbs.signature.algorithm == ASN1_OID("sha1-with-rsa-signature")
 
 = CRL class : Issuer structure
-assert(type(tbs.issuer) is list)
-assert(len(tbs.issuer) == 3)
-assert(type(tbs.issuer[0]) is X509_RDN)
-assert(type(tbs.issuer[0].rdn) is list)
-assert(type(tbs.issuer[0].rdn[0]) is X509_AttributeTypeAndValue)
+assert type(tbs.issuer) is list
+assert len(tbs.issuer) == 3
+assert type(tbs.issuer[0]) is X509_RDN
+assert type(tbs.issuer[0].rdn) is list
+assert type(tbs.issuer[0].rdn[0]) is X509_AttributeTypeAndValue
 
 = CRL class : Issuer first attribute
 tbs.issuer[0].rdn[0].type == ASN1_OID("countryName") and tbs.issuer[0].rdn[0].value == ASN1_PRINTABLE_STRING(b"US")
@@ -190,9 +190,9 @@ tbs.next_update == ASN1_UTC_TIME("070217235959Z")
 
 = CRL class : Optional revoked_certificates structure
 from scapy.layers.x509 import X509_RevokedCertificate
-assert(type(tbs.revokedCertificates) is list)
-assert(len(tbs.revokedCertificates) == 7)
-assert(type(tbs.revokedCertificates[0]) is X509_RevokedCertificate)
+assert type(tbs.revokedCertificates) is list
+assert len(tbs.revokedCertificates) == 7
+assert type(tbs.revokedCertificates[0]) is X509_RevokedCertificate
 
 = CRL class : Revoked_certificates first attribute
 tbs.revokedCertificates[0].serialNumber == ASN1_INTEGER(59577943160751197113872490992424857032) and tbs.revokedCertificates[0].revocationDate == ASN1_UTC_TIME("040401175615Z")
@@ -201,7 +201,7 @@ tbs.revokedCertificates[0].serialNumber == ASN1_INTEGER(595779431607511971138724
 tbs.crlExtensions == None
 
 = CRL class : Signature algorithm
-assert(type(x.signatureAlgorithm) is X509_AlgorithmIdentifier)
+assert type(x.signatureAlgorithm) is X509_AlgorithmIdentifier
 x.signatureAlgorithm.algorithm == ASN1_OID("sha1-with-rsa-signature")
 
 = CRL class : Signature value
@@ -218,13 +218,13 @@ raw(X509_CRL(s)) == s
 from scapy.layers.x509 import ASN1P_INTEGER, X509_OtherName
 random.seed(42)
 r = ASN1F_SEQUENCE_OF("test", [], ASN1P_INTEGER).randval().number
-assert(isinstance(r, RandNum))
+assert isinstance(r, RandNum)
 int(r) == -16393048219351680611
 
 = Randval tests : ASN1F_PACKET
 random.seed(0xcafecafe)
 r = ASN1F_PACKET("otherName", None, X509_OtherName).randval()
-assert(isinstance(r, X509_OtherName))
+assert isinstance(r, X509_OtherName)
 str(r.type_id) == '171.184.10.271'
 
 
@@ -237,37 +237,37 @@ response = OCSP_Response(s)
 
 = OCSP class : OCSP Response global checks
 from scapy.layers.x509 import OCSP_ResponseBytes
-assert(response.responseStatus.val == 0)
-assert(isinstance(response.responseBytes, OCSP_ResponseBytes))
+assert response.responseStatus.val == 0
+assert isinstance(response.responseBytes, OCSP_ResponseBytes)
 responseBytes = response.responseBytes
-assert(responseBytes.responseType == ASN1_OID("basic-response"))
-assert(responseBytes.signatureAlgorithm.algorithm == ASN1_OID("sha256WithRSAEncryption"))
-assert(responseBytes.signatureAlgorithm.parameters == ASN1_NULL(0))
-assert(responseBytes.signature.val_readable[:3] == b"\x90\xef\xf9" and responseBytes.signature.val_readable[-3:] == b"\x8bb\xfc")
+assert responseBytes.responseType == ASN1_OID("basic-response")
+assert responseBytes.signatureAlgorithm.algorithm == ASN1_OID("sha256WithRSAEncryption")
+assert responseBytes.signatureAlgorithm.parameters == ASN1_NULL(0)
+assert responseBytes.signature.val_readable[:3] == b"\x90\xef\xf9" and responseBytes.signature.val_readable[-3:] == b"\x8bb\xfc"
 responseBytes.certs is None
 
 = OCSP class : OCSP ResponseData checks
 from scapy.layers.x509 import OCSP_ByKey
 responseData = responseBytes.tbsResponseData
-assert(responseData.version is None)
+assert responseData.version is None
 rID = responseData.responderID.responderID
-assert(isinstance(rID, OCSP_ByKey))
-assert(rID.byKey.val[:3] == b"Qh\xff" and rID.byKey.val[-3:] == b"Yr;")
-assert(responseData.producedAt == ASN1_GENERALIZED_TIME("20160914121000Z"))
-assert(len(responseData.responses) == 1)
+assert isinstance(rID, OCSP_ByKey)
+assert rID.byKey.val[:3] == b"Qh\xff" and rID.byKey.val[-3:] == b"Yr;"
+assert responseData.producedAt == ASN1_GENERALIZED_TIME("20160914121000Z")
+assert len(responseData.responses) == 1
 responseData.responseExtensions is None
 
 = OCSP class : OCSP SingleResponse checks
 from scapy.layers.x509 import OCSP_GoodInfo
 singleResponse = responseData.responses[0]
-assert(singleResponse.certID.hashAlgorithm.algorithm == ASN1_OID("sha1"))
-assert(singleResponse.certID.hashAlgorithm.parameters == ASN1_NULL(0))
-assert(singleResponse.certID.issuerNameHash.val[:3] == b"\xcf&\xf5" and singleResponse.certID.issuerNameHash.val[-3:] == b"\x8e_\n")
-assert(singleResponse.certID.issuerKeyHash.val[:3] == b"Qh\xff" and singleResponse.certID.issuerKeyHash.val[-3:] == b"Yr;")
-assert(singleResponse.certID.serialNumber.val == 0x77a5dc3362301f989fe54f7f86f3e64)
-assert(isinstance(singleResponse.certStatus.certStatus, OCSP_GoodInfo))
-assert(singleResponse.thisUpdate == ASN1_GENERALIZED_TIME("20160914121000Z"))
-assert(singleResponse.nextUpdate == ASN1_GENERALIZED_TIME("20160921112500Z"))
+assert singleResponse.certID.hashAlgorithm.algorithm == ASN1_OID("sha1")
+assert singleResponse.certID.hashAlgorithm.parameters == ASN1_NULL(0)
+assert singleResponse.certID.issuerNameHash.val[:3] == b"\xcf&\xf5" and singleResponse.certID.issuerNameHash.val[-3:] == b"\x8e_\n"
+assert singleResponse.certID.issuerKeyHash.val[:3] == b"Qh\xff" and singleResponse.certID.issuerKeyHash.val[-3:] == b"Yr;"
+assert singleResponse.certID.serialNumber.val == 0x77a5dc3362301f989fe54f7f86f3e64
+assert isinstance(singleResponse.certStatus.certStatus, OCSP_GoodInfo)
+assert singleResponse.thisUpdate == ASN1_GENERALIZED_TIME("20160914121000Z")
+assert singleResponse.nextUpdate == ASN1_GENERALIZED_TIME("20160921112500Z")
 singleResponse.singleExtensions is None
 
 = OCSP class : OCSP Response reconstruction

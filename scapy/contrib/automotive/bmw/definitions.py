@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = BMW specific definitions for UDS
 # scapy.contrib.status = loads
@@ -276,10 +276,10 @@ class SVK(Packet):
         ByteEnumField("prog_status1", 0, prog_status_enum),
         ByteEnumField("prog_status2", 0, prog_status_enum),
         ShortField("entries_count", 0),
-        SVK_DateField("prog_date", b'\x00\x00\x00'),
+        SVK_DateField("prog_date", 0),
         ByteField("pad1", 0),
         LEIntField("prog_milage", 0),
-        StrFixedLenField("pad2", 0, length=5),
+        StrFixedLenField("pad2", b'\x00\x00\x00\x00\x00', length=5),
         PacketListField("entries", [], SVK_Entry,
                         count_from=lambda x: x.entries_count)]
 

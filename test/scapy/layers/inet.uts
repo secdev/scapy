@@ -8,60 +8,60 @@
 ~ IP options
 r = raw(IPOption())
 r
-assert(r == b'\x00\x02')
+assert r == b'\x00\x02'
 r = raw(IPOption_NOP())
 r
-assert(r == b'\x01')
+assert r == b'\x01'
 r = raw(IPOption_EOL())
 r
-assert(r == b'\x00')
+assert r == b'\x00'
 r = raw(IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]))
 r
-assert(r == b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08')
+assert r == b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08'
 r = raw(IPOption_Timestamp(internet_address='192.168.15.7', timestamp=11223344))
 r
-assert(r == b'D\x0c\t\x01\xc0\xa8\x0f\x07\x00\xabA0')
+assert r == b'D\x0c\t\x01\xc0\xa8\x0f\x07\x00\xabA0'
 r = raw(IPOption_Timestamp(flg=0, length=8))
 r
-assert(r == b'D\x08\t\x00\x00\x00\x00\x00')
+assert r == b'D\x08\t\x00\x00\x00\x00\x00'
 
 = IP options individual dissection
 ~ IP options
 io = IPOption(b"\x00")
 io
-assert(io.option == 0 and isinstance(io, IPOption_EOL))
+assert io.option == 0 and isinstance(io, IPOption_EOL)
 io = IPOption(b"\x01")
 io
-assert(io.option == 1 and isinstance(io, IPOption_NOP))
+assert io.option == 1 and isinstance(io, IPOption_NOP)
 lsrr=b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08'
 p=IPOption_LSRR(lsrr)
 p
 q=IPOption(lsrr)
 q
-assert(p == q)
+assert p == q
 
 = IP assembly and dissection with options
 ~ IP options
 p = IP(src="9.10.11.12",dst="13.14.15.16",options=IPOption_SDBM(addresses=["1.2.3.4","5.6.7.8"]))/TCP()
 r = raw(p)
 r
-assert(r == b'H\x00\x004\x00\x01\x00\x00@\x06\xa2q\t\n\x0b\x0c\r\x0e\x0f\x10\x95\n\x01\x02\x03\x04\x05\x06\x07\x08\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+assert r == b'H\x00\x004\x00\x01\x00\x00@\x06\xa2q\t\n\x0b\x0c\r\x0e\x0f\x10\x95\n\x01\x02\x03\x04\x05\x06\x07\x08\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00'
 q=IP(r)
 q
-assert( isinstance(q.options[0],IPOption_SDBM) )
-assert( q[IPOption_SDBM].addresses[1] == "5.6.7.8" )
+assert  isinstance(q.options[0],IPOption_SDBM) 
+assert  q[IPOption_SDBM].addresses[1] == "5.6.7.8" 
 p.options[0].addresses[0] = '5.6.7.8'
-assert( IP(raw(p)).options[0].addresses[0] == '5.6.7.8' )
+assert  IP(raw(p)).options[0].addresses[0] == '5.6.7.8' 
 p = IP(src="9.10.11.12", dst="13.14.15.16", options=[IPOption_NOP(),IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]),IPOption_Security(transmission_control_code="XYZ")])/TCP()
 p
 r = raw(p)
 r
-assert(r == b'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00o[\x00\x00')
+assert r == b'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00o[\x00\x00'
 q = IP(r)
 q
-assert(q[IPOption_LSRR].get_current_router() == "1.2.3.4")
-assert(q[IPOption_Security].transmission_control_code == b"XYZ")
-assert(q[TCP].flags == 2)
+assert q[IPOption_LSRR].get_current_router() == "1.2.3.4"
+assert q[IPOption_Security].transmission_control_code == b"XYZ"
+assert q[TCP].flags == 2
 
 
 ############
@@ -496,16 +496,16 @@ answer = IP(dst="192.168.0.254", src="192.168.0.2", ttl=1)/ICMP()/IPerror(dst="1
 
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/UDP()/DNS()
 answer = IP(dst="192.168.0.254", src="192.168.0.2")/ICMP(type=11)/IPerror(dst="192.168.0.1", src="192.168.0.254", ttl=0)/UDPerror()/DNS()
-assert(answer.answers(query) == True)
+assert answer.answers(query) == True
 
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/TCP()
 answer = IP(dst="192.168.0.254", src="192.168.0.2")/ICMP(type=11)/IPerror(dst="192.168.0.1", src="192.168.0.254", ttl=0)/TCPerror()
 
-assert(answer.answers(query) == True)
+assert answer.answers(query) == True
 
 query = IP(dst="192.168.0.1", src="192.168.0.254", ttl=1)/ICMP()/"scapy"
 answer = IP(dst="192.168.0.254", src="192.168.0.2")/ICMP(type=11)/IPerror(dst="192.168.0.1", src="192.168.0.254", ttl=0)/ICMPerror()/"scapy"
-assert(answer.answers(query) == True)
+assert answer.answers(query) == True
 
 = IPv4 - mDNS
 a = IP(dst="224.0.0.251")
@@ -515,9 +515,13 @@ assert a.hashret() == b"\x00"
 
 = IPv4 - utilities
 l = overlap_frag(IP(dst="1.2.3.4")/ICMP()/("AB"*8), ICMP()/("CD"*8))
-assert(len(l) == 6)
-assert([len(raw(p[IP].payload)) for p in l] == [8, 8, 8, 8, 8, 8])
-assert([(p.frag, p.flags.MF) for p in [IP(raw(p)) for p in l]] == [(0, True), (1, True), (2, True), (0, True), (1, True), (2, False)])
+assert len(l) == 6
+assert [len(raw(p[IP].payload)) for p in l] == [8, 8, 8, 8, 8, 8]
+assert [(p.frag, p.flags.MF) for p in [IP(raw(p)) for p in l]] == [(0, True), (1, True), (2, True), (0, True), (1, True), (2, False)]
+
+= IPv4 - ICMP hashret
+for x in ICMP(type=range(0,40),code=range(0,40)):
+    (IP()/x).hashret()
 
 = IPv4 - traceroute utilities
 ip_ttl = [("192.168.0.%d" % i, i) for i in six.moves.range(1, 10)]
@@ -527,7 +531,7 @@ tr_packets = [ (IP(dst="192.168.0.1", src="192.168.0.254", ttl=ttl)/TCP(options=
                for (ip, ttl) in ip_ttl ]
 
 tr = TracerouteResult(tr_packets)
-assert(tr.get_trace() == {'192.168.0.1': {1: ('192.168.0.1', False), 2: ('192.168.0.2', False), 3: ('192.168.0.3', False), 4: ('192.168.0.4', False), 5: ('192.168.0.5', False), 6: ('192.168.0.6', False), 7: ('192.168.0.7', False), 8: ('192.168.0.8', False), 9: ('192.168.0.9', False)}})
+assert tr.get_trace() == {'192.168.0.1': {1: ('192.168.0.1', False), 2: ('192.168.0.2', False), 3: ('192.168.0.3', False), 4: ('192.168.0.4', False), 5: ('192.168.0.5', False), 6: ('192.168.0.6', False), 7: ('192.168.0.7', False), 8: ('192.168.0.8', False), 9: ('192.168.0.9', False)}}
 
 def test_show():
     with ContextManagerCaptureOutput() as cmco:
@@ -546,7 +550,7 @@ def test_show():
     expected += "9 192.168.0.9     11 \n"
     index_result = result_show.index("\n1")
     index_expected = expected.index("\n1")
-    assert(result_show[index_result:] == expected[index_expected:])
+    assert result_show[index_result:] == expected[index_expected:]
 
 test_show()
 
@@ -555,7 +559,7 @@ def test_summary():
         tr = TracerouteResult(tr_packets)
         tr.summary()
         result_summary = cmco.get_output()
-    assert(len(result_summary.split('\n')) == 10)
+    assert len(result_summary.split('\n')) == 10
     assert(any(
         "IP / TCP 192.168.0.254:%s > 192.168.0.1:%s S / Raw ==> "
         "IP / ICMP 192.168.0.9 > 192.168.0.254 time-exceeded "
@@ -577,8 +581,8 @@ def test_timeskew_graph(mock_plt):
     mock_plt.plot = fake_plot
     srl = SndRcvList([(a, a) for a in [IP(raw(p[0])) for p in tr_packets]])
     ret = srl.timeskew_graph("192.168.0.254")
-    assert(len(ret) == 9)
-    assert(ret[0][1] == 0.0)
+    assert len(ret) == 9
+    assert ret[0][1] == 0.0
 
 test_timeskew_graph()
 
@@ -586,22 +590,22 @@ tr = TracerouteResult(tr_packets)
 saved_AS_resolver = conf.AS_resolver
 conf.AS_resolver = None
 tr.make_graph()
-assert(len(tr.graphdef) == 491)
+assert len(tr.graphdef) == 491
 tr.graphdef.startswith("digraph trace {") == True
-assert(('"192.168.0.9" ->' in tr.graphdef) == True)
+assert ('"192.168.0.9" ->' in tr.graphdef) == True
 conf.AS_resolver = conf.AS_resolver
 
 pl = PacketList(list([Ether()/x for x in itertools.chain(*tr_packets)]))
 srl, ul = pl.sr()
-assert(len(srl) == 9 and len(ul) == 0)
+assert len(srl) == 9 and len(ul) == 0
 
 conf_color_theme = conf.color_theme
 conf.color_theme = BlackAndWhite()
-assert(len(pl.sessions().keys()) == 10)
+assert len(pl.sessions().keys()) == 10
 conf.color_theme = conf_color_theme
 
 new_pl = pl.replace(IP.src, "192.168.0.254", "192.168.0.42")
-assert("192.168.0.254" not in [p[IP].src for p in new_pl])
+assert "192.168.0.254" not in [p[IP].src for p in new_pl]
 
 = IPv4 - reporting
 ~ netaccess
@@ -616,7 +620,7 @@ def test_report_ports(mock_sr):
                 (IP()/TCP(dport=65083, flags="S"), IP()/TCP(sport=65083, flags="R"))], [IP()/TCP(dport=65084, flags="S")]
     mock_sr.side_effect = sr
     report = "\\begin{tabular}{|r|l|l|}\n\\hline\n65081 & open & SA \\\\\n\\hline\n?? & closed & ICMP type dest-unreach/host-unreachable from 127.0.0.1 \\\\\n65083 & closed & TCP R \\\\\n\\hline\n65084 & ? & unanswered \\\\\n\\hline\n\\end{tabular}\n"
-    assert(report_ports("www.secdev.org", [65081,65082,65083,65084]) == report)
+    assert report_ports("www.secdev.org", [65081,65082,65083,65084]) == report
 
 test_report_ports()
 
@@ -626,7 +630,7 @@ def test_IPID_count():
         IPID_count([(IP()/UDP(), IP(id=random.randint(0, 65535))/UDP()) for i in range(3)])
         result_IPID_count = cmco.get_output()
     lines = result_IPID_count.split("\n")
-    assert(len(lines) == 5)
+    assert len(lines) == 5
     assert(lines[0] in ["Probably 3 classes: [4613, 53881, 58437]",
                         "Probably 3 classes: [9103, 9227, 46399]"])
 

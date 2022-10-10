@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Packet class
@@ -94,6 +94,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         "direction", "sniffed_on",
         # handle snaplen Vs real length
         "wirelen",
+        "comment"
     ]
     name = None
     fields_desc = []  # type: Sequence[AnyField]
@@ -127,7 +128,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))  # noqa: E501
 
     def __init__(self,
-                 _pkt=b"",  # type: bytes
+                 _pkt=b"",  # type: Union[bytes, bytearray]
                  post_transform=None,  # type: Any
                  _internal=0,  # type: int
                  _underlayer=None,  # type: Optional[Packet]
@@ -150,6 +151,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.init_fields()
         self.underlayer = _underlayer
         self.parent = _parent
+        if isinstance(_pkt, bytearray):
+            _pkt = bytes(_pkt)
         self.original = _pkt
         self.explicit = 0
         self.raw_packet_cache = None  # type: Optional[bytes]
@@ -157,6 +160,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.wirelen = None  # type: Optional[int]
         self.direction = None  # type: Optional[int]
         self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
+        self.comment = None  # type: Optional[bytes]
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -170,14 +174,16 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 value = fields.pop(fname)
             except KeyError:
                 continue
-            self.fields[fname] = self.get_field(fname).any2i(self, value)
+            self.fields[fname] = value if isinstance(value, RawVal) else \
+                self.get_field(fname).any2i(self, value)
         # The remaining fields are unknown
         for fname in fields:
             if fname in self.deprecated_fields:
                 # Resolve deprecated fields
                 value = fields[fname]
                 fname = self._resolve_alias(fname)
-                self.fields[fname] = self.get_field(fname).any2i(self, value)
+                self.fields[fname] = value if isinstance(value, RawVal) else \
+                    self.get_field(fname).any2i(self, value)
                 continue
             raise AttributeError(fname)
         if isinstance(post_transform, list):
@@ -192,7 +198,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         Optional[Union[EDecimal, float, None]],
         Optional[int],
         Optional[_GlobInterfaceType],
-        Optional[int]
+        Optional[int],
+        Optional[bytes],
     ]
 
     def __reduce__(self):
@@ -204,6 +211,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             self.direction,
             self.sniffed_on,
             self.wirelen,
+            self.comment
         ))
 
     def __setstate__(self, state):
@@ -214,6 +222,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         self.direction = state[2]
         self.sniffed_on = state[3]
         self.wirelen = state[4]
+        self.comment = state[5]
         return self
 
     def __deepcopy__(self,
@@ -392,6 +401,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         clone.default_fields = self.copy_fields_dict(self.default_fields)
         clone.overloaded_fields = self.overloaded_fields.copy()
         clone.underlayer = self.underlayer
+        clone.parent = self.parent
         clone.explicit = self.explicit
         clone.raw_packet_cache = self.raw_packet_cache
         clone.raw_packet_cache_fields = self.copy_fields_dict(
@@ -402,6 +412,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         clone.payload = self.payload.copy()
         clone.payload.add_underlayer(clone)
         clone.time = self.time
+        clone.comment = self.comment
         return clone
 
     def _resolve_alias(self, attr):
@@ -445,7 +456,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         except ValueError:
             return self.payload.__getattr__(attr)
         if fld is not None:
-            return fld.i2h(self, v)
+            return v if isinstance(v, RawVal) else fld.i2h(self, v)
         return v
 
     def setfieldval(self, attr, val):
@@ -458,7 +469,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 any2i = lambda x, y: y  # type: Callable[..., Any]
             else:
                 any2i = fld.any2i
-            self.fields[attr] = any2i(self, val)
+            self.fields[attr] = val if isinstance(val, RawVal) else \
+                any2i(self, val)
             self.explicit = 0
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
@@ -482,7 +494,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
     def delfieldval(self, attr):
         # type: (str) -> None
         if attr in self.fields:
-            del(self.fields[attr])
+            del self.fields[attr]
             self.explicit = 0  # in case a default value must be explicit
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
@@ -1074,12 +1086,14 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         pkt.overloaded_fields = self.overloaded_fields.copy()
         pkt.time = self.time
         pkt.underlayer = self.underlayer
+        pkt.parent = self.parent
         pkt.post_transforms = self.post_transforms
         pkt.raw_packet_cache = self.raw_packet_cache
         pkt.raw_packet_cache_fields = self.copy_fields_dict(
             self.raw_packet_cache_fields
         )
         pkt.wirelen = self.wirelen
+        pkt.comment = self.comment
         if payload is not None:
             pkt.add_payload(payload)
         return pkt
@@ -1316,7 +1330,7 @@ values.
 
     def __delitem__(self, cls):
         # type: (Type[Packet]) -> None
-        del(self[cls].underlayer.payload)
+        del self[cls].underlayer.payload
 
     def __setitem__(self, cls, val):
         # type: (Type[Packet], Packet) -> None
@@ -1637,12 +1651,17 @@ values.
                 fv = fv.command()
             elif fld.islist and fld.holds_packets and isinstance(fv, list):
                 fv = "[%s]" % ",".join(map(Packet.command, fv))
+            elif fld.islist and isinstance(fv, list):
+                fv = "[%s]" % ", ".join(
+                    getattr(x, 'command', lambda: repr(x))()
+                    for x in fv
+                )
             elif isinstance(fld, FlagsField):
                 fv = int(fv)
             elif callable(getattr(fv, 'command', None)):
                 fv = fv.command()
             else:
-                fv = repr(fv)
+                fv = repr(fld.i2h(self, fv))
             f.append("%s=%s" % (fn, fv))
         c = "%s(%s)" % (self.__class__.__name__, ", ".join(f))
         pc = self.payload.command()
@@ -1987,7 +2006,7 @@ def split_top_down(lower,  # type: Type[Packet]
         if any(k not in ofval or ofval[k] != v for k, v in six.iteritems(fval)):  # noqa: E501
             return
         upper._overload_fields = upper._overload_fields.copy()
-        del(upper._overload_fields[lower])
+        del upper._overload_fields[lower]
 
 
 @conf.commands.register
@@ -2419,7 +2438,7 @@ def rfc(cls, ret=False, legend=True):
         # The last field of above is shared with below
         if above[-1][2] == below[0][2]:
             # where the field in "above" starts
-            pos_above = sum(x[1] for x in above[:-1])
+            pos_above = sum(x[1] for x in above[:-1]) + len(above[:-1]) - 1
             # where the field in "below" ends
             pos_below = below[0][1]
             if pos_above < pos_below:

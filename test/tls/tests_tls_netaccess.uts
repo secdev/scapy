@@ -343,7 +343,7 @@ test_tls_client("1305", "0304", client_auth=True)
 test_tls_client("1305", "0304", key_update=True)
 
 = Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256 and session resumption
-~ crypto_advanced
+~ crypto_advanced not_pypy
 
 test_tls_client("1305", "0304", client_auth=True, sess_in_out=True)
 

@@ -1174,14 +1174,14 @@ a.optcode == 66 and a.optlen == 22 and len(a.relaysupplied) == 1 and isinstance(
 
 = Basic build & dissect
 s = raw(DHCP6OptClientLinkLayerAddr())
-assert(s == b"\x00O\x00\x08\x00\x01\x00\x00\x00\x00\x00\x00")
+assert s == b"\x00O\x00\x08\x00\x01\x00\x00\x00\x00\x00\x00"
 
 p = DHCP6OptClientLinkLayerAddr(s)
-assert(p.clladdr == "00:00:00:00:00:00")
+assert p.clladdr == "00:00:00:00:00:00"
 
 r = b"\x00O\x00\x08\x00\x01\x00\x01\x02\x03\x04\x05"
 p = DHCP6OptClientLinkLayerAddr(r)
-assert(p.clladdr == "00:01:02:03:04:05")
+assert p.clladdr == "00:01:02:03:04:05"
 
 
 ############
@@ -1190,15 +1190,15 @@ assert(p.clladdr == "00:01:02:03:04:05")
 
 = Basic build & dissect
 s = raw(DHCP6OptMudUrl())
-assert(s == b"\x00p\x00\x00")
+assert s == b"\x00p\x00\x00"
 
 p = DHCP6OptMudUrl(s)
-assert(p.mudstring == b"")
+assert p.mudstring == b""
 
 r = b'\x00p\x00\x13https://example.org'
 p = DHCP6OptMudUrl(r)
-assert(p.mudstring == b"https://example.org")
-assert(p.optlen == 19)
+assert p.mudstring == b"https://example.org"
+assert p.optlen == 19
 
 
 ############
@@ -1207,10 +1207,10 @@ assert(p.optlen == 19)
 
 = Basic build & dissect
 s = raw(DHCP6OptVSS())
-assert(s == b"\x00D\x00\x01\xff")
+assert s == b"\x00D\x00\x01\xff"
 
 p = DHCP6OptVSS(s)
-assert(p.type == 255)
+assert p.type == 255
 
 
 ############

@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Classes and functions for layer 2 protocols.
@@ -210,6 +210,30 @@ class SourceMACField(MACField):
 
 # Layers
 
+HARDWARE_TYPES = {
+    1: "Ethernet (10Mb)",
+    2: "Ethernet (3Mb)",
+    3: "AX.25",
+    4: "Proteon ProNET Token Ring",
+    5: "Chaos",
+    6: "IEEE 802 Networks",
+    7: "ARCNET",
+    8: "Hyperchannel",
+    9: "Lanstar",
+    10: "Autonet Short Address",
+    11: "LocalTalk",
+    12: "LocalNet",
+    13: "Ultra link",
+    14: "SMDS",
+    15: "Frame relay",
+    16: "ATM",
+    17: "HDLC",
+    18: "Fibre Channel",
+    19: "ATM",
+    20: "Serial Line",
+    21: "ATM",
+}
+
 ETHER_TYPES[0x88a8] = '802_AD'
 ETHER_TYPES[ETH_P_MACSEC] = '802_1AE'
 
@@ -402,7 +426,7 @@ class STP(Packet):
 class ARP(Packet):
     name = "ARP"
     fields_desc = [
-        XShortField("hwtype", 0x0001),
+        XShortEnumField("hwtype", 0x0001, HARDWARE_TYPES),
         XShortEnumField("ptype", 0x0800, ETHER_TYPES),
         FieldLenField("hwlen", None, fmt="B", length_of="hwsrc"),
         FieldLenField("plen", None, fmt="B", length_of="psrc"),
@@ -707,7 +731,7 @@ conf.l3types.register(ETH_P_ARP, ARP)
 @conf.commands.register
 def arpcachepoison(target, victim, interval=60):
     # type: (str, str, int) -> None
-    """Poison target's cache with (your MAC,victim's IP) couple
+    """Poison target's cache with (victim's IP, your MAC) couple
 arpcachepoison(target, victim, [interval=60]) -> None
 """
     tmac = getmacbyip(target)
@@ -829,9 +853,16 @@ class ARP_am(AnsweringMachine[Packet]):
     filter = "arp"
     send_function = staticmethod(sendp)
 
-    def parse_options(self, IP_addr=None, ARP_addr=None):
-        # type: (Optional[str], Optional[str]) -> None
-        self.IP_addr = IP_addr
+    def parse_options(self, IP_addr=None, ARP_addr=None, from_ip=None):
+        # type: (Optional[str], Optional[str], Optional[str]) -> None
+        if isinstance(IP_addr, str):
+            self.IP_addr = Net(IP_addr)  # type: Optional[Net]
+        else:
+            self.IP_addr = IP_addr
+        if isinstance(from_ip, str):
+            self.from_ip = Net(from_ip)  # type: Optional[Net]
+        else:
+            self.from_ip = from_ip
         self.ARP_addr = ARP_addr
 
     def is_request(self, req):
@@ -839,8 +870,11 @@ class ARP_am(AnsweringMachine[Packet]):
         if not req.haslayer(ARP):
             return False
         arp = req[ARP]
-        return arp.op == 1 and \
-            (self.IP_addr is None or self.IP_addr == arp.pdst)  # noqa: E501
+        return (
+            arp.op == 1 and
+            (self.IP_addr is None or arp.pdst in self.IP_addr) and
+            (self.from_ip is None or arp.psrc in self.from_ip)
+        )
 
     def make_reply(self, req):
         # type: (Packet) -> Packet

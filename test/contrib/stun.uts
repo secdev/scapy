@@ -1,0 +1,138 @@
+# STUN unit tests
+# run with:
+#   test/run_tests  -P "load_contrib('stun')" -t test/contrib/stun.uts -F
+
+% STUN regression tests for Scapy
+
+############
+# STUN
+############
+
++ STUN Binding messages
+
+= test STUN binding request 1
+
+raw = b"\x00\x01\x00\x64\x21\x12\xa4\x42\xcf\xac\xb2\xa4\x3a\xa2\xde\x5a" \
+      b"\x9d\x56\xd8\x5a\x00\x25\x00\x00\x00\x24\x00\x04\x6e\x20\x00\xff" \
+      b"\x80\x2a\x00\x08\x1b\x0a\xb9\x8b\x6e\x8e\xff\xa6\x00\x06\x00\x25" \
+      b"\x6f\x4e\x70\x68\x3a\x48\x74\x31\x31\x4d\x61\x52\x5a\x48\x63\x34" \
+      b"\x47\x4f\x4c\x4a\x55\x73\x62\x75\x31\x52\x33\x59\x43\x73\x37\x32" \
+      b"\x48\x59\x4e\x32\x35\x20\x20\x20\x00\x08\x00\x14\xfc\xbc\x47\x21" \
+      b"\x68\x1f\xdb\x59\x91\x33\x42\xbe\x96\x19\x9e\x7f\x3e\xf0\xe7\x77" \
+      b"\x80\x28\x00\x04\x87\x18\xc3\xa4"
+
+parsed = STUN(raw)
+assert parsed.RESERVED == 0x00, parsed.RESERVED
+assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding request"
+assert parsed.length == 100
+assert parsed.magic_cookie == 0x2112A442
+assert parsed.transaction_id == 0xcfacb2a43aa2de5a9d56d85a, parsed.transaction_id
+assert parsed.attributes == [
+      STUNUseCandidate(),
+      STUNPriority(priority=1847591167),
+      STUNIceControlling(tie_breaker=0x1b0ab98b6e8effa6),
+      STUNUsername(length=37, username="oNph:Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25"),
+      STUNMessageIntegrity(hmac_sha1=0x77e7f03e7f9e1996be42339159db1f682147bcfc),
+      STUNFingerprint(crc_32=0x8718c3a4)
+]
+
+= test STUN binding request 2
+
+raw = b"\x00\x01\x00\x6c\x21\x12\xa4\x42\x34\x79\x47\x65\x34\x63\x59\x36" \
+      b"\x31\x6a\x79\x6a\x00\x06\x00\x25\x48\x74\x31\x31\x4d\x61\x52\x5a" \
+      b"\x48\x63\x34\x47\x4f\x4c\x4a\x55\x73\x62\x75\x31\x52\x33\x59\x43" \
+      b"\x73\x37\x32\x48\x59\x4e\x32\x35\x3a\x6f\x4e\x70\x68\x00\x00\x00" \
+      b"\xc0\x57\x00\x04\x00\x00\x03\xe7\x80\x2a\x00\x08\xa6\x96\x81\x9e" \
+      b"\x91\xc9\x37\xda\x00\x25\x00\x00\x00\x24\x00\x04\x6e\x00\x1e\xff" \
+      b"\x00\x08\x00\x14\xc1\x87\xaa\xfa\xb1\xe0\xf3\x12\x31\x43\x3a\xb1" \
+      b"\x4d\x67\x6b\xc7\xb9\x89\xbd\x5f\x80\x28\x00\x04\xc9\x56\x6c\xfc"
+
+parsed = STUN(raw)
+assert parsed.RESERVED == 0x00, parsed.RESERVED
+assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding request"
+assert parsed.length == 108
+assert parsed.magic_cookie == 0x2112A442
+assert parsed.transaction_id == 0x3479476534635936316a796a
+assert parsed.attributes == [
+      STUNUsername(length=37, username='Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25:oNph'),
+      STUNGoogNetworkInfo(),
+      STUNIceControlling(tie_breaker=0xa696819e91c937da),
+      STUNUseCandidate(),
+      STUNPriority(priority=1845501695),
+      STUNMessageIntegrity(hmac_sha1=0x5fbd89b9c76b674db13a433112f3e0b1faaa87c1),
+      STUNFingerprint(crc_32=0xc9566cfc)
+
+]
+
+= test STUN binding success response 1
+
+raw = b"\x01\x01\x00\x2c\x21\x12\xa4\x42\xcf\xac\xb2\xa4\x3a\xa2\xde\x5a" \
+      b"\x9d\x56\xd8\x5a\x00\x20\x00\x08\x00\x01\xbf\x32\x8d\x06\xa4\x68" \
+      b"\x00\x08\x00\x14\xb7\x1f\xc9\x23\x58\x97\xc8\x02\xe3\xff\xf8\xe3" \
+      b"\xd8\x89\xfa\x41\x42\x8d\x96\x7d\x80\x28\x00\x04\xea\x9b\x65\x59"
+
+parsed = STUN(raw)
+assert parsed.RESERVED == 0x00, parsed.RESERVED
+assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding success response"
+assert parsed.length == 44
+assert parsed.magic_cookie == 0x2112A442
+assert parsed.transaction_id == 0xcfacb2a43aa2de5a9d56d85a, parsed.transaction_id
+assert parsed.attributes == [
+      STUNXorMappedAddress(xport=40480, xip="172.20.0.42"),
+      STUNMessageIntegrity(hmac_sha1=0x7d968d4241fa89d8e3f8ffe302c8975823c91fb7),
+      STUNFingerprint(crc_32=0xea9b6559)
+]
+
+= test STUN binding success response 2
+
+raw = b"\x01\x01\x00\x58\x21\x12\xa4\x42\x34\x79\x47\x65\x34\x63\x59\x36" \
+      b"\x31\x6a\x79\x6a\x00\x20\x00\x08\x00\x01\x40\xba\x8d\x06\xa4\x8a" \
+      b"\x00\x06\x00\x25\x48\x74\x31\x31\x4d\x61\x52\x5a\x48\x63\x34\x47" \
+      b"\x4f\x4c\x4a\x55\x73\x62\x75\x31\x52\x33\x59\x43\x73\x37\x32\x48" \
+      b"\x59\x4e\x32\x35\x3a\x6f\x4e\x70\x68\x20\x20\x20\x00\x08\x00\x14" \
+      b"\x4b\x67\x03\x6d\xfb\x65\xca\x84\xd6\x3b\xca\xc8\x6c\x8d\x59\x81" \
+      b"\xdf\x65\x70\x31\x80\x28\x00\x04\x40\x41\xe9\xc3"
+
+parsed = STUN(raw)
+assert parsed.RESERVED == 0x00, parsed.RESERVED
+assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding success response"
+assert parsed.length == 88
+assert parsed.magic_cookie == 0x2112A442
+assert parsed.transaction_id == 0x3479476534635936316a796a, parsed.transaction_id
+assert parsed.attributes[0] == STUNXorMappedAddress(xport=25000, xip="172.20.0.200"), parsed.attributes
+assert parsed.attributes == [
+      STUNXorMappedAddress(xport=25000, xip="172.20.0.200"),
+      STUNUsername(length=37, username="Ht11MaRZHc4GOLJUsbu1R3YCs72HYN25:oNph"),
+      STUNMessageIntegrity(hmac_sha1=0x317065df81598d6cc8ca3bd684ca65fb6d03674b),
+      STUNFingerprint(crc_32=0x4041e9c3)
+]
+
+= test STUN binding indication 1
+
+raw = b"\x00\x11\x00\x08\x21\x12\xa4\x42\x29\x3d\x68\x7b\x0f\xbc\x44\x7c" \
+      b"\x01\xb5\x8d\x2e\x80\x28\x00\x04\xc8\x84\xfe\x99"
+
+parsed = STUN(raw)
+assert parsed.RESERVED == 0x00, parsed.RESERVED
+assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding indication"
+assert parsed.length == 8
+assert parsed.magic_cookie == 0x2112A442
+assert parsed.transaction_id == 0x293d687b0fbc447c01b58d2e, parsed.transaction_id
+assert parsed.attributes == [
+      STUNFingerprint(crc_32=0xc884fe99)
+]
+
+= test STUN binding indication 2
+
+raw = b"\x00\x11\x00\x08\x21\x12\xa4\x42\x1d\x93\x57\xa1\xe9\x4a\x20\x51" \
+      b"\x27\x19\x96\xd9\x80\x28\x00\x04\x53\x80\x0d\x81"
+
+parsed = STUN(raw)
+assert parsed.RESERVED == 0x00, parsed.RESERVED
+assert STUN.stun_message_type.i2repr(None, parsed.stun_message_type) == "Binding indication"
+assert parsed.length == 8
+assert parsed.magic_cookie == 0x2112A442
+assert parsed.transaction_id == 0x1d9357a1e94a2051271996d9, parsed.transaction_id
+assert parsed.attributes == [
+      STUNFingerprint(crc_32=0x53800d81)
+]

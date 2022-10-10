@@ -1,24 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = HSFZ - BMW High-Speed-Fahrzeug-Zugang
 # scapy.contrib.status = loads
-
-
+import logging
 import struct
 import socket
 import time
 
 from scapy.compat import Optional, Tuple, Type, Iterable, List, Union
+from scapy.contrib.automotive import log_automotive
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import IntField, ShortEnumField, XByteField
 from scapy.layers.inet import TCP
 from scapy.supersocket import StreamSocket
 from scapy.contrib.automotive.uds import UDS, UDS_TP
 from scapy.data import MTU
-from scapy.error import log_interactive
 
 
 """
@@ -109,7 +108,7 @@ class UDS_HSFZSocket(HSFZSocket):
             # in the send part. This means, a caller of the SndRcvHandler
             # can not detect if an error occurred. This workaround closes
             # the socket if a send error was detected.
-            log_interactive.error("Exception: %s", e)
+            log_automotive.exception("Exception: %s", e)
             self.close()
             return 0
 
@@ -142,6 +141,8 @@ def hsfz_scan(ip,  # type: str
     :param verbose: Show information during scan, if True
     :return: A list of open UDS_HSFZSockets
     """
+    if verbose:
+        log_automotive.setLevel(logging.DEBUG)
     results = list()
     for i in scan_range:
         with UDS_HSFZSocket(src, i, ip) as sock:
@@ -151,9 +152,10 @@ def hsfz_scan(ip,  # type: str
                                 verbose=False)
                 if resp:
                     results.append((i, resp))
-                if resp and verbose:
-                    print(
+                if resp:
+                    log_automotive.debug(
                         "Found endpoint %s, src=0x%x, dst=0x%x" % (ip, src, i))
             except Exception as e:
-                print("Error %s at destination address 0x%x" % (e, i))
+                log_automotive.exception(
+                    "Error %s at destination address 0x%x" % (e, i))
     return [UDS_HSFZSocket(0xf4, dst, ip) for dst, _ in results]

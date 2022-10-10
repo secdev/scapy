@@ -1,22 +1,23 @@
-##########################################################################
-#
-#       Diameter protocol implementation for Scapy
-#   Original Author: patrick battistello
-#
-#   This implements the base Diameter protocol RFC6733 and the additional standards:  # noqa: E501
-#     RFC7155, RFC4004, RFC4006, RFC4072, RFC4740, RFC5778, RFC5447, RFC6942, RFC5777  # noqa: E501
-#     ETS29229 V12.3.0 (2014-09), ETS29272 V13.1.0 (2015-03), ETS29329 V12.5.0 (2014-12),  # noqa: E501
-#     ETS29212 V13.1.0 (2015-03), ETS32299 V13.0.0 (2015-03), ETS29210 V6.7.0 (2006-12),  # noqa: E501
-#     ETS29214 V13.1.0 (2015-03), ETS29273 V12.7.0 (2015-03), ETS29173 V12.3.0 (2015-03),  # noqa: E501
-#     ETS29172 V12.5.0 (2015-03), ETS29215 V13.1.0 (2015-03), ETS29209 V6.8.0 (2011-09),  # noqa: E501
-#     ETS29061 V13.0.0 (2015-03), ETS29219 V13.0.0 (2014-12)
-#
-#       IMPORTANT note:
-#
-#           - Some Diameter fields (Unsigned64, Float32, ...) have not been tested yet due to lack  # noqa: E501
-#               of network captures containing AVPs of that types contributions are welcomed.  # noqa: E501
-#
-##########################################################################
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Acknowledgment: Patrick Battistello
+
+"""
+Diameter protocol implementation for Scapy
+
+This implements the base Diameter protocol RFC6733 and the additional standards:  # noqa: E501
+    RFC7155, RFC4004, RFC4006, RFC4072, RFC4740, RFC5778, RFC5447, RFC6942, RFC5777  # noqa: E501
+    ETS29229 V12.3.0 (2014-09), ETS29272 V13.1.0 (2015-03), ETS29329 V12.5.0 (2014-12),  # noqa: E501
+    ETS29212 V13.1.0 (2015-03), ETS32299 V13.0.0 (2015-03), ETS29210 V6.7.0 (2006-12),  # noqa: E501
+    ETS29214 V13.1.0 (2015-03), ETS29273 V12.7.0 (2015-03), ETS29173 V12.3.0 (2015-03),  # noqa: E501
+    ETS29172 V12.5.0 (2015-03), ETS29215 V13.1.0 (2015-03), ETS29209 V6.8.0 (2011-09),  # noqa: E501
+    ETS29061 V13.0.0 (2015-03), ETS29219 V13.0.0 (2014-12)
+
+IMPORTANT note:
+    - Some Diameter fields (Unsigned64, Float32, ...) have not been tested yet due to lack  # noqa: E501
+        of network captures containing AVPs of that types contributions are welcomed.  # noqa: E501
+"""
 
 # scapy.contrib.description = Diameter
 # scapy.contrib.status = loads
@@ -4787,7 +4788,7 @@ def getCmdParams(cmd, request, **fields):
                     found = True
                     break
             if not found:
-                del(fields['drAppId'])
+                del fields['drAppId']
                 warning(
                     'Application ID with name %s not found in AppIDsEnum dictionary.' %  # noqa: E501
                     val)

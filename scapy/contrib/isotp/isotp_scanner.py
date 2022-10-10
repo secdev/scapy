@@ -1,13 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
 # Copyright (C) Alexander Schroeder <alexander1.schroeder@st.othr.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = ISO-TP (ISO 15765-2) Scanner Utility
 # scapy.contrib.status = library
-
+import logging
 import time
+
+from threading import Event
 
 from scapy.compat import Iterable, Optional, Union, List, Tuple, Dict
 from scapy.packet import Packet
@@ -17,6 +19,9 @@ from scapy.supersocket import SuperSocket
 from scapy.contrib.cansocket import PYTHON_CAN
 from scapy.contrib.isotp.isotp_packet import ISOTPHeader, ISOTPHeaderEA, \
     ISOTP_FF, ISOTP
+
+
+log_isotp = logging.getLogger("scapy.contrib.isotp")
 
 
 def send_multiple_ext(sock, ext_id, packet, number_of_packets):
@@ -65,15 +70,14 @@ def get_isotp_packet(identifier=0x0, extended=False, extended_can_id=False):
     return pkt
 
 
-def filter_periodic_packets(packet_dict, verbose=False):
-    # type: (Dict[int, Tuple[Packet, int]], bool) -> None
+def filter_periodic_packets(packet_dict):
+    # type: (Dict[int, Tuple[Packet, int]]) -> None
     """Filter to remove periodic packets from packet_dict
 
     ISOTP-Filter for periodic packets (same ID, always same time-gaps)
     Deletes periodic packets in packet_dict
 
     :param packet_dict: Dictionary, where the filter is applied
-    :param verbose: Displays further information
     """
     filter_dict = {}  # type: Dict[int, Tuple[List[int], List[Packet]]]
 
@@ -95,9 +99,8 @@ def filter_periodic_packets(packet_dict, verbose=False):
         tg = [float(p1.time) - float(p2.time)
               for p1, p2 in zip(pkt_lst[1:], pkt_lst[:-1])]
         if all(abs(t1 - t2) < 0.001 for t1, t2 in zip(tg[1:], tg[:-1])):
-            if verbose:
-                print("[i] Identifier 0x%03x seems to be periodic. "
-                      "Filtered.")
+            log_isotp.info(
+                "[i] Identifier 0x%03x seems to be periodic. Filtered.")
             for k in key_lst:
                 del packet_dict[k]
 
@@ -108,7 +111,6 @@ def get_isotp_fc(
         noise_ids,  # type: Optional[List[int]]
         extended,  # type: bool
         packet,  # type: Packet
-        verbose=False  # type: bool
 ):
     # type: (...) -> None
     """Callback for sniff function when packet received
@@ -122,7 +124,6 @@ def get_isotp_fc(
                       received during scan
     :param extended: boolean if extended scan
     :param packet: received packet
-    :param verbose: displays information during scan
     """
     if packet.flags and packet.flags != "extended":
         return
@@ -135,10 +136,9 @@ def get_isotp_fc(
         isotp_pci = orb(packet.data[index]) >> 4
         isotp_fc = orb(packet.data[index]) & 0x0f
         if isotp_pci == 3 and 0 <= isotp_fc <= 2:
-            if verbose:
-                print("[+] Found flow-control frame from identifier 0x%03x"
-                      " when testing identifier 0x%03x" %
-                      (packet.identifier, id_value))
+            log_isotp.info("Found flow-control frame from identifier "
+                           "0x%03x when testing identifier 0x%03x",
+                           packet.identifier, id_value)
             if isinstance(id_list, dict):
                 id_list[id_value] = (packet, packet.identifier)
             elif isinstance(id_list, list):
@@ -149,8 +149,9 @@ def get_isotp_fc(
             if noise_ids is not None:
                 noise_ids.append(packet.identifier)
     except Exception as e:
-        print("[!] Unknown message Exception: %s on packet: %s" %
-              (e, repr(packet)))
+        log_isotp.exception(
+            "Unknown message Exception: %s on packet: %s",
+            e, repr(packet))
 
 
 def scan(sock,  # type: SuperSocket
@@ -159,7 +160,7 @@ def scan(sock,  # type: SuperSocket
          sniff_time=0.1,  # type: float
          extended_can_id=False,  # type: bool
          verify_results=True,  # type: bool
-         verbose=False  # type: bool
+         stop_event=None  # type: Optional[Event]
          ):  # type: (...) -> Dict[int, Tuple[Packet, int]]
     """Scan and return dictionary of detections
 
@@ -175,17 +176,18 @@ def scan(sock,  # type: SuperSocket
     :param extended_can_id: Send extended can frames
     :param verify_results: Verify scan results. This will cause a second scan
                            of all possible candidates for ISOTP Sockets
-    :param verbose: displays information during scan
+    :param stop_event: Event object to asynchronously stop the scan
     :return: Dictionary with all found packets
     """
     return_values = dict()  # type: Dict[int, Tuple[Packet, int]]
     for value in scan_range:
+        if stop_event is not None and stop_event.is_set():
+            break
         if noise_ids and value in noise_ids:
             continue
         sock.send(get_isotp_packet(value, False, extended_can_id))
         sock.sniff(prn=lambda pkt: get_isotp_fc(value, return_values,
-                                                noise_ids, False, pkt,
-                                                verbose),
+                                                noise_ids, False, pkt),
                    timeout=sniff_time, store=False)
 
     if not verify_results:
@@ -193,11 +195,14 @@ def scan(sock,  # type: SuperSocket
 
     cleaned_ret_val = dict()  # type: Dict[int, Tuple[Packet, int]]
     for tested_id in return_values.keys():
+        if stop_event is not None and stop_event.is_set():
+            break
         for value in range(max(0, tested_id - 2), tested_id + 2, 1):
+            if stop_event is not None and stop_event.is_set():
+                break
             sock.send(get_isotp_packet(value, False, extended_can_id))
             sock.sniff(prn=lambda pkt: get_isotp_fc(value, cleaned_ret_val,
-                                                    noise_ids, False, pkt,
-                                                    verbose),
+                                                    noise_ids, False, pkt),
                        timeout=sniff_time * 10, store=False)
 
     return cleaned_ret_val
@@ -210,7 +215,7 @@ def scan_extended(sock,  # type: SuperSocket
                   noise_ids=None,  # type: Optional[List[int]]
                   sniff_time=0.1,  # type: float
                   extended_can_id=False,  # type: bool
-                  verbose=False  # type: bool
+                  stop_event=None  # type: Optional[Event]
                   ):  # type: (...) -> Dict[int, Tuple[Packet, int]]
     """Scan with ISOTP extended addresses and return dictionary of detections
 
@@ -227,7 +232,7 @@ def scan_extended(sock,  # type: SuperSocket
     :param sniff_time: time the scan waits for isotp flow control responses
                        after sending a first frame
     :param extended_can_id: Send extended can frames
-    :param verbose: displays information during scan
+    :param stop_event: Event object to asynchronously stop the scan
     :return: Dictionary with all found packets
     """
     return_values = dict()  # type: Dict[int, Tuple[Packet, int]]
@@ -242,10 +247,11 @@ def scan_extended(sock,  # type: SuperSocket
         id_list = []  # type: List[int]
         r = list(extended_scan_range)
         for ext_isotp_id in range(r[0], r[-1], scan_block_size):
+            if stop_event is not None and stop_event.is_set():
+                break
             send_multiple_ext(sock, ext_isotp_id, pkt, scan_block_size)
             sock.sniff(prn=lambda p: get_isotp_fc(ext_isotp_id, id_list,
-                                                  noise_ids, True, p,
-                                                  verbose),
+                                                  noise_ids, True, p),
                        timeout=sniff_time * 3, store=False)
             # sleep to prevent flooding
             time.sleep(sniff_time)
@@ -253,15 +259,19 @@ def scan_extended(sock,  # type: SuperSocket
         # remove duplicate IDs
         id_list = list(set(id_list))
         for ext_isotp_id in id_list:
+            if stop_event is not None and stop_event.is_set():
+                break
             for ext_id in range(max(ext_isotp_id - 2, 0),
                                 min(ext_isotp_id + scan_block_size + 2, 256)):
+                if stop_event is not None and stop_event.is_set():
+                    break
                 pkt.extended_address = ext_id
                 full_id = (value << 8) + ext_id
                 sock.send(pkt)
                 sock.sniff(prn=lambda pkt: get_isotp_fc(full_id,
                                                         return_values,
                                                         noise_ids, True,
-                                                        pkt, verbose),
+                                                        pkt),
                            timeout=sniff_time * 2, store=False)
 
     return return_values
@@ -277,7 +287,8 @@ def isotp_scan(sock,  # type: SuperSocket
                can_interface=None,  # type: Optional[str]
                extended_can_id=False,  # type: bool
                verify_results=True,  # type: bool
-               verbose=False  # type: bool
+               verbose=False,  # type: bool
+               stop_event=None  # type: Optional[Event]
                ):
     # type: (...) -> Union[str, List[SuperSocket]]
     """Scan for ISOTP Sockets on a bus and return findings
@@ -306,19 +317,22 @@ def isotp_scan(sock,  # type: SuperSocket
     :param verify_results: Verify scan results. This will cause a second scan
                            of all possible candidates for ISOTP Sockets
     :param verbose: displays information during scan
+    :param stop_event: Event object to asynchronously stop the scan
     :return:
     """
     if verbose:
-        print("Filtering background noise...")
+        log_isotp.setLevel(logging.DEBUG)
+
+    log_isotp.info("Filtering background noise...")
 
     # Send dummy packet. In most cases, this triggers activity on the bus.
 
     dummy_pkt = CAN(identifier=0x123,
                     data=b'\xaa\xbb\xcc\xdd\xee\xff\xaa\xbb')
 
-    background_pkts = sock.sniff(timeout=noise_listen_time,
-                                 started_callback=lambda:
-                                 sock.send(dummy_pkt))
+    background_pkts = sock.sniff(
+        timeout=noise_listen_time,
+        started_callback=lambda: sock.send(dummy_pkt))
 
     noise_ids = list(set(pkt.identifier for pkt in background_pkts))
 
@@ -328,16 +342,16 @@ def isotp_scan(sock,  # type: SuperSocket
                                       noise_ids=noise_ids,
                                       sniff_time=sniff_time,
                                       extended_can_id=extended_can_id,
-                                      verbose=verbose)
+                                      stop_event=stop_event)
     else:
         found_packets = scan(sock, scan_range,
                              noise_ids=noise_ids,
                              sniff_time=sniff_time,
                              extended_can_id=extended_can_id,
                              verify_results=verify_results,
-                             verbose=verbose)
+                             stop_event=stop_event)
 
-    filter_periodic_packets(found_packets, verbose)
+    filter_periodic_packets(found_packets)
 
     if output_format == "text":
         return generate_text_output(found_packets, extended_addressing)

@@ -21,8 +21,8 @@ def test_am(cls_name, packet_query, check_reply, mock_sniff, **kargs):
 
 = BOOT_am
 def check_BOOTP_am_reply(packet):
-    assert(BOOTP in packet and packet[BOOTP].op == 2)
-    assert(packet[BOOTP].yiaddr == "192.168.1.128" and packet[BOOTP].giaddr == "192.168.1.1")
+    assert BOOTP in packet and packet[BOOTP].op == 2
+    assert packet[BOOTP].yiaddr == "192.168.1.128" and packet[BOOTP].giaddr == "192.168.1.1"
 
 test_am(BOOTP_am,
         Ether()/IP()/UDP()/BOOTP(op=1),
@@ -31,8 +31,8 @@ test_am(BOOTP_am,
 
 = DHCP_am
 def check_DHCP_am_reply(packet):
-    assert(DHCP in packet and len(packet[DHCP].options))
-    assert(("domain", "localnet") in packet[DHCP].options)
+    assert DHCP in packet and len(packet[DHCP].options)
+    assert ("domain", "localnet") in packet[DHCP].options
 
 test_am(DHCP_am,
         Ether()/IP()/UDP()/BOOTP(op=1)/DHCP(),
@@ -41,8 +41,8 @@ test_am(DHCP_am,
 
 = ARP_am
 def check_ARP_am_reply(packet):
-    assert(ARP in packet and packet[ARP].psrc == "10.28.7.1")
-    assert(packet[ARP].hwsrc == "00:01:02:03:04:05")
+    assert ARP in packet and packet[ARP].psrc == "10.28.7.1"
+    assert packet[ARP].hwsrc == "00:01:02:03:04:05"
 
 test_am(ARP_am,
         Ether()/ARP(pdst="10.28.7.1"),
@@ -50,15 +50,26 @@ test_am(ARP_am,
         IP_addr="10.28.7.1",
         ARP_addr="00:01:02:03:04:05")
 
+= ICMPEcho_am
+def check_ICMP_am_reply(packet):
+    packet.show()
+    assert IP in packet and ICMP in packet
+    assert packet[IP].dst == "1.1.1.1"
+    assert packet[ICMP].seq == 12
+
+test_am(ICMPEcho_am,
+        Ether()/IP(src="1.1.1.1", dst="2.2.2.2")/ICMP(seq=12),
+        check_ICMP_am_reply)
 
 = DNS_am
 def check_DNS_am_reply(packet):
-    assert(DNS in packet and packet[DNS].ancount == 1)
-    assert(packet[DNS].an.rdata == "192.168.1.1")
+    assert DNS in packet and packet[DNS].ancount == 1
+    assert packet[DNS].an.rdata == "192.168.1.1"
 
 test_am(DNS_am,
         IP()/UDP()/DNS(qd=DNSQR(qname="www.secdev.org")),
-        check_DNS_am_reply)
+        check_DNS_am_reply,
+        joker="192.168.1.1")
 
 = DHCPv6_am - Basic Instantiaion
 ~ osx netaccess
@@ -116,8 +127,8 @@ def test_WiFi_am(packet_query, check_reply, mock_sniff, **kargs):
     am()
 
 def check_WiFi_am_reply(packet):
-    assert(isinstance(packet, list) and len(packet) == 2)
-    assert(TCP in packet[0] and Raw in packet[0] and raw(packet[0][Raw]) == b"5c4pY")
+    assert isinstance(packet, list) and len(packet) == 2
+    assert TCP in packet[0] and Raw in packet[0] and raw(packet[0][Raw]) == b"5c4pY"
 
 test_WiFi_am(Dot11(FCfield="to-DS")/IP()/TCP()/"Scapy",
              check_WiFi_am_reply,

@@ -1,21 +1,21 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Andreas Korb <andreas.d.korb@gmail.com>
 # Copyright (C) Nils Weiss <nils@we155.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = On Board Diagnostic Protocol (OBD-II)
 # scapy.contrib.status = loads
 
 import struct
 
+from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.obd.iid.iids import *
 from scapy.contrib.automotive.obd.mid.mids import *
 from scapy.contrib.automotive.obd.pid.pids import *
 from scapy.contrib.automotive.obd.tid.tids import *
 from scapy.contrib.automotive.obd.services import *
 from scapy.packet import bind_layers, NoPayload
-from scapy.error import log_loading
 from scapy.config import conf
 from scapy.fields import XByteEnumField
 from scapy.contrib.isotp import ISOTP
@@ -24,11 +24,11 @@ try:
     if conf.contribs['OBD']['treat-response-pending-as-answer']:
         pass
 except KeyError:
-    log_loading.info("Specify \"conf.contribs['OBD'] = "
-                     "{'treat-response-pending-as-answer': True}\" to treat "
-                     "a negative response 'requestCorrectlyReceived-"
-                     "ResponsePending' as answer of a request. \n"
-                     "The default value is False.")
+    log_automotive.info("Specify \"conf.contribs['OBD'] = "
+                        "{'treat-response-pending-as-answer': True}\" to treat "
+                        "a negative response 'requestCorrectlyReceived-"
+                        "ResponsePending' as answer of a request. \n"
+                        "The default value is False.")
     conf.contribs['OBD'] = {'treat-response-pending-as-answer': False}
 
 

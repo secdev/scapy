@@ -1,10 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) 2019 Gabriel Potter <gabriel@potter.fr>
+# See https://scapy.net/ for more information
 # Copyright (C) 2012 Luca Invernizzi <invernizzi.l@gmail.com>
 # Copyright (C) 2012 Steeve Barbeau <http://www.sbarbeau.fr>
-
-# This program is published under a GPLv2 license
+# Copyright (C) 2019 Gabriel Potter <gabriel[]potter[]fr>
 
 """
 HTTP 1.0 layer.
@@ -39,7 +38,6 @@ You can turn auto-decompression/auto-compression off with:
 # This file is a modified version of the former scapy_http plugin.
 # It was reimplemented for scapy 2.4.3+ using sessions, stream handling.
 # Original Authors : Steeve Barbeau, Luca Invernizzi
-# Originally published under a GPLv2 license
 
 import io
 import os
@@ -580,7 +578,7 @@ class HTTP(Packet):
 
     # tcp_reassemble is used by TCPSession in session.py
     @classmethod
-    def tcp_reassemble(cls, data, metadata):
+    def tcp_reassemble(cls, data, metadata, _):
         detect_end = metadata.get("detect_end", None)
         is_unknown = metadata.get("detect_unknown", True)
         if not detect_end or is_unknown:
@@ -706,7 +704,7 @@ def http_request(host, path="/", port=80, timeout=3,
         iptables_rule = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
         if iptables:
             host = str(Net(host))
-            assert(os.system(iptables_rule % ('A', host)) == 0)
+            assert os.system(iptables_rule % ('A', host)) == 0
         sock = TCP_client.tcplink(HTTP, host, port, debug=verbose,
                                   iface=iface)
     else:
@@ -726,7 +724,7 @@ def http_request(host, path="/", port=80, timeout=3,
         sock.close()
         if raw and iptables:
             host = str(Net(host))
-            assert(os.system(iptables_rule % ('D', host)) == 0)
+            assert os.system(iptables_rule % ('D', host)) == 0
     if ans:
         if display:
             if Raw not in ans:

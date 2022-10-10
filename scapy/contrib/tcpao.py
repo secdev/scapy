@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Leonard Crestez <cdleonard@gmail.com>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = TCP-AO Signature Calculation
 # scapy.contrib.status = loads

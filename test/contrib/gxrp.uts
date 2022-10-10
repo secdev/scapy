@@ -1,0 +1,137 @@
+# GXRP unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('gxrp')" -t test/contrib/gxrp.uts
+
++ GVRP test
+
+= Construction test
+
+pkt = GVRP(vlan=2)
+assert pkt.vlan == 2
+assert pkt == GVRP(raw(pkt))
+
++ GMRP test
+
+= GMRP_GROUP Construction test
+
+pkt = GMRP_GROUP(addr="01:23:45:67:89:00")
+assert pkt.addr == "01:23:45:67:89:00"
+assert pkt == GMRP_GROUP(raw(pkt))
+
+= GMRP_SERVICE Construction test
+
+pkt = GMRP_SERVICE(event="All Groups")
+assert pkt.event == 0
+pkt = GMRP_SERVICE(event="All Unregistered Groups")
+assert pkt.event == 1
+assert pkt == GMRP_SERVICE(raw(pkt))
+
++ GARP Attribute test
+
+= GMRP_GROUP Construction test
+
+pkt = GARP_ATTRIBUTE(event='LeaveAll')
+assert pkt.event == 0
+assert GARP_ATTRIBUTE(pkt.build()).len == 2
+assert len(pkt.build()) == 2
+pkt = GARP_ATTRIBUTE(event='JoinEmpty')/GVRP()
+assert pkt.event == 1
+assert GARP_ATTRIBUTE(pkt.build()).len == 4
+assert len(pkt.build()) == 4
+pkt = GARP_ATTRIBUTE(event='JoinIn')/GVRP()
+assert pkt.event == 2
+assert GARP_ATTRIBUTE(pkt.build()).len == 4
+assert len(pkt.build()) == 4
+pkt = GARP_ATTRIBUTE(event='LeaveEmpty')/GVRP()
+assert pkt.event == 3
+assert GARP_ATTRIBUTE(pkt.build()).len == 4
+assert len(pkt.build()) == 4
+pkt = GARP_ATTRIBUTE(event='LeaveIn')/GVRP()
+assert pkt.event == 4
+assert GARP_ATTRIBUTE(pkt.build()).len == 4
+assert len(pkt.build()) == 4
+pkt = GARP_ATTRIBUTE(event='Empty')/GVRP()
+assert pkt.event == 5
+assert GARP_ATTRIBUTE(pkt.build()).len == 4
+assert len(pkt.build()) == 4
+pkt = GARP_ATTRIBUTE(event='JoinEmpty')/GVRP()
+del pkt.payload
+assert pkt == GARP_ATTRIBUTE(event='JoinEmpty')
+assert GARP_ATTRIBUTE(raw(pkt)) == GARP_ATTRIBUTE(raw(GARP_ATTRIBUTE(event='JoinEmpty')))
+assert len(pkt.build()) == 2
+
+= GVRP Stacking test
+
+pkt = Dot3(dst="01:80:c2:00:00:21")/LLC_GARP(dsap=0x42, ssap=0x42, ctrl=3)/GARP(
+    msgs=[GARP_MESSAGE(attrs=[GARP_ATTRIBUTE(event='JoinIn')/GVRP(vlan=1),
+                              GARP_ATTRIBUTE(event='JoinIn')/GVRP(vlan=2)]),
+          GARP_MESSAGE(attrs=[GARP_ATTRIBUTE(event='JoinIn')/GVRP(vlan=3),
+                              GARP_ATTRIBUTE(event='JoinIn')/GVRP(vlan=4)])])
+assert pkt.getlayer(GARP_MESSAGE, 1).getlayer(GARP_ATTRIBUTE, 1)[GVRP].vlan == 1
+assert pkt.getlayer(GARP_MESSAGE, 1).getlayer(GARP_ATTRIBUTE, 2)[GVRP].vlan == 2
+assert pkt.getlayer(GARP_MESSAGE, 2).getlayer(GARP_ATTRIBUTE, 1)[GVRP].vlan == 3
+assert pkt.getlayer(GARP_MESSAGE, 2).getlayer(GARP_ATTRIBUTE, 2)[GVRP].vlan == 4
+pkt = Dot3(pkt.build())
+assert pkt.getlayer(GARP_MESSAGE, 1).getlayer(GARP_ATTRIBUTE, 1)[GVRP].vlan == 1
+assert pkt.getlayer(GARP_MESSAGE, 1).getlayer(GARP_ATTRIBUTE, 2)[GVRP].vlan == 2
+assert pkt.getlayer(GARP_MESSAGE, 2).getlayer(GARP_ATTRIBUTE, 1)[GVRP].vlan == 3
+assert pkt.getlayer(GARP_MESSAGE, 2).getlayer(GARP_ATTRIBUTE, 2)[GVRP].vlan == 4
+
+= GMRP Stacking test
+
+pkt = Dot3(dst="01:80:c2:00:00:20")/LLC_GARP(dsap=0x42, ssap=0x42, ctrl=3)/GARP(
+    msgs=[GARP_MESSAGE(type = 1, attrs=[GARP_ATTRIBUTE(event='JoinIn')/GMRP_GROUP(addr="00:00:00:00:00:01"),
+                                        GARP_ATTRIBUTE(event='JoinIn')/GMRP_GROUP(addr="00:00:00:00:00:02")]),
+          GARP_MESSAGE(type = 2, attrs=[GARP_ATTRIBUTE(event='JoinIn')/GMRP_SERVICE(event="All Groups"),
+                                        GARP_ATTRIBUTE(event='JoinIn')/GMRP_SERVICE(event="All Unregistered Groups")])])
+assert pkt.getlayer(GARP_MESSAGE, 1).getlayer(GARP_ATTRIBUTE, 1)[GMRP_GROUP].addr == "00:00:00:00:00:01"
+assert pkt.getlayer(GARP_MESSAGE, 1).getlayer(GARP_ATTRIBUTE, 2)[GMRP_GROUP].addr == "00:00:00:00:00:02"
+assert pkt.getlayer(GARP_MESSAGE, 2).getlayer(GARP_ATTRIBUTE, 1)[GMRP_SERVICE].event == 0
+assert pkt.getlayer(GARP_MESSAGE, 2).getlayer(GARP_ATTRIBUTE, 2)[GMRP_SERVICE].event == 1
+pkt = Dot3(pkt.build())
+assert pkt.getlayer(GARP_MESSAGE, 1).getlayer(GARP_ATTRIBUTE, 1)[GMRP_GROUP].addr == "00:00:00:00:00:01"
+assert pkt.getlayer(GARP_MESSAGE, 1).getlayer(GARP_ATTRIBUTE, 2)[GMRP_GROUP].addr == "00:00:00:00:00:02"
+assert pkt.getlayer(GARP_MESSAGE, 2).getlayer(GARP_ATTRIBUTE, 1)[GMRP_SERVICE].event == 0
+assert pkt.getlayer(GARP_MESSAGE, 2).getlayer(GARP_ATTRIBUTE, 2)[GMRP_SERVICE].event == 1
+
+= GARP from pcap
+
+pkts = rdpcap(scapy_path("test/pcaps/gvrp.pcapng.gz"))
+for p in pkts:
+    if len(p[GARP_ATTRIBUTE].payload) > 0:
+        assert p[GVRP] is not None
+
+= GARP tshark check
+~ tshark
+
+import tempfile, os
+pkt = Dot3(dst="01:80:c2:00:00:21")/LLC_GARP(dsap=0x42, ssap=0x42, ctrl=3)/GARP(
+    msgs=[GARP_MESSAGE(attrs=[GARP_ATTRIBUTE(event='JoinIn')/GVRP(vlan=1),
+                              GARP_ATTRIBUTE(event='JoinIn')/GVRP(vlan=2)]),
+          GARP_MESSAGE(attrs=[GARP_ATTRIBUTE(event='JoinIn')/GVRP(vlan=3),
+                              GARP_ATTRIBUTE(event='JoinIn')/GVRP(vlan=4)])])
+
+fd, pcapfilename = tempfile.mkstemp()
+wrpcap(pcapfilename, pkt)
+rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'gvrp'], dump=True, wait=True)
+assert rv != b""
+os.close(fd)
+os.unlink(pcapfilename)
+
+= GARP tshark check
+~ tshark
+
+import tempfile, os
+pkt = Dot3(dst="01:80:c2:00:00:20")/LLC_GARP(dsap=0x42, ssap=0x42, ctrl=3)/GARP(
+    msgs=[GARP_MESSAGE(type = 1, attrs=[GARP_ATTRIBUTE(event='JoinIn')/GMRP_GROUP(addr="00:00:00:00:00:01"),
+                                        GARP_ATTRIBUTE(event='JoinIn')/GMRP_GROUP(addr="00:00:00:00:00:02")]),
+          GARP_MESSAGE(type = 2, attrs=[GARP_ATTRIBUTE(event='JoinIn')/GMRP_SERVICE(event="All Groups"),
+                                        GARP_ATTRIBUTE(event='JoinIn')/GMRP_SERVICE(event="All Unregistered Groups")])])
+
+fd, pcapfilename = tempfile.mkstemp()
+wrpcap(pcapfilename, pkt)
+rv = tcpdump(pcapfilename, prog=conf.prog.tshark, getfd=True, args=['-Y', 'gmrp'], dump=True, wait=True)
+assert rv != b""
+os.close(fd)
+os.unlink(pcapfilename)

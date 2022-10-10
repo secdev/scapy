@@ -17,6 +17,11 @@ def _test():
 
 dns_ans = retry_test(_test)
 
+= DNS labels
+~ DNS
+query = DNSQR(qname=b"www.secdev.org")
+assert query.qname == query.__class__(raw(query)).qname
+
 = DNS packet manipulation
 ~ netaccess needs_root IP UDP DNS
 dns_ans.show()
@@ -24,15 +29,15 @@ dns_ans.show2()
 dns_ans[DNS].an.show()
 dns_ans2 = IP(raw(dns_ans))
 DNS in dns_ans2
-assert(raw(dns_ans2) == raw(dns_ans))
+assert raw(dns_ans2) == raw(dns_ans)
 dns_ans2.qd.qname = "www.secdev.org."
 * We need to recalculate these values
-del(dns_ans2[IP].len)
-del(dns_ans2[IP].chksum)
-del(dns_ans2[UDP].len)
-del(dns_ans2[UDP].chksum)
-assert(b"\x03www\x06secdev\x03org\x00" in raw(dns_ans2))
-assert(DNS in IP(raw(dns_ans2)))
+del dns_ans2[IP].len
+del dns_ans2[IP].chksum
+del dns_ans2[UDP].len
+del dns_ans2[UDP].chksum
+assert b"\x03www\x06secdev\x03org\x00" in raw(dns_ans2)
+assert DNS in IP(raw(dns_ans2))
 assert raw(DNSRR(type='A', rdata='1.2.3.4')) == b'\x00\x00\x01\x00\x01\x00\x00\x00\x00\x00\x04\x01\x02\x03\x04'
 
 * DNS over UDP

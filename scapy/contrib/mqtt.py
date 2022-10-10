@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Santiago Hernandez Ramos <shramos@protonmail.com>
-# This program is published under GPLv2 license
 
 # scapy.contrib.description = Message Queuing Telemetry Transport (MQTT)
 # scapy.contrib.status = loads
@@ -192,8 +192,9 @@ class MQTTPublish(Packet):
                          lambda pkt: (pkt.underlayer.QOS == 1 or
                                       pkt.underlayer.QOS == 2)),
         StrLenField("value", "",
-                    length_from=lambda pkt: (pkt.underlayer.len -
-                                             pkt.length - 2)),
+                    length_from=lambda pkt: pkt.underlayer.len - pkt.length - 2
+                    if pkt.underlayer.QOS == 0 else
+                    pkt.underlayer.len - pkt.length - 4)
     ]
 
 

@@ -56,8 +56,8 @@ nlri.prefix == '2001:db8::/32'
 
 = BGP - Instantiation (Should be a KEEPALIVE)
 m = BGP()
-assert(raw(m) == b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04')
-assert(m.type == BGP.KEEPALIVE_TYPE)
+assert raw(m) == b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04'
+assert m.type == BGP.KEEPALIVE_TYPE
 
 = BGP - Instantiation with specific values (1)
 raw(BGP(type = 0)) == b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x00'
@@ -79,13 +79,13 @@ raw(BGP(type = 5)) == b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff
 
 = BGP - Basic dissection
 h = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04')
-assert(h.type == BGP.KEEPALIVE_TYPE)
-assert(h.len == 19)
+assert h.type == BGP.KEEPALIVE_TYPE
+assert h.len == 19
 
 = BGP - Dissection with specific values
 h = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x01')
-assert(h.type == BGP.OPEN_TYPE)
-assert(h.len == 19)
+assert h.type == BGP.OPEN_TYPE
+assert h.len == 19
 
 ############################### BGPKeepAlive  #################################
 + BGPKeepAlive class tests
@@ -110,7 +110,7 @@ raw(BGPCapability()) == b'\x00\x00'
 
 = BGPCapability - Instantiation with specific values (1)
 c = BGPCapability(code = 70)
-assert(raw(c) == b'F\x00')
+assert raw(c) == b'F\x00'
 
 = BGPCapability - Check exception
 from scapy.contrib.bgp import _BGPInvalidDataException
@@ -146,7 +146,7 @@ assert len(s) == 1
 
 = BGPCapMultiprotocol - Inheritance
 c = BGPCapMultiprotocol()
-assert(isinstance(c, BGPCapability))
+assert isinstance(c, BGPCapability)
 
 = BGPCapMultiprotocol - Instantiation
 raw(BGPCapMultiprotocol()) == b'\x01\x04\x00\x00\x00\x00'
@@ -159,11 +159,11 @@ raw(BGPCapMultiprotocol(afi = 2, safi = 1)) == b'\x01\x04\x00\x02\x00\x01'
 
 = BGPCapMultiprotocol - Dissection with specific values
 c = BGPCapMultiprotocol(b'\x01\x04\x00\x02\x00\x01')
-assert(c.code == 1)
-assert(c.length == 4)
-assert(c.afi == 2)
-assert(c.reserved == 0)
-assert(c.safi == 1)
+assert c.code == 1
+assert c.length == 4
+assert c.afi == 2
+assert c.reserved == 0
+assert c.safi == 1
 
 ############################### BGPCapORFBlock ###############################
 + BGPCapORFBlock class tests
@@ -209,7 +209,7 @@ c.orf_type == 64 and c.send_receive == 3
 
 = BGPCapORF - Inheritance
 c = BGPCapORF()
-assert(isinstance(c, BGPCapability))
+assert isinstance(c, BGPCapability)
 
 = BGPCapORF - Instantiation
 raw(BGPCapORF()) == b'\x03\x00'
@@ -230,7 +230,7 @@ c.code == 3 and c.orf[0].afi == 1 and c.orf[0].safi == 1 and c.orf[0].entries[0]
 
 = BGPCapORF - Dissection
 p = BGPCapORF(b'\x03\x07\x00\x01\x00\x01\x01@\x03')
-assert(len(p.orf) == 1)
+assert len(p.orf) == 1
 
 
 ####################### BGPCapGracefulRestart.GRTuple #########################
@@ -256,7 +256,7 @@ c.afi == 1 and c.safi == 1 and c.flags == 128
 
 = BGPCapGracefulRestart - Inheritance
 c = BGPCapGracefulRestart()
-assert(isinstance(c, BGPCapGracefulRestart))
+assert isinstance(c, BGPCapGracefulRestart)
 
 = BGPCapGracefulRestart - Instantiation
 raw(BGPCapGracefulRestart()) == b'@\x02\x00\x00'
@@ -287,7 +287,7 @@ c.code == 64 and c.restart_time == 120 and c.restart_flags == 0x8 and c.entries[
 
 = BGPCapFourBytesASN - Inheritance
 c = BGPCapFourBytesASN()
-assert(isinstance(c, BGPCapFourBytesASN))
+assert isinstance(c, BGPCapFourBytesASN)
 
 = BGPCapFourBytesASN - Instantiation
 raw(BGPCapFourBytesASN()) == b'A\x04\x00\x00\x00\x00'
@@ -377,18 +377,18 @@ raw(BGPOpen(my_as = 64503, bgp_id = "192.168.100.3", hold_time = 30, opt_params 
 
 = BGPOpen - Dissection with specific values (1)
 m = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00?\x01\x04\xfb\xf7\x00\x1e\xc0\xa8d\x03"\x02\x06\x01\x04\x00\x01\x00\x01\x02\x02\x80\x00\x02\x02\x02\x00\x02\x08@\x06\x00x\x00\x01\x01\x80\x02\x06A\x04\x00\x00\xfb\xf7')
-assert(BGPHeader in m and BGPOpen in m)
-assert(m.len == 63)
-assert(m.type == BGP.OPEN_TYPE)
-assert(m.version == 4)
-assert(m.my_as == 64503)
-assert(m.hold_time == 30)
-assert(m.bgp_id == "192.168.100.3")
-assert(m.opt_param_len == 34)
-assert(isinstance(m.opt_params[0].param_value, BGPCapMultiprotocol))
-assert(isinstance(m.opt_params[1].param_value, BGPCapability))
-assert(isinstance(m.opt_params[2].param_value, BGPCapability))
-assert(isinstance(m.opt_params[3].param_value, BGPCapGracefulRestart))
+assert BGPHeader in m and BGPOpen in m
+assert m.len == 63
+assert m.type == BGP.OPEN_TYPE
+assert m.version == 4
+assert m.my_as == 64503
+assert m.hold_time == 30
+assert m.bgp_id == "192.168.100.3"
+assert m.opt_param_len == 34
+assert isinstance(m.opt_params[0].param_value, BGPCapMultiprotocol)
+assert isinstance(m.opt_params[1].param_value, BGPCapability)
+assert isinstance(m.opt_params[2].param_value, BGPCapability)
+assert isinstance(m.opt_params[3].param_value, BGPCapGracefulRestart)
 
 = BGPOpen - Dissection with specific values (2) (followed by a KEEPALIVE)
 messages = b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00=\x01\x04\xfb\xf6\x00\xb4\xc0\xa8ze \x02\x06\x01\x04\x00\x01\x00\x01\x02\x06\x01\x04\x00\x02\x00\x01\x02\x02\x80\x00\x02\x02\x02\x00\x02\x06A\x04\x00\x00\xfb\xf6\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x13\x04'
@@ -397,11 +397,11 @@ raw(m) == b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00
 
 = BGPOpen - Dissection with specific values (3)
 m = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x8f\x01\x04\xfd\xe8\x00\xb4\n\xff\xff\x01r\x02\x06\x01\x04\x00\x01\x00\x84\x02\x06\x01\x04\x00\x19\x00A\x02\x06\x01\x04\x00\x02\x00\x02\x02\x06\x01\x04\x00\x01\x00\x02\x02\x06\x01\x04\x00\x02\x00\x80\x02\x06\x01\x04\x00\x01\x00\x80\x02\x06\x01\x04\x00\x01\x00B\x02\x06\x01\x04\x00\x02\x00\x01\x02\x06\x01\x04\x00\x02\x00\x04\x02\x06\x01\x04\x00\x01\x00\x01\x02\x06\x01\x04\x00\x01\x00\x04\x02\x02\x80\x00\x02\x02\x02\x00\x02\x04@\x02\x80x\x02\x02F\x00\x02\x06A\x04\x00\x00\xfd\xe8')
-assert(BGPHeader in m and BGPOpen in m)
+assert BGPHeader in m and BGPOpen in m
 
 = BGPOpen - Dissection with specific values (4)
 m = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x8f\x01\x04\xfd\xe8\x00\xb4\n\xff\xff\x02r\x02\x06\x01\x04\x00\x01\x00\x84\x02\x06\x01\x04\x00\x19\x00A\x02\x06\x01\x04\x00\x02\x00\x02\x02\x06\x01\x04\x00\x01\x00\x02\x02\x06\x01\x04\x00\x02\x00\x80\x02\x06\x01\x04\x00\x01\x00\x80\x02\x06\x01\x04\x00\x01\x00B\x02\x06\x01\x04\x00\x02\x00\x01\x02\x06\x01\x04\x00\x02\x00\x04\x02\x06\x01\x04\x00\x01\x00\x01\x02\x06\x01\x04\x00\x01\x00\x04\x02\x02\x80\x00\x02\x02\x02\x00\x02\x04@\x02\x00x\x02\x02F\x00\x02\x06A\x04\x00\x00\xfd\xe8')
-assert(BGPHeader in m and BGPOpen in m)
+assert BGPHeader in m and BGPOpen in m
 
 
 ################################# BGPPAOrigin #################################
@@ -642,40 +642,40 @@ raw(BGPUpdate()) == b'\x00\x00\x00\x00'
 = BGPUpdate - Dissection (1)
 bgp_module_conf.use_2_bytes_asn = True
 m = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x000\x02\x00\x19\x18\xc0\xa8\x96\x18\x07\x07\x07\x18\xc63d\x18\xc0\xa8\x01\x19\x06\x06\x06\x00\x18\xc0\xa8\x1a\x00\x00')
-assert(BGPHeader in m and BGPUpdate in m)
-assert(m.withdrawn_routes_len == 25)
-assert(m.withdrawn_routes[0].prefix == "192.168.150.0/24")
-assert(m.withdrawn_routes[5].prefix == "192.168.26.0/24")
-assert(m.path_attr_len == 0)
+assert BGPHeader in m and BGPUpdate in m
+assert m.withdrawn_routes_len == 25
+assert m.withdrawn_routes[0].prefix == "192.168.150.0/24"
+assert m.withdrawn_routes[5].prefix == "192.168.26.0/24"
+assert m.path_attr_len == 0
 
 = BGPUpdate - Behave like a NEW speaker (RFC 6793) - Dissection (2)
 bgp_module_conf.use_2_bytes_asn = False
 m = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00=\x02\x00\x00\x00"@\x01\x01\x00@\x02\x06\x02\x01\x00\x00\xfb\xfa@\x03\x04\xc0\xa8\x10\x06\x80\x04\x04\x00\x00\x00\x00\xc0\x08\x04\xff\xff\xff\x01\x18\xc0\xa8\x01')
-assert(BGPHeader in m and BGPUpdate in m)
-assert(m.path_attr[1].attribute.segments[0].segment_value == [64506])
-assert(m.path_attr[4].attribute.community == 0xFFFFFF01)
-assert(m.nlri[0].prefix == "192.168.1.0/24")
+assert BGPHeader in m and BGPUpdate in m
+assert m.path_attr[1].attribute.segments[0].segment_value == [64506]
+assert m.path_attr[4].attribute.community == 0xFFFFFF01
+assert m.nlri[0].prefix == "192.168.1.0/24"
 
 
 
 = BGPUpdate - Dissection (MP_REACH_NLRI)
 m = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\xd8\x02\x00\x00\x00\xc1@\x01\x01\x00@\x02\x06\x02\x01\x00\x00\xfb\xf6\x90\x0e\x00\xb0\x00\x02\x01 \xfe\x80\x00\x00\x00\x00\x00\x00\xfa\xc0\x01\x00\x15\xde\x15\x81\xfe\x80\x00\x00\x00\x00\x00\x00\xfa\xc0\x01\x00\x15\xde\x15\x81\x00\x06\x04\x05\x08\x04\x10\x03`\x03\x80\x03\xa0\x03\xc0\x04\xe0\x05\xf0\x06\xf8\t\xfe\x00\x16 \x01<\x08-\x07.\x040\x10?\xfe\x10 \x02\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff@\x01\x00\x00\x00\x00\x00\x00\x00\x17 \x01\x00  \x01\x00\x000 \x01\x00\x02\x00\x00  \x01\r\xb8\x1c \x01\x00\x10\x07\xfc\n\xfe\x80\x08\xff\n\xfe\xc0\x03 \x03@\x08_`\x00d\xff\x9b\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x08\x01\x07\x02')
-assert(BGPHeader in m and BGPUpdate in m)
-assert(m.path_attr[2].attribute.afi == 2)
-assert(m.path_attr[2].attribute.safi == 1)
-assert(m.path_attr[2].attribute.nh_addr_len == 32)
-assert(m.path_attr[2].attribute.nh_v6_global == "fe80::fac0:100:15de:1581")
-assert(m.path_attr[2].attribute.nh_v6_link_local == "fe80::fac0:100:15de:1581")
-assert(m.path_attr[2].attribute.nlri[0].prefix == "400::/6")
-assert(m.nlri == [])
+assert BGPHeader in m and BGPUpdate in m
+assert m.path_attr[2].attribute.afi == 2
+assert m.path_attr[2].attribute.safi == 1
+assert m.path_attr[2].attribute.nh_addr_len == 32
+assert m.path_attr[2].attribute.nh_v6_global == "fe80::fac0:100:15de:1581"
+assert m.path_attr[2].attribute.nh_v6_link_local == "fe80::fac0:100:15de:1581"
+assert m.path_attr[2].attribute.nlri[0].prefix == "400::/6"
+assert m.nlri == []
 
 = BGPUpdate - Dissection (MP_UNREACH_NLRI)
 m = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00s\x02\x00\x00\x00\\\x90\x0f\x00X\x00\x02\x01\x03`\x03\x80\x03\xa0\x03\xc0\x04\xe0\x05\xf0\x06\xf8\x10 \x02`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff@\x01\x00\x00\x00\x00\x00\x00\x00\x17 \x01\x00  \x01\x00\x000 \x01\x00\x02\x00\x00  \x01\r\xb8\n\xfe\xc0\x07\xfc\n\xfe\x80\x1c \x01\x00\x10\x03 \x06\x04\x03@\x08_\x05\x08\x04\x10')
-assert(BGPHeader in m and BGPUpdate in m)
-assert(m.path_attr[0].attribute.afi == 2)
-assert(m.path_attr[0].attribute.safi == 1)
-assert(m.path_attr[0].attribute.afi_safi_specific.withdrawn_routes[0].prefix == "6000::/3")
-assert(m.nlri == [])
+assert BGPHeader in m and BGPUpdate in m
+assert m.path_attr[0].attribute.afi == 2
+assert m.path_attr[0].attribute.safi == 1
+assert m.path_attr[0].attribute.afi_safi_specific.withdrawn_routes[0].prefix == "6000::/3"
+assert m.nlri == []
 
 = BGPUpdate - Dissection (with BGP Additional Path)
 m = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x17\x05\x00\x01\x01\x01\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\xd0\x02\x00\xb9\x00\x00\x00\x02\x00\x00\x00\x00\x04 \n\xe9\x19\xb2\x00\x00\x00\x04 \n\xe9\x19\x90\x00\x00\x00\x04 \n\xe9\x19\x93\x00\x00\x00\x04 \n\xe9\x19\xbb\x00\x00\x00\x04 \n\xe9\x19\x9f\x00\x00\x00\x04 \n\xe9\x19\x8c\x00\x00\x00\x04 \n\xe9\x19\xb1\x00\x00\x00\x04 \n\xe9\x19\x8f\x00\x00\x00\x04 \n\xe9\x19\x98\x00\x00\x00\x04 \n\xe9\x19\x9b\x00\x00\x00\x04 \n\xe9\x19\x8b\x00\x00\x00\x04 \n\xe9\x19\xb3\x00\x00\x00\x04 \n\xe9\x19\x91\x00\x00\x00\x04 \n\xe9\x19\xb6\x00\x00\x00\x04 \n\xe9\x19\x94\x00\x00\x00\x04 \n\xe9\x19\x97\x00\x00\x00\x04 \n\xe9\x19\xbc\x00\x00\x00\x04 \n\xe9\x19\x9d\x00\x00\x00\x04 \n\xe9\x19\xa3\x00\x00\x00\x04 \n\xe9\x19\x84\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x005\x02\x00\x00\x00\x15@\x01\x01\x00@\x02\x00@\x03\x04\n\x16\x0cX@\x05\x04\x00\x00\x00d\x00\x00\x00\x02 \n\xe9\x00\x16\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x17\x05\x00\x01\x02\x01')
@@ -688,7 +688,7 @@ assert m.getlayer(BGPUpdate, 2).nlri[0].sprintf("%prefix%") == "10.233.0.22/32"
 
 = BGPUpdate - with BGPHeader
 p = BGP(raw(BGPHeader()/BGPUpdate()))
-assert(BGPHeader in p and BGPUpdate in p)
+assert BGPHeader in p and BGPUpdate in p
 
 
 ########## BGPNotification Class ###################################
@@ -726,21 +726,21 @@ m.type == BGP.ROUTEREFRESH_TYPE and m.len == 23 and m.afi == 2 and m.subtype == 
 
 = BGPRouteRefresh - Dissection (2) - With ORFs
 m = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00.\x05\x00\x01\x00\x01\x01\x80\x00\x13 \x00\x00\x00\x05\x18\x18\x15\x01\x01\x00\x00\x00\x00\x00\n\x00 \x00')
-assert(m.type == BGP.ROUTEREFRESH_TYPE)
-assert(m.len == 46)
-assert(m.afi == 1)
-assert(m.subtype == 0)
-assert(m.safi == 1)
-assert(m.orf_data[0].when_to_refresh == 1)
-assert(m.orf_data[0].orf_type == 128)
-assert(m.orf_data[0].orf_len == 19)
-assert(len(m.orf_data[0].entries) == 2)
-assert(m.orf_data[0].entries[0].action == 0)
-assert(m.orf_data[0].entries[0].match == 1)
-assert(m.orf_data[0].entries[0].prefix.prefix == "1.1.0.0/21")
-assert(m.orf_data[0].entries[1].action == 0)
-assert(m.orf_data[0].entries[1].match == 0)
-assert(m.orf_data[0].entries[1].prefix.prefix == "0.0.0.0/0")
+assert m.type == BGP.ROUTEREFRESH_TYPE
+assert m.len == 46
+assert m.afi == 1
+assert m.subtype == 0
+assert m.safi == 1
+assert m.orf_data[0].when_to_refresh == 1
+assert m.orf_data[0].orf_type == 128
+assert m.orf_data[0].orf_len == 19
+assert len(m.orf_data[0].entries) == 2
+assert m.orf_data[0].entries[0].action == 0
+assert m.orf_data[0].entries[0].match == 1
+assert m.orf_data[0].entries[0].prefix.prefix == "1.1.0.0/21"
+assert m.orf_data[0].entries[1].action == 0
+assert m.orf_data[0].entries[1].match == 0
+assert m.orf_data[0].entries[1].prefix.prefix == "0.0.0.0/0"
 
 = BGPRouteRefresh - Dissection (3) - bad ORFS (GH3345)
 m = BGPRouteRefresh(b'\x00\x01\x00\x01\x00\x00\x00\x07\x00\x00\x00\x00\x00\x00\x00')

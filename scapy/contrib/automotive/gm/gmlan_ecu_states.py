@@ -1,11 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = GMLAN EcuState modifications
 # scapy.contrib.status = library
-
 from scapy.packet import Packet
 from scapy.contrib.automotive.ecu import EcuState
 from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SAPR
@@ -36,3 +35,7 @@ def GMLAN_SAPR_modify_ecu_state(self, req, state):
     # type: (Packet, Packet, EcuState) -> None
     if self.subfunction % 2 == 0 and self.subfunction > 0 and len(req) >= 3:
         state.security_level = self.subfunction  # type: ignore
+    elif self.subfunction % 2 == 1 and \
+            self.subfunction > 0 and \
+            len(req) >= 3 and not any(self.securitySeed):
+        state.security_level = self.securityAccessType + 1  # type: ignore

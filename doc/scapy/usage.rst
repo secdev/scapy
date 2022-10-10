@@ -788,6 +788,7 @@ Available by default:
 - :py:class:`~scapy.sessions.TCPSession` -> *defragment certain TCP protocols*. Currently supports:
    - HTTP 1.0
    - TLS
+   - Kerberos / DCERPC
 - :py:class:`~scapy.sessions.TLSSession` -> *matches TLS sessions* on the flow.
 - :py:class:`~scapy.sessions.NetflowSession` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
 
@@ -806,7 +807,7 @@ Those sessions can be used using the ``session=`` parameter of ``sniff()``. Exam
 How to use TCPSession to defragment TCP packets
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The layer on which the decompression is applied must be immediately following the TCP layer. You need to implement a class function called ``tcp_reassemble`` that accepts the binary data and a metada dictionary as argument and returns, when full, a packet. Let's study the (pseudo) example of TLS:
+The layer on which the decompression is applied must be immediately following the TCP layer. You need to implement a class function called ``tcp_reassemble`` that accepts the binary data, a metadata dictionary as argument and returns, when full, a packet. Let's study the (pseudo) example of TLS:
 
 .. code::
 
@@ -814,7 +815,7 @@ The layer on which the decompression is applied must be immediately following th
         [...]
 
         @classmethod
-        def tcp_reassemble(cls, data, metadata):
+        def tcp_reassemble(cls, data, metadata, session):
             length = struct.unpack("!H", data[3:5])[0] + 5
             if len(data) == length:
                 return TLS(data)
@@ -1449,8 +1450,37 @@ and receiving the answers::
 Visualizing the results in a list::
 
     >>> res.nsummary(prn=lambda s,r: r.src, lfilter=lambda s,r: r.haslayer(ISAKMP) ) 
-    
-  
+
+
+DNS spoof
+---------
+
+See :class:`~scapy.layers.dns.DNS_am`::
+
+    >>> dns_spoof(iface="tap0", joker="192.168.1.1")
+
+LLMNR spoof
+-----------
+
+See :class:`~scapy.layers.llmnr.LLMNR_am`::
+
+    >>> conf.iface = "tap0"
+    >>> llmnr_spoof(iface="tap0", filter_ips=Net("10.0.0.1/24"))
+
+Netbios spoof
+-------------
+
+See :class:`~scapy.layers.netbios.NBNS_am`::
+
+    >>> nbns_spoof(iface="eth0")  # With local IP
+    >>> nbns_spoof(iface="eth0", ip="192.168.122.17")  # With some other IP
+
+Node status request (get NetbiosName from IP)
+---------------------------------------------
+
+.. code::
+
+    >>> sr1(IP(dst="192.168.122.17")/UDP()/NBNSHeader()/NBNSNodeStatusRequest())
 
 Advanced traceroute
 -------------------

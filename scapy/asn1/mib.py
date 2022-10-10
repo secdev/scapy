@@ -1,8 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# Modified by Maxence Tury <maxence.tury@ssi.gouv.fr>
-# This program is published under a GPLv2 license
+# Acknowledgment: Maxence Tury <maxence.tury@ssi.gouv.fr>
 
 """
 Management Information Base (MIB) parsing
@@ -146,8 +146,8 @@ def _mib_register(ident,  # type: str
             k = keys[i]
             if _mib_register(k, unresolved[k], the_mib, {}, alias):
                 # Now resolved: we can remove it from unresolved
-                del(unresolved[k])
-                del(keys[i])
+                del unresolved[k]
+                del keys[i]
                 i = 0
             else:
                 i += 1
@@ -617,6 +617,8 @@ evPolicy_oids = {
 #
 
 gssapi_oids = {
+    '1.2.840.48018.1.2.2': 'MS KRB5 - Microsoft Kerberos 5',
+    '1.2.840.113554.1.2.2': 'Kerberos 5',
     '1.3.6.1.5.5.2': 'SPNEGO - Simple Protected Negotiation',
     '1.3.6.1.4.1.311.2.2.10': 'NTLMSSP - Microsoft NTLM Security Support Provider',
     '1.3.6.1.4.1.311.2.2.30': 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism',

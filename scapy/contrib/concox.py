@@ -1,7 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
 # Copyright (C) 2019 Juciano Cardoso <cjuciano@gmail.com>
 #               2019 Guillaume Valadon <guillaume.valadon@netatmo.com>
-##
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = Concox CRX1 unit tests
 # scapy.contrib.status = loads
@@ -222,7 +223,7 @@ class CRX1NewPacketContent(Packet):
                 "",
                 length_from=lambda pkt: pkt.command_length - 4), lambda pkt:
             len(pkt.original) > 5 and pkt.protocol_number in (0x80, 0x15)),
-        # Commun
+        # Common
         ConditionalField(
             ByteEnumField(
                 "alarm_extended", 0x00, {

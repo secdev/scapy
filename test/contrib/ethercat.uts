@@ -81,7 +81,7 @@ for data in test_data:
     '''
     # compare values
     for key in data:
-        assert(getattr(bf,key) == data[key])
+        assert getattr(bf,key) == data[key]
         assert (getattr(bf_le, key) == data[key])
 
 = Avoid mix of LEBitFields and BitFields
@@ -159,24 +159,24 @@ frm = Ether() / EtherCat()
 # even with padding the length must be zero
 # the Ether(do_build()) forces the calculation of all (post_build generated) fields
 frm = Ether(frm.do_build())
-assert(frm[EtherCat].length == 0)
-assert(len(frm) == 60)
+assert frm[EtherCat].length == 0
+assert len(frm) == 60
 frm = Ether()/Dot1Q()/Dot1Q()/EtherCat()
 frm = Ether()/EtherCat()
-assert(len(frm) == 60)
+assert len(frm) == 60
 frm = Ether(frm.do_build())
-assert(frm[EtherCat].length == 0)
+assert frm[EtherCat].length == 0
 
 = EtherCat and RawPayload
 
 frm=Ether()/EtherCat()/Raw(b'0123456789')
-assert(len(frm) == 60)
+assert len(frm) == 60
 frm = Ether(frm.do_build())
-assert(frm[EtherCat].length == 10)
+assert frm[EtherCat].length == 10
 frm = Ether()/EtherCat()/Raw(b'012345678901234567890123456789012345678901234567890123456789')
 frm = Ether(frm.do_build())
-assert(len(frm) == 76)
-assert(frm[EtherCat].length == 60)
+assert len(frm) == 76
+assert frm[EtherCat].length == 60
 
 = EtherCat - test invalid length detection
 
@@ -185,9 +185,9 @@ nums_4_bits = [random.randint(0, 16) & 0b1111 for dummy in range(0, 23)]
 
 frm = Ether()/EtherCat()/EtherCatAPRD(adp=0x1234, ado=0x5678, irq=0xbad0, wkc=0xbeef, data=[1]*2035, c=1)
 frm = Ether(frm.do_build())
-assert(frm[EtherCat].length == 2047)
-assert(len(frm[EtherCatAPRD].data) == 2035)
-assert(frm[EtherCatAPRD].c == 1)
+assert frm[EtherCat].length == 2047
+assert len(frm[EtherCatAPRD].data) == 2035
+assert frm[EtherCatAPRD].c == 1
 
 data_oversized = False
 try:
@@ -195,25 +195,25 @@ try:
     frm = Ether(frm.do_build())
 except ValueError as err:
     data_oversized = True
-    assert('data size' in str(err))
+    assert 'data size' in str(err)
 
-assert(data_oversized == True)
+assert data_oversized == True
 dlpdu_oversized = False
 try:
     frm = Ether()/EtherCat()/EtherCatAPRD(adp=0x1234, ado=0x5678, irq=0xbad0, wkc=0xbeef, data=[2]*2036, c=1)
     frm = Ether(frm.do_build())
 except ValueError as err:
     dlpdu_oversized = True
-    assert('EtherCat message' in str(err))
+    assert 'EtherCat message' in str(err)
 
-assert(dlpdu_oversized == True)
+assert dlpdu_oversized == True
 
 frm = Ether()/EtherCat(_reserved=1)/EtherCatAPRD(adp=0x1234, ado=0x5678, irq=0xbad0, wkc=0xbeef, data=[3], c=0)
 frm = Ether(frm.do_build())
-assert(frm[EtherCatAPRD].c == 0)
+assert frm[EtherCatAPRD].c == 0
 
 
-assert(frm[EtherCat]._reserved == 0)
+assert frm[EtherCat]._reserved == 0
 
 = EtherCat and Type12 DLPDU layers
 
@@ -223,7 +223,7 @@ for type_id in EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES:
     frm = Ether(frm.do_build())
     # expect to have one layer of current Type12 DLPDU type
     dlpdu_lyr = frm[EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES[type_id]]
-    assert(dlpdu_lyr.data == data)
+    assert dlpdu_lyr.data == data
 
 = EtherCat and Type12 DLPDU layer using structure used for physical and broadcast addressing
 
@@ -232,11 +232,11 @@ test_data = [121,99,110,104,114,109,58,41]
 frm = Ether()/EtherCat()/EtherCatAPRD(adp=0x1234, ado=0x5678, irq=0xbad0, wkc=0xbeef, data=test_data)
 frm = Ether(frm.do_build())
 aprd_lyr = frm[EtherCatAPRD]
-assert(aprd_lyr.adp == 0x1234)
-assert(aprd_lyr.ado == 0x5678)
-assert(aprd_lyr.irq == 0xbad0)
-assert(aprd_lyr.wkc == 0xbeef)
-assert(aprd_lyr.data == test_data)
+assert aprd_lyr.adp == 0x1234
+assert aprd_lyr.ado == 0x5678
+assert aprd_lyr.irq == 0xbad0
+assert aprd_lyr.wkc == 0xbeef
+assert aprd_lyr.data == test_data
 
 = EtherCat and Type12 DLPDU layer using structure used for logical addressing
 
@@ -262,5 +262,5 @@ for outer_dummy in range(10):
     frm = Ether(frm.do_build())
     idx = 0
     for layer_id in layer_ids:
-        assert(type(EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES[layer_id]()) == type(frm[2 + idx]))
+        assert type(EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES[layer_id]()) == type(frm[2 + idx])
         idx += 1

@@ -1,12 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
-
 # Copyright (C) 2014 Maxence Tury <maxence.tury@ssi.gouv.fr>
-# OpenFlow is an open standard used in SDN deployments.
-# Based on OpenFlow v1.3.4
-# Specifications can be retrieved from https://www.opennetworking.org/
+
+"""
+OpenFlow v1.3.4
+
+OpenFlow is an open standard used in SDN deployments.
+Specifications can be retrieved from https://www.opennetworking.org/
+"""
+
 
 # scapy.contrib.description = OpenFlow v1.3
 # scapy.contrib.status = loads
@@ -265,7 +269,7 @@ ofp_oxm_fields = {}
 
 
 def add_ofp_oxm_fields(i, org):
-    ofp_oxm_fields[i] = [ShortEnumField("class", "OFPXMC_OPENFLOW_BASIC", ofp_oxm_classes),  # noqa: E501
+    ofp_oxm_fields[i] = [ShortEnumField("class_", "OFPXMC_OPENFLOW_BASIC", ofp_oxm_classes),  # noqa: E501
                          BitEnumField("field", i // 2, 7, ofp_oxm_names),
                          BitField("hasmask", i % 2, 1)]
     ofp_oxm_fields[i].append(ByteField("len", org[2] + org[2] * (i % 2)))
@@ -672,7 +676,7 @@ class MatchField(PacketField):
             if Padding in r:
                 p = r[Padding]
                 i.payload = p
-                del(r.payload)
+                del r.payload
             return r.load, i
         else:
             return b"", i

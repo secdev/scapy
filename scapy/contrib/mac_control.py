@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+
 # scapy.contrib.description = MACControl
 # scapy.contrib.status = loads
 
@@ -6,17 +10,6 @@
     ~~~~~~~~~~
 
     :author:    Thomas Tannhaeuser, hecke@naberius.de
-    :license:   GPLv2
-
-        This module is free software; you can redistribute it and/or
-        modify it under the terms of the GNU General Public License
-        as published by the Free Software Foundation; either version 2
-        of the License, or (at your option) any later version.
-
-        This module is distributed in the hope that it will be useful,
-        but WITHOUT ANY WARRANTY; without even the implied warranty of
-        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-        GNU General Public License for more details.
 
     :description:
 

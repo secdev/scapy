@@ -1,7 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) Gabriel Potter <gabriel@potter.fr>
-# This program is published under a GPLv2 license
+# See https://scapy.net/ for more information
 
 """
 Python 2 and 3 link classes.
@@ -233,6 +232,7 @@ else:
     class AddressFamily:
         AF_INET = socket.AF_INET
         AF_INET6 = socket.AF_INET6
+        AF_UNSPEC = socket.AF_UNSPEC
 
 
 ###########

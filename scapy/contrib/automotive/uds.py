@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.description = Unified Diagnostic Service (UDS)
 # scapy.contrib.status = loads
@@ -9,6 +9,7 @@
 import struct
 import time
 
+from scapy.contrib.automotive import log_automotive
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
@@ -16,7 +17,7 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     FieldLenField, XStrFixedLenField, XStrLenField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
-from scapy.error import log_loading, log_interactive, Scapy_Exception
+from scapy.error import log_loading, Scapy_Exception
 from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
 from scapy.compat import Dict, Union
@@ -1400,8 +1401,8 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
                 try:
                     self._socket.sr1(p, timeout=0.3, verbose=False)
                 except (OSError, ValueError, Scapy_Exception) as e:
-                    log_interactive.critical(
-                        "[!] Exception in TesterPresentSender: %s", e)
+                    log_automotive.exception(
+                        "Exception in TesterPresentSender: %s", e)
                     break
                 time.sleep(self._interval)
                 if self._stopped.is_set() or self._socket.closed:

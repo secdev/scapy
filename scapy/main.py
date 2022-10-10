@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 Main module for interactive startup.
@@ -343,18 +343,18 @@ def save_session(fname="", session=None, pickleProto=-1):
     for k in list(to_be_saved):
         i = to_be_saved[k]
         if k[0] == "_":
-            del(to_be_saved[k])
+            del to_be_saved[k]
         elif hasattr(i, "__module__") and i.__module__.startswith("IPython"):
-            del(to_be_saved[k])
+            del to_be_saved[k]
         elif isinstance(i, ConfClass):
-            del(to_be_saved[k])
+            del to_be_saved[k]
         elif k in ignore or k in hard_ignore:
-            del(to_be_saved[k])
+            del to_be_saved[k]
         elif isinstance(i, (type, types.ModuleType)):
             if k[0] != "_":
                 log_interactive.warning("[%s] (%s) can't be saved.", k,
                                         type(to_be_saved[k]))
-            del(to_be_saved[k])
+            del to_be_saved[k]
 
     try:
         os.rename(fname, fname + ".bak")
@@ -691,7 +691,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
                 cfg.TerminalInteractiveShell.confirm_exit = False
                 cfg.TerminalInteractiveShell.separate_in = u''
             if int(IPython.__version__[0]) >= 6:
-                cfg.TerminalInteractiveShell.term_title_format = ("Scapy v%s" %
+                cfg.TerminalInteractiveShell.term_title_format = ("Scapy %s" %
                                                                   conf.version)
                 # As of IPython 6-7, the jedi completion module is a dumpster
                 # of fire that should be scrapped never to be seen again.

@@ -1,8 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
+# See https://scapy.net/ for more information
 # Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
 #               2015, 2016, 2017 Maxence Tury
 #               2019 Romain Perez
-# This program is published under a GPLv2 license
 
 """
 TLS session handler.
@@ -1084,7 +1085,7 @@ class _GenericTLSSessionInheritance(Packet):
                                 getattr(self, "_name", self.name))
 
     @classmethod
-    def tcp_reassemble(cls, data, metadata):
+    def tcp_reassemble(cls, data, metadata, session):
         # Used with TLSSession
         from scapy.layers.tls.record import TLS
         from scapy.layers.tls.record_tls13 import TLS13
@@ -1095,8 +1096,7 @@ class _GenericTLSSessionInheritance(Packet):
             elif len(data) > length:
                 pkt = cls(data)
                 if hasattr(pkt.payload, "tcp_reassemble"):
-                    if pkt.payload.tcp_reassemble(data[length:], metadata):
-                        return pkt
+                    return pkt.payload.tcp_reassemble(data[length:], metadata, session)
                 else:
                     return pkt
         else:

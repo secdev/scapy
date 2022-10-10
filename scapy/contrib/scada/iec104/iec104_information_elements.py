@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Thomas Tannhaeuser <hecke@naberius.de>
-# This program is published under a GPLv2 license
 
 # scapy.contrib.status = skip
 
@@ -1327,7 +1327,7 @@ class IEC104_IE_SOF:
 
     informantion_element_fields = [
         BitEnumField('fa', 0, 1, FA_FLAGS),
-        BitEnumField('for', 0, 1, FOR_FLAGS),
+        BitEnumField('for_', 0, 1, FOR_FLAGS),
         BitEnumField('lfd', 0, 1, LFD_FLAGS),
         BitEnumField('status', 0, 5, STATUS_FLAGS)
     ]

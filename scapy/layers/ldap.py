@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Gabriel Potter <gabriel[]potter[]fr>
-# This program is published under a GPLv2 license
 
 """
 LDAP
@@ -247,12 +247,12 @@ _LDAP_Filter = lambda *args, **kwargs: LDAP_Filter(*args, **kwargs)
 
 class LDAP_FilterAnd(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SET_OF("and", [], _LDAP_Filter)
+    ASN1_root = ASN1F_SET_OF("and_", [], _LDAP_Filter)
 
 
 class LDAP_FilterOr(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SET_OF("or", [], _LDAP_Filter)
+    ASN1_root = ASN1F_SET_OF("or_", [], _LDAP_Filter)
 
 
 class LDAP_FilterPresent(ASN1_Packet):
@@ -264,11 +264,11 @@ class LDAP_Filter(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_CHOICE(
         "filter", LDAP_FilterPresent(),
-        ASN1F_PACKET("and", None, LDAP_FilterAnd,
+        ASN1F_PACKET("and_", None, LDAP_FilterAnd,
                      implicit_tag=0x80),
-        ASN1F_PACKET("or", None, LDAP_FilterOr,
+        ASN1F_PACKET("or_", None, LDAP_FilterOr,
                      implicit_tag=0x81),
-        ASN1F_PACKET("not", None,
+        ASN1F_PACKET("not_", None,
                      _LDAP_Filter,
                      implicit_tag=0x82),
         ASN1F_PACKET("equalityMatch",

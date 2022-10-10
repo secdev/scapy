@@ -1,0 +1,17 @@
+{
+  "testfiles": [
+    "test/tls*.uts",
+    "test/scapy/layers/dot11.uts",
+    "test/scapy/layers/ipsec.uts",
+    "test/contrib/macsec.uts"
+  ],
+  "breakfailed": true,
+  "onlyfailed": true,
+  "preexec": {
+    "test/contrib/*.uts": "load_contrib(\"%name%\")",
+    "test/tls*.uts": "load_layer(\"tls\")"
+  },
+  "kw_ko": [
+    "mock"
+  ]
+}

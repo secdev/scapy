@@ -1,9 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# Modified by Maxence Tury <maxence.tury@ssi.gouv.fr>
+# Acknowledgment: Maxence Tury <maxence.tury@ssi.gouv.fr>
 # Acknowledgment: Ralph Broenink
-# This program is published under a GPLv2 license
 
 """
 Basic Encoding Rules (BER) for ASN.1
@@ -220,6 +220,7 @@ def BER_tagging_dec(s,  # type: bytes
                     implicit_tag=None,  # type: Optional[int]
                     explicit_tag=None,  # type: Optional[int]
                     safe=False,  # type: Optional[bool]
+                    _fname="",  # type: str
                     ):
     # type: (...) -> Tuple[Optional[int], bytes]
     # We output the 'real_tag' if it is different from the (im|ex)plicit_tag.
@@ -227,14 +228,15 @@ def BER_tagging_dec(s,  # type: bytes
     if len(s) > 0:
         err_msg = (
             "BER_tagging_dec: observed tag 0x%.02x does not "
-            "match expected tag 0x%.02x"
+            "match expected tag 0x%.02x (%s)"
         )
         if implicit_tag is not None:
             ber_id, s = BER_id_dec(s)
             if ber_id != implicit_tag:
                 if not safe and ber_id & 0x1f != implicit_tag & 0x1f:
-                    raise BER_Decoding_Error(err_msg % (ber_id, implicit_tag),
-                                             remaining=s)
+                    raise BER_Decoding_Error(err_msg % (
+                        ber_id, implicit_tag, _fname),
+                        remaining=s)
                 else:
                     real_tag = ber_id
             s = chb(hash(hidden_tag)) + s
@@ -242,19 +244,20 @@ def BER_tagging_dec(s,  # type: bytes
             ber_id, s = BER_id_dec(s)
             if ber_id != explicit_tag:
                 if not safe:
-                    raise BER_Decoding_Error(err_msg % (ber_id, explicit_tag),
-                                             remaining=s)
+                    raise BER_Decoding_Error(
+                        err_msg % (ber_id, explicit_tag, _fname),
+                        remaining=s)
                 else:
                     real_tag = ber_id
             l, s = BER_len_dec(s)
     return real_tag, s
 
 
-def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
-    # type: (bytes, Optional[int], Optional[int]) -> bytes
+def BER_tagging_enc(s, hidden_tag=None, implicit_tag=None, explicit_tag=None):
+    # type: (bytes, Optional[Any], Optional[int], Optional[int]) -> bytes
     if len(s) > 0:
         if implicit_tag is not None:
-            s = BER_id_enc(implicit_tag) + s[1:]
+            s = BER_id_enc((hash(hidden_tag) & ~(0x1f)) | implicit_tag) + s[1:]
         elif explicit_tag is not None:
             s = BER_id_enc(explicit_tag) + BER_len_enc(len(s)) + s
     return s
@@ -542,7 +545,7 @@ class BERcodec_OID(BERcodec_Object[bytes]):
             lst = list()
         if len(lst) >= 2:
             lst[1] += 40 * lst[0]
-            del(lst[0])
+            del lst[0]
         s = b"".join(BER_num_enc(k) for k in lst)
         return chb(hash(cls.tag)) + BER_len_enc(len(s)) + s
 
@@ -593,6 +596,10 @@ class BERcodec_VIDEOTEX_STRING(BERcodec_STRING):
 
 class BERcodec_IA5_STRING(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IA5_STRING
+
+
+class BERcodec_GENERAL_STRING(BERcodec_STRING):
+    tag = ASN1_Class_UNIVERSAL.GENERAL_STRING
 
 
 class BERcodec_UTC_TIME(BERcodec_STRING):

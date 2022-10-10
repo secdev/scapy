@@ -1,7 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more information
+# See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
 
 """
 General utility functions.
@@ -868,8 +868,8 @@ def do_graph(
                 warning("Temporary file '%s' could not be written. Graphic will not be displayed.", tempfile)  # noqa: E501
                 break
         else:
-            if conf.prog.display == conf.prog._default:
-                os.startfile(target.name)  # type: ignore
+            if WINDOWS and conf.prog.display == conf.prog._default:
+                os.startfile(target.name)
             else:
                 with ContextManagerSubprocess(conf.prog.display):
                     subprocess.Popen([conf.prog.display, target.name])
@@ -1415,7 +1415,8 @@ class RawPcapNgReader(RawPcapReader):
 
     PacketMetadata = collections.namedtuple("PacketMetadataNg",  # type: ignore
                                             ["linktype", "tsresol",
-                                             "tshigh", "tslow", "wirelen"])
+                                             "tshigh", "tslow", "wirelen",
+                                             "comment"])
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
@@ -1517,9 +1518,9 @@ class RawPcapNgReader(RawPcapReader):
                 return res
 
     def _read_options(self, options):
-        # type: (bytes) -> Dict[str, int]
+        # type: (bytes) -> Dict[str, Any]
         """Section Header Block"""
-        opts = self.default_options.copy()
+        opts = self.default_options.copy()  # type: Dict[str, Any]
         while len(options) >= 4:
             code, length = struct.unpack(self.endian + "HH", options[:4])
             # PCAP Next Generation (pcapng) Capture File Format
@@ -1530,6 +1531,13 @@ class RawPcapNgReader(RawPcapReader):
                 opts["tsresol"] = (2 if tsresol & 128 else 10) ** (
                     tsresol & 127
                 )
+            if code == 1 and length >= 1 and 4 + length < len(options):
+                comment = options[4:4 + length]
+                newline_index = comment.find(b"\n")
+                if newline_index == -1:
+                    warning("PcapNg: invalid comment option")
+                    break
+                opts["comment"] = comment[:newline_index]
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option length %d for end-of-option" % length)  # noqa: E501
@@ -1575,13 +1583,25 @@ class RawPcapNgReader(RawPcapReader):
             warning("PcapNg: EPB is too small %d/20 !" % len(block))
             raise EOFError
 
+        # Compute the options offset taking padding into account
+        if caplen % 4:
+            opt_offset = 20 + caplen + (-caplen) % 4
+        else:
+            opt_offset = 20 + caplen
+
+        # Parse options
+        options = self._read_options(block[opt_offset:])
+        comment = options.get("comment", None)
+
         self._check_interface_id(intid)
+
         return (block[20:20 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
                                                tsresol=self.interfaces[intid][2],  # noqa: E501
                                                tshigh=tshigh,
                                                tslow=tslow,
-                                               wirelen=wirelen))
+                                               wirelen=wirelen,
+                                               comment=comment))
 
     def _read_block_spb(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1604,7 +1624,8 @@ class RawPcapNgReader(RawPcapReader):
                                                tsresol=self.interfaces[intid][2],  # noqa: E501
                                                tshigh=None,
                                                tslow=None,
-                                               wirelen=wirelen))
+                                               wirelen=wirelen,
+                                               comment=None))
 
     def _read_block_pkt(self, block, size):
         # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
@@ -1624,7 +1645,8 @@ class RawPcapNgReader(RawPcapReader):
                                                tsresol=self.interfaces[intid][2],  # noqa: E501
                                                tshigh=tshigh,
                                                tslow=tslow,
-                                               wirelen=wirelen))
+                                               wirelen=wirelen,
+                                               comment=None))
 
     def _read_block_dsb(self, block, size):
         # type: (bytes, int) -> None
@@ -1696,7 +1718,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader, _SuperSocket):
         rp = super(PcapNgReader, self)._read_packet(size=size)
         if rp is None:
             raise EOFError
-        s, (linktype, tsresol, tshigh, tslow, wirelen) = rp
+        s, (linktype, tsresol, tshigh, tslow, wirelen, comment) = rp
         try:
             cls = conf.l2types.num2layer[linktype]  # type: Type[Packet]
             p = cls(s)  # type: Packet
@@ -1712,6 +1734,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader, _SuperSocket):
         if tshigh is not None:
             p.time = EDecimal((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
+        p.comment = comment
         return p
 
     def recv(self, size=MTU):
@@ -1732,7 +1755,8 @@ class GenericPcapWriter(object):
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
-                      wirelen=None  # type: Optional[int]
+                      wirelen=None,  # type: Optional[int]
+                      comment=None  # type: Optional[bytes]
                       ):
         # type: (...) -> None
         raise NotImplementedError
@@ -1813,10 +1837,13 @@ class GenericPcapWriter(object):
         if wirelen is None:
             wirelen = caplen
 
+        comment = getattr(packet, "comment", None)
+
         self._write_packet(
             rawpkt,
             sec=f_sec, usec=usec,
-            caplen=caplen, wirelen=wirelen
+            caplen=caplen, wirelen=wirelen,
+            comment=comment
         )
 
 
@@ -1965,7 +1992,8 @@ class RawPcapWriter(GenericRawPcapWriter):
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
-                      wirelen=None  # type: Optional[int]
+                      wirelen=None,  # type: Optional[int]
+                      comment=None  # type: Optional[bytes]
                       ):
         # type: (...) -> None
         """
@@ -2043,13 +2071,19 @@ class RawPcapNgWriter(GenericRawPcapWriter):
 
         return sec, usec  # type: ignore
 
-    def build_block(self, block_type, block_body):
-        # type: (bytes, bytes) -> bytes
+    def _add_padding(self, raw_data):
+        # type: (bytes) -> bytes
+        raw_data += ((-len(raw_data)) % 4) * b"\x00"
+        return raw_data
+
+    def build_block(self, block_type, block_body, options=None):
+        # type: (bytes, bytes, Optional[bytes]) -> bytes
 
         # Pad Block Body to 32 bits
-        if len(block_body) % 4 != 0:
-            padding = b"\x00" * (4 - len(block_body) % 4)
-            block_body += padding
+        block_body = self._add_padding(block_body)
+
+        if options:
+            block_body += options
 
         # An empty block is 12 bytes long
         block_total_length = 12 + len(block_body)
@@ -2118,7 +2152,8 @@ class RawPcapNgWriter(GenericRawPcapWriter):
                          raw_pkt,  # type: bytes
                          timestamp=None,  # type: Optional[Union[EDecimal, float]]  # noqa: E501
                          caplen=None,  # type: Optional[int]
-                         orglen=None  # type: Optional[int]
+                         orglen=None,  # type: Optional[int]
+                         comment=None  # type: Optional[bytes]
                          ):
         # type: (...) -> None
 
@@ -2150,14 +2185,28 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         # Packet Data
         block_epb += raw_pkt
 
-        self.f.write(self.build_block(block_type, block_epb))
+        # Comment option
+        comment_opt = None
+        if comment:
+            comment = bytes_encode(comment)
+            if not comment.endswith(b"\n"):
+                comment += b"\n"
+            comment_opt = struct.pack(self.endian + "HH", 1, len(comment))
+
+            # Pad Option Value to 32 bits
+            comment_opt += self._add_padding(bytes_encode(comment))
+            comment_opt += struct.pack(self.endian + "HH", 0, 0)
+
+        self.f.write(self.build_block(block_type, block_epb,
+                                      options=comment_opt))
 
     def _write_packet(self,
                       packet,  # type: bytes
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
                       caplen=None,  # type: Optional[int]
-                      wirelen=None  # type: Optional[int]
+                      wirelen=None,  # type: Optional[int]
+                      comment=None  # type: Optional[bytes]
                       ):
         # type: (...) -> None
         """
@@ -2183,7 +2232,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
             wirelen = caplen
 
         self._write_block_epb(packet, timestamp=sec, caplen=caplen,
-                              orglen=wirelen)
+                              orglen=wirelen, comment=comment)
         if self.sync:
             self.f.flush()
 

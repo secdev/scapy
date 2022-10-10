@@ -45,7 +45,7 @@ pkt = b"\x52\x54\x50\x53\x02\x01\x01\x10\x57\x63\x10\x01\xd6\xab\x40\x7f" \
 
 + Test endianness
 = PID_BUILTIN_ENDPOINT_QOS endianness
-assert(raw(PID_BUILTIN_ENDPOINT_QOS(parameterId=119, parameterLength=0, parameterData=b"")) == b'w\x00\x00\x00')
+assert raw(PID_BUILTIN_ENDPOINT_QOS(parameterId=119, parameterLength=0, parameterData=b"")) == b'w\x00\x00\x00'
 
 
 + Test RTPS
@@ -55,12 +55,12 @@ pkt2 = RTPS()/RTPSMessage(submessages=[
     RTPSSubMessage_INFO_TS(),
     RTPSSubMessage_DATA(),
 ])
-assert(bytes(RTPS()) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+assert bytes(RTPS()) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
 = RTPS packet declaration
 pkt3 = RTPS(
     protocolVersion=ProtocolVersionPacket(major=2, minor=1),
-    vendorId=VendorIdPacket(vendor_id=b"\x01\x10"),
+    vendorId=VendorIdPacket(vendor_id=0x0110),
     guidPrefix=GUIDPrefixPacket(
         hostId=1466109953, appId=3601547391, instanceId=1540995868
     ),
@@ -108,7 +108,7 @@ pkt3 = RTPS(
                         PID_VENDOR_ID(
                             parameterId=22,
                             parameterLength=4,
-                            vendorId=VendorIdPacket(vendor_id=b"\x01\x10"),
+                            vendorId=VendorIdPacket(vendor_id=0x0110),
                             padding=b"\x00\x00",
                         ),
                         PID_PARTICIPANT_LEASE_DURATION(
@@ -239,7 +239,7 @@ d = b"\x52\x54\x50\x53\x02\x03\x01\x01\x01\x01\x30\xba\xa8\x7b\x1d\xce" \
 p0 = RTPS(d)
 p1 = RTPS(
     protocolVersion=ProtocolVersionPacket(major=2, minor=3),
-    vendorId=VendorIdPacket(vendor_id=b"\x01\x01"),
+    vendorId=VendorIdPacket(vendor_id=0x0101),
     guidPrefix=GUIDPrefixPacket(
         hostId=16855226, appId=2826640846, instanceId=3005816387
     ),
@@ -299,7 +299,7 @@ p1 = RTPS(
                         PID_VENDOR_ID(
                             parameterId=22,
                             parameterLength=4,
-                            vendorId=VendorIdPacket(vendor_id=b"\x01\x01"),
+                            vendorId=VendorIdPacket(vendor_id=0x0101),
                             padding=b"\x00\x00",
                         ),
                         PID_PRODUCT_VERSION(

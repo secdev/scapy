@@ -19,9 +19,9 @@ RPC_Reply()
 
 = RPC Message type
 pkt = RPC()/RPC_Call()
-assert(pkt.mtype==0)
+assert pkt.mtype==0
 pkt = RPC()/RPC_Reply()
-assert(pkt.mtype==1)
+assert pkt.mtype==1
 
 + Test Built Packets vs Raw Strings
 

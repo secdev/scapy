@@ -1,4 +1,7 @@
-# Guillaume Valadon <guillaume@valadon.net>
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Copyright (C) Guillaume Valadon <guillaume@valadon.net>
 
 """
 Scapy *BSD native support - core
@@ -18,8 +21,8 @@ import subprocess
 
 import scapy
 from scapy.arch.bpf.consts import BIOCSETF, SIOCGIFFLAGS, BIOCSETIF
-from scapy.arch.common import get_if, compile_filter, _iff_flags
-from scapy.arch.unix import in6_getifaddr
+from scapy.arch.common import compile_filter, _iff_flags
+from scapy.arch.unix import get_if, in6_getifaddr
 from scapy.compat import plain_str
 from scapy.config import conf
 from scapy.consts import LINUX

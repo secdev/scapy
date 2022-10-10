@@ -35,10 +35,10 @@ import binascii
 t = SSLv2(ch)
 
 = Reading SSLv2 session - Record with cleartext
-assert(t.len == 46)
-assert(not t.padlen)
-assert(not t.mac)
-assert(not t.pad)
+assert t.len == 46
+assert not t.padlen
+assert not t.mac
+assert not t.pad
 len(t.msg) == 1
 
 = Reading SSLv2 session - Record __getitem__
@@ -46,41 +46,41 @@ SSLv2ClientHello in t
 
 = Reading SSLv2 session - ClientHello
 ch = t.msg[0]
-assert(isinstance(ch, SSLv2ClientHello))
-assert(ch.msgtype == 1)
-assert(ch.version == 0x0002)
-assert(ch.cipherslen == 21)
-assert(not ch.sid)
-assert(ch.challengelen == 16)
-assert(ch.ciphers == [0x0700c0, 0x050080, 0x030080, 0x010080, 0x060040, 0x040080, 0x020080])
+assert isinstance(ch, SSLv2ClientHello)
+assert ch.msgtype == 1
+assert ch.version == 0x0002
+assert ch.cipherslen == 21
+assert not ch.sid
+assert ch.challengelen == 16
+assert ch.ciphers == [0x0700c0, 0x050080, 0x030080, 0x010080, 0x060040, 0x040080, 0x020080]
 ch.challenge == binascii.unhexlify('1afb2f9ca3d1293454a3152821ffd10c')
 
 = Reading SSLv2 session - ServerHello
 t = SSLv2(sh, tls_session=t.tls_session.mirror())
 sh = t.msg[0]
-assert(isinstance(sh, SSLv2ServerHello))
-assert(sh.msgtype == 4)
-assert(sh.sid_hit == 0)
-assert(sh.certtype == 1)
-assert(sh.version == 0x0002)
-assert(sh.certlen == 930)
-assert(sh.cipherslen == 3)
-assert(sh.connection_idlen == 16)
-assert(isinstance(sh.cert, Cert))
-assert(len(sh.cert.der) == 930)
-assert(sh.cert.subject_str == '/C=MN/L=Ulaanbaatar/OU=Scapy Test PKI/CN=Scapy Test Server')
-assert(sh.ciphers == [0x020080])
+assert isinstance(sh, SSLv2ServerHello)
+assert sh.msgtype == 4
+assert sh.sid_hit == 0
+assert sh.certtype == 1
+assert sh.version == 0x0002
+assert sh.certlen == 930
+assert sh.cipherslen == 3
+assert sh.connection_idlen == 16
+assert isinstance(sh.cert, Cert)
+assert len(sh.cert.der) == 930
+assert sh.cert.subject_str == '/C=MN/L=Ulaanbaatar/OU=Scapy Test PKI/CN=Scapy Test Server'
+assert sh.ciphers == [0x020080]
 sh.connection_id == binascii.unhexlify('391952a4ab299394cd8a2c5e03b9f180')
 
 = Reading SSLv2 session - ClientMasterKey with unknown server key
 t_enc = SSLv2(mk)
 mk_enc = t_enc.msg[0]
-assert(mk_enc.clearkeylen == 11)
-assert(mk_enc.encryptedkeylen == 256)
-assert(mk_enc.clearkey == binascii.unhexlify('7ec2f99e946902feedc4dc'))
-assert(mk_enc.encryptedkey[:3] == b"\x9b\xe0\xe7" and mk_enc.encryptedkey[-3:] == b"\xea\x57\x2e")
-assert(t_enc.tls_session.pwcs.tls_version == 0x0002)
-assert(t_enc.tls_session.prcs.tls_version == 0x0002)
+assert mk_enc.clearkeylen == 11
+assert mk_enc.encryptedkeylen == 256
+assert mk_enc.clearkey == binascii.unhexlify('7ec2f99e946902feedc4dc')
+assert mk_enc.encryptedkey[:3] == b"\x9b\xe0\xe7" and mk_enc.encryptedkey[-3:] == b"\xea\x57\x2e"
+assert t_enc.tls_session.pwcs.tls_version == 0x0002
+assert t_enc.tls_session.prcs.tls_version == 0x0002
 mk_enc.decryptedkey is None
 
 = Reading SSLv2 session - Importing server compromised key
@@ -91,85 +91,85 @@ t.tls_session.server_rsa_key = rsa_key
 
 = Reading SSLv2 session - ClientMasterKey with compromised server key
 t = SSLv2(mk, tls_session=t.tls_session.mirror())
-assert(t.len == 277 and not t.padlen and not t.mac and not t.pad)
+assert t.len == 277 and not t.padlen and not t.mac and not t.pad
 mk = t.msg[0]
-assert(isinstance(mk, SSLv2ClientMasterKey))
-assert(mk.msgtype == 2)
-assert(mk.cipher == 0x020080)
-assert(mk.clearkeylen == 11)
-assert(mk.encryptedkeylen == 256)
-assert(mk.keyarglen == 0)
-assert(mk.clearkey == binascii.unhexlify('7ec2f99e946902feedc4dc'))
-assert(mk.decryptedkey == binascii.unhexlify('e2d430fc04'))
+assert isinstance(mk, SSLv2ClientMasterKey)
+assert mk.msgtype == 2
+assert mk.cipher == 0x020080
+assert mk.clearkeylen == 11
+assert mk.encryptedkeylen == 256
+assert mk.keyarglen == 0
+assert mk.clearkey == binascii.unhexlify('7ec2f99e946902feedc4dc')
+assert mk.decryptedkey == binascii.unhexlify('e2d430fc04')
 not mk.keyarg
 
 = Reading SSLv2 session - Checking session secrets
 s = t.tls_session
-assert(s.sslv2_common_cs == [0x020080])
-assert(s.sslv2_challenge == ch.challenge)
-assert(not s.pre_master_secret)
-assert(s.master_secret == b'~\xc2\xf9\x9e\x94i\x02\xfe\xed\xc4\xdc\xe2\xd40\xfc\x04')
-assert(s.sslv2_key_material == b'\xf4\xae\x00\x03kB>\x06\xba[\xd7\xea,\x08\xc2\xae\xba\xf3\x10\xbf\xea\x08\x8flV\x11D\xc5L\xad3\xf9')
-assert(s.rcs.cipher.key == b'\xba\xf3\x10\xbf\xea\x08\x8flV\x11D\xc5L\xad3\xf9')
+assert s.sslv2_common_cs == [0x020080]
+assert s.sslv2_challenge == ch.challenge
+assert not s.pre_master_secret
+assert s.master_secret == b'~\xc2\xf9\x9e\x94i\x02\xfe\xed\xc4\xdc\xe2\xd40\xfc\x04'
+assert s.sslv2_key_material == b'\xf4\xae\x00\x03kB>\x06\xba[\xd7\xea,\x08\xc2\xae\xba\xf3\x10\xbf\xea\x08\x8flV\x11D\xc5L\xad3\xf9'
+assert s.rcs.cipher.key == b'\xba\xf3\x10\xbf\xea\x08\x8flV\x11D\xc5L\xad3\xf9'
 s.wcs.cipher.key == b'\xf4\xae\x00\x03kB>\x06\xba[\xd7\xea,\x08\xc2\xae'
 
 = Reading SSLv2 session - Record with ciphertext
 t = SSLv2(sv, tls_session=t.tls_session.mirror())
-assert(t.len == 33)
-assert(not t.padlen)
-assert(t.mac == b'?:\xf3vE\xf3\xe83\x1a\xd0\xab\xba\xb6\x86\xe6\x89')
+assert t.len == 33
+assert not t.padlen
+assert t.mac == b'?:\xf3vE\xf3\xe83\x1a\xd0\xab\xba\xb6\x86\xe6\x89'
 not t.pad
 
 = Reading SSLv2 session - ServerVerify
 sv = t.msg[0]
-assert(isinstance(sv, SSLv2ServerVerify))
-assert(sv.msgtype == 5)
+assert isinstance(sv, SSLv2ServerVerify)
+assert sv.msgtype == 5
 sv.challenge == ch.challenge
 
 = Reading SSLv2 session - ClientFinished
 t = SSLv2(cf, tls_session=t.tls_session.mirror())
 cf = t.msg[0]
-assert(isinstance(cf, SSLv2ClientFinished))
-assert(cf.msgtype == 3)
+assert isinstance(cf, SSLv2ClientFinished)
+assert cf.msgtype == 3
 cf.connection_id == sh.connection_id
 
 = Reading SSLv2 session - RequestCertificate
 t = SSLv2(rc, tls_session=t.tls_session.mirror())
 rc = t.msg[0]
-assert(isinstance(rc, SSLv2RequestCertificate))
-assert(rc.msgtype == 7)
-assert(rc.authtype == 1)
+assert isinstance(rc, SSLv2RequestCertificate)
+assert rc.msgtype == 7
+assert rc.authtype == 1
 rc.challenge == binascii.unhexlify('19619ddf7384d68e7a614ae1989ab41e')
 
 = Reading SSLv2 session - ClientCertificate
 t = SSLv2(cc, tls_session=t.tls_session.mirror())
 cc = t.msg[0]
-assert(isinstance(cc, SSLv2ClientCertificate))
-assert(cc.msgtype == 8)
-assert(cc.certtype == 1)
-assert(cc.certlen == 930)
-assert(cc.responselen == 256)
-assert(isinstance(cc.certdata, Cert))
-assert(len(cc.certdata.der) == 930)
-assert(cc.certdata.subject_str == '/C=MN/L=Ulaanbaatar/OU=Scapy Test PKI/CN=Scapy Test Client')
-assert(len(cc.responsedata.sig_val) == 256)
+assert isinstance(cc, SSLv2ClientCertificate)
+assert cc.msgtype == 8
+assert cc.certtype == 1
+assert cc.certlen == 930
+assert cc.responselen == 256
+assert isinstance(cc.certdata, Cert)
+assert len(cc.certdata.der) == 930
+assert cc.certdata.subject_str == '/C=MN/L=Ulaanbaatar/OU=Scapy Test PKI/CN=Scapy Test Client'
+assert len(cc.responsedata.sig_val) == 256
 cc.responsedata.sig_val[:4] == b"\x81#\x95\xb5" and cc.responsedata.sig_val[-4:] == b"RM6\xd3"
 
 = Reading SSLv2 session - ServerFinished
 t = SSLv2(sf, tls_session=t.tls_session.mirror())
 sf = t.msg[0]
-assert(isinstance(sf, SSLv2ServerFinished))
-assert(sf.msgtype == 6)
+assert isinstance(sf, SSLv2ServerFinished)
+assert sf.msgtype == 6
 sf.sid == binascii.unhexlify('11c1e8070b2cf249ad3d85caf8854bc8')
 
 = Reading SSLv2 session - Application data
 t1 = SSLv2(d1, tls_session=t.tls_session.mirror())
 data1 = t1.msg[0]
-assert(isinstance(data1, Raw))
-assert(data1.load == b'These are horrendous parameters for a TLS session.\n')
+assert isinstance(data1, Raw)
+assert data1.load == b'These are horrendous parameters for a TLS session.\n'
 t2 = SSLv2(d2, tls_session=t1.tls_session)
 data2 = t2.msg[0]
-assert(isinstance(data2, Raw))
+assert isinstance(data2, Raw)
 data2.load ==  b'*nothing to do here*\n'
 
 = Reading SSLv2 session - Checking final sequence numbers
@@ -184,14 +184,14 @@ t2.tls_session.rcs.seq_num == 6 and t2.tls_session.wcs.seq_num == 4
 
 = Check TLS-related scapy internals - Checking raw() harmlessness (with RC4)
 t1.show()
-assert(t1.msg[0].load == b'These are horrendous parameters for a TLS session.\n')
-assert(t1.tls_session.rcs.seq_num == 6 and t1.tls_session.wcs.seq_num == 4)
+assert t1.msg[0].load == b'These are horrendous parameters for a TLS session.\n'
+assert t1.tls_session.rcs.seq_num == 6 and t1.tls_session.wcs.seq_num == 4
 d1 == raw(t1)
 
 = Check TLS-related scapy internals - Checking show2() harmlessness (with RC4)
 t2.show2()
-assert(t2.msg[0].load == b'*nothing to do here*\n')
-assert(t2.tls_session.rcs.seq_num == 6 and t2.tls_session.wcs.seq_num == 4)
+assert t2.msg[0].load == b'*nothing to do here*\n'
+assert t2.tls_session.rcs.seq_num == 6 and t2.tls_session.wcs.seq_num == 4
 d2 == raw(t2)
 
 = Check TLS-related scapy internals - Checking show2() harmlessness (with 3DES)
@@ -212,10 +212,10 @@ t.show2()
 t = SSLv2(sv, tls_session=t.tls_session.mirror())
 t.show2()
 t.show2()
-assert(t.padlen == 7)
-assert(t.mac == b'\xe7\xe4\x08\x0e\x86\xc4\x93\t\x80l/\x80\xdaQ\xa0z')
-assert(t.tls_session.rcs.seq_num == 2)
-assert(t.tls_session.wcs.seq_num == 2)
+assert t.padlen == 7
+assert t.mac == b'\xe7\xe4\x08\x0e\x86\xc4\x93\t\x80l/\x80\xdaQ\xa0z'
+assert t.tls_session.rcs.seq_num == 2
+assert t.tls_session.wcs.seq_num == 2
 t.msg[0].challenge == challenge
 
 = Check TLS-related scapy internals - Checking tls_session freeze during show2()
@@ -225,7 +225,7 @@ l == len(t.tls_session.handshake_messages)
 
 = Check TLS-related scapy internals - Checking SSLv2 cast from TLS class
 t = TLS(ch)
-assert(isinstance(t, SSLv2))
+assert isinstance(t, SSLv2)
 t.msg[0].challenge == challenge
 
 
@@ -267,9 +267,9 @@ t.tls_session.sslv2_connection_id = b'\xba'*16
 t.tls_session.sslv2_challenge = b'\x42'*16
 t.raw_stateful()
 s = t.tls_session
-assert(s.master_secret == b'\xff'*19 + b'\xaa'*5)
-assert(isinstance(s.rcs.ciphersuite, SSL_CK_DES_192_EDE3_CBC_WITH_MD5))
-assert(isinstance(s.wcs.ciphersuite, SSL_CK_DES_192_EDE3_CBC_WITH_MD5))
+assert s.master_secret == b'\xff'*19 + b'\xaa'*5
+assert isinstance(s.rcs.ciphersuite, SSL_CK_DES_192_EDE3_CBC_WITH_MD5)
+assert isinstance(s.wcs.ciphersuite, SSL_CK_DES_192_EDE3_CBC_WITH_MD5)
 s.rcs.cipher.iv == b'\x01'*8
 s.wcs.cipher.iv == b'\x01'*8
 
