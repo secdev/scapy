@@ -553,7 +553,8 @@ def sendpfast(x,  # type: _PacketIterable
                 results = _parse_tcpreplay_result(stdout, stderr, argv)
             elif conf.verb > 2:
                 log_runtime.info(stdout.decode())
-    os.unlink(f)
+    if os.path.exists(f):
+        os.unlink(f)
     return results
 
 
