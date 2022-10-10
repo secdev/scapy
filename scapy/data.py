@@ -26,6 +26,7 @@ from scapy.compat import (
     List,
     Optional,
     Tuple,
+    Union,
     cast,
 )
 
@@ -546,12 +547,14 @@ else:
 #####################
 #  knowledge bases  #
 #####################
+KBBaseType = Optional[Union[str, List[Tuple[str, Dict[str, Dict[str, str]]]]]]
 
-class KnowledgeBase:
+
+class KnowledgeBase(object):
     def __init__(self, filename):
         # type: (Optional[Any]) -> None
         self.filename = filename
-        self.base = None  # type: Optional[str]
+        self.base = None  # type: KBBaseType
 
     def lazy_init(self):
         # type: () -> None
@@ -568,7 +571,7 @@ class KnowledgeBase:
             self.base = oldbase
 
     def get_base(self):
-        # type: () -> str
+        # type: () -> Union[str, List[Tuple[str, Dict[str,Dict[str,str]]]]]
         if self.base is None:
             self.lazy_init()
-        return cast(str, self.base)
+        return cast(Union[str, List[Tuple[str, Dict[str, Dict[str, str]]]]], self.base)

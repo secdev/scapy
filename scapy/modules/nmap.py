@@ -25,9 +25,10 @@ from scapy.config import conf
 from scapy.arch import WINDOWS
 from scapy.error import warning
 from scapy.layers.inet import IP, TCP, UDP, ICMP, UDPerror, IPerror
-from scapy.packet import NoPayload
+from scapy.packet import NoPayload, Packet
 from scapy.sendrecv import sr
-from scapy.compat import plain_str, raw
+from scapy.compat import plain_str, raw, Dict, List, Tuple, Optional, cast, Union
+from scapy.plist import SndRcvList, PacketList
 import scapy.libs.six as six
 
 
@@ -53,6 +54,7 @@ None.
     """
 
     def lazy_init(self):
+        # type: () -> None
         try:
             fdesc = open(conf.nmap_base
                          if self.filename is None else
@@ -63,36 +65,43 @@ None.
             return
 
         self.base = []
+        self.base = cast(List[Tuple[str, Dict[str, Dict[str, str]]]], self.base)
         name = None
-        sig = {}
+        sig = {}  # type: Dict[str,Dict[str,str]]
         for line in fdesc:
-            line = plain_str(line)
-            line = line.split('#', 1)[0].strip()
-            if not line:
+            str_line = plain_str(line)
+            str_line = str_line.split('#', 1)[0].strip()
+            if not str_line:
                 continue
-            if line.startswith("Fingerprint "):
+            if str_line.startswith("Fingerprint "):
                 if name is not None:
                     self.base.append((name, sig))
-                name = line[12:].strip()
+                name = str_line[12:].strip()
                 sig = {}
                 continue
-            if line.startswith("Class "):
+            if str_line.startswith("Class "):
                 continue
-            line = _NMAP_LINE.search(line)
-            if line is None:
+            match_line = _NMAP_LINE.search(str_line)
+            if match_line is None:
                 continue
-            test, values = line.groups()
+            test, values = match_line.groups()
             sig[test] = dict(val.split('=', 1) for val in
                              (values.split('%') if values else []))
         if name is not None:
             self.base.append((name, sig))
         fdesc.close()
 
+    def get_base(self):
+        # type: () -> List[Tuple[str, Dict]]
+        return cast(List[Tuple[str, Dict]], super(NmapKnowledgeBase, self).get_base())
+
 
 conf.nmap_kdb = NmapKnowledgeBase(None)
+conf.nmap_kdb = cast(NmapKnowledgeBase, conf.nmap_kdb)
 
 
 def nmap_tcppacket_sig(pkt):
+    # type: (Optional[Packet]) -> Dict
     res = {}
     if pkt is not None:
         res["DF"] = "Y" if pkt.flags.DF else "N"
@@ -106,6 +115,7 @@ def nmap_tcppacket_sig(pkt):
 
 
 def nmap_udppacket_sig(snd, rcv):
+    # type: (SndRcvList, PacketList) -> Dict
     res = {}
     if rcv is None:
         res["Resp"] = "N"
@@ -130,6 +140,7 @@ def nmap_udppacket_sig(snd, rcv):
 
 
 def nmap_match_one_sig(seen, ref):
+    # type: (Dict, Dict) -> float
     cnt = sum(val in ref.get(key, "").split("|")
               for key, val in six.iteritems(seen))
     if cnt == 0 and seen.get("Resp") == "N":
@@ -138,6 +149,7 @@ def nmap_match_one_sig(seen, ref):
 
 
 def nmap_sig(target, oport=80, cport=81, ucport=1):
+    # type: (str, int, int, int) -> Dict
     res = {}
 
     tcpopt = [("WScale", 10),
@@ -162,13 +174,14 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
             test = "T%i" % (snd.sport - 5000)
             if rcv is not None and ICMP in rcv:
                 warning("Test %s answered by an ICMP", test)
-                rcv = None
+                rcv = None  # type: ignore
             res[test] = rcv
 
     return nmap_probes2sig(res)
 
 
 def nmap_probes2sig(tests):
+    # type: (Dict) -> Dict
     tests = tests.copy()
     res = {}
     if "PU" in tests:
@@ -180,7 +193,9 @@ def nmap_probes2sig(tests):
 
 
 def nmap_search(sigs):
-    guess = 0, []
+    # type: (Dict) -> Tuple[Union[int, float], List]
+    guess = 0, []  # type: Tuple[Union[int, float], List]
+    conf.nmap_kdb = cast(NmapKnowledgeBase, conf.nmap_kdb)
     for osval, fprint in conf.nmap_kdb.get_base():
         score = 0.0
         for test, values in six.iteritems(fprint):
@@ -196,6 +211,7 @@ def nmap_search(sigs):
 
 @conf.commands.register
 def nmap_fp(target, oport=80, cport=81):
+    # type: (str, int, int) -> Tuple[Union[int, float], List]
     """nmap fingerprinting
 nmap_fp(target, [oport=80,] [cport=81,]) -> list of best guesses with accuracy
 """
@@ -205,6 +221,7 @@ nmap_fp(target, [oport=80,] [cport=81,]) -> list of best guesses with accuracy
 
 @conf.commands.register
 def nmap_sig2txt(sig):
+    # type: (Dict) -> str
     torder = ["TSeq", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "PU"]
     korder = ["Class", "gcd", "SI", "IPID", "TS",
               "Resp", "DF", "W", "ACK", "Flags", "Ops",
