@@ -29,9 +29,8 @@ from scapy.consts import LINUX
 from scapy.arch.common import (
     _iff_flags,
     compile_filter,
-    get_if,
-    get_if_raw_hwaddr,
 )
+from scapy.arch.unix import get_if, get_if_raw_hwaddr
 from scapy.config import conf
 from scapy.data import MTU, ETH_P_ALL, SOL_PACKET, SO_ATTACH_FILTER, \
     SO_TIMESTAMPNS

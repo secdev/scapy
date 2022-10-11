@@ -10,6 +10,7 @@ import abc
 import time
 
 from itertools import product
+from threading import Event
 
 from scapy.compat import Any, Union, List, Optional, \
     Dict, Callable, Type, cast
@@ -77,6 +78,7 @@ class AutomotiveTestCaseExecutor:
         self.configuration = AutomotiveTestCaseExecutorConfiguration(
             test_cases or self.default_test_case_clss, **kwargs)
         self.validate_test_case_kwargs()
+        self._stop_scan_event = Event()
 
     def __reduce__(self):  # type: ignore
         f, t, d = super(AutomotiveTestCaseExecutor, self).__reduce__()  # type: ignore  # noqa: E501
@@ -90,6 +92,10 @@ class AutomotiveTestCaseExecutor:
             pass
         try:
             del d["reconnect_handler"]
+        except KeyError:
+            pass
+        try:
+            del d["_stop_scan_event"]
         except KeyError:
             pass
         return f, t, d
@@ -194,12 +200,23 @@ class AutomotiveTestCaseExecutor:
         log_automotive.debug("Execute test_case %s with args %s",
                              test_case.__class__.__name__, test_case_kwargs)
 
-        test_case.execute(self.socket, self.target_state, **test_case_kwargs)
+        test_case.execute(self.socket, self.target_state,
+                          stop_event=self._stop_scan_event,
+                          **test_case_kwargs)
         test_case.post_execute(
             self.socket, self.target_state, self.configuration)
 
         self.check_new_states(test_case)
         self.check_new_testcases(test_case)
+
+        if hasattr(test_case, "runtime_estimation"):
+            estimation = test_case.runtime_estimation()  # type: ignore
+            if estimation is not None:
+                log_automotive.debug(
+                    "[i] Test_case %s: TODO %d, "
+                    "DONE %d, TOTAL %0.2f",
+                    test_case.__class__.__name__, estimation[0],
+                    estimation[1], estimation[2])
 
     def check_new_testcases(self, test_case):
         # type: (AutomotiveTestCaseABC) -> None
@@ -225,6 +242,23 @@ class AutomotiveTestCaseExecutor:
                 test_case_kwargs = self.configuration[test_case.__class__.__name__]
                 test_case.check_kwargs(test_case_kwargs)
 
+    def stop_scan(self):
+        # type: () -> None
+        self._stop_scan_event.set()
+
+    def progress(self):
+        # type: () -> float
+        progress = []
+        for tc in self.configuration.test_cases:
+            if not hasattr(tc, "runtime_estimation"):
+                continue
+            est = tc.runtime_estimation()  # type: ignore
+            if est is None:
+                continue
+            progress.append(est[2])
+
+        return sum(progress) / len(progress) if len(progress) else 0.0
+
     def scan(self, timeout=None):
         # type: (Optional[int]) -> None
         """
@@ -232,16 +266,18 @@ class AutomotiveTestCaseExecutor:
         :param timeout: Time for execution.
         :return: None
         """
+        self._stop_scan_event.clear()
         kill_time = time.time() + (timeout or 0xffffffff)
         log_automotive.debug("Set kill_time to %s" % time.ctime(kill_time))
         while kill_time > time.time():
             test_case_executed = False
-            log_automotive.debug("Scan paths %s", self.state_paths)
+            log_automotive.info("[i] Scan progress %0.2f", self.progress())
+            log_automotive.debug("[i] Scan paths %s", self.state_paths)
             for p, test_case in product(
                     self.state_paths, self.configuration.test_cases):
                 log_automotive.info("Scan path %s", p)
                 terminate = kill_time <= time.time()
-                if terminate:
+                if terminate or self._stop_scan_event.is_set():
                     log_automotive.debug(
                         "Execution time exceeded. Terminating scan!")
                     break

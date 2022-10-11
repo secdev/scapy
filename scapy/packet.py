@@ -401,6 +401,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         clone.default_fields = self.copy_fields_dict(self.default_fields)
         clone.overloaded_fields = self.overloaded_fields.copy()
         clone.underlayer = self.underlayer
+        clone.parent = self.parent
         clone.explicit = self.explicit
         clone.raw_packet_cache = self.raw_packet_cache
         clone.raw_packet_cache_fields = self.copy_fields_dict(
@@ -468,7 +469,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 any2i = lambda x, y: y  # type: Callable[..., Any]
             else:
                 any2i = fld.any2i
-            self.fields[attr] = any2i(self, val)
+            self.fields[attr] = val if isinstance(val, RawVal) else \
+                any2i(self, val)
             self.explicit = 0
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
@@ -1249,6 +1251,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         pkt.overloaded_fields = self.overloaded_fields.copy()
         pkt.time = self.time
         pkt.underlayer = self.underlayer
+        pkt.parent = self.parent
         pkt.post_transforms = self.post_transforms
         pkt.raw_packet_cache = self.raw_packet_cache
         pkt.raw_packet_cache_fields = self.copy_fields_dict(
@@ -1823,7 +1826,7 @@ values.
             elif callable(getattr(fv, 'command', None)):
                 fv = fv.command()
             else:
-                fv = repr(fv)
+                fv = repr(fld.i2h(self, fv))
             f.append("%s=%s" % (fn, fv))
         c = "%s(%s)" % (self.__class__.__name__, ", ".join(f))
         pc = self.payload.command()

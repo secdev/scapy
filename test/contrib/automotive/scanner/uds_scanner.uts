@@ -1,4 +1,5 @@
 % Regression tests for Simulated ECUs and UDS Scanners
+~ scanner
 
 + Configuration
 ~ conf
@@ -127,21 +128,21 @@ s = EcuState(session=1)
 
 assert False == e._evaluate_response(s, UDS(b"\x27\x01"), None, **config)
 config = {"exit_if_service_not_supported": True}
-assert e._retry_pkt[s] == None
+assert not e._retry_pkt[s]
 assert True == e._evaluate_response(s, UDS(b"\x27\x01"), UDS(b"\x7f\x27\x11"), **config)
-assert e._retry_pkt[s] == None
+assert not e._retry_pkt[s]
 assert True == e._evaluate_response(s, UDS(b"\x27\x01"), UDS(b"\x7f\x27\x24"), **config)
 assert e._retry_pkt[s] == UDS(b"\x27\x01")
 assert False == e._evaluate_response(s, UDS(b"\x27\x02"), UDS(b"\x7f\x27\x24"), **config)
-assert e._retry_pkt[s] is None
+assert not e._retry_pkt[s]
 assert True == e._evaluate_response(s, UDS(b"\x27\x01"), UDS(b"\x7f\x27\x37"), **config)
 assert e._retry_pkt[s] == UDS(b"\x27\x01")
 assert False == e._evaluate_response(s, UDS(b"\x27\x01"), UDS(b"\x7f\x27\x37"), **config)
-assert e._retry_pkt[s] == None
+assert not e._retry_pkt[s]
 assert True == e._evaluate_response(s, UDS(b"\x27\x01"), UDS(b"\x67\x01ab"), **config)
-assert e._retry_pkt[s] == None
+assert not e._retry_pkt[s]
 assert False == e._evaluate_response(s, UDS(b"\x27\x01"), UDS(b"\x67\x02ab"), **config)
-assert e._retry_pkt[s] == None
+assert not e._retry_pkt[s]
 
 
 = Test UDS_SA_XOR_Enumerator stand alone mode
@@ -196,6 +197,7 @@ scanner = executeScannerInVirtualEnvironment(
 scanner.show_testcases()
 assert len(scanner.state_paths) == 5
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
 
 assert EcuState(session=1) in scanner.final_states
 assert EcuState(session=2, tp=1) in scanner.final_states
@@ -226,13 +228,13 @@ assert len(tc.results_without_response) < 10
 if tc.results_without_response:
     tc.show()
 
-assert len(tc.results_with_negative_response) == 17
-assert len(tc.results_with_positive_response) == 8
+assert len(tc.results_with_negative_response) == 20
+assert len(tc.results_with_positive_response) == 5
 assert len(tc.scanned_states) == 5
 
 result = tc.show(dump=True)
 
-assert "incorrectMessageLengthOrInvalidFormat received 17 times" in result
+assert "incorrectMessageLengthOrInvalidFormat received 20 times" in result
 
 ###################### UDS_ServiceEnumerator ###################
 tc = scanner.configuration.test_cases[2]
@@ -266,6 +268,7 @@ scanner = executeScannerInVirtualEnvironment(
     resps, es, UDS_RDBIEnumerator_kwargs={"scan_range": range(0x100)})
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
@@ -336,6 +339,8 @@ es = [UDS_RDBISelectiveEnumerator]
 scanner = executeScannerInVirtualEnvironment(resps, es, UDS_RDBIRandomEnumerator_kwargs={"probe_start": 0, "probe_end": 0x500})
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.stages[0][0]
 
 tc.show()
@@ -349,6 +354,8 @@ assert len(tc.results_with_positive_response) >= 1
 assert len(tc.scanned_states) == 1
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.stages[0][1]
 
 tc.show()
@@ -410,6 +417,8 @@ scanner = executeScannerInVirtualEnvironment(
     resps, es, UDS_RDBIEnumerator_kwargs={"scan_range": range(0x100)})
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.stages[0][0]
 
 assert len(tc.results_without_response) < 10
@@ -489,6 +498,8 @@ scanner = executeScannerInVirtualEnvironment(
     resps, es, UDS_RDBIEnumerator_kwargs={"scan_range": range(0x100)})
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.test_cases[0][0]
 
 assert len(tc.results_without_response) < 10
@@ -545,6 +556,8 @@ es = [UDS_TPEnumerator]
 scanner = executeScannerInVirtualEnvironment(resps, es)
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
@@ -568,6 +581,8 @@ es = [UDS_EREnumerator]
 scanner = executeScannerInVirtualEnvironment(resps, es)
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
@@ -601,6 +616,8 @@ es = [UDS_CCEnumerator]
 scanner = executeScannerInVirtualEnvironment(resps, es)
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
@@ -636,6 +653,8 @@ es = [UDS_RDBPIEnumerator]
 scanner = executeScannerInVirtualEnvironment(resps, es)
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
@@ -673,6 +692,8 @@ es = [UDS_RCEnumerator]
 scanner = executeScannerInVirtualEnvironment(resps, es, UDS_RCEnumerator_kwargs={"scan_range": range(0x11)})
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
@@ -708,6 +729,8 @@ es = [UDS_RCSelectiveEnumerator]
 scanner = executeScannerInVirtualEnvironment(resps, es, UDS_RCStartEnumerator_kwargs={"scan_range": range(0x11)})
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.stages[0][0]
 
 assert len(tc.results_without_response) < 10
@@ -758,6 +781,8 @@ es = [UDS_IOCBIEnumerator]
 scanner = executeScannerInVirtualEnvironment(resps, es, UDS_IOCBIEnumerator_kwargs={"scan_range": range(0x100)})
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
@@ -814,6 +839,8 @@ scanner = executeScannerInVirtualEnvironment(
     UDS_RDEnumerator_kwargs={"unittest": True})
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc1 = scanner.configuration.test_cases[0]
 
 assert len(tc1.results_without_response) < 10
@@ -936,6 +963,8 @@ es = [UDS_TDEnumerator]
 scanner = executeScannerInVirtualEnvironment(resps, es)
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10
@@ -971,6 +1000,8 @@ es = [BMW_DevJobEnumerator]
 scanner = executeScannerInVirtualEnvironment(resps, es, BMW_DevJobEnumerator_kwargs={"scan_range": range(0xFF00, 0x10000)})
 
 assert scanner.scan_completed
+assert scanner.progress() > 0.95
+
 tc = scanner.configuration.test_cases[0]
 
 assert len(tc.results_without_response) < 10

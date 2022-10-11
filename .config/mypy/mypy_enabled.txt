@@ -15,6 +15,9 @@ scapy/arch/libpcap.py
 scapy/arch/linux.py
 scapy/arch/unix.py
 scapy/arch/solaris.py
+scapy/arch/windows/__init__.py
+scapy/arch/windows/native.py
+scapy/arch/windows/structures.py
 scapy/as_resolvers.py
 scapy/asn1/__init__.py
 scapy/asn1/asn1.py
@@ -85,3 +88,6 @@ scapy/contrib/tcpao.py
 
 # TEST
 test/testsocket.py
+
+# TOOLS
+scapy/tools/automotive/isotpscanner.py

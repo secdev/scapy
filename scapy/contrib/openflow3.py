@@ -269,7 +269,7 @@ ofp_oxm_fields = {}
 
 
 def add_ofp_oxm_fields(i, org):
-    ofp_oxm_fields[i] = [ShortEnumField("class", "OFPXMC_OPENFLOW_BASIC", ofp_oxm_classes),  # noqa: E501
+    ofp_oxm_fields[i] = [ShortEnumField("class_", "OFPXMC_OPENFLOW_BASIC", ofp_oxm_classes),  # noqa: E501
                          BitEnumField("field", i // 2, 7, ofp_oxm_names),
                          BitField("hasmask", i % 2, 1)]
     ofp_oxm_fields[i].append(ByteField("len", org[2] + org[2] * (i % 2)))

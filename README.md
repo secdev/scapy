@@ -1,6 +1,6 @@
 <!-- start_ppi_description -->
 
-# <img src="doc/scapy_logo.png" width="64" valign="middle" alt="Scapy" />&nbsp;&nbsp; Scapy
+# <img src="https://github.com/secdev/scapy/raw/master/doc/scapy/graphics/scapy_logo.png" width="64" valign="middle" alt="Scapy" />&nbsp;&nbsp; Scapy
 
 [![Scapy unit tests](https://github.com/secdev/scapy/workflows/Scapy%20unit%20tests/badge.svg?event=push)](https://github.com/secdev/scapy/actions?query=workflow%3A%22Scapy+unit+tests%22+branch%3Amaster+event%3Apush) <!-- ignore_ppi -->
 [![AppVeyor Build status](https://ci.appveyor.com/api/projects/status/os03daotfja0wtp7/branch/master?svg=true)](https://ci.appveyor.com/project/secdev/scapy/branch/master) <!-- ignore_ppi -->

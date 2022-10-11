@@ -12,19 +12,25 @@ environment:
       PYTHON_ARCH: "64"
       TOXENV: "py27-windows"
       WINPCAP: "false"
-      UT_FLAGS: ""
+      UT_FLAGS: "-K scanner"
     - PYTHON: "C:\\Python37-x64"
       PYTHON_VERSION: "3.7.x"
       PYTHON_ARCH: "64"
       TOXENV: "py37-windows"
       WINPCAP: "false"
-      UT_FLAGS: ""
+      UT_FLAGS: "-K scanner"
     - PYTHON: "C:\\Python37-x64"
       PYTHON_VERSION: "3.7.x"
       PYTHON_ARCH: "64"
       TOXENV: "py37-windows"
       WINPCAP: "true"
-      UT_FLAGS: "-K tcpdump"
+      UT_FLAGS: "-K tcpdump -K scanner"
+    - PYTHON: "C:\\Python37-x64"
+      PYTHON_VERSION: "3.7.x"
+      PYTHON_ARCH: "64"
+      TOXENV: "py37-windows"
+      WINPCAP: "false"
+      UT_FLAGS: "-k scanner"
 
 # There is no build phase for Scapy
 build: off
@@ -47,6 +53,8 @@ install:
 for:
   -
     matrix:
+      allow_failures:
+        - UT_FLAGS: "-k scanner"
       only:
         - WINPCAP: "true"
     install:

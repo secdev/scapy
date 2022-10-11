@@ -86,6 +86,596 @@ krb = pkt.innerContextToken.token.mechToken.value.root.innerContextToken.payload
 assert isinstance(krb, Kerberos)
 assert krb.root.ticket.sname.nameString == [b"cifs", b"localdc"]
 
+= Parse WIN2K-PAC (real life)
+
+# PAC in the example from https://scapy.readthedocs.io/en/latest/layers/kerberos.html#decrypt-fast
+
+data = b'\x08\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\xd0\x01\x00\x00\x88\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x00\x12\x00\x00\x00X\x02\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00x\x00\x00\x00p\x02\x00\x00\x00\x00\x00\x00\r\x00\x00\x00\xf0\x00\x00\x00\xe8\x02\x00\x00\x00\x00\x00\x00\x11\x00\x00\x00\x08\x00\x00\x00\xd8\x03\x00\x00\x00\x00\x00\x00\x12\x00\x00\x00\x1c\x00\x00\x00\xe0\x03\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00\x10\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00\x10\x00\x00\x00\x10\x04\x00\x00\x00\x00\x00\x00\x01\x10\x08\x00\xcc\xcc\xcc\xcc\xc0\x01\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x1f\x1cssC\x96\xd8\x01\xff\xff\xff\xff\xff\xff\xff\x7f\xff\xff\xff\xff\xff\xff\xff\x7fT=pE\xcav\xd8\x01T\xfd\xd9o\x93w\xd8\x01\xff\xff\xff\xff\xff\xff\xff\x7f\x08\x00\x08\x00\x04\x00\x02\x00\x00\x00\x00\x00\x08\x00\x02\x00\x00\x00\x00\x00\x0c\x00\x02\x00\x00\x00\x00\x00\x10\x00\x02\x00\x00\x00\x00\x00\x14\x00\x02\x00\x00\x00\x00\x00\x18\x00\x02\x00F\x00\x00\x00P\x04\x00\x00\x03\x02\x00\x00\x01\x00\x00\x00\x1c\x00\x02\x00 \x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x06\x00\x08\x00 \x00\x02\x00\x08\x00\n\x00$\x00\x02\x00(\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00,\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00S\x00R\x00V\x00$\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x03\x02\x00\x00\x07\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00D\x00C\x001\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00D\x00O\x00M\x001\x00\x04\x00\x00\x00\x01\x04\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00\xfa*@1\xb2f\xa6\x1c\x11dp\\\x02\x00\x00\x000\x00\x02\x00\x07\x00\x00\x004\x00\x02\x00\x07\x00\x00\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xf1\x01\x00\x00\x01\x00\x00\x00\x01\x01\x00\x00\x00\x00\x00\x12\x01\x00\x00\x00\x80\xd6^sC\x96\xd8\x01\x08\x00S\x00R\x00V\x00$\x00\x00\x00\x00\x00\x00\x00\x1e\x00\x18\x00\x14\x008\x00\x03\x00\x00\x00\x08\x00P\x00\x1c\x00X\x00\x00\x00\x00\x00S\x00R\x00V\x00$\x00@\x00d\x00o\x00m\x001\x00.\x00l\x00o\x00c\x00a\x00l\x00\x00\x00D\x00O\x00M\x001\x00.\x00L\x00O\x00C\x00A\x00L\x00\x00\x00\x00\x00S\x00R\x00V\x00$\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00\xfa*@1\xb2f\xa6\x1c\x11dp\\P\x04\x00\x00\x00\x00\x00\x00\x01\x10\x08\x00\xcc\xcc\xcc\xcc\xe0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xb8\x00\x00\x00\x04\x00\x02\x00\x00\x00\x00\x00\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xb8\x00\x00\x00\x01\x10\x08\x00\xcc\xcc\xcc\xcc\xa8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x01\x00\x00\x00\x04\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x08\x00\x02\x00\x01\x00\x00\x00\x0c\x00\x02\x00\x03\x00\x03\x00\x01\x00\x00\x00\x10\x00\x02\x00\x1c\x00\x00\x00\x00\x00\x00\x00\x1c\x00\x00\x00a\x00d\x00:\x00/\x00/\x00e\x00x\x00t\x00/\x00A\x00u\x00t\x00h\x00e\x00n\x00t\x00i\x00c\x00a\x00t\x00i\x00o\x00n\x00S\x00i\x00l\x00o\x00\x00\x00\x01\x00\x00\x00\x14\x00\x02\x00\x08\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00T\x000\x00-\x00s\x00i\x00l\x00o\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00\xfa*@1\xb2f\xa6\x1c\x11dp\\P\x04\x00\x00\x00\x00\x00\x00\x10\x00\x00\x00d\xb0qv\xf8\xd3X\x0b\x7f4\xfe\xda\x10\x00\x00\x00\x835J\xa7\x80\xb1S\xcez\x8b\xd2\xc2'
+
+pkt = PACTYPE(data)
+assert len(pkt.Buffers) == 8
+assert len(pkt.Payloads) == 8
+assert [type(x) for x in pkt.Payloads] == [
+    NDRSerialization1Header,
+    PAC_CLIENT_INFO,
+    UPN_DNS_INFO,
+    NDRSerialization1Header,
+    PAC_ATTRIBUTES_INFO,
+    PAC_REQUESTOR,
+    PAC_SIGNATURE_DATA,
+    PAC_SIGNATURE_DATA,
+]
+
+# 0 and 1 are common
+assert pkt.Payloads[2].Upn == 'SRV$@dom1.local'
+assert pkt.Payloads[2].DnsDomainName == 'DOM1.LOCAL'
+assert pkt.Payloads[2].SamName == 'SRV$'
+assert pkt.Payloads[2].Sid == b'\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00\xfa*@1\xb2f\xa6\x1c\x11dp\\P\x04\x00\x00'
+
+assert pkt.Payloads[3].value.Claims.ClaimsSet.value.value[0].value.data.ClaimsArrays.value.value[0].usClaimsSourceType == 1
+claimentry = pkt.Payloads[3].value.Claims.ClaimsSet.value.value[0].value.data.ClaimsArrays.value.value[0].ClaimEntries.value.value[0]
+assert claimentry.Id.value.value[0].value == b'ad://ext/AuthenticationSilo'
+assert claimentry.Values.value.StringValues.value.value[0].value.value[0].value == b'T0-silo'
+
+assert pkt.Payloads[4].Flags[0].PAC_WAS_REQUESTED
+
+assert pkt.Payloads[5].Sid == b'\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00\xfa*@1\xb2f\xa6\x1c\x11dp\\P\x04\x00\x00'
+
+assert pkt.Payloads[6].SignatureType == 16
+assert pkt.Payloads[6].Signature == b'd\xb0qv\xf8\xd3X\x0b\x7f4\xfe\xda'
+
+assert pkt.Payloads[7].SignatureType == 16
+assert pkt.Payloads[7].Signature == b'\x835J\xa7\x80\xb1S\xcez\x8b\xd2\xc2'
+
+= Parse WIN2K-PAC (MS-PAC sect 3)
+
+# Example data from [MS-PAC] sect 3 - Structural example
+
+data = b'0\x82\x05R0\x82\x05N\xa0\x04\x02\x02\x00\x80\xa1\x82\x05D\x04\x82\x05@\x04\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\xb0\x04\x00\x00H\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x00\x12\x00\x00\x00\xf8\x04\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00\x14\x00\x00\x00\x10\x05\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00\x14\x00\x00\x00(\x05\x00\x00\x00\x00\x00\x00\x01\x10\x08\x00\xcc\xcc\xcc\xcc\xa0\x04\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xd1\x86f\x0fej\xc6\x01\xff\xff\xff\xff\xff\xff\xff\x7f\xff\xff\xff\xff\xff\xff\xff\x7f\x17\xd49\xfexJ\xc6\x01\x17\x94\xa3(BK\xc6\x01\x17T$\x97z\x81\xc6\x01\x08\x00\x08\x00\x04\x00\x02\x00$\x00$\x00\x08\x00\x02\x00\x12\x00\x12\x00\x0c\x00\x02\x00\x00\x00\x00\x00\x10\x00\x02\x00\x00\x00\x00\x00\x14\x00\x02\x00\x00\x00\x00\x00\x18\x00\x02\x00T\x10\x00\x00\x97y,\x00\x01\x02\x00\x00\x1a\x00\x00\x00\x1c\x00\x02\x00 \x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x16\x00\x18\x00 \x00\x02\x00\n\x00\x0c\x00$\x00\x02\x00(\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x00\x00,\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00l\x00z\x00h\x00u\x00\x12\x00\x00\x00\x00\x00\x00\x00\x12\x00\x00\x00L\x00i\x00q\x00i\x00a\x00n\x00g\x00(\x00L\x00a\x00r\x00r\x00y\x00)\x00 \x00Z\x00h\x00u\x00\t\x00\x00\x00\x00\x00\x00\x00\t\x00\x00\x00n\x00t\x00d\x00s\x002\x00.\x00b\x00a\x00t\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1a\x00\x00\x00a\xc43\x00\x07\x00\x00\x00\t\xc3-\x00\x07\x00\x00\x00^\xb42\x00\x07\x00\x00\x00\x01\x02\x00\x00\x07\x00\x00\x00\x97\xb9,\x00\x07\x00\x00\x00+\xf12\x00\x07\x00\x00\x00\xce03\x00\x07\x00\x00\x00\xa7..\x00\x07\x00\x00\x00*\xf12\x00\x07\x00\x00\x00\x98\xb9,\x00\x07\x00\x00\x00b\xc43\x00\x07\x00\x00\x00\x94\x013\x00\x07\x00\x00\x00v\xc43\x00\x07\x00\x00\x00\xae\xfe-\x00\x07\x00\x00\x002\xd2,\x00\x07\x00\x00\x00\x16\x082\x00\x07\x00\x00\x00B[.\x00\x07\x00\x00\x00_\xb42\x00\x07\x00\x00\x00\xca\x9c5\x00\x07\x00\x00\x00\x85D-\x00\x07\x00\x00\x00\xc2\xf02\x00\x07\x00\x00\x00\xe9\xea1\x00\x07\x00\x00\x00\xed\x8e.\x00\x07\x00\x00\x00\xb6\xeb1\x00\x07\x00\x00\x00\xab..\x00\x07\x00\x00\x00r\x0e.\x00\x07\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x00\x00N\x00T\x00D\x00E\x00V\x00-\x00D\x00C\x00-\x000\x005\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00N\x00T\x00D\x00E\x00V\x00\x00\x00\x04\x00\x00\x00\x01\x04\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0b\r\x00\x00\x000\x00\x02\x00\x07\x00\x00\x004\x00\x02\x00\x07\x00\x00 8\x00\x02\x00\x07\x00\x00 <\x00\x02\x00\x07\x00\x00 @\x00\x02\x00\x07\x00\x00 D\x00\x02\x00\x07\x00\x00 H\x00\x02\x00\x07\x00\x00 L\x00\x02\x00\x07\x00\x00 P\x00\x02\x00\x07\x00\x00 T\x00\x02\x00\x07\x00\x00 X\x00\x02\x00\x07\x00\x00 \\\x00\x02\x00\x07\x00\x00 `\x00\x02\x00\x07\x00\x00 \x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00\xb90\x1b.\xb7ALl\x8c;5\x15\x01\x02\x00\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0btT/\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0b\xe882\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0b\xcd82\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0b]\xb42\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0bA\x165\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0b\xe8\xea1\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0b\xc1\x192\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0b)\xf12\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0b\x0f_.\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0b/[.\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0b\xef\x8f1\x00\x05\x00\x00\x00\x01\x05\x00\x00\x00\x00\x00\x05\x15\x00\x00\x00YQ\xb8\x17fr]%dc;\x0b\x07_.\x00\x00\x00\x00\x00\x00I\xd9\x0eej\xc6\x01\x08\x00l\x00z\x00h\x00u\x00\x00\x00\x00\x00\x00\x00v\xff\xff\xffA\xed\xce\x9a4\x81]:\xef{\xc9\x88t\x80]%\x00\x00\x00\x00v\xff\xff\xff\xf7\xa54\xda\xb2\xc0)\x86\xef\xe0\xfb\xe5\x11\nO2\x00\x00\x00\x00'
+
+pkt = AuthorizationData(data)
+
+assert isinstance(pkt.seq[0].adData.Payloads[0], NDRSerialization1Header)
+k = pkt.seq[0].adData.Payloads[0].value.data
+assert isinstance(k, KERB_VALIDATION_INFO)
+assert k.EffectiveName.Buffer.value.value[0].value == b'lzhu'
+assert k.LogonDomainName.Buffer.value.value[0].value == b"NTDEV"
+assert "S%s" % "-".join(str(x) for x in k.LogonDomainId.value.SubAuthority) == 'S21-397955417-626881126-188441444'
+assert len(k.ExtraSids.value.value) == 13
+assert [x.RelativeId for x in k.GroupIds.value.value] == [3392609, 2999049, 3322974, 513, 2931095, 3338539, 3354830, 3026599, 3338538, 2931096, 3392610, 3342740, 3392630, 3014318, 2937394, 3278870, 3038018, 3322975, 3513546, 2966661, 3338434, 3271401, 3051245, 3271606, 3026603, 3018354]
+
+
+assert isinstance(pkt.seq[0].adData.Payloads[1], PAC_CLIENT_INFO)
+assert pkt.seq[0].adData.Payloads[1].Name == 'lzhu'
+
+assert isinstance(pkt.seq[0].adData.Payloads[2], PAC_SIGNATURE_DATA)
+assert len(pkt.seq[0].adData.Payloads[2].Signature) == 16
+
+assert isinstance(pkt.seq[0].adData.Payloads[3], PAC_SIGNATURE_DATA)
+assert  pkt.seq[0].adData.Payloads[3].Signature == b'\xf7\xa54\xda\xb2\xc0)\x86\xef\xe0\xfb\xe5\x11\nO2'
+
+= Build WIN2K-PAC (MS-PAC sect 3)
+
+pkt = PACTYPE(
+    Buffers=[
+        PAC_INFO_BUFFER(ulType=1, cbBufferSize=1200, Offset=72),
+        PAC_INFO_BUFFER(ulType=10, cbBufferSize=18, Offset=1272),
+        PAC_INFO_BUFFER(ulType=6, cbBufferSize=20, Offset=1296),
+        PAC_INFO_BUFFER(ulType=7, cbBufferSize=20, Offset=1320),
+    ],
+    Payloads=[
+        NDRSerialization1Header(
+            Version=1, Endianness=16, CommonHeaderLength=8, Filler=3435973836
+        )
+        / NDRSerialization1PrivateHeader(ObjectBufferLength=1184, Filler=0)
+        / NDRPointer(
+            ndr64=False,
+            referent_id=131072,
+            value=KERB_VALIDATION_INFO_WRAP(
+                ndr64=False,
+                data=KERB_VALIDATION_INFO(
+                    LogonTime=FILETIME(
+                        dwLowDateTime=258377425, dwHighDateTime=29780581
+                    ),
+                    LogoffTime=FILETIME(
+                        dwLowDateTime=4294967295, dwHighDateTime=2147483647
+                    ),
+                    KickOffTime=FILETIME(
+                        dwLowDateTime=4294967295, dwHighDateTime=2147483647
+                    ),
+                    PasswordLastSet=FILETIME(
+                        dwLowDateTime=4265202711, dwHighDateTime=29772408
+                    ),
+                    PasswordCanChange=FILETIME(
+                        dwLowDateTime=681808919, dwHighDateTime=29772610
+                    ),
+                    PasswordMustChange=FILETIME(
+                        dwLowDateTime=2535740439, dwHighDateTime=29786490
+                    ),
+                    EffectiveName=RPC_UNICODE_STRING(
+                        Length=8,
+                        MaximumLength=8,
+                        Buffer=NDRPointer(
+                            referent_id=131076,
+                            value=NDRConformantArray(
+                                max_count=4,
+                                value=[
+                                    NDRVaryingArray(
+                                        offset=0, actual_count=4, value=b"lzhu"
+                                    )
+                                ],
+                            ),
+                        ),
+                    ),
+                    FullName=RPC_UNICODE_STRING(
+                        Length=36,
+                        MaximumLength=36,
+                        Buffer=NDRPointer(
+                            referent_id=131080,
+                            value=NDRConformantArray(
+                                max_count=18,
+                                value=[
+                                    NDRVaryingArray(
+                                        offset=0,
+                                        actual_count=18,
+                                        value=b"Liqiang(Larry) Zhu",
+                                    )
+                                ],
+                            ),
+                        ),
+                    ),
+                    LogonScript=RPC_UNICODE_STRING(
+                        Length=18,
+                        MaximumLength=18,
+                        Buffer=NDRPointer(
+                            referent_id=131084,
+                            value=NDRConformantArray(
+                                max_count=9,
+                                value=[
+                                    NDRVaryingArray(
+                                        offset=0, actual_count=9, value=b"ntds2.bat"
+                                    )
+                                ],
+                            ),
+                        ),
+                    ),
+                    ProfilePath=RPC_UNICODE_STRING(
+                        Length=0,
+                        MaximumLength=0,
+                        Buffer=NDRPointer(
+                            referent_id=131088,
+                            value=NDRConformantArray(
+                                max_count=0,
+                                value=[
+                                    NDRVaryingArray(offset=0, actual_count=0, value=b"")
+                                ],
+                            ),
+                        ),
+                    ),
+                    HomeDirectory=RPC_UNICODE_STRING(
+                        Length=0,
+                        MaximumLength=0,
+                        Buffer=NDRPointer(
+                            referent_id=131092,
+                            value=NDRConformantArray(
+                                max_count=0,
+                                value=[
+                                    NDRVaryingArray(offset=0, actual_count=0, value=b"")
+                                ],
+                            ),
+                        ),
+                    ),
+                    HomeDirectoryDrive=RPC_UNICODE_STRING(
+                        Length=0,
+                        MaximumLength=0,
+                        Buffer=NDRPointer(
+                            referent_id=131096,
+                            value=NDRConformantArray(
+                                max_count=0,
+                                value=[
+                                    NDRVaryingArray(offset=0, actual_count=0, value=b"")
+                                ],
+                            ),
+                        ),
+                    ),
+                    UserSessionKey=USER_SESSION_KEY(
+                        data=[
+                            CYPHER_BLOCK(data=b"\x00\x00\x00\x00\x00\x00\x00\x00"),
+                            CYPHER_BLOCK(data=b"\x00\x00\x00\x00\x00\x00\x00\x00"),
+                        ]
+                    ),
+                    LogonServer=RPC_UNICODE_STRING(
+                        Length=22,
+                        MaximumLength=24,
+                        Buffer=NDRPointer(
+                            referent_id=131104,
+                            value=NDRConformantArray(
+                                max_count=12,
+                                value=[
+                                    NDRVaryingArray(
+                                        offset=0, actual_count=11, value=b"NTDEV-DC-05"
+                                    )
+                                ],
+                            ),
+                        ),
+                    ),
+                    LogonDomainName=RPC_UNICODE_STRING(
+                        Length=10,
+                        MaximumLength=12,
+                        Buffer=NDRPointer(
+                            referent_id=131108,
+                            value=NDRConformantArray(
+                                max_count=6,
+                                value=[
+                                    NDRVaryingArray(
+                                        offset=0, actual_count=5, value=b"NTDEV"
+                                    )
+                                ],
+                            ),
+                        ),
+                    ),
+                    Reserved1=[0, 0],
+                    Reserved3=[0, 0, 0, 0, 0, 0, 0],
+                    LogonCount=4180,
+                    BadPasswordCount=0,
+                    UserId=2914711,
+                    PrimaryGroupId=513,
+                    GroupCount=26,
+                    GroupIds=NDRPointer(
+                        referent_id=131100,
+                        value=NDRConformantArray(
+                            max_count=26,
+                            value=[
+                                PGROUP_MEMBERSHIP(RelativeId=3392609, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=2999049, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3322974, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=513, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=2931095, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3338539, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3354830, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3026599, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3338538, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=2931096, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3392610, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3342740, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3392630, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3014318, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=2937394, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3278870, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3038018, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3322975, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3513546, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=2966661, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3338434, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3271401, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3051245, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3271606, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3026603, Attributes=7),
+                                PGROUP_MEMBERSHIP(RelativeId=3018354, Attributes=7),
+                            ],
+                        ),
+                    ),
+                    UserFlags=32,
+                    LogonDomainId=NDRPointer(
+                        referent_id=131112,
+                        value=PSID(
+                            max_count=4,
+                            Revision=1,
+                            SubAuthorityCount=4,
+                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                Value=b"\x00\x00\x00\x00\x00\x05"
+                            ),
+                            SubAuthority=[21, 397955417, 626881126, 188441444],
+                        ),
+                    ),
+                    UserAccountControl=16,
+                    SidCount=13,
+                    ExtraSids=NDRPointer(
+                        referent_id=131116,
+                        value=NDRConformantArray(
+                            max_count=13,
+                            value=[
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131120,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                773533881,
+                                                1816936887,
+                                                355810188,
+                                                513,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=7,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131124,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3101812,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131128,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3291368,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131132,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3291341,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131136,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3322973,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131140,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3479105,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131144,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3271400,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131148,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3283393,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131152,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3338537,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131156,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3038991,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131160,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3037999,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131164,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3248111,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                                PKERB_SID_AND_ATTRIBUTES(
+                                    Sid=NDRPointer(
+                                        referent_id=131168,
+                                        value=PSID(
+                                            max_count=5,
+                                            Revision=1,
+                                            SubAuthorityCount=5,
+                                            IdentifierAuthority=RPC_SID_IDENTIFIER_AUTHORITY(
+                                                Value=b"\x00\x00\x00\x00\x00\x05"
+                                            ),
+                                            SubAuthority=[
+                                                21,
+                                                397955417,
+                                                626881126,
+                                                188441444,
+                                                3038983,
+                                            ],
+                                        ),
+                                    ),
+                                    Attributes=536870919,
+                                ),
+                            ],
+                        ),
+                    ),
+                    ResourceGroupDomainSid=None,
+                    ResourceGroupCount=0,
+                    ResourceGroupIds=None,
+                )
+            )
+            / Padding(load=b"\x00\x00\x00\x00"),
+        ),
+        PAC_CLIENT_INFO(
+            ClientId=127906621700000000, NameLength=8, Name=b"lzhu"
+        ),
+        PAC_SIGNATURE_DATA(
+            SignatureType=4294967158,
+            Signature=b"A\xed\xce\x9a4\x81]:\xef{\xc9\x88t\x80]%",
+        ),
+        PAC_SIGNATURE_DATA(
+            SignatureType=4294967158,
+            Signature=b"\xf7\xa54\xda\xb2\xc0)\x86\xef\xe0\xfb\xe5\x11\nO2",
+        ),
+    ],
+    cBuffers=4,
+    Version=0,
+)
+
+assert raw(pkt) == data[22:]
+
 + Crypto tests
 ~ disabled
 
@@ -100,7 +690,7 @@ from scapy.libs.rfc3961 import Key, EncryptionType, KRB_FX_CF2
 def test_krb_fx_cf2(etype):
     k1 = Key.string_to_key(etype, b"key1", b"key1")
     k2 = Key.string_to_key(etype, b"key2", b"key2")
-    return bytes_hex(KRB_FX_CF2(k1, k2, b"a", b"b"))
+    return bytes_hex(KRB_FX_CF2(k1, k2, b"a", b"b").key)
 
 assert test_krb_fx_cf2(EncryptionType.AES128) == b"97df97e4b798b29eb31ed7280287a92a"
 assert test_krb_fx_cf2(EncryptionType.AES256) == b"4d6ca4e629785c1f01baf55e2e548566b9617ae3a96868c337cb93b5e72b1c7b"

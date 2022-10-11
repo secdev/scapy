@@ -6,7 +6,7 @@
 
 # scapy.contrib.description = ISO-TP (ISO 15765-2) Soft Socket Library
 # scapy.contrib.status = library
-
+import logging
 import struct
 import time
 import traceback
@@ -17,11 +17,10 @@ from threading import Thread, Event, RLock
 
 from scapy.compat import Optional, Union, List, Tuple, Any, Type, cast, \
     Callable, TYPE_CHECKING
-from scapy.contrib.isotp import log_isotp
 from scapy.packet import Packet
 from scapy.layers.can import CAN
 import scapy.libs.six as six
-from scapy.error import Scapy_Exception, warning, log_runtime
+from scapy.error import Scapy_Exception
 from scapy.supersocket import SuperSocket
 from scapy.config import conf
 from scapy.consts import LINUX
@@ -33,6 +32,7 @@ from scapy.contrib.isotp.isotp_packet import ISOTP, CAN_MAX_DLEN, N_PCI_SF, \
 if TYPE_CHECKING:
     from scapy.contrib.cansocket import CANSocket
 
+log_isotp = logging.getLogger("scapy.contrib.isotp")
 
 # Enum states
 ISOTP_IDLE = 0
@@ -150,7 +150,7 @@ class ISOTPSoftSocket(SuperSocket):
         self.impl = impl
         self.basecls = basecls
         if basecls is None:
-            warning('Provide a basecls ')
+            log_isotp.warning('Provide a basecls ')
 
     def close(self):
         # type: () -> None
@@ -304,13 +304,13 @@ class TimeoutScheduler:
         # Wait until the next timeout,
         # or until event.set() gets called in another thread.
         if to_wait > 0:
-            log_runtime.debug("TimeoutScheduler Thread going to sleep @ %f " +
-                              "for %fs", now, to_wait)
+            log_isotp.debug("TimeoutScheduler Thread going to sleep @ %f " +
+                            "for %fs", now, to_wait)
             interrupted = cls._event.wait(to_wait)
             new = cls._time()
-            log_runtime.debug("TimeoutScheduler Thread awake @ %f, slept for" +
-                              " %f, interrupted=%d", new, new - now,
-                              interrupted)
+            log_isotp.debug("TimeoutScheduler Thread awake @ %f, slept for" +
+                            " %f, interrupted=%d", new, new - now,
+                            interrupted)
 
         # Clear the event so that we can wait on it again,
         # Must be done before doing the callbacks to avoid losing a set().
@@ -323,7 +323,7 @@ class TimeoutScheduler:
         start when the first timeout is added and stop when the last timeout
         is removed or executed."""
 
-        log_runtime.debug("TimeoutScheduler Thread spawning @ %f", cls._time())
+        log_isotp.debug("TimeoutScheduler Thread spawning @ %f", cls._time())
 
         time_empty = None
 
@@ -345,7 +345,7 @@ class TimeoutScheduler:
         finally:
             # Worst case scenario: if this thread dies, the next scheduled
             # timeout will start a new one
-            log_runtime.debug("TimeoutScheduler Thread died @ %f", cls._time())
+            log_isotp.debug("TimeoutScheduler Thread died @ %f", cls._time())
             cls._thread = None
 
     @classmethod
@@ -580,8 +580,8 @@ class ISOTPSocketImplementation:
         # type: (Packet) -> None
         if p.identifier != self.rx_id:
             if not self.filter_warning_emitted and conf.verb >= 2:
-                warning("You should put a filter for identifier=%x on your "
-                        "CAN socket", self.rx_id)
+                log_isotp.warning("You should put a filter for identifier=%x on your "
+                                  "CAN socket", self.rx_id)
                 self.filter_warning_emitted = True
         else:
             self.on_recv(p)
@@ -590,14 +590,14 @@ class ISOTPSocketImplementation:
         # type: () -> None
         try:
             if select_objects([self.tx_queue], 0):
-                warning("TX queue not empty")
+                log_isotp.warning("TX queue not empty")
                 time.sleep(0.1)
         except OSError:
             pass
 
         try:
             if select_objects([self.rx_queue], 0):
-                warning("RX queue not empty")
+                log_isotp.warning("RX queue not empty")
         except OSError:
             pass
 
@@ -621,7 +621,7 @@ class ISOTPSocketImplementation:
             # reset rx state
             self.rx_state = ISOTP_IDLE
             if conf.verb > 2:
-                warning("RX state was reset due to timeout")
+                log_isotp.warning("RX state was reset due to timeout")
 
     def _tx_timer_handler(self):
         # type: () -> None
@@ -634,7 +634,7 @@ class ISOTPSocketImplementation:
             # we did not get any flow control frame in time
             # reset tx state
             self.tx_state = ISOTP_IDLE
-            warning("TX state was reset due to timeout")
+            log_isotp.warning("TX state was reset due to timeout")
             return
         elif self.tx_state == ISOTP_SENDING:
             # push out the next segmented pdu
@@ -642,7 +642,7 @@ class ISOTPSocketImplementation:
             max_bytes = 7 - src_off
             if self.tx_buf is None:
                 self.tx_state = ISOTP_IDLE
-                warning("TX buffer is not filled")
+                log_isotp.warning("TX buffer is not filled")
                 return
             while 1:
                 load = self.ea_hdr
@@ -706,7 +706,7 @@ class ISOTPSocketImplementation:
     def _recv_fc(self, data):
         # type: (bytes) -> None
         """Process a received 'Flow Control' frame"""
-        log_runtime.debug("Processing FC")
+        log_isotp.debug("Processing FC")
 
         if (self.tx_state != ISOTP_WAIT_FC and
                 self.tx_state != ISOTP_WAIT_FIRST_FC):
@@ -718,7 +718,7 @@ class ISOTPSocketImplementation:
 
         if len(data) < 3:
             self.tx_state = ISOTP_IDLE
-            warning("CF frame discarded because it was too short")
+            log_isotp.warning("CF frame discarded because it was too short")
             return
 
         # get communication parameters only from the first FC frame
@@ -756,17 +756,17 @@ class ISOTPSocketImplementation:
         elif isotp_fc == ISOTP_FC_OVFLW:
             # overflow in receiver side
             self.tx_state = ISOTP_IDLE
-            warning("Overflow happened at the receiver side")
+            log_isotp.warning("Overflow happened at the receiver side")
             return
         else:
             self.tx_state = ISOTP_IDLE
-            warning("Unknown FC frame type")
+            log_isotp.warning("Unknown FC frame type")
             return
 
     def _recv_sf(self, data, ts):
         # type: (bytes, Union[float, EDecimal]) -> None
         """Process a received 'Single Frame' frame"""
-        log_runtime.debug("Processing SF")
+        log_isotp.debug("Processing SF")
 
         if self.rx_timeout_handle is not None:
             self.rx_timeout_handle.cancel()
@@ -774,7 +774,8 @@ class ISOTPSocketImplementation:
 
         if self.rx_state != ISOTP_IDLE:
             if conf.verb > 2:
-                warning("RX state was reset because single frame was received")
+                log_isotp.warning("RX state was reset because "
+                                  "single frame was received")
             self.rx_state = ISOTP_IDLE
 
         length = six.indexbytes(data, 0) & 0xf
@@ -787,7 +788,7 @@ class ISOTPSocketImplementation:
     def _recv_ff(self, data, ts):
         # type: (bytes, Union[float, EDecimal]) -> None
         """Process a received 'First Frame' frame"""
-        log_runtime.debug("Processing FF")
+        log_isotp.debug("Processing FF")
 
         if self.rx_timeout_handle is not None:
             self.rx_timeout_handle.cancel()
@@ -795,7 +796,7 @@ class ISOTPSocketImplementation:
 
         if self.rx_state != ISOTP_IDLE:
             if conf.verb > 2:
-                warning("RX state was reset because first frame was received")
+                log_isotp.warning("RX state was reset because first frame was received")
             self.rx_state = ISOTP_IDLE
 
         if len(data) < 7:
@@ -841,7 +842,7 @@ class ISOTPSocketImplementation:
     def _recv_cf(self, data):
         # type: (bytes) -> None
         """Process a received 'Consecutive Frame' frame"""
-        log_runtime.debug("Processing CF")
+        log_isotp.debug("Processing CF")
 
         if self.rx_state != ISOTP_WAIT_DATA:
             return
@@ -859,20 +860,20 @@ class ISOTPSocketImplementation:
             # this is only allowed for the last CF
             if self.rx_len - self.rx_idx > self.rx_ll_dl:
                 if conf.verb > 2:
-                    warning("Received a CF with insufficient length")
+                    log_isotp.warning("Received a CF with insufficient length")
                 return
 
         if six.indexbytes(data, 0) & 0x0f != self.rx_sn:
             # Wrong sequence number
             if conf.verb > 2:
-                warning("RX state was reset because wrong sequence number was "
-                        "received")
+                log_isotp.warning("RX state was reset because wrong sequence "
+                                  "number was received")
             self.rx_state = ISOTP_IDLE
             return
 
         if self.rx_buf is None:
             if conf.verb > 2:
-                warning("rx_buf not filled with data!")
+                log_isotp.warning("rx_buf not filled with data!")
             self.rx_state = ISOTP_IDLE
             return
 
@@ -902,7 +903,7 @@ class ISOTPSocketImplementation:
                 self.can_send(load)
 
         # wait for another CF
-        log_runtime.debug("Wait for another CF")
+        log_isotp.debug("Wait for another CF")
         self.rx_timeout_handle = TimeoutScheduler.schedule(
             self.cf_timeout, self._rx_timer_handler)
 
@@ -910,13 +911,13 @@ class ISOTPSocketImplementation:
         # type: (bytes) -> None
         """Begins sending an ISOTP message. This method does not block."""
         if self.tx_state != ISOTP_IDLE:
-            warning("Socket is already sending, retry later")
+            log_isotp.warning("Socket is already sending, retry later")
             return
 
         self.tx_state = ISOTP_SENDING
         length = len(x)
         if length > ISOTP_MAX_DLEN_2015:
-            warning("Too much data for ISOTP message")
+            log_isotp.warning("Too much data for ISOTP message")
 
         if len(self.ea_hdr) + length <= 7:
             # send a single frame

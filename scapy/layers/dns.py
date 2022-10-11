@@ -15,7 +15,7 @@ import time
 import warnings
 
 from scapy.arch import get_if_addr, get_if_addr6
-from scapy.ansmachine import AnsweringMachine, AnsweringMachineUtils
+from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.compat import orb, raw, chb, bytes_encode, plain_str
@@ -29,7 +29,7 @@ from scapy.sendrecv import sr1
 from scapy.pton_ntop import inet_ntop, inet_pton
 
 from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
-from scapy.layers.inet6 import DestIP6Field, IP6Field
+from scapy.layers.inet6 import IPv6, DestIP6Field, IP6Field
 import scapy.libs.six as six
 
 
@@ -55,10 +55,11 @@ dnstypes = {
     45: "IPSECKEY", 46: "RRSIG", 47: "NSEC", 48: "DNSKEY", 49: "DHCID",
     50: "NSEC3", 51: "NSEC3PARAM", 52: "TLSA", 53: "SMIMEA", 55: "HIP",
     56: "NINFO", 57: "RKEY", 58: "TALINK", 59: "CDS", 60: "CDNSKEY",
-    61: "OPENPGPKEY", 62: "CSYNC", 99: "SPF", 100: "UINFO", 101: "UID",
-    102: "GID", 103: "UNSPEC", 104: "NID", 105: "L32", 106: "L64", 107: "LP",
-    108: "EUI48", 109: "EUI64", 249: "TKEY", 250: "TSIG", 256: "URI",
-    257: "CAA", 258: "AVC", 32768: "TA", 32769: "DLV", 65535: "RESERVED"
+    61: "OPENPGPKEY", 62: "CSYNC", 63: "ZONEMD", 64: "SVCB", 65: "HTTPS",
+    99: "SPF", 100: "UINFO", 101: "UID", 102: "GID", 103: "UNSPEC", 104: "NID",
+    105: "L32", 106: "L64", 107: "LP", 108: "EUI48", 109: "EUI64", 249: "TKEY",
+    250: "TSIG", 256: "URI", 257: "CAA", 258: "AVC", 259: "DOA",
+    260: "AMTRELAY", 32768: "TA", 32769: "DLV", 65535: "RESERVED"
 }
 
 
@@ -1149,7 +1150,8 @@ class DNS_am(AnsweringMachine):
         )
 
     def make_reply(self, req):
-        resp = AnsweringMachineUtils.reverse_packet(req)
+        IPcls = IPv6 if IPv6 in req else IP
+        resp = IPcls(dst=req[IPcls].src) / UDP(sport=req.dport, dport=req.sport)
         dns = req.getlayer(self.cls)
         if req.qd.qtype == 28:
             # AAAA

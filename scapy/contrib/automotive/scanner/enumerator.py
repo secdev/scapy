@@ -8,6 +8,7 @@
 
 
 import abc
+import threading
 import time
 import copy
 from collections import defaultdict, OrderedDict
@@ -63,6 +64,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         'exit_if_service_not_supported': (bool, None),
         'exit_scan_on_first_negative_response': (bool, None),
         'retry_if_busy_returncode': (bool, None),
+        'stop_event': (threading._Event if six.PY2 else threading.Event, None),  # type: ignore  # noqa: E501
         'debug': (bool, None),
         'scan_range': ((list, tuple, range), None),
         'unittest': (bool, None)
@@ -103,6 +105,7 @@ class ServiceEnumerator(AutomotiveTestCase):
                                               the 'busyRepeatRequest' negative
                                               response code is received.
         :param bool debug: Enables debug functions during execute.
+        :param Event stop_event: Signals immediate stop of the execution.
         :param scan_range: Specifies the identifiers to be scanned.
         :type scan_range: list or tuple or range or iterable"""
 
@@ -112,9 +115,9 @@ class ServiceEnumerator(AutomotiveTestCase):
         self._result_packets = OrderedDict()  # type: Dict[bytes, Packet]
         self._results = list()  # type: List[_AutomotiveTestCaseScanResult]
         self._request_iterators = dict()  # type: Dict[EcuState, Iterable[Packet]]  # noqa: E501
-        self._retry_pkt = defaultdict(
-            lambda: None)  # type: Dict[EcuState, Optional[Union[Packet, Iterable[Packet]]]]  # noqa: E501
+        self._retry_pkt = defaultdict(list)  # type: Dict[EcuState, Union[Packet, Iterable[Packet]]]  # noqa: E501
         self._negative_response_blacklist = [0x10, 0x11]  # type: List[int]
+        self._requests_per_state_estimated = None  # type: Optional[int]
 
     @staticmethod
     @abc.abstractmethod
@@ -169,12 +172,14 @@ class ServiceEnumerator(AutomotiveTestCase):
     def __reduce__(self):  # type: ignore
         f, t, d = super(ServiceEnumerator, self).__reduce__()  # type: ignore
         try:
-            del d["_request_iterators"]
+            for k, v in six.iteritems(d["_request_iterators"]):
+                d["_request_iterators"][k] = list(v)
         except KeyError:
             pass
 
         try:
-            del d["_retry_pkt"]
+            for k in d["_retry_pkt"]:
+                d["_retry_pkt"][k] = list(self._get_retry_iterator(k))
         except KeyError:
             pass
         return f, t, d
@@ -210,9 +215,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     def _get_retry_iterator(self, state):
         # type: (EcuState) -> Iterable[Packet]
         retry_entry = self._retry_pkt[state]
-        if retry_entry is None:
-            return []
-        elif isinstance(retry_entry, Packet):
+        if isinstance(retry_entry, Packet):
             log_automotive.debug("Provide retry packet")
             return [retry_entry]
         else:
@@ -233,12 +236,35 @@ class ServiceEnumerator(AutomotiveTestCase):
         return chain(self._get_retry_iterator(state),
                      self._get_initial_request_iterator(state, **kwargs))
 
+    def _prepare_runtime_estimation(self, **kwargs):
+        # type: (Optional[Dict[str, Any]]) -> None
+        if self._requests_per_state_estimated is None:
+            try:
+                initial_requests = self._get_initial_requests(**kwargs)
+                self._requests_per_state_estimated = len(list(initial_requests))
+            except NotImplementedError:
+                pass
+
+    def runtime_estimation(self):
+        # type: () -> Optional[Tuple[int, int, float]]
+        if self._requests_per_state_estimated is None:
+            return None
+
+        pkts_tbs = max(
+            len(self.scanned_states) * self._requests_per_state_estimated, 1)
+        pkts_snt = len(self.results)
+
+        return pkts_tbs, pkts_snt, float(pkts_snt) / pkts_tbs
+
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None
         self.check_kwargs(kwargs)
         timeout = kwargs.pop('timeout', 1)
         count = kwargs.pop('count', None)
         execution_time = kwargs.pop("execution_time", 1200)
+        stop_event = kwargs.pop("stop_event", None)  # type: Optional[threading.Event]  # noqa: E501
+
+        self._prepare_runtime_estimation(**kwargs)
 
         state_block_list = kwargs.get('state_block_list', list())
 
@@ -286,6 +312,11 @@ class ServiceEnumerator(AutomotiveTestCase):
                     time.ctime())
                 return
 
+            if stop_event is not None and stop_event.is_set():
+                log_automotive.info(
+                    "Stop test_case execution because of stop event")
+                return
+
         log_automotive.info("Finished iterator execution")
         self._state_completed[state] = True
         log_automotive.debug("States completed %s",
@@ -296,7 +327,8 @@ class ServiceEnumerator(AutomotiveTestCase):
     def sr1_with_retry_on_error(self, req, socket, state, timeout):
         # type: (Packet, _SocketUnion, EcuState, int) -> Optional[Packet]
         try:
-            res = socket.sr1(req, timeout=timeout, verbose=False, chainEX=True)
+            res = socket.sr1(req, timeout=timeout, verbose=False,
+                             chainEX=True, chainCC=True)
         except (OSError, ValueError, Scapy_Exception) as e:
             if not self._populate_retry(state, req):
                 log_automotive.exception(
@@ -343,7 +375,7 @@ class ServiceEnumerator(AutomotiveTestCase):
             return True
 
         # cleanup retry packet
-        self._retry_pkt[state] = None
+        self._retry_pkt[state] = []
 
         return self._evaluate_ecu_state_modifications(state, request, response)
 
@@ -402,7 +434,7 @@ class ServiceEnumerator(AutomotiveTestCase):
                  current execution was already a retry execution.
         """
 
-        if self._retry_pkt[state] is None:
+        if not self._get_retry_iterator(state):
             # This was no retry since the retry_pkt is None
             self._retry_pkt[state] = request
             log_automotive.debug(

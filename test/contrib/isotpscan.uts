@@ -1,4 +1,5 @@
 % Regression tests for isotp_scan
+~ scanner
 
 + Configuration
 ~ conf
@@ -6,10 +7,6 @@
 = Imports
 from scapy.contrib.isotp.isotp_scanner import send_multiple_ext, filter_periodic_packets, scan_extended, scan
 from test.testsocket import TestSocket
-from scapy.contrib.isotp.isotp_utils import log_isotp
-import logging
-
-log_isotp.setLevel(logging.DEBUG)
 
 with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
     exec(f.read())
@@ -125,7 +122,7 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock
                         output_format="text",
                         noise_listen_time=0.1,
                         sniff_time=0.02,
-                        verbose=True)
+                        verbose=False)
 
 text = "\nFound 2 ISOTP-FlowControl Packet(s):"
 assert text in result
@@ -152,7 +149,7 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602, padding=True), ISOTPS
                         output_format="text",
                         noise_listen_time=0.1,
                         sniff_time=0.02,
-                        verbose=True)
+                        verbose=False)
 
 text = "\nFound 2 ISOTP-FlowControl Packet(s):"
 assert text in result
@@ -180,7 +177,7 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x1ffff702, rx_id=0x1ffff602), ISOTPSoftS
                         noise_listen_time=0.1,
                         sniff_time=0.02,
                         extended_can_id=True,
-                        verbose=True)
+                        verbose=False)
 
 text = "\nFound 2 ISOTP-FlowControl Packet(s):"
 assert text in result
@@ -208,7 +205,7 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock
                         noise_listen_time=0.1,
                         sniff_time=0.02,
                         can_interface="can0",
-                        verbose=True)
+                        verbose=False)
 
 s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, " \
      "padding=False, basecls=ISOTP)\n"
@@ -235,7 +232,7 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock
                         noise_listen_time=0.1,
                         sniff_time=0.02,
                         can_interface="can0",
-                        verbose=True)
+                        verbose=False)
 
 s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, " \
      "padding=False, basecls=ISOTP)\n"
@@ -264,7 +261,7 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602, ext_address=0x11, rx_
                         extended_scan_range=range(0x20, 0x30),
                         extended_addressing=True,
                         can_interface="can0",
-                        verbose=True)
+                        verbose=False)
 
 s1 = "ISOTPSocket(can0, tx_id=0x602, rx_id=0x702, padding=False, " \
          "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
@@ -293,7 +290,7 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x1ffff702, rx_id=0x1ffff602, ext_address
                         extended_scan_range=range(0x20, 0x30),
                         extended_addressing=True,
                         can_interface="can0",
-                        verbose=True)
+                        verbose=False)
 
 s1 = "ISOTPSocket(can0, tx_id=0x1ffff602, rx_id=0x1ffff702, padding=False, " \
      "ext_address=0x22, rx_ext_address=0x11, basecls=ISOTP)"
@@ -320,7 +317,7 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602), ISOTPSoftSocket(sock
                         noise_listen_time=0.1,
                         sniff_time=0.02,
                         can_interface=new_can_socket0(),
-                        verbose=True)
+                        verbose=False)
 
 assert 0x602 == result[0].tx_id
 assert 0x702 == result[0].rx_id
@@ -350,7 +347,7 @@ with ISOTPSoftSocket(sock_recv1, tx_id=0x702, rx_id=0x602, ext_address=0x11, rx_
                         extended_scan_range=range(0x20, 0x30),
                         extended_addressing=True,
                         can_interface=new_can_socket0(),
-                        verbose=True)
+                        verbose=False)
 
 assert 0x602 == result[0].tx_id
 assert 0x702 == result[0].rx_id

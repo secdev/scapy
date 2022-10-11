@@ -232,6 +232,7 @@ else:
     class AddressFamily:
         AF_INET = socket.AF_INET
         AF_INET6 = socket.AF_INET6
+        AF_UNSPEC = socket.AF_UNSPEC
 
 
 ###########

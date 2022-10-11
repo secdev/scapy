@@ -27,8 +27,15 @@ from scapy.base_classes import Gen
 from scapy.compat import chb, orb, raw, plain_str, bytes_encode
 from scapy.consts import WINDOWS
 from scapy.config import conf
-from scapy.data import DLT_IPV6, DLT_RAW, DLT_RAW_ALT, ETHER_ANY, ETH_P_IPV6, \
-    MTU
+from scapy.data import (
+    DLT_IPV6,
+    DLT_RAW,
+    DLT_RAW_ALT,
+    ETHER_ANY,
+    ETH_P_ALL,
+    ETH_P_IPV6,
+    MTU,
+)
 from scapy.error import log_runtime, warning
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     DestIP6Field, FieldLenField, FlagsField, IntField, IP6Field, \
@@ -41,7 +48,7 @@ from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
 import scapy.libs.six as six
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.sendrecv import sendp, sniff, sr, srp1
-from scapy.supersocket import SuperSocket, L3RawSocket
+from scapy.supersocket import SuperSocket
 from scapy.utils import checksum, strxor
 from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.utils6 import in6_getnsma, in6_getnsmac, in6_isaddr6to4, \
@@ -3368,12 +3375,15 @@ def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(),
 #############################################################################
 
 
-class L3RawSocket6(L3RawSocket):
-    def __init__(self, type=ETH_P_IPV6, filter=None, iface=None, promisc=None, nofilter=0):  # noqa: E501
-        # NOTE: if fragmentation is needed, it will be done by the kernel (RFC 2292)  # noqa: E501
-        self.outs = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_RAW)  # noqa: E501
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
-        self.iface = iface
+if not WINDOWS:
+    from scapy.supersocket import L3RawSocket
+
+    class L3RawSocket6(L3RawSocket):
+        def __init__(self, type=ETH_P_IPV6, filter=None, iface=None, promisc=None, nofilter=0):  # noqa: E501
+            # NOTE: if fragmentation is needed, it will be done by the kernel (RFC 2292)  # noqa: E501
+            self.outs = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_RAW)  # noqa: E501
+            self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
+            self.iface = iface
 
 
 def IPv6inIP(dst='203.178.135.36', src=None):
@@ -4068,6 +4078,7 @@ _load_dict(ipv6nhcls)
 #############################################################################
 
 conf.l3types.register(ETH_P_IPV6, IPv6)
+conf.l3types.register_num2layer(ETH_P_ALL, IPv46)
 conf.l2types.register(31, IPv6)
 conf.l2types.register(DLT_IPV6, IPv6)
 conf.l2types.register(DLT_RAW, IPv46)

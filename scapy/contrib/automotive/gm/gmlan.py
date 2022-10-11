@@ -8,15 +8,15 @@
 # scapy.contrib.status = loads
 
 import struct
+
+from scapy.contrib.automotive import log_automotive
 from scapy.fields import ObservableDict, XByteEnumField, ByteEnumField, \
     ConditionalField, XByteField, StrField, XShortEnumField, XShortField, \
     X3BytesField, XIntField, ShortField, PacketField, PacketListField, \
     FieldListField, MultipleTypeField, StrFixedLenField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
-from scapy.error import warning, log_loading
 from scapy.contrib.isotp import ISOTP
-
 
 """
 GMLAN
@@ -26,11 +26,11 @@ try:
     if conf.contribs['GMLAN']['treat-response-pending-as-answer']:
         pass
 except KeyError:
-    log_loading.info("Specify \"conf.contribs['GMLAN'] = "
-                     "{'treat-response-pending-as-answer': True}\" to treat "
-                     "a negative response 'RequestCorrectlyReceived-"
-                     "ResponsePending' as answer of a request. \n"
-                     "The default value is False.")
+    log_automotive.info("Specify \"conf.contribs['GMLAN'] = "
+                        "{'treat-response-pending-as-answer': True}\" to treat "
+                        "a negative response 'RequestCorrectlyReceived-"
+                        "ResponsePending' as answer of a request. \n"
+                        "The default value is False.")
     conf.contribs['GMLAN'] = {'treat-response-pending-as-answer': False}
 
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = None
@@ -40,12 +40,14 @@ class GMLAN(ISOTP):
     @staticmethod
     def determine_len(x):
         if conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] is None:
-            warning("Define conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']! "  # noqa: E501
-                    "Assign either 2,3 or 4")
+            log_automotive.warning(
+                "Define conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']! "
+                "Assign either 2,3 or 4")
         if conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] \
                 not in [2, 3, 4]:
-            warning("Define conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']! "  # noqa: E501
-                    "Assign either 2,3 or 4")
+            log_automotive.warning(
+                "Define conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']! "
+                "Assign either 2,3 or 4")
         return conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] == x
 
     services = ObservableDict(
@@ -671,6 +673,8 @@ class GMLAN_RDI_BC(Packet):
 
 
 bind_layers(GMLAN_RDI, GMLAN_RDI_BC, subfunction=0x82)
+
+
 # TODO:This function receive single frame responses... (Implement GMLAN Socket)
 
 

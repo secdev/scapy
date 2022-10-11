@@ -12,16 +12,16 @@ import struct
 import socket
 
 from scapy.compat import Optional, Union, Tuple, Type, cast
+from scapy.contrib.isotp import log_isotp
 from scapy.packet import Packet
 import scapy.libs.six as six
-from scapy.error import Scapy_Exception, warning
+from scapy.error import Scapy_Exception
 from scapy.supersocket import SuperSocket
 from scapy.data import SO_TIMESTAMPNS
 from scapy.config import conf
 from scapy.arch.linux import get_last_packet_timestamp, SIOCGIFINDEX
 from scapy.contrib.isotp.isotp_packet import ISOTP
 from scapy.layers.can import CAN_MTU, CAN_MAX_DLEN
-
 
 LIBC = ctypes.cdll.LoadLibrary(find_library("c"))  # type: ignore
 
@@ -243,7 +243,7 @@ class ISOTPNativeSocket(SuperSocket):
                           ctypes.sizeof(addr))
 
         if error < 0:
-            warning("Couldn't bind socket")
+            log_isotp.warning("Couldn't bind socket")
 
     def __set_option_flags(self,
                            sock,  # type: socket.socket
@@ -340,7 +340,7 @@ class ISOTPNativeSocket(SuperSocket):
         self.ins = self.can_socket
         self.outs = self.can_socket
         if basecls is None:
-            warning('Provide a basecls ')
+            log_isotp.warning('Provide a basecls ')
         self.basecls = basecls
 
     def recv_raw(self, x=0xffff):
@@ -352,19 +352,19 @@ class ISOTPNativeSocket(SuperSocket):
         try:
             pkt, _, ts = self._recv_raw(self.ins, x)
         except BlockingIOError:  # noqa: F821
-            warning('Captured no data, socket in non-blocking mode.')
+            log_isotp.warning('Captured no data, socket in non-blocking mode.')
             return None, None, None
         except socket.timeout:
-            warning('Captured no data, socket read timed out.')
+            log_isotp.warning('Captured no data, socket read timed out.')
             return None, None, None
         except OSError as e:
             # something bad happened (e.g. the interface went down)
-            warning("Captured no data. %s" % e)
+            log_isotp.warning("Captured no data. %s" % e)
             if e.errno == 84:
-                warning("Maybe a consecutive frame was missed. "
-                        "Increasing `stmin` could solve this problem.")
+                log_isotp.warning("Maybe a consecutive frame was missed. "
+                                  "Increasing `stmin` could solve this problem.")
             elif e.errno == 110:
-                warning('Captured no data, socket read timed out.')
+                log_isotp.warning('Captured no data, socket read timed out.')
             else:
                 self.close()
             return None, None, None

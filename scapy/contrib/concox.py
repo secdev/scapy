@@ -223,7 +223,7 @@ class CRX1NewPacketContent(Packet):
                 "",
                 length_from=lambda pkt: pkt.command_length - 4), lambda pkt:
             len(pkt.original) > 5 and pkt.protocol_number in (0x80, 0x15)),
-        # Commun
+        # Common
         ConditionalField(
             ByteEnumField(
                 "alarm_extended", 0x00, {
