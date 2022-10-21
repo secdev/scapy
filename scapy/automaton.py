@@ -880,9 +880,21 @@ class Automaton:
         # type: (Packet) -> bool
         return True
 
-    def my_send(self, pkt):
-        # type: (Packet) -> None
-        self.send_sock.send(pkt)
+    def my_send(self, pkt, iface=None):
+        # type: (Packet, Optional[Union[str, list[str]]]) -> None
+        if iface is None:
+            for socket in self.send_socks:
+                socket.send(pkt)
+        else:
+            if isinstance(iface, str):
+                ifaces = [iface]
+            elif isinstance(iface, list):
+                ifaces = iface
+            else:
+                ifaces = [conf.iface.name]
+            for socket in self.send_socks:
+                if hasattr(socket, "iface") and socket.iface in ifaces:
+                    socket.send(pkt)
 
     def timer_by_name(self, name):
         # type: (str) -> Optional[Timer]
@@ -1095,8 +1107,17 @@ class Automaton:
 
             # Start the automaton
             self.state = self.initial_states[0](self)
-            self.send_sock = self.send_sock_class(**self.socket_kargs)
-            self.listen_sock = self.recv_sock_class(**self.socket_kargs)
+            if "iface" in self.socket_kargs and \
+               isinstance(self.socket_kargs["iface"], list):
+                kargs = dict(self.socket_kargs)
+                del kargs["iface"]
+                self.send_socks = [self.send_sock_class(iface=iface, **kargs)
+                                   for iface in self.socket_kargs["iface"]]
+                self.listen_socks = [self.recv_sock_class(iface=iface, **kargs)
+                                     for iface in self.socket_kargs["iface"]]
+            else:
+                self.send_socks = [self.send_sock_class(**self.socket_kargs)]
+                self.listen_socks = [self.recv_sock_class(**self.socket_kargs)]
             self.packets = PacketList(name="session[%s]" % self.__class__.__name__)  # noqa: E501
 
             singlestep = True
@@ -1197,7 +1218,7 @@ class Automaton:
 
                 fds = [self.cmdin]
                 if len(self.recv_conditions[self.state.state]) > 0:
-                    fds.append(self.listen_sock)
+                    fds += self.listen_socks
                 for ioev in self.ioevents[self.state.state]:
                     fds.append(self.ioin[ioev.atmt_ioname])
                 while True:
@@ -1215,11 +1236,13 @@ class Automaton:
                         self.debug(5, "Looking at %r" % fd)
                         if fd == self.cmdin:
                             yield self.CommandMessage("Received command message")  # noqa: E501
-                        elif fd == self.listen_sock:
-                            pkt = self.listen_sock.recv(MTU)
+                        elif fd in self.listen_socks:
+                            pkt = fd.recv(MTU)
                             if pkt is not None:
                                 if self.master_filter(pkt):
                                     self.debug(3, "RECVD: %s" % pkt.summary())  # noqa: E501
+                                    if hasattr(fd, "iface"):
+                                        pkt.sniffed_on = fd.iface
                                     for rcvcond in self.recv_conditions[self.state.state]:  # noqa: E501
                                         self._run_condition(rcvcond, pkt, *state_output)  # noqa: E501
                                 else:

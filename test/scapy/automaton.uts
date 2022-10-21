@@ -499,3 +499,52 @@ if LINUX:
             # Remove the iptables rule
             assert os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0
 
+= Multiple interfaces
+~ multiple automaton interfaces
+
+import subprocess
+
+tap0, tap1 = [TunTapInterface("tap%d" % i) for i in range(2)]
+
+if six.PY2:
+    chk_kwargs = {}
+else:
+    chk_kwargs = {"timeout": 3}
+
+if LINUX:
+    for i in range(2):
+        assert subprocess.check_call(["ip", "link", "set", "tap%d" % i, "up"], **chk_kwargs) == 0
+else:
+    for i in range(2):
+        assert subprocess.check_call(["ifconfig", "tap%d" % i, "up"], **chk_kwargs) == 0
+
+class PacketMirror(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.tap0_count = 0
+        self.tap1_count = 0
+    @ATMT.receive_condition(BEGIN)
+    def mirror(self, pkt):
+        if raw(pkt)[:5] == b"hello":
+            if pkt.sniffed_on == "tap0":
+                self.tap0_count += 1
+                self.my_send(pkt, iface="tap1")
+            elif pkt.sniffed_on == "tap1":
+                self.tap1_count += 1
+    @ATMT.condition(BEGIN)
+    def send_one(self):
+        self.my_send(Raw("hello"), iface="tap0")
+    @ATMT.condition(BEGIN)
+    def send_two(self):
+        self.my_send(Raw("hello"), iface=["tap0", "tap1"])
+    @ATMT.timeout(BEGIN, 1)
+    def end_all(self):
+        raise self.END()
+    @ATMT.state(final=1)
+    def END(self):
+        pass
+
+sm = PacketMirror(iface=["tap0", "tap1"], ll=conf.L2socket)
+sm.run()
+assert sm.tap0_count == 2
+assert sm.tap1_count == 3
