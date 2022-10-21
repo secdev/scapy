@@ -845,6 +845,7 @@ class Conf(ConfClass):
         'eap',
         'gprs',
         'hsrp',
+        'ikev2',
         'inet',
         'inet6',
         'ipsec',

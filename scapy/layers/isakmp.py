@@ -206,6 +206,15 @@ class ISAKMP(ISAKMP_class):  # rfc2408
         IntField("length", None)
     ]
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 18:
+            version = struct.unpack("!B", _pkt[17:18])[0]
+            if version >= 0x20:
+                from scapy.layers.ikev2 import IKEv2
+                return IKEv2
+        return ISAKMP
+
     def guess_payload_class(self, payload):
         if self.flags & 1:
             return conf.raw_layer

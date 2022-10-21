@@ -2,8 +2,11 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
-# scapy.contrib.description = Internet Key Exchange v2 (IKEv2)
-# scapy.contrib.status = loads
+"""
+IKEv2 (Internet Key Exchange Protocol Version 2).
+"""
+
+# Mostly based on https://tools.ietf.org/html/rfc7296
 
 import logging
 import struct
@@ -11,14 +14,13 @@ import struct
 
 # Modified from the original ISAKMP code by Yaron Sheffer <yaronf.ietf@gmail.com>, June 2010.  # noqa: E501
 
-from scapy.packet import Packet, bind_layers, split_layers, Raw
+from scapy.packet import Packet, bind_top_down, Raw
 from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
     FieldLenField, FlagsField, IP6Field, IPField, IntField, MultiEnumField, \
     PacketField, PacketLenField, PacketListField, ShortEnumField, ShortField, \
     StrFixedLenField, StrLenField, X3BytesField, XByteField
 from scapy.layers.x509 import X509_Cert, X509_CRL
 from scapy.layers.inet import IP, UDP
-from scapy.layers.isakmp import ISAKMP
 from scapy.sendrecv import sr
 from scapy.config import conf
 from scapy.volatile import RandString
@@ -798,11 +800,8 @@ for i, payloadname in enumerate(IKEv2_payload_type):
 del i, payloadname, name
 IKEv2_class._overload_fields = IKEv2_payload_type_overload.copy()
 
-split_layers(UDP, ISAKMP, sport=500)
-split_layers(UDP, ISAKMP, dport=500)
-
-bind_layers(UDP, IKEv2, dport=500, sport=500)  # TODO: distinguish IKEv1/IKEv2
-bind_layers(UDP, IKEv2, dport=4500, sport=4500)
+# the upper binding for port 500(isakmp) is handled by class ISAKMP's dispatch hook
+bind_top_down(UDP, IKEv2, dport=500, sport=500)
 
 
 def ikev2scan(ip, **kwargs):
