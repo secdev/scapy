@@ -2,7 +2,11 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
-# scapy.contrib.description = Internet Key Exchange v2 (IKEv2)
+"""
+Internet Key Exchange Protocol Version 2 (IKEv2), RFC 7296
+"""
+
+# scapy.contrib.description = Internet Key Exchange Protocol Version 2 (IKEv2), RFC 7296
 # scapy.contrib.status = loads
 
 import logging
@@ -11,7 +15,7 @@ import struct
 
 # Modified from the original ISAKMP code by Yaron Sheffer <yaronf.ietf@gmail.com>, June 2010.  # noqa: E501
 
-from scapy.packet import Packet, bind_layers, split_layers, Raw
+from scapy.packet import Packet, bind_top_down, bind_bottom_up, split_bottom_up, Raw
 from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
     FieldLenField, FlagsField, IP6Field, IPField, IntField, MultiEnumField, \
     PacketField, PacketLenField, PacketListField, ShortEnumField, ShortField, \
@@ -420,6 +424,14 @@ class IKEv2(IKEv2_class):  # rfc4306
         IntField("length", None)  # Length of total message: packets + all payloads  # noqa: E501
     ]
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 18:
+            version = struct.unpack("!B", _pkt[17:18])[0]
+            if version < 0x20:
+                return ISAKMP
+        return cls
+
     def guess_payload_class(self, payload):
         if self.flags & 1:
             return conf.raw_layer
@@ -798,11 +810,13 @@ for i, payloadname in enumerate(IKEv2_payload_type):
 del i, payloadname, name
 IKEv2_class._overload_fields = IKEv2_payload_type_overload.copy()
 
-split_layers(UDP, ISAKMP, sport=500)
-split_layers(UDP, ISAKMP, dport=500)
+# the upper bindings for port 500 to ISAKMP are handled by IKEv2.dispatch_hook
+split_bottom_up(UDP, ISAKMP, dport=500)
+split_bottom_up(UDP, ISAKMP, sport=500)
 
-bind_layers(UDP, IKEv2, dport=500, sport=500)  # TODO: distinguish IKEv1/IKEv2
-bind_layers(UDP, IKEv2, dport=4500, sport=4500)
+bind_bottom_up(UDP, IKEv2, dport=500)
+bind_bottom_up(UDP, IKEv2, sport=500)
+bind_top_down(UDP, IKEv2, dport=500, sport=500)
 
 
 def ikev2scan(ip, **kwargs):
