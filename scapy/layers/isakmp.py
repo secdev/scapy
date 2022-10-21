@@ -12,7 +12,7 @@ ISAKMP (Internet Security Association and Key Management Protocol).
 from __future__ import absolute_import
 import struct
 from scapy.config import conf
-from scapy.packet import Packet, bind_bottom_up, bind_top_down, bind_layers
+from scapy.packet import Packet, bind_bottom_up, bind_top_down
 from scapy.compat import chb
 from scapy.fields import ByteEnumField, ByteField, FieldLenField, FlagsField, \
     IntEnumField, IntField, PacketLenField, ShortEnumField, ShortField, \
@@ -324,7 +324,7 @@ class ISAKMP_payload_Hash(ISAKMP_payload):
 
 bind_bottom_up(UDP, ISAKMP, dport=500)
 bind_bottom_up(UDP, ISAKMP, sport=500)
-bind_layers(UDP, ISAKMP, dport=500, sport=500)
+bind_top_down(UDP, ISAKMP, dport=500, sport=500)
 
 # Add building bindings
 # (Dissection bindings are located in ISAKMP_class.guess_payload_class)
