@@ -40,7 +40,7 @@ class ERSPAN_I(ERSPAN):
 class ERSPAN_II(ERSPAN):
     name = "ERSPAN II"
     match_subclass = True
-    fields_desc = [BitField("ver", 0, 4),
+    fields_desc = [BitField("ver", 1, 4),
                    BitField("vlan", 0, 12),
                    BitField("cos", 0, 3),
                    BitField("en", 0, 2),
