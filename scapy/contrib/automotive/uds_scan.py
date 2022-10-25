@@ -1023,7 +1023,7 @@ class UDS_RMBASequentialEnumerator(UDS_RMBAEnumeratorABC):
         msl = req.memorySizeLen
         mal = req.memoryAddressLen
 
-        if (resp is None or resp.service == 0x7f) and size > 16:
+        if (resp is None or resp.service == 0x7f) and size > 1:
             size = size // 2
 
             return [

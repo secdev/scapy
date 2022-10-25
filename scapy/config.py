@@ -50,6 +50,7 @@ from types import ModuleType
 if TYPE_CHECKING:
     # Do not import at runtime
     import scapy.as_resolvers
+    from scapy.nmap import NmapKnowledgeBase
     from scapy.packet import Packet
     from scapy.supersocket import SuperSocket  # noqa: F401
     import scapy.asn1.asn1
@@ -896,6 +897,8 @@ class Conf(ConfClass):
     #: Default is False.
     raise_no_dst_mac = False
     loopback_name = "lo" if LINUX else "lo0"
+    nmap_base = ""  # type: str
+    nmap_kdb = None  # type: Optional[NmapKnowledgeBase]
 
     def __getattribute__(self, attr):
         # type: (str) -> Any

@@ -191,22 +191,37 @@ class AnsweringMachine(Generic[_T]):
         )
         self(*args, **kargs)
 
+    def bg(self, *args, **kwargs):
+        # type: (Any, Any) -> AsyncSniffer
+        kwargs.setdefault("bg", True)
+        self(*args, **kwargs)
+        return self.sniffer
+
     def __call__(self, *args, **kargs):
         # type: (Any, Any) -> None
+        bg = kargs.pop("bg", False)
         optsend, optsniff = self.parse_all_options(2, kargs)
         self.optsend = self.defoptsend.copy()
         self.optsend.update(optsend)
         self.optsniff = self.defoptsniff.copy()
         self.optsniff.update(optsniff)
 
-        try:
-            self.sniff()
-        except KeyboardInterrupt:
-            print("Interrupted by user")
+        if bg:
+            self.sniff_bg()
+        else:
+            try:
+                self.sniff()
+            except KeyboardInterrupt:
+                print("Interrupted by user")
 
     def sniff(self):
         # type: () -> None
         sniff(**self.optsniff)
+
+    def sniff_bg(self):
+        # type: () -> None
+        self.sniffer = AsyncSniffer(**self.optsniff)
+        self.sniffer.start()
 
 
 class AnsweringMachineTCP(AnsweringMachine[Packet]):

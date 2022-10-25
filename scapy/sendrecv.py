@@ -553,7 +553,8 @@ def sendpfast(x,  # type: _PacketIterable
                 results = _parse_tcpreplay_result(stdout, stderr, argv)
             elif conf.verb > 2:
                 log_runtime.info(stdout.decode())
-    os.unlink(f)
+    if os.path.exists(f):
+        os.unlink(f)
     return results
 
 
@@ -762,6 +763,11 @@ def __sr_loop(srfunc,  # type: Callable[..., Tuple[SndRcvList, PacketList]]
                     print(" " * len(msg), end=' ')
             if verbose > 1 and not (prn or prnfail):
                 print("recv:%i  fail:%i" % tuple(map(len, res[:2])))
+            if verbose == 1:
+                if res[0]:
+                    os.write(1, b"*")
+                if res[1]:
+                    os.write(1, b".")
             if store:
                 ans += res[0]
                 unans += res[1]

