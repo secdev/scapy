@@ -751,6 +751,7 @@ class Packet(
         
         for f in p.default_fields:
             class_name = type(p.default_fields[f]).__name__
+            print(f"{class_name=}")
             if class_name.startswith('Rand'):
                 if class_name == 'RandIP': # We don't fuzz this atm
                     continue
@@ -829,7 +830,12 @@ class Packet(
                         if "min" in dir(field_obj): # Some fields don't have a min
                             field_obj.state_pos = field_obj.min
                         else:
-                            continue
+                            field_obj.min = 0
+                            field_obj.state_pos = 0
+
+                        # Make sure it exists
+                        if 'max' not in dir(field_obj):
+                            field_obj.max = 0
                         
                 break
             
@@ -869,7 +875,11 @@ class Packet(
                         if not next_field['done']:
                             # Try to move to the next item
                             field_fuzzed = self.locate_field(self, next_field['name'])
-                        
+
+                            if 'state_pos' not in dir(field_fuzzed):
+                                err = f"We will fail for: {field_fuzzed}"
+                                raise ValueError(err)
+
                             field_fuzzed.state_pos += 1
                             if field_fuzzed.state_pos > field_fuzzed.max:
                                 field_fuzzed.state_pos = field_fuzzed.min
