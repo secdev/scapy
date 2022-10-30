@@ -835,7 +835,7 @@ class Packet(
 
                         # Make sure it exists
                         if 'max' not in dir(field_obj):
-                            field_obj.max = 0
+                            field_obj.max = field_obj.min
                         
                 break
             
