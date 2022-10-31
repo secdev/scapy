@@ -728,7 +728,6 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         
         for f in p.default_fields:
             class_name = type(p.default_fields[f]).__name__
-            print(f"{class_name=}")
             if class_name.startswith('Rand'):
                 if class_name == 'RandIP': # We don't fuzz this atm
                     continue
