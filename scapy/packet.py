@@ -750,6 +750,10 @@ class Packet(
         relevant_fields = []
         
         for f in p.default_fields:
+            if f in p.overloaded_fields:
+                # This is not actually fuzzable, as it gets overloaded
+                continue
+
             class_name = type(p.default_fields[f]).__name__
             if class_name == 'NoneType':
                 continue
