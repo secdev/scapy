@@ -818,9 +818,11 @@ class Packet(
           
         # Find the first state that has 'done' False
         state_fuzzed = None
-        for state in states:
+        state_idx = None
+        for (idx, state) in enumerate(states):
             if not state['done']:
                 state_fuzzed = state
+                state_idx = idx
                 fields = state['fields']
                 
                 # Mark it as active, and reset the values
@@ -850,7 +852,7 @@ class Packet(
         
         # Find the first field that is not done and move it forward
         found_a_fuzzable_field = False
-        for indx, field in enumerate(state_fuzzed['fields']):
+        for (field_idx, field) in enumerate(state_fuzzed['fields']):
             if not field['done']:
                 field_fuzzed = self.locate_field(self, field['name'])
                 if "state_pos" not in dir(field_fuzzed):
@@ -869,8 +871,9 @@ class Packet(
                     # Reset the position back to default
                     field_fuzzed.state_pos = field_fuzzed.default
                     field['done'] = True
+                    field['active'] = False
                     
-                    curr_pos = indx
+                    curr_pos = field_idx
                     
                     # Make sure we aren't the last one
                     are_we_last = (curr_pos + 1) == len(state_fuzzed['fields'])                        
@@ -899,6 +902,7 @@ class Packet(
                                 field_fuzzed.state_pos = field_fuzzed.default
                                 
                                 field['combinations'] += 1
+                                field['active'] = True
                                 state_fuzzed['combinations'] += 1
                                 found_a_fuzzable_field = True
                                 break
@@ -908,6 +912,7 @@ class Packet(
                         
                 else:
                     field['combinations'] += 1
+                    field['active'] = True
                     state_fuzzed['combinations'] += 1
 
                     found_a_fuzzable_field = True
