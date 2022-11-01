@@ -761,6 +761,8 @@ class Packet(
             if class_name.startswith('Rand'):
                 if class_name == 'RandIP': # We don't fuzz this atm
                     continue
+                if class_name == 'RandTCPOptions':
+                    continue
                 
                 relevant_fields.append(f"{p._name}-{f}")
                 
@@ -845,8 +847,8 @@ class Packet(
                             field_obj.min = 0
                             field_obj.state_pos = 0
 
-                        # Make sure it exists, and that its an int, or make into an int
-                        if 'max' not in dir(field_obj) or type(field_obj.max).__name__ != 'int':
+                        # Make sure it exists
+                        if 'max' not in dir(field_obj):
                             field_obj.max = field_obj.min
                         
                 break
