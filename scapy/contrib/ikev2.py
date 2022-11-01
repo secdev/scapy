@@ -253,6 +253,12 @@ IKEv2NotifyMessageTypes = {
     16433: "CLONE_IKE_SA"
 }
 
+IKEv2GatewayIDTypes = {
+    1: "IPv4_addr",
+    2: "IPv6_addr",
+    3: "FQDN"
+}
+
 IKEv2CertificateEncodings = {
     1: "PKCS #7 wrapped X.509 certificate",
     2: "PGP Certificate",
@@ -547,7 +553,7 @@ class IKEv2_Payload(_IKEv2_Packet):
     name = "IKEv2 Payload"
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2PayloadTypes),
-        FlagsField("flags", 0, 8, ["critical", "res1", "res2", "res3", "res4", "res5", "res6", "res7"]),  # noqa: E501
+        FlagsField("flags", 0, 8, ["critical"]),
         ShortField("length", None),
         XStrLenField("load", "", length_from=lambda x:x.length - 4),
     ]
@@ -709,13 +715,57 @@ class IKEv2_Nonce(IKEv2_Payload):
 
 
 class IKEv2_Notify(IKEv2_Payload):
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        IKEv2NotifyMessageClasses = {
+            16407: IKEv2_payload_Notify_Redirect,
+            16408: IKEv2_payload_Notify_Redirected_From
+        }
+
+        if _pkt and len(_pkt) >= 8:
+            return IKEv2NotifyMessageClasses.get(struct.unpack("!H", _pkt[6:8])[0], cls)
+        return cls
+
     name = "IKEv2 Notify"
     fields_desc = IKEv2_Payload.fields_desc[:3] + [
-        ByteEnumField("proto", None, {0: "Reserved", 1: "IKE", 2: "AH", 3: "ESP"}),  # noqa: E501
+        ByteEnumField("proto", None, IKEv2ProtocolTypes),
         FieldLenField("SPIsize", None, "SPI", "B"),
         ShortEnumField("type", 0, IKEv2NotifyMessageTypes),
         XStrLenField("SPI", "", length_from=lambda x: x.SPIsize),
         XStrLenField("load", "", length_from=lambda x: x.length - 8),
+    ]
+
+
+class IKEv2_Notify_Redirect(IKEv2_Notify):
+    # RFC 5685, section 9.2
+    name = "IKEv2 Notify Redirect"
+    fields_desc = IKEv2_Notify.fields_desc[:7] + [
+        ByteEnumField("gw_id_type", 1, IKEv2GatewayIDTypes),
+        FieldLenField("gw_id_len", None, "gw_id", "B"),
+        MultipleTypeField(
+            [
+                (IPField("gw_id", "127.0.0.1"), lambda x: x.gw_id_type == 1),
+                (IP6Field("gw_id", "::1"), lambda x: x.gw_id_type == 5),
+            ],
+            XStrLenField("gw_id", "", length_from=lambda x: x.gw_id_len)
+        ),
+        XStrLenField("nonce", "", length_from=lambda x:x.length - 10 - x.gw_id_len),
+    ]
+
+
+class IKEv2_Notify_Redirected_From(IKEv2_Notify):
+    # RFC 5685, section 9.3
+    name = "IKEv2 Notify Redirected From"
+    fields_desc = IKEv2_Notify.fields_desc[:7] + [
+        ByteEnumField("gw_id_type", 1, IKEv2GatewayIDTypes),
+        FieldLenField("gw_id_len", None, "gw_id", "B"),
+        MultipleTypeField(
+            [
+                (IPField("gw_id", "127.0.0.1"), lambda x: x.gw_id_type == 1),
+                (IP6Field("gw_id", "::1"), lambda x: x.gw_id_type == 5),
+            ],
+            XStrLenField("gw_id", "", length_from=lambda x: x.gw_id_len)
+        ),
     ]
 
 
