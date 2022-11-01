@@ -835,9 +835,9 @@ class Packet(
                     state['active'] = True
                     for field_item in fields:
                         field_obj = self.locate_field(self, field_item['name'])
-                        if "default" in dir(field_obj): # Some fields have a 'default'
+                        if "default" in dir(field_obj) and type(field_obj.default).__name__ == 'int': # Some fields have a 'default'
                             field_obj.state_pos = field_obj.default
-                        elif "min" in dir(field_obj): # Some fields don't have a 'default', try to use 'min'
+                        elif "min" in dir(field_obj) and type(field_obj.default).__name__ == 'int': # Some fields don't have a 'default', try to use 'min'
                             field_obj.state_pos = field_obj.min
                         else:
                             # Some have nothing
@@ -845,8 +845,8 @@ class Packet(
                             field_obj.min = 0
                             field_obj.state_pos = 0
 
-                        # Make sure it exists
-                        if 'max' not in dir(field_obj):
+                        # Make sure it exists, and that its an int, or make into an int
+                        if 'max' not in dir(field_obj) or type(field_obj.max).__name__ != 'int':
                             field_obj.max = field_obj.min
                         
                 break
