@@ -751,6 +751,9 @@ class Packet(
         
         for f in p.default_fields:
             class_name = type(p.default_fields[f]).__name__
+            if class_name == 'NoneType':
+                continue
+
             if class_name.startswith('Rand'):
                 if class_name == 'RandIP': # We don't fuzz this atm
                     continue
@@ -826,9 +829,13 @@ class Packet(
                     state['active'] = True
                     for field_item in fields:
                         field_obj = self.locate_field(self, field_item['name'])
-                        if "min" in dir(field_obj): # Some fields don't have a min
+                        if "default" in dir(field_obj): # Some fields have a 'default'
+                            field_obj.state_pos = field_obj.default
+                        elif "min" in dir(field_obj): # Some fields don't have a 'default', try to use 'min'
                             field_obj.state_pos = field_obj.min
                         else:
+                            # Some have nothing
+                            field_obj.default = 0
                             field_obj.min = 0
                             field_obj.state_pos = 0
 
@@ -859,8 +866,8 @@ class Packet(
                 
                 # If we recached max for this field, try the next one
                 if field_fuzzed.state_pos > field_fuzzed.max:
-                    # Reset the position back
-                    field_fuzzed.state_pos = field_fuzzed.min
+                    # Reset the position back to default
+                    field_fuzzed.state_pos = field_fuzzed.default
                     field['done'] = True
                     
                     curr_pos = indx
@@ -881,7 +888,7 @@ class Packet(
 
                             field_fuzzed.state_pos += 1
                             if field_fuzzed.state_pos > field_fuzzed.max:
-                                field_fuzzed.state_pos = field_fuzzed.min
+                                field_fuzzed.state_pos = field_fuzzed.default
                                 next_field['done'] = True
                             else:
                                 # Reset the item before us to not done
@@ -889,7 +896,7 @@ class Packet(
                                 
                                 # Reset the previous item pos to the begining
                                 field_fuzzed = self.locate_field(self, state_fuzzed['fields'][curr_pos]['name'])
-                                field_fuzzed.state_pos = field_fuzzed.min
+                                field_fuzzed.state_pos = field_fuzzed.default
                                 
                                 field['combinations'] += 1
                                 state_fuzzed['combinations'] += 1
@@ -2702,6 +2709,9 @@ def fuzz(p,  # type: _P
             elif f.default is not None:
                 if not isinstance(f, ConditionalField) or f._evalcond(q):
                     rnd = f.randval()
+
+                    # Store the default value of the field
+                    rnd.default = f.default
                     if rnd is not None:
                         new_default_fields[f.name] = rnd
         # Process packets with MultipleTypeFields
