@@ -19,6 +19,7 @@ from scapy.packet import Packet, bind_top_down, bind_bottom_up, \
     split_bottom_up, split_layers, Raw
 from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
     FieldLenField, FlagsField, IP6Field, IPField, IntField, MultiEnumField, \
+    MultipleTypeField, \
     PacketField, PacketLenField, PacketListField, ShortEnumField, ShortField, \
     StrFixedLenField, StrLenField, X3BytesField, XByteField, XIntField
 from scapy.layers.x509 import X509_Cert, X509_CRL
@@ -691,7 +692,7 @@ class IKEv2_payload_KE(IKEv2_class):
     ]
 
 
-class IKEv2_payload_IDi(IKEv2_class):
+class IKEv2_payload_IDi(IKEv2_class):  # RFC 7296, section 3.5
     name = "IKEv2 Identification - Initiator"
     overload_fields = {IKEv2: {"next_payload": 35}}
     fields_desc = [
@@ -699,25 +700,35 @@ class IKEv2_payload_IDi(IKEv2_class):
         ByteField("res", 0),
         FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x + 8),
         ByteEnumField("IDtype", 1, {1: "IPv4_addr", 2: "FQDN", 3: "Email_addr", 5: "IPv6_addr", 11: "Key"}),  # noqa: E501
-        ByteEnumField("ProtoID", 0, {0: "Unused"}),
-        ShortEnumField("Port", 0, {0: "Unused"}),
-        #        IPField("IdentData","127.0.0.1"),
-        StrLenField("load", "", length_from=lambda x: x.length - 8),
+        ByteEnumField("res2", 0, {0: "Unused"}),
+        ShortEnumField("res3", 0, {0: "Unused"}),
+        MultipleTypeField(
+            [
+                (IPField("ID", "127.0.0.1"), lambda x: x.IDtype == 1),
+                (IP6Field("ID", "::1"), lambda x: x.IDtype == 5),
+            ],
+            StrLenField("ID", "", length_from=lambda x: x.length - 8),
+        )
     ]
 
 
-class IKEv2_payload_IDr(IKEv2_class):
+class IKEv2_payload_IDr(IKEv2_class):  # RFC 7296, section 3.5
     name = "IKEv2 Identification - Responder"
     overload_fields = {IKEv2: {"next_payload": 36}}
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2_payload_type),
         ByteField("res", 0),
-        FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x + 8),
+        FieldLenField("length", None, "ID", "H", adjust=lambda pkt, x:x + 8),
         ByteEnumField("IDtype", 1, {1: "IPv4_addr", 2: "FQDN", 3: "Email_addr", 5: "IPv6_addr", 11: "Key"}),  # noqa: E501
-        ByteEnumField("ProtoID", 0, {0: "Unused"}),
-        ShortEnumField("Port", 0, {0: "Unused"}),
-        #        IPField("IdentData","127.0.0.1"),
-        StrLenField("load", "", length_from=lambda x: x.length - 8),
+        ByteEnumField("res2", 0, {0: "Unused"}),
+        ShortEnumField("res3", 0, {0: "Unused"}),
+        MultipleTypeField(
+            [
+                (IPField("ID", "127.0.0.1"), lambda x: x.IDtype == 1),
+                (IP6Field("ID", "::1"), lambda x: x.IDtype == 5),
+            ],
+            StrLenField("ID", "", length_from=lambda x: x.length - 8),
+        )
     ]
 
 
