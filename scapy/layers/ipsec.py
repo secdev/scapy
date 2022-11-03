@@ -78,7 +78,7 @@ class AH(Packet):
         ByteEnumField('nh', None, IP_PROTOS),
         ByteField('payloadlen', None),
         ShortField('reserved', None),
-        XIntField('spi', 0x0),
+        XIntField('spi', 0x00000001),
         IntField('seq', 0),
         XStrLenField('icv', None, length_from=__get_icv_len),
         # Padding len can only be known with the SecurityAssociation.auth_algo
@@ -111,7 +111,7 @@ class ESP(Packet):
     name = 'ESP'
 
     fields_desc = [
-        XIntField('spi', 0x0),
+        XIntField('spi', 0x00000001),
         IntField('seq', 0),
         XStrField('data', None),
     ]
