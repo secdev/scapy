@@ -97,4 +97,5 @@ assert DHCPRevOptions['static-routes'][0] == 33
 
 assert dhcpd
 import IPython
-assert IPython.lib.pretty.pretty(dhcpd) == '<function scapy.ansmachine.dhcpd(self, pool=Net("192.168.1.128/25"), network=\'192.168.1.0/24\', gw=\'192.168.1.1\', domain=\'localnet\', renewal_time=60, lease_time=1800)>'
+assert IPython.lib.pretty.pretty(dhcpd) == '<function scapy.ansmachine.dhcpd(self, pool=Net("192.168.1.128/25"), network=\'192.168.1.0/24\', gw=\'192.168.1.1\', nameserver=None, domain=\'localnet\', renewal_time=60, lease_time=1800)>'
+
