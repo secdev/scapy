@@ -761,6 +761,8 @@ class Packet(
             if class_name.startswith('Rand'):
                 if class_name == 'RandIP': # We don't fuzz this atm
                     continue
+                if class_name == 'RandBin': # We don't fuzz this atm
+                    continue
                 if class_name == 'RandTCPOptions':
                     continue
                 
@@ -837,10 +839,17 @@ class Packet(
                     state['active'] = True
                     for field_item in fields:
                         field_obj = self.locate_field(self, field_item['name'])
-                        if "default" in dir(field_obj) and type(field_obj.default).__name__ == 'int': # Some fields have a 'default'
-                            field_obj.state_pos = field_obj.default
-                        elif "min" in dir(field_obj) and type(field_obj.min).__name__ == 'int': # Some fields don't have a 'default', try to use 'min'
+                        if "default" in dir(field_obj):
+                            if type(field_obj.default).__name__ == 'int': # Some fields have a 'default'
+                                field_obj.state_pos = field_obj.default
+                            else:
+                                field_obj.default = None
+                        
+                        if "min" in dir(field_obj) and type(field_obj.min).__name__ == 'int': # Some fields don't have a 'default', try to use 'min'
                             field_obj.state_pos = field_obj.min
+                            if field_obj.default is None:
+                                # set it to something if it doesn't have a value
+                                field_obj.default = field_obj.min
                         else:
                             # Some have nothing
                             field_obj.default = 0
@@ -875,6 +884,9 @@ class Packet(
                 # If we recached max for this field, try the next one
                 if field_fuzzed.state_pos > field_fuzzed.max:
                     # Reset the position back to default
+                    if type(field_fuzzed.default).__name__ != 'int':
+                        raise ValueError("field_fuzzed.default is not int")
+
                     field_fuzzed.state_pos = field_fuzzed.default
                     field['done'] = True
                     field['active'] = False
@@ -897,6 +909,9 @@ class Packet(
 
                             field_fuzzed.state_pos += 1
                             if field_fuzzed.state_pos > field_fuzzed.max:
+                                if type(field_fuzzed.default).__name__ != 'int':
+                                    raise ValueError("field_fuzzed.default is not int")
+
                                 field_fuzzed.state_pos = field_fuzzed.default
                                 next_field['done'] = True
                             else:
@@ -905,6 +920,10 @@ class Packet(
                                 
                                 # Reset the previous item pos to the begining
                                 field_fuzzed = self.locate_field(self, state_fuzzed['fields'][curr_pos]['name'])
+
+                                if type(field_fuzzed.default).__name__ != 'int':
+                                    raise ValueError("field_fuzzed.default is not int")
+
                                 field_fuzzed.state_pos = field_fuzzed.default
                                 
                                 field['combinations'] += 1
