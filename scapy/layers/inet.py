@@ -365,7 +365,14 @@ class RandTCPOptions(VolatileValue):
                 # Process the fmt arguments 1 by 1
                 structs = fmt[1:] if fmt[0] == "!" else fmt
                 rval = []
-                for stru in structs:
+
+                struct_list = list(structs) # split it char by char
+                if 's' in structs:
+                    # We need to split it with the number before the 's'
+                    # Make 16s into '16s' element, rather than '1', '6', 's'
+                    struct_list = [structs]
+
+                for stru in struct_list:
                     stru = "!" + stru
                     if "s" in stru or "p" in stru:  # str / chr
                         v = bytes(RandBin(struct.calcsize(stru)))
