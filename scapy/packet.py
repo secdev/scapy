@@ -816,7 +816,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                         field_obj = self.locate_field(self, field_item['name'])
                         if "default" in dir(field_obj) and type(field_obj.default).__name__ == 'int': # Some fields have a 'default'
                             field_obj.state_pos = field_obj.default
-                        elif "min" in dir(field_obj) and type(field_obj.default).__name__ == 'int': # Some fields don't have a 'default', try to use 'min'
+                        elif "min" in dir(field_obj) and type(field_obj.min).__name__ == 'int': # Some fields don't have a 'default', try to use 'min'
                             field_obj.state_pos = field_obj.min
                         else:
                             # Some have nothing
