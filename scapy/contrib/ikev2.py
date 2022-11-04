@@ -30,7 +30,7 @@ from scapy.sendrecv import sr
 from scapy.config import conf
 from scapy.volatile import RandString
 
-# see http://www.iana.org/assignments/ikev2-parameters for details
+# see https://www.iana.org/assignments/ikev2-parameters for details
 IKEv2AttributeTypes = {"Encryption": (1, {"DES-IV64": 1,
                                           "DES": 2,
                                           "3DES": 3,
@@ -218,6 +218,39 @@ IKEv2TrafficSelectorTypes = {
     7: "TS_IPV4_ADDR_RANGE",
     8: "TS_IPV6_ADDR_RANGE",
     9: "TS_FC_ADDR_RANGE"
+}
+
+IKEv2ConfigurationPayloadCFGTypes = {
+    1: "CFG_REQUEST",
+    2: "CFG_REPLY",
+    3: "CFG_SET",
+    4: "CFG_ACK"
+}
+
+IKEv2ConfigurationAttributeTypes = {
+    1: "INTERNAL_IP4_ADDRESS",
+    2: "INTERNAL_IP4_NETMASK",
+    3: "INTERNAL_IP4_DNS",
+    4: "INTERNAL_IP4_NBNS",
+    6: "INTERNAL_IP4_DHCP",
+    7: "APPLICATION_VERSION",
+    8: "INTERNAL_IP6_ADDRESS",
+    10: "INTERNAL_IP6_DNS",
+    12: "INTERNAL_IP6_DHCP",
+    13: "INTERNAL_IP4_SUBNET",
+    14: "SUPPORTED_ATTRIBUTES",
+    15: "INTERNAL_IP6_SUBNET",
+    16: "MIP6_HOME_PREFIX",
+    17: "INTERNAL_IP6_LINK",
+    18: "INTERNAL_IP6_PREFIX",
+    19: "HOME_AGENT_ADDRESS",
+    20: "P_CSCF_IP4_ADDRESS",
+    21: "P_CSCF_IP6_ADDRESS",
+    22: "FTT_KAT",
+    23: "EXTERNAL_SOURCE_IP4_NAT_INFO",
+    24: "TIMEOUT_PERIOD_FOR_LIVENESS_CHECK",
+    25: "INTERNAL_DNS_DOMAIN",
+    26: "INTERNAL_DNSSEC_TA"
 }
 
 IPProtocolIDs = {
@@ -700,8 +733,7 @@ class IKEv2_payload_IDi(IKEv2_class):  # RFC 7296, section 3.5
         ByteField("res", 0),
         FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x + 8),
         ByteEnumField("IDtype", 1, {1: "IPv4_addr", 2: "FQDN", 3: "Email_addr", 5: "IPv6_addr", 11: "Key"}),  # noqa: E501
-        ByteEnumField("res2", 0, {0: "Unused"}),
-        ShortEnumField("res3", 0, {0: "Unused"}),
+        X3BytesField("res2", 0),
         MultipleTypeField(
             [
                 (IPField("ID", "127.0.0.1"), lambda x: x.IDtype == 1),
@@ -720,8 +752,7 @@ class IKEv2_payload_IDr(IKEv2_class):  # RFC 7296, section 3.5
         ByteField("res", 0),
         FieldLenField("length", None, "ID", "H", adjust=lambda pkt, x:x + 8),
         ByteEnumField("IDtype", 1, {1: "IPv4_addr", 2: "FQDN", 3: "Email_addr", 5: "IPv6_addr", 11: "Key"}),  # noqa: E501
-        ByteEnumField("res2", 0, {0: "Unused"}),
-        ShortEnumField("res3", 0, {0: "Unused"}),
+        X3BytesField("res2", 0),
         MultipleTypeField(
             [
                 (IPField("ID", "127.0.0.1"), lambda x: x.IDtype == 1),
@@ -740,6 +771,40 @@ class IKEv2_payload_Encrypted(IKEv2_class):
         ByteField("res", 0),
         FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x + 4),
         StrLenField("load", "", length_from=lambda x:x.length - 4),
+    ]
+
+
+class ConfigurationAttribute(Packet):
+    name = "IKEv2 Configuration Attribute"
+    fields_desc = [
+        ShortEnumField("type", 1, IKEv2ConfigurationAttributeTypes),
+        FieldLenField("length", None, "value", "H"),
+        MultipleTypeField(
+            [
+                (IPField("value", "127.0.0.1"),
+                 lambda x: x.length == 4 and x.type in (1, 2, 3, 4, 6, 20)),
+                (IP6Field("value", "::1"),
+                 lambda x: x.length == 16 and x.type in (10, 12, 21)),
+            ],
+            StrLenField("value", "", length_from=lambda x: x.length),
+        )
+    ]
+
+    def extract_padding(self, s):
+        return b'', s
+
+
+class IKEv2_payload_CP(IKEv2_class):  # RFC 7296, section 3.15
+    name = "IKEv2 Configuration"
+    overload_fields = {IKEv2: {"next_payload": 46}}
+    fields_desc = [
+        ByteEnumField("next_payload", None, IKEv2_payload_type),
+        ByteField("res", 0),
+        FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x + 8),
+        ByteEnumField("CFGType", 1, IKEv2ConfigurationPayloadCFGTypes),
+        X3BytesField("res2", 0),
+        PacketListField("attributes", None, ConfigurationAttribute,
+                        length_from=lambda x: x.length - 8),
     ]
 
 
