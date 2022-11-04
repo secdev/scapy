@@ -749,23 +749,30 @@ class Packet(
         """
         relevant_fields = []
         
+        # If we provided fields in the constrcution, override the default ones
+        for field_name in p.fields:
+            p.default_fields[field_name] = p.fields[field_name]
+
         for f in p.default_fields:
+            print(f"Checking: {p._name}-{f}")
             if f in p.overloaded_fields:
                 # This is not actually fuzzable, as it gets overloaded
+                print(f"Skipping")
                 continue
 
             class_name = type(p.default_fields[f]).__name__
+            print(f"Class type: {class_name}")
             if class_name == 'NoneType':
                 continue
 
             if class_name.startswith('Rand'):
-                if class_name == 'RandIP': # We don't fuzz this atm
-                    continue
-                if class_name == 'RandBin': # We don't fuzz this atm
-                    continue
-                if class_name == 'RandTCPOptions':
+                if (class_name == 'RandIP' or  # We don't fuzz this atm
+                    class_name == 'RandBin' or # We don't fuzz this atm
+                    class_name == 'RandTCPOptions'):
+                    print(f"Skipping")
                     continue
                 
+                print("Adding")
                 relevant_fields.append(f"{p._name}-{f}")
                 
         if type(p.payload).__name__ != 'NoPayload':
@@ -778,9 +785,15 @@ class Packet(
         packet_field = name[name.index('-')+1:]
         
         if p._name == packet_type:
-            if packet_field not in p.default_fields:
+            if (packet_field not in p.fields and packet_field not in p.default_fields):
                 raise ValueError(f"Cannot find {packet_field} inside {packet_type}")
-            return p.default_fields[packet_field]
+            
+            if packet_field in p.fields:
+                return p.fields[packet_field]
+            elif packet_field in p.default_fields:
+                return p.default_fields[packet_field]
+            else:
+                raise ValueError("Shouldn't have reached this point")
         else:
             return p.locate_field(p.payload, name)
         
@@ -847,7 +860,8 @@ class Packet(
                         
                         if "min" in dir(field_obj) and type(field_obj.min).__name__ == 'int': # Some fields don't have a 'default', try to use 'min'
                             field_obj.state_pos = field_obj.min
-                            if field_obj.default is None:
+
+                            if "default" not in dir(field_obj) or field_obj.default is None:
                                 # set it to something if it doesn't have a value
                                 field_obj.default = field_obj.min
                         else:
