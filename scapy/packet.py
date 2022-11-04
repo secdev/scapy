@@ -754,14 +754,13 @@ class Packet(
             p.default_fields[field_name] = p.fields[field_name]
 
         for f in p.default_fields:
-            print(f"Checking: {p._name}-{f}")
             if f in p.overloaded_fields:
                 # This is not actually fuzzable, as it gets overloaded
-                print(f"Skipping")
+                # print(f"Skipping: {p._name}-{f}")
                 continue
 
             class_name = type(p.default_fields[f]).__name__
-            print(f"Class type: {class_name}")
+            # print(f"Class type: {class_name} for: {p._name}-{f}")
             if class_name == 'NoneType':
                 continue
 
@@ -769,10 +768,10 @@ class Packet(
                 if (class_name == 'RandIP' or  # We don't fuzz this atm
                     class_name == 'RandBin' or # We don't fuzz this atm
                     class_name == 'RandTCPOptions'):
-                    print(f"Skipping")
+                    # print(f"Skipping: {p._name}-{f}")
                     continue
                 
-                print("Adding")
+                # print(f"Adding: {p._name}-{f}")
                 relevant_fields.append(f"{p._name}-{f}")
                 
         if type(p.payload).__name__ != 'NoPayload':
