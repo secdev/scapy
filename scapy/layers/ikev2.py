@@ -731,6 +731,20 @@ class IKEv2_payload_Encrypted(IKEv2_class):
     ]
 
 
+class IKEv2_payload_CP(IKEv2_class):  # RFC 7296, section 3.15
+    name = "IKEv2 Configuration"
+    overload_fields = {IKEv2: {"next_payload": 46}}
+    fields_desc = [
+        ByteEnumField("next_payload", None, IKEv2_payload_type),
+        ByteField("res", 0),
+        FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x + 8),
+        ByteEnumField("CFGtype", 1, {1: "CFG_REQUEST", 2: "CFG_REPLY", 3: "CFG_SET", 4: "CFG_ACK", 11: "Key"}),  # noqa: E501
+        ByteEnumField("res2", 0, {0: "Unused"}),
+        ShortEnumField("res3", 0, {0: "Unused"}),
+        StrLenField("load", "", length_from=lambda x: x.length - 8),
+    ]
+
+
 class IKEv2_payload_Encrypted_Fragment(IKEv2_class):
     name = "IKEv2 Encrypted Fragment"
     overload_fields = {IKEv2: {"next_payload": 53}}
