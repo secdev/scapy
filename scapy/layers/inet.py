@@ -13,6 +13,7 @@ import re
 import random
 import select
 import socket
+import itertools
 from collections import defaultdict
 
 from scapy.utils import checksum, do_graph, incremental_label, \
@@ -338,21 +339,59 @@ def get_tcpao(tcphdr):
 
 
 class RandTCPOptions(VolatileValue):
+     # These values are fixed for RandTCPOptions and means how many options we will generate
+    min = 0 # at the minimum we will generate 0 options
+    state_pos = None
+    combinations_patterns = [  ] # Add a non-option
+    for opt in itertools.combinations( list(TCPOptions[1]), 1 ):
+        if opt[0] == 'EOL':
+            continue
+        combinations_patterns.append(  TCPOptions[0][TCPOptions[1][opt[0]]] )
+    for item in itertools.combinations( list(TCPOptions[1]), 2 ):
+        new_item = []
+        for opt in item:
+            if opt == 'EOL':
+                continue
+
+            new_item.append(  TCPOptions[0][TCPOptions[1][opt]] )
+        
+        combinations_patterns.append( new_item )
+        
+    max = len(combinations_patterns) + 1 # at max we will generate 2 options (and an empty start)
+
     def __init__(self, size=None):
-        if size is None:
-            size = RandNum(1, 5)
-        self.size = size
+        # if size is None:
+        #     size = RandNum(1, 5)
+        # self.size = size
+        if size is not None:
+            raise ValueError("Size provided, not expected")
+        self.size = self.min
 
     def _fix(self):
         # Pseudo-Random amount of options
         # Random ("NAME", fmt)
-        rand_patterns = [
-            random.choice(list(
-                (opt, fmt) for opt, fmt in TCPOptions[0].values()
-                if opt != 'EOL'
-            ))
-            for _ in range(self.size)
-        ]
+
+        if self.state_pos is None:
+            rand_patterns = [
+                random.choice(list(
+                    (opt, fmt) for opt, fmt in six.itervalues(TCPOptions[0])
+                    if opt != 'EOL'
+                ))
+                for _ in range(self.size)
+            ]
+        else:
+            # We will sequentially generate options
+            if self.state_pos > 0:
+                rand_patterns = [ ]
+                current_combination = self.combinations_patterns[self.state_pos - 1]
+                if type(current_combination) == tuple:
+                    rand_patterns = [ current_combination ]
+                else:
+                    for item in current_combination:
+                       rand_patterns.append( item ) 
+            else:
+                rand_patterns = [ ] # Empty array (no-option)
+
         rand_vals = []
         for oname, fmt in rand_patterns:
             if fmt is None:
@@ -365,7 +404,6 @@ class RandTCPOptions(VolatileValue):
                 struct_list = list(structs) # split it char by char
                 if 's' in structs:
                     # We need to split it with the number before the 's'
-                    # Make 16s into '16s' element, rather than '1', '6', 's'
                     struct_list = [structs]
 
                 for stru in struct_list:

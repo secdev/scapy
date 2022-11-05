@@ -766,8 +766,7 @@ class Packet(
 
             if class_name.startswith('Rand'):
                 if (class_name == 'RandIP' or  # We don't fuzz this atm
-                    class_name == 'RandBin' or # We don't fuzz this atm
-                    class_name == 'RandTCPOptions'):
+                    class_name == 'RandBin' ): # We don't fuzz this atm
                     # print(f"Skipping: {p._name}-{f}")
                     continue
                 
