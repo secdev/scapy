@@ -299,7 +299,7 @@ class PythonCANSocket(SuperSocket):
             hdr = struct.unpack("<I", struct.pack(">I", hdr))[0]
 
         dlc = msg.dlc << 24 | msg.is_fd << 18 | \
-              msg.error_state_indicator << 17 | msg.bitrate_switch << 16
+            msg.error_state_indicator << 17 | msg.bitrate_switch << 16
         pkt_data = struct.pack("!II", hdr, dlc) + bytes(msg.data)
         return self.basecls, pkt_data, msg.timestamp
 

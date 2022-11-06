@@ -615,7 +615,8 @@ class CandumpReader:
         if len(data) <= 8 and fd_flags is None:
             pkt = CAN(identifier=int(idn, 16), data=hex_bytes(data))
         else:
-            pkt = CANFD(identifier=int(idn, 16), fd_flags=fd_flags, data=hex_bytes(data))
+            pkt = CANFD(identifier=int(idn, 16), fd_flags=fd_flags,
+                        data=hex_bytes(data))
 
         if le is not None:
             pkt.length = int(le[1:])

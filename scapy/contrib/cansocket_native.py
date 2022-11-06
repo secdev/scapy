@@ -18,7 +18,7 @@ from scapy.config import conf
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, warning
 from scapy.packet import Packet
-from scapy.layers.can import CAN, CANFD, CAN_MTU, CAN_FD_MTU
+from scapy.layers.can import CAN, CAN_MTU, CAN_FD_MTU
 from scapy.arch.linux import get_last_packet_timestamp
 from scapy.compat import List, Dict, Type, Any, Optional, Tuple, raw, cast
 
