@@ -22,7 +22,8 @@ from scapy.supersocket import SuperSocket
 from scapy.layers.can import CAN
 from scapy.packet import Packet
 from scapy.error import warning
-from scapy.compat import List, Type, Tuple, Dict, Any, Optional, cast
+from scapy.compat import List, Type, Tuple, Dict, Any, \
+    Optional, cast, orb
 from scapy.libs.six.moves import queue
 
 from can import Message as can_Message
@@ -310,9 +311,9 @@ class PythonCANSocket(SuperSocket):
                           is_extended_id=x.flags == 0x4,
                           is_error_frame=x.flags == 0x1,
                           arbitration_id=x.identifier,
-                          is_fd=bx[5] & 4 > 0,
-                          error_state_indicator=bx[5] & 2 > 0,
-                          bitrate_switch=bx[5] & 1 > 0,
+                          is_fd=orb(bx[5]) & 4 > 0,
+                          error_state_indicator=orb(bx[5]) & 2 > 0,
+                          bitrate_switch=orb(bx[5]) & 1 > 0,
                           dlc=x.length,
                           data=bx[8:])
         msg.timestamp = time.time()
