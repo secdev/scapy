@@ -589,10 +589,9 @@ class CandumpReader:
             raise EOFError
 
         is_log_file_format = orb(line[0]) == orb(b"(")
-
+        fd_flags = None
         if is_log_file_format:
             t_b, intf, f = line.split()
-            fd_flags = None
             if b'##' in f:
                 idn, data = f.split(b'##')
                 fd_flags = data[0]
