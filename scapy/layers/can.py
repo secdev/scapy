@@ -594,7 +594,7 @@ class CandumpReader:
             t_b, intf, f = line.split()
             if b'##' in f:
                 idn, data = f.split(b'##')
-                fd_flags = data[0]
+                fd_flags = ord(data[0])
                 data = data[1:]
             else:
                 idn, data = f.split(b'#')
