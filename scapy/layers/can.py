@@ -102,7 +102,8 @@ class CAN(Packet):
                       **kargs  # type: Any
                       ):  # type: (...) -> Type[Packet]
         if _pkt:
-            fdf_set = len(_pkt) > 5 and _pkt[5] & 0x04 and not _pkt[5] & 0xf8
+            fdf_set = len(_pkt) > 5 and orb(_pkt[5]) & 0x04 and \
+                not orb(_pkt[5]) & 0xf8
             if fdf_set:
                 return CANFD
             elif len(_pkt) > 16:
@@ -594,7 +595,7 @@ class CandumpReader:
             t_b, intf, f = line.split()
             if b'##' in f:
                 idn, data = f.split(b'##')
-                fd_flags = ord(data[0])
+                fd_flags = orb(data[0])
                 data = data[1:]
             else:
                 idn, data = f.split(b'#')
