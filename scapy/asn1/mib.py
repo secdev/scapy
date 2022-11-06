@@ -376,7 +376,7 @@ certificateExtension_oids = {
     "2.5.29.7": "subjectAltName",
     "2.5.29.8": "issuerAltName",
     "2.5.29.9": "subjectDirectoryAttributes",
-    "2.5.29.10": "basicConstraints",
+    "2.5.29.10": "basicConstraints(obsolete)",
     "2.5.29.14": "subjectKeyIdentifier",
     "2.5.29.15": "keyUsage",
     "2.5.29.16": "privateKeyUsagePeriod",
