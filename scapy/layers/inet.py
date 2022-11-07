@@ -401,12 +401,7 @@ class RandTCPOptions(VolatileValue):
                 structs = re.findall(r"!?([bBhHiIlLqQfdpP]|\d+[spx])", fmt)
                 rval = []
 
-                struct_list = list(structs) # split it char by char
-                if 's' in structs:
-                    # We need to split it with the number before the 's'
-                    struct_list = [structs]
-
-                for stru in struct_list:
+                for stru in structs:
                     stru = "!" + stru
                     if "s" in stru or "p" in stru:  # str / chr
                         v = bytes(RandBin(struct.calcsize(stru)))
