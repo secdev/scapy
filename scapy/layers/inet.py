@@ -7,8 +7,6 @@
 IPv4 (Internet Protocol v4).
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
 import time
 import struct
 import re
@@ -363,7 +361,7 @@ class RandTCPOptions(VolatileValue):
                 rand_vals.append((oname, b''))
             else:
                 # Process the fmt arguments 1 by 1
-                structs = fmt[1:] if fmt[0] == "!" else fmt
+                structs = re.findall(r"!?([bBhHiIlLqQfdpP]|\d+[spx])", fmt)
                 rval = []
                 for stru in structs:
                     stru = "!" + stru
@@ -2094,7 +2092,7 @@ funcpres: a function used to summarize packets"""
     classes += [t[1] for t in zip(idlst[:-1], idlst[1:]) if abs(t[0] - t[1]) > 50]  # noqa: E501
     lst = [(funcID(x), funcpres(x)) for x in lst]
     lst.sort()
-    print("Probably %i classes:" % len(classes), classes)
+    print("Probably %i classes: %s" % (len(classes), classes))
     for id, pr in lst:
         print("%5i" % id, pr)
 
