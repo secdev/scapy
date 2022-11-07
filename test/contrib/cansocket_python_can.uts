@@ -294,7 +294,7 @@ sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x0
 sock1.send(CAN(flags='extended', identifier=0x80, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
-packetsVCan0 = sock0.sniff(timeout=0.3, count=4)
+packetsVCan0 = sock0.sniff(timeout=0.5, count=4)
 assert len(packetsVCan0) == 4
 
 sock0.close()
@@ -336,8 +336,8 @@ sock1.send(CAN(flags='extended', identifier=0x40, length=8, data=b'\x01\x02\x03\
 sock1.send(CAN(flags='extended', identifier=0x80, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 sock1.send(CAN(flags='extended', identifier=0x40, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
-packetsVCan0 = sock0.sniff(timeout=0.3, count=4)
-packetsVCan1 = sock1.sniff(timeout=0.3, count=6)
+packetsVCan0 = sock0.sniff(timeout=0.5, count=4)
+packetsVCan1 = sock1.sniff(timeout=0.5, count=6)
 assert len(packetsVCan0) == 4
 assert len(packetsVCan1) == 6
 
@@ -377,7 +377,7 @@ sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x0
 sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 
-packetsVCan1 = sock1.sniff(timeout=0.3, count=6)
+packetsVCan1 = sock1.sniff(timeout=0.5, count=6)
 assert len(packetsVCan1) == 6
 
 sock0.close()
@@ -415,7 +415,7 @@ sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x0
 sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
-packetsVCan0 = sock0.sniff(timeout=0.3, count=4)
+packetsVCan0 = sock0.sniff(timeout=0.5, count=4)
 assert len(packetsVCan0) == 4
 
 sock0.close()
@@ -459,8 +459,8 @@ sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x0
 sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
-packetsVCan0 = sock0.sniff(timeout=0.3, count=4)
-packetsVCan1 = sock1.sniff(timeout=0.3, count=6)
+packetsVCan0 = sock0.sniff(timeout=0.5, count=4)
+packetsVCan1 = sock1.sniff(timeout=0.5, count=6)
 assert len(packetsVCan0) == 4
 assert len(packetsVCan1) == 6
 
@@ -482,7 +482,7 @@ def bridgeWithRemovePackageFromVCan0ToVCan1():
     bSock1 = CANSocket(bustype='socketcan', channel='vcan1')
     def pnr(pkt):
         if(pkt.identifier == 0x10020000):
-            pkt = None
+            pkt = False
         else:
             pkt = pkt
         return pkt
@@ -503,7 +503,7 @@ sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x0
 sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 
-packetsVCan1 = sock1.sniff(timeout=0.3, count=5)
+packetsVCan1 = sock1.sniff(timeout=0.5, count=5)
 
 assert len(packetsVCan1) == 5
 
@@ -525,7 +525,7 @@ def bridgeWithRemovePackageFromVCan1ToVCan0():
     bSock1 = CANSocket(bustype='socketcan', channel='vcan1')
     def pnr(pkt):
         if(pkt.identifier == 0x10050000):
-            pkt = None
+            pkt = False
         else:
             pkt = pkt
         return pkt
@@ -544,7 +544,7 @@ sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x0
 sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
-packetsVCan0 = sock0.sniff(timeout=0.3, count=3)
+packetsVCan0 = sock0.sniff(timeout=0.5, count=3)
 
 assert len(packetsVCan0) == 3
 
@@ -567,13 +567,13 @@ def bridgeWithRemovePackageInBothDirections():
     bSock1 = CANSocket(bustype='socketcan', channel='vcan1')
     def pnrA(pkt):
         if(pkt.identifier == 0x10020000):
-            pkt = None
+            pkt = False
         else:
             pkt = pkt
         return pkt
     def pnrB(pkt):
         if (pkt.identifier == 0x10050000):
-            pkt = None
+            pkt = False
         else:
             pkt = pkt
         return pkt
@@ -598,8 +598,8 @@ sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x0
 sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
 
-packetsVCan0 = sock0.sniff(timeout=0.3, count=3)
-packetsVCan1 = sock1.sniff(timeout=0.3, count=5)
+packetsVCan0 = sock0.sniff(timeout=0.5, count=3)
+packetsVCan1 = sock1.sniff(timeout=0.5, count=5)
 
 assert len(packetsVCan0) == 3
 assert len(packetsVCan1) == 5

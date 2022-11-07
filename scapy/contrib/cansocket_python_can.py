@@ -22,7 +22,8 @@ from scapy.supersocket import SuperSocket
 from scapy.layers.can import CAN
 from scapy.packet import Packet
 from scapy.error import warning
-from scapy.compat import List, Type, Tuple, Dict, Any, Optional, cast
+from scapy.compat import List, Type, Tuple, Dict, Any, \
+    Optional, cast, orb
 from scapy.libs.six.moves import queue
 
 from can import Message as can_Message
@@ -155,7 +156,7 @@ class _SocketsPool(object):
         objects in this SocketPool
         """
         with self.pool_mutex:
-            for _, t in self.pool.items():
+            for t in self.pool.values():
                 t.mux()
 
     def register(self, socket, *args, **kwargs):
@@ -284,13 +285,7 @@ class PythonCANSocket(SuperSocket):
 
     def __init__(self, **kwargs):
         # type: (Dict[str, Any]) -> None
-
-        self.basecls = None  # type: Optional[Type[Packet]]
-        try:
-            self.basecls = cast(Type[Packet], kwargs.pop("basecls"))
-        except KeyError:
-            self.basecls = CAN
-
+        self.basecls = cast(Optional[Type[Packet]], kwargs.pop("basecls", CAN))
         self.can_iface = SocketWrapper(**kwargs)
 
     def recv_raw(self, x=0xffff):
@@ -304,18 +299,23 @@ class PythonCANSocket(SuperSocket):
         if conf.contribs['CAN']['swap-bytes']:
             hdr = struct.unpack("<I", struct.pack(">I", hdr))[0]
 
-        dlc = msg.dlc << 24
+        dlc = msg.dlc << 24 | msg.is_fd << 18 | \
+            msg.error_state_indicator << 17 | msg.bitrate_switch << 16
         pkt_data = struct.pack("!II", hdr, dlc) + bytes(msg.data)
         return self.basecls, pkt_data, msg.timestamp
 
     def send(self, x):
         # type: (Packet) -> int
+        bx = bytes(x)
         msg = can_Message(is_remote_frame=x.flags == 0x2,
                           is_extended_id=x.flags == 0x4,
                           is_error_frame=x.flags == 0x1,
                           arbitration_id=x.identifier,
+                          is_fd=orb(bx[5]) & 4 > 0,
+                          error_state_indicator=orb(bx[5]) & 2 > 0,
+                          bitrate_switch=orb(bx[5]) & 1 > 0,
                           dlc=x.length,
-                          data=bytes(x)[8:])
+                          data=bx[8:])
         msg.timestamp = time.time()
         try:
             x.sent_time = msg.timestamp
