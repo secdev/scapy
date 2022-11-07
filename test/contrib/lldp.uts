@@ -83,6 +83,65 @@ assert pkt[LLDPDUPortID].fields_desc[2].i2s == LLDPDUPortID.LLDP_PORT_ID_TLV_SUB
 assert pkt[LLDPDUChassisID]._length == 7
 assert pkt[LLDPDUPortID]._length == 7
 
+= Network families / addresses in IDs
+
+# IPv4
+
+pkt = Ether()/LLDPDUChassisID(subtype=0x05, family=1, id="1.1.1.1")/LLDPDUPortID(subtype=0x04, family=1, id="2.2.2.2")/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU()
+pkt = Ether(raw(pkt))
+assert pkt[LLDPDUChassisID].id == "1.1.1.1"
+assert pkt[LLDPDUPortID].id == "2.2.2.2"
+
+pkt = Ether(hex_bytes(b'ffffffffffff0242ac11000288cc02060501010101010406040102020202060200140000'))
+assert pkt[LLDPDUChassisID].id == "1.1.1.1"
+assert pkt[LLDPDUPortID].id == "2.2.2.2"
+
+try:
+      pkt = Ether()/LLDPDUChassisID(subtype=0x05, family=1, id="2001::abcd")/LLDPDUPortID()/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU()
+      assert False
+except (socket.gaierror, AssertionError):
+      pass
+
+try:
+      pkt = Ether()/LLDPDUChassisID()/LLDPDUPortID(subtype=0x04, family=1, id="2001::abcd")/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU()
+      assert False
+except (socket.gaierror, AssertionError):
+      pass
+
+# IPv6
+
+pkt = Ether()/LLDPDUChassisID(subtype=0x05, family=2, id="1111::2222")/LLDPDUPortID(subtype=0x04, family=2, id="2001::abcd")/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU()
+pkt = Ether(raw(pkt))
+assert pkt[LLDPDUChassisID].id == "1111::2222"
+assert pkt[LLDPDUPortID].id == "2001::abcd"
+
+pkt = Ether(hex_bytes(b'ffffffffffff0242ac11000288cc0212050211110000000000000000000000002222041204022001000000000000000000000000abcd060200140000'))
+assert pkt[LLDPDUChassisID].id == "1111::2222"
+assert pkt[LLDPDUPortID].id == "2001::abcd"
+
+try:
+      pkt = Ether()/LLDPDUChassisID(subtype=0x05, family=2, id="1.1.1.1")/LLDPDUPortID()/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU()
+      assert False
+except (socket.gaierror, AssertionError):
+      pass
+
+try:
+      pkt = Ether()/LLDPDUChassisID()/LLDPDUPortID(subtype=0x04, family=2, id="1.1.1.1")/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU()
+      assert False
+except (socket.gaierror, AssertionError):
+      pass
+
+# Other
+
+pkt = Ether()/LLDPDUChassisID(subtype=0x05, id=b"\x00\x07\xab")/LLDPDUPortID(subtype=0x04, id=b"\x07\xaa\xbb\xcc")/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU()
+pkt = Ether(raw(pkt))
+assert pkt[LLDPDUChassisID].id == b"\x00\x07\xab"
+assert pkt[LLDPDUPortID].id == b"\x07\xaa\xbb\xcc"
+
+pkt = Ether(hex_bytes(b'ffffffffffff0242ac11000288cc020505000007ab0406040007aabbcc060200140000'))
+assert pkt[LLDPDUChassisID].id == b"\x00\x07\xab"
+assert pkt[LLDPDUPortID].id == b"\x07\xaa\xbb\xcc"
+
 + strict mode handling - build
 = basic frame structure
 
