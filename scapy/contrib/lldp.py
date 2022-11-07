@@ -38,7 +38,7 @@
 from scapy.config import conf
 from scapy.error import Scapy_Exception
 from scapy.layers.l2 import Ether, Dot1Q
-from scapy.fields import MACField, IPField, BitField, \
+from scapy.fields import MACField, IPField, IP6Field, BitField, \
     StrLenField, ByteEnumField, BitEnumField, \
     EnumField, ThreeBytesField, BitFieldLenField, \
     ShortField, XStrLenField, ByteField, ConditionalField, \
@@ -99,6 +99,40 @@ class LLDPDU(Packet):
         0x07: 'system capabilities',
         0x08: 'management address',
         127: 'organisation specific TLV'
+    }
+
+    IANA_ADDRESS_FAMILY_NUMBERS = {
+        0x00: 'other',
+        0x01: 'IPv4',
+        0x02: 'IPv6',
+        0x03: 'NSAP',
+        0x04: 'HDLC',
+        0x05: 'BBN',
+        0x06: '802',
+        0x07: 'E.163',
+        0x08: 'E.164',
+        0x09: 'F.69',
+        0x0a: 'X.121',
+        0x0b: 'IPX',
+        0x0c: 'Appletalk',
+        0x0d: 'Decnet IV',
+        0x0e: 'Banyan Vines',
+        0x0f: 'E.164 with NSAP',
+        0x10: 'DNS',
+        0x11: 'Distinguished Name',
+        0x12: 'AS Number',
+        0x13: 'XTP over IPv4',
+        0x14: 'XTP over IPv6',
+        0x15: 'XTP native mode XTP',
+        0x16: 'Fiber Channel World-Wide Port Name',
+        0x17: 'Fiber Channel World-Wide Node Name',
+        0x18: 'GWID',
+        0x19: 'AFI for L2VPN',
+        0x1a: 'MPLS-TP Section Endpoint ID',
+        0x1b: 'MPLS-TP LSP Endpoint ID',
+        0x1c: 'MPLS-TP Pseudowire Endpoint ID',
+        0x1d: 'MT IP Multi-Topology IPv4',
+        0x1e: 'MT IP Multi-Topology IPv6'
     }
 
     DOT1Q_HEADER_LEN = 4
@@ -280,6 +314,19 @@ def _ldp_id_adjustlen(pkt, x):
     return length
 
 
+def _ldp_id_lengthfrom(pkt):
+    length = pkt._length
+    if length is None:
+        return 0
+    # Subtract the subtype field
+    length -= 1
+    if (isinstance(pkt, LLDPDUPortID) and pkt.subtype == 0x4) or \
+            (isinstance(pkt, LLDPDUChassisID) and pkt.subtype == 0x5):
+        # Take the ConditionalField into account
+        length -= 1
+    return length
+
+
 class LLDPDUChassisID(LLDPDU):
     """
         ieee 802.1ab-2016 - sec. 8.5.2 / p. 26
@@ -310,7 +357,7 @@ class LLDPDUChassisID(LLDPDU):
                          adjust=lambda pkt, x: _ldp_id_adjustlen(pkt, x)),
         ByteEnumField('subtype', 0x00, LLDP_CHASSIS_ID_TLV_SUBTYPES),
         ConditionalField(
-            ByteField('family', 0),
+            ByteEnumField('family', 0, LLDPDU.IANA_ADDRESS_FAMILY_NUMBERS),
             lambda pkt: pkt.subtype == 0x05
         ),
         MultipleTypeField([
@@ -320,10 +367,13 @@ class LLDPDUChassisID(LLDPDU):
             ),
             (
                 IPField('id', None),
-                lambda pkt: pkt.subtype == 0x05
+                lambda pkt: pkt.subtype == 0x05 and pkt.family == 0x01
             ),
-        ], StrLenField('id', '', length_from=lambda pkt: 0 if pkt._length is
-                       None else pkt._length - 1)
+            (
+                IP6Field('id', None),
+                lambda pkt: pkt.subtype == 0x05 and pkt.family == 0x02
+            ),
+        ], StrLenField('id', '', length_from=_ldp_id_lengthfrom)
         )
     ]
 
@@ -365,7 +415,7 @@ class LLDPDUPortID(LLDPDU):
                          adjust=lambda pkt, x: _ldp_id_adjustlen(pkt, x)),
         ByteEnumField('subtype', 0x00, LLDP_PORT_ID_TLV_SUBTYPES),
         ConditionalField(
-            ByteField('family', 0),
+            ByteEnumField('family', 0, LLDPDU.IANA_ADDRESS_FAMILY_NUMBERS),
             lambda pkt: pkt.subtype == 0x04
         ),
         MultipleTypeField([
@@ -375,10 +425,13 @@ class LLDPDUPortID(LLDPDU):
             ),
             (
                 IPField('id', None),
-                lambda pkt: pkt.subtype == 0x04
+                lambda pkt: pkt.subtype == 0x04 and pkt.family == 0x01
             ),
-        ], StrLenField('id', '', length_from=lambda pkt: 0 if pkt._length is
-                       None else pkt._length - 1)
+            (
+                IP6Field('id', None),
+                lambda pkt: pkt.subtype == 0x04 and pkt.family == 0x02
+            ),
+        ], StrLenField('id', '', length_from=_ldp_id_lengthfrom)
         )
     ]
 
@@ -523,39 +576,6 @@ class LLDPDUManagementAddress(LLDPDU):
 
     see https://www.iana.org/assignments/address-family-numbers/address-family-numbers.xhtml  # noqa: E501
     """
-    IANA_ADDRESS_FAMILY_NUMBERS = {
-        0x00: 'other',
-        0x01: 'IPv4',
-        0x02: 'IPv6',
-        0x03: 'NSAP',
-        0x04: 'HDLC',
-        0x05: 'BBN',
-        0x06: '802',
-        0x07: 'E.163',
-        0x08: 'E.164',
-        0x09: 'F.69',
-        0x0a: 'X.121',
-        0x0b: 'IPX',
-        0x0c: 'Appletalk',
-        0x0d: 'Decnet IV',
-        0x0e: 'Banyan Vines',
-        0x0f: 'E.164 with NSAP',
-        0x10: 'DNS',
-        0x11: 'Distinguished Name',
-        0x12: 'AS Number',
-        0x13: 'XTP over IPv4',
-        0x14: 'XTP over IPv6',
-        0x15: 'XTP native mode XTP',
-        0x16: 'Fiber Channel World-Wide Port Name',
-        0x17: 'Fiber Channel World-Wide Node Name',
-        0x18: 'GWID',
-        0x19: 'AFI for L2VPN',
-        0x1a: 'MPLS-TP Section Endpoint ID',
-        0x1b: 'MPLS-TP LSP Endpoint ID',
-        0x1c: 'MPLS-TP Pseudowire Endpoint ID',
-        0x1d: 'MT IP Multi-Topology IPv4',
-        0x1e: 'MT IP Multi-Topology IPv6'
-    }
 
     SUBTYPE_MANAGEMENT_ADDRESS_OTHER = 0x00
     SUBTYPE_MANAGEMENT_ADDRESS_IPV4 = 0x01
@@ -620,7 +640,7 @@ class LLDPDUManagementAddress(LLDPDU):
                          length_of='management_address',
                          adjust=lambda pkt, x: len(pkt.management_address) + 1),  # noqa: E501
         ByteEnumField('management_address_subtype', 0x00,
-                      IANA_ADDRESS_FAMILY_NUMBERS),
+                      LLDPDU.IANA_ADDRESS_FAMILY_NUMBERS),
         XStrLenField('management_address', '',
                      length_from=lambda pkt: 0
                      if pkt._management_address_string_length is None else
