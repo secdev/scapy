@@ -141,6 +141,8 @@ class NativeCANSocket(SuperSocket):
             unpack_fmt = ">I%ds" % (len(bs) - 4)
             bs = struct.pack(pack_fmt, *struct.unpack(unpack_fmt, bs))
 
+        bs = bs + b"\x00" * (self.MTU - len(bs))
+
         return super(NativeCANSocket, self).send(bs)  # type: ignore
 
 
