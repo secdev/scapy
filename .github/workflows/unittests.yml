@@ -102,11 +102,11 @@ jobs:
             installmode: 'libpcap'
             allow-failure: false
           # MacOS tests
-          - os: macos-10.15
+          - os: macos-12
             python: "2.7"
             mode: both
             allow-failure: false
-          - os: macos-10.15
+          - os: macos-12
             python: "3.10"
             mode: both
             allow-failure: false
@@ -121,7 +121,7 @@ jobs:
             allow-failure: true
             flags: " -k scanner"
           # MacOS tests
-          - os: macos-10.15
+          - os: macos-12
             python: "3.10"
             mode: both
             allow-failure: true
