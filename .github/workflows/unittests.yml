@@ -91,10 +91,12 @@ jobs:
             python: "pypy2.7"
             mode: root
             allow-failure: false
+            flags: " -K scanner"
           - os: ubuntu-latest
             python: "pypy3.9"
             mode: root
             allow-failure: false
+            flags: " -K scanner"
           # Libpcap test
           - os: ubuntu-latest
             python: "3.10"
