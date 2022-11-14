@@ -7,9 +7,7 @@
 # scapy.contrib.status = loads
 
 import struct
-import time
 
-from scapy.contrib.automotive import log_automotive
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
@@ -17,7 +15,7 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     FieldLenField, XStrFixedLenField, XStrLenField
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
-from scapy.error import log_loading, Scapy_Exception
+from scapy.error import log_loading
 from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
 from scapy.compat import Dict, Union
@@ -1384,7 +1382,7 @@ bind_layers(UDS, UDS_NR, service=0x7f)
 
 
 class UDS_TesterPresentSender(PeriodicSenderThread):
-    def __init__(self, sock, pkt=UDS() / UDS_TP(), interval=2):
+    def __init__(self, sock, pkt=UDS() / UDS_TP(subFunction=0x80), interval=2):
         """ Thread to send TesterPresent messages packets periodically
 
         Args:
@@ -1393,17 +1391,3 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
             interval: interval between two packets
         """
         PeriodicSenderThread.__init__(self, sock, pkt, interval)
-
-    def run(self):
-        # type: () -> None
-        while not self._stopped.is_set() and not self._socket.closed:
-            for p in self._pkts:
-                try:
-                    self._socket.sr1(p, timeout=0.3, verbose=False)
-                except (OSError, ValueError, Scapy_Exception) as e:
-                    log_automotive.exception(
-                        "Exception in TesterPresentSender: %s", e)
-                    break
-                time.sleep(self._interval)
-                if self._stopped.is_set() or self._socket.closed:
-                    break

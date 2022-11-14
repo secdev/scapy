@@ -3165,7 +3165,7 @@ class PeriodicSenderThread(threading.Thread):
         while not self._stopped.is_set() and not self._socket.closed:
             for p in self._pkts:
                 self._socket.send(p)
-                time.sleep(self._interval)
+                self._stopped.wait(timeout=self._interval)
                 if self._stopped.is_set() or self._socket.closed:
                     break
 
