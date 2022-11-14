@@ -50,7 +50,7 @@ fi
 # pypy
 if python --version 2>&1 | grep -q PyPy
 then
-  UT_FLAGS+=" -K not_pypy"
+  UT_FLAGS+=" -K not_pypy -K scanner"
 fi
 
 # libpcap
