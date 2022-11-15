@@ -588,8 +588,22 @@ class BOOTP_am(AnsweringMachine):
     filter = "udp and port 68 and port 67"
     send_function = staticmethod(sendp)
 
-    def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24", gw="192.168.1.1",  # noqa: E501
-                      domain="localnet", renewal_time=60, lease_time=1800):
+    def parse_options(self,
+                      pool=Net("192.168.1.128/25"),
+                      network="192.168.1.0/24",
+                      gw="192.168.1.1",
+                      nameserver=None,
+                      domain="localnet",
+                      renewal_time=60,
+                      lease_time=1800):
+        """
+        :param pool: the range of addresses to distribute. Can be a Net,
+                     a list of IPs or a string (always gives the same IP).
+        :param network: the subnet range
+        :param gw: the gateway IP (can be None)
+        :param nameserver: the DNS server IP (by default, same than gw)
+        :param domain: the domain to advertise (can be None)
+        """
         self.domain = domain
         netw, msk = (network.split("/") + ["32"])[:2]
         msk = itom(int(msk))
@@ -597,10 +611,11 @@ class BOOTP_am(AnsweringMachine):
         self.network = ltoa(atol(netw) & msk)
         self.broadcast = ltoa(atol(self.network) | (0xffffffff & ~msk))
         self.gw = gw
+        self.nameserver = nameserver or gw
         if isinstance(pool, six.string_types):
             pool = Net(pool)
         if isinstance(pool, Iterable):
-            pool = [k for k in pool if k not in [gw, self.network, self.broadcast]]  # noqa: E501
+            pool = [k for k in pool if k not in [gw, self.network, self.broadcast]]
             pool.reverse()
         if len(pool) == 1:
             pool, = pool
@@ -617,7 +632,7 @@ class BOOTP_am(AnsweringMachine):
             return 0
         return 1
 
-    def print_reply(self, req, reply):
+    def print_reply(self, _, reply):
         print("Reply %s to %s" % (reply.getlayer(IP).dst, reply.dst))
 
     def make_reply(self, req):
@@ -646,18 +661,24 @@ class DHCP_am(BOOTP_am):
     def make_reply(self, req):
         resp = BOOTP_am.make_reply(self, req)
         if DHCP in req:
-            dhcp_options = [(op[0], {1: 2, 3: 5}.get(op[1], op[1]))
-                            for op in req[DHCP].options
-                            if isinstance(op, tuple) and op[0] == "message-type"]  # noqa: E501
-            dhcp_options += [("server_id", self.gw),
-                             ("domain", self.domain),
-                             ("router", self.gw),
-                             ("name_server", self.gw),
-                             ("broadcast_address", self.broadcast),
-                             ("subnet_mask", self.netmask),
-                             ("renewal_time", self.renewal_time),
-                             ("lease_time", self.lease_time),
-                             "end"
-                             ]
+            dhcp_options = [
+                (op[0], {1: 2, 3: 5}.get(op[1], op[1]))
+                for op in req[DHCP].options
+                if isinstance(op, tuple) and op[0] == "message-type"
+            ]
+            dhcp_options += [
+                x for x in [
+                    ("server_id", self.gw),
+                    ("domain", self.domain),
+                    ("router", self.gw),
+                    ("name_server", self.nameserver),
+                    ("broadcast_address", self.broadcast),
+                    ("subnet_mask", self.netmask),
+                    ("renewal_time", self.renewal_time),
+                    ("lease_time", self.lease_time),
+                ]
+                if x[1] is not None
+            ]
+            dhcp_options.append("end")
             resp /= DHCP(options=dhcp_options)
         return resp

@@ -2,7 +2,11 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 
-# scapy.contrib.description = Internet Key Exchange v2 (IKEv2)
+"""
+Internet Key Exchange Protocol Version 2 (IKEv2), RFC 7296
+"""
+
+# scapy.contrib.description = Internet Key Exchange Protocol Version 2 (IKEv2), RFC 7296
 # scapy.contrib.status = loads
 
 import logging
@@ -11,13 +15,15 @@ import struct
 
 # Modified from the original ISAKMP code by Yaron Sheffer <yaronf.ietf@gmail.com>, June 2010.  # noqa: E501
 
-from scapy.packet import Packet, bind_layers, split_layers, Raw
+from scapy.packet import Packet, bind_top_down, bind_bottom_up, \
+    split_bottom_up, split_layers, Raw
 from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
     FieldLenField, FlagsField, IP6Field, IPField, IntField, MultiEnumField, \
     PacketField, PacketLenField, PacketListField, ShortEnumField, ShortField, \
-    StrFixedLenField, StrLenField, X3BytesField, XByteField
+    StrFixedLenField, StrLenField, X3BytesField, XByteField, XIntField
 from scapy.layers.x509 import X509_Cert, X509_CRL
 from scapy.layers.inet import IP, UDP
+from scapy.layers.ipsec import ESP
 from scapy.layers.isakmp import ISAKMP
 from scapy.sendrecv import sr
 from scapy.config import conf
@@ -420,6 +426,14 @@ class IKEv2(IKEv2_class):  # rfc4306
         IntField("length", None)  # Length of total message: packets + all payloads  # noqa: E501
     ]
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 18:
+            version = struct.unpack("!B", _pkt[17:18])[0]
+            if version < 0x20:
+                return ISAKMP
+        return cls
+
     def guess_payload_class(self, payload):
         if self.flags & 1:
             return conf.raw_layer
@@ -798,11 +812,71 @@ for i, payloadname in enumerate(IKEv2_payload_type):
 del i, payloadname, name
 IKEv2_class._overload_fields = IKEv2_payload_type_overload.copy()
 
-split_layers(UDP, ISAKMP, sport=500)
-split_layers(UDP, ISAKMP, dport=500)
+# the upper bindings for port 500 to ISAKMP are handled by IKEv2.dispatch_hook
+split_bottom_up(UDP, ISAKMP, dport=500)
+split_bottom_up(UDP, ISAKMP, sport=500)
 
-bind_layers(UDP, IKEv2, dport=500, sport=500)  # TODO: distinguish IKEv1/IKEv2
-bind_layers(UDP, IKEv2, dport=4500, sport=4500)
+bind_bottom_up(UDP, IKEv2, dport=500)
+bind_bottom_up(UDP, IKEv2, sport=500)
+bind_top_down(UDP, IKEv2, dport=500, sport=500)
+
+
+split_layers(UDP, ESP, dport=4500)  # NAT-Traversal encapsulation
+split_layers(UDP, ESP, sport=4500)  # NAT-Traversal encapsulation
+
+
+# TODO: the bindings for NAT-traversal (UDP encapsulation on port 4500)
+#       actually belong into the scapy.layers.ipsec module. They will
+#       be moved there as soon as the IKEv2 protocol has been promoted
+#       from scapy.contrib to scapy.layers.
+
+class UDP_ENCAP(Packet):  # RFC 3948
+    """
+    UDP Encapsulation of IPsec ESP Packets [RFC3948] (for NAT-Traversal)
+    """
+    name = 'UDP_ENCAP'
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            if len(_pkt) >= 4 and struct.unpack("!I", _pkt[0:4])[0] == 0x00:
+                return NON_ESP
+            elif len(_pkt) == 1 and struct.unpack("!B", _pkt)[0] == 0xff:
+                return NAT_KEEPALIVE
+            else:
+                return ESP
+        return cls
+
+
+class NON_ESP(Packet):  # RFC 3948, section 2.2
+
+    fields_desc = [
+        XIntField("non_esp", 0x0)
+    ]
+
+    def guess_payload_class(self, payload):
+        return IKEv2
+
+
+class NAT_KEEPALIVE(Packet):  # RFC 3948, section 2.2
+
+    fields_desc = [
+        XByteField("nat_keepalive", 0xFF)
+    ]
+
+    def guess_payload_class(self, payload):
+        return conf.raw_layer
+
+
+split_layers(UDP, ESP, dport=4500)
+split_layers(UDP, ESP, sport=4500)
+
+bind_bottom_up(UDP, UDP_ENCAP, dport=4500)
+bind_bottom_up(UDP, UDP_ENCAP, sport=4500)
+
+bind_top_down(UDP, ESP, dport=4500, sport=4500)
+bind_top_down(UDP, NON_ESP, dport=4500, sport=4500)
+bind_top_down(UDP, NAT_KEEPALIVE, dport=4500, sport=4500)
 
 
 def ikev2scan(ip, **kwargs):

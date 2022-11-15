@@ -1,4 +1,9 @@
-% Ikev2 Tests
+% Ikev2 unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('ikev2')" -t test/contrib/ikev2.uts
+
+
 * Tests for the Ikev2 layer
 
 + Basic Layer Tests
@@ -47,7 +52,7 @@ packet = IP(dst = '192.168.1.10', src = '192.168.1.130') /\
        IKEv2_payload_Notify(next_payload = 'Notify', type = 16388, load = nat_detection_source_ip) /\
        IKEv2_payload_Notify(next_payload = 'None', type = 16389, load = nat_detection_destination_ip)
 
-assert raw(packet) == b'E\x00\x01L\x00\x01\x00\x00@\x11\xf5\xc3\xc0\xa8\x01\x82\xc0\xa8\x01\n\x11\x94\x01\xf4\x018\x97 KWdxMhjA\x00\x00\x00\x00\x00\x00\x00\x00! "\x08\x00\x00\x00\x00\x00\x00\x010"\x00\x000\x00\x00\x00,\x01\x01\x00\x04\x03\x00\x00\x0c\x01\x00\x00\x0c\x80\x0e\x00\x80\x03\x00\x00\x08\x02\x00\x00\x02\x03\x00\x00\x08\x03\x00\x00\x02\x00\x00\x00\x08\x04\x00\x00\x02(\x00\x00\x88\x00\x02\x00\x00\xbbA\xbbA\xcf\xaf4\xe3\xb3 \x96r\xae\xf1\xc5\x1b\x9dR\x91\x9f\x17\x81\xd0\xb4\xcd\x88\x9dJ\xaf\xe2ah\x87v\x00\x0c=\x901PZ\xef\xc0\x18ig\xea\xf5\xa7f7%\xfb\x10,Y\xc3\x9bzp\xd8\xd9\x16\x1c;\xd0\xebDX\x88\xb5\x02\x8e\xa0c\xba\n\xe0\x1f[?0\x80\x8akg\x10\xdc\x9b\xab`\x1eA\x16\x15}\x7fX\xcf\x83\\\xb63\xc6J\xbc\xb3\xa5\xc6\x1c">\x932S\x8b\xfc\x9f(,\xb6-\x1f\x00\xf4\xee\x88\x02)\x00\x00$\x8d\xfc\xf88L\\2\xf1\xb2\x94\xc6N\xabi\xf9\x8e\x9d\x8c\xf7\xe7\xf3R\x97\x1a\x91\xffgw\xd4}\xff\xed)\x00\x00\x1c\x00\x00@\x04\xe6L\x81\xc4\x15*\xd8;\xd6\xe05\x00\x9f\xbb\x90\x04\x06\xbe7\x1f\x00\x00\x00\x1c\x00\x00@\x05(\xcd\x99\xb9\xfa\x12geKS\xf6\x08\x87\xc9\xc3[\xcfg\xa8\xff'
+assert raw(packet) == b'E\x00\x01L\x00\x01\x00\x00@\x11\xf5\xc3\xc0\xa8\x01\x82\xc0\xa8\x01\n\x01\xf4\x01\xf4\x018\xa6\xc0KWdxMhjA\x00\x00\x00\x00\x00\x00\x00\x00! "\x08\x00\x00\x00\x00\x00\x00\x010"\x00\x000\x00\x00\x00,\x01\x01\x00\x04\x03\x00\x00\x0c\x01\x00\x00\x0c\x80\x0e\x00\x80\x03\x00\x00\x08\x02\x00\x00\x02\x03\x00\x00\x08\x03\x00\x00\x02\x00\x00\x00\x08\x04\x00\x00\x02(\x00\x00\x88\x00\x02\x00\x00\xbbA\xbbA\xcf\xaf4\xe3\xb3 \x96r\xae\xf1\xc5\x1b\x9dR\x91\x9f\x17\x81\xd0\xb4\xcd\x88\x9dJ\xaf\xe2ah\x87v\x00\x0c=\x901PZ\xef\xc0\x18ig\xea\xf5\xa7f7%\xfb\x10,Y\xc3\x9bzp\xd8\xd9\x16\x1c;\xd0\xebDX\x88\xb5\x02\x8e\xa0c\xba\n\xe0\x1f[?0\x80\x8akg\x10\xdc\x9b\xab`\x1eA\x16\x15}\x7fX\xcf\x83\\\xb63\xc6J\xbc\xb3\xa5\xc6\x1c">\x932S\x8b\xfc\x9f(,\xb6-\x1f\x00\xf4\xee\x88\x02)\x00\x00$\x8d\xfc\xf88L\\2\xf1\xb2\x94\xc6N\xabi\xf9\x8e\x9d\x8c\xf7\xe7\xf3R\x97\x1a\x91\xffgw\xd4}\xff\xed)\x00\x00\x1c\x00\x00@\x04\xe6L\x81\xc4\x15*\xd8;\xd6\xe05\x00\x9f\xbb\x90\x04\x06\xbe7\x1f\x00\x00\x00\x1c\x00\x00@\x05(\xcd\x99\xb9\xfa\x12geKS\xf6\x08\x87\xc9\xc3[\xcfg\xa8\xff'
 
 ## packets taken from
 ## https://github.com/wireshark/wireshark/blob/master/test/captures/ikev2-decrypt-aes128ccm12.pcap
@@ -68,7 +73,7 @@ assert b[IKEv2_payload_KE].load == b',f\xbe\xad\xb6\xce\x855\xd6!\x8c\xb4\x01\xa
 assert b[IKEv2_payload_Nonce].payload.type == 16388
 assert b[IKEv2_payload_Nonce].payload.payload.payload.next_payload == 0
 
-= Dissect Encrypted Inititor Request
+= Dissect Encrypted Initiator Request
 
 a = Ether(b"\x00!k\x91#H\xb8'\xeb\xa6XI\x08\x00E\x00\x00Yu\xe2@\x00@\x11AQ\xc0\xa8\x01\x02\xc0\xa8\x01\x0e\x01\xf4\x01\xf4\x00E}\xe0\xeahM!Yz\xfd6\xd9\xfe*\xb2-\xac#\xac. %\x08\x00\x00\x00\x02\x00\x00\x00=*\x00\x00!\xcc\xa0\xb3]\xe5\xab\xc5\x1c\x99\x87\xcb\xf1\xf5\xec\xff!\x0e\xb7g\xcd\xb8Qy8;\x96Mx\xe2")
 assert a[IKEv2_payload_Encrypted].next_payload == 42
@@ -142,3 +147,568 @@ assert raw(IKEv2_payload_Encrypted_Fragment()) == s
 
 p = IKEv2_payload_Encrypted_Fragment(s)
 assert p.length == 8 and p.frag_number == 1
+
+
+= Build and dissect UDP encapsulated IKEv1 packets
+
+pkt = Ether() / IP() / UDP() / NON_ESP() / ISAKMP(init_cookie = b'\x01\x02\x03\x04\x05\x06\x07\x08', resp_cookie = b'\x08\x07\x06\x05\x04\x03\x02\x01')
+pkt.show()
+assert pkt[UDP].sport == 4500
+assert pkt[UDP].dport == 4500
+assert pkt[NON_ESP].non_esp == 0x00
+assert pkt[ISAKMP].version == 0x10
+assert pkt[ISAKMP].init_cookie == b'\x01\x02\x03\x04\x05\x06\x07\x08'
+assert pkt[ISAKMP].resp_cookie == b'\x08\x07\x06\x05\x04\x03\x02\x01'
+
+pkt = Ether(raw(pkt))
+pkt.show()
+assert pkt[UDP].sport == 4500
+assert pkt[UDP].dport == 4500
+assert pkt[NON_ESP].non_esp == 0x00
+assert pkt[ISAKMP].version == 0x10
+assert pkt[ISAKMP].init_cookie == b'\x01\x02\x03\x04\x05\x06\x07\x08'
+assert pkt[ISAKMP].resp_cookie == b'\x08\x07\x06\x05\x04\x03\x02\x01'
+
+
+# the IKEv1 and IKEv2 headers are compatible, so changing the version to 0x02...
+pkt[ISAKMP].version = 0x20
+# ...should turn the ISAKMP packet into an IKEv2 packet after building and dissecting
+pkt = Ether(raw(pkt))
+pkt.show()
+assert pkt[UDP].sport == 4500
+assert pkt[UDP].dport == 4500
+assert pkt[NON_ESP].non_esp == 0x00
+assert pkt[IKEv2].version == 0x20
+assert pkt[IKEv2].init_SPI == b'\x01\x02\x03\x04\x05\x06\x07\x08'
+assert pkt[IKEv2].resp_SPI == b'\x08\x07\x06\x05\x04\x03\x02\x01'
+
+
+= Build and dissect UDP encapsulated IKEv2 packets
+
+pkt = Ether() / IP() / UDP() / NON_ESP() / IKEv2(init_SPI = b'\x01\x02\x03\x04\x05\x06\x07\x08', resp_SPI = b'\x08\x07\x06\x05\x04\x03\x02\x01')
+pkt.show()
+assert pkt[UDP].sport == 4500
+assert pkt[UDP].dport == 4500
+assert pkt[NON_ESP].non_esp == 0x00
+assert pkt[IKEv2].version == 0x20
+assert pkt[IKEv2].init_SPI == b'\x01\x02\x03\x04\x05\x06\x07\x08'
+assert pkt[IKEv2].resp_SPI == b'\x08\x07\x06\x05\x04\x03\x02\x01'
+
+pkt = Ether(raw(pkt))
+pkt.show()
+assert pkt[UDP].sport == 4500
+assert pkt[UDP].dport == 4500
+assert pkt[NON_ESP].non_esp == 0x00
+assert pkt[IKEv2].version == 0x20
+assert pkt[IKEv2].init_SPI == b'\x01\x02\x03\x04\x05\x06\x07\x08'
+assert pkt[IKEv2].resp_SPI == b'\x08\x07\x06\x05\x04\x03\x02\x01'
+
+# the IKEv1 and IKEv2 headers are compatible, so changing the version to 0x01...
+pkt[IKEv2].version = 0x10
+# ...should turn the IKEv2 packet into an ISAKMP packet after building and dissecting
+pkt = Ether(raw(pkt))
+pkt.show()
+assert pkt[UDP].sport == 4500
+assert pkt[UDP].dport == 4500
+assert pkt[NON_ESP].non_esp == 0x00
+assert pkt[ISAKMP].version == 0x10
+assert pkt[ISAKMP].init_cookie == b'\x01\x02\x03\x04\x05\x06\x07\x08'
+assert pkt[ISAKMP].resp_cookie == b'\x08\x07\x06\x05\x04\x03\x02\x01'
+
+
+= Build and dissect UDP encapsulated ESP packets
+
+pkt = Ether() / IP() / UDP() / ESP(spi = 0x01020304)
+pkt.show()
+assert pkt[UDP].sport == 4500
+assert pkt[UDP].dport == 4500
+assert pkt[ESP].spi == 0x01020304
+
+pkt = Ether(raw(pkt))
+pkt.show()
+assert pkt[UDP].sport == 4500
+assert pkt[UDP].dport == 4500
+assert pkt[ESP].spi == 0x01020304
+
+= Build and dissect UDP encapsulated NAT-keepalive packets
+
+pkt = Ether() / IP() / UDP() / NAT_KEEPALIVE()
+pkt.show()
+assert pkt[UDP].sport == 4500
+assert pkt[UDP].dport == 4500
+assert pkt[NAT_KEEPALIVE].nat_keepalive == 0xFF
+
+pkt = Ether(b'DNm\xa4\xf6G`W\x18\x93\x9c\x7f\x08\x00E\x00\x00\x1d\xfb.\x00\x00\x80\x11\x9a\x16\xc0\xa8\x01\x1c>\x99\xa5-*\xca\x11\x94\x00\t\x1e\xf2\xff')
+pkt.show()
+assert pkt[UDP].dport == 4500
+assert pkt[NAT_KEEPALIVE].nat_keepalive == 0xFF
+
+
++ Wireshark Captures
+
+= IKEv2 key exchange with NAT-traversal
+
+* Loads and dissects the four frames of the key exchange from a Wireshark
+* capture and compares them with manually built scapy packets.
+
+pcap = rdpcap(scapy_path("/test/pcaps/ikev2_nat_t.pcapng"), count=4)
+
+ike_auth_request_encrypted_payload = binascii.unhexlify(''.join("""
+                             be11 14ab1abe02954640 ce512b03d6527a50
+dd17707ff420b9b5 b02d2874c57afdd3 fa95b15693017a12 8333c8d694f2cd61
+e98b0717f65e1860 430f0699a4174af6 a6c929ff4114b686 f201f471ff9b191e
+4d4cbd43dd994ef6 d5179b6845843d2d 1502f16d4356dc3b ad819c1b0549296b
+dbe479878dbc8a8b e71f9017946bc198 ef010f83a69a5d81 a312be0df9afa949
+e3f0807bd2785498 c0c492f0bcde5085 b2df1187657cbf23 e11c25558af278d0
+1bceadf5548a8990 a6adea270410cb16 1786e0798ed8f047 3442b43399e42122
+6f2ee1e2b0787dfc f56b7b32f3d0b02d 038764ce8ffee757 b94896763c68c2bb
+2a94dec851dcf7e4 489ba8e431d1c63c f5d19a097674b513 58e6b5052a87dd48
+bb3be834b06ab704 579fcac6f6bf647c 87b4c5c0b7353df6 0b55e32a75ac4ced
+3c1724d32a068207 226769352b08eefb 195da55e29c3eea1 05f0fd024029e0d7
+8b83757bd1b6052a 64febad6779cfca3 5b9a2529dc15d2a5 ee8825a2ab3e72ed
+e84aaeb86e8debd6 2a9b3d6503dd6c1a 7e03b87b81578dc0 fb087a5ad2d6bf6b
+d149d108defcabb5 721f8b4ebf1b9b78 80bdd2fc93856afe 4f54a32125964bbc
+fd917239f5af1db9 cd3d188ab7165826 7a445c13d2147169 5da3f3a674c2baaf
+5fd7636cc8ca4b43 142fd2588bb31fdd d6a42b20ebc03b01 04e8beb1356fc863
+0bd95de8574e16fe 14cfa9a6455e20e9 eb08bf632cea53e7 c614277e32fa81d9
+cb2efed29b04377a 748bfab753058349 f21a03fa5c5f478b c0bd993ca3e982b9
+d19fa8d24306e46a b41d9bbfd1d2e2da 112b6c840cc7b86b 8e005aa71b5339d1
+ff2eabb0124df2bf 910173c17380a7e3 85d22f94fa6e3f78 bce897a9a37e08c1
+1124661701dfd643 bba0c4ab4d8e19bb 95478e272d61c1a1 6d4e562f25c3c0a1
+69d39a84045183e2 684ac80ab6e18f20 dc4cc8d5b1d83293 07766d58695eff56
+14c207e045152933 07f9dbeb621e1c25 665f75f55e1ae90c aa43a500fa1ecf18
+3d7e7d46db8eae03 e1bc7a3aefab0c00 9884ca11e7889841 8459936a02699e5f
+7f798d3c81de4933 a7f14f62aa5c31ae 2693089ca1df68a5 2cd338d5d2539053
+5099dd4f0646318f 079822b43f5a47b7 db9eba75ef843a42 98fb9e695a349824
+bef5ee441997f7c5 303c4f8288bb8be1 6cc72fc348c777ec 7ce8b0f032633890
+f01fbeef028f3bb5 ffd1ec663e9304cf 745d4659fc67f32d cffffa9deae65066
+5a2779b742057d71 86bd2603ce0946c4 1589d63fae9c404d 6c7f793a436c775a
+d7d34f2dd609a272 4ac70b514a76d248 8eefb6fc2f3bd196 4dfc1a0d652e89a9
+e0b3278bc2c4c961 19df82bdc3b1f99d 399b0dbf62d23ea3 a7e940177525130b
+df5960b33b3d2d73 28d98a5fd9bbec2e 71404b77facc8053 a14feafd49bf150f
+450384b99d392549 31f06ac18d225368 5c52b4ee6ad50337 dbce7f72bf56e4bf
+55fdf3fd42c39c7d 65a48987ad84d1e0 c4e4543463c95a8e 646744240fdc00b6
+0c009f4afd15b800 182a5004e4062557 e7b20115e01d1cc3 5eb8d01e22f0bf2d
+bb2db84a970934d0 5f9b0d5e5350a45f 733a747e229eca56 087886a5c09efac8
+0c9545e6d849189b 40d7e7b9da4a9f04 9fb0273c3a2ad370 a84d5e7db14c362c
+c84483bbe70f2573 8116b11b877a7939 628a2dec6a590056 fdc7ce849770f12d
+0f63a701e672cf93 75c68c4325e60e3e ae46c7dd014df09d 4594339fa5e82ab3
+9de316df933694da e20120886403
+""".split()))
+
+
+ike_auth_response_encrypted_payload = binascii.unhexlify(''.join("""
+                             0fb3 4e8905b03a3d9b97 70f3e63428ab00be
+1bc29397bec721ef 9bd02e6cc64a309b 0c0dd67e4442f235 c201ccb5f6b8c8b0
+26baaaf0dce597c0 dd610ebbc4aa2d07 8cbd6fdc2dd879a9 f3216edaabd965d8
+5fe04a202615c5c6 08b0caf7db24dc08 4d0d86e560ccb75e 209941a2945bab45
+0795b96cc4f03752 163825f1be62d009 038f29f25956f3e9 3648ea647af4fbea
+52a19bbf16074ed3 9161cfd1a1695176 059cbfc48c57755f b1b1b397155171a0
+b11e10d3f476512b 73687912265ccb6f 1fef5aa5dee1ffc3 a5ecc574a76d529b
+884f819f859c015a a3977230a69657d7 1d54b5cfebcc135a 4010294fdc98db45
+e933cfeca0d638b1 f3f42c863be5501c 105ebc0efc4a8dd2 e48fdc4f35a59068
+5b1c073f6dd368fa 4ac1af60469f5ac0 d209445259a5ec1c e1ce59fad2dd60bb
+11eae2a678095d99 7b69733553933371 b083e1f94d5bd71d b9fc9167068f4565
+1f9de7b7cfa30e6f 54f65e2c9f1a6d88 ff7beff94532af43 ce9067db85fd3679
+5a8ad841889285f4 f27d740d8da1429b 0764f789f314e20f 5a08258b4bdfd75d
+7b7b9cb4b0bb7c2b a469ac24545f2fbe 0621bdaa76898cb6 cb3bbd334c6b6394
+ef7e1cf31df2dd0b 86089a654b942f6e fb7ee5ba401200e0 d727791fc3f978dc
+f446067cd054e664 69ea05784e61ce67 a1fe98a73d22962d 703ad51ff1091920
+f111c2f1535197f8 72471fc2b482b55b 15bfb7525c4c1b4d 8b9a1b98534dcea5
+8343e35e0ecb0164 953604b8687315b8 86509cc26b8730be f8ef669e77466628
+2da94192b67f0c4a 56ff1f7b3a080e4f 0e9ed767d497e8d3 1807169a7c62b80c
+c27c8e4907d59b02 a9d5fd0b9aa8ed96 7bd26a1ad6bce39b 562382ccfc6102d3
+5d4cefd222eadfc4 cffff96f16e69c4a 7b7367dbf48a13c2 1c95ef3b3bf7e1fb
+b240854e6c40b8a8 a8e957919e088d36 4e1da0c0130ae87b 83e980f6f14a9cfa
+fe8e956d489a03aa c365767ec06cee58 04ed81cfe559a8a5 ed00e0ae964e2705
+d2c9011390ba6afd 262b4527144ce8b6 4d438ebddd94eb2c e39c6c254547f0d4
+27b4abf5217c9588 f96dc393517bfab2 50153321ddced8e2 dbb52454e342a483
+1af575c5420b5d37 42aa9ae79e3e7187 3117fd36c856e1c0 317b4ad2d1d3fe38
+b528eb3438210e14 d10e5d2d9feff9d8 1f6fdefde57da710 db7f72e03d154aba
+61bacccd26c0a80f e710f55eb5bb59db 2c0aec7f1003fb4f 1ffd219932bc8e7f
+4f7ced086f6c3067 7610e78a6e8e04dc 330cd2da1ffb181a e09b5b52b9ea366b
+ea88329e2c2d6f51 68b1b2b7ac118861 a56cdc43402d89d6 26344a127a7cb39a
+3f2e1a8ae35b72fa c0b8eb83622cd944 fe86bc8f340ea1a0 81fb980c9e6baa8e
+f9c1b37d11b13d51 e0cf72aac6dbfab9 49f8443d4f3098f9 b022ea0fa25dd418
+f9cc26d0b8358ddd 778204fd9da6374a 46c4cc1777485acc b9c3975a1c12d9f3
+ac326a8e37ca3c17 31a0b6f163a4335c 1c589d52d8b82699 c0c1b31b6b58a7d6
+76d3eeca77a0b4ee 289b11494a217031 d464e32c28e7c109 5afdad0297c5dd65
+1ad1a856f330647a 4ba7be0eee67eace e4a8137709b1234e 07909fb464b5b4fe
+f63e8829a9f066dc ecb8c12cf91836cd 7b7300b86ecea0f7 467b2991832c8380
+3e5f02e1b663e064 e4bd991caa1bcadb 38d984595233f6aa 5c7079217ea5405e
+72a515e9f787d3d9 0a48cb098216f8ff a94ddd0bd8634d48 2f4ffcb96dd81e66
+0a4324eb34f6
+""".split()))
+
+
+frames = [
+    # IKE_SA_INIT request
+    (
+        # i: frame number
+        0,
+        # data: raw frame data
+        binascii.unhexlify(''.join("""
+        005056eddb32000c 2930109e08004500 014cedc240004011 da45c0a8f583ac10
+        0f5c2aca11940138 97c9000000008992 2c915f35570e0000 0000000000002120
+        2208000000000000 012c220000280000 0024010100030300 000c01000014800e
+        0100030000080200 0005000000080400 0013280000480013 0000db253178440c
+        e776a794133cb8b6 9e5eb07473353657 0c64d7b630549c89 9c0712d828b37168
+        500885e051024578 afc75c101f73b894 3cad62d74a30f2be 1fca2b00002c09cb
+        538b2c3dbd4d0bb0 eec8d318cb801a9b 4715b207828d9b5f f1f4ec64ed588637
+        07bcf14ccf052b00 0014eb4c1b788afd 4a9cb7730a68d56c 53212b000014c61b
+        aca1f1a60cc10800 0000000000002b00 00184048b7d56ebc e88525e7de7f00d6
+        c2d3c00000002900 00144048b7d56ebc e88525e7de7f00d6 c2d3290000080000
+        402e290000080000 4016000000100000 402f000100020003 0004
+        """.split())),
+        # packet:  Ether / IP / UDP / NON_ESP / IKEv2 / ...
+        Ether(dst='00:50:56:ed:db:32', src='00:0c:29:30:10:9e', type='IPv4') /
+        IP(version=4, ihl=5, tos=0x0, len=332, id=60866, flags='DF', frag=0, ttl=64, proto='udp', chksum=0xda45, src='192.168.245.131', dst='172.16.15.92') /
+        UDP(sport=10954, dport=4500, len=312, chksum=0x97c9) /
+        NON_ESP() /
+        IKEv2(
+            init_SPI=b'\x89\x92\x2c\x91\x5f\x35\x57\x0e',
+            resp_SPI=b'\x00\x00\x00\x00\x00\x00\x00\x00',
+            next_payload='SA',
+            version=0x20,
+            exch_type='IKE_SA_INIT',
+            flags='Initiator',
+            id=0,
+            length=300
+        ) /
+        IKEv2_payload_SA(
+            next_payload='KE',
+            res=0,
+            length=40,
+            prop=IKEv2_payload_Proposal(
+                next_payload='last',
+                res=0,
+                length=36,
+                proposal=1,
+                proto='IKEv2',
+                SPIsize=0,
+                trans_nb=3,
+                SPI='',
+                trans=(
+                    IKEv2_payload_Transform(
+                        next_payload='Transform',
+                        res=0,
+                        length=12,
+                        transform_type='Encryption',
+                        res2=0,
+                        transform_id='AES-GCM-16ICV',
+                        key_length=256
+                    ) /
+                    IKEv2_payload_Transform(
+                        next_payload='Transform',
+                        res=0,
+                        length=8,
+                        transform_type='PRF',
+                        res2=0,
+                        transform_id='PRF_HMAC_SHA2_256'
+                    ) /
+                    IKEv2_payload_Transform(
+                        next_payload='last',
+                        res=0,
+                        length=8,
+                        transform_type='GroupDesc',
+                        res2=0,
+                        transform_id='256randECPgr'
+                    )
+                )
+            )
+        ) /
+        IKEv2_payload_KE(
+            next_payload='Nonce',
+            res=0,
+            length=72,
+            group='256randECPgr',
+            res2=0,
+            load=b'\xdb%1xD\x0c\xe7v\xa7\x94\x13<\xb8\xb6\x9e^\xb0ts56W\x0cd\xd7\xb60T\x9c\x89\x9c\x07\x12\xd8(\xb3qhP\x08\x85\xe0Q\x02Ex\xaf\xc7\\\x10\x1fs\xb8\x94<\xadb\xd7J0\xf2\xbe\x1f\xca'
+        ) /
+        IKEv2_payload_Nonce(
+            next_payload='VendorID',
+            res=0,
+            length=44,
+            load=b'\t\xcbS\x8b,=\xbdM\x0b\xb0\xee\xc8\xd3\x18\xcb\x80\x1a\x9bG\x15\xb2\x07\x82\x8d\x9b_\xf1\xf4\xecd\xedX\x867\x07\xbc\xf1L\xcf\x05'
+        ) /
+        IKEv2_payload_VendorID(
+            next_payload='VendorID',
+            res=0,
+            length=20,
+            vendorID=b'\xebL\x1bx\x8a\xfdJ\x9c\xb7s\nh\xd5lS!'
+        ) /
+        IKEv2_payload_VendorID(
+            next_payload='VendorID',
+            res=0,
+            length=20,
+            vendorID=b'\xc6\x1b\xac\xa1\xf1\xa6\x0c\xc1\x08\x00\x00\x00\x00\x00\x00\x00'
+        ) /
+        IKEv2_payload_VendorID(
+            next_payload='VendorID',
+            res=0,
+            length=24,
+            vendorID=b'@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3\xc0\x00\x00\x00'
+        ) /
+        IKEv2_payload_VendorID(
+            next_payload='Notify',
+            res=0,
+            length=20,
+            vendorID=b'@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3'
+        ) /
+        IKEv2_payload_Notify(
+            next_payload='Notify',
+            res=0,
+            length=8,
+            proto='Reserved',
+            SPIsize=0,
+            type='IKEV2_FRAGMENTATION_SUPPORTED',
+            SPI=b'',
+            load=b''
+        ) /
+        IKEv2_payload_Notify(
+            next_payload='Notify',
+            res=0,
+            length=8,
+            proto='Reserved',
+            SPIsize=0,
+            type='REDIRECT_SUPPORTED',
+            SPI=b'',
+            load=b''
+        ) /
+        IKEv2_payload_Notify(
+            next_payload='None',
+            res=0,
+            length=16,
+            proto='Reserved',
+            SPIsize=0,
+            type='SIGNATURE_HASH_ALGORITHMS',
+            SPI='',
+            load=b'\x00\x01\x00\x02\x00\x03\x00\x04'
+        )
+    ),
+    # IKE_SA_INIT response
+    (
+        # i: frame number
+        1,
+        # data: raw frame data
+        binascii.unhexlify(''.join("""
+        000c2930109e0050 56eddb3208004500 0151a5dc00008011 2227ac100f5cc0a8
+        f58311942aca013d af99000000008992 2c915f35570e98d5 6d32e2a047422120
+        2220000000000000 0131220000280000 0024010100030300 000c01000014800e
+        0100030000080200 0005000000080400 0013280000480013 00001d9cd5974c95
+        0c95e0544483fb1f 7a9132f5fe8959c0 9ab3a54c779ff2bc f4522a030dc33b9d
+        5ddfeb99e028c0e8 ba7d80dfdcf12b15 16dbe180e6aec664 428b2600002c1d10
+        7dc5a7463da7d761 014139fb381af9cd 3b8c0181e6cd36a8 ae105e55aa7fe71f
+        5db1d36c29152b00 0005042b00001840 48b7d56ebce88525 e7de7f00d6c2d3c0
+        0000002b00001440 48b7d56ebce88525 e7de7f00d6c2d32b 000014c6f57ac398
+        f493208145b7581e 8789832900001485 817703c6e320d2ae 5a4dd02056c6d729
+        0000080000402e29 0000100000402f00 0100020003000400 00000800004014
+        """.split())),
+        # packet:  Ether / IP / UDP / NON_ESP / IKEv2 / ...
+        Ether(dst='00:0c:29:30:10:9e', src='00:50:56:ed:db:32', type='IPv4') /
+        IP(version=4, ihl=5, tos=0x0, len=337, id=42460, flags='', frag=0, ttl=128,
+           proto='udp', chksum=0x2227, src='172.16.15.92', dst='192.168.245.131') /
+        UDP(sport=4500, dport=10954, len=317, chksum=0xaf99) /
+        NON_ESP() /
+        IKEv2(
+            init_SPI=b'\x89\x92\x2c\x91\x5f\x35\x57\x0e',
+            resp_SPI=b'\x98\xd5\x6d\x32\xe2\xa0\x47\x42',
+            next_payload='SA',
+            version=0x20,
+            exch_type='IKE_SA_INIT',
+            flags='Response',
+            id=0,
+            length=305
+        ) /
+        IKEv2_payload_SA(
+            next_payload='KE',
+            res=0,
+            length=40,
+            prop=IKEv2_payload_Proposal(
+                next_payload='last',
+                res=0,
+                length=36,
+                proposal=1,
+                proto='IKEv2',
+                SPIsize=0,
+                trans_nb=3,
+                SPI='',
+                trans=(
+                    IKEv2_payload_Transform(
+                        next_payload='Transform',
+                        res=0,
+                        length=12,
+                        transform_type='Encryption',
+                        res2=0,
+                        transform_id='AES-GCM-16ICV',
+                        key_length=256
+                    ) /
+                    IKEv2_payload_Transform(
+                        next_payload='Transform',
+                        res=0,
+                        length=8,
+                        transform_type='PRF',
+                        res2=0,
+                        transform_id='PRF_HMAC_SHA2_256'
+                    ) /
+                    IKEv2_payload_Transform(
+                        next_payload='last',
+                        res=0,
+                        length=8,
+                        transform_type='GroupDesc',
+                        res2=0,
+                        transform_id='256randECPgr'
+                    )
+                )
+            )
+        ) /
+        IKEv2_payload_KE(
+            next_payload='Nonce',
+            res=0,
+            length=72,
+            group='256randECPgr',
+            res2=0,
+            load=b'\x1d\x9c\xd5\x97L\x95\x0c\x95\xe0TD\x83\xfb\x1fz\x912\xf5\xfe\x89Y\xc0\x9a\xb3\xa5Lw\x9f\xf2\xbc\xf4R*\x03\r\xc3;\x9d]\xdf\xeb\x99\xe0(\xc0\xe8\xba}\x80\xdf\xdc\xf1+\x15\x16\xdb\xe1\x80\xe6\xae\xc6dB\x8b'
+        ) /
+        IKEv2_payload_Nonce(
+            next_payload='CERTREQ',
+            res=0,
+            length=44,
+            load=b'\x1d\x10}\xc5\xa7F=\xa7\xd7a\x01A9\xfb8\x1a\xf9\xcd;\x8c\x01\x81\xe6\xcd6\xa8\xae\x10^U\xaa\x7f\xe7\x1f]\xb1\xd3l)\x15'
+        ) /
+        IKEv2_payload_CERTREQ(
+            next_payload='VendorID',
+            res=0,
+            length=5,
+            cert_type='X.509 Certificate - Signature',
+            cert_data=b''
+        ) /
+        IKEv2_payload_VendorID(
+            next_payload='VendorID',
+            res=0,
+            length=24,
+            vendorID=b'@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3\xc0\x00\x00\x00'
+        ) /
+        IKEv2_payload_VendorID(
+            next_payload='VendorID',
+            res=0,
+            length=20,
+            vendorID=b'@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3'
+        ) /
+        IKEv2_payload_VendorID(
+            next_payload='VendorID',
+            res=0,
+            length=20,
+            vendorID=b'\xc6\xf5z\xc3\x98\xf4\x93 \x81E\xb7X\x1e\x87\x89\x83'
+        ) /
+        IKEv2_payload_VendorID(
+            next_payload='Notify',
+            res=0,
+            length=20,
+            vendorID=b'\x85\x81w\x03\xc6\xe3 \xd2\xaeZM\xd0 V\xc6\xd7'
+        ) /
+        IKEv2_payload_Notify(
+            next_payload='Notify',
+            res=0,
+            length=8,
+            proto='Reserved',
+            SPIsize=0,
+            type='IKEV2_FRAGMENTATION_SUPPORTED',
+            SPI=b'',
+            load=b''
+        ) /
+        IKEv2_payload_Notify(
+            next_payload='Notify',
+            res=0,
+            length=16,
+            proto='Reserved',
+            SPIsize=0,
+            type='SIGNATURE_HASH_ALGORITHMS',
+            SPI=b'',
+            load=b'\x00\x01\x00\x02\x00\x03\x00\x04'
+        ) /
+        IKEv2_payload_Notify(
+            next_payload='None',
+            res=0,
+            length=8,
+            proto='Reserved',
+            SPIsize=0,
+            type='MULTIPLE_AUTH_SUPPORTED'
+        )
+    ),
+    # IKE_AUTH request
+    (
+        # i: frame number
+        2,
+        # data: raw frame data
+        binascii.unhexlify(''.join("""
+        005056eddb32000c 2930109e08004500 0520edc640004011 d66dc0a8f583ac10
+        0f5c2aca1194050c 8eb0000000008992 2c915f35570e98d5 6d32e2a047422e20
+        2308000000010000 0500230004e4
+        """.split())) + ike_auth_request_encrypted_payload,
+        # packet:  Ether / IP / UDP / NON_ESP / IKEv2 / ...
+        Ether(dst='00:50:56:ed:db:32', src='00:0c:29:30:10:9e', type='IPv4') /
+        IP(version=4, ihl=5, tos=0x0, len=1312, id=60870, flags='DF', frag=0, ttl=64,
+           proto='udp', chksum=0xd66d, src='192.168.245.131', dst='172.16.15.92') /
+        UDP(sport=10954, dport=4500, len=1292, chksum=0x8eb0) /
+        NON_ESP() /
+        IKEv2(
+            init_SPI=b'\x89\x92\x2c\x91\x5f\x35\x57\x0e',
+            resp_SPI=b'\x98\xd5\x6d\x32\xe2\xa0\x47\x42',
+            next_payload='Encrypted',
+            version=0x20,
+            exch_type='IKE_AUTH',
+            flags='Initiator',
+            id=1,
+            length=1280
+        ) /
+        IKEv2_payload_Encrypted(
+            next_payload='IDi',
+            res=0,
+            length=1252,
+            load = ike_auth_request_encrypted_payload
+        )
+    ),
+    # IKE_AUTH response
+    (
+        # i: frame number
+        3,
+        # data: raw frame data
+        binascii.unhexlify(''.join("""
+        000c2930109e0050 56eddb3208004500 0518a5dd00008011 1e5fac100f5cc0a8
+        f58311942aca0504 886e000000008992 2c915f35570e98d5 6d32e2a047422e20
+        2320000000010000 04f8240004dc
+        """.split())) + ike_auth_response_encrypted_payload,
+        # packet:  Ether / IP / UDP / NON_ESP / IKEv2 / ...
+        Ether(dst='00:0c:29:30:10:9e', src='00:50:56:ed:db:32', type='IPv4') /
+        IP(version=4, ihl=5, tos=0x0, len=1304, id=42461, flags='', frag=0, ttl=128,
+           proto='udp', chksum=0x1e5f, src='172.16.15.92', dst='192.168.245.131') /
+        UDP(sport=4500, dport=10954, len=1284, chksum=0x886e) /
+        NON_ESP() /
+        IKEv2(
+            init_SPI=b'\x89\x92\x2c\x91\x5f\x35\x57\x0e',
+            resp_SPI=b'\x98\xd5\x6d\x32\xe2\xa0\x47\x42',
+            next_payload='Encrypted',
+            version=0x20,
+            exch_type='IKE_AUTH',
+            flags='Response',
+            id=1,
+            length=1272
+        ) /
+        IKEv2_payload_Encrypted(
+            next_payload='IDr',
+            res=0,
+            length=1244,
+            load=ike_auth_response_encrypted_payload
+        )
+    ),
+]
+
+
+for i, data, packet in frames:
+    # the raw frame data coincides with the frame from the packet capture
+    assert data == raw(pcap[i])
+    # the scapy packet correctly describes the frame
+    assert raw(packet) == data
+    # reassembling the dissected frame yields the original frame
+    assert raw(Ether(data)) == data
