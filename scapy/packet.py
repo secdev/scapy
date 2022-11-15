@@ -800,7 +800,11 @@ class Packet(
     def prepare_combinations(self, complexity: int) -> Dict:
         relevant_fields = self.return_relevant_fields(self)
 
-        potential_states = itertools.combinations(relevant_fields, complexity)
+        # If there is more than one field, do a combination, otherwise just put it
+        if len(relevant_fields) > 1:
+            potential_states = itertools.combinations(relevant_fields, complexity)
+        else:
+            potential_states = [relevant_fields]
         
         states = []
         
