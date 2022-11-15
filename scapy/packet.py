@@ -887,7 +887,9 @@ class Packet(
             if not field['done']:
                 field_fuzzed = self.locate_field(self, field['name'])
                 if "state_pos" not in dir(field_fuzzed):
-                    next_field['done'] = True # Mark it as done
+                    # Make sure next_field exists, as it might be the first element
+                    if next_field is not None:
+                        next_field['done'] = True # Mark it as done
                     continue
         
                 # If there are more than 128 combinations, do jumps
