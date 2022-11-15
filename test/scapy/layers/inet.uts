@@ -361,6 +361,14 @@ pkt = fuzz(pkt)
 options = pkt.options._fix()
 options
 
+= TCP random options - MD5 (#GH3777)
+~ python3_only
+random.seed(0x2813)
+pkt = TCP(options=RandTCPOptions()._fix())
+assert pkt.options[0][0] == "MD5"
+assert pkt.options[0][1] == (b'\xe3\xa0,\xdc\xe4\xae\x87\x18\xad{\xab\xd0b\x12\x9c\xd6',)
+assert TCP(bytes(pkt)).options[0][0] == "MD5"
+
 = IP, TCP & UDP checksums (these tests highly depend on default values)
 pkt = IP() / TCP()
 bpkt = IP(raw(pkt))
@@ -629,7 +637,7 @@ def test_IPID_count():
         random.seed(0x2807)
         IPID_count([(IP()/UDP(), IP(id=random.randint(0, 65535))/UDP()) for i in range(3)])
         result_IPID_count = cmco.get_output()
-    lines = result_IPID_count.split("\n")
+    lines = [x.strip() for x in result_IPID_count.split("\n")]
     assert len(lines) == 5
     assert(lines[0] in ["Probably 3 classes: [4613, 53881, 58437]",
                         "Probably 3 classes: [9103, 9227, 46399]"])
