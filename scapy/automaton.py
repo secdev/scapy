@@ -1333,6 +1333,10 @@ class Automaton:
 
     def destroy(self):
         # type: () -> None
+        """
+        Destroys a stopped Automaton: this cleanups all opened file descriptors.
+        Required on PyPy for instance where the garbage collector behaves differently.
+        """
         if self.started.locked():
             raise ValueError("Can't close running Automaton ! Call stop() beforehand")
         self._flush_inout()

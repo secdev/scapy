@@ -706,6 +706,10 @@ def itom(x):
 
 def decode_locale_str(x):
     # type: (bytes) -> str
+    """
+    Decode bytes into a string using the system locale.
+    Useful on Windows where it can be unusual (e.g. cp1252)
+    """
     return x.decode(encoding=locale.getlocale()[1] or "utf-8", errors="replace")
 
 
