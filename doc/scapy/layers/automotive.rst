@@ -769,13 +769,13 @@ Create CAN-frames from an ISOTP message::
 
 Send ISOTP message over ISOTP socket::
 
-   isoTpSocket = ISOTPSocket('vcan0', sid=0x241, did=0x641)
+   isoTpSocket = ISOTPSocket('vcan0', tx_id=0x241, rx_id=0x641)
    isoTpMessage = ISOTP('Message')
    isoTpSocket.send(isoTpMessage)
 
 Sniff ISOTP message::
 
-   isoTpSocket = ISOTPSocket('vcan0', sid=0x641, did=0x241)
+   isoTpSocket = ISOTPSocket('vcan0', tx_id=0x641, rx_id=0x241)
    packets = isoTpSocket.sniff(timeout=0.5)
 
 ISOTP Sockets
@@ -817,7 +817,7 @@ socket creation. This ensures that ``ISOTPSoftSocket`` objects will get closed
 properly.
 Example::
 
-    with ISOTPSocket("vcan0", did=0x241, sid=0x641) as sock:
+    with ISOTPSocket("vcan0", rx_id=0x241, tx_id=0x641) as sock:
         sock.send(...)
 
 ISOTPNativeSocket
@@ -834,7 +834,7 @@ reliability, usually. If you are working on Linux, consider this implementation:
 
    conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}
    load_contrib('isotp')
-   sock = ISOTPSocket("can0", sid=0x641, did=0x241)
+   sock = ISOTPSocket("can0", tx_id=0x641, rx_id=0x241)
 
 Since this implementation is using a standard Linux socket, all Scapy functions
 like ``sniff, sr, sr1, bridge_and_sniff`` work out of the box.
@@ -848,7 +848,7 @@ Usage on Linux with native CANSockets::
 
    conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
    load_contrib('isotp')
-   with ISOTPSocket("can0", sid=0x641, did=0x241) as sock:
+   with ISOTPSocket("can0", tx_id=0x641, rx_id=0x241) as sock:
        sock.send(...)
 
 Usage with python-can CANSockets::
@@ -856,7 +856,7 @@ Usage with python-can CANSockets::
    conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
    conf.contribs['CANSocket'] = {'use-python-can': True}
    load_contrib('isotp')
-   with ISOTPSocket(CANSocket(bustype='socketcan', channel="can0"), sid=0x641, did=0x241) as sock:
+   with ISOTPSocket(CANSocket(bustype='socketcan', channel="can0"), tx_id=0x641, rx_id=0x241) as sock:
        sock.send(...)
 
 This second example allows the usage of any ``python_can.interface`` object.
@@ -886,8 +886,8 @@ Import modules::
 
 Create to ISOTP sockets for attack::
 
-   isoTpSocketVCan0 = ISOTPSocket('vcan0', sid=0x241, did=0x641)
-   isoTpSocketVCan1 = ISOTPSocket('vcan1', sid=0x641, did=0x241)
+   isoTpSocketVCan0 = ISOTPSocket('vcan0', tx_id=0x241, rx_id=0x641)
+   isoTpSocketVCan1 = ISOTPSocket('vcan1', tx_id=0x641, rx_id=0x241)
 
 Create function to send packet on vcan0 with threading::
 
@@ -904,8 +904,8 @@ Create function to forward packet::
 Create function to bridge and sniff between two buses::
 
    def bridge():
-       bSocket0 = ISOTPSocket('vcan0', sid=0x641, did=0x241)
-       bSocket1 = ISOTPSocket('vcan1', sid=0x241, did=0x641)
+       bSocket0 = ISOTPSocket('vcan0', tx_id=0x641, rx_id=0x241)
+       bSocket1 = ISOTPSocket('vcan1', tx_id=0x241, rx_id=0x641)
        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=1)
        bSocket0.close()
        bSocket1.close()

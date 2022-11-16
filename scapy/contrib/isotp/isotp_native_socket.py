@@ -225,21 +225,21 @@ class ISOTPNativeSocket(SuperSocket):
             raise Scapy_Exception(m)
         return ifr
 
-    def __bind_socket(self, sock, iface, sid, did):
+    def __bind_socket(self, sock, iface, tx_id, rx_id):
         # type: (socket.socket, str, int, int) -> None
         socket_id = ctypes.c_int(sock.fileno())
         ifr = self.__get_sock_ifreq(sock, iface)
 
-        if sid > 0x7ff:
-            sid = sid | socket.CAN_EFF_FLAG
-        if did > 0x7ff:
-            did = did | socket.CAN_EFF_FLAG
+        if tx_id > 0x7ff:
+            tx_id = tx_id | socket.CAN_EFF_FLAG
+        if rx_id > 0x7ff:
+            rx_id = rx_id | socket.CAN_EFF_FLAG
 
         # select the CAN interface and bind the socket to it
         addr = sockaddr_can(ctypes.c_uint16(socket.PF_CAN),
                             ifr.ifr_ifindex,
-                            addr_info(tp(ctypes.c_uint32(did),
-                                         ctypes.c_uint32(sid))))
+                            addr_info(tp(ctypes.c_uint32(rx_id),
+                                         ctypes.c_uint32(tx_id))))
 
         error = LIBC.bind(socket_id, ctypes.byref(addr),
                           ctypes.sizeof(addr))
