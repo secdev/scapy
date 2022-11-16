@@ -36,7 +36,7 @@ from scapy.arch.bpf.supersocket import get_dev_bpf
 fd, _ = get_dev_bpf()
 
 = Attach a BPF filter
-~ needs_root
+~ needs_root libpcap
 
 from scapy.arch.bpf.supersocket import attach_filter
 attach_filter(fd, "arp or icmp", conf.iface)
