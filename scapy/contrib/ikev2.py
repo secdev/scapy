@@ -441,10 +441,10 @@ class IKEv2_class(Packet):
             return conf.raw_layer
         elif np < len(IKEv2_payload_type):
             pt = IKEv2_payload_type[np]
-            logging.debug(globals().get("IKEv2_payload_%s" % pt, IKEv2_payload))  # noqa: E501
-            return globals().get("IKEv2_payload_%s" % pt, IKEv2_payload)
+            logging.debug(globals().get("IKEv2_%s" % pt, IKEv2_Payload))  # noqa: E501
+            return globals().get("IKEv2_%s" % pt, IKEv2_Payload)
         else:
-            return IKEv2_payload
+            return IKEv2_Payload
 
 
 class IKEv2(IKEv2_class):  # rfc4306
@@ -498,7 +498,7 @@ class IKEv2_Key_Length_Attribute(IntField):
         return IntField.h2i(self, pkt, (x if x is not None else 0) | 0x800E0000)  # noqa: E501
 
 
-class IKEv2_payload_Transform(IKEv2_class):
+class IKEv2_Transform(IKEv2_class):
     name = "IKE Transform"
     fields_desc = [
         ByteEnumField("next_payload", None, {0: "last", 3: "Transform"}),
@@ -511,7 +511,7 @@ class IKEv2_payload_Transform(IKEv2_class):
     ]
 
 
-class IKEv2_payload_Proposal(IKEv2_class):
+class IKEv2_Proposal(IKEv2_class):
     name = "IKEv2 Proposal"
     fields_desc = [
         ByteEnumField("next_payload", None, {0: "last", 2: "Proposal"}),
@@ -522,11 +522,11 @@ class IKEv2_payload_Proposal(IKEv2_class):
         FieldLenField("SPIsize", None, "SPI", "B"),
         ByteField("trans_nb", None),
         StrLenField("SPI", "", length_from=lambda pkt: pkt.SPIsize),
-        PacketLenField("trans", conf.raw_layer(), IKEv2_payload_Transform, length_from=lambda pkt: pkt.length - 8 - pkt.SPIsize),  # noqa: E501
+        PacketLenField("trans", conf.raw_layer(), IKEv2_Transform, length_from=lambda pkt: pkt.length - 8 - pkt.SPIsize),  # noqa: E501
     ]
 
 
-class IKEv2_payload(IKEv2_class):
+class IKEv2_Payload(IKEv2_class):
     name = "IKEv2 Payload"
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2_payload_type),
@@ -536,7 +536,7 @@ class IKEv2_payload(IKEv2_class):
     ]
 
 
-class IKEv2_payload_AUTH(IKEv2_class):
+class IKEv2_AUTH(IKEv2_class):
     name = "IKEv2 Authentication"
     overload_fields = {IKEv2: {"next_payload": 39}}
     fields_desc = [
@@ -549,7 +549,7 @@ class IKEv2_payload_AUTH(IKEv2_class):
     ]
 
 
-class IKEv2_payload_VendorID(IKEv2_class):
+class IKEv2_VendorID(IKEv2_class):
     name = "IKEv2 Vendor ID"
     overload_fields = {IKEv2: {"next_payload": 43}}
     fields_desc = [
@@ -632,7 +632,7 @@ class RawTrafficSelector(TrafficSelector):
     ]
 
 
-class IKEv2_payload_TSi(IKEv2_class):
+class IKEv2_TSi(IKEv2_class):
     name = "IKEv2 Traffic Selector - Initiator"
     overload_fields = {IKEv2: {"next_payload": 44}}
     fields_desc = [
@@ -648,7 +648,7 @@ class IKEv2_payload_TSi(IKEv2_class):
     ]
 
 
-class IKEv2_payload_TSr(IKEv2_class):
+class IKEv2_TSr(IKEv2_class):
     name = "IKEv2 Traffic Selector - Responder"
     overload_fields = {IKEv2: {"next_payload": 45}}
     fields_desc = [
@@ -664,7 +664,7 @@ class IKEv2_payload_TSr(IKEv2_class):
     ]
 
 
-class IKEv2_payload_Delete(IKEv2_class):
+class IKEv2_Delete(IKEv2_class):
     name = "IKEv2 Vendor ID"
     overload_fields = {IKEv2: {"next_payload": 42}}
     fields_desc = [
@@ -675,18 +675,18 @@ class IKEv2_payload_Delete(IKEv2_class):
     ]
 
 
-class IKEv2_payload_SA(IKEv2_class):
+class IKEv2_SA(IKEv2_class):
     name = "IKEv2 SA"
     overload_fields = {IKEv2: {"next_payload": 33}}
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2_payload_type),
         ByteField("res", 0),
         FieldLenField("length", None, "prop", "H", adjust=lambda pkt, x:x + 4),
-        PacketLenField("prop", conf.raw_layer(), IKEv2_payload_Proposal, length_from=lambda x:x.length - 4),  # noqa: E501
+        PacketLenField("prop", conf.raw_layer(), IKEv2_Proposal, length_from=lambda x:x.length - 4),  # noqa: E501
     ]
 
 
-class IKEv2_payload_Nonce(IKEv2_class):
+class IKEv2_Nonce(IKEv2_class):
     name = "IKEv2 Nonce"
     overload_fields = {IKEv2: {"next_payload": 40}}
     fields_desc = [
@@ -697,7 +697,7 @@ class IKEv2_payload_Nonce(IKEv2_class):
     ]
 
 
-class IKEv2_payload_Notify(IKEv2_class):
+class IKEv2_Notify(IKEv2_class):
     name = "IKEv2 Notify"
     overload_fields = {IKEv2: {"next_payload": 41}}
     fields_desc = [
@@ -712,7 +712,7 @@ class IKEv2_payload_Notify(IKEv2_class):
     ]
 
 
-class IKEv2_payload_KE(IKEv2_class):
+class IKEv2_KE(IKEv2_class):
     name = "IKEv2 Key Exchange"
     overload_fields = {IKEv2: {"next_payload": 34}}
     fields_desc = [
@@ -725,7 +725,7 @@ class IKEv2_payload_KE(IKEv2_class):
     ]
 
 
-class IKEv2_payload_IDi(IKEv2_class):  # RFC 7296, section 3.5
+class IKEv2_IDi(IKEv2_class):  # RFC 7296, section 3.5
     name = "IKEv2 Identification - Initiator"
     overload_fields = {IKEv2: {"next_payload": 35}}
     fields_desc = [
@@ -744,7 +744,7 @@ class IKEv2_payload_IDi(IKEv2_class):  # RFC 7296, section 3.5
     ]
 
 
-class IKEv2_payload_IDr(IKEv2_class):  # RFC 7296, section 3.5
+class IKEv2_IDr(IKEv2_class):  # RFC 7296, section 3.5
     name = "IKEv2 Identification - Responder"
     overload_fields = {IKEv2: {"next_payload": 36}}
     fields_desc = [
@@ -763,7 +763,7 @@ class IKEv2_payload_IDr(IKEv2_class):  # RFC 7296, section 3.5
     ]
 
 
-class IKEv2_payload_Encrypted(IKEv2_class):
+class IKEv2_Encrypted(IKEv2_class):
     name = "IKEv2 Encrypted and Authenticated"
     overload_fields = {IKEv2: {"next_payload": 46}}
     fields_desc = [
@@ -794,7 +794,7 @@ class ConfigurationAttribute(Packet):
         return b'', s
 
 
-class IKEv2_payload_CP(IKEv2_class):  # RFC 7296, section 3.15
+class IKEv2_CP(IKEv2_class):  # RFC 7296, section 3.15
     name = "IKEv2 Configuration"
     overload_fields = {IKEv2: {"next_payload": 46}}
     fields_desc = [
@@ -808,7 +808,7 @@ class IKEv2_payload_CP(IKEv2_class):  # RFC 7296, section 3.15
     ]
 
 
-class IKEv2_payload_Encrypted_Fragment(IKEv2_class):
+class IKEv2_Encrypted_Fragment(IKEv2_class):
     name = "IKEv2 Encrypted Fragment"
     overload_fields = {IKEv2: {"next_payload": 53}}
     fields_desc = [
@@ -821,7 +821,7 @@ class IKEv2_payload_Encrypted_Fragment(IKEv2_class):
     ]
 
 
-class IKEv2_payload_CERTREQ(IKEv2_class):
+class IKEv2_CERTREQ(IKEv2_class):
     name = "IKEv2 Certificate Request"
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2_payload_type),
@@ -832,21 +832,21 @@ class IKEv2_payload_CERTREQ(IKEv2_class):
     ]
 
 
-class IKEv2_payload_CERT(IKEv2_class):
+class IKEv2_CERT(IKEv2_class):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 16:
             ts_type = struct.unpack("!B", _pkt[4:5])[0]
             if ts_type == 4:
-                return IKEv2_payload_CERT_CRT
+                return IKEv2_CERT_CRT
             elif ts_type == 7:
-                return IKEv2_payload_CERT_CRL
+                return IKEv2_CERT_CRL
             else:
-                return IKEv2_payload_CERT_STR
-        return IKEv2_payload_CERT_STR
+                return IKEv2_CERT_STR
+        return IKEv2_CERT_STR
 
 
-class IKEv2_payload_CERT_CRT(IKEv2_payload_CERT):
+class IKEv2_CERT_CRT(IKEv2_CERT):
     name = "IKEv2 Certificate"
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2_payload_type),
@@ -857,7 +857,7 @@ class IKEv2_payload_CERT_CRT(IKEv2_payload_CERT):
     ]
 
 
-class IKEv2_payload_CERT_CRL(IKEv2_payload_CERT):
+class IKEv2_CERT_CRL(IKEv2_CERT):
     name = "IKEv2 Certificate"
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2_payload_type),
@@ -868,7 +868,7 @@ class IKEv2_payload_CERT_CRL(IKEv2_payload_CERT):
     ]
 
 
-class IKEv2_payload_CERT_STR(IKEv2_payload_CERT):
+class IKEv2_CERT_STR(IKEv2_CERT):
     name = "IKEv2 Certificate"
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2_payload_type),
@@ -881,7 +881,7 @@ class IKEv2_payload_CERT_STR(IKEv2_payload_CERT):
 
 IKEv2_payload_type_overload = {}
 for i, payloadname in enumerate(IKEv2_payload_type):
-    name = "IKEv2_payload_%s" % payloadname
+    name = "IKEv2_%s" % payloadname
     if name in globals():
         IKEv2_payload_type_overload[globals()[name]] = {"next_payload": i}
 
@@ -958,4 +958,4 @@ bind_top_down(UDP, NAT_KEEPALIVE, dport=4500, sport=4500)
 def ikev2scan(ip, **kwargs):
     """Send a IKEv2 SA to an IP and wait for answers."""
     return sr(IP(dst=ip) / UDP() / IKEv2(init_SPI=RandString(8),
-                                         exch_type=34) / IKEv2_payload_SA(prop=IKEv2_payload_Proposal()), **kwargs)  # noqa: E501
+                                         exch_type=34) / IKEv2_SA(prop=IKEv2_Proposal()), **kwargs)  # noqa: E501
