@@ -76,8 +76,8 @@ assert b[IKEv2_Nonce].payload.payload.payload.next_payload == 0
 = Dissect Encrypted Initiator Request
 
 a = Ether(b"\x00!k\x91#H\xb8'\xeb\xa6XI\x08\x00E\x00\x00Yu\xe2@\x00@\x11AQ\xc0\xa8\x01\x02\xc0\xa8\x01\x0e\x01\xf4\x01\xf4\x00E}\xe0\xeahM!Yz\xfd6\xd9\xfe*\xb2-\xac#\xac. %\x08\x00\x00\x00\x02\x00\x00\x00=*\x00\x00!\xcc\xa0\xb3]\xe5\xab\xc5\x1c\x99\x87\xcb\xf1\xf5\xec\xff!\x0e\xb7g\xcd\xb8Qy8;\x96Mx\xe2")
-assert a[IKEv2_Encrypted].next_payload == 42
-assert a[IKEv2_Encrypted].load == b'\xcc\xa0\xb3]\xe5\xab\xc5\x1c\x99\x87\xcb\xf1\xf5\xec\xff!\x0e\xb7g\xcd\xb8Qy8;\x96Mx\xe2'
+assert a[IKEv2_SK].next_payload == 42
+assert a[IKEv2_SK].load == b'\xcc\xa0\xb3]\xe5\xab\xc5\x1c\x99\x87\xcb\xf1\xf5\xec\xff!\x0e\xb7g\xcd\xb8Qy8;\x96Mx\xe2'
 
 = Dissect Encrypted Responder Response
 
@@ -85,7 +85,7 @@ b = Ether(b"\xb8'\xeb\xa6XI\x00!k\x91#H\x08\x00E\x00\x00Q\xd5y@\x00@\x11\xe1\xc1
 assert b[IKEv2].init_SPI == b'\xeahM!Yz\xfd6'
 assert b[IKEv2].resp_SPI == b'\xd9\xfe*\xb2-\xac#\xac'
 assert b[IKEv2].next_payload == 46
-assert b[IKEv2_Encrypted].load == b'\xa8\x0c\x95{\xac\x15\xc3\xf8\xaf\xdf1Z\x81\xccK|@\xe8f\rD'
+assert b[IKEv2_SK].load == b'\xa8\x0c\x95{\xac\x15\xc3\xf8\xaf\xdf1Z\x81\xccK|@\xe8f\rD'
 
 = Test Certs detection
 
@@ -140,12 +140,12 @@ c = IKEv2_TSr(traffic_selector=IPv4TrafficSelector() * 2)
 d = IKEv2_TSr(raw(c))
 assert d.number_of_TSs == 2
 
-= IKEv2_Encrypted_Fragment, simple tests
+= IKEv2_SKF, simple tests
 
 s = b"\x00\x00\x00\x08\x00\x01\x00\x01"
-assert raw(IKEv2_Encrypted_Fragment()) == s
+assert raw(IKEv2_SKF()) == s
 
-p = IKEv2_Encrypted_Fragment(s)
+p = IKEv2_SKF(s)
 assert p.length == 8 and p.frag_number == 1
 
 
@@ -427,30 +427,30 @@ frames = [
             load=b'\xdb%1xD\x0c\xe7v\xa7\x94\x13<\xb8\xb6\x9e^\xb0ts56W\x0cd\xd7\xb60T\x9c\x89\x9c\x07\x12\xd8(\xb3qhP\x08\x85\xe0Q\x02Ex\xaf\xc7\\\x10\x1fs\xb8\x94<\xadb\xd7J0\xf2\xbe\x1f\xca'
         ) /
         IKEv2_Nonce(
-            next_payload='VendorID',
+            next_payload='V',
             res=0,
             length=44,
             load=b'\t\xcbS\x8b,=\xbdM\x0b\xb0\xee\xc8\xd3\x18\xcb\x80\x1a\x9bG\x15\xb2\x07\x82\x8d\x9b_\xf1\xf4\xecd\xedX\x867\x07\xbc\xf1L\xcf\x05'
         ) /
-        IKEv2_VendorID(
-            next_payload='VendorID',
+        IKEv2_V(
+            next_payload='V',
             res=0,
             length=20,
             vendorID=b'\xebL\x1bx\x8a\xfdJ\x9c\xb7s\nh\xd5lS!'
         ) /
-        IKEv2_VendorID(
-            next_payload='VendorID',
+        IKEv2_V(
+            next_payload='V',
             res=0,
             length=20,
             vendorID=b'\xc6\x1b\xac\xa1\xf1\xa6\x0c\xc1\x08\x00\x00\x00\x00\x00\x00\x00'
         ) /
-        IKEv2_VendorID(
-            next_payload='VendorID',
+        IKEv2_V(
+            next_payload='V',
             res=0,
             length=24,
             vendorID=b'@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3\xc0\x00\x00\x00'
         ) /
-        IKEv2_VendorID(
+        IKEv2_V(
             next_payload='Notify',
             res=0,
             length=20,
@@ -579,31 +579,31 @@ frames = [
             load=b'\x1d\x10}\xc5\xa7F=\xa7\xd7a\x01A9\xfb8\x1a\xf9\xcd;\x8c\x01\x81\xe6\xcd6\xa8\xae\x10^U\xaa\x7f\xe7\x1f]\xb1\xd3l)\x15'
         ) /
         IKEv2_CERTREQ(
-            next_payload='VendorID',
+            next_payload='V',
             res=0,
             length=5,
             cert_type='X.509 Certificate - Signature',
             cert_data=b''
         ) /
-        IKEv2_VendorID(
-            next_payload='VendorID',
+        IKEv2_V(
+            next_payload='V',
             res=0,
             length=24,
             vendorID=b'@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3\xc0\x00\x00\x00'
         ) /
-        IKEv2_VendorID(
-            next_payload='VendorID',
+        IKEv2_V(
+            next_payload='V',
             res=0,
             length=20,
             vendorID=b'@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3'
         ) /
-        IKEv2_VendorID(
-            next_payload='VendorID',
+        IKEv2_V(
+            next_payload='V',
             res=0,
             length=20,
             vendorID=b'\xc6\xf5z\xc3\x98\xf4\x93 \x81E\xb7X\x1e\x87\x89\x83'
         ) /
-        IKEv2_VendorID(
+        IKEv2_V(
             next_payload='Notify',
             res=0,
             length=20,
@@ -658,14 +658,14 @@ frames = [
         IKEv2(
             init_SPI=b'\x89\x92\x2c\x91\x5f\x35\x57\x0e',
             resp_SPI=b'\x98\xd5\x6d\x32\xe2\xa0\x47\x42',
-            next_payload='Encrypted',
+            next_payload='SK',
             version=0x20,
             exch_type='IKE_AUTH',
             flags='Initiator',
             id=1,
             length=1280
         ) /
-        IKEv2_Encrypted(
+        IKEv2_SK(
             next_payload='IDi',
             res=0,
             length=1252,
@@ -692,14 +692,14 @@ frames = [
         IKEv2(
             init_SPI=b'\x89\x92\x2c\x91\x5f\x35\x57\x0e',
             resp_SPI=b'\x98\xd5\x6d\x32\xe2\xa0\x47\x42',
-            next_payload='Encrypted',
+            next_payload='SK',
             version=0x20,
             exch_type='IKE_AUTH',
             flags='Response',
             id=1,
             length=1272
         ) /
-        IKEv2_Encrypted(
+        IKEv2_SK(
             next_payload='IDr',
             res=0,
             length=1244,
@@ -1003,7 +1003,7 @@ frames = [
             ]
         ) /
         IKEv2_TSr(
-            next_payload='VendorID',
+            next_payload='V',
             res=0,
             length=24,
             number_of_TSs=1,
@@ -1019,19 +1019,19 @@ frames = [
                     ending_address_v4='192.168.225.255')
             ]
         ) /
-        IKEv2_VendorID(
-            next_payload='VendorID',
+        IKEv2_V(
+            next_payload='V',
             res=0,
             length=20,
             vendorID=b'\xaf\xca\xd7\x13h\xa1\xf1\xc9k\x86\x96\xfcwW\x01\x00'
         ) /
-        IKEv2_VendorID(
-            next_payload='VendorID',
+        IKEv2_V(
+            next_payload='V',
             res=0,
             length=20,
             vendorID=b'\xc6\x1b\xac\xa1\xf1\xa6\x0c\xc2\x08\x00\x00\x00\x00\x00\x00\x00'
         ) /
-        IKEv2_VendorID(
+        IKEv2_V(
             next_payload='Notify',
             res=0,
             length=28,
@@ -1325,7 +1325,7 @@ frames = [
             ]
         ) /
         IKEv2_TSr(
-            next_payload='VendorID',
+            next_payload='V',
             res=0,
             length=24,
             number_of_TSs=1,
@@ -1342,7 +1342,7 @@ frames = [
                 )
             ]
         ) /
-        IKEv2_VendorID(
+        IKEv2_V(
             next_payload='Notify',
             res=0,
             length=20,

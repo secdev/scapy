@@ -442,17 +442,17 @@ IKEv2PayloadTypes = {
     40: "Nonce",
     41: "Notify",
     42: "Delete",
-    43: "VendorID",
+    43: "V",
     44: "TSi",
     45: "TSr",
-    46: "Encrypted",
+    46: "SK",
     47: "CP",
     48: "EAP",
     49: "GSPM",
     50: "IDg",
     51: "GSA",
     52: "KD",
-    53: "Encrypted_Fragment",
+    53: "SKF",
     54: "PS"
 }
 
@@ -579,7 +579,7 @@ class IKEv2_AUTH(IKEv2_class):
     ]
 
 
-class IKEv2_VendorID(IKEv2_class):
+class IKEv2_V(IKEv2_class):
     name = "IKEv2 Vendor ID"
     overload_fields = {IKEv2: {"next_payload": 43}}
     fields_desc = [
@@ -793,7 +793,7 @@ class IKEv2_IDr(IKEv2_class):  # RFC 7296, section 3.5
     ]
 
 
-class IKEv2_Encrypted(IKEv2_class):
+class IKEv2_SK(IKEv2_class):
     name = "IKEv2 Encrypted and Authenticated"
     overload_fields = {IKEv2: {"next_payload": 46}}
     fields_desc = [
@@ -838,8 +838,8 @@ class IKEv2_CP(IKEv2_class):  # RFC 7296, section 3.15
     ]
 
 
-class IKEv2_Encrypted_Fragment(IKEv2_class):
-    name = "IKEv2 Encrypted Fragment"
+class IKEv2_SKF(IKEv2_class):
+    name = "IKEv2 Encrypted and Authenticated Fragment"
     overload_fields = {IKEv2: {"next_payload": 53}}
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2PayloadTypes),
