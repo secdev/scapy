@@ -159,6 +159,12 @@ IKEv2TransformAlgorithms = {
     tf_num: tf_dict for tf_num, (_, tf_dict) in IKEv2AttributeTypes.items()
 }
 
+IKEv2ProtocolTypes = {
+    1: "IKE",
+    2: "AH",
+    3: "ESP"
+}
+
 IKEv2AuthenticationTypes = {
     0: "Reserved",
     1: "RSA Digital Signature",
@@ -567,7 +573,7 @@ class IKEv2_Proposal(IKEv2_Payload):
     name = "IKEv2 Proposal"
     fields_desc = IKEv2_Payload.fields_desc[:3] + [
         ByteField("proposal", 1),
-        ByteEnumField("proto", 1, {1: "IKEv2", 2: "AH", 3: "ESP"}),
+        ByteEnumField("proto", 1, IKEv2ProtocolTypes),
         FieldLenField("SPIsize", None, "SPI", "B"),
         ByteField("trans_nb", None),
         StrLenField("SPI", "", length_from=lambda pkt: pkt.SPIsize),
@@ -798,46 +804,27 @@ class IKEv2_SKF(IKEv2_Payload):
 class IKEv2_CERTREQ(IKEv2_Payload):
     name = "IKEv2 Certificate Request"
     fields_desc = IKEv2_Payload.fields_desc[:3] + [
-        ByteEnumField("cert_type", 0, IKEv2CertificateEncodings),
-        StrLenField("cert_data", "", length_from=lambda x:x.length - 5),
+        ByteEnumField("cert_encoding", 0, IKEv2CertificateEncodings),
+        StrLenField("cert_authority", "", length_from=lambda x:x.length - 5),
     ]
 
 
 class IKEv2_CERT(IKEv2_Payload):
-    @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt and len(_pkt) >= 16:
-            ts_type = struct.unpack("!B", _pkt[4:5])[0]
-            if ts_type == 4:
-                return IKEv2_CERT_CRT
-            elif ts_type == 7:
-                return IKEv2_CERT_CRL
-            else:
-                return IKEv2_CERT_STR
-        return IKEv2_CERT_STR
-
-
-class IKEv2_CERT_CRT(IKEv2_CERT):
     name = "IKEv2 Certificate"
     fields_desc = IKEv2_Payload.fields_desc[:3] + [
-        ByteEnumField("cert_type", 4, IKEv2CertificateEncodings),
-        PacketLenField("x509Cert", X509_Cert(''), X509_Cert, length_from=lambda x:x.length - 5),  # noqa: E501
-    ]
-
-
-class IKEv2_CERT_CRL(IKEv2_CERT):
-    name = "IKEv2 Certificate"
-    fields_desc = IKEv2_Payload.fields_desc[:3] + [
-        ByteEnumField("cert_type", 7, IKEv2CertificateEncodings),
-        PacketLenField("x509CRL", X509_CRL(''), X509_CRL, length_from=lambda x:x.length - 5),  # noqa: E501
-    ]
-
-
-class IKEv2_CERT_STR(IKEv2_CERT):
-    name = "IKEv2 Certificate"
-    fields_desc = IKEv2_Payload.fields_desc[:3] + [
-        ByteEnumField("cert_type", 0, IKEv2CertificateEncodings),
-        StrLenField("cert_data", "", length_from=lambda x:x.length - 5),
+        ByteEnumField("cert_encoding", 4, IKEv2CertificateEncodings),
+        MultipleTypeField(
+            [
+                (PacketLenField("cert_data", X509_Cert(), X509_Cert,
+                                length_from=lambda x:x.length - 5),
+                 lambda x: x.cert_encoding == 4),
+                (PacketLenField("cert_data", X509_CRL(), X509_CRL,
+                                length_from=lambda x:x.length - 5),
+                 lambda x: x.cert_encoding == 7)
+            ],
+            StrLenField("cert_data", "",
+                        length_from=lambda x:x.length - 5),
+        )
     ]
 
 
