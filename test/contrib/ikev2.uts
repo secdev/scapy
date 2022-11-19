@@ -89,25 +89,23 @@ assert b[IKEv2_Encrypted].load == b'\xa8\x0c\x95{\xac\x15\xc3\xf8\xaf\xdf1Z\x81\
 
 = Test Certs detection
 
-a = IKEv2_CERT(raw(IKEv2_CERT_CRL()))
-b = IKEv2_CERT(raw(IKEv2_CERT_STR()))
-c = IKEv2_CERT(raw(IKEv2_CERT_CRT()))
+a = IKEv2_CERT(raw(IKEv2_CERT(cert_encoding = "X.509 Certificate - Signature")))
+b = IKEv2_CERT(raw(IKEv2_CERT(cert_encoding ="Certificate Revocation List (CRL)")))
+c = IKEv2_CERT(raw(IKEv2_CERT(cert_encoding = 0)))
 
-assert isinstance(a, IKEv2_CERT_CRL)
-assert isinstance(b, IKEv2_CERT_STR)
-assert isinstance(c, IKEv2_CERT_CRT)
+assert a.cert_encoding == 4
+assert isinstance(a.cert_data, X509_Cert)
+assert b.cert_encoding == 7
+assert isinstance(b.cert_data, X509_CRL)
+assert c.cert_encoding == 0
+assert isinstance(c.cert_data, bytes)
+
 
 = Test Certs length calculations
 ## For the length calculations see Figure 12 in RFC 7296
-a = IKEv2_CERT_CRT(raw(IKEv2_CERT_CRT()))
-assert len(a.x509Cert) > 0
-assert a.length == len(a.x509Cert) + 5
 
-b = IKEv2_CERT_CRL(raw(IKEv2_CERT_CRL()))
-assert len(b.x509CRL) > 0
-assert b.length == len(b.x509CRL) + 5
-
-c = IKEv2_CERT_STR(raw(IKEv2_CERT_STR(cert_data=b'dummy')))
+assert a.length == len(a.cert_data) + 5
+assert b.length == len(b.cert_data) + 5
 assert c.length == len(c.cert_data) + 5
 
 = Test TrafficSelector detection
@@ -385,7 +383,7 @@ frames = [
                 flags='',
                 length=36,
                 proposal=1,
-                proto='IKEv2',
+                proto='IKE',
                 SPIsize=0,
                 trans_nb=3,
                 SPI='',
@@ -531,7 +529,7 @@ frames = [
                 flags='',
                 length=36,
                 proposal=1,
-                proto='IKEv2',
+                proto='IKE',
                 SPIsize=0,
                 trans_nb=3,
                 SPI='',
@@ -582,8 +580,8 @@ frames = [
             next_payload='VendorID',
             flags='',
             length=5,
-            cert_type='X.509 Certificate - Signature',
-            cert_data=b''
+            cert_encoding='X.509 Certificate - Signature',
+            cert_authority=b''
         ) /
         IKEv2_VendorID(
             next_payload='VendorID',
@@ -776,10 +774,10 @@ frames = [
             res2=0x0,
             ID='ikev2-cert'
         ) /
-        IKEv2_CERT_CRT(
+        IKEv2_CERT(
             next_payload='Notify', flags='', length=732,
-            cert_type='X.509 Certificate - Signature',
-            x509Cert=X509_Cert(
+            cert_encoding='X.509 Certificate - Signature',
+            cert_data=X509_Cert(
                 tbsCertificate=X509_TBSCertificate(
                     version=ASN1_INTEGER(2),
                     serialNumber=ASN1_INTEGER(0x1000013),
@@ -922,8 +920,8 @@ frames = [
             next_payload='AUTH',
             flags='',
             length=65,
-            cert_type='X.509 Certificate - Signature',
-            cert_data=b'\x91\xc1\xdc\x0f*\x8f\x0e;\xd7\xda\x99\x1aC\xa3\x92&5^B)\xbc\xb6*\x0e\x9d\xe9y\xfd\xa8d\xe3\xf0d`\xdc\xaa\xff\x85\x07Y\xf4\x89V#8e!N\x9a\x10\xe67oLY\xb5\xc0/6m'
+            cert_encoding='X.509 Certificate - Signature',
+            cert_authority=b'\x91\xc1\xdc\x0f*\x8f\x0e;\xd7\xda\x99\x1aC\xa3\x92&5^B)\xbc\xb6*\x0e\x9d\xe9y\xfd\xa8d\xe3\xf0d`\xdc\xaa\xff\x85\x07Y\xf4\x89V#8e!N\x9a\x10\xe67oLY\xb5\xc0/6m'
         ) /
         IKEv2_AUTH(
             next_payload='CP',
@@ -1127,12 +1125,12 @@ frames = [
             res2=0x0,
             ID=b'0t1\x0b0\t\x06\x03U\x04\x06\x13\x02DE1\x1a0\x18\x06\x03U\x04\n\x0c\x11Demo Organization1\x100\x0e\x06\x03U\x04\x0b\x0c\x07Demo OU1\x100\x0e\x06\x03U\x04\x03\x0c\x07Server11%0#\x06\t*\x86H\x86\xf7\r\x01\t\x01\x16\x16server1@demo.ncp-e.com'
         ) /
-        IKEv2_CERT_CRT(
+        IKEv2_CERT(
             next_payload='AUTH',
             flags='',
             length=742,
-            cert_type='X.509 Certificate - Signature',
-            x509Cert=X509_Cert(
+            cert_encoding='X.509 Certificate - Signature',
+            cert_data=X509_Cert(
                 tbsCertificate=X509_TBSCertificate(
                     version=ASN1_INTEGER(2),
                     serialNumber=ASN1_INTEGER(0x1000016),
