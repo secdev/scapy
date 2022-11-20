@@ -311,9 +311,15 @@ if conf.use_pcap:
                     # type "bytes".
                     #
                     # decode_locale_str() turns them into strings.
-                    iface = decode_locale_str(bytearray(self.iface).strip(b"\x00"))
-                    errstr = decode_locale_str(bytearray(pcap_geterr(self.pcap)).strip(b"\x00"))
-                    statusstr = decode_locale_str(bytearray(pcap_statustostr(status)).strip(b"\x00"))
+                    iface = decode_locale_str(
+                        bytearray(self.iface).strip(b"\x00")
+                    )
+                    errstr = decode_locale_str(
+                        bytearray(pcap_geterr(self.pcap)).strip(b"\x00")
+                    )
+                    statusstr = decode_locale_str(
+                        bytearray(pcap_statustostr(status)).strip(b"\x00")
+                    )
                     if status == PCAP_ERROR:
                         errmsg = errstr
                     elif status == PCAP_ERROR_NO_SUCH_DEVICE:
