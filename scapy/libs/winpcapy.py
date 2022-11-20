@@ -257,12 +257,12 @@ PCAP_ERROR_PERM_DENIED = -8
 #   interface isn't up
 # define PCAP_ERROR_IFACE_NOT_UP	-9
 PCAP_ERROR_IFACE_NOT_UP = -9
-#define PCAP_ERROR_CANTSET_TSTAMP_TYPE	-10
+# define PCAP_ERROR_CANTSET_TSTAMP_TYPE	-10
 #   this device doesn't support setting the time stamp type
 #   you don't have permission to capture in promiscuous mode
 # define PCAP_ERROR_PROMISC_PERM_DENIED	-11
 PCAP_ERROR_PROMISC_PERM_DENIED = -11
-#   the requested time stamp precision is not supported 
+#   the requested time stamp precision is not supported
 # define PCAP_ERROR_TSTAMP_PRECISION_NOTSUP -12
 PCAP_ERROR_TSTAMP_PRECISION_NOTSUP = -12
 
