@@ -348,7 +348,8 @@ pcap_open_offline.restype = POINTER(pcap_t)
 pcap_open_offline.argtypes = [STRING, STRING]
 
 try:
-    # NPCAP/LINUX ONLY function
+    # Functions not available on WINPCAP
+
     # int pcap_set_rfmon (pcap_t *p)
     # sets whether monitor mode should be set on a capture handle when the
     # handle is activated.
@@ -391,6 +392,12 @@ try:
     pcap_inject = _lib.pcap_inject
     pcap_inject.restype = c_int
     pcap_inject.argtypes = [POINTER(pcap_t), c_void_p, c_int]
+
+    # const char * pcap_statustostr (int error)
+    # print the text of the status (error or warning) corresponding to error.
+    pcap_statustostr = _lib.pcap_statustostr
+    pcap_statustostr.restype = STRING
+    pcap_statustostr.argtypes = [c_int]
 except AttributeError:
     pass
 
@@ -649,12 +656,6 @@ pcap_geterr.argtypes = [POINTER(pcap_t)]
 pcap_strerror = _lib.pcap_strerror
 pcap_strerror.restype = STRING
 pcap_strerror.argtypes = [c_int]
-
-# const char * pcap_statustostr (int error)
-# print the text of the status (error or warning) corresponding to error.
-pcap_statustostr = _lib.pcap_statustostr
-pcap_statustostr.restype = STRING
-pcap_statustostr.argtypes = [c_int]
 
 # const char *   pcap_lib_version (void)
 # Returns a pointer to a string giving information about the version of
