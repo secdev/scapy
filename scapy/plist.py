@@ -471,7 +471,7 @@ class _PacketList(Generic[_Inner]):
             p = self._elt2pkt(res)
             if p.haslayer(conf.padding_layer):
                 pad = p.getlayer(conf.padding_layer).load  # type: ignore
-                if pad == pad[0] * len(pad):
+                if pad == pad[:1] * len(pad):
                     continue
                 if lfilter is None or lfilter(p):
                     print("%s %s %s" % (conf.color_theme.id(i, fmt="%04i"),
