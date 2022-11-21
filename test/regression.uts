@@ -4639,11 +4639,11 @@ test_padding()
 
 def test_nzpadding():
     with ContextManagerCaptureOutput() as cmco:
-        p = PacketList([IP()/conf.padding_layer("A%s" % i) for i in range(2)])
+        p = PacketList([IP()/conf.padding_layer("AB"), IP()/conf.padding_layer("\x00\x00")])
         p.nzpadding()
         result_pl_nzpadding = cmco.get_output()
-    assert len(result_pl_nzpadding.split('\n')) == 5
-    assert "0000  41 30" in result_pl_nzpadding
+    assert len(result_pl_nzpadding.split('\n')) == 3
+    assert "0000  41 42" in result_pl_nzpadding
 
 test_nzpadding()
 
