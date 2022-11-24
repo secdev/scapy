@@ -353,6 +353,9 @@ NotifyMessageType = {
     27: "NOTIFY-SA-LIFETIME",
     28: "CERTIFICATE-UNAVAILABLE",
     29: "UNSUPPORTED-EXCHANGE-TYPE",
+    # RFC 3706
+    36136: "R-U-THERE",
+    36137: "R-U-THERE-ACK",
 }
 
 
@@ -376,7 +379,7 @@ class ISAKMP_payload_Delete(ISAKMP_payload):
         ByteEnumField("proto", 1, ISAKMP_protos),
         FieldLenField("SPIsize", None, length_of="SPIs", fmt="B",
                       adjust=lambda pkt, x: x and x // len(pkt.SPIs)),
-        FieldLenField("SPIcount", None, count_of="SPIs", fmt="B"),
+        FieldLenField("SPIcount", None, count_of="SPIs", fmt="H"),
         FieldListField("SPIs", [],
                        StrLenField("", "", length_from=lambda pkt: pkt.SPIsize),
                        count_from=lambda pkt: pkt.SPIcount),
