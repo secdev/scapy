@@ -17,11 +17,26 @@ assert PPPoED_Tags in p
 q=p[PPPoED_Tags]
 assert q.tag_list is not None
 r=q.tag_list
+assert len(r) == 2
 assert r[0].tag_type==0x0101
 assert r[1].tag_type==0x0103
 assert r[1].tag_len==4
 assert r[1].tag_value==b'\x01\x02\x03\x04'
-assert r[2].tag_type==0x0000
+
+assert Padding in p and len(p[Padding]) == 4
+
+= PPPoE with tags (appended)
+~ ppp ppoe
+eth = Ether(dst="ff:ff:ff:ff:ff:ff", src="12:12:12:12:12:12", type=0x8863)
+pppoed = PPPoED(version=1, type=1, code=0x9, sessionid=0, len=8)
+server_name = PPPoETag(tag_type=0x0101, tag_len=0)
+end_of_list = PPPoETag(tag_type=0, tag_len=0)
+
+original = eth / pppoed / server_name / end_of_list
+dissected = Ether(original.build())
+assert PPPoED_Tags in dissected
+assert dissected[PPPoED_Tags].tag_list[0].tag_type == 0x0101
+assert dissected[PPPoED_Tags].tag_list[1].tag_type == 0
 
 =  PPPoE with padding
 ~ ppp pppoe
