@@ -2187,8 +2187,10 @@ class BGPUpdate(BGP):
     ]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         subpacklen = lambda p: len(p)
-        packet = ""
+        packet = p
+
         if self.withdrawn_routes_len is None:
             wl = sum(map(subpacklen, self.withdrawn_routes))
             packet = p[:0] + struct.pack("!H", wl) + p[2:]
