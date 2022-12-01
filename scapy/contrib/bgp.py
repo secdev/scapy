@@ -2129,7 +2129,7 @@ class BGPPathAttr(Packet):
             if extended_length:
                 packet = packet + p[2:4]
             else:
-                packet = packet + p[2]
+                packet = packet + p[2].to_bytes(1, byteorder='little')
         else:
             if extended_length:
                 packet = packet + struct.pack("!H", length)
