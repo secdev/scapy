@@ -35,11 +35,11 @@ from scapy.fields import (
     PacketListField,
     ShortEnumField,
     ShortField,
-    StrFixedLenField,
-    StrLenField,
     X3BytesField,
     XByteField,
-    XIntField
+    XIntField,
+    XStrFixedLenField,
+    XStrLenField,
 )
 from scapy.layers.x509 import X509_Cert, X509_CRL
 from scapy.layers.inet import IP, UDP
@@ -501,8 +501,8 @@ class _IKEv2_Packet(Packet):
 class IKEv2(_IKEv2_Packet):  # rfc4306
     name = "IKEv2"
     fields_desc = [
-        StrFixedLenField("init_SPI", "", 8),
-        StrFixedLenField("resp_SPI", "", 8),
+        XStrFixedLenField("init_SPI", "", 8),
+        XStrFixedLenField("resp_SPI", "", 8),
         ByteEnumField("next_payload", 0, IKEv2PayloadTypes),
         XByteField("version", 0x20),
         ByteEnumField("exch_type", 0, IKEv2ExchangeTypes),
@@ -550,7 +550,7 @@ class IKEv2_Payload(_IKEv2_Packet):
         ByteEnumField("next_payload", None, IKEv2PayloadTypes),
         FlagsField("flags", 0, 8, ["critical", "res1", "res2", "res3", "res4", "res5", "res6", "res7"]),  # noqa: E501
         ShortField("length", None),
-        StrLenField("load", "", length_from=lambda x:x.length - 4),
+        XStrLenField("load", "", length_from=lambda pkt: pkt.length - 4),
     ]
 
     def post_build(self, pkt, pay):
@@ -577,7 +577,7 @@ class IKEv2_Proposal(IKEv2_Payload):
         ByteEnumField("proto", 1, IKEv2ProtocolTypes),
         FieldLenField("SPIsize", None, "SPI", "B"),
         ByteField("trans_nb", None),
-        StrLenField("SPI", "", length_from=lambda pkt: pkt.SPIsize),
+        XStrLenField("SPI", "", length_from=lambda pkt: pkt.SPIsize),
         PacketLenField("trans", conf.raw_layer(), IKEv2_Transform, length_from=lambda pkt: pkt.length - 8 - pkt.SPIsize),  # noqa: E501
     ]
 
@@ -587,14 +587,14 @@ class IKEv2_AUTH(IKEv2_Payload):
     fields_desc = IKEv2_Payload.fields_desc[:3] + [
         ByteEnumField("auth_type", None, IKEv2AuthenticationTypes),
         X3BytesField("res2", 0),
-        StrLenField("load", "", length_from=lambda x:x.length - 8),
+        XStrLenField("load", "", length_from=lambda pkt: pkt.length - 8),
     ]
 
 
 class IKEv2_VendorID(IKEv2_Payload):
     name = "IKEv2 Vendor ID"
     fields_desc = IKEv2_Payload.fields_desc[:3] + [
-        StrLenField("vendorID", "", length_from=lambda x:x.length - 4),
+        XStrLenField("vendorID", "", length_from=lambda pkt: pkt.length - 4),
     ]
 
 
@@ -665,7 +665,7 @@ class RawTrafficSelector(TrafficSelector):
     fields_desc = [
         ByteEnumField("TS_type", None, IKEv2TrafficSelectorTypes),
         ByteEnumField("IP_protocol_ID", None, IPProtocolIDs),
-        FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x + 4),
+        FieldLenField("length", None, "load", "H", adjust=lambda pkt, x: x + 4),
         PacketField("load", "", Raw)
     ]
 
@@ -677,8 +677,8 @@ class IKEv2_TSi(IKEv2_Payload):
                       count_of="traffic_selector"),
         X3BytesField("res2", 0),
         PacketListField("traffic_selector", None, TrafficSelector,
-                        length_from=lambda x:x.length - 8,
-                        count_from=lambda x:x.number_of_TSs),
+                        length_from=lambda pkt: pkt.length - 8,
+                        count_from=lambda pkt: pkt.number_of_TSs),
     ]
 
 
@@ -689,8 +689,8 @@ class IKEv2_TSr(IKEv2_Payload):
                       count_of="traffic_selector"),
         X3BytesField("res2", 0),
         PacketListField("traffic_selector", None, TrafficSelector,
-                        length_from=lambda x:x.length - 8,
-                        count_from=lambda x:x.number_of_TSs),
+                        length_from=lambda pkt: pkt.length - 8,
+                        count_from=lambda pkt: pkt.number_of_TSs),
     ]
 
 
@@ -701,7 +701,7 @@ class IKEv2_Delete(IKEv2_Payload):
         FieldLenField("SPIsize", None, "SPI", "B"),
         ShortField("SPInum", 0),
         FieldListField("SPI", [],
-                       XStrLenField("","",length_from=lambda x:x.SPIsize),
+                       XStrLenField("", "", length_from=lambda pkt: pkt.SPIsize),
                        count_from=lambda pkt: pkt.SPInum)
     ]
 
@@ -709,12 +709,15 @@ class IKEv2_Delete(IKEv2_Payload):
 class IKEv2_SA(IKEv2_Payload):
     name = "IKEv2 SA"
     fields_desc = IKEv2_Payload.fields_desc[:3] + [
-        PacketLenField("prop", conf.raw_layer(), IKEv2_Proposal, length_from=lambda x:x.length - 4),  # noqa: E501
+        PacketLenField("prop", conf.raw_layer(), IKEv2_Proposal, length_from=lambda pkt: pkt.length - 4),  # noqa: E501
     ]
 
 
 class IKEv2_Nonce(IKEv2_Payload):
     name = "IKEv2 Nonce"
+    fields_desc = IKEv2_Payload.fields_desc[:3] + [
+        XStrLenField("nonce", "", length_from=lambda pkt: pkt.length - 4),
+    ]
 
 
 class IKEv2_Notify(IKEv2_Payload):
@@ -723,8 +726,8 @@ class IKEv2_Notify(IKEv2_Payload):
         ByteEnumField("proto", None, {0: "Reserved", 1: "IKE", 2: "AH", 3: "ESP"}),  # noqa: E501
         FieldLenField("SPIsize", None, "SPI", "B"),
         ShortEnumField("type", 0, IKEv2NotifyMessageTypes),
-        StrLenField("SPI", "", length_from=lambda x: x.SPIsize),
-        StrLenField("load", "", length_from=lambda x: x.length - 8),
+        XStrLenField("SPI", "", length_from=lambda pkt: pkt.SPIsize),
+        XStrLenField("notify", "", length_from=lambda pkt: pkt.length - 8),
     ]
 
 
@@ -733,7 +736,7 @@ class IKEv2_KE(IKEv2_Payload):
     fields_desc = IKEv2_Payload.fields_desc[:3] + [
         ShortEnumField("group", 0, IKEv2TransformAlgorithms[4]),
         ShortField("res2", 0),
-        StrLenField("load", "", length_from=lambda x:x.length - 8),
+        XStrLenField("ke", "", length_from=lambda pkt: pkt.length - 8),
     ]
 
 
@@ -744,10 +747,10 @@ class IKEv2_IDi(IKEv2_Payload):  # RFC 7296, section 3.5
         X3BytesField("res2", 0),
         MultipleTypeField(
             [
-                (IPField("ID", "127.0.0.1"), lambda x: x.IDtype == 1),
-                (IP6Field("ID", "::1"), lambda x: x.IDtype == 5),
+                (IPField("ID", "127.0.0.1"), lambda pkt: pkt.IDtype == 1),
+                (IP6Field("ID", "::1"), lambda pkt: pkt.IDtype == 5),
             ],
-            StrLenField("ID", "", length_from=lambda x: x.length - 8),
+            XStrLenField("ID", "", length_from=lambda pkt: pkt.length - 8),
         )
     ]
 
@@ -759,10 +762,10 @@ class IKEv2_IDr(IKEv2_Payload):  # RFC 7296, section 3.5
         X3BytesField("res2", 0),
         MultipleTypeField(
             [
-                (IPField("ID", "127.0.0.1"), lambda x: x.IDtype == 1),
-                (IP6Field("ID", "::1"), lambda x: x.IDtype == 5),
+                (IPField("ID", "127.0.0.1"), lambda pkt: pkt.IDtype == 1),
+                (IP6Field("ID", "::1"), lambda pkt: pkt.IDtype == 5),
             ],
-            StrLenField("ID", "", length_from=lambda x: x.length - 8),
+            XStrLenField("ID", "", length_from=lambda pkt: pkt.length - 8),
         )
     ]
 
@@ -779,11 +782,11 @@ class ConfigurationAttribute(Packet):
         MultipleTypeField(
             [
                 (IPField("value", "127.0.0.1"),
-                 lambda x: x.length == 4 and x.type in (1, 2, 3, 4, 6, 20)),
+                 lambda pkt: pkt.length == 4 and pkt.type in (1, 2, 3, 4, 6, 20)),
                 (IP6Field("value", "::1"),
-                 lambda x: x.length == 16 and x.type in (10, 12, 21)),
+                 lambda pkt: pkt.length == 16 and pkt.type in (10, 12, 21)),
             ],
-            StrLenField("value", "", length_from=lambda x: x.length),
+            XStrLenField("value", "", length_from=lambda pkt: pkt.length),
         )
     ]
 
@@ -797,7 +800,7 @@ class IKEv2_CP(IKEv2_Payload):  # RFC 7296, section 3.15
         ByteEnumField("CFGType", 1, IKEv2ConfigurationPayloadCFGTypes),
         X3BytesField("res2", 0),
         PacketListField("attributes", None, ConfigurationAttribute,
-                        length_from=lambda x: x.length - 8),
+                        length_from=lambda pkt: pkt.length - 8),
     ]
 
 
@@ -806,7 +809,7 @@ class IKEv2_Encrypted_Fragment(IKEv2_Payload):
     fields_desc = IKEv2_Payload.fields_desc[:3] + [
         ShortField("frag_number", 1),
         ShortField("frag_total", 1),
-        StrLenField("load", "", length_from=lambda x: x.length - 8),
+        XStrLenField("load", "", length_from=lambda pkt: pkt.length - 8),
     ]
 
 
@@ -814,7 +817,7 @@ class IKEv2_CERTREQ(IKEv2_Payload):
     name = "IKEv2 Certificate Request"
     fields_desc = IKEv2_Payload.fields_desc[:3] + [
         ByteEnumField("cert_encoding", 0, IKEv2CertificateEncodings),
-        StrLenField("cert_authority", "", length_from=lambda x:x.length - 5),
+        XStrLenField("cert_authority", "", length_from=lambda pkt: pkt.length - 5),
     ]
 
 
@@ -825,14 +828,13 @@ class IKEv2_CERT(IKEv2_Payload):
         MultipleTypeField(
             [
                 (PacketLenField("cert_data", X509_Cert(), X509_Cert,
-                                length_from=lambda x:x.length - 5),
-                 lambda x: x.cert_encoding == 4),
+                                length_from=lambda pkt: pkt.length - 5),
+                 lambda pkt: pkt.cert_encoding == 4),
                 (PacketLenField("cert_data", X509_CRL(), X509_CRL,
-                                length_from=lambda x:x.length - 5),
-                 lambda x: x.cert_encoding == 7)
+                                length_from=lambda pkt: pkt.length - 5),
+                 lambda pkt: pkt.cert_encoding == 7)
             ],
-            StrLenField("cert_data", "",
-                        length_from=lambda x:x.length - 5),
+            XStrLenField("cert_data", "", length_from=lambda pkt: pkt.length - 5),
         )
     ]
 
