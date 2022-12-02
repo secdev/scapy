@@ -28,6 +28,8 @@
     "linux",
     "windows",
     "ipv6",
-    "vcan_socket"
+    "vcan_socket",
+    "tun",
+    "tap"
   ]
 }
