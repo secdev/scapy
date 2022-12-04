@@ -12,6 +12,12 @@ import ctypes
 from scapy.libs.structures import bpf_program
 from scapy.data import MTU
 
+# Type hints
+from typing import (
+    Any,
+    Callable,
+)
+
 SIOCGIFFLAGS = 0xc0206911
 BPF_BUFFER_LENGTH = MTU
 
@@ -23,19 +29,20 @@ IOC_OUT = 0x40000000
 IOC_IN = 0x80000000
 IOC_INOUT = IOC_IN | IOC_OUT
 
-_th = lambda x: x if isinstance(x, int) else ctypes.sizeof(x)
+_th = lambda x: x if isinstance(x, int) else ctypes.sizeof(x)  # type: Callable[[Any], int]  # noqa: E501
 
 
 def _IOC(inout, group, num, len):
+    # type: (int, str, int, Any) -> int
     return (inout |
             ((_th(len) & IOCPARM_MASK) << 16) |
             (ord(group) << 8) | (num))
 
 
-_IO = lambda g, n: _IOC(IOC_VOID, g, n, 0)
-_IOR = lambda g, n, t: _IOC(IOC_OUT, g, n, t)
-_IOW = lambda g, n, t: _IOC(IOC_IN, g, n, t)
-_IOWR = lambda g, n, t: _IOC(IOC_INOUT, g, n, t)
+_IO = lambda g, n: _IOC(IOC_VOID, g, n, 0)  # type: Callable[[str, int], int]
+_IOR = lambda g, n, t: _IOC(IOC_OUT, g, n, t)  # type: Callable[[str, int, Any], int]
+_IOW = lambda g, n, t: _IOC(IOC_IN, g, n, t)  # type: Callable[[str, int, Any], int]
+_IOWR = lambda g, n, t: _IOC(IOC_INOUT, g, n, t)  # type: Callable[[str, int, Any], int]
 
 # Length of some structures
 _bpf_stat = 8

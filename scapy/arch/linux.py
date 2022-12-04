@@ -44,6 +44,7 @@ from scapy.interfaces import (
     InterfaceProvider,
     NetworkInterface,
     network_name,
+    _GlobInterfaceType,
 )
 from scapy.libs.structures import sock_fprog
 from scapy.packet import Packet, Padding
@@ -121,7 +122,7 @@ PACKET_FASTROUTE = 6  # Fastrouted frame
 
 
 def get_if_raw_addr(iff):
-    # type: (Union[NetworkInterface, str]) -> bytes
+    # type: (_GlobInterfaceType) -> bytes
     r"""
     Return the raw IPv4 address of an interface.
     If unavailable, returns b"\0\0\0\0"
@@ -147,7 +148,7 @@ def _get_if_list():
 
 
 def attach_filter(sock, bpf_filter, iface):
-    # type: (socket.socket, str, Union[NetworkInterface, str]) -> None
+    # type: (socket.socket, str, _GlobInterfaceType) -> None
     """
     Compile bpf filter and attach it to a socket
 
@@ -169,7 +170,7 @@ def attach_filter(sock, bpf_filter, iface):
 
 
 def set_promisc(s, iff, val=1):
-    # type: (socket.socket, Union[NetworkInterface, str], int) -> None
+    # type: (socket.socket, _GlobInterfaceType, int) -> None
     mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, b"")
     if val:
         cmd = PACKET_ADD_MEMBERSHIP
@@ -407,7 +408,7 @@ def read_routes6():
 
 
 def get_if_index(iff):
-    # type: (Union[NetworkInterface, str]) -> int
+    # type: (_GlobInterfaceType) -> int
     return int(struct.unpack("I", get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
 
