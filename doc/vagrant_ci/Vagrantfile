@@ -8,8 +8,13 @@
 
 Vagrant.configure("2") do |config|
 
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = 1024
+    vb.cpus = 2
+  end
+
   config.vm.define "openbsd" do |bsd|
-    bsd.vm.box = "generic/openbsd6"
+    bsd.vm.box = "generic/openbsd7"
     bsd.vm.provision "shell", path: "provision_openbsd.sh"
   end
 

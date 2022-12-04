@@ -591,7 +591,7 @@ _all_aes_gcm_tests()
 
 
 = Crypto - AES cipher in CCM mode, checks from IEEE P1619.1
-~ crypto_advanced
+~ crypto_advanced libressl
 
 class _aes256ccm_test_1:
     k= b"\0"*32
@@ -649,7 +649,7 @@ _all_aes_ccm_tests()
 
 
 = Crypto - ChaCha20POly1305 test (test vector A.5 from RFC 7539)
-~ crypto_advanced
+~ crypto_advanced libressl
 
 import binascii
 def clean(s):
@@ -963,6 +963,8 @@ fin.load == b'\xd9\xcb,\x8cM\xfd\xbc9\xaa\x05\xf3\xd3\xf3Z\x8a-'
 
 
 = Reading TLS test session - Ticket, CCS & Finished
+~ libressl
+
 from scapy.layers.tls.handshake import TLSNewSessionTicket
 t6 = TLS(p6_tick_ccs_fin, tls_session=t5.tls_session.mirror())
 tick = t6.msg[0]
@@ -980,6 +982,7 @@ assert isinstance(rec_fin.msg[0], _TLSEncryptedContent)
 rec_fin.msg[0].load == b'7\\)`\xaa`\x7ff\xcd\x10\xa9v\xa3*\x17\x1a'
 
 = Building x25519 ecdh_Yc
+~ libressl
 
 from scapy.layers.tls.record import TLS
 from scapy.layers.tls.handshake import TLSClientKeyExchange
@@ -1000,6 +1003,7 @@ pkt.exchkeys.fill_missing()
 assert len(pkt.exchkeys.ecdh_Yc) == 32
 
 = Reading TLS test session - Extended master secret
+~ libressl
 
 # See https://github.com/secdev/scapy/issues/2784
 
@@ -1050,6 +1054,8 @@ assert isinstance(l3.msg[0], TLSFinished)
 assert l3.msg[0][TLSFinished].vdata == b'\x15\xd6\xd5\xea\x84\xee\xb3\xdd\xd6\x10\xd8\x11'
 
 = Reading TLS test session - Encrypt-then-MAC extension
+~ libressl
+
 from scapy.layers.tls.cert import PrivKey
 from scapy.layers.tls.handshake import TLSFinished
 from scapy.layers.tls.record import TLS
@@ -1080,6 +1086,7 @@ assert server_finished.vdata == hex_bytes(b'42c9765e833997b6714fec75')
 ###
 
 = Reading TLS test session - Full TLSNewSessionTicket captured
+~ libressl
 import os
 filename = scapy_path("/test/pcaps/tls_new-session-ticket.pcap")
 a = rdpcap(filename)
@@ -1089,6 +1096,7 @@ assert pkt[TLS].msg[0].ticket == b'6k\x8b{\xa8\xaf\xf0\x8aG*\xdd\xc2\xf6\t\xde\x
 assert pkt[TLS].msg[0].lifetime == 3600
 
 = Reading TLS test session - ApplicationData
+~ libressl
 t7 = TLS(p7_data, tls_session=t6.tls_session.mirror())
 assert t7.iv == b'\x00\x00\x00\x00\x00\x00\x00\x01'
 assert t7.mac == b'>\x1dLb5\x8e+\x01n\xcb\x19\xcc\x17Ey\xc8'
