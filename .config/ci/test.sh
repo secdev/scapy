@@ -30,7 +30,7 @@ then
   else
     UT_FLAGS+=" -K vcan_socket"
   fi
-elif [[ "$OSTYPE" = "darwin"* ]] || [ "$TRAVIS_OS_NAME" = "osx" ] || [[ "$OSTYPE" = "FreeBSD" ]] || [[ "$OSTYPE" = "openbsd"* ]]
+elif [[ "$OSTYPE" = "darwin"* ]] || [ "$TRAVIS_OS_NAME" = "osx" ] || [[ "$OSTYPE" = "FreeBSD" ]] || [[ "$OSTYPE" = *"bsd"* ]]
 then
   OSTOX="bsd"
   # Travis CI in macOS 10.13+ can't load kexts. Need this for tuntaposx.
@@ -40,6 +40,10 @@ then
     # Note: LibreSSL 3.6.* does not support X25519 according to
     # the cryptogaphy module source code
     UT_FLAGS+=" -K libressl"
+  fi
+  if [[ "$OSTYPE" = "netbsd" ]]
+  then
+    UT_FLAGS+=" -K not_netbsd"
   fi
 fi
 
