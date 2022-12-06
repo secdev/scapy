@@ -3,6 +3,7 @@
 # Try me with :
 # bash test/run_tests -t test/tls13.uts -F
 
+~ libressl
 
 + Read a protected TLS 1.3 session
 # /!\ These tests will not catch our 'INTEGRITY CHECK FAILED's. /!\

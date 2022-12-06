@@ -30,11 +30,21 @@ then
   else
     UT_FLAGS+=" -K vcan_socket"
   fi
-elif [[ "$OSTYPE" = "darwin"* ]] || [ "$TRAVIS_OS_NAME" = "osx" ]
+elif [[ "$OSTYPE" = "darwin"* ]] || [ "$TRAVIS_OS_NAME" = "osx" ] || [[ "$OSTYPE" = "FreeBSD" ]] || [[ "$OSTYPE" = *"bsd"* ]]
 then
   OSTOX="bsd"
   # Travis CI in macOS 10.13+ can't load kexts. Need this for tuntaposx.
   UT_FLAGS+=" -K tun -K tap"
+  if [[ "$OSTYPE" = "openbsd"* ]]
+  then
+    # Note: LibreSSL 3.6.* does not support X25519 according to
+    # the cryptogaphy module source code
+    UT_FLAGS+=" -K libressl"
+  fi
+  if [[ "$OSTYPE" = "netbsd" ]]
+  then
+    UT_FLAGS+=" -K not_netbsd"
+  fi
 fi
 
 # pypy
@@ -82,7 +92,7 @@ then
 fi
 
 # Configure OpenSSL
-export OPENSSL_CONF=$(python `dirname $BASH_SOURCE`/openssl.py)
+export OPENSSL_CONF=$($PYTHON `dirname $BASH_SOURCE`/openssl.py)
 
 # Dump vars (the others were already dumped in install.sh)
 echo UT_FLAGS=$UT_FLAGS
