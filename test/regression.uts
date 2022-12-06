@@ -2669,6 +2669,15 @@ with mock.patch("scapy.utils.warning") as warning:
     os.remove(filename)
     assert any("Inconsistent" in arg for arg in warning.call_args[0])
 
+= Check wrpcap() with the Loopback layer
+~ tshark
+
+for cls in [Loopback, LoopbackOpenBSD]:
+    filename = tempfile.mktemp(suffix=".pcap")
+    wrpcap(filename, [cls()/IP()/ICMP()])
+    return_value = b"".join(line for line in tcpdump(filename, prog=conf.prog.tshark, getfd=True))
+    assert b"Echo (ping) request" in return_value
+
 ############
 ############
 + ERF Ethernet format support 
