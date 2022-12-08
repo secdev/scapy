@@ -61,6 +61,18 @@ assert Dot11Elt(info="scapy").summary() == "SSID='scapy'"
 assert Dot11Elt(ID=1).mysummary() == ""
 assert Dot11(b'\x84\x00\x00\x00\x00\x11\x22\x33\x44\x55\x00\x11\x22\x33\x44\x55').addr2 == '00:11:22:33:44:55'
 
+= Dot11 - type 1 subtype 4, 5, 6
+
+assert raw(Dot11(type=1, subtype=4, addr2="ff:ff:ff:ff:ff:ff")) == b'D\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff'
+assert raw(Dot11(type=1, subtype=5, addr2="ff:ff:ff:ff:ff:ff")) == b'T\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff'
+assert raw(Dot11(type=1, subtype=6, addr2="ff:ff:ff:ff:ff:ff", cfe=3)) == b'd0\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff'
+assert raw(Dot11(type=1, subtype=6, addr2="ff:ff:ff:ff:ff:ff", cfe=6, addr3="aa:aa:aa:aa:aa:aa")) == b'd`\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa'
+
+assert Dot11(type=1, subtype=5).address_meaning(1) == 'RA'
+assert Dot11(type=1, subtype=6, cfe=5).address_meaning(2) == 'TA'
+assert Dot11(type=1, subtype=6, cfe=6).address_meaning(2) == 'NAV-SA'
+assert Dot11(type=1, subtype=6, cfe=6).address_meaning(3) == 'NAV-DA'
+
 = Multiple Dot11Elt layers
 pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID="Supported Rates") / Dot11Elt(ID="SSID", info="Scapy")
 assert pkt[Dot11Elt::{"ID": 0}].info == b"Scapy"
