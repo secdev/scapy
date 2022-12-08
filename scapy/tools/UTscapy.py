@@ -27,7 +27,7 @@ import traceback
 import warnings
 import zlib
 
-from scapy.consts import WINDOWS
+from scapy.consts import WINDOWS, DARWIN
 import scapy.libs.six as six
 from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
@@ -1130,8 +1130,9 @@ def main():
     KW_KO.append("disabled")
 
     # Process extras
-    if six.PY3:
-        KW_KO.append("FIXME_py3")
+    if six.PY2 and DARWIN:
+        # On MacOS 12, Python 2.7 find_library is broken
+        KW_KO.append("libpcap")
 
     if ANNOTATIONS_MODE:
         try:

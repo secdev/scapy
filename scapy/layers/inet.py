@@ -2132,7 +2132,7 @@ funcpres: a function used to summarize packets"""
     classes += [t[1] for t in zip(idlst[:-1], idlst[1:]) if abs(t[0] - t[1]) > 50]  # noqa: E501
     lst = [(funcID(x), funcpres(x)) for x in lst]
     lst.sort()
-    print("Probably %i classes:" % len(classes), classes)
+    print("Probably %i classes: %s" % (len(classes), classes))
     for id, pr in lst:
         print("%5i" % id, pr)
 

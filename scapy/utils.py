@@ -17,6 +17,7 @@ import collections
 import decimal
 import difflib
 import gzip
+import locale
 import os
 import random
 import re
@@ -34,7 +35,7 @@ from scapy.libs.six.moves import range, input, zip_longest
 
 from scapy.config import conf
 from scapy.consts import DARWIN, OPENBSD, WINDOWS
-from scapy.data import MTU, DLT_EN10MB
+from scapy.data import MTU, DLT_EN10MB, DLT_RAW
 from scapy.compat import orb, plain_str, chb, bytes_base64,\
     base64_bytes, hex_bytes, lambda_tuple_converter, bytes_encode
 from scapy.error import log_runtime, Scapy_Exception, warning
@@ -701,6 +702,15 @@ def ltoa(x):
 def itom(x):
     # type: (int) -> int
     return (0xffffffff00000000 >> x) & 0xffffffff
+
+
+def decode_locale_str(x):
+    # type: (bytes) -> str
+    """
+    Decode bytes into a string using the system locale.
+    Useful on Windows where it can be unusual (e.g. cp1252)
+    """
+    return x.decode(encoding=locale.getlocale()[1] or "utf-8", errors="replace")
 
 
 class ContextManagerSubprocess(object):
@@ -2708,6 +2718,8 @@ def tcpdump(
                     try:
                         _, metadata = rd._read_packet()
                         linktype = metadata.linktype
+                        if OPENBSD and linktype == 228:
+                            linktype = DLT_RAW
                     except EOFError:
                         raise ValueError(
                             "Cannot get linktype from a PcapNg packet."

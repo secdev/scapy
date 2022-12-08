@@ -36,7 +36,7 @@ from scapy.arch.bpf.supersocket import get_dev_bpf
 fd, _ = get_dev_bpf()
 
 = Attach a BPF filter
-~ needs_root
+~ needs_root libpcap
 
 from scapy.arch.bpf.supersocket import attach_filter
 attach_filter(fd, "arp or icmp", conf.iface)
@@ -147,7 +147,10 @@ s.assigned_interface = conf.loopback_name
 s.send(IP(dst="8.8.8.8")/ICMP())
 
 = L3bpfSocket - send and sniff on loopback
-~ needs_root
+~ needs_root not_netbsd
+
+# Note: as of November 2022, it is not possible to send packet on lo0
+#       using bpf on NetBSD 9.3
 
 localhost_ip = conf.ifaces[conf.loopback_name].ips[4][0]
 

@@ -33,7 +33,7 @@ from scapy.interfaces import (
 from scapy.packet import Packet
 from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
-from scapy.utils import str2mac
+from scapy.utils import str2mac, decode_locale_str
 
 import scapy.consts
 
@@ -126,7 +126,9 @@ class _L2libpcapSocket(SuperSocket):
         if self.closed:
             return
         self.closed = True
-        self.pcap_fd.close()
+        if hasattr(self, "pcap_fd"):
+            # If failed to open, won't exist
+            self.pcap_fd.close()
 
 
 ##########
@@ -148,6 +150,9 @@ if conf.use_pcap:
     try:
         from scapy.libs.winpcapy import (
             PCAP_ERRBUF_SIZE,
+            PCAP_ERROR,
+            PCAP_ERROR_NO_SUCH_DEVICE,
+            PCAP_ERROR_PERM_DENIED,
             bpf_program,
             pcap_close,
             pcap_compile,
@@ -284,20 +289,51 @@ if conf.use_pcap:
                 # Npcap-only functions
                 from scapy.libs.winpcapy import pcap_create, \
                     pcap_set_snaplen, pcap_set_promisc, \
-                    pcap_set_timeout, pcap_set_rfmon, pcap_activate
+                    pcap_set_timeout, pcap_set_rfmon, pcap_activate, \
+                    pcap_statustostr, pcap_geterr
                 self.pcap = pcap_create(self.iface, self.errbuf)
+                if not self.pcap:
+                    error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                    if error:
+                        raise OSError(error)
                 pcap_set_snaplen(self.pcap, snaplen)
                 pcap_set_promisc(self.pcap, promisc)
                 pcap_set_timeout(self.pcap, to_ms)
                 if pcap_set_rfmon(self.pcap, 1) != 0:
                     log_runtime.error("Could not set monitor mode")
-                if pcap_activate(self.pcap) != 0:
-                    raise OSError("Could not activate the pcap handler")
+                status = pcap_activate(self.pcap)
+                # status == 0 means success
+                # status < 0 means error
+                # status > 0 means success, but with a warning
+                if status < 0:
+                    # self.iface, and strings we get back from
+                    # pcap_geterr() and pcap_statustostr(), have the
+                    # type "bytes".
+                    #
+                    # decode_locale_str() turns them into strings.
+                    iface = decode_locale_str(
+                        bytearray(self.iface).strip(b"\x00")
+                    )
+                    errstr = decode_locale_str(
+                        bytearray(pcap_geterr(self.pcap)).strip(b"\x00")
+                    )
+                    statusstr = decode_locale_str(
+                        bytearray(pcap_statustostr(status)).strip(b"\x00")
+                    )
+                    if status == PCAP_ERROR:
+                        errmsg = errstr
+                    elif status == PCAP_ERROR_NO_SUCH_DEVICE:
+                        errmsg = "%s: %s\n(%s)" % (iface, statusstr, errstr)
+                    elif status == PCAP_ERROR_PERM_DENIED and errstr != "":
+                        errmsg = "%s: %s\n(%s)" % (iface, statusstr, errstr)
+                    else:
+                        errmsg = "%s: %s" % (iface, statusstr)
+                    raise OSError(errmsg)
             else:
                 self.pcap = pcap_open_live(self.iface,
                                            snaplen, promisc, to_ms,
                                            self.errbuf)
-                error = bytes(bytearray(self.errbuf)).strip(b"\x00")
+                error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
                 if error:
                     raise OSError(error)
 

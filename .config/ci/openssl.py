@@ -38,8 +38,11 @@ CipherString = DEFAULT:@SECLEVEL=1
 """
 
 # Copy and edit
-with open(OPENSSL_CONFIG, 'rb') as fd:
-    DATA = fd.read()
+try:
+    with open(OPENSSL_CONFIG, 'rb') as fd:
+        DATA = fd.read()
+except FileNotFoundError:
+    DATA = b""
 
 DATA = HEADER + DATA + FOOTER
 

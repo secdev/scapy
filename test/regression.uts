@@ -1811,7 +1811,7 @@ def _test_select(select):
 assert _test_select()
 
 = Test L2ListenTcpdump socket
-~ netaccess FIXME_py3
+~ netaccess
 
 # Needs to be fixed. Fails randomly
 #import time
@@ -2029,13 +2029,13 @@ assert list(pktpcap) == list(sniff(offline=fdesc))
 fdesc.close()
 
 = Check offline sniff() with a filter (by filename)
-~ tcpdump
+~ tcpdump libpcap
 pktpcap_flt = [(proto, sniff(offline=filename, filter=proto.__name__.lower()))
                for proto in [ICMP, UDP, TCP]]
 assert all(list(pktpcap[proto]) == list(packets) for proto, packets in pktpcap_flt)
 
 = Check offline sniff() with a filter (by file object)
-~ tcpdump
+~ tcpdump libpcap
 fdesc = open(filename, "rb")
 pktpcap_tcp = sniff(offline=fdesc, filter="tcp")
 fdesc.close()
@@ -2043,22 +2043,25 @@ assert list(pktpcap[TCP]) == list(pktpcap_tcp)
 os.unlink(filename)
 
 = Check offline sniff() with a PcapNg file and a filter (by file object)
-~ tcpdump
+~ tcpdump libpcap
 
 pcapng_data = b'\n\r\r\n`\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x04\x009\x00TShark (Wireshark) 3.2.3 (Git v3.2.3 packaged as 3.2.3-1)\x00\x00\x00\x00\x00\x00\x00`\x00\x00\x00\x01\x00\x00\x00\x14\x00\x00\x00\xe4\x00\x00\x00\xff\xff\x00\x00\x14\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x98\xcd\x05\x00\x19\x83\xf7\x9e\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r<\x00\x00\x00'
 
-fdesc, filename = tempfile.mkstemp()
-os.close(fdesc)
-fd = open(filename, "wb")
-fd.write(pcapng_data)
-fd.close()
+if OPENBSD:
+    # Note: OpenBSD tcpdump does not support PcapNg
+    assert True
+else:
+    fdesc, filename = tempfile.mkstemp()
+    os.close(fdesc)
+    fd = open(filename, "wb")
+    fd.write(pcapng_data)
+    fd.close()
+    packets = sniff(offline=filename, filter="udp")
+    os.unlink(filename)
+    assert UDP in packets[0]
 
-packets = sniff(offline=filename, filter="udp")
-os.unlink(filename)
-assert UDP in packets[0]
-
-= Check offline sniff() with Packets and tcpdump
-~ tcpdump
+= Check offline sniff() with Packets and tcpdump with a filter
+~ tcpdump libpcap
 
 l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="udp")
 assert len(l) == 2
@@ -2072,7 +2075,7 @@ l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
 assert len(l) == 0
 
 = Check offline sniff() with Packets, tcpdump and a bad filter
-~ tcpdump
+~ tcpdump libpcap
 
 try:
     sniff(offline=IP()/UDP(), filter="bad filter")
@@ -2288,8 +2291,8 @@ data = tcpdump([Ether()/IP()/ICMP()], dump=True, args=['-nn']).split(b'\n')
 print(data)
 assert b'127.0.0.1 > 127.0.0.1: ICMP' in data[0].upper()
 
-= Check tcpdump() command with linktype
-~ tcpdump
+= Check tcpdump() command with linktype 
+~ tcpdump libpcap
 
 f = BytesIO()
 pkt = Ether()/IP()/ICMP()
@@ -2314,7 +2317,7 @@ f.close()
 del f, pkt
 
 = Check tcpdump() command with linktype and args
-~ tcpdump
+~ tcpdump libpcap
 
 f = BytesIO()
 pkt = Ether()/IP()/ICMP()
@@ -4639,11 +4642,11 @@ test_padding()
 
 def test_nzpadding():
     with ContextManagerCaptureOutput() as cmco:
-        p = PacketList([IP()/conf.padding_layer("A%s" % i) for i in range(2)])
+        p = PacketList([IP()/conf.padding_layer("AB"), IP()/conf.padding_layer("\x00\x00")])
         p.nzpadding()
         result_pl_nzpadding = cmco.get_output()
-    assert len(result_pl_nzpadding.split('\n')) == 5
-    assert "0000  41 30" in result_pl_nzpadding
+    assert len(result_pl_nzpadding.split('\n')) == 3
+    assert "0000  41 42" in result_pl_nzpadding
 
 test_nzpadding()
 

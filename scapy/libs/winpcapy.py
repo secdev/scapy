@@ -5,7 +5,9 @@
 # Copyright (C) Gabriel Potter
 
 # Modified for scapy's usage - To support Npcap/Monitor mode
-
+#
+# NOTE: the "winpcap" in the name nonwithstanding, this is for use
+# with libpcap on non-Windows platforms, as well as for WinPcap and Npcap.
 
 from ctypes import *
 from ctypes.util import find_library
@@ -223,6 +225,60 @@ MODE_CAPT = 0
 #   Statistical mode, to be used when calling pcap_setmode().
 MODE_STAT = 1
 
+#   Error codes for the pcap API.
+#   These will all be negative, so you can check for the success or
+#   failure of a call that returns these codes by checking for a
+#   negative value.
+#
+#   generic error code
+# define PCAP_ERROR			-1
+PCAP_ERROR = -1
+#   loop terminated by pcap_breakloop
+# define PCAP_ERROR_BREAK		-2
+PCAP_ERROR_BREAK = -2
+#   the capture needs to be activated
+# define PCAP_ERROR_NOT_ACTIVATED	-3
+PCAP_ERROR_NOT_ACTIVATED = -3
+#   the operation can't be performed on already activated captures
+# define PCAP_ERROR_ACTIVATED		-4
+PCAP_ERROR_ACTIVATED = -4
+#   no such device exists
+# define PCAP_ERROR_NO_SUCH_DEVICE	-5
+PCAP_ERROR_NO_SUCH_DEVICE = -5
+#   this device doesn't support rfmon (monitor) mode */
+# define PCAP_ERROR_RFMON_NOTSUP	-6
+PCAP_ERROR_RFMON_NOTSUP = -6
+#   operation supported only in monitor mode
+# define PCAP_ERROR_NOT_RFMON		-7
+PCAP_ERROR_NOT_RFMON = -7
+#   no permission to open the device
+# define PCAP_ERROR_PERM_DENIED		-8
+PCAP_ERROR_PERM_DENIED = -8
+#   interface isn't up
+# define PCAP_ERROR_IFACE_NOT_UP	-9
+PCAP_ERROR_IFACE_NOT_UP = -9
+# define PCAP_ERROR_CANTSET_TSTAMP_TYPE	-10
+#   this device doesn't support setting the time stamp type
+#   you don't have permission to capture in promiscuous mode
+# define PCAP_ERROR_PROMISC_PERM_DENIED	-11
+PCAP_ERROR_PROMISC_PERM_DENIED = -11
+#   the requested time stamp precision is not supported
+# define PCAP_ERROR_TSTAMP_PRECISION_NOTSUP -12
+PCAP_ERROR_TSTAMP_PRECISION_NOTSUP = -12
+
+#   Warning codes for the pcap API.
+#   These will all be positive and non-zero, so they won't look like
+#   errors.
+#   generic warning code
+# define PCAP_WARNING			1
+PCAP_WARNING = 1
+#   this device doesn't support promiscuous mode
+# define PCAP_WARNING_PROMISC_NOTSUP	2
+PCAP_WARNING_PROMISC_NOTSUP = 2
+#   the requested time stamp type is not supported
+# define PCAP_WARNING_TSTAMP_TYPE_NOTSUP	3
+PCAP_WARNING_TSTAMP_TYPE_NOTSUP = 3
+
 ##
 # END Defines
 ##
@@ -292,7 +348,8 @@ pcap_open_offline.restype = POINTER(pcap_t)
 pcap_open_offline.argtypes = [STRING, STRING]
 
 try:
-    # NPCAP/LINUX ONLY function
+    # Functions not available on WINPCAP
+
     # int pcap_set_rfmon (pcap_t *p)
     # sets whether monitor mode should be set on a capture handle when the
     # handle is activated.
@@ -335,6 +392,12 @@ try:
     pcap_inject = _lib.pcap_inject
     pcap_inject.restype = c_int
     pcap_inject.argtypes = [POINTER(pcap_t), c_void_p, c_int]
+
+    # const char * pcap_statustostr (int error)
+    # print the text of the status (error or warning) corresponding to error.
+    pcap_statustostr = _lib.pcap_statustostr
+    pcap_statustostr.restype = STRING
+    pcap_statustostr.argtypes = [c_int]
 except AttributeError:
     pass
 

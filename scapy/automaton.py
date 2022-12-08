@@ -89,6 +89,10 @@ def select_objects(inputs, remain):
         if getattr(i, "__selectable_force_select__", False):
             natives.append(i)
         elif i.fileno() < 0:
+            # Special case: On Windows, we consider that an object that returns
+            # a negative fileno (impossible), is always readable. This is used
+            # in very few places but important (e.g. PcapReader), where we have
+            # no valid fileno (and will stop on EOFError).
             results.add(i)
         else:
             events.append(i)
@@ -140,7 +144,6 @@ class ObjectPipe(Generic[_T]):
         self.__rd, self.__wr = os.pipe()
         self.__queue = deque()  # type: Deque[_T]
         if WINDOWS:
-            self._fd = None  # type: Optional[int]
             self._wincreate()
 
     if WINDOWS:
@@ -153,27 +156,23 @@ class ObjectPipe(Generic[_T]):
 
         def _winset(self):
             # type: () -> None
-            if ctypes.windll.kernel32.SetEvent(
-                    ctypes.c_void_p(self._fd)) == 0:
+            if ctypes.windll.kernel32.SetEvent(ctypes.c_void_p(self._fd)) == 0:
                 warning(ctypes.FormatError(ctypes.GetLastError()))
 
         def _winreset(self):
             # type: () -> None
-            if ctypes.windll.kernel32.ResetEvent(
-                    ctypes.c_void_p(self._fd)) == 0:
+            if ctypes.windll.kernel32.ResetEvent(ctypes.c_void_p(self._fd)) == 0:
                 warning(ctypes.FormatError(ctypes.GetLastError()))
 
         def _winclose(self):
             # type: () -> None
-            if self._fd and ctypes.windll.kernel32.CloseHandle(
-                    ctypes.c_void_p(self._fd)) == 0:
+            if ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(self._fd)) == 0:
                 warning(ctypes.FormatError(ctypes.GetLastError()))
-                self._fd = None
 
     def fileno(self):
         # type: () -> int
         if WINDOWS:
-            return self._fd if self._fd is not None else -1
+            return self._fd
         return self.__rd
 
     def send(self, obj):
@@ -199,6 +198,8 @@ class ObjectPipe(Generic[_T]):
     def recv(self, n=0):
         # type: (Optional[int]) -> Optional[_T]
         if self.closed:
+            if self.__queue:
+                return self.__queue.popleft()
             return None
         os.read(self.__rd, 1)
         elt = self.__queue.popleft()
@@ -219,12 +220,11 @@ class ObjectPipe(Generic[_T]):
     def close(self):
         # type: () -> None
         if not self.closed:
-            self.closed = True
             os.close(self.__rd)
             os.close(self.__wr)
-            self.__queue.clear()
             if WINDOWS:
                 self._winclose()
+            self.closed = True
 
     def __repr__(self):
         # type: () -> str
@@ -646,6 +646,7 @@ class _ATMT_supersocket(SuperSocket):
         # type: () -> None
         if not self.closed:
             self.atmt.stop()
+            self.atmt.destroy()
             self.spa.close()
             self.spb.close()
             self.closed = True
@@ -1046,6 +1047,7 @@ class Automaton:
     def __del__(self):
         # type: () -> None
         self.stop()
+        self.destroy()
 
     def _run_condition(self, cond, *args, **kargs):
         # type: (_StateWrapper, Any, Any) -> None
@@ -1096,8 +1098,12 @@ class Automaton:
             # Start the automaton
             self.state = self.initial_states[0](self)
             self.send_sock = self.send_sock_class(**self.socket_kargs)
-            self.listen_sock = self.recv_sock_class(**self.socket_kargs)
-            self.packets = PacketList(name="session[%s]" % self.__class__.__name__)  # noqa: E501
+            if self.recv_conditions:
+                # Only start a receiving socket if we have at least one recv_conditions
+                self.listen_sock = self.recv_sock_class(**self.socket_kargs)
+            else:
+                self.listen_sock = None
+            self.packets = PacketList(name="session[%s]" % self.__class__.__name__)
 
             singlestep = True
             iterator = self._do_iter()
@@ -1149,6 +1155,10 @@ class Automaton:
                 self.cmdout.send(m)
             self.debug(3, "Stopping control thread (tid=%i)" % self.threadid)
             self.threadid = None
+            if getattr(self, "listen_sock", None):
+                self.listen_sock.close()
+            if getattr(self, "send_sock", None):
+                self.send_sock.close()
 
     def _do_iter(self):
         # type: () -> Iterator[Union[Automaton.AutomatonException, Automaton.AutomatonStopped, ATMT.NewStateRequested, None]] # noqa: E501
@@ -1196,7 +1206,7 @@ class Automaton:
                 time_previous = time.time()
 
                 fds = [self.cmdin]
-                if len(self.recv_conditions[self.state.state]) > 0:
+                if self.listen_sock and self.recv_conditions[self.state.state]:
                     fds.append(self.listen_sock)
                 for ioev in self.ioevents[self.state.state]:
                     fds.append(self.ioin[ioev.atmt_ioname])
@@ -1273,8 +1283,10 @@ class Automaton:
 
     def start(self, *args, **kargs):
         # type: (Any, Any) -> None
-        if not self.started.locked():
-            self._do_start(*args, **kargs)
+        if self.started.locked():
+            raise ValueError("Already started")
+        # Start the control thread
+        self._do_start(*args, **kargs)
 
     def run(self,
             resume=None,    # type: Optional[Message]
@@ -1315,26 +1327,46 @@ class Automaton:
 
     def _flush_inout(self):
         # type: () -> None
-        with self.started:
-            # Flush command pipes
-            while True:
-                r = select_objects([self.cmdin, self.cmdout], 0)
-                if not r:
-                    break
-                for fd in r:
-                    fd.recv()
+        # Flush command pipes
+        for cmd in [self.cmdin, self.cmdout]:
+            cmd.clear()
+
+    def destroy(self):
+        # type: () -> None
+        """
+        Destroys a stopped Automaton: this cleanups all opened file descriptors.
+        Required on PyPy for instance where the garbage collector behaves differently.
+        """
+        if self.started.locked():
+            raise ValueError("Can't close running Automaton ! Call stop() beforehand")
+        self._flush_inout()
+        # Close command pipes
+        self.cmdin.close()
+        self.cmdout.close()
+        # Close opened ioins/ioouts
+        for i in itertools.chain(self.ioin.values(), self.ioout.values()):
+            if isinstance(i, ObjectPipe):
+                i.close()
 
     def stop(self, wait=True):
         # type: (bool) -> None
-        self.cmdin.send(Message(type=_ATMT_Command.STOP))
+        try:
+            self.cmdin.send(Message(type=_ATMT_Command.STOP))
+        except OSError:
+            pass
         if wait:
-            self._flush_inout()
+            with self.started:
+                self._flush_inout()
 
     def forcestop(self, wait=True):
         # type: (bool) -> None
-        self.cmdin.send(Message(type=_ATMT_Command.FORCESTOP))
+        try:
+            self.cmdin.send(Message(type=_ATMT_Command.FORCESTOP))
+        except OSError:
+            pass
         if wait:
-            self._flush_inout()
+            with self.started:
+                self._flush_inout()
 
     def restart(self, *args, **kargs):
         # type: (Any, Any) -> None

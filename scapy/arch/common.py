@@ -13,6 +13,7 @@ from scapy.data import MTU, ARPHDR_ETHER, ARPHRD_TO_DLT
 from scapy.error import Scapy_Exception
 from scapy.interfaces import network_name
 from scapy.libs.structures import bpf_program
+from scapy.utils import decode_locale_str
 
 # Type imports
 import scapy
@@ -104,7 +105,7 @@ def compile_filter(filter_exp,  # type: str
         pcap = pcap_open_live(
             iface_b, MTU, promisc, 0, err
         )
-        error = bytes(bytearray(err)).strip(b"\x00")
+        error = decode_locale_str(bytearray(err).strip(b"\x00"))
         if error:
             raise OSError(error)
         ret = pcap_compile(

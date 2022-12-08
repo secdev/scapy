@@ -78,10 +78,7 @@ class PPPoED(PPPoE):
                    ShortField("len", None)]
 
     def extract_padding(self, s):
-        if len(s) < 5:
-            return s, None
-        length = struct.unpack("!H", s[4:6])[0]
-        return s[:length], s[length:]
+        return s[:self.len], s[self.len:]
 
     def mysummary(self):
         return self.sprintf("%code%")
