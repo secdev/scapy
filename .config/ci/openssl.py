@@ -21,31 +21,23 @@ OPENSSL_DIR = re.search(
 ).group(1).decode()
 OPENSSL_CONFIG = os.path.join(OPENSSL_DIR, 'openssl.cnf')
 
-# https://askubuntu.com/a/1233456
-HEADER = b"openssl_conf = default_conf\n"
-FOOTER = b"""
-[ default_conf ]
+# https://www.openssl.org/docs/manmaster/man5/config.html
+DATA = b"""
+openssl_conf = openssl_init
 
-ssl_conf = ssl_sect
+[openssl_init]
+ssl_conf = ssl_configuration
 
-[ssl_sect]
+[ssl_configuration]
+system_default = tls_system_default
 
-system_default = system_default_sect
-
-[system_default_sect]
-MinProtocol = TLSv1.2
-CipherString = DEFAULT:@SECLEVEL=1
-"""
+[tls_system_default]
+MinProtocol = TLSv1
+CipherString = DEFAULT:@SECLEVEL=0
+Options = UnsafeLegacyRenegotiation
+""".strip()
 
 # Copy and edit
-try:
-    with open(OPENSSL_CONFIG, 'rb') as fd:
-        DATA = fd.read()
-except FileNotFoundError:
-    DATA = b""
-
-DATA = HEADER + DATA + FOOTER
-
 with tempfile.NamedTemporaryFile(suffix=".cnf", delete=False) as fd:
     fd.write(DATA)
     print(fd.name)
