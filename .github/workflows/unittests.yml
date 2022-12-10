@@ -80,12 +80,10 @@ jobs:
             python: "2.7"
             mode: root
             allow-failure: false
-            flags: " -K scanner"
           - os: ubuntu-latest
             python: "3.10"
             mode: root
             allow-failure: false
-            flags: " -K scanner"
           # PyPy tests: root only
           - os: ubuntu-20.04
             python: "pypy2.7"
@@ -103,24 +101,17 @@ jobs:
             mode: root
             installmode: 'libpcap'
             allow-failure: false
-            flags: " -K scanner"
           # MacOS tests
           - os: macos-12
             python: "2.7"
             mode: both
             allow-failure: false
-            flags: " -K scanner"
           - os: macos-12
             python: "3.10"
             mode: both
             allow-failure: false
-<<<<<<< Updated upstream
-          - os: ubuntu-latest
-=======
-            flags: " -K scanner"
           # Scanner tests
           - os: ubuntu-20.04
->>>>>>> Stashed changes
             python: "pypy2.7"
             mode: root
             allow-failure: true
@@ -133,16 +124,6 @@ jobs:
           - os: macos-12
             python: "3.10"
             mode: both
-            allow-failure: true
-            flags: " -k scanner"
-          - os: ubuntu-20.04
-            python: "2.7"
-            mode: root
-            allow-failure: true
-            flags: " -k scanner"
-          - os: ubuntu-latest
-            python: "3.10"
-            mode: root
             allow-failure: true
             flags: " -k scanner"
     steps:
