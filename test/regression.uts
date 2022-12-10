@@ -772,6 +772,11 @@ assert ret1 != ret2
 assert expected_ret1 in ret1
 assert expected_ret2 in ret2
 
+# Test corner cases that should not crash
+
+hexdiff(b"abc", IP() / TCP())
+hexdiff(IP() / TCP(), b"abc")
+
 = Test mysummary functions - Ether
 
 p = Ether(dst="ff:ff:ff:ff:ff:ff", src="ff:ff:ff:ff:ff:ff", type=0x9000)

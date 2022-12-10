@@ -455,7 +455,7 @@ def hexdiff(a, b, autojunk=False):
 
         cl = ""
         for j in range(16):
-            if i + j < btx_len:
+            if i + j < min(len(backtrackx), len(backtracky)):
                 if line[j]:
                     col = colorize[(linex[j] != liney[j]) * (doy - dox)]
                     print(col("%02X" % orb(line[j])), end=' ')
