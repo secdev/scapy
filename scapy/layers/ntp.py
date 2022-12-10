@@ -213,39 +213,55 @@ class NTP(Packet):
         return self.sprintf("NTP v%ir,NTP.version%, %NTP.mode%")
 
 
-class _NTPAuthenticatorPaddingField(StrField):
-    """
-    StrField handling the padding that may be found before the
-    "authenticator" field.
-    """
-
-    def getfield(self, pkt, s):
-        ret = None
-        remain = s
-        length = len(s)
-
-        if length > _NTP_AUTH_MD5_TAIL_SIZE:
-            start = length - _NTP_AUTH_MD5_TAIL_SIZE
-            ret = s[:start]
-            remain = s[start:]
-        return remain, ret
-
-
 class NTPAuthenticator(Packet):
     """
     Packet handling the "authenticator" part of a NTP packet, as
     defined in RFC 5905.
     """
+    authenticator_length = 16  # MD5
+    padding = b""
 
     name = "Authenticator"
     fields_desc = [
-        _NTPAuthenticatorPaddingField("padding", ""),
         IntField("key_id", 0),
-        XStrFixedLenField("dgst", "", length_from=lambda x: 16)
+        XStrFixedLenField("dgst", "", length_from=lambda x: x.authenticator_length)
     ]
 
     def extract_padding(self, s):
         return b"", s
+
+
+class NTPAuthenticatorMD5(NTPAuthenticator):
+    pass
+
+
+class NTPAuthenticatorSHA1(NTPAuthenticator):
+    authenticator_length = 20
+
+
+class NTPAuthenticatorSHA256(NTPAuthenticator):
+    authenticator_length = 32
+
+
+class NTPAuthenticatorSHA512(NTPAuthenticator):
+    authenticator_length = 64
+
+
+def _guess_authenticator_class(payload):
+    """
+    Attempt to guess the NTP Authenticator class using the payload length
+    """
+    plen = len(payload)
+
+    authenticator_dispatch = {16: NTPAuthenticatorMD5,
+                              20: NTPAuthenticatorSHA1,
+                              32: NTPAuthenticatorSHA256,
+                              64: NTPAuthenticatorSHA512}
+    authenticator_length = plen - 4
+    authenticator_class = authenticator_dispatch.get(authenticator_length,
+                                                     None)
+
+    return authenticator_class
 
 
 class NTPExtension(Packet):
@@ -450,12 +466,14 @@ class NTPHeader(NTP):
 
     def guess_payload_class(self, payload):
         """
-        Handles NTPv4 extensions and MAC part (when authentication is used.)
+        Handles NTPv4 extensions and MAC part (when authentication is used)
         """
-        plen = len(payload)
 
-        if plen - 4 in [16, 20, 32, 64]:  # length of MD5, SHA1, SHA256, SHA512
-            return NTPAuthenticator
+        plen = len(payload)
+        authenticator_class = _guess_authenticator_class(payload)
+
+        if authenticator_class is not None:
+            return authenticator_class
         elif plen > _NTP_AUTH_MD5_TAIL_SIZE:
             return NTPExtensions
 
@@ -810,7 +828,6 @@ class NTPControl(NTP):
         ShortField("count", None),
         NTPControlDataPacketLenField(
             "data", "", Packet, length_from=lambda p: p.count),
-        PacketField("authenticator", "", NTPAuthenticator),
     ]
 
     def post_build(self, p, pay):
@@ -820,6 +837,18 @@ class NTPControl(NTP):
                 length = len(self.data)
             p = p[:11] + struct.pack("!H", length) + p[13:]
         return p + pay
+
+    def extract_padding(self, s):
+        # Check the 64 bit alignement
+        padding_length = len(self.raw_packet_cache) % 8 * 8
+        if padding_length == 0:
+            return b"", s
+
+        padding_length -= len(self.raw_packet_cache)
+        return s[padding_length:], s[:padding_length]
+
+    def guess_payload_class(self, s):
+        return _guess_authenticator_class(s)
 
 
 ##############################################################################
