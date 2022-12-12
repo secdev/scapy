@@ -79,28 +79,35 @@ jobs:
           - os: ubuntu-20.04
             python: "2.7"
             mode: root
+            flags: " -K scanner"
           - os: ubuntu-latest
             python: "3.10"
             mode: root
+            flags: " -K scanner"
           # PyPy tests: root only
           - os: ubuntu-20.04
             python: "pypy2.7"
             mode: root
+            flags: " -K scanner"
           - os: ubuntu-latest
             python: "pypy3.9"
             mode: root
+            flags: " -K scanner"
           # Libpcap test
           - os: ubuntu-latest
             python: "3.10"
             mode: root
             installmode: 'libpcap'
+            flags: " -K scanner"
           # MacOS tests
           - os: macos-12
             python: "2.7"
             mode: both
+            flags: " -K scanner"
           - os: macos-12
             python: "3.10"
             mode: both
+            flags: " -K scanner"
           # Scanner tests
           - os: ubuntu-20.04
             python: "2.7"
