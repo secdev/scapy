@@ -73,7 +73,7 @@ jobs:
         mode: [non_root]
         installmode: ['']
         flags: [" -K scanner"]
-        allow-failure: [false]
+        allow-failure: false
         include:
           # Linux root tests
           - os: ubuntu-20.04
