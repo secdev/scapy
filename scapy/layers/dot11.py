@@ -713,11 +713,12 @@ class Dot11(Packet):
         ConditionalField(
             _Dot11MacField("addr2", ETHER_ANY, 2),
             lambda pkt: (pkt.type != 1 or
-                         pkt.subtype in [0x8, 0x9, 0xa, 0xb, 0xe, 0xf]),
+                         pkt.subtype in [0x4, 0x5, 0x6, 0x8, 0x9, 0xa, 0xb, 0xe, 0xf]),
         ),
         ConditionalField(
             _Dot11MacField("addr3", ETHER_ANY, 3),
-            lambda pkt: pkt.type in [0, 2],
+            lambda pkt: (pkt.type in [0, 2] or
+                         ((pkt.type, pkt.subtype) == (1, 6) and pkt.cfe == 6)),
         ),
         ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type != 1),
         ConditionalField(
@@ -770,6 +771,8 @@ class Dot11(Packet):
         if self.type == 0:  # Management
             return _dot11_addr_meaning[0][index]
         elif self.type == 1:  # Control
+            if (self.type, self.subtype) == (1, 6) and self.cfe == 6:
+                return ["RA", "NAV-SA", "NAV-DA"][index]
             return _dot11_addr_meaning[1][index]
         elif self.type == 2:  # Data
             meaning = _dot11_addr_meaning[2][index][
