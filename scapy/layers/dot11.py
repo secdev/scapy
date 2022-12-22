@@ -1544,6 +1544,45 @@ class Dot11Action(Packet):
     ]
 
 
+# 802.11-2016 9.6.14.1
+
+class Dot11WNM(Packet):
+    name = "802.11 WNM Action"
+    fields_desc = [
+        ByteEnumField("action", 0x00, {
+            0x00: "Event Request",
+            0x01: "Event Report",
+            0x02: "Diagnostic Request",
+            0x03: "Diagnostic Report",
+            0x04: "Location Configuration Request",
+            0x05: "Location Configuration Response",
+            0x06: "BSS Transition Management Query",
+            0x07: "BSS Transition Management Request",
+            0x08: "BSS Transition Management Response",
+            0x09: "FMS Request",
+            0x0A: "FMS Response",
+            0x0B: "Collocated Interference Request",
+            0x0C: "Collocated Interference Report",
+            0x0D: "TFS Request",
+            0x0E: "TFS Response",
+            0x0F: "TFS Notify",
+            0x10: "WNM Sleep Mode Request",
+            0x11: "WNM Sleep Mode Response",
+            0x12: "TIM Broadcast Request",
+            0x13: "TIM Broadcast Response",
+            0x14: "QoS Traffic Capability Update",
+            0x15: "Channel Usage Request",
+            0x16: "Channel Usage Response",
+            0x17: "DMS Request",
+            0x18: "DMS Response",
+            0x19: "Timing Measurement Request",
+            0x1A: "WNM Notification Request",
+            0x1B: "WNM Notification Response",
+            0x1C: "WNM-Notify Response"
+        })
+    ]
+
+
 ###################
 # 802.11 Security #
 ###################
@@ -1710,6 +1749,7 @@ bind_layers(Dot11Auth, Dot11Elt,)
 bind_layers(Dot11Elt, Dot11Elt,)
 bind_layers(Dot11TKIP, conf.raw_layer)
 bind_layers(Dot11CCMP, conf.raw_layer)
+bind_layers(Dot11Action, Dot11WNM, category=0x0A)
 
 
 conf.l2types.register(DLT_IEEE802_11, Dot11)
