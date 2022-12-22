@@ -1512,6 +1512,38 @@ class Dot11Ack(Packet):
     name = "802.11 Ack packet"
 
 
+# 802.11-2016 9.4.1.11
+
+class Dot11Action(Packet):
+    name = "802.11 Action"
+    fields_desc = [
+        ByteEnumField("category", 0x00, {
+            0x00: "Spectrum Management",
+            0x01: "QoS",
+            0x02: "DLS",
+            0x03: "Block",
+            0x04: "Public",
+            0x05: "Radio Measurement",
+            0x06: "Fast BSS Transition",
+            0x07: "HT",
+            0x08: "SA Query",
+            0x09: "Protected Dual of Public Action",
+            0x0A: "WNM",
+            0x0B: "Unprotected WNM",
+            0x0C: "TDLS",
+            0x0D: "Mesh",
+            0x0E: "Multihop",
+            0x0F: "Self-protected",
+            0x10: "DMG",
+            0x11: "Reserved Wi-Fi Alliance",
+            0x12: "Fast Session Transfer",
+            0x13: "Robust AV Streaming",
+            0x14: "Unprotected DMG",
+            0x15: "VHT"
+        })
+    ]
+
+
 ###################
 # 802.11 Security #
 ###################
@@ -1652,6 +1684,8 @@ bind_top_down(Dot11, Dot11QoS, type=2, subtype=0xc)
 bind_layers(PrismHeader, Dot11,)
 bind_layers(Dot11, LLC, type=2)
 bind_layers(Dot11QoS, LLC,)
+
+# 802.11-2016 9.2.4.1.3 Type and Subtype subfields
 bind_layers(Dot11, Dot11AssoReq, subtype=0, type=0)
 bind_layers(Dot11, Dot11AssoResp, subtype=1, type=0)
 bind_layers(Dot11, Dot11ReassoReq, subtype=2, type=0)
@@ -1663,6 +1697,7 @@ bind_layers(Dot11, Dot11ATIM, subtype=9, type=0)
 bind_layers(Dot11, Dot11Disas, subtype=10, type=0)
 bind_layers(Dot11, Dot11Auth, subtype=11, type=0)
 bind_layers(Dot11, Dot11Deauth, subtype=12, type=0)
+bind_layers(Dot11, Dot11Action, subtype=13, type=0)
 bind_layers(Dot11, Dot11Ack, subtype=13, type=1)
 bind_layers(Dot11Beacon, Dot11Elt,)
 bind_layers(Dot11AssoReq, Dot11Elt,)
