@@ -35,7 +35,7 @@ from scapy.libs.six.moves import range, input, zip_longest
 
 from scapy.config import conf
 from scapy.consts import DARWIN, OPENBSD, WINDOWS
-from scapy.data import MTU, DLT_EN10MB
+from scapy.data import MTU, DLT_EN10MB, DLT_RAW
 from scapy.compat import orb, plain_str, chb, bytes_base64,\
     base64_bytes, hex_bytes, lambda_tuple_converter, bytes_encode
 from scapy.error import log_runtime, Scapy_Exception, warning
@@ -455,7 +455,7 @@ def hexdiff(a, b, autojunk=False):
 
         cl = ""
         for j in range(16):
-            if i + j < btx_len:
+            if i + j < min(len(backtrackx), len(backtracky)):
                 if line[j]:
                     col = colorize[(linex[j] != liney[j]) * (doy - dox)]
                     print(col("%02X" % orb(line[j])), end=' ')
@@ -2718,6 +2718,8 @@ def tcpdump(
                     try:
                         _, metadata = rd._read_packet()
                         linktype = metadata.linktype
+                        if OPENBSD and linktype == 228:
+                            linktype = DLT_RAW
                     except EOFError:
                         raise ValueError(
                             "Cannot get linktype from a PcapNg packet."

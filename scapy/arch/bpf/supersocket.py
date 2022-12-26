@@ -477,6 +477,15 @@ class L3bpfSocket(L2bpfSocket):
         # with Apple Silicon (M1).
         if DARWIN and iff.startswith('tun') and self.guessed_cls == Loopback:
             frame = raw(pkt)
+        elif FREEBSD and (iff.startswith('tun') or iff.startswith('tap')):
+            # On FreeBSD, the bpf manpage states that it is only possible
+            # to write packets to Ethernet and SLIP network interfaces
+            # using /dev/bpf
+            #
+            # Note: `open("/dev/tun0", "wb").write(raw(pkt())) should be
+            #   used
+            warning("Cannot write to %s according to the documentation!", iff)
+            return
         else:
             frame = raw(self.guessed_cls() / pkt)
 
