@@ -257,7 +257,7 @@ class GTPHeader(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.length is None:
-            tmp_len = len(p) - 8
+            tmp_len = len(p) - 4 if self.version == 2 else len(p) - 8
             p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p
 
