@@ -7,12 +7,6 @@ environment:
   # Python versions that will be tested
   # Note: it defines variables that can be used later
   matrix:
-    - PYTHON: "C:\\Python27-x64"
-      PYTHON_VERSION: "2.7.x"
-      PYTHON_ARCH: "64"
-      TOXENV: "py27-windows"
-      WINPCAP: "false"
-      UT_FLAGS: "-K scanner"
     - PYTHON: "C:\\Python37-x64"
       PYTHON_VERSION: "3.7.x"
       PYTHON_ARCH: "64"
