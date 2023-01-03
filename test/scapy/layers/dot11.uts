@@ -692,3 +692,8 @@ assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].op_clas
 assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].channel == 12
 assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].phy_type == 0
 
+= Dot11Ack
+
+pkt = Dot11(bytes(Dot11()/Dot11Ack()))
+assert pkt.subtype == 13
+assert pkt.type == 1
