@@ -177,7 +177,7 @@ class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
             delay = conf[UDS_DSCEnumerator.__name__]["delay_state_change"]
         except KeyError:
             delay = 5
-        time.sleep(delay)
+        conf.stop_event.wait(delay)
         state_changed = UDS_DSCEnumerator.enter_state(
             sock, conf, kwargs["req"])
         if not state_changed:
@@ -549,7 +549,7 @@ class UDS_SAEnumerator(UDS_Enumerator):
             # a required time delay not expired could have been received
             # on the previous attempt
             if not global_configuration.unittest:
-                time.sleep(11)
+                global_configuration.stop_event.wait(11)
 
     def _evaluate_retry(self,
                         state,  # type: EcuState
