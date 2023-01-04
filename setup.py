@@ -33,7 +33,7 @@ def get_long_description():
 setup(
     name='scapy',
     version=__import__('scapy').VERSION,
-    packages=find_packages(),
+    packages=find_packages(exclude=["test"]),
     data_files=[('share/man/man1', ["doc/scapy.1"])],
     package_data={
         'scapy': ['VERSION'],
