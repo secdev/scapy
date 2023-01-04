@@ -224,8 +224,9 @@ class UDS_TPEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
         try:
             configuration["tps"].stop()
             configuration["tps"] = None
-        except (AttributeError, KeyError) as e:
-            log_automotive.debug("Cleanup TP-Sender Error: %s", e)
+        except (AttributeError, KeyError):
+            pass
+            # log_automotive.debug("Cleanup TP-Sender Error: %s", e)
         return True
 
     def get_transition_function(self, socket, edge):
