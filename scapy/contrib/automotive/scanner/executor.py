@@ -237,6 +237,7 @@ class AutomotiveTestCaseExecutor:
     def stop_scan(self):
         # type: () -> None
         self.configuration.stop_event.set()
+        log_automotive.debug("Internal stop event set!")
 
     def progress(self):
         # type: () -> float
