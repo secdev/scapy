@@ -8,6 +8,7 @@ All layers. Configurable with conf.load_layers.
 """
 
 from __future__ import absolute_import
+from typing import List
 
 # We import conf from arch to make sure arch specific layers are populated
 from scapy.arch import conf
@@ -17,10 +18,10 @@ from scapy.main import load_layer
 import logging
 import scapy.libs.six as six
 
-ignored = list(six.moves.builtins.__dict__) + ["sys"]
-log = logging.getLogger("scapy.loading")
+ignored = list(six.moves.builtins.__dict__) + ["sys"]  # type: List[str]
+log = logging.getLogger("scapy.loading")  # type: logging.Logger
 
-__all__ = []
+__all__ = []  # type: List[str]
 
 for _l in conf.load_layers:
     log_loading.debug("Loading layer %s", _l)

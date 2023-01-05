@@ -16,8 +16,10 @@
         for OSI Connectionless-mode Network Services (such as IS-IS).
 """
 
+from typing import Any, Dict, List, Optional, Type
+
 from scapy.config import conf
-from scapy.fields import ByteEnumField, PacketField
+from scapy.fields import ByteEnumField, Field, PacketField
 from scapy.layers.l2 import LLC
 from scapy.packet import Packet, bind_top_down, bind_bottom_up
 from scapy.compat import orb
@@ -36,21 +38,23 @@ network_layer_protocol_ids = {
     0xC1: "IEEE 802.aq",
     0xCC: "IPv4",
     0xCF: "PPP"
-}
+}  # type: Dict[int, str]
 
 
-_cln_protocols = {}
+_cln_protocols = {}  # type: Dict[int, Type[Packet]]
 
 
 class _GenericClnsPdu(Packet):
-    name = "Generic CLNS PDU"
+    name = "Generic CLNS PDU"  # type: str
     fields_desc = [
         ByteEnumField("nlpid", 0x00, network_layer_protocol_ids),
         PacketField("rawdata", None, conf.raw_layer)
-    ]
+    ]  # type: List[Field[Any, Any]]
 
 
+# TODO: impossible to make this conform to Type[Packet], and impossible to make `bind_bottom_up` support `Callable[...]`
 def _create_cln_pdu(s, **kwargs):
+    # type: (bytes, Any) -> Packet
     pdu_cls = conf.raw_layer
 
     if len(s) >= 1:
@@ -62,6 +66,7 @@ def _create_cln_pdu(s, **kwargs):
 
 @conf.commands.register
 def register_cln_protocol(nlpid, cln_protocol_class):
+    # type: (Optional[int], Optional[Type[Packet]]) -> None
     if nlpid is None or cln_protocol_class is None:
         return
 

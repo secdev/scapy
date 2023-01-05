@@ -15,3 +15,5 @@ test/*.html
 __pycache__/
 doc/scapy/_build
 doc/scapy/api
+venv
+.venv
