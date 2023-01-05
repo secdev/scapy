@@ -58,75 +58,81 @@ jobs:
       - name: Run mypy
         run: tox -e mypy
 
+  # https://github.com/actions/runner-images/issues/6399
+  # Python 2.7 tests must be run on ubuntu <= 20.04
   utscapy:
     name: ${{ matrix.os }} ${{ matrix.installmode }} ${{ matrix.python }} ${{ matrix.mode }} ${{ matrix.flags }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
-    continue-on-error: ${{ matrix.allow-failure }}
+    continue-on-error: ${{ matrix.allow-failure == 'true' }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python: ["2.7", "3.10"]
-        mode: [both]
+        python: ["3.7", "3.8", "3.9", "3.10"]
+        mode: [non_root]
         installmode: ['']
-        flags: ['']
-        allow-failure: [false]
+        flags: [" -K scanner"]
+        allow-failure: ['false']
         include:
-          # Linux non-root only tests
+          # Linux root tests
+          - os: ubuntu-20.04
+            python: "2.7"
+            mode: root
+            flags: " -K scanner"
           - os: ubuntu-latest
-            python: "3.7"
-            mode: non_root
-            allow-failure: false
-          - os: ubuntu-latest
-            python: "3.8"
-            mode: non_root
-            allow-failure: false
-          - os: ubuntu-latest
-            python: "3.9"
-            mode: non_root
-            allow-failure: false
+            python: "3.10"
+            mode: root
+            flags: " -K scanner"
           # PyPy tests: root only
-          - os: ubuntu-latest
+          - os: ubuntu-20.04
             python: "pypy2.7"
             mode: root
-            allow-failure: false
             flags: " -K scanner"
           - os: ubuntu-latest
             python: "pypy3.9"
             mode: root
-            allow-failure: false
             flags: " -K scanner"
           # Libpcap test
           - os: ubuntu-latest
             python: "3.10"
             mode: root
             installmode: 'libpcap'
-            allow-failure: false
+            flags: " -K scanner"
           # MacOS tests
           - os: macos-12
             python: "2.7"
             mode: both
-            allow-failure: false
+            flags: " -K scanner"
           - os: macos-12
             python: "3.10"
             mode: both
-            allow-failure: false
+            flags: " -K scanner"
+          # Scanner tests
+          - os: ubuntu-20.04
+            python: "2.7"
+            mode: root
+            allow-failure: 'true'
+            flags: " -k scanner"
           - os: ubuntu-latest
+            python: "3.10"
+            mode: root
+            allow-failure: 'true'
+            flags: " -k scanner"
+          - os: ubuntu-20.04
             python: "pypy2.7"
             mode: root
-            allow-failure: true
+            allow-failure: 'true'
             flags: " -k scanner"
           - os: ubuntu-latest
             python: "pypy3.9"
             mode: root
-            allow-failure: true
+            allow-failure: 'true'
             flags: " -k scanner"
-          # MacOS tests
           - os: macos-12
             python: "3.10"
             mode: both
-            allow-failure: true
+            allow-failure: 'true'
             flags: " -k scanner"
     steps:
       - name: Checkout Scapy

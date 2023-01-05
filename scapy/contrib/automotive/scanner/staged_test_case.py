@@ -201,7 +201,7 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
 
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None
-        kwargs = self.__current_kwargs or dict()
+        kwargs.update(self.__current_kwargs or dict())
         self.current_test_case.execute(socket, state, **kwargs)
 
     def post_execute(self,

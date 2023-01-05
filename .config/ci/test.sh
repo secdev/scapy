@@ -92,11 +92,13 @@ then
 fi
 
 # Configure OpenSSL
-export OPENSSL_CONF=$($PYTHON `dirname $BASH_SOURCE`/openssl.py)
+export OPENSSL_CONF=$(${PYTHON:=python} `dirname $BASH_SOURCE`/openssl.py)
 
 # Dump vars (the others were already dumped in install.sh)
 echo UT_FLAGS=$UT_FLAGS
 echo TOXENV=$TOXENV
+echo OPENSSL_CONF=$OPENSSL_CONF
+echo OPENSSL_VER=$(openssl version)
 
 # Launch Scapy unit tests
 TOX_PARALLEL_NO_SPINNER=1 tox -- ${UT_FLAGS} || exit 1
