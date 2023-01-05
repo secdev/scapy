@@ -98,8 +98,10 @@ class FecTLVField(StrField):
             # mask length
             fec += struct.pack("!B", o[1])
             # Prefix
-            fec += inet_aton(o[0])
-            tmp_len += 8
+            l = o[1]+7>>3
+            p = inet_aton(o[0])
+            fec += p[:l]
+            tmp_len += 4+l
         s += struct.pack("!H", tmp_len)
         s += fec
         return s
