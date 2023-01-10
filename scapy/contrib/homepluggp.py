@@ -5,7 +5,6 @@
 # scapy.contrib.description = HomePlugGP Layer
 # scapy.contrib.status = loads
 
-from __future__ import absolute_import
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ByteField, FieldLenField, \

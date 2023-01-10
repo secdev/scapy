@@ -5,7 +5,6 @@
 # scapy.contrib.description = HomePlugSG Layer
 # scapy.contrib.status = loads
 
-from __future__ import absolute_import
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import FieldLenField, StrFixedLenField, StrLenField

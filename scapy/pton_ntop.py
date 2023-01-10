@@ -10,16 +10,12 @@ These functions are missing when python is compiled
 without IPv6 support, on Windows for instance.
 """
 
-from __future__ import absolute_import
 import socket
 import re
 import binascii
 from scapy.compat import plain_str, hex_bytes, bytes_encode, bytes_hex
 
-from scapy.compat import (
-    AddressFamily,
-    Union,
-)
+from scapy.compat import Union
 
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 _INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")
@@ -84,7 +80,7 @@ _INET_PTON = {
 
 
 def inet_pton(af, addr):
-    # type: (AddressFamily, Union[bytes, str]) -> bytes
+    # type: (socket.AddressFamily, Union[bytes, str]) -> bytes
     """Convert an IP address from text representation into binary form."""
     # Will replace Net/Net6 objects
     addr = plain_str(addr)
@@ -132,7 +128,7 @@ _INET_NTOP = {
 
 
 def inet_ntop(af, addr):
-    # type: (AddressFamily, bytes) -> str
+    # type: (socket.AddressFamily, bytes) -> str
     """Convert an IP address from binary form into text representation."""
     # Use inet_ntop if available
     addr = bytes_encode(addr)

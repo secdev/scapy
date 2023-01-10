@@ -5,7 +5,6 @@
 # Copyright (C) Friedrich Feigel <friedrich.feigel@e-mundo.de>
 # Copyright (C) Nils Weiss <nils@we155.de>
 
-from __future__ import print_function
 
 import getopt
 import sys

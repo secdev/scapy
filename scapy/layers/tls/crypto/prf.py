@@ -8,7 +8,6 @@
 TLS Pseudorandom Function.
 """
 
-from __future__ import absolute_import
 from scapy.error import warning
 from scapy.utils import strxor
 

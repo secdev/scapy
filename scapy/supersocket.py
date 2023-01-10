@@ -7,7 +7,6 @@
 SuperSocket.
 """
 
-from __future__ import absolute_import
 from select import select, error as select_error
 import ctypes
 import errno

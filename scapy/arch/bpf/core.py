@@ -7,7 +7,6 @@
 Scapy *BSD native support - core
 """
 
-from __future__ import absolute_import
 
 from ctypes import cdll, cast, pointer
 from ctypes import c_int, c_ulong, c_uint, c_char_p, Structure, POINTER

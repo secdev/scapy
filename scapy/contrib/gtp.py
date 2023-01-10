@@ -17,7 +17,6 @@ Spec: 3GPP TS 29.060 and 3GPP TS 29.274
 Some IEs: 3GPP TS 24.008
 """
 
-from __future__ import absolute_import
 import struct
 
 from scapy.compat import chb, orb, bytes_encode

@@ -5,7 +5,6 @@
 # scapy.contrib.description = ICMP Extensions
 # scapy.contrib.status = loads
 
-from __future__ import absolute_import
 import struct
 
 import scapy

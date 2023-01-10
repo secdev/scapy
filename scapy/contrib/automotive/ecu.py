@@ -15,7 +15,6 @@ from collections import defaultdict
 from types import GeneratorType
 from threading import Lock
 
-import scapy.libs.six as six
 from scapy.compat import Any, Union, Iterable, Callable, List, Optional, \
     Tuple, Type, cast, Dict, orb, ValuesView
 from scapy.packet import Raw, Packet
@@ -65,7 +64,7 @@ class EcuState(object):
     @staticmethod
     def _flatten(x):
         # type: (Any) -> List[Any]
-        if isinstance(x, (six.string_types, bytes)):
+        if isinstance(x, (str, bytes)):
             return [x]
         elif hasattr(x, "__iter__") and hasattr(x, "__len__") and len(x) == 1:
             return list(*x)

@@ -7,8 +7,6 @@
 Classes and functions for layer 2 protocols.
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
 import struct
 import time
 import socket

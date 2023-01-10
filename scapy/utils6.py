@@ -8,7 +8,6 @@
 """
 Utility functions for IPv6.
 """
-from __future__ import absolute_import
 import socket
 import struct
 import time

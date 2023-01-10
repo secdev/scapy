@@ -11,7 +11,6 @@
 Skinny Call Control Protocol (SCCP) extension
 """
 
-from __future__ import absolute_import
 import time
 import struct
 

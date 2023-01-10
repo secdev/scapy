@@ -14,10 +14,10 @@ import copy
 import inspect
 
 from collections import defaultdict
-from typing import Sequence
+from typing import NamedTuple, Sequence
 
 from scapy.compat import Dict, Optional, List, Type, Any, Iterable, \
-    cast, Union, NamedTuple, orb, Set
+    cast, Union, orb, Set
 from scapy.contrib.automotive import log_automotive
 from scapy.packet import Raw, Packet
 import scapy.libs.six as six

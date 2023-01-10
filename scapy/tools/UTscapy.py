@@ -7,7 +7,6 @@
 Unit testing infrastructure for Scapy
 """
 
-from __future__ import print_function
 
 import bz2
 import copy
