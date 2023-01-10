@@ -33,7 +33,6 @@ from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.packet import Packet
 from scapy.consts import WINDOWS
-import scapy.libs.six as six
 
 from scapy.compat import (
     Any,
@@ -135,8 +134,7 @@ def select_objects(inputs, remain):
 _T = TypeVar("_T")
 
 
-@six.add_metaclass(_Generic_metaclass)
-class ObjectPipe(Generic[_T]):
+class ObjectPipe(Generic[_T], metaclass=_Generic_metaclass):
     def __init__(self, name=None):
         # type: (Optional[str]) -> None
         self.name = name or "ObjectPipe"
@@ -260,9 +258,11 @@ class Message:
 
     def __repr__(self):
         # type: () -> str
-        return "<Message %s>" % " ".join("%s=%r" % (k, v)
-                                         for (k, v) in six.iteritems(self.__dict__)  # noqa: E501
-                                         if not k.startswith("_"))
+        return "<Message %s>" % " ".join(
+            "%s=%r" % (k, v)
+            for k, v in self.__dict__.items()
+            if not k.startswith("_")
+        )
 
 
 class Timer():
@@ -694,11 +694,11 @@ class Automaton_metaclass(type):
         while classes:
             c = classes.pop(0)  # order is important to avoid breaking method overloading  # noqa: E501
             classes += list(c.__bases__)
-            for k, v in six.iteritems(c.__dict__):
+            for k, v in c.__dict__.items():
                 if k not in members:
                     members[k] = v
 
-        decorated = [v for v in six.itervalues(members)
+        decorated = [v for v in members.values()
                      if hasattr(v, "atmt_type")]
 
         for m in decorated:
@@ -732,11 +732,13 @@ class Automaton_metaclass(type):
                 for co in m.atmt_cond:
                     cls.actions[co].append(m)
 
-        for v in itertools.chain(six.itervalues(cls.conditions),
-                                 six.itervalues(cls.recv_conditions),
-                                 six.itervalues(cls.ioevents)):
+        for v in itertools.chain(
+            cls.conditions.values(),
+            cls.recv_conditions.values(),
+            cls.ioevents.values()
+        ):
             v.sort(key=lambda x: x.atmt_prio)
-        for condname, actlst in six.iteritems(cls.actions):
+        for condname, actlst in cls.actions.items():
             actlst.sort(key=lambda x: x.atmt_cond[condname])
 
         for ioev in cls.iosupersockets:
@@ -760,7 +762,7 @@ class Automaton_metaclass(type):
         s = 'digraph "%s" {\n' % self.__class__.__name__
 
         se = ""  # Keep initial nodes at the beginning for better rendering
-        for st in six.itervalues(self.states):
+        for st in self.states.values():
             if st.atmt_initial:
                 se = ('\t"%s" [ style=filled, fillcolor=blue, shape=box, root=true];\n' % st.atmt_state) + se  # noqa: E501
             elif st.atmt_final:
@@ -771,7 +773,7 @@ class Automaton_metaclass(type):
                 se += '\t"%s" [ style=filled, fillcolor=orange, shape=box, root=true ];\n' % st.atmt_state  # noqa: E501
         s += se
 
-        for st in six.itervalues(self.states):
+        for st in self.states.values():
             for n in st.atmt_origfunc.__code__.co_names + st.atmt_origfunc.__code__.co_consts:  # noqa: E501
                 if n in self.states:
                     s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state, n)  # noqa: E501
@@ -786,7 +788,7 @@ class Automaton_metaclass(type):
                         for x in self.actions[f.atmt_condname]:
                             line += "\\l>[%s]" % x.__name__
                         s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, line, c)  # noqa: E501
-        for k, timers in six.iteritems(self.timeout):
+        for k, timers in self.timeout.items():
             for timer in timers:
                 for n in (timer._func.__code__.co_names +
                           timer._func.__code__.co_consts):
@@ -805,8 +807,7 @@ class Automaton_metaclass(type):
         return do_graph(s, **kargs)
 
 
-@six.add_metaclass(Automaton_metaclass)
-class Automaton:
+class Automaton(metaclass=Automaton_metaclass):
     states = {}             # type: Dict[str, _StateWrapper]
     state = None            # type: ATMT.NewStateRequested
     recv_conditions = {}    # type: Dict[str, List[_StateWrapper]]
@@ -887,7 +888,7 @@ class Automaton:
 
     def timer_by_name(self, name):
         # type: (str) -> Optional[Timer]
-        for _, timers in six.iteritems(self.timeout):
+        for _, timers in self.timeout.items():
             for timer in timers:  # type: Timer
                 if timer._func.atmt_condname == name:
                     return timer
@@ -1313,17 +1314,21 @@ class Automaton:
             elif c.type == _ATMT_Command.BREAKPOINT:
                 raise self.Breakpoint("breakpoint triggered on state [%s]" % c.state.state, state=c.state.state)  # noqa: E501
             elif c.type == _ATMT_Command.EXCEPTION:
-                six.reraise(c.exc_info[0], c.exc_info[1], c.exc_info[2])
+                # this code comes from the `six` module (`.reraise()`)
+                # to raise an exception with specified exc_info.
+                value = c.exc_info[0]() if c.exc_info[1] is None else c.exc_info[1]  # type: ignore  # noqa: E501
+                if value.__traceback__ is not c.exc_info[2]:
+                    raise value.with_traceback(c.exc_info[2])
+                raise value
         return None
 
     def runbg(self, resume=None, wait=False):
         # type: (Optional[Message], Optional[bool]) -> None
         self.run(resume, wait)
 
-    def next(self):
+    def __next__(self):
         # type: () -> Any
         return self.run(resume=Message(type=_ATMT_Command.NEXT))
-    __next__ = next
 
     def _flush_inout(self):
         # type: () -> None

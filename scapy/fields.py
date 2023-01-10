@@ -9,7 +9,6 @@
 Fields: basic data structures that make up parts of packets.
 """
 
-from __future__ import absolute_import
 import calendar
 import collections
 import copy

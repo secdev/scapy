@@ -15,10 +15,7 @@ from threading import Thread
 
 tap0, tap1 = [TunTapInterface("tap%d" % i) for i in range(2)]
 
-if six.PY2:
-    chk_kwargs = {}
-else:
-    chk_kwargs = {"timeout": 3}
+chk_kwargs = {"timeout": 3}
 
 if LINUX:
     for i in range(2):
@@ -123,10 +120,7 @@ from threading import Thread
 
 tun0, tun1 = [TunTapInterface("tun%d" % i) for i in range(2)]
 
-if six.PY2:
-    chk_kwargs = {}
-else:
-    chk_kwargs = {"timeout": 3}
+chk_kwargs = {"timeout": 3}
 
 if LINUX:
     for i in range(2):
@@ -290,10 +284,7 @@ import time
 
 tap0 = TunTapInterface("tap0")
 
-if six.PY2:
-    chk_kwargs = {}
-else:
-    chk_kwargs = {"timeout": 3}
+chk_kwargs = {"timeout": 3}
 
 if LINUX:
     assert subprocess.check_call(["ip", "link", "set", "tap0", "up"], **chk_kwargs) == 0

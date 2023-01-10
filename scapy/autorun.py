@@ -7,9 +7,11 @@
 Run commands when the Scapy interpreter starts.
 """
 
-from __future__ import print_function
+import builtins
 import code
+from io import StringIO
 import logging
+from queue import Queue
 import sys
 import threading
 import traceback
@@ -26,9 +28,6 @@ from scapy.compat import (
     Dict,
     Tuple,
 )
-
-from scapy.libs.six.moves import queue
-import scapy.libs.six as six
 
 
 #########################
@@ -63,7 +62,7 @@ def autorun_commands(_cmds, my_globals=None, verb=None):
                 my_globals = _scapy_builtins()
             interp = ScapyAutorunInterpreter(locals=my_globals)
             try:
-                del six.moves.builtins.__dict__["scapy_session"]["_"]
+                del builtins.__dict__["scapy_session"]["_"]
             except KeyError:
                 pass
             if verb is not None:
@@ -99,9 +98,9 @@ def autorun_commands(_cmds, my_globals=None, verb=None):
     finally:
         conf.verb = sv
     try:
-        return six.moves.builtins.__dict__["scapy_session"]["_"]
+        return builtins.__dict__["scapy_session"]["_"]
     except KeyError:
-        return six.moves.builtins.__dict__.get("_", None)
+        return builtins.__dict__.get("_", None)
 
 
 def autorun_commands_timeout(cmds, timeout=None, **kwargs):
@@ -113,7 +112,7 @@ def autorun_commands_timeout(cmds, timeout=None, **kwargs):
     if timeout is None:
         return autorun_commands(cmds, **kwargs)
 
-    q = queue.Queue()
+    q = Queue()  # type: Queue[Any]
 
     def _runner():
         # type: () -> None
@@ -127,14 +126,14 @@ def autorun_commands_timeout(cmds, timeout=None, **kwargs):
     return q.get()
 
 
-class StringWriter(six.StringIO):
+class StringWriter(StringIO):
     """Util to mock sys.stdout and sys.stderr, and
     store their output in a 's' var."""
     def __init__(self, debug=None):
         # type: (Optional[TextIO]) -> None
         self.s = ""
         self.debug = debug
-        six.StringIO.__init__(self)
+        super().__init__()
 
     def write(self, x):
         # type: (str) -> int

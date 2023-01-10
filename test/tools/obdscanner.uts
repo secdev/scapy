@@ -30,34 +30,6 @@ std_out, std_err = result.communicate()
 expected_output = plain_str(b'Scan for all possible obd service classes and their subfunctions.')
 assert expected_output in plain_str(std_out)
 
-
-= Test wrong socket for Python2 or Windows
-if six.PY2:
-    version = subprocess.Popen(["python2", "--version"], stdout=subprocess.PIPE)
-    result = subprocess.Popen([sys.executable, "scapy/tools/automotive/obdscanner.py", "-c", "vcan0", "-s", "0x600", "-d", "0x601", "-t", "0.001"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    assert result.wait() == 1
-    expected_output = plain_str(b'Please provide all required arguments.')
-    std_out, std_err = result.communicate()
-    assert expected_output in plain_str(std_err)
-
-= Test Python2 call
-if six.PY2:
-    result = subprocess.Popen([sys.executable, "scapy/tools/automotive/obdscanner.py", "-i", "socketcan", "-c", "vcan0", "-s", "0x600", "-d", "0x601", "-v", "-t", "0.001"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    returncode = result.wait()
-    std_out, std_err = result.communicate()
-    assert returncode == 0
-    expected_output = plain_str(b'Starting OBD-Scan...')
-    assert expected_output in plain_str(std_out)
-
-= Test Python2 call with python-can args
-if six.PY2:
-    result = subprocess.Popen([sys.executable, "scapy/tools/automotive/obdscanner.py", "-i", "socketcan", "-c", "vcan0", "-s", "0x600", "-d", "0x601", "-v", "-a", "bitrate=250000", "-t", "0.001"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    returncode = result.wait()
-    std_out, std_err = result.communicate()
-    assert returncode == 0
-    expected_output = plain_str(b'Starting OBD-Scan...')
-    assert expected_output in plain_str(std_out)
-
 + Scan tests
 
 = Load contribution layer

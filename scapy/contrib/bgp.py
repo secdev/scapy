@@ -9,7 +9,6 @@
 BGP (Border Gateway Protocol).
 """
 
-from __future__ import absolute_import
 import struct
 import re
 import socket

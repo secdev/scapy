@@ -10,7 +10,6 @@
 DHCPv6: Dynamic Host Configuration Protocol for IPv6. [RFC 3315,8415]
 """
 
-from __future__ import print_function
 import socket
 import struct
 import time

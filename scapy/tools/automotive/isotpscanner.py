@@ -4,7 +4,6 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # Copyright (C) Alexander Schroeder <alexander1.schroeder@st.othr.de>
 
-from __future__ import print_function
 
 import getopt
 import sys

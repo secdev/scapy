@@ -13,7 +13,6 @@ http://git.savannah.gnu.org/cgit/ldpscapy.git/snapshot/ldpscapy-5285b81d6e628043
 
 """
 
-from __future__ import absolute_import
 import struct
 
 from scapy.compat import orb

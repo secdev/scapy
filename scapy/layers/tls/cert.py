@@ -27,8 +27,6 @@ For instance, here is what you could do in order to modify the serial of
 No need for obnoxious openssl tweaking anymore. :)
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
 import base64
 import os
 import time

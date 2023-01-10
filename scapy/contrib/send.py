@@ -11,7 +11,6 @@ Secure Neighbor Discovery (SEND) - RFC3971
 # scapy.contrib.description = Secure Neighbor Discovery (SEND) (ICMPv6)
 # scapy.contrib.status = loads
 
-from __future__ import absolute_import
 
 from scapy.packet import Packet
 from scapy.fields import BitField, ByteField, FieldLenField, PacketField, \

@@ -41,7 +41,6 @@ from scapy.volatile import (
 )
 
 from scapy import packet
-import scapy.libs.six as six
 
 from scapy.compat import (
     Any,
@@ -275,7 +274,7 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
             keys = range(len(enum))
         else:
             keys = list(enum)
-        if any(isinstance(x, six.string_types) for x in keys):
+        if any(isinstance(x, str) for x in keys):
             i2s, s2i = s2i, i2s  # type: ignore
         for k in keys:
             i2s[k] = enum[k]
@@ -691,7 +690,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 # should be ASN1_Packet
                 if hasattr(p.ASN1_root, "choices"):
                     root = cast(ASN1F_CHOICE, p.ASN1_root)
-                    for k, v in six.iteritems(root.choices):
+                    for k, v in root.choices.items():
                         # ASN1F_CHOICE recursion
                         self.choices[k] = v
                 else:
@@ -761,14 +760,14 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
     def randval(self):
         # type: () -> RandChoice
         randchoices = []
-        for p in six.itervalues(self.choices):
+        for p in self.choices.values():
             if hasattr(p, "ASN1_root"):
                 # should be ASN1_Packet class
-                randchoices.append(packet.fuzz(p()))
+                randchoices.append(packet.fuzz(p()))  # type: ignore
             elif hasattr(p, "ASN1_tag"):
                 if isinstance(p, type):
                     # should be (basic) ASN1F_field class
-                    randchoices.append(p("dummy", None).randval())
+                    randchoices.append(p("dummy", None).randval())  # type: ignore
                 else:
                     # should be ASN1F_PACKET instance
                     randchoices.append(p.randval())

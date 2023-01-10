@@ -18,8 +18,6 @@ and HPack encoded headers
 
 # base_classes triggers an unwanted import warning
 
-from __future__ import absolute_import
-from __future__ import print_function
 import abc
 import re
 from io import BytesIO

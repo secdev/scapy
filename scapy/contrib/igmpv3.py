@@ -5,7 +5,6 @@
 # scapy.contrib.description = Internet Group Management Protocol v3 (IGMPv3)
 # scapy.contrib.status = loads
 
-from __future__ import print_function
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     FieldListField, IPField, PacketListField, ShortField, XShortField
