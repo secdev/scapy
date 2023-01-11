@@ -614,7 +614,7 @@ class TriggerDrain(Drain):
 class TriggeredValve(Drain):
     """Let messages alternatively pass or not, changing on trigger
 
-.. code::
+    .. code::
 
          +------^------+
       >>-|-[pass/stop]-|->>
