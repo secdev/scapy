@@ -1919,6 +1919,93 @@ class GenericRawPcapWriter(GenericPcapWriter):
 
                 self.write_packet(p)
 
+class RawWriter(): # GenericRawPcapWriter
+    """A stream writer"""
+
+    def __init__(self,
+                 filename,  # type: Union[IO[bytes], str]
+                 append=False,  # type: bool
+                 sync=False
+                 ):
+        # type: (...) -> None
+        """
+        :param filename: the name of the file to write packets to, or an open,
+            writable file-like object.
+        :param append: append packets to the capture file instead of
+            truncating it
+        :param sync: do not bufferize writes to the capture file
+        """
+
+        self.append = append
+        self.sync = sync
+        bufsz = 4096
+        if sync:
+            bufsz = 0
+
+        if isinstance(filename, str):
+            self.filename = filename
+            self.f = open(filename, append and "ab" or "wb", bufsz)
+        else:
+            self.f = filename
+            self.filename = getattr(filename, "name", "No name")
+
+    def fileno(self):
+        # type: () -> int
+        return -1 if WINDOWS else self.f.fileno()
+
+    def flush(self):
+        # type: () -> Optional[Any]
+        return self.f.flush()
+
+    def close(self):
+        # type: () -> Optional[Any]
+        return self.f.close()
+
+    def __enter__(self):
+        # type: () -> GenericRawPcapWriter
+        return self
+
+    def __exit__(self, exc_type, exc_value, tracback):
+        # type: (Optional[Any], Optional[Any], Optional[Any]) -> None
+        self.flush()
+        self.close()
+        
+    def write(self, pkt):
+        # type: (Union[_PacketIterable, bytes]) -> None
+        """
+        Writes a Packet, a SndRcvList object, or bytes to a pcap file.
+
+        :param pkt: Packet(s) to write (one record for each Packet), or raw
+                    bytes to write (as one record).
+        :type pkt: iterable[scapy.packet.Packet], scapy.packet.Packet or bytes
+        """
+        if isinstance(pkt, bytes):
+            self.write_packet(pkt)
+        else:
+            from scapy.supersocket import IterSocket
+            for p in IterSocket(pkt).iter:
+                self.write_packet(bytes_encode(p))
+
+    def write_packet(self,
+                      packet,  # type: Union[bytes, Packet]
+                      ):
+        # type: (...) -> None
+        """
+        Writes a single packet to the pcap file.
+
+        :param packet: bytes for a single packet
+        :type packet: bytes
+        
+        :return: None
+        :rtype: None
+        """
+ 
+        self.f.write(packet)
+        if self.sync:
+            self.f.flush()
+
+    def _write_header(self, pkt):
+        pass
 
 class RawPcapWriter(GenericRawPcapWriter):
     """A stream PCAP writer with more control than wrpcap()"""
