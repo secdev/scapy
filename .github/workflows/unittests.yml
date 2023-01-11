@@ -58,8 +58,6 @@ jobs:
       - name: Run mypy
         run: tox -e mypy
 
-  # https://github.com/actions/runner-images/issues/6399
-  # Python 2.7 tests must be run on ubuntu <= 20.04
   utscapy:
     name: ${{ matrix.os }} ${{ matrix.installmode }} ${{ matrix.python }} ${{ matrix.mode }} ${{ matrix.flags }}
     runs-on: ${{ matrix.os }}
@@ -76,19 +74,11 @@ jobs:
         allow-failure: ['false']
         include:
           # Linux root tests
-          - os: ubuntu-20.04
-            python: "2.7"
-            mode: root
-            flags: " -K scanner"
           - os: ubuntu-latest
             python: "3.10"
             mode: root
             flags: " -K scanner"
           # PyPy tests: root only
-          - os: ubuntu-20.04
-            python: "pypy2.7"
-            mode: root
-            flags: " -K scanner"
           - os: ubuntu-latest
             python: "pypy3.9"
             mode: root
@@ -99,28 +89,14 @@ jobs:
             mode: root
             installmode: 'libpcap'
             flags: " -K scanner"
-          # MacOS tests
-          - os: macos-12
-            python: "2.7"
-            mode: both
-            flags: " -K scanner"
+          # macOS tests
           - os: macos-12
             python: "3.10"
             mode: both
             flags: " -K scanner"
           # Scanner tests
-          - os: ubuntu-20.04
-            python: "2.7"
-            mode: root
-            allow-failure: 'true'
-            flags: " -k scanner"
           - os: ubuntu-latest
             python: "3.10"
-            mode: root
-            allow-failure: 'true'
-            flags: " -k scanner"
-          - os: ubuntu-20.04
-            python: "pypy2.7"
             mode: root
             allow-failure: 'true'
             flags: " -k scanner"
