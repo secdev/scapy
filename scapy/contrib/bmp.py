@@ -14,7 +14,7 @@ class BitmapFileHeader(Packet):
 
     name = "Bitmap File Header"
     fields_desc = [  # 14 bytes
-        LEShortField("identity", default=0x424D),  # 2 bytes (424d => BM)
+        LEShortField("identity", default=0x4d42),  # 2 bytes (424d => BM)
         LEIntField("size_bmp", default=None),  # 4 bytes
         LEShortField("reserved1", default=0),  # 2 bytes
         LEShortField("reserved2", default=0),  # 2 bytes
