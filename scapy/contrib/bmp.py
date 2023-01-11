@@ -5,7 +5,7 @@ https://en.wikipedia.org/wiki/BMP_file_format
 
 """
 import struct
-from scapy.fields import LEShortField, LESignedIntField, LEIntField
+from scapy.fields import LEShortField, LESignedIntField, LEIntField, Field
 from scapy.packet import Packet, bind_layers
 
 
@@ -22,6 +22,7 @@ class BitmapFileHeader(Packet):
     ]
 
     def post_build(self, pkt, pay):
+        """Adjust the values"""
         if self.size_bmp is None and pay:
             size_bmp = len(pkt) + len(pay)
             pkt = (
@@ -34,11 +35,11 @@ class BitmapFileHeader(Packet):
         return pkt + pay
 
 
-class BitmapBITMAPCOREHEADERHeader(Packet):
+class Bitmap_BITMAPCOREHEADER_Header(Packet):
     """BITMAPCOREHEADER"""
 
     name = "OS/2 1.x BITMAPCOREHEADER"
-    fields_desc = [  # 12 bytes
+    fields_desc = [
         LEIntField("size", default=None),  # 4 bytes
         LEShortField("width", default=0),  # 2 bytes
         LEShortField("height", default=0),  # 2 bytes
@@ -47,6 +48,7 @@ class BitmapBITMAPCOREHEADERHeader(Packet):
     ]
 
     def post_build(self, pkt, pay):
+        """Calculate the size"""
         if self.size is None:
             size = len(pkt)
             pkt = struct.pack("I", size) + pkt[4:]  # Size of the header
@@ -54,11 +56,11 @@ class BitmapBITMAPCOREHEADERHeader(Packet):
         return pkt + pay
 
 
-class BitmapBITMAPINFOHEADERHeader(Packet):
+class Bitmap_BITMAPINFOHEADER_Header(Packet):
     """BITMAPINFOHEADER"""
 
     name = "Windows BITMAPINFOHEADER"
-    fields_desc = [  # 12 bytes
+    fields_desc = [
         LEIntField("size", default=None),  # 4 bytes
         LESignedIntField("width", default=2),  # 4 bytes
         LESignedIntField("height", default=2),  # 4 bytes
@@ -73,6 +75,7 @@ class BitmapBITMAPINFOHEADERHeader(Packet):
     ]
 
     def post_build(self, pkt, pay):
+        """Calculate the size"""
         if self.size is None:
             size = len(pkt)
             pkt = struct.pack("I", size) + pkt[4:]  # Size of the header
@@ -80,7 +83,45 @@ class BitmapBITMAPINFOHEADERHeader(Packet):
         return pkt + pay
 
 
-l = len(BitmapFileHeader()) + len(BitmapBITMAPCOREHEADERHeader())
-bind_layers(BitmapFileHeader, BitmapBITMAPCOREHEADERHeader, offset_bmp=l)
-l = len(BitmapFileHeader()) + len(BitmapBITMAPINFOHEADERHeader())
-bind_layers(BitmapFileHeader, BitmapBITMAPINFOHEADERHeader, offset_bmp=l)
+class Bitmap_BITMAPV4HEADER_Header(Packet):
+    """BITMAPV4HEADER"""
+
+    name = "Windows BITMAPV4HEADER"
+    fields_desc = [
+        LEIntField("size", default=None),  # 4 bytes
+        LESignedIntField("width", default=4),  # 4 bytes
+        LESignedIntField("height", default=2),  # 4 bytes
+        LEShortField("color_panels", default=1),  # 2 bytes
+        LEShortField("number_of_bpp", default=32),  # 2 bytes
+        LEIntField("compression_method", default=3),  # 4 bytes
+        LEIntField("image_size", default=32),  # 4 bytes
+        LEIntField("horizontal_resolution", default=2835),  # 4 bytes
+        LEIntField("vertical_resolution", default=2835),  # 4 bytes
+        LEIntField("number_of_colors", default=0),  # 4 bytes
+        LEIntField("number_of_important_colors", default=0),  # 4 bytes
+        LEIntField("red_channel_mask", default=  0x00FF0000),  # 4 bytes
+        LEIntField("green_channel_mask", default=0x0000FF00),  # 4 bytes
+        LEIntField("blue_channel_mask", default= 0x000000FF),  # 4 bytes
+        LEIntField("alpha_channel_mask", default=0xFF000000),  # 4 bytes
+        LEIntField("lcs_windows_color_space", default=0x57696E20),  # 4 bytes " Win"
+        Field(name="CIEXYZTRIPLE", default=("\x00" * 0x24), fmt="36s"),
+        LEIntField("red_gamma", default=0),  # 4 bytes
+        LEIntField("green_gamma", default=0),  # 4 bytes
+        LEIntField("blue_gamma", default=0),  # 4 bytes
+    ]
+
+    def post_build(self, pkt, pay):
+        """Calculate the size"""
+        if self.size is None:
+            size = len(pkt)
+            pkt = struct.pack("I", size) + pkt[4:]  # Size of the header
+
+        return pkt + pay
+
+
+l = len(BitmapFileHeader()) + len(Bitmap_BITMAPCOREHEADER_Header())
+bind_layers(BitmapFileHeader, Bitmap_BITMAPCOREHEADER_Header, offset_bmp=l)
+l = len(BitmapFileHeader()) + len(Bitmap_BITMAPINFOHEADER_Header())
+bind_layers(BitmapFileHeader, Bitmap_BITMAPINFOHEADER_Header, offset_bmp=l)
+l = len(BitmapFileHeader()) + len(Bitmap_BITMAPV4HEADER_Header())
+bind_layers(BitmapFileHeader, Bitmap_BITMAPV4HEADER_Header, offset_bmp=l)
