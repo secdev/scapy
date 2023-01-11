@@ -1920,7 +1920,12 @@ class GenericRawPcapWriter(GenericPcapWriter):
                 self.write_packet(p)
 
 class RawWriter(): # GenericRawPcapWriter
-    """A stream writer"""
+    """A stream writer
+p1 = Ether() / IP() / TCP()
+pcap_out = RawWriter("/tmp/test")
+pcap_out.write(p1)
+pcap_out.close()
+    """
 
     def __init__(self,
                  filename,  # type: Union[IO[bytes], str]
