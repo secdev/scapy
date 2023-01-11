@@ -30,7 +30,7 @@ class BitmapFileHeader(Packet):
             )  # Size of the BMP file (bytes header + bytes data)
 
         if self.offset_bmp is not None and pay:
-            pkt = pkt[: (2 + 4 + 2 + 2)] + struct.pack("I", self.offset_bmp)
+            pkt = pkt[: -2] + struct.pack("I", self.offset_bmp)
 
         return pkt + pay
 
