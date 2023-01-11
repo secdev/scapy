@@ -5,7 +5,7 @@ https://en.wikipedia.org/wiki/BMP_file_format
 
 """
 import struct
-from scapy.fields import StrField, LenField, ShortField, IntField
+from scapy.fields import LEShortField, LESignedIntField, LEIntField
 from scapy.packet import Packet, bind_layers
 
 
@@ -14,58 +14,73 @@ class BitmapFileHeader(Packet):
 
     name = "Bitmap File Header"
     fields_desc = [  # 14 bytes
-        ShortField("identity", default=0x424D),  # 2 bytes (424d => BM)
-        LenField("size_bmp", default=None, fmt="!I"),  # 4 bytes
-        ShortField("reserved1", default=0),  # 2 bytes
-        ShortField("reserved2", default=0),  # 2 bytes
-        IntField("offset_bmp", default=None),  # 4 bytes
+        LEShortField("identity", default=0x424D),  # 2 bytes (424d => BM)
+        LEIntField("size_bmp", default=None),  # 4 bytes
+        LEShortField("reserved1", default=0),  # 2 bytes
+        LEShortField("reserved2", default=0),  # 2 bytes
+        LEIntField("offset_bmp", default=None),  # 4 bytes
     ]
 
     def post_build(self, pkt, pay):
         if self.size_bmp is None and pay:
             size_bmp = len(pkt) + len(pay)
             pkt = (
-                pkt[:2] + struct.pack("!I", size_bmp) + pkt[6:]
+                pkt[:2] + struct.pack("I", size_bmp) + pkt[6:]
             )  # Size of the BMP file (bytes header + bytes data)
+
+        if self.offset_bmp is not None and pay:
+            pkt = pkt[: (2 + 4 + 2 + 2)] + struct.pack("I", self.offset_bmp)
 
         return pkt + pay
 
-    def build(self, internal=0):
-        if not internal:
-            current_layer = self
-            if current_layer.offset_bmp is None:
-                current_layer.offset_bmp = 14  # Size of the header
-                if current_layer.haslayer(BitmapBITMAPCOREHEADERHeader):
-                    layer_BitmapBITMAPCOREHEADERHeader = current_layer.getlayer(
-                        BitmapBITMAPCOREHEADERHeader
-                    )
-                    current_layer.offset_bmp += len(
-                        layer_BitmapBITMAPCOREHEADERHeader  # We want just the BitmapBITMAPCOREHEADERHeader layer
-                    ) - len(layer_BitmapBITMAPCOREHEADERHeader.payload)
-
-        pkt = self.do_build()
-        pay = self.do_build_payload()
-
-        packet = self.post_build(pkt, pay)
-        return packet
-
 
 class BitmapBITMAPCOREHEADERHeader(Packet):
+    """BITMAPCOREHEADER"""
+
     name = "OS/2 1.x BITMAPCOREHEADER"
     fields_desc = [  # 12 bytes
-        LenField("size", default=None, fmt="I"),  # 4 bytes
-        ShortField("width", default=0),  # 2 bytes
-        ShortField("height", default=0),  # 2 bytes
-        ShortField("color_panels", default=1),  # 2 bytes
-        ShortField("number_of_bpp", default=0),  # 2 bytes
+        LEIntField("size", default=None),  # 4 bytes
+        LEShortField("width", default=0),  # 2 bytes
+        LEShortField("height", default=0),  # 2 bytes
+        LEShortField("color_panels", default=1),  # 2 bytes
+        LEShortField("number_of_bpp", default=0),  # 2 bytes
     ]
 
     def post_build(self, pkt, pay):
         if self.size is None:
             size = len(pkt)
-            pkt = struct.pack("!I", size) + pkt[4:]  # Size of the BMP header
+            pkt = struct.pack("I", size) + pkt[4:]  # Size of the header
 
         return pkt + pay
 
 
-bind_layers(BitmapFileHeader, BitmapBITMAPCOREHEADERHeader)
+class BitmapBITMAPINFOHEADERHeader(Packet):
+    """BITMAPINFOHEADER"""
+
+    name = "Windows BITMAPINFOHEADER"
+    fields_desc = [  # 12 bytes
+        LEIntField("size", default=None),  # 4 bytes
+        LESignedIntField("width", default=2),  # 4 bytes
+        LESignedIntField("height", default=2),  # 4 bytes
+        LEShortField("color_panels", default=1),  # 2 bytes
+        LEShortField("number_of_bpp", default=24),  # 2 bytes
+        LEIntField("compression_method", default=0),  # 4 bytes
+        LEIntField("image_size", default=16),  # 4 bytes
+        LEIntField("horizontal_resolution", default=2835),  # 4 bytes
+        LEIntField("vertical_resolution", default=2835),  # 4 bytes
+        LEIntField("number_of_colors", default=0),  # 4 bytes
+        LEIntField("number_of_important_colors", default=0),  # 4 bytes
+    ]
+
+    def post_build(self, pkt, pay):
+        if self.size is None:
+            size = len(pkt)
+            pkt = struct.pack("I", size) + pkt[4:]  # Size of the header
+
+        return pkt + pay
+
+
+l = len(BitmapFileHeader()) + len(BitmapBITMAPCOREHEADERHeader())
+bind_layers(BitmapFileHeader, BitmapBITMAPCOREHEADERHeader, offset_bmp=l)
+l = len(BitmapFileHeader()) + len(BitmapBITMAPINFOHEADERHeader())
+bind_layers(BitmapFileHeader, BitmapBITMAPINFOHEADERHeader, offset_bmp=l)
