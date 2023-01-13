@@ -54,7 +54,7 @@ then
   fi
 
   # Run tox
-  export UT_FLAGS="-K tcpdump -K manufdb -K wireshark -K ci_only -K vcan_socket -K automotive_comm -K imports -K scanner"
+  export UT_FLAGS="-K tcpdump -K manufdb -K wireshark -K tshark -K ci_only -K vcan_socket -K automotive_comm -K imports -K scanner"
   export SIMPLE_TESTS="true"
   export PYTHON
   PYVER=$($PYTHON -c "import sys; print('.'.join(sys.version.split('.')[:2]))")
