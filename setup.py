@@ -60,6 +60,7 @@ setup(
             'tox>=3.0.0'
         ]
     },
+    setup_requires=['wheel'],
     # We use __file__ in scapy/__init__.py, therefore Scapy isn't zip safe
     zip_safe=False,
 
