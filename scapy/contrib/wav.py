@@ -215,4 +215,3 @@ def test():
 0040  11 CE 1A 0D                                      ...."""
     ):
         raise ValueError("Generator error")
-
