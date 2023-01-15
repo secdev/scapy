@@ -24,7 +24,6 @@ from scapy.fields import IntField, SignedByteField, StrField, BitField, \
     StrFixedLenField, ShortField, FixedPointField, ByteEnumField
 from scapy.layers.bluetooth import EIR_Hdr, EIR_ServiceData16BitUUID, \
     EIR_CompleteList16BitServiceUUIDs, LowEnergyBeaconHelper
-import scapy.libs.six as six
 from scapy.packet import bind_layers, Packet
 
 EDDYSTONE_UUID = 0xfeaa
@@ -94,7 +93,7 @@ class EddystoneURLField(StrField):
         return bytes(o)
 
     def any2i(self, pkt, x):
-        if isinstance(x, six.text_type):
+        if isinstance(x, str):
             x = x.encode("ascii")
         return x
 

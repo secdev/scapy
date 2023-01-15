@@ -18,7 +18,6 @@ from scapy.contrib.automotive.scanner.graph import Graph
 from scapy.error import Scapy_Exception
 from scapy.supersocket import SuperSocket
 from scapy.utils import make_lined_table, SingleConversationSocket
-import scapy.libs.six as six
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse, Ecu
 from scapy.contrib.automotive.scanner.configuration import \
     AutomotiveTestCaseExecutorConfiguration
@@ -27,8 +26,7 @@ from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
     AutomotiveTestCase
 
 
-@six.add_metaclass(abc.ABCMeta)
-class AutomotiveTestCaseExecutor:
+class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
     """
     Base class for different automotive scanners. This class handles
     the connection to a scan target, ensures the execution of all it's
