@@ -13,7 +13,6 @@ Routing and network interface handling for IPv6.
 #                        Routing/Interfaces stuff                           #
 #############################################################################
 
-from __future__ import absolute_import
 import socket
 from scapy.config import conf
 from scapy.interfaces import resolve_iface, NetworkInterface

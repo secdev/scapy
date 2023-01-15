@@ -8,7 +8,6 @@
 HMAC classes.
 """
 
-from __future__ import absolute_import
 import hmac
 
 from scapy.layers.tls.crypto.hash import _tls_hash_algs

@@ -13,7 +13,6 @@ The related AEAD algorithms are defined in RFC 5116. Later on, RFC 7905
 introduced cipher suites based on a ChaCha20-Poly1305 construction.
 """
 
-from __future__ import absolute_import
 import struct
 
 from scapy.config import conf

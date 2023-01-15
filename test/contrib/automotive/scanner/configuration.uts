@@ -93,8 +93,8 @@ try:
 except KeyError:
     pass
 
-assert len(config["MyTestCase3"]) == 2
-assert len(config["MyTestCase2"]) == 3
+assert len(config["MyTestCase3"]) == 3
+assert len(config["MyTestCase2"]) == 4
 
 try:
     print(config["MyTestCase3"]["local_config"])

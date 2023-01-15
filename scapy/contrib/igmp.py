@@ -5,7 +5,6 @@
 # scapy.contrib.description = Internet Group Management Protocol v1/v2 (IGMP/IGMPv2)
 # scapy.contrib.status = loads
 
-from __future__ import print_function
 from scapy.compat import chb, orb
 from scapy.error import warning
 from scapy.fields import ByteEnumField, ByteField, IPField, XShortField

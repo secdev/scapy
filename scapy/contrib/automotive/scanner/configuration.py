@@ -7,6 +7,7 @@
 # scapy.contrib.status = library
 
 import inspect
+from threading import Event
 
 from scapy.compat import Any, Union, List, Type, Set, cast
 from scapy.contrib.automotive import log_automotive
@@ -110,10 +111,49 @@ class AutomotiveTestCaseExecutorConfiguration(object):
         self.stages = list()  # type: List[StagedAutomotiveTestCase]
         self.staged_test_cases = list()  # type: List[AutomotiveTestCaseABC]
         self.test_case_clss = set()  # type: Set[Type[AutomotiveTestCaseABC]]
+        self.stop_event = Event()
         self.global_kwargs = kwargs
+        self.global_kwargs["stop_event"] = self.stop_event
 
         for tc in test_cases:
             self.add_test_case(tc)
 
         log_automotive.debug("The following configuration was created")
         log_automotive.debug(self.__dict__)
+
+    def __reduce__(self):  # type: ignore
+        f, t, d = super(AutomotiveTestCaseExecutorConfiguration, self).__reduce__()  # type: ignore  # noqa: E501
+
+        try:
+            del d["tps"]
+        except KeyError:
+            pass
+
+        try:
+            del d["stop_event"]
+        except KeyError:
+            pass
+
+        try:
+            del d["global_kwargs"]["stop_event"]
+        except KeyError:
+            pass
+
+        for tc in d["test_cases"]:
+            try:
+                del d[tc.__class__.__name__]["stop_event"]
+            except KeyError:
+                pass
+
+        for tc in d["staged_test_cases"]:
+            try:
+                del d[tc.__class__.__name__]["stop_event"]
+            except KeyError:
+                pass
+
+        try:
+            del d["global_kwargs"]["stop_event"]
+        except KeyError:
+            pass
+
+        return f, t, d

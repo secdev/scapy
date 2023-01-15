@@ -12,7 +12,6 @@ used by the cryptography library may not implement the md5-sha1 hash, as with
 Ubuntu or OSX. This is why we reluctantly keep some legacy crypto here.
 """
 
-from __future__ import absolute_import
 from scapy.compat import bytes_encode, hex_bytes, bytes_hex
 import scapy.libs.six as six
 

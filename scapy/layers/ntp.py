@@ -8,7 +8,6 @@ NTP (Network Time Protocol).
 References : RFC 5905, RC 1305, ntpd source code
 """
 
-from __future__ import absolute_import
 import struct
 import time
 import datetime

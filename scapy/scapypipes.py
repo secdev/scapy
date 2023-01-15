@@ -3,7 +3,6 @@
 # See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 
-from __future__ import print_function
 import socket
 import subprocess
 

@@ -13,7 +13,7 @@ from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTe
 from scapy.utils import SingleConversationSocket
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse
 from scapy.contrib.automotive.uds_ecu_states import *
-
+import copy
 
 + Basic checks
 = ServiceEnumerator basecls checks
@@ -387,10 +387,10 @@ assert len(config.test_cases) == 3
 assert len(config.stages) == 0
 assert len(config.staged_test_cases) == 0
 assert len(config.test_case_clss) == 3
-assert len(config.TestCase1.items()) == 4
-assert len(config.TestCase2.items()) == 3
-assert len(config["TestCase1"].items()) == 4
-assert len(config.MyTestCase.items()) == 3
+assert len(config.TestCase1.items()) == 5
+assert len(config.TestCase2.items()) == 4
+assert len(config["TestCase1"].items()) == 5
+assert len(config.MyTestCase.items()) == 4
 assert config.TestCase1["verbose"]
 assert config.TestCase1["debug"]
 assert config.TestCase1["local_kwarg"] == 42
@@ -408,7 +408,7 @@ config = tce.configuration  # type: AutomotiveTestCaseExecutorConfiguration
 assert not config.verbose
 assert not config.debug
 assert len(config.test_cases) == 1
-assert len(config.MyTestCase.items()) == 0
+assert len(config.MyTestCase.items()) == 1
 assert isinstance(tce.socket, SingleConversationSocket)
 
 
@@ -432,7 +432,7 @@ assert len(config.test_cases) == 1
 assert len(config.stages) == 1
 assert len(config.staged_test_cases) == 2
 assert len(config.test_case_clss) == 3
-assert len(config.StagedAutomotiveTestCase.items()) == 0
+assert len(config.StagedAutomotiveTestCase.items()) == 1
 assert isinstance(tce.socket, SingleConversationSocket)
 
 = Basic tests with two stages
@@ -460,11 +460,11 @@ assert len(config.test_cases) == 2
 assert len(config.stages) == 2
 assert len(config.staged_test_cases) == 4
 assert len(config.test_case_clss) == 5
-assert len(config.StagedAutomotiveTestCase.items()) == 1
-assert len(config.StagedTest.items()) == 1
-assert len(config.TestCase1.items()) == 1
-assert len(config.TestCase2.items()) == 1
-assert len(config.MyTestCase.items()) == 1
+assert len(config.StagedAutomotiveTestCase.items()) == 2
+assert len(config.StagedTest.items()) == 2
+assert len(config.TestCase1.items()) == 2
+assert len(config.TestCase2.items()) == 2
+assert len(config.MyTestCase.items()) == 2
 
 assert isinstance(tce.socket, SingleConversationSocket)
 
@@ -990,6 +990,10 @@ assert tce.scan_completed
 
 class MyTestCase1(AutomotiveTestCase):
     _description = "MyTestCase1"
+    _supported_kwargs = copy.copy(AutomotiveTestCase._supported_kwargs)
+    _supported_kwargs.update({
+        'stop_event': (threading._Event if six.PY2 else threading.Event, None),  # type: ignore  # noqa: E501
+    })
     @property
     def supported_responses(self):
         return [EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=2) / Raw(b"de")),
@@ -999,6 +1003,10 @@ class MyTestCase1(AutomotiveTestCase):
 
 class MyTestCase2(AutomotiveTestCase):
     _description = "MyTestCase2"
+    _supported_kwargs = copy.copy(AutomotiveTestCase._supported_kwargs)
+    _supported_kwargs.update({
+        'stop_event': (threading._Event if six.PY2 else threading.Event, None),  # type: ignore  # noqa: E501
+    })
     @property
     def supported_responses(self):
         return [EcuResponse(EcuState(session=2),            responses=UDS() / UDS_RDBIPR(dataIdentifier=5) / Raw(b"deadbeef1")),

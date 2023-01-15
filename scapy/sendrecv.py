@@ -7,7 +7,6 @@
 Functions to send and receive packets.
 """
 
-from __future__ import absolute_import, print_function
 import itertools
 from threading import Thread, Event
 import os

@@ -13,7 +13,6 @@ We also provide TLS identifiers for these DH groups and also the ECDH groups.
 (Note that the equivalent of _ffdh_groups for ECDH is ec._CURVE_TYPES.)
 """
 
-from __future__ import absolute_import
 
 from scapy.config import conf
 from scapy.compat import bytes_int, int_bytes

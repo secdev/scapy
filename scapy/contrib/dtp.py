@@ -17,8 +17,6 @@
     - TLV code derived from the CDP implementation of scapy. (Thanks to Nicolas Bareil and Arnaud Ebalard)  # noqa: E501
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
 import struct
 
 from scapy.packet import Packet, bind_layers

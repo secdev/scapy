@@ -7,8 +7,6 @@
 Linux specific functions.
 """
 
-from __future__ import absolute_import
-
 
 from fcntl import ioctl
 from select import select
@@ -47,8 +45,6 @@ from scapy.libs.structures import sock_fprog
 from scapy.packet import Packet, Padding
 from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
-
-import scapy.libs.six as six
 
 # Typing imports
 from scapy.compat import (
@@ -208,7 +204,7 @@ def get_alias_address(iface_name,  # type: str
 
     # Extract interfaces names
     out = struct.unpack("iL", ifreq)[0]
-    names_b = names_ar.tobytes() if six.PY3 else names_ar.tostring()  # type: ignore  # noqa: E501
+    names_b = names_ar.tobytes()
     names = [names_b[i:i + offset].split(b'\0', 1)[0] for i in range(0, out, name_len)]  # noqa: E501
 
     # Look for the IP address
@@ -504,21 +500,16 @@ class L2Socket(SuperSocket):
             socket.SO_RCVBUF,
             conf.bufsize
         )
-        if not six.PY2:
-            # Receive Auxiliary Data (VLAN tags)
-            try:
-                self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
-                self.ins.setsockopt(
-                    socket.SOL_SOCKET,
-                    SO_TIMESTAMPNS,
-                    1
-                )
-                self.auxdata_available = True
-            except OSError:
-                # Note: Auxiliary Data is only supported since
-                #       Linux 2.6.21
-                msg = "Your Linux Kernel does not support Auxiliary Data!"
-                log_runtime.info(msg)
+        # Receive Auxiliary Data (VLAN tags)
+        try:
+            self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
+            self.ins.setsockopt(socket.SOL_SOCKET, SO_TIMESTAMPNS, 1)
+            self.auxdata_available = True
+        except OSError:
+            # Note: Auxiliary Data is only supported since
+            #       Linux 2.6.21
+            msg = "Your Linux Kernel does not support Auxiliary Data!"
+            log_runtime.info(msg)
         if not isinstance(self, L2ListenSocket):
             self.outs = self.ins  # type: socket.socket
             self.outs.setsockopt(

@@ -14,7 +14,6 @@ Specifications can be retrieved from https://www.opennetworking.org/
 # scapy.contrib.description = Openflow v1.0
 # scapy.contrib.status = loads
 
-from __future__ import absolute_import
 import struct
 
 

@@ -12,7 +12,6 @@ This module covers the handshake TLS subprotocol, except for the key exchange
 mechanisms which are addressed with keyexchange.py.
 """
 
-from __future__ import absolute_import
 import math
 import os
 import struct

@@ -11,7 +11,6 @@
 PPI-GEOLOCATION tags
 """
 
-from __future__ import absolute_import
 import functools
 import struct
 

@@ -11,7 +11,6 @@ This file contains bindings for 802.11 layers and some usual linklayers:
   - RadioTap
 """
 
-from __future__ import print_function
 import re
 import struct
 from zlib import crc32

@@ -14,7 +14,6 @@ HomePlugAV Management Message Type
 Key (type value) : Description
 """
 
-from __future__ import absolute_import
 import struct
 
 from scapy.packet import Packet, bind_layers

@@ -39,6 +39,7 @@ You can turn auto-decompression/auto-compression off with:
 # It was reimplemented for scapy 2.4.3+ using sessions, stream handling.
 # Original Authors : Steeve Barbeau, Luca Invernizzi
 
+import gzip
 import io
 import os
 import re
@@ -47,8 +48,8 @@ import struct
 import subprocess
 
 from scapy.base_classes import Net
-from scapy.compat import plain_str, bytes_encode, \
-    gzip_compress, gzip_decompress
+from scapy.compat import plain_str, bytes_encode
+
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.error import warning, log_loading
@@ -58,8 +59,6 @@ from scapy.supersocket import StreamSocket
 from scapy.utils import get_temp_file, ContextManagerSubprocess
 
 from scapy.layers.inet import TCP, TCP_client
-
-from scapy.libs import six
 
 try:
     import brotli
@@ -261,7 +260,7 @@ def _dissect_headers(obj, s):
             continue
         obj.setfieldval(f.name, value)
     if headers:
-        headers = dict(six.itervalues(headers))
+        headers = dict(headers.values())
         obj.setfieldval('Unknown_Headers', headers)
     return first_line, body
 
@@ -311,7 +310,7 @@ class _HTTPContent(Packet):
                 import zlib
                 s = zlib.decompress(s)
             elif "gzip" in encodings:
-                s = gzip_decompress(s)
+                s = gzip.decompress(s)
             elif "compress" in encodings:
                 import lzw
                 s = lzw.decompress(s)
@@ -350,7 +349,7 @@ class _HTTPContent(Packet):
             import zlib
             pay = zlib.compress(pay)
         elif "gzip" in encodings:
-            pay = gzip_compress(pay)
+            pay = gzip.compress(pay)
         elif "compress" in encodings:
             import lzw
             pay = lzw.compress(pay)
@@ -412,7 +411,7 @@ class _HTTPContent(Packet):
         # Handle Unknown_Headers
         if self.Unknown_Headers:
             headers_text = b""
-            for name, value in six.iteritems(self.Unknown_Headers):
+            for name, value in self.Unknown_Headers.items():
                 headers_text += _header_line(name, value) + b"\r\n"
             p = self.get_field("Unknown_Headers").addfield(
                 self, p, headers_text

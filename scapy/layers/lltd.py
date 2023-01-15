@@ -9,7 +9,6 @@ https://msdn.microsoft.com/en-us/library/cc233983.aspx
 
 """
 
-from __future__ import absolute_import
 from array import array
 
 from scapy.fields import BitField, FlagsField, ByteField, ByteEnumField, \

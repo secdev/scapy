@@ -7,7 +7,6 @@
 DNS: Domain Name System.
 """
 
-from __future__ import absolute_import
 import operator
 import socket
 import struct

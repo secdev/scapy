@@ -13,7 +13,6 @@ load_module('p0fv2')
 = Fetch database
 ~ netaccess
 
-from __future__ import print_function
 try:
     from urllib.request import urlopen
 except ImportError:
