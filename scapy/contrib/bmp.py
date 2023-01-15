@@ -7,6 +7,7 @@ https://en.wikipedia.org/wiki/BMP_file_format
 import struct
 from scapy.fields import LEShortField, LESignedIntField, LEIntField, Field
 from scapy.packet import Packet, bind_layers
+from scapy.utils import hexdump
 
 
 class BitmapFileHeader(Packet):
@@ -14,8 +15,10 @@ class BitmapFileHeader(Packet):
 
     name = "Bitmap File Header"
     fields_desc = [  # 14 bytes
-        LEShortField("identity", default=0x4d42),  # 2 bytes (424d => BM)
-        LEIntField("size_bmp", default=None),  # 4 bytes
+        LEShortField("identity", default=0x4D42),  # 2 bytes (424d => BM)
+        LEIntField(
+            "size_bmp", default=None
+        ),  # 4 bytes - we cannot use PacketLenField as the header below us changes
         LEShortField("reserved1", default=0),  # 2 bytes
         LEShortField("reserved2", default=0),  # 2 bytes
         LEIntField("offset_bmp", default=None),  # 4 bytes
@@ -30,7 +33,7 @@ class BitmapFileHeader(Packet):
             )  # Size of the BMP file (bytes header + bytes data)
 
         if self.offset_bmp is not None and pay:
-            pkt = pkt[: -2] + struct.pack("I", self.offset_bmp)
+            pkt = pkt[:-2] + struct.pack("I", self.offset_bmp)
 
         return pkt + pay
 
@@ -99,9 +102,9 @@ class Bitmap_BITMAPV4HEADER_Header(Packet):
         LEIntField("vertical_resolution", default=2835),  # 4 bytes
         LEIntField("number_of_colors", default=0),  # 4 bytes
         LEIntField("number_of_important_colors", default=0),  # 4 bytes
-        LEIntField("red_channel_mask", default=  0x00FF0000),  # 4 bytes
+        LEIntField("red_channel_mask", default=0x00FF0000),  # 4 bytes
         LEIntField("green_channel_mask", default=0x0000FF00),  # 4 bytes
-        LEIntField("blue_channel_mask", default= 0x000000FF),  # 4 bytes
+        LEIntField("blue_channel_mask", default=0x000000FF),  # 4 bytes
         LEIntField("alpha_channel_mask", default=0xFF000000),  # 4 bytes
         LEIntField("lcs_windows_color_space", default=0x57696E20),  # 4 bytes " Win"
         Field(name="CIEXYZTRIPLE", default=("\x00" * 0x24), fmt="36s"),
@@ -125,3 +128,24 @@ l = len(BitmapFileHeader()) + len(Bitmap_BITMAPINFOHEADER_Header())
 bind_layers(BitmapFileHeader, Bitmap_BITMAPINFOHEADER_Header, offset_bmp=l)
 l = len(BitmapFileHeader()) + len(Bitmap_BITMAPV4HEADER_Header())
 bind_layers(BitmapFileHeader, Bitmap_BITMAPV4HEADER_Header, offset_bmp=l)
+
+
+def test():
+    payload = bytes.fromhex("00 00 FF" "FF FF FF" "00 00" "FF 00 00" "00 FF 00" "00 00")
+    bmp_test = BitmapFileHeader() / Bitmap_BITMAPV4HEADER_Header() / payload
+
+    generated = hexdump(bmp_test, dump=True)
+
+    if (
+        generated
+        != """0000  42 4D 8A 00 00 00 00 00 00 00 7A 00 7A 00 00 00  BM........z.z...
+0010  6C 00 00 00 04 00 00 00 02 00 00 00 01 00 20 00  l............. .
+0020  03 00 00 00 20 00 00 00 13 0B 00 00 13 0B 00 00  .... ...........
+0030  00 00 00 00 00 00 00 00 00 00 FF 00 00 FF 00 00  ................
+0040  FF 00 00 00 00 00 00 FF 20 6E 69 57 00 00 00 00  ........ niW....
+0050  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+0060  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+0070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 FF FF  ................
+0080  FF FF 00 00 FF 00 00 00 FF 00 00 00              ............"""
+    ):
+        raise ValueError("Generator failed")
