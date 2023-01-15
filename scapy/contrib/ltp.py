@@ -16,7 +16,6 @@
 # scapy.contrib.description = Licklider Transmission Protocol (LTP)
 # scapy.contrib.status = loads
 
-import scapy.libs.six as six
 from scapy.packet import Packet, bind_layers, bind_top_down
 from scapy.fields import BitEnumField, BitField, BitFieldLenField, \
     ByteEnumField, ConditionalField, PacketListField, StrLenField
@@ -100,7 +99,7 @@ class LTPReceptionClaim(Packet):
 
 
 def _ltp_guess_payload(pkt, *args):
-    for k, v in six.iteritems(_ltp_payload_conditions):
+    for k, v in _ltp_payload_conditions.items():
         if v(pkt):
             return k
     return conf.raw_layer

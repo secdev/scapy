@@ -18,7 +18,6 @@ from scapy.fields import (
     StrFixedLenField, ShortField,
     FlagsField, ByteField, XIntField, X3BytesField
 )
-import scapy.libs.six as six
 
 PNIO_FRAME_IDS = {
     0x0020: "PTCP-RTSyncPDU-followup",
@@ -77,7 +76,7 @@ def s2i_frameid(x):
     except KeyError:
         pass
     try:
-        return next(key for key, value in six.iteritems(PNIO_FRAME_IDS)
+        return next(key for key, value in PNIO_FRAME_IDS.items()
                     if value == x)
     except StopIteration:
         pass

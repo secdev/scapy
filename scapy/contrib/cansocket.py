@@ -13,7 +13,6 @@ CANSocket.
 from scapy.error import log_loading
 from scapy.consts import LINUX
 from scapy.config import conf
-import scapy.libs.six as six
 
 PYTHON_CAN = False
 
@@ -31,7 +30,7 @@ if PYTHON_CAN:
     log_loading.info("Using python-can CANSockets.\nSpecify 'conf.contribs['CANSocket'] = {'use-python-can': False}' to enable native CANSockets.")  # noqa: E501
     from scapy.contrib.cansocket_python_can import (PythonCANSocket, CANSocket)  # noqa: E501 F401
 
-elif LINUX and six.PY3 and not conf.use_pypy:
+elif LINUX and not conf.use_pypy:
     log_loading.info("Using native CANSockets.\nSpecify 'conf.contribs['CANSocket'] = {'use-python-can': True}' to enable python-can CANSockets.")  # noqa: E501
     from scapy.contrib.cansocket_native import (NativeCANSocket, CANSocket)  # noqa: E501 F401
 
