@@ -12,8 +12,6 @@ Implements:
 - rfc1533 - DHCP Options and BOOTP Vendor Extensions
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
 try:
     from collections.abc import Iterable
 except ImportError:

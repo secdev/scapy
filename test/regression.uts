@@ -443,16 +443,6 @@ hex_data = bytes_hex(monty_data)
 assert hex_data == b'53746f70212057686f20617070726f61636865732074686520427269646765206f66204465617468206d75737420616e73776572206d65207468657365207175657374696f6e732074687265652c202765726520746865206f746865722073696465206865207365652e'
 assert hex_bytes(hex_data) == monty_data
 
-= test gzip_decompress/gzip_compress
-
-from scapy.compat import gzip_compress, gzip_decompress
-
-gziped_data = b"\x1f\x8b\x08\x00N\xf5\xd7\\\x02\xff\x1d\x8b9\x0e\x800\x0c\x04\xbf\xb2T4\x88G ~@A\x1d\x91\x85\xa4H\x1cl#\xbe\xcf\xd1\xac4\x9a\xd9\xc5\xa5uX\x93 \xb4\xa6\x12\xb6D\x83'b\xd2\x1c\x0fBv\xcc\x0c\x9eP.s\x84j7\x15\x85_b\xc4y\xd1<K\xfd.J\x0e\xe8\xa9\xbf\x83\xbc\xa3\xb0\x1c\x89\x97\x8c\x1c\x1fc\xbeS\\j\x00\x00\x00"
-assert gzip_decompress(gziped_data) == monty_data
-
-data = b"sweet celestia"
-assert gzip_decompress(gzip_compress(data)) == data
-
 = orb/chb
 
 assert orb(b"\x01"[0]) == 1

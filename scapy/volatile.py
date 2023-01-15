@@ -9,7 +9,6 @@
 Fields that hold random numbers.
 """
 
-from __future__ import absolute_import
 import copy
 import random
 import time

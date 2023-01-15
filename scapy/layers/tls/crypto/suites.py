@@ -11,7 +11,6 @@ A comprehensive list of specified cipher suites can be consulted at:
 https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml
 """
 
-from __future__ import absolute_import
 from scapy.layers.tls.crypto.kx_algs import _tls_kx_algs
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import _tls_hmac_algs

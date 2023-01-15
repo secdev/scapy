@@ -9,7 +9,6 @@ ISAKMP (Internet Security Association and Key Management Protocol).
 
 # Mostly based on https://tools.ietf.org/html/rfc2408
 
-from __future__ import absolute_import
 import struct
 from scapy.config import conf
 from scapy.packet import Packet, bind_bottom_up, bind_top_down

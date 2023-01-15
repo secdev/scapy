@@ -11,6 +11,7 @@ Color themes for the interactive console.
 #  Color themes  #
 ##################
 
+import html
 import sys
 
 from scapy.compat import (
@@ -388,8 +389,7 @@ def apply_ipython_style(shell):
         if isinstance(conf.color_theme, (FormatTheme, NoTheme)):
             # Formatable
             if isinstance(conf.color_theme, HTMLTheme):
-                from scapy.compat import html_escape
-                prompt = html_escape(conf.prompt)
+                prompt = html.escape(conf.prompt)
             elif isinstance(conf.color_theme, LatexTheme):
                 from scapy.utils import tex_escape
                 prompt = tex_escape(conf.prompt)

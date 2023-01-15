@@ -36,7 +36,6 @@ You can also use the io with a TCPSession, e.g. to get an HTTPS answer::
                 timeout=2)
 """
 
-from __future__ import print_function
 import socket
 import binascii
 import struct

@@ -235,7 +235,6 @@ assert p.sprintf("%s1%") == 'cafe'
 = Creation of a layer with ActionField
 ~ field actionfield
 
-from __future__ import print_function
 
 class TestAction(Packet):
     __slots__ = ["_val", "_fld", "_priv1", "_priv2"]

@@ -21,8 +21,6 @@ from scapy.sendrecv import send, sniff, AsyncSniffer
 from scapy.packet import Packet
 from scapy.plist import PacketList
 
-import scapy.libs.six as six
-
 from scapy.compat import (
     Any,
     Callable,
@@ -68,8 +66,7 @@ class ReferenceAM(_Generic_metaclass):
         return obj
 
 
-@six.add_metaclass(ReferenceAM)
-class AnsweringMachine(Generic[_T]):
+class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
     function_name = ""
     filter = None  # type: Optional[str]
     sniff_options = {"store": 0}  # type: Dict[str, Any]
