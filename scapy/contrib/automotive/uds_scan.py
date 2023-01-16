@@ -14,10 +14,11 @@ import copy
 import inspect
 
 from collections import defaultdict
-from typing import NamedTuple, Sequence
+
+from typing import NamedTuple
 
 from scapy.compat import Dict, Optional, List, Type, Any, Iterable, \
-    cast, Union, orb, Set
+    cast, Union, orb, Set, Sequence
 from scapy.contrib.automotive import log_automotive
 from scapy.packet import Raw, Packet
 import scapy.libs.six as six
@@ -224,8 +225,9 @@ class UDS_TPEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
         try:
             configuration["tps"].stop()
             configuration["tps"] = None
-        except (AttributeError, KeyError) as e:
-            log_automotive.debug("Cleanup TP-Sender Error: %s", e)
+        except (AttributeError, KeyError):
+            pass
+            # log_automotive.debug("Cleanup TP-Sender Error: %s", e)
         return True
 
     def get_transition_function(self, socket, edge):
