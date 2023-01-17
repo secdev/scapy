@@ -217,10 +217,14 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         if isinstance(retry_entry, Packet):
             log_automotive.debug("Provide retry packet")
             return [retry_entry]
+        elif isinstance(retry_entry, list):
+            if len(retry_entry):
+                log_automotive.debug("Provide retry list")
         else:
             log_automotive.debug("Provide retry iterator")
             # assume self.retry_pkt is a generator or list
-            return retry_entry
+
+        return retry_entry
 
     def _get_initial_request_iterator(self, state, **kwargs):
         # type: (EcuState, Any) -> Iterable[Packet]

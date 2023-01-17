@@ -79,7 +79,7 @@ for idx in range(1, 4):
     sockets.append(ISOTPSoftSocket(sock_recv, tx_id=0x700 + idx, rx_id=0x600 + idx))
 
 found_packets = scan(sock_sender, range(0x5ff, 0x604),
-                     noise_ids=[0x701], sniff_time=0.02)
+                     noise_ids=[0x701], sniff_time=0.1)
 
 for s in sockets:
     s.close()
@@ -97,7 +97,7 @@ sock_sender.pair(sock_recv)
 with ISOTPSoftSocket(sock_recv, tx_id=0x700, rx_id=0x601, ext_address=0xaa, rx_ext_address=0xbb):
     found_packets = scan_extended(sock_sender, [0x600, 0x601],
                                   extended_scan_range=range(0xb0, 0xc0),
-                                  sniff_time=0.02)
+                                  sniff_time=0.1)
 
 fpkt = found_packets[list(found_packets.keys())[0]][0]
 rpkt = CAN(flags=0, identifier=0x700, length=4, data=b'\xaa0\x00\x00')

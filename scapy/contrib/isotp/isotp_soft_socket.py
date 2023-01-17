@@ -105,8 +105,6 @@ class ISOTPSoftSocket(SuperSocket):
     :param basecls: base class of the packets emitted by this socket
     """  # noqa: E501
 
-    nonblocking_socket = True
-
     def __init__(self,
                  can_socket=None,  # type: Optional["CANSocket"]
                  tx_id=0,  # type: int
@@ -972,9 +970,5 @@ class ISOTPSocketImplementation:
 
     def recv(self, timeout=None):
         # type: (Optional[int]) -> Optional[Tuple[bytes, Union[float, EDecimal]]]  # noqa: E501
-        """Receive an ISOTP frame, blocking if none is available in the buffer
-        for at most 'timeout' seconds."""
-        try:
-            return self.rx_queue.recv()
-        except IndexError:
-            return None
+        """Receive an ISOTP frame, blocking if none is available in the buffer."""
+        return self.rx_queue.recv()
