@@ -63,7 +63,6 @@ from scapy.packet import (
     bind_top_down,
 )
 from scapy.layers.inet import IP, UDP
-import scapy.libs.six as six
 from scapy.layers.inet6 import IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt, \
     IPv6ExtHdrRouting
 
@@ -943,10 +942,10 @@ class SecurityAssociation(object):
         :param esn: extended sequence number (32 MSB)
         """
 
-        if proto not in (ESP, AH, ESP.name, AH.name):
+        if proto not in {ESP, AH, ESP.name, AH.name}:
             raise ValueError("proto must be either ESP or AH")
-        if isinstance(proto, six.string_types):
-            self.proto = eval(proto)
+        if isinstance(proto, str):
+            self.proto = {ESP.name: ESP, AH.name: AH}[proto]
         else:
             self.proto = proto
 

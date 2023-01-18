@@ -9,15 +9,12 @@ Interfaces management
 
 import itertools
 import uuid
-from collections import defaultdict
+from collections import UserDict, defaultdict
 
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.utils import pretty_list
 from scapy.utils6 import in6_isvalid
-
-from scapy.libs.six.moves import UserDict
-import scapy.libs.six as six
 
 # Typing imports
 import scapy
@@ -203,7 +200,7 @@ class NetworkInterfaceDict(UserDict):
               prov,  # type: InterfaceProvider
               ):
         # type: (...) -> None
-        for ifname, iface in six.iteritems(dat):
+        for ifname, iface in dat.items():
             if ifname in self.data:
                 # Handle priorities: keep except if libpcap
                 if prov.libpcap:
@@ -244,7 +241,7 @@ class NetworkInterfaceDict(UserDict):
         device name.
         """
         try:
-            return next(iface for iface in six.itervalues(self)  # type: ignore
+            return next(iface for iface in self.values()  # type: ignore
                         if (iface.name == name or iface.description == name))
         except (StopIteration, RuntimeError):
             raise ValueError("Unknown network interface %r" % name)
@@ -253,7 +250,7 @@ class NetworkInterfaceDict(UserDict):
         # type: (str) -> NoReturn
         """Return interface for a given network device name."""
         try:
-            return next(iface for iface in six.itervalues(self)  # type: ignore
+            return next(iface for iface in self.values()  # type: ignore
                         if iface.network_name == network_name)
         except (StopIteration, RuntimeError):
             raise ValueError(
@@ -265,7 +262,7 @@ class NetworkInterfaceDict(UserDict):
         """Return interface name from interface index"""
         try:
             if_index = int(if_index)  # Backward compatibility
-            return next(iface for iface in six.itervalues(self)  # type: ignore
+            return next(iface for iface in self.values()  # type: ignore
                         if iface.index == if_index)
         except (StopIteration, RuntimeError):
             if str(if_index) == "1":

@@ -64,9 +64,9 @@ of function calls, packet creations, etc.).
     is a nice read!
 
 -   Avoid creating unnecessary `list` objects, particularly if they
-    can be huge (e.g., when possible, use `scapy.modules.six.range()` instead of
-    `range()`, `for line in fdesc` instead of `for line in
-    fdesc.readlines()`; more generally prefer generators over lists).
+    can be huge (e.g., when possible, use `for line in fdesc` instead of
+    `for line in fdesc.readlines()`; more generally prefer generators over
+    lists).
 
 ### Tests
 
@@ -146,15 +146,11 @@ The project aims to provide code that works both on Python 2 and Python 3. There
 -   lambdas must be written using a single argument when using tuples: use `lambda x, y: x + f(y)` instead of `lambda (x, y): x + f(y)`.
 -   use int instead of long
 -   use list comprehension instead of map() and filter()
--   use scapy.modules.six.moves.range instead of xrange and range
--   use scapy.modules.six.itervalues(dict) instead of dict.values() or dict.itervalues()
--   use scapy.modules.six.string_types instead of basestring
 -   `__bool__ = __nonzero__` must be used when declaring `__nonzero__` methods
 -   `__next__ = next` must be used when declaring `next` methods in iterators
 -   `StopIteration` must NOT be used in generators (but it can still be used in iterators)
 -   `io.BytesIO` must be used instead of `StringIO` when using bytes
 -   `__cmp__` must not be used.
--   UserDict should be imported via `six.UserDict`
 
 ### Code review
 

@@ -347,18 +347,18 @@ class Packet_metaclass(_Generic_metaclass):
                       type.__new__(cls, name, bases, dct))
         # Note: below can't be typed because we use attributes
         # created dynamically..
-        newcls.__all_slots__ = set(
+        newcls.__all_slots__ = set(  # type: ignore
             attr
             for cls in newcls.__mro__ if hasattr(cls, "__slots__")
             for attr in cls.__slots__
         )
 
-        newcls.aliastypes = (
+        newcls.aliastypes = (  # type: ignore
             [newcls] + getattr(newcls, "aliastypes", [])
         )
 
         if hasattr(newcls, "register_variant"):
-            newcls.register_variant()
+            newcls.register_variant()  # type: ignore
         for _f in newcls.fields_desc:
             if hasattr(_f, "register_owner"):
                 _f.register_owner(newcls)
@@ -386,7 +386,7 @@ class Packet_metaclass(_Generic_metaclass):
                 from scapy import config
                 if config.conf.debug_dissector:
                     raise
-                cls = config.conf.raw_layer  # type: ignore
+                cls = config.conf.raw_layer
         i = cls.__new__(
             cls,  # type: ignore
             cls.__name__,

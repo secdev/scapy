@@ -38,8 +38,6 @@ from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
 from scapy.base_classes import Gen, Net, BasePacket, Field_metaclass
 from scapy.error import warning
 
-import scapy.libs.six as six
-from scapy.libs.six import integer_types
 
 try:
     from enum import Enum
@@ -143,8 +141,7 @@ I = TypeVar('I')  # Internal storage  # noqa: E741
 M = TypeVar('M')  # Machine storage
 
 
-@six.add_metaclass(Field_metaclass)
-class Field(Generic[I, M]):
+class Field(Generic[I, M], metaclass=Field_metaclass):
     """
     For more information on how this works, please refer to the
     'Adding new protocols' chapter in the online documentation:
@@ -674,11 +671,6 @@ class TrailerBytes(bytes):
             item = slice(new_start, new_stop, step)
         return super(self.__class__, self).__getitem__(item)
 
-    if six.PY2:
-        def __getslice__(self, i, j):
-            # Python 2 compat
-            return self.__getitem__(slice(i, j))
-
 
 class TrailerField(_FieldContainer):
     """Special Field that gets its value from the end of the *packet*
@@ -753,7 +745,7 @@ class DestField(Field[str, bytes]):
         for addr, condition in self.bindings.get(pkt.payload.__class__, []):
             try:
                 if all(pkt.payload.getfieldval(field) == value
-                       for field, value in six.iteritems(condition)):
+                       for field, value in condition.items()):
                     return addr  # type: ignore
             except AttributeError:
                 pass
@@ -1097,7 +1089,7 @@ class NBytesField(Field[int, List[int]]):
 
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], int) -> str
-        if isinstance(x, integer_types):
+        if isinstance(x, int):
             return '%i' % x
         return super(NBytesField, self).i2repr(pkt, x)
 
@@ -1118,7 +1110,7 @@ class NBytesField(Field[int, List[int]]):
 class XNBytesField(NBytesField):
     def i2repr(self, pkt, x):
         # type: (Optional[Packet], int) -> str
-        if isinstance(x, integer_types):
+        if isinstance(x, int):
             return '0x%x' % x
         # x can be a tuple when coming from struct.unpack (from getfield)
         if isinstance(x, (list, tuple)):
@@ -1390,7 +1382,7 @@ class _StrField(Field[I, bytes]):
 
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Any) -> I
-        if isinstance(x, six.text_type):
+        if isinstance(x, str):
             x = bytes_encode(x)
         return super(_StrField, self).any2i(pkt, x)  # type: ignore
 
@@ -1435,7 +1427,7 @@ class StrFieldUtf16(StrField):
 
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Optional[str]) -> bytes
-        if isinstance(x, six.text_type):
+        if isinstance(x, str):
             return self.h2i(pkt, x)
         return super(StrFieldUtf16, self).any2i(pkt, x)
 
@@ -2420,11 +2412,7 @@ class BitFieldLenField(BitField):
 
     def i2m(self, pkt, x):
         # type: (Optional[Packet], Optional[Any]) -> int
-        if six.PY2:
-            func = FieldLenField.i2m.__func__
-        else:
-            func = FieldLenField.i2m
-        return func(self, pkt, x)  # type: ignore
+        return FieldLenField.i2m(self, pkt, x)  # type: ignore
 
 
 class XBitField(BitField):
@@ -2699,7 +2687,7 @@ class _MultiEnumField(_EnumField[I]):
         for m in enum:
             s2i = {}  # type: Dict[str, I]
             self.s2i_multi[m] = s2i
-            for k, v in six.iteritems(enum[m]):
+            for k, v in enum[m].items():
                 s2i[v] = k
                 self.s2i_all[v] = k
         Field.__init__(self, name, default, fmt)
@@ -2841,7 +2829,7 @@ class FlagValue(object):
         # type: (Any) -> int
         if not value:
             return 0
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             value = value.split('+') if self.multi else list(value)
         if isinstance(value, list):
             y = 0
@@ -2978,7 +2966,7 @@ class FlagValue(object):
 
     def __setattr__(self, attr, value):
         # type: (str, Union[List[str], int, str]) -> None
-        if attr == "value" and not isinstance(value, six.integer_types):
+        if attr == "value" and not isinstance(value, int):
             raise ValueError(value)
         if attr in self.__slots__:
             return super(FlagValue, self).__setattr__(attr, value)
@@ -3050,7 +3038,7 @@ class FlagsField(_BitField[Optional[Union[int, FlagValue]]]):
         # Convert the dict to a list
         if isinstance(names, dict):
             tmp = ["bit_%d" % i for i in range(abs(size))]
-            for i, v in six.viewitems(names):
+            for i, v in names.items():
                 tmp[int(math.floor(math.log(i, 2)))] = v
             names = tmp
         # Store the names as str or list
@@ -3126,7 +3114,7 @@ class MultiFlagsField(_BitField[Set[str]]):
                     these_names = self.names[v]
                     s = set()
                     for i in x:
-                        for val in six.itervalues(these_names):
+                        for val in these_names.values():
                             if val.short == i:
                                 s.add(i)
                                 break
@@ -3147,7 +3135,7 @@ class MultiFlagsField(_BitField[Set[str]]):
         if x is None:
             return r
         for flag_set in x:
-            for i, val in six.iteritems(these_names):
+            for i, val in these_names.items():
                 if val.short == flag_set:
                     r |= 1 << i
                     break
@@ -3179,7 +3167,7 @@ class MultiFlagsField(_BitField[Set[str]]):
 
         r = set()
         for flag_set in x:
-            for i in six.itervalues(these_names):
+            for i in these_names.values():
                 if i.short == flag_set:
                     r.add("{} ({})".format(i.long, i.short))
                     break

@@ -12,10 +12,7 @@ with open(scapy_path("test/contrib/automotive/interface_mockup.py")) as f:
 = Definition of constants, utility functions and mock classes
 
 # hexadecimal to bytes convenience function
-if six.PY2:
-    dhex = lambda s: "".join(s.split()).decode('hex')
-else:
-    dhex = bytes.fromhex
+dhex = bytes.fromhex
 
 + Compatibility with can-isotp linux kernel modules
 

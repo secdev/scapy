@@ -24,7 +24,6 @@ from scapy.base_classes import (
 from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
     make_tex_table, issubtype
 from functools import reduce
-import scapy.libs.six as six
 
 # typings
 from scapy.compat import (
@@ -60,8 +59,7 @@ QueryAnswer = NamedTuple(
 _Inner = TypeVar("_Inner", Packet, QueryAnswer)
 
 
-@six.add_metaclass(PacketList_metaclass)
-class _PacketList(Generic[_Inner]):
+class _PacketList(Generic[_Inner], metaclass=PacketList_metaclass):
     __slots__ = ["stats", "res", "listname"]
 
     def __init__(self,
@@ -403,10 +401,10 @@ class _PacketList(Generic[_Inner]):
 
         if plot_xy:
             lines = [plt.plot(*zip(*pl), **dict(kargs, label=k))
-                     for k, pl in six.iteritems(d)]
+                     for k, pl in d.items()]
         else:
             lines = [plt.plot(pl, **dict(kargs, label=k))
-                     for k, pl in six.iteritems(d)]
+                     for k, pl in d.items()]
         plt.legend(loc="center right", bbox_to_anchor=(1.5, 0.5))
 
         # Call show() if matplotlib is not inlined
@@ -526,7 +524,7 @@ class _PacketList(Generic[_Inner]):
             else:
                 conv[c] = conv.get(c, 0) + 1
         gr = 'digraph "conv" {\n'
-        for (s, d), l in six.iteritems(conv):
+        for (s, d), l in conv.items():
             gr += '\t "%s" -> "%s" [label="%s"]\n' % (
                 s, d, ', '.join(str(x) for x in l) if isinstance(l, set) else l
             )
@@ -585,9 +583,9 @@ class _PacketList(Generic[_Inner]):
                 M = 1
             return m, M
 
-        mins, maxs = minmax(x for x, _ in six.itervalues(sl))
-        mine, maxe = minmax(x for x, _ in six.itervalues(el))
-        mind, maxd = minmax(six.itervalues(dl))
+        mins, maxs = minmax(x for x, _ in sl.values())
+        mine, maxe = minmax(x for x, _ in el.values())
+        mind, maxd = minmax(dl.values())
 
         gr = 'digraph "afterglow" {\n\tedge [len=2.5];\n'
 

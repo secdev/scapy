@@ -3,10 +3,10 @@
 # See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 
+from queue import Queue, Empty
 import socket
 import subprocess
 
-from scapy.libs.six.moves.queue import Queue, Empty
 from scapy.automaton import ObjectPipe
 from scapy.config import conf
 from scapy.compat import raw

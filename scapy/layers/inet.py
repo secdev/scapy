@@ -60,8 +60,6 @@ from scapy.pton_ntop import inet_pton
 
 import scapy.as_resolvers
 
-import scapy.libs.six as six
-
 ####################
 #  IP Tools class  #
 ####################
@@ -350,7 +348,7 @@ class RandTCPOptions(VolatileValue):
         # Random ("NAME", fmt)
         rand_patterns = [
             random.choice(list(
-                (opt, fmt) for opt, fmt in six.itervalues(TCPOptions[0])
+                (opt, fmt) for opt, fmt in TCPOptions[0].values()
                 if opt != 'EOL'
             ))
             for _ in range(self.size)
@@ -1243,7 +1241,7 @@ def _defrag_logic(plist, complete=False):
 
     defrag = []
     missfrag = []
-    for lst in six.itervalues(frags):
+    for lst in frags.values():
         lst.sort(key=lambda x: x.frag)
         _defrag_list(lst, defrag, missfrag)
     defrag2 = []
@@ -1364,9 +1362,9 @@ class TracerouteResult(SndRcvList):
             if d not in trace:
                 trace[d] = {}
             trace[d][s[IP].ttl] = r[IP].src, ICMP not in r
-        for k in six.itervalues(trace):
+        for k in trace.values():
             try:
-                m = min(x for x, y in six.iteritems(k) if y[1])
+                m = min(x for x, y in k.items() if y[1])
             except ValueError:
                 continue
             for li in list(k):  # use list(): k is modified in the loop
@@ -1497,12 +1495,12 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
                 s = IPsphere(pos=vpython.vec((tmp_len - 1) * vpython.cos(2 * i * vpython.pi / tmp_len), (tmp_len - 1) * vpython.sin(2 * i * vpython.pi / tmp_len), 2 * t),  # noqa: E501
                              ip=r[i][0],
                              color=col)
-                for trlst in six.itervalues(tr3d):
+                for trlst in tr3d.values():
                     if t <= len(trlst):
                         if trlst[t - 1] == i:
                             trlst[t - 1] = s
         forecol = colgen(0.625, 0.4375, 0.25, 0.125)
-        for trlst in six.itervalues(tr3d):
+        for trlst in tr3d.values():
             col = vpython.vec(*next(forecol))
             start = vpython.vec(0, 0, 0)
             for ip in trlst:
@@ -1639,7 +1637,7 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
         lines = []
 
         # Split traceroute measurement
-        for key, trc in six.iteritems(trt):
+        for key, trc in trt.items():
             # Get next color
             color = next(colors_cycle)
             # Gather mesurments data

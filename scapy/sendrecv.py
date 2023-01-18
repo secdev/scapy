@@ -33,7 +33,6 @@ from scapy.plist import (
 )
 from scapy.error import log_runtime, log_interactive, Scapy_Exception
 from scapy.base_classes import Gen, SetGen
-from scapy.libs import six
 from scapy.sessions import DefaultSession
 from scapy.supersocket import SuperSocket, IterSocket
 
@@ -189,11 +188,11 @@ class SndRcvHandler(object):
 
             if multi:
                 remain = [
-                    p for p in itertools.chain(*six.itervalues(self.hsent))
+                    p for p in itertools.chain(*self.hsent.values())
                     if not hasattr(p, '_answered')
                 ]
             else:
-                remain = list(itertools.chain(*six.itervalues(self.hsent)))
+                remain = list(itertools.chain(*self.hsent.values()))
 
             if autostop and len(remain) > 0 and \
                len(remain) != len(self.tobesent):
@@ -1099,7 +1098,7 @@ class AsyncSniffer(object):
             elif isinstance(opened_socket, dict):
                 sniff_sockets.update(
                     (s, label)
-                    for s, label in six.iteritems(opened_socket)
+                    for s, label in opened_socket.items()
                 )
             else:
                 sniff_sockets[opened_socket] = "socket0"
@@ -1129,7 +1128,7 @@ class AsyncSniffer(object):
                             flt=flt,
                             getfd=True,
                             quiet=quiet)
-                ), label) for fname, label in six.iteritems(offline))
+                ), label) for fname, label in offline.items())
             elif isinstance(offline, (Packet, PacketList, list)):
                 # Iterables (list of packets, PacketList..)
                 offline = IterSocket(offline)
@@ -1163,7 +1162,7 @@ class AsyncSniffer(object):
                 sniff_sockets.update(
                     (_RL2(ifname)(type=ETH_P_ALL, iface=ifname, **karg),
                      iflabel)
-                    for ifname, iflabel in six.iteritems(iface)
+                    for ifname, iflabel in iface.items()
                 )
             else:
                 iface = iface or conf.iface

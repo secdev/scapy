@@ -24,7 +24,6 @@ from scapy.layers.inet import UDP
 from scapy.utils import lhex
 from scapy.compat import orb
 from scapy.config import conf
-import scapy.libs.six as six
 
 
 #############################################################################
@@ -84,7 +83,7 @@ class TimeStampField(FixedPointField):
         )
 
     def any2i(self, pkt, val):
-        if isinstance(val, six.string_types):
+        if isinstance(val, str):
             val = int(time.mktime(time.strptime(val))) + _NTP_BASETIME
         elif isinstance(val, datetime.datetime):
             val = int(val.strftime("%s")) + _NTP_BASETIME

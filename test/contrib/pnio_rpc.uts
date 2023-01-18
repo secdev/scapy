@@ -5,11 +5,10 @@
 from scapy.layers.dcerpc import *
 from scapy.contrib.pnio import *
 from scapy.contrib.pnio_rpc import *
-from scapy.libs.six import itervalues
 
 = Check that we have UUIDs
 
-for v in itervalues(RPC_INTERFACE_UUID):
+for v in RPC_INTERFACE_UUID.values():
     assert isinstance(v, UUID)
 
 + Check Block

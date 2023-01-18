@@ -50,7 +50,6 @@ from scapy.consts import WINDOWS
 from scapy.error import warning
 from scapy.utils import lhex, mac2str, str2mac
 from scapy.volatile import RandMAC
-from scapy.libs import six
 
 
 ##########
@@ -75,7 +74,7 @@ class LEMACField(Field):
         return str2mac(x[::-1])
 
     def any2i(self, pkt, x):
-        if isinstance(x, (six.binary_type, six.text_type)) and len(x) == 6:
+        if isinstance(x, (bytes, str)) and len(x) == 6:
             x = self.m2i(pkt, x)
         return x
 
@@ -859,8 +858,9 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
         cls.registered_magic_payloads[payload_cls] = magic_check
 
     def default_payload_class(self, payload):
-        for cls, check in six.iteritems(
-                EIR_Manufacturer_Specific_Data.registered_magic_payloads):
+        for cls, check in (
+            EIR_Manufacturer_Specific_Data.registered_magic_payloads.items()
+        ):
             if check(payload):
                 return cls
 

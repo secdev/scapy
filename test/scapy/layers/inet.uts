@@ -531,7 +531,7 @@ for x in ICMP(type=range(0,40),code=range(0,40)):
     (IP()/x).hashret()
 
 = IPv4 - traceroute utilities
-ip_ttl = [("192.168.0.%d" % i, i) for i in six.moves.range(1, 10)]
+ip_ttl = [("192.168.0.%d" % i, i) for i in range(1, 10)]
 
 tr_packets = [ (IP(dst="192.168.0.1", src="192.168.0.254", ttl=ttl)/TCP(options=[("Timestamp", "00:00:%.2d.00" % ttl)])/"scapy",
                 IP(dst="192.168.0.254", src=ip)/ICMP(type=11)/IPerror(dst="192.168.0.1", src="192.168.0.254", ttl=0)/TCPerror()/"scapy")

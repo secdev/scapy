@@ -57,7 +57,6 @@ from scapy.volatile import (
 from scapy.arch import get_if_raw_hwaddr
 from scapy.sendrecv import srp1, sendp
 from scapy.error import warning
-import scapy.libs.six as six
 from scapy.config import conf
 
 dhcpmagic = b"c\x82Sc"
@@ -352,7 +351,7 @@ DHCPOptions = {
 
 DHCPRevOptions = {}
 
-for k, v in six.iteritems(DHCPOptions):
+for k, v in DHCPOptions.items():
     if isinstance(v, str):
         n = v
         v = None
@@ -372,7 +371,7 @@ class RandDHCPOptions(RandField):
         if rndstr is None:
             rndstr = RandBin(RandNum(0, 255))
         self.rndstr = rndstr
-        self._opts = list(six.itervalues(DHCPOptions))
+        self._opts = list(DHCPOptions.values())
         self._opts.remove("pad")
         self._opts.remove("end")
 
@@ -612,7 +611,7 @@ class BOOTP_am(AnsweringMachine):
         self.broadcast = ltoa(atol(self.network) | (0xffffffff & ~msk))
         self.gw = gw
         self.nameserver = nameserver or gw
-        if isinstance(pool, six.string_types):
+        if isinstance(pool, str):
             pool = Net(pool)
         if isinstance(pool, Iterable):
             pool = [k for k in pool if k not in [gw, self.network, self.broadcast]]

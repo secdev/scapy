@@ -188,7 +188,7 @@ assert e._retry_pkt[EcuState(session=1)]
 
 = ServiceEnumerator execute
 
-from scapy.libs.six.moves.queue import Queue
+from queue import Queue
 from scapy.supersocket import SuperSocket
 
 class MockISOTPSocket(SuperSocket):
@@ -992,7 +992,7 @@ class MyTestCase1(AutomotiveTestCase):
     _description = "MyTestCase1"
     _supported_kwargs = copy.copy(AutomotiveTestCase._supported_kwargs)
     _supported_kwargs.update({
-        'stop_event': (threading._Event if six.PY2 else threading.Event, None),  # type: ignore  # noqa: E501
+        'stop_event': (threading.Event, None),  # type: ignore
     })
     @property
     def supported_responses(self):
@@ -1005,7 +1005,7 @@ class MyTestCase2(AutomotiveTestCase):
     _description = "MyTestCase2"
     _supported_kwargs = copy.copy(AutomotiveTestCase._supported_kwargs)
     _supported_kwargs.update({
-        'stop_event': (threading._Event if six.PY2 else threading.Event, None),  # type: ignore  # noqa: E501
+        'stop_event': (threading.Event, None),  # type: ignore
     })
     @property
     def supported_responses(self):

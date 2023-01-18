@@ -882,16 +882,16 @@ f = MultiFlagsField('flags', set(), 3, {
 
 mp = MockPacket(0)
 x = f.i2m(mp, set())
-assert isinstance(x, six.integer_types)
+assert isinstance(x, int)
 assert x == 0
 x = f.i2m(mp, {'A'})
-assert isinstance(x, six.integer_types)
+assert isinstance(x, int)
 assert x == 1
 x = f.i2m(mp, {'A', 'B'})
-assert isinstance(x, six.integer_types)
+assert isinstance(x, int)
 assert x == 3
 x = f.i2m(mp, {'A', 'B', 'bit 2'})
-assert isinstance(x, six.integer_types)
+assert isinstance(x, int)
 assert x == 7
 try:
     x = f.i2m(mp, {'+'})

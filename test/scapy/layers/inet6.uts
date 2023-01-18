@@ -240,7 +240,7 @@ in6_addrtomac("FE80::" + in6_mactoifaceid("FF:00:00:00:00:00", ulbit=0)) == 'ff:
 
 import socket
 
-for a in six.moves.range(10):
+for a in range(10):
     s1, s2 = in6_getRandomizedIfaceId('20b:93ff:feeb:2d3')
     s1, s2
     tmp = inet_pton(socket.AF_INET6, "::" + s1)[8:]
@@ -2832,7 +2832,7 @@ p[MIP6MH_BE].cksum=0xba10 and p[MIP6MH_BE].len == 1 and len(p[MIP6MH_BE].options
 + TracerouteResult6
 
 = get_trace()
-ip6_hlim = [("2001:db8::%d" % i, i) for i in six.moves.range(1, 12)]
+ip6_hlim = [("2001:db8::%d" % i, i) for i in range(1, 12)]
 
 tr6_packets = [ (IPv6(dst="2001:db8::1", src="2001:db8::254", hlim=hlim)/UDP()/"scapy",
                  IPv6(dst="2001:db8::254", src=ip)/ICMPv6TimeExceeded()/IPerror6(dst="2001:db8::1", src="2001:db8::254", hlim=0)/UDPerror()/"scapy")

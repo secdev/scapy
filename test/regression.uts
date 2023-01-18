@@ -430,17 +430,7 @@ assert (ARP(ptype=0, pdst="hello. this isn't a valid IP")).route()[0] is None
 = plain_str test
 
 data = b"\xffsweet\xef celestia\xab"
-if not six.PY2:
-    # Only Python 3 has to deal with Str/Bytes conversion,
-    # as we don't use Python 2's unicode
-    if sys.version_info[0:2] <= (3, 4):
-        # Python3.4 can only ignore unknown special characters
-        assert plain_str(data) == "sweet celestia"
-    else:
-        # Python >3.4 can replace them with a backslash representation
-        assert plain_str(data) == "\\xffsweet\\xef celestia\\xab"
-else:
-    assert plain_str(data) == "\xffsweet\xef celestia\xab"
+assert plain_str(data) == "\\xffsweet\\xef celestia\\xab"
 
 ############
 ############
@@ -464,12 +454,12 @@ assert chb(1) == b"\x01"
 
 = Pickle and unpickle a packet
 
-import scapy.libs.six as six
+import pickle
 
 a = IP(dst="192.168.0.1")/UDP()
 
-b = six.moves.cPickle.dumps(a)
-c = six.moves.cPickle.loads(b)
+b = pickle.dumps(a)
+c = pickle.loads(b)
 
 assert c[IP].dst == "192.168.0.1"
 assert raw(c) == raw(a)
@@ -485,15 +475,17 @@ except SystemExit:
 
 = Session test
 
+import builtins
+
 # This is automatic when using the console
 def get_var(var):
-    return six.moves.builtins.__dict__["scapy_session"][var]
+    return builtins.__dict__["scapy_session"][var]
 
 def set_var(var, value):
-    six.moves.builtins.__dict__["scapy_session"][var] = value
+    builtins.__dict__["scapy_session"][var] = value
 
 def del_var(var):
-    del six.moves.builtins.__dict__["scapy_session"][var]
+    del builtins.__dict__["scapy_session"][var]
 
 init_session(None, {"init_value": 123})
 set_var("test_value", "8.8.8.8") # test_value = "8.8.8.8"
@@ -1703,10 +1695,6 @@ assert a.sent_time is None
 def _test():
     with no_debug_dissector():
         ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]), timeout=2)
-    
-    # Backward compatibility: Python 2 only
-    if six.PY2:
-        exec("""ans.make_table(lambda (s, r): (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))""")
     
     # New format: all Python versions
     ans.make_table(lambda s, r: (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))
@@ -2933,7 +2921,7 @@ def valid_output_read_routes6(routes):
     for destination, plen, next_hop, dev, cset, me  in routes:
         if not in6_isvalid(destination) or not type(plen) == int:
             return False
-        if not in6_isvalid(next_hop) or not isinstance(dev, six.string_types):
+        if not in6_isvalid(next_hop) or not isinstance(dev, str):
             return False
         for address in cset:
             if not in6_isvalid(address):
@@ -4059,7 +4047,7 @@ os.write(fd, b"-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
 os.close(fd)
 
 load_mib(fname)
-assert sum(1 for k in six.itervalues(conf.mib.d) if "scapy" in k) == 1
+assert sum(1 for k in conf.mib.d.values() if "scapy" in k) == 1
 
 assert sum(1 for oid in conf.mib) > 100
 
@@ -4739,7 +4727,7 @@ if PYX:
 = svgdump()
 
 print("PYX: %d" % PYX)
-if PYX and not six.PY2:
+if PYX:
     import tempfile
     import os
     filename = tempfile.mktemp(suffix=".svg")

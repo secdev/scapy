@@ -51,7 +51,6 @@ from scapy.fields import (
     XShortField,
 )
 from scapy.interfaces import _GlobInterfaceType
-from scapy.libs.six import viewitems
 from scapy.packet import bind_layers, Packet
 from scapy.plist import (
     PacketList,
@@ -1110,7 +1109,7 @@ https://ftp.netbsd.org/pub/NetBSD/security/advisories/NetBSD-SA2017-002.txt.asc
             Ether(src=hwsrc, dst=ETHER_BROADCAST) / pkt
         )
     ans, unans = SndRcvList(), PacketList(name="Unanswered")
-    for iface, pkts in viewitems(pkts_iface):
+    for iface, pkts in pkts_iface.items():
         ans_new, unans_new = srp(pkts, iface=iface, filter="arp", **kargs)
         ans += ans_new
         unans += unans_new

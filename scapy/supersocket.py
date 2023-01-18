@@ -20,7 +20,6 @@ from scapy.data import MTU, ETH_P_IP, SOL_PACKET, SO_TIMESTAMPNS
 from scapy.compat import raw
 from scapy.error import warning, log_runtime
 from scapy.interfaces import network_name
-import scapy.libs.six as six
 from scapy.packet import Packet
 import scapy.packet
 from scapy.plist import (
@@ -78,8 +77,7 @@ class tpacket_auxdata(ctypes.Structure):
 
 # SuperSocket
 
-@six.add_metaclass(_SuperSocket_metaclass)
-class SuperSocket:
+class SuperSocket(metaclass=_SuperSocket_metaclass):
     closed = False  # type: bool
     nonblocking_socket = False  # type: bool
     auxdata_available = False   # type: bool
@@ -110,7 +108,7 @@ class SuperSocket:
         else:
             return 0
 
-    if six.PY2 or WINDOWS:
+    if WINDOWS:
         def _recv_raw(self, sock, x):
             # type: (socket.socket, int) -> Tuple[bytes, Any, Optional[float]]
             """Internal function to receive a Packet"""
@@ -303,21 +301,20 @@ if not WINDOWS:
                 self.ins.bind((iface, type))
             else:
                 self.iface = "any"
-            if not six.PY2:
-                try:
-                    # Receive Auxiliary Data (VLAN tags)
-                    self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
-                    self.ins.setsockopt(
-                        socket.SOL_SOCKET,
-                        SO_TIMESTAMPNS,
-                        1
-                    )
-                    self.auxdata_available = True
-                except OSError:
-                    # Note: Auxiliary Data is only supported since
-                    #       Linux 2.6.21
-                    msg = "Your Linux Kernel does not support Auxiliary Data!"
-                    log_runtime.info(msg)
+            try:
+                # Receive Auxiliary Data (VLAN tags)
+                self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
+                self.ins.setsockopt(
+                    socket.SOL_SOCKET,
+                    SO_TIMESTAMPNS,
+                    1
+                )
+                self.auxdata_available = True
+            except OSError:
+                # Note: Auxiliary Data is only supported since
+                #       Linux 2.6.21
+                msg = "Your Linux Kernel does not support Auxiliary Data!"
+                log_runtime.info(msg)
 
         def recv(self, x=MTU):
             # type: (int) -> Optional[Packet]

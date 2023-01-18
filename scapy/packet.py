@@ -45,7 +45,6 @@ from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
 from scapy.error import Scapy_Exception, log_runtime, warning
 from scapy.libs.test_pyx import PYX
-import scapy.libs.six as six
 
 # Typing imports
 from scapy.compat import (
@@ -73,9 +72,11 @@ except ImportError:
 _T = TypeVar("_T", Dict[str, Any], Optional[Dict[str, Any]])
 
 
-# six.with_metaclass typing is glitchy
-class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
-             BasePacket, _CanvasDumpExtended)):
+class Packet(
+    BasePacket,
+    _CanvasDumpExtended,
+    metaclass=Packet_metaclass
+):
     __slots__ = [
         "time", "sent_time", "name",
         "default_fields", "fields", "fieldtype",
@@ -117,13 +118,23 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
     def upper_bonds(self):
         # type: () -> None
         for fval, upper in self.payload_guess:
-            print("%-20s  %s" % (upper.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))  # noqa: E501
+            print(
+                "%-20s  %s" % (
+                    upper.__name__,
+                    ", ".join("%-12s" % ("%s=%r" % i) for i in fval.items()),
+                )
+            )
 
     @classmethod
     def lower_bonds(self):
         # type: () -> None
-        for lower, fval in six.iteritems(self._overload_fields):
-            print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))  # noqa: E501
+        for lower, fval in self._overload_fields.items():
+            print(
+                "%-20s  %s" % (
+                    lower.__name__,
+                    ", ".join("%-12s" % ("%s=%r" % i) for i in fval.items()),
+                )
+            )
 
     def __init__(self,
                  _pkt=b"",  # type: Union[bytes, bytearray]
@@ -573,14 +584,9 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                                    repr(self.payload),
                                    ct.punct(">"))
 
-    if six.PY2:
-        def __str__(self):
-            # type: () -> str
-            return self.build()
-    else:
-        def __str__(self):
-            # type: () -> str
-            return self.summary()
+    def __str__(self):
+        # type: () -> str
+        return self.summary()
 
     def __bytes__(self):
         # type: () -> bytes
@@ -636,7 +642,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         if fields is None:
             return None
         return {fname: self.copy_field_value(fname, fval)
-                for fname, fval in six.iteritems(fields)}
+                for fname, fval in fields.items()}
 
     def _raw_packet_cache_field_value(self, fld, val, copy=False):
         # type: (AnyField, Any, bool) -> Optional[Any]
@@ -658,7 +664,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         # type: () -> None
         """Clear the raw packet cache for the field and all its subfields"""
         self.raw_packet_cache = None
-        for fld, fval in six.iteritems(self.fields):
+        for fld, fval in self.fields.items():
             fld = self.get_field(fld)
             if fld.holds_packets:
                 if isinstance(fval, Packet):
@@ -676,7 +682,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         :param field_pos_list:
         """
         if self.raw_packet_cache is not None:
-            for fname, fval in six.iteritems(self.raw_packet_cache_fields):
+            for fname, fval in self.raw_packet_cache_fields.items():
                 fld, val = self.getfield_and_val(fname)
                 if self._raw_packet_cache_field_value(fld, val) != fval:
                     self.raw_packet_cache = None
@@ -1064,7 +1070,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             for fval, cls in t.payload_guess:
                 try:
                     if all(v == self.getfieldval(k)
-                           for k, v in six.iteritems(fval)):
+                           for k, v in fval.items()):
                         return cls  # type: ignore
                 except AttributeError:
                     pass
@@ -1085,7 +1091,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         # type: () -> None
         """Removes fields' values that are the same as default values."""
         # use list(): self.fields is modified in the loop
-        for k, v in list(six.iteritems(self.fields)):
+        for k, v in list(self.fields.items()):
             v = self.fields[k]
             if k in self.default_fields:
                 if self.default_fields[k] == v:
@@ -1148,8 +1154,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             todo = []
             done = self.fields
         else:
-            todo = [k for (k, v) in itertools.chain(six.iteritems(self.default_fields),  # noqa: E501
-                                                    six.iteritems(self.overloaded_fields))  # noqa: E501
+            todo = [k for (k, v) in itertools.chain(self.default_fields.items(),
+                                                    self.overloaded_fields.items())
                     if isinstance(v, VolatileValue)] + list(self.fields)
             done = {}
         return loop(todo, done)
@@ -1290,7 +1296,7 @@ values.
         if not class_name or match(self.__class__, class_name) \
            or class_name in [self.__class__.__name__, self._name]:
             if all(self.getfieldval(fldname) == fldvalue
-                   for fldname, fldvalue in six.iteritems(flt)):
+                   for fldname, fldvalue in flt.items()):
                 if nb == 1:
                     if fld is None:
                         return self
@@ -1658,7 +1664,7 @@ values.
         obtain the same packet
         """
         f = []
-        for fn, fv in six.iteritems(self.fields):
+        for fn, fv in self.fields.items():
             fld = self.get_field(fn)
             if isinstance(fv, (list, dict, set)) and len(fv) == 0:
                 continue
@@ -1999,7 +2005,7 @@ def split_bottom_up(lower,  # type: Type[Packet]
     def do_filter(params, cls):
         # type: (Dict[str, int], Type[Packet]) -> bool
         params_is_invalid = any(
-            k not in params or params[k] != v for k, v in six.iteritems(fval)
+            k not in params or params[k] != v for k, v in fval.items()
         )
         return cls != upper or params_is_invalid
     lower.payload_guess = [x for x in lower.payload_guess if do_filter(*x)]
@@ -2018,7 +2024,7 @@ def split_top_down(lower,  # type: Type[Packet]
         fval.update(__fval)
     if lower in upper._overload_fields:
         ofval = upper._overload_fields[lower]
-        if any(k not in ofval or ofval[k] != v for k, v in six.iteritems(fval)):  # noqa: E501
+        if any(k not in ofval or ofval[k] != v for k, v in fval.items()):
             return
         upper._overload_fields = upper._overload_fields.copy()
         del upper._overload_fields[lower]
@@ -2087,17 +2093,15 @@ def explore(layer=None):
             call_ptk = lambda x: x.run()  # type: ignore
         # 1 - Ask for layer or contrib
         btn_diag = button_dialog(
-            title=six.text_type("Scapy v%s" % conf.version),
+            title="Scapy v%s" % conf.version,
             text=HTML(
-                six.text_type(
-                    '<style bg="white" fg="red">Chose the type of packets'
-                    ' you want to explore:</style>'
-                )
+                '<style bg="white" fg="red">Chose the type of packets'
+                ' you want to explore:</style>'
             ),
             buttons=[
-                (six.text_type("Layers"), "layers"),
-                (six.text_type("Contribs"), "contribs"),
-                (six.text_type("Cancel"), "cancel")
+                ("Layers", "layers"),
+                ("Contribs", "contribs"),
+                ("Cancel", "cancel")
             ])
         action = call_ptk(btn_diag)
         # 2 - Retrieve list of Packets
@@ -2119,10 +2123,6 @@ def explore(layer=None):
         else:
             # Escape/Cancel was pressed
             return
-        # Python 2 compat
-        if six.PY2:
-            values = [(six.text_type(x), six.text_type(y))
-                      for x, y in values]
         # Build tree
         if action == "contribs":
             # A tree is a dictionary. Each layer contains a keyword
@@ -2154,7 +2154,7 @@ def explore(layer=None):
             # Generate tests & form
             folders = list(current.keys())
             _radio_values = [
-                ("$" + name, six.text_type('[+] ' + name.capitalize()))
+                ("$" + name, str('[+] ' + name.capitalize()))
                 for name in folders if not name.startswith("_")
             ] + current.get("_l", [])  # type: List[str]
             cur_path = ""
@@ -2171,15 +2171,13 @@ def explore(layer=None):
             # Show popup
             rd_diag = radiolist_dialog(
                 values=_radio_values,
-                title=six.text_type(
-                    "Scapy v%s" % conf.version
-                ),
+                title="Scapy v%s" % conf.version,
                 text=HTML(
-                    six.text_type((
+                    (
                         '<style bg="white" fg="red">Please select a file'
                         'among the following, to see all layers contained in'
                         ' it:</style>'
-                    ) + extra_text)
+                    ) + extra_text
                 ),
                 cancel_text="Back" if previous else "Cancel"
             )
@@ -2272,7 +2270,7 @@ def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
                 long_attrs.extend(
                     "%s: %d" % (strval, numval)
                     for numval, strval in
-                    sorted(six.iteritems(cur_fld.i2s))
+                    sorted(cur_fld.i2s.items())
                 )
         elif isinstance(cur_fld, MultiEnumField):
             fld_depend = cur_fld.depends_on(
@@ -2289,7 +2287,7 @@ def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
                     long_attrs.extend(
                         "%s: %d" % (strval, numval)
                         for numval, strval in
-                        sorted(six.iteritems(cur_i2s))
+                        sorted(cur_i2s.items())
                     )
         elif verbose and isinstance(cur_fld, FlagsField):
             names = cur_fld.names
@@ -2534,7 +2532,7 @@ def fuzz(p,  # type: Packet
             # freeze the other random values
             new_default_fields = {
                 key: (val._fix() if isinstance(val, VolatileValue) else val)
-                for key, val in six.iteritems(new_default_fields)
+                for key, val in new_default_fields.items()
             }
             q.default_fields.update(new_default_fields)
             # add the random values of the MultipleTypeFields

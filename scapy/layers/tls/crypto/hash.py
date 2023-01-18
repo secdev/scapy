@@ -11,8 +11,6 @@ Hash classes.
 from hashlib import md5, sha1, sha224, sha256, sha384, sha512
 from scapy.layers.tls.crypto.md4 import MD4 as md4
 
-import scapy.libs.six as six
-
 
 _tls_hash_algs = {}
 
@@ -32,7 +30,7 @@ class _GenericHashMetaclass(type):
         return the_class
 
 
-class _GenericHash(six.with_metaclass(_GenericHashMetaclass, object)):
+class _GenericHash(metaclass=_GenericHashMetaclass):
     def digest(self, tbd):
         return self.hash_cls(tbd).digest()
 

@@ -19,7 +19,6 @@ from scapy.config import conf
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.common import CipherError
 from scapy.utils import strxor
-import scapy.libs.six as six
 
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # noqa: E501
@@ -57,7 +56,7 @@ class AEADTagError(Exception):
     pass
 
 
-class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
+class _AEADCipher(metaclass=_AEADCipherMetaclass):
     """
     The hasattr(self, "pc_cls") tests correspond to the legacy API of the
     crypto library. With cryptography v2.0, both CCM and GCM should follow
@@ -144,7 +143,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         because one cipher (ChaCha20Poly1305) using TLS 1.2 logic in record.py
         actually is a _AEADCipher_TLS13 (even though others are not).
         """
-        if False in six.itervalues(self.ready):
+        if False in self.ready.values():
             raise CipherError(P, A)
 
         if hasattr(self, "pc_cls"):
@@ -184,7 +183,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
                                       C[self.nonce_explicit_len:-self.tag_len],
                                       C[-self.tag_len:])
 
-        if False in six.itervalues(self.ready):
+        if False in self.ready.values():
             raise CipherError(nonce_explicit_str, C, mac)
 
         self.nonce_explicit = pkcs_os2ip(nonce_explicit_str)
@@ -247,7 +246,7 @@ if conf.crypto_valid_advanced:
         key_len = 32
 
 
-class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
+class _AEADCipher_TLS13(metaclass=_AEADCipherMetaclass):
     """
     The hasattr(self, "pc_cls") enable support for the legacy implementation
     of GCM in the cryptography library. They should not be used, and might
@@ -316,7 +315,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
 
         Note that the cipher's authentication tag must be None when encrypting.
         """
-        if False in six.itervalues(self.ready):
+        if False in self.ready.values():
             raise CipherError(P, A)
 
         if hasattr(self, "pc_cls"):
@@ -342,7 +341,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
         raise a CipherError which contains the encrypted input.
         """
         C, mac = C[:-self.tag_len], C[-self.tag_len:]
-        if False in six.itervalues(self.ready):
+        if False in self.ready.values():
             raise CipherError(C, mac)
 
         if hasattr(self, "pc_cls"):
