@@ -697,3 +697,18 @@ assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].phy_typ
 pkt = Dot11(bytes(Dot11()/Dot11Ack()))
 assert pkt.subtype == 13
 assert pkt.type == 1
+
+= Dot11CSA
+
+pkt = RadioTap(b"\x00\x008\x00/@@\xa0 \x08\x00\xa0 \x08\x00\x00\xfe\x83\x06\x10\x00\x00\x00\x00\x10\x02\x8a\t\xa0\x00\xfe\x00\x00\x00\x00\x00\x00\x00\x00\x00\x006\x07\x10\x00\x00\x00\x00\x16\x00\x11\x03\xf8\x00\xfe\x01\xd0\x00\x00\x00\xff\xff\xff\xff\xff\xff\x0cs)d\xa5\r\x0cs)d\xa5\r\xb0!\x00\x04%\x03\x01\x0b\x05\x0b\xb9<\x8c")
+assert Dot11SpectrumManagement in pkt
+assert Dot11CSA in pkt
+assert Dot11EltCSA in pkt
+
+assert pkt[Dot11Action].category == 0
+assert pkt[Dot11Action][Dot11SpectrumManagement].action == 4
+assert pkt[Dot11Action][Dot11SpectrumManagement][Dot11CSA][Dot11EltCSA].ID == 37
+assert pkt[Dot11Action][Dot11SpectrumManagement][Dot11CSA][Dot11EltCSA].len == 3
+assert pkt[Dot11Action][Dot11SpectrumManagement][Dot11CSA][Dot11EltCSA].mode == 1
+assert pkt[Dot11Action][Dot11SpectrumManagement][Dot11CSA][Dot11EltCSA].new_channel == 11
+assert pkt[Dot11Action][Dot11SpectrumManagement][Dot11CSA][Dot11EltCSA].channel_switch_count == 5
