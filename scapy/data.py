@@ -318,10 +318,10 @@ def load_protocols(filename, _fallback=None, _integer_base=10,
                 )
     try:
         if not filename:
-            raise IOError
+            raise OSError
         with open(filename, "rb") as fdesc:
             _process_data(fdesc)
-    except IOError:
+    except OSError:
         if _fallback:
             _process_data(iter(_fallback.split(b"\n")))
         else:
@@ -409,7 +409,7 @@ def load_services(filename):
                         line,
                         e,
                     )
-    except IOError:
+    except OSError:
         log_loading.info("Can't open /etc/services file")
     return tdct, udct, sdct
 
@@ -540,7 +540,7 @@ else:
     if manuf_path:
         try:
             MANUFDB = load_manuf(manuf_path)
-        except (IOError, OSError):
+        except OSError:
             log_loading.warning("Cannot read wireshark manuf database")
 
 

@@ -392,7 +392,7 @@ class TCPConnectPipe(Source):
         # type: () -> None
         try:
             msg = self.fd.recv(65536)
-        except socket.error:
+        except OSError:
             self.stop()
             raise
         if msg:
@@ -439,7 +439,7 @@ class TCPListenPipe(TCPConnectPipe):
         if self.connected:
             try:
                 msg = self.fd.recv(65536)
-            except socket.error:
+            except OSError:
                 self.stop()
                 raise
             if msg:
@@ -492,7 +492,7 @@ class UDPClientPipe(TCPConnectPipe):
             return
         try:
             msg = self.fd.recv(65536)
-        except socket.error:
+        except OSError:
             self.stop()
             raise
         if msg:
@@ -534,7 +534,7 @@ class UDPServerPipe(TCPListenPipe):
         if self._destination:
             try:
                 msg = self.fd.recv(65536)
-            except socket.error:
+            except OSError:
                 self.stop()
                 raise
             if msg:

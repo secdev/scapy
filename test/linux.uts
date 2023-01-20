@@ -282,7 +282,7 @@ def test_read_routes(mock_ioctl):
     def raise_ioerror(*args, **kwargs):
         if args[1] == 0x8912:
             return args[2]
-        raise IOError
+        raise OSError
     mock_ioctl.side_effect = raise_ioerror
     read_routes()
 

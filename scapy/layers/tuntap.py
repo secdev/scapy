@@ -12,7 +12,6 @@ These allow Scapy to act as the remote side of a virtual network interface.
 
 
 import os
-import socket
 import time
 from fcntl import ioctl
 
@@ -245,6 +244,6 @@ class TunTapInterface(SimpleSocket):
             r = self.outs.write(sx)
             self.outs.flush()
             return r
-        except socket.error:
+        except OSError:
             log_runtime.error("%s send",
                               self.__class__.__name__, exc_info=True)

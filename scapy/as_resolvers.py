@@ -149,7 +149,7 @@ class AS_resolver_multi(AS_resolver):
         for ASres in self.resolvers_list:
             try:
                 res = ASres.resolve(*todo)
-            except socket.error:
+            except OSError:
                 continue
             todo = tuple(ip for ip in todo if ip not in [r[0] for r in res])
             ret += res

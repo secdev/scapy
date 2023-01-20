@@ -423,7 +423,7 @@ class TFTP_RRQ_server(Automaton):
                 try:
                     with open(fn) as fd:
                         self.data = fd.read()
-                except IOError:
+                except OSError:
                     pass
         if self.data is None:
             self.data = self.joker

@@ -654,7 +654,7 @@ class LoWPAN_IPHC(Packet):
         # https://tools.ietf.org/html/rfc6282#section-3.1.1
         try:
             tmp_ip = inet_pton(socket.AF_INET6, self.dst)
-        except socket.error:
+        except OSError:
             tmp_ip = b"\x00" * 16
 
         if self.m == 0 and self.dac == 0:
@@ -766,7 +766,7 @@ class LoWPAN_IPHC(Packet):
         # https://tools.ietf.org/html/rfc6282#section-3.1.1
         try:
             tmp_ip = inet_pton(socket.AF_INET6, self.src)
-        except socket.error:
+        except OSError:
             tmp_ip = b"\x00" * 16
 
         if self.sac == 0:

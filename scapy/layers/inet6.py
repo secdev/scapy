@@ -54,7 +54,7 @@ from scapy.utils6 import in6_getnsma, in6_getnsmac, in6_isaddr6to4, \
 from scapy.volatile import RandInt, RandShort
 
 if not socket.has_ipv6:
-    raise socket.error("can't use AF_INET6, IPv6 is disabled")
+    raise OSError("can't use AF_INET6, IPv6 is disabled")
 if not hasattr(socket, "IPPROTO_IPV6"):
     # Workaround for http://bugs.python.org/issue6926
     socket.IPPROTO_IPV6 = 41

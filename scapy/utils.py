@@ -616,7 +616,7 @@ def strand(s1, s2):
 # Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470  # noqa: E501
 try:
     socket.inet_aton("255.255.255.255")
-except socket.error:
+except OSError:
     def inet_aton(ip_string):
         # type: (str) -> bytes
         if ip_string == "255.255.255.255":
@@ -633,7 +633,7 @@ def atol(x):
     # type: (str) -> int
     try:
         ip = inet_aton(x)
-    except socket.error:
+    except OSError:
         ip = inet_aton(socket.gethostbyname(x))
     return cast(int, struct.unpack("!I", ip)[0])
 
@@ -646,7 +646,7 @@ def valid_ip(addr):
         return False
     try:
         atol(addr)
-    except (OSError, ValueError, socket.error):
+    except (OSError, ValueError):
         return False
     return True
 
@@ -671,10 +671,10 @@ def valid_ip6(addr):
         return False
     try:
         inet_pton(socket.AF_INET6, addr)
-    except socket.error:
+    except OSError:
         try:
             socket.getaddrinfo(addr, None, socket.AF_INET6)[0][4][0]
-        except socket.error:
+        except OSError:
             return False
     return True
 
@@ -740,7 +740,7 @@ class ContextManagerSubprocess(object):
         if exc_value is None or exc_type is None:
             return None
         # Errored
-        if isinstance(exc_value, EnvironmentError):
+        if isinstance(exc_value, OSError):
             msg = "Could not execute %s, is it installed?" % self.prog
         else:
             msg = "%s: execution failed (%s)" % (
@@ -1205,7 +1205,7 @@ class PcapReader_metaclass(type):
             try:
                 fdesc = gzip.open(filename, "rb")  # type: _ByteStream
                 magic = fdesc.read(4)
-            except IOError:
+            except OSError:
                 fdesc = open(filename, "rb")
                 magic = fdesc.read(4)
         else:
@@ -2312,7 +2312,7 @@ class ERFEthernetReader_metaclass(PcapReader_metaclass):
                 with gzip.open(filename, "rb") as tmp:
                     tmp.read(1)
                 fdesc = gzip.open(filename, "rb")  # type: _ByteStream
-            except IOError:
+            except OSError:
                 fdesc = open(filename, "rb")
 
         else:
@@ -2895,7 +2895,7 @@ def get_terminal_width():
             s = struct.pack('HHHH', 0, 0, 0, 0)
             x = fcntl.ioctl(1, termios.TIOCGWINSZ, s)
             sizex = struct.unpack('HHHH', x)[1]
-        except IOError:
+        except OSError:
             pass
         return sizex
 

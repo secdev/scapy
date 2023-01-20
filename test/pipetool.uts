@@ -15,7 +15,7 @@ d1 > tf
 try:
   t = TermSink(name="PipeToolsPeriodicTest", keepterm=False)
   tf > t
-except (IOError, OSError):
+except OSError:
   pass
 
 p = PipeEngine(s)

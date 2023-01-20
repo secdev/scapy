@@ -245,7 +245,7 @@ class Route6:
 
         try:
             inet_pton(socket.AF_INET6, dst)
-        except socket.error:
+        except OSError:
             dst = socket.getaddrinfo(savedst, None, socket.AF_INET6)[0][-1][0]
             # TODO : Check if name resolution went well
 

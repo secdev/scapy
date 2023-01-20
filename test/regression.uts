@@ -1633,13 +1633,13 @@ def _test():
 
 retry_test(_test)
 
-= AS resolver - socket error
+= AS resolver - OSError
 ~ IP
 * This test checks that a failing resolver will not crash a script
 
 class MockAS_resolver(object):
   def resolve(self, *ips):
-    raise socket.error
+    raise OSError
 
 asrm = AS_resolver_multi(MockAS_resolver())
 assert len(asrm.resolve(["8.8.8.8", "8.8.4.4"])) == 0
@@ -1805,7 +1805,7 @@ import mock
 @mock.patch("scapy.supersocket.select")
 def _test_select(select):
     def f(a, b, c, d):
-        raise IOError(0)
+        raise OSError(0)
     select.side_effect = f
     try:
         SuperSocket.select([])
@@ -3420,7 +3420,7 @@ class MockSocket(object):
         self.l = [ b'\x00\x00\x00\x01', b'\x00\x00\x00\x02', b'\x00\x00\x00\x03' ]
     def recv(self, x):
         if len(self.l) == 0:
-            raise socket.error(100, 'EOF')
+            raise OSError(100, 'EOF')
         return self.l.pop(0)
     def fileno(self):
         return -1
@@ -3448,7 +3448,7 @@ assert p.data == 3
 try:
     ss.recv()
     ret = False
-except socket.error:
+except OSError:
     ret = True
 
 assert ret
@@ -3462,7 +3462,7 @@ class MockSocket(object):
         self.l = [ b'\x00\x00\x00\x01\x00\x00\x00\x02', b'\x00\x00\x00\x03\x00\x00\x00\x04' ]
     def recv(self, x):
         if len(self.l) == 0:
-            raise socket.error(100, 'EOF')
+            raise OSError(100, 'EOF')
         return self.l.pop(0)
     def fileno(self):
         return -1
@@ -3492,7 +3492,7 @@ assert p.data == 4
 try:
     ss.recv()
     ret = False
-except socket.error:
+except OSError:
     ret = True
 
 assert ret
@@ -3506,7 +3506,7 @@ class MockSocket(object):
         self.l = [ b'\x00\x00', b'\x00\x01', b'\x00\x00\x00', b'\x02', b'\x00\x00', b'\x00', b'\x03' ]
     def recv(self, x):
         if len(self.l) == 0:
-            raise socket.error(100, 'EOF')
+            raise OSError(100, 'EOF')
         return self.l.pop(0)
     def fileno(self):
         return -1

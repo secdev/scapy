@@ -62,7 +62,7 @@ if not v:
 
 try:
     socket.getaddrinfo(args.server, args.port)
-except socket.error as ex:
+except OSError as ex:
     sys.exit("Could not resolve host server: %s" % ex)
 
 if args.ciphersuite:
@@ -79,7 +79,7 @@ server_name = args.sni
 if not server_name and args.server:
     try:
         inet_aton(args.server)
-    except socket.error:
+    except OSError:
         server_name = args.server
 
 t = TLSClientAutomaton(server=args.server, dport=args.port,

@@ -7,7 +7,7 @@
 SuperSocket.
 """
 
-from select import select, error as select_error
+from select import select, error as OSError
 import ctypes
 import errno
 import socket
@@ -261,8 +261,8 @@ class SuperSocket:
         """
         try:
             inp, _, _ = select(sockets, [], [], remain)
-        except (IOError, select_error) as exc:
-            # select.error has no .errno attribute
+        except OSError as exc:
+            # OSError has no .errno attribute
             if not exc.args or exc.args[0] != errno.EINTR:
                 raise
         return inp
@@ -370,7 +370,7 @@ if not WINDOWS:
                     "sent using a native L3 socket ! (make sure you passed the "
                     "IP layer)"
                 )
-            except socket.error as msg:
+            except OSError as msg:
                 log_runtime.error(msg)
             return 0
 
@@ -435,7 +435,7 @@ class SSLStreamSocket(StreamSocket):
         if not pkt:
             buf = self.ins.recv(x)
             if len(buf) == 0:
-                raise socket.error((100, "Underlying stream socket tore down"))
+                raise OSError((100, "Underlying stream socket tore down"))
             self._buf += buf
 
         x = len(self._buf)

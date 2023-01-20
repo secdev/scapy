@@ -18,7 +18,7 @@ from scapy.compat import plain_str, hex_bytes, bytes_encode, bytes_hex
 from scapy.compat import Union
 
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
-_INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")
+_INET6_PTON_EXC = OSError("illegal IP address string passed to inet_pton")
 
 
 def _inet6_pton(addr):
@@ -54,7 +54,7 @@ used when socket.inet_pton is not available.
                 raise _INET6_PTON_EXC
             try:
                 result += socket.inet_aton(part)
-            except socket.error:
+            except OSError:
                 raise _INET6_PTON_EXC
         else:
             # Each part must be 16bit. Add missing zeroes before decoding.
@@ -91,7 +91,7 @@ def inet_pton(af, addr):
         try:
             return _INET_PTON[af](addr)
         except KeyError:
-            raise socket.error("Address family not supported by protocol")
+            raise OSError("Address family not supported by protocol")
 
 
 def _inet6_ntop(addr):

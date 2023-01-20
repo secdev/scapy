@@ -818,7 +818,7 @@ class IPField(Field[Union[str, Net], bytes]):
         if isinstance(x, str):
             try:
                 inet_aton(x)
-            except socket.error:
+            except OSError:
                 return Net(x)
         elif isinstance(x, list):
             return [self.h2i(pkt, n) for n in x]
@@ -914,7 +914,7 @@ class IP6Field(Field[Optional[Union[str, Net6]], bytes]):
         if isinstance(x, str):
             try:
                 x = in6_ptop(x)
-            except socket.error:
+            except OSError:
                 return Net6(x)  # type: ignore
         elif isinstance(x, list):
             x = [self.h2i(pkt, n) for n in x]

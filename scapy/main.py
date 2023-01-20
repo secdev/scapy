@@ -100,7 +100,7 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(),
                 compile(cfgf.read(), cf, 'exec'),
                 _globals, _locals
             )
-    except IOError as e:
+    except OSError as e:
         if interactive:
             raise
         log_loading.warning("Cannot read config file [%s] [%s]", cf, e)
@@ -376,10 +376,10 @@ def load_session(fname=None):
         fname = conf.session
     try:
         s = six.moves.cPickle.load(gzip.open(fname, "rb"))
-    except IOError:
+    except OSError:
         try:
             s = six.moves.cPickle.load(open(fname, "rb"))
-        except IOError:
+        except OSError:
             # Raise "No such file exception"
             raise
 
@@ -403,7 +403,7 @@ def update_session(fname=None):
         fname = conf.session
     try:
         s = six.moves.cPickle.load(gzip.open(fname, "rb"))
-    except IOError:
+    except OSError:
         s = six.moves.cPickle.load(open(fname, "rb"))
     scapy_session = six.moves.builtins.__dict__["scapy_session"]
     scapy_session.update(s)
@@ -428,7 +428,7 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
                 try:
                     SESSION = six.moves.cPickle.load(gzip.open(session_name,
                                                                "rb"))
-                except IOError:
+                except OSError:
                     SESSION = six.moves.cPickle.load(open(session_name, "rb"))
                 log_loading.info("Using existing session [%s]", session_name)
             except ValueError:

@@ -25,7 +25,7 @@ def get_long_description():
             desc = readme.partition("<!-- start_ppi_description -->")[2]
             desc = desc.partition("<!-- stop_ppi_description -->")[0]
             return process_ignore_tags(desc.strip())
-    except IOError:
+    except OSError:
         return None
 
 

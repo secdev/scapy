@@ -9,7 +9,6 @@ Classes and functions for layer 2 protocols.
 
 import struct
 import time
-import socket
 
 from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_addr, get_if_hwaddr
@@ -163,7 +162,7 @@ class DestMACField(MACField):
         if x is None and pkt is not None:
             try:
                 x = conf.neighbor.resolve(pkt, pkt.payload)
-            except socket.error:
+            except OSError:
                 pass
             if x is None:
                 if conf.raise_no_dst_mac:

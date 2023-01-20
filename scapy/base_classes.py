@@ -122,7 +122,7 @@ class Net(Gen[str]):
                 socket.getaddrinfo(name, None, cls.family)
                 if family == cls.family
             )
-        except socket.error:
+        except OSError:
             if re.search("(^|\\.)[0-9]+-[0-9]+($|\\.)", name) is not None:
                 raise Scapy_Exception("Ranges are no longer accepted in %s()" %
                                       cls.__name__)

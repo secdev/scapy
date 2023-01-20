@@ -144,13 +144,13 @@ class L3WinSocket(SuperSocket):
                                     socket.IPV6_RECVTCLASS, 1)
                 self.ins.setsockopt(socket.IPPROTO_IPV6,
                                     socket.IPV6_HOPLIMIT, 1)
-            except (OSError, socket.error):
+            except OSError:
                 pass
         else:
             try:  # Not Windows XP
                 self.ins.setsockopt(socket.IPPROTO_IP,
                                     socket.IP_RECVDSTADDR, 1)
-            except (OSError, socket.error):
+            except OSError:
                 pass
             try:  # Windows 10+ recent builds only
                 self.ins.setsockopt(
@@ -158,7 +158,7 @@ class L3WinSocket(SuperSocket):
                     socket.IP_RECVTTL,  # type: ignore
                     1
                 )
-            except (OSError, socket.error):
+            except OSError:
                 pass
         if promisc:
             # IOCTL Receive all packets
@@ -179,7 +179,7 @@ class L3WinSocket(SuperSocket):
         # type: (int) -> Optional[Packet]
         try:
             return self.recv()
-        except IOError:
+        except OSError:
             return None
 
     # https://docs.microsoft.com/en-us/windows/desktop/winsock/tcp-ip-raw-sockets-2  # noqa: E501

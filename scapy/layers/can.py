@@ -551,7 +551,7 @@ class CandumpReader:
                 # try read to cause exception
                 fdesc.read(1)
                 fdesc.seek(0)
-            except IOError:
+            except OSError:
                 fdesc = open(filename, "rb")
             return filename, fdesc
         else:

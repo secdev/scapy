@@ -190,7 +190,7 @@ def _get_if_flags(ifname):
     # Get interface flags
     try:
         result = get_if(ifname, SIOCGIFFLAGS)
-    except IOError:
+    except OSError:
         warning("ioctl(SIOCGIFFLAGS) failed on %s !", ifname)
         return None
 
@@ -216,7 +216,7 @@ class BPFInterfaceProvider(InterfaceProvider):
         try:
             fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x",
                                                    dev.network_name.encode()))
-        except IOError:
+        except OSError:
             return False
         else:
             return True

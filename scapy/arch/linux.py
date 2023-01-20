@@ -122,7 +122,7 @@ def get_if_raw_addr(iff):
     """
     try:
         return get_if(iff, SIOCGIFADDR)[20:24]
-    except IOError:
+    except OSError:
         return b"\0\0\0\0"
 
 
@@ -135,7 +135,7 @@ def _get_if_list():
         with open("/proc/net/dev", "r", errors='replace') as f:
             return [line.split(':', 1)[0].strip()
                     for line in itertools.islice(f, 2, None)]
-    except IOError:
+    except OSError:
         log_loading.critical("Can't open /proc/net/dev !")
         return []
 
@@ -256,7 +256,7 @@ def read_routes():
                     warning("Interface %s: unknown address family (%i)" % (
                         conf.loopback_name, addrfamily
                     ))
-            except IOError as err:
+            except OSError as err:
                 if err.errno == 99:
                     warning("Interface %s: no address assigned" % conf.loopback_name)
                 else:
@@ -280,7 +280,7 @@ def read_routes():
                 try:
                     ifreq = ioctl(s, SIOCGIFADDR,
                                   struct.pack("16s16x", iff.encode("utf8")))
-                except IOError:
+                except OSError:
                     # interface is present in routing tables but does not
                     # have any assigned IP
                     ifaddr = "0.0.0.0"
@@ -309,7 +309,7 @@ def read_routes():
 
             return routes
 
-    except IOError:
+    except OSError:
         log_loading.critical("Can't open /proc/net/route !")
         return []
 
@@ -340,7 +340,7 @@ def in6_getifaddr():
                 # (addr, scope, iface)
                 ret.append((addr, int(scope, 16), ifname))
             return ret
-    except IOError:
+    except OSError:
         return []
 
 
@@ -396,7 +396,7 @@ def read_routes6():
                 if len(cset) != 0:
                     routes.append((d, dp, nh, dev, cset, metric))
             return routes
-    except IOError:
+    except OSError:
         return []
 
 
@@ -426,7 +426,7 @@ class LinuxInterfaceProvider(InterfaceProvider):
                 )
                 ip = None  # type: Optional[str]
                 ip = inet_ntop(socket.AF_INET, get_if_raw_addr(i))
-            except IOError:
+            except OSError:
                 warning("Interface %s does not exist!", i)
                 continue
             if ip == "0.0.0.0":
@@ -566,7 +566,7 @@ class L2Socket(SuperSocket):
         # type: (Packet) -> int
         try:
             return SuperSocket.send(self, x)
-        except socket.error as msg:
+        except OSError as msg:
             if msg.errno == 22 and len(x) < conf.min_pkt_size:
                 padding = b"\x00" * (conf.min_pkt_size - len(x))
                 if isinstance(x, Packet):
@@ -617,7 +617,7 @@ class L3PacketSocket(L2Socket):
         x.sent_time = time.time()
         try:
             return self.outs.sendto(sx, sdto)
-        except socket.error as msg:
+        except OSError as msg:
             if msg.errno == 22 and len(sx) < conf.min_pkt_size:
                 return self.outs.send(
                     sx + b"\x00" * (conf.min_pkt_size - len(sx))

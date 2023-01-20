@@ -231,7 +231,7 @@ def _in6_getifaddr(ifname):
         # Check if it is a valid IPv6 address
         try:
             inet_pton(socket.AF_INET6, addr)
-        except (socket.error, ValueError):
+        except (OSError, ValueError):
             continue
 
         # Get the scope and keep the address

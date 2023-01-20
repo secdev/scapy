@@ -59,7 +59,7 @@ class p0fKnowledgeBase(KnowledgeBase):
     def lazy_init(self):
         try:
             f = open(self.filename)
-        except IOError:
+        except OSError:
             warning("Can't open base %s", self.filename)
             return
         try:
@@ -609,7 +609,7 @@ interface and may (are likely to) be different than those generated on
         # S & RA
         try:
             s1.connect(('127.0.0.1', port))
-        except socket.error:
+        except OSError:
             pass
         # S, SA, A, FA, A
         s1.bind(('127.0.0.1', port))

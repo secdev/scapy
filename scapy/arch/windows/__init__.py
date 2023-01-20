@@ -123,7 +123,7 @@ def _get_npcap_config(param_key):
         key = winreg.OpenKey(hkey, node)
         dot11_adapters, _ = winreg.QueryValueEx(key, param_key)
         winreg.CloseKey(key)
-    except WindowsError:
+    except OSError:
         return None
     return cast(str, dot11_adapters)
 
@@ -144,7 +144,7 @@ def _where(filename, dirs=None, env="PATH"):
                     for match in glob(os.path.join(path, filename))
                     if match)
     except (StopIteration, RuntimeError):
-        raise IOError("File not found: %s" % filename)
+        raise OSError("File not found: %s" % filename)
 
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
@@ -159,7 +159,7 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
                 path = _where(fn)
             else:
                 path = _where(fn, dirs=[os.path.join(os.environ[env], installsubdir)])  # noqa: E501
-        except IOError:
+        except OSError:
             path = None
         else:
             break
@@ -206,7 +206,7 @@ class WinProgPath(ProgPath):
                         self.wireshark.split(os.path.sep)[:-1]
                     ) + os.path.sep + "manuf"
                 )
-            except (IOError, OSError):  # FileNotFoundError not available on Py2 - using OSError  # noqa: E501
+            except OSError:
                 log_loading.warning("Wireshark is installed, but cannot read manuf !")  # noqa: E501
                 new_manuf = None
             if new_manuf:

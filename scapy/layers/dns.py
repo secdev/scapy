@@ -620,7 +620,7 @@ class ClientSubnetv4(StrLenField):
             return self.af_default
         try:
             return self._pack_subnet(x)
-        except (OSError, socket.error):
+        except OSError:
             pkt.family = 2
             return ClientSubnetv6("", "")._pack_subnet(x)
 
@@ -630,7 +630,7 @@ class ClientSubnetv4(StrLenField):
             return 1
         try:
             return len(self._pack_subnet(x))
-        except (OSError, socket.error):
+        except OSError:
             pkt.family = 2
             return len(ClientSubnetv6("", "")._pack_subnet(x))
 
