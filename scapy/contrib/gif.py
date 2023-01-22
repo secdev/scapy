@@ -9,21 +9,15 @@ https://root.cern/doc/master/x11_2src_2gifdecode_8c_source.html
 http://wiki.gis.com/wiki/index.php/Graphics_Interchange_Format
 """
 
-import struct
 from scapy.fields import (
     LEShortField,
-    LESignedIntField,
-    LEIntField,
-    Field,
     StrField,
     ByteField,
     PacketField,
     LEFieldLenField,
-    LenField,
 )
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet
 from scapy.utils import hexdump
-
 
 class GIFRGB(Packet):
     """RGB Header"""
