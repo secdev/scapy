@@ -765,8 +765,7 @@ class Packet(
                 continue
 
             if class_name.startswith('Rand'):
-                if (class_name == 'RandIP' or  # We don't fuzz this atm
-                    class_name == 'RandBin' ): # We don't fuzz this atm
+                if (class_name == 'RandIP'): # We don't fuzz this atm
                     # print(f"Skipping: {p._name}-{f}")
                     continue
                 
@@ -832,7 +831,6 @@ class Packet(
         if they can great, move them, otherwise reset them to default
         and move to the next one
         """
-        
         if states is None:
             raise ValueError("Please provide states")
             
@@ -841,11 +839,9 @@ class Packet(
           
         # Find the first state that has 'done' False
         state_fuzzed = None
-        state_idx = None
         for (idx, state) in enumerate(states):
             if not state['done']:
                 state_fuzzed = state
-                state_idx = idx
                 fields = state['fields']
                 
                 # Mark it as active, and reset the values
@@ -854,6 +850,11 @@ class Packet(
                     state['active'] = True
                     for field_item in fields:
                         field_obj = self.locate_field(self, field_item['name'])
+                        if type(field_obj).__name__ == 'RandBin':
+                            # We need to treat this differently, the min 0 and max will be 2^(max)
+                            field_obj.min = field_obj.size.min
+                            field_obj.max = field_obj.size.max
+
                         if "default" in dir(field_obj):
                             if type(field_obj.default).__name__ == 'int': # Some fields have a 'default'
                                 field_obj.state_pos = field_obj.default
