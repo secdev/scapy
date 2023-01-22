@@ -14,7 +14,6 @@ import socket
 from scapy.compat import Optional, Union, Tuple, Type, cast
 from scapy.contrib.isotp import log_isotp
 from scapy.packet import Packet
-import scapy.libs.six as six
 from scapy.error import Scapy_Exception
 from scapy.supersocket import SuperSocket
 from scapy.data import SO_TIMESTAMPNS
@@ -297,7 +296,7 @@ class ISOTPNativeSocket(SuperSocket):
                  ):
         # type: (...) -> None
 
-        if not isinstance(iface, six.string_types):
+        if not isinstance(iface, str):
             # This is for interoperability with ISOTPSoftSockets.
             # If a NativeCANSocket is provided, the interface name of this
             # socket is extracted and an ISOTPNativeSocket will be opened

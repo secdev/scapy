@@ -33,7 +33,6 @@ from scapy.fields import ConditionalField, EnumField, Field, FieldLenField, \
     XByteField, XIntField
 from scapy.layers.inet import TCP
 from scapy.layers.sctp import SCTPChunkData
-import scapy.libs.six as six
 from scapy.compat import chb, orb, raw, bytes_hex, plain_str
 from scapy.error import warning
 from scapy.utils import inet_ntoa, inet_aton
@@ -4781,7 +4780,7 @@ def getCmdParams(cmd, request, **fields):
         val = fields['drAppId']
         if isinstance(val, str):   # Translate into application Id code
             found = False
-            for k, v in six.iteritems(AppIDsEnum):
+            for k, v in AppIDsEnum.items():
                 if v.find(val) != -1:
                     drAppId = k
                     fields['drAppId'] = drAppId

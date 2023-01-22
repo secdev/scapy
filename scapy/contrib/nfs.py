@@ -12,7 +12,6 @@ from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, IntEnumField, FieldListField, LongField, \
     XIntField, XLongField, ConditionalField, PacketListField, StrLenField, \
     PacketField
-from scapy.libs.six import integer_types
 
 nfsstat3 = {
     0: 'NFS3_OK',
@@ -58,7 +57,7 @@ ftype3 = {
 
 
 def loct(x):
-    if isinstance(x, integer_types):
+    if isinstance(x, int):
         return oct(x)
     if isinstance(x, tuple):
         return "(%s)" % ", ".join(map(loct, x))
