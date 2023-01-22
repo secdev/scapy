@@ -156,6 +156,22 @@ assert pkt[NetflowOptionsFlowsetV9].pad == b"\x00\x00"
 pkt[NetflowOptionsFlowsetV9].pad = None
 assert raw(pkt) == dat
 
+= NetflowV9 - Options Template build
+~ netflow
+
+option_templateFlowSet_256 = NetflowOptionsFlowsetV9(
+    templateID = 256,
+    option_scope_length = 4*1,
+    option_field_length = 4*3,
+    scopes = [
+        NetflowOptionsFlowsetScopeV9(scopeFieldType=1,	scopeFieldlength= 4),
+    ],
+    options = [
+        NetflowOptionsFlowsetOptionV9(optionFieldType= 10,	optionFieldlength= 4),
+        NetflowOptionsFlowsetOptionV9(optionFieldType= 82,	optionFieldlength= 32),
+        NetflowOptionsFlowsetOptionV9(optionFieldType= 83,	optionFieldlength= 240)
+    ])
+assert raw(option_templateFlowSet_256) == b'\x00\x01\x00\x1c\x01\x00\x00\x04\x00\x0c\x00\x01\x00\x04\x00\n\x00\x04\x00R\x00 \x00S\x00\xf0\x00\x00'
 
 ############
 ############

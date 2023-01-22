@@ -44,7 +44,6 @@ from scapy.error import log_runtime, Scapy_Exception
 from scapy.fields import BitField, ByteField, LEShortField, FieldListField, \
     LEIntField, FieldLenField, _EnumField, EnumField
 from scapy.layers.l2 import Ether, Dot1Q
-import scapy.libs.six as six
 from scapy.packet import bind_layers, Packet, Padding
 
 '''
@@ -252,7 +251,7 @@ class LEBitFieldLenField(LEBitField):
         self.adjust = adjust
 
     def i2m(self, pkt, x):
-        return (FieldLenField.i2m.__func__ if six.PY2 else FieldLenField.i2m)(self, pkt, x)  # noqa: E501
+        return FieldLenField.i2m(self, pkt, x)
 
 
 class LEBitEnumField(LEBitField, _EnumField):

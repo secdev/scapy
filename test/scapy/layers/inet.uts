@@ -573,7 +573,7 @@ def test_summary():
         "IP / ICMP 192.168.0.9 > 192.168.0.254 time-exceeded "
         "ttl-zero-during-transit / IPerror / TCPerror / "
         "Raw" % (ftp_data, http) in result_summary
-        for ftp_data in ['21', 'ftp_data']
+        for ftp_data in ['20', 'ftp_data']
         for http in ['80', 'http', 'www_http', 'www']
     ))
 

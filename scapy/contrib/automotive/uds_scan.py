@@ -6,6 +6,7 @@
 # scapy.contrib.description = UDS AutomotiveTestCaseExecutor
 # scapy.contrib.status = loads
 
+from abc import ABC
 import struct
 import random
 import time
@@ -21,7 +22,6 @@ from scapy.compat import Dict, Optional, List, Type, Any, Iterable, \
     cast, Union, orb, Set, Sequence
 from scapy.contrib.automotive import log_automotive
 from scapy.packet import Raw, Packet
-import scapy.libs.six as six
 from scapy.error import Scapy_Exception
 from scapy.contrib.automotive.uds import UDS, UDS_NR, UDS_DSC, UDS_TP, \
     UDS_RDBI, UDS_WDBI, UDS_SA, UDS_RC, UDS_IOCBI, UDS_RMBA, UDS_ER, \
@@ -42,12 +42,6 @@ from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor
 # TODO: Refactor this import
 from scapy.contrib.automotive.uds_ecu_states import *  # noqa: F401, F403
 
-if six.PY34:
-    from abc import ABC
-else:
-    from abc import ABCMeta
-
-    ABC = ABCMeta('ABC', (), {})  # type: ignore
 
 # Definition outside the class UDS_RMBASequentialEnumerator
 # to allow pickling
@@ -706,10 +700,7 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
 
     def transition_function(self, sock, _, kwargs):
         # type: (_SocketUnion, AutomotiveTestCaseExecutorConfiguration, Dict[str, Any]) -> bool  # noqa: E501
-        if six.PY3:
-            spec = inspect.getfullargspec(self.get_security_access)
-        else:
-            spec = inspect.getargspec(self.get_security_access)
+        spec = inspect.getfullargspec(self.get_security_access)
 
         func_kwargs = {k: kwargs[k] for k in spec.args if k in kwargs.keys()}
         return self.get_security_access(sock, **func_kwargs)

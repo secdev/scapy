@@ -53,9 +53,19 @@ from scapy import _parse_tag, _version_from_git_describe
 from scapy.config import _version_checker
 
 b = Bunch(returncode=0, communicate=lambda *args, **kargs: (b"v2.4.5rc1-261-g44b98e14", None))
-with mock.patch('scapy.subprocess.Popen', return_value=b) as popen:
-    class GitModuleScapy(object):
-        __version__ = _version_from_git_describe()
+with mock.patch('scapy.subprocess.Popen', return_value=b):
+    with mock.patch('scapy.os.path.isdir', return_value=True):
+        class GitModuleScapy(object):
+            __version__ = _version_from_git_describe()
+
+# GH3847
+with mock.patch('scapy.subprocess.Popen', return_value=b):
+    with mock.patch('scapy.os.path.isdir', return_value=False):
+        try:
+            _version_from_git_describe()
+            assert False
+        except ValueError:
+            pass
 
 assert GitModuleScapy.__version__ == '2.4.5rc1.dev261'
 assert _version_checker(GitModuleScapy, (2, 4, 5))
@@ -4760,10 +4770,14 @@ with open(version_filename, "w") as fd:
 
 import mock
 with mock.patch("scapy._version_from_git_describe") as version_mocked:
-    version_mocked.side_effect = Exception()
-    assert scapy._version() == version
-    os.unlink(version_filename)
-    assert scapy._version() == "unknown.version"
+    with mock.patch('scapy.os.path.isdir', return_value=True):
+        version_mocked.side_effect = Exception()
+        # mocking _parse_tag is a fallback for when run outside of git
+        with mock.patch('scapy._parse_tag', return_value=version):
+            assert scapy._version() == version
+        os.unlink(version_filename)
+        with mock.patch('scapy._parse_tag', return_value='unknown.version'):
+            assert scapy._version() == "unknown.version"
 
 
 = UTscapy HTML output
