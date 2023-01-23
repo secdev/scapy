@@ -40,7 +40,7 @@ from scapy.compat import raw, orb, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended
 from scapy.interfaces import _GlobInterfaceType
-from scapy.volatile import RandField, VolatileValue
+from scapy.volatile import RandField, VolatileValue, RandString, RandBin
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
 from scapy.error import Scapy_Exception, log_runtime, warning
@@ -718,23 +718,23 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         # type: () -> bytes
         return self.payload.build_padding()
 
-    def return_relevant_fields(self, p):
+    def return_relevant_fields(self, pkt):
         """
         Recursively collect all the fields that we can fuzz
         """
         relevant_fields = []
         
         # If we provided fields in the constrcution, override the default ones
-        for field_name in p.fields:
-            p.default_fields[field_name] = p.fields[field_name]
+        for field_name in pkt.fields:
+            pkt.default_fields[field_name] = pkt.fields[field_name]
 
-        for f in p.default_fields:
-            if f in p.overloaded_fields:
+        for field_name in pkt.default_fields:
+            if field_name in pkt.overloaded_fields:
                 # This is not actually fuzzable, as it gets overloaded
                 # print(f"Skipping: {p._name}-{f}")
                 continue
 
-            class_name = type(p.default_fields[f]).__name__
+            class_name = type(pkt.default_fields[field_name]).__name__
             # print(f"Class type: {class_name} for: {p._name}-{f}")
             if class_name == 'NoneType':
                 continue
@@ -743,34 +743,54 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 if (class_name == 'RandIP'): # We don't fuzz this atm
                     # print(f"Skipping: {p._name}-{f}")
                     continue
-                
+
                 # print(f"Adding: {p._name}-{f}")
-                relevant_fields.append(f"{p._name}-{f}")
-                
-        if type(p.payload).__name__ != 'NoPayload':
-            relevant_fields += self.return_relevant_fields(p.payload)
-                
+                relevant_fields.append(f"{pkt._name}-{field_name}")
+
+        if type(pkt.payload).__name__ != 'NoPayload':
+            relevant_fields += self.return_relevant_fields(pkt.payload)
+
         return relevant_fields
-    
-    def locate_field(self, p, name):
+
+    def locate_field(self, pkt, name):
+        """ Locate a given field name inside a pkt (recursively) """
         packet_type = name[0:name.index('-')]
         packet_field = name[name.index('-')+1:]
-        
-        if p._name == packet_type:
-            if (packet_field not in p.fields and packet_field not in p.default_fields):
+
+        if pkt._name == packet_type:
+            if (packet_field not in pkt.fields and packet_field not in pkt.default_fields):
                 raise ValueError(f"Cannot find {packet_field} inside {packet_type}")
-            
-            if packet_field in p.fields:
-                return p.fields[packet_field]
-            elif packet_field in p.default_fields:
-                return p.default_fields[packet_field]
+
+            if packet_field in pkt.fields:
+                return pkt.fields[packet_field]
+            elif packet_field in pkt.default_fields:
+                return pkt.default_fields[packet_field]
             else:
                 raise ValueError("Shouldn't have reached this point")
         else:
-            return p.locate_field(p.payload, name)
-        
+            return pkt.locate_field(pkt.payload, name)
+
         return None
-    
+
+
+    def fix_RandBin_fields(self, obj):
+        """ This function fixes the RandBin fields, rand makes them into non-random RandString"""
+        for (obj_name, obj_field) in obj.fields.items():
+            if isinstance(obj_field, RandBin):
+                max_value = obj_field.size.max
+                obj.fields[obj_name] = RandString(size=max_value)
+
+        for (obj_name, obj_field) in obj.default_fields.items():
+            if isinstance(obj_field, RandBin):
+                max_value = obj_field.size.max
+                obj.default_fields[obj_name] = RandString(size=max_value)
+
+        if obj.payload:
+            obj.payload = self.fix_RandBin_fields(obj.payload)
+
+        return obj
+
+
     def prepare_combinations(self, complexity: int) -> Dict:
         relevant_fields = self.return_relevant_fields(self)
 
@@ -779,27 +799,27 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             potential_states = itertools.combinations(relevant_fields, complexity)
         else:
             potential_states = [relevant_fields]
-        
+
         states = []
-        
+
         for potential_state in potential_states:
             state = {
                 'active': False,
                 'done': False,
                 'combinations': 0
             }
-            
+
             fields = []
             for field in potential_state:
                 fields.append({'name': field, 'done': False, 'combinations': 0, 'active': False})
-                
+
             state['fields'] = fields
-            
+
             states.append(state)
-            
+
         return states
-        
-    
+
+
     def forward(self, states):
         """
         Go through each field, find if they can still move
@@ -808,35 +828,33 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         """
         if states is None:
             raise ValueError("Please provide states")
-            
+
         if len(states) == 0:
             raise ValueError("States should include at least one permutation")
-          
+
         # Find the first state that has 'done' False
         state_fuzzed = None
-        for (idx, state) in enumerate(states):
+        for (_, state) in enumerate(states):
             if not state['done']:
                 state_fuzzed = state
                 fields = state['fields']
-                
+
                 # Mark it as active, and reset the values
                 if not state['active']:
                     print(f"Now fuzzing: {fields}")
                     state['active'] = True
                     for field_item in fields:
                         field_obj = self.locate_field(self, field_item['name'])
-                        if type(field_obj).__name__ == 'RandBin':
-                            # We need to treat this differently, the min 0 and max will be 2^(max)
-                            field_obj.min = field_obj.size.min
-                            field_obj.max = field_obj.size.max
 
                         if "default" in dir(field_obj):
-                            if type(field_obj.default).__name__ == 'int': # Some fields have a 'default'
+                            # Some fields have a 'default'
+                            if type(field_obj.default).__name__ == 'int':
                                 field_obj.state_pos = field_obj.default
                             else:
                                 field_obj.default = None
-                        
-                        if "min" in dir(field_obj) and type(field_obj.min).__name__ == 'int': # Some fields don't have a 'default', try to use 'min'
+
+                        # Some fields don't have a 'default', try to use 'min'
+                        if "min" in dir(field_obj) and type(field_obj.min).__name__ == 'int':
                             field_obj.state_pos = field_obj.min
 
                             if "default" not in dir(field_obj) or field_obj.default is None:
@@ -848,15 +866,20 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                             field_obj.min = 0
                             field_obj.state_pos = 0
 
+                        # RandString has a 'size' rather than max
+                        if 'size' in dir(field_obj):
+                            field_obj.max = field_obj.size
+
                         # Make sure it exists
                         if 'max' not in dir(field_obj):
                             field_obj.max = field_obj.min
-                        
+
+
                 break
-            
+
         if state_fuzzed is None: # Means we couldn't find a state to fuzz
             return (states, False)
-        
+
         # Find the first field that is not done and move it forward
         found_a_fuzzable_field = False
         for (field_idx, field) in enumerate(state_fuzzed['fields']):
@@ -867,14 +890,14 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                     if next_field is not None:
                         next_field['done'] = True # Mark it as done
                     continue
-        
+
                 # If there are more than 128 combinations, do jumps
                 if field_fuzzed.max - field_fuzzed.min > 128:
                     jump = round((field_fuzzed.max - field_fuzzed.min) / 128)
                     field_fuzzed.state_pos += jump
                 else:
                     field_fuzzed.state_pos += 1
-                
+
                 # If we recached max for this field, try the next one
                 if field_fuzzed.state_pos > field_fuzzed.max:
                     # Reset the position back to default
@@ -884,15 +907,15 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                     field_fuzzed.state_pos = field_fuzzed.default
                     field['done'] = True
                     field['active'] = False
-                    
+
                     curr_pos = field_idx
-                    
+
                     # Make sure we aren't the last one
                     are_we_last = (curr_pos + 1) == len(state_fuzzed['fields'])                        
-                        
+
                     while not are_we_last:
                         next_field = state_fuzzed['fields'][curr_pos+1]
-                        
+
                         if not next_field['done']:
                             # Try to move to the next item
                             field_fuzzed = self.locate_field(self, next_field['name'])
@@ -911,41 +934,44 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                             else:
                                 # Reset the item before us to not done
                                 state_fuzzed['fields'][curr_pos]['done'] = False
-                                
+
                                 # Reset the previous item pos to the begining
-                                field_fuzzed = self.locate_field(self, state_fuzzed['fields'][curr_pos]['name'])
+                                field_fuzzed = self.locate_field(
+                                    self,
+                                    state_fuzzed['fields'][curr_pos]['name']
+                                )
 
                                 if type(field_fuzzed.default).__name__ != 'int':
                                     raise ValueError("field_fuzzed.default is not int")
 
                                 field_fuzzed.state_pos = field_fuzzed.default
-                                
+
                                 field['combinations'] += 1
                                 field['active'] = True
                                 state_fuzzed['combinations'] += 1
                                 found_a_fuzzable_field = True
                                 break
-                        
+
                         curr_pos += 1
                         are_we_last = (curr_pos + 1) == len(state_fuzzed['fields'])
-                        
+
                 else:
                     field['combinations'] += 1
                     field['active'] = True
                     state_fuzzed['combinations'] += 1
 
                     found_a_fuzzable_field = True
-                    
+
                     break
-                
+
         if not found_a_fuzzable_field:
             # We reached the end...
             state['done'] = True
             state['active'] = False
-        
+
             # Try to find the next one that is fuzzable (state)
             (states, found_a_fuzzable_field) = self.forward(states)
-        
+
         return (states, found_a_fuzzable_field)
 
     def build(self):

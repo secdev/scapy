@@ -244,10 +244,22 @@ class RandNum(_RandNumeral[int]):
     def _fix(self):
         # type: () -> int
         if self.state_pos is None:
+            if 'default' in dir(self):
+                # If the 'default' exists, use it rather than min
+                # 'min' is '0' causing:
+                #    new_default_fields = {
+                #      key: (val._fix() if isinstance(val, VolatileValue) else val)
+                #      for key, val in six.iteritems(new_default_fields)
+                #    }
+                # To fix the value to '0' rather than use the value that was set by the
+                #   packet generator, for example for ARP(), 'hwtype' will be set to 0
+                #   rather than Ethernet (10Mb)
+                return self.default
+
             return self.min
             #
             # return random.randrange(self.min, self.max + 1)
-        
+
         return self.state_pos
 
     def __lshift__(self, other):
@@ -517,6 +529,9 @@ class _RandString(RandField[_S], Generic[_S]):
 class RandString(_RandString[bytes]):
     _DEFAULT_CHARS = (string.ascii_uppercase + string.ascii_lowercase +
                       string.digits).encode("utf-8")
+    min = 0
+    max = 0
+    state_pos = None
 
     def __init__(self, size=None, chars=_DEFAULT_CHARS):
         # type: (Optional[Union[int, RandNum]], bytes) -> None
@@ -541,9 +556,13 @@ class RandString(_RandString[bytes]):
     def _fix(self):
         # type: () -> bytes
         s = b""
-        for _ in range(int(self.size)):
-            rdm_chr = random.choice(self.chars)
-            s += rdm_chr if isinstance(rdm_chr, str) else chb(rdm_chr)
+        if 'state_pos' not in dir(self) or self.state_pos is None:
+            return s
+
+        # for _ in range(int(self.size)):
+        #     rdm_chr = random.choice(self.chars)
+        #     s += rdm_chr if isinstance(rdm_chr, str) else chb(rdm_chr)
+        s += (b"A" * self.state_pos) # Make it change by state_pos
         return s
 
 
