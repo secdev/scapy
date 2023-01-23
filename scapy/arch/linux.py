@@ -13,6 +13,7 @@ from select import select
 
 import array
 import ctypes
+import itertools
 import os
 import socket
 import struct
@@ -132,7 +133,8 @@ def _get_if_list():
     """
     try:
         with open("/proc/net/dev", "r") as f:
-            return [line.split(':', 1)[0].strip() for line in f.readlines()[2:]]
+            return [line.split(':', 1)[0].strip()
+                    for line in itertools.islice(f, 2, None)]
     except IOError:
         log_loading.critical("Can't open /proc/net/dev !")
         return []
@@ -228,66 +230,89 @@ def get_alias_address(iface_name,  # type: str
 
 def read_routes():
     # type: () -> List[Tuple[int, int, str, str, str, int]]
+    """
+    Read routes from /proc/net/route
+    """
     try:
-        with open("/proc/net/route", "r") as f:
-            entries = [line.split() for line in f]
+        with open("/proc/net/route", "r", errors='replace') as f:
+            routes = []
+            # Loopback route
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                ifreq = ioctl(s, SIOCGIFADDR,
+                              struct.pack("16s16x", conf.loopback_name.encode("utf8")))
+                addrfamily = struct.unpack("h", ifreq[16:18])[0]
+                if addrfamily == socket.AF_INET:
+                    ifreq2 = ioctl(
+                        s, SIOCGIFNETMASK,
+                        struct.pack("16s16x", conf.loopback_name.encode("utf8"))
+                    )
+                    msk = socket.ntohl(struct.unpack("I", ifreq2[20:24])[0])
+                    dst = socket.ntohl(struct.unpack("I", ifreq[20:24])[0]) & msk
+                    ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
+                    routes.append((dst, msk, "0.0.0.0", conf.loopback_name,
+                                   ifaddr, 1))
+                else:
+                    warning("Interface %s: unknown address family (%i)" % (
+                        conf.loopback_name, addrfamily
+                    ))
+            except IOError as err:
+                if err.errno == 99:
+                    warning("Interface %s: no address assigned" % conf.loopback_name)
+                else:
+                    warning("Interface %s: failed to get address config (%s)" % (
+                        conf.loopback_name, str(err))
+                    )
+
+            # Load routes
+            for line in (x.split() for x in itertools.islice(f, 1, None)):
+                # line = iff, dst, gw, flags, _, _, metric, msk, _, _, _
+                iff, gw = line[0], line[2]
+                dst, flags, msk = tuple(
+                    int(x, 16) for x in [line[1], line[3], line[7]]
+                )
+                metric = int(line[6])
+                # Check iface flags
+                if flags & RTF_UP == 0:
+                    continue
+                if flags & RTF_REJECT:
+                    continue
+                try:
+                    ifreq = ioctl(s, SIOCGIFADDR,
+                                  struct.pack("16s16x", iff.encode("utf8")))
+                except IOError:
+                    # interface is present in routing tables but does not
+                    # have any assigned IP
+                    ifaddr = "0.0.0.0"
+                    ifaddr_int = 0
+                else:
+                    addrfamily = struct.unpack("h", ifreq[16:18])[0]
+                    if addrfamily == socket.AF_INET:
+                        ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
+                        ifaddr_int = struct.unpack("!I", ifreq[20:24])[0]
+                    else:
+                        warning("Interface %s: unknown address family (%i)", iff, addrfamily)  # noqa: E501
+                        continue
+
+                # Attempt to detect an interface alias based on addresses
+                # inconsistencies
+                dst = socket.htonl(dst) & 0xffffffff
+                msk = socket.htonl(msk) & 0xffffffff
+                gw = scapy.utils.inet_ntoa(struct.pack("I", int(gw, 16)))
+
+                route = (dst, msk, gw, iff, ifaddr, metric)
+                if ifaddr_int & msk != dst:
+                    tmp_route = get_alias_address(iff, dst, gw, metric)
+                    if tmp_route:
+                        route = tmp_route
+                routes.append(route)
+
+            s.close()
+            return routes
+
     except IOError:
         log_loading.critical("Can't open /proc/net/route !")
         return []
-    routes = []
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", conf.loopback_name.encode("utf8")))  # noqa: E501
-        addrfamily = struct.unpack("h", ifreq[16:18])[0]
-        if addrfamily == socket.AF_INET:
-            ifreq2 = ioctl(s, SIOCGIFNETMASK, struct.pack("16s16x", conf.loopback_name.encode("utf8")))  # noqa: E501
-            msk_int = socket.ntohl(struct.unpack("I", ifreq2[20:24])[0])
-            dst_int = socket.ntohl(struct.unpack("I", ifreq[20:24])[0]) & msk_int
-            ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
-            routes.append((dst_int, msk_int, "0.0.0.0", conf.loopback_name, ifaddr, 1))  # noqa: E501
-        else:
-            warning("Interface %s: unknown address family (%i)" % (conf.loopback_name, addrfamily))  # noqa: E501
-    except IOError as err:
-        if err.errno == 99:
-            warning("Interface %s: no address assigned" % conf.loopback_name)  # noqa: E501
-        else:
-            warning("Interface %s: failed to get address config (%s)" % (conf.loopback_name, str(err)))  # noqa: E501
-
-    for iff, dst, gw, flags, _, _, metric, msk, _, _, _ in entries[1:]:
-        flags_int = int(flags, 16)
-        if flags_int & RTF_UP == 0:
-            continue
-        if flags_int & RTF_REJECT:
-            continue
-        try:
-            ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", iff.encode("utf8")))  # noqa: E501
-        except IOError:  # interface is present in routing tables but does not have any assigned IP  # noqa: E501
-            ifaddr = "0.0.0.0"
-            ifaddr_int = 0
-        else:
-            addrfamily = struct.unpack("h", ifreq[16:18])[0]
-            if addrfamily == socket.AF_INET:
-                ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
-                ifaddr_int = struct.unpack("!I", ifreq[20:24])[0]
-            else:
-                warning("Interface %s: unknown address family (%i)", iff, addrfamily)  # noqa: E501
-                continue
-
-        # Attempt to detect an interface alias based on addresses inconsistencies  # noqa: E501
-        dst_int = socket.htonl(int(dst, 16)) & 0xffffffff
-        msk_int = socket.htonl(int(msk, 16)) & 0xffffffff
-        gw = scapy.utils.inet_ntoa(struct.pack("I", int(gw, 16)))
-        metric_int = int(metric)
-
-        route = (dst_int, msk_int, gw, iff, ifaddr, metric_int)
-        if ifaddr_int & msk_int != dst_int:
-            tmp_route = get_alias_address(iff, dst_int, gw, metric_int)
-            if tmp_route:
-                route = tmp_route
-        routes.append(route)
-
-    s.close()
-    return routes
 
 ############
 #   IPv6   #
@@ -304,31 +329,28 @@ def in6_getifaddr():
     This is the list of all addresses of all interfaces available on
     the system.
     """
-    ret = []  # type: List[Tuple[str, int, str]]
     try:
         with open("/proc/net/if_inet6", "r") as f:
-            entries = [line.split() for line in f]
+            ret = []  # type: List[Tuple[str, int, str]]
+            for addr, _, _, scope, _, ifname in (x.split() for x in f):
+                addr = scapy.utils6.in6_ptop(
+                    b':'.join(
+                        struct.unpack('4s4s4s4s4s4s4s4s', addr.encode())
+                    ).decode()
+                )
+                # (addr, scope, iface)
+                ret.append((addr, int(scope, 16), ifname))
+            return ret
     except IOError:
-        return ret
-
-    for addr, _, _, scope, _, ifname in entries:
-        addr = scapy.utils6.in6_ptop(
-            b':'.join(
-                struct.unpack('4s4s4s4s4s4s4s4s', addr.encode())
-            ).decode()
-        )
-        # (addr, scope, iface)
-        ret.append((addr, int(scope, 16), ifname))
-    return ret
+        return []
 
 
 def read_routes6():
     # type: () -> List[Tuple[str, int, str, str, List[str], int]]
-    try:
-        with open("/proc/net/ipv6_route", "r") as f:
-            entries = [line.split() for line in f]
-    except IOError:
-        return []
+    """
+    Read routes from /proc/net/ipv6_route
+    """
+
     # 1. destination network
     # 2. destination prefix length
     # 3. source network displayed
@@ -339,7 +361,6 @@ def read_routes6():
     # 8. use counter (?!?)
     # 9. flags
     # 10. device name
-    routes = []
 
     def proc2r(p):
         # type: (str) -> str
@@ -347,33 +368,37 @@ def read_routes6():
         addr = b':'.join(ret).decode()
         return scapy.utils6.in6_ptop(addr)
 
-    lifaddr = in6_getifaddr()
-    for d, dp, _, _, nh, metric, _, _, fl, dev in entries:
-        metric_int = int(metric, 16)
-        fl_int = int(fl, 16)
+    try:
+        with open("/proc/net/ipv6_route", "r") as f:
+            routes = []
+            lifaddr = in6_getifaddr()
+            for line in (x.split() for x in itertools.islice(f, 1, None)):
+                # line = d, dp, _, _, nh, metric, _, _, fl, dev
+                d, nh, dev = line[0], line[4], line[9]
+                dp, metric, flags = [int(x, 16) for x in [line[1], line[5], line[8]]]
 
-        if fl_int & RTF_UP == 0:
-            continue
-        if fl_int & RTF_REJECT:
-            continue
+                if flags & RTF_UP == 0:
+                    continue
+                if flags & RTF_REJECT:
+                    continue
 
-        d = proc2r(d)
-        dp_int = int(dp, 16)
-        nh = proc2r(nh)
+                d = proc2r(d)
+                nh = proc2r(nh)
 
-        cset = []  # candidate set (possible source addresses)
-        if dev == conf.loopback_name:
-            if d == '::':
-                continue
-            cset = ['::1']
-        else:
-            devaddrs = (x for x in lifaddr if x[2] == dev)
-            cset = scapy.utils6.construct_source_candidate_set(d, dp_int, devaddrs)
+                cset = []  # candidate set (possible source addresses)
+                if dev == conf.loopback_name:
+                    if d == '::':
+                        continue
+                    cset = ['::1']
+                else:
+                    devaddrs = (x for x in lifaddr if x[2] == dev)
+                    cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs)
 
-        if len(cset) != 0:
-            routes.append((d, dp_int, nh, dev, cset, metric_int))
-
-    return routes
+                if len(cset) != 0:
+                    routes.append((d, dp, nh, dev, cset, metric))
+            return routes
+    except IOError:
+        return []
 
 
 def get_if_index(iff):
