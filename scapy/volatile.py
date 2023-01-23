@@ -244,6 +244,18 @@ class RandNum(_RandNumeral[int]):
     def _fix(self):
         # type: () -> int
         if self.state_pos is None:
+            if 'default' in dir(self):
+                # If the 'default' exists, use it rather than min
+                # 'min' is '0' causing:
+                #    new_default_fields = {
+                #      key: (val._fix() if isinstance(val, VolatileValue) else val)
+                #      for key, val in six.iteritems(new_default_fields)
+                #    }
+                # To fix the value to '0' rather than use the value that was set by the
+                #   packet generator, for example for ARP(), 'hwtype' will be set to 0
+                #   rather than Ethernet (10Mb)
+                return self.default
+
             return self.min
             #
             # return random.randrange(self.min, self.max + 1)
