@@ -833,27 +833,23 @@ class Packet(
         """
         if states is None:
             raise ValueError("Please provide states")
-            
+
         if len(states) == 0:
             raise ValueError("States should include at least one permutation")
-          
+
         # Find the first state that has 'done' False
         state_fuzzed = None
-        for (idx, state) in enumerate(states):
+        for (_, state) in enumerate(states):
             if not state['done']:
                 state_fuzzed = state
                 fields = state['fields']
-                
+
                 # Mark it as active, and reset the values
                 if not state['active']:
                     print(f"Now fuzzing: {fields}")
                     state['active'] = True
                     for field_item in fields:
                         field_obj = self.locate_field(self, field_item['name'])
-                        if type(field_obj).__name__ == 'RandBin':
-                            # We need to treat this differently, the min 0 and max will be 2^(max)
-                            field_obj.min = field_obj.size.min
-                            field_obj.max = field_obj.size.max
 
                         if "default" in dir(field_obj):
                             if type(field_obj.default).__name__ == 'int': # Some fields have a 'default'
@@ -873,9 +869,14 @@ class Packet(
                             field_obj.min = 0
                             field_obj.state_pos = 0
 
+                        # RandString has a 'size' rather than max
+                        if 'size' in dir(field_obj):
+                            field_obj.max = field_obj.size
+
                         # Make sure it exists
                         if 'max' not in dir(field_obj):
                             field_obj.max = field_obj.min
+
                         
                 break
             
