@@ -40,7 +40,7 @@ from scapy.compat import raw, orb, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended
 from scapy.interfaces import _GlobInterfaceType
-from scapy.volatile import RandField, VolatileValue, RandString, RandBin
+from scapy.volatile import RandField, VolatileValue, RandString, RandBin, RandNum
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
 from scapy.error import Scapy_Exception, log_runtime, warning
@@ -802,12 +802,32 @@ class Packet(
         """ This function fixes the RandBin fields, rand makes them into non-random RandString"""
         for (obj_name, obj_field) in obj.fields.items():
             if isinstance(obj_field, RandBin):
-                max_value = obj_field.size.max
+                max_value = None
+
+                if isinstance(obj_field.size, RandNum):
+                    max_value = obj_field.size.max
+
+                if 'max' in dir(obj_field):
+                    max_value = obj_field.max
+
+                if max_value is None:
+                    raise ValueError("Unexpected setup")
+
                 obj.fields[obj_name] = RandString(size=max_value)
 
         for (obj_name, obj_field) in obj.default_fields.items():
             if isinstance(obj_field, RandBin):
-                max_value = obj_field.size.max
+                max_value = None
+
+                if isinstance(obj_field.size, RandNum):
+                    max_value = obj_field.size.max
+
+                if 'max' in dir(obj_field):
+                    max_value = obj_field.max
+
+                if max_value is None:
+                    raise ValueError("Unexpected setup")
+
                 obj.default_fields[obj_name] = RandString(size=max_value)
 
         if obj.payload:
