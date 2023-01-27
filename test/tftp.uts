@@ -43,6 +43,8 @@ class MockTFTPSocket(object):
         return pkt
     def send(self, *args, **kargs):
         pass
+    def close(self):
+        pass
 
 
 = TFTP_read() automaton
