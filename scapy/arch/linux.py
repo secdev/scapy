@@ -132,7 +132,7 @@ def _get_if_list():
     Function to read the interfaces from /proc/net/dev
     """
     try:
-        with open("/proc/net/dev", "r") as f:
+        with open("/proc/net/dev", "r", errors='replace') as f:
             return [line.split(':', 1)[0].strip()
                     for line in itertools.islice(f, 2, None)]
     except IOError:
@@ -234,10 +234,10 @@ def read_routes():
     Read routes from /proc/net/route
     """
     try:
-        with open("/proc/net/route", "r", errors='replace') as f:
+        with open("/proc/net/route", "r", errors="replace") as f, \
+             socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             routes = []
             # Loopback route
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             try:
                 ifreq = ioctl(s, SIOCGIFADDR,
                               struct.pack("16s16x", conf.loopback_name.encode("utf8")))
@@ -307,7 +307,6 @@ def read_routes():
                         route = tmp_route
                 routes.append(route)
 
-            s.close()
             return routes
 
     except IOError:
@@ -330,7 +329,7 @@ def in6_getifaddr():
     the system.
     """
     try:
-        with open("/proc/net/if_inet6", "r") as f:
+        with open("/proc/net/if_inet6", "r", errors='replace') as f:
             ret = []  # type: List[Tuple[str, int, str]]
             for addr, _, _, scope, _, ifname in (x.split() for x in f):
                 addr = scapy.utils6.in6_ptop(
@@ -369,7 +368,7 @@ def read_routes6():
         return scapy.utils6.in6_ptop(addr)
 
     try:
-        with open("/proc/net/ipv6_route", "r") as f:
+        with open("/proc/net/ipv6_route", "r", errors='replace') as f:
             routes = []
             lifaddr = in6_getifaddr()
             for line in (x.split() for x in itertools.islice(f, 1, None)):
