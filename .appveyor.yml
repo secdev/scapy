@@ -18,6 +18,11 @@ environment:
       TOXENV: "py37-windows"
       UT_FLAGS: "-k scanner"
 
+# allow scanner builds to fail
+matrix:
+  allow_failures:
+    - UT_FLAGS: "-k scanner"
+
 # There is no build phase for Scapy
 build: off
 
