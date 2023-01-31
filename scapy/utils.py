@@ -242,10 +242,9 @@ def restart():
     if not conf.interactive or not os.path.isfile(sys.argv[0]):
         raise OSError("Scapy was not started from console")
     if WINDOWS:
+        res_code = 1
         try:
             res_code = subprocess.call([sys.executable] + sys.argv)
-        except KeyboardInterrupt:
-            res_code = 1
         finally:
             os._exit(res_code)
     os.execv(sys.executable, [sys.executable] + sys.argv)
@@ -3257,7 +3256,7 @@ class PeriodicSenderThread(threading.Thread):
         while not self._stopped.is_set() and not self._socket.closed:
             for p in self._pkts:
                 self._socket.send(p)
-                time.sleep(self._interval)
+                self._stopped.wait(timeout=self._interval)
                 if self._stopped.is_set() or self._socket.closed:
                     break
 

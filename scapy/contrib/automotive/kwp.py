@@ -7,7 +7,6 @@
 # scapy.contrib.status = loads
 
 import struct
-import time
 
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitField, XByteField, X3BytesField, ByteField, \
@@ -974,7 +973,8 @@ bind_layers(KWP, KWP_NR, service=0x7f)
 # ##################################################################
 
 class KWP_TesterPresentSender(PeriodicSenderThread):
-    def __init__(self, sock, pkt=KWP() / KWP_TP(), interval=2):
+    def __init__(self, sock, pkt=KWP() / KWP_TP(responseRequired=0x02),
+                 interval=2):
         # type: (Any, _PacketIterable, float) -> None
         """ Thread that sends TesterPresent packets periodically
 
@@ -989,4 +989,6 @@ class KWP_TesterPresentSender(PeriodicSenderThread):
         while not self._stopped.is_set():
             for p in self._pkts:
                 self._socket.sr1(p, timeout=0.3, verbose=False)
-                time.sleep(self._interval)
+                self._stopped.wait(timeout=self._interval)
+                if self._stopped.is_set() or self._socket.closed:
+                    break

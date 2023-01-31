@@ -209,7 +209,7 @@ class UDS_TPEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
             return True
 
         UDS_TPEnumerator.cleanup(socket, configuration)
-        configuration["tps"] = UDS_TesterPresentSender(socket)
+        configuration["tps"] = UDS_TesterPresentSender(socket, interval=3)
         configuration["tps"].start()
         return True
 

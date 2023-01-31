@@ -21,7 +21,8 @@ except ImportError:
 def _load_database(file):
     for i in range(10):
         try:
-            open(file, 'wb').write(urlopen('https://raw.githubusercontent.com/p0f/p0f/4b4d1f384abebbb9b1b25b8f3c6df5ad7ab365f7/' + file).read())
+            with open(file, 'wb') as fd:
+                fd.write(urlopen('https://raw.githubusercontent.com/p0f/p0f/4b4d1f384abebbb9b1b25b8f3c6df5ad7ab365f7/' + file).read())
             break
         except:
             raise
