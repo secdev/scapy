@@ -243,6 +243,11 @@ class RandNum(_RandNumeral[int]):
 
     def _fix(self):
         # type: () -> int
+
+        # Old code:
+        # return random.randrange(self.min, self.max + 1)
+
+        # New code:
         if self.state_pos is None:
             if 'default' in dir(self):
                 # If the 'default' exists, use it rather than min
@@ -257,8 +262,6 @@ class RandNum(_RandNumeral[int]):
                 return self.default
 
             return self.min
-            #
-            # return random.randrange(self.min, self.max + 1)
 
         return self.state_pos
 
@@ -555,14 +558,22 @@ class RandString(_RandString[str]):
 
     def _fix(self):
         # type: () -> bytes
-        s = b""
-        if 'state_pos' not in dir(self) or self.state_pos is None:
-            return s
 
+        # Old code:
+        # s = b""
         # for _ in range(int(self.size)):
         #     rdm_chr = random.choice(self.chars)
         #     s += rdm_chr if isinstance(rdm_chr, str) else chb(rdm_chr)
-        s += (b"A" * self.state_pos) # Make it change by state_pos
+        # return s
+
+        # State aware code:
+        if 'state_pos' not in dir(self) or self.state_pos is None:
+            # We need to trim the chars up to the max size of the RandNum (the 'size' property)
+            return self.chars[:self.size.max]
+
+        pos_adjusted = self.state_pos % len(self.chars)
+        s = bytes_encode(self.chars[0:pos_adjusted]) # Make it change by state_pos
+
         return s
 
 
@@ -614,6 +625,16 @@ class RandTermString(RandBin):
 class RandIP(_RandString[str]):
     _DEFAULT_IPTEMPLATE = "0.0.0.0/0"
 
+    _COMBINATIONS = [
+        '0.0.0.0', '127.0.0.1', '255.255.255.255',
+        '10.0.0.0', '172.16.0.0', '192.168.0.0',
+        '169.254.0.0', '254.254.254.254',
+        '192.0.2.1', '198.51.100.0', '203.0.113.0',
+        '224.0.0.0', '239.255.255.255']
+    min = 0
+    max = len(_COMBINATIONS)
+    state_pos = None
+
     def __init__(self, iptemplate=_DEFAULT_IPTEMPLATE):
         # type: (str) -> None
         super(RandIP, self).__init__()
@@ -628,10 +649,35 @@ class RandIP(_RandString[str]):
 
     def _fix(self):
         # type: () -> str
-        return self.ip.choice()
+
+        # Old:
+        # return self.ip.choice()
+
+        # New:
+        ipv4 = self._COMBINATIONS[0]
+        if self.state_pos is not None and self.state_pos > 0:
+            ipv4 = self._COMBINATIONS[self.state_pos % len(self._COMBINATIONS)]
+
+        return ipv4
 
 
 class RandMAC(_RandString[str]):
+    # https://www.iana.org/assignments/ethernet-numbers/ethernet-numbers.xhtml
+    _COMBINATIONS = [
+        '00:00:00:00:00:00',
+        'FF:FF:FF:FF:FF:FF', # Broadcast
+        '00:00:5E:00:00:00', # Reserved
+        '00:00:5E:00:01:00', # VRRP
+        '00:00:5E:00:02:01', # VRRP IPv6
+        '00:00:5E:00:03:00', # Unassigned
+        '01:00:5E:00:00:00', # Multicast
+        '01:00:5E:80:00:00', # MPLS Multicast
+        
+    ]
+    min = 0
+    max = len(_COMBINATIONS)
+    state_pos = None
+
     def __init__(self, _template="*"):
         # type: (str) -> None
         super(RandMAC, self).__init__()
@@ -658,7 +704,17 @@ class RandMAC(_RandString[str]):
 
     def _fix(self):
         # type: () -> str
-        return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac  # type: ignore
+
+        # Old:
+        # return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac  # type: ignore
+
+        # New:
+        mac = self._COMBINATIONS[0]
+        if self.state_pos is not None and self.state_pos > 0:
+            mac = self._COMBINATIONS[self.state_pos % len(self._COMBINATIONS)]
+
+        return mac
+
 
 
 class RandIP6(_RandString[str]):
