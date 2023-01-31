@@ -569,7 +569,10 @@ class RandString(_RandString[str]):
         # State aware code:
         if 'state_pos' not in dir(self) or self.state_pos is None:
             # We need to trim the chars up to the max size of the RandNum (the 'size' property)
-            return self.chars[:self.size.max]
+            if isinstance(self.size, VolatileValue):
+                return self.chars[:self.size.max]
+            else:
+                return self.chars[:self.max]
 
         pos_adjusted = self.state_pos % len(self.chars)
         s = bytes_encode(self.chars[0:pos_adjusted]) # Make it change by state_pos
@@ -672,7 +675,6 @@ class RandMAC(_RandString[str]):
         '00:00:5E:00:03:00', # Unassigned
         '01:00:5E:00:00:00', # Multicast
         '01:00:5E:80:00:00', # MPLS Multicast
-        
     ]
     min = 0
     max = len(_COMBINATIONS)
