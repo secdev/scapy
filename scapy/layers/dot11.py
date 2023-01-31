@@ -967,6 +967,7 @@ _dot11_info_elts_ids = {
     50: "Extended Supported Rates",
     52: "Neighbor Report",
     61: "HT Operation",
+    74: "Overlapping BSS Scan Parameters",
     107: "Interworking",
     127: "Extendend Capabilities",
     191: "VHT Capabilities",
@@ -1445,6 +1446,23 @@ class Dot11EltCSA(Dot11Elt):
         ByteField("mode", 0),
         ByteField("new_channel", 0),
         ByteField("channel_switch_count", 0)
+    ]
+
+
+# 802.11-2016 9.4.2.59
+
+class Dot11EltOBSS(Dot11Elt):
+    name = "802.11 OBSS Scan Parameters Element"
+    fields_desc = [
+        ByteEnumField("ID", 74, _dot11_id_enum),
+        ByteField("len", 14),
+        LEShortField("Passive_Dwell", 0),
+        LEShortField("Active_Dwell", 0),
+        LEShortField("Scan_Interval", 0),
+        LEShortField("Passive_Total_Per_Channel", 0),
+        LEShortField("Active_Total_Per_Channel", 0),
+        LEShortField("Delay", 0),
+        LEShortField("Activity_Threshold", 0),
     ]
 
 
