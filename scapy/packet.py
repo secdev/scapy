@@ -759,9 +759,10 @@ class Packet(
                 # print(f"Skipping: {p._name}-{f}")
                 continue
 
-            class_name = type(pkt.default_fields[field_name]).__name__
+            field = pkt.default_fields[field_name]
+            class_name = type(field).__name__
             # print(f"Class type: {class_name} for: {p._name}-{f}")
-            if class_name == 'NoneType':
+            if class_name in ['NoneType', 'int', 'str', 'list']:
                 continue
 
             # print(f"Adding: {p._name}-{f}")
@@ -847,6 +848,10 @@ class Packet(
                     for field_item in fields:
                         field_obj = self.locate_field(self, field_item['name'])
 
+                        if not isinstance(field_obj, VolatileValue):
+                            err = f"field_obj: '{field_item['name']}' isn't VolatileValue: {type(field_obj)=}"
+                            raise ValueError(err)
+
                         if "default" in dir(field_obj):
                             # Some fields have a 'default'
                             if type(field_obj.default).__name__ == 'int':
@@ -869,7 +874,10 @@ class Packet(
 
                         # RandString has a 'size' rather than max
                         if 'size' in dir(field_obj):
-                            field_obj.max = field_obj.size.max
+                            if isinstance(field_obj.size, int):
+                                field_obj.max = field_obj.max
+                            else:
+                                field_obj.max = field_obj.size.max
 
                         # Make sure it exists
                         if 'max' not in dir(field_obj):
