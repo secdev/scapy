@@ -40,7 +40,7 @@ from scapy.compat import raw, orb, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended
 from scapy.interfaces import _GlobInterfaceType
-from scapy.volatile import RandField, VolatileValue, RandString, RandBin
+from scapy.volatile import RandField, VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list, EDecimal
 from scapy.error import Scapy_Exception, log_runtime, warning
@@ -739,13 +739,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             if class_name == 'NoneType':
                 continue
 
-            if class_name.startswith('Rand'):
-                if (class_name == 'RandIP'): # We don't fuzz this atm
-                    # print(f"Skipping: {p._name}-{f}")
-                    continue
-
-                # print(f"Adding: {p._name}-{f}")
-                relevant_fields.append(f"{pkt._name}-{field_name}")
+            # print(f"Adding: {p._name}-{f}")
+            relevant_fields.append(f"{pkt._name}-{field_name}")
 
         if type(pkt.payload).__name__ != 'NoPayload':
             relevant_fields += self.return_relevant_fields(pkt.payload)
@@ -771,25 +766,6 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             return pkt.locate_field(pkt.payload, name)
 
         return None
-
-
-    def fix_RandBin_fields(self, obj):
-        """ This function fixes the RandBin fields, rand makes them into non-random RandString"""
-        for (obj_name, obj_field) in obj.fields.items():
-            if isinstance(obj_field, RandBin):
-                max_value = obj_field.size.max
-                obj.fields[obj_name] = RandString(size=max_value)
-
-        for (obj_name, obj_field) in obj.default_fields.items():
-            if isinstance(obj_field, RandBin):
-                max_value = obj_field.size.max
-                obj.default_fields[obj_name] = RandString(size=max_value)
-
-        if obj.payload:
-            obj.payload = self.fix_RandBin_fields(obj.payload)
-
-        return obj
-
 
     def prepare_combinations(self, complexity: int) -> Dict:
         relevant_fields = self.return_relevant_fields(self)
@@ -868,7 +844,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
 
                         # RandString has a 'size' rather than max
                         if 'size' in dir(field_obj):
-                            field_obj.max = field_obj.size
+                            field_obj.max = field_obj.size.max
 
                         # Make sure it exists
                         if 'max' not in dir(field_obj):
