@@ -10,8 +10,6 @@
 Classes and functions for MACsec.
 """
 
-from __future__ import absolute_import
-from __future__ import print_function
 import struct
 import copy
 
@@ -26,7 +24,6 @@ from scapy.layers.inet6 import IPv6
 from scapy.compat import raw
 from scapy.data import ETH_P_MACSEC, ETHER_TYPES, ETH_P_IP, ETH_P_IPV6
 from scapy.error import log_loading
-import scapy.libs.six as six
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
@@ -52,7 +49,7 @@ class MACsecSA(object):
     of MACsec frames
     """
     def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci, xpn_en=False, ssci=None, salt=None):  # noqa: E501
-        if isinstance(sci, six.integer_types):
+        if isinstance(sci, int):
             self.sci = struct.pack('!Q', sci)
         elif isinstance(sci, bytes):
             self.sci = sci
@@ -67,7 +64,7 @@ class MACsecSA(object):
         self.xpn_en = xpn_en
         if self.xpn_en:
             # Get SSCI (32 bits)
-            if isinstance(ssci, six.integer_types):
+            if isinstance(ssci, int):
                 self.ssci = struct.pack('!L', ssci)
             elif isinstance(ssci, bytes):
                 self.ssci = ssci

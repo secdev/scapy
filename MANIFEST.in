@@ -2,3 +2,4 @@ include MANIFEST.in
 include LICENSE
 include run_scapy
 include scapy/VERSION
+recursive-exclude test *

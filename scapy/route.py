@@ -8,8 +8,6 @@ Routing and handling of network interfaces.
 """
 
 
-from __future__ import absolute_import
-
 from scapy.compat import plain_str
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning

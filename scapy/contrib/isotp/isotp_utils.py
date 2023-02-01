@@ -17,7 +17,6 @@ from scapy.packet import Packet
 from scapy.sessions import DefaultSession
 from scapy.contrib.isotp.isotp_packet import ISOTP, N_PCI_CF, N_PCI_SF, \
     N_PCI_FF, N_PCI_FC
-import scapy.libs.six as six
 
 
 class ISOTPMessageBuilderIter(object):
@@ -92,10 +91,7 @@ class ISOTPMessageBuilder(object):
             self.pieces.append(piece)
             self.current_len += len(piece)
             if self.current_len >= self.total_len:
-                if six.PY3:
-                    isotp_data = b"".join(self.pieces)
-                else:
-                    isotp_data = "".join(map(str, self.pieces))
+                isotp_data = b"".join(self.pieces)
                 self.ready = isotp_data[:self.total_len]
 
     def __init__(
@@ -141,7 +137,7 @@ class ISOTPMessageBuilder(object):
         if len(data) > 1 and self.use_ext_addr is not True:
             self._try_feed(can.identifier, None, data, can.time)
         if len(data) > 2 and self.use_ext_addr is not False:
-            ea = six.indexbytes(data, 0)
+            ea = data[0]
             self._try_feed(can.identifier, ea, data[1:], can.time)
 
     @property
@@ -235,7 +231,7 @@ class ISOTPMessageBuilder(object):
             # At least 2 bytes are necessary: 1 for length and 1 for data
             return False
 
-        length = six.indexbytes(data, 0) & 0x0f
+        length = data[0] & 0x0f
         isotp_data = data[1:length + 1]
 
         if length > len(isotp_data):
@@ -253,7 +249,7 @@ class ISOTPMessageBuilder(object):
             # 1 for data
             return False
 
-        first_byte = six.indexbytes(data, 0)
+        first_byte = data[0]
         seq_no = first_byte & 0x0f
         isotp_data = data[1:]
 
@@ -303,7 +299,7 @@ class ISOTPMessageBuilder(object):
 
     def _try_feed(self, identifier, ea, data, ts):
         # type: (int, Optional[int], bytes, Union[EDecimal, float]) -> None
-        first_byte = six.indexbytes(data, 0)
+        first_byte = data[0]
         if len(data) > 1 and first_byte & 0xf0 == N_PCI_SF:
             self._feed_single_frame(identifier, ea, data, ts)
         if len(data) > 2 and first_byte & 0xf0 == N_PCI_FF:

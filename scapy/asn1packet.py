@@ -9,10 +9,8 @@ ASN.1 Packet
 Packet holding data in Abstract Syntax Notation (ASN.1).
 """
 
-from __future__ import absolute_import
 from scapy.base_classes import Packet_metaclass
 from scapy.packet import Packet
-import scapy.libs.six as six
 
 from scapy.compat import (
     Any,
@@ -39,8 +37,7 @@ class ASN1Packet_metaclass(Packet_metaclass):
         return super(ASN1Packet_metaclass, cls).__new__(cls, name, bases, dct)
 
 
-@six.add_metaclass(ASN1Packet_metaclass)
-class ASN1_Packet(Packet):
+class ASN1_Packet(Packet, metaclass=ASN1Packet_metaclass):
     ASN1_root = cast('ASN1F_field[Any, Any]', None)
     ASN1_codec = None
 

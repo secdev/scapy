@@ -15,6 +15,7 @@
     "test/windows.uts",
     "test/contrib/automotive/ecu_am.uts",
     "test/contrib/automotive/gm/gmlanutils.uts",
+    "test/contrib/isotp_packet.uts",
     "test/contrib/isotpscan.uts"
   ],
   "onlyfailed": true,
@@ -28,6 +29,8 @@
     "linux",
     "windows",
     "ipv6",
-    "vcan_socket"
+    "vcan_socket",
+    "tun",
+    "tap"
   ]
 }

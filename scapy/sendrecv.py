@@ -7,7 +7,6 @@
 Functions to send and receive packets.
 """
 
-from __future__ import absolute_import, print_function
 import itertools
 from threading import Thread, Event
 import os
@@ -433,7 +432,7 @@ def send(x,  # type: _PacketIterable
     :param inter: time (in s) between two packets (default 0)
     :param loop: send packet indefinitely (default 0)
     :param count: number of packets to send (default None=1)
-    :param verbose: verbose mode (default None=conf.verbose)
+    :param verbose: verbose mode (default None=conf.verb)
     :param realtime: check that a packet was sent before sending the next one
     :param return_packets: return the sent packets
     :param socket: the socket to use (default is conf.L3socket(kargs))
@@ -465,7 +464,7 @@ def sendp(x,  # type: _PacketIterable
     :param inter: time (in s) between two packets (default 0)
     :param loop: send packet indefinitely (default 0)
     :param count: number of packets to send (default None=1)
-    :param verbose: verbose mode (default None=conf.verbose)
+    :param verbose: verbose mode (default None=conf.verb)
     :param realtime: check that a packet was sent before sending the next one
     :param return_packets: return the sent packets
     :param socket: the socket to use (default is conf.L3socket(kargs))

@@ -7,7 +7,6 @@
 All layers. Configurable with conf.load_layers.
 """
 
-from __future__ import absolute_import
 
 # We import conf from arch to make sure arch specific layers are populated
 from scapy.arch import conf

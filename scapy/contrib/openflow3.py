@@ -15,7 +15,6 @@ Specifications can be retrieved from https://www.opennetworking.org/
 # scapy.contrib.description = OpenFlow v1.3
 # scapy.contrib.status = loads
 
-from __future__ import absolute_import
 import copy
 import struct
 
@@ -29,7 +28,6 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     XIntField, XShortField, PacketLenField
 from scapy.layers.l2 import Ether
 from scapy.packet import Packet, Padding, Raw
-import scapy.libs.six as six
 
 from scapy.contrib.openflow import _ofp_header, _ofp_header_item, \
     OFPacketField, OpenFlow, _UnknownOpenFlow
@@ -2517,7 +2515,7 @@ class OFPMPRequestGroupFeatures(_ofp_header):
                    XIntField("pad1", 0)]
 
 
-ofp_action_types_flags = [v for v in six.itervalues(ofp_action_types)
+ofp_action_types_flags = [v for v in ofp_action_types.values()
                           if v != 'OFPAT_EXPERIMENTER']
 
 

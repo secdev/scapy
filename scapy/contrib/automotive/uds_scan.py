@@ -6,6 +6,7 @@
 # scapy.contrib.description = UDS AutomotiveTestCaseExecutor
 # scapy.contrib.status = loads
 
+from abc import ABC
 import struct
 import random
 import time
@@ -14,13 +15,13 @@ import copy
 import inspect
 
 from collections import defaultdict
-from typing import Sequence
+
+from typing import NamedTuple
 
 from scapy.compat import Dict, Optional, List, Type, Any, Iterable, \
-    cast, Union, NamedTuple, orb, Set
+    cast, Union, orb, Set, Sequence
 from scapy.contrib.automotive import log_automotive
 from scapy.packet import Raw, Packet
-import scapy.libs.six as six
 from scapy.error import Scapy_Exception
 from scapy.contrib.automotive.uds import UDS, UDS_NR, UDS_DSC, UDS_TP, \
     UDS_RDBI, UDS_WDBI, UDS_SA, UDS_RC, UDS_IOCBI, UDS_RMBA, UDS_ER, \
@@ -41,12 +42,6 @@ from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor
 # TODO: Refactor this import
 from scapy.contrib.automotive.uds_ecu_states import *  # noqa: F401, F403
 
-if six.PY34:
-    from abc import ABC
-else:
-    from abc import ABCMeta
-
-    ABC = ABCMeta('ABC', (), {})  # type: ignore
 
 # Definition outside the class UDS_RMBASequentialEnumerator
 # to allow pickling
@@ -177,7 +172,7 @@ class UDS_DSCEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
             delay = conf[UDS_DSCEnumerator.__name__]["delay_state_change"]
         except KeyError:
             delay = 5
-        time.sleep(delay)
+        conf.stop_event.wait(delay)
         state_changed = UDS_DSCEnumerator.enter_state(
             sock, conf, kwargs["req"])
         if not state_changed:
@@ -214,7 +209,7 @@ class UDS_TPEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
             return True
 
         UDS_TPEnumerator.cleanup(socket, configuration)
-        configuration["tps"] = UDS_TesterPresentSender(socket)
+        configuration["tps"] = UDS_TesterPresentSender(socket, interval=3)
         configuration["tps"].start()
         return True
 
@@ -224,8 +219,9 @@ class UDS_TPEnumerator(UDS_Enumerator, StateGeneratingServiceEnumerator):
         try:
             configuration["tps"].stop()
             configuration["tps"] = None
-        except (AttributeError, KeyError) as e:
-            log_automotive.debug("Cleanup TP-Sender Error: %s", e)
+        except (AttributeError, KeyError):
+            pass
+            # log_automotive.debug("Cleanup TP-Sender Error: %s", e)
         return True
 
     def get_transition_function(self, socket, edge):
@@ -549,7 +545,7 @@ class UDS_SAEnumerator(UDS_Enumerator):
             # a required time delay not expired could have been received
             # on the previous attempt
             if not global_configuration.unittest:
-                time.sleep(11)
+                global_configuration.stop_event.wait(11)
 
     def _evaluate_retry(self,
                         state,  # type: EcuState
@@ -704,10 +700,7 @@ class UDS_SA_XOR_Enumerator(UDS_SAEnumerator, StateGenerator):
 
     def transition_function(self, sock, _, kwargs):
         # type: (_SocketUnion, AutomotiveTestCaseExecutorConfiguration, Dict[str, Any]) -> bool  # noqa: E501
-        if six.PY3:
-            spec = inspect.getfullargspec(self.get_security_access)
-        else:
-            spec = inspect.getargspec(self.get_security_access)
+        spec = inspect.getfullargspec(self.get_security_access)
 
         func_kwargs = {k: kwargs[k] for k in spec.args if k in kwargs.keys()}
         return self.get_security_access(sock, **func_kwargs)

@@ -9,7 +9,6 @@
 import logging
 
 from scapy.consts import LINUX
-import scapy.libs.six as six
 from scapy.config import conf
 from scapy.error import log_loading
 
@@ -30,7 +29,7 @@ USE_CAN_ISOTP_KERNEL_MODULE = False
 log_isotp = logging.getLogger("scapy.contrib.isotp")
 log_isotp.setLevel(logging.INFO)
 
-if six.PY3 and LINUX:
+if LINUX:
     try:
         if conf.contribs['ISOTP']['use-can-isotp-kernel-module']:
             USE_CAN_ISOTP_KERNEL_MODULE = True

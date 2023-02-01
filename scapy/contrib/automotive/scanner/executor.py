@@ -10,7 +10,6 @@ import abc
 import time
 
 from itertools import product
-from threading import Event
 
 from scapy.compat import Any, Union, List, Optional, \
     Dict, Callable, Type, cast
@@ -19,7 +18,6 @@ from scapy.contrib.automotive.scanner.graph import Graph
 from scapy.error import Scapy_Exception
 from scapy.supersocket import SuperSocket
 from scapy.utils import make_lined_table, SingleConversationSocket
-import scapy.libs.six as six
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse, Ecu
 from scapy.contrib.automotive.scanner.configuration import \
     AutomotiveTestCaseExecutorConfiguration
@@ -28,8 +26,7 @@ from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
     AutomotiveTestCase
 
 
-@six.add_metaclass(abc.ABCMeta)
-class AutomotiveTestCaseExecutor:
+class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
     """
     Base class for different automotive scanners. This class handles
     the connection to a scan target, ensures the execution of all it's
@@ -78,7 +75,6 @@ class AutomotiveTestCaseExecutor:
         self.configuration = AutomotiveTestCaseExecutorConfiguration(
             test_cases or self.default_test_case_clss, **kwargs)
         self.validate_test_case_kwargs()
-        self._stop_scan_event = Event()
 
     def __reduce__(self):  # type: ignore
         f, t, d = super(AutomotiveTestCaseExecutor, self).__reduce__()  # type: ignore  # noqa: E501
@@ -92,10 +88,6 @@ class AutomotiveTestCaseExecutor:
             pass
         try:
             del d["reconnect_handler"]
-        except KeyError:
-            pass
-        try:
-            del d["_stop_scan_event"]
         except KeyError:
             pass
         return f, t, d
@@ -200,9 +192,7 @@ class AutomotiveTestCaseExecutor:
         log_automotive.debug("Execute test_case %s with args %s",
                              test_case.__class__.__name__, test_case_kwargs)
 
-        test_case.execute(self.socket, self.target_state,
-                          stop_event=self._stop_scan_event,
-                          **test_case_kwargs)
+        test_case.execute(self.socket, self.target_state, **test_case_kwargs)
         test_case.post_execute(
             self.socket, self.target_state, self.configuration)
 
@@ -244,7 +234,8 @@ class AutomotiveTestCaseExecutor:
 
     def stop_scan(self):
         # type: () -> None
-        self._stop_scan_event.set()
+        self.configuration.stop_event.set()
+        log_automotive.debug("Internal stop event set!")
 
     def progress(self):
         # type: () -> float
@@ -266,7 +257,7 @@ class AutomotiveTestCaseExecutor:
         :param timeout: Time for execution.
         :return: None
         """
-        self._stop_scan_event.clear()
+        self.configuration.stop_event.clear()
         kill_time = time.time() + (timeout or 0xffffffff)
         log_automotive.debug("Set kill_time to %s" % time.ctime(kill_time))
         while kill_time > time.time():
@@ -277,7 +268,7 @@ class AutomotiveTestCaseExecutor:
                     self.state_paths, self.configuration.test_cases):
                 log_automotive.info("Scan path %s", p)
                 terminate = kill_time <= time.time()
-                if terminate or self._stop_scan_event.is_set():
+                if terminate or self.configuration.stop_event.is_set():
                     log_automotive.debug(
                         "Execution time exceeded. Terminating scan!")
                     break
@@ -340,6 +331,10 @@ class AutomotiveTestCaseExecutor:
             return True
 
         for next_state in path[1:]:
+            if self.configuration.stop_event.is_set():
+                self.cleanup_state()
+                return False
+
             edge = (self.target_state, next_state)
             if not self.enter_state(*edge):
                 self.state_graph.downrate_edge(edge)

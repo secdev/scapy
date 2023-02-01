@@ -6,16 +6,11 @@
 Python 2 and 3 link classes.
 """
 
-from __future__ import absolute_import
 import base64
 import binascii
 import collections
-import gzip
-import socket
 import struct
 import sys
-
-import scapy.libs.six as six
 
 # Very important: will issue typing errors otherwise
 __all__ = [
@@ -33,7 +28,6 @@ __all__ = [
     'Iterator',
     'List',
     'Literal',
-    'NamedTuple',
     'NewType',
     'NoReturn',
     'Optional',
@@ -52,14 +46,11 @@ __all__ = [
     'FAKE_TYPING',
     'TYPE_CHECKING',
     # compat
-    'AddressFamily',
     'base64_bytes',
     'bytes_base64',
     'bytes_encode',
     'bytes_hex',
     'chb',
-    'gzip_compress',
-    'gzip_decompress',
     'hex_bytes',
     'lambda_tuple_converter',
     'orb',
@@ -186,53 +177,20 @@ else:
     Union = _FakeType("Union")
     ValuesView = _FakeType("List", list)  # type: ignore
 
-    class Sized(object):  # type: ignore
+    class Sized:  # type: ignore
         pass
 
-    @six.add_metaclass(_Generic_metaclass)
-    class Generic(object):  # type: ignore
+    class Generic(metaclass=_Generic_metaclass):  # type: ignore
         pass
 
     overload = lambda x: x
 
-
-# Broken < Python 3.7
-if sys.version_info >= (3, 7):
-    from typing import NamedTuple
-else:
-    # Hack for Python < 3.7 - Implement NamedTuple pickling
-    def _unpickleNamedTuple(name, len_params, *args):
-        return collections.namedtuple(
-            name,
-            args[:len_params]
-        )(*args[len_params:])
-
-    def NamedTuple(name, params):
-        tup_params = tuple(x[0] for x in params)
-        cls = collections.namedtuple(name, tup_params)
-
-        class _NT(cls):
-            def __reduce__(self):
-                """Used by pickling methods"""
-                return (_unpickleNamedTuple,
-                        (name, len(tup_params)) + tup_params + tuple(self))
-        _NT.__name__ = cls.__name__
-        return _NT
 
 # Python 3.8 Only
 if sys.version_info >= (3, 8):
     from typing import Literal
 else:
     Literal = _FakeType("Literal")
-
-# Python 3.4
-if sys.version_info >= (3, 4):
-    from socket import AddressFamily
-else:
-    class AddressFamily:
-        AF_INET = socket.AF_INET
-        AF_INET6 = socket.AF_INET6
-        AF_UNSPEC = socket.AF_UNSPEC
 
 
 ###########
@@ -265,70 +223,46 @@ if TYPE_CHECKING:
     from scapy.packet import Packet
 
 
-if six.PY2:
-    bytes_encode = plain_str = str  # type: Callable[[Any], bytes]
-    orb = ord  # type: Callable[[bytes], int]
+def raw(x):
+    # type: (Union[Packet]) -> bytes
+    """
+    Builds a packet and returns its bytes representation.
+    This function is and will always be cross-version compatible
+    """
+    return bytes(x)
 
-    def chb(x):
-        # type: (int) -> bytes
-        if isinstance(x, str):
-            return x
-        return chr(x)
 
-    def raw(x):
-        # type: (Union[Packet]) -> bytes
-        """
-        Builds a packet and returns its bytes representation.
-        This function is and will always be cross-version compatible
-        """
-        if hasattr(x, "__bytes__"):
-            return x.__bytes__()
-        return bytes(x)
-else:
-    def raw(x):
-        # type: (Union[Packet]) -> bytes
-        """
-        Builds a packet and returns its bytes representation.
-        This function is and will always be cross-version compatible
-        """
-        return bytes(x)
+def bytes_encode(x):
+    # type: (Any) -> bytes
+    """Ensure that the given object is bytes. If the parameter is a
+        packet, raw() should be preferred.
 
-    def bytes_encode(x):
-        # type: (Any) -> bytes
-        """Ensure that the given object is bytes.
-        If the parameter is a packet, raw() should be preferred.
-        """
-        if isinstance(x, str):
-            return x.encode()
-        return bytes(x)
+    """
+    if isinstance(x, str):
+        return x.encode()
+    return bytes(x)
 
-    if sys.version_info[0:2] <= (3, 4):
-        def plain_str(x):
-            # type: (AnyStr) -> str
-            """Convert basic byte objects to str"""
-            if isinstance(x, bytes):
-                return x.decode(errors="ignore")
-            return str(x)
-    else:
-        # Python 3.5+
-        def plain_str(x):
-            # type: (Any) -> str
-            """Convert basic byte objects to str"""
-            if isinstance(x, bytes):
-                return x.decode(errors="backslashreplace")
-            return str(x)
 
-    def chb(x):
-        # type: (int) -> bytes
-        """Same than chr() but encode as bytes."""
-        return struct.pack("!B", x)
+def plain_str(x):
+    # type: (Any) -> str
+    """Convert basic byte objects to str"""
+    if isinstance(x, bytes):
+        return x.decode(errors="backslashreplace")
+    return str(x)
 
-    def orb(x):
-        # type: (Union[int, str, bytes]) -> int
-        """Return ord(x) when not already an int."""
-        if isinstance(x, int):
-            return x
-        return ord(x)
+
+def chb(x):
+    # type: (int) -> bytes
+    """Same than chr() but encode as bytes."""
+    return struct.pack("!B", x)
+
+
+def orb(x):
+    # type: (Union[int, str, bytes]) -> int
+    """Return ord(x) when not already an int."""
+    if isinstance(x, int):
+        return x
+    return ord(x)
 
 
 def bytes_hex(x):
@@ -343,69 +277,25 @@ def hex_bytes(x):
     return binascii.a2b_hex(bytes_encode(x))
 
 
-if six.PY2:
-    def int_bytes(x, size):
-        # type: (int, int) -> bytes
-        """Convert an int to an arbitrary sized bytes string"""
-        _hx = hex(x)[2:].strip("L")
-        return binascii.unhexlify("0" * (size * 2 - len(_hx)) + _hx)
+def int_bytes(x, size):
+    # type: (int, int) -> bytes
+    """Convert an int to an arbitrary sized bytes string"""
+    return x.to_bytes(size, byteorder='big')
 
-    def bytes_int(x):
-        # type: (bytes) -> int
-        """Convert an arbitrary sized bytes string to an int"""
-        return int(x.encode('hex'), 16)
-else:
-    def int_bytes(x, size):
-        # type: (int, int) -> bytes
-        """Convert an int to an arbitrary sized bytes string"""
-        return x.to_bytes(size, byteorder='big')
 
-    def bytes_int(x):
-        # type: (bytes) -> int
-        """Convert an arbitrary sized bytes string to an int"""
-        return int.from_bytes(x, "big")
+def bytes_int(x):
+    # type: (bytes) -> int
+    """Convert an arbitrary sized bytes string to an int"""
+    return int.from_bytes(x, "big")
 
 
 def base64_bytes(x):
     # type: (AnyStr) -> bytes
     """Turn base64 into bytes"""
-    if six.PY2:
-        return base64.decodestring(x)  # type: ignore
     return base64.decodebytes(bytes_encode(x))
 
 
 def bytes_base64(x):
     # type: (AnyStr) -> bytes
     """Turn bytes into base64"""
-    if six.PY2:
-        return base64.encodestring(x).replace('\n', '')  # type: ignore
     return base64.encodebytes(bytes_encode(x)).replace(b'\n', b'')
-
-
-if six.PY2:
-    import cgi
-    html_escape = cgi.escape
-else:
-    import html
-    html_escape = html.escape
-
-
-if six.PY2:
-    from StringIO import StringIO
-
-    def gzip_decompress(x):
-        # type: (AnyStr) -> bytes
-        """Decompress using gzip"""
-        with gzip.GzipFile(fileobj=StringIO(x), mode='rb') as fdesc:
-            return fdesc.read()
-
-    def gzip_compress(x):
-        # type: (AnyStr) -> bytes
-        """Compress using gzip"""
-        buf = StringIO()
-        with gzip.GzipFile(fileobj=buf, mode='wb') as fdesc:
-            fdesc.write(x)
-        return buf.getvalue()
-else:
-    gzip_decompress = gzip.decompress
-    gzip_compress = gzip.compress

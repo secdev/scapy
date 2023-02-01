@@ -10,7 +10,6 @@ Implementation of TUN/TAP interfaces.
 These allow Scapy to act as the remote side of a virtual network interface.
 """
 
-from __future__ import absolute_import
 
 import os
 import socket

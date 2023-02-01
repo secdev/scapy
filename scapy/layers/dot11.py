@@ -11,7 +11,6 @@ This file contains bindings for 802.11 layers and some usual linklayers:
   - RadioTap
 """
 
-from __future__ import print_function
 import re
 import struct
 from zlib import crc32
@@ -713,11 +712,12 @@ class Dot11(Packet):
         ConditionalField(
             _Dot11MacField("addr2", ETHER_ANY, 2),
             lambda pkt: (pkt.type != 1 or
-                         pkt.subtype in [0x8, 0x9, 0xa, 0xb, 0xe, 0xf]),
+                         pkt.subtype in [0x4, 0x5, 0x6, 0x8, 0x9, 0xa, 0xb, 0xe, 0xf]),
         ),
         ConditionalField(
             _Dot11MacField("addr3", ETHER_ANY, 3),
-            lambda pkt: pkt.type in [0, 2],
+            lambda pkt: (pkt.type in [0, 2] or
+                         ((pkt.type, pkt.subtype) == (1, 6) and pkt.cfe == 6)),
         ),
         ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type != 1),
         ConditionalField(
@@ -770,6 +770,8 @@ class Dot11(Packet):
         if self.type == 0:  # Management
             return _dot11_addr_meaning[0][index]
         elif self.type == 1:  # Control
+            if (self.type, self.subtype) == (1, 6) and self.cfe == 6:
+                return ["RA", "NAV-SA", "NAV-DA"][index]
             return _dot11_addr_meaning[1][index]
         elif self.type == 2:  # Data
             meaning = _dot11_addr_meaning[2][index][
@@ -1510,6 +1512,218 @@ class Dot11Ack(Packet):
     name = "802.11 Ack packet"
 
 
+# 802.11-2016 9.4.1.11
+
+class Dot11Action(Packet):
+    name = "802.11 Action"
+    fields_desc = [
+        ByteEnumField("category", 0x00, {
+            0x00: "Spectrum Management",
+            0x01: "QoS",
+            0x02: "DLS",
+            0x03: "Block",
+            0x04: "Public",
+            0x05: "Radio Measurement",
+            0x06: "Fast BSS Transition",
+            0x07: "HT",
+            0x08: "SA Query",
+            0x09: "Protected Dual of Public Action",
+            0x0A: "WNM",
+            0x0B: "Unprotected WNM",
+            0x0C: "TDLS",
+            0x0D: "Mesh",
+            0x0E: "Multihop",
+            0x0F: "Self-protected",
+            0x10: "DMG",
+            0x11: "Reserved Wi-Fi Alliance",
+            0x12: "Fast Session Transfer",
+            0x13: "Robust AV Streaming",
+            0x14: "Unprotected DMG",
+            0x15: "VHT"
+        })
+    ]
+
+
+# 802.11-2016 9.6.14.1
+
+class Dot11WNM(Packet):
+    name = "802.11 WNM Action"
+    fields_desc = [
+        ByteEnumField("action", 0x00, {
+            0x00: "Event Request",
+            0x01: "Event Report",
+            0x02: "Diagnostic Request",
+            0x03: "Diagnostic Report",
+            0x04: "Location Configuration Request",
+            0x05: "Location Configuration Response",
+            0x06: "BSS Transition Management Query",
+            0x07: "BSS Transition Management Request",
+            0x08: "BSS Transition Management Response",
+            0x09: "FMS Request",
+            0x0A: "FMS Response",
+            0x0B: "Collocated Interference Request",
+            0x0C: "Collocated Interference Report",
+            0x0D: "TFS Request",
+            0x0E: "TFS Response",
+            0x0F: "TFS Notify",
+            0x10: "WNM Sleep Mode Request",
+            0x11: "WNM Sleep Mode Response",
+            0x12: "TIM Broadcast Request",
+            0x13: "TIM Broadcast Response",
+            0x14: "QoS Traffic Capability Update",
+            0x15: "Channel Usage Request",
+            0x16: "Channel Usage Response",
+            0x17: "DMS Request",
+            0x18: "DMS Response",
+            0x19: "Timing Measurement Request",
+            0x1A: "WNM Notification Request",
+            0x1B: "WNM Notification Response",
+            0x1C: "WNM-Notify Response"
+        })
+    ]
+
+
+# 802.11-2016 9.4.2.37
+
+class SubelemTLV(Packet):
+    fields_desc = [
+        ByteField("type", 0),
+        LEFieldLenField("len", None, fmt="B", length_of="value"),
+        FieldListField(
+            "value",
+            [],
+            ByteField('', 0),
+            length_from=lambda p: p.len
+        )
+    ]
+
+
+class BSSTerminationDuration(Packet):
+    name = "BSS Termination Duration"
+    fields_desc = [
+        ByteField("id", 4),
+        ByteField("len", 10),
+        LELongField("TSF", 0),
+        LEShortField("duration", 0)
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
+
+class NeighborReport(Packet):
+    name = "Neighbor Report"
+    fields_desc = [
+        ByteField("type", 0),
+        ByteField("len", 13),
+        MACField("BSSID", ETHER_ANY),
+        # BSSID Information
+        BitField("AP_reach", 0, 2, tot_size=-4),
+        BitField("security", 0, 1),
+        BitField("key_scope", 0, 1),
+        BitField("capabilities", 0, 6),
+        BitField("mobility", 0, 1),
+        BitField("HT", 0, 1),
+        BitField("VHT", 0, 1),
+        BitField("FTM", 0, 1),
+        BitField("reserved", 0, 18, end_tot_size=-4),
+        # BSSID Information end
+        ByteField("op_class", 0),
+        ByteField("channel", 0),
+        ByteField("phy_type", 0),
+        ConditionalField(
+            PacketListField(
+                "subelems",
+                SubelemTLV(),
+                SubelemTLV,
+                length_from=lambda p: p.len - 13
+            ),
+            lambda p: p.len > 13
+        )
+    ]
+
+
+# 802.11-2016 9.6.14.9
+
+btm_request_mode = [
+    "Preferred_Candidate_List_Included",
+    "Abridged",
+    "Disassociation_Imminent",
+    "BSS_Termination_Included",
+    "ESS_Disassociation_Imminent"
+]
+
+
+class Dot11BSSTMRequest(Packet):
+    name = "BSS Transition Management Request"
+    fields_desc = [
+        ByteField("token", 0),
+        FlagsField("mode", 0, 8, btm_request_mode),
+        LEShortField("disassociation_timer", 0),
+        ByteField("validity_interval", 0),
+        ConditionalField(
+            PacketField(
+                "termination_duration",
+                BSSTerminationDuration(),
+                BSSTerminationDuration
+            ),
+            lambda p: p.mode and p.mode.BSS_Termination_Included
+        ),
+        ConditionalField(
+            ByteField("url_len", 0),
+            lambda p: p.mode and p.mode.ESS_Disassociation_Imminent
+        ),
+        ConditionalField(
+            StrLenField("url", "", length_from=lambda p: p.url_len),
+            lambda p: p.mode and p.mode.ESS_Disassociation_Imminent != 0
+        ),
+        ConditionalField(
+            PacketListField(
+                "neighbor_report",
+                NeighborReport(),
+                NeighborReport
+            ),
+            lambda p: p.mode and p.mode.Preferred_Candidate_List_Included
+        )
+    ]
+
+
+# 802.11-2016 9.6.14.10
+
+btm_status_code = [
+    "Accept",
+    "Reject-Unspecified_reject_reason",
+    "Reject-Insufficient_Beacon_or_Probe_Response_frames",
+    "Reject-Insufficient_available_capacity_from_all_candidates",
+    "Reject-BSS_termination_undesired",
+    "Reject-BSS_termination_delay_requested",
+    "Reject-STA_BSS_Transition_Candidate_List_provided",
+    "Reject-No_suitable_BSS_transition_candidates",
+    "Reject-Leaving_ESS"
+]
+
+
+class Dot11BSSTMResponse(Packet):
+    name = "BSS Transition Management Response"
+    fields_desc = [
+        ByteField("token", 0),
+        ByteEnumField("status", 0, btm_status_code),
+        ByteField("termination_delay", 0),
+        ConditionalField(
+            MACField("target", ETHER_ANY),
+            lambda p: p.status == 0
+        ),
+        ConditionalField(
+            PacketListField(
+                "neighbor_report",
+                NeighborReport(),
+                NeighborReport
+            ),
+            lambda p: p.status == 6
+        )
+    ]
+
+
 ###################
 # 802.11 Security #
 ###################
@@ -1650,6 +1864,8 @@ bind_top_down(Dot11, Dot11QoS, type=2, subtype=0xc)
 bind_layers(PrismHeader, Dot11,)
 bind_layers(Dot11, LLC, type=2)
 bind_layers(Dot11QoS, LLC,)
+
+# 802.11-2016 9.2.4.1.3 Type and Subtype subfields
 bind_layers(Dot11, Dot11AssoReq, subtype=0, type=0)
 bind_layers(Dot11, Dot11AssoResp, subtype=1, type=0)
 bind_layers(Dot11, Dot11ReassoReq, subtype=2, type=0)
@@ -1661,6 +1877,7 @@ bind_layers(Dot11, Dot11ATIM, subtype=9, type=0)
 bind_layers(Dot11, Dot11Disas, subtype=10, type=0)
 bind_layers(Dot11, Dot11Auth, subtype=11, type=0)
 bind_layers(Dot11, Dot11Deauth, subtype=12, type=0)
+bind_layers(Dot11, Dot11Action, subtype=13, type=0)
 bind_layers(Dot11, Dot11Ack, subtype=13, type=1)
 bind_layers(Dot11Beacon, Dot11Elt,)
 bind_layers(Dot11AssoReq, Dot11Elt,)
@@ -1673,6 +1890,9 @@ bind_layers(Dot11Auth, Dot11Elt,)
 bind_layers(Dot11Elt, Dot11Elt,)
 bind_layers(Dot11TKIP, conf.raw_layer)
 bind_layers(Dot11CCMP, conf.raw_layer)
+bind_layers(Dot11Action, Dot11WNM, category=0x0A)
+bind_layers(Dot11WNM, Dot11BSSTMRequest, action=7)
+bind_layers(Dot11WNM, Dot11BSSTMResponse, action=8)
 
 
 conf.l2types.register(DLT_IEEE802_11, Dot11)

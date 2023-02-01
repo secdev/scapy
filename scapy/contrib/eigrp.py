@@ -25,7 +25,6 @@
         http://trac.secdev.org/scapy/ticket/18
     - IOS / EIGRP Version Representation FIX by Dirk Loss
 """
-from __future__ import absolute_import
 import socket
 import struct
 

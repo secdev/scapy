@@ -19,12 +19,13 @@ from ctypes import (
     byref,
     create_string_buffer,
 )
+from socket import AddressFamily
+
 from scapy.config import conf
 from scapy.consts import WINDOWS_XP
 
 # Typing imports
 from scapy.compat import (
-    AddressFamily,
     Any,
     Dict,
     List,

@@ -406,17 +406,6 @@ except Scapy_Exception:
 
 assert ex
 
-= Fragment exception
-~ not_pypy
-
-ex = False
-try:
-    fragments = ISOTP(b"a" * (1 << 32)).fragment()
-except Scapy_Exception:
-    ex = True
-
-assert ex
-
 = Defragment an ISOTP message composed of multiple CAN frames
 fragments = [
     CAN(identifier=0x641, data=dhex("41 10 10 61 62 63 64 65")),

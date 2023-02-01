@@ -13,13 +13,13 @@ import time
 import copy
 from collections import defaultdict, OrderedDict
 from itertools import chain
+from typing import NamedTuple
 
 from scapy.compat import Any, Union, List, Optional, Iterable, \
-    Dict, Tuple, Set, Callable, cast, NamedTuple, orb
+    Dict, Tuple, Set, Callable, cast, orb
 from scapy.contrib.automotive import log_automotive
 from scapy.error import Scapy_Exception
 from scapy.utils import make_lined_table, EDecimal
-import scapy.libs.six as six
 from scapy.packet import Packet
 from scapy.contrib.automotive.ecu import EcuState, EcuResponse
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCase, \
@@ -46,8 +46,7 @@ _AutomotiveTestCaseFilteredScanResult = NamedTuple(
      ("resp_ts", Union[EDecimal, float])])
 
 
-@six.add_metaclass(abc.ABCMeta)
-class ServiceEnumerator(AutomotiveTestCase):
+class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
     """
     Base class for ServiceEnumerators of automotive diagnostic protocols
     """
@@ -64,7 +63,7 @@ class ServiceEnumerator(AutomotiveTestCase):
         'exit_if_service_not_supported': (bool, None),
         'exit_scan_on_first_negative_response': (bool, None),
         'retry_if_busy_returncode': (bool, None),
-        'stop_event': (threading._Event if six.PY2 else threading.Event, None),  # type: ignore  # noqa: E501
+        'stop_event': (threading.Event, None),
         'debug': (bool, None),
         'scan_range': ((list, tuple, range), None),
         'unittest': (bool, None)
@@ -172,7 +171,7 @@ class ServiceEnumerator(AutomotiveTestCase):
     def __reduce__(self):  # type: ignore
         f, t, d = super(ServiceEnumerator, self).__reduce__()  # type: ignore
         try:
-            for k, v in six.iteritems(d["_request_iterators"]):
+            for k, v in d["_request_iterators"].items():
                 d["_request_iterators"][k] = list(v)
         except KeyError:
             pass
@@ -218,10 +217,14 @@ class ServiceEnumerator(AutomotiveTestCase):
         if isinstance(retry_entry, Packet):
             log_automotive.debug("Provide retry packet")
             return [retry_entry]
+        elif isinstance(retry_entry, list):
+            if len(retry_entry):
+                log_automotive.debug("Provide retry list")
         else:
             log_automotive.debug("Provide retry iterator")
             # assume self.retry_pkt is a generator or list
-            return retry_entry
+
+        return retry_entry
 
     def _get_initial_request_iterator(self, state, **kwargs):
         # type: (EcuState, Any) -> Iterable[Packet]
@@ -689,8 +692,8 @@ class ServiceEnumerator(AutomotiveTestCase):
         elif orb(bytes(response)[0]) == 0x7f:
             return self._get_negative_response_label(response)
         else:
-            if isinstance(positive_case, six.string_types):
-                return cast(str, positive_case)
+            if isinstance(positive_case, str):
+                return positive_case
             elif callable(positive_case):
                 return positive_case(response)
             else:
@@ -710,8 +713,11 @@ class ServiceEnumerator(AutomotiveTestCase):
         return supported_resps
 
 
-@six.add_metaclass(abc.ABCMeta)
-class StateGeneratingServiceEnumerator(ServiceEnumerator, StateGenerator):
+class StateGeneratingServiceEnumerator(
+    ServiceEnumerator,
+    StateGenerator,
+    metaclass=abc.ABCMeta
+):
     def __init__(self):
         # type: () -> None
         super(StateGeneratingServiceEnumerator, self).__init__()

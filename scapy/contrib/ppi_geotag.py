@@ -11,7 +11,6 @@
 PPI-GEOLOCATION tags
 """
 
-from __future__ import absolute_import
 import functools
 import struct
 
@@ -23,7 +22,6 @@ from scapy.fields import ByteField, ConditionalField, Field, FlagsField, \
     UTCTimeField, XLEIntField, SignedByteField, XLEShortField
 from scapy.layers.ppi import PPI_Hdr, PPI_Element
 from scapy.error import warning
-import scapy.libs.six as six
 
 CURR_GEOTAG_VER = 2  # Major revision of specification
 
@@ -253,7 +251,7 @@ class HCSIAppField(StrFixedLenField):
 
 def _FlagsList(myfields):
     flags = ["Reserved%02d" % i for i in range(32)]
-    for i, value in six.iteritems(myfields):
+    for i, value in myfields.items():
         flags[i] = value
     return flags
 
@@ -360,7 +358,7 @@ class _Geotag_metaclass(Packet_metaclass):
         return x
 
 
-class HCSIPacket(six.with_metaclass(_Geotag_metaclass, PPI_Element)):
+class HCSIPacket(PPI_Element, metaclass=_Geotag_metaclass):
     def post_build(self, p, pay):
         if self.geotag_len is None:
             sl_g = struct.pack('<H', len(p))

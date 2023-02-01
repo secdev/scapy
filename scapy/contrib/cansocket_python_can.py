@@ -16,6 +16,7 @@ import threading
 
 from functools import reduce
 from operator import add
+import queue
 
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
@@ -24,7 +25,6 @@ from scapy.packet import Packet
 from scapy.error import warning
 from scapy.compat import List, Type, Tuple, Dict, Any, \
     Optional, cast, orb
-from scapy.libs.six.moves import queue
 
 from can import Message as can_Message
 from can import CanError as can_CanError

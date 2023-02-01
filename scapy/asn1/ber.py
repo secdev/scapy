@@ -11,7 +11,6 @@ Basic Encoding Rules (BER) for ASN.1
 
 # Good read: https://luca.ntop.org/Teaching/Appunti/asn1.html
 
-from __future__ import absolute_import
 from scapy.error import warning
 from scapy.compat import chb, orb, bytes_encode
 from scapy.utils import binrepr, inet_aton, inet_ntoa
@@ -28,7 +27,6 @@ from scapy.asn1.asn1 import (
     ASN1_Object,
     _ASN1_ERROR,
 )
-from scapy.libs import six
 
 from scapy.compat import (
     Any,
@@ -284,8 +282,7 @@ class BERcodec_metaclass(_Generic_metaclass):
 _K = TypeVar('_K')
 
 
-@six.add_metaclass(BERcodec_metaclass)
-class BERcodec_Object(Generic[_K]):
+class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
     codec = ASN1_Codecs.BER
     tag = ASN1_Class_UNIVERSAL.ANY
 
@@ -346,13 +343,13 @@ class BERcodec_Object(Generic[_K]):
             _context = cls.tag.context
         cls.check_string(s)
         p, remainder = BER_id_dec(s)
-        if p not in _context:  # type: ignore
+        if p not in _context:
             t = s
             if len(t) > 18:
                 t = t[:15] + b"..."
             raise BER_Decoding_Error("Unknown prefix [%02x] for [%r]" %
                                      (p, t), remaining=s)
-        tag = _context[p]  # type: ignore
+        tag = _context[p]
         codec = cast('Type[BERcodec_Object[_K]]',
                      tag.get_codec(ASN1_Codecs.BER))
         if codec == BERcodec_Object:
@@ -393,7 +390,7 @@ class BERcodec_Object(Generic[_K]):
     @classmethod
     def enc(cls, s):
         # type: (_K) -> bytes
-        if isinstance(s, six.string_types + (bytes,)):
+        if isinstance(s, (str, bytes)):
             return BERcodec_STRING.enc(s)
         else:
             try:
@@ -504,7 +501,7 @@ class BERcodec_STRING(BERcodec_Object[str]):
 
     @classmethod
     def enc(cls, _s):
-        # type: (str) -> bytes
+        # type: (Union[str, bytes]) -> bytes
         s = bytes_encode(_s)
         # Be sure we are encoding bytes
         return chb(hash(cls.tag)) + BER_len_enc(len(s)) + s
@@ -673,7 +670,7 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IPADDRESS
 
     @classmethod
-    def enc(cls, ipaddr_ascii):
+    def enc(cls, ipaddr_ascii):  # type: ignore
         # type: (str) -> bytes
         try:
             s = inet_aton(ipaddr_ascii)

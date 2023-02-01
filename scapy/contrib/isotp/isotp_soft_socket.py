@@ -19,7 +19,6 @@ from scapy.compat import Optional, Union, List, Tuple, Any, Type, cast, \
     Callable, TYPE_CHECKING
 from scapy.packet import Packet
 from scapy.layers.can import CAN
-import scapy.libs.six as six
 from scapy.error import Scapy_Exception
 from scapy.supersocket import SuperSocket
 from scapy.config import conf
@@ -105,8 +104,6 @@ class ISOTPSoftSocket(SuperSocket):
     :param basecls: base class of the packets emitted by this socket
     """  # noqa: E501
 
-    nonblocking_socket = True
-
     def __init__(self,
                  can_socket=None,  # type: Optional["CANSocket"]
                  tx_id=0,  # type: int
@@ -121,10 +118,10 @@ class ISOTPSoftSocket(SuperSocket):
                  ):
         # type: (...) -> None
 
-        if six.PY3 and LINUX and isinstance(can_socket, six.string_types):
+        if LINUX and isinstance(can_socket, str):
             from scapy.contrib.cansocket_native import NativeCANSocket
             can_socket = NativeCANSocket(can_socket)
-        elif isinstance(can_socket, six.string_types):
+        elif isinstance(can_socket, str):
             raise Scapy_Exception("Provide a CANSocket object instead")
 
         self.ext_address = ext_address
@@ -377,8 +374,6 @@ class TimeoutScheduler:
     @staticmethod
     def _time():
         # type: () -> float
-        if six.PY2:
-            return time.time()
         return time.monotonic()
 
     class Handle:
@@ -515,7 +510,7 @@ class ISOTPSocketImplementation:
         self.tx_queue = ObjectPipe[bytes]()
         self.txfc_bs = 0
         self.txfc_stmin = 0
-        self.tx_gap = 0
+        self.tx_gap = 0.
 
         self.tx_buf = None  # type: Optional[bytes]
         self.tx_sn = 0
@@ -689,10 +684,10 @@ class ISOTPSocketImplementation:
             ae = 1
             if len(data) < 3:
                 return
-            if six.indexbytes(data, 0) != self.rx_ext_address:
+            if data[0] != self.rx_ext_address:
                 return
 
-        n_pci = six.indexbytes(data, ae) & 0xf0
+        n_pci = data[ae] & 0xf0
 
         if n_pci == N_PCI_FC:
             self._recv_fc(data[ae:])
@@ -723,24 +718,23 @@ class ISOTPSocketImplementation:
 
         # get communication parameters only from the first FC frame
         if self.tx_state == ISOTP_WAIT_FIRST_FC:
-            self.txfc_bs = six.indexbytes(data, 1)
-            self.txfc_stmin = six.indexbytes(data, 2)
+            self.txfc_bs = data[1]
+            self.txfc_stmin = data[2]
 
         if ((self.txfc_stmin > 0x7F) and
                 ((self.txfc_stmin < 0xF1) or (self.txfc_stmin > 0xF9))):
             self.txfc_stmin = 0x7F
 
-        if six.indexbytes(data, 2) <= 127:
-            tx_gap = six.indexbytes(data, 2) / 1000.0
-        elif 0xf1 <= six.indexbytes(data, 2) <= 0xf9:
-            tx_gap = (six.indexbytes(data, 2) & 0x0f) / 10000.0
+        if data[2] <= 127:
+            self.tx_gap = data[2] / 1000
+        elif 0xf1 <= data[2] <= 0xf9:
+            self.tx_gap = (data[2] & 0x0f) / 10000
         else:
-            tx_gap = 0
-        self.tx_gap = tx_gap
+            self.tx_gap = 0.
 
         self.tx_state = ISOTP_WAIT_FC
 
-        isotp_fc = six.indexbytes(data, 0) & 0x0f
+        isotp_fc = data[0] & 0x0f
 
         if isotp_fc == ISOTP_FC_CTS:
             self.tx_bs = 0
@@ -778,7 +772,7 @@ class ISOTPSocketImplementation:
                                   "single frame was received")
             self.rx_state = ISOTP_IDLE
 
-        length = six.indexbytes(data, 0) & 0xf
+        length = data[0] & 0xf
         if len(data) - 1 < length:
             return
 
@@ -804,17 +798,16 @@ class ISOTPSocketImplementation:
         self.rx_ll_dl = len(data)
 
         # get the FF_DL
-        self.rx_len = (six.indexbytes(data, 0) & 0x0f) * 256 + six.indexbytes(
-            data, 1)
+        self.rx_len = (data[0] & 0x0f) * 256 + data[1]
         ff_pci_sz = 2
 
         # Check for FF_DL escape sequence supporting 32 bit PDU length
         if self.rx_len == 0:
             # FF_DL = 0 => get real length from next 4 bytes
-            self.rx_len = six.indexbytes(data, 2) << 24
-            self.rx_len += six.indexbytes(data, 3) << 16
-            self.rx_len += six.indexbytes(data, 4) << 8
-            self.rx_len += six.indexbytes(data, 5)
+            self.rx_len = data[2] << 24
+            self.rx_len += data[3] << 16
+            self.rx_len += data[4] << 8
+            self.rx_len += data[5]
             ff_pci_sz = 6
 
         # copy the first received data bytes
@@ -863,7 +856,7 @@ class ISOTPSocketImplementation:
                     log_isotp.warning("Received a CF with insufficient length")
                 return
 
-        if six.indexbytes(data, 0) & 0x0f != self.rx_sn:
+        if data[0] & 0x0f != self.rx_sn:
             # Wrong sequence number
             if conf.verb > 2:
                 log_isotp.warning("RX state was reset because wrong sequence "
@@ -972,9 +965,5 @@ class ISOTPSocketImplementation:
 
     def recv(self, timeout=None):
         # type: (Optional[int]) -> Optional[Tuple[bytes, Union[float, EDecimal]]]  # noqa: E501
-        """Receive an ISOTP frame, blocking if none is available in the buffer
-        for at most 'timeout' seconds."""
-        try:
-            return self.rx_queue.recv()
-        except IndexError:
-            return None
+        """Receive an ISOTP frame, blocking if none is available in the buffer."""
+        return self.rx_queue.recv()

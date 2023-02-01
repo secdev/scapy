@@ -17,7 +17,6 @@ In order to run a server listening on tcp/4433:
 > t.run()
 """
 
-from __future__ import print_function
 import socket
 import binascii
 import struct

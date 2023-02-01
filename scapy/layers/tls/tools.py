@@ -8,7 +8,6 @@
 TLS helpers, provided as out-of-context methods.
 """
 
-from __future__ import absolute_import
 import struct
 
 from scapy.compat import orb, chb

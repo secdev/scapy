@@ -12,10 +12,9 @@
 = Load server util functions
 ~ client
 
-from __future__ import print_function
 
 import sys, os, re, time, subprocess
-from scapy.libs.six.moves.queue import Queue
+from queue import Queue
 import threading
 
 from ast import literal_eval
@@ -211,7 +210,7 @@ import sys, os, time, threading
 from scapy.layers.tls.automaton_cli import TLSClientAutomaton
 from scapy.layers.tls.handshake import TLSClientHello, TLS13ClientHello
 
-from scapy.libs.six.moves.queue import Queue
+from queue import Queue
 
 send_data = cipher_suite_code = version = None
 

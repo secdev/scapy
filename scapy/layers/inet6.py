@@ -12,9 +12,6 @@ IPv6 (Internet Protocol v6).
 """
 
 
-from __future__ import absolute_import
-from __future__ import print_function
-
 from hashlib import md5
 import random
 import socket

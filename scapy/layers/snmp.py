@@ -7,7 +7,6 @@
 SNMP (Simple Network Management Protocol).
 """
 
-from __future__ import print_function
 from scapy.packet import bind_layers, bind_bottom_up
 from scapy.asn1packet import ASN1_Packet
 from scapy.asn1fields import ASN1F_INTEGER, ASN1F_IPADDRESS, ASN1F_OID, \

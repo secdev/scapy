@@ -9,7 +9,6 @@
 BGP (Border Gateway Protocol).
 """
 
-from __future__ import absolute_import
 import struct
 import re
 import socket
@@ -28,7 +27,6 @@ from scapy.layers.inet6 import IP6Field
 from scapy.config import conf, ConfClass
 from scapy.compat import orb, chb
 from scapy.error import log_runtime
-import scapy.libs.six as six
 
 
 #
@@ -635,7 +633,7 @@ class _BGPCapability_metaclass(_BGPCap_metaclass, Packet_metaclass):
     pass
 
 
-class BGPCapability(six.with_metaclass(_BGPCapability_metaclass, Packet)):
+class BGPCapability(Packet, metaclass=_BGPCapability_metaclass):
     """
     Generic BGP capability.
     """

@@ -17,7 +17,6 @@ Spec: 3GPP TS 29.060 and 3GPP TS 29.274
 Some IEs: 3GPP TS 24.008
 """
 
-from __future__ import absolute_import
 import struct
 
 from scapy.compat import chb, orb, bytes_encode
@@ -258,7 +257,10 @@ class GTPHeader(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.length is None:
-            tmp_len = len(p) - 8
+            # The message length field is calculated different in GTPv1 and GTPv2.  # noqa: E501
+            # For GTPv1 it is defined as the rest of the packet following the mandatory 8-byte GTP header  # noqa: E501
+            # For GTPv2 it is defined as the length of the message in bytes excluding the mandatory part of the GTP-C header (the first 4 bytes)  # noqa: E501
+            tmp_len = len(p) - 4 if self.version == 2 else len(p) - 8
             p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p
 

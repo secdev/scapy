@@ -439,6 +439,11 @@ assert not (GTPHeader(seq=1)/GTPV2EchoResponse()).answers(GTPHeader(seq=1)/GTPV2
 gtp = GTPHeader(gtp_type="create_session_req") / ("X"*32)
 gtp.show2()
 
+= GTPHeader length calculation
+h = GTPHeader(seq=12345, version=2, T=1, teid=1234)/("X"*32)
+h = GTPHeader(h.do_build())
+h[GTPHeader].length == len(bytes(h)) - 4
+
 = GTPHeader hashret
 req = GTPHeader(gtp_type="create_session_req", seq=1) / ("X"*32)
 res = GTPHeader(gtp_type="create_session_res", seq=1) / ("Y"*32)

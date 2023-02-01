@@ -30,7 +30,6 @@ Example of use:
 True
 """
 
-from __future__ import absolute_import
 try:
     from math import gcd
 except ImportError:

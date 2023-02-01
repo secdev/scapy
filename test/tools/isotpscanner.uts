@@ -40,19 +40,6 @@ assert result.wait() == 0
 assert expected_output in plain_str(std_out)
 
 
-= Test wrong socket for Python2 or Windows
-
-if six.PY2:
-    version = subprocess.Popen(["python2", "--version"], stdout=subprocess.PIPE)
-    if 0 == version.wait():
-        print(version.communicate())
-    result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py", "-c", iface0, "-s", "0x600", "-e", "0x600"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    expected_output = plain_str(b'Please provide all required arguments.')
-    std_out, std_err = result.communicate()
-    assert result.wait() == 1
-    assert expected_output in plain_str(std_err)
-
-
 = Test Python2 call
 
 result = subprocess.Popen([sys.executable, "scapy/tools/automotive/isotpscanner.py", "-i", "socketcan", "-c", iface0, "-s", "0x600", "-e", "0x600", "-v", "-n", "0", "-t", "0"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)

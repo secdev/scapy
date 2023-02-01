@@ -10,7 +10,6 @@ Key Exchange algorithms as listed in appendix C of RFC 4346.
 XXX No support yet for PSK (also, no static DH, DSS, SRP or KRB).
 """
 
-from __future__ import absolute_import
 from scapy.layers.tls.keyexchange import (ServerDHParams,
                                           ServerRSAParams,
                                           ClientDiffieHellmanPublic,

@@ -219,4 +219,5 @@ xa, xb = IP(raw(a)), IP(raw(b))
 conf.contribs["http"]["auto_compression"] = True
 
 c = sniff(offline=[xa, xb], session=TCPSession)[0]
-assert gzip_decompress(z) == c.load
+import gzip
+assert gzip.decompress(z) == c.load

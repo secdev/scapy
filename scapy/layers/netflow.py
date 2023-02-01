@@ -1659,12 +1659,12 @@ class NetflowOptionsFlowsetV9(Packet):
         return conf.padding_layer
 
     def post_build(self, pkt, pay):
-        if self.length is None:
-            pkt = pkt[:2] + struct.pack("!H", len(pkt)) + pkt[4:]
         if self.pad is None:
             # Padding 4-bytes with b"\x00"
             start = 10 + self.option_scope_length + self.option_field_length
             pkt = pkt[:start] + (-len(pkt) % 4) * b"\x00"
+        if self.length is None:
+            pkt = pkt[:2] + struct.pack("!H", len(pkt)) + pkt[4:]
         return pkt + pay
 
 
