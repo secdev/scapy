@@ -360,8 +360,9 @@ class CDPMsgPowerRequest(CDPMsgGeneric):
                                  adjust=lambda pkt, x: x + 8),
                    ShortField("req_id", 0),
                    ShortField("mgmt_id", 0),
-                   FieldListField("power_requested_list", [], IntField("power_requested", 0),
-                                  count_from=lambda pkt: (pkt.len - 8) / 4)]
+                   FieldListField("power_requested_list", [],
+                                  IntField("power_requested", 0),
+                                  count_from=lambda pkt: (pkt.len - 8) // 4)]
 
 
 class CDPMsgPowerAvailable(CDPMsgGeneric):
@@ -371,8 +372,9 @@ class CDPMsgPowerAvailable(CDPMsgGeneric):
                                  adjust=lambda pkt, x: x + 8),
                    ShortField("req_id", 0),
                    ShortField("mgmt_id", 0),
-                   FieldListField("power_available_list", [], IntField("power_available", 0),
-                                  count_from=lambda pkt: (pkt.len - 8) / 4)]
+                   FieldListField("power_available_list", [],
+                                  IntField("power_available", 0),
+                                  count_from=lambda pkt: (pkt.len - 8) // 4)]
 
 
 class CDPMsg(CDPMsgGeneric):
