@@ -254,6 +254,48 @@ assert "serviceNotSupported received 75 times" in result
 assert "serviceNotSupportedInActiveSession received 19 times" in result
 assert "securityAccessDenied received 2 times" in result
 
+= UDS_ServiceEnumerator
+
+def req_handler(resp, req):
+    if req.service != 0x22:
+        return False
+    if len(req) == 1:
+        resp.negativeResponseCode="generalReject"
+        return True
+    if len(req) == 2:
+        resp.negativeResponseCode="incorrectMessageLengthOrInvalidFormat"
+        return True
+    if len(req) == 3:
+        resp.negativeResponseCode="requestOutOfRange"
+        return True
+    return False
+
+resps = [EcuResponse(None, [UDS()/UDS_NR(negativeResponseCode="subFunctionNotSupported", requestServiceId="ReadDataByIdentifier")], req_handler)]
+
+es = [UDS_ServiceEnumerator]
+
+scanner = executeScannerInVirtualEnvironment(
+    resps, es, UDS_ServiceEnumerator_kwargs={"request_length": 3}, unstable_socket=False)
+
+assert scanner.scan_completed
+assert scanner.progress() > 0.95
+tc = scanner.configuration.test_cases[0]
+
+assert len(tc.results_without_response) < 10
+if tc.results_without_response:
+    tc.show()
+
+tc.show()
+
+assert len(tc.results_with_negative_response) == 128 * 3
+assert len(tc.results_with_positive_response) == 0
+assert len(tc.scanned_states) == 1
+
+result = tc.show(dump=True)
+
+assert "incorrectMessageLengthOrInvalidFormat" in result
+assert "requestOutOfRange" in result
+
 = UDS_RDBIEnumerator
 
 resps = [EcuResponse(None, [UDS()/UDS_RDBIPR(dataIdentifier=1)/Raw(b"asdfbeef1")]),
