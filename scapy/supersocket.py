@@ -23,7 +23,7 @@ from scapy.data import (
     SOL_PACKET,
     SO_TIMESTAMPNS,
 )
-from scapy.compat import raw
+from scapy.compat import raw, Self
 from scapy.error import warning, log_runtime
 from scapy.interfaces import network_name
 from scapy.packet import Packet, NoPayload

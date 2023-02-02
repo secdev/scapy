@@ -1016,7 +1016,7 @@ assert corrupt_bits("ABCDE") in [b"EBCDE", b"ABCDG"]
 assert sane(corrupt_bits("ABCDE", n=3)) in ["AF.EE", "QB.TE"]
 
 = Test whois function
-~ netaccess
+~ netaccess disabled
 
 if not WINDOWS:
     result = whois("193.0.6.139")
@@ -1850,7 +1850,7 @@ def _test():
 retry_test(_test)
 
 = Whois request
-~ netaccess IP as_resolvers
+~ netaccess IP as_resolvers disabled
 * This test retries on failure because it often fails
 def _test():
     IP(src="8.8.8.8").whois()
@@ -1858,7 +1858,7 @@ def _test():
 retry_test(_test)
 
 = AS resolvers
-~ netaccess IP as_resolvers
+~ netaccess IP as_resolvers disabled
 * This test retries on failure because it often fails
 
 def _test():
@@ -1894,7 +1894,7 @@ assert len(tmp) == 3
 assert [l[1] for l in tmp] == ['AS24776', 'AS36459', 'AS26496']
 
 = AS resolver - IPv6
-~ netaccess IP as_resolvers
+~ netaccess IP as_resolvers disabled
 * This test retries on failure because it often fails
 
 def _test():
