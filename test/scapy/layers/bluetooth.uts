@@ -178,7 +178,7 @@ assert cmd[HCI_Cmd_Authentication_Requested].handle == 256
 cmd = HCI_Hdr(hex_bytes("010b041676d56f9501006c9016a48a009180086a39200f03d3dd"))
 assert HCI_Cmd_Link_Key_Request_Reply in cmd
 assert cmd[HCI_Cmd_Link_Key_Request_Reply].bd_addr == "00:01:95:6f:d5:76"
-assert cmd[HCI_Cmd_Link_Key_Request_Reply].link_key == 294855023751241435024024030130491265132
+assert cmd[HCI_Cmd_Link_Key_Request_Reply].link_key == 0x6c9016a48a009180086a39200f03d3dd
 
 = Set Connection Encryption
 
