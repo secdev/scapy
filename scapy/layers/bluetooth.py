@@ -1523,6 +1523,7 @@ class BluetoothUserSocket(SuperSocket):
         if r != 0:
             raise BluetoothSocketError("Unable to bind")
 
+        self.hci_fd = s
         self.ins = self.outs = socket.fromfd(s, 31, 3, 1)
 
     def send_command(self, cmd):
@@ -1564,6 +1565,7 @@ class BluetoothUserSocket(SuperSocket):
         if hasattr(self, "ins"):
             if self.ins and (WINDOWS or self.ins.fileno() != -1):
                 close(self.ins.fileno())
+        close(self.hci_fd)
 
 
 conf.BTsocket = BluetoothRFCommSocket
