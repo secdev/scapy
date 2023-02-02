@@ -204,6 +204,14 @@ class TestFuzzNBytesField(Packet):
 f = fuzz(TestFuzzNBytesField())
 assert f.test1.max == 2 ** (128 * 8) - 1
 
+p2 = TestNBytesField(raw(p))
+assert p2.sprintf('%test1% %test2% %test3% %test4%') == '18838586676582 0xc000ff3333 0xffeeddccbbaa9988776655 309404098707666285700277845'
+assert p2.test1 == 18838586676582
+assert p2.test2 == 0xc000ff3333
+assert p2.test3 == 0xffeeddccbbaa9988776655
+assert p2.test4 == 309404098707666285700277845
+assert raw(p2) == raw(TestNBytesField(test1=p2.test1, test2=p2.test2, test3=p2.test3, test4=p2.test4))
+
 = StrField
 ~ field strfield
 ~ field strlenfield

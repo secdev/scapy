@@ -1134,7 +1134,7 @@ class NBytesField(Field[int, List[int]]):
             return x
         # x can be a tuple when coming from struct.unpack  (from getfield)
         if isinstance(x, (list, tuple)):
-            return sum(d * (256 ** i) for i, d in enumerate(x))
+            return sum(d * (256 ** i) for i, d in enumerate(reversed(x)))
         return 0
 
     def i2repr(self, pkt, x):
