@@ -301,11 +301,11 @@ class UDS_ServiceEnumerator(UDS_Enumerator):
         ((list, tuple, range), lambda x: max(x) < 0x100 and min(x) >= 0)
 
     _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
-            :param int request_length: Specifies the maximum length of a
-                                       request packet. The enumerator will
-                                       generate all packets from a length
-                                       of 1 (UDS Service ID only) up to
-                                       the specified `request_length`."""
+        :param int request_length: Specifies the maximum length of arequest
+                                   packet. The enumerator will generate all
+                                   packets from a length of 1 (UDS Service
+                                   ID only) up to the specified
+                                   `request_length`."""
 
     def execute(self, socket, state, **kwargs):
         # type: (_SocketUnion, EcuState, Any) -> None
