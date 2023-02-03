@@ -326,11 +326,11 @@ nfv9_header = pkt.getlayer(NetflowHeaderV9)
 assert nf_header.count == 12
 
 flowset_1 = pkt.getlayer(NetflowFlowsetV9, 1)
-assert len(flowset1.templates) == 2
-assert flowset1.templates[0].templateID == 256
-assert flowset1.templates[1].templateID == 257
-assert flowset1.templates[1].fieldCount == 5
-assert flowset1.templates[1].template_fields[1].fieldLength == 4
+assert len(flowset_1.templates) == 2
+assert flowset_1.templates[0].templateID == 256
+assert flowset_1.templates[1].templateID == 257
+assert flowset_1.templates[1].fieldCount == 5
+assert flowset_1.templates[1].template_fields[1].fieldLength == 4
 
 flowset_2 = pkt.getlayer(NetflowOptionsFlowsetV9, 1)
 assert flowset_2.templateID == 258
