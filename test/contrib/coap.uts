@@ -27,7 +27,8 @@ assert p.options == [('Uri-Path', b'.well-known'), ('Uri-Path', b'core')]
 assert raw(CoAP(options=[("Uri-Query", "query")])) == b'\x40\x00\x00\x00\xd5\x02\x71\x75\x65\x72\x79'
 
 = Extended option length
-assert raw(CoAP(options=[("Location-Path", 'x' * 280)])) == b'\x40\x00\x00\x00\x8e\x0b\x00' + b'\x78' * 280
+assert raw(CoAP(options=[("Location-Path", 'x' * 280)])) == b'\x40\x00\x00\x00\x8e\x00\x0b' + b'\x78' * 280
+assert len(CoAP(b'\x40\x00\x00\x00\x8e\x00\x0b' + b'\x78' * 280 + b'\xff').options[0][1]) == 280
 
 = Options should be ordered by option number
 assert raw(CoAP(options=[("Uri-Query", "b"),("Uri-Path","a")])) == b'\x40\x00\x00\x00\xb1\x61\x41\x62'

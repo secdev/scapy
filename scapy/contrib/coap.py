@@ -107,7 +107,7 @@ def _get_abs_val(val, ext_val):
     if val >= 15:
         warning("Invalid Option Length or Delta %d" % val)
     if val == 14:
-        return 269 + struct.unpack('H', ext_val)[0]
+        return 269 + struct.unpack('!H', ext_val)[0]
     if val == 13:
         return 13 + struct.unpack('B', ext_val)[0]
     return val
@@ -127,7 +127,7 @@ class _CoAPOpt(Packet):
     @staticmethod
     def _populate_extended(val):
         if val >= 269:
-            return struct.pack('H', val - 269), 14
+            return struct.pack('!H', val - 269), 14
         if val >= 13:
             return struct.pack('B', val - 13), 13
         return None, val
