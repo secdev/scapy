@@ -19,7 +19,7 @@ from collections import defaultdict
 from typing import NamedTuple
 
 from scapy.compat import Dict, Optional, List, Type, Any, Iterable, \
-    cast, Union, orb, Set, Sequence, chb
+    cast, Union, orb, Set, Sequence
 from scapy.contrib.automotive import log_automotive
 from scapy.packet import Raw, Packet
 from scapy.error import Scapy_Exception
