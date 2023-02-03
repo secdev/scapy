@@ -318,11 +318,11 @@ class UDS_ServiceEnumerator(UDS_Enumerator):
         # Only generate services with unset positive response bit (0x40) as
         # default scan_range
         scan_range = kwargs.pop("scan_range",
-                                [x for x in range(0x100) if not x & 0x40])
+                                (x for x in range(0x100) if not x & 0x40))
         request_length = kwargs.pop("request_length", 1)
         return itertools.chain.from_iterable(
-            [[UDS(service=x) / Raw(b"\x00" * req_len)
-              for x in scan_range] for req_len in range(request_length)])
+            ([UDS(service=x) / Raw(b"\x00" * req_len)
+              for req_len in range(request_length)] for x in scan_range))
 
     def _evaluate_response(self,
                            state,  # type: EcuState
