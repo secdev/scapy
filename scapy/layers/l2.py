@@ -733,6 +733,7 @@ conf.l3types.register(ETH_P_ARP, ARP)
 def arpcachepoison(
     target,  # type: Union[str, List[str]]
     addresses,  # type: Union[str, Tuple[str, str], List[Tuple[str, str]]]
+    broadcast=False,  # type: bool
     interval=15,  # type: int
 ):
     # type: (...) -> None
@@ -745,6 +746,7 @@ def arpcachepoison(
                       with the local interface's MAC. If it's a tuple,
                       it's ("IP", "MAC"). It it's a list, it's [("IP", "MAC")].
                       "IP" can be a subnet of course.
+    :param broadcast: Use broadcast ethernet
 
     Examples for target "192.168.0.2"::
 
@@ -769,8 +771,9 @@ def arpcachepoison(
     else:
         couple_list = addresses
     p = [
-        Ether(src=y) / ARP(op="who-has", psrc=x, pdst=targets,
-                           hwsrc=y, hwdst="00:00:00:00:00:00")
+        Ether(src=y, dst="ff:ff:ff:ff:ff:ff" if broadcast else None) /
+        ARP(op="who-has", psrc=x, pdst=targets,
+            hwsrc=y, hwdst="00:00:00:00:00:00")
         for x, y in couple_list
     ]
     try:
@@ -852,16 +855,22 @@ def arp_mitm(
     # We loop who-has requests
     srploop(
         list(itertools.chain(
-            (Ether(dst=maca, src=target_mac) /
+            (x
+             for ipa, maca in tup1
+             for ipb, _ in tup2
+             for x in
+             Ether(dst=maca, src=target_mac) /
              ARP(op="who-has", psrc=ipb, pdst=ipa,
                  hwsrc=target_mac, hwdst="00:00:00:00:00:00")
-             for ipa, maca in tup1
-             for ipb, _ in tup2),
-            (Ether(dst=macb, src=target_mac) /
+             ),
+            (x
+             for ipb, macb in tup2
+             for ipa, _ in tup1
+             for x in
+             Ether(dst=macb, src=target_mac) /
              ARP(op="who-has", psrc=ipa, pdst=ipb,
                  hwsrc=target_mac, hwdst="00:00:00:00:00:00")
-             for ipb, macb in tup2
-             for ipa, _ in tup1),
+             ),
         )),
         filter="arp and arp[7] = 2",
         inter=inter,
@@ -873,16 +882,22 @@ def arp_mitm(
     print("Restoring...")
     sendp(
         list(itertools.chain(
-            (Ether(dst=maca, src=macb) /
+            (x
+             for ipa, maca in tup1
+             for ipb, macb in tup2
+             for x in
+             Ether(dst=maca, src=macb) /
              ARP(op="who-has", psrc=ipb, pdst=ipa,
                  hwsrc=macb, hwdst="00:00:00:00:00:00")
+             ),
+            (x
+             for ipb, macb in tup2
              for ipa, maca in tup1
-             for ipb, macb in tup2),
-            (Ether(dst=macb, src=maca) /
+             for x in
+             Ether(dst=macb, src=maca) /
              ARP(op="who-has", psrc=ipa, pdst=ipb,
                  hwsrc=maca, hwdst="00:00:00:00:00:00")
-             for ipb, macb in tup2
-             for ipa, maca in tup1),
+             ),
         )),
         iface=iface
     )
