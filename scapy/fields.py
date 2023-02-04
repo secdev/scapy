@@ -1110,6 +1110,10 @@ class NBytesField(Field[int, List[int]]):
         return (s[self.sz:],
                 self.m2i(pkt, self.struct.unpack(s[:self.sz])))  # type: ignore
 
+    def randval(self):
+        # type: () -> RandNum
+        return RandNum(0, 2 ** (self.sz * 8) - 1)
+
 
 class XNBytesField(NBytesField):
     def i2repr(self, pkt, x):
