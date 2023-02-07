@@ -32,8 +32,7 @@ def _parse_tag(tag):
         # remove the 'v' prefix and add a '.devN' suffix
         return '%s.dev%s' % (match.group(1), match.group(2))
     else:
-        # just remove the 'v' prefix
-        return re.sub('^v', '', tag)
+        raise ValueError('tag has invalid format')
 
 
 def _version_from_git_archive():
