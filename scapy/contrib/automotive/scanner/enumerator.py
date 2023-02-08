@@ -288,7 +288,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
 
         # log_automotive.debug("[i] Using iterator %s in state %s", it, state)
 
-        start_time = time.time()
+        start_time = time.monotonic()
         log_automotive.debug(
             "Start execution of enumerator: %s", time.ctime(start_time))
 
@@ -309,7 +309,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
                         "Finished execution count of enumerator")
                     return
 
-            if (start_time + execution_time) < time.time():
+            if (start_time + execution_time) < time.monotonic():
                 log_automotive.debug(
                     "[i] Finished execution time of enumerator: %s",
                     time.ctime())
