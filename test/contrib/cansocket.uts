@@ -1,5 +1,5 @@
 % Regression tests for compatibility between NativeCANSocket and PythonCANSocket
-~ python3_only not_pypy vcan_socket needs_root linux
+~ not_pypy vcan_socket needs_root linux
 
 # More information at http://www.secdev.org/projects/UTscapy/
 

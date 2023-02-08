@@ -318,7 +318,7 @@ assert _interface_selection(None, IP(dst="192.0.2.42")/UDP()) == "scapy0"
 exit_status = os.system("ip link del name dev scapy0")
 
 = Test 802.Q sniffing
-~ linux needs_root python3_only veth
+~ linux needs_root veth
 
 from threading import Thread, Condition
 

@@ -514,7 +514,7 @@ assert not rxThread.is_alive()
 assert succ
 
 + ISOTPNativeSocket MITM attack tests
-~ python3_only vcan_socket needs_root linux
+~ vcan_socket needs_root linux
 
 = bridge and sniff with isotp native sockets set up vcan0 and vcan1 for package forwarding vcan1
 exit_if_no_isotp_module()
