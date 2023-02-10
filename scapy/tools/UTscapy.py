@@ -25,7 +25,7 @@ import traceback
 import warnings
 import zlib
 
-from scapy.consts import WINDOWS, DARWIN
+from scapy.consts import WINDOWS
 from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
 from scapy.themes import DefaultTheme, BlackAndWhite
@@ -62,34 +62,19 @@ class Bunch:
     __init__ = lambda self, **kw: setattr(self, '__dict__', kw)
 
 
-def reraise(tp, value, tb=None):
-    try:
-        if value is None:
-            value = tp()
-        if value.__traceback__ is not tb:
-            raise value.with_traceback(tb)
-        raise value
-    finally:
-        value = None
-        tb = None
-
-
 def retry_test(func):
     """Retries the passed function 3 times before failing"""
-    success = False
+    v = None
+    tb = None
     for _ in range(3):
         try:
-            result = func()
+            return func()
         except Exception:
             t, v, tb = sys.exc_info()
             time.sleep(1)
-        else:
-            success = True
-            break
-    if not success:
-        reraise(t, v, tb)
-    assert success
-    return result
+
+    if v and tb:
+        raise v.with_traceback(tb)
 
 
 def scapy_path(fname):
@@ -185,12 +170,12 @@ I4LDm5WP7s2NaRkhhV7A\nFVSD5zA8V/DJzfTk0QHmCT2wRgwPKjP60EqqlDUaST
 /i7kinChIXSAmRgA==\n""")
 
     def get_local_dict(cls):
-        return {x: y.name for (x, y) in iter(cls.__dict__.items())
+        return {x: y.name for (x, y) in cls.__dict__.items()
                 if isinstance(y, File)}
     get_local_dict = classmethod(get_local_dict)
 
     def get_URL_dict(cls):
-        return {x: y.URL for (x, y) in iter(cls.__dict__.items())
+        return {x: y.URL for (x, y) in cls.__dict__.items()
                 if isinstance(y, File)}
     get_URL_dict = classmethod(get_URL_dict)
 
@@ -1120,11 +1105,6 @@ def main():
 
     KW_KO.append("disabled")
 
-    # Process extras
-    if DARWIN:
-        # On MacOS 12, Python 2.7 find_library is broken
-        KW_KO.append("libpcap")
-
     if ANNOTATIONS_MODE:
         try:
             from pyannotate_runtime import collect_types
@@ -1168,7 +1148,7 @@ def main():
     UNIQUE = len(TESTFILES) == 1
 
     # Resolve tags and asterix
-    for prex in iter(copy.copy(PREEXEC_DICT).keys()):
+    for prex in copy.copy(PREEXEC_DICT).keys():
         if "*" in prex:
             pycode = PREEXEC_DICT[prex]
             del PREEXEC_DICT[prex]
