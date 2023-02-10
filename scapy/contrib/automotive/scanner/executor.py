@@ -270,8 +270,7 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
             for p, test_case in product(
                     self.state_paths, self.configuration.test_cases):
                 log_automotive.info("Scan path %s", p)
-                terminate = False if kill_time is None else \
-                    kill_time <= time.monotonic()
+                terminate = kill_time and kill_time <= time.monotonic()
                 if terminate or self.configuration.stop_event.is_set():
                     log_automotive.debug(
                         "Execution time exceeded. Terminating scan!")
