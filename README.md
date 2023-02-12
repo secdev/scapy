@@ -69,7 +69,7 @@ Other useful resources:
 (some examples may be outdated)
 -   [HTTP/2 notebook](https://github.com/secdev/scapy/blob/master/doc/notebooks/HTTP_2_Tuto.ipynb)
 -   [TLS notebooks](https://github.com/secdev/scapy/blob/master/doc/notebooks/tls)
-
+-   [Understanding Network layers](https://www.youtube.com/watch?v=PKqwRBmzlTk)
 ## [Installation](https://scapy.readthedocs.io/en/latest/installation.html)
 
 Scapy works without any external Python modules on Linux and BSD like operating
