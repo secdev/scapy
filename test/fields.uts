@@ -2213,3 +2213,19 @@ mp = MockPacket(0)
 f = XStrField('test', None)
 x = f.i2repr(mp, RandBin())
 assert x == '<RandBin>'
+
+############
+############
++ FixedPointField tests
+
+= value conversion consistency
+~ field fixedpointfield
+
+# Specific regression test value
+start = 5302425419963321
+fixedp_field = FixedPointField("fixedp", 0, 64, 32)
+
+for i in range(start - 1000, start + 1000):
+    i2h_value = fixedp_field.i2h(None, i)
+    any2i_value = fixedp_field.any2i(None, i2h_value)
+    assert i == any2i_value

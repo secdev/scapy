@@ -3178,7 +3178,7 @@ class FixedPointField(BitField):
         if val is None:
             return val
         ival = int(val)
-        fract = int((val - ival) * 2**self.frac_bits)
+        fract = round((val - ival) * 2**self.frac_bits)
         return (ival << self.frac_bits) | fract
 
     def i2h(self, pkt, val):
@@ -3188,11 +3188,12 @@ class FixedPointField(BitField):
         pw = 2.0**self.frac_bits
         frac_part = EDecimal(val & (1 << self.frac_bits) - 1)
         frac_part /= pw  # type: ignore
-        return int_part + frac_part.normalize(int(math.log10(pw)))
+        return int_part + frac_part
 
     def i2repr(self, pkt, val):
         # type: (Optional[Packet], int) -> str
-        return str(self.i2h(pkt, val))
+        precision = int(math.log10(2.0**self.frac_bits))
+        return "{1:.{0}f}".format(precision, self.i2h(pkt, val))
 
 
 # Base class for IPv4 and IPv6 Prefixes inspired by IPField and IP6Field.
