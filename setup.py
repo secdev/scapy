@@ -6,6 +6,7 @@ Distutils setup file for Scapy.
 
 try:
     from setuptools import setup, find_packages
+    from setuptools.command.sdist import sdist
 except:
     raise ImportError("setuptools is required to install scapy !")
 import io
@@ -29,15 +30,23 @@ def get_long_description():
         return None
 
 
+class SDist(sdist):
+
+    def make_release_tree(self, base_dir, files):
+        sdist.make_release_tree(self, base_dir, files)
+        # ensure there's a scapy/VERSION file
+        fn = os.path.join(base_dir, 'scapy', 'VERSION')
+        with open(fn, 'w') as f:
+            f.write(__import__('scapy').VERSION)
+
+
 # https://packaging.python.org/guides/distributing-packages-using-setuptools/
 setup(
     name='scapy',
     version=__import__('scapy').VERSION,
     packages=find_packages(exclude=["test"]),
     data_files=[('share/man/man1', ["doc/scapy.1"])],
-    package_data={
-        'scapy': ['VERSION'],
-    },
+    cmdclass={'sdist': SDist},
     # Build starting scripts automatically
     entry_points={
         'console_scripts': [
