@@ -72,7 +72,7 @@ class OptionalAuth(Packet):
             None,
             fmt="B",
             length_of="auth_key",
-            adjust=lambda pkt, x: int(x + 3) if pkt.auth_type <= 1 else int(x + 8),
+            adjust=lambda pkt, x: x + 3 if pkt.auth_type <= 1 else x + 8,
         ),
         ByteField("auth_keyid", 1),
         ConditionalField(
@@ -147,8 +147,8 @@ for _bfd_port in [
     3784,  # single-hop BFD
     4784,  # multi-hop BFD
     6784,  # BFD for LAG a.k.a micro-BFD
-    7784,
-]:  # seamless BFD
+    7784,  # seamless BFD
+]:  
     bind_bottom_up(UDP, BFD, dport=_bfd_port)
     bind_bottom_up(UDP, BFD, sport=_bfd_port)
     bind_layers(UDP, BFD, dport=_bfd_port, sport=_bfd_port)
