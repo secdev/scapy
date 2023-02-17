@@ -302,10 +302,12 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             jumbo_len = None
             idx = 0
             offset = 4 * idx + 2
+            # TODO: don't go past the first Hop-by-Hop extension header here
+            # TODO: min(hbh_len, len(data)) or something like that should suffice
             while offset <= len(data):
                 opt_type = orb(data[offset])
                 if opt_type == 0xc2:  # Jumbo option
-                    jumbo_len = struct.unpack("I", data[offset + 2:offset + 2 + 4])[0]  # noqa: E501
+                    jumbo_len = struct.unpack("!I", data[offset + 2:offset + 2 + 4])[0]  # noqa: E501
                     break
                 offset = 4 * idx + 2
                 idx += 1
@@ -314,6 +316,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 log_runtime.info("Scapy did not find a Jumbo option")
                 jumbo_len = 0
 
+            # TODO: hbh_len shouldn't be addede here. jumbo_len should already include it.
             tmp_len = hbh_len + jumbo_len
         else:
             tmp_len = self.plen
