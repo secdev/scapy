@@ -65,8 +65,7 @@ Other useful resources:
 
 -   [Scapy in 20 minutes](https://github.com/secdev/scapy/blob/master/doc/notebooks/Scapy%20in%2015%20minutes.ipynb)
 -   [Interactive tutorial](https://scapy.readthedocs.io/en/latest/usage.html#interactive-tutorial) (part of the documentation)
--   [The quick demo: an interactive session](https://scapy.readthedocs.io/en/latest/introduction.html#quick-demo)
-(some examples may be outdated)
+-   [The quick demo: an interactive session](https://scapy.readthedocs.io/en/latest/introduction.html#quick-demo) (some examples may be outdated)
 -   [HTTP/2 notebook](https://github.com/secdev/scapy/blob/master/doc/notebooks/HTTP_2_Tuto.ipynb)
 -   [TLS notebooks](https://github.com/secdev/scapy/blob/master/doc/notebooks/tls)
 

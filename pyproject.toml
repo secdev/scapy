@@ -1,0 +1,96 @@
+[build-system]
+requires = [ "setuptools>=62.0.0" ]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scapy"
+dynamic = [ "version", "readme" ]
+authors = [
+    { name="Philippe BIONDI" },
+]
+maintainers = [
+    { name="Pierre LALET" },
+    { name="Gabriel POTTER" },
+    { name="Guillaume VALADON" },
+]
+license = { text="GPL-2.0-only" }
+requires-python = ">=3.7, <4"
+description = "Scapy: interactive packet manipulation tool"
+keywords = [ "network" ]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Telecommunications Industry",
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Security",
+    "Topic :: System :: Networking",
+    "Topic :: System :: Networking :: Monitoring",
+]
+
+[project.urls]
+homepage = "https://scapy.net"
+documentation = "https://scapy.readthedocs.io"
+repository = "https://github.com/secdev/scapy"
+changelog = "https://github.com/secdev/scapy/releases"
+
+[project.scripts]
+scapy = "scapy.main:interact"
+
+[project.optional-dependencies]
+basic = [ "ipython" ]
+complete = [
+    "ipython",
+    "pyx",
+    "cryptography>=2.0",
+    "matplotlib",
+]
+docs = [
+    "sphinx>=3.0.0",
+    "sphinx_rtd_theme>=0.4.3",
+    "tox>=3.0.0",
+]
+
+# setuptools specific
+
+[tool.setuptools]
+zip-safe = false  # We use __file__ in scapy/__init__.py, therefore Scapy isn't zip safe
+
+[tool.setuptools.packages.find]
+include = [
+    "scapy*",
+]
+exclude = [
+    "test*",
+    "doc*",
+]
+
+[tool.setuptools.dynamic]
+version = { attr="scapy.VERSION" }
+
+# coverage
+
+[tool.coverage]
+concurrency = "multiprocessing"
+omit = [
+    # Scapy specific paths
+    "scapy/tools/UTscapy.py",
+    "test/*",
+    # Scapy external modules
+    "scapy/libs/six.py",
+    "scapy/libs/winpcapy.py",
+    "scapy/libs/ethertypes.py",
+    # .tox specific path
+    ".tox/*",
+    # OS specific paths
+    "/private/*",
+]
