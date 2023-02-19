@@ -761,11 +761,17 @@ class Packet(
 
             field = pkt.default_fields[field_name]
             class_name = type(field).__name__
-            # print(f"Class type: {class_name} for: {p._name}-{f}")
-            if class_name in ['NoneType', 'int', 'str', 'list']:
+            # print(f"Class type: {class_name} for: {pkt._name}-{field_name}")
+            if class_name in ['NoneType', 'int', 'str', 'list', 'bytes']:
+                continue
+                
+            # We will want to fix this in the future... maybe make it into a min-max?
+            # These are inside dot11
+            if class_name in ['FlagValue', 'RSNCipherSuite', 'PMKIDListPacket']:
+                print(f"Skipping: {pkt._name}-{field_name} due to: {class_name}")
                 continue
 
-            # print(f"Adding: {p._name}-{f}")
+            # print(f"Adding: {pkt._name}-{field_name}")
             relevant_fields.append(f"{pkt._name}-{field_name}")
 
         if type(pkt.payload).__name__ != 'NoPayload':
