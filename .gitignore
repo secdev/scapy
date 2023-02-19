@@ -4,9 +4,9 @@ dist/
 build/
 MANIFEST
 *.egg-info/
-scapy/VERSION
 test/*.html
 .coverage*
+coverage.xml
 .tox
 .ipynb_checkpoints
 .mypy_cache

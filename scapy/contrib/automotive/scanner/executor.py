@@ -184,7 +184,7 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
             test_case_kwargs = dict()
 
         if kill_time:
-            max_execution_time = max(int(kill_time - time.time()), 5)
+            max_execution_time = max(int(kill_time - time.monotonic()), 5)
             cur_execution_time = test_case_kwargs.get("execution_time", 1200)
             test_case_kwargs["execution_time"] = min(max_execution_time,
                                                      cur_execution_time)
@@ -258,16 +258,19 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         :return: None
         """
         self.configuration.stop_event.clear()
-        kill_time = time.time() + (timeout or 0xffffffff)
+        if timeout is None:
+            kill_time = None
+        else:
+            kill_time = time.monotonic() + timeout
         log_automotive.debug("Set kill_time to %s" % time.ctime(kill_time))
-        while kill_time > time.time():
+        while kill_time is None or kill_time > time.monotonic():
             test_case_executed = False
             log_automotive.info("[i] Scan progress %0.2f", self.progress())
             log_automotive.debug("[i] Scan paths %s", self.state_paths)
             for p, test_case in product(
                     self.state_paths, self.configuration.test_cases):
                 log_automotive.info("Scan path %s", p)
-                terminate = kill_time <= time.time()
+                terminate = kill_time and kill_time <= time.monotonic()
                 if terminate or self.configuration.stop_event.is_set():
                     log_automotive.debug(
                         "Execution time exceeded. Terminating scan!")

@@ -638,3 +638,62 @@ assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA())).nb_akm_suites == 1
 assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(akm_suites=[AKMSuite(suite="PSK")]))).nb_akm_suites == 1
 assert Dot11EltMicrosoftWPA(raw(Dot11EltMicrosoftWPA(akm_suites=[AKMSuite(suite="PSK"), AKMSuite(suite="802.1X")]))).nb_akm_suites == 2
 
+= Dot11BSSTMRequest - dissection
+
+pkt = RadioTap(b"\x00\x008\x00/@@\xa0 \x08\x00\xa0 \x08\x00\x00\x7f\x89&\x88\x00\x00\x00\x00\x10\x0c\xcc\x15@\x01\xe4\x00\x00\x00\x00\x00\x00\x00\x00\x00\x8f\xe7&\x88\x00\x00\x00\x00\x16\x00\x11\x03\xe4\x00\xde\x01\xd0\x00<\x00\x92U\x1f\xe9g9J\xf2\x1c\x03)\x89J\xf2\x1c\x03)\x89\xc0\xce\n\x07\x01\x05\x05\x00\xff4\x10F\xf2\x1c\x03)\x89\x00\x00\x00\x00Q\x0b\x00\x03\x01\xff\xaaV\xdaY")
+assert Dot11BSSTMRequest in pkt
+
+assert pkt[Dot11Action].category == 10
+assert pkt[Dot11Action][Dot11WNM].action == 7
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].token == 1
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].mode.Preferred_Candidate_List_Included
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].mode.Disassociation_Imminent
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].disassociation_timer == 5
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].validity_interval == 255
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].type == 52
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].len == 16
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].BSSID == "46:f2:1c:03:29:89"
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].AP_reach == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].security == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].key_scope == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].capabilities == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].mobility == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].HT == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].VHT == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].FTM == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].reserved == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].op_class == 81
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].channel == 11
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMRequest].neighbor_report[0].phy_type == 0
+
+= Dot11BSSTMResponse - dissection
+
+pkt = RadioTap(b"\x00\x00,\x00\xae@\x00\xa0 \x08\x00\xa0 \x08\x00\xa0 \x08\x00\xa0 \x08\x00\x00\x10\x0c<\x14@\x01\xce\x00d\x00\x00\x00\xd0\x00\xca\x01\xca\x02\xcc\x03\xd0\x00<\x00df$J\xe1\xc4\xa0\xcc+\xbe\xc9Odf$J\xe1\xc4p\x0c\n\x08\x01\x06\x004\rdf$J\xe1\xc3\x00\x00\x00\x00\x04\x0c\x00<\xdd\xdf=")
+assert Dot11BSSTMResponse in pkt
+
+assert pkt[Dot11Action].category == 10
+assert pkt[Dot11Action][Dot11WNM].action == 8
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].token == 1
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].status == 6
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].termination_delay == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].type == 52
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].len == 13
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].BSSID == "64:66:24:4a:e1:c3"
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].AP_reach == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].security == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].key_scope == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].capabilities == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].mobility == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].HT == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].VHT == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].FTM == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].reserved == 0
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].op_class == 4
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].channel == 12
+assert pkt[Dot11Action][Dot11WNM][Dot11BSSTMResponse].neighbor_report[0].phy_type == 0
+
+= Dot11Ack
+
+pkt = Dot11(bytes(Dot11()/Dot11Ack()))
+assert pkt.subtype == 13
+assert pkt.type == 1

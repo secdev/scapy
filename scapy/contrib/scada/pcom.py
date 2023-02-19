@@ -83,7 +83,7 @@ class PCOM(Packet):
 
     def post_build(self, pkt, pay):
         if self.len is None and pay:
-            pkt = pkt[:4] + struct.pack("H", len(pay))
+            pkt = pkt[:4] + struct.pack("<H", len(pay))
         return pkt + pay
 
 

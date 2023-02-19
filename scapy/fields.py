@@ -1427,7 +1427,7 @@ class StrField(_StrField[bytes]):
 class StrFieldUtf16(StrField):
     def h2i(self, pkt, x):
         # type: (Optional[Packet], Optional[str]) -> bytes
-        return plain_str(x).encode('utf-16')[2:]
+        return plain_str(x).encode('utf-16-le')
 
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Optional[str]) -> bytes
@@ -1441,7 +1441,7 @@ class StrFieldUtf16(StrField):
 
     def i2h(self, pkt, x):
         # type: (Optional[Packet], bytes) -> str
-        return bytes_encode(x).decode('utf-16', errors="replace")
+        return bytes_encode(x).decode('utf-16-le', errors="replace")
 
 
 class _StrEnumField:
