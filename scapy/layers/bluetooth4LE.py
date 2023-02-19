@@ -164,7 +164,31 @@ class BTLEFeatureField(FlagsField):
              'le_ext_adv',
              'le_periodic_adv',
              'ch_sel_alg',
-             'le_pwr_class']
+             'le_pwr_class'
+             'min_used_channels',
+             'conn_cte_req',
+             'conn_cte_rsp',
+             'connless_cte_tx',
+             'connless_cte_rx',
+             'antenna_switching_cte_aod_tx',
+             'antenna_switching_cte_aoa_rx',
+             'cte_rx',
+             'periodic_adv_sync_transfer_tx',
+             'periodic_adv_sync_transfer_rx',
+             'sleep_clock_accuracy_updates',
+             'remote_public_key_validation',
+             'cis_central',
+             'cis_peripheral',
+             'iso_broadcaster',
+             'synchronized_receiver',
+             'connected_iso_host_support',
+             'le_power_control_request',
+             'le_power_control_request',
+             'le_path_loss_monitoring',
+             'periodic_adv_adi_support',
+             'connection_subrating',
+             'connection_subrating_host_support',
+             'channel_classification']
         )
 
 
@@ -395,6 +419,23 @@ BTLE_BTLE_CTRL_opcode = {
     0x16: 'LL_PHY_REQ',
     0x17: 'LL_PHY_RSP',
     0x18: 'LL_PHY_UPDATE_IND',
+    0x19: 'LL_MIN_USED_CHANNELS',
+    0x1A: 'LL_CTE_REQ',
+    0x1B: 'LL_CTE_RSP',
+    0x1C: 'LL_PERIODIC_SYNC_IND',
+    0x1D: 'LL_CLOCK_ACCURACY_REQ',
+    0x1E: 'LL_CLOCK_ACCURACY_RSP',
+    0x1F: 'LL_CIS_REQ',
+    0x20: 'LL_CIS_RSP',
+    0x21: 'LL_CIS_IND',
+    0x22: 'LL_CIS_TERMINATE_IND',
+    0x23: 'LL_POWER_CONTROL_REQ',
+    0x24: 'LL_POWER_CONTROL_RSP',
+    0x25: 'LL_POWER_CHANGE_IND',
+    0x26: 'LL_SUBRATE_REQ',
+    0x27: 'LL_SUBRATE_IND',
+    0x28: 'LL_CHANNEL_REPORTING_IND',
+    0x29: 'LL_CHANNEL_STATUS_IND',
 }
 
 
@@ -620,6 +661,181 @@ class LL_MIN_USED_CHANNELS_IND(Packet):
     ]
 
 
+class LL_CTE_REQ(Packet):
+    name = "LL_CTE_REQ"
+    fields_desc = [
+        LEBitField('min_cte_len_req', 0, 5),
+        LEBitField('rfu', 0, 1),
+        LEBitField("cte_type_req", 0, 2)
+    ]
+
+
+class LL_CTE_RSP(Packet):
+    name = "LL_CTE_RSP"
+    fields_desc = []
+
+
+class LL_PERIODIC_SYNC_IND(Packet):
+    name = "LL_PERIODIC_SYNC_IND"
+    fields_desc = [
+        XLEShortField("id", 251),
+        LEBitField("sync_info", 0, 18 * 8),
+        XLEShortField("conn_event_count", 0),
+        XLEShortField("last_pa_event_counter", 0),
+        LEBitField('sid', 0, 4),
+        LEBitField('a_type', 0, 1),
+        LEBitField('sca', 0, 3),
+        BTLEPhysField('phy', 0),
+        BDAddrField("AdvA", None),
+        XLEShortField("sync_conn_event_count", 0),
+    ]
+
+
+class LL_CLOCK_ACCURACY_REQ(Packet):
+    name = "LL_CLOCK_ACCURACY_REQ"
+    fields_desc = [
+        XByteField("sca", 0),
+    ]
+
+
+class LL_CLOCK_ACCURACY_RSP(Packet):
+    name = "LL_CLOCK_ACCURACY_RSP"
+    fields_desc = [
+        XByteField("sca", 0),
+    ]
+
+
+class LL_CIS_REQ(Packet):
+    name = 'LL_CIS_REQ'
+    fields_desc = [
+        XByteField("cig_id", 0),
+        XByteField("cis_id", 0),
+        BTLEPhysField('phy_c_to_p', 0),
+        BTLEPhysField('phy_p_to_c', 0),
+        LEBitField('max_sdu_c_to_p', 0, 12),
+        LEBitField('rfu1', 0, 3),
+        LEBitField('framed', 0, 1),
+        LEBitField('max_sdu_p_to_c', 0, 12),
+        LEBitField('rfu2', 0, 4),
+        LEBitField('sdu_interval_c_to_p', 0, 20),
+        LEBitField('rfu3', 0, 4),
+        LEBitField('sdu_interval_p_to_c', 0, 20),
+        LEBitField('rfu4', 0, 4),
+        XLEShortField("max_pdu_c_to_p", 0),
+        XLEShortField("max_pdu_p_to_c", 0),
+        XByteField("nse", 0),
+        X3BytesField("subinterval", 0x0),
+        LEBitField('bn_c_to_p', 0, 4),
+        LEBitField('bn_p_to_c', 0, 4),
+        ByteField("ft_c_to_p", 0),
+        ByteField("ft_p_to_c", 0),
+        XLEShortField("iso_interval", 0),
+        X3BytesField("cis_offset_min", 0x0),
+        X3BytesField("cis_offset_max", 0x0),
+        XLEShortField("conn_event_count", 0),
+    ]
+
+
+class LL_CIS_RSP(Packet):
+    name = 'LL_CIS_RSP'
+    fields_desc = [
+        X3BytesField("cis_offset_min", 0x0),
+        X3BytesField("cis_offset_max", 0x0),
+        XLEShortField("conn_event_count", 0),
+    ]
+
+
+class LL_CIS_IND(Packet):
+    name = 'LL_CIS_IND'
+    fields_desc = [
+        XIntField("AA", 0x00),
+        X3BytesField("cis_offset", 0x0),
+        X3BytesField("cig_sync_delay", 0x0),
+        X3BytesField("cis_sync_delay", 0x0),
+        XLEShortField("conn_event_count", 0),
+    ]
+
+
+class LL_CIS_TERMINATE_IND(Packet):
+    name = 'LL_CIS_TERMINATE_IND'
+    fields_desc = [
+        ByteField("cig_id", 0x0),
+        ByteField("cis_id", 0x0),
+        ByteField("error_code", 0x0),
+    ]
+
+
+class LL_POWER_CONTROL_REQ(Packet):
+    name = 'LL_POWER_CONTROL_REQ'
+    fields_desc = [
+        ByteField("phy", 0x0),
+        SignedByteField("delta", 0x0),
+        SignedByteField("tx_power", 0x0),
+    ]
+
+
+class LL_POWER_CONTROL_RSP(Packet):
+    name = 'LL_POWER_CONTROL_RSP'
+    fields_desc = [
+        LEBitField("min", 0, 1),
+        LEBitField("max", 0, 1),
+        LEBitField("rfu", 0, 6),
+        SignedByteField("delta", 0),
+        SignedByteField("tx_power", 0x0),
+        ByteField("apr", 0x0),
+    ]
+
+
+class LL_POWER_CHANGE_IND(Packet):
+    name = 'LL_POWER_CHANGE_IND'
+    fields_desc = [
+        ByteField("phy", 0x0),
+        LEBitField("min", 0, 1),
+        LEBitField("max", 0, 1),
+        LEBitField("rfu", 0, 6),
+        SignedByteField("delta", 0),
+        ByteField("tx_power", 0x0),
+    ]
+
+
+class LL_SUBRATE_REQ(Packet):
+    name = 'LL_SUBRATE_REQ'
+    fields_desc = [
+        LEShortField("subrate_factor_min", 0x0),
+        LEShortField("subrate_factor_max", 0x0),
+        LEShortField("max_latency", 0x0),
+        LEShortField("continuation_number", 0x0),
+        LEShortField("timeout", 0x0),
+    ]
+
+
+class LL_SUBRATE_IND(Packet):
+    name = 'LL_SUBRATE_IND'
+    fields_desc = [
+        LEShortField("subrate_factor", 0x0),
+        LEShortField("subrate_base_event", 0x0),
+        LEShortField("latency", 0x0),
+        LEShortField("continuation_number", 0x0),
+        LEShortField("timeout", 0x0),
+    ]
+
+
+class LL_CHANNEL_REPORTING_IND(Packet):
+    name = 'LL_SUBRATE_IND'
+    fields_desc = [
+        ByteField("enable", 0x0),
+        ByteField("min_spacing", 0x0),
+        ByteField("max_delay", 0x0),
+    ]
+
+
+class LL_CHANNEL_STATUS_IND(Packet):
+    name = 'LL_CHANNEL_STATUS_IND'
+    fields_desc = [
+        LEBitField("channel_classification", 0, 10 * 8),
+    ]
+
+
 # Advertisement (37-39) channel PDUs
 bind_layers(BTLE, BTLE_ADV, access_addr=0x8E89BED6)
 bind_layers(BTLE, BTLE_DATA)
@@ -662,6 +878,22 @@ bind_layers(BTLE_CTRL, LL_PHY_REQ, opcode=0x16)
 bind_layers(BTLE_CTRL, LL_PHY_RSP, opcode=0x17)
 bind_layers(BTLE_CTRL, LL_PHY_UPDATE_IND, opcode=0x18)
 bind_layers(BTLE_CTRL, LL_MIN_USED_CHANNELS_IND, opcode=0x19)
+bind_layers(BTLE_CTRL, LL_CTE_REQ, opcode=0x1A)
+bind_layers(BTLE_CTRL, LL_CTE_RSP, opcode=0x1B)
+bind_layers(BTLE_CTRL, LL_PERIODIC_SYNC_IND, opcode=0x1C)
+bind_layers(BTLE_CTRL, LL_CLOCK_ACCURACY_REQ, opcode=0x1D)
+bind_layers(BTLE_CTRL, LL_CLOCK_ACCURACY_RSP, opcode=0x1E)
+bind_layers(BTLE_CTRL, LL_CIS_REQ, opcode=0x1F)
+bind_layers(BTLE_CTRL, LL_CIS_RSP, opcode=0x20)
+bind_layers(BTLE_CTRL, LL_CIS_IND, opcode=0x21)
+bind_layers(BTLE_CTRL, LL_CIS_TERMINATE_IND, opcode=0x22)
+bind_layers(BTLE_CTRL, LL_POWER_CONTROL_REQ, opcode=0x23)
+bind_layers(BTLE_CTRL, LL_POWER_CONTROL_RSP, opcode=0x24)
+bind_layers(BTLE_CTRL, LL_POWER_CHANGE_IND, opcode=0x25)
+bind_layers(BTLE_CTRL, LL_SUBRATE_REQ, opcode=0x26)
+bind_layers(BTLE_CTRL, LL_SUBRATE_IND, opcode=0x27)
+bind_layers(BTLE_CTRL, LL_CHANNEL_REPORTING_IND, opcode=0x28)
+bind_layers(BTLE_CTRL, LL_CHANNEL_STATUS_IND, opcode=0x29)
 
 
 conf.l2types.register(DLT_BLUETOOTH_LE_LL, BTLE)

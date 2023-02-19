@@ -294,8 +294,24 @@ class UDS_RDBPIEnumerator(UDS_Enumerator):
 class UDS_ServiceEnumerator(UDS_Enumerator):
     _description = "Available services and negative response per state"
     _supported_kwargs = copy.copy(ServiceEnumerator._supported_kwargs)
+    _supported_kwargs.update({
+        "request_length": (int, lambda x: 1 <= x < 5)
+    })
     _supported_kwargs["scan_range"] = \
         ((list, tuple, range), lambda x: max(x) < 0x100 and min(x) >= 0)
+
+    _supported_kwargs_doc = ServiceEnumerator._supported_kwargs_doc + """
+        :param int request_length: Specifies the maximum length of arequest
+                                   packet. The enumerator will generate all
+                                   packets from a length of 1 (UDS Service
+                                   ID only) up to the specified
+                                   `request_length`."""
+
+    def execute(self, socket, state, **kwargs):
+        # type: (_SocketUnion, EcuState, Any) -> None
+        super(UDS_ServiceEnumerator, self).execute(socket, state, **kwargs)
+
+    execute.__doc__ = _supported_kwargs_doc
 
     def _get_initial_requests(self, **kwargs):
         # type: (Any) -> Iterable[Packet]
@@ -303,7 +319,10 @@ class UDS_ServiceEnumerator(UDS_Enumerator):
         # default scan_range
         scan_range = kwargs.pop("scan_range",
                                 (x for x in range(0x100) if not x & 0x40))
-        return (UDS(service=x) for x in scan_range)
+        request_length = kwargs.pop("request_length", 1)
+        return itertools.chain.from_iterable(
+            ([UDS(service=x) / Raw(b"\x00" * req_len)
+              for req_len in range(request_length)] for x in scan_range))
 
     def _evaluate_response(self,
                            state,  # type: EcuState
@@ -324,7 +343,8 @@ class UDS_ServiceEnumerator(UDS_Enumerator):
 
     def _get_table_entry_y(self, tup):
         # type: (_AutomotiveTestCaseScanResult) -> str
-        return "0x%02x: %s" % (tup[1].service, tup[1].sprintf("%UDS.service%"))
+        return "0x%02x-%d: %s" % (
+            tup[1].service, len(tup[1]), tup[1].sprintf("%UDS.service%"))
 
 
 class UDS_RDBIEnumerator(UDS_Enumerator):

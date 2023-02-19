@@ -4762,22 +4762,34 @@ assert pl[1][Ether].dst == '00:22:33:44:55:66'
 = _version()
 
 import os
-version_filename = os.path.join(scapy._SCAPY_PKG_DIR, "VERSION")
+from datetime import datetime
 
+version_filename = os.path.join(scapy._SCAPY_PKG_DIR, "VERSION")
+mtime = datetime.utcfromtimestamp(os.path.getmtime(scapy.__file__))
 version = "2.0.0"
 with open(version_filename, "w") as fd:
     fd.write(version)
 
+os.environ["SCAPY_VERSION"] = "9.9.9"
+assert scapy._version() == "9.9.9"
+del os.environ["SCAPY_VERSION"]
+
+assert scapy._version() == version
+os.unlink(version_filename)
+
 import mock
-with mock.patch("scapy._version_from_git_describe") as version_mocked:
-    with mock.patch('scapy.os.path.isdir', return_value=True):
-        version_mocked.side_effect = Exception()
-        # mocking _parse_tag is a fallback for when run outside of git
-        with mock.patch('scapy._parse_tag', return_value=version):
-            assert scapy._version() == version
-        os.unlink(version_filename)
-        with mock.patch('scapy._parse_tag', return_value='unknown.version'):
-            assert scapy._version() == "unknown.version"
+with mock.patch("scapy._version_from_git_archive") as archive:
+    archive.return_value = "4.4.4"
+    assert scapy._version() == "4.4.4"
+    archive.side_effect = ValueError()
+    with mock.patch("scapy._version_from_git_describe") as git:
+        git.return_value = "3.3.3"
+        assert scapy._version() == "3.3.3"
+        git.side_effect = Exception()
+        assert scapy._version() == mtime.strftime("%Y.%m.%d")
+        with mock.patch("os.path.getmtime") as getmtime:
+            getmtime.side_effect = Exception()
+            assert scapy._version() == "0.0.0"
 
 
 = UTscapy HTML output

@@ -10,6 +10,7 @@ Usable either from an interactive console or as a Python library.
 https://scapy.net
 """
 
+import datetime
 import os
 import re
 import subprocess
@@ -31,8 +32,36 @@ def _parse_tag(tag):
         # remove the 'v' prefix and add a '.devN' suffix
         return '%s.dev%s' % (match.group(1), match.group(2))
     else:
-        # just remove the 'v' prefix
-        return re.sub('^v', '', tag)
+        raise ValueError('tag has invalid format')
+
+
+def _version_from_git_archive():
+    # type: () -> str
+    """
+    Rely on git archive "export-subst" git attribute.
+    See 'man gitattributes' for more details.
+    Note: describe is only supported with git >= 2.32.0
+    but we use it to workaround GH#3121
+    """
+    git_archive_id = '$Format:%ct %(describe)$'.strip().split()
+    tstamp = git_archive_id[0]
+    tag = git_archive_id[1]
+
+    if "Format" in tstamp:
+        raise ValueError('not a git archive')
+
+    if "describe" in tag:
+        # git is too old!
+        tag = ""
+    if tag:
+        # archived revision is tagged, use the tag
+        return _parse_tag(tag)
+    elif tstamp:
+        # archived revision is not tagged, use the commit date
+        d = datetime.datetime.utcfromtimestamp(int(tstamp))
+        return d.strftime('%Y.%m.%d')
+
+    raise ValueError("invalid git archive format")
 
 
 def _version_from_git_describe():
@@ -91,40 +120,40 @@ def _version():
 
     :return: the Scapy version
     """
-    # Rely on git archive "export-subst" git attribute.
-    # See 'man gitattributes' for more details.
-    # Note: describe is only supported with git >= 2.32.0
-    # but we use it to workaround GH#3121
-    git_archive_id = '$Format:%h %(describe)$'.strip().split()
-    sha1 = git_archive_id[0]
-    tag = git_archive_id[1]
-    if "Format" not in sha1:
-        # We are in a git archive
-        if "describe" in tag:
-            # git is too old!
-            tag = ""
-        if tag:
-            return _parse_tag(tag)
-        elif sha1:
-            return "git-archive." + sha1
-        return 'unknown.version'
-    # Fallback to calling git
+    try:
+        # possibly forced by external packaging
+        return os.environ['SCAPY_VERSION']
+    except KeyError:
+        pass
+
     version_file = os.path.join(_SCAPY_PKG_DIR, 'VERSION')
     try:
-        tag = _version_from_git_describe()
-        # successfully read the tag from git, write it in VERSION for
-        # installation and/or archive generation.
-        with open(version_file, 'w') as fdesc:
-            fdesc.write(tag)
+        # file generated when running sdist
+        with open(version_file, 'r') as fdsec:
+            tag = fdsec.read()
         return tag
+    except FileNotFoundError:
+        pass
+
+    try:
+        return _version_from_git_archive()
+    except ValueError:
+        pass
+
+    try:
+        return _version_from_git_describe()
     except Exception:
-        # failed to read the tag from git, try to read it from a VERSION file
-        try:
-            with open(version_file, 'r') as fdsec:
-                tag = fdsec.read()
-            return tag
-        except Exception:
-            return 'unknown.version'
+        pass
+
+    try:
+        # last resort, use the modification date of __init__.py
+        d = datetime.datetime.utcfromtimestamp(os.path.getmtime(__file__))
+        return d.strftime('%Y.%m.%d')
+    except Exception:
+        pass
+
+    # all hope is lost
+    return '0.0.0'
 
 
 VERSION = __version__ = _version()

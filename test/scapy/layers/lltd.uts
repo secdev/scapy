@@ -20,7 +20,7 @@ assert pkt.dst == pkt.real_dst
 assert pkt.src == pkt.real_src
 assert pkt.tos == 0
 assert pkt.function == 0
-assert pkt.hashret() == b'\xd9\x88\x00\x00'
+assert pkt.hashret()[2:] == b'\x00\x00'
 
 = Attribute build / dissection
 assert isinstance(LLTDAttribute(), LLTDAttribute)

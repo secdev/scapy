@@ -27,6 +27,112 @@ with ContextManagerCaptureOutput() as cmco:
 
 assert result_ar.startswith("  70:ee:50:50:ee:70 Netatmo 192.168.0.1")
 
+= arp_mitm - IP to IP
+~ arp_mitm
+
+from scapy.plist import QueryAnswer
+
+srp_step = 0
+
+def srp_spoof(x, *args, **kwargs):
+    global srp_step
+    assert x.dst == "ff:ff:ff:ff:ff:ff"
+    if srp_step == 0:
+        assert x.pdst == "192.168.0.1"
+        ans = Ether(src="cc:cc:cc:cc:cc:cc", dst=x.src)/ARP(hwsrc="cc:cc:cc:cc:cc:cc", hwdst=x.hwsrc, psrc=x.pdst, pdst=x.psrc)
+    elif srp_step == 1:
+        assert x.pdst == "192.168.0.2"
+        ans = Ether(src="bb:bb:bb:bb:bb:bb", dst=x.src)/ARP(hwsrc="bb:bb:bb:bb:bb:bb", hwdst=x.hwsrc, psrc=x.pdst, pdst=x.psrc)
+    else:
+        assert False
+    srp_step += 1
+    return SndRcvList([QueryAnswer(x, ans)]), PacketList()
+
+srploop_step = 0
+
+def srploop_spoof(x, *args, **kwargs):
+    assert len(x) == 2
+    assert x[0].dst == "cc:cc:cc:cc:cc:cc"
+    assert x[0].src == x[0].hwsrc == "aa:aa:aa:aa:aa:aa"
+    assert x[0].hwdst == "00:00:00:00:00:00"
+    assert x[0].psrc == "192.168.0.2"
+    assert x[0].pdst == "192.168.0.1"
+    assert x[1].dst == "bb:bb:bb:bb:bb:bb"
+    assert x[1].src == x[1].hwsrc == "aa:aa:aa:aa:aa:aa"
+    assert x[1].hwdst == "00:00:00:00:00:00"
+    assert x[1].psrc == "192.168.0.1"
+    assert x[1].pdst == "192.168.0.2"
+
+def sendp_spoof(x, *args, **kwargs):
+    assert len(x) == 2
+    assert x[0].dst == "cc:cc:cc:cc:cc:cc"
+    assert x[0].src == x[0].hwsrc == "bb:bb:bb:bb:bb:bb"
+    assert x[0].hwdst == "00:00:00:00:00:00"
+    assert x[0].psrc == "192.168.0.2"
+    assert x[0].pdst == "192.168.0.1"
+    assert x[1].dst == "bb:bb:bb:bb:bb:bb"
+    assert x[1].src == x[1].hwsrc == "cc:cc:cc:cc:cc:cc"
+    assert x[1].hwdst == "00:00:00:00:00:00"
+    assert x[1].psrc == "192.168.0.1"
+    assert x[1].pdst == "192.168.0.2"
+
+import mock
+with mock.patch('scapy.layers.l2.srp', side_effect=srp_spoof), \
+     mock.patch('scapy.layers.l2.srploop', side_effect=srploop_spoof), \
+     mock.patch('scapy.layers.l2.sendp', side_effect=sendp_spoof):
+    arp_mitm(
+        "192.168.0.1",
+        "192.168.0.2",
+        target_mac='aa:aa:aa:aa:aa:aa',
+    )
+
+= arp_mitm - IP to range
+~ arp_mitm
+
+from scapy.plist import QueryAnswer
+
+def srp_spoof(x, *args, **kwargs):
+    assert x.dst == "ff:ff:ff:ff:ff:ff"
+    assert x.pdst == Net("192.168.0.2/24")
+    ans = Ether(src="cc:cc:cc:cc:cc:cc", dst=x.src)/ARP(hwsrc="cc:cc:cc:cc:cc:cc", hwdst=x.hwsrc, psrc=x.pdst, pdst=x.psrc)
+    return SndRcvList([
+        QueryAnswer(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="192.168.0.2"), Ether(src="cc:cc:cc:cc:cc:cc", dst=x.src)/ARP(hwsrc="cc:cc:cc:cc:cc:cc", psrc="192.168.0.2", pdst="192.168.0.1")),
+        QueryAnswer(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="192.168.0.9"), Ether(src="11:11:11:11:11:11", dst=x.src)/ARP(hwsrc="11:11:11:11:11:11", psrc="192.168.0.9", pdst="192.168.0.1")),
+        QueryAnswer(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="192.168.0.17"), Ether(src="22:22:22:22:22:22", dst=x.src)/ARP(hwsrc="22:22:22:22:22:22", psrc="192.168.0.17", pdst="192.168.0.1")),
+    ]), PacketList()
+
+srploop_step = 0
+
+def srploop_spoof(x, *args, **kwargs):
+    assert len(x) == 12
+    assert [bytes(y) for y in x] == [
+        b'\xdd\xdd\xdd\xdd\xdd\xdd\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x02\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xdd\xdd\xdd\xdd\xdd\xdd\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\t\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xdd\xdd\xdd\xdd\xdd\xdd\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x11\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xee\xee\xee\xee\xee\xee\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x02\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xee\xee\xee\xee\xee\xee\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\t\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xee\xee\xee\xee\xee\xee\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x11\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x01',
+        b'\xcc\xcc\xcc\xcc\xcc\xcc\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x02',
+        b'\xcc\xcc\xcc\xcc\xcc\xcc\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x02',
+        b'\x11\x11\x11\x11\x11\x11\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\t',
+        b'\x11\x11\x11\x11\x11\x11\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\t',
+        b'""""""\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x11',
+        b'""""""\xaa\xaa\xaa\xaa\xaa\xaa\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\xaa\xaa\xaa\xaa\xaa\xaa\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\xc0\xa8\x00\x11'
+    ]
+
+def sendp_spoof(x, *args, **kwargs):
+    pass
+
+import mock
+with mock.patch('scapy.layers.l2.srp', side_effect=srp_spoof), \
+     mock.patch('scapy.layers.l2.srploop', side_effect=srploop_spoof), \
+     mock.patch('scapy.layers.l2.sendp', side_effect=sendp_spoof):
+    arp_mitm(
+        "192.168.0.1",
+        "192.168.0.2/24",
+        mac1=["dd:dd:dd:dd:dd:dd", "ee:ee:ee:ee:ee:ee"],
+        target_mac='aa:aa:aa:aa:aa:aa',
+    )
 
 ############
 ############
