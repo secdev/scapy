@@ -674,16 +674,17 @@ class AuthAlgo(object):
         mac = self.new_mac(key)
 
         if pkt.haslayer(ESP):
-            mac.update(raw(pkt[ESP]))
+            mac.update(bytes(pkt[ESP]))
+            if esn_en:
+                # RFC4303 sect 2.2.1
+                mac.update(struct.pack('!L', esn))
             pkt[ESP].data += mac.finalize()[:self.icv_size]
 
         elif pkt.haslayer(AH):
-            clone = zero_mutable_fields(pkt.copy(), sending=True)
+            mac.update(bytes(zero_mutable_fields(pkt.copy(), sending=True)))
             if esn_en:
-                temp = raw(clone) + struct.pack('!L', esn)
-            else:
-                temp = raw(clone)
-            mac.update(temp)
+                # RFC4302 sect 2.5.1
+                mac.update(struct.pack('!L', esn))
             pkt[AH].icv = mac.finalize()[:self.icv_size]
 
         return pkt
@@ -712,7 +713,10 @@ class AuthAlgo(object):
             pkt_icv = pkt.data[len(pkt.data) - self.icv_size:]
             clone = pkt.copy()
             clone.data = clone.data[:len(clone.data) - self.icv_size]
-            temp = raw(clone)
+            mac.update(bytes(clone))
+            if esn_en:
+                # RFC4303 sect 2.2.1
+                mac.update(struct.pack('!L', esn))
 
         elif pkt.haslayer(AH):
             if len(pkt[AH].icv) != self.icv_size:
@@ -721,12 +725,11 @@ class AuthAlgo(object):
                 pkt[AH].icv = pkt[AH].icv[:self.icv_size]
             pkt_icv = pkt[AH].icv
             clone = zero_mutable_fields(pkt.copy(), sending=False)
+            mac.update(bytes(clone))
             if esn_en:
-                temp = raw(clone) + struct.pack('!L', esn)
-            else:
-                temp = raw(clone)
+                # RFC4302 sect 2.5.1
+                mac.update(struct.pack('!L', esn))
 
-        mac.update(temp)
         computed_icv = mac.finalize()[:self.icv_size]
 
         # XXX: Cannot use mac.verify because the ICV can be truncated
@@ -1033,7 +1036,10 @@ class SecurityAssociation(object):
                                       esn_en=esn_en or self.esn_en,
                                       esn=esn or self.esn)
 
-        self.auth_algo.sign(esp, self.auth_key)
+        self.auth_algo.sign(esp,
+                            self.auth_key,
+                            esn_en=esn_en or self.esn_en,
+                            esn=esn or self.esn)
 
         if self.nat_t_header:
             nat_t_header = self.nat_t_header.copy()
@@ -1144,7 +1150,9 @@ class SecurityAssociation(object):
 
         if verify:
             self.check_spi(pkt)
-            self.auth_algo.verify(encrypted, self.auth_key)
+            self.auth_algo.verify(encrypted, self.auth_key,
+                                  esn_en=esn_en or self.esn_en,
+                                  esn=esn or self.esn)
 
         esp = self.crypt_algo.decrypt(self, encrypted, self.crypt_key,
                                       self.crypt_icv_size or
