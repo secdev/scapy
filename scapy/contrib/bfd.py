@@ -148,7 +148,7 @@ for _bfd_port in [
     4784,  # multi-hop BFD
     6784,  # BFD for LAG a.k.a micro-BFD
     7784,  # seamless BFD
-]:  
+]:
     bind_bottom_up(UDP, BFD, dport=_bfd_port)
     bind_bottom_up(UDP, BFD, sport=_bfd_port)
     bind_layers(UDP, BFD, dport=_bfd_port, sport=_bfd_port)
