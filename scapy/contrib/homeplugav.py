@@ -641,10 +641,10 @@ class WriteModuleDataRequest(Packet):
     def post_build(self, p, pay):
         if self.DataLen is None:
             _len = len(self.ModuleData)
-            p = p[:2] + struct.pack('h', _len) + p[4:]
+            p = p[:2] + struct.pack('<H', _len) + p[4:]
         if self.checksum is None and p:
             ck = chksum32(self.ModuleData)
-            p = p[:8] + struct.pack('I', ck) + p[12:]
+            p = p[:8] + struct.pack('<I', ck) + p[12:]
         return p + pay
 
 ######################################
