@@ -12,6 +12,7 @@ BGP (Border Gateway Protocol).
 import struct
 import re
 import socket
+from typing import Any
 
 from scapy import pton_ntop
 from scapy.packet import Packet, Packet_metaclass, bind_layers
@@ -27,6 +28,7 @@ from scapy.layers.inet6 import IP6Field
 from scapy.config import conf, ConfClass
 from scapy.compat import orb, chb
 from scapy.error import log_runtime
+from scapy.volatile import RandShort, RandString, RandByte, RandIP, RandNum
 
 
 #
@@ -117,25 +119,50 @@ class BGPFieldIPv4(Field):
         """"Internal" (IP as bytes, mask as int) to "machine"
         representation."""
         mask, ip = i
-        ip = socket.inet_aton(ip)
+        ip = socket.inet_aton(str(ip))
         return struct.pack(">B", mask) + ip[:self.mask2iplen(mask)]
 
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)
 
     def getfield(self, pkt, s):
+        '''pkt: BGPNLRI_IPv4
+            s: bytes byte 0: network prefix, byte 1+: network
+            e.g.
+            s = b'\x18\x03\x03\x03' 24/3.3.3
+        '''
         length = self.mask2iplen(orb(s[0])) + 1
         return s[length:], self.m2i(pkt, s[:length])
 
     def m2i(self, pkt, m):
+        '''TODO: Need to figure out a way to prevent inet_ntoa errors when it comes
+        to fuzzing exercises.'''
         mask = orb(m[0])
         mask2iplen_res = self.mask2iplen(mask)
-        ip = b"".join(m[i + 1:i + 2] if i < mask2iplen_res else b"\x00" for i in range(4))  # noqa: E501
+
+        ip = b"".join(
+            m[i + 1:i + 2] if i < mask2iplen_res and m[i + 1:i + 2] else b"\x00" for i in range(4))
+        # Pad network address with 0's to make valid ip address
         return (mask, socket.inet_ntoa(ip))
+
+    def randval(self):
+        # TODO: replace IPField with RandString()
+        return (RandNetMask(0, 32), RandIP())
+
+
+class RandNetMask(RandNum):
+    def __init__(self, min=0, max=2**8 - 1):
+        # type: (int, int) -> None
+        """
+        :param int min: Minimum range for random value.
+        :param int max: Maximum range for random value.
+        """
+        RandNum.__init__(self, min, max)
 
 
 class BGPFieldIPv6(Field):
     """IPv6 Field (CIDR)"""
+    # TODO: Add support for fuzz()
 
     def mask2iplen(self, mask):
         """Get the IP field mask length (in bytes)."""
@@ -449,7 +476,7 @@ class BGPHeader(Packet):
             0xffffffffffffffffffffffffffffffff,
             0x80
         ),
-        ShortField("len", None),
+        ShortField("len", 0),  # default = 0, enables field for fuzz()
         ByteEnumField("type", 4, _bgp_message_types)
     ]
 
@@ -485,7 +512,7 @@ def _bgp_dispatcher(payload):
         cls = _get_cls("BGPHeader", conf.raw_layer)
 
     else:
-        if len(payload) >= _BGP_HEADER_SIZE and\
+        if len(payload) >= _BGP_HEADER_SIZE and \
                 payload[:16] == _BGP_HEADER_MARKER:
 
             # Get BGP message type
@@ -633,7 +660,7 @@ class _BGPCapability_metaclass(_BGPCap_metaclass, Packet_metaclass):
     pass
 
 
-class BGPCapability(Packet, metaclass=_BGPCapability_metaclass):
+class BGPCapability(six.with_metaclass(_BGPCapability_metaclass, Packet)): # type: ignore
     """
     Generic BGP capability.
     """
@@ -677,7 +704,7 @@ class BGPCapGeneric(BGPCapability):
     fields_desc = [
         ByteEnumField("code", 0, _capabilities),
         FieldLenField("length", None, fmt="B", length_of="cap_data"),
-        StrLenField("cap_data", '',
+        StrLenField("cap_data", b'',
                     length_from=lambda p: p.length, max_length=255),
     ]
 
@@ -888,7 +915,6 @@ class BGPAuthenticationInformation(Packet):
 # Optional Parameter.
 #
 
-
 class BGPOptParamPacketListField(PacketListField):
     """
     PacketListField handling the optional parameters (OPEN message).
@@ -896,6 +922,7 @@ class BGPOptParamPacketListField(PacketListField):
 
     def getfield(self, pkt, s):
         lst = []
+        ret = b''
 
         length = 0
         if self.length_from is not None:
@@ -954,7 +981,7 @@ class BGPOptParam(Packet):
                 length = len(p) - \
                     2  # parameter type (1 byte) - parameter length (1 byte)
             packet = p[:1] + chb(length)
-            if (self.param_type == 2 and self.param_value is not None) or\
+            if (self.param_type == 2 and self.param_value is not None) or \
                     (self.param_type == 1 and self.authentication_data is not None):  # noqa: E501
                 packet = packet + p[2:]
 
@@ -1789,8 +1816,9 @@ class _TypeLowField(ByteField):
         self.enum_from = enum_from
 
     def i2repr(self, pkt, i):
-        enum = self.enum_from(pkt)
-        return enum.get(i, i)
+        if self.enum_from:
+            enum = self.enum_from(pkt)
+            return enum.get(i, i)
 
 
 class BGPPAExtCommunity(Packet):
@@ -2127,7 +2155,7 @@ class BGPPathAttr(Packet):
             if extended_length:
                 packet = packet + p[2:4]
             else:
-                packet = packet + p[2]
+                packet = packet + p[2].to_bytes(1, byteorder='big')
         else:
             if extended_length:
                 packet = packet + struct.pack("!H", length)
@@ -2157,9 +2185,9 @@ class BGPUpdate(BGP):
 
     name = "UPDATE"
     fields_desc = [
-        FieldLenField(
+        BGPFieldLenField(
             "withdrawn_routes_len",
-            None,
+            0,
             length_of="withdrawn_routes",
             fmt="!H"
         ),
@@ -2169,9 +2197,9 @@ class BGPUpdate(BGP):
             "IPv4",
             length_from=lambda p: p.withdrawn_routes_len
         ),
-        FieldLenField(
+        BGPFieldLenField(
             "path_attr_len",
-            None,
+            0,
             length_of="path_attr",
             fmt="!H"
         ),
@@ -2185,8 +2213,10 @@ class BGPUpdate(BGP):
     ]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         subpacklen = lambda p: len(p)
-        packet = ""
+        packet = p
+
         if self.withdrawn_routes_len is None:
             wl = sum(map(subpacklen, self.withdrawn_routes))
             packet = p[:0] + struct.pack("!H", wl) + p[2:]
