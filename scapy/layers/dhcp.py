@@ -449,6 +449,16 @@ class DHCPOptionsField(StrField):
                 else:
                     olen = orb(x[1])
                     lval = [f.name]
+
+                    if olen == 0:
+                        try:
+                            _, val = f.getfield(pkt, b'')
+                        except Exception:
+                            opt.append(x)
+                            break
+                        else:
+                            lval.append(val)
+
                     try:
                         left = x[2:olen + 2]
                         while left:
