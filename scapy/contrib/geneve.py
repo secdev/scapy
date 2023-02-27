@@ -44,6 +44,9 @@ class GeneveOptions(Packet):
                    BitField("length", None, 5),
                    StrLenField('data', '', length_from=lambda x:x.length * 4)]
 
+    def extract_padding(self, s):
+        return "", s
+
     def post_build(self, p, pay):
         if self.length is None:
             tmp_len = len(self.data) // 4
