@@ -161,6 +161,7 @@ sctpchunktypescls = {
     14: "SCTPChunkShutdownComplete",
     15: "SCTPChunkAuthentication",
     64: "SCTPChunkIData",
+    130: "SCTPChunkReConfig",
     132: "SCTPChunkPad",
     0x80: "SCTPChunkAddressConfAck",
     0xc1: "SCTPChunkAddressConf",
@@ -182,6 +183,7 @@ sctpchunktypes = {
     14: "shutdown-complete",
     15: "authentication",
     64: "i-data",
+    130: "re-config",
     132: "pad",
     0x80: "address-configuration-ack",
     0xc1: "address-configuration",
@@ -196,6 +198,12 @@ sctpchunkparamtypescls = {
     9: "SCTPChunkParamCookiePreservative",
     11: "SCTPChunkParamHostname",
     12: "SCTPChunkParamSupportedAddrTypes",
+    13: "SCTPChunkParamOutgoingSSNResetRequest",
+    14: "SCTPChunkParamIncomingSSNResetRequest",
+    15: "SCTPChunkParamSSNTSNResetRequest",
+    16: "SCTPChunkParamReConfigurationResponse",
+    17: "SCTPChunkParamAddOutgoingStreamRequest",
+    18: "SCTPChunkParamAddIncomingStreamRequest",
     0x8000: "SCTPChunkParamECNCapable",
     0x8002: "SCTPChunkParamRandom",
     0x8003: "SCTPChunkParamChunkList",
@@ -219,6 +227,12 @@ sctpchunkparamtypes = {
     9: "cookie-preservative",
     11: "hostname",
     12: "addrtypes",
+    13: "out-ssn-reset-req",
+    14: "in-ssn-reset-req",
+    15: "ssn-tsn-reset-req",
+    16: "re-configuration-response",
+    17: "add-outgoing-stream-req",
+    18: "add-incoming-stream-req",
     0x8000: "ecn-capable",
     0x8002: "random",
     0x8003: "chunk-list",
@@ -287,6 +301,17 @@ class SCTPerror(SCTP):
 
 
 # SCTP Chunk variable params
+
+
+resultcode = {
+    0: "Success - Nothing to do",
+    1: "Success - Performed",
+    2: "Denied",
+    3: "Error - Wrong SSN",
+    4: "Error - Request already in progress",
+    5: "Error - Bad Sequence Number",
+    6: "In Progress"
+}
 
 
 class ChunkParamField(PacketListField):
@@ -370,6 +395,62 @@ class SCTPChunkParamSupportedAddrTypes(_SCTPChunkParam, Packet):
                                            ShortEnumField("addr_type", 5, sctpchunkparamtypes),  # noqa: E501
                                            length_from=lambda pkt: pkt.len - 4),  # noqa: E501
                             4, padwith=b"\x00"), ]
+
+
+class SCTPChunkParamOutSSNResetReq(_SCTPChunkParam, Packet):
+    fields_desc = [ShortEnumField("type", 13, sctpchunkparamtypes),
+                   FieldLenField("len", None, length_of="stream_num_list",
+                                 adjust=lambda pkt, x:x + 16),
+                   XIntField("re_conf_req_seq_num", None),
+                   XIntField("re_conf_res_seq_num", None),
+                   XIntField("tsn", None),
+                   PadField(FieldListField("stream_num_list", [],
+                                           XShortField("stream_num", None),
+                                           length_from=lambda pkt: pkt.len - 16),
+                            4, padwith=b"\x00"),
+                   ]
+
+
+class SCTPChunkParamInSSNResetReq(_SCTPChunkParam, Packet):
+    fields_desc = [ShortEnumField("type", 14, sctpchunkparamtypes),
+                   FieldLenField("len", None, length_of="stream_num_list",
+                                 adjust=lambda pkt, x:x + 8),
+                   XIntField("re_conf_req_seq_num", None),
+                   PadField(FieldListField("stream_num_list", [],
+                                           XShortField("stream_num", None),
+                                           length_from=lambda pkt: pkt.len - 8),
+                            4, padwith=b"\x00"),
+                   ]
+
+
+class SCTPChunkParamSSNTSNResetReq(_SCTPChunkParam, Packet):
+    fields_desc = [ShortEnumField("type", 15, sctpchunkparamtypes),
+                   XShortField("len", 8),
+                   XIntField("re_conf_req_seq_num", None),
+                   ]
+
+
+class SCTPChunkParamReConfigRes(_SCTPChunkParam, Packet):
+    fields_desc = [ShortEnumField("type", 16, sctpchunkparamtypes),
+                   XShortField("len", 12),
+                   XIntField("re_conf_res_seq_num", None),
+                   IntEnumField("result", None, resultcode),
+                   XIntField("sender_next_tsn", None),
+                   XIntField("receiver_next_tsn", None),
+                   ]
+
+
+class SCTPChunkParamAddOutgoingStreamReq(_SCTPChunkParam, Packet):
+    fields_desc = [ShortEnumField("type", 17, sctpchunkparamtypes),
+                   XShortField("len", 12),
+                   XIntField("re_conf_req_seq_num", None),
+                   XShortField("num_new_stream", None),
+                   XShortField("reserved", None),
+                   ]
+
+
+class SCTPChunkParamAddIncomingStreamReq(SCTPChunkParamAddOutgoingStreamReq):
+    type = 18
 
 
 class SCTPChunkParamECNCapable(_SCTPChunkParam, Packet):
@@ -730,6 +811,15 @@ class SCTPChunkAddressConf(_SCTPChunkGuessPayload, Packet):
                                  adjust=lambda pkt, x:x + 8),
                    IntField("seq", 0),
                    ChunkParamField("params", None, length_from=lambda pkt:pkt.len - 8),  # noqa: E501
+                   ]
+
+
+class SCTPChunkReConfig(_SCTPChunkGuessPayload, Packet):
+    fields_desc = [ByteEnumField("type", 130, sctpchunktypes),
+                   XByteField("flags", None),
+                   FieldLenField("len", None, length_of="params",
+                                 adjust=lambda pkt, x:x + 4),
+                   ChunkParamField("params", None, length_from=lambda pkt: pkt.len - 4),
                    ]
 
 

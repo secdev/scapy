@@ -280,6 +280,15 @@ assert p.flags == 0
 assert p.len == 11
 assert p.padding == b'pad'
 
+= basic SCTPChunkReConfig - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x82\x00\x00\x04"
+p = SCTP(blob).lastlayer()
+assert isinstance(p, SCTPChunkReConfig)
+assert p.flags == 0
+assert p.len == 4
+assert p.params == []
+
 = SCTPChunkParamRandom - Consecutive calls
 ~ sctp
 param1, param2 = SCTPChunkParamRandom(), SCTPChunkParamRandom()
