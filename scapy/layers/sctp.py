@@ -161,6 +161,7 @@ sctpchunktypescls = {
     14: "SCTPChunkShutdownComplete",
     15: "SCTPChunkAuthentication",
     64: "SCTPChunkIData",
+    132: "SCTPChunkPad",
     0x80: "SCTPChunkAddressConfAck",
     0xc1: "SCTPChunkAddressConf",
 }
@@ -181,6 +182,7 @@ sctpchunktypes = {
     14: "shutdown-complete",
     15: "authentication",
     64: "i-data",
+    132: "pad",
     0x80: "address-configuration-ack",
     0xc1: "address-configuration",
 }
@@ -728,6 +730,17 @@ class SCTPChunkAddressConf(_SCTPChunkGuessPayload, Packet):
                                  adjust=lambda pkt, x:x + 8),
                    IntField("seq", 0),
                    ChunkParamField("params", None, length_from=lambda pkt:pkt.len - 8),  # noqa: E501
+                   ]
+
+
+class SCTPChunkPad(_SCTPChunkGuessPayload, Packet):
+    fields_desc = [ByteEnumField("type", 132, sctpchunktypes),
+                   XByteField("flags", None),
+                   FieldLenField("len", None, length_of="padding",
+                                 adjust=lambda pkt, x:x + 8),
+                   PadField(StrLenField("padding", None,
+                                        length_from=lambda pkt: pkt.len - 8),
+                            4, padwith=b"\x00")
                    ]
 
 
