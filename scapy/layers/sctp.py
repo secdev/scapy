@@ -160,6 +160,7 @@ sctpchunktypescls = {
     11: "SCTPChunkCookieAck",
     14: "SCTPChunkShutdownComplete",
     15: "SCTPChunkAuthentication",
+    64: "SCTPChunkIData",
     0x80: "SCTPChunkAddressConfAck",
     0xc1: "SCTPChunkAddressConf",
 }
@@ -179,6 +180,7 @@ sctpchunktypes = {
     11: "cookie-ack",
     14: "shutdown-complete",
     15: "authentication",
+    64: "i-data",
     0x80: "address-configuration-ack",
     0xc1: "address-configuration",
 }
@@ -550,6 +552,34 @@ class SCTPChunkData(_SCTPChunkGuessPayload, Packet):
                    XShortField("stream_seq", None),
                    IntEnumField("proto_id", None, SCTP_PAYLOAD_PROTOCOL_INDENTIFIERS),  # noqa: E501
                    PadField(StrLenField("data", None, length_from=lambda pkt: pkt.len - 16),  # noqa: E501
+                            4, padwith=b"\x00"),
+                   ]
+
+
+class SCTPChunkIData(_SCTPChunkGuessPayload, Packet):
+    fields_desc = [ByteEnumField("type", 64, sctpchunktypes),
+                   BitField("reserved", None, 4),
+                   BitField("delay_sack", 0, 1),    # immediate bit
+                   BitField("unordered", 0, 1),
+                   BitField("beginning", 0, 1),
+                   BitField("ending", 0, 1),
+                   FieldLenField("len", None, length_of="data",
+                                 adjust=lambda pkt, x:x + 20),
+                   XIntField("tsn", None),
+                   XShortField("stream_id", None),
+                   XShortField("reserved_16", None),
+                   XIntField("message_id", None),
+                   MultipleTypeField(
+                       [
+                           (IntEnumField("ppid_fsn", None,
+                                         SCTP_PAYLOAD_PROTOCOL_INDENTIFIERS),
+                            lambda pkt: pkt.beginning == 1),
+                           (XIntField("ppid_fsn", None),
+                            lambda pkt: pkt.beginning == 0),
+                       ],
+                       XIntField("ppid_fsn", None)),
+                   PadField(StrLenField("data", None,
+                                        length_from=lambda pkt: pkt.len - 20),
                             4, padwith=b"\x00"),
                    ]
 
