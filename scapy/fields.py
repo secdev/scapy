@@ -1576,6 +1576,12 @@ class PacketListField(_PacketField[List[BasePacket]]):
     """
     __slots__ = ["count_from", "length_from", "next_cls_cb"]
     islist = 1
+    # MAX_DEPTH should prevent PacketListField from creating deeply nested lists.
+    # 4 was chosen because it should be enough to cover real-world scenarios
+    # in theory. If it isn't enough it can be bumped a bit but generally layers
+    # where lists like that can be produced should probably be revisited.
+    # https://github.com/secdev/scapy/issues/3894
+    MAX_DEPTH = 4
 
     def __init__(
             self,
@@ -1743,6 +1749,14 @@ class PacketListField(_PacketField[List[BasePacket]]):
         remain = s
         if len_pkt is not None:
             remain, ret = s[:len_pkt], s[len_pkt:]
+
+        current, depth = pkt.parent, 1
+        while current:
+            depth += 1
+            if depth > self.MAX_DEPTH:
+                return ret, [conf.raw_layer(load=remain)]
+            current = current.parent
+
         while remain:
             if c is not None:
                 if c <= 0:

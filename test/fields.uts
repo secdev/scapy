@@ -751,6 +751,25 @@ assert p.data[3].data == 0xc102
 assert isinstance(p.payload, conf.raw_layer)
 assert p.payload.load == b'toto'
 
+= Test nested PacketListFields
+~ field
+# https://github.com/secdev/scapy/issues/3894
+
+class GuessPayload(Packet):
+     @classmethod
+     def dispatch_hook(cls, *args, **kargs):
+         return TestNestedPLF
+
+class TestNestedPLF(Packet):
+     fields_desc = [
+         ByteField('b', 0),
+         PacketListField('pl', [], GuessPayload)
+     ]
+
+p = TestNestedPLF(b'\x01' * 1000)
+assert len(p[Raw]) == 995
+assert p.pl[0][TestNestedPLF:4]
+assert not p.pl[0].getlayer(TestNestedPLF, 5)
 
 ############
 ############
