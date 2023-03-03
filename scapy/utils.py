@@ -1256,6 +1256,10 @@ class RawPcapReader:
         self.linktype = linktype
         self.snaplen = snaplen
 
+    def __enter__(self):
+        # type: () -> RawPcapReader
+        return self
+
     def __iter__(self):
         # type: () -> RawPcapReader
         return self
