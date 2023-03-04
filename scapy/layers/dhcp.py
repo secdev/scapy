@@ -188,15 +188,7 @@ class ClasslessStaticRoutesField(Field):
         return struct.pack('b', prefix) + dest + router
 
     def getfield(self, pkt, s):
-        if not s:
-            return None
-
         prefix = orb(s[0])
-        # if prefix is invalid value ( 0 > prefix > 32 ) then break
-        if prefix > 32 or prefix < 0:
-            warning("Invalid prefix value: %d (0x%x)", prefix, prefix)
-            return s, []
-
         route_len = 5 + (prefix + 7) // 8
         return s[route_len:], self.m2i(pkt, s[:route_len])
 
@@ -449,6 +441,16 @@ class DHCPOptionsField(StrField):
                 else:
                     olen = orb(x[1])
                     lval = [f.name]
+
+                    if olen == 0:
+                        try:
+                            _, val = f.getfield(pkt, b'')
+                        except Exception:
+                            opt.append(x)
+                            break
+                        else:
+                            lval.append(val)
+
                     try:
                         left = x[2:olen + 2]
                         while left:
