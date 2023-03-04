@@ -116,7 +116,6 @@ assert DHCPOptions[46].name == "NetBIOS_node_type"
 assert DHCPRevOptions['static-routes'][0] == 33
 
 = Check that the dhcpd alias is properly defined and documented
-~ python3_only
 
 assert dhcpd
 import IPython

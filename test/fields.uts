@@ -1123,10 +1123,6 @@ assert fcb.i2repr_one(None, RandNum(0, 10)) == '<RandNum>'
 True
 
 = EnumField with Enum
-~ python3_only
-
-# not available on Python 2...
-
 from enum import Enum
 
 class JUICE(Enum):
