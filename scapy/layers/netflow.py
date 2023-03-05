@@ -1272,9 +1272,10 @@ class NetflowHeaderV9(Packet):
                 return 0
 
         if self.count is None:
-            count = sum(sum(count_by_layer(self.getlayer(layer_cls, nth))
-                            for nth in range(1, n + 1))
-                            for layer_cls, n in Counter(self.layers()).items())
+            count = sum(
+                sum(count_by_layer(self.getlayer(layer_cls, nth)) for nth in range(1, n + 1))
+                for layer_cls, n in Counter(self.layers()).items()
+            )
             pkt = struct.pack("!H", count) + pkt[2:]
         return pkt + pay
 
