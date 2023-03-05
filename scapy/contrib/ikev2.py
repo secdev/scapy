@@ -35,6 +35,7 @@ from scapy.fields import (
     PacketListField,
     ShortEnumField,
     ShortField,
+    StrLenField,
     X3BytesField,
     XByteField,
     XIntField,
@@ -202,6 +203,7 @@ IKEv2NotifyMessageTypes = {
     44: "CHILD_SA_NOT_FOUND",
     45: "INVALID_GROUP_ID",
     46: "AUTHORIZATION_FAILED",
+    47: "NOTIFY_STATE_NOT_FOUND",
     16384: "INITIAL_CONTACT",
     16385: "SET_WINDOW_SIZE",
     16386: "ADDITIONAL_TS_POSSIBLE",
@@ -251,7 +253,22 @@ IKEv2NotifyMessageTypes = {
     16430: "IKEV2_FRAGMENTATION_SUPPORTED",
     16431: "SIGNATURE_HASH_ALGORITHMS",
     16432: "CLONE_IKE_SA_SUPPORTED",
-    16433: "CLONE_IKE_SA"
+    16433: "CLONE_IKE_SA",
+    16434: "IV2_NOTIFY_PUZZLE",
+    16435: "IV2_NOTIFY_USE_PPK",
+    16436: "IV2_NOTIFY_PPK_IDENTITY",
+    16437: "IV2_NOTIFY_NO_PPK_AUTH",
+    16438: "IV2_NOTIFY_INTERMEDIATE_EXCHANGE_SUPPORTED",
+    16439: "IV2_NOTIFY_IP4_ALLOWED",
+    16440: "IV2_NOTIFY_IP6_ALLOWED",
+    16441: "IV2_NOTIFY_ADDITIONAL_KEY_EXCHANGE",
+    16442: "IV2_NOTIFY_USE_AGGFRAG",
+}
+
+IKEv2GatewayIDTypes = {
+    1: "IPv4_addr",
+    2: "IPv6_addr",
+    3: "FQDN"
 }
 
 IKEv2CertificateEncodings = {
@@ -548,7 +565,7 @@ class IKEv2_Payload(_IKEv2_Packet):
     name = "IKEv2 Payload"
     fields_desc = [
         ByteEnumField("next_payload", None, IKEv2PayloadTypes),
-        FlagsField("flags", 0, 8, ["critical", "res1", "res2", "res3", "res4", "res5", "res6", "res7"]),  # noqa: E501
+        FlagsField("flags", 0, 8, ["critical"]),
         ShortField("length", None),
         XStrLenField("load", "", length_from=lambda pkt: pkt.length - 4),
     ]
@@ -723,11 +740,40 @@ class IKEv2_Nonce(IKEv2_Payload):
 class IKEv2_Notify(IKEv2_Payload):
     name = "IKEv2 Notify"
     fields_desc = IKEv2_Payload.fields_desc[:3] + [
-        ByteEnumField("proto", None, {0: "Reserved", 1: "IKE", 2: "AH", 3: "ESP"}),  # noqa: E501
+        ByteEnumField("proto", None, IKEv2ProtocolTypes),
         FieldLenField("SPIsize", None, "SPI", "B"),
         ShortEnumField("type", 0, IKEv2NotifyMessageTypes),
         XStrLenField("SPI", "", length_from=lambda pkt: pkt.SPIsize),
-        XStrLenField("notify", "", length_from=lambda pkt: pkt.length - 8),
+        ConditionalField(
+            XStrLenField("notify", "", length_from=lambda pkt: pkt.length - 8),
+            lambda pkt: pkt.type not in (16407, 16408)
+        ),
+        ConditionalField(
+            # REDIRECT, REDIRECTED_FROM  (RFC 5685)
+            ByteEnumField("gw_id_type", 1, IKEv2GatewayIDTypes),
+            lambda pkt: pkt.type in (16407, 16408)
+        ),
+        ConditionalField(
+            # REDIRECT, REDIRECTED_FROM  (RFC 5685)
+            FieldLenField("gw_id_len", None, "gw_id", "B"),
+            lambda pkt: pkt.type in (16407, 16408)
+        ),
+        ConditionalField(
+            # REDIRECT, REDIRECTED_FROM  (RFC 5685)
+            MultipleTypeField(
+                [
+                    (IPField("gw_id", "127.0.0.1"), lambda x: x.gw_id_type == 1),
+                    (IP6Field("gw_id", "::1"), lambda x: x.gw_id_type == 5),
+                ],
+                StrLenField("gw_id", "", length_from=lambda x: x.gw_id_len)
+            ),
+            lambda pkt: pkt.type in (16407, 16408)
+        ),
+        ConditionalField(
+            # REDIRECT  (RFC 5685)
+            XStrLenField("nonce", "", length_from=lambda x:x.length - 10 - x.gw_id_len),
+            lambda pkt: pkt.type == 16407
+        )
     ]
 
 
