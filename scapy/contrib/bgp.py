@@ -125,11 +125,13 @@ class BGPFieldIPv4(Field):
         return s + self.i2m(pkt, val)
 
     def getfield(self, pkt, s):
-        '''pkt: BGPNLRI_IPv4
-            s: bytes byte 0: network prefix, byte 1+: network
-            e.g.
+        """
+        :param pkt: BGPNLRI_IPv4
+        :param s: bytes byte 0: network prefix, byte 1+: network
+        
+        example:
             s = b'\x18\x03\x03\x03' 24/3.3.3
-        '''
+        """"
         length = self.mask2iplen(orb(s[0])) + 1
         return s[length:], self.m2i(pkt, s[:length])
 
