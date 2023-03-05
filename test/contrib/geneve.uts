@@ -30,6 +30,13 @@ assert (s == b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x81\x00\x00\x01\
 p = Ether(s)
 assert GENEVE in p and Ether in p[GENEVE].payload and p[GENEVE].proto == 0x6558 and p[GeneveOptions].length == 1 and p[GeneveOptions].classid == 0x102 and p[GeneveOptions].type == 0x80
 
+= Build & dissect - GENEVE with multiple options
+
+s = raw(GENEVE(proto=0x0800,options=[GeneveOptions(classid=0x0102,type=0x1,data=b'\x00\x01\x00\x02'), GeneveOptions(classid=0x0102,type=0x2,data=b'\x00\x01\x00\x02')]))
+p = GENEVE(s)
+assert len(p.options)==2
+
+
 = Build & dissect - GENEVE encapsulates IPv4
 
 s = raw(IP()/UDP(sport=10000)/GENEVE()/IP())
