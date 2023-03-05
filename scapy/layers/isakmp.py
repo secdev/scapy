@@ -11,11 +11,23 @@ ISAKMP (Internet Security Association and Key Management Protocol).
 
 import struct
 from scapy.config import conf
-from scapy.packet import Packet, bind_bottom_up, bind_top_down
+from scapy.packet import Packet, bind_bottom_up, bind_top_down, bind_layers
 from scapy.compat import chb
-from scapy.fields import ByteEnumField, ByteField, FieldLenField, FlagsField, \
-    IntEnumField, IntField, PacketLenField, ShortEnumField, ShortField, \
-    StrFixedLenField, StrLenField, XByteField
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    FieldLenField,
+    FieldListField,
+    FlagsField,
+    IntEnumField,
+    IntField,
+    PacketLenField,
+    ShortEnumField,
+    ShortField,
+    StrFixedLenField,
+    StrLenField,
+    XByteField,
+)
 from scapy.layers.inet import IP, UDP
 from scapy.sendrecv import sr
 from scapy.volatile import RandString
@@ -26,96 +38,125 @@ from functools import reduce
 # and inherit a default ISAKMP_payload
 
 
-# see http://www.iana.org/assignments/ipsec-registry for details
-ISAKMPAttributeTypes = {"Encryption": (1, {"DES-CBC": 1,
-                                           "IDEA-CBC": 2,
-                                           "Blowfish-CBC": 3,
-                                           "RC5-R16-B64-CBC": 4,
-                                           "3DES-CBC": 5,
-                                           "CAST-CBC": 6,
-                                           "AES-CBC": 7,
-                                           "CAMELLIA-CBC": 8, }, 0),
-                        "Hash": (2, {"MD5": 1,
-                                     "SHA": 2,
-                                     "Tiger": 3,
-                                     "SHA2-256": 4,
-                                     "SHA2-384": 5,
-                                     "SHA2-512": 6, }, 0),
-                        "Authentication": (3, {"PSK": 1,
-                                               "DSS": 2,
-                                               "RSA Sig": 3,
-                                               "RSA Encryption": 4,
-                                               "RSA Encryption Revised": 5,
-                                               "ElGamal Encryption": 6,
-                                               "ElGamal Encryption Revised": 7,
-                                               "ECDSA Sig": 8,
-                                               "HybridInitRSA": 64221,
-                                               "HybridRespRSA": 64222,
-                                               "HybridInitDSS": 64223,
-                                               "HybridRespDSS": 64224,
-                                               "XAUTHInitPreShared": 65001,
-                                               "XAUTHRespPreShared": 65002,
-                                               "XAUTHInitDSS": 65003,
-                                               "XAUTHRespDSS": 65004,
-                                               "XAUTHInitRSA": 65005,
-                                               "XAUTHRespRSA": 65006,
-                                               "XAUTHInitRSAEncryption": 65007,
-                                               "XAUTHRespRSAEncryption": 65008,
-                                               "XAUTHInitRSARevisedEncryption": 65009,  # noqa: E501
-                                               "XAUTHRespRSARevisedEncryptio": 65010, }, 0),  # noqa: E501
-                        "GroupDesc": (4, {"768MODPgr": 1,
-                                          "1024MODPgr": 2,
-                                          "EC2Ngr155": 3,
-                                          "EC2Ngr185": 4,
-                                          "1536MODPgr": 5,
-                                          "2048MODPgr": 14,
-                                          "3072MODPgr": 15,
-                                          "4096MODPgr": 16,
-                                          "6144MODPgr": 17,
-                                          "8192MODPgr": 18, }, 0),
-                        "GroupType": (5, {"MODP": 1,
-                                          "ECP": 2,
-                                          "EC2N": 3}, 0),
-                        "GroupPrime": (6, {}, 1),
-                        "GroupGenerator1": (7, {}, 1),
-                        "GroupGenerator2": (8, {}, 1),
-                        "GroupCurveA": (9, {}, 1),
-                        "GroupCurveB": (10, {}, 1),
-                        "LifeType": (11, {"Seconds": 1,
-                                          "Kilobytes": 2}, 0),
-                        "LifeDuration": (12, {}, 1),
-                        "PRF": (13, {}, 0),
-                        "KeyLength": (14, {}, 0),
-                        "FieldSize": (15, {}, 0),
-                        "GroupOrder": (16, {}, 1),
-                        }
+# see https://www.iana.org/assignments/ipsec-registry/ipsec-registry.xhtml#ipsec-registry-2 for details  # noqa: E501
+ISAKMPAttributeTypes = {
+    "Encryption": (1, {"DES-CBC": 1,
+                       "IDEA-CBC": 2,
+                       "Blowfish-CBC": 3,
+                       "RC5-R16-B64-CBC": 4,
+                       "3DES-CBC": 5,
+                       "CAST-CBC": 6,
+                       "AES-CBC": 7,
+                       "CAMELLIA-CBC": 8, }, 0),
+    "Hash": (2, {"MD5": 1,
+                 "SHA": 2,
+                 "Tiger": 3,
+                 "SHA2-256": 4,
+                 "SHA2-384": 5,
+                 "SHA2-512": 6, }, 0),
+    "Authentication": (3, {"PSK": 1,
+                           "DSS": 2,
+                           "RSA Sig": 3,
+                           "RSA Encryption": 4,
+                           "RSA Encryption Revised": 5,
+                           "ElGamal Encryption": 6,
+                           "ElGamal Encryption Revised": 7,
+                           "ECDSA Sig": 8,
+                           "HybridInitRSA": 64221,
+                           "HybridRespRSA": 64222,
+                           "HybridInitDSS": 64223,
+                           "HybridRespDSS": 64224,
+                           "XAUTHInitPreShared": 65001,
+                           "XAUTHRespPreShared": 65002,
+                           "XAUTHInitDSS": 65003,
+                           "XAUTHRespDSS": 65004,
+                           "XAUTHInitRSA": 65005,
+                           "XAUTHRespRSA": 65006,
+                           "XAUTHInitRSAEncryption": 65007,
+                           "XAUTHRespRSAEncryption": 65008,
+                           "XAUTHInitRSARevisedEncryption": 65009,  # noqa: E501
+                           "XAUTHRespRSARevisedEncryptio": 65010, }, 0),  # noqa: E501
+    "GroupDesc": (4, {"768MODPgr": 1,
+                      "1024MODPgr": 2,
+                      "EC2Ngr155": 3,
+                      "EC2Ngr185": 4,
+                      "1536MODPgr": 5,
+                      "2048MODPgr": 14,
+                      "3072MODPgr": 15,
+                      "4096MODPgr": 16,
+                      "6144MODPgr": 17,
+                      "8192MODPgr": 18, }, 0),
+    "GroupType": (5, {"MODP": 1,
+                      "ECP": 2,
+                      "EC2N": 3}, 0),
+    "GroupPrime": (6, {}, 1),
+    "GroupGenerator1": (7, {}, 1),
+    "GroupGenerator2": (8, {}, 1),
+    "GroupCurveA": (9, {}, 1),
+    "GroupCurveB": (10, {}, 1),
+    "LifeType": (11, {"Seconds": 1,
+                      "Kilobytes": 2}, 0),
+    "LifeDuration": (12, {}, 1),
+    "PRF": (13, {}, 0),
+    "KeyLength": (14, {}, 0),
+    "FieldSize": (15, {}, 0),
+    "GroupOrder": (16, {}, 1),
+}
 
-# the name 'ISAKMPTransformTypes' is actually a misnomer (since the table
-# holds info for all ISAKMP Attribute types, not just transforms, but we'll
-# keep it for backwards compatibility... for now at least
-ISAKMPTransformTypes = ISAKMPAttributeTypes
+# see https://www.iana.org/assignments/isakmp-registry/isakmp-registry.xhtml#isakmp-registry-13 for details  # noqa: E501
+IPSECAttributeTypes = {
+    "LifeType": (1, {"Reserved": 0,
+                     "seconds": 1,
+                     "kilobytes": 2}, 0),
+    "LifeDuration": (2, {}, 1),
+    "GroupDesc": (3, ISAKMPAttributeTypes["GroupDesc"][1], 0),
+    "EncapsulationMode": (4, {"Reserved": 0,
+                              "Tunnel": 1,
+                              "Transport": 2,
+                              "UDP-Encapsulated-Tunnel": 3,
+                              "UDP-Encapsulated-Transport": 4}, 0),
+    "AuthenticationAlgorithm": (5, {"HMAC-MD5": 1,
+                                    "HMAC-SHA": 2,
+                                    "DES-MAC": 3,
+                                    "KPDK": 4,
+                                    "HMAC-SHA2-256": 5,
+                                    "HMAC-SHA2-384": 6,
+                                    "HMAC-SHA2-512": 7,
+                                    "HMAC-RIPEMD": 8,
+                                    "AES-XCBC-MAC": 9,
+                                    "SIG-RSA": 10,
+                                    "AES-128-GMAC": 11,
+                                    "AES-192-GMAC": 12,
+                                    "AES-256-GMAC": 13}, 0),
+    "KeyLength": (6, {}, 0),
+    "KeyRounds": (7, {}, 0),
+    "CompressDictionarySize": (8, {}, 0),
+    "CompressPrivateAlgorithm": (9, {}, 1),
+}
 
-ISAKMPTransformNum = {}
-for n in ISAKMPTransformTypes:
-    val = ISAKMPTransformTypes[n]
-    tmp = {}
-    for e in val[1]:
-        tmp[val[1][e]] = e
-    ISAKMPTransformNum[val[0]] = (n, tmp, val[2])
-del n
-del e
-del tmp
-del val
+_rev = lambda x: {
+    v[0]: (k, {vv: kk for kk, vv in v[1].items()}, v[2])
+    for k, v in x.items()
+}
+ISAKMPTransformNum = _rev(ISAKMPAttributeTypes)
+IPSECTransformNum = _rev(IPSECAttributeTypes)
 
 
 class ISAKMPTransformSetField(StrLenField):
     islist = 1
 
     @staticmethod
-    def type2num(type_val_tuple):
+    def type2num(type_val_tuple, doi=0):
         typ, val = type_val_tuple
-        type_val, enc_dict, tlv = ISAKMPTransformTypes.get(typ, (typ, {}, 0))
+        if doi == 0:
+            type_val, enc_dict, tlv = ISAKMPAttributeTypes.get(typ, (typ, {}, 0))
+        elif doi == 1:
+            type_val, enc_dict, tlv = IPSECAttributeTypes.get(typ, (typ, {}, 0))
+        else:
+            type_val, enc_dict, tlv = (typ, {}, 0)
         val = enc_dict.get(val, val)
+        if isinstance(val, str):
+            raise ValueError("Unknown attribute '%s'" % val)
         s = b""
         if (val & ~0xffff):
             if not tlv:
@@ -131,15 +172,30 @@ class ISAKMPTransformSetField(StrLenField):
         return struct.pack("!HH", type_val, val) + s
 
     @staticmethod
-    def num2type(typ, enc):
-        val = ISAKMPTransformNum.get(typ, (typ, {}))
+    def num2type(typ, enc, doi=0):
+        if doi == 0:
+            val = ISAKMPTransformNum.get(typ, (typ, {}))
+        elif doi == 1:
+            val = IPSECTransformNum.get(typ, (typ, {}))
+        else:
+            val = (typ, {})
         enc = val[1].get(enc, enc)
         return (val[0], enc)
+
+    def _get_doi(self, pkt):
+        # Ugh
+        cur = pkt
+        while cur and getattr(cur, "doi", None) is None:
+            cur = cur.parent or cur.underlayer
+        if cur is None:
+            return 0
+        return cur.doi
 
     def i2m(self, pkt, i):
         if i is None:
             return b""
-        i = [ISAKMPTransformSetField.type2num(e) for e in i]
+        doi = self._get_doi(pkt)
+        i = [ISAKMPTransformSetField.type2num(e, doi=doi) for e in i]
         return b"".join(i)
 
     def m2i(self, pkt, m):
@@ -149,6 +205,7 @@ class ISAKMPTransformSetField(StrLenField):
         # worst case that should result in broken attributes (which would
         # be expected). (wam)
         lst = []
+        doi = self._get_doi(pkt)
         while len(m) >= 4:
             trans_type, = struct.unpack("!H", m[:2])
             is_tlv = not (trans_type & 0x8000)
@@ -166,33 +223,58 @@ class ISAKMPTransformSetField(StrLenField):
                 value_len = 0
                 value, = struct.unpack("!H", m[2:4])
             m = m[4 + value_len:]
-            lst.append(ISAKMPTransformSetField.num2type(trans_type, value))
+            lst.append(ISAKMPTransformSetField.num2type(trans_type, value, doi=doi))
         if len(m) > 0:
             warning("Extra bytes after ISAKMP transform dissection [%r]" % m)
         return lst
 
 
-ISAKMP_payload_type = ["None", "SA", "Proposal", "Transform", "KE", "ID",
-                       "CERT", "CR", "Hash", "SIG", "Nonce", "Notification",
-                       "Delete", "VendorID"]
+ISAKMP_payload_type = {
+    0: "None",
+    1: "SA",
+    2: "Proposal",
+    3: "Transform",
+    4: "KE",
+    5: "ID",
+    6: "CERT",
+    7: "CR",
+    8: "Hash",
+    9: "SIG",
+    10: "Nonce",
+    11: "Notification",
+    12: "Delete",
+    13: "VendorID",
+}
 
-ISAKMP_exchange_type = ["None", "base", "identity prot.",
-                        "auth only", "aggressive", "info"]
+ISAKMP_exchange_type = {
+    0: "None",
+    1: "base",
+    2: "identity protection",
+    3: "authentication only",
+    4: "aggressive",
+    5: "informational"
+}
+
+ISAKMP_protos = {
+    1: "ISAKMP",
+}
+
+ISAKMP_doi = {
+    0: "ISAKMP",
+    1: "IPSEC",
+}
 
 
-class ISAKMP_class(Packet):
-    def guess_payload_class(self, payload):
-        np = self.next_payload
-        if np == 0:
+class _ISAKMP_class(Packet):
+    def default_payload_class(self, payload):
+        if self.next_payload == 0:
             return conf.raw_layer
-        elif np < len(ISAKMP_payload_type):
-            pt = ISAKMP_payload_type[np]
-            return globals().get("ISAKMP_payload_%s" % pt, ISAKMP_payload)
-        else:
-            return ISAKMP_payload
+        return ISAKMP_payload
+
+# -- ISAKMP
 
 
-class ISAKMP(ISAKMP_class):  # rfc2408
+class ISAKMP(_ISAKMP_class):  # rfc2408
     name = "ISAKMP"
     fields_desc = [
         StrFixedLenField("init_cookie", "", 8),
@@ -200,7 +282,7 @@ class ISAKMP(ISAKMP_class):  # rfc2408
         ByteEnumField("next_payload", 0, ISAKMP_payload_type),
         XByteField("version", 0x10),
         ByteEnumField("exch_type", 0, ISAKMP_exchange_type),
-        FlagsField("flags", 0, 8, ["encryption", "commit", "auth_only", "res3", "res4", "res5", "res6", "res7"]),  # XXX use a Flag field  # noqa: E501
+        FlagsField("flags", 0, 8, ["encryption", "commit", "auth_only"]),
         IntField("id", 0),
         IntField("length", None)
     ]
@@ -208,7 +290,7 @@ class ISAKMP(ISAKMP_class):  # rfc2408
     def guess_payload_class(self, payload):
         if self.flags & 1:
             return conf.raw_layer
-        return ISAKMP_class.guess_payload_class(self, payload)
+        return _ISAKMP_class.guess_payload_class(self, payload)
 
     def answers(self, other):
         if isinstance(other, ISAKMP):
@@ -223,15 +305,32 @@ class ISAKMP(ISAKMP_class):  # rfc2408
         return p
 
 
-class ISAKMP_payload_Transform(ISAKMP_class):
-    name = "IKE Transform"
+# -- ISAKMP payloads
+
+class ISAKMP_payload(_ISAKMP_class):
+    name = "ISAKMP payload"
     fields_desc = [
         ByteEnumField("next_payload", None, ISAKMP_payload_type),
         ByteField("res", 0),
-        #        ShortField("len",None),
         ShortField("length", None),
-        ByteField("num", None),
-        ByteEnumField("id", 1, {1: "KEY_IKE"}),
+        StrLenField("load", "", length_from=lambda x:x.length - 4),
+    ]
+
+    def post_build(self, pkt, pay):
+        if self.length is None:
+            pkt = pkt[:2] + struct.pack("!H", len(pkt)) + pkt[4:]
+        return pkt + pay
+
+
+class ISAKMP_payload_Transform(ISAKMP_payload):
+    name = "IKE Transform"
+    deprecated_fields = {
+        "num": ("transform_count", ("2.5.0")),
+        "id": ("transform_id", ("2.5.0")),
+    }
+    fields_desc = ISAKMP_payload.fields_desc[:3] + [
+        ByteField("transform_count", None),
+        ByteEnumField("transform_id", 1, {1: "KEY_IKE"}),
         ShortField("res2", 0),
         ISAKMPTransformSetField("transforms", None, length_from=lambda x: x.length - 8)  # noqa: E501
         #        XIntField("enc",0x80010005L),
@@ -243,25 +342,13 @@ class ISAKMP_payload_Transform(ISAKMP_class):
         #        XIntField("durationl",0x00007080L),
     ]
 
-    def post_build(self, p, pay):
-        if self.length is None:
-            tmp_len = len(p)
-            tmp_pay = p[:2] + chb((tmp_len >> 8) & 0xff)
-            p = tmp_pay + chb(tmp_len & 0xff) + p[4:]
-        p += pay
-        return p
-
 
 # https://tools.ietf.org/html/rfc2408#section-3.5
-class ISAKMP_payload_Proposal(ISAKMP_class):
+class ISAKMP_payload_Proposal(ISAKMP_payload):
     name = "IKE proposal"
-#    ISAKMP_payload_type = 0
-    fields_desc = [
-        ByteEnumField("next_payload", None, ISAKMP_payload_type),
-        ByteField("res", 0),
-        FieldLenField("length", None, "trans", "H", adjust=lambda pkt, x:x + 8),  # noqa: E501
+    fields_desc = ISAKMP_payload.fields_desc[:3] + [
         ByteField("proposal", 1),
-        ByteEnumField("proto", 1, {1: "ISAKMP"}),
+        ByteEnumField("proto", 1, ISAKMP_protos),
         FieldLenField("SPIsize", None, "SPI", "B"),
         ByteField("trans_nb", None),
         StrLenField("SPI", "", length_from=lambda x: x.SPIsize),
@@ -269,27 +356,14 @@ class ISAKMP_payload_Proposal(ISAKMP_class):
     ]
 
 
-class ISAKMP_payload(ISAKMP_class):
-    name = "ISAKMP payload"
-    fields_desc = [
-        ByteEnumField("next_payload", None, ISAKMP_payload_type),
-        ByteField("res", 0),
-        FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x + 4),
-        StrLenField("load", "", length_from=lambda x:x.length - 4),
-    ]
-
-
 class ISAKMP_payload_VendorID(ISAKMP_payload):
     name = "ISAKMP Vendor ID"
 
 
-class ISAKMP_payload_SA(ISAKMP_class):
+class ISAKMP_payload_SA(ISAKMP_payload):
     name = "ISAKMP SA"
-    fields_desc = [
-        ByteEnumField("next_payload", None, ISAKMP_payload_type),
-        ByteField("res", 0),
-        FieldLenField("length", None, "prop", "H", adjust=lambda pkt, x:x + 12),  # noqa: E501
-        IntEnumField("DOI", 1, {1: "IPSEC"}),
+    fields_desc = ISAKMP_payload.fields_desc[:3] + [
+        IntEnumField("doi", 1, ISAKMP_doi),
         IntEnumField("situation", 1, {1: "identity"}),
         PacketLenField("prop", conf.raw_layer(), ISAKMP_payload_Proposal, length_from=lambda x: x.length - 12),  # noqa: E501
     ]
@@ -303,12 +377,9 @@ class ISAKMP_payload_KE(ISAKMP_payload):
     name = "ISAKMP Key Exchange"
 
 
-class ISAKMP_payload_ID(ISAKMP_class):
+class ISAKMP_payload_ID(ISAKMP_payload):
     name = "ISAKMP Identification"
-    fields_desc = [
-        ByteEnumField("next_payload", None, ISAKMP_payload_type),
-        ByteField("res", 0),
-        FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x + 8),
+    fields_desc = ISAKMP_payload.fields_desc[:3] + [
         ByteEnumField("IDtype", 1, {1: "IPv4_addr", 11: "Key"}),
         ByteEnumField("ProtoID", 0, {0: "Unused"}),
         ShortEnumField("Port", 0, {0: "Unused"}),
@@ -321,26 +392,88 @@ class ISAKMP_payload_Hash(ISAKMP_payload):
     name = "ISAKMP Hash"
 
 
+NotifyMessageType = {
+    1: "INVALID-PAYLOAD-TYPE",
+    2: "DOI-NOT-SUPPORTED",
+    3: "SITUATION-NOT-SUPPORTED",
+    4: "INVALID-COOKIE",
+    5: "INVALID-MAJOR-VERSION",
+    6: "INVALID-MINOR-VERSION",
+    7: "INVALID-EXCHANGE-TYPE",
+    8: "INVALID-FLAGS",
+    9: "INVALID-MESSAGE-ID",
+    10: "INVALID-PROTOCOL-ID",
+    11: "INVALID-SPI",
+    12: "INVALID-TRANSFORM-ID",
+    13: "ATTRIBUTES-NOT-SUPPORTED",
+    14: "NO-PROPOSAL-CHOSEN",
+    15: "BAD-PROPOSAL-SYNTAX",
+    16: "PAYLOAD-MALFORMED",
+    17: "INVALID-KEY-INFORMATION",
+    18: "INVALID-ID-INFORMATION",
+    19: "INVALID-CERT-ENCODING",
+    20: "INVALID-CERTIFICATE",
+    21: "CERT-TYPE-UNSUPPORTED",
+    22: "INVALID-CERT-AUTHORITY",
+    23: "INVALID-HASH-INFORMATION",
+    24: "AUTHENTICATION-FAILED",
+    25: "INVALID-SIGNATURE",
+    26: "ADDRESS-NOTIFICATION",
+    27: "NOTIFY-SA-LIFETIME",
+    28: "CERTIFICATE-UNAVAILABLE",
+    29: "UNSUPPORTED-EXCHANGE-TYPE",
+    # RFC 3706
+    36136: "R-U-THERE",
+    36137: "R-U-THERE-ACK",
+}
+
+
+class ISAKMP_payload_Notify(ISAKMP_payload):
+    name = "ISAKMP Notify (Notification)"
+    fields_desc = ISAKMP_payload.fields_desc[:3] + [
+        IntEnumField("doi", 0, ISAKMP_doi),
+        ByteEnumField("proto", 1, ISAKMP_protos),
+        FieldLenField("SPIsize", None, "SPI", "B"),
+        ShortEnumField("notify_msg_type", None, NotifyMessageType),
+        StrLenField("SPI", "", length_from=lambda x: x.SPIsize),
+        StrLenField("notify_data", "",
+                    length_from=lambda x: x.length - x.SPIsize - 12)
+    ]
+
+
+class ISAKMP_payload_Delete(ISAKMP_payload):
+    name = "ISAKMP Delete"
+    fields_desc = ISAKMP_payload.fields_desc[:3] + [
+        IntEnumField("doi", 0, ISAKMP_doi),
+        ByteEnumField("proto", 1, ISAKMP_protos),
+        FieldLenField("SPIsize", None, length_of="SPIs", fmt="B",
+                      adjust=lambda pkt, x: x and x // len(pkt.SPIs)),
+        FieldLenField("SPIcount", None, count_of="SPIs", fmt="H"),
+        FieldListField("SPIs", [],
+                       StrLenField("", "", length_from=lambda pkt: pkt.SPIsize),
+                       count_from=lambda pkt: pkt.SPIcount),
+    ]
+
+
 bind_bottom_up(UDP, ISAKMP, dport=500)
 bind_bottom_up(UDP, ISAKMP, sport=500)
 bind_top_down(UDP, ISAKMP, dport=500, sport=500)
 
-# Add building bindings
-# (Dissection bindings are located in ISAKMP_class.guess_payload_class)
-bind_top_down(ISAKMP_class, ISAKMP_payload, next_payload=0)
-bind_top_down(ISAKMP_class, ISAKMP_payload_SA, next_payload=1)
-bind_top_down(ISAKMP_class, ISAKMP_payload_Proposal, next_payload=2)
-bind_top_down(ISAKMP_class, ISAKMP_payload_Transform, next_payload=3)
-bind_top_down(ISAKMP_class, ISAKMP_payload_KE, next_payload=4)
-bind_top_down(ISAKMP_class, ISAKMP_payload_ID, next_payload=5)
-# bind_top_down(ISAKMP_class, ISAKMP_payload_CERT, next_payload=6)
-# bind_top_down(ISAKMP_class, ISAKMP_payload_CR, next_payload=7)
-bind_top_down(ISAKMP_class, ISAKMP_payload_Hash, next_payload=8)
-# bind_top_down(ISAKMP_class, ISAKMP_payload_SIG, next_payload=9)
-bind_top_down(ISAKMP_class, ISAKMP_payload_Nonce, next_payload=10)
-# bind_top_down(ISAKMP_class, ISAKMP_payload_Notification, next_payload=11)
-# bind_top_down(ISAKMP_class, ISAKMP_payload_Delete, next_payload=12)
-bind_top_down(ISAKMP_class, ISAKMP_payload_VendorID, next_payload=13)
+# Add bindings
+bind_top_down(_ISAKMP_class, ISAKMP_payload, next_payload=0)
+bind_layers(_ISAKMP_class, ISAKMP_payload_SA, next_payload=1)
+bind_layers(_ISAKMP_class, ISAKMP_payload_Proposal, next_payload=2)
+bind_layers(_ISAKMP_class, ISAKMP_payload_Transform, next_payload=3)
+bind_layers(_ISAKMP_class, ISAKMP_payload_KE, next_payload=4)
+bind_layers(_ISAKMP_class, ISAKMP_payload_ID, next_payload=5)
+# bind_layers(_ISAKMP_class, ISAKMP_payload_CERT, next_payload=6)
+# bind_layers(_ISAKMP_class, ISAKMP_payload_CR, next_payload=7)
+bind_layers(_ISAKMP_class, ISAKMP_payload_Hash, next_payload=8)
+# bind_layers(_ISAKMP_class, ISAKMP_payload_SIG, next_payload=9)
+bind_layers(_ISAKMP_class, ISAKMP_payload_Nonce, next_payload=10)
+bind_layers(_ISAKMP_class, ISAKMP_payload_Notify, next_payload=11)
+bind_layers(_ISAKMP_class, ISAKMP_payload_Delete, next_payload=12)
+bind_layers(_ISAKMP_class, ISAKMP_payload_VendorID, next_payload=13)
 
 
 def ikescan(ip):
