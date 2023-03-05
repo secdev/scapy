@@ -183,6 +183,13 @@ assert p.test2 == 0xc000ff3333
 assert p.test3 == 0xffeeddccbbaa9988776655
 assert p.test4 == 309404098707666285700277845
 
+class TestFuzzNBytesField(Packet):
+    fields_desc = [
+        NBytesField('test1', 0, 128),
+    ]
+
+f = fuzz(TestFuzzNBytesField())
+assert f.test1.max == 2 ** (128 * 8) - 1
 
 = StrField
 ~ field strfield
@@ -1123,10 +1130,6 @@ assert fcb.i2repr_one(None, RandNum(0, 10)) == '<RandNum>'
 True
 
 = EnumField with Enum
-~ python3_only
-
-# not available on Python 2...
-
 from enum import Enum
 
 class JUICE(Enum):

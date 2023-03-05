@@ -16,19 +16,19 @@ assert raw(a) == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 = Ikev2 dissection
 
 a = IKEv2(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00! \x00\x00\x00\x00\x00\x00\x00\x00\x000\x00\x00\x00\x14\x00\x00\x00\x10\x01\x01\x00\x00\x00\x00\x00\x08\x02\x00\x00\x03")
-assert a[IKEv2_payload_Transform].transform_type == 2
-assert a[IKEv2_payload_Transform].transform_id == 3
+assert a[IKEv2_Transform].transform_type == 2
+assert a[IKEv2_Transform].transform_id == 3
 assert a.next_payload == 33
-assert a[IKEv2_payload_SA].next_payload == 0
-assert a[IKEv2_payload_Proposal].next_payload == 0
-assert a[IKEv2_payload_Proposal].proposal == 1
-assert a[IKEv2_payload_Transform].next_payload == 0
-a[IKEv2_payload_Transform].show()
+assert a[IKEv2_SA].next_payload == 0
+assert a[IKEv2_Proposal].next_payload == 0
+assert a[IKEv2_Proposal].proposal == 1
+assert a[IKEv2_Transform].next_payload == 0
+a[IKEv2_Transform].show()
 
 
 = Build Ikev2 SA request packet
 
-a = IKEv2(init_SPI="MySPI",exch_type=34)/IKEv2_payload_SA(prop=IKEv2_payload_Proposal())
+a = IKEv2(init_SPI="MySPI",exch_type=34)/IKEv2_SA(prop=IKEv2_Proposal())
 assert raw(a) == b'MySPI\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00! "\x00\x00\x00\x00\x00\x00\x00\x00(\x00\x00\x00\x0c\x00\x00\x00\x08\x01\x01\x00\x00'
 
 = Build advanced IKEv2
@@ -39,18 +39,18 @@ key_exchange = binascii.unhexlify('bb41bb41cfaf34e3b3209672aef1c51b9d52919f1781d
 nonce = binascii.unhexlify('8dfcf8384c5c32f1b294c64eab69f98e9d8cf7e7f352971a91ff6777d47dffed')
 nat_detection_source_ip = binascii.unhexlify('e64c81c4152ad83bd6e035009fbb900406be371f')
 nat_detection_destination_ip = binascii.unhexlify('28cd99b9fa1267654b53f60887c9c35bcf67a8ff')
-transform_1 = IKEv2_payload_Transform(next_payload = 'Transform', transform_type = 'Encryption', transform_id = 12, length = 12, key_length = 0x80)
-transform_2 = IKEv2_payload_Transform(next_payload = 'Transform', transform_type = 'PRF', transform_id = 2)
-transform_3 = IKEv2_payload_Transform(next_payload = 'Transform', transform_type = 'Integrity', transform_id = 2)
-transform_4 = IKEv2_payload_Transform(next_payload = 'last', transform_type = 'GroupDesc', transform_id = 2)
+transform_1 = IKEv2_Transform(next_payload = 'Transform', transform_type = 'Encryption', transform_id = 12, length = 12, key_length = 0x80)
+transform_2 = IKEv2_Transform(next_payload = 'Transform', transform_type = 'PRF', transform_id = 2)
+transform_3 = IKEv2_Transform(next_payload = 'Transform', transform_type = 'Integrity', transform_id = 2)
+transform_4 = IKEv2_Transform(next_payload = 'None', transform_type = 'GroupDesc', transform_id = 2)
 packet = IP(dst = '192.168.1.10', src = '192.168.1.130') /\
        UDP(dport = 500) /\
        IKEv2(init_SPI = b'KWdxMhjA', next_payload = 'SA', exch_type = 'IKE_SA_INIT', flags='Initiator') /\
-       IKEv2_payload_SA(next_payload = 'KE', prop = IKEv2_payload_Proposal(trans_nb = 4, trans = transform_1 / transform_2 / transform_3 / transform_4, )) /\
-       IKEv2_payload_KE(next_payload = 'Nonce', group = '1024MODPgr', load = key_exchange) /\
-       IKEv2_payload_Nonce(next_payload = 'Notify', load = nonce) /\
-       IKEv2_payload_Notify(next_payload = 'Notify', type = 16388, load = nat_detection_source_ip) /\
-       IKEv2_payload_Notify(next_payload = 'None', type = 16389, load = nat_detection_destination_ip)
+       IKEv2_SA(next_payload = 'KE', prop = IKEv2_Proposal(trans_nb = 4, trans = transform_1 / transform_2 / transform_3 / transform_4, )) /\
+       IKEv2_KE(next_payload = 'Nonce', group = '1024MODPgr', ke = key_exchange) /\
+       IKEv2_Nonce(next_payload = 'Notify', nonce = nonce) /\
+       IKEv2_Notify(next_payload = 'Notify', type = 16388, notify = nat_detection_source_ip) /\
+       IKEv2_Notify(next_payload = 'None', type = 16389, notify = nat_detection_destination_ip)
 
 assert raw(packet) == b'E\x00\x01L\x00\x01\x00\x00@\x11\xf5\xc3\xc0\xa8\x01\x82\xc0\xa8\x01\n\x01\xf4\x01\xf4\x018\xa6\xc0KWdxMhjA\x00\x00\x00\x00\x00\x00\x00\x00! "\x08\x00\x00\x00\x00\x00\x00\x010"\x00\x000\x00\x00\x00,\x01\x01\x00\x04\x03\x00\x00\x0c\x01\x00\x00\x0c\x80\x0e\x00\x80\x03\x00\x00\x08\x02\x00\x00\x02\x03\x00\x00\x08\x03\x00\x00\x02\x00\x00\x00\x08\x04\x00\x00\x02(\x00\x00\x88\x00\x02\x00\x00\xbbA\xbbA\xcf\xaf4\xe3\xb3 \x96r\xae\xf1\xc5\x1b\x9dR\x91\x9f\x17\x81\xd0\xb4\xcd\x88\x9dJ\xaf\xe2ah\x87v\x00\x0c=\x901PZ\xef\xc0\x18ig\xea\xf5\xa7f7%\xfb\x10,Y\xc3\x9bzp\xd8\xd9\x16\x1c;\xd0\xebDX\x88\xb5\x02\x8e\xa0c\xba\n\xe0\x1f[?0\x80\x8akg\x10\xdc\x9b\xab`\x1eA\x16\x15}\x7fX\xcf\x83\\\xb63\xc6J\xbc\xb3\xa5\xc6\x1c">\x932S\x8b\xfc\x9f(,\xb6-\x1f\x00\xf4\xee\x88\x02)\x00\x00$\x8d\xfc\xf88L\\2\xf1\xb2\x94\xc6N\xabi\xf9\x8e\x9d\x8c\xf7\xe7\xf3R\x97\x1a\x91\xffgw\xd4}\xff\xed)\x00\x00\x1c\x00\x00@\x04\xe6L\x81\xc4\x15*\xd8;\xd6\xe05\x00\x9f\xbb\x90\x04\x06\xbe7\x1f\x00\x00\x00\x1c\x00\x00@\x05(\xcd\x99\xb9\xfa\x12geKS\xf6\x08\x87\xc9\xc3[\xcfg\xa8\xff'
 
@@ -60,24 +60,24 @@ assert raw(packet) == b'E\x00\x01L\x00\x01\x00\x00@\x11\xf5\xc3\xc0\xa8\x01\x82\
 = Dissect Initiator Request
 
 a = Ether(b'\x00!k\x91#H\xb8\'\xeb\xa6XI\x08\x00E\x00\x01\x14u\xc2@\x00@\x11@\xb6\xc0\xa8\x01\x02\xc0\xa8\x01\x0e\x01\xf4\x01\xf4\x01\x00=8\xeahM!Yz\xfd6\x00\x00\x00\x00\x00\x00\x00\x00! "\x08\x00\x00\x00\x00\x00\x00\x00\xf8"\x00\x00(\x00\x00\x00$\x01\x01\x00\x03\x03\x00\x00\x0c\x01\x00\x00\x0f\x80\x0e\x00\x80\x03\x00\x00\x08\x02\x00\x00\x05\x00\x00\x00\x08\x04\x00\x00\x13(\x00\x00H\x00\x13\x00\x002\xc6\xdf\xfe\\C\xb0\xd5\x81\x1f~\xaa\xa8L\x9fx\xbf\x99\xb9\x06\x9c+\x07.\x0b\x82\xf4k\xf6\xf6m\xd4_\x97\xef\x89\xee(_\xd5\xdfRzDwkR\x9f\xc9\xd8\xa9\t\xd8B\xa6\xfbY\xb9j\tS\x95ar)\x00\x00$\xb6UF-oKf\xf8r\xcc\xd7\xf0\xf4\xb4\x85w2\x92\x139\xcb\xaaR7\xed\xba$O&+h#)\x00\x00\x1c\x00\x00@\x04\x94\x9c\x9d\xb5s\x9du\xa9t\xa4\x9c\x18F\x186\x9b4\xb7\xf9B)\x00\x00\x1c\x00\x00@\x05>r\x1bF\xbe\x07\xd51\x11B]\x7f\x80\xd2\xc6\xe2 \xc6\x07.\x00\x00\x00\x10\x00\x00@/\x00\x01\x00\x02\x00\x03\x00\x04')
-assert a[IKEv2_payload_SA].prop.trans.transform_id == 15
-assert a[IKEv2_payload_Notify].next_payload == 41
-assert IP(a[IKEv2_payload_Notify].load).src == "70.24.54.155"
-assert IP(a[IKEv2_payload_Notify].payload.load).dst == "32.198.7.46"
+assert a[IKEv2_SA].prop.trans.transform_id == 15
+assert a[IKEv2_Notify].next_payload == 41
+assert IP(a[IKEv2_Notify].notify).src == "70.24.54.155"
+assert IP(a[IKEv2_Notify].payload.notify).dst == "32.198.7.46"
 
 = Dissect Responder Response
 
 b = Ether(b'\xb8\'\xeb\xa6XI\x00!k\x91#H\x08\x00E\x00\x01\x0c\xd2R@\x00@\x11\xe4-\xc0\xa8\x01\x0e\xc0\xa8\x01\x02\x01\xf4\x01\xf4\x00\xf8\x07\xdd\xeahM!Yz\xfd6\xd9\xfe*\xb2-\xac#\xac! " \x00\x00\x00\x00\x00\x00\x00\xf0"\x00\x00(\x00\x00\x00$\x01\x01\x00\x03\x03\x00\x00\x0c\x01\x00\x00\x0f\x80\x0e\x00\x80\x03\x00\x00\x08\x02\x00\x00\x05\x00\x00\x00\x08\x04\x00\x00\x13(\x00\x00H\x00\x13\x00\x00,f\xbe\xad\xb6\xce\x855\xd6!\x8c\xb4\x01\xaaZ\x1e\xb4\x03[\x97\xca\xdd\xaf67J\x97\x9c\x04F\xb8\x80\x05\x06\xbf\x9do\x95\tR2k\xf3\x01\x19\x13\xda\x93\xbb\x8e@\xf8\x157k\xe1\xa0h\x01\xc0\xa6>;T)\x00\x00$\x9e]&sy\xe6\x81\xe7\xd3\x8d\x81\xc7\x10\xd3\x83@\x1d\xe7\xe3`{\x92m\x90\xa9\x95\x8a\xdc\xb5(1\xaa)\x00\x00\x1c\x00\x00@\x04z\x07\x85\'=Y 8)\xa6\x97U\x0f1\xcb\xb9N\xb7+C)\x00\x00\x1c\x00\x00@\x05\xc3\xe5\x8a\x8c\xc9\x93<\xe0\xb7\x8f*P\xe8\xde\x80\x13N\x12\xce1\x00\x00\x00\x08\x00\x00@\x14')
 assert b[UDP].dport == 500
-assert b[IKEv2_payload_KE].load == b',f\xbe\xad\xb6\xce\x855\xd6!\x8c\xb4\x01\xaaZ\x1e\xb4\x03[\x97\xca\xdd\xaf67J\x97\x9c\x04F\xb8\x80\x05\x06\xbf\x9do\x95\tR2k\xf3\x01\x19\x13\xda\x93\xbb\x8e@\xf8\x157k\xe1\xa0h\x01\xc0\xa6>;T'
-assert b[IKEv2_payload_Nonce].payload.type == 16388
-assert b[IKEv2_payload_Nonce].payload.payload.payload.next_payload == 0
+assert b[IKEv2_KE].ke == b',f\xbe\xad\xb6\xce\x855\xd6!\x8c\xb4\x01\xaaZ\x1e\xb4\x03[\x97\xca\xdd\xaf67J\x97\x9c\x04F\xb8\x80\x05\x06\xbf\x9do\x95\tR2k\xf3\x01\x19\x13\xda\x93\xbb\x8e@\xf8\x157k\xe1\xa0h\x01\xc0\xa6>;T'
+assert b[IKEv2_Nonce].payload.type == 16388
+assert b[IKEv2_Nonce].payload.payload.payload.next_payload == 0
 
 = Dissect Encrypted Initiator Request
 
 a = Ether(b"\x00!k\x91#H\xb8'\xeb\xa6XI\x08\x00E\x00\x00Yu\xe2@\x00@\x11AQ\xc0\xa8\x01\x02\xc0\xa8\x01\x0e\x01\xf4\x01\xf4\x00E}\xe0\xeahM!Yz\xfd6\xd9\xfe*\xb2-\xac#\xac. %\x08\x00\x00\x00\x02\x00\x00\x00=*\x00\x00!\xcc\xa0\xb3]\xe5\xab\xc5\x1c\x99\x87\xcb\xf1\xf5\xec\xff!\x0e\xb7g\xcd\xb8Qy8;\x96Mx\xe2")
-assert a[IKEv2_payload_Encrypted].next_payload == 42
-assert a[IKEv2_payload_Encrypted].load == b'\xcc\xa0\xb3]\xe5\xab\xc5\x1c\x99\x87\xcb\xf1\xf5\xec\xff!\x0e\xb7g\xcd\xb8Qy8;\x96Mx\xe2'
+assert a[IKEv2_Encrypted].next_payload == 42
+assert a[IKEv2_Encrypted].load == b'\xcc\xa0\xb3]\xe5\xab\xc5\x1c\x99\x87\xcb\xf1\xf5\xec\xff!\x0e\xb7g\xcd\xb8Qy8;\x96Mx\xe2'
 
 = Dissect Encrypted Responder Response
 
@@ -85,29 +85,27 @@ b = Ether(b"\xb8'\xeb\xa6XI\x00!k\x91#H\x08\x00E\x00\x00Q\xd5y@\x00@\x11\xe1\xc1
 assert b[IKEv2].init_SPI == b'\xeahM!Yz\xfd6'
 assert b[IKEv2].resp_SPI == b'\xd9\xfe*\xb2-\xac#\xac'
 assert b[IKEv2].next_payload == 46
-assert b[IKEv2_payload_Encrypted].load == b'\xa8\x0c\x95{\xac\x15\xc3\xf8\xaf\xdf1Z\x81\xccK|@\xe8f\rD'
+assert b[IKEv2_Encrypted].load == b'\xa8\x0c\x95{\xac\x15\xc3\xf8\xaf\xdf1Z\x81\xccK|@\xe8f\rD'
 
 = Test Certs detection
 
-a = IKEv2_payload_CERT(raw(IKEv2_payload_CERT_CRL()))
-b = IKEv2_payload_CERT(raw(IKEv2_payload_CERT_STR()))
-c = IKEv2_payload_CERT(raw(IKEv2_payload_CERT_CRT()))
+a = IKEv2_CERT(raw(IKEv2_CERT(cert_encoding = "X.509 Certificate - Signature")))
+b = IKEv2_CERT(raw(IKEv2_CERT(cert_encoding ="Certificate Revocation List (CRL)")))
+c = IKEv2_CERT(raw(IKEv2_CERT(cert_encoding = 0)))
 
-assert isinstance(a, IKEv2_payload_CERT_CRL)
-assert isinstance(b, IKEv2_payload_CERT_STR)
-assert isinstance(c, IKEv2_payload_CERT_CRT)
+assert a.cert_encoding == 4
+assert isinstance(a.cert_data, X509_Cert)
+assert b.cert_encoding == 7
+assert isinstance(b.cert_data, X509_CRL)
+assert c.cert_encoding == 0
+assert isinstance(c.cert_data, bytes)
+
 
 = Test Certs length calculations
 ## For the length calculations see Figure 12 in RFC 7296
-a = IKEv2_payload_CERT_CRT(raw(IKEv2_payload_CERT_CRT()))
-assert len(a.x509Cert) > 0
-assert a.length == len(a.x509Cert) + 5
 
-b = IKEv2_payload_CERT_CRL(raw(IKEv2_payload_CERT_CRL()))
-assert len(b.x509CRL) > 0
-assert b.length == len(b.x509CRL) + 5
-
-c = IKEv2_payload_CERT_STR(raw(IKEv2_payload_CERT_STR(cert_data=b'dummy')))
+assert a.length == len(a.cert_data) + 5
+assert b.length == len(b.cert_data) + 5
 assert c.length == len(c.cert_data) + 5
 
 = Test TrafficSelector detection
@@ -122,30 +120,30 @@ assert isinstance(c, EncryptedTrafficSelector)
 
 = Test TSi with multiple TrafficSelector dissection
 
-a = IKEv2_payload_TSi()
+a = IKEv2_TSi()
 a.traffic_selector.extend(IPv4TrafficSelector() * 2)
 a.traffic_selector.extend(IPv6TrafficSelector() * 3)
 assert len(a.traffic_selector) == 5
 
-b = IKEv2_payload_TSi(raw(a))
+b = IKEv2_TSi(raw(a))
 assert len(b.traffic_selector) == 5
 
 = Test automatic calculation of number_of_TSs field
 
-a = IKEv2_payload_TSi(traffic_selector=IPv4TrafficSelector() * 2)
-b = IKEv2_payload_TSi(raw(a))
+a = IKEv2_TSi(traffic_selector=IPv4TrafficSelector() * 2)
+b = IKEv2_TSi(raw(a))
 assert b.number_of_TSs == 2
 
-c = IKEv2_payload_TSr(traffic_selector=IPv4TrafficSelector() * 2)
-d = IKEv2_payload_TSr(raw(c))
+c = IKEv2_TSr(traffic_selector=IPv4TrafficSelector() * 2)
+d = IKEv2_TSr(raw(c))
 assert d.number_of_TSs == 2
 
-= IKEv2_payload_Encrypted_Fragment, simple tests
+= IKEv2_Encrypted_Fragment, simple tests
 
 s = b"\x00\x00\x00\x08\x00\x01\x00\x01"
-assert raw(IKEv2_payload_Encrypted_Fragment()) == s
+assert raw(IKEv2_Encrypted_Fragment()) == s
 
-p = IKEv2_payload_Encrypted_Fragment(s)
+p = IKEv2_Encrypted_Fragment(s)
 assert p.length == 8 and p.frag_number == 1
 
 
@@ -376,40 +374,40 @@ frames = [
             id=0,
             length=300
         ) /
-        IKEv2_payload_SA(
+        IKEv2_SA(
             next_payload='KE',
-            res=0,
+            flags='',
             length=40,
-            prop=IKEv2_payload_Proposal(
-                next_payload='last',
-                res=0,
+            prop=IKEv2_Proposal(
+                next_payload='None',
+                flags='',
                 length=36,
                 proposal=1,
-                proto='IKEv2',
+                proto='IKE',
                 SPIsize=0,
                 trans_nb=3,
                 SPI='',
                 trans=(
-                    IKEv2_payload_Transform(
+                    IKEv2_Transform(
                         next_payload='Transform',
-                        res=0,
+                        flags='',
                         length=12,
                         transform_type='Encryption',
                         res2=0,
                         transform_id='AES-GCM-16ICV',
                         key_length=256
                     ) /
-                    IKEv2_payload_Transform(
+                    IKEv2_Transform(
                         next_payload='Transform',
-                        res=0,
+                        flags='',
                         length=8,
                         transform_type='PRF',
                         res2=0,
                         transform_id='PRF_HMAC_SHA2_256'
                     ) /
-                    IKEv2_payload_Transform(
-                        next_payload='last',
-                        res=0,
+                    IKEv2_Transform(
+                        next_payload='None',
+                        flags='',
                         length=8,
                         transform_type='GroupDesc',
                         res2=0,
@@ -418,73 +416,73 @@ frames = [
                 )
             )
         ) /
-        IKEv2_payload_KE(
+        IKEv2_KE(
             next_payload='Nonce',
-            res=0,
+            flags='',
             length=72,
             group='256randECPgr',
             res2=0,
-            load=b'\xdb%1xD\x0c\xe7v\xa7\x94\x13<\xb8\xb6\x9e^\xb0ts56W\x0cd\xd7\xb60T\x9c\x89\x9c\x07\x12\xd8(\xb3qhP\x08\x85\xe0Q\x02Ex\xaf\xc7\\\x10\x1fs\xb8\x94<\xadb\xd7J0\xf2\xbe\x1f\xca'
+            ke=b'\xdb%1xD\x0c\xe7v\xa7\x94\x13<\xb8\xb6\x9e^\xb0ts56W\x0cd\xd7\xb60T\x9c\x89\x9c\x07\x12\xd8(\xb3qhP\x08\x85\xe0Q\x02Ex\xaf\xc7\\\x10\x1fs\xb8\x94<\xadb\xd7J0\xf2\xbe\x1f\xca'
         ) /
-        IKEv2_payload_Nonce(
+        IKEv2_Nonce(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=44,
-            load=b'\t\xcbS\x8b,=\xbdM\x0b\xb0\xee\xc8\xd3\x18\xcb\x80\x1a\x9bG\x15\xb2\x07\x82\x8d\x9b_\xf1\xf4\xecd\xedX\x867\x07\xbc\xf1L\xcf\x05'
+            nonce=b'\t\xcbS\x8b,=\xbdM\x0b\xb0\xee\xc8\xd3\x18\xcb\x80\x1a\x9bG\x15\xb2\x07\x82\x8d\x9b_\xf1\xf4\xecd\xedX\x867\x07\xbc\xf1L\xcf\x05'
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=20,
             vendorID=b'\xebL\x1bx\x8a\xfdJ\x9c\xb7s\nh\xd5lS!'
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=20,
             vendorID=b'\xc6\x1b\xac\xa1\xf1\xa6\x0c\xc1\x08\x00\x00\x00\x00\x00\x00\x00'
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=24,
             vendorID=b'@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3\xc0\x00\x00\x00'
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='Notify',
-            res=0,
+            flags='',
             length=20,
             vendorID=b'@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3'
         ) /
-        IKEv2_payload_Notify(
+        IKEv2_Notify(
             next_payload='Notify',
-            res=0,
+            flags='',
             length=8,
             proto='Reserved',
             SPIsize=0,
             type='IKEV2_FRAGMENTATION_SUPPORTED',
             SPI=b'',
-            load=b''
+            notify=b''
         ) /
-        IKEv2_payload_Notify(
+        IKEv2_Notify(
             next_payload='Notify',
-            res=0,
+            flags='',
             length=8,
             proto='Reserved',
             SPIsize=0,
             type='REDIRECT_SUPPORTED',
             SPI=b'',
-            load=b''
+            notify=b''
         ) /
-        IKEv2_payload_Notify(
+        IKEv2_Notify(
             next_payload='None',
-            res=0,
+            flags='',
             length=16,
             proto='Reserved',
             SPIsize=0,
             type='SIGNATURE_HASH_ALGORITHMS',
             SPI='',
-            load=b'\x00\x01\x00\x02\x00\x03\x00\x04'
+            notify=b'\x00\x01\x00\x02\x00\x03\x00\x04'
         )
     ),
     (
@@ -522,40 +520,40 @@ frames = [
             id=0,
             length=305
         ) /
-        IKEv2_payload_SA(
+        IKEv2_SA(
             next_payload='KE',
-            res=0,
+            flags='',
             length=40,
-            prop=IKEv2_payload_Proposal(
-                next_payload='last',
-                res=0,
+            prop=IKEv2_Proposal(
+                next_payload='None',
+                flags='',
                 length=36,
                 proposal=1,
-                proto='IKEv2',
+                proto='IKE',
                 SPIsize=0,
                 trans_nb=3,
                 SPI='',
                 trans=(
-                    IKEv2_payload_Transform(
+                    IKEv2_Transform(
                         next_payload='Transform',
-                        res=0,
+                        flags='',
                         length=12,
                         transform_type='Encryption',
                         res2=0,
                         transform_id='AES-GCM-16ICV',
                         key_length=256
                     ) /
-                    IKEv2_payload_Transform(
+                    IKEv2_Transform(
                         next_payload='Transform',
-                        res=0,
+                        flags='',
                         length=8,
                         transform_type='PRF',
                         res2=0,
                         transform_id='PRF_HMAC_SHA2_256'
                     ) /
-                    IKEv2_payload_Transform(
-                        next_payload='last',
-                        res=0,
+                    IKEv2_Transform(
+                        next_payload='None',
+                        flags='',
                         length=8,
                         transform_type='GroupDesc',
                         res2=0,
@@ -564,74 +562,74 @@ frames = [
                 )
             )
         ) /
-        IKEv2_payload_KE(
+        IKEv2_KE(
             next_payload='Nonce',
-            res=0,
+            flags='',
             length=72,
             group='256randECPgr',
             res2=0,
-            load=b'\x1d\x9c\xd5\x97L\x95\x0c\x95\xe0TD\x83\xfb\x1fz\x912\xf5\xfe\x89Y\xc0\x9a\xb3\xa5Lw\x9f\xf2\xbc\xf4R*\x03\r\xc3;\x9d]\xdf\xeb\x99\xe0(\xc0\xe8\xba}\x80\xdf\xdc\xf1+\x15\x16\xdb\xe1\x80\xe6\xae\xc6dB\x8b'
+            ke=b'\x1d\x9c\xd5\x97L\x95\x0c\x95\xe0TD\x83\xfb\x1fz\x912\xf5\xfe\x89Y\xc0\x9a\xb3\xa5Lw\x9f\xf2\xbc\xf4R*\x03\r\xc3;\x9d]\xdf\xeb\x99\xe0(\xc0\xe8\xba}\x80\xdf\xdc\xf1+\x15\x16\xdb\xe1\x80\xe6\xae\xc6dB\x8b'
         ) /
-        IKEv2_payload_Nonce(
+        IKEv2_Nonce(
             next_payload='CERTREQ',
-            res=0,
+            flags='',
             length=44,
-            load=b'\x1d\x10}\xc5\xa7F=\xa7\xd7a\x01A9\xfb8\x1a\xf9\xcd;\x8c\x01\x81\xe6\xcd6\xa8\xae\x10^U\xaa\x7f\xe7\x1f]\xb1\xd3l)\x15'
+            nonce=b'\x1d\x10}\xc5\xa7F=\xa7\xd7a\x01A9\xfb8\x1a\xf9\xcd;\x8c\x01\x81\xe6\xcd6\xa8\xae\x10^U\xaa\x7f\xe7\x1f]\xb1\xd3l)\x15'
         ) /
-        IKEv2_payload_CERTREQ(
+        IKEv2_CERTREQ(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=5,
-            cert_type='X.509 Certificate - Signature',
-            cert_data=b''
+            cert_encoding='X.509 Certificate - Signature',
+            cert_authority=b''
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=24,
             vendorID=b'@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3\xc0\x00\x00\x00'
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=20,
             vendorID=b'@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3'
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=20,
             vendorID=b'\xc6\xf5z\xc3\x98\xf4\x93 \x81E\xb7X\x1e\x87\x89\x83'
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='Notify',
-            res=0,
+            flags='',
             length=20,
             vendorID=b'\x85\x81w\x03\xc6\xe3 \xd2\xaeZM\xd0 V\xc6\xd7'
         ) /
-        IKEv2_payload_Notify(
+        IKEv2_Notify(
             next_payload='Notify',
-            res=0,
+            flags='',
             length=8,
             proto='Reserved',
             SPIsize=0,
             type='IKEV2_FRAGMENTATION_SUPPORTED',
             SPI=b'',
-            load=b''
+            notify=b''
         ) /
-        IKEv2_payload_Notify(
+        IKEv2_Notify(
             next_payload='Notify',
-            res=0,
+            flags='',
             length=16,
             proto='Reserved',
             SPIsize=0,
             type='SIGNATURE_HASH_ALGORITHMS',
             SPI=b'',
-            load=b'\x00\x01\x00\x02\x00\x03\x00\x04'
+            notify=b'\x00\x01\x00\x02\x00\x03\x00\x04'
         ) /
-        IKEv2_payload_Notify(
+        IKEv2_Notify(
             next_payload='None',
-            res=0,
+            flags='',
             length=8,
             proto='Reserved',
             SPIsize=0,
@@ -665,9 +663,9 @@ frames = [
             id=1,
             length=1280
         ) /
-        IKEv2_payload_Encrypted(
+        IKEv2_Encrypted(
             next_payload='IDi',
-            res=0,
+            flags='',
             length=1252,
             load = ike_auth_request_encrypted_payload
         )
@@ -699,9 +697,9 @@ frames = [
             id=1,
             length=1272
         ) /
-        IKEv2_payload_Encrypted(
+        IKEv2_Encrypted(
             next_payload='IDr',
-            res=0,
+            flags='',
             length=1244,
             load=ike_auth_response_encrypted_payload
         )
@@ -768,18 +766,18 @@ frames = [
             id=1,
             length=1280
         ) /
-        IKEv2_payload_IDi(
+        IKEv2_IDi(
             next_payload='CERT',
-            res=0,
+            flags='',
             length=18,
             IDtype='Email_addr',
             res2=0x0,
             ID='ikev2-cert'
         ) /
-        IKEv2_payload_CERT_CRT(
-            next_payload='Notify', res=0, length=732,
-            cert_type='X.509 Certificate - Signature',
-            x509Cert=X509_Cert(
+        IKEv2_CERT(
+            next_payload='Notify', flags='', length=732,
+            cert_encoding='X.509 Certificate - Signature',
+            cert_data=X509_Cert(
                 tbsCertificate=X509_TBSCertificate(
                     version=ASN1_INTEGER(2),
                     serialNumber=ASN1_INTEGER(0x1000013),
@@ -898,44 +896,44 @@ frames = [
                 )
             )
         ) /
-        IKEv2_payload_Notify(
+        IKEv2_Notify(
             next_payload='Notify',
-            res=0,
+            flags='',
             length=8,
             proto='IKE',
             SPIsize=0,
             type='INITIAL_CONTACT',
             SPI='',
-            load=''
+            notify=''
         ) /
-        IKEv2_payload_Notify(
+        IKEv2_Notify(
             next_payload='CERTREQ',
-            res=0,
+            flags='',
             length=8,
             proto='IKE',
             SPIsize=0,
             type='HTTP_CERT_LOOKUP_SUPPORTED',
             SPI='',
-            load=''
+            notify=''
         ) /
-        IKEv2_payload_CERTREQ(
+        IKEv2_CERTREQ(
             next_payload='AUTH',
-            res=0,
+            flags='',
             length=65,
-            cert_type='X.509 Certificate - Signature',
-            cert_data=b'\x91\xc1\xdc\x0f*\x8f\x0e;\xd7\xda\x99\x1aC\xa3\x92&5^B)\xbc\xb6*\x0e\x9d\xe9y\xfd\xa8d\xe3\xf0d`\xdc\xaa\xff\x85\x07Y\xf4\x89V#8e!N\x9a\x10\xe67oLY\xb5\xc0/6m'
+            cert_encoding='X.509 Certificate - Signature',
+            cert_authority=b'\x91\xc1\xdc\x0f*\x8f\x0e;\xd7\xda\x99\x1aC\xa3\x92&5^B)\xbc\xb6*\x0e\x9d\xe9y\xfd\xa8d\xe3\xf0d`\xdc\xaa\xff\x85\x07Y\xf4\x89V#8e!N\x9a\x10\xe67oLY\xb5\xc0/6m'
         ) /
-        IKEv2_payload_AUTH(
+        IKEv2_AUTH(
             next_payload='CP',
-            res=0,
+            flags='',
             length=92,
             auth_type='Digital Signature',
             res2=0x0,
             load=b'\x0c0\n\x06\x08*\x86H\xce=\x04\x03\x020E\x02!\x00\xc1Hj\xb5\xb3\xdbL\x8b\x08\xf3\xae\x06\x13 \x10L\x82o\xb0\x80;\xa1\xe6\xe3\rX\xc8\x00\x0b\xacQB\x02 Xe\xeaA\xbc\x99\xe0\xad\xfa(Vw\x0e\xfa\xffS\x0f.\x85P\xda\x1d\x86\xf8PM\xf0\x04\x02_\xb1-'
         ) /
-        IKEv2_payload_CP(
+        IKEv2_CP(
             next_payload='SA',
-            res=0,
+            flags='',
             length=128,
             CFGType='CFG_REQUEST',
             res2=0x0,
@@ -969,26 +967,26 @@ frames = [
                 ConfigurationAttribute(type=28682, length=6, value='debian')
             ]
         ) /
-        IKEv2_payload_SA(
+        IKEv2_SA(
             next_payload='TSi',
-            res=0,
+            flags='',
             length=36,
-            prop=IKEv2_payload_Proposal(
-                next_payload='last',
-                res=0,
+            prop=IKEv2_Proposal(
+                next_payload='None',
+                flags='',
                 length=32,
                 proposal=1,
                 proto='ESP',
                 SPIsize=4,
                 trans_nb=2,
                 SPI=b'\xc1\xa9ek',
-                trans=IKEv2_payload_Transform(res=0, length=12, transform_type='Encryption', res2=0, transform_id='AES-GCM-16ICV', key_length=128) /
-                      IKEv2_payload_Transform(res=0, length=8, transform_type='Extended Sequence Number', res2=0, transform_id='No ESN')
+                trans=IKEv2_Transform(flags='', length=12, transform_type='Encryption', res2=0, transform_id='AES-GCM-16ICV', key_length=128) /
+                      IKEv2_Transform(flags='', length=8, transform_type='Extended Sequence Number', res2=0, transform_id='No ESN')
             )
         ) /
-        IKEv2_payload_TSi(
+        IKEv2_TSi(
             next_payload='TSr',
-            res=0,
+            flags='',
             length=24,
             number_of_TSs=1,
             res2=0x0,
@@ -1002,9 +1000,9 @@ frames = [
                                     ending_address_v4='255.255.255.255')
             ]
         ) /
-        IKEv2_payload_TSr(
+        IKEv2_TSr(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=24,
             number_of_TSs=1,
             res2=0x0,
@@ -1019,37 +1017,37 @@ frames = [
                     ending_address_v4='192.168.225.255')
             ]
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=20,
             vendorID=b'\xaf\xca\xd7\x13h\xa1\xf1\xc9k\x86\x96\xfcwW\x01\x00'
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=20,
             vendorID=b'\xc6\x1b\xac\xa1\xf1\xa6\x0c\xc2\x08\x00\x00\x00\x00\x00\x00\x00'
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='Notify',
-            res=0,
+            flags='',
             length=28,
             vendorID=b'NcP\n\t\xb8\xe8<\x80\xb6\x936&\x8e\xc8\xf6\x00\x0c)0\x10\x9e\x00\x00'
         ) /
-        IKEv2_payload_Notify(
+        IKEv2_Notify(
             next_payload='Notify',
-            res=0,
+            flags='',
             length=8,
             proto='Reserved',
             SPIsize=0,
             type='MOBIKE_SUPPORTED',
             SPI='',
-            load=''
+            notify=''
         ) /
-        IKEv2_payload_Notify(
+        IKEv2_Notify(
             next_payload=None,
-            res=0,
+            flags='',
             length=8,
             proto='Reserved',
             SPIsize=0,
@@ -1119,20 +1117,20 @@ frames = [
             id=1,
             length=1272
         ) /
-        IKEv2_payload_IDr(
+        IKEv2_IDr(
             next_payload='CERT',
-            res=0,
+            flags='',
             length=126,
             IDtype=9,
             res2=0x0,
             ID=b'0t1\x0b0\t\x06\x03U\x04\x06\x13\x02DE1\x1a0\x18\x06\x03U\x04\n\x0c\x11Demo Organization1\x100\x0e\x06\x03U\x04\x0b\x0c\x07Demo OU1\x100\x0e\x06\x03U\x04\x03\x0c\x07Server11%0#\x06\t*\x86H\x86\xf7\r\x01\t\x01\x16\x16server1@demo.ncp-e.com'
         ) /
-        IKEv2_payload_CERT_CRT(
+        IKEv2_CERT(
             next_payload='AUTH',
-            res=0,
+            flags='',
             length=742,
-            cert_type='X.509 Certificate - Signature',
-            x509Cert=X509_Cert(
+            cert_encoding='X.509 Certificate - Signature',
+            cert_data=X509_Cert(
                 tbsCertificate=X509_TBSCertificate(
                     version=ASN1_INTEGER(2),
                     serialNumber=ASN1_INTEGER(0x1000016),
@@ -1256,17 +1254,17 @@ frames = [
                 )
             )
         ) /
-        IKEv2_payload_AUTH(
+        IKEv2_AUTH(
             next_payload='CP',
-            res=0,
+            flags='',
             length=92,
             auth_type='Digital Signature',
             res2=0x0,
             load=b'\x0c0\n\x06\x08*\x86H\xce=\x04\x03\x020E\x02 x\xd6\xa7\xe8\xb3f\xbd\xe8\xf9\xc1/&\x9f+\xf6A\x16\x95\x11\xceb\x1a\x90\x05\x9a\xed\x0f\xeaGS\x8b\x0e\x02!\x00\x8c\xf3\x08\x13\xd15\xaa\xfe\x8eM\xc0\xfd\xf2\xfdYZ\x98g\xf1\xa6\x08=\x1e\x01\xa1I\xc9\x05\xec\xf9\xbf\xe6'
         ) /
-        IKEv2_payload_CP(
+        IKEv2_CP(
             next_payload='SA',
-            res=0,
+            flags='',
             length=92,
             CFGType='CFG_REPLY',
             res2=0x0,
@@ -1284,31 +1282,31 @@ frames = [
                 ConfigurationAttribute(type=28674, length=0)
             ]
         ) /
-        IKEv2_payload_SA(
+        IKEv2_SA(
             next_payload='Nonce',
-            res=0,
+            flags='',
             length=36,
-            prop=IKEv2_payload_Proposal(
-                res=0,
+            prop=IKEv2_Proposal(
+                flags='',
                 length=32,
                 proposal=1,
                 proto='ESP',
                 SPIsize=4,
                 trans_nb=2,
                 SPI=b'\xac\x0f\xaf\x03',
-                trans=IKEv2_payload_Transform(res=0, length=12, transform_type='Encryption', res2=0, transform_id='AES-GCM-16ICV', key_length=128) /
-                      IKEv2_payload_Transform(res=0, length=8, transform_type='Extended Sequence Number', res2=0, transform_id='No ESN')
+                trans=IKEv2_Transform(flags='', length=12, transform_type='Encryption', res2=0, transform_id='AES-GCM-16ICV', key_length=128) /
+                      IKEv2_Transform(flags='', length=8, transform_type='Extended Sequence Number', res2=0, transform_id='No ESN')
             )
         ) /
-        IKEv2_payload_Nonce(
+        IKEv2_Nonce(
             next_payload='TSi',
-            res=0,
+            flags='',
             length=44,
-            load=b'\xcf\x0eyPv]\xb7\xf77\x1d\xbb\xdf\xa1r\x04\x93\xc8<\x1b\xa4\xdc6\x17\xc3\x19*W\xb9(]\x9ac\n\xc7\x16F\x11\xfd\xf4,'
+            nonce=b'\xcf\x0eyPv]\xb7\xf77\x1d\xbb\xdf\xa1r\x04\x93\xc8<\x1b\xa4\xdc6\x17\xc3\x19*W\xb9(]\x9ac\n\xc7\x16F\x11\xfd\xf4,'
         ) /
-        IKEv2_payload_TSi(
+        IKEv2_TSi(
             next_payload='TSr',
-            res=0,
+            flags='',
             length=24,
             number_of_TSs=1,
             res2=0x0,
@@ -1324,9 +1322,9 @@ frames = [
                 )
             ]
         ) /
-        IKEv2_payload_TSr(
+        IKEv2_TSr(
             next_payload='VendorID',
-            res=0,
+            flags='',
             length=24,
             number_of_TSs=1,
             res2=0x0,
@@ -1342,15 +1340,15 @@ frames = [
                 )
             ]
         ) /
-        IKEv2_payload_VendorID(
+        IKEv2_VendorID(
             next_payload='Notify',
-            res=0,
+            flags='',
             length=20,
             vendorID=b'\xaf\xca\xd7\x13h\xa1\xf1\xc9k\x86\x96\xfcwW\x01\x00'
         ) /
-        IKEv2_payload_Notify(
+        IKEv2_Notify(
             next_payload='None',
-            res=0,
+            flags='',
             length=8,
             proto='Reserved',
             SPIsize=0,

@@ -1025,6 +1025,9 @@ class GTPDeletePDPContextResponse(Packet):
     name = "GTP Delete PDP Context Response"
     fields_desc = [PacketListField("IE_list", [], IE_Dispatcher)]
 
+    def answers(self, other):
+        return isinstance(other, GTPDeletePDPContextRequest)
+
 
 class GTPPDUNotificationRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
