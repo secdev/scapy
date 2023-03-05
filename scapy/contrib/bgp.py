@@ -12,7 +12,6 @@ BGP (Border Gateway Protocol).
 import struct
 import re
 import socket
-from typing import Any
 
 from scapy import pton_ntop
 from scapy.packet import Packet, Packet_metaclass, bind_layers
