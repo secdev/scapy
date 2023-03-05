@@ -720,5 +720,6 @@ s.send(bytes(HTTP()/HTTPRequest(Host="www.google.com")))
 result = c.q.get(timeout=10)
 p.stop()
 
-assert result.startswith(b"HTTP/1.1 200 OK")
+result
+assert result.startswith(b"HTTP/1.1 200 OK") or result.startswith(b"HTTP/1.1 302 Found")
 

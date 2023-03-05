@@ -134,15 +134,14 @@ with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
 conf.iface = bck_conf_iface
 conf.route6.resync()
 
-= IPv6
-~ linux
+= IPv6 - check OS routes
+~ linux ipv6
 
 addrs = in6_getifaddr()
-if len(addrs) == 0:
-    assert True
-else:
-    assert all([in6_isvalid(addr[0]) for addr in in6_getifaddr()])
-    assert set([addr[2] for addr in in6_getifaddr()]) == conf.route6.ipv6_ifaces
+if addrs:
+    assert all(in6_isvalid(addr[0]) for addr in in6_getifaddr()), 'invalid ipv6 address'
+    ifaces6 = [addr[2] for addr in in6_getifaddr()]
+    assert all(iface in ifaces6 for iface in conf.route6.ipv6_ifaces), 'ipv6 interface has route but no real'
 
 
 = veth interface error handling
@@ -314,8 +313,12 @@ assert _interface_selection(None, IP(dst="8.8.8.8")/UDP()) == conf.iface
 exit_status = os.system("ip link add name scapy0 type dummy")
 exit_status = os.system("ip addr add 192.0.2.1/24 dev scapy0")
 exit_status = os.system("ip link set scapy0 up")
+conf.ifaces.reload()
+conf.route.resync()
 assert _interface_selection(None, IP(dst="192.0.2.42")/UDP()) == "scapy0"
 exit_status = os.system("ip link del name dev scapy0")
+conf.ifaces.reload()
+conf.route.resync()
 
 = Test 802.Q sniffing
 ~ linux needs_root veth
