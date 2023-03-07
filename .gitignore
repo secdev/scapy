@@ -6,7 +6,6 @@ MANIFEST
 *.egg-info/
 test/*.html
 .coverage*
-coverage.xml
 .tox
 .ipynb_checkpoints
 .mypy_cache
