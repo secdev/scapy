@@ -7,6 +7,7 @@ byteorder
 cace
 cas
 cros
+delt
 doas
 doubleclick
 ether
@@ -25,6 +26,7 @@ referer
 ro
 ser
 singl
+slac
 te
 tim
 ue

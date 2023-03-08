@@ -197,7 +197,7 @@ _att_error_codes = {
     0x05: "insufficient auth",
     0x06: "unsupported req",
     0x07: "invalid offset",
-    0x08: "insuficient author",
+    0x08: "insufficient author",
     0x09: "prepare queue full",
     0x0a: "attr not found",
     0x0b: "attr not long",

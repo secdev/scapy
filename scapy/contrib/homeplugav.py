@@ -98,7 +98,7 @@ DefaultVendor = "Qualcomm"
 # Qualcomm Vendor Specific Management Message Types;                    #
 # from https://github.com/qca/open-plc-utils/blob/master/mme/qualcomm.h #
 #########################################################################
-# Commented commands are already in HPAVTypeList, the other have to be implemted  # noqa: E501
+# Commented commands are already in HPAVTypeList, the other have to be implemented  # noqa: E501
 QualcommTypeList = {  # 0xA000 : "VS_SW_VER",
     0xA004: "VS_WR_MEM",
     # 0xA008 : "VS_RD_MEM",
