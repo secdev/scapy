@@ -49,7 +49,7 @@ sock2.close()
 rx = sock1.recv()
 assert rx == CANFD(identifier=0x7ff,length=9,data=b'\x01\x02\x03\x04\x05\x06\x07\x08\xaa') / Padding(b"\x00" * (64 - 9))
 rx = sock1.recv()
-assert rx == CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+assert rx == CANFD(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08') / Padding(b"\x00" * (64 - 8))
 
 
 = CAN Socket send recv
