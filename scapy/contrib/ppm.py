@@ -22,6 +22,9 @@ class StrFieldWithSuffix(StrField):
         return x + self.suffix.encode()
     
     
+    def randval(self):
+        return scapy.volatile.RandString()
+    
 class StrEnumFieldWithSuffix(StrEnumField):
     __slots__ = ["enum", "suffix"]
     def __init__(
@@ -43,7 +46,8 @@ class StrEnumFieldWithSuffix(StrEnumField):
             return scapy.compat.bytes_encode(x)
         return x + self.suffix.encode()
 
-
+    def randval(self):
+        return scapy.volatile.RandString()
 
 class PPMHeader(Packet):
     """PPM Header"""
@@ -110,6 +114,9 @@ def test():
     triplet.b = str(0)
     ppm_test /=triplet
 
+    packet_fuzz = scapy.packet.fuzz(ppm_test)
+    states = packet_fuzz.prepare_combinations(2)
+
     generated = hexdump(ppm_test, dump=True)
 
     hex_encoded = (
@@ -126,5 +133,5 @@ def test():
     if generated != hex_decoded:
         raise ValueError("Generator error")
 
-
-test()
+if __name__ == "__main__":
+    test()
