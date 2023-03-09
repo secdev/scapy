@@ -14,9 +14,7 @@ from scapy.fields import (
     LEIntField,
     StrField,
     LEFieldLenField,
-    PacketListField,
     LELongField,
-    NBytesField,
 )
 from scapy.packet import Packet
 from scapy.utils import hexdump
