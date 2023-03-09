@@ -1400,7 +1400,7 @@ To build a small test environment in which you can send SOME/IP messages to and 
 
 #. | **Vsomeip setup**
 
-   Download the vsomeip library on the Rapsberry, apply the git patch so it can work with the newer boost libraries and then install it.
+   Download the vsomeip library on the Raspberry, apply the git patch so it can work with the newer boost libraries and then install it.
 
    ::
 
