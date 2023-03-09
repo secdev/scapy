@@ -50,4 +50,5 @@ test_script:
 
 after_test:
   # Run codecov
-  - "%PYTHON%\\python -m tox -e codecov"
+  - ps: $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri https://uploader.codecov.io/latest/windows/codecov.exe -Outfile codecov.exe
+  - codecov.exe
