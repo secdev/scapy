@@ -959,6 +959,7 @@ _dot11_info_elts_ids = {
     32: "Power Constraint",
     33: "Power Capability",
     36: "Supported Channels",
+    37: "Channel Switch Announcement",
     42: "ERP",
     45: "HT Capabilities",
     46: "QoS Capability",
@@ -966,6 +967,7 @@ _dot11_info_elts_ids = {
     50: "Extended Supported Rates",
     52: "Neighbor Report",
     61: "HT Operation",
+    74: "Overlapping BSS Scan Parameters",
     107: "Interworking",
     127: "Extendend Capabilities",
     191: "VHT Capabilities",
@@ -1434,6 +1436,36 @@ class Dot11EltMicrosoftWPA(Dot11EltVendorSpecific):
     ] + Dot11EltRSN.fields_desc[2:8]
 
 
+# 802.11-2016 9.4.2.19
+
+class Dot11EltCSA(Dot11Elt):
+    name = "802.11 CSA Element"
+    fields_desc = [
+        ByteEnumField("ID", 37, _dot11_id_enum),
+        ByteField("len", 3),
+        ByteField("mode", 0),
+        ByteField("new_channel", 0),
+        ByteField("channel_switch_count", 0)
+    ]
+
+
+# 802.11-2016 9.4.2.59
+
+class Dot11EltOBSS(Dot11Elt):
+    name = "802.11 OBSS Scan Parameters Element"
+    fields_desc = [
+        ByteEnumField("ID", 74, _dot11_id_enum),
+        ByteField("len", 14),
+        LEShortField("Passive_Dwell", 0),
+        LEShortField("Active_Dwell", 0),
+        LEShortField("Scan_Interval", 0),
+        LEShortField("Passive_Total_Per_Channel", 0),
+        LEShortField("Active_Total_Per_Channel", 0),
+        LEShortField("Delay", 0),
+        LEShortField("Activity_Threshold", 0),
+    ]
+
+
 ######################
 # 802.11 Frame types #
 ######################
@@ -1724,6 +1756,30 @@ class Dot11BSSTMResponse(Packet):
     ]
 
 
+# 802.11-2016 9.6.2.1
+
+class Dot11SpectrumManagement(Packet):
+    name = "802.11 Spectrum Management Action"
+    fields_desc = [
+        ByteEnumField("action", 0x00, {
+            0x00: "Measurement Request",
+            0x01: "Measurement Report",
+            0x02: "TPC Request",
+            0x03: "TPC Report",
+            0x04: "Channel Switch Announcement",
+        })
+    ]
+
+
+# 802.11-2016 9.6.2.6
+
+class Dot11CSA(Packet):
+    name = "Channel Switch Announcement Frame"
+    fields_desc = [
+        PacketField("CSA", Dot11EltCSA(), Dot11EltCSA),
+    ]
+
+
 ###################
 # 802.11 Security #
 ###################
@@ -1890,6 +1946,8 @@ bind_layers(Dot11Auth, Dot11Elt,)
 bind_layers(Dot11Elt, Dot11Elt,)
 bind_layers(Dot11TKIP, conf.raw_layer)
 bind_layers(Dot11CCMP, conf.raw_layer)
+bind_layers(Dot11Action, Dot11SpectrumManagement, category=0x00)
+bind_layers(Dot11SpectrumManagement, Dot11CSA, action=4)
 bind_layers(Dot11Action, Dot11WNM, category=0x0A)
 bind_layers(Dot11WNM, Dot11BSSTMRequest, action=7)
 bind_layers(Dot11WNM, Dot11BSSTMResponse, action=8)

@@ -6,8 +6,7 @@
 """
 Unit testing infrastructure for Scapy
 """
-
-
+import builtins
 import bz2
 import copy
 import code
@@ -26,8 +25,7 @@ import traceback
 import warnings
 import zlib
 
-from scapy.consts import WINDOWS, DARWIN
-import scapy.libs.six as six
+from scapy.consts import WINDOWS
 from scapy.config import conf
 from scapy.compat import base64_bytes, bytes_hex, plain_str
 from scapy.themes import DefaultTheme, BlackAndWhite
@@ -41,8 +39,6 @@ def _utf8_support():
     Check UTF-8 support for the output
     """
     try:
-        if six.PY2:
-            return False
         if WINDOWS:
             return (sys.stdout.encoding == "utf-8")
         return True
@@ -68,20 +64,17 @@ class Bunch:
 
 def retry_test(func):
     """Retries the passed function 3 times before failing"""
-    success = False
+    v = None
+    tb = None
     for _ in range(3):
         try:
-            result = func()
+            return func()
         except Exception:
             t, v, tb = sys.exc_info()
             time.sleep(1)
-        else:
-            success = True
-            break
-    if not success:
-        six.reraise(t, v, tb)
-    assert success
-    return result
+
+    if v and tb:
+        raise v.with_traceback(tb)
 
 
 def scapy_path(fname):
@@ -177,12 +170,12 @@ I4LDm5WP7s2NaRkhhV7A\nFVSD5zA8V/DJzfTk0QHmCT2wRgwPKjP60EqqlDUaST
 /i7kinChIXSAmRgA==\n""")
 
     def get_local_dict(cls):
-        return {x: y.name for (x, y) in six.iteritems(cls.__dict__)
+        return {x: y.name for (x, y) in cls.__dict__.items()
                 if isinstance(y, File)}
     get_local_dict = classmethod(get_local_dict)
 
     def get_URL_dict(cls):
-        return {x: y.URL for (x, y) in six.iteritems(cls.__dict__)
+        return {x: y.URL for (x, y) in cls.__dict__.items()
                 if isinstance(y, File)}
     get_URL_dict = classmethod(get_URL_dict)
 
@@ -211,7 +204,7 @@ class TestClass:
         return getattr(self, item)
 
     def add_keywords(self, kws):
-        if isinstance(kws, six.string_types):
+        if isinstance(kws, str):
             kws = [kws.lower()]
         for kwd in kws:
             kwd = kwd.lower()
@@ -298,11 +291,6 @@ class UnitTest(TestClass):
         self.expand = 1
 
     def prepare(self, theme):
-        if six.PY2:
-            self.test = self.test.decode("utf8", "ignore")
-            self.output = self.output.decode("utf8", "ignore")
-            self.comments = self.comments.decode("utf8", "ignore")
-            self.result = self.result.decode("utf8", "ignore")
         if self.result == "passed":
             self.fresult = theme.success(self.result)
         else:
@@ -461,18 +449,12 @@ def docs_campaign(test_campaign):
 
 
 #    COMPUTE CAMPAIGN DIGESTS    #
-if six.PY2:
-    def crc32(x):
-        return "%08X" % (0xffffffff & zlib.crc32(x))
+def crc32(x):
+    return "%08X" % (0xffffffff & zlib.crc32(bytearray(x, "utf8")))
 
-    def sha1(x):
-        return hashlib.sha1(x).hexdigest().upper()
-else:
-    def crc32(x):
-        return "%08X" % (0xffffffff & zlib.crc32(bytearray(x, "utf8")))
 
-    def sha1(x):
-        return hashlib.sha1(x.encode("utf8")).hexdigest().upper()
+def sha1(x):
+    return hashlib.sha1(x.encode("utf8")).hexdigest().upper()
 
 
 def compute_campaign_digests(test_campaign):
@@ -1107,11 +1089,6 @@ def main():
 
     # Disable tests if needed
 
-    # Discard Python3 tests when using Python2
-    if six.PY2:
-        KW_KO.append("python3_only")
-        if VERB > 2:
-            print(" " + arrow + " Python 2 mode")
     try:
         if NON_ROOT or os.getuid() != 0:  # Non root
             # Discard root tests
@@ -1127,11 +1104,6 @@ def main():
             print(" " + arrow + " libpcap mode")
 
     KW_KO.append("disabled")
-
-    # Process extras
-    if six.PY2 and DARWIN:
-        # On MacOS 12, Python 2.7 find_library is broken
-        KW_KO.append("libpcap")
 
     if ANNOTATIONS_MODE:
         try:
@@ -1153,7 +1125,7 @@ def main():
     for m in MODULES:
         try:
             mod = import_module(m)
-            six.moves.builtins.__dict__.update(mod.__dict__)
+            builtins.__dict__.update(mod.__dict__)
         except ImportError as e:
             raise getopt.GetoptError("cannot import [%s]: %s" % (m, e))
 
@@ -1176,7 +1148,7 @@ def main():
     UNIQUE = len(TESTFILES) == 1
 
     # Resolve tags and asterix
-    for prex in six.iterkeys(copy.copy(PREEXEC_DICT)):
+    for prex in copy.copy(PREEXEC_DICT).keys():
         if "*" in prex:
             pycode = PREEXEC_DICT[prex]
             del PREEXEC_DICT[prex]
@@ -1238,7 +1210,7 @@ def main():
     else:
         with open(OUTPUTFILE, "wb") as f:
             f.write(glob_output.encode("utf8", "ignore")
-                    if 'b' in f.mode or six.PY2 else glob_output)
+                    if 'b' in f.mode else glob_output)
 
     # Print end message
     if VERB > 2:

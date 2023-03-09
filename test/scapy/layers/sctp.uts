@@ -51,6 +51,23 @@ assert p.stream_seq == 0
 assert p.len == (len("data") + 16)
 assert p.data == b"data"
 
+= basic SCTPChunkIData - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x40\x02\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x64\x61\x74\x61"
+p = SCTP(blob).lastlayer()
+assert isinstance(p, SCTPChunkIData)
+assert p.reserved == 0
+assert p.delay_sack == 0
+assert p.unordered == 0
+assert p.beginning == 1
+assert p.ending == 0
+assert p.tsn == 0
+assert p.stream_id == 0
+assert p.reserved_16 == 0
+assert p.ppid_fsn == 2
+assert p.len == (len("data") + 20)
+assert p.data == b"data"
+
 = basic SCTPChunkInit - Dissection
 ~ sctp
 blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
@@ -252,6 +269,24 @@ assert isinstance(p, SCTPChunkAddressConfAck)
 assert p.flags == 0
 assert p.len == 8
 assert p.seq == 0
+assert p.params == []
+
+= basic SCTPChunkPad - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x84\x00\x00\x0b\x70\x61\x64\x00"
+p = SCTP(blob).lastlayer()
+assert isinstance(p, SCTPChunkPad)
+assert p.flags == 0
+assert p.len == 11
+assert p.padding == b'pad'
+
+= basic SCTPChunkReConfig - Dissection
+~ sctp
+blob = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x82\x00\x00\x04"
+p = SCTP(blob).lastlayer()
+assert isinstance(p, SCTPChunkReConfig)
+assert p.flags == 0
+assert p.len == 4
 assert p.params == []
 
 = SCTPChunkParamRandom - Consecutive calls

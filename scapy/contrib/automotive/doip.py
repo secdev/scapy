@@ -279,7 +279,8 @@ class DoIPSocket(StreamSocket):
         s = socket.socket(sock_family, socket.SOCK_STREAM)
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.connect((self.ip, self.port))
+        addrinfo = socket.getaddrinfo(self.ip, self.port, proto=socket.IPPROTO_TCP)
+        s.connect(addrinfo[0][-1])
         StreamSocket.__init__(self, s, DoIP)
 
     def _activate_routing(self,
@@ -323,6 +324,7 @@ class DoIPSocket6(DoIPSocket):
 
     Example:
         >>> socket = DoIPSocket6("2001:16b8:3f0e:2f00:21a:37ff:febf:edb9")
+        >>> socket_link_local = DoIPSocket6("fe80::30e8:80ff:fe07:6d43%eth1")
         >>> pkt = DoIP(payload_type=0x8001, source_address=0xe80, target_address=0x1000) / UDS() / UDS_RDBI(identifiers=[0x1000])
         >>> resp = socket.sr1(pkt, timeout=1)
     """  # noqa: E501

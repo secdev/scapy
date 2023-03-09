@@ -2,16 +2,6 @@
 DIR=$(dirname "$0")
 if [ -z "$PYTHON" ]
 then
-  ARGS=""
-  for arg in "$@"
-  do
-    case $arg
-    in
-      -2) PYTHON=python2;;
-      -3) PYTHON=python3;;
-       *) ARGS="$ARGS $arg";;
-    esac
-  done
   PYTHON=${PYTHON:-python3}
 fi
 $PYTHON --version > /dev/null 2>&1
@@ -20,4 +10,4 @@ then
   echo "WARNING: '$PYTHON' not found, using 'python' instead."
   PYTHON=python
 fi
-PYTHONPATH=$DIR exec "$PYTHON" -m scapy $ARGS
+PYTHONPATH=$DIR exec "$PYTHON" -m scapy $@
