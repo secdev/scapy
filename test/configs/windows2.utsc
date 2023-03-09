@@ -6,6 +6,7 @@
     "test\\contrib\\automotive\\gm\\*.uts",
     "test\\contrib\\automotive\\bmw\\*.uts",
     "test\\contrib\\automotive\\*.uts",
+    "test\\contrib\\automotive\\autosar\\*.uts",
     "tls\\tests_tls_netaccess.uts",
     "contrib\\*.uts"
   ],

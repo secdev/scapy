@@ -1,0 +1,43 @@
+% Regression tests for the PDUTransport / PDU layer
+
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
+
++ PDUTransport contrib tests
+
+= Load Contrib Layer
+
+load_contrib("automotive.autosar.pdu", globals_dict=globals())
+
+= Defaults test
+
+p = PDUTransport()
+assert p.pdus == [PDU()]
+
+p = PDU()
+assert p.pdu_id == 0
+assert p.pdu_payload_len == 0
+
+= Build test pdu_id
+p = PDU(bytes(PDU(pdu_id=0x11)))
+assert len(bytes(p)) == 8
+assert p.pdu_id == 0x11
+assert p.pdu_payload_len == 0
+
+= Build test pdu_payload_len
+p = PDU(bytes(PDU(pdu_payload_len=12)))
+assert len(p) == 8
+assert p.pdu_id == 0
+assert p.pdu_payload_len == 12
+
+= Build test id and payload len with data
+p = PDU(bytes(PDU(pdu_id=0x12, pdu_payload_len=2) / Raw(b'\x22\x33')))
+assert len(p) == 10
+assert p.pdu_id == 0x12
+assert p.pdu_payload_len == 2
+assert len(p['Raw']) == 2
+assert p['Raw'] == b'\x22\x33'
