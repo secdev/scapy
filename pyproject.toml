@@ -80,17 +80,13 @@ version = { attr="scapy.VERSION" }
 # coverage
 
 [tool.coverage.run]
-concurrency = [ "multiprocessing" ]
+concurrency = [ "thread", "multiprocessing" ]
+source = [ "scapy" ]
 omit = [
     # Scapy specific paths
     "scapy/tools/UTscapy.py",
-    "test/*",
     # Scapy external modules
     "scapy/libs/six.py",
     "scapy/libs/winpcapy.py",
     "scapy/libs/ethertypes.py",
-    # .tox specific path
-    ".tox/*",
-    # OS specific paths
-    "/private/*",
 ]
