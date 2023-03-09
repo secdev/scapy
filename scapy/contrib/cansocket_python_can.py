@@ -120,8 +120,7 @@ class _SocketsPool(object):
         """This calls the mux() function of all SocketMapper
         objects in this SocketPool
         """
-        now = time.monotonic()
-        if now - self.last_call < 0.001:
+        if time.monotonic() - self.last_call < 0.001:
             # Avoid starvation if multiple threads are doing selects, since
             # this object is singleton and all python-CAN sockets are using
             # the same instance and locking the same locks.
@@ -129,7 +128,7 @@ class _SocketsPool(object):
         with self.pool_mutex:
             for t in self.pool.values():
                 t.mux()
-        self.last_call = now
+        self.last_call = time.monotonic()
 
     def register(self, socket, *args, **kwargs):
         # type: (SocketWrapper, Tuple[Any, ...], Dict[str, Any]) -> None
@@ -221,6 +220,11 @@ class SocketWrapper(can_BusABC):
             return None, True
 
         with self.lock:
+            # It could be that 2 threads are using this same socket, so it's
+            # necessary to check again if the queue was emptied between the
+            # previous check and now
+            if len(self.rx_queue) == 0:
+                return None, True
             msg = self.rx_queue.popleft()
             return msg, True
 
@@ -308,6 +312,10 @@ class PythonCANSocket(SuperSocket):
         """
         ready_sockets = \
             [s for s in sockets if isinstance(s, PythonCANSocket) and
+            # checking the queue length without locking might sound
+            # dangerous, but for the purpose of this select, if another
+            # thread is reading the same socket, then even proper locking
+            # wouldn't help
              len(s.can_iface.rx_queue)]
         if not len(ready_sockets):
             # yield this thread to avoid starvation
