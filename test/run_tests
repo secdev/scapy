@@ -21,7 +21,6 @@ then
   do
     case $arg
     in
-      -2) PYTHON=python2;;
       -3) PYTHON=python3;;
        *) ARGS="$ARGS $arg";;
     esac

@@ -107,7 +107,6 @@ for out in expected_output:
 
 
 = Test extended scan
-~ python3_only
 
 def isotp_scan(sock,  # type: SuperSocket
                scan_range=range(0x7ff + 1),  # type: Iterable[int]
@@ -140,7 +139,6 @@ with patch.object(sys, "argv", testargs), patch.object(scapy.contrib.isotp, "iso
 
 
 = Test scan with piso flag
-~ python3_only
 
 def isotp_scan(sock,  # type: SuperSocket
                scan_range=range(0x7ff + 1),  # type: Iterable[int]

@@ -98,7 +98,7 @@ DefaultVendor = "Qualcomm"
 # Qualcomm Vendor Specific Management Message Types;                    #
 # from https://github.com/qca/open-plc-utils/blob/master/mme/qualcomm.h #
 #########################################################################
-# Commented commands are already in HPAVTypeList, the other have to be implemted  # noqa: E501
+# Commented commands are already in HPAVTypeList, the other have to be implemented  # noqa: E501
 QualcommTypeList = {  # 0xA000 : "VS_SW_VER",
     0xA004: "VS_WR_MEM",
     # 0xA008 : "VS_RD_MEM",
@@ -641,10 +641,10 @@ class WriteModuleDataRequest(Packet):
     def post_build(self, p, pay):
         if self.DataLen is None:
             _len = len(self.ModuleData)
-            p = p[:2] + struct.pack('h', _len) + p[4:]
+            p = p[:2] + struct.pack('<H', _len) + p[4:]
         if self.checksum is None and p:
             ck = chksum32(self.ModuleData)
-            p = p[:8] + struct.pack('I', ck) + p[12:]
+            p = p[:8] + struct.pack('<I', ck) + p[12:]
         return p + pay
 
 ######################################

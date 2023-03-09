@@ -1110,6 +1110,10 @@ class NBytesField(Field[int, List[int]]):
         return (s[self.sz:],
                 self.m2i(pkt, self.struct.unpack(s[:self.sz])))  # type: ignore
 
+    def randval(self):
+        # type: () -> RandNum
+        return RandNum(0, 2 ** (self.sz * 8) - 1)
+
 
 class XNBytesField(NBytesField):
     def i2repr(self, pkt, x):
@@ -1528,15 +1532,19 @@ class _PacketField(_StrField[K]):
         return fuzz(self.cls())  # type: ignore
 
 
-class PacketField(_PacketField[BasePacket]):
+class _PacketFieldSingle(_PacketField[K]):
     def any2i(self, pkt, x):
-        # type: (Optional[Packet], BasePacket) -> BasePacket
+        # type: (Optional[Packet], Any) -> K
         if x and pkt and hasattr(x, "add_parent"):
             cast("Packet", x).add_parent(pkt)
-        return super(PacketField, self).any2i(pkt, x)
+        return super(_PacketFieldSingle, self).any2i(pkt, x)
 
 
-class PacketLenField(_PacketField[Optional[BasePacket]]):
+class PacketField(_PacketFieldSingle[BasePacket]):
+    pass
+
+
+class PacketLenField(_PacketFieldSingle[Optional[BasePacket]]):
     __slots__ = ["length_from"]
 
     def __init__(self,
@@ -1553,7 +1561,7 @@ class PacketLenField(_PacketField[Optional[BasePacket]]):
                  pkt,  # type: Packet
                  s,  # type: bytes
                  ):
-        # type: (...) -> Tuple[bytes, Optional[Packet]]
+        # type: (...) -> Tuple[bytes, Optional[BasePacket]]
         len_pkt = self.length_from(pkt)
         i = None
         if len_pkt:

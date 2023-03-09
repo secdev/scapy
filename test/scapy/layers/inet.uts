@@ -362,7 +362,6 @@ options = pkt.options._fix()
 options
 
 = TCP random options - MD5 (#GH3777)
-~ python3_only
 random.seed(0x2813)
 pkt = TCP(options=RandTCPOptions()._fix())
 assert pkt.options[0][0] == "MD5"

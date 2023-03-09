@@ -2238,6 +2238,19 @@ assert len([p for p in RawPcapReader(fd)]) == 1
 for (x, y) in RawPcapReader(fd):
     pass
 
+= Check RawPcapReader with a Context Manager
+~ pcap
+
+filename = get_temp_file(fd=False)
+wrpcap(filename, [IP()/TCP(), IP()/UDP()])
+
+try:
+    with RawPcapReader(filename) as reader:
+        packet = next(reader, None)
+    assert True
+except TypeError:
+    assert False
+
 = Check RawPcapWriter
 ~ pcap
 

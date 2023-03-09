@@ -84,6 +84,29 @@ assert p4[DHCP].options[0] == ("mud-url", b"https://example.org")
 p5 = IP(s5)
 assert DHCP in p5
 assert p5[DHCP].options[0] == ("classless_static_routes", ["192.168.123.4/32:10.0.0.1", "169.254.254.0/24:10.0.1.2"])
+
+repr(DHCP(b"\x01\x00"))
+assert DHCP(b"\x01\x00").options == [b"\x01\x00"]
+assert DHCP(b"\x28\x00").options == [("NIS_domain", b"")]
+assert DHCP(b"\x37\x00").options == [("param_req_list", [])]
+assert DHCP(b"\x79\x00").options == [("classless_static_routes", [])]
+assert DHCP(b"\x01\x0C\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b").options == [("subnet_mask", "0.1.2.3", "4.5.6.7", "8.9.10.11")]
+
+b = b"\x79\x01\xff"
+p = DHCP(b)
+assert p.options == [b]
+p.clear_cache()
+assert raw(p) == b
+
+b = b"\x79\x0a\x21\x01\x02\x03\x04\x05\x06\x07\x08\x09"
+p = DHCP(b)
+assert p.options == [b]
+p.clear_cache()
+assert raw(p) == b
+
+b = b"\x79\x09\x20\x01\x02\x03\x04\x05\x06\x07\x08\xff"
+assert DHCP(b).options == [("classless_static_routes", ["1.2.3.4/32:5.6.7.8"]), "end"]
+
 = DHCPOptions
 
 # Issue #2786
@@ -93,7 +116,6 @@ assert DHCPOptions[46].name == "NetBIOS_node_type"
 assert DHCPRevOptions['static-routes'][0] == 33
 
 = Check that the dhcpd alias is properly defined and documented
-~ python3_only
 
 assert dhcpd
 import IPython

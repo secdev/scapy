@@ -476,15 +476,15 @@ class NetworkInterface_Win(NetworkInterface):
         self._check_npcap_requirement()
         return self._npcap_set("channel", str(channel))
 
-    def frequence(self):
+    def frequency(self):
         # type: () -> int
-        """Get the frequence of the interface.
+        """Get the frequency of the interface.
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11  # noqa: E501
         self._check_npcap_requirement()
         return int(self._npcap_get("freq"))
 
-    def setfrequence(self, freq):
+    def setfrequency(self, freq):
         # type: (int) -> bool
         """Set the channel of the interface (1-14):
         Only available with Npcap."""

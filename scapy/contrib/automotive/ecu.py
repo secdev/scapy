@@ -16,7 +16,7 @@ from types import GeneratorType
 from threading import Lock
 
 from scapy.compat import Any, Union, Iterable, Callable, List, Optional, \
-    Tuple, Type, cast, Dict, orb, ValuesView
+    Tuple, Type, cast, Dict, orb
 from scapy.packet import Raw, Packet
 from scapy.plist import PacketList
 from scapy.sessions import DefaultSession
@@ -39,7 +39,7 @@ class EcuState(object):
 
     def __init__(self, **kwargs):
         # type: (Any) -> None
-        self.__cache__ = None  # type: Optional[Tuple[List[EcuState], ValuesView[Any]]]  # noqa: E501
+        self.__cache__ = None  # type: Optional[Tuple[List[EcuState], List[Any]]]  # noqa: E501
         for k, v in kwargs.items():
             if isinstance(v, GeneratorType):
                 v = list(v)
@@ -47,18 +47,18 @@ class EcuState(object):
 
     def _expand(self):
         # type: () -> List[EcuState]
-        if self.__cache__ is None or \
-                self.__cache__[1] != self.__dict__.values():
+        values = list(self.__dict__.values())
+        keys = list(self.__dict__.keys())
+        if self.__cache__ is None or self.__cache__[1] != values:
             expanded = list()
-            for x in itertools.product(
-                    *[self._flatten(v) for v in self.__dict__.values()]):
+            for x in itertools.product(*[self._flatten(v) for v in values]):
                 kwargs = {}
-                for i, k in enumerate(self.__dict__.keys()):
+                for i, k in enumerate(keys):
                     if x[i] is None:
                         continue
                     kwargs[k] = x[i]
                 expanded.append(EcuState(**kwargs))
-            self.__cache__ = (expanded, self.__dict__.values())
+            self.__cache__ = (expanded, values)
         return self.__cache__[0]
 
     @staticmethod
