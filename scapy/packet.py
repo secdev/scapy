@@ -638,6 +638,22 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         return {fname: self.copy_field_value(fname, fval)
                 for fname, fval in six.iteritems(fields)}
 
+    def _raw_packet_cache_field_value(self, fld, val, copy=False):
+        # type: (AnyField, Any, bool) -> Optional[Any]
+        """Get a value representative of a mutable field to detect changes"""
+        _cpy = lambda x: fld.do_copy(x) if copy else x  # type: Callable[[Any], Any]
+        if fld.holds_packets:
+            # avoid copying whole packets (perf: #GH3894)
+            if fld.islist:
+                return [
+                    _cpy(x.fields) for x in val
+                ]
+            else:
+                return _cpy(val.fields)
+        elif fld.islist or fld.ismutable:
+            return _cpy(val)
+        return None
+
     def clear_cache(self):
         # type: () -> None
         """Clear the raw packet cache for the field and all its subfields"""
@@ -661,7 +677,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         """
         if self.raw_packet_cache is not None:
             for fname, fval in six.iteritems(self.raw_packet_cache_fields):
-                if self.getfieldval(fname) != fval:
+                fld, val = self.getfield_and_val(fname)
+                if self._raw_packet_cache_field_value(fld, val) != fval:
                     self.raw_packet_cache = None
                     self.raw_packet_cache_fields = None
                     self.wirelen = None
@@ -987,8 +1004,9 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 continue
             # We need to track fields with mutable values to discard
             # .raw_packet_cache when needed.
-            if f.islist or f.holds_packets or f.ismutable:
-                self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
+            if (f.islist or f.holds_packets or f.ismutable) and fval is not None:
+                self.raw_packet_cache_fields[f.name] = \
+                    self._raw_packet_cache_field_value(f, fval, copy=True)
             self.fields[f.name] = fval
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
