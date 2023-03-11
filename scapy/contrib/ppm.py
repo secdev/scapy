@@ -8,6 +8,8 @@ from scapy.packet import Packet
 from scapy.utils import hexdump
 import scapy.compat
 
+TRIPLET_COUNT = 0
+
 class StrFieldWithSuffix(StrField):
     __slots__ = ["suffix"]
     def __init__(self, name, default, suffix):
@@ -63,8 +65,15 @@ class PPMHeader(Packet):
 
 class RGBTriplets(Packet):
     """RGB triplets"""
-
     name = "RGB triplets"
+
+    def __init__(self, *args, **kargs):
+        global TRIPLET_COUNT
+
+        Packet.__init__(self, *args, **kargs)
+        TRIPLET_COUNT += 1
+        self.name += " - {}".format(TRIPLET_COUNT)
+
     fields_desc = [
         StrFieldWithSuffix("r", "0", suffix=" "),
         StrFieldWithSuffix("g", "0", suffix=" "),
@@ -73,46 +82,15 @@ class RGBTriplets(Packet):
 
 
 def test():
-    ppm_test = PPMHeader()
-    ppm_test.height = str(3)
-    ppm_test.width = str(2)
-    ppm_test.colors = str(255)
-
-    triplet = RGBTriplets()
-    triplet.r = str(255)
-    triplet.g = str(0)
-    triplet.b = str(0)
-    ppm_test /=triplet
-
-    triplet = RGBTriplets()
-    triplet.r = str(0)
-    triplet.g = str(255)
-    triplet.b = str(0)
-    ppm_test /=triplet
-
-    triplet = RGBTriplets()
-    triplet.r = str(0)
-    triplet.g = str(0)
-    triplet.b = str(255)
-    ppm_test /=triplet
-
-    triplet = RGBTriplets()
-    triplet.r = str(255)
-    triplet.g = str(255)
-    triplet.b = str(0)
-    ppm_test /=triplet
-
-    triplet = RGBTriplets()
-    triplet.r = str(255)
-    triplet.g = str(255)
-    triplet.b = str(255)
-    ppm_test /=triplet
-
-    triplet = RGBTriplets()
-    triplet.r = str(0)
-    triplet.g = str(0)
-    triplet.b = str(0)
-    ppm_test /=triplet
+    ppm_test = (
+        PPMHeader(height = str(3), width = str(2), colors = str(255)) / 
+        RGBTriplets(r = str(255), g = str(0), b = str(0)) / 
+        RGBTriplets(r = str(0),g = str(255),b = str(0)) / 
+        RGBTriplets(r = str(0),g = str(0),b = str(255)) / 
+        RGBTriplets(r = str(255),g = str(255),b = str(0)) / 
+        RGBTriplets(r = str(255), g = str(255),b = str(255)) / 
+        RGBTriplets(r = str(0),g = str(0),b = str(0))
+        )
 
     packet_fuzz = scapy.packet.fuzz(ppm_test)
     states = packet_fuzz.prepare_combinations(2)
