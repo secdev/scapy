@@ -726,7 +726,8 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         
         # If we provided fields in the constrcution, override the default ones
         for field_name in pkt.fields:
-            pkt.default_fields[field_name] = pkt.fields[field_name]
+            if not isinstance(pkt.default_fields[field_name], VolatileValue):
+                pkt.default_fields[field_name] = pkt.fields[field_name]
 
         for field_name in pkt.default_fields:
             if field_name in pkt.overloaded_fields:
