@@ -52,6 +52,9 @@ fi
 if python --version 2>&1 | grep -q PyPy
 then
   UT_FLAGS+=" -K not_pypy"
+  # Code coverage with PyPy makes it very, very slow. Tests work
+  # but take around 30minutes, so we disable it.
+  export DISABLE_COVERAGE=" "
 fi
 
 # libpcap
