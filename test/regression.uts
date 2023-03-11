@@ -225,7 +225,7 @@ except:
 assert not conf.use_bpf
 
 = Configuration conf.use_pcap
-~ linux
+~ linux libpcap
 
 if not conf.use_pcap:
     assert not conf.iface.provider.libpcap
