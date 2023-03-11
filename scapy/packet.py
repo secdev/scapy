@@ -743,11 +743,11 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             # We will want to fix this in the future... maybe make it into a min-max?
             # These are inside dot11
             if class_name in ['FlagValue', 'RSNCipherSuite', 'PMKIDListPacket']:
-                print(f"Skipping: {pkt._name}-{field_name} due to: {class_name}")
+                print(f"Skipping: {pkt.name}-{field_name} due to: {class_name}")
                 continue
 
-            # print(f"Adding: {pkt._name}-{field_name}")
-            relevant_fields.append(f"{pkt._name}-{field_name}")
+            # print(f"Adding: {pkt.name}-{field_name}")
+            relevant_fields.append(f"{pkt.name}-{field_name}")
 
         if type(pkt.payload).__name__ != 'NoPayload':
             relevant_fields += self.return_relevant_fields(pkt.payload)
