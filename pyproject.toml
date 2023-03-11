@@ -83,8 +83,8 @@ version = { attr="scapy.VERSION" }
 concurrency = [ "thread", "multiprocessing" ]
 source = [ "scapy" ]
 omit = [
-    # Scapy specific paths
-    "scapy/tools/UTscapy.py",
+    # Scapy tools
+    "scapy/tools/",
     # Scapy external modules
     "scapy/libs/six.py",
     "scapy/libs/winpcapy.py",

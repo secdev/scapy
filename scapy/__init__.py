@@ -158,7 +158,7 @@ def _version():
 
 VERSION = __version__ = _version()
 
-_tmp = re.search(r"[0-9.]+", VERSION)
+_tmp = re.search(r"([0-9]|\.[0-9])+", VERSION)
 VERSION_MAIN = _tmp.group() if _tmp is not None else VERSION
 
 if __name__ == "__main__":
