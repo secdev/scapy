@@ -16,4 +16,3 @@ coverage.xml
 __pycache__/
 doc/scapy/_build
 doc/scapy/api
-scapy/.DS_Store
