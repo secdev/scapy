@@ -7,6 +7,7 @@
 
 # scapy.contrib.description = AUTOSAR PDU packets handling package.
 # scapy.contrib.status = loads
+from typing import Tuple, Optional
 from scapy.layers.inet import UDP
 from scapy.fields import IntField, XIntField, PacketListField
 from scapy.packet import Packet, bind_bottom_up
@@ -15,11 +16,12 @@ from scapy.packet import Packet, bind_bottom_up
 class PDU(Packet):
     """
     Single PDU Packet inside PDUTransport list.
-    Contains ID and payload length, and later - raw load, free to interpret using bind_layers/bind_bottom_up method
+    Contains ID and payload length, and later - raw load.
+    It's free to interpret using bind_layers/bind_bottom_up method
 
     Based off this document:
 
-    https://www.autosar.org/fileadmin/standards/classic/22-11/AUTOSAR_SWS_IPDUMultiplexer.pdf
+    https://www.autosar.org/fileadmin/standards/classic/22-11/AUTOSAR_SWS_IPDUMultiplexer.pdf # noqa: E501
     """
     name = 'PDU'
     fields_desc = [
@@ -32,11 +34,9 @@ class PDU(Packet):
 
 
 class PDUTransport(Packet):
-
     """
     Packet representing PDUTransport containing multiple PDUs
-    FIXME: Support CAN messages as well, not only ethernet packets put on top of UDP layer
-
+    FIXME: Support CAN messages as well.
     """
     name = 'PDUTransport'
     fields_desc = [
