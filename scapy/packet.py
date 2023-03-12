@@ -740,7 +740,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
             # print(f"Class type: {class_name} for: {pkt._name}-{field_name}")
             if class_name in ['NoneType', 'int', 'str', 'list', 'bytes']:
                 continue
-                
+
             # We will want to fix this in the future... maybe make it into a min-max?
             # These are inside dot11
             if class_name in ['FlagValue', 'RSNCipherSuite', 'PMKIDListPacket']:
@@ -760,16 +760,17 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         packet_type = name[0:name.index('-')]
         packet_field = name[name.index('-')+1:]
 
-        if pkt._name == packet_type:
+        if pkt.name == packet_type:
             if (packet_field not in pkt.fields and packet_field not in pkt.default_fields):
                 raise ValueError(f"Cannot find {packet_field} inside {packet_type}")
 
+            if packet_field in pkt.default_fields:
+                return pkt.default_fields[packet_field]
+
             if packet_field in pkt.fields:
                 return pkt.fields[packet_field]
-            elif packet_field in pkt.default_fields:
-                return pkt.default_fields[packet_field]
-            else:
-                raise ValueError("Shouldn't have reached this point")
+            
+            raise ValueError("Shouldn't have reached this point")
         else:
             return pkt.locate_field(pkt.payload, name)
 
@@ -831,12 +832,16 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                         field_obj = self.locate_field(self, field_item['name'])
 
                         if not isinstance(field_obj, VolatileValue):
-                            err = f"field_obj: '{field_item['name']}' isn't VolatileValue: {type(field_obj)=}"
+                            err = (f"field_obj: '{field_item['name']}' "
+                                   f"isn't VolatileValue: {type(field_obj)=}")
                             raise ValueError(err)
 
                         if "default" in dir(field_obj):
                             # Some fields have a 'default'
-                            if type(field_obj.default).__name__ == 'int':
+                            if type(field_obj.default).__name__ in ['str', 'bytes']:
+                                # Store the value so we can use it
+                                field_obj.default = field_obj.default
+                            elif type(field_obj.default).__name__ == 'int':
                                 field_obj.state_pos = field_obj.default
                             else:
                                 field_obj.default = None
@@ -857,14 +862,13 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                         # RandString has a 'size' rather than max
                         if 'size' in dir(field_obj):
                             if isinstance(field_obj.size, int):
-                                field_obj.max = field_obj.max
+                                field_obj.max = field_obj.size
                             else:
                                 field_obj.max = field_obj.size.max
 
                         # Make sure it exists
                         if 'max' not in dir(field_obj):
                             field_obj.max = field_obj.min
-
 
                 break
 
@@ -876,12 +880,16 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
         for (field_idx, field) in enumerate(state_fuzzed['fields']):
             if not field['done']:
                 field_fuzzed = self.locate_field(self, field['name'])
+                if field_fuzzed.max == field_fuzzed.min and field_fuzzed.max == 0:
+                    print(f"'{field['name']}' max == 0")
+
                 if "state_pos" not in dir(field_fuzzed):
                     # Make sure next_field exists, as it might be the first element
                     if next_field is not None:
                         next_field['done'] = True # Mark it as done
                     continue
 
+                print(f"'{field['name']}' {field_fuzzed.state_pos=}")
                 # If there are more than 128 combinations, do jumps
                 if field_fuzzed.max - field_fuzzed.min > 128:
                     jump = round((field_fuzzed.max - field_fuzzed.min) / 128)
@@ -892,17 +900,20 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                 # If we recached max for this field, try the next one
                 if field_fuzzed.state_pos > field_fuzzed.max:
                     # Reset the position back to default
-                    if type(field_fuzzed.default).__name__ != 'int':
+                    if type(field_fuzzed.default).__name__ in ['str', 'bytes']:
+                        field_fuzzed.state_pos = 0 # 0 is when we send the default
+                    elif type(field_fuzzed.default).__name__ != 'int':
                         raise ValueError("field_fuzzed.default is not int")
-
-                    field_fuzzed.state_pos = field_fuzzed.default
+                    else:
+                        field_fuzzed.state_pos = field_fuzzed.default
+                        
                     field['done'] = True
                     field['active'] = False
 
                     curr_pos = field_idx
 
                     # Make sure we aren't the last one
-                    are_we_last = (curr_pos + 1) == len(state_fuzzed['fields'])                        
+                    are_we_last = (curr_pos + 1) == len(state_fuzzed['fields'])
 
                     while not are_we_last:
                         next_field = state_fuzzed['fields'][curr_pos+1]
@@ -917,7 +928,9 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
 
                             field_fuzzed.state_pos += 1
                             if field_fuzzed.state_pos > field_fuzzed.max:
-                                if type(field_fuzzed.default).__name__ != 'int':
+                                if type(field_fuzzed.default).__name__ in ['str', 'bytes']:
+                                    field_fuzzed.state_pos = 0 # 0 is when we send the default
+                                elif type(field_fuzzed.default).__name__ != 'int':
                                     raise ValueError("field_fuzzed.default is not int")
 
                                 field_fuzzed.state_pos = field_fuzzed.default
@@ -932,10 +945,12 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                                     state_fuzzed['fields'][curr_pos]['name']
                                 )
 
-                                if type(field_fuzzed.default).__name__ != 'int':
+                                if type(field_fuzzed.default).__name__ in ['str', 'bytes']:
+                                    field_fuzzed.state_pos = 0 # 0 is when we send the default
+                                elif type(field_fuzzed.default).__name__ != 'int':
                                     raise ValueError("field_fuzzed.default is not int")
-
-                                field_fuzzed.state_pos = field_fuzzed.default
+                                else:
+                                    field_fuzzed.state_pos = field_fuzzed.default
 
                                 field['combinations'] += 1
                                 field['active'] = True
@@ -2760,6 +2775,7 @@ def fuzz(p,  # type: Packet
                     # Store the default value of the field
                     rnd.default = f.default
                     if rnd is not None:
+                        print(f"Adding: {f.name} with {f.default=}")
                         new_default_fields[f.name] = rnd
         # Process packets with MultipleTypeFields
         if multiple_type_fields:
