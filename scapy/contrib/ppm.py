@@ -6,6 +6,7 @@ https://en.wikipedia.org/wiki/Netpbm#File_formats
 from scapy.fields import StrField, StrEnumField
 from scapy.packet import Packet
 from scapy.utils import hexdump
+import scapy.layers.l2
 import scapy.compat
 
 TRIPLET_COUNT = 0
@@ -23,9 +24,8 @@ class StrFieldWithSuffix(StrField):
             return scapy.compat.bytes_encode(x)
         return x + self.suffix.encode()
     
-    
-    def randval(self):
-        return scapy.volatile.RandString()
+    # def randval(self):
+    #     return scapy.volatile.RandString()
     
 class StrEnumFieldWithSuffix(StrEnumField):
     __slots__ = ["enum", "suffix"]
@@ -48,10 +48,10 @@ class StrEnumFieldWithSuffix(StrEnumField):
             return scapy.compat.bytes_encode(x)
         return x + self.suffix.encode()
 
-    def randval(self):
-        return scapy.volatile.RandString()
+    # def randval(self):
+    #     return scapy.volatile.RandString()
 
-class PPMHeader(Packet):
+class _PPMHeader(Packet):
     """PPM Header"""
 
     name = "PPM Header"
@@ -62,6 +62,12 @@ class PPMHeader(Packet):
         StrFieldWithSuffix("colors", "0", suffix="\n"),
     ]
 
+
+class PPMHeader(Packet):
+    name = "PPM Header"
+    fields_desc = [
+        StrField("ppm_marker", "P1\n")
+    ]
 
 class RGBTriplets(Packet):
     """RGB triplets"""
@@ -82,18 +88,23 @@ class RGBTriplets(Packet):
 
 
 def test():
+    p_test = scapy.layers.l2.Ether()
+    packet_fuzz = scapy.packet.fuzz(p_test)
+
     ppm_test = (
-        PPMHeader(height = str(3), width = str(2), colors = str(255)) / 
-        RGBTriplets(r = str(255), g = str(0), b = str(0)) / 
-        RGBTriplets(r = str(0),g = str(255),b = str(0)) / 
-        RGBTriplets(r = str(0),g = str(0),b = str(255)) / 
-        RGBTriplets(r = str(255),g = str(255),b = str(0)) / 
-        RGBTriplets(r = str(255), g = str(255),b = str(255)) / 
-        RGBTriplets(r = str(0),g = str(0),b = str(0))
+        PPMHeader()
+        # PPMHeader(ppm_marker="P1", height = str(3), width = str(2), colors = str(255)) / 
+        # RGBTriplets(r = str(255), g = str(0), b = str(0)) / 
+        # RGBTriplets(r = str(0),g = str(255),b = str(0)) / 
+        # RGBTriplets(r = str(0),g = str(0),b = str(255)) / 
+        # RGBTriplets(r = str(255),g = str(255),b = str(0)) / 
+        # RGBTriplets(r = str(255), g = str(255),b = str(255)) / 
+        # RGBTriplets(r = str(0),g = str(0),b = str(0))
         )
 
     packet_fuzz = scapy.packet.fuzz(ppm_test)
     states = packet_fuzz.prepare_combinations(2)
+    packet_fuzz.forward(states)
 
     generated = hexdump(ppm_test, dump=True)
 
