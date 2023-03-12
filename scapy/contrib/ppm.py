@@ -3,104 +3,126 @@ Implement PPM
 
 https://en.wikipedia.org/wiki/Netpbm#File_formats
 """
-from scapy.fields import StrField, StrEnumField
+from scapy.fields import StrField, FieldListField
 from scapy.packet import Packet
 from scapy.utils import hexdump
 import scapy.layers.l2
 import scapy.compat
 
-TRIPLET_COUNT = 0
+class FuzzingString(scapy.volatile.VolatileValue):
+    min = 0
+    max = 0
+    state_pos = None
+    suffix = None
+    default_value = None
+    
+    fuzzing_states = [
+        {"name": "default", "count": 1},
+        {"name": "'A' overflow", "count": 128, "return": lambda cnt : b"A" * cnt},
+        {"name": "Number range", "count": 128, "return": lambda cnt : str(pow(2, cnt)).encode()},
+    ]
 
-class StrFieldWithSuffix(StrField):
-    __slots__ = ["suffix"]
-    def __init__(self, name, default, suffix):
+    def __init__(self, default = None, suffix = None):
         self.suffix = suffix
-        super(StrField, self).__init__(name, default)
+        self.default_value = default
+        
+        for fuzzing_state in self.fuzzing_states:
+            self.max += fuzzing_state['count']
+        
+    def _fix(self):
+        if self.state_pos is None or self.state_pos == 0:
+            if self.default_value is None:
+                return self.default_value
 
-    def i2m(self, pkt, x):
-        if x is None:
-            return b""
-        if not isinstance(x, bytes):
-            return scapy.compat.bytes_encode(x)
-        return x + self.suffix.encode()
-    
-    # def randval(self):
-    #     return scapy.volatile.RandString()
-    
-class StrEnumFieldWithSuffix(StrEnumField):
-    __slots__ = ["enum", "suffix"]
+            if self.suffix is not None:
+                return self.default_value + self.suffix
+            else:
+                return self.default_value
+
+        count_so_far = 0
+        current_fuzzing_state = None
+        for fuzzing_state in self.fuzzing_states:
+            if self.state_pos < fuzzing_state["count"] + count_so_far:
+                current_fuzzing_state = fuzzing_state
+                break
+
+            count_so_far += fuzzing_state["count"]
+
+        if current_fuzzing_state is None:
+            self.state_pos = 0
+            return self.default_value
+
+        ret = current_fuzzing_state["return"](self.state_pos - count_so_far)
+
+        if self.suffix is not None:
+            return ret + self.suffix
+        else:
+            return ret
+
+
+class FieldListFieldWithDelimiter(FieldListField):
+    __slots__ = ["delimiter", "default_value"]
+
     def __init__(
             self,
             name,  # type: str
-            default,  # type: bytes
-            enum=None,  # type: Optional[Dict[str, str]]
-            suffix="",
-            **kwargs  # type: Any
+            default,  # type: Optional[List[AnyField]]
+            field,
+            delimiter,  # type: AnyField
     ):
-        # type: (...) -> None
-        StrEnumField.__init__(self, name, default, enum, **kwargs)  # type: ignore
+        if default is None:
+            default = []  # Create a new list for each instance
+        self.delimiter = delimiter
+        self.default_value = ""
+
+        FieldListField.__init__(self, name, default, field)
+
+    def any2i(self, pkt, x):
+        self.default_value = x
+        if self.delimiter is not None:
+            self.default_value = self.delimiter.join(x)
+
+        return self.default_value
+
+    def randval(self):
+        return FuzzingString(default=self.default_value, suffix=self.delimiter)
+
+
+class CustomStrField(scapy.fields.StrField):
+    __slots__ = ["suffix"]
+
+    def __init__(self, name, default, fmt="H", suffix=b""):
+        # type: (str, Optional[I], str, int) -> None
+        scapy.fields.StrField.__init__(self, name, default, fmt)
         self.suffix = suffix
 
-    def i2m(self, pkt, x):
-        if x is None:
-            return b""
-        if not isinstance(x, bytes):
-            return scapy.compat.bytes_encode(x)
-        return x + self.suffix.encode()
+    def randval(self):
+        return FuzzingString(default=self.default, suffix=self.suffix)
 
-    # def randval(self):
-    #     return scapy.volatile.RandString()
+class PPM(Packet):
+    """PPM"""
 
-class _PPMHeader(Packet):
-    """PPM Header"""
-
-    name = "PPM Header"
-    fields_desc = [
-        StrEnumFieldWithSuffix("ppm_marker", "P3", enum=["P1", "P2", "P3"], suffix="\n"),
-        StrFieldWithSuffix("height", "0", suffix=" "),
-        StrFieldWithSuffix("width", "0", suffix="\n"),
-        StrFieldWithSuffix("colors", "0", suffix="\n"),
-    ]
-
-
-class PPMHeader(Packet):
-    name = "PPM Header"
-    fields_desc = [
-        StrField("ppm_marker", "P1\n")
-    ]
-
-class RGBTriplets(Packet):
-    """RGB triplets"""
-    name = "RGB triplets"
-
-    def __init__(self, *args, **kargs):
-        global TRIPLET_COUNT
-
-        Packet.__init__(self, *args, **kargs)
-        TRIPLET_COUNT += 1
-        self.name += " - {}".format(TRIPLET_COUNT)
+    name = "PPM"
+    # fields_desc = [
+    #     StrEnumFieldWithSuffix("ppm_marker", b"P3", enum=[b"P1", b"P2", b"P3"], suffix=b"\n"),
+    #     StrFieldWithSuffix("height", b"0", suffix=b" "),
+    #     StrFieldWithSuffix("width", b"0", suffix=b"\n"),
+    #     StrFieldWithSuffix("colors", b"0", suffix=b"\n"),
+    #     FieldListFieldWithDelimiter("triplets", [],
+    #                                 StrFieldWithDelimiter('', "", delimiter=b" "),
+    #                                 delimiter=b"\n")
+    # ]
 
     fields_desc = [
-        StrFieldWithSuffix("r", "0", suffix=" "),
-        StrFieldWithSuffix("g", "0", suffix=" "),
-        StrFieldWithSuffix("b", "0", suffix="\n"),
+        CustomStrField("ppm_marker", b"P1", suffix=b"\n"),
+        CustomStrField("height", b"0", suffix=b" "),
+        CustomStrField("width", b"0", suffix=b"\n"),
+        CustomStrField("colors", b"0", suffix=b"\n"),
     ]
 
 
 def test():
-    p_test = scapy.layers.l2.Ether()
-    packet_fuzz = scapy.packet.fuzz(p_test)
-
-    ppm_test = (
-        PPMHeader()
-        # PPMHeader(ppm_marker="P1", height = str(3), width = str(2), colors = str(255)) / 
-        # RGBTriplets(r = str(255), g = str(0), b = str(0)) / 
-        # RGBTriplets(r = str(0),g = str(255),b = str(0)) / 
-        # RGBTriplets(r = str(0),g = str(0),b = str(255)) / 
-        # RGBTriplets(r = str(255),g = str(255),b = str(0)) / 
-        # RGBTriplets(r = str(255), g = str(255),b = str(255)) / 
-        # RGBTriplets(r = str(0),g = str(0),b = str(0))
-        )
+    ppm_test = PPM()
 
     packet_fuzz = scapy.packet.fuzz(ppm_test)
     states = packet_fuzz.prepare_combinations(2)
