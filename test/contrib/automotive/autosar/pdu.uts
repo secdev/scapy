@@ -40,4 +40,4 @@ assert len(p) == 10
 assert p.pdu_id == 0x12
 assert p.pdu_payload_len == 2
 assert len(p['Raw']) == 2
-assert p['Raw'] == b'\x22\x33'
+assert bytes(p['Raw']) == b'\x22\x33'
