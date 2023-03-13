@@ -194,7 +194,7 @@ iterator = 0
 while continue_fuzzing:
     iterator += 1
     if iterator % 1000 == 0:
-        print(f"{iterator=}")
+        print(f"{iterator=:,}")
     data = scapy.compat.bytes_encode(packet_fuzz)
     # print(f"{data=}")
     (states, continue_fuzzing) = packet_fuzz.forward(states)
