@@ -2776,7 +2776,7 @@ def fuzz(p,  # type: Packet
                     # Store the default value of the field
                     rnd.default = f.default
                     if rnd is not None:
-                        print(f"Adding: {f.name} with {f.default=}")
+                        # print(f"Adding: {f.name} with {f.default=}")
                         new_default_fields[f.name] = rnd
         # Process packets with MultipleTypeFields
         if multiple_type_fields:
