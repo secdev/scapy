@@ -9,6 +9,17 @@ from scapy.utils import hexdump
 import scapy.layers.l2
 import scapy.compat
 
+TRIPLET_COUNT = 0
+
+def reverse_string(string):
+    ret = b''
+
+    for c in string:
+        ch = c ^ 0xff
+        ret += chr(ch).encode('latin1')
+
+    return ret
+
 class FuzzingString(scapy.volatile.VolatileValue):
     min = 0
     max = 0
@@ -17,9 +28,10 @@ class FuzzingString(scapy.volatile.VolatileValue):
     default_value = None
     
     fuzzing_states = [
-        {"name": "default", "count": 1},
-        {"name": "'A' overflow", "count": 128, "return": lambda cnt : b"A" * cnt},
-        {"name": "Number range", "count": 128, "return": lambda cnt : str(pow(2, cnt)).encode()},
+        {"name": "default", "count": 1, "return": lambda val: val[0]},
+        {"name": "Bit flip", "count": 1, "return": lambda val: reverse_string(val[0])},
+        {"name": "'A' overflow", "count": 16, "return": lambda val : b"A" * pow(2, val[1])},
+        {"name": "Number range", "count": 32, "return": lambda val: str(pow(2, val[1])).encode()},
     ]
 
     def __init__(self, default = None, suffix = None):
@@ -30,19 +42,19 @@ class FuzzingString(scapy.volatile.VolatileValue):
             self.max += fuzzing_state['count']
         
     def _fix(self):
-        if self.state_pos is None or self.state_pos == 0:
+        if self.state_pos is None:
             if self.default_value is None:
-                return self.default_value
+                return b''
 
             if self.suffix is not None:
                 return self.default_value + self.suffix
-            else:
-                return self.default_value
+            
+            return self.default_value
 
         count_so_far = 0
         current_fuzzing_state = None
         for fuzzing_state in self.fuzzing_states:
-            if self.state_pos < fuzzing_state["count"] + count_so_far:
+            if self.state_pos <= (fuzzing_state["count"] + count_so_far):
                 current_fuzzing_state = fuzzing_state
                 break
 
@@ -52,97 +64,86 @@ class FuzzingString(scapy.volatile.VolatileValue):
             self.state_pos = 0
             return self.default_value
 
-        ret = current_fuzzing_state["return"](self.state_pos - count_so_far)
+        ret = current_fuzzing_state["return"]([self.default_value, self.state_pos - count_so_far])
 
         if self.suffix is not None:
-            return ret + self.suffix
-        else:
-            return ret
+            ret += self.suffix
+
+        # print(f"{ret=}")
+        return ret
 
 
-class FieldListFieldWithDelimiter(FieldListField):
-    __slots__ = ["delimiter", "default_value"]
-
-    def __init__(
-            self,
-            name,  # type: str
-            default,  # type: Optional[List[AnyField]]
-            field,
-            delimiter,  # type: AnyField
-    ):
-        if default is None:
-            default = []  # Create a new list for each instance
-        self.delimiter = delimiter
-        self.default_value = ""
-
-        FieldListField.__init__(self, name, default, field)
-
-    def any2i(self, pkt, x):
-        self.default_value = x
-        if self.delimiter is not None:
-            self.default_value = self.delimiter.join(x)
-
-        return self.default_value
-
-    def randval(self):
-        return FuzzingString(default=self.default_value, suffix=self.delimiter)
-
-
-class CustomStrField(scapy.fields.StrField):
+class StrDelimiterField(StrField):
     __slots__ = ["suffix"]
+    ALIGNMENT = 1
 
-    def __init__(self, name, default, fmt="H", suffix=b""):
-        # type: (str, Optional[I], str, int) -> None
-        scapy.fields.StrField.__init__(self, name, default, fmt)
+    def __init__(self, name, default, suffix, fmt="H", remain=0):
+        scapy.fields.StrField.__init__(self, name, default, fmt, remain)
+        if not isinstance(suffix, bytes):
+            suffix = scapy.compat.bytes_encode(suffix)
+
         self.suffix = suffix
 
     def randval(self):
         return FuzzingString(default=self.default, suffix=self.suffix)
 
-class PPM(Packet):
-    """PPM"""
+    # def addfield(self, pkt, s, val):
+    #     # type: (Packet, bytes, Optional[bytes]) -> bytes
+    #     ret = s
+    #     ret += self.i2m(pkt, val)
+    #     ret += self.suffix
+    #     return ret
 
-    name = "PPM"
-    # fields_desc = [
-    #     StrEnumFieldWithSuffix("ppm_marker", b"P3", enum=[b"P1", b"P2", b"P3"], suffix=b"\n"),
-    #     StrFieldWithSuffix("height", b"0", suffix=b" "),
-    #     StrFieldWithSuffix("width", b"0", suffix=b"\n"),
-    #     StrFieldWithSuffix("colors", b"0", suffix=b"\n"),
-    #     FieldListFieldWithDelimiter("triplets", [],
-    #                                 StrFieldWithDelimiter('', "", delimiter=b" "),
-    #                                 delimiter=b"\n")
-    # ]
+    def getfield(self,
+                 pkt,  # type: Packet
+                 s,  # type: bytes
+                 ):
+        # type: (...) -> Tuple[bytes, bytes]
+        len_str = 0
+        while True:
+            len_str = s.find(self.suffix, len_str)
+            if len_str < 0:
+                # DELIMITER not found: return empty
+                return b"", s
+            if len_str % self.ALIGNMENT:
+                len_str += 1
+            else:
+                break
+        return s[len_str + len(self.suffix):], self.m2i(pkt, s[:len_str])
+
+
+class PPMTriplet(Packet):
+    """PPM Triplet"""
+    def __init__(self,
+                 _pkt=b"",
+                 post_transform=None,
+                 _internal=0,
+                 _underlayer=None,
+                 _parent=None,
+                 **fields
+                 ):
+        global TRIPLET_COUNT
+        Packet.__init__(self, _pkt, post_transform, _internal, _underlayer, _parent)
+
+        TRIPLET_COUNT += 1
+        name = f"PPM Triplet {TRIPLET_COUNT}"
+        self.name = name
 
     fields_desc = [
-        CustomStrField("ppm_marker", b"P1", suffix=b"\n"),
-        CustomStrField("height", b"0", suffix=b" "),
-        CustomStrField("width", b"0", suffix=b"\n"),
-        CustomStrField("colors", b"0", suffix=b"\n"),
+        StrDelimiterField("r", "0", suffix=" "),
+        StrDelimiterField("g", "0", suffix=" "),
+        StrDelimiterField("b", "0", suffix="\n"),
     ]
 
+class PPM(Packet):
+    """PPM Header"""
 
-def test():
-    ppm_test = PPM()
+    name = "PPM Header"
 
-    packet_fuzz = scapy.packet.fuzz(ppm_test)
-    states = packet_fuzz.prepare_combinations(2)
-    packet_fuzz.forward(states)
+    fields_desc = [
+        StrDelimiterField("ppm_marker", "P1", suffix="\n"),
+        StrDelimiterField("height", "0", suffix=" "),
+        StrDelimiterField("width", "0", suffix="\n"),
+        StrDelimiterField("colors", "0", suffix="\n"),
+    ]
 
-    generated = hexdump(ppm_test, dump=True)
-
-    hex_encoded = (
-        """
-        50 33 0A 33 20 32 0A 32 35 35 0A 32 35 35 20 30
-        20 30 0A 30 20 32 35 35 20 30 0A 30 20 30 20 32
-        35 35 0A 32 35 35 20 32 35 35 20 30 0A 32 35 35
-        20 32 35 35 20 32 35 35 0A 30 20 30 20 30 0A
-        """
-    )
-
-    hex_decoded = hexdump(bytes.fromhex(hex_encoded), dump=True)
-
-    if generated != hex_decoded:
-        raise ValueError("Generator error")
-
-if __name__ == "__main__":
-    test()
