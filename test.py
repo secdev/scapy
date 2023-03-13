@@ -3,6 +3,7 @@ import scapy.volatile
 import scapy.compat
 import scapy.layers
 import scapy.fields
+import scapy.contrib.igmpv3
 
 # def store_defaults_randbin(parent, obj):
 #     """ This function fixes the RandBin fields, rand makes them into non-random RandString"""
@@ -142,22 +143,60 @@ from scapy.contrib.ppm import *
 #     print(f"{data=}")
 #     (states, continue_fuzzing) = packet_fuzz.forward(states)
 
-p_test = PPM() # colors="255", height = "4", width = "3", triplets = [b"0 0 0", b"0 255 255", b"0 255 0", b"255 0 0"])
-p_test.default_fields['height'] = b"4"
-p_test.default_fields['width'] = b"3"
-p_test.default_fields['colors'] = b"255"
+p_header = PPM()# colors="255", height = "4", width = "3") 
+p_header.get_field('height').default = b"4"
+p_header.get_field('width').default = b"3"
+p_header.get_field('colors').default = b"255"
+
+p_test = p_header
+
+p_triplet = PPMTriplet()
+p_triplet.get_field("r").default = b"255"
+p_triplet.get_field("g").default = b"255"
+p_triplet.get_field("b").default = b"255"
+
+p_test /= p_triplet
+
+p_triplet = PPMTriplet()
+p_triplet.get_field("r").default = b"0"
+p_triplet.get_field("g").default = b"255"
+p_triplet.get_field("b").default = b"255"
+
+p_test /= p_triplet
+
+
+p_triplet = PPMTriplet()
+p_triplet.get_field("r").default = b"0"
+p_triplet.get_field("g").default = b"0"
+p_triplet.get_field("b").default = b"255"
+
+p_test /= p_triplet
+
+p_triplet = PPMTriplet()
+p_triplet.get_field("r").default = b"0"
+p_triplet.get_field("g").default = b"0"
+p_triplet.get_field("b").default = b"0"
+
+p_test /= p_triplet
+
+p_test.show2()
+a = bytes(p_test)
+print(f"{a=}")
 
 packet_fuzz = scapy.packet.fuzz(p_test)
 
-a = bytes(p_test)
+a = bytes(packet_fuzz)
+print(f"{a=}")
 
 states = packet_fuzz.prepare_combinations(2)
 continue_fuzzing = True
 iterator = 0
 while continue_fuzzing:
     iterator += 1
+    if iterator % 1000 == 0:
+        print(f"{iterator=}")
     data = scapy.compat.bytes_encode(packet_fuzz)
-    print(f"{data=}")
+    # print(f"{data=}")
     (states, continue_fuzzing) = packet_fuzz.forward(states)
 
 print(f"{iterator=}")
