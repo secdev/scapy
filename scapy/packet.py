@@ -889,7 +889,7 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                         next_field['done'] = True # Mark it as done
                     continue
 
-                print(f"'{field['name']}' {field_fuzzed.state_pos=}")
+                # print(f"'{field['name']}' {field_fuzzed.state_pos=}")
                 # If there are more than 128 combinations, do jumps
                 if field_fuzzed.max - field_fuzzed.min > 128:
                     jump = round((field_fuzzed.max - field_fuzzed.min) / 128)
@@ -932,8 +932,9 @@ class Packet(six.with_metaclass(Packet_metaclass,  # type: ignore
                                     field_fuzzed.state_pos = 0 # 0 is when we send the default
                                 elif type(field_fuzzed.default).__name__ != 'int':
                                     raise ValueError("field_fuzzed.default is not int")
-
-                                field_fuzzed.state_pos = field_fuzzed.default
+                                else:
+                                    field_fuzzed.state_pos = field_fuzzed.default
+                                    
                                 next_field['done'] = True
                             else:
                                 # Reset the item before us to not done
