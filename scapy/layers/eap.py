@@ -10,11 +10,35 @@ Extensible Authentication Protocol (EAP)
 
 import struct
 
-from scapy.fields import BitField, ByteField, XByteField,\
-    ShortField, IntField, XIntField, ByteEnumField, StrLenField, XStrField,\
-    XStrLenField, XStrFixedLenField, LenField, FieldLenField, FieldListField,\
-    PacketField, PacketListField, ConditionalField, PadField
-from scapy.packet import Packet, Padding, bind_layers
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    ByteEnumField,
+    ByteField,
+    ConditionalField,
+    FieldLenField,
+    FieldListField,
+    IntField,
+    LenField,
+    LongField,
+    PacketField,
+    PacketListField,
+    PadField,
+    ShortField,
+    StrLenField,
+    XByteField,
+    XIntField,
+    XStrField,
+    XStrFixedLenField,
+    XStrLenField,
+)
+from scapy.packet import (
+    Packet,
+    Padding,
+    bind_bottom_up,
+    bind_layers,
+    bind_top_down,
+)
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
 from scapy.config import conf
 from scapy.compat import orb, chb
@@ -405,6 +429,64 @@ class LEAP(EAP):
 
 
 #############################################################################
+# IEEE 802.1X-2010 - EAPOL-Key
+#############################################################################
+
+# sect 11.9 of 802.1X-2010
+# AND sect 12.7.2 of 802.11-2016
+
+
+class EAPOL_KEY(Packet):
+    name = "EAPOL_KEY"
+    fields_desc = [
+        ByteEnumField("key_descriptor_type", 1, {1: "RC4", 2: "RSN"}),
+        # Key Information
+        BitEnumField("key_descriptor_type_version", 0, 3, {
+            1: "HMAC-MD5+ARC4",
+            2: "HMAC-SHA1-128+AES-128",
+            3: "AES-128-CMAC+AES-128",
+        }),
+        BitEnumField("key_type", 0, 1, {0: "Group/SMK", 1: "Pairwise"}),
+        BitField("res", 0, 2),
+        BitField("install", 0, 1),
+        BitField("key_ack", 0, 1),
+        BitField("has_key_mic", 1, 1),
+        BitField("secure", 0, 1),
+        BitField("error", 0, 1),
+        BitField("request", 0, 1),
+        BitField("encrypted_key_data", 0, 1),
+        BitField("smk_message", 0, 1),
+        BitField("res2", 0, 2),
+        #
+        LenField("len", None, "H"),
+        LongField("key_replay_counter", 0),
+        XStrFixedLenField("key_nonce", "", 32),
+        XStrFixedLenField("key_iv", "", 16),
+        XStrFixedLenField("key_rsc", "", 8),
+        XStrFixedLenField("key_id", "", 8),
+        ConditionalField(
+            XStrFixedLenField("key_mic", "", 16),  # XXX size can be 24
+            lambda pkt: pkt.has_key_mic
+        ),
+        LenField("key_length", None, "H"),
+        XStrLenField("key", "",
+                     length_from=lambda pkt: pkt.key_length)
+    ]
+
+    def extract_padding(self, s):
+        return s[:self.len], s[self.len:]
+
+    def hashret(self):
+        return struct.pack("!B", self.type) + self.payload.hashret()
+
+    def answers(self, other):
+        if isinstance(other, EAPOL_KEY) and \
+                other.descriptor_type == self.descriptor_type:
+            return 1
+        return 0
+
+
+#############################################################################
 # IEEE 802.1X-2010 - MACsec Key Agreement (MKA) protocol
 #############################################################################
 
@@ -765,10 +847,14 @@ class MKAPDU(Packet):
         return "", s
 
 
-bind_layers(Ether, EAPOL, type=34958)
-bind_layers(Ether, EAPOL, dst='01:80:c2:00:00:03', type=34958)
-bind_layers(CookedLinux, EAPOL, proto=34958)
-bind_layers(GRE, EAPOL, proto=34958)
+# Bind EAPOL types
 bind_layers(EAPOL, EAP, type=0)
-bind_layers(SNAP, EAPOL, code=34958)
+bind_layers(EAPOL, EAPOL_KEY, type=3)
 bind_layers(EAPOL, MKAPDU, type=5)
+
+bind_bottom_up(Ether, EAPOL, type=0x888e)
+# the reserved IEEE Std 802.1X PAE address
+bind_top_down(Ether, EAPOL, dst='01:80:c2:00:00:03', type=0x888e)
+bind_layers(CookedLinux, EAPOL, proto=0x888e)
+bind_layers(SNAP, EAPOL, code=0x888e)
+bind_layers(GRE, EAPOL, proto=0x888e)
