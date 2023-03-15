@@ -14,7 +14,7 @@ import gzip
 import struct
 
 from scapy.compat import Tuple, Optional, Type, List, Union, Callable, IO, \
-    Any, cast, hex_bytes
+    Any, cast, hex_bytes, chb
 
 from scapy.config import conf
 from scapy.compat import orb
@@ -27,7 +27,7 @@ from scapy.layers.l2 import CookedLinux
 from scapy.error import Scapy_Exception
 from scapy.plist import PacketList
 from scapy.supersocket import SuperSocket
-from scapy.utils import _ByteStream
+from scapy.utils import _ByteStream, hexdump
 
 __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
@@ -105,7 +105,7 @@ class CAN(Packet):
                 not orb(_pkt[5]) & 0xf8
             if fdf_set:
                 return CANFD
-            elif len(_pkt) > 16:
+            elif len(_pkt) > 4 and orb(_pkt[4]) > 8:
                 return CANFD
         return CAN
 
@@ -178,6 +178,38 @@ class CANFD(CAN):
         ShortField('reserved', 0),
         StrLenField('data', b'', length_from=lambda pkt: int(pkt.length)),
     ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+
+        data = super(CANFD, self).post_build(pkt, pay)
+
+        length = orb(data[4])
+
+        if 8 < length <= 12:
+            wire_length = 12
+        elif 12 < length <= 16:
+            wire_length = 16
+        elif 16 < length <= 20:
+            wire_length = 20
+        elif 20 < length <= 24:
+            wire_length = 24
+        elif 24 < length <= 32:
+            wire_length = 32
+        elif 32 < length <= 40:
+            wire_length = 40
+        elif 40 < length <= 48:
+            wire_length = 48
+        elif 48 < length <= 56:
+            wire_length = 56
+        elif 56 < length <= 64:
+            wire_length = 64
+        else:
+            wire_length = length
+
+        pad = b"\x00" * (wire_length - length)
+
+        return data[0:4] + chb(wire_length) + data[5:] + pad
 
 
 bind_layers(CookedLinux, CANFD, proto=13)
