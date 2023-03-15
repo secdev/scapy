@@ -27,7 +27,7 @@ from scapy.layers.l2 import CookedLinux
 from scapy.error import Scapy_Exception
 from scapy.plist import PacketList
 from scapy.supersocket import SuperSocket
-from scapy.utils import _ByteStream, hexdump
+from scapy.utils import _ByteStream
 
 __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
