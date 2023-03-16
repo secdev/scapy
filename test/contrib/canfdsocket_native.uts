@@ -50,9 +50,12 @@ rx = sock1.recv()
 assert rx == CANFD(identifier=0x7ff,length=12,data=b'\x01\x02\x03\x04\x05\x06\x07\x08\xaa\x00\x00\x00') / Padding(b"\x00" * (64 - 12))
 rx = sock1.recv()
 # different Kernel Versions produce different packets
+hexdump(rx)
 test = CANFD(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08') / Padding(b"\x00" * (64 - 8))
+hexdump(test)
 test2 = CANFD(identifier=0x7ff,fd_flags=4, length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08') / Padding(b"\x00" * (64 - 8))
-assert rx in [test, test2]
+hexdump(test2)
+assert bytes(rx) in [bytes(test), bytes(test2)]
 
 = CAN Socket send recv
 
