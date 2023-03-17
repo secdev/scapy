@@ -99,7 +99,7 @@ assert p.stratum == 2
 
 s = hex_bytes("000c2962f268d094666d23750800450000640db640004011a519c0a80364c0a80305a51e007b0050731a2300072000000000000000000000000000000000000000000000000000000000000000000000000052c7bc1dda64b97d0000000bcdc3825dbf6b7ad02886ff45aa8b2eaf7ac78bc1")
 p = Ether(s)
-assert NTPAuthenticator in p and p[NTPAuthenticator].key_id == 3452142173
+assert NTPAuthenticator in p and p[NTPAuthenticator].key_id == 11
 
 
 ############
@@ -309,7 +309,7 @@ assert bytes_hex(p.authenticator.dgst) == b'bfa6d85ff96d1e326c293caceec2a539'
 
 
 = NTP Control (mode 6) - CTL_OP_SAVECONFIG (1) - request
-s = b'\x16\t\x00\x1d\x00\x00\x00\x00\x00\x00\x00\x0fntp.test.2.conf\x00\x00\x00\x00\x00\x00\x00\x00\x01\xc9\xfb\x8a\xbe<`_\xfa6\xd2\x18\xc3\xb7d\x89#'
+s = b'\x16\t\x00\x1d\x00\x00\x00\x00\x00\x00\x00\x0fntp.test.2.conf\x00\x00\x00\x00\x00\x00\x00\x00\x01\xc9\xfb\x8a\xbe<`_\xfa6\xd2\x18\xc3\xb7d'
 p = NTP(s)
 assert isinstance(p, NTPControl)
 assert p.version == 2
@@ -321,7 +321,7 @@ assert p.op_code == 9
 assert p.count == 15
 assert p.data.load == b'ntp.test.2.conf\x00'
 assert p.authenticator.key_id == 1
-assert bytes_hex(p.authenticator.dgst) == b'c9fb8abe3c605ffa36d218c3b7648923'
+assert bytes_hex(p.authenticator.dgst) == b'c9fb8abe3c605ffa36d218c3b764'
 
 
 = NTP Control (mode 6) - CTL_OP_SAVECONFIG (2) - response
@@ -1144,4 +1144,15 @@ raw_pkt = (b"#\x02\n\xec\x00\x00\x00\x00\x00\x00\xf2\xce\x7f\x00\x00\x01\x00"
            b"\x00\x00\x00\x00\x00\x00\x00\xe6}gt\x00\x00\x00\x00\xe6}gt\x00"
            b"\x00\x00\x00\xe6}gt\x00\x00\x00\x00")
 
+
 assert raw(pkt_1) == raw(pkt_2) == raw_pkt
+
+############
+############
++ Hash Algorithms Tests
+
+= SHA1
+
+r = b'\x00\x0c)\xd3\x93W\x00\x0c)b\xf2h\x08\x00E\xb8\x00d\x9f\xd3@\x00@\x11\x12\xa7\xc0\xa8\x03\x05\xc0\xa8\x03\x01\x00{\x00{\x00P\xdb;\xe3\x00\x06\xe8\x00\x00\x00\x00\x00\x00\x00\x00INIT\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xe2\x81a(H\xca\x0e\xf4\x00\x00\x00\x0c\xd2\x05\x98\x88\xb4\xa2\xad\xc1\x1d-\xbd\x14 \xa45`\xbf\x92\xc6\xf9'
+p = Ether(r)
+assert NTP in p and p.key_id == 12 and p.dgst == b"d2059888b4a2adc11d2dbd1420a43560bf92c6f9"
