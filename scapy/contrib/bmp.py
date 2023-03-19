@@ -5,7 +5,7 @@ https://en.wikipedia.org/wiki/BMP_file_format
 
 """
 import struct
-from scapy.fields import LEShortField, LESignedIntField, LEIntField, Field
+from scapy.fields import LEShortField, LESignedIntField, LEIntField, StrFieldWithFuzzingString
 from scapy.packet import Packet, bind_layers
 from scapy.utils import hexdump
 
@@ -107,7 +107,7 @@ class Bitmap_BITMAPV4HEADER_Header(Packet):
         LEIntField("blue_channel_mask", default=0x000000FF),  # 4 bytes
         LEIntField("alpha_channel_mask", default=0xFF000000),  # 4 bytes
         LEIntField("lcs_windows_color_space", default=0x57696E20),  # 4 bytes " Win"
-        Field(name="CIEXYZTRIPLE", default=("\x00" * 0x24), fmt="36s"),
+        StrFieldWithFuzzingString(name="CIEXYZTRIPLE", default=("\x00" * 0x24)),
         LEIntField("red_gamma", default=0),  # 4 bytes
         LEIntField("green_gamma", default=0),  # 4 bytes
         LEIntField("blue_gamma", default=0),  # 4 bytes
