@@ -1428,6 +1428,74 @@ class StrField(_StrField[bytes]):
     pass
 
 
+
+def reverse_string(string):
+    ret = b''
+
+    for c in string:
+        ch = c ^ 0xff
+        ret += chr(ch).encode('latin1')
+
+    return ret
+
+class FuzzingString(VolatileValue):
+    min = 0
+    max = 0
+    state_pos = None
+    suffix = None
+    default_value = None
+    
+    fuzzing_states = [
+        {"name": "default", "count": 1, "return": lambda val: val[0]},
+        {"name": "Bit flip", "count": 1, "return": lambda val: reverse_string(val[0])},
+        {"name": "'A' overflow", "count": 16, "return": lambda val : b"A" * pow(2, val[1])},
+        {"name": "Number range", "count": 32, "return": lambda val: str(pow(2, val[1])).encode()},
+    ]
+
+    def __init__(self, default = None, suffix = None):
+        self.suffix = suffix
+        self.default_value = default
+        
+        for fuzzing_state in self.fuzzing_states:
+            self.max += fuzzing_state['count']
+        
+    def _fix(self):
+        if self.state_pos is None:
+            if self.default_value is None:
+                return b''
+
+            if self.suffix is not None:
+                return self.default_value + self.suffix
+            
+            return self.default_value
+
+        count_so_far = 0
+        current_fuzzing_state = None
+        for fuzzing_state in self.fuzzing_states:
+            if self.state_pos <= (fuzzing_state["count"] + count_so_far):
+                current_fuzzing_state = fuzzing_state
+                break
+
+            count_so_far += fuzzing_state["count"]
+
+        if current_fuzzing_state is None:
+            self.state_pos = 0
+            return self.default_value
+
+        ret = current_fuzzing_state["return"]([self.default_value, self.state_pos - count_so_far])
+
+        if self.suffix is not None:
+            ret += self.suffix
+
+        # print(f"{ret=}")
+        return ret
+
+class StrFieldWithFuzzingString(StrField):
+    """StrField that has a FuzzingString payload"""
+    
+    def randval(self):
+        return FuzzingString(default=self.default)
+
 class StrFieldUtf16(StrField):
     def h2i(self, pkt, x):
         # type: (Optional[Packet], Optional[str]) -> bytes
