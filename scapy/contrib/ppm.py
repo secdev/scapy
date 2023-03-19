@@ -3,15 +3,15 @@ Implement PPM
 
 https://en.wikipedia.org/wiki/Netpbm#File_formats
 """
-from scapy.fields import StrField, FieldListField, FuzzingString
+from scapy.fields import StrField, FuzzingString
 from scapy.packet import Packet
-from scapy.utils import hexdump
 import scapy.layers.l2
 import scapy.compat
 
 TRIPLET_COUNT = 0
 
 class StrDelimiterField(StrField):
+    """ String field with a Delimiter (generic) """
     __slots__ = ["suffix"]
     ALIGNMENT = 1
 
@@ -84,4 +84,3 @@ class PPM(Packet):
         StrDelimiterField("width", "0", suffix="\n"),
         StrDelimiterField("colors", "0", suffix="\n"),
     ]
-
