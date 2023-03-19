@@ -1426,12 +1426,13 @@ def reverse_string(string):
     return ret
 
 class FuzzingString(VolatileValue):
+    """ Custom fuzzing string, so that we don't use RandBin """
     min = 0
     max = 0
     state_pos = None
     suffix = None
     default_value = None
-    
+
     fuzzing_states = [
         {"name": "default", "count": 1, "return": lambda val: val[0]},
         {"name": "Bit flip", "count": 1, "return": lambda val: reverse_string(val[0])},
@@ -1442,10 +1443,10 @@ class FuzzingString(VolatileValue):
     def __init__(self, default = None, suffix = None):
         self.suffix = suffix
         self.default_value = default
-        
+
         for fuzzing_state in self.fuzzing_states:
             self.max += fuzzing_state['count']
-        
+
     def _fix(self):
         if self.state_pos is None:
             if self.default_value is None:
@@ -1453,7 +1454,7 @@ class FuzzingString(VolatileValue):
 
             if self.suffix is not None:
                 return self.default_value + self.suffix
-            
+
             return self.default_value
 
         count_so_far = 0
@@ -1479,7 +1480,7 @@ class FuzzingString(VolatileValue):
 
 class StrFieldWithFuzzingString(StrField):
     """StrField that has a FuzzingString payload"""
-    
+
     def randval(self):
         return FuzzingString(default=self.default)
 
