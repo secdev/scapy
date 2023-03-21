@@ -332,7 +332,7 @@ assert opt.rnextkeyid == 2
 assert opt.mac == b"FAKE"
 
 = TCP Authentication Option: parse from TCP
-p = IP(bytes(bytearray.fromhex("45e0004cdd0f4000ff06bf6b0a0b0c0dac1b1c1de9d700b3fbfbab5a00000000e002ffffcac40000020405b4010303080402080a00155ab7000000001d103d542ee437c6f8ede6d7c4d602e7")))
+p = IP(bytes.fromhex("45e0004cdd0f4000ff06bf6b0a0b0c0dac1b1c1de9d700b3fbfbab5a00000000e002ffffcac40000020405b4010303080402080a00155ab7000000001d103d542ee437c6f8ede6d7c4d602e7"))
 tcpao = get_tcpao(p[TCP])
 assert isinstance(tcpao, TCPAOValue)
 assert tcpao.keyid == 61
