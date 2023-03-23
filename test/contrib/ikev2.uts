@@ -384,9 +384,7 @@ frames = [
                 length=36,
                 proposal=1,
                 proto='IKE',
-                SPIsize=0,
                 trans_nb=3,
-                SPI='',
                 trans=(
                     IKEv2_Transform(
                         next_payload='Transform',
@@ -458,30 +456,19 @@ frames = [
             next_payload='Notify',
             flags='',
             length=8,
-            proto='Reserved',
-            SPIsize=0,
             type='IKEV2_FRAGMENTATION_SUPPORTED',
-            SPI=b'',
-            notify=b''
         ) /
         IKEv2_Notify(
             next_payload='Notify',
             flags='',
             length=8,
-            proto='Reserved',
-            SPIsize=0,
             type='REDIRECT_SUPPORTED',
-            SPI=b'',
-            notify=b''
         ) /
         IKEv2_Notify(
             next_payload='None',
             flags='',
             length=16,
-            proto='Reserved',
-            SPIsize=0,
             type='SIGNATURE_HASH_ALGORITHMS',
-            SPI='',
             notify=b'\x00\x01\x00\x02\x00\x03\x00\x04'
         )
     ),
@@ -530,9 +517,7 @@ frames = [
                 length=36,
                 proposal=1,
                 proto='IKE',
-                SPIsize=0,
                 trans_nb=3,
-                SPI='',
                 trans=(
                     IKEv2_Transform(
                         next_payload='Transform',
@@ -611,28 +596,19 @@ frames = [
             next_payload='Notify',
             flags='',
             length=8,
-            proto='Reserved',
-            SPIsize=0,
             type='IKEV2_FRAGMENTATION_SUPPORTED',
-            SPI=b'',
-            notify=b''
         ) /
         IKEv2_Notify(
             next_payload='Notify',
             flags='',
             length=16,
-            proto='Reserved',
-            SPIsize=0,
             type='SIGNATURE_HASH_ALGORITHMS',
-            SPI=b'',
             notify=b'\x00\x01\x00\x02\x00\x03\x00\x04'
         ) /
         IKEv2_Notify(
             next_payload='None',
             flags='',
             length=8,
-            proto='Reserved',
-            SPIsize=0,
             type='MULTIPLE_AUTH_SUPPORTED'
         )
     ),
@@ -901,9 +877,7 @@ frames = [
             flags='',
             length=8,
             proto='IKE',
-            SPIsize=0,
             type='INITIAL_CONTACT',
-            SPI='',
             notify=''
         ) /
         IKEv2_Notify(
@@ -911,9 +885,7 @@ frames = [
             flags='',
             length=8,
             proto='IKE',
-            SPIsize=0,
             type='HTTP_CERT_LOOKUP_SUPPORTED',
-            SPI='',
             notify=''
         ) /
         IKEv2_CERTREQ(
@@ -1039,18 +1011,13 @@ frames = [
             next_payload='Notify',
             flags='',
             length=8,
-            proto='Reserved',
-            SPIsize=0,
             type='MOBIKE_SUPPORTED',
-            SPI='',
             notify=''
         ) /
         IKEv2_Notify(
             next_payload=None,
             flags='',
             length=8,
-            proto='Reserved',
-            SPIsize=0,
             type='MULTIPLE_AUTH_SUPPORTED'
         )
     ),
@@ -1350,9 +1317,295 @@ frames = [
             next_payload='None',
             flags='',
             length=8,
-            proto='Reserved',
-            SPIsize=0,
             type='MOBIKE_SUPPORTED'
+        )
+    ),
+]
+
+
+for i, title, data, packet in frames:
+    print(title)
+    if i >= 0:
+        # the raw frame data coincides with the frame from the packet capture
+        assert data == raw(pcap[i])
+    # the scapy packet correctly describes the frame
+    assert raw(packet) == data
+    # reassembling the dissected frame yields the original frame
+    assert raw(Ether(data)) == data
+
+
+
+= IKEv2 key exchange with REDIRECT
+
+* Loads and dissects the four frames of the key exchange from a Wireshark
+* capture and compares them with manually built scapy packets.
+
+pcap = rdpcap(scapy_path("/test/pcaps/ikev2_notify_redirect.pcap"))
+
+
+frames = [
+    (
+        # i: frame number
+        0,
+        # title:
+        "IKE_SA_INIT request  (redirect_supported)",
+        # data: raw frame data
+        binascii.unhexlify(''.join("""
+        00505699bfd50050 56991bcc08004500 012cb73300007f11 6aac0a05023c0a05
+        02342ac801f40118 62b8886948814975 28ad000000000000 0000212022080000
+        0000000001102200 0028000000240101 00030300000c0100 0014800e01000300
+        0008020000050000 00080400001c2800 0048001c00002895 d48e470d8cb88196
+        62f3370c57b26cd3 49c16f5ec1b31959 f9ef695480bc7323 52f96d0a7c4a54f1
+        d596bb4fcc2f368e 31985a76ea5a7c77 d4310d372d962900 002c4bf3ea6cd0c6
+        afe702c567fe7db3 ff973424bb5e9de6 af123a41975a6ffb 266e9c5b4c915795
+        132b2900001c0100 4005509b01b43dc2 8c9df849fd765c64 8a512959ac502900
+        001c010040045312 0985399e14cf2b79 211f375b439bd030 31ac290000080000
+        402e290000080000 4016000000100000 402f000100020003 0004
+        """.split())),
+        # packet:  Ether / IP / UDP / IKEv2 / ...
+        Ether(dst='00:50:56:99:bf:d5', src='00:50:56:99:1b:cc', type=2048) /\
+        IP(version=4, ihl=5, tos=0, id=46899, flags=0, frag=0, ttl=127, proto=17, chksum=27308, src='10.5.2.60', dst='10.5.2.52') /\
+        UDP(sport=10952, dport=500, chksum=25272) /\
+        IKEv2(
+            init_SPI=b'\x88iH\x81Iu(\xad',
+            resp_SPI=b'\x00\x00\x00\x00\x00\x00\x00\x00',
+            next_payload=33,
+            version=32,
+            exch_type=34,
+            flags=8,
+            id=0
+        ) /\
+        IKEv2_SA(
+            prop=IKEv2_Proposal(
+                trans=(
+                    IKEv2_Transform(next_payload=3, flags=0, length=12, transform_type=1, res2=0, transform_id=20, key_length=256) /\
+                    IKEv2_Transform(next_payload=3, flags=0, length=8, transform_type=2, res2=0, transform_id=5) /\
+                    IKEv2_Transform(next_payload=0, flags=0, length=8, transform_type=4, res2=0, transform_id=28)
+                ),
+                next_payload=0, flags=0, length=36, proposal=1, proto='IKE', trans_nb=3),
+            next_payload=34,
+            flags=0,
+            length=40
+        ) /\
+        IKEv2_KE(
+            next_payload=40,
+            flags=0,
+            length=72,
+            group=28,
+            res2=0,
+            ke=b'(\x95\xd4\x8eG\r\x8c\xb8\x81\x96b\xf37\x0cW\xb2l\xd3I\xc1o^\xc1\xb3\x19Y\xf9\xefiT\x80\xbcs#R\xf9m\n|JT\xf1\xd5\x96\xbbO\xcc/6\x8e1\x98Zv\xeaZ|w\xd41\r7-\x96'
+        ) /\
+        IKEv2_Nonce(
+            next_payload=41,
+            flags=0,
+            length=44,
+            nonce=b'K\xf3\xeal\xd0\xc6\xaf\xe7\x02\xc5g\xfe}\xb3\xff\x974$\xbb^\x9d\xe6\xaf\x12:A\x97Zo\xfb&n\x9c[L\x91W\x95\x13+'
+        ) /\
+        IKEv2_Notify(
+            next_payload=41,
+            flags=0,
+            length=28,
+            proto='IKE',
+            type='NAT_DETECTION_DESTINATION_IP',
+            notify=b'P\x9b\x01\xb4=\xc2\x8c\x9d\xf8I\xfdv\\d\x8aQ)Y\xacP'
+        ) /\
+        IKEv2_Notify(
+            next_payload=41,
+            flags=0,
+            length=28,
+            proto='IKE',
+            type='NAT_DETECTION_SOURCE_IP',
+            notify=b'S\x12\t\x859\x9e\x14\xcf+y!\x1f7[C\x9b\xd001\xac'
+        ) /\
+        IKEv2_Notify(
+            next_payload=41,
+            flags=0,
+            length=8,
+            type='IKEV2_FRAGMENTATION_SUPPORTED',
+        ) /\
+        IKEv2_Notify(
+            next_payload=41,
+            flags=0,
+            length=8,
+            type='REDIRECT_SUPPORTED',
+        ) /\
+        IKEv2_Notify(
+            next_payload=0,
+            flags=0,
+            length=16,
+            type='SIGNATURE_HASH_ALGORITHMS',
+            notify=b'\x00\x01\x00\x02\x00\x03\x00\x04'
+        )
+    ),
+    (
+        # i: frame number
+        1,
+        # title:
+        "IKE_SA_INIT response (redirect)",
+        # data: raw frame data
+        # data: raw frame data
+        binascii.unhexlify(''.join("""
+        005056991bcc0050 5699bfd508004500 0086c4d300004011 9d1a0a0502340a05
+        023c01f42ac80072 c9bc886948814975 28ad000000000000 0000292022200000
+        00000000006a0000 004e01004017031c 6d6f6e657962696e 2e6475636b627572
+        672e6469736e6579 2e636f6d4bf3ea6c d0c6afe702c567fe 7db3ff973424bb5e
+        9de6af123a41975a 6ffb266e9c5b4c91 5795132b
+        """.split())),
+        # packet:  Ether / IP / UDP / IKEv2 / ...
+        Ether(dst='00:50:56:99:1b:cc', src='00:50:56:99:bf:d5', type=2048) /\
+        IP(version=4, ihl=5, tos=0, id=50387, flags=0, frag=0, ttl=64, proto=17, src='10.5.2.52', dst='10.5.2.60') /\
+        UDP(sport=500, dport=10952) /\
+        IKEv2(
+            init_SPI=b'\x88iH\x81Iu(\xad',
+            resp_SPI=b'\x00\x00\x00\x00\x00\x00\x00\x00',
+            next_payload=41,
+            version=32,
+            exch_type=34,
+            flags=32,
+            id=0
+        ) /\
+        IKEv2_Notify(
+            next_payload=0,
+            flags=0,
+            length=78,
+            proto='IKE',
+            type='REDIRECT',
+            gw_id_type=3,
+            gw_id=b'moneybin.duckburg.disney.com',
+            nonce=b'K\xf3\xeal\xd0\xc6\xaf\xe7\x02\xc5g\xfe}\xb3\xff\x974$\xbb^\x9d\xe6\xaf\x12:A\x97Zo\xfb&n\x9c[L\x91W\x95\x13+'
+        )
+    ),
+    (
+        # i: frame number
+        2,
+        # title:
+        "IKE_SA_INIT request  (redirected_from)",
+        # data: raw frame data
+        binascii.unhexlify(''.join("""
+        0050569907660050 56991bcc08004500 013290ac00007f11 91940a05023c0a05
+        02352ac801f4011e cba11c88ee0b7793 d52e000000000000 0000212022080000
+        0000000001162200 0028000000240101 00030300000c0100 0014800e01000300
+        0008020000050000 00080400001c2800 0048001c00004616 8482fe53233fc1e2
+        2f9726b7adfe0dfc f53d1558fd663168 24ceec32d4d33f57 7941d3d52e929b3b
+        ed0b2eef12886117 cd358655f2f6ffd6 fb54fd48bbc52900 002ca573e33f62cf
+        2893f80abed1677c a303249bf90aae99 980052cbdfd9cc6b 6e70605869ef142b
+        cdfd2900001c0100 40052c07d7519ad8 df23a23027e9e7c2 654b32c4e0f32900
+        001c010040041a1d 001cd4d06f42d1ce 836f7ced61c683b1 87ef290000080000
+        402e2900000e0000 401801040a050234 000000100000402f 0001000200030004
+        """.split())),
+        # packet:  Ether / IP / UDP / IKEv2 / ...
+        Ether(dst='00:50:56:99:07:66', src='00:50:56:99:1b:cc', type=2048) /\
+        IP(version=4, ihl=5, tos=0, id=37036, flags=0, frag=0, ttl=127, proto=17, src='10.5.2.60', dst='10.5.2.53') /\
+        UDP(sport=10952, dport=500) /\
+        IKEv2(
+            init_SPI=b'\x1c\x88\xee\x0bw\x93\xd5.',
+            resp_SPI=b'\x00\x00\x00\x00\x00\x00\x00\x00',
+            next_payload=33,
+            version=32,
+            exch_type=34,
+            flags=8,
+            id=0) /\
+        IKEv2_SA(
+            prop=IKEv2_Proposal(
+                trans=(
+                    IKEv2_Transform(next_payload=3, flags=0, length=12, transform_type=1, res2=0, transform_id=20, key_length=256) /\
+                    IKEv2_Transform(next_payload=3, flags=0, length=8, transform_type=2, res2=0, transform_id=5) /\
+                    IKEv2_Transform(next_payload=0, flags=0, length=8, transform_type=4, res2=0, transform_id=28)
+                ),
+                next_payload=0,
+                flags=0,
+                length=36,
+                proposal=1,
+                proto='IKE',
+                trans_nb=3,
+            ),
+            next_payload=34,
+            flags=0,
+            length=40
+        ) /\
+        IKEv2_KE(
+            next_payload=40,
+            flags=0,
+            length=72,
+            group=28,
+            res2=0,
+            ke=b'F\x16\x84\x82\xfeS#?\xc1\xe2/\x97&\xb7\xad\xfe\r\xfc\xf5=\x15X\xfdf1h$\xce\xec2\xd4\xd3?\x57\x79\x41\xd3\xd5.\x92\x9b;\xed\x0b.\xef\x12\x88a\x17\xcd5\x86U\xf2\xf6\xff\xd6\xfbT\xfdH\xbb\xc5'
+        ) /\
+        IKEv2_Nonce(
+            next_payload=41,
+            flags=0,
+            length=44,
+            nonce=b'\xa5s\xe3?b\xcf(\x93\xf8\n\xbe\xd1g|\xa3\x03$\x9b\xf9\n\xae\x99\x98\x00R\xcb\xdf\xd9\xccknp`Xi\xef\x14+\xcd\xfd'
+        ) /\
+        IKEv2_Notify(
+            next_payload=41,
+            flags=0,
+            length=28,
+            proto='IKE',
+            type='NAT_DETECTION_DESTINATION_IP',
+            notify=b",\x07\xd7Q\x9a\xd8\xdf#\xa20'\xe9\xe7\xc2eK2\xc4\xe0\xf3"
+        ) /\
+        IKEv2_Notify(
+            next_payload=41,
+            flags=0,
+            length=28,
+            proto='IKE',
+            type='NAT_DETECTION_SOURCE_IP',
+            notify=b'\x1a\x1d\x00\x1c\xd4\xd0oB\xd1\xce\x83o|\xeda\xc6\x83\xb1\x87\xef'
+        ) /\
+        IKEv2_Notify(
+            next_payload=41,
+            flags=0,
+            length=8,
+            type='IKEV2_FRAGMENTATION_SUPPORTED'
+        ) /\
+        IKEv2_Notify(
+            next_payload=41,
+            flags=0,
+            length=14,
+            type='REDIRECTED_FROM',
+            gw_id_type=1,
+            gw_id_len=4,
+            gw_id='10.5.2.52'
+        ) /\
+        IKEv2_Notify(
+            next_payload=0,
+            flags=0,
+            length=16,
+            type='SIGNATURE_HASH_ALGORITHMS',
+            notify=b'\x00\x01\x00\x02\x00\x03\x00\x04'
+        )
+    ),
+    (
+        # i: frame number
+        3,
+        # title:
+        "IKE_SA_INIT response (no_proposal_chosen)",
+        # data: raw frame data
+        binascii.unhexlify(''.join("""
+        005056991bcc0050 5699076608004500 0040f24c00004011 6fe60a0502350a05
+        023c01f42ac8002c c8e31c88ee0b7793 d52e63cc9c1919de 33e7292022200000
+        0000000000240000 00080100000e
+        """.split())),
+        # packet:  Ether / IP / UDP / IKEv2 / ...
+        Ether(dst='00:50:56:99:1b:cc', src='00:50:56:99:07:66', type=2048) /\
+        IP(version=4, ihl=5, tos=0, id=62028, flags=0, frag=0, ttl=64, proto=17, src='10.5.2.53', dst='10.5.2.60') /\
+        UDP(sport=500, dport=10952) /\
+        IKEv2(
+            init_SPI=b'\x1c\x88\xee\x0bw\x93\xd5.',
+            resp_SPI=b'c\xcc\x9c\x19\x19\xde3\xe7',
+            next_payload=41,
+            version=32,
+            exch_type=34,
+            flags=32,
+            id=0
+        ) /\
+        IKEv2_Notify(
+            next_payload=0,
+            flags=0,
+            length=8,
+            proto='IKE',
+            type='NO_PROPOSAL_CHOSEN'
         )
     ),
 ]
