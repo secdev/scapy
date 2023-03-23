@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Copyright (C) Deniz Bingöl <deniz.bingol@technica-engineering.de>
+
+# scapy.test.contrib.description = Tests for Protocol-Data-Unit (PDU) and n-PDU
+# scapy.test.contrib.status = loads
+
++ Basic operations
+
+= Load module
+load_contrib("pdu", globals_dict=globals())
+
++ Package(s) Construction
+
+
+# Case 1: Empty nPDU
+= Empty nPDU
+assert(bytes(nPDU()) == b'')
+
+# Case 2: Empty nPDU from empty bytes array
+= Empty nPDU from bytes
+assert(nPDU(b'') == nPDU())
+
+# Case 3: nPDU with 1 PDU
+= nPDU with single PDU
+pkg_id = 1
+pkg_data = '12345'
+data_len = len(pkg_data)
+
+pkg = nPDU()
+pkg.pkgs.append(PDU(pkg_id=pkg_id, data=pkg_data))
+resLoad = bytes(pkg)
+expLoad = pkg_id.to_bytes(4, 'big') + data_len.to_bytes(4, 'big') + bytearray(pkg_data.encode('utf-8'))
+
+assert(expLoad == resLoad)
+
+# Case 4: nPDU with 1 PDU from bytes array
+= nPDU with single PDU from bytes
+pkg_id = 1
+pkg_data = '12345'
+data_len = len(pkg_data)
+
+pkg = nPDU()
+pkg.pkgs.append(PDU(pkg_id=pkg_id, data=pkg_data))
+resLoad = bytes(pkg)
+
+expLoad = b'\x00\x00\x00\x01\x00\x00\x00\x0512345'
+myNPDU = nPDU(expLoad)
+
+assert(len(myNPDU.pkgs), 1)
+assert(len(myNPDU.pkgs[0].data), myNPDU.pkgs[0].data_length)
+assert(myNPDU.pkgs[0].pkg_id == pkg.pkgs[0].pkg_id)
+assert(myNPDU.pkgs[0].data == pkg.pkgs[0].data)
+assert(bytes(myNPDU) == resLoad)
+
+# Case 5: nPDU with multiple PDUs
+= nPDU with multiple PDUs
+
+expLoad = b''
+numPkgs = 5
+
+pkg = nPDU()
+
+for i in range(numPkgs):
+    data_len = (i + 1) * 2
+    pkg_data = ''.join(["?" for j in range(data_len)])
+    pkg.pkgs.append(PDU(pkg_id=i, data=pkg_data))
+    expLoad = expLoad + i.to_bytes(4, 'big') + data_len.to_bytes(4, 'big') + bytearray(pkg_data.encode('utf-8'))
+
+resLoad = bytes(pkg)
+assert(expLoad == resLoad)
+
+
+# Case 5: nPDU with multiple PDUs from bytes
+= nPDU with multiple PDUs from bytes
+
+expLoad = b''
+numPkgs = 5
+
+pkg = nPDU()
+
+for i in range(numPkgs):
+    data_len = (i + 1) * 2
+    pkg_data = ''.join(["?" for j in range(data_len)])
+    pkg.pkgs.append(PDU(pkg_id=i, data=pkg_data))
+    expLoad = expLoad + i.to_bytes(4, 'big') + data_len.to_bytes(4, 'big') + bytearray(pkg_data.encode('utf-8'))
+
+myNPDU = nPDU(expLoad)
+
+assert(len(myNPDU.pkgs) == len(pkg.pkgs))
+
+for expd, recvd in zip(myNPDU.pkgs, pkg.pkgs):
+    assert(expd.data == recvd.data)
+    assert(expd.pkg_id == recvd.pkg_id)
+    assert(expd.data_length == len(expd.data))
