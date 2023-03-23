@@ -1573,7 +1573,13 @@ class Dot11Auth(_Dot11EltUtils):
                    LEShortEnumField("status", 0, status_code)]
 
     def answers(self, other):
-        if self.seqnum == other.seqnum + 1:
+        if self.algo != other.algo:
+            return 0
+
+        if (
+            self.seqnum == other.seqnum + 1 or
+            (self.algo == 3 and self.seqnum == other.seqnum)
+        ):
             return 1
         return 0
 
