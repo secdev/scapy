@@ -15,8 +15,12 @@ import struct
 # Modified from the original ISAKMP code by Yaron Sheffer <yaronf.ietf@gmail.com>, June 2010.  # noqa: E501
 
 from scapy.packet import (
-    Packet, Raw,
-    bind_top_down, bind_bottom_up, bind_layers, split_bottom_up, split_layers
+    Packet,
+    Raw,
+    bind_bottom_up,
+    bind_layers,
+    bind_top_down,
+    split_bottom_up,
 )
 from scapy.fields import (
     ByteEnumField,
@@ -38,13 +42,12 @@ from scapy.fields import (
     StrLenField,
     X3BytesField,
     XByteField,
-    XIntField,
     XStrFixedLenField,
     XStrLenField,
 )
 from scapy.layers.x509 import X509_Cert, X509_CRL
 from scapy.layers.inet import IP, UDP
-from scapy.layers.ipsec import ESP
+from scapy.layers.ipsec import NON_ESP
 from scapy.layers.isakmp import ISAKMP
 from scapy.sendrecv import sr
 from scapy.config import conf
@@ -945,63 +948,8 @@ bind_bottom_up(UDP, IKEv2, dport=500)
 bind_bottom_up(UDP, IKEv2, sport=500)
 bind_top_down(UDP, IKEv2, dport=500, sport=500)
 
-
-split_layers(UDP, ESP, dport=4500)  # NAT-Traversal encapsulation
-split_layers(UDP, ESP, sport=4500)  # NAT-Traversal encapsulation
-
-
-# TODO: the bindings for NAT-traversal (UDP encapsulation on port 4500)
-#       actually belong into the scapy.layers.ipsec module. They will
-#       be moved there as soon as the IKEv2 protocol has been promoted
-#       from scapy.contrib to scapy.layers.
-
-class UDP_ENCAP(Packet):  # RFC 3948
-    """
-    UDP Encapsulation of IPsec ESP Packets [RFC3948] (for NAT-Traversal)
-    """
-    name = 'UDP_ENCAP'
-
-    @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt:
-            if len(_pkt) >= 4 and struct.unpack("!I", _pkt[0:4])[0] == 0x00:
-                return NON_ESP
-            elif len(_pkt) == 1 and struct.unpack("!B", _pkt)[0] == 0xff:
-                return NAT_KEEPALIVE
-            else:
-                return ESP
-        return cls
-
-
-class NON_ESP(Packet):  # RFC 3948, section 2.2
-
-    fields_desc = [
-        XIntField("non_esp", 0x0)
-    ]
-
-    def guess_payload_class(self, payload):
-        return IKEv2
-
-
-class NAT_KEEPALIVE(Packet):  # RFC 3948, section 2.2
-
-    fields_desc = [
-        XByteField("nat_keepalive", 0xFF)
-    ]
-
-    def guess_payload_class(self, payload):
-        return conf.raw_layer
-
-
-split_layers(UDP, ESP, dport=4500)
-split_layers(UDP, ESP, sport=4500)
-
-bind_bottom_up(UDP, UDP_ENCAP, dport=4500)
-bind_bottom_up(UDP, UDP_ENCAP, sport=4500)
-
-bind_top_down(UDP, ESP, dport=4500, sport=4500)
-bind_top_down(UDP, NON_ESP, dport=4500, sport=4500)
-bind_top_down(UDP, NAT_KEEPALIVE, dport=4500, sport=4500)
+split_bottom_up(NON_ESP, ISAKMP)
+bind_bottom_up(NON_ESP, IKEv2)
 
 
 def ikev2scan(ip, **kwargs):

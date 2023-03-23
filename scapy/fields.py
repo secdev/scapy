@@ -1971,6 +1971,21 @@ class StrLenFieldUtf16(StrLenField, StrFieldUtf16):
     pass
 
 
+class StrLenEnumField(_StrEnumField, StrLenField):
+    __slots__ = ["enum"]
+
+    def __init__(
+            self,
+            name,  # type: str
+            default,  # type: bytes
+            enum=None,  # type: Optional[Dict[str, str]]
+            **kwargs  # type: Any
+    ):
+        # type: (...) -> None
+        StrLenField.__init__(self, name, default, **kwargs)
+        self.enum = enum
+
+
 class BoundStrLenField(StrLenField):
     __slots__ = ["minlen", "maxlen"]
 

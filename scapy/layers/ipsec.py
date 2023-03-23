@@ -43,9 +43,25 @@ from scapy.config import conf, crypto_validator
 from scapy.compat import orb, raw
 from scapy.data import IP_PROTOS
 from scapy.error import log_loading
-from scapy.fields import ByteEnumField, ByteField, IntField, PacketField, \
-    ShortField, StrField, XIntField, XStrField, XStrLenField
-from scapy.packet import Packet, bind_layers, Raw
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    IntField,
+    PacketField,
+    ShortField,
+    StrField,
+    XByteField,
+    XIntField,
+    XStrField,
+    XStrLenField,
+)
+from scapy.packet import (
+    Packet,
+    Raw,
+    bind_bottom_up,
+    bind_layers,
+    bind_top_down,
+)
 from scapy.layers.inet import IP, UDP
 import scapy.libs.six as six
 from scapy.layers.inet6 import IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt, \
@@ -115,6 +131,17 @@ class ESP(Packet):
         XStrField('data', None),
     ]
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            if len(_pkt) >= 4 and struct.unpack("!I", _pkt[0:4])[0] == 0x00:
+                return NON_ESP
+            elif len(_pkt) == 1 and struct.unpack("!B", _pkt)[0] == 0xff:
+                return NAT_KEEPALIVE
+            else:
+                return ESP
+        return cls
+
     overload_fields = {
         IP: {'proto': socket.IPPROTO_ESP},
         IPv6: {'nh': socket.IPPROTO_ESP},
@@ -124,10 +151,27 @@ class ESP(Packet):
     }
 
 
+class NON_ESP(Packet):  # RFC 3948, section 2.2
+    fields_desc = [
+        XIntField("non_esp", 0x0)
+    ]
+
+
+class NAT_KEEPALIVE(Packet):  # RFC 3948, section 2.2
+    fields_desc = [
+        XByteField("nat_keepalive", 0xFF)
+    ]
+
+
 bind_layers(IP, ESP, proto=socket.IPPROTO_ESP)
 bind_layers(IPv6, ESP, nh=socket.IPPROTO_ESP)
-bind_layers(UDP, ESP, dport=4500)  # NAT-Traversal encapsulation
-bind_layers(UDP, ESP, sport=4500)  # NAT-Traversal encapsulation
+
+# NAT-Traversal encapsulation
+bind_bottom_up(UDP, ESP, dport=4500)
+bind_bottom_up(UDP, ESP, sport=4500)
+bind_top_down(UDP, ESP, dport=4500, sport=4500)
+bind_top_down(UDP, NON_ESP, dport=4500, sport=4500)
+bind_top_down(UDP, NAT_KEEPALIVE, dport=4500, sport=4500)
 
 ###############################################################################
 
