@@ -1128,11 +1128,11 @@ assert (isinstance(pkt_1.orig, RawVal)), type(pkt_1.orig)
 assert (isinstance(pkt_1.sent, RawVal)), type(pkt_1.sent)
 assert (isinstance(pkt_1.recv, RawVal)), type(pkt_1.recv)
 
-assert (pkt_1.precision.val == precision, pkt_1.precision.val)
-assert (pkt_1.dispersion.val == dispersion, pkt_1.dispersion.val)
-assert (pkt_1.orig.val == time_stamp, pkt_1.orig.val)
-assert (pkt_1.sent.val == time_stamp, pkt_1.sent.val)
-assert (pkt_1.recv.val == time_stamp, pkt_1.recv.val)
+assert pkt_1.precision.val == precision, pkt_1.precision.val
+assert pkt_1.dispersion.val == dispersion, pkt_1.dispersion.val
+assert pkt_1.orig.val == time_stamp, pkt_1.orig.val
+assert pkt_1.sent.val == time_stamp, pkt_1.sent.val
+assert pkt_1.recv.val == time_stamp, pkt_1.recv.val
 
 time_stamp_hex = 0x00000000e67d6774
 pkt_2 = NTP(
