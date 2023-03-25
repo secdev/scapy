@@ -407,19 +407,17 @@ class CryptAlgo(object):
                     aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
                 else:
                     aad = struct.pack('!LL', esp.spi, esp.seq)
-                if self.name == 'AES-NULL-GMAC':
-                    aad = aad + esp.iv + data
-                    aes_null_gmac_data = data
-                    data = b''
             if self.ciphers_aead_api:
                 # New API
                 if self.cipher == aead.AESCCM:
                     cipher = self.cipher(key, tag_length=icv_size)
                 else:
                     cipher = self.cipher(key)
-                data = cipher.encrypt(mode_iv, data, aad)
                 if self.name == 'AES-NULL-GMAC':
-                    data = aes_null_gmac_data + data
+                    # Special case for GMAC (rfc 4543 sect 3)
+                    data = data + cipher.encrypt(mode_iv, b"", aad + esp.iv + data)
+                else:
+                    data = cipher.encrypt(mode_iv, data, aad)
             else:
                 cipher = self.new_cipher(key, mode_iv)
                 encryptor = cipher.encryptor()
@@ -428,8 +426,6 @@ class CryptAlgo(object):
                     encryptor.authenticate_additional_data(aad)
                     data = encryptor.update(data) + encryptor.finalize()
                     data += encryptor.tag[:icv_size]
-                    if self.name == 'AES-NULL-GMAC':
-                        data = aes_null_gmac_data + data
                 else:
                     data = encryptor.update(data) + encryptor.finalize()
 
@@ -466,10 +462,6 @@ class CryptAlgo(object):
                     aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
                 else:
                     aad = struct.pack('!LL', esp.spi, esp.seq)
-                if self.name == 'AES-NULL-GMAC':
-                    aad = aad + iv + data
-                    aes_null_gmac_data = data
-                    data = b''
             if self.ciphers_aead_api:
                 # New API
                 if self.cipher == aead.AESCCM:
@@ -477,11 +469,13 @@ class CryptAlgo(object):
                 else:
                     cipher = self.cipher(key)
                 try:
-                    data = cipher.decrypt(mode_iv, data + icv, aad)
+                    if self.name == 'AES-NULL-GMAC':
+                        # Special case for GMAC (rfc 4543 sect 3)
+                        data = data + cipher.decrypt(mode_iv, icv, aad + iv + data)
+                    else:
+                        data = cipher.decrypt(mode_iv, data + icv, aad)
                 except InvalidTag as err:
                     raise IPSecIntegrityError(err)
-                if self.name == 'AES-NULL-GMAC':
-                    data = aes_null_gmac_data + data
             else:
                 cipher = self.new_cipher(key, mode_iv, icv)
                 decryptor = cipher.decryptor()
@@ -493,8 +487,6 @@ class CryptAlgo(object):
                     data = decryptor.update(data) + decryptor.finalize()
                 except InvalidTag as err:
                     raise IPSecIntegrityError(err)
-                if self.name == 'AES-NULL-GMAC':
-                    data = aes_null_gmac_data + data
 
         # extract padlen and nh
         padlen = orb(data[-2])
@@ -544,6 +536,17 @@ if algorithms:
                                        iv_size=8,
                                        icv_size=16,
                                        format_mode_iv=_salt_format_mode_iv)
+    # GMAC: rfc 4543, "companion to the AES Galois/Counter Mode ESP"
+    # This is defined as a crypt_algo by rfc, but has the role of an auth_algo
+    CRYPT_ALGOS['AES-NULL-GMAC'] = CryptAlgo('AES-NULL-GMAC',
+                                             cipher=aead.AESGCM,
+                                             key_size=(16, 24, 32),
+                                             mode=None,
+                                             salt_size=4,
+                                             block_size=1,
+                                             iv_size=8,
+                                             icv_size=16,
+                                             format_mode_iv=_salt_format_mode_iv)
     CRYPT_ALGOS['AES-CCM'] = CryptAlgo('AES-CCM',
                                        cipher=aead.AESCCM,
                                        mode=None,
@@ -562,15 +565,6 @@ if algorithms:
                                                  salt_size=4,
                                                  icv_size=16,
                                                  format_mode_iv=_salt_format_mode_iv)  # noqa: E501
-    CRYPT_ALGOS['AES-NULL-GMAC'] = CryptAlgo('AES-NULL-GMAC',
-                                             cipher=aead.AESGCM,
-                                             key_size=(16, 24, 32),
-                                             mode=None,
-                                             salt_size=4,
-                                             block_size=1,
-                                             iv_size=8,
-                                             icv_size=16,
-                                             format_mode_iv=_salt_format_mode_iv)
 
     # XXX: RFC7321 states that DES *MUST NOT* be implemented.
     # XXX: Keep for backward compatibility?
