@@ -1684,6 +1684,183 @@ except IPSecIntegrityError as err:
     err
     
 #######################################
+= IPv4 / ESP - Transport - AES-NULL-GMAC - NULL
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-NULL-GMAC', crypt_key=b'16bytekey+4bytenonce',
+                         auth_algo='NULL', auth_key=None)
+
+e = sa.encrypt(p)
+e
+
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+* AES-NULL-GMAC is integrity only, the original packet payload should be readable
+assert b'testdata' in e[ESP].data
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert d[TCP] == p[TCP]
+
+# Generated with Linux 5.15.0-1034-azure #41-Ubuntu
+# ip xfrm state add src 10.125.0.2 dst 10.125.0.1 proto esp spi 0x222 reqid 1 \
+#    mode tunnel aead 'rfc4543(gcm(aes))' '0x3136627974656b65792b34627974656e6f6e6365' 128 flag align4
+ref = IP() \
+    / ESP(spi=0x222,
+          data=b'\x54\x70\x6c\x6a\x9f\xba\xa6\x18\x45\x00\x00\x54\xbc\x53\x00\x00'
+               b'\x40\x01\xa9\x59\x0a\x7d\x00\x01\x0a\x7d\x00\x02\x00\x00\xad\x53'
+               b'\xa8\x83\x00\x01\x02\xe6\x09\x64\x00\x00\x00\x00\xd9\x0a\x06\x00'
+               b'\x00\x00\x00\x00\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b'
+               b'\x1c\x1d\x1e\x1f\x20\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b'
+               b'\x2c\x2d\x2e\x2f\x30\x31\x32\x33\x34\x35\x36\x37\x01\x02\x02\x04'
+               b'\x9b\x76\x32\x30\xf6\x49\x92\xa8\x8f\x6a\x20\x87\x2c\x74\x0c\x18',
+          seq=22)
+
+d_ref = sa.decrypt(ref)
+d_ref
+
+* Check for ICMP layer in decrypted reference
+assert d_ref.haslayer(ICMP)
+
+#######################################
+= IPv4 / ESP - Transport - AES-NULL-GMAC - NULL -- ESN
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-NULL-GMAC', crypt_key=b'16bytekey+4bytenonce',
+                         auth_algo='NULL', auth_key=None, esn_en = True, esn = 0x1)
+
+e = sa.encrypt(p)
+e
+
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+* AES-NULL-GMAC is integrity only, the original packet payload should be readable
+assert b'testdata' in e[ESP].data
+
+d = sa.decrypt(e)
+d
+
+* after decryption original packet should be preserved
+assert d[TCP] == p[TCP]
+
+# Generated with Linux 5.15.0-1034-azure #41-Ubuntu
+# ip xfrm state add src 10.125.0.2 dst 10.125.0.1 proto esp spi 0x222 reqid 1 replay-oseq-hi 0x1 \
+#    mode tunnel aead 'rfc4543(gcm(aes))' '0x3136627974656b65792b34627974656e6f6e6365' 128 flag align4 esn
+ref = IP() \
+    / ESP(spi=0x222,
+          data=b'\x43\xe6\xa1\xce\x70\x9d\x67\xf4\x45\x00\x00\x54\x2e\x4a\x40\x00'
+               b'\x40\x01\xf7\x62\x0a\x7d\x00\x02\x0a\x7d\x00\x01\x08\x00\xd3\x32'
+               b'\x8f\x4c\x00\x02\x8d\xec\x09\x64\x00\x00\x00\x00\x3c\x5b\x03\x00'
+               b'\x00\x00\x00\x00\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b'
+               b'\x1c\x1d\x1e\x1f\x20\x21\x22\x23\x24\x25\x26\x27\x28\x29\x2a\x2b'
+               b'\x2c\x2d\x2e\x2f\x30\x31\x32\x33\x34\x35\x36\x37\x01\x02\x02\x04'
+               b'\x76\xd4\x93\x90\x75\xee\x3f\xa3\xf3\xcf\xcc\x27\xf5\x5b\x12\xb6',
+          seq=5)
+
+d_ref = sa.decrypt(ref)
+d_ref
+
+* Check for ICMP layer in decrypted reference
+assert d_ref.haslayer(ICMP)
+
+
+#######################################
+
+= IPv4 / ESP - Transport - AES-NULL-GMAC - NULL - altered packet
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-NULL-GMAC', crypt_key=b'16bytekey+4bytenonce',
+                         auth_algo='NULL', auth_key=None)
+
+e = sa.encrypt(p)
+e
+
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+* AES-NULL-GMAC is integrity only, the original packet payload should be readable
+assert b'testdata' in e[ESP].data
+
+* simulate the alteration of the packet before decryption
+e[ESP].seq += 1
+
+* integrity verification should fail
+try:
+    d = sa.decrypt(e)
+    assert False
+except IPSecIntegrityError as err:
+    err
+
+#######################################
+
+= IPv4 / ESP - Transport - AES-NULL-GMAC - NULL - altered packet -- ESN
+
+p = IP(src='1.1.1.1', dst='2.2.2.2')
+p /= TCP(sport=45012, dport=80)
+p /= Raw('testdata')
+p = IP(raw(p))
+p
+
+sa = SecurityAssociation(ESP, spi=0x222,
+                         crypt_algo='AES-NULL-GMAC', crypt_key=b'16bytekey+4bytenonce',
+                         auth_algo='NULL', auth_key=None, esn_en = True, esn = 0x200)
+
+e = sa.encrypt(p)
+e
+
+assert isinstance(e, IP)
+assert e.src == '1.1.1.1' and e.dst == '2.2.2.2'
+assert e.chksum != p.chksum
+assert e.proto == socket.IPPROTO_ESP
+assert e.haslayer(ESP)
+assert not e.haslayer(TCP)
+assert e[ESP].spi == sa.spi
+* AES-NULL-GMAC is integrity only, the original packet payload should be readable
+assert b'testdata' in e[ESP].data
+
+* simulate the alteration of the packet before decryption
+* integrity verification should fail
+try:
+    d = sa.decrypt(e, esn = 0x201)
+    assert False
+except IPSecIntegrityError as err:
+    err
+
+#######################################
 = IPv4 / ESP - Transport - AES-CCM - NULL
 ~ crypto_advanced
 

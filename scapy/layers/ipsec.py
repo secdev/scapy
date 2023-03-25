@@ -413,7 +413,11 @@ class CryptAlgo(object):
                     cipher = self.cipher(key, tag_length=icv_size)
                 else:
                     cipher = self.cipher(key)
-                data = cipher.encrypt(mode_iv, data, aad)
+                if self.name == 'AES-NULL-GMAC':
+                    # Special case for GMAC (rfc 4543 sect 3)
+                    data = data + cipher.encrypt(mode_iv, b"", aad + esp.iv + data)
+                else:
+                    data = cipher.encrypt(mode_iv, data, aad)
             else:
                 cipher = self.new_cipher(key, mode_iv)
                 encryptor = cipher.encryptor()
@@ -465,7 +469,11 @@ class CryptAlgo(object):
                 else:
                     cipher = self.cipher(key)
                 try:
-                    data = cipher.decrypt(mode_iv, data + icv, aad)
+                    if self.name == 'AES-NULL-GMAC':
+                        # Special case for GMAC (rfc 4543 sect 3)
+                        data = data + cipher.decrypt(mode_iv, icv, aad + iv + data)
+                    else:
+                        data = cipher.decrypt(mode_iv, data + icv, aad)
                 except InvalidTag as err:
                     raise IPSecIntegrityError(err)
             else:
@@ -528,6 +536,17 @@ if algorithms:
                                        iv_size=8,
                                        icv_size=16,
                                        format_mode_iv=_salt_format_mode_iv)
+    # GMAC: rfc 4543, "companion to the AES Galois/Counter Mode ESP"
+    # This is defined as a crypt_algo by rfc, but has the role of an auth_algo
+    CRYPT_ALGOS['AES-NULL-GMAC'] = CryptAlgo('AES-NULL-GMAC',
+                                             cipher=aead.AESGCM,
+                                             key_size=(16, 24, 32),
+                                             mode=None,
+                                             salt_size=4,
+                                             block_size=1,
+                                             iv_size=8,
+                                             icv_size=16,
+                                             format_mode_iv=_salt_format_mode_iv)
     CRYPT_ALGOS['AES-CCM'] = CryptAlgo('AES-CCM',
                                        cipher=aead.AESCCM,
                                        mode=None,
