@@ -111,7 +111,7 @@ class KWP(ISOTP):
     def hashret(self):
         # type: () -> bytes
         if self.service == 0x7f:
-            return struct.pack('B', self.requestServiceId)
+            return struct.pack('B', self.requestServiceId & ~0x40)
         else:
             return struct.pack('B', self.service & ~0x40)
 
