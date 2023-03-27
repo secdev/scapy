@@ -24,7 +24,7 @@ from scapy.layers.can import CAN
 from scapy.packet import Packet
 from scapy.error import warning
 from scapy.compat import List, Type, Tuple, Dict, Any, \
-    Optional, cast, orb
+    Optional, cast
 
 from can import Message as can_Message
 from can import CanError as can_CanError
@@ -215,7 +215,7 @@ class SocketWrapper(can_BusABC):
         :return: Returns a tuple of either a can_Message or None and a bool to
                  indicate if filtering was already applied.
         """
-        if not len(self.rx_queue):
+        if not self.rx_queue:
             # Early return without locking if it looks like rx_queue is empty
             return None, True
 
@@ -287,9 +287,9 @@ class PythonCANSocket(SuperSocket):
                           is_extended_id=x.flags == 0x4,
                           is_error_frame=x.flags == 0x1,
                           arbitration_id=x.identifier,
-                          is_fd=orb(bx[5]) & 4 > 0,
-                          error_state_indicator=orb(bx[5]) & 2 > 0,
-                          bitrate_switch=orb(bx[5]) & 1 > 0,
+                          is_fd=bx[5] & 4 > 0,
+                          error_state_indicator=bx[5] & 2 > 0,
+                          bitrate_switch=bx[5] & 1 > 0,
                           dlc=x.length,
                           data=bx[8:])
         msg.timestamp = time.time()
@@ -317,7 +317,7 @@ class PythonCANSocket(SuperSocket):
         # dangerous, but for the purpose of this select, if another
         # thread is reading the same socket, then even proper locking
         # wouldn't help
-        if not len(ready_sockets):
+        if not ready_sockets:
             # yield this thread to avoid starvation
             time.sleep(0)
 

@@ -17,7 +17,6 @@ from scapy.compat import Tuple, Optional, Type, List, Union, Callable, IO, \
     Any, cast, hex_bytes, chb
 
 from scapy.config import conf
-from scapy.compat import orb
 from scapy.data import DLT_CAN_SOCKETCAN
 from scapy.fields import FieldLenField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ScalingField, ConditionalField, LenField, ShortField
@@ -101,11 +100,11 @@ class CAN(Packet):
                       **kargs  # type: Any
                       ):  # type: (...) -> Type[Packet]
         if _pkt:
-            fdf_set = len(_pkt) > 5 and orb(_pkt[5]) & 0x04 and \
-                not orb(_pkt[5]) & 0xf8
+            fdf_set = len(_pkt) > 5 and _pkt[5] & 0x04 and \
+                not _pkt[5] & 0xf8
             if fdf_set:
                 return CANFD
-            elif len(_pkt) > 4 and orb(_pkt[4]) > 8:
+            elif len(_pkt) > 4 and _pkt[4] > 8:
                 return CANFD
         return CAN
 
@@ -184,26 +183,14 @@ class CANFD(CAN):
 
         data = super(CANFD, self).post_build(pkt, pay)
 
-        length = orb(data[4])
+        length = data[4]
 
-        if 8 < length <= 12:
-            wire_length = 12
-        elif 12 < length <= 16:
-            wire_length = 16
-        elif 16 < length <= 20:
-            wire_length = 20
-        elif 20 < length <= 24:
-            wire_length = 24
-        elif 24 < length <= 32:
-            wire_length = 32
-        elif 32 < length <= 40:
-            wire_length = 40
-        elif 40 < length <= 48:
-            wire_length = 48
-        elif 48 < length <= 56:
-            wire_length = 56
-        elif 56 < length <= 64:
-            wire_length = 64
+        if 8 < length <= 24:
+            wire_length = length + (-length) % 4
+        elif 24 < length <= 64:
+            wire_length = length + (-length) % 8
+        elif length > 64:
+            raise NotImplementedError
         else:
             wire_length = length
 
@@ -620,13 +607,13 @@ class CandumpReader:
         if len(line) < 16:
             raise EOFError
 
-        is_log_file_format = orb(line[0]) == orb(b"(")
+        is_log_file_format = line[0] == ord(b"(")
         fd_flags = None
         if is_log_file_format:
             t_b, intf, f = line.split()
             if b'##' in f:
                 idn, data = f.split(b'##')
-                fd_flags = orb(data[0])
+                fd_flags = data[0]
                 data = data[1:]
             else:
                 idn, data = f.split(b'#')
