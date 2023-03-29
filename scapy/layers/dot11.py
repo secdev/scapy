@@ -386,10 +386,7 @@ class RadioTap(Packet):
             lambda pkt: pkt.present and pkt.present.ChannelPlus),
         # MCS
         ConditionalField(
-            ReversePadField(
-                FlagsField("knownMCS", None, -8, _rt_knownmcs),
-                2
-            ),
+            FlagsField("knownMCS", None, -8, _rt_knownmcs),
             lambda pkt: pkt.present and pkt.present.MCS),
         ConditionalField(
             BitField("Ness_LSB", 0, 1),
