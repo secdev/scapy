@@ -15,9 +15,10 @@ Use bind_layers(UDP, RTCP, dport=...) to start using it
 
 import struct
 
-from scapy.packet import Packet
+from scapy.packet import Packet, bind_layers
 from scapy.fields import (
     BitField,
+    BitEnumField,
     BitFieldLenField,
     ByteEnumField,
     ByteField,
@@ -38,7 +39,9 @@ _rtcp_packet_types = {
     201: 'Receiver report',
     202: 'Source description',
     203: 'BYE',
-    204: 'APP'
+    204: 'APP',
+    205: 'Transport layer FB message',
+    206: 'Payload-specific FB message',
 }
 
 
@@ -50,6 +53,9 @@ class SenderInfo(Packet):
         IntField('sender_packet_count', None),
         IntField('sender_octet_count', None)
     ]
+
+    def extract_padding(self, p):
+        return "", p
 
 
 class ReceptionReport(Packet):
@@ -63,6 +69,9 @@ class ReceptionReport(Packet):
         IntField('last_SR_timestamp', None),
         IntField('delay_since_last_SR', None)
     ]
+
+    def extract_padding(self, p):
+        return "", p
 
 
 _sdes_chunk_types = {
@@ -87,15 +96,38 @@ class SDESItem(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return "", p.lstrip(b"\x00") if self.chunk_type == 0 else p
 
 
 class SDESChunk(Packet):
     name = "SDES chunk"
     fields_desc = [
         IntField('sourcesync', None),
-        PacketListField('items', None, pkt_cls=SDESItem)
+        PacketListField(
+            'items',
+            None,
+            pkt_cls=SDESItem,
+            next_cls_cb=lambda pkt, lst, cur, remain:
+                None if cur and cur.chunk_type == 0
+                else SDESItem
+        )
     ]
+
+    def extract_padding(self, p):
+        return "", p
+
+
+_transport_layer_feedback_messages = {
+    1: "Generic NACK"
+}
+
+
+_payload_specific_feedback_messages = {
+    1: "Picture Loss Indication",
+    2: "Slice Loss Indication",
+    3: "Reference Picture Selection Indication",
+    15: "Application layer FB message",
+}
 
 
 class RTCP(Packet):
@@ -105,7 +137,18 @@ class RTCP(Packet):
         # HEADER
         BitField('version', 2, 2),
         BitField('padding', 0, 1),
-        BitFieldLenField('count', 0, 5, count_of='report_blocks'),
+        ConditionalField(
+            BitFieldLenField('count', 0, 5),
+            lambda pkt: pkt.packet_type not in (205, 206)
+        ),
+        ConditionalField(
+            BitEnumField('tl_feedback_message_type', 0, 5, _transport_layer_feedback_messages),
+            lambda pkt: pkt.packet_type == 205
+        ),
+        ConditionalField(
+            BitEnumField('ps_feedback_message_type', 0, 5, _payload_specific_feedback_messages),
+            lambda pkt: pkt.packet_type == 206
+        ),
         ByteEnumField('packet_type', 0, _rtcp_packet_types),
         LenField('length', None, fmt='!h'),
         # SR/RR
@@ -128,6 +171,15 @@ class RTCP(Packet):
                             count_from=lambda pkt: pkt.count),
             lambda pkt: pkt.packet_type == 202
         ),
+        # PLI
+        ConditionalField(
+            IntField('sender_ssrc', 0),
+            lambda pkt: pkt.packet_type == 206
+        ),
+        ConditionalField(
+            IntField('media_source_ssrc', 0),
+            lambda pkt: pkt.packet_type == 206
+        ),
     ]
 
     def post_build(self, pkt, pay):
@@ -135,3 +187,6 @@ class RTCP(Packet):
         if self.length is None:
             pkt = pkt[:2] + struct.pack("!h", len(pkt) // 4 - 1) + pkt[4:]
         return pkt
+
+
+bind_layers(RTCP, RTCP)

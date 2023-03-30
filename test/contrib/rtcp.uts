@@ -69,10 +69,58 @@ assert parsed.sdes_chunks[0].items[1].value == b'GStreamer'
 
 + RTCP parsing tests
 
-= test parse SR and SDES stacked
+= test parse RR and SDES stacked
 raw = b"\x81\xc9\x00\x07\xa2\xdf\x02\x72\x49\x6e\x93\xbd\x00\xff\xff\xff" \
       b"\x00\x00\x59\x47\x00\x00\x00\x00\xe4\x8f\xb9\x3a\x00\x03\x3f\x1b" \
       b"\x81\xca\x00\x0c\xa2\xdf\x02\x72\x01\x1c\x75\x73\x65\x72\x31\x35" \
       b"\x30\x33\x34\x38\x38\x39\x30\x31\x40\x68\x6f\x73\x74\x2d\x65\x37" \
       b"\x32\x64\x62\x34\x33\x64\x06\x09\x47\x53\x74\x72\x65\x61\x6d\x65" \
       b"\x72\x00\x00\x00"
+parsed = RTCP(raw)
+assert len(parsed.layers()) == 2
+rr = parsed
+sdes = rr.payload
+
+assert rr.version == 2
+assert rr.padding == 0
+assert rr.count == 1
+assert rr.packet_type == 201
+assert rr.length == 7
+assert rr.sourcesync == 2732524146
+assert rr.report_blocks[0].sourcesync == 0x496e93bd
+assert rr.report_blocks[0].fraction_lost == 0
+assert rr.report_blocks[0].cumulative_lost == 0xffffff
+assert rr.report_blocks[0].highest_seqnum_recv == 22855
+assert rr.report_blocks[0].interarrival_jitter == 0
+assert rr.report_blocks[0].last_SR_timestamp == 0xe48fb93a
+assert rr.report_blocks[0].delay_since_last_SR == 212763
+
+assert sdes.version == 2
+assert sdes.padding == 0
+assert sdes.count == 1
+assert sdes.packet_type == 202
+assert sdes.length == 12
+assert sdes.sdes_chunks[0].sourcesync == 0xa2df0272
+assert sdes.sdes_chunks[0].items[0].chunk_type == 1
+assert sdes.sdes_chunks[0].items[0].length == 28
+assert sdes.sdes_chunks[0].items[0].value == b'user1503488901@host-e72db43d'
+assert sdes.sdes_chunks[0].items[1].chunk_type == 6
+assert sdes.sdes_chunks[0].items[1].length == 9
+assert sdes.sdes_chunks[0].items[1].value == b'GStreamer'
+
+custom_rtcp_bytes = (
+      b'\x80\xc8\x00\x06pUdf\xe5\xf5c.\xa8\xd2\n\xfa\x0eH\xca\xc7\x00\x00\x00I'
+      b'\x00\x00)\xe0\x81\xca\x00\x0cpUdf\x01\x1cuser3030930739@host-edc1a89a\x06\t'
+      b'GStreamer\x00\x00\x00'
+)
+
+= test parse PLI
+raw = b"\x81\xce\x00\x02\x14\x03\x00\x02\x1a\x68\x98\xf9"
+pli = RTCP(raw)
+
+assert pli.version == 2
+assert pli.padding == 0
+assert pli.ps_feedback_message_type == 1
+assert pli.packet_type == 206
+assert pli.sender_ssrc == 0x14030002
+assert pli.media_source_ssrc == 0x1a6898f9
