@@ -544,13 +544,13 @@ class tlsSession(object):
         read right before, as the reading state becomes the writing state, and
         vice versa. For instance you could do:
 
-        client_hello = open('client_hello.raw').read()
-        <read other messages>
+            client_hello = open('client_hello.raw').read()
+            <read other messages>
 
-        m1 = TLS(client_hello)
-        m2 = TLS(server_hello, tls_session=m1.tls_session.mirror())
-        m3 = TLS(server_cert, tls_session=m2.tls_session)
-        m4 = TLS(client_keyexchange, tls_session=m3.tls_session.mirror())
+            m1 = TLS(client_hello)
+            m2 = TLS(server_hello, tls_session=m1.tls_session.mirror())
+            m3 = TLS(server_cert, tls_session=m2.tls_session)
+            m4 = TLS(client_keyexchange, tls_session=m3.tls_session.mirror())
         """
 
         self.ipdst, self.ipsrc = self.ipsrc, self.ipdst
