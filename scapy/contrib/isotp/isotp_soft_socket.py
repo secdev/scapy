@@ -14,6 +14,7 @@ import heapq
 import socket
 
 from threading import Thread, Event, RLock
+from bisect import bisect_left
 
 from scapy.packet import Packet
 from scapy.layers.can import CAN
@@ -24,7 +25,7 @@ from scapy.consts import LINUX
 from scapy.utils import EDecimal
 from scapy.automaton import ObjectPipe, select_objects
 from scapy.contrib.isotp.isotp_packet import ISOTP, CAN_MAX_DLEN, N_PCI_SF, \
-    N_PCI_CF, N_PCI_FC, N_PCI_FF, ISOTP_MAX_DLEN, ISOTP_MAX_DLEN_2015
+    N_PCI_CF, N_PCI_FC, N_PCI_FF, ISOTP_MAX_DLEN, ISOTP_MAX_DLEN_2015, CAN_FD_MAX_DLEN
 
 # Typing imports
 from typing import (
@@ -112,6 +113,7 @@ class ISOTPSoftSocket(SuperSocket):
     :param listen_only: Does not send Flow Control frames if a First Frame is
                         received
     :param basecls: base class of the packets emitted by this socket
+    :param fd: enables the CanFD support for this socket
     """  # noqa: E501
 
     def __init__(self,
@@ -124,7 +126,8 @@ class ISOTPSoftSocket(SuperSocket):
                  stmin=0,  # type: int
                  padding=False,  # type: bool
                  listen_only=False,  # type: bool
-                 basecls=ISOTP  # type: Type[Packet]
+                 basecls=ISOTP,  # type: Type[Packet]
+                 fd=False  # type: bool
                  ):
         # type: (...) -> None
 
@@ -138,6 +141,7 @@ class ISOTPSoftSocket(SuperSocket):
         self.rx_ext_address = rx_ext_address or ext_address
         self.tx_id = tx_id
         self.rx_id = rx_id
+        self.fd = fd
 
         impl = ISOTPSocketImplementation(
             can_socket,
@@ -148,7 +152,8 @@ class ISOTPSoftSocket(SuperSocket):
             rx_ext_address=self.rx_ext_address,
             bs=bs,
             stmin=stmin,
-            listen_only=listen_only
+            listen_only=listen_only,
+            fd=fd
         )
 
         # Cast for compatibility to functions from SuperSocket.
@@ -486,7 +491,8 @@ class ISOTPSocketImplementation:
                  rx_ext_address=None,  # type: Optional[int]
                  bs=0,  # type: int
                  stmin=0,  # type: int
-                 listen_only=False  # type: bool
+                 listen_only=False,  # type: bool
+                 fd=False
                  ):
         # type: (...) -> None
         self.can_socket = can_socket
@@ -495,6 +501,10 @@ class ISOTPSocketImplementation:
         self.padding = padding
         self.fc_timeout = 1
         self.cf_timeout = 1
+
+        self.fd = fd
+
+        self.max_pl_size = CAN_FD_MAX_DLEN if fd else CAN_MAX_DLEN
 
         self.filter_warning_emitted = False
         self.closed = False
@@ -553,8 +563,20 @@ class ISOTPSocketImplementation:
 
     def can_send(self, load):
         # type: (bytes) -> None
+        def _get_padding_size(pl_size):
+            if not self.fd:
+                return CAN_MAX_DLEN
+            else:
+                fd_accepted_sizes = [0, 8, 12, 16, 20, 24, 32, 48, 64]
+                pos = bisect_left(fd_accepted_sizes, pl_size)
+                if pos == 0:
+                    return fd_accepted_sizes[0]
+                if pos == len(fd_accepted_sizes):
+                    return fd_accepted_sizes[-1]
+                return fd_accepted_sizes[pos]
+
         if self.padding:
-            load += b"\xCC" * (CAN_MAX_DLEN - len(load))
+            load += b"\xCC" * (_get_padding_size(len(load)) - len(load))
         if self.tx_id is None or self.tx_id <= 0x7ff:
             self.can_socket.send(CAN(identifier=self.tx_id, data=load))
         else:
@@ -644,7 +666,7 @@ class ISOTPSocketImplementation:
         elif self.tx_state == ISOTP_SENDING:
             # push out the next segmented pdu
             src_off = len(self.ea_hdr)
-            max_bytes = 7 - src_off
+            max_bytes = (self.max_pl_size - 1) - src_off
             if self.tx_buf is None:
                 self.tx_state = ISOTP_IDLE
                 log_isotp.warning("TX buffer is not filled")
@@ -783,10 +805,17 @@ class ISOTPSocketImplementation:
             self.rx_state = ISOTP_IDLE
 
         length = data[0] & 0xf
+        if self.fd and len(data) > CAN_MAX_DLEN:
+            length = data[1]
+
         if len(data) - 1 < length:
             return
 
-        msg = data[1:1 + length]
+        msg = None
+        if self.fd and len(data) > 8:
+            msg = data[2:2 + length]
+        else:
+            msg = data[1:1 + length]
         self.rx_queue.send((msg, ts))
 
     def _recv_ff(self, data, ts):
@@ -922,10 +951,17 @@ class ISOTPSocketImplementation:
         if length > ISOTP_MAX_DLEN_2015:
             log_isotp.warning("Too much data for ISOTP message")
 
-        if len(self.ea_hdr) + length <= 7:
+        sf_size_check = self.max_pl_size - 1
+        if self.fd and length > 7:
+            sf_size_check = self.max_pl_size - 2  # 2 bytes for size in canfd messages
+
+        if len(self.ea_hdr) + length <= sf_size_check:
             # send a single frame
             data = self.ea_hdr
-            data += struct.pack("B", length)
+            if not self.fd or length <= 7:
+                data += struct.pack("B", length)
+            else:
+                data += struct.pack("BB", 0, length)
             data += x
             self.tx_state = ISOTP_IDLE
             self.can_send(data)
@@ -937,7 +973,7 @@ class ISOTPSocketImplementation:
             data += struct.pack(">HI", 0x1000, length)
         else:
             data += struct.pack(">H", 0x1000 | length)
-        load = x[0:8 - len(data)]
+        load = x[0:self.max_pl_size - len(data)]
         data += load
         self.can_send(data)
 
