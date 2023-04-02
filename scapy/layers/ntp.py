@@ -209,7 +209,9 @@ class NTP(Packet):
         return s
 
     def mysummary(self):
-        return self.sprintf("NTP v%ir,NTP.version%, %NTP.mode%")
+        return self.sprintf(
+            "NTP v%ir,{0}.version%, %{0}.mode%".format(self.__class__.__name__)
+        )
 
 
 class _NTPAuthenticatorPaddingField(StrField):
@@ -795,7 +797,7 @@ class NTPControl(NTP):
     fields_desc = [
         BitField("zeros", 0, 2),
         BitField("version", 2, 3),
-        BitField("mode", 6, 3),
+        BitEnumField("mode", 6, 3, _ntp_modes),
         BitField("response", 0, 1),
         BitField("err", 0, 1),
         BitField("more", 0, 1),
@@ -1777,7 +1779,7 @@ class NTPPrivate(NTP):
         BitField("response", 0, 1),
         BitField("more", 0, 1),
         BitField("version", 2, 3),
-        BitField("mode", 0, 3),
+        BitEnumField("mode", 7, 3, _ntp_modes),
         BitField("auth", 0, 1),
         BitField("seq", 0, 7),
         ByteEnumField("implementation", 0, _implementations),

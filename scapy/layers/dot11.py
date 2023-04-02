@@ -971,6 +971,7 @@ _dot11_info_elts_ids = {
     107: "Interworking",
     127: "Extendend Capabilities",
     191: "VHT Capabilities",
+    192: "VHT Operation",
     221: "Vendor Specific"
 }
 
@@ -1463,6 +1464,39 @@ class Dot11EltOBSS(Dot11Elt):
         LEShortField("Active_Total_Per_Channel", 0),
         LEShortField("Delay", 0),
         LEShortField("Activity_Threshold", 0),
+    ]
+
+
+# 802.11-2016 9.4.2.159
+
+class Dot11VHTOperationInfo(Packet):
+    name = "802.11 VHT Operation Information"
+    fields_desc = [
+        ByteField("channel_width", 0),
+        ByteField("channel_center0", 36),
+        ByteField("channel_center1", 0),
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
+
+class Dot11EltVHTOperation(Dot11Elt):
+    name = "802.11 VHT Operation Element"
+    fields_desc = [
+        ByteEnumField("ID", 192, _dot11_id_enum),
+        ByteField("len", 5),
+        PacketField(
+            "VHT_Operation_Info",
+            Dot11VHTOperationInfo(),
+            Dot11VHTOperationInfo
+        ),
+        FieldListField(
+            "mcs_set",
+            [0x00],
+            BitField('SS', 0x00, size=2),
+            count_from=lambda x: 8
+        )
     ]
 
 

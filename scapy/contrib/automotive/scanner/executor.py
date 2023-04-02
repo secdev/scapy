@@ -262,7 +262,6 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
             kill_time = None
         else:
             kill_time = time.monotonic() + timeout
-        log_automotive.debug("Set kill_time to %s" % time.ctime(kill_time))
         while kill_time is None or kill_time > time.monotonic():
             test_case_executed = False
             log_automotive.info("[i] Scan progress %0.2f", self.progress())
