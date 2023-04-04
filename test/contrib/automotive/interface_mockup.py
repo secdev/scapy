@@ -188,5 +188,9 @@ if "scapy.contrib.isotp" in sys.modules:
 
 load_contrib("isotp", globals_dict=globals())
 
-if ISOTPSocket is not ISOTPNativeSocket:  # type: ignore
-    raise Scapy_Exception("Error in ISOTPSocket import!")
+if ISOTP_KERNEL_MODULE_AVAILABLE:
+    if ISOTPSocket is not ISOTPNativeSocket:  # type: ignore
+        raise Scapy_Exception("Error in ISOTPSocket import!")
+else:
+    if ISOTPSocket is not ISOTPSoftSocket:  # type: ignore
+        raise Scapy_Exception("Error in ISOTPSocket import!")
