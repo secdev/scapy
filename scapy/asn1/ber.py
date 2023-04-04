@@ -39,7 +39,6 @@ from scapy.compat import (
     Type,
     TypeVar,
     Union,
-    _Generic_metaclass,
     cast,
 )
 
@@ -263,7 +262,7 @@ def BER_tagging_enc(s, hidden_tag=None, implicit_tag=None, explicit_tag=None):
 #    [ BER classes ]    #
 
 
-class BERcodec_metaclass(_Generic_metaclass):
+class BERcodec_metaclass(type):
     def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]

@@ -63,9 +63,6 @@ if TYPE_CHECKING:
     from scapy.packet import Packet
     from scapy.plist import _PacketIterable, PacketList
     from scapy.supersocket import SuperSocket
-    _SuperSocket = SuperSocket
-else:
-    _SuperSocket = object
 
 _ByteStream = Union[IO[bytes], gzip.GzipFile]
 
@@ -1167,13 +1164,18 @@ class PcapReader_metaclass(type):
             dct['alternative'].alternative = newcls
         return newcls
 
-    def __call__(cls, filename):  # type: ignore
+    def __call__(cls, filename):
         # type: (Union[IO[bytes], str]) -> Any
         """Creates a cls instance, use the `alternative` if that
         fails.
 
         """
-        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+        i = cls.__new__(
+            cls,
+            cls.__name__,
+            cls.__bases__,
+            cls.__dict__  # type: ignore
+        )
         filename, fdesc, magic = cls.open(filename)
         if not magic:
             raise Scapy_Exception(
@@ -1187,7 +1189,12 @@ class PcapReader_metaclass(type):
 
         if "alternative" in cls.__dict__:
             cls = cls.__dict__["alternative"]
-            i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+            i = cls.__new__(
+                cls,
+                cls.__name__,
+                cls.__bases__,
+                cls.__dict__  # type: ignore
+            )
             try:
                 i.__init__(filename, fdesc, magic)
                 return i
@@ -1350,7 +1357,7 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
         return sockets
 
 
-class PcapReader(RawPcapReader, _SuperSocket):
+class PcapReader(RawPcapReader):
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
         RawPcapReader.__init__(self, filename, fdesc, magic)
@@ -1398,7 +1405,7 @@ class PcapReader(RawPcapReader, _SuperSocket):
         # type: (int) -> Packet
         return self.read_packet(size=size)
 
-    def __next__(self):
+    def __next__(self):  # type: ignore
         # type: () -> Packet
         try:
             return self.read_packet()
@@ -1708,7 +1715,7 @@ class RawPcapNgReader(RawPcapReader):
             warning("PcapNg: Unknown DSB secrets type (0x%x)!", secrets_type)
 
 
-class PcapNgReader(RawPcapNgReader, PcapReader, _SuperSocket):
+class PcapNgReader(RawPcapNgReader, PcapReader):
 
     alternative = PcapReader
 
@@ -1776,7 +1783,7 @@ class GenericPcapWriter(object):
         # type: (...) -> Tuple[float, int]
         if hasattr(packet, "time"):
             if sec is None:
-                packet_time = packet.time  # type: ignore
+                packet_time = packet.time
                 tmp = int(packet_time)
                 usec = int(round((packet_time - tmp) *
                            (1000000000 if self.nano else 1000000)))
@@ -1840,7 +1847,7 @@ class GenericPcapWriter(object):
 
         if wirelen is None:
             if hasattr(packet, "wirelen"):
-                wirelen = packet.wirelen  # type: ignore
+                wirelen = packet.wirelen
         if wirelen is None:
             wirelen = caplen
 
@@ -2071,7 +2078,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         # type: (...) -> Tuple[float, int]
         if hasattr(packet, "time"):
             if sec is None:
-                sec = float(packet.time)  # type: ignore
+                sec = float(packet.time)
 
         if usec is None:
             usec = 0
@@ -2207,7 +2214,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         self.f.write(self.build_block(block_type, block_epb,
                                       options=comment_opt))
 
-    def _write_packet(self,
+    def _write_packet(self,  # type: ignore
                       packet,  # type: bytes
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
@@ -2260,7 +2267,7 @@ class PcapNgWriter(RawPcapNgWriter):
         # type: (...) -> Tuple[float, int]
         if hasattr(packet, "time"):
             if sec is None:
-                sec = float(packet.time)  # type: ignore
+                sec = float(packet.time)
 
         if usec is None:
             usec = 0
@@ -2280,9 +2287,9 @@ def rderf(filename, count=-1):
 
 
 class ERFEthernetReader_metaclass(PcapReader_metaclass):
-    def __call__(cls, filename):  # type: ignore
+    def __call__(cls, filename):
         # type: (Union[IO[bytes], str]) -> Any
-        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)  # type: ignore
         filename, fdesc = cls.open(filename)
         try:
             i.__init__(filename, fdesc)
@@ -2292,7 +2299,12 @@ class ERFEthernetReader_metaclass(PcapReader_metaclass):
 
         if "alternative" in cls.__dict__:
             cls = cls.__dict__["alternative"]
-            i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+            i = cls.__new__(
+                cls,
+                cls.__name__,
+                cls.__bases__,
+                cls.__dict__  # type: ignore
+            )
             try:
                 i.__init__(filename, fdesc)
                 return i
@@ -2321,7 +2333,8 @@ class ERFEthernetReader_metaclass(PcapReader_metaclass):
         return filename, fdesc
 
 
-class ERFEthernetReader(PcapReader, metaclass=ERFEthernetReader_metaclass):
+class ERFEthernetReader(PcapReader,
+                        metaclass=ERFEthernetReader_metaclass):
 
     def __init__(self, filename, fdesc=None):  # type: ignore
         # type: (Union[IO[bytes], str], IO[bytes]) -> None
@@ -2370,10 +2383,10 @@ class ERFEthernetReader(PcapReader, metaclass=ERFEthernetReader_metaclass):
 
         # Ethernet has 2 bytes of padding containing `offset` and `pad`. Both
         # of the fields are disregarded by Endace.
-        p = s[2:size]
+        pb = s[2:size]
         from scapy.layers.l2 import Ether
         try:
-            p = Ether(p)
+            p = Ether(pb)  # type: Packet
         except KeyboardInterrupt:
             raise
         except Exception:
@@ -2765,7 +2778,6 @@ def tcpdump(
                 stderr=stderr,
             )
     elif use_tempfile:
-        pktlist = cast(Union[IO[bytes], "_PacketIterable"], pktlist)
         tmpfile = get_temp_file(  # type: ignore
             autoext=".pcap",
             fd=True

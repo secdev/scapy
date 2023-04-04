@@ -60,9 +60,11 @@ from scapy.compat import (
     Type,
     TypeVar,
     Union,
+    Self,
     Sequence,
     cast,
 )
+
 try:
     import pyx
 except ImportError:
@@ -156,7 +158,7 @@ class Packet(
         self.fields = {}  # type: Dict[str, Any]
         self.fieldtype = {}  # type: Dict[str, AnyField]
         self.packetfields = []  # type: List[AnyField]
-        self.payload = NoPayload()
+        self.payload = NoPayload()  # type: Packet
         self.init_fields()
         self.underlayer = _underlayer
         self.parent = _parent
@@ -402,8 +404,7 @@ class Packet(
         point to the list owner packet."""
         self.parent = None
 
-    def copy(self):
-        # type: () -> Packet
+    def copy(self) -> Self:
         """Returns a deep copy of the instance."""
         clone = self.__class__()
         clone.fields = self.copy_fields_dict(self.fields)
@@ -532,7 +533,7 @@ class Packet(
         """
         Return a list of slots and methods, including those from subclasses.
         """
-        attrs = set()
+        attrs = set()  # type: Set[str]
         cls = self.__class__
         if hasattr(cls, '__all_slots__'):
             attrs.update(cls.__all_slots__)
@@ -593,7 +594,7 @@ class Packet(
         return self.build()
 
     def __div__(self, other):
-        # type: (Any) -> Packet
+        # type: (Any) -> Self
         if isinstance(other, Packet):
             cloneA = self.copy()
             cloneB = other.copy()
@@ -664,8 +665,8 @@ class Packet(
         # type: () -> None
         """Clear the raw packet cache for the field and all its subfields"""
         self.raw_packet_cache = None
-        for fld, fval in self.fields.items():
-            fld = self.get_field(fld)
+        for fname, fval in self.fields.items():
+            fld = self.get_field(fname)
             if fld.holds_packets:
                 if isinstance(fval, Packet):
                     fval.clear_cache()
@@ -681,7 +682,8 @@ class Packet(
 
         :param field_pos_list:
         """
-        if self.raw_packet_cache is not None:
+        if self.raw_packet_cache is not None and \
+                self.raw_packet_cache_fields is not None:
             for fname, fval in self.raw_packet_cache_fields.items():
                 fld, val = self.getfield_and_val(fname)
                 if self._raw_packet_cache_field_value(fld, val) != fval:
@@ -1693,12 +1695,12 @@ values.
 
 class NoPayload(Packet):
     def __new__(cls, *args, **kargs):
-        # type: (Type[Packet], *Any, **Any) -> Packet
+        # type: (Type[Packet], *Any, **Any) -> NoPayload
         singl = cls.__dict__.get("__singl__")
         if singl is None:
             cls.__singl__ = singl = Packet.__new__(cls)
             Packet.__init__(singl)
-        return singl
+        return cast(NoPayload, singl)
 
     def __init__(self, *args, **kargs):
         # type: (*Any, **Any) -> None
@@ -1812,7 +1814,7 @@ class NoPayload(Packet):
         return b""
 
     def answers(self, other):
-        # type: (NoPayload) -> bool
+        # type: (Packet) -> bool
         return isinstance(other, (NoPayload, conf.padding_layer))  # noqa: E501
 
     def haslayer(self, cls, _subclass=None):
@@ -1961,7 +1963,7 @@ def bind_top_down(lower,  # type: Type[Packet]
     """
     if __fval is not None:
         fval.update(__fval)
-    upper._overload_fields = upper._overload_fields.copy()
+    upper._overload_fields = upper._overload_fields.copy()  # type: ignore
     upper._overload_fields[lower] = fval
 
 
@@ -2026,7 +2028,7 @@ def split_top_down(lower,  # type: Type[Packet]
         ofval = upper._overload_fields[lower]
         if any(k not in ofval or ofval[k] != v for k, v in fval.items()):
             return
-        upper._overload_fields = upper._overload_fields.copy()
+        upper._overload_fields = upper._overload_fields.copy()  # type: ignore
         del upper._overload_fields[lower]
 
 
@@ -2236,7 +2238,7 @@ def explore(layer=None):
     # Print
     print(conf.color_theme.layer_name("Packets contained in %s:" % result))
     rtlst = []  # type: List[Tuple[Union[str, List[str]], ...]]
-    rtlst = [(lay.__name__ or "", lay._name or "") for lay in all_layers]
+    rtlst = [(lay.__name__ or "", cast(str, lay._name) or "") for lay in all_layers]
     print(pretty_list(rtlst, [("Class", "Name")], borders=True))
 
 
@@ -2265,7 +2267,7 @@ def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
         name = cur_fld.name
         default = cur_fld.default
         if verbose and isinstance(cur_fld, EnumField) \
-           and hasattr(cur_fld, "i2s"):
+           and hasattr(cur_fld, "i2s") and cur_fld.i2s:
             if len(cur_fld.i2s or []) < 50:
                 long_attrs.extend(
                     "%s: %d" % (strval, numval)
@@ -2273,15 +2275,15 @@ def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
                     sorted(cur_fld.i2s.items())
                 )
         elif isinstance(cur_fld, MultiEnumField):
-            fld_depend = cur_fld.depends_on(
-                cast(Packet, obj if is_pkt else obj())
-            )
+            if isinstance(obj, Packet):
+                obj_pkt = obj
+            else:
+                obj_pkt = obj()
+            fld_depend = cur_fld.depends_on(obj_pkt)
             attrs.append("Depends on %s" % fld_depend)
             if verbose:
                 cur_i2s = cur_fld.i2s_multi.get(
-                    cur_fld.depends_on(
-                        cast(Packet, obj if is_pkt else obj())
-                    ), {}
+                    cur_fld.depends_on(obj_pkt), {}
                 )
                 if len(cur_i2s) < 50:
                     long_attrs.extend(
@@ -2330,16 +2332,14 @@ def ls(obj=None,  # type: Optional[Union[str, Packet, Type[Packet]]]
     :param case_sensitive: if obj is a string, is it case sensitive?
     :param verbose:
     """
-    is_string = isinstance(obj, str)
-
-    if obj is None or is_string:
+    if obj is None or isinstance(obj, str):
         tip = False
         if obj is None:
             tip = True
             all_layers = sorted(conf.layers, key=lambda x: x.__name__)
         else:
             pattern = re.compile(
-                cast(str, obj),
+                obj,
                 0 if case_sensitive else re.I
             )
             # We first order by accuracy, then length
@@ -2363,7 +2363,7 @@ def ls(obj=None,  # type: Optional[Union[str, Packet, Type[Packet]]]
     else:
         try:
             fields = _pkt_ls(
-                obj,  # type: ignore
+                obj,
                 verbose=verbose
             )
             is_pkt = isinstance(obj, Packet)
@@ -2497,11 +2497,14 @@ def rfc(cls, ret=False, legend=True):
 #  Fuzzing  #
 #############
 
+_P = TypeVar('_P', bound=Packet)
+
+
 @conf.commands.register
-def fuzz(p,  # type: Packet
+def fuzz(p,  # type: _P
          _inplace=0,  # type: int
          ):
-    # type: (...) -> Packet
+    # type: (...) -> _P
     """
     Transform a layer into a fuzzy layer by replacing some default values
     by random objects.
@@ -2511,7 +2514,7 @@ def fuzz(p,  # type: Packet
     """
     if not _inplace:
         p = p.copy()
-    q = p
+    q = cast(Packet, p)
     while not isinstance(q, NoPayload):
         new_default_fields = {}
         multiple_type_fields = []  # type: List[str]

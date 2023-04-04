@@ -52,10 +52,12 @@ from scapy.compat import (
     Optional,
     Tuple,
     Type,
-    TypeVar,
     Union,
     cast,
     TYPE_CHECKING,
+)
+from typing import (
+    TypeVar,
 )
 
 if TYPE_CHECKING:
@@ -181,7 +183,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         try:
             c = cls(s, _underlayer=_underlayer)
         except ASN1F_badsequence:
-            c = packet.Raw(s, _underlayer=_underlayer)
+            c = packet.Raw(s, _underlayer=_underlayer)  # type: ignore
         cpad = c.getlayer(packet.Raw)
         s = b""
         if cpad is not None:
@@ -229,8 +231,8 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         return repr(self)
 
     def randval(self):
-        # type: () -> RandField[Any]
-        return RandInt()
+        # type: () -> RandField[_I]
+        return cast(RandField[_I], RandInt())
 
 
 ############################
@@ -527,7 +529,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
                  ):
         # type: (...) -> None
         if isinstance(cls, type) and issubclass(cls, ASN1F_field):
-            self.fld = cast(Type[ASN1F_field[Any, Any]], cls)
+            self.fld = cls
             self._extract_packet = lambda s, pkt: self.fld(
                 self.name, b"").m2i(pkt, s)
             self.holds_packets = 0
@@ -696,7 +698,6 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 else:
                     self.choices[p.ASN1_root.network_tag] = p
             elif hasattr(p, "ASN1_tag"):
-                p = cast(Union[ASN1F_PACKET, Type[ASN1F_field[Any, Any]]], p)
                 if isinstance(p, type):
                     # should be ASN1F_field class
                     self.choices[int(p.ASN1_tag)] = p
@@ -735,9 +736,8 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                     )
                 )
         if hasattr(choice, "ASN1_root"):
-            choice = cast('ASN1_Packet', choice)
             # we don't want to import ASN1_Packet in this module...
-            return self.extract_packet(choice, s, _underlayer=pkt)
+            return self.extract_packet(choice, s, _underlayer=pkt)  # type: ignore
         elif isinstance(choice, type):
             return choice(self.name, b"").m2i(pkt, s)
         else:
@@ -767,7 +767,7 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
             elif hasattr(p, "ASN1_tag"):
                 if isinstance(p, type):
                     # should be (basic) ASN1F_field class
-                    randchoices.append(p("dummy", None).randval())  # type: ignore
+                    randchoices.append(p("dummy", None).randval())
                 else:
                     # should be ASN1F_PACKET instance
                     randchoices.append(p.randval())
@@ -841,7 +841,7 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
                                implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag)
 
-    def randval(self):
+    def randval(self):  # type: ignore
         # type: () -> ASN1_Packet
         return packet.fuzz(self.cls())
 
@@ -863,8 +863,10 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
                  ):
         # type: (...) -> None
         self.cls = cls
-        super(ASN1F_BIT_STRING_ENCAPS, self).__init__(
-            name, default and raw(default), context=context,
+        super(ASN1F_BIT_STRING_ENCAPS, self).__init__(  # type: ignore
+            name,
+            default and raw(default),
+            context=context,
             implicit_tag=implicit_tag,
             explicit_tag=explicit_tag
         )

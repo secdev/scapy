@@ -21,6 +21,7 @@ import warnings
 
 from types import MethodType
 from uuid import UUID
+from enum import Enum
 
 from scapy.config import conf
 from scapy.dadict import DADict
@@ -37,12 +38,6 @@ from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
     in6_isaddrTeredo, in6_ptop, Net6, teredoAddrExtractInfo
 from scapy.base_classes import Gen, Net, BasePacket, Field_metaclass
 from scapy.error import warning
-
-
-try:
-    from enum import Enum
-except ImportError:
-    Enum = None  # type: ignore
 
 # Typing imports
 from scapy.compat import (
@@ -1497,13 +1492,21 @@ class _PacketField(_StrField[K]):
             return b""
         return raw(i)
 
-    def m2i(self, pkt, m):
+    def m2i(self, pkt, m):  # type: ignore
         # type: (Optional[Packet], bytes) -> Packet
         try:
             # we want to set parent wherever possible
             return self.cls(m, _parent=pkt)  # type: ignore
         except TypeError:
             return self.cls(m)
+
+
+class _PacketFieldSingle(_PacketField[K]):
+    def any2i(self, pkt, x):
+        # type: (Optional[Packet], Any) -> K
+        if x and pkt and hasattr(x, "add_parent"):
+            cast("Packet", x).add_parent(pkt)
+        return super(_PacketFieldSingle, self).any2i(pkt, x)
 
     def getfield(self,
                  pkt,  # type: Packet
@@ -1516,24 +1519,14 @@ class _PacketField(_StrField[K]):
             r = i[conf.padding_layer]
             del r.underlayer.payload
             remain = r.load
-        return remain, i
-
-    def randval(self):
-        # type: () -> Packet
-        from scapy.packet import fuzz
-        return fuzz(self.cls())  # type: ignore
-
-
-class _PacketFieldSingle(_PacketField[K]):
-    def any2i(self, pkt, x):
-        # type: (Optional[Packet], Any) -> K
-        if x and pkt and hasattr(x, "add_parent"):
-            cast("Packet", x).add_parent(pkt)
-        return super(_PacketFieldSingle, self).any2i(pkt, x)
+        return remain, i  # type: ignore
 
 
 class PacketField(_PacketFieldSingle[BasePacket]):
-    pass
+    def randval(self):  # type: ignore
+        # type: () -> Packet
+        from scapy.packet import fuzz
+        return fuzz(self.cls())  # type: ignore
 
 
 class PacketLenField(_PacketFieldSingle[Optional[BasePacket]]):
@@ -2452,7 +2445,7 @@ class _EnumField(Field[Union[List[I], I], I]):
             self.s2i_cb = enum[1]  # type: Optional[Callable[[str], I]]
             self.i2s = None  # type: Optional[Dict[I, str]]
             self.s2i = None  # type: Optional[Dict[str, I]]
-        elif Enum and isinstance(enum, type) and issubclass(enum, Enum):
+        elif isinstance(enum, type) and issubclass(enum, Enum):
             # Python's Enum
             i2s = self.i2s = {}
             s2i = self.s2i = {}
@@ -2485,7 +2478,7 @@ class _EnumField(Field[Union[List[I], I], I]):
 
     def any2i_one(self, pkt, x):
         # type: (Optional[Packet], Any) -> I
-        if Enum and isinstance(x, Enum):
+        if isinstance(x, Enum):
             return cast(I, x.value)
         elif isinstance(x, str):
             if self.s2i:
@@ -2554,7 +2547,7 @@ class CharEnumField(EnumField[str]):
                  fmt="1s",  # type: str
                  ):
         # type: (...) -> None
-        EnumField.__init__(self, name, default, enum, fmt)
+        super(CharEnumField, self).__init__(name, default, enum, fmt)
         if self.i2s is not None:
             k = list(self.i2s)
             if k and len(k[0]) != 1:
@@ -2599,25 +2592,25 @@ class ShortEnumField(EnumField[int]):
                  enum,  # type: Union[Dict[int, str], Dict[str, int], Tuple[Callable[[int], str], Callable[[str], int]], DADict[int, str]]  # noqa: E501
                  ):
         # type: (...) -> None
-        EnumField.__init__(self, name, default, enum, "H")
+        super(ShortEnumField, self).__init__(name, default, enum, "H")
 
 
 class LEShortEnumField(EnumField[int]):
     def __init__(self, name, default, enum):
         # type: (str, int, Union[Dict[int, str], List[str]]) -> None
-        EnumField.__init__(self, name, default, enum, "<H")
+        super(LEShortEnumField, self).__init__(name, default, enum, "<H")
 
 
 class LELongEnumField(EnumField[int]):
     def __init__(self, name, default, enum):
         # type: (str, int, Union[Dict[int, str], List[str]]) -> None
-        EnumField.__init__(self, name, default, enum, "<Q")
+        super(LELongEnumField, self).__init__(name, default, enum, "<Q")
 
 
 class ByteEnumField(EnumField[int]):
     def __init__(self, name, default, enum):
         # type: (str, Optional[int], Dict[int, str]) -> None
-        EnumField.__init__(self, name, default, enum, "B")
+        super(ByteEnumField, self).__init__(name, default, enum, "B")
 
 
 class XByteEnumField(ByteEnumField):
@@ -2639,19 +2632,19 @@ class XByteEnumField(ByteEnumField):
 class IntEnumField(EnumField[int]):
     def __init__(self, name, default, enum):
         # type: (str, Optional[int], Dict[int, str]) -> None
-        EnumField.__init__(self, name, default, enum, "I")
+        super(IntEnumField, self).__init__(name, default, enum, "I")
 
 
 class SignedIntEnumField(EnumField[int]):
     def __init__(self, name, default, enum):
         # type: (str, Optional[int], Dict[int, str]) -> None
-        EnumField.__init__(self, name, default, enum, "i")
+        super(SignedIntEnumField, self).__init__(name, default, enum, "i")
 
 
 class LEIntEnumField(EnumField[int]):
     def __init__(self, name, default, enum):
         # type: (str, int, Dict[int, str]) -> None
-        EnumField.__init__(self, name, default, enum, "<I")
+        super(LEIntEnumField, self).__init__(name, default, enum, "<I")
 
 
 class XShortEnumField(ShortEnumField):
@@ -2737,7 +2730,11 @@ class BitMultiEnumField(_BitField[Union[List[int], int]],
 
     def any2i(self, pkt, x):
         # type: (Optional[Packet], Any) -> Union[List[int], int]
-        return _MultiEnumField.any2i(self, pkt, x)
+        return _MultiEnumField[int].any2i(
+            self,  # type: ignore
+            pkt,
+            x
+        )
 
     def i2repr(  # type: ignore
             self,
@@ -2745,7 +2742,11 @@ class BitMultiEnumField(_BitField[Union[List[int], int]],
             x  # type: Union[List[int], int]
     ):
         # type: (...) -> Union[str, List[str]]
-        return _MultiEnumField.i2repr(self, pkt, x)
+        return _MultiEnumField[int].i2repr(
+            self,  # type: ignore
+            pkt,
+            x
+        )
 
 
 class ByteEnumKeysField(ByteEnumField):

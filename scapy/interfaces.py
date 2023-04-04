@@ -9,7 +9,7 @@ Interfaces management
 
 import itertools
 import uuid
-from collections import UserDict, defaultdict
+from collections import defaultdict
 
 from scapy.config import conf
 from scapy.consts import WINDOWS
@@ -28,6 +28,7 @@ from scapy.compat import (
     Tuple,
     Type,
     Union,
+    UserDict,
 )
 
 
@@ -187,13 +188,13 @@ class NetworkInterface(object):
 _GlobInterfaceType = Union[NetworkInterface, str]
 
 
-class NetworkInterfaceDict(UserDict):
+class NetworkInterfaceDict(UserDict[str, NetworkInterface]):
     """Store information about network interfaces and convert between names"""
 
     def __init__(self):
         # type: () -> None
         self.providers = {}  # type: Dict[Type[InterfaceProvider], InterfaceProvider]  # noqa: E501
-        UserDict.__init__(self)
+        super(NetworkInterfaceDict, self).__init__()
 
     def _load(self,
               dat,  # type: Dict[str, NetworkInterface]
@@ -241,7 +242,7 @@ class NetworkInterfaceDict(UserDict):
         device name.
         """
         try:
-            return next(iface for iface in self.values()  # type: ignore
+            return next(iface for iface in self.values()
                         if (iface.name == name or iface.description == name))
         except (StopIteration, RuntimeError):
             raise ValueError("Unknown network interface %r" % name)
@@ -262,7 +263,7 @@ class NetworkInterfaceDict(UserDict):
         """Return interface name from interface index"""
         try:
             if_index = int(if_index)  # Backward compatibility
-            return next(iface for iface in self.values()  # type: ignore
+            return next(iface for iface in self.values()
                         if iface.index == if_index)
         except (StopIteration, RuntimeError):
             if str(if_index) == "1":
@@ -321,7 +322,7 @@ class NetworkInterfaceDict(UserDict):
         output = ""
         for provider in res:
             output += pretty_list(
-                res[provider],
+                res[provider],  # type: ignore
                 [("Source",) + provider.headers],
                 sortBy=provider.header_sort
             ) + "\n"
@@ -357,7 +358,7 @@ def get_working_if():
     # First check the routing ifaces from best to worse,
     # then check all the available ifaces as backup.
     for ifname in itertools.chain(ifaces, conf.ifaces.values()):
-        iface = resolve_iface(ifname)
+        iface = resolve_iface(ifname)  # type: ignore
         if iface.is_valid():
             return iface
     # There is no hope left

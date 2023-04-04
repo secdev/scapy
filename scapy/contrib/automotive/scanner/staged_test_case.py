@@ -254,7 +254,7 @@ class StagedAutomotiveTestCase(AutomotiveTestCaseABC, TestCaseGenerator, StateGe
         # type: () -> Optional[Tuple[int, int, float]]
 
         if hasattr(self.current_test_case, "runtime_estimation"):
-            cur_est = self.current_test_case.runtime_estimation()  # type: ignore
+            cur_est = self.current_test_case.runtime_estimation()
             if cur_est:
                 return len(self.test_cases), \
                     self.__stage_index, \

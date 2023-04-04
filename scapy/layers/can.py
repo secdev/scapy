@@ -519,7 +519,7 @@ class CandumpReader:
             if isinstance(interface, str):
                 self.ifilter = [interface]
             else:
-                self.ifilter = cast(List[str], interface)
+                self.ifilter = interface
 
     def __iter__(self):
         # type: () -> CandumpReader

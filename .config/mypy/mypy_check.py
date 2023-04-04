@@ -101,6 +101,7 @@ elif PLATFORM.startswith("win32"):
             x not in {
                 # Disabled on Windows
                 "scapy/arch/linux.py",
+                "scapy/arch/unix.py",
                 "scapy/arch/solaris.py",
                 "scapy/contrib/cansocket_native.py",
                 "scapy/contrib/isotp/isotp_native_socket.py",
@@ -115,4 +116,4 @@ ARGS += [
     os.path.abspath(f) for f in FILES
 ]
 
-mypy_main(None, sys.stdout, sys.stderr, ARGS)
+mypy_main(args=ARGS)

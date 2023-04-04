@@ -39,13 +39,12 @@ from scapy.compat import (
     Tuple,
     Type,
     cast,
-    _Generic_metaclass
 )
 
 # Utils
 
 
-class _SuperSocket_metaclass(_Generic_metaclass):
+class _SuperSocket_metaclass(type):
     desc = None   # type: Optional[str]
 
     def __repr__(self):
@@ -524,7 +523,7 @@ class IterSocket(SuperSocket):
                     yield r
             self.iter = _iter()
         elif isinstance(obj, (list, PacketList)):
-            if isinstance(obj[0], bytes):  # type: ignore
+            if isinstance(obj[0], bytes):
                 self.iter = iter(obj)
             else:
                 self.iter = (y for x in obj for y in x)

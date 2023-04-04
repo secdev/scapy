@@ -30,7 +30,6 @@ from scapy.compat import (
     Union,
     Type,
     TypeVar,
-    _Generic_metaclass,
     cast,
 )
 
@@ -235,7 +234,7 @@ class PipeEngine(ObjectPipe[str]):
         do_graph(graph, **kargs)
 
 
-class _PipeMeta(_Generic_metaclass):
+class _PipeMeta(type):
     def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
@@ -785,7 +784,7 @@ class QueueSink(Sink):
     def __init__(self, name=None):
         # type: (Optional[str]) -> None
         Sink.__init__(self, name=name)
-        self.q = queue.Queue()
+        self.q: queue.Queue[Any] = queue.Queue()
 
     def push(self, msg):
         # type: (Any) -> None
