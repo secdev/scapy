@@ -456,3 +456,30 @@ records = dissected_packets[3][NetflowDataflowsetV9].records
 assert len(records) == 24
 assert records[0].IPV4_SRC_ADDR == '20.0.1.174'
 assert records[0].IPV4_NEXT_HOP == '10.100.103.1'
+
+# test for netflow IP_DSCP (id=195)
+dscp_flowset = NetflowFlowsetV9(
+    templates=[
+        NetflowTemplateV9(
+            template_fields=[
+                NetflowTemplateFieldV9(fieldType=195),
+            ],
+            templateID=273,
+        )
+    ],
+    flowSetID=2,
+)
+
+recordClass = GetNetflowRecordV9(dscp_flowset, templateID=273)
+
+dscp_dataset = NetflowDataflowsetV9(
+    templateID=273,
+    records=[
+        recordClass(
+            IP_DSCP=42,
+        ),
+    ],
+)
+
+# record is generated with 2 zero bytes of padding
+assert(raw(dscp_dataset) == b'\x01\x11\x00\x08\x2a\x00\x00\x00')

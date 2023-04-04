@@ -1092,6 +1092,7 @@ NetflowV9TemplateFieldDefaultLengths = {
     77: 3,
     78: 3,
     79: 3,
+    195: 1,
 }
 
 # NetflowV9 Ready-made fields
@@ -1202,6 +1203,7 @@ NetflowV9TemplateFieldDecoders = {
     160: (N9UTCTimeField, [True]),  # systemInitTimeMilliseconds
     161: (N9SecondsIntField, [True]),  # flowDurationMilliseconds
     162: (N9SecondsIntField, [False, True]),  # flowDurationMicroseconds
+    195: XByteField,  # IP_DSCP
     211: IPField,  # collectorIPv4Address
     212: IP6Field,  # collectorIPv6Address
     225: IPField,  # postNATSourceIPv4Address
