@@ -504,7 +504,7 @@ class ISOTPSocketImplementation:
 
         self.fd = fd
 
-        self.max_pl_size = CAN_FD_MAX_DLEN if fd else CAN_MAX_DLEN
+        self.max_dlen = CAN_FD_MAX_DLEN if fd else CAN_MAX_DLEN
 
         self.filter_warning_emitted = False
         self.closed = False
@@ -666,7 +666,7 @@ class ISOTPSocketImplementation:
         elif self.tx_state == ISOTP_SENDING:
             # push out the next segmented pdu
             src_off = len(self.ea_hdr)
-            max_bytes = (self.max_pl_size - 1) - src_off
+            max_bytes = (self.max_dlen - 1) - src_off
             if self.tx_buf is None:
                 self.tx_state = ISOTP_IDLE
                 log_isotp.warning("TX buffer is not filled")
@@ -805,14 +805,16 @@ class ISOTPSocketImplementation:
             self.rx_state = ISOTP_IDLE
 
         length = data[0] & 0xf
-        if self.fd and len(data) > CAN_MAX_DLEN:
+        is_fd_frame = self.fd and length == 0 and len(data) >= 2
+
+        if is_fd_frame:
             length = data[1]
 
         if len(data) - 1 < length:
             return
 
         msg = None
-        if self.fd and len(data) > 8:
+        if is_fd_frame:
             msg = data[2:2 + length]
         else:
             msg = data[1:1 + length]
@@ -951,11 +953,9 @@ class ISOTPSocketImplementation:
         if length > ISOTP_MAX_DLEN_2015:
             log_isotp.warning("Too much data for ISOTP message")
 
-        sf_size_check = self.max_pl_size - 1
-        if self.fd and length > 7:
-            sf_size_check = self.max_pl_size - 2  # 2 bytes for size in canfd messages
+        sf_size_check = self.max_dlen - 1
 
-        if len(self.ea_hdr) + length <= sf_size_check:
+        if len(self.ea_hdr) + length + int(self.fd) <= sf_size_check:
             # send a single frame
             data = self.ea_hdr
             if not self.fd or length <= 7:
@@ -973,7 +973,7 @@ class ISOTPSocketImplementation:
             data += struct.pack(">HI", 0x1000, length)
         else:
             data += struct.pack(">H", 0x1000 | length)
-        load = x[0:self.max_pl_size - len(data)]
+        load = x[0:self.max_dlen - len(data)]
         data += load
         self.can_send(data)
 
