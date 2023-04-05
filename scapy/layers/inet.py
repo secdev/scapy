@@ -527,7 +527,6 @@ class DestIPField(IPField, DestField):
 
 
 class IP(Packet, IPTools):
-    __slots__ = ["_defrag_pos"]
     name = "IP"
     fields_desc = [BitField("version", 4, 4),
                    BitField("ihl", None, 4),
@@ -625,35 +624,21 @@ class IP(Packet, IPTools):
 
     def fragment(self, fragsize=1480):
         """Fragment IP datagrams"""
-        lastfragsz = fragsize
-        fragsize -= fragsize % 8
+        fragsize = (fragsize + 7) // 8 * 8
         lst = []
-        fnb = 0
-        fl = self
-        while fl.underlayer is not None:
-            fnb += 1
-            fl = fl.underlayer
-
-        for p in fl:
-            s = raw(p[fnb].payload)
-            if len(s) <= lastfragsz:
-                lst.append(p)
-                continue
-
-            nb = (len(s) - lastfragsz + fragsize - 1) // fragsize + 1
+        for p in self:
+            s = raw(p[IP].payload)
+            nb = (len(s) + fragsize - 1) // fragsize
             for i in range(nb):
                 q = p.copy()
-                del q[fnb].payload
-                del q[fnb].chksum
-                del q[fnb].len
+                del q.payload
+                del q.chksum
+                del q.len
                 if i != nb - 1:
-                    q[fnb].flags |= 1
-                    fragend = (i + 1) * fragsize
-                else:
-                    fragend = i * fragsize + lastfragsz
-                q[fnb].frag += i * fragsize // 8
-                r = conf.raw_layer(load=s[i * fragsize:fragend])
-                r.overload_fields = p[fnb].payload.overload_fields.copy()
+                    q.flags |= 1
+                q.frag += i * fragsize // 8
+                r = conf.raw_layer(load=s[i * fragsize:(i + 1) * fragsize])
+                r.overload_fields = p.payload.overload_fields.copy()
                 q.add_payload(r)
                 lst.append(q)
         return lst
@@ -1189,86 +1174,112 @@ overlap_fragsize: the fragment size of the overlapping packet"""
     return qfrag + fragment(p, fragsize)
 
 
-def _defrag_list(lst, defrag, missfrag):
-    """Internal usage only. Part of the _defrag_logic"""
-    p = lst[0]
-    lastp = lst[-1]
-    if p.frag > 0 or lastp.flags.MF:  # first or last fragment missing
-        missfrag.extend(lst)
-        return
-    p = p.copy()
-    if conf.padding_layer in p:
-        del p[conf.padding_layer].underlayer.payload
-    ip = p[IP]
-    if ip.len is None or ip.ihl is None:
-        c_len = len(ip.payload)
-    else:
-        c_len = ip.len - (ip.ihl << 2)
-    txt = conf.raw_layer()
-    for q in lst[1:]:
-        if c_len != q.frag << 3:  # Wrong fragmentation offset
-            if c_len > q.frag << 3:
-                warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (c_len, q.frag << 3, p, txt, q))  # noqa: E501
-            missfrag.extend(lst)
-            break
-        if q[IP].len is None or q[IP].ihl is None:
-            c_len += len(q[IP].payload)
+class BadFragments(ValueError):
+    def __init__(self, *args, **kwargs):
+        self.frags = kwargs.pop("frags", None)
+        super(BadFragments, self).__init__(*args, **kwargs)
+
+
+def _defrag_iter_and_check_offsets(frags):
+    """
+    Internal generator used in _defrag_ip_pkt
+    """
+    offset = 0
+    for pkt, o, length in frags:
+        if offset != o:
+            if offset > o:
+                warning("Fragment overlap (%i > %i) on %r" % (offset, o, pkt))
+            raise BadFragments
+        offset += length
+        yield bytes(pkt[IP].payload)
+
+
+def _defrag_ip_pkt(pkt, frags):
+    """
+    Defragment a single IP packet.
+
+    :param pkt: the new pkt
+    :param frags: a defaultdict(list) used for storage
+    :return: a tuple (fragmented, defragmented_value)
+    """
+    ip = pkt[IP]
+    if pkt.frag != 0 or ip.flags.MF:
+        # fragmented !
+        uid = (ip.id, ip.src, ip.dst, ip.proto)
+        if ip.len is None or ip.ihl is None:
+            fraglen = len(ip.payload)
         else:
-            c_len += q[IP].len - (q[IP].ihl << 2)
-        if conf.padding_layer in q:
-            del q[conf.padding_layer].underlayer.payload
-        txt.add_payload(q[IP].payload.copy())
-        if q.time > p.time:
-            p.time = q.time
-    else:
-        ip.flags.MF = False
-        del ip.chksum
-        del ip.len
-        p = p / txt
-        p._defrag_pos = max(x._defrag_pos for x in lst)
-        defrag.append(p)
+            fraglen = ip.len - (ip.ihl << 2)
+        # (pkt, frag offset, frag len)
+        frags[uid].append((pkt, ip.frag << 3, fraglen))
+        if not ip.flags.MF:  # no more fragments = last fragment
+            curfrags = sorted(frags[uid], key=lambda x: x[1])  # sort by offset
+            try:
+                data = b"".join(_defrag_iter_and_check_offsets(curfrags))
+            except ValueError:
+                # bad fragment
+                badfrags = frags[uid]
+                del frags[uid]
+                raise BadFragments(frags=badfrags)
+            # re-build initial packet without fragmentation
+            p = curfrags[0][0].copy()
+            pay_class = p[IP].payload.__class__
+            p[IP].flags.MF = False
+            p[IP].remove_payload()
+            p[IP].len = None
+            p[IP].chksum = None
+            # append defragmented payload
+            p /= pay_class(data)
+            # cleanup
+            del frags[uid]
+            return True, p
+        return True, None
+    return False, pkt
 
 
 def _defrag_logic(plist, complete=False):
-    """Internal function used to defragment a list of packets.
+    """
+    Internal function used to defragment a list of packets.
     It contains the logic behind the defrag() and defragment() functions
     """
-    frags = defaultdict(lambda: [])
+    frags = defaultdict(list)
     final = []
-    pos = 0
-    for p in plist:
-        p._defrag_pos = pos
-        pos += 1
-        if IP in p:
-            ip = p[IP]
-            if ip.frag != 0 or ip.flags.MF:
-                uniq = (ip.id, ip.src, ip.dst, ip.proto)
-                frags[uniq].append(p)
-                continue
-        final.append(p)
-
-    defrag = []
-    missfrag = []
-    for lst in frags.values():
-        lst.sort(key=lambda x: x.frag)
-        _defrag_list(lst, defrag, missfrag)
-    defrag2 = []
-    for p in defrag:
-        q = p.__class__(raw(p))
-        q._defrag_pos = p._defrag_pos
-        q.time = p.time
-        defrag2.append(q)
+    notfrag = []
+    badfrag = []
+    # Defrag
+    for i, pkt in enumerate(plist):
+        if IP not in pkt:
+            # no IP layer
+            if complete:
+                final.append(pkt)
+            continue
+        try:
+            fragmented, defragmented_value = _defrag_ip_pkt(
+                pkt,
+                frags,
+            )
+        except BadFragments as ex:
+            if complete:
+                final.extend(ex.frags)
+            else:
+                badfrag.extend(ex.frags)
+            continue
+        if complete and defragmented_value:
+            final.append(defragmented_value)
+        elif defragmented_value:
+            if fragmented:
+                final.append(defragmented_value)
+            else:
+                notfrag.append(defragmented_value)
+    # Return
     if complete:
-        final.extend(defrag2)
-        final.extend(missfrag)
-        final.sort(key=lambda x: x._defrag_pos)
         if hasattr(plist, "listname"):
             name = "Defragmented %s" % plist.listname
         else:
             name = "Defragmented"
         return PacketList(final, name=name)
     else:
-        return PacketList(final), PacketList(defrag2), PacketList(missfrag)
+        return PacketList(notfrag), PacketList(final), PacketList(badfrag)
 
 
 @conf.commands.register

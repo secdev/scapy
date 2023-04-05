@@ -161,7 +161,7 @@ defrags = defragment(frags)
 * we should have one single packet
 assert len(defrags) == 1
 * which should be the same as pkt reconstructed
-assert defrags[0] == IP(raw(pkt))
+assert bytes(defrags[0]) == bytes(pkt)
 
 = defragment() uses timestamp of last fragment
 payloadlen, fragsize = 100, 8

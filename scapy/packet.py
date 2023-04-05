@@ -146,6 +146,8 @@ class Packet(
                  _internal=0,  # type: int
                  _underlayer=None,  # type: Optional[Packet]
                  _parent=None,  # type: Optional[Packet]
+                 skip_payload=False,  # type: bool
+                 skip_payload_after=None,  # type: Optional[Type[Packet]]
                  **fields  # type: Any
                  ):
         # type: (...) -> None
@@ -174,6 +176,8 @@ class Packet(
         self.direction = None  # type: Optional[int]
         self.sniffed_on = None  # type: Optional[_GlobInterfaceType]
         self.comment = None  # type: Optional[bytes]
+        self.no_dissect_after = no_dissect_after
+        self.skip_payload = skip_payload or isinstance(self, no_dissect_after)
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -1059,10 +1063,13 @@ class Packet(
 
         s = self.post_dissect(s)
 
-        payl, pad = self.extract_padding(s)
-        self.do_dissect_payload(payl)
-        if pad and conf.padding:
-            self.add_payload(conf.padding_layer(pad))
+        if self.skip_payload:
+            self.add_payload(conf.raw_layer(pad))
+        else:
+            payl, pad = self.extract_padding(s)
+            self.do_dissect_payload(payl)
+            if pad and conf.padding:
+                self.add_payload(conf.padding_layer(pad))
 
     def guess_payload_class(self, payload):
         # type: (bytes) -> Type[Packet]

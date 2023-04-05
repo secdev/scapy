@@ -10,7 +10,7 @@ from collections import defaultdict
 import socket
 import struct
 
-from scapy.compat import raw, orb
+from scapy.compat import orb
 from scapy.config import conf
 from scapy.packet import NoPayload, Packet
 from scapy.plist import PacketList
@@ -25,8 +25,11 @@ from typing import (
     List,
     Optional,
     Tuple,
-    cast
+    cast,
+    TYPE_CHECKING,
 )
+if TYPE_CHECKING:
+    from scapy.supersocket import SuperSocket
 
 
 class DefaultSession(object):
@@ -125,31 +128,8 @@ class IPSession(DefaultSession):
 
     def _ip_process_packet(self, packet):
         # type: (Packet) -> Optional[Packet]
-        from scapy.layers.inet import _defrag_list, IP
-        if IP not in packet:
-            return packet
-        ip = packet[IP]
-        packet._defrag_pos = 0
-        if ip.frag != 0 or ip.flags.MF:
-            uniq = (ip.id, ip.src, ip.dst, ip.proto)
-            self.fragments[uniq].append(packet)
-            if not ip.flags.MF:  # end of frag
-                try:
-                    if self.fragments[uniq][0].frag == 0:
-                        # Has first fragment (otherwise ignore)
-                        defrag = []  # type: List[Packet]
-                        _defrag_list(self.fragments[uniq], defrag, [])
-                        defragmented_packet = defrag[0]
-                        defragmented_packet = defragmented_packet.__class__(
-                            raw(defragmented_packet)
-                        )
-                        defragmented_packet.time = packet.time
-                        return defragmented_packet
-                finally:
-                    del self.fragments[uniq]
-            return None
-        else:
-            return packet
+        from scapy.layers.inet import _defrag_ip_pkt
+        return _defrag_ip_pkt(packet, self.fragments)[1]
 
     def on_packet_received(self, pkt):
         # type: (Optional[Packet]) -> None
