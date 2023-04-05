@@ -619,6 +619,7 @@ class IP(Packet, IPTools):
 
     def fragment(self, fragsize=1480):
         """Fragment IP datagrams"""
+        fragsize = max(fragsize, 8)
         lastfragsz = fragsize
         fragsize -= fragsize % 8
         lst = []
@@ -1139,6 +1140,7 @@ conf.neighbor.register_l3(Dot3, IP, inet_register_l3)
 @conf.commands.register
 def fragment(pkt, fragsize=1480):
     """Fragment a big IP datagram"""
+    fragsize = max(fragsize, 8)
     lastfragsz = fragsize
     fragsize -= fragsize % 8
     lst = []

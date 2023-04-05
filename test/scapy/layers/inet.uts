@@ -150,6 +150,25 @@ assert len(frags2) == 2
 assert len(frags2[0]) == 20 + paylen - paylen % 8
 assert len(frags2[1]) == 20 + 1 + paylen % 8
 
+= fragment() with fragsize lower than 8
+paylen = 5
+fragsize = paylen
+frags1 = fragment(IP() / ("X" * paylen), paylen)
+assert len(frags1) == 1
+assert bytes(frags1[0].payload) == b"X" * paylen
+
+fragsize = paylen + 1
+frags2 = fragment(IP() / ("X" * paylen), fragsize)
+assert len(frags2) == 1
+assert bytes(frags2[0].payload) == b"X" * paylen
+
+paylen = 16
+fragsize = 5
+frags3 = fragment(IP() / ("X" * paylen), fragsize)
+assert len(frags3) == 2
+assert bytes(frags3[0].payload) == b"X" * 8
+assert bytes(frags3[1].payload) == b"X" * 8
+
 = defrag()
 nonfrag, unfrag, badfrag = defrag(frags)
 assert not nonfrag
