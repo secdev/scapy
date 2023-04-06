@@ -124,3 +124,43 @@ assert not pkt[BTH].ackreq
 assert pkt[AETH].syndrome == 0
 assert pkt[AETH].msn == 5
 assert pkt.icrc == 0x25f0c038
+
+= UD with / w.o immediate
+
+payload = b'test payload'
+
+pkt = (Ether()/
+       IP()/
+       UDP(sport=5555)/
+       BTH()/
+       DETH(sqp=1234)/
+       Raw(payload)
+      )
+
+dissected = Ether(pkt.build() + b'\x00' * 4)
+dissected.show2()
+
+assert BTH in dissected.layers()
+assert pkt.opcode is None
+assert BTH.opcode.i2repr(dissected[BTH], dissected.opcode) == 'UD_SEND_ONLY'
+assert DETH in dissected.layers()
+assert dissected.sqp == 1234
+
+imm_value = 123456789
+
+pkt = (Ether()/
+       IP()/
+       UDP(sport=5555)/
+       BTH()/
+       DETH()/
+       ImmDt(imm=imm_value)/
+       Raw(payload)
+      )
+
+dissected = Ether(pkt.build() + b'\x00' * 4)
+assert BTH in dissected.layers()
+assert pkt.opcode is None
+assert BTH.opcode.i2repr(dissected[BTH], dissected.opcode) == 'UD_SEND_ONLY_WITH_IMMEDIATE'
+assert DETH in dissected.layers()
+assert ImmDt in dissected.layers()
+assert pkt.imm == imm_value

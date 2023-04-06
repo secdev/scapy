@@ -12,14 +12,19 @@ RoCE: RDMA over Converged Ethernet
 
 from scapy.packet import Packet, bind_layers, Raw
 from scapy.fields import ByteEnumField, ByteField, XByteField, \
-    ShortField, XShortField, XLongField, BitField, XBitField, FCSField
+    ShortField, XIntField, XShortField, XLongField, BitField, \
+    XBitField, FCSField
 from scapy.layers.inet import IP, UDP
 from scapy.layers.l2 import Ether
 from scapy.compat import raw
 from scapy.error import warning
 from zlib import crc32
 import struct
-from scapy.compat import Tuple
+from scapy.compat import (
+    Optional,
+    Tuple,
+    Type,
+)
 
 _transports = {
     'RC': 0x00,
@@ -27,6 +32,20 @@ _transports = {
     'RD': 0x40,
     'UD': 0x60,
 }
+
+OP_MASK = 0x1f
+TRANSPORT_MASK = 0xe0
+
+
+def transport(opcode):
+    # type: (int) -> int
+    return opcode & TRANSPORT_MASK
+
+
+def op(opcode):
+    # type: (int) -> int
+    return opcode & OP_MASK
+
 
 _ops = {
     'SEND_FIRST': 0x00,
@@ -54,6 +73,8 @@ _ops = {
 
 
 CNP_OPCODE = 0x81
+UD_SEND_ONLY = _transports['UD'] | _ops['SEND_ONLY']
+UD_SEND_ONLY_IMM = _transports['UD'] | _ops['SEND_ONLY_WITH_IMMEDIATE']
 
 
 def opcode(transport, op):
@@ -129,7 +150,7 @@ _bth_opcodes = dict([
 class BTH(Packet):
     name = "BTH"
     fields_desc = [
-        ByteEnumField("opcode", 0, _bth_opcodes),
+        ByteEnumField("opcode", None, _bth_opcodes),
         BitField("solicited", 0, 1),
         BitField("migreq", 0, 1),
         BitField("padcount", 0, 2),
@@ -188,9 +209,33 @@ class BTH(Packet):
     def post_build(self, p, pay):
         # type: (bytes, bytes) -> bytes
         p += pay
+        if self.opcode is None:
+            opcode = self.guess_opcode() or 0
+            p = struct.pack('B', opcode) + p[1:]
         if self.icrc is None:
             p = p[:-4] + self.compute_icrc(p)
         return p
+
+    def guess_opcode(self):
+        # type: () -> Optional[int]
+        'Guess the opcode based on the following layers.'
+        if isinstance(self.payload, DETH):
+            if isinstance(self.payload.payload, ImmDt):
+                return UD_SEND_ONLY_IMM
+            return UD_SEND_ONLY
+
+    def guess_payload_class(self, payload):
+        # type: (bytes) -> Type[Packet]
+        opcode = self.opcode
+        if transport(opcode) == _transports['RC'] or \
+           transport(opcode) == _transports['UC']:
+            cur_op = op(opcode)
+            if cur_op in (_ops['SEND_LAST_WITH_IMMEDIATE'],
+                          _ops['SEND_ONLY_WITH_IMMEDIATE']):
+                return ImmDt
+        if transport(self.opcode) == _transports['UD']:
+            return DETH
+        return Packet.guess_payload_class(self, payload)
 
 
 class CNPPadding(Packet):
@@ -225,6 +270,30 @@ class AETH(Packet):
     fields_desc = [
         XByteField("syndrome", 0),
         XBitField("msn", 0, 24),
+    ]
+
+
+class DETH(Packet):
+    name = "Datagram Extended Transport Header"
+    fields_desc = [
+        XIntField("qkey", 0),
+        XByteField("reserved", 0),
+        XBitField("sqp", 0, 24)
+    ]
+
+    def guess_payload_class(self, payload):
+        # type: (bytes) -> Type[Packet]
+        bth = self.underlayer
+        if isinstance(bth, BTH):
+            if bth.opcode == opcode('UD', 'SEND_ONLY_WITH_IMMEDIATE')[0]:
+                return ImmDt
+        return Packet.guess_payload_class(self, payload)
+
+
+class ImmDt(Packet):
+    name = "Immediate Data Extended Transport Header"
+    fields_desc = [
+        XIntField("imm", 0)
     ]
 
 
