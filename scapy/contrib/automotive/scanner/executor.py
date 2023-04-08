@@ -11,8 +11,6 @@ import time
 
 from itertools import product
 
-from scapy.compat import Any, Union, List, Optional, \
-    Dict, Callable, Type, cast
 from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.scanner.graph import Graph
 from scapy.error import Scapy_Exception
@@ -24,6 +22,18 @@ from scapy.contrib.automotive.scanner.configuration import \
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC, \
     _SocketUnion, _CleanupCallable, StateGenerator, TestCaseGenerator, \
     AutomotiveTestCase
+
+# Typing imports
+from typing import (
+    Any,
+    Union,
+    List,
+    Optional,
+    Dict,
+    Callable,
+    Type,
+    cast,
+)
 
 
 class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):

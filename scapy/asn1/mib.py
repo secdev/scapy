@@ -15,7 +15,7 @@ from scapy.config import conf
 from scapy.utils import do_graph
 from scapy.compat import plain_str
 
-from scapy.compat import (
+from typing import (
     Any,
     Dict,
     List,

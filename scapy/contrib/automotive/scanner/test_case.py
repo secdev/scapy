@@ -10,8 +10,6 @@
 import abc
 from collections import defaultdict
 
-from scapy.compat import Any, Union, List, Optional, \
-    Dict, Tuple, Set, Callable, TYPE_CHECKING
 from scapy.utils import make_lined_table, SingleConversationSocket
 from scapy.supersocket import SuperSocket
 from scapy.contrib.automotive.scanner.graph import _Edge
@@ -19,6 +17,18 @@ from scapy.contrib.automotive.ecu import EcuState, EcuResponse
 from scapy.error import Scapy_Exception
 
 
+# Typing imports
+from typing import (
+    Any,
+    Union,
+    List,
+    Optional,
+    Dict,
+    Tuple,
+    Set,
+    Callable,
+    TYPE_CHECKING,
+)
 if TYPE_CHECKING:
     from scapy.contrib.automotive.scanner.configuration import AutomotiveTestCaseExecutorConfiguration  # noqa: E501
 
@@ -209,7 +219,7 @@ class AutomotiveTestCase(AutomotiveTestCaseABC):
         completed = [(state, self._state_completed[state])
                      for state in self.scanned_states]
         return make_lined_table(
-            completed, lambda tup: ("Scan state completed", tup[0], tup[1]),
+            completed, lambda x, y: ("Scan state completed", x, y),
             dump=True) or ""
 
     def show(self, dump=False, filtered=True, verbose=False):

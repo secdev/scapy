@@ -21,7 +21,7 @@ from scapy.themes import NoTheme, DefaultTheme, HTMLTheme2, LatexTheme2
 from scapy.error import log_scapy, Scapy_Exception
 from scapy.utils import tex_escape
 
-from scapy.compat import (
+from typing import (
     Any,
     Optional,
     TextIO,

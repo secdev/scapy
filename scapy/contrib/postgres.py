@@ -7,7 +7,12 @@
 
 import struct
 
-from scapy.compat import Optional, Callable, Any, Tuple  # noqa: F401
+from typing import (
+    Optional,
+    Callable,
+    Any,
+    Tuple,
+)
 from scapy.fields import (
     ByteField,
     CharEnumField,

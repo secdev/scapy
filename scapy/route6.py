@@ -25,7 +25,7 @@ from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.error import warning, log_loading
 from scapy.utils import pretty_list
 
-from scapy.compat import (
+from typing import (
     Any,
     Dict,
     List,

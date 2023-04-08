@@ -10,7 +10,6 @@ import struct
 import socket
 import time
 
-from scapy.compat import Optional, Tuple, Type, Iterable, List, Union
 from scapy.contrib.automotive import log_automotive
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import IntField, ShortEnumField, XByteField
@@ -18,6 +17,15 @@ from scapy.layers.inet import TCP
 from scapy.supersocket import StreamSocket
 from scapy.contrib.automotive.uds import UDS, UDS_TP
 from scapy.data import MTU
+
+from typing import (
+    Optional,
+    Tuple,
+    Type,
+    Iterable,
+    List,
+    Union,
+)
 
 
 """

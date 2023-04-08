@@ -17,7 +17,7 @@ from scapy.consts import FREEBSD, NETBSD, OPENBSD, WINDOWS
 from scapy.error import log_loading
 from scapy.compat import plain_str
 
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     Dict,

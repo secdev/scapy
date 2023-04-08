@@ -9,7 +9,7 @@
 """Packet-processing utilities implementing RFC5925 and RFC5926"""
 
 import logging
-from scapy.compat import orb, Union
+from scapy.compat import orb
 from scapy.layers.inet import IP, TCP
 from scapy.layers.inet import tcp_pseudoheader
 from scapy.layers.inet6 import IPv6
@@ -17,6 +17,10 @@ from scapy.packet import Packet
 from scapy.pton_ntop import inet_pton
 import socket
 import struct
+
+from typing import (
+    Union,
+)
 
 logger = logging.getLogger(__name__)
 

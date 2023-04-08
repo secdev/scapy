@@ -34,7 +34,7 @@ from scapy.error import (
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS
 
-from scapy.compat import (
+from typing import (
     Any,
     Dict,
     List,

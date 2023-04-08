@@ -40,7 +40,7 @@ from scapy.base_classes import Gen, Net, BasePacket, Field_metaclass
 from scapy.error import warning
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     Any,
     AnyStr,
     Callable,

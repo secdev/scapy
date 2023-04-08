@@ -17,7 +17,7 @@ from scapy.volatile import RandField, RandIP, GeneralizedTime
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
 from scapy.compat import plain_str, bytes_encode, chb, orb
 
-from scapy.compat import (
+from typing import (
     Any,
     AnyStr,
     Dict,

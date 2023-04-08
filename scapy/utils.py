@@ -35,13 +35,20 @@ import warnings
 from scapy.config import conf
 from scapy.consts import DARWIN, OPENBSD, WINDOWS
 from scapy.data import MTU, DLT_EN10MB, DLT_RAW
-from scapy.compat import orb, plain_str, chb, bytes_base64,\
-    base64_bytes, hex_bytes, lambda_tuple_converter, bytes_encode
+from scapy.compat import (
+    orb,
+    plain_str,
+    chb,
+    bytes_base64,
+    base64_bytes,
+    hex_bytes,
+    bytes_encode,
+)
 from scapy.error import log_runtime, Scapy_Exception, warning
 from scapy.pton_ntop import inet_pton
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     cast,
     Any,
     AnyStr,
@@ -50,7 +57,6 @@ from scapy.compat import (
     IO,
     Iterator,
     List,
-    Literal,
     Optional,
     TYPE_CHECKING,
     Tuple,
@@ -58,6 +64,7 @@ from scapy.compat import (
     Union,
     overload,
 )
+from scapy.compat import Literal
 
 if TYPE_CHECKING:
     from scapy.packet import Packet
@@ -3003,9 +3010,6 @@ def __make_table(
     vy = {}  # type: Dict[str, Optional[int]]
     vz = {}  # type: Dict[Tuple[str, str], str]
     vxf = {}  # type: Dict[str, str]
-
-    # Python 2 backward compatibility
-    fxyz = lambda_tuple_converter(fxyz)
 
     tmp_len = 0
     for e in data:

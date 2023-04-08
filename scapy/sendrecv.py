@@ -37,7 +37,7 @@ from scapy.sessions import DefaultSession
 from scapy.supersocket import SuperSocket, IterSocket
 
 # Typing imports
-from scapy.compat import (
+from typing import (
     Any,
     Callable,
     Dict,

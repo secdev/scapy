@@ -9,11 +9,20 @@
 import inspect
 from threading import Event
 
-from scapy.compat import Any, Union, List, Type, Set, cast
 from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.scanner.graph import Graph
 from scapy.contrib.automotive.scanner.test_case import AutomotiveTestCaseABC
 from scapy.contrib.automotive.scanner.staged_test_case import StagedAutomotiveTestCase  # noqa: E501
+
+# Typing imports
+from typing import (
+    Any,
+    Union,
+    List,
+    Type,
+    Set,
+    cast,
+)
 
 
 class AutomotiveTestCaseExecutorConfiguration(object):

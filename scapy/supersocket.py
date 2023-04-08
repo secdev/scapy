@@ -31,7 +31,7 @@ from scapy.utils import PcapReader, tcpdump
 
 # Typing imports
 from scapy.interfaces import _GlobInterfaceType
-from scapy.compat import (
+from typing import (
     Any,
     Iterator,
     List,

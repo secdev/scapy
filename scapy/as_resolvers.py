@@ -12,7 +12,7 @@ import socket
 from scapy.config import conf
 from scapy.compat import plain_str
 
-from scapy.compat import (
+from typing import (
     Any,
     Optional,
     Tuple,

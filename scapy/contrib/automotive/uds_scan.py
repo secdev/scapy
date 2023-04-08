@@ -16,10 +16,7 @@ import inspect
 
 from collections import defaultdict
 
-from typing import NamedTuple
-
-from scapy.compat import Dict, Optional, List, Type, Any, Iterable, \
-    cast, Union, orb, Set, Sequence
+from scapy.compat import orb
 from scapy.contrib.automotive import log_automotive
 from scapy.packet import Raw, Packet
 from scapy.error import Scapy_Exception
@@ -41,6 +38,21 @@ from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor
 
 # TODO: Refactor this import
 from scapy.contrib.automotive.uds_ecu_states import *  # noqa: F401, F403
+
+# typing imports
+from typing import (
+    Dict,
+    Optional,
+    NamedTuple,
+    List,
+    Type,
+    Any,
+    Iterable,
+    cast,
+    Union,
+    Set,
+    Sequence,
+)
 
 
 # Definition outside the class UDS_RMBASequentialEnumerator

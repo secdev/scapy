@@ -18,7 +18,8 @@ from scapy.utils6 import in6_isvalid
 
 # Typing imports
 import scapy
-from scapy.compat import (
+from scapy.compat import UserDict
+from typing import (
     Any,
     DefaultDict,
     Dict,
@@ -28,7 +29,6 @@ from scapy.compat import (
     Tuple,
     Type,
     Union,
-    UserDict,
 )
 
 

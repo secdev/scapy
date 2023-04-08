@@ -23,8 +23,15 @@ from scapy.supersocket import SuperSocket
 from scapy.layers.can import CAN
 from scapy.packet import Packet
 from scapy.error import warning
-from scapy.compat import List, Type, Tuple, Dict, Any, \
-    Optional, cast
+from typing import (
+    List,
+    Type,
+    Tuple,
+    Dict,
+    Any,
+    Optional,
+    cast,
+)
 
 from can import Message as can_Message
 from can import CanError as can_CanError
