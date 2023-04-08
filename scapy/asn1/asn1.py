@@ -26,11 +26,12 @@ from scapy.compat import (
     Optional,
     Tuple,
     Type,
-    TypeVar,
     Union,
-    _Generic_metaclass,
     cast,
     TYPE_CHECKING,
+)
+from typing import (
+    TypeVar,
 )
 
 if TYPE_CHECKING:
@@ -278,7 +279,7 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     TIME_TICKS = cast(ASN1Tag, 3 | 0x40)    # application-specific encoding
 
 
-class ASN1_Object_metaclass(_Generic_metaclass):
+class ASN1_Object_metaclass(type):
     def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]

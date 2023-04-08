@@ -98,7 +98,7 @@ class ISOTPMessageBuilder(object):
             self,
             use_ext_address=None,  # type: Optional[bool]
             rx_id=None,  # type: Optional[Union[int, List[int], Iterable[int]]]
-            basecls=ISOTP  # type: Type[Packet]
+            basecls=ISOTP  # type: Type[ISOTP]
     ):
         # type: (...) -> None
         self.ready = []  # type: List[Tuple[int, Optional[int], ISOTPMessageBuilder.Bucket]]  # noqa: E501
@@ -155,7 +155,7 @@ class ISOTPMessageBuilder(object):
         return self.count
 
     def pop(self, identifier=None, ext_addr=None):
-        # type: (Optional[int], Optional[int]) -> Optional[Packet]
+        # type: (Optional[int], Optional[int]) -> Optional[ISOTP]
         """Returns a built ISOTP message
 
         :param identifier: if not None, only return isotp messages with this
@@ -186,9 +186,9 @@ class ISOTPMessageBuilder(object):
     @staticmethod
     def _build(
             t,  # type: Tuple[int, Optional[int], ISOTPMessageBuilder.Bucket]
-            basecls=ISOTP  # type: Type[Packet]
+            basecls=ISOTP  # type: Type[ISOTP]
     ):
-        # type: (...) -> Packet
+        # type: (...) -> ISOTP
         bucket = t[2]
         data = bucket.ready or b""
         p = basecls(data)

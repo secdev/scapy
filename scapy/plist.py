@@ -24,7 +24,6 @@ from scapy.base_classes import (
 from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
     make_tex_table, issubtype
 from functools import reduce
-import scapy.libs.six as six
 
 # typings
 from scapy.compat import (
@@ -44,6 +43,11 @@ from scapy.compat import (
 )
 from scapy.packet import Packet
 
+try:
+    import pyx
+except ImportError:
+    pass
+
 if TYPE_CHECKING:
     from scapy.libs.matplot import Line2D
 
@@ -60,8 +64,7 @@ QueryAnswer = NamedTuple(
 _Inner = TypeVar("_Inner", Packet, QueryAnswer)
 
 
-@six.add_metaclass(PacketList_metaclass)
-class _PacketList(Generic[_Inner]):
+class _PacketList(Generic[_Inner], metaclass=PacketList_metaclass):
     __slots__ = ["stats", "res", "listname"]
 
     def __init__(self,
@@ -402,11 +405,11 @@ class _PacketList(Generic[_Inner]):
             kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
 
         if plot_xy:
-            lines = [plt.plot(*zip(*pl), **dict(kargs, label=k))
-                     for k, pl in six.iteritems(d)]
+            lines = [plt.plot(*list(zip(*pl)), **dict(kargs, label=k))  # type: ignore
+                     for k, pl in d.items()]
         else:
             lines = [plt.plot(pl, **dict(kargs, label=k))
-                     for k, pl in six.iteritems(d)]
+                     for k, pl in d.items()]
         plt.legend(loc="center right", bbox_to_anchor=(1.5, 0.5))
 
         # Call show() if matplotlib is not inlined
@@ -510,8 +513,8 @@ class _PacketList(Generic[_Inner]):
                 raise TypeError()
             getsrcdst = _getsrcdst
         conv = {}  # type: Dict[Tuple[Any, ...], Any]
-        for p in self.res:
-            p = self._elt2pkt(p)
+        for elt in self.res:
+            p = self._elt2pkt(elt)
             try:
                 c = getsrcdst(p)
             except Exception:
@@ -526,7 +529,7 @@ class _PacketList(Generic[_Inner]):
             else:
                 conv[c] = conv.get(c, 0) + 1
         gr = 'digraph "conv" {\n'
-        for (s, d), l in six.iteritems(conv):
+        for (s, d), l in conv.items():
             gr += '\t "%s" -> "%s" [label="%s"]\n' % (
                 s, d, ', '.join(str(x) for x in l) if isinstance(l, set) else l
             )
@@ -585,9 +588,9 @@ class _PacketList(Generic[_Inner]):
                 M = 1
             return m, M
 
-        mins, maxs = minmax(x for x, _ in six.itervalues(sl))
-        mine, maxe = minmax(x for x, _ in six.itervalues(el))
-        mind, maxd = minmax(six.itervalues(dl))
+        mins, maxs = minmax(x for x, _ in sl.values())
+        mine, maxe = minmax(x for x, _ in el.values())
+        mind, maxd = minmax(dl.values())
 
         gr = 'digraph "afterglow" {\n\tedge [len=2.5];\n'
 
@@ -619,13 +622,13 @@ class _PacketList(Generic[_Inner]):
         gr += "}"
         return do_graph(gr, **kargs)
 
-    def canvas_dump(self, **kargs):
-        # type: (Any) -> Any  # Using Any since pyx is imported later
-        import pyx
+    def canvas_dump(self, layer_shift=0, rebuild=1):
+        # type: (int, int) -> 'pyx.canvas.canvas'
         d = pyx.document.document()
         len_res = len(self.res)
         for i, res in enumerate(self.res):
-            c = self._elt2pkt(res).canvas_dump(**kargs)
+            c = self._elt2pkt(res).canvas_dump(layer_shift=layer_shift,
+                                               rebuild=rebuild)
             cbb = c.bbox()
             c.text(cbb.left(), cbb.top() + 1, r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i, len_res), [pyx.text.size.LARGE])  # noqa: E501
             if conf.verb >= 2:

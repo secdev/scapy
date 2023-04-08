@@ -6,10 +6,7 @@
 = Definition of utility functions
 
 # hexadecimal to bytes convenience function
-if six.PY2:
-    dhex = lambda s: "".join(s.split()).decode('hex')
-else:
-    dhex = bytes.fromhex
+dhex = bytes.fromhex
 
 = Import isotp
 

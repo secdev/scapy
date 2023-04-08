@@ -74,7 +74,7 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
         cleanup_testsockets()
         tester_obj_pipe.close()
         ecu_obj_pipe.close()
-    if six.PY3 and LINUX:
+    if LINUX:
         pickle_test(scanner)
     return scanner
 

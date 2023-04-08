@@ -12,7 +12,6 @@ import warnings
 
 from scapy.config import conf
 from scapy.layers.tls.crypto.common import CipherError
-import scapy.libs.six as six
 
 if conf.crypto_valid:
     from cryptography.utils import (
@@ -43,7 +42,7 @@ class _BlockCipherMetaclass(type):
         return the_class
 
 
-class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
+class _BlockCipher(metaclass=_BlockCipherMetaclass):
     type = "block"
 
     def __init__(self, key=None, iv=None):
@@ -83,7 +82,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
         Encrypt the data. Also, update the cipher iv. This is needed for SSLv3
         and TLS 1.0. For TLS 1.1/1.2, it is overwritten in TLS.post_build().
         """
-        if False in six.itervalues(self.ready):
+        if False in self.ready.values():
             raise CipherError(data)
         encryptor = self._cipher.encryptor()
         tmp = encryptor.update(data) + encryptor.finalize()
@@ -96,7 +95,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
         and TLS 1.0. For TLS 1.1/1.2, it is overwritten in TLS.pre_dissect().
         If we lack the key, we raise a CipherError which contains the input.
         """
-        if False in six.itervalues(self.ready):
+        if False in self.ready.values():
             raise CipherError(data)
         decryptor = self._cipher.decryptor()
         tmp = decryptor.update(data) + decryptor.finalize()

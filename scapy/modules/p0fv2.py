@@ -21,7 +21,6 @@ from scapy.packet import NoPayload, Packet
 from scapy.error import warning, Scapy_Exception, log_runtime
 from scapy.volatile import RandInt, RandByte, RandNum, RandShort, RandString
 from scapy.sendrecv import sniff
-from scapy.libs import six
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route  # noqa: F401
@@ -407,7 +406,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
     # can. MSS, WScale and Timestamp can all be wildcarded in a signature, so
     # we'll use the already-set values if they're valid integers.
     orig_opts = dict(pkt.payload.options)
-    int_only = lambda val: val if isinstance(val, six.integer_types) else None
+    int_only = lambda val: val if isinstance(val, int) else None
     mss_hint = int_only(orig_opts.get('MSS'))
     wscale_hint = int_only(orig_opts.get('WScale'))
     ts_hint = [int_only(o) for o in orig_opts.get('Timestamp', (None, None))]

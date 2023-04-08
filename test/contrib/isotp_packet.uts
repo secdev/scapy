@@ -14,10 +14,7 @@ from scapy.contrib.isotp.isotp_scanner import get_isotp_packet
 = Define helpers
 
 # hexadecimal to bytes convenience function
-if six.PY2:
-    dhex = lambda s: "".join(s.split()).decode('hex')
-else:
-    dhex = bytes.fromhex
+dhex = bytes.fromhex
 
 
 + ISOTP packet check

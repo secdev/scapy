@@ -75,7 +75,7 @@ else:
 
 # hot-patching socket for missing variables on Windows
 if not hasattr(socket, 'IPPROTO_IPIP'):
-    socket.IPPROTO_IPIP = 4
+    socket.IPPROTO_IPIP = 4  # type: ignore
 if not hasattr(socket, 'IP_RECVTTL'):
     socket.IP_RECVTTL = 12  # type: ignore
 if not hasattr(socket, 'IPV6_HDRINCL'):
@@ -86,7 +86,7 @@ if not hasattr(socket, 'IPPROTO_IPV6'):
 if not hasattr(socket, 'SOL_IPV6'):
     socket.SOL_IPV6 = socket.IPPROTO_IPV6  # type: ignore
 if not hasattr(socket, 'IPPROTO_GRE'):
-    socket.IPPROTO_GRE = 47
+    socket.IPPROTO_GRE = 47  # type: ignore
 if not hasattr(socket, 'IPPROTO_AH'):
     socket.IPPROTO_AH = 51
 if not hasattr(socket, 'IPPROTO_ESP'):
@@ -965,8 +965,8 @@ def _route_add_loopback(routes=None,  # type: Optional[List[Any]]
         if iface == conf.loopback_name:
             conf.route.routes.remove(route)
     # Remove conf.loopback_name interface
-    for devname, iface in list(conf.ifaces.items()):
-        if iface == conf.loopback_name:
+    for devname, ifname in list(conf.ifaces.items()):
+        if ifname == conf.loopback_name:
             conf.ifaces.pop(devname)
     # Inject interface
     conf.ifaces["{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"] = adapter

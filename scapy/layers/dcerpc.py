@@ -91,8 +91,6 @@ from scapy.contrib.rtps.common_types import (
     EPacketListField,
 )
 
-import scapy.libs.six as six
-
 
 # DCE/RPC Packet
 DCE_RPC_TYPE = {
@@ -1010,8 +1008,7 @@ class _NDRPacketMetaclass(Packet_metaclass):
         return newcls  # type: ignore
 
 
-@six.add_metaclass(_NDRPacketMetaclass)
-class NDRPacket(_NDRPacket):
+class NDRPacket(_NDRPacket, metaclass=_NDRPacketMetaclass):
     """
     A NDR Packet. Handles pointer size & endianness
     """

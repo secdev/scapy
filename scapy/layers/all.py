@@ -8,15 +8,15 @@ All layers. Configurable with conf.load_layers.
 """
 
 
+import builtins
+import logging
+
 # We import conf from arch to make sure arch specific layers are populated
 from scapy.arch import conf
 from scapy.error import log_loading
 from scapy.main import load_layer
 
-import logging
-import scapy.libs.six as six
-
-ignored = list(six.moves.builtins.__dict__) + ["sys"]
+ignored = list(builtins.__dict__) + ["sys"]
 log = logging.getLogger("scapy.loading")
 
 __all__ = []

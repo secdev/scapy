@@ -38,7 +38,6 @@ from scapy.fields import (
     XShortField,
     XStrLenField,
 )
-from scapy.libs import six
 
 
 class PPPoE(Packet):
@@ -753,7 +752,7 @@ class PPP_PAP(Packet):
             code = orb(_pkt[0])
         elif "code" in kargs:
             code = kargs["code"]
-            if isinstance(code, six.string_types):
+            if isinstance(code, str):
                 code = cls.fields_desc[0].s2i[code]
 
         if code == 1:
@@ -834,7 +833,7 @@ class PPP_CHAP(Packet):
             code = orb(_pkt[0])
         elif "code" in kargs:
             code = kargs["code"]
-            if isinstance(code, six.string_types):
+            if isinstance(code, str):
                 code = cls.fields_desc[0].s2i[code]
 
         if code in (1, 2):

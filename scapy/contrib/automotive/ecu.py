@@ -504,7 +504,6 @@ class EcuResponse:
                 state = cast(List[EcuState], state)
                 self.__states = state
             else:
-                state = cast(EcuState, state)
                 self.__states = [state]
 
         if isinstance(responses, PacketList):

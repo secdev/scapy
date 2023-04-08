@@ -34,7 +34,10 @@ class ASN1Packet_metaclass(Packet_metaclass):
         # type: (...) -> Type[ASN1_Packet]
         if dct["ASN1_root"] is not None:
             dct["fields_desc"] = dct["ASN1_root"].get_fields_list()
-        return super(ASN1Packet_metaclass, cls).__new__(cls, name, bases, dct)
+        return cast(
+            'Type[ASN1_Packet]',
+            super(ASN1Packet_metaclass, cls).__new__(cls, name, bases, dct),
+        )
 
 
 class ASN1_Packet(Packet, metaclass=ASN1Packet_metaclass):

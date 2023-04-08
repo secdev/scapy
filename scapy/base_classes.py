@@ -13,6 +13,7 @@ Generators and packet meta classes.
 
 
 from functools import reduce
+import abc
 import operator
 import os
 import random
@@ -38,14 +39,16 @@ from scapy.compat import (
     Type,
     TypeVar,
     Union,
-    _Generic_metaclass,
     cast,
+    TYPE_CHECKING,
 )
 
-try:
-    import pyx
-except ImportError:
-    pass
+if TYPE_CHECKING:
+    try:
+        import pyx
+    except ImportError:
+        pass
+    from scapy.packet import Packet
 
 _T = TypeVar("_T")
 
@@ -275,20 +278,20 @@ class OID(Gen[str]):
 #  Packet abstract and base classes  #
 ######################################
 
-class Packet_metaclass(_Generic_metaclass):
-    def __new__(cls,
+class Packet_metaclass(type):
+    def __new__(cls: Type[_T],
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
                 dct  # type: Dict[str, Any]
                 ):
-        # type: (...) -> Type['scapy.packet.Packet']
+        # type: (...) -> Type['Packet']
         if "fields_desc" in dct:  # perform resolution of references to other packets  # noqa: E501
             current_fld = dct["fields_desc"]  # type: List[Union[scapy.fields.Field[Any, Any], Packet_metaclass]]  # noqa: E501
             resolved_fld = []  # type: List[scapy.fields.Field[Any, Any]]
             for fld_or_pkt in current_fld:
                 if isinstance(fld_or_pkt, Packet_metaclass):
                     # reference to another fields_desc
-                    for pkt_fld in fld_or_pkt.fields_desc:  # type: ignore
+                    for pkt_fld in fld_or_pkt.fields_desc:
                         resolved_fld.append(pkt_fld)
                 else:
                     resolved_fld.append(fld_or_pkt)
@@ -296,7 +299,7 @@ class Packet_metaclass(_Generic_metaclass):
             resolved_fld = []
             for b in bases:
                 if hasattr(b, "fields_desc"):
-                    resolved_fld = b.fields_desc  # type: ignore
+                    resolved_fld = b.fields_desc
                     break
 
         if resolved_fld:  # perform default value replacements
@@ -343,17 +346,16 @@ class Packet_metaclass(_Generic_metaclass):
             ])
         except (ImportError, AttributeError, KeyError):
             pass
-        newcls = cast('Type[scapy.packet.Packet]',
-                      type.__new__(cls, name, bases, dct))
+        newcls = cast(Type['Packet'], type.__new__(cls, name, bases, dct))
         # Note: below can't be typed because we use attributes
         # created dynamically..
-        newcls.__all_slots__ = set(
+        newcls.__all_slots__ = set(  # type: ignore
             attr
             for cls in newcls.__mro__ if hasattr(cls, "__slots__")
             for attr in cls.__slots__
         )
 
-        newcls.aliastypes = (
+        newcls.aliastypes = (  # type: ignore
             [newcls] + getattr(newcls, "aliastypes", [])
         )
 
@@ -368,30 +370,30 @@ class Packet_metaclass(_Generic_metaclass):
         return newcls
 
     def __getattr__(self, attr):
-        # type: (str) -> scapy.fields.Field[Any, Any]
-        for k in self.fields_desc:  # type: ignore
+        # type: (str) -> Any
+        for k in self.fields_desc:
             if k.name == attr:
-                return k  # type: ignore
+                return k
         raise AttributeError(attr)
 
     def __call__(cls,
                  *args,  # type: Any
                  **kargs  # type: Any
                  ):
-        # type: (...) -> 'scapy.packet.Packet'
+        # type: (...) -> 'Packet'
         if "dispatch_hook" in cls.__dict__:
             try:
-                cls = cls.dispatch_hook(*args, **kargs)  # type: ignore
+                cls = cls.dispatch_hook(*args, **kargs)
             except Exception:
                 from scapy import config
                 if config.conf.debug_dissector:
                     raise
-                cls = config.conf.raw_layer  # type: ignore
+                cls = config.conf.raw_layer
         i = cls.__new__(
             cls,  # type: ignore
             cls.__name__,
             cls.__bases__,
-            cls.__dict__
+            cls.__dict__  # type: ignore
         )
         i.__init__(*args, **kargs)
         return i  # type: ignore
@@ -399,22 +401,22 @@ class Packet_metaclass(_Generic_metaclass):
 
 # Note: see compat.py for an explanation
 
-class Field_metaclass(_Generic_metaclass):
-    def __new__(cls,
+class Field_metaclass(type):
+    def __new__(cls: Type[_T],
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
                 dct  # type: Dict[str, Any]
                 ):
-        # type: (...) -> Type[scapy.fields.Field[Any, Any]]
+        # type: (...) -> Type[_T]
         dct.setdefault("__slots__", [])
-        newcls = super(Field_metaclass, cls).__new__(cls, name, bases, dct)
+        newcls = type.__new__(cls, name, bases, dct)
         return newcls  # type: ignore
 
 
 PacketList_metaclass = Field_metaclass
 
 
-class BasePacket(Gen['scapy.packet.Packet']):
+class BasePacket(Gen['Packet']):
     __slots__ = []  # type: List[str]
 
 
@@ -427,8 +429,9 @@ class BasePacketList(Gen[_T]):
 
 
 class _CanvasDumpExtended(object):
-    def canvas_dump(self, **kwargs):
-        # type: (**Any) -> 'pyx.canvas.canvas'
+    @abc.abstractmethod
+    def canvas_dump(self, layer_shift=0, rebuild=1):
+        # type: (int, int) -> pyx.canvas.canvas
         pass
 
     def psdump(self, filename=None, **kargs):

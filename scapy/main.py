@@ -8,6 +8,7 @@ Main module for interactive startup.
 """
 
 
+import builtins
 import sys
 import os
 import getopt
@@ -16,7 +17,9 @@ import gzip
 import glob
 import importlib
 import io
+from itertools import zip_longest
 import logging
+import pickle
 import types
 import warnings
 from random import choice
@@ -28,7 +31,6 @@ from scapy.error import (
     log_loading,
     Scapy_Exception,
 )
-import scapy.libs.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS
 
@@ -149,7 +151,7 @@ symbols to the global symbol table.
 
     """
     if globals_dict is None:
-        globals_dict = six.moves.builtins.__dict__
+        globals_dict = builtins.__dict__
     try:
         mod = importlib.import_module(module)
         if '__all__' in mod.__dict__:
@@ -160,7 +162,7 @@ symbols to the global symbol table.
                 globals_dict[name] = mod.__dict__[name]
         else:
             # only import non-private symbols
-            for name, sym in six.iteritems(mod.__dict__):
+            for name, sym in mod.__dict__.items():
                 if _validate_local(name):
                     if symb_list is not None:
                         symb_list.append(name)
@@ -300,11 +302,11 @@ def update_ipython_session(session):
 def _scapy_builtins():
     # type: () -> Dict[str, Any]
     """Load Scapy and return all builtins"""
-    return {k: v
-            for k, v in six.iteritems(
-                importlib.import_module(".all", "scapy").__dict__.copy()
-            )
-            if _validate_local(k)}
+    return {
+        k: v
+        for k, v in importlib.import_module(".all", "scapy").__dict__.copy().items()
+        if _validate_local(k)
+    }
 
 
 def save_session(fname="", session=None, pickleProto=-1):
@@ -328,7 +330,7 @@ def save_session(fname="", session=None, pickleProto=-1):
             from IPython import get_ipython
             session = get_ipython().user_ns
         except Exception:
-            session = six.moves.builtins.__dict__["scapy_session"]
+            session = builtins.__dict__["scapy_session"]
 
     if not session:
         log_interactive.error("No session found ?!")
@@ -360,7 +362,7 @@ def save_session(fname="", session=None, pickleProto=-1):
         pass
 
     f = gzip.open(fname, "wb")
-    six.moves.cPickle.dump(to_be_saved, f, pickleProto)
+    pickle.dump(to_be_saved, f, pickleProto)
     f.close()
 
 
@@ -375,15 +377,15 @@ def load_session(fname=None):
     if fname is None:
         fname = conf.session
     try:
-        s = six.moves.cPickle.load(gzip.open(fname, "rb"))
+        s = pickle.load(gzip.open(fname, "rb"))
     except IOError:
         try:
-            s = six.moves.cPickle.load(open(fname, "rb"))
+            s = pickle.load(open(fname, "rb"))
         except IOError:
             # Raise "No such file exception"
             raise
 
-    scapy_session = six.moves.builtins.__dict__["scapy_session"]
+    scapy_session = builtins.__dict__["scapy_session"]
     s.update({k: scapy_session[k] for k in scapy_session["_scpybuiltins"]})
     scapy_session.clear()
     scapy_session.update(s)
@@ -402,10 +404,10 @@ def update_session(fname=None):
     if fname is None:
         fname = conf.session
     try:
-        s = six.moves.cPickle.load(gzip.open(fname, "rb"))
+        s = pickle.load(gzip.open(fname, "rb"))
     except IOError:
-        s = six.moves.cPickle.load(open(fname, "rb"))
-    scapy_session = six.moves.builtins.__dict__["scapy_session"]
+        s = pickle.load(open(fname, "rb"))
+    scapy_session = builtins.__dict__["scapy_session"]
     scapy_session.update(s)
     update_ipython_session(scapy_session)
 
@@ -426,10 +428,9 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
         else:
             try:
                 try:
-                    SESSION = six.moves.cPickle.load(gzip.open(session_name,
-                                                               "rb"))
+                    SESSION = pickle.load(gzip.open(session_name, "rb"))
                 except IOError:
-                    SESSION = six.moves.cPickle.load(open(session_name, "rb"))
+                    SESSION = pickle.load(open(session_name, "rb"))
                 log_loading.info("Using existing session [%s]", session_name)
             except ValueError:
                 msg = "Error opening Python3 pickled session on Python2 [%s]"
@@ -458,10 +459,10 @@ def init_session(session_name,  # type: Optional[Union[str, None]]
 
     SESSION.update(scapy_builtins)
     SESSION["_scpybuiltins"] = scapy_builtins.keys()
-    six.moves.builtins.__dict__["scapy_session"] = SESSION
+    builtins.__dict__["scapy_session"] = SESSION
 
     if mydict is not None:
-        six.moves.builtins.__dict__["scapy_session"].update(mydict)
+        builtins.__dict__["scapy_session"].update(mydict)
         update_ipython_session(mydict)
     if ret:
         return SESSION
@@ -646,7 +647,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
             the_banner.extend(_prepare_quote(quote, author, max_len=39))
             the_banner.append("   |")
         banner_text = "\n".join(
-            logo + banner for logo, banner in six.moves.zip_longest(
+            logo + banner for logo, banner in zip_longest(
                 (conf.color_theme.logo(line) for line in the_logo),
                 (conf.color_theme.success(line) for line in the_banner),
                 fillvalue=""

@@ -25,8 +25,8 @@ assert pkt.hashret()[2:] == b'\x00\x00'
 = Attribute build / dissection
 assert isinstance(LLTDAttribute(), LLTDAttribute)
 assert isinstance(LLTDAttribute(raw(LLTDAttribute())), LLTDAttribute)
-assert all(isinstance(LLTDAttribute(type=i), LLTDAttribute) for i in six.moves.range(256))
-assert all(isinstance(LLTDAttribute(raw(LLTDAttribute(type=i))), LLTDAttribute) for i in six.moves.range(256))
+assert all(isinstance(LLTDAttribute(type=i), LLTDAttribute) for i in range(256))
+assert all(isinstance(LLTDAttribute(raw(LLTDAttribute(type=i))), LLTDAttribute) for i in range(256))
 
 = Large TLV
 m1, m2, seq = RandMAC()._fix(), RandMAC()._fix(), 123

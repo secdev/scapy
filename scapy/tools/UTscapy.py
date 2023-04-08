@@ -6,6 +6,7 @@
 """
 Unit testing infrastructure for Scapy
 """
+
 import builtins
 import bz2
 import copy

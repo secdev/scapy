@@ -56,7 +56,7 @@ def get_isotp_packet(identifier=0x0, extended=False, extended_can_id=False):
     """
 
     if extended:
-        pkt = ISOTPHeaderEA() / ISOTP_FF()
+        pkt = ISOTPHeaderEA() / ISOTP_FF()  # type: Packet
         pkt.extended_address = 0
         pkt.data = b'\x00\x00\x00\x00\x00'
     else:

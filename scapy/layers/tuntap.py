@@ -11,7 +11,6 @@ These allow Scapy to act as the remote side of a virtual network interface.
 """
 
 
-import os
 import socket
 import time
 from fcntl import ioctl
@@ -29,7 +28,6 @@ from scapy.layers.l2 import Ether
 from scapy.packet import Packet
 from scapy.supersocket import SimpleSocket
 
-import scapy.libs.six as six
 
 # Linux-specific defines (/usr/include/linux/if_tun.h)
 LINUX_TUNSETIFF = 0x400454ca
@@ -209,12 +207,7 @@ class TunTapInterface(SimpleSocket):
 
         x += self.mtu_overhead
 
-        if six.PY2:
-            # For some mystical reason, using self.ins.read ignores
-            # buffering=0 on python 2.7 and blocks ?!
-            dat = os.read(self.ins.fileno(), x)
-        else:
-            dat = self.ins.read(x)
+        dat = self.ins.read(x)
         r = self.kernel_packet_class, dat, time.time()
         if self.mtu_overhead > 0 and self.strip_packet_info:
             # Get the packed class of the payload, without triggering a full

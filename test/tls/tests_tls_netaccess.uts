@@ -23,8 +23,6 @@ import sys
 from contextlib import contextmanager
 from scapy.autorun import StringWriter
 
-from scapy.libs import six
-
 from scapy.config import conf
 from scapy.layers.tls.automaton_srv import TLSServerAutomaton
 

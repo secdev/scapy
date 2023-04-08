@@ -15,7 +15,6 @@ import struct
 
 from scapy.config import conf
 from scapy.compat import raw
-import scapy.libs.six as six
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
 from scapy.pton_ntop import inet_pton
@@ -861,7 +860,7 @@ class tlsSession(object):
     def consider_read_padding(self):
         # Return True if padding is needed. Used by TLSPadField.
         return (self.rcs.cipher.type == "block" and
-                not (False in six.itervalues(self.rcs.cipher.ready)))
+                not (False in self.rcs.cipher.ready.values()))
 
     def consider_write_padding(self):
         # Return True if padding is needed. Used by TLSPadField.
@@ -1150,7 +1149,7 @@ class _tls_sessions(object):
 
     def __repr__(self):
         res = [("First endpoint", "Second endpoint", "Session ID")]
-        for li in six.itervalues(self.sessions):
+        for li in self.sessions.values():
             for s in li:
                 src = "%s[%d]" % (s.ipsrc, s.sport)
                 dst = "%s[%d]" % (s.ipdst, s.dport)
