@@ -1183,3 +1183,32 @@ adb0114161069d364cceb ae8dab6c88151f297daea ecfd2e1a598a486e2efc9 561298f8dd5f35
 fdc7f00e6cc6fc0f96752 76a9d607686c4d779d4bb 7544fb60c7f3079afbc74 61ed67fd55a78c44d6f8d
 4eaf386acc17dea11e37a 09f63da3d059243b35f44 9e891255ac7b4f631509d 7060f
 """)
+
+= Create TLS_Ext_KeyShare_CH: compute several algorithms
+
+from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_CH, KeyShareEntry
+
+# x25519
+ch = TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group="x25519")])
+ch = TLS_Ext_KeyShare_CH(bytes(ch))
+
+assert ch.len == 38
+assert ch.client_shares[0].kxlen == 32
+assert len(ch.client_shares[0].key_exchange) == 32
+
+# ffdhe2048
+ch = TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group="ffdhe2048")])
+ch = TLS_Ext_KeyShare_CH(bytes(ch))
+
+assert ch.len == 262
+assert ch.client_shares[0].kxlen == 256
+assert len(ch.client_shares[0].key_exchange) == 256
+
+# secp384r1
+ch = TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group="secp384r1")])
+ch = TLS_Ext_KeyShare_CH(bytes(ch))
+
+assert ch.len == 103
+assert ch.client_shares[0].kxlen == 97
+assert len(ch.client_shares[0].key_exchange) == 97
+
