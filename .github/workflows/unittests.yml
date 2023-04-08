@@ -84,7 +84,7 @@ jobs:
           - os: ubuntu-18.04
             python: "3.10"
             mode: root
-            flags: " -K scanner"
+            flags: " -K scanner -K automotive_comm -K vcan_socket"
           # PyPy tests: root only
           - os: ubuntu-latest
             python: "pypy3.9"
