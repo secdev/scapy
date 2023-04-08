@@ -16,7 +16,6 @@ from scapy.layers.tls.keyexchange import (ServerDHParams,
                                           ClientECDiffieHellmanPublic,
                                           _tls_server_ecdh_cls_guess,
                                           EncryptedPreMasterSecret)
-import scapy.libs.six as six
 
 
 _tls_kx_algs = {}
@@ -41,7 +40,7 @@ class _GenericKXMetaclass(type):
         return the_class
 
 
-class _GenericKX(six.with_metaclass(_GenericKXMetaclass)):
+class _GenericKX(metaclass=_GenericKXMetaclass):
     pass
 
 

@@ -50,7 +50,6 @@ from scapy.compat import (
     Type,
     TypeVar,
     Union,
-    _Generic_metaclass,
     cast,
 )
 
@@ -134,7 +133,7 @@ def select_objects(inputs, remain):
 _T = TypeVar("_T")
 
 
-class ObjectPipe(Generic[_T], metaclass=_Generic_metaclass):
+class ObjectPipe(Generic[_T]):
     def __init__(self, name=None):
         # type: (Optional[str]) -> None
         self.name = name or "ObjectPipe"
@@ -626,7 +625,7 @@ class _ATMT_supersocket(SuperSocket):
         self.atmt.runbg()
 
     def send(self, s):
-        # type: (bytes) -> int
+        # type: (Union[bytes, Packet]) -> int
         if not isinstance(s, bytes):
             s = bytes(s)
         return self.spa.send(s)
@@ -694,7 +693,7 @@ class Automaton_metaclass(type):
         while classes:
             c = classes.pop(0)  # order is important to avoid breaking method overloading  # noqa: E501
             classes += list(c.__bases__)
-            for k, v in c.__dict__.items():
+            for k, v in c.__dict__.items():  # type: ignore
                 if k not in members:
                     members[k] = v
 
@@ -902,9 +901,9 @@ class Automaton(metaclass=Automaton_metaclass):
                      ):
             # type: (...) -> None
             if rd is not None and not isinstance(rd, (int, ObjectPipe)):
-                rd = rd.fileno()  # type: ignore
+                rd = rd.fileno()
             if wr is not None and not isinstance(wr, (int, ObjectPipe)):
-                wr = wr.fileno()  # type: ignore
+                wr = wr.fileno()
             self.rd = rd
             self.wr = wr
 
@@ -998,8 +997,8 @@ class Automaton(metaclass=Automaton_metaclass):
 
     class InterceptionPoint(AutomatonStopped):
         def __init__(self, msg, state=None, result=None, packet=None):
-            # type: (str, Optional[Message], Optional[str], Optional[str]) -> None  # noqa: E501
-            Automaton.AutomatonStopped.__init__(self, msg, state=state, result=result)  # noqa: E501
+            # type: (str, Optional[Message], Optional[str], Optional[Packet]) -> None
+            Automaton.AutomatonStopped.__init__(self, msg, state=state, result=result)
             self.packet = packet
 
     class CommandMessage(AutomatonException):

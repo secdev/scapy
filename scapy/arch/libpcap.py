@@ -364,7 +364,7 @@ if conf.use_pcap:
                 float(self.header.contents.ts.tv_usec) / 1e6
             )
             pkt = bytes(bytearray(
-                self.pkt_data[:self.header.contents.len]  # type: ignore
+                self.pkt_data[:self.header.contents.len]
             ))
             return ts, pkt
         __next__ = next
@@ -502,7 +502,7 @@ if conf.use_pcap:
                     self.pcap_fd.setfilter(filter)
 
         def send(self, x):
-            # type: (int) -> NoReturn
+            # type: (Packet) -> NoReturn
             raise Scapy_Exception(
                 "Can't send anything with L2pcapListenSocket"
             )

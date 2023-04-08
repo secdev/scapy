@@ -16,7 +16,6 @@ import struct
 from scapy.compat import Tuple, Optional, Type, List, Union, Callable, IO, \
     Any, cast, hex_bytes
 
-import scapy.libs.six as six
 from scapy.config import conf
 from scapy.compat import orb
 from scapy.data import DLT_CAN_SOCKETCAN
@@ -517,10 +516,10 @@ class CandumpReader:
         self.filename, self.f = self.open(filename)
         self.ifilter = None  # type: Optional[List[str]]
         if interface is not None:
-            if isinstance(interface, six.string_types):
+            if isinstance(interface, str):
                 self.ifilter = [interface]
             else:
-                self.ifilter = cast(List[str], interface)
+                self.ifilter = interface
 
     def __iter__(self):
         # type: () -> CandumpReader

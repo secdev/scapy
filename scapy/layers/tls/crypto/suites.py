@@ -15,7 +15,6 @@ from scapy.layers.tls.crypto.kx_algs import _tls_kx_algs
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import _tls_hmac_algs
 from scapy.layers.tls.crypto.ciphers import _tls_cipher_algs
-import scapy.libs.six as six
 
 
 def get_algs_from_ciphersuite_name(ciphersuite_name):
@@ -126,7 +125,7 @@ class _GenericCipherSuiteMetaclass(type):
         return the_class
 
 
-class _GenericCipherSuite(six.with_metaclass(_GenericCipherSuiteMetaclass, object)):  # noqa: E501
+class _GenericCipherSuite(metaclass=_GenericCipherSuiteMetaclass):
     def __init__(self, tls_version=0x0303):
         """
         Most of the attributes are fixed and have already been set by the

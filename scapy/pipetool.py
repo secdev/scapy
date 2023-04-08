@@ -4,9 +4,9 @@
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 
 import os
+import queue
 import subprocess
 import time
-import scapy.libs.six as six
 from threading import Lock, Thread
 
 from scapy.automaton import (
@@ -30,7 +30,6 @@ from scapy.compat import (
     Union,
     Type,
     TypeVar,
-    _Generic_metaclass,
     cast,
 )
 
@@ -235,7 +234,7 @@ class PipeEngine(ObjectPipe[str]):
         do_graph(graph, **kargs)
 
 
-class _PipeMeta(_Generic_metaclass):
+class _PipeMeta(type):
     def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
@@ -252,8 +251,7 @@ _S = TypeVar("_S", bound="Sink")
 _TS = TypeVar("_TS", bound="TriggerSink")
 
 
-@six.add_metaclass(_PipeMeta)
-class Pipe:
+class Pipe(metaclass=_PipeMeta):
     def __init__(self, name=None):
         # type: (Optional[str]) -> None
         self.sources = set()  # type: Set['Pipe']
@@ -786,7 +784,7 @@ class QueueSink(Sink):
     def __init__(self, name=None):
         # type: (Optional[str]) -> None
         Sink.__init__(self, name=name)
-        self.q = six.moves.queue.Queue()
+        self.q: queue.Queue[Any] = queue.Queue()
 
     def push(self, msg):
         # type: (Any) -> None
@@ -814,7 +812,7 @@ class QueueSink(Sink):
         """
         try:
             return self.q.get(block=block, timeout=timeout)
-        except six.moves.queue.Empty:
+        except queue.Empty:
             return None
 
 

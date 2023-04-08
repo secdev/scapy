@@ -51,7 +51,6 @@ from scapy.fields import (
     XShortField,
 )
 from scapy.interfaces import _GlobInterfaceType
-from scapy.libs.six import viewitems
 from scapy.packet import bind_layers, Packet
 from scapy.plist import (
     PacketList,
@@ -98,7 +97,7 @@ class Neighbor:
         self.resolvers[l2, l3] = resolve_method
 
     def resolve(self, l2inst, l3inst):
-        # type: (Ether, Packet) -> Optional[str]
+        # type: (Packet, Packet) -> Optional[str]
         k = l2inst.__class__, l3inst.__class__
         if k in self.resolvers:
             return self.resolvers[k](l2inst, l3inst)
@@ -161,7 +160,7 @@ class DestMACField(MACField):
         MACField.__init__(self, name, None)
 
     def i2h(self, pkt, x):
-        # type: (Optional[Ether], Optional[str]) -> str
+        # type: (Optional[Packet], Optional[str]) -> str
         if x is None and pkt is not None:
             try:
                 x = conf.neighbor.resolve(pkt, pkt.payload)
@@ -176,8 +175,8 @@ class DestMACField(MACField):
         return super(DestMACField, self).i2h(pkt, x)
 
     def i2m(self, pkt, x):
-        # type: (Optional[Ether], Optional[str]) -> bytes
-        return MACField.i2m(self, pkt, self.i2h(pkt, x))
+        # type: (Optional[Packet], Optional[str]) -> bytes
+        return super(DestMACField, self).i2m(pkt, self.i2h(pkt, x))
 
 
 class SourceMACField(MACField):
@@ -204,8 +203,8 @@ class SourceMACField(MACField):
         return super(SourceMACField, self).i2h(pkt, x)
 
     def i2m(self, pkt, x):
-        # type: (Optional[Ether], Optional[Any]) -> bytes
-        return MACField.i2m(self, pkt, self.i2h(pkt, x))
+        # type: (Optional[Packet], Optional[Any]) -> bytes
+        return super(SourceMACField, self).i2m(pkt, self.i2h(pkt, x))
 
 
 # Layers
@@ -281,7 +280,7 @@ class Dot3(Packet):
         return s[:tmp_len], s[tmp_len:]
 
     def answers(self, other):
-        # type: (Ether) -> int
+        # type: (Packet) -> int
         if isinstance(other, Dot3):
             return self.payload.answers(other.payload)
         return 0
@@ -770,7 +769,7 @@ def arpcachepoison(
         couple_list = [addresses]
     else:
         couple_list = addresses
-    p = [
+    p: List[Packet] = [
         Ether(src=y, dst="ff:ff:ff:ff:ff:ff" if broadcast else None) /
         ARP(op="who-has", psrc=x, pdst=targets,
             hwsrc=y, hwdst="00:00:00:00:00:00")
@@ -1023,7 +1022,7 @@ class ARP_am(AnsweringMachine[Packet]):
         self.ARP_addr = ARP_addr
 
     def is_request(self, req):
-        # type: (Ether) -> bool
+        # type: (Packet) -> bool
         if not req.haslayer(ARP):
             return False
         arp = req[ARP]
@@ -1088,7 +1087,7 @@ https://ftp.netbsd.org/pub/NetBSD/security/advisories/NetBSD-SA2017-002.txt.asc
 
     """
     # We want explicit packets
-    pkts_iface = {}  # type: Dict[str, List[Ether]]
+    pkts_iface = {}  # type: Dict[str, List[Packet]]
     for pkt in ARP(pdst=target):
         # We have to do some of Scapy's work since we mess with
         # important values
@@ -1110,7 +1109,7 @@ https://ftp.netbsd.org/pub/NetBSD/security/advisories/NetBSD-SA2017-002.txt.asc
             Ether(src=hwsrc, dst=ETHER_BROADCAST) / pkt
         )
     ans, unans = SndRcvList(), PacketList(name="Unanswered")
-    for iface, pkts in viewitems(pkts_iface):
+    for iface, pkts in pkts_iface.items():
         ans_new, unans_new = srp(pkts, iface=iface, filter="arp", **kargs)
         ans += ans_new
         unans += unans_new

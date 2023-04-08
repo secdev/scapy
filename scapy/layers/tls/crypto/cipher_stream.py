@@ -10,7 +10,6 @@ Stream ciphers.
 
 from scapy.config import conf
 from scapy.layers.tls.crypto.common import CipherError
-import scapy.libs.six as six
 
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
@@ -35,7 +34,7 @@ class _StreamCipherMetaclass(type):
         return the_class
 
 
-class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
+class _StreamCipher(metaclass=_StreamCipherMetaclass):
     type = "stream"
 
     def __init__(self, key=None):
@@ -81,13 +80,13 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
         super(_StreamCipher, self).__setattr__(name, val)
 
     def encrypt(self, data):
-        if False in six.itervalues(self.ready):
+        if False in self.ready.values():
             raise CipherError(data)
         self._enc_updated_with += data
         return self.encryptor.update(data)
 
     def decrypt(self, data):
-        if False in six.itervalues(self.ready):
+        if False in self.ready.values():
             raise CipherError(data)
         self._dec_updated_with += data
         return self.decryptor.update(data)

@@ -34,12 +34,14 @@ __all__ = [
     'Pattern',
     'Sequence',
     'Set',
+    'Self',
     'Sized',
     'TextIO',
     'Tuple',
     'Type',
     'TypeVar',
     'Union',
+    'UserDict',
     'ValuesView',
     'cast',
     'overload',
@@ -82,18 +84,8 @@ except ImportError:
     FAKE_TYPING = True
     TYPE_CHECKING = False
 
+
 # Import or create fake types
-
-
-# If your class uses a metaclass AND Generic, you'll need to
-# extend this class in the metaclass to avoid conflicts...
-# Of course we wouldn't need this on Python 3 :/
-class _Generic_metaclass(type):
-    if FAKE_TYPING:
-        def __getitem__(self, typ):
-            # type: (Any) -> Any
-            return self
-
 
 def _FakeType(name, cls=object):
     # type: (str, Optional[type]) -> Any
@@ -164,7 +156,7 @@ else:
     Iterable = _FakeType("Iterable")  # type: ignore
     Iterator = _FakeType("Iterator")  # type: ignore
     List = _FakeType("List", list)  # type: ignore
-    NewType = _FakeType("NewType")
+    NewType = _FakeType("NewType")  # type: ignore
     NoReturn = _FakeType("NoReturn")
     Optional = _FakeType("Optional")
     Pattern = _FakeType("Pattern")  # type: ignore
@@ -180,9 +172,6 @@ else:
     class Sized:  # type: ignore
         pass
 
-    class Generic(metaclass=_Generic_metaclass):  # type: ignore
-        pass
-
     overload = lambda x: x
 
 
@@ -192,6 +181,20 @@ if sys.version_info >= (3, 8):
 else:
     Literal = _FakeType("Literal")
 
+
+# Python 3.9 Only
+if sys.version_info >= (3, 9):
+    from collections import UserDict
+else:
+    from collections import UserDict as _UserDict
+    UserDict = _FakeType("_UserDict", _UserDict)
+
+
+# Python 3.11 Only
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    Self = _FakeType("Self")
 
 ###########
 # Python3 #

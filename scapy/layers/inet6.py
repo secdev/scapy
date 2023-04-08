@@ -42,7 +42,6 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
 from scapy.layers.inet import IP, IPTools, TCP, TCPerror, TracerouteResult, \
     UDP, UDPerror
 from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
-import scapy.libs.six as six
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.sendrecv import sendp, sniff, sr, srp1
 from scapy.supersocket import SuperSocket
@@ -2510,7 +2509,7 @@ class NIReplyDataField(StrField):
                 x = [x]
             if isinstance(x, list):
                 x = [val.encode() if isinstance(val, str) else val for val in x]  # noqa: E501
-            if x and isinstance(x[0], six.integer_types):
+            if x and isinstance(x[0], int):
                 ttl = x[0]
                 names = x[1:]
             else:
@@ -2528,7 +2527,7 @@ class NIReplyDataField(StrField):
                 if not isinstance(x, tuple):
                     x = (0, x)
                 # Decode bytes
-                if six.PY3 and isinstance(x[1], bytes):
+                if isinstance(x[1], bytes):
                     x = (x[0], x[1].decode())
                 return x
 
@@ -3327,9 +3326,9 @@ class TracerouteResult6(TracerouteResult):
 
             trace[d][s[IPv6].hlim] = r[IPv6].src, t
 
-        for k in six.itervalues(trace):
+        for k in trace.values():
             try:
-                m = min(x for x, y in six.iteritems(k) if y[1])
+                m = min(x for x, y in k.items() if y[1])
             except ValueError:
                 continue
             for li in list(k):  # use list(): k is modified in the loop

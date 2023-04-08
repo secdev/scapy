@@ -28,7 +28,6 @@ from scapy.packet import NoPayload, Packet
 from scapy.sendrecv import sr
 from scapy.compat import plain_str, raw, Dict, List, Tuple, Optional, cast, Union
 from scapy.plist import SndRcvList, PacketList
-import scapy.libs.six as six
 
 
 if WINDOWS:
@@ -140,8 +139,7 @@ def nmap_udppacket_sig(snd, rcv):
 
 def nmap_match_one_sig(seen, ref):
     # type: (Dict, Dict) -> float
-    cnt = sum(val in ref.get(key, "").split("|")
-              for key, val in six.iteritems(seen))
+    cnt = sum(val in ref.get(key, "").split("|") for key, val in seen.items())
     if cnt == 0 and seen.get("Resp") == "N":
         return 0.7
     return float(cnt) / len(seen)
@@ -197,7 +195,7 @@ def nmap_search(sigs):
     conf.nmap_kdb = cast(NmapKnowledgeBase, conf.nmap_kdb)
     for osval, fprint in conf.nmap_kdb.get_base():
         score = 0.0
-        for test, values in six.iteritems(fprint):
+        for test, values in fprint.items():
             if test in sigs:
                 score += nmap_match_one_sig(sigs[test], values)
         score /= len(sigs)

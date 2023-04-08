@@ -33,7 +33,6 @@ from scapy.layers.tls.crypto.groups import (
     _tls_named_groups_import,
     _tls_named_groups_pubbytes,
 )
-import scapy.libs.six as six
 
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.asymmetric import ec
@@ -168,9 +167,9 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             if group_name in self.tls_session.tls13_client_pubshares:
                 privkey = self.server_share.privkey
                 pubkey = self.tls_session.tls13_client_pubshares[group_name]
-                if group_name in six.itervalues(_tls_named_ffdh_groups):
+                if group_name in _tls_named_ffdh_groups.values():
                     pms = privkey.exchange(pubkey)
-                elif group_name in six.itervalues(_tls_named_curves):
+                elif group_name in _tls_named_curves.values():
                     if group_name in ["x25519", "x448"]:
                         pms = privkey.exchange(pubkey)
                     else:
@@ -191,9 +190,9 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             if group_name in self.tls_session.tls13_client_privshares:
                 pubkey = self.server_share.pubkey
                 privkey = self.tls_session.tls13_client_privshares[group_name]
-                if group_name in six.itervalues(_tls_named_ffdh_groups):
+                if group_name in _tls_named_ffdh_groups.values():
                     pms = privkey.exchange(pubkey)
-                elif group_name in six.itervalues(_tls_named_curves):
+                elif group_name in _tls_named_curves.values():
                     if group_name in ["x25519", "x448"]:
                         pms = privkey.exchange(pubkey)
                     else:
@@ -202,9 +201,9 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             elif group_name in self.tls_session.tls13_server_privshare:
                 pubkey = self.tls_session.tls13_client_pubshares[group_name]
                 privkey = self.tls_session.tls13_server_privshare[group_name]
-                if group_name in six.itervalues(_tls_named_ffdh_groups):
+                if group_name in _tls_named_ffdh_groups.values():
                     pms = privkey.exchange(pubkey)
-                elif group_name in six.itervalues(_tls_named_curves):
+                elif group_name in _tls_named_curves.values():
                     if group_name in ["x25519", "x448"]:
                         pms = privkey.exchange(pubkey)
                     else:

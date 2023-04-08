@@ -29,7 +29,6 @@ from scapy.pton_ntop import inet_ntop, inet_pton
 
 from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
 from scapy.layers.inet6 import IPv6, DestIP6Field, IP6Field
-import scapy.libs.six as six
 
 
 from scapy.compat import (
@@ -1025,7 +1024,7 @@ DNSRR_DISPATCHER = {
     32769: DNSRRDLV,     # RFC 4431
 }
 
-DNSSEC_CLASSES = tuple(six.itervalues(DNSRR_DISPATCHER))
+DNSSEC_CLASSES = tuple(DNSRR_DISPATCHER.values())
 
 
 def isdnssecRR(obj):

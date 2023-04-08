@@ -34,7 +34,6 @@ from scapy.packet import Packet, bind_bottom_up
 from scapy.pton_ntop import inet_pton
 from scapy.themes import Color
 from scapy.utils6 import in6_addrtovendor, in6_islladdr
-import scapy.libs.six as six
 
 #############################################################################
 # Helpers                                                                  ##
@@ -1716,14 +1715,14 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             reqopts = []
             if query.haslayer(DHCP6OptOptReq):  # add only asked ones
                 reqopts = query[DHCP6OptOptReq].reqopts
-                for o, opt in six.iteritems(self.dhcpv6_options):
+                for o, opt in self.dhcpv6_options.items():
                     if o in reqopts:
                         answer /= opt
             else:
                 # advertise everything we have available
                 # Should not happen has clients MUST include
                 # and ORO in requests (sec 18.1.1)   -- arno
-                for o, opt in six.iteritems(self.dhcpv6_options):
+                for o, opt in self.dhcpv6_options.items():
                     answer /= opt
 
         if msgtype == 1:  # SOLICIT (See Sect 17.1 and 17.2 of RFC 3315)
@@ -1865,7 +1864,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                 resp /= DHCP6OptClientId(duid=client_duid)
 
             # Stack requested options if available
-            for o, opt in six.iteritems(self.dhcpv6_options):
+            for o, opt in self.dhcpv6_options.items():
                 resp /= opt
 
             return resp

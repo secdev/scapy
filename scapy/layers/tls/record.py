@@ -37,7 +37,6 @@ from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.common import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
-import scapy.libs.six as six
 if conf.crypto_valid_advanced:
     from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 
@@ -156,7 +155,7 @@ class _TLSMsgListField(PacketListField):
             else:
                 return ret, [Raw(load=b"")]
 
-        if False in six.itervalues(pkt.tls_session.rcs.cipher.ready):
+        if False in pkt.tls_session.rcs.cipher.ready.values():
             return ret, _TLSEncryptedContent(remain)
         else:
             while remain:

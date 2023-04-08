@@ -15,10 +15,14 @@ import collections
 import decimal
 import difflib
 import gzip
+from io import StringIO
+from itertools import zip_longest
 import locale
 import os
+import pickle
 import random
 import re
+import shutil
 import socket
 import struct
 import subprocess
@@ -27,9 +31,6 @@ import tempfile
 import threading
 import time
 import warnings
-
-import scapy.libs.six as six
-from scapy.libs.six.moves import range, input, zip_longest
 
 from scapy.config import conf
 from scapy.consts import DARWIN, OPENBSD, WINDOWS
@@ -62,9 +63,6 @@ if TYPE_CHECKING:
     from scapy.packet import Packet
     from scapy.plist import _PacketIterable, PacketList
     from scapy.supersocket import SuperSocket
-    _SuperSocket = SuperSocket
-else:
-    _SuperSocket = object
 
 _ByteStream = Union[IO[bytes], gzip.GzipFile]
 
@@ -255,7 +253,7 @@ def lhex(x):
     from scapy.volatile import VolatileValue
     if isinstance(x, VolatileValue):
         return repr(x)
-    if isinstance(x, six.integer_types):
+    if isinstance(x, int):
         return hex(x)
     if isinstance(x, tuple):
         return "(%s)" % ", ".join(lhex(v) for v in x)
@@ -991,7 +989,7 @@ class Enum_metaclass(type):
     def __new__(cls, name, bases, dct):
         # type: (Any, str, Any, Dict[str, Any]) -> Any
         rdict = {}
-        for k, v in six.iteritems(dct):
+        for k, v in dct.items():
             if isinstance(v, int):
                 v = cls.element_class(k, v)
                 dct[k] = v
@@ -1024,7 +1022,7 @@ class Enum_metaclass(type):
 def export_object(obj):
     # type: (Any) -> None
     import zlib
-    print(bytes_base64(zlib.compress(six.moves.cPickle.dumps(obj, 2), 9)))
+    print(bytes_base64(zlib.compress(pickle.dumps(obj, 2), 9)))
 
 
 def import_object(obj=None):
@@ -1032,7 +1030,7 @@ def import_object(obj=None):
     import zlib
     if obj is None:
         obj = sys.stdin.read()
-    return six.moves.cPickle.loads(zlib.decompress(base64_bytes(obj.strip())))  # noqa: E501
+    return pickle.loads(zlib.decompress(base64_bytes(obj.strip())))  # noqa: E501
 
 
 def save_object(fname, obj):
@@ -1040,14 +1038,14 @@ def save_object(fname, obj):
     """Pickle a Python object"""
 
     fd = gzip.open(fname, "wb")
-    six.moves.cPickle.dump(obj, fd)
+    pickle.dump(obj, fd)
     fd.close()
 
 
 def load_object(fname):
     # type: (str) -> Any
     """unpickle a Python object"""
-    return six.moves.cPickle.load(gzip.open(fname, "rb"))
+    return pickle.load(gzip.open(fname, "rb"))
 
 
 @conf.commands.register
@@ -1063,7 +1061,7 @@ def corrupt_bytes(data, p=0.01, n=None):
         n = max(1, int(s_len * p))
     for i in random.sample(range(s_len), n):
         s[i] = (s[i] + random.randint(1, 255)) % 256
-    return s.tostring() if six.PY2 else s.tobytes()  # type: ignore
+    return s.tobytes()
 
 
 @conf.commands.register
@@ -1079,7 +1077,7 @@ def corrupt_bits(data, p=0.01, n=None):
         n = max(1, int(s_len * p))
     for i in random.sample(range(s_len), n):
         s[i // 8] ^= 1 << (i % 8)
-    return s.tostring() if six.PY2 else s.tobytes()  # type: ignore
+    return s.tobytes()
 
 
 #############################
@@ -1166,13 +1164,18 @@ class PcapReader_metaclass(type):
             dct['alternative'].alternative = newcls
         return newcls
 
-    def __call__(cls, filename):  # type: ignore
+    def __call__(cls, filename):
         # type: (Union[IO[bytes], str]) -> Any
         """Creates a cls instance, use the `alternative` if that
         fails.
 
         """
-        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+        i = cls.__new__(
+            cls,
+            cls.__name__,
+            cls.__bases__,
+            cls.__dict__  # type: ignore
+        )
         filename, fdesc, magic = cls.open(filename)
         if not magic:
             raise Scapy_Exception(
@@ -1186,7 +1189,12 @@ class PcapReader_metaclass(type):
 
         if "alternative" in cls.__dict__:
             cls = cls.__dict__["alternative"]
-            i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+            i = cls.__new__(
+                cls,
+                cls.__name__,
+                cls.__bases__,
+                cls.__dict__  # type: ignore
+            )
             try:
                 i.__init__(filename, fdesc, magic)
                 return i
@@ -1215,8 +1223,7 @@ class PcapReader_metaclass(type):
         return filename, fdesc, magic
 
 
-@six.add_metaclass(PcapReader_metaclass)
-class RawPcapReader:
+class RawPcapReader(metaclass=PcapReader_metaclass):
     """A stateful pcap reader. Each packet is returned as a string"""
 
     # TODO: use Generics to properly type the various readers.
@@ -1264,19 +1271,15 @@ class RawPcapReader:
         # type: () -> RawPcapReader
         return self
 
-    def next(self):
-        # type: () -> Packet
+    def __next__(self):
+        # type: () -> Tuple[bytes, RawPcapReader.PacketMetadata]
         """
         implement the iterator protocol on a set of packets in a pcap file
         """
         try:
-            return self._read_packet()  # type: ignore
+            return self._read_packet()
         except EOFError:
             raise StopIteration
-
-    def __next__(self):
-        # type: () -> Packet
-        return self.next()
 
     def _read_packet(self, size=MTU):
         # type: (int) -> Tuple[bytes, RawPcapReader.PacketMetadata]
@@ -1354,7 +1357,7 @@ class RawPcapReader:
         return sockets
 
 
-class PcapReader(RawPcapReader, _SuperSocket):
+class PcapReader(RawPcapReader):
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, IO[bytes], bytes) -> None
         RawPcapReader.__init__(self, filename, fdesc, magic)
@@ -1398,11 +1401,11 @@ class PcapReader(RawPcapReader, _SuperSocket):
         p.wirelen = pkt_info.wirelen
         return p
 
-    def recv(self, size=MTU):
+    def recv(self, size=MTU):  # type: ignore
         # type: (int) -> Packet
         return self.read_packet(size=size)
 
-    def next(self):
+    def __next__(self):  # type: ignore
         # type: () -> Packet
         try:
             return self.read_packet()
@@ -1712,7 +1715,7 @@ class RawPcapNgReader(RawPcapReader):
             warning("PcapNg: Unknown DSB secrets type (0x%x)!", secrets_type)
 
 
-class PcapNgReader(RawPcapNgReader, PcapReader, _SuperSocket):
+class PcapNgReader(RawPcapNgReader, PcapReader):
 
     alternative = PcapReader
 
@@ -1748,7 +1751,7 @@ class PcapNgReader(RawPcapNgReader, PcapReader, _SuperSocket):
         p.comment = comment
         return p
 
-    def recv(self, size=MTU):
+    def recv(self, size=MTU):  # type: ignore
         # type: (int) -> Packet
         return self.read_packet()
 
@@ -1780,7 +1783,7 @@ class GenericPcapWriter(object):
         # type: (...) -> Tuple[float, int]
         if hasattr(packet, "time"):
             if sec is None:
-                packet_time = packet.time  # type: ignore
+                packet_time = packet.time
                 tmp = int(packet_time)
                 usec = int(round((packet_time - tmp) *
                            (1000000000 if self.nano else 1000000)))
@@ -1844,7 +1847,7 @@ class GenericPcapWriter(object):
 
         if wirelen is None:
             if hasattr(packet, "wirelen"):
-                wirelen = packet.wirelen  # type: ignore
+                wirelen = packet.wirelen
         if wirelen is None:
             wirelen = caplen
 
@@ -2043,7 +2046,7 @@ class RawPcapWriter(GenericRawPcapWriter):
 
         self.f.write(struct.pack(self.endian + "IIII",
                                  int(sec), usec, caplen, wirelen))
-        self.f.write(packet)
+        self.f.write(bytes(packet))
         if self.sync:
             self.f.flush()
 
@@ -2075,7 +2078,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         # type: (...) -> Tuple[float, int]
         if hasattr(packet, "time"):
             if sec is None:
-                sec = float(packet.time)  # type: ignore
+                sec = float(packet.time)
 
         if usec is None:
             usec = 0
@@ -2211,7 +2214,7 @@ class RawPcapNgWriter(GenericRawPcapWriter):
         self.f.write(self.build_block(block_type, block_epb,
                                       options=comment_opt))
 
-    def _write_packet(self,
+    def _write_packet(self,  # type: ignore
                       packet,  # type: bytes
                       sec=None,  # type: Optional[float]
                       usec=None,  # type: Optional[int]
@@ -2264,7 +2267,7 @@ class PcapNgWriter(RawPcapNgWriter):
         # type: (...) -> Tuple[float, int]
         if hasattr(packet, "time"):
             if sec is None:
-                sec = float(packet.time)  # type: ignore
+                sec = float(packet.time)
 
         if usec is None:
             usec = 0
@@ -2284,9 +2287,9 @@ def rderf(filename, count=-1):
 
 
 class ERFEthernetReader_metaclass(PcapReader_metaclass):
-    def __call__(cls, filename):  # type: ignore
+    def __call__(cls, filename):
         # type: (Union[IO[bytes], str]) -> Any
-        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+        i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)  # type: ignore
         filename, fdesc = cls.open(filename)
         try:
             i.__init__(filename, fdesc)
@@ -2296,7 +2299,12 @@ class ERFEthernetReader_metaclass(PcapReader_metaclass):
 
         if "alternative" in cls.__dict__:
             cls = cls.__dict__["alternative"]
-            i = cls.__new__(cls, cls.__name__, cls.__bases__, cls.__dict__)
+            i = cls.__new__(
+                cls,
+                cls.__name__,
+                cls.__bases__,
+                cls.__dict__  # type: ignore
+            )
             try:
                 i.__init__(filename, fdesc)
                 return i
@@ -2325,8 +2333,8 @@ class ERFEthernetReader_metaclass(PcapReader_metaclass):
         return filename, fdesc
 
 
-@six.add_metaclass(ERFEthernetReader_metaclass)
-class ERFEthernetReader(PcapReader):
+class ERFEthernetReader(PcapReader,
+                        metaclass=ERFEthernetReader_metaclass):
 
     def __init__(self, filename, fdesc=None):  # type: ignore
         # type: (Union[IO[bytes], str], IO[bytes]) -> None
@@ -2375,10 +2383,10 @@ class ERFEthernetReader(PcapReader):
 
         # Ethernet has 2 bytes of padding containing `offset` and `pad`. Both
         # of the fields are disregarded by Endace.
-        p = s[2:size]
+        pb = s[2:size]
         from scapy.layers.l2 import Ether
         try:
-            p = Ether(p)
+            p = Ether(pb)  # type: Packet
         except KeyboardInterrupt:
             raise
         except Exception:
@@ -2499,7 +2507,7 @@ def import_hexcap(input_string=None):
     p = ""
     try:
         if input_string:
-            input_function = six.StringIO(input_string).readline
+            input_function = StringIO(input_string).readline
         else:
             input_function = input
         while True:
@@ -2675,7 +2683,7 @@ def tcpdump(
                 "tcpdump is not available"
             )
         prog = [conf.prog.tcpdump]
-    elif isinstance(prog, six.string_types):
+    elif isinstance(prog, str):
         prog = [prog]
     else:
         raise ValueError("prog must be a string")
@@ -2761,7 +2769,7 @@ def tcpdump(
                 stdout=stdout,
                 stderr=stderr,
             )
-    elif isinstance(pktlist, six.string_types):
+    elif isinstance(pktlist, str):
         # file
         with ContextManagerSubprocess(prog[0], suppress=_suppress):
             proc = subprocess.Popen(
@@ -2770,7 +2778,6 @@ def tcpdump(
                 stderr=stderr,
             )
     elif use_tempfile:
-        pktlist = cast(Union[IO[bytes], "_PacketIterable"], pktlist)
         tmpfile = get_temp_file(  # type: ignore
             autoext=".pcap",
             fd=True
@@ -2861,15 +2868,10 @@ def get_terminal_width():
     Notice: this will try several methods in order to
     support as many terminals and OS as possible.
     """
-    # Let's first try using the official API
-    # (Python 3.3+)
-    sizex = None  # type: Optional[int]
-    if not six.PY2:
-        import shutil
-        sizex = shutil.get_terminal_size(fallback=(0, 0))[0]
-        if sizex != 0:
-            return sizex
-    # Backups / Python 2.7
+    sizex = shutil.get_terminal_size(fallback=(0, 0))[0]
+    if sizex != 0:
+        return sizex
+    # Backups
     if WINDOWS:
         from ctypes import windll, create_string_buffer
         # http://code.activestate.com/recipes/440694-determine-size-of-console-window-on-windows/
@@ -2883,25 +2885,24 @@ def get_terminal_width():
             # sizey = bottom - top + 1
             return sizex
         return sizex
-    else:
-        # We have various methods
-        # COLUMNS is set on some terminals
-        try:
-            sizex = int(os.environ['COLUMNS'])
-        except Exception:
-            pass
-        if sizex:
-            return sizex
-        # We can query TIOCGWINSZ
-        try:
-            import fcntl
-            import termios
-            s = struct.pack('HHHH', 0, 0, 0, 0)
-            x = fcntl.ioctl(1, termios.TIOCGWINSZ, s)
-            sizex = struct.unpack('HHHH', x)[1]
-        except IOError:
-            pass
+    # We have various methods
+    # COLUMNS is set on some terminals
+    try:
+        sizex = int(os.environ['COLUMNS'])
+    except Exception:
+        pass
+    if sizex:
         return sizex
+    # We can query TIOCGWINSZ
+    try:
+        import fcntl
+        import termios
+        s = struct.pack('HHHH', 0, 0, 0, 0)
+        x = fcntl.ioctl(1, termios.TIOCGWINSZ, s)
+        sizex = struct.unpack('HHHH', x)[1]
+    except IOError:
+        pass
+    return sizex
 
 
 def pretty_list(rtlst,  # type: List[Tuple[Union[str, List[str]], ...]]

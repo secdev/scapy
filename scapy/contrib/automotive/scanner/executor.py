@@ -200,7 +200,7 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         self.check_new_testcases(test_case)
 
         if hasattr(test_case, "runtime_estimation"):
-            estimation = test_case.runtime_estimation()  # type: ignore
+            estimation = test_case.runtime_estimation()
             if estimation is not None:
                 log_automotive.debug(
                     "[i] Test_case %s: TODO %d, "
@@ -243,7 +243,7 @@ class AutomotiveTestCaseExecutor(metaclass=abc.ABCMeta):
         for tc in self.configuration.test_cases:
             if not hasattr(tc, "runtime_estimation"):
                 continue
-            est = tc.runtime_estimation()  # type: ignore
+            est = tc.runtime_estimation()
             if est is None:
                 continue
             progress.append(est[2])

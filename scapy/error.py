@@ -15,10 +15,8 @@ Logging subsystem and basic exception class.
 import logging
 import traceback
 import time
-import warnings
 
 from scapy.consts import WINDOWS
-import scapy.libs.six as six
 
 # Typing imports
 from logging import LogRecord
@@ -129,17 +127,6 @@ log_interactive = logging.getLogger("scapy.interactive")
 log_interactive.setLevel(logging.DEBUG)
 # logs when loading Scapy
 log_loading = logging.getLogger("scapy.loading")
-
-# Apply warnings filters for python 2
-if six.PY2:
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            from cryptography.utils import CryptographyDeprecationWarning
-        warnings.filterwarnings("ignore",
-                                category=CryptographyDeprecationWarning)
-    except ImportError:
-        pass
 
 
 def warning(x, *args, **kargs):
