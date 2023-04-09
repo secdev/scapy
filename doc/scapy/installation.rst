@@ -287,7 +287,7 @@ Solaris / SunOS requires ``libpcap`` (installed by default) to work.
 Windows
 -------
 
-You need to install Npcap order to install Scapy on Windows (should also work with Winpcap, but unsupported nowadays):
+You need to install Npcap in order to install Scapy on Windows (should also work with Winpcap, but unsupported nowadays):
 
   * Download link: `Npcap <https://nmap.org/npcap/>`_: `the latest version <https://nmap.org/npcap/#download>`_
   * During installation:
