@@ -40,12 +40,17 @@ def _version_from_git_archive():
     """
     Rely on git archive "export-subst" git attribute.
     See 'man gitattributes' for more details.
-    Note: describe is only supported with git >= 2.32.0
-    but we use it to workaround GH#3121
+    Note: describe is only supported with git >= 2.32.0,
+    and the `tags=true` option with git >= 2.35.0 but we
+    use it to workaround GH#3121.
     """
-    git_archive_id = '$Format:%ct %(describe)$'.strip().split()
+    git_archive_id = '$Format:%ct %(describe:tags=true)$'.split()
     tstamp = git_archive_id[0]
-    tag = git_archive_id[1]
+    if len(git_archive_id) > 1:
+        tag = git_archive_id[1]
+    else:
+        # project is run in CI and has another %(describe)
+        tag = ""
 
     if "Format" in tstamp:
         raise ValueError('not a git archive')
