@@ -46,6 +46,12 @@ from scapy.arch.windows import pcap_service_status
 status = pcap_service_status()
 assert status
 
+= test get_if_list
+
+from scapy.interfaces import get_if_list
+
+assert all(x.startswith(r"\Device\NPF_") for x in get_if_list())
+
 = test pcap_service_stop
 ~ appveyor_only require_gui
 
