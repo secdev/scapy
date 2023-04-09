@@ -203,16 +203,17 @@ class WrpcapSink(Sink):
         This attribute has no effect after calling :py:meth:`PipeEngine.start`.
     """
 
-    def __init__(self, fname, name=None, linktype=None):
-        # type: (str, Optional[str], Optional[int]) -> None
+    def __init__(self, fname, name=None, linktype=None, **kwargs):
+        # type: (str, Optional[str], Optional[int], **Any) -> None
         Sink.__init__(self, name=name)
         self.fname = fname
         self.f = None  # type: Optional[PcapWriter]
         self.linktype = linktype
+        self.kwargs = kwargs
 
     def start(self):
         # type: () -> None
-        self.f = PcapWriter(self.fname, linktype=self.linktype)
+        self.f = PcapWriter(self.fname, linktype=self.linktype, **self.kwargs)
 
     def stop(self):
         # type: () -> None

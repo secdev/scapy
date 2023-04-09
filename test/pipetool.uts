@@ -387,19 +387,19 @@ p = PipeEngine()
 
 s = RdpcapSource(os.path.join(dname, "t.pcap"))
 d1 = Drain(name="d1")
-c = WrpcapSink(os.path.join(dname, "t2.pcap"), name="c")
+c = WrpcapSink(os.path.join(dname, "t2.pcap.gz"), name="c", gz=1)
 s > d1 > c
 p.add(s)
 p.start()
 p.wait_and_stop()
 
-results = rdpcap(os.path.join(dname, "t2.pcap"))
+results = rdpcap(os.path.join(dname, "t2.pcap.gz"))
 
 assert raw(results[0]) == raw(req)
 assert raw(results[1]) == raw(rpy)
 
 os.unlink(os.path.join(dname, "t.pcap"))
-os.unlink(os.path.join(dname, "t2.pcap"))
+os.unlink(os.path.join(dname, "t2.pcap.gz"))
 
 = Test InjectSink and Inject3Sink
 ~ needs_root
