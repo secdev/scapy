@@ -29,6 +29,8 @@ jobs:
         run: tox -e spell
       - name: Run twine check
         run: tox -e twine
+      - name: Run gitarchive check
+        run: tox -e gitarchive
   docs:
     name: Build doc
     runs-on: ubuntu-latest
