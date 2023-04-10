@@ -11,13 +11,14 @@ http://wiki.gis.com/wiki/index.php/Graphics_Interchange_Format
 
 from scapy.fields import (
     LEShortField,
-    StrField,
+    StrFieldWithFuzzingString,
     ByteField,
-    PacketField,
     LEFieldLenField,
 )
 from scapy.packet import Packet
 from scapy.utils import hexdump
+
+LZW_COUNT = 0
 
 class GIFRGB(Packet):
     """RGB Header"""
@@ -35,22 +36,30 @@ class GIF89aFileHeader(Packet):
 
     name = "GIF89a File Header"
     fields_desc = [
-        StrField("header", default="GIF89a"),
+        StrFieldWithFuzzingString("header", default="GIF89a"),
         LEShortField("width", default=1),
         LEShortField("height", default=1),
         # 0x80 mask is GCT enabled, ((0x80 >> 4) & 7) + 1 -> how many colors
         ByteField("gct", default=0x80),
         ByteField("background_color", default=0x01),
         ByteField("aspect_ratio", default=0),
+        
+        ByteField("global_color_table_0x00_r", default=0),
+        ByteField("global_color_table_0x00_g", default=0),
+        ByteField("global_color_table_0x00_b", default=0),
+        
+        ByteField("global_color_table_0x01_r", default=0),
+        ByteField("global_color_table_0x01_g", default=0),
+        ByteField("global_color_table_0x01_b", default=0),
     ]
 
-    for num in range(0, 2):
-        field_name = "global_color_table_{:#04x}".format(num)
-        global_color_table = PacketField(field_name, GIFRGB(), GIFRGB)
-        global_color_table.default.default_fields["r"] = 0
-        global_color_table.default.default_fields["g"] = 0
-        global_color_table.default.default_fields["b"] = 0
-        fields_desc.append(global_color_table)
+    # for num in range(0, 2):
+    #     field_name = "global_color_table_{:#04x}".format(num)
+    #     global_color_table = PacketField(field_name, GIFRGB(), GIFRGB)
+    #     global_color_table.default.default_fields["r"] = 0
+    #     global_color_table.default.default_fields["g"] = 0
+    #     global_color_table.default.default_fields["b"] = 0
+    #     fields_desc.append(global_color_table)
 
 
 class GIF89aImageBlock(Packet):
@@ -70,10 +79,24 @@ class GIF89aImageBlock(Packet):
 class GIF89aLZW(Packet):
     """GIF89a LZW block"""
 
-    name = "GIF89a LZW Block"
+    def __init__(self,
+                 _pkt=b"",
+                 post_transform=None,
+                 _internal=0,
+                 _underlayer=None,
+                 _parent=None,
+                 **fields
+                 ):
+        global LZW_COUNT
+        Packet.__init__(self, _pkt, post_transform, _internal, _underlayer, _parent)
+        
+        LZW_COUNT += 1
+        name = f"GIF89a LZW Block {LZW_COUNT}"
+        self.name = name
+        
     fields_desc = [
         LEFieldLenField("code_size", default=None, fmt="B", length_of="code"),
-        StrField("code", default=0),
+        StrFieldWithFuzzingString("code", default=0),
     ]
 
 
@@ -98,7 +121,7 @@ def test():
     gif89a_image_block.image_top_position = 0
     gif89a_image_block.image_width = 1
     gif89a_image_block.image_height = 1
-    gif89a_image_block.flags = 2
+    gif89a_image_block.fields = 2
     gif89a_test /= gif89a_image_block
 
     gif89a_lzw = GIF89aLZW()
