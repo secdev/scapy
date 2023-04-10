@@ -79,11 +79,11 @@ class MACsecSA(object):
     def make_iv(self, pkt):
         """generate an IV for the packet"""
         if self.xpn_en:
-            tmp_pn = (self.pn & 0xFFFFFFFF00000000) | (pkt[MACsec].pn & 0xFFFFFFFF)  # noqa: E501
+            tmp_pn = (self.pn & 0xFFFFFFFF00000000) | (pkt[MACsec].PN & 0xFFFFFFFF)  # noqa: E501
             tmp_iv = self.ssci + struct.pack('!Q', tmp_pn)
             return bytes(bytearray([a ^ b for a, b in zip(bytearray(tmp_iv), bytearray(self.salt))]))  # noqa: E501
         else:
-            return self.sci + struct.pack('!I', pkt[MACsec].pn)
+            return self.sci + struct.pack('!I', pkt[MACsec].PN)
 
     @staticmethod
     def split_pkt(pkt, assoclen, icvlen=0):
@@ -124,11 +124,11 @@ class MACsecSA(object):
         hdr = copy.deepcopy(pkt)
         payload = hdr.payload
         del hdr.payload
-        tag = MACsec(sci=self.sci, an=self.an,
+        tag = MACsec(SCI=self.sci, AN=self.an,
                      SC=self.send_sci,
                      E=self.e_bit(), C=self.c_bit(),
-                     shortlen=MACsecSA.shortlen(pkt),
-                     pn=(self.pn & 0xFFFFFFFF), type=pkt.type)
+                     SL=MACsecSA.shortlen(pkt),
+                     PN=(self.pn & 0xFFFFFFFF), type=pkt.type)
         hdr.type = ETH_P_MACSEC
         return hdr / tag / payload
 
@@ -241,9 +241,9 @@ class MACsec(Packet):
                          lambda pkt: "type" in pkt.fields)]
 
     def mysummary(self):
-        summary = self.sprintf("an=%MACsec.an%, pn=%MACsec.pn%")
+        summary = self.sprintf("AN=%MACsec.AN%, PN=%MACsec.PN%")
         if self.SC:
-            summary += self.sprintf(", sci=%MACsec.sci%")
+            summary += self.sprintf(", SCI=%MACsec.SCI%")
         if self.type is not None:
             summary += self.sprintf(", %MACsec.type%")
         return summary
