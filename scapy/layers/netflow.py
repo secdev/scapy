@@ -32,6 +32,7 @@ Using the netflowv9_defragment/ipfix_defragment commands:
 
 import socket
 import struct
+from collections import Counter
 
 from scapy.config import conf
 from scapy.data import IP_PROTOS
@@ -1091,6 +1092,7 @@ NetflowV9TemplateFieldDefaultLengths = {
     77: 3,
     78: 3,
     79: 3,
+    195: 1,
 }
 
 # NetflowV9 Ready-made fields
@@ -1201,6 +1203,7 @@ NetflowV9TemplateFieldDecoders = {
     160: (N9UTCTimeField, [True]),  # systemInitTimeMilliseconds
     161: (N9SecondsIntField, [True]),  # flowDurationMilliseconds
     162: (N9SecondsIntField, [False, True]),  # flowDurationMicroseconds
+    195: XByteField,  # IP_DSCP
     211: IPField,  # collectorIPv4Address
     212: IP6Field,  # collectorIPv6Address
     225: IPField,  # postNATSourceIPv4Address
@@ -1259,11 +1262,23 @@ class NetflowHeaderV9(Packet):
                    IntField("SourceID", 0)]
 
     def post_build(self, pkt, pay):
+
+        def count_by_layer(layer):
+            if type(layer) == NetflowFlowsetV9:
+                return len(layer.templates)
+            elif type(layer) == NetflowDataflowsetV9:
+                return len(layer.records)
+            elif type(layer) == NetflowOptionsFlowsetV9:
+                return 1
+            else:
+                return 0
+
         if self.count is None:
-            count = sum(1 for x in self.layers() if x in [
-                NetflowFlowsetV9,
-                NetflowDataflowsetV9,
-                NetflowOptionsFlowsetV9]
+            # https://www.rfc-editor.org/rfc/rfc3954#section-5.1
+            count = sum(
+                sum(count_by_layer(self.getlayer(layer_cls, nth))
+                    for nth in range(1, n + 1))
+                for layer_cls, n in Counter(self.layers()).items()
             )
             pkt = struct.pack("!H", count) + pkt[2:]
         return pkt + pay

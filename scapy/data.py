@@ -16,7 +16,6 @@ from scapy.dadict import DADict, fixname
 from scapy.consts import FREEBSD, NETBSD, OPENBSD, WINDOWS
 from scapy.error import log_loading
 from scapy.compat import plain_str
-import scapy.libs.six as six
 
 from scapy.compat import (
     Any,
@@ -458,8 +457,7 @@ class ManufDA(DADict[str, Tuple[str, str]]):
         else:
             name = name.lower()
             filtr = lambda x, l: any(x in z.lower() for z in l)
-        return {k: v for k, v in six.iteritems(self.d)
-                if filtr(name, v)}
+        return {k: v for k, v in self.d.items() if filtr(name, v)}  # type: ignore
 
     def __dir__(self):
         # type: () -> List[str]

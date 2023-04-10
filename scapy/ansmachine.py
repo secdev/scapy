@@ -11,6 +11,7 @@ Answering machines.
 #  Answering machines  #
 ########################
 
+import abc
 import functools
 import socket
 import warnings
@@ -30,14 +31,13 @@ from scapy.compat import (
     Tuple,
     Type,
     TypeVar,
-    _Generic_metaclass,
     cast,
 )
 
 _T = TypeVar("_T", Packet, PacketList)
 
 
-class ReferenceAM(_Generic_metaclass):
+class ReferenceAM(type):
     def __new__(cls,
                 name,  # type: str
                 bases,  # type: Tuple[type, ...]
@@ -142,9 +142,10 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
         # type: (Packet) -> int
         return 1
 
+    @abc.abstractmethod
     def make_reply(self, req):
         # type: (Packet) -> _T
-        return req
+        pass
 
     def send_reply(self, reply, send_function=None):
         # type: (_T, Optional[Callable[..., None]]) -> None
@@ -268,4 +269,4 @@ class AnsweringMachineTCP(AnsweringMachine[Packet]):
 
     def make_reply(self, req, address=None):
         # type: (Packet, Optional[Any]) -> Packet
-        return super(AnsweringMachineTCP, self).make_reply(req)
+        return req

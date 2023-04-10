@@ -230,9 +230,9 @@ RTRErrorReport in pkt and pkt.error_code == 0 and pkt.erroneous_PDU == b'' and p
 = filled values build
 
 pkt = IP()/TCP(dport=323)/RTRErrorReport(error_code=1, error_text='Internal Error')
-RTRErrorReport in pkt and pkt.error_code == 1and pkt.error_text == b'Internal Error'
+RTRErrorReport in pkt and pkt.error_code == 1 and pkt.error_text == b'Internal Error'
 
 = dissection
 
 pkt = IP(b'E\x00\x00F\x00\x01\x00\x00@\x06|\xaf\x7f\x00\x00\x01\x7f\x00\x00\x01 Z\x01C\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xdc\x15\x00\x00\x00\n\x00\x01\x00\x00\x00\x1e\x00\x00\x00\x00\x00\x00\x00\x0eInternal Error')
-RTRErrorReport in pkt and pkt.error_code == 1and pkt.error_text == b'Internal Error'
+RTRErrorReport in pkt and pkt.error_code == 1 and pkt.error_text == b'Internal Error'

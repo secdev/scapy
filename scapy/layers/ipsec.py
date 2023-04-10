@@ -43,11 +43,26 @@ from scapy.config import conf, crypto_validator
 from scapy.compat import orb, raw
 from scapy.data import IP_PROTOS
 from scapy.error import log_loading
-from scapy.fields import ByteEnumField, ByteField, IntField, PacketField, \
-    ShortField, StrField, XIntField, XStrField, XStrLenField
-from scapy.packet import Packet, bind_layers, Raw
+from scapy.fields import (
+    ByteEnumField,
+    ByteField,
+    IntField,
+    PacketField,
+    ShortField,
+    StrField,
+    XByteField,
+    XIntField,
+    XStrField,
+    XStrLenField,
+)
+from scapy.packet import (
+    Packet,
+    Raw,
+    bind_bottom_up,
+    bind_layers,
+    bind_top_down,
+)
 from scapy.layers.inet import IP, UDP
-import scapy.libs.six as six
 from scapy.layers.inet6 import IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt, \
     IPv6ExtHdrRouting
 
@@ -115,6 +130,17 @@ class ESP(Packet):
         XStrField('data', None),
     ]
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            if len(_pkt) >= 4 and struct.unpack("!I", _pkt[0:4])[0] == 0x00:
+                return NON_ESP
+            elif len(_pkt) == 1 and struct.unpack("!B", _pkt)[0] == 0xff:
+                return NAT_KEEPALIVE
+            else:
+                return ESP
+        return cls
+
     overload_fields = {
         IP: {'proto': socket.IPPROTO_ESP},
         IPv6: {'nh': socket.IPPROTO_ESP},
@@ -124,10 +150,27 @@ class ESP(Packet):
     }
 
 
+class NON_ESP(Packet):  # RFC 3948, section 2.2
+    fields_desc = [
+        XIntField("non_esp", 0x0)
+    ]
+
+
+class NAT_KEEPALIVE(Packet):  # RFC 3948, section 2.2
+    fields_desc = [
+        XByteField("nat_keepalive", 0xFF)
+    ]
+
+
 bind_layers(IP, ESP, proto=socket.IPPROTO_ESP)
 bind_layers(IPv6, ESP, nh=socket.IPPROTO_ESP)
-bind_layers(UDP, ESP, dport=4500)  # NAT-Traversal encapsulation
-bind_layers(UDP, ESP, sport=4500)  # NAT-Traversal encapsulation
+
+# NAT-Traversal encapsulation
+bind_bottom_up(UDP, ESP, dport=4500)
+bind_bottom_up(UDP, ESP, sport=4500)
+bind_top_down(UDP, ESP, dport=4500, sport=4500)
+bind_top_down(UDP, NON_ESP, dport=4500, sport=4500)
+bind_top_down(UDP, NAT_KEEPALIVE, dport=4500, sport=4500)
 
 ###############################################################################
 
@@ -369,7 +412,11 @@ class CryptAlgo(object):
                     cipher = self.cipher(key, tag_length=icv_size)
                 else:
                     cipher = self.cipher(key)
-                data = cipher.encrypt(mode_iv, data, aad)
+                if self.name == 'AES-NULL-GMAC':
+                    # Special case for GMAC (rfc 4543 sect 3)
+                    data = data + cipher.encrypt(mode_iv, b"", aad + esp.iv + data)
+                else:
+                    data = cipher.encrypt(mode_iv, data, aad)
             else:
                 cipher = self.new_cipher(key, mode_iv)
                 encryptor = cipher.encryptor()
@@ -421,7 +468,11 @@ class CryptAlgo(object):
                 else:
                     cipher = self.cipher(key)
                 try:
-                    data = cipher.decrypt(mode_iv, data + icv, aad)
+                    if self.name == 'AES-NULL-GMAC':
+                        # Special case for GMAC (rfc 4543 sect 3)
+                        data = data + cipher.decrypt(mode_iv, icv, aad + iv + data)
+                    else:
+                        data = cipher.decrypt(mode_iv, data + icv, aad)
                 except InvalidTag as err:
                     raise IPSecIntegrityError(err)
             else:
@@ -484,6 +535,17 @@ if algorithms:
                                        iv_size=8,
                                        icv_size=16,
                                        format_mode_iv=_salt_format_mode_iv)
+    # GMAC: rfc 4543, "companion to the AES Galois/Counter Mode ESP"
+    # This is defined as a crypt_algo by rfc, but has the role of an auth_algo
+    CRYPT_ALGOS['AES-NULL-GMAC'] = CryptAlgo('AES-NULL-GMAC',
+                                             cipher=aead.AESGCM,
+                                             key_size=(16, 24, 32),
+                                             mode=None,
+                                             salt_size=4,
+                                             block_size=1,
+                                             iv_size=8,
+                                             icv_size=16,
+                                             format_mode_iv=_salt_format_mode_iv)
     CRYPT_ALGOS['AES-CCM'] = CryptAlgo('AES-CCM',
                                        cipher=aead.AESCCM,
                                        mode=None,
@@ -880,10 +942,10 @@ class SecurityAssociation(object):
         :param esn: extended sequence number (32 MSB)
         """
 
-        if proto not in (ESP, AH, ESP.name, AH.name):
+        if proto not in {ESP, AH, ESP.name, AH.name}:
             raise ValueError("proto must be either ESP or AH")
-        if isinstance(proto, six.string_types):
-            self.proto = eval(proto)
+        if isinstance(proto, str):
+            self.proto = {ESP.name: ESP, AH.name: AH}[proto]
         else:
             self.proto = proto
 

@@ -24,7 +24,6 @@ from scapy.layers.inet import UDP
 from scapy.utils import lhex
 from scapy.compat import orb
 from scapy.config import conf
-import scapy.libs.six as six
 
 
 #############################################################################
@@ -84,7 +83,7 @@ class TimeStampField(FixedPointField):
         )
 
     def any2i(self, pkt, val):
-        if isinstance(val, six.string_types):
+        if isinstance(val, str):
             val = int(time.mktime(time.strptime(val))) + _NTP_BASETIME
         elif isinstance(val, datetime.datetime):
             val = int(val.strftime("%s")) + _NTP_BASETIME
@@ -209,7 +208,9 @@ class NTP(Packet):
         return s
 
     def mysummary(self):
-        return self.sprintf("NTP v%ir,NTP.version%, %NTP.mode%")
+        return self.sprintf(
+            "NTP v%ir,{0}.version%, %{0}.mode%".format(self.__class__.__name__)
+        )
 
 
 class _NTPAuthenticatorPaddingField(StrField):
@@ -795,7 +796,7 @@ class NTPControl(NTP):
     fields_desc = [
         BitField("zeros", 0, 2),
         BitField("version", 2, 3),
-        BitField("mode", 6, 3),
+        BitEnumField("mode", 6, 3, _ntp_modes),
         BitField("response", 0, 1),
         BitField("err", 0, 1),
         BitField("more", 0, 1),
@@ -1777,7 +1778,7 @@ class NTPPrivate(NTP):
         BitField("response", 0, 1),
         BitField("more", 0, 1),
         BitField("version", 2, 3),
-        BitField("mode", 0, 3),
+        BitEnumField("mode", 7, 3, _ntp_modes),
         BitField("auth", 0, 1),
         BitField("seq", 0, 7),
         ByteEnumField("implementation", 0, _implementations),

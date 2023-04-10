@@ -9,7 +9,7 @@
 import struct
 import logging
 
-from scapy.compat import Optional, List, Tuple, Any, Type
+from scapy.compat import Optional, List, Tuple, Any, Type, cast
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ConditionalField, \
@@ -140,7 +140,7 @@ class ISOTP(Packet):
                 pkt = CAN(identifier=self.rx_id, flags="extended",
                           data=frame_header + frame_data)
             pkts.append(pkt)
-        return pkts
+        return cast(List[Packet], pkts)
 
     @staticmethod
     def defragment(can_frames, use_extended_addressing=None):

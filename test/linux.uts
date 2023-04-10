@@ -292,17 +292,17 @@ test_read_routes()
 ~ linux needs_root
 
 from scapy.arch.linux import L3PacketSocket
-import scapy.libs.six as six
 
-if six.PY3:
-    import mock, socket
-    @mock.patch("scapy.arch.linux.socket.socket.sendto")
-    def test_L3PacketSocket_sendto_python3(mock_sendto):
-        mock_sendto.side_effect = OSError(22, 2807)
-        l3ps = L3PacketSocket()
-        l3ps.send(IP(dst="8.8.8.8")/ICMP())
-        return True
-    assert test_L3PacketSocket_sendto_python3()
+import mock, socket
+
+@mock.patch("scapy.arch.linux.socket.socket.sendto")
+def test_L3PacketSocket_sendto_python3(mock_sendto):
+    mock_sendto.side_effect = OSError(22, 2807)
+    l3ps = L3PacketSocket()
+    l3ps.send(IP(dst="8.8.8.8")/ICMP())
+    return True
+
+assert test_L3PacketSocket_sendto_python3()
 
 = Test _interface_selection
 ~ netaccess linux needs_root

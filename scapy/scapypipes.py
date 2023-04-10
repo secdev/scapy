@@ -3,10 +3,10 @@
 # See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 
+from queue import Queue, Empty
 import socket
 import subprocess
 
-from scapy.libs.six.moves.queue import Queue, Empty
 from scapy.automaton import ObjectPipe
 from scapy.config import conf
 from scapy.compat import raw
@@ -381,7 +381,7 @@ class TCPConnectPipe(Source):
             self.fd.close()
 
     def push(self, msg):
-        # type: (Packet) -> None
+        # type: (bytes) -> None
         self.fd.send(msg)
 
     def fileno(self):
@@ -417,7 +417,7 @@ class TCPListenPipe(TCPConnectPipe):
         # type: (str, int, Optional[str]) -> None
         TCPConnectPipe.__init__(self, addr, port, name)
         self.connected = False
-        self.q = Queue()
+        self.q: Queue[Any] = Queue()
 
     def start(self):
         # type: () -> None
@@ -428,7 +428,7 @@ class TCPListenPipe(TCPConnectPipe):
         self.fd.listen(1)
 
     def push(self, msg):
-        # type: (Packet) -> None
+        # type: (bytes) -> None
         if self.connected:
             self.fd.send(msg)
         else:
@@ -483,7 +483,7 @@ class UDPClientPipe(TCPConnectPipe):
         self.connected = True
 
     def push(self, msg):
-        # type: (Packet) -> None
+        # type: (bytes) -> None
         self.fd.send(msg)
 
     def deliver(self):
@@ -523,7 +523,7 @@ class UDPServerPipe(TCPListenPipe):
         self.fd.bind((self.addr, self.port))
 
     def push(self, msg):
-        # type: (Packet) -> None
+        # type: (bytes) -> None
         if self._destination:
             self.fd.sendto(msg, self._destination)
         else:
@@ -659,7 +659,7 @@ class TriggeredQueueingValve(Drain):
         # type: (bool, Optional[Any]) -> None
         Drain.__init__(self, name=name)
         self.opened = start_state
-        self.q = Queue()
+        self.q: Queue[Any] = Queue()
 
     def start(self):
         # type: () -> None

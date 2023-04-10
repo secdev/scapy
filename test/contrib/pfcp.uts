@@ -32,7 +32,7 @@ for name, cls in pfcp_mod.__dict__.items():
 
 def command(pkt):
     f = []
-    for fn, fv in sorted(six.iteritems(pkt.fields), key=lambda item: item[0]):
+    for fn, fv in sorted(pkt.fields.items(), key=lambda item: item[0]):
         if fn in ("length", "message_type"):
             continue
         if fn == "ietype" and not isinstance(pkt, IE_EnterpriseSpecific) and \

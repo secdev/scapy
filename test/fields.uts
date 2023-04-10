@@ -758,6 +758,34 @@ assert p.data[3].data == 0xc102
 assert isinstance(p.payload, conf.raw_layer)
 assert p.payload.load == b'toto'
 
+= Test nested PacketListFields
+~ field
+# Note: having packets that look like this is a terrible idea, and will perform
+# very badly. However we must ensure we don't freeze because of it.
+
+# https://github.com/secdev/scapy/issues/3894
+
+class GuessPayload(Packet):
+     @classmethod
+     def dispatch_hook(cls, *args, **kargs):
+         return TestNestedPLF
+
+class TestNestedPLF(Packet):
+     fields_desc = [
+         ByteField('b', 0),
+         PacketListField('pl', [], GuessPayload)
+     ]
+
+p = TestNestedPLF(b'\x01' * 100)
+
+# check
+i = 1
+while p.pl:
+    p = p.pl[0]
+    p.show()
+    i += 1
+
+assert i == 100
 
 ############
 ############
@@ -854,16 +882,16 @@ f = MultiFlagsField('flags', set(), 3, {
 
 mp = MockPacket(0)
 x = f.i2m(mp, set())
-assert isinstance(x, six.integer_types)
+assert isinstance(x, int)
 assert x == 0
 x = f.i2m(mp, {'A'})
-assert isinstance(x, six.integer_types)
+assert isinstance(x, int)
 assert x == 1
 x = f.i2m(mp, {'A', 'B'})
-assert isinstance(x, six.integer_types)
+assert isinstance(x, int)
 assert x == 3
 x = f.i2m(mp, {'A', 'B', 'bit 2'})
-assert isinstance(x, six.integer_types)
+assert isinstance(x, int)
 assert x == 7
 try:
     x = f.i2m(mp, {'+'})

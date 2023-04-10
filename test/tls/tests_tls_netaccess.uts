@@ -23,8 +23,6 @@ import sys
 from contextlib import contextmanager
 from scapy.autorun import StringWriter
 
-from scapy.libs import six
-
 from scapy.config import conf
 from scapy.layers.tls.automaton_srv import TLSServerAutomaton
 
@@ -145,8 +143,7 @@ def test_tls_server(suite="", version="", tls13=False, client_auth=False, psk=No
     q_ = Queue()
     th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_),
                            kwargs={"curve": None, "cookie": False, "client_auth": client_auth, "psk": psk},
-                           name="test_tls_server %s %s" % (suite, version))
-    th_.setDaemon(True)
+                           name="test_tls_server %s %s" % (suite, version), daemon=True)
     th_.start()
     # Synchronise threads
     q_.get()
@@ -254,8 +251,7 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
     th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_),
                            kwargs={"curve": None, "cookie": False, "client_auth": client_auth,
                                    "handle_session_ticket": sess_in_out},
-                           name="test_tls_client %s %s" % (suite, version))
-    th_.setDaemon(True)
+                           name="test_tls_client %s %s" % (suite, version), daemon=True)
     th_.start()
     # Synchronise threads
     print("Syncrhonising...")

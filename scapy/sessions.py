@@ -296,7 +296,11 @@ class TCPSession(IPSession):
                 # when a packet ends.
                 return pkt
             self.data += bytes(pkt)
-            pkt = pay_class.tcp_reassemble(self.data, self.metadata, self.session)
+            pkt = pay_class.tcp_reassemble(
+                self.data,
+                self.metadata,
+                self.session
+            )
             if pkt:
                 self.data = b""
                 self.metadata = {}
@@ -351,7 +355,11 @@ class TCPSession(IPSession):
         packet = None  # type: Optional[Packet]
         if data.full():
             # Reassemble using all previous packets
-            packet = tcp_reassemble(bytes(data), metadata, tcp_session)
+            packet = tcp_reassemble(
+                bytes(data),
+                metadata,
+                tcp_session
+            )
         # Stack the result on top of the previous frames
         if packet:
             if "seq" in metadata:

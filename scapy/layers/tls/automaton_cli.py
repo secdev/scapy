@@ -71,7 +71,6 @@ from scapy.layers.tls.crypto.suites import _tls_cipher_suites, \
     _tls_cipher_suites_cls
 from scapy.layers.tls.crypto.groups import _tls_named_groups
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
-from scapy.libs import six
 from scapy.packet import Raw
 from scapy.compat import bytes_encode
 
@@ -140,7 +139,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.linebreak = False
         if isinstance(data, bytes):
             self.data_to_send = [data]
-        elif isinstance(data, six.string_types):
+        elif isinstance(data, str):
             self.data_to_send = [bytes_encode(data)]
         elif isinstance(data, list):
             self.data_to_send = list(bytes_encode(d) for d in reversed(data))
@@ -590,7 +589,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                     raise self.ADDED_CLIENTDATA()
                 raise self.WAITING_SERVERDATA()
             else:
-                data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()  # noqa: E501
+                data = input().replace('\\r', '\r').replace('\\n', '\n').encode()
         else:
             data = self.data_to_send.pop()
         if data == b"quit":
@@ -928,7 +927,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.condition(SSLv2_WAITING_CLIENTDATA, prio=1)
     def sslv2_add_ClientData(self):
         if not self.data_to_send:
-            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()  # noqa: E501
+            data = input().replace('\\r', '\r').replace('\\n', '\n').encode()
         else:
             data = self.data_to_send.pop()
             self.vprint("> Read from list: %s" % data)

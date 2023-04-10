@@ -173,6 +173,182 @@ option_templateFlowSet_256 = NetflowOptionsFlowsetV9(
     ])
 assert raw(option_templateFlowSet_256) == b'\x00\x01\x00\x1c\x01\x00\x00\x04\x00\x0c\x00\x01\x00\x04\x00\n\x00\x04\x00R\x00 \x00S\x00\xf0\x00\x00'
 
+= NetflowV9 - Advanced build, multiple flowsets and multiple records by flowset
+~ netflow
+
+template_flowset = NetflowFlowsetV9(
+    templates=[ NetflowTemplateV9(
+        template_fields=[
+            NetflowTemplateFieldV9(fieldType="IN_BYTES", fieldLength=1),
+            NetflowTemplateFieldV9(fieldType="IN_PKTS", fieldLength=4),
+            NetflowTemplateFieldV9(fieldType="PROTOCOL"),
+            NetflowTemplateFieldV9(fieldType="IPV4_SRC_ADDR"),
+            NetflowTemplateFieldV9(fieldType="IPV4_DST_ADDR"),
+        ],
+        templateID=256,
+        fieldCount=5),
+        NetflowTemplateV9(
+        template_fields=[
+            NetflowTemplateFieldV9(fieldType="IN_BYTES", fieldLength=1),
+            NetflowTemplateFieldV9(fieldType="IN_PKTS", fieldLength=4),
+            NetflowTemplateFieldV9(fieldType="PROTOCOL"),
+            NetflowTemplateFieldV9(fieldType="IPV6_SRC_ADDR"),
+            NetflowTemplateFieldV9(fieldType="IPV6_DST_ADDR"),
+        ],
+        templateID=257,
+        fieldCount=5)
+    ],
+    flowSetID=0
+)
+
+# Generate classes for data records
+Record256 = GetNetflowRecordV9(template_flowset, templateID = 256)
+Record257 = GetNetflowRecordV9(template_flowset, templateID = 257)
+
+# Now lets build a dataFlowSet with 5* #256 records
+dataFlowset_1 = NetflowDataflowsetV9(
+    templateID=256,
+    records=[
+        Record256(
+            IN_BYTES=b"\x12",
+            IN_PKTS=b"\0\0\0\0",
+            PROTOCOL=1,
+            IPV4_SRC_ADDR="192.168.0.10",
+            IPV4_DST_ADDR="192.168.0.11"
+        ),
+        Record256(
+            IN_BYTES=b"\x0c",
+            IN_PKTS=b"\1\1\1\1",
+            PROTOCOL=2,
+            IPV4_SRC_ADDR="172.0.0.10",
+            IPV4_DST_ADDR="172.0.0.11"
+        ),
+        Record256(
+            IN_BYTES=b"\x0c",
+            IN_PKTS=b"\1\1\1\1",
+            PROTOCOL=3,
+            IPV4_SRC_ADDR="172.0.0.10",
+            IPV4_DST_ADDR="172.0.0.11"
+        ),
+        Record256(
+            IN_BYTES=b"\x0c",
+            IN_PKTS=b"\1\1\1\1",
+            PROTOCOL=4,
+            IPV4_SRC_ADDR="172.0.0.10",
+            IPV4_DST_ADDR="172.0.0.11"
+        ),
+        Record256(
+            IN_BYTES=b"\x0c",
+            IN_PKTS=b"\1\1\1\1",
+            PROTOCOL=5,
+            IPV4_SRC_ADDR="172.0.0.10",
+            IPV4_DST_ADDR="172.0.0.11"
+        )
+    ],
+)
+
+dataFlowset_2 = NetflowDataflowsetV9(
+    templateID=257,
+    records=[
+        Record257(
+            IN_BYTES=b"\x12",
+            IN_PKTS=b"\0\0\0\0",
+            PROTOCOL=1,
+            IPV6_SRC_ADDR="2001:db8:3333:4444:5555:6666:7777:8888",
+            IPV6_DST_ADDR="2001:db8::"
+        ),
+        Record257(
+            IN_BYTES=b"\x0c",
+            IN_PKTS=b"\1\1\1\1",
+            PROTOCOL=2,
+            IPV6_SRC_ADDR="2001:db8:3333:4444:CCCC:DDDD:EEEE:FFFF",
+            IPV6_DST_ADDR="2001:db8::"
+        )
+    ],
+)
+
+# An option template flowset, containing an unique template
+opttmpl258_flowSet = NetflowOptionsFlowsetV9(
+    templateID = 258,
+    option_scope_length = 4*1,
+    option_field_length = 4*2,
+    scopes = [
+        NetflowOptionsFlowsetScopeV9(scopeFieldType= 1,	scopeFieldlength= 4),
+    ],
+    options = [
+        NetflowOptionsFlowsetOptionV9(optionFieldType= 34,	optionFieldlength= 4),
+        NetflowOptionsFlowsetOptionV9(optionFieldType= 35,	optionFieldlength= 1)
+    ])
+
+# And finally a Record class for #258 Options
+class Record_258(NetflowRecordV9):
+    name = "Option interface-table"
+    fields_desc = [
+        IntField("System", 0),
+        IntField("SAMPLING_INTERVAL", 4),
+        XByteField("SAMPLING_ALGORITHM", 1)
+    ]
+    match_subclass = True
+
+
+# with a record Flowset
+optiondataFlowset = NetflowDataflowsetV9(
+    templateID=258,
+    records=[
+        Record_258(
+            System=424242,
+            SAMPLING_INTERVAL=100,
+            SAMPLING_ALGORITHM=0x01
+        ),
+        Record_258(
+            System=242424,
+            SAMPLING_INTERVAL=1000,
+            SAMPLING_ALGORITHM=0x02
+        )
+    ],
+)
+
+netflow_header = NetflowHeader()/NetflowHeaderV9(unixSecs=1547927349.328283)
+pkt =  netflow_header / template_flowset / opttmpl258_flowSet / dataFlowset_1 / dataFlowset_2 / optiondataFlowset
+#      Count: 12      =        2        +         1           +       5       +       2       +        2
+
+assert raw(pkt) == b'\x00\t\x00\x0c\x00\x00\x00\x00\\C\x7f5\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x004\x01\x00\x00\x05\x00\x01\x00\x01\x00\x02\x00\x04\x00\x04\x00\x01\x00\x08\x00\x04\x00\x0c\x00\x04\x01\x01\x00\x05\x00\x01\x00\x01\x00\x02\x00\x04\x00\x04\x00\x01\x00\x1b\x00\x10\x00\x1c\x00\x10\x00\x01\x00\x18\x01\x02\x00\x04\x00\x08\x00\x01\x00\x04\x00"\x00\x04\x00#\x00\x01\x00\x00\x01\x00\x00L\x12\x00\x00\x00\x00\x01\xc0\xa8\x00\n\xc0\xa8\x00\x0b\x0c\x01\x01\x01\x01\x02\xac\x00\x00\n\xac\x00\x00\x0b\x0c\x01\x01\x01\x01\x03\xac\x00\x00\n\xac\x00\x00\x0b\x0c\x01\x01\x01\x01\x04\xac\x00\x00\n\xac\x00\x00\x0b\x0c\x01\x01\x01\x01\x05\xac\x00\x00\n\xac\x00\x00\x0b\x00\x00\x01\x01\x00P\x12\x00\x00\x00\x00\x01 \x01\r\xb833DDUUffww\x88\x88 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\x01\x01\x01\x01\x02 \x01\r\xb833DD\xcc\xcc\xdd\xdd\xee\xee\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x18\x00\x06y2\x00\x00\x00d\x01\x00\x03\xb2\xf8\x00\x00\x03\xe8\x02\x00\x00'
+
+
+= NetflowV9 - Advanced dissection, complete example
+~ netflow
+
+pkt = NetflowHeader(b'\x00\t\x00\x0c\x00\x00\x00\x00\\C\x7f5\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x004\x01\x00\x00\x05\x00\x01\x00\x01\x00\x02\x00\x04\x00\x04\x00\x01\x00\x08\x00\x04\x00\x0c\x00\x04\x01\x01\x00\x05\x00\x01\x00\x01\x00\x02\x00\x04\x00\x04\x00\x01\x00\x1b\x00\x10\x00\x1c\x00\x10\x00\x01\x00\x18\x01\x02\x00\x04\x00\x08\x00\x01\x00\x04\x00"\x00\x04\x00#\x00\x01\x00\x00\x01\x00\x00L\x12\x00\x00\x00\x00\x01\xc0\xa8\x00\n\xc0\xa8\x00\x0b\x0c\x01\x01\x01\x01\x02\xac\x00\x00\n\xac\x00\x00\x0b\x0c\x01\x01\x01\x01\x03\xac\x00\x00\n\xac\x00\x00\x0b\x0c\x01\x01\x01\x01\x04\xac\x00\x00\n\xac\x00\x00\x0b\x0c\x01\x01\x01\x01\x05\xac\x00\x00\n\xac\x00\x00\x0b\x00\x00\x01\x01\x00P\x12\x00\x00\x00\x00\x01 \x01\r\xb833DDUUffww\x88\x88 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\x01\x01\x01\x01\x02 \x01\r\xb833DD\xcc\xcc\xdd\xdd\xee\xee\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x00\x18\x00\x06y2\x00\x00\x00d\x01\x00\x03\xb2\xf8\x00\x00\x03\xe8\x02\x00\x00')
+
+nf_header = pkt.getlayer(NetflowHeader)
+assert nf_header.version == 9
+nfv9_header = pkt.getlayer(NetflowHeaderV9)
+assert nf_header.count == 12
+
+flowset_1 = pkt.getlayer(NetflowFlowsetV9, 1)
+assert len(flowset_1.templates) == 2
+assert flowset_1.templates[0].templateID == 256
+assert flowset_1.templates[1].templateID == 257
+assert flowset_1.templates[1].fieldCount == 5
+assert flowset_1.templates[1].template_fields[1].fieldLength == 4
+
+flowset_2 = pkt.getlayer(NetflowOptionsFlowsetV9, 1)
+assert flowset_2.templateID == 258
+assert len(flowset_2.scopes) == 1
+assert len(flowset_2.options) == 2
+assert flowset_2.pad == b'\x00\x00'
+
+flowset_3 = pkt.getlayer(NetflowDataflowsetV9, 1)
+assert flowset_3.templateID == 256
+assert flowset_3.length == 76
+
+flowset_4 = pkt.getlayer(NetflowDataflowsetV9, 2)
+assert flowset_4.templateID == 257
+
+flowset_5 = pkt.getlayer(NetflowDataflowsetV9, 3)
+assert flowset_5.templateID == 258
+
+
 ############
 ############
 + Netflow v10 (aka IPFix)
@@ -280,3 +456,30 @@ records = dissected_packets[3][NetflowDataflowsetV9].records
 assert len(records) == 24
 assert records[0].IPV4_SRC_ADDR == '20.0.1.174'
 assert records[0].IPV4_NEXT_HOP == '10.100.103.1'
+
+# test for netflow IP_DSCP (id=195)
+dscp_flowset = NetflowFlowsetV9(
+    templates=[
+        NetflowTemplateV9(
+            template_fields=[
+                NetflowTemplateFieldV9(fieldType=195),
+            ],
+            templateID=273,
+        )
+    ],
+    flowSetID=2,
+)
+
+recordClass = GetNetflowRecordV9(dscp_flowset, templateID=273)
+
+dscp_dataset = NetflowDataflowsetV9(
+    templateID=273,
+    records=[
+        recordClass(
+            IP_DSCP=42,
+        ),
+    ],
+)
+
+# record is generated with 2 zero bytes of padding
+assert(raw(dscp_dataset) == b'\x01\x11\x00\x08\x2a\x00\x00\x00')

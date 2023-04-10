@@ -19,16 +19,21 @@ from scapy.fields import (
     FieldLenField,
     FieldListField,
     FlagsField,
+    IPField,
     IntEnumField,
     IntField,
+    MultipleTypeField,
     PacketLenField,
     ShortEnumField,
     ShortField,
-    StrFixedLenField,
+    StrLenEnumField,
     StrLenField,
     XByteField,
+    XStrFixedLenField,
+    XStrLenField,
 )
 from scapy.layers.inet import IP, UDP
+from scapy.layers.ipsec import NON_ESP
 from scapy.sendrecv import sr
 from scapy.volatile import RandString
 from scapy.error import warning
@@ -141,16 +146,24 @@ _rev = lambda x: {
 ISAKMPTransformNum = _rev(ISAKMPAttributeTypes)
 IPSECTransformNum = _rev(IPSECAttributeTypes)
 
+# See IPSEC Security Protocol Identifiers entry in
+# https://www.iana.org/assignments/isakmp-registry/isakmp-registry.xhtml#isakmp-registry-3
+PROTO_ISAKMP = 1
+PROTO_IPSEC_AH = 2
+PROTO_IPSEC_ESP = 3
+PROTO_IPCOMP = 4
+PROTO_GIGABEAM_RADIO = 5
+
 
 class ISAKMPTransformSetField(StrLenField):
     islist = 1
 
     @staticmethod
-    def type2num(type_val_tuple, doi=0):
+    def type2num(type_val_tuple, proto=0):
         typ, val = type_val_tuple
-        if doi == 0:
+        if proto == PROTO_ISAKMP:
             type_val, enc_dict, tlv = ISAKMPAttributeTypes.get(typ, (typ, {}, 0))
-        elif doi == 1:
+        elif proto == PROTO_IPSEC_ESP:
             type_val, enc_dict, tlv = IPSECAttributeTypes.get(typ, (typ, {}, 0))
         else:
             type_val, enc_dict, tlv = (typ, {}, 0)
@@ -172,30 +185,30 @@ class ISAKMPTransformSetField(StrLenField):
         return struct.pack("!HH", type_val, val) + s
 
     @staticmethod
-    def num2type(typ, enc, doi=0):
-        if doi == 0:
+    def num2type(typ, enc, proto=0):
+        if proto == PROTO_ISAKMP:
             val = ISAKMPTransformNum.get(typ, (typ, {}))
-        elif doi == 1:
+        elif proto == PROTO_IPSEC_ESP:
             val = IPSECTransformNum.get(typ, (typ, {}))
         else:
             val = (typ, {})
         enc = val[1].get(enc, enc)
         return (val[0], enc)
 
-    def _get_doi(self, pkt):
+    def _get_proto(self, pkt):
         # Ugh
         cur = pkt
-        while cur and getattr(cur, "doi", None) is None:
+        while cur and getattr(cur, "proto", None) is None:
             cur = cur.parent or cur.underlayer
         if cur is None:
-            return 0
-        return cur.doi
+            return PROTO_ISAKMP
+        return cur.proto
 
     def i2m(self, pkt, i):
         if i is None:
             return b""
-        doi = self._get_doi(pkt)
-        i = [ISAKMPTransformSetField.type2num(e, doi=doi) for e in i]
+        proto = self._get_proto(pkt)
+        i = [ISAKMPTransformSetField.type2num(e, proto=proto) for e in i]
         return b"".join(i)
 
     def m2i(self, pkt, m):
@@ -205,7 +218,7 @@ class ISAKMPTransformSetField(StrLenField):
         # worst case that should result in broken attributes (which would
         # be expected). (wam)
         lst = []
-        doi = self._get_doi(pkt)
+        proto = self._get_proto(pkt)
         while len(m) >= 4:
             trans_type, = struct.unpack("!H", m[:2])
             is_tlv = not (trans_type & 0x8000)
@@ -223,7 +236,7 @@ class ISAKMPTransformSetField(StrLenField):
                 value_len = 0
                 value, = struct.unpack("!H", m[2:4])
             m = m[4 + value_len:]
-            lst.append(ISAKMPTransformSetField.num2type(trans_type, value, doi=doi))
+            lst.append(ISAKMPTransformSetField.num2type(trans_type, value, proto=proto))
         if len(m) > 0:
             warning("Extra bytes after ISAKMP transform dissection [%r]" % m)
         return lst
@@ -252,11 +265,18 @@ ISAKMP_exchange_type = {
     2: "identity protection",
     3: "authentication only",
     4: "aggressive",
-    5: "informational"
+    5: "informational",
+    32: "quick mode",
 }
 
+# https://www.iana.org/assignments/isakmp-registry/isakmp-registry.xhtml#isakmp-registry-3
+# IPSEC Security Protocol Identifiers
 ISAKMP_protos = {
     1: "ISAKMP",
+    2: "IPSEC_AH",
+    3: "IPSEC_ESP",
+    4: "IPCOMP",
+    5: "GIGABEAM_RADIO"
 }
 
 ISAKMP_doi = {
@@ -277,8 +297,8 @@ class _ISAKMP_class(Packet):
 class ISAKMP(_ISAKMP_class):  # rfc2408
     name = "ISAKMP"
     fields_desc = [
-        StrFixedLenField("init_cookie", "", 8),
-        StrFixedLenField("resp_cookie", "", 8),
+        XStrFixedLenField("init_cookie", "", 8),
+        XStrFixedLenField("resp_cookie", "", 8),
         ByteEnumField("next_payload", 0, ISAKMP_payload_type),
         XByteField("version", 0x10),
         ByteEnumField("exch_type", 0, ISAKMP_exchange_type),
@@ -309,11 +329,12 @@ class ISAKMP(_ISAKMP_class):  # rfc2408
 
 class ISAKMP_payload(_ISAKMP_class):
     name = "ISAKMP payload"
+    show_indent = 0
     fields_desc = [
         ByteEnumField("next_payload", None, ISAKMP_payload_type),
         ByteField("res", 0),
         ShortField("length", None),
-        StrLenField("load", "", length_from=lambda x:x.length - 4),
+        XStrLenField("load", "", length_from=lambda x:x.length - 4),
     ]
 
     def post_build(self, pkt, pay):
@@ -356,8 +377,25 @@ class ISAKMP_payload_Proposal(ISAKMP_payload):
     ]
 
 
+# VendorID: https://www.rfc-editor.org/rfc/rfc2408#section-3.16
+
+# packet-isakmp.c from wireshark
+ISAKMP_VENDOR_IDS = {
+    b"\x09\x00\x26\x89\xdf\xd6\xb7\x12": "XAUTH",
+    b"\xaf\xca\xd7\x13h\xa1\xf1\xc9k\x86\x96\xfcwW\x01\x00": "RFC 3706 DPD",
+    b"@H\xb7\xd5n\xbc\xe8\x85%\xe7\xde\x7f\x00\xd6\xc2\xd3\x80": "Cisco Fragmentation",
+    b"J\x13\x1c\x81\x07\x03XE\\W(\xf2\x0e\x95E/": "RFC 3947 Negotiation of NAT-Transversal",  # noqa: E501
+    b"\x90\xcb\x80\x91>\xbbin\x08c\x81\xb5\xecB{\x1f": "draft-ietf-ipsec-nat-t-ike-02",
+}
+
+
 class ISAKMP_payload_VendorID(ISAKMP_payload):
     name = "ISAKMP Vendor ID"
+    fields_desc = ISAKMP_payload.fields_desc[:3] + [
+        StrLenEnumField("VendorID", b"",
+                        ISAKMP_VENDOR_IDS,
+                        length_from=lambda x: x.length - 4)
+    ]
 
 
 class ISAKMP_payload_SA(ISAKMP_payload):
@@ -380,11 +418,22 @@ class ISAKMP_payload_KE(ISAKMP_payload):
 class ISAKMP_payload_ID(ISAKMP_payload):
     name = "ISAKMP Identification"
     fields_desc = ISAKMP_payload.fields_desc[:3] + [
-        ByteEnumField("IDtype", 1, {1: "IPv4_addr", 11: "Key"}),
+        ByteEnumField("IDtype", 1, {
+            # Beware, apparently in-the-wild the values used
+            # appear to be the ones from IKEv2 (RFC4306 sect 3.5)
+            # and not ISAKMP (RFC2408 sect A.4)
+            1: "IPv4_addr",
+            11: "Key"
+        }),
         ByteEnumField("ProtoID", 0, {0: "Unused"}),
         ShortEnumField("Port", 0, {0: "Unused"}),
-        #        IPField("IdentData","127.0.0.1"),
-        StrLenField("load", "", length_from=lambda x: x.length - 8),
+        MultipleTypeField(
+            [
+                (IPField("IdentData", "127.0.0.1"),
+                 lambda pkt: pkt.IDtype == 1),
+            ],
+            StrLenField("IdentData", "", length_from=lambda x: x.length - 8),
+        )
     ]
 
 
@@ -458,6 +507,8 @@ class ISAKMP_payload_Delete(ISAKMP_payload):
 bind_bottom_up(UDP, ISAKMP, dport=500)
 bind_bottom_up(UDP, ISAKMP, sport=500)
 bind_top_down(UDP, ISAKMP, dport=500, sport=500)
+
+bind_bottom_up(NON_ESP, ISAKMP)
 
 # Add bindings
 bind_top_down(_ISAKMP_class, ISAKMP_payload, next_payload=0)

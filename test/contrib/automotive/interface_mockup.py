@@ -15,7 +15,6 @@ from platform import python_implementation
 from scapy.main import load_layer, load_contrib
 from scapy.config import conf
 from scapy.error import log_runtime, Scapy_Exception
-import scapy.libs.six as six
 from scapy.consts import LINUX
 
 load_layer("can", globals_dict=globals())
@@ -73,21 +72,12 @@ sys.__stderr__.write("SocketCAN support: %s\n" % _socket_can_support)
 # """ Define helper functions for CANSocket creation on all platforms """
 # ############################################################################
 if _socket_can_support:
-    if six.PY3:
-        from scapy.contrib.cansocket_native import *  # noqa: F403
-        new_can_socket = NativeCANSocket
-        new_can_socket0 = lambda: NativeCANSocket(iface0)
-        new_can_socket1 = lambda: NativeCANSocket(iface1)
-        can_socket_string_list = ["-c", iface0]
-        sys.__stderr__.write("Using NativeCANSocket\n")
-
-    else:
-        from scapy.contrib.cansocket_python_can import *  # noqa: F403
-        new_can_socket = lambda iface: PythonCANSocket(bustype='socketcan', channel=iface, timeout=0.01)  # noqa: E501
-        new_can_socket0 = lambda: PythonCANSocket(bustype='socketcan', channel=iface0, timeout=0.01)  # noqa: E501
-        new_can_socket1 = lambda: PythonCANSocket(bustype='socketcan', channel=iface1, timeout=0.01)  # noqa: E501
-        can_socket_string_list = ["-i", "socketcan", "-c", iface0]
-        sys.__stderr__.write("Using PythonCANSocket socketcan\n")
+    from scapy.contrib.cansocket_native import *  # noqa: F403
+    new_can_socket = NativeCANSocket
+    new_can_socket0 = lambda: NativeCANSocket(iface0)
+    new_can_socket1 = lambda: NativeCANSocket(iface1)
+    can_socket_string_list = ["-c", iface0]
+    sys.__stderr__.write("Using NativeCANSocket\n")
 
 else:
     from scapy.contrib.cansocket_python_can import *  # noqa: F403
@@ -171,7 +161,7 @@ def exit_if_no_isotp_module():
 # ############################################################################
 # """ Evaluate if ISOTP kernel module is installed and available """
 # ############################################################################
-if LINUX and _root and six.PY3 and _socket_can_support:
+if LINUX and _root and _socket_can_support:
     p1 = subprocess.Popen(['lsmod'], stdout=subprocess.PIPE)
     p2 = subprocess.Popen(['grep', '^can_isotp'],
                           stdout=subprocess.PIPE, stdin=p1.stdout)
@@ -192,14 +182,13 @@ conf.contribs['ISOTP'] = \
 # ############################################################################
 # """ reload ISOTP kernel module in case configuration changed """
 # ############################################################################
-if six.PY3:
-    import importlib
-    if "scapy.contrib.isotp" in sys.modules:
-        importlib.reload(scapy.contrib.isotp)  # type: ignore  # noqa: F405
+import importlib
+if "scapy.contrib.isotp" in sys.modules:
+    importlib.reload(scapy.contrib.isotp)  # type: ignore  # noqa: F405
 
 load_contrib("isotp", globals_dict=globals())
 
-if six.PY3 and ISOTP_KERNEL_MODULE_AVAILABLE:
+if ISOTP_KERNEL_MODULE_AVAILABLE:
     if ISOTPSocket is not ISOTPNativeSocket:  # type: ignore
         raise Scapy_Exception("Error in ISOTPSocket import!")
 else:

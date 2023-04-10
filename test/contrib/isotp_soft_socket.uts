@@ -7,7 +7,6 @@
 = Imports
 import time
 from io import BytesIO
-import scapy.libs.six as six
 from scapy.layers.can import *
 from scapy.contrib.isotp import *
 from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
@@ -30,10 +29,7 @@ log_isotp.addHandler(handler)
 = Definition of utility functions
 
 # hexadecimal to bytes convenience function
-if six.PY2:
-    dhex = lambda s: "".join(s.split()).decode('hex')
-else:
-    dhex = bytes.fromhex
+dhex = bytes.fromhex
 
 
 + Test sniffer
@@ -59,9 +55,9 @@ with TestSocket(CAN) as s, TestSocket(CAN) as tx_sock:
 
 assert sniffed[0]['ISOTP'].data == bytearray(range(1, 0x29))
 assert sniffed[0]['ISOTP'].tx_id == 0x641
-assert sniffed[0]['ISOTP'].ext_address is 0xEA
+assert sniffed[0]['ISOTP'].ext_address == 0xEA
 assert sniffed[0]['ISOTP'].rx_id == 0x241
-assert sniffed[0]['ISOTP'].rx_ext_address is 0xEA
+assert sniffed[0]['ISOTP'].rx_ext_address == 0xEA
 
 + ISOTPSoftSocket tests
 

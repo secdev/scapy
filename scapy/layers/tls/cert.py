@@ -32,7 +32,6 @@ import os
 import time
 
 from scapy.config import conf, crypto_validator
-import scapy.libs.six as six
 from scapy.error import warning
 from scapy.utils import binrepr
 from scapy.asn1.asn1 import ASN1_BIT_STRING
@@ -239,7 +238,7 @@ class _PubKeyFactory(_PKIObjMaker):
         return obj
 
 
-class PubKey(six.with_metaclass(_PubKeyFactory, object)):
+class PubKey(metaclass=_PubKeyFactory):
     """
     Parent class for both PubKeyRSA and PubKeyECDSA.
     Provides a common verifyCert() method.
@@ -413,7 +412,7 @@ class _Raw_ASN1_BIT_STRING(ASN1_BIT_STRING):
     __str__ = __bytes__
 
 
-class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
+class PrivKey(metaclass=_PrivKeyFactory):
     """
     Parent class for both PrivKeyRSA and PrivKeyECDSA.
     Provides common signTBSCert() and resignCert() methods.
@@ -568,7 +567,7 @@ class _CertMaker(_PKIObjMaker):
         return obj
 
 
-class Cert(six.with_metaclass(_CertMaker, object)):
+class Cert(metaclass=_CertMaker):
     """
     Wrapper for the X509_Cert from layers/x509.py.
     Use the 'x509Cert' attribute to access original object.
@@ -757,7 +756,7 @@ class _CRLMaker(_PKIObjMaker):
         return obj
 
 
-class CRL(six.with_metaclass(_CRLMaker, object)):
+class CRL(metaclass=_CRLMaker):
     """
     Wrapper for the X509_CRL from layers/x509.py.
     Use the 'x509CRL' attribute to access original object.

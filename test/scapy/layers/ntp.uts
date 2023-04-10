@@ -24,16 +24,19 @@ assert NTPHeader in p
 assert not NTPControl in p
 assert not NTPPrivate in p
 assert NTP in p
+assert p.mysummary() == "NTP v4, client"
 p = NTPControl()
 assert not NTPHeader in p
 assert NTPControl in p
 assert not NTPPrivate in p
 assert NTP in p
+assert p.mysummary() == "NTP v2, NTP control message"
 p = NTPPrivate()
 assert not NTPHeader in p
 assert not NTPControl in p
 assert NTPPrivate in p
 assert NTP in p
+assert p.mysummary() == "NTP v2, reserved for private use"
 
 = NTP - Layers (2)
 p = NTPHeader()
@@ -1125,11 +1128,11 @@ assert (isinstance(pkt_1.orig, RawVal)), type(pkt_1.orig)
 assert (isinstance(pkt_1.sent, RawVal)), type(pkt_1.sent)
 assert (isinstance(pkt_1.recv, RawVal)), type(pkt_1.recv)
 
-assert (pkt_1.precision.val == precision, pkt_1.precision.val)
-assert (pkt_1.dispersion.val == dispersion, pkt_1.dispersion.val)
-assert (pkt_1.orig.val == time_stamp, pkt_1.orig.val)
-assert (pkt_1.sent.val == time_stamp, pkt_1.sent.val)
-assert (pkt_1.recv.val == time_stamp, pkt_1.recv.val)
+assert pkt_1.precision.val == precision, pkt_1.precision.val
+assert pkt_1.dispersion.val == dispersion, pkt_1.dispersion.val
+assert pkt_1.orig.val == time_stamp, pkt_1.orig.val
+assert pkt_1.sent.val == time_stamp, pkt_1.sent.val
+assert pkt_1.recv.val == time_stamp, pkt_1.recv.val
 
 time_stamp_hex = 0x00000000e67d6774
 pkt_2 = NTP(

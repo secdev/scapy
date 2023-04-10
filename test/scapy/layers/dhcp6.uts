@@ -1167,6 +1167,11 @@ raw(DHCP6OptRelaySuppliedOpt(relaysupplied=DHCP6OptERPDomain(erpdomain=["toto.ex
 a = DHCP6OptRelaySuppliedOpt(b'\x00B\x00\x16\x00A\x00\x12\x04toto\x07example\x03com\x00')
 a.optcode == 66 and a.optlen == 22 and len(a.relaysupplied) == 1 and isinstance(a.relaysupplied[0], DHCP6OptERPDomain) and a.relaysupplied[0].erpdomain[0] == "toto.example.com."
 
+= DHCP6OptRelaySuppliedOpt - deeply nested DHCP6OptRelaySuppliedOpt
+# https://github.com/secdev/scapy/issues/3894
+
+p = DHCP6(b'\x01\x00\x00\x00' + b'\x00B\x0f\x0f' * 100)
+assert p.getlayer(DHCP6OptRelaySuppliedOpt, 100)
 
 ############
 ############

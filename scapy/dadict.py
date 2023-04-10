@@ -8,7 +8,6 @@ Direct Access dictionary.
 """
 
 from scapy.error import Scapy_Exception
-import scapy.libs.six as six
 from scapy.compat import plain_str
 
 from scapy.compat import (
@@ -19,7 +18,6 @@ from scapy.compat import (
     List,
     TypeVar,
     Union,
-    cast,
 )
 
 ###############################
@@ -85,12 +83,12 @@ class DADict(Generic[_K, _V]):
 
     def update(self, *args, **kwargs):
         # type: (*Dict[str, _V], **Dict[str, _V]) -> None
-        for k, v in six.iteritems(dict(*args, **kwargs)):
-            self[k] = v
+        for k, v in dict(*args, **kwargs).items():
+            self[k] = v  # type: ignore
 
     def iterkeys(self):
         # type: () -> Iterator[_K]
-        for x in six.iterkeys(self.d):
+        for x in self.d:
             if not isinstance(x, str) or x[0] != "_":
                 yield x
 
@@ -104,7 +102,7 @@ class DADict(Generic[_K, _V]):
 
     def itervalues(self):
         # type: () -> Iterator[_V]
-        return six.itervalues(self.d)  # type: ignore
+        return self.d.values()  # type: ignore
 
     def values(self):
         # type: () -> List[_V]
@@ -142,9 +140,9 @@ class DADict(Generic[_K, _V]):
         try:
             return object.__getattribute__(self, attr)  # type: ignore
         except AttributeError:
-            for k, v in six.iteritems(self.d):
+            for k, v in self.d.items():
                 if self.ident(v) == attr:
-                    return cast(_K, k)
+                    return k
         raise AttributeError
 
     def __dir__(self):
