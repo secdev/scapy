@@ -14,6 +14,7 @@ if sys.version_info[0] <= 2:
 try:
     from setuptools import setup
     from setuptools.command.sdist import sdist
+    from setuptools.command.build_py import build_py
 except:
     raise ImportError("setuptools is required to install scapy !")
 
@@ -37,6 +38,30 @@ def get_long_description():
         return None
 
 
+# Note: why do we bother including a 'scapy/VERSION' file and doing our
+# own versioning stuff, instead of using more standard methods?
+# Because it's all garbage.
+
+# If you remain fully standard, there's no way
+# of adding the version dynamically, even less when using archives
+# (currently, we're able to add the version anytime someone exports Scapy
+# on github).
+
+# If you use setuptools_scm, you'll be able to have the git tag set into
+# the wheel (therefore the metadata), that you can then retrieve using
+# importlib.metadata, BUT it breaks sdist (source packages), as those
+# don't include metadata.
+
+
+def _build_version(path):
+    """
+    This adds the scapy/VERSION file when creating a sdist and a wheel
+    """
+    fn = os.path.join(path, 'scapy', 'VERSION')
+    with open(fn, 'w') as f:
+        f.write(__import__('scapy').VERSION)
+
+
 class SDist(sdist):
     """
     Modified sdist to create scapy/VERSION file
@@ -44,12 +69,20 @@ class SDist(sdist):
     def make_release_tree(self, base_dir, *args, **kwargs):
         super(SDist, self).make_release_tree(base_dir, *args, **kwargs)
         # ensure there's a scapy/VERSION file
-        fn = os.path.join(base_dir, 'scapy', 'VERSION')
-        with open(fn, 'w') as f:
-            f.write(__import__('scapy').VERSION)
+        _build_version(base_dir)
+
+
+class BuildPy(build_py):
+    """
+    Modified build_py to create scapy/VERSION file
+    """
+    def build_package_data(self):
+        super(BuildPy, self).build_package_data()
+        # ensure there's a scapy/VERSION file
+        _build_version(self.build_lib)
 
 setup(
-    cmdclass={'sdist': SDist},
+    cmdclass={'sdist': SDist, 'build_py': BuildPy},
     long_description=get_long_description(),
     long_description_content_type='text/markdown',
 )
